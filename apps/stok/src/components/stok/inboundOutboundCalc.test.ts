@@ -325,4 +325,178 @@ describe('InboundOutbound Pricing & Satuan Kirim (Opsi A)', () => {
       expect(total).toBe(1614067);
     });
   });
+
+  describe('getDistribusiCalculation — arus IN konsisten memakai Satuan Distribusi', () => {
+    it('KEJU (IN): 5 Dus (1200 lembar) masuk vendor -> tampil "120 pack", harga Rp 12.044/pack', () => {
+      const item: InboundOutbound = {
+        id: 'in-1',
+        tipe: 'IN',
+        sumber: 'vendor_po',
+        kategori: 'Pembelian Vendor',
+        qty: 1200, // 5 Dus = 1200 lembar basis = 120 pack
+        harga_satuan: 289056,
+        catatan: 'PO-2026-001',
+        created_at: '2026-09-22T10:00:00Z',
+        created_by: 'staff-1',
+        outlet_staff: { name: 'Admin Gudang' },
+        outlet_id: 'out-hq',
+        bahan_baku_id: 'bb-keju',
+        saldo_sesudah: 6000, // 600 pack
+        bahan_baku: {
+          nama: 'KEJU',
+          satuan: 'Dus',
+          satuan_tengah: 'Pack',
+          faktor_tengah: 24,
+          satuan_kecil: 'Lembar',
+          faktor_tampilan: 240,
+          satuan_distribusi: 'pack',
+        },
+      };
+
+      const result = getDistribusiCalculation(item);
+      expect(result.qtyNumber).toBe(120);
+      expect(result.unitLabel).toBe('pack');
+      expect(result.displayText).toBe('120 pack');
+      expect(result.distFactor).toBe(24);
+      expect(result.hargaPerDistUnit).toBe(12044);
+      expect(result.totalNilai).toBe(1445280);
+      expect(result.saldoText).toBe('600 pack');
+    });
+
+    it('SAOS TOMAT POUCH (IN): 10 Dus (120 kg) masuk vendor -> tampil "120 kg", harga Rp 11.750/kg', () => {
+      const item: InboundOutbound = {
+        id: 'in-2',
+        tipe: 'IN',
+        sumber: 'vendor_po',
+        kategori: 'Pembelian Vendor',
+        qty: 120000, // 10 Dus = 120.000 gram = 120 kg
+        harga_satuan: 141000,
+        catatan: null,
+        created_at: '2026-09-22T10:00:00Z',
+        created_by: 'staff-1',
+        outlet_id: 'out-hq',
+        bahan_baku_id: 'bb-saos',
+        saldo_sesudah: 240000, // 240 kg
+        bahan_baku: {
+          nama: 'SAOS TOMAT POUCH',
+          satuan: 'Dus',
+          satuan_tengah: 'Kg',
+          faktor_tengah: 12,
+          satuan_kecil: 'Gram',
+          faktor_tampilan: 12000,
+          satuan_distribusi: 'kg',
+        },
+      };
+
+      const result = getDistribusiCalculation(item);
+      expect(result.qtyNumber).toBe(120);
+      expect(result.unitLabel).toBe('kg');
+      expect(result.displayText).toBe('120 kg');
+      expect(result.distFactor).toBe(12);
+      expect(result.hargaPerDistUnit).toBe(11750);
+      expect(result.totalNilai).toBe(1410000);
+      expect(result.saldoText).toBe('240 kg');
+    });
+
+    it('MINYAK (IN): 2 kompan masuk vendor -> tampil "2 kompan", harga Rp 376.000/kompan', () => {
+      const item: InboundOutbound = {
+        id: 'in-3',
+        tipe: 'IN',
+        sumber: 'vendor_po',
+        kategori: 'Pembelian Vendor',
+        qty: 32000, // 2 kompan = 32.000 gram
+        harga_satuan: 376000,
+        catatan: null,
+        created_at: '2026-09-22T10:00:00Z',
+        created_by: 'staff-1',
+        outlet_id: 'out-hq',
+        bahan_baku_id: 'bb-minyak',
+        saldo_sesudah: 80000, // 5 kompan
+        bahan_baku: {
+          nama: 'MINYAK',
+          satuan: 'kompan',
+          satuan_tengah: 'Kg',
+          faktor_tengah: 16,
+          satuan_kecil: 'Gram',
+          faktor_tampilan: 16000,
+          satuan_distribusi: 'kompan',
+        },
+      };
+
+      const result = getDistribusiCalculation(item);
+      expect(result.qtyNumber).toBe(2);
+      expect(result.unitLabel).toBe('kompan');
+      expect(result.displayText).toBe('2 kompan');
+      expect(result.distFactor).toBe(1);
+      expect(result.hargaPerDistUnit).toBe(376000);
+      expect(result.totalNilai).toBe(752000);
+      expect(result.saldoText).toBe('5 kompan');
+    });
+
+    it('FOIL (IN): 2 Dus (96 roll) masuk vendor -> tampil "96 roll", harga Rp 11.554/roll', () => {
+      const item: InboundOutbound = {
+        id: 'in-4',
+        tipe: 'IN',
+        sumber: 'vendor_po',
+        kategori: 'Pembelian Vendor',
+        qty: 72960, // 2 Dus = 96 roll (72960 cm)
+        harga_satuan: 554592,
+        catatan: null,
+        created_at: '2026-09-22T10:00:00Z',
+        created_by: 'staff-1',
+        outlet_id: 'out-hq',
+        bahan_baku_id: 'bb-foil',
+        bahan_baku: {
+          nama: 'FOIL',
+          satuan: 'Dus',
+          satuan_tengah: 'Roll',
+          faktor_tengah: 48,
+          satuan_kecil: 'cm',
+          faktor_tampilan: 36480,
+          satuan_distribusi: 'roll',
+        },
+      };
+
+      const result = getDistribusiCalculation(item);
+      expect(result.qtyNumber).toBe(96);
+      expect(result.unitLabel).toBe('roll');
+      expect(result.displayText).toBe('96 roll');
+      expect(result.distFactor).toBe(48);
+      expect(result.hargaPerDistUnit).toBe(11554);
+      expect(result.totalNilai).toBe(1109184);
+    });
+
+    it('AYAM (IN): 20 Kg masuk vendor -> tampil "20 kg", harga Rp 51.000/kg', () => {
+      const item: InboundOutbound = {
+        id: 'in-5',
+        tipe: 'IN',
+        sumber: 'vendor_po',
+        kategori: 'Pembelian Vendor',
+        qty: 20000, // 20.000 gram = 20 kg
+        harga_satuan: 51000,
+        catatan: null,
+        created_at: '2026-09-22T10:00:00Z',
+        created_by: 'staff-1',
+        outlet_id: 'out-hq',
+        bahan_baku_id: 'bb-ayam',
+        bahan_baku: {
+          nama: 'AYAM',
+          satuan: 'Kg',
+          satuan_tengah: null,
+          faktor_tengah: null,
+          satuan_kecil: 'Gram',
+          faktor_tampilan: 1000,
+          satuan_distribusi: 'kg',
+        },
+      };
+
+      const result = getDistribusiCalculation(item);
+      expect(result.qtyNumber).toBe(20);
+      expect(result.unitLabel).toBe('kg');
+      expect(result.displayText).toBe('20 kg');
+      expect(result.distFactor).toBe(1);
+      expect(result.hargaPerDistUnit).toBe(51000);
+      expect(result.totalNilai).toBe(1020000);
+    });
+  });
 });

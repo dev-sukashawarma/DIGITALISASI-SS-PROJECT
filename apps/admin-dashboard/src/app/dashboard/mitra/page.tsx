@@ -34,7 +34,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   // dibaca (RLS, error jaringan, akun belum ter-link) diperlakukan sebagai
   // admin — dan cabang admin di bawah menarik 5 outlet sembarang untuk
   // ditampilkan. Tidak ada data staff = tidak ada hak istimewa.
-  const isAdminOrOwner = staffData?.role === 'admin' || staffData?.role === 'owner'
+  const isAdminOrOwner = staffData?.role === 'admin' || staffData?.role === 'owner' || staffData?.role === 'developer'
   
   // 1. Fetch profil mitra (own profile or admin selected profile)
   let profile: any = null

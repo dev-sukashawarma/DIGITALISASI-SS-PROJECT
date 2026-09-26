@@ -1384,7 +1384,7 @@ export default function ContentMetricsView({
               className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
             >
               <option value="">Semua Cabang Outlet</option>
-              <option value="ALL">Semua Cabang (Nasional)</option>
+              <option value="ALL">Official</option>
               {outlets.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
@@ -1564,7 +1564,7 @@ export default function ContentMetricsView({
                                 <Megaphone className={`w-2.5 h-2.5 ${item.isAds ? 'fill-purple-600 text-purple-600' : 'text-stone-400'}`} />
                                 <span>{item.isAds ? 'Diiklanin' : 'Organik'}</span>
                               </button>
-                              {item.outletName && item.outletName !== 'Semua Cabang (Nasional)' && (
+                              {item.outletName && item.outletName !== 'Official' && (
                                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
                                   <MapPin className="w-3 h-3 text-stone-400" />
                                   <span>{item.outletName}</span>
@@ -2163,7 +2163,7 @@ export default function ContentMetricsView({
                     name="outletId"
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
                   >
-                    <option value="ALL">Semua Cabang (Nasional)</option>
+                    <option value="ALL">Official</option>
                     {outlets.map((o) => (
                       <option key={o.id} value={o.id}>{o.name}</option>
                     ))}
@@ -2362,7 +2362,7 @@ export default function ContentMetricsView({
                     defaultValue={editingContent.outletId || 'ALL'}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
                   >
-                    <option value="ALL">Semua Cabang (Nasional)</option>
+                    <option value="ALL">Official</option>
                     {outlets.map((o) => (
                       <option key={o.id} value={o.id}>{o.name}</option>
                     ))}

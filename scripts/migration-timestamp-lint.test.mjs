@@ -87,3 +87,11 @@ test('CLI: file timestamp 2030 exit 1 dengan pesan pelanggaran', () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /2030-01-03/);
 });
+
+test('deret ceklist 2030 yang terdaftar dikecualikan, tetangga tak terdaftar tetap gagal', () => {
+  assert.equal(checkTimestamp('20300243000000_ceklist_harian_tolak_kategori_foto_asing.sql', NOW).ok, true);
+  assert.equal(checkTimestamp('20300242000000_ceklist_harian_kunci_race.sql', NOW).ok, true);
+  // nama berbeda dengan nomor sama tetap ditolak — pengecualian per nama berkas, bukan per nomor
+  assert.equal(checkTimestamp('20300243000000_lain.sql', NOW).ok, false);
+  assert.equal(checkTimestamp('20300244000000_ceklist_harian_berikutnya.sql', NOW).ok, false);
+});

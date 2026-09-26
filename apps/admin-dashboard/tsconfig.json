@@ -16,6 +16,15 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@suka/auth": [
+        "../../packages/auth/src/index.ts"
+      ],
+      "@suka/design-system": [
+        "../../packages/design-system/src/index.ts"
+      ],
+      "@suka/realtime": [
+        "../../packages/realtime/src/index.ts"
       ]
     },
     "allowJs": true,

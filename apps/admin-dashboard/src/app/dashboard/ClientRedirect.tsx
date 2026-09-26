@@ -10,6 +10,7 @@ const ROLE_HOME: Record<string, string> = {
   ADMIN_HR: '/dashboard/hr',
   ADMIN: '/dashboard/reports/pos',
   SUPERADMIN: '/dashboard/reports/pos',
+  DEVELOPER: '/dashboard/reports/pos',
   AREA_MANAGER: '/dashboard/area-manager',
   KORLAP: '/dashboard/area-manager',
   LEADER: '/dashboard/leader',

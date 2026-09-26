@@ -59,7 +59,7 @@ export interface CalendarPromoEvent {
   title: string
   description: string | null
   outletId: string | null
-  outletName: string // 'Semua Cabang (Nasional)' or specific outlet
+  outletName: string // 'Official' or specific outlet
   startDate: string // YYYY-MM-DD
   endDate: string // YYYY-MM-DD
   type: string
@@ -790,7 +790,7 @@ export default function CalendarView({
                         defaultValue="ALL"
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                       >
-                        <option value="ALL">Semua Cabang (Nasional)</option>
+                        <option value="ALL">Official</option>
                         {outlets.map((o) => (
                           <option key={o.id} value={o.id}>
                             Khusus Cabang: {o.name}

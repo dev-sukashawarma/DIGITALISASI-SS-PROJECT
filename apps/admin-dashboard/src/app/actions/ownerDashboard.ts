@@ -2,7 +2,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { unstable_cache, revalidateTag, revalidatePath } from 'next/cache'
+import { unstable_cache, updateTag, revalidatePath } from 'next/cache'
 import { db } from '@/lib/supabase/server'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/lib/types'
@@ -10,6 +10,26 @@ import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
 import type { PettyCashTransaction, DailyPettyCashSummary } from '@/components/owner/PettyCashReportView'
 import type { AttendanceRecordExt } from '@/components/owner/AttendanceReportView'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { resolveCallerScope } from '@/lib/server/callerScope'
+import { ambilRiwayatHpp, ambilVersiRiwayatHpp, buatPenerapRiwayat } from '@/lib/hpp/riwayatHpp'
+import {
+  DAY_FETCH_CONCURRENCY,
+  eachDateInclusive,
+  isDateStr,
+  jakartaDate,
+  jakartaRangeIso,
+  mapWithConcurrency,
+  ownerDashboardDayTag,
+  planPastChunks,
+  splitRangeByToday,
+} from '@/lib/ownerDashboardCache'
+
+/* Memo singkat untuk bagian "hari ini": beberapa tab/pengguna yang me-refresh
+ * dalam 10 detik yang sama berbagi satu query ke database. Sengaja bukan
+ * unstable_cache — cache Next bersifat stale-while-revalidate, sehingga
+ * pembaca pertama setelah kedaluwarsa masih mendapat angka lama. */
+const TODAY_MEMO_TTL_MS = 10_000
+const todayMemo = new Map<string, { at: number; promise: Promise<any> }>()
 
 function cleanItemName(name: string) {
   if (!name) return ''
@@ -101,7 +121,7 @@ async function fetchEcommerceOwnerData(
   // memakai ulang satu instance untuk beberapa `.range()` rapuh.
   const buildEcommerceQuery = () => supabase
     .from('ecommerce_sales')
-    .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp))')
+    .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(id, name, hpp_override, channel_hpp))')
     .gte('order_date', fromIso)
     .lte('order_date', toIso)
     .order('order_date', { ascending: true })
@@ -110,14 +130,24 @@ async function fetchEcommerceOwnerData(
   while (true) {
     const { data: page, error } = await buildEcommerceQuery().range(offset, offset + PAGE_SIZE - 1)
     if (error) {
-      console.error('fetchEcommerceOwnerData error:', error)
-      break
+      // Lempar, jangan `break`: hasil setengah jadi akan ikut tersimpan di
+      // cache per hari selama 1 jam dan angka SS Online diam-diam kurang.
+      throw new Error(`fetchEcommerceOwnerData: ${error.message}`)
     }
     if (!page || page.length === 0) break
     ecommerceSalesList.push(...page)
     if (page.length < PAGE_SIZE) break
     offset += PAGE_SIZE
   }
+
+  // HPP per tanggal order (dateStr = tanggal WIB di bawah)
+  // Dilewati bila tidak ada penjualan — fungsi ini kini dipanggil per hari
+  // (cache per hari), dan riwayat HPP dibaca utuh setiap kali.
+  const penerapHpp = buatPenerapRiwayat(
+    [],
+    ecommerceSalesList.length > 0 ? await ambilRiwayatHpp(supabase) : [],
+    (n: string) => n
+  )
 
   const kpiMap = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
   const hourMap = new Map<number, SalesHourlyRow>()
@@ -187,7 +217,7 @@ async function fetchEcommerceOwnerData(
       curMenu.revenue += revenue
       menuMap.set(cleanName, curMenu)
 
-      const mi = item.menu_items
+      const mi = item.menu_items ? penerapHpp.untuk(dateStr).terapkan(item.menu_items) : item.menu_items
       let itemHpp = 0
       if (mi) {
         let channelHppVal: number | null = null
@@ -224,45 +254,46 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   return getOwnerDashboardDataFast(filter, outlets)
 }
 
-export async function revalidateOwnerDashboardCache() {
-  revalidateTag('owner-dashboard')
+/** Tombol "Segarkan Data": buang SELURUH cache Ringkasan Bisnis (semua tanggal).
+ * Sengaja TIDAK dipanggil dari listener realtime — dulu tiap order baru
+ * menghapus cache semua hari lampau, sehingga cache praktis tak pernah terpakai
+ * dan tiap refresh menghitung ulang seluruh rentang sampai timeout (8 dtk). */
+export async function revalidateOwnerDashboardCache(range?: { from: string; to: string }) {
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({ getAll: () => cookieStore.getAll(), setAll: () => {} })
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  // updateTag = kedaluwarsa seketika (bukan stale-while-revalidate), jadi
+  // render berikutnya pasti membaca angka terbaru dari database.
+  // Dengan `range`, hanya tanggal yang sedang dilihat yang dibuang — pengguna
+  // lain yang melihat rentang berbeda tidak ikut kehilangan cache-nya.
+  const dates = range && isDateStr(range.from) && isDateStr(range.to)
+    ? eachDateInclusive(range.from, range.to)
+    : null
+  if (dates && dates.length <= 400) {
+    for (const d of dates) updateTag(ownerDashboardDayTag(d))
+  } else {
+    updateTag('owner-dashboard')
+  }
+  todayMemo.clear()
   revalidatePath('/dashboard/owner')
   revalidatePath('/dashboard/mitra')
 }
 
-const FULL_ACCESS_ROLES = ['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'admin_finance', 'purchasing']
-
-/** Menentukan scope outlet caller berdasarkan sesi login (bukan service-role),
- * supaya auth.uid() terisi di dalam RPC SECURITY DEFINER dan accessible_outlet_ids()
- * ikut memfilter. scopeKey dipakai sebagai bagian kunci cache agar user dengan
- * scope berbeda tidak saling membaca cache satu sama lain.
- */
-async function resolveCallerScope() {
+/** Dipanggil listener realtime saat order hari LAMPAU berubah (void/batal
+ * belakangan): cukup buang cache tanggal itu saja. Order hari ini tidak perlu
+ * ini — bagian hari ini memang tidak pernah di-cache lama. */
+export async function invalidateOwnerDashboardDays(dates: string[]) {
+  if (!Array.isArray(dates) || dates.length === 0) return
+  // Server Action = endpoint publik; jangan biarkan pengunjung tanpa login
+  // memaksa cache dihitung ulang.
   const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: () => {}
-  })
-
+  const supabase = createSupabaseServerClient({ getAll: () => cookieStore.getAll(), setAll: () => {} })
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
-
-  const { data: staff, error: staffError } = await supabase
-    .from('outlet_staff')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
-  if (staffError) throw new Error(`resolveCallerScope: ${staffError.message}`)
-
-  if (staff?.role && FULL_ACCESS_ROLES.includes(staff.role)) {
-    return { supabase, scopeKey: 'all', allowedOutletIds: 'all' as const }
-  }
-
-  const { data: outletIds, error: outletIdsError } = await supabase.rpc('accessible_outlet_ids')
-  if (outletIdsError) throw new Error(`resolveCallerScope: ${outletIdsError.message}`)
-
-  const allowedOutletIds: string[] = (outletIds ?? []).map((id: any) => String(id)).sort()
-  return { supabase, scopeKey: allowedOutletIds.join(','), allowedOutletIds }
+  if (!user) return
+  const today = jakartaDate(new Date())
+  const valid = Array.from(new Set(dates.filter((d) => isDateStr(d) && d < today))).slice(0, 31)
+  for (const d of valid) updateTag(ownerDashboardDayTag(d))
 }
 
 /* ── Penggabungan dua potongan periode yang saling lepas (disjoint) ──────
@@ -332,13 +363,20 @@ function mergeEcommerceData(a: any, b: any) {
   }
 }
 
-function mergeSummaryPayload(histPayload: any, livePayload: any) {
-  return {
-    result:        mergeSummaryResult(histPayload.result, livePayload.result),
-    ecommerceData: mergeEcommerceData(histPayload.ecommerceData, livePayload.ecommerceData),
-    // Freshness yang dilaporkan ke UI mengikuti potongan paling baru (hari ini).
-    fetchedAt:     livePayload.fetchedAt,
+/** Menjumlahkan payload beberapa potongan periode yang saling lepas.
+ * `fetchedAt` dari `liveFetchedAt` bila ada (potongan hari ini), selain itu
+ * potongan cache yang paling baru dihitung. */
+function mergeSummaryPayloads(payloads: any[], liveFetchedAt?: string) {
+  let result: any = null
+  let ecommerceData: any = null
+  let newest = ''
+  for (const p of payloads) {
+    if (!p) continue
+    result = mergeSummaryResult(result, p.result)
+    ecommerceData = mergeEcommerceData(ecommerceData, p.ecommerceData)
+    if (p.fetchedAt && p.fetchedAt > newest) newest = p.fetchedAt
   }
+  return { result, ecommerceData, fetchedAt: liveFetchedAt || newest || new Date().toISOString() }
 }
 
 async function fetchOwnerDashboardSummaryRaw(
@@ -391,14 +429,13 @@ export async function getOwnerDashboardDataFast(
 ) {
   const { supabase, scopeKey, allowedOutletIds } = await resolveCallerScope()
 
-  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
-  const toEnd    = new Date(`${filter.to}T23:59:59.999+07:00`)
+  if (!isDateStr(filter.from) || !isDateStr(filter.to)) {
+    throw new Error('Rentang tanggal tidak valid')
+  }
 
-  const todayJakarta = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+  const todayJakarta = jakartaDate(new Date())
   const isPast = filter.to < todayJakarta
 
-  const fromStartIso = fromStart.toISOString()
-  const toEndIso = toEnd.toISOString()
   const outletId = filter.outletId !== 'all' ? filter.outletId : null
   const source = filter.source
 
@@ -406,51 +443,58 @@ export async function getOwnerDashboardDataFast(
     throw new Error('Forbidden: outlet not in caller scope')
   }
 
-  const getCachedOwnerDashboardSummary = unstable_cache(
-    async (fromStartIso: string, toEndIso: string, outletId: string | null, source: SalesSource) => {
-      return fetchOwnerDashboardSummaryRaw(supabase, fromStartIso, toEndIso, outletId, source)
-    },
-    ['owner-dashboard-summary-v6', scopeKey],
-    {
-      revalidate: 3600,
-      tags: ['owner-dashboard'],
-    }
-  )
+  // ── Cache per hari ───────────────────────────────────────────────────
+  // Rentang dipecah: hari-hari lampau (masing-masing di-cache 1 jam, dengan
+  // tag per tanggal) + hari ini (selalu segar, memo 10 dtk) — lalu dijumlahkan.
+  // Semua agregat aditif terhadap potongan tanggal yang tidak beririsan
+  // (lihat catatan di atas sumByKey), jadi hasilnya identik dengan satu query
+  // besar. Bonusnya: tiap panggilan RPC hanya 1 hari (±0,3 dtk), jauh dari
+  // batas statement_timeout 8 dtk yang dulu membuat halaman ini error 500.
+  const { past, includesToday } = splitRangeByToday(filter.from, filter.to, todayJakarta)
+  const chunks = past ? planPastChunks(past.from, past.to) : []
 
-  // ── Split-range cache ────────────────────────────────────────────────
-  // Sebelumnya cache HANYA dipakai saat seluruh rentang sudah lewat
-  // (filter.to < hari ini). Akibatnya preset yang paling sering dipakai —
-  // "30 hari terakhir", "bulan ini", "hari ini" — selalu berakhir di hari ini
-  // sehingga tidak pernah kena cache dan menghitung ulang seluruh rentang.
-  //
-  // Sekarang rentang yang melewati batas hari dipecah dua: bagian lampau
-  // (beku, ikut cache 1 jam yang sama seperti sebelumnya) + bagian hari ini
-  // (selalu segar), lalu dijumlahkan. Untuk 30 hari, 29 hari di antaranya
-  // dilayani dari cache. TTL sengaja tetap 3600 detik agar jaminan kesegaran
-  // tidak berubah dari perilaku yang sudah berjalan.
-  const spansToday = !isPast && filter.from < todayJakarta
-  let payload: any
+  // COGS dihitung dengan HPP yang berlaku per tanggal (menu_hpp_riwayat). Versi
+  // riwayat ikut kunci cache: begitu HPP diubah, potongan lama otomatis tidak
+  // dipakai lagi. Satu kueri `limit 1`, hanya bila ada potongan lampau.
+  // Gagal membaca versi (mis. role tanpa akses tabel riwayat) tidak boleh
+  // menjatuhkan dashboard; TTL 1 jam tetap membatasi umur cache.
+  const hppVersion = chunks.length > 0
+    ? await ambilVersiRiwayatHpp(supabase).catch(() => 'unknown')
+    : 'none'
 
-  if (isPast) {
-    payload = await getCachedOwnerDashboardSummary(fromStartIso, toEndIso, outletId, source)
-  } else if (spansToday) {
-    const yesterdayJakarta = (() => {
-      const d = new Date(`${todayJakarta}T00:00:00.000+07:00`)
-      d.setUTCDate(d.getUTCDate() - 1)
-      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d)
-    })()
-    const histToIso   = new Date(`${yesterdayJakarta}T23:59:59.999+07:00`).toISOString()
-    const liveFromIso = new Date(`${todayJakarta}T00:00:00.000+07:00`).toISOString()
-
-    const [histPayload, livePayload] = await Promise.all([
-      getCachedOwnerDashboardSummary(fromStartIso, histToIso, outletId, source),
-      fetchOwnerDashboardSummaryRaw(supabase, liveFromIso, toEndIso, outletId, source),
-    ])
-    payload = mergeSummaryPayload(histPayload, livePayload)
-  } else {
-    // Rentang seluruhnya hari ini / ke depan — tidak ada bagian beku untuk di-cache.
-    payload = await fetchOwnerDashboardSummaryRaw(supabase, fromStartIso, toEndIso, outletId, source)
+  const fetchChunk = (chunk: { from: string; to: string; dates: string[] }) => {
+    const { fromIso, toIso } = jakartaRangeIso(chunk.from, chunk.to)
+    return unstable_cache(
+      () => fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source),
+      ['owner-dashboard-chunk-v7', scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source],
+      {
+        revalidate: 3600,
+        tags: ['owner-dashboard', ...chunk.dates.map(ownerDashboardDayTag)],
+      }
+    )()
   }
+
+  const fetchToday = () => {
+    const key = [scopeKey, todayJakarta, outletId ?? 'all', source].join('|')
+    const hit = todayMemo.get(key)
+    if (hit && Date.now() - hit.at < TODAY_MEMO_TTL_MS) return hit.promise
+    const { fromIso, toIso } = jakartaRangeIso(todayJakarta, todayJakarta)
+    const promise = fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source)
+    todayMemo.set(key, { at: Date.now(), promise })
+    // Jangan simpan kegagalan — request berikutnya harus mencoba lagi.
+    promise.catch(() => { if (todayMemo.get(key)?.promise === promise) todayMemo.delete(key) })
+    // Buang entri basi supaya Map tidak tumbuh tanpa batas.
+    if (todayMemo.size > 200) {
+      for (const [k, v] of todayMemo) if (Date.now() - v.at >= TODAY_MEMO_TTL_MS) todayMemo.delete(k)
+    }
+    return promise
+  }
+
+  const [pastPayloads, livePayload] = await Promise.all([
+    mapWithConcurrency(chunks, DAY_FETCH_CONCURRENCY, fetchChunk),
+    includesToday ? fetchToday() : Promise.resolve(null),
+  ])
+  const payload = mergeSummaryPayloads([...pastPayloads, livePayload], livePayload?.fetchedAt)
 
   const result = payload.result
   const ecommerceData = payload.ecommerceData

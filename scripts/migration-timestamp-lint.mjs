@@ -33,7 +33,26 @@ function parseTimestamp(digits) {
   return date;
 }
 
+// Pengecualian eksplisit, per NAMA BERKAS (bukan pola): deret ceklist harian yang
+// sudah terlanjur dinomori 2030 (tanggal pun tak valid, mis. 2030-02-42) dan SUDAH
+// diterapkan + distempel di produksi. Berkas-berkas ini mendefinisikan ulang fungsi
+// yang sama (submit/tinjau_ceklist_harian), jadi tidak bisa diganti ke timestamp
+// hari ini tanpa ditimpa balik saat replay. JANGAN tambahkan berkas baru di sini
+// untuk menghindari lint — perbaikan berikutnya pada fungsi ini harus memakai
+// timestamp wajar DAN menulis ulang fungsi utuh (lihat header 20300243000000).
+export const DIKECUALIKAN = new Set([
+  '20300238000000_ceklist_harian_area_manager.sql',
+  '20300239000000_ceklist_harian_online_review.sql',
+  '20300240000000_ceklist_harian_bagian_bebas_berfoto.sql',
+  '20300241000000_ceklist_harian_push.sql',
+  '20300242000000_ceklist_harian_kunci_race.sql',
+  '20300243000000_ceklist_harian_tolak_kategori_foto_asing.sql',
+]);
+
 export function checkTimestamp(filename, now = new Date()) {
+  if (DIKECUALIKAN.has(filename)) {
+    return { ok: true };
+  }
   const match = FILENAME_PATTERN.exec(filename);
   if (!match) {
     return { ok: true };

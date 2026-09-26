@@ -23,23 +23,19 @@ describe('LedgerCacheServices (Smart Caching & Event-Driven Invalidation)', () =
     let page1CallCount = 0;
 
     const mockSupabase = {
-      from: vi.fn((table: string) => {
-        if (table === 'ledger_transaksi_ringkas') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            order: vi.fn().mockReturnThis(),
-            range: vi.fn((from: number) => {
-              if (from === 0) {
-                page0CallCount++;
-                return Promise.resolve({ data: mockDataPage0, error: null });
-              } else {
-                page1CallCount++;
-                return Promise.resolve({ data: mockDataPage1, error: null });
-              }
-            }),
-          };
+      rpc: vi.fn((fnName: string, args: any) => {
+        if (fnName === 'ledger_transaksi_page') {
+          if (args.p_offset === 0) {
+            page0CallCount++;
+            return Promise.resolve({ data: mockDataPage0, error: null });
+          } else {
+            page1CallCount++;
+            return Promise.resolve({ data: mockDataPage1, error: null });
+          }
         }
+        return Promise.resolve({ data: [], error: null });
+      }),
+      from: vi.fn((table: string) => {
         if (table === 'stok_waste_reports' || table === 'orders' || table === 'stok_opname' || table === 'surat_jalan') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -86,14 +82,17 @@ describe('LedgerCacheServices (Smart Caching & Event-Driven Invalidation)', () =
     let queryCount = 0;
 
     const mockSupabase = {
+      rpc: vi.fn((fnName: string) => {
+        if (fnName === 'ledger_transaksi_page') {
+          queryCount++;
+          return Promise.resolve({ data: [{ transaksi_key: `tx-${queryCount}` }], error: null });
+        }
+        return Promise.resolve({ data: [], error: null });
+      }),
       from: vi.fn(() => ({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        range: vi.fn(() => {
-          queryCount++;
-          return Promise.resolve({ data: [{ transaksi_key: `tx-${queryCount}` }], error: null });
-        }),
+        in: vi.fn().mockResolvedValue({ data: [] }),
       })),
     };
 

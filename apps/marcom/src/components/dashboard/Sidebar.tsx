@@ -36,6 +36,7 @@ interface NavChild {
   href: string
   icon?: any
   badge?: string | null
+  children?: NavChild[]
 }
 
 interface NavItem {
@@ -73,6 +74,7 @@ export default function Sidebar({
     '/dashboard/endorsements': true,
     '/dashboard/budget': true,
     '/dashboard/content-planner': true,
+    '/dashboard/content-planner#rencana-konten': true,
     '/dashboard/menu': true,
   })
 
@@ -90,7 +92,12 @@ export default function Sidebar({
     if (query) {
       const params = new URLSearchParams(query)
       const targetTab = params.get('tab')
+      const targetScope = params.get('scope')
+
       if (pathname === path) {
+        if (targetScope) {
+          return searchParams.get('scope')?.toLowerCase() === targetScope.toLowerCase()
+        }
         if (targetTab === 'operations') {
           return currentTab === 'operations' || !currentTab
         }
@@ -106,6 +113,9 @@ export default function Sidebar({
       childHref === '/dashboard/menu' ||
       childHref === '/dashboard/endorsements'
     ) {
+      if (childHref === '/dashboard/content-planner') {
+        return pathname === childHref && !currentTab && !searchParams.get('scope')
+      }
       return pathname === childHref && !currentTab
     }
 
@@ -116,7 +126,14 @@ export default function Sidebar({
     if (item.href === '/dashboard') {
       return pathname === '/dashboard'
     }
-    if (item.children && item.children.some((child) => checkChildActive(child.href))) {
+    if (
+      item.children &&
+      item.children.some(
+        (child) =>
+          checkChildActive(child.href) ||
+          (child.children && child.children.some((sc) => checkChildActive(sc.href)))
+      )
+    ) {
       return true
     }
     if (pathname === item.href || pathname.startsWith(item.href + '/')) {
@@ -210,6 +227,18 @@ export default function Sidebar({
           name: 'Rencana Konten',
           href: '/dashboard/content-planner',
           badge: null,
+          children: [
+            {
+              name: 'Official',
+              href: '/dashboard/content-planner?scope=official',
+              badge: null,
+            },
+            {
+              name: 'Outlet',
+              href: '/dashboard/content-planner?scope=outlet',
+              badge: null,
+            },
+          ],
         },
         {
           name: 'Metrik Data',
@@ -466,43 +495,99 @@ export default function Sidebar({
                       {item.children!.map((child) => {
                         const isChildActive = checkChildActive(child.href)
                         const ChildIcon = child.icon
+                        const hasSubChildren = child.children && child.children.length > 0
+                        const subKey = `${child.href}#${child.name.toLowerCase().replace(/\s+/g, '-')}`
+                        const isSubActive = hasSubChildren && child.children!.some((sc) => checkChildActive(sc.href))
+                        const isSubExpanded = hasSubChildren && (expandedMenus[subKey] ?? true)
 
                         return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            onClick={closeMobile}
-                            className={`group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                              isChildActive
-                                ? 'bg-[#D9480F] text-white shadow-xs font-bold'
-                                : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/50'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-2.5 min-w-0">
-                              {ChildIcon && (
-                                <ChildIcon
-                                  className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                                    isChildActive
-                                      ? 'text-white'
-                                      : 'text-stone-400 group-hover:text-stone-200'
-                                  }`}
-                                />
-                              )}
-                              <span className="truncate">{child.name}</span>
-                            </div>
-
-                            {child.badge && (
-                              <span
-                                className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                          <div key={child.href} className="space-y-1">
+                            <div className="flex items-center justify-between group">
+                              <Link
+                                href={child.href}
+                                onClick={closeMobile}
+                                className={`flex-1 flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
                                   isChildActive
-                                    ? 'bg-black/25 text-white'
-                                    : 'bg-stone-800 text-stone-400 border border-stone-700/40'
+                                    ? 'bg-[#D9480F] text-white shadow-xs font-bold'
+                                    : isSubActive
+                                    ? 'text-white font-bold bg-stone-800/80'
+                                    : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/50'
                                 }`}
                               >
-                                {child.badge}
-                              </span>
+                                <div className="flex items-center space-x-2.5 min-w-0">
+                                  {ChildIcon && (
+                                    <ChildIcon
+                                      className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                                        isChildActive || isSubActive
+                                          ? 'text-white'
+                                          : 'text-stone-400 group-hover:text-stone-200'
+                                      }`}
+                                    />
+                                  )}
+                                  <span className="truncate">{child.name}</span>
+                                </div>
+
+                                {child.badge && (
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                                      isChildActive
+                                        ? 'bg-black/25 text-white'
+                                        : 'bg-stone-800 text-stone-400 border border-stone-700/40'
+                                    }`}
+                                  >
+                                    {child.badge}
+                                  </span>
+                                )}
+                              </Link>
+
+                              {hasSubChildren && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => toggleMenu(subKey, e)}
+                                  className="p-1.5 -mr-1 rounded-md text-stone-400 hover:text-stone-200 hover:bg-stone-800/80 transition-colors cursor-pointer"
+                                  title={isSubExpanded ? 'Tutup sub-menu' : 'Buka sub-menu'}
+                                >
+                                  <ChevronDown
+                                    className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                                      isSubExpanded ? 'rotate-0 text-amber-400' : '-rotate-90 text-stone-500'
+                                    }`}
+                                  />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Level 3 Nested Sub-Children (Official & Outlet) */}
+                            {hasSubChildren && isSubExpanded && (
+                              <div className="ml-3 pl-3 border-l-2 border-stone-800/80 space-y-0.5 py-0.5 animate-in fade-in duration-150">
+                                {child.children!.map((subChild) => {
+                                  const isSubChildActive = checkChildActive(subChild.href)
+                                  return (
+                                    <Link
+                                      key={subChild.href}
+                                      href={subChild.href}
+                                      onClick={closeMobile}
+                                      className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+                                        isSubChildActive
+                                          ? 'bg-[#D9480F] text-white shadow-2xs font-bold'
+                                          : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/40'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span
+                                          className={`w-1.5 h-1.5 rounded-full ${
+                                            isSubChildActive
+                                              ? 'bg-white'
+                                              : 'bg-stone-500 group-hover:bg-amber-400'
+                                          }`}
+                                        />
+                                        <span className="truncate">{subChild.name}</span>
+                                      </div>
+                                    </Link>
+                                  )
+                                })}
+                              </div>
                             )}
-                          </Link>
+                          </div>
                         )
                       })}
                     </div>
@@ -633,26 +718,49 @@ export default function Sidebar({
                         {item.children!.map((child) => {
                           const isChildActive = checkChildActive(child.href)
                           const ChildIcon = child.icon
+                          const hasSubChildren = child.children && child.children.length > 0
 
                           return (
-                            <Link
-                              key={child.href}
-                              href={child.href}
-                              className={`flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                isChildActive
-                                  ? 'bg-[#D9480F] text-white font-bold'
-                                  : 'text-stone-400 hover:text-white hover:bg-stone-800/80'
-                              }`}
-                            >
-                              {ChildIcon && (
-                                <ChildIcon
-                                  className={`w-3.5 h-3.5 shrink-0 ${
-                                    isChildActive ? 'text-white' : 'text-stone-400'
-                                  }`}
-                                />
+                            <div key={child.href} className="space-y-0.5">
+                              <Link
+                                href={child.href}
+                                className={`flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                  isChildActive
+                                    ? 'bg-[#D9480F] text-white font-bold'
+                                    : 'text-stone-400 hover:text-white hover:bg-stone-800/80'
+                                }`}
+                              >
+                                {ChildIcon && (
+                                  <ChildIcon
+                                    className={`w-3.5 h-3.5 shrink-0 ${
+                                      isChildActive ? 'text-white' : 'text-stone-400'
+                                    }`}
+                                  />
+                                )}
+                                <span className="truncate">{child.name}</span>
+                              </Link>
+
+                              {hasSubChildren && (
+                                <div className="ml-3 pl-2 border-l border-stone-800 space-y-0.5 py-0.5">
+                                  {child.children!.map((subChild) => {
+                                    const isSubChildActive = checkChildActive(subChild.href)
+                                    return (
+                                      <Link
+                                        key={subChild.href}
+                                        href={subChild.href}
+                                        className={`block px-2 py-1 rounded text-[11px] transition-colors ${
+                                          isSubChildActive
+                                            ? 'bg-[#D9480F]/90 text-white font-bold'
+                                            : 'text-stone-400 hover:text-white hover:bg-stone-800/40'
+                                        }`}
+                                      >
+                                        {subChild.name}
+                                      </Link>
+                                    )
+                                  })}
+                                </div>
                               )}
-                              <span className="truncate">{child.name}</span>
-                            </Link>
+                            </div>
                           )
                         })}
                       </div>

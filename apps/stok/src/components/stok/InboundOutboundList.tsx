@@ -111,6 +111,22 @@ function getEffectivePrice(item: InboundOutbound): number | null {
 type BahanUnitInfo = NonNullable<InboundOutbound['bahan_baku']>;
 
 /**
+ * Pembulatan kuantitas agar rapi 2 desimal, namun jika bernilai sangat kecil
+ * (mis. 0.005) tidak langsung terpotong menjadi 0.
+ */
+function roundQty(val: number): number {
+  if (val === 0) return 0;
+  const abs = Math.abs(val);
+  if (abs >= 0.01) {
+    return Math.round(val * 100) / 100;
+  }
+  if (abs >= 0.001) {
+    return Math.round(val * 1000) / 1000;
+  }
+  return Math.round(val * 10000) / 10000;
+}
+
+/**
  * Konversi angka dari skala basis penyimpanan (gram / satuan kecil, sama dengan
  * skala qty di ledger_stok) ke satuan distribusi yang dibaca manusia.
  *
@@ -150,7 +166,7 @@ function convertToDistribusiUnit(
   }
 
   return {
-    qtyNumber: Math.round(convertedQty * 100) / 100,
+    qtyNumber: roundQty(convertedQty),
     unitLabel: rawDistUnit,
   };
 }
@@ -162,7 +178,7 @@ export interface DistribusiCalculationResult {
   hargaPerDistUnit: number | null;
   totalNilai: number | null;
   distFactor: number;
-  /** Sisa stok gudang setelah transaksi ini, dalam satuan distribusi. */
+  /** Sisa stok gudang setelah transaksi ini, dalam satuan yang sesuai arus. */
   saldoText: string | null;
 }
 
@@ -212,6 +228,7 @@ export function getDistribusiCalculation(item: InboundOutbound): DistribusiCalcu
     };
   }
 
+  // Seluruh arus (IN & OUT) konsisten mengikuti Satuan Distribusi (satuan_distribusi)
   const { qtyNumber, unitLabel } = convertToDistribusiUnit(bahan, numQty);
   const distFactor = getDistribusiFactorForBahan(bahan);
   const hargaPerDistUnit =

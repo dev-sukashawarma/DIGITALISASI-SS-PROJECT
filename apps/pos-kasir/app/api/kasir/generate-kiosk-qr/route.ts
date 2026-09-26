@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveApiUser } from '@/lib/api-auth'
 
+const ALLOWED_ROLES = ['crew', 'leader', 'spv', 'regional_manager', 'admin']
+
 export async function POST(request: Request) {
   try {
     const user = await resolveApiUser(request)
@@ -12,12 +14,8 @@ export async function POST(request: Request) {
     const supabaseService = createServiceClient()
     const { data: profile } = await supabaseService.from('outlet_staff').select('role, outlet_id').eq('id', user.id).single()
 
-    if (!profile || profile.role !== 'crew') {
-      return NextResponse.json({ error: 'Akses ditolak. Harus Kasir.' }, { status: 403 })
-    }
-
-    if (!profile.outlet_id) {
-      return NextResponse.json({ error: 'Kasir belum dihubungkan ke cabang manapun.' }, { status: 400 })
+    if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+      return NextResponse.json({ error: 'Akses ditolak. Hanya staf kasir/cabang yang diizinkan.' }, { status: 403 })
     }
 
     // 1. Parse body untuk mendapatkan kiosk_id
@@ -28,9 +26,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Request body tidak valid' }, { status: 400 })
     }
 
-    const { kiosk_id } = body
+    const { kiosk_id, outlet_id } = body
     if (!kiosk_id) {
       return NextResponse.json({ error: 'ID Akun Kiosk tidak ditemukan.' }, { status: 400 })
+    }
+
+    const targetOutletId = profile.outlet_id || outlet_id
+    if (!targetOutletId) {
+      return NextResponse.json({ error: 'Kasir belum dihubungkan ke cabang manapun.' }, { status: 400 })
     }
 
     // 2. Cari user kiosk spesifik di outlet yang sama
@@ -39,7 +42,7 @@ export async function POST(request: Request) {
       .select('id, username')
       .eq('id', kiosk_id)
       .eq('role', 'kiosk')
-      .eq('outlet_id', profile.outlet_id)
+      .eq('outlet_id', targetOutletId)
       .eq('is_active', true)
       .single()
 
@@ -49,7 +52,6 @@ export async function POST(request: Request) {
       }, { status: 404 })
     }
 
-    const requestUrl = new URL(request.url)
     const origin = process.env.NEXT_PUBLIC_SITE_URL || 'https://pos.sukashawarma.com'
 
     // ARSITEKTUR BARU: Auto-Login Tahan Banting (Anti-Supabase Config Error)

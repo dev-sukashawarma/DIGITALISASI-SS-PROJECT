@@ -40,9 +40,18 @@ export default async function LauncherPage() {
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (cookies) => {
-      cookies.forEach(({ name, value, options }) => {
-        cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
-      })
+      // Server Component tidak boleh menulis cookie — Next melempar
+      // "Cookies can only be modified in a Server Action or Route Handler".
+      // Supabase memanggil setAll saat sesi berubah (logout, refresh token
+      // gagal/kedaluwarsa) → tanpa try/catch halaman ini 500. Penyegaran
+      // cookie sudah ditangani middleware, jadi aman diabaikan di sini.
+      try {
+        cookies.forEach(({ name, value, options }) => {
+          cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
+        })
+      } catch {
+        // dipanggil dari Server Component — abaikan
+      }
     },
   })
 

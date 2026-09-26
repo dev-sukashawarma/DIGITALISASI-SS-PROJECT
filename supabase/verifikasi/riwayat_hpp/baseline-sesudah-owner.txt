@@ -1,0 +1,312 @@
+[
+ {
+  "outlet": "~SEMUA",
+  "periode": "2026-08",
+  "total_cogs": "1051603330"
+ },
+ {
+  "outlet": "GLOBAL OUTLET (SYSTEM) [00000000-0000-0000-0000-000000000000]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "GUDANG PUSAT (HQ) [d23e11b3-23f1-4f9a-b428-cc73e1aa9b90]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "GUDANG SS ONLINE [d23e11b3-23f1-4f9a-b428-cc73e1aa9b91]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "KANTOR PUSAT [ffffffff-ffff-ffff-ffff-ffffffffffff]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "MITRA CIBINONG [550e8400-e29b-41d4-a716-446655440014]",
+  "periode": "2026-08",
+  "total_cogs": "78515360"
+ },
+ {
+  "outlet": "MITRA CIBUBUR [3f38c41d-11e3-49ce-a189-d7303e45f9ad]",
+  "periode": "2026-08",
+  "total_cogs": "65487400"
+ },
+ {
+  "outlet": "MITRA CICURUG [d9a2ef93-c298-4501-a471-1c5e2b3dff08]",
+  "periode": "2026-08",
+  "total_cogs": "91647490"
+ },
+ {
+  "outlet": "MITRA CILEUNGSI [62a56103-2085-4dd5-9d25-a3c0cffc88ff]",
+  "periode": "2026-08",
+  "total_cogs": "122794980"
+ },
+ {
+  "outlet": "MITRA CISEENG [550e8400-e29b-41d4-a716-446655440017]",
+  "periode": "2026-08",
+  "total_cogs": "29690100"
+ },
+ {
+  "outlet": "MITRA KALISARI [550e8400-e29b-41d4-a716-446655440019]",
+  "periode": "2026-08",
+  "total_cogs": "25631650"
+ },
+ {
+  "outlet": "MITRA PALEDANG [550e8400-e29b-41d4-a716-446655440003]",
+  "periode": "2026-08",
+  "total_cogs": "41029560"
+ },
+ {
+  "outlet": "MITRA PAMULANG [bba67dba-2dca-4e98-bdb2-6a9e265e288c]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "MITRA PEKAYON [550e8400-e29b-41d4-a716-446655440018]",
+  "periode": "2026-08",
+  "total_cogs": "35849770"
+ },
+ {
+  "outlet": "MITRA SAWANGAN [550e8400-e29b-41d4-a716-446655440008]",
+  "periode": "2026-08",
+  "total_cogs": "48582600"
+ },
+ {
+  "outlet": "MITRA SENTUL [43b7bbd1-1fd4-44b5-87ca-b07a271151af]",
+  "periode": "2026-08",
+  "total_cogs": "46592920"
+ },
+ {
+  "outlet": "outlet tes [eb174b2b-ff69-47eb-97af-b6c824d3ce4a]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "Shopee [071a2dd4-bf9a-49df-8d87-8915e57c02bb]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "SS BACKUP [8ee417d9-d08b-4b7e-b09c-302870c7f0b5]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "SUKA SHAWARMA BEJI [550e8400-e29b-41d4-a716-446655440007]",
+  "periode": "2026-08",
+  "total_cogs": "38652700"
+ },
+ {
+  "outlet": "SUKA SHAWARMA BNR [550e8400-e29b-41d4-a716-446655440001]",
+  "periode": "2026-08",
+  "total_cogs": "20298700"
+ },
+ {
+  "outlet": "SUKA SHAWARMA CIMANGGU [550e8400-e29b-41d4-a716-446655440004]",
+  "periode": "2026-08",
+  "total_cogs": "72355500"
+ },
+ {
+  "outlet": "SUKA SHAWARMA CIRENDEU [550e8400-e29b-41d4-a716-446655440011]",
+  "periode": "2026-08",
+  "total_cogs": "39073800"
+ },
+ {
+  "outlet": "SUKA SHAWARMA DEPOK SUKMAJAYA [550e8400-e29b-41d4-a716-446655440005]",
+  "periode": "2026-08",
+  "total_cogs": "49963200"
+ },
+ {
+  "outlet": "SUKA SHAWARMA DRAMAGA [550e8400-e29b-41d4-a716-446655440013]",
+  "periode": "2026-08",
+  "total_cogs": "56303300"
+ },
+ {
+  "outlet": "SUKA SHAWARMA EMPANG [550e8400-e29b-41d4-a716-446655440002]",
+  "periode": "2026-08",
+  "total_cogs": "78999500"
+ },
+ {
+  "outlet": "SUKA SHAWARMA JAGAKARSA [550e8400-e29b-41d4-a716-446655440006]",
+  "periode": "2026-08",
+  "total_cogs": "39127100"
+ },
+ {
+  "outlet": "SUKA SHAWARMA JATIASIH [550e8400-e29b-41d4-a716-446655440012]",
+  "periode": "2026-08",
+  "total_cogs": "7751500"
+ },
+ {
+  "outlet": "SUKA SHAWARMA JATIWARINGIN [550e8400-e29b-41d4-a716-446655440010]",
+  "periode": "2026-08",
+  "total_cogs": "32637300"
+ },
+ {
+  "outlet": "SUKA SHAWARMA PAJAJARAN [550e8400-e29b-41d4-a716-446655440009]",
+  "periode": "2026-08",
+  "total_cogs": "30618900"
+ },
+ {
+  "outlet": "TikTok Shop [99030e0b-ab71-479a-bfea-e04fc58b0fa0]",
+  "periode": "2026-08",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "~SEMUA",
+  "periode": "2026-09-01..24",
+  "total_cogs": "816835100"
+ },
+ {
+  "outlet": "GLOBAL OUTLET (SYSTEM) [00000000-0000-0000-0000-000000000000]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "GUDANG PUSAT (HQ) [d23e11b3-23f1-4f9a-b428-cc73e1aa9b90]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "GUDANG SS ONLINE [d23e11b3-23f1-4f9a-b428-cc73e1aa9b91]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "KANTOR PUSAT [ffffffff-ffff-ffff-ffff-ffffffffffff]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "MITRA CIBINONG [550e8400-e29b-41d4-a716-446655440014]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "57862420"
+ },
+ {
+  "outlet": "MITRA CIBUBUR [3f38c41d-11e3-49ce-a189-d7303e45f9ad]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "37493500"
+ },
+ {
+  "outlet": "MITRA CICURUG [d9a2ef93-c298-4501-a471-1c5e2b3dff08]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "64196660"
+ },
+ {
+  "outlet": "MITRA CILEUNGSI [62a56103-2085-4dd5-9d25-a3c0cffc88ff]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "114743200"
+ },
+ {
+  "outlet": "MITRA CISEENG [550e8400-e29b-41d4-a716-446655440017]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "22464860"
+ },
+ {
+  "outlet": "MITRA KALISARI [550e8400-e29b-41d4-a716-446655440019]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "17736400"
+ },
+ {
+  "outlet": "MITRA PALEDANG [550e8400-e29b-41d4-a716-446655440003]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "27511000"
+ },
+ {
+  "outlet": "MITRA PAMULANG [bba67dba-2dca-4e98-bdb2-6a9e265e288c]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "25371170"
+ },
+ {
+  "outlet": "MITRA PEKAYON [550e8400-e29b-41d4-a716-446655440018]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "26515720"
+ },
+ {
+  "outlet": "MITRA SAWANGAN [550e8400-e29b-41d4-a716-446655440008]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "16833700"
+ },
+ {
+  "outlet": "MITRA SENTUL [43b7bbd1-1fd4-44b5-87ca-b07a271151af]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "29255270"
+ },
+ {
+  "outlet": "outlet tes [eb174b2b-ff69-47eb-97af-b6c824d3ce4a]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "430500"
+ },
+ {
+  "outlet": "Shopee [071a2dd4-bf9a-49df-8d87-8915e57c02bb]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "SS BACKUP [8ee417d9-d08b-4b7e-b09c-302870c7f0b5]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "SUKA SHAWARMA BEJI [550e8400-e29b-41d4-a716-446655440007]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "35026100"
+ },
+ {
+  "outlet": "SUKA SHAWARMA BNR [550e8400-e29b-41d4-a716-446655440001]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "21670500"
+ },
+ {
+  "outlet": "SUKA SHAWARMA CIMANGGU [550e8400-e29b-41d4-a716-446655440004]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "63419400"
+ },
+ {
+  "outlet": "SUKA SHAWARMA CIRENDEU [550e8400-e29b-41d4-a716-446655440011]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "33547300"
+ },
+ {
+  "outlet": "SUKA SHAWARMA DEPOK SUKMAJAYA [550e8400-e29b-41d4-a716-446655440005]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "36606300"
+ },
+ {
+  "outlet": "SUKA SHAWARMA DRAMAGA [550e8400-e29b-41d4-a716-446655440013]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "44153500"
+ },
+ {
+  "outlet": "SUKA SHAWARMA EMPANG [550e8400-e29b-41d4-a716-446655440002]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "65076100"
+ },
+ {
+  "outlet": "SUKA SHAWARMA JAGAKARSA [550e8400-e29b-41d4-a716-446655440006]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "29195200"
+ },
+ {
+  "outlet": "SUKA SHAWARMA JATIASIH [550e8400-e29b-41d4-a716-446655440012]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "0"
+ },
+ {
+  "outlet": "SUKA SHAWARMA JATIWARINGIN [550e8400-e29b-41d4-a716-446655440010]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "23679100"
+ },
+ {
+  "outlet": "SUKA SHAWARMA PAJAJARAN [550e8400-e29b-41d4-a716-446655440009]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "24047200"
+ },
+ {
+  "outlet": "TikTok Shop [99030e0b-ab71-479a-bfea-e04fc58b0fa0]",
+  "periode": "2026-09-01..24",
+  "total_cogs": "0"
+ }
+]

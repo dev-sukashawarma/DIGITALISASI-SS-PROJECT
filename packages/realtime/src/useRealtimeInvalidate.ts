@@ -20,11 +20,12 @@ export function useRealtimeInvalidate(opts: {
   /**
    * Jarak minimum (ms) antar-sinkronisasi ulang saat channel join lagi.
    * Reconnect yang lebih rapat digabung jadi satu sinkronisasi di akhir
-   * jendela. Default 0 = sinkron di tiap reconnect (perilaku lama).
+   * jendela. Default 30 detik: dulu 0 (sinkron di tiap reconnect), dan channel
+   * yang putus-sambung memicu badai refetch server action (2026-09-25).
    */
   resubscribeMinIntervalMs?: number
 }) {
-  const { channelName, enabled = true, subs, debounceMs = 500, resubscribeMinIntervalMs = 0 } = opts
+  const { channelName, enabled = true, subs, debounceMs = 500, resubscribeMinIntervalMs = 30_000 } = opts
   const qc = useQueryClient()
   const debouncer = useMemo(() => createDebouncer(debounceMs), [debounceMs])
   const lastResyncAt = useRef(0)

@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { subsSignature } from './signature'
 
+/** Channel dianggap stabil (backoff di-reset) setelah join bertahan selama ini. */
+const STABLE_MS = 30_000
+
 export type RealtimeSub = {
   table: string
   event?: 'INSERT' | 'UPDATE' | 'DELETE' | '*'
@@ -39,6 +42,7 @@ export function useRealtimeChannel(opts: {
 
     let current: ReturnType<typeof supabase.channel> | null = null
     let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let stableTimer: ReturnType<typeof setTimeout> | null = null
     let attempt = 0
     let joinedOnce = false
     let disposed = false
@@ -84,7 +88,15 @@ export function useRealtimeChannel(opts: {
         if (disposed || current !== channel) return
 
         if (status === 'SUBSCRIBED') {
-          attempt = 0
+          // Backoff baru di-reset setelah channel bertahan STABLE_MS. Dulu di-reset
+          // seketika, jadi channel yang join lalu langsung putus (flapping) mencoba
+          // ulang tiap ~1 detik — dan tiap join memicu onResubscribe (refetch
+          // semua query terkait). Sesi 2026-09-25: ~100 refetch/menit per tab.
+          if (stableTimer) clearTimeout(stableTimer)
+          stableTimer = setTimeout(() => {
+            stableTimer = null
+            attempt = 0
+          }, STABLE_MS)
           // Event selama socket putus TIDAK di-replay server → tarik ulang data.
           if (joinedOnce) onResubRef.current?.()
           joinedOnce = true
@@ -92,6 +104,10 @@ export function useRealtimeChannel(opts: {
         }
 
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (stableTimer) {
+            clearTimeout(stableTimer)
+            stableTimer = null
+          }
           scheduleReconnect()
         }
       })
@@ -105,7 +121,8 @@ export function useRealtimeChannel(opts: {
         clearTimeout(retryTimer)
         retryTimer = null
       }
-      attempt = 0
+      // `attempt` sengaja tidak di-reset: bila channel memang flapping, backoff
+      // tetap naik; reset hanya lewat stableTimer setelah join bertahan.
       connect()
     }
 
@@ -118,6 +135,7 @@ export function useRealtimeChannel(opts: {
       document.removeEventListener('visibilitychange', reconnectNow)
       window.removeEventListener('online', reconnectNow)
       if (retryTimer) clearTimeout(retryTimer)
+      if (stableTimer) clearTimeout(stableTimer)
       if (current) supabase.removeChannel(current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

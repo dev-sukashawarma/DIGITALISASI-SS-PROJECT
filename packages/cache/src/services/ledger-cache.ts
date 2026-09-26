@@ -17,9 +17,6 @@ export const LEDGER_CACHE_KEYS = {
   ALL: 'suka:ledger:outlet:*',
 };
 
-const RINGKAS_SELECT =
-  'transaksi_key,outlet_id,created_at,jumlah_bahan,ref_order_id,ref_opname_id,ref_shipment_id,ref_transfer_id,single_bahan_baku_id,single_tipe,single_qty,single_catatan,single_saldo_sesudah';
-
 const PAGE_SIZE = 50;
 
 /**
@@ -77,15 +74,15 @@ export function createLedgerCacheServices(manager: CacheManager = defaultCacheMa
  * Helper to execute the query + enrichment from Supabase PostgREST
  */
 async function fetchFromSupabase(supabase: any, outletId: string, page: number): Promise<any[]> {
-  const from = page * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const offset = page * PAGE_SIZE;
 
-  const { data: rows, error: err } = await supabase
-    .from('ledger_transaksi_ringkas')
-    .select(RINGKAS_SELECT)
-    .eq('outlet_id', outletId)
-    .order('created_at', { ascending: false })
-    .range(from, to);
+  // Menggunakan RPC ledger_transaksi_page (migration 20260922160000)
+  // Menghindari full table scan / GROUP BY di view ledger_transaksi_ringkas (4.2s -> 168ms, 0 byte spill)
+  const { data: rows, error: err } = await supabase.rpc('ledger_transaksi_page', {
+    p_outlet: outletId,
+    p_offset: offset,
+    p_limit: PAGE_SIZE,
+  });
 
   if (err) throw err;
 

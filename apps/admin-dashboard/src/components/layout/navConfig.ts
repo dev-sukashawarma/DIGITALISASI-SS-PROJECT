@@ -103,6 +103,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/reports/target-harian', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/crew-bonus', label: 'Bonus Crew', shortLabel: 'Bonus', icon: UserCheck, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/closing-hub', label: 'EOM Closing HUB', shortLabel: 'Closing HUB', icon: FileCheck, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

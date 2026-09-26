@@ -23,10 +23,12 @@ export interface ResolveResult {
   error?: string
 }
 
+const ALLOWED_LOGOUT_ROLES = ['crew', 'leader', 'spv', 'regional_manager', 'admin']
+
 /**
  * Tentukan daftar akun kiosk yang akan di-logout.
  *
- * @param requester  Profil user yang meminta (harus role 'kasir' dengan outlet_id).
+ * @param requester  Profil user yang meminta (harus role POS/kasir dengan outlet_id).
  * @param body       Payload request { target }.
  * @param outletKiosks  SEMUA akun kiosk milik outlet requester (sudah difilter di API).
  */
@@ -35,7 +37,7 @@ export function resolveLogoutTargets(
   body: LogoutRequest,
   outletKiosks: KioskAccount[]
 ): ResolveResult {
-  if (!['crew', 'leader'].includes(requester.role)) {
+  if (!ALLOWED_LOGOUT_ROLES.includes(requester.role)) {
     return { ok: false, status: 403, targetUserIds: [], error: 'Hanya kru/leader cabang yang dapat me-logout kiosk' }
   }
   if (!requester.outlet_id) {

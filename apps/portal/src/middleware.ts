@@ -33,6 +33,24 @@ export async function middleware(request: NextRequest) {
 
   // Already logged in → check staff status and redirect to launcher
   if (userId && pathname === '/') {
+    // JWT lokal bisa masih sah padahal sesinya sudah dicabut di server
+    // (logout global dari app lain, refresh token gagal). Launcher memakai
+    // getUser() (network) → user null → redirect('/') → di sini JWT lokal
+    // dianggap login → redirect('/launcher') → LOOP. Titik balik ini wajib
+    // bertanya ke server; kalau sesi sudah mati, buang cookie basi & tampilkan login.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
+      for (const { name } of request.cookies.getAll()) {
+        if (!name.startsWith('sb-')) continue
+        // Header mentah: response.cookies.set dengan nama sama saling menimpa,
+        // padahal varian host-only DAN varian domain sama-sama harus dihapus.
+        response.headers.append('Set-Cookie', `${name}=; Max-Age=0; Path=/`)
+        if (domain) response.headers.append('Set-Cookie', `${name}=; Max-Age=0; Path=/; Domain=${domain}`)
+      }
+      return response
+    }
+
     const { data: staff } = await supabase
       .from('outlet_staff')
       .select('status')

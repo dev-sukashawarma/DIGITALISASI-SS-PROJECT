@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition, useRef } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import CountUp from 'react-countup'
 import { 
   TrendingUp, 
@@ -29,6 +29,8 @@ import { useRouter } from 'next/navigation'
 import type { PeriodFilterValue } from '@/lib/types'
 import { useMitraOutlet } from './MitraOutletContext'
 import { revalidateOwnerDashboardCache } from '@/app/actions/ownerDashboard'
+import { useOwnerDashboardRealtime } from '@/hooks/useOwnerDashboardRealtime'
+import { previousRange, monthRange } from '@/lib/period'
 import { getMitraRoiStats } from '@/app/actions/mitraRoi'
 import { getMitraComprehensivePnl, type ComprehensiveMitraPnl } from '@/app/actions/mitraPnl'
 import { getAggregatedMenuSales } from '@/app/actions/menuSales'
@@ -89,30 +91,30 @@ export function MitraDashboardView({
   const [pnlData, setPnlData] = useState<ComprehensiveMitraPnl | null>(null)
   const [isPnlLoading, setIsPnlLoading] = useState(true)
   const [refreshCount, setRefreshCount] = useState(0)
-  const debounceRef = useRef<any>(null)
-
-  useEffect(() => {
-    const invalidate = () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(async () => {
-        try {
-          await revalidateOwnerDashboardCache()
-        } catch {}
-        setRefreshCount((c) => c + 1)
-        router.refresh()
-      }, 800)
+  // Periode yang ditampilkan: periode utama, pembanding (▲▼%), dan tren
+  // bulanan (filter 1 hari → seluruh bulan itu).
+  const mitraRange = (() => {
+    const from = currentFilter?.from
+    const to = currentFilter?.to
+    if (!from || !to) return null
+    const prevFrom = previousRange({ from, to }).from
+    const monthStart = `${from.slice(0, 8)}01`
+    const monthEnd = monthRange(Number(from.slice(0, 4)), Number(from.slice(5, 7))).to
+    return {
+      from: prevFrom < monthStart ? prevFrom : monthStart,
+      to: monthEnd > to ? monthEnd : to,
     }
+  })()
 
-    const channel = supabase
-      .channel('mitra-sales-realtime-view')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
-      .subscribe()
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, router])
+  // Order hari ini selalu memicu refresh (daftar "order terbaru" ada di sini),
+  // dibatasi paling sering sekali per 20 detik; tidak lagi membuang seluruh cache.
+  useOwnerDashboardRealtime({
+    channelName: 'mitra-sales-realtime-view',
+    relevantFrom: mitraRange?.from ?? '0000-01-01',
+    relevantTo: mitraRange?.to ?? '9999-12-31',
+    alwaysRefreshOnToday: true,
+    onRefresh: () => setRefreshCount((c) => c + 1),
+  })
 
   // Top Menu ikut outlet yang dipilih. Nilai awal dari server ('all' = seluruh
   // outlet mitra ini); begitu dropdown diganti, daftar ditarik ulang khusus
@@ -445,7 +447,7 @@ export function MitraDashboardView({
             onClick={() => {
               startTransition(async () => {
                 try {
-                  await revalidateOwnerDashboardCache()
+                  await revalidateOwnerDashboardCache(mitraRange ?? undefined)
                 } catch (err) {
                   console.error('Failed to revalidate cache:', err)
                 }

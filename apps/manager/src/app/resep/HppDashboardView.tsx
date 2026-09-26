@@ -9,6 +9,16 @@ import { useAuth } from '@suka/auth'
 import { Store, Globe, Search, X, Check, Package, Sandwich, Edit2, Calculator, PanelRightClose, RefreshCw, Save, ArrowUpDown, ChevronUp, ChevronDown, Layers, Sparkles } from 'lucide-react'
 import type { Outlet, MenuOutletPrice } from '@/pos-types'
 import { CATEGORY_GROUPS, type CategoryGroupMeta, getSizeRank } from './categoryHelper'
+import { hariIniWib, batasAwalBerlaku } from '@/lib/hpp/batasBerlakuHpp'
+
+// Kunci channel_hpp yang mewakili SS Online — ditulis/direset bersamaan (sama seperti sebelumnya).
+const KUNCI_SS_ONLINE = [
+  'ss_online',
+  'tiktok_shop',
+  'shopee_shop',
+  'f3305089-b9e4-4b92-95da-14bf6e7fb6d5',
+  'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584',
+] as const
 
 interface HppMenuItem {
   id: string
@@ -73,6 +83,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
   // Inline edit for Pusat HPP
   const [editingPusatId, setEditingPusatId] = useState<string | null>(null)
   const [pusatHppValue, setPusatHppValue] = useState<string>('')
+  const [berlakuMulai, setBerlakuMulai] = useState<string>(() => hariIniWib())
 
   // Local state for Drawer edits before saving
   const [localOutletPrices, setLocalOutletPrices] = useState<Record<string, MenuOutletPrice>>({}) // keyed by outlet_id
@@ -273,43 +284,32 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
         ? `${outletStaff.name} (${outletStaff.role === 'regional_manager' ? 'RM' : outletStaff.role.replace('_', ' ').toUpperCase()})`
         : 'Manager'
 
-      if (channelKey === 'ss_online') {
-        const currentChannelHpp = row.channelHpp || {}
-        const nextChannelHpp = { ...currentChannelHpp }
-        if (val === null) {
-          delete nextChannelHpp.ss_online
-          delete nextChannelHpp.tiktok_shop
-          delete nextChannelHpp.shopee_shop
-          delete nextChannelHpp['f3305089-b9e4-4b92-95da-14bf6e7fb6d5']
-          delete nextChannelHpp['d68eb5ec-d6bb-4d0a-8758-a2600c8f1584']
-        } else {
-          nextChannelHpp.ss_online = val
-          nextChannelHpp.tiktok_shop = val
-          nextChannelHpp.shopee_shop = val
-          nextChannelHpp['f3305089-b9e4-4b92-95da-14bf6e7fb6d5'] = val
-          nextChannelHpp['d68eb5ec-d6bb-4d0a-8758-a2600c8f1584'] = val
-        }
-        const { error } = await supabase
-          .from('menu_items')
-          .update({
-            channel_hpp: nextChannelHpp,
-            updated_by: userUpdater,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', row.id)
-        if (error) throw error
-        toast.success(val === null ? `HPP SS Online "${row.name}" direset` : `HPP SS Online "${row.name}" diset ke ${rupiah(val)}`)
-      } else {
-        const { error } = await supabase
-          .from('menu_items')
-          .update({
-            hpp_override: val,
-            updated_by: userUpdater,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', row.id)
-        if (error) throw error
+      if (val !== null && (!Number.isFinite(val) || val < 0)) {
+        throw new Error('HPP harus angka 0 atau lebih')
+      }
+      const perubahan: Record<string, number | null> =
+        channelKey === 'ss_online'
+          ? Object.fromEntries(KUNCI_SS_ONLINE.map((k) => [k, val]))
+          : { hpp_override: val }
 
+      // Satu-satunya jalur tulis HPP: RPC mencatat riwayat bertanggal & mengecek role.
+      const { error: rpcError } = await supabase.rpc('ubah_hpp_menu', {
+        p_menu_item_id: row.id,
+        p_perubahan: perubahan,
+        p_berlaku_mulai: berlakuMulai,
+      })
+      if (rpcError) throw rpcError
+
+      const { error: metaError } = await supabase
+        .from('menu_items')
+        .update({ updated_by: userUpdater, updated_at: new Date().toISOString() })
+        .eq('id', row.id)
+      if (metaError) throw metaError
+
+      const labelTanggal = berlakuMulai === hariIniWib() ? '' : ` (berlaku mulai ${berlakuMulai})`
+      if (channelKey === 'ss_online') {
+        toast.success(val === null ? `HPP SS Online "${row.name}" direset${labelTanggal}` : `HPP SS Online "${row.name}" diset ke ${rupiah(val)}${labelTanggal}`)
+      } else {
         // Auto update Mitra HPP (+10%)
         const mitraVal = val === null ? null : Math.round(val * 1.1)
         const payload = outlets.map(o => {
@@ -322,11 +322,11 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
             hpp_override: mitraVal
           }
         })
-        
+
         const { error: mitraError } = await supabase.from('menu_outlet_prices').upsert(payload, { onConflict: 'menu_item_id,outlet_id' })
         if (mitraError) console.error("Gagal auto-update HPP Mitra", mitraError)
 
-        toast.success(val === null ? `HPP Pusat untuk "${row.name}" direset ke BOM` : `HPP Pusat "${row.name}" diset ke ${rupiah(val)}, HPP Mitra otomatis disesuaikan (+10%)`)
+        toast.success(val === null ? `HPP Pusat untuk "${row.name}" direset ke BOM${labelTanggal}` : `HPP Pusat "${row.name}" diset ke ${rupiah(val)}, HPP Mitra otomatis disesuaikan (+10%)${labelTanggal}`)
       }
 
       setEditingPusatId(null)
@@ -819,6 +819,15 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                                       onChange={(e) => setPusatHppValue(e.target.value)}
                                       className="w-20 px-1.5 py-0.5 text-xs text-right border rounded focus:ring-1 focus:ring-suka-primary"
                                     />
+                                    <input
+                                      type="date"
+                                      value={berlakuMulai}
+                                      min={batasAwalBerlaku(hariIniWib())}
+                                      max={hariIniWib()}
+                                      onChange={(e) => setBerlakuMulai(e.target.value)}
+                                      title="Berlaku mulai (HPP penjualan sebelum tanggal ini tidak berubah)"
+                                      className="w-[7.5rem] px-1 py-0.5 text-[10px] border rounded focus:ring-1 focus:ring-suka-primary"
+                                    />
                                     <button onClick={() => handleSavePusatHpp(row, ch.channelKey)} disabled={isSaving} className="p-1 text-white bg-green-500 hover:bg-green-600 rounded">
                                       <Check className="w-3 h-3" />
                                     </button>
@@ -833,8 +842,8 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                                         {ch.hppPusat !== null ? rupiah(ch.hppPusat) : <span className="text-red-400 text-xs italic">Belum Set</span>}
                                       </div>
                                     </div>
-                                    <button 
-                                      onClick={() => { setEditingPusatId(editKey); setPusatHppValue(ch.hppPusat !== null ? String(ch.hppPusat) : ''); }} 
+                                    <button
+                                      onClick={() => { setEditingPusatId(editKey); setPusatHppValue(ch.hppPusat !== null ? String(ch.hppPusat) : ''); setBerlakuMulai(hariIniWib()); }}
                                       className="opacity-0 group-hover/cell:opacity-100 p-0.5 text-gray-400 hover:text-suka-primary transition-opacity rounded hover:bg-gray-100"
                                       title={`Edit HPP Pusat (${ch.label})`}
                                     >

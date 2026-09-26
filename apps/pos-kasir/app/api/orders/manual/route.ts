@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, resolveBasePrice, isPromoEligible, isMenuExcludedFromPromo, isScheduledPromo, BasePromo } from '@/lib/promo-calculator'
 import { CHANNELS } from '@/lib/channels'
 
@@ -65,15 +66,15 @@ export async function POST(request: Request) {
   const supabaseService = createServiceClient()
   const supabaseAuth = await createClient()
 
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) {
+  const userId = await getVerifiedUserId(supabaseAuth)
+  if (!userId) {
     return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 })
   }
 
   const { data: profile } = await supabaseService
     .from('outlet_staff')
     .select('outlet_id, role, name')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (!profile) {
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     const { data: isMapped } = await supabaseService
       .from('staff_outlets')
       .select('outlet_id')
-      .eq('staff_id', user.id)
+      .eq('staff_id', userId)
       .eq('outlet_id', body.outlet_id)
       .maybeSingle()
 

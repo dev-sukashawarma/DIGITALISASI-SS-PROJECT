@@ -2,7 +2,7 @@
 // Hanya untuk kode server (memakai next/headers). Sengaja tanpa paket
 // `server-only` — tidak dideklarasikan di package.json app ini (phantom dependency).
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 
 const FULL_ACCESS_ROLES = ['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'admin_finance', 'purchasing', 'developer']
 
@@ -18,13 +18,13 @@ export async function resolveCallerScope() {
     setAll: () => {}
   })
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) throw new Error('Unauthorized')
 
   const { data: staff, error: staffError } = await supabase
     .from('outlet_staff')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
   if (staffError) throw new Error(`resolveCallerScope: ${staffError.message}`)
 

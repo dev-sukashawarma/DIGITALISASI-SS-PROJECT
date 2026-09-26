@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient, createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 export async function POST(request: Request) {
   try {
     const supabaseUser = await createClient()
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser()
+    const userId = await getVerifiedUserId(supabaseUser)
     
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

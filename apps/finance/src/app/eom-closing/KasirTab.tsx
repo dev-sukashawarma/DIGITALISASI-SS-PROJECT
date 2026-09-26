@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@suka/auth'
 import { rupiah } from '@/lib/format'
 import { itemFlags, type EomChannel, type CashOutletRow } from '@/lib/eom/kasir'
-import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH } from './types'
+import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH, KONFIRMASI_SETORAN_MANUAL } from './types'
 
 const tgl = (d: string) => {
   const [y, m, day] = d.split('-').map(Number)
@@ -56,8 +56,12 @@ export default function KasirTab({ month, year }: { month: number; year: number 
   const handlePdf = async () => {
     setPrinting(true)
     try {
+      // Rincian per outlet diambil saat PDF dibuat saja (payload besar).
+      const res = await fetch(`/api/eom-closing/kasir?month=${month}&year=${year}&detail=outlet`, { cache: 'no-store' })
+      const full = await res.json()
+      if (!res.ok || full.error) throw new Error(full.error || `HTTP ${res.status}`)
       const { generateKasirEomPdf } = await import('./exportEomPdf')
-      await generateKasirEomPdf(d, outletStaff?.name ?? 'Finance')
+      await generateKasirEomPdf(full, outletStaff?.name ?? 'Finance')
       toast.success('PDF rincian Kasir & Kas Toko diunduh')
     } catch (e) {
       console.error(e)
@@ -77,7 +81,7 @@ export default function KasirTab({ month, year }: { month: number; year: number 
           </button>
           <button onClick={handlePdf} disabled={printing}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-suka-brown text-white font-bold hover:opacity-90 disabled:opacity-50">
-            <FileDown size={12} /> {printing ? 'Menyiapkan PDF…' : 'Unduh PDF Rincian'}
+            <FileDown size={12} /> {printing ? 'Menyiapkan PDF (±10 dtk)…' : 'Unduh PDF Rincian'}
           </button>
         </div>
       </div>
@@ -132,6 +136,7 @@ function KpiSection({ d }: { d: KasirResponse }) {
 
 function SetoranSection({ rows, period }: { rows: CashOutletRow[]; period: KasirResponse['period'] }) {
   const setoranDinilai = period.from >= SETORAN_WAJIB_MULAI
+  const konfirmasi = KONFIRMASI_SETORAN_MANUAL[period.from.slice(0, 7)]
   const total = rows.reduce(
     (a, r) => ({
       omzetTunai: a.omzetTunai + r.omzetTunai,
@@ -158,7 +163,9 @@ function SetoranSection({ rows, period }: { rows: CashOutletRow[]; period: Kasir
         {!setoranDinilai && (
           <p className="mt-2 flex items-start gap-2 text-xs text-sky-800 bg-sky-50 border border-sky-200 rounded-lg p-2">
             <Info size={14} className="shrink-0 mt-0.5" />
-            Bulan ini dinilai dari tutup shift saja. Kolom setoran kantor hanya informasi (admin mulai mencatat 28 Sep); mulai Oktober selisih setoran ikut dinilai.
+            {konfirmasi
+              ? `Setoran s/d ${konfirmasi} sudah dikonfirmasi valid oleh Admin Finance. Setoran sesudahnya tercatat di kolom "Setoran diterima kantor". Mulai Oktober selisih setoran ikut dinilai otomatis.`
+              : 'Bulan ini dinilai dari tutup shift saja. Kolom setoran kantor hanya informasi; mulai Oktober selisih setoran ikut dinilai.'}
           </p>
         )}
       </div>

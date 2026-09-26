@@ -1,4 +1,4 @@
-import type { EomChannel, CashOutletRow } from '@/lib/eom/kasir'
+import type { EomChannel, CashOutletRow, EomOutlet } from '@/lib/eom/kasir'
 
 export interface ShiftDetail {
   tanggal: string
@@ -28,9 +28,20 @@ export interface KasirResponse {
   channels: EomChannel[]
   cash: CashOutletRow[]
   shiftDetails: ShiftDetail[]
+  /** Hanya ada bila diminta dengan ?detail=outlet (untuk PDF). */
+  outletDetails?: EomOutlet[]
   fetchedAt: string
 }
 
 /** Mulai tanggal ini setoran kantor ikut dinilai (keputusan 2026-09-26). */
 export const SETORAN_WAJIB_MULAI = '2026-10-01'
 export const AMBANG_MERAH = 50_000
+
+/**
+ * Konfirmasi setoran di luar sistem untuk bulan sebelum pencatatan setoran
+ * wajib (keputusan owner 2026-09-26): seluruh setoran s/d tanggal ini sudah
+ * dikonfirmasi valid oleh Admin Finance.
+ */
+export const KONFIRMASI_SETORAN_MANUAL: Record<string, string> = {
+  '2026-09': '26 Sep 2026',
+}

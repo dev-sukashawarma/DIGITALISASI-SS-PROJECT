@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
 
     // Sesi user (RLS berlaku) — sama dengan Rangkuman Penjualan yang membaca lewat sesi user.
     const supabase = await createServerComponentClient()
-    return NextResponse.json(await buildKasirReport(supabase, month, year))
+    const outletDetail = searchParams.get('detail') === 'outlet'
+    return NextResponse.json(await buildKasirReport(supabase, month, year, { outletDetail }))
   } catch (err: any) {
     const msg = err?.message || 'Gagal memuat data EOM kasir'
     const status = msg.startsWith('Unauthorized') ? 401 : msg.startsWith('Forbidden') ? 403 : 500

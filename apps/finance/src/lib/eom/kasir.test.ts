@@ -1,4 +1,4 @@
-import { buildChannelBreakdown, buildCashRows, itemFlags, splitByCutoff, MITRA_SUFFIX } from './kasir'
+import { buildChannelBreakdown, buildCashRows, buildOutletBreakdown, itemFlags, splitByCutoff, MITRA_SUFFIX } from './kasir'
 import { buildPenerapHpp, computeCategoryReport, computeAnalytics, buildMenuMaps } from '@/lib/posReport/compute'
 
 const AYAM = 'menu-ayam'
@@ -145,5 +145,24 @@ describe('buildCashRows', () => {
     expect(empang.setoranDiterima).toBe(70000)
     // outlet mitra tanpa order tunai tetap muncul (ada order GoFood)
     expect(rows.find((r) => r.outletId === 'o2')!.omzetTunai).toBe(0)
+  })
+})
+
+describe('buildOutletBreakdown', () => {
+  const perOutlet = buildOutletBreakdown(orders, outlets, penerap, CUT)
+  const whole = buildChannelBreakdown(orders, outlets, penerap, CUT)
+  const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0)
+
+  it('jumlah semua outlet = laporan seluruh bulan', () => {
+    expect(sum(perOutlet.map((o) => o.revenue))).toBeCloseTo(sum(whole.map((c) => c.revenue)), 6)
+    expect(sum(perOutlet.map((o) => o.potongan))).toBeCloseTo(sum(whole.map((c) => c.potongan)), 6)
+    expect(sum(perOutlet.map((o) => o.hppA + o.hppB))).toBeCloseTo(sum(whole.map((c) => c.hppA + c.hppB)), 6)
+  })
+
+  it('outlet mitra: nama menu tanpa akhiran, HPP tetap x1,1', () => {
+    const mitra = perOutlet.find((o) => o.outletId === 'o2')!
+    expect(mitra.outletType).toBe('mitra')
+    const ayam = mitra.channels[0].items.find((i) => i.name === 'Original Ayam Jumbo')!
+    expect(ayam.hppB).toBe(Math.round(13900 * 1.1))
   })
 })

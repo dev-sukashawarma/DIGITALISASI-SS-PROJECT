@@ -94,6 +94,8 @@ export function buildChannelBreakdown(
   outlets: OutletLite[],
   penerapHpp: Penerap,
   cutoff: string | null,
+  /** false = menu mitra tidak dipisah (dipakai laporan per outlet: satu outlet = satu tipe). */
+  splitMitra = true,
 ): EomChannel[] {
   const groups = new Map<string, { label: string; orders: OrderRow[] }>()
   for (const o of orders) {
@@ -108,7 +110,7 @@ export function buildChannelBreakdown(
 
   // Menu outlet mitra dipisah barisnya: HPP mitra = HPP x 1,1, jadi kalau
   // digabung, HPP/porsi rata-rata bergeser hanya karena porsi penjualan mitra.
-  const mitraIds = new Set(outlets.filter((o) => o.type === 'mitra').map((o) => o.id))
+  const mitraIds = new Set(splitMitra ? outlets.filter((o) => o.type === 'mitra').map((o) => o.id) : [])
 
   const result: EomChannel[] = []
   for (const [key, g] of groups) {
@@ -137,6 +139,62 @@ export function buildChannelBreakdown(
       labaKotor: sum((i) => i.labaKotor),
       qty: sum((i) => i.qtyA + i.qtyB),
       items: list,
+    })
+  }
+  return result.sort((x, y) => y.revenue - x.revenue)
+}
+
+export interface EomOutlet {
+  outletId: string
+  outletName: string
+  /** 'mitra' | 'outlet' | 'online' (SS Online) */
+  outletType: string
+  revenue: number
+  potongan: number
+  hppA: number
+  hppB: number
+  labaKotor: number
+  qty: number
+  channels: EomChannel[]
+}
+
+/** Id sintetis penjualan SS Online (ecommerce_sales) — lihat loadKasirData. */
+const SS_ONLINE_ID = 'ss-online'
+
+/**
+ * Laporan per outlet: tiap outlet dirinci per channel & menu dengan fungsi yang
+ * sama (buildChannelBreakdown), jadi jumlah semua outlet = laporan seluruh bulan.
+ */
+export function buildOutletBreakdown(
+  orders: OrderRow[],
+  outlets: OutletLite[],
+  penerapHpp: Penerap,
+  cutoff: string | null,
+): EomOutlet[] {
+  const byOutlet = new Map<string, OrderRow[]>()
+  for (const o of orders) {
+    const list = byOutlet.get(o.outlet_id) ?? []
+    list.push(o)
+    byOutlet.set(o.outlet_id, list)
+  }
+  const info = new Map(outlets.map((o) => [o.id, o]))
+  const result: EomOutlet[] = []
+  for (const [id, list] of byOutlet) {
+    const channels = buildChannelBreakdown(list, outlets, penerapHpp, cutoff, false)
+    if (channels.length === 0) continue
+    const sum = (f: (c: EomChannel) => number) => channels.reduce((s, c) => s + f(c), 0)
+    const o = info.get(id)
+    result.push({
+      outletId: id,
+      outletName: id === SS_ONLINE_ID ? 'SS ONLINE (TikTok Shop / Shopee)' : o?.name ?? 'Outlet Tidak Dikenal',
+      outletType: id === SS_ONLINE_ID ? 'online' : o?.type ?? 'outlet',
+      revenue: sum((c) => c.revenue),
+      potongan: sum((c) => c.potongan),
+      hppA: sum((c) => c.hppA),
+      hppB: sum((c) => c.hppB),
+      labaKotor: sum((c) => c.labaKotor),
+      qty: sum((c) => c.qty),
+      channels,
     })
   }
   return result.sort((x, y) => y.revenue - x.revenue)

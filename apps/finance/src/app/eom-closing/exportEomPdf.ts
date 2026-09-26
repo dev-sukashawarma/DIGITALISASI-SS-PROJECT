@@ -8,7 +8,8 @@ import type { UserOptions } from 'jspdf-autotable'
 import { itemFlags } from '@/lib/eom/kasir'
 import type { OpexSummary, OpexGroup } from '@/lib/eom/opex'
 import { CATEGORY_META } from '@/lib/expenseCategories'
-import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH } from './types'
+import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH, KONFIRMASI_SETORAN_MANUAL } from './types'
+import type { EomOutlet } from '@/lib/eom/kasir'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -137,6 +138,7 @@ const TABLE_BASE: Partial<UserOptions> = {
   styles: { fontSize: 7, cellPadding: 1.4, lineColor: [226, 232, 240], lineWidth: 0.1, textColor: [30, 41, 59] },
   headStyles: { fillColor: [59, 29, 13], textColor: 255, fontStyle: 'bold', fontSize: 7 },
   footStyles: { fillColor: [254, 243, 199], textColor: [69, 26, 3], fontStyle: 'bold' },
+  showFoot: 'lastPage',
   margin: { left: MARGIN, right: MARGIN },
 }
 
@@ -208,8 +210,11 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
 
   // I. Setoran per outlet
   const setoranDinilai = from >= SETORAN_WAJIB_MULAI
+  const konfirmasi = KONFIRMASI_SETORAN_MANUAL[from.slice(0, 7)]
   y = sectionTitle(doc, y, 'I. Setoran Omzet Tunai per Outlet',
-    `Omzet tunai POS -> uang laci saat tutup shift -> setoran diterima kantor. Petty cash tidak ikut disetor.${setoranDinilai ? '' : ' Bulan ini dinilai dari tutup shift; kolom setoran kantor hanya informasi (pencatatan dimulai 28 Sep 2026).'}`)
+    `Omzet tunai POS -> uang laci saat tutup shift -> setoran diterima kantor. Petty cash tidak ikut disetor.${
+      konfirmasi ? ` Setoran s/d ${konfirmasi} telah dikonfirmasi VALID oleh Admin Finance; setoran sesudahnya tercatat di sistem (kolom Setoran diterima).` : ''
+    }${setoranDinilai ? '' : ' Selisih bulan ini dinilai dari tutup shift.'}`)
   const tot = { tunai: 0, fisik: 0, selisih: 0, luar: 0, setor: 0, belum: 0 }
   const cashBody = d.cash.map((r, i) => {
     const luar = r.omzetTunai - r.shiftExpected
@@ -282,41 +287,9 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
   })
   y = lastY(doc) + 8
 
-  // IV. Rincian menu per channel
-  y = sectionTitle(doc, y, 'IV. Rincian Menu per Channel',
-    'HPP/porsi = total HPP dibagi qty pada periodenya. Menu outlet mitra dipisah barisnya (HPP mitra = HPP x 1,1). Baris kuning = perlu dicek: HPP kosong, atau HPP/porsi tidak berubah padahal ada pergantian HPP.')
-  for (const c of d.channels) {
-    y = ensureSpace(doc, y, 24)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8.5)
-    doc.setTextColor(...ORANGE)
-    doc.text(`${c.label} — omzet ${rp(c.revenue)} · HPP ${rp(c.hppA + c.hppB)} · ${c.items.length} menu`, MARGIN, y)
-    const unit = (hpp: number, qty: number) => (qty > 0 ? rp(hpp / qty) : '-')
-    const flaggedRows = new Set<number>()
-    const body = c.items.map((i, idx) => {
-      const flags = itemFlags(i, !!cut)
-      if (flags.length) flaggedRows.add(idx)
-      return [
-        i.name,
-        i.qtyA.toLocaleString('id-ID'), unit(i.hppA, i.qtyA),
-        ...(labelB ? [i.qtyB.toLocaleString('id-ID'), unit(i.hppB, i.qtyB)] : []),
-        rp(i.hppA + i.hppB), rp(i.revenue), rp(i.potongan), rp(i.labaKotor), pct(i.hppA + i.hppB, i.revenue),
-        flags.join(', ') || '',
-      ]
-    })
-    const qa = labelB ? `Qty ${labelA.replace('HPP ', '')}` : 'Qty'
-    autoTable(doc, {
-      ...TABLE_BASE,
-      startY: y + 2,
-      head: [['Menu', qa, 'HPP/porsi', ...(labelB ? [`Qty ${labelB.replace('HPP ', '')}`, 'HPP/porsi'] : []), 'Total HPP', 'Omzet', 'Potongan', 'Laba kotor', 'Food cost', 'Tanda']],
-      body,
-      styles: { ...TABLE_BASE.styles, fontSize: 6.5 },
-      columnStyles: Object.fromEntries(Array.from({ length: labelB ? 11 : 9 }, (_, i) => [i, { halign: i === 0 || i === (labelB ? 10 : 8) ? 'left' : 'right' }])) as any,
-      didParseCell: (h) => {
-        if (h.section === 'body' && flaggedRows.has(h.row.index)) h.cell.styles.fillColor = [254, 249, 195]
-      },
-    })
-    y = lastY(doc) + 7
+  // IV. Laporan per outlet (Internal, lalu Mitra, lalu SS Online)
+  if (d.outletDetails && d.outletDetails.length > 0) {
+    y = outletSection(doc, autoTable, d, labelA, labelB)
   }
 
   signatures(doc, y, dicetakOleh)
@@ -327,6 +300,130 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
 export async function generateKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
   const { doc, filename } = await buildKasirEomPdf(d, dicetakOleh)
   doc.save(filename)
+}
+
+// ── Bagian IV: laporan per outlet ────────────────────────────────────────────
+const OUTLET_GROUPS: { type: string; judul: string; hppNote: string }[] = [
+  { type: 'outlet', judul: 'Outlet Internal', hppNote: '' },
+  { type: 'mitra', judul: 'Outlet Mitra', hppNote: ' (+10%)' },
+  { type: 'online', judul: 'SS Online', hppNote: '' },
+]
+const groupOf = (o: EomOutlet) => (o.outletType === 'mitra' ? 'mitra' : o.outletType === 'online' ? 'online' : 'outlet')
+
+function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, labelA: string, labelB: string | null) {
+  const outlets = d.outletDetails ?? []
+  const cut = d.hppCutoff
+  doc.addPage()
+  let y = sectionTitle(doc, 14, 'IV. Laporan per Outlet',
+    'Gross revenue, item terjual, harga jual, dan HPP per channel untuk tiap outlet. Harga jual = omzet kotor dibagi qty (rata-rata). Outlet mitra: HPP sudah termasuk tambahan 10% sesuai aturan HPP mitra.')
+
+  // Ringkasan per kelompok
+  for (const g of OUTLET_GROUPS) {
+    const rows = outlets.filter((o) => groupOf(o) === g.type)
+    if (rows.length === 0) continue
+    const t = { rev: 0, pot: 0, a: 0, b: 0, laba: 0 }
+    rows.forEach((o) => { t.rev += o.revenue; t.pot += o.potongan; t.a += o.hppA; t.b += o.hppB; t.laba += o.labaKotor })
+    y = ensureSpace(doc, y, 30)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...ORANGE)
+    doc.text(`${g.judul} (${rows.length})`, MARGIN, y + 2)
+    autoTable(doc, {
+      ...TABLE_BASE,
+      startY: y + 4,
+      head: [['Outlet', 'Gross revenue', 'Potongan', `${labelA}${g.hppNote}`, ...(labelB ? [`${labelB}${g.hppNote}`] : []), `Total HPP${g.hppNote}`, 'Laba kotor', 'Food cost']],
+      body: rows.map((o) => [shortName(o.outletName), rp(o.revenue), rp(o.potongan), rp(o.hppA), ...(labelB ? [rp(o.hppB)] : []), rp(o.hppA + o.hppB), rp(o.labaKotor), pct(o.hppA + o.hppB, o.revenue)]),
+      foot: [[`SUBTOTAL ${g.judul.toUpperCase()}`, rp(t.rev), rp(t.pot), rp(t.a), ...(labelB ? [rp(t.b)] : []), rp(t.a + t.b), rp(t.laba), pct(t.a + t.b, t.rev)]],
+      columnStyles: Object.fromEntries(Array.from({ length: labelB ? 8 : 7 }, (_, i) => [i, { halign: i === 0 ? 'left' : 'right' }])) as any,
+    })
+    y = lastY(doc) + 7
+  }
+
+  // Satu halaman per outlet
+  const unit = (hpp: number, qty: number) => (qty > 0 ? rp(hpp / qty) : '-')
+  for (const g of OUTLET_GROUPS) {
+    for (const o of outlets.filter((x) => groupOf(x) === g.type)) {
+      doc.addPage()
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.setTextColor(...BROWN)
+      doc.text(o.outletName, MARGIN, 14)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(100, 116, 139)
+      doc.text(`${g.judul}${g.type === 'mitra' ? ' — HPP termasuk +10%' : ''}`, MARGIN, 18.5)
+      const py = kpiBoxes(doc, 22, [
+        { label: 'Gross revenue', value: rp(o.revenue) },
+        { label: 'Potongan', value: rp(o.potongan) },
+        { label: `Total HPP${g.hppNote}`, value: rp(o.hppA + o.hppB) },
+        { label: 'Laba kotor', value: rp(o.labaKotor) },
+        { label: 'Food cost', value: pct(o.hppA + o.hppB, o.revenue) },
+      ])
+
+      const cols = labelB ? 10 : 9
+      const body: any[] = []
+      const flagged = new Set<number>()
+      const channelRows = new Set<number>()
+      const subtotalRows = new Set<number>()
+      for (const c of o.channels) {
+        channelRows.add(body.length)
+        body.push([{ content: `${c.label}  —  ${c.qty.toLocaleString('id-ID')} porsi`, colSpan: cols }])
+        for (const i of c.items) {
+          const qty = i.qtyA + i.qtyB
+          const flags = itemFlags(i, !!cut)
+          if (flags.length) flagged.add(body.length)
+          body.push([
+            i.name,
+            qty.toLocaleString('id-ID'),
+            qty > 0 ? rp(i.revenue / qty) : '-',
+            rp(i.revenue),
+            unit(i.hppA, i.qtyA),
+            ...(labelB ? [unit(i.hppB, i.qtyB)] : []),
+            rp(i.hppA + i.hppB),
+            rp(i.labaKotor),
+            pct(i.hppA + i.hppB, i.revenue),
+            flags.join(', '),
+          ])
+        }
+        subtotalRows.add(body.length)
+        body.push([`Subtotal ${c.label}`, c.qty.toLocaleString('id-ID'), '', rp(c.revenue), '', ...(labelB ? [''] : []), rp(c.hppA + c.hppB), rp(c.labaKotor), pct(c.hppA + c.hppB, c.revenue), ''])
+      }
+      const hA = labelB ? `HPP/porsi ${labelA.replace('HPP ', '')}${g.hppNote}` : `HPP/porsi${g.hppNote}`
+      autoTable(doc, {
+        ...TABLE_BASE,
+        startY: py,
+        head: [['Menu', 'Qty', 'Harga jual', 'Omzet', hA, ...(labelB ? [`HPP/porsi ${labelB.replace('HPP ', '')}${g.hppNote}`] : []), `Total HPP${g.hppNote}`, 'Laba kotor', 'Food cost', 'Tanda']],
+        body,
+        foot: [['TOTAL OUTLET', o.qty.toLocaleString('id-ID'), '', rp(o.revenue), '', ...(labelB ? [''] : []), rp(o.hppA + o.hppB), rp(o.labaKotor), pct(o.hppA + o.hppB, o.revenue), '']],
+        styles: { ...TABLE_BASE.styles, fontSize: 6.5 },
+        margin: { left: MARGIN, right: MARGIN, top: 20 },
+        columnStyles: Object.fromEntries(Array.from({ length: cols }, (_, i) => [i, { halign: i === 0 || i === cols - 1 ? 'left' : 'right' }])) as any,
+        didDrawPage: (h) => {
+          if (h.pageNumber > 1) {
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(10)
+            doc.setTextColor(...BROWN)
+            doc.text(`${o.outletName} (lanjutan)`, MARGIN, 14)
+          }
+        },
+        didParseCell: (h) => {
+          if (h.section !== 'body') return
+          if (channelRows.has(h.row.index)) {
+            h.cell.styles.fillColor = [255, 237, 213]
+            h.cell.styles.fontStyle = 'bold'
+            h.cell.styles.textColor = [124, 45, 18]
+            h.cell.styles.halign = 'left'
+          } else if (subtotalRows.has(h.row.index)) {
+            h.cell.styles.fontStyle = 'bold'
+            h.cell.styles.fillColor = [248, 250, 252]
+          } else if (flagged.has(h.row.index)) {
+            h.cell.styles.fillColor = [254, 249, 195]
+          }
+        },
+      })
+    }
+  }
+  return lastY(doc) + 8
 }
 
 // ── PDF 2: OPEX ──────────────────────────────────────────────────────────────

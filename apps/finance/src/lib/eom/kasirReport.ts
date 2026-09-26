@@ -1,5 +1,5 @@
 import { loadKasirData } from './loadKasirData'
-import { buildChannelBreakdown, buildCashRows, isRunningShift } from './kasir'
+import { buildChannelBreakdown, buildCashRows, buildOutletBreakdown, isRunningShift } from './kasir'
 import { buildPenerapHpp, buildMenuMaps, computeAnalytics } from '@/lib/posReport/compute'
 import { monthRange } from '@/lib/period'
 import { tanggalWib } from '@/lib/hpp/riwayatHpp'
@@ -16,7 +16,7 @@ function findCutoff(riwayat: { berlaku_mulai: string }[], from: string, to: stri
 }
 
 /** Seluruh data tab Kasir & Kas Toko untuk satu bulan (dipakai API route). */
-export async function buildKasirReport(supabase: any, month: number, year: number) {
+export async function buildKasirReport(supabase: any, month: number, year: number, opts: { outletDetail?: boolean } = {}) {
   const { from, to } = monthRange(year, month)
 
   const data = await loadKasirData(supabase, from, to)
@@ -67,6 +67,8 @@ export async function buildKasirReport(supabase: any, month: number, year: numbe
     channels,
     cash,
     shiftDetails,
+    // Rincian per outlet (untuk PDF) hanya dihitung bila diminta — payload besar.
+    outletDetails: opts.outletDetail ? buildOutletBreakdown(data.orders, data.outlets, penerapHpp, cutoff) : undefined,
     outlets: data.outlets.map((o: any) => ({ id: o.id, name: o.name, type: o.type })),
     fetchedAt: new Date().toISOString(),
   }

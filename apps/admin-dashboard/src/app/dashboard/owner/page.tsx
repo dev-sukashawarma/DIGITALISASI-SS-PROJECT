@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { presetRange, previousRange, diffDays } from '@/lib/period'
 import { buildLeaderboard } from '@/lib/leaderboard'
 import { getOwnerDashboardDataFast } from '@/app/actions/ownerDashboard'
@@ -20,8 +20,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const sp = await searchParams
   
   // 1. Fetch User Role & Locked Outlet
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', user?.id || '').single()
+  const userId = await getVerifiedUserId(supabase)
+  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', userId || '').single()
   const isReadOnly = profile?.role === 'MITRA'
   const lockedOutletId = isReadOnly ? profile?.outlet_id : null
 

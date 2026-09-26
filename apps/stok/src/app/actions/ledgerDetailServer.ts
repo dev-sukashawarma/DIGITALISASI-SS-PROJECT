@@ -1,7 +1,7 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL! || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -23,13 +23,13 @@ async function requireActiveStaff(): Promise<void> {
         cookieStore.set(name, value, options as any)
       ),
   })
-  const { data: { user }, error } = await authedClient.auth.getUser()
-  if (error || !user) throw new Error('Unauthorized: sesi tidak ditemukan')
+  const userId = await getVerifiedUserId(authedClient)
+  if (!userId) throw new Error('Unauthorized: sesi tidak ditemukan')
 
   const { data: staff } = await makeServiceClient()
     .from('outlet_staff')
     .select('status')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
   if (!staff || staff.status !== 'active') throw new Error('Unauthorized: staff tidak aktif')
 }

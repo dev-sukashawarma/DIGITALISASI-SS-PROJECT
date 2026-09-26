@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import { validateCheckoutPayload } from '@/lib/validations'
 import type { CheckoutPayload } from '@/types'
 import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, isMenuExcludedFromPromo, isScheduledPromo, BasePromo } from '@/lib/promo-calculator'
@@ -31,15 +32,15 @@ export async function POST(request: Request) {
   
   const supabaseAuth = await createClient()
 
-  const { data: { user } } = await supabaseAuth.auth.getUser()
+  const userId = await getVerifiedUserId(supabaseAuth)
   
   let outlet_id = PUSAT_OUTLET_ID // Default to Pusat for Kiosk Mode
 
-  if (user) {
+  if (userId) {
     const { data: profile } = await supabaseService
       .from('outlet_staff')
       .select('outlet_id, role')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     if (!profile) {

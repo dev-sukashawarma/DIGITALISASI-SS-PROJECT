@@ -1,7 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
@@ -80,8 +80,8 @@ export async function getMitraComprehensivePnl(
     setAll: () => {},
   })
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) throw new Error('Unauthorized')
 
   // Security check: restrict target outlet IDs to what the partner actually owns
   const targetOutletIds = selectedOutletId === 'all' 
@@ -133,7 +133,7 @@ export async function getMitraComprehensivePnl(
     rpcRes,
     settlementsRes
   ] = await Promise.all([
-    supabase.from('mitra_profiles').select('*').eq('user_id', user.id).single(),
+    supabase.from('mitra_profiles').select('*').eq('user_id', userId).single(),
     supabase.from('outlets').select('id, name').in('id', targetOutletIds),
     supabase.from('mitra_investments').select('*').in('outlet_id', targetOutletIds),
     supabase.from('mitra_transfers').select('*').in('outlet_id', targetOutletIds),

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { after, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 
 export const runtime = 'nodejs'
 
@@ -74,8 +74,8 @@ async function optimizeUploadedPhoto(supabase: Awaited<ReturnType<typeof createS
 
 export async function POST(request: Request) {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return errorResponse('Sesi login tidak ditemukan.', 401)
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) return errorResponse('Sesi login tidak ditemukan.', 401)
 
   const formData = await request.formData()
   const outletId = String(formData.get('outlet_id') ?? '')
@@ -104,13 +104,13 @@ export async function POST(request: Request) {
   try {
     // File asli langsung diterima pada path sementara. Server menimpanya
     // dengan byte WebP pada proses background setelah respons dikirim.
-    const path = `${user.id}/drafts/${outletId}/pending/${itemId}-${crypto.randomUUID()}.webp`
+    const path = `${userId}/drafts/${outletId}/pending/${itemId}-${crypto.randomUUID()}.webp`
     const { error: uploadError } = await supabase.storage
       .from(PHOTO_BUCKET)
       .upload(path, photo, { contentType: photo.type, cacheControl: '3600', upsert: false })
     if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
 
-    if (isOwnedDraftPath(previousPath, user.id, outletId)) {
+    if (isOwnedDraftPath(previousPath, userId, outletId)) {
       await supabase.storage.from(PHOTO_BUCKET).remove([previousPath!])
     }
 
@@ -137,13 +137,13 @@ export async function POST(request: Request) {
 /** Foto bukti untuk laporan. Jalur ini tersedia untuk admin dan regional manager. */
 export async function GET(request: Request) {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return errorResponse('Sesi login tidak ditemukan.', 401)
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) return errorResponse('Sesi login tidak ditemukan.', 401)
 
   const { data: staff, error: staffError } = await supabase
     .from('outlet_staff')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
   if (staffError || !staff || !['admin', 'regional_manager', 'developer'].includes(staff.role)) return errorResponse('Akses laporan hanya untuk admin atau regional manager.', 403)
 

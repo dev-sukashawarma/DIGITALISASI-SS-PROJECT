@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import type { OfflineIngestPayload } from '@/lib/offline'
 
 // Menerima pesanan yang DIBUAT saat kasir offline, lalu dikirim ulang setelah
@@ -99,15 +100,15 @@ export async function POST(request: Request) {
   const supabaseService = createServiceClient()
   const supabaseAuth = await createClient()
 
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) {
+  const userId = await getVerifiedUserId(supabaseAuth)
+  if (!userId) {
     return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 })
   }
 
   const { data: profile } = await supabaseService
     .from('outlet_staff')
     .select('outlet_id, role, name')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (!profile) {

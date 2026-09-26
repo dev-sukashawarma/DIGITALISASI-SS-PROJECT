@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import PettyCashBalanceView from './PettyCashBalanceView'
@@ -40,13 +40,13 @@ export default async function PettyCashBalancePage() {
     setAll: () => {},
   })
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) redirect('/')
 
   const { data: staff } = await supabase
     .from('outlet_staff')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   if (staff?.role !== 'admin' && staff?.role !== 'developer') redirect('/dashboard')

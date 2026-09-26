@@ -1,5 +1,6 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 /**
  * Gerbang otorisasi server-side untuk Server Action yang memakai service-role
@@ -19,18 +20,15 @@ export async function requireRole(
   allowedRoles: string[]
 ): Promise<{ userId: string; role: string }> {
   const supabase = await createClient()
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-  if (error || !user) {
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) {
     throw new Error('Unauthorized: sesi tidak ditemukan')
   }
 
   const { data: staff, error: staffError } = await supabase
     .from('outlet_staff')
     .select('role, status')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   if (staffError) throw new Error(staffError.message)
@@ -40,7 +38,7 @@ export async function requireRole(
     throw new Error(`Forbidden: aksi ini hanya untuk role ${allowedRoles.join('/')}`)
   }
 
-  return { userId: user.id, role: staff.role }
+  return { userId, role: staff.role }
 }
 
 /**

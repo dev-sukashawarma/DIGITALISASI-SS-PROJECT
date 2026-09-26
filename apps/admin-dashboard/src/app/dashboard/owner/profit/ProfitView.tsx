@@ -91,14 +91,19 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     ...rawOutlets.filter(o => !isTestOutlet(o))
   ], [rawOutlets])
 
+  const { filter, setFilter, lockedOutletId } = useScopedFilter()
+
   // Himpunan outlet kemitraan — dasar pemisahan Internal vs Mitra.
   const mitraIds = useMemo(
     () => mitraOutletIds(allOutlets, mitraInvestments),
     [allOutlets, mitraInvestments],
   )
   const inScope = useMemo(
-    () => (outletId: string | null | undefined) => isInScope(scope, outletId, mitraIds),
-    [scope, mitraIds],
+    () => (outletId: string | null | undefined, dateStr?: string | null) => {
+      const targetDate = dateStr ?? filter.to ?? filter.from
+      return isInScope(scope, outletId, mitraIds, targetDate, mitraInvestments as any)
+    },
+    [scope, mitraIds, filter.to, filter.from, mitraInvestments],
   )
 
   // Daftar outlet (dropdown filter & seed tabel) ikut menyempit sesuai scope.
@@ -106,8 +111,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     () => allOutlets.filter(o => inScope(o.id)),
     [allOutlets, inScope],
   )
-
-  const { filter, setFilter, lockedOutletId } = useScopedFilter()
 
   // Filter outlet tersimpan di store lintas halaman. Kalau pengguna memilih
   // satu outlet di tab Internal lalu pindah ke tab Mitra, outlet itu tak ada
@@ -218,13 +221,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   // Penyaringan scope dipasang SEKALI di sumber datanya, bukan di tiap
   // perhitungan — hero metrics, laporan P&L, leaderboard, dan ekspor CSV/PDF
   // semuanya membaca baris yang sudah disaring ini.
-  const salesRows = useMemo(() => sales.rows.filter(r => inScope(r.outlet_id)), [sales.rows, inScope])
-  const hppRows = useMemo(() => hpp.rows.filter(r => inScope(r.outlet_id)), [hpp.rows, inScope])
-  const wasteRows = useMemo(() => waste.rows.filter(r => inScope(r.outlet_id)), [waste.rows, inScope])
+  const salesRows = useMemo(() => sales.rows.filter(r => inScope(r.outlet_id, (r as any).date || (r as any).order_date)), [sales.rows, inScope])
+  const hppRows = useMemo(() => hpp.rows.filter(r => inScope(r.outlet_id, (r as any).date || (r as any).order_date)), [hpp.rows, inScope])
+  const wasteRows = useMemo(() => waste.rows.filter(r => inScope(r.outlet_id, (r as any).date || (r as any).created_at)), [waste.rows, inScope])
   // Biaya pusat (`scope === 'pusat'`) tak punya outlet_id: ia beban kantor
   // pusat, jadi ikut di tampilan gabungan & Internal, tapi tidak di Mitra.
   const rawExpenseRows = useMemo(
-    () => expenses.rows.filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id))),
+    () => expenses.rows.filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).date || (r as any).expense_date))),
     [expenses.rows, inScope, scope],
   )
 

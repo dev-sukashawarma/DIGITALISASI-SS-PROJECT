@@ -365,6 +365,8 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         .order('id', { ascending: true }))
 
       for (const order of orders) {
+        const cutoff = invMap[order.outlet_id]?.tanggal_mulai
+        if (cutoff && order.created_at < `${cutoff}T00:00:00+07:00`) continue
         const a = bump(order.outlet_id)
         const totalAmt = Number(order.total_amount) || 0
         let orderCogs = 0
@@ -395,19 +397,27 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     }
 
     for (const r of pettyRows) {
+      const cutoff = invMap[r.outlet_id]?.tanggal_mulai
+      if (cutoff && to < cutoff) continue
       if (r.outlet_id && !auditedOutlets.has(r.outlet_id)) {
         bump(r.outlet_id).opex += Number(r.amount) || 0
       }
     }
     for (const r of monthlyRows) {
+      const cutoff = invMap[r.outlet_id]?.tanggal_mulai
+      if (cutoff && to < cutoff) continue
       if (r.outlet_id) bump(r.outlet_id).opex += Number(r.amount) || 0
     }
     for (const w of (wasteRes.data || [])) {
+      const cutoff = invMap[w.outlet_id]?.tanggal_mulai
+      if (cutoff && to < cutoff) continue
       if (mitraOutletIds.includes(w.outlet_id)) bump(w.outlet_id).waste += Number(w.nilai_waste) || 0
     }
 
     if (isAugust2026Period(from, to)) {
       for (const oid of mitraOutletIds) {
+        const cutoff = invMap[oid]?.tanggal_mulai
+        if (cutoff && to < cutoff) continue
         const closing = getMitraAugustClosing(oid)
         if (closing) {
           const a = bump(oid)
@@ -432,6 +442,9 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     const omzetHistoris = Number(inv?.omzet_historis) || 0
     const transferHistoris = Number(inv?.transfer_historis) || 0
     const systemTransfers = transfersData.filter(t => t.outlet_id === oid).reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
+
+    const outletTanggalMulai = inv?.tanggal_mulai || profile?.tanggal_pks
+    const outletStartMonth = outletTanggalMulai ? outletTanggalMulai.slice(0, 7) : SYSTEM_START_MONTH
 
     // "Sudah kembali" = uang yang benar-benar sudah sampai ke mitra: bagi hasil
     // historis (diselesaikan di luar sistem) + transfer yang tercatat. Ini SATU
@@ -460,6 +473,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     const curMonthKey = todayWib().slice(0, 7)
 
     months.forEach((m, idx) => {
+      if (m.key < outletStartMonth) return
       const w = monthlyAgg[idx][oid]
       if (!w) return
       const p = resolveMitraPolicy({

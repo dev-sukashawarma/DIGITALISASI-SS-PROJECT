@@ -101,4 +101,20 @@ describe('isInScope', () => {
     expect(isInScope('mitra', null, mitra)).toBe(false)
     expect(isInScope('internal', null, mitra)).toBe(true)
   })
+
+  it('mendukung cutoff date: sebelum tanggal mulai dihitung internal, sesudah dihitung mitra', () => {
+    const cutoffs = { c: '2026-09-26' }
+    // Outlet 'c' sebelum 26 Sept 2026 adalah internal
+    expect(isInScope('internal', 'c', mitra, '2026-08-15', cutoffs)).toBe(true)
+    expect(isInScope('mitra', 'c', mitra, '2026-08-15', cutoffs)).toBe(false)
+    expect(isInScope('internal', 'c', mitra, '2026-09-25', cutoffs)).toBe(true)
+    expect(isInScope('mitra', 'c', mitra, '2026-09-25', cutoffs)).toBe(false)
+
+    // Outlet 'c' mulai 26 Sept 2026 adalah mitra
+    expect(isInScope('internal', 'c', mitra, '2026-09-26', cutoffs)).toBe(false)
+    expect(isInScope('mitra', 'c', mitra, '2026-09-26', cutoffs)).toBe(true)
+    expect(isInScope('internal', 'c', mitra, '2026-10-01', cutoffs)).toBe(false)
+    expect(isInScope('mitra', 'c', mitra, '2026-10-01', cutoffs)).toBe(true)
+  })
 })
+

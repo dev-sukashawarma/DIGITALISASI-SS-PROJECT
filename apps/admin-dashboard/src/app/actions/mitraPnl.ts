@@ -206,11 +206,41 @@ export async function getMitraComprehensivePnl(
   const outletList = outletListRes.data
   const investments = investmentsRes.data
   const transfers = transfersRes.data
-  const pettyExpenses = pettyExpensesRes.data
-  const monthlyExpenses = monthlyExpensesRes.data
-  const wasteRows = wasteRowsRes.data
+  let pettyExpenses = pettyExpensesRes.data || []
+  let monthlyExpenses = monthlyExpensesRes.data || []
+  let wasteRows = wasteRowsRes.data || []
   const { data: rpcData, error: rpcError } = rpcRes
-  const settlements = (settlementsRes as any)?.data || []
+  let settlements = (settlementsRes as any)?.data || []
+
+  // 3b. Cutoff Date Enforcement (Peralihan cabang internal ke kemitraan)
+  // Transaksi pengeluaran & waste sebelum tanggal_mulai outlet tidak boleh dibebankan ke mitra.
+  const outletCutoffMap = new Map<string, string>()
+  for (const inv of investments || []) {
+    if (inv?.outlet_id && inv?.tanggal_mulai) {
+      outletCutoffMap.set(inv.outlet_id, inv.tanggal_mulai)
+    }
+  }
+
+  if (outletCutoffMap.size > 0) {
+    pettyExpenses = pettyExpenses.filter((p: any) => {
+      const cutoff = outletCutoffMap.get(p.outlet_id)
+      return !cutoff || p.expense_date >= cutoff
+    })
+    monthlyExpenses = monthlyExpenses.filter((m: any) => {
+      const cutoff = outletCutoffMap.get(m.outlet_id)
+      return !cutoff || m.expense_date >= cutoff
+    })
+    settlements = settlements.filter((s: any) => {
+      const cutoff = outletCutoffMap.get(s.outlet_id)
+      return !cutoff || s.tanggal >= cutoff
+    })
+    wasteRows = wasteRows.filter((w: any) => {
+      const cutoff = outletCutoffMap.get(w.outlet_id)
+      if (!cutoff) return true
+      // Jika rentang filter berakhir sebelum cutoff, waste outlet ini adalah 0
+      return filter.to >= cutoff
+    })
+  }
 
   // Penentuan persentase bagi hasil kini lewat resolveMitraPolicy() di bawah
   // (per-outlet, sadar BEP & cutoff September 2026). Blok lama yang menghitung
@@ -376,10 +406,11 @@ export async function getMitraComprehensivePnl(
       return Math.round(baseHpp)
     }
 
-    // Error saat paginasi TIDAK boleh ditelan: sebelumnya `break` diam-diam
-    // membuat data separuh dipakai seolah lengkap, sehingga laba mitra
-    // dilaporkan terlalu kecil tanpa gejala apa pun.
-    const allOrders = await fetchAllPages<any>(buildOrdersQuery)
+    const allOrdersRaw = await fetchAllPages<any>(buildOrdersQuery)
+    const allOrders = allOrdersRaw.filter((o: any) => {
+      const cutoff = outletCutoffMap.get(o.outlet_id)
+      return !cutoff || o.created_at >= `${cutoff}T00:00:00+07:00`
+    })
 
     // Cadangan HPP lewat NAMA menu: jalur pemesanan web menyimpan order_items
     // tanpa `menu_item_id`, sehingga lookup lewat id menghasilkan 0 dan biaya

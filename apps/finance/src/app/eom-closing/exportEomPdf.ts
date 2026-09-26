@@ -10,6 +10,7 @@ import type { OpexSummary, OpexGroup } from '@/lib/eom/opex'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH, KONFIRMASI_SETORAN_MANUAL } from './types'
 import type { EomOutlet } from '@/lib/eom/kasir'
+import { prepareBadgeImages, drawBadge } from './pdfChannelBadge'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -185,6 +186,10 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
   const { doc, autoTable } = await setup()
   const { month, year, from, to } = d.period
   const noDok = `BA/SS/KSR/${year}/${String(month).padStart(2, '0')}`
+  const badges = await prepareBadgeImages([
+    ...d.channels.map((c) => c.key),
+    ...(d.outletDetails ?? []).flatMap((o) => o.channels.map((c) => c.key)),
+  ])
   let y = header(doc, { judul: 'REKAP PENJUALAN KASIR & KAS TOKO', noDok, month, year, dicetakOleh })
 
   y = kpiBoxes(doc, y, [
@@ -284,12 +289,24 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
     }),
     foot: [['TOTAL', rp(ct.rev), rp(ct.pot), rp(ct.a), ...(labelB ? [rp(ct.b)] : []), rp(ct.a + ct.b), rp(ct.laba), pct(ct.a + ct.b, ct.rev), '']],
     columnStyles: Object.fromEntries(Array.from({ length: labelB ? 9 : 8 }, (_, i) => [i, { halign: i === 0 ? 'left' : 'right' }])) as any,
+    didParseCell: (h) => {
+      if (h.section === 'body' && h.column.index === 0) {
+        h.cell.styles.cellPadding = { top: 1.6, bottom: 1.6, left: 8, right: 1.4 }
+        h.cell.styles.fontStyle = 'bold'
+      }
+    },
+    didDrawCell: (h) => {
+      if (h.section === 'body' && h.column.index === 0) {
+        const size = 4.2
+        drawBadge(doc, d.channels[h.row.index].key, h.cell.x + 1.8, h.cell.y + (h.cell.height - size) / 2, size, badges)
+      }
+    },
   })
   y = lastY(doc) + 8
 
   // IV. Laporan per outlet (Internal, lalu Mitra, lalu SS Online)
   if (d.outletDetails && d.outletDetails.length > 0) {
-    y = outletSection(doc, autoTable, d, labelA, labelB)
+    y = outletSection(doc, autoTable, d, labelA, labelB, badges)
   }
 
   signatures(doc, y, dicetakOleh)
@@ -310,7 +327,7 @@ const OUTLET_GROUPS: { type: string; judul: string; hppNote: string }[] = [
 ]
 const groupOf = (o: EomOutlet) => (o.outletType === 'mitra' ? 'mitra' : o.outletType === 'online' ? 'online' : 'outlet')
 
-function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, labelA: string, labelB: string | null) {
+function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, labelA: string, labelB: string | null, badges: Map<string, string>) {
   const outlets = d.outletDetails ?? []
   const cut = d.hppCutoff
   doc.addPage()
@@ -365,9 +382,16 @@ function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, label
       const flagged = new Set<number>()
       const channelRows = new Set<number>()
       const subtotalRows = new Set<number>()
-      for (const c of o.channels) {
+      const spacerRows = new Set<number>()
+      const channelKeyAt = new Map<number, string>()
+      o.channels.forEach((c, ci) => {
+        if (ci > 0) {
+          spacerRows.add(body.length)
+          body.push([{ content: '', colSpan: cols }])
+        }
         channelRows.add(body.length)
-        body.push([{ content: `${c.label}  —  ${c.qty.toLocaleString('id-ID')} porsi`, colSpan: cols }])
+        channelKeyAt.set(body.length, c.key)
+        body.push([{ content: `${c.label}  —  ${c.qty.toLocaleString('id-ID')} porsi  ·  omzet ${rp(c.revenue)}  ·  HPP ${rp(c.hppA + c.hppB)}  ·  food cost ${pct(c.hppA + c.hppB, c.revenue)}`, colSpan: cols }])
         for (const i of c.items) {
           const qty = i.qtyA + i.qtyB
           const flags = itemFlags(i, !!cut)
@@ -387,7 +411,7 @@ function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, label
         }
         subtotalRows.add(body.length)
         body.push([`Subtotal ${c.label}`, c.qty.toLocaleString('id-ID'), '', rp(c.revenue), '', ...(labelB ? [''] : []), rp(c.hppA + c.hppB), rp(c.labaKotor), pct(c.hppA + c.hppB, c.revenue), ''])
-      }
+      })
       const hA = labelB ? `HPP/porsi ${labelA.replace('HPP ', '')}${g.hppNote}` : `HPP/porsi${g.hppNote}`
       autoTable(doc, {
         ...TABLE_BASE,
@@ -398,6 +422,16 @@ function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, label
         styles: { ...TABLE_BASE.styles, fontSize: 6.5 },
         margin: { left: MARGIN, right: MARGIN, top: 20 },
         columnStyles: Object.fromEntries(Array.from({ length: cols }, (_, i) => [i, { halign: i === 0 || i === cols - 1 ? 'left' : 'right' }])) as any,
+        didDrawCell: (h) => {
+          if (h.section !== 'body' || !channelRows.has(h.row.index) || h.column.index !== 0) return
+          // divider tebal di atas tiap channel + logo channel
+          doc.setDrawColor(...ORANGE)
+          doc.setLineWidth(0.6)
+          doc.line(h.cell.x, h.cell.y, h.cell.x + h.cell.width, h.cell.y)
+          doc.setLineWidth(0.1)
+          const size = 5
+          drawBadge(doc, channelKeyAt.get(h.row.index)!, h.cell.x + 2, h.cell.y + (h.cell.height - size) / 2, size, badges)
+        },
         didDrawPage: (h) => {
           if (h.pageNumber > 1) {
             doc.setFont('helvetica', 'bold')
@@ -408,11 +442,20 @@ function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, label
         },
         didParseCell: (h) => {
           if (h.section !== 'body') return
-          if (channelRows.has(h.row.index)) {
+          if (spacerRows.has(h.row.index)) {
+            h.cell.styles.fillColor = [255, 255, 255]
+            h.cell.styles.lineWidth = 0
+            h.cell.styles.minCellHeight = 3.5
+            h.cell.styles.cellPadding = 0
+          } else if (channelRows.has(h.row.index)) {
             h.cell.styles.fillColor = [255, 237, 213]
             h.cell.styles.fontStyle = 'bold'
+            h.cell.styles.fontSize = 7.5
             h.cell.styles.textColor = [124, 45, 18]
             h.cell.styles.halign = 'left'
+            h.cell.styles.minCellHeight = 7
+            h.cell.styles.valign = 'middle'
+            h.cell.styles.cellPadding = { top: 1.5, bottom: 1.5, left: 9, right: 1.4 }
           } else if (subtotalRows.has(h.row.index)) {
             h.cell.styles.fontStyle = 'bold'
             h.cell.styles.fillColor = [248, 250, 252]

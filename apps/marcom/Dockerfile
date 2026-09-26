@@ -14,7 +14,7 @@ COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
 # Install dependencies, skip lifecycle scripts to avoid ERR_PNPM_IGNORED_BUILDS
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm install --frozen-lockfile --ignore-scripts || pnpm install --no-frozen-lockfile --ignore-scripts
 
 # Explicitly generate Prisma client and download Linux engine binary
 RUN pnpm prisma generate

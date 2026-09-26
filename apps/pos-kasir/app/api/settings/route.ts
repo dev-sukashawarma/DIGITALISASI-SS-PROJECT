@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 // Menggunakan service role key untuk bypass RLS (hanya jika diperlukan)
 // Tapi karena kita menggunakan cookie-based client, kita bisa panggil server client biasa.
 import { createClient as createServerClientConfig } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 export async function GET() {
   try {
@@ -30,10 +31,10 @@ export async function POST(request: Request) {
     const supabase = await createServerClientConfig()
 
     // Verifikasi role admin
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = await getVerifiedUserId(supabase)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase.from('outlet_staff').select('role').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('outlet_staff').select('role').eq('id', userId).single()
     if (profile?.role !== 'admin' && profile?.role !== 'developer') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

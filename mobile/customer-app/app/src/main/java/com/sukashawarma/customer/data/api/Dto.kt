@@ -98,6 +98,8 @@ data class ConfigDto(
     @SerialName("versi_minimum_android") val versiMinimumAndroid: Int = 1,
     @SerialName("url_syarat") val urlSyarat: String? = null,
     @SerialName("url_privasi") val urlPrivasi: String? = null,
+    // Urutan kurasi admin untuk Menu Terlaris di Beranda. Kosong = aturan lama.
+    @SerialName("menu_terlaris_ids") val menuTerlarisIds: List<String> = emptyList(),
 )
 
 @Serializable

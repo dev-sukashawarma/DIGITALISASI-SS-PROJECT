@@ -60,6 +60,7 @@ import coil.compose.AsyncImage
 import com.sukashawarma.customer.data.BannerDilihatStore
 import com.sukashawarma.customer.data.api.BannerDto
 import com.sukashawarma.customer.data.api.MenuItemDto
+import com.sukashawarma.customer.ui.config.LocalConfigApp
 import com.sukashawarma.customer.data.api.OutletDto
 import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.ErrorState
@@ -179,20 +180,9 @@ fun HomeScreen(
                 )
 
                 else -> {
-                    // Best Seller Items kurasi (dapat dikonfigurasi)
-                    val bestSellerKeywords = remember { listOf("Ayam", "Sapi") }
-                    val bestSellerItems = remember(state.semuaItem) {
-                        val matched = mutableListOf<MenuItemDto>()
-                        bestSellerKeywords.forEach { keyword ->
-                            state.semuaItem.firstOrNull { it.name.contains(keyword, ignoreCase = true) && it.isAvailable }?.let {
-                                if (!matched.contains(it)) matched.add(it)
-                            }
-                        }
-                        if (matched.isEmpty()) {
-                            state.semuaItem.filter { it.isAvailable }.take(2)
-                        } else {
-                            matched.take(2)
-                        }
+                    val kurasiTerlaris = LocalConfigApp.current.menuTerlarisIds
+                    val bestSellerItems = remember(state.semuaItem, kurasiTerlaris) {
+                        pilihMenuTerlaris(state.semuaItem, kurasiTerlaris)
                     }
 
                     HomeContentList(

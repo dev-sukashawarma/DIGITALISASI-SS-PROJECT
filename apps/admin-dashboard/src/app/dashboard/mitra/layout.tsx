@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { MitraOutletProvider } from './MitraOutletContext'
 import { redirect } from 'next/navigation'
 
@@ -16,15 +16,15 @@ export default async function MitraDashboardLayout({
     setAll: () => {},
   })
   
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) {
     redirect('/login')
   }
   
   const { data: profile } = await supabase
     .from('mitra_profiles')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single()
     
   if (!profile) {

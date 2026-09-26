@@ -203,3 +203,31 @@ export function kalimatSyarat(v: Voucher, namaMenu: Record<string, string>): str
   if (v.selesai) bagian.push(`s.d. ${tanggalTampil(v.selesai)}`)
   return bagian.join(' · ')
 }
+
+/** "Rp5rb", "Rp12,5rb", "Rp1,5jt" -- ringkas untuk potongan kiri kartu. */
+export function rpRingkas(n: number): string {
+  const ringkas = (x: number) => (Math.round(x * 10) / 10).toString().replace('.', ',')
+  if (n >= 1_000_000) return `Rp${ringkas(n / 1_000_000)}jt`
+  if (n >= 1_000) return `Rp${ringkas(n / 1_000)}rb`
+  return `Rp${Math.round(n)}`
+}
+
+/**
+ * Nilai besar + keterangan kecil di potongan kiri kartu voucher APK.
+ * Khusus gateway -- berbeda dengan kalimatSyarat, tak punya salinan di admin.
+ */
+export function labelNilai(v: Voucher, namaMenu: Record<string, string>): { nilai: string; sub: string } {
+  const nama = (id: string | null) => (id && namaMenu[id]) || 'menu promo'
+  switch (v.jenis) {
+    case 'persen':
+      return { nilai: `${v.nilai}%`, sub: v.maks_potongan != null ? `maks ${rpRingkas(v.maks_potongan)}` : 'potongan' }
+    case 'nominal':
+      return { nilai: rpRingkas(v.nilai ?? 0), sub: 'potongan' }
+    case 'gratis_item':
+      return { nilai: 'Gratis', sub: nama(v.menu_item_id) }
+    case 'beli_x_gratis_y':
+      return { nilai: `${v.beli_qty}+${v.gratis_qty}`, sub: `beli ${v.beli_qty} gratis ${v.gratis_qty}` }
+    case 'harga_spesial':
+      return { nilai: rpRingkas(v.harga_spesial ?? 0), sub: nama(v.menu_item_id) }
+  }
+}

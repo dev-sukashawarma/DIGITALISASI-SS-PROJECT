@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { terapkanVoucher, kalimatSyarat, rp, CATATAN_GRATIS, type Voucher, type KonteksVoucher } from './voucher'
+import { terapkanVoucher, kalimatSyarat, labelNilai, rpRingkas, rp, CATATAN_GRATIS, type Voucher, type KonteksVoucher } from './voucher'
 import type { MenuApp } from './catalog'
 import type { ItemPesanan } from './pricing'
 
@@ -134,4 +134,19 @@ describe('kalimatSyarat', () => {
     expect(kalimatSyarat(dasar({ jenis: 'gratis_item', menu_item_id: 'M' }), { M: 'Es Teh' })).toBe('Gratis 1× Es Teh')
   })
   it('rp', () => expect(rp(1234567)).toBe('Rp1.234.567'))
+})
+
+describe('labelNilai (potongan kiri kartu voucher)', () => {
+  it('rpRingkas', () => {
+    expect(rpRingkas(500)).toBe('Rp500')
+    expect(rpRingkas(5000)).toBe('Rp5rb')
+    expect(rpRingkas(12500)).toBe('Rp12,5rb')
+    expect(rpRingkas(1500000)).toBe('Rp1,5jt')
+  })
+  it('nominal', () => expect(labelNilai(dasar({ jenis: 'nominal', nilai: 5000 }), {})).toEqual({ nilai: 'Rp5rb', sub: 'potongan' }))
+  it('persen tanpa maks', () => expect(labelNilai(dasar({ nilai: 20 }), {})).toEqual({ nilai: '20%', sub: 'potongan' }))
+  it('persen dengan maks', () => expect(labelNilai(dasar({ nilai: 20, maks_potongan: 15000 }), {})).toEqual({ nilai: '20%', sub: 'maks Rp15rb' }))
+  it('gratis item', () => expect(labelNilai(dasar({ jenis: 'gratis_item', menu_item_id: 'M' }), { M: 'Ice Tea' })).toEqual({ nilai: 'Gratis', sub: 'Ice Tea' }))
+  it('beli x gratis y', () => expect(labelNilai(dasar({ jenis: 'beli_x_gratis_y', beli_qty: 2, gratis_qty: 1, menu_ids: ['A'] }), {})).toEqual({ nilai: '2+1', sub: 'beli 2 gratis 1' }))
+  it('harga spesial', () => expect(labelNilai(dasar({ jenis: 'harga_spesial', menu_item_id: 'A', harga_spesial: 25000 }), { A: 'Ayam Jumbo' })).toEqual({ nilai: 'Rp25rb', sub: 'Ayam Jumbo' }))
 })

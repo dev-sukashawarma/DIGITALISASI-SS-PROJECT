@@ -47,7 +47,7 @@ describe('POST /api/v1/vouchers', () => {
     const res = await POST(req())
     const body = await res.json()
     expect(body.vouchers.map((v: { id: string }) => v.id)).toEqual(['ok', 'habis'])
-    expect(body.vouchers[1]).toMatchObject({ status: 'belum', alasan: 'Sudah kamu pakai', kalimat_syarat: 'Potongan Rp5.000 · maks 1× per pelanggan' })
+    expect(body.vouchers[1]).toMatchObject({ status: 'belum', alasan: 'Sudah kamu pakai', kalimat_syarat: 'Potongan Rp5.000 · maks 1× per pelanggan', label_nilai: 'Rp5rb', label_sub: 'potongan' })
 
     // Validasi query filters untuk security
     expect(retail._from).toHaveBeenCalledWith('vouchers')

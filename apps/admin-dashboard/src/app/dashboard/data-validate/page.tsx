@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import DataValidateClient from './components/DataValidateClient'
 import { getOutletsForSelect } from './actions'
 
@@ -12,8 +12,8 @@ export default async function DataValidatePage() {
     setAll: () => {},
   })
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) {
     return <div className="p-8 text-center text-gray-500">Akses ditolak. Sesi tidak valid.</div>
   }
 

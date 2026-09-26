@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { presetRange } from '@/lib/period'
 import { getPettyCashData } from '@/app/actions/ownerDashboard'
 import PettyCashPageClient from './PettyCashPageClient'
@@ -16,8 +16,8 @@ export default async function PettyCashOwnerPage({ searchParams }: { searchParam
 
   const sp = await searchParams
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', user?.id || '').single()
+  const userId = await getVerifiedUserId(supabase)
+  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', userId || '').single()
   const isReadOnly = profile?.role === 'MITRA'
   const lockedOutletId = isReadOnly ? profile?.outlet_id : null
 

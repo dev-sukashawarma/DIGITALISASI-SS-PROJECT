@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import ProductDetailClient from './ProductDetailClient'
 import type { MenuItem } from '@/types'
 
@@ -11,9 +12,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = user
-    ? await supabase.from('outlet_staff').select('outlet_id').eq('id', user.id).single()
+  const userId = await getVerifiedUserId(supabase)
+  const { data: profile } = userId
+    ? await supabase.from('outlet_staff').select('outlet_id').eq('id', userId).single()
     : { data: null }
   const outletId = profile?.outlet_id || PUSAT_OUTLET_ID
 

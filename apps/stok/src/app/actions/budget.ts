@@ -2,7 +2,7 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import type { BudgetStatus, PeriodType } from '@/lib/stok/budget'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
@@ -38,11 +38,11 @@ async function getAuthedClient() {
 }
 
 async function getCurrentUserId(supabase: Awaited<ReturnType<typeof getAuthedClient>>): Promise<string> {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) {
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) {
     throw new Error('Unauthorized: No active user session found')
   }
-  return user.id
+  return userId
 }
 
 /** Gerbang minimal untuk aksi read-only ringan -- cukup staff aktif. */

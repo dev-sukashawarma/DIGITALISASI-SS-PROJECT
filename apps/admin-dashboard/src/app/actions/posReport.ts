@@ -11,7 +11,7 @@
 
 import { cookies } from 'next/headers'
 import { updateTag } from 'next/cache'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { ambilRiwayatHpp } from '@/lib/hpp/riwayatHpp'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { resolveCallerScope } from '@/lib/server/callerScope'
@@ -270,8 +270,8 @@ export async function getPosReportCategories(rawReq: PosReportRequest) {
 async function requireUser() {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({ getAll: () => cookieStore.getAll(), setAll: () => {} })
-  const { data: { user } } = await supabase.auth.getUser()
-  return !!user
+  const userId = await getVerifiedUserId(supabase)
+  return !!userId
 }
 
 /** Order hari lampau berubah (void/batal belakangan): buang cache tanggal itu saja. */

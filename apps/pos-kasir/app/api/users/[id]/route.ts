@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 async function verifyAdmin() {
   const supabaseAuth = await createClient()
 
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return false
+  const userId = await getVerifiedUserId(supabaseAuth)
+  if (!userId) return false
 
   const supabaseService = createServiceClient()
-  const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', userId).single()
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'developer')) return false
   return true

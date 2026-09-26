@@ -150,3 +150,13 @@ export async function resolveUserId(
   const { data: { user } } = await supabase.auth.getUser()
   return user?.id ?? null
 }
+
+/**
+ * userId dari sesi cookie untuk Server Action / Route Handler / RSC — pengganti
+ * `supabase.auth.getUser()` yang memanggil GET /auth/v1/user tiap kali.
+ * Pemeriksaannya sama dengan middleware (`resolveUserId` + SUPABASE_JWT_SECRET).
+ * Hanya untuk client SSR berbasis cookie, BUKAN token Bearer / service-role.
+ */
+export async function getVerifiedUserId(supabase: SessionAuthClient): Promise<string | null> {
+  return resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET)
+}

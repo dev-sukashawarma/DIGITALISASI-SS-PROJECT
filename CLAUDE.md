@@ -3170,5 +3170,21 @@ Waktu owner summary sesudah perubahan **452 ms** (sebelumnya 323 ms).
 
 ---
 
+## Session 2026-09-25/26: Ringkasan Bisnis & Rangkuman Penjualan — timeout, cache per hari, cache tahan redeploy (apps/admin-dashboard)
+
+**Status:** ✅ LIVE (merge `perf/owner-dashboard-cache`, `perf/pos-report-server`, `perf/pos-report-memo`). Migration `20260925160000_owner_dashboard_force_custom_plan` applied & terstempel.
+
+### Akar masalah & perbaikan
+- **Ringkasan Bisnis 500 = statement timeout 8 dtk.** `get_owner_dashboard_summary` (PL/pgSQL) kadang memakai *generic plan* di koneksi pool PostgREST: 7/24 hari selalu timeout vs 0,3–0,5 dtk dengan `SET plan_cache_mode = force_custom_plan`. ⚠️ Siapa pun yang `CREATE OR REPLACE` fungsi ini **WAJIB** menyertakan SET itu. Plus `RealtimeRefresher` dulu membuang SELURUH cache tiap order baru.
+- **Rangkuman Penjualan** dulu menarik seluruh order mentah ke browser (±23 MB "Bulan ini") & menarik ulang tiap order baru. Kini dihitung di server dengan rumus yang sama (`lib/posReport/compute.ts` — satu sumber rumus, jangan salin ke SQL/komponen lain), browser menerima ±42 KB.
+- **Cache per hari** (`lib/ownerDashboardCache.ts`, `lib/posReport/load.ts`): hari lampau di-cache per tanggal (Rangkuman 24 jam, Ringkasan 1 jam), hari ini memo 10–20 dtk. Klik tabel memakai memo hasil siap-pakai (`lib/posReport/prepared.ts`). Realtime: order hari ini → refresh (maks 1x/20 dtk); order lampau berubah → buang cache tanggal itu saja.
+
+### ⚠️ Gotcha — cache kini PERMANEN (tahan redeploy)
+- `.next/cache/fetch-cache` admin-dashboard dipasang sebagai **volume Coolify** (`admin-next-fetch-cache`).
+- Kunci cache memuat **sidik jari kode** pengambil data (`codeFingerprint`) → mengubah select/pemetaan otomatis membuat cache lama tak terpakai. Mengubah **bentuk hasil** tanpa menyentuh fungsi yang di-fingerprint → naikkan versi kunci (`pos-report-day-vN` / `owner-dashboard-chunk-vN`).
+- `updateTag`/`revalidateTag` Next.js **hanya di memori** — hilang saat restart. Karena itu kunci juga memuat **nomor generasi per tanggal** yang disimpan di disk (`lib/server/dayGenerations.ts`). Jalur baru yang mengubah data penjualan tanggal lampau **wajib** memanggil `bumpDayGenerations(dates)` (contoh: `api/ecommerce/import/route.ts`).
+- 🔴 **Belum diperbaiki:** `POST /api/ecommerce/import` memakai service role **tanpa cek login** — siapa pun bisa memasukkan penjualan & memotong stok.
+
+
 **Last updated:** 2026-09-25  
 **Owner:** Dev Suka Shawarma

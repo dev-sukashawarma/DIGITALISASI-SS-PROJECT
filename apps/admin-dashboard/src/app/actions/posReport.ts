@@ -15,8 +15,10 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { ambilRiwayatHpp } from '@/lib/hpp/riwayatHpp'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { resolveCallerScope } from '@/lib/server/callerScope'
+import { bumpDayGenerations } from '@/lib/server/dayGenerations'
 import { eachDateInclusive, isDateStr, jakartaDate, jakartaRangeIso } from '@/lib/ownerDashboardCache'
 import { loadPosReportOrders, getEarliestSalesDate, posReportDayTag, clearPosReportTodayMemo, selectReportOrders } from '@/lib/posReport/load'
+import { getPrepared, clearPrepared, PREPARED_TTL_WITH_TODAY_MS, PREPARED_TTL_PAST_ONLY_MS } from '@/lib/posReport/prepared'
 import {
   buildMenuMaps,
   buildPenerapHpp,
@@ -85,23 +87,18 @@ function sanitizeRequest(req: PosReportRequest) {
 }
 
 /** Data mentah + master yang dibutuhkan rumus, sudah difilter outlet. */
-async function loadReportContext(rawReq: PosReportRequest) {
-  const req = sanitizeRequest(rawReq)
-  const { supabase, scopeKey, allowedOutletIds } = await resolveCallerScope()
-
-  const realOutlets = req.outlets.filter((id) => id !== 'all' && id !== 'ss-online')
-  if (allowedOutletIds !== 'all' && realOutlets.some((id) => !allowedOutletIds.includes(id))) {
-    throw new Error('Forbidden: outlet not in caller scope')
-  }
-
+async function loadReportContext(
+  req: ReturnType<typeof sanitizeRequest>,
+  scope: Awaited<ReturnType<typeof resolveCallerScope>>,
+  from: string
+) {
+  const { supabase, scopeKey } = scope
   const today = jakartaDate(new Date())
-  // "Semua Waktu" dikirim sebagai 2000-01-01 — mulai dari order pertama saja.
-  const earliest = await getEarliestSalesDate(supabase, scopeKey)
-  const from = earliest && req.from < earliest ? earliest : req.from
   const to = req.to
 
   const isSSOnlineSelected = req.outlets.length === 1 && req.outlets[0] === 'ss-online'
   const includeAll = req.outlets.includes('all')
+  const realOutlets = req.outlets.filter((id) => id !== 'all' && id !== 'ss-online')
 
   const { fromIso, toIso } = jakartaRangeIso(req.from, req.to)
 
@@ -145,7 +142,6 @@ async function loadReportContext(rawReq: PosReportRequest) {
   const penerapHpp = buildPenerapHpp(menuItems, riwayat)
 
   return {
-    req,
     orders,
     shifts: shiftsRes.data ?? [],
     settlements: settlementsRes.data ?? [],
@@ -159,58 +155,116 @@ async function loadReportContext(rawReq: PosReportRequest) {
   }
 }
 
-export async function getPosReport(rawReq: PosReportRequest) {
-  const ctx = await loadReportContext(rawReq)
-  const { req } = ctx
+/**
+ * Tahap berat (data + kartu KPI), dimemo per (cakupan, rentang, outlet,
+ * channel) — lihat lib/posReport/prepared. Hasilnya dipakai ulang oleh setiap
+ * interaksi tabel (halaman, cari, metode bayar) yang tidak mengubah kunci itu.
+ */
+async function getPreparedReport(rawReq: PosReportRequest) {
+  const req = sanitizeRequest(rawReq)
+  // Cek login + cakupan outlet tetap dijalankan di SETIAP permintaan —
+  // memo tidak boleh jadi jalan pintas melewati otorisasi.
+  const scope = await resolveCallerScope()
+  const { supabase, scopeKey, allowedOutletIds } = scope
 
-  const analytics = computeAnalytics({
-    orders: ctx.orders,
-    shifts: ctx.shifts,
-    selectedChannels: req.channels,
-    menuItemByNameMap: ctx.menuItemByNameMap,
-    menuItemByIdMap: ctx.menuItemByIdMap,
-    penerapHpp: ctx.penerapHpp,
-    settlements: ctx.settlements,
-    isSSOnlineSelected: ctx.isSSOnlineSelected,
-    outlets: ctx.outlets,
+  const realOutlets = req.outlets.filter((id) => id !== 'all' && id !== 'ss-online')
+  if (allowedOutletIds !== 'all' && realOutlets.some((id) => !allowedOutletIds.includes(id))) {
+    throw new Error('Forbidden: outlet not in caller scope')
+  }
+
+  // "Semua Waktu" dikirim sebagai 2000-01-01 — mulai dari order pertama saja.
+  const earliest = await getEarliestSalesDate(supabase, scopeKey)
+  const from = earliest && req.from < earliest ? earliest : req.from
+  const today = jakartaDate(new Date())
+  const includesToday = from <= today && today <= req.to
+
+  // `today` ikut kunci: lewat tengah malam, rentang yang sama harus dihitung ulang.
+  const key = [scopeKey, from, req.to, today, req.outlets.join(','), req.channels.join(','), req.isPawoonVisible ? 1 : 0].join('|')
+  const ttl = includesToday ? PREPARED_TTL_WITH_TODAY_MS : PREPARED_TTL_PAST_ONLY_MS
+
+  const prepared = await getPrepared(key, ttl, async () => {
+    const ctx = await loadReportContext(req, scope, from)
+    const analytics = computeAnalytics({
+      orders: ctx.orders,
+      shifts: ctx.shifts,
+      selectedChannels: req.channels,
+      menuItemByNameMap: ctx.menuItemByNameMap,
+      menuItemByIdMap: ctx.menuItemByIdMap,
+      penerapHpp: ctx.penerapHpp,
+      settlements: ctx.settlements,
+      isSSOnlineSelected: ctx.isSSOnlineSelected,
+      outlets: ctx.outlets,
+    })
+    return {
+      ...ctx,
+      analytics,
+      availableChannels: computeAvailableChannels(ctx.orders, req.isPawoonVisible),
+      availablePaymentMethods: computeAvailablePaymentMethods(ctx.orders),
+      // Hasil turunan per filter tabel (bayar + cari), dipakai ulang saat
+      // hanya halaman tabel yang berganti.
+      derived: new Map<string, any>(),
+      categories: null as any,
+    }
   })
+  return { req, prepared }
+}
 
-  const tableRows = filterTableData(analytics.completedOrders, req.paymentMethod, req.search)
+export async function getPosReport(rawReq: PosReportRequest) {
+  const { req, prepared } = await getPreparedReport(rawReq)
+
+  const filterKey = JSON.stringify([req.paymentMethod, req.search])
+  let derived = prepared.derived.get(filterKey)
+  if (!derived) {
+    const tableRows = filterTableData(prepared.analytics.completedOrders, req.paymentMethod, req.search)
+    derived = {
+      tableRows,
+      footer: computeTableFooter(tableRows),
+      itemBreakdown: computeItemBreakdown(tableRows, prepared.outlets, prepared.penerapHpp),
+    }
+    // Batasi: pencarian yang diketik huruf demi huruf menghasilkan banyak kunci.
+    if (prepared.derived.size >= 20) prepared.derived.delete(prepared.derived.keys().next().value)
+    prepared.derived.set(filterKey, derived)
+  }
+
+  const { tableRows } = derived
   const totalPages = Math.max(1, Math.ceil(tableRows.length / req.pageSize))
   const page = Math.min(req.page, totalPages)
   const pageRows = tableRows.slice((page - 1) * req.pageSize, page * req.pageSize)
 
-  const { completedOrders, ...summary } = analytics
+  const { completedOrders, ...summary } = prepared.analytics
 
   return {
     analytics: { ...summary, completedCount: completedOrders.length },
-    availableChannels: computeAvailableChannels(ctx.orders, req.isPawoonVisible),
-    availablePaymentMethods: computeAvailablePaymentMethods(ctx.orders),
+    availableChannels: prepared.availableChannels,
+    availablePaymentMethods: prepared.availablePaymentMethods,
     table: {
       rows: pageRows,
       total: tableRows.length,
       page,
       totalPages,
-      footer: computeTableFooter(tableRows),
+      footer: derived.footer,
     },
-    itemBreakdown: computeItemBreakdown(tableRows, ctx.outlets, ctx.penerapHpp),
-    shifts: ctx.shifts,
-    orderCount: ctx.orders.length,
-    fetchedAt: ctx.fetchedAt,
-    isCached: ctx.isCached,
+    itemBreakdown: derived.itemBreakdown,
+    shifts: prepared.shifts,
+    orderCount: prepared.orders.length,
+    fetchedAt: prepared.fetchedAt,
+    isCached: prepared.isCached,
   }
 }
 
 /** Data untuk ekspor "PDF/CSV Semua Channel" — hanya dihitung saat tombol ditekan. */
 export async function getPosReportCategories(rawReq: PosReportRequest) {
-  const ctx = await loadReportContext(rawReq)
-  return computeCategoryReport(
-    ctx.orders,
-    ctx.req.channels,
-    ctx.outlets,
-    ctx.penerapHpp,
-    ctx.isSSOnlineSelected
-  )
+  const { req, prepared } = await getPreparedReport(rawReq)
+  if (!prepared.categories) {
+    prepared.categories = computeCategoryReport(
+      prepared.orders,
+      req.channels,
+      prepared.outlets,
+      prepared.penerapHpp,
+      prepared.isSSOnlineSelected
+    )
+  }
+  return prepared.categories
 }
 
 async function requireUser() {
@@ -227,19 +281,25 @@ export async function invalidatePosReportDays(dates: string[]) {
   const today = jakartaDate(new Date())
   const valid = Array.from(new Set(dates.filter((d) => isDateStr(d) && d < today))).slice(0, 31)
   for (const d of valid) updateTag(posReportDayTag(d))
+  bumpDayGenerations(valid)
+  if (valid.length > 0) clearPrepared()
 }
 
 /** Tombol "Segarkan Data": buang cache tanggal yang sedang dilihat. */
 export async function refreshPosReportRange(from: string, to: string) {
   if (!(await requireUser())) return
   clearPosReportTodayMemo()
+  clearPrepared()
   menuMemo.clear()
   if (!isDateStr(from) || !isDateStr(to) || from > to) return
   const today = jakartaDate(new Date())
+  // Batas bawah 2026-01-01: "Semua Waktu" dikirim sebagai 2000-01-01 dan tak ada
+  // penjualan sebelum 2026 — tanpa batas ini ±9.000 tag ikut dibuang.
   const dates = eachDateInclusive(from < '2026-01-01' ? '2026-01-01' : from, to < today ? to : today)
   if (dates.length > 400) {
     updateTag('pos-report')
     return
   }
   for (const d of dates) updateTag(posReportDayTag(d))
+  bumpDayGenerations(dates)
 }

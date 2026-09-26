@@ -56,11 +56,25 @@ export async function getCurrentUser(): Promise<AppUser | null> {
     }
 
 
+    let userRole = dbUser.role
+    try {
+      const { data: staffData } = await supabase
+        .from('outlet_staff')
+        .select('role')
+        .eq('id', authUser.id)
+        .maybeSingle()
+      if (staffData?.role?.toLowerCase() === 'developer') {
+        userRole = 'developer'
+      }
+    } catch (_) {
+      // ignore
+    }
+
     return {
       id: dbUser.id,
       email: dbUser.email,
       name: dbUser.name,
-      role: dbUser.role,
+      role: userRole,
     }
   } catch (err) {
     console.error('Error fetching current user:', err)

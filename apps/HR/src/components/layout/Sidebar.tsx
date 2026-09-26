@@ -13,15 +13,26 @@ export const Sidebar = () => {
   const pathname = usePathname()
   const { pendingLeavesCount, pendingKasbonCount } = useLeaveNotifications()
   const resolvedPortalUrl = resolvePortalUrl()
-  const { signOut } = useAuth()
+  const { outletStaff, signOut } = useAuth()
 
   const handleLogout = async () => {
     await signOut()
     window.location.href = resolvedPortalUrl
   }
 
-  const activeGroupTitle = NAV_GROUPS.find((g) => g.items.some((i) => isItemActive(i.href, pathname)))?.title
-  const [openDoor, setOpenDoor] = useState<string | null>(activeGroupTitle ?? NAV_GROUPS[0]?.title ?? null)
+  const isDeveloper = outletStaff?.role?.toLowerCase() === 'developer'
+  const filteredNavGroups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((item) => {
+      if (item.href === '/eom-closing' && !isDeveloper) {
+        return false
+      }
+      return true
+    }),
+  })).filter((g) => g.items.length > 0)
+
+  const activeGroupTitle = filteredNavGroups.find((g) => g.items.some((i) => isItemActive(i.href, pathname)))?.title
+  const [openDoor, setOpenDoor] = useState<string | null>(activeGroupTitle ?? filteredNavGroups[0]?.title ?? null)
   const [isLogoutOpen, setIsLogoutOpen] = useState(false)
 
   useEffect(() => {
@@ -45,7 +56,7 @@ export const Sidebar = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 text-sm">
-        {NAV_GROUPS.map((group) => {
+        {filteredNavGroups.map((group) => {
           const DoorIcon = group.icon
           const isOpen = openDoor === group.title
           const doorActive = group.items.some((i) => isItemActive(i.href, pathname))

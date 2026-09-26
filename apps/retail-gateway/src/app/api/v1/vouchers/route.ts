@@ -3,7 +3,7 @@ import { requireCustomer } from '@/lib/auth'
 import { createRetailClient, createServiceClient } from '@/lib/supabase'
 import { ambilKatalog } from '@/lib/catalog'
 import { KOLOM_VOUCHER, normalisasiVoucher, konteksPelanggan } from '@/lib/voucherDb'
-import { terapkanVoucher, kalimatSyarat } from '@/lib/voucher'
+import { terapkanVoucher, kalimatSyarat, labelNilai } from '@/lib/voucher'
 import type { ItemPesanan } from '@/lib/pricing'
 
 export const dynamic = 'force-dynamic'
@@ -54,9 +54,11 @@ export async function POST(request: Request) {
       const h = terapkanVoucher(v, pakaiKeranjang ? body.items! : null, {
         outletId: pakaiKeranjang ? body.outlet_id! : null, sekarang, katalog, ...kp,
       })
+      const label = labelNilai(v, namaMenu)
       return {
         id: v.id, nama: v.nama, deskripsi: v.deskripsi, jenis: v.jenis,
         kalimat_syarat: kalimatSyarat(v, namaMenu), selesai: v.selesai,
+        label_nilai: label.nilai, label_sub: label.sub,
         status: h.berlaku ? 'berlaku' : 'belum',
         ...(h.berlaku ? {} : { alasan: h.alasan }),
       }

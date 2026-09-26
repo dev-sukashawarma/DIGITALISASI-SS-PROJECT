@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Wallet, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList, PieChart, Target, UserCheck, TrendingDown, Table2, Building2, Truck, ExternalLink, BellRing } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Wallet, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList, PieChart, Target, UserCheck, TrendingDown, Table2, Building2, Truck, ExternalLink, BellRing, FileCheck } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -33,6 +33,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: 'PUSAT LAPORAN',
     items: [
+      { href: '/eom-closing', label: 'EOM Closing Satelit', icon: FileCheck },
       { href: '/laporan/penjualan', label: 'Rangkuman Penjualan', icon: PieChart },
       { href: '/laporan/buku-kas', label: 'Buku Kas (OPEX)', icon: Wallet },
       { href: '/laporan/selisih-stok', label: 'Selisih Stok', icon: Package },
@@ -43,6 +44,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/laporan/pembelian', label: 'Laporan Pembelian', icon: ShoppingCart },
     ],
   },
+
   {
     title: 'PURCHASING',
     items: [
@@ -143,8 +145,9 @@ export function CashLayout({ children }: { children: ReactNode }) {
   }, [pettyPendingCount, poPendingCount])
 
   const isPurchasingRole = outletStaff && ((outletStaff.role as string) === 'purchasing' || (outletStaff.role as string) === 'purchase')
+  const isDeveloper = outletStaff?.role?.toLowerCase() === 'developer'
 
-  const visibleNavGroups = isPurchasingRole
+  const baseNavGroups = isPurchasingRole
     ? NAV_GROUPS
         .filter(g => g.title === 'PURCHASING')
         .map(g => ({
@@ -160,6 +163,16 @@ export function CashLayout({ children }: { children: ReactNode }) {
           ],
         }))
     : NAV_GROUPS
+
+  const visibleNavGroups = baseNavGroups.map(g => ({
+    ...g,
+    items: g.items.filter(item => {
+      if (item.href === '/eom-closing' && !isDeveloper) {
+        return false
+      }
+      return true
+    }),
+  }))
 
   const BOTTOM_NAV_ITEMS = isPurchasingRole
     ? [

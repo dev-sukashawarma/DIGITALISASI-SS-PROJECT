@@ -9,7 +9,7 @@ import { DisbursementMethod } from '@/lib/types'
 // Role yang benar-benar boleh memproses tahap Finance (approve/reject/forward
 // dana). `leader`/`area_manager` punya akses app `finance` (ROLE_APP_ACCESS)
 // untuk tahap mereka sendiri, TAPI bukan untuk aksi di file ini.
-const FINANCE_STAFF_ROLES = ['admin_finance', 'admin', 'owner']
+const FINANCE_STAFF_ROLES = ['admin_finance', 'admin', 'owner', 'developer']
 
 async function getSupabaseClient() {
   const cookieStore = await cookies()

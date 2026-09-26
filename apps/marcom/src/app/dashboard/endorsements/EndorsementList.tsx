@@ -31,6 +31,7 @@ import {
   Utensils,
   FileSpreadsheet,
   Truck,
+  Building2,
   UserPlus,
   ArrowLeft,
   Clock,
@@ -410,7 +411,7 @@ export default function EndorsementList({
   const [outletFilter, setOutletFilter] = useState('')
   const [visitFilter, setVisitFilter] = useState('')
   const [postFilter, setPostFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'VISIT' | 'DELIVERY'>('ALL')
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'VISIT' | 'DELIVERY' | 'AGENCY'>('ALL')
 
   // Date filter states for operations tab
   const [datePreset, setDatePreset] = useState<
@@ -464,7 +465,7 @@ export default function EndorsementList({
   const [isPending, startTransition] = useTransition()
 
   // Menu & HPP preset states for modals
-  const [createType, setCreateType] = useState<'VISIT' | 'DELIVERY'>('VISIT')
+  const [createType, setCreateType] = useState<'VISIT' | 'DELIVERY' | 'AGENCY'>('VISIT')
   const [createShippingCost, setCreateShippingCost] = useState<string>('0')
   const [createMenuName, setCreateMenuName] = useState('Ayam jumbo dan Sapi sedang')
   const [createHpp, setCreateHpp] = useState(38000)
@@ -503,7 +504,7 @@ export default function EndorsementList({
     )
   }
 
-  const [editType, setEditType] = useState<'VISIT' | 'DELIVERY'>('VISIT')
+  const [editType, setEditType] = useState<'VISIT' | 'DELIVERY' | 'AGENCY'>('VISIT')
   const [editShippingCost, setEditShippingCost] = useState<string>('0')
   const [editMenuName, setEditMenuName] = useState('')
   const [editHpp, setEditHpp] = useState(0)
@@ -1568,7 +1569,8 @@ export default function EndorsementList({
                   className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors"
                 >
                   <option value="ALL">Semua Tipe Endorse</option>
-                  <option value="VISIT">Visit Outlet Fisik</option>
+                  <option value="VISIT">KOL Reguler (Visit Outlet)</option>
+                  <option value="AGENCY">Agency HDA GO</option>
                   <option value="DELIVERY">SS Online (Ekspedisi)</option>
                 </select>
               </div>
@@ -1781,6 +1783,12 @@ export default function EndorsementList({
                                 <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200/80 shrink-0">
                                   <Truck className="w-2.5 h-2.5 text-amber-700" />
                                   SS Online
+                                </span>
+                              )}
+                              {item.type === 'AGENCY' && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
+                                  <Building2 className="w-2.5 h-2.5 text-purple-600" />
+                                  Agency HDA
                                 </span>
                               )}
                             </div>
@@ -3282,6 +3290,7 @@ export default function EndorsementList({
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] font-semibold"
                       >
                         <option value="VISIT">Visit Outlet Fisik</option>
+                        <option value="AGENCY">Agency HDA GO</option>
                         <option value="DELIVERY">SS Online (Paket Ekspedisi)</option>
                       </select>
                     </div>
@@ -3637,6 +3646,7 @@ export default function EndorsementList({
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] font-semibold"
                       >
                         <option value="VISIT">Visit Outlet Fisik</option>
+                        <option value="AGENCY">Agency HDA GO</option>
                         <option value="DELIVERY">SS Online (Paket Ekspedisi)</option>
                       </select>
                     </div>

@@ -20,6 +20,7 @@ import {
   RefreshCw,
   HelpCircle,
   Truck,
+  Building2,
 } from 'lucide-react'
 import { updatePaymentStatus, updateDraftStatus, batchUpdatePayments } from '@/app/actions/endorsements'
 import { SerializedEndorsement } from './EndorsementList'
@@ -533,6 +534,12 @@ export default function EndorsementFinanceView({
                             <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                               <Truck className="w-2.5 h-2.5" />
                               Online
+                            </span>
+                          )}
+                          {item.type === 'AGENCY' && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                              <Building2 className="w-2.5 h-2.5" />
+                              Agency HDA
                             </span>
                           )}
                         </div>

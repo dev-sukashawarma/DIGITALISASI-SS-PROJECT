@@ -78,6 +78,7 @@ export async function getMonthlyBudgetMatrix(
       },
       endorsements: {
         where: {
+          type: 'VISIT',
           scheduleDate: {
             gte: startDate,
             lte: endDate,

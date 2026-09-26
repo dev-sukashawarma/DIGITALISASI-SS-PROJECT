@@ -76,14 +76,8 @@ async function verify() {
   console.log(`  • Endorsements: ${sepEndorsements}`)
   console.log(`  • Ads Campaigns: ${sepAds}`)
 
-  // 3. August 2026 Budget & Realization Totals
-  console.log('\n📈 AUGUST 2026 BUDGET & REALIZATION:')
-  const augBudgets = await prisma.outletBudget.findMany({
-    where: { periodMonth: 8, periodYear: 2026 },
-  })
-  const totalTargetBudget = augBudgets.reduce((acc, b) => acc + Number(b.targetBudget), 0)
-  const totalTargetKol = augBudgets.reduce((acc, b) => acc + b.targetKolCount, 0)
-
+  // 3. August 2026 Breakdown by Endorsement Type
+  console.log('\n📈 AUGUST 2026 BREAKDOWN BY ENDORSEMENT TYPE:')
   const augEndorsementsList = await prisma.endorsement.findMany({
     where: {
       scheduleDate: {
@@ -92,6 +86,7 @@ async function verify() {
       },
     },
     select: {
+      type: true,
       rateCard: true,
       hppMenu: true,
       shippingCost: true,
@@ -101,22 +96,43 @@ async function verify() {
     },
   })
 
-  const totalRateCard = augEndorsementsList.reduce((acc, e) => acc + Number(e.rateCard), 0)
-  const totalHpp = augEndorsementsList.reduce((acc, e) => acc + Number(e.hppMenu), 0)
-  const totalShipping = augEndorsementsList.reduce((acc, e) => acc + Number(e.shippingCost), 0)
-  const totalRealizedCost = totalRateCard + totalHpp + totalShipping
+  const regularKols = augEndorsementsList.filter((e) => (e.type || 'VISIT') === 'VISIT')
+  const agencyKols = augEndorsementsList.filter((e) => e.type === 'AGENCY')
+  const deliveryKols = augEndorsementsList.filter((e) => e.type === 'DELIVERY')
 
-  console.log(`- Target Budget: Rp ${totalTargetBudget.toLocaleString('id-ID')}`)
-  console.log(`- Target KOL: ${totalTargetKol}`)
-  console.log(`- Total Realized Cost: Rp ${totalRealizedCost.toLocaleString('id-ID')}`)
-  console.log(`  • Rate Card: Rp ${totalRateCard.toLocaleString('id-ID')}`)
-  console.log(`  • HPP Menu: Rp ${totalHpp.toLocaleString('id-ID')}`)
-  console.log(`  • Shipping Cost (SS Online): Rp ${totalShipping.toLocaleString('id-ID')}`)
-  console.log(`- Total Endorsements: ${augEndorsementsList.length}`)
-  console.log(`  • Visited: ${augEndorsementsList.filter((e) => e.visitStatus === 'VISITED').length}`)
-  console.log(`  • Posted: ${augEndorsementsList.filter((e) => e.postStatus === 'ON').length}`)
-  console.log(`  • Paid: ${augEndorsementsList.filter((e) => e.paymentStatus === 'PAID').length}`)
-  console.log(`  • Barter: ${augEndorsementsList.filter((e) => e.paymentStatus === 'BARTER').length}`)
+  const augBudgets = await prisma.outletBudget.findMany({
+    where: { periodMonth: 8, periodYear: 2026 },
+  })
+  const totalTargetBudget = augBudgets.reduce((acc, b) => acc + Number(b.targetBudget), 0)
+  const totalTargetKol = augBudgets.reduce((acc, b) => acc + b.targetKolCount, 0)
+
+  const regRate = regularKols.reduce((acc, e) => acc + Number(e.rateCard), 0)
+  const regHpp = regularKols.reduce((acc, e) => acc + Number(e.hppMenu), 0)
+  const regTotal = regRate + regHpp
+
+  const agencyHpp = agencyKols.reduce((acc, e) => acc + Number(e.hppMenu), 0)
+  const deliveryRate = deliveryKols.reduce((acc, e) => acc + Number(e.rateCard), 0)
+  const deliveryHpp = deliveryKols.reduce((acc, e) => acc + Number(e.hppMenu), 0)
+  const deliveryShipping = deliveryKols.reduce((acc, e) => acc + Number(e.shippingCost), 0)
+
+  console.log(`\n1️⃣ REGULAR KOL VISIT (Dihitung di Budget Matrix):`)
+  console.log(`  • Target Budget: Rp ${totalTargetBudget.toLocaleString('id-ID')} | Realisasi: Rp ${regTotal.toLocaleString('id-ID')} (Rate Card Rp ${regRate.toLocaleString('id-ID')} + HPP Rp ${regHpp.toLocaleString('id-ID')})`)
+  console.log(`  • Target KOL: ${totalTargetKol} | Realisasi KOL: ${regularKols.length}`)
+  console.log(`  • Posted: ${regularKols.filter((e) => e.postStatus === 'ON').length} | Paid: ${regularKols.filter((e) => e.paymentStatus === 'PAID').length}`)
+
+  console.log(`\n2️⃣ AGENCY HDA GO (Terpisah dari Budget KOL):`)
+  console.log(`  • Jumlah KOL: ${agencyKols.length} KOL`)
+  console.log(`  • Rate Card: Rp 0 (Barter/Agency Contract)`)
+  console.log(`  • Total HPP Menu: Rp ${agencyHpp.toLocaleString('id-ID')} (Mix jumbo)`)
+  console.log(`  • Posted: ${agencyKols.filter((e) => e.postStatus === 'ON').length}`)
+
+  console.log(`\n3️⃣ SS ONLINE DELIVERY (Terpisah):`)
+  console.log(`  • Jumlah KOL: ${deliveryKols.length} KOL`)
+  console.log(`  • Rate Card: Rp ${deliveryRate.toLocaleString('id-ID')} | HPP: Rp ${deliveryHpp.toLocaleString('id-ID')} | Ongkir: Rp ${deliveryShipping.toLocaleString('id-ID')}`)
+
+  console.log(`\n📊 GRAND TOTAL AUGUST 2026:`)
+  console.log(`  • Total Endorsements: ${augEndorsementsList.length} (${regularKols.length} Reguler + ${agencyKols.length} Agency + ${deliveryKols.length} Delivery)`)
+  console.log(`  • Total Realized Cost: Rp ${(regTotal + agencyHpp + deliveryRate + deliveryHpp + deliveryShipping).toLocaleString('id-ID')}`)
 
   console.log('\n✅ Verification completed successfully!')
   await prisma.$disconnect()

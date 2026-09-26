@@ -3,14 +3,16 @@ import { requireCustomer } from '@/lib/auth'
 import { createServiceClient, createRetailClient } from '@/lib/supabase'
 import { ambilKatalog } from '@/lib/catalog'
 import { periksaKeranjang, jumlahWajar } from '@/lib/validateCart'
-import { hitungTotal, type ItemPesanan } from '@/lib/pricing'
+import { type ItemPesanan } from '@/lib/pricing'
 import { buatQris, buatTagihan } from '@/lib/xendit'
 import { statusUntuk } from '@/lib/statusOutletDb'
 import { pesanStatus } from '@/lib/jamBuka'
+import { nilaiVoucher, type NilaiVoucher } from '@/lib/voucherDb'
+import { rincianDenganVoucher } from '@/lib/rincianVoucher'
+import { CATATAN_GRATIS } from '@/lib/voucher'
 
 export const dynamic = 'force-dynamic'
 
-const DISKON_PILOT_PERSEN = 0
 const BATAS_BAYAR_MS = 15 * 60 * 1000
 
 /** Bentuk nomor HP Indonesia yang wajar: 08xxx, 62xxx, atau +62xxx. */
@@ -52,6 +54,8 @@ export async function POST(request: Request) {
     outlet_id?: string
     items?: ItemPesanan[]
     customer_phone?: string
+    voucher_id?: string
+    kode_voucher?: string
   }
   try {
     body = await request.json()
@@ -162,7 +166,14 @@ export async function POST(request: Request) {
     console.error('gagal memuat katalog segar', e)
     return NextResponse.json({ error: 'Gagal memeriksa menu' }, { status: 502 })
   }
-  const masalah = periksaKeranjang(body.items, katalog)
+  // Item bercatatan "Gratis voucher" yang datang dari klien dibuang sebelum
+  // diperiksa maupun disusun jadi item tepercaya -- hanya server yang boleh
+  // menambahkan item gratis.
+  const itemsKlien = body.items.filter((it) => it.note !== CATATAN_GRATIS)
+  if (itemsKlien.length === 0) {
+    return NextResponse.json({ error: 'Pesanan wajib berisi minimal satu menu' }, { status: 400 })
+  }
+  const masalah = periksaKeranjang(itemsKlien, katalog)
   if (masalah.length > 0) {
     return NextResponse.json({ error: 'keranjang_berubah', masalah }, { status: 409 })
   }
@@ -173,7 +184,7 @@ export async function POST(request: Request) {
   // struk dapur, jadi nama karangan (atau yang memuat `|NOTE|` sendiri) bisa
   // merusak cetakan dapur.
   const petaMenu = new Map(katalog.map((m) => [m.id, m]))
-  const itemsTepercaya: ItemPesanan[] = body.items.map((it) => ({
+  const itemsTepercaya: ItemPesanan[] = itemsKlien.map((it) => ({
     menu_item_id: it.menu_item_id,
     name: petaMenu.get(it.menu_item_id)?.name ?? it.name,
     unit_price: it.unit_price,
@@ -181,7 +192,21 @@ export async function POST(request: Request) {
     note: it.note ? String(it.note).slice(0, 200).replace(/\|NOTE\|/g, ' ') : undefined,
   }))
 
-  const rincian = hitungTotal(itemsTepercaya, DISKON_PILOT_PERSEN)
+  let nv: NilaiVoucher
+  try {
+    nv = await nilaiVoucher({
+      retail, pilih: { voucherId: body.voucher_id, kodeVoucher: body.kode_voucher },
+      customerId: sesi.customerId, outletId: body.outlet_id, items: itemsTepercaya, katalog, sekarang: new Date(),
+    })
+  } catch (e) {
+    console.error('gagal memeriksa voucher', e)
+    return NextResponse.json({ error: 'voucher_tidak_berlaku', pesan: 'Voucher tidak dapat dicek, coba lagi' }, { status: 409 })
+  }
+  // Tidak ada tagihan yang terbit dengan harga yang salah.
+  if (nv.ada && !nv.hasil.berlaku) {
+    return NextResponse.json({ error: 'voucher_tidak_berlaku', pesan: nv.hasil.alasan }, { status: 409 })
+  }
+  const { itemsAkhir, rincian } = rincianDenganVoucher(itemsTepercaya, nv)
   const kedaluwarsa = new Date(Date.now() + BATAS_BAYAR_MS)
 
   // URUTAN INI PENTING. Draft dipesan LEBIH DULU, sebelum tagihan dibuat.
@@ -196,7 +221,7 @@ export async function POST(request: Request) {
       client_order_id: body.client_order_id,
       customer_id: sesi.customerId,
       outlet_id: body.outlet_id,
-      items: itemsTepercaya,
+      items: itemsAkhir,
       subtotal: rincian.subtotal,
       discount_amount: rincian.discountAmount,
       total_amount: rincian.total,
@@ -240,6 +265,15 @@ export async function POST(request: Request) {
     }
     console.error('Gagal menyimpan draft pesanan:', draftError)
     return NextResponse.json({ error: 'Gagal menyimpan pesanan' }, { status: 500 })
+  }
+
+  // Baris pemakaian dicatat SEBELUM tagihan: kalau gagal, tak ada QRIS yang
+  // terbit untuk pesanan berdiskon yang tak tercatat pemakaiannya.
+  if (nv.ada && nv.hasil.berlaku && nv.voucher) {
+    const { error: pakaiError } = await retail.from('voucher_pemakaian').insert({
+      voucher_id: nv.voucher.id, draft_id: draft.id, customer_id: sesi.customerId, potongan: nv.hasil.potongan,
+    })
+    if (pakaiError) return await gagalkanDraft(retail, draft.id, body.client_order_id, pakaiError)
   }
 
   const { data: pelanggan } = await retail

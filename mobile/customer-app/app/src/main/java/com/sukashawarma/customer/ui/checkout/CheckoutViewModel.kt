@@ -4,11 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sukashawarma.customer.data.CartLine
 import com.sukashawarma.customer.data.CartStore
+import com.sukashawarma.customer.data.PilihanVoucher
 import com.sukashawarma.customer.data.Repository
 import com.sukashawarma.customer.data.api.CartItemPayload
 import com.sukashawarma.customer.data.api.CartProblemDto
 import com.sukashawarma.customer.data.api.GatewayError
 import com.sukashawarma.customer.data.api.GatewayResult
+import com.sukashawarma.customer.data.api.VoucherCheckoutDto
+import com.sukashawarma.customer.data.api.VoucherDto
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,11 +30,14 @@ data class CheckoutState(
     val masalah: List<CartProblemDto> = emptyList(),
     val alasan: String? = null,
     val pesanPenolakan: String? = null,
-    val keranjangKosong: Boolean = false
+    val keranjangKosong: Boolean = false,
+    val voucher: PilihanVoucher? = null,
+    val blokVoucher: VoucherCheckoutDto? = null
 ) {
     /** Boleh lanjut membayar hanya kalau gateway benar-benar meloloskannya. */
     val bolehLanjut: Boolean
-        get() = !memuat && galat == null && total != null && masalah.isEmpty() && alasan == null
+        get() = !memuat && galat == null && total != null && masalah.isEmpty() && alasan == null &&
+            alasanKunciVoucher(voucher, blokVoucher) == null
 }
 
 fun CartLine.kePayload() = CartItemPayload(
@@ -66,11 +73,25 @@ class CheckoutViewModel(
     private val _state = MutableStateFlow(CheckoutState())
     val state: StateFlow<CheckoutState> = _state.asStateFlow()
 
+    /**
+     * Percobaan validasi yang sedang berjalan.
+     *
+     * Ganti voucher lalu buru-buru lepas (atau layar resume sementara
+     * permintaan lama masih di jalan) bisa melahirkan dua permintaan
+     * `validasiCheckout` bersamaan. Tanpa dibatalkan, balasan yang lebih
+     * lambat bisa datang belakangan dan menimpa balasan untuk pilihan
+     * voucher yang benar -- ringkasan menampilkan total yang berbeda dari
+     * yang akan ditagih.
+     */
+    private var validasiJob: Job? = null
+
     init {
         validasi()
     }
 
     fun validasi() {
+        validasiJob?.cancel()
+
         val baris = cart.isi()
         val outletId = cart.outletId()
 
@@ -88,12 +109,21 @@ class CheckoutViewModel(
             pesanPenolakan = null
         )
 
-        viewModelScope.launch {
-            when (val hasil = repository.validasiCheckout(outletId, baris.flatMap { it.kePayloadList() })) {
+        val voucher = cart.voucher()
+
+        validasiJob = viewModelScope.launch {
+            when (val hasil = repository.validasiCheckout(outletId, baris.flatMap { it.kePayloadList() }, voucher)) {
                 is GatewayResult.Gagal -> {
+                    // Belt and braces: `cancel()` di atas SEHARUSNYA sudah
+                    // mencegah ini, tapi kalau balasan sudah terlanjur
+                    // mendarat tepat sebelum pembatalan, voucher yang
+                    // berubah sejak permintaan ini dikirim tidak boleh
+                    // menimpa layar.
+                    if (cart.voucher() != voucher) return@launch
                     _state.value = _state.value.copy(memuat = false, galat = hasil.error)
                 }
                 is GatewayResult.Sukses -> {
+                    if (cart.voucher() != voucher) return@launch
                     val r = hasil.data
                     if (r.ok) {
                         // Angka yang ditampilkan adalah angka gateway. Menghitung
@@ -106,7 +136,9 @@ class CheckoutViewModel(
                             total = r.total?.roundToLong(),
                             masalah = emptyList(),
                             alasan = null,
-                            pesanPenolakan = null
+                            pesanPenolakan = null,
+                            voucher = voucher,
+                            blokVoucher = r.voucher
                         )
                     } else {
                         // HTTP 200 dengan `ok: false` adalah PENOLAKAN, bukan
@@ -119,12 +151,30 @@ class CheckoutViewModel(
                             total = null,
                             masalah = r.masalah ?: emptyList(),
                             alasan = r.alasan,
-                            pesanPenolakan = pesanUntukAlasan(r.alasan, r.pesan)
+                            pesanPenolakan = pesanUntukAlasan(r.alasan, r.pesan),
+                            voucher = voucher,
+                            blokVoucher = r.voucher
                         )
                     }
                 }
             }
         }
+    }
+
+    fun pasangVoucher(v: PilihanVoucher) {
+        cart.pasangVoucher(v)
+        validasi()
+    }
+
+    fun lepasVoucher() {
+        cart.lepasVoucher()
+        validasi()
+    }
+
+    suspend fun daftarVoucher(): GatewayResult<List<VoucherDto>> {
+        val outletId = cart.outletId()
+        val items = cart.isi().flatMap { it.kePayloadList() }
+        return repository.vouchers(outletId, items.takeIf { it.isNotEmpty() })
     }
 
     /**

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.roundToLong
 
 /** Jeda antar-penanyaan status selama menit pertama. */
 private const val JEDA_TANYA_AWAL_MS = 3_000L
@@ -88,8 +89,20 @@ class PaymentViewModel(
     private val percobaan: OrderAttemptStore
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(PaymentState(totalTagihan = cart.subtotal()))
+    private val _state = MutableStateFlow(PaymentState(totalTagihan = totalAwal()))
     val state: StateFlow<PaymentState> = _state.asStateFlow()
+
+    /**
+     * Angka pra-server yang aman ditampilkan sebelum gateway membalas.
+     *
+     * `cart.subtotal()` tidak tahu soal voucher -- kalau keranjang sedang
+     * memakainya, subtotal lokal SELALU terlalu besar (dipotong belum
+     * dihitung) sampai `bayar()`/`tanyaSampaiPasti()` mengisi angka gateway.
+     * `PaymentWaitScreen` merender blok jumlah begitu `totalTagihan > 0` dan
+     * TIDAK digerbangi `memuat`, jadi angka pra-voucher sempat terlihat kalau
+     * tidak disembunyikan (0L) duluan di sini.
+     */
+    private fun totalAwal(): Long = if (cart.voucher() != null) 0L else cart.subtotal()
 
     /**
      * Membuat pesanan, atau melanjutkan percobaan yang belum selesai.
@@ -112,10 +125,21 @@ class PaymentViewModel(
             percobaan.simpanClientOrderId(it)
         }
 
-        _state.value = _state.value.copy(memuat = true, pesanGalat = null, totalTagihan = total)
+        // total lokal dipakai untuk pesan galat "keranjang kosong" di atas (bukan
+        // pembayaran nyata), tapi begitu request BENAR-BENAR dikirim (memuat =
+        // true), tampilkan totalAwal() -- sembunyikan angka pra-voucher yang
+        // salah sampai gateway membalas (I2).
+        _state.value = _state.value.copy(memuat = true, pesanGalat = null, totalTagihan = totalAwal())
 
         viewModelScope.launch {
-            when (val hasil = repository.buatPesanan(clientOrderId, outletId, baris.flatMap { it.kePayloadList() })) {
+            when (
+                val hasil = repository.buatPesanan(
+                    clientOrderId,
+                    outletId,
+                    baris.flatMap { it.kePayloadList() },
+                    voucher = cart.voucher()
+                )
+            ) {
                 is GatewayResult.Sukses -> {
                     val r = hasil.data
                     percobaan.simpanOrderId(r.orderId)
@@ -130,7 +154,11 @@ class PaymentViewModel(
                         //
                         // Custom Tab HANYA dibuka bila tidak ada QR -- lihat
                         // penjaga di PaymentWaitScreen.
-                        paymentUrl = r.paymentUrl
+                        paymentUrl = r.paymentUrl,
+                        // Angka gateway menang atas subtotal lokal (yang tidak
+                        // tahu soal voucher). QRIS dan layar ini WAJIB menagih
+                        // angka yang sama.
+                        totalTagihan = r.totalAmount.roundToLong()
                     )
                     tanyaSampaiPasti(r.orderId)
                 }
@@ -170,6 +198,12 @@ class PaymentViewModel(
                 when (val hasil = repository.statusPesanan(orderId)) {
                     is GatewayResult.Sukses -> {
                         val d = hasil.data
+                        // Angka nyata muncul begitu diketahui -- termasuk saat
+                        // status masih "menunggu" dan tidak ada cabang di bawah
+                        // yang cocok. Menunggu sampai `dibayar` berarti layar
+                        // ini menampilkan Rp0 (tersembunyi) atau angka lokal
+                        // yang salah selama pesanan masih diproses.
+                        _state.value = _state.value.copy(totalTagihan = d.totalAmount.roundToLong())
                         when (d.status) {
                             "dibayar" -> {
                                 cart.kosongkan()
@@ -235,13 +269,29 @@ class PaymentViewModel(
             return
         }
 
-        _state.value = _state.value.copy(memuat = true, orderId = orderId)
+        // Pesanan ini SUDAH ada di server (sedang dilanjutkan, bukan dibuat).
+        // `totalTagihan` dihapus ke 0 di SINI, sebelum permintaan
+        // `statusPesanan` pertama dikirim -- bukan hanya di cabang `Gagal`
+        // (fix round 2). `PaymentWaitScreen` merender blok jumlah begitu
+        // `totalTagihan > 0`, dan blok itu TIDAK digerbangi oleh `memuat`,
+        // jadi selama nilai konstruktor (`cart.subtotal()`, pra-voucher)
+        // masih bertahan di sini, ia sempat terlihat pada round-trip pertama
+        // -- bahkan di jalur yang nanti berujung sukses (LANJUTKAN), bukan
+        // cuma yang berujung galat.
+        _state.value = _state.value.copy(memuat = true, orderId = orderId, totalTagihan = 0L)
 
         viewModelScope.launch {
             when (val hasil = repository.statusPesanan(orderId)) {
                 is GatewayResult.Gagal -> {
                     // Tidak tahu nasibnya. Arah aman: pantau, jangan menagih ulang.
-                    _state.value = _state.value.copy(memuat = false)
+                    //
+                    // `totalTagihan` DIHAPUS ke 0, bukan dibiarkan pakai
+                    // `cart.subtotal()` dari inisialisasi -- pesanan ini SUDAH
+                    // ada (kita sedang menanyakan statusnya), jadi angka lokal
+                    // yang tidak tahu soal voucher tidak boleh ditampilkan.
+                    // `tanyaSampaiPasti` di bawah akan mengisinya lagi begitu
+                    // balasan status pertama yang berhasil datang.
+                    _state.value = _state.value.copy(memuat = false, totalTagihan = 0L)
                     tanyaSampaiPasti(orderId)
                 }
 
@@ -284,7 +334,11 @@ class PaymentViewModel(
                                 // salinan lokal hilang saat aplikasi dipasang
                                 // ulang atau pelanggan ganti perangkat.
                                 qrString = d.qrString,
-                                urlBayarTersimpan = d.paymentUrl ?: percobaan.paymentUrl()
+                                urlBayarTersimpan = d.paymentUrl ?: percobaan.paymentUrl(),
+                                // Angka gateway menang -- pesanan lama ini bisa
+                                // saja dibuat dengan voucher, dan cart.subtotal()
+                                // tidak tahu itu.
+                                totalTagihan = d.totalAmount.roundToLong()
                             )
                             tanyaSampaiPasti(orderId)
                         }
@@ -318,5 +372,7 @@ fun pesanBayar(galat: GatewayError): String = when {
         "Batas waktu pembayaran sudah lewat. Tekan bayar lagi untuk memulai ulang."
     galat is GatewayError.Kode && galat.kode == "keranjang_berubah" ->
         "Menu outlet berubah sejak kamu memilih. Kembali ke ringkasan untuk memperbaikinya."
+    galat is GatewayError.Kode && galat.kode == "voucher_tidak_berlaku" ->
+        galat.pesan
     else -> pesanGalat(galat)
 }

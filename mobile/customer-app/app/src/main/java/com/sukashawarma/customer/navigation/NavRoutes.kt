@@ -28,4 +28,5 @@ object Rute {
     const val PROFIL = "profil"
     const val INFO_AKUN = "info-akun"
     const val NOTIFIKASI = "notifikasi"
+    const val VOUCHER = "voucher"
 }

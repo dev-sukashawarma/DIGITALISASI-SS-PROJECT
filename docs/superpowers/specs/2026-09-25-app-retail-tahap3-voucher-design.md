@@ -53,7 +53,7 @@ ditanam di `checkout/validate/route.ts` dan `orders/route.ts`.
 
 CHECK per jenis wajib ada, supaya satu jenis tidak bisa berisi nilai yang tidak lengkap. Contoh:
 `persen` → `nilai` di (0,100]; `gratis_item` → `menu_item_id` NOT NULL; `beli_x_gratis_y` →
-`beli_qty ≥ 1`, `gratis_qty ≥ 1`, dan salah satu dari `menu_item_id`/`menu_ids`.
+`beli_qty ≥ 1`, `gratis_qty ≥ 1`, dan `menu_ids` (menu X) tidak kosong. Menu Y = `menu_item_id`, atau menu X termurah di keranjang bila kosong.
 
 ### `retail.voucher_pemakaian`
 | Kolom | Arti |
@@ -93,7 +93,7 @@ Aturan:
 - `gratis_item` → server menambahkan `gratis_qty` (default 1) item `menu_item_id`
   **dengan harga normal**, dan nilainya masuk potongan.
 - `beli_x_gratis_y` → untuk tiap kelipatan `beli_qty` item X di keranjang, `gratis_qty`
-  item Y ditambahkan (Y = `menu_item_id`, atau menu X yang sama bila kosong), dengan
+  item Y ditambahkan (Y = `menu_item_id`, atau menu X termurah yang dibeli bila kosong), dengan
   harga normal, dan nilainya masuk potongan.
 - `harga_spesial` → potongan = (harga normal − `harga_spesial`) × qty menu itu, dan tidak
   boleh negatif.
@@ -112,7 +112,7 @@ baris Potongan (laba tetap sama, tapi Potongan tampak lebih kecil dari kenyataan
 |---|---|
 | `POST /api/v1/vouchers` (baru, wajib login) | Body opsional `{ outlet_id, items }`. Hasilnya daftar voucher publik aktif dan belum berakhir, masing-masing `{ id, nama, deskripsi, jenis, kalimat_syarat, selesai, status: 'berlaku'|'belum', alasan? }`. Tanpa keranjang, hanya syarat non-keranjang yang dicek |
 | `POST /api/v1/checkout/validate` | Field opsional `voucher_id` atau `kode_voucher`. Respons ditambah `voucher: { id, nama, status, alasan?, potongan, item_gratis[] }` |
-| `POST /api/v1/orders` | Field sama. Voucher dihitung ulang di server. Tidak berlaku → **409** `{ kode: 'voucher_tidak_berlaku', alasan }`, tidak ada tagihan yang terbit. Berlaku → draft (items + item gratis, `discount_amount`) + baris `voucher_pemakaian` dalam satu alur |
+| `POST /api/v1/orders` | Field sama. Voucher dihitung ulang di server. Tidak berlaku → **409** `{ error: 'voucher_tidak_berlaku', pesan: alasan }` (bentuk yang sudah dibaca `petakanGalat` di APK), tidak ada tagihan yang terbit. Berlaku → draft (items + item gratis, `discount_amount`) + baris `voucher_pemakaian` dalam satu alur |
 | Webhook Xendit lunas | `UPDATE voucher_pemakaian SET lunas_at = now() WHERE draft_id = … AND lunas_at IS NULL`, tanpa cek ulang kuota (V5) |
 
 - Item gratis diteruskan ke POS lewat `susunPayloadPos` dengan catatan `Gratis voucher`

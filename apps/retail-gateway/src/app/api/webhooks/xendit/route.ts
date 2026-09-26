@@ -50,6 +50,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
   }
 
+  // Tandai pemakaian voucher lunas. Idempoten dan berjalan juga pada webhook
+  // kembar. Respons di bawah tetap 200 walau `lunasError` terjadi -- Xendit
+  // TIDAK akan mengirim ulang -- jadi kegagalan di sini hanya dicatat log
+  // untuk ditindaklanjuti manual, bukan disembuhkan otomatis oleh retry.
+  // Kuota TIDAK dicek ulang: pesanan yang sudah lunas selalu dihormati.
+  const { error: lunasError } = await retail
+    .from('voucher_pemakaian')
+    .update({ lunas_at: new Date().toISOString() })
+    .eq('draft_id', draft.id)
+    .is('lunas_at', null)
+  if (lunasError) console.error('GAGAL MENANDAI VOUCHER LUNAS', { draft_id: draft.id, error: lunasError })
+
   // Sudah pernah didorong ke kasir. Webhook kembar itu lumrah -- abaikan,
   // jangan membuat pesanan kedua.
   if (draft.pos_order_id) {

@@ -1,21 +1,22 @@
 import { NextResponse } from 'next/server'
 import { requireCustomer } from '@/lib/auth'
-import { createServiceClient } from '@/lib/supabase'
+import { createServiceClient, createRetailClient } from '@/lib/supabase'
 import { ambilKatalog } from '@/lib/catalog'
 import { periksaKeranjang, jumlahWajar } from '@/lib/validateCart'
-import { hitungTotal, type ItemPesanan } from '@/lib/pricing'
+import { type ItemPesanan } from '@/lib/pricing'
 import { statusUntuk } from '@/lib/statusOutletDb'
 import { pesanStatus } from '@/lib/jamBuka'
+import { nilaiVoucher, type NilaiVoucher } from '@/lib/voucherDb'
+import { rincianDenganVoucher } from '@/lib/rincianVoucher'
+import { CATATAN_GRATIS } from '@/lib/voucher'
 
 export const dynamic = 'force-dynamic'
-
-const DISKON_PILOT_PERSEN = 0
 
 export async function POST(request: Request) {
   const sesi = await requireCustomer(request)
   if (!sesi) return NextResponse.json({ error: 'Sesi tidak sah' }, { status: 401 })
 
-  let body: { outlet_id?: string; items?: ItemPesanan[] }
+  let body: { outlet_id?: string; items?: ItemPesanan[]; voucher_id?: string; kode_voucher?: string }
   try {
     body = await request.json()
   } catch {
@@ -75,12 +76,26 @@ export async function POST(request: Request) {
     console.error('gagal memuat katalog segar', e)
     return NextResponse.json({ error: 'Gagal memeriksa menu' }, { status: 502 })
   }
-  const masalah = periksaKeranjang(body.items, katalog)
+  const itemsBelanja = body.items.filter((it) => it.note !== CATATAN_GRATIS)
+  if (itemsBelanja.length === 0) {
+    return NextResponse.json({ error: 'Pesanan wajib berisi minimal satu menu' }, { status: 400 })
+  }
+  const masalah = periksaKeranjang(itemsBelanja, katalog)
 
   if (masalah.length > 0) {
     return NextResponse.json({ ok: false, alasan: 'keranjang_berubah', masalah }, { status: 200 })
   }
 
-  const rincian = hitungTotal(body.items, DISKON_PILOT_PERSEN)
-  return NextResponse.json({ ok: true, ...rincian })
+  let nv: NilaiVoucher
+  try {
+    nv = await nilaiVoucher({
+      retail: createRetailClient(), pilih: { voucherId: body.voucher_id, kodeVoucher: body.kode_voucher },
+      customerId: sesi.customerId, outletId: body.outlet_id, items: itemsBelanja, katalog, sekarang: new Date(),
+    })
+  } catch (e) {
+    console.error('gagal memeriksa voucher', e)
+    nv = { ada: true as const, voucher: null, hasil: { berlaku: false as const, alasan: 'Voucher tidak dapat dicek, coba lagi' } }
+  }
+  const { rincian, blok } = rincianDenganVoucher(itemsBelanja, nv)
+  return NextResponse.json({ ok: true, ...rincian, voucher: blok })
 }

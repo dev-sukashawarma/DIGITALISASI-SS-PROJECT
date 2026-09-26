@@ -99,6 +99,15 @@ class CartStoreTest {
     }
 
     @Test
+    fun `berpindah outlet TIDAK melepas voucher, server yang memvalidasi ulang (M1)`() {
+        val k = keranjang()
+        k.pakaiOutlet("outlet-a")
+        k.pasangVoucher(PilihanVoucher(id = "v1", nama = "Diskon"))
+        k.pakaiOutlet("outlet-b")
+        assertEquals("v1", k.voucher()?.id)
+    }
+
+    @Test
     fun `catatan dipotong 200 karakter di aplikasi`() {
         val k = keranjang()
         k.tambah("m1", "Shawarma", 25000, 1, "x".repeat(500))

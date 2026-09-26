@@ -118,7 +118,9 @@ data class CartItemPayload(
 @Serializable
 data class CheckoutValidateRequest(
     @SerialName("outlet_id") val outletId: String,
-    val items: List<CartItemPayload>
+    val items: List<CartItemPayload>,
+    @SerialName("voucher_id") val voucherId: String? = null,
+    @SerialName("kode_voucher") val kodeVoucher: String? = null
 )
 
 /**
@@ -134,6 +136,21 @@ data class CartProblemDto(
     @SerialName("harga_baru") val hargaBaru: Double? = null
 )
 
+/**
+ * Rincian voucher yang dikembalikan `checkout/validate`. `status = 'tidak_ada'`
+ * berarti tidak ada voucher yang dipilih -- gateway tetap mengirim blok ini
+ * hanya bila pemanggil menyertakan `voucher_id`/`kode_voucher` di permintaan.
+ */
+@Serializable
+data class VoucherCheckoutDto(
+    val id: String? = null,
+    val nama: String? = null,
+    val status: String,
+    val alasan: String? = null,
+    val potongan: Double = 0.0,
+    @SerialName("item_gratis") val itemGratis: List<CartItemPayload> = emptyList()
+)
+
 @Serializable
 data class CheckoutValidateResponse(
     val ok: Boolean,
@@ -142,7 +159,8 @@ data class CheckoutValidateResponse(
     val total: Double? = null,
     val alasan: String? = null,
     val pesan: String? = null,
-    val masalah: List<CartProblemDto>? = null
+    val masalah: List<CartProblemDto>? = null,
+    val voucher: VoucherCheckoutDto? = null
 )
 
 @Serializable
@@ -150,7 +168,33 @@ data class CreateOrderRequest(
     @SerialName("client_order_id") val clientOrderId: String,
     @SerialName("outlet_id") val outletId: String,
     val items: List<CartItemPayload>,
-    @SerialName("customer_phone") val customerPhone: String? = null
+    @SerialName("customer_phone") val customerPhone: String? = null,
+    @SerialName("voucher_id") val voucherId: String? = null,
+    @SerialName("kode_voucher") val kodeVoucher: String? = null
+)
+
+/** Satu voucher dari `GET/POST /api/v1/vouchers`, berikut kelayakan pakainya. */
+@Serializable
+data class VoucherDto(
+    val id: String,
+    val nama: String,
+    val deskripsi: String? = null,
+    val jenis: String,
+    @SerialName("kalimat_syarat") val kalimatSyarat: String,
+    val selesai: String? = null,
+    val status: String,
+    val alasan: String? = null
+)
+
+@Serializable
+data class VouchersRequest(
+    @SerialName("outlet_id") val outletId: String? = null,
+    val items: List<CartItemPayload>? = null
+)
+
+@Serializable
+data class VouchersResponse(
+    val vouchers: List<VoucherDto>
 )
 
 @Serializable

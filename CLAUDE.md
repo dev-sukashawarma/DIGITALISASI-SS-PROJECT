@@ -3151,5 +3151,24 @@ Waktu owner summary sesudah perubahan **452 ms** (sebelumnya 323 ms).
 
 ---
 
+## Session 2026-09-25/26: App Retail Tahap 3 — Voucher Aplikasi
+
+**Status:** ✅ Kode merged ke `main` (lokal, **belum di-push**). Migration `20260925100000_app_retail_voucher.sql` **applied & terstempel**. ⚠️ Perlu **redeploy `retail-gateway` + `admin-dashboard`** dan **rilis APK 1.2** (versionCode 3). Task 11 (uji ujung ke ujung di outlet tes dengan voucher rahasia Rp 1) belum dijalankan.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-25-app-retail-tahap3-voucher-design.md`, `docs/superpowers/plans/2026-09-25-app-retail-tahap3-voucher.md`
+
+- DB: `retail.vouchers` (5 jenis, 8 syarat, CHECK per jenis — **wajib `IS NOT NULL` eksplisit, CHECK yang bernilai NULL itu lolos**), `retail.voucher_pemakaian` (kuota dihitung hanya `lunas_at IS NOT NULL`), view `retail.voucher_ringkasan` (`security_invoker`). Semua REVOKE dari anon/authenticated.
+- Gateway: `lib/voucher.ts` (murni) + `lib/voucherDb.ts` + `lib/rincianVoucher.ts`; `POST /api/v1/vouchers` (hanya publik); validate & orders menerima `voucher_id`/`kode_voucher`; tak berlaku → 409 `{error:'voucher_tidak_berlaku', pesan}` tanpa tagihan; item gratis ditambah server dgn harga normal (nilainya masuk `discount_amount`); webhook mengisi `lunas_at` (idempoten, juga di jalur duplikat). `DISKON_PILOT_PERSEN` dihapus.
+- Admin: `/dashboard/app-retail/voucher` + `voucherActions.ts` (whitelist 23 kolom, `requireRole`, log `voucher_*`). `kalimatSyarat` **identik** gateway ↔ admin — ubah keduanya bersamaan.
+- APK: halaman Voucher (Beranda & Profil), pemilih di checkout, Bayar dikunci bila voucher tak berlaku; total yang tampil selalu dari gateway.
+
+**Bug yang tertangkap review sebelum live:** voucher rahasia bisa bocor tanpa test gagal; keranjang berisi hanya "Gratis voucher" lolos (bayar 50% item gratis); admin mengetik "Rp10.000" → NaN → voucher tersimpan tanpa batas; potongan pecahan → Xendit tolak → 502; layar bayar sempat tampil harga pra-voucher.
+
+**Ditunda (tercatat):** N+1 `konteksPelanggan` per voucher publik; kode rahasia min 3 huruf tanpa rate limit (naikkan sebelum menerbitkan kode bernilai besar); tombol Hapus tampil padahal ada pemakaian belum lunas; biaya Xendit ke "Potongan" (tugas terpisah).
+
+**⚠️ Insiden:** subagent menjalankan `yarn` di worktree yang `node_modules`-nya junction ke repo utama → memangkas paket tak terdeklarasi (mis. `@livekit/*`). Jangan pernah pakai junction `node_modules` + `yarn`; kalau ada "Module not found", `yarn install --frozen-lockfile --ignore-engines` di root.
+
+---
+
 **Last updated:** 2026-09-25  
 **Owner:** Dev Suka Shawarma

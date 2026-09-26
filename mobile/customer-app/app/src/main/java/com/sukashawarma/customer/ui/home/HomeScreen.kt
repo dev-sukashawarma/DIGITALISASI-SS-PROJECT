@@ -90,6 +90,7 @@ fun HomeScreen(
     onBukaMenu: () -> Unit,
     onPilihItem: (MenuItemDto) -> Unit,
     onBukaNotifikasi: () -> Unit = {},
+    onBukaVoucher: () -> Unit = {},
     unreadCount: Int = 0,
     inisial: String = "?",
     modifier: Modifier = Modifier
@@ -204,6 +205,7 @@ fun HomeScreen(
                         onPilihItem = onPilihItem,
                         onKetukBanner = { banner -> bukaTujuan(tujuanBanner(banner.aksi, banner.targetMenuItemId)) },
                         onBukaNotifikasi = onBukaNotifikasi,
+                        onBukaVoucher = onBukaVoucher,
                         unreadCount = unreadCount,
                         inisial = inisial
                     )
@@ -224,6 +226,7 @@ private fun HomeContentList(
     onPilihItem: (MenuItemDto) -> Unit,
     onKetukBanner: (BannerDto) -> Unit,
     onBukaNotifikasi: () -> Unit,
+    onBukaVoucher: () -> Unit,
     unreadCount: Int,
     inisial: String,
     modifier: Modifier = Modifier
@@ -260,6 +263,49 @@ private fun HomeContentList(
                     slides = bannerCarousel,
                     onKetuk = onKetukBanner
                 )
+            }
+        }
+
+        // 2. Voucher untukmu -- jalan masuk ke layar Voucher (Task 10). Kartu
+        // tunggal, bukan carousel: cukup jadi pintu, isinya dibaca di layar Voucher.
+        item(key = "home-voucher-entry") {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .bounceClick(onClick = onBukaVoucher),
+                shape = RoundedCornerShape(16.dp),
+                color = SukaTint,
+                border = BorderStroke(1.dp, SukaOrange.copy(alpha = 0.35f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "🎟️ Voucher untukmu",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = SukaInk,
+                                fontSize = 14.sp
+                            )
+                        )
+                        Text(
+                            text = "Lihat promo yang bisa kamu pakai",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = SukaMuted,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = SukaOrange
+                    )
+                }
             }
         }
 

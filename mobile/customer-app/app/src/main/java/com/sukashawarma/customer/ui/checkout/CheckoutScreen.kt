@@ -25,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.QrCode2
@@ -38,9 +40,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,8 +54,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sukashawarma.customer.data.PilihanVoucher
 import com.sukashawarma.customer.data.api.CartProblemDto
+import com.sukashawarma.customer.data.api.VoucherCheckoutDto
 import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.ErrorState
 import com.sukashawarma.customer.ui.components.MemuatState
@@ -79,6 +88,13 @@ fun CheckoutScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Pelanggan bisa pergi (mis. membuka aplikasi lain untuk cek saldo) lalu
+    // kembali ke layar ini dengan voucher yang sudah kedaluwarsa/habis kuota
+    // di server. Validasi ulang saat resume supaya Bayar terkunci lagi kalau
+    // memang sudah tak berlaku -- job lama otomatis dibatalkan di dalam
+    // `validasi()`, jadi ini aman dobel-panggil dengan `init`.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.validasi() }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -202,6 +218,19 @@ private fun IsiStitch(
     viewModel: CheckoutViewModel,
     namaOutlet: String?
 ) {
+    var tampilkanPemilihVoucher by remember { mutableStateOf(false) }
+
+    if (tampilkanPemilihVoucher) {
+        PemilihVoucherSheet(
+            muatDaftar = viewModel::daftarVoucher,
+            onPilih = { pilihan ->
+                viewModel.pasangVoucher(pilihan)
+                tampilkanPemilihVoucher = false
+            },
+            onTutup = { tampilkanPemilihVoucher = false }
+        )
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -396,6 +425,40 @@ private fun IsiStitch(
                             }
                         }
                     }
+
+                    // Item gratis dari voucher. Tanpa tombol ubah jumlah atau
+                    // hapus -- pelanggan tidak "memesan" item ini, voucher yang
+                    // memberikannya.
+                    state.blokVoucher?.itemGratis?.forEach { gratis ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${gratis.quantity}× ${gratis.name}",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = SukaInk
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = SukaGreen.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = "Gratis",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SukaGreen,
+                                        fontSize = 11.sp
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -504,6 +567,21 @@ private fun IsiStitch(
                         )
                     )
 
+                    BarisVoucher(
+                        voucher = state.voucher,
+                        blokVoucher = state.blokVoucher,
+                        // M2: alasan kunci voucher DISEMBUNYIKAN kalau Bayar
+                        // sudah terkunci oleh sebab lain (keranjang berubah,
+                        // outlet tutup, dst -- `state.alasan`/`state.masalah`).
+                        // Tanpa ini, pelanggan membaca "Lepas voucher untuk
+                        // melanjutkan" padahal melepas voucher TIDAK akan
+                        // membuka tombol Bayar -- `bolehLanjut` masih terkunci
+                        // oleh `alasan`/`masalah` yang sama sekali lain.
+                        tampilkanAlasanKunci = tampilkanAlasanKunciVoucher(state),
+                        onBuka = { tampilkanPemilihVoucher = true },
+                        onLepas = viewModel::lepasVoucher
+                    )
+
                     state.subtotal?.let {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -519,7 +597,7 @@ private fun IsiStitch(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Potongan Promo", style = MaterialTheme.typography.bodySmall.copy(color = SukaGreen))
+                            Text(labelPotonganVoucher(state.blokVoucher), style = MaterialTheme.typography.bodySmall.copy(color = SukaGreen))
                             Text("- ${rupiah(it)}", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = SukaGreen))
                         }
                     }
@@ -546,6 +624,86 @@ private fun IsiStitch(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Baris "Pakai voucher" di kartu Ringkasan Pembayaran.
+ *
+ * Tiga keadaan: belum ada voucher (ketuk untuk membuka lembar pemilihan),
+ * voucher terpasang & berlaku (nama + tombol Lepas), atau voucher terpasang
+ * tapi terkunci (nama + tombol Lepas + alasan berwarna merah di bawahnya).
+ * Voucher yang terkunci TIDAK dilepas otomatis -- pelanggan yang menekan
+ * Lepas.
+ */
+@Composable
+private fun BarisVoucher(
+    voucher: PilihanVoucher?,
+    blokVoucher: VoucherCheckoutDto?,
+    // M2: false ketika Bayar sudah terkunci oleh `state.alasan`/`state.masalah`
+    // -- alasan kunci voucher lalu disembunyikan (tidak dihitung sama sekali)
+    // supaya pelanggan tidak diberi tahu "lepas voucher" sebagai jalan keluar
+    // yang sebenarnya tidak membuka apa pun.
+    tampilkanAlasanKunci: Boolean = true,
+    onBuka: () -> Unit,
+    onLepas: () -> Unit
+) {
+    val alasanKunci = if (tampilkanAlasanKunci) alasanKunciVoucher(voucher, blokVoucher) else null
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .let { if (voucher == null) it.clickable(onClick = onBuka) else it },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Filled.LocalOffer,
+                    contentDescription = null,
+                    tint = SukaOrange,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    // Nama gateway menang: voucher yang dipasang lewat kode
+                    // manual disimpan dengan `nama = kode` (huruf besar mentah)
+                    // sampai gateway membalas nama sebenarnya di `blokVoucher`.
+                    text = blokVoucher?.nama ?: voucher?.nama ?: "Pakai voucher",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = SukaInk
+                    )
+                )
+            }
+
+            if (voucher == null) {
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = SukaMuted,
+                    modifier = Modifier.size(18.dp)
+                )
+            } else {
+                TextButton(onClick = onLepas) {
+                    Text("Lepas", color = SukaBrown, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+
+        if (alasanKunci != null) {
+            Text(
+                text = alasanKunci,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFFDC2626),
+                    fontSize = 12.sp
+                ),
+                modifier = Modifier.padding(start = 26.dp, top = 2.dp)
+            )
         }
     }
 }

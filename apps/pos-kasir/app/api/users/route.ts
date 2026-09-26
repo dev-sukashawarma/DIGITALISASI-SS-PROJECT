@@ -1,17 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 export async function POST(request: Request) {
   // Verifikasi apakah yang request adalah admin
   const supabaseAuth = await createClient()
 
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) {
+  const userId = await getVerifiedUserId(supabaseAuth)
+  if (!userId) {
     return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
   }
 
   const supabaseService = createServiceClient()
-  const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', userId).single()
 
   if (!profile || (profile.role !== 'admin' && profile.role !== 'developer')) {
     return NextResponse.json({ error: 'Akses ditolak. Harus Admin.' }, { status: 403 })

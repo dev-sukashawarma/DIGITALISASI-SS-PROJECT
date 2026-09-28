@@ -16,9 +16,9 @@ export type AttendancePayload = {
   ts_client: string;
   from_queue: boolean;
   is_manual_button?: boolean;
-  shift_ke?: ShiftKe;         // Wajib saat absen masuk di outlet dengan pilihan shift (1, 2, atau 3)
+  shift_ke?: ShiftKe;         // Wajib saat absen masuk di outlet dengan pilihan shift: urutan shift outlet (1–12) atau DRIVER_SHIFT_KE (99)
 };
 
 export type SubmitResult =
-  | { ok: true; status: "tepat" | "telat" | "telat_toleransi"; ts_server: string; attendance_id: string }
+  | { ok: true; status: "tepat" | "telat" | "telat_toleransi" | "lebih_awal" | "pulang_telat"; ts_server: string; attendance_id: string }
   | { ok: false; reason: string; distance_m?: number };

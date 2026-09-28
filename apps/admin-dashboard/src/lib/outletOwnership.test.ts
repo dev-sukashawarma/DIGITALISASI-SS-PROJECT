@@ -116,5 +116,23 @@ describe('isInScope', () => {
     expect(isInScope('internal', 'c', mitra, '2026-10-01', cutoffs)).toBe(false)
     expect(isInScope('mitra', 'c', mitra, '2026-10-01', cutoffs)).toBe(true)
   })
+
+  it('mendukung cutoffDate berupa objek investasi mitra ({ tanggal_mulai }) tanpa melempar slice is not a function', () => {
+    const cutoffsWithObj = {
+      c: { tanggal_mulai: '2026-09-26' },
+      b: { tanggal_mulai: null },
+    }
+    // Sebelum cutoff -> internal
+    expect(isInScope('internal', 'c', mitra, '2026-09-25', cutoffsWithObj as any)).toBe(true)
+    expect(isInScope('mitra', 'c', mitra, '2026-09-25', cutoffsWithObj as any)).toBe(false)
+
+    // Mulai cutoff -> mitra
+    expect(isInScope('internal', 'c', mitra, '2026-09-26', cutoffsWithObj as any)).toBe(false)
+    expect(isInScope('mitra', 'c', mitra, '2026-09-26', cutoffsWithObj as any)).toBe(true)
+
+    // Outlet tanpa tanggal mulai tetap mitra biasa
+    expect(isInScope('internal', 'b', mitra, '2026-09-26', cutoffsWithObj as any)).toBe(false)
+    expect(isInScope('mitra', 'b', mitra, '2026-09-26', cutoffsWithObj as any)).toBe(true)
+  })
 })
 

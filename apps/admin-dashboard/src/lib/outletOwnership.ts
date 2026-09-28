@@ -73,7 +73,9 @@ export function isInScope(
   outletId: string | null | undefined,
   mitraIds: Set<string>,
   dateOrPeriod?: string | null,
-  cutoffDates?: Record<string, string | null | undefined> | Map<string, string | null | undefined>,
+  cutoffDates?:
+    | Record<string, string | { tanggal_mulai?: string | null } | null | undefined>
+    | Map<string, string | { tanggal_mulai?: string | null } | null | undefined>,
 ): boolean {
   if (scope === 'all') return true
   if (!outletId) return scope === 'internal'
@@ -81,12 +83,19 @@ export function isInScope(
   let isMitra = mitraIds.has(outletId)
 
   if (isMitra && dateOrPeriod && cutoffDates) {
-    const cutoff = cutoffDates instanceof Map ? cutoffDates.get(outletId) : cutoffDates[outletId]
-    if (cutoff) {
+    const rawCutoff = cutoffDates instanceof Map ? cutoffDates.get(outletId) : cutoffDates[outletId]
+    const cutoff =
+      typeof rawCutoff === 'string'
+        ? rawCutoff
+        : rawCutoff && typeof rawCutoff === 'object' && 'tanggal_mulai' in rawCutoff
+          ? (rawCutoff.tanggal_mulai ?? null)
+          : null
+
+    if (cutoff && typeof cutoff === 'string' && typeof dateOrPeriod === 'string') {
       // Normalisasi perbandingan: ambil YYYY-MM atau YYYY-MM-DD
       const dateStr = dateOrPeriod.slice(0, 10)
       const cutoffStr = cutoff.slice(0, 10)
-      if (dateStr < cutoffStr) {
+      if (dateStr && cutoffStr && dateStr < cutoffStr) {
         // Transaksi terjadi sebelum tanggal mulai kemitraan -> diakui sebagai internal
         isMitra = false
       }

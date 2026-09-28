@@ -98,12 +98,22 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     () => mitraOutletIds(allOutlets, mitraInvestments),
     [allOutlets, mitraInvestments],
   )
+  const cutoffDates = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const [id, inv] of Object.entries(mitraInvestments)) {
+      if (inv?.tanggal_mulai) {
+        map.set(id, inv.tanggal_mulai)
+      }
+    }
+    return map
+  }, [mitraInvestments])
+
   const inScope = useMemo(
     () => (outletId: string | null | undefined, dateStr?: string | null) => {
       const targetDate = dateStr ?? filter.to ?? filter.from
-      return isInScope(scope, outletId, mitraIds, targetDate, mitraInvestments as any)
+      return isInScope(scope, outletId, mitraIds, targetDate, cutoffDates)
     },
-    [scope, mitraIds, filter.to, filter.from, mitraInvestments],
+    [scope, mitraIds, filter.to, filter.from, cutoffDates],
   )
 
   // Daftar outlet (dropdown filter & seed tabel) ikut menyempit sesuai scope.
@@ -221,13 +231,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   // Penyaringan scope dipasang SEKALI di sumber datanya, bukan di tiap
   // perhitungan — hero metrics, laporan P&L, leaderboard, dan ekspor CSV/PDF
   // semuanya membaca baris yang sudah disaring ini.
-  const salesRows = useMemo(() => sales.rows.filter(r => inScope(r.outlet_id, (r as any).date || (r as any).order_date)), [sales.rows, inScope])
+  const salesRows = useMemo(() => sales.rows.filter(r => inScope(r.outlet_id, (r as any).sales_date || (r as any).date || (r as any).order_date)), [sales.rows, inScope])
   const hppRows = useMemo(() => hpp.rows.filter(r => inScope(r.outlet_id, (r as any).date || (r as any).order_date)), [hpp.rows, inScope])
   const wasteRows = useMemo(() => waste.rows.filter(r => inScope(r.outlet_id, (r as any).date || (r as any).created_at)), [waste.rows, inScope])
   // Biaya pusat (`scope === 'pusat'`) tak punya outlet_id: ia beban kantor
   // pusat, jadi ikut di tampilan gabungan & Internal, tapi tidak di Mitra.
   const rawExpenseRows = useMemo(
-    () => expenses.rows.filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).date || (r as any).expense_date))),
+    () => expenses.rows.filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).expense_date || (r as any).date))),
     [expenses.rows, inScope, scope],
   )
 

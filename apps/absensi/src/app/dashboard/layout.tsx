@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Hanya Admin, Admin HR, dan Regional Manager yang boleh akses Pengaturan Absensi.
   const isSettingsAllowed = ["admin", "admin_hr", "regional_manager", "developer"].includes(outletStaff?.role || "");
 
-  // Hanya Admin & Developer yang boleh mengatur outlet tempat crew boleh absen.
+  // Hanya HR & Developer yang boleh mengatur outlet tempat crew boleh absen.
   const isAksesAbsenAllowed = PERAN_PENGATUR_AKSES.includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [

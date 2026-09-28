@@ -406,15 +406,32 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   
   const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
   const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
-  const displayMargin = netRevenue > 0 ? (displayLaba / netRevenue) * 100 : 0
+  const costBase = actualGrossRevenue > 0 ? actualGrossRevenue : (netRevenue > 0 ? netRevenue : 0)
+  const displayMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
 
-  const totalBiaya = totalDeductions + totalHpp + totalWaste + pengeluaranOutlet + managementFeeExpense + (isAllOutlets ? pengeluaranPusat : 0)
+  // Struktur Biaya vs Omzet:
+  // Seluruh biaya dihitung proporsinya terhadap Omzet Kotor (actualGrossRevenue),
+  // konsisten dengan judul card dan margin per outlet di leaderboard.
+  const costHpp = scope === 'all' ? Math.max(0, totalHpp - mitraHppMarginReceived) : totalHpp
+  const costOpex = pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)
+  const costFee = totalDeductions + (scope === 'mitra' || (!isAllOutlets && mitraIds.has(filter.outletId)) ? managementFeeExpense : 0)
+  const costWaste = totalWaste
+  const totalBiaya = costHpp + costOpex + costFee + costWaste
 
-  // Cost proportions
-  const pctHpp = netRevenue > 0 ? Math.min(100, Math.round((totalHpp / netRevenue) * 100)) : 0
-  const pctOpex = netRevenue > 0 ? Math.min(100, Math.round(((pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)) / netRevenue) * 100)) : 0
-  const pctWaste = netRevenue > 0 ? Math.min(100, Math.round((totalWaste / netRevenue) * 100)) : 0
-  const pctFee = netRevenue > 0 ? Math.min(100, Math.round((totalDeductions / netRevenue) * 100)) : 0
+  // Cost proportions (dalam persen terhadap Omzet Kotor)
+  const pctHpp = costBase > 0 ? (costHpp / costBase) * 100 : 0
+  const pctOpex = costBase > 0 ? (costOpex / costBase) * 100 : 0
+  const pctFee = costBase > 0 ? (costFee / costBase) * 100 : 0
+  const pctWaste = costBase > 0 ? (costWaste / costBase) * 100 : 0
+  const pctTotalBiaya = costBase > 0 ? (totalBiaya / costBase) * 100 : 0
+  const pctSisaMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
+
+  // Skala visual bar agar proporsional dan tidak meluber saat beban > 100% (saat rugi)
+  const barScale = pctTotalBiaya > 100 ? (100 / pctTotalBiaya) : 1
+  const barHpp = pctHpp * barScale
+  const barOpex = pctOpex * barScale
+  const barFee = pctFee * barScale
+  const barWaste = pctWaste * barScale
 
   // Outlets breakdown
   const outletBreakdown = useMemo(() => {
@@ -1740,14 +1757,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 {/* Mini Multi-Bar */}
                 <div className="space-y-2">
                   <div className="h-4 w-full bg-suka-gray-100 rounded-full overflow-hidden flex shadow-inner">
-                    <div style={{ width: `${pctHpp}%` }} className="bg-amber-500 h-full" title={`HPP: ${pctHpp}%`} />
-                    <div style={{ width: `${pctOpex}%` }} className="bg-rose-500 h-full" title={`Opex: ${pctOpex}%`} />
-                    <div style={{ width: `${pctFee}%` }} className="bg-purple-500 h-full" title={`Potongan/Fee: ${pctFee}%`} />
-                    <div style={{ width: `${pctWaste}%` }} className="bg-red-700 h-full" title={`Waste: ${pctWaste}%`} />
+                    <div style={{ width: `${barHpp}%` }} className="bg-amber-500 h-full transition-all duration-300" title={`HPP: ${pctHpp.toFixed(1)}%`} />
+                    <div style={{ width: `${barOpex}%` }} className="bg-rose-500 h-full transition-all duration-300" title={`Opex: ${pctOpex.toFixed(1)}%`} />
+                    <div style={{ width: `${barFee}%` }} className="bg-purple-500 h-full transition-all duration-300" title={`Potongan/Fee: ${pctFee.toFixed(1)}%`} />
+                    <div style={{ width: `${barWaste}%` }} className="bg-red-700 h-full transition-all duration-300" title={`Waste: ${pctWaste.toFixed(1)}%`} />
                   </div>
                   <div className="flex justify-between text-[10px] text-suka-gray-400 font-semibold uppercase">
-                    <span>Total Beban: {((totalBiaya / (netRevenue || 1)) * 100).toFixed(0)}%</span>
-                    <span>Sisa Margin: {displayMargin.toFixed(0)}%</span>
+                    <span>Total Beban: {pctTotalBiaya.toFixed(1)}%</span>
+                    <span>Sisa Margin: {pctSisaMargin.toFixed(1)}%</span>
                   </div>
                 </div>
 
@@ -1757,25 +1774,25 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
                       <span className="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> HPP (Bahan Baku)
                     </span>
-                    <span className="font-bold text-suka-brown">{pctHpp}%</span>
+                    <span className="font-bold text-suka-brown">{pctHpp.toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
                       <span className="w-2.5 h-2.5 rounded-sm bg-rose-500"></span> Biaya Operasional (Opex)
                     </span>
-                    <span className="font-bold text-suka-brown">{pctOpex}%</span>
+                    <span className="font-bold text-suka-brown">{pctOpex.toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
                       <span className="w-2.5 h-2.5 rounded-sm bg-purple-500"></span> Potongan & Komisi
                     </span>
-                    <span className="font-bold text-suka-brown">{pctFee}%</span>
+                    <span className="font-bold text-suka-brown">{pctFee.toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
                       <span className="w-2.5 h-2.5 rounded-sm bg-red-700"></span> Waste (Bahan Basi)
                     </span>
-                    <span className="font-bold text-suka-brown">{pctWaste}%</span>
+                    <span className="font-bold text-suka-brown">{pctWaste.toFixed(1)}%</span>
                   </div>
                 </div>
 

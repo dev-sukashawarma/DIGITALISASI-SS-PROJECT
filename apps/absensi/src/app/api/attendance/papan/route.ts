@@ -46,7 +46,8 @@ export async function GET(request: Request) {
 
       supabaseService
         .from('outlet_attendance_config')
-        .select('jam_masuk, jam_keluar, toleransi_menit, pilih_shift_aktif, shift2_jam_masuk')
+        // Jam masuk semua shift ikut dalam query yang sama (embed) untuk batas alpha.
+        .select('jam_masuk, jam_keluar, toleransi_menit, pilih_shift_aktif, shift2_jam_masuk, outlet_attendance_shift(jam_masuk)')
         .eq('outlet_id', outlet_id)
         .maybeSingle(),
 
@@ -71,7 +72,16 @@ export async function GET(request: Request) {
     });
 
     const staffList = Array.from(activeStaffMap.values());
-    let cfg: BoardConfig | null = localCfgRes.data;
+    let cfg: BoardConfig | null = null;
+    if (localCfgRes.data) {
+      const { outlet_attendance_shift: daftarShift, ...kolom } = localCfgRes.data as any;
+      cfg = {
+        ...kolom,
+        shifts_jam_masuk: ((daftarShift ?? []) as { jam_masuk: string | null }[])
+          .map((s) => s.jam_masuk)
+          .filter((j): j is string => !!j),
+      };
+    }
     if (!cfg && globalCfgRes.data?.value) {
       try {
         cfg = typeof globalCfgRes.data.value === 'string' ? JSON.parse(globalCfgRes.data.value) : globalCfgRes.data.value;

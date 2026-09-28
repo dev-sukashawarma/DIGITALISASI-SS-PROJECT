@@ -20,27 +20,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: "invalid_payload" }, { status: 400 });
     }
 
-    // Ambil tambahan staff dari staff_outlets
-    const { data: allowedStaffData } = await admin
-      .from("staff_outlets")
-      .select("staff_id")
-      .eq("outlet_id", outletId);
-      
-    const allowedStaffIds = (allowedStaffData || []).map((row: any) => row.staff_id);
-    let orQuery = `outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`;
-    if (allowedStaffIds.length > 0) {
-      orQuery += `,id.in.(${allowedStaffIds.join(',')})`;
-    }
-
     // Ambil kandidat
     let query = admin
       .from("outlet_staff")
       .select("id, name, face_descriptor, role")
-      .or(orQuery)
       .not("face_descriptor", "is", null);
 
     if (lockToStaffId) {
+      // MODE 1:1 (panel absen pribadi): verifikasi akun yang login saja. Outlet tidak
+      // menyaring kandidat — outletId juga kiriman klien, jadi bukan batas keamanan —
+      // dan izin absen di outlet ini (termasuk izin tambahan dari admin) ditegakkan
+      // RPC submit_attendance. Tanpa ini crew berizin tambahan tak pernah dikenali
+      // di outlet selain outlet utamanya.
       query = query.eq("id", lockToStaffId);
+    } else {
+      // MODE 1:N (kiosk bersama): staff outlet ini, penempatan (staff_outlets), crew
+      // berizin tambahan / semua outlet, dan peran pengawas. Ketiga daftar dibaca paralel.
+      const [penempatanRes, aksesRes, semuaRes] = await Promise.all([
+        admin.from("staff_outlets").select("staff_id").eq("outlet_id", outletId),
+        admin.from("attendance_outlet_access").select("staff_id").eq("outlet_id", outletId),
+        admin.from("attendance_any_outlet_staff").select("staff_id"),
+      ]);
+      const allowedStaffIds = Array.from(new Set(
+        [penempatanRes.data, aksesRes.data, semuaRes.data]
+          .flatMap((rows) => (rows || []).map((row: any) => row.staff_id as string))
+      ));
+      let orQuery = `outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`;
+      if (allowedStaffIds.length > 0) {
+        orQuery += `,id.in.(${allowedStaffIds.join(',')})`;
+      }
+      query = query.or(orQuery);
     }
 
     const { data, error } = await query;

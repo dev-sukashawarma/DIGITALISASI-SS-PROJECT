@@ -1,11 +1,16 @@
 export type Challenge = "blink" | "turn-left" | "turn-right" | "nod";
 
+// Instruksi awal sudah menyebut langkah kedua, supaya user tidak berhenti di posisi menoleh.
 export const CHALLENGE_LABEL: Record<Challenge, string> = {
-  "blink": "Kedipkan mata",
-  "turn-left": "Tolehkan kepala ke kiri",
-  "turn-right": "Tolehkan kepala ke kanan",
-  "nod": "Anggukkan kepala",
+  "blink": "Kedipkan mata, lalu hadap kamera lagi",
+  "turn-left": "Toleh ke kiri, lalu hadap kamera lagi",
+  "turn-right": "Toleh ke kanan, lalu hadap kamera lagi",
+  "nod": "Anggukkan kepala, lalu hadap kamera lagi",
 };
+
+/** Instruksi setelah gerakan terdeteksi — liveness baru lolos saat wajah kembali frontal.
+ *  Teksnya sama dengan `INSTRUKSI_HADAP_KAMERA` di LivenessDetector.kt (native). */
+export const INSTRUKSI_HADAP_KAMERA = "Bagus! Sekarang hadap kembali ke kamera";
 
 /** Pilih tantangan acak menoleh kiri/kanan. */
 export function pickChallenge(rng: () => number = Math.random): Challenge {
@@ -61,5 +66,7 @@ export function createLivenessDetector(challenge: Challenge) {
     if (isFrontal) passed = true;
     return passed;
   }
-  return { feed };
+  /** Gerakan tantangan sudah terdeteksi; tinggal menunggu wajah kembali menghadap kamera. */
+  const sudahBergerak = () => phase >= 1;
+  return { feed, sudahBergerak };
 }

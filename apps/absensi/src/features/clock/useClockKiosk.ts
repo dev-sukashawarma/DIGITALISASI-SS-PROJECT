@@ -7,7 +7,7 @@ import { captureFrame } from "@/components/CameraCapture";
 import { identifyStaff, type Candidate } from "@/lib/face/identify";
 import {
   createLivenessDetector, pickChallenge,
-  CHALLENGE_LABEL, type Challenge,
+  CHALLENGE_LABEL, INSTRUKSI_HADAP_KAMERA, type Challenge,
 } from "@/lib/face/liveness";
 import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
@@ -369,6 +369,10 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const [who, setWho] = useState<{ id: string; name: string } | null>(null);
   const [action, setAction] = useState<"in" | "out">("in");
   const [challenge, setChallenge] = useState<Challenge | null>(null);
+  // Gerakan tantangan sudah terdeteksi → instruksi berganti ke "hadap kembali ke kamera".
+  // Direset tiap tantangan baru (termasuk saat challenge di-null-kan ketika reset).
+  const [sudahMenoleh, setSudahMenoleh] = useState(false);
+  useEffect(() => { setSudahMenoleh(false); }, [challenge]);
   const busyRef = useRef(false);
 
   // Pilihan shift: opsi yang ditawarkan di modal, shift yang dipilih, dan
@@ -648,6 +652,9 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
       // Tetap feed detector agar gerakan (menengok dll) diproses selama masa toleransi.
       const passed = detector.feed(res.gesture);
+      // Tolehan sudah terlihat: minta user kembali menghadap kamera — liveness baru
+      // lolos di frame frontal. setState dengan nilai sama tidak memicu render ulang.
+      if (!passed && detector.sudahBergerak()) setSudahMenoleh(true);
       if (passed) {
         livenessRef.current = null;
         // Pengecekan final saat lolos liveness (harus frontal dan cocok)
@@ -925,7 +932,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   }, [outletId, queue]);
 
   /** Kalibrasi ulang koordinat outlet ke posisi fisik saat ini */
-  return { phase, who, action, challenge, challengeLabel: challenge ? CHALLENGE_LABEL[challenge] : "", result,
+  const challengeLabel = !challenge ? "" : sudahMenoleh ? INSTRUKSI_HADAP_KAMERA : CHALLENGE_LABEL[challenge];
+  return { phase, who, action, challenge, challengeLabel, result,
            loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,
            checkLocation, gpsDistance, deviceCoords, deviceAccuracy,
            permissionState, permissionError, requestPermissions,

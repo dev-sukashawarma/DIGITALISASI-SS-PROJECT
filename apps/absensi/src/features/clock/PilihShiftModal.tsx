@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Sun, Sunset, Moon } from "lucide-react";
-import { namaShift, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
+import type { ShiftKe, ShiftOption } from "@/lib/attendance/shift";
 
 type Props = {
   choices: ShiftOption[];
@@ -21,7 +21,9 @@ function IkonShift({ jamMasuk }: { jamMasuk: string }) {
 }
 
 /**
- * Pilih shift sebelum absen masuk, untuk outlet dua shift.
+ * Pilih shift sebelum absen masuk, untuk outlet berpilihan shift (2–12 shift, plus
+ * Shift Driver untuk role driver). Nama tampil = nama khusus dari pengaturan atau
+ * sebutan otomatis dari jam masuk.
  * Mobile-first: panel dari bawah selebar layar di HP, kartu di tengah pada layar lebar.
  * Dirender lewat portal ke <body> agar tak terpotong kontainer halaman yang overflow-hidden.
  */
@@ -34,6 +36,9 @@ export function PilihShiftModal({ choices, staffName, onPilih, onBatal }: Props)
     return () => { document.body.style.overflow = prev; };
   }, []);
   if (!mounted) return null;
+
+  // Banyak shift: kartu dibuat lebih ringkas agar pilihan tetap terlihat tanpa banyak gulir.
+  const ringkas = choices.length > 4;
 
   return createPortal(
     <div
@@ -66,18 +71,20 @@ export function PilihShiftModal({ choices, staffName, onPilih, onBatal }: Props)
               key={c.ke}
               type="button"
               onClick={() => onPilih(c.ke)}
-              className="w-full min-h-[96px] rounded-2xl border-2 border-gray-200 bg-white px-4 py-3.5 text-left transition-colors active:bg-orange-50 active:border-suka-orange hover:border-suka-orange focus:outline-none focus-visible:border-suka-orange focus-visible:ring-4 focus-visible:ring-suka-orange/20"
+              className={`w-full ${ringkas ? "min-h-[72px] py-2.5" : "min-h-[96px] py-3.5"} rounded-2xl border-2 border-gray-200 bg-white px-4 text-left transition-colors active:bg-orange-50 active:border-suka-orange hover:border-suka-orange focus:outline-none focus-visible:border-suka-orange focus-visible:ring-4 focus-visible:ring-suka-orange/20`}
             >
               <span className="flex items-center gap-2 text-suka-orange">
                 <IkonShift jamMasuk={c.jam_masuk} />
-                <span className="text-sm font-bold text-suka-brown">{namaShift(c.jam_masuk)}</span>
+                <span className="text-sm font-bold text-suka-brown truncate">{c.nama}</span>
               </span>
-              <span className="mt-1 block text-3xl font-black leading-none tabular-nums tracking-tight text-suka-ink">
+              <span className={`mt-1 block ${ringkas ? "text-2xl" : "text-3xl"} font-black leading-none tabular-nums tracking-tight text-suka-ink`}>
                 {c.jam_masuk}<span className="mx-1.5 text-gray-300">–</span>{c.jam_keluar}
               </span>
-              <span className="mt-1.5 block text-xs font-semibold text-gray-500">
-                Masuk {c.jam_masuk} · Pulang {c.jam_keluar}
-              </span>
+              {!ringkas && (
+                <span className="mt-1.5 block text-xs font-semibold text-gray-500">
+                  Masuk {c.jam_masuk} · Pulang {c.jam_keluar}
+                </span>
+              )}
             </button>
           ))}
         </div>

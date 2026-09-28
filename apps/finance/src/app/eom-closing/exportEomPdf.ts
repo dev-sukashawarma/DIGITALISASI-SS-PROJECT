@@ -400,7 +400,7 @@ function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, label
         body.push([{ content: `${c.label}  —  ${c.qty.toLocaleString('id-ID')} porsi  ·  omzet ${rp(c.revenue)}  ·  HPP ${rp(c.hppA + c.hppB)}  ·  food cost ${pct(c.hppA + c.hppB, c.revenue)}`, colSpan: cols }])
         for (const i of c.items) {
           const qty = i.qtyA + i.qtyB
-          const flags = itemFlags(i, !!cut)
+          const flags = (itemFlags(i, !!cut) ?? [])
           if (flags.length) flagged.add(body.length)
           body.push([
             i.name,

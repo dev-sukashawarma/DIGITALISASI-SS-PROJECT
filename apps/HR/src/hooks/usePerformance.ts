@@ -15,7 +15,7 @@ export function usePerformance(month: number, year: number, outletFilter?: strin
       let staffQuery = supabase
         .from('outlet_staff')
         .select(`
-          id, name, role, is_bonus_eligible, username,
+          id, name, role, is_bonus_eligible, username, account_category, outlet_id,
           outlets!outlet_staff_outlet_id_fkey(name)
         `)
         .eq('status', 'active')

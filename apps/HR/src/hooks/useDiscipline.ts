@@ -11,7 +11,7 @@ export function useDiscipline() {
     queryFn: async (): Promise<DisciplineRecord[]> => {
       const { data, error } = await supabase
         .from('discipline_records')
-        .select('*, outlet_staff(name, role, outlets(name))')
+        .select('*, outlet_staff(name, role, username, account_category, outlet_id, outlets(name))')
         .order('created_at', { ascending: false })
 
       if (error) {

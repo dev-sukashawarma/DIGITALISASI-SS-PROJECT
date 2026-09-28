@@ -11,14 +11,10 @@ const ROLES = [
   'admin_finance',
   'area_manager',
   'crew',
-  'developer',
   'driver',
-  'kiosk',
   'kitchen',
   'korlap',
   'leader',
-  'mitra',
-  'owner',
   'purchasing',
   'regional_manager',
   'spv',
@@ -110,18 +106,6 @@ export function StaffFilters({
     []
   )
 
-  const categoryOptions = useMemo(
-    () => [
-      { label: 'Semua Kategori', value: 'all' },
-      { label: 'Karyawan Saja', value: 'employee' },
-      { label: 'Bot / AI', value: 'system_bot' },
-      { label: 'Kiosk / Perangkat', value: 'kiosk' },
-      { label: 'Mitra Owner', value: 'mitra_owner' },
-      { label: 'Akun Testing', value: 'testing' },
-    ],
-    []
-  )
-
   const sortOptions = useMemo(
     () =>
       SORT_OPTIONS.map((opt) => ({
@@ -185,14 +169,6 @@ export function StaffFilters({
         className="min-w-[120px]"
       />
 
-      {/* Filter Kategori Akun */}
-      <Select
-        options={categoryOptions}
-        value={value.category ?? 'all'}
-        onChange={(val) => set({ category: val })}
-        placeholder="Semua Kategori"
-        className="min-w-[140px]"
-      />
 
       {/* Sort Selector Dropdown */}
       <div className="flex items-center gap-1.5 bg-stone-50 border border-suka-gray-200 rounded-xl px-1.5 py-0.5 shadow-xs">

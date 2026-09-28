@@ -72,7 +72,7 @@ export function useAttendance(filter: AttendanceFilterValues) {
             id, staff_id, outlet_id, date, clock_in, clock_out,
             status, late_minutes, notes, created_at, updated_at,
             stealth_photo_in_url, stealth_photo_out_url,
-            outlet_staff!attendance_logs_staff_id_fkey(name, role, username),
+            outlet_staff!attendance_logs_staff_id_fkey(name, role, username, account_category, outlet_id),
             outlets!attendance_logs_outlet_id_fkey(name)
           `)
           .gte('date', filter.dateFrom)
@@ -108,7 +108,7 @@ export function useAttendance(filter: AttendanceFilterValues) {
         if (staffIds.length > 0) {
           const { data: staffs } = await supabase
             .from('outlet_staff')
-            .select('id, name, role, username')
+            .select('id, name, role, username, account_category, outlet_id')
             .in('id', staffIds)
 
           if (staffs) {

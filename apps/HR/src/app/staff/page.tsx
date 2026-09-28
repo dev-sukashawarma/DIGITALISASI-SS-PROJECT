@@ -37,7 +37,7 @@ export default function StaffPage() {
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null)
   const [resetPwStaff, setResetPwStaff] = useState<StaffRow | null>(null)
 
-  const { data: staffList = [], isLoading } = useStaff({ includeAllCategories: true })
+  const { data: staffList = [], isLoading } = useStaff()
   const { data: outlets = [] } = useOutlets()
   const { create, update, remove, setStatus, toggleBonusEligibility, resetPassword } = useStaffMutations()
 

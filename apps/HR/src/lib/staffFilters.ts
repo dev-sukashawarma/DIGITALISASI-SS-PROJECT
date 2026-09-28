@@ -12,20 +12,23 @@ export interface StaffFilterCandidate {
 }
 
 /**
- * Mendeteksi apakah staf adalah akun developer, devai bot, atau akun testing dummy
+ * Mendeteksi apakah staf adalah akun developer, devai bot, kiosk, mitra owner, atau akun testing dummy
  * agar disembunyikan dari dashboard HR tanpa menghapus data dari database.
  */
 export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   if (!s) return false
 
   // 0. Explicit account_category check (Database driven)
-  if (s.account_category) {
-    return s.account_category !== 'employee'
+  // If marked as bot, kiosk, mitra_owner, or testing -> always hide
+  if (s.account_category && s.account_category !== 'employee') {
+    return true
   }
 
-  // 1. Role checks
+  // 1. Role checks (non-operational employee roles)
   const role = (s.role || '').toLowerCase()
-  if (role === 'kiosk') return true
+  if (role === 'kiosk' || role === 'mitra' || role === 'owner' || role === 'developer') {
+    return true
+  }
 
   // 2. Test Outlet checks
   if (s.outlet_id === TEST_OUTLET_ID) return true
@@ -38,14 +41,24 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   const username = (s.username || '').trim().toLowerCase()
   const email = (s.email || '').trim().toLowerCase()
 
-  // 3. Dev AI bot accounts (devai_*)
+  // 3. Mitra owner patterns
+  if (username.startsWith('mitra_') || name.startsWith('mitra ') || username.includes('mitra')) {
+    return true
+  }
+
+  // 4. Kiosk patterns
+  if (username.includes('kiosk') || name.includes('kiosk')) {
+    return true
+  }
+
+  // 5. Dev AI bot accounts (devai_*)
   if (name.startsWith('devai') || username.startsWith('devai') || email.startsWith('devai')) return true
   if (username.startsWith('dev_') || email.startsWith('dev_')) return true
 
-  // 4. Admin Dev dummy account
+  // 6. Admin Dev dummy account
   if (username === 'admindev' || name === 'admin dev') return true
 
-  // 5. Explicit dummy / test usernames
+  // 7. Explicit dummy / test usernames
   const testUsernames = [
     'tes',
     'tes_bnr',
@@ -54,6 +67,7 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
     'empang_tes',
     'rendy_tes',
     'pusat_tes',
+    'pusat_tesss',
     'owner_test',
     'leader_test',
     'kitchentest',
@@ -65,7 +79,7 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   ]
   if (testUsernames.includes(username)) return true
 
-  // 6. Test names pattern
+  // 8. Test names pattern
   if (
     name === 'test finance' ||
     name === 'test cicurug' ||
@@ -82,6 +96,7 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
     name === 'kasir_tes' ||
     name === 'empang_tes' ||
     name === 'pusat_tes' ||
+    name === 'pusat_tesss' ||
     name === 'rendy_tes' ||
     name === 'superadmin 2' ||
     name === 'admin 2'
@@ -89,12 +104,18 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
     return true
   }
 
-  // 7. Test prefix/pattern checks
+  // 9. Test prefix/pattern checks
   if (
-    username.startsWith('test_') ||
-    username.startsWith('tes_') ||
+    username.startsWith('test') ||
+    username.startsWith('tes') ||
     username.endsWith('_test') ||
-    username.endsWith('_tes')
+    username.endsWith('_tes') ||
+    username.includes('_tes_') ||
+    username.includes('_test_') ||
+    name.includes('test') ||
+    name.startsWith('tes ') ||
+    name.endsWith(' tes') ||
+    name === 'tes'
   ) {
     return true
   }

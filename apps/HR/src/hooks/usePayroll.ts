@@ -66,6 +66,8 @@ export function usePayroll(month: number, year: number) {
           outlet_staff!payroll_records_staff_id_fkey(
             name,
             role,
+            username,
+            account_category,
             outlet_id,
             phone,
             outlets!outlet_staff_outlet_id_fkey(name),

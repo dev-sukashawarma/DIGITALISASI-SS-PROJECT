@@ -1,13 +1,13 @@
 import type { StaffRow, StaffFilterValues } from './types'
+import { isTestOrDevStaff } from './staffFilters'
 
 export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] {
   const q = f.search.trim().toLowerCase()
-  const targetCategory = f.category || 'all'
 
   // 1. Filter
   const filtered = rows.filter((r) => {
-    const itemCat = r.account_category || 'employee'
-    if (targetCategory !== 'all' && itemCat !== targetCategory) return false
+    // Always hide bot ai, kiosk, mitra owner, and testing dummy accounts from HR dashboard
+    if (isTestOrDevStaff(r)) return false
     if (q && !r.name.toLowerCase().includes(q) && !(r.username ?? '').toLowerCase().includes(q)) return false
     if (f.outletId && r.outlet_id !== f.outletId) return false
     if (f.role && r.role !== f.role) return false

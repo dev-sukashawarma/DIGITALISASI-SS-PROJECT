@@ -14,7 +14,7 @@ export function useRoster(outletId: string, startDate: string, endDate: string) 
       // 1. Fetch staff assigned to this outlet
       const { data: rawStaffList, error: staffErr } = await supabase
         .from('outlet_staff')
-        .select('id, name, role, username')
+        .select('id, name, role, username, account_category, outlet_id')
         .eq('outlet_id', outletId)
         .eq('status', 'active')
 

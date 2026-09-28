@@ -53,7 +53,7 @@ export function useCashAdvances() {
         .from('cash_advances')
         .select(`
           *,
-          outlet_staff!cash_advances_staff_id_fkey(name, role, outlet_id, outlets(name)),
+          outlet_staff!cash_advances_staff_id_fkey(name, role, username, account_category, outlet_id, outlets(name)),
           cash_advance_payments(
             id,
             amount,

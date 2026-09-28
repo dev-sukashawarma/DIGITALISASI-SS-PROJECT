@@ -15,7 +15,7 @@ export function useContracts(outletFilter?: string) {
       let q = supabase
         .from('outlet_staff')
         .select(`
-          id, name, role, username, phone, contract_type, join_date, resign_date, status,
+          id, name, role, username, phone, contract_type, join_date, resign_date, status, account_category, outlet_id,
           outlets!outlet_staff_outlet_id_fkey(name)
         `)
         .order('name')

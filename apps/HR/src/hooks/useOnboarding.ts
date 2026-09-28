@@ -40,7 +40,7 @@ export function useOnboarding(filters?: { outletId?: string; stage?: string; sub
       let staffQuery = supabase
         .from('outlet_staff')
         .select(`
-          id, name, username, role, sub_role, onboarding_stage, training_start_date, join_date, phone, outlet_id, status,
+          id, name, username, role, sub_role, onboarding_stage, training_start_date, join_date, phone, outlet_id, status, account_category,
           outlets!outlet_staff_outlet_id_fkey(name),
           staff_outlets(outlet_id)
         `)

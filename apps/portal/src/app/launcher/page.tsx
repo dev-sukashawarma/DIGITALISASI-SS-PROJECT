@@ -74,7 +74,8 @@ export default async function LauncherPage() {
   if (['mitra', 'korlap'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
-  const apps = accessibleApps(staff.role, staff.username)
+  // Staf pusat & crew yang sedang di Kantor Pusat hanya melihat app terbatas.
+  const apps = accessibleApps(staff.role, staff.username, staff)
 
   // Suka Review = app eksternal (Vercel), bukan bagian AppName/@suka/auth.
   // Khusus admin & owner; gerbangnya di server component ini.

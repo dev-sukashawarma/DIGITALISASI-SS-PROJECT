@@ -19,6 +19,7 @@ import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { PilihShiftModal } from "@/features/clock/PilihShiftModal";
 import { pilihOutletTerdekat } from "@/lib/attendance/pilihOutletTerdekat";
+import { adalahKantorPusat } from "@/lib/attendance/kantorPusat";
 import { shiftOptions, type ShiftConfig, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
 import { formatDistanceMeters, haversineMeters } from "@/lib/gps";
@@ -157,7 +158,9 @@ export function AttendanceKioskPanel() {
       if (kiosk.result.ok) {
         triggerSuccessFeedback();
         setTimeout(() => {
-          if (outletStaff?.role !== "admin_hr") {
+          // Kantor Pusat tidak punya checklist buka/tutup outlet — tetap di layar absen.
+          const diKantorPusat = adalahKantorPusat(activeOutletObj ?? { id: activeOutletId });
+          if (outletStaff?.role !== "admin_hr" && !diKantorPusat) {
             router.push("/dashboard/kru-checklist");
           }
         }, 1500);
@@ -165,6 +168,10 @@ export function AttendanceKioskPanel() {
         triggerErrorFeedback();
       }
     }
+    // Outlet sengaja tidak jadi dependency: daftar outlet dibuat ulang tiap jarak GPS
+    // diperbarui, dan effect ini tidak boleh berjalan dua kali untuk hasil absen yang sama.
+    // Nilai yang terbaca adalah outlet saat hasil absen muncul — memang outlet tempat absen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kiosk.result, router, outletStaff]);
 
   useEffect(() => {

@@ -41,6 +41,14 @@ describe('staffFilters - isTestOrDevStaff', () => {
     expect(isTestOrDevStaff({ name: 'rendy_tes', username: 'rendy_tes' })).toBe(true)
     expect(isTestOrDevStaff({ name: 'tes', username: 'tes' })).toBe(true)
     expect(isTestOrDevStaff({ name: 'Test Finance', username: 'testfinance' })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Test Finance', username: null })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Tim Finance', username: 'finance' })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Admin 2', username: 'admin2' })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Owner', username: 'ownerss' })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Owner Suka Shawarma', username: 'owner' })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Super Admin', username: 'superadmin' })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Super Admin', username: null })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Superadmin 2', username: 'superadmin2' })).toBe(true)
   })
 
   it('allows genuine operational employees', () => {

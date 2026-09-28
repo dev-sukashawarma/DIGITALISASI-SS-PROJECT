@@ -41,22 +41,54 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   const username = (s.username || '').trim().toLowerCase()
   const email = (s.email || '').trim().toLowerCase()
 
-  // 3. Mitra owner patterns
-  if (username.startsWith('mitra_') || name.startsWith('mitra ') || username.includes('mitra')) {
+  // 3. Mitra & Owner patterns
+  if (
+    username.startsWith('mitra_') ||
+    name.startsWith('mitra ') ||
+    username.includes('mitra') ||
+    username.startsWith('owner') ||
+    name.startsWith('owner') ||
+    username === 'ownerss' ||
+    username === 'owner'
+  ) {
     return true
   }
 
-  // 4. Kiosk patterns
+  // 4. Super Admin & Admin dummy patterns
+  if (
+    username.startsWith('superadmin') ||
+    name.startsWith('super admin') ||
+    name.startsWith('superadmin') ||
+    username === 'admin2' ||
+    name === 'admin 2' ||
+    username === 'admindev' ||
+    name === 'admin dev'
+  ) {
+    return true
+  }
+
+  // 5. Generic department shared accounts
+  if (
+    username === 'finance' ||
+    name === 'tim finance' ||
+    username === 'admin_finance' ||
+    name === 'admin finance' ||
+    username === 'purchasing' ||
+    name === 'tim purchasing' ||
+    username === 'staff_pusat' ||
+    name === 'staff pusat'
+  ) {
+    return true
+  }
+
+  // 6. Kiosk patterns
   if (username.includes('kiosk') || name.includes('kiosk')) {
     return true
   }
 
-  // 5. Dev AI bot accounts (devai_*)
+  // 7. Dev AI bot accounts (devai_*)
   if (name.startsWith('devai') || username.startsWith('devai') || email.startsWith('devai')) return true
   if (username.startsWith('dev_') || email.startsWith('dev_')) return true
-
-  // 6. Admin Dev dummy account
-  if (username === 'admindev' || name === 'admin dev') return true
 
   // 7. Explicit dummy / test usernames
   const testUsernames = [

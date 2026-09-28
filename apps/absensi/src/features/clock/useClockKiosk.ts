@@ -15,6 +15,8 @@ import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
 import { shiftOptions, isShiftPenutup, type ShiftConfig, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable, formatDistanceMeters } from "@/lib/gps";
+// Kantor Pusat tidak punya laci kasir maupun checklist tutup: gerbang absen pulang tak berlaku.
+import { adalahKantorPusat } from "@/lib/attendance/kantorPusat";
 
 export type KioskPhase = "locating" | "location_invalid" | "locked" | "idle" | "identified" | "pilih_shift" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
@@ -22,22 +24,6 @@ export type KioskResult = { ok: boolean; message: string };
 type StaffRow = { id: string; name: string; role?: string | null; face_descriptor: number[] | null; allow_manual_button: boolean };
 
 const FUNCTION_URL = "/api/submit-attendance";
-
-const SLUG_KANTOR_PUSAT = "kantor-pusat";
-
-/**
- * Kantor Pusat: tidak ada kasir, pesanan, maupun checklist tutup outlet di sana, jadi
- * gerbang absen pulang tidak berlaku (lihat wajibTutupOutlet).
- *
- * `outlets.type = 'office'` saja TIDAK cukup sebagai penanda: tipe itu juga dipegang
- * Gudang Pusat, gudang sungguhan yang tetap wajib menutup outlet. Slug dicocokkan lebih
- * dulu; namanya dipakai sebagai cadangan kalau slug-nya pernah diubah, karena satu-satunya
- * lokasi `office` yang bernama "kantor" memang Kantor Pusat.
- */
-function adalahKantorPusat(outlet: { slug?: string | null; name?: string | null; type?: string | null }): boolean {
-  if (outlet.slug === SLUG_KANTOR_PUSAT) return true;
-  return outlet.type === "office" && /kantor/i.test(outlet.name ?? "");
-}
 
 /**
  * @param outletId outlet aktif

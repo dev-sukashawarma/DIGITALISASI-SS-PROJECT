@@ -23,8 +23,25 @@ export type BoardConfig = {
   jam_keluar?: string;
   toleransi_menit: number;
   pilih_shift_aktif?: boolean | null;
+  /** Cermin lama shift urutan 2 — cadangan bila daftar shift kosong. */
   shift2_jam_masuk?: string | null;
+  /** Jam masuk seluruh shift outlet (tabel outlet_attendance_shift). */
+  shifts_jam_masuk?: string[] | null;
 };
+
+/**
+ * Jam masuk acuan batas alpha. Outlet berpilihan shift: shift yang masuk PALING
+ * AKHIR — crew shift siang/malam tak boleh tercap alpha di pagi hari. Selain itu
+ * (atau data shift kosong) jam masuk outlet.
+ */
+export function jamMasukBatasAlpha(config: BoardConfig): string {
+  const dasar = config.jam_masuk.slice(0, 5);
+  if (!config.pilih_shift_aktif) return dasar;
+  const kandidat = (config.shifts_jam_masuk?.length ? config.shifts_jam_masuk : [config.shift2_jam_masuk])
+    .filter((j): j is string => typeof j === "string" && j.length >= 5)
+    .map((j) => j.slice(0, 5));
+  return kandidat.reduce((maks, j) => (j > maks ? j : maks), dasar);
+}
 
 export type BoardState = "masuk" | "telat" | "telat_toleransi" | "keluar" | "belum" | "alpha" | "lebih_awal" | "pulang_telat";
 export type BoardRow = { 
@@ -67,12 +84,9 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
   }
 
   const now = new Date();
-  // Outlet dua shift: yang belum absen baru dianggap alpha setelah shift
+  // Outlet berpilihan shift: yang belum absen baru dianggap alpha setelah shift
   // TERAKHIR lewat batas — crew siang tak boleh tercap alpha di pagi hari.
-  const jamMasukTerakhir =
-    config.pilih_shift_aktif && config.shift2_jam_masuk && config.shift2_jam_masuk.slice(0, 5) > config.jam_masuk.slice(0, 5)
-      ? config.shift2_jam_masuk
-      : config.jam_masuk;
+  const jamMasukTerakhir = jamMasukBatasAlpha(config);
   const [h, m] = jamMasukTerakhir.split(":").map(Number);
   const deadline = new Date();
   deadline.setHours(h, m + config.toleransi_menit, 0, 0);

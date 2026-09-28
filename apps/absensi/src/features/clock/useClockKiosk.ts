@@ -13,7 +13,7 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
-import { shiftOptions, isShiftPenutup, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
+import { shiftOptions, isShiftPenutup, type ShiftConfig, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable, formatDistanceMeters } from "@/lib/gps";
 
 export type KioskPhase = "locating" | "location_invalid" | "locked" | "idle" | "identified" | "pilih_shift" | "liveness" | "submitting" | "result";
@@ -47,7 +47,7 @@ function adalahKantorPusat(outlet: { slug?: string | null; name?: string | null;
  *   Bila kosong → MODE 1:N (kiosk bersama: kenali siapa pun yang ter-enroll).
  * @param options.shiftKe Shift yang sudah dipilih sebelum scan (panel pribadi memilih
  *   di awal). Bila diisi, modal pilih shift tidak ditanyakan lagi setelah wajah
- *   dikenali. Bila kosong di outlet dua shift → modal muncul setelah identifikasi
+ *   dikenali. Bila kosong di outlet berpilihan shift → modal muncul setelah identifikasi
  *   (kiosk bersama, identitas baru diketahui setelah scan).
  */
 export function useClockKiosk(outletId: string, options?: { lockToStaffId?: string; shiftKe?: ShiftKe | null }) {
@@ -371,28 +371,28 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const busyRef = useRef(false);
 
-  // Pilihan dua shift: opsi yang ditawarkan di modal, shift yang dipilih, dan
+  // Pilihan shift: opsi yang ditawarkan di modal, shift yang dipilih, dan
   // absen manual yang tertunda menunggu pilihan. Ref dipakai agar doSubmit yang
   // tertangkap closure lama tetap membaca pilihan terbaru.
   const [shiftChoices, setShiftChoices] = useState<ShiftOption[] | null>(null);
   const shiftKeRef = useRef<ShiftKe | undefined>(undefined);
   const pendingManualRef = useRef<{ staffId: string; staffName: string } | null>(null);
 
-  /** Opsi shift outlet ini (null = outlet satu shift). Dibaca segar tiap absen masuk. */
+  /**
+   * Opsi shift outlet ini (null = outlet tanpa pilihan shift). Dibaca segar tiap absen.
+   * Lewat RPC, bukan tabel: RLS outlet_attendance_config hanya membuka outlet utama
+   * staff, sehingga di outlet tambahan/penempatan pilihan shift tak pernah muncul.
+   */
   async function loadShiftOptions(role?: string | null): Promise<ShiftOption[] | null> {
     if (!outletId) return null;
-    const { data } = await supabase
-      .from("outlet_attendance_config")
-      .select("jam_masuk, jam_keluar, pilih_shift_aktif, shift2_jam_masuk, shift2_jam_keluar")
-      .eq("outlet_id", outletId)
-      .maybeSingle();
-    return shiftOptions(data, role);
+    const { data } = await supabase.rpc("attendance_shift_config", { p_outlet_id: outletId });
+    return shiftOptions(data as ShiftConfig | null, role);
   }
 
   /**
    * Apakah staff ini wajib menunggu penutupan outlet (checklist tutup & laci kasir)
-   * sebelum absen pulang. Di outlet dua shift hanya shift yang pulang paling akhir;
-   * aturan yang sama ditegakkan ulang di server (api/submit-attendance).
+   * sebelum absen pulang. Di outlet berpilihan shift hanya shift yang pulang paling akhir;
+   * aturan yang sama ditegakkan ulang di server (RPC submit_attendance).
    *
    * Kantor Pusat tidak punya laci kasir maupun checklist tutup outlet, jadi gerbang ini
    * hanya akan mengunci staf kantor selamanya. Yang tersisa di sana cuma aturan jam, dan
@@ -406,7 +406,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     if (!opsi) return true;
     const { data } = await supabase
       .from("attendance")
-      .select("shift_jam_keluar")
+      .select("shift_jam_masuk, shift_jam_keluar")
       .eq("outlet_staff_id", staffId)
       .eq("type", "in")
       .neq("status", "alpha")
@@ -414,7 +414,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       .order("ts_server", { ascending: false })
       .limit(1)
       .maybeSingle();
-    return isShiftPenutup(opsi, (data as { shift_jam_keluar: string | null } | null)?.shift_jam_keluar);
+    const jejak = data as { shift_jam_masuk: string | null; shift_jam_keluar: string | null } | null;
+    return isShiftPenutup(opsi, jejak?.shift_jam_keluar, jejak?.shift_jam_masuk);
   }
 
   /** Muat descriptor staff ter-enroll. */
@@ -423,10 +424,12 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     let query = supabase
       .from("outlet_staff")
       .select("id,name,role,face_descriptor,allow_manual_button")
-      .or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`)
       .not("face_descriptor", "is", null);
     // Mode 1:1 — batasi kandidat ke akun yang login saja (verifikasi, bukan identifikasi).
+    // Outlet tidak ikut menyaring: izin absen di outlet ini (termasuk izin tambahan dari
+    // admin) ditegakkan RPC submit_attendance, sama seperti /api/face-match.
     if (lockToStaffId) query = query.eq("id", lockToStaffId);
+    else query = query.or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`);
     const { data } = await query;
     candidatesRef.current = ((data as StaffRow[]) ?? [])
       .filter((s) => s.face_descriptor)
@@ -557,7 +560,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       setAction(next);
       shiftKeRef.current = presetShiftKe;
 
-      // Outlet dua shift: crew wajib memilih shift sebelum absen masuk
+      // Outlet berpilihan shift: crew wajib memilih shift sebelum absen masuk
       // (kecuali sudah dipilih di awal lewat options.shiftKe).
       if (next === "in" && !presetShiftKe) {
         const opsi = await loadShiftOptions(foundRole);
@@ -934,7 +937,7 @@ function gagalText(reason: string): string {
   const map: Record<string, string> = {
     not_enrolled: "Belum enroll wajah",
     forbidden_role: "Akun tak berwenang absen",
-    cross_outlet: "Staff beda outlet",
+    cross_outlet: "Anda belum diizinkan absen di outlet ini. Minta admin menambahkan akses.",
     unauthenticated: "API key salah",
     terlambat_alpha: "Lewat Batas Waktu (Alpha)",
     too_early_in: "Belum waktunya absen masuk",
@@ -943,6 +946,12 @@ function gagalText(reason: string): string {
     gps_accuracy_low: "Akurasi GPS terlalu rendah — aktifkan Lokasi Akurat",
     shift_not_closed: "Shift kasir belum ditutup",
     unfinished_orders: "Masih ada pesanan yang belum selesai di outlet ini",
+    staff_inactive: "Akun Anda tidak aktif",
+    outlet_inactive: "Outlet ini sedang nonaktif",
+    already_clocked_in: "Anda sudah absen masuk",
+    location_required: "Lokasi GPS wajib aktif untuk absen",
+    too_far_from_outlet: "Anda di luar radius outlet",
+    config_missing: "Jadwal absen belum diatur. Hubungi admin.",
   };
   return map[reason] ?? `Gagal: ${reason}`;
 }

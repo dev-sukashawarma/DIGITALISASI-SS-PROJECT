@@ -9,6 +9,7 @@ import { SwipeableContainer } from "@/components/layout/SwipeableContainer";
 import { useLeaveNotifications } from "@/features/cuti/useLeaveNotifications";
 import { LocationPresence } from "@/components/LocationPresence";
 import { PERAN_PENGATUR_AKSES } from "./akses-absen/peran";
+import { staffDiKantorPusat } from "@/lib/attendance/kantorPusat";
 
 const getPortalUrl = () => {
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com';
@@ -39,11 +40,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Hanya HR & Developer yang boleh mengatur outlet tempat crew boleh absen.
   const isAksesAbsenAllowed = PERAN_PENGATUR_AKSES.includes(outletStaff?.role || "");
 
+  // Kantor Pusat tidak punya checklist buka/tutup outlet: menu Checklist diganti Cuti
+  // (cermin tab Cuti untuk staf Kantor Pusat di app native).
+  const diKantorPusat = staffDiKantorPusat(outletStaff);
+  const isiChecklist = !isHr && !diKantorPusat;
+
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
     { href: "/dashboard/papan-kehadiran", label: "Papan Kehadiran", icon: <LayoutDashboard size={20} /> },
     { href: "/dashboard/rekap", label: "Rekap & Riwayat", icon: <ClipboardList size={20} /> },
-    ...(!isHr ? [{ href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={20} /> }] : []),
+    ...(isiChecklist ? [{ href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={20} /> }] : []),
     { href: "/dashboard/checklist-monitor", label: "Monitor Checklist", icon: <ClipboardCheck size={20} /> },
     { href: "/dashboard/checklist", label: "Manajemen Checklist", icon: <ListChecks size={20} /> },
     { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={20} /> },
@@ -54,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/panduan", label: "Panduan", icon: <Book size={20} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda Saya", icon: <LayoutDashboard size={20} /> },
-    { href: "/dashboard/kru-checklist", label: "Checklist Harian", icon: <ClipboardCheck size={20} /> },
+    ...(!diKantorPusat ? [{ href: "/dashboard/kru-checklist", label: "Checklist Harian", icon: <ClipboardCheck size={20} /> }] : []),
     { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={20} /> },
     { href: "/dashboard/kasbon", label: "Kasbon", icon: <Banknote size={20} /> },
     { href: "/dashboard/profil", label: "Profil & Password", icon: <UserRound size={20} /> },
@@ -67,13 +73,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/rekap", label: "Rekap", icon: <ClipboardList size={22} /> },
     ...(isHr ? [
       { href: "/dashboard/checklist-monitor", label: "Monitor", icon: <ClipboardCheck size={22} /> },
+    ] : diKantorPusat ? [
+      { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={22} /> },
     ] : [
       { href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={22} /> },
     ]),
     ...(isEnrollmentAllowed ? [{ href: "/dashboard/enroll", label: "Enroll", icon: <UserPlus size={22} /> }] : [{ href: "/dashboard/papan-kehadiran", label: "Papan", icon: <LayoutDashboard size={22} /> }]),
   ] : [
     { href: "/dashboard/kru", label: "Beranda", icon: <LayoutDashboard size={22} /> },
-    { href: "/dashboard/kru-checklist", label: "Checklist", icon: <ClipboardCheck size={22} /> },
+    diKantorPusat
+      ? { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={22} /> }
+      : { href: "/dashboard/kru-checklist", label: "Checklist", icon: <ClipboardCheck size={22} /> },
     { href: "/dashboard/profil", label: "Profil", icon: <UserRound size={22} /> },
   ];
   const mobileMainHrefs = new Set(mobileMainItems.map((i) => i.href));
@@ -87,6 +97,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Gunakan WHITELIST rute kru (lebih aman dari blacklist yang bisa salah tangkap)
   React.useEffect(() => {
     if (!loading && outletStaff) {
+      const keChecklist = pathname === "/dashboard/kru-checklist" || pathname.startsWith("/dashboard/kru-checklist/");
+      if (diKantorPusat && !isHr && keChecklist) {
+        router.replace("/dashboard/cuti");
+        return;
+      }
       if (!isSPV) {
         const kruAllowedPaths = ["/dashboard/kru", "/dashboard/kru-checklist", "/dashboard/profil", "/dashboard/cuti", "/dashboard/kasbon", "/dashboard/panduan"];
         const isAllowed = kruAllowedPaths.some(p => pathname === p || pathname.startsWith(p + "/"));
@@ -105,7 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
       }
     }
-  }, [outletStaff, isSPV, isHr, isEnrollmentAllowed, isSettingsAllowed, isAksesAbsenAllowed, loading, pathname, router]);
+  }, [outletStaff, isSPV, isHr, diKantorPusat, isEnrollmentAllowed, isSettingsAllowed, isAksesAbsenAllowed, loading, pathname, router]);
 
   // Tutup sheet "Lainnya" tiap pindah halaman
   React.useEffect(() => { setMoreOpen(false); }, [pathname]);

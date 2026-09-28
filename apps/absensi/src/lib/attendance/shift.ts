@@ -1,15 +1,39 @@
 /**
- * Pilihan dua shift per outlet (toggle `pilih_shift_aktif` di pengaturan).
- * Shift 1 = jam_masuk/jam_keluar outlet, Shift 2 = shift2_jam_masuk/shift2_jam_keluar.
- * Dipakai bersama oleh kiosk (modal pilih shift), route submit, dan papan.
+ * Shift jadwal khusus outlet (toggle `pilih_shift_aktif` di pengaturan), 1–12 shift.
+ * Sumber utama: tabel `outlet_attendance_shift` — `urutan` = nomor `shift_ke` yang dikirim
+ * klien — dibaca lewat RPC `attendance_shift_config` / `list_outlet_attendance_config`.
+ * Kolom lama (jam_masuk/jam_keluar = Shift 1, shift2_* = Shift 2) hanya jadi cadangan bila
+ * daftar shift belum ada.
+ * Dipakai bersama oleh kiosk (modal pilih shift), panel absen pribadi, dan pengaturan.
+ * Aturan yang mengikat tetap di server (RPC submit_attendance); helper di sini hanya
+ * cermin untuk tampilan & gerbang di klien.
  */
 
-export type ShiftKe = 1 | 2 | 3;
+/** Nomor shift: urutan shift outlet (1..MAX_SHIFT) atau DRIVER_SHIFT_KE. */
+export type ShiftKe = number;
+
+/** Batas jumlah shift per outlet — sama dengan CHECK di tabel outlet_attendance_shift. */
+export const MAX_SHIFT = 12;
+
+/** Shift khusus driver (09:00–18:00) di luar daftar shift outlet — sama dengan RPC. */
+export const DRIVER_SHIFT_KE = 99;
+const DRIVER_JAM_MASUK = "09:00";
+const DRIVER_JAM_KELUAR = "18:00";
 
 export type ShiftOption = {
   ke: ShiftKe;
+  /** Nama tampilan: nama khusus dari pengaturan, atau sebutan otomatis dari jam masuk. */
+  nama: string;
   jam_masuk: string; // "HH:MM"
   jam_keluar: string; // "HH:MM"
+};
+
+/** Satu baris shift outlet seperti dikembalikan RPC (`ke` = urutan). */
+export type ShiftRow = {
+  ke: number;
+  nama: string | null;
+  jam_masuk: string;
+  jam_keluar: string;
 };
 
 export type ShiftConfig = {
@@ -18,36 +42,61 @@ export type ShiftConfig = {
   pilih_shift_aktif?: boolean | null;
   shift2_jam_masuk?: string | null;
   shift2_jam_keluar?: string | null;
-  shift3_jam_masuk?: string | null;
-  shift3_jam_keluar?: string | null;
+  shifts?: ShiftRow[] | null;
 };
 
 const hhmm = (t: string) => t.slice(0, 5);
 
+function buatOpsi(ke: number, jamMasuk: string, jamKeluar: string, nama?: string | null): ShiftOption {
+  const masuk = hhmm(jamMasuk);
+  return { ke, nama: nama?.trim() || namaShift(masuk), jam_masuk: masuk, jam_keluar: hhmm(jamKeluar) };
+}
+
 /**
- * Daftar shift yang wajib dipilih crew/staf, atau null bila outlet hanya satu shift.
- * Bila role === 'driver', otomatis diberikan 3 pilihan shift (termasuk 09:00–18:00).
+ * Normalisasi baris shift dari sumber mana pun — RPC (`ke`) maupun embed tabel
+ * (`urutan`, jam "HH:MM:SS") — menjadi ShiftRow berjam "HH:MM", urut nomor shift.
+ */
+export function keShiftRows(raw: unknown): ShiftRow[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r: any) => ({
+      ke: Number(r?.ke ?? r?.urutan),
+      nama: typeof r?.nama === "string" && r.nama.trim() ? r.nama.trim() : null,
+      jam_masuk: typeof r?.jam_masuk === "string" ? hhmm(r.jam_masuk) : "",
+      jam_keluar: typeof r?.jam_keluar === "string" ? hhmm(r.jam_keluar) : "",
+    }))
+    .filter((r) => Number.isInteger(r.ke) && r.jam_masuk && r.jam_keluar)
+    .sort((a, b) => a.ke - b.ke);
+}
+
+/**
+ * Daftar shift yang wajib dipilih crew/staf, atau null bila outlet tidak memakai pilihan
+ * shift (toggle mati atau kurang dari dua shift — server pun tidak meminta shift_ke).
+ * Role driver mendapat tambahan Shift Driver 09:00–18:00 (nomor DRIVER_SHIFT_KE).
  */
 export function shiftOptions(
   cfg: ShiftConfig | null | undefined,
   role?: string | null
 ): ShiftOption[] | null {
   if (!cfg?.pilih_shift_aktif) return null;
-  if (!cfg.jam_masuk || !cfg.jam_keluar || !cfg.shift2_jam_masuk || !cfg.shift2_jam_keluar) return null;
 
-  const options: ShiftOption[] = [
-    { ke: 1, jam_masuk: hhmm(cfg.jam_masuk), jam_keluar: hhmm(cfg.jam_keluar) },
-    { ke: 2, jam_masuk: hhmm(cfg.shift2_jam_masuk), jam_keluar: hhmm(cfg.shift2_jam_keluar) },
-  ];
+  let options: ShiftOption[];
+  const rows = keShiftRows(cfg.shifts);
+  if (rows.length > 0) {
+    options = rows.map((s) => buatOpsi(s.ke, s.jam_masuk, s.jam_keluar, s.nama));
+  } else {
+    // Cadangan data lama: dua kolom datar, keduanya wajib lengkap.
+    if (!cfg.jam_masuk || !cfg.jam_keluar || !cfg.shift2_jam_masuk || !cfg.shift2_jam_keluar) return null;
+    options = [
+      buatOpsi(1, cfg.jam_masuk, cfg.jam_keluar),
+      buatOpsi(2, cfg.shift2_jam_masuk, cfg.shift2_jam_keluar),
+    ];
+  }
+  if (options.length < 2) return null;
 
   if (role === "driver") {
-    const s3Masuk = cfg.shift3_jam_masuk ? hhmm(cfg.shift3_jam_masuk) : "09:00";
-    const s3Keluar = cfg.shift3_jam_keluar ? hhmm(cfg.shift3_jam_keluar) : "18:00";
-    options.push({ ke: 3, jam_masuk: s3Masuk, jam_keluar: s3Keluar });
-  } else if (cfg.shift3_jam_masuk && cfg.shift3_jam_keluar) {
-    options.push({ ke: 3, jam_masuk: hhmm(cfg.shift3_jam_masuk), jam_keluar: hhmm(cfg.shift3_jam_keluar) });
+    options.push({ ke: DRIVER_SHIFT_KE, nama: "Shift Driver", jam_masuk: DRIVER_JAM_MASUK, jam_keluar: DRIVER_JAM_KELUAR });
   }
-
   return options;
 }
 
@@ -72,18 +121,38 @@ function menitPulang(jamMasuk: string, jamKeluar: string): number {
  * kasir ditutup, pesanan selesai, dan checklist penutupan; crew shift pagi boleh
  * pulang walau outlet masih buka.
  *
- * Outlet satu shift (opsi null) atau absen tanpa jejak shift → true (aturan lama:
- * semua yang absen pulang dianggap menutup).
+ * Sama dengan server: batas "paling akhir" dihitung dari shift OUTLET saja (Shift
+ * Driver tidak ikut), dan shift seseorang penutup bila menit pulangnya >= batas itu.
+ * `jamMasukShift` (jejak absen masuk) dipakai bila ada, agar shift lewat tengah malam
+ * dihitung tepat walau jam pulangnya sama dengan shift lain.
+ *
+ * Outlet tanpa pilihan shift (opsi null), absen tanpa jejak shift, atau jejak shift
+ * yang tidak lagi ada di daftar → true (aturan lama: semua yang absen pulang dianggap menutup).
  */
-export function isShiftPenutup(opsi: ShiftOption[] | null, jamKeluarShift: string | null | undefined): boolean {
+export function isShiftPenutup(
+  opsi: ShiftOption[] | null,
+  jamKeluarShift: string | null | undefined,
+  jamMasukShift?: string | null
+): boolean {
   if (!opsi || !jamKeluarShift) return true;
-  const jam = hhmm(jamKeluarShift);
-  const milik = opsi.find((o) => o.jam_keluar === jam);
+  const keluar = hhmm(jamKeluarShift);
+  const masuk = jamMasukShift ? hhmm(jamMasukShift) : null;
+  const milik =
+    (masuk ? opsi.find((o) => o.jam_keluar === keluar && o.jam_masuk === masuk) : undefined) ??
+    opsi.find((o) => o.jam_keluar === keluar);
   if (!milik) return true;
-  const terakhir = Math.max(...opsi.map((o) => menitPulang(o.jam_masuk, o.jam_keluar)));
-  return menitPulang(milik.jam_masuk, milik.jam_keluar) === terakhir;
+
+  const shiftOutlet = opsi.filter((o) => o.ke !== DRIVER_SHIFT_KE);
+  if (shiftOutlet.length === 0) return true;
+  const terakhir = Math.max(...shiftOutlet.map((o) => menitPulang(o.jam_masuk, o.jam_keluar)));
+  return menitPulang(masuk ?? milik.jam_masuk, keluar) >= terakhir;
 }
 
+/** Nomor shift yang sah dikirim klien: 1..MAX_SHIFT atau DRIVER_SHIFT_KE. */
 export function isShiftKe(v: unknown): v is ShiftKe {
-  return v === 1 || v === 2 || v === 3;
+  return (
+    typeof v === "number" &&
+    Number.isInteger(v) &&
+    ((v >= 1 && v <= MAX_SHIFT) || v === DRIVER_SHIFT_KE)
+  );
 }

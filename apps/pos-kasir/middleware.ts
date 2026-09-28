@@ -121,7 +121,8 @@ export async function middleware(request: NextRequest) {
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
-    if (!userId || !['leader', 'crew', 'regional_manager', 'developer'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir') || status !== 'active') {
+    // Crew yang sedang di Kantor Pusat tidak membuka kasir (lihat @suka/auth kantor-pusat.ts).
+    if (!userId || !['leader', 'crew', 'regional_manager', 'developer'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir', null, { outlet_id }) || status !== 'active') {
       return getRedirect(PORTAL_URL)
     }
   }

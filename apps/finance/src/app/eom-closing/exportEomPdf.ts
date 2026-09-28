@@ -487,15 +487,25 @@ export async function buildOpexEomPdf(s: OpexSummary, meta: OpexMeta) {
   let y = header(doc, { judul: 'REKAP BIAYA OPERASIONAL (OPEX)', noDok, month, year, dicetakOleh })
 
   const groups: OpexGroup[] = ['global', 'internal', 'mitra']
+  const totalOpexMurni = groups.reduce((a, g) => a + s.totals[g].total, 0)
+  const totalBahanBaku = groups.reduce((a, g) => a + s.totals[g].nonOpexTotal, 0)
+
   y = kpiBoxes(doc, y, [
     ...groups.map((g) => ({ label: `OPEX ${GROUP_LABEL[g]}`, value: rp(s.totals[g].total) })),
-    { label: 'Total OPEX', value: rp(groups.reduce((a, g) => a + s.totals[g].total, 0)) },
+    { label: 'Total OPEX Murni', value: rp(totalOpexMurni) },
   ])
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(71, 85, 105)
   const missing = groups.reduce((a, g) => a + s.totals[g].missingCount, 0)
-  doc.text(`Sumber: data Pengeluaran (sama dengan halaman Pengeluaran & Rekap Bulanan). Pembanding kelengkapan: ${prevLabel}. ${missing === 0 ? 'Semua kategori bulan lalu sudah terisi.' : `${missing} kategori bulan lalu belum diisi bulan ini.`}`, MARGIN, y, { maxWidth: doc.internal.pageSize.getWidth() - MARGIN * 2 })
+  const exempted = groups.reduce((a, g) => a + s.totals[g].exemptedCount, 0)
+  
+  const statusNote = missing === 0
+    ? `Semua kategori bulan lalu sudah terisi / diverifikasi nihil (${exempted} nihil).`
+    : `${missing} kategori bulan lalu belum diisi bulan ini (${exempted} telah diverifikasi nihil).`
+  const nonOpexNote = totalBahanBaku > 0 ? ` Belanja bahan baku darurat kas toko (${rp(totalBahanBaku)}) dicatat terpisah (Non-OPEX).` : ''
+
+  doc.text(`Sumber: data Pengeluaran. Pembanding kelengkapan: ${prevLabel}. ${statusNote}${nonOpexNote}`, MARGIN, y, { maxWidth: doc.internal.pageSize.getWidth() - MARGIN * 2 })
   y += 8
 
   // I. Ringkasan per kelompok
@@ -503,59 +513,165 @@ export async function buildOpexEomPdf(s: OpexSummary, meta: OpexMeta) {
   autoTable(doc, {
     ...TABLE_BASE,
     startY: y + 1,
-    head: [['Kelompok', 'Jumlah unit', 'Bulan ini', prevLabel, 'Selisih', 'Kategori belum diisi']],
+    head: [['Kelompok', 'Jumlah unit', 'OPEX Murni', prevLabel, 'Selisih', 'Bahan Baku', 'Belum Diisi', 'Nihil']],
     body: groups.map((g) => {
       const t = s.totals[g]
-      return [GROUP_LABEL[g], String(t.unitCount), rp(t.total), rp(t.totalPrev), rpSigned(t.total - t.totalPrev), String(t.missingCount)]
+      return [
+        GROUP_LABEL[g],
+        String(t.unitCount),
+        rp(t.total),
+        rp(t.totalPrev),
+        rpSigned(t.total - t.totalPrev),
+        t.nonOpexTotal > 0 ? rp(t.nonOpexTotal) : '-',
+        String(t.missingCount),
+        String(t.exemptedCount),
+      ]
     }),
-    columnStyles: { 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'center' } },
-  })
-  y = lastY(doc) + 8
-
-  // II. Kelengkapan per outlet
-  y = sectionTitle(doc, y, 'II. Kelengkapan per Outlet', 'Kategori "belum diisi" = terisi bulan lalu tetapi belum ada bulan ini.')
-  autoTable(doc, {
-    ...TABLE_BASE,
-    startY: y,
-    head: [['Kelompok', 'Outlet / Unit', 'Bulan ini', prevLabel, 'Selisih', 'Belum diisi', 'Kategori baru']],
-    body: groups.flatMap((g) => s.units.filter((u) => u.group === g).map((u) => [
-      GROUP_LABEL[g], shortName(u.unitName), rp(u.total), rp(u.totalPrev), rpSigned(u.total - u.totalPrev),
-      u.missing.map(catLabel).join(', ') || 'Lengkap', u.added.map(catLabel).join(', ') || '-',
-    ])),
-    columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { cellWidth: 60 }, 6: { cellWidth: 45 } },
+    columnStyles: {
+      1: { halign: 'center' },
+      2: { halign: 'right' },
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+      5: { halign: 'right' },
+      6: { halign: 'center' },
+      7: { halign: 'center' },
+    },
     didParseCell: (h) => {
-      if (h.section === 'body' && h.column.index === 5 && String(h.cell.raw) !== 'Lengkap') h.cell.styles.fillColor = [254, 249, 195]
+      if (h.section === 'body' && h.column.index === 6 && Number(h.cell.raw) > 0) {
+        h.cell.styles.fillColor = [254, 249, 195]
+        h.cell.styles.fontStyle = 'bold'
+      }
     },
   })
   y = lastY(doc) + 8
 
-  // III. Rincian kategori per unit
-  y = sectionTitle(doc, y, 'III. Rincian Kategori per Outlet / Unit')
+  // II. Kelengkapan per outlet
+  y = sectionTitle(doc, y, 'II. Kelengkapan per Outlet', 'Kategori "belum diisi" = terisi bulan lalu tetapi belum ada bulan ini & belum diverifikasi nihil.')
+  autoTable(doc, {
+    ...TABLE_BASE,
+    startY: y,
+    head: [['Kelompok', 'Outlet / Unit', 'OPEX Murni', prevLabel, 'Selisih', 'Bahan Baku', 'Belum Diisi', 'Nihil']],
+    body: groups.flatMap((g) => s.units.filter((u) => u.group === g).map((u) => [
+      GROUP_LABEL[g],
+      shortName(u.unitName),
+      rp(u.total),
+      rp(u.totalPrev),
+      rpSigned(u.total - u.totalPrev),
+      u.nonOpexTotal > 0 ? rp(u.nonOpexTotal) : '-',
+      u.missing.map(catLabel).join(', ') || 'Lengkap',
+      u.exempted.map(catLabel).join(', ') || '-',
+    ])),
+    columnStyles: {
+      2: { halign: 'right' },
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+      5: { halign: 'right' },
+      6: { cellWidth: 50 },
+      7: { cellWidth: 40 },
+    },
+    didParseCell: (h) => {
+      if (h.section === 'body' && h.column.index === 6 && String(h.cell.raw) !== 'Lengkap') {
+        h.cell.styles.fillColor = [254, 249, 195]
+      }
+      if (h.section === 'body' && h.column.index === 7 && String(h.cell.raw) !== '-') {
+        h.cell.styles.fillColor = [240, 253, 244]
+      }
+    },
+  })
+  y = lastY(doc) + 8
+
+  // III. Rincian kategori per unit (Dikelompokkan per Kluster Beban)
+  y = sectionTitle(doc, y, 'III. Rincian Kategori per Outlet / Unit (Berdasarkan Kluster Beban)')
   for (const g of groups) {
     for (const u of s.units.filter((x) => x.group === g)) {
-      const cats = Array.from(new Set([...Object.keys(u.byCategory), ...Object.keys(u.byCategoryPrev)]))
-        .sort((a, b) => (u.byCategory[b] ?? 0) - (u.byCategory[a] ?? 0))
-      y = ensureSpace(doc, y, 22)
+      y = ensureSpace(doc, y, 25)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(8.5)
       doc.setTextColor(...ORANGE)
-      doc.text(`${shortName(u.unitName)} (${GROUP_LABEL[g]}) — ${rp(u.total)}`, MARGIN, y)
+      const subTitle = u.nonOpexTotal > 0
+        ? `${shortName(u.unitName)} (${GROUP_LABEL[g]}) — OPEX Murni: ${rp(u.total)} | Bahan Baku: ${rp(u.nonOpexTotal)}`
+        : `${shortName(u.unitName)} (${GROUP_LABEL[g]}) — OPEX Murni: ${rp(u.total)}`
+      doc.text(subTitle, MARGIN, y)
+
+      const bodyRows: (string | number)[][] = []
+      const clusterHeaderRows = new Set<number>()
+      const subtotalRows = new Set<number>()
+      const flaggedRows = new Set<number>()
+      const nihilRows = new Set<number>()
+
+      u.clusters.forEach((cl) => {
+        // Baris Header Kluster
+        const headerIdx = bodyRows.length
+        clusterHeaderRows.add(headerIdx)
+        bodyRows.push([`KLUSTER: ${cl.label.toUpperCase()}`, '', '', '', ''])
+
+        // Baris-baris Kategori di dalam Kluster
+        cl.categories.forEach((cat) => {
+          const rowIdx = bodyRows.length
+          let ket = ''
+          if (cat.status === 'nihil') {
+            ket = `NIHIL (${cat.exemption?.quickReason || 'Diverifikasi'})`
+            nihilRows.add(rowIdx)
+          } else if (cat.status === 'missing') {
+            ket = 'BELUM DIISI'
+            flaggedRows.add(rowIdx)
+          } else if (cat.status === 'added') {
+            ket = 'Kategori Baru'
+          }
+
+          bodyRows.push([
+            `  ${cat.label}`,
+            cat.current ? rp(cat.current) : '-',
+            cat.previous ? rp(cat.previous) : '-',
+            rpSigned(cat.diff),
+            ket,
+          ])
+        })
+
+        // Baris Subtotal Kluster
+        const subIdx = bodyRows.length
+        subtotalRows.add(subIdx)
+        bodyRows.push([
+          `Subtotal ${cl.label}`,
+          rp(cl.total),
+          rp(cl.totalPrev),
+          rpSigned(cl.diff),
+          cl.isNonOpex ? '(Non-OPEX)' : '',
+        ])
+      })
+
       autoTable(doc, {
         ...TABLE_BASE,
         startY: y + 2,
-        head: [['Kategori', 'Bulan ini', prevLabel, 'Selisih', 'Keterangan']],
-        body: cats.map((c) => {
-          const now = u.byCategory[c] ?? 0
-          const prev = u.byCategoryPrev[c] ?? 0
-          const ket = u.missing.includes(c) ? 'BELUM DIISI' : u.added.includes(c) ? 'Kategori baru' : ''
-          return [catLabel(c), now ? rp(now) : '-', prev ? rp(prev) : '-', rpSigned(now - prev), ket]
-        }),
-        foot: [['TOTAL', rp(u.total), rp(u.totalPrev), rpSigned(u.total - u.totalPrev), '']],
+        head: [['Kategori & Kluster Beban', 'Bulan ini', prevLabel, 'Selisih', 'Keterangan']],
+        body: bodyRows,
+        foot: [
+          ['TOTAL OPEX MURNI', rp(u.total), rp(u.totalPrev), rpSigned(u.total - u.totalPrev), ''],
+          ...(u.nonOpexTotal > 0 ? [['TOTAL BAHAN BAKU (NON-OPEX)', rp(u.nonOpexTotal), rp(u.nonOpexTotalPrev), rpSigned(u.nonOpexTotal - u.nonOpexTotalPrev), '']] : []),
+        ],
         styles: { ...TABLE_BASE.styles, fontSize: 6.5 },
         tableWidth: 180,
-        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { halign: 'right', cellWidth: 28 },
+          2: { halign: 'right', cellWidth: 28 },
+          3: { halign: 'right', cellWidth: 24 },
+          4: { cellWidth: 30 },
+        },
         didParseCell: (h) => {
-          if (h.section === 'body' && String((h.row.raw as any[])[4]) === 'BELUM DIISI') h.cell.styles.fillColor = [254, 249, 195]
+          if (h.section !== 'body') return
+          if (clusterHeaderRows.has(h.row.index)) {
+            h.cell.styles.fillColor = [255, 237, 213]
+            h.cell.styles.fontStyle = 'bold'
+            h.cell.styles.textColor = [124, 45, 18]
+          } else if (subtotalRows.has(h.row.index)) {
+            h.cell.styles.fillColor = [248, 250, 252]
+            h.cell.styles.fontStyle = 'bold'
+          } else if (flaggedRows.has(h.row.index)) {
+            h.cell.styles.fillColor = [254, 249, 195]
+          } else if (nihilRows.has(h.row.index)) {
+            h.cell.styles.fillColor = [240, 253, 244]
+          }
         },
       })
       y = lastY(doc) + 6

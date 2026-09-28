@@ -77,7 +77,7 @@ export default async function LaporanPenjualanPage({
   // ini segar; bukan lagi seluruh order mentah di setiap buka halaman.
   const [{ days }, { data: outletsData }] = await Promise.all([
     from <= to ? loadDaySummaries(supabaseAdmin, from, to) : Promise.resolve({ days: [] }),
-    supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).order('name', { ascending: true })
+    supabaseAdmin.from('outlets').select('id, name').order('name', { ascending: true })
   ]);
 
   // Filter outlet valid (hanya outlet operasional fisik)

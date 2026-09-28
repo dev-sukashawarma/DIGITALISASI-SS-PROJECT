@@ -1,4 +1,5 @@
 import type { AppName, Role } from './types'
+import { appTerbatasKantorPusat, type LokasiStaff } from './kantor-pusat'
 
 /** Semua app suite. Role `developer` (superuser teknis) mendapat seluruhnya. */
 export const ALL_APPS: AppName[] = [
@@ -45,14 +46,23 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
 }
 
 
-export function hasAppAccess(role: Role, app: AppName, username?: string | null): boolean {
+/**
+ * [lokasi] = profil staf (`outlet_id`, `outlets.name`). Bila diisi, staf pusat & crew yang
+ * sedang di Kantor Pusat dibatasi ke APP_TERBATAS_KANTOR_PUSAT. Pemanggil tanpa [lokasi]
+ * tetap memakai matriks role biasa.
+ */
+export function hasAppAccess(role: Role, app: AppName, username?: string | null, lokasi?: LokasiStaff): boolean {
+  const terbatas = appTerbatasKantorPusat(role, lokasi)
+  if (terbatas) return terbatas.includes(app)
   if (username === 'adminkitchen' && app === 'absensi') {
     return true
   }
   return ROLE_APP_ACCESS[role]?.includes(app) ?? false
 }
 
-export function accessibleApps(role: Role, username?: string | null): AppName[] {
+export function accessibleApps(role: Role, username?: string | null, lokasi?: LokasiStaff): AppName[] {
+  const terbatas = appTerbatasKantorPusat(role, lokasi)
+  if (terbatas) return [...terbatas]
   const apps = [...(ROLE_APP_ACCESS[role] ?? [])]
   if (username === 'adminkitchen' && !apps.includes('absensi')) {
     apps.push('absensi')

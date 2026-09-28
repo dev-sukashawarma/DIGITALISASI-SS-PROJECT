@@ -16,7 +16,7 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync, toggleTampilDiApp } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, nonaktifkanMenu, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync, toggleTampilDiApp } from './actions'
 import { getChannel } from '@/lib/channels'
 import { getPromoStatus } from '@/lib/promoSchedule'
 
@@ -267,7 +267,7 @@ export default function MenuView({
 }: MenuViewProps) {
   const router = useRouter()
 
-  const { showConfirm } = useDialogStore()
+  const { showConfirm, showAlert } = useDialogStore()
   const [form, setForm]           = useState<FormState>(EMPTY)
   const [showForm, setShowForm]   = useState(false)
   const [saving, setSaving]       = useState(false)
@@ -709,7 +709,18 @@ export default function MenuView({
   async function deleteItem(item: MenuItem) {
     const confirmed = await showConfirm(`Hapus "${item.name}"?`);
     if (!confirmed) return
-    await deleteMenuItem(item.id, item.image_url)
+    try {
+      const hasil = await deleteMenuItem(item.id, item.image_url)
+      if (hasil.ok) return
+      if (!hasil.bisaNonaktif) { await showAlert(hasil.alasan, 'Menu tidak dihapus'); return }
+      const nonaktifkan = await showConfirm(hasil.alasan, 'Menu tidak bisa dihapus', 'Nonaktifkan')
+      if (!nonaktifkan) return
+      const h2 = await nonaktifkanMenu(item.id)
+      await showAlert(h2.ok ? `"${item.name}" dinonaktifkan. Riwayat penjualan & HPP-nya tetap tersimpan.` : h2.alasan,
+        h2.ok ? 'Berhasil' : 'Gagal menonaktifkan')
+    } catch (err: any) {
+      await showAlert(err?.message || 'Terjadi kesalahan saat menghapus menu.', 'Gagal')
+    }
   }
 
   async function toggleSetting(type: 'upsell' | 'bestseller' | 'recommendation', item: MenuItem) {
@@ -740,8 +751,14 @@ export default function MenuView({
     if (!confirmed2) return
 
     setDeletingAll(true)
-    await deleteAllMenuItems(initialItems)
-    setDeletingAll(false)
+    try {
+      const hasil = await deleteAllMenuItems(initialItems)
+      await showAlert(hasil.pesan ?? `${hasil.dihapus} menu dihapus.`, 'Hapus menu')
+    } catch (err: any) {
+      await showAlert(err?.message || 'Terjadi kesalahan saat menghapus menu.', 'Gagal')
+    } finally {
+      setDeletingAll(false)
+    }
   }
 
   const displayImage = preview ?? form.image_url

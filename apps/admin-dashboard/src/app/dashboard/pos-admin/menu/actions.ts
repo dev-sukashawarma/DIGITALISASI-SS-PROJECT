@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { revalidatePath } from 'next/cache'
 import type { MenuItem } from '@/pos-types'
 import { syncMenuToOrderOnline } from './order-online-sync'
+import { alasanTolakHapus, lokasiGambar, PESAN_TANPA_IZIN, type PemakaianMenu } from '@/lib/pos/hapusMenu'
 
 async function getSupabase() {
   const cookieStore = await cookies()
@@ -48,24 +49,74 @@ export async function toggleMenuAvailability(id: string, currentStatus: boolean)
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
-export async function deleteMenuItem(id: string, imageUrl: string | null) {
+/**
+ * Hasil hapus/nonaktifkan dikembalikan sebagai objek, BUKAN dilempar: pesan
+ * error server action disensor Next.js di produksi, jadi pengguna tak akan
+ * pernah membaca alasannya.
+ */
+export type HasilUbahMenu =
+  | { ok: true }
+  | { ok: false; alasan: string; bisaNonaktif: boolean }
+
+/** Berapa kali menu terjual & berapa paket LAIN yang memakainya sebagai isi. */
+async function pemakaianMenu(supabase: any, id: string): Promise<PemakaianMenu> {
+  const [terjual, isi, pilihan] = await Promise.all([
+    supabase.from('order_items').select('id', { count: 'exact', head: true }).eq('menu_item_id', id),
+    supabase.from('menu_packages').select('id', { count: 'exact', head: true }).eq('menu_item_id', id).neq('package_id', id),
+    supabase.from('menu_packages').select('id', { count: 'exact', head: true }).eq('or_menu_item_id', id).neq('package_id', id),
+  ])
+  const galat = terjual.error || isi.error || pilihan.error
+  if (galat) throw new Error(`Gagal memeriksa pemakaian menu: ${galat.message}`)
+  return { terjual: terjual.count ?? 0, jadiIsiPaket: (isi.count ?? 0) + (pilihan.count ?? 0) }
+}
+
+async function hapusGambar(supabase: any, imageUrl: string | null) {
+  const lokasi = lokasiGambar(imageUrl)
+  if (lokasi) await supabase.storage.from(lokasi.bucket).remove([lokasi.path])
+}
+
+/**
+ * Hapus permanen HANYA untuk menu yang tak pernah terjual dan bukan isi paket
+ * lain (lihat `lib/pos/hapusMenu.ts` untuk apa yang rusak kalau tidak).
+ * Selebihnya ditolak dengan tawaran menonaktifkan.
+ */
+export async function deleteMenuItem(id: string, imageUrl: string | null): Promise<HasilUbahMenu> {
   const supabase = await getSupabase()
   const { data: row } = await supabase.from('menu_items').select('*').eq('id', id).maybeSingle()
-  
-  if (imageUrl) {
-    const fileName = imageUrl.split('/').pop()
-    if (fileName) {
-      await supabase.storage.from('menu_images').remove([fileName])
-    }
+  if (!row) return { ok: false, alasan: 'Menu tidak ditemukan (mungkin sudah dihapus).', bisaNonaktif: false }
+
+  const alasan = alasanTolakHapus(row.name, await pemakaianMenu(supabase, id))
+  if (alasan) return { ok: false, alasan, bisaNonaktif: true }
+
+  // .select() supaya penolakan RLS (0 baris terhapus) tidak lagi terbaca "berhasil".
+  const { data: terhapus, error: deleteError } = await supabase.from('menu_items').delete().eq('id', id).select('id')
+  if (deleteError) {
+    return { ok: false, alasan: `Menu tidak bisa dihapus: ${deleteError.message}. Nonaktifkan saja.`, bisaNonaktif: true }
   }
-  
-  const { error: deleteError } = await supabase.from('menu_items').delete().eq('id', id)
-  if (deleteError) throw new Error(deleteError.message)
-  if (row) {
-    try { await syncOrQueue(supabase, row, 'delete') } catch { /* queue retains retry */ }
-  }
-  
+  if (!terhapus || terhapus.length === 0) return { ok: false, alasan: PESAN_TANPA_IZIN, bisaNonaktif: false }
+
+  await hapusGambar(supabase, imageUrl)
+  try { await syncOrQueue(supabase, row, 'delete') } catch { /* queue retains retry */ }
+
   revalidatePath('/dashboard/pos-admin/menu')
+  return { ok: true }
+}
+
+/** Menonaktifkan menu di kasir, food apps, dan aplikasi. Data & riwayat tidak disentuh. */
+export async function nonaktifkanMenu(id: string): Promise<HasilUbahMenu> {
+  const supabase = await getSupabase()
+  const { data, error } = await supabase
+    .from('menu_items')
+    .update({ is_available: false, is_available_online: false, tampil_di_app: false })
+    .eq('id', id)
+    .select('*')
+  if (error) return { ok: false, alasan: `Gagal menonaktifkan: ${error.message}`, bisaNonaktif: false }
+  if (!data || data.length === 0) return { ok: false, alasan: PESAN_TANPA_IZIN, bisaNonaktif: false }
+  if (data[0].is_published_order_online) {
+    try { await syncOrQueue(supabase, data[0], 'upsert') } catch { /* queue retains retry */ }
+  }
+  revalidatePath('/dashboard/pos-admin/menu')
+  return { ok: true }
 }
 
 export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number }[], available_outlets?: string[] | null }) {
@@ -151,23 +202,37 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
-export async function deleteAllMenuItems(items: MenuItem[]) {
+/**
+ * "Hapus semua" kini hanya menghapus menu yang aman dihapus (tak pernah
+ * terjual & bukan isi paket lain). Sisanya dilewati dan dilaporkan.
+ */
+export async function deleteAllMenuItems(items: MenuItem[]): Promise<{ dihapus: number; dilewati: number; pesan: string | null }> {
   const supabase = await getSupabase()
-  
-  const fileNames = items.map(item => item.image_url?.split('/').pop()).filter(Boolean) as string[]
-  
-  if (fileNames.length > 0) {
-    await supabase.storage.from('menu_images').remove(fileNames)
-  }
-  
-  const ids = items.map(i => i.id)
-  await supabase.from('menu_items').delete().in('id', ids)
-  
+  let dihapus = 0
+  let dilewati = 0
+  let tanpaIzin = false
+
   for (const item of items) {
+    const alasan = alasanTolakHapus(item.name, await pemakaianMenu(supabase, item.id))
+    if (alasan) { dilewati += 1; continue }
+    const { data: terhapus, error } = await supabase.from('menu_items').delete().eq('id', item.id).select('id')
+    if (error || !terhapus || terhapus.length === 0) {
+      dilewati += 1
+      if (!error) tanpaIzin = true
+      continue
+    }
+    dihapus += 1
+    await hapusGambar(supabase, item.image_url)
     try { await syncOrQueue(supabase, item, 'delete') } catch { /* queue retains retry */ }
   }
-  
+
   revalidatePath('/dashboard/pos-admin/menu')
+  const pesan = tanpaIzin
+    ? PESAN_TANPA_IZIN
+    : dilewati > 0
+      ? `${dihapus} menu dihapus. ${dilewati} menu dilewati karena pernah terjual atau masih jadi isi paket — nonaktifkan satu per satu bila perlu.`
+      : null
+  return { dihapus, dilewati, pesan }
 }
 
 export async function toggleMenuPublished(id: string, published: boolean) {

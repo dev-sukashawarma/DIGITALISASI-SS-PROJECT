@@ -3258,6 +3258,11 @@ Rumus inti HPP (riwayat per tanggal `menu_hpp_pada`, COGS Ringkasan Bisnis) **te
 - COGS owner: 1–18 Sep 606.338.090 → **628.100.471**; 19–28 Sep 331.888.518 → **363.776.238**. Mitra: 313.561.270 → 325.059.193; 173.921.426 → 190.409.531. **Agustus identik** (owner 1.051.603.330, mitra 476.464.450).
 - Ringkasan Bisnis hari lampau ter-cache ±1 jam; Rangkuman Penjualan membaca riwayat segar.
 
+### Lanjutan 28 Sep: paket, pesanan web, tombol hapus menu
+- **Pesanan web** (`sales_source='online'`): trigger `trg_order_items_isi_menu_dari_nama` (`20260928200000`) mengisi `menu_item_id` dari nama; pesanan web **memotong stok mulai 28 Sep 00:00 WIB** (`20260928210000` → dimajukan `20260928220000`). 124 baris September ditautkan ulang (arsip `SS COGS SET/tautkan-menu-pesanan-web-september-2026-09-28.sql`). Sumber baris tanpa id sejak 13 Sep belum ketemu (tertambal trigger).
+- **Paket:** PAKET SKS jadi `is_package`; SHAWARMIE DUO VARIAN override 31.687,7 berlaku 19 Sep; isi 6 paket Combo dibetulkan sesuai deskripsi + override dikosongkan (ikut komponen, berlaku 1 Sep); NONGKI 1/2 berisi Reguler, HPP Reguler kasir = XX (Ayam 10.316,9 / Sapi 10.595,2); 5 paket berisi Shawarmie dinonaktifkan (arsip `SS COGS SET/rapikan-paket-combo-2026-09-28.sql`). Paket lain yang isinya benar masih memakai override lama.
+- **Tombol Hapus di POS › Menu (admin-dashboard) diamankan** (`pos-admin/menu/actions.ts`, `lib/pos/hapusMenu.ts`): menu yang pernah terjual / jadi isi paket DITOLAK dihapus dan ditawari nonaktif (`nonaktifkanMenu`), karena DELETE `menu_items` memutus `order_items` (HPP lama jadi 0), meng-CASCADE `menu_hpp_riwayat` & `menu_packages` — penyebab hilangnya Shawarmie ~16 Sep. Penolakan RLS (owner: `menu_items` tulis admin-only) kini pesan gagal jujur, bukan "berhasil". "Hapus semua" hanya menghapus menu aman. ⚠️ **Perlu redeploy `admin-dashboard`.** `toggleMenuAvailability` & simpan menu masih bisa "sukses palsu" untuk owner — belum ditangani.
+
 
 **Last updated:** 2026-09-28  
 **Owner:** Dev Suka Shawarma

@@ -145,7 +145,7 @@ export interface CalculateProrataInput {
   lastMonthExpenses?: RolloverExpenseBaseline[]
   crewBonusRecords?: CrewBonusRecord[]
   now?: Date
-  outlets?: { id: string; name: string }[]
+  outlets?: { id: string; name: string; is_active?: boolean }[]
 }
 
 /**
@@ -185,9 +185,15 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     }
   }
 
-  // Nama outlet lookup
+  // Nama outlet lookup & daftar outlet nonaktif
   const outletNameMap = new Map<string, string>()
-  outlets.forEach(o => outletNameMap.set(o.id, o.name))
+  const inactiveOutletIds = new Set<string>()
+  outlets.forEach(o => {
+    outletNameMap.set(o.id, o.name)
+    if (o.is_active === false) {
+      inactiveOutletIds.add(o.id)
+    }
+  })
   rawExpenses.forEach(r => {
     if (r.outlet_id && r.outlet_name) outletNameMap.set(r.outlet_id, r.outlet_name)
   })
@@ -231,28 +237,30 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     }
   })
 
-  // 2. Tentukan himpunan outlet target
+  // 2. Tentukan himpunan outlet target (outlet nonaktif tidak diberikan beban estimasi prorata)
   const targetOutletIds = new Set<string>()
   if (filter.outletId && filter.outletId !== 'all') {
-    targetOutletIds.add(filter.outletId)
+    if (!inactiveOutletIds.has(filter.outletId)) {
+      targetOutletIds.add(filter.outletId)
+    }
   } else {
     outlets.forEach(o => {
-      if (!isTestOutlet(o.id)) targetOutletIds.add(o.id)
+      if (!isTestOutlet(o.id) && o.is_active !== false) targetOutletIds.add(o.id)
     })
     payrollRecords.forEach(p => {
-      if (p.outlet_id && !isTestOutlet(p.outlet_id)) targetOutletIds.add(p.outlet_id)
+      if (p.outlet_id && !isTestOutlet(p.outlet_id) && !inactiveOutletIds.has(p.outlet_id)) targetOutletIds.add(p.outlet_id)
     })
     staffFinancials.forEach(s => {
-      if (s.outlet_id && !isTestOutlet(s.outlet_id)) targetOutletIds.add(s.outlet_id)
+      if (s.outlet_id && !isTestOutlet(s.outlet_id) && !inactiveOutletIds.has(s.outlet_id)) targetOutletIds.add(s.outlet_id)
     })
     lastMonthExpenses.forEach(l => {
-      if (l.outlet_id && !isTestOutlet(l.outlet_id)) targetOutletIds.add(l.outlet_id)
+      if (l.outlet_id && !isTestOutlet(l.outlet_id) && !inactiveOutletIds.has(l.outlet_id)) targetOutletIds.add(l.outlet_id)
     })
     crewBonusRecords.forEach(c => {
-      if (c.outlet_id && !isTestOutlet(c.outlet_id)) targetOutletIds.add(c.outlet_id)
+      if (c.outlet_id && !isTestOutlet(c.outlet_id) && !inactiveOutletIds.has(c.outlet_id)) targetOutletIds.add(c.outlet_id)
     })
     currentMonthRealFixed.forEach((_, oid) => {
-      if (oid !== 'ALL' && !isTestOutlet(oid)) targetOutletIds.add(oid)
+      if (oid !== 'ALL' && !isTestOutlet(oid) && !inactiveOutletIds.has(oid)) targetOutletIds.add(oid)
     })
   }
 
@@ -289,6 +297,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
   const curDay = Math.max(1, Math.min(monthInfo.todayDay, monthInfo.totalDays))
 
   for (const outletId of targetOutletIds) {
+    if (inactiveOutletIds.has(outletId)) continue
     const outletName = outletNameMap.get(outletId) ?? 'Outlet'
 
     // --- A. GAJI CREW OUTLET ---

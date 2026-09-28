@@ -29,7 +29,7 @@ function Kotak({ ikon, judul, children, nada }: { ikon: ReactNode; judul: string
 }
 
 /**
- * Akses Absen — admin & developer mengatur outlet tempat crew boleh absen masuk/pulang.
+ * Akses Absen — HR & developer mengatur outlet tempat crew boleh absen masuk/pulang.
  * Peran dicek di server dari header tepercaya middleware; RPC-nya pun menjaga peran sendiri.
  */
 export default async function AksesAbsenPage() {
@@ -37,7 +37,7 @@ export default async function AksesAbsenPage() {
   if (!staff || staff.status !== "active" || !PERAN_PENGATUR_AKSES.includes(staff.role)) {
     return (
       <Kotak ikon={<ShieldAlert size={32} />} judul="Akses Dibatasi" nada="amber">
-        Pengaturan akses absen hanya dapat diubah oleh <strong>Admin</strong> dan <strong>Developer</strong>.
+        Pengaturan akses absen hanya dapat diubah oleh <strong>HR</strong> dan <strong>Developer</strong>.
       </Kotak>
     );
   }

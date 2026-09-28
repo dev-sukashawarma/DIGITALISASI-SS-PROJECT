@@ -16,7 +16,7 @@ export type CrewAkses = {
   semua_outlet: boolean;
   /** Penempatan dari HR (staff_outlets) — hanya ditampilkan, tidak diubah di sini. */
   penempatan: string[];
-  /** Izin tambahan dari admin; memuat outlet utama sebagai baris "asal" bila ada tambahan. */
+  /** Izin tambahan dari HR/developer; memuat outlet utama sebagai baris "asal" bila ada tambahan. */
   akses: string[];
 };
 
@@ -26,7 +26,7 @@ type Props = { crew: CrewAkses[]; outlets: OutletPilihan[] };
 
 const TANPA_OUTLET = "__tanpa__";
 
-/** Outlet tambahan yang benar-benar diberikan admin (tanpa outlet utama & penempatan). */
+/** Outlet tambahan yang benar-benar diberikan HR/developer (tanpa outlet utama & penempatan). */
 function aksesTambahan(c: CrewAkses): string[] {
   return c.akses.filter((id) => id !== c.outlet_id && !c.penempatan.includes(id));
 }

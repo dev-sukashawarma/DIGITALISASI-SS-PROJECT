@@ -3211,6 +3211,38 @@ Menu lama terhapus ~16 Sep (penjualan Jul–16 Sep kehilangan `menu_item_id`, HP
 - Redeploy admin-dashboard, finance, manager bila belum (halaman Profit/Rangkuman lama masih memakai HPP hari ini untuk seluruh September).
 - Kabari pemilik `20300244`/`20300245`: stempel `schema_migrations` & versi `menu_hpp_pada` mereka di berkas sudah digantikan `20300246000000`.
 
+---
 
-**Last updated:** 2026-09-26  
+## Session 2026-09-28: Audit HPP & Laporan (acuan September 2026)
+
+**Status:** ✅ Merged ke `main` (`c749f47c`, dari `fix/hpp-audit-september`). 2 migration **live & terstempel**: `20260928180000_hpp_ss_online_hanya_marketplace`, `20260928181000_owner_summary_opex_selaras_profit`. ⚠️ **Perlu redeploy `admin-dashboard` + `finance`** — perbaikan sisi kode belum berlaku sebelum itu.
+
+Rumus inti HPP (riwayat per tanggal `menu_hpp_pada`, COGS Ringkasan Bisnis) **terbukti benar** — COGS September dihitung ulang persis sampai rupiah. Bug ada di lapisan sekitarnya:
+
+| Bug | Laporan | Dampak September | Fix |
+|---|---|---|---|
+| `includes('shopee'/'tiktok')` membuat ShopeeFood & TikTok GO memakai HPP SS Online | Rangkuman Penjualan, Profit, mitra | HPP kurang ±Rp 49,4 jt / 42,5 jt / **17,58 jt (bagi hasil mitra kelebihan)** | Pencocokan persis `lib/hpp/kanalSsOnline.ts` (admin & finance) + fungsi DB `get_mitra_item_hpp_base` |
+| Komponen paket mitra sudah ×1,1 lalu total ×1,1 lagi | Rangkuman Penjualan | HPP lebih ±Rp 3,9 jt | Rekursi komponen tanpa markup |
+| `useHppByChannel` mengunci HPP dgn `payment_method` (cash/qris) | Rekap Bulanan | ±Rp 457 jt HPP Food Apps/TikTok jatuh ke "offline" (margin 100%) | `lib/resolveSalesSource.ts` = port 1:1 fungsi DB `resolve_sales_source`; + `.order('id')`, kecualikan outlet tes |
+| Satu biaya satuan di `expenses` membuang SELURUH kas kecil outlet | Profit, ekspor Profit, mitra, ROI | Rp 9,18 jt kas kecil hilang (mitra Rp 5,62 jt) | `lib/kasKecilTeraudit.ts`: dilewati hanya bila outlet-BULAN punya rangkuman `OPEX <Bulan> <Tahun> - …` |
+| OPEX Ringkasan Bisnis: income ikut, biaya Pusat hilang (`<>` vs NULL), kas kecil ter-void ikut | Ringkasan Bisnis | Rp 164.267.086 → Rp 166.998.899 | Migration `20260928181000` |
+
+### Aturan owner (jangan dibuka ulang)
+**HPP SS Online hanya untuk Shopee toko & TikTok Shop.** ShopeeFood & TikTok GO = food apps → `hpp_override`. Tabel `orders` tidak pernah memuat order marketplace (itu di `ecommerce_sales`, kanal UUID).
+
+### Gotcha
+- Kas kecil "teraudit" dikenali dari **deskripsi** rangkuman closing (`OPEX Agustus 2026 - …`): Agustus 61/61 baris pemicu, September 0/37. Aturan per outlet-bulan, jadi Agustus tidak bergeser.
+- Mayoritas order food apps tersimpan `sales_source='pos'`, `channel='shopeefood'` — **jangan** mengelompokkan per kanal dari `sales_source` mentah.
+- Kedua fungsi DB juga didefinisikan migration 2030 (`20300125000000`, `20300116000000`) — utang replay, produksi aman.
+- Ringkasan Bisnis menyimpan cache hari lampau ±1 jam; angka OPEX baru muncul setelahnya.
+
+### 📝 Next (belum dikerjakan)
+- **PCS Rekap Bulanan** salah kelompok: view `menu_sales_spv` memakai `sales_source` mentah (dipakai filter menu di 3 app — butuh keputusan).
+- Opex prorata di Profit internal/mitra tidak dipisah per cakupan (`opexProrata.ts:246`).
+- Ringkasan Bisnis: item tanpa `menu_item_id` ber-HPP 0 (±Rp 3,1 jt Sep).
+- PAKET SKS `is_package=false` → HPP 0 (20 order); role owner gagal simpan Harga Jual (RLS `menu_items` admin-only, toast sukses palsu).
+- Keputusan owner: 18 paket ber-`hpp_override` beku pra-19 Sep (±Rp 553 rb), PAKET NONGKI/Combo 5 aneh; `tanggal_mulai` mitra 10 Agu (artefak) kini dipakai sebagai cutoff.
+
+
+**Last updated:** 2026-09-28  
 **Owner:** Dev Suka Shawarma

@@ -7,6 +7,7 @@ import { deriveScope, type ExpenseCategory, type ExpenseScope } from '@/lib/expe
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPagesParallel } from '@/lib/queryPaging'
 import { periodCacheOptions, withPeriodCache } from '@/lib/periodCache'
+import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 
 export interface ExpenseRow {
   id: string
@@ -136,15 +137,9 @@ export function useExpenses(filter: PeriodFilterValue) {
         }
       })
 
-      // Outlet yang sudah memiliki pos pengeluaran operasional / kas kecil hasil audit bulanan
-      const auditedOutlets = new Set<string>()
-      for (const m of monthlyRows) {
-        if (m.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(m.category)) {
-          auditedOutlets.add(m.outlet_id)
-        }
-      }
-
-      const filteredPettyCashRows = pettyCashRows.filter(p => !p.outlet_id || !auditedOutlets.has(p.outlet_id))
+      // Kas kecil dilewati hanya untuk outlet-bulan yang sudah punya rangkuman
+      // "OPEX <Bulan> <Tahun> - ..." di expenses — lihat lib/kasKecilTeraudit.ts.
+      const filteredPettyCashRows = pettyCashRows.filter(buatSaringanKasKecil(monthlyRows))
 
       return [...monthlyRows, ...filteredPettyCashRows] as ExpenseRow[]
     }),

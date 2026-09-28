@@ -2,8 +2,18 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import { wajibPeran, createUserServerClient } from "@/lib/auth-server";
+import { keShiftDrafts, validasiShift, type ShiftDraft } from "@/lib/attendance/jadwalOutlet";
+import { GEOFENCE_RADIUS_M } from "@/lib/gps";
 
 const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager", "developer"];
+
+/**
+ * Hasil aksi. Galat DIKEMBALIKAN, bukan dilempar: pesan error server action yang
+ * dilempar disamarkan Next.js di produksi, padahal pesan validasi dari database
+ * (mis. "Ada dua shift dengan jam yang sama persis") perlu sampai ke admin.
+ */
+export type HasilAksi = { success: true } | { success: false; error: string };
 
 function getSupabaseAdmin() {
   return createClient(
@@ -12,23 +22,21 @@ function getSupabaseAdmin() {
   );
 }
 
-async function verifySettingsRole(supabaseAdmin: ReturnType<typeof getSupabaseAdmin>, callerStaffId?: string | null) {
-  if (!callerStaffId) return;
-  const { data: staff } = await supabaseAdmin
-    .from("outlet_staff")
-    .select("role, status")
-    .eq("id", callerStaffId)
-    .maybeSingle();
-
-  if (!staff || staff.status !== "active" || !SETTINGS_ALLOWED_ROLES.includes(staff.role)) {
-    throw new Error("Akses Ditolak: Hanya Admin, Admin HR, dan Regional Manager yang diizinkan mengubah konfigurasi absensi.");
-  }
+/**
+ * Identitas pemanggil diambil dari header tepercaya middleware — BUKAN dari
+ * `caller_staff_id` kiriman klien (dulu bisa dikosongkan untuk melewati cek ini).
+ */
+async function verifySettingsRole(): Promise<string | null> {
+  const cek = await wajibPeran(SETTINGS_ALLOWED_ROLES);
+  return cek.ok
+    ? null
+    : "Akses Ditolak: Hanya Admin, Admin HR, Regional Manager, dan Developer yang diizinkan mengubah konfigurasi absensi.";
 }
 
-export async function saveGlobalConfig(formData: FormData) {
+export async function saveGlobalConfig(formData: FormData): Promise<HasilAksi> {
+  const ditolak = await verifySettingsRole();
+  if (ditolak) return { success: false, error: ditolak };
   const supabaseAdmin = getSupabaseAdmin();
-  const caller_staff_id = formData.get("caller_staff_id") as string | null;
-  await verifySettingsRole(supabaseAdmin, caller_staff_id);
 
   const jam_masuk = formData.get("jam_masuk") as string;
   const jam_keluar = formData.get("jam_keluar") as string;
@@ -68,106 +76,151 @@ export async function saveGlobalConfig(formData: FormData) {
   const { error: errGlobal } = await supabaseAdmin
     .from("global_settings")
     .upsert({ key: "global_attendance_config", value: globalValue });
-  
-  if (errGlobal) throw new Error(errGlobal.message);
+
+  if (errGlobal) return { success: false, error: errGlobal.message };
 
   const { error: errOutlet } = await supabaseAdmin
     .from("outlets")
     .update({ is_active })
     .neq("id", "00000000-0000-0000-0000-000000000000"); // update all
-  
-  if (errOutlet) throw new Error(errOutlet.message);
+
+  if (errOutlet) return { success: false, error: errOutlet.message };
 
   if (overwrite_all) {
+    // Shift outlet ikut terhapus (FK ON DELETE CASCADE ke outlet_attendance_shift).
     const { error: errDel } = await supabaseAdmin
       .from("outlet_attendance_config")
       .delete()
       .neq("outlet_id", "00000000-0000-0000-0000-000000000000"); // delete all exceptions
-    if (errDel) throw new Error(errDel.message);
+    if (errDel) return { success: false, error: errDel.message };
   }
 
   revalidatePath("/dashboard/pengaturan");
   return { success: true };
 }
 
-export async function saveOutletException(formData: FormData) {
-  const supabaseAdmin = getSupabaseAdmin();
-  const caller_staff_id = formData.get("caller_staff_id") as string | null;
-  await verifySettingsRole(supabaseAdmin, caller_staff_id);
+/**
+ * Radius geofence yang dipakai saat menyimpan jadwal khusus (form ini tidak punya field
+ * radius): radius outlet yang sudah tersimpan → radius pusat → default 100 m. Cabang
+ * baru mewarisi radius pusat, bukan default kolom, agar geofence-nya tidak berubah
+ * hanya karena jam kerjanya dibuat khusus.
+ */
+async function radiusTersimpan(supabaseAdmin: ReturnType<typeof getSupabaseAdmin>, outletId: string): Promise<number> {
+  const [outletRes, globalRes] = await Promise.all([
+    supabaseAdmin.from("outlet_attendance_config").select("radius_m").eq("outlet_id", outletId).maybeSingle(),
+    supabaseAdmin.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle(),
+  ]);
+  const radiusOutlet = Number(outletRes.data?.radius_m ?? 0);
+  if (Number.isFinite(radiusOutlet) && radiusOutlet > 0) return Math.round(radiusOutlet);
 
-  const outlet_id = formData.get("outlet_id") as string;
-  const jam_masuk = formData.get("jam_masuk") as string;
-  const jam_keluar = formData.get("jam_keluar") as string;
-  const toleransi_menit = parseInt(formData.get("toleransi_menit") as string || "0", 10);
-  const absen_window_mode = formData.get("absen_window_mode") as string;
-  const is_active_str = formData.get("is_active");
-  const is_active = is_active_str === "true";
-
-  if (!outlet_id) throw new Error("Pilih outlet terlebih dahulu");
-
-  const pilih_shift_aktif = formData.get("pilih_shift_aktif") === "true";
-  const shift2_jam_masuk = (formData.get("shift2_jam_masuk") as string | null) || null;
-  const shift2_jam_keluar = (formData.get("shift2_jam_keluar") as string | null) || null;
-  if (pilih_shift_aktif) {
-    if (!shift2_jam_masuk || !shift2_jam_keluar) throw new Error("Isi jam masuk dan jam pulang Shift 2");
-    if (shift2_jam_masuk === jam_masuk && shift2_jam_keluar === jam_keluar) {
-      throw new Error("Shift 2 sama persis dengan Shift 1 — ubah jamnya atau matikan pilihan shift");
+  let nilai = globalRes.data?.value as { radius_m?: number } | string | null;
+  if (typeof nilai === "string") {
+    try {
+      nilai = JSON.parse(nilai);
+    } catch {
+      nilai = null;
     }
   }
+  const radiusPusat = Number((nilai as { radius_m?: number } | null)?.radius_m ?? 0);
+  if (Number.isFinite(radiusPusat) && radiusPusat > 0) return Math.round(radiusPusat);
+  return GEOFENCE_RADIUS_M;
+}
 
-  const { error: errConfig } = await supabaseAdmin
-    .from("outlet_attendance_config")
-    .upsert({
-      outlet_id,
-      jam_masuk,
-      jam_keluar,
-      toleransi_menit,
-      absen_window_mode,
-      pilih_shift_aktif,
-      // Jam Shift 2 tetap disimpan walau toggle dimatikan, agar tak perlu diketik ulang.
-      ...(shift2_jam_masuk && shift2_jam_keluar ? { shift2_jam_masuk, shift2_jam_keluar } : {}),
-    });
-  
-  if (errConfig) throw new Error(errConfig.message);
+export async function saveOutletException(formData: FormData): Promise<HasilAksi> {
+  const ditolak = await verifySettingsRole();
+  if (ditolak) return { success: false, error: ditolak };
+
+  const outlet_id = formData.get("outlet_id") as string;
+  const toleransi_menit = parseInt(formData.get("toleransi_menit") as string || "0", 10);
+  const absen_window_mode = formData.get("absen_window_mode") === "manual" ? "manual" : "auto";
+  const is_active_str = formData.get("is_active");
+  const is_active = is_active_str === "true";
+  const pilih_shift_aktif = formData.get("pilih_shift_aktif") === "true";
+
+  if (!outlet_id) return { success: false, error: "Pilih outlet terlebih dahulu" };
+
+  // Daftar shift (urutan = posisi). Form lama tanpa field `shifts` tetap diterima
+  // lewat jam_masuk/jam_keluar (+ shift2_*).
+  let shifts: ShiftDraft[];
+  const shiftsRaw = formData.get("shifts");
+  if (typeof shiftsRaw === "string" && shiftsRaw) {
+    try {
+      shifts = keShiftDrafts(JSON.parse(shiftsRaw));
+    } catch {
+      return { success: false, error: "Daftar shift tidak valid" };
+    }
+  } else {
+    shifts = keShiftDrafts([
+      { jam_masuk: formData.get("jam_masuk"), jam_keluar: formData.get("jam_keluar") },
+      ...(formData.get("shift2_jam_masuk") && formData.get("shift2_jam_keluar")
+        ? [{ jam_masuk: formData.get("shift2_jam_masuk"), jam_keluar: formData.get("shift2_jam_keluar") }]
+        : []),
+    ]);
+  }
+
+  const salah = validasiShift(shifts, pilih_shift_aktif);
+  if (salah) return { success: false, error: salah };
+
+  const supabaseAdmin = getSupabaseAdmin();
+  const radius_m = await radiusTersimpan(supabaseAdmin, outlet_id);
+
+  // Satu RPC atomik (config + seluruh shift). Dipanggil atas nama user agar penjaga
+  // peran di database ikut berlaku, bukan hanya cek header di atas.
+  const supabaseUser = await createUserServerClient();
+  const { error: errConfig } = await supabaseUser.rpc("simpan_jadwal_outlet", {
+    p_outlet_id: outlet_id,
+    p_toleransi_menit: toleransi_menit,
+    p_radius_m: radius_m,
+    p_absen_window_mode: absen_window_mode,
+    p_pilih_shift_aktif: pilih_shift_aktif,
+    p_shifts: shifts.map((s) => ({ nama: s.nama || null, jam_masuk: s.jam_masuk, jam_keluar: s.jam_keluar })),
+  });
+
+  if (errConfig) return { success: false, error: errConfig.message };
 
   if (is_active_str !== null) {
     const { error: errOutlet } = await supabaseAdmin
       .from("outlets")
       .update({ is_active })
       .eq("id", outlet_id);
-    
-    if (errOutlet) throw new Error(errOutlet.message);
+
+    if (errOutlet) return { success: false, error: errOutlet.message };
   }
 
   revalidatePath("/dashboard/pengaturan");
   return { success: true };
 }
 
-export async function deleteOutletException(outlet_id: string, callerStaffId?: string) {
+/** `_callerStaffId` diabaikan (dipertahankan agar pemanggil lama tetap kompatibel). */
+export async function deleteOutletException(outlet_id: string, _callerStaffId?: string): Promise<HasilAksi> {
+  const ditolak = await verifySettingsRole();
+  if (ditolak) return { success: false, error: ditolak };
   const supabaseAdmin = getSupabaseAdmin();
-  await verifySettingsRole(supabaseAdmin, callerStaffId);
 
+  // Shift outlet ikut terhapus (FK ON DELETE CASCADE).
   const { error } = await supabaseAdmin
     .from("outlet_attendance_config")
     .delete()
     .eq("outlet_id", outlet_id);
-  
-  if (error) throw new Error(error.message);
+
+  if (error) return { success: false, error: error.message };
 
   revalidatePath("/dashboard/pengaturan");
   return { success: true };
 }
 
-export async function deleteAllExceptions(callerStaffId?: string) {
+/** `_callerStaffId` diabaikan (dipertahankan agar pemanggil lama tetap kompatibel). */
+export async function deleteAllExceptions(_callerStaffId?: string): Promise<HasilAksi> {
+  const ditolak = await verifySettingsRole();
+  if (ditolak) return { success: false, error: ditolak };
   const supabaseAdmin = getSupabaseAdmin();
-  await verifySettingsRole(supabaseAdmin, callerStaffId);
 
   const { error } = await supabaseAdmin
     .from("outlet_attendance_config")
     .delete()
     .neq("outlet_id", "00000000-0000-0000-0000-000000000000"); // delete all
-  
-  if (error) throw new Error(error.message);
+
+  if (error) return { success: false, error: error.message };
 
   revalidatePath("/dashboard/pengaturan");
   return { success: true };

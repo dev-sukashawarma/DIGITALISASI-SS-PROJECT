@@ -69,7 +69,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     }
   }
 
-  const email = `${String(username).toLowerCase().replace(/[^a-z0-9_]/g, '')}@outlet.local`
+  const email = `${String(username).toLowerCase().replace(/[^a-z0-9_]/g, '')}@ss.com`
 
   // 1. Create auth user
   const { data: newUser, error: createError } = await admin.auth.admin.createUser({

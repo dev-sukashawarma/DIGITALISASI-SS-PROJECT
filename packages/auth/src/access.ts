@@ -63,9 +63,10 @@ export function accessibleApps(role: Role, username?: string | null): AppName[] 
 /**
  * Normalisasi identitas login → email yang valid untuk Supabase Auth.
  * Outlet Staff tanpa email asli (mis. kasir) login pakai username; username
- * tanpa `@` dipetakan ke pseudo-email `<username>@outlet.local`. Lihat ADR-008.
+ * tanpa `@` dipetakan ke pseudo-email `<username>@ss.com`.
  */
 export function normalizeLoginIdentifier(identifier: string): string {
   const id = identifier.trim()
-  return id.includes('@') ? id : `${id}@outlet.local`
+  return id.includes('@') ? id : `${id}@ss.com`
 }
+

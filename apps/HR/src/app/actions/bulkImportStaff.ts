@@ -95,7 +95,7 @@ export async function bulkImportStaffAction(
         }
       } else {
         // Create new staff
-        const email = `${cleanUsernameKey}@outlet.local`
+        const email = `${cleanUsernameKey}@ss.com`
 
         const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
         const targetOutletId =

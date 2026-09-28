@@ -41,7 +41,7 @@ serve(async (req) => {
       bank_name, bank_account_number, bank_account_name,
       npwp, bpjs_ketenagakerjaan, bpjs_kesehatan
     } = body;
-    const email = `${String(username).toLowerCase().replace(/[^a-z0-9_]/g, "")}@outlet.local`;
+    const email = `${String(username).toLowerCase().replace(/[^a-z0-9_]/g, "")}@ss.com`;
 
     // 1. Buat auth user
     const { data: newUser, error: createError } = await admin.auth.admin.createUser({

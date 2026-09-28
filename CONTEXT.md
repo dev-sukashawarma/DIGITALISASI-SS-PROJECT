@@ -10,7 +10,7 @@
 - **SPV / Leader Outlet** — role Outlet Staff dengan wewenang enroll wajah, approve, dan supervisi outlet.
 - **Admin** — role global POS (tanpa outlet, `outlet_id` NULL): kelola user, menu, outlet, laporan lintas-cabang.
 - **Kiosk** — "user" yang mewakili satu device self-order pelanggan di sebuah outlet (bukan orang). Login via QR oleh kasir. **Pengecualian SSO**: device kiosk TIDAK login lewat Portal; diaktifkan kasir via scan QR lokal di `apps/pos-kasir` (`/kiosk/qr-login`). (lihat ADR-008)
-- **Pseudo-Email** — identitas login untuk Outlet Staff tanpa email asli (mis. kasir): username `kasir_sudirman` dipetakan ke `kasir_sudirman@outlet.local` sebelum `signInWithPassword`. Normalisasi terpusat di `@suka/auth` (`normalizeLoginIdentifier`) agar Portal & app konsisten.
+- **Pseudo-Email** — identitas login untuk Outlet Staff tanpa email asli (mis. kasir): username `kasir_sudirman` dipetakan ke `kasir_sudirman@ss.com` sebelum `signInWithPassword`. Normalisasi terpusat di `@suka/auth` (`normalizeLoginIdentifier`) agar Portal & app konsisten.
 - **Status Akun** — `is_active` (boolean) + `inactive_reason` menggate akses (dipakai blocker POS). Kolom lama `status` (`active|inactive|on_leave`) tetap untuk konteks absensi; `is_active` diselaraskan dengannya saat unifikasi.
 
 ## Bahan Baku & Stok

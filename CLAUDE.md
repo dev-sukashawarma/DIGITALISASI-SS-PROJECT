@@ -3243,6 +3243,21 @@ Rumus inti HPP (riwayat per tanggal `menu_hpp_pada`, COGS Ringkasan Bisnis) **te
 - PAKET SKS `is_package=false` → HPP 0 (20 order); role owner gagal simpan Harga Jual (RLS `menu_items` admin-only, toast sukses palsu).
 - Keputusan owner: 18 paket ber-`hpp_override` beku pra-19 Sep (±Rp 553 rb), PAKET NONGKI/Combo 5 aneh; `tanggal_mulai` mitra 10 Agu (artefak) kini dipakai sebagai cutoff.
 
+---
+
+## Session 2026-09-28: HPP September diganti file XX, berlaku 1 Sep (DB)
+
+**Status:** ✅ LIVE di DB (skrip data, bukan migration). Arsip: `SS COGS SET/input-hpp-xx-berlaku-1sep-2026-09-28.sql` — **jangan dijalankan ulang**.
+
+**Sumber HPP resmi September = `XX SS 2.0 HPP x 2026.xlsx`** (sheet UPDATED SS 2.0 INTERNAL), **menggantikan** file "(1)" yang diinput 26 Sep. Angka XX = angka "(1)" × 1,1 (Ice Tea/Orange 4.800 & BOGO 7.546/7.799 tetap). Keputusan owner: berlaku **1 Sep** (termasuk 1–18 Sep).
+
+- 35 menu lewat `ubah_hpp_menu` (Admin Dev), ditulis di **1 Sep dan 19 Sep** — riwayat per kunci, jadi baris 19 Sep dari input 26 Sep harus ditimpa, kalau tidak ia menang mulai 19 Sep. Termasuk SS Online 5 kunci, Extra Keju/Kentang 3.850, BOGO (kini juga berlaku 1–18 Sep), 12 duplikat "Voucher Pamulang 10%".
+- **Shawarmie Ayam/Sapi 16.050,1 / 15.637,6 berlaku 1–18 Sep** (menggantikan 14.500 / 16.500), tetap kosong mulai 19 Sep.
+- HPP disimpan **berdesimal** persis Excel (mis. 15.990,7). Mitra = base × 1,1 → sama persis dengan kolom HPP MITRA. `menu_outlet_prices.hpp_override` (tampilan layar HPP saja, tak dibaca laporan) = round(× 1,1).
+- Paket TikTok GO tak diisi; jumlah komponennya kini persis kolom paket XX (Duo Combo 31.786,7, Triple Combo 53.969,3, dst). Combo #1–#5 di sheet MITRA = angka yang sudah ada, tak diubah. "Best Seller 3" tak ada menunya.
+- COGS owner: 1–18 Sep 606.338.090 → **628.100.471**; 19–28 Sep 331.888.518 → **363.776.238**. Mitra: 313.561.270 → 325.059.193; 173.921.426 → 190.409.531. **Agustus identik** (owner 1.051.603.330, mitra 476.464.450).
+- Ringkasan Bisnis hari lampau ter-cache ±1 jam; Rangkuman Penjualan membaca riwayat segar.
+
 
 **Last updated:** 2026-09-28  
 **Owner:** Dev Suka Shawarma

@@ -8,8 +8,25 @@ import {
   calculateSpeedKmH, 
   MAX_REASONABLE_SPEED_KMH 
 } from "@/lib/gps";
-import { shiftOptions, isShiftKe, isShiftPenutup } from "@/lib/attendance/shift";
+import { isShiftKe } from "@/lib/attendance/shift";
 
+// Status HTTP untuk alasan penolakan RPC submit_attendance. Alasan lain
+// (shift_required, too_early_out, shift_not_closed, ...) tetap 200 seperti dulu.
+const STATUS_ALASAN: Record<string, number> = {
+  invalid_payload: 400,
+  staff_not_found: 404,
+  outlet_not_found: 404,
+  staff_inactive: 403,
+  cross_outlet: 403,
+  outlet_inactive: 403,
+  config_missing: 500,
+};
+
+/**
+ * Absen web. Route ini hanya memegang lapisan anti-kecurangan yang butuh data klien
+ * (enrollment wajah, deteksi fake GPS & teleportasi + catatan alert-nya, jarak dengan
+ * alasan rinci, kecocokan path selfie). Semua aturan absen lainnya ada di RPC.
+ */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -24,7 +41,7 @@ export async function POST(req: Request) {
 
     const { data: target, error: targetError } = await admin
       .from("outlet_staff")
-      .select("outlet_id, face_descriptor, face_descriptor_mobile, role, status")
+      .select("face_descriptor, face_descriptor_mobile, status")
       .eq("id", body.outlet_staff_id)
       .maybeSingle();
 
@@ -35,20 +52,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "staff_inactive" }, { status: 403 });
     }
 
-    const isGlobalRole = ["spv", "owner", "admin", "admin_hr", "regional_manager", "area_manager", "developer"].includes(target.role);
-    if (!isGlobalRole && target.outlet_id !== body.outlet_id) {
-      // Cek apakah outlet_id ini terdaftar untuk staff di tabel staff_outlets (misal: Leader multi-outlet)
-      const { data: allowedAssigned } = await admin
-        .from("staff_outlets")
-        .select("outlet_id")
-        .eq("staff_id", body.outlet_staff_id)
-        .eq("outlet_id", body.outlet_id)
-        .maybeSingle();
-
-      if (!allowedAssigned) {
-        return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
-      }
-    }
     const hasEnrollment = Boolean(
       (target.face_descriptor && Array.isArray(target.face_descriptor) && target.face_descriptor.length > 0) ||
       (target.face_descriptor_mobile && Array.isArray(target.face_descriptor_mobile) && target.face_descriptor_mobile.length > 0)
@@ -79,7 +82,7 @@ export async function POST(req: Request) {
     // Validasi radius GPS server-side + toleransi akurasi.
     const { data: outlet } = await admin
       .from("outlets")
-      .select("lat, lng, slug, name, type")
+      .select("lat, lng")
       .eq("id", body.outlet_id)
       .single();
     if (!outlet) return NextResponse.json({ ok: false, reason: "outlet_not_found" }, { status: 404 });
@@ -203,213 +206,46 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "selfie_path_mismatch" }, { status: 403 });
     }
 
-    let { data: cfg, error: cfgError }: { data: any; error: any } = await admin
-      .from("outlet_attendance_config")
-      .select("jam_masuk,jam_keluar,toleransi_menit,radius_m,absen_window_mode,pilih_shift_aktif,shift2_jam_masuk,shift2_jam_keluar")
-      .eq("outlet_id", body.outlet_id)
-      .maybeSingle();
-    if (cfgError) {
-      // Kolom pilihan shift belum ada (kode ter-deploy sebelum migration
-      // 20260915120000). Jangan jatuh ke jam pusat untuk outlet berjam khusus —
-      // ulangi dengan kolom lama.
-      ({ data: cfg } = await admin
-        .from("outlet_attendance_config")
-        .select("jam_masuk,jam_keluar,toleransi_menit,radius_m,absen_window_mode")
-        .eq("outlet_id", body.outlet_id)
-        .maybeSingle());
-    }
-
-    if (!cfg) {
-      const { data: globalRow } = await admin
-        .from("global_settings")
-        .select("value")
-        .eq("key", "global_attendance_config")
-        .maybeSingle();
-      if (globalRow && globalRow.value) {
-        let globalVal = globalRow.value;
-        if (typeof globalVal === "string") {
-          try {
-            globalVal = JSON.parse(globalVal);
-          } catch (e) {}
-        }
-        cfg = globalVal as any;
-      }
-    }
-
-    if (!cfg) return NextResponse.json({ ok: false, reason: "config_missing" }, { status: 500 });
-
-    // ── Pilihan dua shift (toggle per outlet) ──────────────────────────────
-    // Absen masuk: crew wajib memilih shift; jam shift itu dibekukan di baris
-    // attendance. Absen pulang: dinilai terhadap shift dari absen masuk orang
-    // itu sendiri, bukan jam outlet — crew pagi pulang 17:00, crew siang 22:00.
-    // Client hanya mengirim nomor shift (1/2); jamnya diambil dari config di
-    // server supaya tak bisa dikarang.
-    let jamMasukEfektif: string = cfg.jam_masuk;
-    let jamKeluarEfektif: string = cfg.jam_keluar || "17:00";
-    let shiftCols: { shift_jam_masuk: string; shift_jam_keluar: string } | null = null;
-    const opsiShift = shiftOptions(cfg, target.role);
-    if (opsiShift) {
-      if (body.type === "out") {
-        const { data: lastIn } = await admin
-          .from("attendance")
-          .select("shift_jam_masuk, shift_jam_keluar")
-          .eq("outlet_staff_id", body.outlet_staff_id)
-          .eq("type", "in")
-          .neq("status", "alpha")
-          .gte("ts_server", new Date(Date.now() - 20 * 3600_000).toISOString())
-          .order("ts_server", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (lastIn?.shift_jam_masuk && lastIn?.shift_jam_keluar) {
-          shiftCols = { shift_jam_masuk: lastIn.shift_jam_masuk.slice(0, 5), shift_jam_keluar: lastIn.shift_jam_keluar.slice(0, 5) };
-        }
-      }
-      if (!shiftCols) {
-        const dipilih = isShiftKe(body.shift_ke) ? opsiShift.find((o) => o.ke === body.shift_ke) : undefined;
-        if (dipilih) {
-          shiftCols = { shift_jam_masuk: dipilih.jam_masuk, shift_jam_keluar: dipilih.jam_keluar };
-        } else if (body.type === "in") {
-          return NextResponse.json({ ok: false, reason: "shift_required" }, { status: 200 });
-        }
-        // Absen pulang tanpa jejak shift (mis. absen masuk terjadi sebelum toggle
-        // dinyalakan): jangan kunci crew di outlet — nilai terhadap jam outlet.
-      }
-      if (shiftCols) {
-        jamMasukEfektif = shiftCols.shift_jam_masuk;
-        jamKeluarEfektif = shiftCols.shift_jam_keluar;
-      }
-    }
-    // ───────────────────────────────────────────────────────────────────────
-
-    // Blokir absen pulang selama shift kasir (laci) outlet ini masih terbuka atau
-    // masih ada pesanan belum selesai. Keduanya state milik OUTLET, jadi hanya
-    // crew yang MENUTUP outlet yang wajib menunggu: di outlet dua shift itu shift
-    // yang pulang paling akhir (mis. 22:00). Crew shift pagi (17:00) boleh pulang
-    // walau outlet masih jualan. Outlet satu shift / absen tanpa jejak shift →
-    // tetap berlaku untuk siapa pun (aturan lama).
-    // Kantor Pusat dikecualikan: tidak ada laci kasir maupun pesanan di sana, jadi baris
-    // `shifts` yang tertinggal (mis. sisa uji coba POS) akan mengunci staf kantor tanpa
-    // ada yang bisa mereka tutup. Gudang Pusat — sama-sama `type = 'office'` — TIDAK ikut.
-    const diKantorPusat =
-      outlet.slug === "kantor-pusat" || (outlet.type === "office" && /kantor/i.test(outlet.name ?? ""));
-
-    if (body.type === "out" && !diKantorPusat && isShiftPenutup(opsiShift, shiftCols?.shift_jam_keluar)) {
-      const { data: openShift } = await admin
-        .from("shifts")
-        .select("id")
-        .eq("outlet_id", body.outlet_id)
-        .eq("status", "open")
-        .maybeSingle();
-      if (openShift) {
-        return NextResponse.json({ ok: false, reason: "shift_not_closed" }, { status: 200 });
-      }
-
-      const { data: unfinishedOrders } = await admin
-        .from("orders")
-        .select("id")
-        .eq("outlet_id", body.outlet_id)
-        .in("status", ["pending", "preparing", "ready"])
-        .limit(1);
-      if (unfinishedOrders && unfinishedOrders.length > 0) {
-        return NextResponse.json({ ok: false, reason: "unfinished_orders" }, { status: 200 });
-      }
-    }
-
-    const tsServer = new Date().toISOString();
-    const basis = body.from_queue ? body.ts_client : tsServer;
-
-    // Status Logic
-    const local = new Date(new Date(basis).toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
-
-    // ── Time window validation (hanya mode 'auto') ─────────────────────────
-    // Hitung total menit dari jam config, lalu bandingkan dengan waktu lokal.
-    function toTotalMinutes(timeStr: string) {
-      const [h, m] = timeStr.split(":").map(Number);
-      return h * 60 + m;
-    }
-    const nowMinutes = local.getHours() * 60 + local.getMinutes();
-
-    if ((cfg.absen_window_mode ?? "auto") === "auto") {
-      // Absen masuk tidak ditutup sebelum buka outlet (diperbolehkan absen masuk kapan saja)
-      if (body.type === "out") {
-        const windowOpen = toTotalMinutes(jamKeluarEfektif) - 30;
-        if (nowMinutes < windowOpen) {
-          return NextResponse.json({ ok: false, reason: "too_early_out" }, { status: 200 });
-        }
-      }
-    }
-    // ───────────────────────────────────────────────────────────────────────
-    let status = "tepat";
-    let telat_menit: number | null = null;
-    
-    if (body.type === "out") {
-      const [hOut, mOut] = jamKeluarEfektif.split(":").map(Number);
-      const deadlineOut = new Date(local);
-      deadlineOut.setHours(hOut, mOut, 0, 0);
-      
-      const diffMins = Math.floor((local.getTime() - deadlineOut.getTime()) / 60000);
-      if (diffMins < 0) {
-        status = "lebih_awal";
-        telat_menit = Math.abs(diffMins);
-      } else if (diffMins >= 1) {
-        status = "pulang_telat";
-        telat_menit = diffMins;
-      } else {
-        status = "tepat";
-      }
-    } else {
-      const [h, m] = jamMasukEfektif.split(":").map(Number);
-      
-      const expectedTime = new Date(local);
-      expectedTime.setHours(h, m, 0, 0);
-
-      // Hitung selisih dalam menit (misal 13:00:59 - 13:00:00 = 59s -> floor(59/60) = 0 menit)
-      const diffMins = Math.floor((local.getTime() - expectedTime.getTime()) / 60000);
-
-      if (diffMins <= 0) {
-        status = "tepat";
-      } else if (diffMins <= cfg.toleransi_menit) {
-        status = "telat_toleransi";
-        telat_menit = diffMins;
-      } else {
-        status = "telat";
-        telat_menit = diffMins;
-      }
-    }
-
-    const { error } = await admin.from("attendance").upsert({
+    // ── Aturan absen: satu sumber di server (RPC submit_attendance) ──────────
+    // Izin outlet (outlet utama, penempatan HR, izin tambahan admin, izin semua
+    // outlet), jadwal & shift 1..N (termasuk lewat tengah malam), gerbang shift
+    // penutup, jendela absen, status, insert idempoten, dan pemindahan outlet utama
+    // semuanya ditegakkan RPC yang sama dengan app native — satu round trip.
+    const payload = {
       id: body.id,
       outlet_staff_id: body.outlet_staff_id,
       outlet_id: body.outlet_id,
       type: body.type,
-      ts_server: tsServer,
       ts_client: body.ts_client,
       gps_lat: body.gps_lat ?? null,
       gps_lng: body.gps_lng ?? null,
-      distance_m: distanceM,
+      gps_accuracy: body.gps_accuracy ?? null,
       match_distance: body.match_distance,
-      selfie_url: body.selfie_path,
-      status,
-      telat_menit,
+      selfie_path: body.selfie_path ?? null,
       is_manual_button: body.is_manual_button || false,
+      // Nomor tak sah dibuang di sini agar tidak jadi galat cast di RPC; bila
+      // outlet memakai pilihan shift, RPC menjawab shift_required.
+      shift_ke: isShiftKe(body.shift_ke) ? body.shift_ke : null,
       // Jalur normal adalah web. Namun antrean offline Super App menggunakan
       // endpoint ini saat kembali online dan membawa penanda asalnya.
       source: body.source === "native" ? "native" : "web",
-      // Hanya dikirim bila outlet memakai pilihan shift, agar outlet lain tak
-      // bergantung pada kolom baru.
-      ...(shiftCols ?? {}),
-    }, { onConflict: "id", ignoreDuplicates: true });
+      sumber_offline: !!body.from_queue,
+    };
 
-    if (error) return NextResponse.json({ ok: false, reason: "insert_failed", detail: error.message }, { status: 500 });
-
-    // Update outlet_staff.outlet_id to match the check-in location (so other apps like POS Kasir follow the check-in location)
-    if (body.type === "in" && target.outlet_id !== body.outlet_id) {
-      await admin.from("outlet_staff")
-        .update({ outlet_id: body.outlet_id })
-        .eq("id", body.outlet_staff_id);
+    const { data: hasil, error: rpcError } = await admin.rpc("submit_attendance", { payload });
+    if (rpcError) {
+      return NextResponse.json({ ok: false, reason: "insert_failed", detail: rpcError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, status, ts_server: tsServer, attendance_id: body.id }, { status: 200 });
+    const r = (hasil ?? {}) as { ok?: boolean; reason?: string; status?: string; ts_server?: string; attendance_id?: string };
+    if (r.ok) {
+      return NextResponse.json(
+        { ok: true, status: r.status, ts_server: r.ts_server, attendance_id: r.attendance_id ?? body.id },
+        { status: 200 },
+      );
+    }
+    const reason = r.reason ?? "internal_error";
+    return NextResponse.json({ ok: false, reason }, { status: STATUS_ALASAN[reason] ?? 200 });
   } catch (err: any) {
     return NextResponse.json({ ok: false, reason: "internal_error" }, { status: 500 });
   }

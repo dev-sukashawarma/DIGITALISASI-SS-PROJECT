@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 
 export type OutletBreakdownDetails = {
   outlet_id: string
@@ -34,7 +35,7 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
   // paginasi ekspor melaporkan biaya yang terlalu kecil.
   const buildExpensesQuery = () => {
     let b = supabase.from('expenses')
-      .select('outlet_id, category, amount')
+      .select('outlet_id, category, amount, description, expense_date')
       .neq('outlet_id', TEST_OUTLET_ID)
       // Tabel `expenses` juga memuat baris pemasukan (type='income');
       // tanpa saringan ini pemasukan ikut terhitung sebagai biaya.
@@ -48,7 +49,7 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
 
   const buildPettyCashQuery = () => {
     let b = supabase.from('petty_cash_expenses')
-      .select('outlet_id, category, amount')
+      .select('outlet_id, category, amount, expense_date')
       .neq('outlet_id', TEST_OUTLET_ID)
       // Baris yang di-void lewat RPC void_petty_cash_expense TIDAK dihitung —
       // menyamakan perilaku dengan get_petty_cash_balance() di DB.
@@ -82,16 +83,13 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
     opexMap.get(row.outlet_id)!.set(cat, cur + Number(row.amount))
   }
 
-  const auditedOutlets = new Set<string>()
-  expenseRows.forEach(r => {
-    if (r.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(r.category)) {
-      auditedOutlets.add(r.outlet_id)
-    }
-  })
+  // Sama dengan halaman Profit (useExpenses): kas kecil dilewati hanya untuk
+  // outlet-bulan yang punya rangkuman "OPEX <Bulan> <Tahun> - ...".
+  const simpanKasKecil = buatSaringanKasKecil(expenseRows)
 
   expenseRows.forEach(r => processExpense(r, c => c || 'Lainnya'))
   pettyCashRows
-    .filter(r => !r.outlet_id || !auditedOutlets.has(r.outlet_id))
+    .filter(simpanKasKecil)
     .forEach(r => processExpense(r, c => {
       if (c === 'bb') return 'bahan_baku'
       if (c === 'outlet' || c === 'operasional') return 'pengeluaran_outlet'

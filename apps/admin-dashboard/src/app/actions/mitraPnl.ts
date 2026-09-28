@@ -10,6 +10,8 @@ import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
 import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
+import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
+import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -369,14 +371,7 @@ export async function getMitraComprehensivePnl(
       let channelHppVal: number | null = null
 
       if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
-        if (
-          normCh === 'ss-online' ||
-          normCh === 'ss_online' ||
-          normCh.includes('tiktok') ||
-          normCh.includes('shopee') ||
-          normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-          normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-        ) {
+        if (adalahKanalSsOnline(normCh)) { // hanya marketplace; ShopeeFood & TikTok GO pakai hpp_override
           channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
         } else {
           channelHppVal = menuItem.channel_hpp[normCh] ?? null
@@ -579,26 +574,15 @@ export async function getMitraComprehensivePnl(
 
   const outletOpexMap = new Map<string, number>()
 
-  // Identifikasi outlet yang sudah memiliki pos pengeluaran operasional / kas kecil
-  // hasil audit bulanan di tabel expenses (pengeluaran_outlet, bahan_baku, transport, dll).
-  // Untuk outlet yang sudah diaudit, nota kasir harian di petty_cash_expenses tidak boleh
-  // ditambahkan lagi karena sudah dirangkum ke dalam beban bulanan audit (mencegah double-counting).
-  const auditedOutletIds = new Set<string>()
-  if (monthlyExpenses) {
-    for (const m of monthlyExpenses) {
-      if (m.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(m.category)) {
-        auditedOutletIds.add(m.outlet_id)
-      }
-    }
-  }
+  // Kas kecil dilewati hanya untuk outlet-bulan yang sudah punya rangkuman
+  // "OPEX <Bulan> <Tahun> - ..." di expenses — lihat lib/kasKecilTeraudit.ts.
+  // (Aturan lama: satu biaya satuan apa pun sudah membuang seluruh kas kecil.)
+  const simpanKasKecil = buatSaringanKasKecil(monthlyExpenses || [])
 
   let totalPettyCash = 0
   if (pettyExpenses) {
     for (const p of pettyExpenses) {
-      // Lewati jika outlet ini sudah memiliki entri kas kecil / operasional yang diaudit di monthlyExpenses
-      if (p.outlet_id && auditedOutletIds.has(p.outlet_id)) {
-        continue
-      }
+      if (!simpanKasKecil(p)) continue
       const amt = Number(p.amount) || 0
       totalPettyCash += amt
       if (p.outlet_id) {

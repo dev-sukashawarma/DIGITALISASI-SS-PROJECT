@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase";
 import { cleanItemName } from "@/lib/order-item-name";
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp";
+import { adalahKanalSsOnline } from "@/lib/hpp/kanalSsOnline";
+import { resolveSalesSource } from "@/lib/resolveSalesSource";
+import { TEST_OUTLET_ID } from "@/lib/outletFilters";
 
 export interface HppByChannelRow {
   outlet_id: string;
@@ -36,14 +39,7 @@ function getItemHpp(
   let channelHppVal: number | null = null;
 
   if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
-    if (
-      normCh === 'ss-online' ||
-      normCh === 'ss_online' ||
-      normCh.includes('tiktok') ||
-      normCh.includes('shopee') ||
-      normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-      normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-    ) {
+    if (adalahKanalSsOnline(normCh)) { // hanya marketplace; ShopeeFood & TikTok GO pakai hpp_override
       channelHppVal = itemObj.channel_hpp.ss_online ?? itemObj.channel_hpp.tiktok_shop ?? itemObj.channel_hpp.shopee_shop ?? itemObj.channel_hpp[normCh] ?? null;
     } else {
       channelHppVal = itemObj.channel_hpp[normCh] ?? null;
@@ -104,10 +100,14 @@ export function useHppByChannel(from: string, to: string) {
       let queryOrders = supabase
         .from("orders")
         .select(
-          "outlet_id, channel, sales_source, payment_method, status, created_at, order_items(menu_item_name, quantity, menu_items(id, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))))",
+          "id, outlet_id, channel, sales_source, is_endorse, status, created_at, order_items(menu_item_name, quantity, menu_items(id, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))))",
         )
         .gte("created_at", ordersGte)
-        .lte("created_at", ordersLte);
+        .lte("created_at", ordersLte)
+        .neq("outlet_id", TEST_OUTLET_ID)
+        // Pengurut wajib untuk .range(): tanpa ORDER BY, halaman bisa
+        // melompati atau mengulang baris (±30 halaman per bulan).
+        .order("id", { ascending: true });
 
       const PAGE_SIZE = 1000;
       const allOrders: any[] = [];
@@ -127,10 +127,11 @@ export function useHppByChannel(from: string, to: string) {
       let queryEcommerce = supabase
         .from("ecommerce_sales")
         .select(
-          "channel_id, order_date, ecommerce_sale_items(menu_items:menu_id(id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))), quantity)",
+          "id, channel_id, order_date, ecommerce_sale_items(menu_items:menu_id(id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))), quantity)",
         )
         .gte("order_date", ordersGte)
-        .lte("order_date", ordersLte);
+        .lte("order_date", ordersLte)
+        .order("id", { ascending: true });
 
       const ecommerceSalesList: any[] = [];
       offset = 0;
@@ -152,7 +153,11 @@ export function useHppByChannel(from: string, to: string) {
       allOrders.forEach((o: any) => {
         if (o.status !== "completed" && o.status !== "settled") return;
         const outletType = outletTypeMap.get(o.outlet_id);
-        const source = o.payment_method || "unknown";
+        // Kunci kanal HARUS sama dengan pengelompokan omzet Rekap Bulanan
+        // (view sales_daily_spv → resolve_sales_source). Dulu dipakai
+        // payment_method (cash/qris), sehingga seluruh HPP Food Apps & TikTok
+        // jatuh ke "offline".
+        const source = resolveSalesSource(o.channel, o.sales_source, o.is_endorse);
         const orderChannel = o.channel || o.sales_source;
 
         const pHpp = penerapHpp.untuk(tanggalWib(o.created_at));
@@ -174,7 +179,10 @@ export function useHppByChannel(from: string, to: string) {
       ecommerceSalesList.forEach((saleRecord: any) => {
         const outletId = "ss-online";
         const outletType = "outlet";
-        const source = saleRecord.channel_id || "ecommerce";
+        // Sama dengan kunci omzet e-commerce di useSalesDaily.
+        const resolved = resolveSalesSource(saleRecord.channel_id, null);
+        const source =
+          resolved === "tiktok_shop" || resolved === "shopee_shop" ? resolved : "online";
 
         const pHpp = penerapHpp.untuk(tanggalWib(saleRecord.order_date));
         saleRecord.ecommerce_sale_items?.forEach((item: any) => {
@@ -184,7 +192,7 @@ export function useHppByChannel(from: string, to: string) {
             outletType,
             fallbackName,
             pHpp.byName,
-            source,
+            saleRecord.channel_id,
           );
           const qty = item.quantity || 1;
           const key = keyFn(outletId, source);

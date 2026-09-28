@@ -8,6 +8,8 @@ import { fetchAllPages } from '@/lib/fetchAllPages'
 import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
 import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
+import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
+import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 
 /** 2026-08-01 00:00 WIB — awal data bagi hasil yang dihitung sistem. */
 const SYSTEM_START_MONTH = '2026-08'
@@ -176,14 +178,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     let channelHppVal: number | null = null
 
     if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
-      if (
-        normCh === 'ss-online' ||
-        normCh === 'ss_online' ||
-        normCh.includes('tiktok') ||
-        normCh.includes('shopee') ||
-        normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-        normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-      ) {
+      if (adalahKanalSsOnline(normCh)) { // hanya marketplace; ShopeeFood & TikTok GO pakai hpp_override
         channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
       } else {
         channelHppVal = menuItem.channel_hpp[normCh] ?? null
@@ -263,7 +258,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       // dan OPEX yang hilang membuat laba, bagi hasil, dan BEP terlalu besar.
       fetchAllPages<any>(() => supabase
         .from('petty_cash_expenses')
-        .select('id, amount, outlet_id')
+        .select('id, amount, outlet_id, expense_date')
         .in('outlet_id', mitraOutletIds)
         .is('deleted_at', null)
         .gte('expense_date', from)
@@ -271,7 +266,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         .order('id', { ascending: true })),
       fetchAllPages<any>(() => supabase
         .from('expenses')
-        .select('id, amount, outlet_id, category')
+        .select('id, amount, outlet_id, category, description, expense_date')
         .in('outlet_id', mitraOutletIds)
         // `type='out'` tidak pernah dipakai pengeluaran sungguhan -- akibatnya
         // pengeluaran bulanan (gaji, listrik, sewa) tak pernah ikut ke OPEX di
@@ -389,17 +384,14 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       }
     }
 
-    const auditedOutlets = new Set<string>()
-    for (const r of monthlyRows) {
-      if (r.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(r.category)) {
-        auditedOutlets.add(r.outlet_id)
-      }
-    }
+    // Kas kecil dilewati hanya untuk outlet-bulan yang punya rangkuman
+    // "OPEX <Bulan> <Tahun> - ..." — sama dengan mitraPnl & halaman Profit.
+    const simpanKasKecil = buatSaringanKasKecil(monthlyRows)
 
     for (const r of pettyRows) {
       const cutoff = invMap[r.outlet_id]?.tanggal_mulai
       if (cutoff && to < cutoff) continue
-      if (r.outlet_id && !auditedOutlets.has(r.outlet_id)) {
+      if (r.outlet_id && simpanKasKecil(r)) {
         bump(r.outlet_id).opex += Number(r.amount) || 0
       }
     }

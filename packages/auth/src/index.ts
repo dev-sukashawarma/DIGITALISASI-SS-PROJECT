@@ -3,6 +3,7 @@
 
 export * from './types'
 export * from './access'
+export * from './kantor-pusat'
 export * from './staff'
 export * from './jwt'
 export * from './jakarta-day'

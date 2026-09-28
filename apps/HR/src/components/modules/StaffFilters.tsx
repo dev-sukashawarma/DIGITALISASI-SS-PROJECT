@@ -1,6 +1,8 @@
 'use client'
 
+import { useMemo } from 'react'
 import { ArrowUpDown } from 'lucide-react'
+import { Select } from '@/components/ui/Select'
 import type { Outlet, StaffFilterValues, StaffSortKey, SortOrder } from '@/lib/types'
 
 const ROLES = [
@@ -57,6 +59,78 @@ export function StaffFilters({
     }
   }
 
+  const outletOptions = useMemo(
+    () => [
+      { label: 'Semua Outlet', value: '' },
+      ...outlets.map((o) => ({ label: o.name, value: o.id })),
+    ],
+    [outlets]
+  )
+
+  const roleOptions = useMemo(
+    () => [
+      { label: 'Semua Role', value: '' },
+      ...ROLES.map((r) => ({
+        label: r.replace(/_/g, ' ').toUpperCase(),
+        value: r,
+      })),
+    ],
+    []
+  )
+
+  const subRoleOptions = useMemo(
+    () => [
+      { label: 'Semua Sub-Role', value: '' },
+      { label: 'Crew Reguler', value: 'crew_regular' },
+      { label: 'Crew Backup', value: 'crew_backup' },
+      { label: 'Trainee', value: 'crew_trainee' },
+    ],
+    []
+  )
+
+  const stageOptions = useMemo(
+    () => [
+      { label: 'Semua Flag Status', value: '' },
+      { label: 'Training (7 Hari)', value: 'training_7_days' },
+      { label: 'Masa OJT', value: 'ojt' },
+      { label: 'Lulus PKWT', value: 'graduated' },
+      { label: 'Karyawan Reguler', value: 'regular' },
+      { label: 'Tidak Lolos (Gugur)', value: 'failed' },
+    ],
+    []
+  )
+
+  const statusOptions = useMemo(
+    () => [
+      { label: 'Semua Status', value: '' },
+      { label: 'Aktif', value: 'active' },
+      { label: 'Nonaktif', value: 'inactive' },
+      { label: 'Cuti', value: 'on_leave' },
+    ],
+    []
+  )
+
+  const categoryOptions = useMemo(
+    () => [
+      { label: 'Semua Kategori', value: 'all' },
+      { label: 'Karyawan Saja', value: 'employee' },
+      { label: 'Bot / AI', value: 'system_bot' },
+      { label: 'Kiosk / Perangkat', value: 'kiosk' },
+      { label: 'Mitra Owner', value: 'mitra_owner' },
+      { label: 'Akun Testing', value: 'testing' },
+    ],
+    []
+  )
+
+  const sortOptions = useMemo(
+    () =>
+      SORT_OPTIONS.map((opt) => ({
+        label: opt.label,
+        value: opt.id,
+      })),
+    []
+  )
+
   return (
     <div className="flex flex-wrap gap-2 items-center">
       <input
@@ -65,94 +139,72 @@ export function StaffFilters({
         value={value.search}
         onChange={(e) => set({ search: e.target.value })}
       />
-      <select
-        className={inputCls}
+
+      {/* Filter Outlet */}
+      <Select
+        options={outletOptions}
         value={value.outletId}
-        onChange={(e) => set({ outletId: e.target.value })}
-      >
-        <option value="">Semua Outlet</option>
-        {outlets.map((o) => (
-            <option key={o.id} value={o.id}>
-            {o.name}
-          </option>
-        ))}
-      </select>
-      <select
-        className={inputCls}
+        onChange={(val) => set({ outletId: val })}
+        placeholder="Semua Outlet"
+        className="min-w-[140px]"
+      />
+
+      {/* Filter Role */}
+      <Select
+        options={roleOptions}
         value={value.role}
-        onChange={(e) => set({ role: e.target.value })}
-      >
-        <option value="">Semua Role</option>
-        {ROLES.map((r) => (
-          <option key={r} value={r}>
-            {r.replace(/_/g, ' ').toUpperCase()}
-          </option>
-        ))}
-      </select>
+        onChange={(val) => set({ role: val })}
+        placeholder="Semua Role"
+        className="min-w-[130px]"
+      />
 
-      <select
-        className={inputCls}
+      {/* Filter Sub-Role */}
+      <Select
+        options={subRoleOptions}
         value={value.subRole || ''}
-        onChange={(e) => set({ subRole: e.target.value })}
-      >
-        <option value="">Semua Sub-Role</option>
-        <option value="crew_regular">Crew Reguler</option>
-        <option value="crew_backup">Crew Backup</option>
-        <option value="crew_trainee">Trainee</option>
-      </select>
-      <select
-        aria-label="Filter Flag Status"
-        className={inputCls}
-        value={value.onboardingStage || ''}
-        onChange={(e) => set({ onboardingStage: e.target.value })}
-      >
-        <option value="">Semua Flag Status</option>
-        <option value="training_7_days">Training (7 Hari)</option>
-        <option value="ojt">Masa OJT</option>
-        <option value="graduated">Lulus PKWT</option>
-        <option value="regular">Karyawan Reguler</option>
-        <option value="failed">Tidak Lolos (Gugur)</option>
-      </select>
-      <select
-        className={inputCls}
-        value={value.status}
-        onChange={(e) => set({ status: e.target.value })}
-      >
-        <option value="">Semua Status</option>
-        <option value="active">Aktif</option>
-        <option value="inactive">Nonaktif</option>
-        <option value="on_leave">Cuti</option>
-      </select>
+        onChange={(val) => set({ subRole: val })}
+        placeholder="Semua Sub-Role"
+        className="min-w-[140px]"
+      />
 
-      <select
-        aria-label="Filter Kategori Akun"
-        className={`${inputCls} font-medium ${value.category && value.category !== 'all' ? 'text-amber-700 bg-amber-50 border-amber-300' : ''}`}
+      {/* Filter Flag Status */}
+      <Select
+        options={stageOptions}
+        value={value.onboardingStage || ''}
+        onChange={(val) => set({ onboardingStage: val })}
+        placeholder="Semua Flag Status"
+        className="min-w-[150px]"
+      />
+
+      {/* Filter Status */}
+      <Select
+        options={statusOptions}
+        value={value.status}
+        onChange={(val) => set({ status: val })}
+        placeholder="Semua Status"
+        className="min-w-[120px]"
+      />
+
+      {/* Filter Kategori Akun */}
+      <Select
+        options={categoryOptions}
         value={value.category ?? 'all'}
-        onChange={(e) => set({ category: e.target.value })}
-      >
-        <option value="all">Semua Kategori</option>
-        <option value="employee">Karyawan Saja</option>
-        <option value="system_bot">Bot / AI</option>
-        <option value="kiosk">Kiosk / Perangkat</option>
-        <option value="mitra_owner">Mitra Owner</option>
-        <option value="testing">Akun Testing</option>
-      </select>
+        onChange={(val) => set({ category: val })}
+        placeholder="Semua Kategori"
+        className="min-w-[140px]"
+      />
 
       {/* Sort Selector Dropdown */}
-      <div className="flex items-center gap-1.5 bg-stone-50 border border-suka-gray-200 rounded-xl px-2.5 py-1.5 shadow-xs">
-        <ArrowUpDown size={14} className="text-suka-orange shrink-0" />
-        <select
-          aria-label="Urutkan Karyawan"
-          className="bg-transparent text-xs sm:text-sm font-semibold text-suka-ink outline-none cursor-pointer"
+      <div className="flex items-center gap-1.5 bg-stone-50 border border-suka-gray-200 rounded-xl px-1.5 py-0.5 shadow-xs">
+        <ArrowUpDown size={14} className="text-suka-orange shrink-0 ml-1.5" />
+        <Select
+          options={sortOptions}
           value={currentSortId}
-          onChange={(e) => handleSortChange(e.target.value)}
-        >
-          {SORT_OPTIONS.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          onChange={handleSortChange}
+          placeholder="Urutkan Karyawan"
+          buttonClassName="border-0 bg-transparent shadow-none px-1.5 py-1 text-xs sm:text-sm font-semibold"
+          className="min-w-[170px]"
+        />
       </div>
     </div>
   )

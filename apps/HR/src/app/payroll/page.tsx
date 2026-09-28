@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
 import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Select } from '@/components/ui/Select'
 import { usePayroll } from '@/hooks/usePayroll'
 import { usePayrollMutations } from '@/hooks/usePayrollMutations'
 import { PayrollTable } from '@/components/modules/PayrollTable'
@@ -27,6 +28,11 @@ export default function PayrollPage() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [editingSlip, setEditingSlip] = useState<PayrollRecord | null>(null)
   const [showBulkWAModal, setShowBulkWAModal] = useState(false)
+
+  const monthOptions = useMemo(
+    () => MONTHS.map((m, i) => ({ label: m, value: String(i + 1) })),
+    []
+  )
 
   // Hooks
   const { data: payrollData = [], isLoading: loadingPayroll } = usePayroll(month, year)
@@ -164,17 +170,13 @@ export default function PayrollPage() {
         {/* Controls Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
             <div className="flex items-center gap-2">
-              <select
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
-                className="rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-bold outline-none focus:border-suka-orange bg-white text-suka-ink"
-              >
-                {MONTHS.map((m, i) => (
-                  <option key={m} value={i + 1}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={monthOptions}
+                value={String(month)}
+                onChange={(val) => setMonth(Number(val))}
+                placeholder="Pilih Bulan"
+                className="min-w-[130px]"
+              />
               <input
                 type="number"
                 value={year}

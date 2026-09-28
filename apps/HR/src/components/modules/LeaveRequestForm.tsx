@@ -2,7 +2,16 @@
 
 import { useState, useMemo } from 'react'
 import { Button } from '@suka/design-system'
+import { Select } from '@/components/ui/Select'
 import { useStaff } from '@/hooks/useStaff'
+
+const LEAVE_TYPE_OPTIONS = [
+  { label: 'Cuti Tahunan', value: 'annual' },
+  { label: 'Sakit (Wajib Lampirkan Surat Dokter)', value: 'sick' },
+  { label: 'Izin Pribadi', value: 'personal' },
+  { label: 'Cuti Melahirkan', value: 'maternity' },
+  { label: 'Lainnya', value: 'other' },
+]
 
 interface LeaveFormValues {
   staff_id: string
@@ -69,6 +78,17 @@ export function LeaveRequestForm({
     })
   }
 
+  const staffOptions = useMemo(
+    () => [
+      { label: '— Pilih Karyawan —', value: '' },
+      ...staffList.map((s) => ({
+        label: `${s.name} (${s.outlets?.name || 'Pusat'} — Sisa kuota: ${s.leave_quota ?? 0} hari)`,
+        value: s.id,
+      })),
+    ],
+    [staffList]
+  )
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -79,35 +99,25 @@ export function LeaveRequestForm({
       {/* Staff picker */}
       <div>
         <label className={labelClass}>Pilih Karyawan</label>
-        <select
+        <Select
+          options={staffOptions}
           value={staffId}
-          onChange={(e) => setStaffId(e.target.value)}
-          className={inputClass}
-          required
-        >
-          <option value="">— Pilih Karyawan —</option>
-          {staffList.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} ({s.outlets?.name || 'Pusat'} — Sisa kuota: {s.leave_quota ?? 0} hari)
-            </option>
-          ))}
-        </select>
+          onChange={setStaffId}
+          placeholder="— Pilih Karyawan —"
+          className="w-full"
+        />
       </div>
 
       {/* Leave type */}
       <div>
         <label className={labelClass}>Kategori Cuti / Izin</label>
-        <select
+        <Select
+          options={LEAVE_TYPE_OPTIONS}
           value={leaveType}
-          onChange={(e) => setLeaveType(e.target.value)}
-          className={inputClass}
-        >
-          <option value="annual">Cuti Tahunan</option>
-          <option value="sick">Sakit (Wajib Lampirkan Surat Dokter)</option>
-          <option value="personal">Izin Pribadi</option>
-          <option value="maternity">Cuti Melahirkan</option>
-          <option value="other">Lainnya</option>
-        </select>
+          onChange={setLeaveType}
+          placeholder="Pilih Kategori Cuti / Izin"
+          className="w-full"
+        />
       </div>
 
       {/* File Upload (Sakit) */}

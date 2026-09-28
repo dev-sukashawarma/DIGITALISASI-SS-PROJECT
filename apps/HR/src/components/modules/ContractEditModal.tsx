@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@suka/design-system'
+import { Select } from '@/components/ui/Select'
 import type { StaffContract } from '@/lib/types'
+
+const CONTRACT_TYPE_OPTIONS = [
+  { label: 'PKWT (Perjanjian Kerja Waktu Tertentu / Kontrak)', value: 'contract' },
+  { label: 'PKWTT (Karyawan Tetap)', value: 'permanent' },
+  { label: 'Magang (Internship)', value: 'intern' },
+  { label: 'Harian / Freelance', value: 'daily' },
+]
 
 interface ContractEditModalProps {
   contract: StaffContract | null
@@ -58,16 +66,13 @@ export function ContractEditModal({ contract, onClose, onSave }: ContractEditMod
         <div className="space-y-3 pt-2">
           <div>
             <label className={labelClass}>Jenis Perjanjian Kerja</label>
-            <select
-              className={inputClass}
+            <Select
+              options={CONTRACT_TYPE_OPTIONS}
               value={contractType}
-              onChange={(e) => setContractType(e.target.value)}
-            >
-              <option value="contract">PKWT (Perjanjian Kerja Waktu Tertentu / Kontrak)</option>
-              <option value="permanent">PKWTT (Karyawan Tetap)</option>
-              <option value="intern">Magang (Internship)</option>
-              <option value="daily">Harian / Freelance</option>
-            </select>
+              onChange={setContractType}
+              placeholder="Pilih Jenis Perjanjian Kerja"
+              className="w-full"
+            />
           </div>
 
           <div>

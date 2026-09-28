@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
 import { Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Select } from '@/components/ui/Select'
 import { useRoster } from '@/hooks/useRoster'
 import { useOutlets } from '@/hooks/useOutlets'
 import { ShiftRosterGrid } from '@/components/modules/ShiftRosterGrid'
@@ -40,6 +41,11 @@ export default function RosterPage() {
   // Set default outlet when loaded
   const activeOutletId = selectedOutletId || (outlets[0]?.id ?? '')
 
+  const outletOptions = useMemo(
+    () => outlets.map((o) => ({ label: o.name, value: o.id })),
+    [outlets]
+  )
+
   const { start, end, dates } = useMemo(() => getWeekDates(weekOffset), [weekOffset])
   const { data: rosterItems = [], isLoading, setShift } = useRoster(activeOutletId, start, end)
 
@@ -64,18 +70,14 @@ export default function RosterPage() {
       <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
         {/* Outlet Picker */}
         <div className="flex items-center gap-2">
-          <Building2 size={16} className="text-suka-orange" />
-          <select
+          <Building2 size={16} className="text-suka-orange shrink-0" />
+          <Select
+            options={outletOptions}
             value={activeOutletId}
-            onChange={(e) => setSelectedOutletId(e.target.value)}
-            className="rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-bold outline-none focus:border-suka-orange bg-white text-suka-ink shadow-xs"
-          >
-            {outlets.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedOutletId}
+            placeholder="Pilih Outlet..."
+            className="min-w-[180px]"
+          />
         </div>
 
         {/* Week Navigator */}

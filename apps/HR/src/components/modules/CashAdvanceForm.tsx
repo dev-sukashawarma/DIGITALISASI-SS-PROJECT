@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button, CurrencyInput } from '@suka/design-system'
+import { Select } from '@/components/ui/Select'
 import { useStaff } from '@/hooks/useStaff'
 import { formatRupiah } from '@/lib/format'
 
@@ -32,6 +33,19 @@ export function CashAdvanceForm({
   const [note, setNote] = useState('')
 
   const { data: staffList = [] } = useStaff()
+
+  const staffOptions = useMemo(
+    () => [
+      { label: '— Pilih Karyawan —', value: '' },
+      ...staffList
+        .filter((s) => s.role !== 'kiosk')
+        .map((s) => ({
+          label: `${s.name} (${s.outlets?.name || 'Pusat'} — ${s.role})`,
+          value: s.id,
+        })),
+    ],
+    [staffList]
+  )
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,21 +79,13 @@ export function CashAdvanceForm({
             <>
               <div>
                 <label className={labelClass}>Pilih Karyawan</label>
-                <select
-                  className={inputClass}
+                <Select
+                  options={staffOptions}
                   value={staffId}
-                  onChange={(e) => setStaffId(e.target.value)}
-                  required
-                >
-                  <option value="">— Pilih Karyawan —</option>
-                  {staffList
-                    .filter((s) => s.role !== 'kiosk')
-                    .map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.outlets?.name || 'Pusat'} — {s.role})
-                      </option>
-                    ))}
-                </select>
+                  onChange={setStaffId}
+                  placeholder="— Pilih Karyawan —"
+                  className="w-full"
+                />
               </div>
 
               <div>

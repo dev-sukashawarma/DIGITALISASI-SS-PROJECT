@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { FileCheck, AlertTriangle, AlertCircle, CheckCircle2, Download } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Select } from '@/components/ui/Select'
 import { useContracts } from '@/hooks/useContracts'
 import { useOutlets } from '@/hooks/useOutlets'
 import { ContractTable } from '@/components/modules/ContractTable'
@@ -39,6 +40,14 @@ export default function ContractsPage() {
     if (statusTab === 'all') return contracts
     return contracts.filter((c) => c.status === statusTab)
   }, [contracts, statusTab])
+
+  const outletOptions = useMemo(
+    () => [
+      { label: 'Semua Outlet', value: 'all' },
+      ...outlets.map((o) => ({ label: o.name, value: o.id })),
+    ],
+    [outlets]
+  )
 
   const handleSaveContract = (values: {
     staff_id: string
@@ -178,18 +187,13 @@ export default function ContractsPage() {
           </button>
         </div>
 
-        <select
+        <Select
+          options={outletOptions}
           value={outletFilter}
-          onChange={(e) => setOutletFilter(e.target.value)}
-          className="rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-semibold outline-none focus:border-suka-orange bg-white text-suka-ink shadow-xs"
-        >
-          <option value="all">Semua Outlet</option>
-          {outlets.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
+          onChange={setOutletFilter}
+          placeholder="Semua Outlet"
+          className="min-w-[170px]"
+        />
       </div>
 
       {/* Contract Table */}

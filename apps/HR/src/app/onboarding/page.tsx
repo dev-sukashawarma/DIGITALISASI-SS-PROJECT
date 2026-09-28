@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Select } from '@/components/ui/Select'
 import { useOnboarding, type TraineeRecord } from '@/hooks/useOnboarding'
 import { useOutlets } from '@/hooks/useOutlets'
 import { PettyCashVoucherModal } from '@/components/modules/PettyCashVoucherModal'
@@ -51,6 +52,36 @@ export default function OnboardingPage() {
         t.outlet_name.toLowerCase().includes(q)
     )
   }, [trainees, search])
+
+  const outletOptions = useMemo(
+    () => [
+      { label: 'Semua Outlet', value: 'all' },
+      ...outlets.map((o) => ({ label: o.name, value: o.id })),
+    ],
+    [outlets]
+  )
+
+  const subRoleOptions = useMemo(
+    () => [
+      { label: 'Semua Sub-Role', value: 'all' },
+      { label: 'Crew Reguler', value: 'crew_regular' },
+      { label: 'Crew Backup', value: 'crew_backup' },
+      { label: 'Trainee', value: 'crew_trainee' },
+    ],
+    []
+  )
+
+  const stageOptions = useMemo(
+    () => [
+      { label: 'Semua Tahapan', value: 'all' },
+      { label: 'Training 7 Hari', value: 'training_7_days' },
+      { label: 'On Job Training (OJT)', value: 'ojt' },
+      { label: 'Lulus PKWT', value: 'graduated' },
+      { label: 'Karyawan Reguler', value: 'regular' },
+      { label: 'Gugur / Tidak Lolos', value: 'failed' },
+    ],
+    []
+  )
 
   // Aggregate metrics
   const metrics = useMemo(() => {
@@ -202,44 +233,31 @@ export default function OnboardingPage() {
           </div>
 
           {/* Outlet Filter */}
-          <select
+          <Select
+            options={outletOptions}
             value={selectedOutlet}
-            onChange={(e) => setSelectedOutlet(e.target.value)}
-            className="rounded-xl border border-suka-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-suka-brown outline-none focus:border-suka-orange"
-          >
-            <option value="all">Semua Outlet</option>
-            {outlets.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedOutlet}
+            placeholder="Semua Outlet"
+            className="min-w-[150px]"
+          />
 
           {/* Sub Role Filter */}
-          <select
+          <Select
+            options={subRoleOptions}
             value={selectedSubRole}
-            onChange={(e) => setSelectedSubRole(e.target.value)}
-            className="rounded-xl border border-suka-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-suka-brown outline-none focus:border-suka-orange"
-          >
-            <option value="all">Semua Sub-Role</option>
-            <option value="crew_regular">Crew Reguler</option>
-            <option value="crew_backup">Crew Backup</option>
-            <option value="crew_trainee">Trainee</option>
-          </select>
+            onChange={setSelectedSubRole}
+            placeholder="Semua Sub-Role"
+            className="min-w-[150px]"
+          />
 
           {/* Stage Filter */}
-          <select
+          <Select
+            options={stageOptions}
             value={selectedStage}
-            onChange={(e) => setSelectedStage(e.target.value)}
-            className="rounded-xl border border-suka-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-suka-brown outline-none focus:border-suka-orange"
-          >
-            <option value="all">Semua Tahapan</option>
-            <option value="training_7_days">Training 7 Hari</option>
-            <option value="ojt">On Job Training (OJT)</option>
-            <option value="graduated">Lulus PKWT</option>
-            <option value="regular">Karyawan Reguler</option>
-            <option value="failed">Gugur / Tidak Lolos</option>
-          </select>
+            onChange={setSelectedStage}
+            placeholder="Semua Tahapan"
+            className="min-w-[160px]"
+          />
         </div>
 
         <span className="text-xs font-semibold text-stone-500">

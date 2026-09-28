@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button, CurrencyInput } from '@suka/design-system'
 import { DollarSign, ShieldAlert, Building2 } from 'lucide-react'
+import { Select } from '@/components/ui/Select'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role, StaffRow } from '@/lib/types'
 import { generateTempPassword } from '@/lib/generatePassword'
@@ -322,6 +323,75 @@ export function StaffForm({
   const formDeductions = watchKasbon + watchBpjs
   const formTHP = Math.max(0, formEarnings - formDeductions)
 
+  const roleSelectOptions = useMemo(
+    () =>
+      ROLES.map((r) => ({
+        label: r.replace(/_/g, ' ').toUpperCase(),
+        value: r,
+      })),
+    []
+  )
+
+  const subRoleSelectOptions = useMemo(
+    () => [
+      { label: 'Crew Reguler (Penugasan Tetap)', value: 'crew_regular' },
+      { label: 'Crew Backup (Floating / Cadangan)', value: 'crew_backup' },
+      { label: 'Trainee', value: 'crew_trainee' },
+    ],
+    []
+  )
+
+  const outletSelectOptions = useMemo(
+    () =>
+      outlets
+        .filter(
+          (o) =>
+            o.id !== '00000000-0000-0000-0000-000000000000' &&
+            o.name.toUpperCase() !== 'SS BACKUP' &&
+            !o.name.toLowerCase().includes('tes')
+        )
+        .map((o) => ({
+          label: o.name,
+          value: o.id,
+        })),
+    [outlets]
+  )
+
+  const onboardingStageSelectOptions = useMemo(() => {
+    if (watchSubRole === 'crew_trainee') {
+      return [
+        { label: 'Tahap 1: Training (7 Hari — Uang Makan Rp 15rb/hari)', value: 'training_7_days' },
+        { label: 'Tahap 2: On Job Training (OJT)', value: 'ojt' },
+      ]
+    }
+    return [
+      { label: 'Karyawan Reguler (Langsung Aktif)', value: 'regular' },
+      { label: 'Tahap 1: Training (7 Hari — Uang Makan Rp 15rb/hari)', value: 'training_7_days' },
+      { label: 'Tahap 2: On Job Training (OJT)', value: 'ojt' },
+      { label: 'Lulus PKWT', value: 'graduated' },
+      { label: 'Tidak Lolos (Gugur)', value: 'failed' },
+    ]
+  }, [watchSubRole])
+
+  const contractTypeSelectOptions = useMemo(
+    () => [
+      { label: 'Tetap (Permanent)', value: 'permanent' },
+      { label: 'Kontrak (PKWT)', value: 'contract' },
+      { label: 'Magang (Internship)', value: 'intern' },
+      { label: 'Harian / Freelance', value: 'daily' },
+    ],
+    []
+  )
+
+  const genderSelectOptions = useMemo(
+    () => [
+      { label: 'Pilih Jenis Kelamin', value: '' },
+      { label: 'Laki-laki', value: 'male' },
+      { label: 'Perempuan', value: 'female' },
+    ],
+    []
+  )
+
   const [activeTab, setActiveTab] = useState<'utama' | 'pribadi' | 'darurat' | 'keuangan'>('utama')
 
   const inputCls =
@@ -585,13 +655,14 @@ export function StaffForm({
               <label htmlFor="sf-role" className={labelCls}>
                 Role / Jabatan <span className="text-red-500">*</span>
               </label>
-              <select id="sf-role" className={inputCls} {...register('role')}>
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {r.replace(/_/g, ' ').toUpperCase()}
-                  </option>
-                ))}
-              </select>
+              <Select
+                id="sf-role"
+                options={roleSelectOptions}
+                value={watchRole}
+                onChange={(val) => setValue('role', val as any, { shouldValidate: true })}
+                placeholder="Pilih Role / Jabatan"
+                className="w-full"
+              />
             </div>
 
             {watchRole === 'crew' && (
@@ -599,11 +670,14 @@ export function StaffForm({
                 <label htmlFor="sf-sub-role" className={labelCls}>
                   Sub-Role Crew <span className="text-red-500">*</span>
                 </label>
-                <select id="sf-sub-role" className={inputCls} {...register('sub_role')}>
-                  <option value="crew_regular">Crew Reguler (Penugasan Tetap)</option>
-                  <option value="crew_backup">Crew Backup (Floating / Cadangan)</option>
-                  <option value="crew_trainee">Trainee</option>
-                </select>
+                <Select
+                  id="sf-sub-role"
+                  options={subRoleSelectOptions}
+                  value={watchSubRole}
+                  onChange={(val) => setValue('sub_role', val as any, { shouldValidate: true })}
+                  placeholder="Pilih Sub-Role Crew"
+                  className="w-full"
+                />
               </div>
             )}
 
@@ -618,20 +692,14 @@ export function StaffForm({
                     <span>KANTOR PUSAT (Otomatis)</span>
                   </div>
                 ) : (
-                  <select id="sf-outlet" className={inputCls} {...register('outlet_id')}>
-                    {outlets
-                      .filter(
-                        (o) =>
-                          o.id !== '00000000-0000-0000-0000-000000000000' &&
-                          o.name.toUpperCase() !== 'SS BACKUP' &&
-                          !o.name.toLowerCase().includes('tes')
-                      )
-                      .map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.name}
-                        </option>
-                      ))}
-                  </select>
+                  <Select
+                    id="sf-outlet"
+                    options={outletSelectOptions}
+                    value={watch('outlet_id')}
+                    onChange={(val) => setValue('outlet_id', val, { shouldValidate: true })}
+                    placeholder="Pilih Outlet Penugasan"
+                    className="w-full"
+                  />
                 )}
               </div>
             )}
@@ -640,22 +708,14 @@ export function StaffForm({
               <>
                 <div>
                   <label htmlFor="sf-onboarding-stage" className={labelCls}>Tahap Kepegawaian</label>
-                  <select id="sf-onboarding-stage" className={inputCls} {...register('onboarding_stage')}>
-                    {watchSubRole === 'crew_trainee' ? (
-                      <>
-                        <option value="training_7_days">Tahap 1: Training (7 Hari — Uang Makan Rp 15rb/hari)</option>
-                        <option value="ojt">Tahap 2: On Job Training (OJT)</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="regular">Karyawan Reguler (Langsung Aktif)</option>
-                        <option value="training_7_days">Tahap 1: Training (7 Hari — Uang Makan Rp 15rb/hari)</option>
-                        <option value="ojt">Tahap 2: On Job Training (OJT)</option>
-                        <option value="graduated">Lulus PKWT</option>
-                        <option value="failed">Tidak Lolos (Gugur)</option>
-                      </>
-                    )}
-                  </select>
+                  <Select
+                    id="sf-onboarding-stage"
+                    options={onboardingStageSelectOptions}
+                    value={watchOnboardingStage}
+                    onChange={(val) => setValue('onboarding_stage', val as any, { shouldValidate: true })}
+                    placeholder="Pilih Tahap Kepegawaian"
+                    className="w-full"
+                  />
                 </div>
 
                 {watchSubRole !== 'crew_trainee' &&
@@ -675,12 +735,14 @@ export function StaffForm({
               <>
                 <div>
                   <label htmlFor="sf-contract" className={labelCls}>Jenis Kontrak</label>
-                  <select id="sf-contract" className={inputCls} {...register('contract_type')}>
-                    <option value="permanent">Tetap (Permanent)</option>
-                    <option value="contract">Kontrak (PKWT)</option>
-                    <option value="intern">Magang (Internship)</option>
-                    <option value="daily">Harian / Freelance</option>
-                  </select>
+                  <Select
+                    id="sf-contract"
+                    options={contractTypeSelectOptions}
+                    value={watch('contract_type')}
+                    onChange={(val) => setValue('contract_type', val as any, { shouldValidate: true })}
+                    placeholder="Pilih Jenis Kontrak"
+                    className="w-full"
+                  />
                 </div>
 
                 <div>
@@ -807,11 +869,15 @@ export function StaffForm({
 
             <div>
               <label htmlFor="sf-gender" className={labelCls}>Jenis Kelamin</label>
-              <select id="sf-gender" className={inputCls} {...register('gender')}>
-                <option value="">Pilih</option>
-                <option value="male">Laki-laki</option>
-                <option value="female">Perempuan</option>
-              </select>
+              <Select
+                id="sf-gender"
+                options={genderSelectOptions}
+                value={watch('gender')}
+                onChange={(val) => setValue('gender', val as any, { shouldValidate: true })}
+                placeholder="Pilih Jenis Kelamin"
+                className="w-full"
+                error={!!errors.gender}
+              />
               {errors.gender && (
                 <span className="text-xs text-red-500 mt-1 block font-medium">
                   {errors.gender.message?.toString()}

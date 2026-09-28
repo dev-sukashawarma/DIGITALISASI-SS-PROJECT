@@ -179,6 +179,20 @@ export function StaffTable({
         .map((id) => outletMap.get(id))
         .filter((n): n is string => Boolean(n))
 
+      const isAll = (outlets.length > 0 && amOutlets.length >= outlets.length - 2) || amOutlets.length >= 6
+
+      if (isAll) {
+        return (
+          <div className="space-y-1">
+            <span className="font-bold text-xs text-suka-ink block">KANTOR PUSAT</span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+              All outlet
+            </span>
+          </div>
+        )
+      }
+
       return (
         <div className="space-y-1">
           <span className="font-bold text-xs text-suka-ink block">KANTOR PUSAT</span>
@@ -205,6 +219,17 @@ export function StaffTable({
 
     if (s.role === 'crew' && s.sub_role === 'crew_backup') {
       const names = getStaffOutletNames(s)
+      const isAll = (outlets.length > 0 && names.length >= outlets.length - 2) || names.length >= 6
+
+      if (isAll) {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-900 border border-purple-200 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+            All outlet (Floating)
+          </span>
+        )
+      }
+
       return (
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1 text-[10px] font-extrabold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
@@ -224,6 +249,17 @@ export function StaffTable({
 
     if (s.outlet_ids && s.outlet_ids.length > 1) {
       const names = getStaffOutletNames(s)
+      const isAllOutlets = (outlets.length > 0 && names.length >= outlets.length - 2) || names.length >= 6
+
+      if (isAllOutlets) {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+            All outlet
+          </span>
+        )
+      }
+
       return (
         <div className="space-y-1">
           <div className="flex flex-col gap-0.5">
@@ -508,17 +544,33 @@ export function StaffTable({
                       <div className="mt-1 space-y-1">
                         <span className="font-semibold text-suka-ink block">KANTOR PUSAT</span>
                         {(selectedStaff.outlet_ids || []).length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-0.5">
-                            {(selectedStaff.outlet_ids || []).map((id) => (
-                              <span
-                                key={id}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-medium"
-                              >
-                                <Building2 size={10} className="text-amber-600 shrink-0" />
-                                {outletMap.get(id) || id}
-                              </span>
-                            ))}
-                          </div>
+                          (() => {
+                            const amOutlets = (selectedStaff.outlet_ids || [])
+                              .map((id) => outletMap.get(id))
+                              .filter((n): n is string => Boolean(n))
+                            const isAll = (outlets.length > 0 && amOutlets.length >= outlets.length - 2) || amOutlets.length >= 6
+                            if (isAll) {
+                              return (
+                                <span className="inline-flex items-center gap-1.5 mt-0.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                  All outlet
+                                </span>
+                              )
+                            }
+                            return (
+                              <div className="flex flex-wrap gap-1 pt-0.5">
+                                {selectedStaff.outlet_ids!.map((id) => (
+                                  <span
+                                    key={id}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-medium"
+                                  >
+                                    <Building2 size={10} className="text-amber-600 shrink-0" />
+                                    {outletMap.get(id) || id}
+                                  </span>
+                                ))}
+                              </div>
+                            )
+                          })()
                         )}
                       </div>
                     ) : selectedStaff.role === 'regional_manager' ? (
@@ -526,6 +578,32 @@ export function StaffTable({
                         <span className="font-bold text-suka-ink block">KANTOR PUSAT</span>
                         <span className="text-[10px] text-emerald-700 font-semibold block">Supervisi Seluruh Outlet</span>
                       </div>
+                    ) : selectedStaff.outlet_ids && selectedStaff.outlet_ids.length > 1 ? (
+                      (() => {
+                        const names = getStaffOutletNames(selectedStaff)
+                        const isAllOutlets = (outlets.length > 0 && names.length >= outlets.length - 2) || names.length >= 6
+                        if (isAllOutlets) {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                              All outlet
+                            </span>
+                          )
+                        }
+                        return (
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {names.map((name, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-50 text-orange-900 border border-orange-200 text-xs font-bold"
+                              >
+                                <Building2 size={12} className="text-suka-orange shrink-0" />
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        )
+                      })()
                     ) : (
                       <span className="font-semibold text-suka-ink mt-0.5 block">
                         {selectedStaff.outlets?.name ?? '-'}

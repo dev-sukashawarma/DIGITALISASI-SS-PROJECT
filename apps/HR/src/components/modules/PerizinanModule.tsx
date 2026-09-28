@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Select } from '@/components/ui/Select'
 import { useLeaveRequests } from '@/hooks/useLeaveRequests'
 import { useLeaveMutations } from '@/hooks/useLeaveMutations'
 import { useCashAdvances, type CashAdvanceRow } from '@/hooks/useCashAdvances'
@@ -94,6 +95,14 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
   const { data: outlets = [] } = useOutlets()
   const { data: allLeaveRequests = [], isLoading: loadingLeaves } = useLeaveRequests()
   const { createRequest: createLeave, approve: approveLeave, reject: rejectLeave } = useLeaveMutations()
+
+  const outletOptions = useMemo(
+    () => [
+      { label: 'Semua Outlet / Cabang', value: 'all' },
+      ...outlets.map((o) => ({ label: o.name, value: o.id })),
+    ],
+    [outlets]
+  )
 
   const { data: allKasbon = [], isLoading: loadingKasbon } = useCashAdvances()
   const kasbonMutations = useCashAdvanceMutations()
@@ -398,22 +407,17 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
       <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
           {/* Outlet Selector */}
-          <div className="flex items-center gap-2 bg-suka-gray-50 px-3 py-1.5 rounded-xl border border-suka-gray-200 text-xs font-bold text-suka-ink w-full sm:w-auto">
-            <Building2 size={15} className="text-suka-orange shrink-0" />
+          <div className="flex items-center gap-2 bg-suka-gray-50 px-2.5 py-1 rounded-xl border border-suka-gray-200 text-xs font-bold text-suka-ink w-full sm:w-auto">
+            <Building2 size={15} className="text-suka-orange shrink-0 ml-1" />
             <span className="text-suka-gray-500 text-[11px] uppercase tracking-wider shrink-0">Outlet:</span>
-            <select
+            <Select
+              options={outletOptions}
               value={selectedOutlet}
-              onChange={(e) => setSelectedOutlet(e.target.value)}
-              aria-label="Pilih Outlet"
-              className="bg-transparent border-0 outline-none font-bold text-suka-ink cursor-pointer pr-2 text-xs flex-1"
-            >
-              <option value="all">Semua Outlet / Cabang</option>
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedOutlet}
+              placeholder="Pilih Outlet"
+              buttonClassName="border-0 bg-transparent shadow-none px-2 py-1 text-xs font-bold"
+              className="min-w-[170px]"
+            />
           </div>
 
           {/* Search Input */}

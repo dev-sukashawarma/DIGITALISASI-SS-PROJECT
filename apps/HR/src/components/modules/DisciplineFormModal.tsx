@@ -1,11 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@suka/design-system'
 import { AlertTriangle, Info, Calendar } from 'lucide-react'
+import { Select } from '@/components/ui/Select'
 import { useStaff } from '@/hooks/useStaff'
 import type { DisciplineRecord, WarningLevel } from '@/lib/types'
 import { addMonths, getStaffActiveSpStatus } from '@/lib/disciplineUtils'
+
+const WARNING_LEVEL_OPTIONS: { label: string; value: WarningLevel }[] = [
+  { label: 'Teguran Lisan', value: 'Teguran Lisan' },
+  { label: 'Surat Peringatan 1 (SP1)', value: 'SP1' },
+  { label: 'Surat Peringatan 2 (SP2)', value: 'SP2' },
+  { label: 'Surat Peringatan 3 (SP3 / Terakhir)', value: 'SP3' },
+  { label: 'Skorsing', value: 'Skorsing' },
+]
 
 interface DisciplineFormModalProps {
   existingRecords?: DisciplineRecord[]
@@ -45,6 +54,17 @@ export function DisciplineFormModal({ existingRecords = [], onClose, onSubmit }:
     return `${parts[2]}/${parts[1]}/${parts[0]}`
   }
 
+  const staffOptions = useMemo(
+    () => [
+      { label: '— Pilih Karyawan —', value: '' },
+      ...staffList.map((s) => ({
+        label: `${s.name} (${s.outlets?.name || 'Pusat'} — ${s.role})`,
+        value: s.id,
+      })),
+    ],
+    [staffList]
+  )
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!staffId || !reason) return
@@ -79,19 +99,13 @@ export function DisciplineFormModal({ existingRecords = [], onClose, onSubmit }:
           {/* 1. Pilih Karyawan */}
           <div>
             <label className={labelClass}>Karyawan Terkait</label>
-            <select
-              className={inputClass}
+            <Select
+              options={staffOptions}
               value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-              required
-            >
-              <option value="">— Pilih Karyawan —</option>
-              {staffList.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.outlets?.name || 'Pusat'} — {s.role})
-                </option>
-              ))}
-            </select>
+              onChange={setStaffId}
+              placeholder="— Pilih Karyawan —"
+              className="w-full"
+            />
           </div>
 
           {/* Banner Riwayat & Rekomendasi Eskalasi SP */}
@@ -149,17 +163,13 @@ export function DisciplineFormModal({ existingRecords = [], onClose, onSubmit }:
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Tingkat Peringatan</label>
-              <select
-                className={inputClass}
+              <Select
+                options={WARNING_LEVEL_OPTIONS}
                 value={warningLevel}
-                onChange={(e) => setWarningLevel(e.target.value as WarningLevel)}
-              >
-                <option value="Teguran Lisan">Teguran Lisan</option>
-                <option value="SP1">Surat Peringatan 1 (SP1)</option>
-                <option value="SP2">Surat Peringatan 2 (SP2)</option>
-                <option value="SP3">Surat Peringatan 3 (SP3 / Terakhir)</option>
-                <option value="Skorsing">Skorsing</option>
-              </select>
+                onChange={(val) => setWarningLevel(val as WarningLevel)}
+                placeholder="Pilih Tingkat Peringatan"
+                className="w-full"
+              />
             </div>
 
             <div>

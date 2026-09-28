@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Award, Download, Sparkles, CheckCircle2, Clock } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Select } from '@/components/ui/Select'
 import { usePerformance } from '@/hooks/usePerformance'
 import { useOutlets } from '@/hooks/useOutlets'
 import { PerformanceTable } from '@/components/modules/PerformanceTable'
@@ -42,6 +43,19 @@ export default function PerformancePage() {
       totalBonus,
     }
   }, [rows])
+
+  const monthOptions = useMemo(
+    () => MONTHS.map((m, i) => ({ label: m, value: String(i + 1) })),
+    []
+  )
+
+  const outletOptions = useMemo(
+    () => [
+      { label: 'Semua Outlet', value: 'all' },
+      ...outlets.map((o) => ({ label: o.name, value: o.id })),
+    ],
+    [outlets]
+  )
 
   const handleExportCsv = () => {
     if (!rows.length) {
@@ -145,17 +159,13 @@ export default function PerformancePage() {
       {/* Filter Controls */}
       <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
         <div className="flex items-center gap-2">
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-bold outline-none focus:border-suka-orange bg-white text-suka-ink"
-          >
-            {MONTHS.map((m, i) => (
-              <option key={m} value={i + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
+          <Select
+            options={monthOptions}
+            value={String(month)}
+            onChange={(val) => setMonth(Number(val))}
+            placeholder="Pilih Bulan"
+            className="min-w-[130px]"
+          />
           <input
             type="number"
             value={year}
@@ -164,18 +174,13 @@ export default function PerformancePage() {
           />
         </div>
 
-        <select
+        <Select
+          options={outletOptions}
           value={outletFilter}
-          onChange={(e) => setOutletFilter(e.target.value)}
-          className="rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-semibold outline-none focus:border-suka-orange bg-white text-suka-ink shadow-xs"
-        >
-          <option value="all">Semua Outlet</option>
-          {outlets.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
+          onChange={setOutletFilter}
+          placeholder="Semua Outlet"
+          className="min-w-[170px]"
+        />
       </div>
 
       {/* Table */}

@@ -17,6 +17,7 @@ import {
   Receipt,
 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
+import { Select } from '@/components/ui/Select'
 import { toast } from 'sonner'
 import type { Outlet, Role, StaffStatus } from '@/lib/types'
 import { parseStaffFile, type ParsedStaffRow } from '@/lib/parseStaffCsv'
@@ -45,6 +46,26 @@ const ROLES: Role[] = [
   'mitra',
 ]
 
+const MONTH_OPTIONS = [
+  { label: 'Januari', value: '1' },
+  { label: 'Februari', value: '2' },
+  { label: 'Maret', value: '3' },
+  { label: 'April', value: '4' },
+  { label: 'Mei', value: '5' },
+  { label: 'Juni', value: '6' },
+  { label: 'Juli', value: '7' },
+  { label: 'Agustus', value: '8' },
+  { label: 'September', value: '9' },
+  { label: 'Oktober', value: '10' },
+  { label: 'November', value: '11' },
+  { label: 'Desember', value: '12' },
+]
+
+const STATUS_OPTIONS = [
+  { label: 'Aktif', value: 'active' },
+  { label: 'Non-Aktif', value: 'inactive' },
+]
+
 type ModalSortKey = 'no' | 'name' | 'role' | 'outlet' | 'basicSalary' | 'mealAllowance' | 'overtime' | 'cashAdvance' | 'totalSalary' | 'status'
 
 export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImportStaffModalProps) {
@@ -54,6 +75,24 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
   const [fileName, setFileName] = useState<string | null>(null)
   const [rows, setRows] = useState<ParsedStaffRow[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+
+  const roleOptions = useMemo(
+    () =>
+      ROLES.map((role) => ({
+        label: role.replace('_', ' ').toUpperCase(),
+        value: role,
+      })),
+    []
+  )
+
+  const outletOptions = useMemo(
+    () =>
+      outlets.map((o) => ({
+        label: o.name,
+        value: o.id,
+      })),
+    [outlets]
+  )
 
   // Sorting in modal
   const [sortKey, setSortKey] = useState<ModalSortKey>('no')
@@ -379,31 +418,21 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
                 <span>Update data jika sudah ada (Upsert)</span>
               </label>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <span className="text-stone-500">Periode Payroll:</span>
-                <select
-                  value={periodMonth}
-                  onChange={(e) => setPeriodMonth(Number(e.target.value))}
-                  className="rounded-lg border border-stone-300 px-2 py-0.5 text-xs font-bold bg-white"
-                >
-                  <option value={1}>Januari</option>
-                  <option value={2}>Februari</option>
-                  <option value={3}>Maret</option>
-                  <option value={4}>April</option>
-                  <option value={5}>Mei</option>
-                  <option value={6}>Juni</option>
-                  <option value={7}>Juli</option>
-                  <option value={8}>Agustus</option>
-                  <option value={9}>September</option>
-                  <option value={10}>Oktober</option>
-                  <option value={11}>November</option>
-                  <option value={12}>Desember</option>
-                </select>
+                <Select
+                  options={MONTH_OPTIONS}
+                  value={String(periodMonth)}
+                  onChange={(val) => setPeriodMonth(Number(val))}
+                  placeholder="Bulan"
+                  size="sm"
+                  className="min-w-[110px]"
+                />
                 <input
                   type="number"
                   value={periodYear}
                   onChange={(e) => setPeriodYear(Number(e.target.value))}
-                  className="w-16 rounded-lg border border-stone-300 px-2 py-0.5 text-xs font-bold text-center"
+                  className="w-16 rounded-xl border border-stone-200 px-2 py-1 text-xs font-bold text-center bg-white"
                 />
               </div>
             </div>
@@ -531,34 +560,29 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
                         <div className="text-[10px] font-mono text-suka-gray-500">@{r.username}</div>
                       </td>
                       <td className="p-2">
-                        <select
+                        <Select
+                          options={roleOptions}
                           value={r.role}
-                          onChange={(e) => handleUpdateRowRole(origIdx, e.target.value as Role)}
-                          className="rounded-lg border border-stone-300 px-1.5 py-0.5 text-xs font-semibold bg-white cursor-pointer"
-                        >
-                          {ROLES.map((role) => (
-                            <option key={role} value={role}>
-                              {role.replace('_', ' ').toUpperCase()}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(val) => handleUpdateRowRole(origIdx, val as Role)}
+                          size="sm"
+                          className="min-w-[130px]"
+                          searchPlaceholder="Cari role..."
+                        />
                       </td>
                       <td className="p-2">
-                        <select
+                        <Select
+                          options={outletOptions}
                           value={r.outletId}
-                          onChange={(e) => handleUpdateRowOutlet(origIdx, e.target.value)}
-                          className={`rounded-lg border px-1.5 py-0.5 text-xs font-semibold bg-white cursor-pointer max-w-[140px] truncate ${
-                            r.isOutletMatched
-                              ? 'border-stone-300 text-suka-ink'
-                              : 'border-amber-400 bg-amber-50 text-amber-900'
-                          }`}
-                        >
-                          {outlets.map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {o.name}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(val) => handleUpdateRowOutlet(origIdx, val)}
+                          size="sm"
+                          className="min-w-[150px]"
+                          buttonClassName={
+                            !r.isOutletMatched
+                              ? 'border-amber-400 bg-amber-50 text-amber-900 font-semibold'
+                              : ''
+                          }
+                          searchPlaceholder="Cari outlet..."
+                        />
                       </td>
                       <td className="p-2 text-right font-mono font-bold text-stone-800">
                         {formatRupiah(r.basicSalary)}
@@ -576,18 +600,19 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
                         {formatRupiah(r.totalSalary)}
                       </td>
                       <td className="p-2 text-center">
-                        <select
+                        <Select
+                          options={STATUS_OPTIONS}
                           value={r.status}
-                          onChange={(e) => handleUpdateRowStatus(origIdx, e.target.value as StaffStatus)}
-                          className={`rounded-lg px-1.5 py-0.5 text-[10px] font-bold border cursor-pointer ${
+                          onChange={(val) => handleUpdateRowStatus(origIdx, val as StaffStatus)}
+                          size="sm"
+                          align="right"
+                          className="min-w-[100px]"
+                          buttonClassName={`text-[11px] font-bold ${
                             r.status === 'active'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-red-50 text-red-700 border-red-200'
                           }`}
-                        >
-                          <option value="active">Aktif</option>
-                          <option value="inactive">Non-Aktif</option>
-                        </select>
+                        />
                       </td>
                     </tr>
                   )

@@ -1,5 +1,7 @@
 'use client'
 
+import { useMemo } from 'react'
+import { Select } from '@/components/ui/Select'
 import type { Outlet, AttendanceFilterValues } from '@/lib/types'
 
 export function AttendanceFilters({
@@ -12,8 +14,27 @@ export function AttendanceFilters({
   outlets: Outlet[]
 }) {
   const set = (patch: Partial<AttendanceFilterValues>) => onChange({ ...value, ...patch })
-  const inputCls =
-    'rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-medium outline-none focus:border-suka-orange bg-white text-suka-ink shadow-xs'
+
+  const outletOptions = useMemo(
+    () => [
+      { label: 'Semua Outlet', value: 'all' },
+      ...outlets.map((o) => ({ label: o.name, value: o.id })),
+    ],
+    [outlets]
+  )
+
+  const statusOptions = useMemo(
+    () => [
+      { label: 'Semua Status', value: 'all' },
+      { label: 'Hadir Tepat Waktu', value: 'hadir' },
+      { label: 'Terlambat', value: 'terlambat' },
+      { label: 'Izin', value: 'izin' },
+      { label: 'Sakit', value: 'sakit' },
+      { label: 'Cuti', value: 'cuti' },
+      { label: 'Alfa', value: 'alfa' },
+    ],
+    []
+  )
 
   return (
     <div className="flex flex-wrap gap-2 items-center">
@@ -37,32 +58,23 @@ export function AttendanceFilters({
         />
       </div>
 
-      <select
-        className={inputCls}
+      {/* Filter Outlet */}
+      <Select
+        options={outletOptions}
         value={value.outletId}
-        onChange={(e) => set({ outletId: e.target.value })}
-      >
-        <option value="all">Semua Outlet</option>
-        {outlets.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.name}
-          </option>
-        ))}
-      </select>
+        onChange={(val) => set({ outletId: val })}
+        placeholder="Semua Outlet"
+        className="min-w-[140px]"
+      />
 
-      <select
-        className={inputCls}
+      {/* Filter Status Kehadiran */}
+      <Select
+        options={statusOptions}
         value={value.status}
-        onChange={(e) => set({ status: e.target.value })}
-      >
-        <option value="all">Semua Status</option>
-        <option value="hadir">Hadir Tepat Waktu</option>
-        <option value="terlambat">Terlambat</option>
-        <option value="izin">Izin</option>
-        <option value="sakit">Sakit</option>
-        <option value="cuti">Cuti</option>
-        <option value="alfa">Alfa</option>
-      </select>
+        onChange={(val) => set({ status: val })}
+        placeholder="Semua Status"
+        className="min-w-[140px]"
+      />
     </div>
   )
 }

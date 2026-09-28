@@ -93,6 +93,7 @@ export default function PettyCashExpensesTab() {
           receipt_url,
           outlets(name)
         `)
+        .is('deleted_at', null)
         .gte('expense_date', from)
         .lte('expense_date', to)
 

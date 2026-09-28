@@ -2,7 +2,7 @@ import type { StaffRow, StaffFilterValues } from './types'
 
 export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] {
   const q = f.search.trim().toLowerCase()
-  const targetCategory = f.category || 'employee'
+  const targetCategory = f.category || 'all'
 
   // 1. Filter
   const filtered = rows.filter((r) => {

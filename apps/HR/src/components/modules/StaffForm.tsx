@@ -33,17 +33,20 @@ function addDays(dateStr: string, days: number): string {
 const ROLES: Role[] = [
   'admin',
   'admin_hr',
-  'owner',
-  'spv',
-  'regional_manager',
-  'kitchen',
-  'leader',
-  'crew',
-  'mitra',
-  'staff_pusat',
   'admin_finance',
   'area_manager',
+  'crew',
+  'developer',
+  'driver',
+  'kitchen',
+  'korlap',
+  'leader',
+  'mitra',
+  'owner',
   'purchasing',
+  'regional_manager',
+  'spv',
+  'staff_pusat',
 ]
 
 const getStaffFormSchema = (isEditing: boolean) =>
@@ -60,18 +63,21 @@ const getStaffFormSchema = (isEditing: boolean) =>
     role: z.enum([
       'admin',
       'admin_hr',
-      'owner',
-      'spv',
-      'regional_manager',
-      'kitchen',
-      'leader',
-      'crew',
-      'kiosk',
-      'mitra',
-      'staff_pusat',
       'admin_finance',
       'area_manager',
+      'crew',
+      'developer',
+      'driver',
+      'kiosk',
+      'kitchen',
+      'korlap',
+      'leader',
+      'mitra',
+      'owner',
       'purchasing',
+      'regional_manager',
+      'spv',
+      'staff_pusat',
     ] as [string, ...string[]]),
     sub_role: z.enum(['crew_regular', 'crew_backup', 'crew_trainee']).nullable().optional().or(z.literal('')),
     onboarding_stage: z.enum(['training_7_days', 'ojt', 'graduated', 'regular', 'failed']).nullable().optional().or(z.literal('')),
@@ -582,7 +588,7 @@ export function StaffForm({
               <select id="sf-role" className={inputCls} {...register('role')}>
                 {ROLES.map((r) => (
                   <option key={r} value={r}>
-                    {r.replace('_', ' ').toUpperCase()}
+                    {r.replace(/_/g, ' ').toUpperCase()}
                   </option>
                 ))}
               </select>

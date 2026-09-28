@@ -15,6 +15,7 @@ export type Role =
   | 'purchasing'
   | 'developer'
   | 'driver'
+  | 'korlap'
 
 export type AppName =
   | 'pos-kasir'

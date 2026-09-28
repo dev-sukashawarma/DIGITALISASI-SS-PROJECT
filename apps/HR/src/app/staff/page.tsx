@@ -27,7 +27,7 @@ export default function StaffPage() {
     subRole: '',
     onboardingStage: '',
     status: '',
-    category: 'employee',
+    category: 'all',
     sortBy: 'name',
     sortOrder: 'asc',
   })

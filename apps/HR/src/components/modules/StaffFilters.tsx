@@ -6,17 +6,21 @@ import type { Outlet, StaffFilterValues, StaffSortKey, SortOrder } from '@/lib/t
 const ROLES = [
   'admin',
   'admin_hr',
-  'owner',
-  'spv',
-  'regional_manager',
-  'kitchen',
-  'leader',
-  'crew',
-  'mitra',
-  'staff_pusat',
   'admin_finance',
   'area_manager',
+  'crew',
+  'developer',
+  'driver',
+  'kiosk',
+  'kitchen',
+  'korlap',
+  'leader',
+  'mitra',
+  'owner',
   'purchasing',
+  'regional_manager',
+  'spv',
+  'staff_pusat',
 ]
 
 const SORT_OPTIONS: { id: string; label: string; key: StaffSortKey; order: SortOrder }[] = [
@@ -81,7 +85,7 @@ export function StaffFilters({
         <option value="">Semua Role</option>
         {ROLES.map((r) => (
           <option key={r} value={r}>
-            {r.replace('_', ' ').toUpperCase()}
+            {r.replace(/_/g, ' ').toUpperCase()}
           </option>
         ))}
       </select>
@@ -122,12 +126,12 @@ export function StaffFilters({
 
       <select
         aria-label="Filter Kategori Akun"
-        className={`${inputCls} font-medium ${value.category && value.category !== 'employee' ? 'text-amber-700 bg-amber-50 border-amber-300' : ''}`}
-        value={value.category ?? 'employee'}
+        className={`${inputCls} font-medium ${value.category && value.category !== 'all' ? 'text-amber-700 bg-amber-50 border-amber-300' : ''}`}
+        value={value.category ?? 'all'}
         onChange={(e) => set({ category: e.target.value })}
       >
-        <option value="employee">Karyawan Saja</option>
         <option value="all">Semua Kategori</option>
+        <option value="employee">Karyawan Saja</option>
         <option value="system_bot">Bot / AI</option>
         <option value="kiosk">Kiosk / Perangkat</option>
         <option value="mitra_owner">Mitra Owner</option>

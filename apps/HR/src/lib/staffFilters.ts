@@ -25,7 +25,6 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
 
   // 1. Role checks
   const role = (s.role || '').toLowerCase()
-  if (role === 'developer') return true
   if (role === 'kiosk') return true
 
   // 2. Test Outlet checks
@@ -43,8 +42,8 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   if (name.startsWith('devai') || username.startsWith('devai') || email.startsWith('devai')) return true
   if (username.startsWith('dev_') || email.startsWith('dev_')) return true
 
-  // 4. Developer / Admin Dev / Specific dev names
-  if (username === 'admindev' || name === 'admin dev' || name.includes('developer')) return true
+  // 4. Admin Dev dummy account
+  if (username === 'admindev' || name === 'admin dev') return true
 
   // 5. Explicit dummy / test usernames
   const testUsernames = [

@@ -63,3 +63,38 @@ describe('access matrix', () => {
     expect(accessibleApps('driver')).toEqual(['absensi'])
   })
 })
+
+describe('Kantor Pusat: staf pusat & crew dibatasi', () => {
+  const kantorPusat = { outlet_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', outlets: { name: 'KANTOR PUSAT' } }
+  const outletBiasa = { outlet_id: '550e8400-e29b-41d4-a716-446655440001', outlets: { name: 'SUKA SHAWARMA BNR' } }
+  const gudangPusat = { outlet_id: 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90', outlets: { name: 'GUDANG PUSAT (HQ)' } }
+
+  it('staff_pusat di Kantor Pusat hanya absensi dan marcom', () => {
+    expect(accessibleApps('staff_pusat', null, kantorPusat).sort()).toEqual(['absensi', 'marcom'])
+    expect(hasAppAccess('staff_pusat', 'marcom', null, kantorPusat)).toBe(true)
+  })
+
+  it('crew di Kantor Pusat hanya absensi — tanpa kasir, stok, distribusi', () => {
+    expect(accessibleApps('crew', null, kantorPusat)).toEqual(['absensi'])
+    expect(hasAppAccess('crew', 'pos-kasir', null, kantorPusat)).toBe(false)
+    expect(hasAppAccess('crew', 'stok', null, kantorPusat)).toBe(false)
+    expect(hasAppAccess('crew', 'absensi', null, { outlet_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff' })).toBe(true)
+  })
+
+  it('crew di outlet biasa dan Gudang Pusat tetap memakai matriks biasa', () => {
+    expect(hasAppAccess('crew', 'pos-kasir', null, outletBiasa)).toBe(true)
+    expect(hasAppAccess('crew', 'stok', null, gudangPusat)).toBe(true)
+  })
+
+  it('role lain di Kantor Pusat tidak dibatasi', () => {
+    for (const app of ALL_APPS) expect(hasAppAccess('developer', app, null, kantorPusat)).toBe(true)
+    expect(hasAppAccess('admin_hr', 'HR', null, kantorPusat)).toBe(true)
+    expect(hasAppAccess('admin_finance', 'finance', null, kantorPusat)).toBe(true)
+    expect(hasAppAccess('purchasing', 'stok', null, kantorPusat)).toBe(true)
+  })
+
+  it('pemanggil tanpa lokasi tetap memakai matriks biasa', () => {
+    expect(hasAppAccess('crew', 'pos-kasir')).toBe(true)
+    expect(accessibleApps('staff_pusat')).toEqual(['absensi', 'marcom'])
+  })
+})

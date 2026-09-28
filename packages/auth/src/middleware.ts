@@ -115,7 +115,8 @@ export async function enforceAppAccess(
     }
   }
 
-  if (!staff || !hasAppAccess(staff.role, app, staff.username) || staff.status !== 'active') {
+  // staff ikut dikirim: staf pusat & crew di Kantor Pusat dibatasi (lihat kantor-pusat.ts).
+  if (!staff || !hasAppAccess(staff.role, app, staff.username, staff) || staff.status !== 'active') {
     return getRedirect(getPortalUrl(request))
   }
 

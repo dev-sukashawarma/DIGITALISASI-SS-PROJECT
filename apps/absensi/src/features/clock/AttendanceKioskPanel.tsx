@@ -19,7 +19,7 @@ import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { PilihShiftModal } from "@/features/clock/PilihShiftModal";
 import { pilihOutletTerdekat } from "@/lib/attendance/pilihOutletTerdekat";
-import { shiftOptions, namaShift, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
+import { shiftOptions, type ShiftConfig, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
 import { formatDistanceMeters, haversineMeters } from "@/lib/gps";
 
@@ -56,7 +56,7 @@ export function AttendanceKioskPanel() {
   const [jamMasuk, setJamMasuk] = useState<string | null>(null);
   const [jamKeluar, setJamKeluar] = useState<string | null>(null);
   const [absenWindowMode, setAbsenWindowMode] = useState<"auto" | "manual">("auto");
-  // Outlet dua shift: opsi shift outlet aktif & pilihan crew (dipilih saat halaman dibuka).
+  // Outlet berpilihan shift: opsi shift outlet aktif & pilihan crew (dipilih saat halaman dibuka).
   const [opsiShift, setOpsiShift] = useState<ShiftOption[] | null>(null);
   const [shiftDipilih, setShiftDipilih] = useState<ShiftKe | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
@@ -180,21 +180,29 @@ export function AttendanceKioskPanel() {
 
     const fetchConfig = () => {
       Promise.all([
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode,pilih_shift_aktif,shift2_jam_masuk,shift2_jam_keluar").eq("outlet_id", activeOutletId).maybeSingle(),
+        // Jam & shift outlet lewat RPC: RLS tabel config hanya membuka outlet utama
+        // staff, padahal crew bisa absen di outlet penempatan / izin tambahan.
+        supabase.rpc("attendance_shift_config", { p_outlet_id: activeOutletId }),
+        // Mode jendela absen tidak ikut RPC di atas; null bila RLS menolak → mode pusat.
+        supabase.from("outlet_attendance_config").select("absen_window_mode").eq("outlet_id", activeOutletId).maybeSingle(),
         supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
-      ]).then(([local, global]) => {
+      ]).then(([shiftRes, modeRes, global]) => {
+        // null = outlet tanpa jadwal khusus → jadwal tunggal aturan pusat.
+        const local = (shiftRes.data ?? null) as (ShiftConfig & { jam_masuk: string | null; jam_keluar: string | null }) | null;
         // Pilihan shift hanya ada di config khusus outlet, bukan aturan pusat.
-        setOpsiShift(shiftOptions(local.data, outletStaff?.role));
-        let data: any = local.data;
-        if (!data && global.data?.value) {
+        setOpsiShift(shiftOptions(local, outletStaff?.role));
+        let globalCfg: any = null;
+        if (global.data?.value) {
           try {
-            data = typeof global.data.value === "string" ? JSON.parse(global.data.value) : global.data.value;
+            globalCfg = typeof global.data.value === "string" ? JSON.parse(global.data.value) : global.data.value;
           } catch(e) {}
         }
+        const data: any = local ?? globalCfg;
         if (data) {
           setJamMasuk(data.jam_masuk);
           setJamKeluar(data.jam_keluar ?? null);
-          setAbsenWindowMode(data.absen_window_mode ?? "auto");
+          const mode = modeRes.data ? modeRes.data.absen_window_mode : globalCfg?.absen_window_mode;
+          setAbsenWindowMode(mode ?? "auto");
         }
       });
     };
@@ -291,7 +299,7 @@ export function AttendanceKioskPanel() {
   const hasIn = todayRecords.some(r => r.type === "in");
   const hasOut = todayRecords.some(r => r.type === "out");
 
-  // Outlet dua shift: jam kerja hari ini mengikuti shift yang dipilih saat absen
+  // Outlet berpilihan shift: jam kerja hari ini mengikuti shift yang dipilih saat absen
   // masuk, bukan jam outlet. records urut terbaru dulu → find = absen masuk terakhir.
   const todayIn = todayRecords.find(r => r.type === "in");
   const shiftTerpilih = opsiShift?.find((o) => o.ke === shiftDipilih) ?? null;
@@ -323,7 +331,7 @@ export function AttendanceKioskPanel() {
     ? dayjs().tz("Asia/Jakarta").startOf("day").add(toMin(jamMasuk) - 60, "minute").format("HH:mm")
     : null;
 
-  // Modal pilih shift tampil begitu halaman dibuka (sebelum scan) bila outlet dua shift
+  // Modal pilih shift tampil begitu halaman dibuka (sebelum scan) bila outlet berpilihan shift
   // dan belum absen masuk hari ini. Menunggu riwayat termuat agar tak muncul sesaat
   // untuk crew yang sebenarnya sudah absen.
   const perluPilihShift = !!opsiShift && historyReady && !hasIn && !hasOut && isOutletOpen && shiftDipilih === null;
@@ -503,7 +511,7 @@ export function AttendanceKioskPanel() {
           {shiftTerpilih && !hasIn && (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-suka-orange/30 bg-orange-50/70 px-4 py-3">
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-suka-brown/70">{namaShift(shiftTerpilih.jam_masuk)}</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-suka-brown/70">{shiftTerpilih.nama}</p>
                 <p className="text-lg font-black tabular-nums leading-tight text-suka-ink">
                   {shiftTerpilih.jam_masuk} – {shiftTerpilih.jam_keluar}
                 </p>

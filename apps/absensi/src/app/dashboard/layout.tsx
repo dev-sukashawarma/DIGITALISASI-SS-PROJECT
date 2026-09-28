@@ -4,10 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@suka/auth";
-import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, CalendarDays, Banknote, Book } from "lucide-react";
+import { LayoutDashboard, ClipboardList, LogOut, Store, X, Settings2, UserRound, ListChecks, ClipboardCheck, Clock, AlertTriangle, MoreHorizontal, UserPlus, ArrowLeft, CalendarDays, Banknote, Book, MapPinned } from "lucide-react";
 import { SwipeableContainer } from "@/components/layout/SwipeableContainer";
 import { useLeaveNotifications } from "@/features/cuti/useLeaveNotifications";
 import { LocationPresence } from "@/components/LocationPresence";
+import { PERAN_PENGATUR_AKSES } from "./akses-absen/peran";
 
 const getPortalUrl = () => {
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com';
@@ -35,6 +36,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Hanya Admin, Admin HR, dan Regional Manager yang boleh akses Pengaturan Absensi.
   const isSettingsAllowed = ["admin", "admin_hr", "regional_manager", "developer"].includes(outletStaff?.role || "");
 
+  // Hanya Admin & Developer yang boleh mengatur outlet tempat crew boleh absen.
+  const isAksesAbsenAllowed = PERAN_PENGATUR_AKSES.includes(outletStaff?.role || "");
+
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
     { href: "/dashboard/papan-kehadiran", label: "Papan Kehadiran", icon: <LayoutDashboard size={20} /> },
@@ -46,6 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/kasbon", label: "Kasbon", icon: <Banknote size={20} /> },
     ...(isEnrollmentAllowed ? [{ href: "/dashboard/enroll", label: "Enrollment Crew", icon: <UserPlus size={20} /> }] : []),
     ...(isSettingsAllowed ? [{ href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> }] : []),
+    ...(isAksesAbsenAllowed ? [{ href: "/dashboard/akses-absen", label: "Akses Absen", icon: <MapPinned size={20} /> }] : []),
     { href: "/dashboard/panduan", label: "Panduan", icon: <Book size={20} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda Saya", icon: <LayoutDashboard size={20} /> },
@@ -95,10 +100,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           router.replace("/dashboard");
         } else if (pathname === "/dashboard/pengaturan" && !isSettingsAllowed) {
           router.replace("/dashboard");
+        } else if (pathname === "/dashboard/akses-absen" && !isAksesAbsenAllowed) {
+          router.replace("/dashboard");
         }
       }
     }
-  }, [outletStaff, isSPV, isHr, isEnrollmentAllowed, isSettingsAllowed, loading, pathname, router]);
+  }, [outletStaff, isSPV, isHr, isEnrollmentAllowed, isSettingsAllowed, isAksesAbsenAllowed, loading, pathname, router]);
 
   // Tutup sheet "Lainnya" tiap pindah halaman
   React.useEffect(() => { setMoreOpen(false); }, [pathname]);

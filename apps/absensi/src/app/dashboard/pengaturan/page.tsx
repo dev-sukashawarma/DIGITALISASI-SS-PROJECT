@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import PengaturanClient from "./PengaturanClient";
+import { keOutletJadwal } from "@/lib/attendance/jadwalOutlet";
 
 // Disable caching for this page so it always fetches fresh data on full reload.
 // However, the client component will keep it synced via Realtime.
@@ -13,7 +14,11 @@ export default async function PengaturanAbsensiPage() {
   const [globalRes, outletsRes, outletConfigsRes] = await Promise.all([
     supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle(),
     supabase.from("outlets").select("id, name, is_active").order("name").limit(200),
-    supabase.from("outlet_attendance_config").select("*").limit(200)
+    // Config + seluruh shift tiap outlet dalam satu query (embed tabel shift).
+    supabase
+      .from("outlet_attendance_config")
+      .select("*, shifts:outlet_attendance_shift(urutan, nama, jam_masuk, jam_keluar)")
+      .limit(200)
   ]);
 
   let cfgRaw = globalRes.data?.value;
@@ -35,7 +40,7 @@ export default async function PengaturanAbsensiPage() {
   };
 
   const initialOutlets = outletsRes.data || [];
-  const initialOutletConfigs = outletConfigsRes.data || [];
+  const initialOutletConfigs = (outletConfigsRes.data || []).map(keOutletJadwal);
 
   return (
     <PengaturanClient 

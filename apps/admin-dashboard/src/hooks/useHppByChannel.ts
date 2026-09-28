@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase";
 import { cleanItemName } from "@/lib/order-item-name";
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp";
+import { adalahKanalSsOnline } from "@/lib/hpp/kanalSsOnline";
 
 export interface HppByChannelRow {
   outlet_id: string;
@@ -36,14 +37,7 @@ function getItemHpp(
   let channelHppVal: number | null = null;
 
   if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
-    if (
-      normCh === 'ss-online' ||
-      normCh === 'ss_online' ||
-      normCh.includes('tiktok') ||
-      normCh.includes('shopee') ||
-      normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-      normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-    ) {
+    if (adalahKanalSsOnline(normCh)) { // hanya marketplace; ShopeeFood & TikTok GO pakai hpp_override
       channelHppVal = itemObj.channel_hpp.ss_online ?? itemObj.channel_hpp.tiktok_shop ?? itemObj.channel_hpp.shopee_shop ?? itemObj.channel_hpp[normCh] ?? null;
     } else {
       channelHppVal = itemObj.channel_hpp[normCh] ?? null;

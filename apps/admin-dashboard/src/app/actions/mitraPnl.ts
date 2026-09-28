@@ -10,6 +10,7 @@ import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
 import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
+import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -369,14 +370,7 @@ export async function getMitraComprehensivePnl(
       let channelHppVal: number | null = null
 
       if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
-        if (
-          normCh === 'ss-online' ||
-          normCh === 'ss_online' ||
-          normCh.includes('tiktok') ||
-          normCh.includes('shopee') ||
-          normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-          normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-        ) {
+        if (adalahKanalSsOnline(normCh)) { // hanya marketplace; ShopeeFood & TikTok GO pakai hpp_override
           channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
         } else {
           channelHppVal = menuItem.channel_hpp[normCh] ?? null

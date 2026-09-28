@@ -40,6 +40,7 @@ import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { generateExecutiveItemReportPDF, generateCategorizedReportPDF } from '@/utils/pdfExporter'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { exportSalesToExcel, exportSalesToCSV, type SalesExportItem } from '@/utils/salesExportUtils'
+import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 
 interface ShiftRow {
   id: string
@@ -122,14 +123,7 @@ function getItemHpp(
   let channelHppVal: number | null = null
 
   if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
-    if (
-      normCh === 'ss-online' ||
-      normCh === 'ss_online' ||
-      normCh.includes('tiktok') ||
-      normCh.includes('shopee') ||
-      normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-      normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-    ) {
+    if (adalahKanalSsOnline(normCh)) { // hanya marketplace; ShopeeFood & TikTok GO pakai hpp_override
       channelHppVal = itemObj.channel_hpp.ss_online ?? itemObj.channel_hpp.tiktok_shop ?? itemObj.channel_hpp.shopee_shop ?? itemObj.channel_hpp[normCh] ?? null
     } else {
       channelHppVal = itemObj.channel_hpp[normCh] ?? null
@@ -142,7 +136,7 @@ function getItemHpp(
     baseHpp = Number(itemObj.hpp_override)
   } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
     baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
-      const compHpp = pkg.component ? getItemHpp(pkg.component, outletType, undefined, undefined, channel) : (pkg.component?.hpp_override || 0)
+      const compHpp = pkg.component ? getItemHpp(pkg.component, undefined, undefined, undefined, channel) : 0 // tanpa markup; ×1,1 sekali pada total paket
       const qty = pkg.quantity || 1
       return sum + (compHpp * qty)
     }, 0)

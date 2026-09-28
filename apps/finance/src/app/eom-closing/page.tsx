@@ -10,19 +10,21 @@ import {
   Download,
   Store,
   ShoppingCart,
-  Banknote,
   ShieldCheck,
   Lock,
   RefreshCw,
   Database,
   Calendar,
+  Wallet,
 } from 'lucide-react'
 
 import { toast } from 'sonner'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
-import { generatePosKasirPdf, generateSingleOutletPdf, type OutletCashData } from './exportKasirPdf'
+import { generatePosKasirPdf } from './exportKasirPdf'
 import { generatePosKasirExcel } from './exportKasirExcel'
 import { useEomKasirLive } from './useEomKasirLive'
+import KasirTab from './KasirTab'
+import OpexTab from './OpexTab'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -306,38 +308,7 @@ const OUTLETS_19 = [
 ]
 
 
-const DEFAULT_SHIFT_VARIANCES = [
-  { no: 1, day: 2, outlet: 'MITRA CISEENG', shift: 'Shift Kasir - Reno Putra Perdana', sistem: 0, fisik: 100000, selisih: 100000, penyebab: 'Kelebihan saldo fisik kasir awal shift / pembulatan pembayaran', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 2, day: 3, outlet: 'MITRA CICURUG', shift: 'Shift Kasir - M. Reyhan Setiawan', sistem: 0, fisik: 1583000, selisih: 1583000, penyebab: 'Setoran closing shift kasir tunai belum terinput pada register sistem', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 3, day: 4, outlet: 'SUKA SHAWARMA DRAMAGA', shift: 'Shift Kasir - Sheva Arzaky Mauladi', sistem: 0, fisik: 430000, selisih: 430000, penyebab: 'Akumulasi uang kas fisik laci kasir melampaui data input sistem', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 4, day: 6, outlet: 'SUKA SHAWARMA CIRENDEU', shift: 'Shift Kasir - Iqbal', sistem: 262000, fisik: 268000, selisih: 6000, penyebab: 'Pembulatan uang kecil kembalian kasir POS', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 5, day: 6, outlet: 'SUKA SHAWARMA PAJAJARAN', shift: 'Shift Kasir - M. Rifki Muzaki', sistem: 200000, fisik: 2000000, selisih: 1800000, penyebab: 'Modal kas awal operasional laci kasir belum direkonsiliasi sistem', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 6, day: 7, outlet: 'SUKA SHAWARMA DEPOK SUKMAJAYA', shift: 'Shift Kasir - Helmi Dwi Luthfi', sistem: 0, fisik: 332000, selisih: 332000, penyebab: 'Penerimaan pembayaran cash blind close saat sistem offline sejenak', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 7, day: 7, outlet: 'MITRA CIBUBUR', shift: 'Shift Kasir - Adhi Setiawan', sistem: 0, fisik: 48000, selisih: 48000, penyebab: 'Kelebihan uang receh kembalian di laci kasir', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 8, day: 7, outlet: 'SUKA SHAWARMA BEJI', shift: 'Shift Kasir - Muhammad Fitron Firdaus', sistem: 0, fisik: 66000, selisih: 66000, penyebab: 'Kelebihan koin & pecahan kecil pembulatan struk', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 9, day: 8, outlet: 'MITRA CIBINONG', shift: 'Shift Kasir - Yunus', sistem: 462000, fisik: 642000, selisih: 180000, penyebab: 'Penerimaan pesanan tunai belum terekam otomatis pada tablet kasir', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 10, day: 13, outlet: 'SUKA SHAWARMA JATIWARINGIN', shift: 'Shift Kasir - Faturrahman', sistem: 93000, fisik: 99000, selisih: 6000, penyebab: 'Pembulatan kembalian struk belanja pembeli', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 11, day: 17, outlet: 'MITRA CIBUBUR', shift: 'Shift Kasir - Muhamad Rifqi Darmawan', sistem: 442000, fisik: 211000, selisih: -231000, penyebab: 'Salah hitung kembalian pecahan besar saat jam antrean puncak', status: 'LUNAS (Potong Kasbon Kasir)' },
-  { no: 12, day: 18, outlet: 'SUKA SHAWARMA BNR', shift: 'Shift Kasir - Roni', sistem: 187000, fisik: 219000, selisih: 32000, penyebab: 'Konsumen menolak uang kecil kembalian receh', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 13, day: 18, outlet: 'SUKA SHAWARMA JAGAKARSA', shift: 'Shift Kasir - Maulana Hairulloh', sistem: 0, fisik: 81000, selisih: 81000, penyebab: 'Sisa kas kecil kembalian shift siang diserahkan ke kas fisik', status: 'SELESAI (Disetor ke Kas Toko)' },
-  { no: 14, day: 20, outlet: 'MITRA CISEENG', shift: 'Shift Kasir - Mohamad Raka', sistem: 0, fisik: 791000, selisih: 791000, penyebab: 'Pelunasan pesanan tunai offline tercatat saat serah terima shift', status: 'SELESAI (Disetor ke Kas Toko)' },
-]
-
-const DEFAULT_PETTY_CASH = [
-  { no: 1, kategori: 'Operasional & Kebutuhan Toko', outletTerbanyak: 'Empang, Depok Sukmajaya, Jagakarsa', nominal: 23995368, porsi: '63.4%' },
-  { no: 2, kategori: 'Pengeluaran Kebutuhan Laci Kasir', outletTerbanyak: 'Cibubur, Paledang, Cimanggu', nominal: 8541650, porsi: '22.6%' },
-  { no: 3, kategori: 'Token Listrik PLN & Utilitas Toko', outletTerbanyak: 'Cibubur, Pekayon, Empang', nominal: 2832550, porsi: '7.5%' },
-  { no: 4, kategori: 'Bahan Tambahan & Kemasan Darurat', outletTerbanyak: 'Cibubur, Depok Sukmajaya, Sawangan', nominal: 1209000, porsi: '3.2%' },
-  { no: 5, kategori: 'Transportasi & Pengantaran Cepat', outletTerbanyak: 'Ciseeng, Sentul, Pekayon', nominal: 716000, porsi: '1.9%' },
-]
-
-const DEFAULT_NON_CASH = [
-  { no: 1, channel: 'QRIS Statis & Dinamis (BCA / Mandiri / ShopeePay)', volume: '18.420 Transaksi', nominal: 684210000, porsi: '51.0%' },
-  { no: 2, channel: 'EDC Kartu Debit & Kredit Bank', volume: '7.940 Transaksi', nominal: 389120000, porsi: '29.0%' },
-  { no: 3, channel: 'Virtual Account & Bank Transfer Langsung', volume: '4.110 Transaksi', nominal: 187816540, porsi: '14.0%' },
-]
-
-type FinanceTabKey = 'kasir_outlet' | 'purchasing' | 'finance_akuntansi'
+type FinanceTabKey = 'kasir_outlet' | 'opex' | 'purchasing'
 
 export default function FinanceEomClosingPage() {
   const [activeTab, setActiveTab] = useState<FinanceTabKey>('kasir_outlet')
@@ -345,7 +316,8 @@ export default function FinanceEomClosingPage() {
   const [year, setYear] = useState(2026)
 
   // Live Supabase Hook
-  const liveKasir = useEomKasirLive(month, year, OUTLETS_19)
+  // Data lama (kasir-live) kini hanya dipakai tabel contoh tab Purchasing.
+  const liveKasir = useEomKasirLive(month, year, OUTLETS_19, activeTab === 'purchasing')
 
   // Dynamic Outlets: fallback to snapshot if live returns empty
   const currentOutlets = useMemo(() => {
@@ -358,31 +330,16 @@ export default function FinanceEomClosingPage() {
   const totPetty = useMemo(() => currentOutlets.reduce((a, b) => a + b.pettyCash, 0), [currentOutlets])
   const totPo = useMemo(() => currentOutlets.reduce((a, b) => a + b.poAlloc, 0), [currentOutlets])
   const totVariance = useMemo(() => currentOutlets.reduce((a, b) => a + b.variance, 0), [currentOutlets])
-  const totCash = useMemo(() => currentOutlets.reduce((a, b) => a + b.cash, 0), [currentOutlets])
-  const totNonCash = useMemo(() => currentOutlets.reduce((a, b) => a + b.nonCash, 0), [currentOutlets])
-
-  // Dynamic auxiliary lists
-  const displayVariances = useMemo(() => {
-    return liveKasir.shiftVariances.length > 0 ? liveKasir.shiftVariances : DEFAULT_SHIFT_VARIANCES
-  }, [liveKasir.shiftVariances])
-
-  const displayPettyCash = useMemo(() => {
-    return liveKasir.pettyCashCategories.length > 0 ? liveKasir.pettyCashCategories : DEFAULT_PETTY_CASH
-  }, [liveKasir.pettyCashCategories])
-
-  const displayNonCash = useMemo(() => {
-    return liveKasir.nonCashChannels.length > 0 ? liveKasir.nonCashChannels : DEFAULT_NON_CASH
-  }, [liveKasir.nonCashChannels])
 
   const [verifiedMap, setVerifiedMap] = useState<Record<FinanceTabKey, boolean>>({
     kasir_outlet: false,
+    opex: false,
     purchasing: false,
-    finance_akuntansi: false,
   })
   const [picNotes, setPicNotes] = useState<Record<FinanceTabKey, string>>({
     kasir_outlet: 'Seluruh selisih kas fisik telah dicocokkan dengan log blind close shift kasir dan disetorkan ke rekening penampung.',
     purchasing: 'Seluruh barang telah diterima dengan kondisi baik (GRN 100%). Invoice yang jatuh tempo telah dijadwalkan pembayarannya.',
-    finance_akuntansi: 'Tidak ada transaksi gantung pada mutasi bank per 30/31 malam. Saldo buku bank identik dengan rekening koran riil.',
+    opex: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -422,9 +379,10 @@ export default function FinanceEomClosingPage() {
             { label: 'Deviasi Harga Pokok', value: '+1.2% (Terkendali)', highlight: true },
           ],
         }
-      case 'finance_akuntansi':
+      case 'opex':
+      default:
         return {
-          key: 'finance_akuntansi',
+          key: 'opex',
           codePrefix: 'BA/SS/ACC',
           title: 'BERITA ACARA REKONSILIASI KAS, BANK & SETTLEMENT ONLINE AGGREGATOR',
           subtitle: 'Pencocokan rekening koran bank 100%, mutasi kas fisik, potongan fee platform, dan pencairan aggregator.',
@@ -735,24 +693,6 @@ export default function FinanceEomClosingPage() {
     }
   }
 
-  // Export Single Outlet Audit PDF
-  const handleExportSingleOutlet = async (outlet: OutletCashData) => {
-    toast.info(`Menyiapkan Lembar Audit PDF Cabang ${outlet.name}...`)
-    try {
-      await generateSingleOutletPdf({
-        outlet,
-        month,
-        year,
-        picNote: picNotes.kasir_outlet,
-        shiftVariances: liveKasir.shiftVariances.length > 0 ? liveKasir.shiftVariances : undefined,
-      })
-      toast.success(`Lembar Audit PDF ${outlet.name} Berhasil Diunduh!`)
-    } catch (err) {
-      console.error(err)
-      toast.error(`Gagal membuat PDF untuk ${outlet.name}`)
-    }
-  }
-
   // Export Excel
   const handleExportExcel = async () => {
     toast.info(`Menyiapkan Workbook Excel (${tabConfig.codePrefix})...`)
@@ -967,6 +907,7 @@ export default function FinanceEomClosingPage() {
               </select>
             </div>
 
+            {activeTab === 'purchasing' && (<>
             <button
               onClick={handleExportPdf}
               className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
@@ -981,77 +922,44 @@ export default function FinanceEomClosingPage() {
               <Download size={15} />
               Ekspor Excel
             </button>
+            </>)}
           </div>
         </div>
 
-        {/* Tab Selector 3 Sub-Divisi */}
+        {/* Tab Selector: 3 kategori laporan Finance */}
         <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button
-            onClick={() => setActiveTab('kasir_outlet')}
-            className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 ${
-              activeTab === 'kasir_outlet'
-                ? 'bg-white text-suka-brown border-white shadow-lg'
-                : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'
-            }`}
-          >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-              activeTab === 'kasir_outlet' ? 'bg-amber-100 text-amber-800' : 'bg-white/10 text-amber-300'
-            }`}>
-              <Store size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-black truncate">1. Kasir & Kas Toko</div>
-              <div className="text-[11px] opacity-75 truncate">
-                {verifiedMap.kasir_outlet ? '✓ Terverifikasi HUB' : 'Menunggu Verif PIC'}
+          {([
+            { key: 'kasir_outlet', no: 1, label: 'Kasir & Kas Toko', status: 'Omzet, setoran, HPP & potongan', Icon: Store, on: 'bg-amber-100 text-amber-800', off: 'text-amber-300' },
+            { key: 'opex', no: 2, label: 'OPEX', status: 'Global · Internal · Mitra', Icon: Wallet, on: 'bg-emerald-100 text-emerald-800', off: 'text-emerald-300' },
+            { key: 'purchasing', no: 3, label: 'Purchasing & AP', status: 'Belum dirancang — data contoh', Icon: ShoppingCart, on: 'bg-cyan-100 text-cyan-800', off: 'text-cyan-300' },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 ${
+                activeTab === t.key
+                  ? 'bg-white text-suka-brown border-white shadow-lg'
+                  : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'
+              }`}
+            >
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${activeTab === t.key ? t.on : `bg-white/10 ${t.off}`}`}>
+                <t.Icon size={18} />
               </div>
-            </div>
-            {verifiedMap.kasir_outlet && <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('purchasing')}
-            className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 ${
-              activeTab === 'purchasing'
-                ? 'bg-white text-suka-brown border-white shadow-lg'
-                : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'
-            }`}
-          >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-              activeTab === 'purchasing' ? 'bg-cyan-100 text-cyan-800' : 'bg-white/10 text-cyan-300'
-            }`}>
-              <ShoppingCart size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-black truncate">2. Purchasing & AP</div>
-              <div className="text-[11px] opacity-75 truncate">
-                {verifiedMap.purchasing ? '✓ Terverifikasi HUB' : 'Menunggu Verif PIC'}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-black truncate">{t.no}. {t.label}</div>
+                <div className="text-[11px] opacity-75 truncate">{t.status}</div>
               </div>
-            </div>
-            {verifiedMap.purchasing && <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('finance_akuntansi')}
-            className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 ${
-              activeTab === 'finance_akuntansi'
-                ? 'bg-white text-suka-brown border-white shadow-lg'
-                : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'
-            }`}
-          >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-              activeTab === 'finance_akuntansi' ? 'bg-emerald-100 text-emerald-800' : 'bg-white/10 text-emerald-300'
-            }`}>
-              <Banknote size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-black truncate">3. Bank & Settlement</div>
-              <div className="text-[11px] opacity-75 truncate">
-                {verifiedMap.finance_akuntansi ? '✓ Terverifikasi HUB' : 'Menunggu Verif PIC'}
-              </div>
-            </div>
-            {verifiedMap.finance_akuntansi && <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />}
-          </button>
+            </button>
+          ))}
         </div>
+      </div>
+
+      {activeTab === 'kasir_outlet' && <KasirTab month={month} year={year} />}
+      {activeTab === 'opex' && <OpexTab month={month} year={year} />}
+
+      {activeTab === 'purchasing' && (<>
+      <div className="p-3 rounded-xl border border-cyan-200 bg-cyan-50 text-xs text-cyan-900">
+        Tab Purchasing belum dirancang ulang — angka di bawah adalah <b>data contoh</b>, bukan data sebenarnya.
       </div>
 
       {/* 2. Status Submission Alert Bar */}
@@ -1170,23 +1078,7 @@ export default function FinanceEomClosingPage() {
           <table className="w-full text-xs border-collapse">
             <thead className="bg-slate-800 text-white">
               <tr>
-                {activeTab === 'kasir_outlet' ? (
-                  <>
-                    <th className="py-2.5 px-3 text-center w-10">No</th>
-                    <th className="py-2.5 px-4 text-left">Nama Cabang Outlet</th>
-                    <th className="py-2.5 px-3 text-center">Tipe</th>
-                    <th className="py-2.5 px-3 text-right">Omzet POS</th>
-                    <th className="py-2.5 px-3 text-right">Non-Tunai (QRIS/EDC)</th>
-                    <th className="py-2.5 px-3 text-right">Kas Tunai</th>
-                    <th className="py-2.5 px-3 text-right">Kas Kecil</th>
-                    <th className="py-2.5 px-3 text-right">Target Setor</th>
-                    <th className="py-2.5 px-3 text-right">Realisasi Setor</th>
-                    <th className="py-2.5 px-3 text-center">Selisih</th>
-                    <th className="py-2.5 px-3 text-center">Status Audit</th>
-                    <th className="py-2.5 px-3 text-center w-24">Aksi PDF</th>
-                  </>
-                ) : (
-                  <>
+                <>
                     <th className="py-2.5 px-3 text-center w-10">No</th>
                     <th className="py-2.5 px-4 text-left">Nama Cabang Outlet</th>
                     <th className="py-2.5 px-3 text-center">Tipe Cabang</th>
@@ -1197,12 +1089,10 @@ export default function FinanceEomClosingPage() {
                     <th className="py-2.5 px-3 text-center">Selisih Kas</th>
                     <th className="py-2.5 px-3 text-center">Status Closing</th>
                   </>
-                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-suka-gray-100 font-medium">
               {currentOutlets.map((o, idx) => {
-                const targetSetor = o.cash - o.pettyCash
                 return (
                   <tr key={o.no || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                     <td className="py-2 px-3 text-center text-suka-gray-400">{o.no || idx + 1}</td>
@@ -1219,40 +1109,13 @@ export default function FinanceEomClosingPage() {
                       </span>
                     </td>
                     <td className="py-2 px-3 text-right font-bold text-suka-ink">{formatRupiah(o.grossPos)}</td>
-                    {activeTab === 'kasir_outlet' ? (
-                      <>
-                        <td className="py-2 px-3 text-right text-slate-700">{formatRupiah(o.nonCash)}</td>
-                        <td className="py-2 px-3 text-right text-slate-700">{formatRupiah(o.cash)}</td>
-                        <td className="py-2 px-3 text-right text-suka-gray-600">{formatRupiah(o.pettyCash)}</td>
-                        <td className="py-2 px-3 text-right text-amber-800 font-semibold">{formatRupiah(targetSetor)}</td>
-                        <td className="py-2 px-3 text-right text-emerald-700 font-bold">{formatRupiah(o.bankDeposit || targetSetor)}</td>
-                        <td className={`py-2 px-3 text-center font-bold ${o.variance !== 0 ? 'text-amber-700' : 'text-emerald-600'}`}>
-                          {o.variance === 0 ? 'Rp 0' : (o.variance > 0 ? `+${formatRupiah(o.variance)}` : formatRupiah(o.variance))}
-                        </td>
-                        <td className="py-2 px-3 text-center text-emerald-700 font-bold">
-                          {o.variance === 0 ? '100% MATCHED' : 'TEREKONSILIASI'}
-                        </td>
-                        <td className="py-2 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleExportSingleOutlet(o)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-suka-orange hover:text-white bg-suka-orange/10 hover:bg-suka-orange border border-suka-orange/30 rounded-lg transition-colors shadow-xs"
-                            title={`Unduh Laporan Audit PDF ${o.name}`}
-                          >
-                            <Download size={11} />
-                            <span>PDF</span>
-                          </button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
+                    <>
                         <td className="py-2 px-3 text-right text-emerald-700 font-semibold">{formatRupiah(o.bankDeposit)}</td>
                         <td className="py-2 px-3 text-right text-suka-gray-600">{formatRupiah(o.pettyCash)}</td>
                         <td className="py-2 px-3 text-right text-suka-gray-700">{formatRupiah(o.poAlloc)}</td>
                         <td className="py-2 px-3 text-center font-bold text-emerald-600">Rp 0</td>
                         <td className="py-2 px-3 text-center text-emerald-700 font-bold">100% CLOSED</td>
                       </>
-                    )}
                   </tr>
                 )
               })}
@@ -1264,35 +1127,7 @@ export default function FinanceEomClosingPage() {
                 <td className="py-2.5 px-3 text-right">
                   {formatRupiah(totGross)}
                 </td>
-                {activeTab === 'kasir_outlet' ? (
-                  <>
-                    <td className="py-2.5 px-3 text-right">
-                      {formatRupiah(totNonCash)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      {formatRupiah(totCash)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      {formatRupiah(totPetty)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right text-amber-900">
-                      {formatRupiah(totCash - totPetty)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right text-emerald-800">
-                      {formatRupiah(totDeposit || (totCash - totPetty))}
-                    </td>
-                    <td className="py-2.5 px-3 text-center text-emerald-800">
-                      {totVariance === 0 ? 'Rp 0 (MATCHED)' : formatRupiah(totVariance)}
-                    </td>
-                    <td className="py-2.5 px-3 text-center text-emerald-800">
-                      100% CLOSED
-                    </td>
-                    <td className="py-2.5 px-3 text-center text-amber-900 font-bold">
-                      -
-                    </td>
-                  </>
-                ) : (
-                  <>
+                <>
                     <td className="py-2.5 px-3 text-right text-emerald-800">
                       {formatRupiah(totDeposit)}
                     </td>
@@ -1309,139 +1144,11 @@ export default function FinanceEomClosingPage() {
                       100% CLOSED
                     </td>
                   </>
-                )}
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Ekstra Lampiran Khusus Kasir Outlet */}
-      {activeTab === 'kasir_outlet' && (
-        <div className="space-y-6">
-          {/* Lampiran II: Audit Selisih Shift Kasir */}
-          <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-suka-gray-200 bg-slate-50 flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <Banknote size={16} className="text-amber-600" />
-                  Lampiran II: Log Audit & Penyelesaian Selisih Shift Kasir (Blind Close Variance)
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Rincian investigasi SPV Kasir atas selisih kas fisik vs sistem register POS dan status pertanggungjawaban kasir.
-                </p>
-              </div>
-              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
-                {displayVariances.length} Kasus Terekonsiliasi
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead className="bg-slate-700 text-white">
-                  <tr>
-                    <th className="py-2 px-3 text-center w-10">No</th>
-                    <th className="py-2 px-3 text-center">Tanggal</th>
-                    <th className="py-2 px-4 text-left">Cabang Outlet</th>
-                    <th className="py-2 px-4 text-left">Shift & Nama Kasir</th>
-                    <th className="py-2 px-3 text-right">Kas Sistem</th>
-                    <th className="py-2 px-3 text-right">Kas Fisik</th>
-                    <th className="py-2 px-3 text-right">Selisih</th>
-                    <th className="py-2 px-4 text-left">Hasil Investigasi SPV</th>
-                    <th className="py-2 px-3 text-center">Status Penyelesaian</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {displayVariances.map((v) => {
-                    const tglStr = `${String(v.day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`
-                    return (
-                      <tr key={v.no} className="hover:bg-slate-50/70">
-                        <td className="py-2 px-3 text-center text-slate-400">{v.no}</td>
-                        <td className="py-2 px-3 text-center text-slate-600 font-mono text-[11px]">{tglStr}</td>
-                        <td className="py-2 px-4 font-bold text-slate-800">{v.outlet}</td>
-                        <td className="py-2 px-4 text-slate-700">{v.shift}</td>
-                        <td className="py-2 px-3 text-right">{formatRupiah(v.sistem)}</td>
-                        <td className="py-2 px-3 text-right">{formatRupiah(v.fisik)}</td>
-                        <td className={`py-2 px-3 text-right font-bold ${v.selisih < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                          {v.selisih > 0 ? `+${formatRupiah(v.selisih)}` : formatRupiah(v.selisih)}
-                        </td>
-                        <td className="py-2 px-4 text-slate-600 text-[11px]">{v.penyebab}</td>
-                        <td className="py-2 px-3 text-center">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            {v.status}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Lampiran III: Dua Mini Card Berdampingan */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Kiri: Kas Kecil */}
-            <div className="bg-white rounded-2xl border border-suka-gray-200 p-5 shadow-sm space-y-3">
-              <h4 className="text-xs font-black uppercase text-amber-900 tracking-wider flex items-center justify-between">
-                <span>Rincian Pengeluaran Kas Kecil Toko</span>
-                <span className="text-[11px] text-amber-700 font-bold">
-                  Total: {formatRupiah(displayPettyCash.reduce((a, b) => a + b.nominal, 0))}
-                </span>
-              </h4>
-              <div className="divide-y divide-slate-100 text-xs">
-                {displayPettyCash.map((item, i) => (
-                  <div key={i} className="py-2 flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-slate-800">{item.kategori}</div>
-                      <div className="text-[10px] text-slate-400">Cabang: {item.outletTerbanyak}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-slate-900">{formatRupiah(item.nominal)}</div>
-                      <div className="text-[10px] text-slate-500">{item.porsi}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Kanan: Non Tunai Channels */}
-            <div className="bg-white rounded-2xl border border-suka-gray-200 p-5 shadow-sm space-y-3">
-              <h4 className="text-xs font-black uppercase text-blue-900 tracking-wider flex items-center justify-between">
-                <span>Saluran Pembayaran Non-Tunai</span>
-                <span className="text-[11px] text-blue-700 font-bold">
-                  Total: {formatRupiah(displayNonCash.reduce((a, b) => a + b.nominal, 0))}
-                </span>
-              </h4>
-              <div className="divide-y divide-slate-100 text-xs">
-                {displayNonCash.map((item, i) => (
-                  <div key={i} className="py-2 flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-slate-800">{item.channel}</div>
-                      <div className="text-[10px] text-slate-400">{item.volume}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-blue-900">{formatRupiah(item.nominal)}</div>
-                      <div className="text-[10px] text-slate-500">{item.porsi}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Pakta Integritas Box */}
-          <div className="bg-amber-50/70 rounded-2xl border border-amber-200 p-5 space-y-2">
-            <h4 className="text-xs font-black text-amber-900 flex items-center gap-2">
-              <ShieldCheck size={16} className="text-amber-700" />
-              KLAUSUL PAKTA INTEGRITAS RESMI DIVISI KASIR:
-            </h4>
-            <p className="text-xs text-amber-900/90 leading-relaxed">
-              Seluruh transaksi kas dan non-tunai (QRIS/EDC) pada {currentOutlets.length} cabang outlet telah diverifikasi silang dengan log register POS, slip blind close per shift, serta mutasi rekening koran bank penampung resmi (BCA & Mandiri). Segala bentuk selisih fisik kas telah diselesaikan dan dipertanggungjawabkan sesuai SOP Keuangan PT Suka Kuliner Nusantara.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* 5. Form Catatan Lapangan PIC */}
       <div className="bg-white rounded-2xl border border-suka-gray-200 p-6 shadow-sm space-y-3">
@@ -1459,6 +1166,7 @@ export default function FinanceEomClosingPage() {
           * Catatan ini akan otomatis tertaut ke dokumen Berita Acara resmi dan terbaca oleh Owner di EOM Closing HUB Admin Dashboard.
         </p>
       </div>
+      </>)}
     </div>
   )
 }

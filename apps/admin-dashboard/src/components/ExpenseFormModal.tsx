@@ -134,11 +134,13 @@ export function ExpenseFormModal({
               onChange={(e) => setOutletId(e.target.value)}
             >
               {isAdmin && <option value="PUSAT">🏢 Pusat (Company-wide)</option>}
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
+              {outlets
+                .filter((o) => o.is_active !== false)
+                .map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
             </select>
           </label>
 

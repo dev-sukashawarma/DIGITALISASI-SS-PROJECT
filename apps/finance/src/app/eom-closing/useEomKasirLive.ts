@@ -215,7 +215,8 @@ export const REAL_BASELINE_NON_CASH: NonCashChannelItem[] = [
 export function useEomKasirLive(
   month: number,
   year: number,
-  fallbackOutlets: OutletCashData[]
+  fallbackOutlets: OutletCashData[],
+  enabled = true
 ) {
   const [data, setData] = useState<EomKasirLiveData>({
     outlets: fallbackOutlets,
@@ -296,8 +297,8 @@ export function useEomKasirLive(
   }, [month, year, fallbackOutlets])
 
   useEffect(() => {
-    fetchLiveEomData()
-  }, [fetchLiveEomData])
+    if (enabled) fetchLiveEomData()
+  }, [fetchLiveEomData, enabled])
 
   return {
     ...data,

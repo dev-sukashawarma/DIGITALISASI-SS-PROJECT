@@ -310,4 +310,30 @@ describe('opexProrata - calculateProratedExpenses', () => {
     expect(amRow?.amount).toBe(360_000)
     expect(res.categoryBreakdown.bonus_area_manager.source).toBe('last_month_rollover')
   })
+
+  it('tidak membuat beban prorata atau rollover untuk outlet nonaktif (is_active = false)', () => {
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-10-01', to: '2026-10-31', outletId: 'all', source: 'all' },
+      rawExpenses: [],
+      lastMonthExpenses: [
+        { outlet_id: 'outlet-closed', category: 'internet', amount: 316_350 },
+        { outlet_id: 'outlet-closed', category: 'sewa_outlet', amount: 5_000_000 },
+        { outlet_id: 'outlet-active', category: 'internet', amount: 300_000 },
+      ],
+      payrollRecords: [
+        { outlet_id: 'outlet-closed', total_salary: 4_000_000 },
+        { outlet_id: 'outlet-active', total_salary: 5_000_000 },
+      ],
+      now: new Date('2026-10-15T12:00:00Z'),
+      outlets: [
+        { id: 'outlet-closed', name: 'Sawangan Lama (Internal)', is_active: false },
+        { id: 'outlet-active', name: 'Mitra Sawangan DTC', is_active: true },
+      ],
+    })
+
+    // Outlet nonaktif tidak boleh mendapatkan baris prorata/rollover sintetis
+    expect(res.rows.find(r => r.outlet_id === 'outlet-closed')).toBeUndefined()
+    // Outlet aktif tetap mendapatkan prorata normal
+    expect(res.rows.find(r => r.outlet_id === 'outlet-active')).toBeDefined()
+  })
 })

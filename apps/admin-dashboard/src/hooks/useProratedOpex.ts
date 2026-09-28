@@ -16,7 +16,7 @@ import { isTestOrDevStaff } from '@/lib/staffFilters'
 interface UseProratedOpexOptions {
   filter: PeriodFilterValue
   rawExpenses: ExpenseRow[]
-  outlets?: { id: string; name: string }[]
+  outlets?: { id: string; name: string; is_active?: boolean }[]
   enabled?: boolean
 }
 

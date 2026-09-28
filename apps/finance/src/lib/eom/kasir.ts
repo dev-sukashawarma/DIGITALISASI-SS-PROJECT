@@ -1,0 +1,336 @@
+/* ── EOM Closing: tab Kasir & Kas Toko ─────────────────────────────────────
+ *
+ * PRINSIP: modul ini TIDAK punya rumus omzet/potongan/HPP sendiri. Semua angka
+ * berasal dari `@/lib/posReport/compute` (salinan identik rumus Rangkuman
+ * Penjualan, dijaga compute.parity.test.ts). Di sini order hanya DIKELOMPOKKAN
+ * — per channel dan per periode HPP — lalu fungsi yang sama dipanggil untuk
+ * tiap kelompok. Karena rumus itu dihitung per order lalu dijumlahkan,
+ * jumlah semua kelompok = angka laporan untuk seluruh bulan.
+ */
+
+import { computeAnalytics, computeCategoryReport, type OrderRow, type ShiftRow } from '@/lib/posReport/compute'
+import { resolveOrderSource } from '@/lib/order-source'
+import { tanggalWib } from '@/lib/hpp/riwayatHpp'
+
+type Penerap = { untuk(tgl: string): any }
+
+export const MITRA_SUFFIX = ' · Mitra (HPP x1,1)'
+type OutletLite = { id: string; name: string; type?: string | null }
+
+export interface EomItem {
+  name: string
+  /** Periode A = sebelum tanggal pergantian HPP; B = sejak tanggal itu. */
+  qtyA: number
+  hppA: number
+  qtyB: number
+  hppB: number
+  revenue: number
+  potongan: number
+  labaKotor: number
+}
+
+export interface EomChannel {
+  key: string
+  label: string
+  revenue: number
+  potongan: number
+  hppA: number
+  hppB: number
+  labaKotor: number
+  qty: number
+  items: EomItem[]
+}
+
+/** Channel sebuah order — sama dengan chip filter channel di Rangkuman Penjualan. */
+export function channelOf(o: OrderRow): { key: string; label: string } {
+  const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
+  return { key: src.key, label: src.label }
+}
+
+/** `cutoff` = tanggal (YYYY-MM-DD, WIB) mulai berlakunya HPP baru; null = tanpa pecahan. */
+export function splitByCutoff<T extends { created_at: string }>(orders: T[], cutoff: string | null) {
+  if (!cutoff) return { a: orders, b: [] as T[] }
+  const a: T[] = []
+  const b: T[] = []
+  for (const o of orders) (tanggalWib(o.created_at) < cutoff ? a : b).push(o)
+  return { a, b }
+}
+
+function addReport(
+  items: Map<string, EomItem>,
+  report: ReturnType<typeof computeCategoryReport>,
+  period: 'A' | 'B',
+  suffix: string,
+) {
+  for (const cat of report.categories) {
+    for (const it of cat.bestSellers) {
+      const name = it.name + suffix
+      let cur = items.get(name)
+      if (!cur) {
+        cur = { name, qtyA: 0, hppA: 0, qtyB: 0, hppB: 0, revenue: 0, potongan: 0, labaKotor: 0 }
+        items.set(name, cur)
+      }
+      if (period === 'A') {
+        cur.qtyA += it.qty
+        cur.hppA += it.hppTotal
+      } else {
+        cur.qtyB += it.qty
+        cur.hppB += it.hppTotal
+      }
+      cur.revenue += it.revenue
+      cur.potongan += it.adminPlatform
+      cur.labaKotor += it.grossProfit
+    }
+  }
+}
+
+/**
+ * Omzet, potongan, HPP (dipecah dua periode), laba kotor per channel + rincian menu.
+ * Parameter pemanggilan computeCategoryReport sama dengan Rangkuman Penjualan
+ * "Semua Cabang / Semua Channel" (selectedChannels ['all'], bukan mode SS Online).
+ */
+export function buildChannelBreakdown(
+  orders: OrderRow[],
+  outlets: OutletLite[],
+  penerapHpp: Penerap,
+  cutoff: string | null,
+  /** false = menu mitra tidak dipisah (dipakai laporan per outlet: satu outlet = satu tipe). */
+  splitMitra = true,
+): EomChannel[] {
+  const groups = new Map<string, { label: string; orders: OrderRow[] }>()
+  for (const o of orders) {
+    const ch = channelOf(o)
+    let g = groups.get(ch.key)
+    if (!g) {
+      g = { label: ch.label, orders: [] }
+      groups.set(ch.key, g)
+    }
+    g.orders.push(o)
+  }
+
+  // Menu outlet mitra dipisah barisnya: HPP mitra = HPP x 1,1, jadi kalau
+  // digabung, HPP/porsi rata-rata bergeser hanya karena porsi penjualan mitra.
+  const mitraIds = new Set(splitMitra ? outlets.filter((o) => o.type === 'mitra').map((o) => o.id) : [])
+
+  const result: EomChannel[] = []
+  for (const [key, g] of groups) {
+    const items = new Map<string, EomItem>()
+    const parts: [OrderRow[], string][] = [
+      [g.orders.filter((o) => !mitraIds.has(o.outlet_id)), ''],
+      [g.orders.filter((o) => mitraIds.has(o.outlet_id)), MITRA_SUFFIX],
+    ]
+    for (const [partOrders, suffix] of parts) {
+      if (partOrders.length === 0) continue
+      const { a, b } = splitByCutoff(partOrders, cutoff)
+      if (a.length > 0) addReport(items, computeCategoryReport(a, ['all'], outlets, penerapHpp, false), 'A', suffix)
+      if (b.length > 0) addReport(items, computeCategoryReport(b, ['all'], outlets, penerapHpp, false), 'B', suffix)
+    }
+
+    const list = [...items.values()].sort((x, y) => y.revenue - x.revenue)
+    if (list.length === 0) continue // channel tanpa order selesai
+    const sum = (f: (i: EomItem) => number) => list.reduce((s, i) => s + f(i), 0)
+    result.push({
+      key,
+      label: g.label,
+      revenue: sum((i) => i.revenue),
+      potongan: sum((i) => i.potongan),
+      hppA: sum((i) => i.hppA),
+      hppB: sum((i) => i.hppB),
+      labaKotor: sum((i) => i.labaKotor),
+      qty: sum((i) => i.qtyA + i.qtyB),
+      items: list,
+    })
+  }
+  return result.sort((x, y) => y.revenue - x.revenue)
+}
+
+export interface EomOutlet {
+  outletId: string
+  outletName: string
+  /** 'mitra' | 'outlet' | 'online' (SS Online) */
+  outletType: string
+  revenue: number
+  potongan: number
+  hppA: number
+  hppB: number
+  labaKotor: number
+  qty: number
+  channels: EomChannel[]
+}
+
+/** Id sintetis penjualan SS Online (ecommerce_sales) — lihat loadKasirData. */
+const SS_ONLINE_ID = 'ss-online'
+
+/**
+ * Laporan per outlet: tiap outlet dirinci per channel & menu dengan fungsi yang
+ * sama (buildChannelBreakdown), jadi jumlah semua outlet = laporan seluruh bulan.
+ */
+export function buildOutletBreakdown(
+  orders: OrderRow[],
+  outlets: OutletLite[],
+  penerapHpp: Penerap,
+  cutoff: string | null,
+): EomOutlet[] {
+  const byOutlet = new Map<string, OrderRow[]>()
+  for (const o of orders) {
+    const list = byOutlet.get(o.outlet_id) ?? []
+    list.push(o)
+    byOutlet.set(o.outlet_id, list)
+  }
+  const info = new Map(outlets.map((o) => [o.id, o]))
+  const result: EomOutlet[] = []
+  for (const [id, list] of byOutlet) {
+    const channels = buildChannelBreakdown(list, outlets, penerapHpp, cutoff, false)
+    if (channels.length === 0) continue
+    const sum = (f: (c: EomChannel) => number) => channels.reduce((s, c) => s + f(c), 0)
+    const o = info.get(id)
+    result.push({
+      outletId: id,
+      outletName: id === SS_ONLINE_ID ? 'SS ONLINE (TikTok Shop / Shopee)' : o?.name ?? 'Outlet Tidak Dikenal',
+      outletType: id === SS_ONLINE_ID ? 'online' : o?.type ?? 'outlet',
+      revenue: sum((c) => c.revenue),
+      potongan: sum((c) => c.potongan),
+      hppA: sum((c) => c.hppA),
+      hppB: sum((c) => c.hppB),
+      labaKotor: sum((c) => c.labaKotor),
+      qty: sum((c) => c.qty),
+      channels,
+    })
+  }
+  return result.sort((x, y) => y.revenue - x.revenue)
+}
+
+/** Penanda untuk dicek finance (bukan koreksi — angka tidak diubah). */
+export function itemFlags(it: EomItem, hasCutoff: boolean): string[] {
+  const flags: string[] = []
+  const qty = it.qtyA + it.qtyB
+  if (qty > 0 && it.hppA + it.hppB === 0) flags.push('HPP kosong')
+  if (hasCutoff && it.qtyA > 0 && it.qtyB > 0) {
+    const unitA = it.hppA / it.qtyA
+    const unitB = it.hppB / it.qtyB
+    if (unitA > 0 && Math.abs(unitA - unitB) < 0.5) flags.push('HPP tidak berubah')
+  }
+  return flags
+}
+
+export interface CashOutletRow {
+  outletId: string
+  outletName: string
+  outletType: string
+  omzetTunai: number
+  shiftCount: number
+  /** Shift belum ditutup yang dimulai sebelum hari ini (perlu ditindaklanjuti). */
+  shiftBelumTutup: number
+  /** Shift hari ini yang masih berjalan — wajar, bukan masalah. */
+  shiftBerjalan: number
+  shiftExpected: number
+  shiftFisik: number
+  selisihKasir: number
+  /** Uang laci penjualan s/d tanggal konfirmasi manual Admin Finance (dianggap sudah disetor). */
+  setoranTerkonfirmasi: number
+  /** Setoran yang dicatat di tab Setoran (sesudah tanggal konfirmasi). */
+  setoranSistem: number
+  /** Total sudah disetor = terkonfirmasi + tercatat sistem. */
+  setoranDiterima: number
+  setoranCount: number
+}
+
+/** Shift yang belum ditutup tapi dimulai hari ini = masih berjalan. */
+export function isRunningShift(s: { status: string; start_time: string }, today: string) {
+  return s.status !== 'closed' && tanggalWib(s.start_time) >= today
+}
+
+export interface DepositLite {
+  outlet_id: string | null
+  amount: number
+  sales_date?: string | null
+  occurred_at?: string | null
+}
+
+/**
+ * Setoran yang dikonfirmasi valid oleh Admin Finance di luar sistem (keputusan
+ * owner 2026-09-26: "setoran sampai hari ini sudah valid semua"). Setoran
+ * diserahkan H+1, jadi yang diterima s/d 26 Sep = penjualan s/d 25 Sep. Uang
+ * laci tutup shift s/d `sampaiTanggalJual` dihitung sudah disetor; sesudahnya
+ * diambil dari catatan tab Setoran.
+ */
+export const KONFIRMASI_SETORAN_MANUAL: Record<string, { sampaiTanggalJual: string; label: string }> = {
+  '2026-09': { sampaiTanggalJual: '2026-09-25', label: 'penjualan s/d 25 Sep 2026 (diterima kantor s/d 26 Sep)' },
+}
+
+/** Tanggal jual sebuah setoran: sales_date, atau (data lama) sehari sebelum dicatat. */
+function tanggalJualSetoran(d: DepositLite): string | null {
+  if (d.sales_date) return String(d.sales_date).slice(0, 10)
+  if (!d.occurred_at) return null
+  const x = new Date(`${tanggalWib(d.occurred_at)}T00:00:00Z`)
+  x.setUTCDate(x.getUTCDate() - 1)
+  return x.toISOString().slice(0, 10)
+}
+
+/**
+ * Omzet tunai (kartu metode pembayaran Rangkuman Penjualan, per outlet) vs
+ * uang fisik tutup shift vs setoran yang dicatat kantor.
+ */
+export function buildCashRows(
+  orders: OrderRow[],
+  shifts: ShiftRow[],
+  deposits: DepositLite[],
+  outlets: OutletLite[],
+  analyticsCtx: Omit<Parameters<typeof computeAnalytics>[0], 'orders' | 'shifts' | 'selectedChannels'>,
+  /** Tanggal hari ini (YYYY-MM-DD, WIB). */
+  today: string,
+  /** Uang laci penjualan s/d tanggal ini dihitung sudah disetor (konfirmasi manual). */
+  konfirmasiSampai: string | null = null,
+): CashOutletRow[] {
+  const ordersBy = new Map<string, OrderRow[]>()
+  for (const o of orders) {
+    const list = ordersBy.get(o.outlet_id) ?? []
+    list.push(o)
+    ordersBy.set(o.outlet_id, list)
+  }
+
+  const rows: CashOutletRow[] = []
+  for (const outlet of outlets) {
+    const outletOrders = ordersBy.get(outlet.id) ?? []
+    const outletShifts = shifts.filter((s) => s.outlet_id === outlet.id)
+    // Setoran yang tanggal jualnya sudah tercakup konfirmasi manual tidak dihitung dua kali.
+    const outletDeposits = deposits.filter((d) => {
+      if (d.outlet_id !== outlet.id) return false
+      if (!konfirmasiSampai) return true
+      const tj = tanggalJualSetoran(d)
+      return !tj || tj > konfirmasiSampai
+    })
+    if (outletOrders.length === 0 && outletShifts.length === 0 && outletDeposits.length === 0) continue
+
+    const analytics = computeAnalytics({
+      ...analyticsCtx,
+      orders: outletOrders,
+      shifts: outletShifts,
+      selectedChannels: ['all'],
+    })
+    const closed = outletShifts.filter((s) => s.status === 'closed')
+    const open = outletShifts.filter((s) => s.status !== 'closed')
+    const berjalan = open.filter((s) => isRunningShift(s, today)).length
+    const terkonfirmasi = konfirmasiSampai
+      ? closed.filter((s) => tanggalWib(s.start_time) <= konfirmasiSampai).reduce((a, x) => a + (Number(x.actual_ending_cash) || 0), 0)
+      : 0
+    const sistem = outletDeposits.reduce((a, d) => a + (Number(d.amount) || 0), 0)
+    rows.push({
+      outletId: outlet.id,
+      outletName: outlet.name,
+      outletType: outlet.type ?? 'outlet',
+      omzetTunai: analytics.paymentBreakdown.cash?.revenue ?? 0,
+      shiftCount: outletShifts.length,
+      shiftBelumTutup: open.length - berjalan,
+      shiftBerjalan: berjalan,
+      shiftExpected: closed.reduce((s, x) => s + (Number(x.expected_ending_cash) || 0), 0),
+      shiftFisik: closed.reduce((s, x) => s + (Number(x.actual_ending_cash) || 0), 0),
+      selisihKasir: closed.reduce((s, x) => s + (Number(x.variance) || 0), 0),
+      setoranTerkonfirmasi: terkonfirmasi,
+      setoranSistem: sistem,
+      setoranDiterima: terkonfirmasi + sistem,
+      setoranCount: outletDeposits.length,
+    })
+  }
+  return rows.sort((x, y) => y.omzetTunai - x.omzetTunai)
+}

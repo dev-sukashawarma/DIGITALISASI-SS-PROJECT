@@ -317,9 +317,11 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
       { count: 'exact' }
     )
 
-  let summaryQuery = supabase
-    .from('stok_waste_reports')
-    .select('bahan_baku_id, qty')
+  // Filter lingkup outlet untuk ringkasan (totalNilai). Disimpan sebagai data,
+  // bukan builder, karena builder Supabase dieksekusi ulang tiap .then — tiap
+  // halaman ringkasan wajib dibangun dari builder baru.
+  let summaryOutletEq: string | null = null
+  let summaryOutletIn: string[] | null = null
 
   if (!isApprover) {
     // Regular staff: strictly scoped to staff.outlet_id
@@ -327,30 +329,60 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
       throw new Error('Staff belum ditugaskan ke outlet mana pun')
     }
     query = query.eq('outlet_id', staff.outlet_id)
-    summaryQuery = summaryQuery.eq('outlet_id', staff.outlet_id)
+    summaryOutletEq = staff.outlet_id
   } else if (filters.outletId) {
     if (allowedOutletIds.size > 0 && !allowedOutletIds.has(filters.outletId)) {
       throw new Error('Forbidden: outlet di luar cakupan akses Anda')
     }
     query = query.eq('outlet_id', filters.outletId)
-    summaryQuery = summaryQuery.eq('outlet_id', filters.outletId)
+    summaryOutletEq = filters.outletId
   } else if (allowedOutletIds.size > 0) {
     query = query.in('outlet_id', Array.from(allowedOutletIds))
-    summaryQuery = summaryQuery.in('outlet_id', Array.from(allowedOutletIds))
+    summaryOutletIn = Array.from(allowedOutletIds)
   }
 
   if (filters.status && filters.status !== 'ALL') {
     query = query.eq('status', filters.status)
-    summaryQuery = summaryQuery.eq('status', filters.status)
   }
 
   if (filters.from) {
     query = query.gte('created_at', `${filters.from}T00:00:00`)
-    summaryQuery = summaryQuery.gte('created_at', `${filters.from}T00:00:00`)
   }
   if (filters.to) {
     query = query.lte('created_at', `${filters.to}T23:59:59.999Z`)
-    summaryQuery = summaryQuery.lte('created_at', `${filters.to}T23:59:59.999Z`)
+  }
+
+  // Satu halaman ringkasan dengan filter IDENTIK dengan kueri daftar.
+  const buildSummaryPage = (fromRow: number, toRow: number) => {
+    let q = supabase
+      .from('stok_waste_reports')
+      .select('bahan_baku_id, qty')
+    if (summaryOutletEq) q = q.eq('outlet_id', summaryOutletEq)
+    else if (summaryOutletIn) q = q.in('outlet_id', summaryOutletIn)
+    if (filters.status && filters.status !== 'ALL') q = q.eq('status', filters.status)
+    if (filters.from) q = q.gte('created_at', `${filters.from}T00:00:00`)
+    if (filters.to) q = q.lte('created_at', `${filters.to}T23:59:59.999Z`)
+    // Urutan unik (created_at + id) supaya batas halaman deterministik.
+    return q.order('created_at', { ascending: false }).order('id', { ascending: false }).range(fromRow, toRow)
+  }
+
+  // Ringkasan totalNilai dulu memakai satu request tanpa paginasi → terpotong
+  // diam-diam di 1.000 baris (max-rows PostgREST) untuk rentang panjang /
+  // "Semua". Sekarang ditarik habis per 1.000. Galat tetap diabaikan seperti
+  // sebelumnya (total memakai baris yang berhasil didapat).
+  const fetchAllSummary = async (): Promise<any[]> => {
+    const PAGE_SIZE = 1000
+    let all: any[] = []
+    let fromRow = 0
+    while (true) {
+      const { data: rows, error: sumErr } = await buildSummaryPage(fromRow, fromRow + PAGE_SIZE - 1)
+      if (sumErr) break
+      const pageRows = rows ?? []
+      all = all.concat(pageRows)
+      if (pageRows.length < PAGE_SIZE) break
+      fromRow += PAGE_SIZE
+    }
+    return all
   }
 
   const page = Math.max(1, filters.page || 1)
@@ -360,15 +392,14 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
 
   query = query.order('created_at', { ascending: false }).range(fromIdx, toIdx)
 
-  const [{ data, count, error }, { data: summaryRows }] = await Promise.all([
+  const [{ data, count, error }, allSummary] = await Promise.all([
     query,
-    summaryQuery,
+    fetchAllSummary(),
   ])
 
   if (error) throw new Error(error.message)
 
   const rawReports = data ?? []
-  const allSummary = summaryRows ?? []
 
   // Fetch prices for all bahan_baku in page & summary
   const allBahanBakuIds = Array.from(

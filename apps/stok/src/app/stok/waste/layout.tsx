@@ -4,8 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { useQuery } from '@tanstack/react-query'
-import { fetchPendingWasteReports } from '@/app/actions/waste'
+import { usePendingWasteCount } from '@/hooks/useWaste'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { OutletSwitcher } from '@/components/common/OutletSwitcher'
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
@@ -24,14 +23,9 @@ export default function WasteLayout({ children }: { children: React.ReactNode })
     'developer',
   ].includes(role ?? '')
 
-  const { data: pendingReports = [] } = useQuery<any[]>({
-    queryKey: ['waste-layout-pending-count'],
-    queryFn: () => fetchPendingWasteReports(),
-    enabled: canApproveWaste,
-    staleTime: 25000,
-  })
-
-  const pendingCount = pendingReports.length
+  // Head count, kunci bersama dengan sidebar & bottom nav (bukan tarik
+  // seluruh laporan pending hanya untuk dihitung).
+  const pendingCount = usePendingWasteCount(canApproveWaste)
 
   const tabs = [
     ...(canApproveWaste

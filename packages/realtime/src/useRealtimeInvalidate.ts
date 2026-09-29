@@ -18,6 +18,12 @@ export function useRealtimeInvalidate(opts: {
   subs: InvalidateSub[]
   debounceMs?: number
   /**
+   * Batas tunggu terlama (ms) sejak event pertama. Mencegah debounce
+   * "kelaparan" saat event datang terus-menerus. Opsional — bila tidak diisi
+   * perilaku sama seperti sebelumnya (debounce murni).
+   */
+  maxWaitMs?: number
+  /**
    * Jarak minimum (ms) antar-sinkronisasi ulang saat channel join lagi.
    * Reconnect yang lebih rapat digabung jadi satu sinkronisasi di akhir
    * jendela. Default 30 detik: dulu 0 (sinkron di tiap reconnect), dan channel
@@ -25,9 +31,9 @@ export function useRealtimeInvalidate(opts: {
    */
   resubscribeMinIntervalMs?: number
 }) {
-  const { channelName, enabled = true, subs, debounceMs = 500, resubscribeMinIntervalMs = 30_000 } = opts
+  const { channelName, enabled = true, subs, debounceMs = 500, maxWaitMs, resubscribeMinIntervalMs = 30_000 } = opts
   const qc = useQueryClient()
-  const debouncer = useMemo(() => createDebouncer(debounceMs), [debounceMs])
+  const debouncer = useMemo(() => createDebouncer(debounceMs, maxWaitMs), [debounceMs, maxWaitMs])
   const lastResyncAt = useRef(0)
   const pendingResync = useRef<ReturnType<typeof setTimeout> | null>(null)
 

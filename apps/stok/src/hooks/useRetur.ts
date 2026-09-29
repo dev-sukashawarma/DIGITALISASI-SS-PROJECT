@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchDaftarRetur,
@@ -27,8 +28,13 @@ export function useDaftarRetur(options?: {
     gcTime: 60000,
   })
 
+  // instanceId: nama channel harus unik per pemakai hook — dua komponen yang
+  // memanggil useDaftarRetur dengan outletId sama (mis. SPVDashboard & halaman
+  // refund) dulu berbagi nama channel `retur_stok_all` dan saling bertabrakan
+  // (pola sama dengan useMutasiBadge/useApprovalList).
+  const instanceId = useId()
   useRealtimeInvalidate({
-    channelName: `retur_stok_${options?.outletId ?? 'all'}`,
+    channelName: `retur_stok_${options?.outletId ?? 'all'}_${instanceId}`,
     subs: [
       {
         table: 'retur_stok',

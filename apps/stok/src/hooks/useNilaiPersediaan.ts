@@ -107,13 +107,31 @@ export function useNilaiPersediaan() {
     queryKey: ['nilai_persediaan'],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('nilai_persediaan_spv')
-        .select(
-          'outlet_id, outlet, outlet_type, bahan_baku_id, bahan, kategori, satuan, satuan_kecil, kemasan_qty, harga_beli, saldo, status, skala_pasti, jumlah_satuan_besar, nilai, nilai_min, nilai_max, updated_at',
-        )
-      if (error) throw error
-      return (data as NilaiPersediaanRow[]) ?? []
+      // PostgREST memotong satu request di 1.000 baris (max-rows). View ini
+      // satu baris per (outlet, bahan) dengan saldo <> 0 — sudah ~750 baris
+      // dan terus tumbuh; tanpa paginasi total nilai persediaan akan diam-diam
+      // kurang begitu melewati 1.000. Urutan WAJIB unik: grain view =
+      // stok_balance, yang UNIQUE(outlet_id, bahan_baku_id). Urutan tampilan
+      // tidak bergantung pada ini (ringkas() mengurutkan sendiri).
+      const PAGE_SIZE = 1000
+      let all: NilaiPersediaanRow[] = []
+      let from = 0
+      while (true) {
+        const { data, error } = await supabase
+          .from('nilai_persediaan_spv')
+          .select(
+            'outlet_id, outlet, outlet_type, bahan_baku_id, bahan, kategori, satuan, satuan_kecil, kemasan_qty, harga_beli, saldo, status, skala_pasti, jumlah_satuan_besar, nilai, nilai_min, nilai_max, updated_at',
+          )
+          .order('outlet_id')
+          .order('bahan_baku_id')
+          .range(from, from + PAGE_SIZE - 1)
+        if (error) throw error
+        const page = (data as NilaiPersediaanRow[]) ?? []
+        all = all.concat(page)
+        if (page.length < PAGE_SIZE) break
+        from += PAGE_SIZE
+      }
+      return all
     },
     staleTime: 60000,
     gcTime: 300000,
@@ -145,6 +163,10 @@ export function useNilaiPersediaan() {
   const instanceId = useId()
   useRealtimeInvalidate({
     channelName: `nilai_persediaan_${instanceId}`,
+    // stok_balance bergerak tiap order kasir; 4 dtk menggabungkan rentetan
+    // event jadi satu tarik-ulang (dulu default 0,5 dtk).
+    debounceMs: 4000,
+    maxWaitMs: 20_000,
     subs: [
       { table: 'stok_balance', queryKeys: [['nilai_persediaan']] },
       { table: 'bahan_baku_harga', queryKeys: [['nilai_persediaan']] },

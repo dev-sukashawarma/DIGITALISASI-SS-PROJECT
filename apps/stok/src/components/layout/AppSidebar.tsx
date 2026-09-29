@@ -3,7 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth, createSupabaseBrowserClient } from '@suka/auth'
+import { useAuth } from '@suka/auth'
 import { useOutletScope } from '@/hooks/useOutletScope'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { useApprovalList } from '@/hooks/usePermintaan'
@@ -11,8 +11,8 @@ import { useMutasiBadge } from '@/hooks/useMutasi'
 import { canViewPermintaanQueue, canCatatTerimaVendor, canLihatNotaVendor } from '@/lib/stok/approver'
 import { canLihatKirimanVendor } from '@/lib/stok/kirimanVendor'
 import * as navAccess from '@/lib/stok/navAccess'
-import { useQuery } from '@tanstack/react-query'
-import { fetchPendingWasteReports } from '@/app/actions/waste'
+import { usePendingWasteCount } from '@/hooks/useWaste'
+import { useInboundPoBadge } from '@/hooks/useInboundPoBadge'
 import {
   LayoutDashboard,
   Tag,
@@ -102,32 +102,11 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const { permintaan } = useApprovalList(isApprover)
   const pendingApprovalsCount = permintaan.length
 
-  // 2. Pending Waste Reports
-  const { data: pendingWaste = [] } = useQuery<any[]>({
-    queryKey: ['sidebar-pending-waste'],
-    queryFn: () => fetchPendingWasteReports(),
-    enabled: canApproveWaste,
-    staleTime: 30000,
-  })
-  const pendingWasteCount = pendingWaste.length
+  // 2. Pending Waste Reports — head count, kunci bersama dengan bottom nav
+  const pendingWasteCount = usePendingWasteCount(canApproveWaste)
 
-  // 3. Pending Inbound POs
-  const { data: inboundPos = [] } = useQuery({
-    queryKey: ['sidebar-inbound-pos'],
-    queryFn: async () => {
-      const supabase = createSupabaseBrowserClient()
-      const { data, error } = await supabase.rpc('get_purchase_orders', {
-        p_from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
-        p_to: new Date().toISOString().split('T')[0],
-        p_status: null
-      })
-      if (error) return []
-      return (data ?? []).filter((p: any) => p.status === 'dikirim_ke_supplier' || p.status === 'sebagian_diterima')
-    },
-    enabled: canReceivePO,
-    staleTime: 30000,
-  })
-  const inboundPosCount = inboundPos.length
+  // 3. Pending Inbound POs — kunci bersama dengan bottom nav
+  const inboundPosCount = useInboundPoBadge(canReceivePO)
 
   // 4. Pending Actionable Mutasi Antar Outlet (Realtime)
   const { badgeCount: pendingMutasiCount } = useMutasiBadge(targetOutletId)

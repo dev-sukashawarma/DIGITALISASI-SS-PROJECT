@@ -20,8 +20,7 @@ import { useApprovalList } from '@/hooks/usePermintaan';
 import { Skeleton } from '@suka/design-system';
 import { RefreshCw, Search, X, Bell, CheckCircle2, Trash2, Store, RotateCcw } from 'lucide-react';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
-import { fetchPendingWasteReports } from '@/app/actions/waste';
-import { useQuery } from '@tanstack/react-query';
+import { usePendingWasteCount } from '@/hooks/useWaste';
 import { updateThresholdAction } from '@/app/actions/threshold';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { useDaftarRetur } from '@/hooks/useRetur';
@@ -119,12 +118,10 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Pending request approvals hook
   const { permintaan: pendingApprovals } = useApprovalList(canSeeApproval);
 
-  const { data: pendingWaste } = useQuery({
-    queryKey: ['waste_pending_all'],
-    queryFn: () => fetchPendingWasteReports(),
-    enabled: canSeeWasteApproval,
-    refetchInterval: 30000
-  });
+  // Hanya jumlahnya yang dipakai (badge & notifikasi) — head count lewat
+  // kunci bersama, bukan tarik seluruh laporan pending. Polling 30 dtk
+  // dipertahankan seperti sebelumnya (kini kueri count ringan).
+  const pendingWasteCount = usePendingWasteCount(canSeeWasteApproval, { refetchInterval: 30000 });
 
   // Pending retur refund approvals hook (AM/RM/Admin/Owner)
   const isManagerRole = ['area_manager', 'regional_manager', 'spv', 'admin', 'owner', 'developer'].includes(outletStaff?.role ?? '');
@@ -189,7 +186,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return items.filter(it => it.status === 'below');
   }, [items]);
 
-  const totalNotificationCount = criticalAlertItems.length + pendingApprovals.length + (pendingWaste?.length || 0) + pendingReturCount;
+  const totalNotificationCount = criticalAlertItems.length + pendingApprovals.length + pendingWasteCount + pendingReturCount;
 
   // Stats computations for the selected outlet
   const currentOutletItems = useMemo(() => {
@@ -493,7 +490,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         alertCount={criticalCount}
         approvalCount={pendingApprovals.length}
         returApprovalCount={pendingReturCount}
-        wasteApprovalCount={pendingWaste?.length ?? 0}
+        wasteApprovalCount={pendingWasteCount}
         showApproval={canSeeApproval}
         showBudgetOutlet={navAccess.canViewBudgetOutlet(role)}
         showWasteApproval={navAccess.canViewWasteList(role)}

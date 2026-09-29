@@ -20,7 +20,11 @@ describe('staffFilters - isTestOrDevStaff', () => {
     expect(isTestOrDevStaff({ name: 'Kiosk Outlet', role: 'kiosk', account_category: 'employee' })).toBe(true)
     expect(isTestOrDevStaff({ name: 'Mitra Franchise', role: 'mitra', account_category: 'employee' })).toBe(true)
     expect(isTestOrDevStaff({ name: 'Owner Toko', role: 'owner', account_category: 'employee' })).toBe(true)
-    expect(isTestOrDevStaff({ name: 'Lead Dev', role: 'developer', account_category: 'employee' })).toBe(true)
+  })
+
+  it('shows developer role as a regular employee', () => {
+    expect(isTestOrDevStaff({ name: 'Maulana Yusuf', username: 'maulanay99', role: 'developer', account_category: 'employee' })).toBe(false)
+    expect(isTestOrDevStaff({ name: 'Rendy Developer', username: 'rendy', role: 'developer', account_category: 'employee' })).toBe(false)
   })
 
   it('hides accounts in test outlet or with test outlet name', () => {

@@ -12,8 +12,10 @@ export interface StaffFilterCandidate {
 }
 
 /**
- * Mendeteksi apakah staf adalah akun developer, devai bot, kiosk, mitra owner, atau akun testing dummy
+ * Mendeteksi apakah staf adalah akun devai bot, kiosk, mitra owner, atau akun testing dummy
  * agar disembunyikan dari dashboard HR tanpa menghapus data dari database.
+ * Role `developer` TIDAK disembunyikan: developer adalah karyawan kantor pusat biasa
+ * (absen, gaji, cuti) dan wajib tampil di seluruh dashboard HR.
  */
 export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   if (!s) return false
@@ -26,7 +28,7 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
 
   // 1. Role checks (non-operational employee roles)
   const role = (s.role || '').toLowerCase()
-  if (role === 'kiosk' || role === 'mitra' || role === 'owner' || role === 'developer') {
+  if (role === 'kiosk' || role === 'mitra' || role === 'owner') {
     return true
   }
 

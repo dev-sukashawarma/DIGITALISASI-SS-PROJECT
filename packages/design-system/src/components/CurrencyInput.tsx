@@ -10,19 +10,52 @@ interface CurrencyInputProps
   onChange: (value: number) => void
   /** Prefix shown before the formatted digits. Defaults to "Rp". Pass "" to omit. */
   prefix?: string
+  /** Max digits accepted; 12 = hundreds of billions, safely within Number precision. */
+  maxDigits?: number
+}
+
+/** Position in `formatted` right after its `n`-th digit (0 = start). */
+function caretAfterDigits(formatted: string, n: number): number {
+  if (n <= 0) return 0
+  let seen = 0
+  for (let i = 0; i < formatted.length; i++) {
+    if (/\d/.test(formatted[i]) && ++seen === n) return i + 1
+  }
+  return formatted.length
 }
 
 /**
  * Text input for Rupiah amounts that shows thousand separators live while typing
- * (e.g. "50.000") instead of a raw number, to reduce input mistakes.
+ * (e.g. "50.000") instead of a raw number, to reduce input mistakes. The caret stays
+ * next to the digit being edited even though separators are re-inserted on every key.
  */
 export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ label, className, value, onChange, prefix = 'Rp', ...props }, ref) => {
+  ({ label, className, value, onChange, prefix = 'Rp', maxDigits = 12, ...props }, ref) => {
     const numeric = typeof value === 'number' ? value : parseInt(value || '0', 10) || 0
     const display = numeric > 0 ? numeric.toLocaleString('id-ID') : (value === '' ? '' : '0')
 
+    const innerRef = React.useRef<HTMLInputElement | null>(null)
+    const setRefs = (el: HTMLInputElement | null) => {
+      innerRef.current = el
+      if (typeof ref === 'function') ref(el)
+      else if (ref) ref.current = el
+    }
+    // Digits left of the caret at the moment of the edit; restored after re-render.
+    const pendingCaret = React.useRef<number | null>(null)
+
+    React.useLayoutEffect(() => {
+      const el = innerRef.current
+      if (pendingCaret.current === null || !el || document.activeElement !== el) return
+      const pos = caretAfterDigits(display, pendingCaret.current)
+      el.setSelectionRange(pos, pos)
+      pendingCaret.current = null
+    }, [display])
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const digits = e.target.value.replace(/\D/g, '')
+      const raw = e.target.value
+      const caret = e.target.selectionStart ?? raw.length
+      const digits = raw.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, maxDigits)
+      pendingCaret.current = Math.min(raw.slice(0, caret).replace(/\D/g, '').length, digits.length)
       onChange(digits ? parseInt(digits, 10) : 0)
     }
 
@@ -40,9 +73,10 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
             </span>
           )}
           <input
-            ref={ref}
+            ref={setRefs}
             type="text"
             inputMode="numeric"
+            autoComplete="off"
             value={display}
             onChange={handleChange}
             className={cn(

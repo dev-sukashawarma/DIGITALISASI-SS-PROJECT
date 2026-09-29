@@ -10,7 +10,7 @@ import {
 import { useLeaveHistory, useLeaveBalance, useSubmitLeave, LeaveType } from "./api";
 import { useLeaveNotifications } from "./useLeaveNotifications";
 import { useToast } from "@/lib/feedback/toast";
-import { Select } from "@/components/Select";
+import { BottomSheet } from "@/components/BottomSheet";
 import {
   hitungRentang, pengajuanBentrok, cutiTerpakaiTahun, hariMenunggu, hariIniLokal, tambahHari, maksHari,
   formatHariTgl, formatHariTglTahun, formatNamaHari, formatBulan, tanggalKe, type RentangCuti,
@@ -185,15 +185,13 @@ export function CutiView() {
             </div>
           </div>
         </div>
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-suka-orange to-orange-500 hover:from-orange-600 hover:to-orange-500 text-white px-5 py-2.5 rounded-2xl text-sm font-bold transition-all shadow-xl shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5"
-          >
-            <Plus size={20} strokeWidth={2.5} />
-            Ajukan Cuti
-          </button>
-        )}
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center justify-center gap-2 bg-gradient-to-r from-suka-orange to-orange-500 hover:from-orange-600 hover:to-orange-500 text-white px-5 py-2.5 rounded-2xl text-sm font-bold transition-all shadow-xl shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5"
+        >
+          <Plus size={20} strokeWidth={2.5} />
+          Ajukan Cuti
+        </button>
       </div>
 
       {/* Quota Summary Bento Grid */}
@@ -243,38 +241,39 @@ export function CutiView() {
       </div>
 
       {/* Main Content Area */}
-      {showForm ? (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-500">
-          <div className="px-5 sm:px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">Form Pengajuan Cuti</h3>
-              <p className="text-sm text-slate-500 font-medium mt-1">Isi detail permohonan cuti atau izin Anda di bawah ini</p>
-            </div>
-            <button 
-              onClick={() => setShowForm(false)} 
-              className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+      <BottomSheet
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        title="Ajukan Cuti"
+        footer={
+          <div className="space-y-2">
+            {type === 'sick' && !file && (
+              <p className="text-xs font-medium text-slate-500 text-center">Lampirkan surat dokter untuk mengajukan sakit.</p>
+            )}
+            <button
+              type="submit"
+              form="form-pengajuan-cuti"
+              disabled={submitLeave.isPending || !!bentrok}
+              className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[15px] font-bold rounded-2xl transition-all shadow-lg shadow-blue-500/25"
             >
-              <X size={20} />
+              {submitLeave.isPending ? "Mengirim..." : "Ajukan"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="w-full h-11 text-[15px] font-bold text-blue-600 hover:bg-blue-50 rounded-2xl transition-colors"
+            >
+              Batal
             </button>
           </div>
-          
-          <form onSubmit={handleSubmit} className="p-5 sm:p-8 space-y-8">
-            <div className="space-y-6 max-w-3xl">
-              
+        }
+      >
+          <form id="form-pengajuan-cuti" onSubmit={handleSubmit} className="pt-1">
+            <div className="space-y-6">
+
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-700">Jenis Cuti / Izin <span className="text-rose-500">*</span></label>
-                <Select
-                  value={type}
-                  onChange={val => setType(val as LeaveType)}
-                  options={[
-                    { label: "Cuti Tahunan", value: "annual" },
-                    { label: "Sakit (dengan Surat Dokter)", value: "sick" },
-                    { label: "Izin Tidak Dibayar (Unpaid Leave)", value: "unpaid" },
-                    { label: "Cuti Melahirkan", value: "maternity" },
-                    { label: "Izin Lainnya", value: "other" }
-                  ]}
-                  className="w-full"
-                />
+                <PilihJenis value={type} onPilih={setType} />
               </div>
 
               {type === 'sick' && (
@@ -302,7 +301,6 @@ export function CutiView() {
                           }
                         }}
                         className="hidden"
-                        required
                       />
                     </label>
                   ) : (
@@ -362,26 +360,9 @@ export function CutiView() {
                 />
               </div>
             </div>
-
-            <div className="pt-6 mt-8 flex flex-col-reverse sm:flex-row items-center justify-end gap-3 sm:gap-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="w-full sm:w-auto px-6 py-3 text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900 rounded-2xl transition-all shadow-sm"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                disabled={submitLeave.isPending || !!bentrok}
-                className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-2xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5"
-              >
-                {submitLeave.isPending ? "Mengirim..." : "Kirim Pengajuan"}
-              </button>
-            </div>
           </form>
-        </div>
-      ) : (
+      </BottomSheet>
+
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
           <div className="px-5 sm:px-8 py-6 border-b border-slate-100 bg-white flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-900">Riwayat Pengajuan</h3>
@@ -464,7 +445,39 @@ export function CutiView() {
             </div>
           )}
         </div>
-      )}
+    </div>
+  );
+}
+
+const JENIS_CUTI: { label: string; value: LeaveType }[] = [
+  { label: "Cuti Tahunan", value: "annual" },
+  { label: "Sakit", value: "sick" },
+  { label: "Tidak Dibayar", value: "unpaid" },
+  { label: "Melahirkan", value: "maternity" },
+  { label: "Izin Lainnya", value: "other" },
+];
+
+/** Pilihan jenis sekali ketuk, gaya segmen seperti di app native. */
+function PilihJenis({ value, onPilih }: { value: LeaveType; onPilih: (v: LeaveType) => void }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 p-1 bg-slate-100 rounded-2xl" role="radiogroup" aria-label="Jenis cuti">
+      {JENIS_CUTI.map((j) => {
+        const aktif = value === j.value;
+        return (
+          <button
+            key={j.value}
+            type="button"
+            role="radio"
+            aria-checked={aktif}
+            onClick={() => onPilih(j.value)}
+            className={`min-w-0 px-2 py-2.5 rounded-xl text-sm font-bold truncate transition-all ${
+              aktif ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-100" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            {j.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

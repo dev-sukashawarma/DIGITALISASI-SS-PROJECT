@@ -1,17 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@suka/auth";
-import { 
-  CalendarDays, Clock, CheckCircle2, XCircle, Plus, Info, 
-  UploadCloud, FileImage, X, Activity, CheckSquare, Calendar, 
-  ChevronRight, AlertCircle
+import {
+  CalendarDays, Clock, CheckCircle2, XCircle, Plus, Info,
+  UploadCloud, FileImage, X, Activity, CheckSquare, Hourglass,
+  ChevronRight, AlertCircle, Minus, AlertTriangle
 } from "lucide-react";
 import { useLeaveHistory, useLeaveBalance, useSubmitLeave, LeaveType } from "./api";
 import { useLeaveNotifications } from "./useLeaveNotifications";
-import dayjs from "dayjs";
 import { useToast } from "@/lib/feedback/toast";
 import { Select } from "@/components/Select";
+import {
+  hitungRentang, pengajuanBentrok, cutiTerpakaiTahun, hariMenunggu, hariIniLokal, tambahHari, maksHari,
+  formatHariTgl, formatHariTglTahun, formatNamaHari, formatBulan, tanggalKe, type RentangCuti,
+} from "./rentangCuti";
 
 const convertToWebP = (file: File): Promise<File> => {
   return new Promise((resolve) => {
@@ -72,37 +75,54 @@ export function CutiView() {
   
   // Form State
   const [type, setType] = useState<LeaveType>('annual');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // null = belum disentuh: ikut jenis cuti (sakit biasanya mulai hari ini, cuti terencana
+  // mulai besok). Begitu dipilih manual, pilihan user tidak ditimpa lagi.
+  const [mulaiPilihan, setMulaiPilihan] = useState<string | null>(null);
+  const [hari, setHari] = useState(1);
   const [reason, setReason] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
-  const availableQuota = balance ? (balance.total_quota - balance.used_quota) : 12; // fallback to 12 if no record yet
+  const hariIni = useMemo(() => hariIniLokal(), [showForm]);
+  const mulai = mulaiPilihan ?? (type === 'sick' ? hariIni : tambahHari(hariIni, 1));
+  const maks = maksHari(type);
+  const jumlahHari = Math.min(hari, maks);
+  // Pratinjau, cek bentrok, dan ringkasan kuota dihitung dari data yang sudah ada di
+  // layar — nol query tambahan setiap kali user mengubah tanggal atau jumlah hari.
+  const rentang = useMemo(() => hitungRentang(mulai, jumlahHari), [mulai, jumlahHari]);
+  const bentrok = useMemo(() => pengajuanBentrok(rentang, history ?? []), [rentang, history]);
+  const terpakai = useMemo(() => cutiTerpakaiTahun(history ?? [], currentYear), [history, currentYear]);
+  const menunggu = useMemo(() => hariMenunggu(history ?? []), [history]);
+
+  const resetForm = () => {
+    setMulaiPilihan(null);
+    setHari(1);
+    setReason('');
+    setType('annual');
+    setFile(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!startDate || !endDate || !reason) {
-      toast.show("err", "Mohon lengkapi semua form");
+    if (!reason.trim()) {
+      toast.show("err", "Mohon isi alasan pengajuan");
       return;
     }
     if (type === 'sick' && !file) {
       toast.show("err", "Mohon lampirkan surat dokter");
       return;
     }
-    if (dayjs(endDate).isBefore(dayjs(startDate))) {
-      toast.show("err", "Tanggal selesai tidak boleh sebelum tanggal mulai");
+    if (bentrok) {
+      toast.show("err", "Tanggalnya bertabrakan dengan pengajuan lain");
       return;
     }
-
-    const numDays = dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
 
     try {
       await submitLeave.mutateAsync({
         staff_id: userId,
         leave_type: type,
-        start_date: startDate,
-        end_date: endDate,
-        days: numDays,
+        start_date: rentang.mulai,
+        end_date: rentang.selesai,
+        days: rentang.hari,
         reason,
         status_spv: outletStaff?.role === 'staff_pusat' ? 'not_required' : 'pending',
         status: 'pending',
@@ -110,12 +130,7 @@ export function CutiView() {
       });
       toast.show("ok", "Pengajuan cuti berhasil dikirim");
       setShowForm(false);
-      // Reset form
-      setStartDate('');
-      setEndDate('');
-      setReason('');
-      setType('annual');
-      setFile(null);
+      resetForm();
     } catch (err) {
       console.error("Submit Leave Error:", JSON.stringify(err));
       const errorMessage = (err as any)?.message || (err as any)?.details || "Unknown error";
@@ -186,26 +201,26 @@ export function CutiView() {
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-slate-50 rounded-full transition-transform group-hover:scale-110" />
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
-              <Calendar className="text-slate-600" size={20} strokeWidth={2.5}/>
+            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center mb-4">
+              <Hourglass className="text-amber-600" size={20} strokeWidth={2.5}/>
             </div>
-            <p className="text-sm font-semibold text-slate-500 mb-1">Total Kuota Tahunan</p>
+            <p className="text-sm font-semibold text-slate-500 mb-1">Menunggu Persetujuan</p>
             <div className="flex items-baseline gap-1.5">
-              <p className="text-4xl font-extrabold text-slate-800">{balance?.total_quota ?? 12}</p>
+              <p className="text-4xl font-extrabold text-slate-800">{menunggu}</p>
               <span className="text-sm font-semibold text-slate-400">hari</span>
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-rose-50/50 rounded-full transition-transform group-hover:scale-110" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center mb-4">
               <Activity className="text-rose-600" size={20} strokeWidth={2.5}/>
             </div>
-            <p className="text-sm font-semibold text-slate-500 mb-1">Cuti Terpakai</p>
+            <p className="text-sm font-semibold text-slate-500 mb-1">Terpakai {currentYear}</p>
             <div className="flex items-baseline gap-1.5">
-              <p className="text-4xl font-extrabold text-slate-800">{balance?.used_quota ?? 0}</p>
+              <p className="text-4xl font-extrabold text-slate-800">{terpakai}</p>
               <span className="text-sm font-semibold text-slate-400">hari</span>
             </div>
           </div>
@@ -220,7 +235,7 @@ export function CutiView() {
             </div>
             <p className="text-sm font-medium text-blue-100 mb-1">Sisa Kuota Tersedia</p>
             <div className="flex items-baseline gap-1.5">
-              <p className="text-5xl font-black">{availableQuota}</p>
+              <p className="text-5xl font-black">{balance?.sisa_quota ?? "–"}</p>
               <span className="text-base font-semibold text-blue-200">hari</span>
             </div>
           </div>
@@ -318,29 +333,22 @@ export function CutiView() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-slate-700">Tanggal Mulai <span className="text-rose-500">*</span></label>
-                  <input
-                    type="date"
-                    required
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-slate-700">Tanggal Selesai <span className="text-rose-500">*</span></label>
-                  <input
-                    type="date"
-                    required
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={startDate}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all"
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-700">Mulai</label>
+                <PilihMulai hariIni={hariIni} mulai={mulai} onPilih={setMulaiPilihan} />
               </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-700">Berapa hari?</label>
+                <PengaturHari hari={jumlahHari} maks={maks} onUbah={setHari} />
+              </div>
+
+              <PratinjauRentang
+                rentang={rentang}
+                tahunIni={currentYear}
+                sisaKuota={balance?.sisa_quota ?? null}
+                bentrok={bentrok}
+              />
               
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-700">Alasan / Keterangan <span className="text-rose-500">*</span></label>
@@ -365,7 +373,7 @@ export function CutiView() {
               </button>
               <button
                 type="submit"
-                disabled={submitLeave.isPending}
+                disabled={submitLeave.isPending || !!bentrok}
                 className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-2xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-0.5"
               >
                 {submitLeave.isPending ? "Mengirim..." : "Kirim Pengajuan"}
@@ -407,11 +415,15 @@ export function CutiView() {
                       
                       <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-500 mb-4 bg-slate-100 w-fit px-3 py-1.5 rounded-xl">
                         <CalendarDays size={16} className="text-slate-400"/>
-                        {dayjs(item.start_date).format('DD MMM YYYY')} 
-                        <ChevronRight size={14} className="text-slate-400" /> 
-                        {dayjs(item.end_date).format('DD MMM YYYY')}
+                        {formatHariTglTahun(item.start_date)}
+                        {item.end_date !== item.start_date && (
+                          <>
+                            <ChevronRight size={14} className="text-slate-400" />
+                            {formatHariTglTahun(item.end_date)}
+                          </>
+                        )}
                         <span className="ml-1 text-blue-600 font-bold bg-blue-100 px-2 py-0.5 rounded-md shadow-sm">
-                          {dayjs(item.end_date).diff(dayjs(item.start_date), 'day') + 1} Hari
+                          {item.days} Hari
                         </span>
                       </div>
 
@@ -451,6 +463,155 @@ export function CutiView() {
               </button>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Hari ini / Besok / Lusa sekali ketuk; opsi keempat membuka kalender bawaan browser
+ *  dan menampilkan tanggal pilihan bila bukan salah satu dari tiga itu. */
+function PilihMulai({ hariIni, mulai, onPilih }: { hariIni: string; mulai: string; onPilih: (iso: string) => void }) {
+  const kalender = useRef<HTMLInputElement>(null);
+  const cepat = [
+    { label: "Hari ini", tgl: hariIni },
+    { label: "Besok", tgl: tambahHari(hariIni, 1) },
+    { label: "Lusa", tgl: tambahHari(hariIni, 2) },
+  ];
+  const lainnya = !cepat.some((c) => c.tgl === mulai);
+  const kelas = (aktif: boolean) =>
+    `flex-1 min-w-0 px-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+      aktif ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-100" : "text-slate-500 hover:text-slate-800"
+    }`;
+
+  return (
+    <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl" role="radiogroup" aria-label="Tanggal mulai">
+      {cepat.map((c) => (
+        <button key={c.label} type="button" role="radio" aria-checked={mulai === c.tgl} onClick={() => onPilih(c.tgl)} className={kelas(mulai === c.tgl)}>
+          {c.label}
+        </button>
+      ))}
+      <div className="relative flex-[1.2] min-w-0 flex">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={lainnya}
+          onClick={() => {
+            const el = kalender.current;
+            if (!el) return;
+            // showPicker belum ada di browser lama — fokus membuka picker di sebagian besar ponsel.
+            try { el.showPicker(); } catch { el.focus(); }
+          }}
+          className={`${kelas(lainnya)} flex items-center justify-center gap-1.5`}
+        >
+          <CalendarDays size={15} className="shrink-0" />
+          <span className="truncate">{lainnya ? formatHariTgl(mulai) : "Lainnya"}</span>
+        </button>
+        <input
+          ref={kalender}
+          type="date"
+          value={mulai}
+          onChange={(e) => e.target.value && onPilih(e.target.value)}
+          tabIndex={-1}
+          aria-hidden
+          className="absolute inset-0 w-full opacity-0 pointer-events-none"
+        />
+      </div>
+    </div>
+  );
+}
+
+const PINTASAN_HARI = [1, 2, 3, 5, 7];
+
+/** Stepper −/+ untuk penyesuaian halus, plus pintasan jumlah hari yang paling sering. */
+function PengaturHari({ hari, maks, onUbah }: { hari: number; maks: number; onUbah: (n: number) => void }) {
+  const tombol =
+    "w-11 h-11 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-blue-600 transition-all hover:bg-blue-50 disabled:text-slate-300 disabled:hover:bg-white disabled:cursor-not-allowed";
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded-2xl">
+        <button type="button" className={tombol} onClick={() => onUbah(Math.max(1, hari - 1))} disabled={hari <= 1} aria-label="Kurangi hari">
+          <Minus size={18} strokeWidth={2.5} />
+        </button>
+        <div className="flex-1 flex items-baseline justify-center gap-1.5" aria-live="polite">
+          <span key={hari} className="text-3xl font-extrabold text-slate-900 tabular-nums animate-in fade-in zoom-in-90 duration-150">
+            {hari}
+          </span>
+          <span className="text-sm font-semibold text-slate-400">hari</span>
+        </div>
+        <button type="button" className={tombol} onClick={() => onUbah(Math.min(maks, hari + 1))} disabled={hari >= maks} aria-label="Tambah hari">
+          <Plus size={18} strokeWidth={2.5} />
+        </button>
+      </div>
+      <div className="grid grid-cols-5 gap-2">
+        {PINTASAN_HARI.map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onUbah(n)}
+            className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+              hari === n ? "bg-blue-600 border-blue-600 text-white shadow-sm" : "bg-white border-slate-200 text-slate-600 hover:border-blue-300"
+            }`}
+          >
+            {n} hari
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Pratinjau yang ikut berubah seketika: rentang tanggal, tanggal masuk kembali, deretan
+ *  hari yang dipakai, dampaknya ke sisa kuota, dan peringatan bila bertabrakan. */
+function PratinjauRentang({
+  rentang,
+  tahunIni,
+  sisaKuota,
+  bentrok,
+}: {
+  rentang: RentangCuti;
+  tahunIni: number;
+  sisaKuota: number | null;
+  bentrok: { leave_type: string; start_date: string; end_date: string } | null;
+}) {
+  const bahaya = !!bentrok;
+  const fmtSelesai = rentang.selesai.startsWith(`${tahunIni}-`) ? formatHariTgl : formatHariTglTahun;
+  const sisaSetelah = sisaKuota === null ? null : sisaKuota - rentang.hari;
+
+  return (
+    <div className={`rounded-2xl p-4 sm:p-5 border transition-colors ${bahaya ? "bg-rose-50/60 border-rose-100" : "bg-blue-50/50 border-blue-100"}`}>
+      <p className="text-base sm:text-lg font-extrabold text-slate-900">
+        {rentang.hari === 1
+          ? formatHariTglTahun(rentang.mulai)
+          : `${formatHariTgl(rentang.mulai)}  –  ${fmtSelesai(rentang.selesai)}`}
+      </p>
+      <p className="text-sm font-medium text-slate-500 mt-0.5">Masuk kembali {formatHariTgl(rentang.masukKembali)}</p>
+
+      <div className="flex gap-1.5 overflow-x-auto mt-4 pb-1 -mx-1 px-1">
+        {rentang.tanggal.map((tgl) => (
+          <div key={tgl} className="shrink-0 w-12 py-1.5 rounded-xl bg-white shadow-sm border border-slate-100 flex flex-col items-center animate-in fade-in duration-200">
+            <span className="text-[11px] font-semibold text-slate-400">{formatNamaHari(tgl)}</span>
+            <span className={`text-base font-extrabold ${bahaya ? "text-rose-600" : "text-blue-700"}`}>{tanggalKe(tgl)}</span>
+            <span className="text-[11px] font-semibold text-slate-400">{formatBulan(tgl)}</span>
+          </div>
+        ))}
+      </div>
+
+      {sisaSetelah !== null && (
+        <p className={`text-sm font-semibold mt-3 ${sisaSetelah >= 0 ? "text-slate-500" : "text-amber-700"}`}>
+          {sisaSetelah >= 0
+            ? `Sisa kuota ${sisaKuota} hari → ${sisaSetelah} hari bila disetujui`
+            : `Melebihi sisa kuota (${sisaKuota} hari) — keputusan ada di HR.`}
+        </p>
+      )}
+
+      {bentrok && (
+        <div className="mt-3 flex items-start gap-2 text-sm font-semibold text-rose-700">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>
+            Bertabrakan dengan pengajuan {formatHariTglTahun(bentrok.start_date)} – {formatHariTglTahun(bentrok.end_date)}.
+            Geser tanggal mulai atau kurangi hari.
+          </span>
         </div>
       )}
     </div>

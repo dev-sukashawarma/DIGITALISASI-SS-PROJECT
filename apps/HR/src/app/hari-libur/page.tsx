@@ -14,6 +14,7 @@ import {
   hapusHariLiburManual,
   pastikanHariLiburTerbaru,
   setHariLiburAktif,
+  setRoleLiburKantor,
   sinkronkanHariLibur,
   tambahHariLibur,
 } from '@/app/actions/hariLibur'
@@ -32,6 +33,24 @@ const JENIS_LABEL: Record<HariLibur['jenis'], { label: string; cls: string }> = 
   cuti_bersama: { label: 'Cuti Bersama', cls: 'bg-orange-50 text-orange-700 border-orange-200' },
   manual: { label: 'Libur Perusahaan', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
 }
+
+// Pilihan role yang bisa diberi libur otomatis (Minggu & tanggal merah)
+const ROLE_OPSI: { value: string; label: string }[] = [
+  { value: 'staff_pusat', label: 'Staff Pusat' },
+  { value: 'developer', label: 'Developer' },
+  { value: 'admin_hr', label: 'Admin HR' },
+  { value: 'admin_finance', label: 'Admin Finance' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'purchasing', label: 'Purchasing' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'regional_manager', label: 'Regional Manager' },
+  { value: 'area_manager', label: 'Area Manager' },
+  { value: 'spv', label: 'SPV' },
+  { value: 'leader', label: 'Leader' },
+  { value: 'kitchen', label: 'Kitchen' },
+  { value: 'driver', label: 'Driver' },
+  { value: 'crew', label: 'Crew' },
+]
 
 function formatTanggal(iso: string) {
   return new Date(`${iso}T00:00:00+07:00`).toLocaleDateString('id-ID', {
@@ -71,6 +90,25 @@ export default function HariLiburPage() {
     },
   })
 
+  const { data: roleLibur = [] } = useQuery<string[]>({
+    queryKey: ['role-libur-kantor'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc('hr_role_libur_kantor')
+      if (error) throw error
+      return (data ?? []) as string[]
+    },
+  })
+
+  const toggleRole = (role: string) => {
+    const next = roleLibur.includes(role) ? roleLibur.filter((r) => r !== role) : [...roleLibur, role]
+    jalankan(async () => {
+      const r = await setRoleLiburKantor(next)
+      await qc.invalidateQueries({ queryKey: ['role-libur-kantor'] })
+      return r
+    })
+  }
+
   const tahunOptions = useMemo(
     () => [tahunIni - 1, tahunIni, tahunIni + 1].map((y) => ({ label: String(y), value: String(y) })),
     [tahunIni]
@@ -94,7 +132,7 @@ export default function HariLiburPage() {
     <div className="space-y-6">
       <PageHeader
         title="Hari Libur &amp; Tanggal Merah"
-        description="Minggu dan tanggal merah tidak dihitung alfa. Data diambil otomatis dari kalender resmi hari libur Indonesia."
+        description="Minggu dan tanggal merah untuk role kantor. Tanggal merah diambil otomatis dari kalender resmi hari libur Indonesia."
       >
         <Button
           type="button"
@@ -111,13 +149,42 @@ export default function HariLiburPage() {
         <Info size={16} className="shrink-0 mt-0.5" />
         <div className="space-y-1">
           <p>
-            <strong>Aturan alfa:</strong> hari kerja (bukan Minggu &amp; bukan tanggal merah aktif) tanpa absen dan
-            tanpa cuti/izin/sakit yang disetujui. Dihitung otomatis tiap malam pukul 00.10 WIB.
+            <strong>Aturan alfa:</strong> hari kerja tanpa absen dan tanpa cuti/izin/sakit yang disetujui. Dihitung
+            otomatis tiap malam pukul 00.10 WIB.
           </p>
           <p>
-            Matikan sebuah tanggal bila outlet tetap beroperasi normal (mis. cuti bersama) — karyawan yang tidak
-            masuk di tanggal itu akan dihitung alfa. Perubahan langsung menghitung ulang data absensi.
+            <strong>Hari Minggu &amp; tanggal merah</strong> di bawah hanya libur untuk <strong>role kantor</strong> yang
+            dipilih. Crew &amp; staf outlet lain tetap wajib masuk (outlet beroperasi normal) — tidak masuk tanpa izin
+            dihitung alfa.
           </p>
+        </div>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm space-y-2.5">
+        <p className="text-xs font-bold text-suka-brown">
+          Role yang libur di hari Minggu &amp; tanggal merah{' '}
+          <span className="font-medium text-suka-gray-500">(klik untuk mengubah — alfa langsung dihitung ulang)</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {ROLE_OPSI.map((r) => {
+            const aktif = roleLibur.includes(r.value)
+            return (
+              <button
+                key={r.value}
+                type="button"
+                disabled={busy}
+                onClick={() => toggleRole(r.value)}
+                className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors cursor-pointer ${
+                  aktif
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                    : 'bg-white text-suka-gray-500 border-suka-gray-200 hover:bg-stone-50'
+                }`}
+              >
+                {aktif ? '✓ ' : ''}
+                {r.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 

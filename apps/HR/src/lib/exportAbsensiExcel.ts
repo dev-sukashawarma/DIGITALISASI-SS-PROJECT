@@ -314,7 +314,7 @@ export async function exportAbsensiExcel(rows: AttendanceLog[], meta: ExportAbse
   }
   const catatan = ringkas.addRow([
     '',
-    'Alfa = hari kerja (bukan Minggu/tanggal merah) tanpa absen & tanpa izin/sakit/cuti yang disetujui.',
+    'Alfa = hari kerja tanpa absen & tanpa izin/sakit/cuti yang disetujui. Minggu & tanggal merah libur hanya untuk role kantor; crew/outlet tetap hari kerja.',
   ])
   catatan.getCell(2).font = { italic: true, size: 9, color: { argb: 'FF78716C' } }
 

@@ -29,6 +29,9 @@ jadi status ini harus **dihitung**, bukan dicatat oleh pengguna.
    - hanya hari yang **sudah lewat** (hari ini belum selesai)
    - tanggal mulai pelacakan bisa diatur (`global_settings`)
    - hari libur dari **tabel** (bukan hardcode) yang bisa dikoreksi HR
+   - hari libur **per kelompok peran**: di HR, Minggu & tanggal merah hanya libur untuk role
+     kantor (`global_settings.hr.role_libur_kantor`); outlet F&B tetap hari kerja. Data absensi
+     membuktikan outlet buka normal di Minggu/tanggal merah (40–49 orang absen)
 6. **Ukur dulu sebelum menerapkan**: bedah siapa saja yang kena (per role, per jumlah hari
    masuk, sebelum/sesudah tanggal mulai pakai). Di HR, 408 dari 1.044 alfa ternyata palsu.
 

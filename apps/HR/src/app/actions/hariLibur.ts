@@ -154,3 +154,22 @@ export async function hapusHariLiburManual(tanggal: string): Promise<Hasil> {
     return { ok: false, error: e instanceof Error ? e.message : 'Gagal menghapus' }
   }
 }
+
+/**
+ * Role yang libur otomatis di hari Minggu & tanggal merah (global_settings
+ * `hr.role_libur_kantor`). Role lain (crew/outlet) tetap wajib masuk.
+ * Perubahan memicu hitung ulang alfa di database (trigger).
+ */
+export async function setRoleLiburKantor(roles: string[]): Promise<Hasil> {
+  try {
+    await requireRole(HR_ROLES)
+    const bersih = Array.from(new Set(roles.map((r) => r.trim()).filter((r) => /^[a-z_]+$/.test(r))))
+    const { error } = await adminDb()
+      .from('global_settings')
+      .upsert({ key: 'hr.role_libur_kantor', value: bersih, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    if (error) throw error
+    return { ok: true, message: 'Pengaturan disimpan, alfa dihitung ulang' }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Gagal menyimpan' }
+  }
+}

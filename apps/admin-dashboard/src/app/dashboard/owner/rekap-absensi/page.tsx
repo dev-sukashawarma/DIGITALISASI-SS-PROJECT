@@ -17,7 +17,13 @@ export default async function RekapAbsensiOwnerPage({ searchParams }: { searchPa
   const sp = await searchParams
 
   const userId = await getVerifiedUserId(supabase)
-  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', userId || '').single()
+  const [{ data: profile }, { data: staff }] = await Promise.all([
+    supabase.from('users').select('role, outlet_id').eq('id', userId || '').maybeSingle(),
+    supabase.from('outlet_staff').select('role, status').eq('id', userId || '').maybeSingle(),
+  ])
+  // Sama dengan penjaga RPC koreksi_absensi / hapus_absensi (boleh_koreksi_absensi()).
+  const canEdit =
+    staff?.status === 'active' && ['owner', 'admin', 'admin_hr', 'developer'].includes(staff?.role ?? '')
   const isReadOnly = profile?.role === 'MITRA'
   const lockedOutletId = isReadOnly ? profile?.outlet_id : null
 
@@ -48,6 +54,7 @@ export default async function RekapAbsensiOwnerPage({ searchParams }: { searchPa
       outlets={scopedOutlets}
       lockedOutletId={lockedOutletId}
       attendanceRecords={attendanceRecords}
+      canEdit={canEdit}
     />
   )
 }

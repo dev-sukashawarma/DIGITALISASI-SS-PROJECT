@@ -13,6 +13,7 @@ interface RekapAbsensiPageClientProps {
   outlets: Outlet[]
   lockedOutletId: string | null
   attendanceRecords: AttendanceRecordExt[]
+  canEdit: boolean
 }
 
 export default function RekapAbsensiPageClient({
@@ -20,6 +21,7 @@ export default function RekapAbsensiPageClient({
   outlets,
   lockedOutletId,
   attendanceRecords,
+  canEdit,
 }: RekapAbsensiPageClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -81,6 +83,7 @@ export default function RekapAbsensiPageClient({
           onOutletChange={handleOutletSelect}
           dateFrom={filter.from}
           dateTo={filter.to}
+          canEdit={canEdit}
         />
       </div>
     </div>

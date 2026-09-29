@@ -13,10 +13,13 @@ import {
   UserCheck,
   ImageOff,
   LogOut,
-  Smartphone
+  Smartphone,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import type { Outlet } from '@/lib/types'
 import { StealthPhotoModal, type StealthPhotoInfo } from './StealthPhotoModal'
+import { EditAttendanceModal, DeleteAttendanceModal } from './AttendanceEditModals'
 
 export interface AttendanceRecordExt {
   id: string
@@ -47,6 +50,14 @@ export interface AttendanceRecordExt {
   gps_lat_out?: number | null
   gps_lng_out?: number | null
   clock_out_source?: 'web' | 'native'
+  /** Status mentah baris 'in' (tepat/telat/telat_toleransi/alpha) — untuk form edit. */
+  in_status_raw?: string | null
+  /** Jam shift yang tercatat saat absen (HH:MM) — dasar saran status & menit telat. */
+  shift_jam_masuk?: string | null
+  shift_jam_keluar?: string | null
+  /** Baris dibuat/ditekan manual (bukan kiosk wajah). */
+  in_manual?: boolean
+  out_manual?: boolean
 }
 
 interface AttendanceReportViewProps {
@@ -56,6 +67,8 @@ interface AttendanceReportViewProps {
   onOutletChange: (outletId: string) => void
   dateFrom: string
   dateTo: string
+  /** Tampilkan kolom Aksi (edit/hapus). Gerbang sebenarnya di RPC database. */
+  canEdit?: boolean
 }
 
 export function AttendanceReportView({
@@ -65,10 +78,13 @@ export function AttendanceReportView({
   onOutletChange,
   dateFrom,
   dateTo,
+  canEdit = false,
 }: AttendanceReportViewProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [activePhoto, setActivePhoto] = useState<StealthPhotoInfo | null>(null)
+  const [editRow, setEditRow] = useState<AttendanceRecordExt | null>(null)
+  const [deleteRow, setDeleteRow] = useState<AttendanceRecordExt | null>(null)
   // Ketik di kotak cari tetap responsif walau tabel ratusan baris.
   const deferredSearch = useDeferredValue(searchQuery)
 
@@ -223,12 +239,13 @@ export function AttendanceReportView({
                 <th className="p-3.5 text-center">Jam Pulang &amp; Foto Kamera</th>
                 <th className="p-3.5">Status Masuk</th>
                 <th className="p-3.5">Status Pulang &amp; Durasi</th>
+                {canEdit && <th className="p-3.5 text-center print:hidden">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
+                  <td colSpan={canEdit ? 7 : 6} className="p-8 text-center text-slate-400">
                     Tidak ada rekap absensi yang sesuai filter.
                   </td>
                 </tr>
@@ -458,6 +475,27 @@ export function AttendanceReportView({
                         <span className="text-slate-400 text-[11px] font-medium">-</span>
                       )}
                     </td>
+
+                    {canEdit && (
+                      <td className="p-3.5 print:hidden">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setEditRow(row)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:border-suka-orange hover:text-suka-orange transition-colors"
+                            title="Edit jam & status absensi"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteRow(row)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-50 transition-colors"
+                            title="Hapus absensi hari ini untuk staf ini"
+                          >
+                            <Trash2 size={12} /> Hapus
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -468,6 +506,24 @@ export function AttendanceReportView({
 
       {/* Lightbox Modal */}
       <StealthPhotoModal photo={activePhoto} onClose={() => setActivePhoto(null)} />
+
+      {editRow && (
+        <EditAttendanceModal
+          key={editRow.id}
+          row={editRow}
+          outlets={outlets}
+          dateLabel={formatDate(editRow.date)}
+          onClose={() => setEditRow(null)}
+        />
+      )}
+      {deleteRow && (
+        <DeleteAttendanceModal
+          key={deleteRow.id}
+          row={deleteRow}
+          dateLabel={formatDate(deleteRow.date)}
+          onClose={() => setDeleteRow(null)}
+        />
+      )}
     </div>
   )
 }

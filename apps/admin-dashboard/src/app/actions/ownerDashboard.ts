@@ -826,7 +826,33 @@ export async function getPettyCashData(
 
 /* ── Fetch REAL Attendance Rekap & Stealth Photos from `attendance` ──── */
 
-const ATTENDANCE_REPORT_COLS = 'id, outlet_staff_id, outlet_id, type, ts_server, selfie_url, source, gps_lat, gps_lng, status, telat_menit'
+const ATTENDANCE_REPORT_COLS =
+  'id, outlet_staff_id, outlet_id, type, ts_server, selfie_url, source, gps_lat, gps_lng, status, telat_menit, shift_jam_masuk, shift_jam_keluar, is_manual_button'
+
+/** Batas atas baris `attendance` per permintaan (50 halaman × 1.000). Rentang wajar
+ *  (≤ 1 bulan, ±300 baris/hari) jauh di bawahnya. */
+const ATTENDANCE_PAGE_SIZE = 1000
+const ATTENDANCE_MAX_PAGES = 50
+
+/**
+ * Ambil semua halaman — PostgREST memotong di 1.000 baris tanpa error; dulu
+ * "Bulan ini" (±9.000 baris) diam-diam hanya menampilkan ±3 hari terakhir.
+ * Urutan (ts_server, id) unik → halaman tidak tumpang-tindih/terlewat.
+ */
+async function fetchAllAttendance(build: () => any): Promise<any[]> {
+  const rows: any[] = []
+  for (let page = 0; page < ATTENDANCE_MAX_PAGES; page++) {
+    const from = page * ATTENDANCE_PAGE_SIZE
+    const { data, error } = await build()
+      .order('ts_server', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, from + ATTENDANCE_PAGE_SIZE - 1)
+    if (error) throw error
+    rows.push(...(data || []))
+    if (!data || data.length < ATTENDANCE_PAGE_SIZE) break
+  }
+  return rows
+}
 
 export async function getAttendanceReportData(
   filter: PeriodFilterValue,
@@ -846,40 +872,38 @@ export async function getAttendanceReportData(
     }
   })
 
-  // 1. Fetch Staff & Outlets for Mapping
-  const [{ data: staffList }, { data: outletsList }] = await Promise.all([
-    supabase.from('outlet_staff').select('id, name, role').limit(1000),
-    supabase.from('outlets').select('id, name').limit(500)
-  ])
-
-  const staffMap = new Map((staffList || []).map((s) => [s.id, s]))
-  const outletMap = new Map((outletsList || []).map((o) => [o.id, o.name]))
-
-  // We will batch-sign the stealth photo URLs below to prevent server timeout
-  // 2. Query REAL table `attendance` (singular) where all stealth camera photos are recorded
-  let query = supabase
-    .from('attendance')
-    .select(ATTENDANCE_REPORT_COLS)
-    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
-    .order('ts_server', { ascending: false })
-    .limit(1000)
-
-  if (filter.from) {
-    query = query.gte('ts_server', `${filter.from}T00:00:00.000+07:00`)
+  const fromIso = filter.from ? `${filter.from}T00:00:00.000+07:00` : null
+  const toIso = filter.to ? `${filter.to}T23:59:59.999+07:00` : null
+  const withRange = (q: any) => {
+    if (fromIso) q = q.gte('ts_server', fromIso)
+    if (toIso) q = q.lte('ts_server', toIso)
+    return q
   }
-  if (filter.to) {
-    query = query.lte('ts_server', `${filter.to}T23:59:59.999+07:00`)
-  }
-  if (filter.outletId && filter.outletId !== 'all') {
-    query = query.eq('outlet_id', filter.outletId)
-  }
+  const perOutlet = !!filter.outletId && filter.outletId !== 'all'
 
-  const { data: outletRows, error } = await query
-
-  if (error || !outletRows) {
+  // 1. Absensi (idx_attendance_outlet_ts / idx_attendance_staff_ts) paralel dengan
+  //    nama outlet — keduanya tidak saling bergantung.
+  let outletRows: any[]
+  let outletsList: { id: string; name: string }[] | null
+  try {
+    const [rows, outletsRes] = await Promise.all([
+      fetchAllAttendance(() => {
+        let q = withRange(
+          supabase.from('attendance').select(ATTENDANCE_REPORT_COLS).neq('outlet_id', TEST_OUTLET_ID)
+        )
+        if (perOutlet) q = q.eq('outlet_id', filter.outletId)
+        return q
+      }),
+      supabase.from('outlets').select('id, name'),
+    ])
+    outletRows = rows
+    outletsList = outletsRes.data
+  } catch (error: any) {
     console.error('Error querying table attendance from DB:', error?.message)
     return []
   }
+
+  const outletMap = new Map((outletsList || []).map((o) => [o.id, o.name]))
 
   const wibDate = (ts: string | null) =>
     ts ? new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) : ''
@@ -888,53 +912,44 @@ export async function getAttendanceReportData(
   // Saat difilter per outlet, ambil juga pasangan absennya di outlet lain untuk
   // staf & tanggal yang sama supaya jam & foto pulang/masuknya tetap tampil.
   let attRows = outletRows
-  if (filter.outletId && filter.outletId !== 'all' && outletRows.length > 0) {
+  if (perOutlet && outletRows.length > 0) {
     const dayKeys = new Set(outletRows.map((r) => `${r.outlet_staff_id}|${wibDate(r.ts_server)}`))
     const staffIds = Array.from(new Set(outletRows.map((r) => r.outlet_staff_id).filter(Boolean)))
-    let pairQuery = supabase
-      .from('attendance')
-      .select(ATTENDANCE_REPORT_COLS)
-      .in('outlet_staff_id', staffIds)
-      .neq('outlet_id', filter.outletId)
-      .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
-      .order('ts_server', { ascending: false })
-      .limit(1000)
-    if (filter.from) pairQuery = pairQuery.gte('ts_server', `${filter.from}T00:00:00.000+07:00`)
-    if (filter.to) pairQuery = pairQuery.lte('ts_server', `${filter.to}T23:59:59.999+07:00`)
-    const { data: pairRows, error: pairError } = await pairQuery
-    if (pairError) console.error('Error querying cross-outlet attendance:', pairError.message)
-    const pasangan = (pairRows || []).filter((r) => dayKeys.has(`${r.outlet_staff_id}|${wibDate(r.ts_server)}`))
-    attRows = [...outletRows, ...pasangan]
+    try {
+      const pairRows = await fetchAllAttendance(() =>
+        withRange(
+          supabase
+            .from('attendance')
+            .select(ATTENDANCE_REPORT_COLS)
+            .in('outlet_staff_id', staffIds)
+            .neq('outlet_id', filter.outletId)
+            .neq('outlet_id', TEST_OUTLET_ID)
+        )
+      )
+      const pasangan = pairRows.filter((r) => dayKeys.has(`${r.outlet_staff_id}|${wibDate(r.ts_server)}`))
+      attRows = [...outletRows, ...pasangan]
+    } catch (pairError: any) {
+      console.error('Error querying cross-outlet attendance:', pairError?.message)
+    }
   }
+
+  // 2. Nama & peran HANYA untuk staf yang muncul (dulu: 1.000 staf pertama tanpa urutan,
+  //    sehingga staf di luar itu tampil sebagai "Kasir Staff"). Dipecah per 300 id
+  //    agar URL `in.(...)` tidak kepanjangan.
+  const staffIdsAll = Array.from(new Set(attRows.map((r) => r.outlet_staff_id).filter(Boolean)))
+  const staffChunks: string[][] = []
+  for (let i = 0; i < staffIdsAll.length; i += 300) staffChunks.push(staffIdsAll.slice(i, i + 300))
+  const staffResults = await Promise.all(
+    staffChunks.map((ids) => supabase.from('outlet_staff').select('id, name, role').in('id', ids))
+  )
+  const staffMap = new Map<string, { id: string; name: string; role: string }>()
+  for (const res of staffResults) for (const s of res.data || []) staffMap.set(s.id, s)
 
   // Satu baris per staf per tanggal (WIB), walau masuk & pulang di outlet berbeda.
   // Outlet baris = outlet absen masuk; outlet pulang dicatat terpisah bila berbeda.
-  const grouped = new Map<string, {
-    id: string
-    staff_id: string
-    staff_name: string
-    staff_role: string
-    outlet_id: string
-    outlet_name: string
-    out_outlet_id: string | null
-    out_outlet_name: string | null
-    date: string
-    clock_in: string | null
-    clock_out: string | null
-    raw_photo_in: string | null
-    raw_photo_out: string | null
-    gps_lat_in: number | null
-    gps_lng_in: number | null
-    gps_lat_out: number | null
-    gps_lng_out: number | null
-    clock_in_source: 'web' | 'native'
-    clock_out_source: 'web' | 'native'
-    status: string
-    late_minutes: number
-    out_status: string | null
-    out_minutes: number | null
-    notes: string | null
-  }>()
+  // Masuk = baris 'in' PALING AWAL, pulang = baris 'out' PALING AKHIR — pasangan yang
+  // sama dengan yang diubah RPC koreksi_absensi.
+  const grouped = new Map<string, any>()
 
   for (const r of attRows) {
     const dateStr = wibDate(r.ts_server)
@@ -944,7 +959,7 @@ export async function getAttendanceReportData(
 
     if (!grouped.has(key)) {
       grouped.set(key, {
-        id: r.id,
+        id: key,
         staff_id: r.outlet_staff_id || '',
         staff_name: st?.name || 'Kasir Staff',
         staff_role: (st?.role || 'CREW').toUpperCase(),
@@ -953,6 +968,8 @@ export async function getAttendanceReportData(
         out_outlet_id: null,
         out_outlet_name: null,
         date: dateStr,
+        in_ts: null,
+        out_ts: null,
         clock_in: null,
         clock_out: null,
         raw_photo_in: null,
@@ -964,39 +981,59 @@ export async function getAttendanceReportData(
         clock_in_source: 'web',
         clock_out_source: 'web',
         status: 'hadir',
+        in_status_raw: null,
         late_minutes: 0,
         out_status: null,
         out_minutes: null,
+        shift_jam_masuk: null,
+        shift_jam_keluar: null,
+        in_manual: false,
+        out_manual: false,
         notes: null,
       })
     }
 
     const item = grouped.get(key)!
+    if (!item.shift_jam_masuk && r.shift_jam_masuk) item.shift_jam_masuk = String(r.shift_jam_masuk).slice(0, 5)
+    if (!item.shift_jam_keluar && r.shift_jam_keluar) item.shift_jam_keluar = String(r.shift_jam_keluar).slice(0, 5)
+
+    const tsMs = new Date(r.ts_server).getTime()
     if (r.type === 'in') {
+      if (item.in_ts !== null && item.in_ts <= tsMs) continue
+      item.in_ts = tsMs
       item.outlet_id = r.outlet_id || ''
       item.outlet_name = outletName || 'Outlet Utama'
       item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
       item.raw_photo_in = r.selfie_url || null
       item.clock_in_source = r.source === 'native' ? 'native' : 'web'
-      if (r.gps_lat) item.gps_lat_in = Number(r.gps_lat)
-      if (r.gps_lng) item.gps_lng_in = Number(r.gps_lng)
+      item.gps_lat_in = r.gps_lat ? Number(r.gps_lat) : null
+      item.gps_lng_in = r.gps_lng ? Number(r.gps_lng) : null
+      item.in_status_raw = r.status || 'tepat'
+      item.in_manual = !!r.is_manual_button
+      item.status = 'hadir'
+      item.late_minutes = 0
       if (r.status === 'telat_toleransi') {
         item.status = 'telat_toleransi'
         item.late_minutes = r.telat_menit || 0
       } else if (r.status === 'telat' || r.status === 'terlambat') {
         item.status = 'terlambat'
         item.late_minutes = r.telat_menit || 0
+      } else if (r.status === 'alpha') {
+        item.status = 'alfa'
       }
     } else if (r.type === 'out') {
+      if (item.out_ts !== null && item.out_ts >= tsMs) continue
+      item.out_ts = tsMs
       item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
       item.out_outlet_id = r.outlet_id || null
       item.out_outlet_name = outletName || null
       item.raw_photo_out = r.selfie_url || null
       item.clock_out_source = r.source === 'native' ? 'native' : 'web'
-      if (r.gps_lat) item.gps_lat_out = Number(r.gps_lat)
-      if (r.gps_lng) item.gps_lng_out = Number(r.gps_lng)
+      item.gps_lat_out = r.gps_lat ? Number(r.gps_lat) : null
+      item.gps_lng_out = r.gps_lng ? Number(r.gps_lng) : null
       item.out_status = r.status || 'tepat'
       item.out_minutes = r.telat_menit || 0
+      item.out_manual = !!r.is_manual_button
     }
   }
 
@@ -1010,40 +1047,42 @@ export async function getAttendanceReportData(
     return `/api/absensi/selfie?size=${size}&path=${encodeURIComponent(raw)}`
   }
 
-  const result: AttendanceRecordExt[] = Array.from(grouped.values()).map((item) => {
-    const signedIn = selfieSrc(item.raw_photo_in, 'full')
-    const signedOut = selfieSrc(item.raw_photo_out, 'full')
+  const result: AttendanceRecordExt[] = Array.from(grouped.values()).map((item) => ({
+    id: item.id,
+    staff_id: item.staff_id,
+    staff_name: item.staff_name,
+    staff_role: item.staff_role,
+    outlet_id: item.outlet_id,
+    outlet_name: item.outlet_name,
+    out_outlet_id: item.out_outlet_id && item.out_outlet_id !== item.outlet_id ? item.out_outlet_id : null,
+    out_outlet_name: item.out_outlet_id && item.out_outlet_id !== item.outlet_id ? item.out_outlet_name : null,
+    date: item.date,
+    clock_in: item.clock_in,
+    clock_out: item.clock_out,
+    status: item.status,
+    in_status_raw: item.in_status_raw,
+    late_minutes: item.late_minutes,
+    out_status: item.out_status,
+    out_minutes: item.out_minutes,
+    shift_jam_masuk: item.shift_jam_masuk,
+    shift_jam_keluar: item.shift_jam_keluar,
+    in_manual: item.in_manual,
+    out_manual: item.out_manual,
+    notes: item.notes,
+    stealth_photo_in_url: selfieSrc(item.raw_photo_in, 'full'),
+    stealth_photo_out_url: selfieSrc(item.raw_photo_out, 'full'),
+    stealth_photo_in_thumb_url: selfieSrc(item.raw_photo_in, 'thumb'),
+    stealth_photo_out_thumb_url: selfieSrc(item.raw_photo_out, 'thumb'),
+    gps_lat_in: item.gps_lat_in,
+    gps_lng_in: item.gps_lng_in,
+    clock_in_source: item.clock_in_source,
+    gps_lat_out: item.gps_lat_out,
+    gps_lng_out: item.gps_lng_out,
+    clock_out_source: item.clock_out_source,
+  }))
 
-    return {
-      id: item.id,
-      staff_id: item.staff_id,
-      staff_name: item.staff_name,
-      staff_role: item.staff_role,
-      outlet_id: item.outlet_id,
-      outlet_name: item.outlet_name,
-      out_outlet_id: item.out_outlet_id && item.out_outlet_id !== item.outlet_id ? item.out_outlet_id : null,
-      out_outlet_name: item.out_outlet_id && item.out_outlet_id !== item.outlet_id ? item.out_outlet_name : null,
-      date: item.date,
-      clock_in: item.clock_in,
-      clock_out: item.clock_out,
-      status: item.status,
-      late_minutes: item.late_minutes,
-      out_status: item.out_status,
-      out_minutes: item.out_minutes,
-      notes: item.notes,
-      stealth_photo_in_url: signedIn,
-      stealth_photo_out_url: signedOut,
-      stealth_photo_in_thumb_url: selfieSrc(item.raw_photo_in, 'thumb'),
-      stealth_photo_out_thumb_url: selfieSrc(item.raw_photo_out, 'thumb'),
-      gps_lat_in: item.gps_lat_in,
-      gps_lng_in: item.gps_lng_in,
-      clock_in_source: item.clock_in_source,
-      gps_lat_out: item.gps_lat_out,
-      gps_lng_out: item.gps_lng_out,
-      clock_out_source: item.clock_out_source,
-    }
-  })
-
-  return result.sort((a, b) => b.date.localeCompare(a.date))
+  // Terbaru dulu: tanggal, lalu jam masuk.
+  return result.sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.clock_in ?? '').localeCompare(a.clock_in ?? '')
+  )
 }
-

@@ -519,41 +519,72 @@ export async function fetchMultiOutletOverview(): Promise<OutletOverviewItem[]> 
   const supabase = makeServiceClient()
   const outletIds = outlets.map((o) => o.id)
 
-  // 1. Fetch opname terbaru untuk seluruh outlet
-  const { data: opnameList, error: opErr } = await supabase
-    .from('opname')
-    .select(`
-      id,
-      outlet_id,
-      tanggal,
-      tipe,
-      status,
-      created_at,
-      outlet_staff!opname_created_by_fkey(name)
-    `)
-    .in('outlet_id', outletIds)
-    .in('status', ['finalized', 'pending_approval'])
-    .order('created_at', { ascending: false })
+  // 1. Opname terbaru per outlet — satu kueri limit(1) per outlet, paralel.
+  // Dulu: SELURUH riwayat opname semua outlet ditarik lalu diambil baris
+  // pertama per outlet di JS. Riwayat itu sudah ribuan baris → terpotong
+  // diam-diam di 1.000 (max-rows PostgREST), sehingga outlet yang opname
+  // terakhirnya jatuh di luar 1.000 baris teratas tampil "belum pernah opname".
+  // Semantik sama: status finalized/pending_approval, created_at terbaru;
+  // tiebreak id agar deterministik.
+  const latestResults = await Promise.all(
+    outletIds.map((outletId) =>
+      supabase
+        .from('opname')
+        .select(`
+          id,
+          outlet_id,
+          tanggal,
+          tipe,
+          status,
+          created_at,
+          outlet_staff!opname_created_by_fkey(name)
+        `)
+        .eq('outlet_id', outletId)
+        .in('status', ['finalized', 'pending_approval'])
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1)
+    )
+  )
 
-  if (opErr) throw new Error(`Gagal memuat rekap opname cabang: ${opErr.message}`)
-
-  // Ambil hanya opname paling terakhir per outlet
   const latestOpnamePerOutlet = new Map<string, any>()
-  for (const op of opnameList || []) {
-    if (!latestOpnamePerOutlet.has(op.outlet_id)) {
-      latestOpnamePerOutlet.set(op.outlet_id, op)
-    }
+  for (const res of latestResults) {
+    if (res.error) throw new Error(`Gagal memuat rekap opname cabang: ${res.error.message}`)
+    const op = res.data?.[0]
+    if (op) latestOpnamePerOutlet.set(op.outlet_id, op)
   }
 
   const latestOpnameIds = Array.from(latestOpnamePerOutlet.values()).map((o) => o.id)
+
+  // Item opname terakhir semua outlet (~20 opname × ~60 bahan) bisa melewati
+  // 1.000 baris → ditarik habis per halaman dengan urutan unik (id).
+  const fetchAllOpnameItems = async (): Promise<{ data: any[] }> => {
+    if (latestOpnameIds.length === 0) return { data: [] }
+    const PAGE_SIZE = 1000
+    let all: any[] = []
+    let fromRow = 0
+    while (true) {
+      const { data: rows, error: itemErr } = await supabase
+        .from('opname_item')
+        .select('opname_id, bahan_baku_id, selisih, flagged')
+        .in('opname_id', latestOpnameIds)
+        .order('id')
+        .range(fromRow, fromRow + PAGE_SIZE - 1)
+      // Galat diabaikan seperti sebelumnya (dulu itemsRes.error tak dicek).
+      if (itemErr) break
+      const pageRows = rows ?? []
+      all = all.concat(pageRows)
+      if (pageRows.length < PAGE_SIZE) break
+      fromRow += PAGE_SIZE
+    }
+    return { data: all }
+  }
 
   // 2. Fetch master bahan, harga, dan item opname
   const [bahanRes, hargaRes, itemsRes] = await Promise.all([
     supabase.from('bahan_baku').select('id, satuan, faktor_tampilan').eq('is_active', true),
     supabase.from('bahan_baku_harga').select('bahan_baku_id, harga_beli'),
-    latestOpnameIds.length > 0
-      ? supabase.from('opname_item').select('opname_id, bahan_baku_id, selisih, flagged').in('opname_id', latestOpnameIds)
-      : Promise.resolve({ data: [] }),
+    fetchAllOpnameItems(),
   ])
 
   const bahanMap = new Map((bahanRes.data || []).map((b) => [b.id, b]))

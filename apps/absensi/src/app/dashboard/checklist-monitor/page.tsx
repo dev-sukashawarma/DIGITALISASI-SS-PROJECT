@@ -48,6 +48,8 @@ export default function ChecklistMonitorPage() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"buka" | "tutup">("buka");
   const channelRef = useRef<any>(null);
+  // Timer penggabung event realtime (lihat subscribeRealtime).
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSetInitialTab = useRef(false);
 
   const [selectedOutletId, setSelectedOutletId] = useState<string>("");
@@ -65,6 +67,10 @@ export default function ChecklistMonitorPage() {
     init();
     return () => {
       const supabase = supabaseRef.current;
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current);
+        reloadTimerRef.current = null;
+      }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
@@ -129,15 +135,28 @@ export default function ChecklistMonitorPage() {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
+    if (reloadTimerRef.current) {
+      clearTimeout(reloadTimerRef.current);
+      reloadTimerRef.current = null;
+    }
+    // Langganan sengaja TANPA filter: record hari ini bisa belum ada saat
+    // halaman dibuka (dibuat saat centang pertama), jadi filter record_id akan
+    // melewatkan event. Sebagai gantinya event digabung: centang beruntun dari
+    // outlet mana pun dalam jendela ~2,5 dtk cukup memicu SATU muat ulang
+    // (dulu tiap event = 2 query). Muat ulang selalu membaca keadaan terbaru,
+    // jadi tidak ada perubahan yang terlewat — hanya tertunda paling lama 2,5 dtk.
     const ch = supabase
       .channel(`absensi-checklist-monitor-${selectedOutletId}-${Math.random().toString(36).substring(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_checklist_ticks" },
         () => {
-          // Reload ticks whenever anything changes
-          loadTodayTicks(supabase);
-          setLastRefresh(new Date());
+          if (reloadTimerRef.current) return;
+          reloadTimerRef.current = setTimeout(() => {
+            reloadTimerRef.current = null;
+            loadTodayTicks(supabase);
+            setLastRefresh(new Date());
+          }, 2500);
         }
       )
       .subscribe();

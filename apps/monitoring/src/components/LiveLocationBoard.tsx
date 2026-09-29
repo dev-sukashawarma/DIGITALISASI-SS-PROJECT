@@ -170,14 +170,22 @@ export default function LiveLocationBoard() {
       )
       .subscribe()
 
-    // Polling cadangan berkala setiap 30 detik untuk memastikan data peta tetap sinkron
-    // bila websocket sempat drop atau browser tab mengalami pembatasan latar belakang.
+    // Polling cadangan untuk memastikan data peta tetap sinkron bila websocket
+    // sempat drop. Realtime sudah jadi jalur utama, jadi cukup tiap 120 detik
+    // (dulu 30 detik) dan dilewati saat tab tersembunyi. Begitu tab terlihat
+    // lagi, data dimuat ulang sekali supaya tidak menampilkan data basi.
     const pollTimer = window.setInterval(() => {
+      if (document.hidden) return
       void loadInitial()
-    }, 30_000)
+    }, 120_000)
+    const onVisible = () => {
+      if (!document.hidden) void loadInitial()
+    }
+    document.addEventListener('visibilitychange', onVisible)
 
     return () => {
       window.clearInterval(pollTimer)
+      document.removeEventListener('visibilitychange', onVisible)
       void supabase.removeChannel(channel)
     }
   }, [hydrateRow, loadInitial, supabase])

@@ -82,30 +82,47 @@ async function fetchHistoriOrders(
   }
 
   try {
-    let q = supabase.from('orders').select('*, order_items(id, menu_item_name, quantity, subtotal)')
-      .eq('outlet_id', outletId)
-      .order('created_at', { ascending: false })
-      
-    if (filter !== 'all') {
-      if (filter === 'cancelled') {
-        q = q.or('status.eq.cancelled,cancellation_status.eq.pending_approval')
-      } else {
-        q = q.eq('status', filter)
+    const buildQuery = () => {
+      let q = supabase.from('orders').select('*, order_items(id, menu_item_name, quantity, subtotal)')
+        .eq('outlet_id', outletId)
+        .order('created_at', { ascending: false })
+        // Pemecah seri agar urutan antar-halaman deterministik.
+        .order('id', { ascending: false })
+
+      if (filter !== 'all') {
+        if (filter === 'cancelled') {
+          q = q.or('status.eq.cancelled,cancellation_status.eq.pending_approval')
+        } else {
+          q = q.eq('status', filter)
+        }
+      }
+
+      if (paymentFilter !== 'all') q = q.eq('payment_method', paymentFilter)
+      q = applyChannelFilter(q, channelFilter)
+
+      if (startIso) q = q.gte('created_at', startIso)
+      if (endIso) q = q.lte('created_at', endIso)
+      return q
+    }
+
+    let data: any[] = []
+    if (dateFilter === 'all') {
+      const res = await fetchWithTimeout(buildQuery().limit(100).then(r => r))
+      if (res.error) throw new Error(res.error.message)
+      data = res.data ?? []
+    } else {
+      // PostgREST memotong di 1.000 baris tanpa error. Outlet ramai melewati
+      // itu di filter 7/30 hari, sehingga Total Omzet di halaman ini salah.
+      // Diambil per halaman; untuk "Hari ini" tetap hanya satu request.
+      const PAGE = 1000
+      for (let offset = 0; ; offset += PAGE) {
+        const res = await fetchWithTimeout(buildQuery().range(offset, offset + PAGE - 1).then(r => r))
+        if (res.error) throw new Error(res.error.message)
+        const page = res.data ?? []
+        data.push(...page)
+        if (page.length < PAGE) break
       }
     }
-    
-    if (paymentFilter !== 'all') q = q.eq('payment_method', paymentFilter)
-    q = applyChannelFilter(q, channelFilter)
-
-    if (startIso) q = q.gte('created_at', startIso)
-    if (endIso) q = q.lte('created_at', endIso)
-    
-    if (dateFilter === 'all') {
-       q = q.limit(100)
-    }
-
-    const { data, error } = await fetchWithTimeout(q.then(res => res))
-    if (error) throw new Error(error.message)
     if (filter === 'all' && dateFilter === 'today') {
       await cacheOrders(outletId, data ?? []).catch(() => {})
     }
@@ -154,7 +171,10 @@ export default function AdminOrdersPage() {
     queryKey: ['histori', outletId, filter, dateFilter, customStart, customEnd, paymentFilter, channelFilter],
     queryFn: () => fetchHistoriOrders(outletId as string, filter, dateFilter, customStart, customEnd, paymentFilter, channelFilter),
     enabled: !!outletId && activeTab === 'histori',
-    refetchInterval: dateFilter === 'today' ? 15000 : false,
+    // Menarik ulang semua order hari ini + item-nya. 15 dtk terlalu sering
+    // untuk halaman riwayat; perubahan status dari halaman ini tetap langsung
+    // tampil lewat invalidateQueries.
+    refetchInterval: dateFilter === 'today' ? 30_000 : false,
     staleTime: 15000,
     retry: false,
   })

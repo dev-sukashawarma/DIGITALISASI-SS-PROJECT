@@ -1,8 +1,9 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
-import { 
-  fetchPendingWasteReports, 
-  fetchMyWasteReports, 
+import {
+  fetchPendingWasteReports,
+  countPendingWasteReports,
+  fetchMyWasteReports,
   fetchWasteHistory, 
   type WasteHistoryFilter, 
   type WasteHistoryResult 
@@ -28,14 +29,43 @@ export function useWasteApprovalList() {
       {
         table: 'stok_waste_reports',
         event: '*',
-        // SPVDashboard punya query React Query terpisah (['waste_pending_all'])
-        // untuk badge jumlah pending — invalidate juga supaya tetap sinkron.
-        queryKeys: [['waste_approval_list'], ['waste_pending_all']],
+        // Badge jumlah pending (sidebar, bottom nav, tab waste, SPVDashboard)
+        // memakai kunci bersama WASTE_PENDING_COUNT_KEY — invalidate juga
+        // supaya tetap sinkron dengan daftar.
+        queryKeys: [['waste_approval_list'], WASTE_PENDING_COUNT_KEY],
       },
     ],
   })
 
   return { reports: data ?? [], loading: isLoading, refresh: refetch }
+}
+
+/**
+ * Kunci React Query bersama untuk badge jumlah waste PENDING. Dulu ada empat
+ * kunci berbeda (sidebar, bottom nav, layout waste, SPVDashboard) yang
+ * masing-masing menarik SELURUH laporan pending beserta join & harga hanya
+ * untuk dibaca `.length`. Sekarang satu kunci, satu head-count.
+ */
+export const WASTE_PENDING_COUNT_KEY: string[] = ['waste_pending_count']
+
+/**
+ * Jumlah waste PENDING yang bisa di-approve pemanggil. Pakai
+ * countPendingWasteReports (head count, guard role & scope outlet identik
+ * dengan fetchPendingWasteReports). Daftar lengkap tetap lewat
+ * useWasteApprovalList di halaman yang benar-benar merender daftarnya.
+ */
+export function usePendingWasteCount(
+  enabled: boolean,
+  options?: { refetchInterval?: number },
+) {
+  const { data } = useQuery({
+    queryKey: WASTE_PENDING_COUNT_KEY,
+    queryFn: () => countPendingWasteReports(),
+    enabled,
+    staleTime: 30000,
+    refetchInterval: options?.refetchInterval,
+  })
+  return enabled ? data ?? 0 : 0
 }
 
 /**

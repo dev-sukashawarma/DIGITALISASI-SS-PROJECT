@@ -32,22 +32,24 @@ export async function GET(request: Request) {
   const db = createServiceClient()
 
   const outletIds = Array.from(new Set(baris.map((d) => d.outlet_id)))
-  const { data: outlets } = await db
-    .from('outlets')
-    .select('id, name')
-    .in('id', outletIds)
-  const namaOutlet = new Map((outlets ?? []).map((o) => [o.id, o.name]))
 
   // Status dapur hanya ada untuk pesanan yang sudah terdorong ke kasir.
   const posIds = baris
     .map((d) => d.pos_order_id)
     .filter((v): v is string => Boolean(v))
 
+  // Nama outlet & status dapur saling bebas -> dibaca paralel (dulu berurutan).
+  // Galat keduanya tetap diabaikan seperti sebelumnya (kolom jadi null).
+  const [{ data: outlets }, posRes] = await Promise.all([
+    db.from('outlets').select('id, name').in('id', outletIds),
+    posIds.length > 0
+      ? db.from('orders').select('id, status').in('id', posIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; status: string }> }),
+  ])
+  const namaOutlet = new Map((outlets ?? []).map((o) => [o.id, o.name]))
+
   const statusDapur = new Map<string, string>()
-  if (posIds.length > 0) {
-    const { data: pos } = await db.from('orders').select('id, status').in('id', posIds)
-    for (const p of pos ?? []) statusDapur.set(p.id, p.status)
-  }
+  for (const p of posRes.data ?? []) statusDapur.set(p.id, p.status)
 
   return NextResponse.json({
     orders: baris.map((d) => ({

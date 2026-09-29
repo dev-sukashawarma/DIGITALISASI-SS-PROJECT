@@ -88,6 +88,11 @@ async function fetchAllRows<T>(
       .select(selectStr)
       .order('outlet_name')
       .order('item_name')
+      // Tiebreak unik: tanpa ini urutan antar-halaman tidak deterministik
+      // (outlet_name+item_name bisa kembar) dan baris bisa terlewat/terulang
+      // di batas halaman. Urutan tampilan utama tidak berubah.
+      .order('outlet_id')
+      .order('bahan_baku_id')
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw error;
     const rows = (data ?? []) as T[];

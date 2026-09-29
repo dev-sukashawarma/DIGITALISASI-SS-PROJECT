@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import CountUp from 'react-countup'
 import { TrendingUp, Percent, ArrowLeftRight, TrendingDown } from 'lucide-react'
-import { TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { fetchOutletNames } from '@/lib/outletNames'
 
 export default function ProfitPage() {
   const supabase = createSupabaseBrowserClient()
@@ -20,13 +20,9 @@ export default function ProfitPage() {
   const { filter, setFilter } = useDashboardStore()
 
   useEffect(() => {
-    supabase
-      .from('outlets')
-      .select('id,name')
-      // Outlet uji developer jangan masuk perhitungan (@/lib/outletFilters).
-      .neq('id', TEST_OUTLET_ID)
-      .order('name')
-      .then(({ data }) => setOutlets(data ?? []))
+    // Daftar outlet dibagi dengan hook (satu permintaan, @/lib/outletNames);
+    // outlet uji developer sudah dikecualikan di sana.
+    fetchOutletNames(supabase).then(setOutlets, () => setOutlets([]))
   }, [supabase])
 
   const sales = useSalesSummary(filter)

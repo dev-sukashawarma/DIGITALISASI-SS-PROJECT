@@ -146,8 +146,15 @@ export default function OnlineOrderSync() {
     syncPendingPaidOrders()
     syncActiveOrderStatuses()
 
-    // Polling setiap 10 detik agar kebal terhadap kegagalan realtime/webhook
-    const interval = setInterval(syncActiveOrderStatuses, 10000)
+    // Polling cadangan agar kebal terhadap kegagalan realtime/webhook.
+    // Route ini global (memeriksa pesanan online SEMUA outlet), jadi dulu tiap
+    // kasir yang terbuka memanggilnya tiap 10 detik. Kini 30 detik dan
+    // dilewati saat tab tersembunyi — begitu tab aktif lagi, onActive di bawah
+    // langsung menarik status terbaru.
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      syncActiveOrderStatuses()
+    }, 30_000)
 
     // Saat kasir kembali fokus/membuka tab, langsung tarik status terbaru.
     // Menutup celah utama: event realtime yang terlewat selagi tab tidak aktif.

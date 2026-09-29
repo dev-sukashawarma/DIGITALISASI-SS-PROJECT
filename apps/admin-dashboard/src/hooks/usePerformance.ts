@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase'
 import type { PerformanceRecord } from '@/lib/types'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
 import { isTestOutlet } from '@/lib/outletFilters'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 
 export function usePerformance(month: number, year: number, outletFilter?: string) {
   const supabase = createClient()
@@ -37,19 +38,25 @@ export function usePerformance(month: number, year: number, outletFilter?: strin
       const lastDay = new Date(year, month, 0).getDate()
       const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-      // 3. Fetch attendance in that period
-      const { data: attData } = await supabase
-        .from('attendance')
-        .select('outlet_staff_id, status, telat_menit')
-        .gte('ts_server', `${startDate}T00:00:00.000+07:00`)
-        .lte('ts_server', `${endDate}T23:59:59.999+07:00`)
-
-      // 4. Fetch payroll records to get bonus
-      const { data: payrollData } = await supabase
-        .from('payroll_records')
-        .select('staff_id, bonus')
-        .eq('period_month', month)
-        .eq('period_year', year)
+      // 3 & 4. Attendance sebulan (±2.400+ baris) wajib dipaginasi — dulu
+      // terpotong di 1.000 baris tanpa error, sehingga KPI kehadiran staf
+      // salah untuk sebulan penuh. Payroll tak bergantung attendance, jadi
+      // keduanya diambil bersamaan.
+      const [attData, payrollRes] = await Promise.all([
+        fetchAllPages<any>(() => supabase
+          .from('attendance')
+          .select('outlet_staff_id, status, telat_menit')
+          .gte('ts_server', `${startDate}T00:00:00.000+07:00`)
+          .lte('ts_server', `${endDate}T23:59:59.999+07:00`)
+          .order('ts_server', { ascending: true })
+          .order('id', { ascending: true })),
+        supabase
+          .from('payroll_records')
+          .select('staff_id, bonus')
+          .eq('period_month', month)
+          .eq('period_year', year),
+      ])
+      const payrollData = payrollRes.data
 
       const bonusMap = new Map<string, number>()
       ;(payrollData ?? []).forEach((p) => bonusMap.set(p.staff_id, p.bonus || 0))

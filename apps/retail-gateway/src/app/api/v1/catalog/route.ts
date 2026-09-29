@@ -11,7 +11,13 @@ export async function GET(request: Request) {
 
   try {
     const items = await ambilKatalog(outletId)
-    return NextResponse.json({ items })
+    // Publik & tak bergantung sesi (hanya outlet_id di URL). Katalog sendiri
+    // sudah di-cache 5 menit di memori; ini hanya mengizinkan cache bersama
+    // (proxy/CDN) menahan sebentar. Checkout tetap membaca katalog segar.
+    return NextResponse.json(
+      { items },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } },
+    )
   } catch {
     return NextResponse.json({ error: 'Gagal memuat menu' }, { status: 502 })
   }

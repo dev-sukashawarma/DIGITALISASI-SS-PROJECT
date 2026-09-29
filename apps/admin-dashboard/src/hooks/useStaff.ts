@@ -38,7 +38,8 @@ export function useStaff() {
   return useQuery<StaffRow[]>({
     queryKey: ['staff'],
     staleTime: 30_000,
-    refetchInterval: 15_000,
+    // Cadangan saja — realtime outlet_staff/staff_financials sudah meng-invalidate.
+    refetchInterval: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlet_staff')

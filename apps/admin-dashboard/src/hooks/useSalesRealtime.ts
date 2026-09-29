@@ -1,7 +1,9 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import { createThrottledRefresher } from '@/lib/realtimeThrottle'
+import { REALTIME_REFRESH_MIN_GAP_MS } from '@/lib/ownerDashboardCache'
 
 /**
  * Realtime invalidation untuk dashboard owner.
@@ -15,23 +17,22 @@ import { createClient } from '@/lib/supabase'
  * sudah ada di publication `supabase_realtime`
  * (migration 20260623130000_orders_realtime_publication.sql).
  *
- * Debounce 800ms: satu order = beberapa event (INSERT order + UPDATE status);
- * cukup refetch sekali agar tidak membanjiri jaringan.
+ * Dibatasi maks. sekali per 20 detik (event pertama tetap langsung) dan
+ * ditunda saat tab tersembunyi. Debounce 800 ms lama menyala di hampir setiap
+ * order di jam ramai, padahal `sales-hourly-raw` kini dipaginasi penuh
+ * (±8 halaman untuk 30 hari).
  */
 export function useSalesRealtime() {
   const supabase = createClient()
   const queryClient = useQueryClient()
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const invalidate = () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['sales-hourly-raw'] })
-        queryClient.invalidateQueries({ queryKey: ['menu-sales'] })
-        queryClient.invalidateQueries({ queryKey: ['target_progress_global'] })
-      }, 800)
-    }
+    const refresher = createThrottledRefresher(() => {
+      queryClient.invalidateQueries({ queryKey: ['sales-hourly-raw'] })
+      queryClient.invalidateQueries({ queryKey: ['menu-sales'] })
+      queryClient.invalidateQueries({ queryKey: ['target_progress_global'] })
+    }, REALTIME_REFRESH_MIN_GAP_MS)
+    const invalidate = () => refresher.trigger()
 
     const channel = supabase
       .channel('owner-sales-realtime')
@@ -39,7 +40,7 @@ export function useSalesRealtime() {
       .subscribe()
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+      refresher.dispose()
       supabase.removeChannel(channel)
     }
   }, [supabase, queryClient])

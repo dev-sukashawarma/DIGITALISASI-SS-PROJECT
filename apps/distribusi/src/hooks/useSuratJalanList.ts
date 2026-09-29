@@ -30,10 +30,11 @@ async function fetchSuratJalan(
   customRange?: CustomDateRange
 ): Promise<SuratJalanWithOutlet[]> {
   const supabase = createSupabaseBrowserClient()
-  let query = supabase
-    .from('surat_jalan')
-    .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
-    .order('created_at', { ascending: false })
+
+  // Filter disimpan sebagai data lalu diterapkan ke builder BARU tiap halaman
+  // (builder Supabase dieksekusi ulang tiap .then — tidak boleh dipakai ulang).
+  let outletEq: string | null = null
+  let outletIn: string[] | null = null
 
   const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
 
@@ -53,12 +54,12 @@ async function fetchSuratJalan(
       }
       const accessibleIds = Array.from(ids)
       if (accessibleIds.length > 0) {
-        query = query.in('outlet_id', accessibleIds)
+        outletIn = accessibleIds
       } else {
         return []
       }
     } else if (outletStaff.outlet_id) {
-      query = query.eq('outlet_id', outletStaff.outlet_id)
+      outletEq = outletStaff.outlet_id
     } else {
       return []
     }
@@ -69,24 +70,52 @@ async function fetchSuratJalan(
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
-  if (dateFilter === 'today') query = query.gte('created_at', today)
-  else if (dateFilter === '7days') query = query.gte('created_at', sevenDaysAgo)
-  else if (dateFilter === '30days') query = query.gte('created_at', thirtyDaysAgo)
-  else if (dateFilter === 'belum_verif') query = query.in('status', ['diterima_lengkap', 'diterima_sebagian'])
-  else if (dateFilter === 'telah_verif') query = query.eq('status', 'selesai')
-  else if (dateFilter === 'custom') {
-    if (customRange?.startDate) {
-      query = query.gte('created_at', `${customRange.startDate}T00:00:00+07:00`)
+  const buildPage = (fromRow: number, toRow: number) => {
+    let query = supabase
+      .from('surat_jalan')
+      .select('id, outlet_id, status, created_at, document_number, outlets(name), surat_jalan_item(qty_dikirim, qty_terima, kondisi)')
+
+    if (outletEq) query = query.eq('outlet_id', outletEq)
+    else if (outletIn) query = query.in('outlet_id', outletIn)
+
+    if (dateFilter === 'today') query = query.gte('created_at', today)
+    else if (dateFilter === '7days') query = query.gte('created_at', sevenDaysAgo)
+    else if (dateFilter === '30days') query = query.gte('created_at', thirtyDaysAgo)
+    else if (dateFilter === 'belum_verif') query = query.in('status', ['diterima_lengkap', 'diterima_sebagian'])
+    else if (dateFilter === 'telah_verif') query = query.eq('status', 'selesai')
+    else if (dateFilter === 'custom') {
+      if (customRange?.startDate) {
+        query = query.gte('created_at', `${customRange.startDate}T00:00:00+07:00`)
+      }
+      if (customRange?.endDate) {
+        query = query.lte('created_at', `${customRange.endDate}T23:59:59.999+07:00`)
+      }
     }
-    if (customRange?.endDate) {
-      query = query.lte('created_at', `${customRange.endDate}T23:59:59.999+07:00`)
-    }
+
+    // Urutan tampilan tetap created_at terbaru dulu; id sebagai tiebreak unik
+    // supaya batas halaman deterministik.
+    return query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(fromRow, toRow)
   }
 
-  const { data: sjList, error } = await query
-  if (error) throw error
+  // Filter "Semua"/"Selesai" dulu satu request → terpotong diam-diam di 1.000
+  // SJ (max-rows PostgREST), riwayat lama hilang dari daftar & hitungan.
+  // Sekarang ditarik habis per 1.000 baris.
+  const PAGE_SIZE = 1000
+  let sjList: any[] = []
+  let fromRow = 0
+  while (true) {
+    const { data: pageRows, error } = await buildPage(fromRow, fromRow + PAGE_SIZE - 1)
+    if (error) throw error
+    const rows = pageRows ?? []
+    sjList = sjList.concat(rows)
+    if (rows.length < PAGE_SIZE) break
+    fromRow += PAGE_SIZE
+  }
 
-  return (sjList || []).map((sj: any) => {
+  return sjList.map((sj: any) => {
     const items = sj.surat_jalan_item || []
     const has_problem = items.some(
       (it: any) => it.kondisi === 'rusak' || (it.qty_terima != null && it.qty_terima < it.qty_dikirim)

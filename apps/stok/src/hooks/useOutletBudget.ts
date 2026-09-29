@@ -27,6 +27,10 @@ export function useOutletBudgetStatus(outletId: string | undefined) {
   useRealtimeInvalidate({
     channelName: `outlet_budget_status_${outletId ?? 'none'}_${instanceId}`,
     enabled: !!outletId,
+    // Gabungkan rentetan event (mis. approve bertubi-tubi) — aksi sendiri
+    // tetap langsung lewat invalidasi mutation.
+    debounceMs: 3000,
+    maxWaitMs: 15_000,
     subs: [
       {
         table: 'permintaan_bahan',
@@ -60,6 +64,10 @@ export function useAllOutletsBudgetStatus() {
   const instanceId = useId()
   useRealtimeInvalidate({
     channelName: `all_outlets_budget_status_${instanceId}`,
+    // permintaan_bahan dari SEMUA outlet memicu hitung ulang budget semua
+    // outlet (berat) — 4 dtk menggabungkan rentetan event jadi satu.
+    debounceMs: 4000,
+    maxWaitMs: 20_000,
     subs: [
       {
         table: 'outlet_budget_config',
@@ -93,6 +101,8 @@ export function useOutletSpendingHistory(outletId: string | null, fromDate?: str
   useRealtimeInvalidate({
     channelName: `outlet_spending_${outletId ?? 'none'}_${instanceId}`,
     enabled: !!outletId,
+    debounceMs: 3000,
+    maxWaitMs: 15_000,
     subs: [
       {
         table: 'permintaan_bahan',

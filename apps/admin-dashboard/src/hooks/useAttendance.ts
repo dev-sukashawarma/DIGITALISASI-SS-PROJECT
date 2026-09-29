@@ -39,7 +39,10 @@ export function useAttendance(filter: AttendanceFilterValues) {
   return useQuery<AttendanceLog[]>({
     queryKey: ['attendance', filter],
     staleTime: 10_000,
-    refetchInterval: 10_000, // 10s fallback polling
+    // Realtime `attendance` sudah meng-invalidate query ini; polling hanya
+    // cadangan bila koneksi realtime putus. 10 dtk dulu = 2 query berat
+    // (hingga 1.000 baris + join) tiap 10 dtk per admin yang membuka halaman.
+    refetchInterval: 60_000,
     queryFn: async () => {
       // 1. Query attendance table for records
       let query = supabase

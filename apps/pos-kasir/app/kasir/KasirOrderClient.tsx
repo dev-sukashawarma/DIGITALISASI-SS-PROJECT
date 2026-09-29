@@ -755,16 +755,39 @@ export default function KasirOrderClient({
     const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`)
     if (existing) supabase.removeChannel(existing)
 
+    // `order_items` tak punya kolom outlet_id, jadi langganannya menerima item
+    // dari SEMUA outlet — dulu setiap item outlet lain memaksa papan ini
+    // menarik ulang 200 order + relasi bersarang. Kini event item hanya
+    // diproses bila order-nya memang milik outlet ini: ada di papan, atau baru
+    // terlihat lewat event `orders` outlet ini (menutup celah sebelum papan
+    // selesai refetch). Bila order_id tak ada di payload → tetap diproses.
+    const realtimeSeenOrderIds = new Set<string>()
+    const isOurOrder = (orderId: string | undefined | null): boolean => {
+      if (!orderId) return true
+      if (realtimeSeenOrderIds.has(orderId)) return true
+      const board = queryClient.getQueryData<any[]>(['orders', outletId])
+      if (!Array.isArray(board)) return true
+      return board.some((o) => o?.id === orderId)
+    }
+
     const channel = supabase.channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` },
-        () => triggerInvalidate()
+        (payload: any) => {
+          const id = payload?.new?.id ?? payload?.old?.id
+          if (id) realtimeSeenOrderIds.add(id)
+          triggerInvalidate()
+        }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'order_items' },
-        () => triggerInvalidate()
+        (payload: any) => {
+          const orderId = payload?.new?.order_id ?? payload?.old?.order_id
+          if (!isOurOrder(orderId)) return
+          triggerInvalidate()
+        }
       )
       .subscribe()
 

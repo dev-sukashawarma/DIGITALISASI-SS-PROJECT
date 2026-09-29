@@ -205,7 +205,11 @@ export default function PettyCashExpensesTab() {
       }
       return map
     },
-    refetchInterval: 30000 // Refresh every 30s
+    // Perubahan kas kecil sudah memicu refresh instan lewat realtime
+    // (useFinanceRealtime → invalidate ['petty_cash_real_balances']). Polling
+    // hanya jaring pengaman untuk perubahan saldo dari penutupan shift, jadi
+    // cukup tiap 2 menit (dulu 30 dtk).
+    refetchInterval: 120000
   })
 
   // Calculate Outlet Petty Cash Balances

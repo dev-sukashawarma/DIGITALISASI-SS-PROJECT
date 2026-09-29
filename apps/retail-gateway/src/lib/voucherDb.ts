@@ -48,16 +48,37 @@ async function hitung(p: PromiseLike<{ count: number | null; error: { message: s
   return count ?? 0
 }
 
-export async function konteksPelanggan(retail: RetailClient, voucherId: string, customerId: string) {
+/**
+ * Apakah pelanggan sudah pernah punya pesanan berstatus `dibayar`.
+ * Tidak bergantung pada voucher mana pun -- daftar voucher menghitungnya
+ * SEKALI per permintaan lalu meneruskannya ke `konteksPelanggan`, alih-alih
+ * menghitung ulang untuk tiap voucher.
+ */
+export async function pelangganSudahPernahBayar(retail: RetailClient, customerId: string): Promise<boolean> {
+  const n = await hitung(retail.from('order_drafts').select('id', { count: 'exact', head: true })
+    .eq('customer_id', customerId).eq('status', 'dibayar'))
+  return n > 0
+}
+
+/**
+ * `sudahBayarDiketahui` opsional: bila diisi (boolean), hitungan `order_drafts`
+ * dilewati dan nilai itu yang dipakai. Tanpa argumen ini perilakunya persis
+ * seperti sebelumnya (3 hitungan paralel) -- jalur checkout/pesanan
+ * (`nilaiVoucher`) tidak mengisinya, jadi selalu membaca data segar.
+ */
+export async function konteksPelanggan(
+  retail: RetailClient, voucherId: string, customerId: string, sudahBayarDiketahui?: boolean,
+) {
   const [jumlahLunasTotal, jumlahLunasPelanggan, sudahBayar] = await Promise.all([
     hitung(retail.from('voucher_pemakaian').select('id', { count: 'exact', head: true })
       .eq('voucher_id', voucherId).not('lunas_at', 'is', null)),
     hitung(retail.from('voucher_pemakaian').select('id', { count: 'exact', head: true })
       .eq('voucher_id', voucherId).eq('customer_id', customerId).not('lunas_at', 'is', null)),
-    hitung(retail.from('order_drafts').select('id', { count: 'exact', head: true })
-      .eq('customer_id', customerId).eq('status', 'dibayar')),
+    typeof sudahBayarDiketahui === 'boolean'
+      ? Promise.resolve(sudahBayarDiketahui)
+      : pelangganSudahPernahBayar(retail, customerId),
   ])
-  return { jumlahLunasTotal, jumlahLunasPelanggan, pelangganSudahPernahBayar: sudahBayar > 0 }
+  return { jumlahLunasTotal, jumlahLunasPelanggan, pelangganSudahPernahBayar: sudahBayar }
 }
 
 export type NilaiVoucher =

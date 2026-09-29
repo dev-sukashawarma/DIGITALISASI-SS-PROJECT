@@ -4,6 +4,7 @@ import { createSupabaseBrowserClient } from '@suka/auth'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 
 export interface TargetProgressRow {
   outlet_id: string
@@ -52,18 +53,17 @@ export function useTargetProgress(from?: string, to?: string) {
         })
     },
     staleTime: 15000,
-    refetchInterval: 30000,
+    // Cadangan bila realtime putus; pemicu utama tetap event `orders`.
+    refetchInterval: 120_000,
   })
 
   useEffect(() => {
-    let debounceTimer: ReturnType<typeof setTimeout>
-
-    const scheduleRefetch = () => {
-      clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['target_progress_global'] })
-      }, 500)
-    }
+    // Debounce 500 ms lama menyala di hampir setiap order (19 outlet). Kini
+    // maks. sekali per 15 detik, dan ditunda saat tab tersembunyi.
+    const refresher = createThrottledRefresher(() => {
+      queryClient.invalidateQueries({ queryKey: ['target_progress_global'] })
+    }, 15_000)
+    const scheduleRefetch = () => refresher.trigger()
 
     const channelName = 'owner-target-progress'
     const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`)
@@ -76,7 +76,7 @@ export function useTargetProgress(from?: string, to?: string) {
       .subscribe()
 
     return () => {
-      clearTimeout(debounceTimer)
+      refresher.dispose()
       supabase.removeChannel(channel)
     }
   }, [supabase, queryClient])

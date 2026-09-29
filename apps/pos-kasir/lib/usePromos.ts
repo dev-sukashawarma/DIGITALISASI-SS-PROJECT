@@ -83,11 +83,15 @@ export function usePromos(outletId: string | undefined) {
       )
       .subscribe()
 
-    // Fallback polling setiap 5 detik — memastikan data segar bila realtime
-    // channel sesaat terputus DAN sekaligus me-refresh now via setNow di atas.
+    // Fallback polling bila realtime (sudah difilter per outlet) sesaat
+    // terputus. Dulu 5 detik — query DB + tulis IndexedDB tiap 5 detik per
+    // kasir. Jadwal mulai/selesai promo TIDAK bergantung polling ini: sudah
+    // ditangani ticker `now` (5 detik) di atas. Dilewati saat tab tersembunyi
+    // (saat terlihat lagi, handleVisibility langsung memuat ulang).
     const interval = setInterval(() => {
+      if (document.hidden) return
       load(true)
-    }, 5000)
+    }, 60_000)
 
     // Re-fetch segera saat tab kembali aktif (misalnya kasir alt-tab lalu balik).
     const handleVisibility = () => { if (!document.hidden) load(true) }

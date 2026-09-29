@@ -172,6 +172,13 @@ export default async function ReportsPage({
     ordersQuery = ordersQuery.eq('outlet_id', staff.outlet_id);
   }
 
+  // Urutan UNIK wajib untuk paginasi .range(): tanpa ORDER BY, Postgres bebas
+  // mengembalikan urutan berbeda tiap halaman sehingga order bisa terhitung
+  // ganda atau terlewat. `id` jadi pemecah seri created_at yang kembar.
+  ordersQuery = ordersQuery
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
+
   // Fetch Outlets for the filter dropdown
   let qOutlets = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).neq('id', TEST_OUTLET_ID);
   if (staff?.role === 'area_manager' || (staff?.role === 'regional_manager' && accessibleOutlets.length > 0)) {

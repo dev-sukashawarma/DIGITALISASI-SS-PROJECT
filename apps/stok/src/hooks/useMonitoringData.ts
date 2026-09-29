@@ -197,7 +197,7 @@ export function useCrewMonitoringData() {
  * Realtime invalidation untuk seluruh query di bawah namespace ['monitoring'].
  * Dipanggil sekali per halaman dashboard (Monitoring-Live, SPV, Crew), bukan
  * per data-hook, supaya tidak membuka banyak channel duplikat untuk sumber
- * data yang sama. Debounce 2.5s karena stok_balance bergerak sangat sering
+ * data yang sama. Debounce 5s karena stok_balance bergerak sangat sering
  * saat outlet ramai (tiap order kasir).
  *
  * Hanya stok_balance: ledger_stok TIDAK ada di publication supabase_realtime
@@ -208,9 +208,27 @@ export function useMonitoringRealtime() {
   const instanceId = useId();
   useRealtimeInvalidate({
     channelName: `monitoring_realtime_${instanceId}`,
-    debounceMs: 2500,
+    // 5 dtk (dulu 2,5 dtk): saat jam ramai stok_balance bergerak tiap order,
+    // dan tiap invalidasi menarik ulang view monitoring yang berat.
+    debounceMs: 5000,
+    // Jamin refresh paling lambat 15 dtk walau event stok_balance terus mengalir.
+    maxWaitMs: 15_000,
     subs: [
-      { table: 'stok_balance', queryKeys: [['monitoring']] },
+      {
+        table: 'stok_balance',
+        // Hanya kunci DATA stok. Kunci master outlet (['monitoring','outlets'],
+        // ['monitoring','outletsList']) SENGAJA tidak ikut — daftar outlet tak
+        // berubah karena stok_balance bergerak, dulu ikut ditarik ulang tiap
+        // event karena invalidasi memakai prefix ['monitoring'] utuh.
+        queryKeys: [
+          ['monitoring', 'spv'],
+          ['monitoring', 'leader'],
+          ['monitoring', 'crew'],
+          ['monitoring', 'outletDetail'],
+          ['monitoring', 'recentLedger'],
+          ['monitoring', 'wasteToday'],
+        ],
+      },
     ],
   });
 }

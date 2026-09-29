@@ -50,25 +50,54 @@ export async function GET(req: NextRequest) {
       .select('id, name, type, bank_name, bank_account_number, is_active')
       .order('name')
 
-    const shiftsPromise = supabase
-      .from('shifts')
-      .select(
-        'id, outlet_id, staff_id, start_time, end_time, starting_cash, actual_ending_cash, expected_ending_cash, variance, status, notes, outlet_staff!shifts_staff_id_fkey(id, name, role)'
-      )
-      .gte('start_time', startTz)
-      .lt('start_time', endTz)
-      .limit(3000)
+    // Catatan: `.limit(3000)` / `.limit(5000)` TIDAK menembus batas 1.000 baris
+    // PostgREST (max-rows), jadi dulu shift & kas kecil bisa terpotong diam-diam
+    // di 1.000 baris. Sekarang dipaginasi dengan urutan unik (`id`, PK).
+    const PAGE_SIZE = 1000
 
-    const pettyCashPromise = supabase
-      .from('petty_cash_expenses')
-      .select('id, outlet_id, category, amount, description, expense_date')
-      .gte('expense_date', startDate)
-      .lte('expense_date', endDate)
-      .is('deleted_at', null)
-      .limit(5000)
+    // Paginasi berurutan; galat DILEMPAR (bukan di-warn lalu dianggap "selesai")
+    // supaya total tidak pernah salah diam-diam. Pemanggil (useEomKasirLive)
+    // sudah menangani respons galat dengan pesan + data cadangan.
+    const fetchAllSequential = async <T,>(build: () => any, label: string): Promise<T[]> => {
+      const all: T[] = []
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await build().range(from, from + PAGE_SIZE - 1)
+        if (error) {
+          console.error(`Server EOM ${label} fetch error:`, error)
+          throw error
+        }
+        const page = (data ?? []) as T[]
+        all.push(...page)
+        if (page.length < PAGE_SIZE) return all
+      }
+    }
+
+    const shiftsPromise = fetchAllSequential<any>(
+      () =>
+        supabase
+          .from('shifts')
+          .select(
+            'id, outlet_id, staff_id, start_time, end_time, starting_cash, actual_ending_cash, expected_ending_cash, variance, status, notes, outlet_staff!shifts_staff_id_fkey(id, name, role)'
+          )
+          .gte('start_time', startTz)
+          .lt('start_time', endTz)
+          .order('id', { ascending: true }),
+      'Shifts'
+    )
+
+    const pettyCashPromise = fetchAllSequential<any>(
+      () =>
+        supabase
+          .from('petty_cash_expenses')
+          .select('id, outlet_id, category, amount, description, expense_date')
+          .gte('expense_date', startDate)
+          .lte('expense_date', endDate)
+          .is('deleted_at', null)
+          .order('id', { ascending: true }),
+      'PettyCash'
+    )
 
     // 2. Fetch Orders with server-side parallel wave pagination
-    const PAGE_SIZE = 1000
     const PAGE_CONCURRENCY = 6
     let offset = 0
     const allOrders: Array<{ outlet_id: string; total_amount: number; payment_method: string }> = []
@@ -85,6 +114,10 @@ export async function GET(req: NextRequest) {
               .lt('created_at', endTz)
               .neq('status', 'cancelled')
               .neq('status', 'void')
+              // Urutan unik WAJIB untuk paginasi .range(): tanpa ORDER BY,
+              // Postgres bebas mengembalikan urutan berbeda per halaman →
+              // baris bisa dobel atau terlewat antar halaman.
+              .order('id', { ascending: true })
               .range(offset + i * PAGE_SIZE, offset + (i + 1) * PAGE_SIZE - 1)
           )
         )
@@ -92,17 +125,15 @@ export async function GET(req: NextRequest) {
         let reachedEnd = false
         for (const { data: page, error: pageErr } of wave) {
           if (pageErr) {
-            console.warn('Server EOM Orders wave fetch error:', pageErr)
-            reachedEnd = true
-            break
+            // Dulu hanya console.warn lalu berhenti → total omzet terpotong
+            // diam-diam. Sekarang gagal keras (respons 500) agar tidak ada
+            // angka salah yang tampil seolah valid.
+            console.error('Server EOM Orders wave fetch error:', pageErr)
+            throw pageErr
           }
-          if (Array.isArray(page)) {
-            allOrders.push(...(page as any))
-            if (page.length < PAGE_SIZE) {
-              reachedEnd = true
-              break
-            }
-          } else {
+          const rows = page ?? []
+          allOrders.push(...(rows as any))
+          if (rows.length < PAGE_SIZE) {
             reachedEnd = true
             break
           }
@@ -112,12 +143,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const [outletsRes, shiftsRes, pettyRes] = await Promise.all([
+    const [outletsRes, shiftsRows, pettyRows] = await Promise.all([
       outletsPromise,
       shiftsPromise,
       pettyCashPromise,
       fetchOrdersWave(),
     ])
+    const shiftsRes = { data: shiftsRows }
+    const pettyRes = { data: pettyRows }
 
     if (outletsRes.error) {
       throw outletsRes.error

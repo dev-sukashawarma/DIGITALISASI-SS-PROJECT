@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import CountUp from 'react-countup'
 import { Wallet, Users, Zap, Home, Receipt, MoreHorizontal } from 'lucide-react'
-import { TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { fetchOutletNames } from '@/lib/outletNames'
 
 const CATEGORY_LABELS: Record<string, string> = {
   bahan_baku: 'Bahan Baku',
@@ -47,13 +47,9 @@ export default function ExpensesPage() {
   const { filter, setFilter } = useDashboardStore()
 
   useEffect(() => {
-    supabase
-      .from('outlets')
-      .select('id,name')
-      // Outlet uji developer jangan masuk perhitungan (@/lib/outletFilters).
-      .neq('id', TEST_OUTLET_ID)
-      .order('name')
-      .then(({ data }) => setOutlets(data ?? []))
+    // Daftar outlet dibagi dengan hook (satu permintaan, @/lib/outletNames);
+    // outlet uji developer sudah dikecualikan di sana.
+    fetchOutletNames(supabase).then(setOutlets, () => setOutlets([]))
   }, [supabase])
 
   const { rows, loading, error } = useExpenses(filter)

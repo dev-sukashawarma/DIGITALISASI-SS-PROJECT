@@ -9,6 +9,24 @@ dayjs.extend(timezone);
 
 const ATT_COLS = 'id, type, ts_server, ts_client, status, selfie_url, outlet_id, outlet_staff_id, telat_menit, is_manual_button, source, shift_jam_masuk, shift_jam_keluar';
 
+// PostgREST memotong hasil di 1.000 baris tanpa pesan galat. Rentang rekap
+// panjang (mis. sebulan × banyak staf) bisa melewatinya → absen yang terpotong
+// tampil sebagai "alpha" palsu. Ambil semua halaman; `build` WAJIB membuat
+// builder baru tiap panggilan dan berurutan unik (ts_server, id).
+const PAGE_SIZE = 1000;
+async function fetchAllPages<T>(build: () => any): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await build().range(from, from + PAGE_SIZE - 1);
+    // Galat dilempar (→ respons 500) agar tidak ada rekap yang diam-diam
+    // kekurangan baris; halaman rekap menampilkan pesan galatnya.
+    if (error) throw error;
+    const page = (data ?? []) as T[];
+    all.push(...page);
+    if (page.length < PAGE_SIZE) return all;
+  }
+}
+
 export async function GET(request: Request) {
   const supabaseService = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,22 +91,25 @@ export async function GET(request: Request) {
     const activeStaffIds = Array.from(activeStaffMap.keys());
     const nameById = new Map(activeStaff.map((s) => [s.id, s.name]));
 
-    let attQuery = supabaseService
-      .from('attendance')
-      .select(ATT_COLS)
-      .gte('ts_server', `${start_date}T00:00:00+07:00`)
-      .lte('ts_server', `${end_date}T23:59:59+07:00`)
-      .order('ts_server', { ascending: false });
+    const buildAttQuery = () => {
+      let attQuery = supabaseService
+        .from('attendance')
+        .select(ATT_COLS)
+        .gte('ts_server', `${start_date}T00:00:00+07:00`)
+        .lte('ts_server', `${end_date}T23:59:59+07:00`)
+        .order('ts_server', { ascending: false })
+        // Pengurut kedua unik → paginasi stabil (urutan utama tetap ts_server).
+        .order('id', { ascending: false });
 
-    if (activeStaffIds.length > 0) {
-      attQuery = attQuery.or(`outlet_id.eq.${outlet_id},outlet_staff_id.in.(${activeStaffIds.join(',')})`);
-    } else {
-      attQuery = attQuery.eq('outlet_id', outlet_id);
-    }
+      if (activeStaffIds.length > 0) {
+        attQuery = attQuery.or(`outlet_id.eq.${outlet_id},outlet_staff_id.in.(${activeStaffIds.join(',')})`);
+      } else {
+        attQuery = attQuery.eq('outlet_id', outlet_id);
+      }
+      return attQuery;
+    };
 
-    const attRes = await attQuery;
-
-    let rawRows: any[] = attRes.data || [];
+    let rawRows: any[] = await fetchAllPages<any>(buildAttQuery);
 
     // Manajer lintas outlet bisa absen masuk di outlet ini lalu pulang di outlet
     // lain (atau sebaliknya). Ambil pasangan absennya untuk staf & tanggal yang
@@ -98,13 +119,16 @@ export async function GET(request: Request) {
     const dayKeys = new Set(rowsHere.map((r) => `${r.outlet_staff_id}|${wibDate(r.ts_server)}`));
     const visitorIds = Array.from(new Set(rowsHere.map((r) => r.outlet_staff_id).filter((id) => id && !activeStaffMap.has(id))));
     if (visitorIds.length > 0) {
-      const { data: pairRows } = await supabaseService
-        .from('attendance')
-        .select(ATT_COLS)
-        .in('outlet_staff_id', visitorIds)
-        .neq('outlet_id', outlet_id)
-        .gte('ts_server', `${start_date}T00:00:00+07:00`)
-        .lte('ts_server', `${end_date}T23:59:59+07:00`);
+      const pairRows = await fetchAllPages<any>(() =>
+        supabaseService
+          .from('attendance')
+          .select(ATT_COLS)
+          .in('outlet_staff_id', visitorIds)
+          .neq('outlet_id', outlet_id)
+          .gte('ts_server', `${start_date}T00:00:00+07:00`)
+          .lte('ts_server', `${end_date}T23:59:59+07:00`)
+          .order('id', { ascending: true })
+      );
       const seen = new Set(rawRows.map((r) => r.id));
       for (const r of pairRows || []) {
         if (!seen.has(r.id) && dayKeys.has(`${r.outlet_staff_id}|${wibDate(r.ts_server)}`)) rawRows.push(r);

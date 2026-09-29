@@ -435,14 +435,21 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       return query
     }
 
-    // Fetch Shifts
+    // Fetch Shifts — dibungkus fungsi pembuat supaya tiap halaman paginasi
+    // mendapat builder BARU (.range() memutasi builder; memakai satu builder
+    // untuk beberapa halaman paralel membuat semuanya menarik halaman terakhir).
+    const buildShiftsQuery = () => {
     let qShifts = supabase
       .from('shifts')
       .select('id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance')
       .neq('outlet_id', TEST_OUTLET_ID)
       .eq('status', 'closed')
       .order('end_time', { ascending: false })
-      
+      // Pengurut kedua `id` membuat urutan unik, syarat paginasi .range() yang
+      // stabil (baris ber-end_time sama tak bisa dobel/terlewat antar halaman).
+      // Urutan utama tetap end_time desc, jadi tampilan tidak berubah.
+      .order('id', { ascending: false })
+
     if (!selectedOutlets.includes('all')) {
       qShifts = qShifts.in('outlet_id', selectedOutlets)
     }
@@ -475,6 +482,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       qShifts = qShifts.gte('end_time', `${y}-${pad(m)}-01T00:00:00+07:00`).lte('end_time', `${y}-${pad(m)}-${pad(lastDay)}T23:59:59+07:00`)
     } else if (range === 'custom' && customStartDate && customEndDate) {
       qShifts = qShifts.gte('end_time', `${customStartDate}T00:00:00+07:00`).lte('end_time', `${customEndDate}T23:59:59+07:00`)
+    }
+    return qShifts
     }
 
     // Supabase/PostgREST membatasi max 1000 baris per query.
@@ -588,7 +597,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .from('menu_items')
       .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))')
 
-    let qSettlements = supabase.from('platform_settlements').select('*')
+    // Diurutkan per `id` (PK, unik) supaya bisa dipaginasi lewat fetchAllPaged:
+    // "Semua outlet" × rentang panjang bisa melewati batas 1.000 baris PostgREST,
+    // dan tanpa paginasi sisanya terpotong diam-diam.
+    // Dibungkus fungsi pembuat: tiap halaman paginasi butuh builder baru.
+    const buildSettlementsQuery = () => {
+    let qSettlements = supabase.from('platform_settlements').select('*').order('id', { ascending: true })
     if (isSSOnlineSelected) {
       // SS Online bukan outlet sungguhan: 'ss-online' bukan UUID, jadi dulu query ini
       // selalu gagal. Settlement-nya disimpan di outlet virtual marketplace.
@@ -603,13 +617,34 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     if (dateStrRange.to) {
       qSettlements = qSettlements.lte('tanggal', dateStrRange.to)
     }
+    return qSettlements
+    }
 
-    const [ordersData, ecommerceData, { data: shiftsData }, { data: menuItemsData }, { data: settlementsData }, riwayatRows] = await Promise.all([
+    // Shift & settlement dipaginasi (sebelumnya satu query tanpa .range() →
+    // terpotong diam-diam di 1.000 baris untuk rentang panjang / semua outlet).
+    // Perilaku saat galat SENGAJA dipertahankan seperti dulu: galat → daftar
+    // kosong (dulu `data` null → `?? []`), bukan menggagalkan seluruh laporan.
+    // Berurutan (bukan gelombang 4 paralel) karena hasilnya biasanya < 1 halaman:
+    // cukup 1 request dalam kasus umum, halaman lanjutan hanya bila penuh.
+    const ambilSemuaAtauKosong = async (build: () => any, label: string): Promise<any[]> => {
+      const all: any[] = []
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data, error } = await build().range(offset, offset + PAGE_SIZE - 1)
+        if (error) {
+          console.error(`${label} error:`, error)
+          return []
+        }
+        const page = (data ?? []) as any[]
+        all.push(...page)
+        if (page.length < PAGE_SIZE) return all
+      }
+    }
+    const [ordersData, ecommerceData, shiftsData, { data: menuItemsData }, settlementsData, riwayatRows] = await Promise.all([
       !selectedOutlets.includes('ss-online') ? fetchAllOrders() : Promise.resolve([]),
       fetchEcommerceOrders(),
-      qShifts,
+      ambilSemuaAtauKosong(buildShiftsQuery, 'fetchShifts'),
       menuItemsQuery,
-      qSettlements,
+      ambilSemuaAtauKosong(buildSettlementsQuery, 'fetchSettlements'),
       ambilRiwayatHpp(supabase),
     ])
 
@@ -650,22 +685,34 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     //     kesegaran sub-detik.
     //  2. Saat tab tidak terlihat, penarikan ditunda sampai user kembali,
     //     supaya tab yang dibiarkan terbuka berhenti membebani DB.
+    //  3. Throttle: debounce murni (reset tiap event) tetap bisa menembak tiap
+    //     beberapa detik saat order mengalir terus. Sekarang event digabung dan
+    //     penarikan ulang dari realtime paling cepat sekali per REFRESH_MIN_INTERVAL_MS.
+    //     Event yang datang selama menunggu tidak hilang — ikut terserap oleh
+    //     penarikan yang sudah terjadwal (fetch menarik seluruh rentang).
     const REFRESH_DEBOUNCE_MS = 4000
+    const REFRESH_MIN_INTERVAL_MS = 25000
+    let lastRunAt = 0
 
     const runRefresh = () => {
+      timer = null
       if (typeof document !== 'undefined' && document.hidden) {
         pendingWhileHidden = true
         return
       }
+      lastRunAt = Date.now()
       fetchOrders()
     }
     const refresh = () => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(runRefresh, REFRESH_DEBOUNCE_MS)
+      // Sudah ada penarikan terjadwal → event ini ikut terserap olehnya.
+      if (timer) return
+      const delay = Math.max(REFRESH_DEBOUNCE_MS, lastRunAt + REFRESH_MIN_INTERVAL_MS - Date.now())
+      timer = setTimeout(runRefresh, delay)
     }
     const onVisible = () => {
       if (!document.hidden && pendingWhileHidden) {
         pendingWhileHidden = false
+        lastRunAt = Date.now()
         fetchOrders()
       }
     }

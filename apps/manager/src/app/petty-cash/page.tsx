@@ -308,11 +308,13 @@ function PettyCashContent() {
       )
       .subscribe()
 
-    // Polling hanya cadangan realtime: 60 dtk, dan dilewati saat tab tersembunyi.
+    // Polling hanya cadangan realtime (yang sudah menangani perubahan langsung):
+    // 5 menit, dan dilewati saat tab tersembunyi. Dulu 60 dtk — menarik ulang
+    // daftar tiap menit padahal realtime sudah jalan.
     const interval = setInterval(() => {
       if (document.hidden) return
       loadRequests(true)
-    }, 60000)
+    }, 5 * 60_000)
     // Tab kembali terlihat → segarkan sekali (tick yang terlewat).
     const onVisible = () => {
       if (!document.hidden) loadRequests(true)

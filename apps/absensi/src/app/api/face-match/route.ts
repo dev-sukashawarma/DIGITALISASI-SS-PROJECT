@@ -20,11 +20,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: "invalid_payload" }, { status: 400 });
     }
 
+    // PostgREST memotong hasil di 1.000 baris tanpa galat. Kandidat yang
+    // terpotong = wajah staf itu tak pernah dikenali, jadi semua daftar di
+    // sini diambil per halaman dengan urutan unik. `build` wajib membuat
+    // builder baru tiap panggilan (.range() memutasi builder).
+    const PAGE = 1000;
+    const fetchAll = async (build: () => any): Promise<{ data: any[]; error: any }> => {
+      const all: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await build().range(from, from + PAGE - 1);
+        if (error) return { data: all, error };
+        const rows = data ?? [];
+        all.push(...rows);
+        if (rows.length < PAGE) return { data: all, error: null };
+      }
+    };
+
     // Ambil kandidat
-    let query = admin
-      .from("outlet_staff")
-      .select("id, name, face_descriptor, role")
-      .not("face_descriptor", "is", null);
+    let orFilter: string | null = null;
 
     if (lockToStaffId) {
       // MODE 1:1 (panel absen pribadi): verifikasi akun yang login saja. Outlet tidak
@@ -32,14 +45,16 @@ export async function POST(req: NextRequest) {
       // dan izin absen di outlet ini (termasuk izin tambahan dari admin) ditegakkan
       // RPC submit_attendance. Tanpa ini crew berizin tambahan tak pernah dikenali
       // di outlet selain outlet utamanya.
-      query = query.eq("id", lockToStaffId);
+      // (filter id diterapkan di buildCandidates di bawah)
     } else {
+      // (filter .or() disusun di sini, diterapkan di buildCandidates)
       // MODE 1:N (kiosk bersama): staff outlet ini, penempatan (staff_outlets), crew
       // berizin tambahan / semua outlet, dan peran pengawas. Ketiga daftar dibaca paralel.
+      // Galat daftar izin tetap diabaikan seperti dulu (daftar itu dianggap kosong/sebagian).
       const [penempatanRes, aksesRes, semuaRes] = await Promise.all([
-        admin.from("staff_outlets").select("staff_id").eq("outlet_id", outletId),
-        admin.from("attendance_outlet_access").select("staff_id").eq("outlet_id", outletId),
-        admin.from("attendance_any_outlet_staff").select("staff_id"),
+        fetchAll(() => admin.from("staff_outlets").select("staff_id").eq("outlet_id", outletId).order("staff_id", { ascending: true })),
+        fetchAll(() => admin.from("attendance_outlet_access").select("staff_id").eq("outlet_id", outletId).order("staff_id", { ascending: true })),
+        fetchAll(() => admin.from("attendance_any_outlet_staff").select("staff_id").order("staff_id", { ascending: true })),
       ]);
       const allowedStaffIds = Array.from(new Set(
         [penempatanRes.data, aksesRes.data, semuaRes.data]
@@ -49,10 +64,22 @@ export async function POST(req: NextRequest) {
       if (allowedStaffIds.length > 0) {
         orQuery += `,id.in.(${allowedStaffIds.join(',')})`;
       }
-      query = query.or(orQuery);
+      orFilter = orQuery;
     }
 
-    const { data, error } = await query;
+    const buildCandidates = () => {
+      let q = admin
+        .from("outlet_staff")
+        .select("id, name, face_descriptor, role")
+        .not("face_descriptor", "is", null)
+        // Urutan unik (PK) — syarat paginasi stabil.
+        .order("id", { ascending: true });
+      if (lockToStaffId) q = q.eq("id", lockToStaffId);
+      else if (orFilter) q = q.or(orFilter);
+      return q;
+    };
+
+    const { data, error } = await fetchAll(buildCandidates);
 
     if (error) {
       return NextResponse.json({ ok: false, reason: "db_error", detail: error.message }, { status: 500 });

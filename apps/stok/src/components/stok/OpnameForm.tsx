@@ -93,6 +93,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   const { data: outlets } = useQuery({
     queryKey: ['monitoring', 'outlets'],
     queryFn: fetchOutletsList,
+    // Master outlet jarang berubah — tak perlu ditarik ulang tiap menit.
+    staleTime: 10 * 60_000,
   });
 
   const { data: pendingSJRes } = useQuery({

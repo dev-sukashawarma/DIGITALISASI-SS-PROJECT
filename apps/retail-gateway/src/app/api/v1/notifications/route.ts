@@ -15,24 +15,29 @@ export async function GET(request: Request) {
 
   const retail = createRetailClient()
 
-  // Ambil total notifikasi belum dibaca (unread count)
-  const { count: unreadCount, error: countErr } = await retail
-    .from('customer_notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('customer_id', sesi.customerId)
-    .eq('is_read', false)
+  // Hitungan belum-dibaca & daftar terbaru saling bebas -> dibaca paralel.
+  // Penanganan galat tetap sama: galat hitungan hanya dicatat, galat daftar = 500.
+  const [countRes, listRes] = await Promise.all([
+    // Ambil total notifikasi belum dibaca (unread count)
+    retail
+      .from('customer_notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('customer_id', sesi.customerId)
+      .eq('is_read', false),
+    // Ambil daftar notifikasi terbaru
+    retail
+      .from('customer_notifications')
+      .select('id, customer_id, order_id, type, title, body, data, is_read, created_at')
+      .eq('customer_id', sesi.customerId)
+      .order('created_at', { ascending: false })
+      .limit(limit),
+  ])
+  const { count: unreadCount, error: countErr } = countRes
+  const { data: rows, error } = listRes
 
   if (countErr) {
     console.warn('Gagal menghitung unread notifications:', countErr)
   }
-
-  // Ambil daftar notifikasi terbaru
-  const { data: rows, error } = await retail
-    .from('customer_notifications')
-    .select('id, customer_id, order_id, type, title, body, data, is_read, created_at')
-    .eq('customer_id', sesi.customerId)
-    .order('created_at', { ascending: false })
-    .limit(limit)
 
   if (error) {
     console.error('Gagal mengambil daftar notifikasi:', error)

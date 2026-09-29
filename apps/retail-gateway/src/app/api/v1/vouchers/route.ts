@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireCustomer } from '@/lib/auth'
 import { createRetailClient, createServiceClient } from '@/lib/supabase'
 import { ambilKatalog } from '@/lib/catalog'
-import { KOLOM_VOUCHER, normalisasiVoucher, konteksPelanggan } from '@/lib/voucherDb'
+import { KOLOM_VOUCHER, normalisasiVoucher, konteksPelanggan, pelangganSudahPernahBayar } from '@/lib/voucherDb'
 import { terapkanVoucher, kalimatSyarat, labelNilai } from '@/lib/voucher'
 import type { ItemPesanan } from '@/lib/pricing'
 
@@ -38,7 +38,16 @@ export async function POST(request: Request) {
     if (error) throw new Error(error.message)
 
     const vouchers = (data ?? []).map((b) => normalisasiVoucher(b as unknown as Record<string, unknown>))
-    const katalog = pakaiKeranjang ? await ambilKatalog(body.outlet_id!, true) : null
+    // Daftar ini hanya TAMPILAN (status "berlaku/belum"). Harga & voucher
+    // dihitung ulang dengan katalog segar di checkout/validate dan POST
+    // /orders, jadi di sini cukup katalog ber-cache 5 menit -- memaksa segar
+    // di sini membuat tiap buka halaman Voucher membaca ulang menu outlet.
+    // `pelangganSudahPernahBayar` tidak bergantung pada voucher, jadi dihitung
+    // sekali per permintaan (bukan sekali per voucher), dan hanya bila ada voucher.
+    const [katalog, sudahBayar] = await Promise.all([
+      pakaiKeranjang ? ambilKatalog(body.outlet_id!) : Promise.resolve(null),
+      vouchers.length > 0 ? pelangganSudahPernahBayar(retail, sesi.customerId) : Promise.resolve(false),
+    ])
 
     const idMenu = [...new Set(vouchers.map((v) => v.menu_item_id).filter((x): x is string => !!x))]
     const namaMenu: Record<string, string> = {}
@@ -50,7 +59,7 @@ export async function POST(request: Request) {
 
     const sekarang = new Date()
     const hasil = await Promise.all(vouchers.map(async (v) => {
-      const kp = await konteksPelanggan(retail, v.id, sesi.customerId)
+      const kp = await konteksPelanggan(retail, v.id, sesi.customerId, sudahBayar)
       const h = terapkanVoucher(v, pakaiKeranjang ? body.items! : null, {
         outletId: pakaiKeranjang ? body.outlet_id! : null, sekarang, katalog, ...kp,
       })

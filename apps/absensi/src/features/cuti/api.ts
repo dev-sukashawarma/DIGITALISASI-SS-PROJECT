@@ -21,57 +21,36 @@ export interface Leave {
 }
 
 export interface LeaveBalance {
-  id: string;
-  user_id: string;
-  year: number;
-  total_quota: number;
-  used_quota: number;
+  /** Sisa kuota — `outlet_staff.leave_quota` sudah dipotong HR setiap kali menyetujui
+   *  cuti (apps/HR useLeaveMutations). Jangan dikurangi lagi dengan pemakaian. */
+  sisa_quota: number;
 }
 
+/** Satu baris via primary key. Pemakaian tahun ini tidak di-query terpisah: dihitung dari
+ *  riwayat (`useLeaveHistory`) yang memang sudah dimuat di layar yang sama. `year` tetap
+ *  di queryKey karena realtime (useLeaveNotifications) meng-invalidate dengan kunci itu. */
 export function useLeaveBalance(userId: string | undefined, year: number) {
   return useQuery({
     queryKey: ['leaveBalance', userId, year],
     queryFn: async () => {
       if (!userId) return null;
       const supabase = createClient();
-      
-      // Get total quota from outlet_staff
-      const { data: staff, error: staffErr } = await supabase
+      const { data, error } = await supabase
         .from('outlet_staff')
         .select('leave_quota')
         .eq('id', userId)
         .single();
-        
-      if (staffErr) throw staffErr;
-      
-      // Get used quota from approved leave_requests this year
-      const startOfYear = `${year}-01-01`;
-      const endOfYear = `${year}-12-31`;
-      
-      const { data: leaves, error: leavesErr } = await supabase
-        .from('leave_requests')
-        .select('days')
-        .eq('staff_id', userId)
-        .eq('status', 'approved')
-        .gte('start_date', startOfYear)
-        .lte('start_date', endOfYear);
-        
-      if (leavesErr) throw leavesErr;
-      
-      const used = leaves.reduce((sum, leave) => sum + (leave.days || 0), 0);
-      const total = staff.leave_quota ?? 12;
-
-      return {
-        id: userId,
-        user_id: userId,
-        year,
-        total_quota: total,
-        used_quota: used,
-      } as LeaveBalance;
+      if (error) throw error;
+      return { sisa_quota: data.leave_quota ?? 0 } as LeaveBalance;
     },
     enabled: !!userId,
+    // Kuota hanya berubah saat HR menyetujui — dan itu sudah memicu invalidasi realtime.
+    staleTime: 5 * 60_000,
   });
 }
+
+const KOLOM_RIWAYAT =
+  'id,staff_id,leave_type,start_date,end_date,days,reason,attachment_url,status_spv,status,rejection_note,created_at';
 
 export function useLeaveHistory(userId: string | undefined) {
   return useQuery({
@@ -81,19 +60,12 @@ export function useLeaveHistory(userId: string | undefined) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('leave_requests')
-        .select('*')
+        .select(KOLOM_RIWAYAT)
         .eq('staff_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
-      // Map back to our component's expected format
-      return data.map(d => ({
-        ...d,
-        user_id: d.staff_id,
-        type: d.leave_type,
-        status_hr: d.status,
-      })) as Leave[];
+      return (data ?? []) as Leave[];
     },
     enabled: !!userId,
   });
@@ -124,7 +96,9 @@ export function useSubmitLeave() {
         attachment_url = publicUrlData.publicUrl;
       }
       
-      const { data, error } = await supabase
+      // Tanpa .select(): baris hasil insert tidak dipakai (riwayat dimuat ulang lewat
+      // invalidasi), jadi tidak perlu dikirim balik.
+      const { error } = await supabase
         .from('leave_requests')
         .insert([{
           staff_id: payload.staff_id,
@@ -136,16 +110,14 @@ export function useSubmitLeave() {
           status_spv: payload.status_spv,
           status: payload.status,
           attachment_url,
-        }])
-        .select()
-        .single();
-        
+        }]);
+
       if (error) throw error;
-      return data as Leave;
     },
     onSuccess: (_data, variables) => {
+      // Kuota tidak berubah saat mengajukan (baru dipotong ketika HR menyetujui),
+      // jadi cukup riwayat yang dimuat ulang.
       queryClient.invalidateQueries({ queryKey: ['leaves', variables.staff_id] });
-      queryClient.invalidateQueries({ queryKey: ['leaveBalance', variables.staff_id] });
     },
   });
 }

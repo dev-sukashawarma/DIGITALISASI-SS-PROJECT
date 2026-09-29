@@ -233,7 +233,10 @@ export function AttendanceKioskPanel() {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'global_settings' },
+        // Disaring ke satu-satunya kunci yang dibaca fetchConfig — dulu setiap
+        // perubahan setelan global APA PUN (mis. print_layout) memicu 3 query
+        // ulang di setiap kiosk yang terbuka.
+        { event: '*', schema: 'public', table: 'global_settings', filter: 'key=eq.global_attendance_config' },
         () => { fetchConfig(); }
       )
       .on(

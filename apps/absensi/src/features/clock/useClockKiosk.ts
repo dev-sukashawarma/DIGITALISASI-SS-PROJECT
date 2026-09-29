@@ -411,17 +411,34 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   /** Muat descriptor staff ter-enroll. */
   const loadCandidates = useCallback(async () => {
     if (!outletId) return;
-    let query = supabase
-      .from("outlet_staff")
-      .select("id,name,role,face_descriptor,allow_manual_button")
-      .not("face_descriptor", "is", null);
-    // Mode 1:1 — batasi kandidat ke akun yang login saja (verifikasi, bukan identifikasi).
-    // Outlet tidak ikut menyaring: izin absen di outlet ini (termasuk izin tambahan dari
-    // admin) ditegakkan RPC submit_attendance, sama seperti /api/face-match.
-    if (lockToStaffId) query = query.eq("id", lockToStaffId);
-    else query = query.or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`);
-    const { data } = await query;
-    candidatesRef.current = ((data as StaffRow[]) ?? [])
+    // Builder dibuat ulang per halaman (.range() memutasi builder).
+    const buildQuery = () => {
+      let query = supabase
+        .from("outlet_staff")
+        .select("id,name,role,face_descriptor,allow_manual_button")
+        .not("face_descriptor", "is", null)
+        // Urutan unik (PK) — syarat paginasi stabil.
+        .order("id", { ascending: true });
+      // Mode 1:1 — batasi kandidat ke akun yang login saja (verifikasi, bukan identifikasi).
+      // Outlet tidak ikut menyaring: izin absen di outlet ini (termasuk izin tambahan dari
+      // admin) ditegakkan RPC submit_attendance, sama seperti /api/face-match.
+      if (lockToStaffId) query = query.eq("id", lockToStaffId);
+      else query = query.or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`);
+      return query;
+    };
+    // Kandidat WAJIB lengkap: PostgREST memotong di 1.000 baris tanpa galat,
+    // dan staf yang terpotong tak akan pernah cocok wajahnya. Ambil semua
+    // halaman. Galat diperlakukan seperti dulu (data kosong untuk halaman itu).
+    const PAGE = 1000;
+    const data: StaffRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await buildQuery().range(from, from + PAGE - 1);
+      if (error) break;
+      const rows = (page as StaffRow[]) ?? [];
+      data.push(...rows);
+      if (rows.length < PAGE) break;
+    }
+    candidatesRef.current = data
       .filter((s) => s.face_descriptor)
       .map((s) => ({
         id: s.id,

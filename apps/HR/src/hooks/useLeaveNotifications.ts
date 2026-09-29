@@ -1,35 +1,14 @@
-import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase'
+import { usePerizinanSummary } from '@/hooks/useLeaveRequests'
 
+/**
+ * Badge pengajuan pending di sidebar/bottom-nav. Memakai ringkasan yang sama
+ * dengan halaman Perizinan (satu RPC, akun tes dikecualikan) — dulu dua query
+ * count terpisah tiap 15 detik di setiap halaman.
+ */
 export function useApprovalNotifications() {
-  const supabase = createClient()
-
-  const { data: pendingLeaves = 0 } = useQuery({
-    queryKey: ['pending-leaves-count'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('leave_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-      if (error) throw error
-      return count ?? 0
-    },
-    refetchInterval: 15000,
-  })
-
-  const { data: pendingKasbon = 0 } = useQuery({
-    queryKey: ['pending-kasbon-count'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('cash_advances')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-      if (error) throw error
-      return count ?? 0
-    },
-    refetchInterval: 15000,
-  })
-
+  const { data } = usePerizinanSummary()
+  const pendingLeaves = data?.cuti.pending ?? 0
+  const pendingKasbon = data?.kasbon.pending ?? 0
   const totalPending = pendingLeaves + pendingKasbon
 
   return {

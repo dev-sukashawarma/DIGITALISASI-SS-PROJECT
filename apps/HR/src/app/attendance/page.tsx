@@ -1,11 +1,15 @@
 'use client'
 
-import { useState, useMemo, useDeferredValue } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Download, CheckCircle2, Clock, ShieldAlert, XCircle } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { useAttendance } from '@/hooks/useAttendance'
+import { ATTENDANCE_PAGE_SIZE, useAttendance } from '@/hooks/useAttendance'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { formatJamWib } from '@/lib/format'
+import { Pagination } from '@/components/ui/Pagination'
+import { todayWib } from '@/lib/dateIso'
 import { useOutlets } from '@/hooks/useOutlets'
 import { AttendanceFilters } from '@/components/modules/AttendanceFilters'
 import { AttendanceTable } from '@/components/modules/AttendanceTable'
@@ -13,98 +17,95 @@ import { exportCsv } from '@/lib/exportCsv'
 import type { AttendanceFilterValues } from '@/lib/types'
 
 function currentMonthRange(): { from: string; to: string } {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const lastDay = new Date(y, now.getMonth() + 1, 0).getDate()
-  return {
-    from: `${y}-${m}-01`,
-    to: `${y}-${m}-${String(lastDay).padStart(2, '0')}`,
-  }
+  // Bulan berjalan dalam WIB (bukan zona waktu browser)
+  const [y, m] = todayWib().split('-').map(Number)
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const mm = String(m).padStart(2, '0')
+  return { from: `${y}-${mm}-01`, to: `${y}-${mm}-${String(lastDay).padStart(2, '0')}` }
 }
 
-const DEFAULT_FILTER: AttendanceFilterValues = {
-  dateFrom: currentMonthRange().from,
-  dateTo: currentMonthRange().to,
-  outletId: 'all',
-  status: 'all',
+function defaultFilter(): AttendanceFilterValues {
+  const { from, to } = currentMonthRange()
+  return { dateFrom: from, dateTo: to, outletId: 'all', status: 'all' }
 }
 
 export default function AttendancePage() {
-  const [filter, setFilter] = useState<AttendanceFilterValues>(DEFAULT_FILTER)
-  const [search, setSearch] = useState('')
-  const deferredSearch = useDeferredValue(search)
-  const { data: allRows = [], isLoading } = useAttendance(filter)
+  const [filter, setFilterState] = useState<AttendanceFilterValues>(defaultFilter)
+  const [search, setSearchState] = useState('')
+  const [page, setPage] = useState(1)
+  const [exporting, setExporting] = useState(false)
+  // Tunda query saat mengetik: pencarian dijalankan di database, jadi jangan tiap huruf.
+  const debouncedSearch = useDebouncedValue(search, 350)
+  const { data, isLoading, isFetching, exportAll } = useAttendance(filter, debouncedSearch, page)
   const { data: outlets = [] } = useOutlets()
 
-  // Pencarian nama/username di sisi klien — tidak memicu query ulang ke database.
-  const rows = useMemo(() => {
-    const q = deferredSearch.trim().toLowerCase()
-    if (!q) return allRows
-    return allRows.filter((r) => {
-      const name = (r.outlet_staff?.name ?? '').toLowerCase()
-      const username = (r.outlet_staff?.username ?? '').toLowerCase()
-      return name.includes(q) || username.includes(q)
-    })
-  }, [allRows, deferredSearch])
+  const rows = data?.rows ?? []
+  const total = data?.total ?? 0
+  const summary = data?.summary ?? { hadir: 0, terlambat: 0, alfa: 0 }
+  const totalPages = Math.max(1, Math.ceil(total / ATTENDANCE_PAGE_SIZE))
 
-  // Summary Metrics
-  const summary = useMemo(() => {
-    let hadir = 0
-    let terlambat = 0
-    let izinSakit = 0
-    let alfa = 0
+  // Filter/pencarian berubah → kembali ke halaman 1
+  const setFilter = (v: AttendanceFilterValues) => {
+    setFilterState(v)
+    setPage(1)
+  }
+  const setSearch = (v: string) => {
+    setSearchState(v)
+    setPage(1)
+  }
 
-    for (const r of rows) {
-      if (r.status === 'hadir') hadir++
-      else if (r.status === 'terlambat') terlambat++
-      else if (r.status === 'izin' || r.status === 'sakit' || r.status === 'cuti') izinSakit++
-      else if (r.status === 'alfa') alfa++
-    }
+  // Halaman aktif bisa melewati jumlah halaman bila data berkurang (mis. realtime)
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
 
-    return { hadir, terlambat, izinSakit, alfa, total: rows.length }
-  }, [rows])
-
-  const handleExportCsv = () => {
-    if (rows.length === 0) {
+  const handleExportCsv = async () => {
+    if (total === 0) {
       toast.error('Tidak ada data absensi untuk diexport')
       return
     }
+    setExporting(true)
+    try {
+      const all = await exportAll()
+      const flat = all.rows.map((r) => ({
+        nama: r.outlet_staff?.name ?? '',
+        role: r.outlet_staff?.role ?? '',
+        outlet: r.outlets?.name ?? '',
+        tanggal: r.date,
+        clock_in: formatJamWib(r.clock_in),
+        clock_out: formatJamWib(r.clock_out),
+        status: r.status,
+        terlambat_menit: r.late_minutes,
+        ada_foto: r.photo_url ? 'Ya' : 'Tidak',
+        gps_lat: r.lat || '',
+        gps_lng: r.lng || '',
+        catatan: r.notes ?? '',
+      }))
 
-    const flat = rows.map((r) => ({
-      nama: r.outlet_staff?.name ?? '',
-      role: r.outlet_staff?.role ?? '',
-      outlet: r.outlets?.name ?? '',
-      tanggal: r.date,
-      clock_in: r.clock_in ? new Date(r.clock_in).toLocaleTimeString('id-ID') : '—',
-      clock_out: r.clock_out ? new Date(r.clock_out).toLocaleTimeString('id-ID') : '—',
-      status: r.status,
-      terlambat_menit: r.late_minutes,
-      ada_foto: r.photo_url ? 'Ya' : 'Tidak',
-      gps_lat: r.lat || '',
-      gps_lng: r.lng || '',
-      catatan: r.notes ?? '',
-    }))
-
-    exportCsv(
-      flat,
-      [
-        { key: 'nama', label: 'Nama Staf' },
-        { key: 'role', label: 'Jabatan' },
-        { key: 'outlet', label: 'Outlet' },
-        { key: 'tanggal', label: 'Tanggal' },
-        { key: 'clock_in', label: 'Clock In' },
-        { key: 'clock_out', label: 'Clock Out' },
-        { key: 'status', label: 'Status Kehadiran' },
-        { key: 'terlambat_menit', label: 'Terlambat (Menit)' },
-        { key: 'ada_foto', label: 'Verifikasi Selfie' },
-        { key: 'gps_lat', label: 'Latitude' },
-        { key: 'gps_lng', label: 'Longitude' },
-        { key: 'catatan', label: 'Catatan' },
-      ],
-      `Rekap_Absensi_SukaHR_${filter.dateFrom}_sd_${filter.dateTo}`
-    )
-    toast.success('Rekap absensi berhasil di-export ke CSV')
+      exportCsv(
+        flat,
+        [
+          { key: 'nama', label: 'Nama Staf' },
+          { key: 'role', label: 'Jabatan' },
+          { key: 'outlet', label: 'Outlet' },
+          { key: 'tanggal', label: 'Tanggal' },
+          { key: 'clock_in', label: 'Clock In' },
+          { key: 'clock_out', label: 'Clock Out' },
+          { key: 'status', label: 'Status Kehadiran' },
+          { key: 'terlambat_menit', label: 'Terlambat (Menit)' },
+          { key: 'ada_foto', label: 'Verifikasi Selfie' },
+          { key: 'gps_lat', label: 'Latitude' },
+          { key: 'gps_lng', label: 'Longitude' },
+          { key: 'catatan', label: 'Catatan' },
+        ],
+        `Rekap_Absensi_SukaHR_${filter.dateFrom}_sd_${filter.dateTo}`
+      )
+      toast.success(`${flat.length} catatan absensi berhasil di-export ke CSV`)
+    } catch (err) {
+      toast.error(`Gagal export: ${err instanceof Error ? err.message : 'kesalahan tak dikenal'}`)
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -125,9 +126,10 @@ export default function AttendancePage() {
             type="button"
             variant="ghost"
             onClick={handleExportCsv}
+            disabled={exporting}
             className="rounded-xl border border-suka-gray-200 gap-1.5 font-bold"
           >
-            <Download size={15} /> Export CSV
+            <Download size={15} /> {exporting ? 'Menyiapkan…' : 'Export CSV'}
           </Button>
         </div>
       </PageHeader>
@@ -159,7 +161,7 @@ export default function AttendancePage() {
             <ShieldAlert size={20} />
           </div>
           <div>
-            <p className="text-2xl font-black text-slate-900">{summary.izinSakit}</p>
+            <p className="text-2xl font-black text-slate-900">0</p>
             <p className="text-xs font-bold text-blue-700 uppercase">Izin / Sakit</p>
           </div>
         </div>
@@ -185,7 +187,7 @@ export default function AttendancePage() {
           onSearchChange={setSearch}
         />
         <span className="text-xs text-suka-gray-500 font-medium">
-          Total <strong>{rows.length}</strong> catatan kehadiran
+          Total <strong>{total}</strong> catatan kehadiran
         </span>
       </div>
 
@@ -195,7 +197,10 @@ export default function AttendancePage() {
           <Spinner />
         </div>
       ) : (
-        <AttendanceTable rows={rows} />
+        <div className={isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+          <AttendanceTable rows={rows} />
+          <Pagination page={page} pageSize={ATTENDANCE_PAGE_SIZE} total={total} onPageChange={setPage} />
+        </div>
       )}
     </div>
   )

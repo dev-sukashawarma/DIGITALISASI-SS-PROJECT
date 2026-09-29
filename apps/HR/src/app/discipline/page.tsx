@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { AlertOctagon, Plus, ShieldAlert, AlertTriangle } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
@@ -9,39 +9,29 @@ import { useDiscipline } from '@/hooks/useDiscipline'
 import { DisciplineTable } from '@/components/modules/DisciplineTable'
 import { DisciplineFormModal } from '@/components/modules/DisciplineFormModal'
 import type { DisciplineRecord } from '@/lib/types'
-import { isRecordActive } from '@/lib/disciplineUtils'
+import { Pagination, clampPage } from '@/components/ui/Pagination'
+import { DEFAULT_PAGE_SIZE } from '@/lib/paging'
 
 export default function DisciplinePage() {
   const [showModal, setShowModal] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'resolved'>('all')
 
-  const { data: records = [], isLoading, issueWarning, resolveWarning } = useDiscipline()
+  const [page, setPage] = useState(1)
+  const { data, isLoading, isFetching, issueWarning, resolveWarning } = useDiscipline(statusFilter, page)
+  const rows = data?.rows ?? []
+  const total = data?.total ?? 0
+  // Ringkasan dihitung di database atas SEMUA catatan (bukan hanya halaman ini)
+  const summary = data?.summary ?? { active: 0, sp1: 0, sp2: 0, sp3: 0, total: 0 }
 
-  // Summary Metrics: hanya menghitung SP yang masih aktif (berlaku <= 3 bulan)
-  const summary = useMemo(() => {
-    let active = 0
-    let sp1 = 0
-    let sp2 = 0
-    let sp3 = 0
+  useEffect(() => {
+    const clamped = clampPage(page, total, DEFAULT_PAGE_SIZE)
+    if (clamped !== page) setPage(clamped)
+  }, [page, total])
 
-    records.forEach((r) => {
-      if (isRecordActive(r)) {
-        active++
-        if (r.warning_level === 'SP1') sp1++
-        else if (r.warning_level === 'SP2') sp2++
-        else if (r.warning_level === 'SP3' || r.warning_level === 'Skorsing') sp3++
-      }
-    })
-
-    return { active, sp1, sp2, sp3, total: records.length }
-  }, [records])
-
-  const filteredRows = useMemo(() => {
-    if (statusFilter === 'all') return records
-    if (statusFilter === 'active') return records.filter((r) => isRecordActive(r))
-    // Selesai atau Gugur (masa berlaku 3 bulan habis)
-    return records.filter((r) => !isRecordActive(r))
-  }, [records, statusFilter])
+  const changeFilter = (f: typeof statusFilter) => {
+    setStatusFilter(f)
+    setPage(1)
+  }
 
   const handleIssueWarning = (data: Omit<DisciplineRecord, 'id'>) => {
     issueWarning.mutate(data, {
@@ -122,17 +112,17 @@ export default function DisciplinePage() {
       {/* Filter Tabs */}
       <div className="flex gap-1.5 bg-white p-1.5 rounded-2xl border border-suka-gray-200 shadow-sm w-fit">
         <button
-          onClick={() => setStatusFilter('all')}
+          onClick={() => changeFilter('all')}
           className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer ${
             statusFilter === 'all'
               ? 'bg-suka-brown text-white shadow-xs'
               : 'text-suka-gray-500 hover:text-suka-ink'
           }`}
         >
-          Semua Catatan ({records.length})
+          Semua Catatan ({summary.total})
         </button>
         <button
-          onClick={() => setStatusFilter('active')}
+          onClick={() => changeFilter('active')}
           className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer ${
             statusFilter === 'active'
               ? 'bg-red-600 text-white shadow-xs'
@@ -142,7 +132,7 @@ export default function DisciplinePage() {
           Sanksi Aktif ({summary.active})
         </button>
         <button
-          onClick={() => setStatusFilter('resolved')}
+          onClick={() => changeFilter('resolved')}
           className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer ${
             statusFilter === 'resolved'
               ? 'bg-emerald-600 text-white shadow-xs'
@@ -159,13 +149,15 @@ export default function DisciplinePage() {
           <Spinner />
         </div>
       ) : (
-        <DisciplineTable rows={filteredRows} onResolve={handleResolveWarning} />
+        <div className={isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+          <DisciplineTable rows={rows} onResolve={handleResolveWarning} />
+          <Pagination page={page} pageSize={DEFAULT_PAGE_SIZE} total={total} onPageChange={setPage} />
+        </div>
       )}
 
       {/* Modal */}
       {showModal && (
         <DisciplineFormModal
-          existingRecords={records}
           onClose={() => setShowModal(false)}
           onSubmit={handleIssueWarning}
         />

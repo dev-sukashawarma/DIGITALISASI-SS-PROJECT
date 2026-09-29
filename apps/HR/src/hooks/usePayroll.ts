@@ -23,20 +23,6 @@ export function usePayroll(month: number, year: number) {
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'attendance' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['payroll', month, year] })
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'attendance_logs' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['payroll', month, year] })
-        }
-      )
-      .on(
-        'postgres_changes',
         { event: '*', schema: 'public', table: 'cash_advances' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['payroll', month, year] })
@@ -97,6 +83,6 @@ export function usePayroll(month: number, year: number) {
         })) as PayrollRecord[]
     },
     enabled: !!month && !!year,
-    refetchInterval: 10_000, // 10s fallback polling
+    refetchInterval: 60_000, // cadangan bila realtime putus (payroll hanya berubah saat generate/sync)
   })
 }

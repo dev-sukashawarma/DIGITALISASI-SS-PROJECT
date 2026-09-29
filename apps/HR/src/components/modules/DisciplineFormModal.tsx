@@ -5,6 +5,8 @@ import { Button } from '@suka/design-system'
 import { AlertTriangle, Info, Calendar } from 'lucide-react'
 import { Select } from '@/components/ui/Select'
 import { useStaff } from '@/hooks/useStaff'
+import { useStaffDiscipline } from '@/hooks/useDiscipline'
+import { todayWib } from '@/lib/dateIso'
 import type { DisciplineRecord, WarningLevel } from '@/lib/types'
 import { addMonths, getStaffActiveSpStatus } from '@/lib/disciplineUtils'
 
@@ -17,7 +19,6 @@ const WARNING_LEVEL_OPTIONS: { label: string; value: WarningLevel }[] = [
 ]
 
 interface DisciplineFormModalProps {
-  existingRecords?: DisciplineRecord[]
   onClose: () => void
   onSubmit: (record: Omit<DisciplineRecord, 'id'>) => void
 }
@@ -26,16 +27,17 @@ const inputClass =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white text-suka-ink text-sm'
 const labelClass = 'mb-1 block text-xs font-bold text-suka-brown'
 
-export function DisciplineFormModal({ existingRecords = [], onClose, onSubmit }: DisciplineFormModalProps) {
+export function DisciplineFormModal({ onClose, onSubmit }: DisciplineFormModalProps) {
   const { data: staffList = [] } = useStaff()
   const [staffId, setStaffId] = useState('')
   const [warningLevel, setWarningLevel] = useState<WarningLevel>('SP1')
-  const [incidentDate, setIncidentDate] = useState(new Date().toISOString().split('T')[0])
+  const [incidentDate, setIncidentDate] = useState(todayWib())
   const [reason, setReason] = useState('')
   const [actionPlan, setActionPlan] = useState('')
 
-  // Hitung status aktif SP dan saran eskalasi untuk staf yang dipilih
-  const spStatus = getStaffActiveSpStatus(staffId, existingRecords)
+  // Riwayat SP staf terpilih saja (bukan seluruh riwayat SP semua karyawan)
+  const { data: staffRecords = [] } = useStaffDiscipline(staffId)
+  const spStatus = getStaffActiveSpStatus(staffId, staffRecords)
 
   // Otomatis pilih tingkat SP berikutnya saat staf dipilih
   useEffect(() => {

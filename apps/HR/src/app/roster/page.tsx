@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
 import { useRoster } from '@/hooks/useRoster'
 import { useOutlets } from '@/hooks/useOutlets'
+import { toIsoDate } from '@/lib/dateIso'
 import { ShiftRosterGrid } from '@/components/modules/ShiftRosterGrid'
 import type { ShiftType } from '@/lib/types'
 
@@ -23,7 +24,8 @@ function getWeekDates(offsetWeeks = 0): { start: string; end: string; dates: str
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
-    dates.push(d.toISOString().split('T')[0])
+    // toIsoDate = tanggal lokal; toISOString() = UTC → sebelum 07.00 WIB mundur sehari
+    dates.push(toIsoDate(d))
   }
 
   return {

@@ -16,23 +16,24 @@ import {
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useStaff } from '@/hooks/useStaff'
 import { useAttendance } from '@/hooks/useAttendance'
-import { useLeaveRequests } from '@/hooks/useLeaveRequests'
-import { useCashAdvances } from '@/hooks/useCashAdvances'
+import { usePerizinanSummary } from '@/hooks/useLeaveRequests'
 import { useContracts } from '@/hooks/useContracts'
 import { useHrActivity } from '@/hooks/useHrActivity'
+import { todayWib } from '@/lib/dateIso'
 
 export default function HrDashboardOverview() {
-  const todayStr = new Date().toISOString().split('T')[0]
+  // Tanggal WIB (toISOString() = UTC → sebelum 07.00 WIB masih "kemarin")
+  const todayStr = todayWib()
 
   const { data: staffList = [] } = useStaff()
-  const { data: todayAttendance = [] } = useAttendance({
-    dateFrom: todayStr,
-    dateTo: todayStr,
-    outletId: 'all',
-    status: 'all',
-  })
-  const { data: leaveRequests = [] } = useLeaveRequests()
-  const { data: kasbonList = [] } = useCashAdvances()
+  const todayFilter = useMemo(
+    () => ({ dateFrom: todayStr, dateTo: todayStr, outletId: 'all', status: 'all' }),
+    [todayStr]
+  )
+  // Cukup ringkasan dari RPC — tidak perlu menarik semua baris absensi hari ini.
+  const { data: todayAttendance } = useAttendance(todayFilter, '', 1)
+  // Angka pending dari ringkasan database — bukan menarik seluruh riwayat cuti & kasbon
+  const { data: perizinan } = usePerizinanSummary()
   const { data: contracts = [] } = useContracts('all')
   const { data: activities = [] } = useHrActivity()
 
@@ -42,25 +43,11 @@ export default function HrDashboardOverview() {
     [staffList]
   )
 
-  const todayPresent = useMemo(
-    () => todayAttendance.filter((a) => a.clock_in).length,
-    [todayAttendance]
-  )
+  const todayPresent = (todayAttendance?.summary.hadir ?? 0) + (todayAttendance?.summary.terlambat ?? 0)
+  const todayLate = todayAttendance?.summary.terlambat ?? 0
 
-  const todayLate = useMemo(
-    () => todayAttendance.filter((a) => a.status === 'terlambat').length,
-    [todayAttendance]
-  )
-
-  const pendingLeaves = useMemo(
-    () => leaveRequests.filter((l) => l.status === 'pending').length,
-    [leaveRequests]
-  )
-
-  const pendingKasbon = useMemo(
-    () => kasbonList.filter((k) => k.status === 'pending').length,
-    [kasbonList]
-  )
+  const pendingLeaves = perizinan?.cuti.pending ?? 0
+  const pendingKasbon = perizinan?.kasbon.pending ?? 0
 
   const totalPendingRequests = pendingLeaves + pendingKasbon
 
@@ -298,7 +285,7 @@ export default function HrDashboardOverview() {
             </div>
 
             <div className="divide-y divide-suka-gray-100">
-              {todayAttendance.slice(0, 5).map((a) => (
+              {(todayAttendance?.rows ?? []).slice(0, 5).map((a) => (
                 <div key={a.id} className="py-2.5 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-orange-100 text-suka-orange flex items-center justify-center font-black text-xs">
@@ -322,13 +309,13 @@ export default function HrDashboardOverview() {
                       {a.status === 'hadir' ? 'Tepat Waktu' : `Telat (${a.late_minutes}m)`}
                     </span>
                     <p className="text-[11px] font-mono text-suka-gray-500 mt-0.5">
-                      {a.clock_in ? new Date(a.clock_in).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                      {a.clock_in ? new Date(a.clock_in).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }) : '-'}
                     </p>
                   </div>
                 </div>
               ))}
 
-              {todayAttendance.length === 0 && (
+              {(todayAttendance?.rows.length ?? 0) === 0 && (
                 <p className="py-6 text-center text-xs text-suka-gray-400">
                   Belum ada presensi yang tercatat untuk hari ini.
                 </p>

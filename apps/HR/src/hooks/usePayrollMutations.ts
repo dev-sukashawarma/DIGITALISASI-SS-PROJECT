@@ -17,24 +17,17 @@ async function fetchMonthlyLateMinutes(
 
   const lateMinutesMap = new Map<string, number>()
 
-  // 1. Query attendance table (used by Mobile Clock In)
-  try {
-    const { data: rawAtt } = await supabase
-      .from('attendance')
-      .select('outlet_staff_id, telat_menit, type, status, ts_server')
-      .gte('ts_server', `${startDay}T00:00:00.000+07:00`)
-      .lte('ts_server', `${endDay}T23:59:59.999+07:00`)
-
-    rawAtt?.forEach((a: any) => {
-      if (a.type === 'in' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
-        const staffId = a.outlet_staff_id
-        const mins = Number(a.telat_menit) || 0
-        const prev = lateMinutesMap.get(staffId) || 0
-        lateMinutesMap.set(staffId, prev + mins)
-      }
-    })
-  } catch (e) {
-    // Ignore if table schema difference
+  // 1. Menit telat dari `attendance`, diagregasi per staf di database.
+  //    (Dulu: select semua baris sebulan tanpa pagination → terpotong 1.000 baris,
+  //    sebagian staf dapat denda Rp 0.) Error sengaja dilempar: denda yang diam-diam
+  //    nol lebih berbahaya daripada generate yang gagal.
+  const { data: rekap, error: rekapErr } = await supabase.rpc('hr_rekap_absensi_staf', {
+    p_from: startDay,
+    p_to: endDay,
+  })
+  if (rekapErr) throw new Error(`Gagal membaca rekap absensi: ${rekapErr.message}`)
+  for (const r of (rekap ?? []) as { staff_id: string; telat_menit_total: number }[]) {
+    if (r.telat_menit_total > 0) lateMinutesMap.set(r.staff_id, r.telat_menit_total)
   }
 
   // 2. Query attendance_logs table (used by manual / synced logs)

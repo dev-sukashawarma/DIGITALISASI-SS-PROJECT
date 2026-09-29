@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { CrewSubRole, OnboardingStage, CrewOnboardingEvaluation } from '@/lib/types'
+import { inChunks } from '@/lib/paging'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
 import { isTestOutlet } from '@/lib/outletFilters'
 import { saveCrewEvaluationAction, updateOnboardingStageAction, type SaveEvaluationParams } from '@/app/actions/onboarding'
@@ -62,22 +63,44 @@ export function useOnboarding(filters?: { outletId?: string; stage?: string; sub
 
       const staffIds = rawStaff.map((s: any) => s.id)
 
-      // 2. Fetch attendance logs for these trainees
-      const { data: attendanceData } = await supabase
-        .from('attendance_logs')
-        .select('staff_id, date, status')
-        .in('staff_id', staffIds)
-        .in('status', ['hadir', 'terlambat'])
+      // 2. Absensi masa training (7 hari pertama) — dibatasi rentang tanggal dan
+      //    dikirim per potongan id supaya URL tidak melewati batas saat staf bertambah.
+      const starts = rawStaff
+        .map((s: any) => s.training_start_date || s.join_date)
+        .filter(Boolean)
+        .sort() as string[]
+      const addDays = (d: string, n: number) => {
+        const x = new Date(`${d}T00:00:00Z`)
+        x.setUTCDate(x.getUTCDate() + n)
+        return x.toISOString().slice(0, 10)
+      }
+      const attendanceData = starts.length
+        ? await inChunks(staffIds, async (chunk) => {
+            const { data, error } = await supabase
+              .from('attendance_logs')
+              .select('staff_id, date, status')
+              .in('staff_id', chunk)
+              .in('status', ['hadir', 'terlambat'])
+              .gte('date', starts[0])
+              .lte('date', addDays(starts[starts.length - 1], 6))
+            if (error) throw error
+            return data ?? []
+          })
+        : []
 
-      // 3. Fetch evaluations
-      const { data: evalData } = await supabase
-        .from('crew_onboarding_evaluations')
-        .select(`
-          id, staff_id, evaluator_id, outlet_id, evaluation_date, day_count_at_eval, decision, scores, notes, status, created_at,
-          evaluator:outlet_staff!crew_onboarding_evaluations_evaluator_id_fkey(name, role)
-        `)
-        .in('staff_id', staffIds)
-        .order('created_at', { ascending: false })
+      // 3. Evaluasi
+      const evalData = await inChunks(staffIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from('crew_onboarding_evaluations')
+          .select(`
+            id, staff_id, evaluator_id, outlet_id, evaluation_date, day_count_at_eval, decision, scores, notes, status, created_at,
+            evaluator:outlet_staff!crew_onboarding_evaluations_evaluator_id_fkey(name, role)
+          `)
+          .in('staff_id', chunk)
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        return data ?? []
+      })
 
       const attendanceMap = new Map<string, Set<string>>()
       ;(attendanceData ?? []).forEach((a: any) => {

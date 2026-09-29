@@ -24,7 +24,7 @@ export function useLeaveMutations() {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['leave-requests'] })
-    qc.invalidateQueries({ queryKey: ['pending-leaves-count'] })
+    qc.invalidateQueries({ queryKey: ['perizinan-summary'] })
     qc.invalidateQueries({ queryKey: ['staff'] })
     qc.invalidateQueries({ queryKey: ['hr-activity'] })
   }
@@ -82,7 +82,8 @@ export function useLeaveMutations() {
         throw new Error(`Data pengajuan cuti tidak ditemukan: ${reqError?.message || ''}`)
       }
 
-      const { error: updateError } = await supabase
+      // Hanya pengajuan yang masih pending — klik ganda / dua admin tidak memotong kuota dua kali.
+      const { data: updated, error: updateError } = await supabase
         .from('leave_requests')
         .update({
           status: 'approved',
@@ -90,15 +91,21 @@ export function useLeaveMutations() {
           approved_at: new Date().toISOString(),
         })
         .eq('id', vars.id)
+        .eq('status', 'pending')
+        .select('id')
       if (updateError) throw updateError
+      if (!updated || updated.length === 0) {
+        throw new Error('Pengajuan ini sudah diproses sebelumnya')
+      }
 
       const currentQuota = request.outlet_staff.leave_quota ?? 0
       const newQuota = Math.max(0, currentQuota - vars.days)
 
-      await supabase
+      const { error: quotaError } = await supabase
         .from('outlet_staff')
         .update({ leave_quota: newQuota })
         .eq('id', vars.staff_id)
+      if (quotaError) throw new Error(`Cuti disetujui, tapi gagal memotong kuota: ${quotaError.message}`)
     },
     onSuccess: invalidate,
   })

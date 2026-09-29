@@ -39,7 +39,7 @@ export function useStaff(options?: { includeAllCategories?: boolean }) {
   return useQuery<StaffRow[]>({
     queryKey: ['staff', { includeAll }],
     staleTime: 30_000,
-    refetchInterval: 15_000,
+    refetchInterval: 60_000, // realtime sudah meng-invalidate; select-nya lebar (staff_financials)
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlet_staff')

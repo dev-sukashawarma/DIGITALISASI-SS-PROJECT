@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Spinner } from '@suka/design-system'
 import {
@@ -21,7 +21,11 @@ import {
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
-import { useLeaveRequests } from '@/hooks/useLeaveRequests'
+import { useLeaveRequests, usePerizinanSummary } from '@/hooks/useLeaveRequests'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { Pagination } from '@/components/ui/Pagination'
+import { DEFAULT_PAGE_SIZE } from '@/lib/paging'
+import { todayWib } from '@/lib/dateIso'
 import { useLeaveMutations } from '@/hooks/useLeaveMutations'
 import { useCashAdvances, type CashAdvanceRow } from '@/hooks/useCashAdvances'
 import { useCashAdvanceMutations } from '@/hooks/useCashAdvanceMutations'
@@ -93,8 +97,8 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
 
   // Data fetching
   const { data: outlets = [] } = useOutlets()
-  const { data: allLeaveRequests = [], isLoading: loadingLeaves } = useLeaveRequests()
   const { createRequest: createLeave, approve: approveLeave, reject: rejectLeave } = useLeaveMutations()
+  const kasbonMutations = useCashAdvanceMutations()
 
   const outletOptions = useMemo(
     () => [
@@ -104,76 +108,49 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
     [outlets]
   )
 
-  const { data: allKasbon = [], isLoading: loadingKasbon } = useCashAdvances()
-  const kasbonMutations = useCashAdvanceMutations()
+  // Pencarian dijalankan di database → tunda sampai berhenti mengetik
+  const debouncedSearch = useDebouncedValue(searchQuery, 350)
+  const [leavePage, setLeavePage] = useState(1)
+  const [kasbonPage, setKasbonPage] = useState(1)
+  // Filter berubah → kembali ke halaman 1
+  useEffect(() => {
+    setLeavePage(1)
+    setKasbonPage(1)
+  }, [selectedOutlet, debouncedSearch, leaveStatusFilter, kasbonStatusFilter])
 
-  // Counters
-  const pendingLeavesCount = useMemo(
-    () => allLeaveRequests.filter((r) => r.status === 'pending').length,
-    [allLeaveRequests]
-  )
-  const approvedLeavesCount = useMemo(
-    () => allLeaveRequests.filter((r) => r.status === 'approved').length,
-    [allLeaveRequests]
-  )
-  const rejectedLeavesCount = useMemo(
-    () => allLeaveRequests.filter((r) => r.status === 'rejected').length,
-    [allLeaveRequests]
-  )
+  // Hanya tab yang sedang dibuka yang di-query; tiap query = 1 halaman (50 baris)
+  const leaveQuery = useLeaveRequests({
+    status: leaveStatusFilter,
+    outletId: selectedOutlet,
+    search: debouncedSearch,
+    page: leavePage,
+    enabled: activeTab === 'izin',
+  })
+  const kasbonQuery = useCashAdvances({
+    status: kasbonStatusFilter,
+    outletId: selectedOutlet,
+    search: debouncedSearch,
+    page: kasbonPage,
+    enabled: activeTab === 'kasbon',
+  })
+  const leaveRows = leaveQuery.data?.rows ?? []
+  const leaveTotal = leaveQuery.data?.total ?? 0
+  const kasbonRows = kasbonQuery.data?.rows ?? []
+  const kasbonTotal = kasbonQuery.data?.total ?? 0
+  const loadingLeaves = leaveQuery.isLoading
+  const loadingKasbon = kasbonQuery.isLoading
 
-  const pendingKasbonCount = useMemo(
-    () => allKasbon.filter((k) => k.status === 'pending').length,
-    [allKasbon]
-  )
-  const activeKasbonCount = useMemo(
-    () => allKasbon.filter((k) => k.status === 'active').length,
-    [allKasbon]
-  )
-  const totalKasbonActiveAmount = useMemo(
-    () => allKasbon.filter((k) => k.status === 'active').reduce((sum, k) => sum + (k.remaining ?? k.amount), 0),
-    [allKasbon]
-  )
-  const totalKasbonPaidAmount = useMemo(
-    () => allKasbon.reduce((sum, k) => sum + (k.amount - (k.remaining ?? k.amount)), 0),
-    [allKasbon]
-  )
-
-  // Filtered Leave Rows
-  const filteredLeaveRows = useMemo(() => {
-    return allLeaveRequests.filter((item) => {
-      if (leaveStatusFilter !== 'all' && item.status !== leaveStatusFilter) return false
-      if (selectedOutlet !== 'all') {
-        const staffOutletId = item.outlet_staff?.outlet_id
-        if (staffOutletId !== selectedOutlet) return false
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        const name = item.outlet_staff?.name?.toLowerCase() || ''
-        const reason = item.reason?.toLowerCase() || ''
-        const type = (leaveTypeLabel[item.leave_type] || item.leave_type).toLowerCase()
-        if (!name.includes(q) && !reason.includes(q) && !type.includes(q)) return false
-      }
-      return true
-    })
-  }, [allLeaveRequests, leaveStatusFilter, selectedOutlet, searchQuery])
-
-  // Filtered Kasbon Rows
-  const filteredKasbonRows = useMemo(() => {
-    return allKasbon.filter((item) => {
-      if (kasbonStatusFilter !== 'all' && item.status !== kasbonStatusFilter) return false
-      if (selectedOutlet !== 'all') {
-        const staffOutletId = item.outlet_staff?.outlet_id
-        if (staffOutletId !== selectedOutlet) return false
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        const name = item.outlet_staff?.name?.toLowerCase() || ''
-        const reason = item.reason?.toLowerCase() || ''
-        if (!name.includes(q) && !reason.includes(q)) return false
-      }
-      return true
-    })
-  }, [allKasbon, kasbonStatusFilter, selectedOutlet, searchQuery])
+  // Kartu ringkasan: dihitung di database atas SELURUH data (bukan halaman ini)
+  const { data: summary } = usePerizinanSummary()
+  const pendingLeavesCount = summary?.cuti.pending ?? 0
+  const approvedLeavesCount = summary?.cuti.approved ?? 0
+  const rejectedLeavesCount = summary?.cuti.rejected ?? 0
+  const totalLeavesCount = summary?.cuti.total ?? 0
+  const pendingKasbonCount = summary?.kasbon.pending ?? 0
+  const activeKasbonCount = summary?.kasbon.active ?? 0
+  const totalKasbonActiveAmount = Number(summary?.kasbon.active_amount ?? 0)
+  const totalKasbonPaidAmount = Number(summary?.kasbon.paid_amount ?? 0)
+  const [exporting, setExporting] = useState(false)
 
   // Leave Handlers
   function handleCreateLeave(values: {
@@ -220,12 +197,23 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
     )
   }
 
-  function handleExportLeaveCsv() {
-    if (filteredLeaveRows.length === 0) {
+  async function handleExportLeaveCsv() {
+    if (leaveTotal === 0) {
       toast.error('Tidak ada data izin untuk di-export')
       return
     }
-    const exportData = filteredLeaveRows.map((r) => ({
+    setExporting(true)
+    let all: LeaveRequest[]
+    try {
+      // Semua baris sesuai filter aktif, diambil per batch dari database
+      all = (await leaveQuery.exportAll()).rows
+    } catch (err) {
+      toast.error(`Gagal export: ${err instanceof Error ? err.message : 'kesalahan tak dikenal'}`)
+      return
+    } finally {
+      setExporting(false)
+    }
+    const exportData = all.map((r) => ({
       nama: r.outlet_staff?.name ?? '-',
       jabatan: r.outlet_staff?.role ?? '-',
       cabang: r.outlet_staff?.outlets?.name ?? '-',
@@ -252,9 +240,9 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
         { key: 'status', label: 'Status' },
         { key: 'tanggal_pengajuan', label: 'Tgl Pengajuan' },
       ],
-      `Laporan_Perizinan_Cuti_${new Date().toISOString().split('T')[0]}`
+      `Laporan_Perizinan_Cuti_${todayWib()}`
     )
-    toast.success('Data perizinan & cuti berhasil diunduh')
+    toast.success(`${exportData.length} data perizinan & cuti berhasil diunduh`)
   }
 
   // Kasbon Handlers
@@ -303,12 +291,22 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
     })
   }
 
-  function handleExportKasbonCsv() {
-    if (filteredKasbonRows.length === 0) {
+  async function handleExportKasbonCsv() {
+    if (kasbonTotal === 0) {
       toast.error('Tidak ada data kasbon untuk di-export')
       return
     }
-    const exportData = filteredKasbonRows.map((k) => ({
+    setExporting(true)
+    let all: CashAdvanceRow[]
+    try {
+      all = (await kasbonQuery.exportAll()).rows
+    } catch (err) {
+      toast.error(`Gagal export: ${err instanceof Error ? err.message : 'kesalahan tak dikenal'}`)
+      return
+    } finally {
+      setExporting(false)
+    }
+    const exportData = all.map((k) => ({
       nama: k.outlet_staff?.name ?? '-',
       jabatan: k.outlet_staff?.role ?? '-',
       cabang: k.outlet_staff?.outlets?.name ?? '-',
@@ -331,9 +329,9 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
         { key: 'alasan', label: 'Alasan' },
         { key: 'tanggal_pengajuan', label: 'Tgl Pengajuan' },
       ],
-      `Laporan_Kasbon_Karyawan_${new Date().toISOString().split('T')[0]}`
+      `Laporan_Kasbon_Karyawan_${todayWib()}`
     )
-    toast.success('Data kasbon karyawan berhasil diunduh')
+    toast.success(`${exportData.length} data kasbon karyawan berhasil diunduh`)
   }
 
   return (
@@ -441,6 +439,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
                 type="button"
                 variant="outline"
                 onClick={handleExportLeaveCsv}
+                disabled={exporting}
                 className="text-xs font-bold rounded-xl flex items-center gap-1.5 px-3 py-2 border-suka-gray-200 text-suka-ink hover:bg-suka-gray-50"
               >
                 <Download size={14} />
@@ -461,6 +460,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
                 type="button"
                 variant="outline"
                 onClick={handleExportKasbonCsv}
+                disabled={exporting}
                 className="text-xs font-bold rounded-xl flex items-center gap-1.5 px-3 py-2 border-suka-gray-200 text-suka-ink hover:bg-suka-gray-50"
               >
                 <Download size={14} />
@@ -490,7 +490,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
               </div>
               <div>
                 <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Total Pengajuan</p>
-                <p className="text-xl font-black text-suka-ink mt-0.5">{allLeaveRequests.length}</p>
+                <p className="text-xl font-black text-suka-ink mt-0.5">{totalLeavesCount}</p>
               </div>
             </div>
 
@@ -549,11 +549,14 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
               <Spinner />
             </div>
           ) : (
-            <LeaveRequestTable
-              rows={filteredLeaveRows}
-              onApprove={handleApproveLeave}
-              onReject={(r) => setRejectTarget(r)}
-            />
+            <div className={leaveQuery.isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+              <LeaveRequestTable
+                rows={leaveRows}
+                onApprove={handleApproveLeave}
+                onReject={(r) => setRejectTarget(r)}
+              />
+              <Pagination page={leavePage} pageSize={DEFAULT_PAGE_SIZE} total={leaveTotal} onPageChange={setLeavePage} />
+            </div>
           )}
 
           {/* Form Modal */}
@@ -651,12 +654,15 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
               <Spinner />
             </div>
           ) : (
-            <CashAdvanceTable
-              rows={filteredKasbonRows}
-              onAddPayment={setPayingKasbon}
-              onApprove={handleApproveKasbon}
-              onReject={handleRejectKasbon}
-            />
+            <div className={kasbonQuery.isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+              <CashAdvanceTable
+                rows={kasbonRows}
+                onAddPayment={setPayingKasbon}
+                onApprove={handleApproveKasbon}
+                onReject={handleRejectKasbon}
+              />
+              <Pagination page={kasbonPage} pageSize={DEFAULT_PAGE_SIZE} total={kasbonTotal} onPageChange={setKasbonPage} />
+            </div>
           )}
 
           {/* Create Kasbon Modal */}

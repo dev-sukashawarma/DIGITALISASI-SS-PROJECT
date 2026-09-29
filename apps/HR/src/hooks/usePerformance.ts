@@ -37,12 +37,14 @@ export function usePerformance(month: number, year: number, outletFilter?: strin
       const lastDay = new Date(year, month, 0).getDate()
       const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-      // 3. Fetch attendance in that period
-      const { data: attData } = await supabase
-        .from('attendance')
-        .select('outlet_staff_id, status, telat_menit')
-        .gte('ts_server', `${startDate}T00:00:00.000+07:00`)
-        .lte('ts_server', `${endDate}T23:59:59.999+07:00`)
+      // 3. Rekap absensi per staf, diagregasi di database (dulu: semua baris sebulan
+      //    tanpa pagination → terpotong 1.000 baris; in+out dihitung 2 hari; status
+      //    'hadir' tak pernah ditulis sehingga tepat waktu selalu 0).
+      const { data: attData, error: attErr } = await supabase.rpc('hr_rekap_absensi_staf', {
+        p_from: startDate,
+        p_to: endDate,
+      })
+      if (attErr) throw attErr
 
       // 4. Fetch payroll records to get bonus
       const { data: payrollData } = await supabase
@@ -54,21 +56,15 @@ export function usePerformance(month: number, year: number, outletFilter?: strin
       const bonusMap = new Map<string, number>()
       ;(payrollData ?? []).forEach((p) => bonusMap.set(p.staff_id, p.bonus || 0))
 
-      // Group attendance
       const attMap = new Map<string, { total: number; onTime: number; lateMinutes: number }>()
-      ;(attData ?? []).forEach((a) => {
-        const sid = a.outlet_staff_id
-        if (!attMap.has(sid)) {
-          attMap.set(sid, { total: 0, onTime: 0, lateMinutes: 0 })
-        }
-        const st = attMap.get(sid)!
-        st.total += 1
-        if (a.status === 'hadir') {
-          st.onTime += 1
-        } else if (a.status === 'telat' || a.status === 'terlambat' || a.status === 'telat_toleransi') {
-          st.lateMinutes += a.telat_menit || 0
-        }
-      })
+      for (const a of (attData ?? []) as {
+        staff_id: string
+        hari_masuk: number
+        hari_tepat: number
+        telat_menit_total: number
+      }[]) {
+        attMap.set(a.staff_id, { total: a.hari_masuk, onTime: a.hari_tepat, lateMinutes: a.telat_menit_total })
+      }
 
       return staffList.map((s: any) => {
         const att = attMap.get(s.id) || { total: 0, onTime: 0, lateMinutes: 0 }

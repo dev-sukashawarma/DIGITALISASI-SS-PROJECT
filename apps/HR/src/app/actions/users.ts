@@ -423,16 +423,15 @@ export async function deleteStaffSync(staffId: string): Promise<{
       await admin.from('staff_outlets').delete().eq('staff_id', staffId)
 
       // Remove or revoke login credentials from auth.users
-      try {
-        await admin.auth.admin.deleteUser(staffId)
-      } catch (authErr) {
-        console.warn('Gagal menghapus user auth (kemungkinan sudah dihapus atau ada relasi auth):', authErr)
-        try {
-          await admin.auth.admin.updateUserById(staffId, {
-            ban_duration: '876000h',
-            user_metadata: { deactivated: true },
-          })
-        } catch (_) {}
+      // supabase-js mengembalikan { error }, tidak melempar — cek hasilnya, bukan try/catch saja.
+      const { error: delErr } = await admin.auth.admin.deleteUser(staffId)
+      if (delErr) {
+        console.warn('Gagal menghapus user auth, fallback ban login:', delErr.message)
+        const { error: banErr } = await admin.auth.admin.updateUserById(staffId, {
+          ban_duration: '876000h',
+          user_metadata: { deactivated: true },
+        })
+        if (banErr) console.error('Gagal ban user auth:', banErr.message)
       }
 
       return {
@@ -460,9 +459,14 @@ export async function deleteStaffSync(staffId: string): Promise<{
           })
           .eq('id', staffId)
 
-        try {
-          await admin.auth.admin.deleteUser(staffId)
-        } catch (_) {}
+        const { error: delErr } = await admin.auth.admin.deleteUser(staffId)
+        if (delErr) {
+          const { error: banErr } = await admin.auth.admin.updateUserById(staffId, {
+            ban_duration: '876000h',
+            user_metadata: { deactivated: true },
+          })
+          if (banErr) console.error('Gagal mencabut akses login:', banErr.message)
+        }
 
         return {
           ok: true,

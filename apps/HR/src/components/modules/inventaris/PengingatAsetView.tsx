@@ -6,14 +6,18 @@ import { toast } from 'sonner'
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
   CalendarX,
   CheckCircle2,
   Clock,
   Hourglass,
+  MessageCircle,
   RefreshCw,
   Search,
   Settings2,
   Undo2,
+  UserRound,
   Wrench,
   X,
 } from 'lucide-react'
@@ -21,7 +25,9 @@ import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
 import { usePengingatAset, useSimpanTindakLanjut } from '@/hooks/usePengingatAset'
+import { useRole } from '@/components/layout/RoleContext'
 import { formatTanggalPendek } from '@/lib/dateIso'
+import { nomorWa, pesanKonfirmasiAset, tautanWa } from '@/lib/whatsapp'
 import {
   batalkanTindakLanjut,
   buatTindakLanjut,
@@ -30,6 +36,7 @@ import {
   LABEL_ALASAN,
   LABEL_KEPUTUSAN,
   PILIHAN_TUNDA,
+  perluKonfirmasi,
   tambahHari,
   CEK_ULANG_SETELAH_SELESAI_HARI,
   type Alasan,
@@ -56,6 +63,7 @@ const TILES: { alasan: Alasan; icon: typeof AlertTriangle; tone: string; hint: s
 export default function PengingatAsetView() {
   const { ringkasan, today, isLoading, error, refetch, isFetching } = usePengingatAset()
   const simpan = useSimpanTindakLanjut()
+  const { staffName } = useRole()
   const [tab, setTab] = useState<Tab>('perlu')
   const [alasanFilter, setAlasanFilter] = useState<Alasan | null>(null)
   const [outletFilter, setOutletFilter] = useState('all')
@@ -177,10 +185,11 @@ export default function PengingatAsetView() {
         <TindakLanjutDialog
           aset={dipilih}
           today={today}
+          namaHr={staffName}
           submitting={simpan.isPending}
           onClose={() => setDipilih(null)}
-          onSubmit={(keputusan, tundaHari, catatan) => {
-            simpan.mutate(buatTindakLanjut(dipilih, keputusan, today, { tundaHari, catatan }), {
+          onSubmit={(keputusan, tundaHari, catatan, konfirmasiWa) => {
+            simpan.mutate(buatTindakLanjut(dipilih, keputusan, today, { tundaHari, catatan, konfirmasiWa }), {
               onSuccess: () => {
                 toast.success(`${dipilih.itemName} — ${LABEL_KEPUTUSAN[keputusan].toLowerCase()}`)
                 setDipilih(null)
@@ -305,17 +314,38 @@ function DaftarTanggalKosong({ list }: { list: AsetPengingat[] }) {
   )
 }
 
-function TindakLanjutDialog({ aset, today, submitting, onClose, onSubmit }: {
+function TindakLanjutDialog({ aset, today, namaHr, submitting, onClose, onSubmit }: {
   aset: AsetPengingat
   today: string
+  namaHr: string
   submitting: boolean
   onClose: () => void
-  onSubmit: (keputusan: Keputusan, tundaHari: number | undefined, catatan: string) => void
+  onSubmit: (keputusan: Keputusan, tundaHari: number | undefined, catatan: string, konfirmasiWa: boolean) => void
 }) {
+  // Barang rusak / perlu perbaikan: HR konfirmasi dulu ke AM sebelum memutuskan.
+  const wajibKonfirmasi = perluKonfirmasi(aset)
+  const [langkah, setLangkah] = useState<'konfirmasi' | 'keputusan'>(wajibKonfirmasi ? 'konfirmasi' : 'keputusan')
+  const [sudahWa, setSudahWa] = useState(false)
   const [keputusan, setKeputusan] = useState<Keputusan | null>(null)
   const [tundaHari, setTundaHari] = useState(30)
   const [catatan, setCatatan] = useState('')
   const hanyaUmur = aset.alasan.every((a) => a === 'lewat_umur' || a === 'segera')
+  const nomor = nomorWa(aset.kontakHp)
+
+  const bukaWa = () => {
+    if (!nomor) return
+    const pesan = pesanKonfirmasiAset({
+      namaAm: aset.kontakNama,
+      namaHr,
+      outlet: aset.outletName,
+      barang: aset.itemName,
+      merek: aset.brand,
+      kondisi: aset.kondisi,
+      catatanAm: aset.catatanAm,
+    })
+    window.open(tautanWa(nomor, pesan), '_blank', 'noopener,noreferrer')
+    setSudahWa(true)
+  }
 
   const pilihan: { value: Keputusan; judul: string; teks: string }[] = [
     { value: 'diganti', judul: 'Sudah diganti', teks: 'Unit baru sudah terpasang. AM perlu memperbarui tanggal beli di app Inventaris.' },
@@ -327,67 +357,112 @@ function TindakLanjutDialog({ aset, today, submitting, onClose, onSubmit }: {
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs" onClick={onClose}>
-      <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[92dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div>
+            {wajibKonfirmasi && (
+              <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-suka-orange">
+                Langkah {langkah === 'konfirmasi' ? '1' : '2'} dari 2 · {langkah === 'konfirmasi' ? 'Konfirmasi ke AM' : 'Keputusan'}
+              </p>
+            )}
             <h3 className="text-base font-bold text-suka-brown">Tindak lanjut: {aset.itemName}</h3>
-            <p className="text-xs text-suka-gray-500">{aset.outletName}</p>
+            <p className="text-xs text-suka-gray-500">{aset.outletName}{aset.brand ? ` · ${aset.brand}` : ''}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">{aset.alasan.map((a) => <Chip key={a} alasan={a} />)}</div>
           </div>
           <button type="button" aria-label="Tutup" onClick={onClose} className="rounded-lg p-1 text-suka-gray-400 hover:bg-suka-gray-100"><X size={18} /></button>
         </div>
 
-        <div className="space-y-2" role="radiogroup" aria-label="Keputusan">
-          {pilihan.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              role="radio"
-              aria-checked={keputusan === p.value}
-              onClick={() => setKeputusan(p.value)}
-              className={`w-full rounded-xl border p-3 text-left transition ${keputusan === p.value ? 'border-suka-orange bg-orange-50 ring-1 ring-suka-orange' : 'border-suka-gray-200 hover:border-suka-orange/50'}`}
-            >
-              <span className="block text-sm font-extrabold text-suka-ink">{p.judul}</span>
-              <span className="block text-xs text-suka-gray-500">{p.teks}</span>
-            </button>
-          ))}
-        </div>
+        {langkah === 'konfirmasi' ? (
+          <>
+            <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-900">
+              <p className="font-bold">Pastikan dulu kondisi barang ini ke Area Manager sebelum memutuskan.</p>
+              {aset.catatanAm && <p className="text-xs">Catatan AM: “{aset.catatanAm}”</p>}
+              {aset.dilaporkanAt && <p className="text-xs text-amber-800/80">Dilaporkan {aset.dilaporkanOleh ?? 'AM'} · {formatTanggalPendek(aset.dilaporkanAt.slice(0, 10))}</p>}
+            </div>
 
-        {keputusan === 'ditunda' && (
-          <div>
-            <p className="mb-1.5 text-xs font-bold text-suka-brown">Ingatkan lagi dalam</p>
-            <div className="flex flex-wrap gap-1.5">
-              {PILIHAN_TUNDA.map((p) => (
-                <button key={p.hari} type="button" onClick={() => setTundaHari(p.hari)} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${tundaHari === p.hari ? 'bg-suka-brown text-white' : 'bg-[#FDF9F3] text-suka-brown ring-1 ring-suka-brown/10 hover:bg-amber-100'}`}>
-                  {p.label}
+            <div className="flex items-center gap-3 rounded-xl border border-suka-gray-200 p-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-700"><UserRound size={18} /></span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-extrabold text-suka-ink">{aset.kontakNama ?? 'Area Manager belum tercatat'}</p>
+                <p className="text-xs text-suka-gray-500">{nomor ? `+${nomor}` : 'Nomor WhatsApp belum ada di Database Karyawan'}</p>
+              </div>
+            </div>
+
+            {nomor ? (
+              <button type="button" onClick={bukaWa} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-black text-white transition hover:bg-emerald-700">
+                <MessageCircle size={17} /> {sudahWa ? 'Buka WhatsApp lagi' : 'Tanya via WhatsApp'}
+              </button>
+            ) : (
+              <p className="rounded-xl bg-suka-gray-50 px-3 py-2.5 text-xs text-suka-gray-600">
+                Lengkapi nomor HP {aset.kontakNama ?? 'Area Manager'} di menu <b>Database Karyawan</b> agar bisa dihubungi langsung dari sini.
+              </p>
+            )}
+            {sudahWa && <p className="text-center text-xs font-bold text-emerald-700">WhatsApp sudah dibuka. Lanjutkan setelah mendapat jawaban AM.</p>}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" onClick={onClose} className="rounded-xl font-bold">Batal</Button>
+              <Button type="button" onClick={() => setLangkah('keputusan')} className="gap-1.5 rounded-xl bg-suka-brown font-bold text-white hover:bg-[#4A1713]">
+                Sudah dikonfirmasi, lanjut <ArrowRight size={15} />
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="space-y-2" role="radiogroup" aria-label="Keputusan">
+              {pilihan.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={keputusan === p.value}
+                  onClick={() => setKeputusan(p.value)}
+                  className={`w-full rounded-xl border p-3 text-left transition ${keputusan === p.value ? 'border-suka-orange bg-orange-50 ring-1 ring-suka-orange' : 'border-suka-gray-200 hover:border-suka-orange/50'}`}
+                >
+                  <span className="block text-sm font-extrabold text-suka-ink">{p.judul}</span>
+                  <span className="block text-xs text-suka-gray-500">{p.teks}</span>
                 </button>
               ))}
             </div>
-          </div>
+
+            {keputusan === 'ditunda' && (
+              <div>
+                <p className="mb-1.5 text-xs font-bold text-suka-brown">Ingatkan lagi dalam</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PILIHAN_TUNDA.map((p) => (
+                    <button key={p.hari} type="button" onClick={() => setTundaHari(p.hari)} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${tundaHari === p.hari ? 'bg-suka-brown text-white' : 'bg-[#FDF9F3] text-suka-brown ring-1 ring-suka-brown/10 hover:bg-amber-100'}`}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="catatan-tl" className="mb-1 block text-xs font-bold text-suka-brown">Catatan (opsional)</label>
+              <textarea id="catatan-tl" value={catatan} onChange={(e) => setCatatan(e.target.value)} rows={2} maxLength={500} placeholder={wajibKonfirmasi ? 'Contoh: sudah dikonfirmasi ke AM, teknisi datang Kamis' : 'Contoh: sudah dibelikan unit baru merek GEA'} className="w-full rounded-xl border border-suka-gray-200 bg-white px-3 py-2.5 text-sm text-suka-ink outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange" />
+            </div>
+
+            {keputusan && (
+              <p className="rounded-xl bg-[#FDF9F3] px-3 py-2 text-xs text-suka-gray-600">
+                Pengingat disembunyikan sampai <b>{formatTanggalPendek(cekUlang)}</b>. Kalau saat itu data dari AM belum berubah, barang ini muncul lagi.
+              </p>
+            )}
+
+            <div className="flex justify-between gap-2 pt-1">
+              {wajibKonfirmasi
+                ? <Button type="button" variant="ghost" onClick={() => setLangkah('konfirmasi')} className="gap-1.5 rounded-xl font-bold"><ArrowLeft size={15} /> Kembali</Button>
+                : <Button type="button" variant="ghost" onClick={onClose} className="rounded-xl font-bold">Batal</Button>}
+              <Button
+                type="button"
+                disabled={!keputusan || submitting}
+                onClick={() => keputusan && onSubmit(keputusan, keputusan === 'ditunda' ? tundaHari : undefined, catatan, sudahWa)}
+                className="rounded-xl bg-suka-brown font-bold text-white hover:bg-[#4A1713]"
+              >
+                {submitting ? 'Menyimpan...' : 'Simpan'}
+              </Button>
+            </div>
+          </>
         )}
-
-        <div>
-          <label htmlFor="catatan-tl" className="mb-1 block text-xs font-bold text-suka-brown">Catatan (opsional)</label>
-          <textarea id="catatan-tl" value={catatan} onChange={(e) => setCatatan(e.target.value)} rows={2} maxLength={500} placeholder="Contoh: sudah dibelikan unit baru merek GEA" className="w-full rounded-xl border border-suka-gray-200 bg-white px-3 py-2.5 text-sm text-suka-ink outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange" />
-        </div>
-
-        {keputusan && (
-          <p className="rounded-xl bg-[#FDF9F3] px-3 py-2 text-xs text-suka-gray-600">
-            Pengingat disembunyikan sampai <b>{formatTanggalPendek(cekUlang)}</b>. Kalau saat itu data dari AM belum berubah, barang ini muncul lagi.
-          </p>
-        )}
-
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="ghost" onClick={onClose} className="rounded-xl font-bold">Batal</Button>
-          <Button
-            type="button"
-            disabled={!keputusan || submitting}
-            onClick={() => keputusan && onSubmit(keputusan, keputusan === 'ditunda' ? tundaHari : undefined, catatan)}
-            className="rounded-xl bg-suka-brown font-bold text-white hover:bg-[#4A1713]"
-          >
-            {submitting ? 'Menyimpan...' : 'Simpan'}
-          </Button>
-        </div>
       </div>
     </div>
   )

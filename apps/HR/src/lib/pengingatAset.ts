@@ -44,6 +44,9 @@ export type BarisPengingat = {
   catatan: string | null
   dilaporkan_oleh: string | null
   dilaporkan_at: string | null
+  /** Area Manager yang dihubungi HR (pelapor, atau AM binaan yang bernomor). */
+  kontak_nama?: string | null
+  kontak_hp?: string | null
   tl_umur_keputusan: string | null
   tl_umur_ingatkan_lagi: string | null
   tl_umur_acuan_tanggal: string | null
@@ -85,6 +88,8 @@ export type AsetPengingat = {
   tanggalKosong: boolean
   dilaporkanOleh: string | null
   dilaporkanAt: string | null
+  kontakNama: string | null
+  kontakHp: string | null
   /** Alasan yang masih menunggu tindakan HR. */
   alasan: Alasan[]
   /** Alasan yang sedang disembunyikan oleh tindak lanjut HR. */
@@ -243,6 +248,8 @@ export function nilaiAset(row: BarisPengingat, today: string): AsetPengingat {
     tanggalKosong,
     dilaporkanOleh: row.dilaporkan_oleh,
     dilaporkanAt: row.dilaporkan_at,
+    kontakNama: row.kontak_nama ?? null,
+    kontakHp: row.kontak_hp ?? null,
     alasan,
     ditindaklanjuti,
     kategori,
@@ -290,6 +297,16 @@ export type TindakLanjutBaru = {
   ingatkan_lagi: string
   acuan_tanggal_beli: string | null
   acuan_kondisi: string | null
+  konfirmasi_wa: boolean
+}
+
+/**
+ * Barang rusak / perlu perbaikan WAJIB melewati langkah konfirmasi ke Area
+ * Manager (WhatsApp bila perlu) sebelum HR menyimpan keputusan. Pengingat yang
+ * murni soal umur tidak perlu.
+ */
+export function perluKonfirmasi(aset: AsetPengingat): boolean {
+  return aset.alasan.some((a) => a === 'rusak' || a === 'perbaikan')
 }
 
 /**
@@ -300,7 +317,7 @@ export function buatTindakLanjut(
   aset: AsetPengingat,
   keputusan: Keputusan,
   today: string,
-  opsi: { tundaHari?: number; catatan?: string } = {}
+  opsi: { tundaHari?: number; catatan?: string; konfirmasiWa?: boolean } = {}
 ): TindakLanjutBaru[] {
   const hari = keputusan === 'ditunda' ? (opsi.tundaHari ?? 30) : CEK_ULANG_SETELAH_SELESAI_HARI
   if (!(hari > 0)) throw new Error('Jangka tunda harus lebih dari 0 hari')
@@ -316,6 +333,7 @@ export function buatTindakLanjut(
     ingatkan_lagi: ingatkanLagi,
     acuan_tanggal_beli: p === 'umur' ? aset.purchaseDate : null,
     acuan_kondisi: p === 'kondisi' ? aset.kondisi : null,
+    konfirmasi_wa: Boolean(opsi.konfirmasiWa),
   }))
 }
 
@@ -330,6 +348,7 @@ export function batalkanTindakLanjut(aset: AsetPengingat, today: string): Tindak
     ingatkan_lagi: today,
     acuan_tanggal_beli: t.pemicu === 'umur' ? aset.purchaseDate : null,
     acuan_kondisi: t.pemicu === 'kondisi' ? aset.kondisi : null,
+    konfirmasi_wa: false,
   }))
 }
 

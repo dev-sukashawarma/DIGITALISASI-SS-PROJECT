@@ -5,6 +5,7 @@ import {
   buatTindakLanjut,
   formatSisa,
   nilaiAset,
+  perluKonfirmasi,
   susunPengingat,
   tambahBulan,
   type BarisPengingat,
@@ -195,5 +196,19 @@ describe('susunPengingat', () => {
     expect(r.perluTindakan.map((a) => a.itemName)).toEqual(['RUSAK', 'LEWAT', 'SEGERA'])
     expect(r.tanggalKosong.map((a) => a.itemName)).toEqual(['KOSONG'])
     expect(r.hitung).toEqual({ rusak: 1, lewat_umur: 1, perbaikan: 0, segera: 1 })
+  })
+})
+
+describe('konfirmasi ke Area Manager', () => {
+  it('wajib untuk rusak / perlu perbaikan, tidak untuk pengingat umur saja', () => {
+    expect(perluKonfirmasi(nilaiAset(baris({ kondisi: 'rusak' }), TODAY))).toBe(true)
+    expect(perluKonfirmasi(nilaiAset(baris({ kondisi: 'perlu_perbaikan' }), TODAY))).toBe(true)
+    expect(perluKonfirmasi(nilaiAset(baris({ umur_ekonomis_bulan: 12, purchase_date: '2020-01-01' }), TODAY))).toBe(false)
+  })
+  it('penanda konfirmasi WhatsApp ikut tersimpan & kontak AM terbawa', () => {
+    const a = nilaiAset(baris({ kondisi: 'rusak', kontak_nama: 'Tri Rizky', kontak_hp: '0857' }), TODAY)
+    expect(a.kontakNama).toBe('Tri Rizky')
+    expect(buatTindakLanjut(a, 'diperbaiki', TODAY, { konfirmasiWa: true })[0].konfirmasi_wa).toBe(true)
+    expect(buatTindakLanjut(a, 'diperbaiki', TODAY)[0].konfirmasi_wa).toBe(false)
   })
 })

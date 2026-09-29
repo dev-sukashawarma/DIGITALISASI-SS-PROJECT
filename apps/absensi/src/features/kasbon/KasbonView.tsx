@@ -10,6 +10,7 @@ import timezone from "dayjs/plugin/timezone";
 import { useToast } from "@/lib/feedback/toast";
 import { Select } from "@/components/Select";
 import { useRealtimeInvalidate } from "@suka/realtime";
+import { CurrencyInput } from "@suka/design-system";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -32,8 +33,8 @@ export function KasbonView() {
 
   const [showForm, setShowForm] = useState(false);
   
-  // Form State
-  const [amount, setAmount] = useState('');
+  // Form State — angka mentah (bukan teks berformat); '' = kolom kosong.
+  const [amount, setAmount] = useState<number | ''>('');
   const [installmentMonths, setInstallmentMonths] = useState('1');
   const [reason, setReason] = useState('');
 
@@ -44,7 +45,7 @@ export function KasbonView() {
       return;
     }
     
-    const numAmount = parseInt(amount.replace(/\D/g, ''));
+    const numAmount = amount;
     const numMonths = parseInt(installmentMonths);
 
     if (numAmount <= 0) {
@@ -75,15 +76,6 @@ export function KasbonView() {
 
   const formatRupiah = (num: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '');
-    if (val) {
-      setAmount(formatRupiah(parseInt(val)).replace('Rp', '').trim());
-    } else {
-      setAmount('');
-    }
   };
 
   const getStatusBadge = (spv: string, hr: string) => {
@@ -130,14 +122,15 @@ export function KasbonView() {
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nominal (Rp)</label>
-                <input
-                  type="text"
+                <label htmlFor="kasbon-nominal" className="block text-sm font-medium text-slate-700 mb-1">Nominal</label>
+                {/* Tampil "Rp 500.000" saat diketik; state tetap angka, jadi yang dikirim tidak berubah. */}
+                <CurrencyInput
+                  id="kasbon-nominal"
                   required
                   value={amount}
-                  onChange={handleAmountChange}
-                  placeholder="Contoh: 500.000"
-                  className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  onChange={(n) => setAmount(n > 0 ? n : '')}
+                  placeholder="500.000"
+                  className="py-2.5 bg-white border-gray-300 rounded-xl text-sm font-semibold text-slate-800 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
               <div>
@@ -155,9 +148,9 @@ export function KasbonView() {
                   ]}
                   className="w-full"
                 />
-                {amount && (
+                {amount !== '' && (
                   <p className="mt-2 text-xs text-slate-500">
-                    Estimasi cicilan: <span className="font-semibold">{formatRupiah(parseInt(amount.replace(/\D/g, '')) / parseInt(installmentMonths))} / bulan</span>
+                    Estimasi cicilan: <span className="font-semibold">{formatRupiah(amount / parseInt(installmentMonths))} / bulan</span>
                   </p>
                 )}
               </div>

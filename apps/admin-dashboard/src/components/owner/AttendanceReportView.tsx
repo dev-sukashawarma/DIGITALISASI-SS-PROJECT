@@ -20,6 +20,7 @@ import {
 import type { Outlet } from '@/lib/types'
 import { StealthPhotoModal, type StealthPhotoInfo } from './StealthPhotoModal'
 import { EditAttendanceModal, DeleteAttendanceModal } from './AttendanceEditModals'
+import { Select } from '@/components/ui/Select'
 
 export interface AttendanceRecordExt {
   id: string
@@ -196,22 +197,20 @@ export function AttendanceReportView({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex flex-wrap items-center gap-2 flex-1">
           {/* Status Kehadiran Dropdown */}
-          <div className="relative">
-            <UserCheck size={14} className="absolute left-3 top-2.5 text-slate-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-suka-orange focus:bg-white focus:outline-none"
-            >
-              <option value="all">Semua Status Kehadiran</option>
-              <option value="hadir">Hadir Tepat Waktu</option>
-              <option value="telat_toleransi">Telat (Toleransi)</option>
-              <option value="terlambat">Terlambat</option>
-              <option value="izin">Izin</option>
-              <option value="sakit">Sakit</option>
-              <option value="alfa">Alfa</option>
-            </select>
-          </div>
+          <Select
+            className="w-full sm:w-56"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'Semua Status Kehadiran', icon: <UserCheck size={14} className="text-slate-400" /> },
+              { value: 'hadir', label: 'Hadir Tepat Waktu' },
+              { value: 'telat_toleransi', label: 'Telat (Toleransi)' },
+              { value: 'terlambat', label: 'Terlambat' },
+              { value: 'izin', label: 'Izin' },
+              { value: 'sakit', label: 'Sakit' },
+              { value: 'alfa', label: 'Alfa' },
+            ]}
+          />
 
           {/* Quick Search */}
           <div className="relative flex-1 sm:w-64">

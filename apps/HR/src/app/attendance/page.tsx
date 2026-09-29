@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useDeferredValue } from 'react'
 import { toast } from 'sonner'
 import { Download, CheckCircle2, Clock, ShieldAlert, XCircle } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
@@ -32,8 +32,21 @@ const DEFAULT_FILTER: AttendanceFilterValues = {
 
 export default function AttendancePage() {
   const [filter, setFilter] = useState<AttendanceFilterValues>(DEFAULT_FILTER)
-  const { data: rows = [], isLoading } = useAttendance(filter)
+  const [search, setSearch] = useState('')
+  const deferredSearch = useDeferredValue(search)
+  const { data: allRows = [], isLoading } = useAttendance(filter)
   const { data: outlets = [] } = useOutlets()
+
+  // Pencarian nama/username di sisi klien — tidak memicu query ulang ke database.
+  const rows = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase()
+    if (!q) return allRows
+    return allRows.filter((r) => {
+      const name = (r.outlet_staff?.name ?? '').toLowerCase()
+      const username = (r.outlet_staff?.username ?? '').toLowerCase()
+      return name.includes(q) || username.includes(q)
+    })
+  }, [allRows, deferredSearch])
 
   // Summary Metrics
   const summary = useMemo(() => {
@@ -164,7 +177,13 @@ export default function AttendancePage() {
 
       {/* Filter Bar */}
       <div className="bg-white p-3.5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
-        <AttendanceFilters value={filter} onChange={setFilter} outlets={outlets} />
+        <AttendanceFilters
+          value={filter}
+          onChange={setFilter}
+          outlets={outlets}
+          search={search}
+          onSearchChange={setSearch}
+        />
         <span className="text-xs text-suka-gray-500 font-medium">
           Total <strong>{rows.length}</strong> catatan kehadiran
         </span>

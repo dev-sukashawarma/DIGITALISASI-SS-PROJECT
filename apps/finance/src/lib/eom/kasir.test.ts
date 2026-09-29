@@ -177,3 +177,43 @@ describe('buildOutletBreakdown', () => {
     expect(ayam.hppB).toBe(Math.round(13900 * 1.1))
   })
 })
+
+describe('findCutoff', () => {
+  it('mengabaikan baris dengan nilai HPP yang identik dengan sebelumnya (tidak ada cutoff palsu)', async () => {
+    const { findCutoff } = await import('./kasirReport')
+    // 10 menu ditulis ulang dengan nilai sama persis di tanggal 19
+    const dummyRiwayat = Array.from({ length: 10 }, (_, i) => [
+      { menu_item_id: `m${i}`, kunci: 'hpp_override', nilai: 15000, berlaku_mulai: '2026-09-01' },
+      { menu_item_id: `m${i}`, kunci: 'hpp_override', nilai: 15000, berlaku_mulai: '2026-09-19' },
+    ]).flat()
+
+    const res = findCutoff(dummyRiwayat, '2026-09-01', '2026-09-30')
+    expect(res.cutoff).toBeNull()
+    expect(res.perubahan).toEqual([])
+  })
+
+  it('mengabaikan perubahan minor (hanya 1-2 menu berubah / dinonaktifkan)', async () => {
+    const { findCutoff } = await import('./kasirReport')
+    const dummyRiwayat = [
+      { menu_item_id: 'm1', kunci: 'hpp_override', nilai: 15000, berlaku_mulai: '2026-09-01' },
+      { menu_item_id: 'm1', kunci: 'hpp_override', nilai: null, berlaku_mulai: '2026-09-19' }, // nonaktif
+      { menu_item_id: 'm2', kunci: 'hpp_override', nilai: 16000, berlaku_mulai: '2026-09-01' },
+      { menu_item_id: 'm2', kunci: 'hpp_override', nilai: 16500, berlaku_mulai: '2026-09-19' }, // 1 menu berubah
+    ]
+
+    const res = findCutoff(dummyRiwayat, '2026-09-01', '2026-09-30')
+    expect(res.cutoff).toBeNull()
+  })
+
+  it('mendeteksi cutoff bila ada perubahan massal harga HPP (>= 5 menu)', async () => {
+    const { findCutoff } = await import('./kasirReport')
+    const dummyRiwayat = Array.from({ length: 6 }, (_, i) => [
+      { menu_item_id: `m${i}`, kunci: 'hpp_override', nilai: 10000, berlaku_mulai: '2026-09-01' },
+      { menu_item_id: `m${i}`, kunci: 'hpp_override', nilai: 12000, berlaku_mulai: '2026-09-15' },
+    ]).flat()
+
+    const res = findCutoff(dummyRiwayat, '2026-09-01', '2026-09-30')
+    expect(res.cutoff).toBe('2026-09-15')
+    expect(res.perubahan).toEqual([['2026-09-15', 6]])
+  })
+})

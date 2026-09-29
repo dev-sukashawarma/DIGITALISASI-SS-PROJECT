@@ -4,15 +4,61 @@ import { buildPenerapHpp, buildMenuMaps, computeAnalytics } from '@/lib/posRepor
 import { monthRange } from '@/lib/period'
 import { tanggalWib } from '@/lib/hpp/riwayatHpp'
 
-/** Tanggal pergantian HPP di dalam bulan: tanggal berlaku (selain tgl 1) dengan perubahan terbanyak. */
-function findCutoff(riwayat: { berlaku_mulai: string }[], from: string, to: string) {
-  const counts = new Map<string, number>()
+export interface RiwayatHppItem {
+  menu_item_id?: string
+  kunci?: string
+  nilai?: number | string | null
+  berlaku_mulai: string
+}
+
+/** Tanggal pergantian HPP di dalam bulan: hanya diaktifkan bila ada perubahan massal harga HPP (>= 5 menu). */
+export function findCutoff(riwayat: RiwayatHppItem[], from: string, to: string) {
+  const perKey = new Map<string, { tgl: string; nilai: number | null }[]>()
   for (const r of riwayat) {
-    const d = String(r.berlaku_mulai).slice(0, 10)
-    if (d > from && d <= to) counts.set(d, (counts.get(d) ?? 0) + 1)
+    const keyId = r.menu_item_id || 'unknown'
+    const kunci = r.kunci || 'default'
+    const k = `${keyId}:${kunci}`
+    let list = perKey.get(k)
+    if (!list) {
+      list = []
+      perKey.set(k, list)
+    }
+    list.push({
+      tgl: String(r.berlaku_mulai).slice(0, 10),
+      nilai: r.nilai === null || r.nilai === undefined ? null : Number(r.nilai),
+    })
   }
-  const dates = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  return { cutoff: dates[0]?.[0] ?? null, perubahan: [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0])) }
+
+  const genuineChanges = new Map<string, number>()
+  for (const points of perKey.values()) {
+    points.sort((a, b) => a.tgl.localeCompare(b.tgl))
+    for (let i = 0; i < points.length; i++) {
+      const pt = points[i]
+      if (pt.tgl > from && pt.tgl <= to) {
+        let prevVal: number | null | undefined = undefined
+        for (let j = i - 1; j >= 0; j--) {
+          if (points[j].tgl < pt.tgl) {
+            prevVal = points[j].nilai
+            break
+          }
+        }
+        if (prevVal !== undefined && pt.nilai !== null && prevVal !== null && Math.abs(prevVal - pt.nilai) > 0.01) {
+          genuineChanges.set(pt.tgl, (genuineChanges.get(pt.tgl) ?? 0) + 1)
+        }
+      }
+    }
+  }
+
+  const MIN_MASS_CHANGE = 5
+  const eligible = [...genuineChanges.entries()].filter(([, count]) => count >= MIN_MASS_CHANGE)
+  eligible.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+
+  const allPerubahan = [...genuineChanges.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+
+  return {
+    cutoff: eligible[0]?.[0] ?? null,
+    perubahan: eligible.length > 0 ? allPerubahan : [],
+  }
 }
 
 /** Seluruh data tab Kasir & Kas Toko untuk satu bulan (dipakai API route). */

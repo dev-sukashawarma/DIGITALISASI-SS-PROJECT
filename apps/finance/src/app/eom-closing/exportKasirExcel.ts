@@ -1,363 +1,758 @@
 // apps/finance/src/app/eom-closing/exportKasirExcel.ts
-import type { OutletCashData } from './exportKasirPdf'
-import type { ShiftVarianceLog, PettyCashCategoryItem, NonCashChannelItem } from './useEomKasirLive'
+import type { KasirResponse } from './types'
+import { itemFlags } from '@/lib/eom/kasir'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ]
 
-export interface ExportKasirExcelOptions {
-  month: number
-  year: number
-  picNote: string
-  outletsData: OutletCashData[]
-  shiftVariances?: ShiftVarianceLog[]
-  pettyCashCategories?: PettyCashCategoryItem[]
-  nonCashChannels?: NonCashChannelItem[]
+const dayBefore = (d: string) => {
+  const x = new Date(`${d}T00:00:00Z`)
+  x.setUTCDate(x.getUTCDate() - 1)
+  return x.toISOString().slice(0, 10)
 }
 
-export async function generatePosKasirExcel({
-  month,
-  year,
-  picNote,
-  outletsData,
-  shiftVariances: customShiftVariances,
-  pettyCashCategories: customPettyCash,
-  nonCashChannels: customNonCash,
-}: ExportKasirExcelOptions) {
+const tglPendek = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  return `${d} ${MONTHS[m - 1].slice(0, 3)} ${y}`
+}
+
+export interface ExportKasirExcelOptions {
+  d: KasirResponse
+  dicetakOleh: string
+}
+
+/**
+ * Menghasilkan Workbook Excel resmi untuk Berita Acara Rekapitulasi Kasir,
+ * Kas Toko, Omzet, Potongan, dan HPP Terbaru (EOM Closing).
+ */
+export async function generateKasirExcel(d: KasirResponse, dicetakOleh: string = 'Finance Staff') {
   const ExcelJS = (await import('exceljs')).default || (await import('exceljs'))
 
   const workbook = new (ExcelJS as any).Workbook()
   workbook.creator = 'PT Suka Kuliner Nusantara'
   workbook.created = new Date()
 
-  // -------------------------------------------------------------
-  // SHEET 1: REKAPITULASI 22 OUTLET
-  // -------------------------------------------------------------
-  const sheet1 = workbook.addWorksheet('Rekap 22 Outlet', {
+  const { month, year, from, to } = d.period
+  const curLabel = `${MONTHS[month - 1]} ${year}`
+  const cut = d.hppCutoff
+
+  // ---------------------------------------------------------------------------
+  // SHEET 1: RINGKASAN & CHANNEL
+  // ---------------------------------------------------------------------------
+  const sheet1 = workbook.addWorksheet('Ringkasan & Channel', {
     pageSetup: { orientation: 'landscape', paperSize: 9 },
   })
 
   // Title Block
-  sheet1.mergeCells('A1:K1')
-  const titleCell = sheet1.getCell('A1')
-  titleCell.value = 'SUKA SHAWARMA INDONESIA — PT SUKA KULINER NUSANTARA'
-  titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF3B1D0D' } }
+  sheet1.mergeCells('A1:J1')
+  sheet1.getCell('A1').value = 'SUKA SHAWARMA INDONESIA — PT SUKA KULINER NUSANTARA'
+  sheet1.getCell('A1').font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF3B1D0D' } }
 
-  sheet1.mergeCells('A2:K2')
-  const subCell = sheet1.getCell('A2')
-  subCell.value = `BERITA ACARA REKAPITULASI KASIR POS & FISIK KAS TOKO — PERIODE ${MONTHS[month - 1].toUpperCase()} ${year}`
-  subCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF64748B' } }
+  sheet1.mergeCells('A2:J2')
+  sheet1.getCell('A2').value = `BERITA ACARA REKAPITULASI PENJUALAN KASIR & HPP — PERIODE ${curLabel.toUpperCase()}`
+  sheet1.getCell('A2').font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF64748B' } }
 
-  sheet1.mergeCells('A3:K3')
-  const regCell = sheet1.getCell('A3')
-  regCell.value = `No. Registrasi: BA/SS/KSR/${year}/${String(month).padStart(2, '0')}/001 | Status: VERIFIED & LOCKED (EOM CLOSING HUB)`
-  regCell.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF166534' } }
+  sheet1.mergeCells('A3:J3')
+  sheet1.getCell('A3').value = `No. Dokumen: BA/SS/KSR/${year}/${String(month).padStart(2, '0')}/001 | Dicetak oleh: ${dicetakOleh} | Ditarik: ${new Date(d.fetchedAt).toLocaleString('id-ID')}`
+  sheet1.getCell('A3').font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF166534' } }
 
-  // Header Row
+  sheet1.mergeCells('A4:J4')
+  sheet1.getCell('A4').value = cut
+    ? `Catatan HPP: HPP mengikuti tanggal order; ada pergantian HPP mulai ${tglPendek(cut)}, sehingga dipecah ${tglPendek(from)} s/d ${tglPendek(dayBefore(cut))} dan ${tglPendek(cut)} s/d ${tglPendek(to)}.`
+    : `Catatan HPP: HPP seragam satu bulan penuh mengikuti tanggal order menggunakan master riwayat HPP terbaru (${tglPendek(from)} s/d ${tglPendek(to)}).`
+  sheet1.getCell('A4').font = { name: 'Arial', size: 8.5, color: { argb: 'FF475569' } }
+
   sheet1.addRow([])
-  const headerRow = sheet1.addRow([
-    'No',
-    'Nama Cabang Outlet',
-    'Tipe Cabang',
-    'Omzet POS (Rp)',
-    'Non-Tunai QRIS/EDC (Rp)',
-    'Kas Tunai Fisik (Rp)',
-    'Kas Kecil Toko (Rp)',
-    'Target Setor Kas (Rp)',
-    'Realisasi Setoran (Rp)',
-    'Selisih Kas (Variance)',
-    'Status Audit',
-  ])
 
-  headerRow.eachCell((cell: any) => {
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF3B1D0D' },
+  // KPI Block
+  const kpiHeader = sheet1.addRow(['METRIK KONSOLIDASI (SEMUA CABANG & CHANNEL)', 'NILAI', 'FORMULA & CATATAN'])
+  kpiHeader.eachCell((cell: any) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B1D0D' } }
+    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
+  })
+
+  const foodCostRatio = d.kpi.grossRevenue > 0 ? (d.kpi.totalHPP / d.kpi.grossRevenue) : 0
+  const kpiRowsData = [
+    ['Gross Revenue (Omzet Kotor)', d.kpi.grossRevenue, 'Total harga jual seluruh pesanan selesai (POS & SS Online)', true],
+    ['Total Potongan (Diskon & Promo)', d.kpi.totalDeductions, 'Diskon kasir dan subsidi promo platform', false],
+    ['Net Revenue (Omzet Bersih)', d.kpi.netRevenue, 'Gross Revenue dikurangi Total Potongan', false],
+    ['Total HPP (Food Cost)', d.kpi.totalHPP, 'HPP bahan baku menu berdasarkan master HPP terbaru', true],
+    ['Laba Kotor (Gross Profit)', d.kpi.grossProfit, 'Net Revenue dikurangi Total HPP', true],
+    ['Food Cost (%)', foodCostRatio, 'Rasio Total HPP terhadap Gross Revenue', true, true],
+    ['Total Pesanan Selesai', d.kpi.totalOrders, 'Jumlah transaksi berhasil diselesaikan', false, false, '#,##0'],
+    ['Total Selisih Kasir (Variance)', d.kpi.totalCashVariance, 'Selisih uang fisik laci kasir vs expected sistem', false],
+  ]
+
+  kpiRowsData.forEach(([label, val, note, highlight, isPct, customFmt]) => {
+    const r = sheet1.addRow([label, val, note])
+    r.getCell(1).font = { name: 'Arial', size: 9, bold: !!highlight, color: { argb: 'FF1E293B' } }
+    r.getCell(2).font = { name: 'Arial', size: 9.5, bold: !!highlight, color: { argb: highlight ? 'FF78350F' : 'FF1E293B' } }
+    r.getCell(3).font = { name: 'Arial', size: 8.5, italic: true, color: { argb: 'FF64748B' } }
+    if (isPct) {
+      r.getCell(2).numFmt = '0.0%'
+    } else if (customFmt) {
+      r.getCell(2).numFmt = customFmt
+    } else {
+      r.getCell(2).numFmt = '#,##0'
     }
+    if (highlight) {
+      r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } }
+      r.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } }
+    }
+  })
+
+  sheet1.addRow([])
+
+  // Tabel Rekapitulasi per Channel
+  const labelA = cut ? `HPP P1 (${tglPendek(from).slice(0, -5)}–${tglPendek(dayBefore(cut)).slice(0, -5)})` : 'Total HPP (Rp)'
+  const labelB = cut ? `HPP P2 (${tglPendek(cut).slice(0, -5)}–${tglPendek(to).slice(0, -5)})` : null
+
+  const chHeaderCols = [
+    'No',
+    'Channel Penjualan',
+    'Omzet Kotor (Rp)',
+    'Potongan (Rp)',
+    labelA,
+    ...(labelB ? [labelB, 'Total HPP (Rp)'] : []),
+    'Laba Kotor (Rp)',
+    'Food Cost (%)',
+    'Porsi Terjual (Qty)',
+    'Menu Flagged',
+  ]
+
+  const chHeaderRow = sheet1.addRow(chHeaderCols)
+  chHeaderRow.eachCell((cell: any) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B1D0D' } }
     cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
     cell.alignment = { vertical: 'middle', horizontal: 'center' }
   })
 
-  // Data Rows
-  outletsData.forEach((o) => {
-    const targetSetor = o.cash - o.pettyCash
-    const row = sheet1.addRow([
-      o.no,
-      o.name,
-      o.type,
-      o.grossPos,
-      o.nonCash,
-      o.cash,
-      o.pettyCash,
-      targetSetor,
-      targetSetor,
-      0,
-      '100% MATCHED',
-    ])
+  let chSum = { rev: 0, pot: 0, a: 0, b: 0, laba: 0, qty: 0 }
+  d.channels.forEach((c, idx) => {
+    chSum.rev += c.revenue
+    chSum.pot += c.potongan
+    chSum.a += c.hppA
+    chSum.b += c.hppB
+    chSum.laba += c.labaKotor
+    chSum.qty += c.qty
 
-    // Number formats
-    row.getCell(4).numFmt = '#,##0'
-    row.getCell(5).numFmt = '#,##0'
-    row.getCell(6).numFmt = '#,##0'
-    row.getCell(7).numFmt = '#,##0'
-    row.getCell(8).numFmt = '#,##0'
-    row.getCell(9).numFmt = '#,##0'
-    row.getCell(10).numFmt = '#,##0'
+    const flagged = c.items.filter((i) => itemFlags(i, !!cut).length > 0).length
+    const totalHpp = c.hppA + c.hppB
+    const fc = c.revenue > 0 ? totalHpp / c.revenue : 0
 
-    row.getCell(1).alignment = { horizontal: 'center' }
-    row.getCell(3).alignment = { horizontal: 'center' }
-    row.getCell(10).alignment = { horizontal: 'center' }
-    row.getCell(11).alignment = { horizontal: 'center' }
+    const rowValues = [
+      idx + 1,
+      c.label,
+      c.revenue,
+      c.potongan,
+      cut ? c.hppA : totalHpp,
+      ...(labelB ? [c.hppB, totalHpp] : []),
+      c.labaKotor,
+      fc,
+      c.qty,
+      flagged > 0 ? `${flagged} menu perlu cek` : 'Lengkap',
+    ]
+
+    const r = sheet1.addRow(rowValues)
+    r.getCell(1).alignment = { horizontal: 'center' }
+    r.getCell(3).numFmt = '#,##0'
+    r.getCell(4).numFmt = '#,##0'
+    r.getCell(5).numFmt = '#,##0'
+    if (labelB) {
+      r.getCell(6).numFmt = '#,##0'
+      r.getCell(7).numFmt = '#,##0'
+      r.getCell(8).numFmt = '#,##0'
+      r.getCell(9).numFmt = '0.0%'
+      r.getCell(10).numFmt = '#,##0'
+      r.getCell(11).alignment = { horizontal: 'center' }
+    } else {
+      r.getCell(6).numFmt = '#,##0'
+      r.getCell(7).numFmt = '0.0%'
+      r.getCell(8).numFmt = '#,##0'
+      r.getCell(9).alignment = { horizontal: 'center' }
+    }
   })
 
-  // Total Row
-  const totGross = outletsData.reduce((a, b) => a + b.grossPos, 0)
-  const totNonCash = outletsData.reduce((a, b) => a + b.nonCash, 0)
-  const totCash = outletsData.reduce((a, b) => a + b.cash, 0)
-  const totPetty = outletsData.reduce((a, b) => a + b.pettyCash, 0)
-  const totTarget = totCash - totPetty
-
-  const intCount = outletsData.filter((o) => o.type.toLowerCase().includes('internal')).length
-  const mitCount = outletsData.filter((o) => o.type.toLowerCase().includes('mitra')).length
-  const onlCount = outletsData.filter((o) => o.type.toLowerCase().includes('online')).length
-  const typeSummary = `${intCount} Int + ${mitCount} Mit${onlCount > 0 ? ` + ${onlCount} Onl` : ''}`
-
-  const totalRow = sheet1.addRow([
-    'TOTAL',
-    `${outletsData.length} CABANG (KONSOLIDASI)`,
-    typeSummary,
-    totGross,
-    totNonCash,
-    totCash,
-    totPetty,
-    totTarget,
-    totTarget,
-    0,
-    '100% CLOSED',
+  // Total Channel Row
+  const totalChHpp = chSum.a + chSum.b
+  const totalChFc = chSum.rev > 0 ? totalChHpp / chSum.rev : 0
+  const chTotalRow = sheet1.addRow([
+    '',
+    'TOTAL KONSOLIDASI CHANNEL',
+    chSum.rev,
+    chSum.pot,
+    cut ? chSum.a : totalChHpp,
+    ...(labelB ? [chSum.b, totalChHpp] : []),
+    chSum.laba,
+    totalChFc,
+    chSum.qty,
+    '',
   ])
 
-  totalRow.eachCell((cell: any) => {
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFFEF3C7' },
-    }
+  chTotalRow.eachCell((cell: any) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
     cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF78350F' } }
   })
-  totalRow.getCell(4).numFmt = '#,##0'
-  totalRow.getCell(5).numFmt = '#,##0'
-  totalRow.getCell(6).numFmt = '#,##0'
-  totalRow.getCell(7).numFmt = '#,##0'
-  totalRow.getCell(8).numFmt = '#,##0'
-  totalRow.getCell(9).numFmt = '#,##0'
-  totalRow.getCell(10).numFmt = '#,##0'
-
-  sheet1.addRow([])
-  const noteRow = sheet1.addRow(['CATATAN AUDIT PIC:', picNote || 'Rekonsiliasi 22 outlet tuntas 100%.'])
-  noteRow.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF3B1D0D' } }
-  noteRow.getCell(2).font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF475569' } }
+  chTotalRow.getCell(3).numFmt = '#,##0'
+  chTotalRow.getCell(4).numFmt = '#,##0'
+  chTotalRow.getCell(5).numFmt = '#,##0'
+  if (labelB) {
+    chTotalRow.getCell(6).numFmt = '#,##0'
+    chTotalRow.getCell(7).numFmt = '#,##0'
+    chTotalRow.getCell(8).numFmt = '#,##0'
+    chTotalRow.getCell(9).numFmt = '0.0%'
+    chTotalRow.getCell(10).numFmt = '#,##0'
+  } else {
+    chTotalRow.getCell(6).numFmt = '#,##0'
+    chTotalRow.getCell(7).numFmt = '0.0%'
+    chTotalRow.getCell(8).numFmt = '#,##0'
+  }
 
   sheet1.columns = [
     { width: 6 },
-    { width: 34 },
-    { width: 14 },
-    { width: 18 },
-    { width: 22 },
+    { width: 28 },
     { width: 18 },
     { width: 16 },
     { width: 18 },
+    ...(labelB ? [{ width: 18 }, { width: 18 }] : []),
     { width: 18 },
+    { width: 14 },
     { width: 18 },
-    { width: 18 },
+    { width: 20 },
   ]
 
-  // -------------------------------------------------------------
-  // SHEET 2: AUDIT SELISIH SHIFT KASIR (BLIND CLOSE)
-  // -------------------------------------------------------------
-  const sheet2 = workbook.addWorksheet('Audit Selisih Shift')
-  sheet2.mergeCells('A1:I1')
-  sheet2.getCell('A1').value = 'LOG INVESTIGASI SELISIH SHIFT KASIR & PENYELESAIAN KASBON'
+  // ---------------------------------------------------------------------------
+  // SHEET 2: REKAPITULASI OUTLET
+  // ---------------------------------------------------------------------------
+  const sheet2 = workbook.addWorksheet('Rekapitulasi Outlet', {
+    pageSetup: { orientation: 'landscape', paperSize: 9 },
+  })
+
+  sheet2.mergeCells('A1:N1')
+  sheet2.getCell('A1').value = `REKAPITULASI OMZET, HPP, LABA KOTOR & KAS PER CABANG OUTLET — ${curLabel.toUpperCase()}`
   sheet2.getCell('A1').font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF3B1D0D' } }
 
+  sheet2.mergeCells('A2:N2')
+  sheet2.getCell('A2').value = 'HPP Outlet Mitra sudah mencakup penyesuaian +10% sesuai kesepakatan kerjasama. Kolom Kas & Setoran berasal dari audit tutup shift kasir POS.'
+  sheet2.getCell('A2').font = { name: 'Arial', size: 8.5, color: { argb: 'FF64748B' } }
+
   sheet2.addRow([])
-  const s2Head = sheet2.addRow([
+
+  const otHeaderCols = [
     'No',
-    'Tanggal',
-    'Cabang Outlet',
-    'Shift & Nama Kasir',
-    'Kas Sistem (Rp)',
-    'Kas Fisik (Rp)',
-    'Selisih (+/-)',
-    'Penyebab Investigasi SPV',
-    'Status Penyelesaian',
-  ])
-  s2Head.eachCell((cell: any) => {
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF475569' },
-    }
+    'Nama Cabang Outlet',
+    'Tipe',
+    'Gross Revenue (Rp)',
+    'Potongan (Rp)',
+    labelA,
+    ...(labelB ? [labelB, 'Total HPP (Rp)'] : []),
+    'Laba Kotor (Rp)',
+    'Food Cost (%)',
+    'Omzet Tunai POS (Rp)',
+    'Uang Laci Fisik (Rp)',
+    'Selisih Kasir (Rp)',
+    'Sudah Disetor (Rp)',
+    'Status Setoran',
+  ]
+
+  const otHeaderRow = sheet2.addRow(otHeaderCols)
+  otHeaderRow.eachCell((cell: any) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B1D0D' } }
     cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
+    cell.alignment = { vertical: 'middle', horizontal: 'center' }
   })
 
-  const shiftVariances = customShiftVariances && customShiftVariances.length > 0
-    ? customShiftVariances.map((v) => ({
-        no: v.no,
-        day: v.day,
-        ot: v.outlet,
-        shift: v.shift,
-        sis: v.sistem,
-        fis: v.fisik,
-        sel: v.selisih,
-        sebab: v.penyebab,
-        stat: v.status,
-      }))
-    : [
-        { no: 1, day: 2, ot: 'MITRA CISEENG', shift: 'Shift Kasir - Reno Putra Perdana', sis: 0, fis: 100000, sel: 100000, sebab: 'Kelebihan saldo fisik kasir awal shift / pembulatan pembayaran', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 2, day: 3, ot: 'MITRA CICURUG', shift: 'Shift Kasir - M. Reyhan Setiawan', sis: 0, fis: 1583000, sel: 1583000, sebab: 'Setoran closing shift kasir tunai belum terinput pada register sistem', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 3, day: 4, ot: 'SUKA SHAWARMA DRAMAGA', shift: 'Shift Kasir - Sheva Arzaky Mauladi', sis: 0, fis: 430000, sel: 430000, sebab: 'Akumulasi uang kas fisik laci kasir melampaui data input sistem', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 4, day: 6, ot: 'SUKA SHAWARMA CIRENDEU', shift: 'Shift Kasir - Iqbal', sis: 262000, fis: 268000, sel: 6000, sebab: 'Pembulatan uang kecil kembalian kasir POS', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 5, day: 6, ot: 'SUKA SHAWARMA PAJAJARAN', shift: 'Shift Kasir - M. Rifki Muzaki', sis: 200000, fis: 2000000, sel: 1800000, sebab: 'Modal kas awal operasional laci kasir belum direkonsiliasi sistem', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 6, day: 7, ot: 'SUKA SHAWARMA DEPOK SUKMAJAYA', shift: 'Shift Kasir - Helmi Dwi Luthfi', sis: 0, fis: 332000, sel: 332000, sebab: 'Penerimaan pembayaran cash blind close saat sistem offline sejenak', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 7, day: 7, ot: 'MITRA CIBUBUR', shift: 'Shift Kasir - Adhi Setiawan', sis: 0, fis: 48000, sel: 48000, sebab: 'Kelebihan uang receh kembalian di laci kasir', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 8, day: 7, ot: 'SUKA SHAWARMA BEJI', shift: 'Shift Kasir - Muhammad Fitron Firdaus', sis: 0, fis: 66000, sel: 66000, sebab: 'Kelebihan koin & pecahan kecil pembulatan struk', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 9, day: 8, ot: 'MITRA CIBINONG', shift: 'Shift Kasir - Yunus', sis: 462000, fis: 642000, sel: 180000, sebab: 'Penerimaan pesanan tunai belum terekam otomatis pada tablet kasir', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 10, day: 13, ot: 'SUKA SHAWARMA JATIWARINGIN', shift: 'Shift Kasir - Faturrahman', sis: 93000, fis: 99000, sel: 6000, sebab: 'Pembulatan kembalian struk belanja pembeli', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 11, day: 17, ot: 'MITRA CIBUBUR', shift: 'Shift Kasir - Muhamad Rifqi Darmawan', sis: 442000, fis: 211000, sel: -231000, sebab: 'Salah hitung kembalian pecahan besar saat jam antrean puncak', stat: 'LUNAS (Potong Kasbon Kasir)' },
-        { no: 12, day: 18, ot: 'SUKA SHAWARMA BNR', shift: 'Shift Kasir - Roni', sis: 187000, fis: 219000, sel: 32000, sebab: 'Konsumen menolak uang kecil kembalian receh', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 13, day: 18, ot: 'SUKA SHAWARMA JAGAKARSA', shift: 'Shift Kasir - Maulana Hairulloh', sis: 0, fis: 81000, sel: 81000, sebab: 'Sisa kas kecil kembalian shift siang diserahkan ke kas fisik', stat: 'SELESAI (Disetor ke Kas Toko)' },
-        { no: 14, day: 20, ot: 'MITRA CISEENG', shift: 'Shift Kasir - Mohamad Raka', sis: 0, fis: 791000, sel: 791000, sebab: 'Pelunasan pesanan tunai offline tercatat saat serah terima shift', stat: 'SELESAI (Disetor ke Kas Toko)' },
-      ]
+  const cashMap = new Map(d.cash.map((c) => [c.outletId, c]))
+  const outlets = d.outletDetails ?? []
 
-  shiftVariances.forEach((v) => {
-    const shiftDate = new Date(Date.UTC(year, month - 1, v.day))
-    const r = sheet2.addRow([
-      v.no,
-      shiftDate,
-      v.ot,
-      v.shift,
-      v.sis,
-      v.fis,
-      v.sel,
-      v.sebab,
-      v.stat,
+  const groups = [
+    { type: 'outlet', label: 'OUTLET INTERNAL' },
+    { type: 'mitra', label: 'OUTLET MITRA (+10% HPP)' },
+    { type: 'online', label: 'SS ONLINE (MARKETPLACE)' },
+  ]
+
+  let grandRev = 0, grandPot = 0, grandHppA = 0, grandHppB = 0, grandLaba = 0
+  let grandTunai = 0, grandFisik = 0, grandSelisih = 0, grandSetor = 0
+  let runningNo = 1
+
+  groups.forEach((g) => {
+    const groupOutlets = outlets.filter((o) => (o.outletType === 'mitra' ? 'mitra' : o.outletType === 'online' ? 'online' : 'outlet') === g.type)
+    if (groupOutlets.length === 0) return
+
+    let subRev = 0, subPot = 0, subHppA = 0, subHppB = 0, subLaba = 0
+    let subTunai = 0, subFisik = 0, subSelisih = 0, subSetor = 0
+
+    groupOutlets.forEach((o) => {
+      const c = cashMap.get(o.outletId)
+      const hppTotal = o.hppA + o.hppB
+      const fc = o.revenue > 0 ? hppTotal / o.revenue : 0
+      const omzetTunai = c?.omzetTunai ?? 0
+      const fisik = c?.shiftFisik ?? 0
+      const selisih = c?.selisihKasir ?? 0
+      const setor = c?.setoranDiterima ?? 0
+
+      subRev += o.revenue
+      subPot += o.potongan
+      subHppA += o.hppA
+      subHppB += o.hppB
+      subLaba += o.labaKotor
+      subTunai += omzetTunai
+      subFisik += fisik
+      subSelisih += selisih
+      subSetor += setor
+
+      let statusSetor = '-'
+      if (c) {
+        if (Math.abs(fisik - setor) < 1) {
+          statusSetor = 'LUNAS'
+        } else if (fisik > setor) {
+          statusSetor = `Kurang Rp ${(fisik - setor).toLocaleString('id-ID')}`
+        } else {
+          statusSetor = `Lebih Rp ${(setor - fisik).toLocaleString('id-ID')}`
+        }
+      }
+
+      const r = sheet2.addRow([
+        runningNo++,
+        o.outletName.replace('SUKA SHAWARMA ', ''),
+        g.type === 'mitra' ? 'Mitra' : g.type === 'online' ? 'Online' : 'Internal',
+        o.revenue,
+        o.potongan,
+        cut ? o.hppA : hppTotal,
+        ...(labelB ? [o.hppB, hppTotal] : []),
+        o.labaKotor,
+        fc,
+        omzetTunai,
+        fisik,
+        selisih,
+        setor,
+        statusSetor,
+      ])
+
+      r.getCell(1).alignment = { horizontal: 'center' }
+      r.getCell(3).alignment = { horizontal: 'center' }
+      r.getCell(4).numFmt = '#,##0'
+      r.getCell(5).numFmt = '#,##0'
+      r.getCell(6).numFmt = '#,##0'
+      if (labelB) {
+        r.getCell(7).numFmt = '#,##0'
+        r.getCell(8).numFmt = '#,##0'
+        r.getCell(9).numFmt = '#,##0'
+        r.getCell(10).numFmt = '0.0%'
+        r.getCell(11).numFmt = '#,##0'
+        r.getCell(12).numFmt = '#,##0'
+        r.getCell(13).numFmt = '#,##0'
+        r.getCell(14).numFmt = '#,##0'
+        r.getCell(15).alignment = { horizontal: 'center' }
+      } else {
+        r.getCell(7).numFmt = '#,##0'
+        r.getCell(8).numFmt = '0.0%'
+        r.getCell(9).numFmt = '#,##0'
+        r.getCell(10).numFmt = '#,##0'
+        r.getCell(11).numFmt = '#,##0'
+        r.getCell(12).numFmt = '#,##0'
+        r.getCell(13).alignment = { horizontal: 'center' }
+      }
+    })
+
+    // Subtotal Group
+    grandRev += subRev
+    grandPot += subPot
+    grandHppA += subHppA
+    grandHppB += subHppB
+    grandLaba += subLaba
+    grandTunai += subTunai
+    grandFisik += subFisik
+    grandSelisih += subSelisih
+    grandSetor += subSetor
+
+    const subHppTot = subHppA + subHppB
+    const subFc = subRev > 0 ? subHppTot / subRev : 0
+    const subRow = sheet2.addRow([
+      '',
+      `SUBTOTAL ${g.label}`,
+      '',
+      subRev,
+      subPot,
+      cut ? subHppA : subHppTot,
+      ...(labelB ? [subHppB, subHppTot] : []),
+      subLaba,
+      subFc,
+      subTunai,
+      subFisik,
+      subSelisih,
+      subSetor,
+      '',
     ])
-    r.getCell(2).numFmt = 'DD/MM/YYYY'
-    r.getCell(2).alignment = { horizontal: 'center' }
-    r.getCell(5).numFmt = '#,##0'
-    r.getCell(6).numFmt = '#,##0'
-    r.getCell(7).numFmt = '#,##0'
+
+    subRow.eachCell((cell: any) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+      cell.font = { name: 'Arial', size: 8.5, bold: true, color: { argb: 'FF334155' } }
+    })
+    subRow.getCell(4).numFmt = '#,##0'
+    subRow.getCell(5).numFmt = '#,##0'
+    subRow.getCell(6).numFmt = '#,##0'
+    if (labelB) {
+      subRow.getCell(7).numFmt = '#,##0'
+      subRow.getCell(8).numFmt = '#,##0'
+      subRow.getCell(9).numFmt = '#,##0'
+      subRow.getCell(10).numFmt = '0.0%'
+      subRow.getCell(11).numFmt = '#,##0'
+      subRow.getCell(12).numFmt = '#,##0'
+      subRow.getCell(13).numFmt = '#,##0'
+      subRow.getCell(14).numFmt = '#,##0'
+    } else {
+      subRow.getCell(7).numFmt = '#,##0'
+      subRow.getCell(8).numFmt = '0.0%'
+      subRow.getCell(9).numFmt = '#,##0'
+      subRow.getCell(10).numFmt = '#,##0'
+      subRow.getCell(11).numFmt = '#,##0'
+      subRow.getCell(12).numFmt = '#,##0'
+    }
   })
+
+  // Grand Total Row
+  const grandHppTot = grandHppA + grandHppB
+  const grandFc = grandRev > 0 ? grandHppTot / grandRev : 0
+  const grandTotalRow = sheet2.addRow([
+    '',
+    'TOTAL KONSOLIDASI SELURUH OUTLET',
+    '',
+    grandRev,
+    grandPot,
+    cut ? grandHppA : grandHppTot,
+    ...(labelB ? [grandHppB, grandHppTot] : []),
+    grandLaba,
+    grandFc,
+    grandTunai,
+    grandFisik,
+    grandSelisih,
+    grandSetor,
+    '',
+  ])
+
+  grandTotalRow.eachCell((cell: any) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF78350F' } }
+  })
+  grandTotalRow.getCell(4).numFmt = '#,##0'
+  grandTotalRow.getCell(5).numFmt = '#,##0'
+  grandTotalRow.getCell(6).numFmt = '#,##0'
+  if (labelB) {
+    grandTotalRow.getCell(7).numFmt = '#,##0'
+    grandTotalRow.getCell(8).numFmt = '#,##0'
+    grandTotalRow.getCell(9).numFmt = '#,##0'
+    grandTotalRow.getCell(10).numFmt = '0.0%'
+    grandTotalRow.getCell(11).numFmt = '#,##0'
+    grandTotalRow.getCell(12).numFmt = '#,##0'
+    grandTotalRow.getCell(13).numFmt = '#,##0'
+    grandTotalRow.getCell(14).numFmt = '#,##0'
+  } else {
+    grandTotalRow.getCell(7).numFmt = '#,##0'
+    grandTotalRow.getCell(8).numFmt = '0.0%'
+    grandTotalRow.getCell(9).numFmt = '#,##0'
+    grandTotalRow.getCell(10).numFmt = '#,##0'
+    grandTotalRow.getCell(11).numFmt = '#,##0'
+    grandTotalRow.getCell(12).numFmt = '#,##0'
+  }
 
   sheet2.columns = [
     { width: 6 },
+    { width: 30 },
+    { width: 12 },
+    { width: 18 },
+    { width: 16 },
+    { width: 18 },
+    ...(labelB ? [{ width: 18 }, { width: 18 }] : []),
+    { width: 18 },
     { width: 14 },
-    { width: 32 },
-    { width: 34 },
+    { width: 18 },
+    { width: 18 },
     { width: 16 },
-    { width: 16 },
-    { width: 16 },
-    { width: 48 },
-    { width: 32 },
+    { width: 18 },
+    { width: 22 },
   ]
 
-  // -------------------------------------------------------------
-  // SHEET 3: KAS KECIL & NON-TUNAI
-  // -------------------------------------------------------------
-  const sheet3 = workbook.addWorksheet('Kas Kecil & Non-Tunai')
-  sheet3.mergeCells('A1:E1')
-  sheet3.getCell('A1').value = `A. REKAP PENGELUARAN KAS KECIL (PETTY CASH TOKO ${outletsData.length} OUTLET)`
-  sheet3.getCell('A1').font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFB45309' } }
-
-  const pHead = sheet3.addRow(['No', 'Kategori Pengeluaran', 'Cabang Terkait', 'Total Pengeluaran (Rp)', 'Porsi (%)'])
-  pHead.eachCell((c: any) => {
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB45309' } }
-    c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
+  // ---------------------------------------------------------------------------
+  // SHEET 3: RINCIAN MENU PER OUTLET
+  // ---------------------------------------------------------------------------
+  const sheet3 = workbook.addWorksheet('Rincian Menu per Outlet', {
+    pageSetup: { orientation: 'landscape', paperSize: 9 },
   })
 
-  const pData = customPettyCash && customPettyCash.length > 0
-    ? customPettyCash.map((item) => ({
-        no: item.no,
-        k: item.kategori,
-        o: item.outletTerbanyak,
-        n: item.nominal,
-        p: item.porsi,
-      }))
-    : [
-        { no: 1, k: 'Operasional & Kebutuhan Toko', o: 'Empang, Depok Sukmajaya, Jagakarsa', n: 23995368, p: '63.4%' },
-        { no: 2, k: 'Pengeluaran Kebutuhan Laci Kasir', o: 'Cibubur, Paledang, Cimanggu', n: 8541650, p: '22.6%' },
-        { no: 3, k: 'Token Listrik PLN & Utilitas Toko', o: 'Cibubur, Pekayon, Empang', n: 2832550, p: '7.5%' },
-        { no: 4, k: 'Bahan Tambahan & Kemasan Darurat', o: 'Cibubur, Depok Sukmajaya, Sawangan', n: 1209000, p: '3.2%' },
-        { no: 5, k: 'Transportasi & Pengantaran Cepat', o: 'Ciseeng, Sentul, Pekayon', n: 716000, p: '1.9%' },
-      ]
-  pData.forEach((item) => {
-    const r = sheet3.addRow([item.no, item.k, item.o, item.n, item.p])
-    r.getCell(4).numFmt = '#,##0'
-  })
-  const totPettyVal = pData.reduce((acc, curr) => acc + curr.n, 0)
-  const pTot = sheet3.addRow(['', 'TOTAL KAS KECIL', `${outletsData.length} Cabang Outlet`, totPettyVal, '100%'])
-  pTot.eachCell((c: any) => {
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
-    c.font = { name: 'Arial', size: 9, bold: true }
-  })
-  pTot.getCell(4).numFmt = '#,##0'
+  sheet3.mergeCells('A1:N1')
+  sheet3.getCell('A1').value = `RINCIAN PENJUALAN & HPP MENU PER CABANG OUTLET — ${curLabel.toUpperCase()}`
+  sheet3.getCell('A1').font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF3B1D0D' } }
 
   sheet3.addRow([])
-  sheet3.addRow([])
 
-  const rowNT = sheet3.addRow(['B. SALURAN PEMBAYARAN NON-TUNAI (EDC / QRIS / ONLINE)'])
-  sheet3.mergeCells(`A${rowNT.number}:E${rowNT.number}`)
-  rowNT.getCell(1).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF1E40AF' } }
+  const menuHeaderCols = [
+    'No',
+    'Cabang Outlet',
+    'Tipe Outlet',
+    'Channel',
+    'Nama Menu',
+    'Qty',
+    'Harga Jual Rata-rata (Rp)',
+    'Omzet (Rp)',
+    'Potongan (Rp)',
+    cut ? `HPP/Porsi P1` : 'HPP/Porsi (Rp)',
+    ...(labelB ? [`HPP/Porsi P2`, 'Total HPP (Rp)'] : ['Total HPP (Rp)']),
+    'Laba Kotor (Rp)',
+    'Food Cost (%)',
+    'Catatan / Tanda',
+  ]
 
-  const ntHead = sheet3.addRow(['No', 'Metode Pembayaran', 'Volume Transaksi', 'Total Nilai (Rp)', 'Porsi (%)'])
-  ntHead.eachCell((c: any) => {
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } }
-    c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
+  const menuHeaderRow = sheet3.addRow(menuHeaderCols)
+  menuHeaderRow.eachCell((cell: any) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B1D0D' } }
+    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
+    cell.alignment = { vertical: 'middle', horizontal: 'center' }
   })
 
-  const ntData = customNonCash && customNonCash.length > 0
-    ? customNonCash.map((item) => ({
-        no: item.no,
-        c: item.channel,
-        v: item.volume,
-        n: item.nominal,
-        p: item.porsi,
-      }))
-    : [
-        { no: 1, c: 'QRIS Statis & Dinamis (BCA / Mandiri / ShopeePay)', v: '18.420 Trx', n: 684210000, p: '51.0%' },
-        { no: 2, c: 'EDC Kartu Debit & Kredit Bank', v: '7.940 Trx', n: 389120000, p: '29.0%' },
-        { no: 3, c: 'Virtual Account & Bank Transfer Langsung', v: '4.110 Trx', n: 187816540, p: '14.0%' },
-      ]
-  ntData.forEach((item) => {
-    const r = sheet3.addRow([item.no, item.c, item.v, item.n, item.p])
-    r.getCell(4).numFmt = '#,##0'
+  let itemCounter = 1
+  outlets.forEach((o) => {
+    o.channels.forEach((c) => {
+      c.items.forEach((it) => {
+        const qty = it.qtyA + it.qtyB
+        const hargaJual = qty > 0 ? it.revenue / qty : 0
+        const hppTotal = it.hppA + it.hppB
+        const fc = it.revenue > 0 ? hppTotal / it.revenue : 0
+        const flags = itemFlags(it, !!cut)
+        const unitA = it.qtyA > 0 ? it.hppA / it.qtyA : 0
+        const unitB = it.qtyB > 0 ? it.hppB / it.qtyB : 0
+        const unitSingle = qty > 0 ? hppTotal / qty : 0
+
+        const rowValues = [
+          itemCounter++,
+          o.outletName.replace('SUKA SHAWARMA ', ''),
+          o.outletType === 'mitra' ? 'Mitra (+10%)' : o.outletType === 'online' ? 'Online' : 'Internal',
+          c.label,
+          it.name,
+          qty,
+          hargaJual,
+          it.revenue,
+          it.potongan,
+          cut ? unitA : unitSingle,
+          ...(labelB ? [unitB, hppTotal] : [hppTotal]),
+          it.labaKotor,
+          fc,
+          flags.join(', ') || 'Normal',
+        ]
+
+        const r = sheet3.addRow(rowValues)
+        r.getCell(1).alignment = { horizontal: 'center' }
+        r.getCell(3).alignment = { horizontal: 'center' }
+        r.getCell(4).alignment = { horizontal: 'center' }
+        r.getCell(6).numFmt = '#,##0'
+        r.getCell(7).numFmt = '#,##0'
+        r.getCell(8).numFmt = '#,##0'
+        r.getCell(9).numFmt = '#,##0'
+        r.getCell(10).numFmt = '#,##0'
+        if (labelB) {
+          r.getCell(11).numFmt = '#,##0'
+          r.getCell(12).numFmt = '#,##0'
+          r.getCell(13).numFmt = '#,##0'
+          r.getCell(14).numFmt = '0.0%'
+          r.getCell(15).alignment = { horizontal: 'center' }
+        } else {
+          r.getCell(11).numFmt = '#,##0'
+          r.getCell(12).numFmt = '#,##0'
+          r.getCell(13).numFmt = '0.0%'
+          r.getCell(14).alignment = { horizontal: 'center' }
+        }
+      })
+    })
   })
-  const totNonCashVal = ntData.reduce((acc, curr) => acc + curr.n, 0)
-  const ntTot = sheet3.addRow(['', 'TOTAL NON-TUNAI', 'Konsolidasi', totNonCashVal, '100%'])
-  ntTot.eachCell((c: any) => {
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } }
-    c.font = { name: 'Arial', size: 9, bold: true }
-  })
-  ntTot.getCell(4).numFmt = '#,##0'
+
+  // Enable Autofilter on sheet3
+  sheet3.autoFilter = {
+    from: { row: 3, column: 1 },
+    to: { row: 3, column: labelB ? 15 : 14 },
+  }
 
   sheet3.columns = [
     { width: 6 },
-    { width: 36 },
-    { width: 28 },
-    { width: 22 },
+    { width: 26 },
     { width: 14 },
+    { width: 18 },
+    { width: 34 },
+    { width: 10 },
+    { width: 16 },
+    { width: 18 },
+    { width: 14 },
+    { width: 16 },
+    ...(labelB ? [{ width: 16 }, { width: 18 }] : [{ width: 18 }]),
+    { width: 18 },
+    { width: 12 },
+    { width: 20 },
   ]
 
-  // Unduh File
+  // ---------------------------------------------------------------------------
+  // SHEET 4: AUDIT SHIFT & KAS TOKO
+  // ---------------------------------------------------------------------------
+  const sheet4 = workbook.addWorksheet('Audit Shift & Kas', {
+    pageSetup: { orientation: 'landscape', paperSize: 9 },
+  })
+
+  sheet4.mergeCells('A1:I1')
+  sheet4.getCell('A1').value = `AUDIT SHIFT KASIR & SELISIH UANG LACI — ${curLabel.toUpperCase()}`
+  sheet4.getCell('A1').font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF3B1D0D' } }
+
+  sheet4.mergeCells('A2:I2')
+  sheet4.getCell('A2').value = `Daftar shift dengan selisih kasir (variance) atau status belum ditutup (${d.shiftDetails.length} shift tercatat).`
+  sheet4.getCell('A2').font = { name: 'Arial', size: 8.5, color: { argb: 'FF64748B' } }
+
+  sheet4.addRow([])
+
+  const s4HeaderRow = sheet4.addRow([
+    'No',
+    'Tanggal Shift (WIB)',
+    'Cabang Outlet',
+    'Kasir (Staff)',
+    'Omzet Tunai Expected (Rp)',
+    'Uang Laci Fisik (Rp)',
+    'Selisih Kasir (Rp)',
+    'Status Shift',
+    'Catatan Kasir',
+  ])
+
+  s4HeaderRow.eachCell((cell: any) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B1D0D' } }
+    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
+    cell.alignment = { vertical: 'middle', horizontal: 'center' }
+  })
+
+  let totSelisihShift = 0
+  if (d.shiftDetails.length === 0) {
+    const emptyRow = sheet4.addRow(['', 'Tidak ada shift berselisih atau belum ditutup pada bulan ini.', '', '', '', '', '', '', ''])
+    sheet4.mergeCells(`B${emptyRow.number}:I${emptyRow.number}`)
+    emptyRow.getCell(2).font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF166534' } }
+  } else {
+    d.shiftDetails.forEach((s, idx) => {
+      totSelisihShift += s.selisih
+      const r = sheet4.addRow([
+        idx + 1,
+        s.tanggal,
+        s.outlet.replace('SUKA SHAWARMA ', ''),
+        s.kasir,
+        s.expected,
+        s.fisik,
+        s.selisih,
+        s.status === 'closed' ? 'Ditutup' : 'BELUM DITUTUP',
+        s.catatan || '-',
+      ])
+
+      r.getCell(1).alignment = { horizontal: 'center' }
+      r.getCell(2).alignment = { horizontal: 'center' }
+      r.getCell(5).numFmt = '#,##0'
+      r.getCell(6).numFmt = '#,##0'
+      r.getCell(7).numFmt = '#,##0'
+      r.getCell(8).alignment = { horizontal: 'center' }
+
+      if (s.status !== 'closed') {
+        r.getCell(8).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB91C1C' } }
+        r.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }
+      }
+      if (Math.abs(s.selisih) > 0) {
+        r.getCell(7).font = { name: 'Arial', size: 9, bold: true, color: { argb: s.selisih < 0 ? 'FFB91C1C' : 'FFD97706' } }
+      }
+    })
+
+    const totShiftRow = sheet4.addRow([
+      '',
+      'TOTAL SELISIH KASIR TERCATAT',
+      '',
+      '',
+      '',
+      '',
+      totSelisihShift,
+      '',
+      '',
+    ])
+    totShiftRow.eachCell((cell: any) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+      cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF78350F' } }
+    })
+    totShiftRow.getCell(7).numFmt = '#,##0'
+  }
+
+  sheet4.columns = [
+    { width: 6 },
+    { width: 18 },
+    { width: 28 },
+    { width: 22 },
+    { width: 20 },
+    { width: 20 },
+    { width: 18 },
+    { width: 18 },
+    { width: 36 },
+  ]
+
+  // ---------------------------------------------------------------------------
+  // SHEET 5: VERIFIKASI & LEMBAR PENGESAHAN
+  // ---------------------------------------------------------------------------
+  const sheet5 = workbook.addWorksheet('Lembar Pengesahan')
+  sheet5.mergeCells('A1:G1')
+  sheet5.getCell('A1').value = 'LEMBAR PENGESAHAN BERITA ACARA EOM CLOSING KASIR & KAS TOKO'
+  sheet5.getCell('A1').font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF3B1D0D' } }
+
+  sheet5.mergeCells('A2:G2')
+  sheet5.getCell('A2').value = `PT SUKA KULINER NUSANTARA — PERIODE ${curLabel.toUpperCase()}`
+  sheet5.getCell('A2').font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF64748B' } }
+
+  sheet5.addRow([])
+  sheet5.addRow(['Klausul Verifikasi:', 'Rekapitulasi penjualan POS kasir, perhitungan HPP berdasarkan master riwayat terbaru, dan setoran bank 22 outlet telah diperiksa dan tervalidasi.'])
+  sheet5.addRow(['Status Closing HUB:', 'VERIFIED & LOCKED'])
+  sheet5.addRow(['Waktu Penarikan Data:', new Date(d.fetchedAt).toLocaleString('id-ID') + ' WIB'])
+
+  sheet5.addRow([])
+  sheet5.addRow([])
+
+  const signHead = sheet5.addRow(['Disiapkan oleh:', '', 'Diperiksa oleh:', '', 'Disetujui oleh:'])
+  signHead.eachCell((cell: any) => {
+    cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF3B1D0D' } }
+  })
+
+  sheet5.addRow([])
+  sheet5.addRow([])
+  sheet5.addRow([])
+
+  const signNames = sheet5.addRow([
+    `( ${dicetakOleh} )`, '',
+    '( Finance Controller )', '',
+    '( Owner / Direktur Keuangan )',
+  ])
+  signNames.eachCell((cell: any) => {
+    cell.font = { name: 'Arial', size: 9, bold: true }
+  })
+
+  const signRoles = sheet5.addRow([
+    'Divisi Finance & Kasir', '',
+    'Finance & Accounting SPV', '',
+    'PT Suka Kuliner Nusantara',
+  ])
+  signRoles.eachCell((cell: any) => {
+    cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF64748B' } }
+  })
+
+  sheet5.columns = [
+    { width: 28 },
+    { width: 6 },
+    { width: 28 },
+    { width: 6 },
+    { width: 32 },
+  ]
+
+  // Unduh buffer workbook
   const buffer = await workbook.xlsx.writeBuffer()
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
-  const filename = `Workbook_BA_Kasir_POS_22_Cabang_${MONTHS[month - 1]}_${year}.xlsx`
-  if (typeof window !== 'undefined') {
+  const filename = `BA_Kasir_KasToko_${MONTHS[month - 1]}_${year}.xlsx`
+  if (typeof window !== 'undefined' && typeof URL.createObjectURL === 'function') {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -367,4 +762,20 @@ export async function generatePosKasirExcel({
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
+
+  return { workbook, filename }
+}
+
+/**
+ * Backward compatibility adapter for legacy call in page.tsx
+ */
+export async function generatePosKasirExcel(options: any) {
+  // If invoked with legacy options, check if d is passed
+  if (options?.d) {
+    return generateKasirExcel(options.d, options.dicetakOleh)
+  }
+  // Otherwise fetch the report and generate
+  const res = await fetch(`/api/eom-closing/kasir?month=${options.month}&year=${options.year}&detail=outlet`, { cache: 'no-store' })
+  const d = await res.json()
+  return generateKasirExcel(d, options.picNote ? 'Finance Staff' : 'Finance')
 }

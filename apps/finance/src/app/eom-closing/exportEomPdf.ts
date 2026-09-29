@@ -287,14 +287,20 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
   autoTable(doc, {
     ...TABLE_BASE,
     startY: y,
-    head: [['Channel', 'Omzet kotor', 'Potongan', labelA, ...(labelB ? [labelB] : []), 'Total HPP', 'Laba kotor', 'Food cost', 'Menu bertanda']],
+    head: labelB
+      ? [['Channel', 'Omzet kotor', 'Potongan', labelA, labelB, 'Total HPP', 'Laba kotor', 'Food cost', 'Menu bertanda']]
+      : [['Channel', 'Omzet kotor', 'Potongan', 'Total HPP', 'Laba kotor', 'Food cost', 'Menu bertanda']],
     body: d.channels.map((c) => {
       ct.rev += c.revenue; ct.pot += c.potongan; ct.a += c.hppA; ct.b += c.hppB; ct.laba += c.labaKotor
       const flagged = c.items.filter((i) => itemFlags(i, !!cut).length > 0).length
-      return [c.label, rp(c.revenue), rp(c.potongan), rp(c.hppA), ...(labelB ? [rp(c.hppB)] : []), rp(c.hppA + c.hppB), rp(c.labaKotor), pct(c.hppA + c.hppB, c.revenue), flagged ? String(flagged) : '-']
+      return labelB
+        ? [c.label, rp(c.revenue), rp(c.potongan), rp(c.hppA), rp(c.hppB), rp(c.hppA + c.hppB), rp(c.labaKotor), pct(c.hppA + c.hppB, c.revenue), flagged ? String(flagged) : '-']
+        : [c.label, rp(c.revenue), rp(c.potongan), rp(c.hppA + c.hppB), rp(c.labaKotor), pct(c.hppA + c.hppB, c.revenue), flagged ? String(flagged) : '-']
     }),
-    foot: [['TOTAL', rp(ct.rev), rp(ct.pot), rp(ct.a), ...(labelB ? [rp(ct.b)] : []), rp(ct.a + ct.b), rp(ct.laba), pct(ct.a + ct.b, ct.rev), '']],
-    columnStyles: Object.fromEntries(Array.from({ length: labelB ? 9 : 8 }, (_, i) => [i, { halign: i === 0 ? 'left' : 'right' }])) as any,
+    foot: labelB
+      ? [['TOTAL', rp(ct.rev), rp(ct.pot), rp(ct.a), rp(ct.b), rp(ct.a + ct.b), rp(ct.laba), pct(ct.a + ct.b, ct.rev), '']]
+      : [['TOTAL', rp(ct.rev), rp(ct.pot), rp(ct.a + ct.b), rp(ct.laba), pct(ct.a + ct.b, ct.rev), '']],
+    columnStyles: Object.fromEntries(Array.from({ length: labelB ? 9 : 7 }, (_, i) => [i, { halign: i === 0 ? 'left' : 'right' }])) as any,
     didParseCell: (h) => {
       if (h.section === 'body' && h.column.index === 0) {
         h.cell.styles.cellPadding = { top: 1.6, bottom: 1.6, left: 8, right: 1.4 }
@@ -354,10 +360,16 @@ function outletSection(doc: jsPDF, autoTable: AutoTable, d: KasirResponse, label
     autoTable(doc, {
       ...TABLE_BASE,
       startY: y + 4,
-      head: [['Outlet', 'Gross revenue', 'Potongan', `${labelA}${g.hppNote}`, ...(labelB ? [`${labelB}${g.hppNote}`] : []), `Total HPP${g.hppNote}`, 'Laba kotor', 'Food cost']],
-      body: rows.map((o) => [shortName(o.outletName), rp(o.revenue), rp(o.potongan), rp(o.hppA), ...(labelB ? [rp(o.hppB)] : []), rp(o.hppA + o.hppB), rp(o.labaKotor), pct(o.hppA + o.hppB, o.revenue)]),
-      foot: [[`SUBTOTAL ${g.judul.toUpperCase()}`, rp(t.rev), rp(t.pot), rp(t.a), ...(labelB ? [rp(t.b)] : []), rp(t.a + t.b), rp(t.laba), pct(t.a + t.b, t.rev)]],
-      columnStyles: Object.fromEntries(Array.from({ length: labelB ? 8 : 7 }, (_, i) => [i, { halign: i === 0 ? 'left' : 'right' }])) as any,
+      head: labelB
+        ? [['Outlet', 'Gross revenue', 'Potongan', `${labelA}${g.hppNote}`, `${labelB}${g.hppNote}`, `Total HPP${g.hppNote}`, 'Laba kotor', 'Food cost']]
+        : [['Outlet', 'Gross revenue', 'Potongan', `Total HPP${g.hppNote}`, 'Laba kotor', 'Food cost']],
+      body: rows.map((o) => labelB
+        ? [shortName(o.outletName), rp(o.revenue), rp(o.potongan), rp(o.hppA), rp(o.hppB), rp(o.hppA + o.hppB), rp(o.labaKotor), pct(o.hppA + o.hppB, o.revenue)]
+        : [shortName(o.outletName), rp(o.revenue), rp(o.potongan), rp(o.hppA + o.hppB), rp(o.labaKotor), pct(o.hppA + o.hppB, o.revenue)]),
+      foot: labelB
+        ? [[`SUBTOTAL ${g.judul.toUpperCase()}`, rp(t.rev), rp(t.pot), rp(t.a), rp(t.b), rp(t.a + t.b), rp(t.laba), pct(t.a + t.b, t.rev)]]
+        : [[`SUBTOTAL ${g.judul.toUpperCase()}`, rp(t.rev), rp(t.pot), rp(t.a + t.b), rp(t.laba), pct(t.a + t.b, t.rev)]],
+      columnStyles: Object.fromEntries(Array.from({ length: labelB ? 8 : 6 }, (_, i) => [i, { halign: i === 0 ? 'left' : 'right' }])) as any,
     })
     y = lastY(doc) + 7
   }

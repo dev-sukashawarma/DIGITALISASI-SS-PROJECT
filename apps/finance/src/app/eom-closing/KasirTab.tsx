@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, RefreshCw, Info, FileDown } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, RefreshCw, Info, FileDown, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@suka/auth'
 import { rupiah } from '@/lib/format'
@@ -23,6 +23,7 @@ const pct = (num: number, den: number) => (den > 0 ? `${((num / den) * 100).toFi
 export default function KasirTab({ month, year }: { month: number; year: number }) {
   const { outletStaff } = useAuth()
   const [printing, setPrinting] = useState(false)
+  const [exportingExcel, setExportingExcel] = useState(false)
   const q = useQuery<KasirResponse>({
     queryKey: ['eom-kasir', year, month],
     staleTime: 5 * 60_000,
@@ -70,6 +71,24 @@ export default function KasirTab({ month, year }: { month: number; year: number 
       setPrinting(false)
     }
   }
+
+  const handleExcel = async () => {
+    setExportingExcel(true)
+    try {
+      const res = await fetch(`/api/eom-closing/kasir?month=${month}&year=${year}&detail=outlet`, { cache: 'no-store' })
+      const full = await res.json()
+      if (!res.ok || full.error) throw new Error(full.error || `HTTP ${res.status}`)
+      const { generateKasirExcel } = await import('./exportKasirExcel')
+      await generateKasirExcel(full, outletStaff?.name ?? 'Finance')
+      toast.success('Workbook Excel Kasir & Kas Toko berhasil diunduh')
+    } catch (e: any) {
+      console.error(e)
+      toast.error('Gagal membuat Excel: ' + (e?.message || 'Error'))
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between text-xs text-suka-gray-500">
@@ -78,6 +97,10 @@ export default function KasirTab({ month, year }: { month: number; year: number 
           <button onClick={() => q.refetch()} disabled={q.isFetching}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-suka-gray-200 bg-white font-bold text-suka-brown hover:bg-suka-cream disabled:opacity-50">
             <RefreshCw size={12} className={q.isFetching ? 'animate-spin' : ''} /> Tarik ulang
+          </button>
+          <button onClick={handleExcel} disabled={exportingExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-600 bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-50">
+            <Download size={12} /> {exportingExcel ? 'Menyiapkan Excel…' : 'Ekspor Excel (.xlsx)'}
           </button>
           <button onClick={handlePdf} disabled={printing}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-suka-brown text-white font-bold hover:opacity-90 disabled:opacity-50">

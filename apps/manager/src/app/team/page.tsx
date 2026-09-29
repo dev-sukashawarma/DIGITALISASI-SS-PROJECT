@@ -8,6 +8,7 @@ import type { PeriodFilterValue } from '@/lib/types'
 import { presetRange } from '@/lib/period'
 import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 
 const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), { 
   ssr: false, 
@@ -290,14 +291,21 @@ export default function MonitoringPage() {
   useEffect(() => {
     fetchData()
 
+    // Enam langganan tanpa filter outlet: tiap centang checklist / absen di
+    // outlet mana pun memicu event. Dulu setiap event langsung menarik ulang
+    // seluruh /api/monitoring. Kini dibatasi: event pertama langsung, sisanya
+    // digabung maks sekali per 10 detik, ditunda saat tab tersembunyi.
+    const refresher = createThrottledRefresher(() => { fetchData() }, 10_000)
+    const onChange = () => refresher.trigger()
+
     const channelId = `monitoring_${Math.random().toString(36).substring(7)}`
     const sub = supabase.channel(channelId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_outlets' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlet_staff' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_outlets' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlet_staff' }, onChange)
       .subscribe()
 
     const presenceRoom = supabase.channel('room:printer_status')
@@ -335,6 +343,7 @@ export default function MonitoringPage() {
       .subscribe()
 
     return () => {
+      refresher.dispose()
       supabase.removeChannel(sub)
       supabase.removeChannel(presenceRoom)
       supabase.removeChannel(locationRoom)

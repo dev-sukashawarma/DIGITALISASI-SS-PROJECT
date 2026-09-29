@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import type { SalesSummaryRow, PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { fetchAllRows } from '@/lib/fetchAllRows'
+import { fetchOutletNames } from '@/lib/outletNames'
 
 // Sumber data: sales_hourly_spv (agregat per outlet × sumber × tanggal × jam,
 // pola SPV definer/bypass-RLS yang sama dengan sales_summary_spv) + nama outlet
@@ -19,41 +21,46 @@ export function useSalesSummary(filter: PeriodFilterValue) {
     let active = true
     setLoading(true); setError(null)
     
-    let q = supabase
-      .from('sales_hourly_spv')
-      .select('outlet_id, sales_source, sales_date, omzet, jumlah_order_completed')
-      .gte('sales_date', filter.from)
-      .lte('sales_date', filter.to)
-      // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
-      .neq('outlet_id', TEST_OUTLET_ID)
-      
-    if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
-    if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
-    
+    // Grain view = outlet × sumber × tanggal × jam (lihat definisi
+    // sales_hourly_spv di migration 20260922190000). Rentang seminggu saja sudah
+    // ribuan baris, jadi WAJIB dipaginasi dengan urutan unik di grain itu —
+    // dulu query polos terpotong diam-diam di 1.000 baris dan omzet kurang.
+    const buildHourly = () => {
+      let q = supabase
+        .from('sales_hourly_spv')
+        .select('outlet_id, sales_source, sales_date, omzet, jumlah_order_completed')
+        .gte('sales_date', filter.from)
+        .lte('sales_date', filter.to)
+        // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
+        .neq('outlet_id', TEST_OUTLET_ID)
+      if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
+      if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
+      return q
+        .order('sales_date', { ascending: true })
+        .order('outlet_id', { ascending: true })
+        .order('sales_source', { ascending: true })
+        .order('sales_hour', { ascending: true })
+    }
+
     Promise.all([
-      q,
-      supabase.from('outlets').select('id, name').neq('id', TEST_OUTLET_ID)
-    ]).then(([hourlyRes, outletsRes]) => {
+      fetchAllRows<any>(buildHourly),
+      fetchOutletNames(supabase),
+    ]).then(([hourlyRes, outlets]) => {
       if (!active) return
       
       if (hourlyRes.error) {
-        setError(hourlyRes.error.message)
-        setLoading(false)
-        return
-      }
-      if (outletsRes.error) {
-        setError(outletsRes.error.message)
+        setError(hourlyRes.error)
         setLoading(false)
         return
       }
 
       const nameById = new Map<string, string>()
-      for (const o of (outletsRes.data ?? []) as { id: string; name: string }[]) {
+      for (const o of outlets) {
         nameById.set(o.id, o.name)
       }
 
       const acc = new Map<string, SalesSummaryRow>()
-      for (const r of (hourlyRes.data ?? []) as any[]) {
+      for (const r of hourlyRes.data) {
         const key = `${r.outlet_id}|${r.sales_source}|${r.sales_date}`
         const omzet = Number(r.omzet)
         const completed = Number(r.jumlah_order_completed)

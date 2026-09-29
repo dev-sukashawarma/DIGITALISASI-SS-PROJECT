@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { createClient } from '@supabase/supabase-js'
+import { fetchAllRows } from '@/lib/fetchAllRows'
 
 const getSupabaseAdmin = () => {
   return createClient(
@@ -223,6 +224,42 @@ export async function getPendingWasteReports(filterOutletId?: string): Promise<{
 }
 
 /**
+ * Jumlah laporan waste PENDING untuk badge menu (ApprovalsContext).
+ *
+ * Cakupan outlet IDENTIK dengan getPendingWasteReports() tanpa filterOutletId
+ * (status PENDING; semua outlet untuk RM/admin/owner/dev, staff_outlets untuk
+ * AM/leader, outlet sendiri untuk lainnya). Join di query daftar itu bukan
+ * inner join, jadi tak menyaring baris — hitungan ini sama dengan .length-nya,
+ * tanpa menarik seluruh daftar + harga bahan tiap ada perubahan realtime.
+ */
+export async function getPendingWasteCount(): Promise<{ success: boolean; count: number; error?: string }> {
+  try {
+    const { staff, isAllOutlets, accessibleOutletIds } = await getStaffAndAccessibleOutlets()
+    if (!staff) return { success: false, count: 0, error: 'Belum login' }
+
+    const supabaseAdmin = getSupabaseAdmin()
+    let query = supabaseAdmin
+      .from('stok_waste_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'PENDING')
+
+    if (!isAllOutlets) {
+      if (accessibleOutletIds.length === 0) {
+        return { success: true, count: 0 }
+      }
+      query = query.in('outlet_id', accessibleOutletIds)
+    }
+
+    const { count, error } = await query
+    if (error) throw error
+    return { success: true, count: count ?? 0 }
+  } catch (err: any) {
+    console.error('getPendingWasteCount error:', err)
+    return { success: false, count: 0, error: err.message }
+  }
+}
+
+/**
  * Fetch waste history (APPROVED / REJECTED) with pagination, date filter, outlet filter
  */
 export async function getWasteHistory(params: {
@@ -390,9 +427,15 @@ export async function getWasteSummary(params: {
       .eq('status', 'PENDING')
 
     // 2. Approved waste for the period
-    let approvedQuery = supabaseAdmin
-      .from('stok_waste_reports')
-      .select(`
+    // Pabrik query (bukan builder tunggal) supaya bisa dipaginasi: dulu satu
+    // query polos terpotong diam-diam di 1.000 baris sehingga total nilai waste
+    // & jumlah insiden periode panjang kurang hitung. Urutan unik created_at+id.
+    let approvedScope: ((q: any) => any) = (q) => q
+    const buildApproved = () =>
+      approvedScope(
+        supabaseAdmin
+          .from('stok_waste_reports')
+          .select(`
         id,
         outlet_id,
         bahan_baku_id,
@@ -402,9 +445,12 @@ export async function getWasteSummary(params: {
           satuan
         )
       `)
-      .eq('status', 'APPROVED')
-      .gte('created_at', `${params.from}T00:00:00+07:00`)
-      .lte('created_at', `${params.to}T23:59:59.999+07:00`)
+          .eq('status', 'APPROVED')
+          .gte('created_at', `${params.from}T00:00:00+07:00`)
+          .lte('created_at', `${params.to}T23:59:59.999+07:00`)
+      )
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
 
     if (params.outletId && params.outletId !== 'all') {
       if (!isAllOutlets && !accessibleOutletIds.includes(params.outletId)) {
@@ -413,8 +459,9 @@ export async function getWasteSummary(params: {
           data: { totalNilaiWaste: 0, totalIncidents: 0, topItems: [], pendingCount: 0 },
         }
       }
-      pendingQuery = pendingQuery.eq('outlet_id', params.outletId)
-      approvedQuery = approvedQuery.eq('outlet_id', params.outletId)
+      const outletId = params.outletId
+      pendingQuery = pendingQuery.eq('outlet_id', outletId)
+      approvedScope = (q) => q.eq('outlet_id', outletId)
     } else if (!isAllOutlets) {
       if (accessibleOutletIds.length === 0) {
         return {
@@ -423,13 +470,15 @@ export async function getWasteSummary(params: {
         }
       }
       pendingQuery = pendingQuery.in('outlet_id', accessibleOutletIds)
-      approvedQuery = approvedQuery.in('outlet_id', accessibleOutletIds)
+      approvedScope = (q) => q.in('outlet_id', accessibleOutletIds)
     }
 
-    const [{ count: pendingCount }, { data: approvedList, error: appErr }] = await Promise.all([
+    const [{ count: pendingCount }, approvedRes] = await Promise.all([
       pendingQuery,
-      approvedQuery,
+      fetchAllRows<any>(buildApproved),
     ])
+    const approvedList = approvedRes.data
+    const appErr = approvedRes.error ? new Error(approvedRes.error) : null
 
     if (appErr) throw appErr
 

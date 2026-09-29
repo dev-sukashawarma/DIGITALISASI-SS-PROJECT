@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { getVoidOrders } from '../app/actions/cancellations'
-import { getPendingWasteReports } from '../app/actions/waste'
+import { getPendingWasteCount } from '../app/actions/waste'
 import { getPendingReturRequests, type ReturApprovalItem } from '../app/actions/retur'
 import { createSupabaseBrowserClient } from '@suka/auth'
 
@@ -71,9 +71,11 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
 
   const refreshWasteCount = useCallback(async () => {
     try {
-      const res = await getPendingWasteReports()
-      if (res.success && res.data) {
-        setPendingWasteCount(res.data.length)
+      // Badge hanya butuh jumlah: pakai count (head) dengan cakupan outlet yang
+      // sama, bukan menarik seluruh daftar + harga bahan tiap ada perubahan.
+      const res = await getPendingWasteCount()
+      if (res.success) {
+        setPendingWasteCount(res.count)
       }
     } catch (err) {
       console.error('Failed to fetch pending waste count', err)
@@ -98,33 +100,37 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
 
     if (!supabase) return
 
+    // Event realtime di-debounce: satu aksi (mis. approve massal) bisa memicu
+    // banyak event beruntun; cukup satu kali muat ulang setelah reda.
+    const DEBOUNCE_MS = 1500
+    const timers: Record<string, ReturnType<typeof setTimeout> | undefined> = {}
+    const debounced = (key: string, fn: () => void) => () => {
+      if (timers[key]) clearTimeout(timers[key])
+      timers[key] = setTimeout(() => { timers[key] = undefined; fn() }, DEBOUNCE_MS)
+    }
+
     // Subscribe to realtime changes in cancellation_requests, stok_waste_reports, and retur_stok tables
     const channel = supabase
       .channel('manager-approvals')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'cancellation_requests' },
-        () => {
-          refreshApprovals()
-        }
+        debounced('void', () => { refreshApprovals() })
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'stok_waste_reports' },
-        () => {
-          refreshWasteCount()
-        }
+        debounced('waste', () => { refreshWasteCount() })
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'retur_stok' },
-        () => {
-          refreshReturApprovals()
-        }
+        debounced('retur', () => { refreshReturApprovals() })
       )
       .subscribe()
 
     return () => {
+      for (const t of Object.values(timers)) if (t) clearTimeout(t)
       supabase.removeChannel(channel)
     }
   }, [refreshApprovals, refreshWasteCount, refreshReturApprovals, supabase])

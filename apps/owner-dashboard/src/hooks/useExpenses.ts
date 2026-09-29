@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
+import { fetchAllRows } from '@/lib/fetchAllRows'
 
 export interface ExpenseRow {
   id: string
@@ -25,22 +26,32 @@ export function useExpenses(filter: PeriodFilterValue) {
     setLoading(true)
     setError(null)
 
-    let q = supabase
-      .from('expenses')
-      .select('id, outlet_id, category, amount, description, expense_date, outlets(name)')
-      .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to)
+    // Dipaginasi dengan urutan unik (tanggal + id): dulu query polos terpotong
+    // diam-diam di 1.000 baris sehingga total biaya/laba bersih bisa salah.
+    const build = () => {
+      let q = supabase
+        .from('expenses')
+        .select('id, outlet_id, category, amount, description, expense_date, outlets(name)')
+        .gte('expense_date', filter.from)
+        .lte('expense_date', filter.to)
 
-    if (filter.outletId !== 'all') {
-      q = q.eq('outlet_id', filter.outletId)
+      if (filter.outletId !== 'all') {
+        q = q.eq('outlet_id', filter.outletId)
+      }
+
+      // Terbaru dulu (daftar transaksi di halaman Pengeluaran tampil sesuai
+      // urutan ini; dulu urutannya acak karena query tanpa ORDER BY).
+      return q
+        .order('expense_date', { ascending: false })
+        .order('id', { ascending: false })
     }
 
-    q.then(({ data, error }) => {
+    fetchAllRows<any>(build).then(({ data, error }) => {
       if (!active) return
       if (error) {
-        setError(error.message)
+        setError(error)
       } else {
-        const mapped = (data ?? []).map((row: any) => ({
+        const mapped = data.map((row: any) => ({
           id: row.id,
           outlet_id: row.outlet_id,
           outlet_name: row.outlets?.name ?? 'Outlet Tidak Dikenal',

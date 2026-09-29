@@ -160,7 +160,10 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`)
     .eq('status', 'completed')
     .neq('outlet_id', TEST_OUTLET_ID)
-    .order('created_at', { ascending: true });
+    // `id` sebagai pemecah seri: created_at bisa kembar, dan paginasi tanpa
+    // urutan unik bisa melompati/menggandakan baris antar halaman.
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
 
   let qOrdersYesterday = supabaseAdmin
     .from('orders')
@@ -169,7 +172,10 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .lte('created_at', `${prevEndDate}T23:59:59.999+07:00`)
     .eq('status', 'completed')
     .neq('outlet_id', TEST_OUTLET_ID)
-    .order('created_at', { ascending: true });
+    // `id` sebagai pemecah seri: created_at bisa kembar, dan paginasi tanpa
+    // urutan unik bisa melompati/menggandakan baris antar halaman.
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
 
   let qAttendance = supabaseAdmin.from('attendance')
     .select('outlet_id, ts_server, type, outlet_staff_id')
@@ -188,7 +194,11 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .eq('status', 'APPROVED')
     .neq('outlet_id', TEST_OUTLET_ID)
     .gte('created_at', `${mainStartDate}T00:00:00+07:00`)
-    .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`);
+    .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`)
+    // Dipaginasi (fetchAllPages) dengan urutan unik: dulu terpotong diam-diam
+    // di 1.000 baris sehingga "kerugian waste" periode panjang kurang hitung.
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
 
   let qWastePending = supabaseAdmin
     .from('stok_waste_reports')
@@ -257,7 +267,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     { data: outlets },
     { data: attendanceToday },
     { data: staffOutlets },
-    { data: wasteApprovedData },
+    wasteApprovedData,
     { count: pendingWasteCount }
   ] = await Promise.all([
     fetchAllPages(qOrdersToday),
@@ -265,7 +275,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     qOutlets,
     qAttendance,
     qStaffOutlets,
-    qWasteApproved,
+    fetchAllPages(qWasteApproved),
     qWastePending
   ]);
 

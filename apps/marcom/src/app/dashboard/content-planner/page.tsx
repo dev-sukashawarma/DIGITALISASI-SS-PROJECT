@@ -1,4 +1,5 @@
-import { prisma } from '@/lib/prisma'
+import { Suspense } from 'react'
+import { prisma, withDbRetry } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { getContentTypes } from '@/app/actions/content'
 import ContentPlannerView, { SerializedInternalContent } from './ContentPlannerView'
@@ -13,20 +14,24 @@ export const metadata = {
 export default async function ContentPlannerPage() {
   const user = await getCurrentUser()
 
-  const [contents, outlets, contentTypes] = await Promise.all([
-    prisma.internalContent.findMany({
-      orderBy: { postDate: 'desc' },
-      include: {
-        outlet: { select: { id: true, name: true } },
-      },
-    }),
-    prisma.outlet.findMany({
-      where: { isActive: true },
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true },
-    }),
-    getContentTypes(),
-  ])
+  const [contents, outlets, contentTypes] = await withDbRetry(
+    () =>
+      Promise.all([
+        prisma.internalContent.findMany({
+          orderBy: { postDate: 'desc' },
+          include: {
+            outlet: { select: { id: true, name: true } },
+          },
+        }),
+        prisma.outlet.findMany({
+          where: { isActive: true },
+          orderBy: { name: 'asc' },
+          select: { id: true, name: true },
+        }),
+        getContentTypes(),
+      ]),
+    { retries: 2, delayMs: 300, label: 'ContentPlannerPage Queries' }
+  )
 
   const serializedContents: SerializedInternalContent[] = contents.map((item: any) => ({
     id: item.id.toString(),
@@ -62,11 +67,13 @@ export default async function ContentPlannerPage() {
   }))
 
   return (
-    <ContentPlannerView
-      initialContents={serializedContents}
-      outlets={serializedOutlets}
-      userRole={user?.role || 'MARCOM'}
-      initialContentTypes={contentTypes.map((c) => c.name)}
-    />
+    <Suspense fallback={<div className="p-8 text-center text-stone-400">Memuat Content Planner...</div>}>
+      <ContentPlannerView
+        initialContents={serializedContents}
+        outlets={serializedOutlets}
+        userRole={user?.role || 'MARCOM'}
+        initialContentTypes={contentTypes.map((c) => c.name)}
+      />
+    </Suspense>
   )
 }

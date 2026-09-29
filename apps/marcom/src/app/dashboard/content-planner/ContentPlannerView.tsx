@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   CalendarDays,
   Calendar,
@@ -50,6 +51,7 @@ import {
 } from './ContentMetricsView'
 
 export type { SerializedInternalContent }
+export type ContentScope = 'OFFICIAL' | 'REGION' | 'ALL'
 
 interface ContentPlannerViewProps {
   initialContents: SerializedInternalContent[]
@@ -64,6 +66,50 @@ export default function ContentPlannerView({
   userRole,
   initialContentTypes,
 }: ContentPlannerViewProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const rawScope = searchParams.get('scope') || searchParams.get('tab')
+  const initialScope: ContentScope =
+    rawScope?.toLowerCase() === 'region' || rawScope?.toLowerCase() === 'outlet'
+      ? 'REGION'
+      : rawScope?.toLowerCase() === 'all'
+      ? 'ALL'
+      : 'OFFICIAL'
+
+  const [scope, setScope] = useState<ContentScope>(initialScope)
+
+  useEffect(() => {
+    const urlScope = searchParams.get('scope') || searchParams.get('tab')
+    if (urlScope?.toLowerCase() === 'region' || urlScope?.toLowerCase() === 'outlet') {
+      setScope('REGION')
+    } else if (urlScope?.toLowerCase() === 'all') {
+      setScope('ALL')
+    } else {
+      setScope('OFFICIAL')
+    }
+  }, [searchParams])
+
+  const countAll = initialContents.length
+  const countOfficial = useMemo(() => initialContents.filter((i) => !i.outletId).length, [initialContents])
+  const countRegion = useMemo(() => initialContents.filter((i) => !!i.outletId).length, [initialContents])
+
+  const handleScopeChange = (newScope: ContentScope) => {
+    setScope(newScope)
+    setOutletFilter('')
+    const params = new URLSearchParams(searchParams.toString())
+    if (newScope === 'ALL') {
+      params.set('scope', 'all')
+    } else if (newScope === 'REGION') {
+      params.set('scope', 'region')
+    } else {
+      params.set('scope', 'official')
+    }
+    params.delete('tab')
+    const queryStr = params.toString()
+    router.push(queryStr ? `?${queryStr}` : '/dashboard/content-planner', { scroll: false })
+  }
+
   const contentTypesList = useMemo(() => {
     return initialContentTypes && initialContentTypes.length > 0 ? initialContentTypes : CONTENT_TYPES
   }, [initialContentTypes])
@@ -86,7 +132,7 @@ export default function ContentPlannerView({
   // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter])
+  }, [search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter, scope])
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -190,11 +236,26 @@ export default function ContentPlannerView({
             ? item.platform === 'INSTAGRAM' || item.platform === 'IG_REELS'
             : item.platform === platformFilter)
 
+        // Scope filter: ALL vs OFFICIAL vs REGION
+        let matchesScope = true
+        if (scope === 'OFFICIAL') {
+          matchesScope = !item.outletId
+        } else if (scope === 'REGION') {
+          matchesScope = !!item.outletId
+        }
+
         // Outlet Filter
-        const matchesOutlet =
-          outletFilter === '' ||
-          (outletFilter === 'ALL' && !item.outletId) ||
-          item.outletId === outletFilter
+        let matchesOutlet = true
+        if (scope === 'OFFICIAL') {
+          matchesOutlet = true
+        } else if (scope === 'REGION') {
+          matchesOutlet = outletFilter === '' || item.outletId === outletFilter
+        } else {
+          matchesOutlet =
+            outletFilter === '' ||
+            (outletFilter === 'ALL' && !item.outletId) ||
+            item.outletId === outletFilter
+        }
 
         return (
           matchesSearch &&
@@ -205,11 +266,12 @@ export default function ContentPlannerView({
           matchesContentType &&
           matchesPillar &&
           matchesPlatform &&
+          matchesScope &&
           matchesOutlet
         )
       })
       .sort((a, b) => new Date(b.postDate).getTime() - new Date(a.postDate).getTime())
-  }, [initialContents, search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter])
+  }, [initialContents, search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter, scope])
 
   // Table pagination calculation
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -223,20 +285,34 @@ export default function ContentPlannerView({
 
   // Selected outlet name helper
   const selectedOutletName = useMemo(() => {
+    if (scope === 'OFFICIAL') return 'Official'
     if (outletFilter === 'ALL') return 'Official'
-    if (!outletFilter) return 'Semua'
+    if (!outletFilter) return scope === 'REGION' ? 'Semua Region' : 'Semua'
     const found = outlets.find((o) => o.id === outletFilter)
     return found ? found.name : 'Outlet'
-  }, [outletFilter, outlets])
+  }, [scope, outletFilter, outlets])
 
-  // Contents for metrics (responsive to active outlet filter)
+  // Contents for metrics (responsive to active scope AND outlet filter)
   const metricContents = useMemo(() => {
     return initialContents.filter((item) => {
-      if (outletFilter === 'ALL' && item.outletId) return false
-      if (outletFilter !== '' && outletFilter !== 'ALL' && item.outletId !== outletFilter) return false
+      // 1. Scope filter
+      if (scope === 'OFFICIAL' && item.outletId) return false
+      if (scope === 'REGION' && !item.outletId) return false
+
+      // 2. Outlet filter
+      if (scope === 'OFFICIAL') {
+        return true
+      }
+      if (scope === 'REGION') {
+        if (outletFilter !== '' && item.outletId !== outletFilter) return false
+      } else {
+        if (outletFilter === 'ALL' && item.outletId) return false
+        if (outletFilter !== '' && outletFilter !== 'ALL' && item.outletId !== outletFilter) return false
+      }
+
       return true
     })
-  }, [initialContents, outletFilter])
+  }, [initialContents, scope, outletFilter])
 
   // Aggregate stats based on active outlet filter
   const totalContents = metricContents.length
@@ -434,7 +510,13 @@ export default function ContentPlannerView({
     setCreateStatus('Planned')
     setCreatePostDate(new Date().toISOString().split('T')[0])
     setCreatePostTime('11:00')
-    setCreateOutletId(outletFilter && outletFilter !== 'ALL' ? outletFilter : 'ALL')
+    if (scope === 'OFFICIAL') {
+      setCreateOutletId('ALL')
+    } else if (scope === 'REGION') {
+      setCreateOutletId(outletFilter && outletFilter !== 'ALL' ? outletFilter : (outlets[0]?.id || ''))
+    } else {
+      setCreateOutletId(outletFilter && outletFilter !== 'ALL' ? outletFilter : 'ALL')
+    }
     setCreateTakeLocation('')
     setCreateCreator('MARCOM')
     setCreatePostUrl('')
@@ -484,39 +566,110 @@ export default function ContentPlannerView({
         </div>
       </div>
 
-      {/* Top Tab Switcher */}
-      <div className="flex items-center gap-2 p-1.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit flex-wrap">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-[#D9480F] text-white shadow-xs">
-          <CalendarDays className="w-4 h-4" />
-          <span>Rencana Konten</span>
+      {/* Top Tab Switcher & Child Sub-Tabs */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        {/* Top Tab Switcher */}
+        <div className="flex items-center gap-2 p-1.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit flex-wrap">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-[#D9480F] text-white shadow-xs">
+            <CalendarDays className="w-4 h-4" />
+            <span>Rencana Konten</span>
+          </div>
+
+          <Link
+            href="/dashboard/content-planner/metrik-data"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
+          >
+            <BarChart3 className="w-4 h-4 text-stone-400" />
+            <span>Metrik Data</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 font-mono">
+              {initialContents.length}
+            </span>
+          </Link>
+
+          <Link
+            href="/dashboard/content-planner/referensi-data"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
+          >
+            <TrendingUp className="w-4 h-4 text-stone-400" />
+            <span>Referensi Data</span>
+          </Link>
+
+          <Link
+            href="/dashboard/content-planner/pengaturan"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
+          >
+            <Settings2 className="w-4 h-4 text-stone-400" />
+            <span>Pengaturan Konten</span>
+          </Link>
         </div>
 
-        <Link
-          href="/dashboard/content-planner/metrik-data"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
-        >
-          <BarChart3 className="w-4 h-4 text-stone-400" />
-          <span>Metrik Data</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 font-mono">
-            {initialContents.length}
-          </span>
-        </Link>
+        {/* 2 Child Sub-Tabs of Rencana Konten: [Official] | [Region] | [Semua] */}
+        <div className="flex items-center gap-1.5 p-1 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit shadow-2xs">
+          <button
+            type="button"
+            onClick={() => handleScopeChange('OFFICIAL')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              scope === 'OFFICIAL'
+                ? 'bg-white text-[#D9480F] shadow-xs border border-[#EFE8DE]'
+                : 'text-stone-600 hover:text-[#1A1715] hover:bg-white/50'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>Official</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                scope === 'OFFICIAL'
+                  ? 'bg-[#FFF4ED] text-[#D9480F]'
+                  : 'bg-stone-200/80 text-stone-600'
+              }`}
+            >
+              {countOfficial}
+            </span>
+          </button>
 
-        <Link
-          href="/dashboard/content-planner/referensi-data"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
-        >
-          <TrendingUp className="w-4 h-4 text-stone-400" />
-          <span>Referensi Data</span>
-        </Link>
+          <button
+            type="button"
+            onClick={() => handleScopeChange('REGION')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              scope === 'REGION'
+                ? 'bg-white text-[#D9480F] shadow-xs border border-[#EFE8DE]'
+                : 'text-stone-600 hover:text-[#1A1715] hover:bg-white/50'
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5 text-[#D9480F] shrink-0" />
+            <span>Region</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                scope === 'REGION'
+                  ? 'bg-[#FFF4ED] text-[#D9480F]'
+                  : 'bg-stone-200/80 text-stone-600'
+              }`}
+            >
+              {countRegion}
+            </span>
+          </button>
 
-        <Link
-          href="/dashboard/content-planner/pengaturan"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
-        >
-          <Settings2 className="w-4 h-4 text-stone-400" />
-          <span>Pengaturan Konten</span>
-        </Link>
+          <button
+            type="button"
+            onClick={() => handleScopeChange('ALL')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              scope === 'ALL'
+                ? 'bg-white text-[#D9480F] shadow-xs border border-[#EFE8DE]'
+                : 'text-stone-500 hover:text-[#1A1715] hover:bg-white/50'
+            }`}
+          >
+            <span>Semua</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                scope === 'ALL'
+                  ? 'bg-[#FFF4ED] text-[#D9480F]'
+                  : 'bg-stone-200/80 text-stone-600'
+              }`}
+            >
+              {countAll}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Status Notice Banner */}
@@ -552,11 +705,19 @@ export default function ContentPlannerView({
               <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
                 Total Konten
               </span>
-              {outletFilter && outletFilter !== '' && (
+              {scope === 'OFFICIAL' ? (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
+                  Official
+                </span>
+              ) : scope === 'REGION' ? (
+                <span className="text-[10px] font-bold text-[#D9480F] bg-[#FFF4ED] px-1.5 py-0.5 rounded-md border border-[#D9480F]/20">
+                  {outletFilter ? selectedOutletName : 'Region (Semua Outlet)'}
+                </span>
+              ) : outletFilter && outletFilter !== '' ? (
                 <span className="text-[10px] font-bold text-[#D9480F] bg-[#FFF4ED] px-1.5 py-0.5 rounded-md border border-[#D9480F]/20">
                   {selectedOutletName}
                 </span>
-              )}
+              ) : null}
             </div>
             <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
               <Layers className="w-4 h-4" />
@@ -744,25 +905,55 @@ export default function ContentPlannerView({
 
           {/* Outlet Filter */}
           <div>
-            <select
-              value={outletFilter}
-              onChange={(e) => setOutletFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
-            >
-              <option value="">Semua Cabang Outlet</option>
-              <option value="ALL">Official</option>
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+            {scope === 'OFFICIAL' ? (
+              <div className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-amber-200 bg-amber-50/80 text-amber-900 font-bold flex items-center justify-between shadow-2xs">
+                <span className="flex items-center gap-1.5 truncate">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>Jangkauan: Official</span>
+                </span>
+                <span className="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full font-mono font-bold">
+                  {countOfficial} konten
+                </span>
+              </div>
+            ) : scope === 'REGION' ? (
+              <select
+                value={outletFilter}
+                onChange={(e) => setOutletFilter(e.target.value)}
+                className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
+              >
+                <option value="">Semua Cabang Outlet (Region)</option>
+                {outlets.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={outletFilter}
+                onChange={(e) => setOutletFilter(e.target.value)}
+                className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
+              >
+                <option value="">Semua Cabang Outlet</option>
+                <option value="ALL">Official</option>
+                {outlets.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
         <div className="flex items-center justify-between text-xs text-stone-500 font-medium pt-2 border-t border-[#EFE8DE]">
           <span>
             Menampilkan <span className="font-bold text-[#1A1715]">{filtered.length}</span> dari {totalContents} rencana konten
+            {scope !== 'ALL' && (
+              <span className="ml-1.5 text-xs text-stone-400">
+                (Kategori: <strong className="text-[#D9480F]">{scope === 'OFFICIAL' ? 'Official' : 'Region'}</strong>)
+              </span>
+            )}
           </span>
           {(search || adsFilter !== 'ALL' || statusFilter !== 'ALL' || formatFilter !== 'ALL' || goalFilter !== 'ALL' || contentTypeFilter !== 'ALL' || pillarFilter !== 'ALL' || platformFilter !== 'ALL' || outletFilter) && (
             <button
@@ -1624,17 +1815,40 @@ export default function ContentPlannerView({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Cabang Outlet</label>
-                  <select
-                    name="outletId"
-                    value={createOutletId}
-                    onChange={(e) => setCreateOutletId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
-                  >
-                    <option value="ALL">Official</option>
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>{o.name}</option>
-                    ))}
-                  </select>
+                  {scope === 'OFFICIAL' ? (
+                    <select
+                      name="outletId"
+                      value="ALL"
+                      onChange={(e) => setCreateOutletId(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                    >
+                      <option value="ALL">Official</option>
+                    </select>
+                  ) : scope === 'REGION' ? (
+                    <select
+                      name="outletId"
+                      value={createOutletId}
+                      onChange={(e) => setCreateOutletId(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                    >
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      name="outletId"
+                      value={createOutletId}
+                      onChange={(e) => setCreateOutletId(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                    >
+                      <option value="ALL">Official</option>
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Lokasi Take Konten (Outlet)</label>
@@ -1862,13 +2076,23 @@ export default function ContentPlannerView({
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Cabang Outlet</label>
                   <select
                     name="outletId"
-                    defaultValue={editingContent.outletId || 'ALL'}
+                    defaultValue={editingContent.outletId || (scope === 'REGION' ? (outlets[0]?.id || '') : 'ALL')}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
                   >
-                    <option value="ALL">Official</option>
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>{o.name}</option>
-                    ))}
+                    {scope === 'OFFICIAL' ? (
+                      <option value="ALL">Official</option>
+                    ) : scope === 'REGION' ? (
+                      outlets.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="ALL">Official</option>
+                        {outlets.map((o) => (
+                          <option key={o.id} value={o.id}>{o.name}</option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>

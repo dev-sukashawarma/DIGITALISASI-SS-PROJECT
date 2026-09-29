@@ -7,11 +7,13 @@ import { ChevronDown, LogOut } from 'lucide-react'
 import { useAuth } from '@suka/auth'
 import { NAV_GROUPS, isItemActive, resolvePortalUrl } from './navConfig'
 import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
+import { usePengingatAset } from '@/hooks/usePengingatAset'
 import { ConfirmLogoutDialog } from './ConfirmLogoutDialog'
 
 export const Sidebar = () => {
   const pathname = usePathname()
   const { pendingLeavesCount, pendingKasbonCount } = useLeaveNotifications()
+  const asetPerluTindakan = usePengingatAset().ringkasan.perluTindakan.length
   const resolvedPortalUrl = resolvePortalUrl()
   const { outletStaff, signOut } = useAuth()
 
@@ -76,6 +78,11 @@ export const Sidebar = () => {
                   <span className="text-xs font-bold uppercase tracking-wider text-suka-orange/80 group-hover:text-suka-orange transition-colors">
                     {group.title}
                   </span>
+                  {group.title === 'Operasional Outlet' && !isOpen && asetPerluTindakan > 0 && (
+                    <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                      {asetPerluTindakan}
+                    </span>
+                  )}
                   {group.title === 'Perizinan' && !isOpen && (pendingLeavesCount + pendingKasbonCount > 0) && (
                     <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
                       {pendingLeavesCount + pendingKasbonCount}
@@ -105,6 +112,11 @@ export const Sidebar = () => {
                         {(href === '/perizinan/izin' || href === '/leave') && pendingLeavesCount > 0 && (
                           <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
                             {pendingLeavesCount}
+                          </span>
+                        )}
+                        {href === '/inventaris/pengingat' && asetPerluTindakan > 0 && (
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            {asetPerluTindakan}
                           </span>
                         )}
                         {href === '/perizinan/kasbon' && pendingKasbonCount > 0 && (

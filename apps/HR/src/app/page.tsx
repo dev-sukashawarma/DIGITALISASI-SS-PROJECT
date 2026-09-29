@@ -21,6 +21,7 @@ import { usePerizinanSummary } from '@/hooks/useLeaveRequests'
 import { useContracts } from '@/hooks/useContracts'
 import { useHrActivity } from '@/hooks/useHrActivity'
 import { todayWib } from '@/lib/dateIso'
+import { PengingatAsetAlert } from '@/components/modules/inventaris/PengingatAsetAlert'
 
 export default function HrDashboardOverview() {
   // Tanggal WIB (toISOString() = UTC → sebelum 07.00 WIB masih "kemarin")
@@ -374,6 +375,8 @@ export default function HrDashboardOverview() {
               </div>
             </div>
           )}
+
+          <PengingatAsetAlert />
 
           {/* Activity Feed */}
           <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4">

@@ -14,6 +14,8 @@ import {
   GraduationCap,
   FileCheck,
   ClipboardCheck,
+  Wrench,
+  ListChecks,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -87,17 +89,28 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: ClipboardCheck,
     items: [
       { href: '/inventaris', label: 'Laporan Inventaris', shortLabel: 'Inventaris', icon: ClipboardCheck },
+      { href: '/inventaris/pengingat', label: 'Pengingat Aset', shortLabel: 'Pengingat', icon: Wrench },
+      { href: '/ceklist-harian', label: 'Ceklist Harian AM', shortLabel: 'Ceklist', icon: ListChecks },
     ],
   },
 ]
 
 export const ALL_NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items)
 
+function matchesPath(href: string, pathname: string): boolean {
+  return pathname === href || pathname.startsWith(href + '/')
+}
+
 export function isItemActive(href: string, pathname: string): boolean {
   if (href === '/') {
     return pathname === '/'
   }
-  return pathname === href || pathname.startsWith(href + '/')
+  if (!matchesPath(href, pathname)) return false
+  // Menu bersarang (mis. /inventaris vs /inventaris/pengingat): hanya yang
+  // paling spesifik yang aktif.
+  return !ALL_NAV_ITEMS.some(
+    (it) => it.href.startsWith(href + '/') && matchesPath(it.href, pathname)
+  )
 }
 
 export function labelForPath(pathname: string): string {

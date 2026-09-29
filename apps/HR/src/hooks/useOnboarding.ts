@@ -46,6 +46,7 @@ export function useOnboarding(filters?: { outletId?: string; stage?: string; sub
           staff_outlets(outlet_id)
         `)
         .eq('role', 'crew')
+        .or('sub_role.eq.crew_trainee,onboarding_stage.in.(training_7_days,ojt,graduated,failed)')
         .order('training_start_date', { ascending: false })
 
       if (filters?.outletId && filters.outletId !== 'all') {
@@ -56,7 +57,10 @@ export function useOnboarding(filters?: { outletId?: string; stage?: string; sub
       if (staffError) throw staffError
 
       const rawStaff = (staffData ?? []).filter(
-        (s: any) => !isTestOrDevStaff(s) && !isTestOutlet(s.outlets)
+        (s: any) =>
+          !isTestOrDevStaff(s) &&
+          !isTestOutlet(s.outlets) &&
+          s.onboarding_stage !== 'regular'
       )
 
       if (!rawStaff.length) return []
@@ -155,8 +159,8 @@ export function useOnboarding(filters?: { outletId?: string; stage?: string; sub
           name: s.name,
           username: s.username,
           role: s.role,
-          sub_role: s.sub_role || 'crew_regular',
-          onboarding_stage: s.onboarding_stage || 'regular',
+          sub_role: s.sub_role || 'crew_trainee',
+          onboarding_stage: s.onboarding_stage || 'training_7_days',
           training_start_date: s.training_start_date || null,
           join_date: s.join_date || null,
           phone: s.phone || null,

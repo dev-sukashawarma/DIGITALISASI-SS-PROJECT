@@ -64,9 +64,8 @@ export default function OnboardingPage() {
   const subRoleOptions = useMemo(
     () => [
       { label: 'Semua Sub-Role', value: 'all' },
-      { label: 'Crew Reguler', value: 'crew_regular' },
-      { label: 'Crew Backup', value: 'crew_backup' },
       { label: 'Trainee', value: 'crew_trainee' },
+      { label: 'Crew Backup', value: 'crew_backup' },
     ],
     []
   )
@@ -77,7 +76,6 @@ export default function OnboardingPage() {
       { label: 'Training 7 Hari', value: 'training_7_days' },
       { label: 'On Job Training (OJT)', value: 'ojt' },
       { label: 'Lulus PKWT', value: 'graduated' },
-      { label: 'Karyawan Reguler', value: 'regular' },
       { label: 'Gugur / Tidak Lolos', value: 'failed' },
     ],
     []

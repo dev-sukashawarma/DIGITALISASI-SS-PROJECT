@@ -21,9 +21,10 @@ import {
   HelpCircle,
   Truck,
   Building2,
+  X,
 } from 'lucide-react'
 import { updatePaymentStatus, updateDraftStatus, batchUpdatePayments } from '@/app/actions/endorsements'
-import { SerializedEndorsement } from './EndorsementList'
+import { SerializedEndorsement, getLocalDateString, MONTH_NAMES } from './EndorsementList'
 
 interface EndorsementFinanceViewProps {
   endorsements: SerializedEndorsement[]
@@ -42,6 +43,16 @@ export default function EndorsementFinanceView({
   const [outletFilter, setOutletFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState('ALL')
   const [draftFilter, setDraftFilter] = useState('ALL')
+
+  // Date filters
+  const [datePreset, setDatePreset] = useState<
+    'ALL' | 'TODAY' | 'LAST_7_DAYS' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'SPECIFIC_MONTH' | 'CUSTOM'
+  >('ALL')
+  const [customDateFrom, setCustomDateFrom] = useState('')
+  const [customDateTo, setCustomDateTo] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear())
+
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [copiedBankId, setCopiedBankId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -50,7 +61,136 @@ export default function EndorsementFinanceView({
     new Date().toISOString().split('T')[0]
   )
 
-  // Finance KPI Calculations
+  // Label for active date filter
+  const dateFilterLabel = useMemo(() => {
+    switch (datePreset) {
+      case 'TODAY':
+        return 'Hari Ini'
+      case 'LAST_7_DAYS':
+        return '7 Hari Terakhir'
+      case 'THIS_WEEK':
+        return 'Minggu Ini'
+      case 'THIS_MONTH': {
+        const d = new Date()
+        return `Bulan Ini (${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()})`
+      }
+      case 'LAST_MONTH': {
+        const d = new Date()
+        d.setMonth(d.getMonth() - 1)
+        return `Bulan Lalu (${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()})`
+      }
+      case 'SPECIFIC_MONTH':
+        return `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`
+      case 'CUSTOM':
+        if (customDateFrom && customDateTo) return `${customDateFrom} s/d ${customDateTo}`
+        if (customDateFrom) return `Mulai ${customDateFrom}`
+        if (customDateTo) return `Sampai ${customDateTo}`
+        return 'Rentang Kustom'
+      default:
+        return 'Semua Waktu'
+    }
+  }, [datePreset, customDateFrom, customDateTo, selectedMonth, selectedYear])
+
+  // Filtered List with Date Filtering
+  const filteredList = useMemo(() => {
+    const today = new Date()
+    const todayStr = getLocalDateString(today)
+
+    // Last 7 days
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(today.getDate() - 6)
+    const sevenDaysAgoStr = getLocalDateString(sevenDaysAgo)
+
+    // This Week (Monday to Sunday)
+    const currentDay = today.getDay()
+    const diffToMonday = (currentDay + 6) % 7
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - diffToMonday)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    const mondayStr = getLocalDateString(monday)
+    const sundayStr = getLocalDateString(sunday)
+
+    // This Month
+    const firstDayThisMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+    const lastDayThisMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    const lastDayThisMonthStr = getLocalDateString(lastDayThisMonth)
+
+    // Last Month
+    const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+    const firstDayLastMonthStr = getLocalDateString(firstDayLastMonth)
+    const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
+    const lastDayLastMonthStr = getLocalDateString(lastDayLastMonth)
+
+    // Specific Month
+    const firstDaySpecificMonthStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
+    const lastDaySpecificMonth = new Date(selectedYear, selectedMonth, 0)
+    const lastDaySpecificMonthStr = getLocalDateString(lastDaySpecificMonth)
+
+    return endorsements.filter((item) => {
+      const q = search.toLowerCase().trim()
+      const bankInfo = item.bankAccountCustom || item.kol.bankAccount || ''
+      const matchesSearch =
+        !q ||
+        item.kol.name.toLowerCase().includes(q) ||
+        item.outlet.name.toLowerCase().includes(q) ||
+        bankInfo.toLowerCase().includes(q) ||
+        (item.kol.phoneNumber && item.kol.phoneNumber.includes(q))
+
+      const matchesOutlet = !outletFilter || item.outletId === outletFilter
+
+      let matchesPayment = true
+      if (paymentFilter === 'UNPAID') matchesPayment = item.paymentStatus === 'UNPAID' || item.paymentStatus === 'DOWN_PAYMENT'
+      else if (paymentFilter === 'PAID') matchesPayment = item.paymentStatus === 'PAID'
+      else if (paymentFilter === 'BARTER') matchesPayment = item.paymentStatus === 'BARTER'
+
+      let matchesDraft = true
+      if (draftFilter === 'APPROVED') matchesDraft = item.draftStatus === 'APPROVED'
+      else if (draftFilter === 'PENDING') matchesDraft = item.draftStatus === 'PENDING'
+
+      // Date filtering on scheduleDate
+      let matchesDate = true
+      const sched = item.scheduleDate
+      if (sched) {
+        if (datePreset === 'TODAY') {
+          matchesDate = sched === todayStr
+        } else if (datePreset === 'LAST_7_DAYS') {
+          matchesDate = sched >= sevenDaysAgoStr && sched <= todayStr
+        } else if (datePreset === 'THIS_WEEK') {
+          matchesDate = sched >= mondayStr && sched <= sundayStr
+        } else if (datePreset === 'THIS_MONTH') {
+          matchesDate = sched >= firstDayThisMonthStr && sched <= lastDayThisMonthStr
+        } else if (datePreset === 'LAST_MONTH') {
+          matchesDate = sched >= firstDayLastMonthStr && sched <= lastDayLastMonthStr
+        } else if (datePreset === 'SPECIFIC_MONTH') {
+          matchesDate = sched >= firstDaySpecificMonthStr && sched <= lastDaySpecificMonthStr
+        } else if (datePreset === 'CUSTOM') {
+          if (customDateFrom && customDateTo) {
+            matchesDate = sched >= customDateFrom && sched <= customDateTo
+          } else if (customDateFrom) {
+            matchesDate = sched >= customDateFrom
+          } else if (customDateTo) {
+            matchesDate = sched <= customDateTo
+          }
+        }
+      }
+
+      return matchesSearch && matchesOutlet && matchesPayment && matchesDraft && matchesDate
+    })
+  }, [
+    endorsements,
+    search,
+    outletFilter,
+    paymentFilter,
+    draftFilter,
+    datePreset,
+    customDateFrom,
+    customDateTo,
+    selectedMonth,
+    selectedYear,
+  ])
+
+  // Finance KPI Calculations (Dynamic based on filteredList)
   const metrics = useMemo(() => {
     let totalUnpaidCash = 0
     let unpaidCount = 0
@@ -60,7 +200,7 @@ export default function EndorsementFinanceView({
     let barterCount = 0
     let totalCommitment = 0
 
-    for (const item of endorsements) {
+    for (const item of filteredList) {
       const rate = item.rateCard || 0
       const hpp = item.hppMenu || 0
       const shipping = item.shippingCost || 0
@@ -88,34 +228,7 @@ export default function EndorsementFinanceView({
       barterCount,
       totalCommitment,
     }
-  }, [endorsements])
-
-  // Filtered List
-  const filteredList = useMemo(() => {
-    return endorsements.filter((item) => {
-      const q = search.toLowerCase().trim()
-      const bankInfo = item.bankAccountCustom || item.kol.bankAccount || ''
-      const matchesSearch =
-        !q ||
-        item.kol.name.toLowerCase().includes(q) ||
-        item.outlet.name.toLowerCase().includes(q) ||
-        bankInfo.toLowerCase().includes(q) ||
-        (item.kol.phoneNumber && item.kol.phoneNumber.includes(q))
-
-      const matchesOutlet = !outletFilter || item.outletId === outletFilter
-
-      let matchesPayment = true
-      if (paymentFilter === 'UNPAID') matchesPayment = item.paymentStatus === 'UNPAID' || item.paymentStatus === 'DOWN_PAYMENT'
-      else if (paymentFilter === 'PAID') matchesPayment = item.paymentStatus === 'PAID'
-      else if (paymentFilter === 'BARTER') matchesPayment = item.paymentStatus === 'BARTER'
-
-      let matchesDraft = true
-      if (draftFilter === 'APPROVED') matchesDraft = item.draftStatus === 'APPROVED'
-      else if (draftFilter === 'PENDING') matchesDraft = item.draftStatus === 'PENDING'
-
-      return matchesSearch && matchesOutlet && matchesPayment && matchesDraft
-    })
-  }, [endorsements, search, outletFilter, paymentFilter, draftFilter])
+  }, [filteredList])
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -292,6 +405,49 @@ export default function EndorsementFinanceView({
         </div>
       )}
 
+      {/* Finance KPI Cards Header & Active Period Badge */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+            Ringkasan Keuangan
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-[#EFE8DE] text-xs font-bold text-stone-700 shadow-2xs">
+            <Calendar className="w-3.5 h-3.5 text-[#D9480F]" />
+            <span>
+              Periode: <strong className="text-[#D9480F]">{dateFilterLabel}</strong>
+            </span>
+          </span>
+          {outletFilter && (
+            <span className="text-xs font-semibold text-stone-500">
+              • Outlet: <strong className="text-stone-800">{outlets.find((o) => o.id === outletFilter)?.name || 'Outlet'}</strong>
+            </span>
+          )}
+          {paymentFilter !== 'ALL' && (
+            <span className="text-xs font-semibold text-stone-500">
+              • Status:{' '}
+              <strong className="text-stone-800">
+                {paymentFilter === 'UNPAID' ? 'Belum Bayar' : paymentFilter === 'PAID' ? 'Lunas' : 'Barter'}
+              </strong>
+            </span>
+          )}
+        </div>
+
+        {datePreset !== 'ALL' && (
+          <button
+            type="button"
+            onClick={() => {
+              setDatePreset('ALL')
+              setCustomDateFrom('')
+              setCustomDateTo('')
+            }}
+            className="text-xs font-bold text-[#D9480F] hover:underline cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Tampilkan Semua Waktu</span>
+          </button>
+        )}
+      </div>
+
       {/* Finance KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Card 1: Belum Dibayar */}
@@ -361,86 +517,208 @@ export default function EndorsementFinanceView({
       </div>
 
       {/* Action Bar & Filters */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-[#EFE8DE] shadow-2xs">
-        {/* Search & Select Filters */}
-        <div className="flex flex-wrap items-center gap-2.5 flex-1">
-          <div className="relative min-w-[220px] flex-1 max-w-sm">
-            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari nama KOL, outlet, rekening..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
-            />
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-[#EFE8DE] shadow-2xs space-y-3.5">
+        {/* Quick Date Presets Bar */}
+        <div className="flex items-center justify-between gap-3 flex-wrap pb-1 border-b border-[#EFE8DE]/70">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider mr-1 flex items-center gap-1 shrink-0">
+              <Calendar className="w-3.5 h-3.5 text-[#D9480F]" />
+              <span>Filter Waktu:</span>
+            </span>
+            {[
+              { id: 'ALL', label: 'Semua Waktu' },
+              { id: 'TODAY', label: 'Hari Ini' },
+              { id: 'LAST_7_DAYS', label: '7 Hari Terakhir' },
+              { id: 'THIS_WEEK', label: 'Minggu Ini' },
+              { id: 'THIS_MONTH', label: 'Bulan Ini' },
+              { id: 'LAST_MONTH', label: 'Bulan Lalu' },
+              { id: 'SPECIFIC_MONTH', label: 'Pilih Bulan...' },
+              { id: 'CUSTOM', label: 'Kustom Rentang...' },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setDatePreset(p.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  datePreset === p.id
+                    ? 'bg-[#1A1715] text-white shadow-xs'
+                    : 'bg-[#FAF8F5] text-stone-600 hover:text-[#1A1715] hover:bg-stone-200/60 border border-[#EFE8DE]'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
 
-          <select
-            value={paymentFilter}
-            onChange={(e) => setPaymentFilter(e.target.value)}
-            className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none text-stone-700 font-medium"
-          >
-            <option value="ALL">Semua Status Bayar</option>
-            <option value="UNPAID">Belum Bayar (Pending)</option>
-            <option value="PAID">Sudah Lunas</option>
-            <option value="BARTER">Barter Produk</option>
-          </select>
-
-          <select
-            value={draftFilter}
-            onChange={(e) => setDraftFilter(e.target.value)}
-            className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none text-stone-700 font-medium"
-          >
-            <option value="ALL">Semua Status Draft</option>
-            <option value="APPROVED">Draft Disetujui (Siap Bayar)</option>
-            <option value="PENDING">Menunggu Draft</option>
-          </select>
-
-          <select
-            value={outletFilter}
-            onChange={(e) => setOutletFilter(e.target.value)}
-            className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none text-stone-700 font-medium"
-          >
-            <option value="">Semua Outlet</option>
-            {outlets.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {selectedIds.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-xl">
-              <span className="text-[11px] font-bold text-emerald-900 whitespace-nowrap">Tgl TF:</span>
-              <input
-                type="date"
-                value={batchPaymentDate}
-                onChange={(e) => setBatchPaymentDate(e.target.value)}
-                className="px-2 py-1 text-xs border border-emerald-300 rounded-lg bg-white focus:outline-none font-mono"
-              />
-              <button
-                onClick={handleBatchMarkPaid}
-                disabled={isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+          {/* Month/Year selector when SPECIFIC_MONTH */}
+          {datePreset === 'SPECIFIC_MONTH' && (
+            <div className="flex items-center gap-2 flex-wrap bg-[#FAF8F5] p-1.5 px-2.5 rounded-xl border border-[#EFE8DE] animate-in fade-in duration-150">
+              <span className="text-xs font-bold text-stone-600">Bulan:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Bayar {selectedIds.length} Terpilih</span>
-              </button>
+                {MONTH_NAMES.map((name, idx) => (
+                  <option key={idx + 1} value={idx + 1}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+              >
+                {[2024, 2025, 2026, 2027].map((yr) => (
+                  <option key={yr} value={yr}>
+                    {yr}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] text-stone-700 border border-[#EFE8DE] text-xs font-bold shadow-2xs hover:border-[#D9480F]/40 transition-all cursor-pointer"
-            title="Download CSV untuk input transfer bank"
-          >
-            <Download className="w-3.5 h-3.5 text-[#D9480F]" />
-            <span>Export CSV Bank</span>
-          </button>
+          {/* Custom Date Range Inputs */}
+          {datePreset === 'CUSTOM' && (
+            <div className="flex items-center gap-2 flex-wrap bg-[#FAF8F5] p-1.5 px-2.5 rounded-xl border border-[#EFE8DE] animate-in fade-in duration-150">
+              <span className="text-xs font-bold text-stone-600">Dari:</span>
+              <input
+                type="date"
+                value={customDateFrom}
+                onChange={(e) => setCustomDateFrom(e.target.value)}
+                className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+              />
+              <span className="text-xs text-stone-400 font-bold">s/d</span>
+              <input
+                type="date"
+                value={customDateTo}
+                onChange={(e) => setCustomDateTo(e.target.value)}
+                className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+              />
+              {(customDateFrom || customDateTo) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomDateFrom('')
+                    setCustomDateTo('')
+                  }}
+                  className="text-stone-400 hover:text-stone-700 p-0.5"
+                  title="Hapus rentang tanggal"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Search, Filter Dropdowns, and Action Buttons */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Search & Select Filters */}
+          <div className="flex flex-wrap items-center gap-2.5 flex-1">
+            <div className="relative min-w-[220px] flex-1 max-w-sm">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari nama KOL, outlet, rekening..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+              />
+            </div>
+
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none text-stone-700 font-medium"
+            >
+              <option value="ALL">Semua Status Bayar</option>
+              <option value="UNPAID">Belum Bayar (Pending)</option>
+              <option value="PAID">Sudah Lunas</option>
+              <option value="BARTER">Barter Produk</option>
+            </select>
+
+            <select
+              value={draftFilter}
+              onChange={(e) => setDraftFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none text-stone-700 font-medium"
+            >
+              <option value="ALL">Semua Status Draft</option>
+              <option value="APPROVED">Draft Disetujui (Siap Bayar)</option>
+              <option value="PENDING">Menunggu Draft</option>
+            </select>
+
+            <select
+              value={outletFilter}
+              onChange={(e) => setOutletFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none text-stone-700 font-medium"
+            >
+              <option value="">Semua Outlet</option>
+              {outlets.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-xl">
+                <span className="text-[11px] font-bold text-emerald-900 whitespace-nowrap">Tgl TF:</span>
+                <input
+                  type="date"
+                  value={batchPaymentDate}
+                  onChange={(e) => setBatchPaymentDate(e.target.value)}
+                  className="px-2 py-1 text-xs border border-emerald-300 rounded-lg bg-white focus:outline-none font-mono"
+                />
+                <button
+                  onClick={handleBatchMarkPaid}
+                  disabled={isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Bayar {selectedIds.length} Terpilih</span>
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF8F5] text-stone-700 border border-[#EFE8DE] text-xs font-bold shadow-2xs hover:border-[#D9480F]/40 transition-all cursor-pointer"
+              title="Download CSV untuk input transfer bank"
+            >
+              <Download className="w-3.5 h-3.5 text-[#D9480F]" />
+              <span>Export CSV Bank</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Filter Summary & Reset Bar */}
+        {(search || outletFilter || paymentFilter !== 'ALL' || draftFilter !== 'ALL' || datePreset !== 'ALL') && (
+          <div className="flex items-center justify-between text-xs text-stone-500 font-medium pt-2 border-t border-[#EFE8DE] flex-wrap gap-2">
+            <span>
+              Menampilkan <strong className="text-[#1A1715]">{filteredList.length}</strong> dari {endorsements.length} transaksi endorsement
+            </span>
+            <button
+              onClick={() => {
+                setSearch('')
+                setOutletFilter('')
+                setPaymentFilter('ALL')
+                setDraftFilter('ALL')
+                setDatePreset('ALL')
+                setCustomDateFrom('')
+                setCustomDateTo('')
+              }}
+              className="text-xs font-bold text-[#D9480F] hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Reset Filter</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Finance Table */}
@@ -474,7 +752,24 @@ export default function EndorsementFinanceView({
               {filteredList.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="p-8 text-center text-stone-400">
-                    Tidak ada data endorsement yang cocok dengan filter pembayaran.
+                    <p className="font-semibold text-stone-600">Tidak ada data endorsement yang cocok dengan filter pembayaran.</p>
+                    {(search || outletFilter || paymentFilter !== 'ALL' || draftFilter !== 'ALL' || datePreset !== 'ALL') && (
+                      <button
+                        onClick={() => {
+                          setSearch('')
+                          setOutletFilter('')
+                          setPaymentFilter('ALL')
+                          setDraftFilter('ALL')
+                          setDatePreset('ALL')
+                          setCustomDateFrom('')
+                          setCustomDateTo('')
+                        }}
+                        className="mt-2 text-xs font-bold text-[#D9480F] hover:underline cursor-pointer inline-flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Reset Semua Filter</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (

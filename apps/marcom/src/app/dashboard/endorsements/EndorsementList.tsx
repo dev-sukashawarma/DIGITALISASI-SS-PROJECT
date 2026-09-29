@@ -207,6 +207,22 @@ export function getLocalDateString(d: Date): string {
   return `${year}-${month}-${day}`
 }
 
+export const MONTH_NAMES = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+]
+
+
 export function getPlatformBadgeConfig(platform: string, customName?: string | null) {
   switch (platform) {
     case 'TIKTOK':
@@ -424,6 +440,15 @@ export default function EndorsementList({
   const [performanceFilter, setPerformanceFilter] = useState<string>('ALL')
   const [sortBy, setSortBy] = useState<'views' | 'er' | 'cpv' | 'engagement'>('views')
 
+  // Analytics specific time filters
+  const [analyticsDatePreset, setAnalyticsDatePreset] = useState<
+    'ALL' | 'TODAY' | 'LAST_7_DAYS' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'SPECIFIC_MONTH' | 'CUSTOM'
+  >('ALL')
+  const [analyticsCustomDateFrom, setAnalyticsCustomDateFrom] = useState('')
+  const [analyticsCustomDateTo, setAnalyticsCustomDateTo] = useState('')
+  const [analyticsSelectedMonth, setAnalyticsSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
+  const [analyticsSelectedYear, setAnalyticsSelectedYear] = useState<number>(() => new Date().getFullYear())
+
   // Pagination states
   const [opsPage, setOpsPage] = useState(1)
   const [opsPageSize, setOpsPageSize] = useState(15)
@@ -437,7 +462,17 @@ export default function EndorsementList({
 
   useEffect(() => {
     setAnalyticsPage(1)
-  }, [search, outletFilter, performanceFilter, sortBy])
+  }, [
+    search,
+    outletFilter,
+    performanceFilter,
+    sortBy,
+    analyticsDatePreset,
+    analyticsCustomDateFrom,
+    analyticsCustomDateTo,
+    analyticsSelectedMonth,
+    analyticsSelectedYear,
+  ])
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -853,8 +888,80 @@ export default function EndorsementList({
     })
   }, [initialEndorsements])
 
+  // Label for active analytics date filter
+  const analyticsDateFilterLabel = useMemo(() => {
+    switch (analyticsDatePreset) {
+      case 'TODAY':
+        return 'Hari Ini'
+      case 'LAST_7_DAYS':
+        return '7 Hari Terakhir'
+      case 'THIS_WEEK':
+        return 'Minggu Ini'
+      case 'THIS_MONTH': {
+        const d = new Date()
+        return `Bulan Ini (${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()})`
+      }
+      case 'LAST_MONTH': {
+        const d = new Date()
+        d.setMonth(d.getMonth() - 1)
+        return `Bulan Lalu (${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()})`
+      }
+      case 'SPECIFIC_MONTH':
+        return `${MONTH_NAMES[analyticsSelectedMonth - 1]} ${analyticsSelectedYear}`
+      case 'CUSTOM':
+        if (analyticsCustomDateFrom && analyticsCustomDateTo) {
+          return `${analyticsCustomDateFrom} s/d ${analyticsCustomDateTo}`
+        }
+        if (analyticsCustomDateFrom) return `Mulai ${analyticsCustomDateFrom}`
+        if (analyticsCustomDateTo) return `Sampai ${analyticsCustomDateTo}`
+        return 'Rentang Kustom'
+      default:
+        return 'Semua Waktu'
+    }
+  }, [
+    analyticsDatePreset,
+    analyticsCustomDateFrom,
+    analyticsCustomDateTo,
+    analyticsSelectedMonth,
+    analyticsSelectedYear,
+  ])
+
   // Filter & sort for analytics tab
   const filteredAnalytics = useMemo(() => {
+    const today = new Date()
+    const todayStr = getLocalDateString(today)
+
+    // Last 7 days
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(today.getDate() - 6)
+    const sevenDaysAgoStr = getLocalDateString(sevenDaysAgo)
+
+    // This Week (Monday to Sunday)
+    const currentDay = today.getDay()
+    const diffToMonday = (currentDay + 6) % 7
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - diffToMonday)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    const mondayStr = getLocalDateString(monday)
+    const sundayStr = getLocalDateString(sunday)
+
+    // This Month
+    const firstDayThisMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+    const lastDayThisMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    const lastDayThisMonthStr = getLocalDateString(lastDayThisMonth)
+
+    // Last Month
+    const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+    const firstDayLastMonthStr = getLocalDateString(firstDayLastMonth)
+    const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
+    const lastDayLastMonthStr = getLocalDateString(lastDayLastMonth)
+
+    // Specific Month
+    const firstDaySpecificMonthStr = `${analyticsSelectedYear}-${String(analyticsSelectedMonth).padStart(2, '0')}-01`
+    const lastDaySpecificMonth = new Date(analyticsSelectedYear, analyticsSelectedMonth, 0)
+    const lastDaySpecificMonthStr = getLocalDateString(lastDaySpecificMonth)
+
     return processedAnalytics
       .filter((item) => {
         const matchesSearch =
@@ -865,7 +972,34 @@ export default function EndorsementList({
         const matchesCategory =
           performanceFilter === 'ALL' ? true : item.category === performanceFilter
 
-        return matchesSearch && matchesOutlet && matchesCategory
+        // Date filtering
+        let matchesDate = true
+        const sched = item.scheduleDate
+        if (sched) {
+          if (analyticsDatePreset === 'TODAY') {
+            matchesDate = sched === todayStr
+          } else if (analyticsDatePreset === 'LAST_7_DAYS') {
+            matchesDate = sched >= sevenDaysAgoStr && sched <= todayStr
+          } else if (analyticsDatePreset === 'THIS_WEEK') {
+            matchesDate = sched >= mondayStr && sched <= sundayStr
+          } else if (analyticsDatePreset === 'THIS_MONTH') {
+            matchesDate = sched >= firstDayThisMonthStr && sched <= lastDayThisMonthStr
+          } else if (analyticsDatePreset === 'LAST_MONTH') {
+            matchesDate = sched >= firstDayLastMonthStr && sched <= lastDayLastMonthStr
+          } else if (analyticsDatePreset === 'SPECIFIC_MONTH') {
+            matchesDate = sched >= firstDaySpecificMonthStr && sched <= lastDaySpecificMonthStr
+          } else if (analyticsDatePreset === 'CUSTOM') {
+            if (analyticsCustomDateFrom && analyticsCustomDateTo) {
+              matchesDate = sched >= analyticsCustomDateFrom && sched <= analyticsCustomDateTo
+            } else if (analyticsCustomDateFrom) {
+              matchesDate = sched >= analyticsCustomDateFrom
+            } else if (analyticsCustomDateTo) {
+              matchesDate = sched <= analyticsCustomDateTo
+            }
+          }
+        }
+
+        return matchesSearch && matchesOutlet && matchesCategory && matchesDate
       })
       .sort((a, b) => {
         if (sortBy === 'views') return b.effectiveViews - a.effectiveViews
@@ -879,20 +1013,28 @@ export default function EndorsementList({
         if (sortBy === 'engagement') return b.totalEngagement - a.totalEngagement
         return 0
       })
-  }, [processedAnalytics, search, outletFilter, performanceFilter, sortBy])
+  }, [
+    processedAnalytics,
+    search,
+    outletFilter,
+    performanceFilter,
+    sortBy,
+    analyticsDatePreset,
+    analyticsCustomDateFrom,
+    analyticsCustomDateTo,
+    analyticsSelectedMonth,
+    analyticsSelectedYear,
+  ])
 
   // Selected outlet for display labels
   const selectedOutlet = useMemo(() => {
     return outlets.find((o) => o.id === outletFilter)
   }, [outlets, outletFilter])
 
-  // Aggregate metrics for Analytics Overview (dynamically filtered by selected outlet)
+  // Aggregate metrics for Analytics Overview (dynamically calculated from filtered video analytics)
   const activeVideos = useMemo(() => {
-    return processedAnalytics.filter((i) => {
-      const matchesOutlet = outletFilter ? i.outletId === outletFilter : true
-      return matchesOutlet && i.effectiveViews > 0 && i.postStatus === 'ON'
-    })
-  }, [processedAnalytics, outletFilter])
+    return filteredAnalytics.filter((i) => i.effectiveViews > 0 && i.postStatus === 'ON')
+  }, [filteredAnalytics])
 
   const totalSpendActive = useMemo(() => {
     return activeVideos.reduce((acc, curr) => acc + curr.rateCard, 0)
@@ -2029,6 +2171,46 @@ export default function EndorsementList({
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Executive Analytics Bento Cards */}
           <div className="space-y-3">
+            {/* KPI Cards Header & Active Period Badge */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+                  Ringkasan Analitik Video & ROI
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-[#EFE8DE] text-xs font-bold text-stone-700 shadow-2xs">
+                  <Calendar className="w-3.5 h-3.5 text-[#D9480F]" />
+                  <span>
+                    Periode: <strong className="text-[#D9480F]">{analyticsDateFilterLabel}</strong>
+                  </span>
+                </span>
+                {selectedOutlet && (
+                  <span className="text-xs font-semibold text-stone-500">
+                    • Outlet: <strong className="text-stone-800">{selectedOutlet.name}</strong>
+                  </span>
+                )}
+                {performanceFilter !== 'ALL' && (
+                  <span className="text-xs font-semibold text-stone-500">
+                    • Kategori: <strong className="text-stone-800">{performanceFilter}</strong>
+                  </span>
+                )}
+              </div>
+
+              {analyticsDatePreset !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAnalyticsDatePreset('ALL')
+                    setAnalyticsCustomDateFrom('')
+                    setAnalyticsCustomDateTo('')
+                  }}
+                  className="text-xs font-bold text-[#D9480F] hover:underline cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Tampilkan Semua Waktu</span>
+                </button>
+              )}
+            </div>
+
             {selectedOutlet && (
               <div className="flex items-center justify-between text-xs text-stone-600 bg-[#FAF8F5] border border-[#EFE8DE] px-3.5 py-2 rounded-2xl">
                 <div className="flex items-center gap-2 font-medium">
@@ -2066,8 +2248,8 @@ export default function EndorsementList({
                     <span className="truncate">
                       {totalViewsActive === 0
                         ? selectedOutlet
-                          ? `Belum ada data di ${selectedOutlet.name}`
-                          : 'Belum ada data video tayang'
+                          ? `Belum ada video tayang di ${selectedOutlet.name}`
+                          : 'Belum ada video tayang pada periode ini'
                         : avgCPV < 100
                         ? 'Efisiensi Sangat Baik (< Rp 100)'
                         : 'Standar industri kuliner (Rp 100-200)'}
@@ -2099,8 +2281,8 @@ export default function EndorsementList({
                     <span className="truncate">
                       {totalViewsActive === 0
                         ? selectedOutlet
-                          ? `Belum ada data di ${selectedOutlet.name}`
-                          : 'Belum ada data views'
+                          ? `Belum ada data views di ${selectedOutlet.name}`
+                          : 'Belum ada data views pada periode ini'
                         : avgER >= 5.0
                         ? 'Tingkat Respons Audiens Tinggi'
                         : 'Benchmark F&B: 3% - 6%'}
@@ -2176,7 +2358,7 @@ export default function EndorsementList({
                     ) : selectedOutlet ? (
                       `Belum ada video aktif di ${selectedOutlet.name}`
                     ) : (
-                      'Input metrik video untuk melihat ranking'
+                      'Belum ada video aktif pada periode & filter ini'
                     )}
                   </div>
                 </div>
@@ -2185,7 +2367,102 @@ export default function EndorsementList({
           </div>
 
           {/* Analytics Filters & Sorting Toolbar */}
-          <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-2xs space-y-3">
+          <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-2xs space-y-3.5">
+            {/* Quick Date Presets Bar */}
+            <div className="flex items-center justify-between gap-3 flex-wrap pb-1 border-b border-[#EFE8DE]/70">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-bold text-stone-400 uppercase tracking-wider mr-1 flex items-center gap-1 shrink-0">
+                  <Calendar className="w-3.5 h-3.5 text-[#D9480F]" />
+                  <span>Filter Waktu:</span>
+                </span>
+                {[
+                  { id: 'ALL', label: 'Semua Waktu' },
+                  { id: 'TODAY', label: 'Hari Ini' },
+                  { id: 'LAST_7_DAYS', label: '7 Hari Terakhir' },
+                  { id: 'THIS_WEEK', label: 'Minggu Ini' },
+                  { id: 'THIS_MONTH', label: 'Bulan Ini' },
+                  { id: 'LAST_MONTH', label: 'Bulan Lalu' },
+                  { id: 'SPECIFIC_MONTH', label: 'Pilih Bulan...' },
+                  { id: 'CUSTOM', label: 'Kustom Rentang...' },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setAnalyticsDatePreset(p.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      analyticsDatePreset === p.id
+                        ? 'bg-[#1A1715] text-white shadow-xs'
+                        : 'bg-[#FAF8F5] text-stone-600 hover:text-[#1A1715] hover:bg-stone-200/60 border border-[#EFE8DE]'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Month/Year selector when SPECIFIC_MONTH */}
+              {analyticsDatePreset === 'SPECIFIC_MONTH' && (
+                <div className="flex items-center gap-2 flex-wrap bg-[#FAF8F5] p-1.5 px-2.5 rounded-xl border border-[#EFE8DE] animate-in fade-in duration-150">
+                  <span className="text-xs font-bold text-stone-600">Bulan:</span>
+                  <select
+                    value={analyticsSelectedMonth}
+                    onChange={(e) => setAnalyticsSelectedMonth(parseInt(e.target.value, 10))}
+                    className="px-2.5 py-1 text-xs font-bold rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                  >
+                    {MONTH_NAMES.map((name, idx) => (
+                      <option key={idx + 1} value={idx + 1}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={analyticsSelectedYear}
+                    onChange={(e) => setAnalyticsSelectedYear(parseInt(e.target.value, 10))}
+                    className="px-2.5 py-1 text-xs font-bold rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                  >
+                    {[2024, 2025, 2026, 2027].map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Custom Date Range Inputs */}
+              {analyticsDatePreset === 'CUSTOM' && (
+                <div className="flex items-center gap-2 flex-wrap bg-[#FAF8F5] p-1.5 px-2.5 rounded-xl border border-[#EFE8DE] animate-in fade-in duration-150">
+                  <span className="text-xs font-bold text-stone-600">Dari:</span>
+                  <input
+                    type="date"
+                    value={analyticsCustomDateFrom}
+                    onChange={(e) => setAnalyticsCustomDateFrom(e.target.value)}
+                    className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                  />
+                  <span className="text-xs text-stone-400 font-bold">s/d</span>
+                  <input
+                    type="date"
+                    value={analyticsCustomDateTo}
+                    onChange={(e) => setAnalyticsCustomDateTo(e.target.value)}
+                    className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                  />
+                  {(analyticsCustomDateFrom || analyticsCustomDateTo) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAnalyticsCustomDateFrom('')
+                        setAnalyticsCustomDateTo('')
+                      }}
+                      className="text-stone-400 hover:text-stone-700 p-0.5"
+                      title="Hapus rentang tanggal"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3">
               {/* Search */}
               <div className="relative">
@@ -2263,16 +2540,20 @@ export default function EndorsementList({
                   </span>
                 </div>
               </div>
-              {(search || outletFilter || performanceFilter !== 'ALL') && (
+              {(search || outletFilter || performanceFilter !== 'ALL' || analyticsDatePreset !== 'ALL') && (
                 <button
                   onClick={() => {
                     setSearch('')
                     setOutletFilter('')
                     setPerformanceFilter('ALL')
+                    setAnalyticsDatePreset('ALL')
+                    setAnalyticsCustomDateFrom('')
+                    setAnalyticsCustomDateTo('')
                   }}
-                  className="text-[#D9480F] hover:underline font-bold cursor-pointer"
+                  className="text-xs font-bold text-[#D9480F] hover:underline cursor-pointer flex items-center gap-1"
                 >
-                  Reset Filter
+                  <X className="w-3.5 h-3.5" />
+                  <span>Reset Filter</span>
                 </button>
               )}
             </div>
@@ -2299,6 +2580,22 @@ export default function EndorsementList({
                       <td colSpan={7} className="py-12 text-center text-stone-400">
                         <BarChart3 className="w-10 h-10 mx-auto mb-2 text-stone-300" />
                         <p className="font-semibold text-stone-600">Tidak ada data video yang sesuai kriteria filter.</p>
+                        {(search || outletFilter || performanceFilter !== 'ALL' || analyticsDatePreset !== 'ALL') && (
+                          <button
+                            onClick={() => {
+                              setSearch('')
+                              setOutletFilter('')
+                              setPerformanceFilter('ALL')
+                              setAnalyticsDatePreset('ALL')
+                              setAnalyticsCustomDateFrom('')
+                              setAnalyticsCustomDateTo('')
+                            }}
+                            className="mt-2 text-xs font-bold text-[#D9480F] hover:underline cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Reset Semua Filter</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ) : (

@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Store } from 'lucide-react'
 import { useRole } from '@/components/layout/RoleContext'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Select } from '@/components/ui/Select'
 import {
   BAGIAN_BEBAS, FILTER_CEKLIST, KATEGORI_CEKLIST,
   formatTanggal, geserTanggal, hariIni, jamJakarta, keteranganTampil, nilaiKategori, nilaiKeseluruhan,
@@ -32,6 +33,8 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
     tanggalAwal && TANGGAL_SAH.test(tanggalAwal) && tanggalAwal <= hariIni() ? tanggalAwal : hariIni()
   )
   const [filter, setFilter] = useState<FilterCeklist>('semua')
+  // Pilihan outlet bertahan saat tanggal digeser: HR bisa menelusuri satu outlet dari hari ke hari.
+  const [outletPilih, setOutletPilih] = useState('semua')
   const [dibuka, setDibuka] = useState<string | null>(outletAwal ?? null)
   // staffId hanya dipakai untuk membatasi outlet binaan area manager; HR melihat semua outlet.
   const { data, memuat, galat, ulang } = useCeklistHari(db, '', role.toLowerCase(), tanggal)
@@ -41,6 +44,14 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
   useEffect(() => {
     if (tanggalAwal || outletAwal) router.replace('/ceklist-harian', { scroll: false })
   }, [tanggalAwal, outletAwal, router])
+
+  const opsiOutlet = useMemo(
+    () => [
+      { label: 'Semua outlet', value: 'semua' },
+      ...[...outlets].sort((a, b) => a.nama.localeCompare(b.nama)).map((o) => ({ label: o.nama, value: o.id })),
+    ],
+    [outlets]
+  )
 
   const laporanList = Object.values(laporan)
   const jumlah = {
@@ -61,6 +72,7 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
     }
     return outlets
       .filter((o) => {
+        if (outletPilih !== 'semua' && o.id !== outletPilih) return false
         const l = laporan[o.id]
         if (filter === 'perhatian') return Boolean(l && perluPerhatian(l))
         if (filter === 'belum_dicek') return !l
@@ -68,7 +80,7 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
         return true
       })
       .sort((a, b) => peringkat(a) - peringkat(b) || a.nama.localeCompare(b.nama))
-  }, [outlets, laporan, filter])
+  }, [outlets, laporan, filter, outletPilih])
 
   const laporanDibuka = dibuka ? laporan[dibuka] : undefined
   if (dibuka && laporanDibuka) {
@@ -118,13 +130,25 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {FILTER_CEKLIST.map((f) => (
-          <button key={f.kunci} type="button" onClick={() => setFilter(f.kunci)}
-            className={`px-3 py-1.5 rounded-full text-xs font-black whitespace-nowrap border cursor-pointer ${filter === f.kunci ? 'bg-suka-orange text-white border-suka-orange' : 'bg-white text-suka-brown/70 border-suka-brown/15'}`}>
-            {f.label}
-          </button>
-        ))}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {FILTER_CEKLIST.map((f) => (
+            <button key={f.kunci} type="button" onClick={() => setFilter(f.kunci)}
+              className={`px-3 py-1.5 rounded-full text-xs font-black whitespace-nowrap border cursor-pointer ${filter === f.kunci ? 'bg-suka-orange text-white border-suka-orange' : 'bg-white text-suka-brown/70 border-suka-brown/15'}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <Select
+          options={opsiOutlet}
+          value={outletPilih}
+          onChange={setOutletPilih}
+          searchable
+          searchPlaceholder="Cari outlet..."
+          align="right"
+          aria-label="Pilih outlet"
+          className="sm:w-64 shrink-0"
+        />
       </div>
 
       {memuat && !outlets.length ? (
@@ -132,7 +156,11 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
       ) : galat && !outlets.length ? (
         <GalatMuat pesan={galat} onUlang={ulang} />
       ) : !terlihat.length ? (
-        <div className="rounded-2xl border border-dashed border-suka-brown/20 p-10 text-center text-sm font-bold text-suka-gray-500">Tidak ada outlet pada filter ini.</div>
+        <div className="rounded-2xl border border-dashed border-suka-brown/20 p-10 text-center text-sm font-bold text-suka-gray-500">Tidak ada outlet pada filter ini.
+          {(outletPilih !== 'semua' || filter !== 'semua') && (
+            <button type="button" onClick={() => { setOutletPilih('semua'); setFilter('semua') }} className="mt-3 block mx-auto text-xs font-black text-suka-orange hover:underline cursor-pointer">Tampilkan semua outlet</button>
+          )}
+        </div>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
           {terlihat.map((o) => {

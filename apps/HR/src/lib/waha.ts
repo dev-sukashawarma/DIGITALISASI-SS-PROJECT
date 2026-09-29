@@ -25,6 +25,10 @@ export interface WahaSessionStatus {
   session: string
   status: string
   error?: string
+  phone?: string
+  pushName?: string
+  engine?: string
+  state?: string
 }
 
 /**
@@ -97,6 +101,38 @@ export async function sendWahaTypingPresence({
 }
 
 /**
+ * Anti-Spam: Stop typing indicator
+ */
+export async function sendWahaStopTyping({
+  chatId,
+  session,
+  baseUrl,
+  apiKey,
+}: {
+  chatId: string
+  session: string
+  baseUrl: string
+  apiKey?: string
+}) {
+  try {
+    const endpoint = `${baseUrl.replace(/\/+$/, '')}/api/stopTyping`
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (apiKey) {
+      headers['X-Api-Key'] = apiKey
+      headers['Authorization'] = `Bearer ${apiKey}`
+    }
+    await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ session, chatId }),
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => {})
+  } catch {
+    // Ignore presence errors, fail-safe
+  }
+}
+
+/**
  * Send a single WhatsApp text message via WAHA with anti-spam protections
  */
 export async function sendWahaText({
@@ -125,7 +161,7 @@ export async function sendWahaText({
     }
   }
 
-  // Anti-Spam Layer: Simulate human typing indicator (500ms)
+  // Anti-Spam Layer: Simulate human typing indicator (1.2s - 1.8s)
   if (simulateTyping) {
     await sendWahaTypingPresence({
       chatId,
@@ -133,7 +169,7 @@ export async function sendWahaText({
       baseUrl: targetBaseUrl,
       apiKey: targetApiKey,
     })
-    await new Promise((r) => setTimeout(r, 600))
+    await new Promise((r) => setTimeout(r, 1200 + Math.floor(Math.random() * 600)))
   }
 
   try {
@@ -220,12 +256,16 @@ export async function checkWahaSessionStatus(
     }
 
     const data = await res.json().catch(() => ({}))
-    const isWorking = data.status === 'WORKING' || data.status === 'STARTING' || data.status === 'SCAN_QR_CODE'
+    const isWorking = data.status === 'WORKING'
 
     return {
       online: isWorking,
       session: targetSession,
-      status: data.status || 'ONLINE',
+      status: data.status || (isWorking ? 'WORKING' : 'ONLINE'),
+      phone: data.me?.id ? data.me.id.split('@')[0] : undefined,
+      pushName: data.me?.pushName || undefined,
+      engine: data.engine?.engine || undefined,
+      state: data.engine?.state || undefined,
     }
   } catch (err: any) {
     return {
@@ -234,5 +274,89 @@ export async function checkWahaSessionStatus(
       status: 'OFFLINE',
       error: err.message || 'Tidak dapat terhubung ke server WAHA',
     }
+  }
+}
+
+/**
+ * Restart WAHA session
+ */
+export async function restartWahaSession(
+  baseUrl?: string,
+  session?: string,
+  apiKey?: string
+): Promise<{ success: boolean; message: string }> {
+  const targetBaseUrl =
+    baseUrl ||
+    process.env.WAHA_BASE_URL ||
+    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
+    'http://localhost:3008'
+  const targetSession = session || process.env.WAHA_SESSION || 'default'
+  const targetApiKey = apiKey || process.env.WAHA_API_KEY || ''
+
+  try {
+    const endpoint = `${targetBaseUrl.replace(/\/+$/, '')}/api/sessions/${targetSession}/restart`
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (targetApiKey) {
+      headers['X-Api-Key'] = targetApiKey
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!res.ok) {
+      const err = await res.text().catch(() => '')
+      return { success: false, message: `Gagal restart sesi: ${err || res.statusText}` }
+    }
+
+    return { success: true, message: `Sesi ${targetSession} berhasil direstart.` }
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Gagal menghubungi server WAHA' }
+  }
+}
+
+/**
+ * Get live screenshot from WAHA (useful to see QR code or WhatsApp Web status)
+ */
+export async function getWahaScreenshot(
+  baseUrl?: string,
+  session?: string,
+  apiKey?: string
+): Promise<{ success: boolean; dataUrl?: string; error?: string }> {
+  const targetBaseUrl =
+    baseUrl ||
+    process.env.WAHA_BASE_URL ||
+    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
+    'http://localhost:3008'
+  const targetSession = session || process.env.WAHA_SESSION || 'default'
+  const targetApiKey = apiKey || process.env.WAHA_API_KEY || ''
+
+  try {
+    const endpoint = `${targetBaseUrl.replace(/\/+$/, '')}/api/screenshot?session=${targetSession}`
+    const headers: Record<string, string> = {}
+    if (targetApiKey) {
+      headers['X-Api-Key'] = targetApiKey
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers,
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!res.ok) {
+      return { success: false, error: `Gagal mengambil screenshot (HTTP ${res.status})` }
+    }
+
+    const arrayBuffer = await res.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64 = buffer.toString('base64')
+    const contentType = res.headers.get('content-type') || 'image/jpeg'
+
+    return { success: true, dataUrl: `data:${contentType};base64,${base64}` }
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Gagal mengambil screenshot WAHA' }
   }
 }

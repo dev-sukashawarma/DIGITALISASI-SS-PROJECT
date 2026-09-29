@@ -36,19 +36,19 @@ export async function sendBulkWahaSalarySlips(
   records: PayrollRecord[],
   options?: {
     customHeaderNote?: string
-    minDelayMs?: number // default 1500ms
-    maxDelayMs?: number // default 3500ms
-    batchSize?: number // pause every N messages (default 10)
-    batchCooldownMs?: number // cooldown pause duration (default 5000ms)
+    minDelayMs?: number // default 3500ms
+    maxDelayMs?: number // default 7000ms
+    batchSize?: number // pause every N messages (default 8)
+    batchCooldownMs?: number // cooldown pause duration (default 20000ms)
     baseUrl?: string
     session?: string
     apiKey?: string
   }
 ): Promise<BulkSendSummary> {
-  const minDelay = options?.minDelayMs ?? 1500
-  const maxDelay = options?.maxDelayMs ?? 3500
-  const batchSize = options?.batchSize ?? 10
-  const batchCooldown = options?.batchCooldownMs ?? 5000
+  const minDelay = options?.minDelayMs ?? 3500
+  const maxDelay = options?.maxDelayMs ?? 7000
+  const batchSize = options?.batchSize ?? 8
+  const batchCooldown = options?.batchCooldownMs ?? 20000
 
   const results: BulkSendItemResult[] = []
   let successCount = 0
@@ -138,4 +138,24 @@ export async function getWahaStatus(config?: {
   apiKey?: string
 }) {
   return await checkWahaSessionStatus(config?.baseUrl, config?.session, config?.apiKey)
+}
+
+/**
+ * Server Action: Send a single test message
+ */
+export async function testSendWahaMessage(params: {
+  phone: string
+  text: string
+  baseUrl?: string
+  session?: string
+  apiKey?: string
+}) {
+  return await sendWahaText({
+    phone: params.phone,
+    text: params.text,
+    baseUrl: params.baseUrl,
+    session: params.session,
+    apiKey: params.apiKey,
+    simulateTyping: true,
+  })
 }

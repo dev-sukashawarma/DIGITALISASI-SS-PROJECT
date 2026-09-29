@@ -1,6 +1,7 @@
 /**
- * Ceklist harian area manager — versi BACA-SAJA untuk HR, disalin dari
- * apps/manager/src/lib/ceklist-harian.ts (jalur isi/unggah/tinjau dibuang).
+ * Ceklist harian area manager — versi HR (pantau + setujui), disalin dari
+ * apps/manager/src/lib/ceklist-harian.ts (jalur isi/unggah milik AM dibuang).
+ * HR boleh menyetujui sejak migration 20260929200000.
  * Kategori & nilai di sini harus tetap sama dengan versi manager.
  *
  * Asal: port web dari modul native
@@ -186,6 +187,7 @@ export function formatTanggal(tanggal: string): string {
 // ---------------------------------------------------------------------------
 
 export const BUCKET_CEKLIST = 'ceklist-harian-foto'
+export const PESAN_VERSI_BERUBAH = 'baru saja diperbarui'
 
 const KOLOM_LAPORAN =
   'id,outlet_id,submitted_by,nama_am,tanggal,temuan,perbaikan,online_review,catatan,' +
@@ -270,4 +272,19 @@ export async function urlFotoBanyak(db: SupabaseClient, paths: string[]): Promis
   const hasil: Record<string, string> = {}
   for (const d of data ?? []) if (d.path && d.signedUrl) hasil[d.path] = d.signedUrl
   return hasil
+}
+
+/**
+ * Menyetujui laporan. `diperbaruiPada`/`ditinjauPada` adalah versi yang SEDANG
+ * TAMPIL; server menolak bila AM sudah mengirim ulang atau peninjau lain sudah
+ * menanggapi sejak itu (migrasi 20300242).
+ */
+export async function tinjauCeklist(db: SupabaseClient, l: Laporan, tanggapan: string) {
+  const { error } = await db.rpc('tinjau_ceklist_harian', {
+    p_ceklist_id: l.id,
+    p_tanggapan: tanggapan.trim() || null,
+    p_diperbarui_pada: l.diperbaruiPada || null,
+    p_ditinjau_pada: l.ditinjauPada || null,
+  })
+  if (error) throw error
 }

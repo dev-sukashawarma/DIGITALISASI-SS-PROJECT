@@ -3,27 +3,31 @@
 /*
  * Pemantauan ceklist harian Area Manager untuk HR — disalin dari
  * apps/manager/src/app/ceklist-harian/CeklistPantauClient.tsx supaya tampilannya
- * sama. Versi HR BACA-SAJA: menyetujui tetap wewenang regional manager.
+ * sama. HR (admin_hr) juga boleh menyetujui — RPC tinjau_ceklist_harian sejak
+ * migration 20260929200000; admin & owner sudah boleh sejak awal.
  *
  * Push notifikasi HR membuka `/ceklist-harian?tanggal=YYYY-MM-DD&outlet=<id>`
  * dan langsung menampilkan laporan outlet tersebut.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Store } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Store } from 'lucide-react'
 import { useRole } from '@/components/layout/RoleContext'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
 import {
   BAGIAN_BEBAS, FILTER_CEKLIST, KATEGORI_CEKLIST,
   formatTanggal, geserTanggal, hariIni, jamJakarta, keteranganTampil, nilaiKategori, nilaiKeseluruhan,
-  perluPerhatian, sudahDitinjau, teksBagian,
+  PESAN_VERSI_BERUBAH, perluPerhatian, sudahDitinjau, teksBagian, tinjauCeklist,
   type FilterCeklist, type Laporan, type OutletPilihan,
 } from '@/lib/ceklistHarian'
 import { GalatMuat, LencanaNilai, Lightbox, Thumbnail, useCeklistHari, useDb, useUrlFoto } from './komponen'
 
 const TANGGAL_SAH = /^\d{4}-\d{2}-\d{2}$/
+/** Cermin daftar role di RPC `tinjau_ceklist_harian` (role HR app ditulis kapital). */
+const ROLE_PENINJAU = ['ADMIN_HR', 'ADMIN', 'OWNER']
 
 export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggalAwal?: string; outletAwal?: string }) {
   const db = useDb()
@@ -37,7 +41,7 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
   const [outletPilih, setOutletPilih] = useState('semua')
   const [dibuka, setDibuka] = useState<string | null>(outletAwal ?? null)
   // staffId hanya dipakai untuk membatasi outlet binaan area manager; HR melihat semua outlet.
-  const { data, memuat, galat, ulang } = useCeklistHari(db, '', role.toLowerCase(), tanggal)
+  const { data, memuat, galat, muat, ulang } = useCeklistHari(db, '', role.toLowerCase(), tanggal)
   const { outlets, laporan } = data
 
   // Buang query string setelah deep link dipakai, supaya muat ulang tidak membuka ulang detail.
@@ -89,7 +93,10 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
         key={dibuka}
         laporan={laporanDibuka}
         namaOutlet={outlets.find((o) => o.id === dibuka)?.nama ?? 'Outlet'}
+        bolehMeninjau={ROLE_PENINJAU.includes(role)}
         onTutup={() => setDibuka(null)}
+        onDisetujui={() => { setDibuka(null); void muat() }}
+        onBasi={() => void muat()}
       />
     )
   }
@@ -103,7 +110,7 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
-      <PageHeader title="Ceklist Harian AM" description="Pantau hasil ceklist harian Area Manager di setiap outlet. Persetujuan dilakukan oleh Regional Manager." />
+      <PageHeader title="Ceklist Harian AM" description="Pantau hasil ceklist harian Area Manager di setiap outlet. Setujui laporan yang sudah diperiksa — AM langsung mendapat notifikasi." />
       <div className="rounded-2xl bg-white border border-suka-brown/10 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <button type="button" onClick={() => geser(-1)} aria-label="Hari sebelumnya"
@@ -125,7 +132,7 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
         </div>
         <div className="grid grid-cols-3 gap-2 mt-4">
           <Stat label="Perlu tindakan" nilai={jumlah.perhatian} nada="amber" />
-          <Stat label="Belum disetujui RM" nilai={jumlah.belumDitinjau} nada="orange" />
+          <Stat label="Belum disetujui" nilai={jumlah.belumDitinjau} nada="orange" />
           <Stat label="Belum dicek" nilai={jumlah.belumDicek} nada="red" />
         </div>
       </div>
@@ -188,7 +195,7 @@ export default function CeklistPantauView({ tanggalAwal, outletAwal }: { tanggal
                     {l.namaAm} · {jamJakarta(l.diperbaruiPada)}{l.temuan.length ? ` · ${l.temuan.length} temuan` : ''}
                   </p>
                   <p className={`text-[11px] font-bold mt-0.5 ${sudahDitinjau(l) ? 'text-emerald-600' : 'text-suka-orange'}`}>
-                    {sudahDitinjau(l) ? `Disetujui ${l.namaPeninjau ?? ''}` : 'Menunggu persetujuan RM'}
+                    {sudahDitinjau(l) ? `Disetujui ${l.namaPeninjau ?? ''}` : 'Menunggu persetujuan'}
                   </p>
                 </div>
                 <LencanaNilai nilai={nilaiKeseluruhan(l)} kecil />
@@ -214,9 +221,21 @@ function Stat({ label, nilai, nada }: { label: string; nilai: number; nada: 'amb
 
 // ---------------------------------------------------------------------------
 
-function DetailLaporan({ laporan: l, namaOutlet, onTutup }: { laporan: Laporan; namaOutlet: string; onTutup: () => void }) {
+function DetailLaporan({ laporan: l, namaOutlet, bolehMeninjau, onTutup, onDisetujui, onBasi }: {
+  laporan: Laporan; namaOutlet: string; bolehMeninjau: boolean
+  onTutup: () => void; onDisetujui: () => void; onBasi: () => void
+}) {
   const db = useDb()
+  const [tanggapan, setTanggapan] = useState(l.tanggapanRm ?? '')
+  const [meninjau, setMeninjau] = useState(false)
+  const meninjauRef = useRef(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
+  // Versi yang sudah dilihat peninjau. Realtime bisa mengganti isi laporan selagi
+  // detail terbuka; tanpa ini token versi ikut berganti diam-diam dan persetujuan
+  // jatuh ke isi yang belum sempat diperhatikan.
+  const versi = `${l.diperbaruiPada}|${l.ditinjauPada ?? ''}`
+  const [versiDilihat, setVersiDilihat] = useState(versi)
+  const berubah = versiDilihat !== versi
   const paths = useMemo(() => Object.values(l.foto).flat().map((f) => f.path), [l.foto])
   const url = useUrlFoto(db, paths)
 
@@ -228,6 +247,30 @@ function DetailLaporan({ laporan: l, namaOutlet, onTutup }: { laporan: Laporan; 
         {daftar.map((f) => <Thumbnail key={f.path} src={url[f.path]} onClick={() => url[f.path] && setLightbox(url[f.path])} />)}
       </div>
     )
+  }
+
+  const setujui = async () => {
+    if (meninjauRef.current || berubah) return
+    meninjauRef.current = true
+    setMeninjau(true)
+    try {
+      await tinjauCeklist(db, l, tanggapan)
+      toast.success('Laporan disetujui. AM sudah diberi tahu.')
+      onDisetujui()
+    } catch (e) {
+      console.error('tinjau gagal', e)
+      const pesan = (e as { message?: string })?.message ?? ''
+      if (pesan.includes(PESAN_VERSI_BERUBAH)) {
+        // AM mengirim ulang atau peninjau lain baru saja menanggapi: tampilkan
+        // versi terbaru dulu, jangan setujui isi yang belum dilihat.
+        toast.error('Laporan ini baru saja diperbarui. Periksa lagi isinya sebelum menyetujui.')
+        onBasi()
+      } else {
+        toast.error('Gagal menyetujui laporan. Coba lagi.')
+      }
+      meninjauRef.current = false
+      setMeninjau(false)
+    }
   }
 
   return (
@@ -245,6 +288,18 @@ function DetailLaporan({ laporan: l, namaOutlet, onTutup }: { laporan: Laporan; 
         </div>
         <LencanaNilai nilai={nilaiKeseluruhan(l)} />
       </div>
+
+      {berubah && (
+        <div className="sticky top-0 z-10 rounded-2xl border border-amber-300 bg-amber-50 p-3 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <p className="flex-1 text-xs font-bold text-amber-800">
+            Laporan ini baru saja diperbarui{l.ditinjauPada ? ' atau ditanggapi peninjau lain' : ' oleh AM'}. Periksa lagi isinya sebelum menyetujui.
+          </p>
+          <button type="button" onClick={() => setVersiDilihat(versi)} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-black cursor-pointer">
+            Sudah saya periksa
+          </button>
+        </div>
+      )}
 
       {KATEGORI_CEKLIST.map((kat) => (
         <section key={kat.kunci} className="rounded-2xl bg-white border border-suka-brown/10 p-4 shadow-sm space-y-2">
@@ -284,15 +339,29 @@ function DetailLaporan({ laporan: l, namaOutlet, onTutup }: { laporan: Laporan; 
         </section>
       )}
 
-      {sudahDitinjau(l) ? (
+      {sudahDitinjau(l) && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-sm font-black text-emerald-800 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Sudah disetujui</p>
           <p className="text-xs text-emerald-700 mt-0.5">{l.namaPeninjau} · {jamJakarta(l.ditinjauPada)}</p>
           {l.tanggapanRm && <p className="text-sm text-emerald-900 mt-2">💬 {l.tanggapanRm}</p>}
         </section>
-      ) : (
+      )}
+
+      {bolehMeninjau ? (
+        <section className="rounded-2xl bg-white border border-suka-brown/10 p-4 shadow-sm space-y-2">
+          <h3 className="text-sm font-black text-suka-brown">{sudahDitinjau(l) ? 'Perbarui tanggapan' : 'Setujui laporan'}</h3>
+          <p className="text-xs text-suka-gray-500">AM langsung mendapat notifikasi beserta tanggapan Anda.</p>
+          <textarea value={tanggapan} onChange={(e) => setTanggapan(e.target.value)} rows={3} placeholder="Tanggapan untuk AM (opsional)"
+            className="w-full rounded-xl border border-suka-brown/15 px-3 py-2 text-sm text-suka-brown focus:outline-none focus:border-suka-orange" />
+          <button type="button" onClick={setujui} disabled={meninjau || berubah}
+            className="w-full py-3 rounded-xl bg-emerald-600 text-white text-sm font-black flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer">
+            {meninjau ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            {sudahDitinjau(l) ? 'Simpan tanggapan' : 'Setujui'}
+          </button>
+        </section>
+      ) : !sudahDitinjau(l) && (
         <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm font-bold text-orange-800">
-          Menunggu persetujuan Regional Manager.
+          Menunggu persetujuan RM atau HR.
         </section>
       )}
 

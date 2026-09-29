@@ -36,10 +36,70 @@ export default function GlobalBlockerMount() {
 
   // Simpan outlet_id kasir agar bisa filter event attendance per outlet
   const outletIdRef = useRef<string | null>(null)
+  // Record checklist hari ini (untuk mengabaikan tik milik outlet lain)
+  const recordIdRef = useRef<string | null>(null)
+  const isBlockedRef = useRef(false)
+  isBlockedRef.current = isBlocked
 
   useEffect(() => {
     const supabase = createClient()
     let currentUid: string | null = null
+    let disposed = false
+
+    // ── Penggabung pengecekan ──────────────────────────────────────────────
+    // Gerbang ini terpasang di SETIAP halaman kasir. Dulu: polling 5 detik +
+    // setiap event realtime (absen, tik checklist, dsb. dari SEMUA outlet)
+    // langsung menjalankan 5–7 query. Kini:
+    // - event realtime digabung (jeda 1 detik) → satu pengecekan;
+    // - pengecekan tidak pernah berjalan tumpang-tindih;
+    // - polling cadangan 20 detik, dilewati saat tab tersembunyi, dan
+    //   langsung dicek ulang begitu tab terlihat lagi.
+    // Logika blokir/buka di checkStatus TIDAK diubah.
+    let running = false
+    let rerun = false
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+    async function runCheck() {
+      if (disposed) return
+      if (running) { rerun = true; return }
+      running = true
+      // Watchdog: request supabase tanpa timeout bisa menggantung di Wi-Fi
+      // outlet yang buruk. Tanpa batas ini `running` tertahan selamanya dan
+      // gerbang berhenti mengecek (kasir bisa terkunci sampai reload).
+      let watchdog: ReturnType<typeof setTimeout> | null = null
+      try {
+        await Promise.race([
+          checkStatus(),
+          new Promise<void>(resolve => { watchdog = setTimeout(resolve, 15_000) }),
+        ])
+      } catch (err) {
+        console.error('[POS-Blocker] check gagal:', err)
+      } finally {
+        if (watchdog) clearTimeout(watchdog)
+        running = false
+        if (rerun && !disposed) {
+          rerun = false
+          runCheck()
+        }
+      }
+    }
+
+    function scheduleCheck() {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null
+        runCheck()
+      }, 1000)
+    }
+
+    // Abaikan event yang PASTI milik outlet/orang lain. Bila ragu (kolom tak
+    // ada di payload, mis. DELETE, atau outlet belum diketahui) → tetap cek.
+    function isForeign(payload: any, key: string, expected: string | null): boolean {
+      if (!expected) return false
+      const rows = [payload?.new, payload?.old].filter(r => r && r[key] !== undefined && r[key] !== null)
+      if (rows.length === 0) return false
+      return rows.every(r => r[key] !== expected)
+    }
 
     async function checkStatus() {
       if (!currentUid) {
@@ -195,6 +255,7 @@ export default function GlobalBlockerMount() {
             .eq("date", todayStr)
             .maybeSingle()
 
+          recordIdRef.current = rec?.id ?? null
           if (rec) {
              const { data: ticks } = await supabase
                .from("daily_checklist_ticks")
@@ -225,32 +286,47 @@ export default function GlobalBlockerMount() {
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       currentUid = user?.id || null
-      checkStatus()
+      runCheck()
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       currentUid = session?.user?.id || null
-      checkStatus()
+      runCheck()
     })
 
-    // Polling setiap 5 detik sebagai safety net
-    const interval = setInterval(checkStatus, 5000)
+    // Polling cadangan (realtime tetap pemicu utama). Dilewati saat tab
+    // tersembunyi; saat tab terlihat lagi langsung dicek ulang.
+    // Saat kasir sedang terblokir, cek lebih sering (8 dtk) agar cepat terbuka
+    // walau realtime putus; saat terbuka cukup 20 dtk.
+    let tick = 0
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      tick++
+      if (isBlockedRef.current || tick % 5 === 0) runCheck()
+    }, 4_000)
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && !document.hidden) runCheck()
+    }
+    document.addEventListener('visibilitychange', onVisible)
 
     // Realtime listener untuk perubahan outlet_staff/outlets
     const channel = supabase.channel('global_blocker')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'outlet_staff' }, () => {
-        checkStatus()
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'outlet_staff' }, (payload) => {
+        if (isForeign(payload, 'id', currentUid)) return
+        scheduleCheck()
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'outlets' }, () => {
-        checkStatus()
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'outlets' }, (payload) => {
+        if (isForeign(payload, 'id', outletIdRef.current)) return
+        scheduleCheck()
       })
       .subscribe()
 
     // Realtime listener untuk bypass_requests (langsung tangkap ketika SPV klik setujui)
     const bypassChannel = supabase.channel('bypass_requests_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bypass_requests' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bypass_requests' }, (payload) => {
+        if (isForeign(payload, 'outlet_id', outletIdRef.current)) return
         console.log('[POS-Blocker] Bypass request change detected, re-checking...')
-        checkStatus()
+        scheduleCheck()
       })
       .subscribe()
 
@@ -264,19 +340,29 @@ export default function GlobalBlockerMount() {
           table: 'attendance',
           filter: outletIdRef.current ? `outlet_id=eq.${outletIdRef.current}` : undefined
         },
-        () => {
-          checkStatus()
+        (payload) => {
+          if (isForeign(payload, 'outlet_id', outletIdRef.current)) return
+          scheduleCheck()
         }
       )
       .subscribe()
 
     // Realtime listener untuk checklist
     const checklistChannel = supabase.channel('checklist_progress_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, () => checkStatus())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, () => checkStatus())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, (payload) => {
+        if (isForeign(payload, 'record_id', recordIdRef.current)) return
+        scheduleCheck()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, (payload) => {
+        if (isForeign(payload, 'outlet_id', outletIdRef.current)) return
+        scheduleCheck()
+      })
       .subscribe()
 
     return () => {
+      disposed = true
+      if (debounceTimer) clearTimeout(debounceTimer)
+      document.removeEventListener('visibilitychange', onVisible)
       sub.subscription.unsubscribe()
       clearInterval(interval)
       supabase.removeChannel(channel)

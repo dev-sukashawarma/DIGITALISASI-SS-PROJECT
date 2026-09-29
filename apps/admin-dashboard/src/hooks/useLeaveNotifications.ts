@@ -13,7 +13,7 @@ export function useLeaveNotifications() {
       if (error) throw error
       return count ?? 0
     },
-    refetchInterval: 15000, // Check every 15 seconds
+    refetchInterval: 60_000, // head-count ringan; 15 dtk tak perlu untuk badge cuti
   })
 
   return { pendingCount }

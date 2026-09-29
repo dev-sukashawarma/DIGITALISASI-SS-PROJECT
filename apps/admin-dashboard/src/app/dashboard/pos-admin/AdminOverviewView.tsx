@@ -11,6 +11,8 @@ import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { toast } from 'sonner'
+import { createThrottledRefresher } from '@/lib/realtimeThrottle'
+import { REALTIME_REFRESH_MIN_GAP_MS } from '@/lib/ownerDashboardCache'
 
 const OverviewAreaChart = dynamic(() => import('./OverviewAreaChart'), {
   ssr: false,
@@ -48,6 +50,7 @@ export default function AdminOverviewView({
   const [showChartRangeDropdown, setShowChartRangeDropdown] = useState(false)
 
   const isInitialMount = useRef(true)
+  const chartReqIdRef = useRef(0)
 
   const dateRange = useMemo(
     () => resolveRange(chartRange, customStartDate, customEndDate),
@@ -137,37 +140,52 @@ export default function AdminOverviewView({
       return
     }
 
-    let q = supabase
-      .from('sales_hourly_spv')
-      .select('sales_date, omzet')
-      .order('sales_date', { ascending: true })
+    // 30 hari semua outlet ≈ 8.000 baris → wajib dipaginasi (versi server di
+    // page.tsx sudah begitu; versi klien dulu terpotong di 1.000 baris begitu
+    // filter diubah atau ada event realtime). Urutan unik sama dengan page.tsx.
+    const buildChartQuery = () => {
+      let q = supabase
+        .from('sales_hourly_spv')
+        .select('sales_date, omzet')
+        .order('sales_date', { ascending: true })
+        .order('outlet_id', { ascending: true })
+        .order('sales_hour', { ascending: true })
+        .order('sales_source', { ascending: true })
 
-    if (selectedOutlet !== 'all') {
-      q = q.eq('outlet_id', selectedOutlet)
+      if (selectedOutlet !== 'all') {
+        q = q.eq('outlet_id', selectedOutlet)
+      }
+
+      if (chartRange === 'today') {
+        q = q.eq('sales_date', fmt(new Date()))
+      } else if (chartRange === 'yesterday') {
+        const d = new Date()
+        d.setDate(d.getDate() - 1)
+        q = q.eq('sales_date', fmt(d))
+      } else if (chartRange === '7days') {
+        const d = new Date()
+        d.setDate(d.getDate() - 7)
+        q = q.gte('sales_date', fmt(d))
+      } else if (chartRange === '30days') {
+        const d = new Date()
+        d.setDate(d.getDate() - 30)
+        q = q.gte('sales_date', fmt(d))
+      } else if (chartRange === 'custom' && customStartDate && customEndDate) {
+        q = q.gte('sales_date', customStartDate).lte('sales_date', customEndDate)
+      }
+      return q
     }
 
-    if (chartRange === 'today') {
-      q = q.eq('sales_date', fmt(new Date()))
-    } else if (chartRange === 'yesterday') {
-      const d = new Date()
-      d.setDate(d.getDate() - 1)
-      q = q.eq('sales_date', fmt(d))
-    } else if (chartRange === '7days') {
-      const d = new Date()
-      d.setDate(d.getDate() - 7)
-      q = q.gte('sales_date', fmt(d))
-    } else if (chartRange === '30days') {
-      const d = new Date()
-      d.setDate(d.getDate() - 30)
-      q = q.gte('sales_date', fmt(d))
-    } else if (chartRange === 'custom' && customStartDate && customEndDate) {
-      q = q.gte('sales_date', customStartDate).lte('sales_date', customEndDate)
+    // Fetch multi-halaman: respons filter lama bisa tiba setelah filter baru.
+    // Hanya respons permintaan terakhir yang boleh menimpa state.
+    const reqId = ++chartReqIdRef.current
+    try {
+      const rows = await fetchAllPages<any>(buildChartQuery)
+      if (reqId === chartReqIdRef.current) setChartDaily(rows)
+    } catch (err) {
+      console.error('Gagal memuat grafik penjualan:', err)
     }
-
-    const { data } = await q
-
-    setChartDaily(data ?? [])
-    setIsChartLoading(false)
+    if (reqId === chartReqIdRef.current) setIsChartLoading(false)
   }, [selectedOutlet, chartRange, customStartDate, customEndDate])
 
   useEffect(() => {
@@ -186,8 +204,21 @@ export default function AdminOverviewView({
     fetchChartOrders()
   }, [fetchChartOrders])
 
+  // Realtime: dulu setiap event `orders` (2–3 per order) langsung mengunduh
+  // ulang ±60.000 order. Kini dibatasi maks. sekali per 20 detik dan ditunda
+  // saat tab tersembunyi — angka tetap segar, beban turun drastis.
+  const fetchOrdersRef = useRef(fetchOrders)
+  fetchOrdersRef.current = fetchOrders
+  const fetchChartOrdersRef = useRef(fetchChartOrders)
+  fetchChartOrdersRef.current = fetchChartOrders
+
   useEffect(() => {
     const supabase = createClient()
+    const refresher = createThrottledRefresher(() => {
+      fetchOrdersRef.current()
+      fetchChartOrdersRef.current()
+    }, REALTIME_REFRESH_MIN_GAP_MS)
+
     const channel = supabase.channel('realtime_orders_overview')
       .on(
         'postgres_changes',
@@ -196,16 +227,16 @@ export default function AdminOverviewView({
           if (payload.eventType === 'UPDATE' && payload.new.status === 'cancelled' && payload.new.void_reason) {
             toast.error(`Pesanan dibatalkan: ${payload.new.void_reason}`)
           }
-          fetchOrders()
-          fetchChartOrders()
+          refresher.trigger()
         }
       )
       .subscribe()
 
     return () => {
+      refresher.dispose()
       supabase.removeChannel(channel)
     }
-  }, [fetchOrders, fetchChartOrders])
+  }, [])
 
   const analytics = useMemo(
     () => computeAnalytics(orders, outlets, dateRange),

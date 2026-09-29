@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
@@ -44,6 +44,7 @@ import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
+import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { getSourceLabel } from '@/lib/channels'
 
@@ -81,7 +82,6 @@ function getChannelGroup(source: string): 'outlet' | 'food_apps' | 'tiktok_go' |
 export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const queryClient = useQueryClient()
   const supabase = createClient()
-  const debounceRef = useRef<any>(null)
 
   const { data: rawOutlets = [] } = useOutlets()
   const { investments: mitraInvestments, loading: mitraLoading } = useMitraInvestments()
@@ -185,9 +185,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   }
 
   useEffect(() => {
-    const invalidate = () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => {
+    // Debounce 600 ms lama hampir selalu "menyala" di jam ramai (jeda 600 ms
+    // antar-order itu sering), dan tiap nyala mengunduh ulang HPP ±30.000
+    // order + 90.000 item. Kini maks. sekali per 30 detik (event pertama tetap
+    // langsung), dan ditunda selama tab tersembunyi.
+    const refresher = createThrottledRefresher(() => {
         clearPeriodCache()
         queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
         queryClient.invalidateQueries({ queryKey: ['expenses'] })
@@ -199,8 +201,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.invalidateQueries({ queryKey: ['prorata-crew-bonus'] })
         queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
         queryClient.invalidateQueries({ queryKey: ['outlets'] })
-      }, 600)
-    }
+    }, 30_000)
+    const invalidate = () => refresher.trigger()
 
     const channel = supabase
       .channel('profit-realtime-sub')
@@ -216,7 +218,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       .subscribe()
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+      refresher.dispose()
       supabase.removeChannel(channel)
     }
   }, [supabase, queryClient])

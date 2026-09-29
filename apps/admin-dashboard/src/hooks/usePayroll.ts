@@ -95,6 +95,7 @@ export function usePayroll(month: number, year: number) {
         })) as PayrollRecord[]
     },
     enabled: !!month && !!year,
-    refetchInterval: 10_000, // 10s fallback polling
+    // Cadangan saja — realtime 5 tabel payroll sudah meng-invalidate query ini.
+    refetchInterval: 60_000,
   })
 }

@@ -10,6 +10,7 @@ import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, Cl
 import dynamic from 'next/dynamic'
 import OpnameDetailModal from './OpnameDetailModal'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 
 const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), { 
   ssr: false, 
@@ -255,8 +256,26 @@ export default function MonitoringPage() {
       // error, sehingga papan monitoring menampilkan kehadiran & aktivitas POS
       // yang jauh lebih sedikit dari kenyataan. `.order('id')` sebagai pemecah
       // seri agar urutan antar-halaman deterministik.
-      const [outRes, stfRes, mapRes, attRows, catRes, recRes, opnRes, ordersRows] = await Promise.all([
-        supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
+      // Dibungkus jadi Promise asli: builder Supabase itu "thenable" dan
+      // mengeksekusi query ulang setiap kali `.then()` dipanggil — tanpa ini
+      // query outlets akan jalan dua kali (di sini dan di Promise.all).
+      const outletsPromise = (async () => await supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true))()
+      // Dari `orders` hanya dibutuhkan `pos_client` order TERAKHIR per outlet
+      // dalam periode. Dulu seluruh ±31.000 order (30 hari) ditarik lalu
+      // dicari yang terbaru di JS; kini satu baris per outlet — hasil identik.
+      const latestOrdersPromise = outletsPromise.then(({ data }) =>
+        Promise.all((data ?? []).map(o => supabase.from('orders')
+          .select('outlet_id, pos_client, created_at')
+          .eq('outlet_id', o.id)
+          .gte('created_at', start)
+          .lte('created_at', end)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(1)
+          .then(r => (r.data ?? [])[0] ?? null)))
+      )
+      const [outRes, stfRes, mapRes, attRows, catRes, recRes, opnRes, latestOrders] = await Promise.all([
+        outletsPromise,
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader', 'spv', 'regional_manager', 'area_manager']),
         supabase.from('staff_outlets').select('staff_id, outlet_id'),
         fetchAllPages<any>(() => supabase.from('attendance')
@@ -276,21 +295,15 @@ export default function MonitoringPage() {
           .select('id, outlet_id, created_at')
           .gte('created_at', start)
           .lte('created_at', end),
-        fetchAllPages<any>(() => supabase.from('orders')
-          .select('id, outlet_id, pos_client, created_at')
-          .gte('created_at', start)
-          .lte('created_at', end)
-          .order('created_at', { ascending: true })
-          .order('id', { ascending: true }))
+        latestOrdersPromise,
       ])
       const attRes = { data: attRows }
-      const ordersRes = { data: ordersRows }
 
       const validOutlets = (outRes.data || []) as Outlet[]
       
       const reqMap: Record<string, string[]> = {}
       if (catRes.data) {
-        catRes.data.forEach(cat => {
+        catRes.data.forEach((cat: any) => {
           const outId = cat.outlet_id
           if (!reqMap[outId]) reqMap[outId] = []
           const reqItems = (cat.checklist_items || []).filter((i: any) => i.is_required).map((i: any) => i.id)
@@ -300,37 +313,37 @@ export default function MonitoringPage() {
 
       const ticksMap: Record<string, string[]> = {}
       if (recRes.data && recRes.data.length > 0) {
-        const recIds = recRes.data.map(r => r.id)
+        const recIds: string[] = recRes.data.map((r: any) => r.id)
         // Satu record checklist bisa punya ratusan tik; untuk rentang 30 hari
         // × 19 outlet totalnya jauh melewati 1.000 baris.
-        const tickRes = await fetchAllPages<any>(() => supabase
+        // `.in()` dipecah per 150 id: 570 UUID dalam satu URL (±21 KB) berisiko
+        // ditolak server karena URL terlalu panjang.
+        const ID_CHUNK = 150
+        const chunks: string[][] = []
+        for (let i = 0; i < recIds.length; i += ID_CHUNK) chunks.push(recIds.slice(i, i + ID_CHUNK))
+        const tickRes = (await Promise.all(chunks.map(ids => fetchAllPages<any>(() => supabase
           .from('daily_checklist_ticks')
           .select('item_id, record_id')
-          .in('record_id', recIds)
+          .in('record_id', ids)
           .order('record_id', { ascending: true })
-          .order('item_id', { ascending: true }))
+          .order('item_id', { ascending: true }))))).flat()
 
-
-        if (tickRes) {
-          recRes.data.forEach(rec => {
-            if (!ticksMap[rec.outlet_id]) ticksMap[rec.outlet_id] = []
-            const ticksForRec = tickRes.filter(t => t.record_id === rec.id).map(t => t.item_id)
-            ticksMap[rec.outlet_id].push(...ticksForRec)
-          })
+        // Kelompokkan sekali (dulu filter per record = O(record × tik)).
+        const ticksByRecord = new Map<string, string[]>()
+        for (const t of tickRes) {
+          const arr = ticksByRecord.get(t.record_id)
+          if (arr) arr.push(t.item_id)
+          else ticksByRecord.set(t.record_id, [t.item_id])
         }
+        recRes.data.forEach((rec: any) => {
+          if (!ticksMap[rec.outlet_id]) ticksMap[rec.outlet_id] = []
+          ticksMap[rec.outlet_id].push(...(ticksByRecord.get(rec.id) ?? []))
+        })
       }
 
-      const ordersData = (ordersRes.data || []) as any[]
-      const latestPerOutlet: Record<string, {pos_client: string, time: number}> = {}
-      ordersData.forEach(o => {
-          const time = new Date(o.created_at).getTime()
-          if (!latestPerOutlet[o.outlet_id] || time > latestPerOutlet[o.outlet_id].time) {
-              latestPerOutlet[o.outlet_id] = { pos_client: o.pos_client || 'web', time }
-          }
-      })
       const newClientTypes: Record<string, string> = {}
-      for (const outletId in latestPerOutlet) {
-          newClientTypes[outletId] = latestPerOutlet[outletId].pos_client
+      for (const o of latestOrders) {
+        if (o) newClientTypes[o.outlet_id] = o.pos_client || 'web'
       }
 
       setOutlets(validOutlets)
@@ -349,18 +362,28 @@ export default function MonitoringPage() {
     }
   }
 
+  // Versi fetchData terbaru untuk dipakai handler realtime tanpa re-subscribe.
+  const fetchDataRef = useRef(fetchData)
+  fetchDataRef.current = fetchData
+
   useEffect(() => {
     fetchData()
 
+    // Setiap event (absen, tik checklist, order dari 19 outlet) dulu langsung
+    // menjalankan fetchData penuh. Kini digabung: maks. sekali per 10 detik,
+    // ditunda saat tab tersembunyi.
+    const refresher = createThrottledRefresher(() => fetchDataRef.current(), 10_000)
+    const onChange = () => refresher.trigger()
+
     const channelId = `monitoring_${Math.random().toString(36).substring(7)}`
     const sub = supabase.channel(channelId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_outlets' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlet_staff' }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_ticks' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_checklist_records' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_outlets' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlet_staff' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, onChange)
       .subscribe()
 
     const presenceRoom = supabase.channel('room:printer_status')
@@ -398,6 +421,7 @@ export default function MonitoringPage() {
       .subscribe()
 
     return () => {
+      refresher.dispose()
       supabase.removeChannel(sub)
       supabase.removeChannel(presenceRoom)
       supabase.removeChannel(locationRoom)

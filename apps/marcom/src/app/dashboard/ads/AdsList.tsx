@@ -50,6 +50,28 @@ interface AdsListProps {
 
 const AD_STATUSES = ['OFF', 'ON', 'PAUSED']
 
+const MONTH_NAMES = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+]
+
+export function getLocalDateString(d: Date): string {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function AdsList({ initialAds, outlets, userRole }: AdsListProps) {
   const [activeTab, setActiveTab] = useState<'ALL' | 'INTERNAL' | 'MITRA'>('ALL')
   const [search, setSearch] = useState('')
@@ -57,29 +79,148 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [outletFilter, setOutletFilter] = useState('')
 
+  // Date filters
+  const [datePreset, setDatePreset] = useState<
+    'ALL' | 'TODAY' | 'LAST_7_DAYS' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'SPECIFIC_MONTH' | 'CUSTOM'
+  >('ALL')
+  const [customDateFrom, setCustomDateFrom] = useState('')
+  const [customDateTo, setCustomDateTo] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear())
+
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingAd, setEditingAd] = useState<SerializedAd | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SerializedAd | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [isPending, startTransition] = useTransition()
 
-  // Filter ads
-  const filtered = useMemo(() => {
+  // Label for active date filter
+  const dateFilterLabel = useMemo(() => {
+    switch (datePreset) {
+      case 'TODAY':
+        return 'Hari Ini'
+      case 'LAST_7_DAYS':
+        return '7 Hari Terakhir'
+      case 'THIS_WEEK':
+        return 'Minggu Ini'
+      case 'THIS_MONTH': {
+        const d = new Date()
+        return `Bulan Ini (${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()})`
+      }
+      case 'LAST_MONTH': {
+        const d = new Date()
+        d.setMonth(d.getMonth() - 1)
+        return `Bulan Lalu (${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()})`
+      }
+      case 'SPECIFIC_MONTH':
+        return `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`
+      case 'CUSTOM':
+        if (customDateFrom && customDateTo) return `${customDateFrom} s/d ${customDateTo}`
+        if (customDateFrom) return `Mulai ${customDateFrom}`
+        if (customDateTo) return `Sampai ${customDateTo}`
+        return 'Rentang Kustom'
+      default:
+        return 'Semua Waktu'
+    }
+  }, [datePreset, customDateFrom, customDateTo, selectedMonth, selectedYear])
+
+  // Base filtered list before tab/category filter (used for accurate tab badges)
+  const baseFiltered = useMemo(() => {
+    const today = new Date()
+    const todayStr = getLocalDateString(today)
+
+    // Last 7 days
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(today.getDate() - 6)
+    const sevenDaysAgoStr = getLocalDateString(sevenDaysAgo)
+
+    // This Week (Monday to Sunday)
+    const currentDay = today.getDay()
+    const diffToMonday = (currentDay + 6) % 7
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - diffToMonday)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    const mondayStr = getLocalDateString(monday)
+    const sundayStr = getLocalDateString(sunday)
+
+    // This Month
+    const firstDayThisMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+    const lastDayThisMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    const lastDayThisMonthStr = getLocalDateString(lastDayThisMonth)
+
+    // Last Month
+    const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+    const firstDayLastMonthStr = getLocalDateString(firstDayLastMonth)
+    const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
+    const lastDayLastMonthStr = getLocalDateString(lastDayLastMonth)
+
+    // Specific Month
+    const firstDaySpecificMonthStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
+    const lastDaySpecificMonth = new Date(selectedYear, selectedMonth, 0)
+    const lastDaySpecificMonthStr = getLocalDateString(lastDaySpecificMonth)
+
     return initialAds.filter((item) => {
       const q = search.toLowerCase().trim()
       const account = (item.accountName || item.outlet?.name || '').toLowerCase()
       const matchesSearch = !q || account.includes(q) || (item.adUrl && item.adUrl.toLowerCase().includes(q))
 
-      const matchesTab = activeTab === 'ALL' || item.category === activeTab
       const matchesPlatform = platformFilter === 'ALL' || item.platform === platformFilter
       const matchesStatus = statusFilter === 'ALL' || item.status === statusFilter
       const matchesOutlet = !outletFilter || item.outletId === outletFilter
 
-      return matchesSearch && matchesTab && matchesPlatform && matchesStatus && matchesOutlet
-    })
-  }, [initialAds, search, activeTab, platformFilter, statusFilter, outletFilter])
+      // Date filtering
+      let matchesDate = true
+      const sched = item.scheduleDate
+      if (sched) {
+        if (datePreset === 'TODAY') {
+          matchesDate = sched === todayStr
+        } else if (datePreset === 'LAST_7_DAYS') {
+          matchesDate = sched >= sevenDaysAgoStr && sched <= todayStr
+        } else if (datePreset === 'THIS_WEEK') {
+          matchesDate = sched >= mondayStr && sched <= sundayStr
+        } else if (datePreset === 'THIS_MONTH') {
+          matchesDate = sched >= firstDayThisMonthStr && sched <= lastDayThisMonthStr
+        } else if (datePreset === 'LAST_MONTH') {
+          matchesDate = sched >= firstDayLastMonthStr && sched <= lastDayLastMonthStr
+        } else if (datePreset === 'SPECIFIC_MONTH') {
+          matchesDate = sched >= firstDaySpecificMonthStr && sched <= lastDaySpecificMonthStr
+        } else if (datePreset === 'CUSTOM') {
+          if (customDateFrom && customDateTo) {
+            const [from, to] = customDateFrom <= customDateTo
+              ? [customDateFrom, customDateTo]
+              : [customDateTo, customDateFrom]
+            matchesDate = sched >= from && sched <= to
+          } else if (customDateFrom) {
+            matchesDate = sched >= customDateFrom
+          } else if (customDateTo) {
+            matchesDate = sched <= customDateTo
+          }
+        }
+      }
 
-  // Summary statistics
+      return matchesSearch && matchesPlatform && matchesStatus && matchesOutlet && matchesDate
+    })
+  }, [
+    initialAds,
+    search,
+    platformFilter,
+    statusFilter,
+    outletFilter,
+    datePreset,
+    customDateFrom,
+    customDateTo,
+    selectedMonth,
+    selectedYear,
+  ])
+
+  // Final filtered list including activeTab
+  const filtered = useMemo(() => {
+    if (activeTab === 'ALL') return baseFiltered
+    return baseFiltered.filter((item) => item.category === activeTab)
+  }, [baseFiltered, activeTab])
+
+  // Summary statistics (dynamically computed from filtered)
   const totalBudget = filtered.reduce((acc, curr) => acc + (curr.budget || 0), 0)
   const totalSpent = filtered.reduce((acc, curr) => acc + (curr.spent || 0), 0)
   const remainingBudget = totalBudget - totalSpent
@@ -89,6 +230,27 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
   )
   const avgCpv = totalViews > 0 && totalSpent > 0 ? totalSpent / totalViews : 0
   const activeAdsCount = filtered.filter((i) => i.status === 'ON').length
+
+  const isAnyFilterActive =
+    Boolean(search) ||
+    platformFilter !== 'ALL' ||
+    statusFilter !== 'ALL' ||
+    Boolean(outletFilter) ||
+    datePreset !== 'ALL' ||
+    Boolean(customDateFrom) ||
+    Boolean(customDateTo)
+
+  const handleResetFilters = () => {
+    setSearch('')
+    setPlatformFilter('ALL')
+    setStatusFilter('ALL')
+    setOutletFilter('')
+    setDatePreset('ALL')
+    setCustomDateFrom('')
+    setCustomDateTo('')
+    setSelectedMonth(new Date().getMonth() + 1)
+    setSelectedYear(new Date().getFullYear())
+  }
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -181,183 +343,393 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
         </button>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="flex items-center gap-1.5 p-1.5 bg-[#EFE8DE]/60 rounded-2xl w-fit border border-[#EFE8DE]">
-        <button
-          onClick={() => setActiveTab('ALL')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            activeTab === 'ALL'
-              ? 'bg-white text-[#1A1715] shadow-xs'
-              : 'text-stone-600 hover:text-[#1A1715]'
-          }`}
-        >
-          <span>Semua Akun & Cabang</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-mono">
-            {initialAds.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('INTERNAL')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            activeTab === 'INTERNAL'
-              ? 'bg-amber-700 text-white shadow-xs'
-              : 'text-stone-600 hover:text-[#1A1715]'
-          }`}
-        >
-          <Building className="w-4 h-4" />
-          <span>Ads Internal / Official</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-mono">
-            {initialAds.filter((i) => i.category === 'INTERNAL').length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('MITRA')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            activeTab === 'MITRA'
-              ? 'bg-purple-700 text-white shadow-xs'
-              : 'text-stone-600 hover:text-[#1A1715]'
-          }`}
-        >
-          <Store className="w-4 h-4" />
-          <span>Ads Mitra</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-mono">
-            {initialAds.filter((i) => i.category === 'MITRA').length}
-          </span>
-        </button>
-      </div>
-
-      {/* KPI Bento Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* Total Spent */}
-        <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center shrink-0">
-            <DollarSign className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
-              Total Realisasi Spent
-            </div>
-            <div className="text-xl font-extrabold font-mono text-[#D9480F]">
-              {formatRupiah(totalSpent)}
-            </div>
-            <div className="text-[11px] text-stone-500 mt-0.5">
-              Target Budget: {formatRupiah(totalBudget)}
-            </div>
-          </div>
-        </div>
-
-        {/* Total Views */}
-        <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-            <Eye className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
-              Total Views Didapat
-            </div>
-            <div className="text-xl font-extrabold font-mono text-[#1A1715]">
-              {totalViews.toLocaleString('id-ID')}{' '}
-              <span className="text-xs text-stone-400 font-sans">views</span>
-            </div>
-            <div className="text-[11px] text-stone-500 mt-0.5">
-              {activeAdsCount} iklan aktif
-            </div>
-          </div>
-        </div>
-
-        {/* Cost Per View (CPV) */}
-        <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-            <Zap className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-xs text-stone-400 font-bold uppercase tracking-wider">
-              Efisiensi Rata-rata CPV
-            </div>
-            <div className="text-xl font-extrabold font-mono text-[#1A1715]">
-              {avgCpv > 0 ? `${formatRupiah(avgCpv)} / view` : 'Belum ada'}
-            </div>
-            <div className="text-xs text-stone-500 mt-0.5">
-              {avgCpv > 0 && avgCpv < 50 ? 'Efisiensi Sangat Baik (< Rp 50)' : 'Biaya per view video iklan'}
-            </div>
-          </div>
-        </div>
-
-        {/* Remaining Budget */}
-        <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-4">
-          <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-              remainingBudget >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+      {/* Tab Switcher & Quick Date Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-1.5 p-1.5 bg-[#EFE8DE]/60 rounded-2xl w-fit border border-[#EFE8DE] overflow-x-auto max-w-full">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ALL')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              activeTab === 'ALL'
+                ? 'bg-white text-[#1A1715] shadow-xs'
+                : 'text-stone-600 hover:text-[#1A1715]'
             }`}
           >
-            <TrendingUp className="w-6 h-6" />
+            <span>Semua Akun & Cabang</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-mono">
+              {baseFiltered.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('INTERNAL')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              activeTab === 'INTERNAL'
+                ? 'bg-amber-700 text-white shadow-xs'
+                : 'text-stone-600 hover:text-[#1A1715]'
+            }`}
+          >
+            <Building className="w-4 h-4" />
+            <span>Ads Internal / Official</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-mono">
+              {baseFiltered.filter((i) => i.category === 'INTERNAL').length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('MITRA')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              activeTab === 'MITRA'
+                ? 'bg-purple-700 text-white shadow-xs'
+                : 'text-stone-600 hover:text-[#1A1715]'
+            }`}
+          >
+            <Store className="w-4 h-4" />
+            <span>Ads Mitra</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-mono">
+              {baseFiltered.filter((i) => i.category === 'MITRA').length}
+            </span>
+          </button>
+        </div>
+
+        {/* Quick Date Range Dropdown on top */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-2xl border border-[#EFE8DE] shadow-xs">
+            <Calendar className="w-4 h-4 text-[#D9480F] shrink-0" />
+            <span className="text-xs font-bold text-stone-500 hidden sm:inline">Periode:</span>
+            <select
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value as any)}
+              className="bg-transparent text-xs font-bold text-stone-800 focus:outline-none cursor-pointer"
+            >
+              <option value="ALL">Semua Waktu</option>
+              <option value="TODAY">Hari Ini</option>
+              <option value="LAST_7_DAYS">7 Hari Terakhir</option>
+              <option value="THIS_WEEK">Minggu Ini</option>
+              <option value="THIS_MONTH">Bulan Ini</option>
+              <option value="LAST_MONTH">Bulan Lalu</option>
+              <option value="SPECIFIC_MONTH">Pilih Bulan...</option>
+              <option value="CUSTOM">Kustom Rentang...</option>
+            </select>
           </div>
-          <div>
-            <div className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
-              Sisa Budget Alokasi
+        </div>
+      </div>
+
+      {/* KPI Bento Cards with Section Header */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+              Ringkasan Metrik
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-[#EFE8DE] text-xs font-bold text-stone-700 shadow-2xs">
+              <Calendar className="w-3.5 h-3.5 text-[#D9480F]" />
+              <span>
+                Periode: <strong className="text-[#D9480F]">{dateFilterLabel}</strong>
+              </span>
+            </span>
+            {activeTab !== 'ALL' && (
+              <span className="text-xs font-semibold text-stone-400">
+                • {activeTab === 'INTERNAL' ? 'Ads Internal' : 'Ads Mitra'}
+              </span>
+            )}
+          </div>
+
+          {datePreset !== 'ALL' && (
+            <button
+              type="button"
+              onClick={() => {
+                setDatePreset('ALL')
+                setCustomDateFrom('')
+                setCustomDateTo('')
+              }}
+              className="text-xs font-bold text-[#D9480F] hover:underline cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Tampilkan Semua Waktu</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+          {/* Total Spent */}
+          <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-4 transition-all duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center shrink-0">
+              <DollarSign className="w-6 h-6" />
             </div>
+            <div>
+              <div className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+                Total Realisasi Spent
+              </div>
+              <div className="text-xl font-extrabold font-mono text-[#D9480F]">
+                {formatRupiah(totalSpent)}
+              </div>
+              <div className="text-[11px] text-stone-500 mt-0.5">
+                {totalBudget > 0 ? `Target Budget: ${formatRupiah(totalBudget)}` : 'Target: Belum diset'}
+              </div>
+            </div>
+          </div>
+
+          {/* Total Views */}
+          <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-4 transition-all duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+              <Eye className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+                Total Views Didapat
+              </div>
+              <div className="text-xl font-extrabold font-mono text-[#1A1715]">
+                {totalViews.toLocaleString('id-ID')}{' '}
+                <span className="text-xs text-stone-400 font-sans">views</span>
+              </div>
+              <div className="text-[11px] text-stone-500 mt-0.5">
+                {activeAdsCount} iklan aktif
+              </div>
+            </div>
+          </div>
+
+          {/* Cost Per View (CPV) */}
+          <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-4 transition-all duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+              <Zap className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-xs text-stone-400 font-bold uppercase tracking-wider">
+                Efisiensi Rata-rata CPV
+              </div>
+              <div className="text-xl font-extrabold font-mono text-[#1A1715]">
+                {avgCpv > 0 ? `${formatRupiah(avgCpv)} / view` : 'Belum ada'}
+              </div>
+              <div className="text-xs text-stone-500 mt-0.5">
+                {avgCpv > 0 && avgCpv < 50 ? 'Efisiensi Sangat Baik (< Rp 50)' : 'Biaya per view video iklan'}
+              </div>
+            </div>
+          </div>
+
+          {/* Remaining Budget */}
+          <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-4 transition-all duration-150">
             <div
-              className={`text-xl font-extrabold font-mono ${
-                remainingBudget >= 0 ? 'text-emerald-700' : 'text-rose-600'
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                remainingBudget >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
               }`}
             >
-              {formatRupiah(remainingBudget)}
+              <TrendingUp className="w-6 h-6" />
             </div>
-            <div className="text-[11px] text-stone-500 mt-0.5">
-              {remainingBudget >= 0 ? 'Tersedia untuk boosting' : 'Melebihi budget'}
+            <div>
+              <div className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+                Sisa Budget Alokasi
+              </div>
+              <div
+                className={`text-xl font-extrabold font-mono ${
+                  remainingBudget >= 0 ? 'text-emerald-700' : 'text-rose-600'
+                }`}
+              >
+                {formatRupiah(remainingBudget)}
+              </div>
+              <div className="text-[11px] text-stone-500 mt-0.5">
+                {totalBudget > 0
+                  ? remainingBudget >= 0
+                    ? 'Tersedia untuk boosting'
+                    : 'Melebihi budget'
+                  : 'Belum ada target budget'}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-[#EFE8DE] shadow-2xs">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1">
-          <div className="relative min-w-[200px] flex-1 max-w-xs">
-            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari akun, outlet, URL..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none"
-            />
+      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-2xs space-y-3.5">
+        {/* Quick Date Presets Bar */}
+        <div className="flex items-center justify-between gap-3 flex-wrap pb-1 border-b border-[#EFE8DE]/70">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider mr-1 flex items-center gap-1 shrink-0">
+              <Calendar className="w-3.5 h-3.5 text-[#D9480F]" />
+              <span>Filter Waktu:</span>
+            </span>
+            {[
+              { id: 'ALL', label: 'Semua Waktu' },
+              { id: 'TODAY', label: 'Hari Ini' },
+              { id: 'LAST_7_DAYS', label: '7 Hari Terakhir' },
+              { id: 'THIS_WEEK', label: 'Minggu Ini' },
+              { id: 'THIS_MONTH', label: 'Bulan Ini' },
+              { id: 'LAST_MONTH', label: 'Bulan Lalu' },
+              { id: 'SPECIFIC_MONTH', label: 'Pilih Bulan...' },
+              { id: 'CUSTOM', label: 'Kustom Rentang...' },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setDatePreset(p.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  datePreset === p.id
+                    ? 'bg-[#1A1715] text-white shadow-xs'
+                    : 'bg-[#FAF8F5] text-stone-600 hover:text-[#1A1715] hover:bg-stone-200/60 border border-[#EFE8DE]'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
 
-          <select
-            value={platformFilter}
-            onChange={(e) => setPlatformFilter(e.target.value)}
-            className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none font-medium text-stone-700"
-          >
-            <option value="ALL">Semua Platform</option>
-            <option value="TIKTOK">TikTok Ads</option>
-            <option value="INSTAGRAM">Instagram Ads</option>
-          </select>
+          {/* Month/Year selector when SPECIFIC_MONTH */}
+          {datePreset === 'SPECIFIC_MONTH' && (
+            <div className="flex items-center gap-2 flex-wrap bg-[#FAF8F5] p-1.5 px-2.5 rounded-xl border border-[#EFE8DE] animate-in fade-in duration-150">
+              <span className="text-xs font-bold text-stone-600">Bulan:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+              >
+                {MONTH_NAMES.map((name, idx) => (
+                  <option key={idx + 1} value={idx + 1}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+              >
+                {[2024, 2025, 2026, 2027].map((yr) => (
+                  <option key={yr} value={yr}>
+                    {yr}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none font-medium text-stone-700"
-          >
-            <option value="ALL">Semua Status</option>
-            <option value="ON">Iklan Aktif (ON)</option>
-            <option value="OFF">Iklan Mati (OFF)</option>
-          </select>
+          {/* Custom Date Range Inputs when CUSTOM */}
+          {datePreset === 'CUSTOM' && (
+            <div className="flex items-center gap-2 flex-wrap bg-[#FAF8F5] p-1.5 px-2.5 rounded-xl border border-[#EFE8DE] animate-in fade-in duration-150">
+              <span className="text-xs font-bold text-stone-600">Dari:</span>
+              <input
+                type="date"
+                value={customDateFrom}
+                onChange={(e) => setCustomDateFrom(e.target.value)}
+                className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+              />
+              <span className="text-xs text-stone-400 font-bold">s/d</span>
+              <input
+                type="date"
+                value={customDateTo}
+                onChange={(e) => setCustomDateTo(e.target.value)}
+                className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+              />
+              {(customDateFrom || customDateTo) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomDateFrom('')
+                    setCustomDateTo('')
+                  }}
+                  className="text-stone-400 hover:text-stone-700 p-0.5"
+                  title="Hapus rentang tanggal"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
-          <select
-            value={outletFilter}
-            onChange={(e) => setOutletFilter(e.target.value)}
-            className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none font-medium text-stone-700"
-          >
-            <option value="">Semua Outlet</option>
-            {outlets.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
+        {/* Search, Platform, Status, Outlet */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 flex-1">
+            <div className="relative min-w-[200px] flex-1 max-w-xs">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari akun, outlet, URL..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#D9480F]"
+              />
+            </div>
+
+            <select
+              value={platformFilter}
+              onChange={(e) => setPlatformFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none font-medium text-stone-700"
+            >
+              <option value="ALL">Semua Platform</option>
+              <option value="TIKTOK">TikTok Ads</option>
+              <option value="INSTAGRAM">Instagram Ads</option>
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none font-medium text-stone-700"
+            >
+              <option value="ALL">Semua Status</option>
+              <option value="ON">Iklan Aktif (ON)</option>
+              <option value="OFF">Iklan Mati (OFF)</option>
+            </select>
+
+            <select
+              value={outletFilter}
+              onChange={(e) => setOutletFilter(e.target.value)}
+              className="px-3 py-2 text-xs bg-[#FAF8F5] border border-[#EFE8DE] rounded-xl focus:outline-none font-medium text-stone-700"
+            >
+              <option value="">Semua Outlet</option>
+              {outlets.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Filter Summary & Reset Bar */}
+        <div className="flex items-center justify-between text-xs text-stone-500 font-medium pt-2 border-t border-[#EFE8DE]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span>
+              Ditemukan <span className="font-bold text-[#1A1715]">{filtered.length}</span> data iklan
+            </span>
+            {datePreset !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#FFF4ED] text-[#D9480F] text-[11px] font-bold border border-[#D9480F]/20">
+                <Calendar className="w-3 h-3" />
+                <span>Periode: {dateFilterLabel}</span>
+              </span>
+            )}
+            {activeTab !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 text-[11px] font-bold">
+                Kategori: {activeTab === 'INTERNAL' ? 'Ads Internal' : 'Ads Mitra'}
+              </span>
+            )}
+            {platformFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 text-[11px] font-bold">
+                Platform: {platformFilter === 'TIKTOK' ? 'TikTok' : 'Instagram'}
+              </span>
+            )}
+            {statusFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 text-[11px] font-bold">
+                Status: {statusFilter === 'ON' ? 'ON' : 'OFF'}
+              </span>
+            )}
+            {outletFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 text-[11px] font-bold">
+                Outlet: {outlets.find((o) => o.id === outletFilter)?.name || outletFilter}
+              </span>
+            )}
+          </div>
+          {isAnyFilterActive && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="text-xs font-semibold text-[#D9480F] hover:underline cursor-pointer"
+            >
+              Reset Semua Filter
+            </button>
+          )}
         </div>
       </div>
 
@@ -384,7 +756,20 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-stone-400">
-                    Tidak ada data iklan yang sesuai kriteria filter.
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <p className="font-medium text-stone-600">
+                        Tidak ada data iklan yang sesuai kriteria filter atau rentang waktu yang dipilih.
+                      </p>
+                      {isAnyFilterActive && (
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          className="px-3.5 py-1.5 bg-[#FAF8F5] hover:bg-stone-100 text-[#D9480F] font-bold text-xs rounded-xl border border-[#EFE8DE] transition-colors cursor-pointer"
+                        >
+                          Reset Filter
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (

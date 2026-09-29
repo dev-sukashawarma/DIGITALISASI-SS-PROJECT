@@ -12,6 +12,7 @@ import {
   Sparkles,
   TrendingUp,
   DollarSign,
+  ClipboardCheck,
 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useStaff } from '@/hooks/useStaff'
@@ -261,6 +262,21 @@ export default function HrDashboardOverview() {
                 </h4>
                 <p className="text-xs text-suka-gray-500 mt-0.5">
                   Skor ketepatan waktu dan insentif crew.
+                </p>
+              </Link>
+
+              <Link
+                href="/inventaris"
+                className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-orange-100 text-suka-brown flex items-center justify-center mb-2.5 font-bold group-hover:scale-105 transition-transform">
+                  <ClipboardCheck size={18} />
+                </div>
+                <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
+                  Laporan Inventaris Outlet
+                </h4>
+                <p className="text-xs text-suka-gray-500 mt-0.5">
+                  Monitoring checklist aset & kondisi tiap outlet.
                 </p>
               </Link>
             </div>

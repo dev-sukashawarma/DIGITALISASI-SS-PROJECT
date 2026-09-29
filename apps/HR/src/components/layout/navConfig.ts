@@ -13,6 +13,7 @@ import {
   Sparkles,
   GraduationCap,
   FileCheck,
+  ClipboardCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -79,6 +80,13 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/discipline', label: 'Catatan SP & Disiplin', shortLabel: 'Disiplin', icon: AlertTriangle },
       { href: '/performance', label: 'Evaluasi KPI & Bonus', shortLabel: 'KPI & Bonus', icon: Award },
+    ],
+  },
+  {
+    title: 'Operasional Outlet',
+    icon: ClipboardCheck,
+    items: [
+      { href: '/inventaris', label: 'Laporan Inventaris', shortLabel: 'Inventaris', icon: ClipboardCheck },
     ],
   },
 ]

@@ -2,19 +2,28 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Download, CheckCircle2, Clock, ShieldAlert, XCircle } from 'lucide-react'
+import { FileSpreadsheet, CheckCircle2, Clock, ShieldAlert, XCircle } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { ATTENDANCE_PAGE_SIZE, useAttendance } from '@/hooks/useAttendance'
+import { ATTENDANCE_PAGE_SIZE, EMPTY_SUMMARY, useAttendance } from '@/hooks/useAttendance'
+import { exportAbsensiExcel } from '@/lib/exportAbsensiExcel'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
-import { formatJamWib } from '@/lib/format'
 import { Pagination } from '@/components/ui/Pagination'
 import { todayWib } from '@/lib/dateIso'
 import { useOutlets } from '@/hooks/useOutlets'
 import { AttendanceFilters } from '@/components/modules/AttendanceFilters'
 import { AttendanceTable } from '@/components/modules/AttendanceTable'
-import { exportCsv } from '@/lib/exportCsv'
 import type { AttendanceFilterValues } from '@/lib/types'
+
+const STATUS_LABEL: Record<string, string> = {
+  all: 'Semua Status',
+  hadir: 'Hadir Tepat Waktu',
+  terlambat: 'Terlambat',
+  izin: 'Izin',
+  sakit: 'Sakit',
+  cuti: 'Cuti',
+  alfa: 'Alfa',
+}
 
 function currentMonthRange(): { from: string; to: string } {
   // Bulan berjalan dalam WIB (bukan zona waktu browser)
@@ -41,7 +50,7 @@ export default function AttendancePage() {
 
   const rows = data?.rows ?? []
   const total = data?.total ?? 0
-  const summary = data?.summary ?? { hadir: 0, terlambat: 0, alfa: 0 }
+  const summary = data?.summary ?? EMPTY_SUMMARY
   const totalPages = Math.max(1, Math.ceil(total / ATTENDANCE_PAGE_SIZE))
 
   // Filter/pencarian berubah → kembali ke halaman 1
@@ -59,48 +68,25 @@ export default function AttendancePage() {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
-  const handleExportCsv = async () => {
+  const handleExportExcel = async () => {
     if (total === 0) {
       toast.error('Tidak ada data absensi untuk diexport')
       return
     }
     setExporting(true)
     try {
+      // Semua baris sesuai filter aktif (bukan hanya halaman yang tampil)
       const all = await exportAll()
-      const flat = all.rows.map((r) => ({
-        nama: r.outlet_staff?.name ?? '',
-        role: r.outlet_staff?.role ?? '',
-        outlet: r.outlets?.name ?? '',
-        tanggal: r.date,
-        clock_in: formatJamWib(r.clock_in),
-        clock_out: formatJamWib(r.clock_out),
-        status: r.status,
-        terlambat_menit: r.late_minutes,
-        ada_foto: r.photo_url ? 'Ya' : 'Tidak',
-        gps_lat: r.lat || '',
-        gps_lng: r.lng || '',
-        catatan: r.notes ?? '',
-      }))
-
-      exportCsv(
-        flat,
-        [
-          { key: 'nama', label: 'Nama Staf' },
-          { key: 'role', label: 'Jabatan' },
-          { key: 'outlet', label: 'Outlet' },
-          { key: 'tanggal', label: 'Tanggal' },
-          { key: 'clock_in', label: 'Clock In' },
-          { key: 'clock_out', label: 'Clock Out' },
-          { key: 'status', label: 'Status Kehadiran' },
-          { key: 'terlambat_menit', label: 'Terlambat (Menit)' },
-          { key: 'ada_foto', label: 'Verifikasi Selfie' },
-          { key: 'gps_lat', label: 'Latitude' },
-          { key: 'gps_lng', label: 'Longitude' },
-          { key: 'catatan', label: 'Catatan' },
-        ],
-        `Rekap_Absensi_SukaHR_${filter.dateFrom}_sd_${filter.dateTo}`
-      )
-      toast.success(`${flat.length} catatan absensi berhasil di-export ke CSV`)
+      const outletLabel =
+        filter.outletId === 'all' ? 'Semua Outlet' : outlets.find((o) => o.id === filter.outletId)?.name ?? '-'
+      await exportAbsensiExcel(all.rows, {
+        dateFrom: filter.dateFrom,
+        dateTo: filter.dateTo,
+        outletLabel,
+        statusLabel: STATUS_LABEL[filter.status] ?? 'Semua Status',
+        search: debouncedSearch,
+      })
+      toast.success(`${all.rows.length} catatan absensi berhasil di-export ke Excel`)
     } catch (err) {
       toast.error(`Gagal export: ${err instanceof Error ? err.message : 'kesalahan tak dikenal'}`)
     } finally {
@@ -125,11 +111,11 @@ export default function AttendancePage() {
           <Button
             type="button"
             variant="ghost"
-            onClick={handleExportCsv}
+            onClick={handleExportExcel}
             disabled={exporting}
             className="rounded-xl border border-suka-gray-200 gap-1.5 font-bold"
           >
-            <Download size={15} /> {exporting ? 'Menyiapkan…' : 'Export CSV'}
+            <FileSpreadsheet size={15} /> {exporting ? 'Menyiapkan…' : 'Export Excel'}
           </Button>
         </div>
       </PageHeader>
@@ -161,8 +147,11 @@ export default function AttendancePage() {
             <ShieldAlert size={20} />
           </div>
           <div>
-            <p className="text-2xl font-black text-slate-900">0</p>
-            <p className="text-xs font-bold text-blue-700 uppercase">Izin / Sakit</p>
+            <p className="text-2xl font-black text-slate-900">{summary.izin + summary.sakit + summary.cuti}</p>
+            <p className="text-xs font-bold text-blue-700 uppercase">Izin / Sakit / Cuti</p>
+            <p className="text-[11px] text-blue-700/80 font-semibold">
+              {summary.izin} izin · {summary.sakit} sakit · {summary.cuti} cuti
+            </p>
           </div>
         </div>
 
@@ -172,7 +161,8 @@ export default function AttendancePage() {
           </div>
           <div>
             <p className="text-2xl font-black text-slate-900">{summary.alfa}</p>
-            <p className="text-xs font-bold text-red-700 uppercase">Alfa</p>
+            <p className="text-xs font-bold text-red-700 uppercase">Alfa (Tidak Hadir)</p>
+            <p className="text-[11px] text-red-700/80 font-semibold">Hari kerja tanpa absen &amp; tanpa izin</p>
           </div>
         </div>
       </div>

@@ -16,8 +16,13 @@ const EXPORT_BATCH = 5000
 export interface AttendanceSummary {
   hadir: number
   terlambat: number
+  izin: number
+  sakit: number
+  cuti: number
   alfa: number
 }
+
+export const EMPTY_SUMMARY: AttendanceSummary = { hadir: 0, terlambat: 0, izin: 0, sakit: 0, cuti: 0, alfa: 0 }
 
 export interface AttendancePage {
   rows: AttendanceLog[]
@@ -70,7 +75,7 @@ async function fetchAttendancePage(
   const res = data as RpcResult
   return {
     total: res.total ?? 0,
-    summary: res.ringkasan ?? { hadir: 0, terlambat: 0, alfa: 0 },
+    summary: { ...EMPTY_SUMMARY, ...(res.ringkasan ?? {}) },
     rows: (res.rows ?? []).map(({ selfie_in, selfie_out, ...r }) => ({
       ...r,
       lat: r.lat != null ? Number(r.lat) : null,
@@ -154,7 +159,7 @@ export function useAttendance(filter: AttendanceFilterValues, search: string, pa
    */
   const exportAll = async (): Promise<AttendancePage> => {
     if (!exclusions) throw new Error('Data belum siap')
-    let summary: AttendanceSummary = { hadir: 0, terlambat: 0, alfa: 0 }
+    let summary: AttendanceSummary = EMPTY_SUMMARY
     const all = await fetchAllPages(
       async (limit, offset) => {
         const res = await fetchAttendancePage(supabase, filter, search, exclusions, limit, offset)

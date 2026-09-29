@@ -184,6 +184,8 @@ export interface AttendanceLog {
   clock_in: string | null
   clock_out: string | null
   status: AttendanceStatus
+  /** absen = dari clock-in; cuti = izin/sakit/cuti disetujui; alfa = tidak hadir */
+  sumber?: 'absen' | 'cuti' | 'alfa'
   late_minutes: number
   notes: string | null
   photo_url?: string | null

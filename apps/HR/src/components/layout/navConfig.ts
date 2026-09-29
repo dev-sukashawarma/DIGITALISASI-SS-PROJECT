@@ -7,6 +7,7 @@ import {
   Banknote,
   FileText,
   Calendar,
+  CalendarOff,
   AlertTriangle,
   Award,
   Sparkles,
@@ -51,6 +52,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/attendance', label: 'Absensi & Log Foto', shortLabel: 'Absensi', icon: CalendarClock },
       { href: '/roster', label: 'Shift Roster', shortLabel: 'Roster', icon: Calendar },
+      { href: '/hari-libur', label: 'Hari Libur', shortLabel: 'Libur', icon: CalendarOff },
     ],
   },
   {

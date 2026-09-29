@@ -6,6 +6,15 @@ import type { AttendanceLog } from '@/lib/types'
 import { formatJamWib } from '@/lib/format'
 import { AttendancePhotoModal, type AttendancePhotoInfo } from './AttendancePhotoModal'
 
+// Warna baris sama dengan file Excel: kuning = telat, merah = alfa, biru/ungu = izin/sakit/cuti
+const ROW_TINT: Partial<Record<AttendanceLog['status'], string>> = {
+  terlambat: 'bg-amber-50/40 hover:bg-amber-50/80',
+  alfa: 'bg-red-50/50 hover:bg-red-50',
+  izin: 'bg-blue-50/40 hover:bg-blue-50/80',
+  sakit: 'bg-violet-50/40 hover:bg-violet-50/80',
+  cuti: 'bg-cyan-50/40 hover:bg-cyan-50/80',
+}
+
 export function AttendanceTable({ rows }: { rows: AttendanceLog[] }) {
   const [activePhoto, setActivePhoto] = useState<AttendancePhotoInfo | null>(null)
 
@@ -47,7 +56,7 @@ export function AttendanceTable({ rows }: { rows: AttendanceLog[] }) {
             </thead>
             <tbody className="divide-y divide-suka-gray-100">
               {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
+                <tr key={r.id} className={`transition-colors ${ROW_TINT[r.status] ?? 'hover:bg-amber-50/30'}`}>
                   <td className="px-4 py-3">
                     <div className="font-bold text-suka-ink text-sm">{r.outlet_staff?.name ?? 'Staf'}</div>
                     <div className="text-xs text-suka-brown font-semibold">{r.outlet_staff?.role?.replace('_', ' ')}</div>
@@ -60,7 +69,12 @@ export function AttendanceTable({ rows }: { rows: AttendanceLog[] }) {
                   <td className="px-4 py-3 text-xs font-mono text-gray-600">
                     {formatJamWib(r.clock_out)}
                   </td>
-                  <td className="px-4 py-3">{statusBadge(r.status, r.late_minutes)}</td>
+                  <td className="px-4 py-3">
+                    {statusBadge(r.status, r.late_minutes)}
+                    {r.sumber && r.sumber !== 'absen' && r.notes && (
+                      <div className="mt-1 max-w-[220px] text-[11px] text-suka-gray-500 leading-snug">{r.notes}</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     {r.photo_url ? (
                       <button

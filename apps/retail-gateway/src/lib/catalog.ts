@@ -1,5 +1,6 @@
 import { createServiceClient } from './supabase'
 import { terapkanKetersediaanOutlet, PUSAT_OUTLET_ID, type BarisKiosk } from './menuHabisOutlet'
+import { UUID_RE } from './statusOutletDb'
 
 const UMUR_CACHE_MS = 5 * 60 * 1000
 
@@ -123,6 +124,8 @@ export function bersihkanKatalog(rows: unknown[]): MenuApp[] {
 }
 
 const cache = new Map<string, { pada: number; data: MenuApp[] }>()
+const sedangBerjalan = new Map<string, Promise<MenuApp[]>>()
+const UKURAN_CACHE_MAKS = 500
 
 export function kosongkanCacheKatalog(): void {
   cache.clear()
@@ -146,13 +149,43 @@ export async function ambilKatalog(
   outletId: string,
   paksaSegar = false
 ): Promise<MenuApp[]> {
+  // Id outlet selalu UUID. Disaring sebelum menyentuh DB: `outletId` masuk
+  // mentah ke filter `.or(...)` di bawah, dan id acak tak boleh ikut mengisi
+  // cache. Sebelumnya id non-UUID juga berakhir galat (Postgres menolak cast
+  // uuid), jadi pemanggil tetap menerima galat -- hanya tanpa kueri.
+  if (!UUID_RE.test(outletId)) {
+    throw new Error('Gagal mengambil katalog: outlet_id tidak valid')
+  }
+
   const tersimpan = cache.get(outletId)
   if (!paksaSegar && tersimpan && Date.now() - tersimpan.pada < UMUR_CACHE_MS) {
     return tersimpan.data
   }
 
+  // Dedup permintaan bersamaan: bacaan biasa (bukan paksaSegar) yang datang
+  // saat bacaan outlet yang sama masih berjalan ikut menunggu hasil yang
+  // sama. `paksaSegar` (checkout & POST /orders) SENGAJA tidak ikut dedup --
+  // jalur pembayaran selalu memulai bacaan sendiri.
+  if (!paksaSegar) {
+    const berjalan = sedangBerjalan.get(outletId)
+    if (berjalan) return berjalan
+    const janji = muatKatalog(outletId, tersimpan).finally(() => {
+      if (sedangBerjalan.get(outletId) === janji) sedangBerjalan.delete(outletId)
+    })
+    sedangBerjalan.set(outletId, janji)
+    return janji
+  }
+  return muatKatalog(outletId, tersimpan)
+}
+
+async function muatKatalog(
+  outletId: string,
+  tersimpan: { pada: number; data: MenuApp[] } | undefined,
+): Promise<MenuApp[]> {
   const db = createServiceClient()
-  const { data, error } = await db
+  // Menu & daftar habis POS dibaca paralel (sebelumnya berurutan). Galat
+  // tetap diperiksa dengan urutan dan fallback yang sama seperti dulu.
+  const [menuRes, kioskRes] = await Promise.all([db
     .from('menu_items')
     .select(
       'id, name, description, deskripsi_app, price, channel_prices, image_url, foto_app, is_available, available_outlets, category_id, sort_order, categories(name, sort_order)'
@@ -174,7 +207,18 @@ export async function ambilKatalog(
     // Keduanya pernah terjadi. `.or(...)` di bawah adalah bentuk yang benar.
     .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
     .eq('tampil_di_app', true)
-    .order('sort_order', { ascending: true })
+    .order('sort_order', { ascending: true }),
+    // Daftar habis milik POS untuk outlet ini + PUSAT. Gagal membacanya =
+    // katalog gagal: menjual menu yang ditandai habis lebih buruk daripada
+    // layar galat (uang sudah diterima).
+    db
+      .from('kiosk_settings')
+      .select('outlet_id, key, value')
+      .in('outlet_id', [outletId, PUSAT_OUTLET_ID])
+      .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids']),
+  ])
+  const { data, error } = menuRes
+  const { data: kiosk, error: kioskError } = kioskRes
 
   if (error) {
     // Cache basi lebih baik daripada layar kosong -- TAPI ada batasnya.
@@ -187,14 +231,6 @@ export async function ambilKatalog(
     throw new Error(`Gagal mengambil katalog: ${error.message}`)
   }
 
-  // Daftar habis milik POS untuk outlet ini + PUSAT. Gagal membacanya =
-  // katalog gagal: menjual menu yang ditandai habis lebih buruk daripada
-  // layar galat (uang sudah diterima).
-  const { data: kiosk, error: kioskError } = await db
-    .from('kiosk_settings')
-    .select('outlet_id, key, value')
-    .in('outlet_id', [outletId, PUSAT_OUTLET_ID])
-    .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids'])
   if (kioskError) {
     if (tersimpan && Date.now() - tersimpan.pada < UMUR_BASI_MAKS_MS) return tersimpan.data
     throw new Error(`Gagal mengambil ketersediaan outlet: ${kioskError.message}`)
@@ -206,6 +242,10 @@ export async function ambilKatalog(
     (kiosk ?? []) as BarisKiosk[],
   )
   const bersih = bersihkanKatalog(tersaring)
+  // Batas ukuran: id UUID acak yang sah bentuknya tetap bisa mengisi cache
+  // tanpa batas. Jumlah outlet nyata jauh di bawah ini, jadi mengosongkan
+  // seluruh cache saat melewati batas praktis tak pernah terjadi.
+  if (!cache.has(outletId) && cache.size >= UKURAN_CACHE_MAKS) cache.clear()
   cache.set(outletId, { pada: Date.now(), data: bersih })
   return bersih
 }

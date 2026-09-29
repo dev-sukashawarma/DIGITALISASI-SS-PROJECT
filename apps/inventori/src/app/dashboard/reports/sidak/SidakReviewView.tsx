@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertCircle, CalendarDays, Check, ChevronDown, ClipboardCheck, ClipboardX, ListChecks, Loader2, MapPin, Search, ShieldCheck, Store, UserRound } from 'lucide-react'
 import { AdminInventoryNavigation } from '@/components/AdminInventoryNavigation'
 import { createClient } from '@/lib/supabase'
+import { ambilSemua } from '@/lib/ambilSemua'
 
 type Raw = Record<string, unknown>
 type Review = {
@@ -31,9 +32,11 @@ export default function SidakReviewView() {
       const db = createClient()
       const [reviewsResult, reviewItemsResult, submissionsResult, itemsResult, mastersResult, outletsResult, staffResult] = await Promise.all([
         db.from('inventaris_sidak_reviews').select('id,submission_id,reviewer_id,note,completed_at,status').eq('status', 'final').order('completed_at', { ascending: false }).limit(500),
-        db.from('inventaris_sidak_review_items').select('review_id,submission_item_id,status,note').limit(30000),
+        // Dua kueri ini dulu .limit(30000) -- terpotong diam-diam di 1.000 baris.
+        // Kini dipaginasi dengan urutan unik (created_at, id).
+        ambilSemua<Raw>((dari, sampai) => db.from('inventaris_sidak_review_items').select('review_id,submission_item_id,status,note').order('created_at').order('id').range(dari, sampai)),
         db.from('inventaris_submissions').select('id,outlet_id').limit(1000),
-        db.from('inventaris_submission_items').select('id,submission_id,master_item_id').limit(30000),
+        ambilSemua<Raw>((dari, sampai) => db.from('inventaris_submission_items').select('id,submission_id,master_item_id').order('created_at').order('id').range(dari, sampai)),
         db.from('inventaris_master_items').select('id,name').limit(3000),
         db.from('outlets').select('id,name,region').limit(300),
         db.from('outlet_staff').select('id,name').limit(2000),

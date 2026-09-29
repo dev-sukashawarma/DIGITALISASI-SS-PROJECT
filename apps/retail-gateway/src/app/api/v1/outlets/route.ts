@@ -40,5 +40,12 @@ export async function GET() {
       pesan_status: s.bisaPesan ? null : pesanStatus(s),
     }
   }))
-  return NextResponse.json({ outlets: hasil })
+  // Publik & tak bergantung sesi. Cache bersama dibatasi 30 dtk: status buka/
+  // tutup ikut di sini, tapi checkout/validate & POST /orders memeriksa ulang
+  // status outlet sendiri, jadi respons yang sedikit basi tak bisa meloloskan
+  // pesanan ke outlet tutup.
+  return NextResponse.json(
+    { outlets: hasil },
+    { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=30' } },
+  )
 }

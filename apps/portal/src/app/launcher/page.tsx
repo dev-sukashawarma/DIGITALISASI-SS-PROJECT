@@ -179,6 +179,8 @@ export default async function LauncherPage() {
     .gte('ts_server', startOfDay)
     .lte('ts_server', endOfDay)
     .order('ts_server', { ascending: false })
+    // Hanya baris terbaru yang dipakai (attendanceData[0]).
+    .limit(1)
 
   const latestAttendance = attendanceData?.[0] || null
 

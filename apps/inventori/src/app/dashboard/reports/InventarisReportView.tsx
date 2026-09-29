@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { AdminInventoryNavigation } from '@/components/AdminInventoryNavigation'
 import { createClient } from '@/lib/supabase'
+import { ambilSemua } from '@/lib/ambilSemua'
 
 type Raw = Record<string, any>
 type StatusFilter = 'all' | 'incomplete' | 'complete'
@@ -64,7 +65,9 @@ export default function InventarisReportView({ outletId }: { outletId?: string }
       const db = createClient()
       const [submissions, rows, masters, outlets, staff] = await Promise.all([
         db.from('inventaris_submissions').select('*').limit(500),
-        db.from('inventaris_submission_items').select('*').limit(5000),
+        // Dulu .limit(5000) -- terpotong diam-diam di 1.000 baris. Kini dipaginasi
+        // dengan urutan unik (created_at, id).
+        ambilSemua<Raw>((dari, sampai) => db.from('inventaris_submission_items').select('*').order('created_at').order('id').range(dari, sampai)),
         db.from('inventaris_master_items').select('*').limit(1000),
         db.from('outlets').select('id,name').limit(200),
         db.from('outlet_staff').select('id,name').limit(1000),

@@ -23,13 +23,27 @@ export function createServiceClient(): SupabaseClient {
   return cached
 }
 
-/** Client yang menargetkan skema `retail`. */
-export function createRetailClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Kredensial Supabase belum lengkap')
+function buatRetailClient(url: string, key: string) {
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     db: { schema: 'retail' },
   })
+}
+
+let cachedRetail: ReturnType<typeof buatRetailClient> | null = null
+
+/**
+ * Client yang menargetkan skema `retail`.
+ * Dipakai ulang antar permintaan seperti `createServiceClient`: kuncinya
+ * service role (bukan sesi pengguna), `persistSession` mati, jadi client ini
+ * tidak menyimpan status per permintaan. Identitas pelanggan tetap WAJIB
+ * diturunkan dari token sesi di tiap endpoint.
+ */
+export function createRetailClient() {
+  if (cachedRetail) return cachedRetail
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error('Kredensial Supabase belum lengkap')
+  cachedRetail = buatRetailClient(url, key)
+  return cachedRetail
 }

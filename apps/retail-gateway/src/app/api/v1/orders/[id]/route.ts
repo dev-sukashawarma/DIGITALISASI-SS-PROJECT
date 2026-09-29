@@ -28,21 +28,22 @@ export async function GET(
   }
 
   const db = createServiceClient()
-  const { data: outlet } = await db
-    .from('outlets')
-    .select('name')
-    .eq('id', draft.outlet_id)
-    .maybeSingle()
-
-  let statusDapur: string | null = null
-  if (draft.pos_order_id) {
-    const { data: pos } = await db
-      .from('orders')
-      .select('status')
-      .eq('id', draft.pos_order_id)
-      .maybeSingle()
-    statusDapur = pos?.status ?? null
-  }
+  // Nama outlet & status dapur saling bebas -> dibaca paralel (dulu berurutan).
+  const [{ data: outlet }, statusDapur] = await Promise.all([
+    db
+      .from('outlets')
+      .select('name')
+      .eq('id', draft.outlet_id)
+      .maybeSingle(),
+    draft.pos_order_id
+      ? db
+          .from('orders')
+          .select('status')
+          .eq('id', draft.pos_order_id)
+          .maybeSingle()
+          .then(({ data: pos }) => (pos?.status as string | undefined) ?? null)
+      : Promise.resolve<string | null>(null),
+  ])
 
   return NextResponse.json({
     id: draft.id,

@@ -133,6 +133,13 @@ describe('konteksPelanggan', () => {
     expect(hasil.pelangganSudahPernahBayar).toBe(true)
   })
 
+  it('sudahBayarDiketahui diisi -> order_drafts TIDAK dihitung ulang, nilai diteruskan apa adanya', async () => {
+    const rc = klienRecording({ 'voucher_pemakaian:count': { count: 4, error: null }, 'order_drafts:count': { count: 0, error: null } })
+    const hasil = await konteksPelanggan(rc, 'v1', 'c1', true)
+    expect(rc.from.mock.calls.map((c: unknown[]) => c[0])).toEqual(['voucher_pemakaian', 'voucher_pemakaian'])
+    expect(hasil).toEqual({ jumlahLunasTotal: 4, jumlahLunasPelanggan: 4, pelangganSudahPernahBayar: true })
+  })
+
   it('pelangganSudahPernahBayar=false saat drafts count 0', async () => {
     const hasil = await konteksPelanggan(
       klien({ 'voucher_pemakaian:count': { count: 5, error: null }, 'order_drafts:count': { count: 0, error: null } }),

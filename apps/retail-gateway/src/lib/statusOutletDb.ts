@@ -2,7 +2,7 @@ import { createServiceClient } from './supabase'
 import { statusOutlet, type StatusOutlet, type TutupSementara } from './jamBuka'
 import { ambilPengaturan } from './pengaturanApp'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const UUID_RE =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Tutup sementara yang masih berlaku. Kunci '*' = baris outlet_id NULL (semua).

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { prisma } from '@/lib/prisma'
+import { prisma, withDbRetry } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import {
   Store,
@@ -32,66 +32,95 @@ export default async function DashboardPage() {
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
 
-  // Execute counts, database-level aggregations, and agenda queries in parallel
-  const [
-    outletCount,
-    kolCount,
-    endorsementCount,
-    adCount,
-    endorseAgg,
-    adsAgg,
-    recentEndorsements,
-    upcomingEndorsements,
-    upcomingAds,
-    upcomingPromos,
-  ] = await Promise.all([
-    prisma.outlet.count(),
-    prisma.kol.count(),
-    prisma.endorsement.count(),
-    prisma.ad.count(),
-    // DB-level aggregation for Endorsements (spend & views)
-    prisma.$queryRaw<Array<{ total_spend: number | null; total_views: bigint | number | null }>>`
-      SELECT 
-        COALESCE(SUM(rate_card), 0)::float AS total_spend,
-        COALESCE(SUM(COALESCE(final_views, initial_views, 0)), 0)::bigint AS total_views
-      FROM endorsements
-    `,
-    // DB-level aggregation for Ads (spend & views)
-    prisma.$queryRaw<Array<{ total_spend: number | null; total_views: bigint | number | null }>>`
-      SELECT 
-        COALESCE(SUM(budget), 0)::float AS total_spend,
-        COALESCE(SUM(COALESCE(final_views, initial_views, 0)), 0)::bigint AS total_views
-      FROM ads
-    `,
-    // Get recent 5 endorsements
-    prisma.endorsement.findMany({
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        outlet: true,
-        kol: true,
-      },
-    }),
-    // Upcoming agenda items
-    prisma.endorsement.findMany({
-      where: { scheduleDate: { gte: todayStart } },
-      take: 4,
-      orderBy: { scheduleDate: 'asc' },
-      include: { outlet: true, kol: true },
-    }),
-    prisma.ad.findMany({
-      where: { scheduleDate: { gte: todayStart } },
-      take: 4,
-      orderBy: { scheduleDate: 'asc' },
-      include: { outlet: true },
-    }),
-    prisma.promoEvent.findMany({
-      where: { endDate: { gte: todayStart } },
-      take: 4,
-      orderBy: { startDate: 'asc' },
-      include: { outlet: true },
-    }),
-  ])
+  let outletCount = 0
+  let kolCount = 0
+  let endorsementCount = 0
+  let adCount = 0
+  let endorseAgg: Array<{ total_spend: number | null; total_views: bigint | number | null }> = []
+  let adsAgg: Array<{ total_spend: number | null; total_views: bigint | number | null }> = []
+  let recentEndorsements: any[] = []
+  let upcomingEndorsements: any[] = []
+  let upcomingAds: any[] = []
+  let upcomingPromos: any[] = []
+
+  try {
+    // Execute counts, database-level aggregations, and agenda queries with retry resilience
+    // Batch 1: Quick counts and aggregations
+    const batch1 = await withDbRetry(
+      () =>
+        Promise.all([
+          prisma.outlet.count(),
+          prisma.kol.count(),
+          prisma.endorsement.count(),
+          prisma.ad.count(),
+          // DB-level aggregation for Endorsements (spend & views)
+          prisma.$queryRaw<Array<{ total_spend: number | null; total_views: bigint | number | null }>>`
+            SELECT 
+              COALESCE(SUM(rate_card), 0)::float AS total_spend,
+              COALESCE(SUM(COALESCE(final_views, initial_views, 0)), 0)::bigint AS total_views
+            FROM endorsements
+          `,
+          // DB-level aggregation for Ads (spend & views)
+          prisma.$queryRaw<Array<{ total_spend: number | null; total_views: bigint | number | null }>>`
+            SELECT 
+              COALESCE(SUM(budget), 0)::float AS total_spend,
+              COALESCE(SUM(COALESCE(final_views, initial_views, 0)), 0)::bigint AS total_views
+            FROM ads
+          `,
+        ]),
+      { retries: 2, delayMs: 300, label: 'Dashboard Batch 1' }
+    )
+
+    outletCount = batch1[0]
+    kolCount = batch1[1]
+    endorsementCount = batch1[2]
+    adCount = batch1[3]
+    endorseAgg = batch1[4]
+    adsAgg = batch1[5]
+
+    // Batch 2: List records and upcoming items
+    const batch2 = await withDbRetry(
+      () =>
+        Promise.all([
+          // Get recent 5 endorsements
+          prisma.endorsement.findMany({
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            include: {
+              outlet: true,
+              kol: true,
+            },
+          }),
+          // Upcoming agenda items
+          prisma.endorsement.findMany({
+            where: { scheduleDate: { gte: todayStart } },
+            take: 4,
+            orderBy: { scheduleDate: 'asc' },
+            include: { outlet: true, kol: true },
+          }),
+          prisma.ad.findMany({
+            where: { scheduleDate: { gte: todayStart } },
+            take: 4,
+            orderBy: { scheduleDate: 'asc' },
+            include: { outlet: true },
+          }),
+          prisma.promoEvent.findMany({
+            where: { endDate: { gte: todayStart } },
+            take: 4,
+            orderBy: { startDate: 'asc' },
+            include: { outlet: true },
+          }),
+        ]),
+      { retries: 2, delayMs: 300, label: 'Dashboard Batch 2' }
+    )
+
+    recentEndorsements = batch2[0]
+    upcomingEndorsements = batch2[1]
+    upcomingAds = batch2[2]
+    upcomingPromos = batch2[3]
+  } catch (err: any) {
+    console.error('[DashboardPage] Terjadi gangguan saat mengambil data dashboard:', err?.message || err)
+  }
 
   const totalEndorseSpend = Number(endorseAgg[0]?.total_spend || 0)
   const totalAdsSpend = Number(adsAgg[0]?.total_spend || 0)

@@ -74,6 +74,7 @@ export default function Sidebar({
     '/dashboard/endorsements': true,
     '/dashboard/budget': true,
     '/dashboard/content-planner': true,
+    '/dashboard/content-planner#rencana-konten': true,
     '/dashboard/menu': true,
   })
 
@@ -91,8 +92,16 @@ export default function Sidebar({
     if (query) {
       const params = new URLSearchParams(query)
       const targetTab = params.get('tab')
+      const targetScope = params.get('scope')
 
       if (pathname === path) {
+        if (targetScope) {
+          const currentScope = searchParams.get('scope')?.toLowerCase()
+          if (targetScope.toLowerCase() === 'official') {
+            return currentScope === 'official' || !currentScope
+          }
+          return currentScope === targetScope.toLowerCase()
+        }
         if (targetTab === 'operations') {
           return currentTab === 'operations' || !currentTab
         }
@@ -109,7 +118,8 @@ export default function Sidebar({
       childHref === '/dashboard/endorsements'
     ) {
       if (childHref === '/dashboard/content-planner') {
-        return pathname === childHref && !currentTab
+        const currentScope = searchParams.get('scope')?.toLowerCase()
+        return pathname === childHref && !currentTab && currentScope === 'all'
       }
       return pathname === childHref && !currentTab
     }
@@ -232,6 +242,18 @@ export default function Sidebar({
           name: 'Rencana Konten',
           href: '/dashboard/content-planner',
           badge: null,
+          children: [
+            {
+              name: 'Official',
+              href: '/dashboard/content-planner?scope=official',
+              badge: null,
+            },
+            {
+              name: 'Region',
+              href: '/dashboard/content-planner?scope=region',
+              badge: null,
+            },
+          ],
         },
         {
           name: 'Metrik Data',

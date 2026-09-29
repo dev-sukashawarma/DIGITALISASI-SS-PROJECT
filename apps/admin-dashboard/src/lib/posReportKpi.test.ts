@@ -22,15 +22,16 @@ describe('computeOrderDeduction / computeOrderGross', () => {
     expect(computeOrderGross(o)).toBe(50_000)
   })
 
-  it('Food Apps pasca 19 Agu (harga utuh + promo_subsidy terisi): subsidi TIDAK dihitung dua kali', () => {
-    // total_amount sudah harga utuh, promo_subsidy tetap diisi kasir.
+  it('Food Apps pasca 19 Agu (harga utuh + promo_subsidy terisi): potongan masuk ke deduction, gross tetap utuh', () => {
+    // total_amount sudah harga utuh, promo_subsidy diisi kasir.
     const o = {
+      channel: 'grabfood',
       total_amount: 50_000,
       discount_amount: 0,
       promo_subsidy: 15_000,
       order_items: [{ subtotal: 50_000, quantity: 1, unit_price: 50_000 }],
     }
-    expect(computeOrderDeduction(o)).toBe(0)
+    expect(computeOrderDeduction(o)).toBe(15_000)
     expect(computeOrderGross(o)).toBe(50_000)
   })
 

@@ -355,26 +355,25 @@ export function computeAnalytics({
   const cancelled = filteredOrders.filter(o => o.status === 'cancelled').length
   const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
-  // ACUAN TUNGGAL Omzet Kotor (lihat migration 20300128000000 &
-  // computeOrderDeduction di lib/posReportKpi).
+  // ACUAN TUNGGAL Omzet Kotor & Potongan (lihat lib/posReportKpi):
+  // Potongan Merchant mencakup diskon offline dan potongan promo Food Apps yang diinput kasir.
   const totalDeductions = completed.reduce(
     (s, o) => s + computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected }),
     0
   )
 
-  // Subsidi platform (Grab/Gojek/Shopee/TikTok) yang diketik kasir di kolom
-  // "Promo Apps". BUKAN pendapatan outlet dan BUKAN biaya outlet -- tidak
-  // ikut omzet maupun potongan, ditampilkan sebagai kartu informasi.
-  // Baris SS Online dikecualikan: jalurnya sendiri, promo_subsidy-nya 0.
+  // Subsidi platform (Grab/Gojek/Shopee/TikTok) yang diketik kasir di kolom "Promo Apps"
   const totalPlatformSubsidy = completed.reduce((s, o) => {
     if ((o as any).outlet_id === 'ss-online') return s
     return s + (Number((o as any).promo_subsidy) || 0)
   }, 0)
 
-  const netRevenue = actualNetRevenue
-
-  // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon/subsidi
-  const grossRevenue = actualNetRevenue + totalDeductions
+  // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon
+  const grossRevenue = completed.reduce(
+    (s, o) => s + computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected }),
+    0
+  )
+  const netRevenue = grossRevenue - totalDeductions
   const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
   let totalSettlement = 0

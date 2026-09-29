@@ -1,4 +1,4 @@
-// KPI laporan POS (/laporan/penjualan).
+// KPI laporan POS (/dashboard/reports/pos).
 //
 // Aturan bisnis (owner, 2026-07-31):
 //   Gross Revenue  = omzet SEBELUM dipotong apa pun
@@ -51,6 +51,14 @@ export function computeNetRevenueVoidAware(orders: RevenueOrder[]): number {
 // subsidi platform dua kali. Ekspor dulu memakai rumus lama itu, jadi Grand
 // Total PDF/CSV/Excel tidak sama dengan kartu Gross Revenue di layar.
 
+export const FOOD_APP_CHANNELS = new Set(['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'])
+
+export function isFoodAppOrder(order: { channel?: string | null; sales_source?: string | null }): boolean {
+  const ch = (order.channel || '').toLowerCase()
+  const src = (order.sales_source || '').toLowerCase()
+  return FOOD_APP_CHANNELS.has(ch) || FOOD_APP_CHANNELS.has(src)
+}
+
 export interface KpiOrderItem {
   subtotal?: number | string | null
   quantity?: number | string | null
@@ -63,6 +71,8 @@ export interface KpiOrder {
   discount_amount?: number | string | null
   promo_subsidy?: number | string | null
   order_items?: KpiOrderItem[] | null
+  channel?: string | null
+  sales_source?: string | null
 }
 
 export interface KpiOrderOptions {
@@ -80,23 +90,53 @@ export function computeOrderDeduction(order: KpiOrder, opts: KpiOrderOptions = {
   // Baris SS Online adalah baris SINTETIS dari `ecommerce_sales`:
   // `total_amount` sudah net dan `discount_amount` sudah memuat beban
   // platform yang benar, sementara item-nya tidak selalu rekonsiliasi
-  // dengan total order. Memakai selisih item di sini menggeser beban
-  // platform Agustus 2026 dari Rp 12,48 jt jadi Rp 20,24 jt (998 dari
-  // 1.377 baris berubah). Jadi baris ini tetap memakai discount_amount.
+  // dengan total order.
   if (opts.ssOnlineMode || order.outlet_id === 'ss-online') return discount
+
+  const isFoodApp = isFoodAppOrder(order)
+  const promoSubsidy = Number(order.promo_subsidy) || 0
 
   const items = order.order_items || []
   if (items.length === 0) {
-    // Tanpa baris item tak ada nilai menu untuk dibandingkan.
-    return discount + (Number(order.promo_subsidy) || 0)
+    return discount + promoSubsidy
   }
   const menuValue = items.reduce((sum, i) => sum + itemValue(i), 0)
-  return Math.max(0, menuValue - (Number(order.total_amount) || 0))
+  const offlineDiscount = Math.max(0, menuValue - (Number(order.total_amount) || 0))
+
+  if (isFoodApp) {
+    // Pada pesanan Food Apps, potongan promo yang diketik kasir (promo_subsidy)
+    // adalah diskon merchant (diskon toko di Grab/Gojek/Shopee).
+    return offlineDiscount + promoSubsidy
+  }
+
+  return offlineDiscount
 }
 
-/** Omzet kotor satu order = total_amount + potongan. */
+/** Omzet kotor satu order = total nilai menu sebelum diskon. */
 export function computeOrderGross(order: KpiOrder, opts: KpiOrderOptions = {}): number {
+  if (opts.ssOnlineMode || order.outlet_id === 'ss-online') {
+    return (Number(order.total_amount) || 0) + (Number(order.discount_amount) || 0)
+  }
+
+  const isFoodApp = isFoodAppOrder(order)
+  const items = order.order_items || []
+
+  if (isFoodApp) {
+    // Di Food Apps (pasca 19 Agu 2026), total_amount SUDAH harga menu utuh (Gross),
+    // tidak boleh ditambahkan promo_subsidy lagi agar omzet tidak berlipat ganda.
+    if (items.length > 0) {
+      const menuValue = items.reduce((sum, i) => sum + itemValue(i), 0)
+      return Math.max(menuValue, Number(order.total_amount) || 0)
+    }
+    return Number(order.total_amount) || 0
+  }
+
   return (Number(order.total_amount) || 0) + computeOrderDeduction(order, opts)
+}
+
+/** Omzet bersih satu order = omzet kotor - potongan. */
+export function computeOrderNet(order: KpiOrder, opts: KpiOrderOptions = {}): number {
+  return computeOrderGross(order, opts) - computeOrderDeduction(order, opts)
 }
 
 /**

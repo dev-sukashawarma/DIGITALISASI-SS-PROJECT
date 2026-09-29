@@ -736,7 +736,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Komisi Platform, Dinamis, Cashback, Admin Order, Logistik, Afiliasi & PPh 22 (Pengurang Laba Kotor)'
-                    : 'Diskon yang ditanggung outlet. Subsidi aplikasi TIDAK termasuk.'}
+                    : 'Diskon offline & potongan promo merchant (termasuk Food Apps)'}
                 </p>
               </div>
             </div>

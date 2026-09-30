@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { todayWib } from '@/lib/dateIso'
+import { INVENTARIS_PHOTO_BUCKET, resolvePhotoRef } from '@/lib/inventaris'
 import { susunPengingat, type BarisPengingat, type TindakLanjutBaru } from '@/lib/pengingatAset'
 
 /*
@@ -28,6 +29,50 @@ export function usePengingatAset() {
   const today = todayWib()
   const ringkasan = useMemo(() => susunPengingat(query.data ?? [], today), [query.data, today])
   return { ...query, ringkasan, today }
+}
+
+/*
+ * Foto barang di dialog tindak lanjut. File di bucket sudah WebP hasil
+ * kompresi app inventori (±35 KB, sisi panjang 1024 px) — ditampilkan apa
+ * adanya, tanpa kompresi ulang. Satu signed URL per foto, dibuat hanya saat
+ * dialog dibuka (atau saat tombol di-hover, lewat `prefetchFotoAset`), lalu
+ * di-cache 50 mnt supaya membuka ulang dialog tidak mengunduh ulang.
+ */
+const FOTO_TTL_DETIK = 60 * 60
+
+function fotoAsetOptions(supabase: ReturnType<typeof createClient>, fotoPath: string | null) {
+  const ref = resolvePhotoRef(fotoPath)
+  return {
+    queryKey: ['pengingat-aset-foto', fotoPath] as const,
+    enabled: !!ref,
+    staleTime: 50 * 60_000,
+    gcTime: 55 * 60_000,
+    queryFn: async (): Promise<string | null> => {
+      if (!ref) return null
+      if ('url' in ref) return ref.url
+      const { data, error } = await supabase.storage.from(INVENTARIS_PHOTO_BUCKET).createSignedUrl(ref.path, FOTO_TTL_DETIK)
+      if (error) throw error
+      return data?.signedUrl ?? null
+    },
+  }
+}
+
+export function useFotoAset(fotoPath: string | null) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery(fotoAsetOptions(supabase, fotoPath))
+}
+
+/** Tanda tangani URL & mulai unduh gambar sebelum dialog dibuka. */
+export function prefetchFotoAset(qc: QueryClient, fotoPath: string | null) {
+  if (!fotoPath) return
+  const opts = fotoAsetOptions(createClient(), fotoPath)
+  void qc.fetchQuery(opts).then((url) => {
+    if (url && typeof window !== 'undefined') {
+      const img = new Image()
+      img.decoding = 'async'
+      img.src = url
+    }
+  }).catch(() => { /* dialog akan mencoba lagi */ })
 }
 
 export function useSimpanTindakLanjut() {

@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -12,6 +13,8 @@ import {
   CheckCircle2,
   Clock,
   Hourglass,
+  ImageOff,
+  Maximize2,
   MessageCircle,
   RefreshCw,
   Search,
@@ -24,7 +27,7 @@ import {
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
-import { usePengingatAset, useSimpanTindakLanjut } from '@/hooks/usePengingatAset'
+import { prefetchFotoAset, useFotoAset, usePengingatAset, useSimpanTindakLanjut } from '@/hooks/usePengingatAset'
 import { useRole } from '@/components/layout/RoleContext'
 import { formatTanggalPendek } from '@/lib/dateIso'
 import { nomorWa, pesanKonfirmasiAset, tautanWa } from '@/lib/whatsapp'
@@ -237,6 +240,8 @@ function InfoUmur({ aset }: { aset: AsetPengingat }) {
 }
 
 function KartuAset({ aset, onAksi }: { aset: AsetPengingat; onAksi: () => void }) {
+  const qc = useQueryClient()
+  const siapkanFoto = () => prefetchFotoAset(qc, aset.fotoPath)
   return (
     <article className="flex flex-col gap-3 rounded-2xl border border-suka-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 space-y-1.5">
@@ -249,7 +254,7 @@ function KartuAset({ aset, onAksi }: { aset: AsetPengingat; onAksi: () => void }
         {aset.catatanAm && <p className="text-xs text-suka-gray-500">Catatan AM: “{aset.catatanAm}”</p>}
         {aset.dilaporkanOleh && <p className="text-[11px] text-suka-gray-400">Laporan terakhir oleh {aset.dilaporkanOleh}</p>}
       </div>
-      <Button type="button" onClick={onAksi} className="shrink-0 rounded-xl bg-suka-orange font-bold text-white hover:bg-orange-500">
+      <Button type="button" onClick={onAksi} onPointerEnter={siapkanFoto} onFocus={siapkanFoto} className="shrink-0 rounded-xl bg-suka-orange font-bold text-white hover:bg-orange-500">
         Tindak lanjuti
       </Button>
     </article>
@@ -372,6 +377,8 @@ function TindakLanjutDialog({ aset, today, namaHr, submitting, onClose, onSubmit
           <button type="button" aria-label="Tutup" onClick={onClose} className="rounded-lg p-1 text-suka-gray-400 hover:bg-suka-gray-100"><X size={18} /></button>
         </div>
 
+        <FotoBarang fotoPath={aset.fotoPath} nama={aset.itemName} />
+
         {langkah === 'konfirmasi' ? (
           <>
             <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-900">
@@ -465,5 +472,79 @@ function TindakLanjutDialog({ aset, today, namaHr, submitting, onClose, onSubmit
         )}
       </div>
     </div>
+  )
+}
+
+/*
+ * Foto bukti dari laporan AM. Satu file yang sama untuk pratinjau & layar
+ * penuh (WebP ±35 KB, resolusi asli unggahan) — tidak ada versi kedua yang
+ * perlu diunduh saat diperbesar.
+ */
+function FotoBarang({ fotoPath, nama }: { fotoPath: string | null; nama: string }) {
+  const { data: url, isLoading, isError } = useFotoAset(fotoPath)
+  const [dimuat, setDimuat] = useState(false)
+  const [gagal, setGagal] = useState(false)
+  const [besar, setBesar] = useState(false)
+
+  useEffect(() => {
+    if (!besar) return
+    const tutup = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setBesar(false) } }
+    window.addEventListener('keydown', tutup, true)
+    return () => window.removeEventListener('keydown', tutup, true)
+  }, [besar])
+
+  if (!fotoPath) return null
+
+  if (isError || gagal || (!isLoading && !url)) {
+    return (
+      <div className="flex h-24 items-center justify-center gap-2 rounded-xl border border-dashed border-suka-gray-200 bg-suka-gray-50 text-xs font-semibold text-suka-gray-500">
+        <ImageOff size={16} /> Foto tidak dapat dimuat
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => url && setBesar(true)}
+        disabled={!url}
+        aria-label={`Perbesar foto ${nama}`}
+        className="group relative block h-56 w-full overflow-hidden rounded-xl border border-suka-gray-200 bg-[#1a1311] cursor-zoom-in"
+      >
+        {(!url || !dimuat) && <span className="absolute inset-0 animate-pulse bg-suka-gray-200" />}
+        {url && (
+          <img
+            src={url}
+            alt={`Foto ${nama}`}
+            decoding="async"
+            fetchPriority="high"
+            onLoad={() => setDimuat(true)}
+            onError={() => setGagal(true)}
+            className={`h-full w-full object-contain transition-opacity duration-200 ${dimuat ? 'opacity-100' : 'opacity-0'}`}
+          />
+        )}
+        {url && dimuat && (
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-bold text-white opacity-90 transition group-hover:opacity-100">
+            <Maximize2 size={12} /> Perbesar
+          </span>
+        )}
+      </button>
+
+      {besar && url && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Foto ${nama}`}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-3 sm:p-6"
+          onClick={(e) => { e.stopPropagation(); setBesar(false) }}
+        >
+          <button type="button" aria-label="Tutup foto" onClick={(e) => { e.stopPropagation(); setBesar(false) }} className="absolute right-4 top-4 rounded-full bg-white/15 p-2 text-white hover:bg-white/25">
+            <X size={20} />
+          </button>
+          <img src={url} alt={`Foto ${nama}`} decoding="async" onClick={(e) => e.stopPropagation()} className="max-h-full max-w-full rounded-xl object-contain shadow-2xl" />
+        </div>
+      )}
+    </>
   )
 }

@@ -47,6 +47,8 @@ export type BarisPengingat = {
   /** Area Manager yang dihubungi HR (pelapor, atau AM binaan yang bernomor). */
   kontak_nama?: string | null
   kontak_hp?: string | null
+  /** Foto bukti dari laporan inventaris terakhir (bucket `inventaris-foto`). */
+  photo_path?: string | null
   tl_umur_keputusan: string | null
   tl_umur_ingatkan_lagi: string | null
   tl_umur_acuan_tanggal: string | null
@@ -90,6 +92,7 @@ export type AsetPengingat = {
   dilaporkanAt: string | null
   kontakNama: string | null
   kontakHp: string | null
+  fotoPath: string | null
   /** Alasan yang masih menunggu tindakan HR. */
   alasan: Alasan[]
   /** Alasan yang sedang disembunyikan oleh tindak lanjut HR. */
@@ -250,6 +253,7 @@ export function nilaiAset(row: BarisPengingat, today: string): AsetPengingat {
     dilaporkanAt: row.dilaporkan_at,
     kontakNama: row.kontak_nama ?? null,
     kontakHp: row.kontak_hp ?? null,
+    fotoPath: row.photo_path?.trim() || null,
     alasan,
     ditindaklanjuti,
     kategori,

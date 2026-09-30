@@ -212,3 +212,11 @@ describe('konfirmasi ke Area Manager', () => {
     expect(buatTindakLanjut(a, 'diperbaiki', TODAY)[0].konfirmasi_wa).toBe(false)
   })
 })
+
+describe('foto barang', () => {
+  it('path foto terbawa dari laporan AM, kosong jadi null', () => {
+    expect(nilaiAset(baris({ kondisi: 'rusak', photo_path: ' am/foto.webp ' }), TODAY).fotoPath).toBe('am/foto.webp')
+    expect(nilaiAset(baris({ kondisi: 'rusak', photo_path: '' }), TODAY).fotoPath).toBeNull()
+    expect(nilaiAset(baris({ kondisi: 'rusak' }), TODAY).fotoPath).toBeNull()
+  })
+})

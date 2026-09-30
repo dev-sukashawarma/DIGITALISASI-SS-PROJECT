@@ -43,6 +43,14 @@ export function jamMasukBatasAlpha(config: BoardConfig): string {
   return kandidat.reduce((maks, j) => (j > maks ? j : maks), dasar);
 }
 
+/**
+ * Jam masuk acuan batas alpha untuk SATU staf: jam masuk jadwal khusus stafnya di outlet
+ * ini bila ada (aturan dari Pengaturan, berlaku setiap hari), selain itu batas outlet.
+ */
+export function jamMasukBatasAlphaStaf(config: BoardConfig, jamMasukAturan?: string | null): string {
+  return jamMasukAturan && jamMasukAturan.length >= 5 ? jamMasukAturan.slice(0, 5) : jamMasukBatasAlpha(config);
+}
+
 export type BoardState = "masuk" | "telat" | "telat_toleransi" | "keluar" | "belum" | "alpha" | "lebih_awal" | "pulang_telat";
 export type BoardRow = { 
   id: string; 
@@ -71,8 +79,16 @@ function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
   return diff > 0 ? diff : 0;
 }
 
-/** Hitung papan kehadiran: status terbaru tiap staff + ringkasan. */
-export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config: BoardConfig): {
+/**
+ * Hitung papan kehadiran: status terbaru tiap staff + ringkasan.
+ * `jamMasukAturan`: staff_id → jam masuk jadwal khusus staf di outlet ini ("HH:MM").
+ */
+export function computeBoard(
+  staff: BoardStaff[],
+  records: BoardRecord[],
+  config: BoardConfig,
+  jamMasukAturan?: ReadonlyMap<string, string>,
+): {
   rows: BoardRow[];
   summary: BoardSummary;
 } {
@@ -86,11 +102,20 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
   const now = new Date();
   // Outlet berpilihan shift: yang belum absen baru dianggap alpha setelah shift
   // TERAKHIR lewat batas — crew siang tak boleh tercap alpha di pagi hari.
-  const jamMasukTerakhir = jamMasukBatasAlpha(config);
-  const [h, m] = jamMasukTerakhir.split(":").map(Number);
-  const deadline = new Date();
-  deadline.setHours(h, m + config.toleransi_menit, 0, 0);
-  const isPastDeadline = now.getTime() > deadline.getTime();
+  // Staf berjadwal khusus memakai jam masuk aturannya sendiri (toleransi tetap outlet).
+  const lewatBatasPerJam = new Map<string, boolean>();
+  const lewatBatas = (staffId: string): boolean => {
+    const jamMasuk = jamMasukBatasAlphaStaf(config, jamMasukAturan?.get(staffId));
+    let hasil = lewatBatasPerJam.get(jamMasuk);
+    if (hasil === undefined) {
+      const [h, m] = jamMasuk.split(":").map(Number);
+      const deadline = new Date();
+      deadline.setHours(h, m + config.toleransi_menit, 0, 0);
+      hasil = now.getTime() > deadline.getTime();
+      lewatBatasPerJam.set(jamMasuk, hasil);
+    }
+    return hasil;
+  };
 
   const rows: BoardRow[] = staff.map((s) => {
     const recs = (byStaff.get(s.id) ?? []).slice().sort((a, b) => a.ts_server.localeCompare(b.ts_server));
@@ -118,7 +143,7 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
     }
     
     // Belum absen
-    if (isPastDeadline) {
+    if (lewatBatas(s.id)) {
       return { id: s.id, name: s.name, role: s.role, state: "alpha", time: null, selfie_url: null, delay_minutes: null, is_manual_button: false };
     }
     

@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [primaryStaffRes, assignedStaffRes, attRes, alertsRes, localCfgRes, globalCfgRes] = await Promise.all([
+    const [primaryStaffRes, assignedStaffRes, attRes, alertsRes, localCfgRes, globalCfgRes, jadwalStafRes] = await Promise.all([
       supabaseService
         .from('outlet_staff')
         .select('id, name, role')
@@ -55,7 +55,14 @@ export async function GET(request: Request) {
         .from('global_settings')
         .select('value')
         .eq('key', 'global_attendance_config')
-        .maybeSingle()
+        .maybeSingle(),
+
+      // Jadwal khusus staf di outlet ini + anggotanya dalam SATU query (embed; index
+      // ass_outlet_idx lalu assm_schedule_idx). Service role: tabelnya tertutup RLS.
+      supabaseService
+        .from('attendance_staff_schedule')
+        .select('jam_masuk, attendance_staff_schedule_member(staff_id)')
+        .eq('outlet_id', outlet_id),
     ]);
 
     const activeStaffMap = new Map<string, { id: string; name: string; role: string }>();
@@ -92,7 +99,15 @@ export async function GET(request: Request) {
       cfg = { jam_masuk: '08:00', jam_keluar: '16:00', toleransi_menit: 15 };
     }
 
-    const boardData = computeBoard(staffList as BoardStaff[], (attRes.data as BoardRecord[]) ?? [], cfg);
+    // staff_id → jam masuk aturan staf; batas belum-absen/alpha staf itu memakai jam ini.
+    const jamMasukAturan = new Map<string, string>();
+    ((jadwalStafRes.data ?? []) as { jam_masuk: string | null; attendance_staff_schedule_member: { staff_id: string }[] | null }[])
+      .forEach((j) => {
+        if (!j.jam_masuk) return;
+        (j.attendance_staff_schedule_member ?? []).forEach((m) => jamMasukAturan.set(m.staff_id, j.jam_masuk!.slice(0, 5)));
+      });
+
+    const boardData = computeBoard(staffList as BoardStaff[], (attRes.data as BoardRecord[]) ?? [], cfg, jamMasukAturan);
 
     const staffMap = new Map(staffList.map((s) => [s.id, s.name]));
     const formattedAlerts = (alertsRes.data || []).map((a) => ({

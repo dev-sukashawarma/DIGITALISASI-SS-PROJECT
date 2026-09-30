@@ -20,7 +20,7 @@ import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { PilihShiftModal } from "@/features/clock/PilihShiftModal";
 import { pilihOutletTerdekat } from "@/lib/attendance/pilihOutletTerdekat";
 import { adalahKantorPusat } from "@/lib/attendance/kantorPusat";
-import { shiftOptions, type ShiftConfig, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
+import { shiftOptions, jadwalStaf, type JadwalStafAktif, type ShiftConfig, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
 import { formatDistanceMeters, haversineMeters } from "@/lib/gps";
 
@@ -60,6 +60,8 @@ export function AttendanceKioskPanel() {
   // Outlet berpilihan shift: opsi shift outlet aktif & pilihan crew (dipilih saat halaman dibuka).
   const [opsiShift, setOpsiShift] = useState<ShiftOption[] | null>(null);
   const [shiftDipilih, setShiftDipilih] = useState<ShiftKe | null>(null);
+  // Jadwal khusus staf di outlet aktif (aturan dari Pengaturan): jam sendiri, tanpa pilih shift.
+  const [jadwalKhusus, setJadwalKhusus] = useState<JadwalStafAktif | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
   const [nowMinutes, setNowMinutes] = useState(() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); });
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -181,6 +183,7 @@ export function AttendanceKioskPanel() {
     // Pilihan shift milik outlet sebelumnya tak berlaku di outlet baru.
     setShiftDipilih(null);
     setOpsiShift(null);
+    setJadwalKhusus(null);
     kiosk.loadCandidates();
     kiosk.flushQueue();
     loadRecords();
@@ -189,15 +192,22 @@ export function AttendanceKioskPanel() {
       Promise.all([
         // Jam & shift outlet lewat RPC: RLS tabel config hanya membuka outlet utama
         // staff, padahal crew bisa absen di outlet penempatan / izin tambahan.
-        supabase.rpc("attendance_shift_config", { p_outlet_id: activeOutletId }),
+        // p_staff_id = akun ini → ikut membawa jadwal khusus staf bila ada.
+        supabase.rpc("attendance_shift_config", {
+          p_outlet_id: activeOutletId,
+          ...(outletStaff?.id ? { p_staff_id: outletStaff.id } : {}),
+        }),
         // Mode jendela absen tidak ikut RPC di atas; null bila RLS menolak → mode pusat.
         supabase.from("outlet_attendance_config").select("absen_window_mode").eq("outlet_id", activeOutletId).maybeSingle(),
         supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]).then(([shiftRes, modeRes, global]) => {
         // null = outlet tanpa jadwal khusus → jadwal tunggal aturan pusat.
         const local = (shiftRes.data ?? null) as (ShiftConfig & { jam_masuk: string | null; jam_keluar: string | null }) | null;
-        // Pilihan shift hanya ada di config khusus outlet, bukan aturan pusat.
+        // Pilihan shift hanya ada di config khusus outlet, bukan aturan pusat — dan tidak
+        // untuk staf berjadwal khusus (shiftOptions mengembalikan null untuknya).
         setOpsiShift(shiftOptions(local, outletStaff?.role));
+        const jadwal = jadwalStaf(local);
+        setJadwalKhusus(jadwal);
         let globalCfg: any = null;
         if (global.data?.value) {
           try {
@@ -206,8 +216,9 @@ export function AttendanceKioskPanel() {
         }
         const data: any = local ?? globalCfg;
         if (data) {
-          setJamMasuk(data.jam_masuk);
-          setJamKeluar(data.jam_keluar ?? null);
+          // Staf berjadwal khusus: jam hari ini & jendela pulang memakai jam aturannya.
+          setJamMasuk(jadwal?.jam_masuk ?? data.jam_masuk);
+          setJamKeluar(jadwal?.jam_keluar ?? data.jam_keluar ?? null);
           const mode = modeRes.data ? modeRes.data.absen_window_mode : globalCfg?.absen_window_mode;
           setAbsenWindowMode(mode ?? "auto");
         }
@@ -517,6 +528,17 @@ export function AttendanceKioskPanel() {
           </Card>
         </div>
       )}
+
+          {jadwalKhusus && !hasIn && (
+            <div className="rounded-2xl border border-suka-orange/30 bg-orange-50/70 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-suka-brown/70">
+                Jadwal khusus{jadwalKhusus.nama ? ` · ${jadwalKhusus.nama}` : ""}
+              </p>
+              <p className="text-lg font-black tabular-nums leading-tight text-suka-ink">
+                {jadwalKhusus.jam_masuk} – {jadwalKhusus.jam_keluar}
+              </p>
+            </div>
+          )}
 
           {shiftTerpilih && !hasIn && (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-suka-orange/30 bg-orange-50/70 px-4 py-3">

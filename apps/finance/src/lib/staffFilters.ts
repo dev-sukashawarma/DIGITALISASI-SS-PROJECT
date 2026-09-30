@@ -13,20 +13,49 @@ export interface StaffFilterCandidate {
 }
 
 /**
+ * Memeriksa apakah staf adalah user Rendy Irawan (atau developer).
+ * Di dashboard HR dan Finance, developer adalah karyawan kantor pusat biasa
+ * (absen, gaji, cuti) dan wajib tampil di seluruh dashboard penggajian.
+ */
+export function isRendyOrDeveloperStaff(s?: StaffFilterCandidate | null): boolean {
+  if (!s) return false
+  const u = (s.username || '').trim().toLowerCase()
+  const n = (s.name || '').trim().toLowerCase()
+  const r = (s.role || '').trim().toLowerCase()
+
+  if (r === 'developer') return true
+  if (u === 'rendy' || u === 'rendydev404' || (u.startsWith('rendy_') && u !== 'rendy_tes')) {
+    return true
+  }
+  if (n === 'rendy' || n.includes('rendy irawan') || n.includes('rendy dev')) {
+    return true
+  }
+
+  return false
+}
+
+/**
  * Mendeteksi apakah staf adalah akun devai bot, kiosk, mitra owner, atau akun testing dummy
  * agar disembunyikan dari perhitungan penggajian karyawan aktif.
+ * Role `developer` TIDAK disembunyikan: developer adalah karyawan kantor pusat biasa
+ * (absen, gaji, cuti) dan wajib tampil di seluruh dashboard HR dan Finance.
  */
 export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   if (!s) return false
 
   // 0. Explicit account_category check (Database driven)
+  // If marked as bot, kiosk, mitra_owner, or testing -> always hide
   if (s.account_category && s.account_category !== 'employee') {
     return true
   }
 
+  // Real developers/head-office staff (e.g., Rendy, Maulana, Irsyad) are legitimate employees
+  const isDevEmployee = isRendyOrDeveloperStaff(s)
+
   // 1. Role checks (non-operational employee roles)
+  // Role `developer` TIDAK disembunyikan karena merupakan karyawan kantor pusat yang menerima gaji aktif.
   const role = (s.role || '').toLowerCase()
-  if (role === 'developer' || role === 'kiosk' || role === 'mitra' || role === 'owner') {
+  if (role === 'kiosk' || role === 'mitra' || role === 'owner') {
     return true
   }
 
@@ -86,11 +115,11 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
     return true
   }
 
-  // 7. Dev AI bot accounts (devai_*)
+  // 7. Dev AI bot accounts (devai_*) & dev dummy accounts
   if (name.startsWith('devai') || username.startsWith('devai') || email.startsWith('devai')) return true
-  if (username.startsWith('dev_') || email.startsWith('dev_')) return true
+  if (!isDevEmployee && (username.startsWith('dev_') || email.startsWith('dev_'))) return true
 
-  // 7. Explicit dummy / test usernames
+  // 8. Explicit dummy / test usernames
   const testUsernames = [
     'tes',
     'tes_bnr',
@@ -111,7 +140,7 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   ]
   if (testUsernames.includes(username)) return true
 
-  // 8. Test names pattern
+  // 9. Test names pattern
   if (
     name === 'test finance' ||
     name === 'test cicurug' ||
@@ -136,7 +165,7 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
     return true
   }
 
-  // 9. Test prefix/pattern checks
+  // 10. Test prefix/pattern checks
   if (
     username.startsWith('test') ||
     username.startsWith('tes') ||

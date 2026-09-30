@@ -15,9 +15,12 @@ describe('staffFilters — isTestOrDevStaff', () => {
     ).toBe(false)
   })
 
-  it('menyaring akun dengan role developer atau kiosk', () => {
-    expect(isTestOrDevStaff({ role: 'developer' })).toBe(true)
+  it('tidak menyaring karyawan role developer, tetapi menyaring kiosk/mitra/owner', () => {
+    expect(isTestOrDevStaff({ role: 'developer' })).toBe(false)
+    expect(isTestOrDevStaff({ name: 'Rendy Irawan', username: 'rendy', role: 'developer' })).toBe(false)
     expect(isTestOrDevStaff({ role: 'kiosk' })).toBe(true)
+    expect(isTestOrDevStaff({ role: 'mitra' })).toBe(true)
+    expect(isTestOrDevStaff({ role: 'owner' })).toBe(true)
   })
 
   it('menyaring akun devai bot', () => {

@@ -24,6 +24,21 @@ export function deriveScope(category: string, outletId?: string | null): Expense
   return PUSAT_SET.has(category) ? 'pusat' : 'outlet'
 }
 
+export const SALARY_CATEGORIES = [
+  'salary',
+  'gaji_crew_outlet',
+  'gaji_staff_kantor',
+  'bonus_leader',
+  'bonus_area_manager',
+  'bonus_crew',
+  'bonus_regional_manager',
+  'lembur'
+] as const
+
+export function isSalaryCategory(category: string): boolean {
+  return (SALARY_CATEGORIES as readonly string[]).includes(category)
+}
+
 export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: string; icon: LucideIcon }> = {
   pengeluaran_outlet: { label: 'Pengeluaran Outlet', color: '#4b5563', icon: Wallet },
   gaji_crew_outlet:   { label: 'Gaji Crew Outlet',   color: '#701604', icon: Users },

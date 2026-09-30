@@ -17,9 +17,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import * as XLSX from 'xlsx'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -354,9 +351,11 @@ export default function HrEomClosingPage() {
     }
   }
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     toast.info('Men-generate Dokumen PDF Resmi Payroll...')
     try {
+      const { jsPDF } = await import('jspdf')
+      const autoTable = (await import('jspdf-autotable')).default
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
       const pageWidth = doc.internal.pageSize.getWidth()
       const margin = 12
@@ -541,9 +540,10 @@ export default function HrEomClosingPage() {
     }
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     toast.info('Menyiapkan Workbook Excel Payroll...')
     try {
+      const XLSX = await import('xlsx')
       const wb = XLSX.utils.book_new()
 
       const ws1 = XLSX.utils.aoa_to_sheet([

@@ -5,7 +5,7 @@ import { FileDown, MessageSquare, Check, X, Clock, Wallet, ShieldAlert, Sparkles
 import { Button } from '@suka/design-system'
 import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah, formatBulanIndonesia } from '@/lib/format'
-import { generateSalarySlipPDF, buildSalarySlipWhatsAppMessage } from '@/lib/pdfSalarySlip'
+import { buildSalarySlipWhatsAppMessage } from '@/lib/whatsappSalarySlip'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 
 interface SalarySlipModalProps {
@@ -22,8 +22,9 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
   const outletName = slip.outlet_staff?.outlets?.name || 'Pusat'
   const periodText = `${formatBulanIndonesia(slip.period_month)} ${slip.period_year}`
 
-  const handleDownloadPdf = () => {
-    generateSalarySlipPDF(slip)
+  const handleDownloadPdf = async () => {
+    const { generateSalarySlipPDF } = await import('@/lib/pdfSalarySlip')
+    await generateSalarySlipPDF(slip)
   }
 
   const handleSendWhatsApp = () => {

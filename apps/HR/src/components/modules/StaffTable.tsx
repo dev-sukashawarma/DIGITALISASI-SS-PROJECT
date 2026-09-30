@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Users,
   Building2,
+  ShieldX,
 } from 'lucide-react'
 import { StatusToggle } from './StatusToggle'
 import type { StaffRow, StaffStatus, StaffSortKey, SortOrder, AccountCategory, Outlet } from '@/lib/types'
@@ -124,6 +125,7 @@ export function StaffTable({
   onToggleStatus,
   onToggleBonus,
   onDelete,
+  onHardDelete,
   sortBy,
   sortOrder,
   onSort,
@@ -135,6 +137,7 @@ export function StaffTable({
   onToggleStatus: (s: StaffRow, next: StaffStatus) => void
   onToggleBonus?: (s: StaffRow) => void
   onDelete: (s: StaffRow) => void
+  onHardDelete?: (s: StaffRow) => void
   sortBy?: StaffSortKey
   sortOrder?: SortOrder
   onSort?: (key: StaffSortKey) => void
@@ -458,10 +461,19 @@ export function StaffTable({
                       <button
                         onClick={() => onDelete(s)}
                         className="rounded-lg p-2 text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                        title="Hapus Staf"
+                        title="Hapus Staf (Smart: arsip jika ada riwayat)"
                       >
                         <Trash2 size={16} />
                       </button>
+                      {onHardDelete && (
+                        <button
+                          onClick={() => onHardDelete(s)}
+                          className="rounded-lg p-2 text-rose-900 hover:bg-rose-100 transition-colors cursor-pointer"
+                          title="Hard Delete Permanen (Paksa hapus data — TIDAK DAPAT DIBATALKAN)"
+                        >
+                          <ShieldX size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

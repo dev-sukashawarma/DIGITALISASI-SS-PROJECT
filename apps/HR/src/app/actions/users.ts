@@ -497,3 +497,88 @@ export async function deleteStaffSync(staffId: string): Promise<{
     }
   }
 }
+
+/**
+ * Hard delete paksa — menghapus karyawan beserta seluruh relasi data secara permanen,
+ * tanpa memeriksa riwayat operasional. Hanya boleh dilakukan oleh admin / owner.
+ * PERINGATAN: Tindakan ini TIDAK DAPAT DIBATALKAN dan dapat memengaruhi integritas data historis.
+ */
+export async function hardDeleteStaffSync(staffId: string): Promise<{
+  ok: boolean
+  message: string
+  error?: string
+}> {
+  try {
+    // Hanya admin, owner, dan admin_hr yang boleh melakukan hard delete paksa
+    await requireRole(['admin', 'owner', 'admin_hr'])
+
+    if (!staffId) return { ok: false, message: 'ID staf tidak valid', error: 'ID staf tidak valid' }
+    const admin = getAdminSupabase()
+
+    // 1. Fetch staff name for response message
+    const { data: staff, error: staffErr } = await admin
+      .from('outlet_staff')
+      .select('id, name')
+      .eq('id', staffId)
+      .single()
+
+    if (staffErr || !staff) {
+      return { ok: false, message: 'Data karyawan tidak ditemukan', error: 'Data karyawan tidak ditemukan' }
+    }
+
+    // 2. Null-kan FK references di tabel lain agar tidak terkena FK constraint
+    //    (SET NULL pada kolom nullable yang merujuk ke outlet_staff)
+    await Promise.allSettled([
+      // orders: voided_by, closed_by, staff_id
+      admin.from('orders').update({ voided_by: null }).eq('voided_by', staffId),
+      admin.from('orders').update({ closed_by: null }).eq('closed_by', staffId),
+      admin.from('orders').update({ staff_id: null }).eq('staff_id', staffId),
+      // shifts: staff_id, closed_by
+      admin.from('shifts').update({ staff_id: null }).eq('staff_id', staffId),
+      admin.from('shifts').update({ closed_by: null }).eq('closed_by', staffId),
+      // attendance
+      admin.from('attendance').update({ outlet_staff_id: null }).eq('outlet_staff_id', staffId),
+      // stok & waste reports
+      admin.from('stok_waste_reports').update({ reported_by: null }).eq('reported_by', staffId),
+      admin.from('stok_waste_reports').update({ approved_by: null }).eq('approved_by', staffId),
+      // leave requests, discipline, kasbon, payroll — biarkan record tetap ada tapi staff_id di-null
+      admin.from('leave_requests').update({ staff_id: null }).eq('staff_id', staffId),
+      admin.from('discipline_records').update({ staff_id: null }).eq('staff_id', staffId),
+      admin.from('cash_advances').update({ staff_id: null }).eq('staff_id', staffId),
+      admin.from('payroll_records').update({ staff_id: null }).eq('staff_id', staffId),
+    ])
+
+    // 3. Delete child rows yang dimiliki staff (bukan sekadar referensi)
+    await admin.from('staff_outlets').delete().eq('staff_id', staffId)
+    await admin.from('staff_financials').delete().eq('staff_id', staffId)
+
+    // 4. Hard delete from outlet_staff
+    const { error: deleteError } = await admin.from('outlet_staff').delete().eq('id', staffId)
+    if (deleteError) {
+      return {
+        ok: false,
+        message: `Gagal menghapus data karyawan: ${deleteError.message}`,
+        error: deleteError.message,
+      }
+    }
+
+    // 5. Delete auth user
+    try {
+      await admin.auth.admin.deleteUser(staffId)
+    } catch (authErr: any) {
+      // Auth user mungkin sudah tidak ada, lanjutkan
+      console.warn('Gagal menghapus auth user (mungkin sudah tidak ada):', authErr?.message)
+    }
+
+    return {
+      ok: true,
+      message: `Karyawan "${staff.name}" berhasil dihapus permanen (Hard Delete).`,
+    }
+  } catch (err: any) {
+    return {
+      ok: false,
+      message: err.message || 'Gagal melakukan hard delete karyawan',
+      error: err.message || 'Gagal melakukan hard delete karyawan',
+    }
+  }
+}

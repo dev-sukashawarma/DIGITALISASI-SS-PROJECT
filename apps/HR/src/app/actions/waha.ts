@@ -1,7 +1,7 @@
 'use server'
 
 import { sendWahaText, checkWahaSessionStatus } from '@/lib/waha'
-import { buildSalarySlipWhatsAppMessage } from '@/lib/pdfSalarySlip'
+import { buildSalarySlipWhatsAppMessage } from '@/lib/whatsappSalarySlip'
 import type { PayrollRecord } from '@/lib/types'
 
 export interface BulkSendItemResult {

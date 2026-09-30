@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@suka/auth'
 import { adminApi } from '@/lib/adminApi'
 import type { StaffFormValues } from '@/lib/types'
-import { createStaffSync, updateStaffSync, toggleStaffBonusEligibility, deleteStaffSync } from '@/app/actions/users'
+import { createStaffSync, updateStaffSync, toggleStaffBonusEligibility, deleteStaffSync, hardDeleteStaffSync } from '@/app/actions/users'
 
 export function useStaffMutations() {
   const { session } = useAuth()
@@ -59,5 +59,14 @@ export function useStaffMutations() {
     onSuccess: invalidate,
   })
 
-  return { create, update, resetPassword, setStatus, toggleBonusEligibility, remove }
+  const hardDelete = useMutation({
+    mutationFn: async (staff_id: string) => {
+      const res = await hardDeleteStaffSync(staff_id)
+      if (!res.ok) throw new Error(res.error || res.message || 'Gagal melakukan hard delete staf')
+      return res
+    },
+    onSuccess: invalidate,
+  })
+
+  return { create, update, resetPassword, setStatus, toggleBonusEligibility, remove, hardDelete }
 }

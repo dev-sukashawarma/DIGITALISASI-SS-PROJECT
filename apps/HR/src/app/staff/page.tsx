@@ -40,7 +40,7 @@ export default function StaffPage() {
 
   const { data: staffList = [], isLoading } = useStaff()
   const { data: outlets = [] } = useOutlets()
-  const { create, update, remove, setStatus, toggleBonusEligibility, resetPassword } = useStaffMutations()
+  const { create, update, remove, setStatus, toggleBonusEligibility, resetPassword, hardDelete } = useStaffMutations()
 
   const filteredStaff = useMemo(
     () => filterStaff(staffList, filter),
@@ -100,6 +100,19 @@ export default function StaffPage() {
         }
       },
       onError: (err: any) => toast.error(err.message || 'Gagal menghapus staf'),
+    })
+  }
+
+  const handleHardDelete = (s: StaffRow) => {
+    const confirmMsg = `⚠️ HARD DELETE PERMANEN\n\nAnda akan menghapus karyawan "${s.name}" secara paksa beserta SELURUH data terkait.\n\nTindakan ini TIDAK DAPAT DIBATALKAN dan dapat memengaruhi integritas data historis (shift, absensi, dll).\n\nKetik "HAPUS" untuk konfirmasi:`
+    const typed = window.prompt(confirmMsg)
+    if (typed?.trim().toUpperCase() !== 'HAPUS') {
+      if (typed !== null) toast.error('Konfirmasi tidak sesuai. Hard delete dibatalkan.')
+      return
+    }
+    hardDelete.mutate(s.id, {
+      onSuccess: (res: any) => toast.success(res?.message || `Karyawan ${s.name} berhasil dihapus permanen`),
+      onError: (err: any) => toast.error(err.message || 'Gagal melakukan hard delete staf'),
     })
   }
 
@@ -267,6 +280,7 @@ export default function StaffPage() {
           onToggleStatus={handleToggleStatus}
           onToggleBonus={handleToggleBonus}
           onDelete={handleDelete}
+          onHardDelete={handleHardDelete}
         />
       )}
 

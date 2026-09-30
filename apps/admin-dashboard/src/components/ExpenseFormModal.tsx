@@ -1,59 +1,148 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@suka/design-system'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { 
-  INCOME_CATEGORIES, 
   PENGELUARAN_CATEGORIES, 
   CATEGORY_META, 
-  type ExpenseCategory,
-  type TransactionType
+  type ExpenseCategory
 } from '@/lib/expenseCategories'
-import type { Outlet } from '@/pos-types'
-import { ArrowDownToLine, ArrowUpToLine } from 'lucide-react'
+import type { Outlet } from '@/lib/types'
+import { Upload, X, FileText, Loader2, Eye } from 'lucide-react'
+import { useOutlets } from '@/hooks/useOutlets'
+import { createSingleExpenseAction, updateSingleExpenseAction, uploadExpenseInvoiceAction } from '@/app/actions/expenses'
 
 const inputCls =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange bg-white'
 
 export function ExpenseFormModal({
-  outlets,
-  isAdmin,
-  defaultOutletId,
+  isOpen = true,
+  outlets: propOutlets,
+  isAdmin = true,
+  initialData = null,
   onClose,
   onSuccess
 }: {
-  outlets: Outlet[]
-  isAdmin: boolean
-  defaultOutletId?: string
+  isOpen?: boolean
+  outlets?: Outlet[]
+  isAdmin?: boolean
+  initialData?: any | null
   onClose: () => void
   onSuccess: () => void
 }) {
+  const isEdit = Boolean(initialData)
+  const { data: fetchedOutlets = [] } = useOutlets()
+  const outletsList = propOutlets && propOutlets.length > 0 ? propOutlets : fetchedOutlets
+
   const [submitting, setSubmitting] = useState(false)
+  const [submitMessage, setSubmitMessage] = useState<string>('')
   const today = new Date().toISOString().slice(0, 10)
   
-  const [type, setType] = useState<TransactionType>('expense')
-  const [outletId, setOutletId] = useState<string>(defaultOutletId || (isAdmin ? 'PUSAT' : outlets[0]?.id || 'PUSAT'))
-  
-  // Set default category based on type
-  const defaultCategory = type === 'income' ? INCOME_CATEGORIES[0] : PENGELUARAN_CATEGORIES[0]
-  const [category, setCategory] = useState<ExpenseCategory>(defaultCategory)
-  
+  const [outletId, setOutletId] = useState<string>('PUSAT')
+  const [category, setCategory] = useState<ExpenseCategory>(PENGELUARAN_CATEGORIES[0])
   const [amount, setAmount] = useState<number | ''>('')
   const [description, setDescription] = useState('')
   const [expenseDate, setExpenseDate] = useState(today)
+  const [recipientName, setRecipientName] = useState('')
+  const [division, setDivision] = useState('')
 
-  const activeCategories = type === 'income' ? INCOME_CATEGORIES : PENGELUARAN_CATEGORIES
+  // File upload state for invoice / receipt proof
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [existingReceiptUrl, setExistingReceiptUrl] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  // Update category if type changes
-  const handleTypeChange = (newType: TransactionType) => {
-    setType(newType)
-    setCategory(newType === 'income' ? INCOME_CATEGORIES[0] : PENGELUARAN_CATEGORIES[0])
+  useEffect(() => {
+    if (initialData) {
+      const isKantorPusat = 
+        !initialData.outlet_id || 
+        initialData.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ||
+        initialData.scope === 'pusat' ||
+        initialData.outlet_name === 'Kantor Pusat' ||
+        initialData.outlet_name === 'Pusat'
+
+      setOutletId(isKantorPusat ? 'PUSAT' : (initialData.outlet_id || 'PUSAT'))
+      
+      const cat = (initialData.category || PENGELUARAN_CATEGORIES[0]) as ExpenseCategory
+      setCategory(cat)
+      
+      setAmount(initialData.amount !== undefined && initialData.amount !== null ? Number(initialData.amount) : '')
+      setDescription(initialData.description || '')
+      setExpenseDate(initialData.date || initialData.expense_date || today)
+      setRecipientName(
+        initialData.recipient_name && initialData.recipient_name !== '-' ? initialData.recipient_name : ''
+      )
+      setDivision(
+        initialData.division && initialData.division !== '-' ? initialData.division : ''
+      )
+      setExistingReceiptUrl(initialData.receipt_url || null)
+      setPreviewUrl(initialData.receipt_url || null)
+      setSelectedFile(null)
+    } else {
+      setOutletId('PUSAT')
+      setCategory(PENGELUARAN_CATEGORIES[0])
+      setAmount('')
+      setDescription('')
+      setExpenseDate(today)
+      setRecipientName('')
+      setDivision('')
+      setExistingReceiptUrl(null)
+      setPreviewUrl(null)
+      setSelectedFile(null)
+    }
+  }, [initialData, isOpen, today])
+
+  if (isOpen === false) return null
+
+  const handleCategoryChange = (newCat: ExpenseCategory) => {
+    setCategory(newCat)
+    if (newCat === 'gaji_staff_kantor' || newCat === 'pengeluaran_global') {
+      const selectedOutlet = outletsList.find(o => o.id === outletId)
+      if (selectedOutlet?.type === 'mitra') {
+        setOutletId('PUSAT')
+        toast.info('Kategori kantor pusat otomatis dialihkan ke Pusat.')
+      }
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Ukuran file maksimal 10MB')
+      return
+    }
+
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl)
+    }
+
+    setSelectedFile(file)
+    if (file.type.startsWith('image/')) {
+      const objUrl = URL.createObjectURL(file)
+      setPreviewUrl(objUrl)
+    } else {
+      setPreviewUrl(null)
+    }
+  }
+
+  const handleRemoveFile = () => {
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl)
+    }
+    setSelectedFile(null)
+    setExistingReceiptUrl(null)
+    setPreviewUrl(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!amount || amount <= 0) {
+    if (!amount || Number(amount) <= 0) {
       toast.error('Jumlah harus lebih dari 0')
       return
     }
@@ -62,70 +151,118 @@ export function ExpenseFormModal({
       return
     }
 
+    const isOfficeCategory = category === 'gaji_staff_kantor' || category === 'pengeluaran_global' || description.toLowerCase().includes('gaji kantor')
+    const selectedOutlet = outletsList.find(o => o.id === outletId)
+    if (isOfficeCategory && selectedOutlet?.type === 'mitra') {
+      toast.error('Pengeluaran kantor pusat dilarang dialokasikan ke outlet mitra. Pilih Pusat atau outlet internal.')
+      return
+    }
+
     setSubmitting(true)
-    const supabase = createClient()
-    
-    // Auth user
-    const { data: { session } } = await supabase.auth.getSession()
-    const userId = session?.user?.id
+    try {
+      let receiptUrl: string | null = existingReceiptUrl
 
-    const yyyyMm = expenseDate.slice(0, 7)
-    const periodMonth = `${yyyyMm}-01`
+      if (selectedFile) {
+        setSubmitMessage('Mengupload bukti invoice...')
+        const formData = new FormData()
+        formData.append('file', selectedFile)
 
-    const isPusat = outletId === 'PUSAT'
+        const uploadRes = await uploadExpenseInvoiceAction(formData)
+        if (!uploadRes.success || !uploadRes.url) {
+          toast.error('Gagal mengupload bukti invoice: ' + (uploadRes.error || 'Terjadi kesalahan'))
+          setSubmitting(false)
+          setSubmitMessage('')
+          return
+        }
+        receiptUrl = uploadRes.url
+      } else if (!existingReceiptUrl) {
+        receiptUrl = null
+      }
 
-    const { error } = await supabase.from('expenses').insert({
-      outlet_id: isPusat ? null : outletId,
-      category,
-      amount: Number(amount),
-      description,
-      expense_date: expenseDate,
-      period_month: periodMonth,
-      type: type,
-      created_by: userId
-    })
+      setSubmitMessage(isEdit ? 'Menyimpan perubahan...' : 'Menyimpan data pengeluaran...')
+      const yyyyMm = expenseDate.slice(0, 7)
+      const periodMonth = `${yyyyMm}-01`
+      const isPusat = outletId === 'PUSAT'
 
-    setSubmitting(false)
+      if (isEdit && initialData?.id) {
+        const res = await updateSingleExpenseAction({
+          id: initialData.id,
+          outletId: isPusat ? null : outletId,
+          category,
+          amount: Number(amount),
+          description: description.trim(),
+          expenseDate: expenseDate,
+          periodMonth: periodMonth,
+          receipt_url: receiptUrl,
+          recipient_name: recipientName.trim() || null,
+          division: division.trim() || null
+        })
 
-    if (error) {
-      toast.error('Gagal menyimpan transaksi: ' + error.message)
-    } else {
-      toast.success('Transaksi berhasil ditambahkan')
+        if (!res.success) {
+          toast.error('Gagal memperbarui pengeluaran: ' + (res.error || 'Error'))
+          return
+        }
+
+        toast.success('Pengeluaran OPEX berhasil diperbarui')
+      } else {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const userId = session?.user?.id
+
+        const res = await createSingleExpenseAction({
+          outletId: isPusat ? null : outletId,
+          category,
+          amount: Number(amount),
+          description: description.trim(),
+          expenseDate: expenseDate,
+          periodMonth: periodMonth,
+          type: 'expense',
+          created_by: userId,
+          receipt_url: receiptUrl
+        })
+
+        if (!res.success) {
+          toast.error('Gagal menyimpan pengeluaran: ' + (res.error || 'Error'))
+          return
+        }
+
+        toast.success('Pengeluaran OPEX berhasil ditambahkan')
+      }
+
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl)
+      }
       onSuccess()
+    } catch (err: any) {
+      toast.error('Gagal menyimpan transaksi: ' + (err.message || 'Error'))
+    } finally {
+      setSubmitting(false)
+      setSubmitMessage('')
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-        <h3 className="mb-4 text-xl font-bold text-suka-ink">Input Transaksi Baru</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl max-h-[92vh] overflow-y-auto">
+        <div className="mb-4 flex items-center justify-between pb-3 border-b border-suka-gray-100">
+          <div>
+            <h3 className="text-lg font-bold text-suka-ink">
+              {isEdit ? 'Edit Pengeluaran (OPEX)' : 'Input Pengeluaran Baru (OPEX)'}
+            </h3>
+            <p className="text-xs text-suka-gray-500">
+              {isEdit ? 'Perbarui rincian transaksi beban operasional' : 'Catat transaksi pengeluaran operasional cabang / pusat'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-lg text-suka-gray-400 hover:text-suka-ink hover:bg-suka-gray-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-2 mb-2 p-1 bg-suka-gray-50 rounded-xl border border-suka-gray-200">
-            <button
-              type="button"
-              onClick={() => handleTypeChange('income')}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                type === 'income' 
-                  ? 'bg-white text-green-600 shadow-sm border border-suka-gray-200' 
-                  : 'text-suka-gray-500 hover:text-suka-ink'
-              }`}
-            >
-              <ArrowDownToLine className="w-4 h-4" /> Pemasukan
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('expense')}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                type === 'expense' 
-                  ? 'bg-white text-red-600 shadow-sm border border-suka-gray-200' 
-                  : 'text-suka-gray-500 hover:text-suka-ink'
-              }`}
-            >
-              <ArrowUpToLine className="w-4 h-4" /> Pengeluaran
-            </button>
-          </div>
-
           <label className="text-sm">
             <span className="mb-1 block font-medium text-suka-ink">Target / Outlet</span>
             <select
@@ -134,30 +271,61 @@ export function ExpenseFormModal({
               onChange={(e) => setOutletId(e.target.value)}
             >
               {isAdmin && <option value="PUSAT">🏢 Pusat (Company-wide)</option>}
-              {outlets
-                .filter((o) => o.is_active !== false)
-                .map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
+              {outletsList.map((o) => {
+                const isMitra = o.type === 'mitra'
+                const isOfficeCategory = category === 'gaji_staff_kantor' || category === 'pengeluaran_global'
+                return (
+                  <option key={o.id} value={o.id} disabled={isOfficeCategory && isMitra}>
+                    {o.name} {isMitra ? (isOfficeCategory ? '(Mitra - Khusus Internal)' : '(Mitra)') : ''}
                   </option>
-                ))}
+                )
+              })}
             </select>
           </label>
 
           <label className="text-sm">
-            <span className="mb-1 block font-medium text-suka-ink">Kategori</span>
+            <span className="mb-1 block font-medium text-suka-ink">Kategori Pengeluaran</span>
             <select
               className={inputCls}
               value={category}
-              onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+              onChange={(e) => handleCategoryChange(e.target.value as ExpenseCategory)}
             >
-              {activeCategories.map((c) => (
+              {PENGELUARAN_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {CATEGORY_META[c]?.label || c}
                 </option>
               ))}
             </select>
           </label>
+
+          {/* Nama Pemohon & Divisi (Opsional) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-suka-ink">
+                Nama Pemohon <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
+              </span>
+              <input
+                type="text"
+                className={inputCls}
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+                placeholder="Contoh: Budi Santoso"
+              />
+            </label>
+
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-suka-ink">
+                Divisi <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
+              </span>
+              <input
+                type="text"
+                className={inputCls}
+                value={division}
+                onChange={(e) => setDivision(e.target.value)}
+                placeholder="Contoh: Operasional / GA"
+              />
+            </label>
+          </div>
 
           <label className="text-sm">
             <span className="mb-1 block font-medium text-suka-ink">Jumlah (Rp)</span>
@@ -175,10 +343,10 @@ export function ExpenseFormModal({
             <span className="mb-1 block font-medium text-suka-ink">Keterangan / Uraian</span>
             <textarea
               className={inputCls}
-              rows={3}
+              rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Contoh: Beli sabun cuci piring"
+              placeholder="Contoh: Beli sabun cuci piring & tissue"
             />
           </label>
 
@@ -192,16 +360,147 @@ export function ExpenseFormModal({
             />
           </label>
 
+          {/* Opsi Input Gambar Bukti Invoice */}
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium text-suka-ink">
+              Bukti Invoice / Nota <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
+            </span>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {!selectedFile && !existingReceiptUrl ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="group border-2 border-dashed border-suka-gray-200 hover:border-suka-orange rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-suka-gray-50/60 hover:bg-orange-50/40 transition-all text-center"
+              >
+                <div className="w-9 h-9 rounded-full bg-white border border-suka-gray-200 flex items-center justify-center text-suka-gray-500 group-hover:text-suka-orange group-hover:border-suka-orange transition-colors">
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div className="text-xs font-semibold text-suka-gray-700 group-hover:text-suka-orange">
+                  Klik untuk upload foto invoice / nota
+                </div>
+                <p className="text-[11px] text-suka-gray-400">JPG, PNG, WEBP, atau PDF (maks. 10MB)</p>
+              </div>
+            ) : selectedFile ? (
+              <div className="border border-suka-gray-200 rounded-xl p-3 bg-suka-gray-50 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="w-12 h-12 rounded-lg object-cover border border-suka-gray-200 shrink-0 shadow-2xs"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-orange-100 text-suka-orange flex items-center justify-center shrink-0">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-suka-ink truncate">{selectedFile.name}</p>
+                    <p className="text-[11px] text-suka-gray-500">
+                      {(selectedFile.size / 1024).toFixed(1)} KB (File Baru)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[11px] text-suka-orange hover:underline font-medium px-2 py-1"
+                  >
+                    Ganti
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="p-1 text-suka-gray-400 hover:text-red-500 transition-colors"
+                    title="Hapus file"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Existing receipt */
+              <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50/50 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  {previewUrl?.toLowerCase().endsWith('.pdf') ? (
+                    <div className="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  ) : previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Nota Tersimpan"
+                      className="w-12 h-12 rounded-lg object-cover border border-emerald-200 shrink-0 shadow-2xs"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                      <Eye size={12} />
+                      Bukti Nota Tersimpan
+                    </p>
+                    <a
+                      href={existingReceiptUrl!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-emerald-600 hover:underline truncate block"
+                    >
+                      Buka dokumen nota
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[11px] text-suka-orange hover:underline font-medium px-2 py-1"
+                  >
+                    Ganti
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="p-1 text-suka-gray-400 hover:text-red-500 transition-colors"
+                    title="Hapus nota"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="mt-2 flex justify-end gap-3 pt-4 border-t border-suka-gray-100">
             <button
               type="button"
+              disabled={submitting}
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-suka-gray-500 hover:text-suka-ink transition-colors"
+              className="px-4 py-2 text-sm font-medium text-suka-gray-500 hover:text-suka-ink transition-colors disabled:opacity-50"
             >
               Batal
             </button>
-            <Button type="submit" disabled={submitting} className="rounded-xl">
-              {submitting ? 'Menyimpan...' : 'Simpan Transaksi'}
+            <Button type="submit" disabled={submitting} className="rounded-xl flex items-center gap-2">
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>{submitMessage || (isEdit ? 'Menyimpan perubahan...' : 'Menyimpan...')}</span>
+                </>
+              ) : (
+                isEdit ? 'Simpan Perubahan' : 'Simpan Pengeluaran'
+              )}
             </Button>
           </div>
         </form>

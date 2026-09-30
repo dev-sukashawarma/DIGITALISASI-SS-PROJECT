@@ -203,7 +203,7 @@ export default function DashboardClient() {
                           <Banknote size={20} />
                         </div>
                       </div>
-                      <p className="text-suka-ink/60 text-sm font-bold uppercase tracking-wider mb-1">Kas Tunai (Mengendap)</p>
+                      <p className="text-suka-ink/60 text-sm font-bold uppercase tracking-wider mb-1">Kas Fisik Pusat</p>
                       <h3 className="font-display text-3xl text-suka-ink flex items-baseline">
                         <span className="text-lg mr-1 font-sans font-bold">Rp</span>
                         <NumberFlow value={summary.totalCash} />

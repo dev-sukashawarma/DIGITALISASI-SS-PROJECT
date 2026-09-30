@@ -10,16 +10,16 @@ export interface NetCashSummary {
 }
 
 /**
- * Ringkas saldo per-jenis lokasi. 'cash' = uang tunai fisik yang masih
- * mengendap (belum masuk bank); dipisah agar terlihat jelas di dashboard.
+ * Ringkas saldo per-jenis lokasi (bank vs kas fisik pusat).
+ * Lokasi bertipe outlet atau berstatus non-aktif (is_active: false) diabaikan.
  */
 export function summarizeBalances(
-  rows: Array<{ kind: CashKind; saldo: number; scope: string }>
+  rows: Array<{ kind: CashKind; saldo: number; scope: string; is_active?: boolean }>
 ): NetCashSummary {
   let totalBank = 0
   let totalCash = 0
   for (const r of rows) {
-    if (r.scope === 'outlet') continue
+    if (r.scope === 'outlet' || r.is_active === false) continue
     if (r.kind === 'bank') totalBank += r.saldo
     else totalCash += r.saldo
   }

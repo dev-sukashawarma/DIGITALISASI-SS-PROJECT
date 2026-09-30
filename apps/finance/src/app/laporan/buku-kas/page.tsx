@@ -26,12 +26,13 @@ import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { useExpenses } from '@/hooks/useExpenses'
+import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
 import { deleteTransactionAction } from '@/app/actions/expenses'
-import { CATEGORY_META } from '@/lib/expenseCategories'
+import { CATEGORY_META, isSalaryCategory } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
@@ -88,6 +89,13 @@ export default function BukuKasPage() {
 
   const { rows: expenseRows = [], loading: expensesLoading, error: expensesError, refetch: refetchExpenses } = useExpenses(filter)
 
+  const hrPayrollFilter = useMemo(() => ({
+    from: startDate,
+    to: endDate,
+    outletId: target
+  }), [startDate, endDate, target])
+  const { data: hrPayroll } = useHRPayroll(hrPayrollFilter)
+
   // Pure OPEX Expense Rows
   const allTransactions = useMemo(() => {
     let list: any[] = []
@@ -132,7 +140,7 @@ export default function BukuKasPage() {
     allTransactions.forEach(t => {
       const amt = Number(t.amount || 0)
       totalOpex += amt
-      if (t.category === 'salary') {
+      if (isSalaryCategory(t.category)) {
         salary += amt
       } else {
         nonSalary += amt
@@ -573,13 +581,18 @@ export default function BukuKasPage() {
           <div className="min-w-0 flex-1">
             <div className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1 truncate">
               <ArrowUpRight size={14} className="shrink-0" />
-              <span className="truncate">Total OPEX</span>
+              <span className="truncate">Total OPEX (Kas)</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-rose-700 mt-1 tracking-tight truncate" title={rupiah(summary.totalOpex)}>
               {rupiah(summary.totalOpex)}
             </div>
             <div className="text-[11px] text-gray-400 font-semibold mt-0.5 truncate">
               {summary.count} transaksi operasional
+              {hrPayroll && hrPayroll.totalSalary > 0 && summary.salary === 0 && (
+                <span className="text-rose-600/90 font-medium ml-1.5" title="Estimasi total beban jika digabung payroll HR">
+                  (Est. +Gaji: {rupiah(summary.totalOpex + hrPayroll.totalSalary)})
+                </span>
+              )}
             </div>
           </div>
           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs shrink-0 ml-3">
@@ -588,23 +601,60 @@ export default function BukuKasPage() {
         </div>
 
         {/* Salary */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between min-w-0">
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1 truncate">
-              <Users size={14} className="shrink-0" />
-              <span className="truncate">Gaji & Payroll</span>
+        {(() => {
+          const hasHrPayroll = Boolean(hrPayroll && hrPayroll.totalStaff > 0 && hrPayroll.totalSalary > 0)
+          const displaySalary = hasHrPayroll ? hrPayroll!.totalSalary : summary.salary
+
+          return (
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between min-w-0">
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Users size={14} className="shrink-0" />
+                    <span>Gaji & Payroll</span>
+                  </div>
+                  {hrPayroll?.status === 'draft' && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                      Draft HR ({hrPayroll.draftCount} staff)
+                    </span>
+                  )}
+                  {hrPayroll?.status === 'finalized' && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Sudah Difinalisasi
+                    </span>
+                  )}
+                  {hrPayroll?.status === 'partial' && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {hrPayroll.finalizedCount} Final · {hrPayroll.draftCount} Draft
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-xl sm:text-2xl font-black text-indigo-700 mt-1 tracking-tight truncate" title={rupiah(displaySalary)}>
+                  {rupiah(displaySalary)}
+                </div>
+
+                <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
+                  {hasHrPayroll ? (
+                    <span>
+                      Total Payroll HR ({hrPayroll!.totalStaff} staf)
+                      {summary.salary > 0 && summary.salary !== hrPayroll!.totalSalary && (
+                        <span className="text-[10px] text-gray-400 font-normal ml-1">
+                          • Kas: {rupiah(summary.salary)}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    'Beban gaji crew & kantor'
+                  )}
+                </div>
+              </div>
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 ml-3">
+                PAY
+              </div>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-indigo-700 mt-1 tracking-tight truncate" title={rupiah(summary.salary)}>
-              {rupiah(summary.salary)}
-            </div>
-            <div className="text-[11px] text-gray-400 font-semibold mt-0.5 truncate">
-              Beban gaji crew & kantor
-            </div>
-          </div>
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 ml-3">
-            PAY
-          </div>
-        </div>
+          )
+        })()}
 
         {/* Non-Salary OPEX */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between min-w-0">

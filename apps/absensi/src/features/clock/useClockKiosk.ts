@@ -13,7 +13,10 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
-import { shiftOptions, isShiftPenutup, type ShiftConfig, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
+import {
+  shiftOptions, isShiftPenutup, isPenutupMenurutServer, penutupPerluJejak,
+  type JejakShift, type ShiftConfig, type ShiftKe, type ShiftOption,
+} from "@/lib/attendance/shift";
 import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable, formatDistanceMeters } from "@/lib/gps";
 // Kantor Pusat tidak punya laci kasir maupun checklist tutup: gerbang absen pulang tak berlaku.
 import { adalahKantorPusat } from "@/lib/attendance/kantorPusat";
@@ -369,31 +372,25 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const pendingManualRef = useRef<{ staffId: string; staffName: string } | null>(null);
 
   /**
-   * Opsi shift outlet ini (null = outlet tanpa pilihan shift). Dibaca segar tiap absen.
-   * Lewat RPC, bukan tabel: RLS outlet_attendance_config hanya membuka outlet utama
-   * staff, sehingga di outlet tambahan/penempatan pilihan shift tak pernah muncul.
+   * Config jam & shift outlet ini UNTUK STAF yang teridentifikasi (`p_staff_id`) — di kiosk
+   * bersama akun yang login bukan staf yang absen, jadi default auth.uid() salah. Hasilnya
+   * memuat jadwal khusus staf (`jadwal_staf`) dan patokan penutup (`menit_pulang_penutup`).
+   * Dibaca segar tiap absen. Lewat RPC, bukan tabel: RLS outlet_attendance_config hanya
+   * membuka outlet utama staff, sehingga di outlet tambahan/penempatan pilihan shift tak muncul.
    */
-  async function loadShiftOptions(role?: string | null): Promise<ShiftOption[] | null> {
+  async function loadShiftConfig(staffId: string): Promise<ShiftConfig | null> {
     if (!outletId) return null;
-    const { data } = await supabase.rpc("attendance_shift_config", { p_outlet_id: outletId });
-    return shiftOptions(data as ShiftConfig | null, role);
+    const { data } = await supabase.rpc("attendance_shift_config", { p_outlet_id: outletId, p_staff_id: staffId });
+    return (data as ShiftConfig | null) ?? null;
   }
 
-  /**
-   * Apakah staff ini wajib menunggu penutupan outlet (checklist tutup & laci kasir)
-   * sebelum absen pulang. Di outlet berpilihan shift hanya shift yang pulang paling akhir;
-   * aturan yang sama ditegakkan ulang di server (RPC submit_attendance).
-   *
-   * Kantor Pusat tidak punya laci kasir maupun checklist tutup outlet, jadi gerbang ini
-   * hanya akan mengunci staf kantor selamanya. Yang tersisa di sana cuma aturan jam, dan
-   * itu tetap ditegakkan server (`too_early_out`: paling cepat 30 menit sebelum jam pulang).
-   */
-  async function wajibTutupOutlet(staffId: string): Promise<boolean> {
-    if (diKantorPusatRef.current) return false;
-    const staffRole = candidatesRef.current.find((c) => c.id === staffId)?.role;
-    if (staffRole === 'admin_hr') return false;
-    const opsi = await loadShiftOptions(staffRole);
-    if (!opsi) return true;
+  /** Opsi shift staf ini (null = tanpa pilihan shift, termasuk staf berjadwal khusus). */
+  async function loadShiftOptions(staffId: string, role?: string | null): Promise<ShiftOption[] | null> {
+    return shiftOptions(await loadShiftConfig(staffId), role);
+  }
+
+  /** Jejak shift absen masuk terakhir (≤ 20 jam) — jam yang dibekukan saat masuk. */
+  async function loadJejakShift(staffId: string): Promise<JejakShift> {
     const { data } = await supabase
       .from("attendance")
       .select("shift_jam_masuk, shift_jam_keluar")
@@ -404,7 +401,36 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       .order("ts_server", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const jejak = data as { shift_jam_masuk: string | null; shift_jam_keluar: string | null } | null;
+    return data as JejakShift;
+  }
+
+  /**
+   * Apakah staff ini wajib menunggu penutupan outlet (checklist tutup & laci kasir)
+   * sebelum absen pulang — hanya yang pulang paling akhir di outlet; aturan yang sama
+   * ditegakkan ulang di server (RPC submit_attendance).
+   *
+   * Server baru (config membawa `menit_pulang_penutup`, termasuk jam aturan staf):
+   * cermin persis gerbang server lewat `isPenutupMenurutServer`, supaya klien tidak
+   * menahan staf yang server izinkan pulang (mis. crew 10–17 saat ada staf 15–23).
+   * Config tanpa field itu → aturan lama (pilihan shift / semua penutup).
+   *
+   * Kantor Pusat tidak punya laci kasir maupun checklist tutup outlet, jadi gerbang ini
+   * hanya akan mengunci staf kantor selamanya. Yang tersisa di sana cuma aturan jam, dan
+   * itu tetap ditegakkan server (`too_early_out`: paling cepat 30 menit sebelum jam pulang).
+   */
+  async function wajibTutupOutlet(staffId: string): Promise<boolean> {
+    if (diKantorPusatRef.current) return false;
+    const staffRole = candidatesRef.current.find((c) => c.id === staffId)?.role;
+    if (staffRole === 'admin_hr') return false;
+    const cfg = await loadShiftConfig(staffId);
+    if (cfg && typeof cfg.menit_pulang_penutup === "number") {
+      // Jejak absen masuk hanya dibaca bila memang menentukan (staf beraturan / pilihan shift).
+      const jejak = penutupPerluJejak(cfg) ? await loadJejakShift(staffId) : null;
+      return isPenutupMenurutServer(cfg, jejak) ?? true;
+    }
+    const opsi = shiftOptions(cfg, staffRole);
+    if (!opsi) return true;
+    const jejak = await loadJejakShift(staffId);
     return isShiftPenutup(opsi, jejak?.shift_jam_keluar, jejak?.shift_jam_masuk);
   }
 
@@ -568,9 +594,10 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       shiftKeRef.current = presetShiftKe;
 
       // Outlet berpilihan shift: crew wajib memilih shift sebelum absen masuk
-      // (kecuali sudah dipilih di awal lewat options.shiftKe).
+      // (kecuali sudah dipilih di awal lewat options.shiftKe). Staf berjadwal khusus
+      // tidak ditanya — config staf ini tidak memberi opsi.
       if (next === "in" && !presetShiftKe) {
-        const opsi = await loadShiftOptions(foundRole);
+        const opsi = await loadShiftOptions(foundId, foundRole);
         if (opsi) {
           setShiftChoices(opsi);
           setPhase("pilih_shift");
@@ -815,7 +842,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       shiftKeRef.current = presetShiftKe;
       if (nextAction === "in" && !presetShiftKe) {
         const staffRole = candidatesRef.current.find((c) => c.id === staffId)?.role;
-        const opsi = await loadShiftOptions(staffRole);
+        const opsi = await loadShiftOptions(staffId, staffRole);
         if (opsi) {
           pendingManualRef.current = { staffId, staffName };
           setWho({ id: staffId, name: staffName });
@@ -963,6 +990,8 @@ function gagalText(reason: string): string {
     location_required: "Lokasi GPS wajib aktif untuk absen",
     too_far_from_outlet: "Anda di luar radius outlet",
     config_missing: "Jadwal absen belum diatur. Hubungi admin.",
+    forbidden_staff: "Absen hanya bisa untuk akun Anda sendiri",
+    auth_required: "Sesi login berakhir. Silakan login ulang lalu absen lagi.",
   };
   return map[reason] ?? `Gagal: ${reason}`;
 }

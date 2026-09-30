@@ -39,6 +39,9 @@ import { isTestOutlet } from '@/lib/outletFilters'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
+import { GrossSalesBreakdownModal } from '@/components/profit/GrossSalesBreakdownModal'
+import { CogsWasteBreakdownModal } from '@/components/profit/CogsWasteBreakdownModal'
+import { OpexBreakdownModal } from '@/components/profit/OpexBreakdownModal'
 import { bukuKasHref } from '@/lib/bukuKasLink'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
@@ -525,6 +528,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
   const [isExporting, setIsExporting] = useState(false)
   const [breakdownOpen, setBreakdownOpen] = useState(false)
+  const [activeBreakdownModal, setActiveBreakdownModal] = useState<'sales' | 'cogs' | 'opex' | 'net' | null>(null)
 
   // Biaya pusat hanya ikut pada tampilan gabungan seluruh outlet — sama persis
   // dengan syarat yang dipakai `displayLaba`, supaya rincian mendarat di angka
@@ -596,6 +600,125 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       }))
       .sort((a, b) => a.amount - b.amount)
   }, [salesRows])
+
+  // Rincian Saluran Penjualan untuk Modal Omzet Penjualan
+  const salesChannelBreakdown = useMemo(() => {
+    const grossMap = new Map<string, number>()
+    const dedMap = new Map<string, number>()
+    const countMap = new Map<string, number>()
+
+    salesRows
+      .filter(r => !isTestOutlet(r.outlet_id))
+      .forEach(r => {
+        const src = r.sales_source || 'pos'
+        const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+        const ded = (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0)
+        const count = Number(r.jumlah_order_completed) || 0
+        grossMap.set(src, (grossMap.get(src) ?? 0) + gross)
+        dedMap.set(src, (dedMap.get(src) ?? 0) + ded)
+        countMap.set(src, (countMap.get(src) ?? 0) + count)
+      })
+
+    const allKeys = new Set([...grossMap.keys(), ...dedMap.keys()])
+    return [...allKeys]
+      .map(key => {
+        const gross = grossMap.get(key) ?? 0
+        const deductions = dedMap.get(key) ?? 0
+        const net = gross - deductions
+        const orderCount = countMap.get(key) ?? 0
+        return {
+          key,
+          label: getSourceLabel(key),
+          gross,
+          deductions,
+          net,
+          orderCount,
+        }
+      })
+      .filter(item => item.gross > 0 || item.deductions > 0)
+      .sort((a, b) => b.gross - a.gross)
+  }, [salesRows])
+
+  // Rincian Outlet untuk Modal Omzet Penjualan
+  const salesOutletList = useMemo(() => {
+    return outletBreakdown.map(o => ({
+      id: o.id,
+      name: o.name,
+      gross: o.omzet,
+      deductions: o.deductions,
+      net: o.netRev,
+      isMitra: o.isMitra,
+    }))
+  }, [outletBreakdown])
+
+  // Rincian Outlet untuk Modal Beban Pokok (HPP & Waste)
+  const cogsOutletList = useMemo(() => {
+    return outletBreakdown.map(o => ({
+      id: o.id,
+      name: o.name,
+      hpp: o.hpp,
+      waste: o.waste,
+      totalCost: o.hpp + o.waste,
+      gross: o.omzet,
+      isMitra: o.isMitra,
+    }))
+  }, [outletBreakdown])
+
+  // Rincian Kategori & Lokasi untuk Modal Biaya Operasional (OPEX)
+  const opexCategoriesList = useMemo(() => {
+    const list: Array<{ key: string; label: string; amount: number; isProrated?: boolean }> = []
+
+    opexMonthlyBreakdown.forEach((item) => {
+      list.push({
+        key: item.label,
+        label: item.label,
+        amount: Math.abs(item.amount),
+        isProrated: isProrated && item.label.includes('Beban'),
+      })
+    })
+
+    if (pengeluaranOutletPettyCash > 0) {
+      list.push({
+        key: 'petty_cash',
+        label: 'Kas Kecil (Petty Cash Outlet)',
+        amount: pengeluaranOutletPettyCash,
+        isProrated: false,
+      })
+    }
+
+    if (includeCentral && pengeluaranPusat > 0) {
+      list.push({
+        key: 'pusat',
+        label: 'Biaya Operasional Kantor Pusat',
+        amount: pengeluaranPusat,
+        isProrated: false,
+      })
+    }
+
+    return list.sort((a, b) => b.amount - a.amount)
+  }, [opexMonthlyBreakdown, pengeluaranOutletPettyCash, includeCentral, pengeluaranPusat, isProrated])
+
+  const opexOutletList = useMemo(() => {
+    const list = outletBreakdown.map(o => ({
+      id: o.id,
+      name: o.name,
+      expense: o.expense,
+      gross: o.omzet,
+      isMitra: o.isMitra,
+    }))
+
+    if (includeCentral && pengeluaranPusat > 0) {
+      list.push({
+        id: 'pusat',
+        name: 'Kantor Pusat SS',
+        expense: pengeluaranPusat,
+        gross: 0,
+        isMitra: false,
+      })
+    }
+
+    return list.sort((a, b) => b.expense - a.expense)
+  }, [outletBreakdown, includeCentral, pengeluaranPusat])
 
   const waterfallInput = useMemo(() => ({
     grossRevenue: actualGrossSales,
@@ -1397,11 +1520,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
           >
             {/* Card 1: Omzet Penjualan (Kotor) */}
-            <div className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+            <div 
+              onClick={() => setActiveBreakdownModal('sales')}
+              className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md hover:border-orange-300 transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group"
+            >
               <div className="absolute top-0 left-0 w-2 h-full bg-orange-500 rounded-l-3xl" />
               <div className="flex justify-between items-start pl-2">
                 <div>
-                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Omzet Penjualan (Kotor)</p>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider group-hover:text-orange-600 transition-colors">Omzet Penjualan (Kotor)</p>
                   <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">
                     {managementFeeReceived > 0 && mitraHppMarginReceived > 0
                       ? 'Omzet outlet + fee mitra + margin pasokan bahan'
@@ -1412,7 +1538,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                           : 'Pemasukan kotor sebelum potongan'}
                   </p>
                 </div>
-                <div className="p-2.5 rounded-2xl bg-orange-50 text-orange-600">
+                <div className="p-2.5 rounded-2xl bg-orange-50 text-orange-600 group-hover:scale-105 transition-transform">
                   <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
@@ -1436,18 +1562,36 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     </span>
                   )}
                 </div>
+                <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-rose-600">
+                    Potongan: -{rupiah(totalDeductions)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveBreakdownModal('sales')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700 underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer ml-auto"
+                  >
+                    <Search className="w-3 h-3" /> Lihat rincian
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Card 2: Beban Pokok (COGS + Waste) */}
-            <div className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+            <div 
+              onClick={() => setActiveBreakdownModal('cogs')}
+              className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md hover:border-amber-300 transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group"
+            >
               <div className="absolute top-0 left-0 w-2 h-full bg-amber-500 rounded-l-3xl" />
               <div className="flex justify-between items-start pl-2">
                 <div>
-                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Beban Pokok (HPP)</p>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider group-hover:text-amber-700 transition-colors">Beban Pokok (HPP)</p>
                   <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">Modal bahan resep & waste</p>
                 </div>
-                <div className="p-2.5 rounded-2xl bg-amber-50 text-amber-600">
+                <div className="p-2.5 rounded-2xl bg-amber-50 text-amber-600 group-hover:scale-105 transition-transform">
                   <Boxes className="w-5 h-5" />
                 </div>
               </div>
@@ -1460,18 +1604,36 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <span>HPP: {rupiah(totalHpp)}</span>
                   <span>Waste: {rupiah(totalWaste)}</span>
                 </div>
+                <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-amber-800">
+                    {actualGrossRevenue > 0 ? `${((totalHpp + totalWaste) / actualGrossRevenue * 100).toFixed(1)}% dari Omzet` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveBreakdownModal('cogs')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 hover:text-amber-900 underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer ml-auto"
+                  >
+                    <Search className="w-3 h-3" /> Lihat rincian
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Card 3: Beban Operasional (OPEX) */}
-            <div className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
+            <div 
+              onClick={() => setActiveBreakdownModal('opex')}
+              className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md hover:border-rose-300 transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group"
+            >
               <div className="absolute top-0 left-0 w-2 h-full bg-rose-500 rounded-l-3xl" />
               <div className="flex justify-between items-start pl-2">
                 <div>
-                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Biaya Operasional</p>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider group-hover:text-rose-600 transition-colors">Biaya Operasional</p>
                   <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">Gaji, sewa, listrik & kas</p>
                 </div>
-                <div className="p-2.5 rounded-2xl bg-rose-50 text-rose-600">
+                <div className="p-2.5 rounded-2xl bg-rose-50 text-rose-600 group-hover:scale-105 transition-transform">
                   <Receipt className="w-5 h-5" />
                 </div>
               </div>
@@ -1489,20 +1651,38 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     >
                       <Sparkles className="w-3 h-3 text-amber-600" />
                       {prorataMonthInfo.overlapDays === 1
-                        ? `Beban 1 Hari (1/${prorataMonthInfo.totalDays} bln)`
-                        : `Beban ${prorataMonthInfo.overlapDays} Hari (${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln)`}
+                        ? `Beban 1 Hari (${prorataMonthInfo.totalDays} hr)`
+                        : `Beban ${prorataMonthInfo.overlapDays} Hari`}
                     </span>
                   )}
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-suka-gray-400">
+                    Bulanan + Kas Kecil
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveBreakdownModal('opex')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer ml-auto"
+                  >
+                    <Search className="w-3 h-3" /> Lihat rincian
+                  </button>
                 </div>
               </div>
             </div>
 
             {/* Card 4: Laba Bersih (Net Profit) - Hero Highlight */}
-            <div className={`p-5 rounded-3xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between ${
-              displayLaba >= 0 
-                ? 'bg-gradient-to-br from-orange-50/80 via-white to-amber-50/50 border-suka-orange/30' 
-                : 'bg-gradient-to-br from-rose-50/80 via-white to-red-50/50 border-rose-200'
-            }`}>
+            <div 
+              onClick={() => setActiveBreakdownModal('net')}
+              className={`p-5 rounded-3xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between cursor-pointer group ${
+                displayLaba >= 0 
+                  ? 'bg-gradient-to-br from-orange-50/80 via-white to-amber-50/50 border-suka-orange/30 hover:border-suka-orange/60' 
+                  : 'bg-gradient-to-br from-rose-50/80 via-white to-red-50/50 border-rose-200 hover:border-rose-400'
+              }`}
+            >
               <div className={`absolute top-0 left-0 w-2 h-full rounded-l-3xl ${displayLaba >= 0 ? 'bg-suka-orange' : 'bg-rose-600'}`} />
               <div className="flex justify-between items-start pl-2">
                 <div>
@@ -1511,7 +1691,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   </p>
                   <p className="text-[11px] text-suka-gray-500 font-medium mt-0.5">Hasil laba bersih akhir</p>
                 </div>
-                <div className={`p-2.5 rounded-2xl ${displayLaba >= 0 ? 'bg-orange-100 text-suka-orange' : 'bg-rose-100 text-rose-600'}`}>
+                <div className={`p-2.5 rounded-2xl group-hover:scale-105 transition-transform ${displayLaba >= 0 ? 'bg-orange-100 text-suka-orange' : 'bg-rose-100 text-rose-600'}`}>
                   <Banknote className="w-5 h-5" />
                 </div>
               </div>
@@ -1528,10 +1708,18 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   }`}>
                     Margin: {displayMargin.toFixed(1)}%
                   </span>
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-suka-gray-400">
+                    Alur Waterfall
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setBreakdownOpen(true)}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-suka-brown/70 hover:text-suka-brown underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setActiveBreakdownModal('net')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-suka-brown/70 hover:text-suka-brown underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer ml-auto"
                   >
                     <Search className="w-3 h-3" /> Lihat rincian
                   </button>
@@ -1540,9 +1728,63 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             </div>
           </motion.div>
 
+          {/* 1. Modal Rincian Omzet Penjualan (Card 1) */}
+          <GrossSalesBreakdownModal
+            isOpen={activeBreakdownModal === 'sales'}
+            onClose={() => setActiveBreakdownModal(null)}
+            periodLabel={`${filter.from} s/d ${filter.to}`}
+            scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
+            grossRevenue={actualGrossRevenue}
+            totalDeductions={totalDeductions}
+            netRevenue={actualGrossRevenue - totalDeductions}
+            managementFeeReceived={managementFeeReceived}
+            mitraHppMarginReceived={mitraHppMarginReceived}
+            channels={salesChannelBreakdown}
+            outlets={salesOutletList}
+          />
+
+          {/* 2. Modal Rincian Beban Pokok (HPP & Waste) (Card 2) */}
+          <CogsWasteBreakdownModal
+            isOpen={activeBreakdownModal === 'cogs'}
+            onClose={() => setActiveBreakdownModal(null)}
+            periodLabel={`${filter.from} s/d ${filter.to}`}
+            scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
+            totalCogs={totalHpp + totalWaste}
+            totalHpp={totalHpp}
+            totalWaste={totalWaste}
+            grossRevenue={actualGrossRevenue}
+            outlets={cogsOutletList}
+            wasteDetailHref="/dashboard/owner/waste"
+          />
+
+          {/* 3. Modal Rincian Biaya Operasional (OPEX) (Card 3) */}
+          <OpexBreakdownModal
+            isOpen={activeBreakdownModal === 'opex'}
+            onClose={() => setActiveBreakdownModal(null)}
+            periodLabel={`${filter.from} s/d ${filter.to}`}
+            scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
+            totalOpex={pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)}
+            opexMonthly={pengeluaranOutletBulanan}
+            opexPettyCash={pengeluaranOutletPettyCash}
+            centralExpense={pengeluaranPusat}
+            isAllOutlets={isAllOutlets}
+            isProrated={isProrated}
+            prorataInfo={prorataMonthInfo}
+            categories={opexCategoriesList}
+            outlets={opexOutletList}
+            detailHref={{
+              monthly: '/dashboard/reports/input-pengeluaran',
+              pettyCash: bukuKasHref(filter),
+            }}
+          />
+
+          {/* 4. Modal Rincian Laba Bersih (Net Profit) (Card 4) */}
           <NetProfitBreakdownModal
-            isOpen={breakdownOpen}
-            onClose={() => setBreakdownOpen(false)}
+            isOpen={activeBreakdownModal === 'net' || breakdownOpen}
+            onClose={() => {
+              setActiveBreakdownModal(null)
+              setBreakdownOpen(false)
+            }}
             periodLabel={`${filter.from} s/d ${filter.to}`}
             scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
             input={waterfallInput}

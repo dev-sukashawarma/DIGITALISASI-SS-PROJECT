@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 function getServiceSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -8,14 +9,30 @@ function getServiceSupabase() {
   return createClient(url, key)
 }
 
+export interface HRPayrollOutletSummary {
+  outletId: string
+  outletName: string
+  staffCount: number
+  totalSalary: number
+  basicSalary?: number
+  draftCount: number
+  finalizedCount: number
+  status: 'draft' | 'finalized' | 'partial' | 'empty'
+}
+
 export interface HRPayrollSummary {
   totalSalary: number
   totalStaff: number
+  basicSalary: number
+  allowances: number
+  bonus: number
+  deductions: number
   draftCount: number
   draftAmount: number
   finalizedCount: number
   finalizedAmount: number
   status: 'draft' | 'finalized' | 'partial' | 'empty'
+  outlets?: HRPayrollOutletSummary[]
 }
 
 export async function getHRPayrollSummaryAction(filter: {
@@ -46,11 +63,16 @@ export async function getHRPayrollSummaryAction(filter: {
       return {
         totalSalary: 0,
         totalStaff: 0,
+        basicSalary: 0,
+        allowances: 0,
+        bonus: 0,
+        deductions: 0,
         draftCount: 0,
         draftAmount: 0,
         finalizedCount: 0,
         finalizedAmount: 0,
-        status: 'empty'
+        status: 'empty',
+        outlets: []
       }
     }
 
@@ -59,7 +81,7 @@ export async function getHRPayrollSummaryAction(filter: {
 
     const { data, error } = await supabase
       .from('payroll_records')
-      .select('id, period_month, period_year, total_salary, status, staff_id, outlet_staff:staff_id(id, name, outlet_id, role)')
+      .select('id, period_month, period_year, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, outlet_id, role)')
       .in('period_year', years)
       .in('period_month', months)
 
@@ -88,15 +110,53 @@ export async function getHRPayrollSummaryAction(filter: {
       return true
     })
 
+    // Fetch outlets mapping
+    const { data: outletData } = await supabase
+      .from('outlets')
+      .select('id, name')
+
+    const outletNameMap = new Map<string, string>()
+    ;(outletData || []).forEach((o: any) => {
+      outletNameMap.set(o.id, o.name)
+    })
+
     let totalSalary = 0
+    let basicSalary = 0
+    let allowances = 0
+    let bonus = 0
+    let deductions = 0
     let draftCount = 0
     let draftAmount = 0
     let finalizedCount = 0
     let finalizedAmount = 0
 
+    const outletGroups = new Map<string, {
+      outletId: string
+      outletName: string
+      staffCount: number
+      totalSalary: number
+      basicSalary: number
+      draftCount: number
+      finalizedCount: number
+    }>()
+
     filtered.forEach(r => {
       const amt = Number(r.total_salary || 0)
+      const bSalary = Number(r.basic_salary || 0)
+      const bBonus = Number(r.bonus || 0)
+      const bDeductions = Number(r.deductions || 0)
+      const bAllowances =
+        Number(r.allowance_meal || r.allowance_presence || 0) +
+        Number(r.allowance_transport || 0) +
+        Number(r.allowance_communication || 0) +
+        Number(r.allowance_position || 0)
+
       totalSalary += amt
+      basicSalary += bSalary
+      allowances += bAllowances
+      bonus += bBonus
+      deductions += bDeductions
+
       if (r.status === 'finalized') {
         finalizedCount++
         finalizedAmount += amt
@@ -104,7 +164,47 @@ export async function getHRPayrollSummaryAction(filter: {
         draftCount++
         draftAmount += amt
       }
+
+      const staffRaw: any = r.outlet_staff
+      const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+      const staffOutletId = staffInfo?.outlet_id
+      const isPusat = !staffOutletId || staffOutletId === 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+      const groupKey = isPusat ? 'PUSAT' : staffOutletId
+      const outletName = isPusat ? 'Kantor Pusat' : (outletNameMap.get(staffOutletId) || 'Outlet')
+
+      let group = outletGroups.get(groupKey)
+      if (!group) {
+        group = {
+          outletId: groupKey,
+          outletName,
+          staffCount: 0,
+          totalSalary: 0,
+          basicSalary: 0,
+          draftCount: 0,
+          finalizedCount: 0
+        }
+        outletGroups.set(groupKey, group)
+      }
+      group.staffCount++
+      group.totalSalary += amt
+      group.basicSalary += bSalary
+      if (r.status === 'finalized') {
+        group.finalizedCount++
+      } else {
+        group.draftCount++
+      }
     })
+
+    const outletsSummary: HRPayrollOutletSummary[] = Array.from(outletGroups.values()).map(g => ({
+      ...g,
+      status: (g.finalizedCount > 0 && g.draftCount === 0
+        ? 'finalized'
+        : g.draftCount > 0 && g.finalizedCount === 0
+        ? 'draft'
+        : g.draftCount > 0 && g.finalizedCount > 0
+        ? 'partial'
+        : 'empty') as 'draft' | 'finalized' | 'partial' | 'empty'
+    })).sort((a, b) => b.totalSalary - a.totalSalary)
 
     let status: 'draft' | 'finalized' | 'partial' | 'empty' = 'empty'
     if (filtered.length > 0) {
@@ -120,22 +220,32 @@ export async function getHRPayrollSummaryAction(filter: {
     return {
       totalSalary,
       totalStaff: filtered.length,
+      basicSalary,
+      allowances,
+      bonus,
+      deductions,
       draftCount,
       draftAmount,
       finalizedCount,
       finalizedAmount,
-      status
+      status,
+      outlets: outletsSummary
     }
   } catch (err: any) {
     console.error('Failed to get HR payroll summary:', err)
     return {
       totalSalary: 0,
       totalStaff: 0,
+      basicSalary: 0,
+      allowances: 0,
+      bonus: 0,
+      deductions: 0,
       draftCount: 0,
       draftAmount: 0,
       finalizedCount: 0,
       finalizedAmount: 0,
-      status: 'empty'
+      status: 'empty',
+      outlets: []
     }
   }
 }

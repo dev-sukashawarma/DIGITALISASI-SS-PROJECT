@@ -129,7 +129,7 @@ export function PayrollTable({
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-suka-gray-500 font-medium">
-                    Belum ada data slip gaji untuk periode ini. Klik &ldquo;Generate Slip&rdquo; untuk membuat draft slip baru.
+                    Belum ada data slip gaji untuk periode atau outlet yang dipilih.
                   </td>
                 </tr>
               )}

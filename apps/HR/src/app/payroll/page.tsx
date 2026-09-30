@@ -4,10 +4,11 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight, RefreshCw } from 'lucide-react'
+import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight, RefreshCw, Banknote, Sparkles } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
 import { usePayroll } from '@/hooks/usePayroll'
+import { useOutlets } from '@/hooks/useOutlets'
 import { usePayrollMutations } from '@/hooks/usePayrollMutations'
 import { PayrollTable } from '@/components/modules/PayrollTable'
 import { PayrollSlipForm } from '@/components/modules/PayrollSlipForm'
@@ -15,7 +16,7 @@ import { BulkWAModal } from '@/components/modules/BulkWAModal'
 import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
-import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
+import { isRendyOrDeveloperStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 import type { PayrollRecord } from '@/lib/types'
 
 const MONTHS = [
@@ -27,6 +28,7 @@ export default function PayrollPage() {
   // Payroll states
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [year, setYear] = useState(new Date().getFullYear())
+  const [selectedOutlet, setSelectedOutlet] = useState('')
   const [editingSlip, setEditingSlip] = useState<PayrollRecord | null>(null)
   const [showBulkWAModal, setShowBulkWAModal] = useState(false)
 
@@ -37,7 +39,77 @@ export default function PayrollPage() {
 
   // Hooks
   const { data: payrollData = [], isLoading: loadingPayroll } = usePayroll(month, year)
+  const { data: outlets = [] } = useOutlets()
   const payrollMutations = usePayrollMutations()
+
+  // Outlet Filter Options
+  const outletOptions = useMemo(() => {
+    const list = [{ label: 'Semua Outlet', value: '' }]
+    const hasPusat = outlets.some((o) => o.id === KANTOR_PUSAT_ID)
+    if (!hasPusat) {
+      list.push({ label: 'KANTOR PUSAT', value: KANTOR_PUSAT_ID })
+    }
+    outlets.forEach((o) => {
+      list.push({ label: o.name, value: o.id })
+    })
+    return list
+  }, [outlets])
+
+  // Filtered Payroll Data by Outlet
+  const filteredPayrollData = useMemo(() => {
+    if (!selectedOutlet) return payrollData
+
+    return payrollData.filter((r) => {
+      const staff = r.outlet_staff
+      if (!staff) return false
+
+      if (isRendyOrDeveloperStaff(staff as any)) {
+        return (
+          selectedOutlet === KANTOR_PUSAT_ID ||
+          staff.outlet_id === selectedOutlet
+        )
+      }
+
+      if (selectedOutlet === KANTOR_PUSAT_ID) {
+        return (
+          staff.outlet_id === KANTOR_PUSAT_ID ||
+          staff.outlets?.name?.toLowerCase().includes('pusat') ||
+          staff.role === 'staff_pusat' ||
+          staff.role === 'developer'
+        )
+      }
+
+      const targetOutlet = outlets.find((o) => o.id === selectedOutlet)
+      if (staff.outlet_id === selectedOutlet) return true
+      if (targetOutlet && staff.outlets?.name && staff.outlets.name.toLowerCase() === targetOutlet.name.toLowerCase()) {
+        return true
+      }
+
+      return false
+    })
+  }, [payrollData, selectedOutlet, outlets])
+
+  // Summary Totals for Cards
+  const summaryTotals = useMemo(() => {
+    let totalGajiPokok = 0
+    let totalBonus = 0
+    let totalKeseluruhan = 0
+
+    filteredPayrollData.forEach((r) => {
+      const b = getPayrollBreakdown(r)
+      totalGajiPokok += b.basicSalary
+      const bonus = (b.overtime + b.salesBonus) > 0 ? (b.overtime + b.salesBonus) : (Number(r.bonus) || 0)
+      totalBonus += bonus
+      totalKeseluruhan += b.takeHomePay
+    })
+
+    return {
+      totalGajiPokok,
+      totalBonus,
+      totalKeseluruhan,
+      staffCount: filteredPayrollData.length,
+    }
+  }, [filteredPayrollData])
 
   // Payroll Actions
   const handleGenerate = () => {
@@ -68,10 +140,8 @@ export default function PayrollPage() {
     )
   }
 
-  const handleSyncSalary = (forceAll: boolean = false) => {
-    const msg = forceAll
-      ? `Sync SEMUA gaji pokok dari Database Karyawan ke seluruh slip draft ${MONTHS[month - 1]} ${year}? (Bonus/potongan yang sudah di-edit akan dipertahankan)`
-      : `Sync gaji pokok dari Database Karyawan ke slip yang masih Rp 0 (${MONTHS[month - 1]} ${year})?`
+  const handleSyncSalary = (forceAll: boolean = true) => {
+    const msg = `Sync SEMUA gaji pokok & tunjangan dari Database Karyawan ke seluruh slip draft ${MONTHS[month - 1]} ${year}? (Bonus, lembur, dan kasbon yang sudah dihitung akan tetap dipertahankan)`
     if (!confirm(msg)) return
 
     payrollMutations.syncSalaryFromDatabase.mutate(
@@ -115,12 +185,12 @@ export default function PayrollPage() {
   }
 
   const handleExportPayroll = () => {
-    if (!payrollData.length) {
+    if (!filteredPayrollData.length) {
       toast.error('Tidak ada data payroll untuk diexport')
       return
     }
 
-    const rows = payrollData.map((r) => {
+    const rows = filteredPayrollData.map((r) => {
       const b = getPayrollBreakdown(r)
       return {
         Nama: r.outlet_staff?.name || '-',
@@ -145,10 +215,14 @@ export default function PayrollPage() {
       }
     })
 
+    const outletLabel = selectedOutlet
+      ? `_${(outlets.find((o) => o.id === selectedOutlet)?.name || 'Outlet').replace(/[^a-zA-Z0-9]/g, '_')}`
+      : ''
+
     exportCsv(
       rows,
       Object.keys(rows[0]).map((k) => ({ key: k as any, label: k })),
-      `Payroll_SukaHR_${MONTHS[month - 1]}_${year}`
+      `Payroll_SukaHR${outletLabel}_${MONTHS[month - 1]}_${year}`
     )
     toast.success('Data payroll berhasil diexport ke CSV')
   }
@@ -193,7 +267,7 @@ export default function PayrollPage() {
       <div className="space-y-6">
         {/* Controls Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Select
                 options={monthOptions}
                 value={String(month)}
@@ -207,14 +281,35 @@ export default function PayrollPage() {
                 onChange={(e) => setYear(Number(e.target.value))}
                 className="w-24 rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-bold font-mono outline-none focus:border-suka-orange bg-white text-suka-ink"
               />
+              <div className="flex items-center gap-1.5">
+                <Select
+                  options={outletOptions}
+                  value={selectedOutlet}
+                  onChange={setSelectedOutlet}
+                  placeholder="Semua Outlet"
+                  searchable={true}
+                  searchPlaceholder="Cari outlet..."
+                  className="min-w-[190px]"
+                />
+                {selectedOutlet && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOutlet('')}
+                    className="px-2.5 py-2 text-xs font-semibold text-suka-gray-500 hover:text-suka-ink bg-stone-50 hover:bg-stone-100 border border-suka-gray-200 rounded-xl transition-colors cursor-pointer"
+                    title="Reset ke Semua Outlet"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
               <Button
                 type="button"
                 onClick={() => {
-                  if (payrollData.length === 0) {
-                    toast.error('Belum ada slip gaji untuk dikirim. Klik "Generate Slip" terlebih dahulu.')
+                  if (filteredPayrollData.length === 0) {
+                    toast.error('Belum ada slip gaji untuk dikirim pada filter atau periode ini.')
                     return
                   }
                   setShowBulkWAModal(true)
@@ -234,11 +329,10 @@ export default function PayrollPage() {
               </Button>
               <Button
                 type="button"
-                onClick={() => handleSyncSalary(false)}
+                onClick={() => handleSyncSalary(true)}
                 disabled={payrollMutations.syncSalaryFromDatabase.isPending || payrollData.length === 0}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
-                title="Ambil gaji pokok terbaru dari Database Karyawan ke slip yang masih Rp 0. Klik kanan untuk sync semua slip."
-                onContextMenu={(e) => { e.preventDefault(); handleSyncSalary(true) }}
+                title="Ambil gaji pokok dan tunjangan terbaru dari Database Karyawan ke seluruh slip draft."
               >
                 {payrollMutations.syncSalaryFromDatabase.isPending ? (
                   <Spinner size={16} />
@@ -286,42 +380,56 @@ export default function PayrollPage() {
 
           {/* Summaries */}
           {payrollData.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {/* Card 1: TOTAL GAJI POKOK */}
               <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-orange-50 text-suka-orange flex items-center justify-center font-bold">
+                <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                  <Banknote size={22} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase truncate">Total Gaji Pokok</p>
+                  <p className="text-xl font-black text-suka-ink mt-0.5 font-mono">
+                    {formatRupiah(summaryTotals.totalGajiPokok)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 2: TOTAL BONUS */}
+              <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
+                  <Sparkles size={22} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase truncate">Total Bonus</p>
+                  <p className="text-xl font-black text-emerald-700 mt-0.5 font-mono">
+                    {formatRupiah(summaryTotals.totalBonus)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 3: TOTAL KESELURUHAN */}
+              <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-orange-50 text-suka-orange flex items-center justify-center font-bold shrink-0">
                   <DollarSign size={22} />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-suka-gray-500 uppercase">Total Gaji Bulan Ini</p>
-                  <p className="text-xl font-black text-suka-ink mt-0.5">
-                    {formatRupiah(payrollData.reduce((acc, r) => acc + r.total_salary, 0))}
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase truncate">Total Keseluruhan</p>
+                  <p className="text-xl font-black text-suka-ink mt-0.5 font-mono">
+                    {formatRupiah(summaryTotals.totalKeseluruhan)}
                   </p>
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                  <CreditCard size={22} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-suka-gray-500 uppercase">Rata-rata Gaji</p>
-                  <p className="text-xl font-black text-suka-ink mt-0.5">
-                    {formatRupiah(
-                      payrollData.length
-                        ? payrollData.reduce((acc, r) => acc + r.total_salary, 0) / payrollData.length
-                        : 0
-                    )}
-                  </p>
-                </div>
-              </div>
-
+              {/* Card 4: JUMLAH STAF */}
               <div className="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 shadow-sm flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
                   <Users size={22} />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-emerald-800 uppercase">Jumlah Staf</p>
-                  <p className="text-xl font-black text-emerald-900 mt-0.5">{payrollData.length} Orang</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-emerald-800 uppercase truncate">Jumlah Staf</p>
+                  <p className="text-xl font-black text-emerald-900 mt-0.5">
+                    {summaryTotals.staffCount} Orang
+                  </p>
                 </div>
               </div>
             </div>
@@ -333,7 +441,7 @@ export default function PayrollPage() {
               <Spinner />
             </div>
           ) : (
-            <PayrollTable rows={payrollData} onEdit={setEditingSlip} />
+            <PayrollTable rows={filteredPayrollData} onEdit={setEditingSlip} />
           )}
 
           {/* Edit Slip Form Modal */}
@@ -349,7 +457,7 @@ export default function PayrollPage() {
           {/* Bulk WhatsApp Modal */}
           {showBulkWAModal && (
             <BulkWAModal
-              records={payrollData}
+              records={filteredPayrollData}
               month={month}
               year={year}
               onClose={() => setShowBulkWAModal(false)}

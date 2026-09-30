@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PayrollStatus } from '@/lib/types'
 import { LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 /**
  * Fetch total late minutes for all staff in a specific month & year from attendance & attendance_logs
@@ -147,14 +148,19 @@ export function usePayrollMutations() {
 
   const generate = useMutation({
     mutationFn: async ({ month, year }: { month: number; year: number }) => {
-      /* 1. Fetch all active staff with their financials */
+      /* 1. Fetch all eligible staff with their financials */
       const { data: staff, error: staffErr } = await supabase
         .from('outlet_staff')
         .select(`
           id,
           name,
           role,
+          username,
           status,
+          is_active,
+          account_category,
+          outlet_id,
+          resign_date,
           staff_financials(
             basic_salary,
             allowance_meal,
@@ -167,11 +173,31 @@ export function usePayrollMutations() {
             allowance_presence
           )
         `)
-        .eq('status', 'active')
         .neq('role', 'kiosk')
 
       if (staffErr) throw staffErr
-      if (!staff || staff.length === 0) throw new Error('Tidak ada staf aktif ditemukan.')
+
+      // Filter: Hanya staf operasional (employee) yang aktif atau yang resign di bulan ini
+      const eligibleStaff = (staff || []).filter((s: any) => {
+        if (isTestOrDevStaff(s)) return false
+
+        const isActive = s.status === 'active' || s.is_active === true
+        if (isActive) return true
+
+        // Karyawan non-aktif tapi keluar di bulan berjalan (tetap dibayarkan)
+        if (s.resign_date) {
+          const rDate = new Date(s.resign_date)
+          const rMonth = rDate.getMonth() + 1
+          const rYear = rDate.getFullYear()
+          if (rMonth === month && rYear === year) {
+            return true
+          }
+        }
+
+        return false
+      })
+
+      if (eligibleStaff.length === 0) throw new Error('Tidak ada staf yang memenuhi syarat ditemukan.')
 
       /* 2. Fetch Automatic Attendance Late Minutes */
       const lateMinutesMap = await fetchMonthlyLateMinutes(supabase, month, year)
@@ -192,7 +218,7 @@ export function usePayrollMutations() {
       })
 
       /* 5. Build payroll rows with auto late deduction, kasbon, and sales bonus */
-      const rows = staff.map((s: any) => {
+      const rows = eligibleStaff.map((s: any) => {
         const fin = Array.isArray(s.staff_financials)
           ? s.staff_financials[0]
           : s.staff_financials
@@ -449,7 +475,7 @@ export function usePayrollMutations() {
     mutationFn: async ({
       month,
       year,
-      forceAll = false,
+      forceAll = true,
     }: {
       month: number
       year: number

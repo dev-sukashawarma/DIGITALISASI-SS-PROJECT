@@ -1,15 +1,18 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useExpenses } from '@/hooks/useExpenses'
+import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { useWaste } from '@/hooks/useWaste'
 import { useRole } from '@/components/layout/RoleContext'
 import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import CountUp from 'react-countup'
-import { Wallet, TrendingDown, Search, Award } from 'lucide-react'
+import { Wallet, TrendingDown, Search, Award, Users } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/expenseCategories'
+import { isExcludedOutlet } from '@/lib/outletFilters'
 import { withWasteSlice } from '@/lib/expenseBreakdown'
 import { motion } from 'framer-motion'
 import dynamic from 'next/dynamic'
@@ -31,26 +34,36 @@ function lastOfMonth(ym: string) {
 export default function ExpensesPage() {
   const { data: outlets = [] } = useOutlets()
   const { role } = useRole()
-  const isAdmin = role === 'ADMIN'
+  const isAdmin = role === 'ADMIN' || role === 'OWNER'
 
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)) // YYYY-MM
-  const [target, setTarget] = useState<string>('all')       // 'all' | 'PUSAT' | outletId
+  const [target, setTarget] = useState<string>('all')       // 'all' | 'ALL_OUTLETS' | 'PUSAT' | outletId
   
   const isPusat = target === 'PUSAT'
+  const isAllOutlets = target === 'ALL_OUTLETS'
   const periodMonth = firstOfMonth(month)
 
   const filter = useMemo(() => ({
     from: periodMonth,
     to: lastOfMonth(month),
-    outletId: isPusat ? 'all' : target,
+    outletId: (isPusat || isAllOutlets) ? 'all' : target,
     source: 'all' as const
-  }), [periodMonth, month, target, isPusat])
+  }), [periodMonth, month, target, isPusat, isAllOutlets])
 
   const { rows, loading, error } = useExpenses(filter)
   const { rows: wasteRows, loading: wasteLoading } = useWaste(filter)
 
+  const hrPayrollFilter = useMemo(() => ({
+    from: periodMonth,
+    to: lastOfMonth(month),
+    outletId: target
+  }), [periodMonth, month, target])
+  const { data: hrPayroll } = useHRPayroll(hrPayrollFilter)
+
   const filteredRows = useMemo(() => {
     if (target === 'all') {
+      return rows
+    } else if (target === 'ALL_OUTLETS') {
       return rows.filter(r => r.scope === 'outlet')
     } else if (target === 'PUSAT') {
       return rows.filter(r => r.scope === 'pusat')
@@ -88,26 +101,50 @@ export default function ExpensesPage() {
 
   const topCategory = byCategoryAll.length > 0 ? byCategoryAll[0].name : '-'
 
-  const selectOptions = [
-    { label: '🏪 Semua Outlet', value: 'all' },
-    ...(isAdmin ? [{ label: '🏢 Pengeluaran Pusat (company-wide)', value: 'PUSAT' }] : []),
-    ...outlets.map(o => ({ label: o.name, value: o.id }))
-  ]
+  const validOutlets = useMemo(() => outlets.filter(o => !isExcludedOutlet(o)), [outlets])
 
-  const titleText = target === 'PUSAT' ? 'Pengeluaran Pusat' : (target === 'all' ? 'Pengeluaran Outlet (Semua)' : 'Pengeluaran Outlet')
+  const selectOptions = useMemo(() => [
+    { label: '🏢 Semua Unit (Cabang & Pusat)', value: 'all' },
+    { label: '🏪 Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
+    ...(isAdmin ? [{ label: '🏢 Kantor Pusat (OPEX Pusat)', value: 'PUSAT' }] : []),
+    ...validOutlets.map(o => ({ label: o.name, value: o.id }))
+  ], [isAdmin, validOutlets])
+
+  const titleText = target === 'PUSAT'
+    ? 'Pengeluaran Pusat'
+    : target === 'ALL_OUTLETS'
+    ? 'Pengeluaran Outlet (Khusus Cabang)'
+    : target === 'all'
+    ? 'Pengeluaran Semua Unit (Cabang & Pusat)'
+    : (outlets.find(o => o.id === target)?.name || 'Pengeluaran Outlet')
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Analisis Pengeluaran" description="Sebaran beban operasional per kategori, termasuk kerugian waste. Untuk mencatat transaksi, buka Buku Kas (OPEX)." icon={Wallet}>
-        <div className="flex flex-wrap gap-3 mt-3">
-          <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20" />
+      <PageHeader
+        title="Analisis Pengeluaran"
+        description="Sebaran beban operasional per kategori, termasuk estimasi payroll & kerugian waste. Untuk rincian pencatatan per nota, buka Buku Kas (OPEX)."
+        icon={Wallet}
+      >
+        <div className="flex flex-wrap items-center gap-3 mt-3">
+          <input
+            type="month"
+            value={month}
+            onChange={e => setMonth(e.target.value)}
+            className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20 bg-white"
+          />
           <TargetCombobox 
             options={selectOptions}
             value={target}
             onChange={setTarget}
             placeholder="— Pilih target —"
           />
+          <Link
+            href="/dashboard/reports/input-pengeluaran"
+            className="flex items-center gap-1.5 px-3 py-2 bg-suka-orange hover:bg-amber-600 text-white font-bold rounded-lg text-xs transition-all shadow-xs cursor-pointer ml-auto"
+          >
+            <Wallet size={15} />
+            <span>Buka Buku Kas (OPEX)</span>
+          </Link>
         </div>
       </PageHeader>
 
@@ -118,7 +155,7 @@ export default function ExpensesPage() {
       )}
 
       {loading || wasteLoading ? (
-        <StatTilesSkeleton count={3} />
+        <StatTilesSkeleton count={4} />
       ) : (
         <div className="flex flex-col lg:flex-row items-start gap-6">
           {/* ── KIRI: SUMMARY KPI ────────────────────────── */}
@@ -142,6 +179,13 @@ export default function ExpensesPage() {
               value={<><CountUp end={totalTransaksi} duration={1} separator="." /></>}
               sub="Frekuensi pencatatan pengeluaran"
               icon={Search}
+              accent="blue"
+            />
+            <StatTile
+              label="Gaji & Payroll"
+              value={<><span className="text-lg align-top">Rp </span><CountUp end={hrPayroll?.totalSalary || 0} duration={1} separator="." /></>}
+              sub={hrPayroll?.status === 'draft' ? `Draft HR (${hrPayroll.draftCount} staf)` : (hrPayroll?.status === 'finalized' ? `Sudah Difinalisasi (${hrPayroll.totalStaff} staf)` : 'Belum ada data payroll')}
+              icon={Users}
               accent="blue"
             />
             <StatTile

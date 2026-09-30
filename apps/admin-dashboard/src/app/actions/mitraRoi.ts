@@ -373,12 +373,51 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
             || await hppByName(item.menu_item_name, order.channel, tglOrder)
           orderCogs += hpp * qty
         }
-        // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000).
+        // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000 & 20300250000000).
+        const ch = (order.channel || 'pos').toLowerCase()
+        const src = (order.sales_source || ch).toLowerCase()
+        const isFoodAppOrTiktok =
+          src.includes('tiktok') ||
+          ch.includes('tiktok') ||
+          ch === 'c9b01c9f-0e5b-462f-bba8-9a9b6525c5c8' ||
+          ch === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
+          src.includes('grab') ||
+          src.includes('gofood') ||
+          src.includes('go_food') ||
+          src.includes('gojek') ||
+          src.includes('shopee') ||
+          src === 'food_delivery' ||
+          src === 'food_apps' ||
+          src === 'foodapps' ||
+          ch.includes('grab') ||
+          ch.includes('gofood') ||
+          ch.includes('go_food') ||
+          ch.includes('gojek') ||
+          ch.includes('shopee') ||
+          ch === 'food_apps' ||
+          ch === 'foodapps' ||
+          ch === '1284ac2a-e753-4380-9f32-59219a322459' ||
+          ch === '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a' ||
+          ch === '0eaf2746-da9f-492c-a9b4-f091307c98c2'
+
+        const promo = Number(order.promo_subsidy) || 0
+        const disc = Number(order.discount_amount) || 0
         const itemValue = (order.order_items || []).reduce((s: number, i: any) => s + (Number(i.subtotal) || 0), 0)
-        const deductions = (order.order_items || []).length > 0
-          ? Math.max(0, itemValue - totalAmt)
-          : (Number(order.discount_amount) || 0) + (Number(order.promo_subsidy) || 0)
-        a.grossRevenue += totalAmt + deductions
+
+        let grossRev: number
+        let deductions: number
+
+        if (isFoodAppOrTiktok) {
+          grossRev = (order.order_items || []).length > 0 ? Math.max(itemValue, totalAmt) : totalAmt
+          deductions = Math.max(0, itemValue - totalAmt) + promo
+        } else {
+          deductions = (order.order_items || []).length > 0
+            ? Math.max(0, itemValue - totalAmt)
+            : disc + promo
+          grossRev = totalAmt + deductions
+        }
+
+        a.grossRevenue += grossRev
         a.totalDeductions += deductions
         a.totalCogs += orderCogs
       }

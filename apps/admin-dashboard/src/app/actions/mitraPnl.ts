@@ -444,37 +444,13 @@ export async function getMitraComprehensivePnl(
         }
       }
 
-      // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000):
-      //   Potongan = MAX(0, nilai item - total_amount); Omzet = total_amount + Potongan.
-      // Tidak memakai promo_subsidy: arti `total_amount` sempat berubah
-      // (19 Agu 2026, b41efc7a) sehingga promo bisa terhitung dua kali.
-      const itemValue = (ord.order_items || []).reduce(
-        (s: number, i: any) => s + (Number(i.subtotal) || 0),
-        0
-      )
-      const deductions = (ord.order_items || []).length > 0
-        ? Math.max(0, itemValue - totalAmt)
-        : disc + promo
-      const grossRev = totalAmt + deductions
-
-
-      const curFin = outletFinancialsMap.get(ord.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
-      curFin.gross += grossRev
-      curFin.deductions += deductions
-      curFin.cogs += orderCogs
-      outletFinancialsMap.set(ord.outlet_id, curFin)
-
-      if (
+      const isTk =
         src.includes('tiktok') ||
         ch.includes('tiktok') ||
         ch === 'c9b01c9f-0e5b-462f-bba8-9a9b6525c5c8' ||
         ch === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5'
-      ) {
-        tkGross += grossRev
-        tkDeductions += deductions
-        tkCogs += orderCogs
-        tkCount++
-      } else if (
+
+      const isFa =
         src.includes('grab') ||
         src.includes('gofood') ||
         src.includes('go_food') ||
@@ -493,7 +469,40 @@ export async function getMitraComprehensivePnl(
         ch === '1284ac2a-e753-4380-9f32-59219a322459' ||
         ch === '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a' ||
         ch === '0eaf2746-da9f-492c-a9b4-f091307c98c2'
-      ) {
+
+      // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000 & 20300250000000):
+      // - POS: total_amount adalah net. Omzet = total_amount + potongan.
+      // - Food Apps/TikTok: total_amount sudah gross. Potongan = MAX(0, itemValue - totalAmt) + promo.
+      //   Omzet = MAX(itemValue, totalAmt).
+      const itemValue = (ord.order_items || []).reduce(
+        (s: number, i: any) => s + (Number(i.subtotal) || 0),
+        0
+      )
+      let grossRev: number
+      let deductions: number
+
+      if (isTk || isFa) {
+        grossRev = (ord.order_items || []).length > 0 ? Math.max(itemValue, totalAmt) : totalAmt
+        deductions = Math.max(0, itemValue - totalAmt) + promo
+      } else {
+        deductions = (ord.order_items || []).length > 0
+          ? Math.max(0, itemValue - totalAmt)
+          : disc + promo
+        grossRev = totalAmt + deductions
+      }
+
+      const curFin = outletFinancialsMap.get(ord.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
+      curFin.gross += grossRev
+      curFin.deductions += deductions
+      curFin.cogs += orderCogs
+      outletFinancialsMap.set(ord.outlet_id, curFin)
+
+      if (isTk) {
+        tkGross += grossRev
+        tkDeductions += deductions
+        tkCogs += orderCogs
+        tkCount++
+      } else if (isFa) {
         faGross += grossRev
         faDeductions += deductions
         faCogs += orderCogs

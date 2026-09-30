@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { wajibPeran, createUserServerClient } from "@/lib/auth-server";
 import { keShiftDrafts, validasiShift, type ShiftDraft } from "@/lib/attendance/jadwalOutlet";
 import { GEOFENCE_RADIUS_M } from "@/lib/gps";
+import { keJadwalStaf, validasiJadwalStaf, type JadwalStaf } from "@/lib/attendance/jadwalStaf";
 
 const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager", "developer"];
 
@@ -224,4 +225,77 @@ export async function deleteAllExceptions(_callerStaffId?: string): Promise<Hasi
 
   revalidatePath("/dashboard/pengaturan");
   return { success: true };
+}
+
+// ─────────────────────────────────────────────── Jadwal khusus staf
+
+/**
+ * Hasil simpan/hapus jadwal khusus staf. `daftar` = seluruh aturan terbaru (dibaca di
+ * aksi yang sama, jadi klien tidak perlu satu round trip lagi); null bila pembacaan
+ * ulang gagal — klien lalu memuat sendiri.
+ */
+export type HasilJadwalStaf = { success: true; daftar: JadwalStaf[] | null } | { success: false; error: string };
+
+export type InputJadwalStaf = {
+  /** null = aturan baru. */
+  id: string | null;
+  outletId: string;
+  nama: string;
+  jamMasuk: string;
+  jamKeluar: string;
+  staffIds: string[];
+};
+
+const POLA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const adalahUuid = (x: unknown): x is string => typeof x === "string" && POLA_UUID.test(x);
+
+async function daftarJadwalStafTerbaru(supabaseUser: Awaited<ReturnType<typeof createUserServerClient>>): Promise<JadwalStaf[] | null> {
+  const { data, error } = await supabaseUser.rpc("list_jadwal_staf");
+  return error || !Array.isArray(data) ? null : data.map(keJadwalStaf);
+}
+
+/**
+ * Simpan aturan jadwal khusus staf (baru atau edit). RPC dipanggil atas nama USER —
+ * penjaga peran database ikut berlaku dan `updated_by` tercatat. Pesan galat RPC
+ * (mis. staf bentrok dengan aturan lain) berbahasa Indonesia dan diteruskan apa adanya.
+ */
+export async function simpanJadwalStaf(input: InputJadwalStaf): Promise<HasilJadwalStaf> {
+  const ditolak = await verifySettingsRole();
+  if (ditolak) return { success: false, error: ditolak };
+
+  const id = adalahUuid(input?.id) ? input.id : null;
+  const outletId = adalahUuid(input?.outletId) ? input.outletId : "";
+  const nama = typeof input?.nama === "string" ? input.nama.trim() : "";
+  const jamMasuk = typeof input?.jamMasuk === "string" ? input.jamMasuk.slice(0, 5) : "";
+  const jamKeluar = typeof input?.jamKeluar === "string" ? input.jamKeluar.slice(0, 5) : "";
+  const staffIds = Array.isArray(input?.staffIds) ? Array.from(new Set(input.staffIds.filter(adalahUuid))) : [];
+
+  const salah = validasiJadwalStaf({ outletId, nama, jamMasuk, jamKeluar, staffIds });
+  if (salah) return { success: false, error: salah };
+
+  const supabaseUser = await createUserServerClient();
+  const { error } = await supabaseUser.rpc("simpan_jadwal_staf", {
+    p_id: id,
+    p_outlet_id: outletId,
+    p_nama: nama,
+    p_jam_masuk: jamMasuk,
+    p_jam_keluar: jamKeluar,
+    p_staff_ids: staffIds,
+  });
+  if (error) return { success: false, error: error.message };
+
+  return { success: true, daftar: await daftarJadwalStafTerbaru(supabaseUser) };
+}
+
+/** Hapus satu aturan jadwal khusus staf (anggotanya ikut terhapus — FK cascade). */
+export async function hapusJadwalStaf(id: string): Promise<HasilJadwalStaf> {
+  const ditolak = await verifySettingsRole();
+  if (ditolak) return { success: false, error: ditolak };
+  if (!adalahUuid(id)) return { success: false, error: "Aturan tidak valid." };
+
+  const supabaseUser = await createUserServerClient();
+  const { error } = await supabaseUser.rpc("hapus_jadwal_staf", { p_id: id });
+  if (error) return { success: false, error: error.message };
+
+  return { success: true, daftar: await daftarJadwalStafTerbaru(supabaseUser) };
 }

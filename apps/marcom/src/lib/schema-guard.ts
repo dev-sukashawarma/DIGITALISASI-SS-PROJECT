@@ -204,6 +204,8 @@ const COLUMNS: Array<[string, string, string]> = [
   ['internal_contents', 'ads_budget', 'DECIMAL(12,2) NOT NULL DEFAULT 0'],
   ['internal_contents', 'views_before_ads', 'INTEGER'],
   ['internal_contents', 'views_after_ads', 'INTEGER'],
+  ['internal_contents', 'ads_start_date', 'DATE'],
+  ['internal_contents', 'ads_end_date', 'DATE'],
   ['internal_contents', 'creator', 'TEXT'],
   ['internal_contents', 'outlet_id', 'BIGINT'],
   ['internal_contents', 'take_location', 'TEXT'],

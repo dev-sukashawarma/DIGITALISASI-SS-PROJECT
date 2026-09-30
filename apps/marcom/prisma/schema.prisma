@@ -209,6 +209,8 @@ model InternalContent {
   adsBudget         Decimal  @default(0) @db.Decimal(12,2) @map("ads_budget")
   viewsBeforeAds    Int?     @map("views_before_ads")
   viewsAfterAds     Int?     @map("views_after_ads")
+  adsStartDate      DateTime? @map("ads_start_date") @db.Date
+  adsEndDate        DateTime? @map("ads_end_date") @db.Date
   creator           String?  @map("creator")
   outletId          BigInt?  @map("outlet_id")
   takeLocation      String?  @map("take_location")

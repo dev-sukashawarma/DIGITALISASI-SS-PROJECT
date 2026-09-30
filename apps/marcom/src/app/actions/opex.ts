@@ -18,7 +18,6 @@ import {
   MARCOM_EXPENSE_CATEGORIES,
 } from '@/lib/opex-constants'
 
-export type { OpexItemSource, OpexItem, OpexSummary, ActionState }
 
 /**
  * Mengambil ringkasan dan daftar seluruh realisasi OPEX Marcom pada bulan dan tahun tertentu

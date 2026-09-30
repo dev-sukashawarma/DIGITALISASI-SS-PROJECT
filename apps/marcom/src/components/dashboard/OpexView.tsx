@@ -25,15 +25,17 @@ import {
   UtensilsCrossed,
 } from 'lucide-react'
 import {
-  type OpexSummary,
-  type OpexItem,
   getOpexData,
   createMarcomExpense,
   updateMarcomExpense,
   updateOpexItem,
   deleteMarcomExpense,
 } from '@/app/actions/opex'
-import { MARCOM_EXPENSE_CATEGORIES } from '@/lib/opex-constants'
+import {
+  type OpexSummary,
+  type OpexItem,
+  MARCOM_EXPENSE_CATEGORIES,
+} from '@/lib/opex-constants'
 
 interface OpexViewProps {
   initialSummary: OpexSummary

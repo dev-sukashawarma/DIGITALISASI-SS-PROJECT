@@ -46,6 +46,8 @@ export default async function ContentPlannerPage() {
     adsBudget: item.adsBudget ? Number(item.adsBudget) : 0,
     viewsBeforeAds: item.viewsBeforeAds ?? null,
     viewsAfterAds: item.viewsAfterAds ?? null,
+    adsStartDate: item.adsStartDate ? item.adsStartDate.toISOString().split('T')[0] : null,
+    adsEndDate: item.adsEndDate ? item.adsEndDate.toISOString().split('T')[0] : null,
     creator: item.creator,
     outletId: item.outletId ? item.outletId.toString() : null,
     outletName: item.outlet?.name || 'Official',

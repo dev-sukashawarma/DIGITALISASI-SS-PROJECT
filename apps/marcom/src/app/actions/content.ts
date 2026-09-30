@@ -255,7 +255,8 @@ export async function createInternalContent(
   const followersBaselineStr = formData.get('followersBaseline') as string
   const adsBudgetStr = formData.get('adsBudget') as string
   const viewsBeforeAdsStr = formData.get('viewsBeforeAds') as string
-  const viewsAfterAdsStr = formData.get('viewsAfterAds') as string
+  const adsStartDateStr = formData.get('adsStartDate') as string
+  const adsEndDateStr = formData.get('adsEndDate') as string
 
   // Handle multi-platform selection
   const rawPlatforms = formData.getAll('platforms').map((p) => p.toString().trim()).filter(Boolean)
@@ -296,7 +297,8 @@ export async function createInternalContent(
     const followersBaseline = followersBaselineStr ? parseInt(followersBaselineStr, 10) : null
     const adsBudget = adsBudgetStr ? parseFloat(adsBudgetStr.replace(/[^0-9.]/g, '')) || 0 : 0
     const viewsBeforeAds = viewsBeforeAdsStr ? parseInt(viewsBeforeAdsStr, 10) : null
-    const viewsAfterAds = viewsAfterAdsStr ? parseInt(viewsAfterAdsStr, 10) : null
+    const adsStartDate = adsStartDateStr ? new Date(adsStartDateStr) : null
+    const adsEndDate = adsEndDateStr ? new Date(adsEndDateStr) : null
 
     // Generate shared groupId if multiple platforms are selected
     const groupId = selectedPlatforms.length > 1 ? crypto.randomUUID() : null
@@ -314,7 +316,8 @@ export async function createInternalContent(
           isAds,
           adsBudget,
           viewsBeforeAds,
-          viewsAfterAds,
+          adsStartDate,
+          adsEndDate,
           creator,
           outletId,
           takeLocation,
@@ -381,7 +384,8 @@ export async function updateInternalContent(
   const followersBaselineStr = formData.get('followersBaseline') as string
   const adsBudgetStr = formData.get('adsBudget') as string
   const viewsBeforeAdsStr = formData.get('viewsBeforeAds') as string
-  const viewsAfterAdsStr = formData.get('viewsAfterAds') as string
+  const adsStartDateStr = formData.get('adsStartDate') as string
+  const adsEndDateStr = formData.get('adsEndDate') as string
 
   if (!title || !postDateStr || !postUrl) {
     return { error: 'Judul konten, tanggal tayang, dan link URL postingan wajib diisi' }
@@ -400,7 +404,8 @@ export async function updateInternalContent(
     const followersBaseline = followersBaselineStr ? parseInt(followersBaselineStr, 10) : null
     const adsBudget = adsBudgetStr ? parseFloat(adsBudgetStr.replace(/[^0-9.]/g, '')) || 0 : 0
     const viewsBeforeAds = viewsBeforeAdsStr ? parseInt(viewsBeforeAdsStr, 10) : null
-    const viewsAfterAds = viewsAfterAdsStr ? parseInt(viewsAfterAdsStr, 10) : null
+    const adsStartDate = adsStartDateStr ? new Date(adsStartDateStr) : null
+    const adsEndDate = adsEndDateStr ? new Date(adsEndDateStr) : null
 
     await prisma.internalContent.update({
       where: { id: contentId },
@@ -415,7 +420,8 @@ export async function updateInternalContent(
         isAds,
         adsBudget,
         viewsBeforeAds,
-        viewsAfterAds,
+        adsStartDate,
+        adsEndDate,
         creator,
         outletId,
         takeLocation,
@@ -448,7 +454,8 @@ export async function updateContentAds(
     isAds: boolean
     adsBudget: number
     viewsBeforeAds?: number | null
-    viewsAfterAds?: number | null
+    adsStartDate?: string | null
+    adsEndDate?: string | null
   }
 ): Promise<ActionState> {
   const user = await getCurrentUser()
@@ -464,7 +471,8 @@ export async function updateContentAds(
         isAds: data.isAds,
         adsBudget: data.adsBudget || 0,
         viewsBeforeAds: data.viewsBeforeAds !== undefined ? data.viewsBeforeAds : null,
-        viewsAfterAds: data.viewsAfterAds !== undefined ? data.viewsAfterAds : null,
+        adsStartDate: data.adsStartDate ? new Date(data.adsStartDate) : null,
+        adsEndDate: data.adsEndDate ? new Date(data.adsEndDate) : null,
       },
     })
 

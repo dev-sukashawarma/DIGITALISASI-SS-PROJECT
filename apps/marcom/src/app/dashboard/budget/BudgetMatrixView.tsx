@@ -31,7 +31,7 @@ import {
 import { triggerSyncHistoricalOpex } from '@/app/actions/sync'
 import ImportExcelModal from '@/components/dashboard/ImportExcelModal'
 import OpexView from '@/components/dashboard/OpexView'
-import type { OpexSummary } from '@/app/actions/opex'
+import type { OpexSummary } from '@/lib/opex-constants'
 
 interface BudgetMatrixViewProps {
   initialData: MonthlyBudgetMatrix

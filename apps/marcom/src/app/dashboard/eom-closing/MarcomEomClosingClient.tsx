@@ -331,9 +331,11 @@ export default function MarcomEomClosingClient() {
     }
   }
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     toast.info('Men-generate Dokumen PDF Resmi Marketing...')
     try {
+      const { jsPDF } = await import('jspdf')
+      const autoTable = (await import('jspdf-autotable')).default
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
       const pageWidth = doc.internal.pageSize.getWidth()
       const margin = 12
@@ -578,9 +580,10 @@ export default function MarcomEomClosingClient() {
     }
   }
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     toast.info('Menyiapkan Workbook Excel Marketing...')
     try {
+      const XLSX = await import('xlsx')
       const wb = XLSX.utils.book_new()
 
       const ws1 = XLSX.utils.aoa_to_sheet([

@@ -71,6 +71,8 @@ export interface SerializedInternalContent {
   adsBudget?: number
   viewsBeforeAds?: number | null
   viewsAfterAds?: number | null
+  adsStartDate?: string | null
+  adsEndDate?: string | null
   creator: string | null
   outletId: string | null
   outletName: string
@@ -475,7 +477,8 @@ export default function ContentMetricsView({
   const [adsModalIsAds, setAdsModalIsAds] = useState(false)
   const [adsModalBudget, setAdsModalBudget] = useState<number>(0)
   const [adsModalBefore, setAdsModalBefore] = useState<number | ''>('')
-  const [adsModalAfter, setAdsModalAfter] = useState<number | ''>('')
+  const [adsModalStartDate, setAdsModalStartDate] = useState<string>('')
+  const [adsModalEndDate, setAdsModalEndDate] = useState<string>('')
 
   const [errorMessage, setErrorMessage] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -529,7 +532,8 @@ export default function ContentMetricsView({
   const [createIsAds, setCreateIsAds] = useState(false)
   const [createAdsBudget, setCreateAdsBudget] = useState<number>(0)
   const [createViewsBeforeAds, setCreateViewsBeforeAds] = useState<number | ''>('')
-  const [createViewsAfterAds, setCreateViewsAfterAds] = useState<number | ''>('')
+  const [createAdsStartDate, setCreateAdsStartDate] = useState<string>('')
+  const [createAdsEndDate, setCreateAdsEndDate] = useState<string>('')
   const [createReach, setCreateReach] = useState(0)
   const [createViews, setCreateViews] = useState(0)
   const [createLikes, setCreateLikes] = useState(0)
@@ -847,7 +851,8 @@ export default function ContentMetricsView({
     setAdsModalIsAds(item.isAds || (item.adsBudget !== undefined && item.adsBudget > 0) || false)
     setAdsModalBudget(item.adsBudget || 0)
     setAdsModalBefore(item.viewsBeforeAds !== null && item.viewsBeforeAds !== undefined ? item.viewsBeforeAds : '')
-    setAdsModalAfter(item.viewsAfterAds !== null && item.viewsAfterAds !== undefined ? item.viewsAfterAds : item.views || '')
+    setAdsModalStartDate(item.adsStartDate || '')
+    setAdsModalEndDate(item.adsEndDate || '')
     setErrorMessage('')
   }
 
@@ -857,14 +862,14 @@ export default function ContentMetricsView({
     setErrorMessage('')
 
     const beforeVal = adsModalBefore === '' ? null : Number(adsModalBefore)
-    const afterVal = adsModalAfter === '' ? null : Number(adsModalAfter)
 
     startTransition(async () => {
       const res = await updateContentAds(adsModalTarget.id, {
         isAds: adsModalIsAds,
         adsBudget: Number(adsModalBudget) || 0,
         viewsBeforeAds: beforeVal,
-        viewsAfterAds: afterVal,
+        adsStartDate: adsModalStartDate || null,
+        adsEndDate: adsModalEndDate || null,
       })
       if (res?.error) {
         setErrorMessage(res.error)
@@ -956,7 +961,8 @@ export default function ContentMetricsView({
     setCreateIsAds(false)
     setCreateAdsBudget(0)
     setCreateViewsBeforeAds('')
-    setCreateViewsAfterAds('')
+    setCreateAdsStartDate('')
+    setCreateAdsEndDate('')
     setFetchCreateNotice(null)
     setErrorMessage('')
     setIsCreateOpen(true)
@@ -2490,18 +2496,29 @@ export default function ContentMetricsView({
                               Rp {(item.adsBudget || 0).toLocaleString('id-ID')}
                             </div>
 
+                            {(item.adsStartDate || item.adsEndDate) && (
+                              <div className="text-[10px] text-purple-700 font-medium flex items-center gap-1">
+                                <Calendar className="w-2.5 h-2.5 text-purple-500 shrink-0" />
+                                <span>
+                                  {item.adsStartDate ? item.adsStartDate.split('-').reverse().slice(0, 2).join('/') : '?'}
+                                  {' - '}
+                                  {item.adsEndDate ? item.adsEndDate.split('-').reverse().slice(0, 2).join('/') : '?'}
+                                </span>
+                              </div>
+                            )}
+
                             <div className="text-[11px] text-stone-500 flex items-center gap-1">
-                              <span>B: <strong className="text-stone-700 font-mono">{item.viewsBeforeAds !== null && item.viewsBeforeAds !== undefined ? item.viewsBeforeAds.toLocaleString('id-ID') : '-'}</strong></span>
+                              <span>Sebelum: <strong className="text-stone-700 font-mono">{typeof item.viewsBeforeAds === 'number' ? item.viewsBeforeAds.toLocaleString('id-ID') : '-'}</strong></span>
                               <span>➔</span>
-                              <span>A: <strong className="text-stone-700 font-mono">{(item.viewsAfterAds !== null && item.viewsAfterAds !== undefined ? item.viewsAfterAds : item.views).toLocaleString('id-ID')}</strong></span>
+                              <span title="Total views terkini (scraping otomatis)">Kini: <strong className="text-stone-900 font-mono">{item.views.toLocaleString('id-ID')}</strong></span>
                             </div>
 
-                            {typeof item.viewsBeforeAds === 'number' && (item.viewsAfterAds || item.views) > item.viewsBeforeAds && (
+                            {typeof item.viewsBeforeAds === 'number' && item.views > item.viewsBeforeAds && (
                               <div className="text-[10px] text-emerald-600 font-semibold leading-tight">
-                                +{((item.viewsAfterAds || item.views) - item.viewsBeforeAds).toLocaleString('id-ID')} views
+                                +{(item.views - item.viewsBeforeAds).toLocaleString('id-ID')} views
                                 {(item.adsBudget || 0) > 0 && (
                                   <span className="text-stone-400 font-normal block">
-                                    CPV Rp {Math.round((item.adsBudget || 0) / ((item.viewsAfterAds || item.views) - item.viewsBeforeAds)).toLocaleString('id-ID')}
+                                    CPV Rp {Math.round((item.adsBudget || 0) / (item.views - item.viewsBeforeAds)).toLocaleString('id-ID')}
                                   </span>
                                 )}
                               </div>
@@ -2674,7 +2691,39 @@ export default function ContentMetricsView({
                 </div>
               </div>
 
-              {/* Views Before & After Inputs */}
+              {/* Periode Tanggal Mulai & Berakhir Iklan */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Tanggal Mulai Iklan
+                  </label>
+                  <input
+                    type="date"
+                    value={adsModalStartDate}
+                    onChange={(e) => setAdsModalStartDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">
+                    Awal periode tayang ads
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Tanggal Berakhir Iklan
+                  </label>
+                  <input
+                    type="date"
+                    value={adsModalEndDate}
+                    onChange={(e) => setAdsModalEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">
+                    Akhir masa tayang ads
+                  </span>
+                </div>
+              </div>
+
+              {/* Views Sebelum Ads & Views Total Terkini (Scraped) */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
@@ -2691,26 +2740,22 @@ export default function ContentMetricsView({
                     className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
                   />
                   <span className="text-[10px] text-stone-400 mt-0.5 block">
-                    Capaian views sebelum di-boost
+                    Views awal sebelum iklan aktif
                   </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Views Setelah Ads (Total)
+                    Total Views Terkini
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={adsModalAfter}
-                    onChange={(e) =>
-                      setAdsModalAfter(e.target.value === '' ? '' : parseInt(e.target.value, 10))
-                    }
-                    placeholder="Contoh: 25000"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                  />
+                  <div className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-stone-200 bg-stone-100 text-stone-800 flex items-center justify-between">
+                    <span>{adsModalTarget.views.toLocaleString('id-ID')}</span>
+                    <span className="text-[9px] font-sans font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      Auto-Scraped
+                    </span>
+                  </div>
                   <span className="text-[10px] text-stone-400 mt-0.5 block">
-                    Total views saat ads selesai/aktif
+                    Otomatis diperbarui via scraping
                   </span>
                 </div>
               </div>
@@ -2718,10 +2763,10 @@ export default function ContentMetricsView({
               {/* Live Ads Performance & CPV Calculator */}
               {(() => {
                 const before = Number(adsModalBefore) || 0
-                const after = Number(adsModalAfter) || 0
+                const currentViews = adsModalTarget.views || 0
                 const budget = Number(adsModalBudget) || 0
-                const diff = after - before
-                const cpv = after > 0 ? budget / after : 0
+                const diff = currentViews - before
+                const cpv = currentViews > 0 ? budget / currentViews : 0
                 const incrementalCpv = diff > 0 ? budget / diff : 0
 
                 return (
@@ -3286,36 +3331,47 @@ export default function ContentMetricsView({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                          Views Sebelum Ads (Organik)
+                          Tanggal Mulai Iklan
                         </label>
                         <input
-                          type="number"
-                          name="viewsBeforeAds"
-                          min="0"
-                          value={createViewsBeforeAds}
-                          onChange={(e) =>
-                            setCreateViewsBeforeAds(e.target.value === '' ? '' : parseInt(e.target.value, 10))
-                          }
-                          placeholder="Contoh: 1200"
-                          className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                          type="date"
+                          name="adsStartDate"
+                          value={createAdsStartDate}
+                          onChange={(e) => setCreateAdsStartDate(e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
                         />
                       </div>
                       <div>
                         <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                          Views Setelah Ads (Total)
+                          Tanggal Berakhir Iklan
                         </label>
                         <input
-                          type="number"
-                          name="viewsAfterAds"
-                          min="0"
-                          value={createViewsAfterAds}
-                          onChange={(e) =>
-                            setCreateViewsAfterAds(e.target.value === '' ? '' : parseInt(e.target.value, 10))
-                          }
-                          placeholder="Contoh: 25000"
-                          className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                          type="date"
+                          name="adsEndDate"
+                          value={createAdsEndDate}
+                          onChange={(e) => setCreateAdsEndDate(e.target.value)}
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
                         />
                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                        Views Sebelum Ads (Organik Awal)
+                      </label>
+                      <input
+                        type="number"
+                        name="viewsBeforeAds"
+                        min="0"
+                        value={createViewsBeforeAds}
+                        onChange={(e) =>
+                          setCreateViewsBeforeAds(e.target.value === '' ? '' : parseInt(e.target.value, 10))
+                        }
+                        placeholder="Contoh: 1200"
+                        className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                      />
+                      <span className="text-[10px] text-stone-400 mt-1 block">
+                        Views setelah ads akan otomatis tersinkron dari total views video.
+                      </span>
                     </div>
                   </div>
                 )}
@@ -3567,40 +3623,47 @@ export default function ContentMetricsView({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                        Views Sebelum Ads (Organik)
+                        Tanggal Mulai Iklan
                       </label>
                       <input
-                        type="number"
-                        name="viewsBeforeAds"
-                        min="0"
-                        defaultValue={
-                          editingContent.viewsBeforeAds !== null &&
-                          editingContent.viewsBeforeAds !== undefined
-                            ? editingContent.viewsBeforeAds
-                            : ''
-                        }
-                        placeholder="Contoh: 1200"
-                        className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                        type="date"
+                        name="adsStartDate"
+                        defaultValue={editingContent.adsStartDate || ''}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
                       />
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                        Views Setelah Ads (Total)
+                        Tanggal Berakhir Iklan
                       </label>
                       <input
-                        type="number"
-                        name="viewsAfterAds"
-                        min="0"
-                        defaultValue={
-                          editingContent.viewsAfterAds !== null &&
-                          editingContent.viewsAfterAds !== undefined
-                            ? editingContent.viewsAfterAds
-                            : ''
-                        }
-                        placeholder="Contoh: 25000"
-                        className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                        type="date"
+                        name="adsEndDate"
+                        defaultValue={editingContent.adsEndDate || ''}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                      Views Sebelum Ads (Organik Awal)
+                    </label>
+                    <input
+                      type="number"
+                      name="viewsBeforeAds"
+                      min="0"
+                      defaultValue={
+                        editingContent.viewsBeforeAds !== null &&
+                        editingContent.viewsBeforeAds !== undefined
+                          ? editingContent.viewsBeforeAds
+                          : ''
+                      }
+                      placeholder="Contoh: 1200"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                    />
+                    <span className="text-[10px] text-stone-400 mt-1 block">
+                      Views setelah ads otomatis menggunakan perolehan total views terkini ({editingContent.views.toLocaleString('id-ID')} views).
+                    </span>
                   </div>
                 </div>
               </div>

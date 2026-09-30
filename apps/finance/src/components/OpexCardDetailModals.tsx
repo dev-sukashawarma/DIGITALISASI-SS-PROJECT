@@ -245,12 +245,14 @@ export function OpexCardDetailModals({
                     </div>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-gray-200">
-                    <div className="text-[11px] text-gray-400 font-semibold">2. Transaksi Kas Keluar Gaji:</div>
+                    <div className="text-[11px] text-gray-400 font-semibold">2. Kas Keluar Lembur / Gaji Langsung:</div>
                     <div className="text-sm font-extrabold text-gray-800">
                       {rupiah(cashSalary)}
                     </div>
                     <div className="text-[10px] text-gray-500 mt-0.5">
-                      Tercatat langsung di buku kas / pengeluaran operasional
+                      {cashSalary > 0
+                        ? 'Biaya lemburan/gaji tunai staf yang dibayarkan langsung via kas operasional'
+                        : 'Tidak ada pengeluaran gaji langsung via buku kas'}
                     </div>
                   </div>
                 </div>

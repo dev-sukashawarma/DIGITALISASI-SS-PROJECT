@@ -81,7 +81,7 @@ export async function getHRPayrollSummaryAction(filter: {
 
     const { data, error } = await supabase
       .from('payroll_records')
-      .select('id, period_month, period_year, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, outlet_id, role)')
+      .select('id, period_month, period_year, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, username, outlet_id, role, account_category, email)')
       .in('period_year', years)
       .in('period_month', months)
 
@@ -91,10 +91,14 @@ export async function getHRPayrollSummaryAction(filter: {
     }
 
     const rows = data || []
-    // Filter matching exact period objects (month & year)
-    const matchingPeriodRows = rows.filter(r =>
-      periods.some(p => p.month === r.period_month && p.year === r.period_year)
-    )
+    // Filter matching exact period objects (month & year) and exclude test/bot/mitra accounts
+    const matchingPeriodRows = rows.filter(r => {
+      const inPeriod = periods.some(p => p.month === r.period_month && p.year === r.period_year)
+      if (!inPeriod) return false
+      const staffRaw: any = r.outlet_staff
+      const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+      return !isTestOrDevStaff(staffInfo)
+    })
 
     // Filter by outlet target
     const target = filter.outletId

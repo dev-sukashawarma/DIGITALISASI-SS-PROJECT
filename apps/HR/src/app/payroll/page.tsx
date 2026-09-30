@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight } from 'lucide-react'
+import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight, RefreshCw } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
 import { usePayroll } from '@/hooks/usePayroll'
@@ -63,6 +63,29 @@ export default function PayrollPage() {
             `Berhasil menyinkronkan denda absensi dan bonus penjualan otomatis untuk ${count} slip gaji draft!`
           ),
         onError: (e: any) => toast.error(e.message || 'Gagal menyinkronkan data otomatis'),
+      }
+    )
+  }
+
+  const handleSyncSalary = (forceAll: boolean = false) => {
+    const msg = forceAll
+      ? `Sync SEMUA gaji pokok dari Database Karyawan ke seluruh slip draft ${MONTHS[month - 1]} ${year}? (Bonus/potongan yang sudah di-edit akan dipertahankan)`
+      : `Sync gaji pokok dari Database Karyawan ke slip yang masih Rp 0 (${MONTHS[month - 1]} ${year})?`
+    if (!confirm(msg)) return
+
+    payrollMutations.syncSalaryFromDatabase.mutate(
+      { month, year, forceAll },
+      {
+        onSuccess: ({ updatedCount, skippedCount }) => {
+          if (updatedCount === 0) {
+            toast.info(`Tidak ada slip yang perlu diupdate${skippedCount > 0 ? ` (${skippedCount} tidak ditemukan di Database Karyawan)` : ''}`)
+          } else {
+            toast.success(
+              `Berhasil update gaji pokok ${updatedCount} slip${skippedCount > 0 ? ` (${skippedCount} dilewati)` : ''}`
+            )
+          }
+        },
+        onError: (e: any) => toast.error(e.message || 'Gagal sync gaji dari database'),
       }
     )
   }
@@ -207,6 +230,23 @@ export default function PayrollPage() {
                 className="bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
               >
                 {payrollMutations.generate.isPending ? <Spinner size={16} /> : 'Generate Slip'}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleSyncSalary(false)}
+                disabled={payrollMutations.syncSalaryFromDatabase.isPending || payrollData.length === 0}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+                title="Ambil gaji pokok terbaru dari Database Karyawan ke slip yang masih Rp 0. Klik kanan untuk sync semua slip."
+                onContextMenu={(e) => { e.preventDefault(); handleSyncSalary(true) }}
+              >
+                {payrollMutations.syncSalaryFromDatabase.isPending ? (
+                  <Spinner size={16} />
+                ) : (
+                  <>
+                    <RefreshCw size={14} />
+                    <span>Sync Gaji dari DB</span>
+                  </>
+                )}
               </Button>
               <Button
                 type="button"

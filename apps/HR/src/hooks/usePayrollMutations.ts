@@ -440,5 +440,112 @@ export function usePayrollMutations() {
     },
   })
 
-  return { generate, syncAttendanceDeductions, updateSlip, finalizeAll }
+  /**
+   * Sync basic_salary (dan tunjangan) dari staff_financials ke payroll_records draft.
+   * - Jika forceAll = false (default): hanya update slip yang basic_salary = 0
+   * - Jika forceAll = true: update semua slip draft dengan data terkini dari DB karyawan
+   */
+  const syncSalaryFromDatabase = useMutation({
+    mutationFn: async ({
+      month,
+      year,
+      forceAll = false,
+    }: {
+      month: number
+      year: number
+      forceAll?: boolean
+    }) => {
+      // 1. Fetch slip draft yang perlu di-sync
+      let query = supabase
+        .from('payroll_records')
+        .select('id, staff_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, bonus, deductions, deduction_note, bonus_note')
+        .eq('period_month', month)
+        .eq('period_year', year)
+        .eq('status', 'draft')
+
+      if (!forceAll) {
+        query = query.eq('basic_salary', 0)
+      }
+
+      const { data: slips, error: slipsErr } = await query
+      if (slipsErr) throw slipsErr
+      if (!slips || slips.length === 0) {
+        return { updatedCount: 0, skippedCount: 0 }
+      }
+
+      // 2. Fetch data gaji terbaru dari staff_financials
+      const staffIds = slips.map((s: any) => s.staff_id)
+      const { data: financials, error: finErr } = await supabase
+        .from('staff_financials')
+        .select('staff_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, deduction_bpjs')
+        .in('staff_id', staffIds)
+
+      if (finErr) throw finErr
+
+      const finMap = new Map<string, any>()
+      financials?.forEach((f: any) => finMap.set(f.staff_id, f))
+
+      let updatedCount = 0
+      let skippedCount = 0
+
+      for (const slip of slips) {
+        const fin = finMap.get(slip.staff_id)
+        if (!fin) {
+          skippedCount++
+          continue
+        }
+
+        const basicSalary = Number(fin.basic_salary) || 0
+        if (!forceAll && basicSalary === 0) {
+          // Data di staff_financials juga 0, tidak bisa sync
+          skippedCount++
+          continue
+        }
+
+        const allowanceMeal =
+          fin.allowance_meal !== undefined && fin.allowance_meal !== null
+            ? Number(fin.allowance_meal)
+            : Number(fin.allowance_presence) || 0
+        const allowanceTransport = Number(fin.allowance_transport) || 0
+        const allowanceCommunication = Number(fin.allowance_communication) || 0
+        const allowancePosition = Number(fin.allowance_position) || 0
+
+        // Pertahankan bonus & potongan yang sudah ada, hanya update komponen gaji pokok
+        const currentBonus = Number(slip.bonus) || 0
+        const currentDeductions = Number(slip.deductions) || 0
+
+        const totalEarnings =
+          basicSalary +
+          allowanceMeal +
+          allowanceTransport +
+          allowanceCommunication +
+          allowancePosition +
+          currentBonus
+        const totalSalary = Math.max(0, totalEarnings - currentDeductions)
+
+        const { error: updateErr } = await supabase
+          .from('payroll_records')
+          .update({
+            basic_salary: basicSalary,
+            allowance_meal: allowanceMeal,
+            allowance_transport: allowanceTransport,
+            allowance_communication: allowanceCommunication,
+            allowance_position: allowancePosition,
+            allowance_presence: allowanceMeal,
+            total_salary: totalSalary,
+          })
+          .eq('id', slip.id)
+
+        if (!updateErr) updatedCount++
+        else skippedCount++
+      }
+
+      return { updatedCount, skippedCount }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll'] })
+    },
+  })
+
+  return { generate, syncAttendanceDeductions, syncSalaryFromDatabase, updateSlip, finalizeAll }
 }

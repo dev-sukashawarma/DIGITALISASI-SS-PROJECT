@@ -10,6 +10,7 @@ import { useContracts } from '@/hooks/useContracts'
 import { useOutlets } from '@/hooks/useOutlets'
 import { ContractTable } from '@/components/modules/ContractTable'
 import { exportCsv } from '@/lib/exportCsv'
+import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 
 export default function ContractsPage() {
   const [outletFilter, setOutletFilter] = useState('all')
@@ -69,7 +70,7 @@ export default function ContractsPage() {
 
     const flat = filteredContracts.map((c) => ({
       nama: c.outlet_staff?.name || '-',
-      outlet: c.outlet_staff?.outlets?.name || 'Pusat',
+      outlet: isRendyOrDeveloperStaff(c.outlet_staff as any) ? 'Kantor Pusat' : (c.outlet_staff?.outlets?.name || 'Pusat'),
       role: c.outlet_staff?.role || '-',
       kontrak: c.contract_type,
       mulai: c.start_date || '-',

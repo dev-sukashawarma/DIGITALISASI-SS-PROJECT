@@ -41,6 +41,12 @@ ENV NEXT_PRIVATE_MAX_WORKERS=1
 # Build the application
 WORKDIR /repo
 RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace @suka/admin-dashboard build
+# Buang cache build webpack (±1,2 GB) sebelum .next disalin ke stage runner — tidak
+# dipakai saat runtime (output sesungguhnya ±32 MB), tapi membuat image raksasa yang
+# rawan gagal di-pull VPS ("failed to extract layer ... lchown .next/cache/webpack/
+# server-production/0.pack: no such file or directory", deploy 2026-09-29).
+# .next/cache/fetch-cache runtime tetap dari volume Coolify `admin-next-fetch-cache`.
+RUN rm -rf /repo/apps/admin-dashboard/.next/cache
 
 # --- Stage 2: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner

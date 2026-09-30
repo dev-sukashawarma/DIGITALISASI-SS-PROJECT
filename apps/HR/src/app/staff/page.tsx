@@ -15,6 +15,7 @@ import { StaffForm } from '@/components/modules/StaffForm'
 import { ResetPasswordDialog } from '@/components/modules/ResetPasswordDialog'
 import { BulkImportStaffModal } from '@/components/modules/BulkImportStaffModal'
 import { filterStaff } from '@/lib/filterStaff'
+import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 import { exportCsv } from '@/lib/exportCsv'
 import type { StaffRow, StaffFilterValues, StaffFormValues, StaffStatus, StaffSortKey } from '@/lib/types'
 
@@ -153,7 +154,7 @@ export default function StaffPage() {
       nama: s.name,
       username: s.username || '-',
       role: s.role,
-      outlet: s.outlets?.name || 'Pusat',
+      outlet: isRendyOrDeveloperStaff(s) ? 'KANTOR PUSAT' : (s.outlets?.name || 'Pusat'),
       status: s.status,
       tipe_kontrak: s.contract_type || '-',
       no_hp: s.phone || '-',

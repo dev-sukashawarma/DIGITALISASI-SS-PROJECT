@@ -26,6 +26,7 @@ import { StatusToggle } from './StatusToggle'
 import type { StaffRow, StaffStatus, StaffSortKey, SortOrder, AccountCategory, Outlet } from '@/lib/types'
 import { ACCOUNT_CATEGORY_LABELS } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
+import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 
 function statusBadge(status: StaffStatus) {
   const map: Record<StaffStatus, string> = {
@@ -163,6 +164,14 @@ export function StaffTable({
   }
 
   const renderOutletCell = (s: StaffRow) => {
+    if (isRendyOrDeveloperStaff(s)) {
+      return (
+        <div>
+          <span className="font-bold text-xs text-suka-ink">KANTOR PUSAT</span>
+        </div>
+      )
+    }
+
     if (s.role === 'regional_manager') {
       return (
         <div>
@@ -577,6 +586,10 @@ export function StaffTable({
                       <div className="mt-0.5">
                         <span className="font-bold text-suka-ink block">KANTOR PUSAT</span>
                         <span className="text-[10px] text-emerald-700 font-semibold block">Supervisi Seluruh Outlet</span>
+                      </div>
+                    ) : isRendyOrDeveloperStaff(selectedStaff) ? (
+                      <div className="mt-0.5">
+                        <span className="font-bold text-suka-ink block">KANTOR PUSAT</span>
                       </div>
                     ) : selectedStaff.outlet_ids && selectedStaff.outlet_ids.length > 1 ? (
                       (() => {

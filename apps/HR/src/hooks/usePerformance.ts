@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PerformanceRecord } from '@/lib/types'
-import { isTestOrDevStaff } from '@/lib/staffFilters'
+import { isTestOrDevStaff, isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 import { isTestOutlet } from '@/lib/outletFilters'
 
 export function usePerformance(month: number, year: number, outletFilter?: string) {
@@ -85,7 +85,7 @@ export function usePerformance(month: number, year: number, outletFilter?: strin
           staff_id: s.id,
           staff_name: s.name,
           role: s.role?.replace('_', ' ').toUpperCase() || 'STAFF',
-          outlet_name: s.outlets?.name || 'Semua Outlet',
+          outlet_name: isRendyOrDeveloperStaff(s) ? 'Kantor Pusat' : (s.outlets?.name || 'Semua Outlet'),
           period: `${year}-${String(month).padStart(2, '0')}`,
           attendance_rate: attendanceRate,
           punctuality_rate: punctualityRate,

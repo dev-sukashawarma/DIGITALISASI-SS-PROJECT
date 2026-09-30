@@ -15,6 +15,7 @@ import { BulkWAModal } from '@/components/modules/BulkWAModal'
 import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
+import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 import type { PayrollRecord } from '@/lib/types'
 
 const MONTHS = [
@@ -124,7 +125,7 @@ export default function PayrollPage() {
       return {
         Nama: r.outlet_staff?.name || '-',
         Role: r.outlet_staff?.role || '-',
-        Outlet: r.outlet_staff?.outlets?.name || 'Pusat',
+        Outlet: isRendyOrDeveloperStaff(r.outlet_staff as any) ? 'Kantor Pusat' : (r.outlet_staff?.outlets?.name || 'Pusat'),
         Periode: `${r.period_month}/${r.period_year}`,
         'Gaji Pokok': b.basicSalary,
         'Tunjangan Makan': b.mealAllowance,

@@ -1,4 +1,5 @@
 export const TEST_OUTLET_ID = 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a'
+export const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
 export interface StaffFilterCandidate {
   id?: string | null
@@ -9,6 +10,28 @@ export interface StaffFilterCandidate {
   email?: string | null
   outlet_id?: string | null
   outlets?: { id?: string | null; name?: string | null; slug?: string | null } | null
+}
+
+/**
+ * Memeriksa apakah staf adalah user Rendy Irawan (atau developer).
+ * Di dashboard HR, label outlet untuk Rendy Irawan ditampilkan sebagai 'KANTOR PUSAT',
+ * bukan 'All outlet', namun hak akses ke seluruh outlet tetap dipertahankan di backend.
+ */
+export function isRendyOrDeveloperStaff(s?: StaffFilterCandidate | null): boolean {
+  if (!s) return false
+  const u = (s.username || '').trim().toLowerCase()
+  const n = (s.name || '').trim().toLowerCase()
+  const r = (s.role || '').trim().toLowerCase()
+
+  if (r === 'developer') return true
+  if (u === 'rendy' || u === 'rendydev404' || (u.startsWith('rendy_') && u !== 'rendy_tes')) {
+    return true
+  }
+  if (n === 'rendy' || n.includes('rendy irawan') || n.includes('rendy dev')) {
+    return true
+  }
+
+  return false
 }
 
 /**

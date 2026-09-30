@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle2, Edit2 } from 'lucide-react'
 import type { StaffContract } from '@/lib/types'
 import { ContractEditModal } from './ContractEditModal'
+import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 
 export function ContractTable({
   rows,
@@ -64,7 +65,7 @@ export function ContractTable({
                     </td>
                     <td className="px-4 py-3 text-xs">
                       <div className="font-semibold text-suka-ink">
-                        {r.outlet_staff?.outlets?.name || 'Pusat'}
+                        {isRendyOrDeveloperStaff(r.outlet_staff as any) ? 'Kantor Pusat' : (r.outlet_staff?.outlets?.name || 'Pusat')}
                       </div>
                       <div className="text-[11px] text-suka-brown font-semibold uppercase">
                         {r.outlet_staff?.role?.replace('_', ' ')}

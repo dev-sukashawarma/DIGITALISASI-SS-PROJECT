@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isTestOrDevStaff, TEST_OUTLET_ID } from './staffFilters'
+import { isTestOrDevStaff, isRendyOrDeveloperStaff, TEST_OUTLET_ID, KANTOR_PUSAT_ID } from './staffFilters'
 import { filterStaff } from './filterStaff'
 import type { StaffRow, StaffFilterValues } from './types'
 
@@ -143,5 +143,98 @@ describe('filterStaff', () => {
     const result = filterStaff(dummyStaff, defaultFilter)
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('Ahmad Fauzi')
+  })
+
+  it('treats Rendy Irawan / developer as Kantor Pusat when sorting by outlet', () => {
+    const staffWithRendy: StaffRow[] = [
+      {
+        id: '1',
+        name: 'Budi Store',
+        username: 'budi',
+        role: 'crew',
+        status: 'active',
+        account_category: 'employee',
+        outlet_id: 'outlet-1',
+        outlets: { name: 'BNR' },
+        outlet_ids: ['outlet-1'],
+      },
+      {
+        id: '2',
+        name: 'Rendy Irawan',
+        username: 'rendy',
+        role: 'developer',
+        status: 'active',
+        account_category: 'employee',
+        outlet_id: 'outlet-1',
+        outlets: { name: 'BNR' },
+        outlet_ids: ['outlet-1', 'outlet-2', 'outlet-3'], // all outlets
+      },
+    ]
+
+    const sortAsc = filterStaff(staffWithRendy, { ...defaultFilter, sortBy: 'outlet', sortOrder: 'asc' })
+    expect(sortAsc[0].name).toBe('Budi Store') // 'BNR' before 'KANTOR PUSAT'
+    expect(sortAsc[1].name).toBe('Rendy Irawan')
+
+    const sortDesc = filterStaff(staffWithRendy, { ...defaultFilter, sortBy: 'outlet', sortOrder: 'desc' })
+    expect(sortDesc[0].name).toBe('Rendy Irawan') // 'KANTOR PUSAT' before 'BNR' in desc
+    expect(sortDesc[1].name).toBe('Budi Store')
+  })
+
+  it('includes Rendy Irawan when filtering by Kantor Pusat', () => {
+    const staffWithRendy: StaffRow[] = [
+      {
+        id: '1',
+        name: 'Budi Store',
+        username: 'budi',
+        role: 'crew',
+        status: 'active',
+        account_category: 'employee',
+        outlet_id: 'outlet-bnr',
+        outlets: { name: 'BNR' },
+        outlet_ids: ['outlet-bnr'],
+      },
+      {
+        id: '2',
+        name: 'Rendy Irawan',
+        username: 'rendy',
+        role: 'developer',
+        status: 'active',
+        account_category: 'employee',
+        outlet_id: 'outlet-bnr',
+        outlets: { name: 'BNR' },
+        outlet_ids: ['outlet-bnr', 'outlet-dramaga'],
+      },
+    ]
+
+    const pusatFilter = filterStaff(staffWithRendy, { ...defaultFilter, outletId: KANTOR_PUSAT_ID })
+    expect(pusatFilter).toHaveLength(1)
+    expect(pusatFilter[0].name).toBe('Rendy Irawan')
+
+    const bnrFilter = filterStaff(staffWithRendy, { ...defaultFilter, outletId: 'outlet-bnr' })
+    expect(bnrFilter).toHaveLength(1)
+    expect(bnrFilter[0].name).toBe('Budi Store')
+  })
+})
+
+describe('staffFilters - isRendyOrDeveloperStaff', () => {
+  it('returns false for null/undefined or regular crew', () => {
+    expect(isRendyOrDeveloperStaff(null)).toBe(false)
+    expect(isRendyOrDeveloperStaff(undefined)).toBe(false)
+    expect(isRendyOrDeveloperStaff({ name: 'Ahmad Fauzi', username: 'ahmad', role: 'crew' })).toBe(false)
+  })
+
+  it('recognizes Rendy by username', () => {
+    expect(isRendyOrDeveloperStaff({ username: 'rendy' })).toBe(true)
+    expect(isRendyOrDeveloperStaff({ username: 'rendydev404' })).toBe(true)
+  })
+
+  it('recognizes Rendy by name', () => {
+    expect(isRendyOrDeveloperStaff({ name: 'Rendy Irawan' })).toBe(true)
+    expect(isRendyOrDeveloperStaff({ name: 'rendy irawan' })).toBe(true)
+    expect(isRendyOrDeveloperStaff({ name: 'Rendy Developer' })).toBe(true)
+  })
+
+  it('recognizes developer role', () => {
+    expect(isRendyOrDeveloperStaff({ name: 'Maulana Yusuf', role: 'developer' })).toBe(true)
   })
 })

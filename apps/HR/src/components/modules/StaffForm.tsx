@@ -12,6 +12,7 @@ import type { Outlet, StaffFormValues, Role, StaffRow } from '@/lib/types'
 import { generateTempPassword } from '@/lib/generatePassword'
 import { formatRupiah } from '@/lib/format'
 import { toast } from 'sonner'
+import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 
 export const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
@@ -250,7 +251,12 @@ export function StaffForm({
   const watchNip = watch('nip')
 
   useEffect(() => {
-    if (watchRole === 'regional_manager' || watchRole === 'area_manager') {
+    if (
+      watchRole === 'regional_manager' ||
+      watchRole === 'area_manager' ||
+      watchRole === 'developer' ||
+      isRendyOrDeveloperStaff(initial as any)
+    ) {
       const pusat =
         outlets.find((o) => o.id === KANTOR_PUSAT_ID) ||
         outlets.find((o) => o.name.toUpperCase().includes('PUSAT'))
@@ -260,7 +266,7 @@ export function StaffForm({
         setValue('outlet_id', KANTOR_PUSAT_ID)
       }
     }
-  }, [watchRole, outlets, setValue])
+  }, [watchRole, outlets, setValue, initial])
 
   // Otomatisasi pembatasan tahap kepegawaian untuk Crew Trainee (hanya Tahap 1 & Tahap 2)
   useEffect(() => {
@@ -686,7 +692,10 @@ export function StaffForm({
                 <label htmlFor="sf-outlet" className={labelCls}>
                   Outlet Penugasan <span className="text-red-500">*</span>
                 </label>
-                {watchRole === 'regional_manager' || watchRole === 'area_manager' ? (
+                {watchRole === 'regional_manager' ||
+                watchRole === 'area_manager' ||
+                watchRole === 'developer' ||
+                isRendyOrDeveloperStaff(initial as any) ? (
                   <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm font-bold shadow-xs">
                     <Building2 size={16} className="text-amber-700 shrink-0" />
                     <span>KANTOR PUSAT (Otomatis)</span>

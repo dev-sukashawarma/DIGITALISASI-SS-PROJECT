@@ -22,6 +22,7 @@ import { useContracts } from '@/hooks/useContracts'
 import { useHrActivity } from '@/hooks/useHrActivity'
 import { todayWib } from '@/lib/dateIso'
 import { PengingatAsetAlert } from '@/components/modules/inventaris/PengingatAsetAlert'
+import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 
 export default function HrDashboardOverview() {
   // Tanggal WIB (toISOString() = UTC → sebelum 07.00 WIB masih "kemarin")
@@ -311,7 +312,7 @@ export default function HrDashboardOverview() {
                     <div>
                       <p className="font-bold text-suka-ink text-xs">{a.outlet_staff?.name || 'Staff'}</p>
                       <p className="text-[11px] text-suka-gray-500">
-                        {a.outlets?.name || 'Pusat'} &bull; {a.outlet_staff?.role}
+                        {isRendyOrDeveloperStaff(a.outlet_staff as any) ? 'Kantor Pusat' : (a.outlets?.name || 'Pusat')} &bull; {a.outlet_staff?.role}
                       </p>
                     </div>
                   </div>

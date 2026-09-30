@@ -1,5 +1,5 @@
 import type { StaffRow, StaffFilterValues } from './types'
-import { isTestOrDevStaff } from './staffFilters'
+import { isTestOrDevStaff, isRendyOrDeveloperStaff, KANTOR_PUSAT_ID } from './staffFilters'
 
 export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] {
   const q = f.search.trim().toLowerCase()
@@ -9,7 +9,16 @@ export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] 
     // Always hide bot ai, kiosk, mitra owner, and testing dummy accounts from HR dashboard
     if (isTestOrDevStaff(r)) return false
     if (q && !r.name.toLowerCase().includes(q) && !(r.username ?? '').toLowerCase().includes(q)) return false
-    if (f.outletId && r.outlet_id !== f.outletId) return false
+    if (f.outletId) {
+      if (isRendyOrDeveloperStaff(r)) {
+        const isKantorPusatFilter =
+          f.outletId === KANTOR_PUSAT_ID ||
+          (r.outlet_id === KANTOR_PUSAT_ID && r.outlet_id === f.outletId)
+        if (!isKantorPusatFilter) return false
+      } else if (r.outlet_id !== f.outletId) {
+        return false
+      }
+    }
     if (f.role && r.role !== f.role) return false
     if (f.subRole && r.sub_role !== f.subRole) return false
     if (f.onboardingStage && r.onboarding_stage !== f.onboardingStage) return false
@@ -31,8 +40,8 @@ export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] 
       case 'role':
         return a.role.localeCompare(b.role, 'id') * mult
       case 'outlet': {
-        const outletA = a.outlets?.name || ''
-        const outletB = b.outlets?.name || ''
+        const outletA = isRendyOrDeveloperStaff(a) ? 'KANTOR PUSAT' : (a.outlets?.name || '')
+        const outletB = isRendyOrDeveloperStaff(b) ? 'KANTOR PUSAT' : (b.outlets?.name || '')
         return outletA.localeCompare(outletB, 'id') * mult
       }
       case 'status':

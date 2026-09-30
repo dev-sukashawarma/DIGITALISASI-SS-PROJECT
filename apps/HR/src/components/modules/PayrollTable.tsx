@@ -6,6 +6,7 @@ import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
 import { SalarySlipModal } from './SalarySlipModal'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
+import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 
 export function PayrollTable({
   rows,
@@ -49,7 +50,7 @@ export function PayrollTable({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs font-semibold text-gray-700">
-                      {r.outlet_staff?.outlets?.name || 'Pusat'}
+                      {isRendyOrDeveloperStaff(r.outlet_staff as any) ? 'Kantor Pusat' : (r.outlet_staff?.outlets?.name || 'Pusat')}
                     </td>
                     <td className="px-4 py-3 text-right text-xs font-mono font-medium text-gray-700">
                       {formatRupiah(b.basicSalary)}

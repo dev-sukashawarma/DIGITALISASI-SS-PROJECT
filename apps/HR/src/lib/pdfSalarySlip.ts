@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable'
 import { rupiah, MONTH_NAMES } from './format'
 import type { PayrollRecord } from './types'
 import { getPayrollBreakdown } from './payrollBreakdown'
+import { isRendyOrDeveloperStaff } from './staffFilters'
 
 export function generateSalarySlipPdf(slip: PayrollRecord) {
   const doc = new jsPDF({
@@ -14,7 +15,9 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
   const b = getPayrollBreakdown(slip)
   const staffName = slip.outlet_staff?.name || 'Karyawan'
   const roleName = slip.outlet_staff?.role?.replace('_', ' ').toUpperCase() || 'STAFF'
-  const outletName = slip.outlet_staff?.outlets?.name || 'Pusat / Seluruh Outlet'
+  const outletName = isRendyOrDeveloperStaff(slip.outlet_staff as any)
+    ? 'Kantor Pusat'
+    : (slip.outlet_staff?.outlets?.name || 'Pusat / Seluruh Outlet')
   const periodText = `${MONTH_NAMES[slip.period_month - 1]} ${slip.period_year}`
   const bankName = slip.outlet_staff?.financials?.bank_name || '-'
   const bankAcc = slip.outlet_staff?.financials?.bank_account_number || '-'
@@ -166,7 +169,9 @@ export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
   const b = getPayrollBreakdown(slip)
   const staffName = slip.outlet_staff?.name || 'Karyawan'
   const roleName = slip.outlet_staff?.role?.replace('_', ' ').toUpperCase() || 'STAFF'
-  const outletName = slip.outlet_staff?.outlets?.name || 'Pusat'
+  const outletName = isRendyOrDeveloperStaff(slip.outlet_staff as any)
+    ? 'Kantor Pusat'
+    : (slip.outlet_staff?.outlets?.name || 'Pusat')
   const periodText = `${MONTH_NAMES[slip.period_month - 1]} ${slip.period_year}`
   const slipIdShort = slip.id.slice(0, 8).toUpperCase()
   const generatedTime = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' })

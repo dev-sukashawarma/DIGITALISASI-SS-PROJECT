@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { shiftOptions, namaShift, isShiftKe, isShiftPenutup, keShiftRows, DRIVER_SHIFT_KE } from "./shift";
+import { shiftOptions, namaShift, isShiftKe, isShiftPenutup, keShiftRows, DRIVER_SHIFT_KE, jadwalStaf, isPenutupMenurutServer, penutupPerluJejak } from "./shift";
 
 // Data lama: dua kolom datar tanpa daftar shift (cadangan).
 const bnr = {
@@ -210,5 +210,65 @@ describe("isShiftPenutup", () => {
     });
     expect(isShiftPenutup(o, "06:00", "22:00")).toBe(true);
     expect(isShiftPenutup(o, "06:00", "00:00")).toBe(false);
+  });
+});
+
+describe("jadwal khusus staf", () => {
+  const sore = { nama: "Masuk Sore", jam_masuk: "15:00", jam_keluar: "23:00" };
+
+  it("staf beraturan tidak ditawari pilihan shift", () => {
+    expect(shiftOptions({ ...tigaShift, jadwal_staf: sore })).toBeNull();
+    expect(shiftOptions({ ...tigaShift, jadwal_staf: null })).toHaveLength(3);
+  });
+
+  it("jadwalStaf menormalkan jam dan menolak data rusak", () => {
+    expect(jadwalStaf({ jadwal_staf: { nama: "X", jam_masuk: "15:00:00", jam_keluar: "23:00:00" } }))
+      .toEqual({ nama: "X", jam_masuk: "15:00", jam_keluar: "23:00" });
+    expect(jadwalStaf({ jadwal_staf: null })).toBeNull();
+    expect(jadwalStaf(null)).toBeNull();
+  });
+});
+
+describe("isPenutupMenurutServer", () => {
+  const satuJam = { jam_masuk: "10:00", jam_keluar: "17:00", pilih_shift_aktif: false, shifts: [] };
+
+  it("server lama (tanpa menit_pulang_penutup) → null, pakai aturan lama", () => {
+    expect(isPenutupMenurutServer(satuJam, null)).toBeNull();
+    expect(isPenutupMenurutServer(null, null)).toBeNull();
+  });
+
+  it("outlet satu jam tanpa aturan staf: crew jam outlet tetap penutup", () => {
+    expect(isPenutupMenurutServer({ ...satuJam, menit_pulang_penutup: 17 * 60 }, null)).toBe(true);
+  });
+
+  it("outlet satu jam dengan aturan staf lebih malam: crew jam outlet bukan penutup", () => {
+    expect(isPenutupMenurutServer({ ...satuJam, menit_pulang_penutup: 23 * 60 }, null)).toBe(false);
+  });
+
+  it("staf beraturan: jam aturan, atau jejak absen masuk bila ada", () => {
+    const cfg = { ...satuJam, jadwal_staf: { nama: "Sore", jam_masuk: "15:00", jam_keluar: "23:00" }, menit_pulang_penutup: 23 * 60 };
+    expect(isPenutupMenurutServer(cfg, null)).toBe(true);
+    expect(isPenutupMenurutServer(cfg, { shift_jam_masuk: "10:00:00", shift_jam_keluar: "17:00:00" })).toBe(false);
+    const pagi = { ...satuJam, jadwal_staf: { nama: "Pagi", jam_masuk: "06:00", jam_keluar: "14:00" }, menit_pulang_penutup: 17 * 60 };
+    expect(isPenutupMenurutServer(pagi, null)).toBe(false);
+  });
+
+  it("aturan lewat tengah malam dihitung hari berikutnya", () => {
+    const cfg = { ...satuJam, jadwal_staf: { nama: "Malam", jam_masuk: "18:00", jam_keluar: "01:00" }, menit_pulang_penutup: 25 * 60 };
+    expect(isPenutupMenurutServer(cfg, null)).toBe(true);
+    expect(isPenutupMenurutServer({ ...satuJam, menit_pulang_penutup: 25 * 60 }, null)).toBe(false);
+  });
+
+  it("outlet berpilihan shift: jejak shift dibandingkan; tanpa jejak → penutup", () => {
+    const cfg = { ...tigaShift, menit_pulang_penutup: 23 * 60 };
+    expect(isPenutupMenurutServer(cfg, { shift_jam_masuk: "07:00", shift_jam_keluar: "15:00" })).toBe(false);
+    expect(isPenutupMenurutServer(cfg, { shift_jam_masuk: "15:00", shift_jam_keluar: "23:00" })).toBe(true);
+    expect(isPenutupMenurutServer(cfg, null)).toBe(true);
+  });
+
+  it("penutupPerluJejak hanya untuk staf beraturan & outlet berpilihan shift", () => {
+    expect(penutupPerluJejak(satuJam)).toBe(false);
+    expect(penutupPerluJejak(tigaShift)).toBe(true);
+    expect(penutupPerluJejak({ ...satuJam, jadwal_staf: { nama: "S", jam_masuk: "15:00", jam_keluar: "23:00" } })).toBe(true);
   });
 });

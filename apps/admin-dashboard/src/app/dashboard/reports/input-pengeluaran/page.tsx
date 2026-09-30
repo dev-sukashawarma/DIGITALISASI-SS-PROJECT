@@ -20,7 +20,9 @@ import {
   Loader2,
   Users,
   Pencil,
-  ChevronRight
+  ChevronRight,
+  Search,
+  Sparkles
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -35,13 +37,23 @@ import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
 import { OpexCardDetailModals, type OpexModalType } from '@/components/OpexCardDetailModals'
 import { deleteTransactionAction } from '@/app/actions/expenses'
-import { CATEGORY_META, isSalaryCategory } from '@/lib/expenseCategories'
+import { CATEGORY_META, isSalaryCategory, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 import { BUKU_KAS_PARAMS } from '@/lib/bukuKasLink'
+import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
+
+function matchesCategory(category: string | undefined | null, selected: string) {
+  if (selected === 'all') return true
+  if (!category) return selected === 'lainnya'
+  if (category === selected) return true
+  if (category.toLowerCase() === selected.toLowerCase()) return true
+  if (labelOf(category).toLowerCase() === labelOf(selected).toLowerCase()) return true
+  return false
+}
 
 function getFirstOfMonth() {
   const d = new Date()
@@ -92,6 +104,10 @@ export default function InputPengeluaranPage() {
   const [deletingTx, setDeletingTx] = useState<any | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [editingTx, setEditingTx] = useState<any | null>(null)
+
+  // Table filters: category & search query
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState<string>('')
 
   const isPusat = target === 'PUSAT'
   const isAllOutlets = target === 'ALL_OUTLETS'
@@ -178,8 +194,24 @@ export default function InputPengeluaranPage() {
     }
   }, [allTransactions])
 
+  // Prorata calculation based on current date filter (starts / ends)
+  const prorataInfo = useMemo(() => calculateDateRangeProrata(startDate, endDate), [startDate, endDate])
+
   const hasHrPayroll = Boolean(hrPayroll && hrPayroll.totalStaff > 0 && hrPayroll.totalSalary > 0)
-  const displaySalary = hasHrPayroll ? hrPayroll!.totalSalary : summary.salary
+
+  // Prorated Salary according to the date range filter
+  const displaySalary = useMemo(() => {
+    if (!hasHrPayroll) return summary.salary
+    if (!prorataInfo.isProrated) return hrPayroll!.totalSalary
+    return Math.round(hrPayroll!.totalSalary * prorataInfo.ratio)
+  }, [hasHrPayroll, hrPayroll, summary.salary, prorataInfo])
+
+  const displayBasicSalary = useMemo(() => {
+    if (!hasHrPayroll || !hrPayroll?.basicSalary) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.basicSalary
+    return Math.round(hrPayroll.basicSalary * prorataInfo.ratio)
+  }, [hasHrPayroll, hrPayroll, prorataInfo])
+
   const totalCombinedOpex = displaySalary + summary.nonSalary
 
   // Operational breakdown for details modal (Category & Outlet)
@@ -249,6 +281,74 @@ export default function InputPengeluaranPage() {
     }
   }, [allTransactions])
 
+  // Available categories for filter dropdown with counts
+  const availableCategories = useMemo(() => {
+    const catMap = new Map<string, { value: string; label: string; count: number }>()
+
+    allTransactions.forEach(tx => {
+      const rawCat = tx.category || 'lainnya'
+      const label = labelOf(rawCat)
+      const existing = catMap.get(label)
+      if (existing) {
+        existing.count++
+      } else {
+        catMap.set(label, {
+          value: rawCat,
+          label,
+          count: 1
+        })
+      }
+    })
+
+    const present = Array.from(catMap.values()).sort((a, b) => a.label.localeCompare(b.label))
+
+    const others = (PENGELUARAN_CATEGORIES as readonly string[])
+      .filter(catKey => !catMap.has(labelOf(catKey)))
+      .map(catKey => ({
+        value: catKey,
+        label: labelOf(catKey),
+        count: 0
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+
+    return { present, others }
+  }, [allTransactions])
+
+  // Filtered transactions based on selected category & search query
+  const displayedTransactions = useMemo(() => {
+    return allTransactions.filter(tx => {
+      const matchCat = matchesCategory(tx.category, selectedCategory)
+      if (!matchCat) return false
+
+      if (!searchQuery.trim()) return true
+      const q = searchQuery.toLowerCase().trim()
+      const desc = (tx.description || '').toLowerCase()
+      const outlet = (tx.outlet_name || '').toLowerCase()
+      const recipient = (tx.recipient_name || '').toLowerCase()
+      const division = (tx.division || '').toLowerCase()
+      const catLabel = labelOf(tx.category).toLowerCase()
+
+      return desc.includes(q) || outlet.includes(q) || recipient.includes(q) || division.includes(q) || catLabel.includes(q)
+    })
+  }, [allTransactions, selectedCategory, searchQuery])
+
+  // Total amount of currently displayed transactions in table
+  const displayedTotalOpex = useMemo(() => {
+    return displayedTransactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0)
+  }, [displayedTransactions])
+
+  // Category counts and totals for quick badges
+  const categoryFilterStats = useMemo(() => {
+    const stats: Record<string, { count: number; total: number }> = {}
+    allTransactions.forEach(tx => {
+      const k = tx.category || 'lainnya'
+      if (!stats[k]) stats[k] = { count: 0, total: 0 }
+      stats[k].count++
+      stats[k].total += Number(tx.amount || 0)
+    })
+    return stats
+  }, [allTransactions])
+
   const validOutlets = useMemo(() => {
     return outlets.filter(o => !isExcludedOutlet(o))
   }, [outlets])
@@ -256,16 +356,16 @@ export default function InputPengeluaranPage() {
   const selectOptions = useMemo(() => [
     { label: 'Semua Unit (Cabang & Pusat)', value: 'all' },
     { label: 'Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
-    { label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' },
+    ...(isAdmin ? [{ label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' }] : []),
     ...validOutlets.map(o => ({ label: o.name, value: o.id }))
-  ], [validOutlets])
+  ], [isAdmin, validOutlets])
 
   const loading = expensesLoading
 
   // Export to Excel handler using ExcelJS
   const handleExportExcel = async () => {
-    if (allTransactions.length === 0) {
-      toast.error('Tidak ada data transaksi untuk diekspor pada rentang tanggal ini.')
+    if (displayedTransactions.length === 0) {
+      toast.error('Tidak ada data transaksi untuk diekspor pada filter ini.')
       return
     }
 
@@ -280,7 +380,7 @@ export default function InputPengeluaranPage() {
       titleCell.value = 'Laporan Pengeluaran OPEX - SukaShawarma'
       titleCell.font = { size: 14, bold: true }
 
-      worksheet.getCell('A3').value = `Periode: ${startDate} s/d ${endDate}`
+      worksheet.getCell('A3').value = `Periode: ${startDate} s/d ${endDate}${selectedCategory !== 'all' ? ` | Kategori: ${labelOf(selectedCategory)}` : ''}`
       worksheet.getCell('A3').font = { bold: true }
 
       const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
@@ -292,7 +392,7 @@ export default function InputPengeluaranPage() {
       })
 
       let curIdx = 6
-      allTransactions.forEach((r, idx) => {
+      displayedTransactions.forEach((r, idx) => {
         const row = worksheet.getRow(curIdx)
         row.values = [
           idx + 1,
@@ -310,7 +410,7 @@ export default function InputPengeluaranPage() {
       })
 
       const totalRow = worksheet.getRow(curIdx)
-      totalRow.values = ['TOTAL', '', '', '', '', '', '', '', summary.totalOpex]
+      totalRow.values = ['TOTAL', '', '', '', '', '', '', '', displayedTotalOpex]
       totalRow.font = { bold: true }
       totalRow.getCell(9).numFmt = 'Rp #,##0'
 
@@ -321,7 +421,7 @@ export default function InputPengeluaranPage() {
       const buffer = await workbook.xlsx.writeBuffer()
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       saveAs(blob, `Laporan_OPEX_${startDate}_${endDate}.xlsx`)
-      toast.success(`Berhasil mengunduh ${allTransactions.length} baris transaksi ke file Excel!`)
+      toast.success(`Berhasil mengunduh ${displayedTransactions.length} baris transaksi ke file Excel!`)
     } catch (e: any) {
       toast.error('Gagal mengekspor file: ' + e.message)
     }
@@ -329,14 +429,14 @@ export default function InputPengeluaranPage() {
 
   // Export to CSV handler
   const handleExportCSV = () => {
-    if (allTransactions.length === 0) {
-      toast.error('Tidak ada data transaksi untuk diekspor pada rentang tanggal ini.')
+    if (displayedTransactions.length === 0) {
+      toast.error('Tidak ada data transaksi untuk diekspor pada filter ini.')
       return
     }
 
     try {
       const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
-      const rows = allTransactions.map((r, idx) => [
+      const rows = displayedTransactions.map((r, idx) => [
         idx + 1,
         `"${r.date}"`,
         `"${(r.outlet_name || '').replace(/"/g, '""')}"`,
@@ -357,7 +457,7 @@ export default function InputPengeluaranPage() {
         '',
         '',
         '',
-        summary.totalOpex
+        displayedTotalOpex
       ]
 
       const csvContent = '\uFEFF' + [
@@ -376,7 +476,7 @@ export default function InputPengeluaranPage() {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
-      toast.success(`Berhasil mengunduh ${allTransactions.length} baris transaksi ke file CSV!`)
+      toast.success(`Berhasil mengunduh ${displayedTransactions.length} baris transaksi ke file CSV!`)
     } catch (e: any) {
       toast.error('Gagal mengekspor file CSV: ' + e.message)
     }
@@ -384,8 +484,8 @@ export default function InputPengeluaranPage() {
 
   // Export to PDF handler with Admin, Finance, and Director signatures
   const handleExportPDF = async () => {
-    if (allTransactions.length === 0) {
-      toast.error('Tidak ada data transaksi untuk diekspor ke PDF pada rentang tanggal ini.')
+    if (displayedTransactions.length === 0) {
+      toast.error('Tidak ada data transaksi untuk diekspor ke PDF pada filter ini.')
       return
     }
 
@@ -393,12 +493,13 @@ export default function InputPengeluaranPage() {
       toast.info('Menyiapkan dokumen PDF OPEX...')
       const targetOption = selectOptions.find(o => o.value === target)
       const targetLabel = targetOption ? targetOption.label : 'Semua Unit'
+      const categorySuffix = selectedCategory !== 'all' ? ` - Kategori: ${labelOf(selectedCategory)}` : ''
 
       await generateOpexReportPDF({
         startDate,
         endDate,
-        targetLabel,
-        items: allTransactions.map(t => ({
+        targetLabel: `${targetLabel}${categorySuffix}`,
+        items: displayedTransactions.map(t => ({
           date: t.date,
           outlet_name: t.outlet_name,
           recipient_name: t.recipient_name,
@@ -409,7 +510,7 @@ export default function InputPengeluaranPage() {
           amount: t.amount,
           receipt_url: t.receipt_url
         })),
-        totalAmount: summary.totalOpex
+        totalAmount: displayedTotalOpex
       })
       toast.success('Laporan PDF OPEX berhasil diunduh!')
     } catch (e: any) {
@@ -687,6 +788,15 @@ export default function InputPengeluaranPage() {
                     {hrPayroll.finalizedCount} Final · {hrPayroll.draftCount} Draft
                   </span>
                 )}
+                {hasHrPayroll && prorataInfo.isProrated && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
+                    title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode payroll (${(prorataInfo.ratio * 100).toFixed(1)}%)`}
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                    <span>{prorataInfo.label}</span>
+                  </span>
+                )}
               </div>
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
                 PAY
@@ -700,8 +810,18 @@ export default function InputPengeluaranPage() {
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
               {hasHrPayroll ? (
                 <span>
-                  Total Payroll HR ({hrPayroll!.totalStaff} staf)
-                  {summary.salary > 0 && summary.salary !== hrPayroll!.totalSalary && (
+                  Total THP HR ({hrPayroll!.totalStaff} staf)
+                  {prorataInfo.isProrated && (
+                    <span className="text-[10px] text-amber-700 font-bold ml-1.5" title="Nilai acuan payroll sebulan penuh sebelum prorata">
+                      • Baseline 1 bln: {rupiah(hrPayroll!.totalSalary)}
+                    </span>
+                  )}
+                  {Boolean(displayBasicSalary > 0) && (
+                    <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={prorataInfo.isProrated ? "Gaji Pokok Prorata" : "Total Gaji Pokok Murni"}>
+                      • Gapok: {rupiah(displayBasicSalary)}
+                    </span>
+                  )}
+                  {summary.salary > 0 && summary.salary !== displaySalary && (
                     <span className="text-[10px] text-gray-400 font-normal ml-1">
                       • Kas: {rupiah(summary.salary)}
                     </span>
@@ -722,7 +842,9 @@ export default function InputPengeluaranPage() {
               <span>Lihat Detail</span>
               <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
             </button>
-            <span className="text-[10px] text-gray-400 font-medium">Breakdown Staf</span>
+            <span className="text-[10px] text-gray-400 font-medium">
+              {hasHrPayroll && prorataInfo.isProrated ? `Prorata ${prorataInfo.overlapDays} Hari` : 'Breakdown Staf'}
+            </span>
           </div>
         </div>
 
@@ -765,9 +887,20 @@ export default function InputPengeluaranPage() {
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1 truncate">
-                <ArrowUpRight size={14} className="shrink-0" />
-                <span className="truncate">Total OPEX (Kas)</span>
+              <div className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  <ArrowUpRight size={14} className="shrink-0" />
+                  <span>Total OPEX</span>
+                </div>
+                {hasHrPayroll && prorataInfo.isProrated && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 shadow-2xs"
+                    title="Termasuk beban gaji prorata sesuai rentang filter"
+                  >
+                    <Sparkles className="w-3 h-3 text-rose-500 shrink-0" />
+                    <span>Prorata Gaji</span>
+                  </span>
+                )}
               </div>
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs shrink-0">
                 OUT
@@ -779,7 +912,7 @@ export default function InputPengeluaranPage() {
             </div>
 
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
-              <span>Gaji: {rupiah(displaySalary)}</span>
+              <span>Gaji{hasHrPayroll && prorataInfo.isProrated ? ' (Prorata)' : ''}: {rupiah(displaySalary)}</span>
               <span className="text-gray-400 mx-1">+</span>
               <span>Opex: {rupiah(summary.nonSalary)}</span>
             </div>
@@ -801,10 +934,91 @@ export default function InputPengeluaranPage() {
 
       {/* TABLE DATA */}
       <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-suka-gray-100 flex justify-between items-center bg-gray-50/50">
-          <div className="font-extrabold text-suka-brown text-sm flex items-center gap-2">
-            <FileText size={16} className="text-suka-orange" />
-            Daftar Pengeluaran OPEX ({allTransactions.length})
+        <div className="px-5 py-4 border-b border-suka-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gray-50/50">
+          <div className="font-extrabold text-suka-brown text-sm flex items-center gap-2 flex-wrap">
+            <FileText size={16} className="text-suka-orange shrink-0" />
+            <span>Daftar Pengeluaran OPEX</span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-suka-orange/10 text-suka-orange border border-suka-orange/20">
+              {displayedTransactions.length}
+              {displayedTransactions.length !== allTransactions.length && ` / ${allTransactions.length}`}
+            </span>
+            {selectedCategory !== 'all' && (
+              <span className="text-[11px] font-semibold text-gray-500 hidden sm:inline">
+                • Kategori: <strong className="text-suka-brown">{labelOf(selectedCategory)}</strong>
+              </span>
+            )}
+          </div>
+
+          {/* Filter Kategori & Pencarian */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Filter Kategori Dropdown */}
+            <div className="relative flex-1 sm:flex-none min-w-[180px]">
+              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+                <Filter size={13} className="text-suka-orange" />
+              </div>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="block w-full pl-8 pr-7 py-1.5 border border-suka-gray-200 rounded-xl leading-5 bg-white text-suka-brown font-bold focus:outline-none focus:ring-1 focus:ring-suka-orange focus:border-suka-orange transition-colors text-xs cursor-pointer shadow-2xs"
+                title="Filter berdasarkan kategori pengeluaran"
+              >
+                <option value="all">Semua Kategori ({allTransactions.length})</option>
+                {availableCategories.present.map(c => (
+                  <option key={c.value} value={c.value}>
+                    {c.label} ({c.count})
+                  </option>
+                ))}
+                {availableCategories.others.length > 0 && (
+                  <optgroup label="Kategori Lainnya (0 Data)">
+                    {availableCategories.others.map(c => (
+                      <option key={c.value} value={c.value}>
+                        {c.label} (0)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+
+            {/* Pencarian Keterangan / Pemohon */}
+            <div className="relative flex-1 sm:flex-none min-w-[150px] sm:w-48">
+              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+                <Search size={13} />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari pengeluaran..."
+                className="block w-full pl-8 pr-7 py-1.5 border border-suka-gray-200 rounded-xl leading-5 bg-white text-suka-brown font-medium placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-suka-orange focus:border-suka-orange transition-colors text-xs shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+                  title="Hapus pencarian"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Tombol Reset Filter */}
+            {(selectedCategory !== 'all' || searchQuery) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory('all')
+                  setSearchQuery('')
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-xl border border-rose-200 transition-all cursor-pointer shrink-0"
+                title="Reset semua filter"
+              >
+                <X size={13} />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -832,6 +1046,29 @@ export default function InputPengeluaranPage() {
             <p className="font-bold text-gray-600">Belum ada pengeluaran</p>
             <p className="text-xs text-gray-400 mt-1">Tidak ada catatan pengeluaran OPEX pada filter dan rentang tanggal ini.</p>
           </div>
+        ) : displayedTransactions.length === 0 ? (
+          <div className="p-12 text-center text-gray-400">
+            <Filter size={40} className="mx-auto mb-3 opacity-30 text-suka-orange" />
+            <p className="font-bold text-gray-600">Tidak ada pengeluaran yang cocok</p>
+            <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+              {selectedCategory !== 'all' && searchQuery
+                ? `Tidak ditemukan pengeluaran dengan kategori "${labelOf(selectedCategory)}" dan pencarian "${searchQuery}".`
+                : selectedCategory !== 'all'
+                ? `Tidak ditemukan pengeluaran dengan kategori "${labelOf(selectedCategory)}".`
+                : `Tidak ditemukan pengeluaran yang sesuai dengan pencarian "${searchQuery}".`}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory('all')
+                setSearchQuery('')
+              }}
+              className="mt-3.5 px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs rounded-xl border border-amber-200 transition-colors cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <X size={13} />
+              Reset Filter
+            </button>
+          </div>
         ) : (
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full text-left text-xs border-collapse min-w-[960px]">
@@ -849,7 +1086,7 @@ export default function InputPengeluaranPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
-                {allTransactions.map((tx) => {
+                {displayedTransactions.map((tx) => {
                   const hasReceipt = Boolean(tx.receipt_url)
                   return (
                     <tr key={tx.id} className="hover:bg-amber-50/30 transition-colors font-medium">
@@ -872,9 +1109,14 @@ export default function InputPengeluaranPage() {
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-gray-700 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-semibold text-[10px] border border-amber-100">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCategory(tx.category)}
+                          title={`Klik untuk filter hanya kategori ${labelOf(tx.category)}`}
+                          className="px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-[10px] border border-amber-100 transition-colors cursor-pointer text-left"
+                        >
                           {labelOf(tx.category)}
-                        </span>
+                        </button>
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 min-w-[200px] max-w-sm whitespace-normal break-words leading-relaxed" title={tx.description}>
                         {tx.description || '-'}
@@ -921,14 +1163,14 @@ export default function InputPengeluaranPage() {
                   )
                 })}
               </tbody>
-              {allTransactions.length > 0 && (
+              {displayedTransactions.length > 0 && (
                 <tfoot className="bg-gray-50/90 border-t-2 border-suka-gray-200 text-xs font-bold">
                   <tr>
                     <td colSpan={7} className="px-4 py-3.5 text-right uppercase tracking-wider text-gray-500 font-extrabold">
-                      Total Pengeluaran OPEX ({allTransactions.length} Transaksi):
+                      Total Pengeluaran OPEX ({displayedTransactions.length} Transaksi{displayedTransactions.length !== allTransactions.length ? ' Terfilter' : ''}):
                     </td>
                     <td className="px-5 py-3.5 text-right font-black text-sm text-rose-600 whitespace-nowrap">
-                      -{rupiah(summary.totalOpex)}
+                      -{rupiah(displayedTotalOpex)}
                     </td>
                     <td className="px-3 py-3.5"></td>
                   </tr>
@@ -1088,7 +1330,9 @@ export default function InputPengeluaranPage() {
           displaySalary,
           hasHrPayroll,
           hrPayroll,
-          cashSalary: summary.salary
+          cashSalary: summary.salary,
+          isProrated: hasHrPayroll && prorataInfo.isProrated,
+          prorataInfo
         }}
         operationalData={{
           totalNonSalary: summary.nonSalary,
@@ -1099,7 +1343,9 @@ export default function InputPengeluaranPage() {
         totalOpexData={{
           totalCombined: totalCombinedOpex,
           displaySalary,
-          totalNonSalary: summary.nonSalary
+          totalNonSalary: summary.nonSalary,
+          isProrated: hasHrPayroll && prorataInfo.isProrated,
+          prorataInfo
         }}
       />
     </div>

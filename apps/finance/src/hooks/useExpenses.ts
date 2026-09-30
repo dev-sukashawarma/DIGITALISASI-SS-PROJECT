@@ -1,13 +1,43 @@
-import { useQuery } from '@tanstack/react-query'
+'use client'
+
+import { useEffect, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { PeriodFilterValue } from '@/lib/types'
 import { mapExpenseRow, type ExpenseRow } from '@/lib/expenseRow'
 import { getExpensesAction } from '@/app/actions/expenses'
+import { createClient } from '@/lib/supabase'
 
 export type { ExpenseRow } from '@/lib/expenseRow'
 
 const EMPTY_ROWS: ExpenseRow[] = []
 
 export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[]) {
+  const queryClient = useQueryClient()
+  const supabase = useMemo(() => createClient(), [])
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('finance-expenses-realtime-sub')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expenses' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['expenses'] })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'petty_cash_expenses' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['expenses'] })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, queryClient])
   const query = useQuery<ExpenseRow[]>({
     queryKey: ['expenses', filter.from, filter.to, filter.outletId],
     initialData,

@@ -621,3 +621,5 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     },
   }
 }
+
+export * from './opexDateRangeProrata'

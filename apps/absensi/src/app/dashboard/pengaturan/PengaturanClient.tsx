@@ -13,6 +13,8 @@ import { useAuth } from "@suka/auth";
 import { namaShift } from "@/lib/attendance/shift";
 import { keOutletJadwal, validasiShift, type OutletJadwal, type ShiftDraft } from "@/lib/attendance/jadwalOutlet";
 import { EditorShift } from "./EditorShift";
+import { JadwalStafPanel } from "./JadwalStaf";
+import type { JadwalStaf } from "@/lib/attendance/jadwalStaf";
 
 type Config = {
   jam_masuk: string;
@@ -42,11 +44,13 @@ type Props = {
   initialGlobalConfig: Config;
   initialOutlets: Outlet[];
   initialOutletConfigs: OutletConfig[];
+  /** Aturan jadwal khusus staf (RPC list_jadwal_staf atas nama user). */
+  initialJadwalStaf: JadwalStaf[];
 };
 
 const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager", "developer"];
 
-export default function PengaturanClient({ initialGlobalConfig, initialOutlets, initialOutletConfigs }: Props) {
+export default function PengaturanClient({ initialGlobalConfig, initialOutlets, initialOutletConfigs, initialJadwalStaf }: Props) {
   const { outletStaff } = useAuth();
   const toast = useToast();
   const [isPending, startTransition] = useTransition();
@@ -663,6 +667,9 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
           )}
         </div>
       </div>
+
+      {/* PANEL JADWAL KHUSUS STAF */}
+      <JadwalStafPanel initialJadwal={initialJadwalStaf} outlets={outlets} />
 
       {/* MODAL TAMBAH/EDIT PENGECUALIAN */}
       {mounted && isModalOpen && createPortal(

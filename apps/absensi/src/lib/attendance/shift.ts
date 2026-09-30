@@ -36,6 +36,13 @@ export type ShiftRow = {
   jam_keluar: string;
 };
 
+/** Jadwal khusus staf di outlet (aturan bernama, berlaku setiap hari), jam "HH:MM". */
+export type JadwalStafAktif = {
+  nama: string;
+  jam_masuk: string;
+  jam_keluar: string;
+};
+
 export type ShiftConfig = {
   jam_masuk?: string | null;
   jam_keluar?: string | null;
@@ -43,6 +50,16 @@ export type ShiftConfig = {
   shift2_jam_masuk?: string | null;
   shift2_jam_keluar?: string | null;
   shifts?: ShiftRow[] | null;
+  /**
+   * Aturan jadwal khusus milik staf yang ditanyakan (`p_staff_id`) di outlet ini, atau
+   * null. Staf beraturan memakai jam aturan dan tidak memilih shift.
+   */
+  jadwal_staf?: JadwalStafAktif | null;
+  /**
+   * Menit jam pulang PALING AKHIR di outlet (pulang lewat tengah malam +1440), termasuk
+   * aturan staf — patokan shift penutup server. Tidak ada di server lama.
+   */
+  menit_pulang_penutup?: number | null;
 };
 
 const hhmm = (t: string) => t.slice(0, 5);
@@ -79,6 +96,8 @@ export function shiftOptions(
   role?: string | null
 ): ShiftOption[] | null {
   if (!cfg?.pilih_shift_aktif) return null;
+  // Staf berjadwal khusus memakai jam aturannya — server pun mengabaikan shift_ke.
+  if (jadwalStaf(cfg)) return null;
 
   let options: ShiftOption[];
   const rows = keShiftRows(cfg.shifts);
@@ -108,8 +127,19 @@ export function namaShift(jamMasuk: string): string {
   return "Shift Malam";
 }
 
+/**
+ * Jadwal khusus staf dari config RPC `attendance_shift_config` (dipanggil dengan
+ * `p_staff_id`), dinormalisasi ke "HH:MM"; null bila staf tidak punya aturan di outlet itu.
+ */
+export function jadwalStaf(cfg: ShiftConfig | null | undefined): JadwalStafAktif | null {
+  const j = cfg?.jadwal_staf;
+  if (!j || typeof j.jam_masuk !== "string" || typeof j.jam_keluar !== "string") return null;
+  if (j.jam_masuk.length < 5 || j.jam_keluar.length < 5) return null;
+  return { nama: typeof j.nama === "string" ? j.nama : "", jam_masuk: hhmm(j.jam_masuk), jam_keluar: hhmm(j.jam_keluar) };
+}
+
 /** Menit jam pulang; shift yang pulang lewat tengah malam (keluar < masuk) dihitung hari berikutnya. */
-function menitPulang(jamMasuk: string, jamKeluar: string): number {
+export function menitPulang(jamMasuk: string, jamKeluar: string): number {
   const menit = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
   const keluar = menit(jamKeluar);
   return keluar < menit(jamMasuk) ? keluar + 24 * 60 : keluar;
@@ -146,6 +176,56 @@ export function isShiftPenutup(
   if (shiftOutlet.length === 0) return true;
   const terakhir = Math.max(...shiftOutlet.map((o) => menitPulang(o.jam_masuk, o.jam_keluar)));
   return menitPulang(masuk ?? milik.jam_masuk, keluar) >= terakhir;
+}
+
+/** Jejak shift dari absen masuk terakhir (kolom attendance.shift_jam_masuk/keluar). */
+export type JejakShift = { shift_jam_masuk?: string | null; shift_jam_keluar?: string | null } | null | undefined;
+
+/** Outlet ini memakai pilihan shift seperti di server: toggle aktif DAN minimal dua shift. */
+function berpilihanShift(cfg: ShiftConfig): boolean {
+  return !!cfg.pilih_shift_aktif && keShiftRows(cfg.shifts).length >= 2;
+}
+
+/**
+ * Apakah penentuan penutup untuk config ini membaca jejak absen masuk — hanya staf
+ * beraturan dan outlet berpilihan shift. Pemanggil bisa melewati query jejak bila tidak.
+ */
+export function penutupPerluJejak(cfg: ShiftConfig | null | undefined): boolean {
+  return !!cfg && (!!jadwalStaf(cfg) || berpilihanShift(cfg));
+}
+
+/**
+ * Cermin gerbang shift penutup RPC submit_attendance untuk config dari server yang
+ * mengirim `menit_pulang_penutup` (jam pulang paling akhir di outlet, termasuk aturan
+ * staf). Mengembalikan null bila field itu tidak ada → pemanggil memakai aturan lama
+ * (`isShiftPenutup`).
+ *
+ * Menit pulang staf, sama urutannya dengan server:
+ *  - staf beraturan: jejak absen masuk (jam dibekukan saat masuk), atau jam aturan;
+ *  - outlet berpilihan shift: jejak absen masuk; tanpa jejak → penutup (server pun begitu);
+ *  - selain itu: jam outlet (jam_masuk–jam_keluar config).
+ * Penutup bila menit itu >= menit_pulang_penutup.
+ */
+export function isPenutupMenurutServer(cfg: ShiftConfig | null | undefined, jejak: JejakShift): boolean | null {
+  const batas = cfg?.menit_pulang_penutup;
+  if (!cfg || typeof batas !== "number" || !Number.isFinite(batas)) return null;
+
+  const jejakMasuk = jejak?.shift_jam_masuk ? hhmm(jejak.shift_jam_masuk) : null;
+  const jejakKeluar = jejak?.shift_jam_keluar ? hhmm(jejak.shift_jam_keluar) : null;
+  const milikJejak = jejakMasuk && jejakKeluar ? menitPulang(jejakMasuk, jejakKeluar) : null;
+
+  const aturan = jadwalStaf(cfg);
+  if (aturan) return (milikJejak ?? menitPulang(aturan.jam_masuk, aturan.jam_keluar)) >= batas;
+
+  if (berpilihanShift(cfg)) return milikJejak === null ? true : milikJejak >= batas;
+
+  const jamOutlet = menitPulang(hhmm(cfg.jam_masuk || "09:00"), hhmm(cfg.jam_keluar || "17:00"));
+  if (jamOutlet >= batas) return true;
+  // Toggle shift aktif dengan satu shift saja: server membandingkan jam outlet dengan
+  // aturan staf, sedangkan batas bisa berasal dari shift itu. Bila batas = shift itu,
+  // aturan staf tak lebih malam → tak bisa dipastikan dari sini; ikut perilaku lama (penutup).
+  const satuShift = cfg.pilih_shift_aktif ? keShiftRows(cfg.shifts) : [];
+  return satuShift.length === 1 && menitPulang(satuShift[0].jam_masuk, satuShift[0].jam_keluar) >= batas;
 }
 
 /** Nomor shift yang sah dikirim klien: 1..MAX_SHIFT atau DRIVER_SHIFT_KE. */

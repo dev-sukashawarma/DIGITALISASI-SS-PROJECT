@@ -20,6 +20,10 @@ const STATUS_ALASAN: Record<string, number> = {
   cross_outlet: 403,
   outlet_inactive: 403,
   config_missing: 500,
+  // Identitas submit_attendance: target harus pemanggil sendiri (route ini service role,
+  // jadi keduanya hanya muncul bila RPC dipanggil tanpa kunci server).
+  forbidden_staff: 403,
+  auth_required: 401,
 };
 
 /**

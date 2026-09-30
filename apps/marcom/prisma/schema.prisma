@@ -102,6 +102,7 @@ model Endorsement {
   shippingExpenseId String?  @map("shipping_expense_id")
 
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  lastSyncedAt      DateTime? @map("last_synced_at") @db.Timestamptz
 
   kol               Kol      @relation(fields: [kolId], references: [id], onDelete: Restrict)
   outlet            Outlet   @relation(fields: [outletId], references: [id], onDelete: Restrict)
@@ -205,6 +206,9 @@ model InternalContent {
   goal              String?  @map("goal")
   status            String   @default("Sudah Posting") @map("status")
   isAds             Boolean  @default(false) @map("is_ads")
+  adsBudget         Decimal  @default(0) @db.Decimal(12,2) @map("ads_budget")
+  viewsBeforeAds    Int?     @map("views_before_ads")
+  viewsAfterAds     Int?     @map("views_after_ads")
   creator           String?  @map("creator")
   outletId          BigInt?  @map("outlet_id")
   takeLocation      String?  @map("take_location")
@@ -220,6 +224,7 @@ model InternalContent {
   followersBaseline Int?     @map("followers_baseline")
   groupId           String?  @map("group_id")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  lastSyncedAt      DateTime? @map("last_synced_at") @db.Timestamptz
 
   outlet            Outlet?  @relation(fields: [outletId], references: [id], onDelete: SetNull)
 
@@ -237,6 +242,14 @@ model InternalContent {
   @@index([pillar, postDate], name: "idx_internal_content_pillar_date")
   @@index([groupId], name: "idx_internal_content_group_id")
   @@map("internal_contents")
+}
+
+model MarcomSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("marcom_settings")
 }
 
 model ContentType {

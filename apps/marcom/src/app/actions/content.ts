@@ -253,6 +253,9 @@ export async function createInternalContent(
   const sharesStr = formData.get('shares') as string
   const savesStr = formData.get('saves') as string
   const followersBaselineStr = formData.get('followersBaseline') as string
+  const adsBudgetStr = formData.get('adsBudget') as string
+  const viewsBeforeAdsStr = formData.get('viewsBeforeAds') as string
+  const viewsAfterAdsStr = formData.get('viewsAfterAds') as string
 
   // Handle multi-platform selection
   const rawPlatforms = formData.getAll('platforms').map((p) => p.toString().trim()).filter(Boolean)
@@ -291,6 +294,9 @@ export async function createInternalContent(
     const shares = sharesStr ? parseInt(sharesStr, 10) : 0
     const saves = savesStr ? parseInt(savesStr, 10) : 0
     const followersBaseline = followersBaselineStr ? parseInt(followersBaselineStr, 10) : null
+    const adsBudget = adsBudgetStr ? parseFloat(adsBudgetStr.replace(/[^0-9.]/g, '')) || 0 : 0
+    const viewsBeforeAds = viewsBeforeAdsStr ? parseInt(viewsBeforeAdsStr, 10) : null
+    const viewsAfterAds = viewsAfterAdsStr ? parseInt(viewsAfterAdsStr, 10) : null
 
     // Generate shared groupId if multiple platforms are selected
     const groupId = selectedPlatforms.length > 1 ? crypto.randomUUID() : null
@@ -306,6 +312,9 @@ export async function createInternalContent(
           goal,
           status,
           isAds,
+          adsBudget,
+          viewsBeforeAds,
+          viewsAfterAds,
           creator,
           outletId,
           takeLocation,
@@ -370,6 +379,9 @@ export async function updateInternalContent(
   const sharesStr = formData.get('shares') as string
   const savesStr = formData.get('saves') as string
   const followersBaselineStr = formData.get('followersBaseline') as string
+  const adsBudgetStr = formData.get('adsBudget') as string
+  const viewsBeforeAdsStr = formData.get('viewsBeforeAds') as string
+  const viewsAfterAdsStr = formData.get('viewsAfterAds') as string
 
   if (!title || !postDateStr || !postUrl) {
     return { error: 'Judul konten, tanggal tayang, dan link URL postingan wajib diisi' }
@@ -386,6 +398,9 @@ export async function updateInternalContent(
     const shares = sharesStr ? parseInt(sharesStr, 10) : 0
     const saves = savesStr ? parseInt(savesStr, 10) : 0
     const followersBaseline = followersBaselineStr ? parseInt(followersBaselineStr, 10) : null
+    const adsBudget = adsBudgetStr ? parseFloat(adsBudgetStr.replace(/[^0-9.]/g, '')) || 0 : 0
+    const viewsBeforeAds = viewsBeforeAdsStr ? parseInt(viewsBeforeAdsStr, 10) : null
+    const viewsAfterAds = viewsAfterAdsStr ? parseInt(viewsAfterAdsStr, 10) : null
 
     await prisma.internalContent.update({
       where: { id: contentId },
@@ -398,6 +413,9 @@ export async function updateInternalContent(
         goal,
         status,
         isAds,
+        adsBudget,
+        viewsBeforeAds,
+        viewsAfterAds,
         creator,
         outletId,
         takeLocation,
@@ -421,6 +439,42 @@ export async function updateInternalContent(
   } catch (err: any) {
     console.error('Failed to update internal content:', err)
     return { error: err?.message || 'Gagal memperbarui video internal' }
+  }
+}
+
+export async function updateContentAds(
+  id: string,
+  data: {
+    isAds: boolean
+    adsBudget: number
+    viewsBeforeAds?: number | null
+    viewsAfterAds?: number | null
+  }
+): Promise<ActionState> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { error: 'Unauthorized: Harap login terlebih dahulu' }
+  }
+
+  try {
+    const contentId = BigInt(id)
+    await prisma.internalContent.update({
+      where: { id: contentId },
+      data: {
+        isAds: data.isAds,
+        adsBudget: data.adsBudget || 0,
+        viewsBeforeAds: data.viewsBeforeAds !== undefined ? data.viewsBeforeAds : null,
+        viewsAfterAds: data.viewsAfterAds !== undefined ? data.viewsAfterAds : null,
+      },
+    })
+
+    revalidatePath('/dashboard/content-planner')
+    revalidatePath('/dashboard/content-planner/metrik-data')
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (err: any) {
+    console.error('Failed to update content ads:', err)
+    return { error: err?.message || 'Gagal memperbarui data ads video' }
   }
 }
 

@@ -13,6 +13,8 @@ export interface Outlet {
   is_active: boolean
   region?: string | null
   marquee_warning_threshold: number
+  open_hour?: string | null
+  close_hour?: string | null
 }
 
 export interface OutletFormValues {
@@ -30,7 +32,8 @@ export interface OutletFormValues {
 
 export interface OutletFilterValues {
   search: string
-  status: string // '' = semua, 'active', 'inactive'
+  status: string // '' = semua, 'active', 'inactive', 'missing_coords'
+  type?: string // '' = semua, 'outlet', 'mitra', etc.
 }
 
 export interface StaffRow {

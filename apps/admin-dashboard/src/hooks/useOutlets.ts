@@ -12,7 +12,7 @@ export function useOutlets(initialData?: Outlet[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlets')
-        .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
+        .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold, open_hour, close_hour')
         .neq('type', 'marketplace')
         .neq('id', TEST_OUTLET_ID)
         .order('name')

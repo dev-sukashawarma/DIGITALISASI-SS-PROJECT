@@ -1,23 +1,126 @@
 'use client'
+import { Search, X } from 'lucide-react'
 import type { OutletFilterValues } from '@/lib/types'
 
 export function OutletFilters({
-  value, onChange,
+  value, onChange, totalCount, filteredCount,
 }: {
   value: OutletFilterValues
   onChange: (v: OutletFilterValues) => void
+  totalCount?: number
+  filteredCount?: number
 }) {
   const set = (patch: Partial<OutletFilterValues>) => onChange({ ...value, ...patch })
-  const inputCls = 'rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange'
+  const hasActiveFilters = Boolean(value.search || value.status || (value.type && value.type !== 'all'))
+
+  const resetFilters = () => onChange({ search: '', status: '', type: '' })
+
   return (
-    <div className="flex flex-wrap gap-2">
-      <input className={inputCls} placeholder="Cari nama / slug"
-        value={value.search} onChange={(e) => set({ search: e.target.value })} />
-      <select className={inputCls} value={value.status} onChange={(e) => set({ status: e.target.value })}>
-        <option value="">Semua Status</option>
-        <option value="active">Aktif</option>
-        <option value="inactive">Nonaktif</option>
-      </select>
+    <div className="bg-white rounded-2xl border border-suka-gray-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
+      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+        {/* Search input with icons */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-suka-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-suka-gray-200 text-sm text-suka-ink placeholder:text-suka-gray-400 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 transition-all bg-suka-gray-50/50 hover:bg-white"
+            placeholder="Cari nama outlet, slug, atau alamat..."
+            value={value.search}
+            onChange={(e) => set({ search: e.target.value })}
+          />
+          {value.search && (
+            <button
+              type="button"
+              onClick={() => set({ search: '' })}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-suka-gray-400 hover:text-suka-ink rounded-lg"
+              title="Hapus pencarian"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Filter controls row */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status Tabs */}
+          <div className="inline-flex rounded-xl bg-suka-gray-100 p-1 border border-suka-gray-200/60 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => set({ status: '' })}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                !value.status
+                  ? 'bg-white text-suka-ink shadow-xs font-bold'
+                  : 'text-suka-gray-500 hover:text-suka-ink'
+              }`}
+            >
+              Semua
+            </button>
+            <button
+              type="button"
+              onClick={() => set({ status: 'active' })}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                value.status === 'active'
+                  ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                  : 'text-suka-gray-500 hover:text-suka-ink'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${value.status === 'active' ? 'bg-white' : 'bg-emerald-500'}`} />
+              Aktif
+            </button>
+            <button
+              type="button"
+              onClick={() => set({ status: 'inactive' })}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                value.status === 'inactive'
+                  ? 'bg-gray-700 text-white shadow-xs font-bold'
+                  : 'text-suka-gray-500 hover:text-suka-ink'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${value.status === 'inactive' ? 'bg-white' : 'bg-gray-400'}`} />
+              Nonaktif
+            </button>
+          </div>
+
+          {/* Type filter */}
+          <select
+            className="rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-xs font-semibold text-suka-ink outline-none focus:border-suka-orange"
+            value={value.type || 'all'}
+            onChange={(e) => set({ type: e.target.value })}
+          >
+            <option value="all">Semua Tipe</option>
+            <option value="outlet">Outlet Reguler</option>
+            <option value="mitra">Mitra</option>
+            <option value="hq">Gudang / HQ</option>
+          </select>
+
+          {/* Reset button */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-suka-orange hover:bg-orange-50 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Summary indicator */}
+      {typeof totalCount === 'number' && typeof filteredCount === 'number' && (
+        <div className="flex items-center justify-between text-xs text-suka-gray-500 pt-1 border-t border-suka-gray-100">
+          <span>
+            Menampilkan <strong className="text-suka-ink">{filteredCount}</strong> dari{' '}
+            <strong className="text-suka-ink">{totalCount}</strong> outlet
+          </span>
+          {value.status === 'missing_coords' && (
+            <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-semibold text-[11px]">
+              Menampilkan outlet yang belum memiliki koordinat GPS
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,22 +1,79 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { previewAllSettlementFiles, syncAllSettlementData } from '@/app/actions/platformSettlement';
-import type { MultiPlatformSummary } from '@/app/actions/platformSettlement';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import {
+  previewAllSettlementFiles,
+  syncAllSettlementData,
+  getSettlementDashboardStatus,
+  saveStoreMapping,
+  deleteSettlementBatch,
+} from '@/app/actions/platformSettlement';
+import type { MultiPlatformSummary, SettlementUploadStatus } from '@/app/actions/platformSettlement';
 import { useOutlets } from '@/hooks/useOutlets';
+import {
+  UploadCloud,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  Calendar,
+  Trash2,
+  ExternalLink,
+  Sparkles,
+} from 'lucide-react';
 
 const PLATFORMS = [
-  { id: 'shopeefood', label: 'ShopeeFood', accept: '.xlsx,.xls', color: 'orange', emoji: '🟠' },
-  { id: 'grabfood',   label: 'GrabFood',   accept: '.csv',       color: 'green',  emoji: '🟢' },
-  { id: 'gofood',     label: 'GoFood',     accept: '.xlsx,.xls', color: 'red',    emoji: '🔴' },
-  { id: 'tiktokgo',   label: 'TikTok Go',  accept: '.xlsx,.xls', color: 'gray',   emoji: '⚫' },
+  {
+    id: 'gofood',
+    label: 'GoFood (GoBiz)',
+    accept: '.xlsx,.xls,.csv',
+    color: 'red',
+    badge: '🔴 Prioritas 1',
+    description: 'Single Source of Truth Card Biru. Auto-override potongan merchant & pisahkan subsidi Gojek.',
+  },
+  {
+    id: 'grabfood',
+    label: 'GrabFood',
+    accept: '.csv',
+    color: 'green',
+    badge: '🟢 Prioritas 2',
+    description: 'Laporan settlement Grab (.csv). Monitoring order matched & gap input kasir.',
+  },
+  {
+    id: 'shopeefood',
+    label: 'ShopeeFood',
+    accept: '.xlsx,.xls',
+    color: 'orange',
+    badge: '🟠 Prioritas 3',
+    description: 'Laporan Shopee (.xlsx). Akurasi 99.8%, rekapitulasi komisi & potongan.',
+  },
+  {
+    id: 'tiktokgo',
+    label: 'TikTok Go',
+    accept: '.xlsx,.xls',
+    color: 'gray',
+    badge: '⚫ Tambahan',
+    description: 'Settlement voucher TikTok Go (.xlsx).',
+  },
 ];
 
 const rp = (n: number) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
-const pct = (a: number, b: number) => b > 0 ? ((a / b) * 100).toFixed(1) + '%' : '-';
+const pct = (a: number, b: number) => (b > 0 ? ((a / b) * 100).toFixed(1) + '%' : '-');
+
+function formatDateIndo(dateStr: string) {
+  if (!dateStr) return '-';
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return dateStr;
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  return `${parts[2]} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+}
 
 export default function PlatformSettlementPage() {
   const { data: outlets = [] } = useOutlets();
+  const [activeTab, setActiveTab] = useState<'upload' | 'history'>('upload');
+
+  // Form states
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -27,311 +84,898 @@ export default function PlatformSettlementPage() {
   const [syncMsg, setSyncMsg] = useState('');
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // Status & History states
+  const [uploadStatus, setUploadStatus] = useState<SettlementUploadStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+
+  // Mapping in progress state
+  const [mappingSelection, setMappingSelection] = useState<Record<string, string>>({});
+  const [mappingLoading, setMappingLoading] = useState(false);
+
+  // Load status on mount
+  const refreshStatus = useCallback(async () => {
+    setStatusLoading(true);
+    try {
+      const res = await getSettlementDashboardStatus();
+      if (res.success) {
+        setUploadStatus(res.data);
+      }
+    } catch (e: any) {
+      console.error('Gagal memuat status upload:', e);
+    } finally {
+      setStatusLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshStatus();
+  }, [refreshStatus]);
+
+  // Set default outlets when loaded
+  useEffect(() => {
+    if (outlets.length > 0 && selectedOutlets.length === 0) {
+      setSelectedOutlets(outlets.filter((o) => o.is_active !== false).map((o) => o.id));
+    }
+  }, [outlets, selectedOutlets.length]);
+
+  // Set default dates to last week (Senin - Minggu)
+  useEffect(() => {
+    if (!from && !to) {
+      const today = new Date();
+      // Pastikan rentang default mencakup minggu terakhir
+      const day = today.getDay(); // 0 is Sun
+      const diffToLastMonday = (day === 0 ? 6 : day - 1) + 7;
+      const lastMonday = new Date(today);
+      lastMonday.setDate(today.getDate() - diffToLastMonday);
+      const lastSunday = new Date(lastMonday);
+      lastSunday.setDate(lastMonday.getDate() + 6);
+
+      const f = (d: Date) => d.toISOString().split('T')[0];
+      setFrom(f(lastMonday));
+      setTo(f(lastSunday));
+    }
+  }, [from, to]);
+
   const toggleOutlet = (id: string) => {
-    setSelectedOutlets((prev) =>
-      prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]
-    );
-    setSummary(null); setErrorMsg(''); setSyncMsg('');
+    setSelectedOutlets((prev) => (prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id]));
+    setSummary(null);
+    setErrorMsg('');
+    setSyncMsg('');
   };
 
   const selectAll = () => setSelectedOutlets(outlets.map((o) => o.id));
   const clearAll = () => setSelectedOutlets([]);
 
+  const setDatePreset = (preset: 'last_week' | 'this_month' | 'last_month') => {
+    const today = new Date();
+    const f = (d: Date) => d.toISOString().split('T')[0];
+
+    if (preset === 'last_week') {
+      const day = today.getDay();
+      const diff = (day === 0 ? 6 : day - 1) + 7;
+      const lastMon = new Date(today);
+      lastMon.setDate(today.getDate() - diff);
+      const lastSun = new Date(lastMon);
+      lastSun.setDate(lastMon.getDate() + 6);
+      setFrom(f(lastMon));
+      setTo(f(lastSun));
+    } else if (preset === 'this_month') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFrom(f(firstDay));
+      setTo(f(today));
+    } else if (preset === 'last_month') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+      setFrom(f(firstDay));
+      setTo(f(lastDay));
+    }
+    setSummary(null);
+    setErrorMsg('');
+    setSyncMsg('');
+  };
+
   const handleFile = (platformId: string, file: File | null) => {
     setFiles((prev) => ({ ...prev, [platformId]: file }));
-    setSummary(null); setErrorMsg(''); setSyncMsg('');
+    setSummary(null);
+    setErrorMsg('');
+    setSyncMsg('');
   };
 
   const filesUploaded = Object.values(files).filter(Boolean).length;
 
   const handlePreview = async () => {
-    if (!from || !to) { setErrorMsg('Pilih periode terlebih dahulu.'); return; }
-    if (filesUploaded === 0) { setErrorMsg('Upload minimal 1 file settlement.'); return; }
-    if (selectedOutlets.length === 0) { setErrorMsg('Pilih minimal 1 outlet.'); return; }
-    setLoading(true); setErrorMsg(''); setSyncMsg('');
+    if (!from || !to) {
+      setErrorMsg('Pilih rentang tanggal terlebih dahulu.');
+      return;
+    }
+    if (filesUploaded === 0) {
+      setErrorMsg('Upload minimal 1 file settlement untuk di-preview.');
+      return;
+    }
+    if (selectedOutlets.length === 0) {
+      setErrorMsg('Pilih minimal 1 outlet.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg('');
+    setSyncMsg('');
     try {
       const fd = new FormData();
-      fd.append('from', from); fd.append('to', to);
+      fd.append('from', from);
+      fd.append('to', to);
       fd.append('outletIds', JSON.stringify(selectedOutlets));
       for (const p of PLATFORMS) {
         if (files[p.id]) fd.append(`file_${p.id}`, files[p.id]!);
       }
       const res = await previewAllSettlementFiles(fd);
-      if (res.success) setSummary(res.summary);
-      else setErrorMsg(res.error || 'Gagal memproses file.');
-    } catch (e: any) { setErrorMsg(e.message); }
-    finally { setLoading(false); }
+      if (res.success) {
+        setSummary(res.summary);
+      } else {
+        setErrorMsg(res.error || 'Gagal memproses file settlement.');
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Terjadi kesalahan sistem.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSync = async () => {
     if (!summary) return;
-    setLoading(true); setErrorMsg('');
+    setLoading(true);
+    setErrorMsg('');
     try {
       const res = await syncAllSettlementData(summary.allDaily);
       if (res.success) {
-        setSyncMsg(`✅ Berhasil menyimpan ${res.savedRows} baris rekap harian ke database.`);
+        setSyncMsg(
+          `✅ Berhasil menyimpan & menyinkronkan ${res.savedRows} baris settlement ke database. Card Biru pada Laporan POS kini telah menggunakan data settlement sebagai acuan!`
+        );
         setSummary(null);
         setFiles({});
-        PLATFORMS.forEach((p) => { if (fileRefs.current[p.id]) fileRefs.current[p.id]!.value = ''; });
-      } else setErrorMsg(res.error || 'Gagal menyimpan.');
-    } catch (e: any) { setErrorMsg(e.message); }
-    finally { setLoading(false); }
+        PLATFORMS.forEach((p) => {
+          if (fileRefs.current[p.id]) fileRefs.current[p.id]!.value = '';
+        });
+        refreshStatus();
+      } else {
+        setErrorMsg(res.error || 'Gagal menyimpan data.');
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveStoreMapping = async (platform: string, storeKey: string) => {
+    const targetOutletId = mappingSelection[storeKey];
+    if (!targetOutletId) {
+      alert('Pilih outlet tujuan terlebih dahulu.');
+      return;
+    }
+    setMappingLoading(true);
+    try {
+      const res = await saveStoreMapping({
+        platform,
+        storeKey,
+        outletId: targetOutletId,
+      });
+      if (res.success) {
+        // Otomatis refresh preview
+        await handlePreview();
+      } else {
+        alert(res.error || 'Gagal menyimpan pemetaan.');
+      }
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setMappingLoading(false);
+    }
+  };
+
+  const handleDeleteSettlement = async (platform: string, date: string, outletId: string, outletName: string) => {
+    const confirm = window.confirm(
+      `Apakah Anda yakin ingin menghapus data settlement ${platform.toUpperCase()} untuk outlet "${outletName}" pada tanggal ${date}?`
+    );
+    if (!confirm) return;
+
+    try {
+      const res = await deleteSettlementBatch({
+        platform,
+        from: date,
+        to: date,
+        outletId,
+      });
+      if (res.success) {
+        alert('Data settlement berhasil dihapus.');
+        refreshStatus();
+      } else {
+        alert(res.error || 'Gagal menghapus.');
+      }
+    } catch (e: any) {
+      alert(e.message);
+    }
   };
 
   const s = summary;
-  const selisihTotal = s ? s.totalOmzetKotor - s.pawoonOmzetKotor : 0;
+  const selisihOmzet = s ? s.totalOmzetKotor - s.posOmzetKotor : 0;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Import Settlement Food Apps</h1>
-        <p className="text-gray-500 mt-1 text-sm">
-          Upload laporan settlement dari semua platform dalam satu langkah, bandingkan dengan data Pawoon, lalu sync.
-        </p>
-      </div>
-
-      {/* ── STEP 1: Periode ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="font-bold text-lg mb-4 text-gray-800">1. Pilih Periode & Outlet</h2>
-        <div className="flex flex-wrap gap-4 items-center mb-5">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500 font-medium">Dari Tanggal</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500 font-medium">Sampai Tanggal</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          {from && to && (
-            <div className="mt-4 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg font-medium">
-              Periode: {from} s/d {to}
-            </div>
-          )}
-        </div>
-
-        {/* Outlet selector */}
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* ── HEADER ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-gray-500 font-medium">Pilih Outlet yang akan direkonsiliasi</label>
-            <div className="flex gap-2">
-              <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">Pilih Semua</button>
-              <span className="text-gray-300">|</span>
-              <button onClick={clearAll} className="text-xs text-red-500 hover:underline">Hapus Semua</button>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="p-2 bg-blue-100 text-blue-700 rounded-xl">
+              <UploadCloud className="w-6 h-6" />
+            </span>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Upload Settlement Food Apps</h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {outlets.map((o) => (
-              <button
-                key={o.id}
-                onClick={() => toggleOutlet(o.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                  selectedOutlets.includes(o.id)
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
-                }`}
-              >
-                {o.name}
-              </button>
-            ))}
-          </div>
-          {selectedOutlets.length > 0 && (
-            <p className="text-xs text-gray-400 mt-2">{selectedOutlets.length} outlet dipilih</p>
-          )}
+          <p className="text-gray-500 mt-1 text-sm">
+            Upload file settlement mingguan (GoBiz, Grab, Shopee) sebagai <b>Single Source of Truth</b>. Sistem otomatis
+            meng-override Card Biru dan memisahkan Subsidi Gojek.
+          </p>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="flex bg-gray-100 p-1 rounded-xl self-start md:self-auto">
+          <button
+            onClick={() => setActiveTab('upload')}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'upload' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Upload Settlement
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('history');
+              refreshStatus();
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Riwayat di Database
+          </button>
         </div>
       </div>
 
-      {/* ── STEP 2: Upload semua platform ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="font-bold text-lg mb-1 text-gray-800">2. Upload File Settlement</h2>
-        <p className="text-sm text-gray-400 mb-5">Tidak wajib semua — upload platform yang datanya ada.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {PLATFORMS.map((p) => {
-            const uploaded = files[p.id];
-            return (
-              <div key={p.id}
-                className={`rounded-xl border-2 p-4 transition-all ${
-                  uploaded ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-gray-800">{p.emoji} {p.label}</span>
-                  {uploaded && (
-                    <button onClick={() => handleFile(p.id, null)}
-                      className="text-xs text-red-500 hover:text-red-700">✕ Hapus</button>
+      {/* ── SCHEDULE & STATUS BANNER ── */}
+      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 rounded-2xl border border-blue-100 p-5 shadow-sm space-y-3">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-600 text-white rounded-lg mt-0.5">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-blue-950 text-base">Jadwal Rutin: Upload Setiap Senin Pagi</h2>
+              <p className="text-xs text-blue-800/80 mt-0.5">
+                Download laporan settlement dari portal masing-masing platform untuk minggu sebelumnya, lalu upload ke
+                halaman ini agar laporan mingguan & bulanan POS langsung akurat.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={refreshStatus}
+            disabled={statusLoading}
+            className="flex items-center gap-1.5 text-xs text-blue-700 bg-white border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${statusLoading ? 'animate-spin' : ''}`} />
+            Refresh Status
+          </button>
+        </div>
+
+        {/* Platform Status Cards */}
+        {uploadStatus && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            {PLATFORMS.map((p) => {
+              const stat = uploadStatus.latestUploads[p.id];
+              const isOverdue = p.id === 'gofood' && uploadStatus.gofoodStatus.isOverdue;
+              return (
+                <div
+                  key={p.id}
+                  className={`bg-white rounded-xl p-3 border ${
+                    isOverdue ? 'border-red-300 ring-2 ring-red-100' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-bold text-gray-700">
+                    <span>{p.label}</span>
+                    {stat?.lastSettlementDate ? (
+                      <span className="text-[10px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded font-medium">
+                        Aktif
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
+                        Belum Ada
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    Settlement Terakhir:
+                    <p className="font-semibold text-gray-800 text-sm">
+                      {stat?.lastSettlementDate ? formatDateIndo(stat.lastSettlementDate) : '—'}
+                    </p>
+                  </div>
+                  {isOverdue && (
+                    <div className="mt-1.5 flex items-center gap-1 text-[11px] text-red-600 font-semibold">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Perlu diupload!
+                    </div>
                   )}
                 </div>
-                {uploaded ? (
-                  <div className="text-xs text-green-700 truncate">✅ {uploaded.name}</div>
-                ) : (
-                  <label className="cursor-pointer text-xs text-blue-600 hover:text-blue-800 font-medium">
-                    + Pilih file {p.accept}
-                    <input type="file" accept={p.accept} className="hidden"
-                      ref={(el) => { fileRefs.current[p.id] = el; }}
-                      onChange={(e) => handleFile(p.id, e.target.files?.[0] ?? null)} />
-                  </label>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button
-            onClick={handlePreview}
-            disabled={loading || filesUploaded === 0 || !from || !to}
-            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-95"
-          >
-            {loading ? 'Memproses...' : `Preview & Rekonsiliasi (${filesUploaded} file)`}
-          </button>
-          {filesUploaded > 0 && <span className="text-sm text-gray-500">{filesUploaded} platform siap diproses</span>}
-        </div>
-
-        {errorMsg && <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-xl text-sm">⚠️ {errorMsg}</div>}
-        {syncMsg && <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-xl font-medium">{syncMsg}</div>}
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* ── STEP 3: Hasil Rekonsiliasi ── */}
-      {s && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100">
-            <h2 className="font-bold text-lg text-gray-800">3. Rekonsiliasi Settlement vs Pawoon</h2>
-            <p className="text-sm text-gray-400 mt-1">Periode: {s.periodeFrom} s/d {s.periodeTo}</p>
-          </div>
-
-          {/* KPI Summary */}
-          <div className="p-6 border-b border-gray-100">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-blue-50 rounded-xl p-4">
-                <p className="text-blue-600 text-xs font-semibold uppercase tracking-wide">Omzet Kotor Settlement</p>
-                <p className="text-2xl font-bold text-blue-900 mt-1">{rp(s.totalOmzetKotor)}</p>
-                <p className="text-xs text-blue-500 mt-1">{s.totalTrx.toLocaleString('id-ID')} transaksi</p>
-              </div>
-              <div className="bg-red-50 rounded-xl p-4">
-                <p className="text-red-600 text-xs font-semibold uppercase tracking-wide">Admin Platform (Komisi)</p>
-                <p className="text-2xl font-bold text-red-900 mt-1">-{rp(s.totalAdminFee)}</p>
-                <p className="text-xs text-red-500 mt-1">{pct(s.totalAdminFee, s.totalOmzetKotor)} dari omzet</p>
-              </div>
-              <div className="bg-amber-50 rounded-xl p-4">
-                <p className="text-amber-600 text-xs font-semibold uppercase tracking-wide">Promo Merchant</p>
-                <p className="text-2xl font-bold text-amber-900 mt-1">-{rp(s.totalPromo)}</p>
-                <p className="text-xs text-amber-500 mt-1">{pct(s.totalPromo, s.totalOmzetKotor)} dari omzet</p>
-              </div>
-              <div className={`rounded-xl p-4 ${Math.abs(selisihTotal) < s.totalOmzetKotor * 0.01 ? 'bg-green-50' : 'bg-orange-50'}`}>
-                <p className={`text-xs font-semibold uppercase tracking-wide ${Math.abs(selisihTotal) < s.totalOmzetKotor * 0.01 ? 'text-green-600' : 'text-orange-600'}`}>
-                  Omzet Pawoon (POS)
-                </p>
-                <p className={`text-2xl font-bold mt-1 ${Math.abs(selisihTotal) < s.totalOmzetKotor * 0.01 ? 'text-green-900' : 'text-orange-900'}`}>
-                  {rp(s.pawoonOmzetKotor)}
-                </p>
-                <p className={`text-xs mt-1 font-semibold ${selisihTotal >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                  Selisih: {selisihTotal >= 0 ? '+' : ''}{rp(selisihTotal)}
-                  {Math.abs(selisihTotal) < s.totalOmzetKotor * 0.01 ? ' ✅' : ' ⚠️'}
-                </p>
+      {activeTab === 'upload' ? (
+        <>
+          {/* ── STEP 1: Periode & Outlet ── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+                  1
+                </span>
+                Pilih Periode & Outlet
+              </h2>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-400">Pintasan:</span>
+                <button
+                  onClick={() => setDatePreset('last_week')}
+                  className="px-2.5 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-medium text-gray-600 transition-colors"
+                >
+                  Minggu Lalu
+                </button>
+                <button
+                  onClick={() => setDatePreset('this_month')}
+                  className="px-2.5 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-medium text-gray-600 transition-colors"
+                >
+                  Bulan Ini
+                </button>
+                <button
+                  onClick={() => setDatePreset('last_month')}
+                  className="px-2.5 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-medium text-gray-600 transition-colors"
+                >
+                  Bulan Lalu
+                </button>
               </div>
             </div>
 
-            {/* Per platform breakdown */}
-            <div>
-              <h3 className="font-semibold text-sm text-gray-600 mb-3 uppercase tracking-wide">Rincian per Platform</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {(() => {
-                  const foodAppsKeys = ['shopeefood', 'grabfood', 'gofood'];
-                  const foodApps = s.perPlatform.filter(p => foodAppsKeys.includes(p.platform));
-                  const others = s.perPlatform.filter(p => !foodAppsKeys.includes(p.platform));
-                  
-                  const combined = [...others];
-                  if (foodApps.length > 0) {
-                    combined.unshift({
-                      platform: 'foodapps',
-                      label: 'Food Apps (Shopee, Grab, Gojek)',
-                      fileName: foodApps.map(f => f.fileName).join(', '),
-                      omzetKotor: foodApps.reduce((sum, f) => sum + f.omzetKotor, 0),
-                      adminFee: foodApps.reduce((sum, f) => sum + f.adminFee, 0),
-                      promo: foodApps.reduce((sum, f) => sum + f.promo, 0),
-                      trx: foodApps.reduce((sum, f) => sum + f.trx, 0),
-                      rowsToWrite: 0
-                    });
-                  }
-                  
-                  return combined.map((p) => (
-                    <div key={p.platform} className="border border-gray-100 rounded-xl p-3 bg-gray-50">
-                      <div className="flex justify-between items-start mb-2">
-                        <p className="font-bold text-sm text-gray-800">{p.label}</p>
-                        <p className="text-xs bg-white border px-2 py-0.5 rounded-md font-medium text-gray-600">
-                          {p.trx.toLocaleString('id-ID')} {p.platform === 'tiktokgo' ? 'voucher' : 'trx'}
-                        </p>
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500 font-medium">Dari Tanggal</label>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    setSummary(null);
+                  }}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500 font-medium">Sampai Tanggal</label>
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => {
+                    setTo(e.target.value);
+                    setSummary(null);
+                  }}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              {from && to && (
+                <div className="self-end pb-1 text-xs text-blue-700 font-semibold bg-blue-50 px-3 py-2 rounded-lg">
+                  Rentang: {formatDateIndo(from)} — {formatDateIndo(to)}
+                </div>
+              )}
+            </div>
+
+            {/* Outlet selector */}
+            <div className="pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-gray-500 font-medium">Pilih Outlet yang akan direkonsiliasi</label>
+                <div className="flex gap-2">
+                  <button onClick={selectAll} className="text-xs text-blue-600 hover:underline">
+                    Pilih Semua ({outlets.length})
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button onClick={clearAll} className="text-xs text-red-500 hover:underline">
+                    Hapus Semua
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-gray-50 rounded-xl border border-gray-100">
+                {outlets.map((o) => {
+                  const isSelected = selectedOutlets.includes(o.id);
+                  return (
+                    <button
+                      key={o.id}
+                      onClick={() => toggleOutlet(o.id)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                      }`}
+                    >
+                      {o.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{selectedOutlets.length} outlet dipilih</p>
+            </div>
+          </div>
+
+          {/* ── STEP 2: Upload Files ── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+                2
+              </span>
+              Upload File Settlement Platform
+            </h2>
+            <p className="text-xs text-gray-500">
+              Anda dapat mengunggah satu platform saja (misal GoFood saja setiap Senin) atau gabungan beberapa platform
+              sekaligus.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {PLATFORMS.map((p) => {
+                const uploaded = files[p.id];
+                const isGoFood = p.id === 'gofood';
+                return (
+                  <div
+                    key={p.id}
+                    className={`rounded-2xl border-2 p-4 transition-all relative ${
+                      uploaded
+                        ? 'border-green-400 bg-green-50/50 shadow-xs'
+                        : isGoFood
+                        ? 'border-red-200 bg-red-50/20 hover:border-red-300'
+                        : 'border-gray-200 bg-gray-50/50 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-800 text-sm">{p.label}</span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700">
+                          {p.badge}
+                        </span>
                       </div>
-                      <p className="text-xs text-gray-500">Omzet Kotor</p>
-                      <p className="font-semibold text-gray-900 text-sm">{rp(p.omzetKotor)}</p>
-                      <p className="text-xs text-gray-500 mt-1">Admin Fee</p>
-                      <p className="font-semibold text-red-700 text-sm">-{rp(p.adminFee)} ({pct(p.adminFee, p.omzetKotor)})</p>
-                      <p className="text-xs text-gray-400 mt-1 truncate max-w-[150px]" title={p.fileName}>{p.fileName}</p>
+                      {uploaded && (
+                        <button
+                          onClick={() => handleFile(p.id, null)}
+                          className="text-xs text-red-500 hover:text-red-700 font-semibold"
+                        >
+                          ✕ Hapus
+                        </button>
+                      )}
                     </div>
-                  ));
-                })()}
-              </div>
+
+                    <p className="text-xs text-gray-500 mb-3 min-h-[32px]">{p.description}</p>
+
+                    {uploaded ? (
+                      <div className="flex items-center gap-2 text-xs text-green-700 bg-white p-2 rounded-xl border border-green-200">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                        <span className="font-medium truncate">{uploaded.name}</span>
+                        <span className="text-[10px] text-gray-400 shrink-0">
+                          ({(uploaded.size / 1024).toFixed(0)} KB)
+                        </span>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer flex items-center justify-center gap-2 w-full py-2.5 px-3 bg-white border border-dashed border-gray-300 rounded-xl hover:bg-blue-50/50 hover:border-blue-400 transition-all text-xs font-semibold text-gray-700">
+                        <FileSpreadsheet className="w-4 h-4 text-gray-400" />
+                        <span>Pilih file ({p.accept})</span>
+                        <input
+                          type="file"
+                          accept={p.accept}
+                          className="hidden"
+                          ref={(el) => {
+                            fileRefs.current[p.id] = el;
+                          }}
+                          onChange={(e) => handleFile(p.id, e.target.files?.[0] ?? null)}
+                        />
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+
+            <div className="pt-2 flex flex-wrap items-center gap-3">
+              <button
+                onClick={handlePreview}
+                disabled={loading || filesUploaded === 0 || !from || !to}
+                className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-sm hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center gap-2 active:scale-95"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Memproses & Membandingkan...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Preview & Rekonsiliasi ({filesUploaded} Platform)
+                  </>
+                )}
+              </button>
+              {filesUploaded > 0 && (
+                <span className="text-xs text-gray-500 font-medium">
+                  {filesUploaded} file platform siap direkonsiliasikan dengan data POS Internal
+                </span>
+              )}
+            </div>
+
+            {errorMsg && (
+              <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm border border-red-100 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold">Terjadi Kesalahan</p>
+                  <p className="text-xs mt-0.5">{errorMsg}</p>
+                </div>
+              </div>
+            )}
+
+            {syncMsg && (
+              <div className="p-4 bg-green-50 text-green-800 rounded-xl text-sm border border-green-200 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-base">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <span>Sinkronisasi Berhasil!</span>
+                </div>
+                <p className="text-xs">{syncMsg}</p>
+                <div className="pt-2">
+                  <Link
+                    href={`/dashboard/reports/pos?from=${from}&to=${to}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-700 text-white rounded-lg text-xs font-semibold hover:bg-green-800 transition-colors"
+                  >
+                    Buka Laporan POS untuk Periode Ini
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Per outlet table */}
-          <div className="p-6 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-800 mb-4">Rincian per Outlet</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left border-collapse">
+          {/* ── STEP 3: Preview Hasil Rekonsiliasi ── */}
+          {s && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden space-y-6">
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between flex-wrap gap-4 bg-gray-50/50">
+                <div>
+                  <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
+                      3
+                    </span>
+                    Hasil Rekonsiliasi: Settlement vs POS Internal
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Periode: {formatDateIndo(s.periodeFrom)} — {formatDateIndo(s.periodeTo)} | Sumber Data Pembanding:{' '}
+                    <b>POS Internal (`orders`)</b>
+                  </p>
+                </div>
+                <button
+                  onClick={handleSync}
+                  disabled={loading}
+                  className="bg-green-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-sm hover:bg-green-700 disabled:opacity-50 transition-all flex items-center gap-2 active:scale-95"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {loading ? 'Menyimpan...' : `Simpan ${s.allDaily.reduce((sum, d) => sum + d.daily.length, 0)} Baris ke Database`}
+                </button>
+              </div>
+
+              {/* KPI Cards */}
+              <div className="px-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-4">
+                    <p className="text-blue-600 text-[11px] font-bold uppercase tracking-wider">Omzet Settlement</p>
+                    <p className="text-2xl font-bold text-blue-950 mt-1">{rp(s.totalOmzetKotor)}</p>
+                    <p className="text-xs text-blue-600 mt-1 font-medium">
+                      {s.totalTrx.toLocaleString('id-ID')} transaksi settlement
+                    </p>
+                  </div>
+
+                  <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-4">
+                    <p className="text-amber-700 text-[11px] font-bold uppercase tracking-wider">Diskon Merchant</p>
+                    <p className="text-2xl font-bold text-amber-950 mt-1">-{rp(s.totalPromo)}</p>
+                    <p className="text-xs text-amber-600 mt-1 font-medium">
+                      {pct(s.totalPromo, s.totalOmzetKotor)} dari omzet kotor
+                    </p>
+                  </div>
+
+                  <div className="bg-red-50/70 border border-red-100 rounded-xl p-4">
+                    <p className="text-red-700 text-[11px] font-bold uppercase tracking-wider">Komisi Platform</p>
+                    <p className="text-2xl font-bold text-red-950 mt-1">-{rp(s.totalAdminFee)}</p>
+                    <p className="text-xs text-red-600 mt-1 font-medium">
+                      {pct(s.totalAdminFee, s.totalOmzetKotor)} rata-rata potongan
+                    </p>
+                  </div>
+
+                  <div
+                    className={`rounded-xl p-4 border ${
+                      Math.abs(selisihOmzet) < s.totalOmzetKotor * 0.02
+                        ? 'bg-green-50/70 border-green-200'
+                        : 'bg-orange-50/70 border-orange-200'
+                    }`}
+                  >
+                    <p
+                      className={`text-[11px] font-bold uppercase tracking-wider ${
+                        Math.abs(selisihOmzet) < s.totalOmzetKotor * 0.02 ? 'text-green-700' : 'text-orange-700'
+                      }`}
+                    >
+                      Omzet POS Internal
+                    </p>
+                    <p
+                      className={`text-2xl font-bold mt-1 ${
+                        Math.abs(selisihOmzet) < s.totalOmzetKotor * 0.02 ? 'text-green-950' : 'text-orange-950'
+                      }`}
+                    >
+                      {rp(s.posOmzetKotor)}
+                    </p>
+                    <p
+                      className={`text-xs mt-1 font-semibold ${selisihOmzet >= 0 ? 'text-orange-700' : 'text-red-700'}`}
+                    >
+                      Selisih: {selisihOmzet >= 0 ? '+' : ''}
+                      {rp(selisihOmzet)}
+                      {Math.abs(selisihOmzet) < s.totalOmzetKotor * 0.02 ? ' ✅ Akurat' : ' ⚠️ Ada gap'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* ── GOFOOD SUBSIDY CARD ── */}
+                {s.totalSubsidiPlatform > 0 && (
+                  <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 flex items-start gap-3">
+                    <div className="p-2 bg-emerald-600 text-white rounded-lg mt-0.5">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-emerald-950 text-sm">
+                          Subsidi Gojek Terdeteksi: {rp(s.totalSubsidiPlatform)}
+                        </h3>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
+                          Bukan Beban Resto
+                        </span>
+                      </div>
+                      <p className="text-xs text-emerald-800 mt-1">
+                        Kasir menginput promo di POS sebesar <b>{rp(s.posPromoKasir)}</b>, namun laporan settlement GoBiz
+                        menyatakan diskon yang ditanggung resto hanya <b>{rp(s.totalPromo)}</b>. Begitu disinkronkan,{' '}
+                        <b>Card Biru pada Laporan POS akan otomatis menggunakan angka diskon toko murni</b>, dan memulihkan
+                        Gross Profit restoran sebesar <b>{rp(s.totalSubsidiPlatform)}</b>!
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── UNMAPPED STORES FIX ── */}
+              {s.unmappedStores.length > 0 && (
+                <div className="mx-6 p-5 rounded-2xl bg-amber-50 border border-amber-200 space-y-3">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <span>Terdapat {s.unmappedStores.length} Toko / Merchant ID yang Belum Dipetakan</span>
+                  </div>
+                  <p className="text-xs text-amber-800">
+                    Sistem mendeteksi Merchant ID berikut di dalam file settlement. Pilih outlet sistem kita yang sesuai,
+                    lalu klik <b>Simpan Pemetaan</b> agar data langsung tersambung dan dihitung:
+                  </p>
+
+                  <div className="space-y-2 pt-1">
+                    {s.unmappedStores.map((u, i) => (
+                      <div
+                        key={i}
+                        className="bg-white p-3 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 font-semibold text-gray-800">
+                            <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] uppercase">
+                              {u.platform}
+                            </span>
+                            <span>{u.storeName}</span>
+                            <span className="text-gray-400 font-normal">ID: {u.storeId}</span>
+                          </div>
+                          <p className="text-gray-500 mt-0.5">Omzet di file: {rp(u.omzetKotor)}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={mappingSelection[u.storeId] || ''}
+                            onChange={(e) =>
+                              setMappingSelection((prev) => ({ ...prev, [u.storeId]: e.target.value }))
+                            }
+                            className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="">-- Pilih Outlet Sistem --</option>
+                            {outlets.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                {o.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => handleSaveStoreMapping(u.platform, u.storeId)}
+                            disabled={mappingLoading || !mappingSelection[u.storeId]}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                          >
+                            Simpan Pemetaan
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── PER OUTLET TABLE ── */}
+              <div className="px-6 pb-6">
+                <h3 className="font-bold text-gray-800 text-sm mb-3">Rincian Perbandingan per Outlet</h3>
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-700 font-bold uppercase text-[10px]">
+                        <th className="p-3 border-b">Outlet</th>
+                        <th className="p-3 border-b text-right">Omzet Settlement</th>
+                        <th className="p-3 border-b text-right">Omzet POS</th>
+                        <th className="p-3 border-b text-right">Selisih Omzet</th>
+                        <th className="p-3 border-b text-right bg-amber-50">Diskon Toko (Settlement)</th>
+                        <th className="p-3 border-b text-right">Promo Kasir (POS)</th>
+                        <th className="p-3 border-b text-right bg-emerald-50 text-emerald-800">Subsidi Gojek</th>
+                        <th className="p-3 border-b text-right bg-red-50 text-red-800">Komisi Platform</th>
+                        <th className="p-3 border-b text-right bg-green-50 text-green-900 font-bold">Netto Cair</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {s.perOutlet.map((o) => {
+                        const gap = o.omzetKotor - o.posOmzet;
+                        return (
+                          <tr key={o.outletId} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-3 font-semibold text-gray-800">{o.outletName}</td>
+                            <td className="p-3 text-right font-medium">{rp(o.omzetKotor)}</td>
+                            <td className="p-3 text-right text-gray-600">{rp(o.posOmzet)}</td>
+                            <td
+                              className={`p-3 text-right font-semibold ${
+                                Math.abs(gap) > 100000 ? 'text-orange-600' : 'text-gray-500'
+                              }`}
+                            >
+                              {gap >= 0 ? '+' : ''}
+                              {rp(gap)}
+                            </td>
+                            <td className="p-3 text-right text-amber-700 bg-amber-50/40 font-medium">-{rp(o.promo)}</td>
+                            <td className="p-3 text-right text-gray-600">-{rp(o.posPromo)}</td>
+                            <td className="p-3 text-right text-emerald-700 bg-emerald-50/50 font-semibold">
+                              {o.subsidiPlatform > 0 ? `+${rp(o.subsidiPlatform)}` : '—'}
+                            </td>
+                            <td className="p-3 text-right text-red-700 bg-red-50/40 font-medium">-{rp(o.adminFee)}</td>
+                            <td className="p-3 text-right text-green-800 bg-green-50/50 font-bold">
+                              {rp(o.nettoCair)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Bottom Sync Bar */}
+              <div className="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between flex-wrap gap-4">
+                <div className="text-xs text-gray-500">
+                  Total siap disimpan: <b>{s.allDaily.reduce((sum, d) => sum + d.daily.length, 0)} baris rekap</b> dari{' '}
+                  <b>{s.perPlatform.length} platform</b>
+                </div>
+                <button
+                  onClick={handleSync}
+                  disabled={loading}
+                  className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold shadow-sm hover:bg-green-700 disabled:opacity-50 transition-all flex items-center gap-2 active:scale-95"
+                >
+                  <CheckCircle2 className="w-5 h-5" />
+                  {loading ? 'Menyimpan...' : `Simpan & Sinkronkan ke Database`}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        /* ── TAB 2: RIWAYAT SETTLEMENT DI DATABASE ── */
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="font-bold text-lg text-gray-800">Riwayat Settlement Tersimpan di Database</h2>
+              <p className="text-xs text-gray-500">
+                Data pada tabel <code>platform_settlements</code> yang aktif digunakan sebagai Single Source of Truth
+                laporan POS.
+              </p>
+            </div>
+            <button
+              onClick={refreshStatus}
+              disabled={statusLoading}
+              className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${statusLoading ? 'animate-spin' : ''}`} />
+              Segarkan Data
+            </button>
+          </div>
+
+          {uploadStatus && uploadStatus.recentSettlements.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <tr className="bg-gray-100 text-gray-700 font-bold uppercase text-[10px]">
+                    <th className="p-3 border-b">Platform</th>
+                    <th className="p-3 border-b">Tanggal</th>
                     <th className="p-3 border-b">Outlet</th>
-                    <th className="p-3 border-b text-right">Omzet Kotor (Settlement)</th>
-                    <th className="p-3 border-b text-right bg-amber-50">Diskon Merchant</th>
-                    <th className="p-3 border-b text-right bg-red-50">Admin Fee</th>
-                    <th className="p-3 border-b text-right bg-green-50 text-green-800">Netto Cair</th>
-                    <th className="p-3 border-b text-right bg-gray-100 border-l-2 border-gray-200">Ref: Pawoon (POS)</th>
+                    <th className="p-3 border-b text-right">Omzet Kotor</th>
+                    <th className="p-3 border-b text-right bg-amber-50">Diskon Toko</th>
+                    <th className="p-3 border-b text-right bg-red-50">Komisi</th>
+                    <th className="p-3 border-b text-right">Trx</th>
+                    <th className="p-3 border-b">File Sumber</th>
+                    <th className="p-3 border-b">Diimport Pada</th>
+                    <th className="p-3 border-b text-center">Aksi</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {s.perOutlet.map((o) => (
-                    <tr key={o.outletId} className="border-b hover:bg-gray-50 transition-colors">
-                      <td className="p-3 font-semibold text-gray-800">{o.outletName}</td>
-                      <td className="p-3 text-right font-semibold">{rp(o.omzetKotor)}</td>
-                      <td className="p-3 text-right text-amber-700 bg-amber-50/30">-{rp(o.promo)}</td>
-                      <td className="p-3 text-right text-red-700 bg-red-50/30 font-semibold">-{rp(o.adminFee)}</td>
-                      <td className="p-3 text-right text-green-700 bg-green-50/50 font-bold">{rp(o.nettoCair)}</td>
-                      <td className="p-3 text-right text-gray-500 bg-gray-50 border-l-2 border-gray-200">{rp(o.pawoonOmzet)}</td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-gray-100">
+                  {uploadStatus.recentSettlements.map((r) => {
+                    const isGofood = r.platform === 'gofood';
+                    return (
+                      <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="p-3">
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold uppercase text-[10px] ${
+                              isGofood
+                                ? 'bg-red-100 text-red-700'
+                                : r.platform === 'grabfood'
+                                ? 'bg-green-100 text-green-700'
+                                : r.platform === 'shopeefood'
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {r.platform}
+                          </span>
+                        </td>
+                        <td className="p-3 font-semibold text-gray-800">{formatDateIndo(r.tanggal)}</td>
+                        <td className="p-3 font-medium text-gray-800">{r.outlet_name}</td>
+                        <td className="p-3 text-right font-medium">{rp(r.omzet_kotor)}</td>
+                        <td className="p-3 text-right text-amber-700 bg-amber-50/30">-{rp(r.promo_merchant)}</td>
+                        <td className="p-3 text-right text-red-700 bg-red-50/30 font-medium">-{rp(r.commission)}</td>
+                        <td className="p-3 text-right font-medium">{r.trx_count}</td>
+                        <td className="p-3 text-gray-500 truncate max-w-[140px]" title={r.source_file}>
+                          {r.source_file}
+                        </td>
+                        <td className="p-3 text-gray-400 text-[11px] whitespace-nowrap">
+                          {r.imported_at ? new Date(r.imported_at).toLocaleString('id-ID') : '-'}
+                        </td>
+                        <td className="p-3 text-center">
+                          <button
+                            onClick={() =>
+                              handleDeleteSettlement(r.platform, r.tanggal, r.outlet_id, r.outlet_name)
+                            }
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus data settlement ini"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          </div>
-
-          {/* Unmapped */}
-          {s.unmappedStores.length > 0 && (
-            <div className="p-6 border-b border-amber-100 bg-amber-50">
-              <h3 className="font-bold text-amber-800 mb-2">⚠️ Toko Belum Dipetakan ({s.unmappedStores.length})</h3>
-              <p className="text-xs text-amber-700 mb-2">Toko berikut tidak akan diimport. Tambahkan di <code className="bg-amber-100 px-1 rounded">platform_store_map.json</code>.</p>
-              <ul className="text-xs text-amber-800 space-y-1">
-                {s.unmappedStores.map((u, i) => (
-                  <li key={i}>[{u.platform}] <b>{u.storeName}</b> (ID: {u.storeId || '—'}) — {rp(u.omzetKotor)}</li>
-                ))}
-              </ul>
+          ) : (
+            <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+              <FileSpreadsheet className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-600 font-semibold text-sm">Belum Ada Data Settlement di Database</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Silakan beralih ke tab &quot;Upload Settlement&quot; untuk mengunggah laporan settlement GoBiz, Grab, atau
+                Shopee.
+              </p>
             </div>
           )}
-
-          {/* Sync button */}
-          <div className="p-6 bg-gray-50 flex items-center justify-between">
-            <div className="text-sm text-gray-500">
-              Total: {s.allDaily.reduce((sum, d) => sum + d.daily.length, 0)} baris rekap harian dari {s.perPlatform.length} platform
-            </div>
-            <button
-              onClick={handleSync}
-              disabled={loading}
-              className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold shadow-sm hover:bg-green-700 disabled:opacity-50 transition-all active:scale-95"
-            >
-              {loading ? 'Menyimpan...' : `Sync ${s.allDaily.reduce((sum, d) => sum + d.daily.length, 0)} Baris ke Database`}
-            </button>
-          </div>
         </div>
       )}
     </div>

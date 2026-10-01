@@ -112,12 +112,14 @@ export default function InputPengeluaranPage() {
   const isPusat = target === 'PUSAT'
   const isAllOutlets = target === 'ALL_OUTLETS'
 
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'monthly' | 'petty_cash'>('all')
+
   const filter = useMemo(() => ({
     from: startDate,
     to: endDate,
     outletId: (isPusat || isAllOutlets) ? 'all' : target,
-    source: 'monthly' as const
-  }), [startDate, endDate, target, isPusat, isAllOutlets])
+    source: sourceFilter
+  }), [startDate, endDate, target, isPusat, isAllOutlets, sourceFilter])
 
   const { rows: expenseRows = [], loading: expensesLoading, error: expensesError, refetch: refetchExpenses } = useExpenses(filter)
 
@@ -152,7 +154,8 @@ export default function InputPengeluaranPage() {
         isTopup: false,
         raw_description: r.raw_description || r.description,
         raw_category: r.raw_category || r.category,
-        scope: r.scope
+        scope: r.scope,
+        source: r.source || 'monthly'
       })
     })
 
@@ -375,7 +378,7 @@ export default function InputPengeluaranPage() {
       const workbook = new ExcelJS.Workbook()
       const worksheet = workbook.addWorksheet('Laporan OPEX')
 
-      worksheet.mergeCells('A1:I1')
+      worksheet.mergeCells('A1:J1')
       const titleCell = worksheet.getCell('A1')
       titleCell.value = 'Laporan Pengeluaran OPEX - SukaShawarma'
       titleCell.font = { size: 14, bold: true }
@@ -383,7 +386,7 @@ export default function InputPengeluaranPage() {
       worksheet.getCell('A3').value = `Periode: ${startDate} s/d ${endDate}${selectedCategory !== 'all' ? ` | Kategori: ${labelOf(selectedCategory)}` : ''}`
       worksheet.getCell('A3').font = { bold: true }
 
-      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
+      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Sumber Biaya', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
       const headerRow = worksheet.getRow(5)
       headerRow.values = headers
       headerRow.eachCell((cell) => {
@@ -398,6 +401,7 @@ export default function InputPengeluaranPage() {
           idx + 1,
           r.date,
           r.outlet_name,
+          r.source === 'petty_cash' ? 'Kasir POS' : 'Transfer Bulanan',
           r.recipient_name || '-',
           r.division || '-',
           labelOf(r.category),
@@ -405,18 +409,18 @@ export default function InputPengeluaranPage() {
           r.receipt_url ? 'Ada Struk' : '-',
           r.amount
         ]
-        row.getCell(9).numFmt = 'Rp #,##0'
+        row.getCell(10).numFmt = 'Rp #,##0'
         curIdx++
       })
 
       const totalRow = worksheet.getRow(curIdx)
-      totalRow.values = ['TOTAL', '', '', '', '', '', '', '', displayedTotalOpex]
+      totalRow.values = ['TOTAL', '', '', '', '', '', '', '', '', displayedTotalOpex]
       totalRow.font = { bold: true }
-      totalRow.getCell(9).numFmt = 'Rp #,##0'
+      totalRow.getCell(10).numFmt = 'Rp #,##0'
 
       worksheet.columns.forEach(col => { col.width = 16 })
-      worksheet.getColumn(7).width = 30
-      worksheet.getColumn(5).width = 24
+      worksheet.getColumn(8).width = 30
+      worksheet.getColumn(6).width = 24
 
       const buffer = await workbook.xlsx.writeBuffer()
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -435,11 +439,12 @@ export default function InputPengeluaranPage() {
     }
 
     try {
-      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
+      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Sumber Biaya', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
       const rows = displayedTransactions.map((r, idx) => [
         idx + 1,
         `"${r.date}"`,
         `"${(r.outlet_name || '').replace(/"/g, '""')}"`,
+        `"${r.source === 'petty_cash' ? 'Kasir POS' : 'Transfer Bulanan'}"`,
         `"${(r.recipient_name || '-').replace(/"/g, '""')}"`,
         `"${(r.division || '-').replace(/"/g, '""')}"`,
         `"${labelOf(r.category).replace(/"/g, '""')}"`,
@@ -450,6 +455,7 @@ export default function InputPengeluaranPage() {
 
       const summaryRow = [
         'TOTAL',
+        '',
         '',
         '',
         '',
@@ -506,7 +512,7 @@ export default function InputPengeluaranPage() {
           division: t.division,
           category: t.category,
           category_label: labelOf(t.category),
-          description: t.description,
+          description: `${t.source === 'petty_cash' ? '[Kasir POS] ' : ''}${t.description || ''}`,
           amount: t.amount,
           receipt_url: t.receipt_url
         })),
@@ -738,6 +744,45 @@ export default function InputPengeluaranPage() {
             </div>
           </>
         )}
+
+        <div className="h-6 w-px bg-suka-gray-200 hidden md:block" />
+
+        {/* Filter Sumber Biaya OPEX */}
+        <div className="flex items-center gap-1 bg-suka-gray-100/90 p-1 rounded-xl border border-suka-gray-200/60 shrink-0">
+          <button
+            type="button"
+            onClick={() => setSourceFilter('all')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              sourceFilter === 'all'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            Semua OPEX
+          </button>
+          <button
+            type="button"
+            onClick={() => setSourceFilter('monthly')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              sourceFilter === 'monthly'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            Buku Kas Bulanan
+          </button>
+          <button
+            type="button"
+            onClick={() => setSourceFilter('petty_cash')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              sourceFilter === 'petty_cash'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            Kas Kecil POS
+          </button>
+        </div>
       </div>
 
       {/* Error Alert Banner */}
@@ -1076,6 +1121,7 @@ export default function InputPengeluaranPage() {
                 <tr>
                   <th className="px-4 py-3">Tanggal</th>
                   <th className="px-4 py-3">Outlet</th>
+                  <th className="px-3 py-3 text-center">Sumber</th>
                   <th className="px-4 py-3">Nama Pemohon</th>
                   <th className="px-4 py-3">Divisi</th>
                   <th className="px-4 py-3">Kategori</th>
@@ -1095,6 +1141,17 @@ export default function InputPengeluaranPage() {
                       </td>
                       <td className="px-4 py-3.5 text-suka-brown font-bold whitespace-nowrap">
                         {tx.outlet_name}
+                      </td>
+                      <td className="px-3 py-3.5 text-center whitespace-nowrap">
+                        {tx.source === 'petty_cash' ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200" title="Kas Kecil Laci Kasir POS">
+                            Kasir POS
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[10px] border border-blue-200" title="Buku Kas Bulanan / Transfer Bank">
+                            Bulanan
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap font-bold text-gray-900">
                         {tx.recipient_name || '-'}
@@ -1166,7 +1223,7 @@ export default function InputPengeluaranPage() {
               {displayedTransactions.length > 0 && (
                 <tfoot className="bg-gray-50/90 border-t-2 border-suka-gray-200 text-xs font-bold">
                   <tr>
-                    <td colSpan={7} className="px-4 py-3.5 text-right uppercase tracking-wider text-gray-500 font-extrabold">
+                    <td colSpan={8} className="px-4 py-3.5 text-right uppercase tracking-wider text-gray-500 font-extrabold">
                       Total Pengeluaran OPEX ({displayedTransactions.length} Transaksi{displayedTransactions.length !== allTransactions.length ? ' Terfilter' : ''}):
                     </td>
                     <td className="px-5 py-3.5 text-right font-black text-sm text-rose-600 whitespace-nowrap">

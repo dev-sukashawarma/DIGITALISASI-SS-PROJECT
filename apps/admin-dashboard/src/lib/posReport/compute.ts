@@ -13,7 +13,15 @@
 
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveOrderSource } from '@/lib/order-source'
-import { computeNetRevenueVoidAware, computeOrderDeduction, computeOrderGross, computeItemShares } from '@/lib/posReportKpi'
+import {
+  computeNetRevenueVoidAware,
+  computeOrderDeduction,
+  computeOrderGross,
+  computeItemShares,
+  computeOrderPlatformSubsidy,
+  buildGofoodSettlementPromoMap,
+  isGoFoodOrder,
+} from '@/lib/posReportKpi'
 import { buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 
@@ -311,6 +319,30 @@ export function computeAnalytics({
     paymentBreakdown[method].revenue += o.total_amount
   })
 
+  // Bangun pemetaan settlement GoFood untuk meng-override promo_subsidy kasir
+  // Sesuai Master Plan Rekonsiliasi Food Apps (Priority 1):
+  // - GoFood: Single Source of Truth dari settlement GoBiz (promo_merchant)
+  // - Selisih = subsidi Gojek -> masuk kategori "Subsidi Platform" terpisah (bukan beban resto)
+  // - GrabFood & ShopeeFood: tetap pakai promo_subsidy kasir (sudah akurat)
+  const gofoodSettlementPromoMap = buildGofoodSettlementPromoMap(completed, settlements)
+  const kpiOpts = {
+    ssOnlineMode: isSSOnlineSelected,
+    getGofoodSettlementPromo: (order: any) => gofoodSettlementPromoMap.get(order.id ?? order),
+  }
+
+  // Terapkan alokasi settlement ke tiap order di completedOrders agar tabel transaksi & turunan langsung membacanya
+  completed.forEach(o => {
+    if (isGoFoodOrder(o)) {
+      const target = o as any
+      const allocated = gofoodSettlementPromoMap.get(o.id ?? target)
+      if (allocated !== undefined) {
+        target.settlement_promo_merchant = allocated
+        const kasirPromo = Number(target.promo_subsidy) || 0
+        target.platform_subsidy = Math.max(0, kasirPromo - allocated)
+      }
+    }
+  })
+
   // Best sellers & Category Breakdown
   const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
   const itemPdfMap: Record<string, { name: string; channel: string; qty: number; revenue: number }> = {}
@@ -321,7 +353,7 @@ export function computeAnalytics({
     const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
     // PDF Eksekutif: revenue per item = porsi gross order (acuan sama dengan
     // kartu Gross Revenue), supaya kolom "% Kontribusi Omzet" berjumlah 100%.
-    const pdfOrderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+    const pdfOrderGross = computeOrderGross(o, kpiOpts)
     const pdfShares = computeItemShares(o.order_items || [])
 
     o.order_items.forEach((oi, idx) => {
@@ -356,21 +388,22 @@ export function computeAnalytics({
   const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
   // ACUAN TUNGGAL Omzet Kotor & Potongan (lihat lib/posReportKpi):
-  // Potongan Merchant mencakup diskon offline dan potongan promo Food Apps yang diinput kasir.
+  // Card Biru: Potongan Merchant mencakup diskon offline dan potongan promo Food Apps yang ditanggung merchant.
+  // GoFood dioverride settlement GoBiz, sementara GrabFood & ShopeeFood dari input kasir.
   const totalDeductions = completed.reduce(
-    (s, o) => s + computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected }),
+    (s, o) => s + computeOrderDeduction(o, kpiOpts),
     0
   )
 
-  // Subsidi platform (Grab/Gojek/Shopee/TikTok) yang diketik kasir di kolom "Promo Apps"
+  // Subsidi platform (Gojek / Food Apps) yang BUKAN merupakan beban resto
   const totalPlatformSubsidy = completed.reduce((s, o) => {
     if ((o as any).outlet_id === 'ss-online') return s
-    return s + (Number((o as any).promo_subsidy) || 0)
+    return s + computeOrderPlatformSubsidy(o, kpiOpts)
   }, 0)
 
   // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon
   const grossRevenue = completed.reduce(
-    (s, o) => s + computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected }),
+    (s, o) => s + computeOrderGross(o, kpiOpts),
     0
   )
   const netRevenue = grossRevenue - totalDeductions
@@ -392,6 +425,8 @@ export function computeAnalytics({
     relevantSettlements = settlements.filter(s => platforms.includes(s.platform))
   } else if (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) {
     relevantSettlements = settlements.filter(s => selectedChannels.includes(s.platform) || (s.platform === 'tiktokgo' && selectedChannels.includes('tiktok')) || (s.platform === 'tiktok' && selectedChannels.includes('tiktokgo')))
+  } else if (selectedChannels.includes('gofood') || selectedChannels.includes('gojek')) {
+    relevantSettlements = settlements.filter(s => s.platform === 'gofood')
   }
 
   if (relevantSettlements.length > 0) {
@@ -485,19 +520,24 @@ export function filterTableData(completedOrders: OrderRow[], selectedPaymentMeth
 }
 
 /** Baris "Total" di kaki tabel transaksi (seluruh hasil filter, bukan satu halaman). */
-export function computeTableFooter(filteredTableData: OrderRow[]) {
+export function computeTableFooter(filteredTableData: OrderRow[], settlements: any[] = []) {
+  const gofoodSettlementPromoMap = buildGofoodSettlementPromoMap(filteredTableData, settlements)
+  const kpiOpts = {
+    getGofoodSettlementPromo: (order: any) => gofoodSettlementPromoMap.get(order.id ?? order),
+  }
   const totalGross = filteredTableData.reduce((acc, curr) => {
-    const itemSub = curr.order_items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0);
-    return acc + (itemSub > 0 ? itemSub : (Number(curr.total_amount) + (Number((curr as any).discount_amount) || 0)));
+    return acc + computeOrderGross(curr, kpiOpts);
   }, 0);
   const totalNet = filteredTableData.reduce((acc, curr) => acc + Number(curr.total_amount), 0);
   const totalOfflineDiscount = filteredTableData.reduce((acc, curr) => acc + (Number((curr as any).discount_amount) || 0), 0);
   const totalAppSubsidy = filteredTableData.reduce((acc, curr) => acc + (Number((curr as any).promo_subsidy) || 0), 0);
+  const totalMerchantDeductions = filteredTableData.reduce((acc, curr) => acc + computeOrderDeduction(curr, kpiOpts), 0);
+  const totalPlatformSubsidy = filteredTableData.reduce((acc, curr) => acc + computeOrderPlatformSubsidy(curr, kpiOpts), 0);
   const totalEcommerceDiscount = Math.max(0, totalGross - totalNet);
   const totalItems = filteredTableData.reduce((acc, curr) => {
     return acc + curr.order_items.reduce((sum, item) => sum + item.quantity, 0);
   }, 0);
-  return { totalGross, totalNet, totalOfflineDiscount, totalAppSubsidy, totalEcommerceDiscount, totalItems }
+  return { totalGross, totalNet, totalOfflineDiscount, totalAppSubsidy, totalMerchantDeductions, totalPlatformSubsidy, totalEcommerceDiscount, totalItems }
 }
 
 // Item Breakdown (Rekap)
@@ -574,11 +614,18 @@ export function computeCategoryReport(
   selectedChannels: string[],
   outlets: { id: string; type?: string | null }[],
   penerapHpp: { untuk(tgl: string): any },
-  isSSOnlineSelected: boolean
+  isSSOnlineSelected: boolean,
+  settlements: any[] = []
 ) {
   // 1. Dapatkan valid orders yang sinkron dengan filter channel aktif
   const validOrders = filterOrdersByChannels(orders, selectedChannels)
     .filter(o => o.status === 'completed' || o.status === 'settled')
+
+  const gofoodSettlementPromoMap = buildGofoodSettlementPromoMap(validOrders, settlements)
+  const kpiOpts = {
+    ssOnlineMode: isSSOnlineSelected,
+    getGofoodSettlementPromo: (order: any) => gofoodSettlementPromoMap.get(order.id ?? order),
+  }
 
   // 2. Kelompokkan per channel
   const outletTypeMap = new Map<string, string>()
@@ -634,8 +681,8 @@ export function computeCategoryReport(
 
     const catData = categoryMap[categoryName]
 
-    const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
-    const orderTotalDeductions = computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected })
+    const orderGross = computeOrderGross(o, kpiOpts)
+    const orderTotalDeductions = computeOrderDeduction(o, kpiOpts)
     const itemShares = computeItemShares(o.order_items || [])
     const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
 

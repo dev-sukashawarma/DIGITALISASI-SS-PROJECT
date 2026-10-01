@@ -218,7 +218,7 @@ export async function getPosReport(rawReq: PosReportRequest) {
     const tableRows = filterTableData(prepared.analytics.completedOrders, req.paymentMethod, req.search)
     derived = {
       tableRows,
-      footer: computeTableFooter(tableRows),
+      footer: computeTableFooter(tableRows, prepared.settlements),
       itemBreakdown: computeItemBreakdown(tableRows, prepared.outlets, prepared.penerapHpp),
     }
     // Batasi: pencarian yang diketik huruf demi huruf menghasilkan banyak kunci.
@@ -261,7 +261,8 @@ export async function getPosReportCategories(rawReq: PosReportRequest) {
       req.channels,
       prepared.outlets,
       prepared.penerapHpp,
-      prepared.isSSOnlineSelected
+      prepared.isSSOnlineSelected,
+      prepared.settlements
     )
   }
   return prepared.categories

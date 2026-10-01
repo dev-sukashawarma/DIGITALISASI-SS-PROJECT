@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import {
   FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote, Store,
   QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet,
@@ -370,7 +371,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   // Tabel transaksi: difilter, dicari, dan dipotong per halaman di server.
   const paginatedData = report?.table.rows ?? []
   const filteredTableCount = report?.table.total ?? 0
-  const tableFooter = report?.table.footer ?? { totalGross: 0, totalNet: 0, totalOfflineDiscount: 0, totalAppSubsidy: 0, totalEcommerceDiscount: 0, totalItems: 0 }
+  const tableFooter = report?.table.footer ?? { totalGross: 0, totalNet: 0, totalOfflineDiscount: 0, totalAppSubsidy: 0, totalMerchantDeductions: 0, totalPlatformSubsidy: 0, totalEcommerceDiscount: 0, totalItems: 0 }
   const totalPages = report?.table.totalPages ?? 0
 
   // Item Breakdown (Rekap) — dihitung di server dari seluruh hasil filter tabel.
@@ -738,6 +739,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                     ? 'Komisi Platform, Dinamis, Cashback, Admin Order, Logistik, Afiliasi & PPh 22 (Pengurang Laba Kotor)'
                     : 'Diskon offline & potongan promo merchant (termasuk Food Apps)'}
                 </p>
+                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                  {analytics.totalPlatformSubsidy > 0 && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[11px] font-semibold text-white backdrop-blur-xs shadow-xs">
+                      <span>Subsidi Platform (Gojek): {formatRupiah(analytics.totalPlatformSubsidy)}</span>
+                    </div>
+                  )}
+                  <Link
+                    href="/dashboard/platform-settlement"
+                    className="no-print inline-flex items-center gap-1 text-[11px] text-white/90 hover:text-white underline underline-offset-2 ml-auto font-medium"
+                    title="Upload file settlement GoBiz/Grab/Shopee untuk merekonsiliasi potongan merchant"
+                  >
+                    Upload Settlement ↗
+                  </Link>
+                </div>
               </div>
             </div>
 
@@ -1243,9 +1258,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                   </div>
                                 )}
                                 {appSubsidy > 0 && (
-                                  <div className="text-[11px] font-medium text-orange-600 mt-1">
-                                    (Subsidi App: -{formatRupiah(appSubsidy)})
-                                  </div>
+                                  (order as any).settlement_promo_merchant !== undefined && (order as any).settlement_promo_merchant !== appSubsidy ? (
+                                    <>
+                                      {(order as any).settlement_promo_merchant > 0 && (
+                                        <div className="text-[11px] font-medium text-rose-600 mt-1">
+                                          (Promo Toko: -{formatRupiah((order as any).settlement_promo_merchant)})
+                                        </div>
+                                      )}
+                                      {(order as any).platform_subsidy > 0 && (
+                                        <div className="text-[11px] font-medium text-emerald-600 mt-0.5" title="Disubsidi Gojek (bukan beban resto)">
+                                          (Subsidi Gojek: +{formatRupiah((order as any).platform_subsidy)})
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="text-[11px] font-medium text-orange-600 mt-1">
+                                      (Subsidi App: -{formatRupiah(appSubsidy)})
+                                    </div>
+                                  )
                                 )}
                               </>
                             )}
@@ -1258,7 +1288,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                 <tfoot className="bg-amber-50/50">
                   {(() => {
                     // Total seluruh hasil filter (bukan satu halaman) — dihitung di server.
-                    const { totalGross, totalNet, totalOfflineDiscount, totalAppSubsidy, totalEcommerceDiscount, totalItems } = tableFooter;
+                    const { totalGross, totalNet, totalOfflineDiscount, totalAppSubsidy, totalPlatformSubsidy = 0, totalEcommerceDiscount, totalItems } = tableFooter;
                     
                     return (
                       <>
@@ -1313,10 +1343,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                             {totalAppSubsidy > 0 && (
                               <tr>
                                 <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
-                                  Total Subsidi Promo Food Apps
+                                  Total Subsidi Promo Food Apps (Kasir)
                                 </td>
                                 <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">
                                   - {formatRupiah(totalAppSubsidy)}
+                                </td>
+                              </tr>
+                            )}
+                            {totalPlatformSubsidy > 0 && (
+                              <tr>
+                                <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-emerald-600">
+                                  Disubsidi Platform (Gojek — Bukan Beban Resto)
+                                </td>
+                                <td className="px-5 py-3 text-right text-sm font-bold text-emerald-600 whitespace-nowrap">
+                                  + {formatRupiah(totalPlatformSubsidy)}
                                 </td>
                               </tr>
                             )}

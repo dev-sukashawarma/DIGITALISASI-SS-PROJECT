@@ -7,6 +7,7 @@ import type { OutletStaffProfile } from '@suka/auth'
 import { Toaster } from 'sonner'
 
 import { RoleProvider } from '@/components/layout/RoleContext'
+import { BrandProvider } from '@/components/BrandContext'
 import { GlobalDialogs } from '@/components/GlobalDialogs'
 import NextTopLoader from 'nextjs-toploader'
 
@@ -36,10 +37,12 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <AuthProvider supabase={supabase} initialStaff={initialStaff}>
         <RoleProvider>
-          <NextTopLoader color="#ea580c" showSpinner={false} />
-          {children}
-          <Toaster richColors position="top-center" />
-          <GlobalDialogs />
+          <BrandProvider>
+            <NextTopLoader color="#ea580c" showSpinner={false} />
+            {children}
+            <Toaster richColors position="top-center" />
+            <GlobalDialogs />
+          </BrandProvider>
         </RoleProvider>
       </AuthProvider>
     </QueryClientProvider>

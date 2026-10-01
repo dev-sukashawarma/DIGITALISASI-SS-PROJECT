@@ -2,11 +2,20 @@
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { createSupabaseBrowserClient, getOutletStaff } from '@suka/auth'
+import { createSupabaseBrowserClient, getOutletStaff, BrandProvider, useBrand } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
+  return (
+    <BrandProvider>
+      <LoginForm />
+    </BrandProvider>
+  )
+}
+
+function LoginForm() {
+  const { brandName, brandLogo } = useBrand()
   const router = useRouter()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -108,12 +117,12 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col h-full justify-between">
           {/* Logo & Small Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white rounded-2xl p-1.5 shadow-lg shadow-suka-ink/30 border border-white/10 flex items-center justify-center">
-              <Image src="/logo.png" alt="Suka Shawarma Logo" width={48} height={48} priority className="w-full h-full object-contain" />
+            <div className="w-12 h-12 bg-white rounded-2xl p-1.5 shadow-lg shadow-suka-ink/30 border border-white/10 flex items-center justify-center overflow-hidden">
+              <img src={brandLogo || "/logo.png"} alt={brandName || "Brand Logo"} className="w-full h-full object-contain" />
             </div>
             <div>
               <h2 className="text-xl font-extrabold tracking-wider text-white font-display">
-                SUKA SHAWARMA
+                {brandName || 'SUKA SHAWARMA'}
               </h2>
               <p className="text-[10px] font-bold text-suka-orange uppercase tracking-widest leading-none mt-0.5">
                 Superapp Portal
@@ -170,11 +179,11 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile Header (Hidden on Desktop) */}
           <div className="flex flex-col items-center text-center space-y-2 md:hidden mb-8">
-            <div className="w-20 h-20 flex items-center justify-center mb-1 bg-white p-2.5 rounded-3xl shadow-md border border-suka-orange/10">
-              <Image src="/logo.png" alt="Suka Shawarma Logo" width={80} height={80} priority className="w-full h-full object-contain" />
+            <div className="w-20 h-20 flex items-center justify-center mb-1 bg-white p-2.5 rounded-3xl shadow-md border border-suka-orange/10 overflow-hidden">
+              <img src={brandLogo || "/logo.png"} alt={brandName || "Brand Logo"} className="w-full h-full object-contain" />
             </div>
             <h1 className="text-3xl font-extrabold text-suka-brown tracking-tight font-display">
-              SUKA SHAWARMA
+              {brandName || 'SUKA SHAWARMA'}
             </h1>
             <p className="text-[10px] font-bold text-suka-orange uppercase tracking-widest">
               Superapp Portal

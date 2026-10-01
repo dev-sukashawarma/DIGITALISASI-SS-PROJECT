@@ -43,6 +43,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   developer: ALL_APPS,
   driver: ['absensi'],
   korlap: ['manager', 'absensi', 'inventori', 'stok', 'distribusi', 'admin-dashboard', 'finance'],
+  marcom: ['admin-dashboard', 'marcom', 'absensi'],
 }
 
 

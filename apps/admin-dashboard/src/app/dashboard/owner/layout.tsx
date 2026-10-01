@@ -4,7 +4,7 @@ import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ReportsLayout({ children }: { children: React.ReactNode }) {
+export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
@@ -23,15 +23,10 @@ export default async function ReportsLayout({ children }: { children: React.Reac
     .maybeSingle()
 
   const userRole = staff?.role?.toLowerCase()
-  if (userRole === 'marcom') {
+  const allowed = ['developer', 'owner', 'admin']
+  if (!userRole || !allowed.includes(userRole)) {
     redirect('/dashboard')
   }
 
-  return (
-    <div className="flex flex-col min-h-screen w-full">
-      <div className="flex-1 w-full px-2 sm:px-4 lg:px-0">
-        {children}
-      </div>
-    </div>
-  )
+  return <>{children}</>
 }

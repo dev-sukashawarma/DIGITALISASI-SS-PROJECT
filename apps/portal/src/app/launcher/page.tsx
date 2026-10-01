@@ -68,6 +68,13 @@ export default async function LauncherPage() {
     redirect('/')
   }
 
+  const { data: brandData } = await supabase
+    .from('global_settings')
+    .select('key, value')
+    .in('key', ['brand_name', 'brand_logo'])
+
+  const brandName = brandData?.find((s: any) => s.key === 'brand_name')?.value?.replace(/^"|"$/g, '') || 'Suka Shawarma'
+
   const APP_URL = await getAppUrls()
 
   // Mitra, Korlap, dll tidak punya menu operasional di launcher → langsung ke admin-dashboard.
@@ -313,7 +320,7 @@ export default async function LauncherPage() {
 
         {/* Footer */}
         <footer className="pt-6 border-t border-suka-orange/10 flex flex-wrap justify-between items-center text-[10px] text-suka-gray-400 font-bold gap-2">
-          <p>© {new Date().getFullYear()} Suka Shawarma. Hak Cipta Dilindungi.</p>
+          <p>© {new Date().getFullYear()} {brandName}. Hak Cipta Dilindungi.</p>
           <p>Sistem Operasional v2.8.0</p>
         </footer>
       </div>

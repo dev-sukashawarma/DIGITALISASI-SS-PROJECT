@@ -18,6 +18,8 @@ config.js
 **/config.local.*
 
 credential-db.md
+Daftar_Akun_Kantor_Pusat.*
+daftar-akun-kantor-pusat.html
 
 # Supabase
 .supabase/

@@ -96,5 +96,6 @@ describe('Kantor Pusat: staf pusat & crew dibatasi', () => {
   it('pemanggil tanpa lokasi tetap memakai matriks biasa', () => {
     expect(hasAppAccess('crew', 'pos-kasir')).toBe(true)
     expect(accessibleApps('staff_pusat')).toEqual(['absensi', 'marcom'])
+    expect(accessibleApps('marcom')).toEqual(['admin-dashboard', 'marcom', 'absensi'])
   })
 })

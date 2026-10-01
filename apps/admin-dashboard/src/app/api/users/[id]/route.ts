@@ -62,7 +62,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       'crew', 'kitchen', 'kiosk', 'leader', 
       'regional_manager', 'area_manager',
       'admin', 'admin_hr', 'admin_finance', 'purchasing', 
-      'owner', 'mitra'
+      'owner', 'mitra', 'developer', 'marcom'
     ]
     if (!allowedRoles.includes(role)) {
       return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 })
@@ -71,7 +71,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const isMultiOutletRole = [
       'admin', 'owner', 'regional_manager', 'area_manager', 
       'leader', 'admin_hr', 'admin_finance', 
-      'purchasing', 'mitra'
+      'purchasing', 'mitra', 'developer', 'marcom'
     ].includes(role);
     const finalOutletIds = (isMultiOutletRole && Array.isArray(outlet_ids) && outlet_ids.length > 0) 
       ? outlet_ids 

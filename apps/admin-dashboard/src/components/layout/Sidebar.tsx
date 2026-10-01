@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ChevronDown, LogOut } from 'lucide-react'
 import { useAuth } from '@suka/auth'
+import { useBrand } from '@/components/BrandContext'
 import { useRole } from './RoleContext'
 import { accessibleGroups, isItemActive, resolvePortalUrl } from './navConfig'
 import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
@@ -13,6 +14,7 @@ import { ConfirmLogoutDialog } from './ConfirmLogoutDialog'
 export const Sidebar = () => {
   const pathname = usePathname()
   const { role } = useRole()
+  const { brandName, brandLogo } = useBrand()
   const { pendingCount } = useLeaveNotifications()
   const resolvedPortalUrl = resolvePortalUrl()
   const { outletStaff, signOut } = useAuth()
@@ -95,10 +97,10 @@ export const Sidebar = () => {
         title="Klik untuk scroll ke atas"
       >
         <div className="w-14 h-14 mb-2 rounded-full overflow-hidden flex items-center justify-center bg-white/5 shadow-inner border border-white/10 group-hover:scale-105 transition-transform">
-          <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-cover" />
+          <img src={brandLogo || "/logo.png"} alt={brandName || "Logo"} className="w-full h-full object-cover" />
         </div>
         <div className="text-lg font-extrabold text-white tracking-tight leading-tight">
-          Suka<span className="text-suka-orange">Admin</span>
+          {brandName || <>Suka<span className="text-suka-orange">Admin</span></>}
         </div>
         <div className="text-[9px] font-black uppercase tracking-[0.2em] text-suka-orange/80 mt-1">
           Digital Hub

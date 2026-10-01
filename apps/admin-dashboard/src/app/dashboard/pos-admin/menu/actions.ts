@@ -43,8 +43,9 @@ async function syncOrQueue(supabase: any, row: any, operation: 'upsert' | 'delet
 
 export async function toggleMenuAvailability(id: string, currentStatus: boolean) {
   const supabase = await getSupabase()
-  const { error } = await supabase.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
+  const { data, error } = await supabase.from('menu_items').update({ is_available: !currentStatus }).eq('id', id).select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error(PESAN_TANPA_IZIN)
   
   revalidatePath('/dashboard/pos-admin/menu')
 }
@@ -147,8 +148,9 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
   let finalId = form.id;
 
   if (form.id) {
-    const { error: updateError } = await supabase.from('menu_items').update(payload).eq('id', form.id)
+    const { data: updated, error: updateError } = await supabase.from('menu_items').update(payload).eq('id', form.id).select('id')
     if (updateError) throw new Error(`Update menu error: ${updateError.message}`)
+    if (!updated || updated.length === 0) throw new Error(PESAN_TANPA_IZIN)
     
     if (payload.is_package) {
       await supabase.from('menu_packages').delete().eq('package_id', finalId);
@@ -264,11 +266,13 @@ export async function toggleMenuPublished(id: string, published: boolean) {
  */
 export async function toggleTampilDiApp(id: string, currentStatus: boolean) {
   const supabase = await getSupabase()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('menu_items')
     .update({ tampil_di_app: !currentStatus })
     .eq('id', id)
+    .select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error(PESAN_TANPA_IZIN)
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
@@ -291,18 +295,22 @@ export async function syncCategoryOnline(categoryId: string) {
 
 export async function toggleGlobalSetting(key: string, newIds: string[]) {
   const supabase = await getSupabase()
-  await supabase.from('kiosk_settings').upsert({
+  const { error: upsertErr } = await supabase.from('kiosk_settings').upsert({
     outlet_id: '550e8400-e29b-41d4-a716-446655440001',
     key,
     value: JSON.stringify(newIds)
   })
-  await supabase.from('kiosk_settings').delete().neq('outlet_id', '550e8400-e29b-41d4-a716-446655440001').eq('key', key)
+  if (upsertErr) throw new Error(`Gagal menyimpan pengaturan: ${upsertErr.message}`)
+  const { error: delErr } = await supabase.from('kiosk_settings').delete().neq('outlet_id', '550e8400-e29b-41d4-a716-446655440001').eq('key', key)
+  if (delErr) throw new Error(`Gagal menghapus pengaturan lama: ${delErr.message}`)
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
 export async function updateMenuChannelPrices(menuId: string, channelPrices: Record<string, number>) {
   const supabase = await getSupabase()
-  await supabase.from('menu_items').update({ channel_prices: channelPrices }).eq('id', menuId)
+  const { data, error } = await supabase.from('menu_items').update({ channel_prices: channelPrices }).eq('id', menuId).select('id')
+  if (error) throw new Error(`Gagal update harga channel: ${error.message}`)
+  if (!data || data.length === 0) throw new Error(PESAN_TANPA_IZIN)
   revalidatePath('/dashboard/pos-admin/menu')
 }
 

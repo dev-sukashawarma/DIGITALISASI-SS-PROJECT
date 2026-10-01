@@ -3,10 +3,10 @@ import {
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
   Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal, ImagePlus, Settings2,
-  CalendarDays, FileCheck, AlertTriangle, Award, Coins, Ticket
+  CalendarDays, FileCheck, AlertTriangle, Award, Coins, Ticket, Sparkles
 } from 'lucide-react'
 
-export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING'
+export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING' | 'MARCOM'
 
 export type NavItem = {
   href: string
@@ -143,28 +143,27 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: 'POS',
     icon: Store,
-    roles: ['ADMIN'],
+    roles: ['ADMIN', 'MARCOM'],
     items: [
-      { href: '/dashboard/pos-admin/menu', label: 'Daftar Menu POS', shortLabel: 'Menu', icon: Package, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/categories', label: 'Kategori Menu POS', shortLabel: 'Kategori', icon: Tags, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/promo', label: 'Manajemen Promo POS', shortLabel: 'Promo', icon: Banknote, roles: ['ADMIN'] },
+      { href: '/dashboard/pos-admin/menu', label: 'Daftar Menu POS', shortLabel: 'Menu', icon: Package, roles: ['ADMIN', 'MARCOM'], primary: ['MARCOM'] },
+      { href: '/dashboard/pos-admin/categories', label: 'Kategori Menu POS', shortLabel: 'Kategori', icon: Tags, roles: ['ADMIN', 'MARCOM'] },
+      { href: '/dashboard/pos-admin/promo', label: 'Manajemen Promo POS', shortLabel: 'Promo', icon: Banknote, roles: ['ADMIN', 'MARCOM'] },
       { href: '/dashboard/pos-admin/users', label: 'Pengguna POS', shortLabel: 'Pengguna', icon: Users, roles: ['ADMIN'] },
-      { href: '/dashboard/pos-admin/settings', label: 'Pengaturan POS', shortLabel: 'Pengaturan', icon: Settings, roles: ['ADMIN'] },
       { href: '/dashboard/bukti-qris', label: 'Bukti QRIS', shortLabel: 'Bukti QRIS', icon: FileText, roles: ['ADMIN'] },
     ],
   },
   {
     title: 'App Retail',
     icon: Smartphone,
-    roles: ['OWNER', 'ADMIN'],
+    roles: ['OWNER', 'ADMIN', 'MARCOM'],
     items: [
-      { href: '/dashboard/app-retail', label: 'Ringkasan App Retail', shortLabel: 'Ringkasan', icon: LayoutDashboard, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/app-retail/menu', label: 'Pengaturan Menu Aplikasi', shortLabel: 'Menu App', icon: Tags, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/app-retail', label: 'Ringkasan App Retail', shortLabel: 'Ringkasan', icon: LayoutDashboard, roles: ['OWNER', 'ADMIN', 'MARCOM'] },
+      { href: '/dashboard/app-retail/menu', label: 'Pengaturan Menu Aplikasi', shortLabel: 'Menu App', icon: Tags, roles: ['OWNER', 'ADMIN', 'MARCOM'] },
       { href: '/dashboard/app-retail/outlet', label: 'Outlet Aplikasi', shortLabel: 'Outlet App', icon: Store, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/pesanan', label: 'Pesanan Aplikasi', shortLabel: 'Pesanan App', icon: ShoppingCart, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/app-retail/banner', label: 'Banner Aplikasi', shortLabel: 'Banner App', icon: GalleryHorizontal, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/app-retail/splash', label: 'Splash Aplikasi', shortLabel: 'Splash App', icon: ImagePlus, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/app-retail/voucher', label: 'Voucher Aplikasi', shortLabel: 'Voucher App', icon: Ticket, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/app-retail/banner', label: 'Banner Aplikasi', shortLabel: 'Banner App', icon: GalleryHorizontal, roles: ['OWNER', 'ADMIN', 'MARCOM'] },
+      { href: '/dashboard/app-retail/splash', label: 'Splash Aplikasi', shortLabel: 'Splash App', icon: ImagePlus, roles: ['OWNER', 'ADMIN', 'MARCOM'] },
+      { href: '/dashboard/app-retail/voucher', label: 'Voucher Aplikasi', shortLabel: 'Voucher App', icon: Ticket, roles: ['OWNER', 'ADMIN', 'MARCOM'] },
       { href: '/dashboard/app-retail/pengaturan', label: 'Pengaturan Aplikasi', shortLabel: 'Setelan App', icon: Settings2, roles: ['OWNER', 'ADMIN'] },
     ],
   },
@@ -191,6 +190,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Settings,
     roles: ['OWNER', 'ADMIN'],
     items: [
+      { href: '/dashboard/pos-admin/settings', label: 'Pengaturan Brand', shortLabel: 'Brand', icon: Sparkles, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/monitoring', label: 'Monitoring Aktivitas', shortLabel: 'Monitoring', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },

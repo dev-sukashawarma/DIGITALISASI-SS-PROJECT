@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { redirect } from 'next/navigation'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import ReportsView from './ReportsView'
 import { getPosReport } from '@/app/actions/posReport'
 import { isTestOutlet } from '@/lib/outletFilters'
@@ -13,6 +14,21 @@ export default async function AdminReportsPage() {
     getAll: () => cookieStore.getAll(),
     setAll: () => {},
   })
+
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) redirect('/login')
+
+  const { data: staff } = await supabase
+    .from('outlet_staff')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const userRole = staff?.role?.toLowerCase()
+  const allowed = ['developer', 'owner', 'admin']
+  if (!userRole || !allowed.includes(userRole)) {
+    redirect('/dashboard')
+  }
 
   // Pre-fetch outlets to avoid loading state for filters
   const { data: outletsData } = await supabase.from('outlets').select('*').order('name')

@@ -77,8 +77,13 @@ export default function AdminSettingsPage() {
   return (
     <div className="animate-fade-in space-y-6 max-w-2xl">
       <div>
+        <div className="flex items-center gap-2 text-xs font-bold text-suka-orange uppercase tracking-wider mb-1">
+          <span>Sistem</span>
+          <span>&bull;</span>
+          <span>Identitas Brand</span>
+        </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Pengaturan Brand</h1>
-        <p className="text-gray-500 mt-1 text-sm sm:text-base font-medium">Ubah nama dan logo yang akan tampil di seluruh aplikasi Kasir dan Kiosk.</p>
+        <p className="text-gray-500 mt-1 text-sm sm:text-base font-medium">Ubah nama dan logo yang akan tampil di seluruh aplikasi (POS Kasir, Super Apps, Form Order, dan Dashboard).</p>
       </div>
 
       <form onSubmit={handleSave} className="bg-white rounded-2xl border border-gray-100 shadow-card p-6 sm:p-8 space-y-8">

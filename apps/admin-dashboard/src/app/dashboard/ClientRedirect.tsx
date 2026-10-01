@@ -15,6 +15,7 @@ const ROLE_HOME: Record<string, string> = {
   KORLAP: '/dashboard/area-manager',
   LEADER: '/dashboard/leader',
   PURCHASING: '/dashboard/pembelian',
+  MARCOM: '/dashboard/pos-admin/menu',
 }
 const FALLBACK_HOME = '/dashboard/owner'
 

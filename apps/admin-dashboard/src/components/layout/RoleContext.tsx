@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from '@suka/auth'
 import { usePathname, useRouter } from 'next/navigation'
 
-type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING'
+type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING' | 'MARCOM'
 
 interface RoleContextType {
   role: Role
@@ -29,7 +29,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       if (mappedRole as any === 'KORLAP') mappedRole = 'AREA_MANAGER'
       if (mappedRole as any === 'DEVELOPER') mappedRole = 'ADMIN'
       
-      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA', 'LEADER', 'AREA_MANAGER', 'PURCHASING'].includes(mappedRole)) {
+      if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA', 'LEADER', 'AREA_MANAGER', 'PURCHASING', 'MARCOM'].includes(mappedRole)) {
         setRole(mappedRole)
         setOutletId(outletStaff.outlet_id ?? null)
       } else {
@@ -101,12 +101,35 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     }
   }, [role, pathname, router])
 
-  if (loading || !role) {
+  // Route-guard: MARCOM hanya boleh /dashboard/pos-admin (menu, categories, promo) dan /dashboard/app-retail
+  useEffect(() => {
+    if (role !== 'MARCOM') return
+    const allowed = [
+      '/dashboard/pos-admin/menu',
+      '/dashboard/pos-admin/categories',
+      '/dashboard/pos-admin/promo',
+      '/dashboard/app-retail',
+    ]
+    if (!allowed.some((a) => pathname === a || pathname.startsWith(a + '/'))) {
+      router.replace('/dashboard/pos-admin/menu')
+    }
+  }, [role, pathname, router])
+
+  const isMarcomUnauthorized = role === 'MARCOM' && ![
+    '/dashboard/pos-admin/menu',
+    '/dashboard/pos-admin/categories',
+    '/dashboard/pos-admin/promo',
+    '/dashboard/app-retail',
+  ].some((a) => pathname === a || pathname.startsWith(a + '/'))
+
+  if (loading || !role || isMarcomUnauthorized) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-suka-cream">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-suka-orange border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-bold text-suka-brown tracking-wide animate-pulse">Memuat Akses...</p>
+          <p className="text-sm font-bold text-suka-brown tracking-wide animate-pulse">
+            {isMarcomUnauthorized ? 'Mengarahkan...' : 'Memuat Akses...'}
+          </p>
         </div>
       </div>
     )

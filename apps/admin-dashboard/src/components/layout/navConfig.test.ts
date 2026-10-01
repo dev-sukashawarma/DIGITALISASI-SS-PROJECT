@@ -24,6 +24,7 @@ const ROLES: Role[] = [
   'LEADER',
   'AREA_MANAGER',
   'MITRA',
+  'MARCOM',
 ]
 
 /**
@@ -127,6 +128,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/pawoon-import/mapping',
     '/dashboard/pawoon-import/synced',
     '/dashboard/platform-settlement',
+    '/dashboard/pos-admin/settings',
     '/dashboard/reports/crew-bonus',
     '/dashboard/reports/input-pengeluaran',
     '/dashboard/reports/pos',
@@ -167,6 +169,16 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/mitra/tim',
     '/dashboard/mitra/transfer',
   ],
+  MARCOM: [
+    '/dashboard/app-retail',
+    '/dashboard/app-retail/banner',
+    '/dashboard/app-retail/menu',
+    '/dashboard/app-retail/splash',
+    '/dashboard/app-retail/voucher',
+    '/dashboard/pos-admin/categories',
+    '/dashboard/pos-admin/menu',
+    '/dashboard/pos-admin/promo',
+  ],
 }
 
 /** Jumlah pintu per role. Konsolidasi mengubah ADMIN (10 → 7); pintu App Retail
@@ -179,6 +191,7 @@ const EXPECTED_GROUP_COUNT: Record<Role, number> = {
   LEADER: 1,
   AREA_MANAGER: 1,
   MITRA: 1,
+  MARCOM: 2,
 }
 
 describe('navConfig — invarian', () => {

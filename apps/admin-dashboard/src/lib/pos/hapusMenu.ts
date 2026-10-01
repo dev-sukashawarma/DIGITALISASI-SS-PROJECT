@@ -31,7 +31,7 @@ export function alasanTolakHapus(nama: string, p: PemakaianMenu): string | null 
 }
 
 export const PESAN_TANPA_IZIN =
-  'Menu tidak berubah: akun ini tidak punya izin mengubah menu (hanya role admin). ' +
+  'Menu tidak berubah: akun ini tidak punya izin mengubah menu (hanya role admin, developer, atau marcom). ' +
   'Hubungi admin untuk mengubahnya.'
 
 /** Nama bucket & path file dari URL publik Supabase Storage (`.../object/public/<bucket>/<path>`). */

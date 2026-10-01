@@ -304,11 +304,11 @@ export function MitraProfitLossSection({
                       : `*Telah dipotong Mgmt Fee ${summary.managementFeePct}% (${formatRp(summary.managementFeeAmount || 0)})`
                     }
                   </div>
-                ) : (
+                ) : summary.isBep ? (
                   <div className="text-[10px] text-emerald-300 font-normal mt-0.5">
                     *Bebas Fee Manajemen (0%) - Sudah BEP 100%
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

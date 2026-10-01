@@ -129,17 +129,18 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
   }
 
   const wasteMap = new Map<string, Map<string, number>>()
-  let qWaste = supabase.from('stok_waste_reports').select('outlet_id, qty, status, bahan_baku(kategori, harga_beli)').neq('outlet_id', TEST_OUTLET_ID).eq('status', 'approved').gte('tanggal', filter.from).lte('tanggal', filter.to)
-  if (filter.outletId !== 'all') qWaste = qWaste.eq('outlet_id', filter.outletId)
-  
-  const { data: wasteData } = await qWaste
+  const { data: wasteData } = await supabase.rpc('get_waste_summary_v2', {
+    p_from: filter.from,
+    p_to: filter.to,
+  })
   wasteData?.forEach((w: any) => {
     if (isTestOutlet(w.outlet_id)) return
-    const cat = w.bahan_baku?.kategori || 'Uncategorized'
-    const val = Number(w.qty) * Number(w.bahan_baku?.harga_beli || 0)
+    if (filter.outletId !== 'all' && w.outlet_id !== filter.outletId) return
+    const name = w.bahan_nama || 'Bahan Baku'
+    const val = Number(w.nilai || 0)
     if (!wasteMap.has(w.outlet_id)) wasteMap.set(w.outlet_id, new Map())
-    const cur = wasteMap.get(w.outlet_id)!.get(cat) || 0
-    wasteMap.get(w.outlet_id)!.set(cat, cur + val)
+    const cur = wasteMap.get(w.outlet_id)!.get(name) || 0
+    wasteMap.get(w.outlet_id)!.set(name, cur + val)
   })
 
   const allOutlets = new Set([...opexMap.keys(), ...omzetMap.keys(), ...wasteMap.keys()])

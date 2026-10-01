@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { requireRole } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
 import { deserializeVoucherFromRow, serializeVoucherToDescription } from '@/lib/officeVoucher'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 function getServiceSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -183,7 +184,7 @@ export async function getExpensesAction(filter: { from: string; to: string; outl
     const supabase = getServiceSupabase()
     const PAGE_SIZE = 1000
 
-    const buildQuery = () => {
+    const buildExpensesQuery = () => {
       let q = supabase
         .from('expenses')
         .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
@@ -199,24 +200,77 @@ export async function getExpensesAction(filter: { from: string; to: string; outl
         } else {
           q = q.eq('outlet_id', filter.outletId)
         }
+      } else {
+        q = q.or(`outlet_id.is.null,outlet_id.neq.${TEST_OUTLET_ID}`)
       }
 
       return q
     }
 
-    const allExpenses: any[] = []
-    for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1)
-      if (error) throw error
-      const page = data ?? []
-      allExpenses.push(...page)
-      if (page.length < PAGE_SIZE) break
+    const buildPettyCashQuery = () => {
+      let q = supabase
+        .from('petty_cash_expenses')
+        .select('id, outlet_id, category, amount, description, expense_date, receipt_url, type, outlets(name)')
+        .neq('outlet_id', TEST_OUTLET_ID)
+        .is('deleted_at', null)
+        .in('category', [
+          'bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities',
+          'transport', 'pln', 'pdam', 'internet', 'lembur', 'endorsement'
+        ])
+        .gte('expense_date', filter.from)
+        .lte('expense_date', filter.to)
+        .order('expense_date', { ascending: false })
+        .order('id', { ascending: false })
+
+      if (filter.outletId && filter.outletId !== 'all') {
+        if (filter.outletId === 'PUSAT') {
+          q = q.eq('outlet_id', '00000000-0000-0000-0000-000000000000')
+        } else {
+          q = q.eq('outlet_id', filter.outletId)
+        }
+      }
+
+      return q
     }
+
+    const fetchExpenses = async () => {
+      if (filter.source === 'petty_cash') return []
+      const all: any[] = []
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data, error } = await buildExpensesQuery().range(offset, offset + PAGE_SIZE - 1)
+        if (error) throw error
+        const page = data ?? []
+        all.push(...page)
+        if (page.length < PAGE_SIZE) break
+      }
+      return all
+    }
+
+    const fetchPettyCash = async () => {
+      if (filter.source === 'monthly' || filter.outletId === 'PUSAT') return []
+      const all: any[] = []
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data, error } = await buildPettyCashQuery().range(offset, offset + PAGE_SIZE - 1)
+        if (error) throw error
+        const page = data ?? []
+        all.push(...page)
+        if (page.length < PAGE_SIZE) break
+      }
+      return all
+    }
+
+    const [allExpenses, allPettyCash] = await Promise.all([
+      fetchExpenses(),
+      fetchPettyCash(),
+    ])
+
+    const filteredExpenses = (allExpenses ?? []).filter((e: any) => !e.outlet_id || (!isTestOutlet(e.outlet_id) && e.outlet_id !== TEST_OUTLET_ID))
+    const filteredPettyCash = (allPettyCash ?? []).filter((p: any) => !p.outlet_id || (!isTestOutlet(p.outlet_id) && p.outlet_id !== TEST_OUTLET_ID))
 
     return {
       success: true,
-      expenses: allExpenses,
-      pettyCashExpenses: []
+      expenses: filteredExpenses,
+      pettyCashExpenses: filteredPettyCash
     }
   } catch (err: any) {
     console.error('Error in getExpensesAction:', err)

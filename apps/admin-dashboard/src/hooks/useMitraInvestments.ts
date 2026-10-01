@@ -2,6 +2,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 
 export interface MitraInvestmentExtended {
   id: string
@@ -35,15 +36,16 @@ export function useMitraInvestments() {
     queryKey: ['mitra-investments'],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const [invRes, transferRes] = await Promise.all([
+      const [invRes, transfers] = await Promise.all([
         supabase.from('mitra_investments').select('*'),
-        supabase.from('mitra_transfers').select('outlet_id, nominal'),
+        fetchAllPages<{ outlet_id: string; nominal: number }>(() =>
+          supabase.from('mitra_transfers').select('outlet_id, nominal').order('id', { ascending: true })
+        ),
       ])
       if (invRes.error) throw invRes.error
-      if (transferRes.error) throw transferRes.error
 
       const transfersByOutlet = new Map<string, number>()
-      for (const t of transferRes.data ?? []) {
+      for (const t of transfers ?? []) {
         if (!t.outlet_id) continue
         transfersByOutlet.set(t.outlet_id, (transfersByOutlet.get(t.outlet_id) ?? 0) + (Number(t.nominal) || 0))
       }

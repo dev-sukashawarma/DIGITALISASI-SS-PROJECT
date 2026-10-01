@@ -926,8 +926,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         let profitSukaShawarma = 0
 
         if (isMitra) {
-          profitMitra = totalNetProfit > 0 ? Math.round((totalNetProfit * bagiHasilPct) / 100) : totalNetProfit
-          profitSukaShawarma = managementFee + (totalNetProfit > 0 ? (totalNetProfit - profitMitra) : 0)
+          profitMitra = totalNetProfit > 0 ? Math.round((totalNetProfit * bagiHasilPct) / 100) : 0
+          profitSukaShawarma = managementFee + (totalNetProfit > 0 ? (totalNetProfit - profitMitra) : totalNetProfit)
         } else {
           profitMitra = 0
           profitSukaShawarma = totalNetProfit
@@ -1137,8 +1137,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         let profitSukaShawarma = 0
 
         if (isMitra) {
-          profitMitra = totalNetProfit > 0 ? Math.round((totalNetProfit * bagiHasilPct) / 100) : totalNetProfit
-          profitSukaShawarma = managementFee + (totalNetProfit > 0 ? (totalNetProfit - profitMitra) : 0)
+          profitMitra = totalNetProfit > 0 ? Math.round((totalNetProfit * bagiHasilPct) / 100) : 0
+          profitSukaShawarma = managementFee + (totalNetProfit > 0 ? (totalNetProfit - profitMitra) : totalNetProfit)
         } else {
           profitMitra = 0
           profitSukaShawarma = totalNetProfit
@@ -2187,13 +2187,17 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                             </td>
                             <td className="py-3.5 px-4 text-right">
                               {row.isMitra ? (
-                                row.mgmtFee > 0 ? (
+                                row.isBep ? (
+                                  <span className="text-[11px] font-semibold text-emerald-600" title="Sudah Balik Modal (BEP) - Bebas Fee 0%">
+                                    0% (BEP)
+                                  </span>
+                                ) : row.mgmtFee > 0 ? (
                                   <span className="text-xs font-semibold text-rose-500" title={`Management Fee ${row.mgmtFeePct}% dari Gross Sales`}>
                                     -{rupiah(row.mgmtFee)}
                                   </span>
                                 ) : (
-                                  <span className="text-[11px] font-semibold text-suka-gray-400" title="Sudah Balik Modal (BEP) - Fee 0%">
-                                    0% (BEP)
+                                  <span className="text-xs text-suka-gray-400" title={row.mgmtFeePct > 0 ? `Belum BEP - Fee ${row.mgmtFeePct}%` : 'Skema Historis (Sebelum Sept 2026)'}>
+                                    {row.mgmtFeePct > 0 ? `${row.mgmtFeePct}%` : '-'}
                                   </span>
                                 )
                               ) : (

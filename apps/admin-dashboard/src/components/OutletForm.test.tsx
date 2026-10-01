@@ -25,6 +25,7 @@ describe('OutletForm', () => {
     render(<OutletForm submitting={false} isEdit={false} onSubmit={vi.fn()} />)
 
     expect(screen.getByText('Quick-Fill dari Google Maps')).toBeInTheDocument()
+    expect(screen.getByLabelText('Link Google Maps atau koordinat')).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/Tempel link Google Maps/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Ekstrak Lokasi/i })).toBeInTheDocument()
 
@@ -41,11 +42,15 @@ describe('OutletForm', () => {
     expect(screen.getByRole('button', { name: 'Buat Outlet' })).toBeInTheDocument()
   })
 
-  it('menampilkan toast error jika mengekstrak saat input link kosong', async () => {
+  it('menonaktifkan tombol ekstrak jika input link kosong dan menampilkan toast error jika Enter ditekan', async () => {
     render(<OutletForm submitting={false} isEdit={false} onSubmit={vi.fn()} />)
 
     const btn = screen.getByRole('button', { name: /Ekstrak Lokasi/i })
     expect(btn).toBeDisabled()
+
+    const input = screen.getByLabelText('Link Google Maps atau koordinat')
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+    expect(toast.error).toHaveBeenCalledWith('Tempel link Google Maps atau koordinat terlebih dahulu')
   })
 
   it('mengisi otomatis lat, lng, alamat, nama, dan slug saat ekstraksi berhasil', async () => {
@@ -176,6 +181,46 @@ describe('OutletForm', () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Link ini tidak memuat titik lokasi.')
+    })
+  })
+
+  it('tidak memanggil resolveLokasiGoogleMaps berulang kali jika sedang dalam proses ekstraksi', async () => {
+    let resolvePromise: (val: any) => void = () => {}
+    vi.mocked(resolveLokasiGoogleMaps).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePromise = resolve
+        })
+    )
+
+    render(<OutletForm submitting={false} isEdit={false} onSubmit={vi.fn()} />)
+
+    const input = screen.getByLabelText('Link Google Maps atau koordinat')
+    fireEvent.change(input, {
+      target: { value: 'https://maps.app.goo.gl/test' },
+    })
+
+    const btn = screen.getByRole('button', { name: /Ekstrak Lokasi/i })
+    fireEvent.click(btn)
+
+    // Saat sedang extracting, coba picu Enter berulang kali
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
+
+    expect(resolveLokasiGoogleMaps).toHaveBeenCalledTimes(1)
+
+    // Selesaikan promise
+    resolvePromise({
+      ok: true,
+      lat: -6.1,
+      lng: 106.1,
+      akurasi: 'pin',
+      alamat: 'Test',
+      namaTempat: 'Test',
+    })
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('Lokasi berhasil diekstrak!')
     })
   })
 

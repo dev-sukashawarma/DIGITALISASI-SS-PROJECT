@@ -44,6 +44,7 @@ export function OutletForm({
   }
 
   async function handleEkstrakLokasi() {
+    if (extracting) return
     const cleanInput = mapsInput.trim()
     if (!cleanInput) {
       toast.error('Tempel link Google Maps atau koordinat terlebih dahulu')
@@ -117,6 +118,7 @@ export function OutletForm({
           <div className="relative flex-1">
             <input
               type="text"
+              aria-label="Link Google Maps atau koordinat"
               className="w-full rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-xs sm:text-sm outline-none focus:border-suka-orange transition-colors"
               placeholder="Tempel link Google Maps (maps.app.goo.gl / google.com/maps) atau koordinat..."
               value={mapsInput}

@@ -59,6 +59,42 @@ export function isFoodAppOrder(order: { channel?: string | null; sales_source?: 
   return FOOD_APP_CHANNELS.has(ch) || FOOD_APP_CHANNELS.has(src)
 }
 
+const GOFOOD_IDENTIFIERS = new Set(['gofood', 'gojek', 'go_food', '1284ac2a-e753-4380-9f32-59219a322459'])
+
+export function isGoFoodOrder(order: { channel?: string | null; sales_source?: string | null }): boolean {
+  const ch = (order.channel || '').toLowerCase()
+  const src = (order.sales_source || '').toLowerCase()
+  return (
+    GOFOOD_IDENTIFIERS.has(ch) ||
+    GOFOOD_IDENTIFIERS.has(src) ||
+    ch.includes('gofood') ||
+    src.includes('gofood') ||
+    ch.includes('gojek') ||
+    src.includes('gojek')
+  )
+}
+
+/** Format tanggal YYYY-MM-DD dalam zona waktu Jakarta (WIB). */
+export function getOrderJakartaDateStr(dateOrIso?: string | Date | null): string {
+  if (!dateOrIso) return ''
+  try {
+    const d = typeof dateOrIso === 'string' ? new Date(dateOrIso) : dateOrIso
+    if (isNaN(d.getTime())) {
+      const match = String(dateOrIso).match(/^(\d{4}-\d{2}-\d{2})/)
+      return match ? match[1] : ''
+    }
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d)
+  } catch {
+    const match = String(dateOrIso).match(/^(\d{4}-\d{2}-\d{2})/)
+    return match ? match[1] : ''
+  }
+}
+
 export interface KpiOrderItem {
   subtotal?: number | string | null
   quantity?: number | string | null
@@ -66,25 +102,95 @@ export interface KpiOrderItem {
 }
 
 export interface KpiOrder {
+  id?: string | null
   outlet_id?: string | null
+  created_at?: string | null
   total_amount: number | string | null
   discount_amount?: number | string | null
   promo_subsidy?: number | string | null
   order_items?: KpiOrderItem[] | null
   channel?: string | null
   sales_source?: string | null
+  /** Promo yang ditanggung merchant dari settlement (override promo_subsidy kasir untuk GoFood). */
+  settlement_promo_merchant?: number | null
+  /** Subsidi dari platform (misal Gojek) yang bukan merupakan beban restoran. */
+  platform_subsidy?: number | null
 }
 
 export interface KpiOrderOptions {
   /** Filter "SS Online" terpilih: seluruh potongan dibaca dari discount_amount. */
   ssOnlineMode?: boolean
+  /** Fungsi pengambil promo merchant GoFood dari settlement berdasarkan pesanan. */
+  getGofoodSettlementPromo?: (order: KpiOrder) => number | null | undefined
+  /** Map promo settlement GoFood keyed by order id / order ref / outlet_id|tanggal. */
+  gofoodSettlementMap?: Map<string | KpiOrder, number> | Record<string, number>
 }
 
 function itemValue(item: KpiOrderItem): number {
   return Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0
 }
 
-/** Potongan satu order, rumus yang sama dengan kartu "Potongan Merchant". */
+/**
+ * Menghitung porsi promo yang menjadi beban merchant (Potongan Merchant / Card Biru).
+ *
+ * Aturan Bisnis (Food Apps Rekonsiliasi):
+ * - GoFood: kasir sering menginput total promo konsumen yang memuat subsidi Gojek di dalamnya.
+ *   Jika ada data settlement GoBiz (via order.settlement_promo_merchant atau options),
+ *   Card Biru menggunakan promo_merchant dari settlement (Single Source of Truth).
+ *   Jika belum ada data settlement, fallback ke promo_subsidy kasir.
+ * - GrabFood & ShopeeFood: input kasir sudah murni diskon merchant (akurat),
+ *   tetap memakai promo_subsidy kasir.
+ */
+export function resolveMerchantPromo(order: KpiOrder, opts: KpiOrderOptions = {}): number {
+  const promoSubsidy = Number(order.promo_subsidy) || 0
+
+  if (isGoFoodOrder(order)) {
+    if (order.settlement_promo_merchant !== undefined && order.settlement_promo_merchant !== null) {
+      return Number(order.settlement_promo_merchant) || 0
+    }
+    if (opts.getGofoodSettlementPromo) {
+      const settlementPromo = opts.getGofoodSettlementPromo(order)
+      if (settlementPromo !== undefined && settlementPromo !== null) {
+        return Number(settlementPromo) || 0
+      }
+    }
+    if (opts.gofoodSettlementMap) {
+      const map = opts.gofoodSettlementMap
+      const dateStr = getOrderJakartaDateStr(order.created_at)
+      const groupKey = `${order.outlet_id || ''}|${dateStr}`
+      const val = map instanceof Map
+        ? (map.get(order.id ?? order) ?? (order.id ? map.get(order.id) : undefined) ?? map.get(groupKey))
+        : (order.id ? map[order.id] : undefined) ?? map[groupKey]
+      if (val !== undefined && val !== null) {
+        return Number(val) || 0
+      }
+    }
+    // Fallback bila settlement GoFood belum tersedia
+    return promoSubsidy
+  }
+
+  // GrabFood & ShopeeFood atau order umum: kasir input sudah murni diskon merchant (sudah akurat)
+  return promoSubsidy
+}
+
+/**
+ * Subsidi dari platform aplikasi (misal Gojek), BUKAN beban resto.
+ *
+ * Untuk GoFood:
+ *   Selisih = MAX(0, promo_subsidy_kasir - promo_merchant_settlement)
+ * Selisih ini dipisahkan dari Card Biru agar laba kotor (Gross Profit) tidak understated.
+ */
+export function computeOrderPlatformSubsidy(order: KpiOrder, opts: KpiOrderOptions = {}): number {
+  if (opts.ssOnlineMode || order.outlet_id === 'ss-online') return 0
+  if (!isGoFoodOrder(order)) return 0
+
+  const kasirPromo = Number(order.promo_subsidy) || 0
+  const merchantPromo = resolveMerchantPromo(order, opts)
+
+  return Math.max(0, kasirPromo - merchantPromo)
+}
+
+/** Potongan satu order, rumus yang sama dengan kartu "Potongan Merchant" (Card Biru). */
 export function computeOrderDeduction(order: KpiOrder, opts: KpiOrderOptions = {}): number {
   const discount = Number(order.discount_amount) || 0
   // Baris SS Online adalah baris SINTETIS dari `ecommerce_sales`:
@@ -94,22 +200,133 @@ export function computeOrderDeduction(order: KpiOrder, opts: KpiOrderOptions = {
   if (opts.ssOnlineMode || order.outlet_id === 'ss-online') return discount
 
   const isFoodApp = isFoodAppOrder(order)
-  const promoSubsidy = Number(order.promo_subsidy) || 0
+  const merchantPromo = resolveMerchantPromo(order, opts)
 
   const items = order.order_items || []
   if (items.length === 0) {
-    return discount + promoSubsidy
+    return discount + merchantPromo
   }
   const menuValue = items.reduce((sum, i) => sum + itemValue(i), 0)
   const offlineDiscount = Math.max(0, menuValue - (Number(order.total_amount) || 0))
 
   if (isFoodApp) {
-    // Pada pesanan Food Apps, potongan promo yang diketik kasir (promo_subsidy)
-    // adalah diskon merchant (diskon toko di Grab/Gojek/Shopee).
-    return offlineDiscount + promoSubsidy
+    // Pada pesanan Food Apps, potongan promo merchant adalah diskon toko
+    // (GoFood dioverride settlement GoBiz; Grab/Shopee dari input kasir).
+    return offlineDiscount + merchantPromo
   }
 
   return offlineDiscount
+}
+
+export interface SettlementInputRow {
+  platform?: string | null
+  outlet_id?: string | null
+  tanggal?: string | null
+  promo_merchant?: number | string | null
+  omzet_kotor?: number | string | null
+  commission?: number | string | null
+}
+
+/**
+ * Membangun peta alokasi promo_merchant settlement GoFood per order.
+ *
+ * Bila settlement GoFood tersedia untuk (outlet_id, tanggal), total promo_merchant
+ * dari settlement dialokasikan secara proporsional ke order-order GoFood pada
+ * hari & outlet tersebut.
+ *
+ * Mengembalikan Map yang bisa diakses via order.id ataupun referensi order langsung.
+ */
+export function buildGofoodSettlementPromoMap(
+  orders: KpiOrder[],
+  settlements: SettlementInputRow[] = []
+): Map<string | KpiOrder, number> {
+  const promoMap = new Map<string | KpiOrder, number>()
+  if (!orders || orders.length === 0 || !settlements || settlements.length === 0) {
+    return promoMap
+  }
+
+  // 1. Kumpulkan settlement GoFood per groupKey `${outlet_id}|${tanggal}`
+  const settlementByGroup = new Map<string, number>()
+  for (const s of settlements) {
+    const plat = (s.platform || '').toLowerCase()
+    if (plat !== 'gofood') continue
+    const oid = s.outlet_id || ''
+    const tgl = (s.tanggal || '').slice(0, 10)
+    if (!tgl) continue
+    const key = `${oid}|${tgl}`
+    const val = Number(s.promo_merchant) || 0
+    settlementByGroup.set(key, (settlementByGroup.get(key) || 0) + Math.max(0, val))
+  }
+
+  if (settlementByGroup.size === 0) return promoMap
+
+  // 2. Kelompokkan order GoFood berdasarkan groupKey `${outlet_id}|${tanggal}`
+  const ordersByGroup = new Map<string, KpiOrder[]>()
+  for (const o of orders) {
+    if (!isGoFoodOrder(o)) continue
+    const oid = o.outlet_id || ''
+    const tgl = getOrderJakartaDateStr(o.created_at)
+    if (!tgl) continue
+    const key = `${oid}|${tgl}`
+    if (!settlementByGroup.has(key)) continue
+
+    const list = ordersByGroup.get(key) || []
+    list.push(o)
+    ordersByGroup.set(key, list)
+  }
+
+  // 3. Alokasikan total promo_merchant settlement ke masing-masing order
+  for (const [key, groupOrders] of ordersByGroup.entries()) {
+    const totalSettlementPromo = settlementByGroup.get(key) || 0
+    if (groupOrders.length === 0) continue
+
+    if (groupOrders.length === 1) {
+      const o = groupOrders[0]
+      promoMap.set(o, totalSettlementPromo)
+      if (o.id) promoMap.set(o.id, totalSettlementPromo)
+      continue
+    }
+
+    const totalKasirPromo = groupOrders.reduce((sum, o) => sum + (Number(o.promo_subsidy) || 0), 0)
+
+    if (totalKasirPromo > 0) {
+      // Proporsional berdasarkan promo_subsidy kasir
+      let allocatedSoFar = 0
+      groupOrders.forEach((o, idx) => {
+        const kasirPromo = Number(o.promo_subsidy) || 0
+        let sharePromo: number
+        if (idx === groupOrders.length - 1) {
+          sharePromo = Math.max(0, totalSettlementPromo - allocatedSoFar)
+        } else {
+          sharePromo = Math.round(totalSettlementPromo * (kasirPromo / totalKasirPromo))
+          allocatedSoFar += sharePromo
+        }
+        promoMap.set(o, sharePromo)
+        if (o.id) promoMap.set(o.id, sharePromo)
+      })
+    } else {
+      // Kasir tidak input promo (semua 0) -> alokasi proporsional berdasarkan omzet gross
+      const totalGross = groupOrders.reduce((sum, o) => sum + computeOrderGross(o), 0)
+      let allocatedSoFar = 0
+      groupOrders.forEach((o, idx) => {
+        const gross = computeOrderGross(o)
+        let sharePromo: number
+        if (idx === groupOrders.length - 1) {
+          sharePromo = Math.max(0, totalSettlementPromo - allocatedSoFar)
+        } else if (totalGross > 0) {
+          sharePromo = Math.round(totalSettlementPromo * (gross / totalGross))
+          allocatedSoFar += sharePromo
+        } else {
+          sharePromo = Math.round(totalSettlementPromo / groupOrders.length)
+          allocatedSoFar += sharePromo
+        }
+        promoMap.set(o, sharePromo)
+        if (o.id) promoMap.set(o.id, sharePromo)
+      })
+    }
+  }
+
+  return promoMap
 }
 
 /** Omzet kotor satu order = total nilai menu sebelum diskon. */

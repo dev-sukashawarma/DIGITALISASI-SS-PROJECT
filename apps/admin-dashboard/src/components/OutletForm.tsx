@@ -1,9 +1,10 @@
 'use client'
 import { useState } from 'react'
+import { MapPin, Loader2, CheckCircle2, ExternalLink, AlertCircle } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { toast } from 'sonner'
 import { slugify } from '@/lib/slugify'
-import { parseLatLng } from '@/lib/parseLatLng'
+import { resolveLokasiGoogleMaps } from '@/app/dashboard/outlets/lokasiActions'
 import type { OutletFormValues } from '@/lib/types'
 
 const inputCls =
@@ -26,18 +27,68 @@ export function OutletForm({
   const [v, setV] = useState<OutletFormValues>(initial ?? EMPTY)
   const [slugTouched, setSlugTouched] = useState(isEdit)
   const [slugLocked, setSlugLocked] = useState(isEdit) // edit: read-only until "ubah slug"
+
+  const [mapsInput, setMapsInput] = useState('')
+  const [extracting, setExtracting] = useState(false)
+  const [extractedInfo, setExtractedInfo] = useState<{
+    lat: number
+    lng: number
+    akurasi: string
+    alamat: string | null
+  } | null>(null)
+
   const set = (patch: Partial<OutletFormValues>) => setV((prev) => ({ ...prev, ...patch }))
 
   function onName(name: string) {
     set({ name, ...(slugTouched ? {} : { slug: slugify(name) }) })
   }
 
-  function onPaste() {
-    const text = prompt('Tempel koordinat dari Google Maps (contoh: -6.5971, 106.8060)')
-    if (!text) return
-    const parsed = parseLatLng(text)
-    if (!parsed) { toast.error('Format koordinat tidak dikenali'); return }
-    set({ lat: parsed.lat, lng: parsed.lng })
+  async function handleEkstrakLokasi() {
+    const cleanInput = mapsInput.trim()
+    if (!cleanInput) {
+      toast.error('Tempel link Google Maps atau koordinat terlebih dahulu')
+      return
+    }
+
+    setExtracting(true)
+    try {
+      const res = await resolveLokasiGoogleMaps(cleanInput)
+      if (!res.ok) {
+        toast.error(res.pesan)
+        return
+      }
+
+      setV((prev) => {
+        const patch: Partial<OutletFormValues> = {
+          lat: res.lat,
+          lng: res.lng,
+        }
+        if (res.alamat) {
+          patch.address = res.alamat
+        }
+        if (res.namaTempat && !prev.name.trim()) {
+          patch.name = res.namaTempat
+          patch.slug = slugify(res.namaTempat)
+        }
+        return { ...prev, ...patch }
+      })
+
+      setExtractedInfo({
+        lat: res.lat,
+        lng: res.lng,
+        akurasi: res.akurasi,
+        alamat: res.alamat,
+      })
+
+      toast.success('Lokasi berhasil diekstrak!')
+      if (res.akurasi === 'tengah_peta') {
+        toast.info('Titik diambil dari tampilan peta. Pastikan posisi sudah tepat.')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan saat mengekstrak lokasi')
+    } finally {
+      setExtracting(false)
+    }
   }
 
   function submit(e: React.FormEvent) {
@@ -50,6 +101,84 @@ export function OutletForm({
 
   return (
     <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+      {/* Quick-Fill dari Google Maps */}
+      <div className="sm:col-span-2 rounded-2xl border border-suka-orange/20 bg-orange-50/40 p-3.5 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-suka-orange">
+            <MapPin className="w-3.5 h-3.5" />
+            <span>Quick-Fill dari Google Maps</span>
+          </div>
+          <span className="text-[11px] text-suka-gray-500">
+            Dukung link share HP, link web, atau koordinat
+          </span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              className="w-full rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-xs sm:text-sm outline-none focus:border-suka-orange transition-colors"
+              placeholder="Tempel link Google Maps (maps.app.goo.gl / google.com/maps) atau koordinat..."
+              value={mapsInput}
+              onChange={(e) => setMapsInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleEkstrakLokasi()
+                }
+              }}
+              disabled={extracting}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleEkstrakLokasi}
+            disabled={extracting || !mapsInput.trim()}
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-suka-orange text-white text-xs font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm shrink-0"
+          >
+            {extracting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Mengekstrak…</span>
+              </>
+            ) : (
+              <>
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Ekstrak Lokasi</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {extractedInfo && (
+          <div className="space-y-1.5 pt-0.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-700 bg-emerald-50/80 border border-emerald-200 rounded-xl px-3 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>
+                  {extractedInfo.alamat ? 'Titik & Alamat' : 'Titik koordinat'} berhasil diekstrak ({extractedInfo.lat.toFixed(5)}, {extractedInfo.lng.toFixed(5)})
+                </span>
+              </div>
+              <a
+                href={`https://www.google.com/maps?q=${extractedInfo.lat},${extractedInfo.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 hover:underline"
+              >
+                <span>Lihat di Maps</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+            {extractedInfo.akurasi === 'tengah_peta' && (
+              <div className="flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1">
+                <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                <span>Titik diambil dari tampilan peta. Pastikan posisi sudah tepat.</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <label className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Nama</span>
         <input className={inputCls} value={v.name} onChange={(e) => onName(e.target.value)} />
@@ -89,12 +218,6 @@ export function OutletForm({
           value={Number.isFinite(v.lng) ? v.lng : ''}
           onChange={(e) => set({ lng: e.target.value === '' ? NaN : Number(e.target.value) })} />
       </label>
-
-      <div className="sm:col-span-2">
-        <button type="button" onClick={onPaste} className="text-xs font-medium text-suka-orange">
-          Paste dari Google Maps
-        </button>
-      </div>
 
       <label className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Tipe</span>

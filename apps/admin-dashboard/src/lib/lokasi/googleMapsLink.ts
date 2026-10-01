@@ -138,9 +138,9 @@ export function titikDariUrlMaps(u: URL): TitikDariLink | null {
 /** Ambil URL pertama dari teks tempelan (orang sering menempel "Nama Tempat\nhttps://…"). */
 function urlPertama(teks: string): string | null {
   const m = teks.match(/https?:\/\/[^\s<>"']+/i)
-  if (m) return m[0]
+  if (m) return m[0].replace(/[.,;:!?)]+$/, '')
   const tanpaSkema = teks.trim().match(/^((?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.|maps\.)?google\.(?:com|co\.id)\/maps)[^\s]*)/i)
-  return tanpaSkema ? `https://${tanpaSkema[1]}` : null
+  return tanpaSkema ? `https://${tanpaSkema[1].replace(/[.,;:!?)]+$/, '')}` : null
 }
 
 /** Membaca tempelan pengguna tanpa jaringan. Link pendek dikembalikan untuk diikuti di server. */
@@ -156,7 +156,10 @@ export function bacaTempelanLokasi(input: string): HasilBacaLink {
       if (t) return { jenis: 'titik', titik: t, namaTempat: null }
     }
     const dms = parseDms(teks)
-    if (dms) return { jenis: 'titik', titik: buatTitik(dms.lat, dms.lng, 'pin')!, namaTempat: null }
+    if (dms) {
+      const t = buatTitik(dms.lat, dms.lng, 'pin')
+      if (t) return { jenis: 'titik', titik: t, namaTempat: null }
+    }
     return { jenis: 'bukan_link_maps' }
   }
 

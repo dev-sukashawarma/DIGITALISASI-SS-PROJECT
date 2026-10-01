@@ -54,6 +54,14 @@ describe('googleMapsLink parser', () => {
       }
     })
 
+    it('membersihkan tanda baca di akhir link (seperti titik atau kurung tutup)', () => {
+      const res = bacaTempelanLokasi('Cek di (https://maps.app.goo.gl/w1nL6wS8T4e9yJ128).')
+      expect(res.jenis).toBe('link_pendek')
+      if (res.jenis === 'link_pendek') {
+        expect(res.url).toBe('https://maps.app.goo.gl/w1nL6wS8T4e9yJ128')
+      }
+    })
+
     it('menolak goo.gl non-maps', () => {
       const res = bacaTempelanLokasi('https://goo.gl/other-link')
       expect(res.jenis).toBe('bukan_link_maps')

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Spinner } from "@suka/design-system";
-import { Eye, CircleCheck, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin, Store } from "lucide-react";
+import { Eye, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin, Store } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -23,6 +23,7 @@ import { adalahKantorPusat } from "@/lib/attendance/kantorPusat";
 import { shiftOptions, jadwalStaf, type JadwalStafAktif, type ShiftConfig, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
 import { formatDistanceMeters, haversineMeters } from "@/lib/gps";
+import { pusatkanDiLayar } from "@/lib/ui/pusatkan";
 
 dayjs.locale("id");
 
@@ -85,6 +86,8 @@ export function AttendanceKioskPanel() {
   const kiosk = useClockKiosk(activeOutletId, { lockToStaffId: outletStaff?.id, shiftKe: shiftDipilih });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);
+  const cameraBoxRef = useRef<HTMLDivElement | null>(null);
+  const userScrollAtRef = useRef(0);
   const router = useRouter();
 
   // Load daftar outlet yang diampu / dibawahi oleh staf/leader via /api/staff-outlets
@@ -380,6 +383,33 @@ export function AttendanceKioskPanel() {
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };
   }, [kiosk.phase, kiosk.tick, kiosk.runLiveness, isOutletOpen, modelsReady, clockInWindowOpen, perluPilihShift]);
 
+  // Auto-center kotak kamera. Saat scan berjalan (wajah terdeteksi → liveness → hasil)
+  // selalu dipusatkan; di luar itu hanya bila user tidak sedang menggulir, supaya
+  // layar tidak "merebut" scroll orang yang sedang membaca Status Hari Ini.
+  useEffect(() => {
+    const tandai = () => { userScrollAtRef.current = Date.now(); };
+    window.addEventListener("touchmove", tandai, { passive: true });
+    window.addEventListener("wheel", tandai, { passive: true });
+    return () => {
+      window.removeEventListener("touchmove", tandai);
+      window.removeEventListener("wheel", tandai);
+    };
+  }, []);
+
+  const pusatkanKamera = useCallback((paksa: boolean) => {
+    if (!paksa && Date.now() - userScrollAtRef.current < 2000) return;
+    // Tunggu layout frame berikutnya: overlay fase baru bisa mengubah posisi kartu.
+    requestAnimationFrame(() => {
+      if (cameraBoxRef.current) pusatkanDiLayar(cameraBoxRef.current);
+    });
+  }, []);
+
+  useEffect(() => {
+    const p = kiosk.phase;
+    if (p === "identified" || p === "liveness" || p === "submitting" || p === "result") pusatkanKamera(true);
+    else if (p === "location_invalid" || p === "locked") pusatkanKamera(false);
+  }, [kiosk.phase, pusatkanKamera]);
+
   if (!outletStaff) return <div className="p-8 flex justify-center"><Spinner /></div>;
 
   return (
@@ -617,7 +647,7 @@ export function AttendanceKioskPanel() {
         {/* Tinggi tetap, bukan min-h: kamera depan iPhone memberi stream potret (480x640),
             jadi video ber-tinggi intrinsik memanjangkan kotak ini ±150px dan mendorong
             teks hasil ke bawah bottom nav — user cuma melihat X merah tanpa alasan. */}
-        <div className="relative flex justify-center items-center h-[340px] sm:h-[380px] bg-black overflow-hidden shadow-inner">
+        <div ref={cameraBoxRef} className="relative flex justify-center items-center h-[340px] sm:h-[380px] bg-black overflow-hidden shadow-inner">
           {/* Mode manual: outlet dikunci SPV */}
           {isManual && !isOutletOpen ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm">
@@ -742,7 +772,7 @@ export function AttendanceKioskPanel() {
             </div>
           ) : kiosk.permissionState === "granted" ? (
             <CameraCapture 
-              onReady={(v) => (videoRef.current = v)} 
+              onReady={(v) => { videoRef.current = v; pusatkanKamera(false); }}
               onError={(e) => setCameraError(e)}
               className="absolute inset-0 w-full h-full object-cover"
             />
@@ -788,60 +818,62 @@ export function AttendanceKioskPanel() {
                     <CircleX size={100} strokeWidth={1.2} />
                   )}
                 </div>
-                {/* Alasan ditaruh di atas kamera, bukan hanya di kotak bawah: di HP kecil
-                    kotak bawah bisa tertutup bottom nav / toolbar Safari. */}
-                <p className="mt-3 max-w-[260px] rounded-xl bg-black/70 px-3 py-2 text-center text-sm font-bold leading-snug text-white">
-                  {kiosk.result.message}
-                </p>
+                {/* Semua teks hasil ada di dalam kotak kamera: di HP kecil area di bawah
+                    kamera bisa tertutup bottom nav / toolbar Safari. */}
+                <div className="mt-3 max-w-[270px] rounded-2xl bg-black/75 px-4 py-2.5 text-center text-white shadow-lg">
+                  <p className={`text-[11px] font-extrabold uppercase tracking-wider ${kiosk.result.ok ? "text-emerald-300" : "text-red-300"}`}>
+                    {kiosk.result.ok ? "Berhasil" : "Gagal"}
+                  </p>
+                  <p className="mt-0.5 text-sm font-bold leading-snug">{kiosk.result.message}</p>
+                </div>
               </div>
             </div>
           )}
-        </div>
 
-        <div className="p-4 text-center min-h-[92px] flex flex-col items-center justify-center gap-2">
-          {kiosk.phase === "idle" && clockInWindowOpen && (
-            <div className="text-sm text-gray-600">
-              Anda berada di outlet <span className="font-bold text-suka-ink">{outletName || "Loading..."}</span>.<br />
-              Halo <span className="font-bold text-suka-ink">{outletStaff.name}</span>, silakan scan wajah Anda.
-            </div>
-          )}
-          {kiosk.phase === "idle" && clockInWindowOpen && !modelsReady && (
-            <p className="flex items-center gap-2 text-gray-500 font-medium animate-pulse">
-              <Spinner size={18} /> Memuat model wajah…
-            </p>
-          )}
-          {kiosk.phase === "identified" && (
-            <p className="text-xl font-bold text-suka-ink animate-in fade-in slide-in-from-bottom-2 duration-300">
-              Halo, {kiosk.who?.name}
-            </p>
-          )}
+          {/* Instruksi liveness di ATAS kotak — dekat kamera depan HP, jadi mata user
+              tetap mengarah ke kamera saat membaca (wajah tetap frontal). */}
           {kiosk.phase === "liveness" && (
-            <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-300">
-              <p className="text-sm font-medium text-gray-500">
-                Halo, <span className="font-bold text-suka-ink">{kiosk.who?.name}</span> · {kiosk.action === "in" ? "Clock-in" : "Clock-out"}
-              </p>
-              <div className="flex items-center gap-2 rounded-full border-2 border-suka-orange bg-suka-cream px-6 py-2.5 font-bold text-suka-brown shadow-md animate-pulse">
-                <Eye size={22} className="text-suka-orange" /> {kiosk.challengeLabel}
+            <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex justify-center">
+              <div className="flex items-center gap-2 rounded-2xl border-2 border-suka-orange bg-suka-cream/95 px-4 py-2 text-left text-sm font-extrabold leading-snug text-suka-brown shadow-lg animate-pulse">
+                <Eye size={20} className="shrink-0 text-suka-orange" />
+                <span>{kiosk.challengeLabel}</span>
               </div>
             </div>
           )}
-          {kiosk.phase === "submitting" && (
-            <div className="flex flex-col items-center gap-2">
-              <Spinner size={24} />
-              <p className="text-sm text-gray-500 font-semibold">Mengirim data absensi…</p>
-            </div>
-          )}
-          {kiosk.phase === "result" && kiosk.result && (
-            <div className={`flex flex-col items-center justify-center gap-1 p-3 w-full rounded-xl font-bold animate-in fade-in zoom-in-95 duration-500 shadow-sm ${
-              kiosk.result.ok 
-                ? "bg-suka-green/10 text-suka-green border border-suka-green/20" 
-                : "bg-red-50 text-red-600 border border-red-200"
-            }`}>
-               <div className="flex items-center gap-2 text-lg">
-                 {kiosk.result.ok ? <CircleCheck size={22} /> : <CircleX size={22} />} 
-                 {kiosk.result.ok ? "Berhasil!" : "Gagal"}
-               </div>
-               <span className="text-xs font-semibold opacity-90">{kiosk.result.message}</span>
+
+          {/* Status scan di bagian bawah kotak kamera (pengganti kotak teks di bawah kartu). */}
+          {((kiosk.phase === "idle" && clockInWindowOpen) || kiosk.phase === "identified" || kiosk.phase === "liveness" || kiosk.phase === "submitting") && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-1.5 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-4 pb-3 pt-10 text-center text-white">
+              {kiosk.phase === "idle" && (modelsReady ? (
+                <>
+                  <p className="text-sm font-bold drop-shadow">Halo, {outletStaff.name} — hadapkan wajah ke kotak</p>
+                  <p className="flex items-center gap-1 text-[11px] font-semibold text-white/80">
+                    <MapPin size={12} className="shrink-0" /> {outletName || "Memuat outlet…"}
+                  </p>
+                </>
+              ) : (
+                <p className="flex items-center gap-2 text-sm font-semibold animate-pulse">
+                  <Spinner size={16} /> Memuat model wajah…
+                </p>
+              ))}
+              {kiosk.phase === "identified" && (
+                <p className="text-xl font-extrabold drop-shadow">Halo, {kiosk.who?.name}</p>
+              )}
+              {kiosk.phase === "liveness" && (
+                <>
+                  {kiosk.result && !kiosk.result.ok && (
+                    <p className="rounded-xl bg-red-600/90 px-3 py-1.5 text-xs font-bold leading-snug">{kiosk.result.message}</p>
+                  )}
+                  <p className="text-xs font-semibold text-white/85">
+                    <span className="font-extrabold text-white">{kiosk.who?.name}</span> · {kiosk.action === "in" ? "Absen masuk" : "Absen pulang"}
+                  </p>
+                </>
+              )}
+              {kiosk.phase === "submitting" && (
+                <p className="flex items-center gap-2 text-sm font-bold">
+                  <Spinner size={18} /> Mengirim data absensi…
+                </p>
+              )}
             </div>
           )}
         </div>

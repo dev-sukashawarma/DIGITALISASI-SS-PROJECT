@@ -342,7 +342,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* ── Bottom Navigation Bar (mobile only) ── */}
-      <nav className="lg:hidden fixed inset-x-0 bottom-0 z-30 bg-white/95 backdrop-blur border-t border-gray-200 pb-[env(safe-area-inset-bottom)]">
+      <nav data-bottom-nav className="lg:hidden fixed inset-x-0 bottom-0 z-30 bg-white/95 backdrop-blur border-t border-gray-200 pb-[env(safe-area-inset-bottom)]">
         <div className={`grid ${mobileMainItems.length === 3 ? "grid-cols-4" : "grid-cols-5"}`}>
           {mobileMainItems.map((item) => {
             const active = isActive(item.href);

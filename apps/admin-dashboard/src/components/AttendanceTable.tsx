@@ -138,11 +138,17 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
 
                   {/* Status Badge */}
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.bg} ${badge.text}`}
-                    >
-                      {badge.label}
-                    </span>
+                    {row.status === 'hadir' && row.status_in === 'telat_toleransi' ? (
+                      <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                        Telat dlm Toleransi
+                      </span>
+                    ) : (
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.bg} ${badge.text}`}
+                      >
+                        {badge.label}
+                      </span>
+                    )}
                   </td>
 
                   {/* Terlambat */}

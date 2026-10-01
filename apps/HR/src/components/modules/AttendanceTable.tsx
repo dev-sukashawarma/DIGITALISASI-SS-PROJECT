@@ -18,9 +18,12 @@ const ROW_TINT: Partial<Record<AttendanceLog['status'], string>> = {
 export function AttendanceTable({ rows }: { rows: AttendanceLog[] }) {
   const [activePhoto, setActivePhoto] = useState<AttendancePhotoInfo | null>(null)
 
-  const statusBadge = (s: AttendanceLog['status'], lateMinutes: number) => {
+  const statusBadge = (s: AttendanceLog['status'], lateMinutes: number, statusIn?: string | null) => {
     switch (s) {
       case 'hadir':
+        if (statusIn === 'telat_toleransi') {
+          return <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700 border border-blue-200">Telat dlm Toleransi{lateMinutes ? ` (${lateMinutes} mnt)` : ''}</span>
+        }
         return <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">Hadir</span>
       case 'terlambat':
         return <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 border border-amber-200">Telat ({lateMinutes} mnt)</span>
@@ -70,7 +73,7 @@ export function AttendanceTable({ rows }: { rows: AttendanceLog[] }) {
                     {formatJamWib(r.clock_out)}
                   </td>
                   <td className="px-4 py-3">
-                    {statusBadge(r.status, r.late_minutes)}
+                    {statusBadge(r.status, r.late_minutes, r.status_in)}
                     {r.sumber && r.sumber !== 'absen' && r.notes && (
                       <div className="mt-1 max-w-[220px] text-[11px] text-suka-gray-500 leading-snug">{r.notes}</div>
                     )}

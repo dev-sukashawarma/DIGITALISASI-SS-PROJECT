@@ -14,7 +14,7 @@ import { OutletSwitcher } from "@/components/OutletSwitcher";
 
 const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string | null, d: number | null) => string; colorClass?: string }> = {
   masuk:  { icon: <LogIn size={13} />,  label: (t) => `Masuk ${t}` },
-  telat_toleransi: { icon: <Clock4 size={13} />, label: (t, d) => `Telat (Toleransi) ${d ? d + ' mnt' : t}` },
+  telat_toleransi: { icon: <Clock4 size={13} />, label: (t, d) => `Telat dlm Toleransi ${d ? d + ' mnt' : t}` },
   telat:  { icon: <Clock4 size={13} />, label: (t, d) => `Masuk Telat ${d ? d + ' mnt' : t}` },
   keluar: { icon: <LogOut size={13} />, label: (t) => `Pulang ${t}` },
   lebih_awal: { icon: <LogOut size={13} />, label: (t) => `Pulang Cepat ${t}` },
@@ -27,7 +27,7 @@ const SELFIE_BUCKET = "selfies";
 
 const LEGEND = [
   { key: "hadir", label: "Hadir", dot: "bg-suka-green", text: "text-green-700", bg: "bg-green-50" },
-  { key: "telat_toleransi", label: "Telat (Tol)", dot: "bg-yellow-400", text: "text-yellow-700", bg: "bg-yellow-50" },
+  { key: "telat_toleransi", label: "Telat dlm Toleransi", dot: "bg-blue-500", text: "text-blue-700", bg: "bg-blue-50" },
   { key: "telat", label: "Telat", dot: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-50" },
   { key: "belum", label: "Belum", dot: "bg-gray-300", text: "text-gray-700", bg: "bg-gray-50" },
   { key: "alpha", label: "Alpha", dot: "bg-red-500", text: "text-red-700", bg: "bg-red-50" },
@@ -182,7 +182,7 @@ export default function PapanKehadiranPage() {
         
         <div className="relative h-3.5 overflow-hidden rounded-full bg-gray-100">
           <div className="absolute inset-y-0 left-0 bg-suka-green transition-all duration-1000 ease-out" style={{ width: `${hadirPct}%` }} />
-          <div className="absolute inset-y-0 left-0 bg-yellow-400 transition-all duration-1000 ease-out" style={{ left: `${hadirPct}%`, width: `${telatTolPct}%` }} />
+          <div className="absolute inset-y-0 left-0 bg-blue-500 transition-all duration-1000 ease-out" style={{ left: `${hadirPct}%`, width: `${telatTolPct}%` }} />
           <div className="absolute inset-y-0 left-0 bg-amber-500 transition-all duration-1000 ease-out" style={{ left: `${hadirPct + telatTolPct}%`, width: `${telatPct}%` }} />
           <div className="absolute inset-y-0 left-0 bg-red-500 transition-all duration-1000 ease-out" style={{ left: `${hadirPct + telatTolPct + telatPct}%`, width: `${alphaPct}%` }} />
         </div>
@@ -219,7 +219,7 @@ export default function PapanKehadiranPage() {
               options={[
                 { label: "Semua Status", value: "semua" },
                 { label: "Masuk Tepat", value: "masuk" },
-                { label: "Telat (Toleransi)", value: "telat_toleransi" },
+                { label: "Telat dalam Toleransi", value: "telat_toleransi" },
                 { label: "Masuk Telat", value: "telat" },
                 { label: "Belum Hadir", value: "belum" },
                 { label: "Alpha", value: "alpha" },
@@ -258,7 +258,7 @@ export default function PapanKehadiranPage() {
                       {/* State indicator dot */}
                       <span className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white ${
                         r.state === 'masuk' || r.state === 'keluar' ? 'bg-suka-green' : 
-                        r.state === 'telat_toleransi' ? 'bg-yellow-400' :
+                        r.state === 'telat_toleransi' ? 'bg-blue-500' :
                         r.state === 'telat' || r.state === 'pulang_telat' || r.state === 'lebih_awal' ? 'bg-amber-500' :
                         r.state === 'alpha' ? 'bg-red-500' : 'bg-gray-300'
                       }`} />

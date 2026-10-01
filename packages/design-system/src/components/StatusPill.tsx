@@ -11,7 +11,7 @@ const STYLES: Record<StatusKind, string> = {
   tepat:  'bg-[#e1f5ee] text-[#085041]',
   masuk:  'bg-[#e1f5ee] text-[#085041]',
   telat:  'bg-[#faeeda] text-[#854f0b]',
-  telat_toleransi: 'bg-[#fef9c3] text-[#a16207]', // Yellowish for toleransi
+  telat_toleransi: 'bg-[#dbeafe] text-[#1d4ed8]', // Biru: telat tapi masih dalam toleransi
   alpha:  'bg-[#fcebeb] text-[#a32d2d]',
   belum:  'bg-[#f1efe8] text-[#5f5e5a]',
   keluar: 'bg-[#eef0ff] text-[#26215c]',

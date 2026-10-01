@@ -951,7 +951,8 @@ export function AttendanceKioskPanel() {
             const targetMasuk = r.shift_jam_masuk?.slice(0, 5) ?? jamMasuk;
             const delay = r.telat_menit ?? ((r.status === 'telat' && r.type === 'in' && targetMasuk) ? calculateDelayMinutes(r.ts_server, targetMasuk) : null);
             const isLate = r.status === 'telat';
-            
+            const isLateTol = r.status === 'telat_toleransi';
+
             return (
               <div key={r.id} className="p-3.5 flex items-center justify-between hover:bg-suka-cream/20 transition-colors duration-200">
                 <div className="flex items-center gap-3">
@@ -980,6 +981,10 @@ export function AttendanceKioskPanel() {
                       isLate ? (
                         <span className="inline-block bg-red-50 text-red-600 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-red-100">
                           Telat {delay ? `${delay}m` : ""}
+                        </span>
+                      ) : isLateTol ? (
+                        <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-blue-100">
+                          Telat dlm Toleransi {r.telat_menit ? `${r.telat_menit}m` : ""}
                         </span>
                       ) : (
                         <span className="inline-block bg-emerald-50 text-suka-green px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-emerald-100">

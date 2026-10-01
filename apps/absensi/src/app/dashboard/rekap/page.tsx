@@ -215,7 +215,8 @@ export default function RekapPage() {
   const globalSummary = useMemo(() => {
     return {
       masuk: staffSummaries.reduce((acc, s) => acc + s.total_masuk, 0),
-      telat: staffSummaries.reduce((acc, s) => acc + s.total_telat + s.total_telat_toleransi, 0),
+      telat: staffSummaries.reduce((acc, s) => acc + s.total_telat, 0),
+      telat_toleransi: staffSummaries.reduce((acc, s) => acc + s.total_telat_toleransi, 0),
       alpha: staffSummaries.reduce((acc, s) => acc + s.total_alpha, 0),
       cepat: staffSummaries.reduce((acc, s) => acc + s.total_cepat, 0),
       pulang_lambat: staffSummaries.reduce((acc, s) => acc + s.total_pulang_lambat, 0),
@@ -245,6 +246,7 @@ export default function RekapPage() {
   const STAT = [
     { label: "Kehadiran", value: globalSummary.masuk, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100" },
     { label: "Terlambat (Masuk)", value: globalSummary.telat, bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100" },
+    { label: "Telat dlm Toleransi", value: globalSummary.telat_toleransi, bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-100" },
     { label: "Alpha / Tidak Hadir", value: globalSummary.alpha, bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-100" },
     { label: "Pulang Cepat", value: globalSummary.cepat, bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-100" },
     { label: "Pulang Lambat", value: globalSummary.pulang_lambat, bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
@@ -314,7 +316,7 @@ export default function RekapPage() {
   function formatStatusText(status: string) {
     switch (status) {
       case "telat": return "Masuk Telat";
-      case "telat_toleransi": return "Telat (Toleransi)";
+      case "telat_toleransi": return "Telat dlm Toleransi";
       case "lebih_awal": return "Pulang Cepat";
       case "pulang_telat": return "Pulang Lambat";
       case "tepat": return "Tepat Waktu";
@@ -338,7 +340,7 @@ export default function RekapPage() {
       {headerAndSwitcher}
 
       {/* Global Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         {STAT.map((s) => (
           <div key={s.label} className={`rounded-2xl border ${s.border} ${s.bg} p-4 sm:p-5 flex flex-col`}>
             <div className={`text-xs font-semibold uppercase tracking-wider ${s.text} opacity-80`}>{s.label}</div>
@@ -356,7 +358,7 @@ export default function RekapPage() {
             { label: "Semua Status", value: "semua" },
             { label: "Hadir", value: "masuk" },
             { label: "Telat Masuk", value: "telat" },
-            { label: "Telat (Toleransi)", value: "telat_toleransi" },
+            { label: "Telat dalam Toleransi", value: "telat_toleransi" },
             { label: "Alpha", value: "alpha" },
             { label: "Pulang Cepat", value: "lebih_awal" },
             { label: "Pulang Lambat", value: "pulang_telat" }
@@ -407,7 +409,7 @@ export default function RekapPage() {
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-slate-500">
                   <span className="font-medium text-emerald-600">{staff.total_masuk} Hadir</span>
                   {staff.total_telat > 0 && <span className="font-medium text-amber-600">{staff.total_telat} Telat</span>}
-                  {staff.total_telat_toleransi > 0 && <span className="font-medium text-yellow-600">{staff.total_telat_toleransi} Telat (Tol)</span>}
+                  {staff.total_telat_toleransi > 0 && <span className="font-medium text-blue-600">{staff.total_telat_toleransi} Telat dlm Toleransi</span>}
                   {staff.total_alpha > 0 && <span className="font-medium text-rose-600">{staff.total_alpha} Alpha</span>}
                   {staff.total_cepat > 0 && <span className="font-medium text-sky-600">{staff.total_cepat} Plg Cepat</span>}
                   {staff.total_pulang_lambat > 0 && <span className="font-medium text-amber-800">{staff.total_pulang_lambat} Plg Lambat</span>}
@@ -431,7 +433,9 @@ export default function RekapPage() {
                         )}
                         <span>In: <span className="font-semibold text-slate-800">{jam(staff.latest_in.ts_server)}</span></span>
                         {(staff.latest_in.delay_minutes || staff.latest_in.telat_menit) ? (
-                          <span className="text-rose-500 ml-1 font-medium">Telat {staff.latest_in.delay_minutes || staff.latest_in.telat_menit}m</span>
+                          <span className={`${staff.latest_in.status === "telat_toleransi" ? "text-blue-600" : "text-rose-500"} ml-1 font-medium`}>
+                            {staff.latest_in.status === "telat_toleransi" ? "Telat dlm Toleransi" : "Telat"} {staff.latest_in.delay_minutes || staff.latest_in.telat_menit}m
+                          </span>
                         ) : null}
                       </div>
                     ) : staff.latest_out ? (

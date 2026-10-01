@@ -34,12 +34,12 @@ export default async function PengaturanAbsensiPage() {
       cfgRaw = null;
     }
   }
-  const cfg = cfgRaw || { jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 15, absen_window_mode: "auto" };
+  const cfg = cfgRaw || { jam_masuk: "09:00", jam_keluar: "17:00", toleransi_menit: 0, absen_window_mode: "auto" };
   
   const initialGlobalConfig = {
     jam_masuk: cfg.jam_masuk?.slice(0, 5) || "09:00",
     jam_keluar: cfg.jam_keluar?.slice(0, 5) || "17:00",
-    toleransi_menit: cfg.toleransi_menit || 15,
+    toleransi_menit: Number(cfg.toleransi_menit ?? 0) || 0,
     is_active: true,
     absen_window_mode: cfg.absen_window_mode || "auto",
   };

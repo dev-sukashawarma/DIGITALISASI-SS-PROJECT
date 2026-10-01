@@ -197,7 +197,9 @@ export function useAttendance(filter: AttendanceFilterValues) {
             item.status = 'terlambat'
             item.late_minutes = r.telat_menit || 0
           } else if (r.status === 'telat_toleransi') {
-            item.status = 'terlambat'
+            // Masih dalam toleransi → dihitung hadir (bukan terlambat), label biru di tabel.
+            item.status = 'hadir'
+            item.status_in = 'telat_toleransi'
             item.late_minutes = r.telat_menit || 0
             item.notes = item.notes ? item.notes + ', Telat dalam toleransi' : 'Telat dalam toleransi'
           }

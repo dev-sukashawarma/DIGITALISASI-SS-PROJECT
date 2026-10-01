@@ -189,6 +189,8 @@ export interface AttendanceLog {
   clock_in: string | null
   clock_out: string | null
   status: AttendanceStatus
+  /** Status mentah clock-in ('telat_toleransi' = hadir, telat masih dalam toleransi). */
+  status_in?: string | null
   late_minutes: number
   notes: string | null
   photo_url?: string | null

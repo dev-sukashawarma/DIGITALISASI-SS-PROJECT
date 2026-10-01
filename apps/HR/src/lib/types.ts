@@ -184,6 +184,8 @@ export interface AttendanceLog {
   clock_in: string | null
   clock_out: string | null
   status: AttendanceStatus
+  /** Status mentah clock-in pertama (tepat/telat/telat_toleransi/alpha). 'telat_toleransi' = hadir tapi telat dalam toleransi. */
+  status_in?: string | null
   /** absen = dari clock-in; cuti = izin/sakit/cuti disetujui; alfa = tidak hadir */
   sumber?: 'absen' | 'cuti' | 'alfa'
   late_minutes: number

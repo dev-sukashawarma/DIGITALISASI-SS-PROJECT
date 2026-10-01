@@ -166,7 +166,7 @@ export async function GET(request: Request) {
       const t = dayjs(r.ts_server).tz('Asia/Jakarta');
       const actualMinutes = t.hour() * 60 + t.minute();
 
-      if (r.status === 'telat' && r.type === 'in') {
+      if ((r.status === 'telat' || r.status === 'telat_toleransi') && r.type === 'in') {
         const jamMasuk = r.shift_jam_masuk || cfg?.jam_masuk;
         if (jamMasuk) {
           const [h, m] = jamMasuk.split(':').map(Number);

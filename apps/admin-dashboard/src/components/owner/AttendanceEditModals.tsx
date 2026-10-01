@@ -29,7 +29,7 @@ type Tone = 'emerald' | 'yellow' | 'amber' | 'red' | 'blue'
 
 const STATUS_MASUK = [
   { value: 'tepat', label: 'Tepat waktu', tone: 'emerald' },
-  { value: 'telat_toleransi', label: 'Toleransi', tone: 'yellow' },
+  { value: 'telat_toleransi', label: 'Dalam toleransi', tone: 'blue' },
   { value: 'telat', label: 'Terlambat', tone: 'amber' },
   { value: 'alpha', label: 'Alfa', tone: 'red' },
 ] as const

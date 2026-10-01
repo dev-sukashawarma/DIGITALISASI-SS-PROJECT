@@ -124,7 +124,8 @@ export function AttendanceReportView({
     let alfa = 0
     for (const r of filteredData) {
       if (r.status === 'hadir') hadir++
-      else if (r.status === 'terlambat' || r.status === 'telat_toleransi') terlambat++
+      else if (r.status === 'terlambat') terlambat++
+      else if (r.status === 'telat_toleransi') hadir++ // masih dalam toleransi = dihitung hadir
       else if (['izin', 'sakit', 'cuti'].includes(r.status)) izinSakit++
       else if (r.status === 'alfa') alfa++
     }
@@ -204,7 +205,7 @@ export function AttendanceReportView({
             options={[
               { value: 'all', label: 'Semua Status Kehadiran', icon: <UserCheck size={14} className="text-slate-400" /> },
               { value: 'hadir', label: 'Hadir Tepat Waktu' },
-              { value: 'telat_toleransi', label: 'Telat (Toleransi)' },
+              { value: 'telat_toleransi', label: 'Telat dalam Toleransi' },
               { value: 'terlambat', label: 'Terlambat' },
               { value: 'izin', label: 'Izin' },
               { value: 'sakit', label: 'Sakit' },
@@ -413,10 +414,10 @@ export function AttendanceReportView({
                       )}
                       {row.status === 'telat_toleransi' && (
                         <div className="space-y-1">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2.5 py-1 text-[10px] font-bold text-yellow-800 border border-yellow-300">
-                            <Clock size={12} /> Telat (Toleransi)
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-bold text-blue-800 border border-blue-300">
+                            <Clock size={12} /> Telat dlm Toleransi
                           </span>
-                          <p className="text-[11px] font-bold text-yellow-700">
+                          <p className="text-[11px] font-bold text-blue-700">
                             + {row.late_minutes} menit
                           </p>
                         </div>

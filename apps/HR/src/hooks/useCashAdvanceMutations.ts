@@ -22,6 +22,8 @@ export function useCashAdvanceMutations() {
         remaining: amount,
         reason,
         status: 'active' as CashAdvanceStatus,
+        status_hr: 'approved',
+        approved_at: new Date().toISOString(),
       })
 
       if (error) throw error
@@ -83,27 +85,38 @@ export function useCashAdvanceMutations() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('cash_advances')
-        .update({ status: 'active' as CashAdvanceStatus })
+        .update({
+          status_hr: 'approved',
+          status: 'active',
+          approved_at: new Date().toISOString(),
+        })
         .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
       queryClient.invalidateQueries({ queryKey: ['perizinan-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['hr-activity'] })
     },
   })
 
   const reject = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (payload: string | { id: string; note?: string }) => {
+      const id = typeof payload === 'string' ? payload : payload.id
+      const note = typeof payload === 'string' ? null : (payload.note ?? null)
       const { error } = await supabase
         .from('cash_advances')
-        .update({ status: 'rejected' as CashAdvanceStatus })
+        .update({
+          status_hr: 'rejected',
+          rejection_note: note,
+        })
         .eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
       queryClient.invalidateQueries({ queryKey: ['perizinan-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['hr-activity'] })
     },
   })
 

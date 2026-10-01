@@ -281,7 +281,12 @@ export interface CashAdvance {
   remaining: number
   reason: string | null
   status: CashAdvanceStatus
+  status_hr?: 'pending' | 'approved' | 'rejected'
+  status_spv?: string | null
+  installment_months?: number | null
   approved_by: string | null
+  approved_at?: string | null
+  rejection_note?: string | null
   created_at: string
   outlet_staff?: { name: string }
   cash_advance_payments?: CashAdvancePayment[]

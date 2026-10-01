@@ -27,6 +27,9 @@ export type KioskResult = { ok: boolean; message: string };
 type StaffRow = { id: string; name: string; role?: string | null; face_descriptor: number[] | null; allow_manual_button: boolean };
 
 const FUNCTION_URL = "/api/submit-attendance";
+// Penolakan server (di luar radius, belum waktunya, dst.) harus sempat dibaca —
+// dulu 1 detik, sehingga user hanya sempat melihat X merah tanpa alasannya.
+const RESET_GAGAL_KIRIM_MS = 5000;
 
 /**
  * @param outletId outlet aktif
@@ -814,7 +817,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       ? { ok: true, message: action === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!" }
       : { ok: false, message: gagalText(res.reason) });
     setPhase("result");
-    scheduleReset(res.ok ? 2500 : 1000);
+    scheduleReset(res.ok ? 2500 : RESET_GAGAL_KIRIM_MS);
   }
 
   async function doSubmitManual(staffId: string, staffName: string) {
@@ -897,7 +900,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     setResult(res.ok
       ? { ok: true, message: nextAction === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!" }
       : { ok: false, message: gagalText(res.reason) });
-    setPhase("result"); scheduleReset(res.ok ? 2500 : 1000);
+    setPhase("result"); scheduleReset(res.ok ? 2500 : RESET_GAGAL_KIRIM_MS);
   }
 
   /** Crew memilih shift di modal → lanjut ke liveness (kamera) atau kirim (manual). */

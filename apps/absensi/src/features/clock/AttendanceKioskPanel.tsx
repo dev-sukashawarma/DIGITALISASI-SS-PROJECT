@@ -614,7 +614,10 @@ export function AttendanceKioskPanel() {
            <Camera className="text-suka-orange" size={18} />
            <h2 className="font-bold text-suka-ink text-sm sm:text-base">Absen Wajah</h2>
         </div>
-        <div className="relative flex justify-center items-center min-h-[320px] sm:min-h-[380px] bg-black overflow-hidden shadow-inner">
+        {/* Tinggi tetap, bukan min-h: kamera depan iPhone memberi stream potret (480x640),
+            jadi video ber-tinggi intrinsik memanjangkan kotak ini ±150px dan mendorong
+            teks hasil ke bawah bottom nav — user cuma melihat X merah tanpa alasan. */}
+        <div className="relative flex justify-center items-center h-[340px] sm:h-[380px] bg-black overflow-hidden shadow-inner">
           {/* Mode manual: outlet dikunci SPV */}
           {isManual && !isOutletOpen ? (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 backdrop-blur-sm">
@@ -741,7 +744,7 @@ export function AttendanceKioskPanel() {
             <CameraCapture 
               onReady={(v) => (videoRef.current = v)} 
               onError={(e) => setCameraError(e)}
-              className="w-full h-full object-cover rounded-lg"
+              className="absolute inset-0 w-full h-full object-cover"
             />
           ) : null}
 
@@ -785,6 +788,11 @@ export function AttendanceKioskPanel() {
                     <CircleX size={100} strokeWidth={1.2} />
                   )}
                 </div>
+                {/* Alasan ditaruh di atas kamera, bukan hanya di kotak bawah: di HP kecil
+                    kotak bawah bisa tertutup bottom nav / toolbar Safari. */}
+                <p className="mt-3 max-w-[260px] rounded-xl bg-black/70 px-3 py-2 text-center text-sm font-bold leading-snug text-white">
+                  {kiosk.result.message}
+                </p>
               </div>
             </div>
           )}

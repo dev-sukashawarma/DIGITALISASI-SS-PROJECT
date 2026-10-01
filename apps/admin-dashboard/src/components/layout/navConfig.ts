@@ -145,7 +145,6 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Store,
     roles: ['ADMIN'],
     items: [
-      { href: '/dashboard/pos-admin', label: 'Ringkasan POS', shortLabel: 'Ringkasan', icon: LayoutDashboard, roles: ['ADMIN'] },
       { href: '/dashboard/pos-admin/menu', label: 'Daftar Menu POS', shortLabel: 'Menu', icon: Package, roles: ['ADMIN'] },
       { href: '/dashboard/pos-admin/categories', label: 'Kategori Menu POS', shortLabel: 'Kategori', icon: Tags, roles: ['ADMIN'] },
       { href: '/dashboard/pos-admin/promo', label: 'Manajemen Promo POS', shortLabel: 'Promo', icon: Banknote, roles: ['ADMIN'] },
@@ -278,7 +277,6 @@ export function isItemActive(href: string, pathname: string): boolean {
     // Punya sub-menu (/internal, /mitra): induknya hanya aktif pada path persis,
     // supaya baris induk & anak tidak menyala berbarengan.
     href === '/dashboard/owner/profit' ||
-    href === '/dashboard/pos-admin' ||
     href === '/dashboard/pembelian'
   ) {
     return pathname === href

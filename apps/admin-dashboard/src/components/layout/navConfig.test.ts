@@ -81,7 +81,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/pembelian/supplier',
     '/dashboard/petty-cash-balance',
     '/dashboard/platform-settlement',
-    '/dashboard/pos-admin',
     '/dashboard/pos-admin/categories',
     '/dashboard/pos-admin/menu',
     '/dashboard/pos-admin/promo',

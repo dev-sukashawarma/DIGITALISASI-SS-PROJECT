@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@suka/design-system'
 import type { Outlet } from '@/lib/types'
 
@@ -12,10 +13,12 @@ export function DeleteOutletDialog({
   onHardDelete: () => void
   onClose: () => void
 }) {
+  const [mounted, setMounted] = useState(false)
   const [refs, setRefs] = useState<number | null>(null)
   const [confirmName, setConfirmName] = useState('')
 
   useEffect(() => {
+    setMounted(true)
     let alive = true
     countRefs(outlet.id).then((n) => { if (alive) setRefs(n) }).catch(() => { if (alive) setRefs(-1) })
     return () => { alive = false }
@@ -23,9 +26,14 @@ export function DeleteOutletDialog({
 
   const canHardDelete = refs === 0 && confirmName.trim() === outlet.name
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6">
+  if (!mounted) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-md rounded-t-[28px] sm:rounded-2xl bg-white p-5 sm:p-6 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
         <h3 className="mb-2 text-lg font-bold text-suka-ink">Hapus {outlet.name}?</h3>
 
         <p className="mb-4 text-sm text-gray-600">
@@ -48,17 +56,25 @@ export function DeleteOutletDialog({
           </div>
         )}
 
-        <div className="flex flex-wrap justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm text-gray-500">Batal</button>
-          <Button onClick={onSoftDelete} className="rounded-xl">Nonaktifkan</Button>
+        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-gray-100">
           <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl px-4 py-2.5 min-h-[44px] text-sm font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 sm:border-transparent active:scale-95"
+          >
+            Batal
+          </button>
+          <Button onClick={onSoftDelete} className="rounded-xl min-h-[44px] active:scale-95">Nonaktifkan</Button>
+          <button
+            type="button"
             onClick={onHardDelete} disabled={!canHardDelete}
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            className="rounded-xl bg-red-600 px-4 py-2.5 min-h-[44px] text-sm font-semibold text-white disabled:opacity-40 active:scale-95"
           >
             Hapus permanen
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

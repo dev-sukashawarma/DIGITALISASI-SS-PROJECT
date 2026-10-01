@@ -246,13 +246,21 @@ export function OutletForm({
         <span className="font-medium text-suka-ink">Aktif</span>
       </label>
 
-      <div className="sm:col-span-2 flex items-center justify-end gap-3 mt-4 pt-4 border-t border-suka-gray-100">
+      <div className="sm:col-span-2 sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 mt-4 p-4 sm:p-6 bg-white/95 backdrop-blur-md border-t border-suka-gray-100 flex items-center justify-end gap-3 z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
         {onCancel && (
-          <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-suka-gray-500 hover:text-suka-ink transition-colors">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 sm:flex-initial min-h-[44px] px-5 py-2.5 text-sm font-semibold text-suka-gray-500 hover:text-suka-ink transition-colors rounded-xl border border-suka-gray-200 sm:border-transparent active:scale-95"
+          >
             Batal
           </button>
         )}
-        <Button type="submit" disabled={submitting} className="rounded-xl">
+        <Button
+          type="submit"
+          disabled={submitting}
+          className="flex-1 sm:flex-initial min-h-[44px] px-6 py-2.5 rounded-xl font-bold shadow-md shadow-suka-orange/20 active:scale-95"
+        >
           {submitting ? 'Menyimpan…' : isEdit ? 'Simpan Perubahan' : 'Buat Outlet'}
         </Button>
       </div>

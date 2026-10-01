@@ -80,11 +80,13 @@ export function parseAnyDate(value: unknown): string | null {
 }
 
 const MERCHANT_ALIASES = ['merchant id', 'merchant_id', 'id merchant', 'outlet id', 'store id', 'merchant', 'store_id'];
-const STORE_NAME_ALIASES = ['nama merchant', 'merchant name', 'nama toko', 'nama outlet', 'store name', 'outlet'];
+const STORE_NAME_ALIASES = ['outlet name', 'nama merchant', 'merchant name', 'nama toko', 'nama outlet', 'store name', 'outlet'];
 const WAKTU_ALIASES = ['waktu transaksi', 'transaction time', 'tanggal transaksi', 'waktu', 'tanggal', 'created at', 'date', 'transaction date', 'waktu pesanan'];
-const PENJUALAN_ALIASES = ['penjualan', 'gross amount', 'total penjualan', 'harga sebelum diskon', 'omzet kotor', 'gross sales', 'subtotal', 'total order amount'];
+const PENJUALAN_ALIASES = ['amount', 'penjualan', 'gross amount', 'total penjualan', 'harga sebelum diskon', 'omzet kotor', 'gross sales', 'subtotal', 'total order amount'];
+const NET_AMOUNT_ALIASES = ['net amount', 'pendapatan bersih', 'netto', 'total pencairan'];
 const BIAYA_ALIASES = ['total biaya', 'total fee', 'komisi', 'biaya layanan', 'potongan', 'commission', 'service fee', 'biaya transaksi'];
 const PROMO_ALIASES = [
+  'merchant promo contribution',
   'promo yang ditanggung mitra usaha',
   'promo ditanggung mitra usaha',
   'promo merchant',
@@ -155,13 +157,14 @@ export const gofoodParser: PlatformParser = {
     const cMerchant = findColumnIndex(header, MERCHANT_ALIASES);
     const cWaktu = findColumnIndex(header, WAKTU_ALIASES);
     const cPenjualan = findColumnIndex(header, PENJUALAN_ALIASES);
+    const cNet = findColumnIndex(header, NET_AMOUNT_ALIASES);
     const cTotalBiaya = findColumnIndex(header, BIAYA_ALIASES);
     const cPromo = findColumnIndex(header, PROMO_ALIASES);
     const cStoreName = findColumnIndex(header, STORE_NAME_ALIASES);
 
     if (cMerchant === -1) throw new Error('Kolom "Merchant ID" tidak ditemukan di file GoFood.');
     if (cWaktu === -1) throw new Error('Kolom "Waktu transaksi" tidak ditemukan di file GoFood.');
-    if (cPenjualan === -1) throw new Error('Kolom "Penjualan" (Omzet Kotor) tidak ditemukan di file GoFood.');
+    if (cPenjualan === -1) throw new Error('Kolom "Penjualan" / "Amount" tidak ditemukan di file GoFood.');
 
     const out: SettlementRow[] = [];
     for (let i = headerRowIdx + 1; i < grid.length; i++) {
@@ -174,8 +177,14 @@ export const gofoodParser: PlatformParser = {
       const date = parseAnyDate(r[cWaktu]);
       if (!date) continue;
 
-      const totalBiaya = cTotalBiaya !== -1 ? Math.abs(parsePlainNumber(r[cTotalBiaya])) : 0;
       const promoMerchant = cPromo !== -1 ? Math.abs(parsePlainNumber(r[cPromo])) : 0;
+      let totalBiaya = 0;
+      if (cTotalBiaya !== -1) {
+        totalBiaya = Math.abs(parsePlainNumber(r[cTotalBiaya]));
+      } else if (cNet !== -1) {
+        const netAmount = parsePlainNumber(r[cNet]);
+        totalBiaya = Math.max(0, omzetKotor - netAmount);
+      }
       const commission = Math.max(0, totalBiaya - promoMerchant);
 
       const merchantId = String(r[cMerchant] ?? '').trim();

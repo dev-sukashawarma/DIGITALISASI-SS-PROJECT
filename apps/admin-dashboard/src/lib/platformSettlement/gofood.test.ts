@@ -98,6 +98,29 @@ describe('gofoodParser', () => {
     expect(rows[0].storeName).toBe('Suka Shawarma Cibubur');
   });
 
+  it('parses actual GoBiz export with Amount, Net Amount, and Merchant Promo Contribution', () => {
+    const data = [
+      ['Outlet name', 'Merchant ID', 'Feature', 'Nomor pesanan', 'Transaction ID', 'Amount', 'Net Amount', 'Waktu transaksi', 'Payment Type', 'Gopay promo', 'Promo Type', 'Promo Name', 'Merchant Promo Contribution', 'Voucher Description', 'GoFood discount', 'Biaya pemberian voucher'],
+      ['SUKA SHAWARMA, PAJAJARAN', 'G661846537', 'goresto_online', 'F-123', 'tx-1', 51000, 38396, 46295.91, 'GO-PAY', 0, '', '', 0, '', '1755.0', '0.0'],
+    ];
+
+    const wb = xlsx.utils.book_new();
+    const ws = xlsx.utils.aoa_to_sheet(data);
+    xlsx.utils.book_append_sheet(wb, ws, 'Midtrans Payments');
+    const buf = xlsx.write(wb, { type: 'array', bookType: 'xlsx' });
+
+    const rows = gofoodParser.parse(buf);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      storeId: 'G661846537',
+      storeName: 'SUKA SHAWARMA, PAJAJARAN',
+      date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      omzetKotor: 51000,
+      promoMerchant: 0,
+      commission: 12604, // 51000 - 38396
+    });
+  });
+
   it('throws descriptive error if required columns are missing', () => {
     const data = [
       ['Kolom 1', 'Kolom 2'],

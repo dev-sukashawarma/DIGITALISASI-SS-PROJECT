@@ -119,61 +119,97 @@ async function getPosComparisonByOutlet(
     from: string;
     to: string;
     platform?: string;
+    platforms?: string[];
   }
 ) {
-  const { outletIds, from, to, platform } = params;
+  const { outletIds, from, to, platform, platforms } = params;
   const result = new Map<string, { omzet: number; trx: number; promo: number }>();
   if (outletIds.length === 0) return result;
 
   const fromIso = `${from}T00:00:00+07:00`;
   const toIso = `${to}T23:59:59.999+07:00`;
 
-  let q = supabase
-    .from('orders')
-    .select('outlet_id, channel, sales_source, total_amount, promo_subsidy')
-    .in('status', ['completed', 'settled'])
-    .in('outlet_id', outletIds)
-    .gte('created_at', fromIso)
-    .lte('created_at', toIso);
+  // Tentukan target platform yang akan dibandingkan
+  const targetPlatforms =
+    platforms && platforms.length > 0
+      ? platforms.map((p) => p.toLowerCase())
+      : platform && platform !== 'all'
+      ? [platform.toLowerCase()]
+      : ['gofood', 'grabfood', 'shopeefood', 'tiktokgo'];
 
-  const { data: ordersData, error } = await q;
+  // Bangun filter platform di level SQL secara spesifik
+  // PENTING: Gunakan 'gofood' (bukan 'go') agar channel 'tiktokgo' tidak sengaja tercampur ke GoFood!
+  const filterParts: string[] = [];
+  for (const p of targetPlatforms) {
+    if (p === 'gofood') {
+      filterParts.push('channel.ilike.%gofood%', 'sales_source.ilike.%gofood%');
+    } else if (p === 'grabfood') {
+      filterParts.push('channel.ilike.%grab%', 'sales_source.ilike.%grab%');
+    } else if (p === 'shopeefood') {
+      filterParts.push('channel.ilike.%shopee%', 'sales_source.ilike.%shopee%');
+    } else if (p === 'tiktokgo' || p === 'tiktok') {
+      filterParts.push('channel.ilike.%tiktok%', 'sales_source.ilike.%tiktok%');
+    } else {
+      filterParts.push(`channel.ilike.%${p}%`, `sales_source.ilike.%${p}%`);
+    }
+  }
+  const orFilter = filterParts.join(',');
 
-  if (!error && ordersData && ordersData.length > 0) {
-    for (const o of ordersData) {
-      if (platform && platform !== 'all') {
-        const p = platform.toLowerCase();
-        const ch = (o.channel || '').toLowerCase();
-        const ss = (o.sales_source || '').toLowerCase();
+  // Tarik data dengan paginasi agar seluruh data dalam rentang (bisa >1000 baris) terambil lengkap
+  const step = 1000;
+  let offset = 0;
+  while (true) {
+    const { data: batch, error } = await supabase
+      .from('orders')
+      .select('outlet_id, channel, sales_source, total_amount, promo_subsidy')
+      .in('status', ['completed', 'settled'])
+      .in('outlet_id', outletIds)
+      .or(orFilter)
+      .gte('created_at', fromIso)
+      .lte('created_at', toIso)
+      .range(offset, offset + step - 1);
 
-        let matches = false;
+    if (error || !batch || batch.length === 0) break;
+
+    for (const o of batch) {
+      const ch = String(o.channel || '').toLowerCase();
+      const ss = String(o.sales_source || '').toLowerCase();
+
+      // Validasi ketat di level objek: pastikan pesanan benar-benar milik platform target
+      const matchesTarget = targetPlatforms.some((p) => {
         if (p === 'gofood') {
-          matches = ch.includes('go') || ss.includes('go');
-        } else if (p === 'grabfood') {
-          matches = ch.includes('grab') || ss.includes('grab');
-        } else if (p === 'shopeefood') {
-          matches = ch.includes('shopee') || ss.includes('shopee');
-        } else if (p === 'tiktokgo' || p === 'tiktok') {
-          matches = ch.includes('tiktok') || ss.includes('tiktok');
-        } else {
-          matches = ch.includes(p) || ss.includes(p);
+          return (
+            (ch.includes('gofood') || ss.includes('gofood')) &&
+            !ch.includes('tiktok') &&
+            !ss.includes('tiktok')
+          );
         }
-        if (!matches) continue;
-      } else {
-        const ch = (o.channel || '').toLowerCase();
-        const ss = (o.sales_source || '').toLowerCase();
-        const isFoodAppOrTiktok = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'tiktok_go'].some(
-          (k) => ch.includes(k) || ss.includes(k)
-        );
-        if (!isFoodAppOrTiktok) continue;
-      }
+        if (p === 'grabfood') {
+          return ch.includes('grab') || ss.includes('grab');
+        }
+        if (p === 'shopeefood') {
+          return ch.includes('shopee') || ss.includes('shopee');
+        }
+        if (p === 'tiktokgo' || p === 'tiktok') {
+          return ch.includes('tiktok') || ss.includes('tiktok');
+        }
+        return ch.includes(p) || ss.includes(p);
+      });
+
+      if (!matchesTarget) continue;
 
       const cur = result.get(o.outlet_id) ?? { omzet: 0, trx: 0, promo: 0 };
-      const gross = (Number(o.total_amount) || 0) + (Number(o.promo_subsidy) || 0);
+      // Di Food Apps, total_amount di DB sudah merupakan nilai omzet kotor (Gross Revenue).
+      // Jangan tambahkan promo_subsidy lagi agar tidak terhitung dua kali.
+      const gross = Number(o.total_amount) || 0;
       cur.omzet += gross;
       cur.trx += 1;
       cur.promo += Number(o.promo_subsidy) || 0;
       result.set(o.outlet_id, cur);
     }
+
+    if (batch.length < step) break;
+    offset += step;
   }
 
   // Fallback: Jika orders kosong (misal range data historis <= Juli 2026 dari Pawoon)
@@ -231,7 +267,7 @@ export async function previewSettlementFile(formData: FormData) {
     const storeNamesByOutlet = new Map<string, Set<string>>();
 
     for (const r of rows) {
-      if (map.closed[r.storeId]) {
+      if (map.closed[r.storeId] || map.closed[r.storeName.trim().toLowerCase()]) {
         const cur = skippedClosed.get(r.storeId) ?? { storeId: r.storeId, storeName: r.storeName, omzetKotor: 0 };
         cur.omzetKotor += r.omzetKotor;
         skippedClosed.set(r.storeId, cur);
@@ -413,11 +449,25 @@ export async function syncSettlementData(payload: {
   }
 }
 
-// ── Multi-platform preview ──────────────────────────────────────────────────
+export interface OutletPlatformDetail {
+  outletId: string;
+  outletName: string;
+  omzetKotor: number;
+  adminFee: number;
+  promo: number;
+  nettoCair: number;
+  posOmzet: number;
+  posTrx: number;
+  posPromo: number;
+  subsidiPlatform: number;
+  selisihPromo: number;
+}
 
 export interface MultiPlatformSummary {
   periodeFrom: string;
   periodeTo: string;
+  isAutoAligned?: boolean;
+  primaryPlatform: 'all' | 'shopeefood' | 'grabfood' | 'gofood' | 'tiktokgo';
   totalOmzetKotor: number;
   totalAdminFee: number;
   totalPromo: number;
@@ -441,6 +491,7 @@ export interface MultiPlatformSummary {
     posTrxCount?: number;
     posPromoKasir?: number;
     subsidiPlatform?: number;
+    perOutlet?: OutletPlatformDetail[];
   }[];
   perOutlet: {
     outletId: string;
@@ -454,6 +505,7 @@ export interface MultiPlatformSummary {
     posTrx: number;
     posPromo: number;
     subsidiPlatform: number;
+    selisihPromo: number;
   }[];
   unmappedStores: { platform: string; storeId: string; storeName: string; omzetKotor: number }[];
   allDaily: { platform: string; sourceFile: string; daily: SettlementDaily[] }[];
@@ -489,9 +541,10 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
     const outletAdminFee = new Map<string, number>();
     const outletPromo = new Map<string, number>();
     const outletNames = new Map<string, string>();
+    const platformOutletData = new Map<string, Map<string, { omzet: number; promo: number; fee: number }>>();
 
     const perPlatform: MultiPlatformSummary['perPlatform'] = [];
-    const unmappedStores: MultiPlatformSummary['unmappedStores'] = [];
+    const unmappedMap = new Map<string, { platform: string; storeId: string; storeName: string; omzetKotor: number }>();
     const allDaily: MultiPlatformSummary['allDaily'] = [];
 
     for (const platform of platformIds) {
@@ -503,13 +556,20 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
       const rows: SettlementRow[] = parser.parse(await file.arrayBuffer());
 
       const dailyMap = new Map<string, SettlementDaily>();
+      const pOutletMap = new Map<string, { omzet: number; promo: number; fee: number }>();
 
       for (const r of rows) {
-        if (map.closed[r.storeId]) continue;
+        if (map.closed[r.storeId] || map.closed[r.storeName.trim().toLowerCase()]) continue;
         const oName = map.byStoreId[r.storeId] ?? map.byName[r.storeName.trim().toLowerCase()] ?? null;
         const oId = oName ? outletIdByName.get(oName.trim().toLowerCase()) ?? null : null;
         if (!oId) {
-          unmappedStores.push({ platform, storeId: r.storeId, storeName: r.storeName, omzetKotor: r.omzetKotor });
+          const key = `${platform}|${r.storeId || r.storeName}`;
+          const ex = unmappedMap.get(key);
+          if (ex) {
+            ex.omzetKotor += r.omzetKotor;
+          } else {
+            unmappedMap.set(key, { platform, storeId: r.storeId, storeName: r.storeName, omzetKotor: r.omzetKotor });
+          }
           continue;
         }
         if (!allowedOutletIds.includes(oId)) continue;
@@ -534,7 +594,15 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
             trxCount: 1,
           });
         }
+
+        const curPOut = pOutletMap.get(oId) ?? { omzet: 0, promo: 0, fee: 0 };
+        curPOut.omzet += r.omzetKotor;
+        curPOut.promo += r.promoMerchant;
+        curPOut.fee += r.commission;
+        pOutletMap.set(oId, curPOut);
       }
+
+      platformOutletData.set(platform, pOutletMap);
 
       const daily = [...dailyMap.values()];
       const pOmzet = daily.reduce((s, d) => s + d.omzetKotor, 0);
@@ -564,26 +632,110 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
 
     if (perPlatform.length === 0) return { success: false, error: 'Tidak ada file yang berhasil diproses.' };
 
+    // Otomatis deteksi rentang tanggal dari file settlement yang diunggah
+    const allFileDates = allDaily
+      .flatMap((p) => p.daily.map((d) => d.date))
+      .filter(Boolean)
+      .sort();
+
+    const fileMinDate = allFileDates.length > 0 ? allFileDates[0] : null;
+    const fileMaxDate = allFileDates.length > 0 ? allFileDates[allFileDates.length - 1] : null;
+
+    // Selaraskan periode dengan isi file aktual (Single Source of Truth)
+    // agar pembanding POS membandingkan rentang tanggal yang persis sama dengan file yang diunggah
+    const effectiveFrom = fileMinDate || periodeFrom;
+    const effectiveTo = fileMaxDate || periodeTo;
+    const isAutoAligned = Boolean(
+      fileMinDate && fileMaxDate && (fileMinDate !== periodeFrom || fileMaxDate !== periodeTo)
+    );
+
     const settlementOutletIds = [...outletOmzet.keys()];
-    const posByOutlet = await getPosComparisonByOutlet(supabase, {
+
+    // Tarik pembanding POS gabungan untuk semua platform
+    const posByOutletOverall = await getPosComparisonByOutlet(supabase, {
       outletIds: settlementOutletIds,
-      from: periodeFrom,
-      to: periodeTo,
-      platform: perPlatform.length === 1 ? perPlatform[0].platform : 'all',
+      from: effectiveFrom,
+      to: effectiveTo,
+      platforms: perPlatform.map((p) => p.platform),
     });
 
-    const allOutletIds = new Set([...outletOmzet.keys()]);
+    // Tarik pembanding POS per platform secara terpisah untuk presisi perbandingan
+    const posByPlatform = new Map<string, Map<string, { omzet: number; trx: number; promo: number }>>();
+    for (const p of perPlatform) {
+      const pPosMap = await getPosComparisonByOutlet(supabase, {
+        outletIds: settlementOutletIds,
+        from: effectiveFrom,
+        to: effectiveTo,
+        platforms: [p.platform],
+      });
+      posByPlatform.set(p.platform, pPosMap);
+    }
+
     let totalSubsidiPlatform = 0;
 
+    // Lengkapi rincian per-platform dan per-outlet di tiap platform
+    for (const p of perPlatform) {
+      const pPosMap = posByPlatform.get(p.platform) ?? new Map();
+      const pPosOmzet = [...pPosMap.values()].reduce((s, v) => s + v.omzet, 0);
+      const pPosTrx = [...pPosMap.values()].reduce((s, v) => s + v.trx, 0);
+      const pPosPromo = [...pPosMap.values()].reduce((s, v) => s + v.promo, 0);
+
+      p.posOmzetKotor = pPosOmzet;
+      p.posTrxCount = pPosTrx;
+      p.posPromoKasir = pPosPromo;
+
+      const pOutletsMap = platformOutletData.get(p.platform) ?? new Map();
+      let pSubsidi = 0;
+
+      const pOutletList: OutletPlatformDetail[] = [...pOutletsMap.entries()]
+        .map(([oId, data]) => {
+          const pos = pPosMap.get(oId) ?? { omzet: 0, trx: 0, promo: 0 };
+          // Subsidi platform HANYA dihitung untuk GoFood dan TikTok Go.
+          // Untuk ShopeeFood dan GrabFood, diskon kasir adalah diskon toko murni (bukan subsidi platform).
+          const subsidi =
+            p.platform === 'gofood' || p.platform === 'tiktokgo'
+              ? Math.max(0, pos.promo - data.promo)
+              : 0;
+          pSubsidi += subsidi;
+
+          return {
+            outletId: oId,
+            outletName: outletNames.get(oId) ?? oId,
+            omzetKotor: data.omzet,
+            adminFee: data.fee,
+            promo: data.promo,
+            nettoCair: data.omzet - data.fee - data.promo,
+            posOmzet: pos.omzet,
+            posTrx: pos.trx,
+            posPromo: pos.promo,
+            subsidiPlatform: subsidi,
+            selisihPromo: pos.promo - data.promo,
+          };
+        })
+        .sort((a, b) => b.omzetKotor - a.omzetKotor);
+
+      p.subsidiPlatform = pSubsidi;
+      p.perOutlet = pOutletList;
+
+      if (p.platform === 'gofood' || p.platform === 'tiktokgo') {
+        totalSubsidiPlatform += pSubsidi;
+      }
+    }
+
+    const allOutletIds = new Set([...outletOmzet.keys()]);
     const perOutlet: MultiPlatformSummary['perOutlet'] = [...allOutletIds]
       .map((id) => {
         const omzet = outletOmzet.get(id) ?? 0;
         const adminFee = outletAdminFee.get(id) ?? 0;
         const promo = outletPromo.get(id) ?? 0;
         const nettoCair = omzet - adminFee - promo;
-        const pos = posByOutlet.get(id) ?? { omzet: 0, trx: 0, promo: 0 };
-        const subsidiPlatform = Math.max(0, pos.promo - promo);
-        totalSubsidiPlatform += subsidiPlatform;
+        const pos = posByOutletOverall.get(id) ?? { omzet: 0, trx: 0, promo: 0 };
+
+        let outletSubsidi = 0;
+        for (const p of perPlatform) {
+          const pOutlet = p.perOutlet?.find((o) => o.outletId === id);
+          if (pOutlet) outletSubsidi += pOutlet.subsidiPlatform;
+        }
 
         return {
           outletId: id,
@@ -596,20 +748,28 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
           posOmzet: pos.omzet,
           posTrx: pos.trx,
           posPromo: pos.promo,
-          subsidiPlatform,
+          subsidiPlatform: outletSubsidi,
+          selisihPromo: pos.promo - promo,
         };
       })
       .sort((a, b) => b.omzetKotor - a.omzetKotor);
 
-    const totalPosOmzet = [...posByOutlet.values()].reduce((s, v) => s + v.omzet, 0);
-    const totalPosTrx = [...posByOutlet.values()].reduce((s, v) => s + v.trx, 0);
-    const totalPosPromo = [...posByOutlet.values()].reduce((s, v) => s + v.promo, 0);
+    const totalPosOmzet = [...posByOutletOverall.values()].reduce((s, v) => s + v.omzet, 0);
+    const totalPosTrx = [...posByOutletOverall.values()].reduce((s, v) => s + v.trx, 0);
+    const totalPosPromo = [...posByOutletOverall.values()].reduce((s, v) => s + v.promo, 0);
+
+    const primaryPlatform: MultiPlatformSummary['primaryPlatform'] =
+      perPlatform.length === 1
+        ? (perPlatform[0].platform as any)
+        : 'all';
 
     return {
       success: true,
       summary: {
-        periodeFrom,
-        periodeTo,
+        periodeFrom: effectiveFrom,
+        periodeTo: effectiveTo,
+        isAutoAligned,
+        primaryPlatform,
         totalOmzetKotor: perPlatform.reduce((s, p) => s + p.omzetKotor, 0),
         totalAdminFee: perPlatform.reduce((s, p) => s + p.adminFee, 0),
         totalPromo: perPlatform.reduce((s, p) => s + p.promo, 0),
@@ -622,7 +782,7 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
         totalSubsidiPlatform,
         perPlatform,
         perOutlet,
-        unmappedStores,
+        unmappedStores: [...unmappedMap.values()],
         allDaily,
       },
     };

@@ -164,6 +164,12 @@ describe('computeOrderPlatformSubsidy', () => {
     expect(computeOrderPlatformSubsidy(grab)).toBe(0)
     expect(computeOrderPlatformSubsidy(shopee)).toBe(0)
   })
+
+  it('TikTok Go: seluruh promo yang diinput kasir dipisahkan sebagai subsidi platform', () => {
+    const tt = { channel: 'tiktokgo', total_amount: 34_000, promo_subsidy: 34_000, order_items: [] }
+    expect(computeOrderPlatformSubsidy(tt)).toBe(34_000)
+    expect(computeOrderDeduction(tt)).toBe(0)
+  })
 })
 
 describe('buildGofoodSettlementPromoMap', () => {

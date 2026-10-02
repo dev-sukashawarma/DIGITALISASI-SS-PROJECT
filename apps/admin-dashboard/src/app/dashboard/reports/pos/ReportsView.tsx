@@ -742,13 +742,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                 <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
                   {analytics.totalPlatformSubsidy > 0 && (
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[11px] font-semibold text-white backdrop-blur-xs shadow-xs">
-                      <span>Subsidi Platform (Gojek): {formatRupiah(analytics.totalPlatformSubsidy)}</span>
+                      <span>
+                        Subsidi Platform {selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok') ? '(TikTok)' : selectedChannels.some(c => c === 'gofood' || c === 'gojek') ? '(Gojek)' : ''}: {formatRupiah(analytics.totalPlatformSubsidy)}
+                      </span>
                     </div>
                   )}
                   <Link
                     href="/dashboard/platform-settlement"
                     className="no-print inline-flex items-center gap-1 text-[11px] text-white/90 hover:text-white underline underline-offset-2 ml-auto font-medium"
-                    title="Upload file settlement GoBiz/Grab/Shopee untuk merekonsiliasi potongan merchant"
+                    title="Upload file settlement GoBiz/Grab/Shopee/TikTok untuk merekonsiliasi potongan merchant"
                   >
                     Upload Settlement ↗
                   </Link>
@@ -791,7 +793,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                     <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
                       {isSSOnlineSelected
                         ? 'Omzet Kotor - Promo - Biaya Platform'
-                        : 'Omzet Kotor - Promo Merchant - (Platform comm. + Creator comm. + WHT)'}
+                        : selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok')
+                          ? 'Hak Penjualan Voucher - Promo Merchant - Komisi TikTok'
+                          : 'Omzet Kotor - Promo Merchant - Potongan Komisi Platform'}
                     </p>
                     {analytics.settlementDateRange && (
                       <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
@@ -811,7 +815,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       </p>
                       <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalRealAdmin)}</p>
                       <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
-                        {isSSOnlineSelected ? 'Total biaya platform' : 'Platform commission + Creator commission + WHT'}
+                        {isSSOnlineSelected
+                          ? 'Total biaya platform'
+                          : selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok')
+                            ? 'Platform fee 8% + komisi affiliate creator voucher'
+                            : 'Platform commission + Creator commission + WHT'}
                       </p>
                       {analytics.settlementDateRange && (
                         <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">

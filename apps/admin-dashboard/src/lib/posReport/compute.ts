@@ -21,6 +21,7 @@ import {
   computeOrderPlatformSubsidy,
   buildGofoodSettlementPromoMap,
   isGoFoodOrder,
+  isTikTokGoOrder,
 } from '@/lib/posReportKpi'
 import { buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
@@ -340,6 +341,11 @@ export function computeAnalytics({
         const kasirPromo = Number(target.promo_subsidy) || 0
         target.platform_subsidy = Math.max(0, kasirPromo - allocated)
       }
+    } else if (isTikTokGoOrder(o)) {
+      const target = o as any
+      target.settlement_promo_merchant = 0
+      const kasirPromo = Number(target.promo_subsidy) || 0
+      target.platform_subsidy = kasirPromo
     }
   })
 

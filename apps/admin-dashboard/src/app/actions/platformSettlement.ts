@@ -387,8 +387,8 @@ export async function previewSettlementFile(formData: FormData) {
       cur.omzetKotor += d.omzetKotor;
       cur.promoMerchant += d.promoMerchant;
       cur.commission += d.commission;
-      // Untuk GoFood: subsidi = kasir promo - promo merchant
-      if (platform === 'gofood') {
+      // Untuk GoFood & TikTok Go: subsidi = kasir promo - promo merchant
+      if (platform === 'gofood' || platform === 'tiktokgo') {
         cur.subsidiPlatform = Math.max(0, (cur.sistemPromoKasir ?? 0) - cur.promoMerchant);
       }
       perOutletMap.set(id, cur);

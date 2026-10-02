@@ -19,6 +19,7 @@ import { bumpDayGenerations } from '@/lib/server/dayGenerations'
 import { eachDateInclusive, isDateStr, jakartaDate, jakartaRangeIso } from '@/lib/ownerDashboardCache'
 import { loadPosReportOrders, getEarliestSalesDate, posReportDayTag, clearPosReportTodayMemo, selectReportOrders } from '@/lib/posReport/load'
 import { getPrepared, clearPrepared, PREPARED_TTL_WITH_TODAY_MS, PREPARED_TTL_PAST_ONLY_MS } from '@/lib/posReport/prepared'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import {
   buildMenuMaps,
   buildPenerapHpp,
@@ -112,7 +113,6 @@ async function loadReportContext(
     .order('end_time', { ascending: false })
   if (!includeAll) qShifts = qShifts.in('outlet_id', realOutlets.length > 0 ? realOutlets : ['00000000-0000-0000-0000-000000000000'])
 
-  let qSettlements = supabase.from('platform_settlements').select('*').gte('tanggal', req.from).lte('tanggal', req.to)
   let qOutlets = supabase.from('outlets').select('id, type')
 
   const [ordersRes, shiftsRes, { menuItems, riwayat }, outletsRes] = await Promise.all([
@@ -127,14 +127,23 @@ async function loadReportContext(
 
   // Settlement: SS Online disimpan di outlet virtual marketplace ('ss-online'
   // bukan UUID) — logika sama dengan versi browser sebelumnya.
-  if (isSSOnlineSelected) {
-    const ids = outlets.filter((o: any) => o.type === 'marketplace').map((o: any) => o.id)
-    qSettlements = qSettlements.in('outlet_id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'])
-  } else if (!includeAll) {
-    qSettlements = qSettlements.in('outlet_id', realOutlets.length > 0 ? realOutlets : ['00000000-0000-0000-0000-000000000000'])
-  }
-  const settlementsRes = await qSettlements
-  if (settlementsRes.error) throw new Error(`posReport.settlements: ${settlementsRes.error.message}`)
+  // Tarik SELURUH baris settlement dengan fetchAllPages agar tidak terpotong batas 1.000 baris PostgREST
+  const settlements = await fetchAllPages<any>(() => {
+    let q = supabase
+      .from('platform_settlements')
+      .select('*')
+      .gte('tanggal', req.from)
+      .lte('tanggal', req.to)
+      .order('id', { ascending: true })
+
+    if (isSSOnlineSelected) {
+      const ids = outlets.filter((o: any) => o.type === 'marketplace').map((o: any) => o.id)
+      q = q.in('outlet_id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'])
+    } else if (!includeAll) {
+      q = q.in('outlet_id', realOutlets.length > 0 ? realOutlets : ['00000000-0000-0000-0000-000000000000'])
+    }
+    return q
+  })
 
   const orders = selectReportOrders(ordersRes.pos, ordersRes.ecommerce, req.outlets)
 
@@ -144,7 +153,7 @@ async function loadReportContext(
   return {
     orders,
     shifts: shiftsRes.data ?? [],
-    settlements: settlementsRes.data ?? [],
+    settlements,
     outlets,
     menuItemByNameMap,
     menuItemByIdMap,

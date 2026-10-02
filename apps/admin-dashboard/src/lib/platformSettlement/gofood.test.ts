@@ -116,8 +116,8 @@ describe('gofoodParser', () => {
       storeName: 'SUKA SHAWARMA, PAJAJARAN',
       date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       omzetKotor: 51000,
-      promoMerchant: 0,
-      commission: 12604, // 51000 - 38396
+      promoMerchant: 1755,
+      commission: 10849, // 51000 - 38396 - 1755
     });
   });
 

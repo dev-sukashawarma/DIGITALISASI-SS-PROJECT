@@ -152,16 +152,19 @@ export function PermintaanForm({
 
   // Filter bahan baku:
   // 1. Kategori ASET & PERLENGKAPAN (non-bahan / hardware) tidak bisa diminta lewat form bahan baku outlet
-  // 2. Kategori BUMBU hanya untuk role kitchen / admin / owner / dev (kecuali BAWANG yang digunakan di outlet)
+  // 2. Kategori BUMBU hanya untuk role kitchen / admin / owner / dev (kecuali BAWANG, GARAM, SASA yang digunakan di outlet)
+  const OUTLET_ALLOWED_BUMBU = ['BAWANG', 'GARAM', 'SASA']
+  const isItemAllowed = (b: { kategori?: string | null; nama?: string | null }) => {
+    const kat = b.kategori?.toUpperCase()
+    const nama = b.nama?.toUpperCase() ?? ''
+    if (kat === 'ASET' || kat === 'PERLENGKAPAN') return false
+    if (nama === 'PRINTER THERMAL' || nama === 'ID CARD') return false
+    if (!isKitchenRole && kat === 'BUMBU' && !OUTLET_ALLOWED_BUMBU.includes(nama)) return false
+    return true
+  }
+
   const allowedBahanBaku = useMemo(() => {
-    return bahanBaku.filter(b => {
-      const kat = b.kategori?.toUpperCase()
-      const nama = b.nama?.toUpperCase() ?? ''
-      if (kat === 'ASET' || kat === 'PERLENGKAPAN') return false
-      if (nama === 'PRINTER THERMAL' || nama === 'ID CARD') return false
-      if (!isKitchenRole && kat === 'BUMBU' && nama !== 'BAWANG') return false
-      return true
-    })
+    return bahanBaku.filter(isItemAllowed)
   }, [bahanBaku, isKitchenRole])
 
   // Actions
@@ -196,12 +199,8 @@ export function PermintaanForm({
     const unadded = saran.filter(s => {
       if (manualBahan[s.bahan_baku_id] || pendingItemIds.has(s.bahan_baku_id)) return false
       const b = bahanBaku.find(x => x.id === s.bahan_baku_id)
-      const kat = b?.kategori?.toUpperCase()
-      const nama = b?.nama?.toUpperCase() ?? ''
-      if (kat === 'ASET' || kat === 'PERLENGKAPAN') return false
-      if (nama === 'PRINTER THERMAL' || nama === 'ID CARD') return false
-      if (!isKitchenRole && kat === 'BUMBU' && nama !== 'BAWANG') return false
-      return true
+      if (!b) return false
+      return isItemAllowed(b)
     })
     if (unadded.length === 0) return
     setManualBahan(prev => {
@@ -220,12 +219,8 @@ export function PermintaanForm({
     return saran.filter(s => {
       if (pendingItemIds.has(s.bahan_baku_id)) return false
       const b = bahanBaku.find(x => x.id === s.bahan_baku_id)
-      const kat = b?.kategori?.toUpperCase()
-      const nama = b?.nama?.toUpperCase() ?? ''
-      if (kat === 'ASET' || kat === 'PERLENGKAPAN') return false
-      if (nama === 'PRINTER THERMAL' || nama === 'ID CARD') return false
-      if (!isKitchenRole && kat === 'BUMBU' && nama !== 'BAWANG') return false
-      return true
+      if (!b) return false
+      return isItemAllowed(b)
     })
   }, [saran, pendingItemIds, bahanBaku, isKitchenRole])
 

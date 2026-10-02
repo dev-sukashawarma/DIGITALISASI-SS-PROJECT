@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { requireRole } from '@/lib/authz';
 import { getParser, PLATFORM_COMPARE_CHANNEL } from '@/lib/platformSettlement';
 import type { PlatformId, SettlementDaily, SettlementRow } from '@/lib/platformSettlement';
+// Updated mapping for GoFood Cirendeu & Sawangan
 import storeMapRaw from '@/data/platform_store_map.json';
 
 function getSupabase() {

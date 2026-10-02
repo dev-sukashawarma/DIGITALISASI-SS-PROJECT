@@ -178,14 +178,20 @@ export const gofoodParser: PlatformParser = {
       if (!date) continue;
 
       const promoMerchant = cPromo !== -1 ? Math.abs(parsePlainNumber(r[cPromo])) : 0;
-      let totalBiaya = 0;
+      let commission = 0;
       if (cTotalBiaya !== -1) {
-        totalBiaya = Math.abs(parsePlainNumber(r[cTotalBiaya]));
+        const tb = Math.abs(parsePlainNumber(r[cTotalBiaya]));
+        const net = cNet !== -1 ? parsePlainNumber(r[cNet]) : 0;
+        // Jika Total Biaya + Promo = Omzet - Bersih, maka Total Biaya adalah murni komisi layanan GoBiz
+        if (net > 0 && Math.abs((tb + promoMerchant) - (omzetKotor - net)) < 2) {
+          commission = tb;
+        } else {
+          commission = Math.max(0, tb - promoMerchant);
+        }
       } else if (cNet !== -1) {
         const netAmount = parsePlainNumber(r[cNet]);
-        totalBiaya = Math.max(0, omzetKotor - netAmount);
+        commission = Math.max(0, omzetKotor - netAmount - promoMerchant);
       }
-      const commission = Math.max(0, totalBiaya - promoMerchant);
 
       const merchantId = String(r[cMerchant] ?? '').trim();
       const rawStoreName = cStoreName !== -1 ? String(r[cStoreName] ?? '').trim() : '';

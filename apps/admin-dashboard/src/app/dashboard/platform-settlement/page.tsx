@@ -929,6 +929,16 @@ export default function PlatformSettlementPage() {
                           <p className="text-xs text-amber-700 mt-1 font-medium">
                             {pct(currentPromo, currentOmzet)} ({activeCfg.promoSub})
                           </p>
+                          {currentPosPromo > 0 && (
+                            <p className="text-[10px] text-amber-800/80 mt-1 font-medium">
+                              POS: -{rp(currentPosPromo)} (Selisih:{' '}
+                              <span className={Math.abs(currentPosPromo - currentPromo) > 50000 ? 'font-bold' : ''}>
+                                {currentPosPromo - currentPromo >= 0 ? '+' : ''}
+                                {rp(currentPosPromo - currentPromo)}
+                              </span>
+                              )
+                            </p>
+                          )}
                         </div>
 
                         <div className="bg-red-50/70 border border-red-200 rounded-xl p-4">
@@ -1247,16 +1257,38 @@ export default function PlatformSettlementPage() {
                                         <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">
                                           +{rp(o.subsidiPlatform)}
                                         </span>
+                                      ) : isPromoMatch ? (
+                                        <span className="text-gray-400 font-medium">Match</span>
                                       ) : (
-                                        <span className="text-gray-400">—</span>
+                                        <span
+                                          className={
+                                            Math.abs(promoGap) > 50000
+                                              ? 'text-amber-700 font-semibold'
+                                              : 'text-gray-600 font-medium'
+                                          }
+                                        >
+                                          {promoGap >= 0 ? '+' : ''}
+                                          {rp(promoGap)}
+                                        </span>
                                       )
                                     ) : activePlatformTab === 'tiktokgo' ? (
                                       o.subsidiPlatform > 0 ? (
                                         <span className="text-gray-800 font-semibold bg-gray-100 px-2 py-0.5 rounded-full">
                                           +{rp(o.subsidiPlatform)}
                                         </span>
+                                      ) : isPromoMatch ? (
+                                        <span className="text-gray-400 font-medium">Match</span>
                                       ) : (
-                                        <span className="text-gray-400">—</span>
+                                        <span
+                                          className={
+                                            Math.abs(promoGap) > 50000
+                                              ? 'text-amber-700 font-semibold'
+                                              : 'text-gray-600 font-medium'
+                                          }
+                                        >
+                                          {promoGap >= 0 ? '+' : ''}
+                                          {rp(promoGap)}
+                                        </span>
                                       )
                                     ) : activePlatformTab === 'all' ? (
                                       o.subsidiPlatform > 0 ? (

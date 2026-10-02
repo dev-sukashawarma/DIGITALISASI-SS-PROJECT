@@ -1,7 +1,6 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { createSupabaseBrowserClient, getOutletStaff, BrandProvider, useBrand } from '@suka/auth'
 import { Button, Input } from '@suka/design-system'
 import { LogIn, AlertCircle, Loader2, ShieldCheck, CheckCircle2, MapPin, QrCode, Eye, EyeOff } from 'lucide-react'

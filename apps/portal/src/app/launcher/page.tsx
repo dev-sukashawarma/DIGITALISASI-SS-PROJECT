@@ -5,7 +5,8 @@ import type { AppName } from '@suka/auth'
 import LogoutButton from '@/components/LogoutButton'
 import AppTile from '@/components/AppTile'
 import { Avatar } from '@suka/design-system'
-import { MapPin, Clock, CheckCircle2 } from 'lucide-react'
+import { MapPin, Clock, CheckCircle2, Store, Users } from 'lucide-react'
+import LiveClock from '@/components/LiveClock'
 
 import { headers } from 'next/headers'
 
@@ -174,24 +175,121 @@ export default async function LauncherPage() {
 
   const banner = getBannerConfig(staff.role)
 
-  // 1. Fetch attendance status for today (Asia/Jakarta timezone)
+  // 1. Fetch attendance status / operational metrics for today (Asia/Jakarta timezone)
   const todayLocalStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
   const startOfDay = new Date(`${todayLocalStr}T00:00:00+07:00`).toISOString()
   const endOfDay = new Date(`${todayLocalStr}T23:59:59+07:00`).toISOString()
 
-  const { data: attendanceData } = await supabase
-    .from('attendance')
-    .select('type, ts_server, status')
-    .eq('outlet_staff_id', staff.id)
-    .gte('ts_server', startOfDay)
-    .lte('ts_server', endOfDay)
-    .order('ts_server', { ascending: false })
-    // Hanya baris terbaru yang dipakai (attendanceData[0]).
-    .limit(1)
+  let latestAttendance: { type: string; ts_server: string; status: string } | null = null
+  let operationalMetrics: {
+    openOutletsCount: number
+    totalOutletsCount: number
+    currentlyWorkingCrew: number
+    totalAttendedCount: number
+  } | null = null
 
-  const latestAttendance = attendanceData?.[0] || null
+  const isExecutiveRole = ['owner', 'admin'].includes(staff.role)
 
-  // Time-aware greeting + full date, computed in Asia/Jakarta (server render)
+  if (isExecutiveRole) {
+    const [outletsRes, staffRes, attendanceRes] = await Promise.all([
+      supabase.from('outlets').select('id, name, slug, type, is_active').eq('is_active', true),
+      supabase.from('outlet_staff').select('id, name, username, role, account_category, status').eq('status', 'active'),
+      supabase
+        .from('attendance')
+        .select('outlet_id, outlet_staff_id, type, ts_server, status')
+        .gte('ts_server', startOfDay)
+        .lte('ts_server', endOfDay)
+        .order('ts_server', { ascending: true })
+    ])
+
+    const outlets = outletsRes.data || []
+    const staffList = staffRes.data || []
+    const attendance = attendanceRes.data || []
+
+    // 1. Filter outlet fisik operasional riil (kecualikan testing, backup, trial, demo, non-retail, dan outlet non-aktif)
+    const OLD_SAWANGAN_ID = '550e8400-e29b-41d4-a716-446655440008'
+    const NEW_SAWANGAN_DTC_ID = '5a4df577-5237-476e-b54c-9eb642a5a516'
+
+    const operationalOutlets = outlets.filter((o: any) => {
+      if (!o.is_active) return false
+      if (o.inactive_reason) return false
+      if (o.id === 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a') return false // TEST_OUTLET_ID
+      if (o.id === OLD_SAWANGAN_ID || o.slug === 'sawangan-depok-internal' || o.name.includes('(INTERNAL)')) return false
+      const type = (o.type || '').toLowerCase()
+      if (type !== 'outlet' && type !== 'mitra') return false
+      const name = (o.name || '').toLowerCase()
+      const slug = (o.slug || '').toLowerCase()
+      if (['tes', 'test', 'trial', 'demo', 'backup'].some(w => name.includes(w) || slug.includes(w))) return false
+      return true
+    })
+    const operationalOutletIds = new Set(operationalOutlets.map((o: any) => o.id))
+
+    // 2. Filter kru/staf riil aktif (kecualikan bot devai, dummy test, kiosk, owner, mitra investor)
+    const realStaffIds = new Set(
+      staffList
+        .filter((s: any) => {
+          if (s.account_category && s.account_category !== 'employee') return false
+          const role = (s.role || '').toLowerCase()
+          if (['kiosk', 'mitra', 'owner'].includes(role)) return false
+          const name = (s.name || '').toLowerCase()
+          const user = (s.username || '').toLowerCase()
+          if (user.startsWith('devai') || name.startsWith('devai') || user.startsWith('dev_')) return false
+          if (['tes', 'test', 'demo', 'trial', 'dummy'].some(w => user.includes(w) || name.includes(w))) return false
+          if (user.startsWith('mitra_') || name.startsWith('mitra ')) return false
+          if (user.startsWith('superadmin') || user.startsWith('admin2') || user.startsWith('admindev')) return false
+          if (['finance', 'admin_finance', 'purchasing', 'staff_pusat'].includes(user)) return false
+          return true
+        })
+        .map((s: any) => s.id)
+    )
+
+    const staffLatest = new Map<string, { type: string; outlet_id: string }>()
+    const attendedStaffIds = new Set<string>()
+
+    attendance.forEach((r: any) => {
+      // Hanya proses staf riil aktif (bukan akun bot / testing)
+      if (r.status !== 'alpha' && realStaffIds.has(r.outlet_staff_id)) {
+        // Jika ada kru yang masih absen dengan ID Sawangan lama, petakan ke Mitra Sawangan DTC
+        const effectiveOutletId = r.outlet_id === OLD_SAWANGAN_ID ? NEW_SAWANGAN_DTC_ID : r.outlet_id
+        staffLatest.set(r.outlet_staff_id, { type: r.type, outlet_id: effectiveOutletId })
+        if (r.type === 'in') {
+          attendedStaffIds.add(r.outlet_staff_id)
+        }
+      }
+    })
+
+    let currentlyWorkingCrew = 0
+    const openOutletIds = new Set<string>()
+
+    staffLatest.forEach(st => {
+      if (st.type === 'in') {
+        currentlyWorkingCrew++
+        if (operationalOutletIds.has(st.outlet_id)) {
+          openOutletIds.add(st.outlet_id)
+        }
+      }
+    })
+
+    operationalMetrics = {
+      openOutletsCount: openOutletIds.size,
+      totalOutletsCount: operationalOutlets.length,
+      currentlyWorkingCrew,
+      totalAttendedCount: attendedStaffIds.size,
+    }
+  } else {
+    const { data: attendanceData } = await supabase
+      .from('attendance')
+      .select('type, ts_server, status')
+      .eq('outlet_staff_id', staff.id)
+      .gte('ts_server', startOfDay)
+      .lte('ts_server', endOfDay)
+      .order('ts_server', { ascending: false })
+      .limit(1)
+
+    latestAttendance = attendanceData?.[0] || null
+  }
+
+  // Time-aware greeting + full date + live time, computed in Asia/Jakarta (server render)
   const jakartaHour = parseInt(
     new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta', hour: '2-digit', hour12: false }),
     10,
@@ -203,6 +301,13 @@ export default async function LauncherPage() {
   const dateLabel = new Date().toLocaleDateString('id-ID', {
     timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
+  const initialWibTime = `${new Date().toLocaleTimeString('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).replace(/\./g, ':')} WIB`
 
   return (
     <main className="h-full w-full bg-suka-cream/50 relative overflow-y-auto overflow-x-hidden bg-grain select-none py-8 md:py-12 px-4 sm:px-6">
@@ -252,34 +357,66 @@ export default async function LauncherPage() {
 
               <div className="flex flex-col items-end gap-2 shrink-0">
                 <LogoutButton />
-                <span className="hidden sm:block text-[10px] font-bold text-white/55 text-right leading-tight capitalize">
-                  {dateLabel}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <LiveClock initialTime={initialWibTime} />
+                  <span className="hidden sm:block text-[10px] font-bold text-white/55 text-right leading-tight capitalize">
+                    {dateLabel}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Attendance status strip */}
-            <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-2 flex-wrap">
-              {latestAttendance ? (
-                latestAttendance.type === 'in' ? (
-                  <span className="inline-flex items-center gap-1.5 bg-emerald-500/25 border border-emerald-500/35 text-emerald-100 text-[10px] font-extrabold px-3 py-1 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    <span>Absen Masuk: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 bg-amber-500/25 border border-amber-500/35 text-amber-100 text-[10px] font-extrabold px-3 py-1 rounded-full">
-                    <CheckCircle2 size={11} className="text-amber-300" />
-                    <span>Absen Pulang: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
-                  </span>
+            {/* Status strip: Executive operational metrics (Owner & Admin) vs Non-executive attendance */}
+            <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-2.5 flex-wrap">
+              {isExecutiveRole ? (
+                operationalMetrics && (
+                  <>
+                    {/* Outlet Buka Metric */}
+                    <div className="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/35 text-emerald-100 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                      </span>
+                      <Store size={14} className="text-emerald-300 shrink-0" />
+                      <span>
+                        <strong className="text-white font-black">{operationalMetrics.openOutletsCount} / {operationalMetrics.totalOutletsCount}</strong> Outlet Buka
+                      </span>
+                    </div>
+
+                    {/* Kru Bertugas Metric */}
+                    <div className="inline-flex items-center gap-2 bg-amber-500/20 border border-amber-500/35 text-amber-100 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
+                      <Users size={14} className="text-amber-300 shrink-0" />
+                      <span>
+                        <strong className="text-white font-black">{operationalMetrics.currentlyWorkingCrew}</strong> Kru Bertugas
+                      </span>
+                      <span className="text-amber-200/60 font-medium text-[11px] border-l border-amber-400/20 pl-2 ml-0.5">
+                        {operationalMetrics.totalAttendedCount} hadir hari ini
+                      </span>
+                    </div>
+                  </>
                 )
               ) : (
-                <a
-                  href="/absensi"
-                  className="inline-flex items-center gap-1.5 bg-red-500/25 border border-red-500/40 text-red-100 hover:bg-red-500/40 active:scale-95 transition-all text-[10px] font-extrabold px-3 py-1 rounded-full cursor-pointer"
-                >
-                  <Clock size={11} className="animate-pulse text-red-300" />
-                  <span>Belum Absen Masuk • Klik Untuk Absen</span>
-                </a>
+                latestAttendance ? (
+                  latestAttendance.type === 'in' ? (
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-500/25 border border-emerald-500/35 text-emerald-100 text-[10px] font-extrabold px-3 py-1 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span>Absen Masuk: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 bg-amber-500/25 border border-amber-500/35 text-amber-100 text-[10px] font-extrabold px-3 py-1 rounded-full">
+                      <CheckCircle2 size={11} className="text-amber-300" />
+                      <span>Absen Pulang: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
+                    </span>
+                  )
+                ) : (
+                  <a
+                    href="/absensi"
+                    className="inline-flex items-center gap-1.5 bg-red-500/25 border border-red-500/40 text-red-100 hover:bg-red-500/40 active:scale-95 transition-all text-[10px] font-extrabold px-3 py-1 rounded-full cursor-pointer"
+                  >
+                    <Clock size={11} className="animate-pulse text-red-300" />
+                    <span>Belum Absen Masuk • Klik Untuk Absen</span>
+                  </a>
+                )
               )}
             </div>
           </div>

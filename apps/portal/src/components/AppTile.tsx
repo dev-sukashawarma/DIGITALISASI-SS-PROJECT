@@ -1,5 +1,4 @@
 import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield, ArrowUpRight, Wallet, Megaphone } from 'lucide-react'
-import type { ReactNode } from 'react'
 
 interface Props {
   label: string
@@ -8,7 +7,7 @@ interface Props {
 }
 
 interface AppConfig {
-  icon: ReactNode
+  icon: any
   /** Gradient for the icon chip */
   chip: string
   /** Ring + shadow tint on hover */

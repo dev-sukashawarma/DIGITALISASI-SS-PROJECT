@@ -154,9 +154,12 @@
       "G598069695": "SUKA SHAWARMA SAWANGAN (INTERNAL)",
       "G644582841": "SUKA SHAWARMA CIMANGGU",
       "G851339702": "SUKA SHAWARMA JATIWARINGIN",
-      "G601178885": "MITRA PALEDANG"
+      "G601178885": "MITRA PALEDANG",
+      "G817685613": "SUKA SHAWARMA CIRENDEU"
     },
     "byName": {
+      "suka shawarma, ciputat timur": "SUKA SHAWARMA CIRENDEU",
+      "suka shawarma, cirendeu": "SUKA SHAWARMA CIRENDEU",
       "suka shawarma, pajajaran": "SUKA SHAWARMA PAJAJARAN",
       "suka shawarma, beji": "SUKA SHAWARMA BEJI",
       "suka shawarma, depok": "SUKA SHAWARMA DEPOK SUKMAJAYA",
@@ -178,9 +181,7 @@
       "suka shawarma, cibubur kota wisata": "MITRA CIBUBUR",
       "suka shawarma, paledang": "MITRA PALEDANG"
     },
-    "closed": {
-      "G817685613": "SUKA SHAWARMA CIPUTAT TIMUR"
-    }
+    "closed": {}
   },
   "tiktokgo": {
     "byStoreId": {

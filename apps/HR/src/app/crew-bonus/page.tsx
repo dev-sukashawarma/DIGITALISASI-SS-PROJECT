@@ -23,7 +23,10 @@ import {
   CheckCircle2,
   DollarSign,
   PackageCheck,
+  Calendar,
 } from 'lucide-react'
+import { DailyOutletBonusView } from '@/components/modules/DailyOutletBonusView'
+import { CrewDailyBonusModal } from '@/components/modules/CrewDailyBonusModal'
 
 const MONTH_OPTIONS = [
   { label: 'Januari', value: '1' },
@@ -48,6 +51,19 @@ const YEAR_OPTIONS = [
   { label: '2028', value: '2028' },
 ]
 
+const CREW_ROLE_OPTIONS = [
+  { label: 'Semua Posisi', value: 'all' },
+  { label: 'Leader Outlet', value: 'leader' },
+  { label: 'Crew Reguler', value: 'crew' },
+  { label: 'Mobile Backup', value: 'crew_backup' },
+]
+
+const CREW_ATTENDANCE_OPTIONS = [
+  { label: 'Semua Kehadiran', value: 'all' },
+  { label: 'Aktif Hadir (> 0 Hari)', value: 'active' },
+  { label: '0 Hari Hadir', value: 'zero' },
+]
+
 function cleanOutletName(name: string) {
   return name.replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
 }
@@ -56,7 +72,7 @@ const formatNumber = (num: number) => {
   return new Intl.NumberFormat('id-ID').format(num)
 }
 
-type ActiveTab = 'crew' | 'am' | 'rm'
+type ActiveTab = 'crew' | 'daily_outlet' | 'am' | 'rm'
 
 export default function CrewBonusPage() {
   const { data: outlets = [], isLoading: loadingOutlets } = useOutlets()
@@ -64,8 +80,16 @@ export default function CrewBonusPage() {
   const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1)
   const [year, setYear] = useState<number>(() => new Date().getFullYear())
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
+  const [crewRoleFilter, setCrewRoleFilter] = useState<'all' | 'leader' | 'crew' | 'crew_backup'>('all')
+  const [crewAttendanceFilter, setCrewAttendanceFilter] = useState<'all' | 'active' | 'zero'>('all')
   const [activeTab, setActiveTab] = useState<ActiveTab>('crew')
   const [searchQuery, setSearchQuery] = useState('')
+  const [modalCrew, setModalCrew] = useState<{
+    id: string
+    name: string
+    role: string
+    subRole?: string
+  } | null>(null)
 
   // Queries
   const { data: summary, isLoading: loadingSummary } = useMonthlyBonusSummary({ month, year })
@@ -105,16 +129,30 @@ export default function CrewBonusPage() {
 
   const selectedMonthLabel = MONTH_OPTIONS.find((m) => m.value === month.toString())?.label || ''
 
-  // Filtered rows for Search
+  // Filtered rows for Search & Position & Attendance
   const filteredCrew = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return crewBonuses
-    return crewBonuses.filter(
-      (c) =>
-        c.crew_name.toLowerCase().includes(q) ||
-        c.outlet_name.toLowerCase().includes(q)
-    )
-  }, [crewBonuses, searchQuery])
+    return crewBonuses.filter((c) => {
+      // Role filter
+      if (crewRoleFilter === 'leader' && c.role !== 'leader') return false
+      if (crewRoleFilter === 'crew' && (c.role !== 'crew' || c.sub_role === 'crew_backup')) return false
+      if (crewRoleFilter === 'crew_backup' && c.sub_role !== 'crew_backup') return false
+
+      // Attendance filter
+      if (crewAttendanceFilter === 'active' && (c.attendance_days || 0) <= 0) return false
+      if (crewAttendanceFilter === 'zero' && (c.attendance_days || 0) > 0) return false
+
+      // Search query
+      if (q) {
+        const matchName = c.crew_name.toLowerCase().includes(q)
+        const matchOutlet = c.outlet_name.toLowerCase().includes(q)
+        const matchRole = c.role.toLowerCase().includes(q) || (c.sub_role || '').toLowerCase().includes(q)
+        if (!matchName && !matchOutlet && !matchRole) return false
+      }
+
+      return true
+    })
+  }, [crewBonuses, crewRoleFilter, crewAttendanceFilter, searchQuery])
 
   const filteredAM = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -278,7 +316,7 @@ export default function CrewBonusPage() {
       )}
 
       {/* ── Tab Switcher ── */}
-      <div className="inline-flex p-1 bg-suka-gray-100 rounded-2xl border border-suka-gray-200 gap-1">
+      <div className="inline-flex p-1 bg-suka-gray-100 rounded-2xl border border-suka-gray-200 gap-1 flex-wrap">
         <button
           type="button"
           onClick={() => {
@@ -299,6 +337,25 @@ export default function CrewBonusPage() {
             }`}
           >
             {crewBonuses.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('daily_outlet')
+            setSearchQuery('')
+          }}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
+            activeTab === 'daily_outlet'
+              ? 'bg-white text-suka-brown shadow-xs'
+              : 'text-suka-gray-500 hover:text-suka-ink hover:bg-white/50'
+          }`}
+        >
+          <Calendar className={`w-3.5 h-3.5 ${activeTab === 'daily_outlet' ? 'text-suka-orange' : 'text-suka-gray-400'}`} />
+          <span>Rincian Harian Outlet</span>
+          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Detail Per Hari
           </span>
         </button>
 
@@ -363,7 +420,12 @@ export default function CrewBonusPage() {
             <p className="text-xs font-medium text-suka-ink">
               {activeTab === 'crew' && (
                 <>
-                  <span className="text-suka-orange font-bold">Pool Cabang (Pcs × Rp 100)</span> × (Hari Hadir Kru ÷ Total Hari Hadir Cabang)
+                  <span className="text-suka-orange font-bold">Akumulasi Pool Harian</span>: &sum; (Pcs Hari Ini × Rp 100 ÷ Jumlah Kru Hadir Hari Ini)
+                </>
+              )}
+              {activeTab === 'daily_outlet' && (
+                <>
+                  <span className="text-suka-orange font-bold">Pool Harian</span>: (Pcs Terjual Hari Itu × Rp 100) ÷ Jumlah Kru Hadir di Tanggal Tersebut
                 </>
               )}
               {activeTab === 'am' && (
@@ -380,41 +442,73 @@ export default function CrewBonusPage() {
           </div>
         </div>
 
-        {/* Filter & Search Toolbar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          {activeTab === 'crew' && (
-            <Select
-              options={outletOptions}
-              value={selectedOutletId}
-              onChange={setSelectedOutletId}
-              className="w-full sm:w-[210px]"
-              placeholder="Pilih Outlet..."
-              searchable
-            />
-          )}
+        {/* Filter & Search Toolbar (Only for Crew, AM, RM - Daily Outlet has its own toolbar) */}
+        {activeTab !== 'daily_outlet' && (
+          <div className="flex flex-wrap items-stretch sm:items-center gap-2">
+            {activeTab === 'crew' && (
+              <>
+                <Select
+                  options={outletOptions}
+                  value={selectedOutletId}
+                  onChange={setSelectedOutletId}
+                  className="w-full sm:w-[180px]"
+                  placeholder="Pilih Outlet..."
+                  searchable
+                />
+                <Select
+                  options={CREW_ROLE_OPTIONS}
+                  value={crewRoleFilter}
+                  onChange={(val) => setCrewRoleFilter(val as any)}
+                  className="w-full sm:w-[145px]"
+                  placeholder="Semua Posisi..."
+                />
+                <Select
+                  options={CREW_ATTENDANCE_OPTIONS}
+                  value={crewAttendanceFilter}
+                  onChange={(val) => setCrewAttendanceFilter(val as any)}
+                  className="w-full sm:w-[155px]"
+                  placeholder="Semua Kehadiran..."
+                />
+              </>
+            )}
 
-          {/* Live Search Box */}
-          <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={
-                activeTab === 'crew'
-                  ? 'Cari kru, leader, cabang...'
-                  : activeTab === 'am'
-                  ? 'Cari nama AM / binaan...'
-                  : 'Cari nama RM...'
-              }
-              className="w-full pl-8.5 pr-3 py-2 rounded-xl text-xs font-semibold text-suka-ink bg-suka-gray-50 border border-suka-gray-200 outline-none focus:bg-white focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all placeholder:text-suka-gray-400"
-            />
+            {/* Live Search Box */}
+            <div className="relative w-full sm:w-52">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  activeTab === 'crew'
+                    ? 'Cari nama kru, leader...'
+                    : activeTab === 'am'
+                    ? 'Cari nama AM / binaan...'
+                    : 'Cari nama RM...'
+                }
+                className="w-full pl-8.5 pr-3 py-2 rounded-xl text-xs font-semibold text-suka-ink bg-suka-gray-50 border border-suka-gray-200 outline-none focus:bg-white focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all placeholder:text-suka-gray-400"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── Data Tables & States ── */}
-      {isLoading ? (
+      {activeTab === 'daily_outlet' ? (
+        <DailyOutletBonusView
+          month={month}
+          year={year}
+          monthLabel={selectedMonthLabel}
+          outlets={outlets}
+          selectedOutletId={selectedOutletId}
+          onSelectOutletId={setSelectedOutletId}
+          onMonthYearChange={(m, y) => {
+            setMonth(m)
+            setYear(y)
+          }}
+          onOpenCrewDetail={(c) => setModalCrew(c)}
+        />
+      ) : isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 text-suka-gray-500 font-bold text-xs bg-white rounded-2xl border border-suka-gray-200 shadow-xs">
           <div className="w-8 h-8 border-3 border-suka-orange border-t-transparent rounded-full animate-spin mb-3" />
           Memuat data laporan insentif &amp; bonus...
@@ -472,6 +566,7 @@ export default function CrewBonusPage() {
                     <th className="px-5 py-3.5">Role / Sub-Role</th>
                     <th className="px-5 py-3.5">Outlet &amp; Pool Cabang</th>
                     <th className="px-5 py-3.5 text-center">Kehadiran Aktual</th>
+                    <th className="px-5 py-3.5 text-center">Rincian</th>
                     <th className="px-5 py-3.5 text-right">Bonus Diterima</th>
                   </tr>
                 </thead>
@@ -564,6 +659,24 @@ export default function CrewBonusPage() {
                             </span>
                           )}
                         </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setModalCrew({
+                                id: row.crew_id,
+                                name: row.crew_name,
+                                role: row.role,
+                                subRole: row.sub_role,
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-suka-brown bg-suka-gray-100 hover:bg-orange-50 hover:text-suka-orange hover:border-orange-200 border border-suka-gray-200 transition-all cursor-pointer shadow-2xs"
+                            title="Buka rincian harian kehadiran & pembagian bonus"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-suka-orange" />
+                            <span>Rincian</span>
+                          </button>
+                        </td>
                         <td className="px-5 py-3.5 text-right font-mono tabular-nums font-black text-emerald-700 text-sm">
                           {formatRupiah(row.total_bonus)}
                         </td>
@@ -574,7 +687,7 @@ export default function CrewBonusPage() {
                 {/* Footer */}
                 <tfoot className="bg-suka-gray-50 border-t-2 border-suka-gray-200 text-suka-ink font-bold">
                   <tr>
-                    <td colSpan={3} className="px-5 py-3 text-xs">
+                    <td colSpan={4} className="px-5 py-3 text-xs">
                       Total ({filteredCrew.length} entri kru &amp; leader)
                     </td>
                     <td className="px-5 py-3 text-right text-xs text-suka-gray-500">
@@ -720,6 +833,18 @@ export default function CrewBonusPage() {
           </div>
         </div>
       )}
+
+      {/* ── Crew Daily Bonus Modal (Drill-Down Personal) ── */}
+      <CrewDailyBonusModal
+        isOpen={Boolean(modalCrew)}
+        onClose={() => setModalCrew(null)}
+        crewId={modalCrew?.id || null}
+        crewName={modalCrew?.name || ''}
+        month={month}
+        year={year}
+        role={modalCrew?.role || 'crew'}
+        subRole={modalCrew?.subRole}
+      />
     </div>
   )
 }

@@ -13,7 +13,6 @@ import {
   Clock,
   RotateCcw,
   Filter,
-  Search,
   UserCheck,
   X,
 } from 'lucide-react'
@@ -30,6 +29,19 @@ function cleanOutletName(name: string) {
 
 const formatNumber = (num: number) => {
   return new Intl.NumberFormat('id-ID').format(num)
+}
+
+function formatDisplayDate(isoDate: string) {
+  const parts = isoDate.split('-')
+  if (parts.length !== 3) return isoDate
+  const monthNamesShort = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'
+  ]
+  const d = parts[2]
+  const m = parseInt(parts[1], 10) - 1
+  const y = parts[0]
+  return `${d} ${monthNamesShort[m] || parts[1]} ${y}`
 }
 
 interface OutletOption {
@@ -66,14 +78,12 @@ export function DailyOutletBonusView({
   const [dateTo, setDateTo] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'unassigned' | 'sales_only' | 'normal'>('all')
 
-  // Crew filter & search
+  // Crew filter
   const [selectedCrewId, setSelectedCrewId] = useState<string>('')
-  const [crewSearch, setCrewSearch] = useState<string>('')
 
   // Reset crew filter when outlet changes
   useEffect(() => {
     setSelectedCrewId('')
-    setCrewSearch('')
   }, [activeOutletId])
 
   const { data: dailyRows = [], isLoading, isError, error } = useDailyOutletBonusDetail({
@@ -84,7 +94,7 @@ export function DailyOutletBonusView({
 
   const today = todayWib()
   const isToday = dateFrom === today && dateTo === today
-  const isFiltered = Boolean(dateFrom || dateTo || statusFilter !== 'all' || selectedCrewId || crewSearch)
+  const isFiltered = Boolean(dateFrom || dateTo || statusFilter !== 'all' || selectedCrewId)
 
   const handleDateFromChange = (newDate: string) => {
     setDateFrom(newDate)
@@ -172,7 +182,7 @@ export function DailyOutletBonusView({
     return found ? cleanOutletName(found.name) : 'Outlet'
   }, [outlets, activeOutletId])
 
-  // Filtered rows based on date range, status, crew selection, and crew search
+  // Filtered rows based on date range, status, and crew selection
   const filteredDailyRows = useMemo(() => {
     return dailyRows.filter((r) => {
       if (dateFrom && r.bonus_date < dateFrom) return false
@@ -187,15 +197,9 @@ export function DailyOutletBonusView({
         if (!isPresent) return false
       }
 
-      if (crewSearch.trim()) {
-        const q = crewSearch.trim().toLowerCase()
-        const hasMatchingCrew = r.crew_list.some((c) => c.crew_name.toLowerCase().includes(q))
-        if (!hasMatchingCrew) return false
-      }
-
       return true
     })
-  }, [dailyRows, dateFrom, dateTo, statusFilter, selectedCrewId, crewSearch])
+  }, [dailyRows, dateFrom, dateTo, statusFilter, selectedCrewId])
 
   // Specific stats when a crew member is selected
   const crewStats = useMemo(() => {
@@ -308,55 +312,30 @@ export function DailyOutletBonusView({
     <div className="space-y-5 text-suka-ink">
       {/* ── Control & Selector Bar ── */}
       <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-xs space-y-3.5">
-        {/* Row 1: Outlet Selector, Crew Filter & Excel Export */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Cabang Selector */}
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-orange-50 text-suka-orange flex items-center justify-center font-bold border border-orange-100 shrink-0">
-                <Store className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-suka-gray-400 block">
-                  Pilih Cabang Operasional
-                </span>
-                <div className="w-56 mt-0.5">
-                  <Select
-                    options={outletOptions}
-                    value={activeOutletId}
-                    onChange={onSelectOutletId}
-                    className="w-full"
-                    placeholder="Pilih Outlet..."
-                    searchable
-                  />
-                </div>
-              </div>
+        {/* Row 1: Outlet Selector & Excel Export */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-orange-50 text-suka-orange flex items-center justify-center font-bold border border-orange-100 shrink-0">
+              <Store className="w-4 h-4" />
             </div>
-
-            {/* Crew Filter Selector */}
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold border border-blue-100 shrink-0">
-                <Users className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-suka-gray-400 block">
-                  Filter Kru Bertugas
-                </span>
-                <div className="w-64 mt-0.5">
-                  <Select
-                    options={crewOptions}
-                    value={selectedCrewId}
-                    onChange={setSelectedCrewId}
-                    className="w-full"
-                    placeholder="Semua Kru Bertugas..."
-                    searchable
-                  />
-                </div>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-suka-gray-400 block">
+                Pilih Cabang Operasional
+              </span>
+              <div className="w-64 mt-0.5">
+                <Select
+                  options={outletOptions}
+                  value={activeOutletId}
+                  onChange={onSelectOutletId}
+                  className="w-full"
+                  placeholder="Pilih Outlet..."
+                  searchable
+                />
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-end lg:self-center">
+          <div className="flex items-center gap-2 self-end sm:self-center">
             <button
               type="button"
               onClick={handleExportExcel}
@@ -369,7 +348,7 @@ export function DailyOutletBonusView({
           </div>
         </div>
 
-        {/* Row 2: Date Filters & Status Filters */}
+        {/* Row 2: Unified Filter Toolbar (Date Range, Crew, Status, Reset) */}
         <div className="pt-3 border-t border-suka-gray-100 flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5 text-xs text-suka-gray-500 font-bold mr-1">
@@ -416,47 +395,20 @@ export function DailyOutletBonusView({
               <CalendarCheck className="w-3.5 h-3.5" />
               <span>Hari Ini</span>
             </button>
-
-            {isFiltered && (
-              <button
-                type="button"
-                onClick={() => {
-                  setDateFrom('')
-                  setDateTo('')
-                  setStatusFilter('all')
-                  setSelectedCrewId('')
-                  setCrewSearch('')
-                }}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-suka-gray-100 hover:bg-suka-gray-200 text-suka-gray-700 border border-suka-gray-200 transition-all cursor-pointer"
-                title="Reset semua filter"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Filter</span>
-              </button>
-            )}
           </div>
 
-          {/* Right Toolbar: Quick Crew Search & Status Filter */}
+          {/* Right Toolbar: Crew Selector, Status Filter & Reset */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Quick Crew Search Input */}
-            <div className="relative w-44">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400" />
-              <input
-                type="text"
-                placeholder="Cari nama kru..."
-                value={crewSearch}
-                onChange={(e) => setCrewSearch(e.target.value)}
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-suka-gray-50 border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange focus:bg-white transition-all text-suka-ink placeholder:text-suka-gray-400"
+            {/* Filter Kru Bertugas Selector */}
+            <div className="w-56">
+              <Select
+                options={crewOptions}
+                value={selectedCrewId}
+                onChange={setSelectedCrewId}
+                className="w-full text-xs"
+                placeholder="Semua Kru Bertugas..."
+                searchable
               />
-              {crewSearch && (
-                <button
-                  type="button"
-                  onClick={() => setCrewSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-gray-400 hover:text-suka-ink cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
 
             {/* Status Filter */}
@@ -469,6 +421,23 @@ export function DailyOutletBonusView({
                 className="w-full text-xs"
               />
             </div>
+
+            {isFiltered && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom('')
+                  setDateTo('')
+                  setStatusFilter('all')
+                  setSelectedCrewId('')
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-suka-gray-100 hover:bg-suka-gray-200 text-suka-gray-700 border border-suka-gray-200 transition-all cursor-pointer"
+                title="Reset semua filter"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -645,17 +614,12 @@ export function DailyOutletBonusView({
               Menampilkan <strong className="text-suka-brown font-mono">{filteredDailyRows.length}</strong> dari <span className="font-mono">{dailyRows.length}</span> hari kalender
               {dateFrom && dateTo && (
                 <span className="ml-1 text-suka-orange font-bold font-mono">
-                  ({dateFrom} s/d {dateTo})
+                  ({formatDisplayDate(dateFrom)} s/d {formatDisplayDate(dateTo)})
                 </span>
               )}
               {activeCrewInfo && (
                 <span className="ml-1 text-blue-600 font-bold">
-                  • Kru: {activeCrewInfo.crew_name}
-                </span>
-              )}
-              {crewSearch && (
-                <span className="ml-1 text-purple-600 font-bold">
-                  • Cari: &quot;{crewSearch}&quot;
+                  • Fokus Kru: {activeCrewInfo.crew_name}
                 </span>
               )}
             </span>
@@ -669,7 +633,6 @@ export function DailyOutletBonusView({
                 setDateTo('')
                 setStatusFilter('all')
                 setSelectedCrewId('')
-                setCrewSearch('')
               }}
               className="text-[11px] font-bold text-suka-orange hover:underline cursor-pointer"
             >
@@ -705,7 +668,7 @@ export function DailyOutletBonusView({
                   <th className="px-5 py-3.5">
                     Kru yang Bertugas di Outlet
                     <span className="block text-[9px] font-normal text-suka-gray-400 lowercase">
-                      (klik chip untuk filter staf)
+                      (klik chip staf untuk fokus hari kerjanya)
                     </span>
                   </th>
                   <th className="px-5 py-3.5 text-right font-black text-emerald-800">
@@ -729,11 +692,11 @@ export function DailyOutletBonusView({
                           : 'hover:bg-suka-cream/30'
                       }`}
                     >
-                      {/* Tanggal & Hari */}
+                      {/* Tanggal & Hari (Human readable) */}
                       <td className="px-5 py-3.5 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-suka-brown text-xs font-mono">
-                            {row.bonus_date}
+                            {formatDisplayDate(row.bonus_date)}
                           </span>
                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-suka-gray-100 text-suka-gray-600 border border-suka-gray-200">
                             {row.day_name}
@@ -778,10 +741,10 @@ export function DailyOutletBonusView({
                         )}
                       </td>
 
-                      {/* Daftar Kru Hadir (Clickable) */}
+                      {/* Daftar Kru Hadir (Clickable & Wider) */}
                       <td className="px-5 py-3.5">
                         {row.crew_list.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5 max-w-md">
+                          <div className="flex flex-wrap gap-1.5 max-w-xl">
                             {row.crew_list.map((c) => {
                               const isLeader = c.role === 'leader'
                               const isBackup = c.sub_role === 'crew_backup'
@@ -792,21 +755,25 @@ export function DailyOutletBonusView({
                                   key={c.crew_id}
                                   type="button"
                                   onClick={() => setSelectedCrewId(isSelected ? '' : c.crew_id)}
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all cursor-pointer ${
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer shadow-2xs ${
                                     isSelected
                                       ? 'bg-suka-orange text-white border-suka-orange ring-2 ring-suka-orange/30 shadow-xs'
                                       : selectedCrewId
                                       ? 'opacity-40 hover:opacity-100 bg-stone-50 text-stone-700 border-stone-200'
                                       : isLeader
-                                      ? 'bg-amber-50 text-amber-900 border-amber-200 hover:border-amber-400'
+                                      ? 'bg-amber-50 text-amber-900 border-amber-200 hover:border-amber-400 hover:bg-amber-100/60'
                                       : isBackup
-                                      ? 'bg-purple-50 text-purple-800 border-purple-200 hover:border-purple-400'
-                                      : 'bg-stone-50 text-stone-700 border-stone-200 hover:border-suka-orange/50'
+                                      ? 'bg-purple-50 text-purple-800 border-purple-200 hover:border-purple-400 hover:bg-purple-100/60'
+                                      : 'bg-stone-50 text-stone-700 border-stone-200 hover:border-suka-orange/60 hover:bg-orange-50/50'
                                   }`}
-                                  title={`Klik untuk memfilter ${c.crew_name}`}
+                                  title={
+                                    isSelected
+                                      ? `Hapus fokus ${c.crew_name}`
+                                      : `Klik untuk fokus hari kerja ${c.crew_name}`
+                                  }
                                 >
                                   <span
-                                    className={`w-3.5 h-3.5 rounded-full text-[9px] flex items-center justify-center font-bold shrink-0 ${
+                                    className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-bold shrink-0 ${
                                       isSelected
                                         ? 'bg-white text-suka-orange'
                                         : isLeader
@@ -818,7 +785,7 @@ export function DailyOutletBonusView({
                                   >
                                     {c.crew_name.charAt(0).toUpperCase()}
                                   </span>
-                                  <span className="truncate max-w-[130px]">{c.crew_name}</span>
+                                  <span className="truncate max-w-[200px]">{c.crew_name}</span>
                                   {isLeader && (
                                     <span className={`text-[9px] font-black uppercase ${isSelected ? 'text-white' : 'text-amber-700'}`}>
                                       (L)

@@ -112,6 +112,35 @@ async function getCombinedStoreMap(
   return map;
 }
 
+/** Resolves outlet name from store mapping with support for historical transitions (e.g., Sawangan) */
+function resolveOutletName(
+  map: StoreMapEntry,
+  storeId: string,
+  storeName: string,
+  date?: string
+): string | null {
+  const sId = (storeId || '').trim();
+  const sName = (storeName || '').trim().toLowerCase();
+
+  // Khusus Sawangan: Mulai 20 September 2026 beralih operasional ke MITRA SAWANGAN DTC
+  const isSawangan =
+    sId === 'G598069695' ||
+    sId === '2b246d96-e506-47f5-b4e2-8e5c68276ed1' ||
+    sId === '6-C7LKRP5JKBBGA2' ||
+    sId === '21972693' ||
+    sName.includes('sawangan');
+
+  if (isSawangan && date) {
+    if (date >= '2026-09-20') {
+      return 'MITRA SAWANGAN DTC';
+    } else {
+      return 'SUKA SHAWARMA SAWANGAN (INTERNAL)';
+    }
+  }
+
+  return map.byStoreId[sId] ?? map.byName[sName] ?? null;
+}
+
 /** Mengambil data pembanding dari POS Internal (tabel `orders`) atau fallback ke `sales_daily_spv`. */
 async function getPosComparisonByOutlet(
   supabase: any,
@@ -275,7 +304,7 @@ export async function previewSettlementFile(formData: FormData) {
         continue;
       }
 
-      const outletName = map.byStoreId[r.storeId] ?? map.byName[r.storeName.trim().toLowerCase()] ?? null;
+      const outletName = resolveOutletName(map, r.storeId, r.storeName, r.date);
       const outletId = outletName ? outletIdByName.get(outletName.trim().toLowerCase()) ?? null : null;
 
       if (!outletId) {
@@ -561,7 +590,7 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
 
       for (const r of rows) {
         if (map.closed[r.storeId] || map.closed[r.storeName.trim().toLowerCase()]) continue;
-        const oName = map.byStoreId[r.storeId] ?? map.byName[r.storeName.trim().toLowerCase()] ?? null;
+        const oName = resolveOutletName(map, r.storeId, r.storeName, r.date);
         const oId = oName ? outletIdByName.get(oName.trim().toLowerCase()) ?? null : null;
         if (!oId) {
           const key = `${platform}|${r.storeId || r.storeName}`;

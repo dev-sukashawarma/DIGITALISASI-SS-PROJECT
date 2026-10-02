@@ -202,18 +202,19 @@ export function computeOrderDeduction(order: KpiOrder, opts: KpiOrderOptions = {
   const isFoodApp = isFoodAppOrder(order)
   const merchantPromo = resolveMerchantPromo(order, opts)
 
+  if (isFoodApp) {
+    // Pada pesanan Food Apps, potongan promo merchant adalah diskon toko
+    // (GoFood dioverride settlement GoBiz; Grab/Shopee dari input kasir).
+    // Pesanan Food Apps tidak menggunakan potongan offline kasir.
+    return merchantPromo
+  }
+
   const items = order.order_items || []
   if (items.length === 0) {
     return discount + merchantPromo
   }
   const menuValue = items.reduce((sum, i) => sum + itemValue(i), 0)
   const offlineDiscount = Math.max(0, menuValue - (Number(order.total_amount) || 0))
-
-  if (isFoodApp) {
-    // Pada pesanan Food Apps, potongan promo merchant adalah diskon toko
-    // (GoFood dioverride settlement GoBiz; Grab/Shopee dari input kasir).
-    return offlineDiscount + merchantPromo
-  }
 
   return offlineDiscount
 }
@@ -336,15 +337,11 @@ export function computeOrderGross(order: KpiOrder, opts: KpiOrderOptions = {}): 
   }
 
   const isFoodApp = isFoodAppOrder(order)
-  const items = order.order_items || []
 
   if (isFoodApp) {
     // Di Food Apps (pasca 19 Agu 2026), total_amount SUDAH harga menu utuh (Gross),
-    // tidak boleh ditambahkan promo_subsidy lagi agar omzet tidak berlipat ganda.
-    if (items.length > 0) {
-      const menuValue = items.reduce((sum, i) => sum + itemValue(i), 0)
-      return Math.max(menuValue, Number(order.total_amount) || 0)
-    }
+    // tidak boleh ditambahkan promo_subsidy lagi agar omzet tidak berlipat ganda,
+    // dan tidak dipengaruhi anomali subtotal item di pos-kasir.
     return Number(order.total_amount) || 0
   }
 

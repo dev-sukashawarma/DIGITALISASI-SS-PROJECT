@@ -3,7 +3,7 @@ export type CashScope = 'pusat' | 'outlet'
 export type CashDirection = 'in' | 'out'
 export type CashSourceType =
   | 'payroll' | 'supplier_po' | 'expense_pusat' | 'kasbon'
-  | 'cash_deposit' | 'manual' | 'transfer'
+  | 'cash_deposit' | 'manual' | 'transfer' | 'petty_cash_topup'
 export type CashTxStatus =
   | 'draft' | 'pending_approval' | 'approved'
   | 'paid' | 'reconciled' | 'rejected' | 'void'
@@ -53,6 +53,7 @@ export interface CashTransaction {
   // joined (optional)
   cash_location?: Pick<CashLocation, 'label' | 'kind'> | null
   outlet?: { name: string } | null
+  topup_description?: string | null
 }
 
 /** Lokasi kas + saldo tergabung untuk tampilan dashboard. */

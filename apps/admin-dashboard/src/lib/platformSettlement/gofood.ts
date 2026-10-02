@@ -85,20 +85,6 @@ const WAKTU_ALIASES = ['waktu transaksi', 'transaction time', 'tanggal transaksi
 const PENJUALAN_ALIASES = ['amount', 'penjualan', 'gross amount', 'total penjualan', 'harga sebelum diskon', 'omzet kotor', 'gross sales', 'subtotal', 'total order amount'];
 const NET_AMOUNT_ALIASES = ['net amount', 'pendapatan bersih', 'netto', 'total pencairan'];
 const BIAYA_ALIASES = ['total biaya', 'total fee', 'komisi', 'biaya layanan', 'potongan', 'commission', 'service fee', 'biaya transaksi'];
-const PROMO_ALIASES = [
-  'merchant promo contribution',
-  'promo yang ditanggung mitra usaha',
-  'promo ditanggung mitra usaha',
-  'promo merchant',
-  'diskon mitra',
-  'promo mitra',
-  'diskon toko',
-  'promo toko',
-  'subsidi mitra',
-  'merchant promo',
-  'promo yang ditanggung merchant',
-  'promo diskon toko'
-];
 
 function findColumnIndex(header: string[], aliases: string[]): number {
   for (const alias of aliases) {
@@ -159,7 +145,9 @@ export const gofoodParser: PlatformParser = {
     const cPenjualan = findColumnIndex(header, PENJUALAN_ALIASES);
     const cNet = findColumnIndex(header, NET_AMOUNT_ALIASES);
     const cTotalBiaya = findColumnIndex(header, BIAYA_ALIASES);
-    const cPromo = findColumnIndex(header, PROMO_ALIASES);
+    const cPromo1 = findColumnIndex(header, ['promo yang ditanggung mitra usaha', 'promo ditanggung mitra usaha', 'promo merchant', 'diskon mitra', 'diskon toko', 'promo toko']);
+    const cPromo2 = findColumnIndex(header, ['gofood discount', 'diskon gofood']);
+    const cPromo3 = findColumnIndex(header, ['merchant promo contribution', 'merchant promo']);
     const cStoreName = findColumnIndex(header, STORE_NAME_ALIASES);
 
     if (cMerchant === -1) throw new Error('Kolom "Merchant ID" tidak ditemukan di file GoFood.');
@@ -177,7 +165,14 @@ export const gofoodParser: PlatformParser = {
       const date = parseAnyDate(r[cWaktu]);
       if (!date) continue;
 
-      const promoMerchant = cPromo !== -1 ? Math.abs(parsePlainNumber(r[cPromo])) : 0;
+      let promoMerchant = 0;
+      if (cPromo1 !== -1 && parsePlainNumber(r[cPromo1])) {
+        promoMerchant = Math.abs(parsePlainNumber(r[cPromo1]));
+      } else if (cPromo2 !== -1 && parsePlainNumber(r[cPromo2])) {
+        promoMerchant = Math.abs(parsePlainNumber(r[cPromo2]));
+      } else if (cPromo3 !== -1 && parsePlainNumber(r[cPromo3])) {
+        promoMerchant = Math.abs(parsePlainNumber(r[cPromo3]));
+      }
       let commission = 0;
       if (cTotalBiaya !== -1) {
         const tb = Math.abs(parsePlainNumber(r[cTotalBiaya]));

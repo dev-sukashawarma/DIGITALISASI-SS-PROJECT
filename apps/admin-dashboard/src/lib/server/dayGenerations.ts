@@ -23,14 +23,17 @@ import path from 'path'
 const FILE = path.join(process.cwd(), '.next', 'cache', 'fetch-cache', 'report-day-generations.json')
 
 let gens: Record<string, number> | null = null
+let lastMtime = 0
 
 function load(): Record<string, number> {
-  if (gens) return gens
   try {
+    const stat = fs.statSync(FILE)
+    if (gens && stat.mtimeMs <= lastMtime) return gens
+    lastMtime = stat.mtimeMs
     const parsed = JSON.parse(fs.readFileSync(FILE, 'utf8'))
     gens = parsed && typeof parsed === 'object' ? parsed : {}
   } catch {
-    gens = {}
+    if (!gens) gens = {}
   }
   return gens
 }

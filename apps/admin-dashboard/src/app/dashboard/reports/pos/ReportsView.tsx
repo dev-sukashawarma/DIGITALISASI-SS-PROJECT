@@ -349,7 +349,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     completedCount: 0, paymentBreakdown: {}, bestSellers: [], bestSellersPdf: [], categoryData: [],
     totalOrders: 0, buyOneGetOneTransactions: 0, buyOneGetOneGiftUnits: 0, successRate: 0, cancelledCount: 0,
     grossRevenue: 0, totalDeductions: 0, totalPlatformSubsidy: 0, netRevenue: 0, totalHPP: 0, grossProfit: 0,
-    totalSettlement: 0, totalRealAdmin: 0, settlementDateRange: '', hasSettlementData: false,
+    totalSettlement: 0, totalSettlementGross: 0, settlementRate: 0, settlementGrossRate: 0, totalRealAdmin: 0, settlementDateRange: '', hasSettlementData: false,
   }
   const analytics = report?.analytics ?? EMPTY_ANALYTICS
   const shifts: ShiftRow[] = report?.shifts ?? []
@@ -786,9 +786,22 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                 <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                   <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                   <div className="relative z-10">
-                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                      Total Settlement
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                        Total Settlement
+                      </p>
+                      {analytics.grossRevenue > 0 && analytics.totalSettlement > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/25 text-[11px] font-bold text-white backdrop-blur-xs shadow-2xs"
+                          title={`Realisasi pencairan bersih: ${analytics.settlementRate ?? ((analytics.totalSettlement / analytics.grossRevenue) * 100).toFixed(1)}% dari Gross Revenue POS`}
+                        >
+                          <CheckCircle2 className="w-3 h-3 text-emerald-300" />
+                          <span>
+                            {analytics.settlementRate ?? ((analytics.totalSettlement / analytics.grossRevenue) * 100).toFixed(1)}% Settle
+                          </span>
+                        </span>
+                      )}
+                    </div>
                     <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalSettlement)}</p>
                     <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
                       {isSSOnlineSelected
@@ -797,12 +810,22 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                           ? 'Hak Penjualan Voucher - Promo Merchant - Komisi TikTok'
                           : 'Omzet Kotor - Promo Merchant - Potongan Komisi Platform'}
                     </p>
-                    {analytics.settlementDateRange && (
-                      <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {analytics.settlementDateRange}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {analytics.settlementDateRange && (
+                        <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {analytics.settlementDateRange}
+                        </p>
+                      )}
+                      {analytics.grossRevenue > 0 && analytics.totalSettlement > 0 && (
+                        <p
+                          className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full"
+                          title={`Realisasi pencairan bersih: ${analytics.settlementRate ?? ((analytics.totalSettlement / analytics.grossRevenue) * 100).toFixed(1)}% dari Gross POS`}
+                        >
+                          <span>{analytics.settlementRate ?? ((analytics.totalSettlement / analytics.grossRevenue) * 100).toFixed(1)}% dari Gross POS</span>
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 

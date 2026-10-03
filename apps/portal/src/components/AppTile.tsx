@@ -248,7 +248,7 @@ export default function AppTile({ id = '', label, url, desc, category, badge }: 
     <a
       href={url}
       aria-label={`${label} - ${desc}`}
-      className={`group relative flex flex-col justify-between overflow-hidden rounded-[22px] border border-suka-brown/[0.08] bg-white/85 backdrop-blur-xl p-5 shadow-[0_4px_16px_-4px_rgba(112,22,4,0.06),0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-300 ease-out hover:-translate-y-1.5 hover:bg-white hover:shadow-[0_20px_40px_-12px_rgba(112,22,4,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-suka-orange focus-visible:ring-offset-2 active:scale-[0.985] cursor-pointer ${hover}`}
+      className={`group relative flex flex-col justify-between overflow-hidden rounded-[20px] sm:rounded-[22px] border border-suka-brown/[0.08] bg-white/85 backdrop-blur-xl p-4 sm:p-5 shadow-[0_4px_16px_-4px_rgba(112,22,4,0.06),0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-300 ease-out hover:-translate-y-1.5 hover:bg-white hover:shadow-[0_20px_40px_-12px_rgba(112,22,4,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-suka-orange focus-visible:ring-offset-2 active:scale-[0.985] cursor-pointer ${hover}`}
     >
       {/* Soft accent radial glow on hover */}
       <div className={`pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full blur-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 ${glow}`} />
@@ -257,32 +257,32 @@ export default function AppTile({ id = '', label, url, desc, category, badge }: 
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-current to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-30" />
 
       {/* Header section: Icon Chip + Badge / Action Arrow */}
-      <div className="relative z-10 flex items-start justify-between gap-3">
-        <div className={`relative flex h-[52px] w-[52px] items-center justify-center rounded-[18px] text-white shadow-md shadow-black/10 ring-1 ring-inset ring-white/30 transition-all duration-300 ease-out group-hover:scale-105 group-hover:-rotate-3 ${chip}`}>
+      <div className="relative z-10 flex items-start justify-between gap-2.5 sm:gap-3">
+        <div className={`relative flex h-11 w-11 sm:h-[52px] sm:w-[52px] items-center justify-center rounded-[15px] sm:rounded-[18px] text-white shadow-md shadow-black/10 ring-1 ring-inset ring-white/30 transition-all duration-300 ease-out group-hover:scale-105 group-hover:-rotate-3 shrink-0 ${chip}`}>
           {icon}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
           {badge ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-800 border border-amber-500/25 shadow-xs">
-              <Sparkles size={10} className="text-amber-600" />
-              {badge}
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 sm:px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-800 border border-amber-500/25 shadow-xs truncate">
+              <Sparkles size={10} className="text-amber-600 shrink-0" />
+              <span>{badge}</span>
             </span>
           ) : (
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border shadow-xs ${tagBadge}`}>
+            <span className={`inline-flex items-center rounded-full px-2 sm:px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border shadow-xs truncate ${tagBadge}`}>
               {tag}
             </span>
           )}
 
-          <span className={`flex h-8 w-8 items-center justify-center rounded-full border border-suka-brown/10 bg-white/90 text-suka-brown/50 shadow-xs transition-all duration-300 group-hover:border-transparent group-hover:text-white ${accentBg}`}>
-            <ArrowUpRight size={15} strokeWidth={2.5} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          <span className={`flex h-7.5 w-7.5 sm:h-8 sm:w-8 items-center justify-center rounded-full border border-suka-brown/10 bg-white/90 text-suka-brown/50 shadow-xs transition-all duration-300 group-hover:border-transparent group-hover:text-white shrink-0 ${accentBg}`}>
+            <ArrowUpRight size={14} strokeWidth={2.5} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </span>
         </div>
       </div>
 
       {/* Body: Title & Description */}
-      <div className="relative z-10 mt-4 flex-1">
-        <h3 className={`text-[15px] sm:text-base font-extrabold tracking-tight text-suka-ink transition-colors duration-200 ${accentText}`}>
+      <div className="relative z-10 mt-3 sm:mt-4 flex-1">
+        <h3 className={`text-sm sm:text-base font-extrabold tracking-tight text-suka-ink transition-colors duration-200 ${accentText}`}>
           {label}
         </h3>
         <p className="mt-1 text-xs leading-relaxed text-suka-gray-500 font-medium line-clamp-2 min-h-[2rem]">
@@ -291,12 +291,12 @@ export default function AppTile({ id = '', label, url, desc, category, badge }: 
       </div>
 
       {/* Footer: Action button with animated affordance */}
-      <div className={`relative z-10 mt-4 flex items-center justify-between border-t border-suka-brown/[0.06] pt-3 text-[10px] font-black uppercase tracking-widest text-suka-brown/70 transition-colors duration-200 ${accentText}`}>
+      <div className={`relative z-10 mt-3 sm:mt-4 flex items-center justify-between border-t border-suka-brown/[0.06] pt-2.5 sm:pt-3 text-[10px] font-black uppercase tracking-widest text-suka-brown/70 transition-colors duration-200 ${accentText}`}>
         <span className="inline-flex items-center gap-1.5">
           <span>Buka Modul</span>
           <span className="h-px w-3 bg-current opacity-40 transition-all duration-300 group-hover:w-6 group-hover:opacity-100" />
         </span>
-        <span className="text-[10px] font-black opacity-0 transition-all duration-300 -translate-x-1.5 group-hover:opacity-100 group-hover:translate-x-0">
+        <span className="text-[10px] font-black opacity-60 sm:opacity-0 transition-all duration-300 sm:-translate-x-1.5 group-hover:opacity-100 group-hover:translate-x-0">
           Akses →
         </span>
       </div>

@@ -341,15 +341,15 @@ export default async function LauncherPage() {
   }).replace(/\./g, ':')} WIB`
 
   return (
-    <main className="h-full w-full bg-suka-cream/50 relative overflow-y-auto overflow-x-hidden bg-grain select-none py-8 md:py-12 px-4 sm:px-6">
+    <main className="h-full w-full bg-suka-cream/50 relative overflow-y-auto overflow-x-hidden bg-grain select-none py-4 sm:py-8 md:py-12 px-3 sm:px-6">
       {/* Background soft glowing blur blobs */}
       <div className="absolute top-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-suka-orange/5 blur-[120px] pointer-events-none z-0" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[45vw] h-[45vw] rounded-full bg-suka-brown/5 blur-[120px] pointer-events-none z-0" />
 
-      <div className="max-w-4xl mx-auto space-y-6 relative z-10">
+      <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 relative z-10">
         
         {/* Profile & Workspace Card */}
-        <div className={`relative overflow-hidden rounded-[28px] bg-gradient-to-br ${banner.gradient} p-6 sm:p-7 text-white shadow-2xl shadow-suka-brown/25 ring-1 ring-white/10 border-t border-white/15`}>
+        <div className={`relative overflow-hidden rounded-[22px] sm:rounded-[28px] bg-gradient-to-br ${banner.gradient} p-4 sm:p-6 md:p-7 text-white shadow-2xl shadow-suka-brown/25 ring-1 ring-white/10 border-t border-white/15`}>
           {/* Decorative glows + subtle dot grid */}
           <div className="absolute right-0 top-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute left-1/4 bottom-0 -mb-16 w-52 h-52 bg-suka-orange/25 rounded-full blur-[90px] pointer-events-none" />
@@ -359,20 +359,34 @@ export default async function LauncherPage() {
           />
 
           <div className="relative z-10">
-            {/* Top row: identity + logout/date */}
+            {/* Mobile Top Bar (Title Badge + Clock + Logout) */}
+            <div className="flex sm:hidden items-center justify-between gap-2 border-b border-white/10 pb-3 mb-3">
+              <span className="inline-block text-[9px] font-black tracking-[0.18em] text-white/90 uppercase bg-white/15 px-2.5 py-0.5 rounded-full leading-none backdrop-blur-sm">
+                {banner.title}
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <LiveClock initialTime={initialWibTime} />
+                <LogoutButton />
+              </div>
+            </div>
+
+            {/* Main Identity & Desktop Action Row */}
             <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0">
+              <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
                 <div className="p-0.5 rounded-2xl ring-2 ring-white/25 shadow-lg shrink-0">
-                  <Avatar name={staff.name} size={54} className="rounded-[14px] border border-white/40" />
+                  <Avatar name={staff.name} size={46} className="sm:hidden rounded-[13px] border border-white/40" />
+                  <Avatar name={staff.name} size={54} className="hidden sm:flex rounded-[14px] border border-white/40" />
                 </div>
-                <div className="min-w-0">
-                  <span className="inline-block text-[9px] font-black tracking-[0.2em] text-white/90 uppercase bg-white/15 px-2.5 py-1 rounded-full leading-none backdrop-blur-sm">
+                <div className="min-w-0 flex-1">
+                  {/* Desktop Title Badge */}
+                  <span className="hidden sm:inline-block text-[9px] font-black tracking-[0.2em] text-white/90 uppercase bg-white/15 px-2.5 py-1 rounded-full leading-none backdrop-blur-sm">
                     {banner.title}
                   </span>
-                  <h1 className="mt-2 text-xl sm:text-2xl font-black text-white truncate font-display tracking-wide leading-tight">
-                    {greeting}, {staff.name}
+                  <h1 className="text-base sm:text-2xl font-black text-white font-display tracking-tight sm:tracking-wide leading-tight sm:mt-2">
+                    <span className="text-white/85 font-medium">{greeting}, </span>
+                    <span className="font-black text-white">{staff.name}</span>
                   </h1>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-semibold text-white/70 leading-none">
+                  <div className="mt-1 sm:mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-[11px] font-semibold text-white/70 leading-none">
                     <span className="capitalize inline-flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-suka-orange" />
                       {staff.role.replace('_', ' ')}
@@ -386,11 +400,12 @@ export default async function LauncherPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col items-end gap-2 shrink-0">
+              {/* Desktop Logout & Clock (hidden on mobile) */}
+              <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">
                 <LogoutButton />
                 <div className="flex flex-col items-end gap-1">
                   <LiveClock initialTime={initialWibTime} />
-                  <span className="hidden sm:block text-[10px] font-bold text-white/55 text-right leading-tight capitalize">
+                  <span className="text-[10px] font-bold text-white/55 text-right leading-tight capitalize">
                     {dateLabel}
                   </span>
                 </div>
@@ -398,29 +413,34 @@ export default async function LauncherPage() {
             </div>
 
             {/* Status strip: Executive operational metrics (Owner & Admin) vs Non-executive attendance */}
-            <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-2.5 flex-wrap">
+            <div className="mt-3.5 sm:mt-4 pt-3.5 sm:pt-4 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5">
               {isExecutiveRole ? (
                 operationalMetrics && (
                   <>
                     {/* Outlet Buka Metric */}
-                    <div className="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/35 text-emerald-100 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-                      </span>
-                      <Store size={14} className="text-emerald-300 shrink-0" />
+                    <div className="inline-flex items-center justify-between sm:justify-start gap-2 bg-emerald-500/20 border border-emerald-500/35 text-emerald-100 text-xs font-bold px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                        </span>
+                        <Store size={14} className="text-emerald-300 shrink-0" />
+                        <span className="text-emerald-200/90 text-[11px] sm:text-xs">Status Outlet:</span>
+                      </div>
                       <span>
                         <strong className="text-white font-black">{operationalMetrics.openOutletsCount} / {operationalMetrics.totalOutletsCount}</strong> Outlet Buka
                       </span>
                     </div>
 
                     {/* Kru Bertugas Metric */}
-                    <div className="inline-flex items-center gap-2 bg-amber-500/20 border border-amber-500/35 text-amber-100 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
-                      <Users size={14} className="text-amber-300 shrink-0" />
-                      <span>
-                        <strong className="text-white font-black">{operationalMetrics.currentlyWorkingCrew}</strong> Kru Bertugas
-                      </span>
-                      <span className="text-amber-200/60 font-medium text-[11px] border-l border-amber-400/20 pl-2 ml-0.5">
+                    <div className="inline-flex items-center justify-between sm:justify-start gap-2 bg-amber-500/20 border border-amber-500/35 text-amber-100 text-xs font-bold px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
+                      <div className="flex items-center gap-2">
+                        <Users size={14} className="text-amber-300 shrink-0" />
+                        <span>
+                          <strong className="text-white font-black">{operationalMetrics.currentlyWorkingCrew}</strong> Kru Bertugas
+                        </span>
+                      </div>
+                      <span className="text-amber-200/80 font-semibold text-[10px] sm:text-[11px] sm:border-l sm:border-amber-400/20 sm:pl-2">
                         {operationalMetrics.totalAttendedCount} hadir hari ini
                       </span>
                     </div>
@@ -429,22 +449,22 @@ export default async function LauncherPage() {
               ) : (
                 latestAttendance ? (
                   latestAttendance.type === 'in' ? (
-                    <span className="inline-flex items-center gap-1.5 bg-emerald-500/25 border border-emerald-500/35 text-emerald-100 text-[10px] font-extrabold px-3 py-1 rounded-full">
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-500/25 border border-emerald-500/35 text-emerald-100 text-[10px] sm:text-xs font-extrabold px-3 py-1.5 rounded-xl">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                       <span>Absen Masuk: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 bg-amber-500/25 border border-amber-500/35 text-amber-100 text-[10px] font-extrabold px-3 py-1 rounded-full">
-                      <CheckCircle2 size={11} className="text-amber-300" />
+                    <span className="inline-flex items-center gap-1.5 bg-amber-500/25 border border-amber-500/35 text-amber-100 text-[10px] sm:text-xs font-extrabold px-3 py-1.5 rounded-xl">
+                      <CheckCircle2 size={12} className="text-amber-300" />
                       <span>Absen Pulang: {new Date(latestAttendance.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })} WIB</span>
                     </span>
                   )
                 ) : (
                   <a
                     href="/absensi"
-                    className="inline-flex items-center gap-1.5 bg-red-500/25 border border-red-500/40 text-red-100 hover:bg-red-500/40 active:scale-95 transition-all text-[10px] font-extrabold px-3 py-1 rounded-full cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 bg-red-500/25 border border-red-500/40 text-red-100 hover:bg-red-500/40 active:scale-95 transition-all text-[11px] sm:text-xs font-extrabold px-3.5 py-1.5 rounded-xl cursor-pointer"
                   >
-                    <Clock size={11} className="animate-pulse text-red-300" />
+                    <Clock size={12} className="animate-pulse text-red-300" />
                     <span>Belum Absen Masuk • Klik Untuk Absen</span>
                   </a>
                 )

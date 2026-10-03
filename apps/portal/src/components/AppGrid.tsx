@@ -96,15 +96,17 @@ export default function AppGrid({ apps }: AppGridProps) {
   return (
     <section className="space-y-4">
       {/* Header bar with title, search input, and count indicator */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-suka-orange/10 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-suka-orange/15 text-suka-orange">
-            <LayoutGrid size={14} strokeWidth={2.5} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-suka-orange/10 pb-3">
+        <div className="flex items-center justify-between sm:justify-start gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-suka-orange/15 text-suka-orange shrink-0">
+              <LayoutGrid size={14} strokeWidth={2.5} />
+            </div>
+            <h2 className="text-xs font-black uppercase tracking-widest text-suka-orange">
+              Aplikasi Anda
+            </h2>
           </div>
-          <h2 className="text-xs font-black uppercase tracking-widest text-suka-orange">
-            Aplikasi Anda
-          </h2>
-          <span className="ml-1 rounded-full bg-suka-brown/10 px-2 py-0.5 text-[10px] font-black text-suka-brown/70 tabular-nums">
+          <span className="rounded-full bg-suka-brown/10 px-2.5 py-0.5 text-[10px] font-black text-suka-brown/70 tabular-nums">
             {filteredApps.length === apps.length
               ? `${apps.length} modul`
               : `${filteredApps.length} dari ${apps.length} modul`}
@@ -121,8 +123,8 @@ export default function AppGrid({ apps }: AppGridProps) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari modul (tekan /)..."
-            className="w-full rounded-full border border-suka-brown/15 bg-white/80 py-1.5 pl-8 pr-8 text-xs font-semibold text-suka-ink placeholder:text-suka-brown/40 backdrop-blur-md transition-all focus:border-suka-orange focus:bg-white focus:outline-none focus:ring-2 focus:ring-suka-orange/20 shadow-xs"
+            placeholder="Cari modul aplikasi..."
+            className="w-full rounded-full border border-suka-brown/15 bg-white/85 py-2 sm:py-1.5 pl-8 pr-8 text-xs font-semibold text-suka-ink placeholder:text-suka-brown/40 backdrop-blur-md transition-all focus:border-suka-orange focus:bg-white focus:outline-none focus:ring-2 focus:ring-suka-orange/20 shadow-xs"
           />
           {searchQuery && (
             <button
@@ -136,9 +138,9 @@ export default function AppGrid({ apps }: AppGridProps) {
         </div>
       </div>
 
-      {/* Category Filter Pills (displayed when multiple categories exist) */}
+      {/* Category Filter Pills (with edge-to-edge smooth swipe on mobile) */}
       {groups.length > 2 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 no-scrollbar scroll-smooth overscroll-x-contain touch-pan-x -mx-3 px-3 sm:mx-0 sm:px-0">
           {groups.map(group => {
             const isSelected = selectedGroup === group.name
             return (
@@ -146,7 +148,7 @@ export default function AppGrid({ apps }: AppGridProps) {
                 key={group.name}
                 type="button"
                 onClick={() => setSelectedGroup(group.name)}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition-all cursor-pointer select-none active:scale-95 ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 sm:py-1 text-[11px] font-bold transition-all cursor-pointer select-none active:scale-95 ${
                   isSelected
                     ? 'bg-suka-ink text-white shadow-xs'
                     : 'bg-white/70 text-suka-brown/70 hover:bg-white hover:text-suka-ink border border-suka-brown/10'
@@ -168,7 +170,7 @@ export default function AppGrid({ apps }: AppGridProps) {
 
       {/* Grid of Alphabetically Sorted App Tiles */}
       {filteredApps.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 lg:gap-5">
           {filteredApps.map(app => (
             <AppTile
               key={app.id}

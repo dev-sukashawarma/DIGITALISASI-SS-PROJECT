@@ -35,11 +35,11 @@ export default function LiveClock({ initialTime = '', className = '' }: LiveCloc
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-mono font-bold tracking-wider text-amber-200/95 bg-black/25 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15 shadow-sm tabular-nums select-none ${className}`}
+      className={`inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-mono font-bold tracking-wider text-amber-200/95 bg-black/30 backdrop-blur-md px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg border border-white/15 shadow-xs tabular-nums select-none ${className}`}
       title="Waktu Indonesia Barat (WIB)"
     >
       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-      <Clock size={12} className="text-amber-300 shrink-0" />
+      <Clock size={11} className="text-amber-300 shrink-0 hidden sm:inline" />
       <span>{time}</span>
     </div>
   )

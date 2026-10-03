@@ -31,9 +31,11 @@ export default function LogoutButton() {
   return (
     <button
       onClick={handleLogout}
-      className="flex items-center gap-2 px-3 py-2 sm:px-4 border border-white/20 hover:bg-white/10 active:bg-white/20 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-sm shadow-black/5 active:scale-95"
+      title="Keluar dari Portal"
+      aria-label="Keluar dari Portal"
+      className="flex items-center justify-center gap-1.5 h-7 px-2.5 sm:h-auto sm:px-4 sm:py-2 border border-white/20 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-xs active:scale-95 shrink-0"
     >
-      <LogOut size={14} />
+      <LogOut size={13} className="sm:size-3.5" />
       <span className="hidden sm:inline">Keluar</span>
     </button>
   )

@@ -1,60 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search, CalendarClock, Check, Store, Ban, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronRight, Globe2, LayoutGrid, Loader2, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { CurrencyInput } from '@suka/design-system'
-import { savePromosAction } from './actions'
-import PromoDailyScheduleEditor from './PromoDailyScheduleEditor'
-import { toWibInputValue, fromWibInputValue, formatWib, WIB_LABEL } from '@/lib/timezone'
-import { getPromoStatus, validateSchedule, STATUS_LABEL, type PromoDaySchedule, type PromoStatus } from '@/lib/promoSchedule'
+import { Switch } from '@/components/ui/controls'
+import { WIB_LABEL } from '@/lib/timezone'
+import { getPromoStatus, validateSchedule } from '@/lib/promoSchedule'
 import { resolvePromoOutletIds } from '@/lib/promoOutlets'
-import { isRewardEligible, legacyRewardMenuId } from '@/lib/promoReward'
-import { Select } from '@/components/ui/Select'
-
-type MenuItem = {
-  id: string
-  name: string
-  price: number
-  outlet_id?: string | null
-  is_package?: boolean | null
-}
-
-type OutletPromo = {
-  id?: string
-  outlet_id?: string
-  scope: 'global' | 'item'
-  menu_item_id: string | null
-  discount_type: 'percentage' | 'nominal' | 'buy_one_get_one'
-  discount_value: number
-  is_active: boolean
-  min_purchase?: number | null
-  usage_limit?: number | null
-  current_usage?: number
-  quota_scope?: 'global' | 'per_outlet'
-  quota_pool_id?: string | null
-  start_date?: string | null
-  end_date?: string | null
-  daily_start_time?: string | null
-  daily_end_time?: string | null
-  daily_schedule?: PromoDaySchedule[] | null
-  apply_to_food_apps?: boolean
-  sync_to_order_online?: boolean
-  promo_name?: string | null
-  buy_quantity?: number
-  get_quantity?: number
-  reward_menu_item_id?: string | null
-  /** Outlet yang dituju promo ini. Tidak diisi = semua outlet aktif (perilaku lama). */
-  outlet_ids?: string[]
-  /** Menu yang dikecualikan dari promo global. Kosong = semua menu ikut. Hanya scope global. */
-  excluded_menu_item_ids?: string[] | null
-}
-
-type Outlet = {
-  id: string
-  name: string
-}
+import { legacyRewardMenuId } from '@/lib/promoReward'
+import { savePromosAction } from './actions'
+import PromoEditor, { PromoTicket } from './PromoEditor'
+import { MenuThumb, OutletScopeBadge, StatusBadge, promoRule, rupiah } from './promoParts'
+import type { MenuItem, Outlet, OutletPromo, PromoField } from './promoTypes'
 
 interface PromoViewProps {
   initialMenuItems: MenuItem[]
@@ -62,367 +20,19 @@ interface PromoViewProps {
   initialPromos: OutletPromo[]
 }
 
-const STATUS_STYLE: Record<PromoStatus, string> = {
-  nonaktif: 'bg-gray-100 text-gray-600 border-gray-200',
-  terjadwal: 'bg-violet-50 text-violet-700 border-violet-200',
-  berjalan: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  berakhir: 'bg-rose-50 text-rose-700 border-rose-200',
-}
-
-function StatusBadge({ status }: { status: PromoStatus }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold ${STATUS_STYLE[status]}`}>
-      <span className="w-1.5 h-1.5 rounded-full bg-current" />
-      {STATUS_LABEL[status]}
-    </span>
-  )
-}
-
-/** Ringkasan jadwal untuk dibaca sekilas, selalu dalam WIB. */
-function ScheduleSummary({ promo }: { promo: OutletPromo }) {
-  if (promo.daily_schedule && promo.daily_schedule.length > 0) {
-    return (
-      <p className="text-xs text-gray-500">
-        Jadwal per tanggal: {promo.daily_schedule.length} tanggal terdaftar
-        {promo.start_date || promo.end_date ? ' · batas promo tetap mengikuti tanggal mulai/selesai di atas' : ''}.
-      </p>
-    )
-  }
-  if (!promo.start_date && !promo.end_date) {
-    return <p className="text-xs text-gray-500">Tanpa jadwal — berlaku selama promo dinyalakan.</p>
-  }
-  return (
-    <p className="text-xs text-gray-500">
-      {promo.start_date ? `Mulai ${formatWib(promo.start_date)}` : 'Mulai sejak dinyalakan'}
-      {' · '}
-      {promo.end_date ? `Selesai ${formatWib(promo.end_date)}` : 'Tanpa batas akhir'}
-    </p>
-  )
-}
-
-/** Penanda ringkas saat promo tidak menyentuh seluruh outlet aktif. */
-function OutletScopeBadge({ outlets, selectedIds }: { outlets: Outlet[]; selectedIds: string[] }) {
-  const total = outlets.length
-  const count = selectedIds.length
-  if (total === 0 || count === 0 || count >= total) return null
-  const names = outlets.filter(o => selectedIds.includes(o.id)).map(o => o.name).join(', ')
-  return (
-    <span
-      title={names}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold bg-sky-50 text-sky-700 border-sky-200"
-    >
-      <Store className="w-3.5 h-3.5" />
-      {count} dari {total} outlet
-    </span>
-  )
-}
-
-const OUTLET_PICKER_STYLE = {
-  amber: {
-    box: 'border-amber-100 bg-amber-50/50',
-    icon: 'text-amber-600',
-    on: 'bg-amber-500 text-white',
-    link: 'text-amber-700 hover:text-amber-900',
-    accent: 'accent-amber-500',
-  },
-  blue: {
-    box: 'border-blue-100 bg-blue-50/40',
-    icon: 'text-blue-500',
-    on: 'bg-blue-500 text-white',
-    link: 'text-blue-700 hover:text-blue-900',
-    accent: 'accent-blue-500',
-  },
-} as const
-
-/**
- * Pemilih outlet untuk satu promo.
- *
- * Sebagian besar promo berlaku di semua cabang, jadi mode itulah yang tampil
- * lebih dulu dan daftar outletnya disembunyikan — menampilkan puluhan cabang
- * sekaligus hanya membuat kartu promo sesak dan sulit dibaca. Daftar lengkap
- * (dengan pencarian) baru muncul saat admin memang ingin memilih sendiri.
- */
-function OutletScopePicker({
-  outlets,
-  selectedIds,
-  onChange,
-  accent,
-}: {
-  outlets: Outlet[]
-  selectedIds: string[]
-  onChange: (ids: string[]) => void
-  accent: keyof typeof OUTLET_PICKER_STYLE
-}) {
-  const style = OUTLET_PICKER_STYLE[accent]
-  const allIds = outlets.map(o => o.id)
-  const isAll = allIds.length > 0 && allIds.every(id => selectedIds.includes(id))
-  const [mode, setMode] = useState<'all' | 'some'>(isAll ? 'all' : 'some')
-  const [query, setQuery] = useState('')
-
-  const keyword = query.trim().toLowerCase()
-  const visibleOutlets = keyword
-    ? outlets.filter(o => o.name.toLowerCase().includes(keyword))
-    : outlets
-
-  const toggle = (id: string) => {
-    const next = selectedIds.includes(id)
-      ? selectedIds.filter(x => x !== id)
-      : [...selectedIds, id]
-    // Urutan disamakan dengan daftar outlet supaya hasil simpan stabil.
-    onChange(allIds.filter(x => next.includes(x)))
-  }
-
-  const selectMode = (next: 'all' | 'some') => {
-    setMode(next)
-    // Pindah ke "Pilih outlet" tidak mengubah pilihan yang sudah ada — admin
-    // tinggal mencoret yang tidak perlu dari daftar yang muncul.
-    if (next === 'all') onChange(allIds)
-  }
-
-  return (
-    <div className={`rounded-xl border p-4 space-y-3 ${style.box}`}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Store className={`w-4 h-4 shrink-0 ${style.icon}`} />
-          <h3 className="text-sm font-bold text-gray-800">Outlet yang Mendapat Promo</h3>
-        </div>
-        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
-          {([['all', 'Semua outlet'], ['some', 'Pilih outlet']] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => selectMode(value)}
-              aria-pressed={mode === value}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-                mode === value ? style.on : 'text-gray-500 hover:text-gray-800'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {mode === 'all' ? (
-        <p className="text-xs font-semibold text-gray-500">
-          Promo berlaku di seluruh {allIds.length} outlet aktif.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[11rem]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Cari outlet..."
-                className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm font-medium text-gray-900 outline-none transition-colors focus:border-gray-400"
-              />
-            </div>
-            <button type="button" onClick={() => onChange(allIds)} className={`text-xs font-bold ${style.link}`}>
-              Pilih semua
-            </button>
-            <button type="button" onClick={() => onChange([])} className="text-xs font-bold text-gray-500 hover:text-gray-800">
-              Kosongkan
-            </button>
-          </div>
-
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
-            {visibleOutlets.length === 0 ? (
-              <p className="px-3 py-4 text-xs font-medium text-gray-500">Outlet tidak ditemukan.</p>
-            ) : (
-              visibleOutlets.map(outlet => {
-                const active = selectedIds.includes(outlet.id)
-                return (
-                  <label
-                    key={outlet.id}
-                    className="flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:bg-gray-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={() => toggle(outlet.id)}
-                      className={`h-4 w-4 shrink-0 rounded border-gray-300 ${style.accent}`}
-                    />
-                    <span className={`text-sm font-semibold ${active ? 'text-gray-900' : 'text-gray-500'}`}>
-                      {outlet.name}
-                    </span>
-                  </label>
-                )
-              })
-            )}
-          </div>
-
-          <p className={`text-xs font-semibold ${selectedIds.length === 0 ? 'text-rose-600' : 'text-gray-500'}`}>
-            {selectedIds.length === 0
-              ? 'Pilih minimal satu outlet agar promo bisa disimpan.'
-              : `${selectedIds.length} dari ${allIds.length} outlet terpilih.`}
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * Pemilih menu yang DIKECUALIKAN dari promo global.
- *
- * Multi-select berbasis daftar centang + pencarian, dengan chip untuk menu
- * yang sudah dipilih supaya admin bisa melihat sekilas apa saja yang tidak
- * ikut promo tanpa menggulir daftar. Daftar menunya panjang (puluhan item),
- * jadi daftar centang dibatasi tingginya dan bisa dicari.
- */
-function MenuExclusionPicker({
-  menuItems,
-  selectedIds,
-  onChange,
-}: {
-  menuItems: MenuItem[]
-  selectedIds: string[]
-  onChange: (ids: string[]) => void
-}) {
-  const [query, setQuery] = useState('')
-  const keyword = query.trim().toLowerCase()
-  const visible = keyword ? menuItems.filter(m => m.name.toLowerCase().includes(keyword)) : menuItems
-  const allIds = menuItems.map(m => m.id)
-  const selected = menuItems.filter(m => selectedIds.includes(m.id))
-
-  const toggle = (id: string) => {
-    const next = selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]
-    // Urutan disamakan dengan daftar menu supaya hasil simpan stabil.
-    onChange(allIds.filter(x => next.includes(x)))
-  }
-
-  return (
-    <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-4 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Ban className="w-4 h-4 shrink-0 text-rose-500" />
-          <h3 className="text-sm font-bold text-gray-800">Menu yang Dikecualikan</h3>
-        </div>
-        <p className="text-xs font-semibold text-gray-500">
-          {selected.length === 0 ? 'Semua menu ikut promo.' : `${selected.length} menu tidak ikut promo.`}
-        </p>
-      </div>
-      <p className="text-xs text-gray-500">
-        Menu yang dipilih di sini <b>tidak</b> mendapat diskon dari promo ini. Jika menu tersebut punya
-        Promo Per Menu, promo per menu itulah yang dipakai.
-      </p>
-
-      {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selected.map(m => (
-            <span
-              key={m.id}
-              className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700"
-            >
-              {m.name}
-              <button
-                type="button"
-                onClick={() => toggle(m.id)}
-                aria-label={`Hapus ${m.name} dari pengecualian`}
-                className="rounded-full p-0.5 text-rose-400 hover:bg-rose-100 hover:text-rose-700"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
-          <button type="button" onClick={() => onChange([])} className="text-xs font-bold text-gray-500 hover:text-gray-800 px-1">
-            Kosongkan
-          </button>
-        </div>
-      )}
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Cari menu untuk dikecualikan..."
-          className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm font-medium text-gray-900 outline-none transition-colors focus:border-gray-400"
-        />
-      </div>
-
-      <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
-        {visible.length === 0 ? (
-          <p className="px-3 py-4 text-xs font-medium text-gray-500">Menu tidak ditemukan.</p>
-        ) : (
-          visible.map(m => {
-            const active = selectedIds.includes(m.id)
-            return (
-              <label key={m.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={() => toggle(m.id)}
-                  className="h-4 w-4 shrink-0 rounded border-gray-300 accent-rose-500"
-                />
-                <span className={`flex-1 min-w-0 truncate text-sm font-semibold ${active ? 'text-rose-700 line-through decoration-rose-300' : 'text-gray-700'}`}>
-                  {m.name}
-                </span>
-                <span className="text-xs font-medium text-gray-400 shrink-0">Rp {Number(m.price || 0).toLocaleString('id-ID')}</span>
-              </label>
-            )
-          })
-        )}
-      </div>
-    </div>
-  )
-}
-
-/**
- * Pemilih menu gratis Buy X Get Y. Paket tidak bisa dipilih (paket butuh pilihan
- * isi di kasir). Menu bernama sama hanya tampil sekali — server menukarnya ke
- * menu milik tiap outlet (lihat resolveRewardMenuForOutlet).
- */
-function RewardMenuPicker({
-  menuItems,
-  value,
-  onChange,
-}: {
-  menuItems: MenuItem[]
-  value: string | null
-  onChange: (menuId: string) => void
-}) {
-  const seen = new Set<string>()
-  const options = [...menuItems]
-    .filter(isRewardEligible)
-    .sort((a, b) => (a.outlet_id == null ? 0 : 1) - (b.outlet_id == null ? 0 : 1) || a.name.localeCompare(b.name, 'id'))
-    .filter(m => {
-      const key = m.name.trim().toLowerCase()
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, 'id'))
-    .map(m => ({ value: m.id, label: `${m.name} · Rp ${Number(m.price || 0).toLocaleString('id-ID')}` }))
-
-  return (
-    <div className="space-y-1.5">
-      <span className="block text-xs font-bold text-emerald-900">Menu gratis</span>
-      <Select
-        options={options}
-        value={value || ''}
-        onChange={onChange}
-        placeholder="Pilih menu gratis"
-        searchable
-        searchPlaceholder="Cari menu..."
-      />
-    </div>
-  )
-}
+type Tab = 'menu' | 'global'
+type Filter = 'all' | 'active' | 'inactive'
 
 export default function PromoView({ initialMenuItems, initialOutlets, initialPromos }: PromoViewProps) {
   const [menuItems] = useState<MenuItem[]>(initialMenuItems)
-  const [promos, setPromos] = useState<OutletPromo[]>(initialPromos)
-  // Promo lama tanpa pilihan hadiah tetap Original Ayam Reguler (sama dengan server & POS).
-  const defaultRewardId = legacyRewardMenuId(menuItems)
-  const rewardIdOf = (promo: OutletPromo) => promo.reward_menu_item_id || defaultRewardId
-  const rewardNameOf = (promo: OutletPromo) =>
-    menuItems.find(m => m.id === rewardIdOf(promo))?.name || 'menu gratis'
   const [outlets] = useState<Outlet[]>(initialOutlets)
+  const [promos, setPromos] = useState<OutletPromo[]>(initialPromos)
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initialPromos))
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [filter, setFilter] = useState<Filter>('all')
+  const [tab, setTab] = useState<Tab>(() => (initialPromos.some(p => p.scope === 'global' && p.is_active) ? 'global' : 'menu'))
+  const [editingMenuId, setEditingMenuId] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
   // Status jadwal ikut jalan tanpa reload: dievaluasi ulang tiap 30 detik.
   const [now, setNow] = useState<number>(() => Date.now())
@@ -433,14 +43,29 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     return () => clearInterval(timer)
   }, [])
 
+  const dirty = JSON.stringify(promos) !== savedSnapshot
+
+  // Cegah perubahan hilang karena tab ditutup sebelum disimpan.
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
+
+  // Promo lama tanpa pilihan hadiah tetap Original Ayam Reguler (sama dengan server & POS).
+  const defaultRewardId = legacyRewardMenuId(menuItems)
+  const rewardIdOf = (promo: OutletPromo) => promo.reward_menu_item_id || defaultRewardId
+  const rewardNameOf = (promo: OutletPromo) => menuItems.find(m => m.id === rewardIdOf(promo))?.name || 'menu gratis'
+
   const allOutletIds = outlets.map(o => o.id)
   /** Outlet promo yang tersimpan; promo baru default ke seluruh outlet aktif. */
   const outletIdsOf = (promo: OutletPromo) => resolvePromoOutletIds(promo, allOutletIds)
 
-  const globalPromo = promos.find(p => p.scope === 'global') || {
-    scope: 'global',
-    menu_item_id: null,
-    discount_type: 'percentage',
+  const newPromo = (scope: 'global' | 'item', menuId: string | null): OutletPromo => ({
+    scope,
+    menu_item_id: menuId,
+    discount_type: scope === 'global' ? 'percentage' : 'nominal',
     discount_value: 0,
     is_active: false,
     min_purchase: null,
@@ -451,144 +76,84 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     end_date: null,
     daily_schedule: [],
     apply_to_food_apps: false,
-    sync_to_order_online: false
-    ,promo_name: '',
+    sync_to_order_online: false,
+    promo_name: '',
     buy_quantity: 1,
     get_quantity: 1,
     outlet_ids: allOutletIds,
-    excluded_menu_item_ids: []
-  } as OutletPromo
+    ...(scope === 'global' ? { excluded_menu_item_ids: [] } : {}),
+  })
 
+  const globalPromo = promos.find(p => p.scope === 'global') || newPromo('global', null)
+  const itemPromoOf = (menuId: string) => promos.find(p => p.scope === 'item' && p.menu_item_id === menuId) || newPromo('item', menuId)
   const isGlobalActive = globalPromo.is_active
-  const isGlobalBuyOneGetOne = globalPromo.discount_type === 'buy_one_get_one'
 
-  const handleGlobalPromoChange = (field: keyof OutletPromo, value: any) => {
+  const handleGlobalPromoChange = (field: PromoField, value: any) => {
     setPromos(prev => {
       const updated = [...prev]
       const idx = updated.findIndex(p => p.scope === 'global')
 
+      // Promo semua menu dan promo per menu tidak berjalan bersamaan.
       if (field === 'is_active' && value === true) {
         for (let i = 0; i < updated.length; i++) {
-          if (updated[i].scope === 'item') {
-            updated[i] = { ...updated[i], is_active: false }
-          }
+          if (updated[i].scope === 'item') updated[i] = { ...updated[i], is_active: false }
         }
       }
 
-      if (idx >= 0) {
-        updated[idx] = {
-          ...updated[idx],
-          [field]: value,
-          ...(field === 'discount_type' && value === 'buy_one_get_one'
-            ? {
-                discount_value: 0.01,
-                min_purchase: null,
-                apply_to_food_apps: false,
-                sync_to_order_online: false,
-                excluded_menu_item_ids: [],
-                buy_quantity: updated[idx].buy_quantity ?? 1,
-                get_quantity: updated[idx].get_quantity ?? 1,
-                quota_scope: updated[idx].quota_scope ?? 'per_outlet',
-              }
-            : {}),
-        }
-      } else {
-        const defaultGlobal: OutletPromo = {
-          scope: 'global',
-          menu_item_id: null,
-          discount_type: 'percentage',
-          discount_value: 0,
-          is_active: false,
-          min_purchase: null,
-          usage_limit: null,
-          current_usage: 0,
-          quota_scope: 'per_outlet',
-          start_date: null,
-          end_date: null,
-          daily_schedule: [],
-          apply_to_food_apps: false,
-          sync_to_order_online: false,
-          promo_name: '',
-          buy_quantity: 1,
-          get_quantity: 1,
-          outlet_ids: allOutletIds,
-          excluded_menu_item_ids: []
-        }
-        updated.push({ ...defaultGlobal, [field]: value })
+      const base = idx >= 0 ? updated[idx] : newPromo('global', null)
+      const next: OutletPromo = {
+        ...base,
+        [field]: value,
+        ...(field === 'discount_type' && value === 'buy_one_get_one'
+          ? {
+              discount_value: 0.01,
+              min_purchase: null,
+              apply_to_food_apps: false,
+              sync_to_order_online: false,
+              excluded_menu_item_ids: [],
+              buy_quantity: base.buy_quantity ?? 1,
+              get_quantity: base.get_quantity ?? 1,
+              quota_scope: base.quota_scope ?? 'per_outlet',
+            }
+          : {}),
       }
+      if (idx >= 0) updated[idx] = next
+      else updated.push(next)
       return updated
     })
   }
 
-  const handleItemPromoChange = (menuId: string, field: keyof OutletPromo, value: any) => {
+  const handleItemPromoChange = (menuId: string, field: PromoField, value: any) => {
     setPromos(prev => {
       const updated = [...prev]
       const idx = updated.findIndex(p => p.scope === 'item' && p.menu_item_id === menuId)
-
-      if (idx >= 0) {
-        updated[idx] = { ...updated[idx], [field]: value }
-      } else {
-        updated.push({
-          scope: 'item',
-          menu_item_id: menuId,
-          discount_type: 'nominal',
-          discount_value: 0,
-          is_active: field === 'is_active' ? value : false,
-          min_purchase: null,
-          usage_limit: null,
-          current_usage: 0,
-          quota_scope: 'per_outlet',
-          start_date: null,
-          end_date: null,
-          daily_schedule: [],
-          apply_to_food_apps: false,
-          sync_to_order_online: false,
-          buy_quantity: 1,
-          get_quantity: 1,
-          outlet_ids: allOutletIds,
-          [field]: value
-        })
-      }
+      if (idx >= 0) updated[idx] = { ...updated[idx], [field]: value }
+      else updated.push({ ...newPromo('item', menuId), [field]: value })
       return updated
     })
   }
 
   const handleSave = async () => {
     setSaving(true)
-
     try {
-      if (!outlets || outlets.length === 0) {
-        throw new Error('Tidak ada outlet aktif untuk diterapkan promo.')
-      }
+      if (!outlets || outlets.length === 0) throw new Error('Tidak ada outlet aktif untuk diterapkan promo.')
 
       // Cegah jadwal terbalik sebelum menyentuh server (DB juga menolaknya).
-      // Promo nonaktif dilewati — dates basi di item yang sudah dimatikan
+      // Promo nonaktif dilewati — tanggal basi di promo yang sudah dimatikan
       // tak boleh memblokir penyimpanan promo lain yang sedang diedit.
       for (const p of promos) {
         if (!p.is_active) continue
-        const label = p.scope === 'global'
-          ? 'Promo Semua Menu'
-          : menuItems.find(m => m.id === p.menu_item_id)?.name || 'Promo menu'
-
-        // Promo aktif harus punya tujuan. Server memeriksa hal yang sama, tapi
-        // pesan di sini menyebut nama promonya sehingga admin tahu kartu mana.
-        if (outletIdsOf(p).length === 0) {
-          throw new Error(`${label}: pilih minimal satu outlet yang masih aktif.`)
-        }
-
+        const label = p.scope === 'global' ? 'Promo Semua Menu' : menuItems.find(m => m.id === p.menu_item_id)?.name || 'Promo menu'
+        if (outletIdsOf(p).length === 0) throw new Error(`${label}: pilih minimal satu outlet yang masih aktif.`)
         const scheduleError = validateSchedule(p)
-        if (scheduleError) {
-          throw new Error(`${label}: ${scheduleError}`)
-        }
+        if (scheduleError) throw new Error(`${label}: ${scheduleError}`)
       }
 
       const result = await savePromosAction(outlets, promos)
+      if (result && !result.success) throw new Error(result.error || 'Gagal menyimpan promo')
 
-      if (result && !result.success) {
-        throw new Error(result.error || 'Gagal menyimpan promo')
-      }
-
-      toast.success('Pengaturan promo berhasil disimpan untuk outlet yang dipilih!')
+      setSavedSnapshot(JSON.stringify(promos))
+      toast.success('Pengaturan promo tersimpan.')
     } catch (err: any) {
       console.error(err)
       toast.error(err.message || 'Gagal menyimpan promo')
@@ -597,750 +162,462 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     }
   }
 
-  const filteredMenuItems = menuItems.filter(m => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  /* ── Data tampilan ── */
 
-  const scheduledCount = promos.filter(p => getPromoStatus(p, now) === 'terjadwal').length
+  const menuCards = useMemo(() => {
+    const keyword = searchQuery.trim().toLowerCase()
+    return menuItems
+      .map(menu => ({ menu, promo: itemPromoOf(menu.id) }))
+      .filter(({ menu, promo }) => {
+        if (keyword && !menu.name.toLowerCase().includes(keyword)) return false
+        if (filter === 'active') return promo.is_active
+        if (filter === 'inactive') return !promo.is_active
+        return true
+      })
+      // Menu yang sedang berpromo tampil paling depan.
+      .sort((a, b) => Number(b.promo.is_active) - Number(a.promo.is_active))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuItems, promos, searchQuery, filter])
+
+  const activeItemPromos = promos.filter(p => p.scope === 'item' && p.is_active && menuItems.some(m => m.id === p.menu_item_id))
+  const counted = [...activeItemPromos, ...(isGlobalActive ? [globalPromo] : [])]
+  const stat = {
+    running: mounted ? counted.filter(p => getPromoStatus(p, now) === 'berjalan').length : 0,
+    scheduled: mounted ? counted.filter(p => getPromoStatus(p, now) === 'terjadwal').length : 0,
+    ended: mounted ? counted.filter(p => getPromoStatus(p, now) === 'berakhir').length : 0,
+  }
+
+  const editingMenu = editingMenuId ? menuItems.find(m => m.id === editingMenuId) || null : null
 
   return (
-    <div className="max-w-4xl w-full mx-auto animate-fade-in">
-      {/* Ruang bawah menjaga kartu terakhir tetap terbaca di balik bilah aksi fixed. */}
+    <div className="mx-auto w-full max-w-6xl animate-fade-in">
+      {/* Ruang bawah menjaga konten terakhir tetap terbaca di balik bilah simpan. */}
       <div className="space-y-6 pb-40">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Pengaturan Promo</h1>
-          <p className="text-gray-500 text-sm sm:text-base mt-1 font-medium">Kelola diskon Global (Seluruh Transaksi) atau diskon Per Menu, per outlet yang dipilih.</p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 text-xs sm:text-sm font-semibold rounded-full border border-amber-200/60">
-              <AlertCircle className="w-4 h-4 mr-1.5" />
-              Tiap promo bisa dibatasi ke outlet tertentu
-            </span>
-            <span className="inline-flex items-center px-3 py-1.5 bg-gray-50 text-gray-600 text-xs sm:text-sm font-semibold rounded-full border border-gray-200">
-              <CalendarClock className="w-4 h-4 mr-1.5" />
-              Semua jam dalam {WIB_LABEL}
-            </span>
-            {scheduledCount > 0 && (
-              <span className="inline-flex items-center px-3 py-1.5 bg-violet-50 text-violet-700 text-xs sm:text-sm font-semibold rounded-full border border-violet-200">
-                {scheduledCount} promo terjadwal
-              </span>
+        {/* ── Header ── */}
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="font-display text-3xl tracking-wide text-suka-brown sm:text-4xl">Pengaturan Promo</h1>
+            <p className="mt-1 max-w-xl text-sm font-medium text-slate-500">
+              Atur diskon dan Beli X Gratis Y untuk kasir POS. Semua jam dalam {WIB_LABEL}.
+            </p>
+          </div>
+          <dl className="grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              { label: 'Berjalan', value: stat.running, tone: 'text-emerald-700 bg-emerald-50' },
+              { label: 'Terjadwal', value: stat.scheduled, tone: 'text-violet-700 bg-violet-50' },
+              { label: 'Berakhir', value: stat.ended, tone: 'text-rose-700 bg-rose-50' },
+            ].map(s => (
+              <div key={s.label} className={`min-w-[5.5rem] rounded-2xl px-4 py-2.5 ${s.tone}`}>
+                <dt className="text-[11px] font-bold uppercase tracking-wide opacity-80">{s.label}</dt>
+                <dd className="font-display text-2xl leading-none">{s.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </header>
+
+        {/* ── Tab ── */}
+        <div role="tablist" aria-label="Jenis promo" className="flex gap-1 rounded-2xl bg-white p-1.5 shadow-sm ring-1 ring-slate-200/70 sm:inline-flex">
+          {([
+            ['menu', 'Promo per menu', <LayoutGrid key="i" className="h-4 w-4" />, `${activeItemPromos.length} aktif`],
+            ['global', 'Promo semua menu', <Globe2 key="i" className="h-4 w-4" />, isGlobalActive ? 'Aktif' : 'Nonaktif'],
+          ] as const).map(([value, label, icon, meta]) => {
+            const active = tab === value
+            return (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(value)}
+                className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-colors duration-150 sm:flex-none ${
+                  active ? 'bg-suka-brown text-white' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {icon}
+                {label}
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${active ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500'}`}>{meta}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {tab === 'menu' ? (
+          <section aria-label="Promo per menu" className="space-y-4">
+            {isGlobalActive && (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <p>
+                  <b>Promo semua menu sedang aktif</b>, jadi promo per menu tidak berlaku. Matikan dulu di tab{' '}
+                  <button type="button" onClick={() => setTab('global')} className="cursor-pointer font-bold underline">
+                    Promo semua menu
+                  </button>
+                  .
+                </p>
+              </div>
             )}
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Cari menu..."
+                  aria-label="Cari menu"
+                  className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/15"
+                />
+              </div>
+              <div role="radiogroup" aria-label="Saring menu" className="flex gap-1 rounded-2xl bg-slate-100 p-1">
+                {([
+                  ['all', 'Semua'],
+                  ['active', 'Berpromo'],
+                  ['inactive', 'Tanpa promo'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={filter === value}
+                    onClick={() => setFilter(value)}
+                    className={`min-h-[40px] flex-1 cursor-pointer whitespace-nowrap rounded-xl px-3.5 text-xs font-bold transition-colors sm:flex-none ${
+                      filter === value ? 'bg-white text-suka-brown shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {menuCards.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-16 text-center">
+                <p className="text-sm font-semibold text-slate-500">Tidak ada menu yang cocok.</p>
+              </div>
+            ) : (
+              <div className={`grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4 ${isGlobalActive ? 'pointer-events-none opacity-50 grayscale' : ''}`}>
+                {menuCards.map(({ menu, promo }) => (
+                  <MenuPromoCard
+                    key={menu.id}
+                    menu={menu}
+                    promo={promo}
+                    rule={promoRule(promo, rewardNameOf(promo))}
+                    outlets={outlets}
+                    outletIds={outletIdsOf(promo)}
+                    mounted={mounted}
+                    now={now}
+                    onOpen={() => setEditingMenuId(menu.id)}
+                    onToggle={on => {
+                      handleItemPromoChange(menu.id, 'is_active', on)
+                      if (on) setEditingMenuId(menu.id)
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        ) : (
+          <section aria-label="Promo semua menu" className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-7">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="font-display text-2xl tracking-wide text-suka-brown">Promo semua menu</h2>
+                <p className="mt-1 text-sm text-slate-500">Berlaku untuk seluruh pesanan. Selama aktif, promo per menu dimatikan.</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2.5">
+                <span className="hidden text-xs font-bold text-slate-500 sm:inline">{isGlobalActive ? 'Aktif' : 'Nonaktif'}</span>
+                <Switch checked={isGlobalActive} onChange={v => handleGlobalPromoChange('is_active', v)} label="Aktifkan promo semua menu" />
+              </div>
+            </div>
+            {!isGlobalActive && (
+              <p className="mb-6 rounded-xl bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
+                Atur detail di bawah, lalu nyalakan saklar di kanan atas agar promo mulai berlaku.
+              </p>
+            )}
+            <PromoEditor
+              promo={globalPromo}
+              menuItems={menuItems}
+              outlets={outlets}
+              outletIds={outletIdsOf(globalPromo)}
+              rewardId={rewardIdOf(globalPromo)}
+              onChange={handleGlobalPromoChange}
+              mounted={mounted}
+              now={now}
+            />
+          </section>
+        )}
+      </div>
+
+      {mounted && editingMenu && (
+        <PromoModal
+          menu={editingMenu}
+          promo={itemPromoOf(editingMenu.id)}
+          menuItems={menuItems}
+          outlets={outlets}
+          outletIds={outletIdsOf(itemPromoOf(editingMenu.id))}
+          rewardId={rewardIdOf(itemPromoOf(editingMenu.id))}
+          rule={promoRule(itemPromoOf(editingMenu.id), rewardNameOf(itemPromoOf(editingMenu.id)))}
+          onChange={(field, value) => handleItemPromoChange(editingMenu.id, field, value)}
+          onClose={() => setEditingMenuId(null)}
+          onSave={handleSave}
+          saving={saving}
+          dirty={dirty}
+          disabled={isGlobalActive}
+          now={now}
+        />
+      )}
+
+      {mounted &&
+        !editingMenu &&
+        createPortal(
+          /* Portal mencegah wrapper swipe/scroll ikut memindahkan bilah fixed. */
+          <div className="pointer-events-none fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom)+1.5rem)] z-40 flex justify-end sm:inset-x-5 lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:w-[min(calc(100%-3rem),56rem)] lg:-translate-x-1/2">
+            <div className="pointer-events-auto flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white/95 p-2.5 pl-4 shadow-[0_12px_32px_-12px_rgba(64,10,7,0.35)] backdrop-blur-md sm:p-3 sm:pl-5">
+              <p className="min-w-0 flex-1 text-xs font-semibold text-slate-500">
+                {dirty ? (
+                  <span className="inline-flex items-center gap-2 text-amber-700">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" /> Ada perubahan belum disimpan
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 text-slate-500">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" /> Semua perubahan tersimpan
+                  </span>
+                )}
+              </p>
+              <SaveButton onClick={handleSave} saving={saving} dirty={dirty} />
+            </div>
+          </div>,
+          document.body,
+        )}
+    </div>
+  )
+}
+
+/* ───────────────────────── Kartu menu ───────────────────────── */
+
+function MenuPromoCard({
+  menu,
+  promo,
+  rule,
+  outlets,
+  outletIds,
+  mounted,
+  now,
+  onOpen,
+  onToggle,
+}: {
+  menu: MenuItem
+  promo: OutletPromo
+  rule: string
+  outlets: Outlet[]
+  outletIds: string[]
+  mounted: boolean
+  now: number
+  onOpen: () => void
+  onToggle: (on: boolean) => void
+}) {
+  const status = getPromoStatus(promo, now)
+  const isBxgy = promo.discount_type === 'buy_one_get_one'
+  // Status bergantung jam browser, jadi pratinjau harga baru dihitung setelah mount.
+  const showDiscount = mounted && !isBxgy && promo.is_active && promo.discount_value > 0 && status === 'berjalan'
+  const discounted =
+    promo.discount_type === 'nominal'
+      ? Math.max(0, menu.price - promo.discount_value)
+      : Math.max(0, menu.price - (menu.price * promo.discount_value) / 100)
+
+  return (
+    <article
+      className={`group flex flex-col overflow-hidden rounded-2xl bg-white transition-shadow duration-200 hover:shadow-[0_12px_28px_-14px_rgba(64,10,7,0.35)] ${
+        promo.is_active ? 'ring-2 ring-suka-orange' : 'ring-1 ring-slate-200'
+      }`}
+    >
+      <button type="button" onClick={onOpen} aria-label={`Atur promo ${menu.name}`} className="relative block w-full cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-suka-orange">
+        <MenuThumb menu={menu} size={240} className="aspect-[4/3] w-full transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none" />
+        {promo.is_active && mounted && (
+          <span className="absolute left-2 top-2">
+            <StatusBadge status={status} />
+          </span>
+        )}
+        <div className="space-y-1 p-3">
+          <p className="line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-tight text-slate-900">{menu.name}</p>
+          {showDiscount ? (
+            <p className="text-xs font-semibold">
+              <span className="text-slate-400 line-through">{rupiah(menu.price)}</span>{' '}
+              <span className="text-emerald-700">{rupiah(discounted)}</span>
+            </p>
+          ) : (
+            <p className="text-xs font-semibold text-slate-500">{rupiah(menu.price)}</p>
+          )}
+        </div>
+      </button>
+      <div className="mt-auto flex items-center gap-2 border-t border-slate-100 px-3 py-2.5">
+        <button type="button" onClick={onOpen} className="min-w-0 flex-1 cursor-pointer text-left">
+          {promo.is_active ? (
+            <>
+              <span className="line-clamp-2 text-xs font-extrabold leading-snug text-suka-brown">{rule}</span>
+              <span className="mt-0.5 block">
+                <OutletScopeBadge outlets={outlets} selectedIds={outletIds} />
+              </span>
+            </>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 group-hover:text-suka-brown">
+              Atur promo <ChevronRight className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </button>
+        <Switch size="sm" checked={promo.is_active} onChange={onToggle} label={`Promo ${menu.name}`} />
+      </div>
+    </article>
+  )
+}
+
+/* ───────────────────────── Modal editor ───────────────────────── */
+
+function SaveButton({ onClick, saving, dirty }: { onClick: () => void; saving: boolean; dirty: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={saving}
+      className={`inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-white transition-colors duration-150 disabled:cursor-wait disabled:opacity-70 sm:px-7 ${
+        dirty ? 'bg-suka-orange shadow-lg shadow-suka-orange/30 hover:bg-[#e3842f]' : 'bg-suka-brown/80 hover:bg-suka-brown'
+      }`}
+    >
+      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+      Simpan promo
+    </button>
+  )
+}
+
+/**
+ * Modal promo per menu. Kolom kiri tetap terlihat (foto, saklar aktif, ringkasan
+ * tiket) sementara form di kanan di-scroll; di layar kecil keduanya bertumpuk.
+ */
+function PromoModal({
+  menu,
+  promo,
+  menuItems,
+  outlets,
+  outletIds,
+  rewardId,
+  rule,
+  onChange,
+  onClose,
+  onSave,
+  saving,
+  dirty,
+  disabled,
+  now,
+}: {
+  menu: MenuItem
+  promo: OutletPromo
+  menuItems: MenuItem[]
+  outlets: Outlet[]
+  outletIds: string[]
+  rewardId: string | null
+  rule: string
+  onChange: (field: PromoField, value: any) => void
+  onClose: () => void
+  onSave: () => void
+  saving: boolean
+  dirty: boolean
+  disabled: boolean
+  now: number
+}) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => {
+      // Escape di dalam popover (kalender, pemilih menu) cukup menutup popover itu.
+      if (e.key === 'Escape' && !document.querySelector('[role="dialog"] [aria-expanded="true"]')) onClose()
+    }
+    document.addEventListener('keydown', esc)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', esc)
+      document.body.style.overflow = prev
+    }
+  }, [onClose])
+
+  const reward = menuItems.find(m => m.id === rewardId)
+
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6">
+      <button type="button" aria-label="Tutup" onClick={onClose} className="absolute inset-0 cursor-default bg-suka-ink/45 backdrop-blur-[3px] animate-fade-in" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Promo ${menu.name}`}
+        className="relative flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-[0_30px_80px_-20px_rgba(64,10,7,0.45)] animate-fade-in sm:max-h-[88vh] sm:rounded-3xl"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Tutup"
+          className="absolute right-3 top-3 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-sm backdrop-blur hover:bg-white hover:text-slate-800"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+          {/* Kolom kiri */}
+          <aside className="shrink-0 space-y-4 bg-suka-cream/70 p-5 md:w-80 md:overflow-y-auto md:border-r md:border-slate-100 md:p-6">
+            <div className="flex items-center gap-4 md:block">
+              <MenuThumb menu={menu} size={272} className="h-20 w-20 shrink-0 rounded-2xl md:aspect-square md:h-auto md:w-full" />
+              <div className="min-w-0 md:mt-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Promo per menu</p>
+                <h2 className="font-display text-2xl leading-tight tracking-wide text-suka-brown">{menu.name}</h2>
+                <p className="mt-0.5 text-sm font-semibold text-slate-500">{rupiah(menu.price)}</p>
+              </div>
+            </div>
+
+            <div className={`flex items-center justify-between gap-3 rounded-2xl border-2 p-3.5 transition-colors ${promo.is_active ? 'border-suka-orange bg-white' : 'border-slate-200 bg-white/70'}`}>
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-slate-900">{promo.is_active ? 'Promo aktif' : 'Promo nonaktif'}</p>
+                <p className="text-[11px] font-medium text-slate-500">{promo.is_active ? 'Berlaku sesuai jadwal.' : 'Nyalakan agar berlaku.'}</p>
+              </div>
+              <Switch checked={promo.is_active} disabled={disabled} onChange={v => onChange('is_active', v)} label={`Aktifkan promo ${menu.name}`} />
+            </div>
+
+            {disabled && (
+              <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3.5 py-3 text-xs font-semibold text-amber-800">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Promo semua menu sedang aktif, jadi promo per menu tidak berlaku.
+              </p>
+            )}
+
+            <PromoTicket promo={promo} rule={rule} trigger={menu} reward={reward} outlets={outlets} outletIds={outletIds} mounted now={now} stacked />
+          </aside>
+
+          {/* Kolom kanan */}
+          <div className="min-w-0 flex-1 p-5 md:overflow-y-auto md:p-7 md:pt-8">
+            <PromoEditor
+              promo={promo}
+              menu={menu}
+              menuItems={menuItems}
+              outlets={outlets}
+              outletIds={outletIds}
+              rewardId={rewardId}
+              onChange={onChange}
+              mounted
+              now={now}
+              hideTicket
+            />
           </div>
         </div>
 
-        {/* PROMO GLOBAL */}
-        <section className={`rounded-2xl p-5 sm:p-8 border-2 transition-all duration-300 ${globalPromo.is_active ? 'border-amber-400 bg-white shadow-card' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
-          <div className="flex justify-between items-start gap-4">
-            <div className="min-w-0">
-              <h2 className={`font-bold text-lg sm:text-xl flex items-center gap-2 ${globalPromo.is_active ? 'text-amber-700' : 'text-gray-900'}`}>
-                <Tag className={`w-5 h-5 sm:w-6 sm:h-6 shrink-0 ${globalPromo.is_active ? 'text-amber-500' : 'text-gray-400'}`} />
-                Promo Semua Menu
-              </h2>
-              <p className="text-sm text-gray-500 mt-1 font-medium">Berlaku untuk total harga semua pesanan tanpa terkecuali saat promo diaktifkan.</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {mounted && <StatusBadge status={getPromoStatus(globalPromo, now)} />}
-                <OutletScopeBadge outlets={outlets} selectedIds={outletIdsOf(globalPromo)} />
-                {!isGlobalBuyOneGetOne && (globalPromo.excluded_menu_item_ids?.length || 0) > 0 && (
-                  <span
-                    title={menuItems.filter(m => globalPromo.excluded_menu_item_ids!.includes(m.id)).map(m => m.name).join(', ')}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold bg-rose-50 text-rose-700 border-rose-200"
-                  >
-                    <Ban className="w-3.5 h-3.5" />
-                    {globalPromo.excluded_menu_item_ids!.length} menu dikecualikan
-                  </span>
-                )}
-              </div>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-              <input type="checkbox" className="sr-only peer" checked={globalPromo.is_active} onChange={(e) => handleGlobalPromoChange('is_active', e.target.checked)} />
-              <div className="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-500"></div>
-            </label>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-amber-200/50 space-y-6 animate-fade-in">
-              {!globalPromo.is_active && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Atur detail promo terlebih dahulu, lalu aktifkan toggle di atas agar promo mulai berlaku.
-                </div>
-              )}
-              {/* Nilai diskon */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-700">Nama Promo</label>
-                  <input value={globalPromo.promo_name || ''} onChange={e => handleGlobalPromoChange('promo_name', e.target.value)} placeholder="Contoh: Promo Kemerdekaan" className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900" />
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-700">Tipe Diskon</label>
-                  <select
-                    className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900 appearance-none cursor-pointer"
-                    value={globalPromo.discount_type}
-                    onChange={e => handleGlobalPromoChange('discount_type', e.target.value)}
-                  >
-                    <option value="percentage">Persentase (%)</option>
-                    <option value="nominal">Nominal (Rp)</option>
-                    <option value="buy_one_get_one">Buy X Get Y (Semua Menu)</option>
-                  </select>
-                </div>
-                {isGlobalBuyOneGetOne ? (
-                  <div className="md:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                    <p className="font-bold">Buy X Get Y untuk Semua Menu</p>
-                    <p className="mt-1">Semua menu dapat menjadi menu pemicu. Hadiahnya <strong>{rewardNameOf(globalPromo)}</strong>, hanya berlaku di POS kasir/endorse dan tidak berlaku di Food Apps atau Order Website.</p>
-                    <div className="mt-4">
-                      <RewardMenuPicker
-                        menuItems={menuItems}
-                        value={rewardIdOf(globalPromo)}
-                        onChange={id => handleGlobalPromoChange('reward_menu_item_id', id)}
-                      />
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <label className="space-y-1.5">
-                        <span className="block text-xs font-bold text-emerald-900">Beli minimal (X)</span>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          onWheel={(e) => e.currentTarget.blur()}
-                          value={globalPromo.buy_quantity ?? 1}
-                          onChange={e => handleGlobalPromoChange('buy_quantity', Math.max(1, Number(e.target.value) || 1))}
-                          className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-900 outline-none focus:border-emerald-500"
-                        />
-                      </label>
-                      <label className="space-y-1.5">
-                        <span className="block text-xs font-bold text-emerald-900">Gratis (Y)</span>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          onWheel={(e) => e.currentTarget.blur()}
-                          value={globalPromo.get_quantity ?? 1}
-                          onChange={e => handleGlobalPromoChange('get_quantity', Math.max(1, Number(e.target.value) || 1))}
-                          className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-900 outline-none focus:border-emerald-500"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700">Nilai Diskon</label>
-                    <div className="relative">
-                      {globalPromo.discount_type === 'nominal' ? (
-                        <CurrencyInput
-                          value={globalPromo.discount_value || 0}
-                          onChange={v => handleGlobalPromoChange('discount_value', v)}
-                          className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 pr-4 outline-none transition-colors font-bold text-gray-900"
-                        />
-                      ) : (
-                        <input
-                          type="number"
-                          onWheel={(e) => e.currentTarget.blur()}
-                          min="0"
-                          max="100"
-                          className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 outline-none transition-colors font-bold text-gray-900 pl-4 pr-11"
-                          value={globalPromo.discount_value || ''}
-                          onChange={e => handleGlobalPromoChange('discount_value', Number(e.target.value))}
-                        />
-                      )}
-                      {globalPromo.discount_type === 'percentage' && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold"><Percent className="w-4 h-4" /></span>}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Outlet tujuan promo */}
-              <OutletScopePicker
-                outlets={outlets}
-                selectedIds={outletIdsOf(globalPromo)}
-                onChange={ids => handleGlobalPromoChange('outlet_ids', ids)}
-                accent="amber"
-              />
-
-              {/* Menu yang dikecualikan dari promo global. Buy X Get Y tidak
-                  memotong harga per menu, jadi pengecualian tidak berlaku di sana. */}
-              {!isGlobalBuyOneGetOne && (
-                <MenuExclusionPicker
-                  menuItems={menuItems}
-                  selectedIds={Array.isArray(globalPromo.excluded_menu_item_ids) ? globalPromo.excluded_menu_item_ids : []}
-                  onChange={ids => handleGlobalPromoChange('excluded_menu_item_ids', ids)}
-                />
-              )}
-
-              {/* Jadwal promo */}
-              <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 sm:p-5 space-y-4">
-                <div className="flex items-center gap-2">
-                  <CalendarClock className="w-4 h-4 text-amber-600 shrink-0" />
-                  <h3 className="text-sm font-bold text-gray-800">Jadwal Promo <span className="text-gray-500 font-medium">({WIB_LABEL})</span></h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-semibold text-gray-700">
-                      Mulai <span className="text-gray-400 font-medium">(Opsional)</span>
-                    </label>
-                    <input
-                      type="datetime-local"
-                      className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
-                      value={mounted ? toWibInputValue(globalPromo.start_date) : ''}
-                      onChange={e => handleGlobalPromoChange('start_date', fromWibInputValue(e.target.value))}
-                    />
-                    <p className="text-xs text-gray-500">Kosongkan agar langsung berlaku.</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-sm font-semibold text-gray-700">
-                      Selesai <span className="text-gray-400 font-medium">(Opsional)</span>
-                    </label>
-                    <input
-                      type="datetime-local"
-                      className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
-                      value={mounted ? toWibInputValue(globalPromo.end_date) : ''}
-                      onChange={e => handleGlobalPromoChange('end_date', fromWibInputValue(e.target.value))}
-                    />
-                    <p className="text-xs text-gray-500">Kosongkan agar tanpa batas akhir.</p>
-                  </div>
-                </div>
-
-                {/* Pembatasan Jam Harian */}
-                <div className="pt-2 border-t border-amber-200/50 space-y-3">
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <div className="relative flex items-center pt-0.5">
-                      <input
-                        type="checkbox"
-                        className="peer sr-only"
-                        checked={!!(globalPromo.daily_start_time || globalPromo.daily_end_time)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            handleGlobalPromoChange('daily_start_time', '17:00:00')
-                            handleGlobalPromoChange('daily_end_time', '20:00:00')
-                          } else {
-                            handleGlobalPromoChange('daily_start_time', null)
-                            handleGlobalPromoChange('daily_end_time', null)
-                          }
-                        }}
-                      />
-                      <div className="w-5 h-5 rounded-md border-2 border-amber-300 bg-white peer-checked:bg-amber-500 peer-checked:border-amber-500 transition-all flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all" strokeWidth={3} />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <span className="block text-sm font-bold text-gray-800 group-hover:text-amber-700 transition-colors">
-                        Hanya berlaku di jam tertentu setiap harinya (Happy Hour)
-                      </span>
-                      <span className="block text-xs text-gray-500 mt-0.5">
-                        Promo otomatis dinonaktifkan di luar jam ini meskipun tanggal masih berlaku.
-                      </span>
-                    </div>
-                  </label>
-
-                  {(globalPromo.daily_start_time || globalPromo.daily_end_time) && (
-                    <div className="grid grid-cols-2 gap-4 pl-8 mt-2">
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-gray-700">Jam Mulai</label>
-                        <input
-                          type="time"
-                          className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-3 py-2 text-sm outline-none transition-colors font-semibold text-gray-900"
-                          value={globalPromo.daily_start_time?.substring(0, 5) || ''}
-                          onChange={(e) => handleGlobalPromoChange('daily_start_time', e.target.value ? e.target.value + ':00' : null)}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-gray-700">Jam Selesai</label>
-                        <input
-                          type="time"
-                          className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-3 py-2 text-sm outline-none transition-colors font-semibold text-gray-900"
-                          value={globalPromo.daily_end_time?.substring(0, 5) || ''}
-                          onChange={(e) => handleGlobalPromoChange('daily_end_time', e.target.value ? e.target.value + ':00' : null)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <PromoDailyScheduleEditor
-                  value={globalPromo.daily_schedule}
-                  startDate={globalPromo.start_date}
-                  dailyStartTime={globalPromo.daily_start_time}
-                  dailyEndTime={globalPromo.daily_end_time}
-                  onChange={value => handleGlobalPromoChange('daily_schedule', value)}
-                  accent="amber"
-                />
-
-                {mounted && <ScheduleSummary promo={globalPromo} />}
-              </div>
-
-              {/* Syarat & kuota */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {!isGlobalBuyOneGetOne && <div className="space-y-1.5">
-                  <label className="block text-sm font-bold text-gray-700">
-                    Minimum Belanja (Rp) <span className="text-gray-400 text-xs font-normal">(Opsional)</span>
-                  </label>
-                  <CurrencyInput
-                    value={globalPromo.min_purchase || 0}
-                    onChange={(v) => handleGlobalPromoChange('min_purchase', v || null)}
-                    className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 pr-4 outline-none transition-colors font-semibold text-gray-900"
-                  />
-                  <p className="text-xs text-gray-500">Kosongkan jika tanpa minimum belanja</p>
-                </div>}
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-bold text-gray-700">
-                    Batas Kuota Pemakaian <span className="text-gray-400 text-xs font-normal">(Opsional)</span>
-                  </label>
-                  {isGlobalBuyOneGetOne && (
-                    <select
-                      value={globalPromo.quota_scope || 'per_outlet'}
-                      onChange={(e) => handleGlobalPromoChange('quota_scope', e.target.value)}
-                      className="w-full bg-white border-2 border-emerald-200 focus:border-emerald-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
-                    >
-                      <option value="per_outlet">Batas per outlet</option>
-                      <option value="global">Satu batas global untuk semua outlet</option>
-                    </select>
-                  )}
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="Contoh: 5"
-                    value={globalPromo.usage_limit || ''}
-                    onChange={(e) => handleGlobalPromoChange('usage_limit', e.target.value ? Number(e.target.value) : null)}
-                    className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
-                  />
-                  <p className="text-xs text-gray-500">
-                    {isGlobalBuyOneGetOne && globalPromo.quota_scope === 'global'
-                      ? 'Satu kuota dipakai bersama oleh semua outlet aktif.'
-                      : isGlobalBuyOneGetOne
-                        ? 'Setiap outlet memiliki kuota masing-masing.'
-                        : 'Kosongkan jika kuota tak terbatas'}
-                  </p>
-                  {globalPromo.usage_limit ? (
-                    <p className="text-xs text-amber-600 font-medium">
-                      Terpakai{isGlobalBuyOneGetOne && globalPromo.quota_scope === 'global' ? ' semua outlet' : ''}: {globalPromo.current_usage || 0} / {globalPromo.usage_limit}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* Kanal */}
-              {isGlobalBuyOneGetOne ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Kanal Food Apps dan Order Website otomatis dinonaktifkan untuk Buy X Get Y.
-                </div>
-              ) : <div className="space-y-3">
-                <div className="flex items-center justify-between gap-4 p-4 bg-amber-50 rounded-xl border border-amber-100">
-                  <div className="min-w-0">
-                    <label className="block text-sm font-bold text-gray-700">Berlaku untuk Food Apps</label>
-                    <p className="text-xs text-gray-500 mt-1">Jika diaktifkan, promo juga berlaku untuk GoFood, GrabFood, ShopeeFood, dll.</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={globalPromo.apply_to_food_apps || false}
-                      onChange={(e) => handleGlobalPromoChange('apply_to_food_apps', e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between gap-4 p-4 bg-orange-50 rounded-xl border border-orange-100">
-                  <div className="min-w-0">
-                    <label className="block text-sm font-bold text-gray-700">Terapkan ke Order Website (Order Online)</label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Jika diaktifkan, promo ini akan otomatis sinkron dan berlaku di platform Order Online.
-                      Promo yang masih berstatus <b>Terjadwal</b> dikirim non-aktif — simpan ulang saat jadwalnya tiba.
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={globalPromo.sync_to_order_online || false}
-                      onChange={(e) => handleGlobalPromoChange('sync_to_order_online', e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-                  </label>
-                </div>
-              </div>}
-          </div>
-        </section>
-
-        {/* PROMO ITEM */}
-        <section className={`rounded-2xl p-5 sm:p-8 space-y-6 border-2 border-gray-100 bg-white shadow-sm transition-all duration-300 ${isGlobalActive ? 'opacity-40 pointer-events-none grayscale' : ''}`}>
-          <div>
-            <h2 className="font-bold text-lg sm:text-xl text-gray-900 flex items-center gap-2">
-              <Tag className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" /> Promo Per Menu
-            </h2>
-            <p className="text-sm text-gray-500 mt-1 font-medium">Berikan diskon untuk menu spesifik. Nonaktif saat Promo Global aktif.</p>
-          </div>
-
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cari nama menu..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-50 border-2 border-transparent focus:border-blue-400 focus:bg-white rounded-xl pl-12 pr-4 py-3 outline-none transition-colors font-medium text-gray-900"
-            />
-          </div>
-
-          <div className="space-y-4 pt-2">
-            {filteredMenuItems.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                <p className="text-gray-500 font-medium">Tidak ada menu yang sesuai pencarian.</p>
-              </div>
-            ) : (
-              filteredMenuItems.map(menu => {
-                const promo = promos.find(p => p.scope === 'item' && p.menu_item_id === menu.id) || {
-                  scope: 'item',
-                  menu_item_id: menu.id,
-                  discount_type: 'nominal',
-                  discount_value: 0,
-                  is_active: false,
-                  min_purchase: null,
-                  start_date: null,
-                  end_date: null,
-                  daily_schedule: [],
-                  sync_to_order_online: false,
-                  buy_quantity: 1,
-                  get_quantity: 1,
-                  outlet_ids: allOutletIds
-                } as OutletPromo
-
-                const status = getPromoStatus(promo, now)
-
-                let discountedPrice = menu.price || 0;
-                // Tampilkan preview harga diskon hanya saat promo sedang berjalan,
-                // bukan saat masih "Terjadwal" atau "Berakhir".
-                const isBuyOneGetOne = promo.discount_type === 'buy_one_get_one'
-                const showDiscountPreview = !isBuyOneGetOne && promo.is_active && promo.discount_value > 0 && status === 'berjalan'
-                if (showDiscountPreview) {
-                  if (promo.discount_type === 'nominal') {
-                    discountedPrice = Math.max(0, (menu.price || 0) - promo.discount_value)
-                  } else {
-                    discountedPrice = Math.max(0, (menu.price || 0) - ((menu.price || 0) * promo.discount_value / 100))
-                  }
-                }
-
-                return (
-                  <div key={menu.id} className={`p-4 sm:p-5 rounded-2xl border-2 transition-all duration-300 ${promo.is_active ? 'bg-white border-blue-300 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200'}`}>
-
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-5">
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-bold text-base sm:text-lg break-words ${promo.is_active ? 'text-blue-900' : 'text-gray-900'}`}>{menu.name}</p>
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5">
-                          {showDiscountPreview ? (
-                            <>
-                              <span className="text-sm text-gray-400 line-through decoration-gray-300 font-medium">Rp {(menu.price || 0).toLocaleString('id-ID')}</span>
-                              <span className="text-base font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Rp {(discountedPrice || 0).toLocaleString('id-ID')}</span>
-                            </>
-                          ) : (
-                            <span className="text-base font-bold text-gray-600">Rp {(menu.price || 0).toLocaleString('id-ID')}</span>
-                          )}
-                          {mounted && promo.is_active && <StatusBadge status={status} />}
-                          {promo.is_active && <OutletScopeBadge outlets={outlets} selectedIds={outletIdsOf(promo)} />}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 sm:gap-4 shrink-0 flex-wrap">
-                        {promo.is_active && (
-                          <div className="flex items-center gap-2 animate-fade-in">
-                            <select
-                              className="bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl py-2 pl-3 pr-8 text-sm font-bold text-blue-800 outline-none transition-colors appearance-none cursor-pointer"
-                              value={promo.discount_type}
-                              onChange={e => handleItemPromoChange(menu.id, 'discount_type', e.target.value)}
-                            >
-                              <option value="nominal">Rp</option>
-                              <option value="percentage">%</option>
-                              <option value="buy_one_get_one">Buy X Get Y</option>
-                            </select>
-
-                            <button
-                              type="button"
-                              onClick={() => handleItemPromoChange(menu.id, 'discount_type', 'buy_one_get_one')}
-                              className={`rounded-xl border-2 px-3 py-2 text-sm font-extrabold transition-colors ${
-                                isBuyOneGetOne
-                                  ? 'border-emerald-500 bg-emerald-500 text-white'
-                                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400'
-                              }`}
-                            >
-                              BxGy
-                            </button>
-
-                            {!isBuyOneGetOne && <div className="relative">
-                              {promo.discount_type === 'nominal' ? (
-                                <CurrencyInput
-                                  value={promo.discount_value || 0}
-                                  onChange={v => handleItemPromoChange(menu.id, 'discount_value', v)}
-                                  className="bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl py-2 text-sm w-28 font-bold text-blue-900 outline-none transition-colors pr-3"
-                                />
-                              ) : (
-                                <input
-                                  type="number"
-                                  onWheel={(e) => e.currentTarget.blur()}
-                                  min="0"
-                                  max="100"
-                                  placeholder="Nilai"
-                                  className="bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl py-2 text-sm w-28 font-bold text-blue-900 outline-none transition-colors pl-3 pr-9"
-                                  value={promo.discount_value || ''}
-                                  onChange={e => handleItemPromoChange(menu.id, 'discount_value', Number(e.target.value))}
-                                />
-                              )}
-                              {promo.discount_type === 'percentage' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-blue-400 font-bold">%</span>}
-                            </div>}
-                          </div>
-                        )}
-
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" checked={promo.is_active} onChange={(e) => handleItemPromoChange(menu.id, 'is_active', e.target.checked)} />
-                          <div className="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-500"></div>
-                        </label>
-                      </div>
-                    </div>
-
-                    {promo.is_active && (
-                      <div className="mt-5 pt-5 border-t border-blue-200/50 space-y-4 animate-fade-in">
-                        {isBuyOneGetOne && (
-                          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                            <p className="font-bold">Buy X Get Y</p>
-                            <p className="mt-1">Atur jumlah produk yang harus dibeli, menu gratis, dan jumlahnya. Hanya POS kasir offline, tidak digabung promo lain, dan berlaku sekali per transaksi.</p>
-                            <div className="mt-4">
-                              <RewardMenuPicker
-                                menuItems={menuItems}
-                                value={rewardIdOf(promo)}
-                                onChange={id => handleItemPromoChange(menu.id, 'reward_menu_item_id', id)}
-                              />
-                            </div>
-                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <label className="space-y-1.5">
-                                <span className="block text-xs font-bold text-emerald-900">Beli minimal (X)</span>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  step="1"
-                                  onWheel={(e) => e.currentTarget.blur()}
-                                  value={promo.buy_quantity ?? 1}
-                                  onChange={e => handleItemPromoChange(menu.id, 'buy_quantity', Math.max(1, Number(e.target.value) || 1))}
-                                  className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-900 outline-none focus:border-emerald-500"
-                                />
-                              </label>
-                              <label className="space-y-1.5">
-                                <span className="block text-xs font-bold text-emerald-900">Gratis (Y)</span>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  step="1"
-                                  onWheel={(e) => e.currentTarget.blur()}
-                                  value={promo.get_quantity ?? 1}
-                                  onChange={e => handleItemPromoChange(menu.id, 'get_quantity', Math.max(1, Number(e.target.value) || 1))}
-                                  className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-900 outline-none focus:border-emerald-500"
-                                />
-                              </label>
-                            </div>
-                            <p className="mt-3 text-xs font-semibold text-emerald-800">Pelanggan membeli {promo.buy_quantity ?? 1} {menu.name}, lalu mendapat {promo.get_quantity ?? 1} {rewardNameOf(promo)} gratis.</p>
-                            <div className="mt-4 pt-4 border-t border-emerald-200/70 space-y-1.5">
-                              <label className="block text-xs font-bold text-emerald-900">Pola batas kuota</label>
-                              <select
-                                value={promo.quota_scope || 'per_outlet'}
-                                onChange={e => handleItemPromoChange(menu.id, 'quota_scope', e.target.value)}
-                                className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none focus:border-emerald-500"
-                              >
-                                <option value="per_outlet">Batas per outlet</option>
-                                <option value="global">Satu batas global untuk semua outlet</option>
-                              </select>
-                              <input
-                                type="number"
-                                min="1"
-                                step="1"
-                                placeholder="Kuota pemakaian (opsional)"
-                                onWheel={e => e.currentTarget.blur()}
-                                value={promo.usage_limit || ''}
-                                onChange={e => handleItemPromoChange(menu.id, 'usage_limit', e.target.value ? Number(e.target.value) : null)}
-                                className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none focus:border-emerald-500"
-                              />
-                              <p className="text-xs text-emerald-700">
-                                {promo.quota_scope === 'global'
-                                  ? 'Satu kuota dipakai bersama oleh semua outlet aktif.'
-                                  : 'Setiap outlet memiliki kuota masing-masing.'}
-                              </p>
-                              {promo.usage_limit ? (
-                                <p className="text-xs text-emerald-700 font-medium">Terpakai{promo.quota_scope === 'global' ? ' semua outlet' : ''}: {promo.current_usage || 0} / {promo.usage_limit}</p>
-                              ) : null}
-                            </div>
-                          </div>
-                        )}
-                        <div className="space-y-1.5">
-                          <label className="block text-sm font-bold text-blue-900">Nama Promo</label>
-                          <input value={promo.promo_name || ''} onChange={e => handleItemPromoChange(menu.id, 'promo_name', e.target.value)} placeholder={`Contoh: Promo ${menu.name}`} className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors" />
-                        </div>
-                        <OutletScopePicker
-                          outlets={outlets}
-                          selectedIds={outletIdsOf(promo)}
-                          onChange={ids => handleItemPromoChange(menu.id, 'outlet_ids', ids)}
-                          accent="blue"
-                        />
-                        <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
-                          <div className="flex items-center gap-2">
-                            <CalendarClock className="w-4 h-4 text-blue-500 shrink-0" />
-                            <h4 className="text-sm font-bold text-blue-900">Jadwal Promo <span className="text-blue-500/70 font-medium">({WIB_LABEL})</span></h4>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                              <label className="block text-sm font-semibold text-blue-900">Mulai <span className="text-blue-500/70 font-medium">(Opsional)</span></label>
-                              <input
-                                type="datetime-local"
-                                className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors"
-                                value={mounted ? toWibInputValue(promo.start_date) : ''}
-                                onChange={e => handleItemPromoChange(menu.id, 'start_date', fromWibInputValue(e.target.value))}
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="block text-sm font-semibold text-blue-900">Selesai <span className="text-blue-500/70 font-medium">(Opsional)</span></label>
-                              <input
-                                type="datetime-local"
-                                className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors"
-                                value={mounted ? toWibInputValue(promo.end_date) : ''}
-                                onChange={e => handleItemPromoChange(menu.id, 'end_date', fromWibInputValue(e.target.value))}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Pembatasan Jam Harian (Item) */}
-                          <div className="pt-2 border-t border-blue-200/50 space-y-3">
-                            <label className="flex items-start gap-3 cursor-pointer group">
-                              <div className="relative flex items-center pt-0.5">
-                                <input
-                                  type="checkbox"
-                                  className="peer sr-only"
-                                  checked={!!(promo.daily_start_time || promo.daily_end_time)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      handleItemPromoChange(menu.id, 'daily_start_time', '17:00:00')
-                                      handleItemPromoChange(menu.id, 'daily_end_time', '20:00:00')
-                                    } else {
-                                      handleItemPromoChange(menu.id, 'daily_start_time', null)
-                                      handleItemPromoChange(menu.id, 'daily_end_time', null)
-                                    }
-                                  }}
-                                />
-                                <div className="w-5 h-5 rounded-md border-2 border-blue-300 bg-white peer-checked:bg-blue-500 peer-checked:border-blue-500 transition-all flex items-center justify-center">
-                                  <Check className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all" strokeWidth={3} />
-                                </div>
-                              </div>
-                              <div className="flex-1">
-                                <span className="block text-sm font-bold text-blue-900 group-hover:text-blue-700 transition-colors">
-                                  Hanya berlaku di jam tertentu (Happy Hour)
-                                </span>
-                              </div>
-                            </label>
-
-                            {(promo.daily_start_time || promo.daily_end_time) && (
-                              <div className="grid grid-cols-2 gap-4 pl-8 mt-2">
-                                <div className="space-y-1.5">
-                                  <label className="block text-xs font-bold text-blue-800">Jam Mulai</label>
-                                  <input
-                                    type="time"
-                                    className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm outline-none transition-colors font-semibold text-blue-900"
-                                    value={promo.daily_start_time?.substring(0, 5) || ''}
-                                    onChange={(e) => handleItemPromoChange(menu.id, 'daily_start_time', e.target.value ? e.target.value + ':00' : null)}
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="block text-xs font-bold text-blue-800">Jam Selesai</label>
-                                  <input
-                                    type="time"
-                                    className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm outline-none transition-colors font-semibold text-blue-900"
-                                    value={promo.daily_end_time?.substring(0, 5) || ''}
-                                    onChange={(e) => handleItemPromoChange(menu.id, 'daily_end_time', e.target.value ? e.target.value + ':00' : null)}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          <PromoDailyScheduleEditor
-                            value={promo.daily_schedule}
-                            startDate={promo.start_date}
-                            dailyStartTime={promo.daily_start_time}
-                            dailyEndTime={promo.daily_end_time}
-                            onChange={value => handleItemPromoChange(menu.id, 'daily_schedule', value)}
-                            accent="blue"
-                          />
-
-                          {mounted && <ScheduleSummary promo={promo} />}
-                        </div>
-
-                        {!isBuyOneGetOne && <div className="space-y-1.5">
-                          <label className="block text-sm font-bold text-blue-900">Min. Pembelian <span className="text-blue-500/70 font-medium ml-1">(Opsional)</span></label>
-                          <div className="relative">
-                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-blue-400 font-bold">Rp</span>
-                            <input
-                              type="number"
-                              onWheel={(e) => e.currentTarget.blur()}
-                              min="0"
-                              placeholder="0"
-                              className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl pl-10 pr-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors"
-                              value={promo.min_purchase || ''}
-                              onChange={e => handleItemPromoChange(menu.id, 'min_purchase', e.target.value ? Number(e.target.value) : null)}
-                            />
-                          </div>
-                        </div>}
-
-                        {!isBuyOneGetOne && <div className="space-y-3">
-                          <div className="flex items-center justify-between gap-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
-                            <div className="min-w-0">
-                              <label className="block text-sm font-bold text-blue-900">Berlaku untuk Food Apps</label>
-                              <p className="text-xs text-blue-500 mt-0.5">Aktifkan agar promo berlaku di GoFood, GrabFood, dll.</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                              <input
-                                type="checkbox"
-                                className="sr-only peer"
-                                checked={promo.apply_to_food_apps || false}
-                                onChange={(e) => handleItemPromoChange(menu.id, 'apply_to_food_apps', e.target.checked)}
-                              />
-                              <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-                            </label>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-4 p-3 bg-orange-50/50 rounded-xl border border-orange-100">
-                            <div className="min-w-0">
-                              <label className="block text-sm font-bold text-orange-900">Terapkan ke Order Website</label>
-                              <p className="text-xs text-orange-600 mt-0.5">Sinkronkan ke platform Order Online.</p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                              <input
-                                type="checkbox"
-                                className="sr-only peer"
-                                checked={promo.sync_to_order_online || false}
-                                onChange={(e) => handleItemPromoChange(menu.id, 'sync_to_order_online', e.target.checked)}
-                              />
-                              <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
-                            </label>
-                          </div>
-                        </div>}
-                      </div>
-                    )}
-                  </div>
-                )
-              })
+        <footer className="flex items-center gap-3 border-t border-slate-100 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
+          <button type="button" onClick={onClose} className="cursor-pointer rounded-xl px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100">
+            Tutup
+          </button>
+          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-amber-700">
+            {dirty && (
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" /> Belum disimpan
+              </span>
             )}
-          </div>
-        </section>
+          </span>
+          <SaveButton onClick={onSave} saving={saving} dirty={dirty} />
+        </footer>
       </div>
-
-      {mounted && createPortal(
-        /* Portal mencegah wrapper swipe/scroll ikut memindahkan bilah fixed. */
-        <div className="pointer-events-none fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom)+1.5rem)] z-40 flex justify-end sm:inset-x-5 lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:w-[min(calc(100%-3rem),56rem)] lg:-translate-x-1/2">
-          <div className="pointer-events-auto w-full rounded-2xl border border-gray-200 bg-white/95 p-2.5 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] backdrop-blur-md sm:flex sm:justify-end sm:p-4 lg:items-center lg:justify-between lg:gap-3">
-            <p className="hidden text-xs font-medium text-gray-500 lg:block lg:pl-2">
-              Tiap promo disimpan hanya ke outlet yang dipilih di kartunya, dari {outlets.length} outlet aktif. Jam promo mengikuti {WIB_LABEL}.
-            </p>
-            <button
-              className="btn-primary w-full justify-center rounded-xl px-6 py-3 text-sm font-bold shadow-lg shadow-amber-500/30 transition-transform active:scale-95 disabled:opacity-60 sm:w-auto sm:px-8 sm:text-base"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-              <span className="sm:hidden">Simpan Promo</span>
-              <span className="hidden sm:inline">Simpan Pengaturan Promo</span>
-            </button>
-          </div>
-        </div>,
-        document.body,
-      )}
-    </div>
+    </div>,
+    document.body,
   )
 }

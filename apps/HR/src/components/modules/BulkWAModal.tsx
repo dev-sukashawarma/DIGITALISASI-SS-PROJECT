@@ -11,6 +11,7 @@ import {
   X,
   Phone,
   AlertTriangle,
+  FileText,
 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
@@ -32,8 +33,9 @@ export function BulkWAModal({ records, month, year, onClose }: BulkWAModalProps)
     () => new Set(records.filter((r) => !!r.outlet_staff?.phone).map((r) => r.id))
   )
 
-  // Custom Note
+  // Custom Note & PDF Options
   const [customNote, setCustomNote] = useState('')
+  const [sendPdfFile, setSendPdfFile] = useState(true)
 
   // WAHA Settings (Advanced)
   const [showSettings, setShowSettings] = useState(false)
@@ -119,6 +121,7 @@ export function BulkWAModal({ records, month, year, onClose }: BulkWAModalProps)
     try {
       const res = await sendBulkWahaSalarySlips(targetRecords, {
         customHeaderNote: customNote || undefined,
+        sendPdfFile,
         baseUrl: wahaBaseUrl || undefined,
         session: wahaSession || undefined,
         apiKey: wahaApiKey || undefined,
@@ -270,6 +273,30 @@ export function BulkWAModal({ records, month, year, onClose }: BulkWAModalProps)
             placeholder="Contoh: Selamat gajian! Gaji telah ditransfer per tanggal 28. Cek mutasi rekening Anda."
             className="w-full rounded-xl border border-suka-gray-200 px-3.5 py-2 text-xs sm:text-sm font-medium outline-none focus:border-suka-orange"
           />
+        </div>
+
+        {/* Toggle PDF Attachment */}
+        <div className="shrink-0 p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={sendPdfFile}
+              onChange={(e) => setSendPdfFile(e.target.checked)}
+              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+            />
+            <div>
+              <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <FileText size={14} className="text-emerald-700" />
+                Sertakan Lampiran Dokumen PDF Resmi (A5)
+              </span>
+              <p className="text-[11px] text-emerald-800/80 mt-0.5">
+                Karyawan akan menerima pesan teks rincian gaji diikuti dengan file dokumen PDF resmi yang dapat disimpan/dicetak.
+              </p>
+            </div>
+          </label>
+          <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 shrink-0">
+            {sendPdfFile ? 'PDF AKTIF' : 'TEKS SAJA'}
+          </span>
         </div>
 
         {/* Selection Bar */}

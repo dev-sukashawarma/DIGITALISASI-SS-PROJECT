@@ -1,6 +1,6 @@
 'use server'
 
-import { sendWahaText, checkWahaSessionStatus } from '@/lib/waha'
+import { sendWahaText, sendWahaFile, checkWahaSessionStatus } from '@/lib/waha'
 import { buildSalarySlipWhatsAppMessage } from '@/lib/whatsappSalarySlip'
 import type { PayrollRecord } from '@/lib/types'
 
@@ -30,12 +30,13 @@ function getRandomJitter(minMs: number, maxMs: number): number {
 }
 
 /**
- * Server Action: Broadcast salary slips via WAHA with 4-Layer Anti-Spam Protections
+ * Server Action: Broadcast salary slips via WAHA with 4-Layer Anti-Spam Protections + Optional PDF attachments
  */
 export async function sendBulkWahaSalarySlips(
   records: PayrollRecord[],
   options?: {
     customHeaderNote?: string
+    sendPdfFile?: boolean // default: true
     minDelayMs?: number // default 3500ms
     maxDelayMs?: number // default 7000ms
     batchSize?: number // pause every N messages (default 8)
@@ -49,6 +50,7 @@ export async function sendBulkWahaSalarySlips(
   const maxDelay = options?.maxDelayMs ?? 7000
   const batchSize = options?.batchSize ?? 8
   const batchCooldown = options?.batchCooldownMs ?? 20000
+  const shouldSendPdf = options?.sendPdfFile ?? true
 
   const results: BulkSendItemResult[] = []
   let successCount = 0
@@ -78,7 +80,7 @@ export async function sendBulkWahaSalarySlips(
       messageText = `📢 *Pemberitahuan HR:*\n${options.customHeaderNote.trim()}\n\n` + messageText
     }
 
-    // Layer 3: Simulasi mengetik (typing presence) + Pengiriman via WAHA
+    // Layer 3: Simulasi mengetik (typing presence) + Pengiriman Pesan Rincian via WAHA
     const res = await sendWahaText({
       phone,
       text: messageText,
@@ -89,6 +91,33 @@ export async function sendBulkWahaSalarySlips(
     })
 
     if (res.success) {
+      // Lampirkan Dokumen PDF Resmi (A5) jika opsi aktif
+      if (shouldSendPdf) {
+        try {
+          const { generateSalarySlipPdfBase64 } = await import('@/lib/pdfSalarySlip')
+          const { base64, filename } = await generateSalarySlipPdfBase64(slip)
+
+          // Jeda natural sebelum kirim file lampiran
+          await sleep(1200)
+
+          const fileRes = await sendWahaFile({
+            phone,
+            fileBase64: base64,
+            filename,
+            caption: `📄 Dokumen Resmi Slip Gaji — ${staffName}`,
+            baseUrl: options?.baseUrl,
+            session: options?.session,
+            apiKey: options?.apiKey,
+          })
+
+          if (!fileRes.success) {
+            console.warn(`[WAHA] Lampiran PDF gagal terkirim untuk ${staffName}: ${fileRes.error}`)
+          }
+        } catch (pdfErr: any) {
+          console.error(`[WAHA] Gagal generate PDF untuk ${staffName}:`, pdfErr)
+        }
+      }
+
       successCount++
       results.push({
         recordId: slip.id,
@@ -110,11 +139,9 @@ export async function sendBulkWahaSalarySlips(
 
     // Layer 4: Batch Cooldown & Natural Random Jitter Delay
     if (i < records.length - 1) {
-      // Jeda istirahat panjang tiap kelipatan batchSize (mis. tiap 10 pesan istirahat 5 detik)
       if ((i + 1) % batchSize === 0) {
         await sleep(batchCooldown)
       } else {
-        // Jeda acak manusiawi (1.5s - 3.5s)
         const jitter = getRandomJitter(minDelay, maxDelay)
         await sleep(jitter)
       }
@@ -127,6 +154,68 @@ export async function sendBulkWahaSalarySlips(
     failedCount,
     results,
   }
+}
+
+/**
+ * Server Action: Kirim satu slip gaji individual via WAHA (+ Dokumen PDF)
+ */
+export async function sendSingleWahaSalarySlip(
+  slip: PayrollRecord,
+  options?: {
+    customHeaderNote?: string
+    sendPdfFile?: boolean // default: true
+    baseUrl?: string
+    session?: string
+    apiKey?: string
+  }
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
+  const phone = slip.outlet_staff?.phone || ''
+  if (!phone) {
+    return { success: false, error: 'Nomor WhatsApp staf belum terdaftar di database' }
+  }
+
+  const staffName = slip.outlet_staff?.name || 'Karyawan'
+  let messageText = buildSalarySlipWhatsAppMessage(slip)
+  if (options?.customHeaderNote) {
+    messageText = `📢 *Pemberitahuan HR:*\n${options.customHeaderNote.trim()}\n\n` + messageText
+  }
+
+  const textRes = await sendWahaText({
+    phone,
+    text: messageText,
+    baseUrl: options?.baseUrl,
+    session: options?.session,
+    apiKey: options?.apiKey,
+    simulateTyping: true,
+  })
+
+  if (!textRes.success) {
+    return { success: false, error: textRes.error }
+  }
+
+  const shouldSendPdf = options?.sendPdfFile ?? true
+  if (shouldSendPdf) {
+    try {
+      const { generateSalarySlipPdfBase64 } = await import('@/lib/pdfSalarySlip')
+      const { base64, filename } = await generateSalarySlipPdfBase64(slip)
+
+      await sleep(1200)
+
+      await sendWahaFile({
+        phone,
+        fileBase64: base64,
+        filename,
+        caption: `📄 Dokumen Resmi Slip Gaji — ${staffName}`,
+        baseUrl: options?.baseUrl,
+        session: options?.session,
+        apiKey: options?.apiKey,
+      })
+    } catch (err: any) {
+      console.warn(`[WAHA] PDF send failed for single slip ${staffName}:`, err)
+    }
+  }
+
+  return { success: true, messageId: textRes.messageId }
 }
 
 /**

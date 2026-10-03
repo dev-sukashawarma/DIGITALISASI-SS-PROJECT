@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { FileDown, MessageSquare, Check, X, Clock, Wallet, ShieldAlert, Sparkles, Navigation, Phone, DollarSign } from 'lucide-react'
-import { Button } from '@suka/design-system'
+import { FileDown, MessageSquare, Check, X, Clock, Wallet, ShieldAlert, Sparkles, Navigation, Phone, DollarSign, Send } from 'lucide-react'
+import { Button, Spinner } from '@suka/design-system'
+import { toast } from 'sonner'
 import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah, formatBulanIndonesia } from '@/lib/format'
 import { buildSalarySlipWhatsAppMessage } from '@/lib/whatsappSalarySlip'
@@ -15,6 +16,7 @@ interface SalarySlipModalProps {
 
 export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
   const [copied, setCopied] = useState(false)
+  const [sendingWaha, setSendingWaha] = useState(false)
 
   const b = getPayrollBreakdown(slip)
   const staffName = slip.outlet_staff?.name || 'Karyawan'
@@ -25,6 +27,30 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
   const handleDownloadPdf = async () => {
     const { generateSalarySlipPDF } = await import('@/lib/pdfSalarySlip')
     await generateSalarySlipPDF(slip)
+  }
+
+  const handleSendWaha = async () => {
+    const phone = slip.outlet_staff?.phone
+    if (!phone) {
+      toast.error('Nomor WhatsApp karyawan belum terdaftar di database')
+      return
+    }
+
+    setSendingWaha(true)
+    try {
+      const { sendSingleWahaSalarySlip } = await import('@/app/actions/waha')
+      const res = await sendSingleWahaSalarySlip(slip, { sendPdfFile: true })
+      if (res.success) {
+        toast.success(`Slip gaji & dokumen PDF berhasil dikirim ke WhatsApp ${staffName}!`)
+      } else {
+        toast.warning(`Gagal kirim via WAHA: ${res.error}. Anda dapat membuka WhatsApp manual.`)
+        handleSendWhatsApp()
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal menghubungi server WAHA')
+    } finally {
+      setSendingWaha(false)
+    }
   }
 
   const handleSendWhatsApp = () => {
@@ -235,33 +261,56 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-suka-gray-100">
-          <Button
-            type="button"
-            onClick={handleDownloadPdf}
-            className="bg-suka-brown hover:bg-suka-brown/90 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
-          >
-            <FileDown size={15} /> Download PDF Resmi (A5)
-          </Button>
+        <div className="space-y-2 pt-2 border-t border-suka-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button
+              type="button"
+              onClick={handleDownloadPdf}
+              className="bg-suka-brown hover:bg-suka-brown/90 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <FileDown size={15} /> Download PDF Resmi (A5)
+            </Button>
 
-          <Button
-            type="button"
-            onClick={handleSendWhatsApp}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
-          >
-            <MessageSquare size={15} /> Kirim ke WhatsApp
-          </Button>
-        </div>
+            <Button
+              type="button"
+              disabled={sendingWaha}
+              onClick={handleSendWaha}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              {sendingWaha ? (
+                <>
+                  <Spinner size={14} />
+                  <span>Mengirim WAHA + PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Send size={15} />
+                  <span>Kirim via WAHA (+ PDF)</span>
+                </>
+              )}
+            </Button>
+          </div>
 
-        <div className="flex justify-between items-center text-xs text-suka-gray-400">
-          <button
-            onClick={handleCopyText}
-            className="hover:text-suka-brown underline flex items-center gap-1 font-semibold cursor-pointer"
-          >
-            {copied ? <Check size={12} className="text-emerald-600" /> : null}
-            <span>{copied ? 'Teks Tersalin!' : 'Salin Teks Pesan'}</span>
-          </button>
-          <span>Format resmi Suka Shawarma</span>
+          <div className="flex justify-between items-center text-xs text-suka-gray-500 pt-0.5">
+            <button
+              type="button"
+              onClick={handleSendWhatsApp}
+              className="hover:text-emerald-700 underline flex items-center gap-1 font-medium cursor-pointer"
+              title="Buka web.whatsapp.com / WhatsApp Desktop manual"
+            >
+              <MessageSquare size={13} />
+              <span>Buka WA Manual (wa.me)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopyText}
+              className="hover:text-suka-brown underline flex items-center gap-1 font-semibold cursor-pointer"
+            >
+              {copied ? <Check size={12} className="text-emerald-600" /> : null}
+              <span>{copied ? 'Teks Tersalin!' : 'Salin Teks Pesan'}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

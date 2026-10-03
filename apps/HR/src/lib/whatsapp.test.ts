@@ -67,4 +67,39 @@ describe('pesan WhatsApp', () => {
     expect(msg).toContain('• Denda Keterlambatan: -Rp 12.000')
     expect(msg).toContain('💰 *TAKE HOME PAY: Rp 1.295.692*')
   })
+
+  it('menghasilkan base64 PDF dan nama file slip gaji yang valid untuk WAHA', async () => {
+    const { generateSalarySlipPdfBase64 } = await import('./pdfSalarySlip')
+    const res = await generateSalarySlipPdfBase64({
+      id: 'e5a090-test',
+      staff_id: 'staff-1',
+      period_month: 9,
+      period_year: 2026,
+      basic_salary: 1307692,
+      allowance_position: 0,
+      allowance_presence: 0,
+      bonus: 0,
+      bonus_note: null,
+      deductions: 12000,
+      deduction_note: 'Denda Telat: Rp 12.000',
+      total_salary: 1295692,
+      status: 'finalized',
+      outlet_staff: {
+        name: 'Alfin Rifaldi',
+        role: 'CREW',
+        outlet_id: 'outlet-1',
+        phone: '08123456789',
+        outlets: { name: 'MITRA PAMULANG' },
+        financials: {
+          bank_name: 'BCA',
+          bank_account_number: '6080837249',
+          bank_account_name: 'Alfin Rifaldi',
+        },
+      },
+    })
+
+    expect(res.filename).toBe('Slip_Gaji_Alfin_Rifaldi_9_2026.pdf')
+    expect(typeof res.base64).toBe('string')
+    expect(res.base64.length).toBeGreaterThan(1000)
+  })
 })

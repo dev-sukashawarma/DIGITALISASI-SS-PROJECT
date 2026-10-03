@@ -19,12 +19,14 @@ describe('access matrix', () => {
     expect(isSuperuserRole('owner')).toBe(false)
   })
 
-  it('admin_hr memiliki akses ke absensi, admin-dashboard, HR, stok', () => {
+  it('admin_hr memiliki akses ke absensi, admin-dashboard, HR, stok, marcom', () => {
     expect(hasAppAccess('admin_hr', 'stok')).toBe(true)
     expect(hasAppAccess('admin_hr', 'absensi')).toBe(true)
     expect(hasAppAccess('admin_hr', 'admin-dashboard')).toBe(true)
     expect(hasAppAccess('admin_hr', 'HR')).toBe(true)
+    expect(hasAppAccess('admin_hr', 'marcom')).toBe(true)
     expect(accessibleApps('admin_hr')).toContain('stok')
+    expect(accessibleApps('admin_hr')).toContain('marcom')
   })
 
   it('purchasing memiliki akses ke admin-dashboard, finance, stok, distribusi', () => {
@@ -89,6 +91,7 @@ describe('Kantor Pusat: staf pusat & crew dibatasi', () => {
   it('role lain di Kantor Pusat tidak dibatasi', () => {
     for (const app of ALL_APPS) expect(hasAppAccess('developer', app, null, kantorPusat)).toBe(true)
     expect(hasAppAccess('admin_hr', 'HR', null, kantorPusat)).toBe(true)
+    expect(hasAppAccess('admin_hr', 'marcom', null, kantorPusat)).toBe(true)
     expect(hasAppAccess('admin_finance', 'finance', null, kantorPusat)).toBe(true)
     expect(hasAppAccess('purchasing', 'stok', null, kantorPusat)).toBe(true)
   })

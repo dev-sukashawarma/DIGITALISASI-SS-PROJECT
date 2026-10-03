@@ -101,7 +101,7 @@ Perbedaan **scope** (1 outlet vs lintas outlet) ditegakkan terpisah lewat RLS / 
 **Boleh:**
 - CRUD staff & akun (semua outlet)
 - Lihat & ekspor absensi semua outlet
-- Akses Admin Dashboard (View HR) dan absensi
+- Akses Admin Dashboard (View HR), absensi, dan marcom
 
 **Tidak boleh / hindari:**
 - Akses System Health, konfigurasi sistem teknis, atau mengubah master data (wewenang `admin`).

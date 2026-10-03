@@ -27,7 +27,7 @@ export function isSuperuserRole(role: string | null | undefined): boolean {
 /** Sumber tunggal matriks akses role -> daftar app. Ref: docs/ROLE-JOBDESK.md */
 export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin: ['admin-dashboard', 'absensi', 'inventori', 'stok', 'distribusi', 'finance', 'HR', 'marcom'],
-  admin_hr: ['absensi', 'admin-dashboard', 'HR', 'stok'],
+  admin_hr: ['absensi', 'admin-dashboard', 'HR', 'stok', 'marcom'],
   owner: ['owner-dashboard', 'inventori', 'stok', 'HR', 'marcom'],
   spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard', 'finance', 'manager'],
   regional_manager: ['manager', 'absensi', 'inventori', 'stok', 'distribusi', 'pos-kasir'],

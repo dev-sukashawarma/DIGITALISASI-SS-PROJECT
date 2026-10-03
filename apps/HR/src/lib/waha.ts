@@ -276,14 +276,15 @@ export async function sendWahaFile({
     }
   }
 
-  // Ensure data URL format
-  let dataUrl = fileBase64
-  if (!dataUrl.startsWith('data:')) {
-    dataUrl = `data:${mimetype};base64,${fileBase64}`
+  // WAHA WebJS engine uses window.WWebJS.mediaInfoToFile which decodes via atob(data).
+  // atob() strictly requires raw base64 string (without "data:...;base64," prefix).
+  let cleanBase64 = fileBase64
+  if (cleanBase64.includes('base64,')) {
+    cleanBase64 = cleanBase64.split('base64,')[1]
   }
 
   try {
-    const endpoint = `${targetBaseUrl.replace(/\/+$/, '')}/api/sendFile`
+    const endpoint = `${targetBaseUrl}/api/sendFile`
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
@@ -301,7 +302,7 @@ export async function sendWahaFile({
         file: {
           mimetype,
           filename,
-          data: dataUrl,
+          data: cleanBase64,
         },
         caption: caption || '',
       }),

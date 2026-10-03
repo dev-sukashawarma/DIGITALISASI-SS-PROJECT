@@ -210,7 +210,7 @@ export async function sendSingleWahaSalarySlip(
       await sleep(1200)
 
       const monthName = MONTH_NAMES[slip.period_month - 1] || slip.period_month
-      await sendWahaFile({
+      const fileRes = await sendWahaFile({
         phone,
         fileBase64: base64,
         filename,
@@ -219,8 +219,14 @@ export async function sendSingleWahaSalarySlip(
         session: options?.session,
         apiKey: options?.apiKey,
       })
+
+      if (!fileRes.success) {
+        console.error(`[WAHA] PDF send failed for single slip ${staffName}:`, fileRes.error)
+        return { success: false, error: `Pesan terkirim, namun PDF gagal: ${fileRes.error}` }
+      }
     } catch (err: any) {
       console.warn(`[WAHA] PDF send failed for single slip ${staffName}:`, err)
+      return { success: false, error: `Gagal memproses dokumen PDF: ${err.message}` }
     }
   }
 

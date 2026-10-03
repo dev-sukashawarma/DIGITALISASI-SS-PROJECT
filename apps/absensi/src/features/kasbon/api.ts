@@ -81,3 +81,26 @@ export function useSubmitKasbon() {
     },
   });
 }
+
+/** Batalkan pengajuan sendiri yang belum diputuskan HR. Aturannya (milik sendiri, masih
+ *  pending, belum ada pembayaran) dijaga RPC `batalkan_kasbon`, bukan di sini. Baris dibuang
+ *  dari cache langsung, tanpa refetch riwayat. */
+export function useBatalkanKasbon(userId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc('batalkan_kasbon', { p_id: id });
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: (id) => {
+      queryClient.setQueryData<CashAdvance[]>(['kasbon', userId], (lama) =>
+        lama?.filter((k) => k.id !== id),
+      );
+    },
+    // Ditolak server (mis. HR baru saja menyetujui) — muat ulang supaya status terbaru tampil.
+    onError: () => queryClient.invalidateQueries({ queryKey: ['kasbon', userId] }),
+  });
+}

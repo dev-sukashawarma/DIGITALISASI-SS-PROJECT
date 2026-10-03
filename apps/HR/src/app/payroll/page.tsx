@@ -29,6 +29,7 @@ import { PayrollTable } from '@/components/modules/PayrollTable'
 import { PayrollSlipForm } from '@/components/modules/PayrollSlipForm'
 import { BulkWAModal } from '@/components/modules/BulkWAModal'
 import { KasbonGuardModal, type PendingKasbonItem } from '@/components/modules/KasbonGuardModal'
+import { FinalizeConfirmModal } from '@/components/modules/FinalizeConfirmModal'
 import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
@@ -60,7 +61,9 @@ export default function PayrollPage() {
 
   // Guard states & Pending Kasbon Query
   const [showKasbonGuard, setShowKasbonGuard] = useState(false)
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false)
   const [guardTargetStaff, setGuardTargetStaff] = useState<{ id: string; name: string } | null>(null)
+
 
   const { data: pendingKasbons = [] } = useQuery({
     queryKey: ['pending-kasbons'],
@@ -124,11 +127,13 @@ export default function PayrollPage() {
     })
   }, [payrollData, selectedOutlet, outlets])
 
-  // Summary Totals for Cards
+  // Summary Totals for Cards & Modals
   const summaryTotals = useMemo(() => {
     let totalGajiPokok = 0
     let totalBonus = 0
     let totalKeseluruhan = 0
+    let totalKasbon = 0
+    let draftCount = 0
 
     filteredPayrollData.forEach((r) => {
       const b = getPayrollBreakdown(r)
@@ -136,12 +141,16 @@ export default function PayrollPage() {
       const bonus = (b.overtime + b.salesBonus) > 0 ? (b.overtime + b.salesBonus) : (Number(r.bonus) || 0)
       totalBonus += bonus
       totalKeseluruhan += b.takeHomePay
+      totalKasbon += b.cashAdvanceDeduction
+      if (r.status === 'draft') draftCount++
     })
 
     return {
       totalGajiPokok,
       totalBonus,
       totalKeseluruhan,
+      totalKasbon,
+      draftCount,
       staffCount: filteredPayrollData.length,
     }
   }, [filteredPayrollData])
@@ -215,21 +224,15 @@ export default function PayrollPage() {
   }
 
   const handleFinalize = () => {
-    // GUARD: Jika ada kasbon yang masih pending, tahan dan buka Guard Modal
+    // GUARD 1: Jika ada kasbon yang masih pending, tahan dan buka KasbonGuardModal
     if (pendingKasbons.length > 0) {
       setGuardTargetStaff(null)
       setShowKasbonGuard(true)
       return
     }
 
-    if (
-      !confirm(
-        `Finalize semua slip gaji periode ${MONTHS[month - 1]} ${year}?\n\nPerhatian:\n1. Slip yang sudah final tidak bisa diedit kembali.\n2. Potongan kasbon pada slip akan otomatis memotong sisa hutang karyawan di Modul Kasbon dan mencatat pembayaran cicilan secara resmi.`
-      )
-    )
-      return
-
-    executeFinalizeAll()
+    // GUARD 2: Buka modal konfirmasi resmi
+    setShowFinalizeConfirm(true)
   }
 
   const executeFinalizeSlip = (id: string, staffName: string) => {
@@ -651,6 +654,21 @@ export default function PayrollPage() {
                   }
                 : executeFinalizeAll
             }
+          />
+
+          {/* Finalize Confirmation Guard Modal */}
+          <FinalizeConfirmModal
+            isOpen={showFinalizeConfirm}
+            onClose={() => setShowFinalizeConfirm(false)}
+            onConfirm={() => {
+              setShowFinalizeConfirm(false)
+              executeFinalizeAll()
+            }}
+            isPending={payrollMutations.finalizeAll.isPending}
+            periodText={`${MONTHS[month - 1]} ${year}`}
+            totalSlips={summaryTotals.draftCount || payrollData.length}
+            totalTHP={summaryTotals.totalKeseluruhan}
+            totalKasbonDeduction={summaryTotals.totalKasbon}
           />
         </div>
     </div>

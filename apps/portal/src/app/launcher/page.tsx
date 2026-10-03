@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, getOutletStaff, accessibleApps, getVerifiedUserId } from '@suka/auth'
 import type { AppName } from '@suka/auth'
 import LogoutButton from '@/components/LogoutButton'
-import AppTile from '@/components/AppTile'
+import AppGrid, { type PortalAppItem } from '@/components/AppGrid'
 import { Avatar } from '@suka/design-system'
 import { MapPin, Clock, CheckCircle2, Store, Users } from 'lucide-react'
 import LiveClock from '@/components/LiveClock'
@@ -104,28 +104,59 @@ export default async function LauncherPage() {
     : REVIEW_BASE_URL
   const canSeeReview = ['admin', 'owner', 'developer'].includes(staff.role)
 
-  const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
+  const APP_META: Record<AppName, { label: string; url: string; desc: string; category: string; group: string }> = {
     'admin-dashboard': { 
       label: staff.role === 'leader' ? 'Leader Dashboard' : staff.role === 'purchasing' ? 'Master Supplier & Vendor' : 'Admin Dashboard',  
       url: staff.role === 'purchasing' ? `${APP_URL['admin-dashboard']}/dashboard/pembelian/supplier` : APP_URL['admin-dashboard'], 
-      desc: staff.role === 'leader' ? 'Monitoring performa, stok, & top up petty cash' : staff.role === 'purchasing' ? 'Database supplier, kontak vendor & katalog harga' : 'Administrasi staff, akun & sistem' 
+      desc: staff.role === 'leader' ? 'Monitoring performa, stok, & top up petty cash' : staff.role === 'purchasing' ? 'Database supplier, kontak vendor & katalog harga' : 'Administrasi staff, akun & sistem',
+      category: staff.role === 'purchasing' ? 'Pengadaan' : 'Sistem & Operasi',
+      group: 'Manajemen & SDM',
     },
-    stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku' },
-    absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah' },
-    distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan' },
-    'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale' },
-    'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan' },
+    stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku', category: 'Inventori Bahan', group: 'Operasional' },
+    absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah', category: 'Presensi Kru', group: 'Operasional' },
+    distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan', category: 'Logistik & Armada', group: 'Operasional' },
+    'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale', category: 'Point of Sale', group: 'Operasional' },
+    'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan', category: 'Eksekutif & Omzet', group: 'Keuangan & Data' },
     finance:           { 
       label: staff.role === 'purchasing' ? 'Purchasing & PO' : 'Finance', 
       url: ['purchasing', 'purchase'].includes(staff.role) ? `${APP_URL.finance}/pembelian/dashboard` : APP_URL.finance, 
-      desc: ['purchasing', 'purchase'].includes(staff.role) ? 'Dashboard pengadaan, buat PO & invoice' : 'Keuangan, petty cash & pengajuan dana' 
+      desc: ['purchasing', 'purchase'].includes(staff.role) ? 'Dashboard pengadaan, buat PO & invoice' : 'Keuangan, petty cash & pengajuan dana',
+      category: ['purchasing', 'purchase'].includes(staff.role) ? 'Pengadaan' : 'Keuangan & Kas',
+      group: 'Keuangan & Data',
     },
-    manager:           { label: staff.role === 'regional_manager' ? 'Regional Manager Dashboard' : 'Manager App', url: APP_URL.manager, desc: 'Persetujuan operasional & monitoring area' },
-    inventori:         { label: 'Inventaris Outlet', url: APP_URL.inventori, desc: 'Pemeriksaan aset outlet dengan foto oleh Area Manager' },
-    monitoring:        { label: 'Live Monitor', url: APP_URL.monitoring, desc: 'Kamera outlet on-demand tanpa rekaman' },
-    HR:                { label: 'HR Dashboard',     url: APP_URL.HR,                desc: 'Database staf, absensi, cuti, payroll & kontrak' },
-    marcom:            { label: 'MARCOM & Influencer', url: APP_URL.marcom, desc: 'Digitalisasi marketing, endorsement, ads & konten' },
+    manager:           { label: staff.role === 'regional_manager' ? 'Regional Manager Dashboard' : 'Manager App', url: APP_URL.manager, desc: 'Persetujuan operasional & monitoring area', category: 'Manajemen Area', group: 'Manajemen & SDM' },
+    inventori:         { label: 'Inventaris Outlet', url: APP_URL.inventori, desc: 'Pemeriksaan aset outlet dengan foto oleh Area Manager', category: 'Aset & Audit', group: 'Manajemen & SDM' },
+    monitoring:        { label: 'Live Monitor', url: APP_URL.monitoring, desc: 'Kamera outlet on-demand tanpa rekaman', category: 'CCTV & Live', group: 'Manajemen & SDM' },
+    HR:                { label: 'HR Dashboard',     url: APP_URL.HR,                desc: 'Database staf, absensi, cuti, payroll & kontrak', category: 'SDM & Payroll', group: 'Manajemen & SDM' },
+    marcom:            { label: 'MARCOM & Influencer', url: APP_URL.marcom, desc: 'Digitalisasi marketing, endorsement, ads & konten', category: 'Marketing & Ads', group: 'Pemasaran & Ulasan' },
   }
+
+  // Gabungkan semua modul yang bisa diakses user (termasuk Suka Review jika diizinkan)
+  const portalApps: PortalAppItem[] = [
+    ...(canSeeReview ? [{
+      id: 'suka-review',
+      label: 'Suka Review',
+      url: REVIEW_URL,
+      desc: 'Aplikasi review eksternal Suka Shawarma',
+      category: 'Customer Voice',
+      badge: 'Eksternal',
+      group: 'Pemasaran & Ulasan',
+    }] : []),
+    ...apps.map(appName => {
+      const meta = APP_META[appName]
+      return {
+        id: appName,
+        label: meta.label,
+        url: meta.url,
+        desc: meta.desc,
+        category: meta.category,
+        group: meta.group,
+      }
+    })
+  ]
+
+  // Urutkan modul secara alfabetis berdasarkan label tampilan (A - Z)
+  portalApps.sort((a, b) => a.label.localeCompare(b.label, 'id', { sensitivity: 'base' }))
 
 
   // Configure greeting and styling banners based on user roles
@@ -422,38 +453,8 @@ export default async function LauncherPage() {
           </div>
         </div>
 
-        {/* Applications Grid */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between border-b border-suka-orange/10 pb-2">
-            <h2 className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-suka-orange">
-              Aplikasi Anda
-            </h2>
-            <span className="text-[10px] font-black text-suka-brown/40 tabular-nums">
-              {apps.length + (canSeeReview ? 1 : 0)} modul
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {canSeeReview && (
-              <AppTile
-                key="suka-review"
-                label="Suka Review"
-                url={REVIEW_URL}
-                desc="Aplikasi review eksternal Suka Shawarma"
-              />
-            )}
-            {apps.map(appName => {
-              const meta = APP_META[appName]
-              return (
-                <AppTile 
-                  key={appName} 
-                  label={meta.label} 
-                  url={meta.url} 
-                  desc={meta.desc} 
-                />
-              )
-            })}
-          </div>
-        </section>
+        {/* Applications Grid (Alphabetically Sorted with Search & Category Filters) */}
+        <AppGrid apps={portalApps} />
 
         {/* Footer */}
         <footer className="pt-6 border-t border-suka-orange/10 flex flex-wrap justify-between items-center text-[10px] text-suka-gray-400 font-bold gap-2">

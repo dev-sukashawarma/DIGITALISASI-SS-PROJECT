@@ -11,6 +11,7 @@ import {
 } from '@/hooks/useCrewBonus'
 import { PageHeader } from '@/components/ui'
 import { Select } from '@/components/ui/Select'
+import { formatRupiah } from '@/lib/format'
 import {
   Store,
   FileText,
@@ -23,7 +24,10 @@ import {
   CheckCircle2,
   DollarSign,
   PackageCheck,
+  Calendar,
 } from 'lucide-react'
+import { DailyOutletBonusView } from '@/components/modules/DailyOutletBonusView'
+import { CrewDailyBonusModal } from '@/components/modules/CrewDailyBonusModal'
 
 const MONTH_OPTIONS = [
   { label: 'Januari', value: '1' },
@@ -48,24 +52,28 @@ const YEAR_OPTIONS = [
   { label: '2028', value: '2028' },
 ]
 
+const CREW_ROLE_OPTIONS = [
+  { label: 'Semua Posisi', value: 'all' },
+  { label: 'Leader Outlet', value: 'leader' },
+  { label: 'Crew Reguler', value: 'crew' },
+  { label: 'Mobile Backup', value: 'crew_backup' },
+]
+
+const CREW_ATTENDANCE_OPTIONS = [
+  { label: 'Semua Kehadiran', value: 'all' },
+  { label: 'Aktif Hadir (> 0 Hari)', value: 'active' },
+  { label: '0 Hari Hadir', value: 'zero' },
+]
+
 function cleanOutletName(name: string) {
   return name.replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
-}
-
-const formatRupiah = (num: number) => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(num)
 }
 
 const formatNumber = (num: number) => {
   return new Intl.NumberFormat('id-ID').format(num)
 }
 
-type ActiveTab = 'crew' | 'am' | 'rm'
+type ActiveTab = 'crew' | 'daily_outlet' | 'am' | 'rm'
 
 export default function CrewBonusPage() {
   const { outletId: userOutletId, isReadOnly } = useRole()
@@ -74,8 +82,16 @@ export default function CrewBonusPage() {
   const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1)
   const [year, setYear] = useState<number>(() => new Date().getFullYear())
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
+  const [crewRoleFilter, setCrewRoleFilter] = useState<'all' | 'leader' | 'crew' | 'crew_backup'>('all')
+  const [crewAttendanceFilter, setCrewAttendanceFilter] = useState<'all' | 'active' | 'zero'>('all')
   const [activeTab, setActiveTab] = useState<ActiveTab>('crew')
   const [searchQuery, setSearchQuery] = useState('')
+  const [modalCrew, setModalCrew] = useState<{
+    id: string
+    name: string
+    role: string
+    subRole?: string
+  } | null>(null)
 
   // Lock outlet filter to user's profile outletId if isReadOnly (MITRA)
   useEffect(() => {
@@ -112,27 +128,41 @@ export default function CrewBonusPage() {
 
   const outletOptions = useMemo(() => {
     return [
-      { label: 'Semua Outlet', value: '', icon: <Store className="w-4 h-4 text-orange-500" /> },
+      { label: 'Semua Outlet', value: '', icon: <Store className="w-4 h-4 text-suka-orange" /> },
       ...outlets.map((o) => ({
         label: cleanOutletName(o.name),
         value: o.id,
-        icon: <Store className="w-4 h-4 text-stone-400" />,
+        icon: <Store className="w-4 h-4 text-suka-gray-400" />,
       })),
     ]
   }, [outlets])
 
   const selectedMonthLabel = MONTH_OPTIONS.find((m) => m.value === month.toString())?.label || ''
 
-  // Filtered rows for Search
+  // Filtered rows for Search & Position & Attendance
   const filteredCrew = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return crewBonuses
-    return crewBonuses.filter(
-      (c) =>
-        c.crew_name.toLowerCase().includes(q) ||
-        c.outlet_name.toLowerCase().includes(q)
-    )
-  }, [crewBonuses, searchQuery])
+    return crewBonuses.filter((c) => {
+      // Role filter
+      if (crewRoleFilter === 'leader' && c.role !== 'leader') return false
+      if (crewRoleFilter === 'crew' && (c.role !== 'crew' || c.sub_role === 'crew_backup')) return false
+      if (crewRoleFilter === 'crew_backup' && c.sub_role !== 'crew_backup') return false
+
+      // Attendance filter
+      if (crewAttendanceFilter === 'active' && (c.attendance_days || 0) <= 0) return false
+      if (crewAttendanceFilter === 'zero' && (c.attendance_days || 0) > 0) return false
+
+      // Search query
+      if (q) {
+        const matchName = c.crew_name.toLowerCase().includes(q)
+        const matchOutlet = c.outlet_name.toLowerCase().includes(q)
+        const matchRole = c.role.toLowerCase().includes(q) || (c.sub_role || '').toLowerCase().includes(q)
+        if (!matchName && !matchOutlet && !matchRole) return false
+      }
+
+      return true
+    })
+  }, [crewBonuses, crewRoleFilter, crewAttendanceFilter, searchQuery])
 
   const filteredAM = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -181,114 +211,112 @@ export default function CrewBonusPage() {
   const activeError = crewError || amError || rmError
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 text-stone-800">
-      {/* ── Page Header (Clean & Refined) ── */}
-      <div className="relative z-30">
-        <PageHeader
-          title="Laporan Bonus & Insentif"
-          description="Rekapitulasi pembagian insentif porsi menu terjual untuk Crew & Leader Outlet, Area Manager, dan Regional Manager."
-        >
-          <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-stretch sm:items-center">
-            {/* Month Picker */}
-            <Select
-              options={MONTH_OPTIONS}
-              value={month.toString()}
-              onChange={(val) => setMonth(Number(val))}
-              className="w-full sm:w-[140px]"
-              placeholder="Bulan..."
-            />
+    <div className="space-y-6 max-w-7xl mx-auto text-suka-ink">
+      {/* ── Page Header ── */}
+      <PageHeader
+        title="Laporan Bonus & Insentif Penjualan"
+        description="Rekapitulasi pembagian insentif porsi menu terjual untuk Crew & Leader Outlet, Area Manager (AM), dan Regional Manager (RM)."
+      >
+        <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-stretch sm:items-center">
+          {/* Month Picker */}
+          <Select
+            options={MONTH_OPTIONS}
+            value={month.toString()}
+            onChange={(val) => setMonth(Number(val))}
+            className="w-full sm:w-[140px]"
+            placeholder="Bulan..."
+          />
 
-            {/* Year Picker */}
-            <Select
-              options={YEAR_OPTIONS}
-              value={year.toString()}
-              onChange={(val) => setYear(Number(val))}
-              className="w-full sm:w-[110px]"
-              placeholder="Tahun..."
-            />
-          </div>
-        </PageHeader>
-      </div>
+          {/* Year Picker */}
+          <Select
+            options={YEAR_OPTIONS}
+            value={year.toString()}
+            onChange={(val) => setYear(Number(val))}
+            className="w-full sm:w-[110px]"
+            placeholder="Tahun..."
+          />
+        </div>
+      </PageHeader>
 
-      {/* ── Executive Metric Bento Grid (Crisp & Balanced) ── */}
+      {/* ── Metric Bento Grid (Visible if not read-only MITRA) ── */}
       {!isReadOnly && summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Card 1: Total Pengeluaran Bonus */}
-          <div className="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs hover:border-orange-200 transition-all duration-200 flex flex-col justify-between">
+          <div className="bg-white rounded-2xl p-5 border border-suka-gray-200 shadow-xs hover:border-suka-orange/50 transition-all duration-200 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-suka-gray-500">
                   Total Beban Bonus
                 </span>
-                <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 text-suka-orange flex items-center justify-center border border-orange-100 font-bold">
                   <DollarSign className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 font-mono tabular-nums">
+              <div className="text-2xl sm:text-3xl font-black tracking-tight text-suka-brown font-mono tabular-nums">
                 {formatRupiah(summary.grand_total_bonus)}
               </div>
             </div>
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-stone-100 text-xs text-stone-500 font-medium">
-              <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-medium text-[11px]">
-                <CheckCircle2 className="w-3 h-3" /> Berjalan Otomatis
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-suka-gray-100 text-xs text-suka-gray-500 font-medium">
+              <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold text-[11px]">
+                <CheckCircle2 className="w-3 h-3" /> Terkoneksi POS & Presensi
               </span>
               <span>Periode {selectedMonthLabel} {year}</span>
             </div>
           </div>
 
           {/* Card 2: Total Pcs Terjual Global */}
-          <div className="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs hover:border-emerald-200 transition-all duration-200 flex flex-col justify-between">
+          <div className="bg-white rounded-2xl p-5 border border-suka-gray-200 shadow-xs hover:border-emerald-300 transition-all duration-200 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-suka-gray-500">
                   Total Pcs Terjual
                 </span>
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 font-bold">
                   <PackageCheck className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 font-mono tabular-nums">
+              <div className="text-2xl sm:text-3xl font-black tracking-tight text-emerald-900 font-mono tabular-nums">
                 {formatNumber(summary.total_pcs_global)}{' '}
-                <span className="text-sm font-normal text-stone-500">pcs</span>
+                <span className="text-sm font-normal text-suka-gray-500">pcs</span>
               </div>
             </div>
-            <p className="text-xs text-stone-500 mt-3 pt-3 border-t border-stone-100 font-normal">
+            <p className="text-xs text-suka-gray-500 mt-3 pt-3 border-t border-suka-gray-100 font-normal">
               Seluruh transaksi menu berhasil di outlet operasional aktif
             </p>
           </div>
 
           {/* Card 3: Rincian Alokasi Peran */}
-          <div className="bg-white rounded-2xl p-5 border border-stone-200/80 shadow-xs flex flex-col justify-between">
+          <div className="bg-white rounded-2xl p-5 border border-suka-gray-200 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-suka-gray-500">
                 Alokasi per Posisi
               </span>
-              <span className="text-[11px] font-medium text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-bold text-suka-ink bg-suka-gray-100 px-2 py-0.5 rounded-md">
                 {summary.active_crew_count + summary.active_am_count + summary.active_rm_count} Orang
               </span>
             </div>
             <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between items-center py-1 border-b border-stone-100">
-                <span className="text-stone-600 flex items-center gap-1.5 font-medium">
-                  <Users className="w-3.5 h-3.5 text-orange-500" /> Crew & Leader ({summary.active_crew_count} staf)
+              <div className="flex justify-between items-center py-1 border-b border-suka-gray-100">
+                <span className="text-suka-ink flex items-center gap-1.5 font-bold">
+                  <Users className="w-3.5 h-3.5 text-suka-orange" /> Crew & Leader ({summary.active_crew_count} staf)
                 </span>
-                <span className="font-mono font-semibold text-stone-900 tabular-nums">
+                <span className="font-mono font-bold text-suka-brown tabular-nums">
                   {formatRupiah(summary.total_crew_bonus)}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-1 border-b border-stone-100">
-                <span className="text-stone-600 flex items-center gap-1.5 font-medium">
-                  <Briefcase className="w-3.5 h-3.5 text-blue-500" /> Area Manager ({summary.active_am_count} staf)
+              <div className="flex justify-between items-center py-1 border-b border-suka-gray-100">
+                <span className="text-suka-ink flex items-center gap-1.5 font-bold">
+                  <Briefcase className="w-3.5 h-3.5 text-blue-600" /> Area Manager ({summary.active_am_count} staf)
                 </span>
-                <span className="font-mono font-semibold text-stone-900 tabular-nums">
+                <span className="font-mono font-bold text-suka-brown tabular-nums">
                   {formatRupiah(summary.total_am_bonus)}
                 </span>
               </div>
               <div className="flex justify-between items-center py-1">
-                <span className="text-stone-600 flex items-center gap-1.5 font-medium">
-                  <Crown className="w-3.5 h-3.5 text-amber-500" /> Regional Manager ({summary.active_rm_count} staf)
+                <span className="text-suka-ink flex items-center gap-1.5 font-bold">
+                  <Crown className="w-3.5 h-3.5 text-amber-600" /> Regional Manager ({summary.active_rm_count} staf)
                 </span>
-                <span className="font-mono font-semibold text-stone-900 tabular-nums">
+                <span className="font-mono font-bold text-suka-brown tabular-nums">
                   {formatRupiah(summary.total_rm_bonus)}
                 </span>
               </div>
@@ -297,26 +325,26 @@ export default function CrewBonusPage() {
         </div>
       )}
 
-      {/* ── Tab Switcher (Segmented Control) ── */}
+      {/* ── Tab Switcher (Only if not read-only MITRA) ── */}
       {!isReadOnly && (
-        <div className="inline-flex p-1 bg-stone-100 rounded-xl border border-stone-200/70 gap-1">
+        <div className="inline-flex p-1 bg-suka-gray-100 rounded-2xl border border-suka-gray-200 gap-1 flex-wrap">
           <button
             type="button"
             onClick={() => {
               setActiveTab('crew')
               setSearchQuery('')
             }}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
               activeTab === 'crew'
-                ? 'bg-white text-stone-900 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-white/50'
+                ? 'bg-white text-suka-brown shadow-xs'
+                : 'text-suka-gray-500 hover:text-suka-ink hover:bg-white/50'
             }`}
           >
-            <Users className={`w-3.5 h-3.5 ${activeTab === 'crew' ? 'text-orange-600' : 'text-stone-400'}`} />
+            <Users className={`w-3.5 h-3.5 ${activeTab === 'crew' ? 'text-suka-orange' : 'text-suka-gray-400'}`} />
             <span>Crew & Leader Outlet</span>
             <span
               className={`text-[11px] font-mono px-1.5 py-0.2 rounded-md ${
-                activeTab === 'crew' ? 'bg-orange-50 text-orange-700 font-medium' : 'bg-stone-200/70 text-stone-500'
+                activeTab === 'crew' ? 'bg-orange-50 text-suka-orange font-bold' : 'bg-suka-gray-200 text-suka-gray-500'
               }`}
             >
               {crewBonuses.length}
@@ -326,20 +354,39 @@ export default function CrewBonusPage() {
           <button
             type="button"
             onClick={() => {
+              setActiveTab('daily_outlet')
+              setSearchQuery('')
+            }}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
+              activeTab === 'daily_outlet'
+                ? 'bg-white text-suka-brown shadow-xs'
+                : 'text-suka-gray-500 hover:text-suka-ink hover:bg-white/50'
+            }`}
+          >
+            <Calendar className={`w-3.5 h-3.5 ${activeTab === 'daily_outlet' ? 'text-suka-orange' : 'text-suka-gray-400'}`} />
+            <span>Rincian Harian Outlet</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Detail Per Hari
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
               setActiveTab('am')
               setSearchQuery('')
             }}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
               activeTab === 'am'
-                ? 'bg-white text-stone-900 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-white/50'
+                ? 'bg-white text-suka-brown shadow-xs'
+                : 'text-suka-gray-500 hover:text-suka-ink hover:bg-white/50'
             }`}
           >
-            <Briefcase className={`w-3.5 h-3.5 ${activeTab === 'am' ? 'text-blue-600' : 'text-stone-400'}`} />
+            <Briefcase className={`w-3.5 h-3.5 ${activeTab === 'am' ? 'text-blue-600' : 'text-suka-gray-400'}`} />
             <span>Area Manager (AM)</span>
             <span
               className={`text-[11px] font-mono px-1.5 py-0.2 rounded-md ${
-                activeTab === 'am' ? 'bg-blue-50 text-blue-700 font-medium' : 'bg-stone-200/70 text-stone-500'
+                activeTab === 'am' ? 'bg-blue-50 text-blue-700 font-bold' : 'bg-suka-gray-200 text-suka-gray-500'
               }`}
             >
               {amBonuses.length}
@@ -352,17 +399,17 @@ export default function CrewBonusPage() {
               setActiveTab('rm')
               setSearchQuery('')
             }}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
               activeTab === 'rm'
-                ? 'bg-white text-stone-900 shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 hover:bg-white/50'
+                ? 'bg-white text-suka-brown shadow-xs'
+                : 'text-suka-gray-500 hover:text-suka-ink hover:bg-white/50'
             }`}
           >
-            <Crown className={`w-3.5 h-3.5 ${activeTab === 'rm' ? 'text-amber-600' : 'text-stone-400'}`} />
+            <Crown className={`w-3.5 h-3.5 ${activeTab === 'rm' ? 'text-amber-600' : 'text-suka-gray-400'}`} />
             <span>Regional Manager (RM)</span>
             <span
               className={`text-[11px] font-mono px-1.5 py-0.2 rounded-md ${
-                activeTab === 'rm' ? 'bg-amber-50 text-amber-700 font-medium' : 'bg-stone-200/70 text-stone-500'
+                activeTab === 'rm' ? 'bg-amber-50 text-amber-700 font-bold' : 'bg-suka-gray-200 text-suka-gray-500'
               }`}
             >
               {rmBonuses.length}
@@ -372,201 +419,302 @@ export default function CrewBonusPage() {
       )}
 
       {/* ── Filter Controls & Formula Context Bar ── */}
-      <div className="relative z-20 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-xs">
-        {/* Formula Transparency Context */}
+      <div className="relative z-20 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-suka-gray-200 shadow-xs">
+        {/* Formula Transparency */}
         <div className="flex items-center gap-2.5 px-1">
-          <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 border border-orange-100">
+          <div className="w-7 h-7 rounded-lg bg-orange-50 text-suka-orange flex items-center justify-center shrink-0 border border-orange-100 font-bold">
             <Sparkles className="w-3.5 h-3.5" />
           </div>
           <div>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-suka-gray-400 block">
               Rumus Perhitungan
             </span>
-            <p className="text-xs font-medium text-stone-700">
+            <p className="text-xs font-medium text-suka-ink">
               {activeTab === 'crew' && (
                 <>
-                  <span className="text-orange-700 font-semibold">Pool Cabang (Pcs × Rp 100)</span> ÷ Jumlah Staf Cabang (Crew + Leader)
+                  <span className="text-suka-orange font-bold">Akumulasi Pool Harian</span>: &sum; (Pcs Hari Ini × Rp 100 ÷ Jumlah Kru Hadir Hari Ini)
+                </>
+              )}
+              {activeTab === 'daily_outlet' && (
+                <>
+                  <span className="text-suka-orange font-bold">Pool Harian</span>: (Pcs Terjual Hari Itu × Rp 100) ÷ Jumlah Kru Hadir di Tanggal Tersebut
                 </>
               )}
               {activeTab === 'am' && (
                 <>
-                  <span className="text-blue-700 font-semibold">Total Pcs Cabang Binaan</span> × Rp 50 / pcs
+                  <span className="text-blue-700 font-bold">Total Pcs Cabang Binaan</span> × Rp 50 / pcs
                 </>
               )}
               {activeTab === 'rm' && (
                 <>
-                  <span className="text-amber-700 font-semibold">Total Pcs Seluruh Cabang</span> × Rp 50 / pcs
+                  <span className="text-amber-700 font-bold">Total Pcs Seluruh Cabang</span> × Rp 50 / pcs
                 </>
               )}
             </p>
           </div>
         </div>
 
-        {/* Filter & Search Toolbar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          {/* Outlet filter specifically for Crew tab */}
-          {activeTab === 'crew' && (
-            isReadOnly ? (
-              <div className="flex items-center gap-2 pl-3 pr-4 py-2 bg-stone-100 border border-stone-200 rounded-xl text-xs font-medium text-stone-800">
-                <Store className="w-4 h-4 text-stone-500 shrink-0" />
-                <span className="truncate">
-                  {cleanOutletName(outlets.find((o) => o.id === selectedOutletId)?.name ?? 'Outlet Saya')}
-                </span>
-              </div>
-            ) : (
-              <Select
-                options={outletOptions}
-                value={selectedOutletId}
-                onChange={setSelectedOutletId}
-                className="w-full sm:w-[210px]"
-                placeholder="Pilih Outlet..."
-                searchable
-              />
-            )
-          )}
+        {/* Filter & Search Toolbar (Only for Crew, AM, RM - Daily Outlet has its own toolbar) */}
+        {activeTab !== 'daily_outlet' && (
+          <div className="flex flex-wrap items-stretch sm:items-center gap-2">
+            {activeTab === 'crew' && (
+              isReadOnly ? (
+                <div className="flex items-center gap-2 pl-3 pr-4 py-2 bg-suka-gray-100 border border-suka-gray-200 rounded-xl text-xs font-bold text-suka-brown">
+                  <Store className="w-4 h-4 text-suka-gray-400 shrink-0" />
+                  <span className="truncate">
+                    {cleanOutletName(outlets.find((o) => o.id === selectedOutletId)?.name ?? 'Outlet Saya')}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <Select
+                    options={outletOptions}
+                    value={selectedOutletId}
+                    onChange={setSelectedOutletId}
+                    className="w-full sm:w-[180px]"
+                    placeholder="Pilih Outlet..."
+                    searchable
+                  />
+                  <Select
+                    options={CREW_ROLE_OPTIONS}
+                    value={crewRoleFilter}
+                    onChange={(val) => setCrewRoleFilter(val as any)}
+                    className="w-full sm:w-[145px]"
+                    placeholder="Semua Posisi..."
+                  />
+                  <Select
+                    options={CREW_ATTENDANCE_OPTIONS}
+                    value={crewAttendanceFilter}
+                    onChange={(val) => setCrewAttendanceFilter(val as any)}
+                    className="w-full sm:w-[155px]"
+                    placeholder="Semua Kehadiran..."
+                  />
+                </>
+              )
+            )}
 
-          {/* Live Search Box */}
-          <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-stone-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={
-                activeTab === 'crew'
-                  ? 'Cari nama kru, leader, atau cabang...'
-                  : activeTab === 'am'
-                  ? 'Cari nama AM / binaan...'
-                  : 'Cari nama RM...'
-              }
-              className="w-full pl-8.5 pr-3 py-1.5 rounded-xl text-xs text-stone-800 bg-stone-50/70 border border-stone-200 outline-none focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition-all placeholder:text-stone-400"
-            />
+            {/* Live Search Box */}
+            <div className="relative w-full sm:w-52">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  activeTab === 'crew'
+                    ? 'Cari nama kru, leader...'
+                    : activeTab === 'am'
+                    ? 'Cari nama AM / binaan...'
+                    : 'Cari nama RM...'
+                }
+                className="w-full pl-8.5 pr-3 py-2 rounded-xl text-xs font-semibold text-suka-ink bg-suka-gray-50 border border-suka-gray-200 outline-none focus:bg-white focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all placeholder:text-suka-gray-400"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── Data Tables & States ── */}
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-stone-600 font-medium text-xs bg-white rounded-2xl border border-stone-200/80 shadow-xs">
-          <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-3" />
+      {activeTab === 'daily_outlet' ? (
+        <DailyOutletBonusView
+          month={month}
+          year={year}
+          monthLabel={selectedMonthLabel}
+          outlets={outlets}
+          selectedOutletId={selectedOutletId}
+          onSelectOutletId={setSelectedOutletId}
+          onMonthYearChange={(m, y) => {
+            setMonth(m)
+            setYear(y)
+          }}
+          onOpenCrewDetail={(c) => setModalCrew(c)}
+        />
+      ) : isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-suka-gray-500 font-bold text-xs bg-white rounded-2xl border border-suka-gray-200 shadow-xs">
+          <div className="w-8 h-8 border-3 border-suka-orange border-t-transparent rounded-full animate-spin mb-3" />
           Memuat data laporan insentif & bonus...
         </div>
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-red-50/50 rounded-2xl border border-red-200 text-red-700">
+        <div className="flex flex-col items-center justify-center py-16 bg-red-50 rounded-2xl border border-red-200 text-red-700">
           <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mb-3 text-red-600">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-semibold mb-1">Gagal Memuat Data</h3>
-          <p className="text-xs text-stone-500 text-center max-w-sm">
+          <h3 className="text-sm font-bold mb-1">Gagal Memuat Data</h3>
+          <p className="text-xs text-suka-gray-500 text-center max-w-sm">
             Terjadi kendala saat mengambil data: {activeError?.message}
           </p>
         </div>
       ) : activeTab === 'crew' && filteredCrew.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-stone-200 shadow-xs border-dashed text-center">
-          <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center mb-3 text-stone-400">
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-suka-gray-200 shadow-xs border-dashed text-center">
+          <div className="w-12 h-12 bg-suka-gray-100 rounded-xl flex items-center justify-center mb-3 text-suka-gray-400">
             <FileText className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-semibold text-stone-800 mb-1">Tidak Ada Data Kru & Leader</h3>
-          <p className="text-xs text-stone-500 max-w-sm">
+          <h3 className="text-sm font-bold text-suka-brown mb-1">Tidak Ada Data Kru & Leader</h3>
+          <p className="text-xs text-suka-gray-500 max-w-sm">
             Tidak ditemukan kru atau leader aktif eligible atau transaksi penjualan pada periode {selectedMonthLabel} {year}.
           </p>
         </div>
       ) : activeTab === 'am' && filteredAM.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-stone-200 shadow-xs border-dashed text-center">
-          <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center mb-3 text-stone-400">
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-suka-gray-200 shadow-xs border-dashed text-center">
+          <div className="w-12 h-12 bg-suka-gray-100 rounded-xl flex items-center justify-center mb-3 text-suka-gray-400">
             <Briefcase className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-semibold text-stone-800 mb-1">Tidak Ada Data Area Manager</h3>
-          <p className="text-xs text-stone-500 max-w-sm">
+          <h3 className="text-sm font-bold text-suka-brown mb-1">Tidak Ada Data Area Manager</h3>
+          <p className="text-xs text-suka-gray-500 max-w-sm">
             Tidak ditemukan staf aktif dengan role Area Manager yang memiliki cabang binaan.
           </p>
         </div>
       ) : activeTab === 'rm' && filteredRM.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-stone-200 shadow-xs border-dashed text-center">
-          <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center mb-3 text-stone-400">
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-suka-gray-200 shadow-xs border-dashed text-center">
+          <div className="w-12 h-12 bg-suka-gray-100 rounded-xl flex items-center justify-center mb-3 text-suka-gray-400">
             <Crown className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-semibold text-stone-800 mb-1">Tidak Ada Data Regional Manager</h3>
-          <p className="text-xs text-stone-500 max-w-sm">
+          <h3 className="text-sm font-bold text-suka-brown mb-1">Tidak Ada Data Regional Manager</h3>
+          <p className="text-xs text-suka-gray-500 max-w-sm">
             Tidak ditemukan staf aktif dengan role Regional Manager di sistem.
           </p>
         </div>
       ) : (
-        /* ── TABLE VIEW (Refined Density & Readable Weights) ── */
-        <div className="bg-white border border-stone-200/80 rounded-2xl shadow-xs overflow-hidden">
+        /* ── TABLE VIEW ── */
+        <div className="bg-white border border-suka-gray-200 rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             {/* ── TAB 1: CREW & LEADER TABLE ── */}
             {activeTab === 'crew' && (
               <table className="w-full text-xs text-left">
-                <thead className="bg-stone-50/80 border-b border-stone-200 text-stone-500 font-semibold uppercase tracking-wider text-[11px]">
+                <thead className="bg-suka-gray-50 border-b border-suka-gray-200 text-suka-gray-500 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="px-5 py-3.5">Nama Staf</th>
-                    <th className="px-5 py-3.5">Role</th>
+                    <th className="px-5 py-3.5">Role / Sub-Role</th>
                     <th className="px-5 py-3.5">Outlet & Pool Cabang</th>
+                    <th className="px-5 py-3.5 text-center">Kehadiran Aktual</th>
+                    <th className="px-5 py-3.5 text-center">Rincian</th>
                     <th className="px-5 py-3.5 text-right">Bonus Diterima</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100 text-stone-800">
-                  {filteredCrew.map((row) => (
-                    <tr key={row.crew_id} className="hover:bg-stone-50/60 transition-colors">
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center font-semibold text-[10px] shrink-0 ${
-                              row.role === 'leader'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-orange-100 text-orange-700'
-                            }`}
+                <tbody className="divide-y divide-suka-gray-100 text-suka-ink">
+                  {filteredCrew.map((row) => {
+                    const hasAttendance = (row.attendance_days || 0) > 0
+                    const percentShare =
+                      hasAttendance && (row.total_attendance_days || 0) > 0
+                        ? Math.round(((row.attendance_days || 0) / (row.total_attendance_days || 1)) * 100)
+                        : null
+
+                    return (
+                      <tr key={`${row.crew_id}_${row.outlet_id}`} className="hover:bg-suka-cream/40 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                row.role === 'leader'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : row.sub_role === 'crew_backup'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-orange-100 text-suka-orange'
+                              }`}
+                            >
+                              {row.crew_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="font-bold text-suka-brown block">{row.crew_name}</span>
+                              {row.sub_role === 'crew_backup' && (
+                                <span className="inline-flex items-center text-[10px] text-purple-600 font-semibold">
+                                  Mobile Backup
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                                row.role === 'leader'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-suka-gray-100 text-suka-gray-600 border-suka-gray-200'
+                              }`}
+                            >
+                              {row.role}
+                            </span>
+                            {row.sub_role === 'crew_backup' && (
+                              <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">
+                                Backup
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="space-y-1">
+                            <div className="font-bold text-suka-brown flex items-center gap-1.5">
+                              <Store className="w-3.5 h-3.5 text-suka-gray-400 shrink-0" />
+                              <span>{cleanOutletName(row.outlet_name)}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono">
+                              <span className="text-suka-gray-600 font-medium">
+                                {formatNumber(row.total_pcs_outlet)} pcs
+                              </span>
+                              <span className="text-suka-gray-300">•</span>
+                              <span className="text-suka-orange font-bold bg-orange-50 px-1.5 py-0.2 rounded border border-orange-100">
+                                Pool {formatRupiah(row.total_pcs_outlet * row.bonus_rate)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          {hasAttendance ? (
+                            <div className="inline-flex flex-col items-center">
+                              <span className="font-mono font-bold text-suka-brown text-xs">
+                                {row.attendance_days}{' '}
+                                <span className="text-suka-gray-400 font-normal">
+                                  / {row.total_attendance_days} hari
+                                </span>
+                              </span>
+                              {percentShare !== null && (
+                                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded font-bold border border-emerald-100 mt-0.5">
+                                  {percentShare}% porsi
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-suka-gray-400 italic">
+                              Fallback (Rata {row.active_crew_count} kru)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setModalCrew({
+                                id: row.crew_id,
+                                name: row.crew_name,
+                                role: row.role,
+                                subRole: row.sub_role,
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-suka-brown bg-suka-gray-100 hover:bg-orange-50 hover:text-suka-orange hover:border-orange-200 border border-suka-gray-200 transition-all cursor-pointer shadow-2xs"
+                            title="Buka rincian harian kehadiran & pembagian bonus"
                           >
-                            {row.crew_name.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="font-medium text-stone-900">{row.crew_name}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider border ${
-                            row.role === 'leader'
-                              ? 'bg-amber-50 text-amber-800 border-amber-200/70 font-semibold'
-                              : 'bg-stone-100 text-stone-600 border-stone-200/60'
-                          }`}
-                        >
-                          {row.role}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="space-y-1">
-                          <div className="font-semibold text-stone-900 flex items-center gap-1.5">
-                            <Store className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                            <span>{cleanOutletName(row.outlet_name)}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono">
-                            <span className="text-stone-600 font-medium">
-                              {formatNumber(row.total_pcs_outlet)} pcs
-                            </span>
-                            <span className="text-stone-300">•</span>
-                            <span className="text-orange-700 font-medium bg-orange-50 px-1.5 py-0.2 rounded border border-orange-100">
-                              Pool {formatRupiah(row.total_pcs_outlet * row.bonus_rate)}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums font-semibold text-emerald-700 text-sm">
-                        {formatRupiah(row.total_bonus)}
-                      </td>
-                    </tr>
-                  ))}
+                            <Calendar className="w-3.5 h-3.5 text-suka-orange" />
+                            <span>Rincian</span>
+                          </button>
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono tabular-nums font-black text-emerald-700 text-sm">
+                          {formatRupiah(row.total_bonus)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
-                {/* Footer Reconciliation */}
-                <tfoot className="bg-stone-50/90 border-t-2 border-stone-200 text-stone-700 font-medium">
+                {/* Footer */}
+                <tfoot className="bg-suka-gray-50 border-t-2 border-suka-gray-200 text-suka-ink font-bold">
                   <tr>
-                    <td colSpan={2} className="px-5 py-3 text-xs">
-                      Total ({filteredCrew.length} staf kru & leader)
+                    <td colSpan={4} className="px-5 py-3 text-xs">
+                      Total ({filteredCrew.length} entri kru & leader)
                     </td>
-                    <td className="px-5 py-3 text-right text-xs text-stone-500">
+                    <td className="px-5 py-3 text-right text-xs text-suka-gray-500">
                       Total Bonus Kru & Leader:
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums font-bold text-sm text-emerald-800">
+                    <td className="px-5 py-3 text-right font-mono tabular-nums font-black text-sm text-emerald-800">
                       {formatRupiah(crewTotalBonus)}
                     </td>
                   </tr>
@@ -577,7 +725,7 @@ export default function CrewBonusPage() {
             {/* ── TAB 2: AREA MANAGER TABLE ── */}
             {activeTab === 'am' && (
               <table className="w-full text-xs text-left">
-                <thead className="bg-stone-50/80 border-b border-stone-200 text-stone-500 font-semibold uppercase tracking-wider text-[11px]">
+                <thead className="bg-suka-gray-50 border-b border-suka-gray-200 text-suka-gray-500 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="px-5 py-3.5">Nama Area Manager</th>
                     <th className="px-5 py-3.5">Cabang Binaan</th>
@@ -586,15 +734,15 @@ export default function CrewBonusPage() {
                     <th className="px-5 py-3.5 text-right">Total Diterima</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100 text-stone-800">
+                <tbody className="divide-y divide-suka-gray-100 text-suka-ink">
                   {filteredAM.map((row) => (
-                    <tr key={row.staff_id} className="hover:bg-stone-50/60 transition-colors">
+                    <tr key={row.staff_id} className="hover:bg-suka-cream/40 transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold text-[10px] shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0">
                             {row.staff_name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-stone-900">{row.staff_name}</span>
+                          <span className="font-bold text-suka-brown">{row.staff_name}</span>
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
@@ -603,40 +751,40 @@ export default function CrewBonusPage() {
                             row.managed_outlet_names.map((name, idx) => (
                               <span
                                 key={idx}
-                                className="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200/50"
+                                className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200"
                               >
                                 {cleanOutletName(name)}
                               </span>
                             ))
                           ) : (
-                            <span className="text-stone-400 italic text-[11px]">Belum ada cabang binaan</span>
+                            <span className="text-suka-gray-400 italic text-[11px]">Belum ada cabang binaan</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums text-stone-700">
+                      <td className="px-5 py-3.5 text-right font-mono tabular-nums text-suka-ink font-semibold">
                         {formatNumber(row.total_pcs)}{' '}
-                        <span className="text-[10px] text-stone-400">pcs</span>
+                        <span className="text-[10px] text-suka-gray-400">pcs</span>
                       </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums text-stone-500">
+                      <td className="px-5 py-3.5 text-right font-mono tabular-nums text-suka-gray-500">
                         {formatRupiah(row.bonus_rate)}{' '}
-                        <span className="text-[10px] text-stone-400">/ pcs</span>
+                        <span className="text-[10px] text-suka-gray-400">/ pcs</span>
                       </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums font-semibold text-emerald-700">
+                      <td className="px-5 py-3.5 text-right font-mono tabular-nums font-black text-emerald-700">
                         {formatRupiah(row.total_bonus)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                {/* Footer Reconciliation */}
-                <tfoot className="bg-stone-50/90 border-t-2 border-stone-200 text-stone-700 font-medium">
+                {/* Footer */}
+                <tfoot className="bg-suka-gray-50 border-t-2 border-suka-gray-200 text-suka-ink font-bold">
                   <tr>
                     <td colSpan={2} className="px-5 py-3 text-xs">
                       Total ({filteredAM.length} Area Manager)
                     </td>
-                    <td colSpan={2} className="px-5 py-3 text-right text-xs text-stone-500">
+                    <td colSpan={2} className="px-5 py-3 text-right text-xs text-suka-gray-500">
                       Total Bonus AM:
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums font-bold text-sm text-emerald-800">
+                    <td className="px-5 py-3 text-right font-mono tabular-nums font-black text-sm text-emerald-800">
                       {formatRupiah(amTotalBonus)}
                     </td>
                   </tr>
@@ -647,7 +795,7 @@ export default function CrewBonusPage() {
             {/* ── TAB 3: REGIONAL MANAGER TABLE ── */}
             {activeTab === 'rm' && (
               <table className="w-full text-xs text-left">
-                <thead className="bg-stone-50/80 border-b border-stone-200 text-stone-500 font-semibold uppercase tracking-wider text-[11px]">
+                <thead className="bg-suka-gray-50 border-b border-suka-gray-200 text-suka-gray-500 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="px-5 py-3.5">Nama Regional Manager</th>
                     <th className="px-5 py-3.5">Cakupan Wilayah</th>
@@ -656,47 +804,47 @@ export default function CrewBonusPage() {
                     <th className="px-5 py-3.5 text-right">Total Diterima</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100 text-stone-800">
+                <tbody className="divide-y divide-suka-gray-100 text-suka-ink">
                   {filteredRM.map((row) => (
-                    <tr key={row.staff_id} className="hover:bg-stone-50/60 transition-colors">
+                    <tr key={row.staff_id} className="hover:bg-suka-cream/40 transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-semibold text-[10px] shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-[10px] shrink-0">
                             {row.staff_name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-stone-900">{row.staff_name}</span>
+                          <span className="font-bold text-suka-brown">{row.staff_name}</span>
                         </div>
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200/60">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                           <Crown className="w-3 h-3 text-amber-600" />
                           {row.scope_description}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums text-stone-700">
+                      <td className="px-5 py-3.5 text-right font-mono tabular-nums text-suka-ink font-semibold">
                         {formatNumber(row.total_pcs_global)}{' '}
-                        <span className="text-[10px] text-stone-400">pcs</span>
+                        <span className="text-[10px] text-suka-gray-400">pcs</span>
                       </td>
                       <td className="px-5 py-3.5 text-right font-mono tabular-nums text-stone-500">
                         {formatRupiah(row.bonus_rate)}{' '}
-                        <span className="text-[10px] text-stone-400">/ pcs</span>
+                        <span className="text-[10px] text-suka-gray-400">/ pcs</span>
                       </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums font-semibold text-emerald-700">
+                      <td className="px-5 py-3.5 text-right font-mono tabular-nums font-black text-emerald-700">
                         {formatRupiah(row.total_bonus)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                {/* Footer Reconciliation */}
-                <tfoot className="bg-stone-50/90 border-t-2 border-stone-200 text-stone-700 font-medium">
+                {/* Footer */}
+                <tfoot className="bg-suka-gray-50 border-t-2 border-suka-gray-200 text-suka-ink font-bold">
                   <tr>
                     <td colSpan={2} className="px-5 py-3 text-xs">
                       Total ({filteredRM.length} Regional Manager)
                     </td>
-                    <td colSpan={2} className="px-5 py-3 text-right text-xs text-stone-500">
+                    <td colSpan={2} className="px-5 py-3 text-right text-xs text-suka-gray-500">
                       Total Bonus RM:
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums font-bold text-sm text-emerald-800">
+                    <td className="px-5 py-3 text-right font-mono tabular-nums font-black text-sm text-emerald-800">
                       {formatRupiah(rmTotalBonus)}
                     </td>
                   </tr>
@@ -706,6 +854,18 @@ export default function CrewBonusPage() {
           </div>
         </div>
       )}
+
+      {/* ── Crew Daily Bonus Modal (Drill-Down Personal) ── */}
+      <CrewDailyBonusModal
+        isOpen={Boolean(modalCrew)}
+        onClose={() => setModalCrew(null)}
+        crewId={modalCrew?.id || null}
+        crewName={modalCrew?.name || ''}
+        month={month}
+        year={year}
+        role={modalCrew?.role || 'crew'}
+        subRole={modalCrew?.subRole}
+      />
     </div>
   )
 }

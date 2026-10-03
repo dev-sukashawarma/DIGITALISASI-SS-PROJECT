@@ -7,9 +7,12 @@ export interface CrewBonusRow {
   crew_id: string
   crew_name: string
   role: string
+  sub_role?: string
   outlet_id: string
   outlet_name: string
   total_pcs_outlet: number
+  attendance_days?: number
+  total_attendance_days?: number
   active_crew_count: number
   bonus_rate: number
   total_bonus: number
@@ -111,9 +114,12 @@ export function useMonthlyCrewBonus({ month, year, outletId }: CrewBonusParams) 
         crew_id: r.crew_id,
         crew_name: r.crew_name || 'Tanpa Nama',
         role: r.role || 'crew',
+        sub_role: r.sub_role || 'crew_regular',
         outlet_id: r.outlet_id,
         outlet_name: r.outlet_name || 'Unknown Outlet',
         total_pcs_outlet: Number(r.total_pcs_outlet) || 0,
+        attendance_days: Number(r.attendance_days) || 0,
+        total_attendance_days: Number(r.total_attendance_days) || 0,
         active_crew_count: Number(r.active_crew_count) || 0,
         bonus_rate: Number(r.bonus_rate) || 100,
         total_bonus: Number(r.total_bonus) || 0,
@@ -180,6 +186,117 @@ export function useMonthlyRMBonus({ month, year }: BaseParams) {
         total_bonus: Number(r.total_bonus) || 0,
       }))
     },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export interface CrewItemOnDuty {
+  crew_id: string
+  crew_name: string
+  role: string
+  sub_role?: string
+}
+
+export interface DailyOutletBonusRow {
+  bonus_date: string
+  day_name: string
+  outlet_id: string
+  outlet_name: string
+  total_pcs: number
+  pool_amount: number
+  crew_count: number
+  bonus_per_crew: number
+  crew_list: CrewItemOnDuty[]
+  status: 'normal' | 'unassigned_pool' | 'no_sales'
+}
+
+interface DailyOutletBonusParams extends BaseParams {
+  outletId: string | null
+}
+
+export function useDailyOutletBonusDetail({ month, year, outletId }: DailyOutletBonusParams) {
+  const supabase = createSupabaseBrowserClient()
+
+  return useQuery<DailyOutletBonusRow[]>({
+    queryKey: ['daily_outlet_bonus_detail', month, year, outletId],
+    queryFn: async () => {
+      if (!outletId) return []
+
+      const { data, error } = await supabase.rpc('get_daily_outlet_bonus_detail', {
+        p_month: month,
+        p_year: year,
+        p_outlet_id: outletId,
+      })
+
+      if (error) {
+        console.error('Error fetching daily outlet bonus detail:', error)
+        throw error
+      }
+
+      return (data || []).map((r: any) => ({
+        bonus_date: r.bonus_date,
+        day_name: r.day_name,
+        outlet_id: r.outlet_id,
+        outlet_name: r.outlet_name,
+        total_pcs: Number(r.total_pcs) || 0,
+        pool_amount: Number(r.pool_amount) || 0,
+        crew_count: Number(r.crew_count) || 0,
+        bonus_per_crew: Number(r.bonus_per_crew) || 0,
+        crew_list: Array.isArray(r.crew_list) ? r.crew_list : [],
+        status: (r.status as 'normal' | 'unassigned_pool' | 'no_sales') || 'normal',
+      }))
+    },
+    enabled: Boolean(outletId),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export interface CrewDailyBonusRow {
+  bonus_date: string
+  day_name: string
+  outlet_id: string
+  outlet_name: string
+  daily_pcs: number
+  pool_amount: number
+  crew_count_today: number
+  bonus_earned: number
+}
+
+interface CrewDailyBonusParams extends BaseParams {
+  crewId: string | null
+}
+
+export function useCrewDailyBonusDetail({ month, year, crewId }: CrewDailyBonusParams) {
+  const supabase = createSupabaseBrowserClient()
+
+  return useQuery<CrewDailyBonusRow[]>({
+    queryKey: ['crew_daily_bonus_detail', month, year, crewId],
+    queryFn: async () => {
+      if (!crewId) return []
+
+      const { data, error } = await supabase.rpc('get_crew_daily_bonus_detail', {
+        p_month: month,
+        p_year: year,
+        p_crew_id: crewId,
+      })
+
+      if (error) {
+        console.error('Error fetching crew daily bonus detail:', error)
+        throw error
+      }
+
+      return (data || []).map((r: any) => ({
+        bonus_date: r.bonus_date,
+        day_name: r.day_name,
+        outlet_id: r.outlet_id,
+        outlet_name: r.outlet_name,
+        daily_pcs: Number(r.daily_pcs) || 0,
+        pool_amount: Number(r.pool_amount) || 0,
+        crew_count_today: Number(r.crew_count_today) || 0,
+        bonus_earned: Number(r.bonus_earned) || 0,
+      }))
+    },
+    enabled: Boolean(crewId),
     staleTime: 5 * 60 * 1000,
   })
 }

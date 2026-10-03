@@ -23,7 +23,10 @@ import {
   CheckCircle2,
   DollarSign,
   PackageCheck,
+  Calendar,
 } from 'lucide-react'
+import { DailyOutletBonusView } from '@/components/modules/DailyOutletBonusView'
+import { CrewDailyBonusModal } from '@/components/modules/CrewDailyBonusModal'
 
 const MONTH_OPTIONS = [
   { label: 'Januari', value: '1' },
@@ -48,6 +51,19 @@ const YEAR_OPTIONS = [
   { label: '2028', value: '2028' },
 ]
 
+const CREW_ROLE_OPTIONS = [
+  { label: 'Semua Posisi', value: 'all' },
+  { label: 'Leader Outlet', value: 'leader' },
+  { label: 'Crew Reguler', value: 'crew' },
+  { label: 'Mobile Backup', value: 'crew_backup' },
+]
+
+const CREW_ATTENDANCE_OPTIONS = [
+  { label: 'Semua Kehadiran', value: 'all' },
+  { label: 'Aktif Hadir (> 0 Hari)', value: 'active' },
+  { label: '0 Hari Hadir', value: 'zero' },
+]
+
 function cleanOutletName(name: string) {
   return name.replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
 }
@@ -56,7 +72,7 @@ const formatNumber = (num: number) => {
   return new Intl.NumberFormat('id-ID').format(num)
 }
 
-type ActiveTab = 'crew' | 'am' | 'rm'
+type ActiveTab = 'crew' | 'daily_outlet' | 'am' | 'rm'
 
 export default function CrewBonusPage() {
   const { data: outlets = [], isLoading: loadingOutlets } = useOutlets()
@@ -64,8 +80,16 @@ export default function CrewBonusPage() {
   const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1)
   const [year, setYear] = useState<number>(() => new Date().getFullYear())
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
+  const [crewRoleFilter, setCrewRoleFilter] = useState<'all' | 'leader' | 'crew' | 'crew_backup'>('all')
+  const [crewAttendanceFilter, setCrewAttendanceFilter] = useState<'all' | 'active' | 'zero'>('all')
   const [activeTab, setActiveTab] = useState<ActiveTab>('crew')
   const [searchQuery, setSearchQuery] = useState('')
+  const [modalCrew, setModalCrew] = useState<{
+    id: string
+    name: string
+    role: string
+    subRole?: string
+  } | null>(null)
 
   // Queries
   const { data: summary, isLoading: loadingSummary } = useMonthlyBonusSummary({ month, year })
@@ -105,16 +129,30 @@ export default function CrewBonusPage() {
 
   const selectedMonthLabel = MONTH_OPTIONS.find((m) => m.value === month.toString())?.label || ''
 
-  // Filtered rows for Search
+  // Filtered rows for Search & Position & Attendance
   const filteredCrew = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return crewBonuses
-    return crewBonuses.filter(
-      (c) =>
-        c.crew_name.toLowerCase().includes(q) ||
-        c.outlet_name.toLowerCase().includes(q)
-    )
-  }, [crewBonuses, searchQuery])
+    return crewBonuses.filter((c) => {
+      // Role filter
+      if (crewRoleFilter === 'leader' && c.role !== 'leader') return false
+      if (crewRoleFilter === 'crew' && (c.role !== 'crew' || c.sub_role === 'crew_backup')) return false
+      if (crewRoleFilter === 'crew_backup' && c.sub_role !== 'crew_backup') return false
+
+      // Attendance filter
+      if (crewAttendanceFilter === 'active' && (c.attendance_days || 0) <= 0) return false
+      if (crewAttendanceFilter === 'zero' && (c.attendance_days || 0) > 0) return false
+
+      // Search query
+      if (q) {
+        const matchName = c.crew_name.toLowerCase().includes(q)
+        const matchOutlet = c.outlet_name.toLowerCase().includes(q)
+        const matchRole = c.role.toLowerCase().includes(q) || (c.sub_role || '').toLowerCase().includes(q)
+        if (!matchName && !matchOutlet && !matchRole) return false
+      }
+
+      return true
+    })
+  }, [crewBonuses, crewRoleFilter, crewAttendanceFilter, searchQuery])
 
   const filteredAM = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -166,8 +204,8 @@ export default function CrewBonusPage() {
     <div className="space-y-6 max-w-7xl mx-auto text-suka-ink">
       {/* ── Page Header ── */}
       <PageHeader
-        title="Laporan Bonus &amp; Insentif Penjualan"
-        description="Rekapitulasi pembagian insentif porsi menu terjual untuk Crew &amp; Leader Outlet, Area Manager (AM), dan Regional Manager (RM)."
+        title="Laporan Bonus & Insentif Penjualan"
+        description="Rekapitulasi pembagian insentif porsi menu terjual untuk Crew & Leader Outlet, Area Manager (AM), dan Regional Manager (RM)."
       >
         <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-stretch sm:items-center">
           {/* Month Picker */}
@@ -210,7 +248,7 @@ export default function CrewBonusPage() {
             </div>
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-suka-gray-100 text-xs text-suka-gray-500 font-medium">
               <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold text-[11px]">
-                <CheckCircle2 className="w-3 h-3" /> Terkoneksi POS
+                <CheckCircle2 className="w-3 h-3" /> Terkoneksi POS & Presensi
               </span>
               <span>Periode {selectedMonthLabel} {year}</span>
             </div>
@@ -250,7 +288,7 @@ export default function CrewBonusPage() {
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between items-center py-1 border-b border-suka-gray-100">
                 <span className="text-suka-ink flex items-center gap-1.5 font-bold">
-                  <Users className="w-3.5 h-3.5 text-suka-orange" /> Crew &amp; Leader ({summary.active_crew_count} staf)
+                  <Users className="w-3.5 h-3.5 text-suka-orange" /> Crew & Leader ({summary.active_crew_count} staf)
                 </span>
                 <span className="font-mono font-bold text-suka-brown tabular-nums">
                   {formatRupiah(summary.total_crew_bonus)}
@@ -278,7 +316,7 @@ export default function CrewBonusPage() {
       )}
 
       {/* ── Tab Switcher ── */}
-      <div className="inline-flex p-1 bg-suka-gray-100 rounded-2xl border border-suka-gray-200 gap-1">
+      <div className="inline-flex p-1 bg-suka-gray-100 rounded-2xl border border-suka-gray-200 gap-1 flex-wrap">
         <button
           type="button"
           onClick={() => {
@@ -292,13 +330,32 @@ export default function CrewBonusPage() {
           }`}
         >
           <Users className={`w-3.5 h-3.5 ${activeTab === 'crew' ? 'text-suka-orange' : 'text-suka-gray-400'}`} />
-          <span>Crew &amp; Leader Outlet</span>
+          <span>Crew & Leader Outlet</span>
           <span
             className={`text-[11px] font-mono px-1.5 py-0.2 rounded-md ${
               activeTab === 'crew' ? 'bg-orange-50 text-suka-orange font-bold' : 'bg-suka-gray-200 text-suka-gray-500'
             }`}
           >
             {crewBonuses.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('daily_outlet')
+            setSearchQuery('')
+          }}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
+            activeTab === 'daily_outlet'
+              ? 'bg-white text-suka-brown shadow-xs'
+              : 'text-suka-gray-500 hover:text-suka-ink hover:bg-white/50'
+          }`}
+        >
+          <Calendar className={`w-3.5 h-3.5 ${activeTab === 'daily_outlet' ? 'text-suka-orange' : 'text-suka-gray-400'}`} />
+          <span>Rincian Harian Outlet</span>
+          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Detail Per Hari
           </span>
         </button>
 
@@ -363,7 +420,12 @@ export default function CrewBonusPage() {
             <p className="text-xs font-medium text-suka-ink">
               {activeTab === 'crew' && (
                 <>
-                  <span className="text-suka-orange font-bold">Pool Cabang (Pcs × Rp 100)</span> ÷ Jumlah Staf Cabang (Crew + Leader)
+                  <span className="text-suka-orange font-bold">Akumulasi Pool Harian</span>: &sum; (Pcs Hari Ini × Rp 100 ÷ Jumlah Kru Hadir Hari Ini)
+                </>
+              )}
+              {activeTab === 'daily_outlet' && (
+                <>
+                  <span className="text-suka-orange font-bold">Pool Harian</span>: (Pcs Terjual Hari Itu × Rp 100) ÷ Jumlah Kru Hadir di Tanggal Tersebut
                 </>
               )}
               {activeTab === 'am' && (
@@ -380,44 +442,76 @@ export default function CrewBonusPage() {
           </div>
         </div>
 
-        {/* Filter & Search Toolbar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          {activeTab === 'crew' && (
-            <Select
-              options={outletOptions}
-              value={selectedOutletId}
-              onChange={setSelectedOutletId}
-              className="w-full sm:w-[210px]"
-              placeholder="Pilih Outlet..."
-              searchable
-            />
-          )}
+        {/* Filter & Search Toolbar (Only for Crew, AM, RM - Daily Outlet has its own toolbar) */}
+        {activeTab !== 'daily_outlet' && (
+          <div className="flex flex-wrap items-stretch sm:items-center gap-2">
+            {activeTab === 'crew' && (
+              <>
+                <Select
+                  options={outletOptions}
+                  value={selectedOutletId}
+                  onChange={setSelectedOutletId}
+                  className="w-full sm:w-[180px]"
+                  placeholder="Pilih Outlet..."
+                  searchable
+                />
+                <Select
+                  options={CREW_ROLE_OPTIONS}
+                  value={crewRoleFilter}
+                  onChange={(val) => setCrewRoleFilter(val as any)}
+                  className="w-full sm:w-[145px]"
+                  placeholder="Semua Posisi..."
+                />
+                <Select
+                  options={CREW_ATTENDANCE_OPTIONS}
+                  value={crewAttendanceFilter}
+                  onChange={(val) => setCrewAttendanceFilter(val as any)}
+                  className="w-full sm:w-[155px]"
+                  placeholder="Semua Kehadiran..."
+                />
+              </>
+            )}
 
-          {/* Live Search Box */}
-          <div className="relative w-full sm:w-56">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={
-                activeTab === 'crew'
-                  ? 'Cari kru, leader, cabang...'
-                  : activeTab === 'am'
-                  ? 'Cari nama AM / binaan...'
-                  : 'Cari nama RM...'
-              }
-              className="w-full pl-8.5 pr-3 py-2 rounded-xl text-xs font-semibold text-suka-ink bg-suka-gray-50 border border-suka-gray-200 outline-none focus:bg-white focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all placeholder:text-suka-gray-400"
-            />
+            {/* Live Search Box */}
+            <div className="relative w-full sm:w-52">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  activeTab === 'crew'
+                    ? 'Cari nama kru, leader...'
+                    : activeTab === 'am'
+                    ? 'Cari nama AM / binaan...'
+                    : 'Cari nama RM...'
+                }
+                className="w-full pl-8.5 pr-3 py-2 rounded-xl text-xs font-semibold text-suka-ink bg-suka-gray-50 border border-suka-gray-200 outline-none focus:bg-white focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all placeholder:text-suka-gray-400"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── Data Tables & States ── */}
-      {isLoading ? (
+      {activeTab === 'daily_outlet' ? (
+        <DailyOutletBonusView
+          month={month}
+          year={year}
+          monthLabel={selectedMonthLabel}
+          outlets={outlets}
+          selectedOutletId={selectedOutletId}
+          onSelectOutletId={setSelectedOutletId}
+          onMonthYearChange={(m, y) => {
+            setMonth(m)
+            setYear(y)
+          }}
+          onOpenCrewDetail={(c) => setModalCrew(c)}
+        />
+      ) : isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 text-suka-gray-500 font-bold text-xs bg-white rounded-2xl border border-suka-gray-200 shadow-xs">
           <div className="w-8 h-8 border-3 border-suka-orange border-t-transparent rounded-full animate-spin mb-3" />
-          Memuat data laporan insentif &amp; bonus...
+          Memuat data laporan insentif & bonus...
         </div>
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-16 bg-red-50 rounded-2xl border border-red-200 text-red-700">
@@ -434,7 +528,7 @@ export default function CrewBonusPage() {
           <div className="w-12 h-12 bg-suka-gray-100 rounded-xl flex items-center justify-center mb-3 text-suka-gray-400">
             <FileText className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-suka-brown mb-1">Tidak Ada Data Kru &amp; Leader</h3>
+          <h3 className="text-sm font-bold text-suka-brown mb-1">Tidak Ada Data Kru & Leader</h3>
           <p className="text-xs text-suka-gray-500 max-w-sm">
             Tidak ditemukan kru atau leader aktif eligible atau transaksi penjualan pada periode {selectedMonthLabel} {year}.
           </p>
@@ -469,70 +563,135 @@ export default function CrewBonusPage() {
                 <thead className="bg-suka-gray-50 border-b border-suka-gray-200 text-suka-gray-500 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="px-5 py-3.5">Nama Staf</th>
-                    <th className="px-5 py-3.5">Role</th>
-                    <th className="px-5 py-3.5">Outlet &amp; Pool Cabang</th>
+                    <th className="px-5 py-3.5">Role / Sub-Role</th>
+                    <th className="px-5 py-3.5">Outlet & Pool Cabang</th>
+                    <th className="px-5 py-3.5 text-center">Kehadiran Aktual</th>
+                    <th className="px-5 py-3.5 text-center">Rincian</th>
                     <th className="px-5 py-3.5 text-right">Bonus Diterima</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-suka-gray-100 text-suka-ink">
-                  {filteredCrew.map((row) => (
-                    <tr key={row.crew_id} className="hover:bg-suka-cream/40 transition-colors">
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                              row.role === 'leader'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-orange-100 text-suka-orange'
-                            }`}
+                  {filteredCrew.map((row) => {
+                    const hasAttendance = (row.attendance_days || 0) > 0
+                    const percentShare =
+                      hasAttendance && (row.total_attendance_days || 0) > 0
+                        ? Math.round(((row.attendance_days || 0) / (row.total_attendance_days || 1)) * 100)
+                        : null
+
+                    return (
+                      <tr key={`${row.crew_id}_${row.outlet_id}`} className="hover:bg-suka-cream/40 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                row.role === 'leader'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : row.sub_role === 'crew_backup'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-orange-100 text-suka-orange'
+                              }`}
+                            >
+                              {row.crew_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="font-bold text-suka-brown block">{row.crew_name}</span>
+                              {row.sub_role === 'crew_backup' && (
+                                <span className="inline-flex items-center text-[10px] text-purple-600 font-semibold">
+                                  Mobile Backup
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                                row.role === 'leader'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-suka-gray-100 text-suka-gray-600 border-suka-gray-200'
+                              }`}
+                            >
+                              {row.role}
+                            </span>
+                            {row.sub_role === 'crew_backup' && (
+                              <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">
+                                Backup
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="space-y-1">
+                            <div className="font-bold text-suka-brown flex items-center gap-1.5">
+                              <Store className="w-3.5 h-3.5 text-suka-gray-400 shrink-0" />
+                              <span>{cleanOutletName(row.outlet_name)}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono">
+                              <span className="text-suka-gray-600 font-medium">
+                                {formatNumber(row.total_pcs_outlet)} pcs
+                              </span>
+                              <span className="text-suka-gray-300">•</span>
+                              <span className="text-suka-orange font-bold bg-orange-50 px-1.5 py-0.2 rounded border border-orange-100">
+                                Pool {formatRupiah(row.total_pcs_outlet * row.bonus_rate)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          {hasAttendance ? (
+                            <div className="inline-flex flex-col items-center">
+                              <span className="font-mono font-bold text-suka-brown text-xs">
+                                {row.attendance_days}{' '}
+                                <span className="text-suka-gray-400 font-normal">
+                                  / {row.total_attendance_days} hari
+                                </span>
+                              </span>
+                              {percentShare !== null && (
+                                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded font-bold border border-emerald-100 mt-0.5">
+                                  {percentShare}% porsi
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-suka-gray-400 italic">
+                              Fallback (Rata {row.active_crew_count} kru)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setModalCrew({
+                                id: row.crew_id,
+                                name: row.crew_name,
+                                role: row.role,
+                                subRole: row.sub_role,
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-suka-brown bg-suka-gray-100 hover:bg-orange-50 hover:text-suka-orange hover:border-orange-200 border border-suka-gray-200 transition-all cursor-pointer shadow-2xs"
+                            title="Buka rincian harian kehadiran & pembagian bonus"
                           >
-                            {row.crew_name.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="font-bold text-suka-brown">{row.crew_name}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-                            row.role === 'leader'
-                              ? 'bg-amber-50 text-amber-800 border-amber-200'
-                              : 'bg-suka-gray-100 text-suka-gray-600 border-suka-gray-200'
-                          }`}
-                        >
-                          {row.role}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="space-y-1">
-                          <div className="font-bold text-suka-brown flex items-center gap-1.5">
-                            <Store className="w-3.5 h-3.5 text-suka-gray-400 shrink-0" />
-                            <span>{cleanOutletName(row.outlet_name)}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono">
-                            <span className="text-suka-gray-600 font-medium">
-                              {formatNumber(row.total_pcs_outlet)} pcs
-                            </span>
-                            <span className="text-suka-gray-300">•</span>
-                            <span className="text-suka-orange font-bold bg-orange-50 px-1.5 py-0.2 rounded border border-orange-100">
-                              Pool {formatRupiah(row.total_pcs_outlet * row.bonus_rate)}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums font-black text-emerald-700 text-sm">
-                        {formatRupiah(row.total_bonus)}
-                      </td>
-                    </tr>
-                  ))}
+                            <Calendar className="w-3.5 h-3.5 text-suka-orange" />
+                            <span>Rincian</span>
+                          </button>
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono tabular-nums font-black text-emerald-700 text-sm">
+                          {formatRupiah(row.total_bonus)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
                 {/* Footer */}
                 <tfoot className="bg-suka-gray-50 border-t-2 border-suka-gray-200 text-suka-ink font-bold">
                   <tr>
-                    <td colSpan={2} className="px-5 py-3 text-xs">
-                      Total ({filteredCrew.length} staf kru &amp; leader)
+                    <td colSpan={4} className="px-5 py-3 text-xs">
+                      Total ({filteredCrew.length} entri kru & leader)
                     </td>
                     <td className="px-5 py-3 text-right text-xs text-suka-gray-500">
-                      Total Bonus Kru &amp; Leader:
+                      Total Bonus Kru & Leader:
                     </td>
                     <td className="px-5 py-3 text-right font-mono tabular-nums font-black text-sm text-emerald-800">
                       {formatRupiah(crewTotalBonus)}
@@ -645,7 +804,7 @@ export default function CrewBonusPage() {
                         {formatNumber(row.total_pcs_global)}{' '}
                         <span className="text-[10px] text-suka-gray-400">pcs</span>
                       </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums text-suka-gray-500">
+                      <td className="px-5 py-3.5 text-right font-mono tabular-nums text-stone-500">
                         {formatRupiah(row.bonus_rate)}{' '}
                         <span className="text-[10px] text-suka-gray-400">/ pcs</span>
                       </td>
@@ -674,6 +833,18 @@ export default function CrewBonusPage() {
           </div>
         </div>
       )}
+
+      {/* ── Crew Daily Bonus Modal (Drill-Down Personal) ── */}
+      <CrewDailyBonusModal
+        isOpen={Boolean(modalCrew)}
+        onClose={() => setModalCrew(null)}
+        crewId={modalCrew?.id || null}
+        crewName={modalCrew?.name || ''}
+        month={month}
+        year={year}
+        role={modalCrew?.role || 'crew'}
+        subRole={modalCrew?.subRole}
+      />
     </div>
   )
 }

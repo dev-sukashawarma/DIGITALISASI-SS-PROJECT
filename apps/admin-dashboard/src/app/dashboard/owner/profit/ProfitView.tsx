@@ -885,9 +885,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const opexSums: Record<string, number> = {
           pengeluaran_outlet: 0,
           gaji_crew_outlet: 0,
-          gaji_staff_kantor: 0,
-          bonus_leader: 0,
-          bonus_korlap: 0,
+          bonus_crew: 0,
+          bonus_area_manager: 0,
+          bonus_regional_manager: 0,
           lembur: 0,
           ads: 0,
           endorsement: 0,
@@ -896,19 +896,21 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           pln: 0,
           internet: 0,
           sewa_outlet: 0,
-          joint_expense: 0
+          joint_expense: 0,
+          gaji_staff_kantor: 0,
         }
 
         outletOpex.forEach(e => {
           const c = (e as any).category?.toLowerCase() || ''
           if (c === 'gaji_staff_kantor') opexSums.gaji_staff_kantor += e.amount
           else if (c === 'gaji_crew_outlet' || c === 'salary' || c === 'gaji') opexSums.gaji_crew_outlet += e.amount
-          else if (c === 'bonus_leader' || c === 'bonus_crew') opexSums.bonus_leader += e.amount
-          else if (c === 'bonus_korlap' || c === 'bonus_area_manager' || c === 'bonus_regional_manager') opexSums.bonus_korlap += e.amount
+          else if (c === 'bonus_crew' || c === 'bonus_leader') opexSums.bonus_crew += e.amount
+          else if (c === 'bonus_area_manager' || c === 'bonus_korlap') opexSums.bonus_area_manager += e.amount
+          else if (c === 'bonus_regional_manager') opexSums.bonus_regional_manager += e.amount
           else if (c === 'lembur' || c === 'overtime') opexSums.lembur += e.amount
-          else if (c === 'ads') opexSums.ads += e.amount
-          else if (c === 'endorsement') opexSums.endorsement += e.amount
-          else if (c === 'promo') opexSums.promo += e.amount
+          else if (c === 'ads' || c === 'iklan' || c === 'marketing_ads') opexSums.ads += e.amount
+          else if (c === 'endorsement' || c === 'marcom') opexSums.endorsement += e.amount
+          else if (c === 'promo' || c === 'diskon') opexSums.promo += e.amount
           else if (c === 'pdam' || c === 'air') opexSums.pdam += e.amount
           else if (c === 'pln' || c === 'listrik') opexSums.pln += e.amount
           else if (c === 'internet' || c === 'wifi') opexSums.internet += e.amount
@@ -920,11 +922,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const totalOpex = Object.values(opexSums).reduce((a, b) => a + b, 0)
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'PENGELUARAN OUTLET', opexSums.pengeluaran_outlet])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'GAJI CREW OUTLET', opexSums.gaji_crew_outlet])
-        if (opexSums.gaji_staff_kantor > 0) {
-          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'GAJI STAFF KANTOR', opexSums.gaji_staff_kantor])
-        }
-        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'BONUS LEADER', opexSums.bonus_leader])
-        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'BONUS KORLAP', opexSums.bonus_korlap])
+        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'BONUS CREW', opexSums.bonus_crew])
+        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'BONUS AREA MANAGER', opexSums.bonus_area_manager])
+        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'BONUS REGIONAL MANAGER', opexSums.bonus_regional_manager])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'LEMBUR', opexSums.lembur])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'ADS', opexSums.ads])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'ENDORSEMENT', opexSums.endorsement])
@@ -933,7 +933,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'PLN', opexSums.pln])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'INTERNET', opexSums.internet])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'BIAYA SEWA OUTLET', opexSums.sewa_outlet])
-        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'JOINT EXPENSE', opexSums.joint_expense])
+        if (opexSums.joint_expense > 0) {
+          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'JOINT EXPENSE', opexSums.joint_expense])
+        }
+        if (opexSums.gaji_staff_kantor > 0) {
+          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'GAJI STAFF KANTOR', opexSums.gaji_staff_kantor])
+        }
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'SUB TOTAL PENGELUARAN', totalOpex])
 
         // BEBAN LAINNYA & KEMITRAAN
@@ -1382,31 +1387,33 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         // OPEX (murni biaya operasional outlet tanpa waste)
         const outletOpex = expenseRows.filter(e => e.outlet_id === item.id && (e.scope === 'outlet' || !e.scope))
         const opexSums: Record<string, { label: string; amount: number }> = {
-          pengeluaran_outlet: { label: 'Beban Operasional Outlet', amount: 0 },
-          gaji_crew_outlet: { label: 'Gaji Crew Outlet', amount: 0 },
-          bonus_leader: { label: 'Bonus Leader', amount: 0 },
-          bonus_korlap: { label: 'Bonus Korlap / Area Mgr', amount: 0 },
-          lembur: { label: 'Upah Lembur', amount: 0 },
-          ads: { label: 'Biaya Iklan (Ads)', amount: 0 },
-          endorsement: { label: 'Biaya Endorsement', amount: 0 },
-          promo: { label: 'Biaya Promosi', amount: 0 },
-          pdam: { label: 'PDAM (Air Bersih)', amount: 0 },
-          pln: { label: 'PLN (Listrik)', amount: 0 },
-          internet: { label: 'Internet & WiFi', amount: 0 },
-          sewa_outlet: { label: 'Beban Sewa Outlet', amount: 0 },
-          joint_expense: { label: 'Beban Bersama (Joint Expense)', amount: 0 },
-          gaji_staff_kantor: { label: 'Alokasi Gaji Kantor', amount: 0 }
+          pengeluaran_outlet: { label: 'PENGELUARAN OUTLET', amount: 0 },
+          gaji_crew_outlet: { label: 'GAJI CREW OUTLET', amount: 0 },
+          bonus_crew: { label: 'BONUS CREW', amount: 0 },
+          bonus_area_manager: { label: 'BONUS AREA MANAGER', amount: 0 },
+          bonus_regional_manager: { label: 'BONUS REGIONAL MANAGER', amount: 0 },
+          lembur: { label: 'LEMBUR', amount: 0 },
+          ads: { label: 'ADS', amount: 0 },
+          endorsement: { label: 'ENDORSEMENT', amount: 0 },
+          promo: { label: 'PROMO', amount: 0 },
+          pdam: { label: 'PDAM', amount: 0 },
+          pln: { label: 'PLN', amount: 0 },
+          internet: { label: 'INTERNET', amount: 0 },
+          sewa_outlet: { label: 'BIAYA SEWA OUTLET', amount: 0 },
+          joint_expense: { label: 'JOINT EXPENSE', amount: 0 },
+          gaji_staff_kantor: { label: 'GAJI STAFF KANTOR', amount: 0 }
         }
 
         outletOpex.forEach(e => {
           const c = (e as any).category?.toLowerCase() || ''
           if (c === 'gaji_crew_outlet' || c === 'salary' || c === 'gaji') opexSums.gaji_crew_outlet.amount += e.amount
-          else if (c === 'bonus_leader' || c === 'bonus_crew') opexSums.bonus_leader.amount += e.amount
-          else if (c === 'bonus_korlap' || c === 'bonus_area_manager' || c === 'bonus_regional_manager') opexSums.bonus_korlap.amount += e.amount
+          else if (c === 'bonus_crew' || c === 'bonus_leader') opexSums.bonus_crew.amount += e.amount
+          else if (c === 'bonus_area_manager' || c === 'bonus_korlap') opexSums.bonus_area_manager.amount += e.amount
+          else if (c === 'bonus_regional_manager') opexSums.bonus_regional_manager.amount += e.amount
           else if (c === 'lembur' || c === 'overtime') opexSums.lembur.amount += e.amount
-          else if (c === 'ads') opexSums.ads.amount += e.amount
-          else if (c === 'endorsement') opexSums.endorsement.amount += e.amount
-          else if (c === 'promo') opexSums.promo.amount += e.amount
+          else if (c === 'ads' || c === 'iklan' || c === 'marketing_ads') opexSums.ads.amount += e.amount
+          else if (c === 'endorsement' || c === 'marcom') opexSums.endorsement.amount += e.amount
+          else if (c === 'promo' || c === 'diskon') opexSums.promo.amount += e.amount
           else if (c === 'pdam' || c === 'air') opexSums.pdam.amount += e.amount
           else if (c === 'pln' || c === 'listrik') opexSums.pln.amount += e.amount
           else if (c === 'internet' || c === 'wifi') opexSums.internet.amount += e.amount
@@ -1566,7 +1573,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
         // 6. URAIAN OPEX (Hanya kategori yang aktif > 0)
         bodyRows.push([
-          { content: 'URAIAN BEBAN OPERASIONAL (OPEX)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }
+          { content: 'URAIAN OPEX', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }
         ])
         const activeOpexItems = Object.values(opexSums).filter(o => o.amount > 0)
         if (activeOpexItems.length > 0) {
@@ -1577,7 +1584,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           bodyRows.push(['Tidak ada beban operasional tercatat', { content: 'Rp 0', styles: { halign: 'right', textColor: [148, 163, 184] } }])
         }
         bodyRows.push([
-          { content: 'SUB TOTAL PENGELUARAN (TOTAL OPEX)', styles: { fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }, 
+          { content: 'SUB TOTAL PENGELUARAN', styles: { fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }, 
           { content: rupiah(totalOpex), styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }
         ])
         bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])

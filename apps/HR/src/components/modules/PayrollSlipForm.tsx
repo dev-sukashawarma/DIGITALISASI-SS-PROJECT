@@ -352,597 +352,418 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-2xl rounded-3xl border border-suka-gray-200 bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 my-6 max-h-[92vh] overflow-y-auto"
+        className="w-full max-w-3xl rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 my-6 max-h-[92vh] overflow-y-auto"
       >
-        {/* Form Header */}
-        <div className="border-b border-suka-gray-100 pb-3 flex flex-wrap items-center justify-between gap-3">
+        {/* Modal Header */}
+        <div className="flex items-start justify-between pb-3 border-b border-stone-100">
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-black text-suka-brown">
-                Rincian Komponen Gaji: {record.outlet_staff?.name}
+                Rincian Slip Gaji: {record.outlet_staff?.name}
               </h3>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-suka-orange/10 text-suka-orange border border-suka-orange/20">
+                {record.outlet_staff?.role?.replace('_', ' ').toUpperCase()}
+              </span>
             </div>
-            <p className="text-xs text-suka-gray-500 font-medium mt-0.5">
-              Periode: Bulan {record.period_month}/{record.period_year} &bull; Jabatan:{' '}
-              {record.outlet_staff?.role?.replace('_', ' ').toUpperCase()} &bull; Outlet:{' '}
-              {record.outlet_staff?.outlets?.name || 'Pusat'}
+            <p className="text-xs text-stone-500 font-medium mt-0.5">
+              Periode: <strong className="text-stone-700">Bulan {record.period_month}/{record.period_year}</strong> &bull; Outlet: <strong className="text-stone-700">{record.outlet_staff?.outlets?.name || 'Kantor Pusat'}</strong>
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <a
-              href="/staff"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-bold text-stone-700 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 px-2.5 py-1.5 rounded-xl border border-stone-300/80 flex items-center gap-1 transition-all shadow-2xs"
-              title="Buka menu data karyawan di tab baru untuk mengubah Gaji Pokok atau Tunjangan Tetap"
-            >
-              <span>Master Karyawan</span>
-              <ExternalLink size={12} />
-            </a>
-            <a
-              href="/perizinan/kasbon"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-xl border border-purple-200 flex items-center gap-1 transition-all shadow-2xs"
-              title="Buka modul kasbon di tab baru untuk approval atau kelola cicilan"
-            >
-              <span>Modul Kasbon</span>
-              <ExternalLink size={12} />
-            </a>
-          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
+            title="Tutup Modal"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        {/* Master Data Protection / Emergency Override Banner */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-stone-50 border border-stone-200">
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`p-2 rounded-xl border transition-all ${
-                isOverrideEnabled
-                  ? 'bg-amber-100 border-amber-300 text-amber-700'
-                  : 'bg-stone-200/80 border-stone-300 text-stone-600'
-              }`}
-            >
-              {isOverrideEnabled ? <Unlock size={16} /> : <Lock size={16} />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-stone-800">
-                  {isOverrideEnabled ? 'Mode Override Darurat Aktif' : 'Proteksi Master Data Aktif'}
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    isOverrideEnabled
-                      ? 'bg-amber-100 text-amber-800 border-amber-300'
-                      : 'bg-stone-200 text-stone-600 border-stone-300'
-                  }`}
-                >
-                  {isOverrideEnabled ? 'Terbuka' : 'Terkunci Aman'}
-                </span>
-              </div>
-              <p className="text-[11px] text-stone-500 font-medium">
-                {isOverrideEnabled
-                  ? 'Komponen master terbuka untuk diedit. Perubahan hanya berlaku untuk slip bulan ini (tidak mengubah master).'
-                  : 'Gaji Pokok, Tunjangan Tetap, BPJS & Kasbon dikunci untuk menjaga sinkronisasi data master.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isOverrideEnabled && (
-              <button
-                type="button"
-                onClick={handleResetToMaster}
-                className="px-2.5 py-1 text-xs font-bold text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-100 rounded-lg border border-stone-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                title="Kembalikan semua nilai ke Master Karyawan"
-              >
-                <RotateCcw size={11} />
-                <span>Reset Nilai Master</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleToggleOverride}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
-                isOverrideEnabled
-                  ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-xs'
-                  : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100 shadow-2xs'
-              }`}
-            >
-              {isOverrideEnabled ? <Lock size={13} /> : <Unlock size={13} />}
-              <span>{isOverrideEnabled ? 'Kunci Kembali' : 'Buka Kunci Override'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Section 1: Komponen Penerimaan (Take Home Pay) */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-800 tracking-wider">
-              <DollarSign size={14} className="text-emerald-600" />
-              <span>1. Komponen Penerimaan (Earnings)</span>
-            </div>
-            <a
-              href="/staff"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white/90 hover:bg-white px-2 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1 transition-all shadow-2xs"
-              title="Ubah Gaji Pokok & Tunjangan di Master Profil Karyawan"
-            >
-              <span>Edit di Master Karyawan</span>
-              <ExternalLink size={10} />
-            </a>
-          </div>
-
-          {/* Automatic Sales Bonus Indicator Banner */}
-          <div className="p-2.5 rounded-xl bg-orange-50/80 border border-orange-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+        {/* 1. Komponen Tetap (Master Data & Kasbon) Card */}
+        <div className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Sparkles size={15} className="text-suka-orange shrink-0" />
+              <div className="p-1.5 rounded-lg bg-stone-200 text-stone-700">
+                <Lock size={13} />
+              </div>
               <div>
-                <span className="font-bold text-orange-950">Koneksi Bonus Penjualan (POS):</span>{' '}
-                {fetchingBonus ? (
-                  <span className="text-suka-gray-500">Mengecek bonus porsi terjual...</span>
-                ) : liveBonusInfo && liveBonusInfo.amount > 0 ? (
-                  <span className="text-emerald-800 font-bold">
-                    Terhitung {formatRupiah(liveBonusInfo.amount)} &bull; {liveBonusInfo.description}
-                  </span>
-                ) : (
-                  <span className="text-suka-gray-500 font-medium">Rp 0 / Belum ada target tercapai</span>
-                )}
+                <h4 className="text-xs font-bold text-stone-800">Komponen Tetap (Master Data &amp; Kasbon)</h4>
+                <p className="text-[11px] text-stone-500">Tersinkronisasi otomatis dari Master Karyawan dan Modul Kasbon.</p>
               </div>
             </div>
 
-            {liveBonusInfo && liveBonusInfo.amount > 0 && liveBonusInfo.amount !== salesBonus && (
-              <button
-                type="button"
-                onClick={() => setSalesBonus(liveBonusInfo.amount)}
-                className="px-2 py-1 text-[11px] font-bold bg-white text-orange-900 hover:bg-orange-100 rounded-lg border border-orange-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+            <div className="flex items-center gap-1.5">
+              <a
+                href="/staff"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-bold text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-300 flex items-center gap-1 transition-all shadow-2xs"
+                title="Buka profil karyawan untuk mengubah data master gaji"
               >
-                <RefreshCw size={10} />
-                <span>Terapkan Otomatis ({formatRupiah(liveBonusInfo.amount)})</span>
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown">Gaji Pokok / Gapok (Rp)</label>
-                {isOverrideEnabled ? (
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                    <Unlock size={10} /> Override Manual
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
-                    <Lock size={10} /> Master Data
-                  </span>
-                )}
-              </div>
-              <input
-                type="number"
-                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
-                value={basicSalary}
-                onChange={(e) => setBasicSalary(Number(e.target.value))}
-                min={0}
-                disabled={!isOverrideEnabled}
-                required
-              />
-              <p className="mt-1 text-[10px] text-stone-500 font-medium">
-                {isOverrideEnabled
-                  ? 'Mode override aktif. Perubahan khusus slip bulan ini.'
-                  : 'Terkunci. Diatur dari profil karyawan (Menu Staff).'}
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
-                  <Clock size={12} className="text-emerald-600" />
-                  <span>Overtime / Lembur (Rp)</span>
-                </label>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                  ✏️ Variabel Bulanan
-                </span>
-              </div>
-              <input
-                type="number"
-                className={editableInputClass}
-                value={overtime}
-                onChange={(e) => setOvertime(Number(e.target.value))}
-                min={0}
-              />
-              <p className="mt-1 text-[10px] text-stone-500 font-medium">
-                Input insentif lembur karyawan untuk bulan berjalan.
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown">Uang Makan / Meal (Rp)</label>
-                {isOverrideEnabled ? (
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                    <Unlock size={10} /> Override
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
-                    <Lock size={10} /> Master Data
-                  </span>
-                )}
-              </div>
-              <input
-                type="number"
-                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
-                value={mealAllowance}
-                onChange={(e) => setMealAllowance(Number(e.target.value))}
-                min={0}
-                disabled={!isOverrideEnabled}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
-                  <Navigation size={12} className="text-blue-600" />
-                  <span>Uang Transport (Rp)</span>
-                </label>
-                {isOverrideEnabled ? (
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                    <Unlock size={10} /> Override
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
-                    <Lock size={10} /> Master Data
-                  </span>
-                )}
-              </div>
-              <input
-                type="number"
-                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
-                value={transportAllowance}
-                onChange={(e) => setTransportAllowance(Number(e.target.value))}
-                min={0}
-                disabled={!isOverrideEnabled}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
-                  <Phone size={12} className="text-purple-600" />
-                  <span>Tunjangan Komunikasi / Pulsa (Rp)</span>
-                </label>
-                {isOverrideEnabled ? (
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                    <Unlock size={10} /> Override
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
-                    <Lock size={10} /> Master Data
-                  </span>
-                )}
-              </div>
-              <input
-                type="number"
-                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
-                value={communicationAllowance}
-                onChange={(e) => setCommunicationAllowance(Number(e.target.value))}
-                min={0}
-                disabled={!isOverrideEnabled}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
-                  <Sparkles size={12} className="text-amber-500" />
-                  <span>Sales Bonus / Bonus Target (Rp)</span>
-                </label>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                  ✏️ Variabel Bulanan
-                </span>
-              </div>
-              <input
-                type="number"
-                className={editableInputClass}
-                value={salesBonus}
-                onChange={(e) => setSalesBonus(Number(e.target.value))}
-                min={0}
-              />
-              <p className="mt-1 text-[10px] text-stone-500 font-medium">
-                Bisa ditarik otomatis dari target penjualan POS di atas atau disesuaikan manual.
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown">Tunjangan Jabatan (Rp)</label>
-                {isOverrideEnabled ? (
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                    <Unlock size={10} /> Override
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
-                    <Lock size={10} /> Master Data
-                  </span>
-                )}
-              </div>
-              <input
-                type="number"
-                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
-                value={positionAllowance}
-                onChange={(e) => setPositionAllowance(Number(e.target.value))}
-                min={0}
-                disabled={!isOverrideEnabled}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200 text-xs">
-            <span className="font-bold text-emerald-900">Subtotal Penerimaan:</span>
-            <span className="font-mono font-black text-emerald-700">{formatRupiah(totalEarnings)}</span>
-          </div>
-        </div>
-
-        {/* Section 2: Komponen Potongan & Otomatisasi Absensi */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
-            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-red-800 tracking-wider">
-              <ShieldAlert size={14} className="text-red-600" />
-              <span>2. Komponen Potongan (Deductions)</span>
-            </div>
-            <div className="flex items-center gap-2">
+                <span>Edit di Master</span>
+                <ExternalLink size={10} />
+              </a>
               <a
                 href="/perizinan/kasbon"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] font-bold text-purple-800 hover:text-purple-950 bg-white/90 hover:bg-white px-2 py-0.5 rounded-lg border border-purple-300 flex items-center gap-1 transition-all shadow-2xs"
-                title="Kelola & Verifikasi Kasbon Karyawan"
+                className="text-[11px] font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 flex items-center gap-1 transition-all shadow-2xs"
+                title="Buka modul kasbon untuk approval pinjaman"
               >
-                <span>Buka Modul Kasbon</span>
+                <span>Modul Kasbon</span>
                 <ExternalLink size={10} />
               </a>
-              <span className="text-[10px] font-bold text-red-700 bg-white/80 px-2 py-0.5 rounded-full border border-red-200 hidden sm:inline-block">
-                Denda Telat: Rp 1.000 / menit
-              </span>
-            </div>
-          </div>
-
-          {/* Automatic Attendance Indicator Banner */}
-          <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <Zap size={15} className="text-amber-600 shrink-0" />
-              <div>
-                <span className="font-bold text-amber-900">Koneksi Otomatis Absensi:</span>{' '}
-                {fetchingAtt ? (
-                  <span className="text-stone-500">Mengecek data kehadiran...</span>
-                ) : liveAttMinutes !== null && liveAttMinutes > 0 ? (
-                  <span className="text-red-700 font-bold">
-                    Terdeteksi {liveAttMinutes} menit terlambat di bulan ini (Denda {formatRupiah(liveAttMinutes * LATE_FEE_PER_MINUTE)})
-                  </span>
-                ) : (
-                  <span className="text-emerald-700 font-semibold">Tepat waktu / Tidak ada telat tercatat</span>
-                )}
-              </div>
-            </div>
-
-            {liveAttMinutes !== null && liveAttMinutes !== lateMinutes && (
               <button
                 type="button"
-                onClick={handleApplyLiveAttendance}
-                className="px-2 py-1 text-[11px] font-bold bg-white text-amber-900 hover:bg-amber-100 rounded-lg border border-amber-300 flex items-center gap-1 transition-all cursor-pointer"
+                onClick={handleToggleOverride}
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                  isOverrideEnabled
+                    ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-2xs'
+                    : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100 shadow-2xs'
+                }`}
+                title={isOverrideEnabled ? 'Kunci kembali ke data master' : 'Buka kunci untuk penyesuaian darurat'}
               >
-                <RefreshCw size={10} />
-                <span>Terapkan Otomatis ({liveAttMinutes}m)</span>
+                {isOverrideEnabled ? <Lock size={11} /> : <Unlock size={11} />}
+                <span>{isOverrideEnabled ? 'Tutup Override' : 'Override Khusus'}</span>
               </button>
-            )}
+            </div>
           </div>
 
-          {/* Pending Kasbon Warning Banner */}
-          {pendingKasbonInfo && (
-            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 flex items-start gap-2 text-xs">
-              <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold text-amber-950">Pengajuan Kasbon Menunggu Persetujuan:</span>{' '}
-                <span className="text-amber-900">
-                  Ada {pendingKasbonInfo.count} pengajuan kasbon ({formatRupiah(pendingKasbonInfo.totalAmount)}) yang{' '}
-                  <strong className="text-amber-950 underline">BELUM DISETUJUI</strong> oleh HR di menu Perizinan &amp; Kasbon.
-                  Pengajuan pending tidak otomatis dipotongkan ke slip gaji sebelum disetujui.
+          {/* Normal Read-Only View: Clean 4-Column Stat Cards */}
+          {!isOverrideEnabled ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+              <div className="bg-white p-3 rounded-xl border border-stone-200 shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Gaji Pokok</span>
+                <span className="text-sm font-bold font-mono text-stone-800">{formatRupiah(basicSalary)}</span>
+              </div>
+
+              <div className="bg-white p-3 rounded-xl border border-stone-200 shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Tunjangan Tetap</span>
+                <span className="text-sm font-bold font-mono text-stone-800">
+                  {formatRupiah(mealAllowance + transportAllowance + communicationAllowance + positionAllowance)}
                 </span>
+                <span
+                  className="text-[9px] text-stone-400 block truncate"
+                  title={`Makan: ${formatRupiah(mealAllowance)} | Transp: ${formatRupiah(transportAllowance)} | Pulsa: ${formatRupiah(communicationAllowance)} | Jab: ${formatRupiah(positionAllowance)}`}
+                >
+                  Makan, Transp, Pulsa, Jab
+                </span>
+              </div>
+
+              <div className="bg-white p-3 rounded-xl border border-stone-200 shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Potongan BPJS</span>
+                <span className="text-sm font-bold font-mono text-stone-800">
+                  {bpjsDeduction > 0 ? `-${formatRupiah(bpjsDeduction)}` : 'Rp 0'}
+                </span>
+              </div>
+
+              <div className="bg-white p-3 rounded-xl border border-stone-200 shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Potongan Kasbon</span>
+                <span
+                  className={`text-sm font-bold font-mono ${
+                    cashAdvanceDeduction > 0 ? 'text-red-600' : 'text-stone-800'
+                  }`}
+                >
+                  {cashAdvanceDeduction > 0 ? `-${formatRupiah(cashAdvanceDeduction)}` : 'Rp 0'}
+                </span>
+                {liveKasbonInfo && liveKasbonInfo.remaining > 0 ? (
+                  <span className="text-[9px] text-purple-700 font-semibold block truncate">
+                    Sisa: {formatRupiah(liveKasbonInfo.remaining)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            /* Override Mode: Clean compact inputs */
+            <div className="space-y-3 pt-2 border-t border-amber-200">
+              <div className="flex items-center justify-between text-xs bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-amber-900">
+                <span className="font-semibold text-[11px]">
+                  ⚠️ Mode Override Aktif: Perubahan hanya berlaku untuk slip bulan ini (tidak merubah master karyawan).
+                </span>
+                <button
+                  type="button"
+                  onClick={handleResetToMaster}
+                  className="px-2 py-1 text-[10px] font-bold bg-white text-stone-700 hover:bg-stone-100 rounded-lg border border-stone-300 flex items-center gap-1 cursor-pointer shadow-2xs shrink-0 ml-2"
+                >
+                  <RotateCcw size={10} />
+                  <span>Reset ke Master</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div>
+                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Gaji Pokok (Rp)</label>
+                  <input
+                    type="number"
+                    className={overrideInputClass}
+                    value={basicSalary}
+                    onChange={(e) => setBasicSalary(Number(e.target.value))}
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Uang Makan (Rp)</label>
+                  <input
+                    type="number"
+                    className={overrideInputClass}
+                    value={mealAllowance}
+                    onChange={(e) => setMealAllowance(Number(e.target.value))}
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Uang Transport (Rp)</label>
+                  <input
+                    type="number"
+                    className={overrideInputClass}
+                    value={transportAllowance}
+                    onChange={(e) => setTransportAllowance(Number(e.target.value))}
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Tunjangan Pulsa (Rp)</label>
+                  <input
+                    type="number"
+                    className={overrideInputClass}
+                    value={communicationAllowance}
+                    onChange={(e) => setCommunicationAllowance(Number(e.target.value))}
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Tunjangan Jabatan (Rp)</label>
+                  <input
+                    type="number"
+                    className={overrideInputClass}
+                    value={positionAllowance}
+                    onChange={(e) => setPositionAllowance(Number(e.target.value))}
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Potongan BPJS (Rp)</label>
+                  <input
+                    type="number"
+                    className={overrideInputClass}
+                    value={bpjsDeduction}
+                    onChange={(e) => setBpjsDeduction(Number(e.target.value))}
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Potongan Kasbon (Rp)</label>
+                  <input
+                    type="number"
+                    className={overrideInputClass}
+                    value={cashAdvanceDeduction}
+                    onChange={(e) => setCashAdvanceDeduction(Number(e.target.value))}
+                    min={0}
+                  />
+                </div>
               </div>
             </div>
           )}
 
-          {/* Automatic Kasbon Module Connection Banner */}
-          <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+          {/* Pending Kasbon Alert (Hanya muncul jika ada pengajuan pending) */}
+          {pendingKasbonInfo && (
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900">
+              <div className="flex items-center gap-1.5">
+                <Clock size={13} className="text-amber-600 shrink-0" />
+                <span>
+                  Ada <strong>{pendingKasbonInfo.count} pengajuan kasbon ({formatRupiah(pendingKasbonInfo.totalAmount)})</strong> berstatus pending.
+                </span>
+              </div>
+              <a
+                href="/perizinan/kasbon"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-bold text-amber-950 underline hover:text-black shrink-0"
+              >
+                Approval Kasbon &rarr;
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* 2. Penyesuaian Bulan Ini (Variabel) Card */}
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-stone-100">
             <div className="flex items-center gap-2">
-              <Wallet size={15} className="text-purple-600 shrink-0" />
+              <div className="p-1.5 rounded-lg bg-orange-100 text-suka-orange">
+                <Sparkles size={14} />
+              </div>
               <div>
-                <span className="font-bold text-purple-950">Koneksi Modul Kasbon:</span>{' '}
-                {fetchingKasbon ? (
-                  <span className="text-stone-500">Mengecek data pinjaman...</span>
-                ) : liveKasbonInfo && liveKasbonInfo.remaining > 0 ? (
-                  <span className="text-purple-900 font-semibold">
-                    {liveKasbonInfo.count} pinjaman aktif &bull; Sisa Hutang:{' '}
-                    <strong className="text-red-700">{formatRupiah(liveKasbonInfo.remaining)}</strong>
-                    {liveKasbonInfo.monthlyInstallment > 0 && (
-                      <span className="text-stone-600 ml-1">
-                        (Saran Cicilan: {formatRupiah(liveKasbonInfo.monthlyInstallment)}/bln)
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span className="text-emerald-700 font-semibold">Tidak ada pinjaman kasbon aktif di Modul Kasbon</span>
-                )}
-                {pendingKasbonInfo && (
-                  <div className="text-amber-800 font-medium text-[11px] mt-0.5">
-                    ⚠️ {pendingKasbonInfo.count} pengajuan kasbon ({formatRupiah(pendingKasbonInfo.totalAmount)}) masih berstatus <em>pending</em> (menunggu persetujuan HR).
-                  </div>
-                )}
+                <h4 className="text-xs font-bold text-stone-800">Penyesuaian Bulan Ini (Variabel)</h4>
+                <p className="text-[11px] text-stone-400">Komponen bulanan: Lembur, Bonus POS, Keterlambatan, dan Ganti Rugi.</p>
               </div>
             </div>
-
-            {liveKasbonInfo &&
-              liveKasbonInfo.monthlyInstallment > 0 &&
-              liveKasbonInfo.monthlyInstallment !== cashAdvanceDeduction &&
-              isOverrideEnabled && (
-                <button
-                  type="button"
-                  onClick={() => setCashAdvanceDeduction(liveKasbonInfo.monthlyInstallment)}
-                  className="px-2 py-1 text-[11px] font-bold bg-white text-purple-900 hover:bg-purple-100 rounded-lg border border-purple-300 flex items-center gap-1 transition-all cursor-pointer"
-                >
-                  <RefreshCw size={10} />
-                  <span>Terapkan Cicilan ({formatRupiah(liveKasbonInfo.monthlyInstallment)})</span>
-                </button>
-              )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 1. Overtime / Lembur */}
+            <div>
+              <label className="text-xs font-bold text-stone-700 block mb-1">
+                Overtime / Lembur (Rp)
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={overtime}
+                onChange={(e) => setOvertime(Number(e.target.value))}
+                min={0}
+                placeholder="0"
+              />
+              <span className="text-[10px] text-stone-400 block mt-1">
+                Insentif lembur bulan berjalan.
+              </span>
+            </div>
+
+            {/* 2. Bonus Penjualan (POS) */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
-                  <Wallet size={12} className="text-red-600" />
-                  <span>Potongan Kasbon (Rp)</span>
-                </label>
-                {isOverrideEnabled ? (
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                    <Unlock size={10} /> Override Manual
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-purple-200">
-                    <Lock size={10} /> Modul Kasbon
-                  </span>
+                <label className="text-xs font-bold text-stone-700">Bonus Penjualan / POS (Rp)</label>
+                {liveBonusInfo && liveBonusInfo.amount > 0 && liveBonusInfo.amount !== salesBonus && (
+                  <button
+                    type="button"
+                    onClick={() => setSalesBonus(liveBonusInfo.amount)}
+                    className="text-[10px] font-bold text-orange-800 hover:text-orange-950 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2 py-0.5 rounded cursor-pointer transition-colors shadow-2xs"
+                  >
+                    + Sync POS ({formatRupiah(liveBonusInfo.amount)})
+                  </button>
                 )}
               </div>
               <input
                 type="number"
-                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
-                value={cashAdvanceDeduction}
-                onChange={(e) => setCashAdvanceDeduction(Number(e.target.value))}
+                className={inputClass}
+                value={salesBonus}
+                onChange={(e) => setSalesBonus(Number(e.target.value))}
                 min={0}
-                disabled={!isOverrideEnabled}
+                placeholder="0"
               />
-              {liveKasbonInfo && liveKasbonInfo.remaining > 0 ? (
-                <p className="mt-1 text-[11px] text-purple-800 font-medium">
-                  Sisa hutang di modul: {formatRupiah(liveKasbonInfo.remaining)}. Terpotong otomatis saat finalisasi slip.
-                </p>
-              ) : isOverrideEnabled && cashAdvanceDeduction > 0 ? (
-                <p className="mt-1 text-[11px] text-amber-700 font-medium">
-                  Catatan: Potongan kasbon manual di-override tanpa pengajuan resmi di Modul Kasbon.
-                </p>
+              {liveBonusInfo && liveBonusInfo.amount > 0 ? (
+                <span className="text-[10px] text-emerald-700 font-semibold block mt-1">
+                  ✓ Target POS: {formatRupiah(liveBonusInfo.amount)} ({liveBonusInfo.description})
+                </span>
               ) : (
-                <p className="mt-1 text-[11px] text-stone-500 font-medium">
-                  Tidak ada pinjaman kasbon aktif &amp; disetujui (Rp 0).
-                </p>
+                <span className="text-[10px] text-stone-400 block mt-1">
+                  {fetchingBonus ? 'Mengecek data POS...' : 'Target POS bulan ini: Rp 0'}
+                </span>
               )}
             </div>
 
+            {/* 3. Keterlambatan Absensi */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
-                  <ShieldAlert size={12} className="text-red-600" />
-                  <span>Potongan BPJS (Rp)</span>
-                </label>
-                {isOverrideEnabled ? (
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                    <Unlock size={10} /> Override
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
-                    <Lock size={10} /> Master Data
-                  </span>
+                <label className="text-xs font-bold text-stone-700">Keterlambatan (Absensi)</label>
+                {liveAttMinutes !== null && liveAttMinutes > 0 && liveAttMinutes !== lateMinutes && (
+                  <button
+                    type="button"
+                    onClick={handleApplyLiveAttendance}
+                    className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded cursor-pointer transition-colors shadow-2xs"
+                  >
+                    + Sync Absensi ({liveAttMinutes}m)
+                  </button>
                 )}
               </div>
-              <input
-                type="number"
-                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
-                value={bpjsDeduction}
-                onChange={(e) => setBpjsDeduction(Number(e.target.value))}
-                min={0}
-                disabled={!isOverrideEnabled}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown">Keterlambatan (Absensi)</label>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                  ✏️ Variabel Bulanan
-                </span>
-              </div>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  className={`${editableInputClass} w-24 text-center font-mono`}
-                  value={lateMinutes}
-                  onChange={(e) => setLateMinutes(Number(e.target.value))}
-                  min={0}
-                  placeholder="0 mnt"
-                />
-                <span className="text-xs font-bold text-stone-500">Menit =</span>
-                <span className="font-mono font-black text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl border border-red-200 flex-1 text-right">
+                <div className="relative flex-1">
+                  <input
+                    type="number"
+                    className={`${inputClass} pr-12 font-mono`}
+                    value={lateMinutes}
+                    onChange={(e) => setLateMinutes(Number(e.target.value))}
+                    min={0}
+                    placeholder="0"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-stone-400 font-medium">mnt</span>
+                </div>
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs font-bold font-mono whitespace-nowrap">
                   -{formatRupiah(lateDeduction)}
-                </span>
+                </div>
               </div>
-              <p className="mt-1 text-[10px] text-stone-500 font-medium">
-                Bisa ditarik otomatis dari absensi atau diisi manual jika ada dispensasi.
-              </p>
+              {liveAttMinutes !== null && liveAttMinutes > 0 ? (
+                <span className="text-[10px] text-red-600 font-semibold block mt-1">
+                  Mesin absensi: {liveAttMinutes} menit terlambat (@ Rp 1.000/mnt)
+                </span>
+              ) : (
+                <span className="text-[10px] text-emerald-600 block mt-1">
+                  {fetchingAtt ? 'Mengecek absensi...' : '✓ Tepat waktu / 0 menit telat'}
+                </span>
+              )}
             </div>
 
+            {/* 4. Potongan Lain / Ganti Rugi */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown">Potongan Lain / Ganti Rugi (Rp)</label>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                  ✏️ Variabel Bulanan
-                </span>
-              </div>
+              <label className="text-xs font-bold text-stone-700 block mb-1">
+                Potongan Lain / Ganti Rugi (Rp)
+              </label>
               <input
                 type="number"
-                className={editableInputClass}
+                className={inputClass}
                 value={otherDeduction}
                 onChange={(e) => setOtherDeduction(Number(e.target.value))}
                 min={0}
+                placeholder="0"
               />
+              <span className="text-[10px] text-stone-400 block mt-1">
+                Denda kerusakan inventaris / ketidaksesuaian SOP.
+              </span>
             </div>
 
+            {/* 5. Alasan / Keterangan Potongan Lain */}
             <div className="sm:col-span-2">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-suka-brown">Keterangan / Alasan Potongan Lain</label>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                  ✏️ Variabel Bulanan
-                </span>
-              </div>
+              <label className="text-xs font-bold text-stone-700 block mb-1">
+                Keterangan / Alasan Potongan Lain
+              </label>
               <input
                 type="text"
-                className={editableInputClass}
+                className={inputClass}
                 value={otherDeductionReason}
                 onChange={(e) => setOtherDeductionReason(e.target.value)}
-                placeholder="Contoh: Ganti rugi inventaris rusak / denda ketidaksesuaian SOP"
+                placeholder="Contoh: Ganti rugi inventaris pecah / denda ketidaksesuaian SOP"
               />
             </div>
           </div>
+        </div>
 
-          <div className="flex justify-between items-center p-2.5 rounded-xl bg-red-50/50 border border-red-200 text-xs">
-            <span className="font-bold text-red-900">Subtotal Potongan:</span>
-            <span className="font-mono font-black text-red-600">-{formatRupiah(totalDeductions)}</span>
+        {/* 3. Take Home Pay Summary Bar */}
+        <div className="p-4 rounded-2xl bg-[#FAF7F2] border border-suka-orange/30 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-4">
+              <div>
+                <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">
+                  Total Penerimaan
+                </span>
+                <span className="font-bold font-mono text-emerald-700 text-sm">
+                  {formatRupiah(totalEarnings)}
+                </span>
+              </div>
+              <span className="text-stone-300 font-bold text-base">&minus;</span>
+              <div>
+                <span className="text-stone-400 block text-[10px] uppercase font-bold tracking-wider">
+                  Total Potongan
+                </span>
+                <span className="font-bold font-mono text-red-600 text-sm">
+                  {formatRupiah(totalDeductions)}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-black tracking-wider text-suka-brown/70 block">
+                TOTAL TAKE HOME PAY (THP)
+              </span>
+              <span className="text-2xl font-black text-suka-orange font-mono">
+                {formatRupiah(takeHomePay)}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Section 3: Take Home Pay Summary Banner */}
-        <div className="p-4 rounded-2xl bg-[#FDF9F3] border-2 border-suka-orange/40 flex justify-between items-center shadow-xs">
-          <div>
-            <span className="text-[11px] font-black uppercase tracking-wider text-suka-gray-500 block">
-              Gaji Bersih Diterima Staf
-            </span>
-            <span className="text-base font-black text-suka-brown">TOTAL TAKE HOME PAY (THP)</span>
-          </div>
-          <span className="text-xl font-black text-suka-orange font-mono">
-            {formatRupiah(takeHomePay)}
-          </span>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex justify-end gap-2 pt-2 border-t border-suka-gray-100">
+        {/* Footer Buttons */}
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
           <Button type="button" variant="ghost" onClick={onCancel} className="rounded-xl font-bold">
             Batal
           </Button>

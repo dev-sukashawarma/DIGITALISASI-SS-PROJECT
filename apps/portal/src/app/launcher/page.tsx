@@ -4,7 +4,6 @@ import { createSupabaseServerClient, getOutletStaff, accessibleApps, getVerified
 import type { AppName } from '@suka/auth'
 import LogoutButton from '@/components/LogoutButton'
 import AppGrid, { type PortalAppItem } from '@/components/AppGrid'
-import { Avatar } from '@suka/design-system'
 import { MapPin, Clock, CheckCircle2, Store, Users } from 'lucide-react'
 import LiveClock from '@/components/LiveClock'
 
@@ -75,6 +74,7 @@ export default async function LauncherPage() {
     .in('key', ['brand_name', 'brand_logo'])
 
   const brandName = brandData?.find((s: any) => s.key === 'brand_name')?.value?.replace(/^"|"$/g, '') || 'Suka Shawarma'
+  const brandLogo = brandData?.find((s: any) => s.key === 'brand_logo')?.value?.replace(/^"|"$/g, '') || '/logo.png'
 
   const APP_URL = await getAppUrls()
 
@@ -373,9 +373,12 @@ export default async function LauncherPage() {
             {/* Main Identity & Desktop Action Row */}
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
-                <div className="p-0.5 rounded-2xl ring-2 ring-white/25 shadow-lg shrink-0">
-                  <Avatar name={staff.name} size={46} className="sm:hidden rounded-[13px] border border-white/40" />
-                  <Avatar name={staff.name} size={54} className="hidden sm:flex rounded-[14px] border border-white/40" />
+                <div className="relative flex items-center justify-center p-1 sm:p-1.5 rounded-2xl bg-white/95 ring-2 ring-white/30 shadow-lg shadow-black/15 shrink-0 overflow-hidden w-[46px] h-[46px] sm:w-[54px] sm:h-[54px]">
+                  <img
+                    src={brandLogo || "/logo.png"}
+                    alt={brandName}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   {/* Desktop Title Badge */}
@@ -433,15 +436,18 @@ export default async function LauncherPage() {
                     </div>
 
                     {/* Kru Bertugas Metric */}
-                    <div className="inline-flex items-center justify-between sm:justify-start gap-2 bg-amber-500/20 border border-amber-500/35 text-amber-100 text-xs font-bold px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
+                    <div
+                      title={`${operationalMetrics.currentlyWorkingCrew} kru sedang aktif di outlet saat ini. Dari total ${operationalMetrics.totalAttendedCount} kru yang masuk hari ini, ${operationalMetrics.totalAttendedCount - operationalMetrics.currentlyWorkingCrew} kru sudah absen pulang (shift selesai).`}
+                      className="inline-flex items-center justify-between sm:justify-start gap-2 bg-amber-500/20 border border-amber-500/35 text-amber-100 text-xs font-bold px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none"
+                    >
                       <div className="flex items-center gap-2">
                         <Users size={14} className="text-amber-300 shrink-0" />
                         <span>
-                          <strong className="text-white font-black">{operationalMetrics.currentlyWorkingCrew}</strong> Kru Bertugas
+                          <strong className="text-white font-black">{operationalMetrics.currentlyWorkingCrew}</strong> Kru Aktif Bekerja
                         </span>
                       </div>
                       <span className="text-amber-200/80 font-semibold text-[10px] sm:text-[11px] sm:border-l sm:border-amber-400/20 sm:pl-2">
-                        {operationalMetrics.totalAttendedCount} hadir hari ini
+                        {operationalMetrics.totalAttendedCount} total hadir hari ini
                       </span>
                     </div>
                   </>

@@ -7,7 +7,8 @@ import {
   UploadCloud, FileImage, X, Activity, CheckSquare, Hourglass,
   ChevronRight, AlertCircle, Minus, AlertTriangle
 } from "lucide-react";
-import { useLeaveHistory, useLeaveBalance, useSubmitLeave, LeaveType } from "./api";
+import { useLeaveHistory, useLeaveBalance, useSubmitLeave, useBatalkanCuti, LeaveType } from "./api";
+import { TombolBatalkan } from "@/components/TombolBatalkan";
 import { useLeaveNotifications } from "./useLeaveNotifications";
 import { useToast } from "@/lib/feedback/toast";
 import { BottomSheet } from "@/components/BottomSheet";
@@ -64,6 +65,7 @@ export function CutiView() {
   const { data: balance } = useLeaveBalance(userId, currentYear);
   const { data: history, isLoading: loadingHistory } = useLeaveHistory(userId);
   const submitLeave = useSubmitLeave();
+  const batalkan = useBatalkanCuti(userId);
   const toast = useToast();
   const { markAsRead } = useLeaveNotifications();
 
@@ -99,6 +101,15 @@ export function CutiView() {
     setReason('');
     setType('annual');
     setFile(null);
+  };
+
+  const handleBatalkan = async (id: string) => {
+    try {
+      await batalkan.mutateAsync(id);
+      toast.show("ok", "Pengajuan cuti dibatalkan");
+    } catch (err) {
+      toast.show("err", (err as any)?.message || "Gagal membatalkan cuti");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -419,6 +430,15 @@ export function CutiView() {
                             <p className="text-xs font-extrabold text-rose-800 mb-1 uppercase tracking-wider">Alasan Penolakan</p>
                             <p className="text-sm font-semibold text-rose-700">{item.rejection_note}</p>
                           </div>
+                        </div>
+                      )}
+
+                      {item.status === 'pending' && item.status_spv !== 'rejected' && (
+                        <div className="mt-3">
+                          <TombolBatalkan
+                            loading={batalkan.isPending && batalkan.variables === item.id}
+                            onConfirm={() => handleBatalkan(item.id)}
+                          />
                         </div>
                       )}
                     </div>

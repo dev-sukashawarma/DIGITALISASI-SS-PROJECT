@@ -853,6 +853,21 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                     </div>
                   </div>
               </div>
+
+              {/* Catatan Edukasi Siklus Settlement TikTok Go T+4 */}
+              {selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok') && (
+                <div className="mt-4 p-4 rounded-2xl bg-indigo-50/80 border border-indigo-100 flex items-start gap-3 text-xs text-indigo-950 shadow-2xs">
+                  <Clock className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-indigo-900">
+                      Catatan Siklus Settlement TikTok Go (T+4 Hari Kerja)
+                    </p>
+                    <p className="text-indigo-800 leading-relaxed">
+                      Siklus pencairan voucher TikTok Go membutuhkan waktu <strong>4 hari kerja perbankan</strong> (Sabtu, Minggu, dan hari libur tidak dihitung). Transaksi akhir bulan (29–30 September 2026) akan tuntas cair pada <strong>Selasa sore, 6 Oktober 2026</strong>. Silakan tarik ulang file settlement dari TikTok Seller Center pada <strong>Rabu, 7 Oktober 2026</strong> agar angka rekonsiliasi menjadi <strong>100% tuntas</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

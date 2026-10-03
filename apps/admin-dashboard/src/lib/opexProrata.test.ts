@@ -336,4 +336,142 @@ describe('opexProrata - calculateProratedExpenses', () => {
     // Outlet aktif tetap mendapatkan prorata normal
     expect(res.rows.find(r => r.outlet_id === 'outlet-active')).toBeDefined()
   })
+
+  it('mengikutsertakan gaji crew dari HR payroll_records pada bulan lampau sebulan penuh (September 2026 = 100% nominal)', () => {
+    // Simulasi Mitra Cibinong di bulan September 2026 saat diakses di bulan Oktober 2026
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const realExpenses: ExpenseRow[] = [
+      {
+        id: 'net-1',
+        outlet_id: 'outlet-cibinong',
+        outlet_name: 'MITRA CIBINONG',
+        category: 'internet',
+        scope: 'outlet',
+        amount: 260_850,
+        description: 'Indihome Cibinong',
+        expense_date: '2026-09-19',
+        period_month: '2026-09-01',
+        source: 'monthly',
+      },
+      {
+        id: 'pln-1',
+        outlet_id: 'outlet-cibinong',
+        outlet_name: 'MITRA CIBINONG',
+        category: 'pln',
+        scope: 'outlet',
+        amount: 870_406,
+        description: 'PLN Cibinong',
+        expense_date: '2026-09-04',
+        period_month: '2026-09-01',
+        source: 'monthly',
+      },
+    ]
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'outlet-cibinong', source: 'all' },
+      rawExpenses: realExpenses,
+      payrollRecords: [
+        { outlet_id: 'outlet-cibinong', total_salary: 2_390_000, period_month: 9, period_year: 2026 },
+        { outlet_id: 'outlet-cibinong', total_salary: 2_390_000, period_month: 9, period_year: 2026 },
+        { outlet_id: 'outlet-cibinong', total_salary: 2_390_000, period_month: 9, period_year: 2026 },
+      ],
+      now: octNow,
+      outlets: [{ id: 'outlet-cibinong', name: 'MITRA CIBINONG', is_active: true }],
+    })
+
+    // Bukan prorata karena 1 bulan kalender penuh (isProrated: false)
+    expect(res.isProrated).toBe(false)
+    // Transaksi riil non-gaji tetap utuh
+    expect(res.rows.find(r => r.id === 'net-1')?.amount).toBe(260_850)
+    expect(res.rows.find(r => r.id === 'pln-1')?.amount).toBe(870_406)
+
+    // Gaji crew outlet masuk sebesar 100% nominal (3 * 2.390.000 = 7.170.000)
+    const gajiRow = res.rows.find(r => r.category === 'gaji_crew_outlet')
+    expect(gajiRow).toBeDefined()
+    expect(gajiRow?.amount).toBe(7_170_000)
+    expect(gajiRow?.description).toContain('HR Payroll')
+    expect(res.categoryBreakdown.gaji_crew_outlet.nominalBulanan).toBe(7_170_000)
+    expect(res.categoryBreakdown.gaji_crew_outlet.nominalProrata).toBe(7_170_000)
+    expect(res.categoryBreakdown.gaji_crew_outlet.source).toBe('payroll_record')
+  })
+
+  it('memprorata gaji crew dari HR payroll_records pada bulan lampau untuk rentang tanggal parsial', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-15', outletId: 'outlet-cibinong', source: 'all' },
+      rawExpenses: [],
+      payrollRecords: [
+        { outlet_id: 'outlet-cibinong', total_salary: 7_170_000, period_month: 9, period_year: 2026 },
+      ],
+      now: octNow,
+      outlets: [{ id: 'outlet-cibinong', name: 'MITRA CIBINONG', is_active: true }],
+    })
+
+    // Parsial 15/30 hari -> isProrated: true, amount = 3.585.000
+    expect(res.isProrated).toBe(true)
+    expect(res.monthInfo.overlapDays).toBe(15)
+    expect(res.monthInfo.totalDays).toBe(30)
+    const gajiRow = res.rows.find(r => r.category === 'gaji_crew_outlet')
+    expect(gajiRow?.amount).toBe(3_585_000)
+    expect(gajiRow?.description).toContain('15 Hari')
+  })
+
+  it('mencegah double-counting jika expenses memiliki gaji manual lama dan HR payroll_records juga tersedia', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    // Di tabel expenses pernah diinput manual gaji Rp 5.000.000
+    const manualGaji: ExpenseRow = {
+      id: 'manual-gaji-old',
+      outlet_id: 'outlet-1',
+      outlet_name: 'SS Pogung',
+      category: 'gaji_crew_outlet',
+      scope: 'outlet',
+      amount: 5_000_000,
+      description: 'Gaji manual lama',
+      expense_date: '2026-08-01',
+      period_month: '2026-08-01',
+      source: 'monthly',
+    }
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-08-01', to: '2026-08-31', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [manualGaji],
+      payrollRecords: [
+        // Di HR modul payroll resmi tercatat Rp 6.000.000
+        { outlet_id: 'outlet-1', total_salary: 6_000_000, period_month: 8, period_year: 2026 },
+      ],
+      now: octNow,
+      outlets: [{ id: 'outlet-1', name: 'SS Pogung', is_active: true }],
+    })
+
+    // Hanya 1 baris gaji yang boleh muncul (angka resmi dari HR modul)
+    const gajiRows = res.rows.filter(r => r.category === 'gaji_crew_outlet')
+    expect(gajiRows.length).toBe(1)
+    expect(gajiRows[0].amount).toBe(6_000_000)
+    expect(gajiRows[0].id).not.toBe('manual-gaji-old')
+  })
+
+  it('fallback ke master staf (staff_financials) jika payroll_records belum dibuat pada bulan lampau', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [],
+      payrollRecords: [],
+      staffFinancials: [
+        {
+          outlet_id: 'outlet-1',
+          basic_salary: 2_000_000,
+          allowance_position: 200_000,
+          allowance_presence: 190_000,
+        },
+      ],
+      now: octNow,
+      outlets: [{ id: 'outlet-1', name: 'SS Pogung', is_active: true }],
+    })
+
+    const gajiRow = res.rows.find(r => r.category === 'gaji_crew_outlet')
+    expect(gajiRow).toBeDefined()
+    expect(gajiRow?.amount).toBe(2_390_000)
+    expect(res.categoryBreakdown.gaji_crew_outlet.source).toBe('staff_master')
+  })
 })
+

@@ -9,9 +9,10 @@ import { monthRange } from '@/lib/period'
 import {
   calculateMonthOverlap,
   calculateProratedExpenses,
+  getPeriodsInRange,
   type ProratedExpenseResult,
 } from '@/lib/opexProrata'
-import { isTestOrDevStaff } from '@/lib/staffFilters'
+import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 
 interface UseProratedOpexOptions {
   filter: PeriodFilterValue
@@ -22,11 +23,8 @@ interface UseProratedOpexOptions {
 
 /**
  * Hook untuk memprorata beban tetap (Gaji Crew dari HR, Sewa Outlet, Internet)
- * secara realtime pada bulan berjalan.
- * 
- * Strategi Kueri Optimal:
- * - Jika filter TIDAK menyentuh bulan berjalan, 3 kueri tambahan sama sekali TIDAK dijalankan (0 network overhead).
- * - Seluruh query di-cache dengan staleTime yang memadai.
+ * secara realtime pada bulan berjalan, serta menyuplai data gaji dari modul HR
+ * untuk bulan-bulan lampau (single source of truth).
  */
 export function useProratedOpex({
   filter,
@@ -36,20 +34,30 @@ export function useProratedOpex({
 }: UseProratedOpexOptions): ProratedExpenseResult & { loading: boolean } {
   const supabase = createClient()
 
-  // 1. Cek irisan filter dengan bulan berjalan
+  // 1. Cek irisan filter dengan bulan berjalan & ekstrak periode bulan
   const overlap = useMemo(() => {
     return calculateMonthOverlap(filter.from, filter.to)
   }, [filter.from, filter.to])
 
+  const periods = useMemo(() => {
+    return getPeriodsInRange(filter.from, filter.to)
+  }, [filter.from, filter.to])
+
+  const months = useMemo(() => [...new Set(periods.map(p => p.month))], [periods])
+  const years = useMemo(() => [...new Set(periods.map(p => p.year))], [periods])
+
+  const shouldFetchPayroll = enabled && periods.length > 0
   const shouldFetchProrata = enabled && overlap.isCurrentMonth && overlap.overlapDays > 0
 
-  // 2. Kueri data slip gaji HR (payroll_records) bulan berjalan
+  // 2. Kueri data slip gaji HR (payroll_records) untuk seluruh bulan yang disentuh filter
   const { data: payrollData = [], isLoading: loadingPayroll } = useQuery({
-    queryKey: ['prorata-payroll-records', overlap.year, overlap.month],
+    queryKey: ['prorata-payroll-records', years, months],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('payroll_records')
         .select(`
+          period_month,
+          period_year,
           total_salary,
           basic_salary,
           allowance_position,
@@ -60,11 +68,18 @@ export function useProratedOpex({
             username,
             outlet_id,
             role,
-            status
+            status,
+            account_category
           )
         `)
-        .eq('period_month', overlap.month)
-        .eq('period_year', overlap.year)
+
+      if (years.length === 1) q = q.eq('period_year', years[0])
+      else if (years.length > 1) q = q.in('period_year', years)
+
+      if (months.length === 1) q = q.eq('period_month', months[0])
+      else if (months.length > 1) q = q.in('period_month', months)
+
+      const { data, error } = await q
 
       if (error) {
         console.warn('Gagal memuat payroll_records untuk prorata:', error.message)
@@ -72,15 +87,27 @@ export function useProratedOpex({
       }
 
       const rows = (data ?? []) as any[]
+      const OUTLET_CREW_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver']
+
       return rows
-        .filter(r => r.outlet_staff && r.outlet_staff.status === 'active' && !isTestOrDevStaff(r.outlet_staff))
+        .filter(r => {
+          const s = r.outlet_staff
+          if (!s || s.status !== 'active') return false
+          if (isTestOrDevStaff(s)) return false
+          if (!OUTLET_CREW_ROLES.includes(s.role)) return false
+          if (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID) return false
+          return true
+        })
         .map(r => ({
           outlet_id: r.outlet_staff?.outlet_id as string,
           total_salary: Number(r.total_salary) || 0,
+          period_month: Number(r.period_month),
+          period_year: Number(r.period_year),
+          role: r.outlet_staff?.role as string,
         }))
         .filter(r => Boolean(r.outlet_id))
     },
-    enabled: shouldFetchProrata,
+    enabled: shouldFetchPayroll,
     staleTime: 5 * 60 * 1000, // 5 menit
   })
 
@@ -97,6 +124,7 @@ export function useProratedOpex({
           outlet_id,
           role,
           status,
+          account_category,
           staff_financials(
             basic_salary,
             allowance_position,
@@ -104,7 +132,7 @@ export function useProratedOpex({
           )
         `)
         .eq('status', 'active')
-        .neq('role', 'kiosk')
+        .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver'])
 
       if (error) {
         console.warn('Gagal memuat staff_financials untuk prorata:', error.message)
@@ -113,7 +141,7 @@ export function useProratedOpex({
 
       const rows = (data ?? []) as any[]
       return rows
-        .filter(s => !isTestOrDevStaff(s))
+        .filter(s => !isTestOrDevStaff(s) && s.outlet_id && s.outlet_id !== KANTOR_PUSAT_ID)
         .map(s => {
           const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
           return {
@@ -121,10 +149,11 @@ export function useProratedOpex({
             basic_salary: Number(fin?.basic_salary) || 0,
             allowance_position: Number(fin?.allowance_position) || 0,
             allowance_presence: Number(fin?.allowance_presence) || 0,
+            role: s.role as string,
           }
         }).filter(s => Boolean(s.outlet_id))
     },
-    enabled: shouldFetchProrata,
+    enabled: shouldFetchPayroll,
     staleTime: 10 * 60 * 1000, // 10 menit
   })
 
@@ -194,7 +223,9 @@ export function useProratedOpex({
     staleTime: 5 * 60 * 1000, // 5 menit
   })
 
-  const loading = shouldFetchProrata && (loadingPayroll || loadingStaff || loadingLastMonth || loadingCrewBonus)
+  const loading =
+    (shouldFetchPayroll && (loadingPayroll || loadingStaff)) ||
+    (shouldFetchProrata && (loadingLastMonth || loadingCrewBonus))
 
   // 6. Kalkulasi prorata murni
   const calculationResult = useMemo(() => {

@@ -473,5 +473,118 @@ describe('opexProrata - calculateProratedExpenses', () => {
     expect(gajiRow?.amount).toBe(2_390_000)
     expect(res.categoryBreakdown.gaji_crew_outlet.source).toBe('staff_master')
   })
+
+  it('mengotomasi bonus kru, bonus AM, dan bonus RM dari modul bonus kru pada bulan lampau (MODE 2)', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [],
+      crewBonusRecords: [
+        {
+          outlet_id: 'outlet-1',
+          total_bonus: 404_101,
+          total_pcs_outlet: 4_041,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      now: octNow,
+      outlets: [{ id: 'outlet-1', name: 'Mitra Cicurug', is_active: true }],
+    })
+
+    // Bonus Crew: 404.101
+    const crewRow = res.rows.find(r => r.category === 'bonus_crew')
+    expect(crewRow).toBeDefined()
+    expect(crewRow?.amount).toBe(404_101)
+    expect(crewRow?.description).toContain('Modul Bonus Crew')
+    expect(res.categoryBreakdown.bonus_crew.nominalBulanan).toBe(404_101)
+    expect(res.categoryBreakdown.bonus_crew.source).toBe('crew_bonus_module')
+
+    // Bonus AM: 4.041 pcs * 50 = 202.050
+    const amRow = res.rows.find(r => r.category === 'bonus_area_manager')
+    expect(amRow).toBeDefined()
+    expect(amRow?.amount).toBe(202_050)
+    expect(res.categoryBreakdown.bonus_area_manager.nominalBulanan).toBe(202_050)
+    expect(res.categoryBreakdown.bonus_area_manager.source).toBe('crew_bonus_module')
+
+    // Bonus RM: 4.041 pcs * 50 = 202.050
+    const rmRow = res.rows.find(r => r.category === 'bonus_regional_manager')
+    expect(rmRow).toBeDefined()
+    expect(rmRow?.amount).toBe(202_050)
+    expect(res.categoryBreakdown.bonus_regional_manager.nominalBulanan).toBe(202_050)
+    expect(res.categoryBreakdown.bonus_regional_manager.source).toBe('crew_bonus_module')
+  })
+
+  it('mencegah double-counting bonus manual jika modul bonus sudah memiliki data outlet (MODE 2)', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const manualBonusCrew: ExpenseRow = {
+      id: 'manual-bonus-old',
+      outlet_id: 'outlet-1',
+      outlet_name: 'Mitra Cicurug',
+      category: 'bonus_crew',
+      scope: 'outlet',
+      amount: 500_000,
+      description: 'Bonus kru manual finance',
+      expense_date: '2026-09-15',
+      period_month: '2026-09-01',
+      source: 'monthly',
+    }
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [manualBonusCrew],
+      crewBonusRecords: [
+        {
+          outlet_id: 'outlet-1',
+          total_bonus: 404_101,
+          total_pcs_outlet: 4_041,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      now: octNow,
+      outlets: [{ id: 'outlet-1', name: 'Mitra Cicurug', is_active: true }],
+    })
+
+    // Hanya 1 baris bonus crew resmi yang ada (input manual dibuang)
+    const crewRows = res.rows.filter(r => r.category === 'bonus_crew')
+    expect(crewRows.length).toBe(1)
+    expect(crewRows[0].amount).toBe(404_101)
+    expect(crewRows[0].id).not.toBe('manual-bonus-old')
+  })
+
+  it('memprorata bonus secara proporsional jika rentang filter bulan lampau hanya sebagian (misal 15 hari)', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    // 15 hari dari 30 hari September = ratio 0.5
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-15', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [],
+      crewBonusRecords: [
+        {
+          outlet_id: 'outlet-1',
+          total_bonus: 400_000,
+          total_pcs_outlet: 4_000,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      now: octNow,
+      outlets: [{ id: 'outlet-1', name: 'Mitra Cicurug', is_active: true }],
+    })
+
+    expect(res.isProrated).toBe(true)
+
+    // Bonus Crew: 400.000 * 15/30 = 200.000
+    const crewRow = res.rows.find(r => r.category === 'bonus_crew')
+    expect(crewRow?.amount).toBe(200_000)
+
+    // Bonus AM: (4.000 * 50) * 15/30 = 100.000
+    const amRow = res.rows.find(r => r.category === 'bonus_area_manager')
+    expect(amRow?.amount).toBe(100_000)
+
+    // Bonus RM: (4.000 * 50) * 15/30 = 100.000
+    const rmRow = res.rows.find(r => r.category === 'bonus_regional_manager')
+    expect(rmRow?.amount).toBe(100_000)
+  })
 })
 

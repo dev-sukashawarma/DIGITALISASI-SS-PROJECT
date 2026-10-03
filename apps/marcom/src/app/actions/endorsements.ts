@@ -579,6 +579,9 @@ export async function updatePaymentStatus(
       },
     })
 
+    // Sinkronisasi otomatis ke OPEX Finance
+    await syncEndorsementOpex(endorsementId)
+
     revalidatePath('/dashboard/endorsements')
     revalidatePath('/dashboard/budget')
     return { success: true }
@@ -633,6 +636,11 @@ export async function batchUpdatePayments(
         paymentDate,
       },
     })
+
+    // Sinkronisasi otomatis ke OPEX Finance
+    for (const bId of bigIntIds) {
+      await syncEndorsementOpex(bId)
+    }
 
     revalidatePath('/dashboard/endorsements')
     revalidatePath('/dashboard/budget')

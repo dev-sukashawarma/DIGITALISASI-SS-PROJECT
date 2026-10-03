@@ -10,12 +10,87 @@ import { periodCacheOptions, withPeriodCache } from "@/lib/periodCache";
 import { isMitraOutlet } from "@/lib/outletOwnership";
 import { ambilRiwayatHpp, ambilVersiRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp";
 import { adalahKanalSsOnline } from "@/lib/hpp/kanalSsOnline";
+import { resolveOrderSource } from "@/lib/order-source";
+
+export interface HppChannelBreakdown {
+  outlet: number;
+  food_apps: number;
+  tiktok_go: number;
+  website: number;
+}
 
 export interface HppRow {
   outlet_id: string;
   hpp: number;
   baseHpp?: number;
   markup?: number;
+  channels?: HppChannelBreakdown;
+}
+
+export function getOrderHppChannelGroup(
+  channel?: string | null,
+  salesSource?: string | null,
+  customerName?: string | null,
+  isEndorse?: boolean | null,
+): keyof HppChannelBreakdown {
+  const normCh = (channel || "").toLowerCase().trim();
+  const normSrc = (salesSource || "").toLowerCase().trim();
+  if (
+    [
+      "online",
+      "website",
+      "web",
+      "website ss",
+      "ss-online",
+      "ss_online",
+      "tiktok_shop",
+      "shopee_shop",
+    ].includes(normCh) ||
+    normSrc === "online"
+  ) {
+    return "website";
+  }
+
+  const src = resolveOrderSource(channel, salesSource, customerName, isEndorse).key.toLowerCase();
+  if (
+    [
+      "gofood",
+      "grabfood",
+      "shopeefood",
+      "generic_food_app",
+      "food_apps",
+      "foodapp",
+      "foodapps",
+    ].includes(src) ||
+    [
+      "gofood",
+      "grabfood",
+      "shopeefood",
+      "food_apps",
+      "foodapps",
+      "grab_food",
+      "go_food",
+      "shopee_food",
+    ].includes(normCh)
+  ) {
+    return "food_apps";
+  }
+  if (["tiktokgo", "tiktok", "tiktok_go"].includes(src) || ["tiktokgo", "tiktok", "tiktok_go"].includes(normCh)) {
+    return "tiktok_go";
+  }
+  if (
+    [
+      "online",
+      "website",
+      "ss-online",
+      "ss_online",
+      "tiktok_shop",
+      "shopee_shop",
+    ].includes(src)
+  ) {
+    return "website";
+  }
+  return "outlet";
 }
 
 function getItemHpp(
@@ -60,7 +135,9 @@ function getItemHpp(
     baseHpp = Number(itemObj.hpp_override);
   } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
     baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
-      const compHpp = pkg.component?.hpp_override || 0;
+      const compHpp = pkg.component
+        ? getItemHpp(pkg.component, undefined, undefined, undefined, channel).baseHpp
+        : (pkg.component?.hpp_override || 0);
       const qty = pkg.quantity || 1;
       return sum + compHpp * qty;
     }, 0);
@@ -94,7 +171,7 @@ export function useHpp(filter: PeriodFilterValue) {
   const versiHpp = versiQuery.data;
 
   const queryKey = [
-    "hpp-client-calculated",
+    "hpp-client-calculated-v2",
     filter.from,
     filter.to,
     filter.outletId,
@@ -156,7 +233,7 @@ export function useHpp(filter: PeriodFilterValue) {
         let b = supabase
           .from("orders")
           .select(
-            "outlet_id, channel, sales_source, created_at, order_items(menu_item_id, menu_item_name, quantity)",
+            "outlet_id, channel, sales_source, customer_name, is_endorse, created_at, order_items(menu_item_id, menu_item_name, quantity)",
             withCount ? { count: "exact" } : undefined,
           )
           .neq("outlet_id", TEST_OUTLET_ID)
@@ -191,12 +268,26 @@ export function useHpp(filter: PeriodFilterValue) {
           : Promise.resolve([] as any[]),
       ]);
 
-      const hppMap = new Map<string, { hpp: number; baseHpp: number; markup: number }>();
+      const hppMap = new Map<
+        string,
+        {
+          hpp: number;
+          baseHpp: number;
+          markup: number;
+          channels: HppChannelBreakdown;
+        }
+      >();
 
       allOrders.forEach((o: any) => {
         if (isTestOutlet(o.outlet_id)) return;
         const outletType = outletTypeMap.get(o.outlet_id);
         const orderChannel = o.channel || o.sales_source;
+        const channelGroup = getOrderHppChannelGroup(
+          o.channel,
+          o.sales_source,
+          o.customer_name,
+          o.is_endorse,
+        );
 
         const pHpp = penerapHpp.untuk(tanggalWib(o.created_at));
         o.order_items?.forEach((item: any) => {
@@ -208,12 +299,18 @@ export function useHpp(filter: PeriodFilterValue) {
             orderChannel,
           );
           const qty = item.quantity || 1;
-          const current = hppMap.get(o.outlet_id) || { hpp: 0, baseHpp: 0, markup: 0 };
-          hppMap.set(o.outlet_id, {
-            hpp: current.hpp + hpp * qty,
-            baseHpp: current.baseHpp + baseHpp * qty,
-            markup: current.markup + markup * qty,
-          });
+          const current = hppMap.get(o.outlet_id) || {
+            hpp: 0,
+            baseHpp: 0,
+            markup: 0,
+            channels: { outlet: 0, food_apps: 0, tiktok_go: 0, website: 0 },
+          };
+          const itemHpp = hpp * qty;
+          current.hpp += itemHpp;
+          current.baseHpp += baseHpp * qty;
+          current.markup += markup * qty;
+          current.channels[channelGroup] += itemHpp;
+          hppMap.set(o.outlet_id, current);
         });
       });
 
@@ -236,12 +333,18 @@ export function useHpp(filter: PeriodFilterValue) {
             ecommerceChannel,
           );
           const qty = item.quantity || 1;
-          const current = hppMap.get(outletId) || { hpp: 0, baseHpp: 0, markup: 0 };
-          hppMap.set(outletId, {
-            hpp: current.hpp + hpp * qty,
-            baseHpp: current.baseHpp + baseHpp * qty,
-            markup: current.markup + markup * qty,
-          });
+          const current = hppMap.get(outletId) || {
+            hpp: 0,
+            baseHpp: 0,
+            markup: 0,
+            channels: { outlet: 0, food_apps: 0, tiktok_go: 0, website: 0 },
+          };
+          const itemHpp = hpp * qty;
+          current.hpp += itemHpp;
+          current.baseHpp += baseHpp * qty;
+          current.markup += markup * qty;
+          current.channels.website += itemHpp;
+          hppMap.set(outletId, current);
         });
       });
 
@@ -250,6 +353,7 @@ export function useHpp(filter: PeriodFilterValue) {
         hpp: data.hpp,
         baseHpp: data.baseHpp,
         markup: data.markup,
+        channels: data.channels,
       }));
     }),
   });

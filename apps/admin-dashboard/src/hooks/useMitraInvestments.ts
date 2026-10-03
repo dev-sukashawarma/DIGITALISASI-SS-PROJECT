@@ -4,6 +4,13 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 
+export interface MitraTransferRecord {
+  id: string
+  outlet_id: string
+  bulan: string | null
+  nominal: number
+}
+
 export interface MitraInvestmentExtended {
   id: string
   outlet_id: string
@@ -20,6 +27,7 @@ export interface MitraInvestmentExtended {
   totalTransfers: number
   totalDanaKembali: number
   isBep: boolean
+  transfers?: MitraTransferRecord[]
 }
 
 /**
@@ -38,21 +46,24 @@ export function useMitraInvestments() {
     queryFn: async () => {
       const [invRes, transfers] = await Promise.all([
         supabase.from('mitra_investments').select('*'),
-        fetchAllPages<{ outlet_id: string; nominal: number }>(() =>
-          supabase.from('mitra_transfers').select('outlet_id, nominal').order('id', { ascending: true })
+        fetchAllPages<MitraTransferRecord>(() =>
+          supabase.from('mitra_transfers').select('id, outlet_id, bulan, nominal').order('id', { ascending: true })
         ),
       ])
       if (invRes.error) throw invRes.error
 
-      const transfersByOutlet = new Map<string, number>()
+      const transfersByOutlet = new Map<string, MitraTransferRecord[]>()
       for (const t of transfers ?? []) {
         if (!t.outlet_id) continue
-        transfersByOutlet.set(t.outlet_id, (transfersByOutlet.get(t.outlet_id) ?? 0) + (Number(t.nominal) || 0))
+        const list = transfersByOutlet.get(t.outlet_id) || []
+        list.push(t)
+        transfersByOutlet.set(t.outlet_id, list)
       }
 
       const map: Record<string, MitraInvestmentExtended> = {}
       for (const inv of invRes.data ?? []) {
-        const outletTransfers = transfersByOutlet.get(inv.outlet_id) ?? 0
+        const outletTransfersList = transfersByOutlet.get(inv.outlet_id) ?? []
+        const outletTransfers = outletTransfersList.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
         const totalDanaKembali = Number(inv.omzet_historis || 0) + Number(inv.transfer_historis || 0) + outletTransfers
         const modalInvestasi = Number(inv.nilai_investasi) || 0
         const isBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi
@@ -62,6 +73,7 @@ export function useMitraInvestments() {
           totalTransfers: outletTransfers,
           totalDanaKembali,
           isBep,
+          transfers: outletTransfersList,
         }
       }
       return map

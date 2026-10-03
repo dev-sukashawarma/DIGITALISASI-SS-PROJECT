@@ -1034,3 +1034,58 @@ export async function deleteSettlementBatch(payload: {
     return { success: false as const, error: err?.message || 'Gagal menghapus data settlement.' };
   }
 }
+
+export interface TikTokSettlementSummary {
+  outletId: string;
+  omzetKotor: number;
+  promoMerchant: number;
+  commission: number; // Admin Settlement
+  totalSettlement: number; // Total Settlement
+}
+
+export async function getTikTokSettlementSummaries(
+  from: string,
+  to: string
+): Promise<{ success: boolean; data?: Record<string, TikTokSettlementSummary>; error?: string }> {
+  const supabase = getSupabase();
+  try {
+    try {
+      await requireRole(['admin', 'owner', 'finance', 'developer', 'superadmin']);
+    } catch (authErr) {
+      console.warn('requireRole in getTikTokSettlementSummaries:', authErr);
+    }
+    const { data, error } = await supabase
+      .from('platform_settlements')
+      .select('outlet_id, omzet_kotor, promo_merchant, commission')
+      .eq('platform', 'tiktokgo')
+      .gte('tanggal', from)
+      .lte('tanggal', to);
+
+    if (error) throw error;
+
+    const result: Record<string, TikTokSettlementSummary> = {};
+    for (const row of data || []) {
+      const oId = row.outlet_id;
+      if (!result[oId]) {
+        result[oId] = {
+          outletId: oId,
+          omzetKotor: 0,
+          promoMerchant: 0,
+          commission: 0,
+          totalSettlement: 0,
+        };
+      }
+      const omzet = Number(row.omzet_kotor) || 0;
+      const promo = Number(row.promo_merchant) || 0;
+      const comm = Number(row.commission) || 0;
+      result[oId].omzetKotor += omzet;
+      result[oId].promoMerchant += promo;
+      result[oId].commission += comm;
+      result[oId].totalSettlement += (omzet - promo - comm);
+    }
+
+    return { success: true, data: result };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Gagal memuat ringkasan settlement TikTok' };
+  }
+}

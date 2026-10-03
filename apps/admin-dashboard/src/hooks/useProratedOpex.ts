@@ -46,7 +46,22 @@ export function useProratedOpex({
   const months = useMemo(() => [...new Set(periods.map(p => p.month))], [periods])
   const years = useMemo(() => [...new Set(periods.map(p => p.year))], [periods])
 
+  const uniqueYearMonths = useMemo(() => {
+    const list: { year: number; month: number }[] = []
+    const seen = new Set<string>()
+    const source = periods.length > 0 ? periods : [{ year: overlap.year, month: overlap.month }]
+    for (const p of source) {
+      const key = `${p.year}-${p.month}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        list.push({ year: p.year, month: p.month })
+      }
+    }
+    return list
+  }, [periods, overlap.year, overlap.month])
+
   const shouldFetchPayroll = enabled && periods.length > 0
+  const shouldFetchBonus = enabled && uniqueYearMonths.length > 0
   const shouldFetchProrata = enabled && overlap.isCurrentMonth && overlap.overlapDays > 0
 
   // 2. Kueri data slip gaji HR (payroll_records) untuk seluruh bulan yang disentuh filter
@@ -195,37 +210,46 @@ export function useProratedOpex({
     staleTime: 60 * 60 * 1000, // 1 jam (bulan lampau stabil)
   })
 
-  // 5. Kueri data bonus kru & porsi penjualan MTD dari RPC database
+  // 5. Kueri data bonus kru & porsi penjualan MTD dari RPC database untuk seluruh bulan yang relevan
   const { data: crewBonusData = [], isLoading: loadingCrewBonus } = useQuery({
-    queryKey: ['prorata-crew-bonus', overlap.year, overlap.month],
+    queryKey: ['prorata-crew-bonus', uniqueYearMonths.map(ym => `${ym.year}-${ym.month}`).join(',')],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_monthly_crew_bonus', {
-        p_month: overlap.month,
-        p_year: overlap.year,
-        p_outlet_id: null,
-      })
+      const results = await Promise.all(
+        uniqueYearMonths.map(async ({ year, month }) => {
+          const { data, error } = await supabase.rpc('get_monthly_crew_bonus', {
+            p_month: month,
+            p_year: year,
+            p_outlet_id: null,
+          })
 
-      if (error) {
-        console.warn('Gagal memuat crew bonus untuk prorata:', error.message)
-        return []
-      }
+          if (error) {
+            console.warn(`Gagal memuat crew bonus untuk prorata (${year}-${month}):`, error.message)
+            return []
+          }
 
-      const rows = (data ?? []) as any[]
-      return rows.map(r => ({
-        crew_id: r.crew_id as string,
-        outlet_id: r.outlet_id as string,
-        outlet_name: r.outlet_name as string,
-        total_pcs_outlet: Number(r.total_pcs_outlet) || 0,
-        total_bonus: Number(r.total_bonus) || 0,
-      }))
+          const rows = (data ?? []) as any[]
+          return rows.map(r => ({
+            crew_id: r.crew_id as string,
+            outlet_id: r.outlet_id as string,
+            outlet_name: r.outlet_name as string,
+            total_pcs_outlet: Number(r.total_pcs_outlet) || 0,
+            total_bonus: Number(r.total_bonus) || 0,
+            period_month: month,
+            period_year: year,
+          }))
+        })
+      )
+
+      return results.flat()
     },
-    enabled: shouldFetchProrata,
+    enabled: shouldFetchBonus,
     staleTime: 5 * 60 * 1000, // 5 menit
   })
 
   const loading =
     (shouldFetchPayroll && (loadingPayroll || loadingStaff)) ||
-    (shouldFetchProrata && (loadingLastMonth || loadingCrewBonus))
+    (shouldFetchBonus && loadingCrewBonus) ||
+    (shouldFetchProrata && loadingLastMonth)
 
   // 6. Kalkulasi prorata murni
   const calculationResult = useMemo(() => {

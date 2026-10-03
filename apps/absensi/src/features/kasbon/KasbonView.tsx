@@ -34,11 +34,15 @@ export function KasbonView() {
   const toast = useToast();
 
   const handleBatalkan = async (id: string) => {
+    // Galat dilempar ulang: TombolBatalkan menampilkannya di dalam lembar konfirmasi.
+    // Toast tetap muncul untuk kasus HR baru saja memutuskan — kartu (dan lembarnya)
+    // langsung hilang karena status berubah, jadi pesannya harus tetap terbaca.
     try {
       await batalkan.mutateAsync(id);
       toast.show("ok", "Pengajuan kasbon dibatalkan");
     } catch (err) {
       toast.show("err", (err as any)?.message || "Gagal membatalkan kasbon");
+      throw err;
     }
   };
 
@@ -206,7 +210,7 @@ export function KasbonView() {
           ) : history && history.length > 0 ? (
             <div className="divide-y divide-gray-100">
               {history.map((item) => (
-                <div key={item.id} className="p-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                <div key={item.id} className="p-5 hover:bg-gray-50/50 transition-colors">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-semibold text-slate-800">
@@ -222,12 +226,12 @@ export function KasbonView() {
                       <span>Diajukan: {dayjs(item.created_at).tz('Asia/Jakarta').format('DD MMM YYYY')}</span>
                     </div>
                     {item.status_hr === 'pending' && item.status_spv !== 'rejected' && (
-                      <div className="mt-3">
-                        <TombolBatalkan
-                          loading={batalkan.isPending && batalkan.variables === item.id}
-                          onConfirm={() => handleBatalkan(item.id)}
-                        />
-                      </div>
+                      <TombolBatalkan
+                        jenis="kasbon"
+                        judul={`Kasbon ${formatRupiah(item.amount)}`}
+                        detail={`Dicicil ${item.installment_months} bulan · diajukan ${dayjs(item.created_at).tz('Asia/Jakarta').format('DD MMM YYYY')}`}
+                        onConfirm={() => handleBatalkan(item.id)}
+                      />
                     )}
                   </div>
                 </div>

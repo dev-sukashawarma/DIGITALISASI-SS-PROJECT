@@ -121,3 +121,26 @@ export function useSubmitLeave() {
     },
   });
 }
+
+/** Batalkan pengajuan sendiri yang belum diputuskan HR. Aturannya (milik sendiri, status
+ *  masih pending) dijaga RPC `batalkan_cuti`, bukan di sini. Kuota tidak berubah karena
+ *  baru dipotong saat HR menyetujui, jadi cukup baris riwayat yang dibuang dari cache. */
+export function useBatalkanCuti(userId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc('batalkan_cuti', { p_id: id });
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: (id) => {
+      queryClient.setQueryData<Leave[]>(['leaves', userId], (lama) =>
+        lama?.filter((l) => l.id !== id),
+      );
+    },
+    // Ditolak server (mis. HR baru saja memutuskan) — muat ulang supaya status terbaru tampil.
+    onError: () => queryClient.invalidateQueries({ queryKey: ['leaves', userId] }),
+  });
+}

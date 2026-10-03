@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import CategoriesView from './CategoriesView'
-import type { Category } from '@/pos-types'
+import CategoriesView, { type CategoryRow } from './CategoriesView'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,12 +11,27 @@ export default async function AdminCategoriesPage() {
     setAll: () => {},
   })
 
-  const { data } = await supabase
+  // Jumlah menu per kategori dihitung di database (embed count), bukan menarik
+  // seluruh menu ke server/browser.
+  const withCount = await supabase
     .from('categories')
-    .select('*')
+    .select('id, name, sort_order, menu_items(count)')
     .order('sort_order')
+    .order('name')
 
-  const initialCategories: Category[] = data || []
+  let initialCategories: CategoryRow[]
+  if (!withCount.error) {
+    initialCategories = (withCount.data ?? []).map(c => ({
+      id: c.id,
+      name: c.name,
+      sort_order: c.sort_order,
+      menu_count: (c.menu_items as { count: number }[] | null)?.[0]?.count ?? 0,
+    }))
+  } else {
+    // Jangan sampai daftar kategori hilang hanya karena hitungan menu gagal.
+    const { data } = await supabase.from('categories').select('id, name, sort_order').order('sort_order').order('name')
+    initialCategories = (data ?? []).map(c => ({ ...c, menu_count: null }))
+  }
 
   return <CategoriesView initialCategories={initialCategories} />
 }

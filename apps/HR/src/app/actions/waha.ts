@@ -11,6 +11,17 @@ export interface BulkSendItemResult {
   phone: string
   success: boolean
   error?: string
+  warning?: string
+  pdfSent?: boolean
+  messageId?: string
+}
+
+export interface SingleWahaSendResult {
+  success: boolean
+  textSuccess: boolean
+  pdfSuccess?: boolean
+  error?: string
+  warning?: string
   messageId?: string
 }
 
@@ -97,12 +108,15 @@ export async function sendBulkWahaSalarySlips(
     if (res.success) {
       // Lampirkan Dokumen PDF Resmi (A5) jika opsi aktif
       if (shouldSendPdf) {
+        let pdfSent = false
+        let pdfErrorMsg: string | undefined = undefined
+
         try {
           const { generateSalarySlipPdfBase64 } = await import('@/lib/pdfSalarySlip')
           const { base64, filename } = await generateSalarySlipPdfBase64(slip)
 
           // Jeda natural sebelum kirim file lampiran
-          await sleep(1200)
+          await sleep(1500)
 
           const monthName = MONTH_NAMES[slip.period_month - 1] || slip.period_month
           const fileRes = await sendWahaFile({
@@ -116,21 +130,52 @@ export async function sendBulkWahaSalarySlips(
           })
 
           if (!fileRes.success) {
+            pdfSent = false
+            pdfErrorMsg = fileRes.error
             console.warn(`[WAHA] Lampiran PDF gagal terkirim untuk ${staffName}: ${fileRes.error}`)
+          } else {
+            pdfSent = true
           }
         } catch (pdfErr: any) {
+          pdfSent = false
+          pdfErrorMsg = pdfErr.message
           console.error(`[WAHA] Gagal generate PDF untuk ${staffName}:`, pdfErr)
         }
-      }
 
-      successCount++
-      results.push({
-        recordId: slip.id,
-        staffName,
-        phone,
-        success: true,
-        messageId: res.messageId,
-      })
+        if (pdfSent) {
+          successCount++
+          results.push({
+            recordId: slip.id,
+            staffName,
+            phone,
+            success: true,
+            pdfSent: true,
+            messageId: res.messageId,
+          })
+        } else {
+          failedCount++
+          results.push({
+            recordId: slip.id,
+            staffName,
+            phone,
+            success: false,
+            pdfSent: false,
+            error: `Pesan teks terkirim, namun PDF gagal: ${pdfErrorMsg || 'Gagal lampirkan dokumen'}`,
+            warning: `Pesan teks terkirim, namun PDF gagal: ${pdfErrorMsg || 'Gagal lampirkan dokumen'}`,
+            messageId: res.messageId,
+          })
+        }
+      } else {
+        successCount++
+        results.push({
+          recordId: slip.id,
+          staffName,
+          phone,
+          success: true,
+          pdfSent: false,
+          messageId: res.messageId,
+        })
+      }
     } else {
       failedCount++
       results.push({
@@ -173,10 +218,10 @@ export async function sendSingleWahaSalarySlip(
     session?: string
     apiKey?: string
   }
-): Promise<{ success: boolean; error?: string; messageId?: string }> {
+): Promise<SingleWahaSendResult> {
   const phone = slip.outlet_staff?.phone || ''
   if (!phone) {
-    return { success: false, error: 'Nomor WhatsApp staf belum terdaftar di database' }
+    return { success: false, textSuccess: false, error: 'Nomor WhatsApp staf belum terdaftar di database' }
   }
 
   const staffName = slip.outlet_staff?.name || 'Karyawan'
@@ -199,7 +244,7 @@ export async function sendSingleWahaSalarySlip(
   })
 
   if (!textRes.success) {
-    return { success: false, error: textRes.error }
+    return { success: false, textSuccess: false, error: textRes.error }
   }
 
   if (shouldSendPdf) {
@@ -207,7 +252,8 @@ export async function sendSingleWahaSalarySlip(
       const { generateSalarySlipPdfBase64 } = await import('@/lib/pdfSalarySlip')
       const { base64, filename } = await generateSalarySlipPdfBase64(slip)
 
-      await sleep(1200)
+      // Jeda natural sebelum kirim file lampiran
+      await sleep(1500)
 
       const monthName = MONTH_NAMES[slip.period_month - 1] || slip.period_month
       const fileRes = await sendWahaFile({
@@ -222,15 +268,34 @@ export async function sendSingleWahaSalarySlip(
 
       if (!fileRes.success) {
         console.error(`[WAHA] PDF send failed for single slip ${staffName}:`, fileRes.error)
-        return { success: false, error: `Pesan terkirim, namun PDF gagal: ${fileRes.error}` }
+        return {
+          success: false,
+          textSuccess: true,
+          pdfSuccess: false,
+          error: `Pesan teks berhasil, namun PDF gagal terkirim: ${fileRes.error}`,
+          warning: `Pesan teks berhasil, namun PDF gagal terkirim: ${fileRes.error}`,
+          messageId: textRes.messageId,
+        }
       }
     } catch (err: any) {
-      console.warn(`[WAHA] PDF send failed for single slip ${staffName}:`, err)
-      return { success: false, error: `Gagal memproses dokumen PDF: ${err.message}` }
+      console.warn(`[WAHA] PDF generate failed for single slip ${staffName}:`, err)
+      return {
+        success: false,
+        textSuccess: true,
+        pdfSuccess: false,
+        error: `Pesan teks berhasil, namun PDF gagal diproses: ${err.message}`,
+        warning: `Pesan teks berhasil, namun PDF gagal diproses: ${err.message}`,
+        messageId: textRes.messageId,
+      }
     }
   }
 
-  return { success: true, messageId: textRes.messageId }
+  return {
+    success: true,
+    textSuccess: true,
+    pdfSuccess: shouldSendPdf ? true : undefined,
+    messageId: textRes.messageId,
+  }
 }
 
 /**

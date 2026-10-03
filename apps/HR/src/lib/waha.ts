@@ -249,6 +249,15 @@ export async function sendWahaText({
       phone,
       error: err.name === 'TimeoutError' ? 'Koneksi ke WAHA timeout (15s)' : (err.message || 'Gagal menghubungi server WAHA'),
     }
+  } finally {
+    if (simulateTyping) {
+      sendWahaStopTyping({
+        chatId,
+        session: targetSession,
+        baseUrl: targetBaseUrl,
+        apiKey: targetApiKey,
+      }).catch(() => {})
+    }
   }
 }
 

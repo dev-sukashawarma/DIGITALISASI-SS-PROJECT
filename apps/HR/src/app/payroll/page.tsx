@@ -3,8 +3,23 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import { Button, Spinner } from '@suka/design-system'
-import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight, RefreshCw, Banknote, Sparkles, CheckCircle2 } from 'lucide-react'
+import {
+  Download,
+  DollarSign,
+  Users,
+  CreditCard,
+  MessageSquare,
+  Zap,
+  ArrowRight,
+  RefreshCw,
+  Banknote,
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
 import { usePayroll } from '@/hooks/usePayroll'
@@ -13,6 +28,7 @@ import { usePayrollMutations } from '@/hooks/usePayrollMutations'
 import { PayrollTable } from '@/components/modules/PayrollTable'
 import { PayrollSlipForm } from '@/components/modules/PayrollSlipForm'
 import { BulkWAModal } from '@/components/modules/BulkWAModal'
+import { KasbonGuardModal, type PendingKasbonItem } from '@/components/modules/KasbonGuardModal'
 import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
@@ -41,6 +57,25 @@ export default function PayrollPage() {
   const { data: payrollData = [], isLoading: loadingPayroll } = usePayroll(month, year)
   const { data: outlets = [] } = useOutlets()
   const payrollMutations = usePayrollMutations()
+
+  // Guard states & Pending Kasbon Query
+  const [showKasbonGuard, setShowKasbonGuard] = useState(false)
+  const [guardTargetStaff, setGuardTargetStaff] = useState<{ id: string; name: string } | null>(null)
+
+  const { data: pendingKasbons = [] } = useQuery({
+    queryKey: ['pending-kasbons'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('cash_advances')
+        .select('id, staff_id, amount, remaining, created_at, reason, outlet_staff!cash_advances_staff_id_fkey(name, role, outlets(name))')
+        .eq('status_hr', 'pending')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return (data || []) as unknown as PendingKasbonItem[]
+    },
+  })
 
   // Outlet Filter Options
   const outletOptions = useMemo(() => {
@@ -165,14 +200,8 @@ export default function PayrollPage() {
     )
   }
 
-  const handleFinalize = () => {
-    if (
-      !confirm(
-        `Finalize semua slip gaji periode ${MONTHS[month - 1]} ${year}?\n\nPerhatian:\n1. Slip yang sudah final tidak bisa diedit kembali.\n2. Potongan kasbon pada slip akan otomatis memotong sisa hutang karyawan di Modul Kasbon dan mencatat pembayaran cicilan secara resmi.`
-      )
-    )
-      return
-
+  const executeFinalizeAll = () => {
+    setShowKasbonGuard(false)
     payrollMutations.finalizeAll.mutate(
       { month, year },
       {
@@ -185,16 +214,27 @@ export default function PayrollPage() {
     )
   }
 
-  const handleFinalizeSlip = (id: string) => {
-    const slip = payrollData.find((s) => s.id === id)
-    const staffName = slip?.outlet_staff?.name || 'staf'
+  const handleFinalize = () => {
+    // GUARD: Jika ada kasbon yang masih pending, tahan dan buka Guard Modal
+    if (pendingKasbons.length > 0) {
+      setGuardTargetStaff(null)
+      setShowKasbonGuard(true)
+      return
+    }
+
     if (
       !confirm(
-        `Finalize slip gaji untuk ${staffName}?\n\nSlip yang sudah final tidak bisa diedit kembali, dan potongan kasbon (jika ada) akan otomatis dicatat sebagai pembayaran cicilan di Modul Kasbon.`
+        `Finalize semua slip gaji periode ${MONTHS[month - 1]} ${year}?\n\nPerhatian:\n1. Slip yang sudah final tidak bisa diedit kembali.\n2. Potongan kasbon pada slip akan otomatis memotong sisa hutang karyawan di Modul Kasbon dan mencatat pembayaran cicilan secara resmi.`
       )
     )
       return
 
+    executeFinalizeAll()
+  }
+
+  const executeFinalizeSlip = (id: string, staffName: string) => {
+    setShowKasbonGuard(false)
+    setGuardTargetStaff(null)
     payrollMutations.finalizeSlip.mutate(
       { id },
       {
@@ -205,6 +245,28 @@ export default function PayrollPage() {
         onError: (e: any) => toast.error(e.message || 'Gagal finalize slip'),
       }
     )
+  }
+
+  const handleFinalizeSlip = (id: string) => {
+    const slip = payrollData.find((s) => s.id === id)
+    const staffName = slip?.outlet_staff?.name || 'staf'
+
+    // GUARD: Cek apakah staf ini memiliki kasbon yang masih pending
+    const staffPending = pendingKasbons.filter((k) => k.staff_id === slip?.staff_id)
+    if (staffPending.length > 0) {
+      setGuardTargetStaff({ id: slip!.staff_id, name: staffName })
+      setShowKasbonGuard(true)
+      return
+    }
+
+    if (
+      !confirm(
+        `Finalize slip gaji untuk ${staffName}?\n\nSlip yang sudah final tidak bisa diedit kembali, dan potongan kasbon (jika ada) akan otomatis dicatat sebagai pembayaran cicilan di Modul Kasbon.`
+      )
+    )
+      return
+
+    executeFinalizeSlip(id, staffName)
   }
 
   const handleUpdateSlip = (values: any) => {
@@ -297,6 +359,54 @@ export default function PayrollPage() {
           <ArrowRight size={13} />
         </Link>
       </div>
+
+      {/* Kasbon Approval Guard Banner if any kasbon is still pending */}
+      {pendingKasbons.length > 0 && (
+        <div className="bg-amber-50/95 border-2 border-amber-300 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <p className="text-xs font-black text-amber-950 flex items-center gap-2">
+                <span>Guard Finalisasi: Ada {pendingKasbons.length} Pengajuan Kasbon Menunggu Persetujuan HR</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-200 text-amber-900 font-bold uppercase tracking-wide">
+                  Perlu Tindakan
+                </span>
+              </p>
+              <p className="text-[11px] text-amber-900 mt-1">
+                Terdapat total{' '}
+                <strong>
+                  {formatRupiah(
+                    pendingKasbons.reduce((sum, k) => sum + (Number(k.amount) || 0), 0)
+                  )}
+                </strong>{' '}
+                pengajuan kasbon staf yang statusnya masih <strong>Menunggu Persetujuan</strong> di Modul Kasbon.
+                Mohon lakukan persetujuan (Setujui atau Tolak) sebelum memfinalisasi slip gaji agar tidak ada selisih potongan.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-start md:self-center">
+            <button
+              type="button"
+              onClick={() => {
+                setGuardTargetStaff(null)
+                setShowKasbonGuard(true)
+              }}
+              className="px-3 py-2 bg-white hover:bg-stone-50 border border-amber-300 text-amber-900 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+            >
+              Lihat Rincian ({pendingKasbons.length})
+            </button>
+            <Link
+              href="/perizinan/kasbon"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer"
+            >
+              <span>Buka Modul Kasbon</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* Controls Toolbar */}
@@ -519,6 +629,29 @@ export default function PayrollPage() {
               onClose={() => setShowBulkWAModal(false)}
             />
           )}
+
+          {/* Kasbon Guard Modal */}
+          <KasbonGuardModal
+            isOpen={showKasbonGuard}
+            onClose={() => {
+              setShowKasbonGuard(false)
+              setGuardTargetStaff(null)
+            }}
+            pendingKasbons={
+              guardTargetStaff
+                ? pendingKasbons.filter((k) => k.staff_id === guardTargetStaff.id)
+                : pendingKasbons
+            }
+            targetStaffName={guardTargetStaff?.name}
+            onProceedAnyway={
+              guardTargetStaff
+                ? () => {
+                    const targetSlip = payrollData.find((s) => s.staff_id === guardTargetStaff.id)
+                    if (targetSlip) executeFinalizeSlip(targetSlip.id, guardTargetStaff.name)
+                  }
+                : executeFinalizeAll
+            }
+          />
         </div>
     </div>
   )

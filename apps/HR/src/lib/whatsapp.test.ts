@@ -30,4 +30,39 @@ describe('pesan WhatsApp', () => {
     expect(url.startsWith('https://wa.me/6285778613520?text=')).toBe(true)
     expect(decodeURIComponent(url.split('text=')[1])).toBe(pesan)
   })
+
+  it('menyusun pesan slip gaji WhatsApp (WAHA format)', async () => {
+    const { buildSalarySlipWhatsAppMessage } = await import('./whatsappSalarySlip')
+    const msg = buildSalarySlipWhatsAppMessage({
+      id: 'e5a090-abcdef',
+      staff_id: 'staff-1',
+      period_month: 9,
+      period_year: 2026,
+      basic_salary: 1307692,
+      allowance_position: 0,
+      allowance_presence: 0,
+      bonus: 0,
+      bonus_note: null,
+      deductions: 12000,
+      deduction_note: 'Denda Telat: Rp 12.000',
+      total_salary: 1295692,
+      status: 'draft',
+      outlet_staff: {
+        name: 'Alfin Rifaldi',
+        role: 'CREW',
+        outlet_id: 'outlet-1',
+        phone: '08123456789',
+        outlets: { name: 'MITRA PAMULANG' },
+        financials: {
+          bank_name: 'BCA',
+          bank_account_number: '6080837249',
+          bank_account_name: 'Alfin Rifaldi',
+        },
+      },
+    })
+    console.log('--- HASIL FORMAT PESAN WAHA ---')
+    console.log(msg)
+    console.log('-------------------------------')
+    expect(msg).toContain('SLIP GAJI RESMI — SUKA SHAWARMA')
+  })
 })

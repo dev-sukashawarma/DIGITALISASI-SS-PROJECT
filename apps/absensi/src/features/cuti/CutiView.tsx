@@ -57,6 +57,12 @@ const convertToWebP = (file: File): Promise<File> => {
   });
 };
 
+/** Garis warna di sisi kiri kartu riwayat — status terbaca sekilas tanpa membaca lencana. */
+const aksenStatus = (spv: string, hr: string) =>
+  hr === 'approved' ? 'border-l-emerald-500'
+  : hr === 'rejected' || spv === 'rejected' ? 'border-l-rose-500'
+  : 'border-l-amber-400';
+
 export function CutiView() {
   const { outletStaff } = useAuth();
   const userId = outletStaff?.id;
@@ -396,61 +402,69 @@ export function CutiView() {
               </div>
             </div>
           ) : history && history.length > 0 ? (
-            <div className="divide-y divide-slate-50 flex-1">
+            <div className="flex-1 bg-slate-50/70 p-3 sm:p-6 space-y-4">
               {history.map((item) => (
-                <div key={item.id} className="p-5 sm:px-8 sm:py-6 hover:bg-slate-50/50 transition-colors group">
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                    
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3 mb-3">
-                        <span className="font-extrabold text-slate-800 text-lg">
-                          {getTypeLabel(item.leave_type)}
-                        </span>
-                        {getStatusBadge(item.status_spv, item.status)}
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-500 mb-4 bg-slate-100 w-fit px-3 py-1.5 rounded-xl">
-                        <CalendarDays size={16} className="text-slate-400"/>
-                        {formatHariTglTahun(item.start_date)}
-                        {item.end_date !== item.start_date && (
-                          <>
-                            <ChevronRight size={14} className="text-slate-400" />
-                            {formatHariTglTahun(item.end_date)}
-                          </>
-                        )}
-                        <span className="ml-1 text-blue-600 font-bold bg-blue-100 px-2 py-0.5 rounded-md shadow-sm">
-                          {item.days} Hari
-                        </span>
-                      </div>
-
-                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 shadow-sm">
-                        <p className="text-sm font-medium text-slate-700 leading-relaxed">"{item.reason}"</p>
-                      </div>
-
-                      {(item.status === 'rejected' || item.status_spv === 'rejected') && item.rejection_note && (
-                        <div className="mt-3 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3 shadow-sm">
-                          <AlertCircle className="text-rose-500 mt-0.5 flex-shrink-0" size={18} />
-                          <div>
-                            <p className="text-xs font-extrabold text-rose-800 mb-1 uppercase tracking-wider">Alasan Penolakan</p>
-                            <p className="text-sm font-semibold text-rose-700">{item.rejection_note}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {item.status === 'pending' && item.status_spv !== 'rejected' && (
-                        <TombolBatalkan
-                          jenis="cuti"
-                          judul={`${getTypeLabel(item.leave_type)} · ${item.days} hari`}
-                          detail={item.end_date !== item.start_date
-                            ? `${formatHariTglTahun(item.start_date)} – ${formatHariTglTahun(item.end_date)}`
-                            : formatHariTglTahun(item.start_date)}
-                          onConfirm={() => handleBatalkan(item.id)}
-                        />
-                      )}
+                <article
+                  key={item.id}
+                  className={`bg-white rounded-2xl border border-slate-200 border-l-4 ${aksenStatus(item.status_spv, item.status)} shadow-sm p-4 sm:p-5`}
+                >
+                  {/* Judul + status sejajar: yang pertama dicari user adalah "ini cuti apa, statusnya apa". */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h4 className="font-extrabold text-slate-800 text-lg leading-tight">
+                        {getTypeLabel(item.leave_type)}
+                      </h4>
+                      <p className="text-xs font-medium text-slate-400 mt-1">
+                        Diajukan {new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' })}
+                      </p>
                     </div>
-
+                    <div className="shrink-0">{getStatusBadge(item.status_spv, item.status)}</div>
                   </div>
-                </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
+                    <span className="inline-flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl">
+                      <CalendarDays size={16} className="text-slate-400" />
+                      {formatHariTglTahun(item.start_date)}
+                      {item.end_date !== item.start_date && (
+                        <>
+                          <ChevronRight size={14} className="text-slate-400" />
+                          {formatHariTglTahun(item.end_date)}
+                        </>
+                      )}
+                    </span>
+                    <span className="text-blue-700 font-bold bg-blue-50 px-3 py-1.5 rounded-xl">
+                      {item.days} hari
+                    </span>
+                  </div>
+
+                  {item.reason && (
+                    <div className="mt-4">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Alasan</p>
+                      <p className="text-sm font-medium text-slate-700 leading-relaxed">{item.reason}</p>
+                    </div>
+                  )}
+
+                  {(item.status === 'rejected' || item.status_spv === 'rejected') && item.rejection_note && (
+                    <div className="mt-4 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-3">
+                      <AlertCircle className="text-rose-500 mt-0.5 flex-shrink-0" size={18} />
+                      <div>
+                        <p className="text-xs font-extrabold text-rose-800 mb-1 uppercase tracking-wider">Alasan Penolakan</p>
+                        <p className="text-sm font-semibold text-rose-700">{item.rejection_note}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {item.status === 'pending' && item.status_spv !== 'rejected' && (
+                    <TombolBatalkan
+                      jenis="cuti"
+                      judul={`${getTypeLabel(item.leave_type)} · ${item.days} hari`}
+                      detail={item.end_date !== item.start_date
+                        ? `${formatHariTglTahun(item.start_date)} – ${formatHariTglTahun(item.end_date)}`
+                        : formatHariTglTahun(item.start_date)}
+                      onConfirm={() => handleBatalkan(item.id)}
+                    />
+                  )}
+                </article>
               ))}
             </div>
           ) : (

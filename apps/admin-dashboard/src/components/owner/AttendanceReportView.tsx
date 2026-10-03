@@ -438,36 +438,18 @@ export function AttendanceReportView({
                     <td className="p-3.5">
                       {row.clock_out ? (
                         <div className="space-y-1">
-                          {row.out_status === 'pulang_telat' && (
-                            <>
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800 border border-amber-300">
-                                <Clock size={11} /> Pulang Telat (+{row.out_minutes ?? 0} m)
-                              </span>
-                              <p className="text-[10px] font-bold text-slate-500">
-                                Jam {row.clock_out.slice(0, 5)} WIB
-                              </p>
-                            </>
+                          {/* Keputusan owner: lewat jam pulang tidak diberi label telat — cukup
+                              "Pulang". Hanya pulang lebih awal yang ditandai (sama dengan HR). */}
+                          {row.out_status === 'lebih_awal' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-800 border border-blue-300">
+                              <LogOut size={11} /> Pulang Cepat (-{row.out_minutes ?? 0} m)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-800 border border-emerald-300">
+                              <CheckCircle2 size={11} /> Pulang
+                            </span>
                           )}
-                          {row.out_status === 'lebih_awal' && (
-                            <>
-                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-800 border border-blue-300">
-                                <LogOut size={11} /> Pulang Cepet (-{row.out_minutes ?? 0} m)
-                              </span>
-                              <p className="text-[10px] font-bold text-slate-500">
-                                Jam {row.clock_out.slice(0, 5)} WIB
-                              </p>
-                            </>
-                          )}
-                          {(row.out_status === 'tepat' || (!row.out_status && (!row.out_minutes || row.out_minutes === 0))) && (
-                            <>
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-800 border border-emerald-300">
-                                <CheckCircle2 size={11} /> Pulang Tepat Waktu
-                              </span>
-                              <p className="text-[10px] font-bold text-slate-500">
-                                Jam {row.clock_out.slice(0, 5)} WIB
-                              </p>
-                            </>
-                          )}
+                          <p className="text-[10px] font-bold text-slate-500">Jam {row.clock_out.slice(0, 5)} WIB</p>
                         </div>
                       ) : row.notes ? (
                         <span className="text-slate-600 text-[11px] font-medium max-w-xs block">{row.notes}</span>

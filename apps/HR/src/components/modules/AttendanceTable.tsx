@@ -71,6 +71,15 @@ export function AttendanceTable({ rows }: { rows: AttendanceLog[] }) {
                   </td>
                   <td className="px-4 py-3 text-xs font-mono text-gray-600">
                     {formatJamWib(r.clock_out)}
+                    {/* Hanya pulang lebih awal yang ditandai; lewat jam pulang = pulang biasa
+                        (sama dengan Rekap Absensi admin-dashboard). */}
+                    {r.clock_out && r.out_status === 'lebih_awal' && (
+                      <div className="mt-1 font-sans">
+                        <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 border border-blue-200">
+                          Pulang Cepat ({r.out_minutes ?? 0} mnt)
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {statusBadge(r.status, r.late_minutes, r.status_in)}

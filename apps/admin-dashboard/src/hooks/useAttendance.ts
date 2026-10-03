@@ -207,6 +207,8 @@ export function useAttendance(filter: AttendanceFilterValues) {
           item.out_outlet_id = r.outlet_id
           item.out_outlets = r.outlets
           item.clock_out = r.ts_server
+          item.out_status = r.status ?? null
+          item.out_minutes = r.telat_menit ?? 0
           item.clock_out_photo_url = r.selfie_url
             ? (r.selfie_url.startsWith('http') ? r.selfie_url : supabase.storage.from('selfies').getPublicUrl(r.selfie_url).data.publicUrl)
             : null

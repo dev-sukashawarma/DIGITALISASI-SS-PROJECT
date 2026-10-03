@@ -39,8 +39,10 @@ const LABEL_STATUS: Record<string, { label: string; tone: Tone }> = {
   telat_toleransi: { label: 'Telat dlm toleransi', tone: 'blue' },
   telat: { label: 'Terlambat', tone: 'amber' },
   alpha: { label: 'Alfa', tone: 'red' },
-  lebih_awal: { label: 'Pulang lebih awal', tone: 'blue' },
-  pulang_telat: { label: 'Pulang telat', tone: 'amber' },
+  // Pulang: lewat jam pulang tidak diberi label telat (keputusan owner) — hanya
+  // "Pulang" atau "Pulang cepat". Data tetap menyimpan 'pulang_telat'/'tepat'.
+  pulang: { label: 'Pulang', tone: 'emerald' },
+  lebih_awal: { label: 'Pulang cepat', tone: 'blue' },
 }
 
 const ALASAN_CEPAT_EDIT = ['Lupa absen pulang', 'Salah input jam', 'Kendala kamera / aplikasi', 'Dikonfirmasi SPV']
@@ -70,12 +72,11 @@ function statusMasukAwal(row: AttendanceRecordExt): string {
   const raw = row.in_status_raw
   return raw === 'telat_toleransi' || raw === 'telat' || raw === 'alpha' ? raw : 'tepat'
 }
-function statusPulangAwal(row: AttendanceRecordExt): string {
-  const raw = row.out_status
-  return raw === 'lebih_awal' || raw === 'pulang_telat' ? raw : 'tepat'
-}
+/** Label pulang yang tampil: hanya 'lebih_awal' yang dibedakan, sisanya 'pulang'. */
+const tampilPulang = (status: string | null | undefined, menit: number) =>
+  status === 'lebih_awal' ? { status: 'lebih_awal', menit } : { status: 'pulang', menit: 0 }
 const menitTampil = (status: string, menit: number) =>
-  status === 'tepat' || status === 'alpha' ? '' : ` (${menit} mnt)`
+  status === 'telat' || status === 'telat_toleransi' || status === 'lebih_awal' ? ` (${menit} mnt)` : ''
 
 function initials(name: string) {
   return name
@@ -517,6 +518,7 @@ export function EditAttendanceModal({
       ? hitungStatusMasuk(jamMasuk, aturanMasuk)
       : null
   const hasilPulang = aturanPulang && isJam(jamPulang) ? hitungStatusPulang(jamPulang, aturanPulang) : null
+  const pulangBaru = hasilPulang ? tampilPulang(hasilPulang.status, hasilPulang.menit) : null
   const acuanMasuk = alfa
     ? 'Ditandai manual'
     : aturanMasuk
@@ -549,13 +551,13 @@ export function EditAttendanceModal({
     perubahan.push(`Status masuk → ${LABEL_STATUS[hasilMasuk.status]?.label}${menitTampil(hasilMasuk.status, hasilMasuk.menit)}`)
   if (adaPulang !== !!asalPulang) perubahan.push(adaPulang ? `Tambah pulang ${jamPulang}` : `Hapus pulang ${asalPulang}`)
   else if (adaPulang && jamPulang !== asalPulang) perubahan.push(`Pulang ${asalPulang} → ${jamPulang}`)
+  const pulangAwal = tampilPulang(row.out_status, row.out_minutes ?? 0)
   if (
     adaPulang &&
-    hasilPulang &&
-    (hasilPulang.status !== statusPulangAwal(row) ||
-      (hasilPulang.status !== 'tepat' && hasilPulang.menit !== (row.out_minutes ?? 0)))
+    pulangBaru &&
+    (pulangBaru.status !== pulangAwal.status || pulangBaru.menit !== pulangAwal.menit)
   )
-    perubahan.push(`Status pulang → ${LABEL_STATUS[hasilPulang.status]?.label}${menitTampil(hasilPulang.status, hasilPulang.menit)}`)
+    perubahan.push(`Status pulang → ${LABEL_STATUS[pulangBaru.status]?.label}${menitTampil(pulangBaru.status, pulangBaru.menit)}`)
 
   const simpan = async () => {
     setTried(true)
@@ -637,7 +639,7 @@ export function EditAttendanceModal({
                 ...(asalPulang && asalPulang !== aturanPulang?.jamKeluar ? [{ label: `Jam asal ${asalPulang}`, value: asalPulang }] : []),
               ]}
             />
-            <StatusPreview hasil={hasilPulang} acuan={acuanPulang} memuat={!cfgPulang && !galatAturan} galat={galatAturan} />
+            <StatusPreview hasil={pulangBaru}acuan={acuanPulang} memuat={!cfgPulang && !galatAturan} galat={galatAturan} />
           </SideCard>
         </div>
 

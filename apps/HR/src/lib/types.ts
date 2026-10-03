@@ -189,6 +189,9 @@ export interface AttendanceLog {
   /** absen = dari clock-in; cuti = izin/sakit/cuti disetujui; alfa = tidak hadir */
   sumber?: 'absen' | 'cuti' | 'alfa'
   late_minutes: number
+  /** Status mentah absen pulang (RPC hr_absensi_harian). Hanya 'lebih_awal' yang diberi label. */
+  out_status?: string | null
+  out_minutes?: number | null
   notes: string | null
   photo_url?: string | null
   clock_out_photo_url?: string | null

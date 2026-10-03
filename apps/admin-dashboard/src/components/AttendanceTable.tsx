@@ -134,6 +134,14 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
                       {fmtTime(row.clock_out)}
                       {row.clock_out_source === 'native' && <span title="Absen dari aplikasi native"><Smartphone size={14} className="text-blue-600" /></span>}
                     </span>
+                    {/* Hanya pulang lebih awal yang ditandai; lewat jam pulang = pulang biasa. */}
+                    {row.clock_out && row.out_status === 'lebih_awal' && (
+                      <div className="mt-1">
+                        <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+                          Pulang Cepat ({row.out_minutes ?? 0} mnt)
+                        </span>
+                      </div>
+                    )}
                   </td>
 
                   {/* Status Badge */}

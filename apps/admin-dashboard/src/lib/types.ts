@@ -209,6 +209,9 @@ export interface AttendanceLog {
   /** Terisi bila absen pulang dilakukan di outlet lain dari absen masuk. */
   out_outlet_id?: string | null
   out_outlets?: { name: string } | null
+  /** Status mentah absen pulang; hanya 'lebih_awal' yang diberi label (Pulang Cepat). */
+  out_status?: string | null
+  out_minutes?: number | null
 }
 
 export interface AttendanceFilterValues {

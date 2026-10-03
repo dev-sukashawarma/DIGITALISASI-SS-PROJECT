@@ -10,11 +10,15 @@ import PromoDailyScheduleEditor from './PromoDailyScheduleEditor'
 import { toWibInputValue, fromWibInputValue, formatWib, WIB_LABEL } from '@/lib/timezone'
 import { getPromoStatus, validateSchedule, STATUS_LABEL, type PromoDaySchedule, type PromoStatus } from '@/lib/promoSchedule'
 import { resolvePromoOutletIds } from '@/lib/promoOutlets'
+import { isRewardEligible, legacyRewardMenuId } from '@/lib/promoReward'
+import { Select } from '@/components/ui/Select'
 
 type MenuItem = {
   id: string
   name: string
   price: number
+  outlet_id?: string | null
+  is_package?: boolean | null
 }
 
 type OutletPromo = {
@@ -366,9 +370,56 @@ function MenuExclusionPicker({
   )
 }
 
+/**
+ * Pemilih menu gratis Buy X Get Y. Paket tidak bisa dipilih (paket butuh pilihan
+ * isi di kasir). Menu bernama sama hanya tampil sekali — server menukarnya ke
+ * menu milik tiap outlet (lihat resolveRewardMenuForOutlet).
+ */
+function RewardMenuPicker({
+  menuItems,
+  value,
+  onChange,
+}: {
+  menuItems: MenuItem[]
+  value: string | null
+  onChange: (menuId: string) => void
+}) {
+  const seen = new Set<string>()
+  const options = [...menuItems]
+    .filter(isRewardEligible)
+    .sort((a, b) => (a.outlet_id == null ? 0 : 1) - (b.outlet_id == null ? 0 : 1) || a.name.localeCompare(b.name, 'id'))
+    .filter(m => {
+      const key = m.name.trim().toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'id'))
+    .map(m => ({ value: m.id, label: `${m.name} · Rp ${Number(m.price || 0).toLocaleString('id-ID')}` }))
+
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-xs font-bold text-emerald-900">Menu gratis</span>
+      <Select
+        options={options}
+        value={value || ''}
+        onChange={onChange}
+        placeholder="Pilih menu gratis"
+        searchable
+        searchPlaceholder="Cari menu..."
+      />
+    </div>
+  )
+}
+
 export default function PromoView({ initialMenuItems, initialOutlets, initialPromos }: PromoViewProps) {
   const [menuItems] = useState<MenuItem[]>(initialMenuItems)
   const [promos, setPromos] = useState<OutletPromo[]>(initialPromos)
+  // Promo lama tanpa pilihan hadiah tetap Original Ayam Reguler (sama dengan server & POS).
+  const defaultRewardId = legacyRewardMenuId(menuItems)
+  const rewardIdOf = (promo: OutletPromo) => promo.reward_menu_item_id || defaultRewardId
+  const rewardNameOf = (promo: OutletPromo) =>
+    menuItems.find(m => m.id === rewardIdOf(promo))?.name || 'menu gratis'
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -630,8 +681,15 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 {isGlobalBuyOneGetOne ? (
                   <div className="md:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                     <p className="font-bold">Buy X Get Y untuk Semua Menu</p>
-                    <p className="mt-1">Semua menu dapat menjadi menu pemicu. Hadiah tetap <strong>Original Ayam Reguler</strong>, hanya berlaku di POS kasir/endorse dan tidak berlaku di Food Apps atau Order Website.</p>
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <p className="mt-1">Semua menu dapat menjadi menu pemicu. Hadiahnya <strong>{rewardNameOf(globalPromo)}</strong>, hanya berlaku di POS kasir/endorse dan tidak berlaku di Food Apps atau Order Website.</p>
+                    <div className="mt-4">
+                      <RewardMenuPicker
+                        menuItems={menuItems}
+                        value={rewardIdOf(globalPromo)}
+                        onChange={id => handleGlobalPromoChange('reward_menu_item_id', id)}
+                      />
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <label className="space-y-1.5">
                         <span className="block text-xs font-bold text-emerald-900">Beli minimal (X)</span>
                         <input
@@ -1037,8 +1095,15 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                         {isBuyOneGetOne && (
                           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                             <p className="font-bold">Buy X Get Y</p>
-                            <p className="mt-1">Atur jumlah produk yang harus dibeli dan jumlah produk gratis. Hadiah selalu <strong>Original Ayam Reguler</strong>, hanya POS kasir offline, tidak digabung promo lain, dan berlaku sekali per transaksi.</p>
-                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <p className="mt-1">Atur jumlah produk yang harus dibeli, menu gratis, dan jumlahnya. Hanya POS kasir offline, tidak digabung promo lain, dan berlaku sekali per transaksi.</p>
+                            <div className="mt-4">
+                              <RewardMenuPicker
+                                menuItems={menuItems}
+                                value={rewardIdOf(promo)}
+                                onChange={id => handleItemPromoChange(menu.id, 'reward_menu_item_id', id)}
+                              />
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <label className="space-y-1.5">
                                 <span className="block text-xs font-bold text-emerald-900">Beli minimal (X)</span>
                                 <input
@@ -1064,7 +1129,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                                 />
                               </label>
                             </div>
-                            <p className="mt-3 text-xs font-semibold text-emerald-800">Pelanggan membeli {promo.buy_quantity ?? 1} {menu.name}, lalu mendapat {promo.get_quantity ?? 1} Original Ayam Reguler gratis.</p>
+                            <p className="mt-3 text-xs font-semibold text-emerald-800">Pelanggan membeli {promo.buy_quantity ?? 1} {menu.name}, lalu mendapat {promo.get_quantity ?? 1} {rewardNameOf(promo)} gratis.</p>
                             <div className="mt-4 pt-4 border-t border-emerald-200/70 space-y-1.5">
                               <label className="block text-xs font-bold text-emerald-900">Pola batas kuota</label>
                               <select

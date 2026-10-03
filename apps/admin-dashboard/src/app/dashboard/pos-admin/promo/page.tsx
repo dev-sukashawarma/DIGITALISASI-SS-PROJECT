@@ -22,7 +22,7 @@ export default async function AdminPromoPage() {
 
   // Fetch data in parallel
   const [menuRes, outletsRes, ooPromosRes] = await Promise.all([
-    supabase.from('menu_items').select('id, name, price').eq('is_available', true).order('sort_order'),
+    supabase.from('menu_items').select('id, name, price, outlet_id, is_package').eq('is_available', true).order('sort_order'),
     supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
     orderOnline 
       ? (async () => {

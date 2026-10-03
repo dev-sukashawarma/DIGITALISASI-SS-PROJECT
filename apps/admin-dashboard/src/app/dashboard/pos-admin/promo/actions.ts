@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import { getPromoStatus, validateSchedule } from '@/lib/promoSchedule'
 import { isRowAssigned, promoOutletKey, resolvePromoOutletIds } from '@/lib/promoOutlets'
+import { resolveRewardMenuForOutlet, LEGACY_REWARD_MENU_NAME } from '@/lib/promoReward'
 import crypto from 'crypto'
 
 export async function savePromosAction(
@@ -25,25 +26,18 @@ export async function savePromosAction(
   const outletIds = outlets.map(o => o.id)
   const outletNameById = new Map<string, string>(outlets.map(o => [o.id, o.name || o.id]))
 
-  // Reward BxGy adalah menu tetap, bukan menu pemicu. Resolusi dilakukan di
-  // server agar semua outlet menerima menu_id yang sama dengan katalog POS dan
-  // tidak bergantung pada state browser.
+  // Reward BxGy dipilih admin (reward_menu_item_id); promo lama tanpa pilihan
+  // tetap Original Ayam Reguler. Resolusi per outlet dilakukan di server agar
+  // tiap outlet menerima menu_id yang ada di katalog POS-nya, bukan state browser.
   const { data: availableMenuItems, error: menuError } = await supabase
     .from('menu_items')
-    .select('id, outlet_id, name')
+    .select('id, outlet_id, name, is_package')
     .eq('is_available', true)
 
   if (menuError) return { success: false, error: menuError.message || JSON.stringify(menuError) }
 
-  const normalizeMenuName = (value: unknown) => String(value || '').trim().toLocaleLowerCase('id-ID')
-  const rewardMenuForOutlet = (outletId: string) => {
-    const candidates = (availableMenuItems || []).filter((item: any) => {
-      const belongsToOutlet = item.outlet_id == null || item.outlet_id === outletId
-      const name = normalizeMenuName(item.name)
-      return belongsToOutlet && name === 'original ayam reguler'
-    })
-    return candidates.sort((a: any, b: any) => String(a.id).localeCompare(String(b.id)))[0] || null
-  }
+  const rewardMenuForOutlet = (p: any, outletId: string) =>
+    resolveRewardMenuForOutlet(availableMenuItems || [], outletId, p.reward_menu_item_id || null)
 
   const promoKey = (p: any) => promoOutletKey(p)
 
@@ -113,11 +107,15 @@ export async function savePromosAction(
       p.discount_value = 0.01
       // Hanya outlet yang benar-benar dipilih yang perlu punya menu hadiah —
       // outlet lain tidak akan menerima promo ini sama sekali.
-      const outletWithoutReward = targets.find(outletId => !rewardMenuForOutlet(outletId))
+      p.reward_menu_item_id = p.reward_menu_item_id ? String(p.reward_menu_item_id) : null
+      const rewardLabel = p.reward_menu_item_id
+        ? (availableMenuItems || []).find((m: any) => m.id === p.reward_menu_item_id)?.name || 'yang dipilih'
+        : LEGACY_REWARD_MENU_NAME
+      const outletWithoutReward = targets.find(outletId => !rewardMenuForOutlet(p, outletId))
       if (outletWithoutReward) {
         return {
           success: false,
-          error: `Promo Buy X Get Y membutuhkan menu hadiah Original Ayam Reguler yang aktif di outlet ${outletNameById.get(outletWithoutReward) || outletWithoutReward}.`,
+          error: `Promo Buy X Get Y: menu hadiah ${rewardLabel} tidak tersedia (habis, paket, atau bukan menu outlet) di outlet ${outletNameById.get(outletWithoutReward) || outletWithoutReward}.`,
         }
       }
     }
@@ -241,7 +239,7 @@ export async function savePromosAction(
         buy_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.buy_quantity) : 1,
         get_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.get_quantity) : 1,
         reward_menu_item_id: p.discount_type === 'buy_one_get_one'
-          ? rewardMenuForOutlet(outletId)?.id || null
+          ? rewardMenuForOutlet(p, outletId)?.id || null
           : null,
         excluded_menu_item_ids: sanitizeExcludedMenuIds(p)
       })

@@ -34,6 +34,7 @@ import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import { isRendyOrDeveloperStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
+import { todayWib } from '@/lib/dateIso'
 import type { PayrollRecord } from '@/lib/types'
 
 const MONTHS = [
@@ -42,12 +43,36 @@ const MONTHS = [
 ]
 
 export default function PayrollPage() {
+  // Smart default: jika tanggal sekarang masih <= 10 (awal bulan), default ke bulan sebelumnya
+  // karena di awal bulan HR biasanya sedang memproses & membagikan slip gaji bulan lalu.
+  const todayParts = todayWib().split('-').map(Number)
+  const currentDay = todayParts[2]
+  const currentMonth = todayParts[1]
+  const currentYear = todayParts[0]
+
+  const initialMonth = currentDay <= 10
+    ? (currentMonth === 1 ? 12 : currentMonth - 1)
+    : currentMonth
+  const initialYear = currentDay <= 10 && currentMonth === 1
+    ? currentYear - 1
+    : currentYear
+
   // Payroll states
-  const [month, setMonth] = useState(new Date().getMonth() + 1)
-  const [year, setYear] = useState(new Date().getFullYear())
+  const [month, setMonth] = useState(initialMonth)
+  const [year, setYear] = useState(initialYear)
   const [selectedOutlet, setSelectedOutlet] = useState('')
   const [editingSlip, setEditingSlip] = useState<PayrollRecord | null>(null)
   const [showBulkWAModal, setShowBulkWAModal] = useState(false)
+
+  const prevMonth = month === 1 ? 12 : month - 1
+  const prevYear = month === 1 ? year - 1 : year
+  const prevPeriodLabel = `${MONTHS[prevMonth - 1]} ${prevYear}`
+
+  const handleSelectPreviousPeriod = () => {
+    setMonth(prevMonth)
+    setYear(prevYear)
+    setSelectedOutlet('')
+  }
 
   const monthOptions = useMemo(
     () => MONTHS.map((m, i) => ({ label: m, value: String(i + 1) })),
@@ -610,6 +635,14 @@ export default function PayrollPage() {
               rows={filteredPayrollData}
               onEdit={setEditingSlip}
               onFinalizeSlip={handleFinalizeSlip}
+              periodMonth={month}
+              periodYear={year}
+              selectedOutlet={selectedOutlet}
+              onResetOutlet={() => setSelectedOutlet('')}
+              onGenerate={handleGenerate}
+              onSelectPreviousPeriod={handleSelectPreviousPeriod}
+              previousPeriodLabel={prevPeriodLabel}
+              isGenerating={payrollMutations.generate.isPending}
             />
           )}
 

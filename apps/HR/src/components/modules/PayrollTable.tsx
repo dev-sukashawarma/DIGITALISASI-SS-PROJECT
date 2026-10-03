@@ -1,12 +1,30 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Eye, Edit2, Search, ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle2 } from 'lucide-react'
+import { Button, Spinner } from '@suka/design-system'
+import {
+  Eye,
+  Edit2,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  X,
+  CheckCircle2,
+  Sparkles,
+  Calendar,
+  Building2,
+} from 'lucide-react'
 import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
 import { SalarySlipModal } from './SalarySlipModal'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
+
+const MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+]
 
 type SortField =
   | 'name'
@@ -97,15 +115,33 @@ function SortHeader({
   )
 }
 
+export interface PayrollTableProps {
+  rows: PayrollRecord[]
+  onEdit: (slip: PayrollRecord) => void
+  onFinalizeSlip?: (id: string) => void
+  periodMonth?: number
+  periodYear?: number
+  selectedOutlet?: string
+  onResetOutlet?: () => void
+  onGenerate?: () => void
+  onSelectPreviousPeriod?: () => void
+  previousPeriodLabel?: string
+  isGenerating?: boolean
+}
+
 export function PayrollTable({
   rows,
   onEdit,
   onFinalizeSlip,
-}: {
-  rows: PayrollRecord[]
-  onEdit: (slip: PayrollRecord) => void
-  onFinalizeSlip?: (id: string) => void
-}) {
+  periodMonth,
+  periodYear,
+  selectedOutlet,
+  onResetOutlet,
+  onGenerate,
+  onSelectPreviousPeriod,
+  previousPeriodLabel,
+  isGenerating = false,
+}: PayrollTableProps) {
   const [selectedSlip, setSelectedSlip] = useState<PayrollRecord | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField | null>(null)
@@ -468,23 +504,84 @@ export function PayrollTable({
 
               {filteredAndSortedRows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-suka-gray-500 font-medium">
+                  <td colSpan={9} className="px-4 py-14 text-center">
                     {searchQuery ? (
-                      <div className="space-y-2">
-                        <p>
+                      <div className="space-y-2 max-w-sm mx-auto">
+                        <p className="text-sm font-semibold text-suka-ink">
                           Tidak ada staf yang cocok dengan pencarian{' '}
-                          <strong className="text-suka-brown font-semibold">"{searchQuery}"</strong>.
+                          <strong className="text-suka-brown font-bold">"{searchQuery}"</strong>
                         </p>
                         <button
                           type="button"
                           onClick={() => setSearchQuery('')}
-                          className="text-xs text-suka-orange underline hover:text-suka-brown cursor-pointer"
+                          className="inline-flex items-center gap-1 text-xs text-suka-orange hover:text-suka-brown font-bold cursor-pointer transition-colors"
                         >
-                          Hapus filter pencarian
+                          <X size={13} />
+                          <span>Hapus filter pencarian</span>
                         </button>
                       </div>
+                    ) : selectedOutlet ? (
+                      <div className="space-y-3 max-w-md mx-auto py-4">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200/60">
+                          <Building2 size={24} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-suka-ink">
+                            Belum Ada Slip Gaji untuk Outlet Terpilih
+                          </p>
+                          <p className="text-xs text-suka-gray-500 mt-1">
+                            Tidak ada data staf untuk outlet ini pada periode{' '}
+                            {periodMonth ? MONTHS[periodMonth - 1] : ''} {periodYear || ''}.
+                          </p>
+                        </div>
+                        {onResetOutlet && (
+                          <button
+                            type="button"
+                            onClick={onResetOutlet}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-suka-gray-100 hover:bg-suka-gray-200 text-xs font-bold text-suka-brown cursor-pointer transition-colors"
+                          >
+                            <span>Tampilkan Semua Outlet</span>
+                          </button>
+                        )}
+                      </div>
                     ) : (
-                      'Belum ada data slip gaji untuk periode atau outlet yang dipilih.'
+                      <div className="py-6 px-4 flex flex-col items-center justify-center text-center max-w-md mx-auto">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3.5 border border-amber-200/60 shadow-xs">
+                          <Sparkles size={28} />
+                        </div>
+                        <h3 className="text-base font-extrabold text-suka-ink">
+                          Belum Ada Slip Gaji Periode {periodMonth ? MONTHS[periodMonth - 1] : ''} {periodYear || ''}
+                        </h3>
+                        <p className="text-xs text-suka-gray-500 mt-1.5 leading-relaxed">
+                          Data slip gaji untuk periode ini belum di-generate ke database. Anda dapat men-generate slip baru sekarang, atau beralih ke periode sebelumnya.
+                        </p>
+
+                        <div className="flex flex-wrap items-center justify-center gap-2.5 mt-5">
+                          {onGenerate && (
+                            <Button
+                              type="button"
+                              onClick={onGenerate}
+                              disabled={isGenerating}
+                              className="bg-suka-orange hover:bg-suka-orange/90 text-white text-xs font-bold rounded-xl flex items-center gap-2 px-4 py-2.5 shadow-sm cursor-pointer"
+                            >
+                              {isGenerating ? <Spinner size={14} /> : <Sparkles size={14} />}
+                              <span>Generate Slip {periodMonth ? MONTHS[periodMonth - 1] : ''} {periodYear || ''}</span>
+                            </Button>
+                          )}
+
+                          {onSelectPreviousPeriod && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={onSelectPreviousPeriod}
+                              className="border-suka-gray-300 text-suka-ink hover:bg-suka-gray-50 text-xs font-bold rounded-xl flex items-center gap-1.5 px-3.5 py-2.5 cursor-pointer"
+                            >
+                              <Calendar size={14} className="text-suka-gray-500" />
+                              <span>Buka Periode {previousPeriodLabel || 'Sebelumnya'}</span>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </td>
                 </tr>

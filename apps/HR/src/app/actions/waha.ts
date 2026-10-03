@@ -1,7 +1,8 @@
 'use server'
 
 import { sendWahaText, sendWahaFile, checkWahaSessionStatus } from '@/lib/waha'
-import { buildSalarySlipWhatsAppMessage } from '@/lib/whatsappSalarySlip'
+import { buildSalarySlipWhatsAppMessage, buildSalarySlipCoverNote } from '@/lib/whatsappSalarySlip'
+import { MONTH_NAMES } from '@/lib/format'
 import type { PayrollRecord } from '@/lib/types'
 
 export interface BulkSendItemResult {
@@ -74,13 +75,16 @@ export async function sendBulkWahaSalarySlips(
       continue
     }
 
-    // Layer 2: Pesan 100% unik per individu (Nama, NIK/ID, Rincian Komponen, Timestamp)
-    let messageText = buildSalarySlipWhatsAppMessage(slip)
+    // Layer 2: Pesan teks (Cover note ringkas jika lampirkan PDF, rincian penuh jika teks saja)
+    let messageText = shouldSendPdf
+      ? buildSalarySlipCoverNote(slip)
+      : buildSalarySlipWhatsAppMessage(slip)
+
     if (options?.customHeaderNote) {
       messageText = `📢 *Pemberitahuan HR:*\n${options.customHeaderNote.trim()}\n\n` + messageText
     }
 
-    // Layer 3: Simulasi mengetik (typing presence) + Pengiriman Pesan Rincian via WAHA
+    // Layer 3: Simulasi mengetik (typing presence) + Pengiriman Pesan via WAHA
     const res = await sendWahaText({
       phone,
       text: messageText,
@@ -100,11 +104,12 @@ export async function sendBulkWahaSalarySlips(
           // Jeda natural sebelum kirim file lampiran
           await sleep(1200)
 
+          const monthName = MONTH_NAMES[slip.period_month - 1] || slip.period_month
           const fileRes = await sendWahaFile({
             phone,
             fileBase64: base64,
             filename,
-            caption: `📄 Dokumen Resmi Slip Gaji — ${staffName}`,
+            caption: `📄 Dokumen Resmi Slip Gaji — ${staffName} (${monthName} ${slip.period_year})`,
             baseUrl: options?.baseUrl,
             session: options?.session,
             apiKey: options?.apiKey,
@@ -175,7 +180,11 @@ export async function sendSingleWahaSalarySlip(
   }
 
   const staffName = slip.outlet_staff?.name || 'Karyawan'
-  let messageText = buildSalarySlipWhatsAppMessage(slip)
+  const shouldSendPdf = options?.sendPdfFile ?? true
+  let messageText = shouldSendPdf
+    ? buildSalarySlipCoverNote(slip)
+    : buildSalarySlipWhatsAppMessage(slip)
+
   if (options?.customHeaderNote) {
     messageText = `📢 *Pemberitahuan HR:*\n${options.customHeaderNote.trim()}\n\n` + messageText
   }
@@ -193,7 +202,6 @@ export async function sendSingleWahaSalarySlip(
     return { success: false, error: textRes.error }
   }
 
-  const shouldSendPdf = options?.sendPdfFile ?? true
   if (shouldSendPdf) {
     try {
       const { generateSalarySlipPdfBase64 } = await import('@/lib/pdfSalarySlip')
@@ -201,11 +209,12 @@ export async function sendSingleWahaSalarySlip(
 
       await sleep(1200)
 
+      const monthName = MONTH_NAMES[slip.period_month - 1] || slip.period_month
       await sendWahaFile({
         phone,
         fileBase64: base64,
         filename,
-        caption: `📄 Dokumen Resmi Slip Gaji — ${staffName}`,
+        caption: `📄 Dokumen Resmi Slip Gaji — ${staffName} (${monthName} ${slip.period_year})`,
         baseUrl: options?.baseUrl,
         session: options?.session,
         apiKey: options?.apiKey,

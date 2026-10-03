@@ -98,8 +98,46 @@ describe('pesan WhatsApp', () => {
       },
     })
 
-    expect(res.filename).toBe('Slip_Gaji_Alfin_Rifaldi_9_2026.pdf')
+    expect(res.filename).toBe('Slip_Gaji_Alfin_Rifaldi_September_2026.pdf')
     expect(typeof res.base64).toBe('string')
     expect(res.base64.length).toBeGreaterThan(1000)
+  })
+
+  it('menghasilkan cover note ringkas yang elegan saat lampiran PDF aktif', async () => {
+    const { buildSalarySlipCoverNote } = await import('./whatsappSalarySlip')
+    const note = buildSalarySlipCoverNote({
+      id: 'e5a090-test',
+      staff_id: 'staff-1',
+      period_month: 9,
+      period_year: 2026,
+      basic_salary: 1307692,
+      allowance_position: 0,
+      allowance_presence: 0,
+      bonus: 0,
+      bonus_note: null,
+      deductions: 12000,
+      deduction_note: 'Denda Telat: Rp 12.000',
+      total_salary: 1295692,
+      status: 'finalized',
+      outlet_staff: {
+        name: 'Alfin Rifaldi',
+        role: 'CREW',
+        outlet_id: 'outlet-1',
+        phone: '08123456789',
+        outlets: { name: 'MITRA PAMULANG' },
+        financials: {
+          bank_name: 'BCA',
+          bank_account_number: '6080837249',
+          bank_account_name: 'Alfin Rifaldi',
+        },
+      },
+    })
+
+    expect(note).toContain('Halo *Alfin Rifaldi*,')
+    expect(note).toContain('Slip Gaji resmi periode *September 2026* telah diterbitkan')
+    expect(note).toContain('📍 Penempatan: *MITRA PAMULANG* (CREW)')
+    expect(note).toContain('💰 *Take Home Pay (Gaji Bersih): Rp 1.295.692*')
+    expect(note).toContain('🏦 Transfer ke: *BCA - 6080837249*')
+    expect(note).toContain('📄 Rincian lengkap penerimaan, tunjangan, dan potongan tercantum pada dokumen PDF terlampir di bawah ini.')
   })
 })

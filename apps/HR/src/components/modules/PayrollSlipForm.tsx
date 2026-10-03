@@ -7,14 +7,7 @@ import type { PayrollRecord } from '@/lib/types'
 import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
 import {
   Clock,
-  DollarSign,
-  Wallet,
-  ShieldAlert,
   Sparkles,
-  Phone,
-  Navigation,
-  RefreshCw,
-  Zap,
   Lock,
   Unlock,
   ExternalLink,
@@ -51,9 +44,6 @@ const inputClass =
 const overrideInputClass =
   'w-full rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all text-stone-900 font-mono'
 
-const editableInputClass = inputClass
-const lockedInputClass = inputClass
-
 export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: PayrollSlipFormProps) {
   const initial = getPayrollBreakdown(record)
 
@@ -82,7 +72,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
   const [liveBonusInfo, setLiveBonusInfo] = useState<{ amount: number; description: string } | null>(null)
 
   // Live active kasbon lookup
-  const [fetchingKasbon, setFetchingKasbon] = useState(false)
+  const [_fetchingKasbon, setFetchingKasbon] = useState(false)
   const [liveKasbonInfo, setLiveKasbonInfo] = useState<{
     totalLoan: number
     remaining: number

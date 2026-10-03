@@ -59,3 +59,31 @@ export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
     `_Terima kasih atas kerja keras dan dedikasi Anda!_`
   )
 }
+
+/**
+ * Pesan Pengantar Ringkas (Cover Note) yang dikirim bersamaan dengan lampiran PDF Dokumen Resmi
+ * Menghindari redundansi agar karyawan langsung melihat THP & Rekening tanpa double text panjang.
+ */
+export function buildSalarySlipCoverNote(slip: PayrollRecord): string {
+  const b = getPayrollBreakdown(slip)
+  const staffName = slip.outlet_staff?.name || 'Karyawan'
+  const roleName = slip.outlet_staff?.role?.replace('_', ' ').toUpperCase() || 'STAFF'
+  const outletName = isRendyOrDeveloperStaff(slip.outlet_staff as any)
+    ? 'Kantor Pusat'
+    : (slip.outlet_staff?.outlets?.name || 'Pusat')
+  const periodText = `${MONTH_NAMES[slip.period_month - 1]} ${slip.period_year}`
+  const bankInfo =
+    slip.outlet_staff?.financials?.bank_name && slip.outlet_staff?.financials?.bank_account_number
+      ? `${slip.outlet_staff.financials.bank_name} - ${slip.outlet_staff.financials.bank_account_number}`
+      : 'Rekening Terdaftar'
+
+  return (
+    `Halo *${staffName}*,\n` +
+    `Slip Gaji resmi periode *${periodText}* telah diterbitkan oleh HR Suka Shawarma.\n\n` +
+    `📍 Penempatan: *${outletName}* (${roleName})\n` +
+    `💰 *Take Home Pay (Gaji Bersih): ${rupiah(b.takeHomePay)}*\n` +
+    `🏦 Transfer ke: *${bankInfo}*\n\n` +
+    `📄 Rincian lengkap penerimaan, tunjangan, dan potongan tercantum pada dokumen PDF terlampir di bawah ini.\n\n` +
+    `_Terima kasih atas kerja keras dan dedikasinya bulan ini! 🙏_`
+  )
+}

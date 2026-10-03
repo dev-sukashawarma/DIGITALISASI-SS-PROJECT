@@ -420,7 +420,8 @@ export async function generateSalarySlipPdf(
   const autoSave = options?.autoSave ?? (typeof window !== 'undefined')
   const cleanStaffName = staffName.replace(/[^a-zA-Z0-9]/g, '_')
   const statusPrefix = isFinal ? 'Slip_Gaji' : 'Draft_Slip_Gaji'
-  const filename = `${statusPrefix}_${cleanStaffName}_${slip.period_month}_${slip.period_year}.pdf`
+  const monthName = MONTH_NAMES[slip.period_month - 1] || slip.period_month
+  const filename = `${statusPrefix}_${cleanStaffName}_${monthName}_${slip.period_year}.pdf`
 
   if (autoSave) {
     doc.save(filename)
@@ -439,7 +440,8 @@ export async function generateSalarySlipPdfBase64(slip: PayrollRecord): Promise<
   const staffName = slip.outlet_staff?.name || 'Karyawan'
   const cleanStaffName = staffName.replace(/[^a-zA-Z0-9]/g, '_')
   const statusPrefix = isFinal ? 'Slip_Gaji' : 'Draft_Slip_Gaji'
-  const filename = `${statusPrefix}_${cleanStaffName}_${slip.period_month}_${slip.period_year}.pdf`
+  const monthName = MONTH_NAMES[slip.period_month - 1] || slip.period_month
+  const filename = `${statusPrefix}_${cleanStaffName}_${monthName}_${slip.period_year}.pdf`
   return { base64, filename }
 }
 

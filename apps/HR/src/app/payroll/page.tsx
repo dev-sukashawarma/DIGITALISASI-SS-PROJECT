@@ -71,7 +71,7 @@ export default function PayrollPage() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('cash_advances')
-        .select('id, staff_id, amount, remaining, created_at, reason, outlet_staff!cash_advances_staff_id_fkey(name, role, outlets(name))')
+        .select('id, staff_id, amount, remaining, created_at, reason, outlet_staff!cash_advances_staff_id_fkey(name, role, outlets!outlet_staff_outlet_id_fkey(name))')
         .eq('status_hr', 'pending')
         .order('created_at', { ascending: false })
 

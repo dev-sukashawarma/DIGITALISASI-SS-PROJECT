@@ -50,7 +50,10 @@ export type OutletSyncPlan = {
   skipped: number
 }
 
-/** "SUKA SHAWARMA DEPOK SUKMAJAYA" → "Depok Sukmajaya", "MITRA SAWANGAN DTC" → "Sawangan DTC". */
+/**
+ * "SUKA SHAWARMA DEPOK SUKMAJAYA" → "Depok Sukmajaya". Hanya dipakai untuk mencocokkan
+ * outlet MARCOM lama (bernama ringkas) yang belum tertaut; nama yang disimpan tetap nama POS.
+ */
 export function namaTampilOutlet(posName: string): string {
   const tanpaAwalan = posName
     .trim()
@@ -164,12 +167,9 @@ export function rencanakanSinkronOutlet(
 
     if (match) {
       sudahDicocokkan.add(match.id)
-      const tampil = namaTampilOutlet(sb.name)
-      let nama = match.name
-      if (match.name.toLowerCase() !== tampil.toLowerCase()) {
-        if (tersedia(tampil, match.id)) nama = tampil
-        else if (tersedia(sb.name, match.id)) nama = sb.name
-      }
+      // Nama MARCOM = nama outlet persis seperti di admin (mis. "MITRA CIBINONG").
+      const namaPos = sb.name.trim()
+      const nama = namaPos && namaPos !== match.name && tersedia(namaPos, match.id) ? namaPos : match.name
       if (nama !== match.name) pakaiNama(match.name, nama, match.id)
 
       const posAktif = !hidden && sb.isActive
@@ -191,9 +191,8 @@ export function rencanakanSinkronOutlet(
     if (mode === 'otomatis') continue
 
     const bebas = (n: string) => !namaTerpakai.has(n.toLowerCase())
-    const tampil = namaTampilOutlet(sb.name)
-    const nama = bebas(tampil) ? tampil : sb.name
-    if (!bebas(nama)) {
+    const nama = sb.name.trim()
+    if (!nama || !bebas(nama)) {
       plan.skipped++
       continue
     }

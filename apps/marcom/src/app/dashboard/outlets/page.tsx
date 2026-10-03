@@ -35,7 +35,9 @@ export default async function OutletsPage() {
     }
   }
   const perubahan = new Map(plan.updates.map((u) => [u.id, u.data]))
-  const outletsTerkini = outlets.map((o) => ({ ...o, ...perubahan.get(o.id) }))
+  const outletsTerkini = outlets
+    .map((o) => ({ ...o, ...perubahan.get(o.id) }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'id'))
 
   // Serialize BigInt to string to safely pass to Client Component
   const serializedOutlets: SerializedOutlet[] = outletsTerkini.map((outlet: any) => ({

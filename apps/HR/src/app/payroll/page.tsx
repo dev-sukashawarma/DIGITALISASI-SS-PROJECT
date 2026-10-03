@@ -105,6 +105,21 @@ export default function PayrollPage() {
     },
   })
 
+  // Query seluruh staff_id yang terdaftar memiliki kasbon resmi di tabel cash_advances
+  const { data: systemKasbonStaffIds } = useQuery({
+    queryKey: ['system-kasbon-staff-ids'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('cash_advances')
+        .select('staff_id')
+
+      if (error) throw error
+      return new Set<string>((data || []).map((k: any) => k.staff_id))
+    },
+    staleTime: 60_000,
+  })
+
   // Outlet Filter Options
   const outletOptions = useMemo(() => {
     const list = [{ label: 'Semua Outlet', value: '' }]
@@ -643,6 +658,7 @@ export default function PayrollPage() {
               onSelectPreviousPeriod={handleSelectPreviousPeriod}
               previousPeriodLabel={prevPeriodLabel}
               isGenerating={payrollMutations.generate.isPending}
+              systemKasbonStaffIds={systemKasbonStaffIds}
             />
           )}
 

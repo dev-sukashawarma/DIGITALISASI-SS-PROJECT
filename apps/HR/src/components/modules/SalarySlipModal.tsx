@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FileDown, MessageSquare, Check, X, Clock, Wallet, ShieldAlert, Sparkles, Navigation, Phone, DollarSign, Send } from 'lucide-react'
+import { FileDown, MessageSquare, Check, X, Clock, Wallet, ShieldAlert, Sparkles, Navigation, Phone, DollarSign, Send, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 import type { PayrollRecord } from '@/lib/types'
@@ -12,9 +12,10 @@ import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 interface SalarySlipModalProps {
   slip: PayrollRecord
   onClose: () => void
+  isKasbonManual?: boolean
 }
 
-export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
+export function SalarySlipModal({ slip, onClose, isKasbonManual }: SalarySlipModalProps) {
   const [copied, setCopied] = useState(false)
   const [sendingWaha, setSendingWaha] = useState(false)
 
@@ -202,11 +203,23 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
             </div>
 
             {b.cashAdvanceDeduction > 0 && (
-              <div className="flex justify-between text-red-600 font-medium">
-                <span className="flex items-center gap-1">
-                  <Wallet size={11} /> Potongan Kasbon
+              <div className="flex justify-between text-red-600 font-medium items-center">
+                <span className="flex items-center gap-1.5 flex-wrap">
+                  <Wallet size={11} /> 
+                  <span>Potongan Kasbon</span>
+                  {isKasbonManual ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded shadow-xs">
+                      <AlertCircle size={10} className="text-amber-600" />
+                      Injeksi Excel / Manual
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded shadow-xs">
+                      <CheckCircle2 size={10} className="text-emerald-600" />
+                      Kasbon Sistem
+                    </span>
+                  )}
                 </span>
-                <span className="font-mono font-bold">-{formatRupiah(b.cashAdvanceDeduction)}</span>
+                <span className={`font-mono font-bold ${isKasbonManual ? 'text-amber-800' : ''}`}>-{formatRupiah(b.cashAdvanceDeduction)}</span>
               </div>
             )}
 

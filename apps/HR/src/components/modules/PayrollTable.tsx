@@ -11,6 +11,7 @@ import {
   ArrowDown,
   X,
   CheckCircle2,
+  AlertCircle,
   Sparkles,
   Calendar,
   Building2,
@@ -127,6 +128,7 @@ export interface PayrollTableProps {
   onSelectPreviousPeriod?: () => void
   previousPeriodLabel?: string
   isGenerating?: boolean
+  systemKasbonStaffIds?: Set<string>
 }
 
 export function PayrollTable({
@@ -141,6 +143,7 @@ export function PayrollTable({
   onSelectPreviousPeriod,
   previousPeriodLabel,
   isGenerating = false,
+  systemKasbonStaffIds,
 }: PayrollTableProps) {
   const [selectedSlip, setSelectedSlip] = useState<PayrollRecord | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -394,6 +397,8 @@ export function PayrollTable({
               {filteredAndSortedRows.map(({ record: r, b, totalTunjangan, totalBonus, outletName, staffName, roleName }) => {
                 const cleanBonus = getCleanBonusNote(r, b)
                 const cleanDeduction = getCleanDeductionNote(b)
+                const isKasbonManual = b.cashAdvanceDeduction > 0 && !!systemKasbonStaffIds && !systemKasbonStaffIds.has(r.staff_id)
+                const isKasbonSystem = b.cashAdvanceDeduction > 0 && !!systemKasbonStaffIds?.has(r.staff_id)
 
                 return (
                   <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
@@ -433,16 +438,48 @@ export function PayrollTable({
                         <span className="text-stone-400 font-sans">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 align-middle text-right text-xs font-mono font-medium text-red-600 tabular-nums">
+                    <td className="px-4 py-3 align-middle text-right text-xs font-mono font-medium tabular-nums">
                       {b.totalDeductions > 0 ? (
                         <div>
-                          <div className="font-bold whitespace-nowrap">-{formatRupiah(b.totalDeductions)}</div>
+                          <div className="font-bold whitespace-nowrap">
+                            <span
+                              className={
+                                isKasbonManual
+                                  ? 'text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-300 font-bold'
+                                  : 'text-red-600'
+                              }
+                            >
+                              -{formatRupiah(b.totalDeductions)}
+                            </span>
+                          </div>
                           {cleanDeduction && (
                             <div
-                              className="text-[10px] text-stone-500 font-sans font-normal leading-tight mt-0.5"
+                              className="text-[10px] text-stone-500 font-sans font-normal leading-tight mt-1"
                               title={cleanDeduction}
                             >
                               {cleanDeduction}
+                            </div>
+                          )}
+                          {isKasbonManual && (
+                            <div className="flex items-center justify-end mt-1">
+                              <span
+                                className="inline-flex items-center gap-1 rounded bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide shadow-2xs"
+                                title="Potongan kasbon ini tidak tercatat di Modul Kasbon Sistem (Hasil Injeksi Excel / Input Manual)"
+                              >
+                                <AlertCircle size={10} className="text-amber-700 shrink-0" />
+                                <span>Injeksi Excel</span>
+                              </span>
+                            </div>
+                          )}
+                          {isKasbonSystem && (
+                            <div className="flex items-center justify-end mt-1">
+                              <span
+                                className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow-2xs"
+                                title="Potongan kasbon resmi tersinkronisasi dari Modul Kasbon Sistem."
+                              >
+                                <CheckCircle2 size={10} className="text-emerald-600 shrink-0" />
+                                <span>Kasbon Sistem</span>
+                              </span>
                             </div>
                           )}
                         </div>
@@ -592,7 +629,15 @@ export function PayrollTable({
       </div>
 
       {selectedSlip && (
-        <SalarySlipModal slip={selectedSlip} onClose={() => setSelectedSlip(null)} />
+        <SalarySlipModal
+          slip={selectedSlip}
+          onClose={() => setSelectedSlip(null)}
+          isKasbonManual={
+            getPayrollBreakdown(selectedSlip).cashAdvanceDeduction > 0 &&
+            !!systemKasbonStaffIds &&
+            !systemKasbonStaffIds.has(selectedSlip.staff_id)
+          }
+        />
       )}
     </>
   )

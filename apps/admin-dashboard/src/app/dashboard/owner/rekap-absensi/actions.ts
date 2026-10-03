@@ -15,8 +15,6 @@ import { requireRole } from '@/lib/authz'
  */
 
 const PERAN_KOREKSI = ['owner', 'admin', 'admin_hr']
-const STATUS_MASUK = ['tepat', 'telat_toleransi', 'telat', 'alpha'] as const
-const STATUS_PULANG = ['tepat', 'lebih_awal', 'pulang_telat'] as const
 
 const RE_TANGGAL = /^\d{4}-\d{2}-\d{2}$/
 const RE_JAM = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -30,13 +28,45 @@ export interface KoreksiAbsensiInput {
   /** Dipakai hanya bila sisi masuk/pulang belum ada dan akan dibuat baru. */
   outletId: string | null
   jamMasuk: string | null
-  statusMasuk: (typeof STATUS_MASUK)[number] | null
-  /** null = hitung otomatis dari jam shift yang tercatat. */
-  telatMenit: number | null
+  /**
+   * Status & menit dihitung database dari jam (shift tercatat / config outlet +
+   * toleransi) — lihat hitung_status_absen. Satu-satunya keputusan manual: Alfa.
+   */
+  alfa: boolean
   jamPulang: string | null
-  statusPulang: (typeof STATUS_PULANG)[number] | null
-  menitPulang: number | null
   alasan: string
+}
+
+export interface AturanJamAbsensi {
+  jamMasuk: string
+  jamKeluar: string
+  toleransiMenit: number
+}
+
+/** Jam kerja & toleransi outlet (config outlet → global), untuk pratinjau status di modal. */
+export async function ambilAturanJamAbsensi(
+  outletId: string
+): Promise<{ ok: true; aturan: AturanJamAbsensi } | { ok: false; pesan: string }> {
+  try {
+    await requireRole(PERAN_KOREKSI)
+    if (!RE_UUID.test(outletId)) return { ok: false, pesan: 'Outlet tidak valid' }
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('aturan_jam_absen', { p_outlet_id: outletId })
+    if (error) return { ok: false, pesan: error.message }
+    const r = (Array.isArray(data) ? data[0] : data) as
+      | { jam_masuk: string | null; jam_keluar: string | null; toleransi_menit: number | null }
+      | undefined
+    return {
+      ok: true,
+      aturan: {
+        jamMasuk: (r?.jam_masuk ?? '09:00').slice(0, 5),
+        jamKeluar: (r?.jam_keluar ?? '17:00').slice(0, 5),
+        toleransiMenit: Number(r?.toleransi_menit ?? 0),
+      },
+    }
+  } catch (e) {
+    return { ok: false, pesan: pesanGalat(e) }
+  }
 }
 
 function pesanGalat(e: unknown): string {
@@ -45,10 +75,6 @@ function pesanGalat(e: unknown): string {
     return 'Anda tidak punya akses untuk mengoreksi absensi.'
   }
   return m || 'Terjadi kesalahan'
-}
-
-function menitValid(v: number | null) {
-  return v === null || (Number.isInteger(v) && v >= 0 && v <= 24 * 60)
 }
 
 export async function koreksiAbsensi(input: KoreksiAbsensiInput): Promise<HasilKoreksi> {
@@ -70,17 +96,8 @@ export async function koreksiAbsensi(input: KoreksiAbsensiInput): Promise<HasilK
     if (!input.jamMasuk && !input.jamPulang) {
       return { ok: false, pesan: 'Jam masuk dan pulang tidak boleh kosong keduanya — gunakan Hapus' }
     }
-    if (input.jamMasuk && !STATUS_MASUK.includes(input.statusMasuk as never)) {
-      return { ok: false, pesan: 'Status masuk tidak dikenal' }
-    }
-    if (input.jamPulang && !STATUS_PULANG.includes(input.statusPulang as never)) {
-      return { ok: false, pesan: 'Status pulang tidak dikenal' }
-    }
     if (input.jamMasuk && input.jamPulang && input.jamPulang <= input.jamMasuk) {
       return { ok: false, pesan: 'Jam pulang harus setelah jam masuk' }
-    }
-    if (!menitValid(input.telatMenit) || !menitValid(input.menitPulang)) {
-      return { ok: false, pesan: 'Menit harus bilangan bulat 0–1440' }
     }
     const alasan = input.alasan.trim()
     if (alasan.length < 3) return { ok: false, pesan: 'Alasan koreksi wajib diisi' }
@@ -91,11 +108,12 @@ export async function koreksiAbsensi(input: KoreksiAbsensiInput): Promise<HasilK
       p_tanggal: input.tanggal,
       p_outlet_id: input.outletId,
       p_jam_masuk: input.jamMasuk,
-      p_status_masuk: input.jamMasuk ? input.statusMasuk : null,
-      p_telat_masuk: input.jamMasuk ? input.telatMenit : null,
+      // null = dihitung database (migration 20261003110000).
+      p_status_masuk: input.jamMasuk && input.alfa ? 'alpha' : null,
+      p_telat_masuk: null,
       p_jam_pulang: input.jamPulang,
-      p_status_pulang: input.jamPulang ? input.statusPulang : null,
-      p_menit_pulang: input.jamPulang ? input.menitPulang : null,
+      p_status_pulang: null,
+      p_menit_pulang: null,
       p_alasan: alasan,
     })
     if (error) return { ok: false, pesan: error.message }

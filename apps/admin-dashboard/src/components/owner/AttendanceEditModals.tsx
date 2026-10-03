@@ -21,37 +21,36 @@ import {
 import type { Outlet } from '@/lib/types'
 import { Select } from '@/components/ui/Select'
 import type { AttendanceRecordExt } from './AttendanceReportView'
-import { hapusAbsensi, koreksiAbsensi } from '@/app/dashboard/owner/rekap-absensi/actions'
+import {
+  ambilAturanJamAbsensi,
+  hapusAbsensi,
+  koreksiAbsensi,
+  type AturanJamAbsensi,
+} from '@/app/dashboard/owner/rekap-absensi/actions'
+import { hitungStatusMasuk, hitungStatusPulang } from '@/lib/absensi/statusAbsen'
 
 /* ───────────────────────── Data & helper ───────────────────────── */
 
-type Tone = 'emerald' | 'yellow' | 'amber' | 'red' | 'blue'
+type Tone = 'emerald' | 'amber' | 'red' | 'blue'
 
-const STATUS_MASUK = [
-  { value: 'tepat', label: 'Tepat waktu', tone: 'emerald' },
-  { value: 'telat_toleransi', label: 'Dalam toleransi', tone: 'blue' },
-  { value: 'telat', label: 'Terlambat', tone: 'amber' },
-  { value: 'alpha', label: 'Alfa', tone: 'red' },
-] as const
-
-const STATUS_PULANG = [
-  { value: 'tepat', label: 'Tepat waktu', tone: 'emerald' },
-  { value: 'lebih_awal', label: 'Lebih awal', tone: 'blue' },
-  { value: 'pulang_telat', label: 'Lembur / telat', tone: 'amber' },
-] as const
-
-type StatusMasuk = (typeof STATUS_MASUK)[number]['value']
-type StatusPulang = (typeof STATUS_PULANG)[number]['value']
+/** Label & warna status yang AKAN tersimpan — dihitung dari jam, bukan dipilih (hitung_status_absen). */
+const LABEL_STATUS: Record<string, { label: string; tone: Tone }> = {
+  tepat: { label: 'Tepat waktu', tone: 'emerald' },
+  telat_toleransi: { label: 'Telat dlm toleransi', tone: 'blue' },
+  telat: { label: 'Terlambat', tone: 'amber' },
+  alpha: { label: 'Alfa', tone: 'red' },
+  lebih_awal: { label: 'Pulang lebih awal', tone: 'blue' },
+  pulang_telat: { label: 'Pulang telat', tone: 'amber' },
+}
 
 const ALASAN_CEPAT_EDIT = ['Lupa absen pulang', 'Salah input jam', 'Kendala kamera / aplikasi', 'Dikonfirmasi SPV']
 const ALASAN_CEPAT_HAPUS = ['Absen ganda', 'Salah akun', 'Data uji coba', 'Tidak masuk kerja']
 
-const TONE_ACTIVE: Record<Tone, string> = {
-  emerald: 'bg-emerald-600 text-white border-emerald-600 shadow-sm',
-  yellow: 'bg-yellow-500 text-white border-yellow-500 shadow-sm',
-  amber: 'bg-amber-500 text-white border-amber-500 shadow-sm',
-  red: 'bg-red-600 text-white border-red-600 shadow-sm',
-  blue: 'bg-blue-600 text-white border-blue-600 shadow-sm',
+const TONE_BADGE: Record<Tone, string> = {
+  emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  amber: 'bg-amber-50 text-amber-700 ring-amber-200',
+  red: 'bg-red-50 text-red-700 ring-red-200',
+  blue: 'bg-blue-50 text-blue-700 ring-blue-200',
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -67,14 +66,16 @@ const isJam = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v)
 /** Jam pada record berformat id-ID ("09.11") → "09:11". */
 const normJam = (v: string | null | undefined) => (v ? v.slice(0, 5).replace('.', ':') : '')
 
-function statusMasukAwal(row: AttendanceRecordExt): StatusMasuk {
+function statusMasukAwal(row: AttendanceRecordExt): string {
   const raw = row.in_status_raw
   return raw === 'telat_toleransi' || raw === 'telat' || raw === 'alpha' ? raw : 'tepat'
 }
-function statusPulangAwal(row: AttendanceRecordExt): StatusPulang {
+function statusPulangAwal(row: AttendanceRecordExt): string {
   const raw = row.out_status
   return raw === 'lebih_awal' || raw === 'pulang_telat' ? raw : 'tepat'
 }
+const menitTampil = (status: string, menit: number) =>
+  status === 'tepat' || status === 'alpha' ? '' : ` (${menit} mnt)`
 
 function initials(name: string) {
   return name
@@ -108,36 +109,36 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   )
 }
 
-function Segmented<T extends string>({
-  options,
-  value,
-  onChange,
-  label,
+/** Status yang akan tersimpan — dihitung ulang setiap jam berubah. */
+function StatusPreview({
+  hasil,
+  acuan,
+  memuat,
+  galat,
 }: {
-  options: readonly { value: T; label: string; tone: Tone }[]
-  value: T
-  onChange: (v: T) => void
-  label: string
+  hasil: { status: string; menit: number } | null
+  acuan: string | null
+  memuat: boolean
+  galat: string | null
 }) {
+  if (!hasil) {
+    return (
+      <p className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-500">
+        {memuat ? 'Menghitung status…' : galat ? `Status dihitung otomatis saat disimpan (${galat})` : 'Isi jam yang valid.'}
+      </p>
+    )
+  }
+  const meta = LABEL_STATUS[hasil.status] ?? { label: hasil.status, tone: 'emerald' as Tone }
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
-      {options.map((o) => {
-        const active = o.value === value
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(o.value)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-suka-orange/40 ${
-              active ? TONE_ACTIVE[o.tone] : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            {o.label}
-          </button>
-        )
-      })}
+    <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Status otomatis</p>
+        {acuan && <p className="truncate text-[10px] font-semibold text-slate-400">{acuan}</p>}
+      </div>
+      <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${TONE_BADGE[meta.tone]}`}>
+        {meta.label}
+        {menitTampil(hasil.status, hasil.menit)}
+      </span>
     </div>
   )
 }
@@ -233,44 +234,6 @@ function TimeField({
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-function MinuteStepper({
-  value,
-  onChange,
-  label,
-  hint,
-}: {
-  value: number
-  onChange: (v: number) => void
-  label: string
-  hint?: string
-}) {
-  const set = (v: number) => onChange(Math.min(1440, Math.max(0, Math.round(v || 0))))
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
-      <div>
-        <p className="text-xs font-bold text-slate-700">{label}</p>
-        {hint && <p className="text-[10px] font-semibold text-slate-400">{hint}</p>}
-      </div>
-      <div className="flex items-center overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <button type="button" onClick={() => set(value - 1)} className="px-2 py-1.5 text-slate-500 hover:bg-slate-50" aria-label="Kurangi 1 menit">
-          <Minus size={12} />
-        </button>
-        <input
-          value={value}
-          inputMode="numeric"
-          aria-label={label}
-          onChange={(e) => set(Number(e.target.value.replace(/\D/g, '')))}
-          className="w-12 bg-transparent text-center text-sm font-extrabold text-slate-900 focus:outline-none"
-        />
-        <span className="pr-2 text-[10px] font-bold text-slate-400">mnt</span>
-        <button type="button" onClick={() => set(value + 1)} className="border-l border-slate-100 px-2 py-1.5 text-slate-500 hover:bg-slate-50" aria-label="Tambah 1 menit">
-          <Plus size={12} />
-        </button>
-      </div>
     </div>
   )
 }
@@ -499,44 +462,67 @@ export function EditAttendanceModal({
 
   const [adaMasuk, setAdaMasuk] = useState(!!asalMasuk)
   const [jamMasuk, setJamMasuk] = useState(asalMasuk || shiftMasuk || '')
-  const [statusMasuk, setStatusMasuk] = useState<StatusMasuk>(statusMasukAwal(row))
-  const [telat, setTelat] = useState<number>(row.late_minutes ?? 0)
+  const [alfa, setAlfa] = useState(row.in_status_raw === 'alpha')
 
   const [adaPulang, setAdaPulang] = useState(!!asalPulang)
   const [jamPulang, setJamPulang] = useState(asalPulang || shiftKeluar || '')
-  const [statusPulang, setStatusPulang] = useState<StatusPulang>(statusPulangAwal(row))
-  const [menitPulang, setMenitPulang] = useState<number>(row.out_minutes ?? 0)
 
   const [outletId, setOutletId] = useState(row.outlet_id)
   const [alasan, setAlasan] = useState('')
 
   const perluOutlet = (adaMasuk && !asalMasuk) || (adaPulang && !asalPulang)
 
-  // Status & menit disarankan ulang dari jam shift setiap jam diubah; tetap bisa ditimpa.
-  const ubahJamMasuk = (v: string) => {
-    setJamMasuk(v)
-    if (!shiftMasuk || !isJam(v)) return
-    const selisih = toMin(v) - toMin(shiftMasuk)
-    if (selisih <= 0) {
-      setStatusMasuk('tepat')
-      setTelat(0)
-    } else {
-      if (statusMasuk === 'tepat' || statusMasuk === 'alpha') setStatusMasuk('telat')
-      setTelat(selisih)
+  // Status tidak dipilih manual: database (koreksi_absensi → hitung_status_absen) selalu
+  // menghitung ulang dari jam. Di sini hanya pratinjau dengan aturan yang sama.
+  // Outlet acuan = outlet baris yang sudah ada, atau outlet pilihan untuk absen baru.
+  const outletMasuk = asalMasuk ? row.outlet_id : outletId
+  const outletPulang = asalPulang ? row.out_outlet_id || row.outlet_id : outletId
+
+  const [aturan, setAturan] = useState<Record<string, AturanJamAbsensi>>({})
+  const [galatAturan, setGalatAturan] = useState<string | null>(null)
+  useEffect(() => {
+    const perlu = Array.from(new Set([outletMasuk, outletPulang].filter(Boolean))).filter((id) => !aturan[id])
+    if (perlu.length === 0) return
+    let batal = false
+    Promise.all(perlu.map((id) => ambilAturanJamAbsensi(id).then((h) => [id, h] as const))).then((hasil) => {
+      if (batal) return
+      const baru: Record<string, AturanJamAbsensi> = {}
+      for (const [id, h] of hasil) {
+        if (h.ok) baru[id] = h.aturan
+        else setGalatAturan(h.pesan)
+      }
+      if (Object.keys(baru).length > 0) setAturan((prev) => ({ ...prev, ...baru }))
+    })
+    return () => {
+      batal = true
     }
+  }, [outletMasuk, outletPulang, aturan])
+
+  const cfgMasuk = outletMasuk ? aturan[outletMasuk] : undefined
+  const cfgPulang = outletPulang ? aturan[outletPulang] : undefined
+  // Shift yang tercatat di baris menang; tanpa shift → jam config outlet.
+  const aturanMasuk = cfgMasuk && {
+    jamMasuk: shiftMasuk ?? cfgMasuk.jamMasuk,
+    jamKeluar: shiftKeluar ?? cfgMasuk.jamKeluar,
+    toleransiMenit: cfgMasuk.toleransiMenit,
   }
-  const ubahJamPulang = (v: string) => {
-    setJamPulang(v)
-    if (!shiftKeluar || !isJam(v)) return
-    const selisih = toMin(v) - toMin(shiftKeluar)
-    if (selisih < 0) {
-      setStatusPulang('lebih_awal')
-      setMenitPulang(-selisih)
-    } else {
-      setStatusPulang('tepat')
-      setMenitPulang(0)
-    }
+  const aturanPulang = cfgPulang && {
+    jamMasuk: shiftMasuk ?? cfgPulang.jamMasuk,
+    jamKeluar: shiftKeluar ?? cfgPulang.jamKeluar,
+    toleransiMenit: cfgPulang.toleransiMenit,
   }
+  const hasilMasuk = alfa
+    ? { status: 'alpha', menit: 0 }
+    : aturanMasuk && isJam(jamMasuk)
+      ? hitungStatusMasuk(jamMasuk, aturanMasuk)
+      : null
+  const hasilPulang = aturanPulang && isJam(jamPulang) ? hitungStatusPulang(jamPulang, aturanPulang) : null
+  const acuanMasuk = alfa
+    ? 'Ditandai manual'
+    : aturanMasuk
+      ? `Acuan ${shiftMasuk ? 'shift' : 'jam outlet'} ${aturanMasuk.jamMasuk} · toleransi ${aturanMasuk.toleransiMenit} mnt`
+      : null
+  const acuanPulang = aturanPulang ? `Acuan ${shiftKeluar ? 'shift' : 'jam outlet'} ${aturanPulang.jamKeluar}` : null
 
   const masalah = (() => {
     if (!adaMasuk && !adaPulang) return 'Aktifkan minimal satu absen. Untuk menghapus semuanya, pakai tombol Hapus.'
@@ -552,16 +538,24 @@ export function EditAttendanceModal({
   const perubahan: string[] = []
   if (adaMasuk !== !!asalMasuk) perubahan.push(adaMasuk ? `Tambah masuk ${jamMasuk}` : `Hapus masuk ${asalMasuk}`)
   else if (adaMasuk && jamMasuk !== asalMasuk) perubahan.push(`Masuk ${asalMasuk} → ${jamMasuk}`)
-  if (adaMasuk && statusMasuk !== statusMasukAwal(row))
-    perubahan.push(`Status masuk → ${STATUS_MASUK.find((s) => s.value === statusMasuk)?.label}`)
-  if (adaMasuk && (statusMasuk === 'telat' || statusMasuk === 'telat_toleransi') && telat !== (row.late_minutes ?? 0))
-    perubahan.push(`Terlambat → ${telat} menit`)
+  // Termasuk saat jam tak berubah tapi status tersimpan basi (koreksi lama) —
+  // simpan ulang akan meluruskannya.
+  if (
+    adaMasuk &&
+    hasilMasuk &&
+    (hasilMasuk.status !== statusMasukAwal(row) ||
+      (hasilMasuk.status !== 'tepat' && hasilMasuk.status !== 'alpha' && hasilMasuk.menit !== (row.late_minutes ?? 0)))
+  )
+    perubahan.push(`Status masuk → ${LABEL_STATUS[hasilMasuk.status]?.label}${menitTampil(hasilMasuk.status, hasilMasuk.menit)}`)
   if (adaPulang !== !!asalPulang) perubahan.push(adaPulang ? `Tambah pulang ${jamPulang}` : `Hapus pulang ${asalPulang}`)
   else if (adaPulang && jamPulang !== asalPulang) perubahan.push(`Pulang ${asalPulang} → ${jamPulang}`)
-  if (adaPulang && statusPulang !== statusPulangAwal(row))
-    perubahan.push(`Status pulang → ${STATUS_PULANG.find((s) => s.value === statusPulang)?.label}`)
-  if (adaPulang && statusPulang !== 'tepat' && menitPulang !== (row.out_minutes ?? 0))
-    perubahan.push(`Menit pulang → ${menitPulang}`)
+  if (
+    adaPulang &&
+    hasilPulang &&
+    (hasilPulang.status !== statusPulangAwal(row) ||
+      (hasilPulang.status !== 'tepat' && hasilPulang.menit !== (row.out_minutes ?? 0)))
+  )
+    perubahan.push(`Status pulang → ${LABEL_STATUS[hasilPulang.status]?.label}${menitTampil(hasilPulang.status, hasilPulang.menit)}`)
 
   const simpan = async () => {
     setTried(true)
@@ -572,11 +566,8 @@ export function EditAttendanceModal({
       tanggal: row.date,
       outletId: perluOutlet ? outletId : null,
       jamMasuk: adaMasuk ? jamMasuk : null,
-      statusMasuk: adaMasuk ? statusMasuk : null,
-      telatMenit: adaMasuk && (statusMasuk === 'telat' || statusMasuk === 'telat_toleransi') ? telat : null,
+      alfa: adaMasuk && alfa,
       jamPulang: adaPulang ? jamPulang : null,
-      statusPulang: adaPulang ? statusPulang : null,
-      menitPulang: adaPulang && statusPulang !== 'tepat' ? menitPulang : null,
       alasan,
     })
     setSaving(false)
@@ -588,8 +579,6 @@ export function EditAttendanceModal({
     onClose()
     startTransition(() => router.refresh())
   }
-
-  const statusTelat = statusMasuk === 'telat' || statusMasuk === 'telat_toleransi'
 
   return (
     <Shell onClose={onClose} busy={saving} labelledBy={titleId}>
@@ -617,21 +606,17 @@ export function EditAttendanceModal({
             <TimeField
               label="Jam masuk"
               value={jamMasuk}
-              onChange={ubahJamMasuk}
+              onChange={setJamMasuk}
               shortcuts={[
-                ...(shiftMasuk ? [{ label: `Sesuai shift ${shiftMasuk}`, value: shiftMasuk }] : []),
-                ...(asalMasuk && asalMasuk !== shiftMasuk ? [{ label: `Jam asal ${asalMasuk}`, value: asalMasuk }] : []),
+                ...(aturanMasuk ? [{ label: `Sesuai ${shiftMasuk ? 'shift' : 'jam'} ${aturanMasuk.jamMasuk}`, value: aturanMasuk.jamMasuk }] : []),
+                ...(asalMasuk && asalMasuk !== aturanMasuk?.jamMasuk ? [{ label: `Jam asal ${asalMasuk}`, value: asalMasuk }] : []),
               ]}
             />
-            <Segmented label="Status masuk" options={STATUS_MASUK} value={statusMasuk} onChange={setStatusMasuk} />
-            {statusTelat && (
-              <MinuteStepper
-                label="Terlambat"
-                value={telat}
-                onChange={setTelat}
-                hint={shiftMasuk ? `Dihitung dari shift ${shiftMasuk}` : undefined}
-              />
-            )}
+            <StatusPreview hasil={hasilMasuk} acuan={acuanMasuk} memuat={!cfgMasuk && !galatAturan} galat={galatAturan} />
+            <div className="flex items-center justify-between gap-3 px-1">
+              <span className="text-xs font-bold text-slate-600">Tandai Alfa</span>
+              <Toggle checked={alfa} onChange={setAlfa} label="Tandai Alfa" />
+            </div>
           </SideCard>
 
           <SideCard
@@ -646,21 +631,13 @@ export function EditAttendanceModal({
             <TimeField
               label="Jam pulang"
               value={jamPulang}
-              onChange={ubahJamPulang}
+              onChange={setJamPulang}
               shortcuts={[
-                ...(shiftKeluar ? [{ label: `Sesuai shift ${shiftKeluar}`, value: shiftKeluar }] : []),
-                ...(asalPulang && asalPulang !== shiftKeluar ? [{ label: `Jam asal ${asalPulang}`, value: asalPulang }] : []),
+                ...(aturanPulang ? [{ label: `Sesuai ${shiftKeluar ? 'shift' : 'jam'} ${aturanPulang.jamKeluar}`, value: aturanPulang.jamKeluar }] : []),
+                ...(asalPulang && asalPulang !== aturanPulang?.jamKeluar ? [{ label: `Jam asal ${asalPulang}`, value: asalPulang }] : []),
               ]}
             />
-            <Segmented label="Status pulang" options={STATUS_PULANG} value={statusPulang} onChange={setStatusPulang} />
-            {statusPulang !== 'tepat' && (
-              <MinuteStepper
-                label={statusPulang === 'lebih_awal' ? 'Pulang lebih awal' : 'Lewat jam pulang'}
-                value={menitPulang}
-                onChange={setMenitPulang}
-                hint={shiftKeluar ? `Dihitung dari shift ${shiftKeluar}` : undefined}
-              />
-            )}
+            <StatusPreview hasil={hasilPulang} acuan={acuanPulang} memuat={!cfgPulang && !galatAturan} galat={galatAturan} />
           </SideCard>
         </div>
 

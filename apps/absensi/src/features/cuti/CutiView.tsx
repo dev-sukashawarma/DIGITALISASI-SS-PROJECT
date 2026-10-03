@@ -104,11 +104,15 @@ export function CutiView() {
   };
 
   const handleBatalkan = async (id: string) => {
+    // Galat dilempar ulang: TombolBatalkan menampilkannya di dalam lembar konfirmasi.
+    // Toast tetap muncul untuk kasus HR baru saja memutuskan — kartu (dan lembarnya)
+    // langsung hilang karena status berubah, jadi pesannya harus tetap terbaca.
     try {
       await batalkan.mutateAsync(id);
       toast.show("ok", "Pengajuan cuti dibatalkan");
     } catch (err) {
       toast.show("err", (err as any)?.message || "Gagal membatalkan cuti");
+      throw err;
     }
   };
 
@@ -434,12 +438,14 @@ export function CutiView() {
                       )}
 
                       {item.status === 'pending' && item.status_spv !== 'rejected' && (
-                        <div className="mt-3">
-                          <TombolBatalkan
-                            loading={batalkan.isPending && batalkan.variables === item.id}
-                            onConfirm={() => handleBatalkan(item.id)}
-                          />
-                        </div>
+                        <TombolBatalkan
+                          jenis="cuti"
+                          judul={`${getTypeLabel(item.leave_type)} · ${item.days} hari`}
+                          detail={item.end_date !== item.start_date
+                            ? `${formatHariTglTahun(item.start_date)} – ${formatHariTglTahun(item.end_date)}`
+                            : formatHariTglTahun(item.start_date)}
+                          onConfirm={() => handleBatalkan(item.id)}
+                        />
                       )}
                     </div>
 

@@ -223,7 +223,7 @@ export default async function LauncherPage() {
 
   if (isExecutiveRole) {
     const [outletsRes, staffRes, attendanceRes] = await Promise.all([
-      supabase.from('outlets').select('id, name, slug, type, is_active').eq('is_active', true),
+      supabase.from('outlets').select('id, name, slug, type, is_active, inactive_reason').eq('is_active', true),
       supabase.from('outlet_staff').select('id, name, username, role, account_category, status').eq('status', 'active'),
       supabase
         .from('attendance')

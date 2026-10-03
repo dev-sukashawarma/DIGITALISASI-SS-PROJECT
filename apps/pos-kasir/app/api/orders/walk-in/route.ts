@@ -110,13 +110,21 @@ export async function POST(request: Request) {
   )
   const hasBuyGetPromo = buyGetPromos.length > 0
 
+  // Menu hadiah = pilihan admin (outlet_promos.reward_menu_item_id), tanpa
+  // fallback ke menu lain. Promo lama tanpa pilihan tetap Original Ayam Reguler.
+  // Aturan ini sama dengan public.bxgy_reward_menu_id di DB (trigger menolak
+  // baris hadiah lain) dan BuyOneGetOneRules di POS native.
   let buyGetRewardMenu: { id: string; name: string; price: number } | null = null
   if (buyGetPromos.length > 0) {
-    const { data: rewardMenus, error: rewardMenuError } = await supabaseService
+    const configuredRewardId: string | null = buyGetPromos[0].reward_menu_item_id || null
+    let rewardQuery = supabaseService
       .from('menu_items')
       .select('id, name, price, outlet_id')
       .eq('is_available', true)
-      .ilike('name', 'Original Ayam Reguler')
+    rewardQuery = configuredRewardId
+      ? rewardQuery.eq('id', configuredRewardId)
+      : rewardQuery.ilike('name', 'Original Ayam Reguler')
+    const { data: rewardMenus, error: rewardMenuError } = await rewardQuery
 
     if (rewardMenuError) {
       return NextResponse.json({ error: 'Gagal memuat menu hadiah promo' }, { status: 500 })
@@ -127,7 +135,7 @@ export async function POST(request: Request) {
       .sort((a, b) => (a.outlet_id === outlet_id ? 0 : 1) - (b.outlet_id === outlet_id ? 0 : 1) || String(a.id).localeCompare(String(b.id)))[0] || null
 
     if (!buyGetRewardMenu) {
-      return NextResponse.json({ error: 'Menu hadiah Original Ayam Reguler tidak tersedia di outlet ini' }, { status: 400 })
+      return NextResponse.json({ error: 'Menu gratis promo Buy X Get Y sedang tidak tersedia di outlet ini' }, { status: 400 })
     }
   }
 

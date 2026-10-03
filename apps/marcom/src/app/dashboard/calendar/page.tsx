@@ -37,9 +37,16 @@ export default async function CalendarPage() {
       },
     }),
     prisma.outlet.findMany({
-      where: { isActive: true },
+      where: {
+        NOT: {
+          OR: [
+            { posType: { in: ['test', 'system'] } },
+            { name: { contains: 'tes', mode: 'insensitive' } },
+          ],
+        },
+      },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true },
+      select: { id: true, name: true, isActive: true },
     }),
     prisma.kol.findMany({
       orderBy: { name: 'asc' },
@@ -88,6 +95,7 @@ export default async function CalendarPage() {
   const serializedOutlets = outlets.map((o: any) => ({
     id: o.id.toString(),
     name: o.name,
+    isActive: o.isActive ?? true,
   }))
 
   const serializedKols = kols.map((k: any) => ({

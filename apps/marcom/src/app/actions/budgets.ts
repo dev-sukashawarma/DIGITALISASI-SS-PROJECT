@@ -27,6 +27,7 @@ export interface OutletBudgetSummary {
   budgetAchievementRate: number // percentage
   kolAchievementRate: number    // percentage
   notes: string | null
+  isActive?: boolean
 }
 
 export interface MonthlyBudgetMatrix {
@@ -65,9 +66,43 @@ export async function getMonthlyBudgetMatrix(
   const startDate = new Date(Date.UTC(year, month - 1, 1))
   const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59))
 
-  // Fetch all active outlets with their budget for this period
+  // Fetch all outlets that are active OR have budget/endorsements in this period (excluding system/test outlets)
   const outlets = await prisma.outlet.findMany({
-    where: { isActive: true },
+    where: {
+      AND: [
+        {
+          NOT: {
+            OR: [
+              { posType: { in: ['test', 'system'] } },
+              { name: { contains: 'tes', mode: 'insensitive' } },
+            ],
+          },
+        },
+        {
+          OR: [
+            { isActive: true },
+            {
+              budgets: {
+                some: {
+                  periodMonth: month,
+                  periodYear: year,
+                },
+              },
+            },
+            {
+              endorsements: {
+                some: {
+                  scheduleDate: {
+                    gte: startDate,
+                    lte: endDate,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
     orderBy: { name: 'asc' },
     include: {
       budgets: {
@@ -134,6 +169,7 @@ export async function getMonthlyBudgetMatrix(
       budgetAchievementRate: targetBudget > 0 ? Math.round((totalRealized / targetBudget) * 100) : 0,
       kolAchievementRate: targetKolCount > 0 ? Math.round((actualKol / targetKolCount) * 100) : 0,
       notes: budgetRecord?.notes || null,
+      isActive: ot.isActive,
     }
   })
 

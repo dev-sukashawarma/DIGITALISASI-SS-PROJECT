@@ -22,9 +22,16 @@ export default async function OpexPage() {
     getMonthlyBudgetMatrix(defaultMonth, defaultYear),
     getOpexData(defaultMonth, defaultYear),
     prisma.outlet.findMany({
-      where: { isActive: true },
+      where: {
+        NOT: {
+          OR: [
+            { posType: { in: ['test', 'system'] } },
+            { name: { contains: 'tes', mode: 'insensitive' } },
+          ],
+        },
+      },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, type: true },
+      select: { id: true, name: true, type: true, isActive: true },
     }),
   ])
 
@@ -32,6 +39,7 @@ export default async function OpexPage() {
     id: o.id.toString(),
     name: o.name,
     type: o.type,
+    isActive: o.isActive ?? true,
   }))
 
   return (

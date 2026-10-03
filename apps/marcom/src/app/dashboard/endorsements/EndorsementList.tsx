@@ -1727,7 +1727,7 @@ export default function EndorsementList({
                   <option value="">Semua Cabang</option>
                   {outlets.map((o) => (
                     <option key={o.id} value={o.id}>
-                      {o.name}
+                      {o.name}{o.isActive === false ? ' (Nonaktif)' : ''}
                     </option>
                   ))}
                 </select>
@@ -2486,7 +2486,7 @@ export default function EndorsementList({
                   <option value="">Semua Cabang / Outlet</option>
                   {outlets.map((o) => (
                     <option key={o.id} value={o.id}>
-                      {o.name}
+                      {o.name}{o.isActive === false ? ' (Nonaktif)' : ''}
                     </option>
                   ))}
                 </select>

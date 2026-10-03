@@ -39,7 +39,7 @@ import {
 
 interface OpexViewProps {
   initialSummary: OpexSummary
-  outlets: Array<{ id: string; name: string; type?: string }>
+  outlets: Array<{ id: string; name: string; type?: string; isActive?: boolean }>
   userRole: string
 }
 
@@ -307,7 +307,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
               <option value="GLOBAL">Kantor Pusat / Global</option>
               {outlets.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.name}
+                  {o.name}{o.isActive === false ? ' (Nonaktif)' : ''}
                 </option>
               ))}
             </select>
@@ -757,11 +757,13 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                       className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
                     >
                       <option value="GLOBAL">Kantor Pusat / Pengeluaran Global</option>
-                      {outlets.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.name}
-                        </option>
-                      ))}
+                      {outlets
+                        .filter((o) => o.isActive !== false)
+                        .map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.name}
+                          </option>
+                        ))}
                     </select>
                   )}
                 </div>

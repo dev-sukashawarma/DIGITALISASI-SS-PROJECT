@@ -58,7 +58,14 @@ export default async function EndorsementsPage() {
       },
     }),
     prisma.outlet.findMany({
-      where: { isActive: true },
+      where: {
+        NOT: {
+          OR: [
+            { posType: { in: ['test', 'system'] } },
+            { name: { contains: 'tes', mode: 'insensitive' } },
+          ],
+        },
+      },
       orderBy: { name: 'asc' },
       select: {
         id: true,

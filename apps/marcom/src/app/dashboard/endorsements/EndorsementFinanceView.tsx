@@ -657,7 +657,7 @@ export default function EndorsementFinanceView({
               <option value="">Semua Outlet</option>
               {outlets.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.name}
+                  {o.name}{o.isActive === false ? ' (Nonaktif)' : ''}
                 </option>
               ))}
             </select>

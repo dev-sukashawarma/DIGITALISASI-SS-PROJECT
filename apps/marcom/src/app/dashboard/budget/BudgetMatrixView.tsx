@@ -288,9 +288,14 @@ export default function BudgetMatrixView({
                   <tr key={item.outletId} className="group hover:bg-amber-50/30 transition-colors">
                     <td className="py-3.5 px-4 text-stone-400 font-mono">{idx + 1}</td>
                     <td className="py-3.5 px-4 font-bold text-[#1A1715]">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <Store className="w-3.5 h-3.5 text-stone-400" />
                         <span>{item.outletName}</span>
+                        {item.isActive === false && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 border border-stone-200">
+                            Nonaktif
+                          </span>
+                        )}
                       </div>
                       {item.notes && (
                         <div className="text-[10px] text-stone-500 font-normal italic mt-0.5">

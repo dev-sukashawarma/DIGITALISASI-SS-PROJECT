@@ -69,7 +69,7 @@ interface CalendarViewProps {
   initialEndorsements: CalendarEndorsement[]
   initialAds: CalendarAd[]
   initialPromoEvents: CalendarPromoEvent[]
-  outlets: Array<{ id: string; name: string }>
+  outlets: Array<{ id: string; name: string; isActive?: boolean }>
   kols: Array<{ id: string; name: string }>
   userRole: string
 }
@@ -312,7 +312,7 @@ export default function CalendarView({
               <option value="">Semua Cabang Outlet</option>
               {outlets.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.name}
+                  {o.name}{o.isActive === false ? ' (Nonaktif)' : ''}
                 </option>
               ))}
             </select>
@@ -619,11 +619,13 @@ export default function CalendarView({
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                       >
                         <option value="">-- Pilih Outlet --</option>
-                        {outlets.map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.name}
-                          </option>
-                        ))}
+                        {outlets
+                          .filter((o) => o.isActive !== false)
+                          .map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.name}
+                            </option>
+                          ))}
                       </select>
                     </div>
                   </div>
@@ -683,11 +685,13 @@ export default function CalendarView({
                       className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                     >
                       <option value="">-- Pilih Outlet --</option>
-                      {outlets.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.name}
-                        </option>
-                      ))}
+                      {outlets
+                        .filter((o) => o.isActive !== false)
+                        .map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.name}
+                          </option>
+                        ))}
                     </select>
                   </div>
 
@@ -791,11 +795,13 @@ export default function CalendarView({
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                       >
                         <option value="ALL">Official</option>
-                        {outlets.map((o) => (
-                          <option key={o.id} value={o.id}>
-                            Khusus Cabang: {o.name}
-                          </option>
-                        ))}
+                        {outlets
+                          .filter((o) => o.isActive !== false)
+                          .map((o) => (
+                            <option key={o.id} value={o.id}>
+                              Khusus Cabang: {o.name}
+                            </option>
+                          ))}
                       </select>
                     </div>
 

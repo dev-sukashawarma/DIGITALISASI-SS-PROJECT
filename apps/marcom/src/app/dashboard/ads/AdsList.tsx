@@ -44,7 +44,7 @@ export interface SerializedAd {
 
 interface AdsListProps {
   initialAds: SerializedAd[]
-  outlets: Array<{ id: string; name: string; type?: string }>
+  outlets: Array<{ id: string; name: string; type?: string; isActive?: boolean }>
   userRole: string
 }
 
@@ -681,7 +681,7 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
               <option value="">Semua Outlet</option>
               {outlets.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.name}
+                  {o.name}{!o.isActive ? ' (Nonaktif)' : ''}
                 </option>
               ))}
             </select>
@@ -993,11 +993,13 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                   className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none"
                 >
                   <option value="">-- Akun Official / Tanpa Cabang Khusus --</option>
-                  {outlets.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
+                  {outlets
+                    .filter((o) => o.isActive !== false)
+                    .map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -1174,11 +1176,13 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                   className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none"
                 >
                   <option value="">-- Akun Official / Tanpa Cabang Khusus --</option>
-                  {outlets.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
+                  {outlets
+                    .filter((o) => o.isActive !== false || o.id === editingAd.outletId)
+                    .map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}{!o.isActive ? ' (Nonaktif)' : ''}
+                      </option>
+                    ))}
                 </select>
               </div>
 

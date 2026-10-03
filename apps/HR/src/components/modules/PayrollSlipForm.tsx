@@ -19,6 +19,7 @@ import {
   Unlock,
   ExternalLink,
   RotateCcw,
+  X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 

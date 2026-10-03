@@ -4,39 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { getPosSupabase } from '@/lib/supabase-pos'
+import { rencanakanSinkronOutlet } from '@/lib/outletPosSync'
+import { terapkanRencanaSinkronOutlet } from '@/lib/outletPosSyncServer'
 
 export type ActionState = {
   success?: boolean
   error?: string
   data?: any
-}
-
-function cleanOutletName(sbName: string): string {
-  let name = sbName.trim()
-  if (/^SUKA\s+SHAWARMA\s+/i.test(name)) {
-    name = name.replace(/^SUKA\s+SHAWARMA\s+/i, '')
-  } else if (/^MITRA\s+/i.test(name)) {
-    name = name.replace(/^MITRA\s+/i, '')
-  }
-
-  if (name.length <= 4) {
-    return name.toUpperCase()
-  }
-  return name.charAt(0).toUpperCase() + name.slice(1)
-}
-
-function isHiddenOutlet(name: string): boolean {
-  const lower = name.toLowerCase()
-  return (
-    lower.includes('gudang pusat') ||
-    lower.includes('gudang ss online') ||
-    lower.includes('kantor pusat') ||
-    lower.includes('ss backup') ||
-    lower.includes('central kitchen') ||
-    lower.includes('shopee') ||
-    lower.includes('shoppee') ||
-    lower.includes('tiktok shop')
-  )
 }
 
 export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
@@ -49,7 +23,7 @@ export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
     const supabase = getPosSupabase()
     const { data: sbOutlets, error } = await supabase
       .from('outlets')
-      .select('*')
+      .select('id, name, type, region, address, phone, is_active')
       .order('name', { ascending: true })
 
     if (error || !sbOutlets) {
@@ -57,72 +31,20 @@ export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
     }
 
     const marcomOutlets = await prisma.outlet.findMany()
-
-    let updatedCount = 0
-    let createdCount = 0
-    let skippedCount = 0
-
-    for (const sb of sbOutlets) {
-      if (sb.type === 'system' || sb.name.includes('(SYSTEM)')) {
-        skippedCount++
-        continue
-      }
-
-      const marcomType = sb.type === 'mitra' ? 'MITRA' : 'INTERNAL'
-
-      // 1. Try matching by posOutletId
-      let match = marcomOutlets.find((m) => m.posOutletId === sb.id)
-
-      // 2. Try matching by clean / normalized name
-      if (!match) {
-        const cleaned = cleanOutletName(sb.name).toLowerCase()
-        match = marcomOutlets.find((m) => {
-          const mClean = cleanOutletName(m.name).toLowerCase()
-          return mClean === cleaned || m.name.toLowerCase() === sb.name.toLowerCase()
-        })
-      }
-
-      const shouldBeInactive = isHiddenOutlet(sb.name) || (match ? isHiddenOutlet(match.name) : false)
-
-      if (match) {
-        await prisma.outlet.update({
-          where: { id: match.id },
-          data: {
-            posOutletId: sb.id,
-            posName: sb.name,
-            posType: sb.type,
-            region: sb.region || match.region,
-            address: sb.address || match.address,
-            phone: sb.phone || match.phone,
-            isActive: shouldBeInactive ? false : (sb.is_active ?? true),
-            type: marcomType,
-          },
-        })
-        updatedCount++
-      } else {
-        const friendlyName = cleanOutletName(sb.name)
-        const nameConflict = marcomOutlets.find(
-          (m) => m.name.toLowerCase() === friendlyName.toLowerCase()
-        )
-        const finalName = nameConflict ? sb.name : friendlyName
-        const isFinalHidden = isHiddenOutlet(finalName) || isHiddenOutlet(sb.name)
-
-        await prisma.outlet.create({
-          data: {
-            name: finalName,
-            type: marcomType,
-            posOutletId: sb.id,
-            posName: sb.name,
-            posType: sb.type,
-            region: sb.region,
-            address: sb.address,
-            phone: sb.phone,
-            isActive: isFinalHidden ? false : (sb.is_active ?? true),
-          },
-        })
-        createdCount++
-      }
-    }
+    const plan = rencanakanSinkronOutlet(
+      sbOutlets.map((o) => ({
+        id: String(o.id),
+        name: String(o.name || ''),
+        type: String(o.type || 'outlet'),
+        region: o.region,
+        address: o.address,
+        phone: o.phone,
+        isActive: o.is_active ?? true,
+      })),
+      marcomOutlets,
+      'penuh'
+    )
+    await terapkanRencanaSinkronOutlet(plan)
 
     revalidatePath('/dashboard/outlets')
     revalidatePath('/dashboard')
@@ -134,9 +56,9 @@ export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
     return {
       success: true,
       data: {
-        updated: updatedCount,
-        created: createdCount,
-        skipped: skippedCount,
+        updated: plan.updates.length,
+        created: plan.creates.length,
+        skipped: plan.skipped,
         total: sbOutlets.length,
       },
     }

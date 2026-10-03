@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { fetchPosOutlets } from '@/lib/supabase-pos'
+import { rencanakanSinkronOutlet } from '@/lib/outletPosSync'
+import { terapkanRencanaSinkronOutlet } from '@/lib/outletPosSyncServer'
 import OutletList, { SerializedOutlet } from './OutletList'
 
 export const dynamic = 'force-dynamic'
@@ -22,8 +24,21 @@ export default async function OutletsPage() {
     fetchPosOutlets(),
   ])
 
+  // Nama/tipe outlet diedit di admin (tabel outlets POS) — selaraskan salinan MARCOM
+  // setiap halaman dibuka. Biasanya nol baris berubah, jadi tak ada query tulis.
+  const plan = rencanakanSinkronOutlet(posOutlets, outlets, 'otomatis')
+  if (plan.updates.length > 0) {
+    try {
+      await terapkanRencanaSinkronOutlet(plan)
+    } catch (err) {
+      console.error('Auto-sync outlet dari POS gagal:', err)
+    }
+  }
+  const perubahan = new Map(plan.updates.map((u) => [u.id, u.data]))
+  const outletsTerkini = outlets.map((o) => ({ ...o, ...perubahan.get(o.id) }))
+
   // Serialize BigInt to string to safely pass to Client Component
-  const serializedOutlets: SerializedOutlet[] = outlets.map((outlet: any) => ({
+  const serializedOutlets: SerializedOutlet[] = outletsTerkini.map((outlet: any) => ({
     id: outlet.id.toString(),
     name: outlet.name,
     type: outlet.type || 'INTERNAL',

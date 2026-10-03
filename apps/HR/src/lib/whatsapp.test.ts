@@ -60,9 +60,11 @@ describe('pesan WhatsApp', () => {
         },
       },
     })
-    console.log('--- HASIL FORMAT PESAN WAHA ---')
-    console.log(msg)
-    console.log('-------------------------------')
+
     expect(msg).toContain('SLIP GAJI RESMI — SUKA SHAWARMA')
+    expect(msg).toContain('👤 Nama: *Alfin Rifaldi*')
+    expect(msg).toContain('• Gaji Pokok: Rp 1.307.692')
+    expect(msg).toContain('• Denda Keterlambatan: -Rp 12.000')
+    expect(msg).toContain('💰 *TAKE HOME PAY: Rp 1.295.692*')
   })
 })

@@ -19,14 +19,21 @@ export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
   if (b.mealAllowance > 0) earningsLines.push(`• Uang Makan (Meal): ${rupiah(b.mealAllowance)}`)
   if (b.transportAllowance > 0) earningsLines.push(`• Uang Transport: ${rupiah(b.transportAllowance)}`)
   if (b.communicationAllowance > 0) earningsLines.push(`• Tunjangan Komunikasi: ${rupiah(b.communicationAllowance)}`)
-  if (b.salesBonus > 0) earningsLines.push(`• Sales Bonus: ${rupiah(b.salesBonus)}`)
+  if (b.salesBonus > 0) {
+    const isRewardAbsensi = slip.bonus_note?.toLowerCase().includes('reward absensi')
+    const bonusTitle = isRewardAbsensi ? 'Reward Absensi' : 'Sales Bonus'
+    earningsLines.push(`• ${bonusTitle}: ${rupiah(b.salesBonus)}`)
+  }
   if (b.positionAllowance > 0) earningsLines.push(`• Tunjangan Jabatan: ${rupiah(b.positionAllowance)}`)
 
   const deductionLines: string[] = []
   if (b.cashAdvanceDeduction > 0) deductionLines.push(`• Potongan Kasbon: -${rupiah(b.cashAdvanceDeduction)}`)
   if (b.bpjsDeduction > 0) deductionLines.push(`• Potongan BPJS: -${rupiah(b.bpjsDeduction)}`)
   if (b.lateDeduction > 0) {
-    deductionLines.push(`• Denda Keterlambatan (${b.lateMinutes} menit @ Rp1.000): -${rupiah(b.lateDeduction)}`)
+    const lateTitle = b.lateMinutes > 0
+      ? `• Denda Keterlambatan (${b.lateMinutes} menit @ Rp1.000): -${rupiah(b.lateDeduction)}`
+      : `• Denda Keterlambatan: -${rupiah(b.lateDeduction)}`
+    deductionLines.push(lateTitle)
   }
   if (b.otherDeduction > 0) deductionLines.push(`• Potongan Lain: -${rupiah(b.otherDeduction)}`)
   if (deductionLines.length === 0) deductionLines.push(`• Tidak ada potongan: Rp 0`)

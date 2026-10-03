@@ -4,7 +4,10 @@ import { getPayrollBreakdown } from './payrollBreakdown'
 import { isRendyOrDeveloperStaff } from './staffFilters'
 import { SUKA_LOGO_BASE64 } from './logoBase64'
 
-export async function generateSalarySlipPdf(slip: PayrollRecord) {
+export async function generateSalarySlipPdf(
+  slip: PayrollRecord,
+  options?: { autoSave?: boolean }
+) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
@@ -414,10 +417,30 @@ export async function generateSalarySlipPdf(slip: PayrollRecord) {
     { align: 'center' }
   )
 
+  const autoSave = options?.autoSave ?? (typeof window !== 'undefined')
   const cleanStaffName = staffName.replace(/[^a-zA-Z0-9]/g, '_')
   const statusPrefix = isFinal ? 'Slip_Gaji' : 'Draft_Slip_Gaji'
-  doc.save(`${statusPrefix}_${cleanStaffName}_${slip.period_month}_${slip.period_year}.pdf`)
+  const filename = `${statusPrefix}_${cleanStaffName}_${slip.period_month}_${slip.period_year}.pdf`
+
+  if (autoSave) {
+    doc.save(filename)
+  }
   return doc
+}
+
+export async function generateSalarySlipPdfBase64(slip: PayrollRecord): Promise<{
+  base64: string
+  filename: string
+}> {
+  const doc = await generateSalarySlipPdf(slip, { autoSave: false })
+  const arrayBuf = doc.output('arraybuffer')
+  const base64 = Buffer.from(arrayBuf).toString('base64')
+  const isFinal = slip.status === 'finalized'
+  const staffName = slip.outlet_staff?.name || 'Karyawan'
+  const cleanStaffName = staffName.replace(/[^a-zA-Z0-9]/g, '_')
+  const statusPrefix = isFinal ? 'Slip_Gaji' : 'Draft_Slip_Gaji'
+  const filename = `${statusPrefix}_${cleanStaffName}_${slip.period_month}_${slip.period_year}.pdf`
+  return { base64, filename }
 }
 
 export const generateSalarySlipPDF = generateSalarySlipPdf

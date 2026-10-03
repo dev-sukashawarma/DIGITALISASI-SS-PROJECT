@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { AlertTriangle, ArrowRight, ExternalLink, X, Clock, User, Building2 } from 'lucide-react'
+import { AlertTriangle, ExternalLink, X, Clock, User, Building2 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'
 

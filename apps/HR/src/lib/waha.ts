@@ -13,6 +13,17 @@ export interface WahaSendTextParams {
   simulateTyping?: boolean
 }
 
+export interface WahaSendFileParams {
+  phone: string
+  fileBase64: string // Base64 or Data URL of the file
+  filename: string
+  mimetype?: string
+  caption?: string
+  session?: string
+  baseUrl?: string
+  apiKey?: string
+}
+
 export interface WahaSendResult {
   success: boolean
   phone: string
@@ -213,6 +224,92 @@ export async function sendWahaText({
       success: false,
       phone,
       error: err.name === 'TimeoutError' ? 'Koneksi ke WAHA timeout (15s)' : (err.message || 'Gagal menghubungi server WAHA'),
+    }
+  }
+}
+
+/**
+ * Send a document or media file (e.g. PDF salary slip) via WAHA POST /api/sendFile
+ */
+export async function sendWahaFile({
+  phone,
+  fileBase64,
+  filename,
+  mimetype = 'application/pdf',
+  caption,
+  session,
+  baseUrl,
+  apiKey,
+}: WahaSendFileParams): Promise<WahaSendResult> {
+  const targetBaseUrl =
+    baseUrl ||
+    process.env.WAHA_BASE_URL ||
+    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
+    'http://localhost:3008'
+  const targetSession = session || process.env.WAHA_SESSION || 'default'
+  const targetApiKey = apiKey || process.env.WAHA_API_KEY || ''
+
+  const chatId = formatPhoneToWahaChatId(phone)
+  if (!chatId) {
+    return {
+      success: false,
+      phone,
+      error: 'Nomor WhatsApp tidak valid atau kosong',
+    }
+  }
+
+  // Ensure data URL format
+  let dataUrl = fileBase64
+  if (!dataUrl.startsWith('data:')) {
+    dataUrl = `data:${mimetype};base64,${fileBase64}`
+  }
+
+  try {
+    const endpoint = `${targetBaseUrl.replace(/\/+$/, '')}/api/sendFile`
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (targetApiKey) {
+      headers['X-Api-Key'] = targetApiKey
+      headers['Authorization'] = `Bearer ${targetApiKey}`
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        session: targetSession,
+        chatId,
+        file: {
+          mimetype,
+          filename,
+          data: dataUrl,
+        },
+        caption: caption || '',
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '')
+      return {
+        success: false,
+        phone,
+        error: `WAHA Error HTTP ${res.status}: ${errBody || res.statusText}`,
+      }
+    }
+
+    const data = await res.json().catch(() => ({}))
+    return {
+      success: true,
+      phone,
+      messageId: data?.id || data?.messageId || 'SENT',
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      phone,
+      error: err.name === 'TimeoutError' ? 'Koneksi ke WAHA timeout (30s)' : (err.message || 'Gagal mengirim file via WAHA'),
     }
   }
 }

@@ -5,7 +5,21 @@ import { Button } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'
 import type { PayrollRecord } from '@/lib/types'
 import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
-import { Clock, DollarSign, Wallet, ShieldAlert, Sparkles, Phone, Navigation, RefreshCw, Zap } from 'lucide-react'
+import {
+  Clock,
+  DollarSign,
+  Wallet,
+  ShieldAlert,
+  Sparkles,
+  Phone,
+  Navigation,
+  RefreshCw,
+  Zap,
+  Lock,
+  Unlock,
+  ExternalLink,
+  RotateCcw,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 interface PayrollSlipFormProps {
@@ -30,8 +44,15 @@ interface PayrollSlipFormProps {
   onCancel: () => void
 }
 
-const inputClass =
+const editableInputClass =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-semibold outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white text-suka-ink'
+
+const lockedInputClass =
+  'w-full rounded-xl border border-stone-200 bg-stone-100/90 px-3 py-2 text-xs sm:text-sm font-semibold text-stone-600 outline-none cursor-not-allowed select-none'
+
+const overrideInputClass =
+  'w-full rounded-xl border border-amber-400 bg-amber-50/50 px-3 py-2 text-xs sm:text-sm font-semibold outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 transition-all text-amber-950'
+
 const labelClass = 'mb-1 block text-xs font-bold text-suka-brown'
 
 export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: PayrollSlipFormProps) {
@@ -73,6 +94,32 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
     count: number
     totalAmount: number
   } | null>(null)
+
+  // Emergency Override Toggle for Master Data
+  const [isOverrideEnabled, setIsOverrideEnabled] = useState(false)
+
+  const handleResetToMaster = () => {
+    setBasicSalary(initial.basicSalary)
+    setMealAllowance(initial.mealAllowance)
+    setTransportAllowance(initial.transportAllowance)
+    setCommunicationAllowance(initial.communicationAllowance)
+    setPositionAllowance(initial.positionAllowance)
+    setBpjsDeduction(initial.bpjsDeduction)
+    if (liveKasbonInfo) {
+      setCashAdvanceDeduction(liveKasbonInfo.monthlyInstallment)
+    } else {
+      setCashAdvanceDeduction(0)
+    }
+  }
+
+  const handleToggleOverride = () => {
+    if (isOverrideEnabled) {
+      handleResetToMaster()
+      setIsOverrideEnabled(false)
+    } else {
+      setIsOverrideEnabled(true)
+    }
+  }
 
   useEffect(() => {
     const fetchLiveAtt = async () => {
@@ -220,8 +267,17 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
             monthlyInstallment,
             count: approved.length,
           })
+
+          // Otomatis sinkronkan cicilan resmi jika proteksi master aktif
+          if (!isOverrideEnabled) {
+            setCashAdvanceDeduction(monthlyInstallment)
+          }
         } else {
           setLiveKasbonInfo(null)
+          // Jika tidak ada kasbon disetujui di modul, reset ke 0
+          if (!isOverrideEnabled) {
+            setCashAdvanceDeduction(0)
+          }
         }
       } catch (e) {
         // Ignore
@@ -233,7 +289,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
     fetchLiveAtt()
     fetchLiveBonus()
     fetchLiveKasbon()
-  }, [record.staff_id, record.period_month, record.period_year, record.outlet_staff?.role])
+  }, [record.staff_id, record.period_month, record.period_year, record.outlet_staff?.role, isOverrideEnabled])
 
   // Calculations
   const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
@@ -301,22 +357,124 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
         className="w-full max-w-2xl rounded-3xl border border-suka-gray-200 bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 my-6 max-h-[92vh] overflow-y-auto"
       >
         {/* Form Header */}
-        <div className="border-b border-suka-gray-100 pb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-black text-suka-brown">
-              Rincian Komponen Gaji: {record.outlet_staff?.name}
-            </h3>
+        <div className="border-b border-suka-gray-100 pb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-black text-suka-brown">
+                Rincian Komponen Gaji: {record.outlet_staff?.name}
+              </h3>
+            </div>
+            <p className="text-xs text-suka-gray-500 font-medium mt-0.5">
+              Periode: Bulan {record.period_month}/{record.period_year} &bull; Jabatan:{' '}
+              {record.outlet_staff?.role?.replace('_', ' ').toUpperCase()} &bull; Outlet:{' '}
+              {record.outlet_staff?.outlets?.name || 'Pusat'}
+            </p>
           </div>
-          <p className="text-xs text-suka-gray-500 font-medium mt-0.5">
-            Periode: Bulan {record.period_month}/{record.period_year} &bull; Jabatan: {record.outlet_staff?.role?.replace('_', ' ').toUpperCase()} &bull; Outlet: {record.outlet_staff?.outlets?.name || 'Pusat'}
-          </p>
+
+          <div className="flex items-center gap-1.5">
+            <a
+              href="/staff"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-bold text-stone-700 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 px-2.5 py-1.5 rounded-xl border border-stone-300/80 flex items-center gap-1 transition-all shadow-2xs"
+              title="Buka menu data karyawan di tab baru untuk mengubah Gaji Pokok atau Tunjangan Tetap"
+            >
+              <span>Master Karyawan</span>
+              <ExternalLink size={12} />
+            </a>
+            <a
+              href="/perizinan/kasbon"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-xl border border-purple-200 flex items-center gap-1 transition-all shadow-2xs"
+              title="Buka modul kasbon di tab baru untuk approval atau kelola cicilan"
+            >
+              <span>Modul Kasbon</span>
+              <ExternalLink size={12} />
+            </a>
+          </div>
+        </div>
+
+        {/* Master Data Protection / Emergency Override Banner */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-stone-50 border border-stone-200">
+          <div className="flex items-center gap-2.5">
+            <div
+              className={`p-2 rounded-xl border transition-all ${
+                isOverrideEnabled
+                  ? 'bg-amber-100 border-amber-300 text-amber-700'
+                  : 'bg-stone-200/80 border-stone-300 text-stone-600'
+              }`}
+            >
+              {isOverrideEnabled ? <Unlock size={16} /> : <Lock size={16} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-stone-800">
+                  {isOverrideEnabled ? 'Mode Override Darurat Aktif' : 'Proteksi Master Data Aktif'}
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    isOverrideEnabled
+                      ? 'bg-amber-100 text-amber-800 border-amber-300'
+                      : 'bg-stone-200 text-stone-600 border-stone-300'
+                  }`}
+                >
+                  {isOverrideEnabled ? 'Terbuka' : 'Terkunci Aman'}
+                </span>
+              </div>
+              <p className="text-[11px] text-stone-500 font-medium">
+                {isOverrideEnabled
+                  ? 'Komponen master terbuka untuk diedit. Perubahan hanya berlaku untuk slip bulan ini (tidak mengubah master).'
+                  : 'Gaji Pokok, Tunjangan Tetap, BPJS & Kasbon dikunci untuk menjaga sinkronisasi data master.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isOverrideEnabled && (
+              <button
+                type="button"
+                onClick={handleResetToMaster}
+                className="px-2.5 py-1 text-xs font-bold text-stone-600 hover:text-stone-900 bg-white hover:bg-stone-100 rounded-lg border border-stone-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                title="Kembalikan semua nilai ke Master Karyawan"
+              >
+                <RotateCcw size={11} />
+                <span>Reset Nilai Master</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleToggleOverride}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                isOverrideEnabled
+                  ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600 shadow-xs'
+                  : 'bg-white text-stone-700 border-stone-300 hover:bg-stone-100 shadow-2xs'
+              }`}
+            >
+              {isOverrideEnabled ? <Lock size={13} /> : <Unlock size={13} />}
+              <span>{isOverrideEnabled ? 'Kunci Kembali' : 'Buka Kunci Override'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Section 1: Komponen Penerimaan (Take Home Pay) */}
         <div className="space-y-3">
-          <div className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-800 tracking-wider bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-            <DollarSign size={14} className="text-emerald-600" />
-            <span>1. Komponen Penerimaan (Earnings)</span>
+          <div className="flex items-center justify-between bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-800 tracking-wider">
+              <DollarSign size={14} className="text-emerald-600" />
+              <span>1. Komponen Penerimaan (Earnings)</span>
+            </div>
+            <a
+              href="/staff"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white/90 hover:bg-white px-2 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1 transition-all shadow-2xs"
+              title="Ubah Gaji Pokok & Tunjangan di Master Profil Karyawan"
+            >
+              <span>Edit di Master Karyawan</span>
+              <ExternalLink size={10} />
+            </a>
           </div>
 
           {/* Automatic Sales Bonus Indicator Banner */}
@@ -351,100 +509,173 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>Gaji Pokok / Gapok (Rp)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown">Gaji Pokok / Gapok (Rp)</label>
+                {isOverrideEnabled ? (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <Unlock size={10} /> Override Manual
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
+                    <Lock size={10} /> Master Data
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
                 value={basicSalary}
                 onChange={(e) => setBasicSalary(Number(e.target.value))}
                 min={0}
+                disabled={!isOverrideEnabled}
                 required
               />
+              <p className="mt-1 text-[10px] text-stone-500 font-medium">
+                {isOverrideEnabled
+                  ? 'Mode override aktif. Perubahan khusus slip bulan ini.'
+                  : 'Terkunci. Diatur dari profil karyawan (Menu Staff).'}
+              </p>
             </div>
 
             <div>
-              <label className={labelClass}>
-                <span className="flex items-center gap-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
                   <Clock size={12} className="text-emerald-600" />
                   <span>Overtime / Lembur (Rp)</span>
+                </label>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  ✏️ Variabel Bulanan
                 </span>
-              </label>
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={editableInputClass}
                 value={overtime}
                 onChange={(e) => setOvertime(Number(e.target.value))}
                 min={0}
               />
+              <p className="mt-1 text-[10px] text-stone-500 font-medium">
+                Input insentif lembur karyawan untuk bulan berjalan.
+              </p>
             </div>
 
             <div>
-              <label className={labelClass}>Uang Makan / Meal Allowance (Rp)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown">Uang Makan / Meal (Rp)</label>
+                {isOverrideEnabled ? (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <Unlock size={10} /> Override
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
+                    <Lock size={10} /> Master Data
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
                 value={mealAllowance}
                 onChange={(e) => setMealAllowance(Number(e.target.value))}
                 min={0}
+                disabled={!isOverrideEnabled}
               />
             </div>
 
             <div>
-              <label className={labelClass}>
-                <span className="flex items-center gap-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
                   <Navigation size={12} className="text-blue-600" />
                   <span>Uang Transport (Rp)</span>
-                </span>
-              </label>
+                </label>
+                {isOverrideEnabled ? (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <Unlock size={10} /> Override
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
+                    <Lock size={10} /> Master Data
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
                 value={transportAllowance}
                 onChange={(e) => setTransportAllowance(Number(e.target.value))}
                 min={0}
+                disabled={!isOverrideEnabled}
               />
             </div>
 
             <div>
-              <label className={labelClass}>
-                <span className="flex items-center gap-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
                   <Phone size={12} className="text-purple-600" />
                   <span>Tunjangan Komunikasi / Pulsa (Rp)</span>
-                </span>
-              </label>
+                </label>
+                {isOverrideEnabled ? (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <Unlock size={10} /> Override
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
+                    <Lock size={10} /> Master Data
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
                 value={communicationAllowance}
                 onChange={(e) => setCommunicationAllowance(Number(e.target.value))}
                 min={0}
+                disabled={!isOverrideEnabled}
               />
             </div>
 
             <div>
-              <label className={labelClass}>
-                <span className="flex items-center gap-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
                   <Sparkles size={12} className="text-amber-500" />
                   <span>Sales Bonus / Bonus Target (Rp)</span>
+                </label>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  ✏️ Variabel Bulanan
                 </span>
-              </label>
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={editableInputClass}
                 value={salesBonus}
                 onChange={(e) => setSalesBonus(Number(e.target.value))}
                 min={0}
               />
+              <p className="mt-1 text-[10px] text-stone-500 font-medium">
+                Bisa ditarik otomatis dari target penjualan POS di atas atau disesuaikan manual.
+              </p>
             </div>
 
             <div>
-              <label className={labelClass}>Tunjangan Jabatan (Rp)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown">Tunjangan Jabatan (Rp)</label>
+                {isOverrideEnabled ? (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <Unlock size={10} /> Override
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
+                    <Lock size={10} /> Master Data
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
                 value={positionAllowance}
                 onChange={(e) => setPositionAllowance(Number(e.target.value))}
                 min={0}
+                disabled={!isOverrideEnabled}
               />
             </div>
           </div>
@@ -462,9 +693,21 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
               <ShieldAlert size={14} className="text-red-600" />
               <span>2. Komponen Potongan (Deductions)</span>
             </div>
-            <span className="text-[10px] font-bold text-red-700 bg-white/80 px-2 py-0.5 rounded-full border border-red-200">
-              Denda Telat: Rp 1.000 / menit
-            </span>
+            <div className="flex items-center gap-2">
+              <a
+                href="/perizinan/kasbon"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-bold text-purple-800 hover:text-purple-950 bg-white/90 hover:bg-white px-2 py-0.5 rounded-lg border border-purple-300 flex items-center gap-1 transition-all shadow-2xs"
+                title="Kelola & Verifikasi Kasbon Karyawan"
+              >
+                <span>Buka Modul Kasbon</span>
+                <ExternalLink size={10} />
+              </a>
+              <span className="text-[10px] font-bold text-red-700 bg-white/80 px-2 py-0.5 rounded-full border border-red-200 hidden sm:inline-block">
+                Denda Telat: Rp 1.000 / menit
+              </span>
+            </div>
           </div>
 
           {/* Automatic Attendance Indicator Banner */}
@@ -543,7 +786,8 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
             {liveKasbonInfo &&
               liveKasbonInfo.monthlyInstallment > 0 &&
-              liveKasbonInfo.monthlyInstallment !== cashAdvanceDeduction && (
+              liveKasbonInfo.monthlyInstallment !== cashAdvanceDeduction &&
+              isOverrideEnabled && (
                 <button
                   type="button"
                   onClick={() => setCashAdvanceDeduction(liveKasbonInfo.monthlyInstallment)}
@@ -557,57 +801,81 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>
-                <span className="flex items-center gap-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
                   <Wallet size={12} className="text-red-600" />
                   <span>Potongan Kasbon (Rp)</span>
-                </span>
-              </label>
+                </label>
+                {isOverrideEnabled ? (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <Unlock size={10} /> Override Manual
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-purple-200">
+                    <Lock size={10} /> Modul Kasbon
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
                 value={cashAdvanceDeduction}
                 onChange={(e) => setCashAdvanceDeduction(Number(e.target.value))}
                 min={0}
+                disabled={!isOverrideEnabled}
               />
               {liveKasbonInfo && liveKasbonInfo.remaining > 0 ? (
                 <p className="mt-1 text-[11px] text-purple-800 font-medium">
-                  Sisa hutang di modul: {formatRupiah(liveKasbonInfo.remaining)}. Akan otomatis dipotong saat finalisasi slip.
+                  Sisa hutang di modul: {formatRupiah(liveKasbonInfo.remaining)}. Terpotong otomatis saat finalisasi slip.
                 </p>
-              ) : cashAdvanceDeduction > 0 ? (
+              ) : isOverrideEnabled && cashAdvanceDeduction > 0 ? (
                 <p className="mt-1 text-[11px] text-amber-700 font-medium">
-                  Catatan: Karyawan belum punya pengajuan di Modul Kasbon. Rekaman otomatis akan dibuat saat finalisasi agar sinkron.
+                  Catatan: Potongan kasbon manual di-override tanpa pengajuan resmi di Modul Kasbon.
                 </p>
-              ) : null}
+              ) : (
+                <p className="mt-1 text-[11px] text-stone-500 font-medium">
+                  Tidak ada pinjaman kasbon aktif &amp; disetujui (Rp 0).
+                </p>
+              )}
             </div>
 
             <div>
-              <label className={labelClass}>
-                <span className="flex items-center gap-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown flex items-center gap-1">
                   <ShieldAlert size={12} className="text-red-600" />
                   <span>Potongan BPJS (Rp)</span>
-                </span>
-              </label>
+                </label>
+                {isOverrideEnabled ? (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                    <Unlock size={10} /> Override
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-stone-200">
+                    <Lock size={10} /> Master Data
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={isOverrideEnabled ? overrideInputClass : lockedInputClass}
                 value={bpjsDeduction}
                 onChange={(e) => setBpjsDeduction(Number(e.target.value))}
                 min={0}
+                disabled={!isOverrideEnabled}
               />
             </div>
 
             <div>
-              <label className={labelClass}>
-                <span className="flex items-center justify-between">
-                  <span>Keterlambatan (Absensi)</span>
-                  <span className="text-[10px] text-red-600 font-semibold">Otomatis Terkoneksi</span>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown">Keterlambatan (Absensi)</label>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  ✏️ Variabel Bulanan
                 </span>
-              </label>
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  className={`${inputClass} w-24 text-center font-mono`}
+                  className={`${editableInputClass} w-24 text-center font-mono`}
                   value={lateMinutes}
                   onChange={(e) => setLateMinutes(Number(e.target.value))}
                   min={0}
@@ -618,27 +886,40 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
                   -{formatRupiah(lateDeduction)}
                 </span>
               </div>
+              <p className="mt-1 text-[10px] text-stone-500 font-medium">
+                Bisa ditarik otomatis dari absensi atau diisi manual jika ada dispensasi.
+              </p>
             </div>
 
             <div>
-              <label className={labelClass}>Potongan Lain / Ganti Rugi (Rp)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown">Potongan Lain / Ganti Rugi (Rp)</label>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  ✏️ Variabel Bulanan
+                </span>
+              </div>
               <input
                 type="number"
-                className={inputClass}
+                className={editableInputClass}
                 value={otherDeduction}
                 onChange={(e) => setOtherDeduction(Number(e.target.value))}
                 min={0}
               />
             </div>
 
-            <div>
-              <label className={labelClass}>Keterangan Potongan Lain</label>
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-suka-brown">Keterangan / Alasan Potongan Lain</label>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  ✏️ Variabel Bulanan
+                </span>
+              </div>
               <input
                 type="text"
-                className={inputClass}
+                className={editableInputClass}
                 value={otherDeductionReason}
                 onChange={(e) => setOtherDeductionReason(e.target.value)}
-                placeholder="Contoh: Ganti rugi inventaris rusak"
+                placeholder="Contoh: Ganti rugi inventaris rusak / denda ketidaksesuaian SOP"
               />
             </div>
           </div>
@@ -670,7 +951,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           <Button
             type="submit"
             disabled={submitting}
-            className="rounded-xl font-bold bg-suka-orange hover:bg-suka-orange/90 text-white px-6 shadow-md"
+            className="rounded-xl font-bold bg-suka-orange hover:bg-suka-orange/90 text-white px-6 shadow-md cursor-pointer"
           >
             {submitting ? 'Menyimpan...' : 'Simpan Rincian Slip'}
           </Button>

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight, RefreshCw, Banknote, Sparkles } from 'lucide-react'
+import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight, RefreshCw, Banknote, Sparkles, CheckCircle2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
 import { usePayroll } from '@/hooks/usePayroll'
@@ -110,6 +110,10 @@ export default function PayrollPage() {
       staffCount: filteredPayrollData.length,
     }
   }, [filteredPayrollData])
+
+  const hasSlips = payrollData.length > 0
+  const isAllFinalized = hasSlips && payrollData.every((r) => r.status === 'finalized')
+  const hasDrafts = hasSlips && payrollData.some((r) => r.status === 'draft')
 
   // Payroll Actions
   const handleGenerate = () => {
@@ -319,54 +323,72 @@ export default function PayrollPage() {
                 <MessageSquare size={15} />
                 <span>Kirim Massal WhatsApp (WAHA)</span>
               </Button>
-              <Button
-                type="button"
-                onClick={handleGenerate}
-                disabled={payrollMutations.generate.isPending}
-                className="bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
-              >
-                {payrollMutations.generate.isPending ? <Spinner size={16} /> : 'Generate Slip'}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => handleSyncSalary(true)}
-                disabled={payrollMutations.syncSalaryFromDatabase.isPending || payrollData.length === 0}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
-                title="Ambil gaji pokok dan tunjangan terbaru dari Database Karyawan ke seluruh slip draft."
-              >
-                {payrollMutations.syncSalaryFromDatabase.isPending ? (
-                  <Spinner size={16} />
-                ) : (
-                  <>
-                    <RefreshCw size={14} />
-                    <span>Sync Gaji dari DB</span>
-                  </>
-                )}
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSyncAttendance}
-                disabled={payrollMutations.syncAttendanceDeductions.isPending || payrollData.length === 0}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
-                title="Hitung ulang denda keterlambatan absensi dan bonus porsi penjualan otomatis untuk seluruh slip draft"
-              >
-                {payrollMutations.syncAttendanceDeductions.isPending ? (
-                  <Spinner size={16} />
-                ) : (
-                  <>
-                    <Zap size={14} />
-                    <span>Sinkron Absensi &amp; Bonus</span>
-                  </>
-                )}
-              </Button>
-              <Button
-                type="button"
-                onClick={handleFinalize}
-                disabled={payrollMutations.finalizeAll.isPending}
-                className="bg-suka-brown hover:bg-suka-brown/90 text-white font-bold rounded-xl text-xs"
-              >
-                {payrollMutations.finalizeAll.isPending ? <Spinner size={16} /> : 'Finalize Semua'}
-              </Button>
+              {/* Status Badge jika seluruh slip periode ini sudah di-Finalize */}
+              {isAllFinalized && (
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+                  <CheckCircle2 size={15} className="text-emerald-600" />
+                  <span>Periode Terfinalisasi ({payrollData.length} Slip)</span>
+                </div>
+              )}
+
+              {/* Tombol Generate hanya muncul jika BELUM ADA slip sama sekali di bulan ini */}
+              {!hasSlips && (
+                <Button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={payrollMutations.generate.isPending}
+                  className="bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+                >
+                  {payrollMutations.generate.isPending ? <Spinner size={16} /> : 'Generate Slip'}
+                </Button>
+              )}
+
+              {/* Tombol Sinkronisasi & Finalisasi hanya muncul jika masih ada slip Draft dan belum Finalized */}
+              {!isAllFinalized && hasDrafts && (
+                <>
+                  <Button
+                    type="button"
+                    onClick={() => handleSyncSalary(true)}
+                    disabled={payrollMutations.syncSalaryFromDatabase.isPending}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+                    title="Ambil gaji pokok dan tunjangan terbaru dari Database Karyawan ke seluruh slip draft."
+                  >
+                    {payrollMutations.syncSalaryFromDatabase.isPending ? (
+                      <Spinner size={16} />
+                    ) : (
+                      <>
+                        <RefreshCw size={14} />
+                        <span>Sync Gaji dari DB</span>
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSyncAttendance}
+                    disabled={payrollMutations.syncAttendanceDeductions.isPending}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+                    title="Hitung ulang denda keterlambatan absensi dan bonus porsi penjualan otomatis untuk seluruh slip draft"
+                  >
+                    {payrollMutations.syncAttendanceDeductions.isPending ? (
+                      <Spinner size={16} />
+                    ) : (
+                      <>
+                        <Zap size={14} />
+                        <span>Sinkron Absensi &amp; Bonus</span>
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleFinalize}
+                    disabled={payrollMutations.finalizeAll.isPending}
+                    className="bg-suka-brown hover:bg-suka-brown/90 text-white font-bold rounded-xl text-xs shadow-sm"
+                  >
+                    {payrollMutations.finalizeAll.isPending ? <Spinner size={16} /> : 'Finalize Semua'}
+                  </Button>
+                </>
+              )}
+
               <Button
                 type="button"
                 variant="ghost"

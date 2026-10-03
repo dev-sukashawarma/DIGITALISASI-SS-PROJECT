@@ -74,16 +74,26 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
 
         {/* Paper Preview Simulation */}
         <div className="bg-[#FAF7F2] p-5 rounded-2xl border border-suka-brown/10 space-y-4 font-sans text-xs">
-          <div className="flex justify-between items-center pb-2 border-b border-dashed border-stone-300">
-            <span className="font-extrabold text-suka-brown text-sm">SUKA SHAWARMA</span>
+          <div className="flex justify-between items-center pb-3 border-b border-dashed border-stone-300">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/logo.png"
+                alt="Suka Shawarma Logo"
+                className="w-8 h-8 rounded-full border border-stone-200 object-contain bg-white shadow-2xs"
+              />
+              <div>
+                <span className="font-extrabold text-suka-brown text-sm block leading-tight">SUKA SHAWARMA</span>
+                <span className="text-[10px] text-stone-500 font-medium">Slip Gaji Resmi Karyawan</span>
+              </div>
+            </div>
             <span
-              className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+              className={`px-2.5 py-1 rounded-full font-bold text-[10px] flex items-center gap-1 border ${
                 slip.status === 'finalized'
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : 'bg-amber-100 text-amber-800'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-amber-50 text-amber-800 border-amber-300'
               }`}
             >
-              {slip.status === 'finalized' ? 'FINAL / PAID' : 'DRAFT'}
+              {slip.status === 'finalized' ? 'FINAL / RESMI' : 'DRAFT / PREVIEW'}
             </span>
           </div>
 
@@ -136,7 +146,10 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
             {b.salesBonus > 0 && (
               <div className="flex justify-between text-amber-700 font-bold">
                 <span className="flex items-center gap-1">
-                  <Sparkles size={11} /> Sales Bonus (Target Omset)
+                  <Sparkles size={11} />{' '}
+                  {slip.bonus_note?.toLowerCase().includes('reward absensi')
+                    ? 'Reward Absensi (Staff Office)'
+                    : 'Sales Bonus (Target Omset)'}
                 </span>
                 <span className="font-mono font-bold">+{formatRupiah(b.salesBonus)}</span>
               </div>

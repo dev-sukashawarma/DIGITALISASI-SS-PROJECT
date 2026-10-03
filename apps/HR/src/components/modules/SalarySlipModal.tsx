@@ -44,8 +44,7 @@ export function SalarySlipModal({ slip, onClose, isKasbonManual }: SalarySlipMod
       if (res.success) {
         toast.success(`Slip gaji & dokumen PDF berhasil dikirim ke WhatsApp ${staffName}!`)
       } else {
-        toast.warning(`Gagal kirim via WAHA: ${res.error}. Anda dapat membuka WhatsApp manual.`)
-        handleSendWhatsApp()
+        toast.error(`Gagal kirim via WAHA: ${res.error || 'Terjadi kesalahan'}. Anda dapat menggunakan tombol Buka WA Manual jika diperlukan.`)
       }
     } catch (err: any) {
       toast.error(err.message || 'Gagal menghubungi server WAHA')

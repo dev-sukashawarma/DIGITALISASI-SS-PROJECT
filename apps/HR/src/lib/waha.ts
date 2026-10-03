@@ -79,6 +79,35 @@ export function formatPhoneDisplay(rawPhone?: string | null): string {
   return rawPhone
 }
 
+export const DEFAULT_WAHA_BASE_URL = 'https://blast.sukashawarma.com'
+export const DEFAULT_WAHA_SESSION = 'HR'
+export const DEFAULT_WAHA_API_KEY = 'waha_sukashawarma_secret_2026'
+
+export function getWahaConfig(config?: {
+  baseUrl?: string
+  session?: string
+  apiKey?: string
+}) {
+  const targetBaseUrl = (
+    config?.baseUrl ||
+    process.env.WAHA_BASE_URL ||
+    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
+    DEFAULT_WAHA_BASE_URL
+  ).replace(/\/+$/, '')
+
+  const targetSession =
+    config?.session ||
+    process.env.WAHA_SESSION ||
+    DEFAULT_WAHA_SESSION
+
+  const targetApiKey =
+    config?.apiKey ||
+    process.env.WAHA_API_KEY ||
+    DEFAULT_WAHA_API_KEY
+
+  return { targetBaseUrl, targetSession, targetApiKey }
+}
+
 /**
  * Anti-Spam: Simulate "typing..." presence on WhatsApp before sending message
  */
@@ -89,21 +118,22 @@ export async function sendWahaTypingPresence({
   apiKey,
 }: {
   chatId: string
-  session: string
-  baseUrl: string
+  session?: string
+  baseUrl?: string
   apiKey?: string
 }) {
   try {
-    const endpoint = `${baseUrl.replace(/\/+$/, '')}/api/startTyping`
+    const { targetBaseUrl, targetSession, targetApiKey } = getWahaConfig({ baseUrl, session, apiKey })
+    const endpoint = `${targetBaseUrl}/api/startTyping`
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (apiKey) {
-      headers['X-Api-Key'] = apiKey
-      headers['Authorization'] = `Bearer ${apiKey}`
+    if (targetApiKey) {
+      headers['X-Api-Key'] = targetApiKey
+      headers['Authorization'] = `Bearer ${targetApiKey}`
     }
     await fetch(endpoint, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ session, chatId }),
+      body: JSON.stringify({ session: targetSession, chatId }),
       signal: AbortSignal.timeout(3000),
     }).catch(() => {})
   } catch {
@@ -121,21 +151,22 @@ export async function sendWahaStopTyping({
   apiKey,
 }: {
   chatId: string
-  session: string
-  baseUrl: string
+  session?: string
+  baseUrl?: string
   apiKey?: string
 }) {
   try {
-    const endpoint = `${baseUrl.replace(/\/+$/, '')}/api/stopTyping`
+    const { targetBaseUrl, targetSession, targetApiKey } = getWahaConfig({ baseUrl, session, apiKey })
+    const endpoint = `${targetBaseUrl}/api/stopTyping`
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (apiKey) {
-      headers['X-Api-Key'] = apiKey
-      headers['Authorization'] = `Bearer ${apiKey}`
+    if (targetApiKey) {
+      headers['X-Api-Key'] = targetApiKey
+      headers['Authorization'] = `Bearer ${targetApiKey}`
     }
     await fetch(endpoint, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ session, chatId }),
+      body: JSON.stringify({ session: targetSession, chatId }),
       signal: AbortSignal.timeout(3000),
     }).catch(() => {})
   } catch {
@@ -154,14 +185,7 @@ export async function sendWahaText({
   apiKey,
   simulateTyping = true,
 }: WahaSendTextParams): Promise<WahaSendResult> {
-  const targetBaseUrl =
-    baseUrl ||
-    process.env.WAHA_BASE_URL ||
-    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
-    'http://localhost:3008'
-
-  const targetSession = session || process.env.WAHA_SESSION || 'default'
-  const targetApiKey = apiKey || process.env.WAHA_API_KEY || ''
+  const { targetBaseUrl, targetSession, targetApiKey } = getWahaConfig({ baseUrl, session, apiKey })
 
   const chatId = formatPhoneToWahaChatId(phone)
   if (!chatId) {
@@ -241,13 +265,7 @@ export async function sendWahaFile({
   baseUrl,
   apiKey,
 }: WahaSendFileParams): Promise<WahaSendResult> {
-  const targetBaseUrl =
-    baseUrl ||
-    process.env.WAHA_BASE_URL ||
-    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
-    'http://localhost:3008'
-  const targetSession = session || process.env.WAHA_SESSION || 'default'
-  const targetApiKey = apiKey || process.env.WAHA_API_KEY || ''
+  const { targetBaseUrl, targetSession, targetApiKey } = getWahaConfig({ baseUrl, session, apiKey })
 
   const chatId = formatPhoneToWahaChatId(phone)
   if (!chatId) {
@@ -322,16 +340,10 @@ export async function checkWahaSessionStatus(
   session?: string,
   apiKey?: string
 ): Promise<WahaSessionStatus> {
-  const targetBaseUrl =
-    baseUrl ||
-    process.env.WAHA_BASE_URL ||
-    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
-    'http://localhost:3008'
-  const targetSession = session || process.env.WAHA_SESSION || 'default'
-  const targetApiKey = apiKey || process.env.WAHA_API_KEY || ''
+  const { targetBaseUrl, targetSession, targetApiKey } = getWahaConfig({ baseUrl, session, apiKey })
 
   try {
-    const endpoint = `${targetBaseUrl.replace(/\/+$/, '')}/api/sessions/${targetSession}`
+    const endpoint = `${targetBaseUrl}/api/sessions/${targetSession}`
     const headers: Record<string, string> = {}
     if (targetApiKey) {
       headers['X-Api-Key'] = targetApiKey
@@ -382,16 +394,10 @@ export async function restartWahaSession(
   session?: string,
   apiKey?: string
 ): Promise<{ success: boolean; message: string }> {
-  const targetBaseUrl =
-    baseUrl ||
-    process.env.WAHA_BASE_URL ||
-    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
-    'http://localhost:3008'
-  const targetSession = session || process.env.WAHA_SESSION || 'default'
-  const targetApiKey = apiKey || process.env.WAHA_API_KEY || ''
+  const { targetBaseUrl, targetSession, targetApiKey } = getWahaConfig({ baseUrl, session, apiKey })
 
   try {
-    const endpoint = `${targetBaseUrl.replace(/\/+$/, '')}/api/sessions/${targetSession}/restart`
+    const endpoint = `${targetBaseUrl}/api/sessions/${targetSession}/restart`
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (targetApiKey) {
       headers['X-Api-Key'] = targetApiKey
@@ -422,16 +428,10 @@ export async function getWahaScreenshot(
   session?: string,
   apiKey?: string
 ): Promise<{ success: boolean; dataUrl?: string; error?: string }> {
-  const targetBaseUrl =
-    baseUrl ||
-    process.env.WAHA_BASE_URL ||
-    process.env.NEXT_PUBLIC_WAHA_BASE_URL ||
-    'http://localhost:3008'
-  const targetSession = session || process.env.WAHA_SESSION || 'default'
-  const targetApiKey = apiKey || process.env.WAHA_API_KEY || ''
+  const { targetBaseUrl, targetSession, targetApiKey } = getWahaConfig({ baseUrl, session, apiKey })
 
   try {
-    const endpoint = `${targetBaseUrl.replace(/\/+$/, '')}/api/screenshot?session=${targetSession}`
+    const endpoint = `${targetBaseUrl}/api/screenshot?session=${targetSession}`
     const headers: Record<string, string> = {}
     if (targetApiKey) {
       headers['X-Api-Key'] = targetApiKey

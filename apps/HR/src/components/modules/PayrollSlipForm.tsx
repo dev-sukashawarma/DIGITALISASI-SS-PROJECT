@@ -101,9 +101,6 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
         const finalMins = Math.max(totalMins, logMins)
         setLiveAttMinutes(finalMins)
-        if (lateMinutes === 0 && finalMins > 0) {
-          setLateMinutes(finalMins)
-        }
       } catch (e) {
         // Ignore
       } finally {
@@ -129,9 +126,6 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
               amount: amt,
               description: `AM (${match.total_pcs} pcs x Rp 50)`,
             })
-            if (salesBonus === 0 && amt > 0) {
-              setSalesBonus(amt)
-            }
           }
         } else if (staffRole === 'regional_manager') {
           const { data } = await supabase.rpc('get_monthly_rm_bonus', {
@@ -145,9 +139,6 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
               amount: amt,
               description: `RM (${match.total_pcs_global} pcs x Rp 50)`,
             })
-            if (salesBonus === 0 && amt > 0) {
-              setSalesBonus(amt)
-            }
           }
         } else {
           // Crew & Leader
@@ -163,9 +154,6 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
               amount: amt,
               description: `Pool (${match.total_pcs_outlet} pcs / ${match.active_crew_count} kru)`,
             })
-            if (salesBonus === 0 && amt > 0) {
-              setSalesBonus(amt)
-            }
           }
         }
       } catch (e) {

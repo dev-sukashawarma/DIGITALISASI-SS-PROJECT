@@ -234,7 +234,7 @@ describe('OutletForm', () => {
           address: 'Jl. Suryakencana No. 50',
           lat: -6.601,
           lng: 106.802,
-          type: 'outlet',
+          type: 'internal',
           is_active: true,
           marquee_warning_threshold: 5,
           open_hour: '10:00',
@@ -254,11 +254,50 @@ describe('OutletForm', () => {
       address: 'Jl. Suryakencana No. 50',
       lat: -6.601,
       lng: 106.802,
-      type: 'outlet',
+      type: 'internal',
       is_active: true,
       marquee_warning_threshold: 5,
       open_hour: '10:00',
       close_hour: '21:00',
     })
+  })
+  it('tipe dipilih dari dropdown INTERNAL / MITRA tanpa ikut men-submit form', () => {
+    const handleSubmit = vi.fn()
+    render(
+      <OutletForm
+        initial={{
+          name: 'Mitra Baru', slug: 'mitra-baru', address: '', lat: -6.6, lng: 106.8,
+          type: 'internal', is_active: true, marquee_warning_threshold: 7,
+          open_hour: '14:00', close_hour: '22:00',
+        }}
+        submitting={false}
+        isEdit={true}
+        onSubmit={handleSubmit}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'INTERNAL' }))
+    expect(screen.getAllByRole('button', { name: /^(INTERNAL|MITRA)$/ })).toHaveLength(3) // pemicu + 2 opsi
+    fireEvent.click(screen.getByRole('button', { name: 'MITRA' }))
+    expect(handleSubmit).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Simpan Perubahan' }))
+    expect(handleSubmit).toHaveBeenCalledWith(expect.objectContaining({ type: 'mitra' }))
+  })
+
+  it('lokasi non-outlet (gudang) tidak bisa diganti tipenya', () => {
+    render(
+      <OutletForm
+        initial={{
+          name: 'GUDANG PUSAT (HQ)', slug: 'gudang', address: '', lat: -6.6, lng: 106.8,
+          type: 'office', is_active: true, marquee_warning_threshold: 7,
+        }}
+        submitting={false}
+        isEdit={true}
+        onSubmit={vi.fn()}
+      />
+    )
+    expect(screen.getByText('Lokasi non-outlet (Kantor)')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'MITRA' })).not.toBeInTheDocument()
   })
 })

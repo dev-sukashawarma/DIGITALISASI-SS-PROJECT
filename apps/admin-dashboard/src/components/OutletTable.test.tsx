@@ -11,7 +11,7 @@ const mockOutlets: Outlet[] = [
     address: 'Jl. Margonda Raya No. 100, Depok',
     lat: -6.3728,
     lng: 106.8317,
-    type: 'outlet',
+    type: 'internal',
     is_active: true,
     marquee_warning_threshold: 10,
     open_hour: '14:00',
@@ -49,8 +49,8 @@ describe('OutletTable', () => {
     expect(screen.getAllByText('ss-margonda').length).toBeGreaterThan(0)
 
     // Badges check
-    expect(screen.getAllByText('Cabang Reguler').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Mitra SS').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('INTERNAL').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('MITRA').length).toBeGreaterThan(0)
 
     // Status check
     expect(screen.getAllByText('Aktif').length).toBeGreaterThan(0)

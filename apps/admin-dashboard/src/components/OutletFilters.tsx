@@ -1,6 +1,7 @@
 'use client'
 import { Search, X } from 'lucide-react'
 import type { OutletFilterValues } from '@/lib/types'
+import { TIPE_OUTLET, LABEL_TIPE_OUTLET } from '@/lib/outletType'
 
 export function OutletFilters({
   value, onChange, totalCount, filteredCount,
@@ -82,16 +83,23 @@ export function OutletFilters({
           </div>
 
           {/* Type filter */}
-          <select
-            className="rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-xs font-semibold text-suka-ink outline-none focus:border-suka-orange"
-            value={value.type || 'all'}
-            onChange={(e) => set({ type: e.target.value })}
-          >
-            <option value="all">Semua Tipe</option>
-            <option value="outlet">Outlet Reguler</option>
-            <option value="mitra">Mitra</option>
-            <option value="hq">Gudang / HQ</option>
-          </select>
+          <div className="inline-flex rounded-xl bg-suka-gray-100 p-1 border border-suka-gray-200/60 text-xs font-semibold">
+            {[{ id: 'all', label: 'Semua Tipe' }, ...TIPE_OUTLET.map((t) => ({ id: t, label: LABEL_TIPE_OUTLET[t] }))].map((opt) => {
+              const aktif = (value.type || 'all') === opt.id
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => set({ type: opt.id })}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    aktif ? 'bg-white text-suka-ink shadow-xs font-bold' : 'text-suka-gray-500 hover:text-suka-ink'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
 
           {/* Reset button */}
           {hasActiveFilters && (

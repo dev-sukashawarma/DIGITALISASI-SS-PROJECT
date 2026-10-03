@@ -216,7 +216,7 @@ export default async function LauncherPage() {
       if (o.id === 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a') return false // TEST_OUTLET_ID
       if (o.id === OLD_SAWANGAN_ID || o.slug === 'sawangan-depok-internal' || o.name.includes('(INTERNAL)')) return false
       const type = (o.type || '').toLowerCase()
-      if (type !== 'outlet' && type !== 'mitra') return false
+      if (type !== 'internal' && type !== 'mitra') return false
       const name = (o.name || '').toLowerCase()
       const slug = (o.slug || '').toLowerCase()
       if (['tes', 'test', 'trial', 'demo', 'backup'].some(w => name.includes(w) || slug.includes(w))) return false

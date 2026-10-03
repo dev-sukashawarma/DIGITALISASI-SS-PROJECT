@@ -15,31 +15,32 @@ import {
   Users,
 } from 'lucide-react'
 import type { Outlet } from '@/lib/types'
+import { LABEL_TIPE_OUTLET, labelNonOutlet } from '@/lib/outletType'
 
 function hasValidCoordinates(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
 }
 
 function getTypeBadge(type?: string) {
-  const t = (type || 'outlet').toLowerCase()
-  if (t.includes('mitra')) {
+  if (type === 'mitra') {
     return {
-      label: 'Mitra SS',
+      label: LABEL_TIPE_OUTLET.mitra,
       className: 'bg-cyan-50 text-cyan-800 border-cyan-200/80',
       Icon: Users,
     }
   }
-  if (t === 'hq' || t.includes('gudang') || t.includes('pusat')) {
+  if (type === 'internal') {
     return {
-      label: 'Kantor Pusat',
-      className: 'bg-amber-50 text-amber-800 border-amber-200/80',
-      Icon: Building2,
+      label: LABEL_TIPE_OUTLET.internal,
+      className: 'bg-orange-50 text-orange-800 border-orange-200/80',
+      Icon: Store,
     }
   }
+  // Gudang, marketplace, tes, dll. — bukan outlet.
   return {
-    label: 'Cabang Reguler',
-    className: 'bg-orange-50 text-orange-800 border-orange-200/80',
-    Icon: Store,
+    label: labelNonOutlet(type),
+    className: 'bg-suka-gray-50 text-suka-gray-500 border-suka-gray-200',
+    Icon: Building2,
   }
 }
 
@@ -198,7 +199,7 @@ export function OutletTable({
                     {/* Aksi */}
                     <td className="px-5 py-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {onManageInvestment && (o.type === 'mitra' || o.type?.includes('mitra')) && (
+                        {onManageInvestment && o.type === 'mitra' && (
                           <button
                             type="button"
                             title="Kelola Modal Mitra"
@@ -347,7 +348,7 @@ export function OutletTable({
 
               {/* Mobile Touch Action Buttons (Min height 44px) */}
               <div className="pt-2 border-t border-suka-gray-100 flex flex-col gap-2">
-                {onManageInvestment && (o.type === 'mitra' || o.type?.includes('mitra')) && (
+                {onManageInvestment && o.type === 'mitra' && (
                   <button
                     type="button"
                     onClick={() => onManageInvestment(o)}

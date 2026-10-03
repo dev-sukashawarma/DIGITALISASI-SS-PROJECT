@@ -175,7 +175,7 @@ export default function ProfitClient({
                         <option value="" disabled>-- Pilih Outlet Dulu --</option>
                         <option value="ALL">Semua Outlet (Cabang & Mitra)</option>
                         <optgroup label="Cabang Internal">
-                            {outlets.filter(o => o.type === 'outlet').map(o => (
+                            {outlets.filter(o => o.type === 'internal').map(o => (
                                 <option key={o.id} value={o.id}>{o.name}</option>
                             ))}
                         </optgroup>

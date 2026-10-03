@@ -59,7 +59,7 @@ export default function OutletsPage() {
     const total = outlets.length
     const active = outlets.filter((o) => o.is_active).length
     const inactive = total - active
-    const mitra = outlets.filter((o) => (o.type || '').toLowerCase().includes('mitra')).length
+    const mitra = outlets.filter((o) => o.type === 'mitra').length
     const missingCoords = outlets.filter(
       (o) => !Number.isFinite(o.lat) || !Number.isFinite(o.lng) || (o.lat === 0 && o.lng === 0)
     ).length

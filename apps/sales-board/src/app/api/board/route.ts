@@ -129,7 +129,7 @@ async function fetchBaseline(date: string, hour: number): Promise<BaselineRow[]>
 
 /** Tipe outlet yang DIKENAL papan */
 const KNOWN_OUTLET_TYPES = [
-  'outlet',
+  'internal',
   'mitra',
   'office',
   'gudang',

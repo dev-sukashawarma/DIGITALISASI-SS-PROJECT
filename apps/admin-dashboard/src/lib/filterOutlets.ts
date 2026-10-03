@@ -15,7 +15,7 @@ export function filterOutlets(rows: Outlet[], f: OutletFilterValues): Outlet[] {
       const hasCoords = Number.isFinite(r.lat) && Number.isFinite(r.lng) && !(r.lat === 0 && r.lng === 0)
       if (hasCoords) return false
     }
-    if (f.type && f.type !== 'all' && (r.type || 'outlet').toLowerCase() !== f.type.toLowerCase()) {
+    if (f.type && f.type !== 'all' && r.type !== f.type) {
       return false
     }
     return true

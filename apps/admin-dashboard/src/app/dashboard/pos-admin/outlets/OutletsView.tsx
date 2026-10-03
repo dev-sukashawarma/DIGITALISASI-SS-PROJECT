@@ -25,7 +25,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
-  const [type, setType] = useState('owned')
+  const [type, setType] = useState('internal')
   const [openHour, setOpenHour] = useState('14:00')
   const [closeHour, setCloseHour] = useState('22:00')
   const [isActive, setIsActive] = useState(true)
@@ -62,7 +62,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
       setName(outlet.name)
       setAddress(outlet.address || '')
       setPhone(outlet.phone || '')
-      setType(outlet.type || 'owned')
+      setType(outlet.type || 'internal')
       setOpenHour(outlet.open_hour ? outlet.open_hour.substring(0, 5) : '14:00')
       setCloseHour(outlet.close_hour ? outlet.close_hour.substring(0, 5) : '22:00')
       setIsActive(outlet.is_active)
@@ -72,7 +72,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
       setName('')
       setAddress('')
       setPhone('')
-      setType('owned')
+      setType('internal')
       setOpenHour('14:00')
       setCloseHour('22:00')
       setIsActive(true)
@@ -242,8 +242,8 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
                     value={type} onChange={(e) => setType(e.target.value)}
                     className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium appearance-none"
                   >
-                    <option value="owned">Milik Sendiri</option>
-                    <option value="mitra">Mitra / Franchise</option>
+                    <option value="internal">INTERNAL</option>
+                    <option value="mitra">MITRA</option>
                   </select>
                 </div>
                 <div>
@@ -344,7 +344,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
                         {outlet.type === 'mitra' ? (
                           <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Mitra</span>
                         ) : (
-                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Owned</span>
+                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Internal</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-500">

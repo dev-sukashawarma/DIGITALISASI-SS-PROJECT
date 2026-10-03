@@ -240,7 +240,7 @@ export type DataHari = { outlets: OutletPilihan[]; laporan: Record<string, Lapor
  * Area manager dibatasi ke binaannya (`staff_outlets`); role lain seluruh cabang.
  */
 async function muatOutlet(db: SupabaseClient, staffId: string, role: string): Promise<OutletPilihan[]> {
-  let q = db.from('outlets').select('id,name').eq('is_active', true).in('type', ['outlet', 'mitra']).order('name')
+  let q = db.from('outlets').select('id,name').eq('is_active', true).in('type', ['internal', 'mitra']).order('name')
   if (role === 'area_manager') {
     const { data, error } = await db.from('staff_outlets').select('outlet_id').eq('staff_id', staffId)
     if (error) throw error

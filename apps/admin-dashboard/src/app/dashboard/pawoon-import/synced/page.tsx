@@ -249,7 +249,7 @@ export default async function SyncedPawoonDataPage({
                         </p>
                         
                         {(() => {
-                            const cabangOutlets = (outlets || []).filter(o => o.type === 'outlet');
+                            const cabangOutlets = (outlets || []).filter(o => o.type === 'internal');
                             const mitraOutlets = (outlets || []).filter(o => o.type === 'mitra');
 
                             const VERIFIED_OUTLETS = [

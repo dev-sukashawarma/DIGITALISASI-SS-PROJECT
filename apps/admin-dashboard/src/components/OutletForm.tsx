@@ -6,12 +6,14 @@ import { toast } from 'sonner'
 import { slugify } from '@/lib/slugify'
 import { resolveLokasiGoogleMaps } from '@/app/dashboard/outlets/lokasiActions'
 import type { OutletFormValues } from '@/lib/types'
+import { TIPE_OUTLET, LABEL_TIPE_OUTLET, adalahTipeOutlet, labelNonOutlet } from '@/lib/outletType'
+import { Select } from '@/components/ui/Select'
 
 const inputCls =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange'
 
 const EMPTY: OutletFormValues = {
-  name: '', slug: '', address: '', lat: NaN, lng: NaN, type: 'outlet', is_active: true, marquee_warning_threshold: 7,
+  name: '', slug: '', address: '', lat: NaN, lng: NaN, type: 'internal', is_active: true, marquee_warning_threshold: 7,
   open_hour: '14:00', close_hour: '22:00'
 }
 
@@ -221,10 +223,23 @@ export function OutletForm({
           onChange={(e) => set({ lng: e.target.value === '' ? NaN : Number(e.target.value) })} />
       </label>
 
-      <label className="text-sm">
+      <div className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Tipe</span>
-        <input className={inputCls} value={v.type} onChange={(e) => set({ type: e.target.value })} />
-      </label>
+        {isEdit && !adalahTipeOutlet(initial?.type) ? (
+          // Gudang/marketplace/tes dll. bukan outlet: tipenya yang mengeluarkan
+          // mereka dari laporan, jadi tak bisa diganti dari sini.
+          <p className="rounded-xl border border-suka-gray-200 bg-suka-gray-50 px-3 py-2 text-suka-gray-500">
+            Lokasi non-outlet ({labelNonOutlet(initial?.type)})
+          </p>
+        ) : (
+          <Select
+            options={TIPE_OUTLET.map((t) => ({ value: t, label: LABEL_TIPE_OUTLET[t] }))}
+            value={v.type}
+            onChange={(t) => set({ type: t })}
+            placeholder="Pilih tipe outlet"
+          />
+        )}
+      </div>
 
       <label className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Batas Peringatan Porsi (Marquee)</span>

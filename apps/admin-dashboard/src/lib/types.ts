@@ -33,7 +33,7 @@ export interface OutletFormValues {
 export interface OutletFilterValues {
   search: string
   status: string // '' = semua, 'active', 'inactive', 'missing_coords'
-  type?: string // '' = semua, 'outlet', 'mitra', etc.
+  type?: string // '' / 'all' = semua, 'internal', 'mitra'
 }
 
 export interface StaffRow {

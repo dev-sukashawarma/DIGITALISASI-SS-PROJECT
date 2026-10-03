@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { useAuth } from "@suka/auth";
 import { Banknote, Clock, CheckCircle2, XCircle, Plus, Info } from "lucide-react";
-import { useKasbonHistory, useSubmitKasbon } from "./api";
+import { useKasbonHistory, useSubmitKasbon, useBatalkanKasbon } from "./api";
+import { TombolBatalkan } from "@/components/TombolBatalkan";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -29,7 +30,17 @@ export function KasbonView() {
 
   const { data: history, isLoading: loadingHistory } = useKasbonHistory(userId);
   const submitKasbon = useSubmitKasbon();
+  const batalkan = useBatalkanKasbon(userId);
   const toast = useToast();
+
+  const handleBatalkan = async (id: string) => {
+    try {
+      await batalkan.mutateAsync(id);
+      toast.show("ok", "Pengajuan kasbon dibatalkan");
+    } catch (err) {
+      toast.show("err", (err as any)?.message || "Gagal membatalkan kasbon");
+    }
+  };
 
   const [showForm, setShowForm] = useState(false);
   
@@ -210,6 +221,14 @@ export function KasbonView() {
                       </span>
                       <span>Diajukan: {dayjs(item.created_at).tz('Asia/Jakarta').format('DD MMM YYYY')}</span>
                     </div>
+                    {item.status_hr === 'pending' && item.status_spv !== 'rejected' && (
+                      <div className="mt-3">
+                        <TombolBatalkan
+                          loading={batalkan.isPending && batalkan.variables === item.id}
+                          onConfirm={() => handleBatalkan(item.id)}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

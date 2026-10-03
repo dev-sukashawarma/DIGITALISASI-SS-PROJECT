@@ -7,6 +7,7 @@ import {
   CalendarHeart,
   CreditCard,
   CalendarPlus,
+  CalendarDays,
   Plus,
   Download,
   Search,
@@ -14,6 +15,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  X,
   Banknote,
   TrendingDown,
   FileCheck,
@@ -21,6 +23,7 @@ import {
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { useLeaveRequests, usePerizinanSummary } from '@/hooks/useLeaveRequests'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { Pagination } from '@/components/ui/Pagination'
@@ -67,6 +70,16 @@ const leaveTypeLabel: Record<string, string> = {
   other: 'Lainnya',
 }
 
+type TimePreset = 'all' | 'this_month' | 'last_month' | 'this_year' | 'custom'
+
+const timePresetOptions: { label: string; value: string }[] = [
+  { label: 'Semua Waktu', value: 'all' },
+  { label: 'Bulan Ini', value: 'this_month' },
+  { label: 'Bulan Lalu', value: 'last_month' },
+  { label: 'Tahun Ini', value: 'this_year' },
+  { label: 'Kustom Tanggal...', value: 'custom' },
+]
+
 interface PerizinanModuleProps {
   initialTab?: MainTab
 }
@@ -83,6 +96,68 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
   // Common filters
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
+
+  // Time filters
+  const [timePreset, setTimePreset] = useState<TimePreset>('all')
+  const [dateFrom, setDateFrom] = useState<string>('')
+  const [dateTo, setDateTo] = useState<string>('')
+
+  const handleTimePresetChange = (preset: string) => {
+    const p = preset as TimePreset
+    setTimePreset(p)
+
+    if (p === 'all') {
+      setDateFrom('')
+      setDateTo('')
+      return
+    }
+
+    const todayStr = todayWib()
+    const [y, m] = todayStr.split('-').map(Number)
+
+    if (p === 'this_month') {
+      const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+      const mm = String(m).padStart(2, '0')
+      setDateFrom(`${y}-${mm}-01`)
+      setDateTo(`${y}-${mm}-${String(lastDay).padStart(2, '0')}`)
+    } else if (p === 'last_month') {
+      const prevDate = new Date(Date.UTC(y, m - 2, 1))
+      const py = prevDate.getUTCFullYear()
+      const pm = prevDate.getUTCMonth() + 1
+      const lastDay = new Date(Date.UTC(py, pm, 0)).getUTCDate()
+      const pmm = String(pm).padStart(2, '0')
+      setDateFrom(`${py}-${pmm}-01`)
+      setDateTo(`${py}-${pmm}-${String(lastDay).padStart(2, '0')}`)
+    } else if (p === 'this_year') {
+      setDateFrom(`${y}-01-01`)
+      setDateTo(`${y}-12-31`)
+    } else if (p === 'custom') {
+      if (!dateFrom) setDateFrom(`${y}-${String(m).padStart(2, '0')}-01`)
+      if (!dateTo) setDateTo(todayStr)
+    }
+  }
+
+  const handleResetTimeFilter = () => {
+    setTimePreset('all')
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  const handleSetDateFrom = (d: string) => {
+    setDateFrom(d)
+    if (dateTo && dateTo < d) {
+      setDateTo(d)
+    }
+    setTimePreset('custom')
+  }
+
+  const handleSetDateTo = (d: string) => {
+    setDateTo(d)
+    if (dateFrom && dateFrom > d) {
+      setDateFrom(d)
+    }
+    setTimePreset('custom')
+  }
 
   // Sub-tab filters
   const [leaveStatusFilter, setLeaveStatusFilter] = useState<LeaveStatusFilter>('all')
@@ -118,13 +193,15 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
   useEffect(() => {
     setLeavePage(1)
     setKasbonPage(1)
-  }, [selectedOutlet, debouncedSearch, leaveStatusFilter, kasbonStatusFilter])
+  }, [selectedOutlet, debouncedSearch, leaveStatusFilter, kasbonStatusFilter, dateFrom, dateTo])
 
   // Hanya tab yang sedang dibuka yang di-query; tiap query = 1 halaman (50 baris)
   const leaveQuery = useLeaveRequests({
     status: leaveStatusFilter,
     outletId: selectedOutlet,
     search: debouncedSearch,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
     page: leavePage,
     enabled: activeTab === 'izin',
   })
@@ -132,6 +209,8 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
     status: kasbonStatusFilter,
     outletId: selectedOutlet,
     search: debouncedSearch,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
     page: kasbonPage,
     enabled: activeTab === 'kasbon',
   })
@@ -419,82 +498,146 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
         </button>
       </div>
 
-      {/* Shared Filter Bar (Outlet & Search) */}
-      <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
-          {/* Outlet Selector */}
-          <div className="flex items-center gap-2 bg-suka-gray-50 px-2.5 py-1 rounded-xl border border-suka-gray-200 text-xs font-bold text-suka-ink w-full sm:w-auto">
-            <Building2 size={15} className="text-suka-orange shrink-0 ml-1" />
-            <span className="text-suka-gray-500 text-[11px] uppercase tracking-wider shrink-0">Outlet:</span>
-            <Select
-              options={outletOptions}
-              value={selectedOutlet}
-              onChange={setSelectedOutlet}
-              placeholder="Pilih Outlet"
-              buttonClassName="border-0 bg-transparent shadow-none px-2 py-1 text-xs font-bold"
-              className="min-w-[170px]"
-            />
+      {/* Shared Filter Bar (Outlet, Waktu & Search) */}
+      <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col gap-3">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+          {/* Filter Controls Group */}
+          <div className="flex items-center gap-2.5 flex-wrap flex-1">
+            {/* Outlet Selector */}
+            <div className="flex items-center gap-2 bg-suka-gray-50 px-2.5 py-1 rounded-xl border border-suka-gray-200 text-xs font-bold text-suka-ink">
+              <Building2 size={15} className="text-suka-orange shrink-0 ml-1" />
+              <span className="text-suka-gray-500 text-[11px] uppercase tracking-wider shrink-0">Outlet:</span>
+              <Select
+                options={outletOptions}
+                value={selectedOutlet}
+                onChange={setSelectedOutlet}
+                placeholder="Pilih Outlet"
+                buttonClassName="border-0 bg-transparent shadow-none px-2 py-1 text-xs font-bold"
+                className="min-w-[150px]"
+              />
+            </div>
+
+            {/* Time Preset Selector */}
+            <div className="flex items-center gap-2 bg-suka-gray-50 px-2.5 py-1 rounded-xl border border-suka-gray-200 text-xs font-bold text-suka-ink">
+              <CalendarDays size={15} className="text-suka-orange shrink-0 ml-1" />
+              <span className="text-suka-gray-500 text-[11px] uppercase tracking-wider shrink-0">Waktu:</span>
+              <Select
+                options={timePresetOptions}
+                value={timePreset}
+                onChange={handleTimePresetChange}
+                placeholder="Semua Waktu"
+                buttonClassName="border-0 bg-transparent shadow-none px-2 py-1 text-xs font-bold"
+                className="min-w-[135px]"
+              />
+            </div>
+
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari nama staf atau alasan..."
+                className="w-full pl-8 pr-7 py-2 bg-suka-gray-50 border border-suka-gray-200 rounded-xl text-xs font-semibold text-suka-ink outline-none focus:border-suka-orange focus:bg-white transition-all placeholder:text-suka-gray-400"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Hapus kata kunci pencarian"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-suka-gray-400 hover:text-suka-ink p-1 cursor-pointer"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Search Input */}
-          <div className="relative flex-1 sm:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama staf atau alasan..."
-              className="w-full pl-8 pr-3 py-1.5 bg-suka-gray-50 border border-suka-gray-200 rounded-xl text-xs font-semibold text-suka-ink outline-none focus:border-suka-orange focus:bg-white transition-all"
-            />
+          {/* Action Buttons for current tab */}
+          <div className="flex items-center gap-2 justify-end shrink-0">
+            {activeTab === 'izin' ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleExportLeaveCsv}
+                  disabled={exporting}
+                  className="text-xs font-bold rounded-xl flex items-center gap-1.5 px-3 py-2 border-suka-gray-200 text-suka-ink hover:bg-suka-gray-50 cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>Export CSV</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setShowLeaveForm(true)}
+                  className="bg-suka-orange hover:bg-suka-orange/90 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 px-3.5 py-2 shadow-sm cursor-pointer"
+                >
+                  <CalendarPlus size={14} />
+                  <span>Ajukan Cuti/Izin</span>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleExportKasbonCsv}
+                  disabled={exporting}
+                  className="text-xs font-bold rounded-xl flex items-center gap-1.5 px-3 py-2 border-suka-gray-200 text-suka-ink hover:bg-suka-gray-50 cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>Export CSV</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setShowKasbonForm(true)}
+                  className="bg-suka-orange hover:bg-suka-orange/90 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 px-3.5 py-2 shadow-sm cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>Tambah Kasbon</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Action Buttons for current tab */}
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-          {activeTab === 'izin' ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleExportLeaveCsv}
-                disabled={exporting}
-                className="text-xs font-bold rounded-xl flex items-center gap-1.5 px-3 py-2 border-suka-gray-200 text-suka-ink hover:bg-suka-gray-50"
-              >
-                <Download size={14} />
-                <span>Export CSV</span>
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setShowLeaveForm(true)}
-                className="bg-suka-orange hover:bg-suka-orange/90 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 px-3.5 py-2 shadow-sm"
-              >
-                <CalendarPlus size={14} />
-                <span>Ajukan Cuti/Izin</span>
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleExportKasbonCsv}
-                disabled={exporting}
-                className="text-xs font-bold rounded-xl flex items-center gap-1.5 px-3 py-2 border-suka-gray-200 text-suka-ink hover:bg-suka-gray-50"
-              >
-                <Download size={14} />
-                <span>Export CSV</span>
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setShowKasbonForm(true)}
-                className="bg-suka-orange hover:bg-suka-orange/90 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 px-3.5 py-2 shadow-sm"
-              >
-                <Plus size={14} />
-                <span>Tambah Kasbon</span>
-              </Button>
-            </>
-          )}
-        </div>
+        {/* Date Pickers Row (visible when time filter is active) */}
+        {timePreset !== 'all' && (
+          <div className="flex items-center gap-2 pt-2.5 border-t border-suka-gray-100 flex-wrap">
+            <span className="text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mr-1">
+              Rentang Tanggal:
+            </span>
+            <DatePicker
+              label="Dari"
+              value={dateFrom}
+              onChange={handleSetDateFrom}
+              rangeFrom={dateFrom}
+              rangeTo={dateTo}
+            />
+            <span className="text-xs text-suka-gray-400 font-bold">-</span>
+            <DatePicker
+              label="Sampai"
+              value={dateTo}
+              onChange={handleSetDateTo}
+              rangeFrom={dateFrom}
+              rangeTo={dateTo}
+              align="right"
+            />
+            <button
+              type="button"
+              onClick={handleResetTimeFilter}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-suka-gray-600 hover:text-red-600 bg-suka-gray-100 hover:bg-red-50 border border-suka-gray-200 hover:border-red-200 transition-colors cursor-pointer ml-1"
+              title="Reset ke Semua Waktu"
+            >
+              <X size={13} />
+              <span>Reset Waktu</span>
+            </button>
+            <span className="text-[11px] text-suka-gray-400 font-medium ml-auto">
+              Menampilkan data {timePreset === 'this_month' ? 'bulan berjalan' : timePreset === 'last_month' ? 'bulan lalu' : timePreset === 'this_year' ? 'tahun berjalan' : 'kustom'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* TAB 1: IZIN & CUTI */}

@@ -10,6 +10,8 @@ export interface LeaveListParams {
   status: LeaveStatus | 'all'
   outletId: string // 'all' = semua
   search: string
+  dateFrom?: string
+  dateTo?: string
   page: number
   pageSize?: number
 }
@@ -23,8 +25,7 @@ const LEAVE_TYPE_LABEL: Record<string, string> = {
 }
 
 /**
- * Satu halaman pengajuan cuti/izin (RPC hr_cuti_daftar). Semua filter (status,
- * outlet, pencarian, akun tes) diterapkan di database; yang dikirim hanya 1 halaman.
+ * Satu halaman pengajuan cuti/izin (RPC hr_cuti_daftar atau Query berfilter tanggal).
  */
 export async function fetchLeaveRequestsPage(
   dir: HrDirectory,
@@ -32,14 +33,78 @@ export async function fetchLeaveRequestsPage(
   limit: number,
   offset: number
 ): Promise<Paged<LeaveRequest>> {
+  const supabase = createClient()
   const term = params.search.trim().toLowerCase()
   const types = term
     ? Object.entries(LEAVE_TYPE_LABEL)
         .filter(([k, label]) => label.toLowerCase().includes(term) || k.includes(term))
         .map(([k]) => k)
     : []
+
+  // Jika ada filter tanggal, gunakan query builder langsung
+  if (params.dateFrom || params.dateTo) {
+    let matchedStaffIds: string[] | null = null
+    if (term) {
+      const { data: staffList } = await supabase
+        .from('outlet_staff')
+        .select('id')
+        .or(`name.ilike.%${term}%,username.ilike.%${term}%`)
+      matchedStaffIds = (staffList || []).map((s) => s.id)
+    }
+
+    let query = supabase
+      .from('leave_requests')
+      .select(`
+        id, staff_id, leave_type, start_date, end_date, days, reason, status, approved_by, approved_at, rejection_note, created_at, attachment_url,
+        outlet_staff!leave_requests_staff_id_fkey!inner(
+          name, role, username, account_category, leave_quota, outlet_id,
+          outlets!outlet_staff_outlet_id_fkey(name)
+        )
+      `, { count: 'exact' })
+
+    if (dir.excludedStaffIds.length > 0) {
+      query = query.not('staff_id', 'in', `(${dir.excludedStaffIds.join(',')})`)
+    }
+
+    if (params.status && params.status !== 'all') {
+      query = query.eq('status', params.status)
+    }
+
+    if (params.outletId && params.outletId !== 'all') {
+      query = query.eq('outlet_staff.outlet_id', params.outletId)
+    }
+
+    if (params.dateFrom) {
+      query = query.gte('start_date', params.dateFrom)
+    }
+    if (params.dateTo) {
+      query = query.lte('end_date', params.dateTo)
+    }
+
+    if (term) {
+      const conditions: string[] = []
+      conditions.push(`reason.ilike.%${term}%`)
+      if (types.length > 0) {
+        conditions.push(`leave_type.in.(${types.join(',')})`)
+      }
+      if (matchedStaffIds && matchedStaffIds.length > 0) {
+        conditions.push(`staff_id.in.(${matchedStaffIds.join(',')})`)
+      }
+      query = query.or(conditions.join(','))
+    }
+
+    query = query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    const { data, error, count } = await query
+    if (error) throw error
+    return { rows: (data || []) as unknown as LeaveRequest[], total: count ?? 0 }
+  }
+
   // RPC (POST body): daftar id yang dikecualikan tidak lewat URL
-  const { data, error } = await createClient().rpc('hr_cuti_daftar', {
+  const { data, error } = await supabase.rpc('hr_cuti_daftar', {
     p_status: params.status === 'all' ? null : params.status,
     p_outlet: params.outletId === 'all' ? null : params.outletId,
     p_search: params.search.trim() || null,

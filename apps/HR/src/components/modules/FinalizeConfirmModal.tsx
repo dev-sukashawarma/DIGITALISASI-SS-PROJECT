@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircle, CheckCircle2, Lock, ShieldCheck, X } from 'lucide-react'
+import { AlertCircle, Lock, ShieldCheck, X } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'
 

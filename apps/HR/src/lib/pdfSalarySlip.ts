@@ -6,7 +6,7 @@ import { SUKA_LOGO_BASE64 } from './logoBase64'
 
 export async function generateSalarySlipPdf(
   slip: PayrollRecord,
-  options?: { autoSave?: boolean }
+  options?: { autoSave?: boolean; hrdSignatureBase64?: string }
 ) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
@@ -369,40 +369,35 @@ export async function generateSalarySlipPdf(
 
   // ── 5. Signatures Section ──
   const cardBottom = finalY + cardHeight
-  const signY = Math.max(cardBottom + 8, 135)
-  doc.setTextColor(100, 100, 100)
+  const signY = Math.max(cardBottom + 6, 134)
+  const hrdCenterX = 116.5
+
+  doc.setTextColor(70, 70, 70)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
+  doc.setFontSize(7.5)
+  doc.text('HRD Suka Profit Berkah,', hrdCenterX, signY, { align: 'center' })
 
-  doc.text('Penerima / Karyawan,', 32.5, signY, { align: 'center' })
-  doc.text('HR & Payroll Dept,', 115.5, signY, { align: 'center' })
-
-  // If finalized, render official digital verification stamp
-  if (isFinal) {
-    doc.setFillColor(240, 253, 244)
-    doc.setDrawColor(74, 222, 128)
-    doc.setLineWidth(0.2)
-    doc.roundedRect(100, signY + 3, 31, 8.5, 1.5, 1.5, 'FD')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(5.5)
-    doc.setTextColor(21, 128, 61)
-    doc.text('[ VERIFIED & SIGNED ]', 115.5, signY + 6.5, { align: 'center' })
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(5)
-    doc.setTextColor(100, 116, 139)
-    doc.text('Sistem HR Digital SS', 115.5, signY + 9.8, { align: 'center' })
+  // Ruang tanda tangan (placeholder ttd sebelum gambar fisik/scan disematkan)
+  if (options?.hrdSignatureBase64) {
+    doc.addImage(options.hrdSignatureBase64, 'PNG', 102, signY + 2, 29, 13)
+  } else {
+    doc.setTextColor(170, 170, 170)
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(7)
+    doc.text('( ttd )', hrdCenterX, signY + 9, { align: 'center' })
   }
 
-  doc.setDrawColor(210, 210, 210)
-  doc.setLineWidth(0.2)
-  doc.line(15, signY + 14, 50, signY + 14)
-  doc.line(98, signY + 14, 133, signY + 14)
+  // Garis tanda tangan
+  const lineY = signY + 16
+  doc.setDrawColor(180, 180, 180)
+  doc.setLineWidth(0.25)
+  doc.line(95, lineY, 138, lineY)
 
+  // Nama Penandatangan
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7.5)
-  doc.setTextColor(50, 50, 50)
-  doc.text(staffName, 32.5, signY + 18, { align: 'center' })
-  doc.text('Suka Shawarma Management', 115.5, signY + 18, { align: 'center' })
+  doc.setFontSize(8)
+  doc.setTextColor(40, 40, 40)
+  doc.text('Indra Irawan', hrdCenterX, lineY + 4.5, { align: 'center' })
 
   // ── 6. Bottom Disclaimer ──
   doc.setDrawColor(230, 230, 230)
@@ -429,11 +424,17 @@ export async function generateSalarySlipPdf(
   return doc
 }
 
-export async function generateSalarySlipPdfBase64(slip: PayrollRecord): Promise<{
+export async function generateSalarySlipPdfBase64(
+  slip: PayrollRecord,
+  options?: { hrdSignatureBase64?: string }
+): Promise<{
   base64: string
   filename: string
 }> {
-  const doc = await generateSalarySlipPdf(slip, { autoSave: false })
+  const doc = await generateSalarySlipPdf(slip, {
+    autoSave: false,
+    hrdSignatureBase64: options?.hrdSignatureBase64,
+  })
   const arrayBuf = doc.output('arraybuffer')
   const base64 = Buffer.from(arrayBuf).toString('base64')
   const isFinal = slip.status === 'finalized'

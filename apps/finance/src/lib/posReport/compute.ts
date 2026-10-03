@@ -21,6 +21,7 @@ import {
   computeOrderPlatformSubsidy,
   buildGofoodSettlementPromoMap,
   isGoFoodOrder,
+  isTikTokGoOrder,
 } from '@/lib/posReportKpi'
 import { buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
@@ -340,6 +341,11 @@ export function computeAnalytics({
         const kasirPromo = Number(target.promo_subsidy) || 0
         target.platform_subsidy = Math.max(0, kasirPromo - allocated)
       }
+    } else if (isTikTokGoOrder(o)) {
+      const target = o as any
+      target.settlement_promo_merchant = 0
+      const kasirPromo = Number(target.promo_subsidy) || 0
+      target.platform_subsidy = kasirPromo
     }
   })
 
@@ -410,6 +416,9 @@ export function computeAnalytics({
   const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
   let totalSettlement = 0
+  let totalSettlementGross = 0
+  let settlementRate = 0
+  let settlementGrossRate = 0
   let totalRealAdmin = 0
   let settlementDateRange = ''
   let hasSettlementData = false
@@ -434,7 +443,10 @@ export function computeAnalytics({
     totalSettlement = relevantSettlements.reduce((sum, s) => {
       return sum + (Number(s.omzet_kotor) || 0) - (Number(s.promo_merchant) || 0) - (Number(s.commission) || 0)
     }, 0)
+    totalSettlementGross = relevantSettlements.reduce((sum, s) => sum + (Number(s.omzet_kotor) || 0), 0)
     totalRealAdmin = relevantSettlements.reduce((sum, s) => sum + (Number(s.commission) || 0), 0)
+    settlementRate = grossRevenue > 0 ? Number(((totalSettlement / grossRevenue) * 100).toFixed(1)) : 0
+    settlementGrossRate = grossRevenue > 0 ? Number(((totalSettlementGross / grossRevenue) * 100).toFixed(1)) : 0
 
     const dates = relevantSettlements.map(s => s.tanggal).filter(Boolean).sort()
     if (dates.length > 0) {
@@ -471,6 +483,9 @@ export function computeAnalytics({
     totalHPP,
     grossProfit,
     totalSettlement,
+    totalSettlementGross,
+    settlementRate,
+    settlementGrossRate,
     totalRealAdmin,
     settlementDateRange,
     hasSettlementData,

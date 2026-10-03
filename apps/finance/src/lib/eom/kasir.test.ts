@@ -22,11 +22,13 @@ let seq = 0
 function order(p: {
   outlet: string; at: string; channel?: string | null; sales_source?: string | null
   total: number; items: [string, string, number, number][]; status?: string; payment?: string
+  /** Promo merchant Food Apps (promo_subsidy). */
+  promo?: number
 }) {
   seq += 1
   return {
     id: `ord-${seq}`, order_number: seq, status: p.status ?? 'completed', payment_method: p.payment ?? 'cash',
-    total_amount: p.total, discount_amount: 0, promo_subsidy: 0, created_at: p.at, outlet_id: p.outlet,
+    total_amount: p.total, discount_amount: 0, promo_subsidy: p.promo ?? 0, created_at: p.at, outlet_id: p.outlet,
     channel: p.channel ?? null, sales_source: p.sales_source ?? 'pos_kasir', customer_name: 'Pelanggan',
     cashier_name: null, external_order_id: null, is_endorse: false,
     order_items: p.items.map(([menuId, name, qty, price], i) => ({
@@ -41,8 +43,9 @@ const orders = [
   order({ outlet: 'o1', at: '2026-09-18T16:30:00Z', total: 50000, items: [[AYAM, 'Original Ayam Jumbo', 2, 25000]] }),
   // 19 Sep 00:30 WIB = 18 Sep 17:30 UTC → periode B
   order({ outlet: 'o1', at: '2026-09-18T17:30:00Z', total: 25000, items: [[AYAM, 'Original Ayam Jumbo', 1, 25000]] }),
-  // GoFood dengan potongan (total < nilai menu), periode B, outlet mitra
-  order({ outlet: 'o2', at: '2026-09-20T05:00:00Z', channel: 'gofood', sales_source: 'gofood', payment: 'gofood', total: 45000,
+  // GoFood dengan promo merchant 8.000, periode B, outlet mitra. Sejak 19 Agu 2026
+  // total_amount Food Apps = harga menu utuh; promo toko dicatat di promo_subsidy.
+  order({ outlet: 'o2', at: '2026-09-20T05:00:00Z', channel: 'gofood', sales_source: 'gofood', payment: 'gofood', total: 53000, promo: 8000,
     items: [[AYAM, 'Original Ayam Jumbo', 1, 25000], [SAPI, 'Original Sapi Jumbo', 1, 28000]] }),
   // dibatalkan → tidak dihitung
   order({ outlet: 'o1', at: '2026-09-10T05:00:00Z', total: 25000, status: 'cancelled', items: [[AYAM, 'Original Ayam Jumbo', 1, 25000]] }),

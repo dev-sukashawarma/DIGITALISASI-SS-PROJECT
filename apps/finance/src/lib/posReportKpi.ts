@@ -74,6 +74,21 @@ export function isGoFoodOrder(order: { channel?: string | null; sales_source?: s
   )
 }
 
+const TIKTOK_GO_IDENTIFIERS = new Set(['tiktok', 'tiktokgo', 'tiktok_go'])
+
+export function isTikTokGoOrder(order: { channel?: string | null; sales_source?: string | null }): boolean {
+  const ch = (order.channel || '').toLowerCase()
+  const src = (order.sales_source || '').toLowerCase()
+  return (
+    TIKTOK_GO_IDENTIFIERS.has(ch) ||
+    TIKTOK_GO_IDENTIFIERS.has(src) ||
+    ch.includes('tiktokgo') ||
+    src.includes('tiktokgo') ||
+    (ch.includes('tiktok') && !ch.includes('shop') && !ch.includes('seller')) ||
+    (src.includes('tiktok') && !src.includes('shop') && !src.includes('seller'))
+  )
+}
+
 /** Format tanggal YYYY-MM-DD dalam zona waktu Jakarta (WIB). */
 export function getOrderJakartaDateStr(dateOrIso?: string | Date | null): string {
   if (!dateOrIso) return ''
@@ -169,20 +184,30 @@ export function resolveMerchantPromo(order: KpiOrder, opts: KpiOrderOptions = {}
     return promoSubsidy
   }
 
+  if (isTikTokGoOrder(order)) {
+    // Di TikTok Go, promo voucher disubsidi platform TikTok (Platform incentive).
+    // Beban toko (Merchant incentive) hampir Rp 0. Jika kasir menginput diskon di POS,
+    // itu bukan beban toko melainkan subsidi voucher TikTok.
+    if (order.settlement_promo_merchant !== undefined && order.settlement_promo_merchant !== null) {
+      return Number(order.settlement_promo_merchant) || 0
+    }
+    return 0
+  }
+
   // GrabFood & ShopeeFood atau order umum: kasir input sudah murni diskon merchant (sudah akurat)
   return promoSubsidy
 }
 
 /**
- * Subsidi dari platform aplikasi (misal Gojek), BUKAN beban resto.
+ * Subsidi dari platform aplikasi (misal Gojek / TikTok), BUKAN beban resto.
  *
- * Untuk GoFood:
+ * Untuk GoFood & TikTok Go:
  *   Selisih = MAX(0, promo_subsidy_kasir - promo_merchant_settlement)
  * Selisih ini dipisahkan dari Card Biru agar laba kotor (Gross Profit) tidak understated.
  */
 export function computeOrderPlatformSubsidy(order: KpiOrder, opts: KpiOrderOptions = {}): number {
   if (opts.ssOnlineMode || order.outlet_id === 'ss-online') return 0
-  if (!isGoFoodOrder(order)) return 0
+  if (!isGoFoodOrder(order) && !isTikTokGoOrder(order)) return 0
 
   const kasirPromo = Number(order.promo_subsidy) || 0
   const merchantPromo = resolveMerchantPromo(order, opts)
@@ -202,18 +227,19 @@ export function computeOrderDeduction(order: KpiOrder, opts: KpiOrderOptions = {
   const isFoodApp = isFoodAppOrder(order)
   const merchantPromo = resolveMerchantPromo(order, opts)
 
+  if (isFoodApp) {
+    // Pada pesanan Food Apps, potongan promo merchant adalah diskon toko
+    // (GoFood dioverride settlement GoBiz; Grab/Shopee dari input kasir).
+    // Pesanan Food Apps tidak menggunakan potongan offline kasir.
+    return merchantPromo
+  }
+
   const items = order.order_items || []
   if (items.length === 0) {
     return discount + merchantPromo
   }
   const menuValue = items.reduce((sum, i) => sum + itemValue(i), 0)
   const offlineDiscount = Math.max(0, menuValue - (Number(order.total_amount) || 0))
-
-  if (isFoodApp) {
-    // Pada pesanan Food Apps, potongan promo merchant adalah diskon toko
-    // (GoFood dioverride settlement GoBiz; Grab/Shopee dari input kasir).
-    return offlineDiscount + merchantPromo
-  }
 
   return offlineDiscount
 }
@@ -336,15 +362,11 @@ export function computeOrderGross(order: KpiOrder, opts: KpiOrderOptions = {}): 
   }
 
   const isFoodApp = isFoodAppOrder(order)
-  const items = order.order_items || []
 
   if (isFoodApp) {
     // Di Food Apps (pasca 19 Agu 2026), total_amount SUDAH harga menu utuh (Gross),
-    // tidak boleh ditambahkan promo_subsidy lagi agar omzet tidak berlipat ganda.
-    if (items.length > 0) {
-      const menuValue = items.reduce((sum, i) => sum + itemValue(i), 0)
-      return Math.max(menuValue, Number(order.total_amount) || 0)
-    }
+    // tidak boleh ditambahkan promo_subsidy lagi agar omzet tidak berlipat ganda,
+    // dan tidak dipengaruhi anomali subtotal item di pos-kasir.
     return Number(order.total_amount) || 0
   }
 

@@ -69,6 +69,10 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
     monthlyInstallment: number
     count: number
   } | null>(null)
+  const [pendingKasbonInfo, setPendingKasbonInfo] = useState<{
+    count: number
+    totalAmount: number
+  } | null>(null)
 
   useEffect(() => {
     const fetchLiveAtt = async () => {
@@ -178,16 +182,29 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
         const supabase = createClient()
         const { data: kasbons } = await supabase
           .from('cash_advances')
-          .select('id, amount, remaining, installment_months')
+          .select('id, amount, remaining, installment_months, status_hr')
           .eq('staff_id', record.staff_id)
           .eq('status', 'active')
 
-        if (kasbons && kasbons.length > 0) {
+        const approved = (kasbons || []).filter((k: any) => k.status_hr === 'approved')
+        const pending = (kasbons || []).filter((k: any) => k.status_hr === 'pending')
+
+        if (pending.length > 0) {
+          const totalPending = pending.reduce((acc: number, k: any) => acc + (Number(k.amount) || 0), 0)
+          setPendingKasbonInfo({
+            count: pending.length,
+            totalAmount: totalPending,
+          })
+        } else {
+          setPendingKasbonInfo(null)
+        }
+
+        if (approved.length > 0) {
           let totalLoan = 0
           let remaining = 0
           let monthlyInstallment = 0
 
-          kasbons.forEach((k: any) => {
+          approved.forEach((k: any) => {
             const amt = Number(k.amount) || 0
             const rem = Number(k.remaining) || 0
             const months = Number(k.installment_months) || 1
@@ -201,7 +218,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
             totalLoan,
             remaining,
             monthlyInstallment,
-            count: kasbons.length,
+            count: approved.length,
           })
         } else {
           setLiveKasbonInfo(null)
@@ -480,6 +497,21 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
             )}
           </div>
 
+          {/* Pending Kasbon Warning Banner */}
+          {pendingKasbonInfo && (
+            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 flex items-start gap-2 text-xs">
+              <Clock size={15} className="text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-amber-950">Pengajuan Kasbon Menunggu Persetujuan:</span>{' '}
+                <span className="text-amber-900">
+                  Ada {pendingKasbonInfo.count} pengajuan kasbon ({formatRupiah(pendingKasbonInfo.totalAmount)}) yang{' '}
+                  <strong className="text-amber-950 underline">BELUM DISETUJUI</strong> oleh HR di menu Perizinan &amp; Kasbon.
+                  Pengajuan pending tidak otomatis dipotongkan ke slip gaji sebelum disetujui.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Automatic Kasbon Module Connection Banner */}
           <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
@@ -500,6 +532,11 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
                   </span>
                 ) : (
                   <span className="text-emerald-700 font-semibold">Tidak ada pinjaman kasbon aktif di Modul Kasbon</span>
+                )}
+                {pendingKasbonInfo && (
+                  <div className="text-amber-800 font-medium text-[11px] mt-0.5">
+                    ⚠️ {pendingKasbonInfo.count} pengajuan kasbon ({formatRupiah(pendingKasbonInfo.totalAmount)}) masih berstatus <em>pending</em> (menunggu persetujuan HR).
+                  </div>
                 )}
               </div>
             </div>

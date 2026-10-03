@@ -205,11 +205,12 @@ export function usePayrollMutations() {
       /* 3. Fetch Automatic Sales Bonuses (Crew, AM, RM) */
       const salesBonusMap = await fetchMonthlySalesBonuses(supabase, month, year)
 
-      /* 4. Fetch active Kasbon (Cash Advances) */
+      /* 4. Fetch active Kasbon (Cash Advances) that are APPROVED by HR */
       const { data: kasbons } = await supabase
         .from('cash_advances')
         .select('staff_id, remaining, amount, installment_months')
         .eq('status', 'active')
+        .eq('status_hr', 'approved')
 
       const kasbonMap = new Map<string, number>()
       kasbons?.forEach((k: any) => {
@@ -488,6 +489,7 @@ export function usePayrollMutations() {
             .select('id, amount, remaining')
             .eq('staff_id', slip.staff_id)
             .eq('status', 'active')
+            .eq('status_hr', 'approved')
             .order('created_at', { ascending: true })
 
           if (activeKasbons && activeKasbons.length > 0) {
@@ -600,6 +602,7 @@ export function usePayrollMutations() {
           .select('id, amount, remaining')
           .eq('staff_id', slip.staff_id)
           .eq('status', 'active')
+          .eq('status_hr', 'approved')
           .order('created_at', { ascending: true })
 
         if (activeKasbons && activeKasbons.length > 0) {

@@ -340,31 +340,33 @@ export async function generateSalarySlipPdf(slip: PayrollRecord) {
     margin: { left: 10, right: 10 },
   })
 
-  const finalY = (doc as any).lastAutoTable.finalY + 4
+  const finalY = (doc as any).lastAutoTable.finalY + 3.5
 
   // ── 4. Total Gaji Bersih Card ──
+  const cardHeight = 13
   doc.setFillColor(255, 251, 235)
   doc.setDrawColor(217, 119, 6)
   doc.setLineWidth(0.4)
-  doc.roundedRect(10, finalY, 128, 14, 2, 2, 'FD')
+  doc.roundedRect(10, finalY, 128, cardHeight, 2, 2, 'FD')
 
   doc.setTextColor(120, 53, 15)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8.5)
-  doc.text('TOTAL GAJI BERSIH (TAKE HOME PAY):', 15, finalY + 6.5)
+  doc.text('TOTAL GAJI BERSIH (TAKE HOME PAY):', 14, finalY + 5.5)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(6.5)
   doc.setTextColor(146, 64, 14)
-  doc.text('Hak bersih yang ditransfer setelah seluruh potongan resmi (A - B)', 15, finalY + 11)
+  doc.text('Hak bersih yang ditransfer setelah seluruh potongan resmi (A - B)', 14, finalY + 9.5)
 
-  doc.setFontSize(12.5)
+  doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(194, 65, 12)
-  doc.text(rupiah(b.takeHomePay), 133, finalY + 9.5, { align: 'right' })
+  doc.text(rupiah(b.takeHomePay), 133, finalY + 8.5, { align: 'right' })
 
   // ── 5. Signatures Section ──
-  const signY = Math.min(155, Math.max(finalY + 20, 130))
+  const cardBottom = finalY + cardHeight
+  const signY = Math.max(cardBottom + 8, 135)
   doc.setTextColor(100, 100, 100)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)

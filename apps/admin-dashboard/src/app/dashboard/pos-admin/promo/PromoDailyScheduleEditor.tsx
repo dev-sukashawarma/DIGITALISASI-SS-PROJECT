@@ -65,27 +65,40 @@ export default function PromoDailyScheduleEditor({
       {enabled && (
         <div className="space-y-2">
           {rows.map((row, index) => (
-            <div key={`${index}-${row.date}`} className="grid grid-cols-1 items-center gap-2 rounded-xl bg-slate-50 p-2 sm:grid-cols-[minmax(10rem,1.3fr)_1fr_1fr_auto]">
-              <DatePicker value={row.date} today={today} label={`Tanggal jadwal ${index + 1}`} onChange={date => updateRow(index, { date })} />
-              <TimeInput
-                value={timeValue(row.start_time, '17:00')}
-                label={`Jam mulai ${row.date}`}
-                onChange={t => updateRow(index, { start_time: `${t}:00` })}
-              />
-              <TimeInput
-                value={timeValue(row.end_time, '20:00')}
-                label={`Jam selesai ${row.date}`}
-                onChange={t => updateRow(index, { end_time: `${t}:00` })}
-              />
-              <button
-                type="button"
-                aria-label={`Hapus jadwal ${row.date || index + 1}`}
-                title="Hapus tanggal"
-                onClick={() => onChange(rows.filter((_, rowIndex) => rowIndex !== index))}
-                className="flex h-10 w-10 cursor-pointer items-center justify-center justify-self-end rounded-xl text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+            <div key={`${index}-${row.date}`} className="space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <DatePicker value={row.date} today={today} label={`Tanggal jadwal ${index + 1}`} onChange={date => updateRow(index, { date })} />
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Hapus jadwal ${row.date || index + 1}`}
+                  title="Hapus tanggal"
+                  onClick={() => onChange(rows.filter((_, rowIndex) => rowIndex !== index))}
+                  className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Mulai</p>
+                  <TimeInput
+                    value={timeValue(row.start_time, '17:00')}
+                    label={`Jam mulai ${row.date}`}
+                    onChange={t => updateRow(index, { start_time: `${t}:00` })}
+                  />
+                </div>
+                <span className="pb-2.5 text-sm font-bold text-slate-400" aria-hidden>–</span>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Selesai</p>
+                  <TimeInput
+                    value={timeValue(row.end_time, '20:00')}
+                    label={`Jam selesai ${row.date}`}
+                    onChange={t => updateRow(index, { end_time: `${t}:00` })}
+                  />
+                </div>
+              </div>
             </div>
           ))}
           <button

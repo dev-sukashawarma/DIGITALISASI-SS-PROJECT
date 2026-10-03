@@ -16,6 +16,12 @@ import { CurrencyInput } from "@suka/design-system";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+/** Garis warna di sisi kiri kartu riwayat — status terbaca sekilas tanpa membaca lencana. */
+const aksenStatus = (spv: string, hr: string) =>
+  hr === 'approved' ? 'border-l-emerald-500'
+  : hr === 'rejected' || spv === 'rejected' ? 'border-l-rose-500'
+  : 'border-l-amber-400';
+
 export function KasbonView() {
   const { outletStaff } = useAuth();
   const userId = outletStaff?.id;
@@ -208,23 +214,35 @@ export function KasbonView() {
           {loadingHistory ? (
             <div className="p-8 text-center text-gray-500">Memuat data...</div>
           ) : history && history.length > 0 ? (
-            <div className="divide-y divide-gray-100">
+            <div className="bg-slate-50/70 p-3 sm:p-5 space-y-4">
               {history.map((item) => (
-                <div key={item.id} className="p-5 hover:bg-gray-50/50 transition-colors">
+                <article
+                  key={item.id}
+                  className={`bg-white rounded-2xl border border-slate-200 border-l-4 ${aksenStatus(item.status_spv, item.status_hr)} shadow-sm p-4 sm:p-5`}
+                >
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-slate-800">
-                        {formatRupiah(item.amount)}
-                      </span>
-                      {getStatusBadge(item.status_spv, item.status_hr)}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-extrabold text-slate-800 text-lg leading-tight">
+                          {formatRupiah(item.amount)}
+                        </p>
+                        <p className="text-xs font-medium text-slate-400 mt-1">
+                          Diajukan {dayjs(item.created_at).tz('Asia/Jakarta').format('DD MMM YYYY')}
+                        </p>
+                      </div>
+                      <div className="shrink-0">{getStatusBadge(item.status_spv, item.status_hr)}</div>
                     </div>
-                    <p className="text-sm text-slate-600 mb-2">{item.reason}</p>
-                    <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
-                      <span className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded-md">
-                        Dicicil {item.installment_months} Bulan
+                    <div className="mt-3">
+                      <span className="inline-flex items-center bg-slate-100 text-slate-600 text-sm font-semibold px-3 py-1.5 rounded-xl">
+                        Dicicil {item.installment_months} bulan
                       </span>
-                      <span>Diajukan: {dayjs(item.created_at).tz('Asia/Jakarta').format('DD MMM YYYY')}</span>
                     </div>
+                    {item.reason && (
+                      <div className="mt-4">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Alasan</p>
+                        <p className="text-sm font-medium text-slate-700 leading-relaxed">{item.reason}</p>
+                      </div>
+                    )}
                     {item.status_hr === 'pending' && item.status_spv !== 'rejected' && (
                       <TombolBatalkan
                         jenis="kasbon"
@@ -234,7 +252,7 @@ export function KasbonView() {
                       />
                     )}
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           ) : (

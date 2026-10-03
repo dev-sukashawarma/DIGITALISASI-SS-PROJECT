@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import type { PayrollStatus } from '@/lib/types'
+import type { PayrollStatus, CashAdvanceStatus } from '@/lib/types'
 import { LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
 
@@ -208,13 +208,17 @@ export function usePayrollMutations() {
       /* 4. Fetch active Kasbon (Cash Advances) */
       const { data: kasbons } = await supabase
         .from('cash_advances')
-        .select('staff_id, remaining, amount')
+        .select('staff_id, remaining, amount, installment_months')
         .eq('status', 'active')
 
       const kasbonMap = new Map<string, number>()
       kasbons?.forEach((k: any) => {
         const prev = kasbonMap.get(k.staff_id) || 0
-        kasbonMap.set(k.staff_id, prev + (Number(k.remaining) || 0))
+        const rem = Number(k.remaining) || 0
+        const amt = Number(k.amount) || rem
+        const months = Number(k.installment_months) || 1
+        const monthlyInstallment = months > 1 ? Math.min(rem, Math.ceil(amt / months)) : rem
+        kasbonMap.set(k.staff_id, prev + monthlyInstallment)
       })
 
       /* 5. Build payroll rows with auto late deduction, kasbon, and sales bonus */
@@ -321,16 +325,18 @@ export function usePayrollMutations() {
         const lateMinutes = lateMinutesMap.get(slip.staff_id) || 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
 
-        // Check if there is kasbon in current note or table
-        let kasbonDeduction = 0
-        if (slip.deduction_note) {
+        // Check if there is kasbon in current record or note
+        let kasbonDeduction = Number(slip.deduction_kasbon) || 0
+        if (kasbonDeduction === 0 && slip.deduction_note) {
           const m = slip.deduction_note.match(/kasbon[:\s]*rp?\s*([0-9.,]+)/i)
           if (m) kasbonDeduction = Number(m[1].replace(/[^0-9]/g, '')) || 0
         }
 
-        const totalDeductions = kasbonDeduction + lateDeduction
+        const bpjsDeduction = Number(slip.deduction_bpjs) || 0
+        const totalDeductions = kasbonDeduction + lateDeduction + bpjsDeduction
         const dedNotes: string[] = []
         if (kasbonDeduction > 0) dedNotes.push(`Kasbon: Rp ${kasbonDeduction.toLocaleString('id-ID')}`)
+        if (bpjsDeduction > 0) dedNotes.push(`BPJS: Rp ${bpjsDeduction.toLocaleString('id-ID')}`)
         if (lateMinutes > 0) {
           dedNotes.push(`Telat (${lateMinutes} mnt x Rp 1.000): Rp ${lateDeduction.toLocaleString('id-ID')}`)
         }
@@ -452,6 +458,101 @@ export function usePayrollMutations() {
 
   const finalizeAll = useMutation({
     mutationFn: async ({ month, year }: { month: number; year: number }) => {
+      // 1. Fetch all draft slips in this period
+      const { data: draftSlips, error: slipsErr } = await supabase
+        .from('payroll_records')
+        .select('*')
+        .eq('period_month', month)
+        .eq('period_year', year)
+        .eq('status', 'draft')
+
+      if (slipsErr) throw slipsErr
+      if (!draftSlips || draftSlips.length === 0) {
+        throw new Error('Tidak ada slip draft untuk difinalisasi.')
+      }
+
+      const paymentDate = new Date().toISOString().split('T')[0]
+      let settledKasbonCount = 0
+
+      // 2. Process kasbon settlement for each draft slip
+      for (const slip of draftSlips) {
+        let kasbonAmount = Number(slip.deduction_kasbon) || 0
+        if (kasbonAmount === 0 && slip.deduction_note) {
+          const m = slip.deduction_note.match(/kasbon[:\s]*rp?\s*([0-9.,]+)/i)
+          if (m) kasbonAmount = Number(m[1].replace(/[^0-9]/g, '')) || 0
+        }
+
+        if (kasbonAmount > 0) {
+          const { data: activeKasbons } = await supabase
+            .from('cash_advances')
+            .select('id, amount, remaining')
+            .eq('staff_id', slip.staff_id)
+            .eq('status', 'active')
+            .order('created_at', { ascending: true })
+
+          if (activeKasbons && activeKasbons.length > 0) {
+            let remainingToDeduct = kasbonAmount
+            for (const adv of activeKasbons) {
+              if (remainingToDeduct <= 0) break
+              const advRemaining = Number(adv.remaining) || 0
+              if (advRemaining <= 0) continue
+
+              const deduct = Math.min(remainingToDeduct, advRemaining)
+              const newRemaining = Math.max(0, advRemaining - deduct)
+
+              await supabase.from('cash_advance_payments').insert({
+                cash_advance_id: adv.id,
+                amount: deduct,
+                payment_date: paymentDate,
+                note: `Potong Slip Payroll Periode ${month}/${year}`,
+              })
+
+              const updatePayload: { remaining: number; status?: CashAdvanceStatus } = {
+                remaining: newRemaining,
+              }
+              if (newRemaining <= 0) {
+                updatePayload.status = 'paid_off'
+              }
+
+              await supabase
+                .from('cash_advances')
+                .update(updatePayload)
+                .eq('id', adv.id)
+
+              remainingToDeduct -= deduct
+              settledKasbonCount++
+            }
+          } else {
+            // Manual kasbon on slip without existing cash_advances record: create completed record for audit
+            const { data: newAdv, error: createAdvErr } = await supabase
+              .from('cash_advances')
+              .insert({
+                staff_id: slip.staff_id,
+                amount: kasbonAmount,
+                remaining: 0,
+                reason: `Potongan Kasbon Payroll Periode ${month}/${year} (Otomatis via Slip)`,
+                status: 'paid_off',
+                status_hr: 'approved',
+                installment_months: 1,
+                approved_at: new Date().toISOString(),
+              })
+              .select('id')
+              .single()
+
+            if (!createAdvErr && newAdv?.id) {
+              await supabase.from('cash_advance_payments').insert({
+                cash_advance_id: newAdv.id,
+                amount: kasbonAmount,
+                payment_date: paymentDate,
+                note: `Pelunasan otomatis via Slip Payroll Periode ${month}/${year}`,
+              })
+              settledKasbonCount++
+            }
+          }
+        }
+      }
+
+      // 3. Mark all draft slips as finalized
       const { error } = await supabase
         .from('payroll_records')
         .update({ status: 'finalized' as PayrollStatus })
@@ -460,9 +561,115 @@ export function usePayrollMutations() {
         .eq('status', 'draft')
 
       if (error) throw error
+
+      return {
+        finalizedCount: draftSlips.length,
+        settledKasbonCount,
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll'] })
+      queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
+      queryClient.invalidateQueries({ queryKey: ['perizinan-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['hr-activity'] })
+    },
+  })
+
+  const finalizeSlip = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { data: slip, error: slipErr } = await supabase
+        .from('payroll_records')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (slipErr) throw slipErr
+      if (!slip) throw new Error('Slip tidak ditemukan.')
+      if (slip.status === 'finalized') throw new Error('Slip sudah berstatus final.')
+
+      const paymentDate = new Date().toISOString().split('T')[0]
+      let kasbonAmount = Number(slip.deduction_kasbon) || 0
+      if (kasbonAmount === 0 && slip.deduction_note) {
+        const m = slip.deduction_note.match(/kasbon[:\s]*rp?\s*([0-9.,]+)/i)
+        if (m) kasbonAmount = Number(m[1].replace(/[^0-9]/g, '')) || 0
+      }
+
+      if (kasbonAmount > 0) {
+        const { data: activeKasbons } = await supabase
+          .from('cash_advances')
+          .select('id, amount, remaining')
+          .eq('staff_id', slip.staff_id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: true })
+
+        if (activeKasbons && activeKasbons.length > 0) {
+          let remainingToDeduct = kasbonAmount
+          for (const adv of activeKasbons) {
+            if (remainingToDeduct <= 0) break
+            const advRemaining = Number(adv.remaining) || 0
+            if (advRemaining <= 0) continue
+
+            const deduct = Math.min(remainingToDeduct, advRemaining)
+            const newRemaining = Math.max(0, advRemaining - deduct)
+
+            await supabase.from('cash_advance_payments').insert({
+              cash_advance_id: adv.id,
+              amount: deduct,
+              payment_date: paymentDate,
+              note: `Potong Slip Payroll Periode ${slip.period_month}/${slip.period_year}`,
+            })
+
+            const updatePayload: { remaining: number; status?: CashAdvanceStatus } = {
+              remaining: newRemaining,
+            }
+            if (newRemaining <= 0) updatePayload.status = 'paid_off'
+
+            await supabase
+              .from('cash_advances')
+              .update(updatePayload)
+              .eq('id', adv.id)
+
+            remainingToDeduct -= deduct
+          }
+        } else {
+          const { data: newAdv, error: createAdvErr } = await supabase
+            .from('cash_advances')
+            .insert({
+              staff_id: slip.staff_id,
+              amount: kasbonAmount,
+              remaining: 0,
+              reason: `Potongan Kasbon Payroll Periode ${slip.period_month}/${slip.period_year} (Otomatis via Slip)`,
+              status: 'paid_off',
+              status_hr: 'approved',
+              installment_months: 1,
+              approved_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single()
+
+          if (!createAdvErr && newAdv?.id) {
+            await supabase.from('cash_advance_payments').insert({
+              cash_advance_id: newAdv.id,
+              amount: kasbonAmount,
+              payment_date: paymentDate,
+              note: `Pelunasan otomatis via Slip Payroll Periode ${slip.period_month}/${slip.period_year}`,
+            })
+          }
+        }
+      }
+
+      const { error: updErr } = await supabase
+        .from('payroll_records')
+        .update({ status: 'finalized' as PayrollStatus })
+        .eq('id', id)
+
+      if (updErr) throw updErr
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll'] })
+      queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
+      queryClient.invalidateQueries({ queryKey: ['perizinan-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['hr-activity'] })
     },
   })
 
@@ -573,5 +780,5 @@ export function usePayrollMutations() {
     },
   })
 
-  return { generate, syncAttendanceDeductions, syncSalaryFromDatabase, updateSlip, finalizeAll }
+  return { generate, syncAttendanceDeductions, syncSalaryFromDatabase, updateSlip, finalizeAll, finalizeSlip }
 }

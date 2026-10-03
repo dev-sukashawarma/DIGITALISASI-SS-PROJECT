@@ -61,6 +61,15 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
   const [fetchingBonus, setFetchingBonus] = useState(false)
   const [liveBonusInfo, setLiveBonusInfo] = useState<{ amount: number; description: string } | null>(null)
 
+  // Live active kasbon lookup
+  const [fetchingKasbon, setFetchingKasbon] = useState(false)
+  const [liveKasbonInfo, setLiveKasbonInfo] = useState<{
+    totalLoan: number
+    remaining: number
+    monthlyInstallment: number
+    count: number
+  } | null>(null)
+
   useEffect(() => {
     const fetchLiveAtt = async () => {
       setFetchingAtt(true)
@@ -163,8 +172,50 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
       }
     }
 
+    const fetchLiveKasbon = async () => {
+      setFetchingKasbon(true)
+      try {
+        const supabase = createClient()
+        const { data: kasbons } = await supabase
+          .from('cash_advances')
+          .select('id, amount, remaining, installment_months')
+          .eq('staff_id', record.staff_id)
+          .eq('status', 'active')
+
+        if (kasbons && kasbons.length > 0) {
+          let totalLoan = 0
+          let remaining = 0
+          let monthlyInstallment = 0
+
+          kasbons.forEach((k: any) => {
+            const amt = Number(k.amount) || 0
+            const rem = Number(k.remaining) || 0
+            const months = Number(k.installment_months) || 1
+            totalLoan += amt
+            remaining += rem
+            const installment = months > 1 ? Math.min(rem, Math.ceil(amt / months)) : rem
+            monthlyInstallment += installment
+          })
+
+          setLiveKasbonInfo({
+            totalLoan,
+            remaining,
+            monthlyInstallment,
+            count: kasbons.length,
+          })
+        } else {
+          setLiveKasbonInfo(null)
+        }
+      } catch (e) {
+        // Ignore
+      } finally {
+        setFetchingKasbon(false)
+      }
+    }
+
     fetchLiveAtt()
     fetchLiveBonus()
+    fetchLiveKasbon()
   }, [record.staff_id, record.period_month, record.period_year, record.outlet_staff?.role])
 
   // Calculations
@@ -429,6 +480,44 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
             )}
           </div>
 
+          {/* Automatic Kasbon Module Connection Banner */}
+          <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Wallet size={15} className="text-purple-600 shrink-0" />
+              <div>
+                <span className="font-bold text-purple-950">Koneksi Modul Kasbon:</span>{' '}
+                {fetchingKasbon ? (
+                  <span className="text-stone-500">Mengecek data pinjaman...</span>
+                ) : liveKasbonInfo && liveKasbonInfo.remaining > 0 ? (
+                  <span className="text-purple-900 font-semibold">
+                    {liveKasbonInfo.count} pinjaman aktif &bull; Sisa Hutang:{' '}
+                    <strong className="text-red-700">{formatRupiah(liveKasbonInfo.remaining)}</strong>
+                    {liveKasbonInfo.monthlyInstallment > 0 && (
+                      <span className="text-stone-600 ml-1">
+                        (Saran Cicilan: {formatRupiah(liveKasbonInfo.monthlyInstallment)}/bln)
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-emerald-700 font-semibold">Tidak ada pinjaman kasbon aktif di Modul Kasbon</span>
+                )}
+              </div>
+            </div>
+
+            {liveKasbonInfo &&
+              liveKasbonInfo.monthlyInstallment > 0 &&
+              liveKasbonInfo.monthlyInstallment !== cashAdvanceDeduction && (
+                <button
+                  type="button"
+                  onClick={() => setCashAdvanceDeduction(liveKasbonInfo.monthlyInstallment)}
+                  className="px-2 py-1 text-[11px] font-bold bg-white text-purple-900 hover:bg-purple-100 rounded-lg border border-purple-300 flex items-center gap-1 transition-all cursor-pointer"
+                >
+                  <RefreshCw size={10} />
+                  <span>Terapkan Cicilan ({formatRupiah(liveKasbonInfo.monthlyInstallment)})</span>
+                </button>
+              )}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>
@@ -444,6 +533,15 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
                 onChange={(e) => setCashAdvanceDeduction(Number(e.target.value))}
                 min={0}
               />
+              {liveKasbonInfo && liveKasbonInfo.remaining > 0 ? (
+                <p className="mt-1 text-[11px] text-purple-800 font-medium">
+                  Sisa hutang di modul: {formatRupiah(liveKasbonInfo.remaining)}. Akan otomatis dipotong saat finalisasi slip.
+                </p>
+              ) : cashAdvanceDeduction > 0 ? (
+                <p className="mt-1 text-[11px] text-amber-700 font-medium">
+                  Catatan: Karyawan belum punya pengajuan di Modul Kasbon. Rekaman otomatis akan dibuat saat finalisasi agar sinkron.
+                </p>
+              ) : null}
             </div>
 
             <div>

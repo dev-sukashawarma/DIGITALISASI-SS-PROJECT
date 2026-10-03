@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Eye, Edit2, Search, ArrowUpDown, ArrowUp, ArrowDown, X } from 'lucide-react'
+import { Eye, Edit2, Search, ArrowUpDown, ArrowUp, ArrowDown, X, CheckCircle2 } from 'lucide-react'
 import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
 import { SalarySlipModal } from './SalarySlipModal'
@@ -100,9 +100,11 @@ function SortHeader({
 export function PayrollTable({
   rows,
   onEdit,
+  onFinalizeSlip,
 }: {
   rows: PayrollRecord[]
   onEdit: (slip: PayrollRecord) => void
+  onFinalizeSlip?: (id: string) => void
 }) {
   const [selectedSlip, setSelectedSlip] = useState<PayrollRecord | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -437,14 +439,26 @@ export function PayrollTable({
                           <span>Slip</span>
                         </button>
                         {r.status !== 'finalized' && (
-                          <button
-                            onClick={() => onEdit(r)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-suka-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-suka-ink shadow-2xs hover:bg-stone-50 transition-all cursor-pointer"
-                            title="Edit Komponen Gaji"
-                          >
-                            <Edit2 size={13} />
-                            <span>Edit</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => onEdit(r)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-suka-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-suka-ink shadow-2xs hover:bg-stone-50 transition-all cursor-pointer"
+                              title="Edit Komponen Gaji"
+                            >
+                              <Edit2 size={13} />
+                              <span>Edit</span>
+                            </button>
+                            {onFinalizeSlip && (
+                              <button
+                                onClick={() => onFinalizeSlip(r.id)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100 transition-all cursor-pointer"
+                                title="Finalize Slip Ini (Otomatis potong saldo kasbon jika ada)"
+                              >
+                                <CheckCircle2 size={13} />
+                                <span>Final</span>
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

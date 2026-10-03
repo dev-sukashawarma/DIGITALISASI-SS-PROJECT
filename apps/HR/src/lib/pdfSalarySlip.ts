@@ -155,7 +155,7 @@ export async function generateSalarySlipPdf(slip: PayrollRecord) {
     doc.text('Status   : Menunggu Finalisasi HR', 78, 48)
   }
 
-  // ── 3. Table Breakdown (Earnings & Deductions) ──
+  // ── 3. Table Breakdown (Waterfall Format: Earnings then Deductions) ──
   const isRewardAbsensi = slip.bonus_note?.toLowerCase().includes('reward absensi')
   const earningsList: [string, string][] = [
     ['Gaji Pokok (Gapok)', rupiah(b.basicSalary)],
@@ -176,27 +176,148 @@ export async function generateSalarySlipPdf(slip: PayrollRecord) {
   if (b.cashAdvanceDeduction > 0) deductionsList.push(['Potongan Kasbon', `- ${rupiah(b.cashAdvanceDeduction)}`])
   if (b.bpjsDeduction > 0) deductionsList.push(['Potongan BPJS', `- ${rupiah(b.bpjsDeduction)}`])
   if (b.lateDeduction > 0) {
-    deductionsList.push([`Denda Telat (${b.lateMinutes}m x Rp1.000)`, `- ${rupiah(b.lateDeduction)}`])
+    const lateTitle = b.lateMinutes > 0
+      ? `Denda Telat (${b.lateMinutes}m x Rp1.000)`
+      : 'Denda Keterlambatan'
+    deductionsList.push([lateTitle, `- ${rupiah(b.lateDeduction)}`])
   }
   if (b.otherDeduction > 0) deductionsList.push(['Potongan Lain / Ganti Rugi', `- ${rupiah(b.otherDeduction)}`])
   if (deductionsList.length === 0) deductionsList.push(['Tidak ada potongan', 'Rp 0'])
 
-  const maxRows = Math.max(earningsList.length, deductionsList.length)
-  const bodyRows: string[][] = []
+  const waterfallRows: any[] = []
 
-  for (let i = 0; i < maxRows; i++) {
-    const earn = earningsList[i] || ['', '']
-    const ded = deductionsList[i] || ['', '']
-    bodyRows.push([earn[0], earn[1], ded[0], ded[1]])
+  // ── Header Group A: Penerimaan (Earnings) ──
+  waterfallRows.push([
+    {
+      content: 'A. PENERIMAAN (EARNINGS)',
+      colSpan: 2,
+      styles: {
+        fillColor: [248, 245, 242],
+        textColor: [58, 20, 16],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        cellPadding: { top: 2.2, bottom: 2.2, left: 3.5, right: 3.5 },
+      },
+    },
+  ])
+
+  for (const [desc, amount] of earningsList) {
+    waterfallRows.push([
+      {
+        content: `   ${desc}`,
+        styles: {
+          textColor: [45, 45, 45],
+          cellPadding: { top: 1.8, bottom: 1.8, left: 3.5, right: 3.5 },
+        },
+      },
+      {
+        content: amount,
+        styles: {
+          halign: 'right',
+          textColor: [35, 35, 35],
+          fontStyle: 'bold',
+          cellPadding: { top: 1.8, bottom: 1.8, left: 3.5, right: 3.5 },
+        },
+      },
+    ])
   }
+
+  // Subtotal Penerimaan
+  waterfallRows.push([
+    {
+      content: 'Total Penerimaan (A)',
+      styles: {
+        fontStyle: 'bold',
+        textColor: [20, 83, 45],
+        fillColor: [240, 253, 244],
+        cellPadding: { top: 2, bottom: 2, left: 3.5, right: 3.5 },
+        lineWidth: { top: 0.15, bottom: 0.15 },
+        lineColor: [187, 247, 208],
+      },
+    },
+    {
+      content: rupiah(b.totalEarnings),
+      styles: {
+        halign: 'right',
+        fontStyle: 'bold',
+        textColor: [20, 83, 45],
+        fillColor: [240, 253, 244],
+        cellPadding: { top: 2, bottom: 2, left: 3.5, right: 3.5 },
+        lineWidth: { top: 0.15, bottom: 0.15 },
+        lineColor: [187, 247, 208],
+      },
+    },
+  ])
+
+  // ── Header Group B: Potongan (Deductions) ──
+  waterfallRows.push([
+    {
+      content: 'B. POTONGAN (DEDUCTIONS)',
+      colSpan: 2,
+      styles: {
+        fillColor: [248, 245, 242],
+        textColor: [58, 20, 16],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        cellPadding: { top: 2.2, bottom: 2.2, left: 3.5, right: 3.5 },
+      },
+    },
+  ])
+
+  for (const [desc, amount] of deductionsList) {
+    const isZero = amount === 'Rp 0'
+    waterfallRows.push([
+      {
+        content: `   ${desc}`,
+        styles: {
+          textColor: isZero ? [125, 125, 125] : [45, 45, 45],
+          fontStyle: isZero ? 'italic' : 'normal',
+          cellPadding: { top: 1.8, bottom: 1.8, left: 3.5, right: 3.5 },
+        },
+      },
+      {
+        content: amount,
+        styles: {
+          halign: 'right',
+          textColor: isZero ? [125, 125, 125] : [185, 28, 28],
+          fontStyle: isZero ? 'normal' : 'bold',
+          cellPadding: { top: 1.8, bottom: 1.8, left: 3.5, right: 3.5 },
+        },
+      },
+    ])
+  }
+
+  // Subtotal Potongan
+  waterfallRows.push([
+    {
+      content: 'Total Potongan (B)',
+      styles: {
+        fontStyle: 'bold',
+        textColor: b.totalDeductions > 0 ? [185, 28, 28] : [80, 80, 80],
+        fillColor: b.totalDeductions > 0 ? [254, 242, 242] : [248, 248, 250],
+        cellPadding: { top: 2, bottom: 2, left: 3.5, right: 3.5 },
+        lineWidth: { top: 0.15, bottom: 0.15 },
+        lineColor: b.totalDeductions > 0 ? [254, 202, 202] : [229, 231, 235],
+      },
+    },
+    {
+      content: b.totalDeductions > 0 ? `- ${rupiah(b.totalDeductions)}` : 'Rp 0',
+      styles: {
+        halign: 'right',
+        fontStyle: 'bold',
+        textColor: b.totalDeductions > 0 ? [185, 28, 28] : [80, 80, 80],
+        fillColor: b.totalDeductions > 0 ? [254, 242, 242] : [248, 248, 250],
+        cellPadding: { top: 2, bottom: 2, left: 3.5, right: 3.5 },
+        lineWidth: { top: 0.15, bottom: 0.15 },
+        lineColor: b.totalDeductions > 0 ? [254, 202, 202] : [229, 231, 235],
+      },
+    },
+  ])
 
   autoTable(doc, {
     startY: 55,
-    head: [['PENERIMAAN (EARNINGS)', 'JUMLAH (RP)', 'POTONGAN (DEDUCTIONS)', 'JUMLAH (RP)']],
-    body: bodyRows,
-    foot: [
-      ['Total Penerimaan', rupiah(b.totalEarnings), 'Total Potongan', b.totalDeductions > 0 ? `- ${rupiah(b.totalDeductions)}` : 'Rp 0'],
-    ],
+    head: [['RINCIAN KOMPONEN GAJI', 'JUMLAH (RP)']],
+    body: waterfallRows,
     theme: 'plain',
     headStyles: {
       fillColor: [58, 20, 16],
@@ -208,42 +329,13 @@ export async function generateSalarySlipPdf(slip: PayrollRecord) {
     bodyStyles: {
       fontSize: 7.5,
       textColor: [45, 45, 45],
-      cellPadding: 2,
+      cellPadding: 1.8,
       lineWidth: { bottom: 0.1 },
-      lineColor: [230, 230, 230],
-    },
-    alternateRowStyles: {
-      fillColor: [250, 250, 251],
-    },
-    footStyles: {
-      fillColor: [243, 244, 246],
-      textColor: [58, 20, 16],
-      fontStyle: 'bold',
-      fontSize: 8,
-      cellPadding: 2.2,
-      lineWidth: { top: 0.2, bottom: 0.2 },
-      lineColor: [215, 215, 215],
+      lineColor: [238, 238, 240],
     },
     columnStyles: {
-      0: { cellWidth: 40, halign: 'left' },
-      1: { cellWidth: 24, halign: 'right' },
-      2: { cellWidth: 40, halign: 'left' },
-      3: { cellWidth: 24, halign: 'right' },
-    },
-    didParseCell: (data) => {
-      if (data.section === 'foot') {
-        if (data.column.index === 1) {
-          data.cell.styles.textColor = [22, 101, 52] // Green
-        }
-        if (data.column.index === 3) {
-          data.cell.styles.textColor = [185, 28, 28] // Red
-        }
-      }
-      if (data.section === 'body' && data.column.index === 3) {
-        if (data.cell.raw && String(data.cell.raw).startsWith('-')) {
-          data.cell.styles.textColor = [185, 28, 28] // Red for deductions
-        }
-      }
+      0: { cellWidth: 92, halign: 'left' },
+      1: { cellWidth: 36, halign: 'right' },
     },
     margin: { left: 10, right: 10 },
   })
@@ -264,7 +356,7 @@ export async function generateSalarySlipPdf(slip: PayrollRecord) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(6.5)
   doc.setTextColor(146, 64, 14)
-  doc.text('Hak bersih yang ditransfer setelah seluruh potongan resmi', 15, finalY + 11)
+  doc.text('Hak bersih yang ditransfer setelah seluruh potongan resmi (A - B)', 15, finalY + 11)
 
   doc.setFontSize(12.5)
   doc.setFont('helvetica', 'bold')
@@ -272,7 +364,7 @@ export async function generateSalarySlipPdf(slip: PayrollRecord) {
   doc.text(rupiah(b.takeHomePay), 133, finalY + 9.5, { align: 'right' })
 
   // ── 5. Signatures Section ──
-  const signY = finalY + 20
+  const signY = Math.min(155, Math.max(finalY + 20, 130))
   doc.setTextColor(100, 100, 100)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)
@@ -323,6 +415,7 @@ export async function generateSalarySlipPdf(slip: PayrollRecord) {
   const cleanStaffName = staffName.replace(/[^a-zA-Z0-9]/g, '_')
   const statusPrefix = isFinal ? 'Slip_Gaji' : 'Draft_Slip_Gaji'
   doc.save(`${statusPrefix}_${cleanStaffName}_${slip.period_month}_${slip.period_year}.pdf`)
+  return doc
 }
 
 export const generateSalarySlipPDF = generateSalarySlipPdf

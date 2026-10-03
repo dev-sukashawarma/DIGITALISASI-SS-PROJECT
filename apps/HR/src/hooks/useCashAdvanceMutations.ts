@@ -11,10 +11,12 @@ export function useCashAdvanceMutations() {
       staff_id,
       amount,
       reason,
+      installment_months,
     }: {
       staff_id: string
       amount: number
       reason: string
+      installment_months?: number
     }) => {
       const { error } = await supabase.from('cash_advances').insert({
         staff_id,
@@ -23,6 +25,7 @@ export function useCashAdvanceMutations() {
         reason,
         status: 'active' as CashAdvanceStatus,
         status_hr: 'approved',
+        installment_months: installment_months || 1,
         approved_at: new Date().toISOString(),
       })
 

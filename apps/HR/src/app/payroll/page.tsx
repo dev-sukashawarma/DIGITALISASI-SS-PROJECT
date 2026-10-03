@@ -166,12 +166,42 @@ export default function PayrollPage() {
   }
 
   const handleFinalize = () => {
-    if (!confirm(`Finalize semua slip? Slip yang sudah final tidak bisa diedit.`)) return
+    if (
+      !confirm(
+        `Finalize semua slip gaji periode ${MONTHS[month - 1]} ${year}?\n\nPerhatian:\n1. Slip yang sudah final tidak bisa diedit kembali.\n2. Potongan kasbon pada slip akan otomatis memotong sisa hutang karyawan di Modul Kasbon dan mencatat pembayaran cicilan secara resmi.`
+      )
+    )
+      return
 
     payrollMutations.finalizeAll.mutate(
       { month, year },
       {
-        onSuccess: () => toast.success(`Semua slip gaji berhasil di-finalize`),
+        onSuccess: (res: any) =>
+          toast.success(
+            `Semua slip gaji berhasil di-finalize! (${res?.settledKasbonCount || 0} pembayaran kasbon berhasil disinkronkan ke Modul Kasbon)`
+          ),
+        onError: (e: any) => toast.error(e.message || 'Gagal finalize slip'),
+      }
+    )
+  }
+
+  const handleFinalizeSlip = (id: string) => {
+    const slip = payrollData.find((s) => s.id === id)
+    const staffName = slip?.outlet_staff?.name || 'staf'
+    if (
+      !confirm(
+        `Finalize slip gaji untuk ${staffName}?\n\nSlip yang sudah final tidak bisa diedit kembali, dan potongan kasbon (jika ada) akan otomatis dicatat sebagai pembayaran cicilan di Modul Kasbon.`
+      )
+    )
+      return
+
+    payrollMutations.finalizeSlip.mutate(
+      { id },
+      {
+        onSuccess: () =>
+          toast.success(
+            `Slip gaji ${staffName} berhasil di-finalize dan potongan kasbon telah disinkronkan ke Modul Kasbon!`
+          ),
         onError: (e: any) => toast.error(e.message || 'Gagal finalize slip'),
       }
     )
@@ -463,7 +493,11 @@ export default function PayrollPage() {
               <Spinner />
             </div>
           ) : (
-            <PayrollTable rows={filteredPayrollData} onEdit={setEditingSlip} />
+            <PayrollTable
+              rows={filteredPayrollData}
+              onEdit={setEditingSlip}
+              onFinalizeSlip={handleFinalizeSlip}
+            />
           )}
 
           {/* Edit Slip Form Modal */}

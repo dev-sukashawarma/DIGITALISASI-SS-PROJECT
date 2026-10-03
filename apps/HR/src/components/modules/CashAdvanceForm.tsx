@@ -27,6 +27,7 @@ export function CashAdvanceForm({
 }: CashAdvanceFormProps) {
   const [staffId, setStaffId] = useState('')
   const [amount, setAmount] = useState<number>(0)
+  const [installmentMonths, setInstallmentMonths] = useState<number>(1)
   const [reason, setReason] = useState('')
 
   const [payAmount, setPayAmount] = useState<number>(0)
@@ -52,7 +53,12 @@ export function CashAdvanceForm({
 
     if (mode === 'kasbon') {
       if (!staffId || !amount) return
-      onSubmit({ staff_id: staffId, amount, reason: reason.trim() })
+      onSubmit({
+        staff_id: staffId,
+        amount,
+        reason: reason.trim(),
+        installment_months: installmentMonths,
+      })
     } else {
       if (!payAmount || payAmount <= 0) return
       onSubmit({ amount: payAmount, note: note.trim() || null })
@@ -96,6 +102,27 @@ export function CashAdvanceForm({
                   onChange={setAmount}
                   required
                 />
+              </div>
+
+              <div>
+                <label className={labelClass}>Tenor Cicilan (Bulan)</label>
+                <select
+                  className={inputClass}
+                  value={installmentMonths}
+                  onChange={(e) => setInstallmentMonths(Number(e.target.value))}
+                >
+                  <option value={1}>1 Bulan (Langsung lunas di payroll berikutnya)</option>
+                  <option value={2}>2 Bulan (Cicil 2x)</option>
+                  <option value={3}>3 Bulan (Cicil 3x)</option>
+                  <option value={4}>4 Bulan (Cicil 4x)</option>
+                  <option value={5}>5 Bulan (Cicil 5x)</option>
+                  <option value={6}>6 Bulan (Cicil 6x)</option>
+                </select>
+                {amount > 0 && (
+                  <p className="mt-1 text-[11px] text-suka-gray-500 font-medium">
+                    Estimasi cicilan: <span className="font-bold text-suka-brown font-mono">{formatRupiah(Math.ceil(amount / (installmentMonths || 1)))}</span> / bulan
+                  </p>
+                )}
               </div>
 
               <div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bukuKasHref, BUKU_KAS_PARAMS } from './bukuKasLink'
+import { bukuKasHref, BUKU_KAS_PARAMS, pettyCashHref, PETTY_CASH_PARAMS } from './bukuKasLink'
 
 describe('bukuKasHref', () => {
   it('membawa periode dan outlet yang sedang dipilih', () => {
@@ -25,5 +25,25 @@ describe('bukuKasHref', () => {
     expect(q.get(BUKU_KAS_PARAMS.from)).toBe('2026-01-01')
     expect(q.get(BUKU_KAS_PARAMS.to)).toBe('2026-01-31')
     expect(q.get(BUKU_KAS_PARAMS.outlet)).toBe('x')
+  })
+})
+
+describe('pettyCashHref', () => {
+  it('membawa periode dan outlet yang sedang dipilih ke halaman petty cash', () => {
+    const href = pettyCashHref({ from: '2026-09-01', to: '2026-09-07', outletId: 'outlet-1' })
+    expect(href).toBe('/dashboard/owner/petty-cash?from=2026-09-01&to=2026-09-07&outletId=outlet-1')
+  })
+
+  it('meneruskan "all" apa adanya', () => {
+    expect(pettyCashHref({ from: '2026-09-01', to: '2026-09-07', outletId: 'all' })).toContain('outletId=all')
+  })
+
+  it('nama parameternya konsisten dengan PettyCashOwnerPage', () => {
+    expect(PETTY_CASH_PARAMS).toEqual({ from: 'from', to: 'to', outletId: 'outletId' })
+    const href = pettyCashHref({ from: '2026-01-01', to: '2026-01-31', outletId: 'x' })
+    const q = new URLSearchParams(href.split('?')[1])
+    expect(q.get(PETTY_CASH_PARAMS.from)).toBe('2026-01-01')
+    expect(q.get(PETTY_CASH_PARAMS.to)).toBe('2026-01-31')
+    expect(q.get(PETTY_CASH_PARAMS.outletId)).toBe('x')
   })
 })

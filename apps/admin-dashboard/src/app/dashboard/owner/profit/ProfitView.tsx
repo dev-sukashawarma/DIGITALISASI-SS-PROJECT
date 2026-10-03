@@ -42,7 +42,7 @@ import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
 import { GrossSalesBreakdownModal } from '@/components/profit/GrossSalesBreakdownModal'
 import { CogsWasteBreakdownModal } from '@/components/profit/CogsWasteBreakdownModal'
 import { OpexBreakdownModal } from '@/components/profit/OpexBreakdownModal'
-import { bukuKasHref } from '@/lib/bukuKasLink'
+import { bukuKasHref, pettyCashHref } from '@/lib/bukuKasLink'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
@@ -76,7 +76,7 @@ function getChannelGroup(source: string): 'outlet' | 'food_apps' | 'tiktok_go' |
   if (['tiktok', 'tiktok_shop', 'tiktok_go', 'tiktok go', 'tiktok shop'].includes(s)) {
     return 'tiktok_go'
   }
-  if (['website', 'online', 'web', 'website ss', 'ss-online', 'ss_online'].includes(s)) {
+  if (['website', 'online', 'web', 'website ss', 'ss-online', 'ss_online', 'shopee', 'shopee_shop', 'shopee_seller', 'shopeeseller', 'shopee seller'].includes(s)) {
     return 'website'
   }
   return 'outlet' // Default POS / Offline
@@ -269,7 +269,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean }>()
 
     for (const [oid, inv] of Object.entries(mitraInvestments)) {
-      const outletSales = sales.rows.filter(r => r.outlet_id === oid && !isTestOutlet(r.outlet_id))
+      const outletSales = sales.rows.filter(
+        r => r.outlet_id === oid && 
+             !isTestOutlet(r.outlet_id) &&
+             isInScope('mitra', oid, mitraIds, (r as any).sales_date || (r as any).date, cutoffDates)
+      )
       const gross = outletSales.reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
 
       const policy = resolveMitraPolicy({
@@ -296,7 +300,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       jumlahOutletBelumBep,
       perOutletFee,
     }
-  }, [mitraInvestments, sales.rows, effectiveFilter.from])
+  }, [mitraInvestments, sales.rows, effectiveFilter.from, mitraIds, cutoffDates])
 
   // Omzet penjualan outlet (sebelum ditambahkan management fee)
   const actualGrossSales = useMemo(
@@ -480,9 +484,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const netRev = val.omzet - val.deductions
         const labaKotor = grossRev - val.hpp - val.deductions
         const feeInfo = managementFeeData.perOutletFee.get(id)
-        const isMitraOutlet = mitraIds.has(id)
-        const mgmtFee = isMitraOutlet ? (feeInfo?.fee ?? 0) : 0
-        const mgmtFeePct = isMitraOutlet ? (feeInfo?.pct ?? 0) : 0
+        const isOutletMitraScope = scope === 'internal' 
+          ? false 
+          : (scope === 'mitra' ? true : mitraIds.has(id))
+        const mgmtFee = isOutletMitraScope ? (feeInfo?.fee ?? 0) : 0
+        const mgmtFeePct = isOutletMitraScope ? (feeInfo?.pct ?? 0) : 0
         const isBep = Boolean(feeInfo?.isBep)
         const net = labaKotor - val.expense - val.waste - mgmtFee
         const margin = grossRev > 0 ? (net / grossRev) * 100 : 0
@@ -499,7 +505,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           mgmtFee,
           mgmtFeePct,
           isBep,
-          isMitra: isMitraOutlet,
+          isMitra: isOutletMitraScope,
           labaKotor, 
           net, 
           margin,
@@ -512,12 +518,26 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         if (sortBy === 'omzet') return b.netRev - a.netRev
         return b.net - a.net
       })
-  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, sortBy, managementFeeData, mitraIds])
+  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, sortBy, managementFeeData, mitraIds, scope])
 
   const filteredOutlets = useMemo(() => {
     if (!outletSearch.trim()) return outletBreakdown
     return outletBreakdown.filter(o => o.name.toLowerCase().includes(outletSearch.toLowerCase()))
   }, [outletBreakdown, outletSearch])
+
+  const filteredTotals = useMemo(() => {
+    return filteredOutlets.reduce((acc, row) => ({
+      omzet: acc.omzet + row.omzet,
+      deductions: acc.deductions + row.deductions,
+      hpp: acc.hpp + row.hpp,
+      waste: acc.waste + row.waste,
+      expense: acc.expense + row.expense,
+      mgmtFee: acc.mgmtFee + row.mgmtFee,
+      net: acc.net + row.net,
+    }), { omzet: 0, deductions: 0, hpp: 0, waste: 0, expense: 0, mgmtFee: 0, net: 0 })
+  }, [filteredOutlets])
+
+  const filteredAvgMargin = filteredTotals.omzet > 0 ? (filteredTotals.net / filteredTotals.omzet) * 100 : 0
 
   const profitableOutletsCount = outletBreakdown.filter(o => o.net > 0).length
   const lossOutletsCount = outletBreakdown.filter(o => o.net < 0).length
@@ -811,6 +831,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             cogsTikTok += diffCogs
           } else if (channels.website.revenue > 0) {
             cogsWebsite += diffCogs
+          } else {
+            cogsOutlet += diffCogs
           }
         }
 
@@ -845,12 +867,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI TIKTOK GO', 'TOTAL GROSS PROFIT TIKTOK GO', gpTikTok])
 
         // CSV Rows - Channel 4
-        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS', 'REVENUE', channels.website.revenue])
+        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS & MARKETPLACE', 'REVENUE', channels.website.revenue])
         if (channels.website.adminFee > 0) {
-          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS', 'ADMIN FEE (PAYMENT GATEWAY)', channels.website.adminFee])
+          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS & MARKETPLACE', 'ADMIN FEE (PAYMENT GATEWAY)', channels.website.adminFee])
         }
-        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS', 'TOTAL COGS (HPP)', cogsWebsite])
-        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS', 'TOTAL GROSS PROFIT WEBSITE SS', gpWebsite])
+        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS & MARKETPLACE', 'TOTAL COGS (HPP)', cogsWebsite])
+        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS & MARKETPLACE', 'TOTAL GROSS PROFIT WEBSITE & MARKETPLACE', gpWebsite])
 
         // CSV Rows - Total Rekap Gross
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TOTAL REKAP GROSS', 'TOTAL REVENUE', totalRev])
@@ -1215,7 +1237,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const leaderboardFoot = [
           [
             'TOTAL',
-            'KONSOLIDASI',
+            'LABA OPERASIONAL OUTLET',
             `${outletBreakdown.length} Unit`,
             rupiah(totalOmzetAll),
             rupiah(totalDedAll),
@@ -1343,6 +1365,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             cogsTikTok += diffCogs
           } else if (channels.website.revenue > 0) {
             cogsWebsite += diffCogs
+          } else {
+            cogsOutlet += diffCogs
           }
         }
 
@@ -1501,18 +1525,18 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.3, lineWidth: 0 } }])
         }
 
-        // 4. TRANSAKSI WEBSITE SS (Hanya tampil bila ada transaksi)
+        // 4. TRANSAKSI WEBSITE & MARKETPLACE (Hanya tampil bila ada transaksi)
         if (channels.website.revenue > 0 || channels.website.adminFee > 0) {
           bodyRows.push([
-            { content: 'TRANSAKSI WEBSITE RESMI SUKA SHAWARMA', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
+            { content: 'TRANSAKSI WEBSITE RESMI & MARKETPLACE (SHOPEE)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
           ])
-          bodyRows.push(['REVENUE WEBSITE', { content: rupiah(channels.website.revenue), styles: { halign: 'right' } }])
+          bodyRows.push(['REVENUE WEBSITE & MARKETPLACE', { content: rupiah(channels.website.revenue), styles: { halign: 'right' } }])
           if (channels.website.adminFee > 0) {
             bodyRows.push(['POTONGAN / ADMIN FEE PAYMENT', { content: rupiah(channels.website.adminFee), styles: { halign: 'right' } }])
           }
           bodyRows.push(['TOTAL COGS (HPP)', { content: rupiah(cogsWebsite), styles: { halign: 'right' } }])
           bodyRows.push([
-            { content: 'TOTAL GROSS PROFIT WEBSITE SS', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
+            { content: 'TOTAL GROSS PROFIT WEBSITE & MARKETPLACE', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
             { content: rupiah(gpWebsite), styles: { halign: 'right', fontStyle: 'bold', fillColor: [254, 249, 195] } }
           ])
           bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.3, lineWidth: 0 } }])
@@ -1781,13 +1805,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 <div>
                   <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider group-hover:text-orange-600 transition-colors">Omzet Penjualan (Kotor)</p>
                   <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">
-                    {managementFeeReceived > 0 && mitraHppMarginReceived > 0
-                      ? 'Omzet outlet + fee mitra + margin pasokan bahan'
-                      : managementFeeReceived > 0
-                        ? 'Omzet outlet + penerimaan fee mitra'
-                        : mitraHppMarginReceived > 0
-                          ? 'Omzet outlet + margin pasokan bahan mitra'
-                          : 'Pemasukan kotor sebelum potongan'}
+                    Pemasukan kotor dari pelanggan sebelum potongan
                   </p>
                 </div>
                 <div className="p-2.5 rounded-2xl bg-orange-50 text-orange-600 group-hover:scale-105 transition-transform">
@@ -1804,13 +1822,18 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     Net Masuk: {rupiah(actualGrossRevenue - totalDeductions)}
                   </span>
                   {managementFeeReceived > 0 && (
-                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200" title="Termasuk pendapatan Management Fee 3% dari kemitraan">
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200" title="Pendapatan Management Fee 3% dari kemitraan yang masuk ke kas pusat">
                       +Fee Mitra {rupiah(managementFeeReceived)}
                     </span>
                   )}
                   {mitraHppMarginReceived > 0 && (
-                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300" title="Termasuk pendapatan Margin Pasokan Bahan Baku 10% HPP Dasar Kemitraan">
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300" title="Pendapatan Margin Pasokan Bahan Baku 10% HPP Dasar Kemitraan">
                       +Margin Bahan Mitra {rupiah(mitraHppMarginReceived)}
+                    </span>
+                  )}
+                  {scope === 'mitra' && managementFeeExpense > 0 && (
+                    <span className="text-[10px] font-bold text-blue-800 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-300" title="Beban Management Fee 3% yang disetor ke pusat">
+                      -Fee Pusat {rupiah(managementFeeExpense)}
                     </span>
                   )}
                 </div>
@@ -2025,8 +2048,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             categories={opexCategoriesList}
             outlets={opexOutletList}
             detailHref={{
-              monthly: '/dashboard/reports/input-pengeluaran',
-              pettyCash: bukuKasHref(filter),
+              monthly: bukuKasHref(filter),
+              pettyCash: pettyCashHref(filter),
             }}
           />
 
@@ -2040,7 +2063,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             periodLabel={`${filter.from} s/d ${filter.to}`}
             scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
             input={waterfallInput}
-            detailHref={{ opex_petty_cash: bukuKasHref(filter) }}
+            detailHref={{ opex_petty_cash: pettyCashHref(filter) }}
           />
 
           {/* 2. CORE DUAL SECTION: P&L Statement (2/3) + Financial Health & Cost Structure (1/3) */}
@@ -2469,6 +2492,47 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       })
                     )}
                   </tbody>
+                  {filteredOutlets.length > 0 && (
+                    <tfoot className="bg-suka-cream/30 font-bold border-t-2 border-suka-brown/20 text-xs text-suka-brown">
+                      <tr className="whitespace-nowrap">
+                        <td colSpan={2} className="py-3.5 px-4 text-left font-black uppercase tracking-wider text-suka-ink">
+                          TOTAL ({filteredOutlets.length} OUTLET)
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-black text-suka-brown">
+                          {rupiah(filteredTotals.omzet)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                          {filteredTotals.deductions > 0 ? `-${rupiah(filteredTotals.deductions)}` : rupiah(0)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                          {filteredTotals.hpp > 0 ? `-${rupiah(filteredTotals.hpp)}` : rupiah(0)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                          {filteredTotals.waste > 0 ? `-${rupiah(filteredTotals.waste)}` : rupiah(0)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                          {filteredTotals.expense > 0 ? `-${rupiah(filteredTotals.expense)}` : rupiah(0)}
+                        </td>
+                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                          {filteredTotals.mgmtFee > 0 ? `-${rupiah(filteredTotals.mgmtFee)}` : '-'}
+                        </td>
+                        <td className={`py-3.5 px-4 text-right font-black ${filteredTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                          {rupiah(filteredTotals.net)}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className={`inline-flex items-center px-2 py-0.5 text-xs font-bold rounded-lg border ${
+                            filteredAvgMargin >= 20 
+                              ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+                              : filteredAvgMargin >= 5 
+                              ? 'text-amber-800 bg-amber-50 border-amber-200' 
+                              : 'text-rose-800 bg-rose-50 border-rose-200'
+                          }`}>
+                            {filteredAvgMargin.toFixed(1)}%
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
 

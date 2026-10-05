@@ -78,7 +78,7 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
       .catch(() => { percakapanId.current = undefined; simpanPercakapan(undefined) })
   }, [apiBase])
 
-  useEffect(() => { bawah.current?.scrollIntoView({ behavior: 'smooth' }) }, [pesan, rekap])
+  useEffect(() => { bawah.current?.scrollIntoView({ behavior: 'smooth' }) }, [pesan, rekap, pose])
 
   function mulaiBaru() {
     percakapanId.current = undefined
@@ -176,6 +176,16 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
             {m.isi}
           </div>
         ))}
+        {pose === 'berpikir' && (
+          <div role="status" className="inline-flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-suka-ink">
+            <span>Lagi cek datanya, Bos</span>
+            <span className="flex gap-1" aria-hidden>
+              {[0, 150, 300].map((jeda) => (
+                <span key={jeda} className="h-1.5 w-1.5 rounded-full bg-suka-orange motion-safe:animate-bounce" style={{ animationDelay: `${jeda}ms` }} />
+              ))}
+            </span>
+          </div>
+        )}
         {galat && <p className="text-red-600 text-xs">{galat}</p>}
         <div ref={bawah} />
       </div>

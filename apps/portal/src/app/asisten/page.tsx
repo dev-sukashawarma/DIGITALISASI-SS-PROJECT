@@ -2,7 +2,7 @@ import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient, getOutletStaff, getVerifiedUserId } from '@suka/auth'
-import PanelSukaBot from '@/components/sukaBot/PanelSukaBot'
+import HalamanAsisten from '@/components/sukaBot/HalamanAsisten'
 
 export default async function AsistenPage() {
   const cookieStore = await cookies()
@@ -18,9 +18,9 @@ export default async function AsistenPage() {
 
   return (
     <main className="min-h-screen bg-suka-cream p-4 md:p-8">
-      <div className="max-w-3xl mx-auto space-y-4">
+      <div className="max-w-4xl mx-auto space-y-4">
         <Link href="/launcher" className="text-sm text-suka-brown font-semibold">← Kembali ke portal</Link>
-        <PanelSukaBot apiBase={apiBase} penuh />
+        <HalamanAsisten apiBase={apiBase} />
       </div>
     </main>
   )

@@ -3310,7 +3310,9 @@ akhir), `docs/superpowers/plans/2026-10-05-suka-bot-avatar-animasi.md`
 - **Klip berulang WAJIB dibuat dengan *Frames to Video*** (frame awal = akhir = `chefss.jpeg`).
 - Aset = hasil `python scripts/suka-bot/olah_klip.py` (jangan edit tangan); video mentah di Drive
   tim. `--periksa` menjaga loop, frame beku, alfa, sisa hijau, ukuran, sinkron `klip.gen.ts`.
-- Gotcha: `chromakey` ffmpeg membuat janggut tembus → kunci dominansi hijau di skrip. Dekoder
+- Gotcha: `chromakey` ffmpeg membuat janggut tembus → kunci dominansi hijau di skrip. Kunci WAJIB di resolusi
+  penuh lalu dikecilkan premultiplied + pulihkan warna tepi dari latar — kunci setelah diperkecil = tepi
+  bertangga & garis hijau (keluhan owner, diperbaiki). Dekoder
   ffmpeg bawaan membuang alfa VP9 → wajib `-c:v libvpx-vp9` sebelum `-i`. Satu kotak potong
   untuk semua klip. Matcher middleware portal dulu tak meloloskan video → redirect 307 ikut
   ter-cache 1 tahun; kini `.webm` diloloskan.

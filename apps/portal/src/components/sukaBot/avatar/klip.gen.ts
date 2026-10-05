@@ -7,9 +7,9 @@ export type InfoKlip = { webm: string; webp: string; gambar: string; ulang: bool
 export const RASIO = 0.574
 
 export const KLIP: Record<Klip, InfoKlip> = {
-  diam: { webm: '/suka-bot/diam.webm?v=08f6b53e67', webp: '/suka-bot/diam.anim.webp?v=08a6f30924', gambar: '/suka-bot/diam.webp?v=0d3e965400', ulang: true, durasiMs: 7000 },
-  berpikir: { webm: '/suka-bot/berpikir.webm?v=d81ff5ec61', webp: '/suka-bot/berpikir.anim.webp?v=686d0af391', gambar: '/suka-bot/berpikir.webp?v=ed23a245ba', ulang: true, durasiMs: 5542 },
-  rekap: { webm: '/suka-bot/rekap.webm?v=eb8151be48', webp: '/suka-bot/rekap.anim.webp?v=8e518301ae', gambar: '/suka-bot/rekap.webp?v=4b0695eeae', ulang: false, durasiMs: 5375 },
-  bingung: { webm: '/suka-bot/bingung.webm?v=1cf443ae9e', webp: '/suka-bot/bingung.anim.webp?v=4a2bd04999', gambar: '/suka-bot/bingung.webp?v=540cf36c5e', ulang: false, durasiMs: 5625 },
-  sapa: { webm: '/suka-bot/sapa.webm?v=ebc0280a78', webp: '/suka-bot/sapa.anim.webp?v=acec03c061', gambar: '/suka-bot/sapa.webp?v=e3f60d614d', ulang: false, durasiMs: 5625 },
+  diam: { webm: '/suka-bot/diam.webm?v=dfb3bd26b8', webp: '/suka-bot/diam.anim.webp?v=481155a269', gambar: '/suka-bot/diam.webp?v=81a1638392', ulang: true, durasiMs: 6958 },
+  berpikir: { webm: '/suka-bot/berpikir.webm?v=b4d3bed485', webp: '/suka-bot/berpikir.anim.webp?v=e4cf6ad5eb', gambar: '/suka-bot/berpikir.webp?v=a4d88afe57', ulang: true, durasiMs: 5542 },
+  rekap: { webm: '/suka-bot/rekap.webm?v=34423ea183', webp: '/suka-bot/rekap.anim.webp?v=b6e0b908a9', gambar: '/suka-bot/rekap.webp?v=79a015c614', ulang: false, durasiMs: 5375 },
+  bingung: { webm: '/suka-bot/bingung.webm?v=a5a383ddab', webp: '/suka-bot/bingung.anim.webp?v=c0d0304d3a', gambar: '/suka-bot/bingung.webp?v=e149d55345', ulang: false, durasiMs: 5542 },
+  sapa: { webm: '/suka-bot/sapa.webm?v=da4be6398e', webp: '/suka-bot/sapa.anim.webp?v=291d5456df', gambar: '/suka-bot/sapa.webp?v=1a617692bd', ulang: false, durasiMs: 5583 },
 }

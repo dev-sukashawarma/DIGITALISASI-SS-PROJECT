@@ -23,12 +23,18 @@ export function buatPanggilLLM(
       body: JSON.stringify({
         model,
         messages: pesan,
+        // Wajib eksplisit: 9Router membalas text/event-stream bila ada pesan sistem
+        // walau stream tidak diminta (terukur 2026-10-05).
+        stream: false,
         temperature: 0.2,
         ...(alat.length > 0 ? { tools: alat, tool_choice: 'auto' } : {}),
       }),
       signal: AbortSignal.timeout(BATAS_WAKTU_MS),
     })
     if (!res.ok) throw new Error(`LLM HTTP ${res.status}`)
+    if ((res.headers.get('content-type') ?? '').includes('text/event-stream')) {
+      throw new Error('LLM membalas streaming (text/event-stream); periksa pengaturan stream di gateway')
+    }
     const json: any = await res.json()
     const m = json?.choices?.[0]?.message
     if (!m) throw new Error('LLM: respons tanpa pesan')

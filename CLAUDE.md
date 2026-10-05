@@ -3274,12 +3274,13 @@ Rumus inti HPP (riwayat per tanggal `menu_hpp_pada`, COGS Ringkasan Bisnis) **te
 
 - **Apa:** avatar SUKA Bot di portal launcher (+ `/asisten`) untuk `admin/owner/developer` (= `is_owner_or_admin()`). Rekap penjualan kemarin (omzet kotor vs hari sama minggu lalu, ranking semua outlet, transaksi, 3 menu terlaris) + tanya jawab penjualan & stok bahan.
 - **Arsitektur:** tampilan di portal, otak di admin-dashboard `/api/asisten/{chat,rekap,percakapan}`. AI (9Router, OpenAI-compatible, env `AI_BASE_URL/AI_API_KEY/AI_MODEL`) **hanya memanggil alat** (`src/lib/sukaBot/alat/*`), tidak menulis SQL. Alat penjualan memanggil `getPosReport` (rumus + cache Rangkuman Penjualan); alat stok membaca `monitoring_view_spv` + `formatTriUnitSaldoAdaptive`. Teks rekap = template kode, tanpa AI.
-- **Outlet terhitung = daftar boleh** `type IN ('outlet','mitra')` — tipe baru (`internal`, `test`) otomatis tak ikut.
+- **Outlet terhitung** = `type IN ('internal','mitra')` tanpa slug `ss-backup` & nama tes/test/trial/demo (= `valid_operational_outlets`). 21 aktif + 3 nonaktif historis (per 2026-10-05).
 
 ### ⚠️ Gotcha
 - **Middleware admin-dashboard dilewati untuk `/api/asisten/`:** role `owner` tidak punya `admin-dashboard` di `ROLE_APP_ACCESS`, jadi `enforceAppAccess` me-redirect owner (dan preflight CORS). Route memeriksa sesi + `is_owner_or_admin()` + status aktif sendiri (`lib/sukaBot/server/sesi.ts`) — itu satu-satunya gerbang.
 - **`getPosReport` dengan `outlets: []` = "semua" termasuk SS Online** — adapter `ambilLaporanRangkuman` menolak daftar kosong.
-- **Pencocokan angka vs dashboard:** pilih ke-21 outlet outlet/mitra di Rangkuman Penjualan, BUKAN "Semua Cabang" (ikut SS Online).
+- **Pencocokan angka vs dashboard:** pilih ke-21 outlet aktif (internal + mitra, tanpa SS BACKUP) di Rangkuman Penjualan, BUKAN "Semua Cabang" (ikut SS Online).
+- **Tipe outlet `outlet` sudah tidak ada** sejak migration `20261003150000` (jadi `internal`; CHECK constraint kini `internal|mitra|gudang|office|marketplace|system|test`). Plan awal SUKA Bot memakai `('outlet','mitra')` → saat uji browser ranking hanya berisi mitra; diperbaiki `66a9bccf`. Kode baru yang menyaring outlet sungguhan: pakai `internal|mitra` + kecualikan `ss-backup` & nama tes. Rekap 4 Okt versi 1 (11 outlet, mitra saja) masih tersimpan; versi baru dibuat lewat "Perbarui rekap".
 - Test `alat/stok.test.ts` menjaga paritas `compositeUnit.ts` admin-dashboard ↔ app Stok (kode identik per 2026-10-03, beda komentar saja).
 - Dua panggilan `execute_sql` DDL dari sesi ditolak di layar persetujuan; migration akhirnya dijalankan owner di SQL Editor. Junction `node_modules` ke worktree ditolak pengaman otomatis — test jalan pakai `node_modules` root (zod 3.25 di root vs v4 di app; kode kompatibel keduanya).
 

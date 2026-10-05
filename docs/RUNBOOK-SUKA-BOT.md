@@ -35,9 +35,10 @@ harapan. Riwayat migration terstempel.
 
 ## Pencocokan angka (wajib sebelum rilis — spec §11)
 Untuk **kemarin**, **minggu ini**, **bulan lalu**: jawaban "omzet <rentang>" harus sama
-sampai rupiah dengan `/dashboard/reports/pos` rentang sama, **ke-21 outlet bertipe
-outlet/mitra dipilih** (bukan "Semua Cabang" — itu ikut SS Online), kartu **Gross
-Revenue**. Ulangi untuk satu outlet (Beji) dan satu kanal (GoFood). Ranking kemarin:
+sampai rupiah dengan `/dashboard/reports/pos` rentang sama, **ke-21 outlet aktif
+(10 internal + 11 mitra) dipilih**, tanpa SS BACKUP (bukan "Semua Cabang" — itu ikut SS
+Online), kartu **Gross Revenue**. Untuk periode yang mencakup masa outlet nonaktif masih
+buka (Jatiasih, Paledang, Sawangan Internal), ikut pilih outlet itu juga. Ulangi untuk satu outlet (Beji) dan satu kanal (GoFood). Ranking kemarin:
 3 outlet teratas = Rangkuman Penjualan dengan filter outlet itu saja.
 Stok: 5 bahan × 3 outlet (termasuk satu baris `saldo_is_gram = true`) = app Stok › Monitoring.
 **Bila ada selisih: berhenti, jangan rilis.**

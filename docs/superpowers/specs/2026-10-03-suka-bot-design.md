@@ -90,9 +90,14 @@ Semua hanya-baca. Parameter divalidasi di server (zod); AI tidak pernah menyusun
 - Tanpa nilai rupiah persediaan.
 
 ### Lingkup outlet (T1–T4, rekap)
-- **Daftar boleh:** outlet `is_active = true` dengan `type IN ('outlet','mitra')`.
-  Tipe lain (`test`, `internal`, `office`, `gudang`, `marketplace`, `system`, dan tipe
-  baru apa pun) otomatis tidak ikut. Per 2026-10-03: 10 milik + 11 mitra = 21.
+- **Daftar boleh:** `type IN ('internal','mitra')`, **kecuali** slug `ss-backup` dan nama
+  mengandung tes/test/trial/demo — sama dengan view `valid_operational_outlets` /
+  `sales_board_outlets`. Tipe lokasi lain (`test`, `office`, `gudang`, `marketplace`,
+  `system`) tidak ikut. Per 2026-10-05: 21 aktif (10 internal + 11 mitra) + 3 nonaktif
+  historis.
+  ⚠️ **Koreksi 2026-10-05:** versi awal spec ini memakai `('outlet','mitra')`. Migration
+  `20261003150000` (keputusan owner 3 Okt) mengganti tipe `outlet` → `internal`, sehingga
+  10 outlet milik sempat hilang dari ranking saat uji browser. Diperbaiki `66a9bccf`.
 - Satu ranking, **tanpa label milik/mitra**.
 - SS Online (Shopee/TikTok Shop) tidak ikut ranking.
 - Pertanyaan periode lampau tetap menghitung outlet yang kini nonaktif bila saat itu

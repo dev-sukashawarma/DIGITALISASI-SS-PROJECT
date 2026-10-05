@@ -16,6 +16,7 @@
 - AI **tidak pernah** menulis SQL atau menghitung angka. Semua angka berasal dari keluaran alat.
 - Omzet acuan = **omzet kotor** (`analytics.grossRevenue` Rangkuman Penjualan).
 - Outlet terhitung = `outlets.type IN ('outlet','mitra')` (daftar boleh). Outlet nonaktif tampil hanya bila omzetnya > 0 di periode itu. SS Online tidak ikut.
+  ⚠️ **Basi sejak 2026-10-03** (migration `20261003150000`: `outlet` → `internal`). Aturan yang berlaku: `internal|mitra` tanpa `ss-backup` & nama tes/test/trial/demo — lihat spec §4 dan commit `66a9bccf`. Kode di task 4 di bawah dibiarkan sebagai catatan asli.
 - Waktu = WIB. Minggu mulai **Senin**. Periode berjalan dibandingkan dengan rentang yang sama panjang.
 - Setiap jawaban menyebut periode (tanggal persis) + sumber.
 - Hanya-baca: tidak ada alat yang menulis data bisnis.

@@ -79,8 +79,10 @@ describe('alatBandingkan', () => {
       utama: { omzet_kotor: 'Rp 1.000.000' },
       pembanding: { omzet_kotor: 'Rp 800.000', periode: 'Rentang (Rab 23 Sep 2026)' },
       selisih: 'Rp 200.000',
-      perubahan: '+25%',
     })
+    // Keputusan owner 5 Okt: omzet tanpa persentase — cukup dua angka + selisih rupiah.
+    expect(r).not.toHaveProperty('perubahan')
+    expect(JSON.stringify(r)).not.toContain('%')
   })
   it('hari ini vs pembanding: diberi peringatan bahwa pembanding seharian penuh', async () => {
     const r: any = await alatBandingkan(konteks(), { periode: 'hari_ini' })
@@ -102,23 +104,16 @@ describe('alatMenuTerlaris', () => {
 })
 
 describe('alatRankingOutlet', () => {
-  it('urut omzet, outlet nonaktif tanpa omzet dibuang, perubahan vs minggu lalu', async () => {
-    const r: any = await alatRankingOutlet(konteks(), { periode: 'kemarin' })
-    expect(r.ranking.map((x: any) => [x.peringkat, x.nama, x.omzet, x.perubahan])).toEqual([
-      [1, 'MITRA CIBUBUR', 'Rp 3.000.000', '0%'],
-      [2, 'SUKA SHAWARMA BEJI', 'Rp 1.000.000', '+25%'],
-    ])
-  })
-  it('hari ini: TIDAK dibandingkan otomatis (hari belum selesai)', async () => {
+  it('urut omzet, outlet nonaktif tanpa omzet dibuang, tanpa persentase & tanpa pembanding', async () => {
     const ctx = konteks()
-    const r: any = await alatRankingOutlet(ctx, { periode: 'hari_ini' })
-    expect(r.pembanding).toBeUndefined()
-    expect(r.ranking.every((x: any) => x.perubahan === undefined)).toBe(true)
-    expect(ctx.panggilan.every((p: any) => p.dari === '2026-10-01')).toBe(true)
-  })
-  it('hari ini: tetap bisa dibandingkan bila diminta eksplisit, dengan peringatan', async () => {
-    const r: any = await alatRankingOutlet(konteks(), { periode: 'hari_ini', bandingkan: true })
-    expect(r.pembanding).toBeDefined()
-    expect(r.catatan).toContain('pembanding dihitung seharian penuh')
+    const r: any = await alatRankingOutlet(ctx, { periode: 'kemarin' })
+    expect(r.ranking).toEqual([
+      { peringkat: 1, nama: 'MITRA CIBUBUR', omzet: 'Rp 3.000.000' },
+      { peringkat: 2, nama: 'SUKA SHAWARMA BEJI', omzet: 'Rp 1.000.000' },
+    ])
+    expect(r).not.toHaveProperty('pembanding')
+    expect(JSON.stringify(r)).not.toContain('%')
+    // Hanya periode utama yang diambil: 1 panggilan per outlet terhitung.
+    expect(ctx.panggilan.every((p: any) => p.dari === '2026-09-30')).toBe(true)
   })
 })

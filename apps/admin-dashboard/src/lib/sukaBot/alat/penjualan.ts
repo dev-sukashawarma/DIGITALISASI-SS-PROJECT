@@ -1,7 +1,7 @@
 import { mapWithConcurrency } from '@/lib/ownerDashboardCache'
 import { resolvePeriode, periodePembanding, type KodePeriode, type Periode } from '../periode'
 import { cariSatu, normalisasiOutlet } from '../pencarian'
-import { rupiah, persenPerubahan, teksPersen, jamWib } from '../format'
+import { rupiah, jamWib } from '../format'
 
 export interface RingkasanLaporan { omzetKotor: number; omzetBersih: number; transaksi: number; menu: { nama: string; qty: number; omzet: number }[] }
 export type AmbilLaporan = (r: { dari: string; sampai: string; outletIds: string[]; kanal: string[] }) => Promise<RingkasanLaporan>
@@ -22,7 +22,7 @@ export const KANAL: Record<KodeKanal, { channels: string[]; label: string }> = {
 }
 
 export interface ArgPeriode { periode: KodePeriode; dari?: string; sampai?: string }
-export interface BarisRanking { peringkat: number; nama: string; omzet: number; omzetPembanding: number | null; persen: number | null }
+export interface BarisRanking { peringkat: number; nama: string; omzet: number }
 
 // Outlet sungguhan = 'internal' | 'mitra' (migration 20261003150000, keputusan owner 3 Okt).
 // Aturan nama & slug disamakan dengan view valid_operational_outlets / sales_board_outlets:
@@ -40,10 +40,10 @@ export function outletTerhitung(outlets: OutletInfo[]): OutletInfo[] {
 const periodeDari = (ctx: KonteksPenjualan, a: ArgPeriode) => resolvePeriode(a.periode, ctx.hariIni, { dari: a.dari, sampai: a.sampai })
 const catatanBerjalan = (ctx: KonteksPenjualan, p: Periode) => (p.berjalan ? `Angka berjalan sampai pukul ${jamWib(ctx.sekarang)} WIB.` : undefined)
 // Rangkuman Penjualan per hari, tak bisa dipotong per jam → hari ini (belum selesai) selalu
-// tampak "turun" melawan hari penuh. Terukur saat uji 5 Okt: BNR -62%, Cicurug -95% pukul 14:07.
+// tampak "turun" melawan hari penuh (terukur 5 Okt pukul 14:07: BNR & Cicurug tampak anjlok).
 const catatanBanding = (ctx: KonteksPenjualan, p: Periode) =>
   p.berjalan
-    ? `${catatanBerjalan(ctx, p)} Hari terakhir periode ini belum selesai, sedangkan pembanding dihitung seharian penuh — persen perubahan belum bisa disimpulkan.`
+    ? `${catatanBerjalan(ctx, p)} Hari terakhir periode ini belum selesai, sedangkan pembanding dihitung seharian penuh — selisihnya belum bisa disimpulkan.`
     : undefined
 
 type Cakupan = { ok: true; ids: string[]; label: string } | { ok: false; hasil: Record<string, unknown> }
@@ -94,7 +94,6 @@ export async function alatBandingkan(ctx: KonteksPenjualan, a: ArgPeriode & { pe
     utama: ringkas(p, lp),
     pembanding: ringkas(q, lq),
     selisih: rupiah(lp.omzetKotor - lq.omzetKotor),
-    perubahan: teksPersen(persenPerubahan(lp.omzetKotor, lq.omzetKotor)),
     catatan: catatanBanding(ctx, p),
     sumber: SUMBER,
   }
@@ -121,41 +120,30 @@ export async function alatMenuTerlaris(ctx: KonteksPenjualan, a: ArgPeriode & { 
   }
 }
 
-export async function hitungRanking(ctx: KonteksPenjualan, p: Periode, pembanding: Periode | null, kanal: string[]): Promise<BarisRanking[]> {
+// Keputusan owner 2026-10-05: omzet tampil TANPA persentase. Ranking cukup omzet per outlet;
+// perbandingan antar periode lewat alat bandingkan_periode (selisih rupiah).
+export async function hitungRanking(ctx: KonteksPenjualan, p: Periode, kanal: string[]): Promise<BarisRanking[]> {
   const daftar = outletTerhitung(ctx.outlets)
   const baris = await mapWithConcurrency(daftar, KONKURENSI, async (o) => {
-    const [lp, lq] = await Promise.all([
-      ctx.ambilLaporan({ dari: p.dari, sampai: p.sampai, outletIds: [o.id], kanal }),
-      pembanding ? ctx.ambilLaporan({ dari: pembanding.dari, sampai: pembanding.sampai, outletIds: [o.id], kanal }) : Promise.resolve(null),
-    ])
-    return { o, omzet: lp.omzetKotor, omzetPembanding: lq ? lq.omzetKotor : null }
+    const l = await ctx.ambilLaporan({ dari: p.dari, sampai: p.sampai, outletIds: [o.id], kanal })
+    return { o, omzet: l.omzetKotor }
   })
   return baris
     .filter((b) => b.o.is_active || b.omzet > 0)
     .sort((x, y) => y.omzet - x.omzet)
-    .map((b, i) => ({
-      peringkat: i + 1,
-      nama: b.o.name,
-      omzet: b.omzet,
-      omzetPembanding: b.omzetPembanding,
-      persen: b.omzetPembanding === null ? null : persenPerubahan(b.omzet, b.omzetPembanding),
-    }))
+    .map((b, i) => ({ peringkat: i + 1, nama: b.o.name, omzet: b.omzet }))
 }
 
-export async function alatRankingOutlet(ctx: KonteksPenjualan, a: ArgPeriode & { kanal?: KodeKanal; bandingkan?: boolean }) {
+export async function alatRankingOutlet(ctx: KonteksPenjualan, a: ArgPeriode & { kanal?: KodeKanal }) {
   const p = periodeDari(ctx, a)
-  // Hari ini tidak dibandingkan kecuali diminta eksplisit (lihat catatanBanding).
-  const bandingkan = a.bandingkan ?? a.periode !== 'hari_ini'
-  const q = bandingkan ? periodePembanding(a.periode, p) : null
   const kanal = KANAL[a.kanal ?? 'semua']
-  const ranking = await hitungRanking(ctx, p, q, kanal.channels)
+  const ranking = await hitungRanking(ctx, p, kanal.channels)
   return {
     status: 'ok',
     periode: p.label,
-    pembanding: q?.label,
     kanal: kanal.label,
-    ranking: ranking.map((r) => ({ peringkat: r.peringkat, nama: r.nama, omzet: rupiah(r.omzet), perubahan: q ? teksPersen(r.persen) : undefined })),
-    catatan: q ? catatanBanding(ctx, p) : catatanBerjalan(ctx, p),
+    ranking: ranking.map((r) => ({ peringkat: r.peringkat, nama: r.nama, omzet: rupiah(r.omzet) })),
+    catatan: catatanBerjalan(ctx, p),
     sumber: SUMBER,
   }
 }

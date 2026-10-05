@@ -30,6 +30,16 @@ describe('buatPromptSistem', () => {
     const p = buatPromptSistem({ ...dasar, tanggalRekap: null })
     expect(p).toContain('pakai periode "kemarin"')
   })
+  it('melarang persentase omzet (keputusan owner 5 Okt)', () => {
+    const p = buatPromptSistem({ ...dasar, tanggalRekap: null })
+    expect(p).toContain('JANGAN menampilkan persentase')
+    expect(p).not.toContain('selisih/persen')
+  })
+  it('teks polos tanpa markdown & label periode disalin persis (panel tidak merender markdown)', () => {
+    const p = buatPromptSistem({ ...dasar, tanggalRekap: null })
+    expect(p).toContain('JANGAN memakai format markdown')
+    expect(p).toContain('salin teks field "periode" persis')
+  })
   it('jam & tanggal sekarang dalam WIB', () => {
     expect(buatPromptSistem({ ...dasar, tanggalRekap: null })).toContain('Hari ini Sen 5 Okt 2026, pukul 14:00 WIB.')
   })

@@ -4,7 +4,7 @@ import { createSupabaseServerClient, getOutletStaff, accessibleApps, getVerified
 import type { AppName } from '@suka/auth'
 import LogoutButton from '@/components/LogoutButton'
 import AppGrid, { type PortalAppItem } from '@/components/AppGrid'
-import { MapPin, Clock, CheckCircle2, Store, Users } from 'lucide-react'
+import { MapPin, Clock, CheckCircle2, Store, Users, Sparkles } from 'lucide-react'
 import LiveClock from '@/components/LiveClock'
 
 import { headers } from 'next/headers'
@@ -215,6 +215,7 @@ export default async function LauncherPage() {
   let operationalMetrics: {
     openOutletsCount: number
     totalOutletsCount: number
+    comingSoonOutlets: { id: string; name: string }[]
     currentlyWorkingCrew: number
     totalAttendedCount: number
   } | null = null
@@ -223,7 +224,7 @@ export default async function LauncherPage() {
 
   if (isExecutiveRole) {
     const [outletsRes, staffRes, attendanceRes] = await Promise.all([
-      supabase.from('outlets').select('id, name, slug, type, is_active, inactive_reason').eq('is_active', true),
+      supabase.from('outlets').select('id, name, slug, type, is_active, inactive_reason, app_enabled').eq('is_active', true),
       supabase.from('outlet_staff').select('id, name, username, role, account_category, status').eq('status', 'active'),
       supabase
         .from('attendance')
@@ -237,11 +238,11 @@ export default async function LauncherPage() {
     const staffList = staffRes.data || []
     const attendance = attendanceRes.data || []
 
-    // 1. Filter outlet fisik operasional riil (kecualikan testing, backup, trial, demo, non-retail, dan outlet non-aktif)
+    // 1. Filter outlet fisik ritel riil (kecualikan testing, backup, trial, demo, non-retail, dan outlet non-aktif)
     const OLD_SAWANGAN_ID = '550e8400-e29b-41d4-a716-446655440008'
     const NEW_SAWANGAN_DTC_ID = '5a4df577-5237-476e-b54c-9eb642a5a516'
 
-    const operationalOutlets = outlets.filter((o: any) => {
+    const physicalOutlets = outlets.filter((o: any) => {
       if (!o.is_active) return false
       if (o.inactive_reason) return false
       if (o.id === 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a') return false // TEST_OUTLET_ID
@@ -253,6 +254,10 @@ export default async function LauncherPage() {
       if (['tes', 'test', 'trial', 'demo', 'backup'].some(w => name.includes(w) || slug.includes(w))) return false
       return true
     })
+
+    // Pisahkan outlet operasional aktif (app_enabled !== false) dan outlet dalam persiapan (app_enabled === false / coming soon)
+    const operationalOutlets = physicalOutlets.filter((o: any) => o.app_enabled !== false)
+    const comingSoonOutlets = physicalOutlets.filter((o: any) => o.app_enabled === false)
     const operationalOutletIds = new Set(operationalOutlets.map((o: any) => o.id))
 
     // 2. Filter kru/staf riil aktif (kecualikan bot devai, dummy test, kiosk, owner, mitra investor)
@@ -304,6 +309,7 @@ export default async function LauncherPage() {
     operationalMetrics = {
       openOutletsCount: openOutletIds.size,
       totalOutletsCount: operationalOutlets.length,
+      comingSoonOutlets: comingSoonOutlets.map((o: any) => ({ id: o.id, name: o.name })),
       currentlyWorkingCrew,
       totalAttendedCount: attendedStaffIds.size,
     }
@@ -421,7 +427,7 @@ export default async function LauncherPage() {
                 operationalMetrics && (
                   <>
                     {/* Outlet Buka Metric */}
-                    <div className="inline-flex items-center justify-between sm:justify-start gap-2 bg-emerald-500/20 border border-emerald-500/35 text-emerald-100 text-xs font-bold px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
+                    <div className="inline-flex items-center justify-between sm:justify-start gap-2 sm:gap-3 bg-emerald-500/20 border border-emerald-500/35 text-emerald-100 text-xs font-bold px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl shadow-xs backdrop-blur-sm select-none">
                       <div className="flex items-center gap-2">
                         <span className="relative flex h-2 w-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -430,9 +436,23 @@ export default async function LauncherPage() {
                         <Store size={14} className="text-emerald-300 shrink-0" />
                         <span className="text-emerald-200/90 text-[11px] sm:text-xs">Status Outlet:</span>
                       </div>
-                      <span>
-                        <strong className="text-white font-black">{operationalMetrics.openOutletsCount} / {operationalMetrics.totalOutletsCount}</strong> Outlet Buka
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span>
+                          <strong className="text-white font-black">{operationalMetrics.openOutletsCount} / {operationalMetrics.totalOutletsCount}</strong> Outlet Buka
+                        </span>
+                        {operationalMetrics.comingSoonOutlets.length > 0 && (
+                          <span
+                            title={`Outlet dalam persiapan buka: ${operationalMetrics.comingSoonOutlets.map(o => o.name).join(', ')}`}
+                            className="inline-flex items-center gap-1 rounded-lg bg-white/15 hover:bg-white/25 transition-colors px-2 py-0.5 text-[10px] font-extrabold text-white border border-white/20 shadow-xs cursor-help select-none"
+                          >
+                            <Sparkles size={10} className="text-amber-300 shrink-0" />
+                            <span>+{operationalMetrics.comingSoonOutlets.length} Coming Soon</span>
+                            <span className="hidden md:inline text-white/80 font-medium">
+                              ({operationalMetrics.comingSoonOutlets[0].name.replace(/^MITRA\s+|^SUKA\s+SHAWARMA\s+/i, '')})
+                            </span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Kru Bertugas Metric */}

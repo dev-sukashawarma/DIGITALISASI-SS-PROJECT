@@ -3291,6 +3291,35 @@ Rumus inti HPP (riwayat per tanggal `menu_hpp_pada`, COGS Ringkasan Bisnis) **te
 3. Redeploy **admin-dashboard** lalu **portal**.
 4. Aset avatar `apps/portal/public/suka-bot/{diam,berpikir,rekap,bingung}.webp` (dibuat tim owner).
 
+---
+
+## Session 2026-10-05: SUKA Bot — Avatar Chef Beranimasi (apps/portal)
+
+**Status:** Kode di branch `feat/suka-bot-avatar-animasi`. ⚠️ Perlu merge + **redeploy `portal`**.
+**Hanya untuk role admin, owner, developer** (gerbang: `bisaSukaBot` launcher, cek role `/asisten`,
+`is_owner_or_admin()` server — jangan dilonggarkan).
+
+**Spec/plan:** `docs/superpowers/specs/2026-10-05-suka-bot-avatar-animasi-design.md` (§11 = revisi
+akhir), `docs/superpowers/plans/2026-10-05-suka-bot-avatar-animasi.md`
+
+- Chef seluruh badan, transparan, bisa digeser (posisi diingat), panel muncul di samping chef.
+  Klip Google Flow (Veo) per pose: `diam`/`berpikir` berulang, `rekap`/`bingung`/`sapa` sekali.
+- Format per perangkat: WebM VP9 alfa (Chromium/Firefox) vs WebP beranimasi 12 fps (semua
+  browser iOS + Safari Mac — WebKit tak menggambar alfa WebM). Pemilih: `avatar/modeTampil.ts`.
+- **Klip berulang WAJIB dibuat dengan *Frames to Video*** (frame awal = akhir = `chefss.jpeg`).
+- Aset = hasil `python scripts/suka-bot/olah_klip.py` (jangan edit tangan); video mentah di Drive
+  tim. `--periksa` menjaga loop, frame beku, alfa, sisa hijau, ukuran, sinkron `klip.gen.ts`.
+- Gotcha: `chromakey` ffmpeg membuat janggut tembus → kunci dominansi hijau di skrip. Dekoder
+  ffmpeg bawaan membuang alfa VP9 → wajib `-c:v libvpx-vp9` sebelum `-i`. Satu kotak potong
+  untuk semua klip. Matcher middleware portal dulu tak meloloskan video → redirect 307 ikut
+  ter-cache 1 tahun; kini `.webm` diloloskan.
+- Geser chef: pointer WAJIB ditangkap sejak `pointerdown` (`useGeserChef.ts`); kalau baru ditangkap
+  setelah ambang, geseran cepat yang langsung keluar chef (63 px di HP) hilang. Ketahuan saat uji browser.
+- Panel browser Claude yang tersembunyi menunda video (Chrome "background media paused") —
+  bukan bug.
+- Setelan avatar (ukuran chef & kotak chat, animasi bergerak/diam, kembalikan posisi, sembunyikan
+  jadi tab) di ikon roda gigi panel, **per perangkat** (`localStorage`), spec §12.
+- Portal kini punya Vitest (`yarn test`); `framer-motion`/`vitest` tanpa ubah lockfile.
 
 **Last updated:** 2026-10-05  
 **Owner:** Dev Suka Shawarma

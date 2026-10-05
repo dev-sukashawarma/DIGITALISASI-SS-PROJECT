@@ -15,6 +15,15 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react'],
   },
   typescript: { ignoreBuildErrors: true },
+  // URL aset avatar memakai sidik (?v=...) dari klip.gen.ts, jadi aman di-cache selamanya.
+  async headers() {
+    return [
+      {
+        source: '/suka-bot/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ]
+  },
 }
 
 export default nextConfig

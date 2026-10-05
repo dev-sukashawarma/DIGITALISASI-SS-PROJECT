@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import AvatarSukaBot, { type Pose } from './AvatarSukaBot'
+import { MessageCircle, Settings } from 'lucide-react'
+import type { Pose } from './AvatarSukaBot'
 import { ambilPesan, ambilRekap, kirimPesan, perbaruiRekap, type Rekap } from './api'
 
 type Pesan = { peran: 'user' | 'assistant'; isi: string }
@@ -25,15 +26,28 @@ function simpanPercakapan(id: string | undefined) {
   } catch { /* abaikan */ }
 }
 
-export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiBase: string; penuh?: boolean; onRekap?: (r: Rekap) => void }) {
+export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, ukuran, setelan }: {
+  apiBase: string
+  penuh?: boolean
+  onRekap?: (r: Rekap) => void
+  /** Pose chef mengikuti keadaan panel (berpikir saat menunggu, bingung saat galat). */
+  onPose?: (pose: Pose) => void
+  /** Ukuran dari widget (panel melayang di samping chef). */
+  ukuran?: { w: number; h: number }
+  /** Isi layar setelan (ikon roda gigi hanya tampil bila diisi). JSX.Element, bukan ReactNode: lihat catatan tipe di SukaBotWidget.tsx. */
+  setelan?: JSX.Element
+}) {
   const [rekap, setRekap] = useState<Rekap | null>(null)
   const [pesan, setPesan] = useState<Pesan[]>([])
   const [input, setInput] = useState('')
   const [pose, setPose] = useState<Pose>('rekap')
   const [sibuk, setSibuk] = useState(false)
   const [galat, setGalat] = useState<string | null>(null)
+  const [lihatSetelan, setLihatSetelan] = useState(false)
   const percakapanId = useRef<string | undefined>(undefined)
   const bawah = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { onPose?.(pose) }, [pose, onPose])
 
   useEffect(() => {
     setSibuk(true)
@@ -103,9 +117,11 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiB
   }
 
   return (
-    <div className={`flex flex-col bg-white rounded-2xl shadow-2xl border border-suka-orange/20 overflow-hidden ${penuh ? 'h-[calc(100vh-8rem)]' : 'w-[min(24rem,calc(100vw-2rem))] h-[min(36rem,calc(100vh-7rem))]'}`}>
+    <div
+      style={ukuran ? { width: ukuran.w, height: ukuran.h } : undefined}
+      className={`flex flex-col bg-white rounded-2xl shadow-2xl border border-suka-orange/20 overflow-hidden ${penuh ? 'h-[calc(100vh-8rem)]' : ukuran ? '' : 'w-[min(24rem,calc(100vw-2rem))] h-[min(36rem,calc(100vh-7rem))]'}`}
+    >
       <div className="flex items-center gap-3 px-4 py-3 bg-suka-ink text-white">
-        <AvatarSukaBot pose={pose} ukuran={40} />
         <div className="flex-1">
           <p className="font-bold leading-tight">SUKA Bot</p>
           <p className="text-xs opacity-75">{sibuk ? 'Lagi mikir…' : 'Siap bantu, Bos'}</p>
@@ -115,7 +131,20 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiB
             Percakapan baru
           </button>
         )}
+        {setelan && (
+          <button
+            type="button"
+            onClick={() => setLihatSetelan((v) => !v)}
+            aria-label={lihatSetelan ? 'Kembali ke chat' : 'Setelan SUKA Bot'}
+            aria-pressed={lihatSetelan}
+            className="rounded-full p-1.5 hover:bg-white/10"
+          >
+            {lihatSetelan ? <MessageCircle size={18} /> : <Settings size={18} />}
+          </button>
+        )}
       </div>
+
+      {lihatSetelan && setelan ? setelan : (<>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
         {rekap && (
@@ -148,6 +177,7 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiB
           Kirim
         </button>
       </form>
+      </>)}
     </div>
   )
 }

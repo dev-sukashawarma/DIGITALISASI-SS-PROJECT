@@ -9,7 +9,11 @@ salin ke folder `sumber_dir` (lihat klip.json) sebelum mengolah.
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -89,3 +93,94 @@ def isi_klip_gen(info: dict[str, dict]) -> str:
 
 def sidik(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:10]
+
+
+ROOT = Path(__file__).resolve().parents[2]
+KONFIG = Path(__file__).with_name('klip.json')
+
+
+def _ffmpeg_baca(args: list[str], sisi: int) -> np.ndarray:
+    keluar = subprocess.run(['ffmpeg', '-v', 'error', *args, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
+                            check=True, capture_output=True).stdout
+    return np.frombuffer(keluar, np.uint8).reshape(-1, sisi, sisi, 3)
+
+
+def olah_satu(nama: str, k: dict, kfg: dict) -> None:
+    sumber = ROOT / kfg['sumber_dir'] / k['berkas']
+    if not sumber.exists():
+        sys.exit(f"[{nama}] berkas sumber tidak ada: {sumber} (salin video mentah dari Drive tim)")
+    if not (k['awal'] <= k['frame_gambar'] < k['akhir']):
+        sys.exit(f"[{nama}] frame_gambar {k['frame_gambar']} di luar segmen {k['awal']}..{k['akhir']}")
+    p, s = kfg['potong'], kfg['ukuran']
+    vf = (f"trim=start_frame={k['awal']}:end_frame={k['akhir']},setpts=PTS-STARTPTS,"
+          f"crop={p['sisi']}:{p['sisi']}:{p['x']}:{p['y']},scale={s}:{s}:flags=lanczos")
+    mentah = _ffmpeg_baca(['-i', str(sumber), '-an', '-vf', vf], s)
+    latar, t = hex_ke_rgb(kfg['latar']), kfg['kunci_hijau']
+    hasil = np.stack([kunci_hijau(f, latar, t['t0'], t['t1']) for f in mentah])
+    keluar = ROOT / kfg['keluar_dir']
+    keluar.mkdir(parents=True, exist_ok=True)
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{s}x{s}',
+                    '-r', str(FPS), '-i', '-', '-an', '-c:v', 'libx264', '-crf', str(kfg['crf']),
+                    '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(keluar / f'{nama}.mp4')],
+                   input=hasil.tobytes(), check=True)
+    Image.fromarray(hasil[k['frame_gambar'] - k['awal']]).save(keluar / f'{nama}.webp', quality=85)
+    print(f"[{nama}] {len(hasil)} frame -> {nama}.mp4 + {nama}.webp")
+
+
+def hitung_info(kfg: dict) -> dict[str, dict]:
+    keluar, info = ROOT / kfg['keluar_dir'], {}
+    for nama, k in kfg['klip'].items():
+        mp4 = keluar / f'{nama}.mp4'
+        n = len(_ffmpeg_baca(['-i', str(mp4)], kfg['ukuran']))
+        info[nama] = {'sidik_video': sidik(mp4), 'sidik_gambar': sidik(keluar / f'{nama}.webp'),
+                      'ulang': k['ulang'], 'durasi_ms': round(n * 1000 / FPS)}
+    return info
+
+
+def periksa(kfg: dict) -> list[str]:
+    galat, keluar, s = [], ROOT / kfg['keluar_dir'], kfg['ukuran']
+    for nama, k in kfg['klip'].items():
+        mp4, webp = keluar / f'{nama}.mp4', keluar / f'{nama}.webp'
+        if not mp4.exists() or not webp.exists():
+            galat.append(f"[{nama}] {mp4.name} / {webp.name} tidak ada")
+            continue
+        kb = mp4.stat().st_size / 1024
+        if kb > kfg['maks_kb']:
+            galat.append(f"[{nama}] {kb:.0f} KB > {kfg['maks_kb']} KB")
+        frames = _ffmpeg_baca(['-i', str(mp4)], s)
+        g = ukur_gerak([kecil_abu(f) for f in frames])
+        if k['ulang'] and g['sambungan'] >= g['median']:
+            galat.append(f"[{nama}] sambungan loop {g['sambungan']:.2f} >= gerak normal {g['median']:.2f}: "
+                         "klip berulang wajib dibuat ulang dengan Frames to Video")
+        beku_awal, beku_akhir = beku_ujung(g['langkah'])
+        if beku_awal > 2 or beku_akhir > 2:
+            galat.append(f"[{nama}] beku {beku_awal} langkah di awal / {beku_akhir} di akhir (maks 2): "
+                         "naikkan 'awal' / turunkan 'akhir' di klip.json")
+        hijau = max(porsi_sisa_hijau(f) for f in frames)
+        if hijau > 0.001:
+            galat.append(f"[{nama}] sisa hijau {hijau:.3%} piksel")
+    if not galat:
+        gen = ROOT / kfg['gen_ts']
+        if not gen.exists() or gen.read_text(encoding='utf-8') != isi_klip_gen(hitung_info(kfg)):
+            galat.append(f"{kfg['gen_ts']} tidak sinkron dengan video: jalankan tanpa --periksa")
+    return galat
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--periksa', action='store_true', help='hanya periksa hasil yang sudah ada')
+    kfg = json.loads(KONFIG.read_text(encoding='utf-8'))
+    if not ap.parse_args().periksa:
+        for nama, k in kfg['klip'].items():
+            olah_satu(nama, k, kfg)
+        (ROOT / kfg['gen_ts']).write_text(isi_klip_gen(hitung_info(kfg)), encoding='utf-8', newline='\n')
+        print(f"tulis {kfg['gen_ts']}")
+    galat = periksa(kfg)
+    for g in galat:
+        print('GAGAL', g)
+    print('periksa: OK' if not galat else f'periksa: {len(galat)} masalah')
+    sys.exit(1 if galat else 0)
+
+
+if __name__ == '__main__':
+    main()

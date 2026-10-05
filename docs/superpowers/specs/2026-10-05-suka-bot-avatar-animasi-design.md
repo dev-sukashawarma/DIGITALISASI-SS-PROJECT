@@ -53,13 +53,15 @@ Hasil ukur (5 Okt 2026, wilayah dada ke atas, 64×64 grayscale, RMS):
 
 ## 4. Pengolahan (skrip yang bisa dijalankan ulang)
 
-`scripts/suka-bot/olah-klip.py` (Python 3 + numpy + ffmpeg/ffprobe di PATH) dengan
-konfigurasi `scripts/suka-bot/klip.json`. Per klip:
+`scripts/suka-bot/olah_klip.py` (Python 3 + numpy + Pillow + ffmpeg di PATH; nama
+ber-garis-bawah agar bisa diimpor test) dengan konfigurasi `scripts/suka-bot/klip.json`.
+Per klip:
 
 1. Potong segmen sesuai konfigurasi, buang audio.
-2. Potong sebatas dada: kotak 900×900 di (90, 180) dari 1080×1920, skala 320×320.
-   Diketahui: ujung jari lambaian `rekap` sedikit terpotong di tepi kiri; posisi
-   kotak per klip boleh diatur di konfigurasi.
+2. Potong sebatas dada: kotak **980×980 di (20, 120)** dari 1080×1920, skala 320×320.
+   **Satu kotak yang sama untuk semua klip** — kotak berbeda per klip membuat ukuran
+   chef melompat saat pelarutan antar klip. Kotak ini dipilih agar lambaian `rekap`
+   (tangan sampai x≈40 px) muat; kotak 900 di (90,180) dari pratinjau memotong jari.
 3. Buang hijau dengan **dominansi hijau**, bukan `chromakey` ffmpeg (yang terbukti
    membuat janggut & wajah tembus): `d = G − max(R,B)`,
    `alpha = clip(1 − (d − 18)/(55 − 18), 0, 1)`; despill `G = min(G, max(R,B))`.
@@ -72,7 +74,7 @@ konfigurasi `scripts/suka-bot/klip.json`. Per klip:
 7. Tulis `apps/portal/src/components/sukaBot/avatar/klip.gen.ts`: daftar klip,
    cara putar, dan sidik (hash isi berkas) untuk versi URL.
 
-`olah-klip.py --periksa` gagal dengan pesan jelas bila:
+`olah_klip.py --periksa` gagal dengan pesan jelas bila:
 - klip berulang: selisih frame akhir vs awal ≥ median gerak per frame klip itu;
 - ada > 2 frame beku berturut-turut di ujung klip;
 - ada piksel dengan dominansi hijau di atas ambang pada hasil akhir (sisa hijau);
@@ -100,7 +102,10 @@ browser mengambil ulang.
 |---|---|
 | `AvatarSukaBot.tsx` | **Antarmuka tetap**: `pose` (`diam│berpikir│rekap│bingung`) + `ukuran`. `SukaBotWidget` & `PanelSukaBot` tidak berubah. Isi: gambar cadangan + dua `<video>` bertumpuk + lapisan `framer-motion` untuk reaksi. |
 | `avatar/rencanaPutar.ts` | Fungsi murni (tanpa React): dari keadaan + kejadian (pose berubah, klik, klip selesai) → klip yang diputar, berulang/sekali, dan klip berikutnya. |
-| `avatar/usePemutarAvatar.ts` | Hook yang menjalankan `rencanaPutar`: memuat klip di video tersembunyi, memutar saat siap, melarutkan, menangani `ended`. |
+| `avatar/usePemutarAvatar.ts` | Hook: `useReducer` atas `rencanaPutar`, meneruskan pose/klik/selesai. |
+| `avatar/LayarKlip.tsx` | Gambar pose + lapisan `<video>`: memuat klip baru tersembunyi, memutar saat siap, melarutkan 250 ms, melaporkan `ended`/gagal, jeda saat tab tersembunyi, unduh klip lain di latar. |
+| `avatar/modeTampil.ts` | Fungsi murni `bolehVideo` (§8). |
+| `avatar/condong.ts` + `avatar/useCondongKursor.ts` | Rumus murni condong (§7.3) + hook pemasang `pointermove`. |
 | `avatar/klip.gen.ts` | Hasil skrip (§4 langkah 7). Tidak diedit tangan. |
 
 Dependensi baru di `apps/portal/package.json`, keduanya sudah ter-resolve di
@@ -178,7 +183,7 @@ tidak boleh merusak launcher.
    keluar dari `berpikir` segera; klik saat `berpikir` & klik beruntun saat `sapa`
    diabaikan; `sapa` selesai → kembali ke klip berulang sebelumnya; mode tanpa
    animasi → selalu gambar.
-2. **`olah-klip.py --periksa`** lolos untuk semua klip (§4).
+2. **`olah_klip.py --periksa`** lolos untuk semua klip (§4).
 3. **Uji manual** di portal lokal (`yarn dev`, port 3010) dengan akun
    owner/admin:
    - [ ] launcher dibuka → pop, melambai sekali bila ada rekap baru, lalu diam

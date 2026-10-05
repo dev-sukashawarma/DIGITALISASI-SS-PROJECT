@@ -1,7 +1,8 @@
 # SUKA Bot — Avatar Animasi (Desain)
 
 **Tanggal:** 2026-10-05
-**Status:** Desain disetujui owner, menunggu review spec
+**Status:** Disetujui owner. **Direvisi sore 5 Okt 2026 — lihat §11** (seluruh badan, transparan,
+bisa digeser). §11 MENGGANTIKAN bagian yang bertentangan di §4–§8.
 **App:** `apps/portal` (widget SUKA Bot)
 **Terkait:** `docs/superpowers/specs/2026-10-03-suka-bot-design.md` §7 (avatar "3D
 pre-render dengan pose diam / berpikir / rekap siap / bingung + animasi ringan")
@@ -204,3 +205,55 @@ tidak boleh merusak launcher.
   jawaban).
 - Pengingat berkala rekap.
 - Animasi di app selain portal.
+
+## 11. Revisi (sore 5 Okt 2026): seluruh badan, transparan, bisa digeser
+
+Setelah melihat hasil lingkaran di browser, owner meminta: chef **seluruh badan tanpa
+lingkaran**, **bisa digeser**, panel **ikut chef**, dan **tanpa avatar lingkaran** di kepala
+panel. Bagian ini menggantikan §4 langkah 2/4–7, §5, §6 (baris `AvatarSukaBot`), dan §7.3
+(ukuran).
+
+### 11.1 Keputusan
+
+| # | Keputusan |
+|---|---|
+| R1 | Chef seluruh badan, latar transparan, tanpa lingkaran. Tinggi tampil 140 px (layar ≥ 640 px) / 110 px (HP). |
+| R2 | Format per perangkat: **WebM VP9 alfa** 24 fps untuk Chromium/Firefox/Android; **WebP beranimasi alfa** 12 fps untuk semua browser iOS/iPadOS (mesin WebKit) dan Safari macOS. Alasan: si bos memakai iPhone; prioritas desktop. Ukur 5 Okt: WebM ±250 KB/klip, WebP 12 fps ±400 KB/klip, WebP 24 fps ±740 KB/klip (terlalu berat). |
+| R3 | Chef bisa digeser bebas (mouse & sentuh), dibatasi di dalam layar, posisi diingat per perangkat (`localStorage` `sukaBot.posisi`), dijepit ulang saat layar berubah. Geser ≥ 5 px ≠ klik. |
+| R4 | Panel muncul di samping chef, di sisi yang menghadap tengah layar, sejajar bawah dengan chef. Bila tidak muat di samping (HP), di atas chef (atau di bawah bila chef di separuh atas), tinggi panel dikecilkan agar tidak menutupi chef (minimal 280 px). Panel ikut bila chef digeser. |
+| R5 | Avatar 40 px di kepala `PanelSukaBot` dihapus. Halaman `/asisten`: chef seluruh badan di samping panel (kiri pada ≥ 768 px, di atas pada HP). |
+| R6 | Aset MP4 lingkaran & gambar potongan dada dari §5 dihapus dari repo. |
+
+### 11.2 Pengolahan (menggantikan §4 langkah 2, 4–7)
+
+- Satu kotak potong untuk semua klip: **1016×1770 di (0, 106)** — gabungan bounding box kelima
+  klip (lambaian `rekap` sampai x = 0 di video sumber), rasio lebar/tinggi 0,574.
+- Kunci hijau sama (dominansi hijau, t0 18, t1 55) tapi keluarannya **RGBA** (alfa dari kunci,
+  RGB di-despill), bukan ditempel ke oranye.
+- Keluaran per klip di `apps/portal/public/suka-bot/`:
+  - `<klip>.webm` — VP9 `yuva420p`, tinggi 320, 24 fps, tanpa audio, maks 350 KB.
+  - `<klip>.anim.webp` — WebP beranimasi alfa, tinggi 280, 12 fps, loop tak hingga untuk klip
+    berulang dan 1 kali untuk sekali-putar, maks 550 KB.
+  - `<klip>.webp` — gambar diam transparan (frame `frame_gambar`), tinggi 320.
+- `klip.gen.ts` mengekspor `RASIO` dan `KLIP[klip] = { webm, webp, gambar, ulang, durasiMs }`.
+- `--periksa` tambahan: kanal alfa benar-benar ada di WebM (pojok transparan, tengah pekat);
+  WebP beranimasi > 1 frame dan jumlah loop sesuai; sisa hijau dihitung hanya pada piksel pekat.
+
+### 11.3 Komponen (menggantikan §6 untuk berkas berikut)
+
+| Berkas | Tugas |
+|---|---|
+| `avatar/modeTampil.ts` | + `pilihFormat(ua, maxTouchPoints): 'webm' \| 'webp'`, `type Sumber = 'webm' \| 'webp' \| 'gambar'`. |
+| `avatar/posisi.ts` | Murni: `sudahGeser`, `jepitPosisi`, `posisiAwal`, `ukuranPanel`, `posisiPanel`. |
+| `avatar/animWebp.ts` | Ambil WebP beranimasi sekali (cache blob); tiap pemutaran memakai URL blob baru agar animasi mulai dari frame pertama. |
+| `avatar/LayarKlip.tsx` | Gambar diam + lapisan WebM (`<video>`) atau WebP (`<img>` URL blob). Klip sekali-putar di jalur WebP/gambar dianggap selesai setelah `durasiMs` (WebP tak punya event `ended`). |
+| `AvatarSukaBot.tsx` | Props `{ pose?, tinggi? = 140, ketukan? = 0 }`. Klik ditangani pemanggil; `ketukan` yang bertambah memicu `sapa` (agar geser tidak memicu sapa). Condong berporos di kaki. |
+| `useGeserChef.ts` | `useUkuranLayar` + `useGeserChef` (pointer events, ambang 5 px, simpan posisi). |
+| `SukaBotWidget.tsx` | Chef `fixed` di posisi geser + panel di `posisiPanel`; pose = pose panel bila terbuka, selain itu `rekap`/`diam`. |
+| `PanelSukaBot.tsx` | Tanpa avatar; props baru `onPose?(pose)` dan `ukuran?: {w,h}` (ukuran dari widget). |
+| `HalamanAsisten.tsx` | Chef + panel untuk `/asisten`. |
+| `middleware.ts` | Matcher meloloskan `.webm` (aset publik, sama dengan `.webp`). |
+
+Tetap berlaku: aturan pemutaran & prioritas (§7.1), pelarutan 250 ms (§7.2), condong ±6°/±3 px,
+hover 1,06 / tekan 0,95 / muncul 0,6 → 1, titik merah berdenyut (dipindah ke dekat topi chef),
+cache 1 tahun, cadangan gambar (§8).

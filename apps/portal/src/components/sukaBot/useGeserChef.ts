@@ -56,6 +56,9 @@ export function useGeserChef(ukuran: Ukuran, layar: Ukuran): { posisi: Titik; pe
       if (e.button !== 0) return
       geser.current = { id: e.pointerId, awalX: e.clientX, awalY: e.clientY, asal: posisiTerkini.current, aktif: false }
       digeser.current = false
+      // Tangkap sejak ditekan: geseran cepat bisa melompat keluar chef di gerakan pertama,
+      // dan tanpa tangkapan event berikutnya tidak lagi sampai ke tombol ini.
+      try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* pointer sudah lepas */ }
     },
     onPointerMove: (e) => {
       const g = geser.current
@@ -66,7 +69,6 @@ export function useGeserChef(ukuran: Ukuran, layar: Ukuran): { posisi: Titik; pe
         if (!sudahGeser(dx, dy)) return
         g.aktif = true
         digeser.current = true
-        e.currentTarget.setPointerCapture(e.pointerId)
       }
       setPosisi(jepitPosisi({ x: g.asal.x + dx, y: g.asal.y + dy }, ukuran, layar))
     },

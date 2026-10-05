@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { MessageCircle, Settings, X } from 'lucide-react'
+import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m } from 'framer-motion'
 import type { Pose } from './AvatarSukaBot'
 import { ambilPesan, ambilRekap, kirimPesan, perbaruiRekap, type Rekap } from './api'
 import { kalimatBerikut } from './kalimatMikir'
@@ -19,7 +20,25 @@ function GelembungMikir() {
   return (
     // Pengumuman pembaca layar cukup sekali; kalimat yang berganti hanya visual.
     <div role="status" aria-label="SUKA Bot sedang memproses" className="inline-flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-suka-ink">
-      <span aria-hidden>{kalimat}</span>
+      {/* Kalimat lama naik keluar, yang baru memantul masuk dari bawah. */}
+      <MotionConfig reducedMotion="user">
+        <LazyMotion features={domAnimation} strict>
+          <span aria-hidden className="relative inline-grid overflow-hidden py-0.5">
+            <AnimatePresence initial={false} mode="popLayout">
+              <m.span
+                key={kalimat}
+                className="col-start-1 row-start-1 whitespace-nowrap"
+                initial={{ y: '110%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: '-110%', opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 520, damping: 17 }}
+              >
+                {kalimat}
+              </m.span>
+            </AnimatePresence>
+          </span>
+        </LazyMotion>
+      </MotionConfig>
       <span className="flex gap-1" aria-hidden>
         {[0, 150, 300].map((jeda) => (
           <span key={jeda} className="h-1.5 w-1.5 rounded-full bg-suka-orange motion-safe:animate-bounce" style={{ animationDelay: `${jeda}ms` }} />

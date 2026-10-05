@@ -5,7 +5,7 @@ import PanelSukaBot from './PanelSukaBot'
 import PanelSetelan from './PanelSetelan'
 import { KLIP, RASIO } from './avatar/klip.gen'
 import { posisiPanel, posisiTab, UKURAN_TAB, ukuranPanel } from './avatar/posisi'
-import { TINGGI_MAKS, tinggiChefEfektif, UKURAN_PANEL } from './avatar/setelan'
+import { batasSliderPanel, TINGGI_MAKS, tinggiChefEfektif, ukuranPanelPilihan } from './avatar/setelan'
 import { ambilRekap, type Rekap } from './api'
 import { useGeserChef, useUkuranLayar } from './useGeserChef'
 import { useSetelan } from './useSetelan'
@@ -73,7 +73,7 @@ function Widget({ apiBase }: { apiBase: string }) {
 
   const pose: Pose = buka ? posePanel : adaBaru ? 'rekap' : 'diam'
   const panel = buka
-    ? posisiPanel({ ...posisi, ...ukuranChef }, ukuranPanel(layar, UKURAN_PANEL[setelan.ukuranPanel]), layar)
+    ? posisiPanel({ ...posisi, ...ukuranChef }, ukuranPanel(layar, ukuranPanelPilihan(setelan)), layar)
     : null
 
   return (
@@ -92,6 +92,8 @@ function Widget({ apiBase }: { apiBase: string }) {
                 ubah={ubah}
                 tinggiTerpakai={tinggi}
                 tinggiMaks={tinggiChefEfektif(TINGGI_MAKS, layar)}
+                panelTerpakai={{ w: panel.w, h: panel.h }}
+                batasPanel={batasSliderPanel(layar)}
                 kembalikanPosisi={kembalikan}
                 sembunyikan={() => { setBuka(false); ubah({ tersembunyi: true }) }}
                 onKembali={kembali}

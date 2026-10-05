@@ -270,8 +270,8 @@ nyaman bergantung layar. Tanpa tabel/migration baru.
 
 | Setelan | Nilai |
 |---|---|
-| Ukuran chef | **Slider** 80–260 px (langkah 5) + tombol "Otomatis" (140 px desktop / 110 px HP); selalu dibatasi maks 60% tinggi layar. (Revisi owner: semula tiga pilihan Kecil/Sedang/Besar.) |
-| Ukuran kotak chat | Kecil 320×480 / Sedang 384×576 (bawaan lama) / Besar 448×680, tetap dijepit layar |
+| Ukuran chef | **Slider** 80–400 px (langkah 5) + tombol "Otomatis" (140 px desktop / 110 px HP); selalu dibatasi maks 60% tinggi layar. Aset WebM 520 px: di atas ±260 px pada layar 2× sedikit lembut. (Revisi owner: semula Kecil/Sedang/Besar, lalu mentok 260.) |
+| Ukuran kotak chat | **Dua slider**: Lebar 300–640, Tinggi 400–900 (langkah 10) + "Otomatis" (384×576); batas atas mengikuti layar; bila layar terlalu kecil slider diganti "Mengikuti lebar/tinggi layar". Setelan lama Kecil/Besar dikonversi ke 320×480 / 448×680. |
 | Animasi chef | Bergerak / Diam (gambar pose saja, tanpa video/condong/pop) |
 | Kembalikan posisi chef | Ke pojok kanan bawah, posisi tersimpan dihapus |
 | Tutup panel | Tombol ✕ di kepala panel + tombol Esc |

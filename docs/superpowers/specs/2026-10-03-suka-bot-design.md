@@ -106,8 +106,12 @@ Semua hanya-baca. Parameter divalidasi di server (zod); AI tidak pernah menyusun
 ## 5. Rekap harian
 
 **Isi** (tentang **kemarin**, 00:00–23:59 WIB):
-1. Omzet kotor kemarin vs **hari yang sama minggu lalu**.
-2. **Ranking semua outlet** + perubahan masing-masing vs minggu lalu.
+1. Omzet kotor kemarin, disandingkan (rupiah) dengan **hari yang sama minggu lalu**.
+2. **Ranking semua outlet**, omzet saja.
+
+⚠️ **Keputusan owner 2026-10-05: omzet TANPA persentase** — di rekap, ranking, perbandingan
+periode, maupun jawaban AI (prompt melarangnya). Perbandingan = dua angka + selisih rupiah.
+Versi awal spec menampilkan persen perubahan per outlet; dicabut (`73b2f466`).
 3. Jumlah transaksi.
 4. 3 menu terlaris kemarin.
 

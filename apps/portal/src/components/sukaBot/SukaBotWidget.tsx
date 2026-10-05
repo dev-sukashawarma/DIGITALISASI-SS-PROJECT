@@ -10,12 +10,17 @@ const bacaDibaca = () => { try { return localStorage.getItem(KUNCI_DIBACA) } cat
 const tulisDibaca = (id: string) => { try { localStorage.setItem(KUNCI_DIBACA, id) } catch { /* abaikan */ } }
 
 /** Kegagalan SUKA Bot tidak boleh merusak launcher (pintu login semua role). */
-class Pengaman extends Component<{ children: ReactNode }, { rusak: boolean }> {
+class PengamanKelas extends Component<{ children: ReactNode }, { rusak: boolean }> {
   state = { rusak: false }
   static getDerivedStateFromError() { return { rusak: true } }
   componentDidCatch(e: unknown) { console.error('[suka-bot] widget error:', e) }
   render() { return this.state.rusak ? null : this.props.children }
 }
+// Portal memakai @types/react 19, sementara pemeriksa JSX membandingkan dengan
+// ReactNode dari @types/react lama di root monorepo → TS2786 untuk class component
+// dan untuk tipe apa pun dari `react` portal. Diketik dengan JSX.Element global (tipe
+// yang dipakai pemeriksa itu sendiri). Perilaku runtime tidak terpengaruh.
+const Pengaman = PengamanKelas as unknown as (props: { children: ReactNode }) => JSX.Element
 
 function Widget({ apiBase }: { apiBase: string }) {
   const [buka, setBuka] = useState(false)

@@ -1002,7 +1002,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 5: Titik merah berdenyut, header cache, verifikasi akhir
 
 **Files:**
-- Modify: `apps/portal/src/components/sukaBot/SukaBotWidget.tsx:43` (baris `{adaBaru && !buka && <span ... />}`)
+- Modify: `apps/portal/src/components/sukaBot/SukaBotWidget.tsx:40` (baris `{adaBaru && !buka && <span ... />}`)
 - Modify: `apps/portal/next.config.mjs`
 - Modify: `CLAUDE.md` (entri sesi)
 

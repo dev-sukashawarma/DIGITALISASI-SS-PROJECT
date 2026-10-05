@@ -231,10 +231,14 @@ panel. Bagian ini menggantikan §4 langkah 2/4–7, §5, §6 (baris `AvatarSukaB
 - Kunci hijau sama (dominansi hijau, t0 18, t1 55) tapi keluarannya **RGBA** (alfa dari kunci,
   RGB di-despill), bukan ditempel ke oranye.
 - Keluaran per klip di `apps/portal/public/suka-bot/`:
-  - `<klip>.webm` — VP9 `yuva420p`, tinggi 320, 24 fps, tanpa audio, maks 350 KB.
-  - `<klip>.anim.webp` — WebP beranimasi alfa, tinggi 280, 12 fps, loop tak hingga untuk klip
-    berulang dan 1 kali untuk sekali-putar, maks 550 KB.
-  - `<klip>.webp` — gambar diam transparan (frame `frame_gambar`), tinggi 320.
+  - `<klip>.webm` — VP9 `yuva420p`, tinggi 520 (chef maks 260 px di layar 2×), 24 fps, crf 40, tanpa audio, maks 480 KB.
+  - `<klip>.anim.webp` — WebP beranimasi alfa, tinggi 320, 12 fps, kualitas 72 / alfa 90, loop tak
+    hingga untuk klip berulang dan 1 kali untuk sekali-putar, maks 700 KB.
+  - `<klip>.webp` — gambar diam transparan (frame `frame_gambar`), tinggi 520.
+- **Tepi halus (revisi 5 Okt malam, keluhan owner "tidak ada anti-aliasing"):** kunci hijau di
+  resolusi PENUH lalu dikecilkan dengan alfa premultiplied (`kecilkan`); warna tepi dipulihkan dari
+  campuran latar `F = (C - (1-a)B) / a` dengan B = median piksel latar per klip (`perkiraan_latar`).
+  Sebelumnya kunci dilakukan setelah diperkecil ke 320 px → tepi bertangga + garis hijau-kelabu.
 - `klip.gen.ts` mengekspor `RASIO` dan `KLIP[klip] = { webm, webp, gambar, ulang, durasiMs }`.
 - `--periksa` tambahan: kanal alfa benar-benar ada di WebM (pojok transparan, tengah pekat);
   WebP beranimasi > 1 frame dan jumlah loop sesuai; sisa hijau dihitung hanya pada piksel pekat.

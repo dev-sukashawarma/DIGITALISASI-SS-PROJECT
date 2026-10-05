@@ -60,17 +60,34 @@ def beku_ujung(langkah: list[float]) -> tuple[int, int]:
 
 
 
-def kunci_alfa(frame: np.ndarray, t0: float, t1: float) -> np.ndarray:
-    """RGB -> RGBA: alfa dari dominansi hijau G - max(R,B), RGB di-despill.
+SISA_HIJAU_MAKS = 12  # hijau boleh melebihi max(R,B) sebanyak ini setelah pemulihan warna tepi
+
+
+def perkiraan_latar(frame: np.ndarray, ambang: float = 70) -> np.ndarray:
+    """Warna latar hijau = median piksel yang jelas-jelas latar (dominansi hijau > ambang)."""
+    a = frame.astype(np.float32)
+    latar = a[(a[..., 1] - np.maximum(a[..., 0], a[..., 2])) > ambang]
+    return np.median(latar, axis=0) if len(latar) else np.array([17, 149, 63], np.float32)
+
+
+def kunci_alfa(frame: np.ndarray, t0: float, t1: float, latar: np.ndarray) -> np.ndarray:
+    """RGB -> RGBA. Alfa dari dominansi hijau G - max(R,B); warna tepi dipulihkan dari campuran latar
+    (C = a*F + (1-a)*B  ->  F = (C - (1-a)*B) / a), lalu sisa hijau dibatasi.
 
     Sengaja bukan filter chromakey ffmpeg: di klip ini chromakey membuat janggut & wajah tembus.
+    Dijalankan di resolusi penuh sebelum dikecilkan (lihat `kecilkan`) agar tepi halus.
     """
     a = frame.astype(np.float32)
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    maks_rb = np.maximum(r, b)
-    alpha = np.clip(1 - (g - maks_rb - t0) / (t1 - t0), 0, 1)
-    a[..., 1] = np.minimum(g, maks_rb)
-    return np.dstack([a, alpha * 255]).clip(0, 255).round().astype(np.uint8)
+    alpha = np.clip(1 - (a[..., 1] - np.maximum(a[..., 0], a[..., 2]) - t0) / (t1 - t0), 0, 1)
+    a3 = alpha[..., None]
+    depan = np.where(a3 > 0.02, (a - (1 - a3) * latar) / np.maximum(a3, 1e-3), a).clip(0, 255)
+    depan[..., 1] = np.minimum(depan[..., 1], np.maximum(depan[..., 0], depan[..., 2]) + SISA_HIJAU_MAKS)
+    return np.dstack([depan, alpha * 255]).clip(0, 255).round().astype(np.uint8)
+
+
+def kecilkan(img: Image.Image, lebar: int, tinggi: int) -> Image.Image:
+    """Kecilkan RGBA dengan alfa premultiplied: tepi setengah transparan tidak menggelap (halo hitam)."""
+    return img.convert('RGBa').resize((lebar, tinggi), Image.LANCZOS).convert('RGBA')
 
 
 def komposit(rgba: np.ndarray, latar: np.ndarray) -> np.ndarray:
@@ -134,34 +151,56 @@ def _baca_webm(path: Path, kfg: dict) -> np.ndarray:
     return _ffmpeg_baca(['-c:v', 'libvpx-vp9', '-i', str(path)], _lebar(kfg, kfg['tinggi_webm']), kfg['tinggi_webm'], 4)
 
 
+def _frame_berurutan(args: list[str], w: int, h: int):
+    """Frame RGB satu per satu dari ffmpeg (frame resolusi penuh terlalu besar untuk ditampung semua)."""
+    proc = subprocess.Popen(['ffmpeg', '-v', 'error', *args, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
+                            stdout=subprocess.PIPE)
+    ukuran = w * h * 3
+    while len(buf := proc.stdout.read(ukuran)) == ukuran:
+        yield np.frombuffer(buf, np.uint8).reshape(h, w, 3)
+    if proc.wait() != 0:
+        raise subprocess.CalledProcessError(proc.returncode, 'ffmpeg (baca sumber)')
+
+
 def olah_satu(nama: str, k: dict, kfg: dict) -> None:
     sumber = ROOT / kfg['sumber_dir'] / k['berkas']
     if not sumber.exists():
         sys.exit(f"[{nama}] berkas sumber tidak ada: {sumber} (salin video mentah dari Drive tim)")
     if not (k['awal'] <= k['frame_gambar'] < k['akhir']):
         sys.exit(f"[{nama}] frame_gambar {k['frame_gambar']} di luar segmen {k['awal']}..{k['akhir']}")
-    p, t, th = kfg['potong'], kfg['kunci_hijau'], kfg['tinggi_webm']
-    wb = _lebar(kfg, th)
-    vf = (f"trim=start_frame={k['awal']}:end_frame={k['akhir']},setpts=PTS-STARTPTS,"
-          f"crop={p['lebar']}:{p['tinggi']}:{p['x']}:{p['y']},scale={wb}:{th}:flags=lanczos")
-    mentah = _ffmpeg_baca(['-i', str(sumber), '-an', '-vf', vf], wb, th, 3)
-    rgba = np.stack([kunci_alfa(f, t['t0'], t['t1']) for f in mentah])
+    p, t = kfg['potong'], kfg['kunci_hijau']
+    th, ta, fps = kfg['tinggi_webm'], kfg['tinggi_anim'], kfg['fps_anim']
+    wb, wa = _lebar(kfg, th), _lebar(kfg, ta)
     keluar = ROOT / kfg['keluar_dir']
     keluar.mkdir(parents=True, exist_ok=True)
 
-    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{wb}x{th}',
-                    '-r', str(FPS), '-i', '-', '-an', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p',
-                    '-b:v', '0', '-crf', str(kfg['crf_webm']), '-row-mt', '1', str(keluar / f'{nama}.webm')],
-                   input=rgba.tobytes(), check=True)
+    enkoder = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{wb}x{th}',
+                                '-r', str(FPS), '-i', '-', '-an', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p',
+                                '-b:v', '0', '-crf', str(kfg['crf_webm']), '-row-mt', '1', str(keluar / f'{nama}.webm')],
+                               stdin=subprocess.PIPE)
+    vf = (f"trim=start_frame={k['awal']}:end_frame={k['akhir']},setpts=PTS-STARTPTS,"
+          f"crop={p['lebar']}:{p['tinggi']}:{p['x']}:{p['y']}")
+    latar, ims, gambar, n = None, [], None, 0
+    # Kunci hijau di resolusi penuh, baru dikecilkan: tepi jadi halus (anti-aliasing alami).
+    for n, f in enumerate(_frame_berurutan(['-i', str(sumber), '-an', '-vf', vf], p['lebar'], p['tinggi']), 1):
+        if latar is None:
+            latar = perkiraan_latar(f)
+        penuh = Image.fromarray(kunci_alfa(f, t['t0'], t['t1'], latar), 'RGBA')
+        kecil = kecilkan(penuh, wb, th)
+        enkoder.stdin.write(kecil.tobytes())
+        if (n - 1) % (FPS // fps) == 0:
+            ims.append(kecilkan(penuh, wa, ta))
+        if k['awal'] + n - 1 == k['frame_gambar']:
+            gambar = kecil
+    enkoder.stdin.close()
+    if enkoder.wait() != 0:
+        sys.exit(f"[{nama}] ffmpeg gagal menulis {nama}.webm")
 
-    ta, fps = kfg['tinggi_anim'], kfg['fps_anim']
-    wa = _lebar(kfg, ta)
-    ims = [Image.fromarray(f, 'RGBA').resize((wa, ta), Image.LANCZOS) for f in rgba[::FPS // fps]]
     ims[0].save(keluar / f'{nama}.anim.webp', save_all=True, append_images=ims[1:], duration=round(1000 / fps),
-                loop=0 if k['ulang'] else 1, quality=kfg['kualitas_anim'], alpha_quality=kfg['kualitas_anim'], method=6)
-
-    Image.fromarray(rgba[k['frame_gambar'] - k['awal']], 'RGBA').save(keluar / f'{nama}.webp', quality=85)
-    print(f"[{nama}] {len(rgba)} frame -> {nama}.webm + {nama}.anim.webp + {nama}.webp")
+                loop=0 if k['ulang'] else 1, quality=kfg['kualitas_anim'], alpha_quality=kfg['kualitas_alfa_anim'],
+                method=6)
+    gambar.save(keluar / f'{nama}.webp', quality=85, alpha_quality=100)
+    print(f"[{nama}] {n} frame -> {nama}.webm + {nama}.anim.webp + {nama}.webp")
 
 
 def hitung_info(kfg: dict) -> dict[str, dict]:

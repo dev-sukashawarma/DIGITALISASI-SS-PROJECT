@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+from PIL import Image
 import olah_klip as ok
 
 LATAR = ok.hex_ke_rgb('#808080')
@@ -9,19 +10,40 @@ def piksel(rgb):
     return np.array([[rgb]], np.uint8)
 
 
+HIJAU = np.array([17, 149, 63], np.float32)
+
+
 class TestKunciAlfa(unittest.TestCase):
     def test_hijau_latar_jadi_transparan(self):
-        self.assertEqual(ok.kunci_alfa(piksel((15, 147, 61)), 18, 55)[0, 0, 3], 0)
+        self.assertEqual(ok.kunci_alfa(piksel((15, 147, 61)), 18, 55, HIJAU)[0, 0, 3], 0)
 
     def test_kulit_dan_janggut_pekat_dan_tidak_berubah(self):
         for rgb in [(230, 180, 150), (40, 30, 25), (245, 238, 220)]:
-            self.assertEqual(ok.kunci_alfa(piksel(rgb), 18, 55)[0, 0].tolist(), [*rgb, 255], rgb)
+            self.assertEqual(ok.kunci_alfa(piksel(rgb), 18, 55, HIJAU)[0, 0].tolist(), [*rgb, 255], rgb)
 
-    def test_tepi_kehijauan_setengah_transparan_dan_hijaunya_dibuang(self):
-        # d = 140 - 100 = 40 -> alpha = 1 - (40-18)/37 = 0.405; despill: G -> 100
-        hasil = ok.kunci_alfa(piksel((100, 140, 90)), 18, 55)[0, 0]
-        self.assertEqual(hasil[:3].tolist(), [100, 100, 90])
-        self.assertAlmostEqual(int(hasil[3]), round((1 - 22 / 37) * 255), delta=1)
+    def test_tepi_warna_asli_dipulihkan_dari_campuran_latar(self):
+        # Piksel tepi = 70% topi krem + 30% latar hijau; warna depan dipulihkan, bukan sekadar hijau ditekan.
+        krem = np.array([230, 220, 200], np.float32)
+        campur = (0.7 * krem + 0.3 * HIJAU).round().astype(np.uint8)
+        hasil = ok.kunci_alfa(np.array([[campur]]), 18, 55, HIJAU)[0, 0]
+        self.assertTrue(0 < hasil[3] < 255)
+        a = hasil[3] / 255
+        harap = (campur.astype(float) - (1 - a) * HIJAU) / a
+        np.testing.assert_allclose(hasil[:3].astype(float), np.clip(harap, 0, 255), atol=2)
+        self.assertLessEqual(int(hasil[1]) - max(int(hasil[0]), int(hasil[2])), ok.SISA_HIJAU_MAKS)
+
+    def test_perkiraan_latar_dari_piksel_hijau_saja(self):
+        f = np.zeros((4, 4, 3), np.uint8)
+        f[:] = (17, 149, 63)
+        f[0, 0] = (230, 180, 150)
+        np.testing.assert_allclose(ok.perkiraan_latar(f), [17, 149, 63])
+
+    def test_kecilkan_tanpa_tepi_gelap(self):
+        # 1 piksel merah pekat + 1 piksel transparan (RGB hitam) -> setengah transparan tapi tetap MERAH.
+        img = Image.fromarray(np.array([[[255, 0, 0, 255], [0, 0, 0, 0]]], np.uint8), 'RGBA')
+        hasil = np.asarray(ok.kecilkan(img, 1, 1))[0, 0]
+        self.assertAlmostEqual(int(hasil[3]), 128, delta=2)
+        self.assertGreater(int(hasil[0]), 240)
 
     def test_komposit(self):
         rgba = np.array([[[200, 100, 50, 255], [200, 100, 50, 0]]], np.uint8)

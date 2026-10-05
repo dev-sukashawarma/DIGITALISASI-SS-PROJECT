@@ -266,10 +266,12 @@ nyaman bergantung layar. Tanpa tabel/migration baru.
 
 | Setelan | Nilai |
 |---|---|
-| Ukuran chef | Kecil / Sedang / Besar = 110 / 140 / 180 px (≥ 640 px), 90 / 110 / 130 px (HP) |
+| Ukuran chef | **Slider** 80–260 px (langkah 5) + tombol "Otomatis" (140 px desktop / 110 px HP); selalu dibatasi maks 60% tinggi layar. (Revisi owner: semula tiga pilihan Kecil/Sedang/Besar.) |
 | Ukuran kotak chat | Kecil 320×480 / Sedang 384×576 (bawaan lama) / Besar 448×680, tetap dijepit layar |
 | Animasi chef | Bergerak / Diam (gambar pose saja, tanpa video/condong/pop) |
 | Kembalikan posisi chef | Ke pojok kanan bawah, posisi tersimpan dihapus |
+| Tutup panel | Tombol ✕ di kepala panel + tombol Esc |
+| Simpan & kembali | Tombol di dasar layar setelan, kembali ke chat (perubahan sudah tersimpan saat diubah) |
 | Sembunyikan chef | Panel ditutup, chef diganti tab 44×44 berwajah chef di tepi kanan (setinggi chef terakhir); klik = muncul lagi; titik merah rekap tetap tampil; diingat setelah muat ulang |
 
 Kode: `avatar/setelan.ts` (murni, dites), `useSetelan.ts`, `PanelSetelan.tsx`, `posisiTab` +

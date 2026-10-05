@@ -20,7 +20,7 @@ describe('hitungRekap', () => {
     const d = await hitungRekap({
       ambilLaporan, hariIni: '2026-10-03', sekarang: new Date(),
       outlets: [
-        { id: 'a', name: 'SUKA SHAWARMA BEJI', type: 'outlet', is_active: true },
+        { id: 'a', name: 'SUKA SHAWARMA BEJI', type: 'internal', is_active: true },
         { id: 'b', name: 'MITRA CIBUBUR', type: 'mitra', is_active: true },
         { id: 't', name: 'outlet tes', type: 'test', is_active: true },
       ],

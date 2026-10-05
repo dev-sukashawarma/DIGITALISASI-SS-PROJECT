@@ -5,7 +5,7 @@ import { rupiah, persenPerubahan, teksPersen, jamWib } from '../format'
 
 export interface RingkasanLaporan { omzetKotor: number; omzetBersih: number; transaksi: number; menu: { nama: string; qty: number; omzet: number }[] }
 export type AmbilLaporan = (r: { dari: string; sampai: string; outletIds: string[]; kanal: string[] }) => Promise<RingkasanLaporan>
-export interface OutletInfo { id: string; name: string; type: string; is_active: boolean }
+export interface OutletInfo { id: string; name: string; type: string; is_active: boolean; slug?: string | null }
 export interface KonteksPenjualan { ambilLaporan: AmbilLaporan; outlets: OutletInfo[]; hariIni: string; sekarang: Date }
 
 export type KodeKanal = 'semua' | 'kasir' | 'gofood' | 'grabfood' | 'shopeefood' | 'food_apps' | 'tiktok_go' | 'web'
@@ -24,12 +24,17 @@ export const KANAL: Record<KodeKanal, { channels: string[]; label: string }> = {
 export interface ArgPeriode { periode: KodePeriode; dari?: string; sampai?: string }
 export interface BarisRanking { peringkat: number; nama: string; omzet: number; omzetPembanding: number | null; persen: number | null }
 
-const TIPE_TERHITUNG = new Set(['outlet', 'mitra'])
+// Outlet sungguhan = 'internal' | 'mitra' (migration 20261003150000, keputusan owner 3 Okt).
+// Aturan nama & slug disamakan dengan view valid_operational_outlets / sales_board_outlets:
+// SS BACKUP dan outlet bernama tes/test/trial/demo bertipe internal/mitra tapi bukan outlet nyata.
+const TIPE_TERHITUNG = new Set(['internal', 'mitra'])
+const SLUG_DIKECUALIKAN = new Set(['ss-backup'])
+const NAMA_UJI = /tes|test|trial|demo/i
 const KONKURENSI = 4
 const SUMBER = 'Rangkuman Penjualan'
 
 export function outletTerhitung(outlets: OutletInfo[]): OutletInfo[] {
-  return outlets.filter((o) => TIPE_TERHITUNG.has(o.type))
+  return outlets.filter((o) => TIPE_TERHITUNG.has(o.type) && !SLUG_DIKECUALIKAN.has(o.slug ?? '') && !NAMA_UJI.test(o.name))
 }
 
 const periodeDari = (ctx: KonteksPenjualan, a: ArgPeriode) => resolvePeriode(a.periode, ctx.hariIni, { dari: a.dari, sampai: a.sampai })
@@ -39,7 +44,8 @@ type Cakupan = { ok: true; ids: string[]; label: string } | { ok: false; hasil: 
 
 function pilihCakupan(ctx: KonteksPenjualan, outlet?: string): Cakupan {
   const daftar = outletTerhitung(ctx.outlets)
-  if (!outlet) return { ok: true, ids: daftar.map((o) => o.id), label: `Semua outlet (${daftar.length} outlet, tanpa SS Online)` }
+  // ids memuat outlet nonaktif juga (periode lampau), tapi label menghitung yang aktif saja.
+  if (!outlet) return { ok: true, ids: daftar.map((o) => o.id), label: `Semua outlet (${daftar.filter((o) => o.is_active).length} outlet aktif, tanpa SS Online)` }
   const h = cariSatu(outlet, daftar, (o) => o.name, normalisasiOutlet)
   if (h.status === 'cocok') return { ok: true, ids: [h.item.id], label: h.item.name }
   if (h.status === 'ambigu') return { ok: false, hasil: { status: 'ambigu', pesan: `Ada beberapa outlet yang cocok dengan "${outlet}". Tanyakan ke Bos yang mana.`, kandidat: h.kandidat.map((o) => o.name) } }

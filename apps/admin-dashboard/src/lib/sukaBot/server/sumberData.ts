@@ -20,9 +20,9 @@ export const ambilLaporanRangkuman: AmbilLaporan = async ({ dari, sampai, outlet
 }
 
 export async function ambilOutlets(supabase: any): Promise<OutletInfo[]> {
-  const { data, error } = await supabase.from('outlets').select('id, name, type, is_active').order('name')
+  const { data, error } = await supabase.from('outlets').select('id, name, type, is_active, slug').order('name')
   if (error) throw new Error(`outlets: ${error.message}`)
-  return (data ?? []).map((o: any) => ({ id: o.id, name: o.name, type: o.type ?? '', is_active: !!o.is_active }))
+  return (data ?? []).map((o: any) => ({ id: o.id, name: o.name, type: o.type ?? '', is_active: !!o.is_active, slug: o.slug ?? null }))
 }
 
 export function konteksStok(supabase: any, outlets: OutletInfo[], hariIni: string): KonteksStok {

@@ -5,7 +5,7 @@ function deps(): DepsAlat {
   return {
     penjualan: {
       hariIni: '2026-10-01', sekarang: new Date('2026-10-01T07:30:00Z'),
-      outlets: [{ id: 'o1', name: 'SUKA SHAWARMA BEJI', type: 'outlet', is_active: true }],
+      outlets: [{ id: 'o1', name: 'SUKA SHAWARMA BEJI', type: 'internal', is_active: true }],
       ambilLaporan: vi.fn(async () => ({ omzetKotor: 100, omzetBersih: 90, transaksi: 2, menu: [] })),
     },
     stok: { hariIni: '2026-10-01', outlets: [], daftarBahan: async () => [], barisStok: async () => [] },

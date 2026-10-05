@@ -13,8 +13,8 @@ function konteks(): KonteksStok {
   return {
     hariIni: '2026-10-03',
     outlets: [
-      { id: 'o-beji', name: 'SUKA SHAWARMA BEJI', type: 'outlet', is_active: true },
-      { id: 'o-emp', name: 'SUKA SHAWARMA EMPANG', type: 'outlet', is_active: true },
+      { id: 'o-beji', name: 'SUKA SHAWARMA BEJI', type: 'internal', is_active: true },
+      { id: 'o-emp', name: 'SUKA SHAWARMA EMPANG', type: 'internal', is_active: true },
       { id: GUDANG_PUSAT_ID, name: 'GUDANG PUSAT (HQ)', type: 'office', is_active: true },
       { id: 'o-tes', name: 'outlet tes', type: 'test', is_active: true },
     ],

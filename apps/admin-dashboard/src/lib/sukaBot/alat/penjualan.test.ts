@@ -4,13 +4,16 @@ import {
   type KonteksPenjualan, type OutletInfo, type RingkasanLaporan,
 } from './penjualan'
 
+// Tipe per migration 20261003150000: outlet sungguhan = 'internal' | 'mitra'.
 const OUTLETS: OutletInfo[] = [
-  { id: 'o-beji', name: 'SUKA SHAWARMA BEJI', type: 'outlet', is_active: true },
-  { id: 'o-cbbr', name: 'MITRA CIBUBUR', type: 'mitra', is_active: true },
-  { id: 'o-jati', name: 'SUKA SHAWARMA JATIASIH', type: 'outlet', is_active: false },
-  { id: 'o-tes', name: 'outlet tes', type: 'test', is_active: true },
-  { id: 'o-back', name: 'SS BACKUP', type: 'internal', is_active: true },
-  { id: 'o-shp', name: 'Shopee', type: 'marketplace', is_active: true },
+  { id: 'o-beji', name: 'SUKA SHAWARMA BEJI', type: 'internal', is_active: true, slug: 'beji-depok' },
+  { id: 'o-cbbr', name: 'MITRA CIBUBUR', type: 'mitra', is_active: true, slug: 'suka-shawarma-cibubur' },
+  { id: 'o-jati', name: 'SUKA SHAWARMA JATIASIH', type: 'internal', is_active: false, slug: 'jatiasih-bekasi' },
+  { id: 'o-tes', name: 'outlet tes', type: 'test', is_active: true, slug: 'outlet-tes' },
+  { id: 'o-back', name: 'SS BACKUP', type: 'internal', is_active: true, slug: 'ss-backup' },
+  { id: 'o-tesajah', name: 'tes ajah', type: 'internal', is_active: false, slug: 'tes-ajah' },
+  { id: 'o-tessaja', name: 'tes saja', type: 'mitra', is_active: false, slug: 'tes-saja' },
+  { id: 'o-shp', name: 'Shopee', type: 'marketplace', is_active: true, slug: 'shopee' },
 ]
 
 // Omzet palsu per outlet per tanggal awal periode — cukup untuk menguji perakitan.
@@ -34,8 +37,11 @@ function konteks(): KonteksPenjualan & { panggilan: any[] } {
 }
 
 describe('outletTerhitung', () => {
-  it('hanya tipe outlet & mitra (daftar boleh)', () => {
+  it('tipe internal & mitra, tanpa SS BACKUP dan outlet bernama tes/test (= valid_operational_outlets)', () => {
     expect(outletTerhitung(OUTLETS).map((o) => o.id)).toEqual(['o-beji', 'o-cbbr', 'o-jati'])
+  })
+  it('tipe lama "outlet" tidak lagi dihitung (sudah tak sah per CHECK constraint)', () => {
+    expect(outletTerhitung([{ id: 'x', name: 'X', type: 'outlet', is_active: true }])).toEqual([])
   })
 })
 
@@ -46,7 +52,8 @@ describe('alatOmzet', () => {
     expect(ctx.panggilan[0]).toEqual({ dari: '2026-09-30', sampai: '2026-09-30', outletIds: ['o-beji', 'o-cbbr', 'o-jati'], kanal: ['all'] })
     expect(r).toMatchObject({ status: 'ok', omzet_kotor: 'Rp 4.000.000', omzet_kotor_angka: 4_000_000, transaksi: 80, sumber: 'Rangkuman Penjualan' })
     expect(r.periode).toBe('Kemarin (Rab 30 Sep 2026)')
-    expect(r.cakupan).toBe('Semua outlet (3 outlet, tanpa SS Online)')
+    // Hitungan = outlet AKTIF (Jatiasih nonaktif tetap ikut dijumlah untuk periode lampau).
+    expect(r.cakupan).toBe('Semua outlet (2 outlet aktif, tanpa SS Online)')
   })
   it('outlet tertentu + kanal', async () => {
     const ctx = konteks()

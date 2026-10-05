@@ -100,12 +100,9 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
     updated_at: new Date().toISOString(),
   }
 
-  if (status === 'inactive') {
-    payload.deleted_at = new Date().toISOString()
-  } else {
-    payload.deleted_at = null
-  }
-  
+  // deleted_at sengaja tidak disentuh: hanya "Hapus" (softDeleteOutlet) yang
+  // mengisinya. Menonaktifkan outlet tidak menghapusnya dari daftar.
+
   // 1. Update primary
   const { data: updatedOutlet, error: primaryError } = await supabase
     .from('outlets')

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fetchManagedOutlets, patchOutlet, withPinned } from './managedOutlets'
+import { fetchManagedOutlets, patchOutlet, removeOutlet, withPinned } from './managedOutlets'
 import { filterOutlets } from './filterOutlets'
 import type { Outlet } from './types'
 
@@ -7,8 +7,13 @@ const base = { address: null, lat: -6.5, lng: 106.8, marquee_warning_threshold: 
 const tes: Outlet = { ...base, id: 'a', name: 'tes', slug: 'tes', type: 'internal', status: 'pending', is_active: false }
 const bogor: Outlet = { ...base, id: 'b', name: 'Bogor', slug: 'bogor', type: 'internal', status: 'active', is_active: true }
 
-function fakeSupabase(rows: Outlet[]) {
-  const q: any = { select: () => q, order: () => q, then: (r: any) => r({ data: rows, error: null }) }
+function fakeSupabase(rows: Outlet[], calls: string[] = []) {
+  const q: any = {
+    select: () => q,
+    order: () => q,
+    is: (col: string, val: unknown) => (calls.push(`is:${col}=${val}`), q),
+    then: (r: any) => r({ data: rows, error: null }),
+  }
   return { from: () => q } as any
 }
 
@@ -18,6 +23,18 @@ describe('fetchManagedOutlets', () => {
   it('tidak membuang outlet tes — daftar sama dengan yang dirender SSR', async () => {
     const rows = await fetchManagedOutlets(fakeSupabase([bogor, tes]))
     expect(rows.map((o) => o.id)).toEqual(['b', 'a'])
+  })
+
+  it('menyembunyikan outlet yang sudah dihapus (deleted_at terisi)', async () => {
+    const calls: string[] = []
+    await fetchManagedOutlets(fakeSupabase([bogor], calls))
+    expect(calls).toContain('is:deleted_at=null')
+  })
+})
+
+describe('removeOutlet', () => {
+  it('outlet yang dihapus langsung hilang dari daftar', () => {
+    expect(removeOutlet([bogor, tes], 'a').map((o) => o.id)).toEqual(['b'])
   })
 })
 

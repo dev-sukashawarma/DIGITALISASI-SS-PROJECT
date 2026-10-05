@@ -131,29 +131,24 @@ export default function OutletsPage() {
   }
 
   function handleToggleActive(o: Outlet) {
+    // Nonaktif/Aktifkan hanya mengubah status — outlet tetap ada di daftar.
+    // Menghapus (menyembunyikan) outlet hanya lewat tombol Hapus.
     pin(o.id)
-    if (o.is_active) {
-      softDelete.mutate(o.id, {
-        onSuccess: () => toast.success(`${o.name} dinonaktifkan (arsip)`),
+    const aktifkan = !o.is_active
+    update.mutate(
+      { id: o.id, ...toFormValues(o), status: aktifkan ? 'active' : 'inactive', is_active: aktifkan },
+      {
+        onSuccess: () => toast.success(`${o.name} ${aktifkan ? 'diaktifkan' : 'dinonaktifkan'}`),
         onError: (e: any) => toast.error(e.message),
-      })
-    } else {
-      update.mutate(
-        { id: o.id, ...toFormValues(o), status: 'active', is_active: true },
-        {
-          onSuccess: () => toast.success(`${o.name} diaktifkan`),
-          onError: (e: any) => toast.error(e.message),
-        }
-      )
-    }
+      }
+    )
   }
 
   function handleSoftDelete() {
     if (!deleting) return
-    pin(deleting.id)
     softDelete.mutate(deleting.id, {
       onSuccess: () => {
-        toast.success(`${deleting.name} dinonaktifkan`)
+        toast.success(`${deleting.name} dihapus — data masa lalunya tetap tersimpan`)
         setDeleting(null)
       },
       onError: (e: any) => toast.error(e.message),
@@ -162,10 +157,9 @@ export default function OutletsPage() {
 
   function handleHardDelete() {
     if (!deleting) return
-    pin(deleting.id)
     hardDelete.mutate(deleting.id, {
       onSuccess: () => {
-        toast.success(`${deleting.name} dihapus permanen`)
+        toast.success(`${deleting.name} dihapus — data masa lalunya tetap tersimpan`)
         setDeleting(null)
       },
       onError: (e: any) => toast.error(e.message),

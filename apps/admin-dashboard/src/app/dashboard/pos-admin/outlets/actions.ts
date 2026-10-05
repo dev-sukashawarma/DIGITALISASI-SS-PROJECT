@@ -17,7 +17,6 @@ export async function upsertOutlet(outletData: any) {
       ...outletData,
       status,
       is_active: status === 'active',
-      deleted_at: status === 'inactive' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     }
 

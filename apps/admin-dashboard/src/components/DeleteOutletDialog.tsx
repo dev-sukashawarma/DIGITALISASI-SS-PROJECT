@@ -39,7 +39,7 @@ export function DeleteOutletDialog({
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-black text-suka-ink uppercase tracking-tight">
-                KONFIRMASI PENGHAPUSAN OUTLET (SOFT DELETE)
+                HAPUS OUTLET INI?
               </h1>
               <p className="text-xs text-suka-gray-500 font-medium">
                 Cabang: <span className="font-bold text-suka-ink">{outlet.name}</span> ({outlet.slug})
@@ -63,7 +63,7 @@ export function DeleteOutletDialog({
               <strong className="font-bold block text-emerald-950 mb-0.5">
                 Jaminan Integritas Data Riwayat & Omzet (100% Aman)
               </strong>
-              Sistem menerapkan <strong>Soft Delete</strong>. Seluruh riwayat penjualan, omzet kasir, transaksi petty cash, mutasi stok barang, dan absensi masa lalu <strong>TIDAK AKAN HILANG</strong> dan tetap tersimpan utuh di database.
+              Outlet akan <strong>disembunyikan dari daftar</strong> (soft delete), bukan dihapus dari database. Seluruh riwayat penjualan, omzet kasir, transaksi petty cash, mutasi stok barang, dan absensi masa lalu <strong>TIDAK AKAN HILANG</strong> dan tetap tersimpan utuh di database.
             </div>
           </div>
 
@@ -113,7 +113,7 @@ export function DeleteOutletDialog({
             className="rounded-xl px-4 py-2.5 min-h-[44px] text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
           >
             <Archive className="w-4 h-4" />
-            Nonaktifkan Outlet (Soft Delete)
+            Hapus Outlet
           </button>
         </div>
       </div>

@@ -134,7 +134,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
 
   async function handleDeleteOutlet(id: string) {
     const confirmed = await showConfirm(
-      'Nonaktifkan cabang ini (Soft Delete)? Seluruh data transaksi, omzet, dan laporan historis akan tetap aman tersimpan.'
+      'Hapus cabang ini? Cabang disembunyikan dari daftar; seluruh data transaksi, omzet, dan laporan historis akan tetap aman tersimpan.'
     )
     if (!confirmed) return
     
@@ -143,10 +143,10 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
       fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'delete', outlet: { id } }) })
         .then(res => { if (!res.ok) throw new Error('Sync failed') })
         .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
-      toast.success('Cabang berhasil dinonaktifkan (soft delete)')
+      toast.success('Cabang dihapus — data historisnya tetap tersimpan')
     } else {
       console.error('Delete outlet error:', result.error)
-      toast.error('Gagal menonaktifkan cabang: ' + result.error)
+      toast.error('Gagal menghapus cabang: ' + result.error)
     }
   }
 

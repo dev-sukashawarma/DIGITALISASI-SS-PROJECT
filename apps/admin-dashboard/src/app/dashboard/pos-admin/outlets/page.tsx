@@ -15,6 +15,7 @@ export default async function AdminOutletsPage() {
   const { data } = await supabase
     .from('outlets')
     .select('*')
+    .is('deleted_at', null) // outlet terhapus (soft delete) disembunyikan
     .order('created_at', { ascending: true })
 
   const initialOutlets: Outlet[] = data || []

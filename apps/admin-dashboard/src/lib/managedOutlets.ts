@@ -21,6 +21,9 @@ export async function fetchManagedOutlets(supabase: SupabaseClient): Promise<Out
   const { data, error } = await supabase
     .from('outlets')
     .select(OUTLET_COLUMNS)
+    // Outlet terhapus (soft delete) disembunyikan; barisnya tetap di DB sehingga
+    // data masa lalunya utuh. Nonaktif ≠ terhapus: nonaktif tetap tampil.
+    .is('deleted_at', null)
     .order('name')
     .order('id')
   if (error) throw new Error(error.message)
@@ -35,6 +38,11 @@ export function statusOutlet(o: { status?: OutletStatus; is_active: boolean }): 
 /** Terapkan perubahan ke satu baris di cache (untuk optimistic update). */
 export function patchOutlet(rows: Outlet[], id: string, patch: Partial<Outlet>): Outlet[] {
   return rows.map((o) => (o.id === id ? { ...o, ...patch } : o))
+}
+
+/** Buang satu baris dari cache (outlet dihapus → tidak tampil lagi). */
+export function removeOutlet(rows: Outlet[], id: string): Outlet[] {
+  return rows.filter((o) => o.id !== id)
 }
 
 /**

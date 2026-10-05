@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { Outlet, OutletFormValues } from '@/lib/types'
 import { createOutlet, updateOutlet, softDeleteOutlet, hardDeleteOutlet } from '@/app/dashboard/outlets/actions'
-import { MANAGED_OUTLETS_KEY, patchOutlet, statusOutlet } from '@/lib/managedOutlets'
+import { MANAGED_OUTLETS_KEY, patchOutlet, removeOutlet, statusOutlet } from '@/lib/managedOutlets'
 
 function friendly(error: { code?: string; message: string }): never {
   if (error.code === '23505') throw new Error('Slug sudah dipakai outlet lain.')
@@ -22,10 +22,10 @@ export function useOutletMutations() {
 
   // Optimistic: baris langsung berubah di layar saat tombol ditekan, lalu
   // dikembalikan bila server menolak.
-  async function optimistic(id: string, patch: Partial<Outlet>): Promise<Snapshot> {
+  async function optimistic(change: (rows: Outlet[]) => Outlet[]): Promise<Snapshot> {
     await qc.cancelQueries({ queryKey: MANAGED_OUTLETS_KEY })
     const prev = qc.getQueryData<Outlet[]>(MANAGED_OUTLETS_KEY)
-    if (prev) qc.setQueryData<Outlet[]>(MANAGED_OUTLETS_KEY, patchOutlet(prev, id, patch))
+    if (prev) qc.setQueryData<Outlet[]>(MANAGED_OUTLETS_KEY, change(prev))
     return { prev }
   }
   function rollback(ctx?: Snapshot) {
@@ -66,24 +66,20 @@ export function useOutletMutations() {
     },
     onMutate: ({ id, ...values }) => {
       const status = statusOutlet(values)
-      return optimistic(id, {
-        ...values,
-        address: values.address || null,
-        status,
-        is_active: status === 'active',
-        deleted_at: status === 'inactive' ? new Date().toISOString() : null,
-      })
+      return optimistic((rows) =>
+        patchOutlet(rows, id, { ...values, address: values.address || null, status, is_active: status === 'active' })
+      )
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSuccess: (row) => applyServerRow(row),
     onSettled: refresh,
   })
 
+  // Hapus (soft delete): baris langsung hilang dari daftar; di DB tetap ada
+  // (status inactive + deleted_at) sehingga data masa lalunya utuh.
   const softDeleteOptions = {
-    onMutate: (id: string) =>
-      optimistic(id, { status: 'inactive', is_active: false, deleted_at: new Date().toISOString() }),
+    onMutate: (id: string) => optimistic((rows) => removeOutlet(rows, id)),
     onError: (_e: Error, _id: string, ctx?: Snapshot) => rollback(ctx),
-    onSuccess: (res?: { id: string } & Partial<Outlet>) => applyServerRow(res),
     onSettled: refresh,
   }
 

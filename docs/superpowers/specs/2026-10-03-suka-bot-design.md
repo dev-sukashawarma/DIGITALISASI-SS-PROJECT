@@ -1,7 +1,7 @@
 # SUKA Bot — Asisten AI Owner/Admin (Tahap 1)
 
 **Tanggal:** 2026-10-03
-**Status:** Desain disepakati (sesi grilling 18 pertanyaan). Belum ada kode.
+**Status:** Tahap 1 diimplementasi di branch `feat/suka-bot` (lihat plan). DB live 2026-10-05; uji browser & pencocokan angka belum.
 **Pemakai:** role `admin`, `owner`, `developer` saja — seluruh proyek, semua tahap.
 
 ## 1. Tujuan

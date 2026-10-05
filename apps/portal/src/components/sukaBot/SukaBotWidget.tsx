@@ -5,7 +5,7 @@ import PanelSukaBot from './PanelSukaBot'
 import PanelSetelan from './PanelSetelan'
 import { KLIP, RASIO } from './avatar/klip.gen'
 import { posisiPanel, posisiTab, UKURAN_TAB, ukuranPanel } from './avatar/posisi'
-import { tinggiChef, UKURAN_PANEL } from './avatar/setelan'
+import { TINGGI_MAKS, tinggiChefEfektif, UKURAN_PANEL } from './avatar/setelan'
 import { ambilRekap, type Rekap } from './api'
 import { useGeserChef, useUkuranLayar } from './useGeserChef'
 import { useSetelan } from './useSetelan'
@@ -44,7 +44,7 @@ function Widget({ apiBase }: { apiBase: string }) {
   const [ketukan, setKetukan] = useState(0)
   const { setelan, ubah } = useSetelan()
   const layar = useUkuranLayar()
-  const tinggi = tinggiChef(setelan.ukuranChef, layar.w)
+  const tinggi = tinggiChefEfektif(setelan.tinggiChef, layar)
   const ukuranChef = { w: Math.round(tinggi * RASIO), h: tinggi }
   const { posisi, penangan, baruSajaDigeser, kembalikan } = useGeserChef(ukuranChef, layar)
 
@@ -53,6 +53,7 @@ function Widget({ apiBase }: { apiBase: string }) {
   }, [apiBase])
 
   const saatRekap = useCallback((r: Rekap) => { tulisDibaca(r.id); setAdaBaru(false) }, [])
+  const tutup = useCallback(() => setBuka(false), [])
 
   if (setelan.tersembunyi) {
     const tab = posisiTab({ y: posisi.y, h: ukuranChef.h }, layar)
@@ -84,14 +85,18 @@ function Widget({ apiBase }: { apiBase: string }) {
             onRekap={saatRekap}
             onPose={setPosePanel}
             ukuran={{ w: panel.w, h: panel.h }}
-            setelan={
+            onTutup={tutup}
+            setelan={(kembali) => (
               <PanelSetelan
                 setelan={setelan}
                 ubah={ubah}
+                tinggiTerpakai={tinggi}
+                tinggiMaks={tinggiChefEfektif(TINGGI_MAKS, layar)}
                 kembalikanPosisi={kembalikan}
                 sembunyikan={() => { setBuka(false); ubah({ tersembunyi: true }) }}
+                onKembali={kembali}
               />
-            }
+            )}
           />
         </div>
       )}

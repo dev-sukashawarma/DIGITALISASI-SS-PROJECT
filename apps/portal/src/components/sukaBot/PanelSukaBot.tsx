@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, Settings } from 'lucide-react'
+import { MessageCircle, Settings, X } from 'lucide-react'
 import type { Pose } from './AvatarSukaBot'
 import { ambilPesan, ambilRekap, kirimPesan, perbaruiRekap, type Rekap } from './api'
 
@@ -26,7 +26,7 @@ function simpanPercakapan(id: string | undefined) {
   } catch { /* abaikan */ }
 }
 
-export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, ukuran, setelan }: {
+export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, ukuran, setelan, onTutup }: {
   apiBase: string
   penuh?: boolean
   onRekap?: (r: Rekap) => void
@@ -34,8 +34,11 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
   onPose?: (pose: Pose) => void
   /** Ukuran dari widget (panel melayang di samping chef). */
   ukuran?: { w: number; h: number }
-  /** Isi layar setelan (ikon roda gigi hanya tampil bila diisi). JSX.Element, bukan ReactNode: lihat catatan tipe di SukaBotWidget.tsx. */
-  setelan?: JSX.Element
+  /** Isi layar setelan (ikon roda gigi hanya tampil bila diisi); menerima fungsi untuk kembali ke chat.
+   *  JSX.Element, bukan ReactNode: lihat catatan tipe di SukaBotWidget.tsx. */
+  setelan?: (kembali: () => void) => JSX.Element
+  /** Tombol tutup (dan Esc) hanya tampil bila diisi — panel melayang di widget. */
+  onTutup?: () => void
 }) {
   const [rekap, setRekap] = useState<Rekap | null>(null)
   const [pesan, setPesan] = useState<Pesan[]>([])
@@ -48,6 +51,13 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
   const bawah = useRef<HTMLDivElement>(null)
 
   useEffect(() => { onPose?.(pose) }, [pose, onPose])
+
+  useEffect(() => {
+    if (!onTutup) return
+    const tekan = (e: KeyboardEvent) => { if (e.key === 'Escape') onTutup() }
+    window.addEventListener('keydown', tekan)
+    return () => window.removeEventListener('keydown', tekan)
+  }, [onTutup])
 
   useEffect(() => {
     setSibuk(true)
@@ -142,9 +152,14 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
             {lihatSetelan ? <MessageCircle size={18} /> : <Settings size={18} />}
           </button>
         )}
+        {onTutup && (
+          <button type="button" onClick={onTutup} aria-label="Tutup panel chat" className="rounded-full p-1.5 hover:bg-white/10">
+            <X size={18} />
+          </button>
+        )}
       </div>
 
-      {lihatSetelan && setelan ? setelan : (<>
+      {lihatSetelan && setelan ? setelan(() => setLihatSetelan(false)) : (<>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
         {rekap && (

@@ -1,0 +1,3 @@
+# Video mentah dari Google Flow (2–3 MB per klip) disimpan di Drive tim, bukan git.
+# Hasil olahan yang tayang ada di apps/portal/public/suka-bot/.
+*.mp4

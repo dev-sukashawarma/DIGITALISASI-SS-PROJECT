@@ -1,19 +1,14 @@
-import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
 import { KelolaMitraView } from './KelolaMitraView'
 import { presetRange } from '@/lib/period'
 import { getMitraComprehensivePnl } from '@/app/actions/mitraPnl'
 import { getMitraRealtimeBepBreakdown } from '@/app/actions/mitraRoi'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
 export default async function KelolaMitraPage({ searchParams }: { searchParams: Promise<any> }) {
-  const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: () => {},
-  })
+  const supabase = createServiceClient()
   
   const sp = await searchParams
 

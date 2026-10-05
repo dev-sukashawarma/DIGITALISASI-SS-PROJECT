@@ -1,7 +1,6 @@
 'use server'
 
-import { createSupabaseServerClient } from '@suka/auth'
-import { cookies } from 'next/headers'
+import { createServiceClient } from '@/lib/supabase/server'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { cleanItemName } from '@/lib/order-item-name'
 import { fetchAllPages } from '@/lib/fetchAllPages'
@@ -10,6 +9,7 @@ import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
+import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 /** 2026-08-01 00:00 WIB — awal data bagi hasil yang dihitung sistem. */
 const SYSTEM_START_MONTH = '2026-08'
@@ -140,13 +140,8 @@ export interface MitraRealtimeBepItem {
 }
 
 export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Promise<Record<string, MitraRealtimeBepItem>> {
-  const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: () => {},
-  })
-  
   if (mitraOutletIds.length === 0) return {}
+  const supabase = createServiceClient()
 
   const months = monthsSinceSystemStart()
 
@@ -248,7 +243,33 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     const acc: Record<string, WindowFin> = {}
     const bump = (oid: string) => (acc[oid] ||= emptyFin())
 
-    const [rpcRes, pettyRows, monthlyRows, wasteRes, settlementsRes] = await Promise.all([
+    // Optimasi performa: Data Agustus 2026 adalah data closing audit statis.
+    // Jika semua outlet tercakup closing / belum mulai, langsung kembalikan data audit
+    // tanpa query 6 tabel yang memakan waktu ~4 detik.
+    if (isAugust2026Period(from, to)) {
+      const allCovered = mitraOutletIds.every(oid => {
+        const cutoff = invMap[oid]?.tanggal_mulai
+        return (cutoff && to < cutoff) || getMitraAugustClosing(oid) !== undefined || !invMap[oid]
+      })
+      if (allCovered) {
+        for (const oid of mitraOutletIds) {
+          const cutoff = invMap[oid]?.tanggal_mulai
+          if (cutoff && to < cutoff) continue
+          const closing = getMitraAugustClosing(oid)
+          if (closing) {
+            const a = bump(oid)
+            a.grossRevenue = closing.totals.grossRevenue
+            a.totalDeductions = closing.totals.totalDeductions
+            a.totalCogs = closing.totals.totalCogs
+            a.opex = closing.totals.totalOpex
+            a.waste = closing.totals.totalWaste
+          }
+        }
+        return acc
+      }
+    }
+
+    const [rpcRes, pettyRows, monthlyRows, wasteRes, settlementsRes, salesDailyRows] = await Promise.all([
       supabase.rpc('get_mitra_orders_summary', {
         p_outlet_ids: mitraOutletIds,
         p_from: `${from}T00:00:00.000+07:00`,
@@ -308,15 +329,43 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
             .eq('platform', 'tiktokgo')
             .gte('tanggal', from)
             .lte('tanggal', to)
-        : Promise.resolve({ data: [] as any[] })
+        : Promise.resolve({ data: [] as any[] }),
+      // Ringkasan penjualan harian dari DB view `sales_daily_scoped`
+      fetchAllPages<any>(() => supabase
+        .from('sales_daily_scoped')
+        .select('outlet_id, sales_source, sales_date, omzet, total_deductions')
+        .in('outlet_id', mitraOutletIds)
+        .neq('outlet_id', TEST_OUTLET_ID)
+        .gte('sales_date', from)
+        .lte('sales_date', to)
+        .order('sales_date', { ascending: true })
+        .order('outlet_id', { ascending: true })
+        .order('sales_source', { ascending: true })
+      ).catch(err => {
+        console.warn('Gagal memuat sales_daily_scoped di mitraRoi:', err)
+        return [] as any[]
+      })
     ])
+
+    const hasSalesDaily = Array.isArray(salesDailyRows) && salesDailyRows.length > 0
+    if (hasSalesDaily) {
+      for (const row of salesDailyRows) {
+        const cutoff = invMap[row.outlet_id]?.tanggal_mulai
+        if (cutoff && row.sales_date < cutoff) continue
+        const a = bump(row.outlet_id)
+        a.grossRevenue += (Number(row.omzet) || 0) + (Number(row.total_deductions) || 0)
+        a.totalDeductions += Number(row.total_deductions) || 0
+      }
+    }
 
     const { data: rpcData, error: rpcError } = rpcRes
     if (!rpcError && Array.isArray(rpcData)) {
       for (const row of rpcData) {
         const a = bump(row.outlet_id)
-        a.grossRevenue += Number(row.gross_revenue) || 0
-        a.totalDeductions += Number(row.deductions) || 0
+        if (!hasSalesDaily) {
+          a.grossRevenue += Number(row.gross_revenue) || 0
+          a.totalDeductions += Number(row.deductions) || 0
+        }
         a.totalCogs += Number(row.cogs) || 0
       }
 
@@ -417,8 +466,10 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
           grossRev = totalAmt + deductions
         }
 
-        a.grossRevenue += grossRev
-        a.totalDeductions += deductions
+        if (!hasSalesDaily) {
+          a.grossRevenue += grossRev
+          a.totalDeductions += deductions
+        }
         a.totalCogs += orderCogs
       }
     }

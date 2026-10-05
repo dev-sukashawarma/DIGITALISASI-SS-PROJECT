@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
@@ -12,6 +13,9 @@ import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
+import { calculateProratedExpenses, getPeriodsInRange, calculateMonthOverlap } from '@/lib/opexProrata'
+import { monthRange } from '@/lib/period'
+import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -77,13 +81,16 @@ export async function getMitraComprehensivePnl(
   allowedOutletIds: string[]
 ): Promise<ComprehensiveMitraPnl> {
   const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
+  const authClient = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: () => {},
   })
 
-  const userId = await getVerifiedUserId(supabase)
+  const userId = await getVerifiedUserId(authClient)
   if (!userId) throw new Error('Unauthorized')
+
+  // Bypasses RLS to ensure accurate calculations across partner profiles, investments, and expenses
+  const supabase = createServiceClient()
 
   // Security check: restrict target outlet IDs to what the partner actually owns
   const targetOutletIds = selectedOutletId === 'all' 
@@ -119,11 +126,20 @@ export async function getMitraComprehensivePnl(
     }
   }
 
-  // 1. Date ranges
+  // 1. Date ranges & periods
   const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
   const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
+  const periods = getPeriodsInRange(filter.from, filter.to)
+  const months = [...new Set(periods.map(p => p.month))]
+  const years = [...new Set(periods.map(p => p.year))]
 
-  // 2. Fetch all Profile, Outlets, Investments, Transfers, Expenses, Waste, and RPC Orders Summary in parallel
+  const overlap = calculateMonthOverlap(filter.from, filter.to)
+  const prevMonth = overlap.month === 1 ? 12 : overlap.month - 1
+  const prevYear = overlap.month === 1 ? overlap.year - 1 : overlap.year
+  const prevMonthRange = monthRange(prevYear, prevMonth)
+  const shouldFetchRollover = overlap.isCurrentMonth && overlap.overlapDays > 0
+
+  // 2. Fetch all Profile, Outlets, Investments, Transfers, Expenses, Waste, Payroll, Bonuses, and RPC Orders Summary in parallel
   const [
     profileRes,
     outletListRes,
@@ -133,10 +149,15 @@ export async function getMitraComprehensivePnl(
     monthlyExpensesRes,
     wasteRowsRes,
     rpcRes,
-    settlementsRes
+    settlementsRes,
+    payrollRes,
+    staffRes,
+    bonusRes,
+    lastMonthExpRes,
+    salesDailyRes
   ] = await Promise.all([
-    supabase.from('mitra_profiles').select('*').eq('user_id', userId).single(),
-    supabase.from('outlets').select('id, name').in('id', targetOutletIds),
+    supabase.from('mitra_profiles').select('*').eq('user_id', userId).maybeSingle(),
+    supabase.from('outlets').select('id, name, is_active').in('id', targetOutletIds),
     supabase.from('mitra_investments').select('*').in('outlet_id', targetOutletIds),
     supabase.from('mitra_transfers').select('*').in('outlet_id', targetOutletIds),
     // OPEX WAJIB dipaginasi: PostgREST memotong di 1.000 baris tanpa error,
@@ -201,7 +222,101 @@ export async function getMitraComprehensivePnl(
           .eq('platform', 'tiktokgo')
           .gte('tanggal', filter.from)
           .lte('tanggal', filter.to)
-      : Promise.resolve({ data: [] as any[] })
+      : Promise.resolve({ data: [] as any[] }),
+    // Slip gaji HR (payroll_records) untuk sinkronisasi dengan Tab Laba Rugi
+    supabase
+      .from('payroll_records')
+      .select(`
+        period_month,
+        period_year,
+        total_salary,
+        basic_salary,
+        allowance_position,
+        allowance_presence,
+        outlet_staff!payroll_records_staff_id_fkey(
+          id,
+          name,
+          username,
+          outlet_id,
+          role,
+          status,
+          account_category
+        )
+      `)
+      .in('period_year', years.length > 0 ? years : [new Date().getFullYear()])
+      .in('period_month', months.length > 0 ? months : [new Date().getMonth() + 1]),
+    // Fallback master staf aktif
+    supabase
+      .from('outlet_staff')
+      .select(`
+        id,
+        name,
+        username,
+        outlet_id,
+        role,
+        status,
+        account_category,
+        staff_financials(
+          basic_salary,
+          allowance_position,
+          allowance_presence
+        )
+      `)
+      .eq('status', 'active')
+      .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver'])
+      .in('outlet_id', targetOutletIds),
+    // Bonus crew via RPC
+    Promise.all(
+      (periods.length > 0 ? periods : [{ year: new Date().getFullYear(), month: new Date().getMonth() + 1 }]).map(async ym => {
+        const { data } = await supabase.rpc('get_monthly_crew_bonus', {
+          p_month: ym.month,
+          p_year: ym.year,
+          p_outlet_id: null
+        })
+        return (data ?? []).map((r: any) => ({
+          crew_id: r.crew_id as string,
+          outlet_id: r.outlet_id as string,
+          outlet_name: r.outlet_name as string,
+          total_pcs_outlet: Number(r.total_pcs_outlet) || 0,
+          total_bonus: Number(r.total_bonus) || 0,
+          period_month: ym.month,
+          period_year: ym.year,
+        }))
+      })
+    ).then(res => res.flat()),
+    // Beban rollover bulan sebelumnya (sewa, internet, bonus) untuk akrual harian bulan berjalan
+    shouldFetchRollover
+      ? supabase
+          .from('expenses')
+          .select('outlet_id, category, amount')
+          .in('category', [
+            'sewa_outlet', 'sewa',
+            'internet', 'wifi',
+            'bonus_crew', 'bonus_leader',
+            'bonus_area_manager', 'bonus_regional_manager', 'bonus_korlap',
+          ])
+          .in('outlet_id', targetOutletIds)
+          .eq('type', 'expense')
+          .gte('expense_date', prevMonthRange.from)
+          .lte('expense_date', prevMonthRange.to)
+      : Promise.resolve({ data: [] as any[] }),
+    // Ringkasan penjualan harian per outlet x sumber dari view DB `sales_daily_scoped`
+    // Menjadi Single Source of Truth untuk Omzet Kotor & Potongan agar 100%
+    // sinkron dengan Tab Laba Rugi (ProfitView / useSalesDaily), termasuk hasil audit admin.
+    fetchAllPages<any>(() => supabase
+      .from('sales_daily_scoped')
+      .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
+      .in('outlet_id', targetOutletIds)
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .gte('sales_date', filter.from)
+      .lte('sales_date', filter.to)
+      .order('sales_date', { ascending: true })
+      .order('outlet_id', { ascending: true })
+      .order('sales_source', { ascending: true })
+    ).then(rows => ({ data: rows })).catch(err => {
+      console.warn('Gagal memuat sales_daily_scoped di mitraPnl:', err)
+      return { data: [] as any[] }
+    })
   ])
 
   const profile = profileRes.data
@@ -213,6 +328,7 @@ export async function getMitraComprehensivePnl(
   let wasteRows = wasteRowsRes.data || []
   const { data: rpcData, error: rpcError } = rpcRes
   let settlements = (settlementsRes as any)?.data || []
+  let salesDailyRows = (salesDailyRes as any)?.data || []
 
   // 3b. Cutoff Date Enforcement (Peralihan cabang internal ke kemitraan)
   // Transaksi pengeluaran & waste sebelum tanggal_mulai outlet tidak boleh dibebankan ke mitra.
@@ -235,6 +351,10 @@ export async function getMitraComprehensivePnl(
     settlements = settlements.filter((s: any) => {
       const cutoff = outletCutoffMap.get(s.outlet_id)
       return !cutoff || s.tanggal >= cutoff
+    })
+    salesDailyRows = salesDailyRows.filter((s: any) => {
+      const cutoff = outletCutoffMap.get(s.outlet_id)
+      return !cutoff || s.sales_date >= cutoff
     })
     wasteRows = wasteRows.filter((w: any) => {
       const cutoff = outletCutoffMap.get(w.outlet_id)
@@ -284,6 +404,51 @@ export async function getMitraComprehensivePnl(
 
   const outletFinancialsMap = new Map<string, { gross: number; deductions: number; cogs: number }>()
 
+  // 4a. Prioritaskan sales_daily_scoped untuk Omzet Kotor & Potongan
+  // Ini menyelaraskan angka 100% (Rp 0 selisih) dengan Tab Laba Rugi / useSalesDaily,
+  // termasuk order yang diaudit admin (perubahan total_amount voucher dsb).
+  const hasSalesDaily = Array.isArray(salesDailyRows) && salesDailyRows.length > 0
+  if (hasSalesDaily) {
+    for (const row of salesDailyRows) {
+      const omzet = Number(row.omzet) || 0
+      const ded = Number(row.total_deductions) || 0
+      const gross = omzet + ded
+      const count = Number(row.jumlah_order_completed) || 0
+      const src = (row.sales_source || 'pos').toLowerCase()
+
+      const curFin = outletFinancialsMap.get(row.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
+      curFin.gross += gross
+      curFin.deductions += ded
+      outletFinancialsMap.set(row.outlet_id, curFin)
+
+      if (src === 'tiktok') {
+        tkGross += gross
+        tkDeductions += ded
+        tkCount += count
+      } else if (src === 'grabfood') {
+        faGross += gross
+        faDeductions += ded
+        faCount += count
+        grabRev += gross
+      } else if (src === 'gofood') {
+        faGross += gross
+        faDeductions += ded
+        faCount += count
+        gofoodRev += gross
+      } else if (src === 'shopeefood') {
+        faGross += gross
+        faDeductions += ded
+        faCount += count
+        shopeeRev += gross
+      } else {
+        // 'pos', 'online', 'endors', dll.
+        posGross += gross
+        posDeductions += ded
+        posCount += count
+      }
+    }
+  }
+
   if (!rpcError && rpcData && Array.isArray(rpcData)) {
     // We successfully retrieved the pre-aggregated data from the database
     for (const row of rpcData) {
@@ -292,31 +457,38 @@ export async function getMitraComprehensivePnl(
       const cogs = Number(row.cogs) || 0
       const count = Number(row.order_count) || 0
 
-
       const curFin = outletFinancialsMap.get(row.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
-      curFin.gross += gross
-      curFin.deductions += ded
       curFin.cogs += cogs
+      if (!hasSalesDaily) {
+        curFin.gross += gross
+        curFin.deductions += ded
+      }
       outletFinancialsMap.set(row.outlet_id, curFin)
 
       if (row.channel_group === 'foodApps') {
-        faGross += gross
-        faDeductions += ded
         faCogs += cogs
-        faCount += count
-        grabRev += Number(row.grab_rev) || 0
-        gofoodRev += Number(row.gofood_rev) || 0
-        shopeeRev += Number(row.shopee_rev) || 0
+        if (!hasSalesDaily) {
+          faGross += gross
+          faDeductions += ded
+          faCount += count
+          grabRev += Number(row.grab_rev) || 0
+          gofoodRev += Number(row.gofood_rev) || 0
+          shopeeRev += Number(row.shopee_rev) || 0
+        }
       } else if (row.channel_group === 'tiktok') {
-        tkGross += gross
-        tkDeductions += ded
         tkCogs += cogs
-        tkCount += count
+        if (!hasSalesDaily) {
+          tkGross += gross
+          tkDeductions += ded
+          tkCount += count
+        }
       } else {
-        posGross += gross
-        posDeductions += ded
         posCogs += cogs
-        posCount += count
+        if (!hasSalesDaily) {
+          posGross += gross
+          posDeductions += ded
+          posCount += count
+        }
       }
     }
 
@@ -492,30 +664,38 @@ export async function getMitraComprehensivePnl(
       }
 
       const curFin = outletFinancialsMap.get(ord.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
-      curFin.gross += grossRev
-      curFin.deductions += deductions
+      if (!hasSalesDaily) {
+        curFin.gross += grossRev
+        curFin.deductions += deductions
+      }
       curFin.cogs += orderCogs
       outletFinancialsMap.set(ord.outlet_id, curFin)
 
       if (isTk) {
-        tkGross += grossRev
-        tkDeductions += deductions
+        if (!hasSalesDaily) {
+          tkGross += grossRev
+          tkDeductions += deductions
+          tkCount++
+        }
         tkCogs += orderCogs
-        tkCount++
       } else if (isFa) {
-        faGross += grossRev
-        faDeductions += deductions
+        if (!hasSalesDaily) {
+          faGross += grossRev
+          faDeductions += deductions
+          faCount++
+          if (src.includes('grab') || ch.includes('grab') || ch === '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a') grabRev += totalAmt
+          else if (src.includes('gofood') || src.includes('go_food') || src.includes('gojek') || ch.includes('gofood') || ch.includes('go_food') || ch.includes('gojek') || ch === '1284ac2a-e753-4380-9f32-59219a322459') gofoodRev += totalAmt
+          else if (src.includes('shopee') || ch.includes('shopee') || ch === '0eaf2746-da9f-492c-a9b4-f091307c98c2') shopeeRev += totalAmt
+        }
         faCogs += orderCogs
-        faCount++
-        if (src.includes('grab') || ch.includes('grab') || ch === '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a') grabRev += totalAmt
-        else if (src.includes('gofood') || src.includes('go_food') || src.includes('gojek') || ch.includes('gofood') || ch.includes('go_food') || ch.includes('gojek') || ch === '1284ac2a-e753-4380-9f32-59219a322459') gofoodRev += totalAmt
-        else if (src.includes('shopee') || ch.includes('shopee') || ch === '0eaf2746-da9f-492c-a9b4-f091307c98c2') shopeeRev += totalAmt
       } else {
         // Default to POS (Dine-in, Takeaway, QRIS, Kasir)
-        posGross += grossRev
-        posDeductions += deductions
+        if (!hasSalesDaily) {
+          posGross += grossRev
+          posDeductions += deductions
+          posCount++
+        }
         posCogs += orderCogs
-        posCount++
       }
     }
   }
@@ -581,54 +761,110 @@ export async function getMitraComprehensivePnl(
     return rawCat ? toTitleCase(rawCat) : 'Biaya Operasional Lainnya'
   }
 
+  // Sinkronisasi OPEX dengan Tab Laba Rugi via calculateProratedExpenses
+  const OUTLET_CREW_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver']
+  const payrollRows = (payrollRes?.data ?? [])
+    .filter((r: any) => {
+      const s = r.outlet_staff
+      if (!s || s.status !== 'active') return false
+      if (isTestOrDevStaff(s)) return false
+      if (!OUTLET_CREW_ROLES.includes(s.role)) return false
+      if (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID) return false
+      return targetOutletIds.includes(s.outlet_id)
+    })
+    .map((r: any) => ({
+      outlet_id: r.outlet_staff.outlet_id,
+      total_salary: Number(r.total_salary) || 0,
+      period_month: Number(r.period_month),
+      period_year: Number(r.period_year),
+      role: r.outlet_staff.role
+    }))
+
+  const staffRows = (staffRes?.data ?? [])
+    .filter((s: any) => !isTestOrDevStaff(s) && s.outlet_id && s.outlet_id !== KANTOR_PUSAT_ID && targetOutletIds.includes(s.outlet_id))
+    .map((s: any) => {
+      const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
+      return {
+        outlet_id: s.outlet_id,
+        basic_salary: Number(fin?.basic_salary) || 0,
+        allowance_position: Number(fin?.allowance_position) || 0,
+        allowance_presence: Number(fin?.allowance_presence) || 0,
+        role: s.role
+      }
+    })
+
+  const outletNameMap = new Map((outletList || []).map((o: any) => [o.id, o.name]))
+
+  const rawMonthlyExpenses = (monthlyExpenses || []).map((e: any) => ({
+    id: e.id,
+    outlet_id: e.outlet_id,
+    outlet_name: outletNameMap.get(e.outlet_id) || 'Outlet',
+    amount: Number(e.amount) || 0,
+    category: e.category,
+    description: e.description ?? '',
+    expense_date: e.expense_date,
+    period_month: (e.expense_date || '').slice(0, 7) + '-01',
+    scope: 'outlet' as const,
+    source: 'monthly' as const
+  }))
+
+  const simpanKasKecil = buatSaringanKasKecil(rawMonthlyExpenses)
+  const rawPettyExpenses = (pettyExpenses || [])
+    .filter(simpanKasKecil)
+    .map((p: any) => ({
+      id: p.id,
+      outlet_id: p.outlet_id,
+      outlet_name: outletNameMap.get(p.outlet_id) || 'Outlet',
+      amount: Number(p.amount) || 0,
+      category: p.category,
+      description: p.description ?? '',
+      expense_date: p.expense_date,
+      period_month: (p.expense_date || '').slice(0, 7) + '-01',
+      scope: 'outlet' as const,
+      source: 'petty_cash' as const
+    }))
+
+  const rawExpenses = [...rawMonthlyExpenses, ...rawPettyExpenses]
+
+  const prorataResult = calculateProratedExpenses({
+    filter: { from: filter.from, to: filter.to, outletId: selectedOutletId, source: 'all' },
+    rawExpenses,
+    payrollRecords: payrollRows,
+    staffFinancials: staffRows,
+    lastMonthExpenses: (lastMonthExpRes?.data as any) || [],
+    crewBonusRecords: (bonusRes as any) || [],
+    outlets: (outletList || []).map(o => ({ id: o.id, name: o.name, is_active: o.is_active }))
+  })
+
   const outletOpexMap = new Map<string, number>()
-
-  // Kas kecil dilewati hanya untuk outlet-bulan yang sudah punya rangkuman
-  // "OPEX <Bulan> <Tahun> - ..." di expenses — lihat lib/kasKecilTeraudit.ts.
-  // (Aturan lama: satu biaya satuan apa pun sudah membuang seluruh kas kecil.)
-  const simpanKasKecil = buatSaringanKasKecil(monthlyExpenses || [])
-
   let totalPettyCash = 0
-  if (pettyExpenses) {
-    for (const p of pettyExpenses) {
-      if (!simpanKasKecil(p)) continue
-      const amt = Number(p.amount) || 0
-      totalPettyCash += amt
-      if (p.outlet_id) {
-        outletOpexMap.set(p.outlet_id, (outletOpexMap.get(p.outlet_id) || 0) + amt)
-      }
-      const cat = mapToStandardCategory(p.category, p.description)
-      const existing = categoryMap.get(cat) || { amount: 0, items: [] }
-      existing.amount += amt
-      existing.items.push({
-        description: p.description || p.category || 'Kas Kecil',
-        amount: amt,
-        date: p.expense_date,
-        source: 'petty_cash'
-      })
-      categoryMap.set(cat, existing)
-    }
-  }
-
   let totalMonthly = 0
-  if (monthlyExpenses) {
-    for (const m of monthlyExpenses) {
-      const amt = Number(m.amount) || 0
+
+  for (const r of prorataResult.rows) {
+    if (!r.outlet_id || !targetOutletIds.includes(r.outlet_id)) continue
+
+    const cutoff = outletCutoffMap.get(r.outlet_id)
+    if (cutoff && r.expense_date < cutoff) continue
+
+    const amt = Number(r.amount) || 0
+    if (r.source === 'petty_cash') {
+      totalPettyCash += amt
+    } else {
       totalMonthly += amt
-      if (m.outlet_id) {
-        outletOpexMap.set(m.outlet_id, (outletOpexMap.get(m.outlet_id) || 0) + amt)
-      }
-      const cat = mapToStandardCategory(m.category, m.description)
-      const existing = categoryMap.get(cat) || { amount: 0, items: [] }
-      existing.amount += amt
-      existing.items.push({
-        description: m.description || m.category || 'Pengeluaran Bulanan',
-        amount: amt,
-        date: m.expense_date,
-        source: 'monthly'
-      })
-      categoryMap.set(cat, existing)
     }
+
+    outletOpexMap.set(r.outlet_id, (outletOpexMap.get(r.outlet_id) || 0) + amt)
+
+    const cat = mapToStandardCategory(r.category, r.description)
+    const existing = categoryMap.get(cat) || { amount: 0, items: [] }
+    existing.amount += amt
+    existing.items.push({
+      description: r.description || r.category || 'Biaya Operasional',
+      amount: amt,
+      date: r.expense_date,
+      source: r.source === 'petty_cash' ? 'petty_cash' : 'monthly'
+    })
+    categoryMap.set(cat, existing)
   }
 
   const opexCategories: OpexCategoryDetail[] = Array.from(categoryMap.entries())

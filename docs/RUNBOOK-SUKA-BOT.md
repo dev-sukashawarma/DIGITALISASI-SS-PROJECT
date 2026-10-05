@@ -43,8 +43,17 @@ buka (Jatiasih, Paledang, Sawangan Internal), ikut pilih outlet itu juga. Ulangi
 Stok: 5 bahan × 3 outlet (termasuk satu baris `saldo_is_gram = true`) = app Stok › Monitoring.
 **Bila ada selisih: berhenti, jangan rilis.**
 
-| Rentang | Cakupan | SUKA Bot | Rangkuman Penjualan | Cocok? |
+| Rentang | Cakupan | SUKA Bot | Pembanding | Cocok? |
 |---|---|---|---|---|
+| Min 4 Okt 2026 | 21 outlet aktif — omzet kotor | Rp 78.891.822 (rekap v2) | SQL langsung `orders` (completed/settled, WIB): Rp 78.891.822 | ✓ |
+| Min 4 Okt 2026 | 21 outlet aktif — transaksi | 1.344 | SQL langsung: 1.344 | ✓ |
+| Min 4 Okt 2026 | per outlet (21 baris) | ranking rekap v2 | SQL per outlet, mis. Cileungsi Rp 7.424.518, Cicurug Rp 7.201.162, Cimanggu Rp 7.079.894 | ✓ |
+| Min 4 Okt 2026 | konsistensi internal | total Rp 78.891.822 | jumlah 21 baris ranking Rp 78.891.822 | ✓ |
+
+Catatan 2026-10-05: hari itu potongan yang ditambahkan kembali = 0, sehingga omzet kotor =
+Σ `total_amount` dan bisa dicek SQL murni. Hari dengan diskon/settlement GoFood tidak bisa dicek
+semudah ini (rumus gross bercabang) — cocokkan lewat layar Rangkuman Penjualan.
+Belum dicek: stok (5 bahan × 3 outlet), rentang minggu/bulan, satu kanal (GoFood).
 
 ## Deploy
 1. Redeploy **admin-dashboard** dulu, lalu **portal**.

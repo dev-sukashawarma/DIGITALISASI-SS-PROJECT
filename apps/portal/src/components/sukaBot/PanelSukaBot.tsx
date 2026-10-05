@@ -1,12 +1,29 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import AvatarSukaBot, { type Pose } from './AvatarSukaBot'
-import { ambilRekap, kirimPesan, perbaruiRekap, type Rekap } from './api'
+import { ambilPesan, ambilRekap, kirimPesan, perbaruiRekap, type Rekap } from './api'
 
 type Pesan = { peran: 'user' | 'assistant'; isi: string }
 
 const jam = (iso: string) =>
   new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+
+// Percakapan berlanjut walau panel ditutup / halaman dimuat ulang, selama hari yang sama (WIB).
+// Server juga menolak melanjutkan percakapan dari hari lain.
+const KUNCI_PERCAKAPAN = 'sukaBot.percakapan'
+const hariIniWib = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+function bacaPercakapan(): string | undefined {
+  try {
+    const v = JSON.parse(localStorage.getItem(KUNCI_PERCAKAPAN) || 'null')
+    return v && v.tanggal === hariIniWib() && typeof v.id === 'string' ? v.id : undefined
+  } catch { return undefined }
+}
+function simpanPercakapan(id: string | undefined) {
+  try {
+    if (id) localStorage.setItem(KUNCI_PERCAKAPAN, JSON.stringify({ id, tanggal: hariIniWib() }))
+    else localStorage.removeItem(KUNCI_PERCAKAPAN)
+  } catch { /* abaikan */ }
+}
 
 export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiBase: string; penuh?: boolean; onRekap?: (r: Rekap) => void }) {
   const [rekap, setRekap] = useState<Rekap | null>(null)
@@ -26,7 +43,26 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiB
       .finally(() => setSibuk(false))
   }, [apiBase, onRekap])
 
+  // Muat ulang percakapan hari ini (bila ada). Rekap tidak ditampilkan ulang dari riwayat —
+  // sudah tampil sebagai kartu di atas.
+  useEffect(() => {
+    const id = bacaPercakapan()
+    if (!id) return
+    percakapanId.current = id
+    ambilPesan(apiBase, id)
+      .then(({ pesan }) => setPesan(pesan.filter((m) => m.jenis !== 'rekap').map((m) => ({ peran: m.peran, isi: m.isi }))))
+      .catch(() => { percakapanId.current = undefined; simpanPercakapan(undefined) })
+  }, [apiBase])
+
   useEffect(() => { bawah.current?.scrollIntoView({ behavior: 'smooth' }) }, [pesan, rekap])
+
+  function mulaiBaru() {
+    percakapanId.current = undefined
+    simpanPercakapan(undefined)
+    setPesan([])
+    setGalat(null)
+    setPose('rekap')
+  }
 
   async function kirim() {
     const teks = input.trim()
@@ -39,6 +75,7 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiB
     try {
       const r = await kirimPesan(apiBase, teks, percakapanId.current)
       percakapanId.current = r.percakapanId
+      simpanPercakapan(r.percakapanId)
       setPesan((p) => [...p, { peran: 'assistant', isi: r.jawaban }])
       setPose('diam')
     } catch (e: any) {
@@ -56,6 +93,8 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiB
       const { rekap: baru } = await perbaruiRekap(apiBase, rekap.tanggal)
       setRekap(baru)
       onRekap?.(baru)
+      // Percakapan lama berisi rekap versi lama; mulai baru agar AI membaca angka terbaru.
+      mulaiBaru()
     } catch (e: any) {
       setGalat(e.message)
     } finally {
@@ -67,10 +106,15 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap }: { apiB
     <div className={`flex flex-col bg-white rounded-2xl shadow-2xl border border-suka-orange/20 overflow-hidden ${penuh ? 'h-[calc(100vh-8rem)]' : 'w-[min(24rem,calc(100vw-2rem))] h-[min(36rem,calc(100vh-7rem))]'}`}>
       <div className="flex items-center gap-3 px-4 py-3 bg-suka-ink text-white">
         <AvatarSukaBot pose={pose} ukuran={40} />
-        <div>
+        <div className="flex-1">
           <p className="font-bold leading-tight">SUKA Bot</p>
           <p className="text-xs opacity-75">{sibuk ? 'Lagi mikir…' : 'Siap bantu, Bos'}</p>
         </div>
+        {pesan.length > 0 && (
+          <button onClick={mulaiBaru} disabled={sibuk} className="text-xs font-semibold rounded-full border border-white/40 px-3 py-1 hover:bg-white/10 disabled:opacity-40">
+            Percakapan baru
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">

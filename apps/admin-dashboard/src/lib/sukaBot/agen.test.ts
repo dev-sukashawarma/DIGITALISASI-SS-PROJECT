@@ -11,7 +11,10 @@ describe('jalankanAgen', () => {
     const jalankan = vi.fn(async () => ({ status: 'ok', omzet_kotor: 'Rp 4.000.000' }))
     const r = await jalankanAgen({ sistem: 'S', riwayat: [], pertanyaan: 'omzet kemarin?', panggilLLM, jalankan })
     expect(jalankan).toHaveBeenCalledWith('omzet', '{"periode":"kemarin"}')
-    expect(r).toEqual({ jawaban: 'Omzet kemarin Rp 4.000.000, Bos.', tokenMasuk: 250, tokenKeluar: 30, alatDipakai: ['omzet'], habisPutaran: false })
+    expect(r).toEqual({
+      jawaban: 'Omzet kemarin Rp 4.000.000, Bos.', tokenMasuk: 250, tokenKeluar: 30, alatDipakai: ['omzet'], habisPutaran: false,
+      jejak: [{ id: 'c1', nama: 'omzet', argumen: '{"periode":"kemarin"}', hasil: JSON.stringify({ status: 'ok', omzet_kotor: 'Rp 4.000.000' }) }],
+    })
     const pesanKedua = (panggilLLM as any).mock.calls[1][0]
     expect(pesanKedua.at(-1)).toEqual({ role: 'tool', tool_call_id: 'c1', content: JSON.stringify({ status: 'ok', omzet_kotor: 'Rp 4.000.000' }) })
     expect(pesanKedua[0]).toEqual({ role: 'system', content: 'S' })

@@ -39,6 +39,12 @@ export function outletTerhitung(outlets: OutletInfo[]): OutletInfo[] {
 
 const periodeDari = (ctx: KonteksPenjualan, a: ArgPeriode) => resolvePeriode(a.periode, ctx.hariIni, { dari: a.dari, sampai: a.sampai })
 const catatanBerjalan = (ctx: KonteksPenjualan, p: Periode) => (p.berjalan ? `Angka berjalan sampai pukul ${jamWib(ctx.sekarang)} WIB.` : undefined)
+// Rangkuman Penjualan per hari, tak bisa dipotong per jam → hari ini (belum selesai) selalu
+// tampak "turun" melawan hari penuh. Terukur saat uji 5 Okt: BNR -62%, Cicurug -95% pukul 14:07.
+const catatanBanding = (ctx: KonteksPenjualan, p: Periode) =>
+  p.berjalan
+    ? `${catatanBerjalan(ctx, p)} Hari terakhir periode ini belum selesai, sedangkan pembanding dihitung seharian penuh — persen perubahan belum bisa disimpulkan.`
+    : undefined
 
 type Cakupan = { ok: true; ids: string[]; label: string } | { ok: false; hasil: Record<string, unknown> }
 
@@ -89,7 +95,7 @@ export async function alatBandingkan(ctx: KonteksPenjualan, a: ArgPeriode & { pe
     pembanding: ringkas(q, lq),
     selisih: rupiah(lp.omzetKotor - lq.omzetKotor),
     perubahan: teksPersen(persenPerubahan(lp.omzetKotor, lq.omzetKotor)),
-    catatan: catatanBerjalan(ctx, p),
+    catatan: catatanBanding(ctx, p),
     sumber: SUMBER,
   }
 }
@@ -138,7 +144,9 @@ export async function hitungRanking(ctx: KonteksPenjualan, p: Periode, pembandin
 
 export async function alatRankingOutlet(ctx: KonteksPenjualan, a: ArgPeriode & { kanal?: KodeKanal; bandingkan?: boolean }) {
   const p = periodeDari(ctx, a)
-  const q = a.bandingkan === false ? null : periodePembanding(a.periode, p)
+  // Hari ini tidak dibandingkan kecuali diminta eksplisit (lihat catatanBanding).
+  const bandingkan = a.bandingkan ?? a.periode !== 'hari_ini'
+  const q = bandingkan ? periodePembanding(a.periode, p) : null
   const kanal = KANAL[a.kanal ?? 'semua']
   const ranking = await hitungRanking(ctx, p, q, kanal.channels)
   return {
@@ -147,7 +155,7 @@ export async function alatRankingOutlet(ctx: KonteksPenjualan, a: ArgPeriode & {
     pembanding: q?.label,
     kanal: kanal.label,
     ranking: ranking.map((r) => ({ peringkat: r.peringkat, nama: r.nama, omzet: rupiah(r.omzet), perubahan: q ? teksPersen(r.persen) : undefined })),
-    catatan: catatanBerjalan(ctx, p),
+    catatan: q ? catatanBanding(ctx, p) : catatanBerjalan(ctx, p),
     sumber: SUMBER,
   }
 }

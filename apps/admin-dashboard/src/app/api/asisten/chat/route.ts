@@ -5,9 +5,11 @@ import { sesiSukaBot } from '@/lib/sukaBot/server/sesi'
 import { headerCors, originDiizinkan } from '@/lib/sukaBot/server/cors'
 import { ambilOutlets, konteksPenjualan, konteksStok } from '@/lib/sukaBot/server/sumberData'
 import { jalankanAlat } from '@/lib/sukaBot/alat/registry'
-import { buatPanggilLLM, type PesanLLM } from '@/lib/sukaBot/llm'
+import { buatPanggilLLM } from '@/lib/sukaBot/llm'
 import { buatPromptSistem } from '@/lib/sukaBot/prompt'
 import { jalankanAgen } from '@/lib/sukaBot/agen'
+import { susunRiwayat, type BarisPesan } from '@/lib/sukaBot/riwayat'
+import { tanggalRekapUntuk } from '@/lib/sukaBot/rekap'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +18,44 @@ const RIWAYAT_MAKS = 20
 
 export async function OPTIONS(req: Request) {
   return new NextResponse(null, { status: 204, headers: headerCors(req.headers.get('origin')) })
+}
+
+/** Percakapan hanya berlanjut di hari yang sama (WIB): besok mulai baru dengan rekap baru. */
+async function percakapanHariIni(supabase: any, id: string | undefined, hariIni: string): Promise<string | undefined> {
+  if (!id) return undefined
+  const { data } = await supabase.from('suka_bot_percakapan').select('id, dibuat_at').eq('id', id).maybeSingle()
+  return data && jakartaDate(data.dibuat_at) === hariIni ? (data.id as string) : undefined
+}
+
+/** Percakapan baru dibuka dengan rekap terakhir sebagai pesan pertama, supaya AI tahu apa yang dilihat Bos. */
+async function buatPercakapan(supabase: any, pesan: string, sekarang: Date): Promise<string | null> {
+  const { data, error } = await supabase.from('suka_bot_percakapan').insert({ judul: pesan.slice(0, 60) }).select('id').single()
+  if (error) return null
+  const { data: rekap } = await supabase
+    .from('suka_bot_rekap').select('id, tanggal, teks').eq('tanggal', tanggalRekapUntuk(sekarang))
+    .order('versi', { ascending: false }).limit(1).maybeSingle()
+  if (rekap) {
+    await supabase.from('suka_bot_pesan').insert({
+      percakapan_id: data.id, peran: 'assistant', isi: rekap.teks,
+      meta: { jenis: 'rekap', rekap_id: rekap.id, tanggal: rekap.tanggal },
+    })
+  }
+  return data.id as string
+}
+
+async function ambilRiwayat(supabase: any, percakapanId: string): Promise<BarisPesan[]> {
+  const { data: terbaru } = await supabase
+    .from('suka_bot_pesan').select('id, peran, isi, meta').eq('percakapan_id', percakapanId)
+    .order('dibuat_at', { ascending: false }).limit(RIWAYAT_MAKS)
+  const baris = (terbaru ?? []).reverse()
+  // Rekap selalu ikut walau percakapan sudah lebih panjang dari jendela riwayat.
+  if (!baris.some((b: any) => b.meta?.jenis === 'rekap')) {
+    const { data: rekap } = await supabase
+      .from('suka_bot_pesan').select('id, peran, isi, meta').eq('percakapan_id', percakapanId)
+      .eq('meta->>jenis', 'rekap').limit(1).maybeSingle()
+    if (rekap) baris.unshift(rekap)
+  }
+  return baris
 }
 
 export async function POST(req: Request) {
@@ -40,21 +80,15 @@ export async function POST(req: Request) {
   const { data: pakai } = await supabase.from('suka_bot_pemakaian').select('jumlah_pertanyaan').eq('user_id', userId).eq('tanggal', hariIni).maybeSingle()
   if ((pakai?.jumlah_pertanyaan ?? 0) >= batas) return json({ galat: `Batas ${batas} pertanyaan per hari sudah tercapai, Bos. Lanjut besok ya.` }, 429)
 
-  let percakapanId = parsed.data.percakapanId
-  if (percakapanId) {
-    const { data } = await supabase.from('suka_bot_percakapan').select('id').eq('id', percakapanId).maybeSingle()
-    if (!data) percakapanId = undefined
-  }
+  let percakapanId = await percakapanHariIni(supabase, parsed.data.percakapanId, hariIni)
   if (!percakapanId) {
-    const { data, error } = await supabase.from('suka_bot_percakapan').insert({ judul: pesan.slice(0, 60) }).select('id').single()
-    if (error) return json({ galat: 'Gagal membuat percakapan' }, 500)
-    percakapanId = data.id as string
+    const baru = await buatPercakapan(supabase, pesan, sekarang)
+    if (!baru) return json({ galat: 'Gagal membuat percakapan' }, 500)
+    percakapanId = baru
   }
 
-  const { data: lama } = await supabase
-    .from('suka_bot_pesan').select('peran, isi').eq('percakapan_id', percakapanId)
-    .order('dibuat_at', { ascending: false }).limit(RIWAYAT_MAKS)
-  const riwayat: PesanLLM[] = (lama ?? []).reverse().map((m: any) => ({ role: m.peran, content: m.isi }))
+  const baris = await ambilRiwayat(supabase, percakapanId)
+  const tanggalRekap = (baris.find((b) => b.meta?.jenis === 'rekap')?.meta as any)?.tanggal ?? null
 
   await supabase.from('suka_bot_pesan').insert({ percakapan_id: percakapanId, peran: 'user', isi: pesan })
 
@@ -66,14 +100,17 @@ export async function POST(req: Request) {
       catatGagal: async (alasan: string) => { await supabase.from('suka_bot_gagal').insert({ pertanyaan: pesan, alasan }) },
     }
     const hasil = await jalankanAgen({
-      sistem: buatPromptSistem(hariIni, sekarang, nama),
-      riwayat,
+      sistem: buatPromptSistem({ hariIni, sekarang, namaPengguna: nama, outlets, tanggalRekap }),
+      riwayat: susunRiwayat(baris),
       pertanyaan: pesan,
       panggilLLM: buatPanggilLLM(),
       jalankan: (n, a) => jalankanAlat(n, a, deps),
     })
     if (hasil.habisPutaran) await deps.catatGagal('habis_putaran')
-    await supabase.from('suka_bot_pesan').insert({ percakapan_id: percakapanId, peran: 'assistant', isi: hasil.jawaban, meta: { alat: hasil.alatDipakai } })
+    await supabase.from('suka_bot_pesan').insert({
+      percakapan_id: percakapanId, peran: 'assistant', isi: hasil.jawaban,
+      meta: { alat: hasil.alatDipakai, jejak: hasil.jejak },
+    })
     await supabase.from('suka_bot_percakapan').update({ diperbarui_at: new Date().toISOString() }).eq('id', percakapanId)
     await supabase.rpc('suka_bot_catat_pemakaian', { p_token_masuk: hasil.tokenMasuk, p_token_keluar: hasil.tokenKeluar })
     return json({ percakapanId, jawaban: hasil.jawaban })

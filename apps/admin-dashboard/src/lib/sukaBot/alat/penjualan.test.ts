@@ -82,6 +82,11 @@ describe('alatBandingkan', () => {
       perubahan: '+25%',
     })
   })
+  it('hari ini vs pembanding: diberi peringatan bahwa pembanding seharian penuh', async () => {
+    const r: any = await alatBandingkan(konteks(), { periode: 'hari_ini' })
+    expect(r.catatan).toContain('Angka berjalan sampai pukul 14:30 WIB.')
+    expect(r.catatan).toContain('pembanding dihitung seharian penuh')
+  })
 })
 
 describe('alatMenuTerlaris', () => {
@@ -103,5 +108,17 @@ describe('alatRankingOutlet', () => {
       [1, 'MITRA CIBUBUR', 'Rp 3.000.000', '0%'],
       [2, 'SUKA SHAWARMA BEJI', 'Rp 1.000.000', '+25%'],
     ])
+  })
+  it('hari ini: TIDAK dibandingkan otomatis (hari belum selesai)', async () => {
+    const ctx = konteks()
+    const r: any = await alatRankingOutlet(ctx, { periode: 'hari_ini' })
+    expect(r.pembanding).toBeUndefined()
+    expect(r.ranking.every((x: any) => x.perubahan === undefined)).toBe(true)
+    expect(ctx.panggilan.every((p: any) => p.dari === '2026-10-01')).toBe(true)
+  })
+  it('hari ini: tetap bisa dibandingkan bila diminta eksplisit, dengan peringatan', async () => {
+    const r: any = await alatRankingOutlet(konteks(), { periode: 'hari_ini', bandingkan: true })
+    expect(r.pembanding).toBeDefined()
+    expect(r.catatan).toContain('pembanding dihitung seharian penuh')
   })
 })

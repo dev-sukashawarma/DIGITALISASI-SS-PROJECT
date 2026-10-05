@@ -1,4 +1,5 @@
 import { DEFINISI_ALAT } from './alat/registry'
+import { potongHasil, type JejakAlat } from './riwayat'
 import type { PanggilLLM, PesanLLM } from './llm'
 
 export type { PanggilLLM, PesanLLM } from './llm'
@@ -18,6 +19,8 @@ export async function jalankanAgen(o: {
   let tokenMasuk = 0
   let tokenKeluar = 0
   const alatDipakai: string[] = []
+  // Disimpan bersama jawaban → pertanyaan lanjutan bisa merujuk angka yang sama.
+  const jejak: JejakAlat[] = []
 
   for (let putaran = 0; putaran < maks; putaran++) {
     const r = await o.panggilLLM(pesan, DEFINISI_ALAT)
@@ -25,14 +28,16 @@ export async function jalankanAgen(o: {
     tokenKeluar += r.tokenKeluar
     const panggilan = r.pesan.tool_calls ?? []
     if (panggilan.length === 0) {
-      return { jawaban: (r.pesan.content ?? '').trim(), tokenMasuk, tokenKeluar, alatDipakai, habisPutaran: false }
+      return { jawaban: (r.pesan.content ?? '').trim(), tokenMasuk, tokenKeluar, alatDipakai, habisPutaran: false, jejak }
     }
     pesan.push(r.pesan)
     for (const p of panggilan) {
       alatDipakai.push(p.function.name)
       const hasil = await o.jalankan(p.function.name, p.function.arguments)
-      pesan.push({ role: 'tool', tool_call_id: p.id, content: JSON.stringify(hasil) })
+      const isi = JSON.stringify(hasil)
+      pesan.push({ role: 'tool', tool_call_id: p.id, content: isi })
+      jejak.push({ id: p.id, nama: p.function.name, argumen: p.function.arguments, hasil: potongHasil(hasil) })
     }
   }
-  return { jawaban: JAWABAN_HABIS_PUTARAN, tokenMasuk, tokenKeluar, alatDipakai, habisPutaran: true }
+  return { jawaban: JAWABAN_HABIS_PUTARAN, tokenMasuk, tokenKeluar, alatDipakai, habisPutaran: true, jejak }
 }

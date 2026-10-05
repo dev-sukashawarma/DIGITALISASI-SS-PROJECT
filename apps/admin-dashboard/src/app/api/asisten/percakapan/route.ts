@@ -16,8 +16,10 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get('id')
   if (id) {
     if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ galat: 'id tidak valid' }, { status: 400, headers: cors })
-    const { data } = await sesi.supabase.from('suka_bot_pesan').select('peran, isi, dibuat_at').eq('percakapan_id', id).order('dibuat_at')
-    return NextResponse.json({ pesan: data ?? [] }, { headers: cors })
+    // Jejak alat tidak dikirim ke browser; cukup jenis pesan (rekap ditampilkan terpisah oleh panel).
+    const { data } = await sesi.supabase.from('suka_bot_pesan').select('peran, isi, dibuat_at, meta').eq('percakapan_id', id).order('dibuat_at')
+    const pesan = (data ?? []).map((m: any) => ({ peran: m.peran, isi: m.isi, dibuat_at: m.dibuat_at, jenis: m.meta?.jenis ?? null }))
+    return NextResponse.json({ pesan }, { headers: cors })
   }
   const { data } = await sesi.supabase.from('suka_bot_percakapan').select('id, judul, diperbarui_at').order('diperbarui_at', { ascending: false }).limit(20)
   return NextResponse.json({ percakapan: data ?? [] }, { headers: cors })

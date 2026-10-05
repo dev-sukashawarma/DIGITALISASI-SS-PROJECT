@@ -28,17 +28,6 @@ def hex_ke_rgb(h: str) -> np.ndarray:
     return np.array([int(h[i:i + 2], 16) for i in (0, 2, 4)], np.float32)
 
 
-def kunci_hijau(frame: np.ndarray, latar: np.ndarray, t0: float, t1: float) -> np.ndarray:
-    """Ganti latar hijau dengan `latar`. Alpha dari dominansi hijau G - max(R,B), lalu despill.
-
-    Sengaja bukan filter chromakey ffmpeg: di klip ini chromakey membuat janggut & wajah tembus.
-    """
-    a = frame.astype(np.float32)
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    maks_rb = np.maximum(r, b)
-    alpha = np.clip(1 - (g - maks_rb - t0) / (t1 - t0), 0, 1)[..., None]
-    a[..., 1] = np.minimum(g, maks_rb)
-    return (a * alpha + latar * (1 - alpha)).clip(0, 255).round().astype(np.uint8)
 
 
 def kecil_abu(frame: np.ndarray) -> np.ndarray:
@@ -67,24 +56,52 @@ def beku_ujung(langkah: list[float]) -> tuple[int, int]:
     return hitung(langkah), hitung(reversed(langkah))
 
 
-def porsi_sisa_hijau(frame: np.ndarray, ambang: float = 30) -> float:
-    a = frame.astype(np.int16)
-    return float(((a[..., 1] - np.maximum(a[..., 0], a[..., 2])) > ambang).mean())
 
 
-def isi_klip_gen(info: dict[str, dict]) -> str:
+
+
+def kunci_alfa(frame: np.ndarray, t0: float, t1: float) -> np.ndarray:
+    """RGB -> RGBA: alfa dari dominansi hijau G - max(R,B), RGB di-despill.
+
+    Sengaja bukan filter chromakey ffmpeg: di klip ini chromakey membuat janggut & wajah tembus.
+    """
+    a = frame.astype(np.float32)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    maks_rb = np.maximum(r, b)
+    alpha = np.clip(1 - (g - maks_rb - t0) / (t1 - t0), 0, 1)
+    a[..., 1] = np.minimum(g, maks_rb)
+    return np.dstack([a, alpha * 255]).clip(0, 255).round().astype(np.uint8)
+
+
+def komposit(rgba: np.ndarray, latar: np.ndarray) -> np.ndarray:
+    a = rgba.astype(np.float32)
+    alpha = a[..., 3:4] / 255
+    return (a[..., :3] * alpha + latar * (1 - alpha)).clip(0, 255).round().astype(np.uint8)
+
+
+def porsi_sisa_hijau(rgba: np.ndarray, ambang: float = 30) -> float:
+    a = rgba.astype(np.int16)
+    hijau = (a[..., 1] - np.maximum(a[..., 0], a[..., 2])) > ambang
+    return float((hijau & (a[..., 3] > 128)).mean())
+
+
+def isi_klip_gen(info: dict[str, dict], rasio: float) -> str:
     baris = [
         "// DIBUAT OTOMATIS oleh scripts/suka-bot/olah_klip.py. Jangan diedit tangan.",
         "import type { Klip } from './rencanaPutar'",
         "",
-        "export type InfoKlip = { video: string; gambar: string; ulang: boolean; durasiMs: number }",
+        "export type InfoKlip = { webm: string; webp: string; gambar: string; ulang: boolean; durasiMs: number }",
+        "",
+        "/** Lebar dibagi tinggi kotak chef (sama untuk semua klip). */",
+        f"export const RASIO = {round(rasio, 4)}",
         "",
         "export const KLIP: Record<Klip, InfoKlip> = {",
     ]
     for nama, i in info.items():
         ulang = 'true' if i['ulang'] else 'false'
         baris.append(
-            f"  {nama}: {{ video: '/suka-bot/{nama}.mp4?v={i['sidik_video']}', "
+            f"  {nama}: {{ webm: '/suka-bot/{nama}.webm?v={i['sidik_webm']}', "
+            f"webp: '/suka-bot/{nama}.anim.webp?v={i['sidik_anim']}', "
             f"gambar: '/suka-bot/{nama}.webp?v={i['sidik_gambar']}', ulang: {ulang}, durasiMs: {i['durasi_ms']} }},"
         )
     baris.append("}")
@@ -97,12 +114,24 @@ def sidik(path: Path) -> str:
 
 ROOT = Path(__file__).resolve().parents[2]
 KONFIG = Path(__file__).with_name('klip.json')
+ABU = hex_ke_rgb('#808080')  # latar netral untuk mengukur gerak
 
 
-def _ffmpeg_baca(args: list[str], sisi: int) -> np.ndarray:
-    keluar = subprocess.run(['ffmpeg', '-v', 'error', *args, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
+def _ffmpeg_baca(args: list[str], w: int, h: int, kanal: int) -> np.ndarray:
+    pix = 'rgba' if kanal == 4 else 'rgb24'
+    keluar = subprocess.run(['ffmpeg', '-v', 'error', *args, '-f', 'rawvideo', '-pix_fmt', pix, '-'],
                             check=True, capture_output=True).stdout
-    return np.frombuffer(keluar, np.uint8).reshape(-1, sisi, sisi, 3)
+    return np.frombuffer(keluar, np.uint8).reshape(-1, h, w, kanal)
+
+
+def _lebar(kfg: dict, tinggi: int) -> int:
+    p = kfg['potong']
+    return round(p['lebar'] / p['tinggi'] * tinggi / 2) * 2
+
+
+def _baca_webm(path: Path, kfg: dict) -> np.ndarray:
+    # Dekoder libvpx-vp9 wajib disebut: dekoder bawaan ffmpeg membuang kanal alfa.
+    return _ffmpeg_baca(['-c:v', 'libvpx-vp9', '-i', str(path)], _lebar(kfg, kfg['tinggi_webm']), kfg['tinggi_webm'], 4)
 
 
 def olah_satu(nama: str, k: dict, kfg: dict) -> None:
@@ -111,44 +140,57 @@ def olah_satu(nama: str, k: dict, kfg: dict) -> None:
         sys.exit(f"[{nama}] berkas sumber tidak ada: {sumber} (salin video mentah dari Drive tim)")
     if not (k['awal'] <= k['frame_gambar'] < k['akhir']):
         sys.exit(f"[{nama}] frame_gambar {k['frame_gambar']} di luar segmen {k['awal']}..{k['akhir']}")
-    p, s = kfg['potong'], kfg['ukuran']
+    p, t, th = kfg['potong'], kfg['kunci_hijau'], kfg['tinggi_webm']
+    wb = _lebar(kfg, th)
     vf = (f"trim=start_frame={k['awal']}:end_frame={k['akhir']},setpts=PTS-STARTPTS,"
-          f"crop={p['sisi']}:{p['sisi']}:{p['x']}:{p['y']},scale={s}:{s}:flags=lanczos")
-    mentah = _ffmpeg_baca(['-i', str(sumber), '-an', '-vf', vf], s)
-    latar, t = hex_ke_rgb(kfg['latar']), kfg['kunci_hijau']
-    hasil = np.stack([kunci_hijau(f, latar, t['t0'], t['t1']) for f in mentah])
+          f"crop={p['lebar']}:{p['tinggi']}:{p['x']}:{p['y']},scale={wb}:{th}:flags=lanczos")
+    mentah = _ffmpeg_baca(['-i', str(sumber), '-an', '-vf', vf], wb, th, 3)
+    rgba = np.stack([kunci_alfa(f, t['t0'], t['t1']) for f in mentah])
     keluar = ROOT / kfg['keluar_dir']
     keluar.mkdir(parents=True, exist_ok=True)
-    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{s}x{s}',
-                    '-r', str(FPS), '-i', '-', '-an', '-c:v', 'libx264', '-crf', str(kfg['crf']),
-                    '-preset', 'slow', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(keluar / f'{nama}.mp4')],
-                   input=hasil.tobytes(), check=True)
-    Image.fromarray(hasil[k['frame_gambar'] - k['awal']]).save(keluar / f'{nama}.webp', quality=85)
-    print(f"[{nama}] {len(hasil)} frame -> {nama}.mp4 + {nama}.webp")
+
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{wb}x{th}',
+                    '-r', str(FPS), '-i', '-', '-an', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p',
+                    '-b:v', '0', '-crf', str(kfg['crf_webm']), '-row-mt', '1', str(keluar / f'{nama}.webm')],
+                   input=rgba.tobytes(), check=True)
+
+    ta, fps = kfg['tinggi_anim'], kfg['fps_anim']
+    wa = _lebar(kfg, ta)
+    ims = [Image.fromarray(f, 'RGBA').resize((wa, ta), Image.LANCZOS) for f in rgba[::FPS // fps]]
+    ims[0].save(keluar / f'{nama}.anim.webp', save_all=True, append_images=ims[1:], duration=round(1000 / fps),
+                loop=0 if k['ulang'] else 1, quality=kfg['kualitas_anim'], alpha_quality=kfg['kualitas_anim'], method=6)
+
+    Image.fromarray(rgba[k['frame_gambar'] - k['awal']], 'RGBA').save(keluar / f'{nama}.webp', quality=85)
+    print(f"[{nama}] {len(rgba)} frame -> {nama}.webm + {nama}.anim.webp + {nama}.webp")
 
 
 def hitung_info(kfg: dict) -> dict[str, dict]:
     keluar, info = ROOT / kfg['keluar_dir'], {}
     for nama, k in kfg['klip'].items():
-        mp4 = keluar / f'{nama}.mp4'
-        n = len(_ffmpeg_baca(['-i', str(mp4)], kfg['ukuran']))
-        info[nama] = {'sidik_video': sidik(mp4), 'sidik_gambar': sidik(keluar / f'{nama}.webp'),
-                      'ulang': k['ulang'], 'durasi_ms': round(n * 1000 / FPS)}
+        webm = keluar / f'{nama}.webm'
+        info[nama] = {'sidik_webm': sidik(webm), 'sidik_anim': sidik(keluar / f'{nama}.anim.webp'),
+                      'sidik_gambar': sidik(keluar / f'{nama}.webp'), 'ulang': k['ulang'],
+                      'durasi_ms': round(len(_baca_webm(webm, kfg)) * 1000 / FPS)}
     return info
 
 
 def periksa(kfg: dict) -> list[str]:
-    galat, keluar, s = [], ROOT / kfg['keluar_dir'], kfg['ukuran']
+    galat, keluar = [], ROOT / kfg['keluar_dir']
     for nama, k in kfg['klip'].items():
-        mp4, webp = keluar / f'{nama}.mp4', keluar / f'{nama}.webp'
-        if not mp4.exists() or not webp.exists():
-            galat.append(f"[{nama}] {mp4.name} / {webp.name} tidak ada")
+        webm, anim, gambar = keluar / f'{nama}.webm', keluar / f'{nama}.anim.webp', keluar / f'{nama}.webp'
+        hilang = [x.name for x in (webm, anim, gambar) if not x.exists()]
+        if hilang:
+            galat.append(f"[{nama}] tidak ada: {', '.join(hilang)}")
             continue
-        kb = mp4.stat().st_size / 1024
-        if kb > kfg['maks_kb']:
-            galat.append(f"[{nama}] {kb:.0f} KB > {kfg['maks_kb']} KB")
-        frames = _ffmpeg_baca(['-i', str(mp4)], s)
-        g = ukur_gerak([kecil_abu(f) for f in frames])
+        for berkas, maks in ((webm, kfg['maks_kb_webm']), (anim, kfg['maks_kb_anim'])):
+            kb = berkas.stat().st_size / 1024
+            if kb > maks:
+                galat.append(f"[{nama}] {berkas.name} {kb:.0f} KB > {maks} KB")
+        frames = _baca_webm(webm, kfg)
+        h, w = frames.shape[1:3]
+        if frames[0, 2, 2, 3] > 10 or frames[0, h // 2, w // 2, 3] < 245:
+            galat.append(f"[{nama}] kanal alfa WebM hilang (pojok harus transparan, tengah pekat)")
+        g = ukur_gerak([kecil_abu(komposit(f, ABU)) for f in frames])
         if k['ulang'] and g['sambungan'] >= g['median']:
             galat.append(f"[{nama}] sambungan loop {g['sambungan']:.2f} >= gerak normal {g['median']:.2f}: "
                          "klip berulang wajib dibuat ulang dengan Frames to Video")
@@ -159,10 +201,16 @@ def periksa(kfg: dict) -> list[str]:
         hijau = max(porsi_sisa_hijau(f) for f in frames)
         if hijau > 0.001:
             galat.append(f"[{nama}] sisa hijau {hijau:.3%} piksel")
+        with Image.open(anim) as im:
+            loop_harap = 0 if k['ulang'] else 1
+            if getattr(im, 'n_frames', 1) < 2 or im.info.get('loop') != loop_harap:
+                galat.append(f"[{nama}] {anim.name}: frame {getattr(im, 'n_frames', 1)}, loop {im.info.get('loop')} "
+                             f"(harap > 1 frame, loop {loop_harap})")
     if not galat:
         gen = ROOT / kfg['gen_ts']
-        if not gen.exists() or gen.read_text(encoding='utf-8') != isi_klip_gen(hitung_info(kfg)):
-            galat.append(f"{kfg['gen_ts']} tidak sinkron dengan video: jalankan tanpa --periksa")
+        harap = isi_klip_gen(hitung_info(kfg), kfg['potong']['lebar'] / kfg['potong']['tinggi'])
+        if not gen.exists() or gen.read_text(encoding='utf-8') != harap:
+            galat.append(f"{kfg['gen_ts']} tidak sinkron dengan aset: jalankan tanpa --periksa")
     return galat
 
 
@@ -173,7 +221,8 @@ def main() -> None:
     if not ap.parse_args().periksa:
         for nama, k in kfg['klip'].items():
             olah_satu(nama, k, kfg)
-        (ROOT / kfg['gen_ts']).write_text(isi_klip_gen(hitung_info(kfg)), encoding='utf-8', newline='\n')
+        rasio = kfg['potong']['lebar'] / kfg['potong']['tinggi']
+        (ROOT / kfg['gen_ts']).write_text(isi_klip_gen(hitung_info(kfg), rasio), encoding='utf-8', newline='\n')
         print(f"tulis {kfg['gen_ts']}")
     galat = periksa(kfg)
     for g in galat:

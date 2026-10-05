@@ -1,8 +1,8 @@
 Aset avatar SUKA Bot — HASIL OLAHAN SKRIP, jangan diedit tangan.
 
-- `<klip>.mp4`: 320x320, latar oranye menyatu, tanpa audio.
-- `<klip>.webp`: gambar cadangan pose (sebelum video siap, mode tanpa animasi,
-  hemat data, atau video gagal diputar).
+- `<klip>.webm`: WebM VP9 transparan, 24 fps (Chrome/Edge/Firefox/Android).
+- `<klip>.anim.webp`: WebP beranimasi transparan, 12 fps (iPhone/iPad & Safari).
+- `<klip>.webp`: gambar diam transparan (mode tanpa animasi, hemat data, gagal putar).
 
 Klip: diam & berpikir (berulang), rekap, bingung, sapa (sekali putar).
 
@@ -11,5 +11,5 @@ docs/aset/suka-bot/ dulu):
 
     python scripts/suka-bot/olah_klip.py
 
-Skrip juga menulis `src/components/sukaBot/avatar/klip.gen.ts` (URL bersidik).
+Skrip juga menulis `src/components/sukaBot/avatar/klip.gen.ts` (URL bersidik + RASIO).
 Membuat klip baru: docs/aset/suka-bot/PANDUAN-KLIP-ANIMASI.md.

@@ -1,19 +1,22 @@
 {
-  "_catatan": "awal inklusif, akhir eksklusif, frame_gambar = indeks frame di video sumber. Kotak potong sama untuk semua klip (beda kotak = ukuran chef melompat saat pelarutan).",
+  "_catatan": "awal inklusif, akhir eksklusif, frame_gambar = indeks frame di video sumber. Kotak potong sama untuk semua klip = gabungan bounding box seluruh badan kelima klip (lambaian rekap sampai x=0).",
   "sumber_dir": "docs/aset/suka-bot",
   "keluar_dir": "apps/portal/public/suka-bot",
   "gen_ts": "apps/portal/src/components/sukaBot/avatar/klip.gen.ts",
-  "ukuran": 320,
-  "potong": { "x": 20, "y": 120, "sisi": 980 },
-  "latar": "#f29744",
+  "potong": { "x": 0, "y": 106, "lebar": 1016, "tinggi": 1770 },
   "kunci_hijau": { "t0": 18, "t1": 55 },
-  "crf": 26,
-  "maks_kb": 250,
+  "tinggi_webm": 320,
+  "crf_webm": 35,
+  "maks_kb_webm": 350,
+  "tinggi_anim": 280,
+  "fps_anim": 12,
+  "kualitas_anim": 60,
+  "maks_kb_anim": 550,
   "klip": {
-    "diam":     { "berkas": "Chef_breathing_and_smiling_1080p_20261005152301.mp4",       "awal": 5, "akhir": 174, "ulang": true,  "frame_gambar": 5 },
+    "diam":     { "berkas": "Chef_breathing_and_smiling_1080p_20261005152301.mp4",       "awal": 6, "akhir": 174, "ulang": true,  "frame_gambar": 6 },
     "berpikir": { "berkas": "Chef_stroking_beard_thoughtfully_1080p_20261005152518.mp4", "awal": 6, "akhir": 139, "ulang": true,  "frame_gambar": 60 },
     "rekap":    { "berkas": "Chef_smiling_and_waving_happily_20261005145342.mp4",        "awal": 2, "akhir": 131, "ulang": false, "frame_gambar": 75 },
-    "bingung":  { "berkas": "Chef_acting_confused_and_apologetic_20261005145537.mp4",    "awal": 1, "akhir": 137, "ulang": false, "frame_gambar": 40 },
+    "bingung":  { "berkas": "Chef_acting_confused_and_apologetic_20261005145537.mp4",    "awal": 2, "akhir": 137, "ulang": false, "frame_gambar": 40 },
     "sapa":     { "berkas": "Chef_giving_thumbs_up_1080p_20261005145710.mp4",             "awal": 2, "akhir": 137, "ulang": false, "frame_gambar": 85 }
   }
 }

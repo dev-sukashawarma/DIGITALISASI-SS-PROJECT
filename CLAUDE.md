@@ -3267,7 +3267,8 @@ Rumus inti HPP (riwayat per tanggal `menu_hpp_pada`, COGS Ringkasan Bisnis) **te
 
 ## Session 2026-10-03/05: SUKA Bot Tahap 1 — Asisten AI Owner/Admin (portal + admin-dashboard)
 
-**Status:** Kode selesai di branch `feat/suka-bot` (worktree `.worktrees/suka-bot`), **belum merge/push/redeploy**. DB **LIVE**: migration `20261003180000_suka_bot` dijalankan owner via SQL Editor, diverifikasi ke katalog, uji RLS `supabase/verifikasi/suka_bot/t1_rls.sql` LULUS (+ kontrol negatif), terstempel. 57 test vitest lulus; type-check nol error di berkas SUKA Bot. ⚠️ Uji browser + pencocokan angka vs Rangkuman Penjualan **belum dijalankan** (worktree tanpa `node_modules` app; dilakukan setelah merge).
+**Status:** Kode **di-merge ke `main` lokal** (`a100406d` + fix tipe portal `3c473847`), **belum di-push, belum redeploy**. DB **LIVE**: migration `20261003180000_suka_bot` dijalankan owner via SQL Editor, diverifikasi ke katalog, uji RLS `supabase/verifikasi/suka_bot/t1_rls.sql` LULUS (+ kontrol negatif), terstempel. Di hasil merge: admin-dashboard 803 test lulus, type-check 0 error, build sukses (rute `/api/asisten/*`); portal type-check 0 error, build sukses (`/asisten`). ⚠️ Uji browser + pencocokan angka vs Rangkuman Penjualan **belum dijalankan** (butuh env `AI_*` 9Router di `.env.local`).
+- Gotcha tipe portal: pemeriksa JSX membaca `ReactNode` dari `@types/react` lama di root, bukan v19 milik portal → class component ditolak (TS2786). `SukaBotWidget.tsx` memakai alias ber-`JSX.Element`. Tidak terlihat di worktree tanpa `node_modules` app.
 
 **Spec/plan/runbook:** `docs/superpowers/specs/2026-10-03-suka-bot-design.md`, `docs/superpowers/plans/2026-10-03-suka-bot-tahap1.md`, `docs/RUNBOOK-SUKA-BOT.md`
 

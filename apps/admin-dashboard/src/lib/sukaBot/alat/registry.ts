@@ -44,8 +44,8 @@ export const DEFINISI_ALAT: DefinisiAlat[] = [
 
 export async function jalankanAlat(nama: string, argumenJson: string, deps: DepsAlat): Promise<Record<string, unknown>> {
   try {
-    // Object.hasOwn, bukan `in`: "constructor"/"toString" tidak boleh lolos sebagai nama alat.
-    if (!Object.hasOwn(SKEMA, nama)) return { status: 'galat', pesan: `Alat "${nama}" tidak ada` }
+    // hasOwnProperty, bukan `in`: "constructor"/"toString" tidak boleh lolos sebagai nama alat.
+    if (!Object.prototype.hasOwnProperty.call(SKEMA, nama)) return { status: 'galat', pesan: `Alat "${nama}" tidak ada` }
     let mentah: unknown
     try { mentah = JSON.parse(argumenJson || '{}') } catch { return { status: 'galat', pesan: 'Argumen alat bukan JSON yang valid' } }
     const hasil = SKEMA[nama as keyof typeof SKEMA].safeParse(mentah)

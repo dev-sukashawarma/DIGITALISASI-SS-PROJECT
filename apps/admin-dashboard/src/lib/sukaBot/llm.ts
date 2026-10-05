@@ -8,7 +8,7 @@ const BATAS_WAKTU_MS = 60_000
 
 /** Klien endpoint OpenAI-compatible (9Router). Tanpa SDK — tidak menambah dependency. */
 export function buatPanggilLLM(
-  env: { AI_BASE_URL?: string; AI_API_KEY?: string; AI_MODEL?: string } = process.env,
+  env: Record<string, string | undefined> = process.env,
   fetchFn: typeof fetch = fetch
 ): PanggilLLM {
   const base = env.AI_BASE_URL?.replace(/\/+$/, '')

@@ -3295,7 +3295,8 @@ Rumus inti HPP (riwayat per tanggal `menu_hpp_pada`, COGS Ringkasan Bisnis) **te
 
 ## Session 2026-10-05: SUKA Bot — Avatar Chef Beranimasi (apps/portal)
 
-**Status:** Kode di branch `feat/suka-bot-avatar-animasi`. ⚠️ Perlu merge + **redeploy `portal`**.
+**Status:** Di-merge ke `main` lokal (merge `8e336c17`), **belum di-push**. ⚠️ Perlu push + **redeploy `portal`**.
+Uji dengan akun owner/admin di browser terlihat & iPhone belum dilakukan (panel browser Claude tersembunyi).
 **Hanya untuk role admin, owner, developer** (gerbang: `bisaSukaBot` launcher, cek role `/asisten`,
 `is_owner_or_admin()` server — jangan dilonggarkan).
 

@@ -2,6 +2,8 @@ import type { Role, StaffStatus } from '@suka/auth'
 
 export type { Role, StaffStatus }
 
+export type OutletStatus = 'active' | 'pending' | 'inactive'
+
 export interface Outlet {
   id: string
   slug: string
@@ -10,11 +12,13 @@ export interface Outlet {
   lat: number
   lng: number
   type: string
+  status?: OutletStatus
   is_active: boolean
   region?: string | null
   marquee_warning_threshold: number
   open_hour?: string | null
   close_hour?: string | null
+  deleted_at?: string | null
 }
 
 export interface OutletFormValues {
@@ -24,6 +28,7 @@ export interface OutletFormValues {
   lat: number
   lng: number
   type: string
+  status?: OutletStatus
   is_active: boolean
   marquee_warning_threshold: number
   open_hour?: string
@@ -32,7 +37,7 @@ export interface OutletFormValues {
 
 export interface OutletFilterValues {
   search: string
-  status: string // '' = semua, 'active', 'inactive', 'missing_coords'
+  status: string // '' = semua, 'active', 'pending', 'inactive', 'missing_coords'
   type?: string // '' / 'all' = semua, 'internal', 'mitra'
 }
 

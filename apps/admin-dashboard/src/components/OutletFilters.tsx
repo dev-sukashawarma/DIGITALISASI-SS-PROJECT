@@ -70,6 +70,18 @@ export function OutletFilters({
             </button>
             <button
               type="button"
+              onClick={() => set({ status: 'pending' })}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                value.status === 'pending'
+                  ? 'bg-amber-600 text-white shadow-xs font-bold'
+                  : 'text-suka-gray-500 hover:text-suka-ink'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${value.status === 'pending' ? 'bg-white' : 'bg-amber-500'}`} />
+              Pending
+            </button>
+            <button
+              type="button"
               onClick={() => set({ status: 'inactive' })}
               className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
                 value.status === 'inactive'

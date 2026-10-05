@@ -12,10 +12,19 @@ export async function upsertOutlet(outletData: any) {
       setAll: () => {},
     })
 
+    const status = outletData.status || (outletData.is_active ? 'active' : 'pending')
+    const payload = {
+      ...outletData,
+      status,
+      is_active: status === 'active',
+      deleted_at: status === 'inactive' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    }
+
     if (outletData.id) {
       const { data, error } = await supabase
         .from('outlets')
-        .update(outletData)
+        .update(payload)
         .eq('id', outletData.id)
         .select()
         .single()
@@ -26,7 +35,7 @@ export async function upsertOutlet(outletData: any) {
     } else {
       const { data, error } = await supabase
         .from('outlets')
-        .insert(outletData)
+        .insert(payload)
         .select()
         .single()
 
@@ -48,13 +57,22 @@ export async function deleteOutlet(id: string) {
       setAll: () => {},
     })
 
-    const { error } = await supabase.from('outlets').delete().eq('id', id)
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('outlets')
+      .update({
+        is_active: false,
+        status: 'inactive',
+        deleted_at: now,
+        updated_at: now,
+      })
+      .eq('id', id)
     if (error) throw error
 
     revalidatePath('/dashboard/pos-admin/outlets')
     return { success: true }
   } catch (error: any) {
     console.error('Error deleting outlet:', error)
-    return { success: false, error: error.message || 'Gagal menghapus outlet' }
+    return { success: false, error: error.message || 'Gagal menonaktifkan outlet' }
   }
 }

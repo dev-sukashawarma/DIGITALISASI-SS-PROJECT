@@ -112,7 +112,7 @@ export function OutletTable({
                     {/* Name, Slug, & Address */}
                     <td className="px-5 py-4">
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-50 to-orange-100 border border-orange-200/60 flex items-center justify-center text-suka-brown font-bold text-xs shrink-0 mt-0.5 shadow-2xs">
+                        <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-suka-brown flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs">
                           {o.name ? o.name.charAt(0).toUpperCase() : 'O'}
                         </div>
                         <div className="space-y-1 min-w-0">
@@ -180,7 +180,12 @@ export function OutletTable({
 
                     {/* Status */}
                     <td className="px-4 py-4 whitespace-nowrap">
-                      {o.is_active ? (
+                      {o.status === 'pending' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                          <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          Pending
+                        </span>
+                      ) : o.is_active || o.status === 'active' ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                           <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -222,10 +227,18 @@ export function OutletTable({
                         {onToggleActive && (
                           <button
                             type="button"
-                            title={o.is_active ? 'Nonaktifkan Outlet' : 'Aktifkan Outlet'}
+                            title={
+                              o.status === 'pending'
+                                ? 'Aktifkan Cabang'
+                                : o.is_active
+                                ? 'Nonaktifkan Outlet'
+                                : 'Aktifkan Outlet'
+                            }
                             onClick={() => onToggleActive(o)}
                             className={`p-2 rounded-xl border border-transparent transition-colors ${
-                              o.is_active
+                              o.status === 'pending'
+                                ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200'
+                                : o.is_active
                                 ? 'text-suka-gray-500 hover:text-amber-700 hover:bg-amber-50 hover:border-amber-200'
                                 : 'text-suka-gray-500 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200'
                             }`}
@@ -236,7 +249,7 @@ export function OutletTable({
                         {onDelete && (
                           <button
                             type="button"
-                            title="Hapus Outlet"
+                            title="Nonaktifkan & Hapus (Soft Delete)"
                             onClick={() => onDelete(o)}
                             className="p-2 rounded-xl text-suka-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
                           >
@@ -268,7 +281,7 @@ export function OutletTable({
               {/* Card Header: Avatar, Name, Slug, and Status */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-50 to-orange-100 border border-orange-200/60 flex items-center justify-center text-suka-brown font-bold text-sm shrink-0 shadow-2xs">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-suka-brown flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
                     {o.name ? o.name.charAt(0).toUpperCase() : 'O'}
                   </div>
                   <div className="min-w-0">
@@ -289,7 +302,12 @@ export function OutletTable({
 
                 {/* Status Pill */}
                 <div className="shrink-0">
-                  {o.is_active ? (
+                  {o.status === 'pending' ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      Pending
+                    </span>
+                  ) : o.is_active || o.status === 'active' ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                       Aktif
@@ -372,20 +390,24 @@ export function OutletTable({
                   {onToggleActive && (
                     <button
                       type="button"
+                      title={o.status === 'pending' ? 'Aktifkan Cabang' : o.is_active ? 'Nonaktifkan Cabang' : 'Aktifkan Cabang'}
                       onClick={() => onToggleActive(o)}
                       className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors shadow-2xs ${
                         o.is_active
                           ? 'text-amber-800 bg-amber-50 hover:bg-amber-100/70 border-amber-200'
+                          : o.status === 'pending'
+                          ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
                           : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
                       }`}
                     >
                       <Power className="w-3.5 h-3.5" />
-                      {o.is_active ? 'Nonaktif' : 'Aktifkan'}
+                      {o.status === 'pending' ? 'Aktifkan' : o.is_active ? 'Nonaktif' : 'Aktifkan'}
                     </button>
                   )}
                   {onDelete && (
                     <button
                       type="button"
+                      title="Nonaktifkan & Hapus (Soft Delete)"
                       onClick={() => onDelete(o)}
                       className="min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold text-red-600 bg-red-50/50 hover:bg-red-50 border border-red-200 flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
                     >

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback, type SetStateAction } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
 import {
@@ -11,11 +11,15 @@ import {
   Users,
   AlertTriangle,
   MapPinOff,
+  Clock,
 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
-import { useOutlets } from '@/hooks/useOutlets'
+import { useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase'
+import { useManagedOutlets } from '@/hooks/useManagedOutlets'
 import { useOutletMutations } from '@/hooks/useOutletMutations'
 import { filterOutlets } from '@/lib/filterOutlets'
+import { MANAGED_OUTLETS_KEY, withPinned } from '@/lib/managedOutlets'
 import { OutletFilters } from '@/components/OutletFilters'
 import { OutletTable } from '@/components/OutletTable'
 import { OutletForm } from '@/components/OutletForm'
@@ -23,6 +27,7 @@ import { DeleteOutletDialog } from '@/components/DeleteOutletDialog'
 import type { Outlet, OutletFilterValues, OutletFormValues } from '@/lib/types'
 
 const EMPTY_FILTER: OutletFilterValues = { search: '', status: '', type: 'all' }
+const NO_PIN: ReadonlySet<string> = new Set()
 
 function toFormValues(o: Outlet): OutletFormValues {
   return {
@@ -32,6 +37,7 @@ function toFormValues(o: Outlet): OutletFormValues {
     lat: o.lat,
     lng: o.lng,
     type: o.type,
+    status: o.status ?? (o.is_active ? 'active' : 'inactive'),
     is_active: o.is_active,
     marquee_warning_threshold: o.marquee_warning_threshold,
     open_hour: o.open_hour ? o.open_hour.slice(0, 5) : '14:00',
@@ -40,38 +46,70 @@ function toFormValues(o: Outlet): OutletFormValues {
 }
 
 export default function OutletsPage() {
-  const { data: outlets = [], isLoading } = useOutlets()
+  const { data: outlets = [], isLoading } = useManagedOutlets()
   const { create, update, softDelete, hardDelete, countRefs } = useOutletMutations()
+  const supabase = useMemo(() => createClient(), [])
+  const qc = useQueryClient()
 
   const [mounted, setMounted] = useState(false)
-  const [filter, setFilter] = useState<OutletFilterValues>(EMPTY_FILTER)
+  const [filter, setFilterState] = useState<OutletFilterValues>(EMPTY_FILTER)
+  // Outlet yang baru diubah/dibuat tetap tampil di filter saat ini walau statusnya
+  // tak lagi cocok (mis. diaktifkan dari tab Pending) — tidak ada baris yang
+  // "lenyap" dan tab tidak dipindah paksa. Pin lepas saat admin mengganti filter.
+  const [pinned, setPinned] = useState<ReadonlySet<string>>(NO_PIN)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Outlet | null>(null)
   const [deleting, setDeleting] = useState<Outlet | null>(null)
+
+  const setFilter = useCallback((next: SetStateAction<OutletFilterValues>) => {
+    setPinned(NO_PIN)
+    setFilterState(next)
+  }, [])
+  const pin = (id: string) => setPinned((prev) => new Set(prev).add(id))
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const rows = useMemo(() => filterOutlets(outlets, filter), [outlets, filter])
+  // Perubahan dari tab/admin lain: cukup tandai basi, React Query yang refetch
+  // (sekali) — jangan invalidate + refetch ganda.
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime_admin_outlets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlets' }, () => {
+        qc.invalidateQueries({ queryKey: MANAGED_OUTLETS_KEY })
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, qc])
+
+  const rows = useMemo(
+    () => withPinned(filterOutlets(outlets, filter), outlets, pinned),
+    [outlets, filter, pinned]
+  )
 
   const stats = useMemo(() => {
     const total = outlets.length
-    const active = outlets.filter((o) => o.is_active).length
-    const inactive = total - active
+    const active = outlets.filter((o) => o.status === 'active' || (!o.status && o.is_active)).length
+    const pending = outlets.filter((o) => o.status === 'pending').length
+    const inactive = outlets.filter((o) => o.status === 'inactive' || (!o.status && !o.is_active)).length
     const mitra = outlets.filter((o) => o.type === 'mitra').length
     const missingCoords = outlets.filter(
       (o) => !Number.isFinite(o.lat) || !Number.isFinite(o.lng) || (o.lat === 0 && o.lng === 0)
     ).length
 
-    return { total, active, inactive, mitra, missingCoords }
+    return { total, active, pending, inactive, mitra, missingCoords }
   }, [outlets])
 
   function handleCreate(values: OutletFormValues) {
     create.mutate(values, {
-      onSuccess: () => {
-        toast.success(`Outlet ${values.name} dibuat`)
+      onSuccess: (created) => {
+        toast.success(`Outlet ${values.name} berhasil dibuat`)
         setShowForm(false)
+        if (created) pin(created.id)
       },
       onError: (e: any) => toast.error(e.message),
     })
@@ -79,6 +117,7 @@ export default function OutletsPage() {
 
   function handleUpdate(values: OutletFormValues) {
     if (!editing) return
+    pin(editing.id)
     update.mutate(
       { id: editing.id, ...values },
       {
@@ -92,14 +131,15 @@ export default function OutletsPage() {
   }
 
   function handleToggleActive(o: Outlet) {
+    pin(o.id)
     if (o.is_active) {
       softDelete.mutate(o.id, {
-        onSuccess: () => toast.success(`${o.name} dinonaktifkan`),
+        onSuccess: () => toast.success(`${o.name} dinonaktifkan (arsip)`),
         onError: (e: any) => toast.error(e.message),
       })
     } else {
       update.mutate(
-        { id: o.id, ...toFormValues(o), is_active: true },
+        { id: o.id, ...toFormValues(o), status: 'active', is_active: true },
         {
           onSuccess: () => toast.success(`${o.name} diaktifkan`),
           onError: (e: any) => toast.error(e.message),
@@ -110,6 +150,7 @@ export default function OutletsPage() {
 
   function handleSoftDelete() {
     if (!deleting) return
+    pin(deleting.id)
     softDelete.mutate(deleting.id, {
       onSuccess: () => {
         toast.success(`${deleting.name} dinonaktifkan`)
@@ -121,6 +162,7 @@ export default function OutletsPage() {
 
   function handleHardDelete() {
     if (!deleting) return
+    pin(deleting.id)
     hardDelete.mutate(deleting.id, {
       onSuccess: () => {
         toast.success(`${deleting.name} dihapus permanen`)
@@ -144,7 +186,7 @@ export default function OutletsPage() {
       {/* ── Top Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-suka-orange to-amber-600 flex items-center justify-center text-white shadow-sm shadow-orange-500/20 shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-suka-orange flex items-center justify-center text-white shadow-sm shadow-orange-500/20 shrink-0">
             <Store className="w-5 h-5" />
           </div>
           <div>
@@ -167,14 +209,14 @@ export default function OutletsPage() {
       </div>
 
       {/* ── KPI Stat Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Card 1: Total Outlet */}
         <button
           type="button"
           onClick={() => setFilter((prev) => ({ ...prev, status: '', type: 'all' }))}
           className={`text-left p-4 rounded-2xl border transition-all ${
             !filter.status && (!filter.type || filter.type === 'all')
-              ? 'bg-gradient-to-br from-orange-50/60 to-white border-suka-orange shadow-xs ring-2 ring-suka-orange/20'
+              ? 'bg-orange-50/60 border-suka-orange shadow-xs ring-2 ring-suka-orange/20'
               : 'bg-white border-suka-gray-200/80 hover:border-suka-orange/50 hover:shadow-xs'
           }`}
         >
@@ -189,7 +231,7 @@ export default function OutletsPage() {
             <span className="text-xs text-suka-gray-500 font-medium">cabang</span>
           </div>
           <p className="mt-1 text-[11px] text-suka-gray-500 truncate">
-            {stats.active} aktif • {stats.inactive} nonaktif
+            {stats.active} aktif • {stats.pending} pending
           </p>
         </button>
 
@@ -204,7 +246,7 @@ export default function OutletsPage() {
           }
           className={`text-left p-4 rounded-2xl border transition-all ${
             filter.status === 'active'
-              ? 'bg-gradient-to-br from-emerald-50/60 to-white border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
+              ? 'bg-emerald-50/60 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
               : 'bg-white border-suka-gray-200/80 hover:border-emerald-300 hover:shadow-xs'
           }`}
         >
@@ -223,7 +265,37 @@ export default function OutletsPage() {
           </p>
         </button>
 
-        {/* Card 3: Mitra SS */}
+        {/* Card 3: Outlet Pending */}
+        <button
+          type="button"
+          onClick={() =>
+            setFilter((prev) => ({
+              ...prev,
+              status: prev.status === 'pending' ? '' : 'pending',
+            }))
+          }
+          className={`text-left p-4 rounded-2xl border transition-all ${
+            filter.status === 'pending'
+              ? 'bg-amber-50/70 border-amber-500 shadow-xs ring-2 ring-amber-500/20'
+              : 'bg-white border-suka-gray-200/80 hover:border-amber-300 hover:shadow-xs'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">Outlet Pending</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl sm:text-3xl font-black text-amber-700">{stats.pending}</span>
+            <span className="text-xs text-amber-600 font-medium">persiapan</span>
+          </div>
+          <p className="mt-1 text-[11px] text-amber-700 truncate font-medium">
+            Dikecualikan dari produksi
+          </p>
+        </button>
+
+        {/* Card 4: Mitra SS */}
         <button
           type="button"
           onClick={() =>
@@ -234,7 +306,7 @@ export default function OutletsPage() {
           }
           className={`text-left p-4 rounded-2xl border transition-all ${
             filter.type === 'mitra'
-              ? 'bg-gradient-to-br from-cyan-50/60 to-white border-cyan-500 shadow-xs ring-2 ring-cyan-500/20'
+              ? 'bg-cyan-50/60 border-cyan-500 shadow-xs ring-2 ring-cyan-500/20'
               : 'bg-white border-suka-gray-200/80 hover:border-cyan-300 hover:shadow-xs'
           }`}
         >
@@ -253,7 +325,7 @@ export default function OutletsPage() {
           </p>
         </button>
 
-        {/* Card 4: Titik Belum Disetel */}
+        {/* Card 5: Titik Belum Disetel */}
         <button
           type="button"
           onClick={() =>
@@ -264,7 +336,7 @@ export default function OutletsPage() {
           }
           className={`text-left p-4 rounded-2xl border transition-all ${
             filter.status === 'missing_coords'
-              ? 'bg-gradient-to-br from-amber-50/70 to-white border-amber-500 shadow-xs ring-2 ring-amber-500/20'
+              ? 'bg-amber-50/70 border-amber-500 shadow-xs ring-2 ring-amber-500/20'
               : 'bg-white border-suka-gray-200/80 hover:border-amber-300 hover:shadow-xs'
           }`}
         >

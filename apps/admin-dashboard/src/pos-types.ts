@@ -6,8 +6,10 @@ export interface Outlet {
   type?: string
   open_hour?: string
   close_hour?: string
+  status?: 'active' | 'pending' | 'inactive'
   is_active: boolean
   inactive_reason?: string | null
+  deleted_at?: string | null
   created_at: string
   updated_at: string
 }

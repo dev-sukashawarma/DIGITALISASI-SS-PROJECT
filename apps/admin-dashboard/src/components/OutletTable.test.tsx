@@ -91,12 +91,12 @@ describe('OutletTable', () => {
     expect(onEdit).toHaveBeenCalledWith(mockOutlets[0])
 
     // Trigger toggle active on first outlet
-    const toggleBtns = screen.getAllByTitle('Nonaktifkan Outlet')
+    const toggleBtns = screen.getAllByTitle('Nonaktifkan Cabang')
     fireEvent.click(toggleBtns[0])
     expect(onToggleActive).toHaveBeenCalledWith(mockOutlets[0])
 
     // Trigger delete on first outlet
-    const deleteBtns = screen.getAllByTitle('Hapus Outlet')
+    const deleteBtns = screen.getAllByTitle('Nonaktifkan & Hapus (Soft Delete)')
     fireEvent.click(deleteBtns[0])
     expect(onDelete).toHaveBeenCalledWith(mockOutlets[0])
 
@@ -104,5 +104,25 @@ describe('OutletTable', () => {
     const investBtns = screen.getAllByTitle('Kelola Modal Mitra')
     fireEvent.click(investBtns[0])
     expect(onManageInvestment).toHaveBeenCalledWith(mockOutlets[1])
+  })
+
+  it('merender badge Pending pada outlet dengan status pending', () => {
+    const outletsWithPending: Outlet[] = [
+      ...mockOutlets,
+      {
+        id: 'out-3',
+        name: 'Suka Shawarma Kemang',
+        slug: 'ss-kemang',
+        address: null,
+        lat: -6.2,
+        lng: 106.8,
+        status: 'pending',
+        is_active: false,
+        type: 'internal',
+        marquee_warning_threshold: 10,
+      },
+    ]
+    render(<OutletTable rows={outletsWithPending} />)
+    expect(screen.getAllByText('Pending').length).toBeGreaterThan(0)
   })
 })

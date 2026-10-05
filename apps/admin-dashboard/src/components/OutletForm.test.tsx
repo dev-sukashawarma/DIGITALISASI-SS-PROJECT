@@ -38,7 +38,9 @@ describe('OutletForm', () => {
     expect(screen.getByText('Batas Peringatan Porsi (Marquee)')).toBeInTheDocument()
     expect(screen.getByText('Jam Buka')).toBeInTheDocument()
     expect(screen.getByText('Jam Tutup')).toBeInTheDocument()
-    expect(screen.getByText('Aktif')).toBeInTheDocument()
+    expect(screen.getByText('Status Outlet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Aktif/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Pending/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Buat Outlet' })).toBeInTheDocument()
   })
 
@@ -255,11 +257,47 @@ describe('OutletForm', () => {
       lat: -6.601,
       lng: 106.802,
       type: 'internal',
+      status: 'active',
       is_active: true,
       marquee_warning_threshold: 5,
       open_hour: '10:00',
       close_hour: '21:00',
     })
+  })
+
+  it('memilih status pending mengubah status dan is_active menjadi false', async () => {
+    const handleSubmit = vi.fn()
+    render(
+      <OutletForm
+        initial={{
+          name: 'Outlet Rawamangun',
+          slug: 'outlet-rawamangun',
+          address: 'Jl. Pemuda No. 10',
+          lat: -6.195,
+          lng: 106.885,
+          type: 'internal',
+          status: 'active',
+          is_active: true,
+          marquee_warning_threshold: 10,
+          open_hour: '14:00',
+          close_hour: '22:00',
+        }}
+        submitting={false}
+        isEdit={true}
+        onSubmit={handleSubmit}
+      />
+    )
+
+    // Klik tombol status Pending
+    fireEvent.click(screen.getByRole('button', { name: /Pending/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Simpan Perubahan' }))
+
+    expect(handleSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'pending',
+        is_active: false,
+      })
+    )
   })
   it('tipe dipilih dari dropdown INTERNAL / MITRA tanpa ikut men-submit form', () => {
     const handleSubmit = vi.fn()

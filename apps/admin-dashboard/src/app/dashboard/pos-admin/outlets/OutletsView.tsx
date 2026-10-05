@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Store, Plus, X, Loader2, Search } from 'lucide-react'
+import { Store, Plus, X, Loader2, Search, Clock, CheckCircle2, Archive } from 'lucide-react'
 import type { Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { createClient } from '@/lib/supabase'
@@ -28,7 +28,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
   const [type, setType] = useState('internal')
   const [openHour, setOpenHour] = useState('14:00')
   const [closeHour, setCloseHour] = useState('22:00')
-  const [isActive, setIsActive] = useState(true)
+  const [status, setStatus] = useState<'active' | 'pending' | 'inactive'>('active')
   const [inactiveReason, setInactiveReason] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -65,7 +65,8 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
       setType(outlet.type || 'internal')
       setOpenHour(outlet.open_hour ? outlet.open_hour.substring(0, 5) : '14:00')
       setCloseHour(outlet.close_hour ? outlet.close_hour.substring(0, 5) : '22:00')
-      setIsActive(outlet.is_active)
+      const initialStatus = outlet.status || (outlet.is_active ? 'active' : 'inactive')
+      setStatus(initialStatus)
       setInactiveReason(outlet.inactive_reason || '')
     } else {
       setEditingOutlet(null)
@@ -75,7 +76,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
       setType('internal')
       setOpenHour('14:00')
       setCloseHour('22:00')
-      setIsActive(true)
+      setStatus('active')
       setInactiveReason('')
     }
     setIsModalOpen(true)
@@ -84,18 +85,23 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
   async function handleSaveOutlet(e: React.FormEvent) {
     e.preventDefault()
     setIsSubmitting(true)
+
+    const payload = {
+      name,
+      address,
+      phone,
+      type,
+      status,
+      open_hour: (openHour || '14:00') + ':00',
+      close_hour: (closeHour || '22:00') + ':00',
+      is_active: status === 'active',
+      inactive_reason: status === 'inactive' ? inactiveReason : null,
+    }
     
     if (editingOutlet) {
       const result = await upsertOutlet({
         id: editingOutlet.id,
-        name,
-        address,
-        phone,
-        type,
-        open_hour: (openHour || '14:00') + ':00',
-        close_hour: (closeHour || '22:00') + ':00',
-        is_active: isActive,
-        inactive_reason: !isActive ? inactiveReason : null
+        ...payload,
       })
 
       if (result.success && result.data) {
@@ -109,16 +115,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
         toast.error('Gagal memperbarui cabang: ' + result.error)
       }
     } else {
-      const result = await upsertOutlet({
-        name,
-        address,
-        phone,
-        type,
-        open_hour: (openHour || '14:00') + ':00',
-        close_hour: (closeHour || '22:00') + ':00',
-        is_active: isActive,
-        inactive_reason: !isActive ? inactiveReason : null
-      })
+      const result = await upsertOutlet(payload)
 
       if (result.success && result.data) {
         setIsModalOpen(false)
@@ -136,7 +133,9 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
   }
 
   async function handleDeleteOutlet(id: string) {
-    const confirmed = await showConfirm('Apakah Anda yakin ingin menghapus cabang ini? Semua data pesanan yang terkait juga akan ikut terhapus!');
+    const confirmed = await showConfirm(
+      'Nonaktifkan cabang ini (Soft Delete)? Seluruh data transaksi, omzet, dan laporan historis akan tetap aman tersimpan.'
+    )
     if (!confirmed) return
     
     const result = await deleteOutlet(id)
@@ -144,10 +143,10 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
       fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'delete', outlet: { id } }) })
         .then(res => { if (!res.ok) throw new Error('Sync failed') })
         .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
-      toast.success('Cabang berhasil dihapus')
+      toast.success('Cabang berhasil dinonaktifkan (soft delete)')
     } else {
       console.error('Delete outlet error:', result.error)
-      toast.error('Gagal menghapus cabang: ' + result.error)
+      toast.error('Gagal menonaktifkan cabang: ' + result.error)
     }
   }
 
@@ -238,53 +237,136 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Tipe Cabang</label>
-                  <select 
-                    value={type} onChange={(e) => setType(e.target.value)}
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium appearance-none"
-                  >
-                    <option value="internal">INTERNAL</option>
-                    <option value="mitra">MITRA</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-50 rounded-xl border border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setType('internal')}
+                      className={`py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                        type === 'internal'
+                          ? 'bg-blue-600 text-white shadow-2xs'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      INTERNAL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setType('mitra')}
+                      className={`py-2 px-2 rounded-lg text-xs font-bold transition-all ${
+                        type === 'mitra'
+                          ? 'bg-purple-600 text-white shadow-2xs'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      MITRA
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Jam Buka</label>
                   <input 
                     type="time" value={openHour} onChange={(e) => setOpenHour(e.target.value)}
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium"
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-2 outline-none transition-colors font-medium text-sm"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Jam Tutup</label>
                   <input 
                     type="time" value={closeHour} onChange={(e) => setCloseHour(e.target.value)}
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium"
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-2 outline-none transition-colors font-medium text-sm"
                   />
                 </div>
               </div>
-              {editingOutlet && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Status Cabang</label>
-                    <select 
-                      value={isActive ? 'true' : 'false'} onChange={(e) => setIsActive(e.target.value === 'true')}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium appearance-none"
-                    >
-                      <option value="true">Aktif</option>
-                      <option value="false">Nonaktif</option>
-                    </select>
-                  </div>
-                  {!isActive && (
-                    <div className="animate-fade-in">
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Alasan Penonaktifan</label>
-                      <textarea 
-                        required value={inactiveReason} onChange={(e) => setInactiveReason(e.target.value)}
-                        className="w-full bg-red-50 text-red-900 border-2 border-transparent focus:border-red-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium placeholder-red-300"
-                        placeholder="Berikan alasan mengapa cabang dinonaktifkan..." rows={2}
-                      />
+
+              {/* Status Pemilihan: Wajib untuk New maupun Edit */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-gray-700">
+                  Status Cabang <span className="text-red-500">*</span>
+                </label>
+                <div className={`grid gap-2 ${editingOutlet ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                  {/* Aktif */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatus('active')
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      status === 'active'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-2xs'
+                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-bold text-xs uppercase tracking-wider">Aktif</span>
+                      <CheckCircle2 className={`w-4 h-4 ${status === 'active' ? 'text-emerald-600' : 'text-gray-400'}`} />
                     </div>
+                    <p className="text-[11px] leading-tight text-gray-500">
+                      Operasional live & terhitung produksi
+                    </p>
+                  </button>
+
+                  {/* Pending */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatus('pending')
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      status === 'pending'
+                        ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-2xs'
+                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-bold text-xs uppercase tracking-wider">Pending</span>
+                      <Clock className={`w-4 h-4 ${status === 'pending' ? 'text-amber-600' : 'text-gray-400'}`} />
+                    </div>
+                    <p className="text-[11px] leading-tight text-gray-500">
+                      Persiapan (tidak terhitung produksi)
+                    </p>
+                  </button>
+
+                  {/* Nonaktif (hanya jika sedang edit) */}
+                  {editingOutlet && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatus('inactive')
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                        status === 'inactive'
+                          ? 'border-gray-500 bg-gray-100 text-gray-900 shadow-2xs'
+                          : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="font-bold text-xs uppercase tracking-wider">Nonaktif</span>
+                        <Archive className={`w-4 h-4 ${status === 'inactive' ? 'text-gray-700' : 'text-gray-400'}`} />
+                      </div>
+                      <p className="text-[11px] leading-tight text-gray-500">
+                        Ditutup / arsip cabang
+                      </p>
+                    </button>
                   )}
                 </div>
-              )}
+
+                {status === 'pending' && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-800">
+                    Outlet berstatus <strong>Pending</strong> tidak akan terhitung dalam estimasi produksi dapur pusat maupun target operasional hingga diaktifkan.
+                  </div>
+                )}
+
+                {status === 'inactive' && (
+                  <div className="animate-fade-in pt-1">
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Alasan Penonaktifan</label>
+                    <textarea 
+                      required value={inactiveReason} onChange={(e) => setInactiveReason(e.target.value)}
+                      className="w-full bg-red-50 text-red-900 border-2 border-transparent focus:border-red-400 focus:bg-white rounded-xl px-3 py-2 text-xs outline-none transition-colors font-medium placeholder-red-300"
+                      placeholder="Berikan alasan mengapa cabang dinonaktifkan..." rows={2}
+                    />
+                  </div>
+                )}
+              </div>
             </form>
 
             {/* Footer */}
@@ -352,10 +434,21 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      {outlet.is_active ? (
-                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">Aktif</span>
+                      {outlet.status === 'pending' ? (
+                        <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 border border-amber-200">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          Pending
+                        </span>
+                      ) : outlet.status === 'active' || (outlet.status === undefined && outlet.is_active) ? (
+                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                          Aktif
+                        </span>
                       ) : (
-                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">Nonaktif</span>
+                        <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 border border-gray-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                          Nonaktif
+                        </span>
                       )}
                     </td>
                     <td className="py-4 px-4 text-right">

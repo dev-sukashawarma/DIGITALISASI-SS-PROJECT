@@ -8,11 +8,11 @@ export function useOutlets(initialData?: Outlet[]) {
   return useQuery<Outlet[]>({
     queryKey: ['outlets'],
     initialData,
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlets')
-        .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold, open_hour, close_hour')
+        .select('id, slug, name, address, lat, lng, type, is_active, status, marquee_warning_threshold, open_hour, close_hour, deleted_at')
         .neq('type', 'marketplace')
         .neq('id', TEST_OUTLET_ID)
         .order('name')

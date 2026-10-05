@@ -9,8 +9,9 @@ export function filterOutlets(rows: Outlet[], f: OutletFilterValues): Outlet[] {
       const matchAddress = r.address?.toLowerCase().includes(q)
       if (!matchName && !matchSlug && !matchAddress) return false
     }
-    if (f.status === 'active' && !r.is_active) return false
-    if (f.status === 'inactive' && r.is_active) return false
+    if (f.status === 'active' && (r.status === 'pending' || (r.status !== 'active' && !r.is_active))) return false
+    if (f.status === 'pending' && r.status !== 'pending') return false
+    if (f.status === 'inactive' && (r.status === 'pending' || (r.status !== 'inactive' && r.is_active))) return false
     if (f.status === 'missing_coords') {
       const hasCoords = Number.isFinite(r.lat) && Number.isFinite(r.lng) && !(r.lat === 0 && r.lng === 0)
       if (hasCoords) return false

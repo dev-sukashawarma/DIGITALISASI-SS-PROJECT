@@ -1,6 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import type { OutletFormValues } from '@/lib/types'
@@ -19,21 +20,28 @@ export async function createOutlet(values: OutletFormValues) {
   try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const outletId = crypto.randomUUID()
+  const status = values.status || (values.is_active ? 'active' : 'pending')
+  const isActive = status === 'active'
   
   // 1. Insert into Digitalisasi (Primary)
-  const { error: primaryError } = await supabase.from('outlets').insert({
-    id: outletId,
-    name: values.name,
-    slug: values.slug,
-    address: values.address || null,
-    lat: values.lat,
-    lng: values.lng,
-    type: values.type,
-    is_active: values.is_active,
-    marquee_warning_threshold: values.marquee_warning_threshold,
-    open_hour: values.open_hour || '14:00',
-    close_hour: values.close_hour || '22:00',
-  })
+  const { data: insertedOutlet, error: primaryError } = await supabase
+    .from('outlets')
+    .insert({
+      id: outletId,
+      name: values.name,
+      slug: values.slug,
+      address: values.address || null,
+      lat: values.lat,
+      lng: values.lng,
+      type: values.type,
+      status: status,
+      is_active: isActive,
+      marquee_warning_threshold: values.marquee_warning_threshold,
+      open_hour: values.open_hour || '14:00',
+      close_hour: values.close_hour || '22:00',
+    })
+    .select('id, slug, name, address, lat, lng, type, is_active, status, marquee_warning_threshold, open_hour, close_hour, deleted_at')
+    .single()
   
   if (primaryError) throw new Error(primaryError.message)
   
@@ -49,7 +57,7 @@ export async function createOutlet(values: OutletFormValues) {
         lat: values.lat || null,
         lng: values.lng || null,
         type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned', // match order online schema
-        is_active: values.is_active,
+        is_active: isActive,
         open_hour: values.open_hour || '14:00',
         close_hour: values.close_hour || '22:00',
       })
@@ -64,6 +72,9 @@ export async function createOutlet(values: OutletFormValues) {
       throw new Error(error.message)
     }
   }
+
+  revalidatePath('/dashboard/outlets')
+  return insertedOutlet
 }
 
 export async function updateOutlet(id: string, values: OutletFormValues) {
@@ -71,22 +82,37 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
   let orderOnline: any = null
   try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
-  const payload = {
+  const status = values.status || (values.is_active ? 'active' : 'inactive')
+  const isActive = status === 'active'
+
+  const payload: any = {
     name: values.name,
     slug: values.slug,
     address: values.address || null,
     lat: values.lat,
     lng: values.lng,
     type: values.type,
-    is_active: values.is_active,
+    status: status,
+    is_active: isActive,
     marquee_warning_threshold: values.marquee_warning_threshold,
     open_hour: values.open_hour || '14:00',
     close_hour: values.close_hour || '22:00',
     updated_at: new Date().toISOString(),
   }
+
+  if (status === 'inactive') {
+    payload.deleted_at = new Date().toISOString()
+  } else {
+    payload.deleted_at = null
+  }
   
   // 1. Update primary
-  const { error: primaryError } = await supabase.from('outlets').update(payload).eq('id', id)
+  const { data: updatedOutlet, error: primaryError } = await supabase
+    .from('outlets')
+    .update(payload)
+    .eq('id', id)
+    .select('id, slug, name, address, lat, lng, type, is_active, status, marquee_warning_threshold, open_hour, close_hour, deleted_at')
+    .single()
   if (primaryError) throw new Error(primaryError.message)
   
   // 2. Update secondary (Order Online might not have this outlet yet if it's an old one)
@@ -106,7 +132,7 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
             lat: values.lat || null,
             lng: values.lng || null,
             type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned',
-            is_active: values.is_active,
+            is_active: isActive,
             open_hour: values.open_hour || '14:00',
             close_hour: values.close_hour || '22:00',
             updated_at: new Date().toISOString(),
@@ -126,7 +152,7 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
           lat: values.lat || null,
           lng: values.lng || null,
           type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned',
-          is_active: values.is_active,
+          is_active: isActive,
           open_hour: values.open_hour || '14:00',
           close_hour: values.close_hour || '22:00',
           updated_at: new Date().toISOString(),
@@ -136,6 +162,9 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
       console.error("Order Online connection failed", err)
     }
   }
+
+  revalidatePath('/dashboard/outlets')
+  return updatedOutlet
 }
 
 export async function softDeleteOutlet(id: string) {
@@ -143,32 +172,30 @@ export async function softDeleteOutlet(id: string) {
   let orderOnline: any = null
   try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
-  const { error } = await supabase.from('outlets').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id)
+  const now = new Date().toISOString()
+  const { error } = await supabase.from('outlets').update({
+    status: 'inactive',
+    is_active: false,
+    deleted_at: now,
+    updated_at: now
+  }).eq('id', id)
   if (error) throw new Error(error.message)
   
   if (orderOnline) {
     try {
       await orderOnline.from('outlets')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .update({ is_active: false, updated_at: now })
         .or(`pos_outlet_id.eq.${id},id.eq.${id}`)
     } catch(err) { console.warn(err) }
   }
+
+  revalidatePath('/dashboard/outlets')
+  return { id, is_active: false, status: 'inactive' as const, deleted_at: now }
 }
 
 export async function hardDeleteOutlet(id: string) {
-  const supabase = await getSupabase()
-  let orderOnline: any = null
-  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
-  
-  const { error } = await supabase.from('outlets').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-  
-  if (orderOnline) {
-    try {
-      await orderOnline.from('outlets')
-        .delete()
-        .or(`pos_outlet_id.eq.${id},id.eq.${id}`)
-    } catch(err) { console.warn(err) }
-  }
+  // ATURAN MUTLAK: Selalu gunakan soft delete agar data omzet, transaksi,
+  // dan catatan historis masa lalu tidak hilang.
+  return softDeleteOutlet(id)
 }
 

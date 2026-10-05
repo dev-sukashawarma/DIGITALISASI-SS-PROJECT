@@ -1,6 +1,7 @@
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
+import { fetchManagedOutlets, MANAGED_OUTLETS_KEY } from '@/lib/managedOutlets'
 import OutletsView from './OutletsView'
 
 export const dynamic = 'force-dynamic'
@@ -11,17 +12,15 @@ export default async function OutletsPage() {
     getAll: () => cookieStore.getAll(),
     setAll: () => {}
   })
-  
+
   const queryClient = new QueryClient()
-  
-  // 1. Fetch Outlets
-  const { data: outlets } = await supabase
-    .from('outlets')
-    .select('id, slug, name, address, lat, lng, type, is_active')
-    .order('name')
-  
-  if (outlets) {
-    queryClient.setQueryData(['outlets'], outlets)
+
+  // Fetcher yang SAMA dengan useManagedOutlets di klien — daftar SSR dan daftar
+  // sesudah refetch tidak boleh berbeda (lihat lib/managedOutlets.ts).
+  try {
+    queryClient.setQueryData(MANAGED_OUTLETS_KEY, await fetchManagedOutlets(supabase))
+  } catch {
+    // Biarkan klien yang mengambil & menampilkan galatnya.
   }
 
   return (

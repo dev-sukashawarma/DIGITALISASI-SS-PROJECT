@@ -87,6 +87,27 @@ describe('filterOutlets', () => {
     expect(result[0].slug).toBe('ss-tebet')
   })
 
+  it('memfilter berdasarkan status pending', () => {
+    const withPending: Outlet[] = [
+      ...mockOutlets,
+      {
+        id: 'out-5',
+        name: 'Suka Shawarma Kemang',
+        slug: 'ss-kemang',
+        address: null,
+        lat: -6.2,
+        lng: 106.8,
+        type: 'internal',
+        status: 'pending',
+        is_active: false,
+        marquee_warning_threshold: 10,
+      },
+    ]
+    const result = filterOutlets(withPending, { search: '', status: 'pending' })
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('out-5')
+  })
+
   it('memfilter outlet yang belum memiliki koordinat GPS valid (missing_coords)', () => {
     const result = filterOutlets(mockOutlets, { search: '', status: 'missing_coords' })
     // out-3 has 0,0 and out-4 has NaN,NaN

@@ -257,3 +257,21 @@ panel. Bagian ini menggantikan §4 langkah 2/4–7, §5, §6 (baris `AvatarSukaB
 Tetap berlaku: aturan pemutaran & prioritas (§7.1), pelarutan 250 ms (§7.2), condong ±6°/±3 px,
 hover 1,06 / tekan 0,95 / muncul 0,6 → 1, titik merah berdenyut (dipindah ke dekat topi chef),
 cache 1 tahun, cadangan gambar (§8).
+
+## 12. Setelan per perangkat (tambahan 5 Okt 2026)
+
+Owner: pengaturan avatar ditaruh di **ikon roda gigi di kepala panel chat** (widget launcher saja,
+tidak di `/asisten`), disimpan **per perangkat** (`localStorage` `sukaBot.setelan`) karena ukuran yang
+nyaman bergantung layar. Tanpa tabel/migration baru.
+
+| Setelan | Nilai |
+|---|---|
+| Ukuran chef | Kecil / Sedang / Besar = 110 / 140 / 180 px (≥ 640 px), 90 / 110 / 130 px (HP) |
+| Ukuran kotak chat | Kecil 320×480 / Sedang 384×576 (bawaan lama) / Besar 448×680, tetap dijepit layar |
+| Animasi chef | Bergerak / Diam (gambar pose saja, tanpa video/condong/pop) |
+| Kembalikan posisi chef | Ke pojok kanan bawah, posisi tersimpan dihapus |
+| Sembunyikan chef | Panel ditutup, chef diganti tab 44×44 berwajah chef di tepi kanan (setinggi chef terakhir); klik = muncul lagi; titik merah rekap tetap tampil; diingat setelah muat ulang |
+
+Kode: `avatar/setelan.ts` (murni, dites), `useSetelan.ts`, `PanelSetelan.tsx`, `posisiTab` +
+`ukuranPanel(layar, dasar)` di `avatar/posisi.ts`, prop `animasi` di `AvatarSukaBot`, prop `setelan` di
+`PanelSukaBot` (bertipe `JSX.Element`, bukan `ReactNode` — jebakan tipe React 18/19 di monorepo).

@@ -14,11 +14,17 @@ export type { Pose } from './avatar/rencanaPutar'
  * Chef SUKA Bot seluruh badan (klip per pose, lihat avatar/rencanaPutar.ts) + reaksi kursor/hover.
  * Klik ditangani pemanggil (widget membedakan klik dari geser); `ketukan` yang bertambah memicu `sapa`.
  */
-export default function AvatarSukaBot({ pose = 'diam', tinggi = 140, ketukan = 0 }: { pose?: Pose; tinggi?: number; ketukan?: number }) {
+export default function AvatarSukaBot({ pose = 'diam', tinggi = 140, ketukan = 0, animasi = true }: {
+  pose?: Pose
+  tinggi?: number
+  ketukan?: number
+  /** false = setelan "Diam": gambar pose saja, tanpa video/condong/pop. */
+  animasi?: boolean
+}) {
   const { klip, klik, selesai } = usePemutarAvatar(pose)
   useEffect(() => { if (ketukan > 0) klik() }, [ketukan, klik])
 
-  const kurangiGerak = useReducedMotion() ?? false
+  const kurangiGerak = (useReducedMotion() ?? false) || !animasi
   // Server tidak tahu perangkatnya: render pertama selalu gambar, format diputuskan setelah mount.
   const [perangkat, setPerangkat] = useState<{ format: FormatAnimasi; hematData: boolean } | null>(null)
   useEffect(() => {
@@ -33,7 +39,7 @@ export default function AvatarSukaBot({ pose = 'diam', tinggi = 140, ketukan = 0
   const { ref, rotate, x } = useCondongKursor(!kurangiGerak)
 
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion={animasi ? 'user' : 'always'}>
       <LazyMotion features={domAnimation} strict>
         <div ref={ref} style={{ width: Math.round(tinggi * RASIO), height: tinggi }} aria-hidden>
           <m.div

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { jepitPosisi, posisiAwal, posisiPanel, sudahGeser, ukuranPanel } from './posisi'
+import { jepitPosisi, posisiAwal, posisiPanel, posisiTab, sudahGeser, UKURAN_TAB, ukuranPanel } from './posisi'
 
 const DESKTOP = { w: 1440, h: 900 }
 const HP = { w: 390, h: 844 }
@@ -60,5 +60,23 @@ describe('posisiPanel', () => {
     const layar = { w: 375, h: 500 }
     const chef = { x: 300, y: 150, ...CHEF_HP }
     expect(posisiPanel(chef, ukuranPanel(layar), layar).h).toBe(280)
+  })
+})
+
+describe('ukuranPanel dengan ukuran pilihan', () => {
+  it('memakai ukuran dasar yang diberikan, tetap dijepit layar', () => {
+    expect(ukuranPanel(DESKTOP, { w: 448, h: 680 })).toEqual({ w: 448, h: 680 })
+    expect(ukuranPanel({ w: 1440, h: 700 }, { w: 448, h: 680 })).toEqual({ w: 448, h: 588 })
+    expect(ukuranPanel(HP, { w: 448, h: 680 })).toEqual({ w: 358, h: 680 })
+  })
+})
+
+describe('posisiTab', () => {
+  it('menempel di tepi kanan, setinggi tengah chef', () => {
+    expect(posisiTab({ y: 500, h: 140 }, DESKTOP)).toEqual({ x: 1440 - UKURAN_TAB, y: 500 + 70 - UKURAN_TAB / 2 })
+  })
+  it('tetap di dalam layar', () => {
+    expect(posisiTab({ y: 880, h: 140 }, DESKTOP).y).toBe(900 - UKURAN_TAB - 8)
+    expect(posisiTab({ y: -100, h: 140 }, DESKTOP).y).toBe(8)
   })
 })

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { MessageCircle, Settings } from 'lucide-react'
 import type { Pose } from './AvatarSukaBot'
 import { ambilPesan, ambilRekap, kirimPesan, perbaruiRekap, type Rekap } from './api'
 
@@ -25,7 +26,7 @@ function simpanPercakapan(id: string | undefined) {
   } catch { /* abaikan */ }
 }
 
-export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, ukuran }: {
+export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, ukuran, setelan }: {
   apiBase: string
   penuh?: boolean
   onRekap?: (r: Rekap) => void
@@ -33,6 +34,8 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
   onPose?: (pose: Pose) => void
   /** Ukuran dari widget (panel melayang di samping chef). */
   ukuran?: { w: number; h: number }
+  /** Isi layar setelan (ikon roda gigi hanya tampil bila diisi). JSX.Element, bukan ReactNode: lihat catatan tipe di SukaBotWidget.tsx. */
+  setelan?: JSX.Element
 }) {
   const [rekap, setRekap] = useState<Rekap | null>(null)
   const [pesan, setPesan] = useState<Pesan[]>([])
@@ -40,6 +43,7 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
   const [pose, setPose] = useState<Pose>('rekap')
   const [sibuk, setSibuk] = useState(false)
   const [galat, setGalat] = useState<string | null>(null)
+  const [lihatSetelan, setLihatSetelan] = useState(false)
   const percakapanId = useRef<string | undefined>(undefined)
   const bawah = useRef<HTMLDivElement>(null)
 
@@ -127,7 +131,20 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
             Percakapan baru
           </button>
         )}
+        {setelan && (
+          <button
+            type="button"
+            onClick={() => setLihatSetelan((v) => !v)}
+            aria-label={lihatSetelan ? 'Kembali ke chat' : 'Setelan SUKA Bot'}
+            aria-pressed={lihatSetelan}
+            className="rounded-full p-1.5 hover:bg-white/10"
+          >
+            {lihatSetelan ? <MessageCircle size={18} /> : <Settings size={18} />}
+          </button>
+        )}
       </div>
+
+      {lihatSetelan && setelan ? setelan : (<>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
         {rekap && (
@@ -160,6 +177,7 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
           Kirim
         </button>
       </form>
+      </>)}
     </div>
   )
 }

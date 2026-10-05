@@ -33,7 +33,12 @@ type PenanganPointer = {
 }
 
 /** Chef digeser dengan pointer (mouse & sentuh), dijepit di dalam layar, posisi diingat per perangkat. */
-export function useGeserChef(ukuran: Ukuran, layar: Ukuran): { posisi: Titik; penangan: PenanganPointer; baruSajaDigeser: () => boolean } {
+export function useGeserChef(ukuran: Ukuran, layar: Ukuran): {
+  posisi: Titik
+  penangan: PenanganPointer
+  baruSajaDigeser: () => boolean
+  kembalikan: () => void
+} {
   const [posisi, setPosisi] = useState<Titik>(() => jepitPosisi(bacaPosisi() ?? posisiAwal(ukuran, layar), ukuran, layar))
   const posisiTerkini = useRef(posisi)
   posisiTerkini.current = posisi
@@ -83,5 +88,11 @@ export function useGeserChef(ukuran: Ukuran, layar: Ukuran): { posisi: Titik; pe
     return d
   }
 
-  return { posisi, penangan, baruSajaDigeser }
+  /** Chef kembali ke pojok kanan bawah; posisi tersimpan dihapus. */
+  const kembalikan = () => {
+    try { localStorage.removeItem(KUNCI_POSISI) } catch { /* abaikan */ }
+    setPosisi(posisiAwal(ukuran, layar))
+  }
+
+  return { posisi, penangan, baruSajaDigeser, kembalikan }
 }

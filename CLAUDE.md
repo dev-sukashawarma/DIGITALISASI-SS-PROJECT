@@ -3317,6 +3317,8 @@ akhir), `docs/superpowers/plans/2026-10-05-suka-bot-avatar-animasi.md`
   setelah ambang, geseran cepat yang langsung keluar chef (63 px di HP) hilang. Ketahuan saat uji browser.
 - Panel browser Claude yang tersembunyi menunda video (Chrome "background media paused") —
   bukan bug.
+- Setelan avatar (ukuran chef & kotak chat, animasi bergerak/diam, kembalikan posisi, sembunyikan
+  jadi tab) di ikon roda gigi panel, **per perangkat** (`localStorage`), spec §12.
 - Portal kini punya Vitest (`yarn test`); `framer-motion`/`vitest` tanpa ubah lockfile.
 
 **Last updated:** 2026-10-05  

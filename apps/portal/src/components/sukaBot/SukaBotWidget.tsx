@@ -1,11 +1,14 @@
 'use client'
-import { Component, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Component, useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import AvatarSukaBot, { type Pose } from './AvatarSukaBot'
 import PanelSukaBot from './PanelSukaBot'
-import { RASIO } from './avatar/klip.gen'
-import { posisiPanel, ukuranPanel } from './avatar/posisi'
+import PanelSetelan from './PanelSetelan'
+import { KLIP, RASIO } from './avatar/klip.gen'
+import { posisiPanel, posisiTab, UKURAN_TAB, ukuranPanel } from './avatar/posisi'
+import { tinggiChef, UKURAN_PANEL } from './avatar/setelan'
 import { ambilRekap, type Rekap } from './api'
 import { useGeserChef, useUkuranLayar } from './useGeserChef'
+import { useSetelan } from './useSetelan'
 
 const KUNCI_DIBACA = 'sukaBot.rekapDibaca'
 
@@ -25,18 +28,25 @@ class PengamanKelas extends Component<{ children: ReactNode }, { rusak: boolean 
 // yang dipakai pemeriksa itu sendiri). Perilaku runtime tidak terpengaruh.
 const Pengaman = PengamanKelas as unknown as (props: { children: ReactNode }) => JSX.Element
 
-const TINGGI_DESKTOP = 140
-const TINGGI_HP = 110
+function TitikMerah({ gaya }: { gaya: CSSProperties }) {
+  return (
+    <span className="absolute flex w-3.5 h-3.5" style={gaya}>
+      <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 motion-safe:animate-ping" />
+      <span className="relative inline-flex w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-white" />
+    </span>
+  )
+}
 
 function Widget({ apiBase }: { apiBase: string }) {
   const [buka, setBuka] = useState(false)
   const [adaBaru, setAdaBaru] = useState(false)
   const [posePanel, setPosePanel] = useState<Pose>('rekap')
   const [ketukan, setKetukan] = useState(0)
+  const { setelan, ubah } = useSetelan()
   const layar = useUkuranLayar()
-  const tinggi = layar.w < 640 ? TINGGI_HP : TINGGI_DESKTOP
+  const tinggi = tinggiChef(setelan.ukuranChef, layar.w)
   const ukuranChef = { w: Math.round(tinggi * RASIO), h: tinggi }
-  const { posisi, penangan, baruSajaDigeser } = useGeserChef(ukuranChef, layar)
+  const { posisi, penangan, baruSajaDigeser, kembalikan } = useGeserChef(ukuranChef, layar)
 
   useEffect(() => {
     ambilRekap(apiBase).then(({ rekap }) => setAdaBaru(bacaDibaca() !== rekap.id)).catch(() => {})
@@ -44,14 +54,45 @@ function Widget({ apiBase }: { apiBase: string }) {
 
   const saatRekap = useCallback((r: Rekap) => { tulisDibaca(r.id); setAdaBaru(false) }, [])
 
+  if (setelan.tersembunyi) {
+    const tab = posisiTab({ y: posisi.y, h: ukuranChef.h }, layar)
+    return (
+      <button
+        type="button"
+        onClick={() => ubah({ tersembunyi: false })}
+        aria-label="Munculkan SUKA Bot"
+        className="fixed z-50 rounded-l-full bg-suka-cream border border-r-0 border-suka-orange/40 shadow-lg overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-suka-orange"
+        style={{ left: tab.x, top: tab.y, width: UKURAN_TAB, height: UKURAN_TAB }}
+      >
+        <img src={KLIP.diam.gambar} alt="" draggable={false} className="h-full w-full object-cover" style={{ objectPosition: '50% 6%' }} />
+        {adaBaru && <TitikMerah gaya={{ top: 2, left: 2 }} />}
+      </button>
+    )
+  }
+
   const pose: Pose = buka ? posePanel : adaBaru ? 'rekap' : 'diam'
-  const panel = buka ? posisiPanel({ ...posisi, ...ukuranChef }, ukuranPanel(layar), layar) : null
+  const panel = buka
+    ? posisiPanel({ ...posisi, ...ukuranChef }, ukuranPanel(layar, UKURAN_PANEL[setelan.ukuranPanel]), layar)
+    : null
 
   return (
     <>
       {panel && (
         <div className="fixed z-50" style={{ left: panel.x, top: panel.y }}>
-          <PanelSukaBot apiBase={apiBase} onRekap={saatRekap} onPose={setPosePanel} ukuran={{ w: panel.w, h: panel.h }} />
+          <PanelSukaBot
+            apiBase={apiBase}
+            onRekap={saatRekap}
+            onPose={setPosePanel}
+            ukuran={{ w: panel.w, h: panel.h }}
+            setelan={
+              <PanelSetelan
+                setelan={setelan}
+                ubah={ubah}
+                kembalikanPosisi={kembalikan}
+                sembunyikan={() => { setBuka(false); ubah({ tersembunyi: true }) }}
+              />
+            }
+          />
         </div>
       )}
       <button
@@ -66,13 +107,8 @@ function Widget({ apiBase }: { apiBase: string }) {
         className="fixed z-50 touch-none cursor-grab active:cursor-grabbing rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-suka-orange"
         style={{ left: posisi.x, top: posisi.y, width: ukuranChef.w, height: ukuranChef.h }}
       >
-        <AvatarSukaBot pose={pose} tinggi={tinggi} ketukan={ketukan} />
-        {adaBaru && !buka && (
-          <span className="absolute flex w-3.5 h-3.5" style={{ top: '3%', right: '18%' }}>
-            <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 motion-safe:animate-ping" />
-            <span className="relative inline-flex w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-white" />
-          </span>
-        )}
+        <AvatarSukaBot pose={pose} tinggi={tinggi} ketukan={ketukan} animasi={setelan.animasi} />
+        {adaBaru && !buka && <TitikMerah gaya={{ top: '3%', right: '18%' }} />}
       </button>
     </>
   )

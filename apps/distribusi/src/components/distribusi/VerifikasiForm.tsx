@@ -530,6 +530,7 @@ export function VerifikasiForm({ id }: { id: string }) {
   }
 
   const handleSubmit = async () => {
+    if (submitting) return
     setSubmitting(true)
     const supabase = createSupabaseBrowserClient()
     try {
@@ -554,10 +555,13 @@ export function VerifikasiForm({ id }: { id: string }) {
       const errors = results.filter(({ error: errItem }) => errItem)
       if (errors.length > 0) throw new Error(errors[0].error?.message)
 
-      const { error: rpcError } = await supabase.rpc('finalize_surat_jalan_and_ledger', {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('finalize_surat_jalan_and_ledger', {
         p_surat_jalan_id: id,
       })
       if (rpcError) throw new Error(rpcError.message)
+      if (rpcData && rpcData.success === false) {
+        throw new Error(rpcData.message || 'Gagal finalisasi surat jalan')
+      }
 
       // Bersihkan draft dan kunci verifikasi setelah berhasil disimpan
       if (typeof window !== 'undefined') {

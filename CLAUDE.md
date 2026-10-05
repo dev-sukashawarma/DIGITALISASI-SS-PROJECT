@@ -3263,6 +3263,31 @@ Rumus inti HPP (riwayat per tanggal `menu_hpp_pada`, COGS Ringkasan Bisnis) **te
 - **Paket:** PAKET SKS jadi `is_package`; SHAWARMIE DUO VARIAN override 31.687,7 berlaku 19 Sep; isi 6 paket Combo dibetulkan sesuai deskripsi + override dikosongkan (ikut komponen, berlaku 1 Sep); NONGKI 1/2 berisi Reguler, HPP Reguler kasir = XX (Ayam 10.316,9 / Sapi 10.595,2); 5 paket berisi Shawarmie dinonaktifkan (arsip `SS COGS SET/rapikan-paket-combo-2026-09-28.sql`). Paket lain yang isinya benar masih memakai override lama.
 - **Tombol Hapus di POS › Menu (admin-dashboard) diamankan** (`pos-admin/menu/actions.ts`, `lib/pos/hapusMenu.ts`): menu yang pernah terjual / jadi isi paket DITOLAK dihapus dan ditawari nonaktif (`nonaktifkanMenu`), karena DELETE `menu_items` memutus `order_items` (HPP lama jadi 0), meng-CASCADE `menu_hpp_riwayat` & `menu_packages` — penyebab hilangnya Shawarmie ~16 Sep. Penolakan RLS (owner: `menu_items` tulis admin-only) kini pesan gagal jujur, bukan "berhasil". "Hapus semua" hanya menghapus menu aman. ⚠️ **Perlu redeploy `admin-dashboard`.** `toggleMenuAvailability` & simpan menu masih bisa "sukses palsu" untuk owner — belum ditangani.
 
+---
 
-**Last updated:** 2026-09-28  
+## Session 2026-10-03/05: SUKA Bot Tahap 1 — Asisten AI Owner/Admin (portal + admin-dashboard)
+
+**Status:** Kode selesai di branch `feat/suka-bot` (worktree `.worktrees/suka-bot`), **belum merge/push/redeploy**. DB **LIVE**: migration `20261003180000_suka_bot` dijalankan owner via SQL Editor, diverifikasi ke katalog, uji RLS `supabase/verifikasi/suka_bot/t1_rls.sql` LULUS (+ kontrol negatif), terstempel. 57 test vitest lulus; type-check nol error di berkas SUKA Bot. ⚠️ Uji browser + pencocokan angka vs Rangkuman Penjualan **belum dijalankan** (worktree tanpa `node_modules` app; dilakukan setelah merge).
+
+**Spec/plan/runbook:** `docs/superpowers/specs/2026-10-03-suka-bot-design.md`, `docs/superpowers/plans/2026-10-03-suka-bot-tahap1.md`, `docs/RUNBOOK-SUKA-BOT.md`
+
+- **Apa:** avatar SUKA Bot di portal launcher (+ `/asisten`) untuk `admin/owner/developer` (= `is_owner_or_admin()`). Rekap penjualan kemarin (omzet kotor vs hari sama minggu lalu, ranking semua outlet, transaksi, 3 menu terlaris) + tanya jawab penjualan & stok bahan.
+- **Arsitektur:** tampilan di portal, otak di admin-dashboard `/api/asisten/{chat,rekap,percakapan}`. AI (9Router, OpenAI-compatible, env `AI_BASE_URL/AI_API_KEY/AI_MODEL`) **hanya memanggil alat** (`src/lib/sukaBot/alat/*`), tidak menulis SQL. Alat penjualan memanggil `getPosReport` (rumus + cache Rangkuman Penjualan); alat stok membaca `monitoring_view_spv` + `formatTriUnitSaldoAdaptive`. Teks rekap = template kode, tanpa AI.
+- **Outlet terhitung = daftar boleh** `type IN ('outlet','mitra')` — tipe baru (`internal`, `test`) otomatis tak ikut.
+
+### ⚠️ Gotcha
+- **Middleware admin-dashboard dilewati untuk `/api/asisten/`:** role `owner` tidak punya `admin-dashboard` di `ROLE_APP_ACCESS`, jadi `enforceAppAccess` me-redirect owner (dan preflight CORS). Route memeriksa sesi + `is_owner_or_admin()` + status aktif sendiri (`lib/sukaBot/server/sesi.ts`) — itu satu-satunya gerbang.
+- **`getPosReport` dengan `outlets: []` = "semua" termasuk SS Online** — adapter `ambilLaporanRangkuman` menolak daftar kosong.
+- **Pencocokan angka vs dashboard:** pilih ke-21 outlet outlet/mitra di Rangkuman Penjualan, BUKAN "Semua Cabang" (ikut SS Online).
+- Test `alat/stok.test.ts` menjaga paritas `compositeUnit.ts` admin-dashboard ↔ app Stok (kode identik per 2026-10-03, beda komentar saja).
+- Dua panggilan `execute_sql` DDL dari sesi ditolak di layar persetujuan; migration akhirnya dijalankan owner di SQL Editor. Junction `node_modules` ke worktree ditolak pengaman otomatis — test jalan pakai `node_modules` root (zod 3.25 di root vs v4 di app; kode kompatibel keduanya).
+
+### 📝 Next
+1. Merge `feat/suka-bot`, uji lokal + pencocokan angka (runbook §Uji lokal & §Pencocokan).
+2. Env Coolify admin-dashboard (`AI_*`, `SUKA_BOT_*`), cek container bisa menjangkau 9Router.
+3. Redeploy **admin-dashboard** lalu **portal**.
+4. Aset avatar `apps/portal/public/suka-bot/{diam,berpikir,rekap,bingung}.webp` (dibuat tim owner).
+
+
+**Last updated:** 2026-10-05  
 **Owner:** Dev Suka Shawarma

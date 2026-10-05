@@ -8,6 +8,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // SUKA Bot: route memeriksa sesi + is_owner_or_admin() sendiri. enforceAppAccess
+  // akan me-redirect role owner (tak punya admin-dashboard di ROLE_APP_ACCESS) dan
+  // preflight CORS dari portal.
+  if (request.nextUrl.pathname.startsWith('/api/asisten/')) {
+    return NextResponse.next()
+  }
+
   // Skip enforceAppAccess untuk localhost development
   if (request.nextUrl.hostname === 'localhost') {
     return undefined

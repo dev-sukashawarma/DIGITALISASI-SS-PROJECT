@@ -6,6 +6,7 @@ import LogoutButton from '@/components/LogoutButton'
 import AppGrid, { type PortalAppItem } from '@/components/AppGrid'
 import { MapPin, Clock, CheckCircle2, Store, Users, Sparkles } from 'lucide-react'
 import LiveClock from '@/components/LiveClock'
+import SukaBotMount from '@/components/sukaBot/SukaBotMount'
 
 import { headers } from 'next/headers'
 
@@ -77,6 +78,9 @@ export default async function LauncherPage() {
   const brandLogo = brandData?.find((s: any) => s.key === 'brand_logo')?.value?.replace(/^"|"$/g, '') || '/logo.png'
 
   const APP_URL = await getAppUrls()
+
+  // SUKA Bot: hanya admin/owner/developer (sama dengan is_owner_or_admin() di server).
+  const bisaSukaBot = ['admin', 'owner', 'developer'].includes(staff.role)
 
   // Mitra, Korlap, dll tidak punya menu operasional di launcher → langsung ke admin-dashboard.
   if (['mitra', 'korlap'].includes(staff.role)) {
@@ -508,6 +512,7 @@ export default async function LauncherPage() {
           <p>Sistem Operasional v2.8.0</p>
         </footer>
       </div>
+      {bisaSukaBot && <SukaBotMount apiBase={APP_URL['admin-dashboard']} />}
     </main>
   )
 }

@@ -3,8 +3,31 @@ import { useEffect, useRef, useState } from 'react'
 import { MessageCircle, Settings, X } from 'lucide-react'
 import type { Pose } from './AvatarSukaBot'
 import { ambilPesan, ambilRekap, kirimPesan, perbaruiRekap, type Rekap } from './api'
+import { kalimatBerikut } from './kalimatMikir'
 
 type Pesan = { peran: 'user' | 'assistant'; isi: string }
+
+const GANTI_KALIMAT_MS = 3000
+
+/** Dipasang ulang tiap pertanyaan → kalimat awal acak; berganti selama menunggu, tak pernah sama berturut-turut. */
+function GelembungMikir() {
+  const [kalimat, setKalimat] = useState(() => kalimatBerikut(null))
+  useEffect(() => {
+    const t = setInterval(() => setKalimat((k) => kalimatBerikut(k)), GANTI_KALIMAT_MS)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    // Pengumuman pembaca layar cukup sekali; kalimat yang berganti hanya visual.
+    <div role="status" aria-label="SUKA Bot sedang memproses" className="inline-flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-suka-ink">
+      <span aria-hidden>{kalimat}</span>
+      <span className="flex gap-1" aria-hidden>
+        {[0, 150, 300].map((jeda) => (
+          <span key={jeda} className="h-1.5 w-1.5 rounded-full bg-suka-orange motion-safe:animate-bounce" style={{ animationDelay: `${jeda}ms` }} />
+        ))}
+      </span>
+    </div>
+  )
+}
 
 const jam = (iso: string) =>
   new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
@@ -176,16 +199,7 @@ export default function PanelSukaBot({ apiBase, penuh = false, onRekap, onPose, 
             {m.isi}
           </div>
         ))}
-        {pose === 'berpikir' && (
-          <div role="status" className="inline-flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-suka-ink">
-            <span>Lagi cek datanya, Bos</span>
-            <span className="flex gap-1" aria-hidden>
-              {[0, 150, 300].map((jeda) => (
-                <span key={jeda} className="h-1.5 w-1.5 rounded-full bg-suka-orange motion-safe:animate-bounce" style={{ animationDelay: `${jeda}ms` }} />
-              ))}
-            </span>
-          </div>
-        )}
+        {pose === 'berpikir' && <GelembungMikir />}
         {galat && <p className="text-red-600 text-xs">{galat}</p>}
         <div ref={bawah} />
       </div>

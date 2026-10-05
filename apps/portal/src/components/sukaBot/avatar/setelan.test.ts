@@ -31,9 +31,12 @@ describe('bacaSetelan', () => {
 })
 
 describe('tinggiChefEfektif', () => {
-  it('otomatis: 140 desktop, 110 HP (< 640 px)', () => {
-    expect(tinggiChefEfektif(null, { w: 1440, h: 900 })).toBe(140)
+  it('otomatis: 385 desktop, 110 HP (< 640 px)', () => {
+    expect(tinggiChefEfektif(null, { w: 1440, h: 900 })).toBe(385)
     expect(tinggiChefEfektif(null, { w: 390, h: 844 })).toBe(110)
+  })
+  it('bawaan desktop tetap dibatasi 60% tinggi layar (laptop pendek)', () => {
+    expect(tinggiChefEfektif(null, { w: 1366, h: 600 })).toBe(360)
   })
   it('bisa sampai 400 px bila layar cukup tinggi', () => {
     expect(TINGGI_MAKS).toBe(400)

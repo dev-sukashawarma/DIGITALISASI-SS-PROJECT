@@ -17,7 +17,7 @@ export const TINGGI_MAKS = 400
 export const LANGKAH_TINGGI = 5
 /** Layar di bawah lebar ini memakai tinggi otomatis versi HP. */
 export const LEBAR_HP = 640
-const TINGGI_OTOMATIS = { desktop: 140, hp: 110 }
+const TINGGI_OTOMATIS = { desktop: 385, hp: 110 }
 /** Chef tidak boleh lebih tinggi dari porsi layar ini, berapa pun pilihan pengguna. */
 const PORSI_LAYAR_MAKS = 0.6
 

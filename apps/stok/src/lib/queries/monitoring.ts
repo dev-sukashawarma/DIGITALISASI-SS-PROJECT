@@ -263,7 +263,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
     // Fetch opname discrepancy if exists. opname_item has no created_at column,
     // so recency is taken from the parent opname row (ordering directly by
     // created_at returns HTTP 400).
-    { data: opnameData },
+    { data: opnameRow },
     // Query pemakaian (BOM sales deduction) to provide context for discrepancy
     { data: pemakaianData },
   ] = await Promise.all([
@@ -279,12 +279,15 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
       .eq('bahan_baku_id', bahan_baku_id)
       .order('created_at', { ascending: false })
       .limit(5),
+    // Query dari tabel opname (bukan opname_item): order dengan
+    // referencedTable hanya mengurutkan isi embed, BUKAN baris induk, sehingga
+    // limit(1) dulu mengambil opname sembarang (mis. sebulan lalu).
     supabase
-      .from('opname_item')
-      .select('qty_system, qty_fisik, catatan, flagged, opname!inner(created_at, outlet_id)')
-      .eq('bahan_baku_id', bahan_baku_id)
-      .eq('opname.outlet_id', outletId)
-      .order('created_at', { ascending: false, referencedTable: 'opname' })
+      .from('opname')
+      .select('created_at, opname_item!inner(qty_system, qty_fisik, catatan, flagged)')
+      .eq('outlet_id', outletId)
+      .eq('opname_item.bahan_baku_id', bahan_baku_id)
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase
@@ -298,6 +301,11 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
   ]);
 
   if (ledgerError) throw ledgerError;
+
+  const opnameItem = (opnameRow?.opname_item as any[] | undefined)?.[0];
+  const opnameData = opnameItem
+    ? { ...opnameItem, opname: { created_at: opnameRow!.created_at } }
+    : null;
 
   const opnameDateStr = (opnameData?.opname as any)?.created_at;
   const opnameDate = opnameDateStr ? new Date(opnameDateStr) : new Date();

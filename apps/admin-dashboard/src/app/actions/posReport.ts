@@ -24,7 +24,8 @@ import {
   type PosReportRequest,
 } from '@/lib/posReport/laporan'
 
-export type { PosReportRequest }
+// JANGAN me-re-export tipe dari berkas 'use server': transform server action
+// mengubahnya jadi nilai runtime (ReferenceError). Ambil tipe dari lib/posReport/laporan.
 
 // Inti perhitungan ada di lib/posReport/laporan.ts. Berkas ini hanya pintu sesi-cookie:
 // setiap ekspor di sini adalah endpoint publik, jadi cakupan SELALU dari resolveCallerScope().

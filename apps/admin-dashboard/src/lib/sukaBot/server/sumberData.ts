@@ -1,6 +1,7 @@
 // Adapter nyata untuk alat SUKA Bot & Hermes. Rumus = Rangkuman Penjualan (getPosReport).
 // SUKA Bot: query memakai `supabase` sesi penanya (bukan service role).
-import { getPosReport, type PosReportRequest } from '@/app/actions/posReport'
+import { getPosReport } from '@/app/actions/posReport'
+import type { PosReportRequest } from '@/lib/posReport/laporan'
 import type { AmbilLaporan, OutletInfo, KonteksPenjualan } from '../alat/penjualan'
 import type { KonteksStok, BahanInfo, BarisStok } from '../alat/stok'
 

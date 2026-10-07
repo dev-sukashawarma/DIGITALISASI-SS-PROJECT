@@ -17,7 +17,27 @@ export function urlChat(baseUrl: string, profil: Profil): string {
   return `${baseUrl.replace(/\/+$/, '')}/p/${profil}/v1/chat/completions`
 }
 
+/**
+ * Kunci API server Hermes untuk satu profil. Sumber utama: env tunggal
+ * HERMES_KEYS = {"ceo":"…","gudang":"…"} — menambah agen cukup edit env ini di
+ * Coolify + restart, tanpa rebuild. Cadangan: HERMES_KEY_<PROFIL>. Tiap profil
+ * tetap punya kunci sendiri (bocornya satu kunci tidak membuka profil lain).
+ */
 export function kunciProfil(profil: Profil, env: Record<string, string | undefined> = process.env): string | null {
+  const gabungan = env.HERMES_KEYS
+  if (gabungan) {
+    try {
+      const peta = JSON.parse(gabungan)
+      if (peta && typeof peta === 'object' && !Array.isArray(peta)) {
+        const k = (peta as Record<string, unknown>)[profil]
+        if (typeof k === 'string' && k) return k
+      } else {
+        console.error('[bot] HERMES_KEYS harus objek JSON {"profil":"kunci"}')
+      }
+    } catch {
+      console.error('[bot] HERMES_KEYS bukan JSON yang valid')
+    }
+  }
   return env[`HERMES_KEY_${profil.toUpperCase()}`] || null
 }
 

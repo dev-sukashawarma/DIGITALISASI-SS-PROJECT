@@ -20,7 +20,7 @@ yarn workspace @suka/bot type-check
 | `NEXT_PUBLIC_COOKIE_DOMAIN`, `NEXT_PUBLIC_PORTAL_URL` | SSO (produksi: `.sukashawarma.com`, `https://app.sukashawarma.com`) |
 | `SUPABASE_JWT_SECRET` | verifikasi sesi lokal cepat (server-only) |
 | `HERMES_API_URL` | API server Hermes, mis. `http://<IP gateway Docker Coolify>:8643` (server-only) |
-| `HERMES_KEY_CEO` | `API_SERVER_KEY` profil `ceo` (server-only, **jangan** awalan `NEXT_PUBLIC_`) |
+| `HERMES_KEYS` | JSON `{"ceo":"<API_SERVER_KEY profil ceo>"}` — **satu env untuk semua agen**; agen baru = tambah pasangan `"gudang":"…"` lalu restart (tanpa rebuild). Server-only, **jangan** awalan `NEXT_PUBLIC_`. |
 
 Tanpa `HERMES_*` app tetap jalan; setiap pertanyaan dijawab teks galat standar.
 

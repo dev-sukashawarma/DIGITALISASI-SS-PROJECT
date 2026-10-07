@@ -55,10 +55,10 @@ ENV PORT=3000
 # jadi harus di-re-declare di sini juga, bukan cuma di builder.
 ARG SUPABASE_JWT_SECRET
 ARG HERMES_API_URL
-ARG HERMES_KEY_CEO
+ARG HERMES_KEYS
 ENV SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET
 ENV HERMES_API_URL=$HERMES_API_URL
-ENV HERMES_KEY_CEO=$HERMES_KEY_CEO
+ENV HERMES_KEYS=$HERMES_KEYS
 
 COPY --from=builder /repo/node_modules /repo/node_modules
 COPY --from=builder /repo/apps/bot/node_module[s] /repo/apps/bot/node_modules/

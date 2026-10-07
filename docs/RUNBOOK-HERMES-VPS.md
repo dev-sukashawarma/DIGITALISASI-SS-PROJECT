@@ -132,7 +132,7 @@ Model = 9Router SS · Terminal = nonaktif · Telegram configured · Gateway runn
 - `~/.hermes/.env` (host gateway): `API_SERVER_ENABLED=true`, `API_SERVER_HOST=10.0.1.1`,
   `API_SERVER_PORT=8643`, `API_SERVER_KEY=<acak>` (profil default). `multiplex_profiles: true`
   sudah aktif di `config.yaml` → tiap profil di `/p/<profil>/`.
-- `~/.hermes/profiles/ceo/.env`: `API_SERVER_KEY=<acak>` (= `HERMES_KEY_CEO` di Coolify app `bot`).
+- `~/.hermes/profiles/ceo/.env`: `API_SERVER_KEY=<acak>` (= nilai `"ceo"` di env `HERMES_KEYS` app `bot` di Coolify: `{"ceo":"<kunci>"}`; agen baru → tambah pasangan, restart, tanpa rebuild).
   Kunci dibuat `printf 'API_SERVER_KEY=%s\n' "$(openssl rand -hex 32)" >> …` (tak tampil di layar).
 - Toolset dikunci: `hermes|ceo tools disable --platform api_server <daftar standar>`.
 - Uji: `ss -ltnp | grep 8643` → `10.0.1.1:8643`; dari internet tak tersambung; host tanpa

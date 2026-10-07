@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { MessageCircle } from 'lucide-react'
+import { ChevronUp, MessageCircle, X } from 'lucide-react'
 import { useRole } from '@/components/layout/RoleContext'
 import { bacaBesar, bacaPosisi, jepitKeLayar, posisiPanelDekatTombol, simpanBesar, simpanPosisi, ukuranPanel, type Titik, type Ukuran } from '@/lib/botHrd/posisi'
 import { useGeser } from './useGeser'
@@ -25,6 +25,8 @@ const layarSaatIni = (): Ukuran => ({ lebar: window.innerWidth, tinggi: window.i
 export function BotHrdWidget() {
   const { role } = useRole()
   const [buka, setBuka] = useState(false)
+  // Diminimize: panel tetap ter-mount (percakapan & aksi berjalan tak terputus), tampil sebagai bar kecil.
+  const [kecil, setKecil] = useState(false)
   const [posisiTombol, setPosisiTombol] = useState<Titik | null>(null) // null = posisi bawaan (CSS)
   const [posisiPanel, setPosisiPanel] = useState<Titik | null>(null)
   const [desktop, setDesktop] = useState(true)
@@ -76,6 +78,21 @@ export function BotHrdWidget() {
     aktif: desktop,
   })
 
+  // Bar minimize punya ukuran sendiri agar bisa digeser sampai tepi bawah layar.
+  const UKURAN_BAR: Ukuran = { lebar: 256, tinggi: 44 }
+  const geserBar = useGeser({
+    ambilPosisi: () => posisiPanel,
+    ambilUkuran: () => UKURAN_BAR,
+    onUbah: setPosisiPanel,
+    aktif: desktop,
+  })
+
+  function pulihkan() {
+    // Saat dibuka kembali, pastikan panel penuh tetap muat di layar dari posisi bar.
+    setPosisiPanel((p) => (p ? jepitKeLayar(p, ukuranPanelDesktop(), layarSaatIni()) : p))
+    setKecil(false)
+  }
+
   function toggleBesar() {
     const baru = !besar
     besarRef.current = baru
@@ -103,8 +120,44 @@ export function BotHrdWidget() {
   return (
     <>
       {buka && (
-        <div className={desktop ? 'fixed z-50' : 'fixed inset-0 z-50'} style={stylePanel}>
-          <PanelBotHrd onTutup={() => setBuka(false)} besar={besar} onToggleBesar={desktop ? toggleBesar : undefined} gagangGeser={desktop ? geserPanel.bind : undefined} />
+        <div className={`${desktop ? 'fixed z-50' : 'fixed inset-0 z-50'} ${kecil ? 'hidden' : ''}`} style={stylePanel}>
+          <PanelBotHrd
+            onTutup={() => {
+              setKecil(false)
+              setBuka(false)
+            }}
+            onMinimize={() => setKecil(true)}
+            besar={besar}
+            onToggleBesar={desktop ? toggleBesar : undefined}
+            gagangGeser={desktop ? geserPanel.bind : undefined}
+          />
+        </div>
+      )}
+      {buka && kecil && (
+        <div
+          {...(desktop ? geserBar.bind : {})}
+          style={desktop && posisiPanel ? { left: posisiPanel.x, top: posisiPanel.y } : undefined}
+          className={`fixed z-50 flex w-64 touch-none select-none items-center gap-2 rounded-xl bg-[#4A1713] py-2 pl-3 pr-1.5 text-white shadow-lg ${
+            desktop && posisiPanel ? 'cursor-grab' : 'bottom-24 right-4'
+          }`}
+        >
+          <MessageCircle className="h-4 w-4 shrink-0 text-suka-orange" />
+          {/* Judul = area geser; tombol ⌃ untuk membuka kembali. */}
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">Bot HRD</span>
+          <button type="button" onClick={pulihkan} className="rounded-lg p-1.5 hover:bg-white/10" aria-label="Buka kembali" title="Buka kembali">
+            <ChevronUp className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setKecil(false)
+              setBuka(false)
+            }}
+            className="rounded-lg p-1.5 hover:bg-white/10"
+            aria-label="Tutup"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
       {!buka && (

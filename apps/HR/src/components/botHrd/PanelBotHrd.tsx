@@ -5,6 +5,7 @@ import { Loader2, Send, RotateCcw, X } from 'lucide-react'
 import { jakartaDayKey } from '@suka/auth'
 import { kirimPesanBotHrd, ambilPesanBotHrd } from '@/app/actions/botHrd'
 import { bacaPercakapan, simpanPercakapan, hapusPercakapan } from '@/lib/botHrd/simpanan'
+import { IsiPesan } from './IsiPesan'
 
 type Pesan = { peran: 'user' | 'assistant'; isi: string }
 
@@ -16,7 +17,7 @@ const PEMBUKA: Pesan = {
 
 const storage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
-export function PanelBotHrd({ onTutup }: { onTutup: () => void }) {
+export function PanelBotHrd({ onTutup, gagangGeser }: { onTutup: () => void; gagangGeser?: React.HTMLAttributes<HTMLDivElement> }) {
   const [pesan, setPesan] = useState<Pesan[]>([PEMBUKA])
   const [teks, setTeks] = useState('')
   const [memuat, setMemuat] = useState(false)
@@ -64,7 +65,10 @@ export function PanelBotHrd({ onTutup }: { onTutup: () => void }) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-none bg-white shadow-2xl sm:rounded-2xl sm:border sm:border-[#E8DCCB]">
-      <div className="flex items-center justify-between bg-[#4A1713] px-4 py-3 text-white">
+      <div
+        {...gagangGeser}
+        className={`flex items-center justify-between bg-[#4A1713] px-4 py-3 text-white ${gagangGeser ? 'cursor-grab touch-none select-none active:cursor-grabbing' : ''}`}
+      >
         <div>
           <p className="text-sm font-semibold">Bot HRD</p>
           <p className="text-xs text-white/70">Data absensi, cuti, kasbon & ceklist</p>
@@ -86,10 +90,10 @@ export function PanelBotHrd({ onTutup }: { onTutup: () => void }) {
               className={
                 m.peran === 'user'
                   ? 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-suka-orange px-3 py-2 text-sm text-white'
-                  : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm text-[#2B1B17] shadow-sm'
+                  : 'w-full max-w-[95%] min-w-0 rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm text-[#2B1B17] shadow-sm'
               }
             >
-              {m.isi}
+              {m.peran === 'user' ? m.isi : <IsiPesan teks={m.isi} />}
             </div>
           </div>
         ))}

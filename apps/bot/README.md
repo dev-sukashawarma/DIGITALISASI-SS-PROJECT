@@ -1,8 +1,28 @@
 # apps/bot — Webapp Bot Suka Shawarma (`bot.sukashawarma.com`)
 
-> **Status: desain berjalan — belum ada kode.** Jangan menulis kode sebelum spec
-> `docs/superpowers/specs/2026-10-07-webapp-bot-design.md` (menyusul) disetujui dan
-> plan-nya ditulis. Kerjakan di branch sendiri + Pull Request, bukan push ke `main`.
+> **Status: fase 1 dibangun (Task 1–9 plan), belum deploy.** Spec:
+> `docs/superpowers/specs/2026-10-07-webapp-bot-design.md` · Plan:
+> `docs/superpowers/plans/2026-10-07-webapp-bot.md`. Kerjakan di branch sendiri + Pull Request.
+
+## Menjalankan di lokal
+
+```bash
+yarn workspace @suka/bot dev     # http://localhost:3050 (login lewat portal lokal :3010)
+yarn workspace @suka/bot test
+yarn workspace @suka/bot type-check
+```
+
+`apps/bot/.env.local` (tidak di-commit):
+
+| Variabel | Keterangan |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sama dengan app lain |
+| `NEXT_PUBLIC_COOKIE_DOMAIN`, `NEXT_PUBLIC_PORTAL_URL` | SSO (produksi: `.sukashawarma.com`, `https://app.sukashawarma.com`) |
+| `SUPABASE_JWT_SECRET` | verifikasi sesi lokal cepat (server-only) |
+| `HERMES_API_URL` | API server Hermes, mis. `http://<IP gateway Docker Coolify>:8643` (server-only) |
+| `HERMES_KEY_CEO` | `API_SERVER_KEY` profil `ceo` (server-only, **jangan** awalan `NEXT_PUBLIC_`) |
+
+Tanpa `HERMES_*` app tetap jalan; setiap pertanyaan dijawab teks galat standar.
 
 ## Untuk apa
 

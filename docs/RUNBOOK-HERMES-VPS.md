@@ -105,7 +105,7 @@ Buka `http://127.0.0.1:9120`. **Jangan pernah `--host 0.0.0.0`.**
 
 ### 7. API server — biarkan MATI
 Dinyalakan (port 8643, `API_SERVER_KEY`, bind 127.0.0.1 + reverse proxy berallowlist IP
-Coolify) baru saat webapp `bot.sukashawarma.com` dibangun.
+Coolify) baru saat webapp `agents.sukashawarma.com` dibangun.
 
 ### 8. Cek
 ```bash
@@ -126,7 +126,7 @@ Model = 9Router SS · Terminal = nonaktif · Telegram configured · Gateway runn
   pertanyaan gaji ditolak ✅. Telegram dua arah = **hanya untuk uji dev**; membuka ke bos
   = keputusan terpisah (tambah ID eksplisit, tetap chat pribadi, jangan masukkan ke grup).
 
-## API server untuk webapp `bot.sukashawarma.com` (✅ 2026-10-07)
+## API server untuk webapp `agents.sukashawarma.com` (✅ 2026-10-07)
 - Coolify satu VPS; gateway jaringan Docker `coolify` = **`10.0.1.1`**
   (`docker network inspect coolify -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}'`, root).
 - `~/.hermes/.env` (host gateway): `API_SERVER_ENABLED=true`, `API_SERVER_HOST=10.0.1.1`,

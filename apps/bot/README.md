@@ -1,4 +1,4 @@
-# apps/bot — Webapp Bot Suka Shawarma (`bot.sukashawarma.com`)
+# apps/bot — Webapp Bot Suka Shawarma (`agents.sukashawarma.com`)
 
 > **Status: fase 1 dibangun (Task 1–9 plan), belum deploy.** Spec:
 > `docs/superpowers/specs/2026-10-07-webapp-bot-design.md` · Plan:
@@ -33,7 +33,7 @@ login, memilih bot sesuai role, menampilkan percakapan.
 ## Gambaran
 
 ```
-Pengguna ──HTTPS──► Cloudflare ──► Coolify: bot.sukashawarma.com (app ini, login SSO)
+Pengguna ──HTTPS──► Cloudflare ──► Coolify: agents.sukashawarma.com (app ini, login SSO)
                                           │  jaringan internal VPS + kunci API server per profil
                                           ▼
                                  Hermes API server  /p/<profil>/v1/...   (TIDAK dibuka ke internet)

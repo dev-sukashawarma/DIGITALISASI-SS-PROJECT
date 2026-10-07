@@ -73,7 +73,7 @@ jobs:
               --request GET "https://coolify.sukashawarma.tech/api/v1/applications" \
               --header "Authorization: Bearer $COOLIFY_TOKEN" || true)
 
-            BOT_UUID=$(echo "$APPS_JSON" | jq -r 'if type=="array" then (.[] | select((.fqdn // "") | contains("bot.sukashawarma.com")) | .uuid) else empty end' 2>/dev/null | head -n 1)
+            BOT_UUID=$(echo "$APPS_JSON" | jq -r 'if type=="array" then (.[] | select((.fqdn // "") | contains("agents.sukashawarma.com")) | .uuid) else empty end' 2>/dev/null | head -n 1)
 
             if [ -z "$BOT_UUID" ] || [ "$BOT_UUID" = "null" ]; then
               BOT_UUID=$(echo "$APPS_JSON" | jq -r 'if type=="array" then (.[] | select((.name // "") | test("^bot$|suka-bot|bot-ceo"; "i")) | .uuid) else empty end' 2>/dev/null | head -n 1)
@@ -99,7 +99,7 @@ jobs:
         run: |
           echo "Waiting 15s for Coolify container restart..."
           sleep 15
-          APP_URL="https://bot.sukashawarma.com/api/health"
+          APP_URL="https://agents.sukashawarma.com/api/health"
           echo "Probing $APP_URL..."
           for i in {1..8}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$APP_URL" || true)

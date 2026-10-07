@@ -3343,7 +3343,7 @@ gerbang `supabase/verifikasi/hermes/gerbang-penjualan.md`.
   SDK/dependency baru). Kunci per bot `hms_<prefix>_<rahasia>` (SHA-256, scope domain,
   allowlist IP fail-closed, log `hermes_api_log`), dikelola di **Sistem → Kunci Hermes**.
 - **Domain tahap 1 = penjualan** (5 alat membungkus fungsi SUKA Bot; laporan pagi CEO =
-  template). Urutan berikut: gudang → absensi → finance. Webapp bos `bot.sukashawarma.com`
+  template). Urutan berikut: gudang → absensi → finance. Webapp bos `agents.sukashawarma.com`
   (SSO) = plan terpisah. Notifikasi = satu Master Bot Telegram satu arah (digest).
 - **Refactor:** inti `getPosReport` pindah ke `lib/posReport/laporan.ts`
   (`laporanPosUntukScope(req, cakupan)`); `app/actions/posReport.ts` tetap satu-satunya

@@ -1842,5 +1842,5 @@ Merge + push (izin owner) → redeploy **admin-dashboard** di Coolify → jalank
 
 - Spec K1 read-only → Task 6 route hanya membaca + log. K3 → Task 1/5 memakai `getPosReport` & fungsi SUKA Bot. K4 → Task 2/3/6/7. K5 domain/scope → Task 3/4. K9 MCP → Task 4/6. K12 template → Task 5. K14 gerbang → Task 5 (gerbang 3 otomatis) + Task 8.
 - §5 tabel & halaman → Task 2/7. §6 larangan → Task 5 test. §7.1 alat penjualan + laporan pagi → Task 5 (butir 5 "baris domain lain" & SS Online sengaja ditunda, tertulis). §9 gerbang → Task 8. §10 kewajiban Hermes → Task 8.
-- Sengaja di luar plan: domain gudang/absensi/finance, webapp `bot.sukashawarma.com`, API server Hermes, digest Telegram selain laporan pagi.
+- Sengaja di luar plan: domain gudang/absensi/finance, webapp `agents.sukashawarma.com`, API server Hermes, digest Telegram selain laporan pagi.
 - Konsistensi nama: `laporanPosUntukScope`/`CakupanLaporan` (T1→T6), `buatAmbilLaporan` (T1→T6), `AlatMcp`/`HasilAlat`/`tanganiPesan` (T4→T5/T6), `KonteksHermes`/`bangunAlatMcp`/`ALAT_HERMES` (T5→T6), `autentikasi`/`catatLog` (T6), `validasiInputKunci`/`buatKunciBaru` (T3→T7).

@@ -120,7 +120,41 @@ Model = 9Router SS · Terminal = nonaktif · Telegram configured · Gateway runn
   konfigurasi (uji 2026-10-07: bot menawarkan "tempel isi file ke chat" — itu dilarang).
 - Jangan menyarankan perintah terminal/server kepada pengguna.
 
-## Berikutnya
-1. Profil `ceo` + kunci MCP scope `penjualan` (setelah `/api/hermes/mcp` dibangun).
-2. Verifikasi MCP lewat HTTP dengan header `Authorization` (keputusan K9).
-3. Grup Telegram uji (dev saja) untuk masa uji 1 minggu.
+## Sambungkan MCP Suka Shawarma (profil `ceo`)
+
+Prasyarat: admin-dashboard dengan `/api/hermes/mcp` sudah ter-deploy (branch
+`feat/hermes-api`). SOUL: `docs/hermes/SOUL-ceo.md`. Gerbang: `supabase/verifikasi/hermes/gerbang-penjualan.md`.
+
+1. Halaman admin **Sistem → Kunci Hermes** → buat kunci "Bot CEO", scope `penjualan`
+   (domain lain dicentang saat tahapnya live), IP **kosong dulu**. Salin kunci (tampil sekali).
+2. Di VPS (`su - suka-hermes`):
+   ```bash
+   hermes profile create ceo
+   ceo setup model            # Custom endpoint http://127.0.0.1:20128/v1, mode 2
+   echo 'SUKA_MCP_KEY=<kunci>' >> ~/.hermes/profiles/ceo/.env
+   chmod 600 ~/.hermes/profiles/ceo/.env
+   ```
+   Tambahkan ke `~/.hermes/profiles/ceo/config.yaml`:
+   ```yaml
+   mcp_servers:
+     suka:
+       url: https://<domain-admin-dashboard>/api/hermes/mcp
+       headers:
+         Authorization: "Bearer ${SUKA_MCP_KEY}"
+       enabled: true
+   ```
+3. Kunci toolset bawaan profil `ceo` untuk **cli dan telegram** (daftar langkah 4), lalu
+   `ceo tools --summary` — alat `suka:*` harus terlihat & aktif; bila ikut mati,
+   `ceo tools enable suka:penjualan_ringkasan ...` (format `server:tool`).
+4. Salin `docs/hermes/SOUL-ceo.md` → `~/.hermes/profiles/ceo/SOUL.md`.
+5. Panggilan pertama akan **403** (IP kosong). Buka log di halaman Kunci Hermes, lihat IP
+   pada baris "ditolak", tambahkan IP itu ke kunci → ulangi. (Coolify mungkin di VPS yang
+   sama → IP bisa IP publik VPS atau IP jaringan Docker; pakai yang tercatat di log.)
+6. Uji: `ceo` → "omzet kemarin berapa?" → jawaban menyebut periode & sama dengan layar.
+7. Gerbang 2 di produksi, terutama: kirim header `x-real-ip` palsu dari laptop →
+   harus tetap **403**. Kalau lolos, proxy tidak menimpa header → allowlist IP bisa
+   dipalsukan; perbaiki konfigurasi proxy sebelum lanjut.
+8. Jadwal: `ceo cron --help` → 07:00 WIB panggil `laporan_pagi_ceo`, kirim `teks` ke grup
+   Telegram **uji**. Cron Hermes kemungkinan UTC (07:00 WIB = 00:00 UTC) — uji dulu dengan
+   jadwal beberapa menit ke depan.
+9. Isi tabel gerbang; setelah 7 hari lulus, pindahkan tujuan laporan pagi ke grup Owner.

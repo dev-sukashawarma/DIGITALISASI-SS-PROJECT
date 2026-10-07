@@ -73,3 +73,29 @@ export function simpanPosisi(s: Simpanan, pos: Titik, kunci = KUNCI_POSISI): voi
     // penyimpanan penuh / diblokir
   }
 }
+
+export const KUNCI_BESAR = 'botHrd.besar'
+
+export function bacaBesar(s: Simpanan, kunci = KUNCI_BESAR): boolean {
+  try {
+    return s?.getItem(kunci) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function simpanBesar(s: Simpanan, besar: boolean, kunci = KUNCI_BESAR): void {
+  try {
+    s?.setItem(kunci, besar ? '1' : '0')
+  } catch {
+    // diblokir
+  }
+}
+
+/** Ukuran panel desktop: normal 440x600, besar min(900,lebar-2rem) x min(85vh,tinggi-2rem). */
+export function ukuranPanel(besar: boolean, layar: Ukuran): Ukuran {
+  if (besar) {
+    return { lebar: Math.min(900, layar.lebar - 32), tinggi: Math.min(layar.tinggi * 0.85, layar.tinggi - 32) }
+  }
+  return { lebar: Math.min(440, layar.lebar - 16), tinggi: Math.min(600, layar.tinggi - 32) }
+}

@@ -182,3 +182,21 @@ export function uraiInline(s: string): Inline[] {
   if (akhir < s.length) hasil.push({ t: 'teks', isi: s.slice(akhir) })
   return hasil
 }
+
+/** Panjang teks sel (karakter) di atas ini boleh dibungkus; di bawahnya tetap satu baris. */
+export const AMBANG_SEL_PANJANG = 40
+/** Daftar dipisah koma dengan lebih dari ini item ditampilkan sebagai chip. */
+export const AMBANG_CHIP = 4
+
+/**
+ * Bila sel berisi daftar dipisah koma dengan > AMBANG_CHIP item, kembalikan item-itemnya
+ * (untuk dirender sebagai chip). Selain itu null. Koma pemisah ribuan angka tidak dihitung.
+ */
+export function daftarChip(v: string | number | null | undefined): string[] | null {
+  if (typeof v !== 'string') return null
+  const bagian = v
+    .split(/\s*[,;]\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return bagian.length > AMBANG_CHIP ? bagian : null
+}

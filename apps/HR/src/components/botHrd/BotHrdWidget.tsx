@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { MessageCircle } from 'lucide-react'
 import { useRole } from '@/components/layout/RoleContext'
-import { bacaPosisi, jepitKeLayar, posisiPanelDekatTombol, simpanPosisi, type Titik, type Ukuran } from '@/lib/botHrd/posisi'
+import { bacaBesar, bacaPosisi, jepitKeLayar, posisiPanelDekatTombol, simpanBesar, simpanPosisi, ukuranPanel, type Titik, type Ukuran } from '@/lib/botHrd/posisi'
 import { useGeser } from './useGeser'
 
 // Panel dimuat saat dibuka saja (tak menambah bundel halaman awal).
@@ -16,10 +16,6 @@ const UKURAN_TOMBOL: Ukuran = { lebar: 56, tinggi: 56 }
 const LEBAR_DESKTOP = 640 // sm: panel penuh layar di bawah ini (tanpa geser)
 
 const layarSaatIni = (): Ukuran => ({ lebar: window.innerWidth, tinggi: window.innerHeight })
-const ukuranPanelDesktop = (): Ukuran => ({
-  lebar: Math.min(400, window.innerWidth - 16),
-  tinggi: Math.min(600, window.innerHeight - 32),
-})
 
 /**
  * Tombol & panel bisa digeser. Posisi TOMBOL disimpan per perangkat (localStorage,
@@ -32,10 +28,15 @@ export function BotHrdWidget() {
   const [posisiTombol, setPosisiTombol] = useState<Titik | null>(null) // null = posisi bawaan (CSS)
   const [posisiPanel, setPosisiPanel] = useState<Titik | null>(null)
   const [desktop, setDesktop] = useState(true)
+  const [besar, setBesar] = useState(false)
+  const besarRef = useRef(false)
+  besarRef.current = besar
+  const ukuranPanelDesktop = useCallback((): Ukuran => ukuranPanel(besarRef.current, layarSaatIni()), [])
   const tombolRef = useRef<HTMLButtonElement>(null)
 
   // Pulihkan posisi tersimpan setelah mount (SSR aman) + pantau ukuran layar.
   useEffect(() => {
+    setBesar(bacaBesar(window.localStorage))
     const tersimpan = bacaPosisi(window.localStorage)
     if (tersimpan) setPosisiTombol(jepitKeLayar(tersimpan, UKURAN_TOMBOL, layarSaatIni()))
     const mq = window.matchMedia(`(min-width: ${LEBAR_DESKTOP}px)`)
@@ -75,6 +76,14 @@ export function BotHrdWidget() {
     aktif: desktop,
   })
 
+  function toggleBesar() {
+    const baru = !besar
+    besarRef.current = baru
+    setBesar(baru)
+    simpanBesar(window.localStorage, baru)
+    setPosisiPanel((p) => (p ? jepitKeLayar(p, ukuranPanelDesktop(), layarSaatIni()) : p))
+  }
+
   function bukaPanel() {
     if (geserTombol.pernahGeser()) return // klik susulan setelah geseran bukan niat membuka
     if (window.innerWidth >= LEBAR_DESKTOP) {
@@ -95,7 +104,7 @@ export function BotHrdWidget() {
     <>
       {buka && (
         <div className={desktop ? 'fixed z-50' : 'fixed inset-0 z-50'} style={stylePanel}>
-          <PanelBotHrd onTutup={() => setBuka(false)} gagangGeser={desktop ? geserPanel.bind : undefined} />
+          <PanelBotHrd onTutup={() => setBuka(false)} besar={besar} onToggleBesar={desktop ? toggleBesar : undefined} gagangGeser={desktop ? geserPanel.bind : undefined} />
         </div>
       )}
       {!buka && (

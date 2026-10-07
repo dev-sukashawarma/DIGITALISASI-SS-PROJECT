@@ -1,5 +1,7 @@
 'use client'
 
+import { AMBANG_SEL_PANJANG, daftarChip } from '@/lib/botHrd/uraiPesan'
+
 type Sel = string | number | null
 
 const angka = (v: Sel) => {
@@ -13,6 +15,24 @@ const tampil = (v: Sel) => {
   if (typeof v === 'number') return v.toLocaleString('id-ID')
   return v
 }
+
+function Sel({ v }: { v: Sel }) {
+  const chip = daftarChip(v)
+  if (chip) {
+    return (
+      <div className="flex flex-wrap gap-1">
+        {chip.map((c, i) => (
+          <span key={i} className="whitespace-nowrap rounded-full bg-[#F6EDE1] px-2 py-0.5 text-[11px] text-[#4A1713]">
+            {c}
+          </span>
+        ))}
+      </div>
+    )
+  }
+  return <>{tampil(v)}</>
+}
+
+const panjang = (v: Sel) => typeof v === 'string' && v.length > AMBANG_SEL_PANJANG
 
 export function TabelBot({
   judul,
@@ -34,15 +54,15 @@ export function TabelBot({
     <div className="w-full min-w-0 space-y-1">
       {judul && <p className="text-xs font-semibold text-[#4A1713]">{judul}</p>}
       <div className="max-h-80 w-full overflow-auto rounded-lg border border-[#E8DCCB] bg-white">
-        <table className="w-full border-collapse text-xs text-[#2B1B17]">
+        <table className="w-max min-w-full border-collapse text-[13px] text-[#2B1B17]">
           <thead>
             <tr>
               {kolom.map((k, i) => (
                 <th
                   key={i}
-                  className={`sticky top-0 whitespace-nowrap border-b border-[#E8DCCB] bg-[#FDF9F3] px-2 py-1.5 font-semibold text-[#4A1713] ${
+                  className={`sticky top-0 whitespace-nowrap border-b border-[#E8DCCB] bg-[#FDF9F3] px-2.5 py-1.5 font-semibold text-[#4A1713] ${
                     kolomAngka[i] ? 'text-right' : 'text-left'
-                  }`}
+                  } ${i === 0 ? 'left-0 z-20' : 'z-10'}`}
                 >
                   {k}
                 </th>
@@ -51,15 +71,25 @@ export function TabelBot({
           </thead>
           <tbody>
             {baris.map((r, ri) => (
-              <tr key={ri} className={ri % 2 === 1 ? 'bg-[#FDF9F3]/70' : ''}>
-                {kolom.map((_, ci) => (
-                  <td
-                    key={ci}
-                    className={`px-2 py-1 align-top ${kolomAngka[ci] ? 'whitespace-nowrap text-right tabular-nums' : 'text-left'}`}
-                  >
-                    {tampil(r[ci] ?? null)}
-                  </td>
-                ))}
+              <tr key={ri} className={ri % 2 === 1 ? 'bg-[#FDF9F3]' : 'bg-white'}>
+                {kolom.map((_, ci) => {
+                  const v = r[ci] ?? null
+                  const teksPanjang = !kolomAngka[ci] && (panjang(v) || daftarChip(v) !== null)
+                  return (
+                    <td
+                      key={ci}
+                      className={`px-2.5 py-1.5 align-top ${
+                        kolomAngka[ci]
+                          ? 'whitespace-nowrap text-right tabular-nums'
+                          : teksPanjang
+                            ? 'min-w-[9rem] max-w-[18rem] break-words text-left'
+                            : 'whitespace-nowrap text-left'
+                      } ${ci === 0 ? 'sticky left-0 z-[5] border-r border-[#E8DCCB]/60 bg-inherit font-medium' : ''}`}
+                    >
+                      <Sel v={v} />
+                    </td>
+                  )
+                })}
               </tr>
             ))}
             {baris.length === 0 && (

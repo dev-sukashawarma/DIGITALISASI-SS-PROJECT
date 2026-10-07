@@ -76,3 +76,17 @@ describe('uraiInline', () => {
     expect(uraiInline('**a\nb**')).toEqual([{ t: 'teks', isi: '**a\nb**' }])
   })
 })
+
+import { daftarChip } from './uraiPesan'
+
+describe('daftarChip', () => {
+  it('memecah daftar > 4 item', () => {
+    expect(daftarChip('A, B, C, D, E')).toEqual(['A', 'B', 'C', 'D', 'E'])
+  })
+  it('null untuk <= 4 item, angka, kosong', () => {
+    expect(daftarChip('A, B, C, D')).toBeNull()
+    expect(daftarChip(12)).toBeNull()
+    expect(daftarChip(null)).toBeNull()
+    expect(daftarChip('Empang')).toBeNull()
+  })
+})

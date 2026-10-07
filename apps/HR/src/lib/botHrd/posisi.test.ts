@@ -72,3 +72,27 @@ describe('penyimpanan posisi', () => {
     expect(bacaPosisi(null)).toBeNull()
   })
 })
+
+import { bacaBesar, simpanBesar, ukuranPanel } from './posisi'
+
+describe('ukuranPanel / besar', () => {
+  it('normal maks 440, besar maks 900', () => {
+    expect(ukuranPanel(false, { lebar: 1920, tinggi: 1080 })).toEqual({ lebar: 440, tinggi: 600 })
+    const b = ukuranPanel(true, { lebar: 1920, tinggi: 1000 })
+    expect(b.lebar).toBe(900)
+    expect(b.tinggi).toBe(850)
+  })
+  it('besar tak melebihi layar kecil', () => {
+    const b = ukuranPanel(true, { lebar: 700, tinggi: 500 })
+    expect(b.lebar).toBe(668)
+    expect(b.tinggi).toBe(425)
+  })
+  it('simpan/baca', () => {
+    const m = new Map<string, string>()
+    const s = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) }
+    expect(bacaBesar(s)).toBe(false)
+    simpanBesar(s, true)
+    expect(bacaBesar(s)).toBe(true)
+    expect(bacaBesar(null)).toBe(false)
+  })
+})

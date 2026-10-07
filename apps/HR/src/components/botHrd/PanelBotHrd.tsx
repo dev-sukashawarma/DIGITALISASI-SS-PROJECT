@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Send, RotateCcw, X } from 'lucide-react'
+import { Loader2, Send, RotateCcw, X, Maximize2, Minimize2 } from 'lucide-react'
 import { jakartaDayKey } from '@suka/auth'
 import { kirimPesanBotHrd, ambilPesanBotHrd } from '@/app/actions/botHrd'
 import { bacaPercakapan, simpanPercakapan, hapusPercakapan } from '@/lib/botHrd/simpanan'
@@ -17,7 +17,17 @@ const PEMBUKA: Pesan = {
 
 const storage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
-export function PanelBotHrd({ onTutup, gagangGeser }: { onTutup: () => void; gagangGeser?: React.HTMLAttributes<HTMLDivElement> }) {
+export function PanelBotHrd({
+  onTutup,
+  gagangGeser,
+  besar,
+  onToggleBesar,
+}: {
+  onTutup: () => void
+  gagangGeser?: React.HTMLAttributes<HTMLDivElement>
+  besar?: boolean
+  onToggleBesar?: () => void
+}) {
   const [pesan, setPesan] = useState<Pesan[]>([PEMBUKA])
   const [teks, setTeks] = useState('')
   const [memuat, setMemuat] = useState(false)
@@ -77,6 +87,17 @@ export function PanelBotHrd({ onTutup, gagangGeser }: { onTutup: () => void; gag
           <button type="button" onClick={mulaiBaru} className="rounded-lg p-2 hover:bg-white/10" aria-label="Percakapan baru">
             <RotateCcw className="h-4 w-4" />
           </button>
+          {onToggleBesar && (
+            <button
+              type="button"
+              onClick={onToggleBesar}
+              className="hidden rounded-lg p-2 hover:bg-white/10 sm:block"
+              aria-label={besar ? 'Perkecil' : 'Perbesar'}
+              title={besar ? 'Perkecil' : 'Perbesar'}
+            >
+              {besar ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          )}
           <button type="button" onClick={onTutup} className="rounded-lg p-2 hover:bg-white/10" aria-label="Tutup">
             <X className="h-4 w-4" />
           </button>

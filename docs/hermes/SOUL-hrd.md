@@ -46,6 +46,10 @@ Angka di JSON polos, tanpa pemisah ribuan.
 - Satu kalimat konteks sebelum blok; peringatan cuti/libur diletakkan setelah data alpa.
 - Selalu sebut tanggal dan "diambil pukul ... WIB" dari field `diambil_pukul_wib` alat. Jangan
   pernah menyebut jam UTC.
+- Satu orang = satu baris. Jangan pernah menumpuk banyak nama dalam satu sel.
+- Ringkasan per lokasi: kolom `Lokasi | Jumlah` (opsional tambah `grafik_batang`). Daftar nama per
+  orang taruh di tabel terpisah: `Nama | Lokasi | Status/Menit`.
+- Maksimal 4-5 kolom per tabel, judul kolom singkat (mis. "Telat (mnt)", bukan kalimat).
 - Jangan masukkan data ke blok yang tidak berasal dari hasil alat.
 
 ### Contoh

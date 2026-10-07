@@ -1,7 +1,7 @@
 // Loader data bot HRD — HANYA dipanggil route /api/hermes/mcp setelah autentikasi kunci.
 // Setiap query meniru layar sumbernya; rumus dari @suka/hr-rumus (satu sumber).
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { computeBoard, isTestOrDevStaff, tanggalWib, terburuk, type BoardConfig, type BoardRecord, type NilaiCeklist } from '@suka/hr-rumus'
+import { computeBoard, isTestOrDevStaff, outletRumah, tanggalWib, tempatkanStaf, terburuk, type BoardConfig, type BoardRecord, type NilaiCeklist, type StafPenempatan } from '@suka/hr-rumus'
 import { outletTerhitungAbsensi } from '../absensi/outlet'
 import type { CeklistOutlet, CutiBaris, KasbonOutlet, KonteksAbsensi, OutletAbsensi, PapanOutlet, RekapStafBaris, StafOutlet } from '../absensi/tipe'
 
@@ -30,6 +30,7 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
   const hariIni = tanggalWib(sekarang)
   let janjiOutlet: Promise<OutletAbsensi[]> | null = null
   let janjiStaf: Promise<Map<string, StafOutlet[]>> | null = null
+  let janjiSemua: Promise<StafPenempatan[]> | null = null
 
   const outlets = () =>
     (janjiOutlet ??= (async () => {
@@ -37,37 +38,55 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
       return outletTerhitungAbsensi(data as any[])
     })())
 
-  // Staf aktif per lokasi = outlet_staff.outlet_id + staff_outlets (aturan papan & rekap).
-  const stafPerOutlet = () =>
-    (janjiStaf ??= (async () => {
-      const ids = (await outlets()).map((o) => o.id)
+  // Semua staf aktif (utama + penugasan staff_outlets), tanpa akun tes/dev/mitra/owner (R3).
+  // Tiap orang SATU entri; penempatan ke outlet ditentukan tempatkanStaf/outletRumah.
+  const semuaStaf = () =>
+    (janjiSemua ??= (async () => {
       const [utama, tambahan] = await Promise.all([
-        semuaHalaman<{ id: string; name: string; outlet_id: string }>(() =>
-          svc.from('outlet_staff').select('id, name, outlet_id').eq('status', 'active').in('outlet_id', ids).order('id'),
+        semuaHalaman<any>(() =>
+          svc
+            .from('outlet_staff')
+            .select('id, name, username, role, account_category, outlet_id, outlets!outlet_staff_outlet_id_fkey(id, name, slug)')
+            .eq('status', 'active')
+            .order('id'),
         ),
-        semuaHalaman<{ outlet_id: string; outlet_staff: any }>(() =>
-          svc.from('staff_outlets').select('outlet_id, staff_id, outlet_staff!inner(id, name, status)').in('outlet_id', ids).order('outlet_id').order('staff_id'),
+        semuaHalaman<{ staff_id: string; outlet_id: string }>(() =>
+          svc.from('staff_outlets').select('staff_id, outlet_id').order('staff_id').order('outlet_id'),
         ),
       ])
-      const peta = new Map<string, Map<string, StafOutlet>>(ids.map((id) => [id, new Map()]))
-      for (const s of utama) peta.get(s.outlet_id)?.set(s.id, { id: s.id, nama: s.name })
+      const tambahanPer = new Map<string, string[]>()
       for (const r of tambahan) {
-        const st = Array.isArray(r.outlet_staff) ? r.outlet_staff[0] : r.outlet_staff
-        if (st?.status === 'active' && !peta.get(r.outlet_id)?.has(st.id)) peta.get(r.outlet_id)?.set(st.id, { id: st.id, nama: st.name })
+        const arr = tambahanPer.get(r.staff_id) ?? []
+        arr.push(r.outlet_id)
+        tambahanPer.set(r.staff_id, arr)
       }
-      return new Map([...peta].map(([k, v]) => [k, [...v.values()]]))
+      return utama
+        .filter((s) => !isTestOrDevStaff(s))
+        .map<StafPenempatan>((s) => ({ id: s.id, name: s.name, role: s.role ?? '', outletUtama: s.outlet_id ?? null, outletTambahan: tambahanPer.get(s.id) ?? [] }))
+    })())
+
+  // Tiap orang muncul SEKALI di outlet rumahnya (R4); dipakai rekap/telat bulan ini.
+  const stafPerOutlet = () =>
+    (janjiStaf ??= (async () => {
+      const cakupan = await outlets()
+      const staf = await semuaStaf()
+      const peta = new Map<string, StafOutlet[]>(cakupan.map((o) => [o.id, []]))
+      for (const s of staf) {
+        const rumah = outletRumah(s, cakupan)
+        if (rumah) peta.get(rumah)?.push({ id: s.id, nama: s.name })
+      }
+      return peta
     })())
 
   async function papan(tanggal: string): Promise<PapanOutlet[]> {
     const daftar = await outlets()
     const ids = daftar.map((o) => o.id)
     const [staf, absen, cfgRes, globalRes, jadwal] = await Promise.all([
-      stafPerOutlet(),
+      semuaStaf(),
       semuaHalaman<BoardRecord & { outlet_id: string }>(() =>
         svc
           .from('attendance')
           .select('id, outlet_id, outlet_staff_id, type, status, ts_server, telat_menit, is_manual_button, shift_jam_masuk, shift_jam_keluar')
-          .in('outlet_id', ids)
           .gte('ts_server', `${tanggal}T00:00:00+07:00`)
           .lte('ts_server', `${tanggal}T23:59:59+07:00`)
           .order('ts_server')
@@ -98,17 +117,12 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
       for (const a of j.attendance_staff_schedule_member ?? []) m.set(a.staff_id, String(j.jam_masuk).slice(0, 5))
       aturan.set(j.outlet_id, m)
     }
+    // R1/R2: hadir bila ada catatan non-alpha di outlet mana pun; tiap orang sekali per hari.
+    const tempat = tempatkanStaf(staf, absen.filter((r) => r.status !== 'alpha'), daftar)
     return daftar.map((o) => {
-      const s = staf.get(o.id) ?? []
-      const rec = absen.filter((r) => r.outlet_id === o.id)
+      const p = tempat.get(o.id) ?? { staf: [], records: [] }
       const cfg = cfgLokal.get(o.id) ?? cfgGlobal ?? CFG_CADANGAN
-      const { rows, summary } = computeBoard(
-        s.map((x) => ({ id: x.id, name: x.nama, role: '' })),
-        rec,
-        cfg,
-        aturan.get(o.id),
-        { sekarang, tanggal },
-      )
+      const { rows, summary } = computeBoard(p.staf, p.records, cfg, aturan.get(o.id), { sekarang, tanggal })
       return {
         outlet: o,
         ringkas: summary,

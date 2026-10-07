@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [primaryStaffRes, assignedStaffRes, attRes, alertsRes, localCfgRes, globalCfgRes, jadwalStafRes] = await Promise.all([
+    const [primaryStaffRes, assignedStaffRes, alertsRes, localCfgRes, globalCfgRes, jadwalStafRes] = await Promise.all([
       supabaseService
         .from('outlet_staff')
         .select('id, name, role')
@@ -28,13 +28,6 @@ export async function GET(request: Request) {
         .from('staff_outlets')
         .select('staff_id, outlet_staff!inner(id, name, role, status)')
         .eq('outlet_id', outlet_id),
-
-      supabaseService
-        .from('attendance')
-        .select('outlet_staff_id, type, status, ts_server, selfie_url, telat_menit, is_manual_button, shift_jam_masuk, shift_jam_keluar')
-        .eq('outlet_id', outlet_id)
-        .gte('ts_server', `${date}T00:00:00+07:00`)
-        .lte('ts_server', `${date}T23:59:59+07:00`),
 
       supabaseService
         .from('attendance')
@@ -79,6 +72,20 @@ export async function GET(request: Request) {
     });
 
     const staffList = Array.from(activeStaffMap.values());
+
+    // Catatan staf yang terdaftar di outlet ini dibaca di outlet MANA PUN pada hari itu
+    // (leader/penugasan bisa absen di outlet lain) — sama seperti route rekap.
+    // Catatan pengunjung (staf tak terdaftar) tetap diabaikan oleh computeBoard.
+    const staffIds = staffList.map((s) => s.id);
+    const attFilter = staffIds.length
+      ? `outlet_id.eq.${outlet_id},outlet_staff_id.in.(${staffIds.join(',')})`
+      : `outlet_id.eq.${outlet_id}`;
+    const attRes = await supabaseService
+      .from('attendance')
+      .select('outlet_staff_id, type, status, ts_server, selfie_url, telat_menit, is_manual_button, shift_jam_masuk, shift_jam_keluar')
+      .or(attFilter)
+      .gte('ts_server', `${date}T00:00:00+07:00`)
+      .lte('ts_server', `${date}T23:59:59+07:00`);
     let cfg: BoardConfig | null = null;
     if (localCfgRes.data) {
       const { outlet_attendance_shift: daftarShift, ...kolom } = localCfgRes.data as any;

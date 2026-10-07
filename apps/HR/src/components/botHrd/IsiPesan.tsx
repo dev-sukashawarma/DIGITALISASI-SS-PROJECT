@@ -6,6 +6,9 @@ import { TabelBot } from './blokUi/TabelBot'
 import { KartuBot } from './blokUi/KartuBot'
 import { GrafikBatangBot } from './blokUi/GrafikBatangBot'
 import { BlokRusak } from './blokUi/BlokRusak'
+import { AksiBot } from './blokUi/AksiBot'
+import { TawaranBot } from './blokUi/TawaranBot'
+import { melebihiBatas, nomorUrutAksi } from '@/lib/botHrd/aksi'
 
 function Inline({ s }: { s: string }) {
   return (
@@ -71,8 +74,24 @@ function Md({ b }: { b: BlokMd }) {
   }
 }
 
-export function IsiPesan({ teks }: { teks: string }) {
+export function IsiPesan({
+  teks,
+  boleh = false,
+  kunciPesan = 'x:0',
+  terbaru = false,
+  onKirim,
+}: {
+  teks: string
+  /** Aksi boleh dieksekusi (balasan baru sesi ini). */
+  boleh?: boolean
+  /** Awalan kunci sekali-jalan: `${percakapanId}:${indeksPesan}`. */
+  kunciPesan?: string
+  /** Pesan asisten terakhir (tombol tawaran aktif). */
+  terbaru?: boolean
+  onKirim?: (pesan: string) => void
+}) {
   const bagian = useMemo(() => uraiPesan(teks), [teks])
+  const urut = useMemo(() => nomorUrutAksi(bagian), [bagian])
   return (
     <div className="w-full min-w-0 space-y-2">
       {bagian.map((p, i) => {
@@ -86,6 +105,11 @@ export function IsiPesan({ teks }: { teks: string }) {
           )
         if (p.jenis === 'ui_rusak') return <BlokRusak key={i} mentah={p.mentah} />
         const k = p.blok
+        if (k.jenis === 'aksi') {
+          const n = urut[i] ?? 0
+          return <AksiBot key={i} aksi={k} kunci={`${kunciPesan}:${i}`} boleh={boleh} dilewati={melebihiBatas(n)} />
+        }
+        if (k.jenis === 'tawaran') return <TawaranBot key={i} teks={k.teks} pilihan={k.pilihan} aktif={terbaru} onKirim={onKirim} />
         if (k.jenis === 'tabel') return <TabelBot key={i} judul={k.judul} kolom={k.kolom} baris={k.baris} catatan={k.catatan} />
         if (k.jenis === 'kartu') return <KartuBot key={i} judul={k.judul} item={k.item} />
         return <GrafikBatangBot key={i} judul={k.judul} satuan={k.satuan} data={k.data} />

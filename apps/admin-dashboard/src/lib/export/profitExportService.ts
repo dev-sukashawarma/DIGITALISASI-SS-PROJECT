@@ -352,147 +352,206 @@ function renderOutletPdfPage(
   autoTable: any,
   item: OutletExportItem,
   ctx: ExportContext,
-  pageWidth: number
+  _pageWidth: number
 ) {
   const calc = buildOutletFinancialCalculations(item, ctx)
   const {
     sukaAmberLight, sukaAmberDark, sukaGold, sukaRoseLight, sukaRoseDark,
     sukaGreenLight, sukaGreenDark, sukaCyanLight, sukaCyanDark, sukaBlueLight, sukaBlueDark,
-    sukaOrange, sukaOrangeTerracotta
   } = BRAND_COLORS
 
-  // Decorative Top Bar
-  doc.setDrawColor(...sukaOrange)
-  doc.setFillColor(...sukaOrange)
-  doc.rect(14, 9, 182, 1.2, 'F')
+  // BRAND HEADER WITH LOGO IN PDF
+  doc.setDrawColor(234, 88, 12)
+  doc.setFillColor(234, 88, 12)
+  doc.rect(14, 8, 182, 1.2, 'F')
 
-  // Logo Suka Shawarma
+  // Embed Logo
   try {
     if (LOGO_BASE64) {
       const imgProps = doc.getImageProperties(LOGO_BASE64)
-      const logoH = 14
+      const logoH = 13
       const logoW = (imgProps.width / imgProps.height) * logoH
-      doc.addImage(LOGO_BASE64, 'PNG', 14, 11.5, logoW, logoH)
+      doc.addImage(LOGO_BASE64, 'PNG', 14, 10.5, logoW, logoH)
     }
   } catch {
     // Fallback if logo fails
   }
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  doc.setTextColor(...sukaOrangeTerracotta)
-  doc.text('SUKA SHAWARMA INDONESIA', 33, 16)
+  doc.setFontSize(12)
+  doc.setTextColor(194, 65, 12) // Suka Orange Terracotta
+  doc.text('SUKA SHAWARMA', 31, 14.5)
 
-  doc.setFontSize(8.5)
-  doc.setTextColor(30, 41, 59)
-  doc.text(`LAPORAN LABA RUGI OUTLET - ${calc.outletDisplayName}`, 33, 20.8)
+  doc.setFontSize(8)
+  doc.setTextColor(30, 41, 59) // Slate 800
+  doc.text('LAPORAN LABA RUGI OPERASIONAL & PERFORMA KEMITRAAN', 31, 18.5)
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  doc.setTextColor(100, 116, 139)
-  const statusStr = calc.isMitra 
-    ? `Unit Kemitraan (Mitra)  |  Bagi Hasil: ${calc.bagiHasilPct}%  |  Status: ${calc.bepStatus}`
-    : `Unit Internal (Milik Pusat)  |  Bagi Hasil: 100% Pusat`
-  doc.text(statusStr, 33, 25)
-  const printTs = ctx.printTimestamp || new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date())
-  doc.text(`Periode: ${formatPeriodeIndo(ctx.filter.from, ctx.filter.to)}  |  Waktu Cetak: ${printTs} WIB`, 33, 28.8)
+  const outletCategoryStr = calc.isMitra 
+    ? `[Kemitraan (Bagi Hasil: ${calc.bagiHasilPct}% | Mgmt Fee: ${calc.mgmtFeePct}%)]` 
+    : '[Outlet Pusat (Milik Sendiri)]'
 
-  // Badge Status Kemitraan di Kanan Atas
-  const badgeText = calc.isMitra ? 'UNIT KEMITRAAN' : 'UNIT INTERNAL'
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7)
-  const badgeW = doc.getTextWidth(badgeText) + 6
-  const badgeX = pageWidth - 14 - badgeW
-  doc.setFillColor(...(calc.isMitra ? sukaAmberLight : sukaGreenLight))
-  doc.setDrawColor(...(calc.isMitra ? sukaAmberDark : sukaGreenDark))
-  doc.roundedRect(badgeX, 13, badgeW, 5.5, 1, 1, 'FD')
-  doc.setTextColor(...(calc.isMitra ? sukaAmberDark : sukaGreenDark))
-  doc.text(badgeText, badgeX + 3, 16.8)
+  doc.setFontSize(8)
+  doc.setTextColor(30, 41, 59) // Slate 800
+  const outletTitleText = `OUTLET: ${calc.outletDisplayName}  `
+  doc.text(outletTitleText, 31, 22.5)
+
+  const outletTitleWidth = doc.getTextWidth(outletTitleText)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.2)
+  doc.setTextColor(100, 116, 139) // Slate 500
+  doc.text(outletCategoryStr, 31 + outletTitleWidth, 22.5)
+  const printTs = ctx.printTimestamp || new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date())
+  doc.text(`Periode: ${formatPeriodeIndo(ctx.filter.from, ctx.filter.to)}   |   Dicetak: ${printTs} WIB`, 31, 26)
 
   const bodyRows: any[] = []
 
-  // 1. PENDAPATAN USAHA
-  bodyRows.push([
-    { content: '1. PENDAPATAN USAHA (SALES REVENUE)', colSpan: 2, styles: { halign: 'left', fontStyle: 'bold', fillColor: sukaGold, textColor: [15, 23, 42] } }
-  ])
-  bodyRows.push(['Transaksi Penjualan Kasir (POS / Dine-In / Take Away)', { content: rupiah(calc.channels.outlet.revenue), styles: { halign: 'right' } }])
-  bodyRows.push(['Transaksi Penjualan Food Apps (ShopeeFood, GrabFood, GoFood)', { content: rupiah(calc.channels.food_apps.revenue), styles: { halign: 'right' } }])
-  bodyRows.push(['Transaksi Penjualan TikTok GO', { content: rupiah(calc.channels.tiktok_go.revenue), styles: { halign: 'right' } }])
-  bodyRows.push(['Transaksi Penjualan Website SS & E-Commerce', { content: rupiah(calc.channels.website.revenue), styles: { halign: 'right' } }])
-  bodyRows.push([
-    { content: 'TOTAL OMZET PENJUALAN KOTOR (GROSS SALES)', styles: { fontStyle: 'bold' } }, 
-    { content: rupiah(calc.totalRev), styles: { halign: 'right', fontStyle: 'bold' } }
-  ])
-
-  // 2. POTONGAN PENJUALAN
-  bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
-  bodyRows.push([
-    { content: '2. POTONGAN PENJUALAN & BIAYA PLATFORM (MERCHANT FEE)', colSpan: 2, styles: { halign: 'left', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }
-  ])
-  bodyRows.push(['Merchant Fee & Diskon Promosi Outlet (POS / Kasir)', { content: `-${rupiah(calc.channels.outlet.adminFee)}`, styles: { halign: 'right' } }])
-  bodyRows.push(['Komisi & Potongan Platform Food Apps (ShopeeFood, Grab, Gojek)', { content: `-${rupiah(calc.channels.food_apps.adminFee)}`, styles: { halign: 'right' } }])
-  bodyRows.push(['Komisi & Admin Merchant TikTok GO', { content: `-${rupiah(calc.adminSettlementTikTok)}`, styles: { halign: 'right' } }])
-  bodyRows.push(['Biaya Administrasi & Payment Gateway Website SS', { content: `-${rupiah(calc.channels.website.adminFee)}`, styles: { halign: 'right' } }])
-  bodyRows.push([
-    { content: 'TOTAL POTONGAN PENJUALAN (TOTAL DEDUCTIONS)', styles: { fontStyle: 'bold' } }, 
-    { content: `-${rupiah(calc.totalAdminFee)}`, styles: { halign: 'right', fontStyle: 'bold', textColor: [225, 29, 72] } }
-  ])
-
-  // 3. PENJUALAN BERSIH
-  bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
-  bodyRows.push([
-    { content: '3. PENJUALAN BERSIH (NET SALES)', styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [15, 23, 42] } }, 
-    { content: rupiah(calc.totalRev - calc.totalAdminFee), styles: { halign: 'right', fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [15, 23, 42] } }
-  ])
-
-  // 4. BEBAN POKOK PENJUALAN (HPP)
-  bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
-  bodyRows.push([
-    { content: '4. BEBAN POKOK PENJUALAN (COGS / HPP)', colSpan: 2, styles: { halign: 'left', fontStyle: 'bold', fillColor: sukaGold, textColor: [15, 23, 42] } }
-  ])
-  bodyRows.push(['Beban Pokok Penjualan Outlet (POS / Kasir)', { content: `-${rupiah(calc.cogsOutlet)}`, styles: { halign: 'right' } }])
-  bodyRows.push(['Beban Pokok Penjualan Food Apps', { content: `-${rupiah(calc.cogsFoodApps)}`, styles: { halign: 'right' } }])
-  bodyRows.push(['Beban Pokok Penjualan TikTok GO', { content: `-${rupiah(calc.cogsTikTok)}`, styles: { halign: 'right' } }])
-  bodyRows.push(['Beban Pokok Penjualan Website SS', { content: `-${rupiah(calc.cogsWebsite)}`, styles: { halign: 'right' } }])
-  bodyRows.push([
-    { content: 'TOTAL BEBAN POKOK PENJUALAN (COGS)', styles: { fontStyle: 'bold' } }, 
-    { content: `-${rupiah(calc.totalCogs)}`, styles: { halign: 'right', fontStyle: 'bold' } }
-  ])
-
-  // 5. TOTAL LABA KOTOR
-  bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
-  const marginKotorVal = calc.totalRev > 0 ? ((calc.totalGrossProfit / calc.totalRev) * 100).toFixed(1) : '0.0'
-  bodyRows.push([
-    { content: `5. TOTAL LABA KOTOR (GROSS PROFIT)  [Margin: ${marginKotorVal}%]`, styles: { fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }, 
-    { content: rupiah(calc.totalGrossProfit), styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
-  ])
-
-  // 6. BEBAN OPERASIONAL (OPEX)
-  bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
-  bodyRows.push([
-    { content: '6. BEBAN OPERASIONAL OUTLET (OPEX)', colSpan: 2, styles: { halign: 'left', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }
-  ])
-  Object.values(calc.opexSums).forEach(o => {
-    if (o.amount > 0) {
-      bodyRows.push([`Beban ${o.label.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`, { content: `-${rupiah(o.amount)}`, styles: { halign: 'right' } }])
-    }
-  })
-  bodyRows.push([
-    { content: 'TOTAL BEBAN OPERASIONAL (OPEX)', styles: { fontStyle: 'bold' } }, 
-    { content: `-${rupiah(calc.totalOpex)}`, styles: { halign: 'right', fontStyle: 'bold' } }
-  ])
-
-  // 7. BEBAN KERUGIAN (WASTE)
-  if (item.waste > 0) {
-    bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
+  // 1. TRANSAKSI OUTLET (KASIR POS / OFFLINE)
+  const showOutlet = calc.channels.outlet.revenue > 0 || calc.channels.outlet.adminFee > 0 || calc.totalRev === 0
+  if (showOutlet) {
     bodyRows.push([
-      { content: '7. BEBAN KERUGIAN BAHAN RUSAK / BASI (WASTE)', styles: { fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }, 
-      { content: `-${rupiah(item.waste)}`, styles: { halign: 'right', fontStyle: 'bold', textColor: [225, 29, 72], fillColor: sukaRoseLight } }
+      { content: 'TRANSAKSI OUTLET (KASIR POS / OFFLINE)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
     ])
+    bodyRows.push(['REVENUE (OMZET KASIR)', { content: rupiah(calc.channels.outlet.revenue), styles: { halign: 'right' } }])
+    if (calc.channels.outlet.adminFee > 0) {
+      bodyRows.push(['ADMIN FEE', { content: `-${rupiah(calc.channels.outlet.adminFee)}`, styles: { halign: 'right' } }])
+    }
+    bodyRows.push(['TOTAL COGS (HPP)', { content: calc.cogsOutlet > 0 ? `-${rupiah(calc.cogsOutlet)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push([
+      { content: 'TOTAL GROSS PROFIT OUTLET', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
+      { content: rupiah(calc.gpOutlet), styles: { halign: 'right', fontStyle: 'bold', fillColor: [254, 249, 195] } }
+    ])
+    bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
   }
 
-  // 8. HASIL LABA BERSIH & BAGI HASIL
+  // 2. TRANSAKSI FOOD APPS
+  if (calc.channels.food_apps.revenue > 0 || calc.channels.food_apps.adminFee > 0) {
+    bodyRows.push([
+      { content: 'TRANSAKSI FOOD APPS (GRAB / GOJEK / SHOPEE)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
+    ])
+    bodyRows.push(['REVENUE FOOD APPS', { content: rupiah(calc.channels.food_apps.revenue), styles: { halign: 'right' } }])
+    bodyRows.push(['ADMIN FEE', { content: calc.channels.food_apps.adminFee > 0 ? `-${rupiah(calc.channels.food_apps.adminFee)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push(['TOTAL COGS (HPP)', { content: calc.cogsFoodApps > 0 ? `-${rupiah(calc.cogsFoodApps)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push([
+      { content: 'TOTAL GROSS PROFIT FOOD APPS', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
+      { content: rupiah(calc.gpFoodApps), styles: { halign: 'right', fontStyle: 'bold', fillColor: [254, 249, 195] } }
+    ])
+    bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
+  }
+
+  // 3. TRANSAKSI TIKTOK GO (Hanya tampil bila ada transaksi atau settlement)
+  if (calc.channels.tiktok_go.revenue > 0 || calc.adminSettlementTikTok > 0 || calc.settlementTikTok > 0) {
+    bodyRows.push([
+      { content: 'TRANSAKSI TIKTOK GO', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
+    ])
+    bodyRows.push(['REVENUE TIKTOK', { content: rupiah(calc.channels.tiktok_go.revenue), styles: { halign: 'right' } }])
+    bodyRows.push(['ADMIN FEE', { content: calc.adminSettlementTikTok > 0 ? `-${rupiah(calc.adminSettlementTikTok)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push([
+      { content: 'SETTLEMENT (PENCAIRAN DANA)', styles: { fontStyle: 'bold' } }, 
+      { content: rupiah(calc.settlementTikTok), styles: { halign: 'right', fontStyle: 'bold' } }
+    ])
+    bodyRows.push(['TOTAL COGS (HPP)', { content: calc.cogsTikTok > 0 ? `-${rupiah(calc.cogsTikTok)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push([
+      { content: 'TOTAL GROSS PROFIT TIKTOK GO', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
+      { content: rupiah(calc.gpTikTok), styles: { halign: 'right', fontStyle: 'bold', fillColor: [254, 249, 195] } }
+    ])
+    bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
+  }
+
+  // 4. TRANSAKSI WEBSITE & MARKETPLACE (Hanya tampil bila ada transaksi)
+  if (calc.channels.website.revenue > 0 || calc.channels.website.adminFee > 0) {
+    bodyRows.push([
+      { content: 'TRANSAKSI WEBSITE SS', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
+    ])
+    bodyRows.push(['REVENUE WEBSITE SS', { content: rupiah(calc.channels.website.revenue), styles: { halign: 'right' } }])
+    if (calc.channels.website.adminFee > 0) {
+      bodyRows.push(['ADMIN FEE', { content: `-${rupiah(calc.channels.website.adminFee)}`, styles: { halign: 'right' } }])
+    }
+    bodyRows.push(['TOTAL COGS (HPP)', { content: calc.cogsWebsite > 0 ? `-${rupiah(calc.cogsWebsite)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push([
+      { content: 'TOTAL GROSS PROFIT WEBSITE SS', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
+      { content: rupiah(calc.gpWebsite), styles: { halign: 'right', fontStyle: 'bold', fillColor: [254, 249, 195] } }
+    ])
+    bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
+  }
+
+  // 5. TOTAL REKAP PENDAPATAN KOTOR (GROSS)
+  bodyRows.push([
+    { content: 'TOTAL REKAP PENDAPATAN KOTOR (GROSS)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaGold, textColor: [15, 23, 42] } }
+  ])
+  bodyRows.push([
+    { content: 'TOTAL REVENUE (OMZET KOTOR)' }, 
+    { content: rupiah(calc.totalRev), styles: { halign: 'right', fontStyle: 'bold' } }
+  ])
+  bodyRows.push([
+    { content: 'TOTAL ADMIN FEE' }, 
+    { content: calc.totalAdminFee > 0 ? `-${rupiah(calc.totalAdminFee)}` : 'Rp 0', styles: { halign: 'right' } }
+  ])
+  bodyRows.push([
+    { content: 'TOTAL COGS (HPP)' }, 
+    { content: calc.totalCogs > 0 ? `-${rupiah(calc.totalCogs)}` : 'Rp 0', styles: { halign: 'right' } }
+  ])
+  bodyRows.push([
+    { content: 'TOTAL WASTE' }, 
+    { content: item.waste > 0 ? `-${rupiah(item.waste)}` : 'Rp 0', styles: { halign: 'right' } }
+  ])
+  const mgmtFeeLabel = calc.isMitra ? `MANAGEMENT FEE (${calc.mgmtFeePct}%)` : 'MANAGEMENT FEE'
+  const mgmtFeeValue = calc.managementFee > 0 
+    ? `-${rupiah(calc.managementFee)}` 
+    : (item.isBep ? 'Rp 0 (Bebas Fee · BEP)' : 'Rp 0')
+  bodyRows.push([
+    { content: mgmtFeeLabel }, 
+    { content: mgmtFeeValue, styles: { halign: 'right' } }
+  ])
+  bodyRows.push([
+    { content: 'TOTAL GROSS PROFIT', styles: { fontStyle: 'bold', fillColor: sukaGold, textColor: [15, 23, 42] } }, 
+    { content: rupiah(calc.totalGrossProfit), styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaGold, textColor: [15, 23, 42] } }
+  ])
   bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
+
+  // 6. URAIAN OPEX (Wajib menampilkan seluruh 13 item standar, jika 0 tampilkan Rp 0)
+  bodyRows.push([
+    { content: 'URAIAN OPEX', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }
+  ])
+  
+  const standardOpexKeys = [
+    'pengeluaran_outlet',
+    'gaji_crew_outlet',
+    'bonus_crew',
+    'bonus_area_manager',
+    'bonus_regional_manager',
+    'lembur',
+    'ads',
+    'endorsement',
+    'promo',
+    'pdam',
+    'pln',
+    'internet',
+    'sewa_outlet'
+  ] as const
+
+  standardOpexKeys.forEach(key => {
+    const opexItem = calc.opexSums[key]
+    if (opexItem) {
+      bodyRows.push([opexItem.label, { content: rupiah(opexItem.amount), styles: { halign: 'right' } }])
+    }
+  })
+
+  // Pengeluaran tambahan di luar 13 standar di atas (jika ada nilai > 0): JOINT EXPENSE & GAJI STAFF KANTOR
+  if (calc.opexSums.joint_expense.amount > 0) {
+    bodyRows.push([calc.opexSums.joint_expense.label, { content: rupiah(calc.opexSums.joint_expense.amount), styles: { halign: 'right' } }])
+  }
+  if (calc.opexSums.gaji_staff_kantor.amount > 0) {
+    bodyRows.push([calc.opexSums.gaji_staff_kantor.label, { content: rupiah(calc.opexSums.gaji_staff_kantor.amount), styles: { halign: 'right' } }])
+  }
+
+  bodyRows.push([
+    { content: 'SUB TOTAL PENGELUARAN', styles: { fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }, 
+    { content: rupiah(calc.totalOpex), styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }
+  ])
+  bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
+
+  // 7. HASIL LABA BERSIH & BAGI HASIL
   bodyRows.push([
     { content: 'HASIL LABA BERSIH & BAGI HASIL', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] } }
   ])
@@ -518,7 +577,7 @@ function renderOutletPdfPage(
     ])
   }
 
-  // 9. REKAP MODAL MITRA & ROI
+  // 8. REKAP MODAL MITRA & ROI (Hanya untuk Mitra)
   if (calc.isMitra) {
     bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.4, lineWidth: 0 } }])
     bodyRows.push([
@@ -584,6 +643,7 @@ export async function generateSingleOutletPdfBlob(
   renderOutletPdfPage(doc, autoTable, item, ctx, pageWidth)
 
   // Nomor Halaman Resmi di Bawah
+  const printTs = ctx.printTimestamp || new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date())
   const totalPages = (doc as any).internal.getNumberOfPages()
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i)
@@ -591,9 +651,9 @@ export async function generateSingleOutletPdfBlob(
     doc.setFontSize(6.8)
     doc.setTextColor(148, 163, 184)
     doc.text(
-      `Dokumen Resmi Keuangan PT Suka Shawarma Indonesia  •  Halaman ${i} dari ${totalPages}`,
+      `Halaman ${i} dari ${totalPages}  |  Laporan Resmi Laba Rugi Suka Shawarma  |  Waktu Cetak: ${printTs} WIB`,
       pageWidth / 2,
-      290,
+      doc.internal.pageSize.getHeight() - 6,
       { align: 'center' }
     )
   }
@@ -869,9 +929,9 @@ export async function generateConsolidatedPdfBlob(
     doc.setFontSize(6.8)
     doc.setTextColor(148, 163, 184)
     doc.text(
-      `Dokumen Resmi Keuangan PT Suka Shawarma Indonesia  •  Halaman ${i} dari ${totalPages}`,
+      `Halaman ${i} dari ${totalPages}  |  Laporan Resmi Laba Rugi Suka Shawarma  |  Waktu Cetak: ${printTimestamp} WIB`,
       pageWidth / 2,
-      290,
+      doc.internal.pageSize.getHeight() - 6,
       { align: 'center' }
     )
   }

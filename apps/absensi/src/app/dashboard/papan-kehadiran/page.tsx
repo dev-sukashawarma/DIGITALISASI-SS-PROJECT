@@ -7,7 +7,7 @@ import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays, Store, Aler
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { useRealtimeInvalidate } from "@suka/realtime";
-import { type BoardRow } from "@/features/board/board";
+import { type BoardRow } from "@suka/hr-rumus";
 import { InfoPill } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
 import { OutletSwitcher } from "@/components/OutletSwitcher";

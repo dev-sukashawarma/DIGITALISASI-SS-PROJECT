@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { computeBoard, type BoardStaff, type BoardRecord, type BoardConfig } from '@/features/board/board';
+import { computeBoard, type BoardStaff, type BoardRecord, type BoardConfig } from '@suka/hr-rumus';
 
 export async function GET(request: Request) {
   const supabaseService = createClient(
@@ -107,7 +107,7 @@ export async function GET(request: Request) {
         (j.attendance_staff_schedule_member ?? []).forEach((m) => jamMasukAturan.set(m.staff_id, j.jam_masuk!.slice(0, 5)));
       });
 
-    const boardData = computeBoard(staffList as BoardStaff[], (attRes.data as BoardRecord[]) ?? [], cfg, jamMasukAturan);
+    const boardData = computeBoard(staffList as BoardStaff[], (attRes.data as BoardRecord[]) ?? [], cfg, jamMasukAturan, { tanggal: date });
 
     const staffMap = new Map(staffList.map((s) => [s.id, s.name]));
     const formattedAlerts = (alertsRes.data || []).map((a) => ({

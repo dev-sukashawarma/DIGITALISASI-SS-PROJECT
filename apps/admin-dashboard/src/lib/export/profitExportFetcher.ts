@@ -10,6 +10,7 @@ import { computeCompanyProfit } from '@/lib/profit'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { isInScope, mitraOutletIds, type ProfitScope } from '@/lib/outletOwnership'
 import { getMitraInvestmentsAction } from '@/app/actions/mitraInvestments'
+import { getProrataAuxiliaryDataAction } from '@/app/actions/prorataAuxiliary'
 import type { ExpenseRow } from '@/hooks/useExpenses'
 import type { OutletExportItem, ConsolidatedSummaryData } from './profitExportService'
 
@@ -128,9 +129,26 @@ export async function fetchProfitExportData({
   const filteredPettyCashRows = pettyCashRows.filter(buatSaringanKasKecil(monthlyRows))
   const combinedRawExpenses = [...monthlyRows, ...filteredPettyCashRows] as ExpenseRow[]
 
+  onProgress?.('Menghitung prorata beban tetap, gaji HR & bonus crew...')
+  let auxData: any = {
+    payrollRecords: [],
+    staffFinancials: [],
+    crewBonusRecords: [],
+    lastMonthExpenses: [],
+  }
+  try {
+    auxData = await getProrataAuxiliaryDataAction({ from, to })
+  } catch (err) {
+    console.warn('Gagal memuat prorata auxiliary data di profitExportFetcher:', err)
+  }
+
   const prorataResult = calculateProratedExpenses({
     filter: { from, to, outletId: 'all', source: 'all' },
     rawExpenses: combinedRawExpenses,
+    payrollRecords: auxData.payrollRecords,
+    staffFinancials: auxData.staffFinancials,
+    crewBonusRecords: auxData.crewBonusRecords,
+    lastMonthExpenses: auxData.lastMonthExpenses,
     outlets,
   })
   const expenseRows = prorataResult.rows

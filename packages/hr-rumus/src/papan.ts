@@ -1,4 +1,5 @@
 import { batasWib, menitWib, tanggalWib } from "./waktu";
+import type { Pengecualian } from "./pengecualian";
 
 export type BoardStaff = { id: string; name: string; role: string };
 export type BoardRecord = {
@@ -46,7 +47,7 @@ export function jamMasukBatasAlphaStaf(config: BoardConfig, jamMasukAturan?: str
   return jamMasukAturan && jamMasukAturan.length >= 5 ? jamMasukAturan.slice(0, 5) : jamMasukBatasAlpha(config);
 }
 
-export type BoardState = "masuk" | "telat" | "telat_toleransi" | "keluar" | "belum" | "alpha" | "lebih_awal" | "pulang_telat";
+export type BoardState = "masuk" | "telat" | "telat_toleransi" | "keluar" | "belum" | "alpha" | "lebih_awal" | "pulang_telat" | "cuti" | "libur";
 export type BoardRow = { 
   id: string; 
   name: string; 
@@ -56,8 +57,10 @@ export type BoardRow = {
   selfie_url: string | null;
   delay_minutes: number | null;
   is_manual_button: boolean | null;
+  /** Label pengecualian (jenis cuti / "Off (roster)" / nama hari libur); hanya untuk state cuti/libur. */
+  keterangan?: string | null;
 };
-export type BoardSummary = { hadir: number; telat: number; telat_toleransi: number; belum: number; alpha: number; total: number };
+export type BoardSummary = { hadir: number; telat: number; telat_toleransi: number; belum: number; alpha: number; cuti: number; libur: number; total: number };
 
 function jam(ts: string): string {
   return new Date(ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
@@ -78,6 +81,8 @@ export type OpsiPapan = {
   sekarang?: Date;
   /** Tanggal papan WIB YYYY-MM-DD (default: tanggal WIB dari `sekarang`). */
   tanggal?: string;
+  /** staff_id → alasan dikecualikan dari alpa/belum (cuti disetujui, libur). Hanya berlaku bila staf tanpa catatan absen. */
+  pengecualian?: ReadonlyMap<string, Pengecualian>;
 };
 
 export function computeBoard(
@@ -139,7 +144,11 @@ export function computeBoard(
       return { id: s.id, name: s.name, role: s.role, state, time: jam(inRec.ts_server), selfie_url: inRec.selfie_url || null, delay_minutes, is_manual_button: inRec.is_manual_button || false };
     }
     
-    // Belum absen
+    // Belum absen — cuti disetujui / libur dikecualikan dari belum & alpha
+    const kecuali = opsi.pengecualian?.get(s.id);
+    if (kecuali) {
+      return { id: s.id, name: s.name, role: s.role, state: kecuali.jenis, time: null, selfie_url: null, delay_minutes: null, is_manual_button: false, keterangan: kecuali.keterangan };
+    }
     if (lewatBatas(s.id)) {
       return { id: s.id, name: s.name, role: s.role, state: "alpha", time: null, selfie_url: null, delay_minutes: null, is_manual_button: false };
     }
@@ -153,6 +162,8 @@ export function computeBoard(
     telat_toleransi: rows.filter((r) => r.state === "telat_toleransi").length,
     belum: rows.filter((r) => r.state === "belum").length,
     alpha: rows.filter((r) => r.state === "alpha").length,
+    cuti: rows.filter((r) => r.state === "cuti").length,
+    libur: rows.filter((r) => r.state === "libur").length,
     total: staff.length,
   };
   return { rows, summary };

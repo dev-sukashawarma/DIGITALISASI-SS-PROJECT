@@ -21,6 +21,8 @@ const PILL: Record<BoardRow["state"], { icon: React.ReactNode; label: (t: string
   pulang_telat: { icon: <Clock4 size={13} />, label: (t, d) => `Pulang Lama ${d ? d + ' mnt' : t}` },
   belum:  { icon: <MoreHorizontal size={13} />, label: () => "Belum Hadir" },
   alpha:  { icon: <MoreHorizontal size={13} />, label: () => "Alpha" },
+  cuti:   { icon: <CalendarDays size={13} />, label: () => "Cuti" },
+  libur:  { icon: <CalendarDays size={13} />, label: () => "Libur" },
 };
 
 const SELFIE_BUCKET = "selfies";
@@ -31,6 +33,8 @@ const LEGEND = [
   { key: "telat", label: "Telat", dot: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-50" },
   { key: "belum", label: "Belum", dot: "bg-gray-300", text: "text-gray-700", bg: "bg-gray-50" },
   { key: "alpha", label: "Alpha", dot: "bg-red-500", text: "text-red-700", bg: "bg-red-50" },
+  { key: "cuti", label: "Cuti", dot: "bg-sky-500", text: "text-sky-700", bg: "bg-sky-50" },
+  { key: "libur", label: "Libur", dot: "bg-slate-400", text: "text-slate-700", bg: "bg-slate-50" },
   { key: "total", label: "Total Staf", dot: "bg-indigo-500", text: "text-indigo-700", bg: "bg-indigo-50" },
 ] as const;
 
@@ -187,12 +191,12 @@ export default function PapanKehadiranPage() {
           <div className="absolute inset-y-0 left-0 bg-red-500 transition-all duration-1000 ease-out" style={{ left: `${hadirPct + telatTolPct + telatPct}%`, width: `${alphaPct}%` }} />
         </div>
         
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
           {LEGEND.map((l) => (
             <div key={l.key} className={`flex flex-col p-3 rounded-2xl border border-gray-100 ${l.bg} hover:-translate-y-0.5 transition-transform duration-200 cursor-default`}>
               <div className="flex items-center justify-between mb-2">
                 <span className={`h-2.5 w-2.5 rounded-full ${l.dot} shadow-sm`} />
-                <span className="text-lg font-bold text-gray-900">{summary[l.key]}</span>
+                <span className="text-lg font-bold text-gray-900">{summary[l.key] ?? 0}</span>
               </div>
               <span className={`text-xs font-semibold ${l.text}`}>{l.label}</span>
             </div>
@@ -223,6 +227,8 @@ export default function PapanKehadiranPage() {
                 { label: "Masuk Telat", value: "telat" },
                 { label: "Belum Hadir", value: "belum" },
                 { label: "Alpha", value: "alpha" },
+                { label: "Cuti", value: "cuti" },
+                { label: "Libur", value: "libur" },
                 { label: "Pulang Tepat", value: "keluar" },
                 { label: "Pulang Cepat", value: "lebih_awal" },
                 { label: "Pulang Lama", value: "pulang_telat" }
@@ -260,7 +266,9 @@ export default function PapanKehadiranPage() {
                         r.state === 'masuk' || r.state === 'keluar' ? 'bg-suka-green' : 
                         r.state === 'telat_toleransi' ? 'bg-blue-500' :
                         r.state === 'telat' || r.state === 'pulang_telat' || r.state === 'lebih_awal' ? 'bg-amber-500' :
-                        r.state === 'alpha' ? 'bg-red-500' : 'bg-gray-300'
+                        r.state === 'alpha' ? 'bg-red-500' :
+                        r.state === 'cuti' ? 'bg-sky-500' :
+                        r.state === 'libur' ? 'bg-slate-400' : 'bg-gray-300'
                       }`} />
                     </div>
                     
@@ -277,12 +285,19 @@ export default function PapanKehadiranPage() {
                     </div>
                     
                     <div className="shrink-0 flex items-center">
-                      <StatusPill kind={r.state} className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold shadow-sm border border-black/5">
-                        <div className="flex items-center gap-1.5">
-                          {p.icon}
-                          {p.label(r.time, r.delay_minutes)}
-                        </div>
-                      </StatusPill>
+                      {r.state === "cuti" || r.state === "libur" ? (
+                        <span className={`inline-flex flex-col items-end rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm border border-black/5 whitespace-nowrap ${r.state === "cuti" ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-700"}`}>
+                          <span className="flex items-center gap-1.5">{p.icon}{p.label(r.time, r.delay_minutes)}</span>
+                          {r.keterangan && <span className="text-[10px] font-medium opacity-80">{r.keterangan}</span>}
+                        </span>
+                      ) : (
+                        <StatusPill kind={r.state} className="whitespace-nowrap px-3 py-1.5 text-xs font-semibold shadow-sm border border-black/5">
+                          <div className="flex items-center gap-1.5">
+                            {p.icon}
+                            {p.label(r.time, r.delay_minutes)}
+                          </div>
+                        </StatusPill>
+                      )}
                     </div>
                   </div>
                 );

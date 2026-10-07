@@ -6,7 +6,7 @@ import { pilihOutlet } from '../absensi/outlet'
 const TGL = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'format YYYY-MM-DD')
 const OUTLET = z.string().min(1).max(60).describe('Nama outlet (sebagian nama boleh). Kosong = semua lokasi.')
 const CATATAN_ALPA =
-  'Alpa/belum hadir mengikuti rumus papan & rekap absensi: staf yang sedang cuti atau libur BELUM dikecualikan. Cek alat cuti_izin sebelum menyimpulkan.'
+  'Alpa sudah mengecualikan cuti/izin/sakit yang disetujui, hari libur role kantor (Minggu & tanggal merah), dan Off di Shift Roster.'
 const SUMBER_PAPAN = 'Papan Kehadiran (app absensi)'
 const SUMBER_REKAP = 'Rekap Absensi (app absensi)'
 
@@ -29,21 +29,26 @@ async function hariIni(ctx: KonteksHermes, a: { tanggal?: string; outlet?: strin
   if (!pilih.ok) return galat(pilih.pesan)
   const ids = new Set(pilih.outlets.map((o) => o.id))
   const papan = (await ctx.absensi.papan(tanggal)).filter((p) => ids.has(p.outlet.id))
-  const total = { hadir: 0, telat: 0, telat_toleransi: 0, belum: 0, alpa: 0, staf: 0 }
+  const total = { hadir: 0, telat: 0, telat_toleransi: 0, belum: 0, alpa: 0, cuti: 0, libur: 0, staf: 0 }
   const outlet = papan.map((p) => {
     total.hadir += p.ringkas.hadir
     total.telat += p.ringkas.telat
     total.telat_toleransi += p.ringkas.telat_toleransi
     total.belum += p.ringkas.belum
     total.alpa += p.ringkas.alpha
+    total.cuti += p.ringkas.cuti
+    total.libur += p.ringkas.libur
     total.staf += p.ringkas.total
     return {
       outlet: p.outlet.name,
-      ringkas: { hadir: p.ringkas.hadir, telat: p.ringkas.telat, telat_toleransi: p.ringkas.telat_toleransi, belum: p.ringkas.belum, alpa: p.ringkas.alpha, staf: p.ringkas.total },
+      ringkas: { hadir: p.ringkas.hadir, telat: p.ringkas.telat, telat_toleransi: p.ringkas.telat_toleransi, belum: p.ringkas.belum, alpa: p.ringkas.alpha, cuti: p.ringkas.cuti, libur: p.ringkas.libur, staf: p.ringkas.total },
       telat: p.staf.filter((s) => s.state === 'telat').map((s) => ({ nama: s.nama, menit: s.menitTelat, jam: s.jam })),
       telat_toleransi: p.staf.filter((s) => s.state === 'telat_toleransi').map((s) => ({ nama: s.nama, menit: s.menitTelat, jam: s.jam })),
       belum_hadir: p.staf.filter((s) => s.state === 'belum').map((s) => s.nama),
       alpa: p.staf.filter((s) => s.state === 'alpha').map((s) => s.nama),
+      // keterangan = hanya label jenis (Sakit / Off (roster) / nama hari libur), bukan alasan pengajuan.
+      cuti: p.staf.filter((s) => s.state === 'cuti').map((s) => ({ nama: s.nama, keterangan: s.keterangan ?? 'Cuti' })),
+      libur: p.staf.filter((s) => s.state === 'libur').map((s) => ({ nama: s.nama, keterangan: s.keterangan ?? 'Libur' })),
     }
   })
   return dgn(ctx, { status: 'ok', tanggal, total, outlet, petunjuk_tampilan: PETUNJUK_HARI_INI })
@@ -64,7 +69,8 @@ async function rekapDasar(ctx: KonteksHermes, dari: string, sampai: string, teks
         telat: r?.telat ?? 0,
         telat_toleransi: r?.telatToleransi ?? 0,
         menit_telat: r?.menitTelat ?? 0,
-        alpa: alpaDariHariHadir(dari, sampai, hariIniStr, r?.hariHadir ?? 0),
+        alpa: alpaDariHariHadir(dari, sampai, hariIniStr, r?.hariHadir ?? 0, r?.hariDikecualikan ?? 0),
+        cuti_libur: r?.hariDikecualikan ?? 0,
       }
     }),
   )
@@ -85,6 +91,7 @@ async function rekap(ctx: KonteksHermes, a: { dari?: string; sampai?: string; ou
       telat: b.reduce((s, x) => s + x.telat, 0),
       telat_toleransi: b.reduce((s, x) => s + x.telat_toleransi, 0),
       alpa: b.reduce((s, x) => s + x.alpa, 0),
+      cuti_libur: b.reduce((s, x) => s + x.cuti_libur, 0),
     }
   })
   return dgn(ctx, { status: 'ok', dari, sampai, hari_dinilai: d.hariDinilai, outlet, petunjuk_tampilan: PETUNJUK_REKAP })

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { computeBoard, type BoardStaff, type BoardRecord, type BoardConfig } from '@suka/hr-rumus';
+import { computeBoard, petaPengecualian, type BoardStaff, type BoardRecord, type BoardConfig, type Pengecualian } from '@suka/hr-rumus';
 
 export async function GET(request: Request) {
   const supabaseService = createClient(
@@ -80,6 +80,48 @@ export async function GET(request: Request) {
     const attFilter = staffIds.length
       ? `outlet_id.eq.${outlet_id},outlet_staff_id.in.(${staffIds.join(',')})`
       : `outlet_id.eq.${outlet_id}`;
+    // Pengecualian (cuti disetujui / Off roster / libur kantor). Galat query tambahan
+    // TIDAK boleh merusak papan: dicatat lalu dianggap tanpa pengecualian.
+    let pengecualian: Map<string, Pengecualian> | undefined;
+    try {
+      const [cutiRes, offRes, hariKerjaRes, roleLiburRes, liburRes] = await Promise.all([
+        staffIds.length
+          ? supabaseService
+              .from('leave_requests')
+              .select('staff_id, leave_type, start_date, end_date')
+              .in('staff_id', staffIds)
+              .eq('status', 'approved')
+              .lte('start_date', date)
+              .gte('end_date', date)
+          : Promise.resolve({ data: [], error: null } as any),
+        staffIds.length
+          ? supabaseService
+              .from('attendance_logs')
+              .select('staff_id')
+              .in('staff_id', staffIds)
+              .eq('date', date)
+              .ilike('notes', 'off')
+          : Promise.resolve({ data: [], error: null } as any),
+        supabaseService.rpc('hr_hari_kerja', { p_tgl: date }),
+        supabaseService.rpc('hr_role_libur_kantor'),
+        supabaseService.from('hari_libur').select('nama').eq('tanggal', date).eq('aktif', true).maybeSingle(),
+      ]);
+      const galat = cutiRes.error || offRes.error || hariKerjaRes.error || roleLiburRes.error;
+      if (galat) throw galat;
+      pengecualian = petaPengecualian({
+        tanggal: date,
+        staf: staffList.map((s) => ({ id: s.id, role: s.role })),
+        cutiDisetujui: (cutiRes.data ?? []) as any,
+        hariKerja: hariKerjaRes.data !== false,
+        namaHariLibur: (liburRes.data as { nama: string } | null)?.nama ?? null,
+        roleLiburKantor: (roleLiburRes.data ?? []) as string[],
+        rosterOff: new Set(((offRes.data ?? []) as { staff_id: string }[]).map((r) => r.staff_id)),
+      });
+    } catch (e) {
+      console.error('Papan: gagal memuat pengecualian (cuti/libur), dilewati:', e);
+      pengecualian = undefined;
+    }
+
     const attRes = await supabaseService
       .from('attendance')
       .select('outlet_staff_id, type, status, ts_server, selfie_url, telat_menit, is_manual_button, shift_jam_masuk, shift_jam_keluar')
@@ -114,7 +156,7 @@ export async function GET(request: Request) {
         (j.attendance_staff_schedule_member ?? []).forEach((m) => jamMasukAturan.set(m.staff_id, j.jam_masuk!.slice(0, 5)));
       });
 
-    const boardData = computeBoard(staffList as BoardStaff[], (attRes.data as BoardRecord[]) ?? [], cfg, jamMasukAturan, { tanggal: date });
+    const boardData = computeBoard(staffList as BoardStaff[], (attRes.data as BoardRecord[]) ?? [], cfg, jamMasukAturan, { tanggal: date, pengecualian });
 
     const staffMap = new Map(staffList.map((s) => [s.id, s.name]));
     const formattedAlerts = (alertsRes.data || []).map((a) => ({

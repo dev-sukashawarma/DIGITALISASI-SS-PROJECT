@@ -71,12 +71,31 @@ describe("computeBoard", () => {
     const { rows, summary } = computeBoard(staff, records, cfg, undefined, { sekarang: new Date("2026-10-08T01:00:00Z"), tanggal: "2026-10-07" });
     expect(rows.map((r) => [r.id, r.state])).toEqual([["a", "masuk"], ["b", "telat"], ["c", "keluar"], ["d", "alpha"]]);
     expect(rows.find((r) => r.id === "b")!.delay_minutes).toBe(40);
-    expect(summary).toEqual({ hadir: 2, telat: 1, telat_toleransi: 0, belum: 0, alpha: 1, total: 4 });
+    expect(summary).toEqual({ hadir: 2, telat: 1, telat_toleransi: 0, belum: 0, alpha: 1, cuti: 0, libur: 0, total: 4 });
   });
 
   it("jadwal khusus staf menggeser batas alpha staf itu saja", () => {
     const aturan = new Map([["d", "15:00"]]);
     const { rows } = computeBoard(staff, records, cfg, aturan, { sekarang: new Date("2026-10-07T07:00:00Z"), tanggal: "2026-10-07" });
     expect(rows.find((r) => r.id === "d")!.state).toBe("belum");
+  });
+});
+
+describe("computeBoard — pengecualian cuti/libur", () => {
+  const stf = [{ id: "a", name: "A", role: "crew" }, { id: "b", name: "B", role: "crew" }, { id: "c", name: "C", role: "crew" }];
+  const cfg2: BoardConfig = { jam_masuk: "13:00", jam_keluar: "21:00", toleransi_menit: 15 };
+  const peng = new Map<string, { jenis: "cuti" | "libur"; keterangan: string }>([
+    ["a", { jenis: "cuti", keterangan: "Sakit" }],
+    ["b", { jenis: "libur", keterangan: "Off (roster)" }],
+  ]);
+  it("yang tak absen & dikecualikan tidak alpha; masuk ringkasan cuti/libur", () => {
+    const { rows, summary } = computeBoard(stf, [], cfg2, undefined, { sekarang: new Date("2026-10-08T01:00:00Z"), tanggal: "2026-10-07", pengecualian: peng });
+    expect(rows.map((r) => [r.id, r.state, r.keterangan ?? null])).toEqual([["a", "cuti", "Sakit"], ["b", "libur", "Off (roster)"], ["c", "alpha", null]]);
+    expect(summary).toEqual({ hadir: 0, telat: 0, telat_toleransi: 0, belum: 0, alpha: 1, cuti: 1, libur: 1, total: 3 });
+  });
+  it("staf dikecualikan tapi punya catatan absen tetap memakai catatan", () => {
+    const rec: BoardRecord[] = [{ outlet_staff_id: "a", type: "in", status: "tepat", ts_server: "2026-10-07T06:00:00Z" }];
+    const { rows } = computeBoard(stf, rec, cfg2, undefined, { sekarang: new Date("2026-10-08T01:00:00Z"), tanggal: "2026-10-07", pengecualian: peng });
+    expect(rows[0].state).toBe("masuk");
   });
 });

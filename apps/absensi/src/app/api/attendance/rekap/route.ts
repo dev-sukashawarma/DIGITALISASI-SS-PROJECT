@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { alpaVirtual } from '@suka/hr-rumus';
+import { alpaVirtual, daftarTanggal, petaPengecualian } from '@suka/hr-rumus';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -193,13 +193,77 @@ export async function GET(request: Request) {
     });
 
     const todayStr = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD');
+    const dariStr = dayjs(start_date).format('YYYY-MM-DD');
+    const sampaiStr = dayjs(end_date).format('YYYY-MM-DD');
+
+    // Hari yang TIDAK dihitung alpa: cuti disetujui, Off roster, libur kantor (Minggu/
+    // tanggal merah untuk role kantor). Aturan = petaPengecualian per tanggal (satu sumber
+    // dengan Papan & bot HRD). Galat query tambahan dicatat lalu dilewati.
+    let dikecualikan: ((staffId: string, tanggal: string) => boolean) | undefined;
+    try {
+      const staffIds = activeStaff.map((s) => s.id);
+      if (staffIds.length > 0) {
+        const [cutiRes, offRes, liburRes, roleLiburRes] = await Promise.all([
+          supabaseService
+            .from('leave_requests')
+            .select('staff_id, leave_type, start_date, end_date')
+            .in('staff_id', staffIds)
+            .eq('status', 'approved')
+            .lte('start_date', sampaiStr)
+            .gte('end_date', dariStr),
+          supabaseService
+            .from('attendance_logs')
+            .select('staff_id, date')
+            .in('staff_id', staffIds)
+            .gte('date', dariStr)
+            .lte('date', sampaiStr)
+            .ilike('notes', 'off'),
+          supabaseService.from('hari_libur').select('tanggal, nama').eq('aktif', true).gte('tanggal', dariStr).lte('tanggal', sampaiStr),
+          supabaseService.rpc('hr_role_libur_kantor'),
+        ]);
+        const galat = cutiRes.error || offRes.error || liburRes.error || roleLiburRes.error;
+        if (galat) throw galat;
+        const tanggalLibur = new Map(((liburRes.data ?? []) as { tanggal: string; nama: string }[]).map((h) => [h.tanggal, h.nama]));
+        const offPerTanggal = new Map<string, Set<string>>();
+        ((offRes.data ?? []) as { staff_id: string; date: string }[]).forEach((r) => {
+          if (!offPerTanggal.has(r.date)) offPerTanggal.set(r.date, new Set());
+          offPerTanggal.get(r.date)!.add(r.staff_id);
+        });
+        const cuti = (cutiRes.data ?? []) as any[];
+        const roleLibur = (roleLiburRes.data ?? []) as string[];
+        const stafRole = activeStaff.map((s) => ({ id: s.id, role: s.role }));
+        const petaPerTanggal = new Map<string, ReturnType<typeof petaPengecualian>>();
+        for (const t of daftarTanggal(dariStr, sampaiStr)) {
+          if (t > todayStr) continue;
+          // hr_hari_kerja (DB) = bukan Minggu dan bukan tanggal merah aktif.
+          const minggu = dayjs(t).day() === 0;
+          petaPerTanggal.set(
+            t,
+            petaPengecualian({
+              tanggal: t,
+              staf: stafRole,
+              cutiDisetujui: cuti,
+              hariKerja: !minggu && !tanggalLibur.has(t),
+              namaHariLibur: tanggalLibur.get(t) ?? (minggu ? 'Minggu' : null),
+              roleLiburKantor: roleLibur,
+              rosterOff: offPerTanggal.get(t) ?? new Set(),
+            }),
+          );
+        }
+        dikecualikan = (staffId, tanggal) => petaPerTanggal.get(tanggal)?.has(staffId) ?? false;
+      }
+    } catch (e) {
+      console.error('Rekap: gagal memuat pengecualian (cuti/libur), dilewati:', e);
+      dikecualikan = undefined;
+    }
     // Aturan alpa virtual = @suka/hr-rumus (satu sumber; dipakai juga bot HRD).
     const virtualAlphas: any[] = alpaVirtual(
       activeStaff,
       dbRows as { outlet_staff_id: string; ts_server: string; status: string }[],
-      dayjs(start_date).format('YYYY-MM-DD'),
-      dayjs(end_date).format('YYYY-MM-DD'),
+      dariStr,
+      sampaiStr,
       todayStr,
+      dikecualikan,
     ).map((a) => ({
       id: `virtual-alpha-${a.staffId}-${a.tanggal}`,
       type: 'in',

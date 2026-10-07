@@ -2,6 +2,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { getMitraAugustClosing } from './mitraPnlClosingData'
 
 export interface MitraTransferRecord {
   id: string
@@ -59,7 +60,18 @@ export async function getMitraInvestmentsAction(): Promise<Record<string, MitraI
   const map: Record<string, MitraInvestmentExtended> = {}
   for (const inv of invRes.data ?? []) {
     const outletTransfersList = transfersByOutlet.get(inv.outlet_id) ?? []
-    const outletTransfers = outletTransfersList.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
+    let outletTransfers = outletTransfersList.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
+
+    // Fallback: Jika data transfer Agustus 2026 belum tercatat di DB mitra_transfers,
+    // ambil dari data audit closing resmi Agustus 2026
+    const hasAugTransfer = outletTransfersList.some((t: any) => (t.bulan || '').slice(0, 7) === '2026-08')
+    if (!hasAugTransfer) {
+      const augClosing = getMitraAugustClosing(inv.outlet_id)
+      if (augClosing && augClosing.totals.mitraShare > 0) {
+        outletTransfers += Math.round(augClosing.totals.mitraShare)
+      }
+    }
+
     const totalDanaKembali = Number(inv.omzet_historis || 0) + Number(inv.transfer_historis || 0) + outletTransfers
     const modalInvestasi = Number(inv.nilai_investasi) || 0
     const isBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi

@@ -1,7 +1,6 @@
 import JSZip from 'jszip'
 import { LOGO_BASE64 } from '@/utils/logoBase64'
-import { resolveMitraPolicy } from '@/lib/mitraPolicy'
-import { getMitraAugustClosing } from '@/app/actions/mitraPnlClosingData'
+import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import type { ProfitScope } from '@/lib/outletOwnership'
 
 // Brand Suka Shawarma Palette
@@ -144,31 +143,10 @@ export function buildOutletFinancialCalculations(
 
   const isMitra = item.isMitra
   const inv = ctx.mitraInvestments[item.id]
-  const modalInvestasi = Number(inv?.nilai_investasi) || (isMitra ? 125000000 : 0)
-  const omzetHistoris = Number(inv?.omzet_historis) || 0
-  const transferHistoris = Number(inv?.transfer_historis) || 0
-  const curPeriodMonth = (ctx.effectiveFilter.from || '').slice(0, 7)
-
-  // Akumulasi seluruh transfer sebelum periode laporan saat ini
-  const transfersList = inv?.transfers || []
-  let priorTransfers = transfersList
-    .filter((t: any) => {
-      const b = (t.bulan || '').slice(0, 7)
-      return !curPeriodMonth || b < curPeriodMonth
-    })
-    .reduce((sum: number, t: any) => sum + (Number(t.nominal) || 0), 0)
-
-  // Fallback: Jika periode >= September 2026 namun data transfer Agustus belum tercatat di DB
-  const hasAugTransfer = transfersList.some((t: any) => (t.bulan || '').slice(0, 7) === '2026-08')
-  if (!hasAugTransfer && (!curPeriodMonth || curPeriodMonth >= '2026-09')) {
-    const augClosing = getMitraAugustClosing(item.id)
-    if (augClosing && augClosing.totals.mitraShare > 0) {
-      priorTransfers += Math.round(augClosing.totals.mitraShare)
-    }
-  }
-
-  const profitMitraSebelumnya = omzetHistoris + transferHistoris + priorTransfers
-  const isBepAlready = Boolean(inv?.isBep) || Boolean(item.isBep) || (modalInvestasi > 0 && profitMitraSebelumnya >= modalInvestasi)
+  const bepStatusInfo = calculateMitraBepStatus(inv, item.id, ctx.effectiveFilter.from, item.isBep)
+  const modalInvestasi = bepStatusInfo.modalInvestasi || (isMitra ? 125000000 : 0)
+  const profitMitraSebelumnya = bepStatusInfo.profitMitraSebelumnya
+  const isBepAlready = bepStatusInfo.isBep
 
   const policy = resolveMitraPolicy({
     periodFrom: ctx.effectiveFilter.from,
@@ -201,7 +179,8 @@ export function buildOutletFinancialCalculations(
   const settlementTikTok = ttSettlement ? ttSettlement.totalSettlement : (channels.tiktok_go.revenue - channels.tiktok_go.adminFee)
 
   const totalRev = channels.outlet.revenue + channels.food_apps.revenue + channels.tiktok_go.revenue + channels.website.revenue
-  const totalAdminFee = channels.outlet.adminFee + channels.food_apps.adminFee + adminSettlementTikTok + channels.website.adminFee
+  const calcAdminFee = channels.outlet.adminFee + channels.food_apps.adminFee + adminSettlementTikTok + channels.website.adminFee
+  const totalAdminFee = item.deductions > 0 ? item.deductions : calcAdminFee
   const totalCogs = item.hpp
 
   let cogsOutlet = 0
@@ -299,7 +278,12 @@ export function buildOutletFinancialCalculations(
     else opexSums.pengeluaran_outlet.amount += e.amount
   })
 
-  const totalOpex = Object.values(opexSums).reduce((a, b) => a + b.amount, 0)
+  const rawTotalOpex = Object.values(opexSums).reduce((a, b) => a + b.amount, 0)
+  const diffOpex = (item.expense > 0 && rawTotalOpex > 0) ? item.expense - rawTotalOpex : 0
+  if (diffOpex !== 0) {
+    opexSums.pengeluaran_outlet.amount += diffOpex
+  }
+  const totalOpex = item.expense > 0 ? item.expense : rawTotalOpex
   const totalNetProfit = totalGrossProfit - totalOpex
 
   let profitMitra = 0

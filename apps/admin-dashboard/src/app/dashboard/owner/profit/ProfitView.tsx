@@ -47,7 +47,7 @@ import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
-import { resolveMitraPolicy } from '@/lib/mitraPolicy'
+import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { getSourceLabel } from '@/lib/channels'
 import { useTikTokSettlement } from '@/hooks/useTikTokSettlement'
 
@@ -267,9 +267,10 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       )
       const gross = outletSales.reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
 
+      const bepInfo = calculateMitraBepStatus(inv, oid, effectiveFilter.from, inv.isBep)
       const policy = resolveMitraPolicy({
         periodFrom: effectiveFilter.from,
-        isBep: Boolean(inv.isBep),
+        isBep: bepInfo.isBep,
         legacyProfitSharingPct: inv.persentase_bagi_hasil,
         legacyManagementFee: inv.management_fee,
       })
@@ -278,7 +279,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       if (policy.managementFeePct > 0) {
         grossMitraBelumBep += gross
       }
-      perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: Boolean(inv.isBep) })
+      perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: bepInfo.isBep })
       totalMitraFee += fee
     }
 

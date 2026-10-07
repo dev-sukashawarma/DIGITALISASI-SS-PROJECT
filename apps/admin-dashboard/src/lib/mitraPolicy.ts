@@ -72,3 +72,44 @@ export function resolveMitraPolicy({
     isBep: true
   }
 }
+
+import { getMitraAugustClosing } from '@/app/actions/mitraPnlClosingData'
+
+export function calculateMitraBepStatus(
+  inv: any,
+  outletId: string,
+  periodFrom?: string | null,
+  overrideIsBep?: boolean
+): {
+  isBep: boolean
+  profitMitraSebelumnya: number
+  modalInvestasi: number
+} {
+  const modalInvestasi = Number(inv?.nilai_investasi) || 0
+  const omzetHistoris = Number(inv?.omzet_historis) || 0
+  const transferHistoris = Number(inv?.transfer_historis) || 0
+  const curPeriodMonth = (periodFrom || '').slice(0, 7)
+
+  // Akumulasi seluruh transfer sebelum periode laporan saat ini
+  const transfersList = inv?.transfers || []
+  let priorTransfers = transfersList
+    .filter((t: any) => {
+      const b = (t.bulan || '').slice(0, 7)
+      return !curPeriodMonth || b < curPeriodMonth
+    })
+    .reduce((sum: number, t: any) => sum + (Number(t.nominal) || 0), 0)
+
+  // Fallback: Jika periode >= September 2026 namun data transfer Agustus belum tercatat di DB
+  const hasAugTransfer = transfersList.some((t: any) => (t.bulan || '').slice(0, 7) === '2026-08')
+  if (!hasAugTransfer && (!curPeriodMonth || curPeriodMonth >= '2026-09')) {
+    const augClosing = getMitraAugustClosing(outletId)
+    if (augClosing && augClosing.totals.mitraShare > 0) {
+      priorTransfers += Math.round(augClosing.totals.mitraShare)
+    }
+  }
+
+  const profitMitraSebelumnya = omzetHistoris + transferHistoris + priorTransfers
+  const isBep = Boolean(overrideIsBep) || Boolean(inv?.isBep) || (modalInvestasi > 0 && profitMitraSebelumnya >= modalInvestasi)
+
+  return { isBep, profitMitraSebelumnya, modalInvestasi }
+}

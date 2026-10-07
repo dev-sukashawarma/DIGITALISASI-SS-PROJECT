@@ -7,7 +7,7 @@ import { fetchHppRows } from '@/hooks/useHpp'
 import { getTikTokSettlementSummaries } from '@/app/actions/platformSettlement'
 import { calculateProratedExpenses } from '@/lib/opexProrata'
 import { computeCompanyProfit } from '@/lib/profit'
-import { resolveMitraPolicy } from '@/lib/mitraPolicy'
+import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { isInScope, mitraOutletIds, type ProfitScope } from '@/lib/outletOwnership'
 import { getMitraInvestmentsAction } from '@/app/actions/mitraInvestments'
 import type { ExpenseRow } from '@/hooks/useExpenses'
@@ -211,15 +211,16 @@ export async function fetchProfitExportData({
     )
     const gross = outletSales.reduce((sum: number, r: any) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
 
+    const bepInfo = calculateMitraBepStatus(inv, oid, from, inv.isBep)
     const policy = resolveMitraPolicy({
       periodFrom: from,
-      isBep: Boolean(inv.isBep),
+      isBep: bepInfo.isBep,
       legacyProfitSharingPct: inv.persentase_bagi_hasil,
       legacyManagementFee: inv.management_fee,
     })
 
     const fee = policy.managementFeePct > 0 ? Math.round((gross * policy.managementFeePct) / 100) : 0
-    perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: Boolean(inv.isBep) })
+    perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: bepInfo.isBep })
     totalMitraFee += fee
   }
 

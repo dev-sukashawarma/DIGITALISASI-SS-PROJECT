@@ -85,22 +85,26 @@ export function DownloadProfitDataModal({
   const [progressPct, setProgressPct] = useState<number>(0)
   const [progressText, setProgressText] = useState<string>('')
 
-  // Inisialisasi tanggal saat modal dibuka (default ke 'last_month' sesuai permintaan user)
+  // Inisialisasi tanggal & outlet saat modal dibuka (otomatis sinkron dengan filter layar)
   useEffect(() => {
     if (isOpen) {
-      const lastMonthRange = presetRange('last_month')
-      setFromDate(lastMonthRange.from)
-      setToDate(lastMonthRange.to)
-      setPeriodPreset('last_month')
-      setOutletSelection('all')
-      setAllOutletsMode('consolidated')
-      setFileFormat('pdf')
-      setIsDownloading(false)
-      setProgressPct(0)
-      setProgressText('')
-      setOutletSearch('')
+      const screenFrom = currentFilter.from || presetRange('last_month').from
+      const screenTo = currentFilter.to || presetRange('last_month').to
+      setFromDate(screenFrom)
+      setToDate(screenTo)
 
-      // Pilih semua outlet yang valid secara default untuk mode specific
+      // Cek kecocokan preset tanggal dengan filter layar
+      const lastMonthRange = presetRange('last_month')
+      const thisMonthRange = presetRange('this_month')
+      if (screenFrom === lastMonthRange.from && screenTo === lastMonthRange.to) {
+        setPeriodPreset('last_month')
+      } else if (screenFrom === thisMonthRange.from && screenTo === thisMonthRange.to) {
+        setPeriodPreset('this_month')
+      } else {
+        setPeriodPreset('screen')
+      }
+
+      // Sinkronkan pilihan outlet dengan filter layar
       const mIds = mitraOutletIds(outlets, mitraInvestments)
       const cutoffDates = new Map<string, string>()
       for (const [id, inv] of Object.entries(mitraInvestments ?? {})) {
@@ -109,11 +113,26 @@ export function DownloadProfitDataModal({
         }
       }
       const validOutlets = outlets.filter(
-        o => !isTestOutlet(o) && isInScope(scope, o.id, mIds, lastMonthRange.to, cutoffDates)
+        o => !isTestOutlet(o) && isInScope(scope, o.id, mIds, screenTo, cutoffDates)
       )
-      setSelectedOutletIds(validOutlets.map(o => o.id))
+
+      if (currentFilter.outletId && currentFilter.outletId !== 'all') {
+        setOutletSelection('specific')
+        setSelectedOutletIds([currentFilter.outletId])
+        setAllOutletsMode('consolidated')
+      } else {
+        setOutletSelection('all')
+        setAllOutletsMode('consolidated')
+        setSelectedOutletIds(validOutlets.map(o => o.id))
+      }
+
+      setFileFormat('pdf')
+      setIsDownloading(false)
+      setProgressPct(0)
+      setProgressText('')
+      setOutletSearch('')
     }
-  }, [isOpen, outlets, scope, mitraInvestments])
+  }, [isOpen, outlets, scope, mitraInvestments, currentFilter])
 
   // Handle ESC key to close
   useEffect(() => {

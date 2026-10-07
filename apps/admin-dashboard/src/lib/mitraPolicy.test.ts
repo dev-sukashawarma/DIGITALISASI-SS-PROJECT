@@ -82,3 +82,53 @@ describe('resolveMitraPolicy', () => {
     expect(res.profitSharingPct).toBe(50)
   })
 })
+
+import { calculateMitraBepStatus } from './mitraPolicy'
+
+describe('calculateMitraBepStatus', () => {
+  const cibinongId = '550e8400-e29b-41d4-a716-446655440014'
+
+  it('harus menghitung SUDAH BEP jika omzet historis + transfer Agustus melebihi modal investasi', () => {
+    const inv = {
+      nilai_investasi: 125000000,
+      omzet_historis: 115000000,
+      transfer_historis: 0,
+      isBep: false,
+      transfers: []
+    }
+
+    const bepInfo = calculateMitraBepStatus(inv, cibinongId, '2026-09-01')
+    expect(bepInfo.modalInvestasi).toBe(125000000)
+    // 115.000.000 + 15.042.343 = 130.042.343
+    expect(bepInfo.profitMitraSebelumnya).toBeGreaterThan(125000000)
+    expect(bepInfo.isBep).toBe(true)
+  })
+
+  it('harus menghitung BELUM BEP jika total pengembalian kurang dari modal investasi', () => {
+    const inv = {
+      nilai_investasi: 125000000,
+      omzet_historis: 20000000,
+      transfer_historis: 10000000,
+      isBep: false,
+      transfers: [
+        { bulan: '2026-08-01', nominal: 5000000 }
+      ]
+    }
+
+    const bepInfo = calculateMitraBepStatus(inv, 'outlet-lain', '2026-09-01')
+    expect(bepInfo.profitMitraSebelumnya).toBe(35000000)
+    expect(bepInfo.isBep).toBe(false)
+  })
+
+  it('harus menghormati flag override isBep jika diset true', () => {
+    const inv = {
+      nilai_investasi: 125000000,
+      omzet_historis: 0,
+      isBep: true,
+      transfers: []
+    }
+
+    const bepInfo = calculateMitraBepStatus(inv, 'outlet-lain', '2026-09-01', true)
+    expect(bepInfo.isBep).toBe(true)
+  })
+})

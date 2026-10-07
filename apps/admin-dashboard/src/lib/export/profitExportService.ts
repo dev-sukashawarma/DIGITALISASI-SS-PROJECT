@@ -197,7 +197,7 @@ export function buildOutletFinancialCalculations(
     const sumRealCogs = cogsOutlet + cogsFoodApps + cogsTikTok + cogsWebsite
     const diffRealCogs = item.hpp - sumRealCogs
     if (diffRealCogs !== 0) {
-      if (cogsFoodApps > 0 && Math.abs(diffRealCogs) < 100) {
+      if (cogsFoodApps > 0) {
         cogsFoodApps += diffRealCogs
       } else if (cogsOutlet > 0) {
         cogsOutlet += diffRealCogs

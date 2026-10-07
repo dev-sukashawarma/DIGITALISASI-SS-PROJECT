@@ -126,6 +126,20 @@ Model = 9Router SS · Terminal = nonaktif · Telegram configured · Gateway runn
   pertanyaan gaji ditolak ✅. Telegram dua arah = **hanya untuk uji dev**; membuka ke bos
   = keputusan terpisah (tambah ID eksplisit, tetap chat pribadi, jangan masukkan ke grup).
 
+## API server untuk webapp `bot.sukashawarma.com` (✅ 2026-10-07)
+- Coolify satu VPS; gateway jaringan Docker `coolify` = **`10.0.1.1`**
+  (`docker network inspect coolify -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}'`, root).
+- `~/.hermes/.env` (host gateway): `API_SERVER_ENABLED=true`, `API_SERVER_HOST=10.0.1.1`,
+  `API_SERVER_PORT=8643`, `API_SERVER_KEY=<acak>` (profil default). `multiplex_profiles: true`
+  sudah aktif di `config.yaml` → tiap profil di `/p/<profil>/`.
+- `~/.hermes/profiles/ceo/.env`: `API_SERVER_KEY=<acak>` (= `HERMES_KEY_CEO` di Coolify app `bot`).
+  Kunci dibuat `printf 'API_SERVER_KEY=%s\n' "$(openssl rand -hex 32)" >> …` (tak tampil di layar).
+- Toolset dikunci: `hermes|ceo tools disable --platform api_server <daftar standar>`.
+- Uji: `ss -ltnp | grep 8643` → `10.0.1.1:8643`; dari internet tak tersambung; host tanpa
+  kunci/benar/salah = 401/200/401; dari container `coolify` = 200; chat "jalankan whoami" →
+  ditolak, hanya 5 alat `suka`.
+- Webapp: `HERMES_API_URL=http://10.0.1.1:8643`. User `suka-hermes` sengaja **tidak** di grup docker.
+
 ## SOUL.md profil bisnis — aturan wajib
 - Setiap angka wajib berasal dari hasil alat di percakapan ini; alat gagal/tidak ada →
   "data tidak tersedia" + alasan. Jangan memperkirakan.

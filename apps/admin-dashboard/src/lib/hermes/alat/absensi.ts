@@ -10,6 +10,15 @@ const CATATAN_ALPA =
 const SUMBER_PAPAN = 'Papan Kehadiran (app absensi)'
 const SUMBER_REKAP = 'Rekap Absensi (app absensi)'
 
+/** 'HH.MM WIB' dari waktu UTC (aritmetika +7 jam tetap; WIB tanpa DST). */
+const pukulWib = (d: Date) => {
+  const w = new Date(d.getTime() + 7 * 3_600_000)
+  return `${String(w.getUTCHours()).padStart(2, '0')}.${String(w.getUTCMinutes()).padStart(2, '0')} WIB`
+}
+const dgn = (ctx: KonteksHermes, hasil: object) => ({ ...hasil, diambil_pukul_wib: pukulWib(ctx.sekarang) })
+const PETUNJUK_HARI_INI = 'Tampilkan ringkasan sebagai kartu suka-ui dan daftar orang sebagai tabel suka-ui (kolom: Nama, Lokasi, Jam masuk, Menit telat); pisahkan Telat vs Dalam toleransi.'
+const PETUNJUK_REKAP = 'Tampilkan per lokasi sebagai tabel suka-ui (kolom: Lokasi, Staf, Telat, Toleransi, Alpa); boleh tambah grafik_batang telat per lokasi.'
+
 const galat = (pesan: string) => ({ status: 'galat', pesan })
 const selisihHari = (dari: string, sampai: string) => (Date.parse(sampai) - Date.parse(dari)) / 86_400_000
 
@@ -31,12 +40,13 @@ async function hariIni(ctx: KonteksHermes, a: { tanggal?: string; outlet?: strin
     return {
       outlet: p.outlet.name,
       ringkas: { hadir: p.ringkas.hadir, telat: p.ringkas.telat, telat_toleransi: p.ringkas.telat_toleransi, belum: p.ringkas.belum, alpa: p.ringkas.alpha, staf: p.ringkas.total },
-      telat: p.staf.filter((s) => s.state === 'telat' || s.state === 'telat_toleransi').map((s) => ({ nama: s.nama, menit: s.menitTelat, jam: s.jam })),
+      telat: p.staf.filter((s) => s.state === 'telat').map((s) => ({ nama: s.nama, menit: s.menitTelat, jam: s.jam })),
+      telat_toleransi: p.staf.filter((s) => s.state === 'telat_toleransi').map((s) => ({ nama: s.nama, menit: s.menitTelat, jam: s.jam })),
       belum_hadir: p.staf.filter((s) => s.state === 'belum').map((s) => s.nama),
       alpa: p.staf.filter((s) => s.state === 'alpha').map((s) => s.nama),
     }
   })
-  return { status: 'ok', tanggal, total, outlet }
+  return dgn(ctx, { status: 'ok', tanggal, total, outlet, petunjuk_tampilan: PETUNJUK_HARI_INI })
 }
 
 async function rekapDasar(ctx: KonteksHermes, dari: string, sampai: string, teksOutlet?: string) {
@@ -77,7 +87,7 @@ async function rekap(ctx: KonteksHermes, a: { dari?: string; sampai?: string; ou
       alpa: b.reduce((s, x) => s + x.alpa, 0),
     }
   })
-  return { status: 'ok', dari, sampai, hari_dinilai: d.hariDinilai, outlet }
+  return dgn(ctx, { status: 'ok', dari, sampai, hari_dinilai: d.hariDinilai, outlet, petunjuk_tampilan: PETUNJUK_REKAP })
 }
 
 async function telatBulanIni(ctx: KonteksHermes, a: { outlet?: string }) {
@@ -88,7 +98,7 @@ async function telatBulanIni(ctx: KonteksHermes, a: { outlet?: string }) {
   const orang = d.baris
     .filter((x) => x.telat + x.telat_toleransi + x.alpa > 0)
     .sort((x, y) => y.telat - x.telat || y.alpa - x.alpa || y.menit_telat - x.menit_telat || x.nama.localeCompare(y.nama, 'id'))
-  return { status: 'ok', dari, sampai, hari_dinilai: d.hariDinilai, orang }
+  return dgn(ctx, { status: 'ok', dari, sampai, hari_dinilai: d.hariDinilai, orang })
 }
 
 // Label sama dengan layar Perizinan HR (src/lib/types.ts LeaveType).
@@ -112,12 +122,12 @@ async function cutiIzin(ctx: KonteksHermes, a: { tanggal?: string }) {
     selesai: c.selesai,
     hari: c.hari,
   })
-  return {
+  return dgn(ctx, {
     status: 'ok',
     tanggal,
     sedang_cuti: daftar.filter((c) => c.status === 'approved' && c.mulai <= tanggal && c.selesai >= tanggal).map(bentuk),
     menunggu: daftar.filter((c) => c.status === 'pending').map(bentuk),
-  }
+  })
 }
 
 async function kasbonRingkasan(ctx: KonteksHermes) {
@@ -131,7 +141,7 @@ async function kasbonRingkasan(ctx: KonteksHermes) {
     (t, o) => ({ menunggu_jumlah: t.menunggu_jumlah + o.menunggu_jumlah, menunggu_nominal: t.menunggu_nominal + o.menunggu_nominal, aktif_jumlah: t.aktif_jumlah + o.aktif_jumlah, aktif_sisa: t.aktif_sisa + o.aktif_sisa }),
     { menunggu_jumlah: 0, menunggu_nominal: 0, aktif_jumlah: 0, aktif_sisa: 0 },
   )
-  return { status: 'ok', outlet, total }
+  return dgn(ctx, { status: 'ok', outlet, total })
 }
 
 async function ceklistKepatuhan(ctx: KonteksHermes, a: { tanggal?: string }) {
@@ -143,7 +153,7 @@ async function ceklistKepatuhan(ctx: KonteksHermes, a: { tanggal?: string }) {
       : { outlet: c.outlet.name, status: 'belum_dicek' },
   )
   const sudah = daftar.filter((c) => c.laporan)
-  return {
+  return dgn(ctx, {
     status: 'ok',
     tanggal,
     ringkas: {
@@ -154,7 +164,7 @@ async function ceklistKepatuhan(ctx: KonteksHermes, a: { tanggal?: string }) {
       belum_ditinjau: sudah.filter((c) => !c.laporan!.ditinjau).length,
     },
     outlet,
-  }
+  })
 }
 
 export const ALAT_ABSENSI: DefinisiAlat[] = [

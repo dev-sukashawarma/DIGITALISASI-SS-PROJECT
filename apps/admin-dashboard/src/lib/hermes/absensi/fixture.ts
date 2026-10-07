@@ -9,12 +9,13 @@ export const absensiPalsu: KonteksAbsensi = {
   papan: async () => [
     {
       outlet: OUTLET_EMPANG,
-      ringkas: { hadir: 1, telat: 1, telat_toleransi: 0, belum: 1, alpha: 1, total: 4 },
+      ringkas: { hadir: 1, telat: 1, telat_toleransi: 1, belum: 1, alpha: 1, total: 5 },
       staf: [
         { id: 's1', nama: 'Andi', state: 'masuk', menitTelat: null, jam: '12.55' },
         { id: 's2', nama: 'Budi', state: 'telat', menitTelat: 40, jam: '13.40' },
         { id: 's3', nama: 'Cici', state: 'belum', menitTelat: null, jam: null },
         { id: 's4', nama: 'Dedi', state: 'alpha', menitTelat: null, jam: null },
+        { id: 's6', nama: 'Gina', state: 'telat_toleransi', menitTelat: 5, jam: '13.05' },
       ],
     },
     { outlet: OUTLET_KP, ringkas: { hadir: 1, telat: 0, telat_toleransi: 0, belum: 0, alpha: 0, total: 1 }, staf: [{ id: 's5', nama: 'Eka', state: 'masuk', menitTelat: null, jam: '08.00' }] },

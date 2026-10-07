@@ -25,3 +25,18 @@ export function periksaProfilChat(
   if (profilPercakapan && profilPercakapan !== diminta) return { ok: false, status: 409 }
   return { ok: true, profil: diminta }
 }
+
+export type AlasanTanpaChat = 'tanpa_profil' | 'peran' | 'belum_tersambung'
+
+// Alasan bot tidak bisa diajak chat — dibedakan agar panel tidak menyalahkan akun bila
+// penyebabnya kunci profil belum dipasang di server.
+export function alasanTanpaChat(
+  role: string | null | undefined,
+  profil: Profil | null,
+  env: Record<string, string | undefined> = process.env,
+): AlasanTanpaChat | null {
+  if (!profil) return 'tanpa_profil'
+  if (!profilBolehUntukPeran(role).includes(profil)) return 'peran'
+  if (!kunciProfil(profil, env)) return 'belum_tersambung'
+  return null
+}

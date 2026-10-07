@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Bot CEO — Suka Shawarma',
-  description: 'Tanya data operasional Suka Shawarma',
+  title: 'Kantor Bot — Suka Shawarma',
+  description: 'Kantor bot Suka Shawarma — status bot dan tanya data operasional',
 }
 export const viewport = { themeColor: '#f29744', width: 'device-width', initialScale: 1 }
 

@@ -24,7 +24,11 @@ export type Meja = {
 }
 
 // Meja yang dikirim ke klien: + profil Hermes & izin chat pemanggil (spec §10, dihitung di server).
-export type MejaKantor = Meja & { profil: Profil | null; bolehChat: boolean }
+export type MejaKantor = Meja & {
+  profil: Profil | null
+  bolehChat: boolean
+  alasanTanpaChat: 'tanpa_profil' | 'peran' | 'belum_tersambung' | null
+}
 
 export const JENDELA_BEKERJA_DTK = 60
 export const JENDELA_GALAT_MNT = 10

@@ -12,6 +12,7 @@ import { renderFrame } from '@/kantor/engine/office/engine/renderer'
 import { startGameLoop } from '@/kantor/engine/office/engine/gameLoop'
 import { migrateLayoutColors } from '@/kantor/engine/office/layout/layoutSerializer'
 import { TILE_SIZE } from '@/kantor/engine/office/types'
+import { bingkaiKamera } from '@/kantor/kamera'
 import ChatPanel from '@/components/kantor/ChatPanel'
 
 const POLL_MS = 10_000
@@ -19,7 +20,13 @@ const BASE_ASET = '/kantor/assets/'
 const LABEL: Record<Keadaan, string> = { bekerja: 'Bekerja', siaga: 'Siaga', galat: 'Ada masalah', tidur: 'Tidur' }
 const WARNA: Record<Keadaan, string> = {
   bekerja: 'bg-suka-green text-white', siaga: 'bg-white text-suka-brown',
-  galat: 'bg-red-600 text-white', tidur: 'bg-gray-200 text-gray-700',
+  galat: 'bg-red-600 text-white', tidur: 'bg-white text-gray-600 ring-1 ring-gray-300',
+}
+
+const PESAN_TANPA_CHAT: Record<NonNullable<MejaKantor['alasanTanpaChat']>, string> = {
+  peran: 'Bot ini belum dibuka untuk akun Anda.',
+  belum_tersambung: 'Bot ini belum tersambung ke layanan chat. Hubungi developer.',
+  tanpa_profil: 'Bot ini hanya bisa dipantau, belum bisa diajak mengobrol.',
 }
 
 type Label = { agentId: number; x: number; y: number; meja: MejaKantor }
@@ -114,9 +121,9 @@ export default function KantorApp({ nama, layarPenuh, portalUrl }: { nama: strin
         const h = Math.floor(canvas.clientHeight * dpr)
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h }
         const layout = os.getLayout()
-        const zoom = Math.max(1, Math.floor(Math.min(w / (layout.cols * TILE_SIZE), h / (layout.rows * TILE_SIZE))))
+        const { zoom, panX, panY } = bingkaiKamera(layout.tiles as number[], layout.cols, layout.rows, w, h, TILE_SIZE)
         const { offsetX, offsetY } = renderFrame(
-          ctx, w, h, os.tileMap, os.furniture, os.getCharacters(), zoom, 0, 0,
+          ctx, w, h, os.tileMap, os.furniture, os.getCharacters(), zoom, panX, panY,
           { selectedAgentId: os.selectedAgentId, hoveredAgentId: os.hoveredAgentId, hoveredTile: os.hoveredTile, seats: os.seats, characters: os.characters },
           undefined, layout.tileColors, layout.cols, layout.rows, layout.carpetTiles, layout.areas, layout.areaTiles, false, null, os.pets,
         )
@@ -242,7 +249,7 @@ export default function KantorApp({ nama, layarPenuh, portalUrl }: { nama: strin
             ) : (
               <div className="space-y-2 p-4 text-sm text-gray-700">
                 {mejaTerpilih.alatTerakhir && <p>Terakhir memakai: <strong>{mejaTerpilih.alatTerakhir}</strong></p>}
-                <p className="text-gray-500">Bot ini belum dibuka untuk akun Anda.</p>
+                <p className="text-gray-600">{PESAN_TANPA_CHAT[mejaTerpilih.alasanTanpaChat ?? 'tanpa_profil']}</p>
               </div>
             )}
           </aside>

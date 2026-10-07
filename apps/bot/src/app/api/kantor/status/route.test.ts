@@ -43,14 +43,14 @@ describe('GET /api/kantor/status', () => {
     const j = await r.json()
     expect(j.meja[0]).toEqual({
       id: 'k1', nama: 'MANAGER UTAMA', scope: ['penjualan'], keadaan: 'bekerja', alatTerakhir: 'rekap',
-      terakhirAt: b.terakhir_at, profil: 'ceo', bolehChat: true,
+      terakhirAt: b.terakhir_at, profil: 'ceo', bolehChat: true, alasanTanpaChat: null,
     })
     // hrd diizinkan role tapi kuncinya tidak dikonfigurasi → tidak boleh chat
-    expect(j.meja[1]).toMatchObject({ profil: 'hrd', bolehChat: false })
+    expect(j.meja[1]).toMatchObject({ profil: 'hrd', bolehChat: false, alasanTanpaChat: 'belum_tersambung' })
     expect(typeof j.diambilAt).toBe('string')
   })
   it('owner: semua meja tampil tanpa izin chat', async () => {
     ambil.mockResolvedValue(sesiDengan(async () => ({ data: [baris()], error: null }), 'owner'))
-    expect((await (await GET()).json()).meja[0]).toMatchObject({ profil: 'ceo', bolehChat: false })
+    expect((await (await GET()).json()).meja[0]).toMatchObject({ profil: 'ceo', bolehChat: false, alasanTanpaChat: 'peran' })
   })
 })

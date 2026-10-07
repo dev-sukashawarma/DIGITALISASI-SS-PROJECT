@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ambilSesi } from '@/lib/server/sesi'
-import { bolehChat } from '@/lib/server/izinChat'
+import { alasanTanpaChat } from '@/lib/server/izinChat'
 import { profilUntukKunci } from '@/lib/peran'
 import { keMeja, type BarisStatus, type MejaKantor } from '@/kantor/keadaan'
 
@@ -20,7 +20,8 @@ export async function GET() {
   const sekarang = new Date()
   const meja: MejaKantor[] = ((data ?? []) as BarisStatus[]).map((b) => {
     const profil = profilUntukKunci(b.scope)
-    return { ...keMeja(b, sekarang), profil, bolehChat: bolehChat(g.sesi.role, profil) }
+    const alasan = alasanTanpaChat(g.sesi.role, profil)
+    return { ...keMeja(b, sekarang), profil, bolehChat: alasan === null, alasanTanpaChat: alasan }
   })
   return NextResponse.json({ diambilAt: sekarang.toISOString(), meja }, { headers: TANPA_CACHE })
 }

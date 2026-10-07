@@ -1,4 +1,4 @@
-import { bolehChat, periksaProfilChat } from '@/lib/server/izinChat'
+import { alasanTanpaChat, bolehChat, periksaProfilChat } from '@/lib/server/izinChat'
 
 const env = { HERMES_KEYS: JSON.stringify({ ceo: 'k-ceo' }) }
 
@@ -32,5 +32,20 @@ describe('periksaProfilChat', () => {
   it('boleh → profil dikembalikan', () => {
     expect(periksaProfilChat('ceo', 'developer', null, env)).toEqual({ ok: true, profil: 'ceo' })
     expect(periksaProfilChat('ceo', 'developer', 'ceo', env)).toEqual({ ok: true, profil: 'ceo' })
+  })
+})
+
+describe('alasanTanpaChat', () => {
+  it('null bila boleh', () => {
+    expect(alasanTanpaChat('developer', 'ceo', env)).toBeNull()
+  })
+  it('tanpa profil → tanpa_profil', () => {
+    expect(alasanTanpaChat('developer', null, env)).toBe('tanpa_profil')
+  })
+  it('role tidak mengizinkan → peran (diperiksa sebelum kunci)', () => {
+    expect(alasanTanpaChat('owner', 'hrd', env)).toBe('peran')
+  })
+  it('role boleh tapi kunci tak ada → belum_tersambung', () => {
+    expect(alasanTanpaChat('developer', 'hrd', env)).toBe('belum_tersambung')
   })
 })

@@ -19,7 +19,7 @@ import {
 import { toast } from 'sonner'
 import { presetRange } from '@/lib/period'
 import type { PeriodFilterValue } from '@/lib/types'
-import { SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
+import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 import { isTestOutlet } from '@/lib/outletFilters'
 import {
   generateSingleOutletPdfBlob,
@@ -100,10 +100,19 @@ export function DownloadProfitDataModal({
       setOutletSearch('')
 
       // Pilih semua outlet yang valid secara default untuk mode specific
-      const validOutlets = outlets.filter(o => !isTestOutlet(o))
+      const mIds = mitraOutletIds(outlets, mitraInvestments)
+      const cutoffDates = new Map<string, string>()
+      for (const [id, inv] of Object.entries(mitraInvestments ?? {})) {
+        if (inv?.tanggal_mulai) {
+          cutoffDates.set(id, inv.tanggal_mulai)
+        }
+      }
+      const validOutlets = outlets.filter(
+        o => !isTestOutlet(o) && isInScope(scope, o.id, mIds, lastMonthRange.to, cutoffDates)
+      )
       setSelectedOutletIds(validOutlets.map(o => o.id))
     }
-  }, [isOpen, outlets])
+  }, [isOpen, outlets, scope, mitraInvestments])
 
   // Handle ESC key to close
   useEffect(() => {
@@ -132,10 +141,20 @@ export function DownloadProfitDataModal({
     }
   }
 
-  // Filter list outlet untuk multi-select
+  // Filter list outlet untuk multi-select (hanya outlet yang sesuai scope)
   const availableOutlets = useMemo(() => {
-    return outlets.filter(o => !isTestOutlet(o))
-  }, [outlets])
+    const mIds = mitraOutletIds(outlets, mitraInvestments)
+    const cutoffDates = new Map<string, string>()
+    for (const [id, inv] of Object.entries(mitraInvestments ?? {})) {
+      if (inv?.tanggal_mulai) {
+        cutoffDates.set(id, inv.tanggal_mulai)
+      }
+    }
+    const targetDate = toDate || fromDate
+    return outlets.filter(
+      o => !isTestOutlet(o) && isInScope(scope, o.id, mIds, targetDate, cutoffDates)
+    )
+  }, [outlets, scope, mitraInvestments, toDate, fromDate])
 
   const filteredOutletList = useMemo(() => {
     if (!outletSearch.trim()) return availableOutlets
@@ -158,7 +177,35 @@ export function DownloadProfitDataModal({
     )
   }
 
-  const isSameAsScreen = fromDate === currentFilter.from && toDate === currentFilter.to
+  const isSamePeriodAsScreen = fromDate === currentFilter.from && toDate === currentFilter.to
+
+  // Hanya boleh memakai data memori layar jika periode persis sama DAN cakupan outlet layar mencukupi data yang diminta
+  const canUseScreenData = useMemo(() => {
+    if (!isSamePeriodAsScreen) return false
+
+    if (currentFilter.outletId === 'all') {
+      if (outletSelection === 'all') return true
+      return (
+        selectedOutletIds.length > 0 &&
+        selectedOutletIds.every(id => currentData.outletBreakdown.some(o => o.id === id))
+      )
+    }
+
+    // Layar sedang difilter ke 1 outlet spesifik:
+    // Hanya bisa pakai memory jika user memilih mode 'specific' dengan HANYA 1 outlet yang sama persis
+    return (
+      outletSelection === 'specific' &&
+      selectedOutletIds.length === 1 &&
+      selectedOutletIds[0] === currentFilter.outletId &&
+      currentData.outletBreakdown.some(o => o.id === currentFilter.outletId)
+    )
+  }, [
+    isSamePeriodAsScreen,
+    currentFilter.outletId,
+    outletSelection,
+    selectedOutletIds,
+    currentData.outletBreakdown,
+  ])
 
   // ==========================================
   // EKSEKUSI PENARIKAN & PEMBUATAN BERKAS UNDUH
@@ -192,8 +239,8 @@ export function DownloadProfitDataModal({
       let exportExpenseRows: any[]
       let exportTiktokSettlements: Record<string, any>
 
-      // 1. Ambil Data (Gunakan memory jika tanggal persis sama, atau tarik background jika beda)
-      if (isSameAsScreen) {
+      // 1. Ambil Data (Gunakan memory jika data layar lengkap dan cocok, atau tarik background jika beda)
+      if (canUseScreenData) {
         setProgressPct(20)
         setProgressText('Menggunakan data siap pakai dari layar...')
         exportOutletBreakdown = currentData.outletBreakdown
@@ -423,12 +470,16 @@ export function DownloadProfitDataModal({
                 <Calendar className="w-3.5 h-3.5 text-suka-orange" />
                 <span>1. Rentang Periode Laporan</span>
               </label>
-              {isSameAsScreen && (
+              {canUseScreenData ? (
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70 inline-flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
                   Sesuai Filter Layar (Instan)
                 </span>
-              )}
+              ) : isSamePeriodAsScreen ? (
+                <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/70 inline-flex items-center gap-1">
+                  Sinkronisasi Latar Belakang
+                </span>
+              ) : null}
             </div>
 
             {/* Presets Pintas Cepat */}

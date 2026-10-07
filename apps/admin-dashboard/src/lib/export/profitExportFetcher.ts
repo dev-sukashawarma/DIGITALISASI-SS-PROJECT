@@ -164,10 +164,10 @@ export async function fetchProfitExportData({
 
   // 6. Evaluasi Scope & Kemitraan
   onProgress?.('Menganalisis & menghitung angka laba rugi...')
-  const allOutlets = [
-    { id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any,
-    ...outlets.filter(o => !isTestOutlet(o)),
-  ]
+  const cleanOutlets = outlets.filter(o => !isTestOutlet(o))
+  const allOutlets = cleanOutlets.some(o => o.id === 'ss-online')
+    ? cleanOutlets
+    : [{ id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any, ...cleanOutlets]
   const mitraIds = mitraOutletIds(allOutlets, mitraInvestments)
   const cutoffDates = new Map<string, string>()
   for (const [id, inv] of Object.entries(mitraInvestments)) {

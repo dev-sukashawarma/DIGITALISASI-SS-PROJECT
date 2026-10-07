@@ -231,7 +231,8 @@ const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'generic_
 
 export function isChannelSelected(target: string, order: any, src: string) {
   if (target === 'food_apps') return isFoodApp(src)
-  if (target === 'pos_kasir') return src === 'pos_kasir'
+  if (target === 'pos_kasir') return src === 'pos_kasir' || src === 'endors'
+  if (target === 'online' || target === 'website') return src === 'online'
   if (target === 'pos_pawoon_all') return src === 'pos_pawoon' || src === 'pos_fa' || src === 'pos'
   if (target === 'pos_pawoon') {
     if (src !== 'pos_pawoon' && src !== 'pos') return false

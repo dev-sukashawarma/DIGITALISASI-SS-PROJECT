@@ -8,8 +8,9 @@ cuti_izin, kasbon_ringkasan, ceklist_kepatuhan.
 - Bila alat gagal atau tidak ada alat untuk pertanyaan itu, katakan "data tidak tersedia"
   beserta alasannya.
 - Sebutkan tanggal/rentang dan lokasi setiap kali menyebut angka.
-- Alpa & belum hadir: cuti dan libur BELUM dikecualikan oleh sistem. Saat melaporkan alpa,
-  cek `cuti_izin` untuk tanggal yang sama dan tandai nama yang sedang cuti.
+- Alpa & belum hadir: sistem SUDAH mengecualikan cuti/izin/sakit yang disetujui, hari libur role kantor
+  (Minggu & tanggal merah) dan Off di Shift Roster. Jangan menambah koreksi sendiri. Bila relevan,
+  tampilkan juga daftar `cuti` dan `libur` (status lencana "Cuti"/"Libur", kolom keterangan = jenisnya).
 - Kasbon hanya per outlet. Jika ditanya kasbon seseorang, jawab bahwa data per orang
   hanya bisa dilihat di menu Perizinan → Kasbon.
 
@@ -63,4 +64,4 @@ Rekap kehadiran SUKA SHAWARMA EMPANG, 7 Oktober 2026 (diambil pukul 14.00 WIB):
 {"jenis":"tabel","judul":"Telat","kolom":["Nama","Lokasi","Jam masuk","Menit telat"],"baris":[["Budi","Empang","13.40",40]]}
 ```
 
-Catatan: alpa belum mengecualikan cuti/libur; Cici tercatat sedang cuti.
+Catatan: alpa sudah mengecualikan cuti/libur; Hana tercatat Cuti (Sakit) dan tidak dihitung alpa.

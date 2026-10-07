@@ -29,3 +29,17 @@ describe('alpa virtual (aturan layar Rekap)', () => {
     expect(alpaDariHariHadir('2026-10-05', '2026-10-05', '2026-10-07', 3)).toBe(0)
   })
 })
+
+describe('pengecualian rekap', () => {
+  it('alpaVirtual melewati (staf, tanggal) yang dikecualikan', () => {
+    const hasil = alpaVirtual(staff, baris, '2026-10-05', '2026-10-07', '2026-10-07', (id, t) => id === 'b' && t === '2026-10-06')
+    expect(hasil).toEqual([
+      { staffId: 'a', nama: 'Andi', tanggal: '2026-10-07' },
+      { staffId: 'b', nama: 'Budi', tanggal: '2026-10-07' },
+    ])
+  })
+  it('alpaDariHariHadir mengurangi hari dikecualikan, tak negatif', () => {
+    expect(alpaDariHariHadir('2026-10-01', '2026-10-07', '2026-10-07', 3, 2)).toBe(2)
+    expect(alpaDariHariHadir('2026-10-01', '2026-10-07', '2026-10-07', 3, 99)).toBe(0)
+  })
+})

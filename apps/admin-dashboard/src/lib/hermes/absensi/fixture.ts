@@ -9,22 +9,23 @@ export const absensiPalsu: KonteksAbsensi = {
   papan: async () => [
     {
       outlet: OUTLET_EMPANG,
-      ringkas: { hadir: 1, telat: 1, telat_toleransi: 1, belum: 1, alpha: 1, total: 5 },
+      ringkas: { hadir: 1, telat: 1, telat_toleransi: 1, belum: 1, alpha: 1, cuti: 1, libur: 0, total: 6 },
       staf: [
         { id: 's1', nama: 'Andi', state: 'masuk', menitTelat: null, jam: '12.55' },
         { id: 's2', nama: 'Budi', state: 'telat', menitTelat: 40, jam: '13.40' },
         { id: 's3', nama: 'Cici', state: 'belum', menitTelat: null, jam: null },
         { id: 's4', nama: 'Dedi', state: 'alpha', menitTelat: null, jam: null },
         { id: 's6', nama: 'Gina', state: 'telat_toleransi', menitTelat: 5, jam: '13.05' },
+        { id: 's7', nama: 'Hana', state: 'cuti', menitTelat: null, jam: null, keterangan: 'Sakit' },
       ],
     },
-    { outlet: OUTLET_KP, ringkas: { hadir: 1, telat: 0, telat_toleransi: 0, belum: 0, alpha: 0, total: 1 }, staf: [{ id: 's5', nama: 'Eka', state: 'masuk', menitTelat: null, jam: '08.00' }] },
+    { outlet: OUTLET_KP, ringkas: { hadir: 1, telat: 0, telat_toleransi: 0, belum: 0, alpha: 0, cuti: 0, libur: 0, total: 1 }, staf: [{ id: 's5', nama: 'Eka', state: 'masuk', menitTelat: null, jam: '08.00' }] },
   ],
   stafPerOutlet: async () => new Map([['o1', [{ id: 's1', nama: 'Andi' }, { id: 's2', nama: 'Budi' }]], [OUTLET_KP.id, [{ id: 's5', nama: 'Eka' }]]]),
   rekapStaf: async () => [
-    { staffId: 's1', hariHadir: 7, telat: 0, telatToleransi: 1, menitTelat: 3 },
-    { staffId: 's2', hariHadir: 5, telat: 3, telatToleransi: 0, menitTelat: 95 },
-    { staffId: 's5', hariHadir: 7, telat: 0, telatToleransi: 0, menitTelat: 0 },
+    { staffId: 's1', hariHadir: 7, telat: 0, telatToleransi: 1, menitTelat: 3, hariDikecualikan: 0 },
+    { staffId: 's2', hariHadir: 5, telat: 3, telatToleransi: 0, menitTelat: 95, hariDikecualikan: 1 },
+    { staffId: 's5', hariHadir: 7, telat: 0, telatToleransi: 0, menitTelat: 0, hariDikecualikan: 0 },
   ],
   cuti: async () => [
     { nama: 'Cici', outletId: 'o1', jenis: 'annual', mulai: '2026-10-06', selesai: '2026-10-08', hari: 3, status: 'approved' },

@@ -9,6 +9,7 @@ export function alpaVirtual(
   dari: string,
   sampai: string,
   hariIni: string,
+  dikecualikan?: (staffId: string, tanggal: string) => boolean,
 ): { staffId: string; nama: string; tanggal: string }[] {
   const hadir = new Set<string>()
   for (const r of baris) {
@@ -18,7 +19,7 @@ export function alpaVirtual(
   const hasil: { staffId: string; nama: string; tanggal: string }[] = []
   for (const t of daftarTanggal(dari, sampai)) {
     if (t > hariIni) continue
-    for (const s of staff) if (!hadir.has(`${s.id}|${t}`)) hasil.push({ staffId: s.id, nama: s.name, tanggal: t })
+    for (const s of staff) if (!hadir.has(`${s.id}|${t}`) && !dikecualikan?.(s.id, t)) hasil.push({ staffId: s.id, nama: s.name, tanggal: t })
   }
   return hasil
 }
@@ -29,6 +30,6 @@ export function jumlahHariRekap(dari: string, sampai: string, hariIni: string): 
 }
 
 /** Alpa satu staf bila jumlah hari hadirnya (hari WIB berbeda dengan absen non-alpha) sudah diketahui. */
-export function alpaDariHariHadir(dari: string, sampai: string, hariIni: string, hariHadir: number): number {
-  return Math.max(0, jumlahHariRekap(dari, sampai, hariIni) - hariHadir)
+export function alpaDariHariHadir(dari: string, sampai: string, hariIni: string, hariHadir: number, hariDikecualikan = 0): number {
+  return Math.max(0, jumlahHariRekap(dari, sampai, hariIni) - hariHadir - hariDikecualikan)
 }

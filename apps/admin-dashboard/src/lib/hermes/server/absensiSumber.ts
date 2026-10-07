@@ -1,7 +1,7 @@
 // Loader data bot HRD — HANYA dipanggil route /api/hermes/mcp setelah autentikasi kunci.
 // Setiap query meniru layar sumbernya; rumus dari @suka/hr-rumus (satu sumber).
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { computeBoard, isTestOrDevStaff, outletRumah, tanggalWib, tempatkanStaf, terburuk, type BoardConfig, type BoardRecord, type NilaiCeklist, type StafPenempatan } from '@suka/hr-rumus'
+import { computeBoard, isTestOrDevStaff, outletRumah, petaPengecualian, tanggalWib, tempatkanStaf, terburuk, type BoardConfig, type BoardRecord, type NilaiCeklist, type StafPenempatan } from '@suka/hr-rumus'
 import { outletTerhitungAbsensi } from '../absensi/outlet'
 import type { CeklistOutlet, CutiBaris, KasbonOutlet, KonteksAbsensi, OutletAbsensi, PapanOutlet, RekapStafBaris, StafOutlet } from '../absensi/tipe'
 
@@ -81,7 +81,7 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
   async function papan(tanggal: string): Promise<PapanOutlet[]> {
     const daftar = await outlets()
     const ids = daftar.map((o) => o.id)
-    const [staf, absen, cfgRes, globalRes, jadwal] = await Promise.all([
+    const [staf, absen, cfgRes, globalRes, jadwal, cutiRes, rosterRes, kerjaRes, liburRes, roleRes] = await Promise.all([
       semuaStaf(),
       semuaHalaman<BoardRecord & { outlet_id: string }>(() =>
         svc
@@ -95,7 +95,23 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
       svc.from('outlet_attendance_config').select('outlet_id, jam_masuk, jam_keluar, toleransi_menit, pilih_shift_aktif, shift2_jam_masuk, outlet_attendance_shift(jam_masuk)').in('outlet_id', ids),
       svc.from('global_settings').select('value').eq('key', 'global_attendance_config').maybeSingle(),
       svc.from('attendance_staff_schedule').select('outlet_id, jam_masuk, attendance_staff_schedule_member(staff_id)').in('outlet_id', ids),
+      // Pengecualian alpa/belum: cuti disetujui, Off Shift Roster, libur role kantor (aturan HR di DB).
+      svc.from('leave_requests').select('staff_id, leave_type, start_date, end_date').eq('status', 'approved').lte('start_date', tanggal).gte('end_date', tanggal),
+      svc.from('attendance_logs').select('staff_id').eq('date', tanggal).ilike('notes', 'off'),
+      svc.rpc('hr_hari_kerja', { p_tgl: tanggal }),
+      svc.from('hari_libur').select('nama').eq('tanggal', tanggal).eq('aktif', true).limit(1),
+      svc.rpc('hr_role_libur_kantor'),
     ])
+    const hariKerja = wajib(kerjaRes) !== false
+    const pengecualian = petaPengecualian({
+      tanggal,
+      staf: staf.map((s) => ({ id: s.id, role: s.role })),
+      cutiDisetujui: wajib(cutiRes) as any[],
+      hariKerja,
+      namaHariLibur: ((wajib(liburRes) as any[])[0]?.nama as string | undefined) ?? null,
+      roleLiburKantor: (wajib(roleRes) as string[] | null) ?? [],
+      rosterOff: new Set(((wajib(rosterRes) as any[]) ?? []).map((r) => r.staff_id as string)),
+    })
     const cfgLokal = new Map<string, BoardConfig>()
     for (const c of wajib(cfgRes) as any[]) {
       const { outlet_attendance_shift: shift, outlet_id, ...kolom } = c
@@ -122,11 +138,11 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
     return daftar.map((o) => {
       const p = tempat.get(o.id) ?? { staf: [], records: [] }
       const cfg = cfgLokal.get(o.id) ?? cfgGlobal ?? CFG_CADANGAN
-      const { rows, summary } = computeBoard(p.staf, p.records, cfg, aturan.get(o.id), { sekarang, tanggal })
+      const { rows, summary } = computeBoard(p.staf, p.records, cfg, aturan.get(o.id), { sekarang, tanggal, pengecualian })
       return {
         outlet: o,
         ringkas: summary,
-        staf: rows.map((r) => ({ id: r.id, nama: r.name, state: r.state, menitTelat: r.delay_minutes, jam: r.time })),
+        staf: rows.map((r) => ({ id: r.id, nama: r.name, state: r.state, menitTelat: r.delay_minutes, jam: r.time, keterangan: r.keterangan ?? null })),
       }
     })
   }
@@ -134,7 +150,7 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
   async function rekapStaf(dari: string, sampai: string): Promise<RekapStafBaris[]> {
     const data = wajib(await svc.rpc('hermes_absensi_rekap_staf', { p_dari: dari, p_sampai: sampai })) as any[]
     if (data.length >= HALAMAN) throw new Error('Hasil rekap terpotong (>= 1.000 staf); persempit rentang/outlet.')
-    return data.map((r) => ({ staffId: r.outlet_staff_id, hariHadir: r.hari_hadir, telat: r.jumlah_telat, telatToleransi: r.jumlah_telat_toleransi, menitTelat: r.total_menit_telat }))
+    return data.map((r) => ({ staffId: r.outlet_staff_id, hariHadir: r.hari_hadir, telat: r.jumlah_telat, telatToleransi: r.jumlah_telat_toleransi, menitTelat: r.total_menit_telat, hariDikecualikan: r.hari_dikecualikan ?? 0 }))
   }
 
   // Staf tes/dev/mitra/owner disembunyikan sama seperti layar HR (useHrDirectory).

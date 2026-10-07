@@ -1,9 +1,9 @@
 import type { BoardState, BoardSummary } from '@suka/hr-rumus'
 
 export interface OutletAbsensi { id: string; name: string; type: string }
-export interface StafPapan { id: string; nama: string; state: BoardState; menitTelat: number | null; jam: string | null }
+export interface StafPapan { id: string; nama: string; state: BoardState; menitTelat: number | null; jam: string | null; keterangan?: string | null }
 export interface PapanOutlet { outlet: OutletAbsensi; ringkas: BoardSummary; staf: StafPapan[] }
-export interface RekapStafBaris { staffId: string; hariHadir: number; telat: number; telatToleransi: number; menitTelat: number }
+export interface RekapStafBaris { staffId: string; hariHadir: number; telat: number; telatToleransi: number; menitTelat: number; hariDikecualikan: number }
 export interface StafOutlet { id: string; nama: string }
 export interface CutiBaris { nama: string; outletId: string | null; jenis: string; mulai: string; selesai: string; hari: number; status: 'pending' | 'approved' | 'rejected' }
 export interface KasbonOutlet { outletId: string; menungguJumlah: number; menungguNominal: number; aktifJumlah: number; aktifSisa: number }

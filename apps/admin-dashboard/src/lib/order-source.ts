@@ -42,7 +42,17 @@ export function resolveOrderSource(
   if (ch) {
     return { key: ch.id, label: ch.label, bg: ch.bg, fg: ch.fg, logoPath: ch.logoPath, mark: ch.mark, lucide: null }
   }
-  if (salesSource === 'online') {
+  const normCh = (channel || '').trim().toLowerCase()
+  const normSrc = (salesSource || '').trim().toLowerCase()
+
+  if (
+    normSrc === 'online' ||
+    normSrc === 'website' ||
+    normCh === 'website' ||
+    normCh === 'online' ||
+    normCh === 'web' ||
+    normCh === 'website ss'
+  ) {
     return { key: 'online', label: 'Website Online', bg: '#f29744', fg: '#ffffff', lucide: 'globe' }
   }
 

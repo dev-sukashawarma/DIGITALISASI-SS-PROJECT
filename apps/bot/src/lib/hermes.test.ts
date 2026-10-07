@@ -14,9 +14,21 @@ describe('hermes', () => {
   it('urlChat memakai prefix profil', () => {
     expect(urlChat('http://10.0.1.1:8643/', 'ceo')).toBe('http://10.0.1.1:8643/p/ceo/v1/chat/completions')
   })
-  it('kunciProfil membaca HERMES_KEY_<PROFIL>', () => {
-    expect(kunciProfil('ceo', { HERMES_KEY_CEO: 'k' })).toBe('k')
+  it('kunciProfil membaca HERMES_KEYS (JSON satu env untuk semua profil)', () => {
+    const env = { HERMES_KEYS: '{"ceo":"kunci-ceo","gudang":"kunci-gudang"}' }
+    expect(kunciProfil('ceo', env)).toBe('kunci-ceo')
+    expect(kunciProfil('gudang', env)).toBe('kunci-gudang')
+    expect(kunciProfil('hrd', env)).toBeNull()
+  })
+  it('kunciProfil: HERMES_KEYS diutamakan, cadangan HERMES_KEY_<PROFIL>', () => {
+    expect(kunciProfil('ceo', { HERMES_KEY_CEO: 'lama' })).toBe('lama')
+    expect(kunciProfil('ceo', { HERMES_KEYS: '{"ceo":"baru"}', HERMES_KEY_CEO: 'lama' })).toBe('baru')
     expect(kunciProfil('ceo', {})).toBeNull()
+  })
+  it('kunciProfil: JSON rusak / nilai bukan teks → null (tak melempar)', () => {
+    expect(kunciProfil('ceo', { HERMES_KEYS: '{ceo:rusak' })).toBeNull()
+    expect(kunciProfil('ceo', { HERMES_KEYS: '{"ceo":123}' })).toBeNull()
+    expect(kunciProfil('ceo', { HERMES_KEYS: '["ceo"]' })).toBeNull()
   })
   it('pengurai: potongan terbelah, komentar, [DONE]', () => {
     const p = buatPengurai()

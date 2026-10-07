@@ -113,6 +113,19 @@ hermes status
 ```
 Model = 9Router SS · Terminal = nonaktif · Telegram configured · Gateway running.
 
+## Gateway & Telegram (✅ 2026-10-07 — Bot CEO menjawab di Telegram)
+- Hermes versi ini: **satu host gateway per user**, dijalankan dari profil **default**
+  (`hermes gateway install`), dan ia **melayani semua profil**. `ceo gateway install` ditolak
+  ("Profile 'ceo' does not get a gateway of its own"). Jangan pakai `--force`/`standalone`.
+- Platform dipasang di **profil yang menjawab**: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`,
+  `TELEGRAM_HOME_CHANNEL` ada di `~/.hermes/profiles/ceo/.env`, **dihapus** dari `~/.hermes/.env`
+  (cadangan `.env.bak-20261007`). Satu token hanya di satu profil.
+- Pastikan hanya **satu** proses gateway: `ps -u suka-hermes -o pid,cmd | grep gateway`.
+  Proses `gateway run` manual sisa uji harus di-`kill` (berebut token dengan service).
+- Uji 2026-10-07 di Telegram (chat pribadi, hanya ID dev): omzet 6 Okt = Rp 66.105.510 ✅,
+  pertanyaan gaji ditolak ✅. Telegram dua arah = **hanya untuk uji dev**; membuka ke bos
+  = keputusan terpisah (tambah ID eksplisit, tetap chat pribadi, jangan masukkan ke grup).
+
 ## SOUL.md profil bisnis — aturan wajib
 - Setiap angka wajib berasal dari hasil alat di percakapan ini; alat gagal/tidak ada →
   "data tidak tersedia" + alasan. Jangan memperkirakan.

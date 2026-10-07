@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { uraiInline, uraiMarkdown, uraiPesan } from './uraiPesan'
+import { nadaStatus, uraiInline, uraiMarkdown, uraiPesan } from './uraiPesan'
 
 const tabel = '{"jenis":"tabel","kolom":["A","B"],"baris":[["x",1]]}'
 const fence = (j: string) => '```suka-ui\n' + j + '\n```'
@@ -88,5 +88,27 @@ describe('daftarChip', () => {
     expect(daftarChip(12)).toBeNull()
     expect(daftarChip(null)).toBeNull()
     expect(daftarChip('Empang')).toBeNull()
+  })
+})
+
+
+describe('nadaStatus', () => {
+  it('memetakan status ke nada warna', () => {
+    expect(nadaStatus('Alpa')).toBe('bahaya')
+    expect(nadaStatus('alpha')).toBe('bahaya')
+    expect(nadaStatus('Tidak hadir')).toBe('bahaya')
+    expect(nadaStatus('Telat 35 menit')).toBe('peringatan')
+    expect(nadaStatus('Dalam toleransi')).toBe('toleransi')
+    expect(nadaStatus('Belum hadir')).toBe('peringatan')
+    expect(nadaStatus('Cuti Tahunan')).toBe('info')
+    expect(nadaStatus('Hadir')).toBe('baik')
+    expect(nadaStatus('Tepat waktu')).toBe('baik')
+  })
+  it('abaikan teks bukan status, angka, dan kalimat panjang', () => {
+    expect(nadaStatus('KANTOR PUSAT')).toBeNull()
+    expect(nadaStatus('Revita Al Keyla')).toBeNull()
+    expect(nadaStatus(3)).toBeNull()
+    expect(nadaStatus('Staf ini alpa karena tidak ada catatan absen sama sekali')).toBeNull()
+    expect(nadaStatus('Alpa per lokasi, 7 Oktober 2026', 80)).toBe('bahaya')
   })
 })

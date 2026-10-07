@@ -86,6 +86,26 @@ async function fetchAttendancePage(
   }
 }
 
+/** Seluruh baris sesuai filter, per batch sampai habis (dipakai export Excel layar & Bot HRD). */
+export async function fetchAllAttendance(
+  supabase: SupabaseClient,
+  filter: AttendanceFilterValues,
+  search: string,
+  exclusions: Exclusions
+): Promise<AttendancePage> {
+  let summary: AttendanceSummary = EMPTY_SUMMARY
+  const all = await fetchAllPages(
+    async (limit, offset) => {
+      const res = await fetchAttendancePage(supabase, filter, search, exclusions, limit, offset)
+      summary = res.summary
+      return res
+    },
+    (r) => `${r.staff_id}|${r.outlet_id}|${r.date}`,
+    EXPORT_BATCH
+  )
+  return { ...all, summary }
+}
+
 /**
  * Satu halaman rekap absensi harian (pengelompokan in/out, filter, pencarian,
  * ringkasan dan pagination semuanya di RPC `hr_absensi_harian`).
@@ -159,17 +179,7 @@ export function useAttendance(filter: AttendanceFilterValues, search: string, pa
    */
   const exportAll = async (): Promise<AttendancePage> => {
     if (!exclusions) throw new Error('Data belum siap')
-    let summary: AttendanceSummary = EMPTY_SUMMARY
-    const all = await fetchAllPages(
-      async (limit, offset) => {
-        const res = await fetchAttendancePage(supabase, filter, search, exclusions, limit, offset)
-        summary = res.summary
-        return res
-      },
-      (r) => `${r.staff_id}|${r.outlet_id}|${r.date}`,
-      EXPORT_BATCH
-    )
-    return { ...all, summary }
+    return fetchAllAttendance(supabase, filter, search, exclusions)
   }
 
   return { ...query, isLoading: query.isLoading || !exclusions, exportAll }

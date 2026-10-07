@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Send, RotateCcw, X, Maximize2, Minimize2 } from 'lucide-react'
+import { Loader2, Send, RotateCcw, X, Maximize2, Minimize2, Minus } from 'lucide-react'
 import { jakartaDayKey } from '@suka/auth'
 import { kirimPesanBotHrd, ambilPesanBotHrd } from '@/app/actions/botHrd'
 import { bacaPercakapan, simpanPercakapan, hapusPercakapan } from '@/lib/botHrd/simpanan'
 import { IsiPesan } from './IsiPesan'
 
-type Pesan = { peran: 'user' | 'assistant'; isi: string }
+type Pesan = { peran: 'user' | 'assistant'; isi: string; baru?: boolean; pid?: string | null }
 
 const SARAN = ['Siapa yang telat hari ini?', 'Siapa yang alpa hari ini?', 'Siapa yang sedang cuti?', 'Ceklist harian hari ini sudah lengkap?']
 const PEMBUKA: Pesan = {
@@ -22,8 +22,11 @@ export function PanelBotHrd({
   gagangGeser,
   besar,
   onToggleBesar,
+  onMinimize,
 }: {
   onTutup: () => void
+  /** Ciutkan panel jadi bar kecil (percakapan tetap berjalan). */
+  onMinimize?: () => void
   gagangGeser?: React.HTMLAttributes<HTMLDivElement>
   besar?: boolean
   onToggleBesar?: () => void
@@ -63,7 +66,7 @@ export function PanelBotHrd({
     }
     percakapanId.current = r.percakapanId
     simpanPercakapan(storage(), r.percakapanId, jakartaDayKey())
-    setPesan((p) => [...p, { peran: 'assistant', isi: r.jawaban }])
+    setPesan((p) => [...p, { peran: 'assistant', isi: r.jawaban, baru: true, pid: r.percakapanId }])
   }
 
   function mulaiBaru() {
@@ -98,6 +101,11 @@ export function PanelBotHrd({
               {besar ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
           )}
+          {onMinimize && (
+            <button type="button" onClick={onMinimize} className="rounded-lg p-2 hover:bg-white/10" aria-label="Minimize" title="Minimize">
+              <Minus className="h-4 w-4" />
+            </button>
+          )}
           <button type="button" onClick={onTutup} className="rounded-lg p-2 hover:bg-white/10" aria-label="Tutup">
             <X className="h-4 w-4" />
           </button>
@@ -114,7 +122,13 @@ export function PanelBotHrd({
                   : 'w-full max-w-[95%] min-w-0 rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm text-[#2B1B17] shadow-sm'
               }
             >
-              {m.peran === 'user' ? m.isi : <IsiPesan teks={m.isi} />}
+              {m.peran === 'user' ? m.isi : <IsiPesan
+                  teks={m.isi}
+                  boleh={!!m.baru}
+                  kunciPesan={`${m.pid ?? percakapanId.current ?? 'baru'}:${i}`}
+                  terbaru={i === pesan.length - 1 && !memuat}
+                  onKirim={kirim}
+                />}
             </div>
           </div>
         ))}

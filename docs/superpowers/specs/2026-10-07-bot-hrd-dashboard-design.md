@@ -93,3 +93,12 @@ pemindai output tiap alat (gerbang 3).
 | D9 | **Kasbon menunggu ditampilkan beserta statusnya**: per outlet = jumlah pengajuan berstatus menunggu + total nominal menunggu, di samping total kasbon. Tetap **tanpa nama & nominal per orang** (§4). |
 | D10 | **API server Hermes dinyalakan oleh dev (sesi Claude)** sebagai bagian plan: port 8643, bind `127.0.0.1`, `API_SERVER_KEY` profil `hrd`, toolset dikunci, hanya terjangkau app HR. Dilakukan setelah alat MCP lolos gerbang 1–3, bukan sebelumnya. |
 | D11 | **Digest Telegram HRD menyusul** — di luar tahap ini. |
+
+## 8. Keputusan lanjutan (2026-10-07 sore)
+
+| # | Keputusan |
+|---|---|
+| D12 | **Scope `hr_rinci`** — gaji & kasbon **per orang** (nama + nominal) boleh keluar, **khusus Bot HRD**. CEO/scope lain tidak. Alat baru: `kasbon_daftar` (id, nama, outlet, nominal, sisa, cicilan_bulan, status menunggu/aktif/lunas/ditolak, tanggal) dan `gaji_daftar` (bulan, tahun, outlet → nama, outlet, gaji_pokok, tunjangan, bonus, potongan, total, status). Gaji hanya ditampilkan bila ditanya. **Catatan risiko:** data ini lewat model AI via 9Router dan VPS Hermes yang diakses root bersama. Tetap terlarang: NIK/KTP, HP, alamat, email, rekening bank, selfie/face data, alasan cuti. **Mengubah §4 untuk Bot HRD** (gaji & kasbon per orang tidak lagi dilarang); larangan lain di §4 tetap. |
+| D13 | **Aksi agentik dieksekusi langsung oleh widget HR** atas sesi HRD, tanpa klik konfirmasi, lewat blok ```suka-ui``` berjenis `aksi`. Hermes tetap **read-only** (hanya menghasilkan blok; eksekusi di widget). Satu eksekusi per blok, riwayat percakapan **tidak dijalankan ulang** saat dimuat, maksimal **5 aksi per pesan**. Alur **tawar-lalu-eksekusi**: bot boleh menawarkan aksi secara proaktif lewat blok `tawaran` (teks ≤300, 1–4 pilihan; tombol mengirim `pesan` sebagai pesan pengguna, maks 1 tawaran per balasan) tetapi baru mengeluarkan blok `aksi` setelah pengguna setuju; perintah eksplisit langsung ("setujui cuti Cici") dieksekusi tanpa tawaran. Penolakan tanpa alasan: tawaran meminta alasan dulu. |
+| D14 | **Daftar aksi tahap ini:** `setujui_cuti {id}`, `tolak_cuti {id, alasan wajib}`, `setujui_kasbon {id}`, `tolak_kasbon {id, alasan?}`, `tinjau_ceklist {id, tanggapan?}`, `buka_halaman {path, query?}`, `unduh_rekap_absensi {dari, sampai, outlet_id?}`. |
+| D15 | **Alpa mengecualikan** cuti yang disetujui, hari libur role kantor, dan Off di Shift Roster (PR #58). Menggantikan D7 (bot tak lagi perlu menandai cuti/libur sebagai terhitung alpa; daftar `cuti`/`libur` tetap boleh ditampilkan sebagai konteks). |

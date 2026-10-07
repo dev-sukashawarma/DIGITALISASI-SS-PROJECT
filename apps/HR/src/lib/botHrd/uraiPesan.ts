@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SkemaAksi } from './aksi'
 
 const sel = z.union([z.string(), z.number(), z.null()])
 
@@ -29,7 +30,16 @@ const SkemaGrafik = z.object({
   satuan: z.string().optional(),
   data: z.array(z.object({ label: z.string(), nilai: z.number() })).max(40),
 })
-export const SkemaBlokUi = z.discriminatedUnion('jenis', [SkemaTabel, SkemaKartu, SkemaGrafik])
+const SkemaTawaran = z.object({
+  jenis: z.literal('tawaran'),
+  teks: z.string().min(1).max(300),
+  pilihan: z
+    .array(z.object({ label: z.string().min(1).max(40), pesan: z.string().min(1).max(300) }))
+    .min(1)
+    .max(4),
+})
+export type BlokTawaran = z.infer<typeof SkemaTawaran>
+export const SkemaBlokUi = z.union([z.discriminatedUnion('jenis', [SkemaTabel, SkemaKartu, SkemaGrafik, SkemaTawaran]), SkemaAksi])
 
 export type BlokUi = z.infer<typeof SkemaBlokUi>
 export type BlokTabel = z.infer<typeof SkemaTabel>

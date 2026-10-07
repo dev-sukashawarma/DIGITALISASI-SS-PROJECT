@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { buatKunciHermes, cabutKunciHermes, ubahIpKunciHermes } from './actions'
 
-const DOMAIN = ['penjualan', 'gudang', 'absensi', 'finance'] as const
+const DOMAIN = ['penjualan', 'gudang', 'absensi', 'finance', 'hr_rinci'] as const
+const LABEL_DOMAIN: Record<string, string> = { hr_rinci: 'HR rinci (gaji & kasbon per orang)' }
 
 type Kunci = { id: string; nama: string; prefix: string; scope: string[]; ip_diizinkan: string[]; aktif: boolean; dibuat_at: string; dicabut_at: string | null; terakhir_dipakai_at: string | null }
 type Log = { id: number; prefix: string | null; alat: string | null; status: string; alasan: string | null; ip: string | null; durasi_ms: number | null; at: string }
@@ -62,7 +63,7 @@ export default function KunciHermesPanel({ kunci, log }: { kunci: Kunci[]; log: 
           {DOMAIN.map((d) => (
             <label key={d} className="flex items-center gap-1">
               <input type="checkbox" checked={scope.includes(d)} onChange={(e) => setScope((s) => (e.target.checked ? [...s, d] : s.filter((x) => x !== d)))} />
-              {d}
+              {LABEL_DOMAIN[d] ?? d}
             </label>
           ))}
         </div>

@@ -1,9 +1,9 @@
 // Satu-satunya peta role → profil Hermes. Tambah baris saat agen divisi siap (spec W3).
 export type Profil = 'ceo' | 'gudang' | 'hrd' | 'finance'
 
+// Sementara HANYA developer (masa uji). Buka lagi untuk owner/admin dengan menambah baris di sini
+// DAN di gerbang tile portal (apps/portal/src/app/launcher/page.tsx, bisaBotCeo).
 const PETA: Record<string, Profil> = {
-  owner: 'ceo',
-  admin: 'ceo',
   developer: 'ceo',
 }
 

@@ -9,6 +9,7 @@ import { calculateProratedExpenses } from '@/lib/opexProrata'
 import { computeCompanyProfit } from '@/lib/profit'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { isInScope, mitraOutletIds, type ProfitScope } from '@/lib/outletOwnership'
+import { getMitraInvestmentsAction } from '@/app/actions/mitraInvestments'
 import type { ExpenseRow } from '@/hooks/useExpenses'
 import type { OutletExportItem, ConsolidatedSummaryData } from './profitExportService'
 
@@ -164,13 +165,22 @@ export async function fetchProfitExportData({
 
   // 6. Evaluasi Scope & Kemitraan
   onProgress?.('Menganalisis & menghitung angka laba rugi...')
+  let activeInvestments = mitraInvestments
+  if (!activeInvestments || Object.keys(activeInvestments).length === 0) {
+    try {
+      activeInvestments = await getMitraInvestmentsAction()
+    } catch (e) {
+      console.warn('Gagal memuat fallback mitraInvestments di profitExportFetcher:', e)
+    }
+  }
+
   const cleanOutlets = outlets.filter(o => !isTestOutlet(o))
   const allOutlets = cleanOutlets.some(o => o.id === 'ss-online')
     ? cleanOutlets
     : [{ id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any, ...cleanOutlets]
-  const mitraIds = mitraOutletIds(allOutlets, mitraInvestments)
+  const mitraIds = mitraOutletIds(allOutlets, activeInvestments)
   const cutoffDates = new Map<string, string>()
-  for (const [id, inv] of Object.entries(mitraInvestments)) {
+  for (const [id, inv] of Object.entries(activeInvestments)) {
     if (inv?.tanggal_mulai) {
       cutoffDates.set(id, inv.tanggal_mulai)
     }
@@ -192,7 +202,7 @@ export async function fetchProfitExportData({
   let totalMitraFee = 0
   const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean }>()
 
-  for (const [oid, inv] of Object.entries(mitraInvestments)) {
+  for (const [oid, inv] of Object.entries(activeInvestments)) {
     const outletSales = salesRows.filter(
       (r: any) =>
         r.outlet_id === oid &&

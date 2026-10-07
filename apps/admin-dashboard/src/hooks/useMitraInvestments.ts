@@ -1,82 +1,28 @@
 'use client'
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase'
-import { fetchAllPages } from '@/lib/fetchAllPages'
+import {
+  getMitraInvestmentsAction,
+  type MitraInvestmentExtended,
+  type MitraTransferRecord
+} from '@/app/actions/mitraInvestments'
 
-export interface MitraTransferRecord {
-  id: string
-  outlet_id: string
-  bulan: string | null
-  nominal: number
-}
-
-export interface MitraInvestmentExtended {
-  id: string
-  outlet_id: string
-  nilai_investasi: number
-  tanggal_mulai: string | null
-  catatan: string | null
-  created_at: string
-  updated_at: string
-  omzet_historis: number
-  transfer_historis: number
-  is_profit_sharing_active: boolean
-  persentase_bagi_hasil: number
-  management_fee: number
-  totalTransfers: number
-  totalDanaKembali: number
-  isBep: boolean
-  transfers?: MitraTransferRecord[]
-}
+export type { MitraInvestmentExtended, MitraTransferRecord }
 
 /**
  * Profil investasi mitra per outlet, dipetakan berdasarkan `outlet_id`.
  *
+ * Menggunakan Server Action (getMitraInvestmentsAction) yang dijalankan dengan
+ * service client agar bypass RLS anon/browser yang sering mengembalikan array kosong.
+ *
  * Dipakai halaman Laba Rugi untuk dua hal: memisahkan outlet mitra dari outlet
- * pusat, dan mengisi angka bagi hasil/BEP di ekspor CSV & PDF. Lewat React
- * Query supaya statusnya ikut terpantau — pemisahan internal/mitra tidak boleh
- * dihitung selagi daftar mitra masih kosong karena belum termuat.
+ * pusat, dan mengisi angka bagi hasil/BEP di ekspor CSV & PDF.
  */
 export function useMitraInvestments() {
-  const supabase = useMemo(() => createClient(), [])
   const query = useQuery<Record<string, MitraInvestmentExtended>>({
     queryKey: ['mitra-investments'],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const [invRes, transfers] = await Promise.all([
-        supabase.from('mitra_investments').select('*'),
-        fetchAllPages<MitraTransferRecord>(() =>
-          supabase.from('mitra_transfers').select('id, outlet_id, bulan, nominal').order('id', { ascending: true })
-        ),
-      ])
-      if (invRes.error) throw invRes.error
-
-      const transfersByOutlet = new Map<string, MitraTransferRecord[]>()
-      for (const t of transfers ?? []) {
-        if (!t.outlet_id) continue
-        const list = transfersByOutlet.get(t.outlet_id) || []
-        list.push(t)
-        transfersByOutlet.set(t.outlet_id, list)
-      }
-
-      const map: Record<string, MitraInvestmentExtended> = {}
-      for (const inv of invRes.data ?? []) {
-        const outletTransfersList = transfersByOutlet.get(inv.outlet_id) ?? []
-        const outletTransfers = outletTransfersList.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
-        const totalDanaKembali = Number(inv.omzet_historis || 0) + Number(inv.transfer_historis || 0) + outletTransfers
-        const modalInvestasi = Number(inv.nilai_investasi) || 0
-        const isBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi
-
-        map[inv.outlet_id] = {
-          ...inv,
-          totalTransfers: outletTransfers,
-          totalDanaKembali,
-          isBep,
-          transfers: outletTransfersList,
-        }
-      }
-      return map
+      return await getMitraInvestmentsAction()
     },
   })
 

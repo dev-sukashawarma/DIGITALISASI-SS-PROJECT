@@ -148,28 +148,36 @@ export function buildOutletFinancialCalculations(
   const omzetHistoris = Number(inv?.omzet_historis) || 0
   const transferHistoris = Number(inv?.transfer_historis) || 0
   const curPeriodMonth = (ctx.effectiveFilter.from || '').slice(0, 7)
-  let priorTransfers = (inv?.transfers || [])
+
+  // Akumulasi seluruh transfer sebelum periode laporan saat ini
+  const transfersList = inv?.transfers || []
+  let priorTransfers = transfersList
     .filter((t: any) => {
       const b = (t.bulan || '').slice(0, 7)
-      return b >= '2026-08' && (!curPeriodMonth || b < curPeriodMonth)
+      return !curPeriodMonth || b < curPeriodMonth
     })
     .reduce((sum: number, t: any) => sum + (Number(t.nominal) || 0), 0)
-  if (priorTransfers === 0 && (!curPeriodMonth || curPeriodMonth >= '2026-09')) {
+
+  // Fallback: Jika periode >= September 2026 namun data transfer Agustus belum tercatat di DB
+  const hasAugTransfer = transfersList.some((t: any) => (t.bulan || '').slice(0, 7) === '2026-08')
+  if (!hasAugTransfer && (!curPeriodMonth || curPeriodMonth >= '2026-09')) {
     const augClosing = getMitraAugustClosing(item.id)
     if (augClosing && augClosing.totals.mitraShare > 0) {
-      priorTransfers = Math.round(augClosing.totals.mitraShare)
+      priorTransfers += Math.round(augClosing.totals.mitraShare)
     }
   }
+
   const profitMitraSebelumnya = omzetHistoris + transferHistoris + priorTransfers
+  const isBepAlready = Boolean(inv?.isBep) || Boolean(item.isBep) || (modalInvestasi > 0 && profitMitraSebelumnya >= modalInvestasi)
+
   const policy = resolveMitraPolicy({
     periodFrom: ctx.effectiveFilter.from,
-    isBep: item.isBep,
+    isBep: isBepAlready,
     legacyProfitSharingPct: inv?.persentase_bagi_hasil,
     legacyManagementFee: inv?.management_fee,
   })
   const bagiHasilPct = isMitra ? policy.profitSharingPct : 0
-  const mgmtFeePct = item.mgmtFeePct
-  const managementFee = item.mgmtFee
+  const mgmtFeePct = isMitra ? policy.managementFeePct : 0
 
   // 1. Group sales by channel
   const channels = {
@@ -247,6 +255,9 @@ export function buildOutletFinancialCalculations(
   const gpTikTok = settlementTikTok - cogsTikTok
   const gpWebsite = channels.website.revenue - channels.website.adminFee - cogsWebsite
 
+  const managementFee = isMitra && mgmtFeePct > 0 
+    ? (item.mgmtFee > 0 ? item.mgmtFee : Math.round((totalRev * mgmtFeePct) / 100)) 
+    : 0
   const totalGrossProfit = totalRev - totalAdminFee - totalCogs - item.waste - managementFee
 
   // OPEX
@@ -305,7 +316,7 @@ export function buildOutletFinancialCalculations(
   const totalProfitMitraSementara = profitMitraSebelumnya + (isMitra ? profitMitra : 0)
   const roiVal = modalInvestasi > 0 ? ((totalProfitMitraSementara / modalInvestasi) * 100).toFixed(2) + '%' : '0.00%'
   const bepStatus = isMitra 
-    ? (item.isBep || (modalInvestasi > 0 && totalProfitMitraSementara >= modalInvestasi)
+    ? (isBepAlready || item.isBep || (modalInvestasi > 0 && totalProfitMitraSementara >= modalInvestasi)
         ? 'SUDAH BEP (BALIK MODAL)' 
         : `${(modalInvestasi > 0 ? (totalProfitMitraSementara / modalInvestasi) * 100 : 0).toFixed(2).replace('.', ',')}% Menuju BEP`)
     : '-'

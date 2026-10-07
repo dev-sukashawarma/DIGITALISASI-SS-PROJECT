@@ -34,6 +34,7 @@ import {
   type ExportContext,
 } from '@/lib/export/profitExportService'
 import { fetchProfitExportData } from '@/lib/export/profitExportFetcher'
+import { getMitraInvestmentsAction } from '@/app/actions/mitraInvestments'
 
 interface DownloadProfitDataModalProps {
   isOpen: boolean
@@ -239,6 +240,16 @@ export function DownloadProfitDataModal({
       let exportExpenseRows: any[]
       let exportTiktokSettlements: Record<string, any>
 
+      // Pastikan data profil investasi mitra selalu lengkap dari sisi server
+      let effectiveMitraInvestments = mitraInvestments
+      if (!effectiveMitraInvestments || Object.keys(effectiveMitraInvestments).length === 0) {
+        try {
+          effectiveMitraInvestments = await getMitraInvestmentsAction()
+        } catch (e) {
+          console.warn('Gagal memuat fallback mitraInvestments di modal unduh:', e)
+        }
+      }
+
       // 1. Ambil Data (Gunakan memory jika data layar lengkap dan cocok, atau tarik background jika beda)
       if (canUseScreenData) {
         setProgressPct(20)
@@ -255,7 +266,7 @@ export function DownloadProfitDataModal({
           to: toDate,
           scope,
           outlets,
-          mitraInvestments,
+          mitraInvestments: effectiveMitraInvestments,
           onProgress: msg => {
             setProgressText(msg)
           },
@@ -270,7 +281,7 @@ export function DownloadProfitDataModal({
       const exportCtx: ExportContext = {
         salesRows: exportSalesRows,
         expenseRows: exportExpenseRows,
-        mitraInvestments,
+        mitraInvestments: effectiveMitraInvestments,
         tiktokSettlements: exportTiktokSettlements,
         filter: { from: fromDate, to: toDate },
         effectiveFilter: { from: fromDate, to: toDate },

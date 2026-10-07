@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@source "../../../../packages";
+
+@theme {
+  --color-suka-orange: #f29744;
+  --color-suka-brown: #701604;
+  --color-suka-ink: #400a07;
+  --color-suka-cream: #fff7ed;
+  --color-suka-green: #0a7d2c;
+  --font-display: 'Lilita One', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+html, body { height: 100%; }
+body { font-family: var(--font-sans); background: var(--color-suka-cream); color: var(--color-suka-ink); }

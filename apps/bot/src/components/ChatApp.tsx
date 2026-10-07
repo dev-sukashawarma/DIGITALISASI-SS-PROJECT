@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Menu, Plus, Send, Trash2, X } from 'lucide-react'
+import { Home, LogOut, Menu, Plus, Send, Trash2, X } from 'lucide-react'
+import { createSupabaseBrowserClient } from '@suka/auth'
 import { pecahTeks } from '@/lib/teks'
 
 type Percakapan = { id: string; judul: string; diperbarui_at: string }
@@ -22,7 +23,26 @@ function Isi({ isi }: { isi: string }) {
   )
 }
 
-export default function ChatApp({ nama, judulBot }: { nama: string; judulBot: string }) {
+// Pola sama dengan signOut() di @suka/auth AuthProvider: hapus sesi lokal + cookie sb-* (juga di
+// domain bersama), lalu kembali ke portal. Batas 1 dtk agar tombol tak menggantung bila jaringan lambat.
+async function keluar(portalUrl: string) {
+  try {
+    await Promise.race([
+      createSupabaseBrowserClient().auth.signOut({ scope: 'local' }),
+      new Promise((r) => setTimeout(r, 1000)),
+    ])
+  } catch {}
+  const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
+  for (const raw of document.cookie.split(';')) {
+    const name = raw.split('=')[0].trim()
+    if (!name.startsWith('sb-')) continue
+    document.cookie = `${name}=; Max-Age=0; path=/`
+    if (domain) document.cookie = `${name}=; Max-Age=0; path=/; domain=${domain}`
+  }
+  window.location.href = portalUrl
+}
+
+export default function ChatApp({ nama, judulBot, portalUrl }: { nama: string; judulBot: string; portalUrl: string }) {
   const [daftar, setDaftar] = useState<Percakapan[]>([])
   const [aktif, setAktif] = useState<string | null>(null)
   const [pesan, setPesan] = useState<Pesan[]>([])
@@ -117,10 +137,20 @@ export default function ChatApp({ nama, judulBot }: { nama: string; judulBot: st
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b bg-white p-3">
           <button className="md:hidden" onClick={() => setLaci(true)} aria-label="Daftar percakapan"><Menu size={22} /></button>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="font-display text-xl text-suka-brown">{judulBot}</h1>
-            <p className="text-xs text-gray-500">Halo, {nama}</p>
+            <p className="truncate text-xs text-gray-500">Halo, {nama}</p>
           </div>
+          <a href={portalUrl} className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm text-suka-brown hover:bg-suka-cream" aria-label="Kembali ke portal">
+            <Home size={16} /> <span className="hidden sm:inline">Portal</span>
+          </a>
+          <button
+            onClick={() => { if (confirm('Keluar dari akun?')) keluar(portalUrl) }}
+            className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            aria-label="Keluar"
+          >
+            <LogOut size={16} /> <span className="hidden sm:inline">Keluar</span>
+          </button>
         </header>
 
         <section className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -140,7 +170,7 @@ export default function ChatApp({ nama, judulBot }: { nama: string; judulBot: st
                 {m.peran === 'bot' && i === pesan.length - 1 && menunggu ? (
                   <span className="italic text-gray-500">Sedang mengambil data…</span>
                 ) : (
-                  <Isi isi={m.isi} />
+                  <Isi isi={m.peran === 'bot' ? m.isi.replace(/^\s+/, '') : m.isi} />
                 )}
               </div>
             </div>

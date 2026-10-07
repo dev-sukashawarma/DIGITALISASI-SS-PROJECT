@@ -3355,8 +3355,11 @@ gerbang `supabase/verifikasi/hermes/gerbang-penjualan.md`.
   dimuat → SUKA Bot & Hermes 500. Ketahuan hanya lewat uji lokal (tsc & build lolos).
 - `apply_migration` (Supabase MCP) menstempel versi = waktu apply, bukan nama berkas →
   berkas di-rename mengikuti stempel sebelum commit.
-- Hermes lokal: header `x-real-ip` klien dipercaya (tanpa proxy). **Di produksi wajib uji**
-  `x-real-ip` palsu dari luar → harus tetap 403 (proxy harus menimpa header).
+- **admin.sukashawarma.com di belakang Cloudflare** (uji produksi 7 Okt): IP yang dilihat
+  Traefik (`x-real-ip`) = edge Cloudflare yang berganti tiap panggilan; header IP palsu dari
+  klien tidak lolos. IP asli = `cf-connecting-ip`, dipercaya **hanya** bila pengirim ∈ rentang
+  resmi Cloudflare (`lib/hermes/ip.ts`, daftar statis — perbarui bila Cloudflare menambah
+  rentang). Jangan pernah memasukkan IP Cloudflare ke allowlist kunci.
 - Toolset bawaan Hermes **per platform** — platform baru (Telegram) muncul 17/28 aktif;
   kunci `hermes tools disable --platform <p> ...` sebelum pesan pertama.
 - Kunci uji lokal `667ce866` sudah **dicabut**, baris masih di `hermes_api_key`.

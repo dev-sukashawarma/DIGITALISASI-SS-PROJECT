@@ -148,8 +148,10 @@ Prasyarat: admin-dashboard dengan `/api/hermes/mcp` sudah ter-deploy (branch
    `ceo tools enable suka:penjualan_ringkasan ...` (format `server:tool`).
 4. Salin `docs/hermes/SOUL-ceo.md` → `~/.hermes/profiles/ceo/SOUL.md`.
 5. Panggilan pertama akan **403** (IP kosong). Buka log di halaman Kunci Hermes, lihat IP
-   pada baris "ditolak", tambahkan IP itu ke kunci → ulangi. (Coolify mungkin di VPS yang
-   sama → IP bisa IP publik VPS atau IP jaringan Docker; pakai yang tercatat di log.)
+   pada baris "ditolak", tambahkan IP itu ke kunci → ulangi. Harapannya **`76.13.193.138`**
+   (IP publik VPS): admin.sukashawarma.com di belakang **Cloudflare**, IP asli diambil dari
+   `cf-connecting-ip`. ⚠️ Kalau log menampilkan `172.6x/104.1x–104.2x/162.15x…` (rentang
+   Cloudflare), JANGAN dimasukkan — berarti perbaikan Cloudflare belum ter-deploy.
 6. Uji: `ceo` → "omzet kemarin berapa?" → jawaban menyebut periode & sama dengan layar.
 7. Gerbang 2 di produksi, terutama: kirim header `x-real-ip` palsu dari laptop →
    harus tetap **403**. Kalau lolos, proxy tidak menimpa header → allowlist IP bisa

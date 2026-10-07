@@ -91,8 +91,8 @@ Migration baru (hanya fungsi; nol perubahan tabel, data, publikasi):
 
 ### 4.3 Route `GET /api/kantor/status`
 
-- Gerbang `ambilSesiKantor()`: 401 → `{error:'belum_login'}`, 403 → `{error:'tidak_boleh'}`.
-- Galat `42501` dari RPC → 403 (bukan 500). Galat lain → 502 `{error:'gagal_memuat'}`.
+- Gerbang `ambilSesiKantor()`: 401/403 → `{ galat: 'Tidak punya akses.' }` (pola route `apps/bot` yang sudah ada).
+- Galat `42501` dari RPC → 403 (bukan 500). Galat lain → 502 `{ galat: 'Gagal memuat status bot.' }`.
 - `Cache-Control: no-store`.
 - Respons: `{ diambilAt: string, meja: Meja[] }`,
   `Meja = { id, nama, scope, keadaan, alatTerakhir, terakhirAt }` — `keadaan` dihitung di server
@@ -110,7 +110,7 @@ Migration baru (hanya fungsi; nol perubahan tabel, data, publikasi):
 | `src/components/kantor/KantorApp.tsx` | Kanvas, polling, kartu nama, pita status, fallback daftar teks. |
 | `src/app/kantor/page.tsx` | Gerbang server (`ambilSesiKantor`) + render. |
 | `src/app/api/kantor/status/route.ts` | §4.3. |
-| `public/kantor/` | Sprite karakter Metro City, lantai/dinding/furnitur Pixel Agents, `layout.json`, `KREDIT.md`. |
+| `public/kantor/assets/` | Sprite karakter Metro City, lantai/dinding/furnitur Pixel Agents, `default-layout-1.json`, `asset-index.json` & `furniture-catalog.json` (dibangkitkan sekali dari manifest upstream), `KREDIT.md`. |
 
 ### 5.2 Aturan keadaan (`keadaan.ts`)
 
@@ -129,20 +129,24 @@ Batas inklusif (tepat 60 dtk = `bekerja`, tepat 10 mnt = `galat`). Konstanta ber
 
 ### 5.3 Keadaan → animasi
 
-| Keadaan | Karakter |
-|---|---|
-| `bekerja` | Berjalan ke kursi lalu mengetik; gelembung kecil berisi `alatTerakhir`. |
-| `siaga` | Duduk diam di meja, sesekali menoleh. |
-| `galat` | Berdiri di samping meja, tanda "!" merah. |
-| `tidur` | Duduk, "z z", layar meja mati. |
+Memakai primitif engine Pixel Agents apa adanya (dikoreksi saat menyusun plan, setelah membaca
+`officeState.ts` upstream — engine tidak punya pose "berdiri di samping meja" atau "tidur"):
+
+| Keadaan | Perintah engine | Tampilan |
+|---|---|---|
+| `bekerja` | `setAgentActive(id, true)` + `setAgentTool(id, alatTerakhir)` | Berjalan ke kursi, mengetik/membaca; PC di meja menyala. Kartu nama memuat `alatTerakhir`. |
+| `siaga` | `setAgentActive(id, false)` | Perilaku diam bawaan engine (berkeliling/istirahat). |
+| `galat` | `setAgentActive(id, false)` + `showPermissionBubble(id)` | Gelembung perhatian bawaan engine di atas kepala; kartu nama merah dengan "!". |
+| `tidur` | `setAgentActive(id, false)` | Kartu nama redup dengan "z z". |
 
 ### 5.4 Layout & pembagian meja
 
-- Satu `layout.json` dengan **6 meja**.
-- Meja dibagikan ke kunci aktif secara **stabil**: urut `dibuat_at` naik (tiebreak `id`), kunci
-  ke-n → meja ke-n. Bot tidak berpindah meja antar muat.
-- Kunci aktif > 6: sisanya tampil di daftar teks di bawah kanvas (nama + keadaan) — tidak
-  disembunyikan.
+- Layout = **layout bawaan Pixel Agents** (`default-layout-1.json`, 21×22 tile) apa adanya; tidak
+  membuat layout sendiri. Kapasitas = jumlah kursi yang dihitung engine dari layout itu.
+- Urutan masuk kantor **stabil**: urut `dibuat_at` naik (tiebreak `id`), sesuai urutan RPC.
+  Id karakter engine = hash stabil dari `id` kunci, jadi karakter tak tertukar antar polling.
+- Kunci aktif melebihi kapasitas: sisanya tampil di daftar teks di bawah kanvas (nama + keadaan)
+  — tidak disembunyikan.
 - Karakter (sprite) dipilih stabil dari `id` kunci (hash → indeks sprite).
 - Kartu nama di atas tiap karakter: nama kunci + label scope.
 
@@ -175,7 +179,7 @@ event ini.
 - **Vitest** `keadaan.test.ts`: tiap baris aturan §5.2, batas tepat 60 dtk & 10 mnt (dan +1),
   jam 06:59/07:00/22:59/23:00 WIB, kunci tanpa log, `ditolak` lama (> 10 mnt) jatuh ke aturan berikut.
 - **Vitest** `peta.test.ts`: pembagian meja stabil terhadap urutan input, tiebreak `id`,
-  > 6 kunci → sisa ke daftar, 0 kunci.
+  kunci melebihi kapasitas → sisa ke daftar, 0 kunci, id karakter stabil per `id` kunci.
 - **Vitest** gerbang route (pola `src/app/api/kunci.test.ts`): 401/403/42501→403.
 - **SQL** `supabase/verifikasi/kantor_bot/t1.sql` (transaksi + `ROLLBACK`): owner/admin
   terbaca; crew ditolak 42501; anon tanpa EXECUTE; kolom sensitif tidak ada di keluaran;

@@ -65,8 +65,8 @@ describe('absensi_rekap & telat bulan ini', () => {
 describe('cuti_izin', () => {
   it('siapa cuti pada tanggal itu (disetujui) + pengajuan menunggu; tanpa alasan', async () => {
     const r: any = await jalan('cuti_izin', { tanggal: '2026-10-07' })
-    expect(r.sedang_cuti).toEqual([{ nama: 'Cici', outlet: 'SUKA SHAWARMA EMPANG', jenis: 'Cuti Tahunan', mulai: '2026-10-06', selesai: '2026-10-08', hari: 3 }])
-    expect(r.menunggu).toEqual([{ nama: 'Budi', outlet: 'SUKA SHAWARMA EMPANG', jenis: 'Sakit', mulai: '2026-10-09', selesai: '2026-10-09', hari: 1 }])
+    expect(r.sedang_cuti).toEqual([{ id: 'lv1', nama: 'Cici', outlet: 'SUKA SHAWARMA EMPANG', jenis: 'Cuti Tahunan', mulai: '2026-10-06', selesai: '2026-10-08', hari: 3 }])
+    expect(r.menunggu).toEqual([{ id: 'lv2', nama: 'Budi', outlet: 'SUKA SHAWARMA EMPANG', jenis: 'Sakit', mulai: '2026-10-09', selesai: '2026-10-09', hari: 1 }])
   })
 })
 
@@ -83,7 +83,7 @@ describe('ceklist_kepatuhan', () => {
     const r: any = await jalan('ceklist_kepatuhan')
     expect(r.ringkas).toEqual({ lokasi: 2, sudah_dicek: 1, belum_dicek: 1, perlu_perhatian: 1, belum_ditinjau: 1 })
     expect(r.outlet).toEqual([
-      { outlet: 'SUKA SHAWARMA EMPANG', status: 'sudah_dicek', area_manager: 'Fajar', nilai: 'perhatian', jumlah_temuan: 2, ditinjau: false },
+      { outlet: 'SUKA SHAWARMA EMPANG', status: 'sudah_dicek', id: 'ck1', diperbarui_pada: '2026-10-07T05:00:00Z', area_manager: 'Fajar', nilai: 'perhatian', jumlah_temuan: 2, ditinjau: false },
       { outlet: 'Kantor Pusat', status: 'belum_dicek' },
     ])
   })

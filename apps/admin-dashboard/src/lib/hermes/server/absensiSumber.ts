@@ -179,7 +179,7 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
       .filter((r) => !kecuali.has(r.staff_id))
       .map((r) => {
         const st = Array.isArray(r.outlet_staff) ? r.outlet_staff[0] : r.outlet_staff
-        return { nama: st?.name ?? '-', outletId: st?.outlet_id ?? null, jenis: r.leave_type, mulai: r.start_date, selesai: r.end_date, hari: r.days, status: r.status }
+        return { id: r.id as string, nama: st?.name ?? '-', outletId: st?.outlet_id ?? null, jenis: r.leave_type, mulai: r.start_date, selesai: r.end_date, hari: r.days, status: r.status }
       })
   }
 
@@ -193,7 +193,7 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
   async function ceklist(tanggal: string): Promise<CeklistOutlet[]> {
     const daftar = (await outlets()).filter((o) => o.type === 'internal' || o.type === 'mitra')
     const data = wajib(
-      await svc.from('ceklist_harian').select('outlet_id, nama_am, temuan, ditinjau_pada, ceklist_harian_item(nilai)').eq('tanggal', tanggal),
+      await svc.from('ceklist_harian').select('id, outlet_id, nama_am, temuan, updated_at, ditinjau_pada, ceklist_harian_item(nilai)').eq('tanggal', tanggal),
     ) as any[]
     const per = new Map(data.map((d) => [d.outlet_id, d]))
     return daftar.map((o) => {
@@ -202,6 +202,8 @@ export function buatKonteksAbsensi(svc: SupabaseClient, sekarang: Date): Konteks
         outlet: o,
         laporan: d
           ? {
+              id: d.id as string,
+              diperbaruiPada: (d.updated_at as string | null) ?? null,
               namaAm: d.nama_am ?? '-',
               nilai: terburuk(((d.ceklist_harian_item ?? []) as { nilai: NilaiCeklist }[]).map((i) => i.nilai)),
               jumlahTemuan: (d.temuan ?? []).length,

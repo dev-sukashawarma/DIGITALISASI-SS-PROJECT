@@ -122,6 +122,7 @@ async function cutiIzin(ctx: KonteksHermes, a: { tanggal?: string }) {
   const [daftar, outlets] = await Promise.all([ctx.absensi.cuti(), ctx.absensi.outlets()])
   const nama = new Map(outlets.map((o) => [o.id, o.name]))
   const bentuk = (c: (typeof daftar)[number]) => ({
+    id: c.id,
     nama: c.nama,
     outlet: (c.outletId && nama.get(c.outletId)) || '-',
     jenis: LABEL_CUTI[c.jenis] ?? c.jenis,
@@ -156,7 +157,7 @@ async function ceklistKepatuhan(ctx: KonteksHermes, a: { tanggal?: string }) {
   const daftar = await ctx.absensi.ceklist(tanggal)
   const outlet = daftar.map((c) =>
     c.laporan
-      ? { outlet: c.outlet.name, status: 'sudah_dicek', area_manager: c.laporan.namaAm, nilai: c.laporan.nilai, jumlah_temuan: c.laporan.jumlahTemuan, ditinjau: c.laporan.ditinjau }
+      ? { outlet: c.outlet.name, status: 'sudah_dicek', id: c.laporan.id, diperbarui_pada: c.laporan.diperbaruiPada, area_manager: c.laporan.namaAm, nilai: c.laporan.nilai, jumlah_temuan: c.laporan.jumlahTemuan, ditinjau: c.laporan.ditinjau }
       : { outlet: c.outlet.name, status: 'belum_dicek' },
   )
   const sudah = daftar.filter((c) => c.laporan)

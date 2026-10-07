@@ -19,4 +19,8 @@ describe('posReport.ts = pintu server action', () => {
   it('tidak ada fungsi bercakupan yang bocor ke berkas server action', () => {
     expect(sumber).not.toMatch(/export\s+(async\s+)?function\s+\w*UntukScope/)
   })
+  it('tidak me-re-export tipe (transform server action menjadikannya ReferenceError)', () => {
+    expect(sumber).not.toMatch(/^export\s+(type\s+)?\{/m)
+    expect(sumber).not.toMatch(/^export\s+type\s/m)
+  })
 })

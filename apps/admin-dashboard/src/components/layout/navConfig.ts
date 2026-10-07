@@ -3,7 +3,7 @@ import {
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
   Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal, ImagePlus, Settings2,
-  CalendarDays, FileCheck, AlertTriangle, Award, Coins, Ticket, Sparkles
+  CalendarDays, FileCheck, AlertTriangle, Award, Coins, Ticket, Sparkles, KeyRound
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING' | 'MARCOM'
@@ -196,6 +196,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/petty-cash-balance', label: 'Penyesuaian Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
+      { href: '/dashboard/sistem/hermes', label: 'Kunci Hermes', shortLabel: 'Hermes', icon: KeyRound, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/printer', label: 'Pengaturan Printer', shortLabel: 'Printer', icon: Printer, roles: ['ADMIN'] },
       { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['ADMIN'] },
       { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['ADMIN'] },

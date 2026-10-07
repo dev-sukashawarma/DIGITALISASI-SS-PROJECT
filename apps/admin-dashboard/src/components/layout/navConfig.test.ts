@@ -95,6 +95,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/reports/pos',
     '/dashboard/reports/target-harian',
     '/dashboard/resep',
+    '/dashboard/sistem/hermes',
     '/dashboard/stok-monitoring',
     '/dashboard/system-health',
   ],
@@ -133,6 +134,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/reports/input-pengeluaran',
     '/dashboard/reports/pos',
     '/dashboard/reports/target-harian',
+    '/dashboard/sistem/hermes',
   ],
   ADMIN_HR: [
     '/dashboard/hr',

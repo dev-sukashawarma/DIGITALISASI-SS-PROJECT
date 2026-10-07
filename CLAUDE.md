@@ -3324,5 +3324,47 @@ akhir), `docs/superpowers/plans/2026-10-05-suka-bot-avatar-animasi.md`
   jadi tab) di ikon roda gigi panel, **per perangkat** (`localStorage`), spec §12.
 - Portal kini punya Vitest (`yarn test`); `framer-motion`/`vitest` tanpa ubah lockfile.
 
-**Last updated:** 2026-10-05  
+---
+
+## Session 2026-10-07: Hermes API Tahap 1 — Bot Divisi (admin-dashboard + VPS)
+
+**Status:** Kode di branch `feat/hermes-api` (belum merge/push). DB: migration
+`20261007104817_hermes_api_key` **applied & terstempel**. ⚠️ Perlu merge + **redeploy
+`admin-dashboard`**, lalu sambung Hermes di VPS (runbook). 860/860 test, build sukses.
+
+**Spec/plan/runbook:** `docs/superpowers/specs/2026-10-07-hermes-api-design.md`,
+`docs/superpowers/plans/2026-10-07-hermes-api-tahap1.md`, `docs/RUNBOOK-HERMES-VPS.md`,
+gerbang `supabase/verifikasi/hermes/gerbang-penjualan.md`.
+
+- **Arsitektur:** Hermes Agent (Nous) di VPS Hostinger `srv1892441`, user Linux `suka-hermes`
+  (VPS dipakai bersama Hermes milik Rendy yang berjalan sebagai **root** + memegang
+  service role key — disengaja; pemisahan user = kerapian, bukan keamanan). Hermes
+  **read-only** lewat server MCP `POST /api/hermes/mcp` (JSON-RPC ditulis sendiri, tanpa
+  SDK/dependency baru). Kunci per bot `hms_<prefix>_<rahasia>` (SHA-256, scope domain,
+  allowlist IP fail-closed, log `hermes_api_log`), dikelola di **Sistem → Kunci Hermes**.
+- **Domain tahap 1 = penjualan** (5 alat membungkus fungsi SUKA Bot; laporan pagi CEO =
+  template). Urutan berikut: gudang → absensi → finance. Webapp bos `bot.sukashawarma.com`
+  (SSO) = plan terpisah. Notifikasi = satu Master Bot Telegram satu arah (digest).
+- **Refactor:** inti `getPosReport` pindah ke `lib/posReport/laporan.ts`
+  (`laporanPosUntukScope(req, cakupan)`); `app/actions/posReport.ts` tetap satu-satunya
+  pintu `'use server'` (dijaga `posReport.pintu.test.ts`).
+
+### ⚠️ Gotcha
+- **Jangan me-re-export TIPE dari berkas `'use server'`** (`export type { X }`): transform
+  server action (Turbopack dev) menjadikannya nilai runtime → `ReferenceError` saat modul
+  dimuat → SUKA Bot & Hermes 500. Ketahuan hanya lewat uji lokal (tsc & build lolos).
+- `apply_migration` (Supabase MCP) menstempel versi = waktu apply, bukan nama berkas →
+  berkas di-rename mengikuti stempel sebelum commit.
+- Hermes lokal: header `x-real-ip` klien dipercaya (tanpa proxy). **Di produksi wajib uji**
+  `x-real-ip` palsu dari luar → harus tetap 403 (proxy harus menimpa header).
+- Toolset bawaan Hermes **per platform** — platform baru (Telegram) muncul 17/28 aktif;
+  kunci `hermes tools disable --platform <p> ...` sebelum pesan pertama.
+- Kunci uji lokal `667ce866` sudah **dicabut**, baris masih di `hermes_api_key`.
+
+### 📝 Next
+1. Merge `feat/hermes-api`, redeploy admin-dashboard.
+2. Runbook "Sambungkan MCP": kunci Bot CEO, profil `ceo`, SOUL, IP dari log, gerbang 1–2 produksi.
+3. Masa uji laporan pagi 1 minggu di grup Telegram uji → baru grup Owner.
+
+**Last updated:** 2026-10-07  
 **Owner:** Dev Suka Shawarma

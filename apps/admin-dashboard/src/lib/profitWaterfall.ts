@@ -42,6 +42,8 @@ export interface WaterfallInput {
   opexMonthly: number
   opexPettyCash: number
   centralExpense: number
+  /** Joint Expense (biaya bersama operasional antar-outlet) bila ada. */
+  jointExpense?: number
   /** Biaya kantor pusat hanya ikut pada tampilan gabungan seluruh outlet. */
   includeCentral: boolean
   /** Rincian per kategori untuk baris beban bulanan outlet. */
@@ -62,6 +64,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
   const {
     grossRevenue, deductions, hpp, waste,
     opexMonthly, opexPettyCash, centralExpense, includeCentral,
+    jointExpense = 0,
     opexMonthlyBreakdown,
     managementFeeIncome = 0,
     mitraHppMarginIncome = 0,
@@ -83,7 +86,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
   // bebannya, sehingga `all` tak pernah sama dengan `internal` + `mitra`.
   const netRevenue = grossRevenue - deductions + managementFeeIncome + mitraHppMarginIncome - managementFeeExpense
   const labaKotor = netRevenue - hpp
-  const opex = opexMonthly + opexPettyCash + (includeCentral ? centralExpense : 0)
+  const opex = opexMonthly + jointExpense + opexPettyCash + (includeCentral ? centralExpense : 0)
   const labaBersih = labaKotor - waste - opex
 
   const steps: WaterfallStep[] = [
@@ -170,6 +173,14 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       pctOfGross: pct(-opexMonthly),
       breakdown: opexMonthlyBreakdown?.length ? opexMonthlyBreakdown : undefined,
     },
+    ...(jointExpense > 0 ? [{
+      key: 'joint_expense',
+      label: 'Joint Expense',
+      hint: 'Biaya bersama operasional antar-outlet',
+      amount: -jointExpense,
+      kind: 'deduction' as const,
+      pctOfGross: pct(-jointExpense),
+    }] : []),
     {
       key: 'opex_petty_cash',
       label: 'Pengeluaran Petty Cash',

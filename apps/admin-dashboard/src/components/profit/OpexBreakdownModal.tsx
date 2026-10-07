@@ -16,7 +16,8 @@ import {
   Package,
   Wrench,
   FileText,
-  Landmark
+  Landmark,
+  Globe
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 
@@ -65,6 +66,7 @@ function getCategoryIcon(key: string) {
   if (k.includes('pusat') || k.includes('central')) return Landmark
   if (k.includes('pemeliharaan') || k.includes('service') || k.includes('renov')) return Wrench
   if (k.includes('perlengkapan') || k.includes('logistik')) return Package
+  if (k.includes('joint') || k.includes('bersama')) return Globe
   return FileText
 }
 

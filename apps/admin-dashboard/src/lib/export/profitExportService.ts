@@ -90,6 +90,7 @@ export interface ConsolidatedSummaryData {
   displayMargin: number
   adaAntarKantong: boolean
   includeCentral: boolean
+  totalJointExpense?: number
 }
 
 export interface ExportContext {
@@ -706,7 +707,13 @@ export async function generateConsolidatedPdfBlob(
   execRows.push([
     { content: '3. BEBAN OPERASIONAL (OPEX) & KERUGIAN', colSpan: 2, styles: { halign: 'left', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }
   ])
-  execRows.push(['Beban Operasional Seluruh Outlet (Gaji, Sewa, Listrik, Operasional)', { content: `-${rupiah(summary.pengeluaranOutlet)}`, styles: { halign: 'right' } }])
+  if (summary.totalJointExpense && summary.totalJointExpense > 0) {
+    const bebanMurni = Math.max(0, summary.pengeluaranOutlet - summary.totalJointExpense)
+    execRows.push(['Beban Operasional Seluruh Outlet (Gaji, Sewa, Listrik, Operasional)', { content: `-${rupiah(bebanMurni)}`, styles: { halign: 'right' } }])
+    execRows.push(['Joint Expense', { content: `-${rupiah(summary.totalJointExpense)}`, styles: { halign: 'right', textColor: [225, 29, 72] } }])
+  } else {
+    execRows.push(['Beban Operasional Seluruh Outlet (Gaji, Sewa, Listrik, Operasional)', { content: `-${rupiah(summary.pengeluaranOutlet)}`, styles: { halign: 'right' } }])
+  }
   if (summary.totalWaste > 0) {
     execRows.push(['Kerugian Bahan Rusak / Basi (Waste)', { content: `-${rupiah(summary.totalWaste)}`, styles: { halign: 'right', textColor: [225, 29, 72] } }])
   }

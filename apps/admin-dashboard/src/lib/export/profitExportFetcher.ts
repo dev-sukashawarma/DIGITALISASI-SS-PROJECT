@@ -233,6 +233,9 @@ export async function fetchProfitExportData({
   const totalDeductions = scopedSalesRows.reduce((sum: number, r: any) => sum + (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0), 0)
 
   const pengeluaranOutlet = scopedExpenseRows.filter((r: ExpenseRow) => r.scope === 'outlet').reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
+  const totalJointExpense = scopedExpenseRows
+    .filter((r: ExpenseRow) => r.scope === 'outlet' && !isTestOutlet(r.outlet_id) && ((r as any).category === 'joint_expense' || (r as any).category === 'joint_expanse'))
+    .reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
   const pengeluaranPusat = scopedExpenseRows.filter((r: ExpenseRow) => r.scope === 'pusat').reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
   const totalHpp = scopedHppRows.reduce((sum: number, r: any) => sum + r.hpp, 0)
   const totalWaste = scopedWasteRows.reduce((sum: number, r: any) => sum + r.nilai_waste, 0)
@@ -265,6 +268,7 @@ export async function fetchProfitExportData({
     displayMargin,
     adaAntarKantong,
     includeCentral,
+    totalJointExpense,
   }
 
   // Bangun breakdown outlet

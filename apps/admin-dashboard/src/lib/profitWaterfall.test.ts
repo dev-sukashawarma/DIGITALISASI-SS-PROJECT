@@ -325,3 +325,55 @@ describe('rincian channel omzet kotor dan potongan merchant', () => {
     expect(steps.find((s) => s.key === 'potongan')?.breakdown).toBeUndefined()
   })
 })
+
+describe('joint expense pada opex waterfall', () => {
+  const JOINT = 3_355_008
+
+  it('menyisipkan baris joint_expense saat nilainya > 0', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      jointExpense: JOINT,
+    })
+
+    const jointStep = steps.find((s) => s.key === 'joint_expense')
+    expect(jointStep).toBeDefined()
+    expect(jointStep?.label).toBe('Joint Expense')
+    expect(jointStep?.amount).toBe(-JOINT)
+    expect(jointStep?.kind).toBe('deduction')
+    expect(jointStep?.pctOfGross).toBeCloseTo((-JOINT / INPUT.grossRevenue) * 100, 4)
+
+    // Memastikan total berjalan tetap tepat
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+
+  it('tidak memunculkan baris joint_expense saat nilainya 0 atau tidak diset', () => {
+    const stepsZero = buildProfitWaterfall({
+      ...INPUT,
+      jointExpense: 0,
+    })
+    expect(stepsZero.some((s) => s.key === 'joint_expense')).toBe(false)
+
+    const stepsDefault = buildProfitWaterfall(INPUT)
+    expect(stepsDefault.some((s) => s.key === 'joint_expense')).toBe(false)
+  })
+
+  it('laba bersih terpangkas tepat sebesar jointExpense', () => {
+    const tanpaJoint = buildProfitWaterfall(INPUT)
+    const denganJoint = buildProfitWaterfall({
+      ...INPUT,
+      jointExpense: JOINT,
+    })
+
+    const netTanpa = tanpaJoint.find((s) => s.kind === 'total')!.amount
+    const netDengan = denganJoint.find((s) => s.kind === 'total')!.amount
+    expect(netDengan).toBe(netTanpa - JOINT)
+  })
+})
+

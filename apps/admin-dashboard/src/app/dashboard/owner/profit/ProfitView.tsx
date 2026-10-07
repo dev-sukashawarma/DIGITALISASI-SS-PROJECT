@@ -369,6 +369,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     () => expenseRows.filter(r => r.scope === 'outlet' && r.source === 'monthly' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name)).reduce((sum, r) => sum + r.amount, 0),
     [expenseRows]
   )
+  const totalJointExpense = useMemo(
+    () => expenseRows
+      .filter(r => r.scope === 'outlet' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name) && ((r as any).category === 'joint_expense' || (r as any).category === 'joint_expanse'))
+      .reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows]
+  )
+  const pengeluaranOutletBulananMurni = Math.max(0, pengeluaranOutletBulanan - totalJointExpense)
   const pengeluaranOutletPettyCash = useMemo(
     () => expenseRows.filter(r => r.scope === 'outlet' && r.source === 'petty_cash' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name)).reduce((sum, r) => sum + r.amount, 0),
     [expenseRows]
@@ -555,12 +562,19 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   // yang tertera di kartu.
   const includeCentral = isAllOutlets && scope !== 'mitra'
   // Rincian per kategori untuk baris "Beban Bulanan Outlet" di modal. Sumbernya
-  // baris yang PERSIS sama dengan yang membentuk `pengeluaranOutletBulanan`,
+  // baris yang PERSIS sama dengan yang membentuk `pengeluaranOutletBulananMurni`,
   // supaya jumlah rinciannya tak mungkin meleset dari angka induknya.
   const opexMonthlyBreakdown = useMemo(() => {
     const perKategori = new Map<string, number>()
     expenseRows
-      .filter(r => r.scope === 'outlet' && r.source === 'monthly' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name))
+      .filter(r => 
+        r.scope === 'outlet' && 
+        r.source === 'monthly' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) &&
+        (r as any).category !== 'joint_expense' &&
+        (r as any).category !== 'joint_expanse'
+      )
       .forEach(r => {
         const key = (r as any).category || 'lainnya'
         perKategori.set(key, (perKategori.get(key) ?? 0) + r.amount)
@@ -697,6 +711,15 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       })
     })
 
+    if (totalJointExpense > 0) {
+      list.push({
+        key: 'joint_expense',
+        label: 'Joint Expense',
+        amount: totalJointExpense,
+        isProrated: false,
+      })
+    }
+
     if (pengeluaranOutletPettyCash > 0) {
       list.push({
         key: 'petty_cash',
@@ -716,7 +739,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     }
 
     return list.sort((a, b) => b.amount - a.amount)
-  }, [opexMonthlyBreakdown, pengeluaranOutletPettyCash, includeCentral, pengeluaranPusat, isProrated])
+  }, [opexMonthlyBreakdown, totalJointExpense, pengeluaranOutletPettyCash, includeCentral, pengeluaranPusat, isProrated])
 
   const opexOutletList = useMemo(() => {
     const list = outletBreakdown.map(o => ({
@@ -745,7 +768,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     deductions: totalDeductions,
     hpp: totalHpp,
     waste: totalWaste,
-    opexMonthly: pengeluaranOutletBulanan,
+    opexMonthly: totalJointExpense > 0 ? pengeluaranOutletBulananMurni : pengeluaranOutletBulanan,
+    jointExpense: totalJointExpense,
     opexPettyCash: pengeluaranOutletPettyCash,
     centralExpense: pengeluaranPusat,
     includeCentral,
@@ -757,7 +781,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     deductionsBreakdown,
   }), [
     actualGrossSales, totalDeductions, totalHpp, totalWaste,
-    pengeluaranOutletBulanan, pengeluaranOutletPettyCash, pengeluaranPusat, includeCentral,
+    totalJointExpense, pengeluaranOutletBulananMurni, pengeluaranOutletBulanan, pengeluaranOutletPettyCash, pengeluaranPusat, includeCentral,
     opexMonthlyBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense,
     grossRevenueBreakdown, deductionsBreakdown,
   ])
@@ -1145,6 +1169,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 displayMargin,
                 adaAntarKantong,
                 includeCentral,
+                totalJointExpense,
               },
             }}
           />
@@ -1295,8 +1320,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                           </span>
                         )}
                       </div>
-                      <span className="font-bold">-{rupiah(pengeluaranOutletBulanan)}</span>
+                      <span className="font-bold">-{rupiah(totalJointExpense > 0 ? pengeluaranOutletBulananMurni : pengeluaranOutletBulanan)}</span>
                     </div>
+                    {totalJointExpense > 0 && (
+                      <div className="flex justify-between items-center text-rose-600">
+                        <span className="font-medium">Joint Expense</span>
+                        <span className="font-bold">-{rupiah(totalJointExpense)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-rose-600">
                       <span className="font-medium">Biaya Kas Kecil Operasional (Petty Cash)</span>
                       <span className="font-bold">-{rupiah(pengeluaranOutletPettyCash)}</span>

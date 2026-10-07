@@ -3,6 +3,7 @@ import { laporanPosUntukScope, type CakupanLaporan } from '@/lib/posReport/lapor
 import { buatAmbilLaporan, ambilOutlets } from '@/lib/sukaBot/server/sumberData'
 import { jakartaDate } from '@/lib/ownerDashboardCache'
 import type { KonteksHermes } from '../registry'
+import { buatKonteksAbsensi } from './absensiSumber'
 
 export async function konteksHermes(svc: any, sekarang: Date): Promise<KonteksHermes> {
   // Cakupan 'all' = sama dengan role berakses penuh (owner/admin) di layar Rangkuman Penjualan,
@@ -17,5 +18,6 @@ export async function konteksHermes(svc: any, sekarang: Date): Promise<KonteksHe
       sekarang,
       ambilLaporan: buatAmbilLaporan((req) => laporanPosUntukScope(req, cakupan)),
     },
+    absensi: buatKonteksAbsensi(svc, sekarang),
   }
 }

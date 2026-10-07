@@ -6,6 +6,7 @@ import { Providers } from './Providers'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { Header } from '@/components/layout/Header'
+import { BotHrdWidget } from '@/components/botHrd/BotHrdWidget'
 import { SwipeableLayout } from '@/components/layout/SwipeableLayout'
 import { ScrollRestoration } from '@/components/layout/ScrollRestoration'
 import './globals.css'
@@ -52,6 +53,7 @@ export default async function RootLayout({
             </div>
             
             <BottomNav />
+            <BotHrdWidget />
           </div>
         </Providers>
       </body>

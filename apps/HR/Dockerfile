@@ -11,6 +11,7 @@ COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
+COPY packages/hr-rumus/package.json packages/hr-rumus/package.json
 COPY apps/HR/package.json apps/HR/package.json
 
 # Install dependencies (cached by BuildKit)
@@ -62,11 +63,17 @@ ARG SUPABASE_SERVICE_ROLE_KEY
 ARG WAHA_BASE_URL
 ARG WAHA_SESSION
 ARG WAHA_API_KEY
+ARG HERMES_API_URL
+ARG HERMES_KEY_HRD
+ARG BOT_HRD_BATAS_HARIAN
 
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 ENV WAHA_BASE_URL=$WAHA_BASE_URL
 ENV WAHA_SESSION=$WAHA_SESSION
 ENV WAHA_API_KEY=$WAHA_API_KEY
+ENV HERMES_API_URL=$HERMES_API_URL
+ENV HERMES_KEY_HRD=$HERMES_KEY_HRD
+ENV BOT_HRD_BATAS_HARIAN=$BOT_HRD_BATAS_HARIAN
 
 COPY --from=builder /repo/node_modules /repo/node_modules
 COPY --from=builder /repo/apps/HR/node_module[s] /repo/apps/HR/node_modules/

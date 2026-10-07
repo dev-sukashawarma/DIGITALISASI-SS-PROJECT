@@ -1,5 +1,6 @@
 import { ALAT_HERMES, bangunAlatMcp, type KonteksHermes } from './registry'
 import { DOMAIN } from './domain'
+import { absensiPalsu } from './absensi/fixture'
 import type { KonteksPenjualan, OutletInfo } from '@/lib/sukaBot/alat/penjualan'
 
 const outlets: OutletInfo[] = [
@@ -16,18 +17,23 @@ const penjualan: KonteksPenjualan = {
     menu: [{ nama: 'Original Sapi Jumbo', qty: 5, omzet: 300_000 }],
   }),
 }
-const ctx: KonteksHermes = { penjualan, sekarang: penjualan.sekarang }
+const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, sekarang: penjualan.sekarang }
 
 // §6 spec: pola yang tak boleh pernah muncul di output alat mana pun.
-const TERLARANG = [
-  /gaji|salary|kasbon|cash_advance|payroll/i,
+// `kasbon` dikecualikan HANYA untuk alat kasbon_ringkasan (agregat per outlet, D9) —
+// alat itu diuji terpisah: tak boleh membawa nama/id staf.
+const TERLARANG_UMUM = [
+  /gaji|salary|payroll/i,
   /\bnik\b|ktp/i,
   /face_descriptor|selfie|ref_photo_url|foto_wajah/i,
   /password|token|api_key|service_role/i,
   /(\+62|\b08)\d{8,12}\b/,
   /\b\d{16}\b/,
   /@[a-z0-9-]+\.[a-z]{2,}/i,
+  /\breason\b|alasan_cuti/i,
 ]
+const KHUSUS_KASBON = /kasbon|cash_advance/i
+const terlarangUntuk = (nama: string) => (nama === 'kasbon_ringkasan' ? TERLARANG_UMUM : [...TERLARANG_UMUM, KHUSUS_KASBON])
 
 const cari = (nama: string) => bangunAlatMcp(async () => ctx).find((m) => m.nama === nama)!
 
@@ -62,12 +68,18 @@ describe('registry alat Hermes', () => {
       const r = await m.jalankan(def.contoh)
       expect(r.ok, m.nama).toBe(true)
       const teks = JSON.stringify(r)
-      for (const pola of TERLARANG) expect(teks, `${m.nama} cocok ${pola}`).not.toMatch(pola)
+      for (const pola of terlarangUntuk(m.nama)) expect(teks, `${m.nama} cocok ${pola}`).not.toMatch(pola)
       if (r.ok) {
-        expect(r.data.meta).toMatchObject({ sumber: 'Rangkuman Penjualan' })
+        expect(typeof (r.data.meta as any).sumber).toBe('string')
         expect(['lengkap', 'sebagian']).toContain((r.data.meta as any).kelengkapan)
       }
     }
+  })
+  it('GERBANG §6: kasbon_ringkasan tanpa nama/id staf', async () => {
+    const r = await cari('kasbon_ringkasan').jalankan({})
+    expect(r.ok).toBe(true)
+    const teks = JSON.stringify(r)
+    for (const kata of ['Andi', 'Budi', 'Cici', 'Dedi', 'Eka', 's1', 's2', 'staff_id', 'staffId', '"nama"']) expect(teks).not.toContain(kata)
   })
   it('outlet tes tidak pernah ikut peringkat', async () => {
     const r = await cari('penjualan_peringkat_outlet').jalankan({ periode: 'kemarin' })

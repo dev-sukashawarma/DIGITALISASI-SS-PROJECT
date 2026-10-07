@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+import { alpaVirtual } from '@suka/hr-rumus';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -192,43 +193,24 @@ export async function GET(request: Request) {
     });
 
     const todayStr = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD');
-    const virtualAlphas: any[] = [];
-    
-    let curr = dayjs(start_date);
-    const end = dayjs(end_date);
-    
-    while (curr.isBefore(end) || curr.isSame(end, 'day')) {
-      const dStr = curr.format('YYYY-MM-DD');
-      
-      if (dStr > todayStr) {
-        curr = curr.add(1, 'day');
-        continue;
-      }
-      
-      const presentStaffForDay = new Set(
-        dbRows
-          .filter((r) => dayjs(r.ts_server).tz('Asia/Jakarta').format('YYYY-MM-DD') === dStr && r.status !== 'alpha')
-          .map((r) => r.outlet_staff_id)
-      );
-      
-      activeStaff.forEach((staff) => {
-        if (!presentStaffForDay.has(staff.id)) {
-          virtualAlphas.push({
-            id: `virtual-alpha-${staff.id}-${dStr}`,
-            type: 'in',
-            ts_server: `${dStr}T23:59:59+07:00`,
-            ts_client: null,
-            status: 'alpha',
-            selfie_url: null,
-            outlet_staff_id: staff.id,
-            is_manual_button: false,
-            outlet_staff: { name: staff.name },
-          });
-        }
-      });
-      
-      curr = curr.add(1, 'day');
-    }
+    // Aturan alpa virtual = @suka/hr-rumus (satu sumber; dipakai juga bot HRD).
+    const virtualAlphas: any[] = alpaVirtual(
+      activeStaff,
+      dbRows as { outlet_staff_id: string; ts_server: string; status: string }[],
+      dayjs(start_date).format('YYYY-MM-DD'),
+      dayjs(end_date).format('YYYY-MM-DD'),
+      todayStr,
+    ).map((a) => ({
+      id: `virtual-alpha-${a.staffId}-${a.tanggal}`,
+      type: 'in',
+      ts_server: `${a.tanggal}T23:59:59+07:00`,
+      ts_client: null,
+      status: 'alpha',
+      selfie_url: null,
+      outlet_staff_id: a.staffId,
+      is_manual_button: false,
+      outlet_staff: { name: a.nama },
+    }));
 
     return NextResponse.json({
       ok: true,

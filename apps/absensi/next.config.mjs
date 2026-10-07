@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue', '@suka/realtime'],
+  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue', '@suka/realtime', '@suka/hr-rumus'],
   serverExternalPackages: ['@vladmandic/human'],
   experimental: {
     optimizePackageImports: ['lucide-react'],

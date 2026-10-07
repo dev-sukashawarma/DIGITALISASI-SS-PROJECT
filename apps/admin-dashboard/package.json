@@ -18,6 +18,7 @@
     "@hookform/resolvers": "^5.4.0",
     "@suka/auth": "*",
     "@suka/design-system": "*",
+    "@suka/hr-rumus": "*",
     "@suka/realtime": "*",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.38.0",

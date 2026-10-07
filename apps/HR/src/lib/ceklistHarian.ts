@@ -25,22 +25,16 @@ import { jakartaDayKey } from '@suka/auth'
 // Domain
 // ---------------------------------------------------------------------------
 
-export type Nilai = 'baik' | 'perhatian' | 'buruk'
+import { terburuk, type NilaiCeklist } from '@suka/hr-rumus'
+export { terburuk }
+export type Nilai = NilaiCeklist
 
 export const NILAI: { nilai: Nilai; label: string; emoji: string }[] = [
   { nilai: 'baik', label: 'Baik', emoji: '✅' },
   { nilai: 'perhatian', label: 'Perhatian', emoji: '⚠️' },
   { nilai: 'buruk', label: 'Buruk', emoji: '❌' },
 ]
-const URUTAN_NILAI: Record<Nilai, number> = { baik: 0, perhatian: 1, buruk: 2 }
 export const labelNilai = (n: Nilai) => NILAI.find((x) => x.nilai === n)!.label
-
-/** Nilai terburuk dari sekumpulan penilaian — dipakai kategori Rasa. */
-export function terburuk(daftar: (Nilai | null | undefined)[]): Nilai | null {
-  let hasil: Nilai | null = null
-  for (const n of daftar) if (n && (hasil == null || URUTAN_NILAI[n] > URUTAN_NILAI[hasil])) hasil = n
-  return hasil
-}
 
 export type Butir = {
   kategori: string

@@ -16,6 +16,7 @@
   "dependencies": {
     "@suka/auth": "*",
     "@suka/design-system": "*",
+    "@suka/hr-rumus": "*",
     "@suka/offline-queue": "*",
     "@suka/realtime": "*",
     "@supabase/ssr": "^0.5.1",

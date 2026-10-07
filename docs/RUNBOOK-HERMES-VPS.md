@@ -187,3 +187,17 @@ Prasyarat: admin-dashboard dengan `/api/hermes/mcp` sudah ter-deploy (branch
    Telegram **uji**. Cron Hermes kemungkinan UTC (07:00 WIB = 00:00 UTC) — uji dulu dengan
    jadwal beberapa menit ke depan.
 9. Isi tabel gerbang; setelah 7 hari lulus, pindahkan tujuan laporan pagi ke grup Owner.
+
+## Profil `hrd` — Bot HRD di dashboard HR (✅ 2026-10-07)
+- Dibuat `hermes profile create hrd --clone-from ceo` (token Telegram tidak ikut), lalu di
+  `~/.hermes/profiles/hrd/.env` diganti: `SUKA_MCP_KEY` = kunci **"Bot HRD"** (prefix `88dc8a56`,
+  scope `absensi` saja, IP `76.13.193.138` + `2a02:4780:59:ce0d::1`) dan `API_SERVER_KEY` baru.
+  Baris `TELEGRAM_*` dihapus. `memories/` & `sessions/` hasil klon dikosongkan.
+- SOUL: `docs/hermes/SOUL-hrd.md` → `~/.hermes/profiles/hrd/SOUL.md` (tanpa baris komentar pertama).
+- Toolset (hasil klon ceo): `cli`/`telegram` = `clarify`, `api_server` = `[]` (+ MCP `suka`).
+- Gateway di-restart (`systemctl --user restart hermes-gateway`) agar `/p/hrd/` dilayani.
+- Uji: tanpa kunci 401; dengan kunci → menjawab sebagai asisten HRD; dari container app HR
+  (`coolify` network) ke `http://10.0.1.1:8643/p/hrd/...` = 401 tanpa kunci (terjangkau).
+- Coolify app **HR SS** (`dzqtn8042wrh3gxoxdjqjhzu`): `HERMES_API_URL=http://10.0.1.1:8643`,
+  `HERMES_KEY_HRD=<API_SERVER_KEY profil hrd>`, `BOT_HRD_BATAS_HARIAN=100`.
+- Alat absensi baru tersedia di MCP setelah admin-dashboard versi domain `absensi` ter-deploy.

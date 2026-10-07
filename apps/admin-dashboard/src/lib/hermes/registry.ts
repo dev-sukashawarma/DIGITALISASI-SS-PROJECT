@@ -2,10 +2,13 @@ import { z } from 'zod'
 import type { KonteksPenjualan } from '@/lib/sukaBot/alat/penjualan'
 import type { Domain } from './domain'
 import type { AlatMcp, HasilAlat } from './mcp'
+import type { KonteksAbsensi } from './absensi/tipe'
 import { ALAT_PENJUALAN } from './alat/penjualan'
+import { ALAT_ABSENSI } from './alat/absensi'
 
 export interface KonteksHermes {
   penjualan: KonteksPenjualan
+  absensi: KonteksAbsensi
   sekarang: Date
 }
 
@@ -13,13 +16,17 @@ export interface DefinisiAlat {
   nama: string
   domain: Domain
   deskripsi: string
+  /** Nama layar sumber angka (meta.sumber). Default 'Rangkuman Penjualan'. */
+  sumber?: string
+  /** Catatan tetap untuk pembaca (meta.catatan), mis. batasan rumus. */
+  catatanMeta?: string
   skema: z.ZodType
   /** Argumen contoh yang sah — dipakai test gerbang §6 (larangan data). */
   contoh: Record<string, unknown>
   jalankan(ctx: KonteksHermes, a: any): Promise<Record<string, unknown>>
 }
 
-export const ALAT_HERMES: DefinisiAlat[] = [...ALAT_PENJUALAN]
+export const ALAT_HERMES: DefinisiAlat[] = [...ALAT_PENJUALAN, ...ALAT_ABSENSI]
 
 export function skemaJson(s: z.ZodType): Record<string, unknown> {
   const { $schema: _abaikan, ...sisa } = z.toJSONSchema(s) as Record<string, unknown>
@@ -46,10 +53,11 @@ function bungkus(def: DefinisiAlat, ambilKonteks: () => Promise<KonteksHermes>):
           data: {
             ...hasil,
             meta: {
-              sumber: 'Rangkuman Penjualan',
+              sumber: def.sumber ?? 'Rangkuman Penjualan',
               dihitung_pada: ctx.sekarang.toISOString(),
               // `catatan` diisi alat SUKA Bot bila periode masih berjalan (hari ini/minggu ini).
               kelengkapan: hasil.catatan ? 'sebagian' : 'lengkap',
+              ...(def.catatanMeta ? { catatan: def.catatanMeta } : {}),
             },
           },
         }

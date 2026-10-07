@@ -82,6 +82,12 @@ export default async function LauncherPage() {
   // SUKA Bot: hanya admin/owner/developer (sama dengan is_owner_or_admin() di server).
   const bisaSukaBot = ['admin', 'owner', 'developer'].includes(staff.role)
 
+  // Bot CEO (apps/bot, Hermes) — bukan AppName @suka/auth; gerbang = bisaSukaBot (sama dgn server apps/bot).
+  const hostLauncher = (await headers()).get('host') || ''
+  const BOT_URL = hostLauncher.includes('localhost') || hostLauncher.includes('127.0.0.1')
+    ? 'http://localhost:3050'
+    : (process.env.NEXT_PUBLIC_APP_URL_BOT || 'https://bot.sukashawarma.com')
+
   // Mitra, Korlap, dll tidak punya menu operasional di launcher → langsung ke admin-dashboard.
   if (['mitra', 'korlap'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
@@ -145,6 +151,15 @@ export default async function LauncherPage() {
       category: 'Customer Voice',
       badge: 'Eksternal',
       group: 'Pemasaran & Ulasan',
+    }] : []),
+    ...(bisaSukaBot ? [{
+      id: 'bot-ceo',
+      label: 'Bot CEO',
+      url: BOT_URL,
+      desc: 'Tanya data penjualan langsung ke bot',
+      category: 'Asisten Data',
+      badge: 'Baru',
+      group: 'Keuangan & Data',
     }] : []),
     ...apps.map(appName => {
       const meta = APP_META[appName]

@@ -295,7 +295,7 @@ export function DownloadProfitDataModal({
             scope,
             exportCtx
           )
-          downloadBlob(pdfBlob, `Laporan_Laba_Rugi_Konsolidasi_${scopeTag}_${periodTag}.pdf`)
+          downloadBlob(pdfBlob, `Laporan_Laba_Rugi_${scopeTag}_${periodTag}.pdf`)
         }
 
         if (fileFormat === 'csv' || fileFormat === 'both') {
@@ -308,7 +308,7 @@ export function DownloadProfitDataModal({
             exportCtx
           )
           const csvBlob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' })
-          downloadBlob(csvBlob, `Laporan_Laba_Rugi_Konsolidasi_${scopeTag}_${periodTag}.csv`)
+          downloadBlob(csvBlob, `Laporan_Laba_Rugi_${scopeTag}_${periodTag}.csv`)
         }
 
         setProgressPct(100)

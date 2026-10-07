@@ -16,6 +16,7 @@ import {
   Star,
   Building2,
   Sparkles,
+  Bot,
 } from 'lucide-react'
 
 export interface AppTileProps {
@@ -47,6 +48,19 @@ interface AppVisualConfig {
 export default function AppTile({ id = '', label, url, desc, category, badge }: AppTileProps) {
   const getAppConfig = (): AppVisualConfig => {
     const key = `${id} ${label}`.toLowerCase()
+
+    if (key.includes('bot-ceo')) {
+      return {
+        icon: <Bot size={24} strokeWidth={2.25} className="drop-shadow-xs" />,
+        tag: category || 'Asisten Data',
+        chip: 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600',
+        hover: 'hover:border-orange-400/40 hover:shadow-[0_20px_36px_-12px_rgba(249,115,22,0.22)]',
+        accentText: 'group-hover:text-orange-700',
+        accentBg: 'group-hover:bg-orange-500 group-hover:border-orange-500',
+        glow: 'bg-orange-400/20',
+        tagBadge: 'bg-orange-500/10 text-orange-800 border-orange-500/20',
+      }
+    }
 
     if (key.includes('review')) {
       return {

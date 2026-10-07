@@ -32,6 +32,8 @@ jobs:
           yarn workspace @suka/finance test
           yarn workspace @suka/absensi test
           yarn workspace @suka/inventori test
+          yarn workspace @suka/bot type-check
+          yarn workspace @suka/bot test
 
   migration-timestamp-lint:
     name: Migration timestamps sane

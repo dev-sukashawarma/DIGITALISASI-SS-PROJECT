@@ -35,33 +35,9 @@ export function getOrderHppChannelGroup(
 ): keyof HppChannelBreakdown {
   const normCh = (channel || "").toLowerCase().trim();
   const normSrc = (salesSource || "").toLowerCase().trim();
-  if (
-    [
-      "online",
-      "website",
-      "web",
-      "website ss",
-      "ss-online",
-      "ss_online",
-      "tiktok_shop",
-      "shopee_shop",
-    ].includes(normCh) ||
-    normSrc === "online"
-  ) {
-    return "website";
-  }
 
-  const src = resolveOrderSource(channel, salesSource, customerName, isEndorse).key.toLowerCase();
+  // 1. Channel eksplisit Food Apps (GoFood, GrabFood, ShopeeFood)
   if (
-    [
-      "gofood",
-      "grabfood",
-      "shopeefood",
-      "generic_food_app",
-      "food_apps",
-      "foodapp",
-      "foodapps",
-    ].includes(src) ||
     [
       "gofood",
       "grabfood",
@@ -75,7 +51,44 @@ export function getOrderHppChannelGroup(
   ) {
     return "food_apps";
   }
-  if (["tiktokgo", "tiktok", "tiktok_go"].includes(src) || ["tiktokgo", "tiktok", "tiktok_go"].includes(normCh)) {
+
+  // 2. Channel eksplisit TikTok Go
+  if (["tiktokgo", "tiktok", "tiktok_go"].includes(normCh)) {
+    return "tiktok_go";
+  }
+
+  // 3. Channel eksplisit Website & Marketplace
+  if (
+    [
+      "online",
+      "website",
+      "web",
+      "website ss",
+      "ss-online",
+      "ss_online",
+      "tiktok_shop",
+      "shopee_shop",
+    ].includes(normCh)
+  ) {
+    return "website";
+  }
+
+  // 4. Resolusi berbasis sumber pesanan (resolveOrderSource)
+  const src = resolveOrderSource(channel, salesSource, customerName, isEndorse).key.toLowerCase();
+  if (
+    [
+      "gofood",
+      "grabfood",
+      "shopeefood",
+      "generic_food_app",
+      "food_apps",
+      "foodapp",
+      "foodapps",
+    ].includes(src)
+  ) {
+    return "food_apps";
+  }
+  if (["tiktokgo", "tiktok", "tiktok_go"].includes(src)) {
     return "tiktok_go";
   }
   if (
@@ -86,7 +99,8 @@ export function getOrderHppChannelGroup(
       "ss_online",
       "tiktok_shop",
       "shopee_shop",
-    ].includes(src)
+    ].includes(src) ||
+    normSrc === "online"
   ) {
     return "website";
   }

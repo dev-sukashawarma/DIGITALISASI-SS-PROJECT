@@ -4,38 +4,72 @@
     {
       "name": "stok",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["workspace", "@suka/stok", "dev"],
+      "runtimeArgs": [
+        "workspace",
+        "@suka/stok",
+        "dev"
+      ],
       "port": 3001
     },
     {
       "name": "distribusi",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["workspace", "@suka/distribusi", "dev"],
+      "runtimeArgs": [
+        "workspace",
+        "@suka/distribusi",
+        "dev"
+      ],
       "port": 3002
     },
     {
       "name": "portal",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["workspace", "@suka/portal", "dev"],
+      "runtimeArgs": [
+        "workspace",
+        "@suka/portal",
+        "dev"
+      ],
       "port": 3010
     },
     {
       "name": "owner-dashboard",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["workspace", "@suka/owner-dashboard", "dev"],
+      "runtimeArgs": [
+        "workspace",
+        "@suka/owner-dashboard",
+        "dev"
+      ],
       "port": 3003
     },
     {
       "name": "admin-dashboard",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["workspace", "@suka/admin-dashboard", "dev"],
+      "runtimeArgs": [
+        "workspace",
+        "@suka/admin-dashboard",
+        "dev"
+      ],
       "port": 3005
     },
     {
       "name": "finance",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["workspace", "@suka/finance", "dev"],
+      "runtimeArgs": [
+        "workspace",
+        "@suka/finance",
+        "dev"
+      ],
       "port": 3020
+    },
+    {
+      "name": "bot",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": [
+        "workspace",
+        "@suka/bot",
+        "dev"
+      ],
+      "port": 3050
     }
   ]
 }

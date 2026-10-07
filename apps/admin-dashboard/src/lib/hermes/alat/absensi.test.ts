@@ -12,9 +12,10 @@ describe('absensi_hari_ini', () => {
     const r: any = await jalan('absensi_hari_ini')
     expect(r.status).toBe('ok')
     expect(r.tanggal).toBe('2026-10-07')
-    expect(r.total).toEqual({ hadir: 2, telat: 1, telat_toleransi: 0, belum: 1, alpa: 1, staf: 5 })
+    expect(r.total).toEqual({ hadir: 2, telat: 1, telat_toleransi: 1, belum: 1, alpa: 1, staf: 6 })
     const empang = r.outlet.find((o: any) => o.outlet === 'SUKA SHAWARMA EMPANG')
     expect(empang.telat).toEqual([{ nama: 'Budi', menit: 40, jam: '13.40' }])
+    expect(empang.telat_toleransi).toEqual([{ nama: 'Gina', menit: 5, jam: '13.05' }])
     expect(empang.belum_hadir).toEqual(['Cici'])
     expect(empang.alpa).toEqual(['Dedi'])
     expect(JSON.stringify(r)).not.toContain('Andi')
@@ -23,6 +24,19 @@ describe('absensi_hari_ini', () => {
     const r: any = await jalan('absensi_hari_ini', { outlet: 'kantor' })
     expect(r.outlet.map((o: any) => o.outlet)).toEqual(['Kantor Pusat'])
     expect(await jalan('absensi_hari_ini', { outlet: 'bekasi' })).toMatchObject({ status: 'galat' })
+  })
+})
+
+describe('diambil_pukul_wib & petunjuk_tampilan', () => {
+  it('semua alat membawa jam WIB (UTC+7), bukan UTC', async () => {
+    for (const a of ALAT_ABSENSI) {
+      const r: any = await jalan(a.nama)
+      expect(r.diambil_pukul_wib).toBe('14.00 WIB')
+    }
+  })
+  it('hari_ini & rekap punya petunjuk tampilan', async () => {
+    expect(((await jalan('absensi_hari_ini')) as any).petunjuk_tampilan).toContain('suka-ui')
+    expect(((await jalan('absensi_rekap')) as any).petunjuk_tampilan).toContain('suka-ui')
   })
 })
 

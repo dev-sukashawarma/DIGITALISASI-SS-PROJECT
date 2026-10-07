@@ -159,34 +159,11 @@ const PAGE_SIZE = 1000;
 const MENU_HPP_SELECT =
   "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))";
 
-export function useHpp(filter: PeriodFilterValue) {
-  const supabase = createClient();
-
-  const versiQuery = useQuery({
-    queryKey: ["hpp-riwayat-versi"],
-    staleTime: 60_000,
-    enabled: Boolean(filter.from && filter.to),
-    queryFn: () => ambilVersiRiwayatHpp(supabase),
-  });
-  const versiHpp = versiQuery.data;
-
-  const queryKey = [
-    "hpp-client-calculated-v2",
-    filter.from,
-    filter.to,
-    filter.outletId,
-    versiHpp ?? "",
-  ] as const;
-
-  const query = useQuery<HppRow[]>({
-    queryKey: [...queryKey],
-    ...periodCacheOptions(filter),
-    enabled: Boolean(filter.from && filter.to && versiHpp),
-    queryFn: withPeriodCache(queryKey, filter, async () => {
-      const start = new Date(filter.from);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(filter.to);
-      end.setHours(23, 59, 59, 999);
+export async function fetchHppRows(supabase: any, filter: PeriodFilterValue): Promise<HppRow[]> {
+  const start = new Date(filter.from);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(filter.to);
+  end.setHours(23, 59, 59, 999);
 
       const ordersGte = start.toISOString();
       const ordersLte = end.toISOString();
@@ -355,7 +332,32 @@ export function useHpp(filter: PeriodFilterValue) {
         markup: data.markup,
         channels: data.channels,
       }));
-    }),
+}
+
+export function useHpp(filter: PeriodFilterValue) {
+  const supabase = createClient();
+
+  const versiQuery = useQuery({
+    queryKey: ["hpp-riwayat-versi"],
+    staleTime: 60_000,
+    enabled: Boolean(filter.from && filter.to),
+    queryFn: () => ambilVersiRiwayatHpp(supabase),
+  });
+  const versiHpp = versiQuery.data;
+
+  const queryKey = [
+    "hpp-client-calculated-v2",
+    filter.from,
+    filter.to,
+    filter.outletId,
+    versiHpp ?? "",
+  ] as const;
+
+  const query = useQuery<HppRow[]>({
+    queryKey: [...queryKey],
+    ...periodCacheOptions(filter),
+    enabled: Boolean(filter.from && filter.to && versiHpp),
+    queryFn: withPeriodCache(queryKey, filter, () => fetchHppRows(supabase, filter)),
   });
   // Kegagalan riwayat HPP tak boleh diam-diam tampil sebagai "kosong": selama
   // versiHpp belum ada (masih memuat ATAU gagal), query utama sengaja tetap

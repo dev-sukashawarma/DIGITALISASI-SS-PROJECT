@@ -15,6 +15,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Hermes Agent (VPS): route memeriksa kunci API per bot sendiri
+  // (lib/hermes/server/autentikasi). Tanpa bypass ini enforceAppAccess me-redirect
+  // panggilan tanpa cookie ke portal.
+  if (request.nextUrl.pathname.startsWith('/api/hermes/')) {
+    return NextResponse.next()
+  }
+
   // Skip enforceAppAccess untuk localhost development
   if (request.nextUrl.hostname === 'localhost') {
     return undefined

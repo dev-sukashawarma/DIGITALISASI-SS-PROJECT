@@ -1,6 +1,6 @@
 'use client'
 
-import { daftarChip } from '@/lib/botHrd/uraiPesan'
+import { daftarChip, nadaStatus, type NadaStatus } from '@/lib/botHrd/uraiPesan'
 
 type Sel = string | number | null
 
@@ -16,7 +16,24 @@ const tampil = (v: Sel) => {
   return v
 }
 
+// Warna lencana status: alpa merah, telat amber, toleransi amber muda, cuti/izin biru, hadir hijau.
+const WARNA_STATUS: Record<NadaStatus, string> = {
+  bahaya: 'bg-red-100 text-red-700 ring-red-200',
+  peringatan: 'bg-amber-100 text-amber-800 ring-amber-200',
+  toleransi: 'bg-yellow-50 text-yellow-800 ring-yellow-200',
+  info: 'bg-sky-100 text-sky-800 ring-sky-200',
+  baik: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+}
+
 function IsiSel({ v }: { v: Sel }) {
+  const nada = nadaStatus(v)
+  if (nada) {
+    return (
+      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold leading-4 ring-1 ring-inset ${WARNA_STATUS[nada]}`}>
+        {v}
+      </span>
+    )
+  }
   const chip = daftarChip(v)
   if (chip) {
     return (

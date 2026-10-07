@@ -200,3 +200,26 @@ export function daftarChip(v: string | number | null | undefined): string[] | nu
     .filter(Boolean)
   return bagian.length > AMBANG_CHIP ? bagian : null
 }
+
+// ---------------------------------------------------------------------------
+// Warna status (alpa merah, telat amber, dst.) — dipakai tabel, kartu, grafik.
+// ---------------------------------------------------------------------------
+
+export type NadaStatus = 'bahaya' | 'peringatan' | 'toleransi' | 'info' | 'baik'
+
+const POLA_NADA: [NadaStatus, RegExp][] = [
+  ['bahaya', /\b(alpa|alpha|tidak hadir|mangkir|ditolak|buruk)\b/i],
+  ['toleransi', /toleransi/i],
+  ['peringatan', /\b(telat|terlambat|lebih awal|pulang telat|belum|menunggu|pending|perhatian)\b/i],
+  ['info', /\b(cuti|izin|sakit|libur)\b/i],
+  ['baik', /\b(hadir|tepat|masuk|keluar|disetujui|sudah|baik|aktif|lunas)\b/i],
+]
+
+/** Nada warna dari teks status. `batas` = panjang maksimum teks (hindari mewarnai kalimat). */
+export function nadaStatus(teks: string | number | null | undefined, batas = 24): NadaStatus | null {
+  if (typeof teks !== 'string') return null
+  const t = teks.trim()
+  if (!t || t.length > batas) return null
+  for (const [nada, pola] of POLA_NADA) if (pola.test(t)) return nada
+  return null
+}

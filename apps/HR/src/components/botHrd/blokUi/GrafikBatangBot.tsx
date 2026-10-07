@@ -1,9 +1,19 @@
 'use client'
 
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import type { BlokGrafik } from '@/lib/botHrd/uraiPesan'
+import { nadaStatus, type BlokGrafik, type NadaStatus } from '@/lib/botHrd/uraiPesan'
 
 const fmt = (v: unknown) => (typeof v === 'number' ? v.toLocaleString('id-ID') : String(v ?? ''))
+
+// Grafik alpa merah, telat amber, dst. (dari judul); selain itu oranye Suka.
+const WARNA_GRAFIK: Record<NadaStatus | 'netral', string> = {
+  bahaya: '#dc2626',
+  peringatan: '#f59e0b',
+  toleransi: '#facc15',
+  info: '#0ea5e9',
+  baik: '#16a34a',
+  netral: '#f29744',
+}
 
 export function GrafikBatangBot({ judul, satuan, data }: Pick<BlokGrafik, 'judul' | 'satuan' | 'data'>) {
   const tinggi = Math.min(560, Math.max(120, data.length * 28 + 30))
@@ -34,7 +44,7 @@ export function GrafikBatangBot({ judul, satuan, data }: Pick<BlokGrafik, 'judul
               separator=""
               contentStyle={{ fontSize: 11, borderRadius: 8, borderColor: '#E8DCCB' }}
             />
-            <Bar dataKey="nilai" fill="#f29744" radius={[0, 4, 4, 0]} isAnimationActive={false}>
+            <Bar dataKey="nilai" fill={WARNA_GRAFIK[nadaStatus(judul, 80) ?? 'netral']} radius={[0, 4, 4, 0]} isAnimationActive={false}>
               <LabelList dataKey="nilai" position="right" formatter={fmt} style={{ fontSize: 10, fill: '#4A1713' }} />
             </Bar>
           </BarChart>

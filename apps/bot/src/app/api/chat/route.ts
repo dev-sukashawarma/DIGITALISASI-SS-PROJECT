@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { ambilSesi } from '@/lib/server/sesi'
 import { validasiPesan, BATAS, GALAT_STANDAR } from '@/lib/batas'
 import { tanyaHermes, kunciProfil, GalatHermes } from '@/lib/hermes'
+import { periksaProfilChat } from '@/lib/server/izinChat'
 import {
   hitungPesanSejamTerakhir, buatPercakapan, ambilPercakapan, pangkasPercakapan, simpanPesan, sentuhPercakapan,
 } from '@/lib/server/percakapan'
@@ -15,19 +16,27 @@ const galat = (status: number, pesan: string) => NextResponse.json({ galat: pesa
 export async function POST(req: Request) {
   const g = await ambilSesi()
   if (!g.ok) return galat(g.status, g.status === 401 ? 'Silakan login dulu.' : 'Anda tidak punya akses ke bot ini.')
-  const { supabase, profil } = g.sesi
+  const { supabase, role } = g.sesi
 
   const body = await req.json().catch(() => ({}))
   const v = validasiPesan(body?.pesan)
   if (!v.ok) return galat(400, v.galat)
   const idDiminta = typeof body?.percakapanId === 'string' && UUID.test(body.percakapanId) ? body.percakapanId : null
 
+  let percakapan = idDiminta ? await ambilPercakapan(supabase, idDiminta) : null
+  if (idDiminta && !percakapan) return galat(404, 'Percakapan tidak ditemukan.')
+
+  const izin = periksaProfilChat(body?.profil, role, percakapan?.profil ?? null)
+  if (!izin.ok) {
+    const pesanIzin = { 400: 'Bot tidak dikenal.', 403: 'Anda tidak punya akses ke bot ini.', 409: 'Percakapan ini milik bot lain.' }
+    return galat(izin.status, pesanIzin[izin.status])
+  }
+  const profil = izin.profil
+
   if ((await hitungPesanSejamTerakhir(supabase)) >= BATAS.pesanPerJam) {
     return galat(429, `Batas ${BATAS.pesanPerJam} pesan per jam tercapai. Coba lagi nanti.`)
   }
 
-  let percakapan = idDiminta ? await ambilPercakapan(supabase, idDiminta) : null
-  if (idDiminta && !percakapan) return galat(404, 'Percakapan tidak ditemukan.')
   if (!percakapan) {
     const baru = await buatPercakapan(supabase, profil, v.pesan)
     percakapan = { ...baru, profil }

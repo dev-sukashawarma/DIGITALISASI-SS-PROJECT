@@ -1,4 +1,6 @@
 // Aturan keadaan meja Kantor Bot (spec §5.2). Murni — dipanggil di server dengan jam server.
+import type { Profil } from '@/lib/peran'
+
 export type Keadaan = 'bekerja' | 'siaga' | 'galat' | 'tidur'
 
 export type BarisStatus = {
@@ -20,6 +22,9 @@ export type Meja = {
   alatTerakhir: string | null
   terakhirAt: string | null
 }
+
+// Meja yang dikirim ke klien: + profil Hermes & izin chat pemanggil (spec §10, dihitung di server).
+export type MejaKantor = Meja & { profil: Profil | null; bolehChat: boolean }
 
 export const JENDELA_BEKERJA_DTK = 60
 export const JENDELA_GALAT_MNT = 10

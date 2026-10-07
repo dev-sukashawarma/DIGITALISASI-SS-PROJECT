@@ -198,3 +198,26 @@ publikasi), perubahan perilaku chat.
 
 - Migration `status_kantor_bot()` applied + terstempel + diverifikasi ke katalog sebelum redeploy.
 - Redeploy `apps/bot` (tidak ada env baru).
+
+## 10. Revisi 2026-10-07: chat & kantor satu layar (keputusan owner)
+
+Owner: *"disatukan saja jangan dipisah"*. Menggantikan §5.6 (tautan "Kantor", halaman `/kantor`
+terpisah) dan menarik maju Tahap C.
+
+- **Satu halaman `/`.** Kantor = tampilan utama. Klik karakter → panel bot itu terbuka di
+  samping (desktop, lebar tetap) atau sebagai lembar dari bawah (HP). Halaman `/kantor` tidak ada.
+  `/?layar=penuh` tetap menyembunyikan header (TV).
+- **Gerbang halaman** = owner/admin/developer staf aktif (gerbang kantor §4.1). Gerbang chat lama
+  (role → satu profil) dihapus.
+- **Profil Hermes per meja** (`profilUntukKunci(scope)`): scope memuat `penjualan` → `ceo`;
+  selain itu scope tunggal `absensi` → `hrd`, `gudang` → `gudang`, `finance` → `finance`;
+  lainnya → tanpa profil (status saja).
+- **Boleh chat** = role mengizinkan profil itu (`PROFIL_PER_PERAN` di `lib/peran.ts`; sementara
+  `developer` → `ceo`, `hrd`) **dan** kunci profil tersedia di server (`kunciProfil`). Dihitung di
+  server, dikirim sebagai `bolehChat` di tiap meja `/api/kantor/status`.
+- **Panel:** nama bot + keadaan; bila `bolehChat` → riwayat percakapan bot itu (daftar dapat
+  dibuka/tutup), kolom ketik, saran cepat per profil; bila tidak → kartu status + kalimat
+  "Bot ini belum dibuka untuk akun Anda."
+- **Server menegakkan:** `POST /api/chat` wajib `profil`; ditolak 403 bila tidak boleh; percakapan
+  lama hanya bisa dilanjutkan dengan profil yang sama. `GET /api/percakapan?profil=` hanya
+  mengembalikan percakapan profil yang boleh.

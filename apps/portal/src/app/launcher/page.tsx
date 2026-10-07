@@ -86,7 +86,7 @@ export default async function LauncherPage() {
   const hostLauncher = (await headers()).get('host') || ''
   const BOT_URL = hostLauncher.includes('localhost') || hostLauncher.includes('127.0.0.1')
     ? 'http://localhost:3050'
-    : (process.env.NEXT_PUBLIC_APP_URL_BOT || 'https://bot.sukashawarma.com')
+    : (process.env.NEXT_PUBLIC_APP_URL_BOT || 'https://agents.sukashawarma.com')
 
   // Mitra, Korlap, dll tidak punya menu operasional di launcher → langsung ke admin-dashboard.
   if (['mitra', 'korlap'].includes(staff.role)) {

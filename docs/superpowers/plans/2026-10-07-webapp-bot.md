@@ -1,8 +1,8 @@
-# Webapp Bot (`bot.sukashawarma.com`) Fase 1 Implementation Plan
+# Webapp Bot (`agents.sukashawarma.com`) Fase 1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Owner/admin/developer bisa membuka `bot.sukashawarma.com`, login SSO, lalu bertanya ke Bot CEO (Hermes profil `ceo`) dengan jawaban streaming dan riwayat tersimpan.
+**Goal:** Owner/admin/developer bisa membuka `agents.sukashawarma.com`, login SSO, lalu bertanya ke Bot CEO (Hermes profil `ceo`) dengan jawaban streaming dan riwayat tersimpan.
 
 **Architecture:** App Next.js baru `apps/bot`. Server app memeriksa sesi + `is_owner_or_admin()`, memetakan role → profil Hermes, memanggil API server Hermes (`/p/<profil>/v1/chat/completions`, OpenAI-compatible, SSE) lewat jaringan internal VPS dengan kunci profil server-only, meneruskan teks ke browser sebagai stream, dan menyimpan percakapan di Supabase (RLS milik sendiri). Tanpa middleware & tanpa mengubah `@suka/auth`: gerbang di halaman & route (pola SUKA Bot).
 
@@ -67,7 +67,7 @@ Catat range persis (mis. `next@^16.1.6`). Pakai range yang **tercetak** di sini 
   "name": "@suka/bot",
   "version": "0.0.1",
   "private": true,
-  "description": "Webapp Bot Suka Shawarma — meja depan Hermes (bot.sukashawarma.com)",
+  "description": "Webapp Bot Suka Shawarma — meja depan Hermes (agents.sukashawarma.com)",
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3050",
@@ -1228,7 +1228,7 @@ Setelah `const APP_URL = await getAppUrls()` tambahkan:
   const hostLauncher = (await headers()).get('host') || ''
   const BOT_URL = hostLauncher.includes('localhost') || hostLauncher.includes('127.0.0.1')
     ? 'http://localhost:3050'
-    : (process.env.NEXT_PUBLIC_APP_URL_BOT || 'https://bot.sukashawarma.com')
+    : (process.env.NEXT_PUBLIC_APP_URL_BOT || 'https://agents.sukashawarma.com')
 ```
 
 - [ ] **Step 2: Tile**
@@ -1269,7 +1269,7 @@ Di array `portalApps`, sebelum `...apps.map(...)`, tambahkan:
     ```
     (Tidak perlu `SUPABASE_SERVICE_ROLE_KEY` — app ini memakai sesi user.)
 - [ ] **Step 2: Build image lokal** (bila Docker tersedia): `docker build -f apps/bot/Dockerfile -t suka-bot .` → sukses. Bila Docker tak ada di mesin dev, lewati dan andalkan workflow.
-- [ ] **Step 3: Workflow deploy** — salin `.github/workflows/deploy-portal-coolify.yml` ke `deploy-bot-coolify.yml`; ganti: `paths` → `apps/bot/**`, `packages/auth/**`, `packages/design-system/**`, berkas workflow ini; `concurrency.group` → `deploy-bot-production`; image → `.../bot`; `file: apps/bot/Dockerfile`; build-args hanya `NEXT_PUBLIC_COOKIE_DOMAIN`, `NEXT_PUBLIC_PORTAL_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (secret server-only diisi di panel Coolify, bukan GitHub); pencarian aplikasi Coolify → fqdn `bot.sukashawarma.com` / name `bot`; smoke test → `https://bot.sukashawarma.com/api/health` (harap 200).
+- [ ] **Step 3: Workflow deploy** — salin `.github/workflows/deploy-portal-coolify.yml` ke `deploy-bot-coolify.yml`; ganti: `paths` → `apps/bot/**`, `packages/auth/**`, `packages/design-system/**`, berkas workflow ini; `concurrency.group` → `deploy-bot-production`; image → `.../bot`; `file: apps/bot/Dockerfile`; build-args hanya `NEXT_PUBLIC_COOKIE_DOMAIN`, `NEXT_PUBLIC_PORTAL_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (secret server-only diisi di panel Coolify, bukan GitHub); pencarian aplikasi Coolify → fqdn `agents.sukashawarma.com` / name `bot`; smoke test → `https://agents.sukashawarma.com/api/health` (harap 200).
 - [ ] **Step 4: CI** — di `.github/workflows/ci.yml`, pada job yang menjalankan test app lain, tambahkan `yarn workspace @suka/bot type-check` dan `yarn workspace @suka/bot test`.
 - [ ] **Step 5: README** — perbarui `apps/bot/README.md`: status → "fase 1 dibangun", cara dev (`yarn workspace @suka/bot dev`, port 3050), env yang dibutuhkan (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_COOKIE_DOMAIN`, `NEXT_PUBLIC_PORTAL_URL`, `SUPABASE_JWT_SECRET`, `HERMES_API_URL`, `HERMES_KEY_CEO`).
 - [ ] **Step 6: Commit** — `git commit -m "chore(bot): Dockerfile, workflow deploy Coolify, CI"`
@@ -1306,9 +1306,9 @@ ceo tools --summary   # api_server harus 2/28 (Clarifying Questions + suka)
 ### Task 11: Deploy & uji ujung-ke-ujung (manual)
 
 - [ ] **Step 1:** Merge `feat/webapp-bot` → `main` (izin owner), push.
-- [ ] **Step 2: Coolify** — buat aplikasi `bot` dari image/Dockerfile, domain `bot.sukashawarma.com` (DNS Cloudflare), env: `NEXT_PUBLIC_*` (sama dgn portal), `SUPABASE_JWT_SECRET`, `HERMES_API_URL=http://<GW>:8643`, `HERMES_KEY_CEO=<kunci Task 10>`. Deploy.
+- [ ] **Step 2: Coolify** — buat aplikasi `bot` dari image/Dockerfile, domain `agents.sukashawarma.com` (DNS Cloudflare), env: `NEXT_PUBLIC_*` (sama dgn portal), `SUPABASE_JWT_SECRET`, `HERMES_API_URL=http://<GW>:8643`, `HERMES_KEY_CEO=<kunci Task 10>`. Deploy.
 - [ ] **Step 3: Uji (catat di `supabase/verifikasi/bot/uji-e2e.md`)**
-  1. `https://bot.sukashawarma.com/api/health` → 200.
+  1. `https://agents.sukashawarma.com/api/health` → 200.
   2. Buka tanpa login → diarahkan ke portal; login sebagai owner/admin → kembali → layar chat.
   3. "Omzet kemarin berapa?" → angka = Rangkuman Penjualan; jawaban mengalir bertahap.
   4. Refresh → percakapan ada di daftar & isinya utuh.

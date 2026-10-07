@@ -1,4 +1,4 @@
-# Webapp Bot — `bot.sukashawarma.com` (fase 1: Bot CEO)
+# Webapp Bot — `agents.sukashawarma.com` (fase 1: Bot CEO)
 
 **Tanggal:** 2026-10-07
 **Status:** Disetujui (brainstorming 2026-10-07), belum dibangun
@@ -16,7 +16,7 @@ menampilkan percakapan. Kecerdasan & data tetap di Hermes + MCP Suka Shawarma.
 
 | # | Keputusan |
 |---|---|
-| W1 | App baru **di monorepo** `apps/bot` (Next.js app router, TS, Tailwind), Coolify → `bot.sukashawarma.com`. Bukan `hermes dashboard` bawaan (panel admin mesin). |
+| W1 | App baru **di monorepo** `apps/bot` (Next.js app router, TS, Tailwind), Coolify → `agents.sukashawarma.com`. Bukan `hermes dashboard` bawaan (panel admin mesin). |
 | W2 | Login **SSO Suka Shawarma** (`@suka/auth`, cookie `.sukashawarma.com`). Gerbang = sesi valid + RPC `is_owner_or_admin()` + `outlet_staff.status = 'active'` (pola `sesiSukaBot`), dicek **di server** (route & halaman). |
 | W3 | **Fase 1 hanya owner, admin, developer → profil `ceo`.** Role lain ditolak (bukan halaman "segera hadir"). Peta role → profil di satu modul; profil divisi ditambah saat agennya ada. |
 | W4 | Coolify & Hermes **satu VPS**: server webapp memanggil **API server Hermes lewat jaringan internal** (`/p/<profil>/v1/chat/completions`). API server **tidak dibuka ke internet**. |

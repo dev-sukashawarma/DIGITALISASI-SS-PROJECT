@@ -2,7 +2,7 @@
   "name": "@suka/bot",
   "version": "0.0.1",
   "private": true,
-  "description": "Webapp Bot Suka Shawarma — meja depan Hermes (bot.sukashawarma.com)",
+  "description": "Webapp Bot Suka Shawarma — meja depan Hermes (agents.sukashawarma.com)",
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3050",

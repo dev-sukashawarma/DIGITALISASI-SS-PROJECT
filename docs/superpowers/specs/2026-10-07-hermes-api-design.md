@@ -154,7 +154,7 @@ Isi di-grill ulang saat tahapnya tiba. Batas yang sudah pasti: §6.
 
 - `hermes dashboard` bawaan = **panel admin mesin** (kunci, config, MCP, cron) → khusus
   dev lewat tunnel SSH, **tidak pernah publik**.
-- Webapp bos = **app baru di monorepo** (mis. `apps/bot`) di **`bot.sukashawarma.com`**,
+- Webapp bos = **app baru di monorepo** (mis. `apps/bot`) di **`agents.sukashawarma.com`**,
   di-deploy via Coolify. Cookie SSO `.sukashawarma.com` + `@suka/auth` sudah memberi
   identitas & role → **endpoint `/api/hermes/v1/sesi` tidak diperlukan** (dibatalkan).
 - Webapp memilih **profil Hermes** sesuai role, memanggil **API server Hermes**
@@ -205,5 +205,5 @@ Staf nonaktif di `outlet_staff` → akses bot ikut hilang.
 ## 11. Terbuka
 
 - Isi domain finance (tahap 4).
-- Webapp `bot.sukashawarma.com` (§8) — plan terpisah.
+- Webapp `agents.sukashawarma.com` (§8) — plan terpisah.
 - Bot Admin WA: butuh WhatsApp Business API resmi.

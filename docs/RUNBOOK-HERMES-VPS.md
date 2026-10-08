@@ -147,6 +147,40 @@ Model = 9Router SS · Terminal = nonaktif · Telegram configured · Gateway runn
   konfigurasi (uji 2026-10-07: bot menawarkan "tempel isi file ke chat" — itu dilarang).
 - Jangan menyarankan perintah terminal/server kepada pengguna.
 
+## Sinkron SOUL otomatis dari repo (2026-10-08)
+SOUL tidak lagi disalin tangan. Timer systemd user `hermes-sinkron-soul.timer` (tiap 5 menit)
+menjalankan `scripts/hermes/sinkron-soul.sh`: untuk tiap profil yang ADA di
+`~/.hermes/profiles/<p>/`, skrip mengunduh `docs/hermes/SOUL-<p>.md` dari branch `main`
+(repo publik, tanpa kunci), membuang baris komentar `<!-- ... -->` di baris pertama, lalu
+membandingkan. Sama → diam. Beda → SOUL lama disalin ke `~/.hermes/soul-cadangan/`
+(20 terbaru per profil), SOUL baru dipasang, gateway di-restart **sekali**.
+- Profil tanpa SOUL di repo dilewati; skrip tak pernah membuat profil.
+- Unduhan gagal / isi tak wajar (<200 byte, halaman HTML) → SOUL lama dipertahankan.
+- Jadi: **ubah SOUL = ubah `docs/hermes/SOUL-<profil>.md` lalu push ke `main`**. Terpasang
+  paling lambat ±5 menit (+ cache GitHub raw hingga ±5 menit). Jangan sunting SOUL.md di
+  VPS langsung — akan tertimpa pada sinkron berikutnya.
+- Siapa pun yang bisa push ke `main` bisa mengubah perilaku bot (sama dengan kode alat).
+
+Pasang sekali (sebagai `suka-hermes`, setelah berkas ini ada di `main`):
+```bash
+mkdir -p ~/bin ~/.config/systemd/user
+R=https://raw.githubusercontent.com/dev-sukashawarma/DIGITALISASI-SS-PROJECT/main/scripts/hermes
+curl -fsSL $R/sinkron-soul.sh -o ~/bin/sinkron-soul.sh && chmod +x ~/bin/sinkron-soul.sh
+curl -fsSL $R/hermes-sinkron-soul.service -o ~/.config/systemd/user/hermes-sinkron-soul.service
+curl -fsSL $R/hermes-sinkron-soul.timer -o ~/.config/systemd/user/hermes-sinkron-soul.timer
+systemctl --user daemon-reload && systemctl --user enable --now hermes-sinkron-soul.timer
+```
+Cek & paksa sinkron sekarang:
+```bash
+systemctl --user start hermes-sinkron-soul.service
+journalctl --user -u hermes-sinkron-soul -n 20 --no-pager
+systemctl --user list-timers hermes-sinkron-soul.timer
+```
+Kembali ke SOUL sebelumnya: salin berkas dari `~/.hermes/soul-cadangan/` **dan** revert commit
+SOUL-nya di repo (kalau hanya berkas yang dikembalikan, sinkron berikutnya menimpanya lagi).
+Skrip sendiri tidak memperbarui diri: kalau `sinkron-soul.sh` di repo berubah, ulangi baris
+`curl ... sinkron-soul.sh` di atas.
+
 ## Sambungkan MCP Suka Shawarma (profil `ceo`)
 
 Prasyarat: admin-dashboard dengan `/api/hermes/mcp` sudah ter-deploy (branch

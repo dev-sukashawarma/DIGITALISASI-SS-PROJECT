@@ -1,0 +1,9 @@
+# Dipasang di ~/.config/systemd/user/ (user suka-hermes). Lihat docs/RUNBOOK-HERMES-VPS.md.
+[Unit]
+Description=Sinkron SOUL bot Hermes dari repo (main)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/bin/sinkron-soul.sh

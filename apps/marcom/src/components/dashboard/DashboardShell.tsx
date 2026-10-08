@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { PanelLeftOpen, PanelLeft, Flame } from 'lucide-react'
 import Sidebar, { SidebarMode } from '@/components/dashboard/Sidebar'
+import NayraBotWidget from '@/components/nayra/NayraBotWidget'
 
 interface DashboardShellProps {
   user: {
@@ -148,6 +149,9 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
           {children}
         </main>
       </div>
+
+      {/* Floating Marketing Bot Character */}
+      <NayraBotWidget />
     </div>
   )
 }

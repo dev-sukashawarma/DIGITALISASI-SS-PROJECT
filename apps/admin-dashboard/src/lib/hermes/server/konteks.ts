@@ -5,6 +5,7 @@ import { jakartaDate } from '@/lib/ownerDashboardCache'
 import type { KonteksHermes } from '../registry'
 import { buatKonteksAbsensi } from './absensiSumber'
 import { buatKonteksHrRinci } from './hrRinciSumber'
+import { buatKonteksFinance } from './financeSumber'
 
 export async function konteksHermes(svc: any, sekarang: Date): Promise<KonteksHermes> {
   // Cakupan 'all' = sama dengan role berakses penuh (owner/admin) di layar Rangkuman Penjualan,
@@ -21,5 +22,6 @@ export async function konteksHermes(svc: any, sekarang: Date): Promise<KonteksHe
     },
     absensi: buatKonteksAbsensi(svc, sekarang),
     hrRinci: buatKonteksHrRinci(svc, sekarang),
+    finance: buatKonteksFinance(svc, sekarang, outlets),
   }
 }

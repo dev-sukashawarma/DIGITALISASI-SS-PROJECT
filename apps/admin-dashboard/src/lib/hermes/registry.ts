@@ -3,14 +3,17 @@ import type { KonteksPenjualan } from '@/lib/sukaBot/alat/penjualan'
 import type { Domain } from './domain'
 import type { AlatMcp, HasilAlat } from './mcp'
 import type { KonteksAbsensi, KonteksHrRinci } from './absensi/tipe'
+import type { KonteksFinance } from './finance/tipe'
 import { ALAT_PENJUALAN } from './alat/penjualan'
 import { ALAT_ABSENSI } from './alat/absensi'
 import { ALAT_HR_RINCI } from './alat/hrRinci'
+import { ALAT_FINANCE } from './alat/finance'
 
 export interface KonteksHermes {
   penjualan: KonteksPenjualan
   absensi: KonteksAbsensi
   hrRinci: KonteksHrRinci
+  finance: KonteksFinance
   sekarang: Date
 }
 
@@ -28,7 +31,7 @@ export interface DefinisiAlat {
   jalankan(ctx: KonteksHermes, a: any): Promise<Record<string, unknown>>
 }
 
-export const ALAT_HERMES: DefinisiAlat[] = [...ALAT_PENJUALAN, ...ALAT_ABSENSI, ...ALAT_HR_RINCI]
+export const ALAT_HERMES: DefinisiAlat[] = [...ALAT_PENJUALAN, ...ALAT_ABSENSI, ...ALAT_HR_RINCI, ...ALAT_FINANCE]
 
 export function skemaJson(s: z.ZodType): Record<string, unknown> {
   const { $schema: _abaikan, ...sisa } = z.toJSONSchema(s) as Record<string, unknown>

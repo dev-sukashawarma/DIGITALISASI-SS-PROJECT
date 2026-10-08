@@ -2,6 +2,7 @@ import { ALAT_HERMES, bangunAlatMcp, type KonteksHermes } from './registry'
 import { DOMAIN } from './domain'
 import { polaTerlarang } from './pengecualian'
 import { absensiPalsu, hrRinciPalsu } from './absensi/fixture'
+import { financePalsu } from './finance/fixture'
 import type { KonteksPenjualan, OutletInfo } from '@/lib/sukaBot/alat/penjualan'
 
 const outlets: OutletInfo[] = [
@@ -18,7 +19,7 @@ const penjualan: KonteksPenjualan = {
     menu: [{ nama: 'Original Sapi Jumbo', qty: 5, omzet: 300_000 }],
   }),
 }
-const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, hrRinci: hrRinciPalsu, sekarang: penjualan.sekarang }
+const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, hrRinci: hrRinciPalsu, finance: financePalsu, sekarang: penjualan.sekarang }
 
 // §6 spec: pola larangan data per app ada di ./pengecualian (satu sumber, juga dipakai alat baru).
 

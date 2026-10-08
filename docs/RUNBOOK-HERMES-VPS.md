@@ -212,3 +212,24 @@ Urutan per paket (Absensi dulu). JANGAN pernah mencentang `hr_rinci` untuk kunci
 5. `systemctl --user restart hermes-gateway` agar daftar alat MCP dimuat ulang.
 6. Jalankan lembar gerbang paket itu (`supabase/verifikasi/hermes/gerbang-<app>-ceo.md`).
    Gagal → kembalikan centang (langkah 3), perbaiki, ulangi.
+
+## Profil `marcom` — Bot Marcom di dashboard Marcom (✅ 2026-10-08)
+- Endpoint MCP Marcom: `https://<domain-marcom>/api/hermes/mcp` (Bearer token: `HERMES_MARCOM_API_KEY`).
+- Dibuat: `hermes profile create marcom --clone-from ceo` (token Telegram tidak ikut).
+- Di `~/.hermes/profiles/marcom/.env`:
+  `MARCOM_MCP_KEY=<kunci>` dan `API_SERVER_KEY=<kunci_acak>`.
+- Tambahkan MCP di `~/.hermes/profiles/marcom/config.yaml`:
+  ```yaml
+  mcp_servers:
+    marcom:
+      url: https://<domain-marcom>/api/hermes/mcp
+      headers:
+        Authorization: "Bearer ${MARCOM_MCP_KEY}"
+      enabled: true
+  ```
+- SOUL: `docs/hermes/SOUL-marcom.md` → `~/.hermes/profiles/marcom/SOUL.md`.
+- Toolset: `api_server` = `[]` (+ MCP `marcom:*`).
+- Gateway: `systemctl --user restart hermes-gateway` agar `/p/marcom/` dilayani.
+- Coolify app **Marcom**: `HERMES_API_URL=http://10.0.1.1:8643`, `HERMES_API_KEY=<API_SERVER_KEY profil marcom>`.
+- Lembar uji gerbang: `supabase/verifikasi/hermes/gerbang-marcom.md`.
+

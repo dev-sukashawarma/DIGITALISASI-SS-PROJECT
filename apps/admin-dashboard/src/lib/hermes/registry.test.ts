@@ -1,5 +1,6 @@
 import { ALAT_HERMES, bangunAlatMcp, type KonteksHermes } from './registry'
 import { DOMAIN } from './domain'
+import { polaTerlarang } from './pengecualian'
 import { absensiPalsu, hrRinciPalsu } from './absensi/fixture'
 import type { KonteksPenjualan, OutletInfo } from '@/lib/sukaBot/alat/penjualan'
 
@@ -19,26 +20,7 @@ const penjualan: KonteksPenjualan = {
 }
 const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, hrRinci: hrRinciPalsu, sekarang: penjualan.sekarang }
 
-// §6 spec: pola yang tak boleh pernah muncul di output alat mana pun.
-// Keputusan owner 2026-10-07: gaji & kasbon per orang BOLEH, tetapi hanya lewat alat domain 'hr_rinci'.
-// kasbon_ringkasan (domain absensi) tetap agregat per outlet tanpa nama/id staf.
-const TERLARANG_UMUM = [
-  /\bnik\b|ktp/i,
-  /face_descriptor|selfie|ref_photo_url|foto_wajah/i,
-  /password|token|api_key|service_role/i,
-  /(\+62|\b08)\d{8,12}\b/,
-  /\b\d{16}\b/,
-  /@[a-z0-9-]+\.[a-z]{2,}/i,
-  /\breason\b|alasan/i,
-  /rekening|no_rek|bank_account/i,
-]
-const KHUSUS_GAJI = /gaji|salary|payroll/i
-const KHUSUS_KASBON = /kasbon|cash_advance/i
-const terlarangUntuk = (nama: string) => {
-  const def = ALAT_HERMES.find((a) => a.nama === nama)!
-  if (def.domain === 'hr_rinci') return TERLARANG_UMUM
-  return nama === 'kasbon_ringkasan' ? [...TERLARANG_UMUM, KHUSUS_GAJI] : [...TERLARANG_UMUM, KHUSUS_GAJI, KHUSUS_KASBON]
-}
+// §6 spec: pola larangan data per app ada di ./pengecualian (satu sumber, juga dipakai alat baru).
 
 const cari = (nama: string) => bangunAlatMcp(async () => ctx).find((m) => m.nama === nama)!
 
@@ -73,7 +55,7 @@ describe('registry alat Hermes', () => {
       const r = await m.jalankan(def.contoh)
       expect(r.ok, m.nama).toBe(true)
       const teks = JSON.stringify(r)
-      for (const pola of terlarangUntuk(m.nama)) expect(teks, `${m.nama} cocok ${pola}`).not.toMatch(pola)
+      for (const pola of polaTerlarang(m.nama, def.domain)) expect(teks, `${m.nama} cocok ${pola}`).not.toMatch(pola)
       if (r.ok) {
         expect(typeof (r.data.meta as any).sumber).toBe('string')
         expect(['lengkap', 'sebagian']).toContain((r.data.meta as any).kelengkapan)

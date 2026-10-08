@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { prisma, ensureDatabaseSchema } from '@/lib/prisma'
 import { buatKonteksMarcomPrisma } from '@/lib/hermes/server/marcomSumber'
@@ -11,22 +12,36 @@ const INSTRUKSI_MARCOM =
   'Setiap angka WAJIB berasal dari hasil alat marcom; dilarang memperkirakan angka sendiri. ' +
   'Bila data kosong atau tidak ditemukan, sampaikan apa adanya.'
 
-function validasiToken(req: NextRequest): boolean {
+// Kunci WAJIB dari env (Coolify + ARG/ENV stage runner Dockerfile). Tanpa nilai
+// bawaan: dulu ada fallback literal di repo publik sehingga endpoint ini terbuka
+// untuk siapa pun saat env kosong (temuan 2026-10-08).
+const PANJANG_MIN_KUNCI = 24
+
+function kunciTerkonfigurasi(): string | null {
+  const k = process.env.HERMES_MARCOM_API_KEY?.trim()
+  return k && k.length >= PANJANG_MIN_KUNCI ? k : null
+}
+
+function samaWaktuKonstan(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a).digest()
+  const hb = createHash('sha256').update(b).digest()
+  return timingSafeEqual(ha, hb)
+}
+
+function validasiToken(req: NextRequest, kunci: string): boolean {
   const authHeader = req.headers.get('authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return false
-  }
-
-  const token = authHeader.slice(7).trim()
-  const expectedKey =
-    process.env.HERMES_MARCOM_API_KEY || 'hermes_marcom_dev_secret_key'
-
-  return token === expectedKey
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false
+  return samaWaktuKonstan(authHeader.slice(7).trim(), kunci)
 }
 
 export async function POST(req: NextRequest) {
-  // 1. Validasi Autentikasi Bearer Token
-  if (!validasiToken(req)) {
+  // 1. Validasi Autentikasi Bearer Token (gagal tertutup bila kunci belum dikonfigurasi)
+  const kunci = kunciTerkonfigurasi()
+  if (!kunci) {
+    console.error('[hermes-marcom] HERMES_MARCOM_API_KEY kosong/terlalu pendek: endpoint MCP ditutup')
+    return NextResponse.json({ error: 'Bot Marcom belum dikonfigurasi' }, { status: 503 })
+  }
+  if (!validasiToken(req, kunci)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

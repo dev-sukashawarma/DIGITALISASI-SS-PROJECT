@@ -53,7 +53,7 @@ Bagian baru **Finance**: sebut periode & sumber; utang = barang sudah diterima, 
 
 - Unit (TDD) per fungsi penghitung: utang hanya PO diterima & belum lunas, komitmen terpisah, lewat jatuh tempo benar (WIB); pengeluaran outlet vs pusat; setoran memakai tanggal jual & fallback; selisih kasir mengecualikan shift berjalan hari ini.
 - Gerbang registry: semua alat finance lolos `pengecualian.ts`; kontrol negatif (keluaran palsu memuat `description`) harus gagal.
-- Paritas (SQL/layar, dicatat di `supabase/verifikasi/hermes/gerbang-finance-ceo.md`): total utang = `SUM` view `po_payable_spv` dari sesi admin; pengeluaran satu bulan = halaman Pengeluaran; setoran = riwayat Setoran; selisih kasir = laporan shift POS.
+- Paritas (SQL/layar, dicatat di `supabase/verifikasi/hermes/gerbang-finance-ceo.md`): total utang = `SUM(total_nilai_terima)` RPC `get_purchase_orders` untuk PO diterima & belum lunas (BUKAN view `po_payable_spv`, yang memakai nilai pesan); pengeluaran satu bulan = halaman Pengeluaran; setoran = riwayat Setoran; selisih kasir = laporan shift POS.
 - Uji gerbang bot: 6 pertanyaan + 2 penolakan (bukti transfer, nomor rekening).
 
 ## 7. Di luar lingkup

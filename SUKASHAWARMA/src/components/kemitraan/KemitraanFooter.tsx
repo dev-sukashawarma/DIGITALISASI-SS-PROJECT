@@ -23,7 +23,7 @@ export default function KemitraanFooter() {
           {/* Social */}
           <div className="flex items-center gap-4">
             <a
-              href="https://wa.me/6282299325621"
+              href="https://wa.me/6285283524708"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-white/60 hover:text-white

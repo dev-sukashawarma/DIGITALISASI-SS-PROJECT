@@ -67,7 +67,7 @@ export default function KemitraanStickyWA() {
 
           {/* Main button */}
           <motion.a
-            href="https://wa.me/6282299325621"
+            href="https://wa.me/6285283524708"
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleClick}

@@ -72,7 +72,7 @@ export default function KemitraanCTA() {
 
         {/* WhatsApp button */}
         <a
-          href="https://wa.me/6282299325621"
+          href="https://wa.me/6285283524708"
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => { if (typeof gtag !== "undefined") gtag("event", "conversion", { send_to: "AW-11522229721/18NOCPO46eYcENmLnfYq", value: 1.0, currency: "IDR" }); }}
@@ -91,7 +91,7 @@ export default function KemitraanCTA() {
 
         <p className="flex items-center justify-center gap-2 text-white/40 text-sm">
           <IconPhone />
-          +62 822-9932-5621
+          +62 852-8352-4708
           <span className="opacity-50">|</span>
           kemitraan@sukashawarma.com
         </p>

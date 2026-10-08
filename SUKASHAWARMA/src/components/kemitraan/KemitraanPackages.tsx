@@ -105,7 +105,7 @@ export default function KemitraanPackages() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-4xl mx-auto mb-5">
-          <a href="https://wa.me/6282299325621"
+          <a href="https://wa.me/6285283524708"
              target="_blank" rel="noopener noreferrer"
              onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
              className="flex-1 inline-flex items-center justify-center px-6 py-3.5 rounded-full
@@ -114,7 +114,7 @@ export default function KemitraanPackages() {
                         hover:bg-[#5a1509] transition-colors duration-200 text-center">
             AMBIL PAKET STANDARD — Rp 150 Jt
           </a>
-          <a href="https://wa.me/6282299325621"
+          <a href="https://wa.me/6285283524708"
              target="_blank" rel="noopener noreferrer"
              onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
              className="flex-1 inline-flex items-center justify-center px-6 py-3.5 rounded-full

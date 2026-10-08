@@ -120,7 +120,7 @@ export default function KemitraanROI() {
               </p>
             </div>
             <a
-              href="https://wa.me/6282299325621"
+              href="https://wa.me/6285283524708"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => { if (typeof gtag !== "undefined") gtag("event", "conversion", { send_to: "AW-11522229721/18NOCPO46eYcENmLnfYq", value: 1.0, currency: "IDR" }); }}

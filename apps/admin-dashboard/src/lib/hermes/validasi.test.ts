@@ -2,8 +2,8 @@ import { validasiInputKunci } from './validasi'
 
 describe('validasiInputKunci', () => {
   it('menerima input benar dan merapikannya', () => {
-    expect(validasiInputKunci({ nama: '  Bot CEO ', scope: ['penjualan', 'gudang', 'penjualan'], ip: [' 76.13.193.138 '] }))
-      .toEqual({ ok: true, nama: 'Bot CEO', scope: ['penjualan', 'gudang'], ip: ['76.13.193.138'] })
+    expect(validasiInputKunci({ nama: '  Bot CEO ', scope: ['penjualan', 'stok', 'penjualan'], ip: [' 76.13.193.138 '] }))
+      .toEqual({ ok: true, nama: 'Bot CEO', scope: ['penjualan', 'stok'], ip: ['76.13.193.138'] })
   })
   it('menolak nama pendek, scope kosong/asing, IP salah, terlalu banyak IP', () => {
     expect(validasiInputKunci({ nama: 'ab', scope: ['penjualan'], ip: ['1.1.1.1'] }).ok).toBe(false)

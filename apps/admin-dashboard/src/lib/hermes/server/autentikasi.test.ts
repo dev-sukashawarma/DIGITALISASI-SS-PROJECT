@@ -40,6 +40,10 @@ describe('autentikasi Hermes', () => {
     const r = await autentikasi(h(sah), svc(baris({ scope: ['penjualan', 'aneh'] })))
     expect(r.ok && r.scope).toEqual(['penjualan'])
   })
+  it('scope lama gudang dibuang, stok & sistem diterima', async () => {
+    const r = await autentikasi(h(sah), svc(baris({ scope: ['gudang', 'stok', 'sistem'] })))
+    expect(r.ok && r.scope).toEqual(['stok', 'sistem'])
+  })
   it('galat DB → dilempar (route membalas 500), bukan diam-diam lolos', async () => {
     await expect(autentikasi(h(sah), svc(null, { message: 'down' }))).rejects.toThrow('down')
   })

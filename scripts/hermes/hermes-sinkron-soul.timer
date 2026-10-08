@@ -1,0 +1,12 @@
+# Dipasang di ~/.config/systemd/user/ (user suka-hermes). Lihat docs/RUNBOOK-HERMES-VPS.md.
+[Unit]
+Description=Jalankan sinkron SOUL Hermes tiap 5 menit
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

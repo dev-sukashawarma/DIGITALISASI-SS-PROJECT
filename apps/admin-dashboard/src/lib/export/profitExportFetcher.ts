@@ -4,7 +4,8 @@ import { getExpensesAction } from '@/app/actions/expenses'
 import { mapExpenseRow } from '@/lib/expenseRow'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import { fetchHppRows } from '@/hooks/useHpp'
-import { getTikTokSettlementSummaries } from '@/app/actions/platformSettlement'
+import { getAllPlatformSettlementSummaries } from '@/app/actions/platformSettlement'
+import { reconcileSalesRowsWithSettlements } from './settlementReconciliation'
 import { calculateProratedExpenses } from '@/lib/opexProrata'
 import { computeCompanyProfit } from '@/lib/profit'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
@@ -20,6 +21,7 @@ export interface ProfitExportDataResult {
   salesRows: any[]
   expenseRows: ExpenseRow[]
   tiktokSettlements: Record<string, any>
+  platformSettlements?: Record<string, any>
 }
 
 /**
@@ -176,10 +178,14 @@ export async function fetchProfitExportData({
       nilai_waste: Number(r.nilai_waste),
     }))
 
-  // 5. Ambil Settlement TikTok GO
-  onProgress?.('Mengambil rekonsiliasi TikTok Shop...')
-  const ttRes = await getTikTokSettlementSummaries(from, to)
-  const tiktokSettlements = ttRes.success && ttRes.data ? ttRes.data : {}
+  // 5. Ambil Rekonsiliasi Settlement Platform (GoFood, ShopeeFood, TikTok Go)
+  onProgress?.('Mengambil data rekonsiliasi settlement platform...')
+  const settlementRes = await getAllPlatformSettlementSummaries(from, to)
+  const tiktokSettlements = settlementRes.success && settlementRes.data ? settlementRes.data.tiktokSummaries : {}
+  const platformSettlements = settlementRes.success && settlementRes.data ? settlementRes.data.byOutletPlatform : {}
+
+  // Selaraskan salesRows dengan settlement platform (GoFood & ShopeeFood Single Source of Truth)
+  const reconciledSalesRows = reconcileSalesRowsWithSettlements(salesRows, platformSettlements)
 
   // 6. Evaluasi Scope & Kemitraan
   onProgress?.('Menganalisis & menghitung angka laba rugi...')
@@ -209,7 +215,7 @@ export async function fetchProfitExportData({
     return isInScope(scope, outletId, mitraIds, targetDate, cutoffDates)
   }
 
-  const scopedSalesRows = salesRows.filter((r: any) => inScope(r.outlet_id, r.sales_date))
+  const scopedSalesRows = reconciledSalesRows.filter((r: any) => inScope(r.outlet_id, r.sales_date))
   const scopedHppRows = hppRows.filter((r: any) => inScope(r.outlet_id, (r as any).date || (r as any).order_date))
   const scopedWasteRows = wasteRows.filter((r: any) => inScope(r.outlet_id, (r as any).date || (r as any).created_at))
   const scopedExpenseRows = expenseRows.filter((r: ExpenseRow) =>
@@ -221,7 +227,7 @@ export async function fetchProfitExportData({
   const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean }>()
 
   for (const [oid, inv] of Object.entries(activeInvestments)) {
-    const outletSales = salesRows.filter(
+    const outletSales = reconciledSalesRows.filter(
       (r: any) =>
         r.outlet_id === oid &&
         !isTestOutlet(r.outlet_id) &&
@@ -391,5 +397,6 @@ export async function fetchProfitExportData({
     salesRows: scopedSalesRows,
     expenseRows: scopedExpenseRows,
     tiktokSettlements,
+    platformSettlements,
   }
 }

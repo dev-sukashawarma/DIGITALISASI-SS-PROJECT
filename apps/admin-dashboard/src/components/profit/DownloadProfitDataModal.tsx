@@ -64,7 +64,7 @@ export function DownloadProfitDataModal({
   outlets,
   scope,
   mitraInvestments,
-  currentData,
+  currentData: _currentData,
 }: DownloadProfitDataModalProps) {
   // 1. State Periode
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('last_month')
@@ -196,36 +196,7 @@ export function DownloadProfitDataModal({
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     )
   }
-
   const isSamePeriodAsScreen = fromDate === currentFilter.from && toDate === currentFilter.to
-
-  // Hanya boleh memakai data memori layar jika periode persis sama DAN cakupan outlet layar mencukupi data yang diminta
-  const canUseScreenData = useMemo(() => {
-    if (!isSamePeriodAsScreen) return false
-
-    if (currentFilter.outletId === 'all') {
-      if (outletSelection === 'all') return true
-      return (
-        selectedOutletIds.length > 0 &&
-        selectedOutletIds.every(id => currentData.outletBreakdown.some(o => o.id === id))
-      )
-    }
-
-    // Layar sedang difilter ke 1 outlet spesifik:
-    // Hanya bisa pakai memory jika user memilih mode 'specific' dengan HANYA 1 outlet yang sama persis
-    return (
-      outletSelection === 'specific' &&
-      selectedOutletIds.length === 1 &&
-      selectedOutletIds[0] === currentFilter.outletId &&
-      currentData.outletBreakdown.some(o => o.id === currentFilter.outletId)
-    )
-  }, [
-    isSamePeriodAsScreen,
-    currentFilter.outletId,
-    outletSelection,
-    selectedOutletIds,
-    currentData.outletBreakdown,
-  ])
 
   // ==========================================
   // EKSEKUSI PENARIKAN & PEMBUATAN BERKAS UNDUH
@@ -269,39 +240,31 @@ export function DownloadProfitDataModal({
         }
       }
 
-      // 1. Ambil Data (Gunakan memory jika data layar lengkap dan cocok, atau tarik background jika beda)
-      if (canUseScreenData) {
-        setProgressPct(20)
-        setProgressText('Menggunakan data siap pakai dari layar...')
-        exportOutletBreakdown = currentData.outletBreakdown
-        exportSummary = currentData.summaryData
-        exportSalesRows = currentData.salesRows
-        exportExpenseRows = currentData.expenseRows
-        exportTiktokSettlements = currentData.tiktokSettlements
-      } else {
-        setProgressPct(15)
-        const bgData = await fetchProfitExportData({
-          from: fromDate,
-          to: toDate,
-          scope,
-          outlets,
-          mitraInvestments: effectiveMitraInvestments,
-          onProgress: msg => {
-            setProgressText(msg)
-          },
-        })
-        exportOutletBreakdown = bgData.outletBreakdown
-        exportSummary = bgData.summaryData
-        exportSalesRows = bgData.salesRows
-        exportExpenseRows = bgData.expenseRows
-        exportTiktokSettlements = bgData.tiktokSettlements
-      }
+      // 1. Ambil Data Finansial Lengkap (Selalu tersinkronisasi dengan rekonsiliasi platform)
+      setProgressPct(15)
+      const bgData = await fetchProfitExportData({
+        from: fromDate,
+        to: toDate,
+        scope,
+        outlets,
+        mitraInvestments: effectiveMitraInvestments,
+        onProgress: msg => {
+          setProgressText(msg)
+        },
+      })
+      exportOutletBreakdown = bgData.outletBreakdown
+      exportSummary = bgData.summaryData
+      exportSalesRows = bgData.salesRows
+      exportExpenseRows = bgData.expenseRows
+      exportTiktokSettlements = bgData.tiktokSettlements
+      const exportPlatformSettlements = bgData.platformSettlements
 
       const exportCtx: ExportContext = {
         salesRows: exportSalesRows,
         expenseRows: exportExpenseRows,
         mitraInvestments: effectiveMitraInvestments,
         tiktokSettlements: exportTiktokSettlements,
+        platformSettlements: exportPlatformSettlements,
         filter: { from: fromDate, to: toDate },
         effectiveFilter: { from: fromDate, to: toDate },
       }
@@ -500,16 +463,16 @@ export function DownloadProfitDataModal({
                 <Calendar className="w-3.5 h-3.5 text-suka-orange" />
                 <span>1. Rentang Periode Laporan</span>
               </label>
-              {canUseScreenData ? (
+              {isSamePeriodAsScreen ? (
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70 inline-flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
-                  Sesuai Filter Layar (Instan)
+                  Sesuai Filter Layar
                 </span>
-              ) : isSamePeriodAsScreen ? (
+              ) : (
                 <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/70 inline-flex items-center gap-1">
                   Sinkronisasi Latar Belakang
                 </span>
-              ) : null}
+              )}
             </div>
 
             {/* Presets Pintas Cepat */}

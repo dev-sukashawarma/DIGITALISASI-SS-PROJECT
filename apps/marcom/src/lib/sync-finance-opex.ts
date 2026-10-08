@@ -49,7 +49,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
     if (isRateCardPaid) {
       const expenseDate = toDateString(endorsement.paymentDate || endorsement.scheduleDate)
       const periodMonth = toPeriodMonth(expenseDate)
-      const category = posOutletId ? 'endorsement' : 'pengeluaran_global'
+      const category = 'endorsement'
       const description = `[MARCOM: Endorsement - ${kolName}] Fee Rate Card (Outlet: ${outletName})`
 
       const expenseId = endorsement.rateCardExpenseId || crypto.randomUUID()
@@ -211,7 +211,7 @@ export async function syncAdOpex(adId: bigint | number | string) {
 
     if (spent > 0 && isAfterCutoff) {
       const periodMonth = toPeriodMonth(expenseDate)
-      const category = posOutletId ? 'ads' : 'pengeluaran_global'
+      const category = 'ads'
       const accountInfo = ad.accountName ? ` - Akun: ${ad.accountName}` : ''
       const description = `[MARCOM: Ads - ${ad.platform}]${accountInfo} (Outlet: ${outletName})`
 

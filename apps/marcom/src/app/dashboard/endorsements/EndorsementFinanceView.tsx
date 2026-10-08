@@ -28,7 +28,7 @@ import { SerializedEndorsement, getLocalDateString, MONTH_NAMES } from './Endors
 
 interface EndorsementFinanceViewProps {
   endorsements: SerializedEndorsement[]
-  outlets: Array<{ id: string; name: string }>
+  outlets: Array<{ id: string; name: string; isActive?: boolean }>
   userRole: string
   onEdit: (item: SerializedEndorsement) => void
 }

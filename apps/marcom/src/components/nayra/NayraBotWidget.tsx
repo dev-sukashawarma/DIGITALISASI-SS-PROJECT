@@ -17,7 +17,8 @@ import {
   EyeOff,
   Move,
 } from 'lucide-react'
-import { askNayraAction, ChatMessage } from '@/app/actions/nayra-chat'
+import { kirimPesanBotMarcom } from '@/app/actions/botMarcom'
+import { IsiPesan } from './IsiPesan'
 import NayraAvatar, { PoseNayra } from './avatar/NayraAvatar'
 import {
   useGeserNayra,
@@ -30,20 +31,31 @@ import {
   UKURAN_TAB,
 } from './avatar/posisi'
 
+interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+  timestamp?: string
+}
+
+// Riwayat yang dikirim ke Hermes dibatasi agar percakapan panjang tidak membengkak.
+const BATAS_RIWAYAT = 12
+
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     role: 'assistant',
     content:
-      'Halo Kak! Aku **Nayra**, Marketing & Communication Bot Suka Shawarma! 🌯✨\n\nKamu bisa geser Nayra ke mana saja di layar lho! Mau diskusi ide konten TikTok viral, hook 3 detik, atau evaluasi video hari ini?',
+      'Halo Kak! Aku **Nayra**, asisten Marketing & Communication Suka Shawarma! 🌯✨\n\nAku bisa cek data marcom (jadwal konten, endorsement, budget iklan, promo, performa video) sekaligus bantu ide konten & caption. Mau mulai dari mana?',
     timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
   },
 ]
 
 const QUICK_PROMPTS = [
-  { label: '🌯 3 Ide Konten TikTok', prompt: 'Beri 3 ide konten TikTok viral untuk Suka Shawarma minggu ini' },
+  { label: '📅 Jadwal Konten Hari Ini', prompt: 'Konten apa saja yang dijadwalkan tayang hari ini?' },
+  { label: '⭐ Draft Endorsement', prompt: 'Endorsement mana yang draft videonya masih butuh direview?' },
+  { label: '💰 Sisa Budget Iklan', prompt: 'Berapa sisa budget iklan per outlet bulan ini?' },
+  { label: '📈 Performa Konten', prompt: 'Bagaimana performa konten minggu ini? Video mana yang terbaik?' },
   { label: '🎯 Hook 3 Detik', prompt: 'Buatkan 3 hook 3 detik pembuka video kuliner yang scroll-stopping' },
-  { label: '📈 Tips Naikkan Views', prompt: 'Bagaimana tips meningkatkan watch-time & views draf video marcom?' },
-  { label: '📢 Draf Caption Promo', prompt: 'Buatkan draf caption & hashtag Instagram promo shawarma hemat' },
+  { label: '📢 Draf Caption Promo', prompt: 'Buatkan draf caption & hashtag Instagram untuk promo yang sedang aktif' },
 ]
 
 export default function NayraBotWidget() {
@@ -182,11 +194,14 @@ export default function NayraBotWidget() {
     setPose('berpikir')
 
     try {
-      const res = await askNayraAction(newMessages)
-      if (res.success && res.reply) {
+      const riwayat = messages
+        .slice(-BATAS_RIWAYAT)
+        .map((m) => ({ role: m.role, content: m.content }))
+      const res = await kirimPesanBotMarcom(text, riwayat)
+      if (res.success && res.balasan) {
         const assistantMsg: ChatMessage = {
           role: 'assistant',
-          content: res.reply,
+          content: res.balasan,
           timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         }
         setMessages((prev) => [...prev, assistantMsg])
@@ -444,7 +459,7 @@ export default function NayraBotWidget() {
                             : 'bg-white border border-[#EFE8DE] text-stone-800 shadow-2xs font-normal rounded-tl-xs'
                         }`}
                       >
-                        <div>{msg.content}</div>
+                        {isUser ? <div>{msg.content}</div> : <IsiPesan teks={msg.content} role="assistant" />}
                         {msg.timestamp && (
                           <div
                             className={`text-[9px] mt-1 text-right font-mono ${

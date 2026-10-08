@@ -1,5 +1,7 @@
 # Runbook — Hermes Suka Shawarma di VPS Hostinger
 
+> Membuat bot/agent baru? Ikuti **`docs/hermes/PANDUAN-AGENT-BARU.md`** (urutan langkah, daftar periksa keamanan, gejala→penyebab). Dokumen ini catatan operasi VPS per profil.
+
 **Dibuat:** 2026-10-07 · Spec: `docs/superpowers/specs/2026-10-07-hermes-api-design.md`
 
 ## Struktur VPS (keputusan 2026-10-07)

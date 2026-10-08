@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { ensureDatabaseSchema } from '@/lib/prisma'
 import DashboardShell from '@/components/dashboard/DashboardShell'
-import { BotMarcomWidget } from '@/components/botMarcom'
 
 export default async function DashboardLayout({
   children,
@@ -19,7 +18,6 @@ export default async function DashboardLayout({
   return (
     <DashboardShell user={user}>
       {children}
-      <BotMarcomWidget />
     </DashboardShell>
   )
 }

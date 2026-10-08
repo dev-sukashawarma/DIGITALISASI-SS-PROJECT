@@ -50,6 +50,7 @@ interface OpexCardDetailModalsProps {
     totalCount: number
     categories: OperationalCategoryBreakdown[]
     outlets: OperationalOutletBreakdown[]
+    isAllUnits?: boolean
   }
   totalOpexData: {
     totalCombined: number
@@ -82,7 +83,7 @@ export function OpexCardDetailModals({
   if (!type) return null
 
   const { displaySalary, hasHrPayroll, hrPayroll, cashSalary, isProrated, prorataInfo } = salaryData
-  const { totalNonSalary, totalCount: opCount, categories, outlets } = operationalData
+  const { totalNonSalary, totalCount: opCount, categories, outlets, isAllUnits } = operationalData
   const { totalCombined } = totalOpexData
 
   const salaryShare = totalCombined > 0 ? (displaySalary / totalCombined) * 100 : 0
@@ -484,7 +485,16 @@ export function OpexCardDetailModals({
             </div>
 
             {/* Content */}
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-3">
+              {isAllUnits && (
+                <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed shadow-2xs">
+                  <Sparkles size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="font-bold">Konsolidasi Bebas Duplikasi:</span> Pada filter <strong>Semua Unit</strong>, pos <em>Joint Expense</em> (alokasi cabang) tidak diakumulasikan ganda dengan <em>Pengeluaran Global</em> (kas riil pusat). Rincian alokasi per cabang dapat dilihat di tab <strong>Per Cabang</strong> atau filter masing-masing outlet.
+                  </div>
+                </div>
+              )}
+
               {operationalTab === 'category' ? (
                 /* Tab 1: Category Breakdown */
                 <div className="space-y-3">

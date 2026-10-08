@@ -1,6 +1,15 @@
 import type { PrismaClient } from '@prisma/client'
+import { getPosSupabase } from '@/lib/supabase-pos'
 import type {
   AdData,
+  AnalisisVideoData,
+  IklanData,
+  KolData,
+  MenuData,
+  PengeluaranData,
+  PromoMenuData,
+  TargetOutletData,
+  TipeKontenData,
   BudgetData,
   EndorsementData,
   KonteksMarcom,
@@ -15,6 +24,21 @@ export const filterOutletBukanTes = {
       { name: { contains: 'tes', mode: 'insensitive' as const } },
     ],
   },
+}
+
+function rentangTanggal(dari: string, sampai: string) {
+  return {
+    gte: new Date(`${dari}T00:00:00.000Z`),
+    lte: new Date(`${sampai}T23:59:59.999Z`),
+  }
+}
+
+function teksDaftar(v: unknown): string[] {
+  return Array.isArray(v) ? v.map((x) => String(x)) : []
+}
+
+function adaIsi(v: string | null | undefined): boolean {
+  return !!v && v.trim().length > 0
 }
 
 function konversiTanggalWIB(d: Date): string {
@@ -255,6 +279,215 @@ export function buatKonteksMarcomPrisma(
       }
 
       return data
+    },
+
+    async daftarKol(): Promise<KolData[]> {
+      const records = await prismaClient.kol.findMany({
+        include: {
+          endorsements: {
+            where: { outlet: filterOutletBukanTes },
+            include: { outlet: true, posts: true },
+          },
+        },
+        orderBy: { name: 'asc' },
+      })
+      return records.map((k) => {
+        const ends = k.endorsements
+        const tanggal = ends.map((e) => konversiTanggalWIB(e.scheduleDate)).sort()
+        return {
+          id: k.id.toString(),
+          nama: k.name,
+          akun: {
+            tiktok: k.tiktokUrl || null,
+            instagram: k.instagramUrl || null,
+            youtube: k.youtubeUrl || null,
+            facebook: k.facebookUrl || null,
+            threads: k.threadsUrl || null,
+          },
+          // Nomor HP & rekening sengaja tidak dibawa ke bot, hanya penandanya.
+          punya_kontak: adaIsi(k.phoneNumber),
+          punya_rekening: adaIsi(k.bankAccount),
+          endorsement: {
+            total: ends.length,
+            sudah_posting: ends.filter((e) => e.postStatus === 'POSTED').length,
+            total_rate_card: ends.reduce((s, e) => s + Number(e.rateCard || 0), 0),
+            total_views: ends.reduce(
+              (s, e) =>
+                s + (e.finalViews || e.initialViews || e.posts.reduce((a, p) => a + (p.views || 0), 0)),
+              0
+            ),
+            terakhir: tanggal.length ? tanggal[tanggal.length - 1] : null,
+            outlet: Array.from(new Set(ends.map((e) => e.outlet.name))),
+          },
+        }
+      })
+    },
+
+    async daftarPengeluaran(dari: string, sampai: string): Promise<PengeluaranData[]> {
+      const records = await prismaClient.marcomExpense.findMany({
+        where: {
+          expenseDate: rentangTanggal(dari, sampai),
+          OR: [{ outletId: null }, { outlet: filterOutletBukanTes }],
+        },
+        include: { outlet: true },
+        orderBy: { expenseDate: 'desc' },
+      })
+      return records.map((e) => ({
+        id: e.id.toString(),
+        outlet_nama: e.outlet?.name || 'Pusat (Brand)',
+        kategori: e.category,
+        jumlah: Number(e.amount || 0),
+        keterangan: e.description,
+        tanggal: konversiTanggalWIB(e.expenseDate),
+        sumber_dana: e.paymentSource,
+        ada_kuitansi: adaIsi(e.receiptUrl),
+      }))
+    },
+
+    async daftarIklan(dari: string, sampai: string): Promise<IklanData[]> {
+      const records = await prismaClient.ad.findMany({
+        where: {
+          scheduleDate: rentangTanggal(dari, sampai),
+          OR: [{ outletId: null }, { outlet: filterOutletBukanTes }],
+        },
+        include: { outlet: true },
+        orderBy: { scheduleDate: 'desc' },
+      })
+      return records.map((a) => ({
+        id: a.id.toString(),
+        kategori: a.category,
+        platform: a.platform,
+        akun: a.accountName || null,
+        outlet_nama: a.outlet?.name || 'Pusat (Brand)',
+        tanggal: konversiTanggalWIB(a.scheduleDate),
+        budget: Number(a.budget || 0),
+        spent: Number(a.spent || 0),
+        views_awal: a.initialViews ?? null,
+        views_akhir: a.finalViews ?? null,
+        status: a.status,
+        ad_url: a.adUrl || null,
+      }))
+    },
+
+    async daftarAnalisisVideo(): Promise<AnalisisVideoData[]> {
+      const records = await prismaClient.videoAnalysis.findMany({
+        include: { internalContent: { select: { title: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      })
+      return records.map((v) => ({
+        id: v.id.toString(),
+        judul: v.title,
+        sumber_video: v.videoSource,
+        // Berkas unggahan (FILE) tidak dibagikan tautannya.
+        video_url: v.videoSource === 'FILE' ? null : v.videoUrl || null,
+        konten_terkait: v.internalContent?.title || null,
+        skor_total: v.overallScore,
+        verdict: v.verdict,
+        skor: {
+          hook: v.hookScore,
+          food_appeal: v.foodAppealScore,
+          audio: v.audioScore,
+          pacing: v.pacingScore,
+          cta: v.ctaScore,
+        },
+        kelebihan: teksDaftar(v.pros),
+        kekurangan: teksDaftar(v.cons),
+        saran: teksDaftar(v.improvements),
+        catatan: v.notes || null,
+        dibuat: konversiTanggalWIB(v.createdAt),
+      }))
+    },
+
+    async daftarTargetOutlet(bulan: number, tahun: number): Promise<TargetOutletData[]> {
+      const records = await prismaClient.outletBudget.findMany({
+        where: { periodMonth: bulan, periodYear: tahun, outlet: filterOutletBukanTes },
+        include: { outlet: true },
+        orderBy: { outlet: { name: 'asc' } },
+      })
+      return records.map((b) => ({
+        outlet_nama: b.outlet.name,
+        bulan: b.periodMonth,
+        tahun: b.periodYear,
+        target_budget: Number(b.targetBudget || 0),
+        target_kol: b.targetKolCount,
+        catatan: b.notes || null,
+      }))
+    },
+
+    async daftarTipeKonten(): Promise<TipeKontenData[]> {
+      const [tipe, hitung] = await Promise.all([
+        prismaClient.contentType.findMany({ orderBy: { name: 'asc' } }),
+        prismaClient.internalContent.groupBy({ by: ['contentType'], _count: { _all: true } }),
+      ])
+      const peta = new Map(hitung.map((h) => [h.contentType || '', h._count._all]))
+      return tipe.map((t) => ({ nama: t.name, jumlah_konten: peta.get(t.name) || 0 }))
+    },
+
+    async daftarMenu(): Promise<{ menu: MenuData[]; promo: PromoMenuData[] }> {
+      // Kolom dipilih eksplisit: HPP & data penjualan tidak ikut dibaca.
+      const supabase = getPosSupabase()
+      const [menuRes, katRes, outletRes] = await Promise.all([
+        supabase
+          .from('menu_items')
+          .select(
+            'id, name, description, price, strike_price, channel_prices, campaign_price, is_campaign_active, is_available, is_available_online, tampil_di_app, is_package, category_id'
+          )
+          .order('sort_order'),
+        supabase.from('categories').select('id, name'),
+        supabase.from('outlets').select('id, name, type').eq('is_active', true),
+      ])
+      if (menuRes.error) throw new Error(`Gagal membaca menu POS: ${menuRes.error.message}`)
+      const kategori = new Map((katRes.data || []).map((c: any) => [c.id, c.name as string]))
+      const outletAktif = (outletRes.data || []).filter((o: any) => o.type !== 'test')
+      const namaOutlet = new Map(outletAktif.map((o: any) => [o.id, o.name as string]))
+      const items = menuRes.data || []
+      const namaMenu = new Map(items.map((m: any) => [m.id, m.name as string]))
+
+      let promo: PromoMenuData[] = []
+      if (outletAktif.length > 0) {
+        const promoRes = await supabase
+          .from('outlet_promos')
+          .select('scope, menu_item_id, outlet_id, start_date, end_date, daily_start_time, daily_end_time')
+          .eq('is_active', true)
+          .in(
+            'outlet_id',
+            outletAktif.map((o: any) => o.id)
+          )
+        promo = (promoRes.data || []).map((p: any) => ({
+          cakupan: p.scope,
+          menu_nama: p.menu_item_id ? namaMenu.get(p.menu_item_id) || null : null,
+          outlet_nama: namaOutlet.get(p.outlet_id) || '-',
+          mulai: p.start_date || null,
+          selesai: p.end_date || null,
+          jam_mulai: p.daily_start_time || null,
+          jam_selesai: p.daily_end_time || null,
+        }))
+      }
+
+      const menu: MenuData[] = items.map((m: any) => {
+        const harga_kanal: Record<string, number> = {}
+        for (const [k, v] of Object.entries(m.channel_prices || {})) {
+          const n = Number(v)
+          if (Number.isFinite(n) && n > 0) harga_kanal[k] = n
+        }
+        return {
+          id: String(m.id),
+          nama: m.name,
+          kategori: kategori.get(m.category_id) || 'Menu Lainnya',
+          deskripsi: m.description || null,
+          harga: Number(m.price) || 0,
+          harga_coret: m.strike_price ? Number(m.strike_price) : null,
+          harga_kanal,
+          harga_kampanye: m.campaign_price ? Number(m.campaign_price) : null,
+          kampanye_aktif: !!m.is_campaign_active,
+          tersedia: !!m.is_available,
+          tersedia_online: !!m.is_available_online,
+          tampil_di_app: !!m.tampil_di_app,
+          paket: !!m.is_package,
+        }
+      })
+      return { menu, promo }
     },
   }
 }

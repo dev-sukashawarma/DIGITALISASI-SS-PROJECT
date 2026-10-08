@@ -5,6 +5,14 @@ import type {
   AdData,
   PromoData,
   KonteksMarcom,
+  KolData,
+  PengeluaranData,
+  IklanData,
+  AnalisisVideoData,
+  TargetOutletData,
+  TipeKontenData,
+  MenuData,
+  PromoMenuData,
 } from './tipe'
 
 export const mockEndorsements: EndorsementData[] = [
@@ -277,5 +285,99 @@ export function buatKonteksMarcomPalsu(
         (p) => p.start_date <= tanggal && p.end_date >= tanggal
       )
     },
+    async daftarKol() {
+      return [...mockKol]
+    },
+    async daftarPengeluaran(dari: string, sampai: string) {
+      return mockPengeluaran.filter((p) => p.tanggal >= dari && p.tanggal <= sampai)
+    },
+    async daftarIklan(dari: string, sampai: string) {
+      return mockIklan.filter((a) => a.tanggal >= dari && a.tanggal <= sampai)
+    },
+    async daftarAnalisisVideo() {
+      return [...mockAnalisisVideo]
+    },
+    async daftarTargetOutlet(bulan: number, tahun: number) {
+      return mockTargetOutlet.filter((t) => t.bulan === bulan && t.tahun === tahun)
+    },
+    async daftarTipeKonten() {
+      return [...mockTipeKonten]
+    },
+    async daftarMenu() {
+      return { menu: [...mockMenu], promo: [...mockPromoMenu] }
+    },
   }
 }
+
+const akunKosong = { tiktok: null, instagram: null, youtube: null, facebook: null, threads: null }
+
+export const mockKol: KolData[] = [
+  {
+    id: 'kol-1',
+    nama: 'Jessica Foodie',
+    akun: { ...akunKosong, tiktok: 'https://tiktok.com/@jessica' },
+    punya_kontak: true,
+    punya_rekening: true,
+    endorsement: { total: 2, sudah_posting: 1, total_rate_card: 3000000, total_views: 40000, terakhir: '2026-10-08', outlet: ['SS Karanganyar'] },
+  },
+  {
+    id: 'kol-2',
+    nama: 'Budi Kuliner',
+    akun: { ...akunKosong, instagram: 'https://instagram.com/budi' },
+    punya_kontak: false,
+    punya_rekening: false,
+    endorsement: { total: 0, sudah_posting: 0, total_rate_card: 0, total_views: 0, terakhir: null, outlet: [] },
+  },
+  {
+    id: 'kol-3',
+    nama: 'Rina Mukbang',
+    akun: akunKosong,
+    punya_kontak: true,
+    punya_rekening: false,
+    endorsement: { total: 3, sudah_posting: 3, total_rate_card: 1500000, total_views: 90000, terakhir: '2026-10-05', outlet: ['SS Kartasura', 'SS Solo Baru'] },
+  },
+]
+
+export const mockPengeluaran: PengeluaranData[] = [
+  { id: 'exp-1', outlet_nama: 'SS Karanganyar', kategori: 'CETAK_BRANDING', jumlah: 500000, keterangan: 'Banner promo', tanggal: '2026-10-02', sumber_dana: 'transfer_pusat', ada_kuitansi: true },
+  { id: 'exp-2', outlet_nama: 'Pusat (Brand)', kategori: 'PRODUKSI_KONTEN', jumlah: 1200000, keterangan: 'Sewa lighting', tanggal: '2026-10-05', sumber_dana: 'reimburse', ada_kuitansi: false },
+  { id: 'exp-3', outlet_nama: 'SS Karanganyar', kategori: 'CETAK_BRANDING', jumlah: 300000, keterangan: 'Stiker', tanggal: '2026-10-07', sumber_dana: 'petty_cash', ada_kuitansi: true },
+  { id: 'exp-4', outlet_nama: 'SS Solo Baru', kategori: 'EVENT_AKTIVASI', jumlah: 900000, keterangan: 'Bazar September', tanggal: '2026-09-20', sumber_dana: 'transfer_pusat', ada_kuitansi: true },
+]
+
+export const mockIklan: IklanData[] = [
+  { id: 'ad-1', kategori: 'INTERNAL', platform: 'TIKTOK', akun: 'OFC TIKTOK', outlet_nama: 'Pusat (Brand)', tanggal: '2026-10-03', budget: 1000000, spent: 800000, views_awal: 1000, views_akhir: 40000, status: 'ON', ad_url: null },
+  { id: 'ad-2', kategori: 'MITRA', platform: 'INSTAGRAM', akun: 'EMPANG', outlet_nama: 'SS Empang', tanggal: '2026-10-06', budget: 500000, spent: 200000, views_awal: null, views_akhir: null, status: 'OFF', ad_url: null },
+  { id: 'ad-3', kategori: 'INTERNAL', platform: 'TIKTOK', akun: 'OFC TIKTOK', outlet_nama: 'Pusat (Brand)', tanggal: '2026-09-28', budget: 700000, spent: 700000, views_awal: 500, views_akhir: 10000, status: 'OFF', ad_url: null },
+]
+
+const skor = (n: number) => ({ hook: n, food_appeal: n, audio: n, pacing: n, cta: n })
+
+export const mockAnalisisVideo: AnalisisVideoData[] = [
+  { id: 'va-1', judul: 'Promo Jumbo', sumber_video: 'URL', video_url: 'https://tiktok.com/v/1', konten_terkait: 'Promo Jumbo Oktober', skor_total: 82, verdict: 'READY', skor: skor(8), kelebihan: ['Hook kuat'], kekurangan: [], saran: ['Tambah CTA'], catatan: null, dibuat: '2026-10-07' },
+  { id: 'va-2', judul: 'Sidak Outlet Empang', sumber_video: 'FILE', video_url: null, konten_terkait: null, skor_total: 55, verdict: 'REVISION', skor: skor(5), kelebihan: [], kekurangan: ['Audio pelan'], saran: ['Rekam ulang suara'], catatan: 'Ulang besok', dibuat: '2026-10-05' },
+  { id: 'va-3', judul: 'Asthetic menu', sumber_video: 'DRIVE', video_url: 'https://drive/x', konten_terkait: null, skor_total: 70, verdict: 'READY', skor: skor(7), kelebihan: [], kekurangan: [], saran: [], catatan: null, dibuat: '2026-10-08' },
+]
+
+export const mockTargetOutlet: TargetOutletData[] = [
+  { outlet_nama: 'SS Karanganyar', bulan: 10, tahun: 2026, target_budget: 3000000, target_kol: 4, catatan: null },
+  { outlet_nama: 'SS Solo Baru', bulan: 10, tahun: 2026, target_budget: 2000000, target_kol: 2, catatan: 'Fokus TikTok' },
+  { outlet_nama: 'SS Karanganyar', bulan: 9, tahun: 2026, target_budget: 1000000, target_kol: 1, catatan: null },
+]
+
+export const mockTipeKonten: TipeKontenData[] = [
+  { nama: 'Info promo', jumlah_konten: 3 },
+  { nama: 'Sidak Outlet', jumlah_konten: 1 },
+]
+
+export const mockMenu: MenuData[] = [
+  { id: 'm-1', nama: 'Original Ayam Jumbo', kategori: 'Shawarma', deskripsi: null, harga: 35000, harga_coret: null, harga_kanal: { gofood: 42000 }, harga_kampanye: null, kampanye_aktif: false, tersedia: true, tersedia_online: true, tampil_di_app: true, paket: false },
+  { id: 'm-2', nama: 'Original Sapi Jumbo', kategori: 'Shawarma', deskripsi: null, harga: 38000, harga_coret: 40000, harga_kanal: {}, harga_kampanye: 30000, kampanye_aktif: true, tersedia: false, tersedia_online: false, tampil_di_app: false, paket: false },
+  { id: 'm-3', nama: 'Paket Duo', kategori: 'Paket', deskripsi: 'Dua shawarma', harga: 65000, harga_coret: null, harga_kanal: {}, harga_kampanye: null, kampanye_aktif: false, tersedia: true, tersedia_online: true, tampil_di_app: true, paket: true },
+]
+
+export const mockPromoMenu: PromoMenuData[] = [
+  { cakupan: 'item', menu_nama: 'Original Ayam Jumbo', outlet_nama: 'SS Empang', mulai: '2026-10-01', selesai: '2026-10-31', jam_mulai: null, jam_selesai: null },
+  { cakupan: 'global', menu_nama: null, outlet_nama: 'SS Beji', mulai: '2026-10-01', selesai: '2026-10-05', jam_mulai: null, jam_selesai: null },
+  { cakupan: 'item', menu_nama: 'Paket Duo', outlet_nama: 'SS Beji', mulai: null, selesai: null, jam_mulai: '14:00', jam_selesai: '16:00' },
+]

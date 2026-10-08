@@ -1,4 +1,4 @@
-import type { KontenData, KonteksMarcom } from './tipe'
+import type { KontenData, KonteksMarcom, TipeKontenData } from './tipe'
 
 export interface ParameterKonten {
   periode?: 'hari_ini' | 'kemarin' | 'minggu_ini' | 'minggu_depan' | 'bulan_ini' | 'custom' | string
@@ -22,6 +22,8 @@ export interface RingkasanKonten {
 export interface HasilJadwalKonten {
   ringkasan: RingkasanKonten
   daftar: KontenData[]
+  /** Daftar tipe konten (halaman Pengaturan Content Planner) + jumlah konten per tipe, sepanjang masa. */
+  tipe_konten: TipeKontenData[]
   meta: {
     sumber: string
     periode: string
@@ -173,6 +175,7 @@ export async function hitungJadwalKonten(
   return {
     ringkasan,
     daftar,
+    tipe_konten: await konteks.daftarTipeKonten(),
     meta: {
       sumber: 'apps/marcom (database marcom_db)',
       periode: rentang.namaPeriode,

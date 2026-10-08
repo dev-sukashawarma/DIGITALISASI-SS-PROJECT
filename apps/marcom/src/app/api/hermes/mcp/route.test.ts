@@ -67,7 +67,7 @@ describe('Endpoint MCP Marcom (/api/hermes/mcp)', () => {
     expect(json.result.protocolVersion).toBe('2024-11-05')
   })
 
-  it('mengembalikan 5 alat marcom pada tools/list', async () => {
+  it('mengembalikan 11 alat marcom pada tools/list', async () => {
     const req = new NextRequest('http://localhost/api/hermes/mcp', {
       method: 'POST',
       headers: {
@@ -84,7 +84,7 @@ describe('Endpoint MCP Marcom (/api/hermes/mcp)', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     const tools = json.result.tools
-    expect(tools).toHaveLength(5)
+    expect(tools).toHaveLength(11)
     const names = tools.map((t: any) => t.name)
     expect(names).toContain('marcom_endorsement')
     expect(names).toContain('marcom_konten_jadwal')

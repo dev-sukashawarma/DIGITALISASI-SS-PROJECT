@@ -80,9 +80,6 @@ export default function NayraAvatar({
       }}
       className="relative select-none pointer-events-none"
     >
-      {/* Glowing Aura Ring di belakang karakter */}
-      <div className="absolute inset-0 -bottom-2 rounded-full bg-gradient-to-tr from-[#D9480F]/25 via-purple-500/15 to-transparent blur-md pointer-events-none" />
-
       {/* Container dengan rotasi condong & bounce */}
       <div
         style={{
@@ -94,7 +91,7 @@ export default function NayraAvatar({
             ? 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
             : 'transform 0.08s ease-out',
         }}
-        className="relative w-full h-full drop-shadow-2xl"
+        className="relative w-full h-full select-none"
       >
         <LayarKlipNayra
           klip={klip}

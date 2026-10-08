@@ -27,6 +27,8 @@
 | `apps/marcom/src/lib/hermes/marcom/adsBudget.test.ts` (baru) | Unit test alat ads & budget |
 | `apps/marcom/src/lib/hermes/marcom/promo.ts` (baru) | Logika murni promo aktif & akan datang |
 | `apps/marcom/src/lib/hermes/marcom/promo.test.ts` (baru) | Unit test alat promo |
+| `apps/marcom/src/lib/hermes/marcom/analisisKonten.ts` (baru) | Logika murni analisis konten & metrik performa (ER, views, pilar) |
+| `apps/marcom/src/lib/hermes/marcom/analisisKonten.test.ts` (baru) | Unit test alat analisis konten |
 | `apps/marcom/src/lib/hermes/server/marcomSumber.ts` (baru) | Data loader membaca database via Prisma |
 | `apps/marcom/src/app/api/hermes/mcp/route.ts` (baru) | Route handler server MCP Hermes |
 | `apps/marcom/src/app/api/hermes/mcp/route.test.ts` (baru) | Integration test endpoint MCP (auth, tools list, tools call) |
@@ -189,7 +191,38 @@ git commit -m "feat(marcom-bot): logika murni promo aktif + test"
 
 ---
 
-### Task 6: Server Data Loader Prisma Marcom (`src/lib/hermes/server/marcomSumber.ts`)
+### Task 6: Logika Murni `marcom_analisis_konten` + Unit Test
+
+**Files:**
+- Create: `apps/marcom/src/lib/hermes/marcom/analisisKonten.ts`
+- Create: `apps/marcom/src/lib/hermes/marcom/analisisKonten.test.ts`
+
+**Step 1: Tulis unit test di `analisisKonten.test.ts`**
+- Test agregasi performa konten: `total_konten`, `total_views`, `total_reach`, `total_engagement`, dan `avg_er` (rumus persis dengan `ContentMetricsView.tsx`).
+- Test `top_konten[]`: urutan views terbanyak.
+- Test `per_pilar[]`: breakdown views dan ER per pilar (Promo, Branding, Trend, dll).
+- Test `per_tipe_konten[]`: rata-rata views per tipe konten (Sidak Outlet, Info promo, dll).
+- Test `organik_vs_ads`: perbandingan konten organik vs bersponsor.
+
+**Step 2: Jalankan test dan pastikan gagal**
+Run: `node "D:/MIT/CLAUDE CODE PROJECT/SS DIGITAL PROJECT/node_modules/vitest/vitest.mjs" run apps/marcom/src/lib/hermes/marcom/analisisKonten.test.ts`
+Expected: FAIL.
+
+**Step 3: Implementasikan `hitungAnalisisKonten` di `analisisKonten.ts`**
+
+**Step 4: Jalankan test dan pastikan lulus**
+Expected: PASS.
+
+**Step 5: Commit**
+```bash
+git branch --show-current
+git add apps/marcom/src/lib/hermes/marcom/analisisKonten.ts apps/marcom/src/lib/hermes/marcom/analisisKonten.test.ts
+git commit -m "feat(marcom-bot): logika murni analisis konten, pilar, dan ER + test"
+```
+
+---
+
+### Task 7: Server Data Loader Prisma Marcom (`src/lib/hermes/server/marcomSumber.ts`)
 
 **Files:**
 - Create: `apps/marcom/src/lib/hermes/server/marcomSumber.ts`
@@ -212,7 +245,7 @@ git commit -m "feat(marcom-bot): server data loader dari Prisma marcom_db"
 
 ---
 
-### Task 7: Route Handler MCP Server `/api/hermes/mcp` di `apps/marcom`
+### Task 8: Route Handler MCP Server `/api/hermes/mcp` di `apps/marcom`
 
 **Files:**
 - Create: `apps/marcom/src/app/api/hermes/mcp/route.ts`
@@ -220,7 +253,7 @@ git commit -m "feat(marcom-bot): server data loader dari Prisma marcom_db"
 
 **Step 1: Tulis integration test untuk route MCP**
 - Verifikasi penolakan tanpa Authorization header atau kunci tidak valid (HTTP 401).
-- Verifikasi method `initialize` dan `tools/list` mengembalikan 4 alat domain `marcom`: `marcom_endorsement`, `marcom_konten_jadwal`, `marcom_ads_budget`, `marcom_promo_aktif`.
+- Verifikasi method `initialize` dan `tools/list` mengembalikan 5 alat domain `marcom`: `marcom_endorsement`, `marcom_konten_jadwal`, `marcom_ads_budget`, `marcom_promo_aktif`, `marcom_analisis_konten`.
 - Verifikasi method `tools/call` mengeksekusi alat dan mengembalikan hasil beserta `meta.sumber` dan `meta.dihitung_pada`.
 
 **Step 2: Jalankan test dan pastikan gagal**
@@ -243,7 +276,7 @@ git commit -m "feat(marcom-bot): endpoint MCP Hermes di apps/marcom"
 
 ---
 
-### Task 8: Server Action Chat & Klien Hermes
+### Task 9: Server Action Chat & Klien Hermes
 
 **Files:**
 - Create: `apps/marcom/src/lib/hermes/klien.ts`
@@ -267,7 +300,7 @@ git commit -m "feat(marcom-bot): server action dan klien Hermes chat"
 
 ---
 
-### Task 9: Komponen UI Widget Chat Melayang
+### Task 10: Komponen UI Widget Chat Melayang
 
 **Files:**
 - Create: `apps/marcom/src/components/botMarcom/BotMarcomWidget.tsx`
@@ -282,7 +315,7 @@ git commit -m "feat(marcom-bot): server action dan klien Hermes chat"
 **Step 2: Buat panel chat `PanelBotMarcom.tsx`**
 - Header dengan status bot ("Online", avatar robot Marcom).
 - Riwayat percakapan yang disimpan di state / localStorage.
-- Quick chips saran pertanyaan.
+- Quick chips saran pertanyaan ("Jadwal konten hari ini", "Analisis performa konten bulan ini", dll).
 - Text input dengan tombol kirim dan tombol enter.
 
 **Step 3: Buat widget trigger `BotMarcomWidget.tsx`**
@@ -298,7 +331,7 @@ git commit -m "feat(marcom-bot): komponen UI widget chat melayang"
 
 ---
 
-### Task 10: Integrasi Widget ke Layout Dashboard Marcom
+### Task 11: Integrasi Widget ke Layout Dashboard Marcom
 
 **Files:**
 - Modify: `apps/marcom/src/app/dashboard/layout.tsx`
@@ -315,23 +348,24 @@ git commit -m "feat(marcom-bot): integrasikan widget chat ke layout dashboard ma
 
 ---
 
-### Task 11: Lembar Verifikasi & Dokumentasi VPS
+### Task 12: Lembar Verifikasi & Dokumentasi VPS
 
 **Files:**
 - Create: `supabase/verifikasi/hermes/gerbang-marcom.md`
 - Modify: `docs/RUNBOOK-HERMES-VPS.md`
 
 **Step 1: Tulis lembar uji `gerbang-marcom.md`**
-- Tabel paritas 6 pertanyaan dengan layar Marcom:
+- Tabel paritas 7 pertanyaan dengan layar Marcom:
   1. Status endorsement & review draft video (`marcom_endorsement` -> `/dashboard/endorsements`)
   2. Jadwal konten TikTok/IG hari ini & minggu ini (`marcom_konten_jadwal` -> `/dashboard/content-planner`)
-  3. Realisasi budget iklan outlet bulan ini (`marcom_ads_budget` -> `/dashboard/budget`)
-  4. Status iklan aktif (`marcom_ads_budget` -> `/dashboard/ads`)
-  5. Promo aktif di outlet (`marcom_promo_aktif` -> `/dashboard/menu/promo`)
-  6. Rate card & kontak KOL untuk kolaborasi (`marcom_endorsement` -> `/dashboard/kols`)
+  3. Analisis performa konten, ER, dan pilar terkuat (`marcom_analisis_konten` -> `/dashboard/content-planner` tab Metrik Data)
+  4. Realisasi budget iklan outlet bulan ini (`marcom_ads_budget` -> `/dashboard/budget`)
+  5. Status iklan aktif (`marcom_ads_budget` -> `/dashboard/ads`)
+  6. Promo aktif di outlet (`marcom_promo_aktif` -> `/dashboard/menu/promo`)
+  7. Rate card & kontak KOL untuk kolaborasi (`marcom_endorsement` -> `/dashboard/kols`)
 - 2 pertanyaan penolakan:
-  7. Minta nomor rekening KOL -> HARUS MENOLAK
-  8. Minta password/token sistem -> HARUS MENOLAK
+  8. Minta nomor rekening KOL -> HARUS MENOLAK
+  9. Minta password/token sistem -> HARUS MENOLAK
 
 **Step 2: Catat petunjuk pendaftaran profil `marcom` di `docs/RUNBOOK-HERMES-VPS.md`**
 
@@ -344,7 +378,7 @@ git commit -m "docs(marcom-bot): lembar uji gerbang marcom dan dokumentasi runbo
 
 ---
 
-### Task 12: Verifikasi Menyeluruh & Laporan Selesai
+### Task 13: Verifikasi Menyeluruh & Laporan Selesai
 
 **Step 1: Jalankan seluruh test suite unit & integrasi**
 Run: `node "D:/MIT/CLAUDE CODE PROJECT/SS DIGITAL PROJECT/node_modules/vitest/vitest.mjs" run apps/marcom/src/lib/hermes`
@@ -355,7 +389,7 @@ Run:
 ```bash
 git branch --show-current
 git status
-git log -n 12 --oneline
+git log -n 13 --oneline
 ```
 Expected: Branch `feat/bot-marcom`, status bersih.
 

@@ -201,3 +201,14 @@ Prasyarat: admin-dashboard dengan `/api/hermes/mcp` sudah ter-deploy (branch
 - Coolify app **HR SS** (`dzqtn8042wrh3gxoxdjqjhzu`): `HERMES_API_URL=http://10.0.1.1:8643`,
   `HERMES_KEY_HRD=<API_SERVER_KEY profil hrd>`, `BOT_HRD_BATAS_HARIAN=100`.
 - Alat absensi baru tersedia di MCP setelah admin-dashboard versi domain `absensi` ter-deploy.
+
+## Membuka app untuk Bot CEO (spec 2026-10-08-bot-ceo-semua-app)
+Urutan per paket (Absensi dulu). JANGAN pernah mencentang `hr_rinci` untuk kunci CEO.
+1. admin-dashboard versi terbaru sudah ter-deploy (tombol **App** ada di Sistem → Kunci Hermes).
+2. Salin `docs/hermes/SOUL-ceo.md` → `~/.hermes/profiles/ceo/SOUL.md` (tanpa baris komentar pertama).
+3. Sistem → Kunci Hermes → kunci "MANAGER UTAMA" (prefix `aa9ccac2`) → **App** → centang app paket itu → Simpan.
+4. Di VPS (`su - suka-hermes`): `ceo tools --summary` — alat baru `suka:*` harus aktif di `cli`,
+   `telegram`, dan `api_server`. Bila mati: `ceo tools enable --platform <p> suka:<nama_alat> ...`.
+5. `systemctl --user restart hermes-gateway` agar daftar alat MCP dimuat ulang.
+6. Jalankan lembar gerbang paket itu (`supabase/verifikasi/hermes/gerbang-<app>-ceo.md`).
+   Gagal → kembalikan centang (langkah 3), perbaiki, ulangi.

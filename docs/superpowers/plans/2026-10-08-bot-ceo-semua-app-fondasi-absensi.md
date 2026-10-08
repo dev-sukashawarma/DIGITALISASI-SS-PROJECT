@@ -36,7 +36,7 @@
 | `apps/admin-dashboard/src/app/dashboard/sistem/hermes/KunciHermesPanel.tsx` (ubah) | Pakai `DOMAIN`/`LABEL_DOMAIN` dari lib, tombol "Ubah app" |
 | `docs/hermes/SOUL-ceo.md` (ubah) | SOUL per app |
 | `docs/RUNBOOK-HERMES-VPS.md` (ubah) | Langkah membuka app untuk CEO |
-| `supabase/verifikasi/hermes/gerbang-absensi.md` (baru) | Lembar uji gerbang paket Absensi |
+| `supabase/verifikasi/hermes/gerbang-absensi-ceo.md` (baru) | Lembar uji gerbang paket Absensi |
 
 ## Cara menjalankan test di worktree
 
@@ -588,6 +588,6 @@ Expected: 0 error, build sukses.
 
 - [ ] **Step 4: Redeploy `admin-dashboard`** (owner). Cek Sistem → Kunci Hermes: kolom "App" berlabel, tombol "Ubah app" ada; kunci Bot HRD tampil `Absensi, HR rinci (gaji & kasbon per orang)`.
 
-- [ ] **Step 5: Jalankan runbook "Membuka app untuk Bot CEO" untuk paket Absensi**, isi `gerbang-absensi.md` dengan hasil nyata, commit lembarnya.
+- [ ] **Step 5: Jalankan runbook "Membuka app untuk Bot CEO" untuk paket Absensi**, isi `gerbang-absensi-ceo.md` dengan hasil nyata, commit lembarnya.
 
 - [ ] **Step 6: Catat sesi di `CLAUDE.md`** (status, migration, perlu redeploy, hasil gerbang) dan commit.

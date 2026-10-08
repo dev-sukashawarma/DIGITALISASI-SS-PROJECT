@@ -97,6 +97,7 @@ export interface ExportContext {
   expenseRows: any[]
   mitraInvestments: Record<string, any>
   tiktokSettlements: Record<string, any>
+  platformSettlements?: Record<string, any>
   filter: { from: string; to: string }
   effectiveFilter: { from: string; to: string }
   printTimestamp?: string
@@ -178,9 +179,23 @@ export function buildOutletFinancialCalculations(
   const adminSettlementTikTok = ttSettlement ? ttSettlement.commission : channels.tiktok_go.adminFee
   const settlementTikTok = ttSettlement ? ttSettlement.totalSettlement : (channels.tiktok_go.revenue - channels.tiktok_go.adminFee)
 
+  // Bila ada data rekonsiliasi platform settlement, pastikan adminFee Food Apps
+  // sinkron 100% dengan promo_merchant settlement
+  if (ctx.platformSettlements) {
+    const gfSt = ctx.platformSettlements[`${item.id}|gofood`]
+    const sfSt = ctx.platformSettlements[`${item.id}|shopeefood`]
+    const grbSt = ctx.platformSettlements[`${item.id}|grabfood`]
+    if (gfSt || sfSt || grbSt) {
+      const stFoodAppsPromo = (gfSt?.promoMerchant || 0) + (sfSt?.promoMerchant || 0) + (grbSt?.promoMerchant || 0)
+      if (stFoodAppsPromo > 0) {
+        channels.food_apps.adminFee = stFoodAppsPromo
+      }
+    }
+  }
+
   const totalRev = channels.outlet.revenue + channels.food_apps.revenue + channels.tiktok_go.revenue + channels.website.revenue
   const calcAdminFee = channels.outlet.adminFee + channels.food_apps.adminFee + adminSettlementTikTok + channels.website.adminFee
-  const totalAdminFee = item.deductions > 0 ? item.deductions : calcAdminFee
+  const totalAdminFee = calcAdminFee
   const totalCogs = item.hpp
 
   let cogsOutlet = 0
@@ -425,7 +440,7 @@ function renderOutletPdfPage(
       { content: 'TRANSAKSI FOOD APPS (GRAB / GOJEK / SHOPEE)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
     ])
     bodyRows.push(['REVENUE FOOD APPS', { content: rupiah(calc.channels.food_apps.revenue), styles: { halign: 'right' } }])
-    bodyRows.push(['ADMIN FEE', { content: calc.channels.food_apps.adminFee > 0 ? `-${rupiah(calc.channels.food_apps.adminFee)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push(['POTONGAN MERCHANT / ADMIN FEE', { content: calc.channels.food_apps.adminFee > 0 ? `-${rupiah(calc.channels.food_apps.adminFee)}` : 'Rp 0', styles: { halign: 'right' } }])
     bodyRows.push(['TOTAL COGS (HPP)', { content: calc.cogsFoodApps > 0 ? `-${rupiah(calc.cogsFoodApps)}` : 'Rp 0', styles: { halign: 'right' } }])
     bodyRows.push([
       { content: 'TOTAL GROSS PROFIT FOOD APPS', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
@@ -440,7 +455,7 @@ function renderOutletPdfPage(
       { content: 'TRANSAKSI TIKTOK GO', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
     ])
     bodyRows.push(['REVENUE TIKTOK', { content: rupiah(calc.channels.tiktok_go.revenue), styles: { halign: 'right' } }])
-    bodyRows.push(['ADMIN FEE', { content: calc.adminSettlementTikTok > 0 ? `-${rupiah(calc.adminSettlementTikTok)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push(['KOMISI / ADMIN SETTLEMENT TIKTOK', { content: calc.adminSettlementTikTok > 0 ? `-${rupiah(calc.adminSettlementTikTok)}` : 'Rp 0', styles: { halign: 'right' } }])
     bodyRows.push([
       { content: 'SETTLEMENT (PENCAIRAN DANA)', styles: { fontStyle: 'bold' } }, 
       { content: rupiah(calc.settlementTikTok), styles: { halign: 'right', fontStyle: 'bold' } }
@@ -479,9 +494,19 @@ function renderOutletPdfPage(
     { content: rupiah(calc.totalRev), styles: { halign: 'right', fontStyle: 'bold' } }
   ])
   bodyRows.push([
-    { content: 'TOTAL ADMIN FEE' }, 
+    { content: 'TOTAL ADMIN FEE & POTONGAN PLATFORM' }, 
     { content: calc.totalAdminFee > 0 ? `-${rupiah(calc.totalAdminFee)}` : 'Rp 0', styles: { halign: 'right' } }
   ])
+  if (calc.adminSettlementTikTok > 0 && calc.channels.food_apps.adminFee > 0) {
+    bodyRows.push([
+      { content: '  • Potongan Merchant Food Apps', styles: { textColor: [100, 116, 139] } },
+      { content: `-${rupiah(calc.channels.food_apps.adminFee)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
+    ])
+    bodyRows.push([
+      { content: '  • Komisi / Admin Settlement TikTok Go', styles: { textColor: [100, 116, 139] } },
+      { content: `-${rupiah(calc.adminSettlementTikTok)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
+    ])
+  }
   bodyRows.push([
     { content: 'TOTAL COGS (HPP)' }, 
     { content: calc.totalCogs > 0 ? `-${rupiah(calc.totalCogs)}` : 'Rp 0', styles: { halign: 'right' } }

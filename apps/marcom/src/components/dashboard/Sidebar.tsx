@@ -261,6 +261,11 @@ export default function Sidebar({
           badge: null,
         },
         {
+          name: 'Analisis Video',
+          href: '/dashboard/content-planner/analisis-video',
+          badge: 'AI',
+        },
+        {
           name: 'Referensi Data',
           href: '/dashboard/content-planner/referensi-data',
           badge: null,

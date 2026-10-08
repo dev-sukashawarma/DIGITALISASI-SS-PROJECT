@@ -364,11 +364,6 @@ export default function PlatformSettlementPage() {
         } else {
           setActivePlatformTab('all');
         }
-        // Otomatis selaraskan input tanggal dengan rentang transaksi aktual dari file settlement
-        if (res.summary.periodeFrom && res.summary.periodeTo) {
-          setFrom(res.summary.periodeFrom);
-          setTo(res.summary.periodeTo);
-        }
       } else {
         setErrorMsg(res.error || 'Gagal memproses file settlement.');
       }
@@ -825,14 +820,16 @@ export default function PlatformSettlementPage() {
                 </button>
               </div>
 
-              {s.isAutoAligned && (
+              {Boolean(s.excludedOutOfRangeCount && s.excludedOutOfRangeCount > 0) && (
                 <div className="mx-6 mt-4 p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-start gap-2.5">
                   <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-bold">Periode Otomatis Diselaraskan dengan File Settlement</p>
+                    <p className="font-bold">
+                      Data Disaring Sesuai Periode Pilihan ({formatDateIndo(s.periodeFrom)} — {formatDateIndo(s.periodeTo)})
+                    </p>
                     <p className="text-blue-700 mt-0.5">
-                      File settlement yang diunggah berisi data transaksi dari <b>{formatDateIndo(s.periodeFrom)}</b> s/d{' '}
-                      <b>{formatDateIndo(s.periodeTo)}</b>. Pembanding POS Internal otomatis dihitung untuk rentang tanggal yang persis sama.
+                      File settlement yang diunggah terdeteksi memuat transaksi dari <b>{formatDateIndo(s.rawFileMinDate || '')}</b> s/d{' '}
+                      <b>{formatDateIndo(s.rawFileMaxDate || '')}</b>. Sebanyak <b>{s.excludedOutOfRangeCount} baris transaksi di luar rentang</b> (akhir bulan lalu / awal bulan depan) telah otomatis diabaikan agar data rekonsiliasi dan pembanding POS 100% murni untuk periode pilihan Anda.
                     </p>
                   </div>
                 </div>

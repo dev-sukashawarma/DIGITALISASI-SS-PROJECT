@@ -1,10 +1,11 @@
-// Gerbang tunggal app ini (spec W2): sesi SSO + is_owner_or_admin() + staf aktif + role terpetakan.
+// Gerbang tunggal app ini: sesi SSO + is_owner_or_admin() + staf aktif (spec kantor bot §10).
+// Izin chat per bot dicek terpisah di route (lib/server/izinChat.ts).
 // Dipakai di setiap route & halaman — app ini sengaja tanpa middleware (tak mengubah @suka/auth).
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
-import { profilUntukPeran, type Profil } from '@/lib/peran'
+import { putuskanGerbang } from '@/lib/gerbang'
 
-export type Sesi = { supabase: any; userId: string; nama: string; profil: Profil }
+export type Sesi = { supabase: any; userId: string; nama: string; role: string | null }
 
 export async function ambilSesi(): Promise<{ ok: true; sesi: Sesi } | { ok: false; status: 401 | 403 }> {
   const cookieStore = await cookies()
@@ -15,7 +16,7 @@ export async function ambilSesi(): Promise<{ ok: true; sesi: Sesi } | { ok: fals
     supabase.rpc('is_owner_or_admin'),
     supabase.from('outlet_staff').select('name, role, status').eq('id', userId).maybeSingle(),
   ])
-  const profil = profilUntukPeran(staff?.role)
-  if (error || boleh !== true || staff?.status !== 'active' || !profil) return { ok: false, status: 403 }
-  return { ok: true, sesi: { supabase, userId, nama: (staff?.name as string) || 'Bos', profil } }
+  const g = putuskanGerbang({ userId, boleh: boleh === true, galatRpc: !!error, status: staff?.status ?? null })
+  if (!g.ok) return g
+  return { ok: true, sesi: { supabase, userId, nama: (staff?.name as string) || 'Bos', role: (staff?.role as string) ?? null } }
 }

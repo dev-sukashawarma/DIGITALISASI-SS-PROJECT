@@ -497,6 +497,9 @@ export interface MultiPlatformSummary {
   periodeFrom: string;
   periodeTo: string;
   isAutoAligned?: boolean;
+  rawFileMinDate?: string | null;
+  rawFileMaxDate?: string | null;
+  excludedOutOfRangeCount?: number;
   primaryPlatform: 'all' | 'shopeefood' | 'grabfood' | 'gofood' | 'tiktokgo';
   totalOmzetKotor: number;
   totalAdminFee: number;
@@ -576,6 +579,8 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
     const perPlatform: MultiPlatformSummary['perPlatform'] = [];
     const unmappedMap = new Map<string, { platform: string; storeId: string; storeName: string; omzetKotor: number }>();
     const allDaily: MultiPlatformSummary['allDaily'] = [];
+    let totalExcludedOutOfRange = 0;
+    const allDetectedDates: string[] = [];
 
     for (const platform of platformIds) {
       const file = formData.get(`file_${platform}`) as File | null;
@@ -589,6 +594,18 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
       const pOutletMap = new Map<string, { omzet: number; promo: number; fee: number }>();
 
       for (const r of rows) {
+        if (r.date) allDetectedDates.push(r.date);
+
+        // Filter ketat: Hanya proses transaksi yang berada di dalam periode pilihan user (misal 01/09/2026 s/d 30/09/2026)
+        if (periodeFrom && r.date < periodeFrom) {
+          totalExcludedOutOfRange++;
+          continue;
+        }
+        if (periodeTo && r.date > periodeTo) {
+          totalExcludedOutOfRange++;
+          continue;
+        }
+
         if (map.closed[r.storeId] || map.closed[r.storeName.trim().toLowerCase()]) continue;
         const oName = resolveOutletName(map, r.storeId, r.storeName, r.date);
         const oId = oName ? outletIdByName.get(oName.trim().toLowerCase()) ?? null : null;
@@ -662,22 +679,23 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
 
     if (perPlatform.length === 0) return { success: false, error: 'Tidak ada file yang berhasil diproses.' };
 
-    // Otomatis deteksi rentang tanggal dari file settlement yang diunggah
-    const allFileDates = allDaily
-      .flatMap((p) => p.daily.map((d) => d.date))
-      .filter(Boolean)
-      .sort();
+    allDetectedDates.sort();
+    const rawFileMinDate = allDetectedDates.length > 0 ? allDetectedDates[0] : null;
+    const rawFileMaxDate = allDetectedDates.length > 0 ? allDetectedDates[allDetectedDates.length - 1] : null;
 
-    const fileMinDate = allFileDates.length > 0 ? allFileDates[0] : null;
-    const fileMaxDate = allFileDates.length > 0 ? allFileDates[allFileDates.length - 1] : null;
+    // Pastikan ada baris transaksi yang berhasil diproses dalam rentang periode terpilih
+    const totalProcessedRows = allDaily.reduce((sum, p) => sum + p.daily.length, 0);
+    if (totalProcessedRows === 0) {
+      return {
+        success: false,
+        error: `Tidak ada data transaksi yang berada dalam rentang periode ${periodeFrom} s/d ${periodeTo}. Rentang transaksi yang terdeteksi di dalam file adalah ${rawFileMinDate || '-'} s/d ${rawFileMaxDate || '-'}.`,
+      };
+    }
 
-    // Selaraskan periode dengan isi file aktual (Single Source of Truth)
-    // agar pembanding POS membandingkan rentang tanggal yang persis sama dengan file yang diunggah
-    const effectiveFrom = fileMinDate || periodeFrom;
-    const effectiveTo = fileMaxDate || periodeTo;
-    const isAutoAligned = Boolean(
-      fileMinDate && fileMaxDate && (fileMinDate !== periodeFrom || fileMaxDate !== periodeTo)
-    );
+    // Selalu jadikan periode yang dipilih user (Step 1) sebagai acuan rekonsiliasi dan pembanding POS
+    const effectiveFrom = periodeFrom;
+    const effectiveTo = periodeTo;
+    const isAutoAligned = false;
 
     const settlementOutletIds = [...outletOmzet.keys()];
 
@@ -799,6 +817,9 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
         periodeFrom: effectiveFrom,
         periodeTo: effectiveTo,
         isAutoAligned,
+        rawFileMinDate,
+        rawFileMaxDate,
+        excludedOutOfRangeCount: totalExcludedOutOfRange,
         primaryPlatform,
         totalOmzetKotor: perPlatform.reduce((s, p) => s + p.omzetKotor, 0),
         totalAdminFee: perPlatform.reduce((s, p) => s + p.adminFee, 0),
@@ -1043,49 +1064,102 @@ export interface TikTokSettlementSummary {
   totalSettlement: number; // Total Settlement
 }
 
-export async function getTikTokSettlementSummaries(
+export interface PlatformSettlementAggregate {
+  promoMerchant: number;
+  commission: number;
+  omzetKotor: number;
+}
+
+export interface AllPlatformSettlementsResult {
+  tiktokSummaries: Record<string, TikTokSettlementSummary>;
+  byOutletPlatform: Record<string, PlatformSettlementAggregate>;
+}
+
+export async function getAllPlatformSettlementSummaries(
   from: string,
   to: string
-): Promise<{ success: boolean; data?: Record<string, TikTokSettlementSummary>; error?: string }> {
+): Promise<{ success: boolean; data?: AllPlatformSettlementsResult; error?: string }> {
   const supabase = getSupabase();
   try {
     try {
       await requireRole(['admin', 'owner', 'finance', 'developer', 'superadmin']);
     } catch (authErr) {
-      console.warn('requireRole in getTikTokSettlementSummaries:', authErr);
+      console.warn('requireRole in getAllPlatformSettlementSummaries:', authErr);
     }
-    const { data, error } = await supabase
-      .from('platform_settlements')
-      .select('outlet_id, omzet_kotor, promo_merchant, commission')
-      .eq('platform', 'tiktokgo')
-      .gte('tanggal', from)
-      .lte('tanggal', to);
 
-    if (error) throw error;
+    const PAGE_SIZE = 1000;
+    const allRows: any[] = [];
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('platform_settlements')
+        .select('outlet_id, platform, omzet_kotor, promo_merchant, commission')
+        .gte('tanggal', from)
+        .lte('tanggal', to)
+        .order('id', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
 
-    const result: Record<string, TikTokSettlementSummary> = {};
-    for (const row of data || []) {
+      if (error) throw error;
+      const page = data ?? [];
+      allRows.push(...page);
+      if (page.length < PAGE_SIZE) break;
+    }
+
+    const tiktokSummaries: Record<string, TikTokSettlementSummary> = {};
+    const byOutletPlatform: Record<string, PlatformSettlementAggregate> = {};
+
+    for (const row of allRows) {
       const oId = row.outlet_id;
-      if (!result[oId]) {
-        result[oId] = {
-          outletId: oId,
-          omzetKotor: 0,
-          promoMerchant: 0,
-          commission: 0,
-          totalSettlement: 0,
-        };
-      }
+      if (!oId) continue;
+      const plat = (row.platform || '').toLowerCase();
       const omzet = Number(row.omzet_kotor) || 0;
       const promo = Number(row.promo_merchant) || 0;
       const comm = Number(row.commission) || 0;
-      result[oId].omzetKotor += omzet;
-      result[oId].promoMerchant += promo;
-      result[oId].commission += comm;
-      result[oId].totalSettlement += (omzet - promo - comm);
+
+      const key = `${oId}|${plat}`;
+      if (!byOutletPlatform[key]) {
+        byOutletPlatform[key] = { promoMerchant: 0, commission: 0, omzetKotor: 0 };
+      }
+      byOutletPlatform[key].omzetKotor += omzet;
+      byOutletPlatform[key].promoMerchant += promo;
+      byOutletPlatform[key].commission += comm;
+
+      if (plat === 'tiktokgo' || plat === 'tiktok' || plat === 'tiktok_go') {
+        if (!tiktokSummaries[oId]) {
+          tiktokSummaries[oId] = {
+            outletId: oId,
+            omzetKotor: 0,
+            promoMerchant: 0,
+            commission: 0,
+            totalSettlement: 0,
+          };
+        }
+        tiktokSummaries[oId].omzetKotor += omzet;
+        tiktokSummaries[oId].promoMerchant += promo;
+        tiktokSummaries[oId].commission += comm;
+        tiktokSummaries[oId].totalSettlement += (omzet - promo - comm);
+      }
     }
 
-    return { success: true, data: result };
+    return {
+      success: true,
+      data: {
+        tiktokSummaries,
+        byOutletPlatform,
+      },
+    };
   } catch (err: any) {
-    return { success: false, error: err?.message || 'Gagal memuat ringkasan settlement TikTok' };
+    return { success: false, error: err?.message || 'Gagal memuat ringkasan settlement platform' };
   }
 }
+
+export async function getTikTokSettlementSummaries(
+  from: string,
+  to: string
+): Promise<{ success: boolean; data?: Record<string, TikTokSettlementSummary>; error?: string }> {
+  const res = await getAllPlatformSettlementSummaries(from, to);
+  if (!res.success || !res.data) {
+    return { success: false, error: res.error };
+  }
+  return { success: true, data: res.data.tiktokSummaries };
+}
+

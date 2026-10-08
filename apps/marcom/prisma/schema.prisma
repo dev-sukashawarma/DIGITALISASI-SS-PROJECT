@@ -229,6 +229,7 @@ model InternalContent {
   lastSyncedAt      DateTime? @map("last_synced_at") @db.Timestamptz
 
   outlet            Outlet?  @relation(fields: [outletId], references: [id], onDelete: SetNull)
+  videoAnalyses     VideoAnalysis[]
 
   @@index([pillar], name: "idx_internal_content_pillar")
   @@index([platform], name: "idx_internal_content_platform")
@@ -281,6 +282,33 @@ model MarcomExpense {
   @@index([expenseDate], name: "idx_marcom_expenses_date")
   @@index([category], name: "idx_marcom_expenses_category")
   @@map("marcom_expenses")
+}
+
+model VideoAnalysis {
+  id                BigInt   @id @default(autoincrement())
+  title             String
+  videoUrl          String?  @map("video_url")
+  videoSource       String   @default("FILE") @map("video_source") // FILE, URL, DRIVE
+  internalContentId BigInt?  @map("internal_content_id")
+  overallScore      Int      @default(0) @map("overall_score")
+  verdict           String   @default("REVIEW") // READY, REVISION, BOOSTER, REVIEW
+  hookScore         Int      @default(0) @map("hook_score")
+  foodAppealScore   Int      @default(0) @map("food_appeal_score")
+  audioScore        Int      @default(0) @map("audio_score")
+  pacingScore       Int      @default(0) @map("pacing_score")
+  ctaScore          Int      @default(0) @map("cta_score")
+  pros              Json     @default("[]")
+  cons              Json     @default("[]")
+  improvements      Json     @default("[]")
+  metricsData       Json?    @map("metrics_data")
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  internalContent   InternalContent? @relation(fields: [internalContentId], references: [id], onDelete: SetNull)
+
+  @@index([internalContentId], name: "idx_video_analysis_internal_content")
+  @@index([createdAt], name: "idx_video_analysis_created_at")
+  @@map("video_analyses")
 }
 
 

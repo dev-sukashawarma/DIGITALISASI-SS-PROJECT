@@ -21,7 +21,8 @@ import {
   Pencil,
   ChevronRight,
   Search,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -184,6 +185,17 @@ export default function BukuKasPage() {
   // Displayed transactions after category and search filtering
   const displayedTransactions = useMemo(() => {
     return allTransactions.filter(tx => {
+      // Saat filter target === 'all' dan filter kategori 'all', sembunyikan joint_expense
+      // agar tidak menduplikasi pengeluaran_global (Pusat) di rekap konsolidasi.
+      // Namun jika user secara spesifik memilih Kategori: 'joint_expense', biarkan tampil agar tetap dapat diaudit.
+      if (
+        target === 'all' &&
+        selectedCategory === 'all' &&
+        (tx.category === 'joint_expense' || (tx as any).category === 'joint_expanse')
+      ) {
+        return false
+      }
+
       if (!matchesCategory(tx.category, selectedCategory)) {
         return false
       }
@@ -202,7 +214,7 @@ export default function BukuKasPage() {
 
       return true
     })
-  }, [allTransactions, selectedCategory, searchQuery])
+  }, [allTransactions, selectedCategory, searchQuery, target])
 
   const displayedTotalOpex = useMemo(() => {
     return displayedTransactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0)
@@ -217,6 +229,13 @@ export default function BukuKasPage() {
     let outlet = 0
 
     allTransactions.forEach(t => {
+      // PENTING: Saat filter target === 'all' (Semua Unit: Cabang & Pusat),
+      // joint_expense adalah hasil bagi dari pengeluaran_global pusat ke seluruh cabang aktif.
+      // Menjumlahkan keduanya di scope konsolidasi akan menduplikasi beban kas keluar.
+      if (target === 'all' && (t.category === 'joint_expense' || (t as any).category === 'joint_expanse')) {
+        return
+      }
+
       const amt = Number(t.amount || 0)
       totalOpex += amt
       if (isSalaryCategory(t.category)) {
@@ -237,9 +256,11 @@ export default function BukuKasPage() {
       nonSalary,
       pusat,
       outlet,
-      count: allTransactions.length
+      count: target === 'all'
+        ? allTransactions.filter(t => t.category !== 'joint_expense' && (t as any).category !== 'joint_expanse').length
+        : allTransactions.length
     }
-  }, [allTransactions])
+  }, [allTransactions, target])
 
   // Prorata calculation based on current date filter (starts / ends)
   const prorataInfo = useMemo(() => calculateDateRangeProrata(startDate, endDate), [startDate, endDate])
@@ -282,6 +303,13 @@ export default function BukuKasPage() {
 
     allTransactions.forEach(t => {
       if (isSalaryCategory(t.category)) return
+
+      // Saat konsolidasi Semua Unit (Cabang & Pusat), exclude joint_expense
+      // agar tidak double counting dengan pengeluaran_global pusat.
+      if (target === 'all' && (t.category === 'joint_expense' || (t as any).category === 'joint_expanse')) {
+        return
+      }
+
       nonSalaryCount++
       const amt = Number(t.amount || 0)
 
@@ -326,7 +354,7 @@ export default function BukuKasPage() {
       outlets,
       count: nonSalaryCount
     }
-  }, [allTransactions])
+  }, [allTransactions, target])
 
   const validOutlets = useMemo(() => {
     return outlets.filter(o => !isExcludedOutlet(o))
@@ -947,7 +975,7 @@ export default function BukuKasPage() {
                 className="block w-full pl-8 pr-7 py-1.5 border border-suka-gray-200 rounded-xl leading-5 bg-white text-suka-brown font-bold focus:outline-none focus:ring-1 focus:ring-suka-orange focus:border-suka-orange transition-colors text-xs cursor-pointer shadow-2xs"
                 title="Filter berdasarkan kategori pengeluaran"
               >
-                <option value="all">Semua Kategori ({allTransactions.length})</option>
+                <option value="all">Semua Kategori ({target === 'all' ? summary.count : allTransactions.length})</option>
                 {availableCategories.present.map(c => (
                   <option key={c.value} value={c.value}>
                     {c.label} ({c.count})
@@ -1006,6 +1034,16 @@ export default function BukuKasPage() {
             )}
           </div>
         </div>
+
+        {/* Info Banner Alokasi Joint Expense */}
+        {target === 'all' && (selectedCategory === 'joint_expense' || (selectedCategory as any) === 'joint_expanse') && (
+          <div className="mx-5 my-3 bg-amber-50/90 border border-amber-200/90 text-amber-900 rounded-xl p-3 text-xs flex items-start gap-2.5 leading-relaxed shadow-2xs">
+            <Info size={16} className="text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <span className="font-bold">Informasi Alokasi Joint Expense:</span> Transaksi di bawah ini merupakan hasil pembebanan / alokasi biaya <em>Pengeluaran Global</em> (Pusat) ke masing-masing cabang aktif. Pada rekap konsolidasi <strong>Semua Unit</strong>, nominal ini tidak diakumulasikan ke Total OPEX utama agar pengeluaran kas tidak tercatat dua kali (*double counting*).
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="p-12 text-center text-gray-400 font-medium">
@@ -1322,7 +1360,8 @@ export default function BukuKasPage() {
           totalNonSalary: summary.nonSalary,
           totalCount: operationalBreakdown.count,
           categories: operationalBreakdown.categories,
-          outlets: operationalBreakdown.outlets
+          outlets: operationalBreakdown.outlets,
+          isAllUnits: target === 'all'
         }}
         totalOpexData={{
           totalCombined: totalCombinedOpex,

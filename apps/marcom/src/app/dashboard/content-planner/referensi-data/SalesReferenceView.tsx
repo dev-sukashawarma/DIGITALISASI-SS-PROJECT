@@ -185,6 +185,17 @@ export default function SalesReferenceView({
           <span>Metrik Data</span>
         </Link>
 
+        <Link
+          href="/dashboard/content-planner/analisis-video"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
+        >
+          <Sparkles className="w-4 h-4 text-[#D9480F]" />
+          <span>Analisis Video</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#D9480F]/10 text-[#D9480F] font-bold">
+            AI
+          </span>
+        </Link>
+
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-[#D9480F] text-white shadow-xs">
           <TrendingUp className="w-4 h-4" />
           <span>Referensi Data</span>

@@ -29,6 +29,7 @@ import {
   ukuranPanel,
   UKURAN_TAB,
 } from './avatar/posisi'
+import { RASIO_NAYRA } from './avatar/klip.gen'
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
@@ -66,8 +67,8 @@ export default function NayraBotWidget() {
 
   // Sizing & Dragging
   const layar = useUkuranLayar()
-  const tinggiNayra = 135
-  const lebarNayra = Math.round(tinggiNayra * 0.72)
+  const tinggiNayra = 145
+  const lebarNayra = Math.round(tinggiNayra * RASIO_NAYRA)
   const ukuranNayra = { w: lebarNayra, h: tinggiNayra }
 
   const { posisi, penangan, baruSajaDigeser, kembalikan } = useGeserNayra(

@@ -1,0 +1,22 @@
+{
+  "_catatan": "Konfigurasi pengolah klip Google Flow untuk Nayra Bot MARCOM.",
+  "sumber_dir": "docs/aset/nayra-bot",
+  "keluar_dir": "apps/marcom/public/nayra",
+  "gen_ts": "apps/marcom/src/components/nayra/avatar/klip.gen.ts",
+  "potong": { "x": 0, "y": 16, "lebar": 1080, "tinggi": 1810 },
+  "kunci_hijau": { "t0": 18, "t1": 55 },
+  "tinggi_webm": 520,
+  "crf_webm": 40,
+  "maks_kb_webm": 650,
+  "tinggi_anim": 320,
+  "fps_anim": 12,
+  "kualitas_anim": 75,
+  "kualitas_alfa_anim": 90,
+  "maks_kb_anim": 850,
+  "klip": {
+    "diam":     { "berkas": "diam.mp4",     "awal": 0, "akhir": 190, "ulang": true,  "frame_gambar": 10 },
+    "berpikir": { "berkas": "berpikir.mp4", "awal": 2, "akhir": 190, "ulang": true,  "frame_gambar": 60 },
+    "sapa":     { "berkas": "sapa.mp4",     "awal": 0, "akhir": 190, "ulang": false, "frame_gambar": 45 },
+    "bingung":  { "berkas": "bingung.mp4",  "awal": 0, "akhir": 190, "ulang": false, "frame_gambar": 40 }
+  }
+}

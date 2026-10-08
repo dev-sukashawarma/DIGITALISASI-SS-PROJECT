@@ -1,0 +1,5 @@
+# Video mentah dari Google Flow disimpan lokal / Drive tim, bukan git.
+# Hasil olahan yang tayang ada di apps/marcom/public/nayra/.
+*.mp4
+test_key_*
+berpikir_sample_*

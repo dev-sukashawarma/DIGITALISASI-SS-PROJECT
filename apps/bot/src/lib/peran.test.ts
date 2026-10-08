@@ -1,11 +1,14 @@
 import { profilBolehUntukPeran, profilUntukKunci, adalahProfil, LABEL_PROFIL } from './peran'
 
 describe('peran → profil yang boleh diajak chat', () => {
-  it('sementara hanya developer → ceo & hrd', () => {
-    expect(profilBolehUntukPeran('developer')).toEqual(['ceo', 'hrd'])
+  it('developer → ceo, hrd, finance', () => {
+    expect(profilBolehUntukPeran('developer')).toEqual(['ceo', 'hrd', 'finance'])
+  })
+  it('admin_finance → finance', () => {
+    expect(profilBolehUntukPeran('admin_finance')).toEqual(['finance'])
   })
   it('role lain (termasuk owner & admin) & kosong → tidak ada', () => {
-    for (const r of ['owner', 'admin', 'crew', 'kitchen', 'admin_hr', 'admin_finance', 'mitra', 'spv', '', null, undefined]) {
+    for (const r of ['owner', 'admin', 'crew', 'kitchen', 'admin_hr', 'mitra', 'spv', '', null, undefined]) {
       expect(profilBolehUntukPeran(r as any)).toEqual([])
     }
   })

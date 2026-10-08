@@ -16,6 +16,7 @@ import {
   Volume2,
   EyeOff,
   Move,
+  Settings2,
 } from 'lucide-react'
 import { kirimPesanBotMarcom } from '@/app/actions/botMarcom'
 import { IsiPesan } from './IsiPesan'
@@ -30,6 +31,15 @@ import {
   ukuranPanel,
   UKURAN_TAB,
 } from './avatar/posisi'
+import { RASIO_NAYRA } from './avatar/klip.gen'
+import {
+  bacaSetelan,
+  SETELAN_BAWAAN,
+  tinggiNayraEfektif,
+  batasSliderNayra,
+  type SetelanNayra,
+} from './avatar/setelan'
+import PanelSetelanNayra from './avatar/PanelSetelanNayra'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -62,12 +72,14 @@ export default function NayraBotWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [isParkedTab, setIsParkedTab] = useState(false)
+  const [tab, setTab] = useState<'chat' | 'setelan'>('chat')
+  const [setelan, setSetelan] = useState<SetelanNayra>(SETELAN_BAWAAN)
   const [showSpeechBubble, setShowSpeechBubble] = useState(true)
   const [speechBubbleText, setSpeechBubbleText] = useState(
     'Halo! Nayra siap bantu strategi marketing & konten! ✨'
   )
 
-  // Pose state ('diam' | 'sapa' | 'berpikir')
+  // Pose state ('diam' | 'sapa' | 'berpikir' | 'bingung')
   const [pose, setPose] = useState<PoseNayra>('diam')
   const [ketukan, setKetukan] = useState(0)
 
@@ -78,9 +90,10 @@ export default function NayraBotWidget() {
 
   // Sizing & Dragging
   const layar = useUkuranLayar()
-  const tinggiNayra = 135
-  const lebarNayra = Math.round(tinggiNayra * 0.72)
+  const tinggiNayra = tinggiNayraEfektif(setelan.tinggiNayra, layar)
+  const lebarNayra = Math.round(tinggiNayra * RASIO_NAYRA)
   const ukuranNayra = { w: lebarNayra, h: tinggiNayra }
+  const tinggiMaks = batasSliderNayra(layar)
 
   const { posisi, penangan, baruSajaDigeser, kembalikan } = useGeserNayra(
     ukuranNayra,
@@ -90,31 +103,31 @@ export default function NayraBotWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load chat & parked state
+  // Load parked state & setelan (selalu bersihkan riwayat lama agar chat tidak macet di pesan lama)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('nayra_marcom_chat')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed)
-      }
+      localStorage.removeItem('nayra_marcom_chat')
       const parked = localStorage.getItem('nayra_is_parked')
       if (parked === 'true') setIsParkedTab(true)
+
+      const savedSetelan = localStorage.getItem('nayra_setelan')
+      if (savedSetelan) setSetelan(bacaSetelan(savedSetelan))
     } catch {
       // ignore
     }
   }, [])
 
-  // Save chat history
-  useEffect(() => {
-    try {
-      if (messages.length > 1) {
-        localStorage.setItem('nayra_marcom_chat', JSON.stringify(messages))
+  const ubahSetelan = (perubahan: Partial<SetelanNayra>) => {
+    setSetelan((prev) => {
+      const baru = { ...prev, ...perubahan }
+      try {
+        localStorage.setItem('nayra_setelan', JSON.stringify(baru))
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-  }, [messages])
+      return baru
+    })
+  }
 
   // Save parked state
   const handleTogglePark = (parked: boolean) => {
@@ -233,11 +246,14 @@ export default function NayraBotWidget() {
     }
   }
 
-  // Clear chat
+  // Reset chat ke sapaan awal
   const handleClearChat = () => {
-    if (confirm('Hapus riwayat obrolan dengan Nayra?')) {
-      setMessages(INITIAL_MESSAGES)
+    setMessages(INITIAL_MESSAGES)
+    setInputValue('')
+    try {
       localStorage.removeItem('nayra_marcom_chat')
+    } catch {
+      // ignore
     }
   }
 
@@ -326,12 +342,27 @@ export default function NayraBotWidget() {
           className="relative cursor-grab active:cursor-grabbing group pointer-events-auto"
           title="Klik untuk mengobrol • Tahan & geser untuk memindahkan"
         >
+          {/* Quick Settings Icon on Hover */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(true)
+              setIsMinimized(false)
+              setTab('setelan')
+            }}
+            className="absolute -top-1 -right-1 z-20 w-6 h-6 rounded-full bg-white/95 border border-[#EFE8DE] shadow-md flex items-center justify-center text-stone-600 hover:text-[#D9480F] hover:scale-110 opacity-0 group-hover:opacity-100 transition-all cursor-pointer pointer-events-auto"
+            title="Atur ukuran & animasi Nayra"
+          >
+            <Settings2 className="w-3 h-3" />
+          </button>
+
           {/* Animated Nayra Avatar */}
           <NayraAvatar
             pose={pose}
             tinggi={tinggiNayra}
             ketukan={ketukan}
-            animasi={true}
+            animasi={setelan.animasi}
           />
 
           {/* Floating Pill Label */}
@@ -390,14 +421,34 @@ export default function NayraBotWidget() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 text-stone-300">
+            <div className="flex items-center gap-1.5 text-stone-300">
+              {messages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleClearChat}
+                  className="text-[10px] font-semibold rounded-full border border-white/30 px-2 py-0.5 hover:bg-white/10 text-white/90 transition-colors cursor-pointer mr-0.5"
+                  title="Mulai obrolan baru"
+                >
+                  Obrolan baru
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setTab((prev) => (prev === 'chat' ? 'setelan' : 'chat'))}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  tab === 'setelan' ? 'bg-[#D9480F] text-white' : 'hover:bg-white/10 text-stone-300'
+                }`}
+                title="Atur ukuran Nayra & animasi"
+              >
+                <Settings2 className="w-3.5 h-3.5" />
+              </button>
               <button
                 type="button"
                 onClick={handleClearChat}
                 className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
-                title="Hapus riwayat obrolan"
+                title="Bersihkan obrolan"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
@@ -430,10 +481,24 @@ export default function NayraBotWidget() {
             </div>
           </div>
 
-          {/* Chat Body & Messages */}
-          {!isMinimized && (
-            <>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#FAF8F5]/60 text-xs">
+          {/* Chat Body & Messages OR Settings */}
+          {!isMinimized &&
+            (tab === 'setelan' ? (
+              <PanelSetelanNayra
+                setelan={setelan}
+                tinggiTerpakai={tinggiNayra}
+                tinggiMaks={tinggiMaks}
+                ubah={ubahSetelan}
+                kembalikanPosisi={() => {
+                  kembalikan()
+                  ubahSetelan({ tinggiNayra: null })
+                }}
+                sembunyikan={() => handleTogglePark(true)}
+                onKembali={() => setTab('chat')}
+              />
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#FAF8F5]/60 text-xs">
                 {messages.map((msg, index) => {
                   const isUser = msg.role === 'user'
                   return (
@@ -547,7 +612,7 @@ export default function NayraBotWidget() {
                 </div>
               </div>
             </>
-          )}
+            ))}
         </div>
       )}
     </>

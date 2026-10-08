@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Image from 'next/image'
+import { useCallback, useEffect, useState } from 'react'
+import { RASIO_NAYRA } from './klip.gen'
+import { bolehVideo, pilihFormat, type FormatAnimasi, type Sumber } from './modeTampil'
+import { type PoseNayra } from './rencanaPutar'
 import { useCondongKursor } from './useCondongKursor'
+import { usePemutarAvatar } from './usePemutarAvatar'
+import LayarKlipNayra from './LayarKlipNayra'
 
-export type PoseNayra = 'diam' | 'sapa' | 'berpikir'
+export type { PoseNayra } from './rencanaPutar'
 
 interface NayraAvatarProps {
   pose?: PoseNayra
@@ -15,38 +19,57 @@ interface NayraAvatarProps {
 
 export default function NayraAvatar({
   pose = 'diam',
-  tinggi = 130,
+  tinggi = 140,
   ketukan = 0,
   animasi = true,
 }: NayraAvatarProps) {
-  // Cursor tilt
+  const { klip, klik, selesai } = usePemutarAvatar(pose)
+
+  useEffect(() => {
+    if (ketukan > 0) klik()
+  }, [ketukan, klik])
+
+  // Deteksi perangkat (WebM untuk Desktop Chromium, WebP untuk iOS Safari)
+  const [perangkat, setPerangkat] = useState<{
+    format: FormatAnimasi
+    hematData: boolean
+  } | null>(null)
+
+  useEffect(() => {
+    const nav = navigator as Navigator & { connection?: { saveData?: boolean } }
+    setPerangkat({
+      format: pilihFormat(nav.userAgent, nav.maxTouchPoints ?? 0),
+      hematData: nav.connection?.saveData === true,
+    })
+  }, [])
+
+  const [videoGagal, setVideoGagal] = useState(false)
+  const gagal = useCallback(() => setVideoGagal(true), [])
+
+  const sumber: Sumber =
+    perangkat &&
+    bolehVideo({
+      kurangiGerak: !animasi,
+      hematData: perangkat.hematData,
+      videoGagal,
+    })
+      ? perangkat.format
+      : 'gambar'
+
+  // Cursor tilting
   const { ref, rotate, x } = useCondongKursor(animasi)
 
   // Klik tap bounce reaction
   const [bouncing, setBouncing] = useState(false)
-
   useEffect(() => {
     if (ketukan > 0) {
       setBouncing(true)
-      const t = setTimeout(() => setBouncing(false), 400)
+      const t = setTimeout(() => setBouncing(false), 350)
       return () => clearTimeout(t)
     }
   }, [ketukan])
 
-  // Select animated or static source
-  const getKlipSrc = (p: PoseNayra) => {
-    switch (p) {
-      case 'sapa':
-        return animasi ? '/nayra/sapa.anim.webp' : '/nayra/sapa.webp'
-      case 'berpikir':
-        return animasi ? '/nayra/berpikir.anim.webp' : '/nayra/berpikir.webp'
-      default:
-        return animasi ? '/nayra/diam.anim.webp' : '/nayra/diam.webp'
-    }
-  }
-
-  // Rasio aspek Nayra (width:height approx 0.7)
-  const lebar = Math.round(tinggi * 0.72)
+  const lebar = Math.round(tinggi * RASIO_NAYRA)
 
   return (
     <div
@@ -57,44 +80,45 @@ export default function NayraAvatar({
       }}
       className="relative select-none pointer-events-none"
     >
-      {/* Glowing Aura Ring di belakang karakter */}
-      <div className="absolute inset-0 -bottom-2 rounded-full bg-gradient-to-tr from-[#D9480F]/25 via-purple-500/15 to-transparent blur-md pointer-events-none" />
-
       {/* Container dengan rotasi condong & bounce */}
       <div
         style={{
           transform: `perspective(500px) rotate(${rotate}deg) translateX(${x}px) ${
             bouncing ? 'scale(1.1) translateY(-6px)' : 'scale(1)'
           }`,
-          transformOrigin: '50% 90%',
+          transformOrigin: '50% 95%',
           transition: bouncing
             ? 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
             : 'transform 0.08s ease-out',
         }}
-        className="relative w-full h-full"
+        className="relative w-full h-full select-none"
       >
-        <Image
-          src={getKlipSrc(pose)}
-          alt="Nayra Marketing Bot"
-          width={lebar}
-          height={tinggi}
-          className="w-full h-full object-contain drop-shadow-xl"
-          priority
-          unoptimized // Diperlukan agar animasi WebP berputar lancar tanpa re-encode
+        <LayarKlipNayra
+          klip={klip}
+          sumber={sumber}
+          onSelesai={selesai}
+          onGagal={gagal}
         />
 
         {/* Indikator Mode Pose Berpikir */}
-        {pose === 'berpikir' && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#1A1715]/80 backdrop-blur-xs text-white text-[9px] font-bold flex items-center gap-1 shadow-md animate-bounce">
+        {klip === 'berpikir' && (
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#1A1715]/85 backdrop-blur-xs text-white text-[9px] font-bold flex items-center gap-1 shadow-md animate-bounce">
             <span className="w-1.5 h-1.5 rounded-full bg-[#D9480F] animate-ping" />
             <span>Menganalisis...</span>
           </div>
         )}
 
         {/* Indikator Mode Pose Sapa / Senang */}
-        {pose === 'sapa' && (
+        {klip === 'sapa' && (
           <div className="absolute -top-3 right-0 text-base animate-ping [animation-duration:1s]">
-            💖
+            ✨
+          </div>
+        )}
+
+        {/* Indikator Mode Pose Bingung */}
+        {klip === 'bingung' && (
+          <div className="absolute -top-3 right-0 text-base animate-bounce">
+            ❓
           </div>
         )}
       </div>

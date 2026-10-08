@@ -14,7 +14,7 @@ describe('marcomSumber (Prisma loader)', () => {
       endorsement: {
         findMany: vi.fn().mockResolvedValue([
           {
-            id: 101n,
+            id: BigInt(101),
             kol: { name: 'Jessica Foodie' },
             outlet: { name: 'SS Karanganyar' },
             scheduleDate: new Date('2026-10-08T00:00:00Z'),

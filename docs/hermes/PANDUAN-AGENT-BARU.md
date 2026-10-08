@@ -87,7 +87,10 @@ F=~/.hermes/profiles/<p>/.env; sed -i '/^SUKA_MCP_KEY=/d;/^API_SERVER_KEY=/d' $F
   Pola B: nama variabel bebas, mis. `GUDANG_MCP_KEY`, dan pakai nama yang sama di `config.yaml`.
 
 Ganti MCP di `~/.hermes/profiles/<p>/config.yaml` (bagian `mcp_servers:`): hapus server warisan
-klon yang tidak boleh dipakai bot ini, isi hanya server miliknya, contoh:
+klon yang tidak boleh dipakai bot ini, isi hanya server miliknya.
+⚠️ **Cek dulu bloknya benar-benar ada** — `grep -n -A6 mcp_servers ~/.hermes/profiles/<p>/config.yaml`.
+Kalau kosong, bot tetap jalan tapi menjawab "alat MCP belum tersambung" (kasus Bot Marcom 8 Okt).
+Tambahkan blok lengkap di akhir file, contoh:
 ```yaml
   <nama-server>:
     url: https://<domain>/api/hermes/mcp
@@ -95,6 +98,13 @@ klon yang tidak boleh dipakai bot ini, isi hanya server miliknya, contoh:
       Authorization: "Bearer ${<NAMA_KUNCI_MCP>}"
     enabled: true
 ```
+
+Cek **model** profil (`model.default` dan `custom_providers[].model` di `config.yaml`, keduanya
+harus sama). Model yang tercantum di katalog 9Router belum tentu hidup: `ag/gemini-flash-low`
+membalas 404, Hermes lalu mengulang tiap 2 menit sampai 5 putaran → widget berhenti di 60 detik
+dengan pesan "tidak dapat terhubung". Pakai model yang sudah terbukti jalan di profil lain, lalu
+pastikan lewat uji `chat/completions` di bawah. 9Router di VPS ini = `127.0.0.1:20128`
+(IP publik `76.13.193.138:20128` = proses yang sama; Hermes tetap pakai `127.0.0.1`).
 
 Kunci toolset bawaan di **setiap** platform yang dipakai (toolset diatur per platform):
 ```bash
@@ -109,7 +119,14 @@ Restart & cek:
 systemctl --user restart hermes-gateway && hermes profile list
 A=$(grep '^API_SERVER_KEY=' ~/.hermes/profiles/<p>/.env | cut -d= -f2-); curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $A" http://10.0.1.1:8643/p/<p>/v1/models
 ```
-Harus `200`.
+Harus `200`. Lalu uji percakapan sungguhan (harus menjawab < 60 detik) dan pastikan alat MCP terbaca:
+```bash
+curl -s -m 90 -w '
+%{http_code} %{time_total}s
+' -H "Authorization: Bearer $A" -H 'Content-Type: application/json' -d '{"model":"hermes","messages":[{"role":"user","content":"halo"}]}' http://10.0.1.1:8643/p/<p>/v1/chat/completions | tail -c 300
+hermes -p <p> tools --summary     # alat <nama-server>:* harus muncul di api_server
+```
+Kalau menggantung: `journalctl --user -u hermes-gateway --since "5 min ago" --no-pager | tail -40`.
 
 ## 6. SOUL
 
@@ -176,3 +193,7 @@ Buat `supabase/verifikasi/hermes/gerbang-<p>.md`:
 | `curl /p/<p>/v1/models` 401 / 404 | Gateway belum di-restart setelah `.env` diubah / profil belum dilayani |
 | Bot menjawab tanpa memanggil alat / menolak hal yang boleh | SOUL belum tersinkron atau kalimatnya ambigu → perjelas, push |
 | `.env` profil "No such file" | Profil belum dibuat (`hermes profile list`) |
+| Bot diam / widget "tidak dapat terhubung", log: `HTTP 503 ... [404] Requested entity was not found` + "retrying in 120s" | Model profil tidak tersedia di 9Router → ganti `model.default` & `custom_providers[].model` |
+| Bot menjawab "alat MCP belum tersambung" | Blok `mcp_servers` tidak ada di `config.yaml` profil, atau alat belum `enabled` untuk platform `api_server` |
+| `curl` uji MCP 401 padahal kunci benar | Perintah dijalankan sebagai root (`~` = `/root`, `.env` tak terbaca) → `su - suka-hermes` dulu |
+| Sidik jari kunci tampak beda | Bandingkan dengan uji langsung (`/v1/models` dari container = 200) sebelum menyalin ulang kunci |

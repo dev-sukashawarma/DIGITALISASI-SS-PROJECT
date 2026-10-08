@@ -277,4 +277,8 @@ Urutan per paket (Absensi dulu). JANGAN pernah mencentang `hr_rinci` untuk kunci
 - Gateway: `systemctl --user restart hermes-gateway` agar `/p/marcom/` dilayani.
 - Coolify app **Marcom**: `HERMES_API_URL=http://10.0.1.1:8643`, `HERMES_API_KEY=<API_SERVER_KEY profil marcom>`.
 - Lembar uji gerbang: `supabase/verifikasi/hermes/gerbang-marcom.md`.
+- **Pelajaran sambung pertama (2026-10-08):** blok `mcp_servers` sempat tidak ada di
+  `config.yaml` (bot jalan tapi "alat belum tersambung"), dan model awal `ag/gemini-flash-low`
+  404 di 9Router (Hermes retry 2 menit → widget timeout 60 dtk). Keduanya kini masuk
+  `docs/hermes/PANDUAN-AGENT-BARU.md` §5 & §10.
 

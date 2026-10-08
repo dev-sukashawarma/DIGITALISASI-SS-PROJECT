@@ -18,11 +18,13 @@ const GAJI = /gaji|salary|payroll/i
 const KASBON = /kasbon|cash_advance/i
 const PELANGGAN = /nama_pelanggan|customer_name|customer_phone|no_hp_pelanggan|alamat|address/i
 const BUKTI_TRANSFER = /bukti_transfer|bukti_bayar|proof_url/i
+// Finance 1 (F6): keterangan bebas pengeluaran & nota/bukti tidak keluar dari bot; cukup kategori.
+const KETERANGAN_BUKTI = /description|keterangan|receipt|proof_url|stealth_photo/i
 
 const PER_APP: Partial<Record<Domain, RegExp[]>> = {
   penjualan: [PELANGGAN],
   app_retail: [PELANGGAN],
-  finance: [BUKTI_TRANSFER],
+  finance: [BUKTI_TRANSFER, KETERANGAN_BUKTI],
 }
 
 export function polaTerlarang(namaAlat: string, domain: Domain): RegExp[] {

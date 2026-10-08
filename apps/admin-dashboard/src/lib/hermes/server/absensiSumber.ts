@@ -8,7 +8,7 @@ import type { CeklistOutlet, CutiBaris, KasbonOutlet, KonteksAbsensi, OutletAbse
 const HALAMAN = 1000
 
 /** Ambil semua halaman; `build` wajib membuat builder baru tiap panggilan & berurutan unik. */
-async function semuaHalaman<T>(build: () => any): Promise<T[]> {
+export async function semuaHalaman<T>(build: () => any): Promise<T[]> {
   const hasil: T[] = []
   for (let dari = 0; ; dari += HALAMAN) {
     const { data, error } = await build().range(dari, dari + HALAMAN - 1)

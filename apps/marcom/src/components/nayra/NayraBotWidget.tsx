@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import {
   Sparkles,
-  MessageSquare,
   X,
   Send,
   Trash2,
@@ -15,14 +14,27 @@ import {
   Lightbulb,
   TrendingUp,
   Volume2,
+  EyeOff,
+  Move,
 } from 'lucide-react'
 import { askNayraAction, ChatMessage } from '@/app/actions/nayra-chat'
+import NayraAvatar, { PoseNayra } from './avatar/NayraAvatar'
+import {
+  useGeserNayra,
+  useUkuranLayar,
+} from './avatar/useGeserNayra'
+import {
+  posisiPanel,
+  posisiTab,
+  ukuranPanel,
+  UKURAN_TAB,
+} from './avatar/posisi'
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     role: 'assistant',
     content:
-      'Halo Kak! Aku **Nayra**, Marketing & Communication Bot Suka Shawarma! 🌯✨\n\nAda yang bisa Nayra bantu seputar ide konten viral, hook 3 detik, audit draf video, atau strategi promo hari ini?',
+      'Halo Kak! Aku **Nayra**, Marketing & Communication Bot Suka Shawarma! 🌯✨\n\nKamu bisa geser Nayra ke mana saja di layar lho! Mau diskusi ide konten TikTok viral, hook 3 detik, atau evaluasi video hari ini?',
     timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
   },
 ]
@@ -37,33 +49,51 @@ const QUICK_PROMPTS = [
 export default function NayraBotWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [isParkedTab, setIsParkedTab] = useState(false)
   const [showSpeechBubble, setShowSpeechBubble] = useState(true)
   const [speechBubbleText, setSpeechBubbleText] = useState(
     'Halo! Nayra siap bantu strategi marketing & konten! ✨'
   )
+
+  // Pose state ('diam' | 'sapa' | 'berpikir')
+  const [pose, setPose] = useState<PoseNayra>('diam')
+  const [ketukan, setKetukan] = useState(0)
+
+  // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES)
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  // Sizing & Dragging
+  const layar = useUkuranLayar()
+  const tinggiNayra = 135
+  const lebarNayra = Math.round(tinggiNayra * 0.72)
+  const ukuranNayra = { w: lebarNayra, h: tinggiNayra }
+
+  const { posisi, penangan, baruSajaDigeser, kembalikan } = useGeserNayra(
+    ukuranNayra,
+    layar
+  )
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load chat history from localStorage
+  // Load chat & parked state
   useEffect(() => {
     try {
       const saved = localStorage.getItem('nayra_marcom_chat')
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed)
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed)
       }
+      const parked = localStorage.getItem('nayra_is_parked')
+      if (parked === 'true') setIsParkedTab(true)
     } catch {
       // ignore
     }
   }, [])
 
-  // Save chat history to localStorage
+  // Save chat history
   useEffect(() => {
     try {
       if (messages.length > 1) {
@@ -74,7 +104,18 @@ export default function NayraBotWidget() {
     }
   }, [messages])
 
-  // Auto scroll to bottom
+  // Save parked state
+  const handleTogglePark = (parked: boolean) => {
+    setIsParkedTab(parked)
+    if (parked) setIsOpen(false)
+    try {
+      localStorage.setItem('nayra_is_parked', String(parked))
+    } catch {
+      // ignore
+    }
+  }
+
+  // Scroll to bottom
   useEffect(() => {
     if (isOpen && !isMinimized) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -99,7 +140,7 @@ export default function NayraBotWidget() {
     ]
 
     const interval = setInterval(() => {
-      if (!isOpen) {
+      if (!isOpen && !isParkedTab) {
         const randomTip = tips[Math.floor(Math.random() * tips.length)]
         setSpeechBubbleText(randomTip)
         setShowSpeechBubble(true)
@@ -108,7 +149,21 @@ export default function NayraBotWidget() {
     }, 45000)
 
     return () => clearInterval(interval)
-  }, [isOpen])
+  }, [isOpen, isParkedTab])
+
+  // Click handler on Nayra
+  const handleAvatarClick = useCallback(() => {
+    if (baruSajaDigeser()) return
+
+    setKetukan((prev) => prev + 1)
+    setPose('sapa')
+    setTimeout(() => {
+      setPose((current) => (current === 'sapa' ? 'diam' : current))
+    }, 3200)
+
+    setIsOpen((prev) => !prev)
+    setShowSpeechBubble(false)
+  }, [baruSajaDigeser])
 
   // Send message
   const handleSendMessage = async (textToSend?: string) => {
@@ -123,6 +178,9 @@ export default function NayraBotWidget() {
     setInputValue('')
     setIsLoading(true)
 
+    // Switch to 'berpikir' pose during AI generation!
+    setPose('berpikir')
+
     try {
       const res = await askNayraAction(newMessages)
       if (res.success && res.reply) {
@@ -132,6 +190,12 @@ export default function NayraBotWidget() {
           timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         }
         setMessages((prev) => [...prev, assistantMsg])
+
+        // Switch to 'sapa' joyful pose upon receiving response
+        setPose('sapa')
+        setTimeout(() => {
+          setPose((current) => (current === 'sapa' ? 'diam' : current))
+        }, 3000)
       } else {
         const errorMsg: ChatMessage = {
           role: 'assistant',
@@ -139,6 +203,7 @@ export default function NayraBotWidget() {
           timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         }
         setMessages((prev) => [...prev, errorMsg])
+        setPose('diam')
       }
     } catch {
       const errorMsg: ChatMessage = {
@@ -147,6 +212,7 @@ export default function NayraBotWidget() {
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
       }
       setMessages((prev) => [...prev, errorMsg])
+      setPose('diam')
     } finally {
       setIsLoading(false)
     }
@@ -160,68 +226,127 @@ export default function NayraBotWidget() {
     }
   }
 
-  return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end select-none">
-      {/* Speech Bubble Sapaan */}
-      {!isOpen && showSpeechBubble && (
-        <div
-          onClick={() => setIsOpen(true)}
-          className="mb-2 mr-2 p-3 bg-white border border-[#EFE8DE] rounded-2xl shadow-xl max-w-xs text-xs font-semibold text-stone-800 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-300 relative group hover:border-[#D9480F]/50 transition-all"
-        >
-          <div className="flex items-start gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#D9480F] shrink-0 mt-0.5" />
-            <p className="leading-snug text-stone-700">{speechBubbleText}</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowSpeechBubble(false)
-              }}
-              className="text-stone-400 hover:text-stone-600 ml-1 cursor-pointer"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-          {/* Arrow */}
-          <div className="absolute -bottom-1.5 right-8 w-3 h-3 bg-white border-r border-b border-[#EFE8DE] rotate-45" />
+  // Panel layout calculation
+  const panelLayout = isOpen
+    ? posisiPanel(
+        { ...posisi, ...ukuranNayra },
+        ukuranPanel(layar, { w: 400, h: 560 }),
+        layar
+      )
+    : null
+
+  // If parked tab on the right edge
+  if (isParkedTab) {
+    const tabPos = posisiTab({ y: posisi.y, h: ukuranNayra.h }, layar)
+    return (
+      <button
+        type="button"
+        onClick={() => handleTogglePark(false)}
+        aria-label="Tampilkan Nayra Bot"
+        title="Klik untuk memanggil Nayra"
+        className="fixed z-50 rounded-l-2xl bg-white border border-r-0 border-[#D9480F]/40 shadow-xl overflow-hidden hover:scale-105 transition-all flex items-center justify-center p-1 group cursor-pointer"
+        style={{
+          left: tabPos.x,
+          top: tabPos.y,
+          width: UKURAN_TAB,
+          height: UKURAN_TAB,
+        }}
+      >
+        <div className="relative w-8 h-8 rounded-full overflow-hidden border border-[#D9480F]/40">
+          <Image
+            src="/nayra/nayra_avatar.png"
+            alt="Nayra Tab"
+            fill
+            className="object-cover"
+          />
         </div>
-      )}
+        <span className="absolute top-1 left-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+      </button>
+    )
+  }
 
-      {/* Floating Mascot Character Button */}
-      {!isOpen && (
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          className="relative group cursor-pointer focus:outline-none transition-transform active:scale-95"
-          aria-label="Buka Chat Nayra Bot MARCOM"
-        >
-          {/* Glowing Aura Ring */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#D9480F]/30 to-purple-500/20 blur-md group-hover:blur-lg transition-all" />
-
-          {/* Nayra Character Image */}
-          <div className="relative w-20 h-28 sm:w-24 sm:h-32 transition-transform duration-300 group-hover:-translate-y-1">
-            <Image
-              src="/nayra/nayra_hero.png"
-              alt="Nayra Marketing Bot"
-              fill
-              className="object-contain drop-shadow-2xl"
-              priority
-            />
+  return (
+    <>
+      {/* ====================================================
+          1. FLOATING DRAGGABLE NAYRA AVATAR
+          ==================================================== */}
+      <div
+        style={{ left: posisi.x, top: posisi.y }}
+        className="fixed z-50 flex flex-col items-center select-none touch-none"
+      >
+        {/* Speech Bubble Sapaan */}
+        {!isOpen && showSpeechBubble && (
+          <div
+            onClick={() => {
+              setIsOpen(true)
+              setShowSpeechBubble(false)
+            }}
+            className="absolute bottom-full mb-3 -left-12 sm:-left-20 w-52 sm:w-60 p-3 bg-white border border-[#EFE8DE] rounded-2xl shadow-xl text-xs font-semibold text-stone-800 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-300 relative group hover:border-[#D9480F]/50 transition-all pointer-events-auto"
+          >
+            <div className="flex items-start gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-[#D9480F] shrink-0 mt-0.5" />
+              <p className="leading-snug text-stone-700 text-[11px] sm:text-xs">
+                {speechBubbleText}
+              </p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowSpeechBubble(false)
+                }}
+                className="text-stone-400 hover:text-stone-600 ml-0.5 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            {/* Arrow */}
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b border-[#EFE8DE] rotate-45" />
           </div>
+        )}
 
-          {/* Status Badge */}
-          <div className="absolute bottom-1 right-2 bg-white/95 backdrop-blur-xs border border-[#EFE8DE] rounded-full px-2 py-0.5 flex items-center gap-1 shadow-md">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-black text-stone-800 tracking-tight">Nayra</span>
-          </div>
-        </button>
-      )}
-
-      {/* Chat Window Panel */}
-      {isOpen && (
+        {/* Mascot Wrapper (Draggable & Clickable) */}
         <div
-          className={`w-[90vw] sm:w-[410px] bg-white rounded-3xl border border-[#EFE8DE] shadow-2xl overflow-hidden flex flex-col transition-all duration-300 animate-in fade-in zoom-in-95 ${
-            isMinimized ? 'h-14' : 'h-[560px] max-h-[82vh]'
-          }`}
+          {...penangan}
+          onClick={handleAvatarClick}
+          className="relative cursor-grab active:cursor-grabbing group pointer-events-auto"
+          title="Klik untuk mengobrol • Tahan & geser untuk memindahkan"
+        >
+          {/* Animated Nayra Avatar */}
+          <NayraAvatar
+            pose={pose}
+            tinggi={tinggiNayra}
+            ketukan={ketukan}
+            animasi={true}
+          />
+
+          {/* Floating Pill Label */}
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-xs border border-[#EFE8DE] rounded-full px-2 py-0.5 flex items-center gap-1 shadow-md whitespace-nowrap pointer-events-none">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                pose === 'berpikir'
+                  ? 'bg-amber-500 animate-ping'
+                  : 'bg-emerald-500 animate-pulse'
+              }`}
+            />
+            <span className="text-[10px] font-black text-stone-800 tracking-tight">
+              {pose === 'berpikir' ? 'Menganalisis' : 'Nayra'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ====================================================
+          2. ADJACENT INTERACTIVE CHAT PANEL
+          ==================================================== */}
+      {panelLayout && (
+        <div
+          style={{
+            left: panelLayout.x,
+            top: panelLayout.y,
+            width: panelLayout.w,
+            height: isMinimized ? 56 : panelLayout.h,
+          }}
+          className={`fixed z-50 bg-white rounded-3xl border border-[#EFE8DE] shadow-2xl overflow-hidden flex flex-col transition-all duration-200 animate-in fade-in zoom-in-95`}
         >
           {/* Header Panel */}
           <div className="bg-gradient-to-r from-[#1A1715] to-[#292524] text-white p-3.5 flex items-center justify-between shrink-0 shadow-xs">
@@ -261,11 +386,23 @@ export default function NayraBotWidget() {
               </button>
               <button
                 type="button"
+                onClick={() => handleTogglePark(true)}
+                className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                title="Sembunyikan ke sisi layar"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setIsMinimized(!isMinimized)}
                 className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
                 title={isMinimized ? 'Perbesar panel' : 'Kecilkan panel'}
               >
-                {isMinimized ? <ChevronDown className="w-4 h-4 rotate-180" /> : <Minimize2 className="w-3.5 h-3.5" />}
+                {isMinimized ? (
+                  <ChevronDown className="w-4 h-4 rotate-180" />
+                ) : (
+                  <Minimize2 className="w-3.5 h-3.5" />
+                )}
               </button>
               <button
                 type="button"
@@ -322,7 +459,7 @@ export default function NayraBotWidget() {
                   )
                 })}
 
-                {/* Loading indicator */}
+                {/* Loading Indicator */}
                 {isLoading && (
                   <div className="flex gap-2.5 items-start">
                     <div className="relative w-7 h-7 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-[#EFE8DE]">
@@ -340,7 +477,7 @@ export default function NayraBotWidget() {
                         <span className="w-1.5 h-1.5 bg-[#D9480F] rounded-full animate-bounce" />
                       </div>
                       <span className="text-[11px] font-medium text-stone-500">
-                        Nayra sedang berpikir...
+                        Nayra sedang menganalisis...
                       </span>
                     </div>
                   </div>
@@ -378,7 +515,7 @@ export default function NayraBotWidget() {
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Ketik pertanyaan untuk Nayra..."
+                    placeholder="Tanya Nayra seputar ide konten & marketing..."
                     disabled={isLoading}
                     className="flex-1 px-3.5 py-2 text-xs border border-[#EFE8DE] rounded-2xl bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#D9480F] transition-all font-medium"
                   />
@@ -398,6 +535,6 @@ export default function NayraBotWidget() {
           )}
         </div>
       )}
-    </div>
+    </>
   )
 }

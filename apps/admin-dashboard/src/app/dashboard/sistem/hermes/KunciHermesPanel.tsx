@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { buatKunciHermes, cabutKunciHermes, ubahIpKunciHermes } from './actions'
+import { DOMAIN, LABEL_DOMAIN } from '@/lib/hermes/domain'
+import { buatKunciHermes, cabutKunciHermes, ubahIpKunciHermes, ubahScopeKunciHermes } from './actions'
 
-const DOMAIN = ['penjualan', 'gudang', 'absensi', 'finance', 'hr_rinci'] as const
-const LABEL_DOMAIN: Record<string, string> = { hr_rinci: 'HR rinci (gaji & kasbon per orang)' }
 
 type Kunci = { id: string; nama: string; prefix: string; scope: string[]; ip_diizinkan: string[]; aktif: boolean; dibuat_at: string; dicabut_at: string | null; terakhir_dipakai_at: string | null }
 type Log = { id: number; prefix: string | null; alat: string | null; status: string; alasan: string | null; ip: string | null; durasi_ms: number | null; at: string }
@@ -19,6 +18,7 @@ export default function KunciHermesPanel({ kunci, log }: { kunci: Kunci[]; log: 
   const [kunciBaru, setKunciBaru] = useState<string | null>(null)
   const [pesan, setPesan] = useState<string | null>(null)
   const [sibuk, mulai] = useTransition()
+  const [edit, setEdit] = useState<{ id: string; scope: string[] } | null>(null)
 
   const buat = () =>
     mulai(async () => {
@@ -32,6 +32,14 @@ export default function KunciHermesPanel({ kunci, log }: { kunci: Kunci[]; log: 
       if (!confirm(`Cabut kunci "${k.nama}"? Bot yang memakainya langsung berhenti.`)) return
       const r = await cabutKunciHermes(k.id)
       if (!r.ok) setPesan(r.pesan ?? 'Gagal mencabut')
+    })
+
+  const simpanScope = () =>
+    mulai(async () => {
+      if (!edit) return
+      const r = await ubahScopeKunciHermes(edit.id, edit.scope)
+      if (r.ok) setEdit(null)
+      else setPesan(r.pesan ?? 'Gagal mengubah app')
     })
 
   const ubahIp = (k: Kunci) =>
@@ -63,7 +71,7 @@ export default function KunciHermesPanel({ kunci, log }: { kunci: Kunci[]; log: 
           {DOMAIN.map((d) => (
             <label key={d} className="flex items-center gap-1">
               <input type="checkbox" checked={scope.includes(d)} onChange={(e) => setScope((s) => (e.target.checked ? [...s, d] : s.filter((x) => x !== d)))} />
-              {LABEL_DOMAIN[d] ?? d}
+              {LABEL_DOMAIN[d]}
             </label>
           ))}
         </div>
@@ -76,19 +84,36 @@ export default function KunciHermesPanel({ kunci, log }: { kunci: Kunci[]; log: 
         <h2 className="mb-3 font-semibold">Daftar kunci</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-gray-500"><th>Nama</th><th>Prefix</th><th>Domain</th><th>IP</th><th>Terakhir dipakai</th><th>Status</th><th /></tr></thead>
+            <thead><tr className="text-left text-gray-500"><th>Nama</th><th>Prefix</th><th>App</th><th>IP</th><th>Terakhir dipakai</th><th>Status</th><th /></tr></thead>
             <tbody>
               {kunci.map((k) => (
                 <tr key={k.id} className="border-t align-top">
                   <td className="py-2">{k.nama}</td>
                   <td><code>{k.prefix}</code></td>
-                  <td>{k.scope.join(', ')}</td>
+                  <td>
+                    {edit?.id === k.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        {DOMAIN.map((d) => (
+                          <label key={d} className="flex items-center gap-1">
+                            <input type="checkbox" checked={edit.scope.includes(d)}
+                              onChange={(e) => setEdit({ id: k.id, scope: e.target.checked ? [...edit.scope, d] : edit.scope.filter((x) => x !== d) })} />
+                            {LABEL_DOMAIN[d]}
+                          </label>
+                        ))}
+                        <button disabled={sibuk} onClick={simpanScope} className="rounded bg-orange-500 px-2 py-0.5 text-white disabled:opacity-50">Simpan</button>
+                        <button onClick={() => setEdit(null)} className="rounded border px-2 py-0.5">Batal</button>
+                      </div>
+                    ) : (
+                      k.scope.map((s) => LABEL_DOMAIN[s as keyof typeof LABEL_DOMAIN] ?? s).join(', ')
+                    )}
+                  </td>
                   <td>{k.ip_diizinkan.length ? k.ip_diizinkan.join(', ') : <span className="text-red-600">(kosong)</span>}</td>
                   <td>{waktu(k.terakhir_dipakai_at)}</td>
                   <td>{k.aktif ? 'aktif' : `dicabut ${waktu(k.dicabut_at)}`}</td>
                   <td className="space-x-2 whitespace-nowrap">
                     {k.aktif && (
                       <>
+                        <button disabled={sibuk} className="text-blue-600" onClick={() => setEdit({ id: k.id, scope: k.scope })}>App</button>
                         <button disabled={sibuk} className="text-blue-600" onClick={() => ubahIp(k)}>IP</button>
                         <button disabled={sibuk} className="text-red-600" onClick={() => cabut(k)}>Cabut</button>
                       </>

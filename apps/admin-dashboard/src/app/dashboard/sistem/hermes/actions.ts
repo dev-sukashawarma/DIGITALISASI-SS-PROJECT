@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireRole } from '@/lib/authz'
 import { createServiceClient } from '@/lib/supabase/server'
 import { buatKunciBaru } from '@/lib/hermes/kunci'
-import { validasiInputKunci } from '@/lib/hermes/validasi'
+import { validasiInputKunci, validasiScope } from '@/lib/hermes/validasi'
 
 // Cek role DI DALAM action — guard halaman tidak melindungi server action (Session 2026-07-20).
 const PERAN = ['owner', 'admin']
@@ -43,6 +43,19 @@ export async function ubahIpKunciHermes(id: string, ip: string[]) {
   if (!v.ok) return { ok: false, pesan: v.pesan }
   const svc = createServiceClient()
   const { error } = await svc.from('hermes_api_key').update({ ip_diizinkan: v.ip }).eq('id', id)
+  if (error) return { ok: false, pesan: error.message }
+  revalidatePath(JALUR)
+  return { ok: true }
+}
+
+// Membuka/menutup app untuk kunci yang sudah ada (paket per app, spec 2026-10-08 C5).
+export async function ubahScopeKunciHermes(id: string, scope: string[]) {
+  await requireRole(PERAN)
+  if (!UUID.test(id)) return { ok: false, pesan: 'ID tidak valid' }
+  const v = validasiScope(scope)
+  if (!v.ok) return { ok: false, pesan: v.pesan }
+  const svc = createServiceClient()
+  const { error } = await svc.from('hermes_api_key').update({ scope: v.scope }).eq('id', id).eq('aktif', true)
   if (error) return { ok: false, pesan: error.message }
   revalidatePath(JALUR)
   return { ok: true }

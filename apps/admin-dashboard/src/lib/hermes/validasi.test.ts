@@ -1,4 +1,4 @@
-import { validasiInputKunci } from './validasi'
+import { validasiInputKunci, validasiScope } from './validasi'
 
 describe('validasiInputKunci', () => {
   it('menerima input benar dan merapikannya', () => {
@@ -14,5 +14,16 @@ describe('validasiInputKunci', () => {
   })
   it('IP boleh kosong (kunci dibuat dulu, IP diisi setelah terlihat di log)', () => {
     expect(validasiInputKunci({ nama: 'Bot', scope: ['penjualan'], ip: [] })).toMatchObject({ ok: true, ip: [] })
+  })
+})
+
+describe('validasiScope', () => {
+  it('dedup & urut sesuai DOMAIN', () => {
+    expect(validasiScope(['sistem', 'penjualan', 'sistem'])).toEqual({ ok: true, scope: ['penjualan', 'sistem'] })
+  })
+  it('kosong, bukan array, atau nilai asing ditolak', () => {
+    expect(validasiScope([]).ok).toBe(false)
+    expect(validasiScope('penjualan').ok).toBe(false)
+    expect(validasiScope(['gudang']).ok).toBe(false)
   })
 })

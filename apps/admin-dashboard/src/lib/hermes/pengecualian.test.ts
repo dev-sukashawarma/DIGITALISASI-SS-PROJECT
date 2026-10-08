@@ -20,6 +20,13 @@ describe('pengecualian data per app (spec §3)', () => {
     expect(cariPelanggaran('{"nama_pelanggan":"X"}', 'penjualan_ringkasan', 'penjualan')).not.toBeNull()
     expect(cariPelanggaran('{"alamat":"Jl"}', 'pesanan_aplikasi', 'app_retail')).not.toBeNull()
   })
+  it('finance: keterangan bebas & nota/bukti ditolak', () => {
+    for (const t of ['{"description":"x"}', '{"keterangan":"x"}', '{"receipt_url":"u"}', '{"proof_url":"u"}', '{"stealth_photo_url":"u"}'])
+      expect(cariPelanggaran(t, 'pengeluaran_ringkasan', 'finance'), t).not.toBeNull()
+  })
+  it('pola keterangan finance tidak berlaku di app lain', () => {
+    expect(cariPelanggaran('{"description":"x"}', 'penjualan_ringkasan', 'penjualan')).toBeNull()
+  })
   it('bukti transfer ditolak di finance', () => {
     expect(cariPelanggaran('{"bukti_transfer":"url"}', 'utang_po', 'finance')).not.toBeNull()
   })

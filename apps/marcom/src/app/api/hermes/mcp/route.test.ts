@@ -17,7 +17,7 @@ vi.mock('@/lib/prisma', () => {
 })
 
 describe('Endpoint MCP Marcom (/api/hermes/mcp)', () => {
-  const KUNCI_VALID = 'hermes_marcom_test_key_123'
+  const KUNCI_VALID = 'hermes_marcom_test_key_123_panjang_cukup'
 
   beforeEach(() => {
     process.env.HERMES_MARCOM_API_KEY = KUNCI_VALID
@@ -138,6 +138,28 @@ describe('Endpoint MCP Marcom (/api/hermes/mcp)', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.error.code).toBe(-32602)
+  })
+
+  const initReq = (token: string) =>
+    new NextRequest('http://localhost/api/hermes/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'initialize', params: {} }),
+    })
+
+  it('KEAMANAN: kunci bawaan lama dari repo publik selalu ditolak', async () => {
+    expect((await POST(initReq('hermes_marcom_dev_secret_key'))).status).toBe(401)
+  })
+
+  it('KEAMANAN: env kunci kosong -> semua ditolak 503, termasuk kunci bawaan lama', async () => {
+    delete process.env.HERMES_MARCOM_API_KEY
+    expect((await POST(initReq('hermes_marcom_dev_secret_key'))).status).toBe(503)
+    expect((await POST(initReq(''))).status).toBe(503)
+  })
+
+  it('KEAMANAN: env kunci terlalu pendek dianggap belum dikonfigurasi', async () => {
+    process.env.HERMES_MARCOM_API_KEY = 'pendek'
+    expect((await POST(initReq('pendek'))).status).toBe(503)
   })
 
   it('mengembalikan status 405 untuk GET dan DELETE', () => {

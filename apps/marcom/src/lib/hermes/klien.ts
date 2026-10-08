@@ -8,9 +8,14 @@ export async function tanyaHermesMarcom(
   riwayat: PesanObrolan[] = [],
   sesiId: string = 'sesi-marcom-default'
 ): Promise<string> {
-  const baseUrl = process.env.HERMES_API_URL || 'http://127.0.0.1:8000'
+  // Tanpa nilai bawaan: alamat & kunci WAJIB dari env (Coolify + stage runner Dockerfile).
+  const baseUrl = process.env.HERMES_API_URL?.trim()
+  const apiKey = process.env.HERMES_API_KEY?.trim()
+  if (!baseUrl || !apiKey) {
+    console.error('[hermes-marcom] HERMES_API_URL/HERMES_API_KEY kosong: chat tidak dikirim')
+    return 'Maaf, Bot Marcom belum dikonfigurasi di server. Hubungi tim IT.'
+  }
   const endpoint = `${baseUrl.replace(/\/+$/, '')}/p/marcom/v1/chat/completions`
-  const apiKey = process.env.HERMES_API_KEY || 'hermes_marcom_secret'
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 60000)
@@ -26,7 +31,10 @@ export async function tanyaHermesMarcom(
       body: JSON.stringify({
         model: 'marcom',
         messages: [
-          ...riwayat.map((r) => ({ role: r.role, content: r.content })),
+          // Riwayat datang dari browser: hanya user/assistant yang diteruskan (role system = instruksi bot).
+          ...riwayat
+            .filter((r) => r.role === 'user' || r.role === 'assistant')
+            .map((r) => ({ role: r.role, content: String(r.content ?? '') })),
           { role: 'user', content: pesan },
         ],
         temperature: 0.2,

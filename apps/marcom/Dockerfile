@@ -62,6 +62,14 @@ ENV DOCKER_BUILD=true
 # src/lib/supabase-pos.ts -- yang membocorkan service role key ke repo publik.
 ARG SUPABASE_SERVICE_ROLE_KEY
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+# Bot Marcom (Hermes): kunci endpoint MCP + alamat/kunci API Hermes untuk widget chat.
+# Tanpa ini nilainya kosong saat runtime -> endpoint MCP menolak (503) & chat mati.
+ARG HERMES_MARCOM_API_KEY
+ARG HERMES_API_URL
+ARG HERMES_API_KEY
+ENV HERMES_MARCOM_API_KEY=$HERMES_MARCOM_API_KEY
+ENV HERMES_API_URL=$HERMES_API_URL
+ENV HERMES_API_KEY=$HERMES_API_KEY
 
 # Copy necessary artifacts from builder stage
 COPY --from=builder /app/package.json ./package.json

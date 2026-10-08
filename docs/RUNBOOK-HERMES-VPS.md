@@ -249,6 +249,15 @@ Urutan per paket (Absensi dulu). JANGAN pernah mencentang `hr_rinci` untuk kunci
 
 ## Profil `marcom` — Bot Marcom di dashboard Marcom (✅ 2026-10-08)
 - Endpoint MCP Marcom: `https://<domain-marcom>/api/hermes/mcp` (Bearer token: `HERMES_MARCOM_API_KEY`).
+- ⚠️ **Tanpa nilai bawaan (perbaikan 2026-10-08).** Sebelumnya route & klien jatuh ke kunci
+  literal di repo publik saat env kosong, dan Dockerfile tak membawa env Hermes ke stage
+  runner → endpoint MCP terbuka untuk siapa pun (terbukti di produksi). Kini:
+  - `HERMES_MARCOM_API_KEY` wajib ≥24 karakter acak (`openssl rand -hex 32`); kosong/pendek
+    → endpoint **503**, semua ditolak. Nilai yang SAMA dipasang di VPS sebagai `MARCOM_MCP_KEY`.
+  - `HERMES_API_URL` & `HERMES_API_KEY` wajib; kosong → widget menjawab "belum dikonfigurasi".
+  - Ketiganya di-`ARG`+`ENV` di stage runner `apps/marcom/Dockerfile`; wajib juga diisi di
+    panel Coolify app Marcom.
+  - Cek cepat setelah deploy: kunci lama `hermes_marcom_dev_secret_key` harus dibalas **401**.
 - Dibuat: `hermes profile create marcom --clone-from ceo` (token Telegram tidak ikut).
 - Di `~/.hermes/profiles/marcom/.env`:
   `MARCOM_MCP_KEY=<kunci>` dan `API_SERVER_KEY=<kunci_acak>`.

@@ -44,7 +44,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     role: 'assistant',
     content:
-      'Halo Kak! Aku **Nayra**, Marketing & Communication Bot Suka Shawarma! 🌯✨\n\nKamu bisa geser Nayra ke mana saja di layar lho! Mau diskusi ide konten TikTok viral, hook 3 detik, atau evaluasi video hari ini?',
+      'Halo Kak! Aku **Nayra**, Marketing & Communication Bot Suka Shawarma! 🌯✨\n\nAda ide konten, hook video, atau promo yang mau kita bahas sekarang?',
     timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
   },
 ]
@@ -91,14 +91,10 @@ export default function NayraBotWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load chat, parked state & setelan
+  // Load parked state & setelan (selalu bersihkan riwayat lama agar chat tidak macet di pesan lama)
   useEffect(() => {
     try {
-      const savedChat = localStorage.getItem('nayra_marcom_chat')
-      if (savedChat) {
-        const parsed = JSON.parse(savedChat)
-        if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed)
-      }
+      localStorage.removeItem('nayra_marcom_chat')
       const parked = localStorage.getItem('nayra_is_parked')
       if (parked === 'true') setIsParkedTab(true)
 
@@ -120,17 +116,6 @@ export default function NayraBotWidget() {
       return baru
     })
   }
-
-  // Save chat history
-  useEffect(() => {
-    try {
-      if (messages.length > 1) {
-        localStorage.setItem('nayra_marcom_chat', JSON.stringify(messages))
-      }
-    } catch {
-      // ignore
-    }
-  }, [messages])
 
   // Save parked state
   const handleTogglePark = (parked: boolean) => {
@@ -246,11 +231,14 @@ export default function NayraBotWidget() {
     }
   }
 
-  // Clear chat
+  // Reset chat ke sapaan awal
   const handleClearChat = () => {
-    if (confirm('Hapus riwayat obrolan dengan Nayra?')) {
-      setMessages(INITIAL_MESSAGES)
+    setMessages(INITIAL_MESSAGES)
+    setInputValue('')
+    try {
       localStorage.removeItem('nayra_marcom_chat')
+    } catch {
+      // ignore
     }
   }
 
@@ -418,7 +406,17 @@ export default function NayraBotWidget() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 text-stone-300">
+            <div className="flex items-center gap-1.5 text-stone-300">
+              {messages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleClearChat}
+                  className="text-[10px] font-semibold rounded-full border border-white/30 px-2 py-0.5 hover:bg-white/10 text-white/90 transition-colors cursor-pointer mr-0.5"
+                  title="Mulai obrolan baru"
+                >
+                  Obrolan baru
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setTab((prev) => (prev === 'chat' ? 'setelan' : 'chat'))}
@@ -433,9 +431,9 @@ export default function NayraBotWidget() {
                 type="button"
                 onClick={handleClearChat}
                 className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
-                title="Hapus riwayat obrolan"
+                title="Bersihkan obrolan"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"

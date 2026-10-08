@@ -68,8 +68,16 @@ export async function askNayraAction(messages: ChatMessage[]): Promise<{
       }
     }
 
-    // Fallback cerdas persona Nayra jika tanpa API key
-    const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase() || ''
+    // Fallback cerdas persona Nayra jika tanpa API key (hanya memeriksa pesan dari user)
+    const userMessages = messages.filter((m) => m.role === 'user')
+    const lastUserMsg = userMessages[userMessages.length - 1]?.content.toLowerCase() || ''
+
+    if (!lastUserMsg) {
+      return {
+        success: true,
+        reply: 'Halo Kak! Ada yang bisa Nayra bantu seputar ide konten, hook video, atau promo hari ini? ✨',
+      }
+    }
 
     let fallbackReply = ''
 

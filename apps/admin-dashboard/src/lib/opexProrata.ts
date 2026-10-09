@@ -137,10 +137,17 @@ export interface ProratedExpenseResult {
   }
 }
 
+export interface ManagerAssignment {
+  staff_id?: string
+  role?: 'area_manager' | 'regional_manager' | string
+  outlet_ids: string[]
+}
+
 export interface CalculateProrataInput {
   filter: PeriodFilterValue
   rawExpenses: ExpenseRow[]
   payrollRecords?: {
+    staff_id?: string
     outlet_id: string
     total_salary: number
     basic_salary?: number
@@ -150,6 +157,7 @@ export interface CalculateProrataInput {
     role?: string
   }[]
   staffFinancials?: {
+    staff_id?: string
     outlet_id: string
     basic_salary: number
     allowance_position?: number
@@ -159,7 +167,113 @@ export interface CalculateProrataInput {
   lastMonthExpenses?: RolloverExpenseBaseline[]
   crewBonusRecords?: CrewBonusRecord[]
   now?: Date
-  outlets?: { id: string; name: string; is_active?: boolean }[]
+  outlets?: { id: string; name: string; is_active?: boolean; type?: string }[]
+  managerAssignments?: ManagerAssignment[]
+  operationalOutletIds?: string[]
+}
+
+/**
+ * Membagi rata total nilai secara presisi ke target outlet (deterministic & zero discrepancy).
+ * Sisa pecahan pembulatan (remainder) disebar secara berurutan (+1) ke outlet target teratas.
+ */
+export function distributeEqualSplit(
+  totalAmount: number,
+  targetOutletIds: string[]
+): Map<string, number> {
+  const result = new Map<string, number>()
+  if (!targetOutletIds || targetOutletIds.length === 0 || totalAmount <= 0) return result
+
+  const sortedIds = [...targetOutletIds].sort()
+  const n = sortedIds.length
+  const base = Math.floor(totalAmount / n)
+  let remainder = totalAmount - (base * n)
+
+  for (const outletId of sortedIds) {
+    const extra = remainder > 0 ? 1 : 0
+    if (remainder > 0) remainder--
+    result.set(outletId, base + extra)
+  }
+  return result
+}
+
+function computeManagerAllocationsForPeriod(
+  periodMonth: number,
+  periodYear: number,
+  payrollRecords: NonNullable<CalculateProrataInput['payrollRecords']>,
+  staffFinancials: NonNullable<CalculateProrataInput['staffFinancials']>,
+  managerAssignments: ManagerAssignment[],
+  operationalOutletIds: string[]
+): Map<string, number> {
+  const allocationsByOutlet = new Map<string, number>()
+
+  // 1. Cek payrollRecords untuk periode ini
+  const mgrPayroll = payrollRecords.filter(p => {
+    const isMgr = p.role === 'area_manager' || p.role === 'regional_manager'
+    const matchPeriod = p.period_month && p.period_year
+      ? (p.period_month === periodMonth && p.period_year === periodYear)
+      : true
+    return isMgr && matchPeriod
+  })
+
+  if (mgrPayroll.length > 0) {
+    for (const p of mgrPayroll) {
+      const tot = Number(p.total_salary) || 0
+      const bon = Number(p.bonus) || 0
+      const cleanSalary = Math.max(0, tot - bon)
+      if (cleanSalary <= 0) continue
+
+      let targets: string[] = []
+      if (p.role === 'regional_manager') {
+        targets = [...operationalOutletIds]
+      } else {
+        // area_manager
+        const assignment = managerAssignments.find(ma =>
+          (p.staff_id && ma.staff_id && ma.staff_id === p.staff_id) ||
+          (ma.role === 'area_manager' && ma.outlet_ids.includes(p.outlet_id))
+        )
+        const candidateOutlets = assignment ? assignment.outlet_ids : [p.outlet_id]
+        targets = candidateOutlets.filter(id => operationalOutletIds.includes(id))
+        if (targets.length === 0) targets = [p.outlet_id]
+      }
+
+      const split = distributeEqualSplit(cleanSalary, targets)
+      for (const [outletId, amt] of split.entries()) {
+        allocationsByOutlet.set(outletId, (allocationsByOutlet.get(outletId) || 0) + amt)
+      }
+    }
+  } else if (staffFinancials.length > 0) {
+    // 2. Fallback ke staffFinancials (untuk bulan berjalan sebelum ada payroll_records)
+    const mgrFinancials = staffFinancials.filter(s =>
+      s.role === 'area_manager' || s.role === 'regional_manager'
+    )
+    for (const s of mgrFinancials) {
+      const b = Number(s.basic_salary) || 0
+      const ap = Number(s.allowance_position) || 0
+      const ah = Number(s.allowance_presence) || 0
+      const cleanSalary = b + ap + ah
+      if (cleanSalary <= 0) continue
+
+      let targets: string[] = []
+      if (s.role === 'regional_manager') {
+        targets = [...operationalOutletIds]
+      } else {
+        const assignment = managerAssignments.find(ma =>
+          (s.staff_id && ma.staff_id && ma.staff_id === s.staff_id) ||
+          (ma.role === 'area_manager' && ma.outlet_ids.includes(s.outlet_id))
+        )
+        const candidateOutlets = assignment ? assignment.outlet_ids : [s.outlet_id]
+        targets = candidateOutlets.filter(id => operationalOutletIds.includes(id))
+        if (targets.length === 0) targets = [s.outlet_id]
+      }
+
+      const split = distributeEqualSplit(cleanSalary, targets)
+      for (const [outletId, amt] of split.entries()) {
+        allocationsByOutlet.set(outletId, (allocationsByOutlet.get(outletId) || 0) + amt)
+      }
+    }
+  }
+
+  return allocationsByOutlet
 }
 
 /**
@@ -276,6 +390,34 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     })
   }
 
+  // Tentukan outlet operasional aktif untuk alokasi manajer (AM & RM)
+  const defaultOperationalOutletIds = (outlets || [])
+    .filter(o => {
+      if (inactiveOutletIds.has(o.id)) return false
+      const oType = (o as any).type
+      if (oType && ['office', 'gudang', 'marketplace', 'system', 'test'].includes(oType)) return false
+      const nameLower = (o.name || '').toLowerCase()
+      if (
+        nameLower.includes('kantor pusat') ||
+        nameLower.includes('gudang') ||
+        nameLower.includes('hq') ||
+        nameLower.includes('test') ||
+        nameLower.includes('tes ') ||
+        nameLower === 'tes'
+      ) {
+        return false
+      }
+      return true
+    })
+    .map(o => o.id)
+
+  const effectiveOperationalOutletIds =
+    (input.operationalOutletIds && input.operationalOutletIds.length > 0)
+      ? input.operationalOutletIds
+      : (defaultOperationalOutletIds.length > 0
+          ? defaultOperationalOutletIds
+          : Array.from(targetOutletIds).filter(id => !inactiveOutletIds.has(id)))
+
   // =========================================================================
   // MODE 1: BULAN BERJALAN (CURRENT MONTH ACCRUAL)
   // Prorata akrual harian untuk mencegah lonjakan di akhir bulan.
@@ -330,6 +472,15 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
 
     const curDay = Math.max(1, Math.min(monthInfo.todayDay, monthInfo.totalDays))
 
+    const managerAllocations = computeManagerAllocationsForPeriod(
+      monthInfo.month,
+      monthInfo.year,
+      payrollRecords,
+      staffFinancials,
+      input.managerAssignments || [],
+      effectiveOperationalOutletIds
+    )
+
     for (const outletId of targetOutletIds) {
       if (inactiveOutletIds.has(outletId)) continue
       const outletName = outletNameMap.get(outletId) ?? 'Outlet'
@@ -338,9 +489,11 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       let gajiMonthly = 0
       let oGajiSource: 'payroll_record' | 'staff_master' | 'expenses_real' | 'none' = 'none'
 
-      // 1. Cek payroll_records
+      // 1. Cek payroll_records (hanya kru toko non-manajer)
       const pRows = payrollRecords.filter(p =>
         p.outlet_id === outletId &&
+        p.role !== 'area_manager' &&
+        p.role !== 'regional_manager' &&
         (p.period_month && p.period_year ? (p.period_month === monthInfo.month && p.period_year === monthInfo.year) : true)
       )
       if (pRows.length > 0) {
@@ -352,9 +505,13 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         oGajiSource = 'payroll_record'
       }
 
-      // 2. Fallback ke staffFinancials (master staf)
+      // 2. Fallback ke staffFinancials (master staf non-manajer)
       if (gajiMonthly === 0) {
-        const sRows = staffFinancials.filter(s => s.outlet_id === outletId)
+        const sRows = staffFinancials.filter(s =>
+          s.outlet_id === outletId &&
+          s.role !== 'area_manager' &&
+          s.role !== 'regional_manager'
+        )
         if (sRows.length > 0) {
           gajiMonthly = sRows.reduce((sum, s) => {
             const b = Number(s.basic_salary) || 0
@@ -373,6 +530,13 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
           gajiMonthly = realGaji
           oGajiSource = 'expenses_real'
         }
+      }
+
+      // 4. Tambahkan alokasi beban gaji manajer (AM & RM) untuk outlet ini
+      const allocatedMgrSalary = managerAllocations.get(outletId) || 0
+      if (allocatedMgrSalary > 0) {
+        gajiMonthly += allocatedMgrSalary
+        if (oGajiSource === 'none') oGajiSource = 'payroll_record'
       }
 
       if (gajiMonthly > 0) {
@@ -688,13 +852,17 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     isFullMonth: true,
   }]
 
-  // Outlet-outlet yang memiliki slip gaji atau master staf aktif di HR
+  // Outlet-outlet yang memiliki slip gaji atau master staf aktif di HR (kru toko)
   const outletsWithHrSalary = new Set<string>()
   payrollRecords.forEach(p => {
-    if (p.outlet_id && (Number(p.total_salary) || 0) > 0) outletsWithHrSalary.add(p.outlet_id)
+    if (p.outlet_id && (Number(p.total_salary) || 0) > 0 && p.role !== 'area_manager' && p.role !== 'regional_manager') {
+      outletsWithHrSalary.add(p.outlet_id)
+    }
   })
   staffFinancials.forEach(s => {
-    if (s.outlet_id) outletsWithHrSalary.add(s.outlet_id)
+    if (s.outlet_id && s.role !== 'area_manager' && s.role !== 'regional_manager') {
+      outletsWithHrSalary.add(s.outlet_id)
+    }
   })
 
   // Outlet-outlet yang memiliki data di modul bonus crew atau di slip HR
@@ -743,6 +911,15 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       ? `1 Bulan Penuh`
       : (p.overlapDays === 1 ? `Beban 1 Hari · 1/${p.totalDays} bln` : `Beban ${p.overlapDays} Hari · ${p.overlapDays}/${p.totalDays} bln`)
 
+    const managerAllocations = computeManagerAllocationsForPeriod(
+      p.month,
+      p.year,
+      payrollRecords,
+      staffFinancials,
+      input.managerAssignments || [],
+      effectiveOperationalOutletIds
+    )
+
     for (const outletId of targetOutletIds) {
       if (inactiveOutletIds.has(outletId)) continue
       const outletName = outletNameMap.get(outletId) ?? 'Outlet'
@@ -751,9 +928,11 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       let gajiMonthly = 0
       let oGajiSource: 'payroll_record' | 'staff_master' | 'none' = 'none'
 
-      // Cek payroll_records untuk periode bulan & tahun yang bersangkutan
+      // Cek payroll_records untuk periode bulan & tahun yang bersangkutan (kru toko non-manajer)
       const pRows = payrollRecords.filter(pr =>
         pr.outlet_id === outletId &&
+        pr.role !== 'area_manager' &&
+        pr.role !== 'regional_manager' &&
         (pr.period_month && pr.period_year ? (pr.period_month === p.month && pr.period_year === p.year) : true)
       )
       if (pRows.length > 0) {
@@ -765,9 +944,13 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         oGajiSource = 'payroll_record'
       }
 
-      // Fallback ke staffFinancials (master staf aktif)
+      // Fallback ke staffFinancials (master staf aktif non-manajer)
       if (gajiMonthly === 0) {
-        const sRows = staffFinancials.filter(s => s.outlet_id === outletId)
+        const sRows = staffFinancials.filter(s =>
+          s.outlet_id === outletId &&
+          s.role !== 'area_manager' &&
+          s.role !== 'regional_manager'
+        )
         if (sRows.length > 0) {
           gajiMonthly = sRows.reduce((sum, s) => {
             const b = Number(s.basic_salary) || 0
@@ -777,6 +960,13 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
           }, 0)
           oGajiSource = 'staff_master'
         }
+      }
+
+      // Tambahkan alokasi beban gaji manajer (AM & RM) untuk outlet ini
+      const allocatedMgrSalary = managerAllocations.get(outletId) || 0
+      if (allocatedMgrSalary > 0) {
+        gajiMonthly += allocatedMgrSalary
+        if (oGajiSource === 'none') oGajiSource = 'payroll_record'
       }
 
       if (gajiMonthly > 0) {

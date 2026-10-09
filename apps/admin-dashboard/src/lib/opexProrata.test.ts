@@ -627,6 +627,201 @@ describe('opexProrata - calculateProratedExpenses', () => {
     // Total gaji + bonus crew harus PERSIS sama dengan total_salary dari slip HR (2.500.000)
     expect((gajiRow?.amount || 0) + (crewRow?.amount || 0)).toBe(2_500_000)
   })
+
+  it('mendistribusikan beban gaji bersih AM secara equal split ke outlet-outlet binaan dan membebaskan home outlet dari beban 100%', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const outlets = [
+      { id: 'sukmajaya', name: 'SS Sukmajaya', is_active: true, type: 'internal' },
+      { id: 'cibubur', name: 'Mitra Cibubur', is_active: true, type: 'mitra' },
+      { id: 'cileungsi', name: 'Mitra Cileungsi', is_active: true, type: 'mitra' },
+      { id: 'kalisari', name: 'Mitra Kalisari', is_active: true, type: 'mitra' },
+      { id: 'pajajaran', name: 'SS Pajajaran', is_active: true, type: 'internal' }, // outlet di luar binaan
+    ]
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'all', source: 'all' },
+      rawExpenses: [],
+      payrollRecords: [
+        // AM Tri Rizky (home outlet sukmajaya): total 4.000.000, bonus 500.000 -> gaji bersih 3.500.000
+        {
+          staff_id: 'tri-rizky',
+          outlet_id: 'sukmajaya',
+          role: 'area_manager',
+          total_salary: 4_000_000,
+          bonus: 500_000,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      managerAssignments: [
+        {
+          staff_id: 'tri-rizky',
+          role: 'area_manager',
+          outlet_ids: ['sukmajaya', 'cibubur', 'cileungsi', 'kalisari'],
+        },
+      ],
+      operationalOutletIds: ['sukmajaya', 'cibubur', 'cileungsi', 'kalisari', 'pajajaran'],
+      now: octNow,
+      outlets,
+    })
+
+    // Gaji bersih 3.500.000 dibagi 4 outlet binaan = 875.000 per outlet
+    const sukmajayaGaji = res.rows.find(r => r.outlet_id === 'sukmajaya' && r.category === 'gaji_crew_outlet')
+    const cibuburGaji = res.rows.find(r => r.outlet_id === 'cibubur' && r.category === 'gaji_crew_outlet')
+    const cileungsiGaji = res.rows.find(r => r.outlet_id === 'cileungsi' && r.category === 'gaji_crew_outlet')
+    const kalisariGaji = res.rows.find(r => r.outlet_id === 'kalisari' && r.category === 'gaji_crew_outlet')
+    const pajajaranGaji = res.rows.find(r => r.outlet_id === 'pajajaran' && r.category === 'gaji_crew_outlet')
+
+    expect(sukmajayaGaji?.amount).toBe(875_000)
+    expect(cibuburGaji?.amount).toBe(875_000)
+    expect(cileungsiGaji?.amount).toBe(875_000)
+    expect(kalisariGaji?.amount).toBe(875_000)
+    expect(pajajaranGaji).toBeUndefined() // Pajajaran tidak binaan Tri, jadi Rp 0
+
+    // Total alokasi seluruh outlet harus persis 3.500.000 (invariant selisih Rp 0)
+    const totalGajiRows = res.rows
+      .filter(r => r.category === 'gaji_crew_outlet')
+      .reduce((s, r) => s + r.amount, 0)
+    expect(totalGajiRows).toBe(3_500_000)
+  })
+
+  it('mendistribusikan gaji bersih RM secara equal split ke seluruh cabang operasional aktif', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const operationalOutletIds = ['o1', 'o2', 'o3', 'o4', 'o5']
+    const outlets = operationalOutletIds.map(id => ({ id, name: `Outlet ${id}`, is_active: true, type: 'internal' }))
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'all', source: 'all' },
+      rawExpenses: [],
+      payrollRecords: [
+        // RM Indra: total 8.000.000, bonus 3.000.000 -> gaji bersih 5.000.000
+        {
+          staff_id: 'indra-rm',
+          outlet_id: 'o1',
+          role: 'regional_manager',
+          total_salary: 8_000_000,
+          bonus: 3_000_000,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      operationalOutletIds,
+      now: octNow,
+      outlets,
+    })
+
+    // 5.000.000 / 5 = 1.000.000 per outlet
+    for (const oid of operationalOutletIds) {
+      const row = res.rows.find(r => r.outlet_id === oid && r.category === 'gaji_crew_outlet')
+      expect(row?.amount).toBe(1_000_000)
+    }
+
+    const totalAllocated = res.rows
+      .filter(r => r.category === 'gaji_crew_outlet')
+      .reduce((s, r) => s + r.amount, 0)
+    expect(totalAllocated).toBe(5_000_000)
+  })
+
+  it('menangani sisa pembulatan rupiah secara presisi (zero discrepancy invariant)', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    // 6 outlet: 3.500.000 / 6 = 583.333 sisa 2
+    const targetIds = ['o1', 'o2', 'o3', 'o4', 'o5', 'o6']
+    const outlets = targetIds.map(id => ({ id, name: `Outlet ${id}`, is_active: true, type: 'internal' }))
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'all', source: 'all' },
+      rawExpenses: [],
+      payrollRecords: [
+        {
+          staff_id: 'am-1',
+          outlet_id: 'o1',
+          role: 'area_manager',
+          total_salary: 3_500_000,
+          bonus: 0,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      managerAssignments: [
+        {
+          staff_id: 'am-1',
+          role: 'area_manager',
+          outlet_ids: targetIds,
+        },
+      ],
+      operationalOutletIds: targetIds,
+      now: octNow,
+      outlets,
+    })
+
+    const rows = res.rows.filter(r => r.category === 'gaji_crew_outlet')
+    const totalAllocated = rows.reduce((s, r) => s + r.amount, 0)
+    // Harus persis 3.500.000 tanpa kurang atau lebih 1 rupiah pun
+    expect(totalAllocated).toBe(3_500_000)
+
+    // Remainder 2 harus dialokasikan ke 2 outlet teratas (+1 menjadi 583.334)
+    const count334 = rows.filter(r => r.amount === 583_334).length
+    const count333 = rows.filter(r => r.amount === 583_333).length
+    expect(count334).toBe(2)
+    expect(count333).toBe(4)
+  })
+
+  it('memastikan baris bonus AM dan RM tetap terpisah dihitung dari pcs x 50 dan tidak tercampur ke gaji', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'o1', source: 'all' },
+      rawExpenses: [],
+      payrollRecords: [
+        {
+          outlet_id: 'o1',
+          role: 'crew',
+          total_salary: 2_000_000,
+          bonus: 0,
+          period_month: 9,
+          period_year: 2026,
+        },
+        {
+          staff_id: 'am-1',
+          outlet_id: 'o1',
+          role: 'area_manager',
+          total_salary: 3_000_000,
+          bonus: 500_000,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      managerAssignments: [
+        { staff_id: 'am-1', role: 'area_manager', outlet_ids: ['o1', 'o2'] },
+      ],
+      crewBonusRecords: [
+        {
+          outlet_id: 'o1',
+          total_bonus: 0,
+          total_pcs_outlet: 3_000,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      operationalOutletIds: ['o1', 'o2'],
+      now: octNow,
+      outlets: [
+        { id: 'o1', name: 'Outlet 1', is_active: true },
+        { id: 'o2', name: 'Outlet 2', is_active: true },
+      ],
+    })
+
+    // Gaji kru toko = 2.000.000, Gaji bersih AM = 2.500.000 / 2 = 1.250.000. Total gaji = 3.250.000
+    const gajiRow = res.rows.find(r => r.category === 'gaji_crew_outlet')
+    expect(gajiRow?.amount).toBe(3_250_000)
+
+    // Bonus AM tetap terpisah = 3.000 pcs * 50 = 150.000
+    const amBonusRow = res.rows.find(r => r.category === 'bonus_area_manager')
+    expect(amBonusRow?.amount).toBe(150_000)
+
+    // Bonus RM tetap terpisah = 3.000 pcs * 50 = 150.000
+    const rmBonusRow = res.rows.find(r => r.category === 'bonus_regional_manager')
+    expect(rmBonusRow?.amount).toBe(150_000)
+  })
 })
 
 

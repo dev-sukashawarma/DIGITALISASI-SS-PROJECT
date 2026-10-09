@@ -40,6 +40,11 @@ ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 WORKDIR /repo
 RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace @suka/finance build
+# Buang cache build webpack sebelum .next disalin ke stage runner (sama dengan
+# admin-dashboard): tidak dipakai saat runtime tapi membengkakkan image.
+# .next/cache/fetch-cache runtime (cache per hari Rangkuman Penjualan) berasal
+# dari volume Coolify `finance-next-fetch-cache` agar tahan redeploy.
+RUN rm -rf /repo/apps/finance/.next/cache
 
 # --- Stage 2: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner

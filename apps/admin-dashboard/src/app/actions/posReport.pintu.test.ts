@@ -8,10 +8,10 @@ const sumber = readFileSync(join(__dirname, 'posReport.ts'), 'utf8')
 describe('posReport.ts = pintu server action', () => {
   it('hanya mengekspor empat fungsi yang memeriksa sesi', () => {
     const ekspor = [...sumber.matchAll(/export\s+async\s+function\s+(\w+)/g)].map((m) => m[1]).sort()
-    expect(ekspor).toEqual(['getPosReport', 'getPosReportCategories', 'invalidatePosReportDays', 'refreshPosReportRange'])
+    expect(ekspor).toEqual(['getPosReport', 'getPosReportExport', 'invalidatePosReportDays', 'refreshPosReportRange'])
   })
-  it('getPosReport & getPosReportCategories selalu memanggil resolveCallerScope()', () => {
-    for (const nama of ['getPosReport', 'getPosReportCategories']) {
+  it('getPosReport & getPosReportExport selalu memanggil resolveCallerScope()', () => {
+    for (const nama of ['getPosReport', 'getPosReportExport']) {
       const badan = sumber.split(`export async function ${nama}(`)[1]?.split('\nexport ')[0] ?? ''
       expect(badan).toContain('resolveCallerScope()')
     }

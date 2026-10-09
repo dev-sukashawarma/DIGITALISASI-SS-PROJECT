@@ -19,7 +19,7 @@ import { posReportDayTag, clearPosReportTodayMemo } from '@/lib/posReport/load'
 import { clearPrepared } from '@/lib/posReport/prepared'
 import {
   laporanPosUntukScope,
-  kategoriLaporanPosUntukScope,
+  eksporLaporanPosUntukScope,
   clearMenuMemo,
   type PosReportRequest,
 } from '@/lib/posReport/laporan'
@@ -33,9 +33,9 @@ export async function getPosReport(rawReq: PosReportRequest) {
   return laporanPosUntukScope(rawReq, await resolveCallerScope())
 }
 
-/** Data untuk ekspor "PDF/CSV Semua Channel" — hanya dihitung saat tombol ditekan. */
-export async function getPosReportCategories(rawReq: PosReportRequest) {
-  return kategoriLaporanPosUntukScope(rawReq, await resolveCallerScope())
+/** Data ekspor PDF & Excel (per outlet × channel × menu) — hanya dihitung saat tombol ditekan. */
+export async function getPosReportExport(rawReq: PosReportRequest) {
+  return eksporLaporanPosUntukScope(rawReq, await resolveCallerScope())
 }
 
 async function requireUser() {

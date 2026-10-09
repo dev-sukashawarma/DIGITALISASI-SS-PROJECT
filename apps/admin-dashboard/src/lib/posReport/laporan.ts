@@ -19,11 +19,11 @@ import {
   computeAnalytics,
   computeAvailableChannels,
   computeAvailablePaymentMethods,
-  computeCategoryReport,
   computeItemBreakdown,
   computeTableFooter,
   filterTableData,
 } from '@/lib/posReport/compute'
+import { computeExportReport } from '@/lib/posReport/ekspor'
 
 /** Cakupan outlet pemanggil. 'all' = akses penuh (owner/admin/... atau kunci Hermes). */
 export type CakupanLaporan = { supabase: any; scopeKey: string; allowedOutletIds: 'all' | string[] }
@@ -109,7 +109,8 @@ async function loadReportContext(
     .order('end_time', { ascending: false })
   if (!includeAll) qShifts = qShifts.in('outlet_id', realOutlets.length > 0 ? realOutlets : ['00000000-0000-0000-0000-000000000000'])
 
-  let qOutlets = supabase.from('outlets').select('id, type')
+  // `name` hanya dipakai ekspor PDF/Excel (kolom Outlet).
+  let qOutlets = supabase.from('outlets').select('id, type, name')
 
   const [ordersRes, shiftsRes, { menuItems, riwayat }, outletsRes] = await Promise.all([
     from <= to ? loadPosReportOrders(supabase, scopeKey, from, to, today) : Promise.resolve({ pos: [], ecommerce: [], fetchedAt: new Date().toISOString(), isCached: true }),
@@ -201,13 +202,14 @@ async function getPreparedReport(rawReq: PosReportRequest, scope: CakupanLaporan
     })
     return {
       ...ctx,
+      from,
       analytics,
       availableChannels: computeAvailableChannels(ctx.orders, req.isPawoonVisible),
       availablePaymentMethods: computeAvailablePaymentMethods(ctx.orders),
       // Hasil turunan per filter tabel (bayar + cari), dipakai ulang saat
       // hanya halaman tabel yang berganti.
       derived: new Map<string, any>(),
-      categories: null as any,
+      exportReport: null as any,
     }
   })
   return { req, prepared }
@@ -256,20 +258,21 @@ export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: Caku
   }
 }
 
-/** Data untuk ekspor "PDF/CSV Semua Channel" — hanya dihitung saat tombol ditekan. */
-export async function kategoriLaporanPosUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
+/** Data ekspor PDF & Excel (per outlet × channel × menu) — hanya dihitung saat tombol ditekan. */
+export async function eksporLaporanPosUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
   const { req, prepared } = await getPreparedReport(rawReq, scope)
-  if (!prepared.categories) {
-    prepared.categories = computeCategoryReport(
-      prepared.orders,
-      req.channels,
-      prepared.outlets,
-      prepared.penerapHpp,
-      prepared.isSSOnlineSelected,
-      prepared.settlements
-    )
+  if (!prepared.exportReport) {
+    prepared.exportReport = computeExportReport({
+      orders: prepared.orders,
+      selectedChannels: req.channels,
+      outlets: prepared.outlets,
+      penerapHpp: prepared.penerapHpp,
+      isSSOnlineSelected: prepared.isSSOnlineSelected,
+      settlements: prepared.settlements,
+      periode: { from: prepared.from, to: req.to },
+    })
   }
-  return prepared.categories
+  return prepared.exportReport
 }
 
 export function clearMenuMemo() {

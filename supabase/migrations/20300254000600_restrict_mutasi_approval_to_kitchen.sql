@@ -9,12 +9,13 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.outlet_staff
-    WHERE id = auth.uid()
-      AND role IN ('kitchen', 'admin', 'owner', 'developer')
-      AND status = 'active'
-  );
+  SELECT COALESCE(auth.jwt()->>'role' = 'service_role', false)
+      OR EXISTS (
+        SELECT 1 FROM public.outlet_staff
+        WHERE id = auth.uid()
+          AND role IN ('kitchen', 'admin', 'owner', 'developer')
+          AND (status = 'active' OR is_active IS TRUE)
+      );
 $$;
 
 CREATE OR REPLACE FUNCTION public.approve_mutasi(

@@ -13,7 +13,12 @@ import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
-import { calculateProratedExpenses, getPeriodsInRange, calculateMonthOverlap } from '@/lib/opexProrata'
+import {
+  calculateProratedExpenses,
+  getPeriodsInRange,
+  calculateMonthOverlap,
+  type ManagerAssignment,
+} from '@/lib/opexProrata'
 import { monthRange } from '@/lib/period'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 
@@ -154,7 +159,8 @@ export async function getMitraComprehensivePnl(
     staffRes,
     bonusRes,
     lastMonthExpRes,
-    salesDailyRes
+    salesDailyRes,
+    managerStaffRes
   ] = await Promise.all([
     supabase.from('mitra_profiles').select('*').eq('user_id', userId).maybeSingle(),
     supabase.from('outlets').select('id, name, is_active').in('id', targetOutletIds),
@@ -317,7 +323,17 @@ export async function getMitraComprehensivePnl(
     ).then(rows => ({ data: rows })).catch(err => {
       console.warn('Gagal memuat sales_daily_scoped di mitraPnl:', err)
       return { data: [] as any[] }
-    })
+    }),
+    // Mapping outlet binaan manajer (staff_outlets) untuk alokasi beban AM/RM
+    supabase
+      .from('staff_outlets')
+      .select(`
+        staff_id,
+        outlet_id,
+        outlet_staff!inner(id, role, is_active)
+      `)
+      .in('outlet_staff.role', ['area_manager', 'regional_manager'])
+      .eq('outlet_staff.is_active', true)
   ])
 
   const profile = profileRes.data
@@ -763,17 +779,22 @@ export async function getMitraComprehensivePnl(
   }
 
   // Sinkronisasi OPEX dengan Tab Laba Rugi via calculateProratedExpenses
-  const OUTLET_CREW_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver']
+  const ALLOWED_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager']
   const payrollRows = (payrollRes?.data ?? [])
     .filter((r: any) => {
       const s = r.outlet_staff
       if (!s || s.status !== 'active') return false
       if (isTestOrDevStaff(s)) return false
-      if (!OUTLET_CREW_ROLES.includes(s.role)) return false
-      if (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID) return false
-      return targetOutletIds.includes(s.outlet_id)
+      if (!ALLOWED_ROLES.includes(s.role)) return false
+      const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+      if (!isManager) {
+        if (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID) return false
+        if (!targetOutletIds.includes(s.outlet_id)) return false
+      }
+      return true
     })
     .map((r: any) => ({
+      staff_id: (r.outlet_staff?.id || r.staff_id) as string,
       outlet_id: r.outlet_staff.outlet_id,
       total_salary: Number(r.total_salary) || 0,
       bonus: Number(r.bonus) || 0,
@@ -794,6 +815,17 @@ export async function getMitraComprehensivePnl(
         role: s.role
       }
     })
+
+  const managerMap = new Map<string, ManagerAssignment>()
+  for (const row of ((managerStaffRes?.data ?? []) as any[])) {
+    const sid = row.staff_id
+    const role = (row.outlet_staff as any)?.role || 'area_manager'
+    if (!managerMap.has(sid)) {
+      managerMap.set(sid, { staff_id: sid, role, outlet_ids: [] })
+    }
+    managerMap.get(sid)!.outlet_ids.push(row.outlet_id)
+  }
+  const managerAssignments = Array.from(managerMap.values())
 
   const outletNameMap = new Map((outletList || []).map((o: any) => [o.id, o.name]))
 
@@ -835,7 +867,8 @@ export async function getMitraComprehensivePnl(
     staffFinancials: staffRows,
     lastMonthExpenses: (lastMonthExpRes?.data as any) || [],
     crewBonusRecords: (bonusRes as any) || [],
-    outlets: (outletList || []).map(o => ({ id: o.id, name: o.name, is_active: o.is_active }))
+    outlets: (outletList || []).map(o => ({ id: o.id, name: o.name, is_active: o.is_active })),
+    managerAssignments,
   })
 
   const outletOpexMap = new Map<string, number>()

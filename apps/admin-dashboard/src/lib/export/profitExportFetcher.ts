@@ -152,6 +152,7 @@ export async function fetchProfitExportData({
     crewBonusRecords: auxData.crewBonusRecords,
     lastMonthExpenses: auxData.lastMonthExpenses,
     outlets,
+    managerAssignments: auxData.managerAssignments,
   })
   const expenseRows = prorataResult.rows
 

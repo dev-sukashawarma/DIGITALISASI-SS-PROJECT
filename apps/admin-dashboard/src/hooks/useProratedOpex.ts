@@ -11,6 +11,7 @@ import {
   calculateProratedExpenses,
   getPeriodsInRange,
   type ProratedExpenseResult,
+  type ManagerAssignment,
 } from '@/lib/opexProrata'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 
@@ -103,18 +104,20 @@ export function useProratedOpex({
       }
 
       const rows = (data ?? []) as any[]
-      const OUTLET_CREW_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver']
+      const ALLOWED_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager']
 
       return rows
         .filter(r => {
           const s = r.outlet_staff
           if (!s || s.status !== 'active') return false
           if (isTestOrDevStaff(s)) return false
-          if (!OUTLET_CREW_ROLES.includes(s.role)) return false
-          if (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID) return false
+          if (!ALLOWED_ROLES.includes(s.role)) return false
+          const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+          if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID)) return false
           return true
         })
         .map(r => ({
+          staff_id: (r.outlet_staff?.id || r.staff_id) as string,
           outlet_id: r.outlet_staff?.outlet_id as string,
           total_salary: Number(r.total_salary) || 0,
           bonus: Number(r.bonus) || 0,
@@ -149,7 +152,7 @@ export function useProratedOpex({
           )
         `)
         .eq('status', 'active')
-        .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver'])
+        .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager'])
 
       if (error) {
         console.warn('Gagal memuat staff_financials untuk prorata:', error.message)
@@ -157,11 +160,21 @@ export function useProratedOpex({
       }
 
       const rows = (data ?? []) as any[]
+      const ALLOWED_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager']
+
       return rows
-        .filter(s => !isTestOrDevStaff(s) && s.outlet_id && s.outlet_id !== KANTOR_PUSAT_ID)
+        .filter(s => {
+          if (!s || s.status !== 'active') return false
+          if (isTestOrDevStaff(s)) return false
+          if (!ALLOWED_ROLES.includes(s.role)) return false
+          const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+          if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID)) return false
+          return true
+        })
         .map(s => {
           const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
           return {
+            staff_id: s.id as string,
             outlet_id: s.outlet_id as string,
             basic_salary: Number(fin?.basic_salary) || 0,
             allowance_position: Number(fin?.allowance_position) || 0,
@@ -169,6 +182,44 @@ export function useProratedOpex({
             role: s.role as string,
           }
         }).filter(s => Boolean(s.outlet_id))
+    },
+    enabled: shouldFetchPayroll,
+    staleTime: 10 * 60 * 1000, // 10 menit
+  })
+
+  // 3b. Kueri mapping outlet binaan manajer (staff_outlets)
+  const { data: managerAssignments = [] } = useQuery({
+    queryKey: ['prorata-manager-assignments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staff_outlets')
+        .select(`
+          staff_id,
+          outlet_id,
+          outlet_staff!inner(id, role, is_active)
+        `)
+        .in('outlet_staff.role', ['area_manager', 'regional_manager'])
+        .eq('outlet_staff.is_active', true)
+
+      if (error) {
+        console.warn('Gagal memuat staff_outlets untuk manajer:', error.message)
+        return []
+      }
+
+      const map = new Map<string, ManagerAssignment>()
+      for (const row of (data || [])) {
+        const sid = row.staff_id
+        const role = (row.outlet_staff as any)?.role || 'area_manager'
+        if (!map.has(sid)) {
+          map.set(sid, {
+            staff_id: sid,
+            role,
+            outlet_ids: [],
+          })
+        }
+        map.get(sid)!.outlet_ids.push(row.outlet_id)
+      }
+      return Array.from(map.values())
     },
     enabled: shouldFetchPayroll,
     staleTime: 10 * 60 * 1000, // 10 menit
@@ -263,8 +314,9 @@ export function useProratedOpex({
       lastMonthExpenses,
       crewBonusRecords: crewBonusData,
       outlets,
+      managerAssignments,
     })
-  }, [filter, rawExpenses, payrollData, staffData, lastMonthExpenses, crewBonusData, outlets])
+  }, [filter, rawExpenses, payrollData, staffData, lastMonthExpenses, crewBonusData, outlets, managerAssignments])
 
   return {
     ...calculationResult,

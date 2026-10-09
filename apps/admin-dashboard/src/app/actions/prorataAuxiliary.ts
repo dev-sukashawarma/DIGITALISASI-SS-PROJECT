@@ -2,19 +2,27 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
-import { calculateMonthOverlap, type RolloverExpenseBaseline, type CrewBonusRecord } from '@/lib/opexProrata'
+import {
+  calculateMonthOverlap,
+  type RolloverExpenseBaseline,
+  type CrewBonusRecord,
+  type ManagerAssignment,
+} from '@/lib/opexProrata'
 import { getPeriodsInRange } from '@/lib/opexDateRangeProrata'
 import { monthRange } from '@/lib/period'
 
 export interface ProrataAuxiliaryData {
   payrollRecords: {
+    staff_id?: string
     outlet_id: string
     total_salary: number
+    bonus?: number
     period_month: number
     period_year: number
     role: string
   }[]
   staffFinancials: {
+    staff_id?: string
     outlet_id: string
     basic_salary: number
     allowance_position: number
@@ -23,6 +31,7 @@ export interface ProrataAuxiliaryData {
   }[]
   crewBonusRecords: CrewBonusRecord[]
   lastMonthExpenses: RolloverExpenseBaseline[]
+  managerAssignments?: ManagerAssignment[]
 }
 
 /**
@@ -100,7 +109,7 @@ export async function getProrataAuxiliaryDataAction({
       )
     `)
     .eq('status', 'active')
-    .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver'])
+    .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager'])
 
   // 3. Last month expenses (rollover)
   const prevMonth = overlap.month === 1 ? 12 : overlap.month - 1
@@ -120,7 +129,18 @@ export async function getProrataAuxiliaryDataAction({
     .gte('expense_date', prevMonthRange.from)
     .lte('expense_date', prevMonthRange.to)
 
-  // 4. Crew bonus RPC
+  // 4. Staff outlets untuk manajer
+  const qManagerStaffOutlets = supabase
+    .from('staff_outlets')
+    .select(`
+      staff_id,
+      outlet_id,
+      outlet_staff!inner(id, role, is_active)
+    `)
+    .in('outlet_staff.role', ['area_manager', 'regional_manager'])
+    .eq('outlet_staff.is_active', true)
+
+  // 5. Crew bonus RPC
   const bonusPromises = uniqueYearMonths.map(async ({ year, month }) => {
     const { data, error } = await supabase.rpc('get_monthly_crew_bonus', {
       p_month: month,
@@ -143,25 +163,28 @@ export async function getProrataAuxiliaryDataAction({
     }))
   })
 
-  const [payrollRes, staffRes, lastMonthRes, ...bonusResults] = await Promise.all([
+  const [payrollRes, staffRes, lastMonthRes, managerRes, ...bonusResults] = await Promise.all([
     qPayroll,
     qStaff,
     qLastMonth,
+    qManagerStaffOutlets,
     ...bonusPromises,
   ])
 
-  const OUTLET_CREW_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver']
+  const ALLOWED_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager']
 
   const payrollRecords = ((payrollRes.data ?? []) as any[])
     .filter(r => {
       const s = r.outlet_staff
       if (!s || s.status !== 'active') return false
       if (isTestOrDevStaff(s)) return false
-      if (!OUTLET_CREW_ROLES.includes(s.role)) return false
-      if (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID) return false
+      if (!ALLOWED_ROLES.includes(s.role)) return false
+      const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+      if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID)) return false
       return true
     })
     .map(r => ({
+      staff_id: (r.outlet_staff?.id || r.staff_id) as string,
       outlet_id: r.outlet_staff?.outlet_id as string,
       total_salary: Number(r.total_salary) || 0,
       bonus: Number(r.bonus) || 0,
@@ -172,10 +195,18 @@ export async function getProrataAuxiliaryDataAction({
     .filter(r => Boolean(r.outlet_id))
 
   const staffFinancials = ((staffRes.data ?? []) as any[])
-    .filter(s => !isTestOrDevStaff(s) && s.outlet_id && s.outlet_id !== KANTOR_PUSAT_ID)
+    .filter(s => {
+      if (!s || s.status !== 'active') return false
+      if (isTestOrDevStaff(s)) return false
+      if (!ALLOWED_ROLES.includes(s.role)) return false
+      const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+      if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID)) return false
+      return true
+    })
     .map(s => {
       const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
       return {
+        staff_id: s.id as string,
         outlet_id: s.outlet_id as string,
         basic_salary: Number(fin?.basic_salary) || 0,
         allowance_position: Number(fin?.allowance_position) || 0,
@@ -193,10 +224,22 @@ export async function getProrataAuxiliaryDataAction({
 
   const crewBonusRecords: CrewBonusRecord[] = bonusResults.flat()
 
+  const managerMap = new Map<string, ManagerAssignment>()
+  for (const row of ((managerRes.data ?? []) as any[])) {
+    const sid = row.staff_id
+    const role = (row.outlet_staff as any)?.role || 'area_manager'
+    if (!managerMap.has(sid)) {
+      managerMap.set(sid, { staff_id: sid, role, outlet_ids: [] })
+    }
+    managerMap.get(sid)!.outlet_ids.push(row.outlet_id)
+  }
+  const managerAssignments: ManagerAssignment[] = Array.from(managerMap.values())
+
   return {
     payrollRecords,
     staffFinancials,
     crewBonusRecords,
     lastMonthExpenses,
+    managerAssignments,
   }
 }

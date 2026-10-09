@@ -12,7 +12,7 @@ import {
   WARNA, type KonteksEkspor, labelCabang, labelPeriode, namaBerkas, persen, rasio, unduhBlob, waktuCetak,
 } from '@/lib/posReport/eksporUi'
 
-type Jenis = 'teks' | 'angka' | 'rp' | 'pct' | 'tanggal'
+type Jenis = 'teks' | 'angka' | 'rp' | 'pct'
 
 interface Kolom {
   key: string
@@ -25,13 +25,11 @@ interface Kolom {
   skala?: 'omzet' | 'margin'
   warnaChannel?: boolean
   tipeOutlet?: boolean
-  rataKiri?: boolean
 }
 
 const RP = '"Rp"#,##0;[Red]-"Rp"#,##0;"Rp"0'
 const INT = '#,##0'
 const PCT = '0.0%'
-const TGL = 'ddd, dd mmm yyyy'
 
 const argb = (hex: string) => `FF${hex.replace('#', '').toUpperCase()}`
 const isi = (hex: string) => ({ type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: argb(hex) } })
@@ -45,12 +43,7 @@ const BARIS_HEADER = 5
 const BARIS_DATA = 6
 
 function formatSel(jenis: Jenis) {
-  return jenis === 'rp' ? RP : jenis === 'pct' ? PCT : jenis === 'angka' ? INT : jenis === 'tanggal' ? TGL : undefined
-}
-
-function tanggalExcel(iso: string) {
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d))
+  return jenis === 'rp' ? RP : jenis === 'pct' ? PCT : jenis === 'angka' ? INT : undefined
 }
 
 /** Judul + sub-judul berwarna di atas setiap sheet. */
@@ -109,7 +102,7 @@ function sheetTabel(
     c.value = k.header
     c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } }
     c.fill = isi(WARNA.primary)
-    c.alignment = { vertical: 'middle', horizontal: k.jenis === 'teks' || k.rataKiri ? 'left' : 'center', wrapText: true }
+    c.alignment = { vertical: 'middle', horizontal: k.jenis === 'teks' ? 'left' : 'center', wrapText: true }
     c.border = { bottom: { style: 'medium', color: { argb: argb(WARNA.oranye) } } }
   })
 
@@ -119,11 +112,11 @@ function sheetTabel(
     kolom.forEach((k, i) => {
       const c = row.getCell(i + 1)
       const v = r[k.key]
-      c.value = k.jenis === 'tanggal' && typeof v === 'string' ? tanggalExcel(v) : (v ?? (k.jenis === 'teks' ? '' : 0))
+      c.value = v ?? (k.jenis === 'teks' ? '' : 0)
       const fmt = formatSel(k.jenis)
       if (fmt) c.numFmt = fmt
       c.font = { name: 'Calibri', size: 10, color: { argb: argb(WARNA.teks) } }
-      c.alignment = { vertical: 'middle', horizontal: k.jenis === 'teks' || k.rataKiri ? 'left' : 'right' }
+      c.alignment = { vertical: 'middle', horizontal: k.jenis === 'teks' ? 'left' : 'right' }
       c.border = { bottom: garisTipis }
       if (k.warnaChannel && r._warna) {
         c.fill = isi(r._warna)
@@ -147,7 +140,7 @@ function sheetTabel(
     if (k.total === 'judul') c.value = { formula: `"TOTAL ("&SUBTOTAL(103,${rentang})&" baris, sesuai filter)"`, result: `TOTAL (${baris.length} baris, sesuai filter)` }
     else if (k.total === 'sum') c.value = { formula: `SUBTOTAL(109,${rentang})`, result: baris.reduce((s, r) => s + (Number(r[k.key]) || 0), 0) }
     else if (typeof k.total === 'function') c.value = { formula: k.total(ref) }
-    const fmt = formatSel(k.jenis === 'tanggal' ? 'teks' : k.jenis)
+    const fmt = formatSel(k.jenis)
     if (fmt && k.total !== 'judul') c.numFmt = fmt
     c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: argb(WARNA.primary) } }
     c.fill = isi(WARNA.kremTua)
@@ -349,7 +342,7 @@ export function susunWorkbookLaporan(ExcelJS: any, data: PosExportReport, ctx: K
     kontribusi: rasio(r.gross, t.gross),
   })
 
-  const SHEET = ['Per Outlet', 'Outlet x Channel', 'Detail Item', 'Harian per Outlet', 'Menu Terlaris']
+  const SHEET = ['Per Outlet', 'Outlet x Channel', 'Detail Item', 'Menu Terlaris']
   sheetRingkasan(wb, data, sub, SHEET)
 
   sheetTabel(wb, 'Per Outlet', {
@@ -400,19 +393,6 @@ export function susunWorkbookLaporan(ExcelJS: any, data: PosExportReport, ctx: K
       no: i + 1, ...it, ...lengkapi(it),
       harga: rasio(it.gross, it.qty), hpp: rasio(it.cogs, it.qty), _warna: warnaChannel.get(it.channel),
     })),
-  })
-
-  sheetTabel(wb, 'Harian per Outlet', {
-    judul: 'TREN HARIAN PER OUTLET', sub, beku: 3, tab: WARNA.gross,
-    kolom: [
-      { key: 'no', header: 'No', width: 6, jenis: 'angka' },
-      { key: 'tanggal', header: 'Tanggal', width: 18, jenis: 'tanggal', rataKiri: true },
-      { key: 'outlet', header: 'Outlet', width: 32, jenis: 'teks', total: 'judul' },
-      { key: 'trx', header: 'Transaksi', width: 12, jenis: 'angka', total: 'sum' },
-      { key: 'qty', header: 'Item Terjual', width: 12, jenis: 'angka', total: 'sum' },
-      ...kolomUang({ netto: true }),
-    ],
-    baris: data.harianOutlet.map((h, i) => ({ no: i + 1, ...h, ...lengkapi(h) })),
   })
 
   sheetTabel(wb, 'Menu Terlaris', {

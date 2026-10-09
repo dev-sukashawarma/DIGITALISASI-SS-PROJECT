@@ -88,7 +88,7 @@ describe('computeExportReport', () => {
 
   it('setiap rincian (outlet, channel, item, harian, menu) berjumlah sama dengan total', () => {
     const { ekspor } = hitung(['all'])
-    for (const rows of [ekspor.outlets, ekspor.channels, ekspor.outletChannels, ekspor.harian, ekspor.harianOutlet] as Angka[][]) {
+    for (const rows of [ekspor.outlets, ekspor.channels, ekspor.outletChannels, ekspor.harian] as Angka[][]) {
       expect(sum(rows, r => r.trx)).toBe(ekspor.total.trx)
       expect(sum(rows, r => r.gross)).toBeCloseTo(ekspor.total.gross, 1)
       expect(sum(rows, r => r.cogs)).toBeCloseTo(ekspor.total.cogs, 1)

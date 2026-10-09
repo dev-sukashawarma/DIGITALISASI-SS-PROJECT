@@ -66,7 +66,7 @@ const keluar = process.env.EKSPOR_OUT
 describe('berkas ekspor', () => {
   it('payload server tetap kecil', () => {
     const kb = JSON.stringify(data).length / 1024
-    if (keluar) console.log(`hitung ${msHitung.toFixed(0)} ms untuk ${ordersUji.length} pesanan · payload ekspor: ${kb.toFixed(0)} KB, ${data.items.length} baris item, ${data.harianOutlet.length} baris harian`)
+    if (keluar) console.log(`hitung ${msHitung.toFixed(0)} ms untuk ${ordersUji.length} pesanan · payload ekspor: ${kb.toFixed(0)} KB, ${data.items.length} baris item, ${data.harian.length} hari`)
     expect(kb).toBeLessThan(800)
   })
 
@@ -78,7 +78,7 @@ describe('berkas ekspor', () => {
 
   it('Excel tersusun: 6 sheet, TOTAL memakai SUBTOTAL agar ikut filter', async () => {
     const wb = susunWorkbookLaporan(ExcelJS, data, ctx)
-    expect(wb.worksheets.map((w: any) => w.name)).toEqual(['Ringkasan', 'Per Outlet', 'Outlet x Channel', 'Detail Item', 'Harian per Outlet', 'Menu Terlaris'])
+    expect(wb.worksheets.map((w: any) => w.name)).toEqual(['Ringkasan', 'Per Outlet', 'Outlet x Channel', 'Detail Item', 'Menu Terlaris'])
     const detail = wb.getWorksheet('Detail Item')
     const gross = detail.getRow(4).getCell(10).value as any
     expect(gross.formula).toMatch(/^SUBTOTAL\(109,J6:J\d+\)$/)

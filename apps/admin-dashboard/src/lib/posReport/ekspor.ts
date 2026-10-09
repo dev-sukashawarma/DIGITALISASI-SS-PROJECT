@@ -68,12 +68,6 @@ export interface EksporHarian extends Angka {
   tanggal: string
 }
 
-export interface EksporHarianOutlet extends Angka {
-  tanggal: string
-  outletId: string
-  outlet: string
-}
-
 export interface EksporMenu extends Omit<Angka, 'trx'> {
   menu: string
   outletCount: number
@@ -93,7 +87,6 @@ export interface PosExportReport {
   outletChannels: EksporOutletChannel[]
   items: EksporItem[]
   harian: EksporHarian[]
-  harianOutlet: EksporHarianOutlet[]
   menu: EksporMenu[]
   pembayaran: EksporPembayaran[]
 }
@@ -194,7 +187,6 @@ export function computeExportReport(params: {
   const outletChannelAgg = new Map<string, EksporOutletChannel>()
   const itemAgg = new Map<string, EksporItem>()
   const harianAgg = new Map<string, EksporHarian>()
-  const harianOutletAgg = new Map<string, EksporHarianOutlet>()
   const menuAgg = new Map<string, EksporMenu & { outlets: Set<string> }>()
   const bayarAgg = new Map<string, EksporPembayaran>()
 
@@ -246,13 +238,7 @@ export function computeExportReport(params: {
       hRow = { tanggal: tgl, ...kosong() }
       harianAgg.set(tgl, hRow)
     }
-    const hoKey = `${tgl}|${o.outlet_id}`
-    let hoRow = harianOutletAgg.get(hoKey)
-    if (!hoRow) {
-      hoRow = { tanggal: tgl, outletId: o.outlet_id, outlet: outlet.nama, ...kosong() }
-      harianOutletAgg.set(hoKey, hoRow)
-    }
-    const barisOrder = [total, outlet, channelRow, ocRow, hRow, hoRow]
+    const barisOrder = [total, outlet, channelRow, ocRow, hRow]
     for (const t of barisOrder) t.trx += 1
     total.subsidi += subsidi
     outlet.subsidi += subsidi
@@ -321,9 +307,6 @@ export function computeExportReport(params: {
     outletChannels: outletChannels.map(bulatkan),
     items: items.map(bulatkan),
     harian: [...harianAgg.values()].sort((a, b) => a.tanggal.localeCompare(b.tanggal)).map(bulatkan),
-    harianOutlet: [...harianOutletAgg.values()]
-      .sort((a, b) => a.tanggal.localeCompare(b.tanggal) || urutOutlet(a.outletId, b.outletId))
-      .map(bulatkan),
     menu: [...menuAgg.values()]
       .map(({ outlets: s, ...m }) => bulatkan({ ...m, outletCount: s.size }))
       .sort((a, b) => b.qty - a.qty || b.gross - a.gross),

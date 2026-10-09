@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Notulensi Rekonsiliasi OPEX dan Bonus September 2026 - Suka Shawarma</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 14mm 14mm 16mm 14mm;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.45;
+      color: #1e293b;
+      background-color: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+    .header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .header-left h1 {
+      font-size: 15pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 2px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-left .sub {
+      font-size: 8.5pt;
+      color: #64748b;
+      margin: 0;
+      font-weight: 500;
+    }
+    .header-right {
+      text-align: right;
+    }
+    .badge-official {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 3px 8px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: inline-block;
+      margin-bottom: 3px;
+    }
+    .header-right .doc-no {
+      font-size: 7.5pt;
+      color: #64748b;
+      font-family: monospace;
+    }
+    .meta-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      font-size: 8.5pt;
+    }
+    .meta-item strong {
+      display: block;
+      color: #64748b;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      margin-bottom: 1px;
+    }
+    .meta-item span {
+      font-weight: 600;
+      color: #0f172a;
+    }
+    h2 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 14px 0 6px 0;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #e2e8f0;
+      page-break-after: avoid;
+    }
+    h3 {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 10px 0 4px 0;
+      page-break-after: avoid;
+    }
+    p {
+      margin: 0 0 6px 0;
+      text-align: justify;
+    }
+    ul, ol {
+      margin: 0 0 8px 0;
+      padding-left: 18px;
+    }
+    li {
+      margin-bottom: 3px;
+    }
+    .callout {
+      background-color: #f0fdf4;
+      border-left: 3.5px solid #16a34a;
+      padding: 6px 10px;
+      margin: 8px 0;
+      border-radius: 0 4px 4px 0;
+      font-size: 9pt;
+    }
+    .callout-title {
+      font-weight: 700;
+      color: #15803d;
+      margin-bottom: 2px;
+    }
+    .callout-amber {
+      background-color: #fffbeb;
+      border-left: 3.5px solid #d97706;
+      padding: 6px 10px;
+      margin: 8px 0;
+      border-radius: 0 4px 4px 0;
+      font-size: 9pt;
+    }
+    .callout-amber .callout-title {
+      color: #b45309;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0 10px 0;
+      font-size: 8.5pt;
+      page-break-inside: avoid;
+    }
+    th, td {
+      padding: 5px 7px;
+      text-align: left;
+      border: 1px solid #cbd5e1;
+    }
+    th {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+      text-align: center;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .text-bold { font-weight: 700; }
+    tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+    tr.total-row td {
+      background-color: #e2e8f0;
+      font-weight: 700;
+      border-top: 1.5px solid #475569;
+    }
+    .pill-green {
+      background: #dcfce7;
+      color: #15803d;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      font-weight: 600;
+      font-size: 7.5pt;
+      display: inline-block;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .signatures {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      page-break-inside: avoid;
+    }
+    .sign-box {
+      border: 1px dashed #94a3b8;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+      background: #fafafa;
+    }
+    .sign-box .role {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 45px;
+    }
+    .sign-box .name {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 4px;
+      display: inline-block;
+      width: 80%;
+    }
+    .footer-note {
+      margin-top: 16px;
+      font-size: 7.5pt;
+      color: #64748b;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <h1>SUKA SHAWARMA INDONESIA</h1>
+      <div class="sub">Divisi Keuangan, Akuntansi & Sumber Daya Manusia (HR)</div>
+    </div>
+    <div class="header-right">
+      <div class="badge-official">Dokumen Resmi Notulensi</div>
+      <div class="doc-no">DOC-FIN-HR/2026/09/001</div>
+    </div>
+  </div>
+
+  <!-- METADATA -->
+  <div class="meta-box">
+    <div class="meta-item">
+      <strong>Periode Evaluasi</strong>
+      <span>1 – 30 September 2026</span>
+    </div>
+    <div class="meta-item">
+      <strong>Tanggal Rilis</strong>
+      <span>9 Oktober 2026</span>
+    </div>
+    <div class="meta-item">
+      <strong>Pihak Terkait</strong>
+      <span>Finance, HR, & Ops</span>
+    </div>
+    <div class="meta-item">
+      <strong>Status Rekonsiliasi</strong>
+      <span><span class="pill-green">Disepakati & Terpasang</span></span>
+    </div>
+  </div>
+
+  <div style="font-size: 11pt; font-weight: 800; color: #0f172a; margin-bottom: 8px;">
+    NOTULENSI KESEPAKATAN REKONSILIASI OPEX, GAJI MANAJER, DAN BONUS
+  </div>
+
+  <!-- 1. RINGKASAN EKSEKUTIF & PRINSIP UTAMA -->
+  <h2>1. Ringkasan Eksekutif & Prinsip Standarisasi</h2>
+  <p>
+    Berdasarkan hasil audit closing akhir bulan (EOM) September 2026 antara Tim Finance dan Tim HR, telah disepakati standarisasi tata kelola pembebanan gaji manajer dan bonus performa ke dalam Laporan Laba Rugi Outlet (P&L OPEX Prorata) dengan 3 prinsip fundamental:
+  </p>
+  <ul>
+    <li><strong>Prinsip "Clean Salary" Manajer:</strong> Gaji bersih tetap (Gaji Pokok + Tunjangan Jabatan + Tunjangan Kehadiran) dialokasikan secara rata (<em>equal split</em>) ke seluruh outlet operasional dan masuk ke pos <code>Gaji, Lembur & Upah Crew</code>.</li>
+    <li><strong>Bonus Performa Manajer (Berdasarkan Total Pcs Terjual):</strong> Dikeluarkan dari komponen gaji pokok dan disajikan pada pos biaya terpisah (<code>Bonus Area Manager</code> dan <code>Bonus Regional Manager</code>), dibebankan riil sesuai kontribusi penjualan outlet masing-masing (1 pcs = Rp 50).</li>
+    <li><strong>Pencegahan Discrepansi (Zero Discrepancy):</strong> Total rupiah yang terdistribusi ke seluruh outlet dijamin 100% klop dengan total pengeluaran slip gaji HR (selisih se-perusahaan tepat <strong>Rp 0</strong>).</li>
+  </ul>
+
+  <div class="callout">
+    <div class="callout-title">Kesepakatan Khusus Mitra Paledang (Opsi A - Proporsional Penuh 21 Hari Operasional)</div>
+    Mitra Paledang beroperasi pada 1–21 September 2026 sebelum nonaktif. Disepakati menggunakan <strong>Opsi A</strong>: Mengakui penuh hak 843 order (omzet Rp 38.438.048, total 1.293 pcs), membayarkan bonus kru toko (Rp 122.200), memperhitungkan bonus AM/RM (Rp 64.650), dan menanggung beban gaji bersih manajer secara proporsional.
+  </div>
+
+  <!-- 2. REKONSILIASI AREA MANAGER -->
+  <h2>2. Rekonsiliasi Area Manager (Abu Bakar)</h2>
+  <p>
+    AM Abu Bakar membawahi 5 cabang (Empang, Cimanggu, Dramaga, Cicurug, dan Paledang). Total pada Slip HR adalah <strong>Rp 5.378.400</strong>, yang terdiri atas <strong>Gaji Bersih Rp 4.500.000</strong> dan <strong>Bonus Performa Rp 878.400</strong> (17.568 pcs &times; Rp 50).
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nama Cabang Binaan</th>
+        <th>Status Periode</th>
+        <th>Total Pcs Terjual</th>
+        <th>Beban Gaji Bersih AM</th>
+        <th>Beban Bonus AM (Pcs &times; 50)</th>
+        <th>Total Beban AM di Outlet</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Mitra Cicurug</strong></td>
+        <td class="text-center">Aktif 30 Hari</td>
+        <td class="text-right">4.041 pcs</td>
+        <td class="text-right">Rp 900.000</td>
+        <td class="text-right">Rp 202.050</td>
+        <td class="text-right text-bold">Rp 1.102.050</td>
+      </tr>
+      <tr>
+        <td><strong>Mitra Cimanggu</strong></td>
+        <td class="text-center">Aktif 30 Hari</td>
+        <td class="text-right">4.062 pcs</td>
+        <td class="text-right">Rp 900.000</td>
+        <td class="text-right">Rp 203.100</td>
+        <td class="text-right text-bold">Rp 1.103.100</td>
+      </tr>
+      <tr>
+        <td><strong>Mitra Dramaga</strong></td>
+        <td class="text-center">Aktif 30 Hari</td>
+        <td class="text-right">4.296 pcs</td>
+        <td class="text-right">Rp 900.000</td>
+        <td class="text-right">Rp 214.800</td>
+        <td class="text-right text-bold">Rp 1.114.800</td>
+      </tr>
+      <tr>
+        <td><strong>Mitra Empang</strong></td>
+        <td class="text-center">Aktif 30 Hari</td>
+        <td class="text-right">3.876 pcs</td>
+        <td class="text-right">Rp 900.000</td>
+        <td class="text-right">Rp 193.800</td>
+        <td class="text-right text-bold">Rp 1.093.800</td>
+      </tr>
+      <tr>
+        <td><strong>Mitra Paledang</strong></td>
+        <td class="text-center">Aktif 1–21 Sept</td>
+        <td class="text-right">1.293 pcs</td>
+        <td class="text-right">Rp 900.000</td>
+        <td class="text-right">Rp 64.650</td>
+        <td class="text-right text-bold">Rp 964.650</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="2">TOTAL ALOKASI SE-WILAYAH AM</td>
+        <td class="text-right">17.568 pcs</td>
+        <td class="text-right">Rp 4.500.000</td>
+        <td class="text-right">Rp 878.400</td>
+        <td class="text-right">Rp 5.378.400</td>
+      </tr>
+      <tr>
+        <td colspan="5" class="text-bold" style="background:#f1f5f9;">NILAI PADA SLIP GAJI HR PUSAT (ABU BAKAR)</td>
+        <td class="text-right text-bold" style="background:#f1f5f9;">Rp 5.378.400</td>
+      </tr>
+      <tr>
+        <td colspan="5" class="text-bold" style="color:#15803d; background:#ecfdf5;">SELISIH REKONSILIASI (VARIANCE)</td>
+        <td class="text-right text-bold" style="color:#15803d; background:#ecfdf5;">Rp 0 (100% KLOP)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 3. REKONSILIASI REGIONAL MANAGER -->
+  <h2>3. Rekonsiliasi Regional Manager (Indra Adam Sami)</h2>
+  <p>
+    RM Indra Adam Sami membawahi 21 cabang operasional (20 cabang aktif penuh + 1 cabang Mitra Paledang). Total pada Slip HR adalah <strong>Rp 8.179.700</strong>, yang terdiri atas <strong>Gaji Bersih Rp 5.487.000</strong> dan <strong>Bonus Performa Rp 2.692.700</strong> (53.852 pcs &times; Rp 50 = Rp 2.692.600 + pembulatan HR Rp 100).
+  </p>
+  <ul>
+    <li><strong>Alokasi Gaji Bersih:</strong> Rp 5.487.000 &divide; 21 cabang = Rp 261.285,71. Menggunakan <em>deterministic integer remainder split</em>: 15 cabang menanggung <strong>Rp 261.286</strong>, dan 6 cabang menanggung <strong>Rp 261.285</strong>. Total tepat Rp 5.487.000 (Selisih Rp 0).</li>
+    <li><strong>Alokasi Bonus RM:</strong> Dibebankan ke tiap outlet berdasarkan penjualan pcs masing-masing &times; Rp 50 pada pos <code>Bonus Regional Manager</code>. Mitra Paledang menanggung Rp 64.650 (1.293 pcs).</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <!-- 4. DETAIL PENYELESAIAN MITRA PALEDANG -->
+  <h2>4. Rincian Finansial Lengkap MITRA PALEDANG (Opsi A)</h2>
+  <p>
+    Berikut adalah rekapitulasi mutlak seluruh hak pendapatan, beban personalia, dan pos biaya operasional Mitra Paledang untuk periode 1–21 September 2026:
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Komponen Biaya / Bonus</th>
+        <th>Dasar & Rincian Perhitungan</th>
+        <th>Nominal (Rp)</th>
+        <th>Pos Pelaporan Dashboard</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Gaji Kru Toko (HR)</strong></td>
+        <td>Slip gaji resmi kru toko (Jamaludin)</td>
+        <td class="text-right">Rp 459.615</td>
+        <td>Gaji, Lembur & Upah Crew</td>
+      </tr>
+      <tr>
+        <td><strong>Alokasi Bersih AM Abu Bakar</strong></td>
+        <td>Bagian 1 dari 5 cabang binaan AM (Rp 4.500.000 &divide; 5)</td>
+        <td class="text-right">Rp 900.000</td>
+        <td>Gaji, Lembur & Upah Crew</td>
+      </tr>
+      <tr>
+        <td><strong>Alokasi Bersih RM Indra</strong></td>
+        <td>Bagian 1 dari 21 cabang binaan RM (Rp 5.487.000 &divide; 21)</td>
+        <td class="text-right">Rp 261.285</td>
+        <td>Gaji, Lembur & Upah Crew</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="2">SUBTOTAL POS GAJI CREW OUTLET</td>
+        <td class="text-right">Rp 1.620.900</td>
+        <td><strong>Gaji, Lembur & Upah Crew</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Bonus Kru Toko (Agung W.)</strong></td>
+        <td>Presensi 10 hari kerja operasional Paledang</td>
+        <td class="text-right">Rp 58.850</td>
+        <td>Bonus Crew Outlet</td>
+      </tr>
+      <tr>
+        <td><strong>Bonus Kru Toko (Emul M.)</strong></td>
+        <td>Presensi 11 hari kerja operasional Paledang</td>
+        <td class="text-right">Rp 63.350</td>
+        <td>Bonus Crew Outlet</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="2">SUBTOTAL POS BONUS CREW</td>
+        <td class="text-right">Rp 122.200</td>
+        <td><strong>Bonus Crew</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Bonus Area Manager (AM)</strong></td>
+        <td>1.293 pcs terjual &times; Rp 50</td>
+        <td class="text-right">Rp 64.650</td>
+        <td><strong>Bonus Area Manager</strong></td>
+      </tr>
+      <tr>
+        <td><strong>Bonus Regional Manager (RM)</strong></td>
+        <td>1.293 pcs terjual &times; Rp 50</td>
+        <td class="text-right">Rp 64.650</td>
+        <td><strong>Bonus Regional Manager</strong></td>
+      </tr>
+      <tr class="total-row" style="background:#f1f5f9;">
+        <td colspan="2">TOTAL BEBAN GAJI & BONUS PALEDANG</td>
+        <td class="text-right text-bold">Rp 1.872.400</td>
+        <td><strong>Total Beban Personalia</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 5. KASUS KHUSUS SAWANGAN & DUMMY -->
+  <h2>5. Penanganan Khusus: Cabang Sawangan & Outlet Dummy</h2>
+  <div class="callout-amber">
+    <div class="callout-title">Aturan Pencegahan Double-Counting (Sawangan Internal vs DTC)</div>
+    Pada 26 September 2026, cabang internal Sawangan dialihkan ke kemitraan Sawangan DTC. Sistem secara otomatis menyaring slug <code>sawangan-depok-internal</code> dari daftar penerima beban manajer dan mengalihkannya ke <code>MITRA SAWANGAN DTC</code>. Lokasi fisik Sawangan dijamin hanya dihitung 1 kali sebagai pembagi, sehingga jumlah pembagi RM tetap 21 outlet (bukan 22).
+  </div>
+  <p>
+    Outlet dummy dan non-operasional (seperti <code>SS BACKUP</code>, akun demo, uji coba sistem, dan platform marketplace) telah diproteksi di lapisan database dan query aplikasi sehingga tidak memakan alokasi gaji manajer.
+  </p>
+
+  <!-- 6. PANDUAN PENGECEKAN DASHBOARD -->
+  <h2>6. Panduan Verifikasi untuk Tim Finance & HR</h2>
+  <ol>
+    <li>
+      <strong>Tab Laba Rugi Mitra (P&L Mitra) &gt; Pilih "MITRA PALEDANG" (1–30 Sept 2026):</strong><br>
+      Pastikan pos <em>Gaji, Lembur & Upah Crew</em> bernilai <strong>Rp 1.620.900</strong>, <em>Bonus Crew</em> bernilai <strong>Rp 122.200</strong>, <em>Bonus AM</em> bernilai <strong>Rp 64.650</strong>, dan <em>Bonus RM</em> bernilai <strong>Rp 64.650</strong>.
+    </li>
+    <li>
+      <strong>Tab Laba Rugi AM (Abu Bakar):</strong> Total bonus tercatat tepat <strong>Rp 878.400</strong> (Klop dengan slip HR).
+    </li>
+    <li>
+      <strong>Tab Laba Rugi RM (Indra Adam Sami):</strong> Total bonus tercatat tepat <strong>Rp 2.692.600</strong> (Klop dengan slip HR Rp 2.692.700).
+    </li>
+  </ol>
+
+  <!-- SIGNATURES -->
+  <div class="signatures">
+    <div class="sign-box">
+      <div class="role">Disiapkan Oleh (IT / System)</div>
+      <div class="name">Dev / Engineering Team</div>
+    </div>
+    <div class="sign-box">
+      <div class="role">Diverifikasi Oleh (Finance)</div>
+      <div class="name">Tim Keuangan & Akuntansi</div>
+    </div>
+    <div class="sign-box">
+      <div class="role">Disetujui Oleh (HR / Payroll)</div>
+      <div class="name">Tim Human Resource</div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Dokumen ini dicetak secara otomatis dari sistem digitalisasi Suka Shawarma. Berlaku sah sebagai acuan rekonsiliasi keuangan penutupan September 2026.
+  </div>
+
+</body>
+</html>

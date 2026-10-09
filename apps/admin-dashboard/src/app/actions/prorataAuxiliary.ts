@@ -62,6 +62,7 @@ export async function getProrataAuxiliaryDataAction({
       period_year,
       total_salary,
       basic_salary,
+      bonus,
       allowance_position,
       allowance_presence,
       outlet_staff!payroll_records_staff_id_fkey(
@@ -163,6 +164,7 @@ export async function getProrataAuxiliaryDataAction({
     .map(r => ({
       outlet_id: r.outlet_staff?.outlet_id as string,
       total_salary: Number(r.total_salary) || 0,
+      bonus: Number(r.bonus) || 0,
       period_month: Number(r.period_month),
       period_year: Number(r.period_year),
       role: r.outlet_staff?.role as string,

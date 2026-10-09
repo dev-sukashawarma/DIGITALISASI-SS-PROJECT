@@ -586,5 +586,47 @@ describe('opexProrata - calculateProratedExpenses', () => {
     const rmRow = res.rows.find(r => r.category === 'bonus_regional_manager')
     expect(rmRow?.amount).toBe(100_000)
   })
+
+  it('memisahkan komponen bonus dari gaji_crew_outlet ketika slip HR memiliki bonus agar tidak dobel hitung (MODE 2)', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [],
+      payrollRecords: [
+        {
+          outlet_id: 'outlet-1',
+          total_salary: 2_500_000,
+          bonus: 500_000,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      crewBonusRecords: [
+        {
+          outlet_id: 'outlet-1',
+          total_bonus: 480_000,
+          total_pcs_outlet: 4_800,
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      now: octNow,
+      outlets: [{ id: 'outlet-1', name: 'Mitra Cicurug', is_active: true }],
+    })
+
+    // Gaji pokok & tunjangan bersih = 2.500.000 - 500.000 = 2.000.000
+    const gajiRow = res.rows.find(r => r.category === 'gaji_crew_outlet')
+    expect(gajiRow).toBeDefined()
+    expect(gajiRow?.amount).toBe(2_000_000)
+
+    // Bonus crew mengambil bonus tervalidasi dari slip HR (500.000)
+    const crewRow = res.rows.find(r => r.category === 'bonus_crew')
+    expect(crewRow).toBeDefined()
+    expect(crewRow?.amount).toBe(500_000)
+
+    // Total gaji + bonus crew harus PERSIS sama dengan total_salary dari slip HR (2.500.000)
+    expect((gajiRow?.amount || 0) + (crewRow?.amount || 0)).toBe(2_500_000)
+  })
 })
+
 

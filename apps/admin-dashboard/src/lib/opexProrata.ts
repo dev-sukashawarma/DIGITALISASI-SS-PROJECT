@@ -143,6 +143,8 @@ export interface CalculateProrataInput {
   payrollRecords?: {
     outlet_id: string
     total_salary: number
+    basic_salary?: number
+    bonus?: number
     period_month?: number
     period_year?: number
     role?: string
@@ -342,7 +344,11 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         (p.period_month && p.period_year ? (p.period_month === monthInfo.month && p.period_year === monthInfo.year) : true)
       )
       if (pRows.length > 0) {
-        gajiMonthly = pRows.reduce((sum, p) => sum + (Number(p.total_salary) || 0), 0)
+        gajiMonthly = pRows.reduce((sum, p) => {
+          const tot = Number(p.total_salary) || 0
+          const bon = Number(p.bonus) || 0
+          return sum + Math.max(0, tot - bon)
+        }, 0)
         oGajiSource = 'payroll_record'
       }
 
@@ -691,11 +697,16 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     if (s.outlet_id) outletsWithHrSalary.add(s.outlet_id)
   })
 
-  // Outlet-outlet yang memiliki data di modul bonus crew
+  // Outlet-outlet yang memiliki data di modul bonus crew atau di slip HR
   const outletsWithBonus = new Set<string>()
   crewBonusRecords.forEach(c => {
     if (c.outlet_id && ((Number(c.total_bonus) || 0) > 0 || (Number(c.total_pcs_outlet) || 0) > 0)) {
       outletsWithBonus.add(c.outlet_id)
+    }
+  })
+  payrollRecords.forEach(p => {
+    if (p.outlet_id && (Number(p.bonus) || 0) > 0) {
+      outletsWithBonus.add(p.outlet_id)
     }
   })
 
@@ -746,7 +757,11 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         (pr.period_month && pr.period_year ? (pr.period_month === p.month && pr.period_year === p.year) : true)
       )
       if (pRows.length > 0) {
-        gajiMonthly = pRows.reduce((sum, pr) => sum + (Number(pr.total_salary) || 0), 0)
+        gajiMonthly = pRows.reduce((sum, pr) => {
+          const tot = Number(pr.total_salary) || 0
+          const bon = Number(pr.bonus) || 0
+          return sum + Math.max(0, tot - bon)
+        }, 0)
         oGajiSource = 'payroll_record'
       }
 
@@ -786,20 +801,25 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         })
       }
 
-      // 2. Bonus Crew Outlet (Modul Bonus Crew)
+      // 2. Bonus Crew Outlet (Modul Bonus Crew / Slip HR)
       const cRows = crewBonusRecords.filter(c =>
         c.outlet_id === outletId &&
         (c.period_month && c.period_year ? (c.period_month === p.month && c.period_year === p.year) : true)
       )
       const outletCrewBonusMonthly = cRows.reduce((sum, c) => sum + (Number(c.total_bonus) || 0), 0)
       const outletPcs = cRows.length > 0 ? (Number(cRows[0].total_pcs_outlet) || 0) : 0
-      const finalCrewBonus = outletCrewBonusMonthly > 0 ? outletCrewBonusMonthly : outletPcs * 100
+      const hrBonus = pRows.reduce((sum, pr) => sum + (Number(pr.bonus) || 0), 0)
+      const finalCrewBonus = hrBonus > 0
+        ? hrBonus
+        : (outletCrewBonusMonthly > 0 ? outletCrewBonusMonthly : outletPcs * 100)
 
       if (finalCrewBonus > 0) {
         const proratedCrewBonus = Math.round(finalCrewBonus * p.ratio)
         totalBonusCrewBulanan += finalCrewBonus
         totalBonusCrewProrata += proratedCrewBonus
-        if (bonusCrewSource === 'none') bonusCrewSource = 'crew_bonus_module'
+        if (bonusCrewSource === 'none') {
+          bonusCrewSource = hrBonus > 0 ? 'payroll_record' : 'crew_bonus_module'
+        }
 
         proratedRows.push({
           id: `prorata-bonus-crew-${outletId}-${p.year}-${p.month}`,

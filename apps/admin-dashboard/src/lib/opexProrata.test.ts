@@ -873,6 +873,139 @@ describe('opexProrata - calculateProratedExpenses', () => {
     const totalAllocated = rows.reduce((s, r) => s + r.amount, 0)
     expect(totalAllocated).toBe(5_487_000)
   })
+
+  it('mendukung Opsi A: outlet yang tutup di tengah bulan (misal Mitra Paledang) tetap menerima bonus dan alokasi manajer', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    // Paledang berstatus inactive di akhir bulan, tapi aktif 1-21 September
+    const paledang = {
+      id: 'outlet-paledang',
+      name: 'MITRA PALEDANG',
+      is_active: false,
+      status: 'inactive',
+      type: 'mitra',
+    }
+    const other4Branches = Array.from({ length: 4 }, (_, i) => ({
+      id: `outlet-am-${i + 1}`,
+      name: `Cabang AM ${i + 1}`,
+      is_active: true,
+      status: 'active',
+      type: 'mitra',
+    }))
+    const other16Branches = Array.from({ length: 16 }, (_, i) => ({
+      id: `outlet-other-${i + 1}`,
+      name: `Cabang Lain ${i + 1}`,
+      is_active: true,
+      status: 'active',
+      type: 'internal',
+    }))
+
+    const all21Outlets = [paledang, ...other4Branches, ...other16Branches]
+    const amBranches = [paledang.id, ...other4Branches.map(o => o.id)]
+    const operationalOutletIds = all21Outlets.map(o => o.id)
+
+    // AM Abu Bakar membawahi 5 outlet (4 aktif + Paledang)
+    const amAssignment: ManagerAssignment = {
+      staff_id: 'am-abu-bakar',
+      role: 'area_manager',
+      outlet_ids: amBranches,
+    }
+
+    // Slip HR AM Abu Bakar: Total 5.378.400, bonus 878.400 -> clean salary 4.500.000 (900.000 per outlet)
+    // Slip HR RM Indra: Total 8.179.700, bonus 2.692.700 -> clean salary 5.487.000 (261.285 - 261.286 per outlet)
+    const payrollRecords = [
+      {
+        staff_id: 'am-abu-bakar',
+        outlet_id: 'outlet-am-1',
+        role: 'area_manager',
+        total_salary: 5_378_400,
+        bonus: 878_400,
+        period_month: 9,
+        period_year: 2026,
+      },
+      {
+        staff_id: 'rm-indra',
+        outlet_id: 'outlet-other-1',
+        role: 'regional_manager',
+        total_salary: 8_179_700,
+        bonus: 2_692_700,
+        period_month: 9,
+        period_year: 2026,
+      },
+      // Slip kru Paledang (Jamaludin)
+      {
+        staff_id: 'kru-paledang',
+        outlet_id: 'outlet-paledang',
+        role: 'crew',
+        total_salary: 459_615,
+        bonus: 0,
+        period_month: 9,
+        period_year: 2026,
+      },
+    ]
+
+    const crewBonusRecords = [
+      {
+        outlet_id: 'outlet-paledang',
+        total_bonus: 122_200, // Agung Wardhana 58.850 + Emul Mulyana 63.350
+        total_pcs_outlet: 1_293,
+        period_month: 9,
+        period_year: 2026,
+      },
+    ]
+
+    // 1. Cek dari sudut pandang Paledang saja (single outlet filter)
+    const resPaledang = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'outlet-paledang', source: 'all' },
+      rawExpenses: [],
+      payrollRecords,
+      crewBonusRecords,
+      managerAssignments: [amAssignment],
+      operationalOutletIds,
+      now: octNow,
+      outlets: all21Outlets,
+    })
+
+    // Pastikan baris bonus crew, bonus AM, bonus RM ada untuk Paledang
+    const bonusCrewRow = resPaledang.rows.find(r => r.category === 'bonus_crew')
+    expect(bonusCrewRow).toBeDefined()
+    expect(bonusCrewRow?.amount).toBe(122_200)
+
+    const bonusAmRow = resPaledang.rows.find(r => r.category === 'bonus_area_manager')
+    expect(bonusAmRow).toBeDefined()
+    // 1.293 pcs * Rp 50 = Rp 64.650
+    expect(bonusAmRow?.amount).toBe(64_650)
+
+    const bonusRmRow = resPaledang.rows.find(r => r.category === 'bonus_regional_manager')
+    expect(bonusRmRow).toBeDefined()
+    // 1.293 pcs * Rp 50 = Rp 64.650
+    expect(bonusRmRow?.amount).toBe(64_650)
+
+    // Alokasi gaji bersih manajer untuk Paledang:
+    // Gaji kru Jamaludin = 459.615
+    // AM share = 4.500.000 / 5 = 900.000
+    // RM share = 5.487.000 / 21 = 261.285 (base 261.285, remainder 15 disebar ke 15 outlet pertama)
+    // Total gaji_crew_outlet Paledang = 459.615 + 900.000 + 261.285 = 1.620.900
+    const gajiRow = resPaledang.rows.find(r => r.category === 'gaji_crew_outlet')
+    expect(gajiRow).toBeDefined()
+    expect(gajiRow?.amount).toBe(1_620_900)
+
+    // 2. Cek integritas all-outlet (tidak ada selisih alokasi se-perusahaan)
+    const resAll = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'all', source: 'all' },
+      rawExpenses: [],
+      payrollRecords,
+      crewBonusRecords,
+      managerAssignments: [amAssignment],
+      operationalOutletIds,
+      now: octNow,
+      outlets: all21Outlets,
+    })
+
+    const allGajiRows = resAll.rows.filter(r => r.category === 'gaji_crew_outlet')
+    const totalGajiAllocated = allGajiRows.reduce((sum, r) => sum + r.amount, 0)
+    // Total kru (459.615) + Clean AM (4.500.000) + Clean RM (5.487.000) = 10.446.615
+    expect(totalGajiAllocated).toBe(10_446_615)
+  })
 })
 
 

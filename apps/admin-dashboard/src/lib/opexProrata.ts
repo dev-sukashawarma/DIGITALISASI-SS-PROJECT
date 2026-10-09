@@ -361,18 +361,17 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     return cat as ProratedCategory
   }
 
-  // Tentukan himpunan outlet target (outlet nonaktif tidak diberikan beban estimasi prorata)
+  // Tentukan himpunan outlet target (outlet nonaktif tidak diberikan beban estimasi prorata berjalan,
+  // tetapi outlet historis yang memiliki payroll atau bonus tetap dihitung)
   const targetOutletIds = new Set<string>()
   if (filter.outletId && filter.outletId !== 'all') {
-    if (!inactiveOutletIds.has(filter.outletId)) {
-      targetOutletIds.add(filter.outletId)
-    }
+    targetOutletIds.add(filter.outletId)
   } else {
     outlets.forEach(o => {
       if (!isTestOutlet(o.id) && !isExcludedOutlet(o) && o.is_active !== false) targetOutletIds.add(o.id)
     })
     payrollRecords.forEach(p => {
-      if (p.outlet_id && !isTestOutlet(p.outlet_id) && !isExcludedOutlet(p.outlet_id) && !inactiveOutletIds.has(p.outlet_id)) targetOutletIds.add(p.outlet_id)
+      if (p.outlet_id && !isTestOutlet(p.outlet_id) && !isExcludedOutlet(p.outlet_id)) targetOutletIds.add(p.outlet_id)
     })
     staffFinancials.forEach(s => {
       if (s.outlet_id && !isTestOutlet(s.outlet_id) && !isExcludedOutlet(s.outlet_id) && !inactiveOutletIds.has(s.outlet_id)) targetOutletIds.add(s.outlet_id)
@@ -381,10 +380,10 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       if (l.outlet_id && !isTestOutlet(l.outlet_id) && !isExcludedOutlet(l.outlet_id) && !inactiveOutletIds.has(l.outlet_id)) targetOutletIds.add(l.outlet_id)
     })
     crewBonusRecords.forEach(c => {
-      if (c.outlet_id && !isTestOutlet(c.outlet_id) && !isExcludedOutlet(c.outlet_id) && !inactiveOutletIds.has(c.outlet_id)) targetOutletIds.add(c.outlet_id)
+      if (c.outlet_id && !isTestOutlet(c.outlet_id) && !isExcludedOutlet(c.outlet_id)) targetOutletIds.add(c.outlet_id)
     })
     rawExpenses.forEach(r => {
-      if (r.outlet_id && r.outlet_id !== 'ALL' && !isTestOutlet(r.outlet_id) && !isExcludedOutlet(r.outlet_id) && !inactiveOutletIds.has(r.outlet_id)) {
+      if (r.outlet_id && r.outlet_id !== 'ALL' && !isTestOutlet(r.outlet_id) && !isExcludedOutlet(r.outlet_id)) {
         targetOutletIds.add(r.outlet_id)
       }
     })
@@ -417,13 +416,13 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     (input.operationalOutletIds && input.operationalOutletIds.length > 0)
       ? input.operationalOutletIds.filter(id => {
           const name = outletNameMap.get(id) || id
-          return !isExcludedOutlet({ id, name }) && !inactiveOutletIds.has(id)
+          return !isExcludedOutlet({ id, name })
         })
       : (defaultOperationalOutletIds.length > 0
           ? defaultOperationalOutletIds
           : Array.from(targetOutletIds).filter(id => {
               const name = outletNameMap.get(id) || id
-              return !isExcludedOutlet({ id, name }) && !inactiveOutletIds.has(id)
+              return !isExcludedOutlet({ id, name })
             }))
 
   // =========================================================================
@@ -929,7 +928,14 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     )
 
     for (const outletId of targetOutletIds) {
-      if (inactiveOutletIds.has(outletId)) continue
+      if (
+        inactiveOutletIds.has(outletId) &&
+        !outletsWithHrSalary.has(outletId) &&
+        !outletsWithBonus.has(outletId) &&
+        !managerAllocations.has(outletId)
+      ) {
+        continue
+      }
       const outletName = outletNameMap.get(outletId) ?? 'Outlet'
 
       // 1. Gaji Crew Outlet

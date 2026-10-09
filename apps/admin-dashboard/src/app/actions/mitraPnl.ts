@@ -335,13 +335,11 @@ export async function getMitraComprehensivePnl(
       `)
       .in('outlet_staff.role', ['area_manager', 'regional_manager'])
       .eq('outlet_staff.is_active', true),
-    // Seluruh outlet operasional aktif untuk dasar pembagian beban manajer
+    // Seluruh outlet operasional (internal & mitra) untuk dasar pembagian beban manajer
     supabase
       .from('outlets')
-      .select('id, name, type, is_active, status')
+      .select('id, name, slug, type, is_active, status')
       .in('type', ['internal', 'mitra'])
-      .eq('is_active', true)
-      .eq('status', 'active')
   ])
 
   const profile = profileRes.data
@@ -866,8 +864,16 @@ export async function getMitraComprehensivePnl(
       source: 'petty_cash' as const
     }))
 
+  const bonusOutletIds = new Set(((bonusRes as any) || []).map((c: any) => c.outlet_id))
   const operationalOutletIds: string[] = ((allOpOutletsRes?.data ?? []) as any[])
-    .filter(o => !isExcludedOutlet(o))
+    .filter(o => {
+      if (isExcludedOutlet(o)) return false
+      // Sawangan internal digantikan oleh Mitra Sawangan DTC agar tidak double-counting
+      if (o.slug === 'sawangan-depok-internal') return false
+      const isActive = o.is_active === true && o.status === 'active'
+      const hadActivityInPeriod = bonusOutletIds.has(o.id)
+      return isActive || hadActivityInPeriod
+    })
     .map(o => o.id)
 
   const prorataResult = calculateProratedExpenses({

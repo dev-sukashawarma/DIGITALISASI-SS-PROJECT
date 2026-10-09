@@ -228,22 +228,27 @@ export function useProratedOpex({
 
   // 3c. Kueri seluruh cabang operasional aktif (internal & mitra) tanpa dummy/backup
   const { data: operationalOutletIds = [] } = useQuery({
-    queryKey: ['prorata-operational-outlets'],
+    queryKey: ['prorata-operational-outlets', crewBonusData.map(c => c.outlet_id).sort().join(',')],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlets')
-        .select('id, name, type, is_active, status')
+        .select('id, name, slug, type, is_active, status')
         .in('type', ['internal', 'mitra'])
-        .eq('is_active', true)
-        .eq('status', 'active')
 
       if (error) {
         console.warn('Gagal memuat outlet operasional untuk prorata manajer:', error.message)
         return []
       }
 
+      const bonusOutletIds = new Set(crewBonusData.map(c => c.outlet_id))
       return (data || [])
-        .filter(o => !isExcludedOutlet(o))
+        .filter(o => {
+          if (isExcludedOutlet(o)) return false
+          if (o.slug === 'sawangan-depok-internal') return false
+          const isActive = o.is_active === true && o.status === 'active'
+          const hadActivity = bonusOutletIds.has(o.id)
+          return isActive || hadActivity
+        })
         .map(o => o.id)
     },
     enabled: shouldFetchPayroll,

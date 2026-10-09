@@ -165,13 +165,11 @@ export async function getProrataAuxiliaryDataAction({
     }))
   })
 
-  // 6. Outlet operasional aktif (internal & mitra) untuk alokasi manajer
+  // 6. Outlet operasional (internal & mitra) untuk alokasi manajer
   const qOpOutlets = supabase
     .from('outlets')
-    .select('id, name, type, is_active, status')
+    .select('id, name, slug, type, is_active, status')
     .in('type', ['internal', 'mitra'])
-    .eq('is_active', true)
-    .eq('status', 'active')
 
   const [payrollRes, staffRes, lastMonthRes, managerRes, opOutletsRes, ...bonusResults] = await Promise.all([
     qPayroll,
@@ -246,8 +244,16 @@ export async function getProrataAuxiliaryDataAction({
   }
   const managerAssignments: ManagerAssignment[] = Array.from(managerMap.values())
 
+  const bonusOutletIds = new Set(crewBonusRecords.map(c => c.outlet_id))
   const operationalOutletIds: string[] = ((opOutletsRes.data ?? []) as any[])
-    .filter(o => !isExcludedOutlet(o))
+    .filter(o => {
+      if (isExcludedOutlet(o)) return false
+      // Sawangan internal digantikan oleh Mitra Sawangan DTC agar tidak double-counting
+      if (o.slug === 'sawangan-depok-internal') return false
+      const isActive = o.is_active === true && o.status === 'active'
+      const hadActivityInPeriod = bonusOutletIds.has(o.id)
+      return isActive || hadActivityInPeriod
+    })
     .map(o => o.id)
 
   return {

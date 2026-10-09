@@ -6,10 +6,10 @@ import Link from 'next/link'
 import {
   FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote, Store,
   QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet,
-  Clock, RefreshCw
+  Clock, RefreshCw, Loader2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { getPosReport, getPosReportCategories, getPosReportSalesExport, invalidatePosReportDays, refreshPosReportRange } from '@/app/actions/posReport'
+import { getPosReport, getPosReportExport, invalidatePosReportDays, refreshPosReportRange } from '@/app/actions/posReport'
 import { extractOrderPackages, type ShiftRow } from '@/lib/posReport/compute'
 import { orderDatesFromRealtime, refreshDelayMs } from '@/lib/ownerDashboardCache'
 import { cleanItemName } from '@/lib/order-item-name'
@@ -38,9 +38,7 @@ import type { Outlet } from '@/lib/types'
 import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import BranchFilter from '@/components/BranchFilter'
 import { splitOutletsByType } from '@/lib/marketplaceOutlets'
-import { generateExecutiveItemReportPDF, generateCategorizedReportPDF } from '@/utils/pdfExporter'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
-import { exportSalesToExcel, exportSalesToCSV } from '@/utils/salesExportUtils'
 
 // Halaman upload settlement hanya ada di admin-dashboard.
 const ADMIN_URL = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
@@ -427,96 +425,41 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     if (itemBreakdownSortColumn !== col) return <ChevronDown className="w-4 h-4 opacity-0 group-hover:opacity-30 transition-opacity" />
     return itemBreakdownSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
   }
-  const downloadPDF = async () => {
-    if (analytics.completedCount === 0) return
+  // Ekspor PDF & Excel: data per outlet × channel × menu dihitung di server
+  // (lib/posReport/ekspor, rumus sama dengan kartu KPI) dan baru diminta saat
+  // tombol ditekan. Pustaka PDF/Excel dimuat dinamis agar halaman tetap ringan.
+  const [exporting, setExporting] = useState<null | 'pdf' | 'excel'>(null)
 
-    let dateRangeText = RANGE_LABELS[range]
-    if (range === 'custom' && (customStartDate || customEndDate)) {
-      dateRangeText = `${customStartDate || 'Awal'} s/d ${customEndDate || 'Sekarang'}`
-    }
-
-    const channelLabelText = selectedChannels.includes('all') 
-      ? 'Semua Channel' 
-      : selectedChannels.map(ch => ch === 'food_apps' ? 'Semua Food Apps' : (availableChannels.find(c => c.key === ch)?.label || ch)).join(', ')
-
-    await generateExecutiveItemReportPDF({
-      outletName: selectedOutletName,
-      dateRangeLabel: dateRangeText,
-      channelLabel: channelLabelText,
-      grossRevenue: analytics.grossRevenue,
-      totalOrders: analytics.completedCount,
-      bestSellers: (analytics as any).bestSellersPdf || analytics.bestSellers
-    })
+  const exportChannelLabel = () => {
+    if (selectedChannels.includes('all')) return isSSOnlineSelected ? 'Semua Platform' : 'Semua Channel'
+    return selectedChannels
+      .map(ch => ch === 'food_apps' ? 'Semua Food Apps' : ch === 'tiktok_shop' ? 'TikTok Seller' : ch === 'shopee_shop' ? 'Shopee Seller' : (availableChannels.find(c => c.key === ch)?.label || ch))
+      .join(', ')
   }
 
-  // Rekap per kategori untuk PDF/CSV "Semua Channel" dihitung di server
-  // (computeCategoryReport) — data mentahnya hanya disentuh saat tombol ditekan.
-  const [exporting, setExporting] = useState(false)
-  const loadCategoryReport = async () => {
-    if (!reportRequest) return null
-    setExporting(true)
+  const downloadExport = async (jenis: 'pdf' | 'excel') => {
+    if (!reportRequest || exporting) return
+    setExporting(jenis)
     try {
-      const res = await getPosReportCategories(reportRequest)
-      return res.validOrderCount > 0 ? res.categories : null
-    } catch (err) {
-      console.error('getPosReportCategories error:', err)
-      alert('Gagal menyiapkan data ekspor. Coba lagi sebentar.')
-      return null
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  const exportDateRangeText = () => {
-    let dateRangeText = RANGE_LABELS[range]
-    if (range === 'custom' && (customStartDate || customEndDate)) {
-      dateRangeText = `${customStartDate || 'Awal'} s/d ${customEndDate || 'Sekarang'}`
-    }
-    return dateRangeText
-  }
-
-  const downloadPDFAllChannels = async () => {
-    const categories = await loadCategoryReport()
-    if (!categories) return
-
-    await generateCategorizedReportPDF({
-      outletName: selectedOutletName,
-      dateRangeLabel: exportDateRangeText(),
-      categories
-    })
-  }
-
-  // Ekspor Excel/CSV khusus finance: rincian per Tanggal + Outlet + Channel + Item,
-  // dihitung di server (lib/posReport/eksporPenjualan) dari data yang sama dengan
-  // kartu KPI — Grand Total ekspor = Gross Revenue di layar.
-  const loadSalesExport = async () => {
-    if (!reportRequest) return null
-    setExporting(true)
-    try {
-      const items = await getPosReportSalesExport(reportRequest)
-      if (!items || items.length === 0) {
-        alert('Tidak ada data penjualan untuk diekspor pada rentang filter ini.')
-        return null
+      const data = await getPosReportExport(reportRequest)
+      if (!data || data.total.trx === 0) {
+        alert('Tidak ada transaksi selesai pada filter ini.')
+        return
       }
-      const channelSuffix = selectedChannels.includes('all') ? 'Semua_Channel' : selectedChannels.join('_').replace(/[^a-zA-Z0-9]/g, '_')
-      return { items, outletName: selectedOutletName, dateRangeText: exportDateRangeText(), channelSuffix }
+      const ctx = { cabang: selectedOutletName, channel: exportChannelLabel() }
+      if (jenis === 'pdf') {
+        const { buatPdfLaporan } = await import('@/lib/posReport/eksporPdf')
+        await buatPdfLaporan(data, ctx)
+      } else {
+        const { buatExcelLaporan } = await import('@/lib/posReport/eksporExcel')
+        await buatExcelLaporan(data, ctx)
+      }
     } catch (err) {
-      console.error('getPosReportSalesExport error:', err)
-      alert('Gagal menyiapkan data ekspor. Coba lagi sebentar.')
-      return null
+      console.error('export error:', err)
+      alert('Gagal menyiapkan file ekspor. Coba lagi sebentar.')
     } finally {
-      setExporting(false)
+      setExporting(null)
     }
-  }
-
-  const downloadExcelAllChannels = async () => {
-    const data = await loadSalesExport()
-    if (data) await exportSalesToExcel(data)
-  }
-
-  const downloadCSVAllChannels = async () => {
-    const data = await loadSalesExport()
-    if (data) exportSalesToCSV(data)
   }
 
   return (
@@ -611,36 +554,23 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
             {initialOutlets.length > 1 && (
               <>
                 <button
-                  onClick={downloadExcelAllChannels}
-                  disabled={!hasOrders || exporting}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  title="Download Laporan Excel (.xlsx) Lengkap dengan Kolom Tanggal, HPP & Styling"
+                  onClick={() => downloadExport('excel')}
+                  disabled={!hasOrders || !!exporting}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  title="Unduh Excel (.xlsx): per outlet, channel, menu & harian — berwarna, bisa difilter"
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  <span className="hidden sm:inline">Excel (.xlsx)</span>
-                  <span className="sm:hidden">Excel</span>
+                  {exporting === 'excel' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                  <span>{exporting === 'excel' ? 'Menyiapkan…' : 'Excel'}</span>
                 </button>
 
                 <button
-                  onClick={downloadCSVAllChannels}
-                  disabled={!hasOrders || exporting}
-                  className="flex items-center gap-2 bg-teal-700 hover:bg-teal-800 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-teal-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  title="Download Laporan CSV dengan Kolom Tanggal & UTF-8 BOM"
+                  onClick={() => downloadExport('pdf')}
+                  disabled={!hasOrders || !!exporting}
+                  className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  title="Unduh PDF: ringkasan KPI, per outlet, channel, tren harian, menu terlaris & rincian tiap outlet"
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  <span className="hidden sm:inline">CSV</span>
-                  <span className="sm:hidden">CSV</span>
-                </button>
-
-                <button
-                  onClick={downloadPDFAllChannels}
-                  disabled={!hasOrders || exporting}
-                  className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  title="Download Laporan PDF Semua Channel (Dipisah per Kategori)"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span className="hidden sm:inline">PDF</span>
-                  <span className="sm:hidden">PDF</span>
+                  {exporting === 'pdf' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  <span>{exporting === 'pdf' ? 'Menyiapkan…' : 'PDF'}</span>
                 </button>
               </>
             )}

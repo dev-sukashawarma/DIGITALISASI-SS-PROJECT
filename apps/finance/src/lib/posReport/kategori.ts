@@ -1,7 +1,7 @@
 // @ts-nocheck
 /* ── Rekap per kategori/channel (khusus finance) ──
  *
- * Dipakai PDF "Semua Channel" Rangkuman Penjualan dan EOM Closing (tab Kasir).
+ * Dipakai EOM Closing (tab Kasir).
  * admin-dashboard menghapus fungsi ini dari lib/posReport/compute.ts (2026-10-09,
  * ekspornya diganti lib/posReport/ekspor); finance tetap memakainya, jadi
  * dipindah ke sini agar compute.ts tetap identik dengan admin (compute.parity.test).

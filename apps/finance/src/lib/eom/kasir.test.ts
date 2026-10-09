@@ -1,5 +1,6 @@
 import { buildChannelBreakdown, buildCashRows, buildOutletBreakdown, itemFlags, splitByCutoff, MITRA_SUFFIX } from './kasir'
-import { buildPenerapHpp, computeCategoryReport, computeAnalytics, buildMenuMaps } from '@/lib/posReport/compute'
+import { buildPenerapHpp, computeAnalytics, buildMenuMaps } from '@/lib/posReport/compute'
+import { computeCategoryReport } from '@/lib/posReport/kategori'
 
 const AYAM = 'menu-ayam'
 const SAPI = 'menu-sapi'

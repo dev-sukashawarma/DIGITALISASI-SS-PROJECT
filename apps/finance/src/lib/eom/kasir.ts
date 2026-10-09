@@ -8,7 +8,8 @@
  * jumlah semua kelompok = angka laporan untuk seluruh bulan.
  */
 
-import { computeAnalytics, computeCategoryReport, type OrderRow, type ShiftRow } from '@/lib/posReport/compute'
+import { computeAnalytics, type OrderRow, type ShiftRow } from '@/lib/posReport/compute'
+import { computeCategoryReport } from '@/lib/posReport/kategori'
 import { resolveOrderSource } from '@/lib/order-source'
 import { tanggalWib } from '@/lib/hpp/riwayatHpp'
 

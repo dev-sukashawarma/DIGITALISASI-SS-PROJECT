@@ -19,12 +19,12 @@ import {
   computeAnalytics,
   computeAvailableChannels,
   computeAvailablePaymentMethods,
-  computeCategoryReport,
   computeItemBreakdown,
   computeTableFooter,
   filterTableData,
 } from '@/lib/posReport/compute'
 import { computeSalesExportRows } from '@/lib/posReport/eksporPenjualan'
+import { computeCategoryReport } from '@/lib/posReport/kategori'
 
 /** Cakupan outlet pemanggil. 'all' = akses penuh (owner/admin/... atau kunci Hermes). */
 export type CakupanLaporan = { supabase: any; scopeKey: string; allowedOutletIds: 'all' | string[] }

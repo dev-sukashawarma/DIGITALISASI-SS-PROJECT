@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PeriodFilterValue } from '@/lib/types'
-import { TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { TEST_OUTLET_ID, isExcludedOutlet } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
@@ -160,7 +160,8 @@ export async function getMitraComprehensivePnl(
     bonusRes,
     lastMonthExpRes,
     salesDailyRes,
-    managerStaffRes
+    managerStaffRes,
+    allOpOutletsRes
   ] = await Promise.all([
     supabase.from('mitra_profiles').select('*').eq('user_id', userId).maybeSingle(),
     supabase.from('outlets').select('id, name, is_active').in('id', targetOutletIds),
@@ -333,7 +334,14 @@ export async function getMitraComprehensivePnl(
         outlet_staff!inner(id, role, is_active)
       `)
       .in('outlet_staff.role', ['area_manager', 'regional_manager'])
-      .eq('outlet_staff.is_active', true)
+      .eq('outlet_staff.is_active', true),
+    // Seluruh outlet operasional aktif untuk dasar pembagian beban manajer
+    supabase
+      .from('outlets')
+      .select('id, name, type, is_active, status')
+      .in('type', ['internal', 'mitra'])
+      .eq('is_active', true)
+      .eq('status', 'active')
   ])
 
   const profile = profileRes.data
@@ -858,7 +866,9 @@ export async function getMitraComprehensivePnl(
       source: 'petty_cash' as const
     }))
 
-  const rawExpenses = [...rawMonthlyExpenses, ...rawPettyExpenses]
+  const operationalOutletIds: string[] = ((allOpOutletsRes?.data ?? []) as any[])
+    .filter(o => !isExcludedOutlet(o))
+    .map(o => o.id)
 
   const prorataResult = calculateProratedExpenses({
     filter: { from: filter.from, to: filter.to, outletId: selectedOutletId, source: 'all' },
@@ -869,6 +879,7 @@ export async function getMitraComprehensivePnl(
     crewBonusRecords: (bonusRes as any) || [],
     outlets: (outletList || []).map(o => ({ id: o.id, name: o.name, is_active: o.is_active })),
     managerAssignments,
+    operationalOutletIds,
   })
 
   const outletOpexMap = new Map<string, number>()

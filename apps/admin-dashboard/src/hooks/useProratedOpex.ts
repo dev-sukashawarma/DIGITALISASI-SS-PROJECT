@@ -14,6 +14,7 @@ import {
   type ManagerAssignment,
 } from '@/lib/opexProrata'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
+import { isExcludedOutlet } from '@/lib/outletFilters'
 
 interface UseProratedOpexOptions {
   filter: PeriodFilterValue
@@ -225,6 +226,30 @@ export function useProratedOpex({
     staleTime: 10 * 60 * 1000, // 10 menit
   })
 
+  // 3c. Kueri seluruh cabang operasional aktif (internal & mitra) tanpa dummy/backup
+  const { data: operationalOutletIds = [] } = useQuery({
+    queryKey: ['prorata-operational-outlets'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('outlets')
+        .select('id, name, type, is_active, status')
+        .in('type', ['internal', 'mitra'])
+        .eq('is_active', true)
+        .eq('status', 'active')
+
+      if (error) {
+        console.warn('Gagal memuat outlet operasional untuk prorata manajer:', error.message)
+        return []
+      }
+
+      return (data || [])
+        .filter(o => !isExcludedOutlet(o))
+        .map(o => o.id)
+    },
+    enabled: shouldFetchPayroll,
+    staleTime: 30 * 60 * 1000, // 30 menit
+  })
+
   // 4. Kueri rollover beban sewa & internet bulan sebelumnya
   const prevMonthRange = useMemo(() => {
     const prevMonth = overlap.month === 1 ? 12 : overlap.month - 1
@@ -315,8 +340,9 @@ export function useProratedOpex({
       crewBonusRecords: crewBonusData,
       outlets,
       managerAssignments,
+      operationalOutletIds,
     })
-  }, [filter, rawExpenses, payrollData, staffData, lastMonthExpenses, crewBonusData, outlets, managerAssignments])
+  }, [filter, rawExpenses, payrollData, staffData, lastMonthExpenses, crewBonusData, outlets, managerAssignments, operationalOutletIds])
 
   return {
     ...calculationResult,

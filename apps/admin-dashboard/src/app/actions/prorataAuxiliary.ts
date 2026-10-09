@@ -2,6 +2,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
+import { isExcludedOutlet } from '@/lib/outletFilters'
 import {
   calculateMonthOverlap,
   type RolloverExpenseBaseline,
@@ -32,6 +33,7 @@ export interface ProrataAuxiliaryData {
   crewBonusRecords: CrewBonusRecord[]
   lastMonthExpenses: RolloverExpenseBaseline[]
   managerAssignments?: ManagerAssignment[]
+  operationalOutletIds?: string[]
 }
 
 /**
@@ -163,11 +165,20 @@ export async function getProrataAuxiliaryDataAction({
     }))
   })
 
-  const [payrollRes, staffRes, lastMonthRes, managerRes, ...bonusResults] = await Promise.all([
+  // 6. Outlet operasional aktif (internal & mitra) untuk alokasi manajer
+  const qOpOutlets = supabase
+    .from('outlets')
+    .select('id, name, type, is_active, status')
+    .in('type', ['internal', 'mitra'])
+    .eq('is_active', true)
+    .eq('status', 'active')
+
+  const [payrollRes, staffRes, lastMonthRes, managerRes, opOutletsRes, ...bonusResults] = await Promise.all([
     qPayroll,
     qStaff,
     qLastMonth,
     qManagerStaffOutlets,
+    qOpOutlets,
     ...bonusPromises,
   ])
 
@@ -235,11 +246,16 @@ export async function getProrataAuxiliaryDataAction({
   }
   const managerAssignments: ManagerAssignment[] = Array.from(managerMap.values())
 
+  const operationalOutletIds: string[] = ((opOutletsRes.data ?? []) as any[])
+    .filter(o => !isExcludedOutlet(o))
+    .map(o => o.id)
+
   return {
     payrollRecords,
     staffFinancials,
     crewBonusRecords,
     lastMonthExpenses,
     managerAssignments,
+    operationalOutletIds,
   }
 }

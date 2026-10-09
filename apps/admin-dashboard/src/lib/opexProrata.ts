@@ -8,7 +8,7 @@
 
 import type { ExpenseRow } from '@/hooks/useExpenses'
 import type { PeriodFilterValue } from '@/lib/types'
-import { isTestOutlet } from '@/lib/outletFilters'
+import { isTestOutlet, isExcludedOutlet } from '@/lib/outletFilters'
 import { getPeriodsInRange } from './opexDateRangeProrata'
 
 export const PRORATED_CATEGORIES = [
@@ -369,22 +369,22 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     }
   } else {
     outlets.forEach(o => {
-      if (!isTestOutlet(o.id) && o.is_active !== false) targetOutletIds.add(o.id)
+      if (!isTestOutlet(o.id) && !isExcludedOutlet(o) && o.is_active !== false) targetOutletIds.add(o.id)
     })
     payrollRecords.forEach(p => {
-      if (p.outlet_id && !isTestOutlet(p.outlet_id) && !inactiveOutletIds.has(p.outlet_id)) targetOutletIds.add(p.outlet_id)
+      if (p.outlet_id && !isTestOutlet(p.outlet_id) && !isExcludedOutlet(p.outlet_id) && !inactiveOutletIds.has(p.outlet_id)) targetOutletIds.add(p.outlet_id)
     })
     staffFinancials.forEach(s => {
-      if (s.outlet_id && !isTestOutlet(s.outlet_id) && !inactiveOutletIds.has(s.outlet_id)) targetOutletIds.add(s.outlet_id)
+      if (s.outlet_id && !isTestOutlet(s.outlet_id) && !isExcludedOutlet(s.outlet_id) && !inactiveOutletIds.has(s.outlet_id)) targetOutletIds.add(s.outlet_id)
     })
     lastMonthExpenses.forEach(l => {
-      if (l.outlet_id && !isTestOutlet(l.outlet_id) && !inactiveOutletIds.has(l.outlet_id)) targetOutletIds.add(l.outlet_id)
+      if (l.outlet_id && !isTestOutlet(l.outlet_id) && !isExcludedOutlet(l.outlet_id) && !inactiveOutletIds.has(l.outlet_id)) targetOutletIds.add(l.outlet_id)
     })
     crewBonusRecords.forEach(c => {
-      if (c.outlet_id && !isTestOutlet(c.outlet_id) && !inactiveOutletIds.has(c.outlet_id)) targetOutletIds.add(c.outlet_id)
+      if (c.outlet_id && !isTestOutlet(c.outlet_id) && !isExcludedOutlet(c.outlet_id) && !inactiveOutletIds.has(c.outlet_id)) targetOutletIds.add(c.outlet_id)
     })
     rawExpenses.forEach(r => {
-      if (r.outlet_id && r.outlet_id !== 'ALL' && !isTestOutlet(r.outlet_id) && !inactiveOutletIds.has(r.outlet_id)) {
+      if (r.outlet_id && r.outlet_id !== 'ALL' && !isTestOutlet(r.outlet_id) && !isExcludedOutlet(r.outlet_id) && !inactiveOutletIds.has(r.outlet_id)) {
         targetOutletIds.add(r.outlet_id)
       }
     })
@@ -394,6 +394,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
   const defaultOperationalOutletIds = (outlets || [])
     .filter(o => {
       if (inactiveOutletIds.has(o.id)) return false
+      if (isExcludedOutlet(o)) return false
       const oType = (o as any).type
       if (oType && ['office', 'gudang', 'marketplace', 'system', 'test'].includes(oType)) return false
       const nameLower = (o.name || '').toLowerCase()
@@ -403,7 +404,8 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         nameLower.includes('hq') ||
         nameLower.includes('test') ||
         nameLower.includes('tes ') ||
-        nameLower === 'tes'
+        nameLower === 'tes' ||
+        nameLower.includes('backup')
       ) {
         return false
       }
@@ -413,10 +415,16 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
 
   const effectiveOperationalOutletIds =
     (input.operationalOutletIds && input.operationalOutletIds.length > 0)
-      ? input.operationalOutletIds
+      ? input.operationalOutletIds.filter(id => {
+          const name = outletNameMap.get(id) || id
+          return !isExcludedOutlet({ id, name }) && !inactiveOutletIds.has(id)
+        })
       : (defaultOperationalOutletIds.length > 0
           ? defaultOperationalOutletIds
-          : Array.from(targetOutletIds).filter(id => !inactiveOutletIds.has(id)))
+          : Array.from(targetOutletIds).filter(id => {
+              const name = outletNameMap.get(id) || id
+              return !isExcludedOutlet({ id, name }) && !inactiveOutletIds.has(id)
+            }))
 
   // =========================================================================
   // MODE 1: BULAN BERJALAN (CURRENT MONTH ACCRUAL)

@@ -822,6 +822,58 @@ describe('opexProrata - calculateProratedExpenses', () => {
     const rmBonusRow = res.rows.find(r => r.category === 'bonus_regional_manager')
     expect(rmBonusRow?.amount).toBe(150_000)
   })
+
+  it('mengabaikan outlet dummy/backup seperti SS BACKUP dari alokasi manajer', () => {
+    const octNow = new Date('2026-10-03T10:00:00Z')
+    // 20 outlet operasional nyata + 1 outlet backup dummy
+    const realOutlets = Array.from({ length: 20 }, (_, i) => ({
+      id: `outlet-${i + 1}`,
+      name: `SUKA SHAWARMA CABANG ${i + 1}`,
+      is_active: true,
+      type: 'internal',
+    }))
+    const backupOutlet = {
+      id: 'ss-backup-dummy',
+      name: 'SS BACKUP',
+      slug: 'ss-backup',
+      is_active: true,
+      type: 'internal',
+    }
+    const allOutlets = [...realOutlets, backupOutlet]
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-30', outletId: 'all', source: 'all' },
+      rawExpenses: [],
+      payrollRecords: [
+        {
+          staff_id: 'rm-indra',
+          outlet_id: 'outlet-1',
+          role: 'regional_manager',
+          total_salary: 8_179_700,
+          bonus: 2_692_700, // clean salary = 5.487.000
+          period_month: 9,
+          period_year: 2026,
+        },
+      ],
+      now: octNow,
+      outlets: allOutlets,
+    })
+
+    const rows = res.rows.filter(r => r.category === 'gaji_crew_outlet')
+    // SS BACKUP sama sekali tidak boleh mendapatkan alokasi
+    const backupRow = rows.find(r => r.outlet_id === 'ss-backup-dummy')
+    expect(backupRow).toBeUndefined()
+
+    // 20 outlet nyata masing-masing mendapatkan tepat 5.487.000 / 20 = 274.350
+    expect(rows.length).toBe(20)
+    for (const row of rows) {
+      expect(row.amount).toBe(274_350)
+    }
+
+    const totalAllocated = rows.reduce((s, r) => s + r.amount, 0)
+    expect(totalAllocated).toBe(5_487_000)
+  })
 })
+
 
 

@@ -29,6 +29,15 @@ export function canApprovePermintaan(role: string | null | undefined): boolean {
   return !!role && (PERMINTAAN_APPROVER_ROLES as readonly string[]).includes(role)
 }
 
+// Role yang boleh menyetujui / menolak mutasi antar-outlet.
+// Hanya Admin Kitchen (Pusat) yang memutuskan persetujuan perpindahan stok antar cabang;
+// admin/owner/developer untuk eskalasi. Kru, leader, dan SPV cabang tidak berhak.
+const MUTASI_APPROVER_ROLES = ['kitchen', 'admin', 'owner', 'developer'] as const
+
+export function canApproveMutasi(role: string | null | undefined): boolean {
+  return !!role && (MUTASI_APPROVER_ROLES as readonly string[]).includes(role)
+}
+
 // Role yang boleh MELIHAT antrean permintaan bahan (tab "Antrean" di halaman
 // Permintaan Bahan Baku, dan badge terkait di BottomNav/AppSidebar). `leader`
 // SENGAJA dikecualikan di sini (keputusan owner) -- tampilan permintaan bahan

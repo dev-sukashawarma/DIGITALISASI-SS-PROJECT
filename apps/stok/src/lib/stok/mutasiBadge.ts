@@ -1,4 +1,4 @@
-import { isApproverRole } from './approver'
+import { canApproveMutasi } from './approver'
 
 export interface PendingMutasiItem {
   id: string
@@ -15,22 +15,8 @@ export interface MutasiBadgeCounts {
   dikirim: number
 }
 
-const APPROVER_MUTASI_ROLES = [
-  'admin',
-  'spv',
-  'regional_manager',
-  'area_manager',
-  'owner',
-  'kitchen',
-  'admin_finance',
-  'developer',
-  'purchasing',
-  'leader',
-] as const
-
 export function canUserApproveMutasi(role: string | null | undefined): boolean {
-  if (!role) return false
-  return isApproverRole(role) || (APPROVER_MUTASI_ROLES as readonly string[]).includes(role)
+  return canApproveMutasi(role)
 }
 
 /**

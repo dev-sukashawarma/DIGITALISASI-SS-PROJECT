@@ -2,17 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { calculateMutasiBadgeCounts, canUserApproveMutasi, isMutasiActionable, PendingMutasiItem } from './mutasiBadge'
 
 describe('canUserApproveMutasi', () => {
-  it('returns true for supervisor, admin, kitchen, leader, owner', () => {
-    expect(canUserApproveMutasi('admin')).toBe(true)
-    expect(canUserApproveMutasi('spv')).toBe(true)
+  it('returns true only for kitchen, admin, owner, developer', () => {
     expect(canUserApproveMutasi('kitchen')).toBe(true)
-    expect(canUserApproveMutasi('leader')).toBe(true)
+    expect(canUserApproveMutasi('admin')).toBe(true)
     expect(canUserApproveMutasi('owner')).toBe(true)
     expect(canUserApproveMutasi('developer')).toBe(true)
   })
 
-  it('returns false for regular crew or empty', () => {
+  it('returns false for regular crew, leader, spv, and others', () => {
     expect(canUserApproveMutasi('crew')).toBe(false)
+    expect(canUserApproveMutasi('leader')).toBe(false)
+    expect(canUserApproveMutasi('spv')).toBe(false)
+    expect(canUserApproveMutasi('area_manager')).toBe(false)
+    expect(canUserApproveMutasi('regional_manager')).toBe(false)
     expect(canUserApproveMutasi('staff')).toBe(false)
     expect(canUserApproveMutasi(null)).toBe(false)
     expect(canUserApproveMutasi(undefined)).toBe(false)
@@ -56,12 +58,16 @@ describe('calculateMutasiBadgeCounts', () => {
   })
 
   it('counts correctly for Approver scoped to outlet-a', () => {
-    const counts = calculateMutasiBadgeCounts(sampleItems, 'spv', 'outlet-a')
+    const counts = calculateMutasiBadgeCounts(sampleItems, 'kitchen', 'outlet-a')
     // Approver sees 1 pending approval (item 1) + 1 shipment waiting for outlet-a (item 2)
     expect(counts.menungguPersetujuan).toBe(1)
     expect(counts.menungguPengiriman).toBe(1)
     expect(counts.dikirim).toBe(0) // outlet-a has no incoming shipments
     expect(counts.total).toBe(2)
+
+    // SPV and Leader are NOT approvers for mutasi
+    const spvCounts = calculateMutasiBadgeCounts(sampleItems, 'spv', 'outlet-a')
+    expect(spvCounts.menungguPersetujuan).toBe(0)
   })
 
   it('counts correctly for Regular Crew at outlet-a (Sender)', () => {
@@ -103,7 +109,10 @@ describe('isMutasiActionable', () => {
     const itemDone = { status: 'selesai', outlet_asal_id: 'a', outlet_tujuan_id: 'b' }
 
     // Approver
-    expect(isMutasiActionable(itemApprove, 'spv', 'a')).toBe(true)
+    expect(isMutasiActionable(itemApprove, 'kitchen', 'a')).toBe(true)
+    expect(isMutasiActionable(itemApprove, 'admin', 'a')).toBe(true)
+    expect(isMutasiActionable(itemApprove, 'spv', 'a')).toBe(false)
+    expect(isMutasiActionable(itemApprove, 'leader', 'a')).toBe(false)
     expect(isMutasiActionable(itemApprove, 'crew', 'a')).toBe(false)
 
     // Sender outlet 'a'

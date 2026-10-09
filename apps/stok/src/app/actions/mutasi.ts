@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { MutasiAntarOutlet } from '@/lib/types/mutasi'
 import type { PendingMutasiItem } from '@/lib/stok/mutasiBadge'
+import { canApproveMutasi } from '@/lib/stok/approver'
 
 // ---------------------------------------------------------------------------
 // Authenticated client — respects RLS and sets auth.uid()
@@ -167,13 +168,32 @@ export async function approveMutasi(
   catatanPenolakan?: string
 ): Promise<void> {
   const supabase = await getAuthClient()
-  
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('Sesi login tidak valid. Silakan login kembali.')
+  }
+
+  const { data: staff, error: staffError } = await supabase
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', user.id)
+    .single()
+
+  if (staffError || !staff || staff.status !== 'active' || !canApproveMutasi(staff.role)) {
+    throw new Error('Hanya Admin Kitchen yang berhak menyetujui atau menolak mutasi')
+  }
+
+  if (!isApproved && (!catatanPenolakan || !catatanPenolakan.trim())) {
+    throw new Error('Alasan penolakan mutasi wajib diisi')
+  }
+
   const { error } = await supabase.rpc('approve_mutasi', {
     p_mutasi_id: mutasiId,
     p_is_approved: isApproved,
-    p_catatan_penolakan: catatanPenolakan || null
+    p_catatan_penolakan: catatanPenolakan?.trim() || null
   })
-  
+
   if (error) throw new Error(error.message)
 }
 

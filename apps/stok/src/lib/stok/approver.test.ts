@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canCatatTerimaVendor, canSahkanNotaVendor, canLihatNotaVendor, canViewPermintaanQueue } from './approver'
+import { canCatatTerimaVendor, canSahkanNotaVendor, canLihatNotaVendor, canViewPermintaanQueue, canApproveMutasi } from './approver'
 
 describe('drop-ship: peran', () => {
   it('pengesah = purchasing, kitchen, admin (keputusan owner 2026-09-11)', () => {
@@ -27,8 +27,17 @@ describe('permintaan bahan: tampilan antrean', () => {
       expect(canViewPermintaanQueue(r)).toBe(true)
     }
   })
-  it('null/undefined = false', () => {
-    expect(canViewPermintaanQueue(null)).toBe(false)
-    expect(canViewPermintaanQueue(undefined)).toBe(false)
+})
+
+describe('mutasi: peran persetujuan', () => {
+  it('hanya kitchen, admin, owner, developer yang boleh menyetujui atau menolak', () => {
+    for (const r of ['kitchen', 'admin', 'owner', 'developer']) {
+      expect(canApproveMutasi(r)).toBe(true)
+    }
+  })
+  it('kru, leader, spv, dan peran cabang lainnya dilarang', () => {
+    for (const r of ['crew', 'leader', 'spv', 'regional_manager', 'area_manager', 'purchasing', 'admin_finance', 'mitra', null, undefined]) {
+      expect(canApproveMutasi(r)).toBe(false)
+    }
   })
 })

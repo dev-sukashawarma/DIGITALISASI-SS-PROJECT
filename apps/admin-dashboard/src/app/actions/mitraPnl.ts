@@ -864,6 +864,8 @@ export async function getMitraComprehensivePnl(
       source: 'petty_cash' as const
     }))
 
+  const rawExpenses = [...rawMonthlyExpenses, ...rawPettyExpenses]
+
   const bonusOutletIds = new Set(((bonusRes as any) || []).map((c: any) => c.outlet_id))
   const operationalOutletIds: string[] = ((allOpOutletsRes?.data ?? []) as any[])
     .filter(o => {

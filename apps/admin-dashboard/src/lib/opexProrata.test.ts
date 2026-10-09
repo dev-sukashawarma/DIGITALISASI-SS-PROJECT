@@ -5,6 +5,7 @@ import {
   getJakartaCurrentMonthInfo,
 } from './opexProrata'
 import type { ExpenseRow } from '@/hooks/useExpenses'
+import type { ManagerAssignment } from './opexProrata'
 
 describe('opexProrata - Kalkulasi Kalender & Irisan Bulan', () => {
   // Mock 'now' ke 12 September 2026

@@ -226,35 +226,6 @@ export function useProratedOpex({
     staleTime: 10 * 60 * 1000, // 10 menit
   })
 
-  // 3c. Kueri seluruh cabang operasional aktif (internal & mitra) tanpa dummy/backup
-  const { data: operationalOutletIds = [] } = useQuery({
-    queryKey: ['prorata-operational-outlets', crewBonusData.map(c => c.outlet_id).sort().join(',')],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('outlets')
-        .select('id, name, slug, type, is_active, status')
-        .in('type', ['internal', 'mitra'])
-
-      if (error) {
-        console.warn('Gagal memuat outlet operasional untuk prorata manajer:', error.message)
-        return []
-      }
-
-      const bonusOutletIds = new Set(crewBonusData.map(c => c.outlet_id))
-      return (data || [])
-        .filter(o => {
-          if (isExcludedOutlet(o)) return false
-          if (o.slug === 'sawangan-depok-internal') return false
-          const isActive = o.is_active === true && o.status === 'active'
-          const hadActivity = bonusOutletIds.has(o.id)
-          return isActive || hadActivity
-        })
-        .map(o => o.id)
-    },
-    enabled: shouldFetchPayroll,
-    staleTime: 30 * 60 * 1000, // 30 menit
-  })
-
   // 4. Kueri rollover beban sewa & internet bulan sebelumnya
   const prevMonthRange = useMemo(() => {
     const prevMonth = overlap.month === 1 ? 12 : overlap.month - 1
@@ -327,6 +298,38 @@ export function useProratedOpex({
     },
     enabled: shouldFetchBonus,
     staleTime: 5 * 60 * 1000, // 5 menit
+  })
+
+  // 5b. Kueri seluruh cabang operasional aktif (internal & mitra) tanpa dummy/backup.
+  // Harus SETELAH kueri crew bonus: kuncinya memakai crewBonusData (dulu dipakai
+  // sebelum dideklarasikan → ReferenceError, halaman Profit crash).
+  const { data: operationalOutletIds = [] } = useQuery({
+    queryKey: ['prorata-operational-outlets', crewBonusData.map(c => c.outlet_id).sort().join(',')],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('outlets')
+        .select('id, name, slug, type, is_active, status')
+        .in('type', ['internal', 'mitra'])
+
+      if (error) {
+        console.warn('Gagal memuat outlet operasional untuk prorata manajer:', error.message)
+        return []
+      }
+
+      const bonusOutletIds = new Set(crewBonusData.map(c => c.outlet_id))
+      return (data || [])
+        .filter(o => {
+          if (isExcludedOutlet(o)) return false
+          if (o.slug === 'sawangan-depok-internal') return false
+          const isActive = o.is_active === true && o.status === 'active'
+          const hadActivity = bonusOutletIds.has(o.id)
+          return isActive || hadActivity
+        })
+        .map(o => o.id)
+    },
+    // Tunggu crew bonus selesai agar tidak menembak kueri dua kali (daftar kosong lalu terisi).
+    enabled: shouldFetchPayroll && !loadingCrewBonus,
+    staleTime: 30 * 60 * 1000, // 30 menit
   })
 
   const loading =

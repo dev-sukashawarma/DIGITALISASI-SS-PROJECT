@@ -1,7 +1,5 @@
-'use client'
-
-import React, { useState } from 'react'
-import { RefreshCw, Terminal } from 'lucide-react'
+import React from 'react'
+import { Terminal } from 'lucide-react'
 import { useBrand } from '@/components/BrandContext'
 
 interface MitraMaintenanceViewProps {
@@ -10,7 +8,6 @@ interface MitraMaintenanceViewProps {
 
 export function MitraMaintenanceView({ customHtml }: MitraMaintenanceViewProps) {
   const { brandName, brandLogo } = useBrand()
-  const [isReloading, setIsReloading] = useState(false)
 
   // If custom HTML is provided and non-empty, render isolated iframe
   if (customHtml && customHtml.trim().length > 0) {
@@ -24,13 +21,6 @@ export function MitraMaintenanceView({ customHtml }: MitraMaintenanceViewProps) 
         />
       </div>
     )
-  }
-
-  const handleReload = () => {
-    setIsReloading(true)
-    setTimeout(() => {
-      window.location.reload()
-    }, 450)
   }
 
   return (
@@ -86,15 +76,7 @@ export function MitraMaintenanceView({ customHtml }: MitraMaintenanceViewProps) 
           Sistem sedang menjalani peningkatan performa rutin guna memastikan akurasi data laporan, keamanan transaksi, dan stabilitas server.
         </p>
 
-        {/* 4. Action Button: Reload */}
-        <button
-          onClick={handleReload}
-          disabled={isReloading}
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-suka-orange to-orange-600 hover:from-suka-brown hover:to-suka-ink text-white font-extrabold text-sm flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-suka-orange/30 active:scale-[0.98] disabled:opacity-70 cursor-pointer border border-white/20"
-        >
-          <RefreshCw className={`w-4 h-4 ${isReloading ? 'animate-spin' : ''}`} />
-          <span>{isReloading ? 'Memuat Ulang Halaman...' : 'Coba Muat Ulang Halaman'}</span>
-        </button>
+
 
         {/* Footer Note */}
         <div className="mt-6 flex items-center justify-center gap-2 text-[10px] font-mono text-suka-gray-400 tracking-widest uppercase">

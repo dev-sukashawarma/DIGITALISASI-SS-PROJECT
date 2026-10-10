@@ -159,44 +159,12 @@ export const DEFAULT_MITRA_MAINTENANCE_HTML = `<!DOCTYPE html>
       font-size: 14px;
       color: var(--text-body);
       line-height: 1.65;
-      margin-bottom: 34px;
+      margin-bottom: 24px;
       font-weight: 500;
     }
 
-    /* Action Button */
-    .btn-reload {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      width: 100%;
-      padding: 16px 28px;
-      background: linear-gradient(135deg, var(--suka-orange) 0%, #ea580c 100%);
-      color: #ffffff;
-      border: none;
-      border-radius: 18px;
-      font-size: 14.5px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: all 0.22s ease;
-      box-shadow: 
-        0 14px 28px -6px rgba(242, 151, 68, 0.42),
-        0 0 0 1px rgba(255, 255, 255, 0.3) inset;
-      text-decoration: none;
-    }
-
-    .btn-reload:hover {
-      background: var(--suka-brown);
-      transform: translateY(-2px);
-      box-shadow: 0 18px 36px -6px rgba(112, 22, 4, 0.3);
-    }
-
-    .btn-reload:active {
-      transform: translateY(0);
-    }
-
     .footer-note {
-      margin-top: 22px;
+      margin-top: 18px;
       font-size: 11px;
       color: var(--text-muted);
       font-weight: 700;
@@ -238,14 +206,6 @@ export const DEFAULT_MITRA_MAINTENANCE_HTML = `<!DOCTYPE html>
     <p class="desc">
       Sistem sedang menjalani peningkatan performa rutin guna memastikan akurasi data laporan, keamanan transaksi, dan stabilitas server.
     </p>
-
-    <!-- Action Button -->
-    <button type="button" class="btn-reload" onclick="window.location.reload()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-      </svg>
-      Coba Muat Ulang Halaman
-    </button>
 
     <p class="footer-note">SUKA SHAWARMA</p>
   </div>

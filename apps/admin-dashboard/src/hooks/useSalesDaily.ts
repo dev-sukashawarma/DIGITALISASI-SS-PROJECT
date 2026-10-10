@@ -72,7 +72,7 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
           (from, to, withCount) => {
             let b = supabase
               .from('platform_settlements')
-              .select('outlet_id, platform, tanggal, commission', withCount ? { count: 'exact' } : undefined)
+              .select('outlet_id, platform, tanggal, commission, promo_merchant', withCount ? { count: 'exact' } : undefined)
               .gte('tanggal', filter.from)
               .lte('tanggal', filter.to)
               .order('tanggal', { ascending: true })
@@ -97,11 +97,15 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         return s
       }
 
-      const settlementMap = new Map<string, number>()
+      const settlementCommissionMap = new Map<string, number>()
+      const settlementPromoMap = new Map<string, number>()
       for (const s of settlementList) {
         const plat = normalizePlatform(s.platform)
         const key = `${s.outlet_id}__${plat}__${s.tanggal}`
-        settlementMap.set(key, (settlementMap.get(key) || 0) + (Number(s.commission) || 0))
+        settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
+        if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
+          settlementPromoMap.set(key, (settlementPromoMap.get(key) || 0) + Math.max(0, Number(s.promo_merchant) || 0))
+        }
       }
 
       // Catatan: query mentah ke `orders` yang dulu ada di sini (untuk menghitung
@@ -113,10 +117,30 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       const posRows: SalesSummaryRow[] = salesData
         .filter((r: any) => !isTestOutlet(r.outlet_id))
         .map((r: any) => {
-          const totalDed = Number(r.total_deductions) || 0
+          let totalDed = Number(r.total_deductions) || 0
           const plat = normalizePlatform(r.sales_source)
           const key = `${r.outlet_id}__${plat}__${r.sales_date}`
-          const platformFee = settlementMap.get(key) || 0
+          const platformFee = settlementCommissionMap.get(key) || 0
+
+          // Rekonsiliasi audit promo merchant dari settlement (GoFood & ShopeeFood):
+          // Jika settlement resmi diupload, promo merchant dari settlement menjadi Single Source of Truth
+          // (mengoreksi salah input kasir di GoFood & selisih void/drift di ShopeeFood)
+          if (settlementPromoMap.has(key) && (plat === 'gofood' || plat === 'shopeefood')) {
+            const settlementPromo = settlementPromoMap.get(key) || 0
+            const rawGross = (Number(r.omzet) || 0) + totalDed
+            totalDed = settlementPromo
+            return {
+              outlet_id: r.outlet_id,
+              outlet_name: '',
+              sales_source: r.sales_source as SalesSource,
+              sales_date: r.sales_date,
+              omzet: Math.max(0, rawGross - totalDed),
+              jumlah_order_completed: Number(r.jumlah_order_completed || 0),
+              jumlah_order_all: Number(r.jumlah_order_completed || 0),
+              total_deductions: totalDed,
+              platform_fee: platformFee,
+            }
+          }
 
           return {
             outlet_id: r.outlet_id,

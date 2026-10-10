@@ -52,24 +52,31 @@ export function useSalesDaily(
         return s
       }
 
-      const settlementMap = new Map<string, number>()
+      const settlementCommissionMap = new Map<string, number>()
+      const settlementPromoMap = new Map<string, number>()
       try {
         let offset = 0
         while (true) {
-          const { data: stlPage, error: stlErr } = await supabase
+          let b = supabase
             .from('platform_settlements')
-            .select('outlet_id, platform, tanggal, commission')
+            .select('outlet_id, platform, tanggal, commission, promo_merchant')
             .gte('tanggal', filter.from)
             .lte('tanggal', filter.to)
             .order('tanggal', { ascending: true })
             .order('id', { ascending: true })
-            .range(offset, offset + 999)
+          if (filter.outletId !== 'all') {
+            b = b.eq('outlet_id', filter.outletId)
+          }
+          const { data: stlPage, error: stlErr } = await b.range(offset, offset + 999)
           if (stlErr) throw stlErr
           const page = stlPage ?? []
           for (const s of page) {
             const plat = normalizePlatform(s.platform)
             const key = `${s.outlet_id}__${plat}__${s.tanggal}`
-            settlementMap.set(key, (settlementMap.get(key) || 0) + (Number(s.commission) || 0))
+            settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
+            if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
+              settlementPromoMap.set(key, (settlementPromoMap.get(key) || 0) + Math.max(0, Number(s.promo_merchant) || 0))
+            }
           }
           if (page.length < 1000) break
           offset += 1000
@@ -81,9 +88,27 @@ export function useSalesDaily(
       return (data || [])
         .filter((r: any) => !isTestOutlet(r.outlet_id))
         .map((r: any) => {
+          let totalDed = Number(r.total_deductions) || 0
           const plat = normalizePlatform(r.sales_source)
           const key = `${r.outlet_id}__${plat}__${r.sales_date}`
-          const platformFee = settlementMap.get(key) || 0
+          const platformFee = settlementCommissionMap.get(key) || 0
+
+          if (settlementPromoMap.has(key) && (plat === 'gofood' || plat === 'shopeefood')) {
+            const settlementPromo = settlementPromoMap.get(key) || 0
+            const rawGross = (Number(r.omzet) || 0) + totalDed
+            totalDed = settlementPromo
+            return {
+              outlet_id: r.outlet_id,
+              outlet_name: '',
+              sales_source: r.sales_source,
+              sales_date: r.sales_date,
+              omzet: Math.max(0, rawGross - totalDed),
+              jumlah_order_completed: Number(r.jumlah_order_completed || 0),
+              jumlah_order_all: Number(r.jumlah_order_completed || 0),
+              total_deductions: totalDed,
+              platform_fee: platformFee,
+            }
+          }
 
           return {
             outlet_id: r.outlet_id,
@@ -93,7 +118,7 @@ export function useSalesDaily(
             omzet: Number(r.omzet || 0),
             jumlah_order_completed: Number(r.jumlah_order_completed || 0),
             jumlah_order_all: Number(r.jumlah_order_completed || 0),
-            total_deductions: Number(r.total_deductions || 0),
+            total_deductions: totalDed,
             platform_fee: platformFee,
           }
         })

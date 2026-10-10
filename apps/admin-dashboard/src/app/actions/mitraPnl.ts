@@ -7,10 +7,10 @@ import type { PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID, isExcludedOutlet } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cleanItemName } from '@/lib/order-item-name'
-import { resolveMitraPolicy } from '@/lib/mitraPolicy'
+import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
-import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
+import { fetchHppRows, type HppRow } from '@/lib/hpp/fetchHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import {
@@ -161,7 +161,8 @@ export async function getMitraComprehensivePnl(
     lastMonthExpRes,
     salesDailyRes,
     managerStaffRes,
-    allOpOutletsRes
+    allOpOutletsRes,
+    hppRowsRes
   ] = await Promise.all([
     supabase.from('mitra_profiles').select('*').eq('user_id', userId).maybeSingle(),
     supabase.from('outlets').select('id, name, is_active').in('id', targetOutletIds),
@@ -220,16 +221,19 @@ export async function getMitraComprehensivePnl(
       p_from: fromStart.toISOString(),
       p_to: toEnd.toISOString()
     }),
-    // Lihat PAKAI_SETTLEMENT_TIKTOK: data settlement TikTok GO berisi baris kembar.
-    PAKAI_SETTLEMENT_TIKTOK
-      ? supabase
-          .from('platform_settlements')
-          .select('outlet_id, platform, omzet_kotor, promo_merchant, commission, tanggal')
-          .in('outlet_id', targetOutletIds)
-          .eq('platform', 'tiktokgo')
-          .gte('tanggal', filter.from)
-          .lte('tanggal', filter.to)
-      : Promise.resolve({ data: [] as any[] }),
+    // Semua rekonsiliasi platform settlement (GoFood, GrabFood, ShopeeFood, TikTok Go)
+    // untuk komisi platform (platform fee) & rekonsiliasi promo merchant
+    fetchAllPages<any>(() => supabase
+      .from('platform_settlements')
+      .select('outlet_id, platform, omzet_kotor, promo_merchant, commission, tanggal')
+      .in('outlet_id', targetOutletIds)
+      .gte('tanggal', filter.from)
+      .lte('tanggal', filter.to)
+      .order('id', { ascending: true })
+    ).then(rows => ({ data: rows })).catch(err => {
+      console.warn('Gagal memuat platform_settlements di mitraPnl:', err)
+      return { data: [] as any[] }
+    }),
     // Slip gaji HR (payroll_records) untuk sinkronisasi dengan Tab Laba Rugi
     supabase
       .from('payroll_records')
@@ -340,7 +344,17 @@ export async function getMitraComprehensivePnl(
     supabase
       .from('outlets')
       .select('id, name, slug, type, is_active, status')
-      .in('type', ['internal', 'mitra'])
+      .in('type', ['internal', 'mitra']),
+    // HPP berbasis riwayat harga bahan baku & resep dinamis (Single Source of Truth)
+    fetchHppRows(supabase, {
+      from: filter.from,
+      to: filter.to,
+      outletId: selectedOutletId,
+      source: 'all',
+    }).catch(err => {
+      console.warn('Gagal memuat fetchHppRows di mitraPnl:', err)
+      return [] as HppRow[]
+    }),
   ])
 
   const profile = profileRes.data
@@ -353,6 +367,7 @@ export async function getMitraComprehensivePnl(
   const { data: rpcData, error: rpcError } = rpcRes
   let settlements = (settlementsRes as any)?.data || []
   let salesDailyRows = (salesDailyRes as any)?.data || []
+  const hppRows = Array.isArray(hppRowsRes) ? hppRowsRes : []
 
   // 3b. Cutoff Date Enforcement (Peralihan cabang internal ke kemitraan)
   // Transaksi pengeluaran & waste sebelum tanggal_mulai outlet tidak boleh dibebankan ke mitra.
@@ -429,52 +444,100 @@ export async function getMitraComprehensivePnl(
   const outletFinancialsMap = new Map<string, { gross: number; deductions: number; cogs: number }>()
 
   // 4a. Prioritaskan sales_daily_scoped untuk Omzet Kotor & Potongan
-  // Ini menyelaraskan angka 100% (Rp 0 selisih) dengan Tab Laba Rugi / useSalesDaily,
-  // termasuk order yang diaudit admin (perubahan total_amount voucher dsb).
+  // Diselaraskan 100% (Rp 0 selisih) dengan Tab Laba Rugi / useSalesDaily,
+  // termasuk komisi platform (platform fee) dari platform_settlements dan audit promo merchant.
+  const normalizePlatform = (src: string) => {
+    const s = (src || '').toLowerCase()
+    if (s.includes('gofood') || s.includes('gojek')) return 'gofood'
+    if (s.includes('grab')) return 'grabfood'
+    if (s.includes('shopee')) return 'shopeefood'
+    if (s.includes('tiktok')) return 'tiktokgo'
+    return s
+  }
+
+  const settlementCommissionMap = new Map<string, number>()
+  const settlementPromoMap = new Map<string, number>()
+  for (const s of (settlements || [])) {
+    const plat = normalizePlatform(s.platform)
+    const key = `${s.outlet_id}__${plat}__${s.tanggal}`
+    settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
+    if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
+      settlementPromoMap.set(key, (settlementPromoMap.get(key) || 0) + Math.max(0, Number(s.promo_merchant) || 0))
+    }
+  }
+
   const hasSalesDaily = Array.isArray(salesDailyRows) && salesDailyRows.length > 0
   if (hasSalesDaily) {
     for (const row of salesDailyRows) {
-      const omzet = Number(row.omzet) || 0
-      const ded = Number(row.total_deductions) || 0
-      const gross = omzet + ded
+      let totalDed = Number(row.total_deductions) || 0
+      const plat = normalizePlatform(row.sales_source)
+      const key = `${row.outlet_id}__${plat}__${row.sales_date}`
+      const platformFee = settlementCommissionMap.get(key) || 0
+
+      // Rekonsiliasi audit promo merchant dari settlement (GoFood & ShopeeFood):
+      // Jika settlement resmi diupload, promo merchant dari settlement menjadi Single Source of Truth
+      if (settlementPromoMap.has(key) && (plat === 'gofood' || plat === 'shopeefood')) {
+        totalDed = settlementPromoMap.get(key) || 0
+      }
+
+      // Total potongan = promo merchant + komisi platform (platform fee)
+      const rowDeductions = totalDed + platformFee
+      const rawGross = (Number(row.omzet) || 0) + (Number(row.total_deductions) || 0)
+      const gross = rawGross
       const count = Number(row.jumlah_order_completed) || 0
-      const src = (row.sales_source || 'pos').toLowerCase()
+      const src = plat
 
       const curFin = outletFinancialsMap.get(row.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
       curFin.gross += gross
-      curFin.deductions += ded
+      curFin.deductions += rowDeductions
       outletFinancialsMap.set(row.outlet_id, curFin)
 
-      if (src === 'tiktok') {
+      if (src === 'tiktokgo' || src === 'tiktok') {
         tkGross += gross
-        tkDeductions += ded
+        tkDeductions += rowDeductions
         tkCount += count
       } else if (src === 'grabfood') {
         faGross += gross
-        faDeductions += ded
+        faDeductions += rowDeductions
         faCount += count
         grabRev += gross
       } else if (src === 'gofood') {
         faGross += gross
-        faDeductions += ded
+        faDeductions += rowDeductions
         faCount += count
         gofoodRev += gross
       } else if (src === 'shopeefood') {
         faGross += gross
-        faDeductions += ded
+        faDeductions += rowDeductions
         faCount += count
         shopeeRev += gross
       } else {
         // 'pos', 'online', 'endors', dll.
         posGross += gross
-        posDeductions += ded
+        posDeductions += rowDeductions
         posCount += count
       }
     }
   }
 
-  if (!rpcError && rpcData && Array.isArray(rpcData)) {
-    // We successfully retrieved the pre-aggregated data from the database
+  // 4b. HPP dari fetchHppRows (Single Source of Truth)
+  if (hppRows.length > 0) {
+    for (const r of hppRows) {
+      if (!targetOutletIds.includes(r.outlet_id)) continue
+
+      const outletHpp = Number(r.hpp) || 0
+      const outletChannels = r.channels || { outlet: 0, food_apps: 0, tiktok_go: 0, website: 0 }
+
+      posCogs += (Number(outletChannels.outlet) || 0) + (Number(outletChannels.website) || 0)
+      faCogs += Number(outletChannels.food_apps) || 0
+      tkCogs += Number(outletChannels.tiktok_go) || 0
+
+      const curFin = outletFinancialsMap.get(r.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
+      curFin.cogs += outletHpp
+      outletFinancialsMap.set(r.outlet_id, curFin)
+    }
+  } else if (!rpcError && rpcData && Array.isArray(rpcData)) {
+    // Fallback bila fetchHppRows tidak mengembalikan data: gunakan get_mitra_orders_summary
     for (const row of rpcData) {
       const gross = Number(row.gross_revenue) || 0
       const ded = Number(row.deductions) || 0
@@ -512,45 +575,6 @@ export async function getMitraComprehensivePnl(
           posGross += gross
           posDeductions += ded
           posCount += count
-        }
-      }
-    }
-
-    // 5c. Otomasi Settlement Platform (TikTok Go) dari platform_settlements untuk periode berjalan / umum
-    if (PAKAI_SETTLEMENT_TIKTOK && !isAugust2026Period(filter.from, filter.to) && settlements && settlements.length > 0) {
-      const settlementByOutlet = new Map<string, { gross: number; deductions: number }>()
-      for (const s of settlements) {
-        const oid = s.outlet_id
-        const ok = Number(s.omzet_kotor) || 0
-        const pm = Number(s.promo_merchant) || 0
-        const cm = Number(s.commission) || 0
-        const sGross = Math.max(0, ok - pm)
-        const sDed = cm
-        const cur = settlementByOutlet.get(oid) || { gross: 0, deductions: 0 }
-        cur.gross += sGross
-        cur.deductions += sDed
-        settlementByOutlet.set(oid, cur)
-      }
-
-      if (settlementByOutlet.size > 0) {
-        for (const [oid, sData] of settlementByOutlet.entries()) {
-          if (!targetOutletIds.includes(oid)) continue
-          const rpcTkRow = (rpcData || []).find((r: any) => r.outlet_id === oid && r.channel_group === 'tiktok')
-          const oldTkGross = Number(rpcTkRow?.gross_revenue) || 0
-          const oldTkDed = Number(rpcTkRow?.deductions) || 0
-
-          const diffGross = sData.gross - oldTkGross
-          const diffDed = sData.deductions - oldTkDed
-
-          tkGross += diffGross
-          tkDeductions += diffDed
-
-          const curFin = outletFinancialsMap.get(oid)
-          if (curFin) {
-            curFin.gross += diffGross
-            curFin.deductions += diffDed
-            outletFinancialsMap.set(oid, curFin)
-          }
         }
       }
     }
@@ -835,7 +859,22 @@ export async function getMitraComprehensivePnl(
   }
   const managerAssignments = Array.from(managerMap.values())
 
-  const outletNameMap = new Map((outletList || []).map((o: any) => [o.id, o.name]))
+  const bonusOutletIds = new Set(((bonusRes as any) || []).map((c: any) => c.outlet_id))
+  const operationalOutlets = ((allOpOutletsRes?.data ?? []) as any[])
+    .filter(o => {
+      if (isExcludedOutlet(o)) return false
+      // Sawangan internal digantikan oleh Mitra Sawangan DTC agar tidak double-counting
+      if (o.slug === 'sawangan-depok-internal') return false
+      const isActive = o.is_active === true && o.status === 'active'
+      const hadActivityInPeriod = bonusOutletIds.has(o.id)
+      return isActive || hadActivityInPeriod
+    })
+  const operationalOutletIds: string[] = operationalOutlets.map(o => o.id)
+
+  const outletNameMap = new Map((operationalOutlets || []).map((o: any) => [o.id, o.name]))
+  for (const o of (outletList || [])) {
+    outletNameMap.set(o.id, o.name)
+  }
 
   const rawMonthlyExpenses = (monthlyExpenses || []).map((e: any) => ({
     id: e.id,
@@ -868,26 +907,14 @@ export async function getMitraComprehensivePnl(
 
   const rawExpenses = [...rawMonthlyExpenses, ...rawPettyExpenses]
 
-  const bonusOutletIds = new Set(((bonusRes as any) || []).map((c: any) => c.outlet_id))
-  const operationalOutletIds: string[] = ((allOpOutletsRes?.data ?? []) as any[])
-    .filter(o => {
-      if (isExcludedOutlet(o)) return false
-      // Sawangan internal digantikan oleh Mitra Sawangan DTC agar tidak double-counting
-      if (o.slug === 'sawangan-depok-internal') return false
-      const isActive = o.is_active === true && o.status === 'active'
-      const hadActivityInPeriod = bonusOutletIds.has(o.id)
-      return isActive || hadActivityInPeriod
-    })
-    .map(o => o.id)
-
   const prorataResult = calculateProratedExpenses({
-    filter: { from: filter.from, to: filter.to, outletId: selectedOutletId, source: 'all' },
+    filter: { from: filter.from, to: filter.to, outletId: 'all', source: 'all' },
     rawExpenses,
     payrollRecords: payrollRows,
     staffFinancials: staffRows,
     lastMonthExpenses: (lastMonthExpRes?.data as any) || [],
     crewBonusRecords: (bonusRes as any) || [],
-    outlets: (outletList || []).map(o => ({ id: o.id, name: o.name, is_active: o.is_active })),
+    outlets: operationalOutlets.map(o => ({ id: o.id, name: o.name, is_active: o.is_active })),
     managerAssignments,
     operationalOutletIds,
   })
@@ -1017,12 +1044,10 @@ export async function getMitraComprehensivePnl(
 
   for (const oid of targetOutletIds) {
     const inv = invMap.get(oid)
-    const modalInvestasi = Number(inv?.nilai_investasi) || 0
-    const omzetHistoris = Number(inv?.omzet_historis) || 0
-    const transferHistoris = Number(inv?.transfer_historis) || 0
-    const outletTransfers = (transfers || []).filter(t => t.outlet_id === oid).reduce((s, t) => s + (Number(t.nominal) || 0), 0)
-    const totalDanaKembali = omzetHistoris + transferHistoris + outletTransfers
-    const isOutletBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi
+    const outletTransfers = (transfers || []).filter(t => t.outlet_id === oid)
+    const invWithTransfers = { ...inv, transfers: outletTransfers }
+    const bepInfo = calculateMitraBepStatus(invWithTransfers, oid, filter.from, inv?.isBep)
+    const isOutletBep = bepInfo.isBep
 
     const legacyShare = Number(inv?.persentase_bagi_hasil) || Number(profile?.profit_sharing_pct) || 50
     const legacyFee = Number(inv?.management_fee) || 0

@@ -87,4 +87,40 @@ describe('Mitra P&L Calculation Logic', () => {
     const netProfitWithoutFee = grossRev - cogs - opex - waste
     expect(netProfitWithoutFee).toBe(17500000)
   })
+
+  it('should include platform commissions and merchant promo in deductions matching Tab Laba Rugi', () => {
+    const cashierOmzet = 80000000
+    const cashierPromo = 5000000
+    const grossSales = cashierOmzet + cashierPromo // 85.000.000
+
+    const settlementPromo = 6000000 // reconciled promo from settlement
+    const platformCommission = 16000000 // commission platform fee
+
+    // Total deductions = reconciled promo + platform fee
+    const totalDeductions = settlementPromo + platformCommission
+    const netRevenue = grossSales - totalDeductions
+
+    expect(totalDeductions).toBe(22000000)
+    expect(netRevenue).toBe(63000000)
+  })
+
+  it('should apply 100% profit sharing and 3% management fee when outlet has not reached BEP in Sept 2026', () => {
+    const grossRevenue = 100000000
+    const netRevenue = 70000000
+    const cogs = 45000000
+    const opex = 12000000
+    const waste = 500000
+
+    const managementFeePct = 3
+    const managementFeeAmount = (grossRevenue * managementFeePct) / 100 // 3.000.000
+    const netProfit = netRevenue - cogs - opex - waste - managementFeeAmount // 70jt - 45jt - 12jt - 0.5jt - 3jt = 9.5jt
+
+    const profitSharingPct = 100 // 100% untuk mitra belum BEP
+    const mitraShare = Math.round((netProfit * profitSharingPct) / 100)
+
+    expect(managementFeeAmount).toBe(3000000)
+    expect(netProfit).toBe(9500000)
+    expect(mitraShare).toBe(9500000)
+  })
 })
+

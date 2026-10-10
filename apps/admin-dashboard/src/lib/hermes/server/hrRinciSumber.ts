@@ -54,7 +54,7 @@ export function buatKonteksHrRinci(svc: SupabaseClient, _sekarang: Date): Kontek
     const data = await semuaHalaman<any>(() =>
       svc
         .from('payroll_records')
-        .select(`id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, bonus, sales_bonus, deductions, deduction_kasbon, deduction_bpjs, total_salary, status, outlet_staff!payroll_records_staff_id_fkey!inner(${STAF_SELECT})`)
+        .select(`id, outlet_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, bonus, sales_bonus, deductions, deduction_kasbon, deduction_bpjs, total_salary, status, outlet_staff!payroll_records_staff_id_fkey!inner(${STAF_SELECT})`)
         .eq('period_month', bulan)
         .eq('period_year', tahun)
         .order('created_at', { ascending: false })
@@ -66,7 +66,7 @@ export function buatKonteksHrRinci(svc: SupabaseClient, _sekarang: Date): Kontek
       if (!st || isTestOrDevStaff(st)) continue
       hasil.push({
         nama: st.name ?? '-',
-        outletId: st.outlet_id ?? null,
+        outletId: r.outlet_id ?? st.outlet_id ?? null,
         gajiPokok: angka(r.basic_salary),
         tunjangan: angka(r.allowance_position) + angka(r.allowance_presence) + angka(r.allowance_meal) + angka(r.allowance_transport) + angka(r.allowance_communication),
         bonus: angka(r.bonus) + angka(r.sales_bonus),

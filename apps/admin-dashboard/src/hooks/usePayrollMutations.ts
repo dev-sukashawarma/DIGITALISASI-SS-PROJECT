@@ -138,6 +138,7 @@ export function usePayrollMutations() {
           name,
           role,
           status,
+          outlet_id,
           staff_financials(
             basic_salary,
             allowance_meal,
@@ -221,6 +222,7 @@ export function usePayrollMutations() {
 
         return {
           staff_id: s.id,
+          outlet_id: s.outlet_id || null,
           period_month: month,
           period_year: year,
           basic_salary: basicSalary,

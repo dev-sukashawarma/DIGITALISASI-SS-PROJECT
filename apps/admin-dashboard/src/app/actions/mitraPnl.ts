@@ -236,6 +236,7 @@ export async function getMitraComprehensivePnl(
       .select(`
         period_month,
         period_year,
+        outlet_id,
         total_salary,
         basic_salary,
         bonus,
@@ -789,19 +790,20 @@ export async function getMitraComprehensivePnl(
   const payrollRows = (payrollRes?.data ?? [])
     .filter((r: any) => {
       const s = r.outlet_staff
-      if (!s || s.status !== 'active') return false
+      if (!s) return false
       if (isTestOrDevStaff(s)) return false
       if (!ALLOWED_ROLES.includes(s.role)) return false
       const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+      const effectiveOutletId = (r.outlet_id || s.outlet_id) as string
       if (!isManager) {
-        if (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID) return false
-        if (!targetOutletIds.includes(s.outlet_id)) return false
+        if (!effectiveOutletId || effectiveOutletId === KANTOR_PUSAT_ID) return false
+        if (!targetOutletIds.includes(effectiveOutletId)) return false
       }
       return true
     })
     .map((r: any) => ({
       staff_id: (r.outlet_staff?.id || r.staff_id) as string,
-      outlet_id: r.outlet_staff.outlet_id,
+      outlet_id: (r.outlet_id || r.outlet_staff?.outlet_id) as string,
       total_salary: Number(r.total_salary) || 0,
       bonus: Number(r.bonus) || 0,
       period_month: Number(r.period_month),

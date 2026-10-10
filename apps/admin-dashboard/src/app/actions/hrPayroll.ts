@@ -81,7 +81,7 @@ export async function getHRPayrollSummaryAction(filter: {
 
     const { data, error } = await supabase
       .from('payroll_records')
-      .select('id, period_month, period_year, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, username, outlet_id, role, account_category, email)')
+      .select('id, period_month, period_year, outlet_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, username, outlet_id, role, account_category, email)')
       .in('period_year', years)
       .in('period_month', months)
 
@@ -105,7 +105,7 @@ export async function getHRPayrollSummaryAction(filter: {
     const filtered = matchingPeriodRows.filter(r => {
       const staffRaw: any = r.outlet_staff
       const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
-      const staffOutletId = staffInfo?.outlet_id
+      const staffOutletId = r.outlet_id || staffInfo?.outlet_id
       const isPusat = !staffOutletId || staffOutletId === 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
       if (target === 'PUSAT') return isPusat
@@ -171,7 +171,7 @@ export async function getHRPayrollSummaryAction(filter: {
 
       const staffRaw: any = r.outlet_staff
       const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
-      const staffOutletId = staffInfo?.outlet_id
+      const staffOutletId = r.outlet_id || staffInfo?.outlet_id
       const isPusat = !staffOutletId || staffOutletId === 'ffffffff-ffff-ffff-ffff-ffffffffffff'
       const groupKey = isPusat ? 'PUSAT' : staffOutletId
       const outletName = isPusat ? 'Kantor Pusat' : (outletNameMap.get(staffOutletId) || 'Outlet')

@@ -75,6 +75,7 @@ export function useProratedOpex({
         .select(`
           period_month,
           period_year,
+          outlet_id,
           total_salary,
           basic_salary,
           bonus,
@@ -110,16 +111,17 @@ export function useProratedOpex({
       return rows
         .filter(r => {
           const s = r.outlet_staff
-          if (!s || s.status !== 'active') return false
+          if (!s) return false
           if (isTestOrDevStaff(s)) return false
           if (!ALLOWED_ROLES.includes(s.role)) return false
           const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
-          if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID)) return false
+          const effectiveOutletId = r.outlet_id || s.outlet_id
+          if (!isManager && (!effectiveOutletId || effectiveOutletId === KANTOR_PUSAT_ID)) return false
           return true
         })
         .map(r => ({
           staff_id: (r.outlet_staff?.id || r.staff_id) as string,
-          outlet_id: r.outlet_staff?.outlet_id as string,
+          outlet_id: (r.outlet_id || r.outlet_staff?.outlet_id) as string,
           total_salary: Number(r.total_salary) || 0,
           bonus: Number(r.bonus) || 0,
           period_month: Number(r.period_month),

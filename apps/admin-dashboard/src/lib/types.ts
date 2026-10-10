@@ -252,6 +252,7 @@ export type PayrollStatus = 'draft' | 'finalized'
 export interface PayrollRecord {
   id: string
   staff_id: string
+  outlet_id?: string | null
   period_month: number
   period_year: number
   basic_salary: number

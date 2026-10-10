@@ -17,6 +17,8 @@ export interface ManagerAllocationDetail {
   role: 'area_manager' | 'regional_manager' | 'stock_controller'
   totalSalary: number
   allocatedAmount: number
+  routineAmount?: number
+  bonusAmount?: number
   coachedOutletsCount: number
   status: 'draft' | 'finalized'
 }
@@ -59,6 +61,8 @@ export interface HRPayrollOutletSummary {
   status: 'draft' | 'finalized' | 'partial' | 'empty'
   crewSalary?: number
   managerAllocation?: number
+  managerRoutineAllocation?: number
+  managerBonusAllocation?: number
   bonus?: number
 }
 
@@ -82,6 +86,8 @@ export interface HRPayrollSummary {
   crewBonus?: number
   crewDeductions?: number
   managerAllocation?: number
+  managerRoutineAllocation?: number
+  managerBonusAllocation?: number
   managerDetails?: ManagerAllocationDetail[]
   bonusDetails?: StaffBonusDetail[]
   staffDetails?: StaffPayrollDetail[]
@@ -275,6 +281,7 @@ export async function getHRPayrollSummaryAction(filter: {
         const bon = bonSplit.get(tId) || 0
         const ded = dedSplit.get(tId) || 0
         const tot = g + a + bon - ded
+        const routineTot = g + a - ded
 
         let alloc = outletManagerAllocations.get(tId)
         if (!alloc) {
@@ -292,6 +299,8 @@ export async function getHRPayrollSummaryAction(filter: {
           role,
           totalSalary: mTotal,
           allocatedAmount: tot,
+          routineAmount: routineTot,
+          bonusAmount: bon,
           coachedOutletsCount: targets.length,
           status: m.status === 'finalized' ? 'finalized' : 'draft'
         })
@@ -375,6 +384,7 @@ export async function getHRPayrollSummaryAction(filter: {
       group.managerAllocation += alloc.totalSalary
       group.totalSalary += alloc.totalSalary
       group.basicSalary += alloc.basicSalary
+      group.bonus += alloc.bonus
     }
 
     const target = filter.outletId
@@ -426,10 +436,12 @@ export async function getHRPayrollSummaryAction(filter: {
         }
       })
 
+      const managerRoutineAllocation = mgrAlloc.basicSalary + mgrAlloc.allowances - mgrAlloc.deductions
+      const managerBonusAllocation = mgrAlloc.bonus
       const totalSalary = crewSalary + mgrAlloc.totalSalary
       const basicSalary = crewBasicSalary
       const allowances = crewAllowances
-      const bonus = crewBonus
+      const bonus = crewBonus + mgrAlloc.bonus
       const deductions = crewDeductions
 
       let status: 'draft' | 'finalized' | 'partial' | 'empty' = 'empty'
@@ -442,6 +454,10 @@ export async function getHRPayrollSummaryAction(filter: {
       const singleGroup = outletGroups.get(target)
       const outletsSummary: HRPayrollOutletSummary[] = singleGroup ? [{
         ...singleGroup,
+        bonus,
+        managerAllocation: managerRoutineAllocation,
+        managerRoutineAllocation,
+        managerBonusAllocation,
         status: (singleGroup.finalizedCount > 0 && singleGroup.draftCount === 0
           ? 'finalized'
           : singleGroup.draftCount > 0 && singleGroup.finalizedCount === 0
@@ -470,22 +486,40 @@ export async function getHRPayrollSummaryAction(filter: {
         crewAllowances,
         crewBonus,
         crewDeductions,
-        managerAllocation: mgrAlloc.totalSalary,
+        managerAllocation: managerRoutineAllocation,
+        managerRoutineAllocation,
+        managerBonusAllocation,
         managerDetails: mgrAlloc.details,
-        bonusDetails: empangCrew
-          .filter(r => Number(r.bonus || 0) > 0)
-          .map(r => {
-            const staffRaw: any = r.outlet_staff
-            const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
-            return {
-              staffId: r.staff_id,
-              staffName: staffInfo?.name || 'Staff',
-              role: staffInfo?.role || 'crew',
-              bonus: Number(r.bonus || 0),
-              status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
-            }
-          })
-          .sort((a, b) => b.bonus - a.bonus),
+        bonusDetails: [
+          ...empangCrew
+            .filter(r => Number(r.bonus || 0) > 0)
+            .map(r => {
+              const staffRaw: any = r.outlet_staff
+              const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+              return {
+                staffId: r.staff_id,
+                staffName: staffInfo?.name || 'Staff',
+                role: staffInfo?.role || 'crew',
+                outletName: outletNameMap.get(target) || 'Cabang',
+                bonus: Number(r.bonus || 0),
+                status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
+              }
+            }),
+          ...mgrAlloc.details
+            .filter(mgr => (mgr.bonusAmount || 0) > 0)
+            .map(mgr => ({
+              staffId: mgr.staffId,
+              staffName: mgr.staffName,
+              role: mgr.role,
+              outletName: mgr.role === 'area_manager'
+                ? `Alokasi AM (1/${mgr.coachedOutletsCount} Cabang)`
+                : mgr.role === 'regional_manager'
+                ? `Alokasi RM (1/${mgr.coachedOutletsCount} Cabang)`
+                : `Alokasi (1/${mgr.coachedOutletsCount} Cabang)`,
+              bonus: mgr.bonusAmount || 0,
+              status: mgr.status
+            }))
+        ].sort((a, b) => b.bonus - a.bonus),
         staffDetails: [
           ...empangCrew.map(r => {
             const staffRaw: any = r.outlet_staff
@@ -516,27 +550,31 @@ export async function getHRPayrollSummaryAction(filter: {
               isManagerAllocation: false
             }
           }),
-          ...mgrAlloc.details.map(mgr => ({
-            staffId: mgr.staffId,
-            staffName: mgr.staffName,
-            role: mgr.role,
-            outletId: target,
-            outletName: outletNameMap.get(target) || 'Outlet',
-            basicSalary: 0,
-            allowances: 0,
-            bonus: 0,
-            deductions: 0,
-            routineSalary: mgr.allocatedAmount,
-            totalSalary: mgr.allocatedAmount,
-            status: mgr.status,
-            isManagerAllocation: true,
-            allocatedAmount: mgr.allocatedAmount,
-            allocationNote: mgr.role === 'area_manager'
-              ? `Alokasi 1/${mgr.coachedOutletsCount} cabang (AM)`
-              : mgr.role === 'regional_manager'
-              ? `Alokasi 1/${mgr.coachedOutletsCount} cabang (RM)`
-              : `Alokasi 1/${mgr.coachedOutletsCount} cabang (Stock Controller)`
-          }))
+          ...mgrAlloc.details.map(mgr => {
+            const routine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
+            const bonus = mgr.bonusAmount || 0
+            return {
+              staffId: mgr.staffId,
+              staffName: mgr.staffName,
+              role: mgr.role,
+              outletId: target,
+              outletName: outletNameMap.get(target) || 'Outlet',
+              basicSalary: 0,
+              allowances: 0,
+              bonus,
+              deductions: 0,
+              routineSalary: routine,
+              totalSalary: mgr.allocatedAmount,
+              status: mgr.status,
+              isManagerAllocation: true,
+              allocatedAmount: mgr.allocatedAmount,
+              allocationNote: mgr.role === 'area_manager'
+                ? `Alokasi 1/${mgr.coachedOutletsCount} cabang (AM)`
+                : mgr.role === 'regional_manager'
+                ? `Alokasi 1/${mgr.coachedOutletsCount} cabang (RM)`
+                : `Alokasi 1/${mgr.coachedOutletsCount} cabang (Stock Controller)`
+            }
+          })
         ]
       }
     }
@@ -657,23 +695,40 @@ export async function getHRPayrollSummaryAction(filter: {
       finalizedAmount,
       status,
       outlets: outletsSummary,
-      bonusDetails: targetCrewRows
-        .filter(r => Number(r.bonus || 0) > 0)
-        .map(r => {
-          const staffRaw: any = r.outlet_staff
-          const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
-          const staffOutletId = r.outlet_id || staffInfo?.outlet_id
-          const outletName = outletNameMap.get(staffOutletId) || 'Outlet'
-          return {
-            staffId: r.staff_id,
-            staffName: staffInfo?.name || 'Staff',
-            role: staffInfo?.role || 'crew',
-            outletName,
-            bonus: Number(r.bonus || 0),
-            status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
-          }
-        })
-        .sort((a, b) => b.bonus - a.bonus),
+      bonusDetails: [
+        ...targetCrewRows
+          .filter(r => Number(r.bonus || 0) > 0)
+          .map(r => {
+            const staffRaw: any = r.outlet_staff
+            const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+            const staffOutletId = r.outlet_id || staffInfo?.outlet_id
+            const outletName = outletNameMap.get(staffOutletId) || 'Outlet'
+            return {
+              staffId: r.staff_id,
+              staffName: staffInfo?.name || 'Staff',
+              role: staffInfo?.role || 'crew',
+              outletName,
+              bonus: Number(r.bonus || 0),
+              status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
+            }
+          }),
+        ...(target !== 'PUSAT' ? managerRows
+          .filter(m => Number(m.bonus || 0) > 0)
+          .map(m => {
+            const staffRaw: any = m.outlet_staff
+            const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+            const isStockController = (staffInfo?.name || '').toLowerCase().includes('abyansah') || staffInfo?.role === 'stock_controller'
+            const role = isStockController ? 'stock_controller' : (staffInfo?.role || 'area_manager')
+            return {
+              staffId: m.staff_id,
+              staffName: staffInfo?.name || (role === 'regional_manager' ? 'Regional Manager' : 'Area Manager'),
+              role,
+              outletName: role === 'regional_manager' ? 'Alokasi RM' : 'Alokasi AM',
+              bonus: Number(m.bonus || 0),
+              status: (m.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
+            }
+          }) : [])
+      ].sort((a, b) => b.bonus - a.bonus),
       staffDetails: [
         ...targetCrewRows.map(r => {
           const staffRaw: any = r.outlet_staff

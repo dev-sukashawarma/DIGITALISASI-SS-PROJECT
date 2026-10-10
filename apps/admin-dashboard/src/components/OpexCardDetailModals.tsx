@@ -264,7 +264,7 @@ export function OpexCardDetailModals({
                   </div>
 
                   <div className="text-[11px] text-indigo-900 bg-white/80 p-2.5 rounded-lg border border-indigo-100/70 leading-relaxed shadow-2xs">
-                    💡 <strong>Penjelasan Angka:</strong> Angka <strong>{rupiah(Math.round(((hrPayroll.crewSalary ?? hrPayroll.totalSalary) - (hrPayroll.crewBonus ?? hrPayroll.bonus)) * ratio))}</strong> adalah <em>Gaji Pokok & Tunjangan</em> rutin {hrPayroll.crewCount ?? hrPayroll.totalStaff} kru toko (tanpa bonus). Ditambah <strong>Bonus Omset Kru</strong> sebesar <strong>+{rupiah(bonusAmount)}</strong>, <em>Total THP Kru Toko di Excel (Kolom O)</em> adalah <strong>{rupiah(Math.round(((hrPayroll.crewSalary ?? hrPayroll.totalSalary)) * ratio))}</strong>. Ditambah alokasi beban AM/RM/SC sebesar <strong>+{rupiah(isProrated ? Math.round((hrPayroll.managerAllocation || 0) * (prorataInfo?.ratio || 1)) : (hrPayroll.managerAllocation || 0))}</strong>, Total Beban Gaji Rutin Outlet adalah <strong>{rupiah(routineSalary)}</strong>.
+                    💡 <strong>Penjelasan Angka:</strong> Angka <strong>{rupiah(Math.round(((hrPayroll.crewSalary ?? hrPayroll.totalSalary) - (hrPayroll.crewBonus ?? hrPayroll.bonus)) * ratio))}</strong> adalah <em>Gaji Pokok & Tunjangan</em> rutin {hrPayroll.crewCount ?? hrPayroll.totalStaff} kru toko (tanpa bonus). Ditambah alokasi beban rutin AM/RM/SC sebesar <strong>+{rupiah(isProrated ? Math.round((hrPayroll.managerAllocation || 0) * (prorataInfo?.ratio || 1)) : (hrPayroll.managerAllocation || 0))}</strong>, Total Beban Gaji Rutin Outlet (Card 1) adalah <strong>{rupiah(routineSalary)}</strong>. Bonus omset penjualan (Kru & AM/RM) sebesar <strong>+{rupiah(bonusAmount)}</strong> dipisahkan ke <em>Card 2 (Bonus & Insentif)</em>.
                   </div>
                 </div>
               )}
@@ -275,20 +275,21 @@ export function OpexCardDetailModals({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-extrabold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
                       <Users size={14} className="text-indigo-600" />
-                      Alokasi Beban AM, RM, & Stock Controller
+                      Alokasi Beban Rutin AM, RM, & Stock Controller
                     </span>
                     <span className="text-[11px] font-bold text-indigo-700 bg-white/90 px-2 py-0.5 rounded-md border border-indigo-200/70 shadow-2xs">
-                      Total: +{rupiah(isProrated ? Math.round((hrPayroll.managerAllocation || 0) * (prorataInfo?.ratio || 1)) : (hrPayroll.managerAllocation || 0))}
+                      Total Rutin: +{rupiah(isProrated ? Math.round((hrPayroll.managerAllocation || 0) * (prorataInfo?.ratio || 1)) : (hrPayroll.managerAllocation || 0))}
                     </span>
                   </div>
 
                   <div className="text-[11px] text-gray-600 leading-relaxed">
-                    Sesuai ketentuan operasional, beban gaji <strong>Area Manager (AM)</strong>, <strong>Regional Manager (RM)</strong>, dan <strong>Stock Controller</strong> dibebankan secara proporsional ke outlet binaan masing-masing:
+                    Sesuai ketentuan operasional, beban gaji rutin <strong>Area Manager (AM)</strong>, <strong>Regional Manager (RM)</strong>, dan <strong>Stock Controller</strong> dibebankan secara proporsional ke outlet binaan masing-masing (bonus omset dipisahkan ke Card Bonus):
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                     {hrPayroll.managerDetails.map((mgr) => {
-                      const mgrAlloc = isProrated && prorataInfo ? Math.round(mgr.allocatedAmount * prorataInfo.ratio) : mgr.allocatedAmount
+                      const mgrRoutine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
+                      const mgrAlloc = isProrated && prorataInfo ? Math.round(mgrRoutine * prorataInfo.ratio) : mgrRoutine
                       return (
                         <div key={mgr.staffId} className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs space-y-1">
                           <div className="flex items-center justify-between gap-1">
@@ -308,12 +309,18 @@ export function OpexCardDetailModals({
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-xs pt-0.5">
-                            <span className="text-gray-500 text-[11px]">Beban ke outlet ini:</span>
+                            <span className="text-gray-500 text-[11px]">Beban rutin ke outlet ini:</span>
                             <span className="font-black text-indigo-700">+{rupiah(mgrAlloc)}</span>
                           </div>
                           <div className="text-[10px] text-gray-400 flex items-center justify-between pt-0.5 border-t border-gray-100/80">
                             <span>Alokasi 1/{mgr.coachedOutletsCount} cabang</span>
-                            <span>Gaji: {rupiah(mgr.totalSalary)}</span>
+                            {mgr.bonusAmount && mgr.bonusAmount > 0 ? (
+                              <span className="text-amber-700 font-semibold" title={`Bonus omset alokasi Rp ${rupiah(mgr.bonusAmount)} dipisahkan ke Card Bonus`}>
+                                Bonus: +{rupiah(mgr.bonusAmount)}
+                              </span>
+                            ) : (
+                              <span>Gaji: {rupiah(mgr.totalSalary)}</span>
+                            )}
                           </div>
                         </div>
                       )
@@ -680,7 +687,7 @@ export function OpexCardDetailModals({
                 </div>
                 <div>
                   <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
-                    <span>Rincian Bonus & Insentif Kru</span>
+                    <span>Rincian Bonus & Insentif</span>
                     {isProrated && prorataInfo && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
                         <Sparkles size={11} className="text-amber-600" />
@@ -694,7 +701,7 @@ export function OpexCardDetailModals({
                   <p className="text-xs text-gray-500 mt-0.5">
                     {isProrated && prorataInfo
                       ? `Bonus omset proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`
-                      : 'Rincian perolehan bonus penjualan (omset) bulanan dan lembur kru toko'}
+                      : 'Rincian perolehan bonus penjualan (omset) bulanan kru toko dan pengawas operasional'}
                   </p>
                 </div>
               </div>
@@ -720,7 +727,7 @@ export function OpexCardDetailModals({
                   </span>
                   <span className="text-[10px] text-amber-700 font-semibold">
                     {isProrated && prorataInfo
-                      ? `Baseline sebulan: +${rupiah(hrPayroll?.crewBonus ?? hrPayroll?.bonus ?? 0)}`
+                      ? `Baseline sebulan: +${rupiah(hrPayroll?.bonus ?? 0)}`
                       : 'Murni insentif target penjualan'}
                   </span>
                 </div>
@@ -730,10 +737,10 @@ export function OpexCardDetailModals({
                     Penerima Bonus
                   </span>
                   <span className="text-lg font-black text-slate-800 mt-1 block">
-                    {hrPayroll?.bonusDetails ? hrPayroll.bonusDetails.length : 0} Kru Penerima
+                    {hrPayroll?.bonusDetails ? hrPayroll.bonusDetails.length : 0} Penerima
                   </span>
                   <span className="text-[10px] text-gray-500 font-semibold">
-                    Dari {hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0} total kru cabang
+                    Kru cabang & manajer operasional
                   </span>
                 </div>
 
@@ -754,7 +761,7 @@ export function OpexCardDetailModals({
               <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed shadow-2xs">
                 <Sparkles size={16} className="text-amber-600 mt-0.5 shrink-0" />
                 <div>
-                  <span className="font-bold">Ketentuan Sales Bonus:</span> Bonus ini adalah bonus omset penjualan bulanan yang dibagikan kepada kru toko sesuai target penjualan yang tercapai, dan dipisahkan dari beban gaji pokok & tunjangan rutin agar struktur biaya tetap (*fixed cost*) dan variabel (*variable cost*) dapat dipantau terpisah.
+                  <span className="font-bold">Ketentuan Sales Bonus:</span> Bonus ini adalah bonus omset penjualan bulanan yang dibagikan kepada kru toko serta alokasi manajer operasional (AM/RM) sesuai target penjualan yang tercapai, dan dipisahkan dari beban gaji pokok & tunjangan rutin agar struktur biaya tetap (*fixed cost*) dan variabel (*variable cost*) dapat dipantau terpisah.
                 </div>
               </div>
 
@@ -781,10 +788,10 @@ export function OpexCardDetailModals({
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-slate-100 text-gray-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-gray-200 shadow-2xs">
                           <tr>
-                            <th className="px-3.5 py-2.5">Nama Kru</th>
+                            <th className="px-3.5 py-2.5">Nama Personel</th>
                             <th className="px-3 py-2.5 text-center">Peran</th>
                             {hrPayroll.bonusDetails.some(b => b.outletName) && (
-                              <th className="px-3.5 py-2.5">Unit / Cabang</th>
+                              <th className="px-3.5 py-2.5">Unit / Alokasi</th>
                             )}
                             <th className="px-3 py-2.5 text-center">Status</th>
                             <th className="px-3.5 py-2.5 text-right">

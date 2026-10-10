@@ -867,10 +867,10 @@ export default function InputPengeluaranPage() {
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
               {hasHrPayroll ? (
                 <span>
-                  Gaji Rutin ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} staf)
+                  Gaji Rutin ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} kru)
                   {Boolean(hrPayroll!.managerAllocation && hrPayroll!.managerAllocation > 0) && (
-                    <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={`Termasuk alokasi beban AM, RM, & Stock Controller: ${rupiah(hrPayroll!.managerAllocation)}`}>
-                      • Termasuk AM/RM/SC
+                    <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={`Termasuk alokasi beban rutin AM, RM, & Stock Controller: ${rupiah(hrPayroll!.managerRoutineAllocation ?? hrPayroll!.managerAllocation)}`}>
+                      • Termasuk Rutin AM/RM/SC
                     </span>
                   )}
                   {prorataInfo.isProrated && (
@@ -905,7 +905,7 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 2. Bonus & Insentif Kru */}
+        {/* 2. Bonus & Insentif */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -936,13 +936,13 @@ export default function InputPengeluaranPage() {
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
               {hasHrPayroll ? (
                 <span>
-                  {hrPayroll?.bonusDetails ? `${hrPayroll.bonusDetails.length} penerima` : 'Bonus Kru Toko'}
+                  {hrPayroll?.bonusDetails ? `${hrPayroll.bonusDetails.length} penerima` : 'Bonus Omset'}
                   <span className="text-[10px] text-amber-700 font-bold ml-1.5">
-                    • Insentif Target Omset
+                    • Kru & Pengawas
                   </span>
                   {prorataInfo.isProrated && (
                     <span className="text-[10px] text-gray-400 font-normal ml-1">
-                      • 1 bln: {rupiah(hrPayroll?.crewBonus ?? hrPayroll?.bonus ?? 0)}
+                      • 1 bln: {rupiah(hrPayroll?.bonus ?? 0)}
                     </span>
                   )}
                 </span>
@@ -962,7 +962,7 @@ export default function InputPengeluaranPage() {
               <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
             </button>
             <span className="text-[10px] text-gray-400 font-medium">
-              Rincian Bonus Kru
+              Rincian Bonus & Insentif
             </span>
           </div>
         </div>

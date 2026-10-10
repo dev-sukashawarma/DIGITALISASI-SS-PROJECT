@@ -425,26 +425,32 @@ export function MitraDashboardView({
                 <div className="w-7 h-7 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
                   <Store className="w-3.5 h-3.5 text-amber-700" />
                 </div>
-                <div className="flex-1 min-w-0 pr-5 text-xs leading-tight">
+                <div className={`flex-1 min-w-0 ${outlets.length > 1 ? 'pr-5' : 'pr-1'} text-xs leading-tight`}>
                   <p className="text-[10px] font-extrabold text-amber-800/70 uppercase tracking-wider">Outlet Aktif</p>
-                  <select 
-                    className="w-full bg-transparent text-xs font-extrabold text-suka-brown outline-none cursor-pointer truncate appearance-none mt-0.5"
-                    value={selectedOutletId || (outlets.length === 1 ? outlets[0].id : 'all')}
-                    onChange={(e) => setSelectedOutletId(e.target.value)}
-                  >
-                    {outlets.length > 1 && (
+                  {outlets.length > 1 ? (
+                    <select 
+                      className="w-full bg-transparent text-xs font-extrabold text-suka-brown outline-none cursor-pointer truncate appearance-none mt-0.5"
+                      value={selectedOutletId || (outlets.length === 1 ? outlets[0].id : 'all')}
+                      onChange={(e) => setSelectedOutletId(e.target.value)}
+                    >
                       <option value="all" className="font-bold text-slate-800">
                         Semua Outlet ({outlets.length})
                       </option>
-                    )}
-                    {outlets.map((o: any) => (
-                      <option key={o.id} value={o.id} className="font-bold text-slate-700">
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
+                      {outlets.map((o: any) => (
+                        <option key={o.id} value={o.id} className="font-bold text-slate-700">
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs font-extrabold text-suka-brown mt-0.5 truncate">
+                      {outlets[0]?.name || 'Outlet Kemitraan'}
+                    </p>
+                  )}
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-amber-700 absolute right-3 pointer-events-none" />
+                {outlets.length > 1 && (
+                  <ChevronDown className="w-3.5 h-3.5 text-amber-700 absolute right-3 pointer-events-none" />
+                )}
               </div>
             </div>
           )}

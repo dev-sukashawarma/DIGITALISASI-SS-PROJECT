@@ -139,14 +139,14 @@ export function GrossSalesBreakdownModal({
               <p className="text-[11px] font-semibold text-suka-gray-400 mt-1 truncate">100% Nilai Menu Pesanan</p>
             </div>
 
-            {/* Potongan Merchant (Fixed nowrap for - sign) */}
+            {/* Admin Fee (Fixed nowrap for - sign) */}
             <div className="min-w-0 bg-rose-50/50 p-3.5 sm:p-4 rounded-2xl border border-rose-200/70 shadow-2xs">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 truncate">Potongan Merchant</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 truncate">Admin Fee</p>
               <h3 className="text-base sm:text-lg xl:text-xl font-black text-rose-600 tracking-tight mt-1 whitespace-nowrap tabular-nums">
                 -{rupiah(totalDeductions)}
               </h3>
               <p className="text-[11px] font-semibold text-rose-500 mt-1 truncate">
-                {deductionPct.toFixed(1)}% Promo Toko & Diskon
+                {deductionPct.toFixed(1)}% Promo & Komisi Platform
               </p>
             </div>
 
@@ -222,7 +222,7 @@ export function GrossSalesBreakdownModal({
                 className="text-xs border border-suka-gray-200 rounded-xl px-2.5 py-1.5 font-semibold text-suka-brown focus:outline-hidden cursor-pointer"
               >
                 <option value="gross">Urut Omzet Kotor</option>
-                <option value="deductions">Urut Potongan</option>
+                <option value="deductions">Urut Admin Fee</option>
                 <option value="net">Urut Omzet Net</option>
               </select>
             </div>
@@ -239,7 +239,7 @@ export function GrossSalesBreakdownModal({
                     <tr className="border-b border-suka-gray-200 text-suka-gray-400 font-bold uppercase tracking-wider text-[10px]">
                       <th className="pb-3 pl-3">Saluran Penjualan</th>
                       <th className="pb-3 text-right">Omzet Kotor</th>
-                      <th className="pb-3 text-right">Potongan Merchant</th>
+                      <th className="pb-3 text-right">Admin Fee</th>
                       <th className="pb-3 text-right">Net Diterima</th>
                       <th className="pb-3 text-right pr-3">Porsi Omzet</th>
                     </tr>
@@ -340,7 +340,7 @@ export function GrossSalesBreakdownModal({
                       <tr className="border-b border-suka-gray-200 text-suka-gray-400 font-bold uppercase tracking-wider text-[10px]">
                         <th className="pb-3 pl-3">Outlet</th>
                         <th className="pb-3 text-right">Omzet Kotor</th>
-                        <th className="pb-3 text-right">Potongan Merchant</th>
+                        <th className="pb-3 text-right">Admin Fee</th>
                         <th className="pb-3 text-right">Net Diterima</th>
                         <th className="pb-3 text-right pr-3">Kontribusi %</th>
                       </tr>

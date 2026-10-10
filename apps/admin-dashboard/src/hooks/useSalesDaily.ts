@@ -69,15 +69,19 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       let settlementList: any[] = []
       try {
         settlementList = await fetchAllPagesParallel<any>(
-          (from, to, withCount) =>
-            supabase
+          (from, to, withCount) => {
+            let b = supabase
               .from('platform_settlements')
               .select('outlet_id, platform, tanggal, commission', withCount ? { count: 'exact' } : undefined)
               .gte('tanggal', filter.from)
               .lte('tanggal', filter.to)
               .order('tanggal', { ascending: true })
               .order('id', { ascending: true })
-              .range(from, to),
+            if (filter.outletId !== 'all') {
+              b = b.eq('outlet_id', filter.outletId)
+            }
+            return b.range(from, to)
+          },
           1000,
         )
       } catch (settlementError) {

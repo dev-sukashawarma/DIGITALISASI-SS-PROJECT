@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef, useMemo, useDeferredValue } from 'react'
+import { useState, useRef, useMemo, useDeferredValue, useEffect } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import {
   Plus,
   Pencil,
@@ -72,6 +73,7 @@ import {
   toggleMenuPublished,
   deleteMenuItem,
   toggleSettingBadge,
+  uploadMenuImage,
 } from './actions'
 
 interface FormState {
@@ -133,11 +135,27 @@ export default function MenuManagementClient({
   initialRecommendations,
   promos = [],
 }: Props) {
+  const router = useRouter()
   const [categoriesList, setCategoriesList] = useState<Category[]>(categories)
   const [items, setItems] = useState<MenuItem[]>(initialItems)
   const [upsells, setUpsells] = useState<string[]>(initialUpsells)
   const [bestsellers, setBestsellers] = useState<string[]>(initialBestsellers)
   const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations)
+
+  // Sync state with server-provided props on revalidation or refresh
+  useEffect(() => {
+    setItems(initialItems)
+  }, [initialItems])
+
+  useEffect(() => {
+    setCategoriesList(categories)
+  }, [categories])
+
+  useEffect(() => {
+    setUpsells(initialUpsells)
+    setBestsellers(initialBestsellers)
+    setRecommendations(initialRecommendations)
+  }, [initialUpsells, initialBestsellers, initialRecommendations])
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('')
@@ -487,24 +505,11 @@ export default function MenuManagementClient({
     try {
       let finalImageUrl = form.image_url
 
-      // If user selected a new image file, upload to Supabase storage 'menu-images'
+      // If user selected a new image file, upload via server action to avoid client RLS issues
       if (imageFile) {
-        const supabase = getPosSupabase()
-        const ext = imageFile.name.split('.').pop() || 'webp'
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('menu-images')
-          .upload(fileName, imageFile, { contentType: imageFile.type, upsert: true })
-
-        if (uploadError) {
-          throw new Error(`Upload gambar gagal: ${uploadError.message}`)
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from('menu-images').getPublicUrl(fileName)
-
-        finalImageUrl = publicUrl
+        const uploadData = new FormData()
+        uploadData.append('file', imageFile)
+        finalImageUrl = await uploadMenuImage(uploadData)
       }
 
       // Prepare final channel_prices to guarantee all channels are set
@@ -549,7 +554,7 @@ export default function MenuManagementClient({
         })
       }
 
-      await saveMenuItem({
+      const saveRes = await saveMenuItem({
         id: form.id,
         name: form.name,
         description: form.description,
@@ -567,10 +572,12 @@ export default function MenuManagementClient({
         tampil_di_app: form.tampil_di_app,
       })
 
+      const targetId = form.id || saveRes?.id || `temp-${Date.now()}`
+
       // Update local state for immediate feedback
       setItems((prev) => {
         const updatedItem: MenuItem = {
-          id: form.id || `temp-${Date.now()}`,
+          id: targetId,
           name: form.name,
           description: form.description,
           price: Number(form.price),
@@ -580,7 +587,7 @@ export default function MenuManagementClient({
           is_available: form.is_available,
           is_available_online: form.is_available_online,
           available_online_channels: form.available_online_channels,
-          channel_prices: form.channel_prices as any,
+          channel_prices: finalChannelPrices as any,
           sort_order: 0,
           outlet_id: null,
           available_outlets: form.outlet_ids,
@@ -596,8 +603,9 @@ export default function MenuManagementClient({
         }
       })
 
+      router.refresh()
       setShowForm(false)
-      showToast('success', form.id ? 'Perubahan menu berhasil disimpan!' : 'Menu baru berhasil ditambahkan!')
+      showToast('success', form.id ? 'Perubahan menu & harga berhasil disimpan!' : 'Menu baru berhasil ditambahkan!')
     } catch (err: any) {
       setFormError(err?.message || 'Terjadi kesalahan saat menyimpan menu.')
     } finally {
@@ -610,6 +618,7 @@ export default function MenuManagementClient({
     try {
       await toggleMenuAvailability(item.id, item.is_available)
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_available: !i.is_available } : i)))
+      router.refresh()
       showToast('success', `Status ${item.name} berhasil diubah`)
     } catch (err: any) {
       showToast('error', `Gagal mengubah status: ${err.message}`)
@@ -621,6 +630,7 @@ export default function MenuManagementClient({
       const nextStatus = !item.tampil_di_app
       await toggleTampilDiApp(item.id, item.tampil_di_app ?? false)
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, tampil_di_app: nextStatus } : i)))
+      router.refresh()
       showToast('success', `Tayang aplikasi untuk ${item.name} diperbarui`)
     } catch (err: any) {
       showToast('error', `Gagal mengubah tayang app: ${err.message}`)
@@ -632,6 +642,7 @@ export default function MenuManagementClient({
       const nextStatus = !item.is_published_order_online
       await toggleMenuPublished(item.id, item.is_published_order_online ?? false)
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_published_order_online: nextStatus } : i)))
+      router.refresh()
       showToast('success', `Status website untuk ${item.name} diperbarui`)
     } catch (err: any) {
       showToast('error', `Gagal mengubah status website: ${err.message}`)
@@ -646,6 +657,7 @@ export default function MenuManagementClient({
     try {
       await deleteMenuItem(item.id, item.image_url)
       setItems((prev) => prev.filter((i) => i.id !== item.id))
+      router.refresh()
       showToast('success', `Menu ${item.name} berhasil dihapus`)
     } catch (err: any) {
       showToast('error', `Gagal menghapus menu: ${err.message}`)

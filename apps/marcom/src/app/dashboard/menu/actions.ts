@@ -8,39 +8,55 @@ const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
 export async function toggleMenuAvailability(id: string, currentStatus: boolean) {
   const supabase = getPosSupabase()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('menu_items')
-    .update({ is_available: !currentStatus })
+    .update({ is_available: !currentStatus, updated_at: new Date().toISOString() })
     .eq('id', id)
+    .select('id')
 
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) {
+    throw new Error('Gagal mengubah ketersediaan: Menu tidak ditemukan atau izin database tidak cukup.')
+  }
   revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu', 'layout')
 }
 
 export async function toggleTampilDiApp(id: string, currentStatus: boolean) {
   const supabase = getPosSupabase()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('menu_items')
-    .update({ tampil_di_app: !currentStatus })
+    .update({ tampil_di_app: !currentStatus, updated_at: new Date().toISOString() })
     .eq('id', id)
+    .select('id')
 
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) {
+    throw new Error('Gagal mengubah tampilan di App: Menu tidak ditemukan atau izin database tidak cukup.')
+  }
   revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu', 'layout')
 }
 
 export async function toggleMenuPublished(id: string, currentStatus: boolean) {
   const supabase = getPosSupabase()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('menu_items')
     .update({
       is_published_order_online: !currentStatus,
       order_online_sync_status: !currentStatus ? 'pending' : 'not_published',
       order_online_sync_updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq('id', id)
+    .select('id')
 
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) {
+    throw new Error('Gagal mengubah status publikasi: Menu tidak ditemukan atau izin database tidak cukup.')
+  }
   revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu', 'layout')
 }
 
 export async function deleteMenuItem(id: string, imageUrl: string | null) {
@@ -53,10 +69,41 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
     }
   }
 
-  const { error } = await supabase.from('menu_items').delete().eq('id', id)
+  const { data, error } = await supabase.from('menu_items').delete().eq('id', id).select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) {
+    throw new Error('Gagal menghapus menu: Menu tidak ditemukan atau izin database tidak cukup.')
+  }
 
   revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu', 'layout')
+}
+
+export async function uploadMenuImage(formData: FormData): Promise<string> {
+  const file = formData.get('file') as File | null
+  if (!file || !(file instanceof File) || file.size === 0) {
+    throw new Error('File gambar tidak ditemukan atau kosong.')
+  }
+  const supabase = getPosSupabase()
+  const ext = file.name.split('.').pop() || 'webp'
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+
+  const arrayBuffer = await file.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+
+  const { error: uploadError } = await supabase.storage
+    .from('menu-images')
+    .upload(fileName, buffer, { contentType: file.type, upsert: true })
+
+  if (uploadError) {
+    throw new Error(`Upload gambar gagal: ${uploadError.message}`)
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from('menu-images').getPublicUrl(fileName)
+
+  return publicUrl
 }
 
 export async function saveMenuItem(form: {
@@ -80,6 +127,11 @@ export async function saveMenuItem(form: {
 }) {
   const supabase = getPosSupabase()
 
+  const cleanPrice = Number(form.price)
+  if (isNaN(cleanPrice) || cleanPrice <= 0) {
+    throw new Error('Harga menu harus diisi angka yang valid dan lebih dari 0.')
+  }
+
   // Clean channel prices: ensure valid numbers
   const cleanedChannelPrices: Record<string, number> = {}
   if (form.channel_prices) {
@@ -91,10 +143,11 @@ export async function saveMenuItem(form: {
     })
   }
 
+  const nowIso = new Date().toISOString()
   const payload: any = {
     name: form.name.trim(),
     description: form.description ? form.description.trim() : null,
-    price: Number(form.price) || 0,
+    price: cleanPrice,
     strike_price: form.strike_price ? Number(form.strike_price) : null,
     category_id: form.category_id || null,
     image_url: form.image_url || null,
@@ -109,18 +162,41 @@ export async function saveMenuItem(form: {
     is_published_order_online: form.is_published_order_online ?? false,
     tampil_di_app: form.tampil_di_app ?? false,
     order_online_sync_status: form.is_published_order_online ? 'pending' : 'not_published',
-    order_online_sync_updated_at: new Date().toISOString(),
+    order_online_sync_updated_at: nowIso,
+    updated_at: nowIso,
   }
 
-  if (form.id) {
-    const { error } = await supabase.from('menu_items').update(payload).eq('id', form.id)
+  const isEdit = Boolean(form.id && String(form.id).trim().length > 0)
+  let savedId: string | null = null
+
+  if (isEdit) {
+    const { data, error } = await supabase
+      .from('menu_items')
+      .update(payload)
+      .eq('id', String(form.id).trim())
+      .select('id')
+
     if (error) throw new Error(`Gagal update menu: ${error.message}`)
+    if (!data || data.length === 0) {
+      throw new Error('Gagal update menu: Baris tidak ditemukan atau database menolak perubahan.')
+    }
+    savedId = data[0].id
   } else {
-    const { error } = await supabase.from('menu_items').insert(payload)
+    const { data, error } = await supabase
+      .from('menu_items')
+      .insert(payload)
+      .select('id')
+
     if (error) throw new Error(`Gagal menambah menu: ${error.message}`)
+    if (!data || data.length === 0) {
+      throw new Error('Gagal menambah menu: Data tidak tersimpan ke database.')
+    }
+    savedId = data[0].id
   }
 
   revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu', 'layout')
+  return { success: true, id: savedId }
 }
 
 export async function toggleSettingBadge(itemId: string, key: 'bestseller_ids' | 'upsell_ids' | 'recommendation_ids') {

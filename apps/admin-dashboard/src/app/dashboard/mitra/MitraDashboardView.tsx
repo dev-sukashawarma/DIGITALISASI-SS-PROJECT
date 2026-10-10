@@ -14,6 +14,7 @@ import {
   UserCircle,
   ShieldCheck,
   ChevronRight,
+  ChevronDown,
   Download,
   ArrowRightLeft,
   MessageSquare,
@@ -379,66 +380,71 @@ export function MitraDashboardView({
         )}
 
         {/* 1. HERO / HEADER SECTION */}
-        <div className="bg-white/70 backdrop-blur-xl border border-white p-6 sm:p-8 rounded-[32px] shadow-xl shadow-suka-orange/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
+        <div className="bg-white/70 backdrop-blur-xl border border-white p-5 sm:p-7 md:p-8 rounded-[32px] shadow-xl shadow-suka-orange/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
           <div className="absolute inset-0 rounded-[32px] overflow-hidden pointer-events-none -z-10">
             <div className="absolute top-0 right-0 w-64 h-64 bg-suka-orange/10 rounded-full blur-[60px] translate-x-1/2 -translate-y-1/2" />
           </div>
           
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-suka-orange/10 text-suka-orange text-xs font-black uppercase tracking-widest border border-suka-orange/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-suka-orange mr-2 animate-pulse" />
-                Dashboard Kemitraan Komprehensif
-              </span>
-              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-                <ShieldCheck className="w-3.5 h-3.5" /> Mitra Terverifikasi
+          <div className="space-y-3 w-full md:w-auto">
+            {/* Single Unified Verified Badge */}
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Mitra Resmi Terverifikasi</span>
               </span>
             </div>
 
-            <h1 className="text-3xl md:text-4xl font-black text-suka-brown tracking-tighter">
-              Halo, <span className="text-suka-orange drop-shadow-sm">{mitra?.nama_mitra || 'Mitra'}</span> 👋
+            {/* Greeting with non-breaking wave emoji */}
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-suka-brown tracking-tight leading-tight">
+              Halo, <span className="text-suka-orange drop-shadow-sm">{mitra?.nama_mitra || 'Mitra'}</span>{' '}
+              <span className="inline-block hover:rotate-12 transition-transform cursor-default origin-bottom-right">👋</span>
             </h1>
 
-            {/* Quick Biodata & Bank Summary Bar */}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-suka-gray-500 font-medium pt-1">
-              <div className="flex items-center gap-1.5 bg-white/90 border border-suka-gray-200 px-3 py-1.5 rounded-xl shadow-sm">
-                <CreditCard className="w-3.5 h-3.5 text-suka-orange" />
-                <span>
-                  Rekening Bagi Hasil: <strong>{mitra?.bank_name || 'BCA'} {mitra?.bank_account_number || '-'}</strong> ({mitra?.bank_account_holder || mitra?.nama_mitra})
-                </span>
+            {/* Structured Bank Info Micro-card */}
+            <div className="pt-0.5">
+              <div className="inline-flex flex-wrap items-center gap-2.5 bg-amber-50/70 border border-amber-200/70 px-3.5 py-2 rounded-2xl shadow-2xs max-w-full">
+                <div className="w-7 h-7 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <CreditCard className="w-3.5 h-3.5 text-amber-700" />
+                </div>
+                <div className="text-xs leading-tight min-w-0">
+                  <p className="text-[10px] font-extrabold text-amber-800/70 uppercase tracking-wider">Rekening Bagi Hasil</p>
+                  <p className="font-extrabold text-suka-brown mt-0.5 truncate">
+                    {mitra?.bank_name || 'BCA'}{' '}
+                    <span className="font-mono text-suka-orange font-black">{mitra?.bank_account_number || '-'}</span>
+                    <span className="text-suka-gray-400 font-normal"> · a.n. {mitra?.bank_account_holder || mitra?.nama_mitra}</span>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
           
           {/* Outlet Selector Dropdown */}
           {outlets && outlets.length > 0 && (
-            <div className="w-full md:w-auto relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-suka-orange to-suka-brown rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500" />
-              <div className="relative w-full bg-white/90 backdrop-blur-md rounded-2xl border border-white shadow-sm p-2 flex items-center">
-                <div className="p-2 bg-suka-orange/10 rounded-xl mr-3">
-                  <Store className="w-5 h-5 text-suka-orange" />
+            <div className="w-full md:w-auto min-w-[240px]">
+              <div className="relative bg-white/95 backdrop-blur-md border border-suka-gray-200 hover:border-suka-orange/50 rounded-2xl p-2.5 flex items-center shadow-xs transition-all">
+                <div className="p-2 bg-suka-orange/10 rounded-xl mr-2.5 shrink-0">
+                  <Store className="w-4 h-4 text-suka-orange" />
                 </div>
-                <select 
-                  className="w-full min-h-[44px] bg-transparent text-sm font-extrabold text-suka-brown outline-none cursor-pointer pr-8 appearance-none"
-                  value={selectedOutletId || (outlets.length === 1 ? outlets[0].id : 'all')}
-                  onChange={(e) => setSelectedOutletId(e.target.value)}
-                >
-                  {outlets.length > 1 && (
-                    <option value="all" className="font-bold text-slate-800">
-                      Semua Outlet ({outlets.length})
-                    </option>
-                  )}
-                  {outlets.map((o: any) => (
-                    <option key={o.id} value={o.id} className="font-medium text-slate-700">
-                      Outlet: {o.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute right-3 pointer-events-none">
-                  <svg className="w-4 h-4 text-suka-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
-                  </svg>
+                <div className="flex-1 min-w-0 pr-6">
+                  <p className="text-[9px] font-extrabold text-suka-gray-400 uppercase tracking-wider">Outlet Aktif</p>
+                  <select 
+                    className="w-full bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer truncate appearance-none"
+                    value={selectedOutletId || (outlets.length === 1 ? outlets[0].id : 'all')}
+                    onChange={(e) => setSelectedOutletId(e.target.value)}
+                  >
+                    {outlets.length > 1 && (
+                      <option value="all" className="font-bold text-slate-800">
+                        Semua Outlet ({outlets.length})
+                      </option>
+                    )}
+                    {outlets.map((o: any) => (
+                      <option key={o.id} value={o.id} className="font-bold text-slate-700">
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                <ChevronDown className="w-4 h-4 text-suka-orange absolute right-3 pointer-events-none" />
               </div>
             </div>
           )}

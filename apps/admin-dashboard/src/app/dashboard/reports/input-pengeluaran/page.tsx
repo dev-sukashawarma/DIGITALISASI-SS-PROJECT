@@ -22,7 +22,10 @@ import {
   Pencil,
   ChevronRight,
   Search,
-  Sparkles
+  Sparkles,
+  Award,
+  Briefcase,
+  Clock
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -37,7 +40,7 @@ import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
 import { OpexCardDetailModals, type OpexModalType } from '@/components/OpexCardDetailModals'
 import { deleteTransactionAction } from '@/app/actions/expenses'
-import { CATEGORY_META, isSalaryCategory, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
+import { CATEGORY_META, isSalaryCategory, isLemburExpense, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
@@ -55,22 +58,29 @@ function matchesCategory(category: string | undefined | null, selected: string) 
   return false
 }
 
-function getFirstOfMonth() {
-  const d = new Date()
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function getFirstOfMonth(d = new Date()) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   return `${y}-${m}-01`
 }
 
-function getLastOfMonth() {
-  const d = new Date()
+function getLastOfMonth(d = new Date()) {
   const y = d.getFullYear()
   const m = d.getMonth() + 1
-  return new Date(y, m, 0).toISOString().slice(0, 10)
+  const lastDay = new Date(y, m, 0).getDate()
+  const padM = String(m).padStart(2, '0')
+  return `${y}-${padM}-${String(lastDay).padStart(2, '0')}`
 }
 
-function getToday() {
-  return new Date().toISOString().slice(0, 10)
+function getToday(d = new Date()) {
+  return formatLocalDate(d)
 }
 
 export default function InputPengeluaranPage() {
@@ -139,10 +149,13 @@ export default function InputPengeluaranPage() {
       if (target === 'ALL_OUTLETS' && r.scope === 'pusat') return
       if (target !== 'all' && target !== 'PUSAT' && target !== 'ALL_OUTLETS' && (r.scope === 'pusat' || r.outlet_id !== target)) return
       
+      const isLembur = isLemburExpense(r.category, r.description)
+      const effectiveCategory = isLembur ? 'lembur' : r.category
+
       list.push({
         id: r.id,
         date: r.expense_date,
-        category: r.category,
+        category: effectiveCategory,
         outlet_name: r.outlet_name ?? (r.scope === 'pusat' ? 'Kantor Pusat' : '-'),
         outlet_id: r.outlet_id,
         recipient_name: r.recipient_name ?? '-',
@@ -155,7 +168,8 @@ export default function InputPengeluaranPage() {
         raw_description: r.raw_description || r.description,
         raw_category: r.raw_category || r.category,
         scope: r.scope,
-        source: r.source || 'monthly'
+        source: r.source || 'monthly',
+        isLembur
       })
     })
 
@@ -168,6 +182,7 @@ export default function InputPengeluaranPage() {
   const summary = useMemo(() => {
     let totalOpex = 0
     let salary = 0
+    let lembur = 0
     let nonSalary = 0
     let pusat = 0
     let outlet = 0
@@ -175,7 +190,9 @@ export default function InputPengeluaranPage() {
     allTransactions.forEach(t => {
       const amt = Number(t.amount || 0)
       totalOpex += amt
-      if (isSalaryCategory(t.category)) {
+      if (t.category === 'lembur' || t.isLembur) {
+        lembur += amt
+      } else if (isSalaryCategory(t.category)) {
         salary += amt
       } else {
         nonSalary += amt
@@ -190,6 +207,7 @@ export default function InputPengeluaranPage() {
     return {
       totalOpex,
       salary,
+      lembur,
       nonSalary,
       pusat,
       outlet,
@@ -215,7 +233,66 @@ export default function InputPengeluaranPage() {
     return Math.round(hrPayroll.basicSalary * prorataInfo.ratio)
   }, [hasHrPayroll, hrPayroll, prorataInfo])
 
-  const totalCombinedOpex = displaySalary + summary.nonSalary
+  const displayBonus = useMemo(() => {
+    if (!hasHrPayroll || !hrPayroll?.bonus) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.bonus
+    return Math.round(hrPayroll.bonus * prorataInfo.ratio)
+  }, [hasHrPayroll, hrPayroll, prorataInfo])
+
+  const displayCrewBonus = useMemo(() => {
+    if (!hasHrPayroll || !hrPayroll?.crewBonus) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.crewBonus
+    return Math.round(hrPayroll.crewBonus * prorataInfo.ratio)
+  }, [hasHrPayroll, hrPayroll, prorataInfo])
+
+  const displayManagerBonus = useMemo(() => {
+    if (!hasHrPayroll || !hrPayroll?.managerBonusAllocation) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.managerBonusAllocation
+    return Math.round(hrPayroll.managerBonusAllocation * prorataInfo.ratio)
+  }, [hasHrPayroll, hrPayroll, prorataInfo])
+
+  const displayRoutineSalary = useMemo(() => {
+    // Gaji rutin adalah total salary dikurangi bonus
+    return Math.max(0, displaySalary - displayBonus)
+  }, [displaySalary, displayBonus])
+
+  // Data Lembur Kas Outlet (Petty Cash)
+  const lemburData = useMemo(() => {
+    const items = allTransactions
+      .filter(t => t.category === 'lembur' || t.isLembur)
+      .map(t => ({
+        id: t.id,
+        date: t.date,
+        outletName: t.outlet_name,
+        outletId: t.outlet_id,
+        description: t.description,
+        amount: Number(t.amount || 0),
+        recipientName: t.recipient_name,
+        receiptUrl: t.receipt_url,
+      }))
+
+    const outletMap = new Map<string, { outletName: string; outletId?: string | null; count: number; totalAmount: number }>()
+    items.forEach(it => {
+      const key = it.outletName || 'Cabang'
+      const existing = outletMap.get(key) || { outletName: key, outletId: it.outletId, count: 0, totalAmount: 0 }
+      existing.count += 1
+      existing.totalAmount += it.amount
+      outletMap.set(key, existing)
+    })
+
+    const outlets = Array.from(outletMap.values()).sort((a, b) => b.totalAmount - a.totalAmount)
+    const totalLembur = items.reduce((sum, it) => sum + it.amount, 0)
+
+    return {
+      totalLembur,
+      totalCount: items.length,
+      items,
+      outlets
+    }
+  }, [allTransactions])
+
+  const displayLembur = lemburData.totalLembur
+  const totalCombinedOpex = displaySalary + displayLembur + summary.nonSalary
 
   // Operational breakdown for details modal (Category & Outlet)
   const operationalBreakdown = useMemo(() => {
@@ -237,7 +314,7 @@ export default function InputPengeluaranPage() {
     let nonSalaryCount = 0
 
     allTransactions.forEach(t => {
-      if (isSalaryCategory(t.category)) return
+      if (isSalaryCategory(t.category) || t.category === 'lembur' || t.isLembur) return
       nonSalaryCount++
       const amt = Number(t.amount || 0)
 
@@ -530,28 +607,29 @@ export default function InputPengeluaranPage() {
     setActivePreset(preset)
     const today = new Date()
     if (preset === 'today') {
-      const t = today.toISOString().slice(0, 10)
+      const t = formatLocalDate(today)
       setStartDate(t)
       setEndDate(t)
     } else if (preset === 'this_month') {
-      setStartDate(getFirstOfMonth())
-      setEndDate(getLastOfMonth())
+      setStartDate(getFirstOfMonth(today))
+      setEndDate(getLastOfMonth(today))
     } else if (preset === 'last_month') {
-      const y = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()
-      const m = today.getMonth() === 0 ? 12 : today.getMonth()
-      const padM = String(m).padStart(2, '0')
-      const start = `${y}-${padM}-01`
-      const end = new Date(y, m, 0).toISOString().slice(0, 10)
+      const prevYear = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()
+      const prevMonth = today.getMonth() === 0 ? 12 : today.getMonth() // 1-indexed (1 to 12)
+      const padM = String(prevMonth).padStart(2, '0')
+      const start = `${prevYear}-${padM}-01`
+      const lastDay = new Date(prevYear, prevMonth, 0).getDate()
+      const end = `${prevYear}-${padM}-${String(lastDay).padStart(2, '0')}`
       setStartDate(start)
       setEndDate(end)
     } else if (preset === 'last_7_days') {
-      const past = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
-      setStartDate(past.toISOString().slice(0, 10))
-      setEndDate(today.toISOString().slice(0, 10))
+      const past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
+      setStartDate(formatLocalDate(past))
+      setEndDate(formatLocalDate(today))
     } else if (preset === 'last_30_days') {
-      const past = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000)
-      setStartDate(past.toISOString().slice(0, 10))
-      setEndDate(today.toISOString().slice(0, 10))
+      const past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)
+      setStartDate(formatLocalDate(past))
+      setEndDate(formatLocalDate(today))
     }
   }
 
@@ -807,16 +885,16 @@ export default function InputPengeluaranPage() {
         </div>
       )}
 
-      {/* SUMMARY STATS (PURE OPEX) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-        {/* 1. Gaji & Payroll */}
+      {/* SUMMARY STATS (PURE OPEX - 6 CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, LEMBUR KAS, OPERATIONAL, TOTAL) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+        {/* 1. Gaji & Payroll (Rutin) */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
                 <div className="flex items-center gap-1 shrink-0">
                   <Users size={14} className="shrink-0" />
-                  <span>Gaji & Payroll</span>
+                  <span>Gaji (Rutin)</span>
                 </div>
                 {hrPayroll?.status === 'draft' && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
@@ -848,17 +926,22 @@ export default function InputPengeluaranPage() {
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-indigo-700 mt-2 tracking-tight truncate" title={rupiah(displaySalary)}>
-              {rupiah(displaySalary)}
+            <div className="text-xl sm:text-2xl font-black text-indigo-700 mt-2 tracking-tight truncate" title={rupiah(displayRoutineSalary)}>
+              {rupiah(displayRoutineSalary)}
             </div>
 
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
               {hasHrPayroll ? (
                 <span>
-                  Total THP HR ({hrPayroll!.totalStaff} staf)
+                  Gaji Rutin ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} kru)
+                  {Boolean(hrPayroll!.managerAllocation && hrPayroll!.managerAllocation > 0) && (
+                    <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={`Termasuk alokasi beban rutin AM, RM, & Stock Controller: ${rupiah(hrPayroll!.managerRoutineAllocation ?? hrPayroll!.managerAllocation)}`}>
+                      • Termasuk Rutin AM/RM/SC
+                    </span>
+                  )}
                   {prorataInfo.isProrated && (
-                    <span className="text-[10px] text-amber-700 font-bold ml-1.5" title="Nilai acuan payroll sebulan penuh sebelum prorata">
-                      • Baseline 1 bln: {rupiah(hrPayroll!.totalSalary)}
+                    <span className="text-[10px] text-amber-700 font-bold ml-1.5" title="Nilai acuan gaji rutin sebulan penuh sebelum prorata">
+                      • Baseline 1 bln: {rupiah(Math.max(0, hrPayroll!.totalSalary - (hrPayroll!.bonus || 0)))}
                     </span>
                   )}
                   {Boolean(displayBasicSalary > 0) && (
@@ -866,14 +949,9 @@ export default function InputPengeluaranPage() {
                       • Gapok: {rupiah(displayBasicSalary)}
                     </span>
                   )}
-                  {summary.salary > 0 && summary.salary !== displaySalary && (
-                    <span className="text-[10px] text-gray-400 font-normal ml-1">
-                      • Kas: {rupiah(summary.salary)}
-                    </span>
-                  )}
                 </span>
               ) : (
-                'Beban gaji crew & kantor'
+                'Beban gaji rutin crew & kantor'
               )}
             </div>
           </div>
@@ -893,25 +971,193 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 2. Operasional Outlet & Pusat */}
+        {/* 2. Bonus Kru Toko */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1 truncate">
+              <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Award size={14} className="shrink-0" />
+                  <span>Bonus Kru</span>
+                </div>
+                {hasHrPayroll && prorataInfo.isProrated && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
+                    title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                    <span>Prorata</span>
+                  </span>
+                )}
+              </div>
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs shrink-0">
+                KRU
+              </div>
+            </div>
+
+            <div className="text-xl sm:text-2xl font-black text-amber-700 mt-2 tracking-tight truncate" title={rupiah(displayCrewBonus)}>
+              +{rupiah(displayCrewBonus)}
+            </div>
+
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
+              {hasHrPayroll ? (
+                <span>
+                  {hrPayroll?.crewBonusDetails ? `${hrPayroll.crewBonusDetails.length} penerima` : 'Bonus Omset Kru'}
+                  <span className="text-[10px] text-amber-700 font-bold ml-1.5">
+                    • Kru Toko
+                  </span>
+                  {prorataInfo.isProrated && (
+                    <span className="text-[10px] text-gray-400 font-normal ml-1">
+                      • 1 bln: {rupiah(hrPayroll?.crewBonus ?? 0)}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                'Bonus omset target kru toko'
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setActiveDetailModal('bonus_kru')}
+              className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-800 transition-colors cursor-pointer group"
+            >
+              <span>Lihat Detail</span>
+              <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <span className="text-[10px] text-gray-400 font-medium">
+              Rincian Kru
+            </span>
+          </div>
+        </div>
+
+        {/* 3. Bonus Sales AM & RM */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-bold text-purple-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Briefcase size={14} className="shrink-0" />
+                  <span>Bonus AM & RM</span>
+                </div>
+                {hasHrPayroll && prorataInfo.isProrated && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-100/90 px-2 py-0.5 rounded-full border border-purple-300/70 shadow-2xs"
+                    title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
+                  >
+                    <Sparkles className="w-3 h-3 text-purple-600 shrink-0" />
+                    <span>Prorata</span>
+                  </span>
+                )}
+              </div>
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
+                MGR
+              </div>
+            </div>
+
+            <div className="text-xl sm:text-2xl font-black text-purple-700 mt-2 tracking-tight truncate" title={rupiah(displayManagerBonus)}>
+              +{rupiah(displayManagerBonus)}
+            </div>
+
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
+              {hasHrPayroll ? (
+                <span>
+                  {hrPayroll?.managerBonusDetails ? `${hrPayroll.managerBonusDetails.length} penerima` : 'Alokasi Pengawas'}
+                  <span className="text-[10px] text-purple-700 font-bold ml-1.5">
+                    • AM & RM
+                  </span>
+                  {prorataInfo.isProrated && (
+                    <span className="text-[10px] text-gray-400 font-normal ml-1">
+                      • 1 bln: {rupiah(hrPayroll?.managerBonusAllocation ?? 0)}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                'Alokasi omset Area & Regional Manager'
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setActiveDetailModal('bonus_manager')}
+              className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer group"
+            >
+              <span>Lihat Detail</span>
+              <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <span className="text-[10px] text-gray-400 font-medium">
+              Alokasi AM/RM
+            </span>
+          </div>
+        </div>
+
+        {/* 4. Lembur Kas Toko (Petty Cash) */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-bold text-orange-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Clock size={14} className="shrink-0" />
+                  <span>Lembur Kas Toko</span>
+                </div>
+              </div>
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-xs shrink-0">
+                OT
+              </div>
+            </div>
+
+            <div className="text-xl sm:text-2xl font-black text-orange-700 mt-2 tracking-tight truncate" title={rupiah(displayLembur)}>
+              +{rupiah(displayLembur)}
+            </div>
+
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
+              <span>
+                {lemburData.totalCount} nota lembur
+                <span className="text-[10px] text-orange-700 font-bold ml-1.5">
+                  • Petty Cash Toko
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setActiveDetailModal('lembur')}
+              className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-800 transition-colors cursor-pointer group"
+            >
+              <span>Lihat Detail</span>
+              <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <span className="text-[10px] text-gray-400 font-medium">
+              {lemburData.outlets.length} Cabang
+            </span>
+          </div>
+        </div>
+
+        {/* 5. Operasional Outlet & Pusat */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1 truncate">
                 <Store size={14} className="shrink-0" />
                 <span className="truncate">Operasional Outlet & Pusat</span>
               </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs shrink-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
                 OPEX
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-amber-700 mt-2 tracking-tight truncate" title={rupiah(summary.nonSalary)}>
+            <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-2 tracking-tight truncate" title={rupiah(summary.nonSalary)}>
               {rupiah(summary.nonSalary)}
             </div>
 
-            <div className="text-[11px] text-gray-400 font-semibold mt-0.5 truncate">
-              Listrik, wifi, operasional ({operationalBreakdown.count} transaksi)
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
+              Listrik, sewa, operasional ({operationalBreakdown.count} transaksi)
             </div>
           </div>
 
@@ -919,7 +1165,7 @@ export default function InputPengeluaranPage() {
             <button
               type="button"
               onClick={() => setActiveDetailModal('operational')}
-              className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-800 transition-colors cursor-pointer group"
+              className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors cursor-pointer group"
             >
               <span>Lihat Detail</span>
               <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
@@ -928,7 +1174,7 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 3. Total OPEX (Kas / Gabungan) */}
+        {/* 6. Total OPEX */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -943,7 +1189,7 @@ export default function InputPengeluaranPage() {
                     title="Termasuk beban gaji prorata sesuai rentang filter"
                   >
                     <Sparkles className="w-3 h-3 text-rose-500 shrink-0" />
-                    <span>Prorata Gaji</span>
+                    <span>Prorata</span>
                   </span>
                 )}
               </div>
@@ -956,8 +1202,14 @@ export default function InputPengeluaranPage() {
               {rupiah(totalCombinedOpex)}
             </div>
 
-            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
-              <span>Gaji{hasHrPayroll && prorataInfo.isProrated ? ' (Prorata)' : ''}: {rupiah(displaySalary)}</span>
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate" title={`Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Lembur: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`}>
+              <span>Rutin: {rupiah(displayRoutineSalary)}</span>
+              <span className="text-gray-400 mx-1">+</span>
+              <span>Kru: {rupiah(displayCrewBonus)}</span>
+              <span className="text-gray-400 mx-1">+</span>
+              <span>AM/RM: {rupiah(displayManagerBonus)}</span>
+              <span className="text-gray-400 mx-1">+</span>
+              <span>Lembur: {rupiah(displayLembur)}</span>
               <span className="text-gray-400 mx-1">+</span>
               <span>Opex: {rupiah(summary.nonSalary)}</span>
             </div>
@@ -1385,12 +1637,17 @@ export default function InputPengeluaranPage() {
         onClose={() => setActiveDetailModal(null)}
         salaryData={{
           displaySalary,
+          displayRoutineSalary,
+          displayBonus,
+          displayCrewBonus,
+          displayManagerBonus,
           hasHrPayroll,
           hrPayroll,
           cashSalary: summary.salary,
           isProrated: hasHrPayroll && prorataInfo.isProrated,
           prorataInfo
         }}
+        lemburData={lemburData}
         operationalData={{
           totalNonSalary: summary.nonSalary,
           totalCount: operationalBreakdown.count,
@@ -1400,6 +1657,11 @@ export default function InputPengeluaranPage() {
         totalOpexData={{
           totalCombined: totalCombinedOpex,
           displaySalary,
+          displayRoutineSalary,
+          displayBonus,
+          displayCrewBonus,
+          displayManagerBonus,
+          displayLembur,
           totalNonSalary: summary.nonSalary,
           isProrated: hasHrPayroll && prorataInfo.isProrated,
           prorataInfo

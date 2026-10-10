@@ -17,7 +17,8 @@ import {
   Wrench,
   FileText,
   Landmark,
-  Globe
+  Globe,
+  Clock
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 
@@ -44,6 +45,7 @@ interface OpexBreakdownModalProps {
   totalOpex: number
   opexMonthly: number
   opexPettyCash: number
+  opexLembur?: number
   centralExpense: number
   isAllOutlets: boolean
   isProrated: boolean
@@ -53,11 +55,13 @@ interface OpexBreakdownModalProps {
   detailHref?: {
     monthly?: string
     pettyCash?: string
+    lembur?: string
   }
 }
 
 function getCategoryIcon(key: string) {
   const k = key.toLowerCase()
+  if (k.includes('lembur') || k.includes('overtime')) return Clock
   if (k.includes('gaji') || k.includes('payroll') || k.includes('salary')) return Users
   if (k.includes('sewa') || k.includes('rent')) return Building2
   if (k.includes('listrik') || k.includes('utility') || k.includes('air') || k.includes('gas')) return Zap
@@ -78,6 +82,7 @@ export function OpexBreakdownModal({
   totalOpex,
   opexMonthly,
   opexPettyCash,
+  opexLembur,
   centralExpense,
   isAllOutlets,
   isProrated,
@@ -121,6 +126,7 @@ export function OpexBreakdownModal({
   if (!isOpen) return null
 
   const hasCentral = isAllOutlets && centralExpense > 0
+  const hasLembur = Boolean(opexLembur && opexLembur > 0)
 
   return (
     <div
@@ -174,7 +180,13 @@ export function OpexBreakdownModal({
 
         {/* Top Summary Cards */}
         <div className="p-5 sm:p-6 bg-gradient-to-b from-suka-gray-50/40 to-white border-b border-suka-gray-100">
-          <div className={`grid grid-cols-1 ${hasCentral ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'} gap-3 sm:gap-3.5`}>
+          <div className={`grid grid-cols-1 ${
+            hasCentral && hasLembur
+              ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
+              : (hasCentral || hasLembur)
+              ? 'sm:grid-cols-2 lg:grid-cols-4'
+              : 'sm:grid-cols-3'
+          } gap-3 sm:gap-3.5`}>
             {/* Total OPEX */}
             <div className="min-w-0 bg-rose-50/60 p-3.5 sm:p-4 rounded-2xl border border-rose-200 shadow-2xs">
               <p className="text-[11px] font-bold uppercase tracking-wider text-rose-800 truncate">Total OPEX</p>
@@ -193,13 +205,24 @@ export function OpexBreakdownModal({
               <p className="text-[11px] font-semibold text-suka-gray-400 mt-0.5 truncate">Gaji, Sewa, Listrik & Utilitas</p>
             </div>
 
-            {/* Kas Kecil (Petty Cash) */}
+            {/* Lembur Kas Toko (jika ada) */}
+            {hasLembur && (
+              <div className="min-w-0 bg-orange-50/70 p-3.5 sm:p-4 rounded-2xl border border-orange-200 shadow-2xs">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-orange-800 truncate">Lembur Kas Toko</p>
+                <h3 className="text-base sm:text-lg xl:text-xl font-black text-orange-700 tracking-tight mt-1 whitespace-nowrap tabular-nums">
+                  -{rupiah(opexLembur!)}
+                </h3>
+                <p className="text-[11px] font-semibold text-orange-600 mt-0.5 truncate">Petty Cash Kasir Toko</p>
+              </div>
+            )}
+
+            {/* Kas Kecil Operasional */}
             <div className="min-w-0 bg-white p-3.5 sm:p-4 rounded-2xl border border-suka-gray-200 shadow-2xs">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-suka-gray-600 truncate">Kas Kecil (Petty Cash)</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-suka-gray-600 truncate">Kas Kecil Operasional</p>
               <h3 className="text-base sm:text-lg xl:text-xl font-black text-suka-brown tracking-tight mt-1 whitespace-nowrap tabular-nums">
                 -{rupiah(opexPettyCash)}
               </h3>
-              <p className="text-[11px] font-semibold text-suka-gray-400 mt-0.5 truncate">Belanja Harian Kasir/Outlet</p>
+              <p className="text-[11px] font-semibold text-suka-gray-400 mt-0.5 truncate">Belanja Kebutuhan Toko</p>
             </div>
 
             {/* Beban Kantor Pusat (jika ada) */}

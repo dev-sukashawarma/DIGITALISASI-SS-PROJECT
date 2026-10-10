@@ -424,19 +424,33 @@ export function computeAnalytics({
   let settlementDateRange = ''
   let hasSettlementData = false
 
-  // Kartu settlement hanya tampil bila ada data settlement yang DIUNGGAH — aturan
-  // SAMA untuk TikTok GO dan SS Online (keputusan owner 2026-09-14).
-  const SS_ONLINE_PLATFORMS = ['tiktok_shop', 'shopee_shop']
+  // Kartu settlement mencocokkan platform settlement yang diunggah
+  const SS_ONLINE_PLATFORMS = new Set(['tiktok_shop', 'shopee_shop'])
   let relevantSettlements: any[] = []
   if (isSSOnlineSelected) {
-    const platforms = selectedChannels.includes('all')
-      ? SS_ONLINE_PLATFORMS
-      : SS_ONLINE_PLATFORMS.filter(p => selectedChannels.includes(p))
-    relevantSettlements = settlements.filter(s => platforms.includes(s.platform))
-  } else if (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) {
-    relevantSettlements = settlements.filter(s => selectedChannels.includes(s.platform) || (s.platform === 'tiktokgo' && selectedChannels.includes('tiktok')) || (s.platform === 'tiktok' && selectedChannels.includes('tiktokgo')))
-  } else if (selectedChannels.includes('gofood') || selectedChannels.includes('gojek')) {
-    relevantSettlements = settlements.filter(s => s.platform === 'gofood')
+    relevantSettlements = settlements.filter(s => {
+      const plat = (s.platform || '').toLowerCase()
+      if (!SS_ONLINE_PLATFORMS.has(plat)) return false
+      if (selectedChannels.includes('all')) return true
+      return selectedChannels.some(ch => ch.toLowerCase() === plat)
+    })
+  } else {
+    // Outlet fisik: kecualikan marketplace SS Online, sertakan seluruh platform foodapps
+    relevantSettlements = settlements.filter(s => {
+      const plat = (s.platform || '').toLowerCase()
+      if (SS_ONLINE_PLATFORMS.has(plat)) return false
+      if (selectedChannels.includes('all')) return true
+      return selectedChannels.some(ch => {
+        const c = ch.toLowerCase()
+        if (c === 'all') return true
+        if ((c === 'food_apps' || c === 'foodapps' || c === 'food_app') && isFoodApp(plat)) return true
+        if ((c === 'gofood' || c === 'gojek') && plat === 'gofood') return true
+        if ((c === 'grabfood' || c === 'grab') && plat === 'grabfood') return true
+        if ((c === 'shopeefood' || c === 'shopee') && plat === 'shopeefood') return true
+        if ((c === 'tiktokgo' || c === 'tiktok') && (plat === 'tiktokgo' || plat === 'tiktok')) return true
+        return c === plat
+      })
+    })
   }
 
   if (relevantSettlements.length > 0) {
@@ -466,6 +480,25 @@ export function computeAnalytics({
     }
   }
 
+  // Estimasi komisi platform bila data settlement belum diunggah untuk order food apps
+  const estimatedCommission = completed.reduce((sum, o) => {
+    if (isSSOnlineSelected || o.outlet_id === 'ss-online') return sum
+    const gross = computeOrderGross(o, kpiOpts)
+    const ch = (o.channel || '').toLowerCase()
+    const src = (o.sales_source || '').toLowerCase()
+    if (isGoFoodOrder(o)) return sum + Math.round(gross * 0.20)
+    if (ch.includes('grab') || src.includes('grab')) return sum + Math.round(gross * 0.20)
+    if (ch.includes('shopee') || src.includes('shopee')) return sum + Math.round(gross * 0.20)
+    if (isTikTokGoOrder(o)) return sum + Math.round(gross * 0.092)
+    return sum
+  }, 0)
+
+  const totalCommission = totalRealAdmin
+  const totalAdminFee = totalDeductions + totalCommission
+  const isCommissionEstimated = totalRealAdmin === 0 && estimatedCommission > 0
+  const netDisbursement = Math.max(0, grossRevenue - totalAdminFee)
+  const realGrossProfit = Math.max(0, netDisbursement - totalHPP)
+
   return {
     completedOrders: completed,
     paymentBreakdown,
@@ -483,6 +516,12 @@ export function computeAnalytics({
     netRevenue,
     totalHPP,
     grossProfit,
+    totalAdminFee,
+    totalCommission,
+    estimatedCommission,
+    isCommissionEstimated,
+    netDisbursement,
+    realGrossProfit,
     totalSettlement,
     totalSettlementGross,
     settlementRate,

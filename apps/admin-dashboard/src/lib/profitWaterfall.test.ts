@@ -377,3 +377,55 @@ describe('joint expense pada opex waterfall', () => {
   })
 })
 
+describe('lembur kas toko pada opex waterfall', () => {
+  const LEMBUR = 2_363_000
+
+  it('menyisipkan baris opex_lembur saat nilainya > 0', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      opexLembur: LEMBUR,
+    })
+
+    const lemburStep = steps.find((s) => s.key === 'opex_lembur')
+    expect(lemburStep).toBeDefined()
+    expect(lemburStep?.label).toBe('Lembur Kas Toko (Petty Cash)')
+    expect(lemburStep?.amount).toBe(-LEMBUR)
+    expect(lemburStep?.kind).toBe('deduction')
+    expect(lemburStep?.pctOfGross).toBeCloseTo((-LEMBUR / INPUT.grossRevenue) * 100, 4)
+
+    // Memastikan total berjalan tetap tepat
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+
+  it('tidak memunculkan baris opex_lembur saat nilainya 0 atau tidak diset', () => {
+    const stepsZero = buildProfitWaterfall({
+      ...INPUT,
+      opexLembur: 0,
+    })
+    expect(stepsZero.some((s) => s.key === 'opex_lembur')).toBe(false)
+
+    const stepsDefault = buildProfitWaterfall(INPUT)
+    expect(stepsDefault.some((s) => s.key === 'opex_lembur')).toBe(false)
+  })
+
+  it('laba bersih terpangkas tepat sebesar opexLembur', () => {
+    const tanpaLembur = buildProfitWaterfall(INPUT)
+    const denganLembur = buildProfitWaterfall({
+      ...INPUT,
+      opexLembur: LEMBUR,
+    })
+
+    const netTanpa = tanpaLembur.find((s) => s.kind === 'total')!.amount
+    const netDengan = denganLembur.find((s) => s.kind === 'total')!.amount
+    expect(netDengan).toBe(netTanpa - LEMBUR)
+  })
+})
+
+

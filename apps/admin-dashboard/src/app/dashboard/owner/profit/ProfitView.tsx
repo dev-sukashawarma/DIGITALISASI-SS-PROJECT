@@ -34,7 +34,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { isTestOutlet } from '@/lib/outletFilters'
-import { CATEGORY_META } from '@/lib/expenseCategories'
+import { CATEGORY_META, isLemburExpense } from '@/lib/expenseCategories'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
 import { GrossSalesBreakdownModal } from '@/components/profit/GrossSalesBreakdownModal'
@@ -366,22 +366,58 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   )
   const totalDeductions = totalPotongan + totalPlatformFee
 
+  const pengeluaranLembur = useMemo(
+    () => expenseRows
+      .filter(r => 
+        r.scope === 'outlet' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) && 
+        isLemburExpense(r.category, r.description)
+      )
+      .reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows]
+  )
+
+  const pengeluaranOutletPettyCashMurni = useMemo(
+    () => expenseRows
+      .filter(r => 
+        r.scope === 'outlet' && 
+        r.source === 'petty_cash' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) &&
+        !isLemburExpense(r.category, r.description)
+      )
+      .reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows]
+  )
+
   const pengeluaranOutletBulanan = useMemo(
-    () => expenseRows.filter(r => r.scope === 'outlet' && r.source === 'monthly' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name)).reduce((sum, r) => sum + r.amount, 0),
+    () => expenseRows
+      .filter(r => 
+        r.scope === 'outlet' && 
+        r.source === 'monthly' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) &&
+        !isLemburExpense(r.category, r.description)
+      )
+      .reduce((sum, r) => sum + r.amount, 0),
     [expenseRows]
   )
   const totalJointExpense = useMemo(
     () => expenseRows
-      .filter(r => r.scope === 'outlet' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name) && ((r as any).category === 'joint_expense' || (r as any).category === 'joint_expanse'))
+      .filter(r => 
+        r.scope === 'outlet' && 
+        !isTestOutlet(r.outlet_id) && 
+        !isTestOutlet(r.outlet_name) && 
+        !isLemburExpense((r as any).category, (r as any).description) && 
+        ((r as any).category === 'joint_expense' || (r as any).category === 'joint_expanse')
+      )
       .reduce((sum, r) => sum + r.amount, 0),
     [expenseRows]
   )
   const pengeluaranOutletBulananMurni = Math.max(0, pengeluaranOutletBulanan - totalJointExpense)
-  const pengeluaranOutletPettyCash = useMemo(
-    () => expenseRows.filter(r => r.scope === 'outlet' && r.source === 'petty_cash' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name)).reduce((sum, r) => sum + r.amount, 0),
-    [expenseRows]
-  )
-  const pengeluaranOutlet = pengeluaranOutletBulanan + pengeluaranOutletPettyCash
+  const pengeluaranOutletPettyCash = pengeluaranOutletPettyCashMurni
+  const pengeluaranOutlet = pengeluaranOutletBulanan + pengeluaranLembur + pengeluaranOutletPettyCashMurni
   const pengeluaranPusat = useMemo(
     () => expenseRows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
     [expenseRows]
@@ -573,6 +609,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         r.source === 'monthly' && 
         !isTestOutlet(r.outlet_id) && 
         !isTestOutlet(r.outlet_name) &&
+        !isLemburExpense((r as any).category, (r as any).description) &&
         (r as any).category !== 'joint_expense' &&
         (r as any).category !== 'joint_expanse'
       )
@@ -721,11 +758,20 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       })
     }
 
-    if (pengeluaranOutletPettyCash > 0) {
+    if (pengeluaranLembur > 0) {
+      list.push({
+        key: 'lembur',
+        label: 'Lembur Kas Toko (Petty Cash)',
+        amount: pengeluaranLembur,
+        isProrated: false,
+      })
+    }
+
+    if (pengeluaranOutletPettyCashMurni > 0) {
       list.push({
         key: 'petty_cash',
-        label: 'Kas Kecil (Petty Cash Outlet)',
-        amount: pengeluaranOutletPettyCash,
+        label: 'Kas Kecil (Petty Cash Operasional)',
+        amount: pengeluaranOutletPettyCashMurni,
         isProrated: false,
       })
     }
@@ -740,7 +786,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     }
 
     return list.sort((a, b) => b.amount - a.amount)
-  }, [opexMonthlyBreakdown, totalJointExpense, pengeluaranOutletPettyCash, includeCentral, pengeluaranPusat, isProrated])
+  }, [opexMonthlyBreakdown, totalJointExpense, pengeluaranLembur, pengeluaranOutletPettyCashMurni, includeCentral, pengeluaranPusat, isProrated])
 
   const opexOutletList = useMemo(() => {
     const list = outletBreakdown.map(o => ({
@@ -771,7 +817,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     waste: totalWaste,
     opexMonthly: totalJointExpense > 0 ? pengeluaranOutletBulananMurni : pengeluaranOutletBulanan,
     jointExpense: totalJointExpense,
-    opexPettyCash: pengeluaranOutletPettyCash,
+    opexLembur: pengeluaranLembur,
+    opexPettyCash: pengeluaranOutletPettyCashMurni,
     centralExpense: pengeluaranPusat,
     includeCentral,
     opexMonthlyBreakdown,
@@ -782,7 +829,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     deductionsBreakdown,
   }), [
     actualGrossSales, totalDeductions, totalHpp, totalWaste,
-    totalJointExpense, pengeluaranOutletBulananMurni, pengeluaranOutletBulanan, pengeluaranOutletPettyCash, pengeluaranPusat, includeCentral,
+    totalJointExpense, pengeluaranOutletBulananMurni, pengeluaranOutletBulanan, pengeluaranLembur, pengeluaranOutletPettyCashMurni, pengeluaranPusat, includeCentral,
     opexMonthlyBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense,
     grossRevenueBreakdown, deductionsBreakdown,
   ])
@@ -913,7 +960,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 </div>
                 <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
                   <span className="text-[10px] font-semibold text-rose-600">
-                    Potongan: -{rupiah(totalDeductions)}
+                    Admin Fee: -{rupiah(totalDeductions)}
                   </span>
                   <button
                     type="button"
@@ -1007,7 +1054,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 </div>
                 <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
                   <span className="text-[10px] font-semibold text-suka-gray-400">
-                    Bulanan + Kas Kecil
+                    {pengeluaranLembur > 0 ? 'Bulanan + Lembur + Kas' : 'Bulanan + Kas Kecil'}
                   </span>
                   <button
                     type="button"
@@ -1114,7 +1161,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
             totalOpex={pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)}
             opexMonthly={pengeluaranOutletBulanan}
-            opexPettyCash={pengeluaranOutletPettyCash}
+            opexLembur={pengeluaranLembur}
+            opexPettyCash={pengeluaranOutletPettyCashMurni}
             centralExpense={pengeluaranPusat}
             isAllOutlets={isAllOutlets}
             isProrated={isProrated}
@@ -1123,6 +1171,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             outlets={opexOutletList}
             detailHref={{
               monthly: bukuKasHref(filter),
+              lembur: `${pettyCashHref(filter)}&category=lembur`,
               pettyCash: pettyCashHref(filter),
             }}
           />
@@ -1137,7 +1186,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             periodLabel={`${filter.from} s/d ${filter.to}`}
             scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
             input={waterfallInput}
-            detailHref={{ opex_petty_cash: pettyCashHref(filter) }}
+            detailHref={{ 
+              opex_monthly: bukuKasHref(filter),
+              opex_lembur: `${pettyCashHref(filter)}&category=lembur`,
+              opex_petty_cash: pettyCashHref(filter) 
+            }}
           />
 
           {/* 5. Modal Tarik & Unduh Laporan Laba Rugi */}
@@ -1207,7 +1260,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     {/* Selalu tampil, termasuk saat Rp 0 -- baris yang
                         muncul-hilang bikin pembaca mengira datanya tidak ada. */}
                     <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300">
-                      <span>Potongan Merchant</span>
+                      <div>
+                        <span className="font-semibold block">Admin Fee (Promo & Biaya Platform)</span>
+                        {totalPlatformFee > 0 && (
+                          <span className="text-[10px] text-rose-500/80">
+                            Promo: {rupiah(totalPotongan)} · Komisi: {rupiah(totalPlatformFee)}
+                          </span>
+                        )}
+                      </div>
                       <span className="font-semibold">-{rupiah(totalDeductions)}</span>
                     </div>
                     {adaAntarKantong && (
@@ -1329,9 +1389,20 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                         <span className="font-bold">-{rupiah(totalJointExpense)}</span>
                       </div>
                     )}
+                    {pengeluaranLembur > 0 && (
+                      <div className="flex justify-between items-center text-orange-600">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-medium">Lembur Kas Toko (Petty Cash)</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-200">
+                            Kasir Toko
+                          </span>
+                        </div>
+                        <span className="font-bold">-{rupiah(pengeluaranLembur)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-rose-600">
                       <span className="font-medium">Biaya Kas Kecil Operasional (Petty Cash)</span>
-                      <span className="font-bold">-{rupiah(pengeluaranOutletPettyCash)}</span>
+                      <span className="font-bold">-{rupiah(pengeluaranOutletPettyCashMurni)}</span>
                     </div>
                     {isAllOutlets && pengeluaranPusat > 0 && (
                       <div className="flex justify-between items-center text-rose-600">
@@ -1418,7 +1489,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
-                      <span className="w-2.5 h-2.5 rounded-sm bg-purple-500"></span> Potongan & Komisi
+                      <span className="w-2.5 h-2.5 rounded-sm bg-purple-500"></span> Admin Fee
                     </span>
                     <span className="font-bold text-suka-brown">{pctFee.toFixed(1)}%</span>
                   </div>
@@ -1517,7 +1588,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <th className="py-3.5 px-4 w-12 text-center">#</th>
                       <th className="py-3.5 px-4">Nama Outlet</th>
                       <th className="py-3.5 px-4 text-right">Gross Omzet</th>
-                      <th className="py-3.5 px-4 text-right">Potongan Merchant</th>
+                      <th className="py-3.5 px-4 text-right">Admin Fee</th>
                       <th className="py-3.5 px-4 text-right">HPP</th>
                       <th className="py-3.5 px-4 text-right">Waste</th>
                       <th className="py-3.5 px-4 text-right">OPEX</th>

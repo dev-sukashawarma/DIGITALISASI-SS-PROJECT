@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
+import { createServiceClient } from '@/lib/supabase/server'
 import { MitraOutletProvider } from './MitraOutletContext'
 import { redirect } from 'next/navigation'
 import { MitraMaintenanceView } from '@/components/maintenance/MitraMaintenanceView'
@@ -23,34 +24,35 @@ export default async function MitraDashboardLayout({
     redirect('/login')
   }
 
-  // 1. Cek role pengguna saat ini di outlet_staff
-  const { data: staffData } = await supabase
-    .from('outlet_staff')
-    .select('role')
-    .eq('id', userId)
-    .maybeSingle()
+  // 1. Cek status maintenance & role privileged dengan service client agar bebas dari restriksi RLS
+  let isMaintenanceActive = false
+  let customHtml = ''
+  let isPrivileged = false
 
-  const userRole = (staffData?.role || '').toLowerCase()
-  const isPrivileged = ['admin', 'owner', 'developer'].includes(userRole)
+  try {
+    const svc = createServiceClient()
+    const [staffRes, settingRes] = await Promise.all([
+      svc.from('outlet_staff').select('role').eq('id', userId).maybeSingle(),
+      svc.from('global_settings').select('value').eq('key', 'mitra_maintenance_config').maybeSingle(),
+    ])
 
-  // 2. Cek status maintenance dari global_settings
-  const { data: settingRow } = await supabase
-    .from('global_settings')
-    .select('value')
-    .eq('key', 'mitra_maintenance_config')
-    .maybeSingle()
+    const userRole = (staffRes.data?.role || '').toLowerCase()
+    isPrivileged = ['admin', 'owner', 'developer'].includes(userRole)
 
-  const maintenanceConfig = (settingRow?.value || {}) as {
-    is_active?: boolean
-    custom_html?: string
+    const maintenanceConfig = (settingRes.data?.value || {}) as {
+      is_active?: boolean
+      custom_html?: string
+    }
+    isMaintenanceActive = Boolean(maintenanceConfig.is_active)
+    customHtml = maintenanceConfig.custom_html || ''
+  } catch (err) {
+    console.error('[MitraDashboardLayout] Error checking maintenance status:', err)
   }
-
-  const isMaintenanceActive = Boolean(maintenanceConfig.is_active)
 
   // Jika maintenance aktif dan pengguna BUKAN privileged (bukan developer/admin/owner),
   // cegat seluruh akses dan tampilkan halaman pemeliharaan
   if (isMaintenanceActive && !isPrivileged) {
-    return <MitraMaintenanceView customHtml={maintenanceConfig.custom_html} />
+    return <MitraMaintenanceView customHtml={customHtml} />
   }
   
   // 3. Ambil data profil mitra

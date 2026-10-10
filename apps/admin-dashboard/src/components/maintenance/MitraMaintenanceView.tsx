@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react'
 import { Terminal } from 'lucide-react'
 import { useBrand } from '@/components/BrandContext'
@@ -7,8 +9,6 @@ interface MitraMaintenanceViewProps {
 }
 
 export function MitraMaintenanceView({ customHtml }: MitraMaintenanceViewProps) {
-  const { brandName, brandLogo } = useBrand()
-
   // If custom HTML is provided and non-empty, render isolated iframe
   if (customHtml && customHtml.trim().length > 0) {
     return (
@@ -21,6 +21,20 @@ export function MitraMaintenanceView({ customHtml }: MitraMaintenanceViewProps) 
         />
       </div>
     )
+  }
+
+  return <DefaultMitraMaintenanceContent />
+}
+
+function DefaultMitraMaintenanceContent() {
+  let brandName = 'Suka Shawarma'
+  let brandLogo = '/logo.png'
+  try {
+    const brand = useBrand()
+    if (brand?.brandName) brandName = brand.brandName
+    if (brand?.brandLogo) brandLogo = brand.brandLogo
+  } catch {
+    // safe fallback
   }
 
   return (

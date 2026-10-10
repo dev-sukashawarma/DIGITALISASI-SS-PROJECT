@@ -246,6 +246,7 @@ export function MitraProfitLossSection({
                 onChange={onFilterChange}
                 outlets={outlets}
                 hideSource
+                hideOutlet
                 isLoading={isLoading}
               />
             </div>

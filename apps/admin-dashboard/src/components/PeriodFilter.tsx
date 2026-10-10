@@ -210,22 +210,24 @@ export function PeriodFilter({
       </div>
 
       {/* 2 & 3. Dropdowns — stack to full width on mobile, inline on larger screens */}
-      <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
-        {!lockedOutletId && !hideOutlet && (
-          <OutletCombobox
-            value={value.outletId}
-            outlets={outlets || []}
-            includeAll={!outlets || outlets.length > 1}
-            onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
-          />
-        )}
-        {!hideSource && (
-          <SourceCombobox
-            value={value.source}
-            onChange={(source) => onChange({ ...value, source: source as PeriodFilterValue['source'] })}
-          />
-        )}
-      </div>
+      {((!lockedOutletId && !hideOutlet) || !hideSource) && (
+        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
+          {!lockedOutletId && !hideOutlet && (
+            <OutletCombobox
+              value={value.outletId}
+              outlets={outlets || []}
+              includeAll={!outlets || outlets.length > 1}
+              onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
+            />
+          )}
+          {!hideSource && (
+            <SourceCombobox
+              value={value.source}
+              onChange={(source) => onChange({ ...value, source: source as PeriodFilterValue['source'] })}
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }

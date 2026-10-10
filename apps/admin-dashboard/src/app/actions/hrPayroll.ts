@@ -14,10 +14,19 @@ function getServiceSupabase() {
 export interface ManagerAllocationDetail {
   staffId: string
   staffName: string
-  role: 'area_manager' | 'regional_manager'
+  role: 'area_manager' | 'regional_manager' | 'stock_controller'
   totalSalary: number
   allocatedAmount: number
   coachedOutletsCount: number
+  status: 'draft' | 'finalized'
+}
+
+export interface StaffBonusDetail {
+  staffId: string
+  staffName: string
+  role?: string
+  outletName?: string
+  bonus: number
   status: 'draft' | 'finalized'
 }
 
@@ -32,6 +41,7 @@ export interface HRPayrollOutletSummary {
   status: 'draft' | 'finalized' | 'partial' | 'empty'
   crewSalary?: number
   managerAllocation?: number
+  bonus?: number
 }
 
 export interface HRPayrollSummary {
@@ -55,6 +65,7 @@ export interface HRPayrollSummary {
   crewDeductions?: number
   managerAllocation?: number
   managerDetails?: ManagerAllocationDetail[]
+  bonusDetails?: StaffBonusDetail[]
 }
 
 export async function getHRPayrollSummaryAction(filter: {
@@ -143,7 +154,10 @@ export async function getHRPayrollSummaryAction(filter: {
     const operationalOutletIds: string[] = []
     ;(outletData || []).forEach((o: any) => {
       outletNameMap.set(o.id, o.name)
-      if (!isExcludedOutlet(o) && (o.is_active !== false || outletsWithNonZeroPayroll.has(o.id))) {
+      const isActiveInPeriod = outletsWithNonZeroPayroll.size > 0
+        ? outletsWithNonZeroPayroll.has(o.id)
+        : o.is_active !== false
+      if (!isExcludedOutlet(o) && isActiveInPeriod) {
         operationalOutletIds.push(o.id)
       }
     })
@@ -157,7 +171,7 @@ export async function getHRPayrollSummaryAction(filter: {
       managerAssignmentsMap.get(a.staff_id)!.push(a.outlet_id)
     })
 
-    // Separate Store Crew from Managers (Area Manager & Regional Manager)
+    // Separate Store Crew from Managers (Area Manager, Regional Manager) & Central Overhead (Stock Controller)
     const crewRows: typeof matchingPeriodRows = []
     const managerRows: typeof matchingPeriodRows = []
 
@@ -165,14 +179,17 @@ export async function getHRPayrollSummaryAction(filter: {
       const staffRaw: any = r.outlet_staff
       const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
       const role = staffInfo?.role
-      if (role === 'area_manager' || role === 'regional_manager') {
+      const name = (staffInfo?.name || '').toLowerCase()
+      const isStockController = name.includes('abyansah') || role === 'stock_controller'
+
+      if (role === 'area_manager' || role === 'regional_manager' || isStockController) {
         managerRows.push(r)
       } else {
         crewRows.push(r)
       }
     })
 
-    // 3. Compute Manager Allocations across their coached outlets
+    // 3. Compute Manager & Stock Controller Allocations across target outlets
     // outletId -> { basicSalary, allowances, bonus, deductions, totalSalary, details: ManagerAllocationDetail[] }
     const outletManagerAllocations = new Map<string, {
       basicSalary: number
@@ -197,8 +214,11 @@ export async function getHRPayrollSummaryAction(filter: {
     managerRows.forEach(m => {
       const staffRaw: any = m.outlet_staff
       const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
-      const role = (staffInfo?.role || 'area_manager') as 'area_manager' | 'regional_manager'
-      const name = staffInfo?.name || (role === 'regional_manager' ? 'Regional Manager' : 'Area Manager')
+      const isStockController = (staffInfo?.name || '').toLowerCase().includes('abyansah') || staffInfo?.role === 'stock_controller'
+      const role: 'area_manager' | 'regional_manager' | 'stock_controller' = isStockController
+        ? 'stock_controller'
+        : (staffInfo?.role || 'area_manager')
+      const name = staffInfo?.name || (role === 'regional_manager' ? 'Regional Manager' : role === 'stock_controller' ? 'Stock Controller' : 'Area Manager')
 
       const bSalary = Number(m.basic_salary || 0)
       const bAllowances =
@@ -211,7 +231,7 @@ export async function getHRPayrollSummaryAction(filter: {
       const mTotal = Number(m.total_salary || 0)
 
       let targets: string[] = []
-      if (role === 'regional_manager') {
+      if (role === 'regional_manager' || role === 'stock_controller') {
         targets = operationalOutletIds
       } else {
         const assigned = managerAssignmentsMap.get(m.staff_id) || []
@@ -268,6 +288,7 @@ export async function getHRPayrollSummaryAction(filter: {
       managerAllocation: number
       totalSalary: number
       basicSalary: number
+      bonus: number
       draftCount: number
       finalizedCount: number
     }>()
@@ -276,6 +297,7 @@ export async function getHRPayrollSummaryAction(filter: {
     crewRows.forEach(r => {
       const amt = Number(r.total_salary || 0)
       const bSalary = Number(r.basic_salary || 0)
+      const bBonus = Number(r.bonus || 0)
       const staffRaw: any = r.outlet_staff
       const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
       const staffOutletId = r.outlet_id || staffInfo?.outlet_id
@@ -293,6 +315,7 @@ export async function getHRPayrollSummaryAction(filter: {
           managerAllocation: 0,
           totalSalary: 0,
           basicSalary: 0,
+          bonus: 0,
           draftCount: 0,
           finalizedCount: 0
         }
@@ -302,6 +325,7 @@ export async function getHRPayrollSummaryAction(filter: {
       group.crewSalary += amt
       group.totalSalary += amt
       group.basicSalary += bSalary
+      group.bonus += bBonus
       if (r.status === 'finalized') {
         group.finalizedCount++
       } else {
@@ -323,6 +347,7 @@ export async function getHRPayrollSummaryAction(filter: {
           managerAllocation: 0,
           totalSalary: 0,
           basicSalary: 0,
+          bonus: 0,
           draftCount: 0,
           finalizedCount: 0
         }
@@ -427,7 +452,21 @@ export async function getHRPayrollSummaryAction(filter: {
         crewBonus,
         crewDeductions,
         managerAllocation: mgrAlloc.totalSalary,
-        managerDetails: mgrAlloc.details
+        managerDetails: mgrAlloc.details,
+        bonusDetails: empangCrew
+          .filter(r => Number(r.bonus || 0) > 0)
+          .map(r => {
+            const staffRaw: any = r.outlet_staff
+            const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+            return {
+              staffId: r.staff_id,
+              staffName: staffInfo?.name || 'Staff',
+              role: staffInfo?.role || 'crew',
+              bonus: Number(r.bonus || 0),
+              status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
+            }
+          })
+          .sort((a, b) => b.bonus - a.bonus)
       }
     }
 
@@ -546,7 +585,24 @@ export async function getHRPayrollSummaryAction(filter: {
       finalizedCount,
       finalizedAmount,
       status,
-      outlets: outletsSummary
+      outlets: outletsSummary,
+      bonusDetails: targetCrewRows
+        .filter(r => Number(r.bonus || 0) > 0)
+        .map(r => {
+          const staffRaw: any = r.outlet_staff
+          const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+          const staffOutletId = r.outlet_id || staffInfo?.outlet_id
+          const outletName = outletNameMap.get(staffOutletId) || 'Outlet'
+          return {
+            staffId: r.staff_id,
+            staffName: staffInfo?.name || 'Staff',
+            role: staffInfo?.role || 'crew',
+            outletName,
+            bonus: Number(r.bonus || 0),
+            status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
+          }
+        })
+        .sort((a, b) => b.bonus - a.bonus)
     }
   } catch (err: any) {
     console.error('Failed to get HR payroll summary:', err)

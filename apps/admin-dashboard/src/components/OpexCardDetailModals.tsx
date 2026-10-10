@@ -11,13 +11,14 @@ import {
   PieChart,
   CheckCircle2,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  Award
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
 import type { ProrataInfo } from '@/lib/opexProrata'
 
-export type OpexModalType = 'salary' | 'operational' | 'total' | null
+export type OpexModalType = 'salary' | 'bonus' | 'operational' | 'total' | null
 
 export interface OperationalCategoryBreakdown {
   category: string
@@ -39,6 +40,8 @@ interface OpexCardDetailModalsProps {
   onClose: () => void
   salaryData: {
     displaySalary: number
+    displayRoutineSalary?: number
+    displayBonus?: number
     hasHrPayroll: boolean
     hrPayroll?: HRPayrollSummary
     cashSalary: number
@@ -54,6 +57,8 @@ interface OpexCardDetailModalsProps {
   totalOpexData: {
     totalCombined: number
     displaySalary: number
+    displayRoutineSalary?: number
+    displayBonus?: number
     totalNonSalary: number
     isProrated?: boolean
     prorataInfo?: ProrataInfo
@@ -81,12 +86,15 @@ export function OpexCardDetailModals({
 
   if (!type) return null
 
-  const { displaySalary, hasHrPayroll, hrPayroll, cashSalary, isProrated, prorataInfo } = salaryData
+  const { displaySalary, displayRoutineSalary, displayBonus, hasHrPayroll, hrPayroll, cashSalary, isProrated, prorataInfo } = salaryData
   const ratio = isProrated && prorataInfo?.ratio ? prorataInfo.ratio : 1
+  const bonusAmount = displayBonus ?? (hrPayroll ? Math.round((hrPayroll.crewBonus ?? hrPayroll.bonus) * ratio) : 0)
+  const routineSalary = displayRoutineSalary ?? Math.max(0, displaySalary - bonusAmount)
   const { totalNonSalary, totalCount: opCount, categories, outlets } = operationalData
   const { totalCombined } = totalOpexData
 
-  const salaryShare = totalCombined > 0 ? (displaySalary / totalCombined) * 100 : 0
+  const routineSalaryShare = totalCombined > 0 ? (routineSalary / totalCombined) * 100 : 0
+  const bonusShare = totalCombined > 0 ? (bonusAmount / totalCombined) * 100 : 0
   const opShare = totalCombined > 0 ? (totalNonSalary / totalCombined) * 100 : 0
 
   return (
@@ -109,7 +117,7 @@ export function OpexCardDetailModals({
                 </div>
                 <div>
                   <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
-                    <span>Rincian Gaji & Payroll</span>
+                    <span>Rincian Gaji & Payroll (Rutin)</span>
                     {isProrated && prorataInfo && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
                         <Sparkles size={11} className="text-amber-600" />
@@ -129,8 +137,8 @@ export function OpexCardDetailModals({
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {isProrated && prorataInfo
-                      ? `Beban gaji proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari bulan ini`
-                      : 'Rincian beban gaji seluruh staf & crew serta status verifikasi'}
+                      ? `Beban gaji rutin proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari bulan ini`
+                      : 'Rincian beban gaji pokok, tunjangan, dan alokasi manajer (bonus omset dipisahkan)'}
                   </p>
                 </div>
               </div>
@@ -149,14 +157,14 @@ export function OpexCardDetailModals({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100">
                   <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider block">
-                    {isProrated ? 'Beban Gaji Outlet (Prorata)' : 'Total Beban Gaji Outlet'}
+                    {isProrated ? 'Beban Gaji Rutin (Prorata)' : 'Beban Gaji & Payroll (Rutin)'}
                   </span>
                   <span className="text-lg font-black text-indigo-900 mt-1 block">
-                    {rupiah(displaySalary)}
+                    {rupiah(routineSalary)}
                   </span>
                   <span className="text-[10px] text-indigo-600 font-semibold">
                     {hrPayroll && (hrPayroll.managerAllocation ?? 0) > 0
-                      ? `Kru ${rupiah(Math.round((hrPayroll.crewSalary ?? (hrPayroll.totalSalary - (hrPayroll.managerAllocation ?? 0))) * ratio))} + AM/RM ${rupiah(Math.round((hrPayroll.managerAllocation ?? 0) * ratio))}`
+                      ? `Kru ${rupiah(Math.round(((hrPayroll.crewSalary ?? (hrPayroll.totalSalary - (hrPayroll.managerAllocation ?? 0))) - (hrPayroll.crewBonus ?? hrPayroll.bonus)) * ratio))} + AM/RM/SC ${rupiah(Math.round((hrPayroll.managerAllocation ?? 0) * ratio))}`
                       : isProrated && prorataInfo
                       ? `Alokasi ${prorataInfo.overlapDays}/${prorataInfo.totalDays} hari (${(prorataInfo.ratio * 100).toFixed(1)}%)`
                       : hasHrPayroll ? 'Berdasarkan Modul HR' : 'Pencatatan Buku Kas'}
@@ -172,7 +180,7 @@ export function OpexCardDetailModals({
                   </span>
                   <span className="text-[10px] text-indigo-600 font-semibold">
                     {hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0
-                      ? `+${hrPayroll.managerDetails.length} Manajer (AM/RM)`
+                      ? `+${hrPayroll.managerDetails.length} Manajer/Pusat`
                       : `${hrPayroll?.finalizedCount ?? 0} Final · ${hrPayroll?.draftCount ?? 0} Draft`}
                   </span>
                 </div>
@@ -210,20 +218,20 @@ export function OpexCardDetailModals({
                 </div>
               )}
 
-              {/* Breakdown Komponen: Gaji Pokok, Tunjangan, Bonus, Potongan (Murni Kru Store) */}
+              {/* Breakdown Komponen: Gaji Pokok, Tunjangan, Potongan (Murni Kru Store) */}
               {hasHrPayroll && hrPayroll && (
                 <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-extrabold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
                       <Wallet size={14} className="text-indigo-600" />
-                      Komposisi Komponen Gaji HR (Kru Store) {isProrated ? '(Prorata)' : ''}
+                      Komposisi Komponen Gaji HR (Kru Store - Gaji Rutin) {isProrated ? '(Prorata)' : ''}
                     </span>
                     <span className="text-[11px] font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md">
-                      Subtotal Kru: {rupiah(Math.round((hrPayroll.crewSalary ?? hrPayroll.totalSalary) * ratio))}
+                      Subtotal Kru: {rupiah(Math.round(((hrPayroll.crewSalary ?? hrPayroll.totalSalary) - (hrPayroll.crewBonus ?? hrPayroll.bonus)) * ratio))}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
                     <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
                       <span className="text-[10px] text-gray-500 font-semibold block uppercase">1. Gaji Pokok</span>
                       <span className="text-xs sm:text-sm font-black text-gray-900 block mt-0.5">
@@ -245,17 +253,7 @@ export function OpexCardDetailModals({
                     </div>
 
                     <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
-                      <span className="text-[10px] text-amber-600 font-semibold block uppercase">3. Bonus & Lembur</span>
-                      <span className="text-xs sm:text-sm font-black text-amber-700 block mt-0.5">
-                        +{rupiah(Math.round((hrPayroll.crewBonus ?? hrPayroll.bonus) * ratio))}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {isProrated ? `1 bln: +${rupiah(hrPayroll.crewBonus ?? hrPayroll.bonus)}` : 'Bonus omset & lembur'}
-                      </span>
-                    </div>
-
-                    <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
-                      <span className="text-[10px] text-rose-600 font-semibold block uppercase">4. Potongan</span>
+                      <span className="text-[10px] text-rose-600 font-semibold block uppercase">3. Potongan</span>
                       <span className="text-xs sm:text-sm font-black text-rose-700 block mt-0.5">
                         -{rupiah(Math.round((hrPayroll.crewDeductions ?? hrPayroll.deductions) * ratio))}
                       </span>
@@ -266,18 +264,18 @@ export function OpexCardDetailModals({
                   </div>
 
                   <div className="text-[11px] text-indigo-900 bg-white/80 p-2.5 rounded-lg border border-indigo-100/70 leading-relaxed shadow-2xs">
-                    💡 <strong>Penjelasan Angka:</strong> Angka <strong>{rupiah(Math.round((hrPayroll.crewSalary ?? hrPayroll.totalSalary) * ratio))}</strong> adalah <em>Total Take Home Pay (THP)</em> murni milik <strong>{hrPayroll.crewCount ?? hrPayroll.totalStaff} staf kru store</strong>. Komponen di atas merupakan rincian gaji riil kru toko. Alokasi beban manajer regional (AM/RM) dialokasikan secara proporsional pada kotak di bawah.
+                    💡 <strong>Penjelasan Angka:</strong> Angka <strong>{rupiah(routineSalary)}</strong> adalah <em>Total Gaji Rutin</em> (Gapok + Tunjangan - Potongan + Alokasi AM/RM/SC). Komponen <strong>Bonus Omset Penjualan</strong> sebesar <strong>+{rupiah(bonusAmount)}</strong> telah dipisahkan pada kartu dan rincian tersendiri di menu OPEX.
                   </div>
                 </div>
               )}
 
-              {/* Manager Allocation Breakdown (AM & RM) */}
+              {/* Manager & Central Staff Allocation Breakdown (AM, RM, Stock Controller) */}
               {hasHrPayroll && hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0 && (
                 <div className="bg-gradient-to-br from-indigo-50/70 via-purple-50/40 to-white rounded-xl p-4 border border-indigo-100/90 space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-extrabold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
                       <Users size={14} className="text-indigo-600" />
-                      Alokasi Beban Area Manager & Regional Manager
+                      Alokasi Beban AM, RM, & Stock Controller
                     </span>
                     <span className="text-[11px] font-bold text-indigo-700 bg-white/90 px-2 py-0.5 rounded-md border border-indigo-200/70 shadow-2xs">
                       Total: +{rupiah(isProrated ? Math.round((hrPayroll.managerAllocation || 0) * (prorataInfo?.ratio || 1)) : (hrPayroll.managerAllocation || 0))}
@@ -285,7 +283,7 @@ export function OpexCardDetailModals({
                   </div>
 
                   <div className="text-[11px] text-gray-600 leading-relaxed">
-                    Sesuai ketentuan operasional, beban gaji <strong>Area Manager (AM)</strong> dan <strong>Regional Manager (RM)</strong> dibebankan secara proporsional ke outlet binaan masing-masing:
+                    Sesuai ketentuan operasional, beban gaji <strong>Area Manager (AM)</strong>, <strong>Regional Manager (RM)</strong>, dan <strong>Stock Controller</strong> dibebankan secara proporsional ke outlet binaan masing-masing:
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
@@ -295,8 +293,18 @@ export function OpexCardDetailModals({
                         <div key={mgr.staffId} className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs space-y-1">
                           <div className="flex items-center justify-between gap-1">
                             <span className="font-black text-gray-900 text-xs truncate">{mgr.staffName}</span>
-                            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase shrink-0">
-                              {mgr.role === 'regional_manager' ? 'Regional Mgr' : 'Area Mgr'}
+                            <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded border uppercase shrink-0 ${
+                              mgr.role === 'stock_controller'
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : mgr.role === 'regional_manager'
+                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                            }`}>
+                              {mgr.role === 'stock_controller'
+                                ? 'Stock Controller'
+                                : mgr.role === 'regional_manager'
+                                ? 'Regional Mgr'
+                                : 'Area Mgr'}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-xs pt-0.5">
@@ -387,7 +395,7 @@ export function OpexCardDetailModals({
                                   <div>{item.outletName}</div>
                                   {(item.managerAllocation ?? 0) > 0 && (
                                     <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
-                                      Kru: {rupiah(Math.round((item.crewSalary ?? (item.totalSalary - (item.managerAllocation ?? 0))) * ratio))} · AM/RM: +{rupiah(Math.round((item.managerAllocation ?? 0) * ratio))}
+                                      Kru: {rupiah(Math.round((item.crewSalary ?? (item.totalSalary - (item.managerAllocation ?? 0))) * ratio))} · AM/RM/SC: +{rupiah(Math.round((item.managerAllocation ?? 0) * ratio))}
                                     </div>
                                   )}
                                 </td>
@@ -461,6 +469,196 @@ export function OpexCardDetailModals({
                 type="button"
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
+              >
+                Tutup
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ==================== MODAL 4: BONUS & INSENTIF DETAIL ==================== */}
+        {type === 'bonus' && (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-amber-50/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 shadow-2xs">
+                  <Award size={20} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                    <span>Rincian Bonus & Insentif Kru</span>
+                    {isProrated && prorataInfo && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                        <Sparkles size={11} className="text-amber-600" />
+                        Prorata {prorataInfo.overlapDays} Hari
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                      Sales Bonus
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {isProrated && prorataInfo
+                      ? `Bonus omset proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`
+                      : 'Rincian perolehan bonus penjualan (omset) bulanan dan lembur kru toko'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-xl hover:bg-white text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
+              {/* Stat Highlight Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-amber-50/70 p-3.5 rounded-xl border border-amber-200/80">
+                  <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
+                    {isProrated ? 'Total Bonus (Prorata)' : 'Total Bonus & Insentif'}
+                  </span>
+                  <span className="text-lg font-black text-amber-900 mt-1 block">
+                    +{rupiah(bonusAmount)}
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-semibold">
+                    {isProrated && prorataInfo
+                      ? `Baseline sebulan: +${rupiah(hrPayroll?.crewBonus ?? hrPayroll?.bonus ?? 0)}`
+                      : 'Murni insentif target penjualan'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                    Penerima Bonus
+                  </span>
+                  <span className="text-lg font-black text-slate-800 mt-1 block">
+                    {hrPayroll?.bonusDetails ? hrPayroll.bonusDetails.length : 0} Kru Penerima
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-semibold">
+                    Dari {hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0} total kru cabang
+                  </span>
+                </div>
+
+                <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-100">
+                  <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
+                    Porsi Dari Total OPEX
+                  </span>
+                  <span className="text-lg font-black text-emerald-900 mt-1 block">
+                    {bonusShare.toFixed(1)}%
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-semibold">
+                    Beban variabel berbasis target
+                  </span>
+                </div>
+              </div>
+
+              {/* Explanatory Policy Alert */}
+              <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed shadow-2xs">
+                <Sparkles size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-bold">Ketentuan Sales Bonus:</span> Bonus ini adalah bonus omset penjualan bulanan yang dibagikan kepada kru toko sesuai target penjualan yang tercapai, dan dipisahkan dari beban gaji pokok & tunjangan rutin agar struktur biaya tetap (*fixed cost*) dan variabel (*variable cost*) dapat dipantau terpisah.
+                </div>
+              </div>
+
+              {/* Table Breakdown per Staf Penerima */}
+              <div>
+                <h4 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                  <span>Daftar Staf Penerima Bonus</span>
+                  <span className="text-gray-400 font-normal normal-case">
+                    {hrPayroll?.bonusDetails?.length ?? 0} orang
+                  </span>
+                </h4>
+
+                {(!hrPayroll?.bonusDetails || hrPayroll.bonusDetails.length === 0) ? (
+                  <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-gray-200/60 text-xs">
+                    <Award size={28} className="mx-auto mb-2 opacity-30 text-amber-600" />
+                    <p className="font-semibold text-gray-600">Tidak ada data bonus pada periode ini</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Belum ada bonus omset penjualan atau lembur yang tercatat di payroll.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
+                    <div className="overflow-x-auto max-h-[280px] scrollbar-thin">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-100 text-gray-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-gray-200 shadow-2xs">
+                          <tr>
+                            <th className="px-3.5 py-2.5">Nama Kru</th>
+                            <th className="px-3 py-2.5 text-center">Peran</th>
+                            {hrPayroll.bonusDetails.some(b => b.outletName) && (
+                              <th className="px-3.5 py-2.5">Unit / Cabang</th>
+                            )}
+                            <th className="px-3 py-2.5 text-center">Status</th>
+                            <th className="px-3.5 py-2.5 text-right">
+                              {isProrated ? 'Bonus Prorata' : 'Bonus Omset'}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {hrPayroll.bonusDetails.map((staff) => {
+                            const staffBonus = isProrated && prorataInfo ? Math.round(staff.bonus * prorataInfo.ratio) : staff.bonus
+                            return (
+                              <tr key={staff.staffId} className="hover:bg-amber-50/30 transition-colors">
+                                <td className="px-3.5 py-2.5 font-bold text-gray-800">
+                                  {staff.staffName}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
+                                    {staff.role || 'crew'}
+                                  </span>
+                                </td>
+                                {hrPayroll.bonusDetails!.some(b => b.outletName) && (
+                                  <td className="px-3.5 py-2.5 text-gray-600 font-medium">
+                                    {staff.outletName || '-'}
+                                  </td>
+                                )}
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                    staff.status === 'finalized'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  }`}>
+                                    {staff.status === 'finalized' ? 'Final' : 'Draft'}
+                                  </span>
+                                </td>
+                                <td className="px-3.5 py-2.5 text-right font-black text-amber-700">
+                                  +{rupiah(staffBonus)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                        <tfoot className="bg-amber-50/70 border-t border-amber-200 font-bold text-xs text-amber-950">
+                          <tr>
+                            <td colSpan={hrPayroll.bonusDetails.some(b => b.outletName) ? 4 : 3} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
+                              Total Bonus & Insentif:
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right font-black text-amber-800">
+                              +{rupiah(bonusAmount)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50/50">
+              <span className="text-xs text-gray-500 font-semibold">
+                Total Beban Bonus: <strong className="text-amber-700">+{rupiah(bonusAmount)}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
               >
                 Tutup
               </button>
@@ -751,11 +949,16 @@ export function OpexCardDetailModals({
                 <div className="w-full h-3.5 bg-gray-200 rounded-full overflow-hidden flex shadow-inner">
                   <div
                     className="h-full bg-indigo-600 transition-all duration-300"
-                    style={{ width: `${salaryShare}%` }}
-                    title={`Gaji & Payroll: ${salaryShare.toFixed(1)}%`}
+                    style={{ width: `${routineSalaryShare}%` }}
+                    title={`Gaji Rutin: ${routineSalaryShare.toFixed(1)}%`}
                   />
                   <div
                     className="h-full bg-amber-500 transition-all duration-300"
+                    style={{ width: `${bonusShare}%` }}
+                    title={`Bonus & Insentif: ${bonusShare.toFixed(1)}%`}
+                  />
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-300"
                     style={{ width: `${opShare}%` }}
                     title={`Operasional: ${opShare.toFixed(1)}%`}
                   />
@@ -763,16 +966,22 @@ export function OpexCardDetailModals({
 
                 {/* Legend */}
                 <div className="flex items-center justify-between text-xs pt-1 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-full bg-indigo-600 inline-block" />
                     <span className="font-semibold text-gray-700">
-                      Gaji & Payroll: <strong className="text-indigo-700">{salaryShare.toFixed(1)}%</strong> ({rupiah(displaySalary)})
+                      Gaji Rutin: <strong className="text-indigo-700">{routineSalaryShare.toFixed(1)}%</strong> ({rupiah(routineSalary)})
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
                     <span className="font-semibold text-gray-700">
-                      Operasional: <strong className="text-amber-700">{opShare.toFixed(1)}%</strong> ({rupiah(totalNonSalary)})
+                      Bonus: <strong className="text-amber-700">{bonusShare.toFixed(1)}%</strong> ({rupiah(bonusAmount)})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
+                    <span className="font-semibold text-gray-700">
+                      Operasional: <strong className="text-emerald-700">{opShare.toFixed(1)}%</strong> ({rupiah(totalNonSalary)})
                     </span>
                   </div>
                 </div>
@@ -793,7 +1002,7 @@ export function OpexCardDetailModals({
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
-                          <span>1. Gaji & Payroll Staf</span>
+                          <span>1. Gaji & Payroll (Rutin)</span>
                           {totalOpexData.isProrated && totalOpexData.prorataInfo && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
                               Prorata {totalOpexData.prorataInfo.overlapDays} Hari
@@ -801,33 +1010,54 @@ export function OpexCardDetailModals({
                           )}
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          {totalOpexData.isProrated && totalOpexData.prorataInfo
-                            ? `Alokasi ${totalOpexData.prorataInfo.overlapDays}/${totalOpexData.prorataInfo.totalDays} hari (${((totalOpexData.prorataInfo.ratio || 0) * 100).toFixed(1)}%) dari baseline HR 1 bulan penuh`
-                            : hasHrPayroll
-                            ? `Beban gaji dari HR (${hrPayroll?.totalStaff} staf: ${hrPayroll?.finalizedCount} final, ${hrPayroll?.draftCount} draft)`
-                            : 'Beban gaji tercatat di transaksi kas operasional'}
+                          Gaji pokok, tunjangan, dan alokasi manajer bersih di luar bonus omset
                         </div>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-black text-indigo-700 text-sm sm:text-base">
-                        +{rupiah(displaySalary)}
+                        +{rupiah(routineSalary)}
                       </div>
                       <div className="text-[10px] text-gray-400 font-semibold">
-                        {salaryShare.toFixed(1)}% dari total
+                        {routineSalaryShare.toFixed(1)}% dari total
                       </div>
                     </div>
                   </div>
 
-                  {/* Item 2: Operational */}
+                  {/* Item 2: Bonus & Insentif */}
                   <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <Award size={16} />
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-900 text-xs sm:text-sm">
+                          2. Bonus & Insentif Kru
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-0.5">
+                          Bonus omset penjualan bulanan & lembur yang dicapai kru toko
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-black text-amber-700 text-sm sm:text-base">
+                        +{rupiah(bonusAmount)}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-semibold">
+                        {bonusShare.toFixed(1)}% dari total
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Item 3: Operational */}
+                  <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
                         <Store size={16} />
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-xs sm:text-sm">
-                          2. Operasional Outlet & Pusat
+                          3. Operasional Outlet & Pusat
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
                           Biaya rutin ({opCount} transaksi kas: listrik, sewa cabang, wifi, operasional toko)
@@ -835,7 +1065,7 @@ export function OpexCardDetailModals({
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-black text-amber-700 text-sm sm:text-base">
+                      <div className="font-black text-emerald-700 text-sm sm:text-base">
                         +{rupiah(totalNonSalary)}
                       </div>
                       <div className="text-[10px] text-gray-400 font-semibold">
@@ -848,7 +1078,7 @@ export function OpexCardDetailModals({
                   <div className="p-3.5 sm:p-4 bg-gray-50 flex items-center justify-between gap-3 font-bold">
                     <div className="text-xs sm:text-sm text-gray-800 flex items-center gap-1.5">
                       <CheckCircle2 size={16} className="text-emerald-600" />
-                      <span>Total OPEX Bersih (1 + 2):</span>
+                      <span>Total OPEX Bersih (1 + 2 + 3):</span>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-black text-rose-700 text-base sm:text-lg">

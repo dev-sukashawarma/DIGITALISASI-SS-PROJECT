@@ -12,13 +12,14 @@ import {
   CheckCircle2,
   Sparkles,
   Award,
-  Briefcase
+  Briefcase,
+  Clock
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
 import type { ProrataInfo } from '@/lib/opexProrata'
 
-export type OpexModalType = 'salary' | 'bonus' | 'bonus_kru' | 'bonus_manager' | 'operational' | 'total' | null
+export type OpexModalType = 'salary' | 'bonus' | 'bonus_kru' | 'bonus_manager' | 'lembur' | 'operational' | 'total' | null
 
 export interface OperationalCategoryBreakdown {
   category: string
@@ -33,6 +34,31 @@ export interface OperationalOutletBreakdown {
   outletName: string
   count: number
   totalAmount: number
+}
+
+export interface LemburItem {
+  id: string
+  date: string
+  outletName: string
+  outletId?: string | null
+  description: string
+  amount: number
+  recipientName?: string
+  receiptUrl?: string | null
+}
+
+export interface LemburOutletSummary {
+  outletName: string
+  outletId?: string | null
+  count: number
+  totalAmount: number
+}
+
+export interface LemburData {
+  totalLembur: number
+  totalCount: number
+  items: LemburItem[]
+  outlets: LemburOutletSummary[]
 }
 
 interface OpexCardDetailModalsProps {
@@ -50,6 +76,7 @@ interface OpexCardDetailModalsProps {
     isProrated?: boolean
     prorataInfo?: ProrataInfo
   }
+  lemburData?: LemburData
   operationalData: {
     totalNonSalary: number
     totalCount: number
@@ -63,6 +90,7 @@ interface OpexCardDetailModalsProps {
     displayBonus?: number
     displayCrewBonus?: number
     displayManagerBonus?: number
+    displayLembur?: number
     totalNonSalary: number
     isProrated?: boolean
     prorataInfo?: ProrataInfo
@@ -73,11 +101,13 @@ export function OpexCardDetailModals({
   type,
   onClose,
   salaryData,
+  lemburData,
   operationalData,
   totalOpexData
 }: OpexCardDetailModalsProps) {
   const [operationalTab, setOperationalTab] = useState<'category' | 'outlet'>('category')
   const [salaryTab, setSalaryTab] = useState<'personnel' | 'outlet'>('personnel')
+  const [lemburTab, setLemburTab] = useState<'outlet' | 'transactions'>('outlet')
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -103,6 +133,8 @@ export function OpexCardDetailModals({
   const routineSalaryShare = totalCombined > 0 ? (routineSalary / totalCombined) * 100 : 0
   const crewBonusShare = totalCombined > 0 ? (crewBonusAmount / totalCombined) * 100 : 0
   const managerBonusShare = totalCombined > 0 ? (managerBonusAmount / totalCombined) * 100 : 0
+  const lemburAmount = totalOpexData.displayLembur ?? lemburData?.totalLembur ?? 0
+  const lemburShare = totalCombined > 0 ? (lemburAmount / totalCombined) * 100 : 0
   const opShare = totalCombined > 0 ? (totalNonSalary / totalCombined) * 100 : 0
 
   const crewBonusList = (hrPayroll?.crewBonusDetails && hrPayroll.crewBonusDetails.length > 0)
@@ -1083,6 +1115,230 @@ export function OpexCardDetailModals({
           </>
         )}
 
+        {/* ==================== MODAL 4C: LEMBUR KAS OUTLET (PETTY CASH) ==================== */}
+        {type === 'lembur' && (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-orange-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2">
+                    Rincian Lembur Kasir & Kru Toko (Petty Cash)
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Upah lembur harian kru cabang yang dicairkan langsung via kas kecil toko (dipisahkan mandiri dari pengeluaran outlet)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-xl hover:bg-white text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Tab Controls */}
+            <div className="px-4 sm:px-6 pt-4 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLemburTab('outlet')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                    lemburTab === 'outlet'
+                      ? 'bg-orange-600 text-white shadow-2xs'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <Store size={13} />
+                  <span>Per Cabang ({lemburData?.outlets.length ?? 0})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLemburTab('transactions')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                    lemburTab === 'transactions'
+                      ? 'bg-orange-600 text-white shadow-2xs'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <Clock size={13} />
+                  <span>Daftar Transaksi ({lemburData?.totalCount ?? 0})</span>
+                </button>
+              </div>
+              <div className="text-xs font-semibold text-gray-500">
+                Total Lembur: <strong className="text-orange-700">{rupiah(lemburData?.totalLembur ?? 0)}</strong>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
+              {/* Highlight Card */}
+              <div className="bg-orange-50 p-4 rounded-xl border border-orange-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-orange-700 uppercase tracking-wider block">
+                    Total Lembur Kas Outlet
+                  </span>
+                  <span className="text-2xl font-black text-orange-900 mt-0.5 block tracking-tight">
+                    {rupiah(lemburData?.totalLembur ?? 0)}
+                  </span>
+                  <p className="text-xs text-orange-800 mt-1">
+                    {lemburData?.totalCount ?? 0} transaksi pengeluaran lembur kas di {lemburData?.outlets.length ?? 0} cabang.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <span className="px-3 py-1 rounded-lg text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300">
+                    Petty Cash Toko
+                  </span>
+                </div>
+              </div>
+
+              {/* Info Alert */}
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 text-xs text-amber-900">
+                💡 <strong>Informasi:</strong> Biaya lembur kru yang dicairkan langsung dari kas kecil toko kini telah dipisahkan secara mandiri ke kartu ini. Biaya tersebut <strong>tidak lagi digabungkan ke pos Pengeluaran Outlet</strong>, sehingga pos Pengeluaran Outlet murni hanya berisi kebutuhan fisik toko (perlengkapan, perbaikan, sabun, galon, dll).
+              </div>
+
+              {/* Tab 1: Rekap per Cabang */}
+              {lemburTab === 'outlet' && (
+                <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-semibold uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="px-3.5 py-2.5">Unit / Cabang</th>
+                          <th className="px-3 py-2.5 text-center">Jumlah Transaksi</th>
+                          <th className="px-3.5 py-2.5 text-right">Subtotal Lembur</th>
+                          <th className="px-3 py-2.5 text-right">Porsi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {(lemburData?.outlets || []).map((o) => {
+                          const pct = (lemburData?.totalLembur ?? 0) > 0
+                            ? (o.totalAmount / (lemburData?.totalLembur ?? 1)) * 100
+                            : 0
+                          return (
+                            <tr key={o.outletName} className="hover:bg-orange-50/30 transition-colors">
+                              <td className="px-3.5 py-2.5 font-bold text-gray-800">
+                                {o.outletName}
+                              </td>
+                              <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
+                                {o.count} nota
+                              </td>
+                              <td className="px-3.5 py-2.5 text-right font-extrabold text-orange-700 whitespace-nowrap">
+                                {rupiah(o.totalAmount)}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-[11px] font-semibold text-gray-500 whitespace-nowrap">
+                                {pct.toFixed(1)}%
+                              </td>
+                            </tr>
+                          )
+                        })}
+                        {(!lemburData?.outlets || lemburData.outlets.length === 0) && (
+                          <tr>
+                            <td colSpan={4} className="px-4 py-8 text-center text-gray-400 font-medium">
+                              Tidak ada pengeluaran lembur kas pada periode ini.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                      {Boolean(lemburData?.outlets && lemburData.outlets.length > 0) && (
+                        <tfoot className="bg-orange-50/70 border-t border-orange-200 font-bold text-xs text-orange-950">
+                          <tr>
+                            <td className="px-3.5 py-2.5 font-extrabold">Total:</td>
+                            <td className="px-3 py-2.5 text-center font-bold">{lemburData?.totalCount ?? 0} nota</td>
+                            <td className="px-3.5 py-2.5 text-right font-black text-orange-800">
+                              {rupiah(lemburData?.totalLembur ?? 0)}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-gray-600">100%</td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: Daftar Transaksi Lengkap */}
+              {lemburTab === 'transactions' && (
+                <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-semibold uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="px-3 py-2.5">Tanggal</th>
+                          <th className="px-3 py-2.5">Cabang</th>
+                          <th className="px-3.5 py-2.5">Keterangan / Keperluan</th>
+                          <th className="px-3 py-2.5 text-right">Nominal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {(lemburData?.items || []).map((it) => (
+                          <tr key={it.id} className="hover:bg-orange-50/30 transition-colors">
+                            <td className="px-3 py-2.5 font-medium text-gray-600 whitespace-nowrap">
+                              {it.date}
+                            </td>
+                            <td className="px-3 py-2.5 font-bold text-gray-800 whitespace-nowrap">
+                              {it.outletName}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-gray-700">
+                              <div>{it.description}</div>
+                              {it.recipientName && it.recipientName !== '-' && (
+                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                  Penerima: {it.recipientName}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-extrabold text-orange-700 whitespace-nowrap">
+                              {rupiah(it.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                        {(!lemburData?.items || lemburData.items.length === 0) && (
+                          <tr>
+                            <td colSpan={4} className="px-4 py-8 text-center text-gray-400 font-medium">
+                              Tidak ada transaksi lembur kas pada periode ini.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                      {Boolean(lemburData?.items && lemburData.items.length > 0) && (
+                        <tfoot className="bg-orange-50/70 border-t border-orange-200 font-bold text-xs text-orange-950">
+                          <tr>
+                            <td colSpan={3} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
+                              Total Pengeluaran Lembur Kas:
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right font-black text-orange-800 whitespace-nowrap">
+                              {rupiah(lemburData?.totalLembur ?? 0)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50/50">
+              <span className="text-xs text-gray-500 font-semibold">
+                Total Lembur Kas: <strong className="text-orange-700">{rupiah(lemburData?.totalLembur ?? 0)}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
+              >
+                Tutup
+              </button>
+            </div>
+          </>
+        )}
+
         {/* ==================== MODAL 2: OPERATIONAL DETAIL ==================== */}
         {type === 'operational' && (
           <>
@@ -1379,6 +1635,13 @@ export function OpexCardDetailModals({
                     style={{ width: `${managerBonusShare}%` }}
                     title={`Bonus Sales AM & RM: ${managerBonusShare.toFixed(1)}%`}
                   />
+                  {lemburAmount > 0 && (
+                    <div
+                      className="h-full bg-orange-500 transition-all duration-300"
+                      style={{ width: `${lemburShare}%` }}
+                      title={`Lembur Kas: ${lemburShare.toFixed(1)}%`}
+                    />
+                  )}
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
                     style={{ width: `${opShare}%` }}
@@ -1406,6 +1669,14 @@ export function OpexCardDetailModals({
                       Bonus AM/RM: <strong className="text-purple-700">{managerBonusShare.toFixed(1)}%</strong> ({rupiah(managerBonusAmount)})
                     </span>
                   </div>
+                  {lemburAmount > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-full bg-orange-500 inline-block" />
+                      <span className="font-semibold text-gray-700">
+                        Lembur Kas: <strong className="text-orange-700">{lemburShare.toFixed(1)}%</strong> ({rupiah(lemburAmount)})
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
                     <span className="font-semibold text-gray-700">
@@ -1463,7 +1734,7 @@ export function OpexCardDetailModals({
                           2. Bonus & Insentif Kru Toko
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          Bonus omset penjualan bulanan & lembur yang dicapai kru toko
+                          Bonus omset penjualan bulanan yang dicapai kru toko
                         </div>
                       </div>
                     </div>
@@ -1502,7 +1773,37 @@ export function OpexCardDetailModals({
                     </div>
                   </div>
 
-                  {/* Item 4: Operational */}
+                  {/* Item 4: Lembur Kas Outlet */}
+                  {lemburAmount > 0 && (
+                    <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 mt-0.5">
+                          <Clock size={16} />
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+                            <span>4. Lembur Kas Toko (Petty Cash)</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-200">
+                              Kasir Cabang
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-gray-500 mt-0.5">
+                            Upah lembur harian kru yang dibayarkan tunai via kas kecil outlet
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-black text-orange-700 text-sm sm:text-base">
+                          +{rupiah(lemburAmount)}
+                        </div>
+                        <div className="text-[10px] text-gray-400 font-semibold">
+                          {lemburShare.toFixed(1)}% dari total
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Item 5: Operational Non-Salary */}
                   <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -1510,10 +1811,10 @@ export function OpexCardDetailModals({
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-xs sm:text-sm">
-                          4. Operasional Outlet & Pusat
+                          {lemburAmount > 0 ? '5. Operasional Outlet & Pusat' : '4. Operasional Outlet & Pusat'}
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          Biaya rutin ({opCount} transaksi kas: listrik, sewa cabang, wifi, operasional toko)
+                          Beban operasional non-gaji murni ({opCount} transaksi: listrik, sewa cabang, wifi, fisik toko)
                         </div>
                       </div>
                     </div>
@@ -1531,7 +1832,7 @@ export function OpexCardDetailModals({
                   <div className="p-3.5 sm:p-4 bg-gray-50 flex items-center justify-between gap-3 font-bold">
                     <div className="text-xs sm:text-sm text-gray-800 flex items-center gap-1.5">
                       <CheckCircle2 size={16} className="text-emerald-600" />
-                      <span>Total OPEX Bersih (1 + 2 + 3 + 4):</span>
+                      <span>{lemburAmount > 0 ? 'Total OPEX Bersih (1 + 2 + 3 + 4 + 5):' : 'Total OPEX Bersih (1 + 2 + 3 + 4):'}</span>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-black text-rose-700 text-base sm:text-lg">

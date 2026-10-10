@@ -24,7 +24,8 @@ import {
   Search,
   Sparkles,
   Award,
-  Briefcase
+  Briefcase,
+  Clock
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -39,7 +40,7 @@ import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
 import { OpexCardDetailModals, type OpexModalType } from '@/components/OpexCardDetailModals'
 import { deleteTransactionAction } from '@/app/actions/expenses'
-import { CATEGORY_META, isSalaryCategory, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
+import { CATEGORY_META, isSalaryCategory, isLemburExpense, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
@@ -148,10 +149,13 @@ export default function InputPengeluaranPage() {
       if (target === 'ALL_OUTLETS' && r.scope === 'pusat') return
       if (target !== 'all' && target !== 'PUSAT' && target !== 'ALL_OUTLETS' && (r.scope === 'pusat' || r.outlet_id !== target)) return
       
+      const isLembur = isLemburExpense(r.category, r.description)
+      const effectiveCategory = isLembur ? 'lembur' : r.category
+
       list.push({
         id: r.id,
         date: r.expense_date,
-        category: r.category,
+        category: effectiveCategory,
         outlet_name: r.outlet_name ?? (r.scope === 'pusat' ? 'Kantor Pusat' : '-'),
         outlet_id: r.outlet_id,
         recipient_name: r.recipient_name ?? '-',
@@ -164,7 +168,8 @@ export default function InputPengeluaranPage() {
         raw_description: r.raw_description || r.description,
         raw_category: r.raw_category || r.category,
         scope: r.scope,
-        source: r.source || 'monthly'
+        source: r.source || 'monthly',
+        isLembur
       })
     })
 
@@ -177,6 +182,7 @@ export default function InputPengeluaranPage() {
   const summary = useMemo(() => {
     let totalOpex = 0
     let salary = 0
+    let lembur = 0
     let nonSalary = 0
     let pusat = 0
     let outlet = 0
@@ -184,7 +190,9 @@ export default function InputPengeluaranPage() {
     allTransactions.forEach(t => {
       const amt = Number(t.amount || 0)
       totalOpex += amt
-      if (isSalaryCategory(t.category)) {
+      if (t.category === 'lembur' || t.isLembur) {
+        lembur += amt
+      } else if (isSalaryCategory(t.category)) {
         salary += amt
       } else {
         nonSalary += amt
@@ -199,6 +207,7 @@ export default function InputPengeluaranPage() {
     return {
       totalOpex,
       salary,
+      lembur,
       nonSalary,
       pusat,
       outlet,
@@ -247,7 +256,43 @@ export default function InputPengeluaranPage() {
     return Math.max(0, displaySalary - displayBonus)
   }, [displaySalary, displayBonus])
 
-  const totalCombinedOpex = displaySalary + summary.nonSalary
+  // Data Lembur Kas Outlet (Petty Cash)
+  const lemburData = useMemo(() => {
+    const items = allTransactions
+      .filter(t => t.category === 'lembur' || t.isLembur)
+      .map(t => ({
+        id: t.id,
+        date: t.date,
+        outletName: t.outlet_name,
+        outletId: t.outlet_id,
+        description: t.description,
+        amount: Number(t.amount || 0),
+        recipientName: t.recipient_name,
+        receiptUrl: t.receipt_url,
+      }))
+
+    const outletMap = new Map<string, { outletName: string; outletId?: string | null; count: number; totalAmount: number }>()
+    items.forEach(it => {
+      const key = it.outletName || 'Cabang'
+      const existing = outletMap.get(key) || { outletName: key, outletId: it.outletId, count: 0, totalAmount: 0 }
+      existing.count += 1
+      existing.totalAmount += it.amount
+      outletMap.set(key, existing)
+    })
+
+    const outlets = Array.from(outletMap.values()).sort((a, b) => b.totalAmount - a.totalAmount)
+    const totalLembur = items.reduce((sum, it) => sum + it.amount, 0)
+
+    return {
+      totalLembur,
+      totalCount: items.length,
+      items,
+      outlets
+    }
+  }, [allTransactions])
+
+  const displayLembur = lemburData.totalLembur
+  const totalCombinedOpex = displaySalary + displayLembur + summary.nonSalary
 
   // Operational breakdown for details modal (Category & Outlet)
   const operationalBreakdown = useMemo(() => {
@@ -269,7 +314,7 @@ export default function InputPengeluaranPage() {
     let nonSalaryCount = 0
 
     allTransactions.forEach(t => {
-      if (isSalaryCategory(t.category)) return
+      if (isSalaryCategory(t.category) || t.category === 'lembur' || t.isLembur) return
       nonSalaryCount++
       const amt = Number(t.amount || 0)
 
@@ -840,8 +885,8 @@ export default function InputPengeluaranPage() {
         </div>
       )}
 
-      {/* SUMMARY STATS (PURE OPEX - 5 CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, OPERATIONAL, TOTAL) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+      {/* SUMMARY STATS (PURE OPEX - 6 CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, LEMBUR KAS, OPERATIONAL, TOTAL) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         {/* 1. Gaji & Payroll (Rutin) */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
@@ -1050,7 +1095,51 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 4. Operasional Outlet & Pusat */}
+        {/* 4. Lembur Kas Toko (Petty Cash) */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-bold text-orange-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Clock size={14} className="shrink-0" />
+                  <span>Lembur Kas Toko</span>
+                </div>
+              </div>
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-xs shrink-0">
+                OT
+              </div>
+            </div>
+
+            <div className="text-xl sm:text-2xl font-black text-orange-700 mt-2 tracking-tight truncate" title={rupiah(displayLembur)}>
+              +{rupiah(displayLembur)}
+            </div>
+
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
+              <span>
+                {lemburData.totalCount} nota lembur
+                <span className="text-[10px] text-orange-700 font-bold ml-1.5">
+                  • Petty Cash Toko
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setActiveDetailModal('lembur')}
+              className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-800 transition-colors cursor-pointer group"
+            >
+              <span>Lihat Detail</span>
+              <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <span className="text-[10px] text-gray-400 font-medium">
+              {lemburData.outlets.length} Cabang
+            </span>
+          </div>
+        </div>
+
+        {/* 5. Operasional Outlet & Pusat */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -1085,7 +1174,7 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 5. Total OPEX */}
+        {/* 6. Total OPEX */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -1113,12 +1202,14 @@ export default function InputPengeluaranPage() {
               {rupiah(totalCombinedOpex)}
             </div>
 
-            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate" title={`Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Opex: ${rupiah(summary.nonSalary)}`}>
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate" title={`Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Lembur: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`}>
               <span>Rutin: {rupiah(displayRoutineSalary)}</span>
               <span className="text-gray-400 mx-1">+</span>
               <span>Kru: {rupiah(displayCrewBonus)}</span>
               <span className="text-gray-400 mx-1">+</span>
               <span>AM/RM: {rupiah(displayManagerBonus)}</span>
+              <span className="text-gray-400 mx-1">+</span>
+              <span>Lembur: {rupiah(displayLembur)}</span>
               <span className="text-gray-400 mx-1">+</span>
               <span>Opex: {rupiah(summary.nonSalary)}</span>
             </div>
@@ -1556,6 +1647,7 @@ export default function InputPengeluaranPage() {
           isProrated: hasHrPayroll && prorataInfo.isProrated,
           prorataInfo
         }}
+        lemburData={lemburData}
         operationalData={{
           totalNonSalary: summary.nonSalary,
           totalCount: operationalBreakdown.count,
@@ -1569,6 +1661,7 @@ export default function InputPengeluaranPage() {
           displayBonus,
           displayCrewBonus,
           displayManagerBonus,
+          displayLembur,
           totalNonSalary: summary.nonSalary,
           isProrated: hasHrPayroll && prorataInfo.isProrated,
           prorataInfo

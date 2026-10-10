@@ -43,14 +43,14 @@ import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 // Halaman upload settlement hanya ada di admin-dashboard.
 const ADMIN_URL = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
 
-type DateRangeType = 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all' | 'custom'
+type DateRangeType = 'today' | 'yesterday' | '7days' | 'thisMonth' | 'lastMonth' | 'all' | 'custom'
 
 const RANGE_LABELS: Record<DateRangeType, string> = {
   today: 'Hari Ini',
   yesterday: 'Kemarin',
   '7days': '7 Hari Terakhir',
-  '30days': '30 Hari Terakhir',
   thisMonth: 'Bulan Ini',
+  lastMonth: 'Bulan Lalu',
   all: 'Semua Waktu',
   custom: 'Kustom Tanggal',
 }
@@ -122,15 +122,23 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
       s.setDate(s.getDate() - 7)
       return { from: fmt(s), to: fmt(today) }
     }
-    if (range === '30days') {
-      const s = new Date()
-      s.setDate(s.getDate() - 30)
-      return { from: fmt(s), to: fmt(today) }
-    }
     if (range === 'thisMonth') {
       const s = new Date()
       s.setDate(1)
       return { from: fmt(s), to: fmt(today) }
+    }
+    if (range === 'lastMonth') {
+      const jkt = new Date(Date.now() + 7 * 3600 * 1000)
+      const month = jkt.getUTCMonth() + 1
+      const year = jkt.getUTCFullYear()
+      const prevYear = month === 1 ? year - 1 : year
+      const prevMonth = month === 1 ? 12 : month - 1
+      const mm = String(prevMonth).padStart(2, '0')
+      const lastDay = new Date(prevYear, prevMonth, 0).getDate()
+      return {
+        from: `${prevYear}-${mm}-01`,
+        to: `${prevYear}-${mm}-${String(lastDay).padStart(2, '0')}`,
+      }
     }
     if (range === 'custom') {
       // Salah satu input masih kosong = rentang belum valid. Kembalikan kosong
@@ -143,7 +151,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   }, [range, customStartDate, customEndDate])
 
   const isPast = useMemo(() => {
-    if (range === 'yesterday' || range === '7days' || range === '30days') {
+    if (range === 'yesterday' || range === '7days' || range === 'lastMonth') {
       if (dateStrRange.to && dateStrRange.to < todayJakarta) return true
     }
     if (range === 'custom' && customEndDate && customEndDate < todayJakarta) return true

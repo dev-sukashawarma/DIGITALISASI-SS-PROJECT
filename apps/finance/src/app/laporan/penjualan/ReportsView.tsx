@@ -750,15 +750,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                         ? 'Net Penerimaan Kasir'
                         : 'Estimasi Masuk Bank'}
                   </p>
-                  {analytics.grossRevenue > 0 && (analytics.totalSettlement ?? 0) > 0 && (
-                    <span
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/25 text-[10px] font-bold text-white backdrop-blur-xs"
-                      title={`Realisasi pencairan bersih settlement: ${analytics.settlementRate}% dari Gross POS`}
-                    >
-                      <CheckCircle2 className="w-3 h-3 text-emerald-300" />
-                      <span>{analytics.settlementRate}% Settle</span>
-                    </span>
-                  )}
+                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">
+                    Masuk Bank
+                  </span>
                 </div>
                 <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">
                   {formatRupiah(analytics.netDisbursement ?? Math.max(0, analytics.grossRevenue - (analytics.totalAdminFee ?? (analytics.totalDeductions + (analytics.totalCommission ?? 0)))))}
@@ -770,15 +764,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       ? 'Total uang fisik kas laci & QRIS yang diterima'
                       : 'Uang bersih yang cair ke rekening (Gross Omset - Admin Fee)'}
                 </p>
-                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap text-[11px] text-white/80 font-medium">
-                  {analytics.grossRevenue > 0 && (
-                    <span>
-                      {(
-                        ((analytics.netDisbursement ?? Math.max(0, analytics.grossRevenue - (analytics.totalAdminFee ?? (analytics.totalDeductions + (analytics.totalCommission ?? 0))))) / analytics.grossRevenue) * 100
-                      ).toFixed(1)}% dari Gross Omset
-                    </span>
-                  )}
-                </div>
               </div>
             </div>
 

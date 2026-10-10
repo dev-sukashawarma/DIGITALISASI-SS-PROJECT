@@ -351,6 +351,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     completedCount: 0, paymentBreakdown: {}, bestSellers: [], bestSellersPdf: [], categoryData: [],
     totalOrders: 0, buyOneGetOneTransactions: 0, buyOneGetOneGiftUnits: 0, successRate: 0, cancelledCount: 0,
     grossRevenue: 0, totalDeductions: 0, totalPlatformSubsidy: 0, netRevenue: 0, totalHPP: 0, grossProfit: 0,
+    totalCommission: 0, isCommissionEstimated: false, netDisbursement: 0, realGrossProfit: 0,
     totalSettlement: 0, totalSettlementGross: 0, settlementRate: 0, settlementGrossRate: 0, totalRealAdmin: 0, settlementDateRange: '', hasSettlementData: false,
   }
   const analytics = report?.analytics ?? EMPTY_ANALYTICS
@@ -642,59 +643,98 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-5">
+          {/* ── 6 KPI Cards (Alur Kas & Potongan Platform + Profitabilitas P&L) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 xl:gap-5">
             {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
+                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">Omset Kotor</span>
+                </div>
                 <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.grossRevenue)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Total omset produk (Subtotal setelah diskon penjual)'
-                    : 'Total nilai omzet kotor sebelum diskon & subsidi'}
+                    : 'Total nilai omzet kotor sebelum diskon promo & potongan aplikasi'}
                 </p>
+                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap text-[11px] text-white/80 font-medium">
+                  <span>{analytics.totalOrders.toLocaleString('id-ID')} pesanan selesai</span>
+                </div>
               </div>
             </div>
 
-            {/* 2. Total COGS */}
-            <div className="bg-gradient-to-br from-rose-400 to-rose-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            {/* 2. Diskon Promo Resto (Promo Toko / Offline) */}
+            <div className="bg-gradient-to-br from-sky-500 to-sky-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-sky-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total COGS</p>
-                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalHPP)}</p>
-                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
-                  {isSSOnlineSelected
-                    ? 'Modal bahan dasar (Tarif HPP khusus SS Online)'
-                    : 'Total beban modal bahan dasar (HPP Resep)'}
-                </p>
-              </div>
-            </div>
-
-            {/* 3. Admin Platform */}
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-              <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                  {isSSOnlineSelected
-                    ? 'Beban Biaya Platform (P&L)'
-                    : 'Potongan Merchant'}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                    {isSSOnlineSelected
+                      ? 'Diskon & Voucher Toko'
+                      : isPosKasirOnly
+                        ? 'Diskon Kasir'
+                        : 'Diskon Promo Resto'}
+                  </p>
+                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">Promo Toko</span>
+                </div>
                 <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalDeductions)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
-                    ? 'Komisi Platform, Dinamis, Cashback, Admin Order, Logistik, Afiliasi & PPh 22 (Pengurang Laba Kotor)'
-                    : 'Diskon offline & potongan promo merchant (termasuk Food Apps)'}
+                    ? 'Voucher diskon produk yang ditanggung penjual'
+                    : isPosKasirOnly
+                      ? 'Diskon langsung offline oleh kasir di outlet'
+                      : 'Beban diskon & voucher promo yang ditanggung resto (bakar promo)'}
                 </p>
                 <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
                   {analytics.totalPlatformSubsidy > 0 && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[11px] font-semibold text-white backdrop-blur-xs shadow-xs">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-[10px] font-semibold text-white backdrop-blur-xs shadow-xs" title="Promo voucher yang disubsidi oleh pihak aplikasi (bukan beban resto)">
                       <span>
-                        Subsidi Platform {selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok') ? '(TikTok)' : selectedChannels.some(c => c === 'gofood' || c === 'gojek') ? '(Gojek)' : ''}: {formatRupiah(analytics.totalPlatformSubsidy)}
+                        Subsidi Platform: {formatRupiah(analytics.totalPlatformSubsidy)}
                       </span>
                     </div>
                   )}
+                  {analytics.totalDeductions === 0 && (
+                    <span className="text-[10px] text-white/75 italic">Toko tidak membakar uang promo</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Komisi & Admin Aplikasi (Biaya Platform) */}
+            <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                    Komisi & Admin Aplikasi
+                  </p>
+                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">
+                    {(analytics.totalRealAdmin ?? 0) > 0 ? '✓ Settlement' : isPosKasirOnly ? '0% Kasir' : 'Biaya Platform'}
+                  </span>
+                </div>
+                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">
+                  {formatRupiah(analytics.totalCommission ?? analytics.totalRealAdmin ?? 0)}
+                </p>
+                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                  {isSSOnlineSelected
+                    ? 'Biaya komisi marketplace, admin order, logistik & pajak platform'
+                    : isPosKasirOnly
+                      ? 'Tidak ada potongan komisi platform untuk transaksi kasir offline'
+                      : 'Fee resmi bagi hasil & layanan platform (GoFood 20%, Shopee 20%, Grab 20%, TikTok ~9%)'}
+                </p>
+                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                  {analytics.settlementDateRange ? (
+                    <span className="text-[10px] text-white/85 font-medium bg-white/15 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {analytics.settlementDateRange}
+                    </span>
+                  ) : analytics.isCommissionEstimated ? (
+                    <span className="text-[10px] text-white/75 italic">
+                      Estimasi bagi hasil aplikasi
+                    </span>
+                  ) : null}
                   <Link
                     href={`${ADMIN_URL}/dashboard/platform-settlement`}
                     target="_blank"
@@ -708,117 +748,132 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
               </div>
             </div>
 
-            {/* 4. Gross Profit */}
+            {/* 4. Estimasi Dana Masuk Bank (Net Disbursement) */}
+            <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                    {isSSOnlineSelected
+                      ? 'Net Pencairan Marketplace'
+                      : isPosKasirOnly
+                        ? 'Net Penerimaan Kasir'
+                        : 'Estimasi Masuk Bank'}
+                  </p>
+                  {analytics.grossRevenue > 0 && (analytics.totalSettlement ?? 0) > 0 && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/25 text-[10px] font-bold text-white backdrop-blur-xs"
+                      title={`Realisasi pencairan bersih settlement: ${analytics.settlementRate}% dari Gross POS`}
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-emerald-300" />
+                      <span>{analytics.settlementRate}% Settle</span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">
+                  {formatRupiah(analytics.netDisbursement ?? Math.max(0, analytics.grossRevenue - (analytics.totalDeductions + (analytics.totalCommission ?? analytics.totalRealAdmin ?? 0))))}
+                </p>
+                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                  {isSSOnlineSelected
+                    ? 'Dana bersih yang ditransfer platform ke rekening bank'
+                    : isPosKasirOnly
+                      ? 'Total uang fisik kas laci & QRIS yang diterima'
+                      : 'Uang bersih yang cair ke rekening (Gross - Promo Resto - Komisi Platform)'}
+                </p>
+                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap text-[11px] text-white/80 font-medium">
+                  {analytics.grossRevenue > 0 && (
+                    <span>
+                      {(
+                        ((analytics.netDisbursement ?? (analytics.grossRevenue - (analytics.totalDeductions + (analytics.totalCommission ?? analytics.totalRealAdmin ?? 0)))) / analytics.grossRevenue) * 100
+                      ).toFixed(1)}% dari Gross Omset
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 5. Total COGS (HPP Bahan Baku) — WAJIB TETAP ADA */}
+            <div className="bg-gradient-to-br from-rose-500 to-rose-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total COGS (HPP)</p>
+                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">Modal Bahan</span>
+                </div>
+                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalHPP)}</p>
+                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                  {isSSOnlineSelected
+                    ? 'Modal bahan dasar (Tarif HPP khusus SS Online)'
+                    : 'Total beban modal bahan dasar (HPP Resep)'}
+                </p>
+                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap text-[11px] text-white/80 font-medium">
+                  {analytics.grossRevenue > 0 && (
+                    <span>
+                      {((analytics.totalHPP / analytics.grossRevenue) * 100).toFixed(1)}% dari Gross Revenue
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Gross Profit (Laba Kotor) — WAJIB TETAP ADA */}
             <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
-                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.grossProfit)}</p>
-                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
-                  Gross Revenue - (COGS + {isSSOnlineSelected ? 'Beban Platform' : isPosKasirOnly ? 'Diskon Kasir' : 'Admin Platform'})
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
+                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">Laba Kotor</span>
+                </div>
+                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">
+                  {formatRupiah(
+                    analytics.realGrossProfit ??
+                      Math.max(
+                        0,
+                        (analytics.netDisbursement ??
+                          (analytics.grossRevenue -
+                            analytics.totalDeductions -
+                            (analytics.totalCommission ?? analytics.totalRealAdmin ?? 0))) -
+                          analytics.totalHPP
+                      )
+                  )}
                 </p>
+                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                  Laba kotor setelah HPP & potongan platform (Masuk Bank - Total COGS)
+                </p>
+                <div className="mt-3 flex items-center justify-between gap-2 flex-wrap text-[11px] text-white/80 font-medium">
+                  {analytics.grossRevenue > 0 && (
+                    <span>
+                      {(
+                        ((analytics.realGrossProfit ??
+                          ((analytics.netDisbursement ?? (analytics.grossRevenue - analytics.totalDeductions - (analytics.totalCommission ?? 0))) - analytics.totalHPP)) /
+                          analytics.grossRevenue) *
+                        100
+                      ).toFixed(1)}% Margin Laba
+                    </span>
+                  )}
+                  {(analytics.totalCommission ?? analytics.totalRealAdmin ?? 0) > 0 && (
+                    <span className="text-[10px] text-white/70" title="Laba sebelum dipotong komisi aplikasi">
+                      Sebelum Komisi: {formatRupiah(analytics.grossProfit)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {analytics.hasSettlementData && (
-            <>
-              <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />
-              <div className="mb-4">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-indigo-500" />
-                  Rekonsiliasi Settlement
-                </h2>
-                <p className="text-sm text-gray-500">Data ini ditarik dari hasil rekonsiliasi pembayaran platform.</p>
+          {/* Catatan Edukasi Siklus Settlement TikTok Go T+4 */}
+          {selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok') && (
+            <div className="mt-4 p-4 rounded-2xl bg-indigo-50/80 border border-indigo-100 flex items-start gap-3 text-xs text-indigo-950 shadow-2xs">
+              <Clock className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-900">
+                  Catatan Siklus Settlement TikTok Go (T+4 Hari Kerja)
+                </p>
+                <p className="text-indigo-800 leading-relaxed">
+                  Siklus pencairan voucher TikTok Go membutuhkan waktu <strong>4 hari kerja perbankan</strong> (Sabtu, Minggu, dan hari libur tidak dihitung). Transaksi akhir bulan (29–30 September 2026) akan tuntas cair pada <strong>Selasa sore, 6 Oktober 2026</strong>. Silakan tarik ulang file settlement dari TikTok Seller Center pada <strong>Rabu, 7 Oktober 2026</strong> agar angka rekonsiliasi menjadi <strong>100% tuntas</strong>.
+                </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-5">
-                {/* 5. Settlement (Conditional) */}
-                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-                  <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                        Total Settlement
-                      </p>
-                      {analytics.grossRevenue > 0 && analytics.totalSettlement > 0 && (
-                        <span
-                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/20 border border-white/25 text-[11px] font-bold text-white backdrop-blur-xs shadow-2xs"
-                          title={`Realisasi pencairan bersih: ${analytics.settlementRate ?? ((analytics.totalSettlement / analytics.grossRevenue) * 100).toFixed(1)}% dari Gross Revenue POS`}
-                        >
-                          <CheckCircle2 className="w-3 h-3 text-emerald-300" />
-                          <span>
-                            {analytics.settlementRate ?? ((analytics.totalSettlement / analytics.grossRevenue) * 100).toFixed(1)}% Settle
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalSettlement)}</p>
-                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
-                      {isSSOnlineSelected
-                        ? 'Omzet Kotor - Promo - Biaya Platform'
-                        : selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok')
-                          ? 'Hak Penjualan Voucher - Promo Merchant - Komisi TikTok'
-                          : 'Omzet Kotor - Promo Merchant - Potongan Komisi Platform'}
-                    </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {analytics.settlementDateRange && (
-                        <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {analytics.settlementDateRange}
-                        </p>
-                      )}
-                      {analytics.grossRevenue > 0 && analytics.totalSettlement > 0 && (
-                        <p
-                          className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full"
-                          title={`Realisasi pencairan bersih: ${analytics.settlementRate ?? ((analytics.totalSettlement / analytics.grossRevenue) * 100).toFixed(1)}% dari Gross POS`}
-                        >
-                          <span>{analytics.settlementRate ?? ((analytics.totalSettlement / analytics.grossRevenue) * 100).toFixed(1)}% dari Gross POS</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 6. Admin Settlement */}
-                  <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-                    <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-                    <div className="relative z-10">
-                      <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                        Admin Settlement
-                      </p>
-                      <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalRealAdmin)}</p>
-                      <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
-                        {isSSOnlineSelected
-                          ? 'Total biaya platform'
-                          : selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok')
-                            ? 'Platform fee 8% + komisi affiliate creator voucher'
-                            : 'Platform commission + Creator commission + WHT'}
-                      </p>
-                      {analytics.settlementDateRange && (
-                        <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {analytics.settlementDateRange}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-              </div>
-
-              {/* Catatan Edukasi Siklus Settlement TikTok Go T+4 */}
-              {selectedChannels.some(c => c === 'tiktokgo' || c === 'tiktok') && (
-                <div className="mt-4 p-4 rounded-2xl bg-indigo-50/80 border border-indigo-100 flex items-start gap-3 text-xs text-indigo-950 shadow-2xs">
-                  <Clock className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-bold text-indigo-900">
-                      Catatan Siklus Settlement TikTok Go (T+4 Hari Kerja)
-                    </p>
-                    <p className="text-indigo-800 leading-relaxed">
-                      Siklus pencairan voucher TikTok Go membutuhkan waktu <strong>4 hari kerja perbankan</strong> (Sabtu, Minggu, dan hari libur tidak dihitung). Transaksi akhir bulan (29–30 September 2026) akan tuntas cair pada <strong>Selasa sore, 6 Oktober 2026</strong>. Silakan tarik ulang file settlement dari TikTok Seller Center pada <strong>Rabu, 7 Oktober 2026</strong> agar angka rekonsiliasi menjadi <strong>100% tuntas</strong>.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

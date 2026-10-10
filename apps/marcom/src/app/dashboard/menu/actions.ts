@@ -219,17 +219,24 @@ export async function toggleSettingBadge(itemId: string, key: 'bestseller_ids' |
   const exists = currentIds.includes(itemId)
   const newIds = exists ? currentIds.filter((id) => id !== itemId) : [...currentIds, itemId]
 
-  const { error } = await supabase.from('kiosk_settings').upsert(
-    {
-      outlet_id: PUSAT_OUTLET_ID,
-      key,
-      value: JSON.stringify(newIds),
-    },
-    { onConflict: 'outlet_id, key' }
-  )
+  const { data, error } = await supabase
+    .from('kiosk_settings')
+    .upsert(
+      {
+        outlet_id: PUSAT_OUTLET_ID,
+        key,
+        value: JSON.stringify(newIds),
+      },
+      { onConflict: 'outlet_id, key' }
+    )
+    .select('outlet_id, key')
 
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) {
+    throw new Error('Gagal memperbarui kiosk setting: Data tidak tersimpan ke database.')
+  }
   revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu', 'layout')
 }
 
 export async function saveCategory(category: {
@@ -253,6 +260,8 @@ export async function saveCategory(category: {
 
     if (error) throw new Error(`Gagal update kategori: ${error.message}`)
     revalidatePath('/dashboard/menu')
+    revalidatePath('/dashboard/menu/kategori')
+    revalidatePath('/dashboard/menu', 'layout')
     return data
   } else {
     const { data, error } = await supabase
@@ -263,6 +272,8 @@ export async function saveCategory(category: {
 
     if (error) throw new Error(`Gagal menambah kategori: ${error.message}`)
     revalidatePath('/dashboard/menu')
+    revalidatePath('/dashboard/menu/kategori')
+    revalidatePath('/dashboard/menu', 'layout')
     return data
   }
 }
@@ -271,23 +282,53 @@ export async function deleteCategory(id: string) {
   const supabase = getPosSupabase()
 
   // 1. Lepaskan relasi menu yang menggunakan kategori ini agar menu tidak terhapus
-  await supabase.from('menu_items').update({ category_id: null }).eq('category_id', id)
+  const { error: unbindError } = await supabase
+    .from('menu_items')
+    .update({ category_id: null })
+    .eq('category_id', id)
 
-  // 2. Hapus kategori dari database
-  const { error } = await supabase.from('categories').delete().eq('id', id)
+  if (unbindError) {
+    throw new Error(`Gagal melepaskan relasi menu: ${unbindError.message}`)
+  }
+
+  // 2. Hapus kategori dari database dengan verifikasi baris terhapus
+  const { data, error } = await supabase
+    .from('categories')
+    .delete()
+    .eq('id', id)
+    .select('id')
+
   if (error) throw new Error(`Gagal menghapus kategori: ${error.message}`)
+  if (!data || data.length === 0) {
+    throw new Error('Gagal menghapus kategori: Data tidak ditemukan atau izin database tidak cukup.')
+  }
 
   revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu/kategori')
+  revalidatePath('/dashboard/menu', 'layout')
 }
 
 export async function reorderCategories(updates: { id: string; sort_order: number }[]) {
   const supabase = getPosSupabase()
 
-  await Promise.all(
+  const results = await Promise.all(
     updates.map((u) =>
-      supabase.from('categories').update({ sort_order: u.sort_order }).eq('id', u.id)
+      supabase
+        .from('categories')
+        .update({ sort_order: u.sort_order })
+        .eq('id', u.id)
+        .select('id')
     )
   )
 
+  for (const res of results) {
+    if (res.error) throw new Error(`Gagal memperbarui urutan kategori: ${res.error.message}`)
+    if (!res.data || res.data.length === 0) {
+      throw new Error('Gagal memperbarui urutan kategori: Baris tidak ditemukan atau izin database tidak cukup.')
+    }
+  }
+
   revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu/kategori')
+  revalidatePath('/dashboard/menu', 'layout')
 }

@@ -54,7 +54,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
 
       const expenseId = endorsement.rateCardExpenseId || crypto.randomUUID()
 
-      const { error: upsertErr } = await supabase.from('expenses').upsert(
+      const { data: upsertData, error: upsertErr } = await supabase.from('expenses').upsert(
         {
           id: expenseId,
           outlet_id: posOutletId,
@@ -67,7 +67,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           type: 'expense',
         },
         { onConflict: 'id' }
-      )
+      ).select('id')
 
       if (upsertErr) {
         console.error(`[syncEndorsementOpex] Error upserting rateCard expense for Endorsement #${id}:`, upsertErr)
@@ -79,7 +79,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
       }
     } else if (endorsement.rateCardExpenseId) {
       // Jika status berubah kembali ke UNPAID atau rateCard 0, hapus dari OPEX
-      const { error: delErr } = await supabase.from('expenses').delete().eq('id', endorsement.rateCardExpenseId)
+      const { error: delErr } = await supabase.from('expenses').delete().eq('id', endorsement.rateCardExpenseId).select('id')
       if (delErr) {
         console.error(`[syncEndorsementOpex] Error deleting rateCard expense ${endorsement.rateCardExpenseId}:`, delErr)
       } else {
@@ -106,7 +106,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
 
       const expenseId = endorsement.shippingExpenseId || crypto.randomUUID()
 
-      const { error: upsertErr } = await supabase.from('expenses').upsert(
+      const { data: upsertData, error: upsertErr } = await supabase.from('expenses').upsert(
         {
           id: expenseId,
           outlet_id: posOutletId,
@@ -119,7 +119,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           type: 'expense',
         },
         { onConflict: 'id' }
-      )
+      ).select('id')
 
       if (upsertErr) {
         console.error(`[syncEndorsementOpex] Error upserting shipping expense for Endorsement #${id}:`, upsertErr)
@@ -131,7 +131,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
       }
     } else if (endorsement.shippingExpenseId) {
       // Jika dibatalkan, bukan delivery, atau tanggal sebelum September 2026, hapus dari OPEX
-      const { error: delErr } = await supabase.from('expenses').delete().eq('id', endorsement.shippingExpenseId)
+      const { error: delErr } = await supabase.from('expenses').delete().eq('id', endorsement.shippingExpenseId).select('id')
       if (delErr) {
         console.error(`[syncEndorsementOpex] Error deleting shipping expense ${endorsement.shippingExpenseId}:`, delErr)
       } else {
@@ -160,7 +160,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
       const menuDesc = endorsement.menuGiven ? ` - Menu: ${endorsement.menuGiven}` : ''
       const description = `[MARCOM: HPP Menu KOL - ${kolName}]${menuDesc} (Outlet: ${outletName})`
 
-      const { error: upsertErr } = await supabase.from('expenses').upsert(
+      const { data: upsertData, error: upsertErr } = await supabase.from('expenses').upsert(
         {
           id: hppExpenseId,
           outlet_id: posOutletId,
@@ -173,13 +173,13 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           type: 'expense',
         },
         { onConflict: 'id' }
-      )
+      ).select('id')
 
       if (upsertErr) {
         console.error(`[syncEndorsementOpex] Error upserting HPP expense for Endorsement #${id}:`, upsertErr)
       }
     } else {
-      await supabase.from('expenses').delete().eq('id', hppExpenseId)
+      await supabase.from('expenses').delete().eq('id', hppExpenseId).select('id')
     }
 
     return { success: true }
@@ -217,7 +217,7 @@ export async function syncAdOpex(adId: bigint | number | string) {
 
       const expenseId = ad.expenseId || crypto.randomUUID()
 
-      const { error: upsertErr } = await supabase.from('expenses').upsert(
+      const { data: upsertData, error: upsertErr } = await supabase.from('expenses').upsert(
         {
           id: expenseId,
           outlet_id: posOutletId,
@@ -230,7 +230,7 @@ export async function syncAdOpex(adId: bigint | number | string) {
           type: 'expense',
         },
         { onConflict: 'id' }
-      )
+      ).select('id')
 
       if (upsertErr) {
         console.error(`[syncAdOpex] Error upserting expense for Ad #${id}:`, upsertErr)
@@ -242,7 +242,7 @@ export async function syncAdOpex(adId: bigint | number | string) {
       }
     } else if (ad.expenseId) {
       // Jika nilai spent diubah ke 0, hapus dari OPEX
-      const { error: delErr } = await supabase.from('expenses').delete().eq('id', ad.expenseId)
+      const { error: delErr } = await supabase.from('expenses').delete().eq('id', ad.expenseId).select('id')
       if (delErr) {
         console.error(`[syncAdOpex] Error deleting expense ${ad.expenseId}:`, delErr)
       } else {
@@ -267,7 +267,7 @@ export async function deleteOpexByExpenseId(expenseId: string | null | undefined
   if (!expenseId) return
   try {
     const supabase = getPosSupabase()
-    const { error } = await supabase.from('expenses').delete().eq('id', expenseId)
+    const { error } = await supabase.from('expenses').delete().eq('id', expenseId).select('id')
     if (error) {
       console.error(`[deleteOpexByExpenseId] Error deleting expense ${expenseId}:`, error)
     }
@@ -322,7 +322,7 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
       const description = `[MARCOM: ${catLabel}] ${expense.description} (Alokasi: ${outletName})`
       const expenseId = expense.expenseId || crypto.randomUUID()
 
-      const { error: upsertErr } = await supabase.from('expenses').upsert(
+      const { data: upsertData, error: upsertErr } = await supabase.from('expenses').upsert(
         {
           id: expenseId,
           outlet_id: posOutletId,
@@ -335,7 +335,7 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
           type: 'expense',
         },
         { onConflict: 'id' }
-      )
+      ).select('id')
 
       if (upsertErr) {
         console.error(`[syncManualExpenseOpex] Error upserting expense for #${id}:`, upsertErr)
@@ -346,7 +346,7 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
         })
       }
     } else if (expense.expenseId) {
-      const { error: delErr } = await supabase.from('expenses').delete().eq('id', expense.expenseId)
+      const { error: delErr } = await supabase.from('expenses').delete().eq('id', expense.expenseId).select('id')
       if (delErr) {
         console.error(`[syncManualExpenseOpex] Error deleting expense ${expense.expenseId}:`, delErr)
       } else {

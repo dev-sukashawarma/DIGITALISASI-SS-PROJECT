@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { getPosSupabase } from '@/lib/supabase-pos'
 import { getPromoStatus, validateSchedule } from '@/lib/promoSchedule'
 import { isRowAssigned, promoOutletKey, resolvePromoOutletIds } from '@/lib/promoOutlets'
@@ -144,12 +145,16 @@ export async function savePromosAction(
       if (poolError || !pool) {
         return { success: false, error: poolError?.message || 'Pool kuota promo tidak ditemukan.' }
       }
-      const { error: updatePoolError } = await supabase
+      const { data: updatedPool, error: updatePoolError } = await supabase
         .from('promo_quota_pools')
         .update({ usage_limit: p.usage_limit })
         .eq('id', pool.id)
+        .select('id')
       if (updatePoolError) {
         return { success: false, error: updatePoolError.message || JSON.stringify(updatePoolError) }
+      }
+      if (!updatedPool || updatedPool.length === 0) {
+        return { success: false, error: 'Gagal memperbarui kuota pool promo: Data tidak tersimpan ke database.' }
       }
       quotaPoolByPromoKey.set(promoKey(p), { id: pool.id, current_usage: Number(pool.current_usage) || 0 })
       continue
@@ -157,15 +162,19 @@ export async function savePromosAction(
 
     const seededUsage = matchingRows.reduce((sum: number, row: any) => sum + (Number(row.current_usage) || 0), 0)
     const poolId = crypto.randomUUID()
-    const { error: createPoolError } = await supabase
+    const { data: createdPool, error: createPoolError } = await supabase
       .from('promo_quota_pools')
       .insert({
         id: poolId,
         usage_limit: p.usage_limit == null || p.usage_limit === '' ? null : Number(p.usage_limit),
         current_usage: seededUsage,
       })
+      .select('id')
     if (createPoolError) {
       return { success: false, error: createPoolError.message || JSON.stringify(createPoolError) }
+    }
+    if (!createdPool || createdPool.length === 0) {
+      return { success: false, error: 'Gagal membuat kuota pool promo: Data tidak tersimpan ke database.' }
     }
     quotaPoolByPromoKey.set(promoKey(p), { id: poolId, current_usage: seededUsage })
   }
@@ -221,11 +230,17 @@ export async function savePromosAction(
   const toUpsert = Array.from(toUpsertMap.values())
 
   if (toUpsert.length > 0) {
-    const { error: upsertError } = await supabase.from('outlet_promos').upsert(toUpsert)
+    const { data: upsertedRows, error: upsertError } = await supabase
+      .from('outlet_promos')
+      .upsert(toUpsert)
+      .select('id')
 
     if (upsertError) {
       console.error('Upsert Error:', upsertError)
       return { success: false, error: upsertError.message || JSON.stringify(upsertError) }
+    }
+    if (!upsertedRows || upsertedRows.length === 0) {
+      return { success: false, error: 'Gagal menyimpan promo: Data tidak tersimpan ke database (cek hak akses RLS).' }
     }
   }
 
@@ -245,6 +260,7 @@ export async function savePromosAction(
       .from('outlet_promos')
       .update({ is_active: false, is_assigned: false })
       .in('id', idsToUnassign)
+      .select('id')
 
     if (unassignError) {
       console.error('Unassign Error:', unassignError)
@@ -252,5 +268,8 @@ export async function savePromosAction(
     }
   }
 
+  revalidatePath('/dashboard/menu/promo')
+  revalidatePath('/dashboard/menu')
+  revalidatePath('/dashboard/menu', 'layout')
   return { success: true }
 }

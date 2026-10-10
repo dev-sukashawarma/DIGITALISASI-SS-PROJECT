@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import {
   Loader2,
@@ -392,9 +393,10 @@ function MenuExclusionPicker({
 }
 
 export default function PromoView({ initialMenuItems, initialOutlets, initialPromos }: PromoViewProps) {
-  const [menuItems] = useState<MenuItem[]>(initialMenuItems)
+  const router = useRouter()
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems)
   const [promos, setPromos] = useState<OutletPromo[]>(initialPromos)
-  const [outlets] = useState<Outlet[]>(initialOutlets)
+  const [outlets, setOutlets] = useState<Outlet[]>(initialOutlets)
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [mounted, setMounted] = useState(false)
@@ -405,6 +407,18 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     setToast({ type, message })
     setTimeout(() => setToast(null), 3500)
   }
+
+  useEffect(() => {
+    setMenuItems(initialMenuItems)
+  }, [initialMenuItems])
+
+  useEffect(() => {
+    setPromos(initialPromos)
+  }, [initialPromos])
+
+  useEffect(() => {
+    setOutlets(initialOutlets)
+  }, [initialOutlets])
 
   useEffect(() => {
     setMounted(true)
@@ -582,6 +596,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
       }
 
       showToast('success', 'Pengaturan promo berhasil disimpan untuk cabang outlet yang dipilih!')
+      router.refresh()
     } catch (err: any) {
       console.error(err)
       showToast('error', err.message || 'Gagal menyimpan promo')

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { formatRupiah, cn } from '@/lib/utils'
-import { getPosSupabase, DEFAULT_FOOD_CHANNELS } from '@/lib/supabase-pos'
+import { DEFAULT_FOOD_CHANNELS } from '@/lib/supabase-pos'
 import type { MenuItem, Category, SalesChannel, Outlet, MenuPromo } from '@/types/menu'
 
 function ChannelBadge({ name }: { name: string }) {

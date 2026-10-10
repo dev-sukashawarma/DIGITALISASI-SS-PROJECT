@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import CategoryManagementView from '../CategoryManagementView'
 import type { Category, MenuItem } from '@/types/menu'
 import { cn } from '@/lib/utils'
@@ -16,6 +16,14 @@ export default function CategoryPageClient({
   const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [items, setItems] = useState<MenuItem[]>(initialItems)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  useEffect(() => {
+    setCategories(initialCategories)
+  }, [initialCategories])
+
+  useEffect(() => {
+    setItems(initialItems)
+  }, [initialItems])
 
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message })

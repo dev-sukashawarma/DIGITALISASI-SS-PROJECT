@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Plus,
   Pencil,
@@ -45,10 +46,12 @@ export default function CategoryManagementView({
   onItemsChange,
   onToast,
 }: Props) {
+  const router = useRouter()
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState<CategoryFormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [reordering, setReordering] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
   const [searchFilter, setSearchFilter] = useState('')
@@ -110,6 +113,7 @@ export default function CategoryManagementView({
       }
 
       setShowModal(false)
+      router.refresh()
     } catch (err: any) {
       setModalError(err?.message || 'Gagal menyimpan kategori.')
     } finally {
@@ -117,14 +121,13 @@ export default function CategoryManagementView({
     }
   }
 
-  const handleDelete = async (cat: Category) => {
-    const menuCount = items.filter((i) => i.category_id === cat.id).length
-    const warningMessage =
-      menuCount > 0
-        ? `Hapus kategori "${cat.name}"?\n\nAda ${menuCount} menu yang menggunakan kategori ini. Menu tersebut TIDAK akan terhapus, melainkan akan dilepaskan menjadi "Tanpa Kategori".`
-        : `Hapus kategori "${cat.name}"?`
+  const handleDeleteClick = (cat: Category) => {
+    setCategoryToDelete(cat)
+  }
 
-    if (!confirm(warningMessage)) return
+  const handleConfirmDelete = async () => {
+    if (!categoryToDelete) return
+    const cat = categoryToDelete
 
     setDeletingId(cat.id)
     try {
@@ -141,6 +144,8 @@ export default function CategoryManagementView({
       }
 
       onToast('success', `Kategori "${cat.name}" berhasil dihapus.`)
+      setCategoryToDelete(null)
+      router.refresh()
     } catch (err: any) {
       onToast('error', err?.message || 'Gagal menghapus kategori.')
     } finally {
@@ -176,6 +181,7 @@ export default function CategoryManagementView({
         { id: target.id, sort_order: newTargetOrder },
       ])
       onToast('success', 'Urutan kategori berhasil diperbarui')
+      router.refresh()
     } catch (err: any) {
       onToast('error', 'Gagal memperbarui urutan kategori.')
       // Revert if error
@@ -334,7 +340,7 @@ export default function CategoryManagementView({
                           <button
                             type="button"
                             disabled={deletingId === cat.id}
-                            onClick={() => handleDelete(cat)}
+                            onClick={() => handleDeleteClick(cat)}
                             className="p-2 rounded-lg bg-stone-100 hover:bg-red-100 text-stone-700 hover:text-red-700 disabled:opacity-40 transition-colors cursor-pointer"
                             title="Hapus Kategori"
                           >
@@ -442,6 +448,53 @@ export default function CategoryManagementView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Konfirmasi Hapus Kategori (Custom UI) ────────── */}
+      {categoryToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-stone-200 shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-stone-900">Konfirmasi Hapus Kategori</h3>
+                <p className="text-xs text-stone-500">Tindakan ini tidak dapat dibatalkan</p>
+              </div>
+            </div>
+
+            <div className="bg-stone-50 rounded-xl p-4 border border-stone-100 text-xs text-stone-600 space-y-2">
+              <p>
+                Apakah Anda yakin ingin menghapus kategori <span className="font-bold text-stone-900">&quot;{categoryToDelete.name}&quot;</span>?
+              </p>
+              {items.filter((i) => i.category_id === categoryToDelete.id).length > 0 && (
+                <p className="text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 font-medium">
+                  Terdapat <span className="font-bold">{items.filter((i) => i.category_id === categoryToDelete.id).length} menu</span> yang menggunakan kategori ini. Menu tersebut <b>tidak akan terhapus</b>, melainkan akan dilepaskan menjadi <i>&quot;Tanpa Kategori&quot;</i>.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setCategoryToDelete(null)}
+                className="px-4 py-2.5 rounded-xl border border-stone-200 text-stone-600 hover:bg-stone-50 font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={deletingId === categoryToDelete.id}
+                onClick={handleConfirmDelete}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              >
+                {deletingId === categoryToDelete.id && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>{deletingId === categoryToDelete.id ? 'Menghapus...' : 'Hapus Kategori'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

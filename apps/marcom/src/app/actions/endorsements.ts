@@ -200,7 +200,7 @@ export async function createEndorsement(
         if (outlet?.posOutletId) {
           const supabase = getPosSupabase()
           const scheduleDateISO = scheduleDate.toISOString().split('T')[0]
-          await supabase.from('pos_endorsements').upsert({
+          const { error: upsertErr } = await supabase.from('pos_endorsements').upsert({
             marcom_endorsement_id: Number(endorsement.id),
             outlet_id: outlet.posOutletId,
             outlet_name: outlet.name,
@@ -220,7 +220,10 @@ export async function createEndorsement(
             items: menuItems,
             status: 'SCHEDULED',
             notes: paymentNotes || null,
-          }, { onConflict: 'marcom_endorsement_id' })
+          }, { onConflict: 'marcom_endorsement_id' }).select('id')
+          if (upsertErr) {
+            console.error('Error syncing endorsement to POS Supabase:', upsertErr)
+          }
         }
       } catch (syncErr) {
         console.error('Error syncing endorsement to POS Supabase:', syncErr)
@@ -408,7 +411,7 @@ export async function updateEndorsement(
         const kol = await prisma.kol.findUnique({ where: { id: kolId } })
         if (outlet?.posOutletId) {
           const scheduleDateISO = scheduleDate.toISOString().split('T')[0]
-          await supabase.from('pos_endorsements').upsert({
+          const { error: upsertErr } = await supabase.from('pos_endorsements').upsert({
             marcom_endorsement_id: Number(endorsementId),
             outlet_id: outlet.posOutletId,
             outlet_name: outlet.name,
@@ -428,10 +431,16 @@ export async function updateEndorsement(
             items: menuItems || [],
             status: visitStatus === 'VISITED' ? 'CLAIMED' : 'SCHEDULED',
             notes: paymentNotes || null,
-          }, { onConflict: 'marcom_endorsement_id' })
+          }, { onConflict: 'marcom_endorsement_id' }).select('id')
+          if (upsertErr) {
+            console.error('Error syncing endorsement update to POS Supabase:', upsertErr)
+          }
         }
       } else {
-        await supabase.from('pos_endorsements').delete().eq('marcom_endorsement_id', Number(endorsementId))
+        const { error: delErr } = await supabase.from('pos_endorsements').delete().eq('marcom_endorsement_id', Number(endorsementId)).select('id')
+        if (delErr) {
+          console.error('Error deleting from pos_endorsements on type switch:', delErr)
+        }
       }
     } catch (syncErr) {
       console.error('Error syncing endorsement update to POS Supabase:', syncErr)
@@ -741,7 +750,14 @@ export async function deleteEndorsement(id: string): Promise<ActionState> {
 
     try {
       const supabase = getPosSupabase()
-      await supabase.from('pos_endorsements').delete().eq('marcom_endorsement_id', Number(endorsementId))
+      const { error: delErr } = await supabase
+        .from('pos_endorsements')
+        .delete()
+        .eq('marcom_endorsement_id', Number(endorsementId))
+        .select('id')
+      if (delErr) {
+        console.error('Error deleting from pos_endorsements:', delErr)
+      }
     } catch (syncErr) {
       console.error('Error deleting from pos_endorsements:', syncErr)
     }

@@ -11,13 +11,14 @@ import {
   PieChart,
   CheckCircle2,
   Sparkles,
-  Award
+  Award,
+  Briefcase
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
 import type { ProrataInfo } from '@/lib/opexProrata'
 
-export type OpexModalType = 'salary' | 'bonus' | 'operational' | 'total' | null
+export type OpexModalType = 'salary' | 'bonus' | 'bonus_kru' | 'bonus_manager' | 'operational' | 'total' | null
 
 export interface OperationalCategoryBreakdown {
   category: string
@@ -41,6 +42,8 @@ interface OpexCardDetailModalsProps {
     displaySalary: number
     displayRoutineSalary?: number
     displayBonus?: number
+    displayCrewBonus?: number
+    displayManagerBonus?: number
     hasHrPayroll: boolean
     hrPayroll?: HRPayrollSummary
     cashSalary: number
@@ -58,6 +61,8 @@ interface OpexCardDetailModalsProps {
     displaySalary: number
     displayRoutineSalary?: number
     displayBonus?: number
+    displayCrewBonus?: number
+    displayManagerBonus?: number
     totalNonSalary: number
     isProrated?: boolean
     prorataInfo?: ProrataInfo
@@ -86,16 +91,37 @@ export function OpexCardDetailModals({
 
   if (!type) return null
 
-  const { displaySalary, displayRoutineSalary, displayBonus, hasHrPayroll, hrPayroll, isProrated, prorataInfo } = salaryData
+  const { displaySalary, displayRoutineSalary, displayBonus, displayCrewBonus, displayManagerBonus, hasHrPayroll, hrPayroll, isProrated, prorataInfo } = salaryData
   const ratio = isProrated && prorataInfo?.ratio ? prorataInfo.ratio : 1
-  const bonusAmount = displayBonus ?? (hrPayroll ? Math.round((hrPayroll.crewBonus ?? hrPayroll.bonus) * ratio) : 0)
+  const bonusAmount = displayBonus ?? (hrPayroll ? Math.round(hrPayroll.bonus * ratio) : 0)
+  const crewBonusAmount = displayCrewBonus ?? (hrPayroll ? Math.round((hrPayroll.crewBonus ?? 0) * ratio) : 0)
+  const managerBonusAmount = displayManagerBonus ?? (hrPayroll ? Math.round((hrPayroll.managerBonusAllocation ?? 0) * ratio) : 0)
   const routineSalary = displayRoutineSalary ?? Math.max(0, displaySalary - bonusAmount)
   const { totalNonSalary, totalCount: opCount, categories, outlets } = operationalData
   const { totalCombined } = totalOpexData
 
   const routineSalaryShare = totalCombined > 0 ? (routineSalary / totalCombined) * 100 : 0
-  const bonusShare = totalCombined > 0 ? (bonusAmount / totalCombined) * 100 : 0
+  const crewBonusShare = totalCombined > 0 ? (crewBonusAmount / totalCombined) * 100 : 0
+  const managerBonusShare = totalCombined > 0 ? (managerBonusAmount / totalCombined) * 100 : 0
   const opShare = totalCombined > 0 ? (totalNonSalary / totalCombined) * 100 : 0
+
+  const crewBonusList = (hrPayroll?.crewBonusDetails && hrPayroll.crewBonusDetails.length > 0)
+    ? hrPayroll.crewBonusDetails
+    : (hrPayroll?.bonusDetails
+      ? hrPayroll.bonusDetails.filter(b => {
+          const role = (b.role || '').toLowerCase()
+          return !role.includes('manager') && !role.includes('controller')
+        })
+      : [])
+
+  const managerBonusList = (hrPayroll?.managerBonusDetails && hrPayroll.managerBonusDetails.length > 0)
+    ? hrPayroll.managerBonusDetails
+    : (hrPayroll?.bonusDetails
+      ? hrPayroll.bonusDetails.filter(b => {
+          const role = (b.role || '').toLowerCase()
+          return role.includes('manager') || role.includes('controller')
+        })
+      : [])
 
   return (
     <div
@@ -676,8 +702,8 @@ export function OpexCardDetailModals({
           </>
         )}
 
-        {/* ==================== MODAL 4: BONUS & INSENTIF DETAIL ==================== */}
-        {type === 'bonus' && (
+        {/* ==================== MODAL 4A: BONUS & INSENTIF KRU TOKO ==================== */}
+        {(type === 'bonus_kru' || type === 'bonus') && (
           <>
             {/* Header */}
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-amber-50/60">
@@ -687,7 +713,7 @@ export function OpexCardDetailModals({
                 </div>
                 <div>
                   <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
-                    <span>Rincian Bonus & Insentif</span>
+                    <span>Rincian Bonus & Insentif Kru Toko</span>
                     {isProrated && prorataInfo && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
                         <Sparkles size={11} className="text-amber-600" />
@@ -695,13 +721,13 @@ export function OpexCardDetailModals({
                       </span>
                     )}
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                      Sales Bonus
+                      Bonus Kru
                     </span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {isProrated && prorataInfo
                       ? `Bonus omset proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`
-                      : 'Rincian perolehan bonus penjualan (omset) bulanan kru toko dan pengawas operasional'}
+                      : 'Rincian perolehan bonus omset bulanan dan insentif khusus kru toko'}
                   </p>
                 </div>
               </div>
@@ -720,27 +746,27 @@ export function OpexCardDetailModals({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-amber-50/70 p-3.5 rounded-xl border border-amber-200/80">
                   <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
-                    {isProrated ? 'Total Bonus (Prorata)' : 'Total Bonus & Insentif'}
+                    {isProrated ? 'Bonus Kru (Prorata)' : 'Total Bonus Kru Toko'}
                   </span>
                   <span className="text-lg font-black text-amber-900 mt-1 block">
-                    +{rupiah(bonusAmount)}
+                    +{rupiah(crewBonusAmount)}
                   </span>
                   <span className="text-[10px] text-amber-700 font-semibold">
                     {isProrated && prorataInfo
-                      ? `Baseline sebulan: +${rupiah(hrPayroll?.bonus ?? 0)}`
-                      : 'Murni insentif target penjualan'}
+                      ? `Baseline sebulan: +${rupiah(hrPayroll?.crewBonus ?? 0)}`
+                      : 'Murni insentif target penjualan toko'}
                   </span>
                 </div>
 
                 <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
                   <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
-                    Penerima Bonus
+                    Kru Penerima Bonus
                   </span>
                   <span className="text-lg font-black text-slate-800 mt-1 block">
-                    {hrPayroll?.bonusDetails ? hrPayroll.bonusDetails.length : 0} Penerima
+                    {crewBonusList.length} Orang
                   </span>
                   <span className="text-[10px] text-gray-500 font-semibold">
-                    Kru cabang & manajer operasional
+                    Kru operasional outlet
                   </span>
                 </div>
 
@@ -749,10 +775,10 @@ export function OpexCardDetailModals({
                     Porsi Dari Total OPEX
                   </span>
                   <span className="text-lg font-black text-emerald-900 mt-1 block">
-                    {bonusShare.toFixed(1)}%
+                    {crewBonusShare.toFixed(1)}%
                   </span>
                   <span className="text-[10px] text-emerald-700 font-semibold">
-                    Beban variabel berbasis target
+                    Beban variabel berbasis target toko
                   </span>
                 </div>
               </div>
@@ -761,25 +787,25 @@ export function OpexCardDetailModals({
               <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed shadow-2xs">
                 <Sparkles size={16} className="text-amber-600 mt-0.5 shrink-0" />
                 <div>
-                  <span className="font-bold">Ketentuan Sales Bonus:</span> Bonus ini adalah bonus omset penjualan bulanan yang dibagikan kepada kru toko serta alokasi manajer operasional (AM/RM) sesuai target penjualan yang tercapai, dan dipisahkan dari beban gaji pokok & tunjangan rutin agar struktur biaya tetap (*fixed cost*) dan variabel (*variable cost*) dapat dipantau terpisah.
+                  <span className="font-bold">Ketentuan Bonus Kru Toko:</span> Bonus ini adalah bonus penjualan (omset) bulanan yang dibagikan langsung kepada kru outlet berdasarkan pencapaian target penjualan outlet, dipisahkan dari gaji pokok & tunjangan rutin agar struktur biaya tetap (*fixed cost*) dan variabel (*variable cost*) dapat dipantau terpisah.
                 </div>
               </div>
 
               {/* Table Breakdown per Staf Penerima */}
               <div>
                 <h4 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
-                  <span>Daftar Staf Penerima Bonus</span>
+                  <span>Daftar Kru Penerima Bonus</span>
                   <span className="text-gray-400 font-normal normal-case">
-                    {hrPayroll?.bonusDetails?.length ?? 0} orang
+                    {crewBonusList.length} orang
                   </span>
                 </h4>
 
-                {(!hrPayroll?.bonusDetails || hrPayroll.bonusDetails.length === 0) ? (
+                {crewBonusList.length === 0 ? (
                   <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-gray-200/60 text-xs">
                     <Award size={28} className="mx-auto mb-2 opacity-30 text-amber-600" />
-                    <p className="font-semibold text-gray-600">Tidak ada data bonus pada periode ini</p>
+                    <p className="font-semibold text-gray-600">Tidak ada data bonus kru pada periode ini</p>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      Belum ada bonus omset penjualan atau lembur yang tercatat di payroll.
+                      Belum ada bonus omset penjualan kru yang tercatat di payroll.
                     </p>
                   </div>
                 ) : (
@@ -788,10 +814,10 @@ export function OpexCardDetailModals({
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-slate-100 text-gray-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-gray-200 shadow-2xs">
                           <tr>
-                            <th className="px-3.5 py-2.5">Nama Personel</th>
+                            <th className="px-3.5 py-2.5">Nama Kru</th>
                             <th className="px-3 py-2.5 text-center">Peran</th>
-                            {hrPayroll.bonusDetails.some(b => b.outletName) && (
-                              <th className="px-3.5 py-2.5">Unit / Alokasi</th>
+                            {crewBonusList.some(b => b.outletName) && (
+                              <th className="px-3.5 py-2.5">Unit / Cabang</th>
                             )}
                             <th className="px-3 py-2.5 text-center">Status</th>
                             <th className="px-3.5 py-2.5 text-right">
@@ -800,7 +826,7 @@ export function OpexCardDetailModals({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {hrPayroll.bonusDetails.map((staff) => {
+                          {crewBonusList.map((staff) => {
                             const staffBonus = isProrated && prorataInfo ? Math.round(staff.bonus * prorataInfo.ratio) : staff.bonus
                             return (
                               <tr key={staff.staffId} className="hover:bg-amber-50/30 transition-colors">
@@ -812,7 +838,7 @@ export function OpexCardDetailModals({
                                     {staff.role || 'crew'}
                                   </span>
                                 </td>
-                                {hrPayroll.bonusDetails!.some(b => b.outletName) && (
+                                {crewBonusList.some(b => b.outletName) && (
                                   <td className="px-3.5 py-2.5 text-gray-600 font-medium">
                                     {staff.outletName || '-'}
                                   </td>
@@ -835,11 +861,11 @@ export function OpexCardDetailModals({
                         </tbody>
                         <tfoot className="bg-amber-50/70 border-t border-amber-200 font-bold text-xs text-amber-950">
                           <tr>
-                            <td colSpan={hrPayroll.bonusDetails.some(b => b.outletName) ? 4 : 3} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
-                              Total Bonus & Insentif:
+                            <td colSpan={crewBonusList.some(b => b.outletName) ? 4 : 3} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
+                              Total Bonus Kru Toko:
                             </td>
                             <td className="px-3.5 py-2.5 text-right font-black text-amber-800">
-                              +{rupiah(bonusAmount)}
+                              +{rupiah(crewBonusAmount)}
                             </td>
                           </tr>
                         </tfoot>
@@ -853,7 +879,198 @@ export function OpexCardDetailModals({
             {/* Footer */}
             <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50/50">
               <span className="text-xs text-gray-500 font-semibold">
-                Total Beban Bonus: <strong className="text-amber-700">+{rupiah(bonusAmount)}</strong>
+                Total Beban Bonus Kru: <strong className="text-amber-700">+{rupiah(crewBonusAmount)}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-2xs"
+              >
+                Tutup
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ==================== MODAL 4B: BONUS SALES AM & RM ==================== */}
+        {type === 'bonus_manager' && (
+          <>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-purple-50/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center shrink-0 shadow-2xs">
+                  <Briefcase size={20} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                    <span>Rincian Bonus Sales AM & RM</span>
+                    {isProrated && prorataInfo && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300 flex items-center gap-1 shadow-2xs">
+                        <Sparkles size={11} className="text-purple-600" />
+                        Prorata {prorataInfo.overlapDays} Hari
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                      Alokasi Pengawas
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {isProrated && prorataInfo
+                      ? `Bonus omset manajerial proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`
+                      : 'Rincian alokasi bonus omset penjualan Area Manager dan Regional Manager'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-xl hover:bg-white text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
+              {/* Stat Highlight Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-purple-50/70 p-3.5 rounded-xl border border-purple-200/80">
+                  <span className="text-[11px] font-bold text-purple-700 uppercase tracking-wider block">
+                    {isProrated ? 'Bonus AM & RM (Prorata)' : 'Total Alokasi Bonus AM & RM'}
+                  </span>
+                  <span className="text-lg font-black text-purple-900 mt-1 block">
+                    +{rupiah(managerBonusAmount)}
+                  </span>
+                  <span className="text-[10px] text-purple-700 font-semibold">
+                    {isProrated && prorataInfo
+                      ? `Baseline sebulan: +${rupiah(hrPayroll?.managerBonusAllocation ?? 0)}`
+                      : 'Proporsi alokasi ke cabang'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+                    Pengawas Penerima
+                  </span>
+                  <span className="text-lg font-black text-slate-800 mt-1 block">
+                    {managerBonusList.length} Orang
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-semibold">
+                    Area & Regional Manager
+                  </span>
+                </div>
+
+                <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-100">
+                  <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
+                    Porsi Dari Total OPEX
+                  </span>
+                  <span className="text-lg font-black text-emerald-900 mt-1 block">
+                    {managerBonusShare.toFixed(1)}%
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-semibold">
+                    Beban insentif kepengawasan
+                  </span>
+                </div>
+              </div>
+
+              {/* Explanatory Policy Alert */}
+              <div className="bg-purple-50/80 border border-purple-200/90 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-purple-900 leading-relaxed shadow-2xs">
+                <Sparkles size={16} className="text-purple-600 mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-bold">Ketentuan Bonus Sales AM & RM:</span> Bonus ini adalah alokasi proporsional bonus omset penjualan bulanan untuk pengawas operasional lapangan:
+                  <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                    <li><strong>Area Manager (AM):</strong> Dibagi rata ke cabang binaan aktif (contoh: 1/5 cabang).</li>
+                    <li><strong>Regional Manager (RM):</strong> Dibagi rata ke seluruh cabang wilayah binaan (contoh: 1/21 cabang).</li>
+                  </ul>
+                  Alokasi ini dipisahkan dari gaji rutin dan bonus kru toko agar transparansi performa dan akuntabilitas manajerial tercatat jelas.
+                </div>
+              </div>
+
+              {/* Table Breakdown per Manager Penerima */}
+              <div>
+                <h4 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                  <span>Daftar Pengawas Penerima Bonus</span>
+                  <span className="text-gray-400 font-normal normal-case">
+                    {managerBonusList.length} orang
+                  </span>
+                </h4>
+
+                {managerBonusList.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-gray-200/60 text-xs">
+                    <Briefcase size={28} className="mx-auto mb-2 opacity-30 text-purple-600" />
+                    <p className="font-semibold text-gray-600">Tidak ada alokasi bonus AM & RM pada periode ini</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Belum ada bonus omset pengawas yang dialokasikan ke cabang ini.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
+                    <div className="overflow-x-auto max-h-[280px] scrollbar-thin">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-100 text-gray-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-gray-200 shadow-2xs">
+                          <tr>
+                            <th className="px-3.5 py-2.5">Nama Pengawas</th>
+                            <th className="px-3 py-2.5 text-center">Peran / Posisi</th>
+                            <th className="px-3.5 py-2.5">Skema Alokasi Cabang</th>
+                            <th className="px-3 py-2.5 text-center">Status</th>
+                            <th className="px-3.5 py-2.5 text-right">
+                              {isProrated ? 'Alokasi Prorata' : 'Alokasi Bonus'}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {managerBonusList.map((mgr) => {
+                            const staffBonus = isProrated && prorataInfo ? Math.round(mgr.bonus * prorataInfo.ratio) : mgr.bonus
+                            return (
+                              <tr key={mgr.staffId} className="hover:bg-purple-50/30 transition-colors">
+                                <td className="px-3.5 py-2.5 font-bold text-gray-800">
+                                  {mgr.staffName}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
+                                    {mgr.role === 'regional_manager' ? 'Regional Manager' : mgr.role === 'area_manager' ? 'Area Manager' : (mgr.role || 'manager')}
+                                  </span>
+                                </td>
+                                <td className="px-3.5 py-2.5 text-gray-600 font-medium">
+                                  {mgr.outletName || '-'}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                    mgr.status === 'finalized'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  }`}>
+                                    {mgr.status === 'finalized' ? 'Final' : 'Draft'}
+                                  </span>
+                                </td>
+                                <td className="px-3.5 py-2.5 text-right font-black text-purple-700">
+                                  +{rupiah(staffBonus)}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                        <tfoot className="bg-purple-50/70 border-t border-purple-200 font-bold text-xs text-purple-950">
+                          <tr>
+                            <td colSpan={4} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
+                              Total Alokasi Bonus AM & RM:
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right font-black text-purple-800">
+                              +{rupiah(managerBonusAmount)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50/50">
+              <span className="text-xs text-gray-500 font-semibold">
+                Total Alokasi Bonus AM & RM: <strong className="text-purple-700">+{rupiah(managerBonusAmount)}</strong>
               </span>
               <button
                 type="button"
@@ -1154,8 +1371,13 @@ export function OpexCardDetailModals({
                   />
                   <div
                     className="h-full bg-amber-500 transition-all duration-300"
-                    style={{ width: `${bonusShare}%` }}
-                    title={`Bonus & Insentif: ${bonusShare.toFixed(1)}%`}
+                    style={{ width: `${crewBonusShare}%` }}
+                    title={`Bonus Kru Toko: ${crewBonusShare.toFixed(1)}%`}
+                  />
+                  <div
+                    className="h-full bg-purple-600 transition-all duration-300"
+                    style={{ width: `${managerBonusShare}%` }}
+                    title={`Bonus Sales AM & RM: ${managerBonusShare.toFixed(1)}%`}
                   />
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
@@ -1175,7 +1397,13 @@ export function OpexCardDetailModals({
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
                     <span className="font-semibold text-gray-700">
-                      Bonus: <strong className="text-amber-700">{bonusShare.toFixed(1)}%</strong> ({rupiah(bonusAmount)})
+                      Bonus Kru: <strong className="text-amber-700">{crewBonusShare.toFixed(1)}%</strong> ({rupiah(crewBonusAmount)})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-purple-600 inline-block" />
+                    <span className="font-semibold text-gray-700">
+                      Bonus AM/RM: <strong className="text-purple-700">{managerBonusShare.toFixed(1)}%</strong> ({rupiah(managerBonusAmount)})
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -1210,7 +1438,7 @@ export function OpexCardDetailModals({
                           )}
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          Gaji pokok, tunjangan, dan alokasi manajer bersih di luar bonus omset
+                          Gaji pokok, tunjangan rutin kru, dan alokasi rutin manajer di luar bonus omset
                         </div>
                       </div>
                     </div>
@@ -1224,7 +1452,7 @@ export function OpexCardDetailModals({
                     </div>
                   </div>
 
-                  {/* Item 2: Bonus & Insentif */}
+                  {/* Item 2: Bonus Kru Toko */}
                   <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -1232,7 +1460,7 @@ export function OpexCardDetailModals({
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-xs sm:text-sm">
-                          2. Bonus & Insentif Kru
+                          2. Bonus & Insentif Kru Toko
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
                           Bonus omset penjualan bulanan & lembur yang dicapai kru toko
@@ -1241,15 +1469,40 @@ export function OpexCardDetailModals({
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-black text-amber-700 text-sm sm:text-base">
-                        +{rupiah(bonusAmount)}
+                        +{rupiah(crewBonusAmount)}
                       </div>
                       <div className="text-[10px] text-gray-400 font-semibold">
-                        {bonusShare.toFixed(1)}% dari total
+                        {crewBonusShare.toFixed(1)}% dari total
                       </div>
                     </div>
                   </div>
 
-                  {/* Item 3: Operational */}
+                  {/* Item 3: Bonus Sales AM & RM */}
+                  <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <Briefcase size={16} />
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-900 text-xs sm:text-sm">
+                          3. Bonus Sales AM & RM
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-0.5">
+                          Alokasi proporsional bonus omset Area Manager (1/5) dan Regional Manager (1/21)
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-black text-purple-700 text-sm sm:text-base">
+                        +{rupiah(managerBonusAmount)}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-semibold">
+                        {managerBonusShare.toFixed(1)}% dari total
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Item 4: Operational */}
                   <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -1257,7 +1510,7 @@ export function OpexCardDetailModals({
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-xs sm:text-sm">
-                          3. Operasional Outlet & Pusat
+                          4. Operasional Outlet & Pusat
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
                           Biaya rutin ({opCount} transaksi kas: listrik, sewa cabang, wifi, operasional toko)
@@ -1278,7 +1531,7 @@ export function OpexCardDetailModals({
                   <div className="p-3.5 sm:p-4 bg-gray-50 flex items-center justify-between gap-3 font-bold">
                     <div className="text-xs sm:text-sm text-gray-800 flex items-center gap-1.5">
                       <CheckCircle2 size={16} className="text-emerald-600" />
-                      <span>Total OPEX Bersih (1 + 2 + 3):</span>
+                      <span>Total OPEX Bersih (1 + 2 + 3 + 4):</span>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-black text-rose-700 text-base sm:text-lg">

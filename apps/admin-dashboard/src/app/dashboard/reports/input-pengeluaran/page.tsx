@@ -23,7 +23,8 @@ import {
   ChevronRight,
   Search,
   Sparkles,
-  Award
+  Award,
+  Briefcase
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -220,6 +221,18 @@ export default function InputPengeluaranPage() {
     if (!hasHrPayroll || !hrPayroll?.bonus) return 0
     if (!prorataInfo.isProrated) return hrPayroll.bonus
     return Math.round(hrPayroll.bonus * prorataInfo.ratio)
+  }, [hasHrPayroll, hrPayroll, prorataInfo])
+
+  const displayCrewBonus = useMemo(() => {
+    if (!hasHrPayroll || !hrPayroll?.crewBonus) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.crewBonus
+    return Math.round(hrPayroll.crewBonus * prorataInfo.ratio)
+  }, [hasHrPayroll, hrPayroll, prorataInfo])
+
+  const displayManagerBonus = useMemo(() => {
+    if (!hasHrPayroll || !hrPayroll?.managerBonusAllocation) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.managerBonusAllocation
+    return Math.round(hrPayroll.managerBonusAllocation * prorataInfo.ratio)
   }, [hasHrPayroll, hrPayroll, prorataInfo])
 
   const displayRoutineSalary = useMemo(() => {
@@ -819,8 +832,8 @@ export default function InputPengeluaranPage() {
         </div>
       )}
 
-      {/* SUMMARY STATS (PURE OPEX - 4 CARDS: ROUTINE SALARY, BONUS, OPERATIONAL, TOTAL) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* SUMMARY STATS (PURE OPEX - 5 CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, OPERATIONAL, TOTAL) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         {/* 1. Gaji & Payroll (Rutin) */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
@@ -905,14 +918,14 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 2. Bonus & Insentif */}
+        {/* 2. Bonus Kru Toko */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
                 <div className="flex items-center gap-1 shrink-0">
                   <Award size={14} className="shrink-0" />
-                  <span>Bonus & Insentif</span>
+                  <span>Bonus Kru</span>
                 </div>
                 {hasHrPayroll && prorataInfo.isProrated && (
                   <span
@@ -925,29 +938,29 @@ export default function InputPengeluaranPage() {
                 )}
               </div>
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs shrink-0">
-                BNS
+                KRU
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-amber-700 mt-2 tracking-tight truncate" title={rupiah(displayBonus)}>
-              +{rupiah(displayBonus)}
+            <div className="text-xl sm:text-2xl font-black text-amber-700 mt-2 tracking-tight truncate" title={rupiah(displayCrewBonus)}>
+              +{rupiah(displayCrewBonus)}
             </div>
 
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
               {hasHrPayroll ? (
                 <span>
-                  {hrPayroll?.bonusDetails ? `${hrPayroll.bonusDetails.length} penerima` : 'Bonus Omset'}
+                  {hrPayroll?.crewBonusDetails ? `${hrPayroll.crewBonusDetails.length} penerima` : 'Bonus Omset Kru'}
                   <span className="text-[10px] text-amber-700 font-bold ml-1.5">
-                    • Kru & Pengawas
+                    • Kru Toko
                   </span>
                   {prorataInfo.isProrated && (
                     <span className="text-[10px] text-gray-400 font-normal ml-1">
-                      • 1 bln: {rupiah(hrPayroll?.bonus ?? 0)}
+                      • 1 bln: {rupiah(hrPayroll?.crewBonus ?? 0)}
                     </span>
                   )}
                 </span>
               ) : (
-                'Bonus omset penjualan & lembur'
+                'Bonus omset target kru toko'
               )}
             </div>
           </div>
@@ -955,19 +968,81 @@ export default function InputPengeluaranPage() {
           <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
             <button
               type="button"
-              onClick={() => setActiveDetailModal('bonus')}
+              onClick={() => setActiveDetailModal('bonus_kru')}
               className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-800 transition-colors cursor-pointer group"
             >
               <span>Lihat Detail</span>
               <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
             </button>
             <span className="text-[10px] text-gray-400 font-medium">
-              Rincian Bonus & Insentif
+              Rincian Kru
             </span>
           </div>
         </div>
 
-        {/* 3. Operasional Outlet & Pusat */}
+        {/* 3. Bonus Sales AM & RM */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-bold text-purple-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+                <div className="flex items-center gap-1 shrink-0">
+                  <Briefcase size={14} className="shrink-0" />
+                  <span>Bonus AM & RM</span>
+                </div>
+                {hasHrPayroll && prorataInfo.isProrated && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-100/90 px-2 py-0.5 rounded-full border border-purple-300/70 shadow-2xs"
+                    title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
+                  >
+                    <Sparkles className="w-3 h-3 text-purple-600 shrink-0" />
+                    <span>Prorata</span>
+                  </span>
+                )}
+              </div>
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
+                MGR
+              </div>
+            </div>
+
+            <div className="text-xl sm:text-2xl font-black text-purple-700 mt-2 tracking-tight truncate" title={rupiah(displayManagerBonus)}>
+              +{rupiah(displayManagerBonus)}
+            </div>
+
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
+              {hasHrPayroll ? (
+                <span>
+                  {hrPayroll?.managerBonusDetails ? `${hrPayroll.managerBonusDetails.length} penerima` : 'Alokasi Pengawas'}
+                  <span className="text-[10px] text-purple-700 font-bold ml-1.5">
+                    • AM & RM
+                  </span>
+                  {prorataInfo.isProrated && (
+                    <span className="text-[10px] text-gray-400 font-normal ml-1">
+                      • 1 bln: {rupiah(hrPayroll?.managerBonusAllocation ?? 0)}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                'Alokasi omset Area & Regional Manager'
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setActiveDetailModal('bonus_manager')}
+              className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer group"
+            >
+              <span>Lihat Detail</span>
+              <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <span className="text-[10px] text-gray-400 font-medium">
+              Alokasi AM/RM
+            </span>
+          </div>
+        </div>
+
+        {/* 4. Operasional Outlet & Pusat */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -1002,7 +1077,7 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 4. Total OPEX */}
+        {/* 5. Total OPEX */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -1030,10 +1105,12 @@ export default function InputPengeluaranPage() {
               {rupiah(totalCombinedOpex)}
             </div>
 
-            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate" title={`Gaji Rutin: ${rupiah(displayRoutineSalary)} + Bonus: ${rupiah(displayBonus)} + Opex: ${rupiah(summary.nonSalary)}`}>
+            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate" title={`Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Opex: ${rupiah(summary.nonSalary)}`}>
               <span>Rutin: {rupiah(displayRoutineSalary)}</span>
               <span className="text-gray-400 mx-1">+</span>
-              <span>Bonus: {rupiah(displayBonus)}</span>
+              <span>Kru: {rupiah(displayCrewBonus)}</span>
+              <span className="text-gray-400 mx-1">+</span>
+              <span>AM/RM: {rupiah(displayManagerBonus)}</span>
               <span className="text-gray-400 mx-1">+</span>
               <span>Opex: {rupiah(summary.nonSalary)}</span>
             </div>
@@ -1463,6 +1540,8 @@ export default function InputPengeluaranPage() {
           displaySalary,
           displayRoutineSalary,
           displayBonus,
+          displayCrewBonus,
+          displayManagerBonus,
           hasHrPayroll,
           hrPayroll,
           cashSalary: summary.salary,
@@ -1480,6 +1559,8 @@ export default function InputPengeluaranPage() {
           displaySalary,
           displayRoutineSalary,
           displayBonus,
+          displayCrewBonus,
+          displayManagerBonus,
           totalNonSalary: summary.nonSalary,
           isProrated: hasHrPayroll && prorataInfo.isProrated,
           prorataInfo

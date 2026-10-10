@@ -32,4 +32,41 @@ describe('Verify Mitra Cibinong BEP Breakdown Synced with Tab Laba Rugi', () => 
     expect(sept!.netProfit).toBeGreaterThan(5000000)
     expect(sept!.netProfit).toBe(6437276)
   }, 30000)
+
+  it('should process all mitra outlets simultaneously without error and return isolated stats per outlet', async () => {
+    const { createServiceClient } = await import('@/lib/supabase/server')
+    const supabase = createServiceClient()
+
+    // 1. Ambil semua outlet mitra dari DB
+    const { data: outlets } = await supabase.from('outlets').select('id, name').eq('type', 'mitra')
+    const { data: invs } = await supabase.from('mitra_investments').select('outlet_id')
+    const allMitraIds = Array.from(new Set([
+      ...(outlets || []).map(o => o.id),
+      ...(invs || []).map(i => i.outlet_id).filter(Boolean)
+    ]))
+
+    console.log(`Found ${allMitraIds.length} mitra outlet IDs:`, allMitraIds)
+
+    const result = await getMitraRealtimeBepBreakdown(allMitraIds)
+    expect(Object.keys(result).length).toBe(allMitraIds.length)
+
+    for (const oid of allMitraIds) {
+      const item = result[oid]
+      expect(item).toBeDefined()
+      expect(item.outletId).toBe(oid)
+      expect(typeof item.totalDanaKembali).toBe('number')
+      expect(typeof item.bepPercentage).toBe('number')
+      expect(Array.isArray(item.monthlyBreakdown)).toBe(true)
+
+      const outletName = outlets?.find(o => o.id === oid)?.name || oid
+      console.log(`OUTLET [${outletName}]:`, {
+        modal: item.modalInvestasi,
+        totalDanaKembali: item.totalDanaKembali,
+        bepPercentage: item.bepPercentage,
+        isBep: item.isBep,
+        monthsCount: item.monthlyBreakdown.length,
+        months: item.monthlyBreakdown.map(m => `${m.monthKey}: net=${m.netProfit}, share=${m.mitraShare}`)
+      })
+    }
+  }, 60000)
 })

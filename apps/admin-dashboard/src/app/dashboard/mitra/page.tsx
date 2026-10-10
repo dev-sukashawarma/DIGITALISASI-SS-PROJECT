@@ -194,8 +194,13 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
       .in('outlet_id', outletIds)
       .in('role', ['crew', 'leader'])
     if (st) {
-      const hiddenNames = ['staff_new', 'Aang', 'Kasir Paledang', 'Test Cicurug']
-      staffList = st.filter(s => !hiddenNames.includes(s.name))
+      const hiddenExactNames = ['staff_new', 'aang', 'kasir paledang', 'test cicurug']
+      staffList = st.filter(s => {
+        const nameLower = (s.name || '').trim().toLowerCase()
+        if (nameLower.includes('devai') || nameLower.includes('dev_ai') || nameLower.includes('dev ai')) return false
+        if (hiddenExactNames.includes(nameLower)) return false
+        return true
+      })
     }
   }
 

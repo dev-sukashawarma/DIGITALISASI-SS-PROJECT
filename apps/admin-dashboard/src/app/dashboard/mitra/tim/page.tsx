@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useMitraOutlet } from '../MitraOutletContext'
 import { PageHeader } from '@/components/ui'
 import { UserCircle, Users, Store } from 'lucide-react'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 export default function TimOutletPage() {
   const { outlets } = useMitraOutlet()
@@ -22,14 +23,24 @@ export default function TimOutletPage() {
       const supabase = createClient()
       const { data } = await supabase
         .from('outlet_staff')
-        .select('id, name, role, status, outlet_id')
+        .select('id, name, role, status, outlet_id, username, email')
         .in('outlet_id', outletIds)
         .in('role', ['crew', 'leader'])
         
       if (data) {
-        // Filter out hidden names
-        const hiddenNames = ['staff_new', 'Aang', 'Kasir Paledang', 'Test Cicurug']
-        const filtered = data.filter(s => !hiddenNames.includes(s.name))
+        // Filter out devai, bot, and dummy / test accounts
+        const hiddenExactNames = ['staff_new', 'aang', 'kasir paledang', 'test cicurug']
+        const filtered = data.filter((s: any) => {
+          if (isTestOrDevStaff(s)) return false
+          const nameLower = (s.name || '').trim().toLowerCase()
+          const usernameLower = (s.username || '').trim().toLowerCase()
+          const emailLower = (s.email || '').trim().toLowerCase()
+          if (nameLower.includes('devai') || usernameLower.includes('devai') || emailLower.includes('devai')) return false
+          if (nameLower.includes('dev_ai') || usernameLower.includes('dev_ai')) return false
+          if (nameLower.includes('dev ai') || usernameLower.includes('dev ai')) return false
+          if (hiddenExactNames.includes(nameLower)) return false
+          return true
+        })
         
         // Sort by outlet name, then by staff name
         filtered.sort((a, b) => {
@@ -88,29 +99,38 @@ export default function TimOutletPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gradient-to-r from-suka-orange/5 to-transparent border-b border-white/50">
-                    <th className="py-2 sm:py-4 px-2 sm:px-6 text-[9px] sm:text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap">Staf</th>
-                    <th className="py-2 sm:py-4 px-2 sm:px-6 text-[9px] sm:text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap">Posisi</th>
-                    <th className="py-2 sm:py-4 px-2 sm:px-6 text-[9px] sm:text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap text-right">Status</th>
+                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-[10px] sm:text-xs font-black text-suka-brown uppercase tracking-widest">Staf</th>
+                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-[10px] sm:text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap">Posisi</th>
+                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-[10px] sm:text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/40">
                   {staff.map((s) => (
                     <tr key={s.id} className="hover:bg-white/40 transition-colors group">
-                      <td className="py-2 sm:py-4 px-2 sm:px-6">
-                        <div className="flex items-center gap-1.5 sm:gap-3">
-                          <div className="w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-suka-orange/10 flex items-center justify-center text-suka-orange group-hover:scale-110 transition-transform shadow-sm border border-suka-orange/20 shrink-0">
-                            <UserCircle className="w-4 h-4 sm:w-6 sm:h-6" />
+                      <td className="py-3 sm:py-4 px-3 sm:px-6">
+                        <div className="flex items-center gap-2 sm:gap-3.5">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-suka-orange/10 flex items-center justify-center text-suka-orange group-hover:scale-110 transition-transform shadow-sm border border-suka-orange/20 shrink-0">
+                            <UserCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                           </div>
-                          <span className="font-extrabold text-suka-brown text-[10px] sm:text-base truncate max-w-[60px] sm:max-w-[150px]">{s.name || 'Tanpa Nama'}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-extrabold text-suka-brown text-xs sm:text-base break-words leading-snug">
+                              {s.name || 'Tanpa Nama'}
+                            </p>
+                            {outlets.length > 1 && (
+                              <p className="text-[10px] sm:text-xs text-suka-gray-400 font-semibold mt-0.5">
+                                {getOutletName(s.outlet_id)}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="py-2 sm:py-4 px-2 sm:px-6">
-                        <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[9px] sm:text-xs font-bold bg-suka-orange/10 text-suka-orange capitalize">
+                      <td className="py-3 sm:py-4 px-3 sm:px-6">
+                        <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-bold bg-suka-orange/10 text-suka-orange capitalize">
                           {s.role?.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="py-2 sm:py-4 px-2 sm:px-6 text-right">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 sm:px-3 sm:py-1 text-[8px] sm:text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm ${
+                      <td className="py-3 sm:py-4 px-3 sm:px-6 text-right">
+                        <span className={`inline-flex items-center px-2 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm ${
                           s.status === 'active' 
                             ? 'bg-gradient-to-r from-suka-green/80 to-suka-green text-white shadow-green-500/30' 
                             : 'bg-gradient-to-r from-suka-gray-300 to-suka-gray-400 text-white shadow-gray-400/30'

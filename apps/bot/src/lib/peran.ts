@@ -4,10 +4,11 @@ export type Profil = 'ceo' | 'gudang' | 'hrd' | 'finance'
 
 const SEMUA_PROFIL: readonly Profil[] = ['ceo', 'gudang', 'hrd', 'finance']
 
-// Sementara HANYA developer (masa uji). Buka untuk owner/admin dengan menambah baris di sini
+// Sementara HANYA developer (masa uji) & admin divisi terkait. Buka untuk owner/admin dengan menambah baris di sini
 // DAN di gerbang tile portal (apps/portal/src/app/launcher/page.tsx, bisaBotCeo).
 const PROFIL_PER_PERAN: Record<string, Profil[]> = {
-  developer: ['ceo', 'hrd'],
+  developer: ['ceo', 'hrd', 'finance'],
+  admin_finance: ['finance'],
 }
 
 export const LABEL_PROFIL: Record<Profil, string> = {

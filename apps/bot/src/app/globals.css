@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Orbitron:wght@400;600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
 @import "tailwindcss";
 
 @source "../../../../packages";
@@ -11,7 +11,97 @@
   --color-suka-green: #0a7d2c;
   --font-display: 'Lilita One', system-ui, sans-serif;
   --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-hud: 'Orbitron', system-ui, monospace;
+  --font-mono-hud: 'Share Tech Mono', monospace;
 }
 
 html, body { height: 100%; }
-body { font-family: var(--font-sans); background: var(--color-suka-cream); color: var(--color-suka-ink); }
+body { font-family: var(--font-sans); }
+
+/* Sci-fi HUD / JARVIS Utility Styles */
+.font-hud {
+  font-family: var(--font-hud);
+}
+
+.font-mono-hud {
+  font-family: var(--font-mono-hud);
+}
+
+/* Background Cyber Grid & Vignette */
+.jarvis-bg {
+  background-color: #030712;
+  background-image: 
+    radial-gradient(circle at 50% 40%, rgba(6, 182, 212, 0.12) 0%, transparent 65%),
+    radial-gradient(circle at 15% 85%, rgba(59, 130, 246, 0.07) 0%, transparent 40%),
+    radial-gradient(circle at 85% 15%, rgba(245, 158, 11, 0.05) 0%, transparent 40%),
+    linear-gradient(rgba(6, 182, 212, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+}
+
+/* Scanlines overlay */
+.jarvis-scanlines {
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0),
+    rgba(255,255,255,0) 50%,
+    rgba(0, 0, 0, 0.3) 50%,
+    rgba(0, 0, 0, 0.3)
+  );
+  background-size: 100% 4px;
+}
+
+/* Glow effects */
+.glow-cyan {
+  box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+}
+
+.glow-cyan-sm {
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.25);
+}
+
+.glow-amber {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+}
+
+/* Rotations for HUD rings */
+@keyframes hud-spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes hud-spin-reverse-slow {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes hud-pulse-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.6));
+    opacity: 0.9;
+  }
+  50% {
+    filter: drop-shadow(0 0 35px rgba(6, 182, 212, 0.9));
+    opacity: 1;
+  }
+}
+
+.animate-hud-spin {
+  animation: hud-spin-slow 28s linear infinite;
+}
+
+.animate-hud-spin-reverse {
+  animation: hud-spin-reverse-slow 20s linear infinite;
+}
+
+.animate-hud-spin-fast {
+  animation: hud-spin-slow 10s linear infinite;
+}
+
+.animate-hud-pulse {
+  animation: hud-pulse-glow 3.5s ease-in-out infinite;
+}

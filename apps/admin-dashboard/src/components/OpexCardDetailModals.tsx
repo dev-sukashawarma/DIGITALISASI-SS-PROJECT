@@ -155,13 +155,17 @@ export function OpexCardDetailModals({
         })
       : [])
 
+  const modalWidthClass = type === 'total'
+    ? 'max-w-3xl lg:max-w-4xl'
+    : 'max-w-4xl lg:max-w-5xl xl:max-w-6xl'
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto"
+        className={`bg-white rounded-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto ${modalWidthClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ==================== MODAL 1: SALARY DETAIL ==================== */}

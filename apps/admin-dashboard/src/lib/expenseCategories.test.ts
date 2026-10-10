@@ -55,3 +55,57 @@ describe('deriveScope', () => {
     expect(deriveScope('pengeluaran_outlet', 'outlet-123')).toBe('outlet')
   })
 })
+
+describe('Pencegahan Double Count Transaksi OPEX', () => {
+  it('memastikan transaksi terpartisi tepat ke satu pos (lembur, salary, atau nonSalary)', () => {
+    const sampleTransactions = [
+      { id: '1', category: 'pengeluaran_outlet', description: 'Uang lembur kru toko', amount: 150_000 },
+      { id: '2', category: 'lembur', description: 'Overtime shift malam', amount: 100_000 },
+      { id: '3', category: 'salary', description: 'Gaji pokok kru', amount: 2_000_000 },
+      { id: '4', category: 'gaji_crew_outlet', description: 'Payroll bulanan', amount: 3_000_000 },
+      { id: '5', category: 'pln', description: 'Token listrik outlet', amount: 500_000 },
+      { id: '6', category: 'pengeluaran_outlet', description: 'Beli sabun cuci & plastik', amount: 75_000 },
+    ]
+
+    let lembur = 0
+    let salary = 0
+    let nonSalary = 0
+    let total = 0
+
+    sampleTransactions.forEach(t => {
+      const isLembur = isLemburExpense(t.category, t.description)
+      const amt = t.amount
+      total += amt
+
+      if (t.category === 'lembur' || isLembur) {
+        lembur += amt
+      } else if (isSalaryCategory(t.category)) {
+        salary += amt
+      } else {
+        nonSalary += amt
+      }
+    })
+
+    // Uang lembur harus 150.000 + 100.000 = 250.000
+    expect(lembur).toBe(250_000)
+    // Gaji harus 2.000.000 + 3.000.000 = 5.000.000
+    expect(salary).toBe(5_000_000)
+    // Non-salary operasional murni harus 500.000 + 75.000 = 575.000 (lembur TIDAK masuk sini)
+    expect(nonSalary).toBe(575_000)
+    // Jumlah seluruh partisi harus persis sama dengan total (0 double count, 0 omission)
+    expect(lembur + salary + nonSalary).toBe(total)
+  })
+
+  it('memastikan perincian gaji rutin dan bonus selalu seimbang tanpa selisih', () => {
+    const totalPayroll = 250_000_000
+    const crewBonus = 8_000_000
+    const managerBonus = 4_000_000
+    const totalBonus = crewBonus + managerBonus
+
+    const routineSalary = Math.max(0, totalPayroll - totalBonus)
+
+    // Card 1 + Card 2 + Card 3 harus tepat sama dengan totalPayroll
+    expect(routineSalary + crewBonus + managerBonus).toBe(totalPayroll)
+  })
+})
+

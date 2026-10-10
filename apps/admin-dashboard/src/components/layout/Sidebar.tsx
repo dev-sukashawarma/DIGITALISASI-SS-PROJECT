@@ -35,6 +35,9 @@ export const Sidebar = () => {
         if (item.href === '/dashboard/owner/closing-hub' && !isDeveloper) {
           return false
         }
+        if (item.href === '/dashboard/sistem/pengaturan-halaman' && !isDeveloper) {
+          return false
+        }
         return true
       }),
     }))

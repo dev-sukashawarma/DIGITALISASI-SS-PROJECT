@@ -3,7 +3,7 @@ import {
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
   Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal, ImagePlus, Settings2,
-  CalendarDays, FileCheck, AlertTriangle, Award, Coins, Ticket, Sparkles, KeyRound
+  CalendarDays, FileCheck, AlertTriangle, Award, Coins, Ticket, Sparkles, KeyRound, Sliders
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING' | 'MARCOM'
@@ -190,6 +190,7 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/pos-admin/settings', label: 'Pengaturan Brand', shortLabel: 'Brand', icon: Sparkles, roles: ['ADMIN', 'OWNER'] },
+      { href: '/dashboard/sistem/pengaturan-halaman', label: 'Pengaturan Halaman', shortLabel: 'Halaman', icon: Sliders, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/monitoring', label: 'Monitoring Aktivitas', shortLabel: 'Monitoring', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/panduan', label: 'Panduan Sistem', shortLabel: 'Panduan', icon: BookOpen, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },

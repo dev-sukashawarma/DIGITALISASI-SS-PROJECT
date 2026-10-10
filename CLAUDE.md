@@ -3369,5 +3369,48 @@ gerbang `supabase/verifikasi/hermes/gerbang-penjualan.md`.
 2. Runbook "Sambungkan MCP": kunci Bot CEO, profil `ceo`, SOUL, IP dari log, gerbang 1–2 produksi.
 3. Masa uji laporan pagi 1 minggu di grup Telegram uji → baru grup Owner.
 
-**Last updated:** 2026-10-07  
+---
+
+## Session 2026-10-10: Penyesuaian Khusus September 2026 — Revert HPP File (2) & Alokasi Join Expense 11 Internal
+
+**Status:** ✅ LIVE di DB (skrip data tereksekusi & terverifikasi penuh).
+**Arsip:** `SS COGS SET/revert-hpp-file2-september-2026-10-10.sql`, `SS COGS SET/alokasi-join-expense-internal-september-2026-10-10.sql`, `SS COGS SET/execute-revert-september-2026-10-10.py`.
+
+### 1. 🔴 Revert HPP Khusus September 2026 (Sumber: Excel "SS 2.0 HPP x 2026 (2).xlsx")
+Atas permintaan owner (di-grill tuntas & disetujui), HPP bulan September 2026 disesuaikan khusus untuk periode September:
+- **Sumber Angka:** Excel `SS 2.0 HPP x 2026 (2).xlsx` (sheet **UPDATED SS 2.0 INTERNAL**).
+- **Periode Berlaku:** Khusus **1–30 September 2026** saja.
+  - Ditulis 270 baris riwayat HPP ke `menu_hpp_riwayat` untuk 35 menu target.
+  - **1 September 2026:** Angka File (2) berlaku (Offline base & SS Online 5 kunci).
+  - **19 September 2026:** Angka File (2) dipertahankan, menu Shawarmie Ayam & Sapi dikosongkan (`hpp_override = NULL`) karena dinonaktifkan per 19 Sep.
+  - **1 Oktober 2026:** Checkpoint pengembalian HPP ke angka File **XX** (`XX SS 2.0 HPP x 2026.xlsx`) sebagai standar baku aktif seterusnya (Oktober ke depan dan nilai aktif di layar manajemen menu tetap memakai File XX).
+- **Verifikasi Nol Pergeseran (Zero Drift):**
+  - **Agustus COGS Owner:** `1.051.603.330` → **`1.051.603.330`** (IDENTIK / Rp 0 pergeseran).
+  - **Agustus COGS Mitra:** `476.464.450` → **`476.464.450`** (IDENTIK / Rp 0 pergeseran).
+  - **Oktober COGS Owner (1–10 Okt MTD):** `366.751.895,69` → **`366.751.895,69`** (IDENTIK / Rp 0 pergeseran).
+  - **September COGS Owner:** `1.118.529.484,63` → **`1.017.387.460,53`** (turun Rp 101.142.024,10 mencerminkan HPP File 2).
+  - **September COGS Mitra:** `524.875.026,00`.
+
+### 2. 🔴 Join Expenses September Hanya Dibebankan ke 11 Outlet Internal
+Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari mitra dan dialokasikan rata ke outlet internal:
+- **Total Pool Join Expense September:** Rp 90.625.733.
+- **11 Outlet Internal Pemikul Beban:** Masing-masing menanggung rata **Rp 8.238.703**:
+  1. SUKA SHAWARMA BEJI
+  2. SUKA SHAWARMA BNR
+  3. SUKA SHAWARMA CIMANGGU
+  4. SUKA SHAWARMA CIRENDEU
+  5. SUKA SHAWARMA DEPOK SUKMAJAYA
+  6. SUKA SHAWARMA DRAMAGA
+  7. SUKA SHAWARMA EMPANG
+  8. SUKA SHAWARMA JAGAKARSA
+  9. SUKA SHAWARMA JATIWARINGIN
+  10. SUKA SHAWARMA PAJAJARAN
+  11. SUKA SHAWARMA SAWANGAN (INTERNAL) *(beroperasi internal s.d. 25 Sep)*
+- **Pengecualian Mutlak:**
+  - **9 Outlet Mitra Bebas Beban (Rp 0):** Mitra Cibubur, Mitra Sentul, Mitra Paledang, Mitra Cibinong, Mitra Ciseeng, Mitra Pekayon, Mitra Kalisari, Mitra Cileungsi, Mitra Cicurug (seluruh 9 baris dihapus dari `expenses`).
+  - **1 Outlet Nonaktif Bebas Beban (Rp 0):** Suka Shawarma Jatiasih (status tutup operasional, baris dihapus dari `expenses`).
+
+
+**Last updated:** 2026-10-10  
 **Owner:** Dev Suka Shawarma
+

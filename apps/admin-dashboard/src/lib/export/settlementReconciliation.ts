@@ -9,10 +9,9 @@ export interface SettlementPromoSummary {
  * dengan data rekonsiliasi riil dari `platform_settlements`.
  *
  * Aturan Bisnis:
- * 1. GoFood: kasir sering keliru menginput subsidi voucher Gojek ke diskon resto.
- *    Single source of truth promo resto adalah `promo_merchant` dari laporan GoBiz di `platform_settlements`.
- * 2. ShopeeFood: menggunakan promo_merchant dari settlement untuk menyerap koreksi / penyesuaian akhir bulan.
- * 3. GrabFood: menggunakan promo_merchant jika tersedia di settlement.
+ * 1. File rekonsiliasi platform settlement (`platform_settlements`) adalah Single Source of Truth.
+ * 2. GoFood, ShopeeFood, dan GrabFood menggunakan promo_merchant dari settlement jika tersedia.
+ * 3. Jika settlement untuk platform tersebut belum diunggah, fallback ke input kasir (sales_daily).
  * 4. Gross Revenue (omzet + total_deductions) DIJAGA TETAP KONSISTEN:
  *    Ketika total_deductions diselaraskan, omzet disesuaikan sehingga (omzet + total_deductions)
  *    selalu sama persis dengan Omzet Kotor sebelum rekonsiliasi.

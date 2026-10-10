@@ -160,18 +160,22 @@ export function buildOutletFinancialCalculations(
 
   // 1. Group sales by channel
   const channels = {
-    outlet: { revenue: 0, adminFee: 0 },
-    food_apps: { revenue: 0, adminFee: 0 },
-    tiktok_go: { revenue: 0, adminFee: 0 },
-    website: { revenue: 0, adminFee: 0 }
+    outlet: { revenue: 0, adminFee: 0, promo: 0, commission: 0 },
+    food_apps: { revenue: 0, adminFee: 0, promo: 0, commission: 0 },
+    tiktok_go: { revenue: 0, adminFee: 0, promo: 0, commission: 0 },
+    website: { revenue: 0, adminFee: 0, promo: 0, commission: 0 }
   }
 
   outletSales.forEach(r => {
     const grp = getChannelGroup(r.sales_source || '')
     const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
-    const fee = (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0)
+    const promo = Number(r.total_deductions) || 0
+    const comm = Number(r.platform_fee) || 0
+    const fee = promo + comm
     channels[grp].revenue += gross
     channels[grp].adminFee += fee
+    channels[grp].promo += promo
+    channels[grp].commission += comm
   })
 
   // TikTok settlement
@@ -180,16 +184,38 @@ export function buildOutletFinancialCalculations(
   const settlementTikTok = ttSettlement ? ttSettlement.totalSettlement : (channels.tiktok_go.revenue - channels.tiktok_go.adminFee)
 
   // Bila ada data rekonsiliasi platform settlement, pastikan adminFee Food Apps
-  // sinkron 100% dengan promo_merchant settlement
+  // (promo merchant + komisi platform) sinkron 100% dengan rekonsiliasi settlement & POS Report
   if (ctx.platformSettlements) {
     const gfSt = ctx.platformSettlements[`${item.id}|gofood`]
     const sfSt = ctx.platformSettlements[`${item.id}|shopeefood`]
     const grbSt = ctx.platformSettlements[`${item.id}|grabfood`]
     if (gfSt || sfSt || grbSt) {
-      const stFoodAppsPromo = (gfSt?.promoMerchant || 0) + (sfSt?.promoMerchant || 0) + (grbSt?.promoMerchant || 0)
+      // Single Source of Truth dari file rekonsiliasi platform settlement:
+      // - GoFood, ShopeeFood, dan GrabFood menggunakan promo_merchant dan commission dari settlement jika tersedia
+      // - Jika data settlement belum diunggah, fallback ke input kasir (outletSales)
+      const gfPromo = gfSt?.promoMerchant !== undefined && gfSt?.promoMerchant !== null
+        ? Number(gfSt.promoMerchant) || 0
+        : outletSales.filter(r => (r.sales_source || '').toLowerCase().includes('go')).reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0)
+
+      const sfPromo = sfSt?.promoMerchant !== undefined && sfSt?.promoMerchant !== null
+        ? Number(sfSt.promoMerchant) || 0
+        : outletSales.filter(r => (r.sales_source || '').toLowerCase().includes('shopee')).reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0)
+
+      const grbPromo = grbSt?.promoMerchant !== undefined && grbSt?.promoMerchant !== null
+        ? Number(grbSt.promoMerchant) || 0
+        : outletSales
+            .filter(r => (r.sales_source || '').toLowerCase().includes('grab'))
+            .reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0)
+
+      const stFoodAppsPromo = gfPromo + sfPromo + grbPromo
+      const stFoodAppsComm = (gfSt?.commission || 0) + (sfSt?.commission || 0) + (grbSt?.commission || 0)
       if (stFoodAppsPromo > 0) {
-        channels.food_apps.adminFee = stFoodAppsPromo
+        channels.food_apps.promo = stFoodAppsPromo
       }
+      if (stFoodAppsComm > 0) {
+        channels.food_apps.commission = stFoodAppsComm
+      }
+      channels.food_apps.adminFee = channels.food_apps.promo + channels.food_apps.commission
     }
   }
 
@@ -440,7 +466,17 @@ function renderOutletPdfPage(
       { content: 'TRANSAKSI FOOD APPS (GRAB / GOJEK / SHOPEE)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
     ])
     bodyRows.push(['REVENUE FOOD APPS', { content: rupiah(calc.channels.food_apps.revenue), styles: { halign: 'right' } }])
-    bodyRows.push(['POTONGAN MERCHANT / ADMIN FEE', { content: calc.channels.food_apps.adminFee > 0 ? `-${rupiah(calc.channels.food_apps.adminFee)}` : 'Rp 0', styles: { halign: 'right' } }])
+    bodyRows.push(['ADMIN FEE (PROMO & KOMISI PLATFORM)', { content: calc.channels.food_apps.adminFee > 0 ? `-${rupiah(calc.channels.food_apps.adminFee)}` : 'Rp 0', styles: { halign: 'right' } }])
+    if (calc.channels.food_apps.promo > 0 && calc.channels.food_apps.commission > 0) {
+      bodyRows.push([
+        { content: '  • Potongan Merchant (Promo Resto)', styles: { textColor: [100, 116, 139] } },
+        { content: `-${rupiah(calc.channels.food_apps.promo)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
+      ])
+      bodyRows.push([
+        { content: '  • Biaya Layanan & Komisi Platform', styles: { textColor: [100, 116, 139] } },
+        { content: `-${rupiah(calc.channels.food_apps.commission)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
+      ])
+    }
     bodyRows.push(['TOTAL COGS (HPP)', { content: calc.cogsFoodApps > 0 ? `-${rupiah(calc.cogsFoodApps)}` : 'Rp 0', styles: { halign: 'right' } }])
     bodyRows.push([
       { content: 'TOTAL GROSS PROFIT FOOD APPS', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
@@ -497,15 +533,25 @@ function renderOutletPdfPage(
     { content: 'TOTAL ADMIN FEE & POTONGAN PLATFORM' }, 
     { content: calc.totalAdminFee > 0 ? `-${rupiah(calc.totalAdminFee)}` : 'Rp 0', styles: { halign: 'right' } }
   ])
-  if (calc.adminSettlementTikTok > 0 && calc.channels.food_apps.adminFee > 0) {
-    bodyRows.push([
-      { content: '  • Potongan Merchant Food Apps', styles: { textColor: [100, 116, 139] } },
-      { content: `-${rupiah(calc.channels.food_apps.adminFee)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
-    ])
-    bodyRows.push([
-      { content: '  • Komisi / Admin Settlement TikTok Go', styles: { textColor: [100, 116, 139] } },
-      { content: `-${rupiah(calc.adminSettlementTikTok)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
-    ])
+  if (calc.channels.food_apps.adminFee > 0 || calc.adminSettlementTikTok > 0) {
+    if (calc.channels.food_apps.promo > 0) {
+      bodyRows.push([
+        { content: '  • Potongan Merchant Food Apps (Promo)', styles: { textColor: [100, 116, 139] } },
+        { content: `-${rupiah(calc.channels.food_apps.promo)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
+      ])
+    }
+    if (calc.channels.food_apps.commission > 0) {
+      bodyRows.push([
+        { content: '  • Komisi Platform Food Apps', styles: { textColor: [100, 116, 139] } },
+        { content: `-${rupiah(calc.channels.food_apps.commission)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
+      ])
+    }
+    if (calc.adminSettlementTikTok > 0) {
+      bodyRows.push([
+        { content: '  • Komisi / Admin Settlement TikTok Go', styles: { textColor: [100, 116, 139] } },
+        { content: `-${rupiah(calc.adminSettlementTikTok)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
+      ])
+    }
   }
   bodyRows.push([
     { content: 'TOTAL COGS (HPP)' }, 
@@ -751,7 +797,7 @@ export async function generateConsolidatedPdfBlob(
     { content: '1. PENDAPATAN USAHA (SALES REVENUE)', colSpan: 2, styles: { halign: 'left', fontStyle: 'bold', fillColor: sukaGold, textColor: [15, 23, 42] } }
   ])
   execRows.push(['Omzet Penjualan Kotor (Gross Revenue)', { content: rupiah(summary.actualGrossSales), styles: { halign: 'right', fontStyle: 'bold' } }])
-  execRows.push(['Potongan Penjualan / Merchant Fee', { content: `-${rupiah(summary.totalDeductions)}`, styles: { halign: 'right', textColor: [225, 29, 72] } }])
+  execRows.push(['Admin Fee (Diskon Promo & Komisi Platform)', { content: `-${rupiah(summary.totalDeductions)}`, styles: { halign: 'right', textColor: [225, 29, 72] } }])
   execRows.push(['Penjualan Bersih (Net Sales)', { content: rupiah(summary.actualGrossSales - summary.totalDeductions), styles: { halign: 'right', fontStyle: 'bold' } }])
 
   if (summary.adaAntarKantong) {
@@ -888,7 +934,7 @@ export async function generateConsolidatedPdfBlob(
 
   autoTable(doc, {
     startY: finalExecY + 6.5,
-    head: [['No', 'Outlet', 'Tipe', 'Omzet', 'Potongan', 'HPP', 'Waste', 'Beban Ops', 'Mgmt Fee', 'Laba Bersih', 'Margin']],
+    head: [['No', 'Outlet', 'Tipe', 'Omzet', 'Admin Fee', 'HPP', 'Waste', 'Beban Ops', 'Mgmt Fee', 'Laba Bersih', 'Margin']],
     body: leaderboardBody,
     theme: 'grid',
     styles: {
@@ -982,6 +1028,10 @@ export function buildSingleOutletCsvRows(
   // Channel 2
   rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', 'REVENUE', calc.channels.food_apps.revenue])
   rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', 'ADMIN FEE', calc.channels.food_apps.adminFee])
+  if (calc.channels.food_apps.promo > 0 && calc.channels.food_apps.commission > 0) {
+    rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', '  • POTONGAN MERCHANT (PROMO)', calc.channels.food_apps.promo])
+    rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', '  • KOMISI PLATFORM FOOD APPS', calc.channels.food_apps.commission])
+  }
   rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', 'TOTAL COGS (HPP)', calc.cogsFoodApps])
   rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', 'TOTAL GROSS PROFIT FOOD APPS', calc.gpFoodApps])
 
@@ -1065,7 +1115,7 @@ export function generateConsolidatedCsvString(
   // Ringkasan Konsolidasi Perusahaan
   if (scope !== 'mitra') {
     rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'TOTAL OMZET KOTOR PENJUALAN', summary.actualGrossSales])
-    rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'TOTAL POTONGAN MERCHANT', summary.totalDeductions])
+    rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'TOTAL ADMIN FEE (POTONGAN & KOMISI)', summary.totalDeductions])
     if (summary.managementFeeReceived > 0) {
       rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN MANAGEMENT FEE MITRA (PUSAT)', summary.managementFeeReceived])
     }

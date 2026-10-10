@@ -6,6 +6,7 @@ import {
   computeOrderGross,
   computeItemShares,
   computeOrderPlatformSubsidy,
+  buildFoodAppsSettlementPromoMap,
   buildGofoodSettlementPromoMap,
   isGoFoodOrder,
 } from './posReportKpi'
@@ -272,6 +273,49 @@ describe('buildGofoodSettlementPromoMap', () => {
     // 60k : 40k -> 6k : 4k
     expect(map.get('ord-a')).toBe(6_000)
     expect(map.get('ord-b')).toBe(4_000)
+  })
+})
+
+describe('buildFoodAppsSettlementPromoMap', () => {
+  it('mengalokasikan settlement promo_merchant untuk berbagai platform (GoFood, GrabFood, ShopeeFood) secara terpisah', () => {
+    const orders = [
+      {
+        id: 'gf-1',
+        outlet_id: 'out-cibinong',
+        created_at: '2026-09-15T11:00:00+07:00',
+        channel: 'gofood',
+        total_amount: 50_000,
+        promo_subsidy: 20_000,
+      },
+      {
+        id: 'grb-1',
+        outlet_id: 'out-cibinong',
+        created_at: '2026-09-15T12:00:00+07:00',
+        channel: 'grabfood',
+        total_amount: 80_000,
+        promo_subsidy: 30_000,
+      },
+      {
+        id: 'sf-1',
+        outlet_id: 'out-cibinong',
+        created_at: '2026-09-15T13:00:00+07:00',
+        channel: 'shopeefood',
+        total_amount: 60_000,
+        promo_subsidy: 15_000,
+      },
+    ]
+
+    const settlements = [
+      { platform: 'gofood', outlet_id: 'out-cibinong', tanggal: '2026-09-15', promo_merchant: 15_000 },
+      { platform: 'grabfood', outlet_id: 'out-cibinong', tanggal: '2026-09-15', promo_merchant: 25_000 },
+      { platform: 'shopeefood', outlet_id: 'out-cibinong', tanggal: '2026-09-15', promo_merchant: 12_000 },
+    ]
+
+    const map = buildFoodAppsSettlementPromoMap(orders, settlements)
+
+    expect(map.get('gf-1')).toBe(15_000)
+    expect(map.get('grb-1')).toBe(25_000)
+    expect(map.get('sf-1')).toBe(12_000)
   })
 })
 

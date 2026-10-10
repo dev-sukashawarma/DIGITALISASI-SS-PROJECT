@@ -416,7 +416,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     [expenseRows]
   )
   const pengeluaranOutletBulananMurni = Math.max(0, pengeluaranOutletBulanan - totalJointExpense)
-  const pengeluaranOutletPettyCash = pengeluaranOutletPettyCashMurni
   const pengeluaranOutlet = pengeluaranOutletBulanan + pengeluaranLembur + pengeluaranOutletPettyCashMurni
   const pengeluaranPusat = useMemo(
     () => expenseRows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),

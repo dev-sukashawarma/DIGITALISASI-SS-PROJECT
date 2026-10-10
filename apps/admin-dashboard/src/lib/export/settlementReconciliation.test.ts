@@ -59,6 +59,21 @@ describe('reconcileSalesRowsWithSettlements', () => {
     expect(foodAppsDeductions).toBe(11_879_173)
   })
 
+  it('reconciles GrabFood promo when GrabMerchant settlement is provided', () => {
+    const outletId = 'outlet-cibinong'
+    const salesRows = [
+      { outlet_id: outletId, sales_source: 'grabfood', sales_date: '2026-09-01', omzet: 9_764_694, total_deductions: 5_111_306 },
+    ]
+    const settlementsMap = {
+      [`${outletId}|grabfood`]: { promoMerchant: 5_167_712, commission: 1_941_658, omzetKotor: 14_876_000 },
+    }
+
+    const reconciled = reconcileSalesRowsWithSettlements(salesRows, settlementsMap)
+
+    expect(reconciled[0].total_deductions).toBe(5_167_712)
+    expect(reconciled[0].omzet + reconciled[0].total_deductions).toBe(9_764_694 + 5_111_306)
+  })
+
   it('does nothing when no settlement is present', () => {
     const salesRows = [
       { outlet_id: 'outlet-1', sales_source: 'gofood', sales_date: '2026-09-01', omzet: 100_000, total_deductions: 20_000 },

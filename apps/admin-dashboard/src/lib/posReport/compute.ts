@@ -19,7 +19,9 @@ import {
   computeOrderGross,
   computeItemShares,
   computeOrderPlatformSubsidy,
+  buildFoodAppsSettlementPromoMap,
   buildGofoodSettlementPromoMap,
+  isFoodAppOrder,
   isGoFoodOrder,
   isTikTokGoOrder,
 } from '@/lib/posReportKpi'
@@ -321,22 +323,21 @@ export function computeAnalytics({
     paymentBreakdown[method].revenue += o.total_amount
   })
 
-  // Bangun pemetaan settlement GoFood untuk meng-override promo_subsidy kasir
-  // Sesuai Master Plan Rekonsiliasi Food Apps (Priority 1):
-  // - GoFood: Single Source of Truth dari settlement GoBiz (promo_merchant)
-  // - Selisih = subsidi Gojek -> masuk kategori "Subsidi Platform" terpisah (bukan beban resto)
-  // - GrabFood & ShopeeFood: tetap pakai promo_subsidy kasir (sudah akurat)
-  const gofoodSettlementPromoMap = buildGofoodSettlementPromoMap(completed, settlements)
+  // Bangun pemetaan settlement Food Apps (GoFood, GrabFood, ShopeeFood)
+  // File rekonsiliasi platform settlement adalah Single Source of Truth
+  const foodAppsSettlementPromoMap = buildFoodAppsSettlementPromoMap(completed, settlements)
   const kpiOpts = {
     ssOnlineMode: isSSOnlineSelected,
-    getGofoodSettlementPromo: (order: any) => gofoodSettlementPromoMap.get(order.id ?? order),
+    getSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    getGofoodSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    gofoodSettlementMap: foodAppsSettlementPromoMap,
   }
 
   // Terapkan alokasi settlement ke tiap order di completedOrders agar tabel transaksi & turunan langsung membacanya
   completed.forEach(o => {
-    if (isGoFoodOrder(o)) {
+    if (isFoodAppOrder(o)) {
       const target = o as any
-      const allocated = gofoodSettlementPromoMap.get(o.id ?? target)
+      const allocated = foodAppsSettlementPromoMap.get(o.id ?? target)
       if (allocated !== undefined) {
         target.settlement_promo_merchant = allocated
         const kasirPromo = Number(target.promo_subsidy) || 0
@@ -576,9 +577,11 @@ export function filterTableData(completedOrders: OrderRow[], selectedPaymentMeth
 
 /** Baris "Total" di kaki tabel transaksi (seluruh hasil filter, bukan satu halaman). */
 export function computeTableFooter(filteredTableData: OrderRow[], settlements: any[] = []) {
-  const gofoodSettlementPromoMap = buildGofoodSettlementPromoMap(filteredTableData, settlements)
+  const foodAppsSettlementPromoMap = buildFoodAppsSettlementPromoMap(filteredTableData, settlements)
   const kpiOpts = {
-    getGofoodSettlementPromo: (order: any) => gofoodSettlementPromoMap.get(order.id ?? order),
+    getSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    getGofoodSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    gofoodSettlementMap: foodAppsSettlementPromoMap,
   }
   const totalGross = filteredTableData.reduce((acc, curr) => {
     return acc + computeOrderGross(curr, kpiOpts);

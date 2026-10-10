@@ -20,7 +20,6 @@ import {
   MessageSquare,
   Send,
   HelpCircle,
-  Receipt,
   Utensils,
   RefreshCw
 } from 'lucide-react'
@@ -37,7 +36,6 @@ import { getAggregatedMenuSales } from '@/app/actions/menuSales'
 import { MitraBiodataModal } from './MitraBiodataModal'
 import { MitraProfitLossSection } from './MitraProfitLossSection'
 import { createClient } from '@/lib/supabase'
-import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { toast } from 'sonner'
 
 const RevenueTrendChart = dynamic(
@@ -70,7 +68,6 @@ export function MitraDashboardView({
   trendKpiRows = [],
   currentFilter,
   topMenus = [],
-  recentOrders = [],
   initialTransfers = [],
   initialStaff = [],
   initialSuggestions = [],
@@ -299,11 +296,6 @@ export function MitraDashboardView({
   const filteredTransfers = selectedOutletId === 'all'
     ? initialTransfers
     : initialTransfers.filter((t: any) => t.outlet_id === selectedOutletId)
-
-  // Filter recent orders by selected outlet
-  const filteredOrders = selectedOutletId === 'all'
-    ? recentOrders
-    : recentOrders.filter((o: any) => o.outlet_id === selectedOutletId)
 
   const dOmzet = deltaPct(currentOmzet, prevOmzet)
 
@@ -779,106 +771,51 @@ export function MitraDashboardView({
               )}
             </div>
 
-            {/* 7. ORDERAN TERKINI & TOP MENU */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Orderan Terkini (2 Cols) */}
-              <div className="lg:col-span-2 bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5 flex flex-col justify-between">
+            {/* 7. TOP MENU TERLARIS */}
+            <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 bg-green-50 text-green-600 rounded-xl">
+                  <Utensils className="w-5 h-5" />
+                </div>
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-suka-orange/10 text-suka-orange rounded-xl">
-                        <Receipt className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-extrabold text-lg text-suka-brown tracking-tight">Orderan Terkini Outlet</h3>
-                        <p className="text-xs text-suka-gray-400">10 transaksi terbaru yang selesai</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="divide-y divide-suka-gray-100 space-y-2">
-                    {filteredOrders.slice(0, 7).map((ord: any) => (
-                      <div key={ord.id} className="pt-2 flex items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-xl bg-suka-gray-50 flex items-center justify-center font-mono font-bold text-[10px] text-suka-gray-500 shrink-0">
-                            #{ord.order_number ?? 'ORD'}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="font-bold text-suka-brown block truncate">
-                              {ord.customer_name || 'Pelanggan Walk-in'}
-                            </span>
-                            <span className="text-[10px] text-suka-gray-400">
-                              {new Date(ord.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {new Date(ord.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="text-right shrink-0 flex items-center gap-3">
-                          <OrderSourceBadge channel={ord.channel} salesSource={ord.sales_source || 'pos'} customerName={ord.customer_name} isEndorse={ord.is_endorse} />
-                          <span className="font-black text-suka-brown text-sm">
-                            {formatRupiah(ord.total_amount)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-
-                    {filteredOrders.length === 0 && (
-                      <div className="p-8 text-center text-xs text-suka-gray-400">
-                        Belum ada orderan terbaru pada outlet ini.
-                      </div>
-                    )}
-                  </div>
+                  <h3 className="font-extrabold text-lg text-suka-brown tracking-tight">Menu Terlaris</h3>
+                  <p className="text-xs text-suka-gray-400">Top seller outlet berdasarkan volume pesanan</p>
                 </div>
               </div>
 
-              {/* Top Menu Terlaris (1 Col) */}
-              <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2.5 bg-green-50 text-green-600 rounded-xl">
-                    <Utensils className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-lg text-suka-brown tracking-tight">Menu Terlaris</h3>
-                    <p className="text-xs text-suka-gray-400">Top seller outlet</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {isFilterLoading ? (
-                    [1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="p-3 bg-white/60 rounded-xl border border-suka-gray-100 flex items-center justify-between animate-pulse" aria-busy="true">
-                        <div className="flex items-center gap-2 flex-1 pr-2">
-                          <div className="w-5 h-5 rounded-full bg-suka-gray-200 shrink-0" />
-                          <div className="h-3.5 bg-suka-gray-200 rounded w-28" />
-                        </div>
-                        <div className="h-3.5 bg-suka-gray-200 rounded w-14 shrink-0" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                {isFilterLoading ? (
+                  [1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="p-3 bg-white/60 rounded-xl border border-suka-gray-100 flex items-center justify-between animate-pulse" aria-busy="true">
+                      <div className="flex items-center gap-2 flex-1 pr-2">
+                        <div className="w-5 h-5 rounded-full bg-suka-gray-200 shrink-0" />
+                        <div className="h-3.5 bg-suka-gray-200 rounded w-28" />
                       </div>
-                    ))
-                  ) : (
-                    (topMenuRows || []).slice(0, 5).map((m: any, i: number) => (
-                      <div key={i} className="p-3 bg-white rounded-xl border border-suka-gray-100 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 min-w-0 pr-2">
-                          <span className="w-5 h-5 rounded-full bg-suka-orange/10 text-suka-orange font-black text-[10px] flex items-center justify-center shrink-0">
-                            {i + 1}
-                          </span>
-                          <span className="font-bold text-suka-brown truncate">{m.name}</span>
-                        </div>
-                        <span className="font-black text-suka-orange shrink-0">
-                          {m.quantity || m.qty || 0} Porsi
+                      <div className="h-3.5 bg-suka-gray-200 rounded w-14 shrink-0" />
+                    </div>
+                  ))
+                ) : (
+                  (topMenuRows || []).slice(0, 5).map((m: any, i: number) => (
+                    <div key={i} className="p-3.5 bg-white rounded-2xl border border-suka-gray-100/80 hover:border-amber-200 flex items-center justify-between text-xs shadow-2xs transition-all">
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <span className="w-6 h-6 rounded-lg bg-suka-orange/10 text-suka-orange font-black text-xs flex items-center justify-center shrink-0">
+                          {i + 1}
                         </span>
+                        <span className="font-bold text-suka-brown truncate">{m.name}</span>
                       </div>
-                    ))
-                  )}
-
-                  {!isFilterLoading && (!topMenuRows || topMenuRows.length === 0) && (
-                    <div className="p-8 text-center text-xs text-suka-gray-400">
-                      Belum ada data penjualan menu.
+                      <span className="font-black text-suka-orange shrink-0">
+                        {m.quantity || m.qty || 0} Porsi
+                      </span>
                     </div>
-                  )}
-                </div>
-              </div>
+                  ))
+                )}
 
+                {!isFilterLoading && (!topMenuRows || topMenuRows.length === 0) && (
+                  <div className="p-8 text-center text-xs text-suka-gray-400 col-span-full">
+                    Belum ada data penjualan menu.
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 8. KOTAK SARAN & KOMUNIKASI ADMIN */}

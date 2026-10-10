@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { 
   X, 
   User, 
@@ -27,6 +27,33 @@ interface MitraBiodataModalProps {
 }
 
 export function MitraBiodataModal({ isOpen, onClose, biodata, outletNames }: MitraBiodataModalProps) {
+  useEffect(() => {
+    if (!isOpen) return
+
+    const prevOverflow = document.body.style.overflow
+    const prevPaddingRight = document.body.style.paddingRight
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+
+    document.body.style.overflow = 'hidden'
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.body.style.paddingRight = prevPaddingRight
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   const formatDate = (dateStr?: string) => {
@@ -47,7 +74,7 @@ export function MitraBiodataModal({ isOpen, onClose, biodata, outletNames }: Mit
     : false
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-fade-in overscroll-contain" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-[#2A1D16]/60 backdrop-blur-xs transition-opacity" 
@@ -91,7 +118,7 @@ export function MitraBiodataModal({ isOpen, onClose, biodata, outletNames }: Mit
         </div>
 
         {/* Modal Body (Scrollable) */}
-        <div className="p-6 sm:p-7 overflow-y-auto space-y-5">
+        <div className="p-6 sm:p-7 overflow-y-auto overscroll-contain space-y-5 flex-1">
           
           {/* Section 1: Profil Pribadi */}
           <div className="bg-[#FAF7F2] rounded-2xl p-4 sm:p-5 border border-amber-200/60 space-y-3.5">

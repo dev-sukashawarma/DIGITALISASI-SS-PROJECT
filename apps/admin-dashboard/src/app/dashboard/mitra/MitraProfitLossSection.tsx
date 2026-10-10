@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Store, 
   Utensils, 
@@ -190,6 +190,34 @@ export function MitraProfitLossSection({
 }: MitraProfitLossSectionProps) {
   const [activeDrilldown, setActiveDrilldown] = useState<'pos' | 'foodapps' | 'tiktok' | 'opex' | 'netprofit' | null>(null)
   const [selectedOpexCategory, setSelectedOpexCategory] = useState<OpexCategoryDetail | null>(null)
+
+  useEffect(() => {
+    if (!activeDrilldown) return
+
+    const prevOverflow = document.body.style.overflow
+    const prevPaddingRight = document.body.style.paddingRight
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+
+    document.body.style.overflow = 'hidden'
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveDrilldown(null)
+        setSelectedOpexCategory(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.body.style.paddingRight = prevPaddingRight
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [activeDrilldown])
 
   const { summary, channels, opex, profitSharingPct, outletName } = pnlData
   const isConsolidated = outletName.toLowerCase().includes('semua')
@@ -528,7 +556,11 @@ export function MitraProfitLossSection({
 
       {/* DRILLDOWN MODAL */}
       {activeDrilldown && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-fade-in overscroll-contain"
+          role="dialog"
+          aria-modal="true"
+        >
           <div
             className="absolute inset-0 bg-[#2A1D16]/60 backdrop-blur-xs"
             onClick={() => {
@@ -537,22 +569,67 @@ export function MitraProfitLossSection({
             }}
           />
 
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg relative z-10 p-6 sm:p-8 border border-amber-100 max-h-[85vh] flex flex-col">
-            <button
-              onClick={() => {
-                setActiveDrilldown(null)
-                setSelectedOpexCategory(null)
-              }}
-              className="absolute top-5 right-5 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg relative z-10 border border-amber-100 max-h-[85vh] flex flex-col overflow-hidden">
+            {/* Header (pinned at top) */}
+            <div className="p-6 sm:p-7 pb-4 shrink-0 relative pr-14 border-b border-amber-100/70">
+              <button
+                onClick={() => {
+                  setActiveDrilldown(null)
+                  setSelectedOpexCategory(null)
+                }}
+                className="absolute top-5 right-5 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                aria-label="Tutup modal detail"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
 
-            {/* Drilldown: POS Kasir */}
-            {activeDrilldown === 'pos' && (
-              <>
-                <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Detail POS Kasir & Offline</h3>
-                <p className="text-xs text-[#6E5A4E] mb-5 font-normal">Transaksi kasir, takeaway, dine-in, dan QRIS outlet</p>
+              {activeDrilldown === 'pos' && (
+                <>
+                  <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Detail POS Kasir & Offline</h3>
+                  <p className="text-xs text-[#6E5A4E] font-normal">Transaksi kasir, takeaway, dine-in, dan QRIS outlet</p>
+                </>
+              )}
+
+              {activeDrilldown === 'foodapps' && (
+                <>
+                  <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Detail Food Delivery Apps</h3>
+                  <p className="text-xs text-[#6E5A4E] font-normal">Omzet online GrabFood, GoFood, dan ShopeeFood</p>
+                </>
+              )}
+
+              {activeDrilldown === 'tiktok' && (
+                <>
+                  <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Detail TikTok GO</h3>
+                  <p className="text-xs text-[#6E5A4E] font-normal">Penjualan voucher dan order TikTok Live / Go</p>
+                </>
+              )}
+
+              {activeDrilldown === 'opex' && (
+                <>
+                  <h3 className="text-lg font-bold text-[#2A1D16] mb-1">
+                    {selectedOpexCategory ? `Kategori: ${formatCategoryTitle(selectedOpexCategory.category)}` : 'Rincian Pengeluaran Operasional'}
+                  </h3>
+                  <p className="text-xs text-[#6E5A4E] font-normal">
+                    {selectedOpexCategory 
+                      ? `Total: ${formatRp(selectedOpexCategory.amount)} (${selectedOpexCategory.items.length} item nota)`
+                      : `Total OPEX: ${formatRp(summary.totalOpex)}`
+                    }
+                  </p>
+                </>
+              )}
+
+              {activeDrilldown === 'netprofit' && (
+                <>
+                  <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Kalkulasi Pembagian Hasil Mitra</h3>
+                  <p className="text-xs text-[#6E5A4E] font-normal">Formula transparan pembagian laba bersih dari omzet hingga bagi hasil</p>
+                </>
+              )}
+            </div>
+
+            {/* Scrollable Body Container */}
+            <div className="p-6 sm:p-7 pt-4 overflow-y-auto overscroll-contain flex-1">
+              {/* Drilldown: POS Kasir */}
+              {activeDrilldown === 'pos' && (
                 <div className="space-y-2.5 text-xs">
                   <div className="flex justify-between p-3.5 bg-gray-50 rounded-xl font-semibold">
                     <span className="text-[#6E5A4E]">Omzet Kotor POS</span>
@@ -571,14 +648,10 @@ export function MitraProfitLossSection({
                     <span className="text-amber-700 text-sm">{formatRp(channels.pos.grossProfit)}</span>
                   </div>
                 </div>
-              </>
-            )}
+              )}
 
-            {/* Drilldown: Food Apps */}
-            {activeDrilldown === 'foodapps' && (
-              <>
-                <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Detail Food Delivery Apps</h3>
-                <p className="text-xs text-[#6E5A4E] mb-5 font-normal">Omzet online GrabFood, GoFood, dan ShopeeFood</p>
+              {/* Drilldown: Food Apps */}
+              {activeDrilldown === 'foodapps' && (
                 <div className="space-y-2.5 text-xs">
                   <div className="flex justify-between p-3.5 bg-gray-50 rounded-xl font-semibold">
                     <span className="text-[#6E5A4E]">Omzet Kotor Food Apps</span>
@@ -597,14 +670,10 @@ export function MitraProfitLossSection({
                     <span className="text-emerald-700 text-sm">{formatRp(channels.foodApps.grossProfit)}</span>
                   </div>
                 </div>
-              </>
-            )}
+              )}
 
-            {/* Drilldown: TikTok */}
-            {activeDrilldown === 'tiktok' && (
-              <>
-                <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Detail TikTok GO</h3>
-                <p className="text-xs text-[#6E5A4E] mb-5 font-normal">Penjualan voucher dan order TikTok Live / Go</p>
+              {/* Drilldown: TikTok */}
+              {activeDrilldown === 'tiktok' && (
                 <div className="space-y-2.5 text-xs">
                   <div className="flex justify-between p-3.5 bg-gray-50 rounded-xl font-semibold">
                     <span className="text-[#6E5A4E]">Omzet Kotor TikTok GO</span>
@@ -623,23 +692,11 @@ export function MitraProfitLossSection({
                     <span className="text-slate-800 text-sm">{formatRp(channels.tiktok.grossProfit)}</span>
                   </div>
                 </div>
-              </>
-            )}
+              )}
 
-            {/* Drilldown: OPEX */}
-            {activeDrilldown === 'opex' && (
-              <>
-                <h3 className="text-lg font-bold text-[#2A1D16] mb-1">
-                  {selectedOpexCategory ? `Kategori: ${formatCategoryTitle(selectedOpexCategory.category)}` : 'Rincian Pengeluaran Operasional'}
-                </h3>
-                <p className="text-xs text-[#6E5A4E] mb-4 font-normal">
-                  {selectedOpexCategory 
-                    ? `Total: ${formatRp(selectedOpexCategory.amount)} (${selectedOpexCategory.items.length} item nota)`
-                    : `Total OPEX: ${formatRp(summary.totalOpex)}`
-                  }
-                </p>
-
-                <div className="overflow-y-auto max-h-[50vh] space-y-2 pr-1">
+              {/* Drilldown: OPEX */}
+              {activeDrilldown === 'opex' && (
+                <div className="space-y-2 pr-1">
                   {(selectedOpexCategory ? selectedOpexCategory.items : opex.categories.flatMap(c => c.items)).map((item: any, idx: number) => (
                     <div key={idx} className="p-3 bg-gray-50 rounded-xl flex items-center justify-between text-xs">
                       <div className="min-w-0 pr-2">
@@ -662,15 +719,10 @@ export function MitraProfitLossSection({
                     </div>
                   )}
                 </div>
-              </>
-            )}
+              )}
 
-            {/* Drilldown: Net Profit */}
-            {activeDrilldown === 'netprofit' && (
-              <>
-                <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Kalkulasi Pembagian Hasil Mitra</h3>
-                <p className="text-xs text-[#6E5A4E] mb-5 font-normal">Formula transparan pembagian laba bersih dari omzet hingga bagi hasil</p>
-
+              {/* Drilldown: Net Profit */}
+              {activeDrilldown === 'netprofit' && (
                 <div className="space-y-3 text-xs">
                   {/* Step 1: Waterfall Pendapatan Kotor -> Bersih -> Gross Profit */}
                   <div className="bg-[#FAF7F2] rounded-2xl p-4 border border-amber-200/70 space-y-2.5">
@@ -778,9 +830,8 @@ export function MitraProfitLossSection({
                     </p>
                   </div>
                 </div>
-              </>
-            )}
-
+              )}
+            </div>
           </div>
         </div>
       )}

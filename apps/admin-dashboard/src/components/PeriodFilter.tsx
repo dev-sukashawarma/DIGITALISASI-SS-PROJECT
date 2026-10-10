@@ -160,9 +160,6 @@ export function PeriodFilter({
     const pYesterday = presetRange('yesterday')
     if (value.from === pYesterday.from && value.to === pYesterday.to) return 'yesterday'
 
-    const p7d = presetRange('7d')
-    if (value.from === p7d.from && value.to === p7d.to) return '7d'
-
     const pLastMonth = presetRange('last_month')
     if (value.from === pLastMonth.from && value.to === pLastMonth.to) return 'last_month'
 
@@ -175,19 +172,19 @@ export function PeriodFilter({
   const currentPreset = activePreset()
 
   return (
-    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5 sm:gap-3 sm:items-center w-full 2xl:w-auto justify-end">
-      <div className="bg-white/60 backdrop-blur-xl p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-stretch gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-bold w-full sm:w-auto">
-        {(['kemarin', 'today', '7d', 'last_month', 'this_month'] as const).map((pOrKemarin) => {
+    <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap gap-2 sm:gap-2.5 sm:items-center w-full 2xl:w-auto justify-end">
+      <div className="bg-white/60 backdrop-blur-xl p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-nowrap items-stretch gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-bold w-full sm:w-auto overflow-x-auto">
+        {(['kemarin', 'today', 'last_month', 'this_month'] as const).map((pOrKemarin) => {
           const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
           const isActive = currentPreset === p
           const isButtonLoading = (isLoading || pendingPreset === p) && isActive
-          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : p === 'last_month' ? 'Bulan Lalu' : 'Bulan ini'
+          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === 'last_month' ? 'Bulan Lalu' : 'Bulan ini'
           return (
             <button
               key={p}
               disabled={isButtonLoading}
               onClick={() => setPreset(p)}
-              className={`flex-1 sm:flex-none px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer inline-flex items-center justify-center gap-1.5 ${
+              className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer inline-flex items-center justify-center gap-1.5 ${
                 isActive
                   ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5'
                   : 'text-suka-brown/70 hover:text-suka-brown hover:bg-suka-orange/5'

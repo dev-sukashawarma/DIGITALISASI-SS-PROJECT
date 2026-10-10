@@ -98,9 +98,29 @@ export async function getMitraComprehensivePnl(
   const supabase = createServiceClient()
 
   // Security check: restrict target outlet IDs to what the partner actually owns
+  const { data: staffData } = await supabase
+    .from('outlet_staff')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const isAdminOrOwner = staffData?.role === 'admin' || staffData?.role === 'owner' || staffData?.role === 'developer'
+
+  let secureAllowedOutletIds = allowedOutletIds
+  if (!isAdminOrOwner) {
+    const { data: ownProfile } = await supabase
+      .from('mitra_profiles')
+      .select('outlet_ids')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    const userOutletIds = ownProfile?.outlet_ids || []
+    secureAllowedOutletIds = allowedOutletIds.filter(id => userOutletIds.includes(id))
+  }
+
   const targetOutletIds = selectedOutletId === 'all' 
-    ? allowedOutletIds 
-    : allowedOutletIds.filter(id => id === selectedOutletId)
+    ? secureAllowedOutletIds 
+    : secureAllowedOutletIds.filter(id => id === selectedOutletId)
 
   if (targetOutletIds.length === 0) {
     return {

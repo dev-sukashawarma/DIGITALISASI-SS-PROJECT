@@ -17,9 +17,6 @@ import {
   ChevronDown,
   Download,
   ArrowRightLeft,
-  MessageSquare,
-  Send,
-  HelpCircle,
   Utensils,
   RefreshCw
 } from 'lucide-react'
@@ -70,7 +67,6 @@ export function MitraDashboardView({
   topMenus = [],
   initialTransfers = [],
   initialStaff = [],
-  initialSuggestions = [],
   initialRoiStats = { roi: 0, bepPercentage: 0 },
   isAdminMode = false,
   allMitraProfiles = [],
@@ -116,11 +112,6 @@ export function MitraDashboardView({
   // outlet mitra ini); begitu dropdown diganti, daftar ditarik ulang khusus
   // outlet itu. Sebelumnya daftar terkunci ke outlet pertama selamanya.
   const [topMenuRows, setTopMenuRows] = useState<any[]>(topMenus)
-
-  // Saran State
-  const [saranList, setSaranList] = useState<any[]>(initialSuggestions)
-  const [isiSaran, setIsiSaran] = useState('')
-  const [isSubmittingSaran, setIsSubmittingSaran] = useState(false)
 
   // ROI Stats
   const [roiStats, setRoiStats] = useState<{ roi: number; bepPercentage: number; loading: boolean }>({
@@ -232,38 +223,6 @@ export function MitraDashboardView({
       }
     } catch {
       toast.error('Terjadi kendala saat membuka bukti transfer.')
-    }
-  }
-
-  // Handle Submit Saran
-  const handleSubmitSaran = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!isiSaran.trim() || !mitra?.user_id) return
-    
-    setIsSubmittingSaran(true)
-    try {
-      const targetOid = selectedOutletId === 'all' ? (outlets[0]?.id || null) : selectedOutletId
-      const { data, error } = await supabase
-        .from('mitra_suggestions')
-        .insert({
-          user_id: mitra.user_id,
-          outlet_id: targetOid,
-          isi_saran: isiSaran.trim()
-        })
-        .select()
-        .single()
-        
-      if (!error && data) {
-        setIsiSaran('')
-        setSaranList(prev => [data, ...prev])
-        toast.success('Saran / pertanyaan Anda berhasil dikirim ke Admin Pusat.')
-      } else {
-        toast.error('Gagal mengirim saran.')
-      }
-    } catch {
-      toast.error('Terjadi kesalahan saat mengirim saran.')
-    } finally {
-      setIsSubmittingSaran(false)
     }
   }
 
@@ -815,102 +774,6 @@ export function MitraDashboardView({
                     Belum ada data penjualan menu.
                   </div>
                 )}
-              </div>
-            </div>
-
-            {/* 8. KOTAK SARAN & KOMUNIKASI ADMIN */}
-            <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl border border-rose-100">
-                  <MessageSquare className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">
-                    Kotak Saran & Komunikasi dengan Pusat
-                  </h2>
-                  <p className="text-xs text-suka-gray-500 font-medium mt-0.5">
-                    Kirimkan pertanyaan, kendala, atau saran pengembangan outlet langsung ke Admin Suka Shawarma
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                {/* Form Kirim */}
-                <div className="lg:col-span-1">
-                  <form onSubmit={handleSubmitSaran} className="bg-white p-5 rounded-2xl border border-suka-gray-100 shadow-sm space-y-4">
-                    <h4 className="font-bold text-sm text-suka-brown flex items-center gap-2">
-                      <HelpCircle className="w-4 h-4 text-suka-orange" />
-                      Tulis Masukan / Pertanyaan
-                    </h4>
-                    
-                    <textarea
-                      rows={4}
-                      value={isiSaran}
-                      onChange={(e) => setIsiSaran(e.target.value)}
-                      placeholder="Tulis keluhan operasional, saran promosi, atau pertanyaan seputar bagi hasil..."
-                      className="w-full bg-suka-gray-50 border border-suka-gray-200 rounded-xl p-3 text-xs font-medium text-suka-brown focus:ring-2 focus:ring-suka-orange focus:border-suka-orange outline-none resize-none"
-                      required
-                    />
-
-                    <button
-                      type="submit"
-                      disabled={isSubmittingSaran || !isiSaran.trim()}
-                      className="w-full flex items-center justify-center py-2.5 px-4 bg-gradient-to-r from-suka-orange to-suka-brown hover:from-suka-brown hover:to-suka-ink text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-suka-orange/20"
-                    >
-                      {isSubmittingSaran ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                      ) : (
-                        <Send className="w-3.5 h-3.5 mr-2" />
-                      )}
-                      <span>Kirim ke Admin Pusat</span>
-                    </button>
-                  </form>
-                </div>
-
-                {/* History Tanggapan */}
-                <div className="lg:col-span-2 space-y-3">
-                  <span className="text-[11px] font-bold text-suka-gray-400 uppercase tracking-wider block">
-                    Riwayat Komunikasi & Tanggapan ({saranList.length})
-                  </span>
-
-                  <div className="max-h-80 overflow-y-auto space-y-3 pr-1">
-                    {saranList.map((s) => (
-                      <div key={s.id} className="bg-white p-4 rounded-2xl border border-suka-gray-100 shadow-sm space-y-2 text-xs">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-suka-gray-400">
-                            {new Date(s.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-full ${
-                            s.status === 'baru' ? 'bg-amber-100 text-amber-800' :
-                            s.status === 'dibaca' ? 'bg-blue-100 text-blue-800' :
-                            'bg-emerald-100 text-emerald-800'
-                          }`}>
-                            {s.status}
-                          </span>
-                        </div>
-
-                        <p className="text-suka-brown font-medium">{s.isi_saran}</p>
-
-                        {s.tanggapan && (
-                          <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-100 text-blue-900 mt-2">
-                            <span className="font-bold text-[10px] uppercase text-blue-700 block mb-1">
-                              Tanggapan Admin Pusat:
-                            </span>
-                            <p className="font-medium text-xs">{s.tanggapan}</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {saranList.length === 0 && (
-                      <div className="p-8 text-center text-xs text-suka-gray-400 bg-suka-gray-50 rounded-2xl">
-                        Belum ada riwayat saran atau pertanyaan yang dikirim.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
               </div>
             </div>
 

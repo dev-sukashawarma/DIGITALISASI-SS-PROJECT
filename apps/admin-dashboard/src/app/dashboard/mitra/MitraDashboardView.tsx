@@ -12,7 +12,9 @@ import {
   ShieldCheck,
   ChevronRight,
   ChevronDown,
-  RefreshCw
+  RefreshCw,
+  Coins,
+  CheckCircle2
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -29,6 +31,10 @@ const RevenueTrendChart = dynamic(
   () => import('@/components/RevenueTrendChart').then((m) => m.RevenueTrendChart),
   { ssr: false, loading: () => <div className="h-64 bg-white rounded-2xl border border-suka-gray-200 animate-pulse" /> }
 )
+
+function formatRp(val: number) {
+  return new Intl.NumberFormat('id-ID').format(Math.round(val || 0))
+}
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -57,7 +63,13 @@ export function MitraDashboardView({
   topMenus: _topMenus = [],
   initialTransfers: _initialTransfers = [],
   initialStaff: _initialStaff = [],
-  initialRoiStats = { roi: 0, bepPercentage: 0 },
+  initialRoiStats = { 
+    roi: 0, 
+    bepPercentage: 0, 
+    totalProfitKumulatif: 0, 
+    systemProfitMitra: 0, 
+    historisProfitMitra: 0 
+  },
   isAdminMode = false,
   allMitraProfiles = [],
   lastUpdated,
@@ -97,13 +109,43 @@ export function MitraDashboardView({
     onRefresh: () => setRefreshCount((c) => c + 1),
   })
 
-  // ROI Stats
-  const [roiStats, setRoiStats] = useState<{ roi: number; bepPercentage: number; loading: boolean }>({
+  // ROI & Investment Stats
+  const [roiStats, setRoiStats] = useState<{ 
+    roi: number
+    bepPercentage: number
+    totalProfitKumulatif: number
+    systemProfitMitra: number
+    historisProfitMitra: number
+    loading: boolean 
+  }>({
     roi: initialRoiStats?.roi || 0,
     bepPercentage: initialRoiStats?.bepPercentage || 0,
+    totalProfitKumulatif: initialRoiStats?.totalProfitKumulatif || 0,
+    systemProfitMitra: initialRoiStats?.systemProfitMitra || 0,
+    historisProfitMitra: initialRoiStats?.historisProfitMitra || 0,
     loading: false
   })
   const [isFilterNavigating, setIsFilterNavigating] = useState(false)
+
+  // Sinkronisasi bila initialRoiStats berubah dari server
+  useEffect(() => {
+    if (initialRoiStats) {
+      setRoiStats(prev => ({
+        ...prev,
+        roi: initialRoiStats.roi ?? prev.roi,
+        bepPercentage: initialRoiStats.bepPercentage ?? prev.bepPercentage,
+        totalProfitKumulatif: initialRoiStats.totalProfitKumulatif ?? prev.totalProfitKumulatif,
+        systemProfitMitra: initialRoiStats.systemProfitMitra ?? prev.systemProfitMitra,
+        historisProfitMitra: initialRoiStats.historisProfitMitra ?? prev.historisProfitMitra,
+      }))
+    }
+  }, [
+    initialRoiStats?.roi, 
+    initialRoiStats?.bepPercentage, 
+    initialRoiStats?.totalProfitKumulatif, 
+    initialRoiStats?.systemProfitMitra, 
+    initialRoiStats?.historisProfitMitra
+  ])
 
   // Reset navigasi filter bila currentFilter props dari server sudah berubah atau transition selesai
   useEffect(() => {
@@ -141,7 +183,14 @@ export function MitraDashboardView({
       try {
         const stats = await getMitraRoiStats(selectedOutletId || 'all', allowedOutletIds)
         if (active) {
-          setRoiStats({ roi: stats.roi, bepPercentage: stats.bepPercentage, loading: false })
+          setRoiStats({ 
+            roi: stats.roi, 
+            bepPercentage: stats.bepPercentage,
+            totalProfitKumulatif: stats.totalProfitKumulatif,
+            systemProfitMitra: stats.systemProfitMitra,
+            historisProfitMitra: stats.historisProfitMitra,
+            loading: false 
+          })
         }
       } catch (e) {
         console.error('Error loading ROI stats:', e)
@@ -352,10 +401,10 @@ export function MitraDashboardView({
               />
             )}
 
-            {/* 3. METRIK INVESTASI & BEP MITRA */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 3. METRIK INVESTASI & BEP MITRA (3 CARD UTAMA INVESTOR) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Card 1: Nilai Investasi & Progres Balik Modal */}
-              <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-8 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
+              <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-7 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-1.5 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-bl-full -z-10 group-hover:scale-125 transition-transform duration-500" />
                 <div className="flex justify-between items-start mb-6">
                   <div>
@@ -397,7 +446,7 @@ export function MitraDashboardView({
                           <div 
                             className={`h-full rounded-full transition-all duration-[2000ms] ease-out shadow-sm ${
                               roiStats.bepPercentage >= 100 
-                                ? 'bg-gradient-to-r from-suka-green/80 to-suka-green' 
+                                ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
                                 : 'bg-gradient-to-r from-suka-orange/80 to-suka-orange'
                             }`}
                             style={{ width: `${Math.min(roiStats.bepPercentage, 100)}%` }}
@@ -411,13 +460,56 @@ export function MitraDashboardView({
                 </div>
               </div>
 
-              {/* Card 2: ROI Aktual & Bagi Hasil */}
-              <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-8 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
+              {/* Card 2: Total Profit Mitra Sementara (Kumulatif) */}
+              <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-7 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-1.5 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-100/30 rounded-bl-full -z-10 group-hover:scale-125 transition-transform duration-500" />
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <p className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">Total Profit Mitra</p>
+                    <p className="text-[10px] text-suka-gray-400 font-semibold mt-1">Akumulasi sementara bagi hasil & akrual</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-100 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                    <Coins className="w-6 h-6 text-emerald-600" />
+                  </div>
+                </div>
+                <div className="mt-auto flex flex-col gap-3">
+                  {isFilterLoading ? (
+                    <div className="space-y-2.5 py-1" aria-busy="true">
+                      <div className="h-8 w-40 bg-suka-gray-200/70 rounded-xl animate-pulse" />
+                      <div className="flex gap-2">
+                        <div className="h-5 w-24 bg-suka-gray-100/80 rounded-md animate-pulse" />
+                        <div className="h-5 w-24 bg-suka-gray-100/80 rounded-md animate-pulse" />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-emerald-700 tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
+                        Rp <CountUp end={roiStats.totalProfitKumulatif} duration={1.5} separator="." decimals={0} />
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] sm:text-[11px] font-bold">
+                        <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200/60" title="Dana bagi hasil yang sudah ditransfer ke rekening mitra">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>Ditransfer: Rp {formatRp(roiStats.historisProfitMitra)}</span>
+                        </span>
+                        {roiStats.systemProfitMitra > 0 && (
+                          <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/60" title="Akrual laba bersih bulan berjalan yang belum ditransfer">
+                            <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                            <span>Akrual: Rp {formatRp(roiStats.systemProfitMitra)}</span>
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 3: ROI Kumulatif */}
+              <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-7 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-1.5 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-orange-100/30 rounded-bl-full -z-10 group-hover:scale-125 transition-transform duration-500" />
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <p className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">ROI Kumulatif</p>
-                    <p className="text-[10px] text-suka-gray-400 font-semibold mt-1">Rasio pengembalian modal</p>
+                    <p className="text-[10px] text-suka-gray-400 font-semibold mt-1">Rasio pengembalian modal riil</p>
                   </div>
                   <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-100 shadow-sm group-hover:rotate-12 transition-transform duration-300">
                     <Activity className="w-6 h-6 text-suka-orange" />
@@ -439,10 +531,17 @@ export function MitraDashboardView({
                         )}
                       </h3>
                       <div className="mt-1">
-                        <span className="inline-flex items-center text-xs font-bold text-suka-orange">
-                          <TrendingUp className="w-3 h-3 mr-1" />
-                          Akumulasi Bagi Hasil Terus Bertumbuh
-                        </span>
+                        {roiStats.roi >= 100 ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Modal Kembali 100% (BEP Tercapai)</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center text-xs font-bold text-suka-orange">
+                            <TrendingUp className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span>{(100 - roiStats.roi).toFixed(1)}% Menuju Balik Modal (BEP)</span>
+                          </span>
+                        )}
                       </div>
                     </>
                   )}

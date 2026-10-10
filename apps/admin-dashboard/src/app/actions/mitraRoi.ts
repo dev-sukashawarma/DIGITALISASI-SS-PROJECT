@@ -89,7 +89,7 @@ export async function getMitraRoiStats(outletId: string | 'all', allowedOutletId
   }
 
   const roi = nilaiInvestasi > 0 ? (totalDanaKembali / nilaiInvestasi) * 100 : 0
-  const bepPercentage = Math.min(Math.round(roi * 10) / 10, 100)
+  const bepPercentage = Math.max(0, Math.min(Math.round(roi * 10) / 10, 100))
 
   return {
     systemProfitMitra,
@@ -604,7 +604,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
 
     const totalDanaKembali = danaSudahKembali + akrualBelumDitransfer
     const roiPct = modalInvestasi > 0 ? (totalDanaKembali / modalInvestasi) * 100 : 0
-    const bepPercentage = Math.min(Math.round(roiPct * 10) / 10, 100)
+    const bepPercentage = Math.max(0, Math.min(Math.round(roiPct * 10) / 10, 100))
     const isBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi
     const sisaModal = Math.max(0, modalInvestasi - totalDanaKembali)
 

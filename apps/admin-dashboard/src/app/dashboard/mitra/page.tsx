@@ -156,8 +156,22 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
     // Pergantian outlet di dropdown ditangani ulang di sisi klien.
     getAggregatedMenuSales({ ...curFilter, outletId: 'all' }),
     outletIds.length > 0 
-      ? getMitraRoiStats(outletIds.length === 1 ? outletIds[0] : 'all', outletIds).catch(() => ({ roi: 0, bepPercentage: 0 }))
-      : Promise.resolve({ roi: 0, bepPercentage: 0 })
+      ? getMitraRoiStats(outletIds.length === 1 ? outletIds[0] : 'all', outletIds).catch(() => ({ 
+          roi: 0, 
+          bepPercentage: 0,
+          totalProfitKumulatif: 0,
+          systemProfitMitra: 0,
+          historisProfitMitra: 0,
+          nilaiInvestasi: 0
+        }))
+      : Promise.resolve({ 
+          roi: 0, 
+          bepPercentage: 0,
+          totalProfitKumulatif: 0,
+          systemProfitMitra: 0,
+          historisProfitMitra: 0,
+          nilaiInvestasi: 0
+        })
   ])
   
   // 5. Fetch Recent Orders for Mitra

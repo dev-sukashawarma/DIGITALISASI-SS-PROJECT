@@ -29,7 +29,6 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import type { PeriodFilterValue } from '@/lib/types'
 import { useMitraOutlet } from './MitraOutletContext'
-import { revalidateOwnerDashboardCache } from '@/app/actions/ownerDashboard'
 import { useOwnerDashboardRealtime } from '@/hooks/useOwnerDashboardRealtime'
 import { previousRange, monthRange } from '@/lib/period'
 import { getMitraRoiStats } from '@/app/actions/mitraRoi'
@@ -79,7 +78,6 @@ export function MitraDashboardView({
   isAdminMode = false,
   allMitraProfiles = [],
   lastUpdated,
-  isCached,
 }: any) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -386,12 +384,18 @@ export function MitraDashboardView({
           </div>
           
           <div className="space-y-3 w-full md:w-auto">
-            {/* Single Unified Verified Badge */}
-            <div className="flex items-center gap-2">
+            {/* Single Unified Verified Badge & Last Updated */}
+            <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 shadow-2xs">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Mitra Resmi Terverifikasi</span>
               </span>
+              {lastUpdated && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50/80 text-amber-900 border border-amber-200/70 text-xs font-semibold shadow-2xs">
+                  <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>Update: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+                </span>
+              )}
             </div>
 
             {/* Greeting with non-breaking wave emoji */}
@@ -454,45 +458,6 @@ export function MitraDashboardView({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Status Sinkronisasi / Last Updated */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 -mt-4 mb-2 text-xs">
-          <div className="flex items-center gap-2">
-            {isCached ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
-                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>Terakhir diperbarui: <strong>{formatLastUpdated(lastUpdated)}</strong> (Data Lampau Tersimpan)</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold text-[11px] shadow-2xs">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => {
-              startTransition(async () => {
-                try {
-                  await revalidateOwnerDashboardCache(mitraRange ?? undefined)
-                } catch (err) {
-                  console.error('Failed to revalidate cache:', err)
-                }
-                setRefreshCount((c) => c + 1)
-                router.refresh()
-              })
-            }}
-            disabled={isPending}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white/90 hover:bg-white border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
-            title="Muat ulang data dari database"
-          >
-            <RefreshCw className={`w-3 h-3 text-suka-orange ${isPending ? 'animate-spin' : ''}`} />
-            <span>Segarkan Data</span>
-          </button>
         </div>
 
         {!outlets || outlets.length === 0 ? (

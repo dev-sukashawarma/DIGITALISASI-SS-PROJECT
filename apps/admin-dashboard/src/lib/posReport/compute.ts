@@ -443,6 +443,7 @@ export function computeAnalytics({
       return selectedChannels.some(ch => {
         const c = ch.toLowerCase()
         if (c === 'all') return true
+        if ((c === 'food_apps' || c === 'foodapps' || c === 'food_app') && isFoodApp(plat)) return true
         if ((c === 'gofood' || c === 'gojek') && plat === 'gofood') return true
         if ((c === 'grabfood' || c === 'grab') && plat === 'grabfood') return true
         if ((c === 'shopeefood' || c === 'shopee') && plat === 'shopeefood') return true

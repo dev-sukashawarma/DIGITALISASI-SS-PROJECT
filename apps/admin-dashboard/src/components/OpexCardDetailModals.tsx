@@ -82,6 +82,7 @@ export function OpexCardDetailModals({
   if (!type) return null
 
   const { displaySalary, hasHrPayroll, hrPayroll, cashSalary, isProrated, prorataInfo } = salaryData
+  const ratio = isProrated && prorataInfo?.ratio ? prorataInfo.ratio : 1
   const { totalNonSalary, totalCount: opCount, categories, outlets } = operationalData
   const { totalCombined } = totalOpexData
 
@@ -148,13 +149,15 @@ export function OpexCardDetailModals({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100">
                   <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider block">
-                    {isProrated ? 'Beban Gaji (Prorata)' : 'Total Beban Gaji'}
+                    {isProrated ? 'Beban Gaji Outlet (Prorata)' : 'Total Beban Gaji Outlet'}
                   </span>
                   <span className="text-lg font-black text-indigo-900 mt-1 block">
                     {rupiah(displaySalary)}
                   </span>
-                  <span className="text-[10px] text-indigo-500 font-medium">
-                    {isProrated && prorataInfo
+                  <span className="text-[10px] text-indigo-600 font-semibold">
+                    {hrPayroll && (hrPayroll.managerAllocation ?? 0) > 0
+                      ? `Kru ${rupiah(Math.round((hrPayroll.crewSalary ?? (hrPayroll.totalSalary - (hrPayroll.managerAllocation ?? 0))) * ratio))} + AM/RM ${rupiah(Math.round((hrPayroll.managerAllocation ?? 0) * ratio))}`
+                      : isProrated && prorataInfo
                       ? `Alokasi ${prorataInfo.overlapDays}/${prorataInfo.totalDays} hari (${(prorataInfo.ratio * 100).toFixed(1)}%)`
                       : hasHrPayroll ? 'Berdasarkan Modul HR' : 'Pencatatan Buku Kas'}
                   </span>
@@ -162,13 +165,15 @@ export function OpexCardDetailModals({
 
                 <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
                   <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
-                    Jumlah Staf
+                    Jumlah Kru Store
                   </span>
                   <span className="text-lg font-black text-slate-800 mt-1 block">
-                    {hrPayroll?.totalStaff ?? 0} Staf
+                    {hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0} Kru Store
                   </span>
-                  <span className="text-[10px] text-slate-500 font-medium">
-                    {hrPayroll?.finalizedCount ?? 0} Final · {hrPayroll?.draftCount ?? 0} Draft
+                  <span className="text-[10px] text-indigo-600 font-semibold">
+                    {hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0
+                      ? `+${hrPayroll.managerDetails.length} Manajer (AM/RM)`
+                      : `${hrPayroll?.finalizedCount ?? 0} Final · ${hrPayroll?.draftCount ?? 0} Draft`}
                   </span>
                 </div>
 
@@ -205,16 +210,16 @@ export function OpexCardDetailModals({
                 </div>
               )}
 
-              {/* Breakdown Komponen: Gaji Pokok, Tunjangan, Bonus, Potongan */}
+              {/* Breakdown Komponen: Gaji Pokok, Tunjangan, Bonus, Potongan (Murni Kru Store) */}
               {hasHrPayroll && hrPayroll && (
                 <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-extrabold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
                       <Wallet size={14} className="text-indigo-600" />
-                      Komposisi Komponen Gaji HR {isProrated ? '(Prorata)' : ''}
+                      Komposisi Komponen Gaji HR (Kru Store) {isProrated ? '(Prorata)' : ''}
                     </span>
                     <span className="text-[11px] font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md">
-                      THP: {rupiah(displaySalary)}
+                      Subtotal Kru: {rupiah(Math.round((hrPayroll.crewSalary ?? hrPayroll.totalSalary) * ratio))}
                     </span>
                   </div>
 
@@ -222,53 +227,89 @@ export function OpexCardDetailModals({
                     <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
                       <span className="text-[10px] text-gray-500 font-semibold block uppercase">1. Gaji Pokok</span>
                       <span className="text-xs sm:text-sm font-black text-gray-900 block mt-0.5">
-                        {rupiah(isProrated ? Math.round(hrPayroll.basicSalary * (prorataInfo?.ratio || 1)) : hrPayroll.basicSalary)}
+                        {rupiah(Math.round((hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary) * ratio))}
                       </span>
                       <span className="text-[10px] text-gray-400">
-                        {isProrated ? `1 bln: ${rupiah(hrPayroll.basicSalary)}` : 'Total gapok murni'}
+                        {isProrated ? `1 bln: ${rupiah(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)}` : 'Gapok kru murni'}
                       </span>
                     </div>
 
                     <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
                       <span className="text-[10px] text-emerald-600 font-semibold block uppercase">2. Tunjangan</span>
                       <span className="text-xs sm:text-sm font-black text-emerald-700 block mt-0.5">
-                        +{rupiah(isProrated ? Math.round(hrPayroll.allowances * (prorataInfo?.ratio || 1)) : hrPayroll.allowances)}
+                        +{rupiah(Math.round((hrPayroll.crewAllowances ?? hrPayroll.allowances) * ratio))}
                       </span>
                       <span className="text-[10px] text-gray-400">
-                        {isProrated ? `1 bln: +${rupiah(hrPayroll.allowances)}` : 'Makan, pulsa, transport'}
+                        {isProrated ? `1 bln: +${rupiah(hrPayroll.crewAllowances ?? hrPayroll.allowances)}` : 'Makan, pulsa, transport'}
                       </span>
                     </div>
 
                     <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
                       <span className="text-[10px] text-amber-600 font-semibold block uppercase">3. Bonus & Lembur</span>
                       <span className="text-xs sm:text-sm font-black text-amber-700 block mt-0.5">
-                        +{rupiah(isProrated ? Math.round(hrPayroll.bonus * (prorataInfo?.ratio || 1)) : hrPayroll.bonus)}
+                        +{rupiah(Math.round((hrPayroll.crewBonus ?? hrPayroll.bonus) * ratio))}
                       </span>
                       <span className="text-[10px] text-gray-400">
-                        {isProrated ? `1 bln: +${rupiah(hrPayroll.bonus)}` : 'Bonus omset & lembur'}
+                        {isProrated ? `1 bln: +${rupiah(hrPayroll.crewBonus ?? hrPayroll.bonus)}` : 'Bonus omset & lembur'}
                       </span>
                     </div>
 
                     <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
                       <span className="text-[10px] text-rose-600 font-semibold block uppercase">4. Potongan</span>
                       <span className="text-xs sm:text-sm font-black text-rose-700 block mt-0.5">
-                        -{rupiah(isProrated ? Math.round(hrPayroll.deductions * (prorataInfo?.ratio || 1)) : hrPayroll.deductions)}
+                        -{rupiah(Math.round((hrPayroll.crewDeductions ?? hrPayroll.deductions) * ratio))}
                       </span>
                       <span className="text-[10px] text-gray-400">
-                        {isProrated ? `1 bln: -${rupiah(hrPayroll.deductions)}` : 'Kasbon, BPJS, denda'}
+                        {isProrated ? `1 bln: -${rupiah(hrPayroll.crewDeductions ?? hrPayroll.deductions)}` : 'Kasbon, BPJS, denda'}
                       </span>
                     </div>
                   </div>
 
                   <div className="text-[11px] text-indigo-900 bg-white/80 p-2.5 rounded-lg border border-indigo-100/70 leading-relaxed shadow-2xs">
-                    💡 <strong>Penjelasan Angka:</strong> Angka <strong>{rupiah(displaySalary)}</strong> adalah{' '}
-                    <em>{isProrated ? `Total THP Prorata (${prorataInfo?.overlapDays} hari)` : 'Total Take Home Pay (THP)'}</em>{' '}
-                    {isProrated && (
-                      <>
-                        (dihitung dari baseline 1 bulan penuh <strong>{rupiah(hrPayroll.totalSalary)}</strong>).{' '}
-                      </>
-                    )}
-                    Sedangkan angka <strong>{rupiah(isProrated ? Math.round(hrPayroll.basicSalary * (prorataInfo?.ratio || 1)) : hrPayroll.basicSalary)}</strong> adalah <em>Gaji Pokok</em> sebelum ditambah tunjangan & bonus serta dikurangi potongan kasbon.
+                    💡 <strong>Penjelasan Angka:</strong> Angka <strong>{rupiah(Math.round((hrPayroll.crewSalary ?? hrPayroll.totalSalary) * ratio))}</strong> adalah <em>Total Take Home Pay (THP)</em> murni milik <strong>{hrPayroll.crewCount ?? hrPayroll.totalStaff} staf kru store</strong>. Komponen di atas merupakan rincian gaji riil kru toko. Alokasi beban manajer regional (AM/RM) dialokasikan secara proporsional pada kotak di bawah.
+                  </div>
+                </div>
+              )}
+
+              {/* Manager Allocation Breakdown (AM & RM) */}
+              {hasHrPayroll && hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0 && (
+                <div className="bg-gradient-to-br from-indigo-50/70 via-purple-50/40 to-white rounded-xl p-4 border border-indigo-100/90 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <Users size={14} className="text-indigo-600" />
+                      Alokasi Beban Area Manager & Regional Manager
+                    </span>
+                    <span className="text-[11px] font-bold text-indigo-700 bg-white/90 px-2 py-0.5 rounded-md border border-indigo-200/70 shadow-2xs">
+                      Total: +{rupiah(isProrated ? Math.round((hrPayroll.managerAllocation || 0) * (prorataInfo?.ratio || 1)) : (hrPayroll.managerAllocation || 0))}
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-gray-600 leading-relaxed">
+                    Sesuai ketentuan operasional, beban gaji <strong>Area Manager (AM)</strong> dan <strong>Regional Manager (RM)</strong> dibebankan secara proporsional ke outlet binaan masing-masing:
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                    {hrPayroll.managerDetails.map((mgr) => {
+                      const mgrAlloc = isProrated && prorataInfo ? Math.round(mgr.allocatedAmount * prorataInfo.ratio) : mgr.allocatedAmount
+                      return (
+                        <div key={mgr.staffId} className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs space-y-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-black text-gray-900 text-xs truncate">{mgr.staffName}</span>
+                            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase shrink-0">
+                              {mgr.role === 'regional_manager' ? 'Regional Mgr' : 'Area Mgr'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs pt-0.5">
+                            <span className="text-gray-500 text-[11px]">Beban ke outlet ini:</span>
+                            <span className="font-black text-indigo-700">+{rupiah(mgrAlloc)}</span>
+                          </div>
+                          <div className="text-[10px] text-gray-400 flex items-center justify-between pt-0.5 border-t border-gray-100/80">
+                            <span>Alokasi 1/{mgr.coachedOutletsCount} cabang</span>
+                            <span>Gaji: {rupiah(mgr.totalSalary)}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -343,7 +384,12 @@ export function OpexCardDetailModals({
                             return (
                               <tr key={item.outletId} className="hover:bg-indigo-50/30 transition-colors">
                                 <td className="px-3.5 py-2.5 font-bold text-gray-800">
-                                  {item.outletName}
+                                  <div>{item.outletName}</div>
+                                  {(item.managerAllocation ?? 0) > 0 && (
+                                    <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
+                                      Kru: {rupiah(Math.round((item.crewSalary ?? (item.totalSalary - (item.managerAllocation ?? 0))) * ratio))} · AM/RM: +{rupiah(Math.round((item.managerAllocation ?? 0) * ratio))}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
                                   {item.staffCount}

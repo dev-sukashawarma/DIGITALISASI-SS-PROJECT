@@ -855,7 +855,12 @@ export default function InputPengeluaranPage() {
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
               {hasHrPayroll ? (
                 <span>
-                  Total THP HR ({hrPayroll!.totalStaff} staf)
+                  Total THP HR ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} staf)
+                  {Boolean(hrPayroll!.managerAllocation && hrPayroll!.managerAllocation > 0) && (
+                    <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={`Termasuk alokasi beban AM & RM: ${rupiah(hrPayroll!.managerAllocation)}`}>
+                      • Termasuk AM/RM
+                    </span>
+                  )}
                   {prorataInfo.isProrated && (
                     <span className="text-[10px] text-amber-700 font-bold ml-1.5" title="Nilai acuan payroll sebulan penuh sebelum prorata">
                       • Baseline 1 bln: {rupiah(hrPayroll!.totalSalary)}

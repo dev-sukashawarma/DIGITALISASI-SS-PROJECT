@@ -57,22 +57,29 @@ function matchesCategory(category: string | undefined | null, selected: string) 
   return false
 }
 
-function getFirstOfMonth() {
-  const d = new Date()
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function getFirstOfMonth(d = new Date()) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   return `${y}-${m}-01`
 }
 
-function getLastOfMonth() {
-  const d = new Date()
+function getLastOfMonth(d = new Date()) {
   const y = d.getFullYear()
   const m = d.getMonth() + 1
-  return new Date(y, m, 0).toISOString().slice(0, 10)
+  const lastDay = new Date(y, m, 0).getDate()
+  const padM = String(m).padStart(2, '0')
+  return `${y}-${padM}-${String(lastDay).padStart(2, '0')}`
 }
 
-function getToday() {
-  return new Date().toISOString().slice(0, 10)
+function getToday(d = new Date()) {
+  return formatLocalDate(d)
 }
 
 export default function InputPengeluaranPage() {
@@ -555,28 +562,29 @@ export default function InputPengeluaranPage() {
     setActivePreset(preset)
     const today = new Date()
     if (preset === 'today') {
-      const t = today.toISOString().slice(0, 10)
+      const t = formatLocalDate(today)
       setStartDate(t)
       setEndDate(t)
     } else if (preset === 'this_month') {
-      setStartDate(getFirstOfMonth())
-      setEndDate(getLastOfMonth())
+      setStartDate(getFirstOfMonth(today))
+      setEndDate(getLastOfMonth(today))
     } else if (preset === 'last_month') {
-      const y = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()
-      const m = today.getMonth() === 0 ? 12 : today.getMonth()
-      const padM = String(m).padStart(2, '0')
-      const start = `${y}-${padM}-01`
-      const end = new Date(y, m, 0).toISOString().slice(0, 10)
+      const prevYear = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()
+      const prevMonth = today.getMonth() === 0 ? 12 : today.getMonth() // 1-indexed (1 to 12)
+      const padM = String(prevMonth).padStart(2, '0')
+      const start = `${prevYear}-${padM}-01`
+      const lastDay = new Date(prevYear, prevMonth, 0).getDate()
+      const end = `${prevYear}-${padM}-${String(lastDay).padStart(2, '0')}`
       setStartDate(start)
       setEndDate(end)
     } else if (preset === 'last_7_days') {
-      const past = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
-      setStartDate(past.toISOString().slice(0, 10))
-      setEndDate(today.toISOString().slice(0, 10))
+      const past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
+      setStartDate(formatLocalDate(past))
+      setEndDate(formatLocalDate(today))
     } else if (preset === 'last_30_days') {
-      const past = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000)
-      setStartDate(past.toISOString().slice(0, 10))
-      setEndDate(today.toISOString().slice(0, 10))
+      const past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)
+      setStartDate(formatLocalDate(past))
+      setEndDate(formatLocalDate(today))
     }
   }
 

@@ -17,7 +17,6 @@ import {
   Trash2,
   ShieldCheck,
   Check,
-  Sparkles,
   Command,
   RotateCcw
 } from 'lucide-react'
@@ -34,7 +33,11 @@ export function PengaturanHalamanView({
   currentUserName,
 }: PengaturanHalamanViewProps) {
   const [isActive, setIsActive] = useState<boolean>(initialConfig.is_active)
-  const [customHtml, setCustomHtml] = useState<string>(initialConfig.custom_html || '')
+  const [customHtml, setCustomHtml] = useState<string>(
+    initialConfig.custom_html && initialConfig.custom_html.trim().length > 0
+      ? initialConfig.custom_html
+      : DEFAULT_MITRA_MAINTENANCE_HTML
+  )
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor')
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [copied, setCopied] = useState(false)
@@ -66,18 +69,18 @@ export function PengaturanHalamanView({
   }, [isActive, customHtml])
 
   const handleLoadDefaultTemplate = () => {
-    if (customHtml.trim() && !window.confirm('Timpa kode kustom saat ini dengan template bawaan Suka Shawarma?')) {
+    if (customHtml.trim() && !window.confirm('Muat ulang kode template bawaan Suka Shawarma ke editor?')) {
       return
     }
     setCustomHtml(DEFAULT_MITRA_MAINTENANCE_HTML)
-    showToast('success', 'Template bawaan Suka Shawarma berhasil dimuat ke editor')
+    showToast('success', 'Kode template bawaan Suka Shawarma berhasil dimuat ke editor')
   }
 
   const handleClearCode = () => {
     if (!customHtml.trim()) return
-    if (window.confirm('Kosongkan kode kustom? Sistem akan otomatis memakai tampilan default sistem.')) {
+    if (window.confirm('Kosongkan editor untuk menulis kode kustom dari awal?')) {
       setCustomHtml('')
-      showToast('success', 'Kode kustom dikosongkan (menggunakan tampilan default sistem)')
+      showToast('success', 'Editor dikosongkan')
     }
   }
 
@@ -354,8 +357,8 @@ export function PengaturanHalamanView({
                   onClick={handleLoadDefaultTemplate}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-suka-brown bg-suka-cream hover:bg-orange-100 border border-suka-orange/30 transition-colors cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-suka-orange" />
-                  <span>Muat Template Suka Shawarma</span>
+                  <RotateCcw className="w-3.5 h-3.5 text-suka-orange" />
+                  <span>Reset Template Bawaan</span>
                 </button>
 
                 <button

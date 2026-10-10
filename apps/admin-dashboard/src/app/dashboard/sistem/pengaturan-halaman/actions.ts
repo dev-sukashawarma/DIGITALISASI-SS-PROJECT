@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVerifiedUserId } from '@suka/auth'
-import type { MitraMaintenanceConfig } from '@/lib/maintenance/mitraMaintenance'
+import { DEFAULT_MITRA_MAINTENANCE_HTML, type MitraMaintenanceConfig } from '@/lib/maintenance/mitraMaintenance'
 
 const SETTINGS_KEY = 'mitra_maintenance_config'
 
@@ -49,21 +49,22 @@ export async function getMitraMaintenanceConfigAction(): Promise<MitraMaintenanc
     console.error('Error fetching mitra maintenance config:', error.message)
     return {
       is_active: false,
-      custom_html: '',
+      custom_html: DEFAULT_MITRA_MAINTENANCE_HTML,
     }
   }
 
   if (!data?.value) {
     return {
       is_active: false,
-      custom_html: '',
+      custom_html: DEFAULT_MITRA_MAINTENANCE_HTML,
     }
   }
 
   const val = data.value as any
+  const rawHtml = typeof val.custom_html === 'string' ? val.custom_html : ''
   return {
     is_active: Boolean(val.is_active),
-    custom_html: typeof val.custom_html === 'string' ? val.custom_html : '',
+    custom_html: rawHtml.trim().length > 0 ? rawHtml : DEFAULT_MITRA_MAINTENANCE_HTML,
     updated_at: val.updated_at,
     updated_by: val.updated_by,
   }

@@ -11,7 +11,8 @@ import {
   TrendingUp, 
   Layers, 
   Receipt,
-  Download
+  Download,
+  RefreshCw
 } from 'lucide-react'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import type { ComprehensiveMitraPnl, OpexCategoryDetail } from '@/app/actions/mitraPnl'
@@ -64,6 +65,113 @@ export const formatCategoryTitle = (rawName?: string): string => {
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
     })
     .join(' ')
+}
+
+export function MitraProfitLossSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse" aria-busy="true" aria-label="Memuat laporan laba rugi">
+      {/* 1. Waterfall Summary 4 Cards Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Card 1: Omzet Kotor */}
+        <div className="bg-[#FAF7F2] border border-amber-200/60 p-5 rounded-2xl flex flex-col justify-between h-[130px]">
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-3.5 w-24 bg-amber-200/70 rounded-md" />
+            <div className="w-8 h-8 rounded-xl bg-blue-100/70" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-7 w-36 bg-amber-300/50 rounded-lg" />
+            <div className="h-3 w-28 bg-amber-200/50 rounded-md" />
+          </div>
+        </div>
+
+        {/* Card 2: HPP & Potongan */}
+        <div className="bg-[#FAF7F2] border border-amber-200/60 p-5 rounded-2xl flex flex-col justify-between h-[130px]">
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-3.5 w-28 bg-amber-200/70 rounded-md" />
+            <div className="w-8 h-8 rounded-xl bg-orange-100/70" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-7 w-36 bg-orange-200/60 rounded-lg" />
+            <div className="h-3 w-32 bg-amber-200/50 rounded-md" />
+          </div>
+        </div>
+
+        {/* Card 3: OPEX & Waste */}
+        <div className="bg-[#FAF7F2] border border-amber-200/60 p-5 rounded-2xl flex flex-col justify-between h-[130px]">
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-3.5 w-32 bg-amber-200/70 rounded-md" />
+            <div className="h-4 w-12 bg-red-100/70 rounded-full" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-7 w-36 bg-red-200/60 rounded-lg" />
+            <div className="h-3 w-36 bg-amber-200/50 rounded-md" />
+          </div>
+        </div>
+
+        {/* Card 4: Bagi Hasil Mitra */}
+        <div className="p-5 rounded-2xl bg-gradient-to-br from-[#38261C] to-[#251A14] flex flex-col justify-between h-[130px] relative overflow-hidden">
+          <div className="flex items-center justify-between mb-3">
+            <div className="h-3.5 w-36 bg-white/20 rounded-md" />
+            <div className="h-4 w-14 bg-white/10 rounded-full" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-7 w-40 bg-amber-400/50 rounded-lg" />
+            <div className="flex justify-between items-center">
+              <div className="h-3 w-24 bg-white/20 rounded-md" />
+              <div className="h-3 w-20 bg-emerald-400/40 rounded-md" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Channel Breakdown Skeleton */}
+      <div className="border-t border-amber-100/80 pt-6 mt-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="h-4 w-52 bg-amber-200/60 rounded-md" />
+          <div className="h-4 w-24 bg-amber-100/80 rounded-full" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-[#FAF7F2] border border-amber-200/60 p-5 rounded-2xl flex flex-col justify-between h-[135px]">
+              <div className="flex items-center gap-3.5 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-200/50 shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 w-28 bg-amber-300/50 rounded-md" />
+                  <div className="h-3 w-36 bg-amber-200/50 rounded-md" />
+                </div>
+              </div>
+              <div className="pt-3 border-t border-amber-200/40 flex justify-between items-end">
+                <div className="space-y-1">
+                  <div className="h-2.5 w-16 bg-amber-200/50 rounded-sm" />
+                  <div className="h-5 w-24 bg-amber-300/50 rounded-md" />
+                </div>
+                <div className="w-4 h-4 bg-amber-200/50 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. OPEX Categories Skeleton */}
+      <div className="border-t border-amber-100/80 pt-6 mt-6">
+        <div className="mb-4 space-y-2">
+          <div className="h-4 w-48 bg-amber-200/60 rounded-md" />
+          <div className="h-3 w-64 bg-amber-100/80 rounded-md" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-[#FAF7F2] p-3.5 rounded-2xl border border-amber-200/50 flex items-center justify-between h-[58px]">
+              <div className="space-y-1.5 flex-1 pr-2">
+                <div className="h-3.5 w-32 bg-amber-300/50 rounded-md" />
+                <div className="h-2.5 w-16 bg-amber-200/40 rounded-sm" />
+              </div>
+              <div className="h-4 w-20 bg-amber-300/40 rounded-md" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 interface MitraProfitLossSectionProps {
@@ -157,10 +265,17 @@ export function MitraProfitLossSection({
               Perhitungan laba bersih & bagi hasil transparan berdasarkan data riil
             </p>
             <span className="hidden sm:inline text-gray-300">•</span>
-            <div className="inline-flex items-center gap-1.5 bg-[#FAF7F2] border border-amber-200/70 text-[#6E5A4E] text-xs px-2.5 py-1 rounded-lg font-medium shadow-xs w-fit">
-              <Store className="w-3.5 h-3.5 text-amber-600" />
-              {filterText}
-            </div>
+            {isLoading ? (
+              <div className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-300 text-amber-900 text-xs px-2.5 py-1 rounded-lg font-bold shadow-xs animate-pulse">
+                <RefreshCw className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                <span>Memuat data periode baru...</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 bg-[#FAF7F2] border border-amber-200/70 text-[#6E5A4E] text-xs px-2.5 py-1 rounded-lg font-medium shadow-xs w-fit">
+                <Store className="w-3.5 h-3.5 text-amber-600" />
+                {filterText}
+              </div>
+            )}
           </div>
         </div>
 
@@ -172,6 +287,7 @@ export function MitraProfitLossSection({
                 onChange={onFilterChange}
                 outlets={outlets}
                 hideSource
+                isLoading={isLoading}
               />
             </div>
           )}
@@ -188,16 +304,9 @@ export function MitraProfitLossSection({
         </div>
       </div>
 
-      {isLoading && (
-        <div className="h-64 flex items-center justify-center">
-          <div className="flex items-center gap-3 text-amber-600 font-semibold">
-            <div className="w-5 h-5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-            <span>Memuat rincian laporan keuangan...</span>
-          </div>
-        </div>
-      )}
-
-      {!isLoading && (
+      {isLoading ? (
+        <MitraProfitLossSkeleton />
+      ) : (
         <>
           {/* WATERFALL SUMMARY CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 relative z-10">

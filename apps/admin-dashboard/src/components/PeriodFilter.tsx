@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PeriodFilterValue, SalesSource } from '@/lib/types'
 import type { Preset } from '@/lib/period'
 import { presetRange } from '@/lib/period'
-import { Store, Globe, Search, Check, ChevronDown, Calendar, Monitor, Gift } from 'lucide-react'
+import { Store, Globe, Search, Check, ChevronDown, Calendar, Monitor, Gift, Loader2 } from 'lucide-react'
 import { getChannel } from '@/lib/channels'
 
 const SOURCES: (SalesSource | 'all')[] = ['all', 'pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok', 'endors']
@@ -23,12 +23,13 @@ const SOURCE_LABELS: Record<string, string> = {
 import { OutletCombobox, cleanOutletName } from './OutletCombobox'
 
 function CustomDateRangePopover({
-  from, to, onChange, isActive
+  from, to, onChange, isActive, isLoading
 }: {
   from: string
   to: string
   onChange: (range: { from: string; to: string }) => void
   isActive: boolean
+  isLoading?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -79,7 +80,11 @@ function CustomDateRangePopover({
         }`}
         title="Rentang tanggal kustom"
       >
-        <Calendar className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+        {isLoading && isActive ? (
+          <Loader2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin" />
+        ) : (
+          <Calendar className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+        )}
         <span className="hidden sm:inline">Kustom</span>
       </button>
 
@@ -122,7 +127,7 @@ function CustomDateRangePopover({
 
 
 export function PeriodFilter({
-  value, onChange, outlets, lockedOutletId, hideSource, hideOutlet
+  value, onChange, outlets, lockedOutletId, hideSource, hideOutlet, isLoading
 }: {
   value: PeriodFilterValue
   onChange: (v: PeriodFilterValue) => void
@@ -132,11 +137,23 @@ export function PeriodFilter({
   /** Sembunyikan pemilih outlet sepenuhnya — untuk layar yang memang hanya
    *  punya satu arti, mis. Laba Rugi Global yang selalu seluruh outlet. */
   hideOutlet?: boolean
+  isLoading?: boolean
 }) {
-  const setPreset = (p: Preset) => onChange({ ...value, ...presetRange(p) })
+  const [pendingPreset, setPendingPreset] = useState<Preset | null>(null)
+
+  useEffect(() => {
+    setPendingPreset(null)
+  }, [value.from, value.to])
+
+  const setPreset = (p: Preset) => {
+    setPendingPreset(p)
+    onChange({ ...value, ...presetRange(p) })
+  }
 
   // Determine current active preset based on exact date match
   const activePreset = () => {
+    if (pendingPreset) return pendingPreset
+
     const pToday = presetRange('today')
     if (value.from === pToday.from && value.to === pToday.to) return 'today'
     
@@ -163,26 +180,35 @@ export function PeriodFilter({
         {(['kemarin', 'today', '7d', 'last_month', 'this_month'] as const).map((pOrKemarin) => {
           const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
           const isActive = currentPreset === p
+          const isButtonLoading = (isLoading || pendingPreset === p) && isActive
           const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : p === 'last_month' ? 'Bulan Lalu' : 'Bulan ini'
           return (
             <button
               key={p}
+              disabled={isButtonLoading}
               onClick={() => setPreset(p)}
-              className={`flex-1 sm:flex-none px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer ${
+              className={`flex-1 sm:flex-none px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer inline-flex items-center justify-center gap-1.5 ${
                 isActive
                   ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5'
                   : 'text-suka-brown/70 hover:text-suka-brown hover:bg-suka-orange/5'
               }`}
             >
-              {label}
+              {isButtonLoading && (
+                <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+              )}
+              <span>{label}</span>
             </button>
           )
         })}
         <CustomDateRangePopover
           from={value.from}
           to={value.to}
-          onChange={(range) => onChange({ ...value, from: range.from, to: range.to })}
+          onChange={(range) => {
+            setPendingPreset(null)
+            onChange({ ...value, from: range.from, to: range.to })
+          }}
           isActive={currentPreset === null}
+          isLoading={isLoading}
         />
       </div>
 

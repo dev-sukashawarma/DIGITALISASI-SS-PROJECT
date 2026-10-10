@@ -132,15 +132,34 @@ export function MitraDashboardView({
     bepPercentage: initialRoiStats?.bepPercentage || 0,
     loading: false
   })
+  const [isFilterNavigating, setIsFilterNavigating] = useState(false)
+
+  // Reset navigasi filter bila currentFilter props dari server sudah berubah atau transition selesai
+  useEffect(() => {
+    setIsFilterNavigating(false)
+  }, [currentFilter?.from, currentFilter?.to, currentFilter?.outletId])
+
+  useEffect(() => {
+    if (!isPending) {
+      setIsFilterNavigating(false)
+    }
+  }, [isPending])
+
+  const isFilterLoading = isFilterNavigating || isPending
 
   const handleFilterChange = (newFilter: PeriodFilterValue) => {
     if (newFilter.outletId && newFilter.outletId !== selectedOutletId) {
       setSelectedOutletId(newFilter.outletId)
     }
-    const params = new URLSearchParams()
-    if (newFilter.from) params.set('from', newFilter.from)
-    if (newFilter.to) params.set('to', newFilter.to)
-    router.push(`?${params.toString()}`)
+    setIsFilterNavigating(true)
+    setIsPnlLoading(true)
+    startTransition(() => {
+      const params = new URLSearchParams(window.location.search)
+      if (newFilter.from) params.set('from', newFilter.from)
+      if (newFilter.to) params.set('to', newFilter.to)
+      if (newFilter.outletId) params.set('outletId', newFilter.outletId)
+      router.push(`?${params.toString()}`)
+    })
   }
 
   // Load ROI Stats
@@ -495,12 +514,21 @@ export function MitraDashboardView({
                   </div>
                 </div>
                 <div className="mt-auto flex flex-col gap-3">
-                  <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
-                    Rp <CountUp end={currentOmzet} duration={1.5} separator="." decimals={0} />
-                  </h3>
-                  <div className="mt-1">
-                    {renderDelta(dOmzet)}
-                  </div>
+                  {isFilterLoading ? (
+                    <div className="space-y-2.5 py-1" aria-busy="true">
+                      <div className="h-8 w-44 bg-suka-gray-200/70 rounded-xl animate-pulse" />
+                      <div className="h-4 w-28 bg-suka-gray-100/80 rounded-md animate-pulse" />
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
+                        Rp <CountUp end={currentOmzet} duration={1.5} separator="." decimals={0} />
+                      </h3>
+                      <div className="mt-1">
+                        {renderDelta(dOmzet)}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -517,30 +545,47 @@ export function MitraDashboardView({
                   </div>
                 </div>
                 <div className="mt-auto flex flex-col gap-4">
-                  <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
-                    Rp <CountUp end={currentInvestasi} duration={1.5} separator="." decimals={0} />
-                  </h3>
-                  
-                  {/* Visual Indicator of BEP Progress */}
-                  <div className="w-full relative group/bep">
-                    <div className="flex justify-between items-end text-[10px] font-extrabold text-suka-gray-500 mb-2 uppercase tracking-wider">
-                      <span>Progres Balik Modal (BEP)</span>
-                      <span className="text-suka-orange font-black">{roiStats.bepPercentage.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-suka-gray-100/80 rounded-full h-2.5 overflow-hidden shadow-inner backdrop-blur-sm relative">
-                      <div className="absolute inset-0 bg-white/20" />
-                      <div 
-                        className={`h-full rounded-full transition-all duration-[2000ms] ease-out shadow-sm ${
-                          roiStats.bepPercentage >= 100 
-                            ? 'bg-gradient-to-r from-suka-green/80 to-suka-green' 
-                            : 'bg-gradient-to-r from-suka-orange/80 to-suka-orange'
-                        }`}
-                        style={{ width: `${Math.min(roiStats.bepPercentage, 100)}%` }}
-                      >
-                        <div className="w-full h-full bg-white/20 animate-pulse" />
+                  {isFilterLoading ? (
+                    <div className="space-y-3 py-1" aria-busy="true">
+                      <div className="h-8 w-44 bg-suka-gray-200/70 rounded-xl animate-pulse" />
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <div className="h-3 w-28 bg-suka-gray-200/60 rounded animate-pulse" />
+                          <div className="h-3 w-10 bg-suka-gray-200/60 rounded animate-pulse" />
+                        </div>
+                        <div className="w-full bg-suka-gray-100 rounded-full h-2.5 overflow-hidden animate-pulse">
+                          <div className="h-full bg-suka-orange/30 w-1/2 rounded-full" />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
+                        Rp <CountUp end={currentInvestasi} duration={1.5} separator="." decimals={0} />
+                      </h3>
+                      
+                      {/* Visual Indicator of BEP Progress */}
+                      <div className="w-full relative group/bep">
+                        <div className="flex justify-between items-end text-[10px] font-extrabold text-suka-gray-500 mb-2 uppercase tracking-wider">
+                          <span>Progres Balik Modal (BEP)</span>
+                          <span className="text-suka-orange font-black">{roiStats.bepPercentage.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-suka-gray-100/80 rounded-full h-2.5 overflow-hidden shadow-inner backdrop-blur-sm relative">
+                          <div className="absolute inset-0 bg-white/20" />
+                          <div 
+                            className={`h-full rounded-full transition-all duration-[2000ms] ease-out shadow-sm ${
+                              roiStats.bepPercentage >= 100 
+                                ? 'bg-gradient-to-r from-suka-green/80 to-suka-green' 
+                                : 'bg-gradient-to-r from-suka-orange/80 to-suka-orange'
+                            }`}
+                            style={{ width: `${Math.min(roiStats.bepPercentage, 100)}%` }}
+                          >
+                            <div className="w-full h-full bg-white/20 animate-pulse" />
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -557,34 +602,72 @@ export function MitraDashboardView({
                   </div>
                 </div>
                 <div className="mt-auto flex flex-col gap-3">
-                  <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
-                    {roiStats.loading ? (
-                      <span className="text-suka-gray-300">...</span>
-                    ) : (
-                      <><CountUp end={roiStats.roi} duration={1.5} separator="." decimals={1} decimal="," />%</>
-                    )}
-                  </h3>
-                  <div className="mt-1">
-                    <span className="inline-flex items-center text-xs font-bold text-suka-orange">
-                      <TrendingUp className="w-3 h-3 mr-1" />
-                      Akumulasi Bagi Hasil Terus Bertumbuh
-                    </span>
-                  </div>
+                  {isFilterLoading ? (
+                    <div className="space-y-2.5 py-1" aria-busy="true">
+                      <div className="h-8 w-32 bg-suka-gray-200/70 rounded-xl animate-pulse" />
+                      <div className="h-4 w-44 bg-suka-gray-100/80 rounded-md animate-pulse" />
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
+                        {roiStats.loading ? (
+                          <span className="text-suka-gray-300">...</span>
+                        ) : (
+                          <><CountUp end={roiStats.roi} duration={1.5} separator="." decimals={1} decimal="," />%</>
+                        )}
+                      </h3>
+                      <div className="mt-1">
+                        <span className="inline-flex items-center text-xs font-bold text-suka-orange">
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                          Akumulasi Bagi Hasil Terus Bertumbuh
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
             
             {/* 3. TREN PENDAPATAN HARIAN */}
             <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5 hover:bg-white/90 transition-colors duration-500">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-2 h-8 rounded-full bg-suka-orange" />
-                <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Tren Pendapatan Harian Outlet</h2>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-8 rounded-full bg-suka-orange" />
+                  <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Tren Pendapatan Harian Outlet</h2>
+                </div>
+                {isFilterLoading && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-suka-orange bg-suka-orange/10 px-3 py-1 rounded-full border border-suka-orange/20 animate-pulse">
+                    <RefreshCw className="w-3.5 h-3.5 text-suka-orange animate-spin" />
+                    <span>Memperbarui grafik...</span>
+                  </span>
+                )}
               </div>
-              <RevenueTrendChart 
-                rows={trendOutletKpi} 
-                isHourly={false} 
-                className="w-full"
-              />
+              {isFilterLoading ? (
+                <div className="w-full h-[300px] rounded-2xl bg-suka-gray-50/70 border border-suka-gray-100/60 p-6 flex flex-col justify-between animate-pulse" aria-busy="true">
+                  <div className="flex justify-between items-center text-xs text-suka-gray-300 font-medium">
+                    <div className="h-3 w-16 bg-suka-gray-200/60 rounded" />
+                    <div className="h-3 w-16 bg-suka-gray-200/60 rounded" />
+                  </div>
+                  <div className="flex items-end justify-between gap-3 h-44 w-full px-2">
+                    {[35, 60, 45, 85, 55, 95, 70, 50, 65, 80, 75, 40].map((h, idx) => (
+                      <div key={idx} className="flex-1 bg-gradient-to-t from-suka-orange/20 to-suka-orange/5 rounded-t-lg transition-all" style={{ height: `${h}%` }} />
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-suka-gray-100">
+                    <div className="h-2.5 w-12 bg-suka-gray-200/50 rounded" />
+                    <div className="h-2.5 w-12 bg-suka-gray-200/50 rounded" />
+                    <div className="h-2.5 w-12 bg-suka-gray-200/50 rounded" />
+                    <div className="h-2.5 w-12 bg-suka-gray-200/50 rounded" />
+                    <div className="h-2.5 w-12 bg-suka-gray-200/50 rounded" />
+                  </div>
+                </div>
+              ) : (
+                <RevenueTrendChart 
+                  rows={trendOutletKpi} 
+                  isHourly={false} 
+                  className="w-full"
+                />
+              )}
             </div>
 
             {/* 4. COMPREHENSIVE REAL-TIME P&L SECTION */}
@@ -596,7 +679,7 @@ export function MitraDashboardView({
                   outletId: selectedOutletId || currentFilter.outletId || (outlets.length === 1 ? outlets[0].id : 'all')
                 }}
                 onFilterChange={handleFilterChange}
-                isLoading={isPnlLoading}
+                isLoading={isFilterLoading || isPnlLoading}
                 outlets={outlets}
               />
             )}
@@ -785,21 +868,33 @@ export function MitraDashboardView({
                 </div>
 
                 <div className="space-y-3">
-                  {(topMenuRows || []).slice(0, 5).map((m: any, i: number) => (
-                    <div key={i} className="p-3 bg-white rounded-xl border border-suka-gray-100 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 min-w-0 pr-2">
-                        <span className="w-5 h-5 rounded-full bg-suka-orange/10 text-suka-orange font-black text-[10px] flex items-center justify-center shrink-0">
-                          {i + 1}
-                        </span>
-                        <span className="font-bold text-suka-brown truncate">{m.name}</span>
+                  {isFilterLoading ? (
+                    [1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="p-3 bg-white/60 rounded-xl border border-suka-gray-100 flex items-center justify-between animate-pulse" aria-busy="true">
+                        <div className="flex items-center gap-2 flex-1 pr-2">
+                          <div className="w-5 h-5 rounded-full bg-suka-gray-200 shrink-0" />
+                          <div className="h-3.5 bg-suka-gray-200 rounded w-28" />
+                        </div>
+                        <div className="h-3.5 bg-suka-gray-200 rounded w-14 shrink-0" />
                       </div>
-                      <span className="font-black text-suka-orange shrink-0">
-                        {m.quantity || m.qty || 0} Porsi
-                      </span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    (topMenuRows || []).slice(0, 5).map((m: any, i: number) => (
+                      <div key={i} className="p-3 bg-white rounded-xl border border-suka-gray-100 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <span className="w-5 h-5 rounded-full bg-suka-orange/10 text-suka-orange font-black text-[10px] flex items-center justify-center shrink-0">
+                            {i + 1}
+                          </span>
+                          <span className="font-bold text-suka-brown truncate">{m.name}</span>
+                        </div>
+                        <span className="font-black text-suka-orange shrink-0">
+                          {m.quantity || m.qty || 0} Porsi
+                        </span>
+                      </div>
+                    ))
+                  )}
 
-                  {(!topMenuRows || topMenuRows.length === 0) && (
+                  {!isFilterLoading && (!topMenuRows || topMenuRows.length === 0) && (
                     <div className="p-8 text-center text-xs text-suka-gray-400">
                       Belum ada data penjualan menu.
                     </div>

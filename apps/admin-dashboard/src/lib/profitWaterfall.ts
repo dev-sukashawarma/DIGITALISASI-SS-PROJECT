@@ -44,6 +44,8 @@ export interface WaterfallInput {
   centralExpense: number
   /** Joint Expense (biaya bersama operasional antar-outlet) bila ada. */
   jointExpense?: number
+  /** Lembur kas toko (petty cash / kasir) bila ada. */
+  opexLembur?: number
   /** Biaya kantor pusat hanya ikut pada tampilan gabungan seluruh outlet. */
   includeCentral: boolean
   /** Rincian per kategori untuk baris beban bulanan outlet. */
@@ -65,6 +67,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     grossRevenue, deductions, hpp, waste,
     opexMonthly, opexPettyCash, centralExpense, includeCentral,
     jointExpense = 0,
+    opexLembur = 0,
     opexMonthlyBreakdown,
     managementFeeIncome = 0,
     mitraHppMarginIncome = 0,
@@ -86,7 +89,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
   // bebannya, sehingga `all` tak pernah sama dengan `internal` + `mitra`.
   const netRevenue = grossRevenue - deductions + managementFeeIncome + mitraHppMarginIncome - managementFeeExpense
   const labaKotor = netRevenue - hpp
-  const opex = opexMonthly + jointExpense + opexPettyCash + (includeCentral ? centralExpense : 0)
+  const opex = opexMonthly + jointExpense + opexLembur + opexPettyCash + (includeCentral ? centralExpense : 0)
   const labaBersih = labaKotor - waste - opex
 
   const steps: WaterfallStep[] = [
@@ -181,10 +184,18 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       kind: 'deduction' as const,
       pctOfGross: pct(-jointExpense),
     }] : []),
+    ...(opexLembur > 0 ? [{
+      key: 'opex_lembur',
+      label: 'Lembur Kas Toko (Petty Cash)',
+      hint: 'Upah lembur kru harian via kas kecil kasir',
+      amount: -opexLembur,
+      kind: 'deduction' as const,
+      pctOfGross: pct(-opexLembur),
+    }] : []),
     {
       key: 'opex_petty_cash',
-      label: 'Pengeluaran Petty Cash',
-      hint: 'Pengeluaran harian outlet lewat petty cash',
+      label: 'Pengeluaran Petty Cash Operasional',
+      hint: 'Belanja harian & operasional outlet',
       amount: -opexPettyCash,
       kind: 'deduction',
       pctOfGross: pct(-opexPettyCash),

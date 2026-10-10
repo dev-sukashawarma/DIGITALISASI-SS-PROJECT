@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { RefreshCw, CheckCircle2, Activity, Terminal } from 'lucide-react'
+import { RefreshCw, Terminal } from 'lucide-react'
 import { useBrand } from '@/components/BrandContext'
 
 interface MitraMaintenanceViewProps {
@@ -82,33 +82,9 @@ export function MitraMaintenanceView({ customHtml }: MitraMaintenanceViewProps) 
         </div>
 
         {/* Description */}
-        <p className="text-xs sm:text-sm text-suka-gray-600 leading-relaxed mb-6 font-medium">
+        <p className="text-xs sm:text-sm text-suka-gray-600 leading-relaxed mb-8 font-medium">
           Sistem sedang menjalani peningkatan performa rutin guna memastikan akurasi data laporan, keamanan transaksi, dan stabilitas server.
         </p>
-
-        {/* 3. Status Steps Checklist */}
-        <div className="bg-suka-cream/80 border border-suka-orange/20 rounded-2xl p-4 mb-7 text-left space-y-2.5">
-          <div className="flex items-center gap-3 text-xs font-bold text-suka-green">
-            <div className="w-5 h-5 rounded-full bg-suka-green/15 border border-suka-green/40 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-3.5 h-3.5 text-suka-green" />
-            </div>
-            <span>Pencadangan & Keamanan Basis Data</span>
-          </div>
-          
-          <div className="flex items-center gap-3 text-xs font-bold text-suka-orange">
-            <div className="w-5 h-5 rounded-full bg-suka-orange/15 border border-suka-orange/40 flex items-center justify-center shrink-0">
-              <Activity className="w-3.5 h-3.5 text-suka-orange animate-pulse" />
-            </div>
-            <span>Optimalisasi Mesin Sistem & Sinkronisasi Layanan</span>
-          </div>
-
-          <div className="flex items-center gap-3 text-xs font-medium text-suka-gray-400">
-            <div className="w-5 h-5 rounded-full bg-suka-brown/5 border border-suka-brown/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-suka-gray-400">
-              3
-            </div>
-            <span>Pengecekan Akhir & Peluncuran Kembali</span>
-          </div>
-        </div>
 
         {/* 4. Action Button: Reload */}
         <button

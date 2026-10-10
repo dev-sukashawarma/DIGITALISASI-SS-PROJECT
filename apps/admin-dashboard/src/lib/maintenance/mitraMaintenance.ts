@@ -159,79 +159,8 @@ export const DEFAULT_MITRA_MAINTENANCE_HTML = `<!DOCTYPE html>
       font-size: 14px;
       color: var(--text-body);
       line-height: 1.65;
-      margin-bottom: 24px;
+      margin-bottom: 34px;
       font-weight: 500;
-    }
-
-    /* System Status Stepper */
-    .status-steps {
-      background: var(--suka-cream);
-      border: 1px solid rgba(242, 151, 68, 0.2);
-      border-radius: 20px;
-      padding: 16px 18px;
-      margin-bottom: 24px;
-      text-align: left;
-    }
-
-    .step-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--suka-brown);
-      padding: 7px 0;
-    }
-
-    .step-item:not(:last-child) {
-      border-bottom: 1px solid rgba(242, 151, 68, 0.12);
-    }
-
-    .step-icon {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      flex-shrink: 0;
-      font-weight: 800;
-    }
-
-    .step-icon.done {
-      background: rgba(10, 125, 44, 0.15);
-      color: var(--suka-green);
-      border: 1.5px solid var(--suka-green);
-    }
-
-    .step-icon.active {
-      background: rgba(242, 151, 68, 0.2);
-      color: var(--suka-orange);
-      border: 1.5px solid var(--suka-orange);
-      animation: spin 3s linear infinite;
-    }
-
-    @keyframes spin {
-      100% { transform: rotate(360deg); }
-    }
-
-    /* Data Assurance Box */
-    .info-box {
-      background: #ffffff;
-      border: 1px solid rgba(112, 22, 4, 0.1);
-      border-radius: 18px;
-      padding: 14px 18px;
-      font-size: 12px;
-      color: var(--text-body);
-      line-height: 1.6;
-      margin-bottom: 26px;
-      text-align: left;
-      box-shadow: 0 2px 6px rgba(112, 22, 4, 0.04);
-    }
-
-    .info-box strong {
-      color: var(--suka-brown);
     }
 
     /* Action Button */
@@ -309,22 +238,6 @@ export const DEFAULT_MITRA_MAINTENANCE_HTML = `<!DOCTYPE html>
     <p class="desc">
       Sistem sedang menjalani peningkatan performa rutin guna memastikan akurasi data laporan, keamanan transaksi, dan stabilitas server.
     </p>
-
-    <!-- Status Steps Checklist -->
-    <div class="status-steps" style="margin-bottom: 28px;">
-      <div class="step-item">
-        <div class="step-icon done">&#10003;</div>
-        <span>Pencadangan & Keamanan Basis Data</span>
-      </div>
-      <div class="step-item">
-        <div class="step-icon active">&#9696;</div>
-        <span>Optimalisasi Mesin Sistem & Sinkronisasi Layanan</span>
-      </div>
-      <div class="step-item">
-        <div class="step-icon" style="background: rgba(112, 22, 4, 0.06); color: #9ca3af; border: 1.5px solid #d1d5db;">3</div>
-        <span style="color: #9ca3af;">Pengecekan Akhir & Peluncuran Kembali</span>
-      </div>
-    </div>
 
     <!-- Action Button -->
     <button type="button" class="btn-reload" onclick="window.location.reload()">

@@ -9,18 +9,11 @@ import {
   Activity, 
   Clock, 
   CreditCard,
-  FileText,
-  Users,
-  UserCircle,
   ShieldCheck,
   ChevronRight,
   ChevronDown,
-  Download,
-  ArrowRightLeft,
-  Utensils,
   RefreshCw
 } from 'lucide-react'
-import { deltaPct } from '@/lib/format'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import type { PeriodFilterValue } from '@/lib/types'
@@ -29,11 +22,8 @@ import { useOwnerDashboardRealtime } from '@/hooks/useOwnerDashboardRealtime'
 import { previousRange, monthRange } from '@/lib/period'
 import { getMitraRoiStats } from '@/app/actions/mitraRoi'
 import { getMitraComprehensivePnl, type ComprehensiveMitraPnl } from '@/app/actions/mitraPnl'
-import { getAggregatedMenuSales } from '@/app/actions/menuSales'
 import { MitraBiodataModal } from './MitraBiodataModal'
 import { MitraProfitLossSection } from './MitraProfitLossSection'
-import { createClient } from '@/lib/supabase'
-import { toast } from 'sonner'
 
 const RevenueTrendChart = dynamic(
   () => import('@/components/RevenueTrendChart').then((m) => m.RevenueTrendChart),
@@ -60,13 +50,13 @@ export function MitraDashboardView({
   mitra, 
   outlets = [],
   investasiMap = {},
-  curKpiRows = [],
-  prevKpiRows = [],
+  curKpiRows: _curKpiRows = [],
+  prevKpiRows: _prevKpiRows = [],
   trendKpiRows = [],
   currentFilter,
-  topMenus = [],
-  initialTransfers = [],
-  initialStaff = [],
+  topMenus: _topMenus = [],
+  initialTransfers: _initialTransfers = [],
+  initialStaff: _initialStaff = [],
   initialRoiStats = { roi: 0, bepPercentage: 0 },
   isAdminMode = false,
   allMitraProfiles = [],
@@ -74,7 +64,6 @@ export function MitraDashboardView({
 }: any) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const supabase = createClient()
   const { selectedOutletId, setSelectedOutletId } = useMitraOutlet()
   
   const allowedOutletIds = (outlets || []).map((o: any) => o.id)
@@ -107,11 +96,6 @@ export function MitraDashboardView({
     alwaysRefreshOnToday: true,
     onRefresh: () => setRefreshCount((c) => c + 1),
   })
-
-  // Top Menu ikut outlet yang dipilih. Nilai awal dari server ('all' = seluruh
-  // outlet mitra ini); begitu dropdown diganti, daftar ditarik ulang khusus
-  // outlet itu. Sebelumnya daftar terkunci ke outlet pertama selamanya.
-  const [topMenuRows, setTopMenuRows] = useState<any[]>(topMenus)
 
   // ROI Stats
   const [roiStats, setRoiStats] = useState<{ roi: number; bepPercentage: number; loading: boolean }>({
@@ -193,87 +177,17 @@ export function MitraDashboardView({
     return () => { active = false }
   }, [selectedOutletId, currentFilter, outlets, refreshCount])
 
-  // Load Top Menu untuk outlet yang sedang dipilih
-  useEffect(() => {
-    let active = true
-    async function loadTopMenus() {
-      if (allowedOutletIds.length === 0) return
-      try {
-        const rows = await getAggregatedMenuSales({
-          ...currentFilter,
-          outletId: selectedOutletId || 'all',
-        })
-        if (active) setTopMenuRows(rows || [])
-      } catch (e) {
-        console.error('Error loading top menus:', e)
-      }
-    }
-    loadTopMenus()
-    return () => { active = false }
-  }, [selectedOutletId, currentFilter, outlets, refreshCount])
-
-  // Handle Download Bukti Transfer
-  const handleDownloadTransfer = async (url: string) => {
-    try {
-      const { data } = await supabase.storage.from('mitra-transfers').createSignedUrl(url, 60)
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank')
-      } else {
-        toast.error('Gagal mengambil file bukti transfer.')
-      }
-    } catch {
-      toast.error('Terjadi kendala saat membuka bukti transfer.')
-    }
-  }
-
   // Hitung Nilai Investasi
   const currentInvestasi = selectedOutletId && selectedOutletId !== 'all' 
     ? (investasiMap[selectedOutletId] || 0) 
     : Object.values(investasiMap).reduce((sum: number, val: any) => sum + Number(val || 0), 0)
 
-  // Filter baris performa hanya untuk outlet yang dipilih
-  const curOutletKpi = selectedOutletId === 'all' 
-    ? curKpiRows 
-    : curKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
-  const currentOmzet = curOutletKpi.reduce((sum: number, r: any) => sum + r.omzet + (r.total_deductions || 0), 0)
-
-  const prevOutletKpi = selectedOutletId === 'all' 
-    ? prevKpiRows 
-    : prevKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
-  const prevOmzet = prevOutletKpi.reduce((sum: number, r: any) => sum + r.omzet + (r.total_deductions || 0), 0)
-
+  // Filter baris performa tren harian untuk outlet yang dipilih
   const trendOutletKpi = selectedOutletId === 'all' 
     ? trendKpiRows 
     : trendKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
 
-  // Filter staff by selected outlet
-  const filteredStaff = selectedOutletId === 'all'
-    ? initialStaff
-    : initialStaff.filter((s: any) => s.outlet_id === selectedOutletId)
-
-  // Filter transfers by selected outlet
-  const filteredTransfers = selectedOutletId === 'all'
-    ? initialTransfers
-    : initialTransfers.filter((t: any) => t.outlet_id === selectedOutletId)
-
-  const dOmzet = deltaPct(currentOmzet, prevOmzet)
-
-  const renderDelta = (delta: number | null) => {
-    if (delta === null) return null
-    const isUp = delta > 0
-    return (
-      <span className={`inline-flex items-center text-xs font-bold ${isUp ? 'text-green-500' : 'text-red-500'}`}>
-        {isUp ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingUp className="w-3 h-3 mr-1 rotate-180" />}
-        {Math.abs(delta).toFixed(1)}% vs lalu
-      </span>
-    )
-  }
-
   const outletNamesList = (outlets || []).map((o: any) => o.name)
-
-  const formatRupiah = (val: number) => {
-    return 'Rp ' + Math.round(val || 0).toLocaleString('id-ID')
-  }
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
@@ -438,43 +352,9 @@ export function MitraDashboardView({
               />
             )}
 
-            {/* 3. TOP 3 KPI FINANCIAL CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              
-              {/* Card 1: Omzet Penjualan */}
-              <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-8 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-bl-full -z-10 group-hover:scale-125 transition-transform duration-500" />
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <p className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">
-                      {(!currentFilter?.from || currentFilter.from === currentFilter.to) ? 'Omzet Kemarin' : 'Total Omzet Periode'}
-                    </p>
-                    <p className="text-[10px] text-suka-gray-400 font-semibold mt-1">Penjualan kotor seluruh channel</p>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-gradient-to-br from-green-50 to-green-100/50 border border-green-100 shadow-sm group-hover:rotate-12 transition-transform duration-300">
-                    <TrendingUp className="w-6 h-6 text-suka-green" />
-                  </div>
-                </div>
-                <div className="mt-auto flex flex-col gap-3">
-                  {isFilterLoading ? (
-                    <div className="space-y-2.5 py-1" aria-busy="true">
-                      <div className="h-8 w-44 bg-suka-gray-200/70 rounded-xl animate-pulse" />
-                      <div className="h-4 w-28 bg-suka-gray-100/80 rounded-md animate-pulse" />
-                    </div>
-                  ) : (
-                    <>
-                      <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
-                        Rp <CountUp end={currentOmzet} duration={1.5} separator="." decimals={0} />
-                      </h3>
-                      <div className="mt-1">
-                        {renderDelta(dOmzet)}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Card 2: Nilai Investasi & Progres Balik Modal */}
+            {/* 3. METRIK INVESTASI & BEP MITRA */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Card 1: Nilai Investasi & Progres Balik Modal */}
               <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-8 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-100/30 rounded-bl-full -z-10 group-hover:scale-125 transition-transform duration-500" />
                 <div className="flex justify-between items-start mb-6">
@@ -531,7 +411,7 @@ export function MitraDashboardView({
                 </div>
               </div>
 
-              {/* Card 3: ROI Aktual & Bagi Hasil */}
+              {/* Card 2: ROI Aktual & Bagi Hasil */}
               <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-8 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-orange-100/30 rounded-bl-full -z-10 group-hover:scale-125 transition-transform duration-500" />
                 <div className="flex justify-between items-start mb-6">
@@ -570,7 +450,7 @@ export function MitraDashboardView({
               </div>
             </div>
             
-            {/* 4. TREN PENDAPATAN HARIAN */}
+            {/* 4. TREN PENDAPATAN HARIAN OUTLET */}
             <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5 hover:bg-white/90 transition-colors duration-500">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -610,171 +490,6 @@ export function MitraDashboardView({
                   className="w-full"
                 />
               )}
-            </div>
-
-            {/* 5. RIWAYAT TRANSFER BAGI HASIL BULANAN */}
-            <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
-                    <ArrowRightLeft className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">
-                      Riwayat Transfer Bagi Hasil Bulanan
-                    </h2>
-                    <p className="text-xs text-suka-gray-500 font-medium mt-0.5">
-                      Daftar dan bukti transfer resmi bagi hasil yang telah dikirim oleh Admin Pusat
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200 w-fit">
-                  {filteredTransfers.length} Bukti Transfer
-                </span>
-              </div>
-
-              {filteredTransfers.length === 0 ? (
-                <div className="p-8 text-center bg-suka-gray-50/60 rounded-2xl border border-dashed border-suka-gray-200 text-xs text-suka-gray-400">
-                  Belum ada riwayat transfer bagi hasil tercatat untuk outlet ini.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredTransfers.map((t: any) => (
-                    <div 
-                      key={t.id} 
-                      className="p-5 bg-white rounded-2xl border border-suka-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all group"
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <div>
-                          <span className="text-[10px] font-bold text-suka-gray-400 uppercase tracking-wider block">
-                            Periode Bagi Hasil
-                          </span>
-                          <span className="font-extrabold text-sm text-suka-brown">
-                            {new Date(t.bulan).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
-                          </span>
-                        </div>
-                        <span className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                          <FileText className="w-4 h-4" />
-                        </span>
-                      </div>
-
-                      <div className="py-2 border-t border-b border-dashed border-suka-gray-100 mb-4">
-                        <span className="text-[10px] text-suka-gray-400 font-bold block uppercase">Nominal Ditransfer</span>
-                        <span className="font-black text-lg text-emerald-600">
-                          {formatRupiah(t.nominal)}
-                        </span>
-                        {t.catatan && (
-                          <p className="text-[11px] text-suka-gray-500 italic mt-1">{t.catatan}</p>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => handleDownloadTransfer(t.bukti_url)}
-                        className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 font-bold text-xs rounded-xl transition-colors border border-blue-200 hover:border-blue-600 shadow-sm"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Buka / Unduh Bukti Transfer</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 6. TIM & KRU OUTLET */}
-            <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
-                  <Users className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">
-                    Tim & Kru Pengelola Outlet
-                  </h2>
-                  <p className="text-xs text-suka-gray-500 font-medium mt-0.5">
-                    Daftar personel Leader dan Crew aktif yang bertugas di outlet Anda
-                  </p>
-                </div>
-              </div>
-
-              {filteredStaff.length === 0 ? (
-                <div className="p-8 text-center bg-suka-gray-50/60 rounded-2xl border border-dashed border-suka-gray-200 text-xs text-suka-gray-400">
-                  Belum ada data staf terdaftar di outlet ini.
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {filteredStaff.map((s: any) => (
-                    <div 
-                      key={s.id} 
-                      className="p-4 bg-white rounded-2xl border border-suka-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-all group"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-suka-orange/10 flex items-center justify-center text-suka-orange mb-3 border border-suka-orange/20 group-hover:scale-110 transition-transform">
-                        <UserCircle className="w-7 h-7" />
-                      </div>
-                      <h4 className="font-extrabold text-xs text-suka-brown truncate w-full mb-1">
-                        {s.name || 'Staf Outlet'}
-                      </h4>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-suka-orange/10 text-suka-orange mb-2">
-                        {s.role?.replace('_', ' ')}
-                      </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 text-[9px] font-bold rounded-full ${
-                        s.status === 'active' 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                          : 'bg-gray-100 text-gray-500'
-                      }`}>
-                        {s.status === 'active' ? '● Aktif Bertugas' : 'Nonaktif'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 7. TOP MENU TERLARIS */}
-            <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2.5 bg-green-50 text-green-600 rounded-xl">
-                  <Utensils className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-lg text-suka-brown tracking-tight">Menu Terlaris</h3>
-                  <p className="text-xs text-suka-gray-400">Top seller outlet berdasarkan volume pesanan</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                {isFilterLoading ? (
-                  [1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="p-3 bg-white/60 rounded-xl border border-suka-gray-100 flex items-center justify-between animate-pulse" aria-busy="true">
-                      <div className="flex items-center gap-2 flex-1 pr-2">
-                        <div className="w-5 h-5 rounded-full bg-suka-gray-200 shrink-0" />
-                        <div className="h-3.5 bg-suka-gray-200 rounded w-28" />
-                      </div>
-                      <div className="h-3.5 bg-suka-gray-200 rounded w-14 shrink-0" />
-                    </div>
-                  ))
-                ) : (
-                  (topMenuRows || []).slice(0, 5).map((m: any, i: number) => (
-                    <div key={i} className="p-3.5 bg-white rounded-2xl border border-suka-gray-100/80 hover:border-amber-200 flex items-center justify-between text-xs shadow-2xs transition-all">
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <span className="w-6 h-6 rounded-lg bg-suka-orange/10 text-suka-orange font-black text-xs flex items-center justify-center shrink-0">
-                          {i + 1}
-                        </span>
-                        <span className="font-bold text-suka-brown truncate">{m.name}</span>
-                      </div>
-                      <span className="font-black text-suka-orange shrink-0">
-                        {m.quantity || m.qty || 0} Porsi
-                      </span>
-                    </div>
-                  ))
-                )}
-
-                {!isFilterLoading && (!topMenuRows || topMenuRows.length === 0) && (
-                  <div className="p-8 text-center text-xs text-suka-gray-400 col-span-full">
-                    Belum ada data penjualan menu.
-                  </div>
-                )}
-              </div>
             </div>
 
           </div>

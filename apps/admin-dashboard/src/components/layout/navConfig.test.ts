@@ -166,7 +166,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
   AREA_MANAGER: ['/dashboard/area-manager/petty-cash'],
   MITRA: [
     '/dashboard/mitra',
-    '/dashboard/mitra/orderan',
     '/dashboard/mitra/saran',
     '/dashboard/mitra/tim',
     '/dashboard/mitra/transfer',

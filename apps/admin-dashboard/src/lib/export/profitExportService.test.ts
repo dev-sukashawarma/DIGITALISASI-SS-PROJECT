@@ -157,4 +157,67 @@ describe('buildOutletFinancialCalculations', () => {
     // Estimasi Masuk Bank must match reconciliation file Single Source of Truth: Rp 40.950.253 (78.164.000 - 37.213.747)
     expect(calc.channels.food_apps.revenue - calc.channels.food_apps.adminFee).toBe(40_950_253)
   })
+
+  it('correctly maps OPEX breakdown and categorizes petty cash lembur descriptions to LEMBUR', () => {
+    const item: OutletExportItem = {
+      id: '550e8400-e29b-41d4-a716-446655440014',
+      name: 'MITRA CIBINONG',
+      omzet: 100_000_000,
+      deductions: 10_000_000,
+      netRev: 90_000_000,
+      expense: 5_162_856,
+      hpp: 30_000_000,
+      waste: 0,
+      mgmtFee: 0,
+      mgmtFeePct: 0,
+      isBep: false,
+      isMitra: true,
+      labaKotor: 60_000_000,
+      net: 54_837_144,
+      margin: 54.8,
+      totalCost: 45_162_856,
+    }
+
+    const expenseRows = [
+      // Lembur entered under pengeluaran_outlet via petty cash
+      { id: '1', outlet_id: item.id, category: 'pengeluaran_outlet' as any, scope: 'outlet' as const, amount: 100_000, description: 'lemburan omset daut dan ikii', source: 'petty_cash' as const, expense_date: '2026-09-13', period_month: '2026-09-01' },
+      { id: '2', outlet_id: item.id, category: 'pengeluaran_outlet' as any, scope: 'outlet' as const, amount: 100_000, description: 'lemburan omset daut dan saeful', source: 'petty_cash' as const, expense_date: '2026-09-14', period_month: '2026-09-01' },
+      // Pure petty cash / pengeluaran outlet
+      { id: '3', outlet_id: item.id, category: 'pengeluaran_outlet' as any, scope: 'outlet' as const, amount: 2_707_700, description: 'beli plastik dan perlengkapan', source: 'petty_cash' as const, expense_date: '2026-09-15', period_month: '2026-09-01' },
+      // Other categories
+      { id: '4', outlet_id: item.id, category: 'ads' as any, scope: 'outlet' as const, amount: 388_500, description: 'FB Ads', source: 'monthly' as const, expense_date: '2026-09-15', period_month: '2026-09-01' },
+      { id: '5', outlet_id: item.id, category: 'endorsement' as any, scope: 'outlet' as const, amount: 500_000, description: 'Food Blogger', source: 'monthly' as const, expense_date: '2026-09-15', period_month: '2026-09-01' },
+      { id: '6', outlet_id: item.id, category: 'promo' as any, scope: 'outlet' as const, amount: 235_400, description: 'Banner promo', source: 'monthly' as const, expense_date: '2026-09-15', period_month: '2026-09-01' },
+      { id: '7', outlet_id: item.id, category: 'pln' as any, scope: 'outlet' as const, amount: 870_406, description: 'Listrik September', source: 'monthly' as const, expense_date: '2026-09-15', period_month: '2026-09-01' },
+      { id: '8', outlet_id: item.id, category: 'internet' as any, scope: 'outlet' as const, amount: 260_850, description: 'Indihome', source: 'monthly' as const, expense_date: '2026-09-15', period_month: '2026-09-01' },
+    ]
+
+    const ctx: ExportContext = {
+      salesRows: [],
+      expenseRows,
+      mitraInvestments: {},
+      tiktokSettlements: {},
+      platformSettlements: {},
+      filter: { from: '2026-09-01', to: '2026-09-30' },
+      effectiveFilter: { from: '2026-09-01', to: '2026-09-30' },
+    }
+
+    const calc = buildOutletFinancialCalculations(item, ctx)
+
+    // Lembur must be 200.000 (detected from description)
+    expect(calc.opexSums.lembur.amount).toBe(200_000)
+    // Pengeluaran outlet must exclude lembur
+    expect(calc.opexSums.pengeluaran_outlet.amount).toBe(2_707_700)
+    expect(calc.opexSums.ads.amount).toBe(388_500)
+    expect(calc.opexSums.endorsement.amount).toBe(500_000)
+    expect(calc.opexSums.promo.amount).toBe(235_400)
+    expect(calc.opexSums.pln.amount).toBe(870_406)
+    expect(calc.opexSums.internet.amount).toBe(260_850)
+
+    // Total OPEX must match item.expense exactly
+    expect(calc.totalOpex).toBe(5_162_856)
+    const sumOpex = Object.values(calc.opexSums).reduce((s, o) => s + o.amount, 0)
+    expect(sumOpex).toBe(5_162_856)
+  })
 })
+

@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { LOGO_BASE64 } from '@/utils/logoBase64'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
+import { isLemburExpense } from '@/lib/expenseCategories'
 import type { ProfitScope } from '@/lib/outletOwnership'
 
 // Brand Suka Shawarma Palette
@@ -302,11 +303,11 @@ export function buildOutletFinancialCalculations(
 
   outletOpex.forEach(e => {
     const c = (e as any).category?.toLowerCase() || ''
-    if (c === 'gaji_crew_outlet' || c === 'salary' || c === 'gaji') opexSums.gaji_crew_outlet.amount += e.amount
+    if (isLemburExpense(c, (e as any).description)) opexSums.lembur.amount += e.amount
+    else if (c === 'gaji_crew_outlet' || c === 'salary' || c === 'gaji') opexSums.gaji_crew_outlet.amount += e.amount
     else if (c === 'bonus_crew' || c === 'bonus_leader') opexSums.bonus_crew.amount += e.amount
     else if (c === 'bonus_area_manager' || c === 'bonus_korlap') opexSums.bonus_area_manager.amount += e.amount
     else if (c === 'bonus_regional_manager') opexSums.bonus_regional_manager.amount += e.amount
-    else if (c === 'lembur' || c === 'overtime') opexSums.lembur.amount += e.amount
     else if (c === 'ads' || c === 'iklan' || c === 'marketing_ads') opexSums.ads.amount += e.amount
     else if (c === 'endorsement' || c === 'marcom') opexSums.endorsement.amount += e.amount
     else if (c === 'promo' || c === 'diskon') opexSums.promo.amount += e.amount
@@ -467,16 +468,6 @@ function renderOutletPdfPage(
     ])
     bodyRows.push(['REVENUE FOOD APPS', { content: rupiah(calc.channels.food_apps.revenue), styles: { halign: 'right' } }])
     bodyRows.push(['ADMIN FEE (PROMO & KOMISI PLATFORM)', { content: calc.channels.food_apps.adminFee > 0 ? `-${rupiah(calc.channels.food_apps.adminFee)}` : 'Rp 0', styles: { halign: 'right' } }])
-    if (calc.channels.food_apps.promo > 0 && calc.channels.food_apps.commission > 0) {
-      bodyRows.push([
-        { content: '  • Potongan Merchant (Promo Resto)', styles: { textColor: [100, 116, 139] } },
-        { content: `-${rupiah(calc.channels.food_apps.promo)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
-      ])
-      bodyRows.push([
-        { content: '  • Biaya Layanan & Komisi Platform', styles: { textColor: [100, 116, 139] } },
-        { content: `-${rupiah(calc.channels.food_apps.commission)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
-      ])
-    }
     bodyRows.push(['TOTAL COGS (HPP)', { content: calc.cogsFoodApps > 0 ? `-${rupiah(calc.cogsFoodApps)}` : 'Rp 0', styles: { halign: 'right' } }])
     bodyRows.push([
       { content: 'TOTAL GROSS PROFIT FOOD APPS', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
@@ -533,26 +524,6 @@ function renderOutletPdfPage(
     { content: 'TOTAL ADMIN FEE & POTONGAN PLATFORM' }, 
     { content: calc.totalAdminFee > 0 ? `-${rupiah(calc.totalAdminFee)}` : 'Rp 0', styles: { halign: 'right' } }
   ])
-  if (calc.channels.food_apps.adminFee > 0 || calc.adminSettlementTikTok > 0) {
-    if (calc.channels.food_apps.promo > 0) {
-      bodyRows.push([
-        { content: '  • Potongan Merchant Food Apps (Promo)', styles: { textColor: [100, 116, 139] } },
-        { content: `-${rupiah(calc.channels.food_apps.promo)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
-      ])
-    }
-    if (calc.channels.food_apps.commission > 0) {
-      bodyRows.push([
-        { content: '  • Komisi Platform Food Apps', styles: { textColor: [100, 116, 139] } },
-        { content: `-${rupiah(calc.channels.food_apps.commission)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
-      ])
-    }
-    if (calc.adminSettlementTikTok > 0) {
-      bodyRows.push([
-        { content: '  • Komisi / Admin Settlement TikTok Go', styles: { textColor: [100, 116, 139] } },
-        { content: `-${rupiah(calc.adminSettlementTikTok)}`, styles: { halign: 'right', textColor: [100, 116, 139] } }
-      ])
-    }
-  }
   bodyRows.push([
     { content: 'TOTAL COGS (HPP)' }, 
     { content: calc.totalCogs > 0 ? `-${rupiah(calc.totalCogs)}` : 'Rp 0', styles: { halign: 'right' } }
@@ -1028,10 +999,6 @@ export function buildSingleOutletCsvRows(
   // Channel 2
   rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', 'REVENUE', calc.channels.food_apps.revenue])
   rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', 'ADMIN FEE', calc.channels.food_apps.adminFee])
-  if (calc.channels.food_apps.promo > 0 && calc.channels.food_apps.commission > 0) {
-    rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', '  • POTONGAN MERCHANT (PROMO)', calc.channels.food_apps.promo])
-    rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', '  • KOMISI PLATFORM FOOD APPS', calc.channels.food_apps.commission])
-  }
   rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', 'TOTAL COGS (HPP)', calc.cogsFoodApps])
   rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI FOOD APPS', 'TOTAL GROSS PROFIT FOOD APPS', calc.gpFoodApps])
 

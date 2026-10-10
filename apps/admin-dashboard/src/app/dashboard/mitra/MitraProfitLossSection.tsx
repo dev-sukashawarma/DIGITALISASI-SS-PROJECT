@@ -11,13 +11,10 @@ import {
   TrendingUp, 
   Layers, 
   Receipt,
-  Download,
   RefreshCw
 } from 'lucide-react'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import type { ComprehensiveMitraPnl, OpexCategoryDetail } from '@/app/actions/mitraPnl'
-import { exportCsv } from '@/lib/exportCsv'
-import { toast } from 'sonner'
 
 const formatRp = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -206,44 +203,6 @@ export function MitraProfitLossSection({
 
   const isDeficit = summary.netProfit <= 0
 
-  const handleExportPnl = () => {
-    if (!pnlData) return
-    const filename = `Laporan_PnL_${outletName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentFilter.from || 'all'}_${currentFilter.to || 'all'}`
-    const rows: { komparasi: string; nominal: number | string; keterangan: string }[] = [
-      { komparasi: 'Outlet', nominal: outletName, keterangan: '' },
-      { komparasi: 'Periode', nominal: `${formatDate(currentFilter.from)} - ${formatDate(currentFilter.to)}`, keterangan: '' },
-      { komparasi: '--- REVENUE ---', nominal: '', keterangan: '' },
-      { komparasi: '1. Omzet Kotor (POS / Offline)', nominal: channels.pos.revenue, keterangan: `${channels.pos.orderCount} pesanan` },
-      { komparasi: '2. Omzet Kotor (Food Apps)', nominal: channels.foodApps.revenue, keterangan: `Grab: ${formatRp(channels.foodApps.grab)}, GoFood: ${formatRp(channels.foodApps.gofood)}, Shopee: ${formatRp(channels.foodApps.shopeefood)}` },
-      { komparasi: '3. Omzet Kotor (TikTok Shop/Go)', nominal: channels.tiktok.revenue, keterangan: `${channels.tiktok.orderCount} pesanan` },
-      { komparasi: 'TOTAL OMZET KOTOR', nominal: summary.grossRevenue, keterangan: '' },
-      { komparasi: 'Potongan / Komisi / Promo Merchant', nominal: -summary.totalDeductions, keterangan: '' },
-      { komparasi: 'TOTAL OMZET BERSIH', nominal: summary.netRevenue, keterangan: '' },
-      { komparasi: '--- BEBAN POKOK & WASTE ---', nominal: '', keterangan: '' },
-      { komparasi: 'Total HPP (Food Cost)', nominal: -summary.totalCogs, keterangan: '' },
-      { komparasi: 'Total Waste (Kerusakan Bahan Baku)', nominal: -summary.totalWaste, keterangan: '' },
-      { komparasi: 'LABA KOTOR (GROSS PROFIT)', nominal: summary.grossProfit, keterangan: '' },
-      { komparasi: '--- BEBAN OPERASIONAL (OPEX) ---', nominal: '', keterangan: '' },
-      ...opex.categories.map(c => ({
-        komparasi: `Biaya: ${formatCategoryTitle(c.category)}`,
-        nominal: -c.amount,
-        keterangan: `${c.items.length} transaksi`
-      })),
-      { komparasi: 'TOTAL BIAYA OPERASIONAL (OPEX)', nominal: -summary.totalOpex, keterangan: `Kas Kecil: ${opex.totalPettyCash}, Transfer: ${opex.totalMonthly}` },
-      { komparasi: 'Fee Manajemen', nominal: -(summary.managementFeeAmount || 0), keterangan: isConsolidated ? '3% hanya dari outlet belum BEP (outlet BEP bebas fee)' : `${summary.managementFeePct || 0}% dari omzet kotor` },
-      { komparasi: '--- HASIL AKHIR ---', nominal: '', keterangan: '' },
-      { komparasi: 'LABA BERSIH (NET PROFIT)', nominal: summary.netProfit, keterangan: `Margin: ${summary.profitMarginPct.toFixed(1)}%` },
-      { komparasi: isConsolidated ? 'TOTAL HAK BAGI HASIL MITRA (KONSOLIDASI)' : `HAK BAGI HASIL MITRA (${profitSharingPct}%)`, nominal: summary.mitraShare, keterangan: summary.policyStatus || '' }
-    ]
-
-    exportCsv(rows, [
-      { key: 'komparasi', label: 'Komponen / Kategori' },
-      { key: 'nominal', label: 'Nominal (Rp)' },
-      { key: 'keterangan', label: 'Keterangan' }
-    ], filename)
-    toast.success('Laporan P&L berhasil diunduh.')
-  }
-
   return (
     <div className={`bg-white/95 backdrop-blur-xl border border-amber-200/70 p-6 sm:p-8 rounded-3xl shadow-xs relative overflow-hidden animate-fade-in ${className}`}>
       <div className="absolute top-0 right-0 w-[350px] h-[350px] bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent rounded-full blur-[80px] -z-10 translate-x-1/2 -translate-y-1/2 pointer-events-none" />
@@ -290,16 +249,6 @@ export function MitraProfitLossSection({
                 isLoading={isLoading}
               />
             </div>
-          )}
-          {pnlData && (
-            <button
-              onClick={handleExportPnl}
-              title="Unduh Laporan P&L CSV / Excel"
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#FAF7F2] hover:bg-amber-100/70 active:scale-95 border border-amber-200/80 rounded-xl text-xs font-semibold text-[#6E5A4E] transition-all shadow-xs cursor-pointer h-[38px] shrink-0"
-            >
-              <Download className="w-3.5 h-3.5 text-amber-700" />
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
           )}
         </div>
       </div>

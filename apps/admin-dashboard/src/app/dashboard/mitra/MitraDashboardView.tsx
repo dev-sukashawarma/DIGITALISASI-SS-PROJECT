@@ -508,7 +508,21 @@ export function MitraDashboardView({
         ) : (
           <div className="space-y-10">
             
-            {/* 2. TOP 3 KPI FINANCIAL CARDS */}
+            {/* 2. COMPREHENSIVE REAL-TIME P&L SECTION */}
+            {pnlData && (
+              <MitraProfitLossSection
+                pnlData={pnlData}
+                currentFilter={{
+                  ...currentFilter,
+                  outletId: selectedOutletId || currentFilter.outletId || (outlets.length === 1 ? outlets[0].id : 'all')
+                }}
+                onFilterChange={handleFilterChange}
+                isLoading={isFilterLoading || isPnlLoading}
+                outlets={outlets}
+              />
+            )}
+
+            {/* 3. TOP 3 KPI FINANCIAL CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               
               {/* Card 1: Omzet Penjualan */}
@@ -640,7 +654,7 @@ export function MitraDashboardView({
               </div>
             </div>
             
-            {/* 3. TREN PENDAPATAN HARIAN */}
+            {/* 4. TREN PENDAPATAN HARIAN */}
             <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5 hover:bg-white/90 transition-colors duration-500">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -681,20 +695,6 @@ export function MitraDashboardView({
                 />
               )}
             </div>
-
-            {/* 4. COMPREHENSIVE REAL-TIME P&L SECTION */}
-            {pnlData && (
-              <MitraProfitLossSection
-                pnlData={pnlData}
-                currentFilter={{
-                  ...currentFilter,
-                  outletId: selectedOutletId || currentFilter.outletId || (outlets.length === 1 ? outlets[0].id : 'all')
-                }}
-                onFilterChange={handleFilterChange}
-                isLoading={isFilterLoading || isPnlLoading}
-                outlets={outlets}
-              />
-            )}
 
             {/* 5. RIWAYAT TRANSFER BAGI HASIL BULANAN */}
             <div className="bg-white/70 backdrop-blur-md border border-white rounded-[32px] p-6 sm:p-8 shadow-xl shadow-suka-orange/5">

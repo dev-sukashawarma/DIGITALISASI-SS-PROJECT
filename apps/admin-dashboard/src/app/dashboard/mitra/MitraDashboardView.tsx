@@ -402,7 +402,7 @@ export function MitraDashboardView({
 
             {/* Structured Bank Info Micro-card */}
             <div className="pt-0.5">
-              <div className="inline-flex flex-wrap items-center gap-2.5 bg-amber-50/70 border border-amber-200/70 px-3.5 py-2 rounded-2xl shadow-2xs max-w-full">
+              <div className="w-full sm:w-auto inline-flex items-center gap-2.5 bg-amber-50/70 border border-amber-200/70 px-3.5 py-2 rounded-2xl shadow-2xs min-h-[50px]">
                 <div className="w-7 h-7 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
                   <CreditCard className="w-3.5 h-3.5 text-amber-700" />
                 </div>
@@ -418,17 +418,17 @@ export function MitraDashboardView({
             </div>
           </div>
           
-          {/* Outlet Selector Dropdown */}
+          {/* Outlet Selector Dropdown (Sama ukuran dan styling dengan box rekening) */}
           {outlets && outlets.length > 0 && (
-            <div className="w-full md:w-auto min-w-[240px]">
-              <div className="relative bg-white/95 backdrop-blur-md border border-suka-gray-200 hover:border-suka-orange/50 rounded-2xl p-2.5 flex items-center shadow-xs transition-all">
-                <div className="p-2 bg-suka-orange/10 rounded-xl mr-2.5 shrink-0">
-                  <Store className="w-4 h-4 text-suka-orange" />
+            <div className="w-full md:w-auto">
+              <div className="w-full sm:w-auto min-w-[240px] relative bg-amber-50/70 border border-amber-200/70 hover:border-amber-300 px-3.5 py-2 rounded-2xl shadow-2xs flex items-center gap-2.5 min-h-[50px] transition-all">
+                <div className="w-7 h-7 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <Store className="w-3.5 h-3.5 text-amber-700" />
                 </div>
-                <div className="flex-1 min-w-0 pr-6">
-                  <p className="text-[9px] font-extrabold text-suka-gray-400 uppercase tracking-wider">Outlet Aktif</p>
+                <div className="flex-1 min-w-0 pr-5 text-xs leading-tight">
+                  <p className="text-[10px] font-extrabold text-amber-800/70 uppercase tracking-wider">Outlet Aktif</p>
                   <select 
-                    className="w-full bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer truncate appearance-none"
+                    className="w-full bg-transparent text-xs font-extrabold text-suka-brown outline-none cursor-pointer truncate appearance-none mt-0.5"
                     value={selectedOutletId || (outlets.length === 1 ? outlets[0].id : 'all')}
                     onChange={(e) => setSelectedOutletId(e.target.value)}
                   >
@@ -444,7 +444,7 @@ export function MitraDashboardView({
                     ))}
                   </select>
                 </div>
-                <ChevronDown className="w-4 h-4 text-suka-orange absolute right-3 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-amber-700 absolute right-3 pointer-events-none" />
               </div>
             </div>
           )}

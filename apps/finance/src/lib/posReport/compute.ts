@@ -492,9 +492,10 @@ export function computeAnalytics({
     return sum
   }, 0)
 
-  const totalCommission = totalRealAdmin > 0 ? totalRealAdmin : estimatedCommission
+  const totalCommission = totalRealAdmin
+  const totalAdminFee = totalDeductions + totalCommission
   const isCommissionEstimated = totalRealAdmin === 0 && estimatedCommission > 0
-  const netDisbursement = Math.max(0, grossRevenue - (totalDeductions + totalCommission))
+  const netDisbursement = Math.max(0, grossRevenue - totalAdminFee)
   const realGrossProfit = Math.max(0, netDisbursement - totalHPP)
 
   return {
@@ -514,7 +515,9 @@ export function computeAnalytics({
     netRevenue,
     totalHPP,
     grossProfit,
+    totalAdminFee,
     totalCommission,
+    estimatedCommission,
     isCommissionEstimated,
     netDisbursement,
     realGrossProfit,

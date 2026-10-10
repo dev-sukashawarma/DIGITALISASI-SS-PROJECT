@@ -67,19 +67,61 @@ export async function fetchProfitExportData({
     if (page.length < PAGE_SIZE) break
   }
 
+  const normalizePlatform = (src: string) => {
+    const s = (src || '').toLowerCase()
+    if (s.includes('gofood') || s.includes('gojek')) return 'gofood'
+    if (s.includes('grab')) return 'grabfood'
+    if (s.includes('shopee')) return 'shopeefood'
+    if (s.includes('tiktok')) return 'tiktokgo'
+    return s
+  }
+
+  // Tarik komisi resmi platform dari platform_settlements
+  const settlementMap = new Map<string, number>()
+  try {
+    let offset = 0
+    while (true) {
+      const { data: stlPage, error: stlErr } = await supabase
+        .from('platform_settlements')
+        .select('outlet_id, platform, tanggal, commission')
+        .gte('tanggal', from)
+        .lte('tanggal', to)
+        .order('tanggal', { ascending: true })
+        .order('id', { ascending: true })
+        .range(offset, offset + 999)
+      if (stlErr) throw stlErr
+      const page = stlPage ?? []
+      for (const s of page) {
+        const plat = normalizePlatform(s.platform)
+        const key = `${s.outlet_id}__${plat}__${s.tanggal}`
+        settlementMap.set(key, (settlementMap.get(key) || 0) + (Number(s.commission) || 0))
+      }
+      if (page.length < 1000) break
+      offset += 1000
+    }
+  } catch (err) {
+    console.error('Error fetching settlements in profitExportFetcher:', err)
+  }
+
   const salesRows = rawSalesData
     .filter((r: any) => !isTestOutlet(r.outlet_id))
-    .map((r: any) => ({
-      outlet_id: r.outlet_id,
-      outlet_name: '',
-      sales_source: r.sales_source,
-      sales_date: r.sales_date,
-      omzet: Number(r.omzet || 0),
-      jumlah_order_completed: Number(r.jumlah_order_completed || 0),
-      jumlah_order_all: Number(r.jumlah_order_completed || 0),
-      total_deductions: Number(r.total_deductions) || 0,
-      platform_fee: 0,
-    }))
+    .map((r: any) => {
+      const plat = normalizePlatform(r.sales_source)
+      const key = `${r.outlet_id}__${plat}__${r.sales_date}`
+      const platformFee = settlementMap.get(key) || 0
+
+      return {
+        outlet_id: r.outlet_id,
+        outlet_name: '',
+        sales_source: r.sales_source,
+        sales_date: r.sales_date,
+        omzet: Number(r.omzet || 0),
+        jumlah_order_completed: Number(r.jumlah_order_completed || 0),
+        jumlah_order_all: Number(r.jumlah_order_completed || 0),
+        total_deductions: Number(r.total_deductions) || 0,
+        platform_fee: platformFee,
+      }
+    })
 
   // 2. Ambil Pengeluaran (expenses & petty cash)
   onProgress?.('Mengambil data beban operasional...')

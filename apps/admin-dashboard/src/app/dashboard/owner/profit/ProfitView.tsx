@@ -913,7 +913,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 </div>
                 <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
                   <span className="text-[10px] font-semibold text-rose-600">
-                    Potongan: -{rupiah(totalDeductions)}
+                    Admin Fee: -{rupiah(totalDeductions)}
                   </span>
                   <button
                     type="button"
@@ -1207,7 +1207,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     {/* Selalu tampil, termasuk saat Rp 0 -- baris yang
                         muncul-hilang bikin pembaca mengira datanya tidak ada. */}
                     <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300">
-                      <span>Potongan Merchant</span>
+                      <div>
+                        <span className="font-semibold block">Admin Fee (Promo & Biaya Platform)</span>
+                        {totalPlatformFee > 0 && (
+                          <span className="text-[10px] text-rose-500/80">
+                            Promo: {rupiah(totalPotongan)} · Komisi: {rupiah(totalPlatformFee)}
+                          </span>
+                        )}
+                      </div>
                       <span className="font-semibold">-{rupiah(totalDeductions)}</span>
                     </div>
                     {adaAntarKantong && (
@@ -1418,7 +1425,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="flex items-center gap-2 font-semibold text-suka-gray-600">
-                      <span className="w-2.5 h-2.5 rounded-sm bg-purple-500"></span> Potongan & Komisi
+                      <span className="w-2.5 h-2.5 rounded-sm bg-purple-500"></span> Admin Fee
                     </span>
                     <span className="font-bold text-suka-brown">{pctFee.toFixed(1)}%</span>
                   </div>
@@ -1517,7 +1524,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <th className="py-3.5 px-4 w-12 text-center">#</th>
                       <th className="py-3.5 px-4">Nama Outlet</th>
                       <th className="py-3.5 px-4 text-right">Gross Omzet</th>
-                      <th className="py-3.5 px-4 text-right">Potongan Merchant</th>
+                      <th className="py-3.5 px-4 text-right">Admin Fee</th>
                       <th className="py-3.5 px-4 text-right">HPP</th>
                       <th className="py-3.5 px-4 text-right">Waste</th>
                       <th className="py-3.5 px-4 text-right">OPEX</th>

@@ -101,8 +101,8 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     },
     {
       key: 'potongan',
-      label: 'Potongan / Diskon Merchant',
-      hint: 'Diskon langsung toko & biaya platform',
+      label: 'Admin Fee',
+      hint: 'Diskon promo toko & komisi platform aplikasi',
       amount: -deductions,
       kind: 'deduction',
       pctOfGross: pct(-deductions),

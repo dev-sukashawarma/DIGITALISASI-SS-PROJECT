@@ -65,6 +65,41 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         if (page.length < PAGE_SIZE) break
       }
 
+      // Tarik komisi platform dari platform_settlements untuk rentang tanggal yang dipilih
+      let settlementList: any[] = []
+      try {
+        settlementList = await fetchAllPagesParallel<any>(
+          (from, to, withCount) =>
+            supabase
+              .from('platform_settlements')
+              .select('outlet_id, platform, tanggal, commission', withCount ? { count: 'exact' } : undefined)
+              .gte('tanggal', filter.from)
+              .lte('tanggal', filter.to)
+              .order('tanggal', { ascending: true })
+              .order('id', { ascending: true })
+              .range(from, to),
+          1000,
+        )
+      } catch (settlementError) {
+        console.error('useSalesDaily platform_settlements error:', settlementError)
+      }
+
+      const normalizePlatform = (src: string) => {
+        const s = (src || '').toLowerCase()
+        if (s.includes('gofood') || s.includes('gojek')) return 'gofood'
+        if (s.includes('grab')) return 'grabfood'
+        if (s.includes('shopee')) return 'shopeefood'
+        if (s.includes('tiktok')) return 'tiktokgo'
+        return s
+      }
+
+      const settlementMap = new Map<string, number>()
+      for (const s of settlementList) {
+        const plat = normalizePlatform(s.platform)
+        const key = `${s.outlet_id}__${plat}__${s.tanggal}`
+        settlementMap.set(key, (settlementMap.get(key) || 0) + (Number(s.commission) || 0))
+      }
+
       // Catatan: query mentah ke `orders` yang dulu ada di sini (untuk menghitung
       // potongan per hari) sudah dihapus. View `sales_daily_scoped` sendiri sudah
       // menyediakan `total_deductions` dengan definisi yang sama persis
@@ -75,6 +110,9 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         .filter((r: any) => !isTestOutlet(r.outlet_id))
         .map((r: any) => {
           const totalDed = Number(r.total_deductions) || 0
+          const plat = normalizePlatform(r.sales_source)
+          const key = `${r.outlet_id}__${plat}__${r.sales_date}`
+          const platformFee = settlementMap.get(key) || 0
 
           return {
             outlet_id: r.outlet_id,
@@ -85,7 +123,7 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
             jumlah_order_completed: Number(r.jumlah_order_completed || 0),
             jumlah_order_all: Number(r.jumlah_order_completed || 0),
             total_deductions: totalDed,
-            platform_fee: 0,
+            platform_fee: platformFee,
           }
         })
 

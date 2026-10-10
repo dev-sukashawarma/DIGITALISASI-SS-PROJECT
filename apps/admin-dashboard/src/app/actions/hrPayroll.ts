@@ -30,6 +30,24 @@ export interface StaffBonusDetail {
   status: 'draft' | 'finalized'
 }
 
+export interface StaffPayrollDetail {
+  staffId: string
+  staffName: string
+  role: string
+  outletId?: string
+  outletName?: string
+  basicSalary: number
+  allowances: number
+  bonus: number
+  deductions: number
+  routineSalary: number
+  totalSalary: number
+  status: 'draft' | 'finalized'
+  isManagerAllocation?: boolean
+  allocatedAmount?: number
+  allocationNote?: string
+}
+
 export interface HRPayrollOutletSummary {
   outletId: string
   outletName: string
@@ -66,6 +84,7 @@ export interface HRPayrollSummary {
   managerAllocation?: number
   managerDetails?: ManagerAllocationDetail[]
   bonusDetails?: StaffBonusDetail[]
+  staffDetails?: StaffPayrollDetail[]
 }
 
 export async function getHRPayrollSummaryAction(filter: {
@@ -466,7 +485,59 @@ export async function getHRPayrollSummaryAction(filter: {
               status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
             }
           })
-          .sort((a, b) => b.bonus - a.bonus)
+          .sort((a, b) => b.bonus - a.bonus),
+        staffDetails: [
+          ...empangCrew.map(r => {
+            const staffRaw: any = r.outlet_staff
+            const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+            const bSalary = Number(r.basic_salary || 0)
+            const bAllowances =
+              Number(r.allowance_meal || r.allowance_presence || 0) +
+              Number(r.allowance_transport || 0) +
+              Number(r.allowance_communication || 0) +
+              Number(r.allowance_position || 0)
+            const bBonus = Number(r.bonus || 0)
+            const bDeductions = Number(r.deductions || 0)
+            const tot = Number(r.total_salary || 0)
+            const routine = bSalary + bAllowances - bDeductions
+            return {
+              staffId: r.staff_id,
+              staffName: staffInfo?.name || 'Staff',
+              role: staffInfo?.role || 'crew',
+              outletId: target,
+              outletName: outletNameMap.get(target) || 'Outlet',
+              basicSalary: bSalary,
+              allowances: bAllowances,
+              bonus: bBonus,
+              deductions: bDeductions,
+              routineSalary: routine,
+              totalSalary: tot,
+              status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized',
+              isManagerAllocation: false
+            }
+          }),
+          ...mgrAlloc.details.map(mgr => ({
+            staffId: mgr.staffId,
+            staffName: mgr.staffName,
+            role: mgr.role,
+            outletId: target,
+            outletName: outletNameMap.get(target) || 'Outlet',
+            basicSalary: 0,
+            allowances: 0,
+            bonus: 0,
+            deductions: 0,
+            routineSalary: mgr.allocatedAmount,
+            totalSalary: mgr.allocatedAmount,
+            status: mgr.status,
+            isManagerAllocation: true,
+            allocatedAmount: mgr.allocatedAmount,
+            allocationNote: mgr.role === 'area_manager'
+              ? `Alokasi 1/${mgr.coachedOutletsCount} cabang (AM)`
+              : mgr.role === 'regional_manager'
+              ? `Alokasi 1/${mgr.coachedOutletsCount} cabang (RM)`
+              : `Alokasi 1/${mgr.coachedOutletsCount} cabang (Stock Controller)`
+          }))
+        ]
       }
     }
 
@@ -602,7 +673,69 @@ export async function getHRPayrollSummaryAction(filter: {
             status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
           }
         })
-        .sort((a, b) => b.bonus - a.bonus)
+        .sort((a, b) => b.bonus - a.bonus),
+      staffDetails: [
+        ...targetCrewRows.map(r => {
+          const staffRaw: any = r.outlet_staff
+          const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+          const staffOutletId = r.outlet_id || staffInfo?.outlet_id
+          const bSalary = Number(r.basic_salary || 0)
+          const bAllowances =
+            Number(r.allowance_meal || r.allowance_presence || 0) +
+            Number(r.allowance_transport || 0) +
+            Number(r.allowance_communication || 0) +
+            Number(r.allowance_position || 0)
+          const bBonus = Number(r.bonus || 0)
+          const bDeductions = Number(r.deductions || 0)
+          const tot = Number(r.total_salary || 0)
+          return {
+            staffId: r.staff_id,
+            staffName: staffInfo?.name || 'Staff',
+            role: staffInfo?.role || 'crew',
+            outletId: staffOutletId,
+            outletName: outletNameMap.get(staffOutletId) || 'Outlet',
+            basicSalary: bSalary,
+            allowances: bAllowances,
+            bonus: bBonus,
+            deductions: bDeductions,
+            routineSalary: bSalary + bAllowances - bDeductions,
+            totalSalary: tot,
+            status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized',
+            isManagerAllocation: false
+          }
+        }),
+        ...(target !== 'PUSAT' ? managerRows.map(m => {
+          const staffRaw: any = m.outlet_staff
+          const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+          const isStockController = (staffInfo?.name || '').toLowerCase().includes('abyansah') || staffInfo?.role === 'stock_controller'
+          const role = isStockController ? 'stock_controller' : (staffInfo?.role || 'area_manager')
+          const bSalary = Number(m.basic_salary || 0)
+          const bAllowances =
+            Number(m.allowance_meal || m.allowance_presence || 0) +
+            Number(m.allowance_transport || 0) +
+            Number(m.allowance_communication || 0) +
+            Number(m.allowance_position || 0)
+          const bBonus = Number(m.bonus || 0)
+          const bDeductions = Number(m.deductions || 0)
+          const tot = Number(m.total_salary || 0)
+          return {
+            staffId: m.staff_id,
+            staffName: staffInfo?.name || (role === 'regional_manager' ? 'Regional Manager' : role === 'stock_controller' ? 'Stock Controller' : 'Area Manager'),
+            role,
+            outletId: 'PUSAT',
+            outletName: 'Alokasi Management',
+            basicSalary: bSalary,
+            allowances: bAllowances,
+            bonus: bBonus,
+            deductions: bDeductions,
+            routineSalary: bSalary + bAllowances - bDeductions,
+            totalSalary: tot,
+            status: (m.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized',
+            isManagerAllocation: true,
+            allocatedAmount: tot
+          }
+        }) : [])
+      ]
     }
   } catch (err: any) {
     console.error('Failed to get HR payroll summary:', err)

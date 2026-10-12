@@ -3,7 +3,12 @@ import dotenv from 'dotenv'
 dotenv.config({ path: '.env.local' })
 import { getMitraRealtimeBepBreakdown } from '@/app/actions/mitraRoi'
 
-describe('Verify Mitra Cibinong BEP Breakdown Synced with Tab Laba Rugi', () => {
+// Tes integrasi: membaca database sungguhan lewat service role. Hanya jalan bila
+// kuncinya tersedia (lokal, dari .env.local). Di CI kunci itu sengaja tidak ada,
+// jadi tes ini dilewati — bukan digagalkan.
+const adaKunciDb = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY
+
+describe.skipIf(!adaKunciDb)('Verify Mitra Cibinong BEP Breakdown Synced with Tab Laba Rugi', () => {
   it('should return synced net profit and mitra share for Cibinong', async () => {
     const cibinongId = '550e8400-e29b-41d4-a716-446655440014'
     const result = await getMitraRealtimeBepBreakdown([cibinongId])

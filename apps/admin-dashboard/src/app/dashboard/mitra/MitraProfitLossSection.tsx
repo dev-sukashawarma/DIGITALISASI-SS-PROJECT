@@ -178,6 +178,13 @@ interface MitraProfitLossSectionProps {
   isLoading?: boolean
   outlets?: { id: string; name: string }[]
   className?: string
+  /**
+   * Teks penanda untuk angka yang berasal dari closing penuh. HANYA diisi oleh
+   * tampilan internal owner/admin (Dashboard Kemitraan); dashboard yang dilihat
+   * mitra tidak boleh mengisinya. Teksnya sengaja dikirim dari pemanggil supaya
+   * tidak ikut terbawa ke bundel halaman mitra.
+   */
+  labelClosingInternal?: string
 }
 
 export function MitraProfitLossSection({
@@ -187,6 +194,7 @@ export function MitraProfitLossSection({
   isLoading = false,
   outlets = [],
   className = 'mt-6',
+  labelClosingInternal,
 }: MitraProfitLossSectionProps) {
   const [activeDrilldown, setActiveDrilldown] = useState<'pos' | 'foodapps' | 'tiktok' | 'opex' | 'netprofit' | null>(null)
   const [selectedOpexCategory, setSelectedOpexCategory] = useState<OpexCategoryDetail | null>(null)
@@ -222,12 +230,18 @@ export function MitraProfitLossSection({
   const { summary, channels, opex, profitSharingPct, outletName } = pnlData
   const isConsolidated = outletName.toLowerCase().includes('semua')
 
+  // Bulan closing penuh tidak pernah dipotong, jadi rentang yang disajikan bisa lebih
+  // lebar dari yang dipilih. Yang ditulis di sini selalu rentang yang benar-benar tampil.
+  const rentangTampil = pnlData.periodeDisajikan ?? currentFilter
   let filterText = 'Semua Waktu'
-  if (currentFilter.from && currentFilter.to) {
-    filterText = `${formatDate(currentFilter.from)} - ${formatDate(currentFilter.to)}`
-  } else if (currentFilter.from) {
-    filterText = `Sejak ${formatDate(currentFilter.from)}`
+  if (rentangTampil.from && rentangTampil.to) {
+    filterText = `${formatDate(rentangTampil.from)} - ${formatDate(rentangTampil.to)}`
+  } else if (rentangTampil.from) {
+    filterText = `Sejak ${formatDate(rentangTampil.from)}`
   }
+  const labelClosing = labelClosingInternal && (pnlData.bulanClosing?.length ?? 0) > 0
+    ? `${labelClosingInternal} · ${pnlData.bulanClosing!.join(', ')}`
+    : null
 
   const isDeficit = summary.netProfit <= 0
 
@@ -244,6 +258,13 @@ export function MitraProfitLossSection({
               Laporan Keuangan Real-Time
             </span>
           </div>
+          {labelClosing && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 rounded-full mb-2.5 ml-2 border border-rose-200">
+              <span className="text-xs font-semibold text-rose-800 tracking-wider uppercase">
+                {labelClosing}
+              </span>
+            </div>
+          )}
           <h2 className="text-2xl sm:text-3xl font-bold text-[#2A1D16] tracking-tight">
             Laba Rugi Operasional ({outletName})
           </h2>

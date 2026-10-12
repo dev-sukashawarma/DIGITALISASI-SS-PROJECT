@@ -25,12 +25,12 @@ describe('Verify Mitra Cibinong BEP Breakdown Synced with Tab Laba Rugi', () => 
       console.log(`- ${mb.monthLabel} (${mb.monthKey}): Net Profit = Rp ${mb.netProfit.toLocaleString('id-ID')}, Mitra Share (${mb.profitSharingPct}%) = Rp ${mb.mitraShare.toLocaleString('id-ID')}, Transferred = ${mb.isTransferred}, Closed = ${mb.isClosed}`)
     }
 
-    // Pastikan September net profit adalah ~Rp 6 jutaan, BUKAN Rp 31,4 juta!
+    // September 2026 memakai angka closing resmi (mitraPnlClosingData.ts), bukan
+    // hitungan live. Sebelum closing ditetapkan nilainya Rp 7.230.300.
     const sept = cibinong.monthlyBreakdown.find(m => m.monthKey === '2026-09')
     expect(sept).toBeDefined()
-    expect(sept!.netProfit).toBeLessThan(10000000)
-    expect(sept!.netProfit).toBeGreaterThan(5000000)
-    expect(sept!.netProfit).toBe(7230300)
+    expect(sept!.netProfit).toBe(19009571)
+    expect(sept!.mitraShare).toBe(9504786)
   }, 30000)
 
   it('should process all mitra outlets simultaneously without error and return isolated stats per outlet', async () => {

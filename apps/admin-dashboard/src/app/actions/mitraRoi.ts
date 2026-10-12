@@ -3,7 +3,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { fetchAllPages } from '@/lib/fetchAllPages'
-import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
+import { getMitraClosingMonth } from './mitraPnlClosingData'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchHppRows } from '@/lib/hpp/fetchHpp'
@@ -193,17 +193,18 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     const acc: Record<string, WindowFin> = {}
     const bump = (oid: string) => (acc[oid] ||= emptyFin())
 
-    // Optimasi performa: Data Agustus 2026 adalah data closing audit statis.
-    if (isAugust2026Period(from, to)) {
+    // Optimasi performa: bulan closing (Agustus & September 2026) adalah data statis.
+    const closingBulan = getMitraClosingMonth(from, to)
+    if (closingBulan) {
       const allCovered = mitraOutletIds.every(oid => {
         const cutoff = invMap[oid]?.tanggal_mulai
-        return (cutoff && to < cutoff) || getMitraAugustClosing(oid) !== undefined || !invMap[oid]
+        return (cutoff && to < cutoff) || closingBulan.data[oid] !== undefined || !invMap[oid]
       })
       if (allCovered) {
         for (const oid of mitraOutletIds) {
           const cutoff = invMap[oid]?.tanggal_mulai
           if (cutoff && to < cutoff) continue
-          const closing = getMitraAugustClosing(oid)
+          const closing = closingBulan.data[oid]
           if (closing) {
             const a = bump(oid)
             a.grossRevenue = closing.totals.grossRevenue
@@ -445,6 +446,23 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       }
     }
 
+    // Bulan closing penuh (September 2026): outlet yang punya closing tetap memakai
+    // angka closing walau outlet lain di daftar belum tercakup, supaya angka satu
+    // outlet tidak bergantung pada outlet mana saja yang ikut diminta.
+    if (closingBulan?.terapkanPenuh) {
+      for (const oid of mitraOutletIds) {
+        const closing = closingBulan.data[oid]
+        if (!closing) continue
+        acc[oid] = {
+          grossRevenue: closing.totals.grossRevenue,
+          totalDeductions: closing.totals.totalDeductions,
+          totalCogs: closing.totals.totalCogs,
+          opex: closing.totals.totalOpex,
+          waste: closing.totals.totalWaste,
+        }
+      }
+    }
+
     return acc
   }
 
@@ -494,12 +512,19 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         legacyProfitSharingPct: legacyShare,
         legacyManagementFee: legacyFee
       })
-      const fee = Math.round((w.grossRevenue * p.managementFeePct) / 100)
+      let fee = Math.round((w.grossRevenue * p.managementFeePct) / 100)
       let laba = w.grossRevenue - w.totalDeductions - w.totalCogs - w.opex - w.waste - fee
+      let pctBagiHasil = p.profitSharingPct
 
-      const closing = isAugust2026Period(m.from, m.to) ? getMitraAugustClosing(oid) : undefined
+      const closingBulan = getMitraClosingMonth(m.from, m.to)
+      const closing = closingBulan?.data[oid]
       if (closing) {
         laba = Math.round(closing.totals.netProfit)
+        if (closingBulan!.terapkanPenuh) {
+          // Fee & persen bagi hasil ikut closing, bukan kebijakan umum bulan itu.
+          fee = Math.round(closing.totals.managementFeeAmount)
+          pctBagiHasil = closing.totals.profitSharingPct ?? pctBagiHasil
+        }
       }
 
       grossRevenue += w.grossRevenue
@@ -530,7 +555,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         monthLabel,
         netProfit: Math.round(laba),
         mitraShare: Math.round(monthMitraShare),
-        profitSharingPct: p.profitSharingPct,
+        profitSharingPct: pctBagiHasil,
         managementFee: Math.round(fee),
         isTransferred,
         isClosed: m.key < curMonthKey

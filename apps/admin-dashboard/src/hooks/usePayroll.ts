@@ -68,6 +68,9 @@ export function usePayroll(month: number, year: number) {
             role,
             outlet_id,
             phone,
+            contract_type,
+            sub_role,
+            onboarding_stage,
             outlets!outlet_staff_outlet_id_fkey(name),
             financials:staff_financials(
               bank_name,

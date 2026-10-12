@@ -16,11 +16,33 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-  Info
+  Info,
+  Calendar
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
 import type { ProrataInfo } from '@/lib/opexProrata'
+
+function formatBackupDates(dates: string[]): string {
+  if (!dates || dates.length === 0) return ''
+  const sorted = Array.from(new Set(dates)).sort()
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+  const byMonth = new Map<string, number[]>()
+  sorted.forEach(d => {
+    const parts = d.split('-').map(Number)
+    if (parts.length >= 3) {
+      const [, m, day] = parts
+      const key = `${months[m - 1]}`
+      if (!byMonth.has(key)) byMonth.set(key, [])
+      byMonth.get(key)!.push(day)
+    }
+  })
+  const res: string[] = []
+  byMonth.forEach((days, m) => {
+    res.push(`${days.join(', ')} ${m}`)
+  })
+  return res.join('; ')
+}
 
 export type OpexModalType = 'salary' | 'bonus' | 'bonus_kru' | 'bonus_manager' | 'lembur' | 'operational' | 'total' | null
 
@@ -214,8 +236,22 @@ export function OpexCardDetailModals({
         staffPcs = Math.round(staffBonus / 100)
       }
 
+      const staffInfoInPayroll = hrPayroll?.staffDetails?.find(s => s.staffId === staff.staffId)
+      const subRole = (staff as any).subRole || staffInfoInPayroll?.subRole || null
+      const contractType = (staff as any).contractType || staffInfoInPayroll?.contractType || null
+      const isBackup = Boolean((staff as any).isBackup || subRole === 'crew_backup' || contractType === 'daily')
+      const backupDates: string[] = (staff as any).backupDates || []
+      const backupDatesFormatted: string = (staff as any).backupDatesFormatted || (backupDates.length > 0 ? formatBackupDates(backupDates) : '')
+      const backupNote: string = (staff as any).backupNote || (backupDatesFormatted ? `Tanggal backup: ${backupDatesFormatted} (${backupDates.length} hari)` : '')
+
       return {
         ...staff,
+        subRole,
+        contractType,
+        isBackup,
+        backupDates,
+        backupDatesFormatted,
+        backupNote,
         staffBonus,
         staffPcs,
       }
@@ -322,6 +358,42 @@ export function OpexCardDetailModals({
   const totalManagerPcs = calculatedManagerRows.length > 0
     ? (managerBonusAmount > 0 ? Math.round(managerBonusAmount / 100) : 0)
     : 0
+
+  // Crew categorization helper (Reguler, Backup, Trainee, OJT)
+  const allStaff = hrPayroll?.staffDetails || []
+  const crewStaffList = allStaff.filter(s => !s.isManagerAllocation)
+  const totalCrewCount = crewStaffList.length > 0 ? crewStaffList.length : (hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0)
+
+  const crewComposition = (() => {
+    let regular = hrPayroll?.crewRegularCount ?? 0
+    let backup = hrPayroll?.crewBackupCount ?? 0
+    let trainee = hrPayroll?.crewTraineeCount ?? 0
+    let ojt = hrPayroll?.crewOjtCount ?? 0
+
+    if (
+      hrPayroll?.crewRegularCount === undefined &&
+      hrPayroll?.crewBackupCount === undefined &&
+      hrPayroll?.crewTraineeCount === undefined &&
+      hrPayroll?.crewOjtCount === undefined &&
+      crewStaffList.length > 0
+    ) {
+      regular = 0
+      backup = 0
+      trainee = 0
+      ojt = 0
+      crewStaffList.forEach(s => {
+        const isBackup = s.contractType === 'daily' || s.subRole === 'crew_backup'
+        const isTrainee = s.contractType === 'probation' || s.subRole === 'crew_trainee'
+        const isOjt = s.contractType === 'intern' || s.onboardingStage === 'ojt'
+        if (isBackup) backup++
+        else if (isTrainee) trainee++
+        else if (isOjt) ojt++
+        else regular++
+      })
+    }
+
+    return { regular, backup, trainee, ojt, total: regular + backup + trainee + ojt }
+  })()
 
   const modalWidthClass = type === 'total'
     ? 'max-w-3xl lg:max-w-4xl'
@@ -449,7 +521,7 @@ export function OpexCardDetailModals({
                     </span>
                     <div className="flex items-baseline justify-between gap-1 mt-1">
                       <span className="text-xl font-black text-slate-800">
-                        {hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0} Kru Store
+                        {totalCrewCount} Kru Store
                       </span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
                         hrPayroll?.status === 'finalized'
@@ -467,7 +539,38 @@ export function OpexCardDetailModals({
                           : 'Manual'}
                       </span>
                     </div>
-                    <span className="text-[11px] text-slate-500 font-medium block mt-1">
+
+                    {/* Rincian Komposisi Kru (Reguler, Backup, Trainee, OJT) */}
+                    {(crewComposition.total > 0 || totalCrewCount > 0) && (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                        {crewComposition.regular > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                            {crewComposition.regular} Crew Reguler
+                          </span>
+                        )}
+                        {crewComposition.backup > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                            {crewComposition.backup} Crew Backup
+                          </span>
+                        )}
+                        {crewComposition.trainee > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                            {crewComposition.trainee} Trainee
+                          </span>
+                        )}
+                        {crewComposition.ojt > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-2xs inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                            {crewComposition.ojt} OJT
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <span className="text-[11px] text-slate-500 font-medium block mt-2">
                       {hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0
                         ? `+${hrPayroll.managerDetails.length} Manajer Binaan (AM/RM/SC)`
                         : `${hrPayroll?.finalizedCount ?? 0} Final · ${hrPayroll?.draftCount ?? 0} Draft`}
@@ -601,10 +704,36 @@ export function OpexCardDetailModals({
                             <div className="bg-white p-3.5 rounded-xl border border-indigo-100 shadow-2xs flex flex-col justify-between space-y-3">
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                                    <Users size={13} className="text-indigo-600" />
-                                    <span>Kru Toko Cabang ({crewCount} Orang)</span>
-                                  </span>
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                      <Users size={13} className="text-indigo-600" />
+                                      <span>Kru Toko Cabang ({crewCount} Orang)</span>
+                                    </span>
+                                    {(crewComposition.total > 0 || crewCount > 0) && (
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        {crewComposition.regular > 0 && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                            {crewComposition.regular} Reguler
+                                          </span>
+                                        )}
+                                        {crewComposition.backup > 0 && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                                            {crewComposition.backup} Backup
+                                          </span>
+                                        )}
+                                        {crewComposition.trainee > 0 && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                            {crewComposition.trainee} Trainee
+                                          </span>
+                                        )}
+                                        {crewComposition.ojt > 0 && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                            {crewComposition.ojt} OJT
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                   <span className="text-xs font-black text-indigo-900 font-mono bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
                                     {rupiah(crewRoutine1Bln)}
                                   </span>
@@ -635,41 +764,45 @@ export function OpexCardDetailModals({
                                 <div className="space-y-1.5 max-h-[260px] overflow-y-auto scrollbar-thin pr-0.5">
                                   {crewList.length > 0 ? (
                                     crewList.map((s) => (
-                                      <div key={s.staffId} className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                          <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
-                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase shrink-0">
-                                            {s.role.replace(/_/g, ' ')}
-                                          </span>
-                                          {s.contractType === 'probation' && (
-                                            <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-300 shrink-0 shadow-2xs">
-                                              Trainee
+                                      <div key={s.staffId} className="flex items-center justify-between bg-slate-50 px-2.5 py-2 rounded-lg border border-slate-200 text-xs gap-2">
+                                        <div className="flex flex-col min-w-0">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
+                                            {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
+                                              <span className="text-[9px] text-gray-400 truncate">
+                                                ({s.outletName})
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase shrink-0">
+                                              {s.role.replace(/_/g, ' ')}
                                             </span>
-                                          )}
-                                          {s.contractType === 'intern' && (
-                                            <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-300 shrink-0 shadow-2xs">
-                                              OJT
-                                            </span>
-                                          )}
-                                          {s.contractType === 'daily' && (
-                                            <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
-                                              Backup
-                                            </span>
-                                          )}
-                                          {s.status === 'finalized' ? (
-                                            <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                              Final
-                                            </span>
-                                          ) : (
-                                            <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                                              Draft
-                                            </span>
-                                          )}
-                                          {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
-                                            <span className="text-[9px] text-gray-400 truncate max-w-[80px]">
-                                              ({s.outletName})
-                                            </span>
-                                          )}
+                                            {((s.contractType === 'daily' || s.subRole === 'crew_backup')) && (
+                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
+                                                Backup
+                                              </span>
+                                            )}
+                                            {((s.contractType === 'probation' || s.subRole === 'crew_trainee')) && (
+                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-300 shrink-0 shadow-2xs">
+                                                Trainee
+                                              </span>
+                                            )}
+                                            {((s.contractType === 'intern' || s.onboardingStage === 'ojt')) && (
+                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-300 shrink-0 shadow-2xs">
+                                                OJT
+                                              </span>
+                                            )}
+                                            {s.status === 'finalized' ? (
+                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                Final
+                                              </span>
+                                            ) : (
+                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                Draft
+                                              </span>
+                                            )}
+                                          </div>
                                         </div>
                                         <div className="text-right shrink-0">
                                           <span className="font-bold text-indigo-950 font-mono">
@@ -755,26 +888,28 @@ export function OpexCardDetailModals({
                                         <div key={mgr.staffId} className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200 text-xs space-y-1.5 hover:bg-slate-50 transition-colors">
                                           {/* Baris Atas: Profil Manajer & Gaji Master Utuh 100% */}
                                           <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-1.5 min-w-0">
+                                            <div className="flex flex-col min-w-0">
                                               <span className="font-bold text-gray-900 truncate">{mgr.staffName}</span>
-                                              <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
-                                                mgr.role === 'stock_controller'
-                                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                                  : mgr.role === 'regional_manager'
-                                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
-                                              }`}>
-                                                {mgr.role === 'stock_controller' ? 'SC' : mgr.role === 'regional_manager' ? 'RM' : 'AM'}
-                                              </span>
-                                              {mgr.status === 'finalized' ? (
-                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                                  Final
+                                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                                <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                                                  mgr.role === 'stock_controller'
+                                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                    : mgr.role === 'regional_manager'
+                                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                    : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                                }`}>
+                                                  {mgr.role === 'stock_controller' ? 'SC' : mgr.role === 'regional_manager' ? 'RM' : 'AM'}
                                                 </span>
-                                              ) : (
-                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                                                  Draft
-                                                </span>
-                                              )}
+                                                {mgr.status === 'finalized' ? (
+                                                  <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                    Final
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                    Draft
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
                                             <div className="text-right shrink-0">
                                               <div className="flex items-baseline justify-end gap-1">
@@ -853,10 +988,36 @@ export function OpexCardDetailModals({
                             <div className="bg-white p-3.5 rounded-xl border border-amber-200 shadow-2xs flex flex-col justify-between space-y-3">
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between border-b border-amber-100 pb-2">
-                                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                                    <Users size={13} className="text-amber-600" />
-                                    <span>Kru Toko Prorata ({crewCount} Orang)</span>
-                                  </span>
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                      <Users size={13} className="text-amber-600" />
+                                      <span>Kru Toko Prorata ({crewCount} Orang)</span>
+                                    </span>
+                                    {(crewComposition.total > 0 || crewCount > 0) && (
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        {crewComposition.regular > 0 && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                            {crewComposition.regular} Reguler
+                                          </span>
+                                        )}
+                                        {crewComposition.backup > 0 && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                                            {crewComposition.backup} Backup
+                                          </span>
+                                        )}
+                                        {crewComposition.trainee > 0 && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                            {crewComposition.trainee} Trainee
+                                          </span>
+                                        )}
+                                        {crewComposition.ojt > 0 && (
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                            {crewComposition.ojt} OJT
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                   <span className="text-xs font-black text-amber-900 font-mono bg-amber-50 px-2 py-0.5 rounded-md border border-amber-300">
                                     {rupiah(crewRoutineProrata)}
                                   </span>
@@ -891,41 +1052,45 @@ export function OpexCardDetailModals({
                                       const sGapokProrata = Math.round(s.basicSalary * ratio)
                                       const sBonusProrata = Math.round(s.bonus * ratio)
                                       return (
-                                        <div key={s.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-1.5 rounded-lg border border-amber-200/80 text-xs">
-                                          <div className="flex items-center gap-1.5 min-w-0">
-                                            <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
-                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100/70 text-amber-900 border border-amber-200 uppercase shrink-0">
-                                              {s.role.replace(/_/g, ' ')}
-                                            </span>
-                                            {s.contractType === 'probation' && (
-                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 shrink-0 shadow-2xs">
-                                                Trainee
+                                        <div key={s.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-2 rounded-lg border border-amber-200/80 text-xs gap-2">
+                                          <div className="flex flex-col min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
+                                              {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
+                                                <span className="text-[9px] text-gray-400 truncate">
+                                                  ({s.outletName})
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100/70 text-amber-900 border border-amber-200 uppercase shrink-0">
+                                                {s.role.replace(/_/g, ' ')}
                                               </span>
-                                            )}
-                                            {s.contractType === 'intern' && (
-                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-300 shrink-0 shadow-2xs">
-                                                OJT
-                                              </span>
-                                            )}
-                                            {s.contractType === 'daily' && (
-                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
-                                                Backup
-                                              </span>
-                                            )}
-                                            {s.status === 'finalized' ? (
-                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                                Final
-                                              </span>
-                                            ) : (
-                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                                                Draft
-                                              </span>
-                                            )}
-                                            {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
-                                              <span className="text-[9px] text-gray-400 truncate max-w-[80px]">
-                                                ({s.outletName})
-                                              </span>
-                                            )}
+                                              {((s.contractType === 'daily' || s.subRole === 'crew_backup')) && (
+                                                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
+                                                  Backup
+                                                </span>
+                                              )}
+                                              {((s.contractType === 'probation' || s.subRole === 'crew_trainee')) && (
+                                                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 shrink-0 shadow-2xs">
+                                                  Trainee
+                                                </span>
+                                              )}
+                                              {((s.contractType === 'intern' || s.onboardingStage === 'ojt')) && (
+                                                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-300 shrink-0 shadow-2xs">
+                                                  OJT
+                                                </span>
+                                              )}
+                                              {s.status === 'finalized' ? (
+                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                  Final
+                                                </span>
+                                              ) : (
+                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                  Draft
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
                                           <div className="text-right shrink-0">
                                             <span className="font-bold text-amber-950 font-mono">
@@ -986,27 +1151,29 @@ export function OpexCardDetailModals({
                                       const mgrAllocGapok = mgr.allocatedBasicSalary ?? (mgr.basicSalary ? Math.round(mgr.basicSalary / (mgr.coachedOutletsCount || 21)) : 0)
                                       const mgrAllocTunj = mgr.allocatedAllowances ?? Math.max(0, mgrRoutine - mgrAllocGapok)
                                       return (
-                                        <div key={mgr.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-1.5 rounded-lg border border-amber-200/80 text-xs">
-                                          <div className="flex items-center gap-1.5 min-w-0">
+                                        <div key={mgr.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-2 rounded-lg border border-amber-200/80 text-xs gap-2">
+                                          <div className="flex flex-col min-w-0">
                                             <span className="font-bold text-gray-900 truncate">{mgr.staffName}</span>
-                                            <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
-                                              mgr.role === 'stock_controller'
-                                                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                                : mgr.role === 'regional_manager'
-                                                ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                                : 'bg-indigo-50 text-indigo-700 border-indigo-100'
-                                            }`}>
-                                              {mgr.role === 'stock_controller' ? 'SC' : mgr.role === 'regional_manager' ? 'RM' : 'AM'}
-                                            </span>
-                                            {mgr.status === 'finalized' ? (
-                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                                Final
+                                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                              <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                                                mgr.role === 'stock_controller'
+                                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                  : mgr.role === 'regional_manager'
+                                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                              }`}>
+                                                {mgr.role === 'stock_controller' ? 'SC' : mgr.role === 'regional_manager' ? 'RM' : 'AM'}
                                               </span>
-                                            ) : (
-                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                                                Draft
-                                              </span>
-                                            )}
+                                              {mgr.status === 'finalized' ? (
+                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                  Final
+                                                </span>
+                                              ) : (
+                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                  Draft
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
                                           <div className="text-right shrink-0">
                                             <span className="font-bold text-amber-950 font-mono">
@@ -1315,12 +1482,37 @@ export function OpexCardDetailModals({
                             return (
                               <tr key={staff.staffId} className="hover:bg-amber-50/30 transition-colors">
                                 <td className="px-3.5 py-2.5 font-bold text-gray-800">
-                                  {staff.staffName}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span>{staff.staffName}</span>
+                                    {staff.isBackup && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200 shadow-2xs">
+                                        Mobile Backup
+                                      </span>
+                                    )}
+                                  </div>
+                                  {staff.isBackup && (
+                                    <div className="text-[11px] font-medium text-purple-700 mt-1 flex items-center gap-1">
+                                      <Calendar size={12} className="text-purple-500 shrink-0" />
+                                      <span>
+                                        {staff.backupNote || (
+                                          staff.backupDates && staff.backupDates.length > 0
+                                            ? `Tanggal backup di outlet ini: ${staff.backupDatesFormatted || formatBackupDates(staff.backupDates)} (${staff.backupDates.length} hari)`
+                                            : 'Jadwal backup fleksibel'
+                                        )}
+                                      </span>
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="px-3 py-2.5 text-center">
-                                  <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
-                                    {staff.role || 'crew'}
-                                  </span>
+                                  {staff.isBackup ? (
+                                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
+                                      Backup
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
+                                      {staff.role || 'crew'}
+                                    </span>
+                                  )}
                                 </td>
                                 {crewBonusList.some(b => b.outletName) && (
                                   <td className="px-3.5 py-2.5 text-gray-600 font-medium">

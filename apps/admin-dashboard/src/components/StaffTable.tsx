@@ -60,29 +60,33 @@ export function StaffTable({
     return c ? (map[c] || c) : '-'
   }
 
-  const contractBadge = (c?: string | null) => {
-    if (!c) return null
-    if (c === 'probation') {
+  const contractBadge = (c?: string | null, subRole?: string | null, stage?: string | null) => {
+    const isBackup = c === 'daily' || subRole === 'crew_backup'
+    const isTrainee = c === 'probation' || subRole === 'crew_trainee'
+    const isOjt = c === 'intern' || stage === 'ojt'
+
+    if (isBackup || isTrainee || isOjt) {
       return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
-          Trainee
-        </span>
+        <div className="inline-flex items-center gap-1 flex-wrap">
+          {isBackup && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-300 shadow-2xs">
+              Backup
+            </span>
+          )}
+          {isTrainee && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+              Trainee
+            </span>
+          )}
+          {isOjt && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-300 shadow-2xs">
+              OJT
+            </span>
+          )}
+        </div>
       )
     }
-    if (c === 'intern') {
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-300 shadow-2xs">
-          OJT / Magang
-        </span>
-      )
-    }
-    if (c === 'daily') {
-      return (
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-300 shadow-2xs">
-          Backup / Harian
-        </span>
-      )
-    }
+
     if (c === 'contract') {
       return (
         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
@@ -135,7 +139,7 @@ export function StaffTable({
                   <div className="flex flex-col gap-1 items-start">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-medium text-stone-800">{s.role.replace('_', ' ')}</span>
-                      {contractBadge(s.contract_type)}
+                      {contractBadge(s.contract_type, s.sub_role, s.onboarding_stage)}
                     </div>
                     {onToggleBonus ? (
                       <button
@@ -258,7 +262,7 @@ export function StaffTable({
                     <span className="text-xs text-gray-400 block">Jenis Kontrak</span>
                     <div className="mt-0.5 flex items-center gap-2 flex-wrap">
                       <span className="font-medium text-gray-700 block">{formatContract(selectedStaff.contract_type)}</span>
-                      {contractBadge(selectedStaff.contract_type)}
+                      {contractBadge(selectedStaff.contract_type, selectedStaff.sub_role, selectedStaff.onboarding_stage)}
                     </div>
                   </div>
                   <div>

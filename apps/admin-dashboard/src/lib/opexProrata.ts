@@ -259,7 +259,7 @@ function computeManagerAllocationsForPeriod(
       } else {
         const assignment = managerAssignments.find(ma =>
           (s.staff_id && ma.staff_id && ma.staff_id === s.staff_id) ||
-          (ma.role === 'area_manager' && ma.outlet_ids.includes(s.outlet_id))
+          (ma.role === 'area_manager' && s.outlet_id && s.outlet_id !== 'ffffffff-ffff-ffff-ffff-ffffffffffff' && ma.outlet_ids.includes(s.outlet_id))
         )
         const candidateOutlets = assignment ? assignment.outlet_ids : [s.outlet_id]
         targets = candidateOutlets.filter(id => operationalOutletIds.includes(id))

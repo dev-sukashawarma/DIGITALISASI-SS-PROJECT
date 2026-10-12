@@ -25,6 +25,8 @@ const getStaffFormSchema = (isEditing: boolean) => z.object({
   is_bonus_eligible: z.boolean().default(true).optional(),
   nip: z.string().nullable().optional(),
   contract_type: z.enum(['permanent', 'contract', 'probation', 'intern', 'daily']).nullable().optional(),
+  sub_role: z.string().nullable().optional(),
+  onboarding_stage: z.string().nullable().optional(),
   join_date: z.string().nullable().optional(),
   resign_date: z.string().nullable().optional(),
   leave_quota: z.coerce.number().nullable().optional(),
@@ -237,6 +239,14 @@ export function StaffForm({
       // Contract
       nip: data.nip || null,
       contract_type: data.contract_type || null,
+      sub_role: data.contract_type === 'probation'
+        ? 'crew_trainee'
+        : data.contract_type === 'daily'
+        ? 'crew_backup'
+        : (data.sub_role || 'crew_regular'),
+      onboarding_stage: data.contract_type === 'intern'
+        ? 'ojt'
+        : (data.onboarding_stage || 'regular'),
       join_date: data.join_date || null,
       resign_date: data.resign_date || null,
       leave_quota: data.leave_quota || 0,

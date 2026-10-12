@@ -101,6 +101,8 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
       emergency_phone: emergency_phone || null,
       nip: cleanNip,
       contract_type: contract_type || null,
+      sub_role: values.sub_role || (contract_type === 'probation' ? 'crew_trainee' : contract_type === 'daily' ? 'crew_backup' : 'crew_regular'),
+      onboarding_stage: values.onboarding_stage || (contract_type === 'intern' ? 'ojt' : 'regular'),
       join_date: join_date || null,
       resign_date: resign_date || null,
       leave_quota: typeof leave_quota === "number" ? leave_quota : 12,

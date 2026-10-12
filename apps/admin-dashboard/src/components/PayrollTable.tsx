@@ -43,8 +43,25 @@ export function PayrollTable({
                   <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
                     <td className="px-4 py-3">
                       <div className="font-bold text-suka-ink text-sm">{r.outlet_staff?.name || 'Staff'}</div>
-                      <div className="text-xs text-suka-brown font-semibold uppercase">
-                        {r.outlet_staff?.role?.replace('_', ' ')}
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        <span className="text-xs text-suka-brown font-semibold uppercase">
+                          {r.outlet_staff?.role?.replace('_', ' ')}
+                        </span>
+                        {((r.outlet_staff?.contract_type === 'daily' || r.outlet_staff?.sub_role === 'crew_backup')) && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-300 shadow-2xs">
+                            Backup
+                          </span>
+                        )}
+                        {((r.outlet_staff?.contract_type === 'probation' || r.outlet_staff?.sub_role === 'crew_trainee')) && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+                            Trainee
+                          </span>
+                        )}
+                        {((r.outlet_staff?.contract_type === 'intern' || r.outlet_staff?.onboarding_stage === 'ojt')) && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-300 shadow-2xs">
+                            OJT
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs font-semibold text-gray-700">

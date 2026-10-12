@@ -356,12 +356,17 @@ export default function InputPengeluaranPage() {
   // Realtime & Prorata Routine Salary (Gaji Pokok + Tunjangan Aktif + Alokasi Rutin Manajer)
   const displayRoutineSalary = useMemo(() => {
     if (isPusat) return summary.salary
+    if (hasHrPayroll && hrPayroll) {
+      const crewGapok = Math.round(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)
+      const crewTunj = Math.round(hrPayroll.crewAllowances ?? hrPayroll.allowances)
+      const crewPot = Math.round(hrPayroll.crewDeductions ?? hrPayroll.deductions)
+      const crewRoutine = Math.max(0, crewGapok + crewTunj - crewPot)
+      const mgrAlloc = Math.round(hrPayroll.managerAllocation || 0)
+      const monthlyRoutine = crewRoutine + mgrAlloc
+      return prorataInfo.isProrated ? Math.round(monthlyRoutine * prorataInfo.ratio) : monthlyRoutine
+    }
     if (prorataBreakdown?.gaji_crew_outlet?.nominalProrata > 0) {
       return prorataBreakdown.gaji_crew_outlet.nominalProrata
-    }
-    if (hasHrPayroll) {
-      const routineMonthly = Math.max(0, hrPayroll!.totalSalary - (hrPayroll!.bonus || 0))
-      return prorataInfo.isProrated ? Math.round(routineMonthly * prorataInfo.ratio) : routineMonthly
     }
     return summary.salary
   }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo, summary.salary])
@@ -380,7 +385,15 @@ export default function InputPengeluaranPage() {
   // Baselines sebulan penuh (1 bln) untuk pembanding kartu dan modal rincian
   const baselineRoutineSalary = useMemo(() => {
     if (isPusat) return summary.salary
-    return prorataBreakdown?.gaji_crew_outlet?.nominalBulanan || (hasHrPayroll ? Math.max(0, hrPayroll!.totalSalary - (hrPayroll!.bonus || 0)) : summary.salary)
+    if (hasHrPayroll && hrPayroll) {
+      const crewGapok = Math.round(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)
+      const crewTunj = Math.round(hrPayroll.crewAllowances ?? hrPayroll.allowances)
+      const crewPot = Math.round(hrPayroll.crewDeductions ?? hrPayroll.deductions)
+      const crewRoutine = Math.max(0, crewGapok + crewTunj - crewPot)
+      const mgrAlloc = Math.round(hrPayroll.managerAllocation || 0)
+      return Math.max(0, crewRoutine + mgrAlloc)
+    }
+    return prorataBreakdown?.gaji_crew_outlet?.nominalBulanan || summary.salary
   }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, summary.salary])
 
   const baselineCrewBonus = useMemo(() => {
@@ -1099,7 +1112,18 @@ export default function InputPengeluaranPage() {
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
               {hasHrPayroll ? (
                 <span>
-                  Gaji Rutin ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} kru)
+                  Gaji Rutin ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} kru{(() => {
+                    const parts: string[] = []
+                    const reg = hrPayroll!.crewRegularCount ?? 0
+                    const bkp = hrPayroll!.crewBackupCount ?? 0
+                    const trn = hrPayroll!.crewTraineeCount ?? 0
+                    const ojt = hrPayroll!.crewOjtCount ?? 0
+                    if (reg > 0) parts.push(`${reg} Reguler`)
+                    if (bkp > 0) parts.push(`${bkp} Backup`)
+                    if (trn > 0) parts.push(`${trn} Trainee`)
+                    if (ojt > 0) parts.push(`${ojt} OJT`)
+                    return parts.length > 0 ? `: ${parts.join(', ')}` : ''
+                  })()})
                   {Boolean(hrPayroll!.managerAllocation && hrPayroll!.managerAllocation > 0) && (
                     <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={`Termasuk alokasi beban rutin AM, RM, & Stock Controller: ${rupiah(hrPayroll!.managerRoutineAllocation ?? hrPayroll!.managerAllocation)}`}>
                       • Termasuk Rutin AM/RM/SC

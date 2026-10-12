@@ -62,6 +62,8 @@ serve(async (req) => {
     if (emergency_phone !== undefined) patch.emergency_phone = emergency_phone || null;
     if (nip !== undefined) patch.nip = nip || null;
     if (contract_type !== undefined) patch.contract_type = contract_type || null;
+    if (body.sub_role !== undefined) patch.sub_role = body.sub_role || 'crew_regular';
+    if (body.onboarding_stage !== undefined) patch.onboarding_stage = body.onboarding_stage || 'regular';
     if (join_date !== undefined) patch.join_date = join_date || null;
     if (resign_date !== undefined) patch.resign_date = resign_date || null;
     if (leave_quota !== undefined) patch.leave_quota = leave_quota !== null ? Number(leave_quota) : 12;

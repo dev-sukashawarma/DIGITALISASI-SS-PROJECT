@@ -198,9 +198,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
       { href: '/dashboard/sistem/hermes', label: 'Kunci Hermes', shortLabel: 'Hermes', icon: KeyRound, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/printer', label: 'Pengaturan Printer', shortLabel: 'Printer', icon: Printer, roles: ['ADMIN'] },
-      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['ADMIN'] },
-      { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['ADMIN'] },
-      { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['ADMIN'] },
+
+
+
       { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['ADMIN'] },
       { href: '/dashboard/data-validate', label: 'Data Validate', shortLabel: 'Data Validate', icon: ClipboardList, roles: ['ADMIN'] },
     ],
@@ -210,9 +210,9 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: UploadCloud,
     roles: ['OWNER'],
     items: [
-      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['OWNER'] },
-      { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['OWNER'] },
-      { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['OWNER'] },
+
+
+
       { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['OWNER'] },
       { href: '/dashboard/data-validate', label: 'Data Validate', shortLabel: 'Data Validate', icon: ClipboardList, roles: ['OWNER'] },
     ],

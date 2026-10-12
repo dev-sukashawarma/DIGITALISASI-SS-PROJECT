@@ -72,9 +72,9 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/owner/targets',
     '/dashboard/owner/waste',
     '/dashboard/panduan',
-    '/dashboard/pawoon-import',
-    '/dashboard/pawoon-import/mapping',
-    '/dashboard/pawoon-import/synced',
+
+
+
     '/dashboard/pembelian',
     '/dashboard/pembelian/harga',
     '/dashboard/pembelian/perlu-dibeli',
@@ -126,9 +126,9 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/owner/targets',
     '/dashboard/owner/waste',
     '/dashboard/panduan',
-    '/dashboard/pawoon-import',
-    '/dashboard/pawoon-import/mapping',
-    '/dashboard/pawoon-import/synced',
+
+
+
     '/dashboard/platform-settlement',
     '/dashboard/pos-admin/settings',
     '/dashboard/reports/crew-bonus',

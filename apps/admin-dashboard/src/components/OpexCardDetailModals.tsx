@@ -14,8 +14,6 @@ import {
   Award,
   Briefcase,
   Clock,
-  ChevronDown,
-  ChevronUp,
   Info,
   Calendar,
   Calculator
@@ -136,7 +134,6 @@ export function OpexCardDetailModals({
 }: OpexCardDetailModalsProps) {
   const [operationalTab, setOperationalTab] = useState<'category' | 'outlet'>('category')
   const [lemburTab, setLemburTab] = useState<'outlet' | 'transactions'>('outlet')
-  const [showSalaryComposition, setShowSalaryComposition] = useState(true)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -598,49 +595,8 @@ export function OpexCardDetailModals({
                 </div>
               </div>
 
-              {/* Komposisi Komponen & Alokasi Manajer (Progressive Disclosure) */}
-              {hasHrPayroll && hrPayroll && (
-                <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl overflow-hidden shadow-2xs transition-all">
-                  {/* Summary Bar (Compact ~40px) */}
-                  <div className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2 flex-wrap text-xs">
-                      <span className="font-extrabold text-gray-700 flex items-center gap-1.5 shrink-0">
-                        <Wallet size={13} className="text-indigo-600" />
-                        Komposisi Beban:
-                      </span>
-                      <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
-                        <span className="bg-white px-2 py-0.5 rounded-md border border-gray-200 text-gray-700 font-medium shadow-2xs">
-                          Gapok: <strong className="text-gray-900 font-bold">{rupiah(Math.round((hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary) * ratio))}</strong>
-                          {isProrated && <span className="text-[10px] text-gray-400 font-normal ml-1">({rupiah(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)})</span>}
-                        </span>
-                        <span className="bg-white px-2 py-0.5 rounded-md border border-emerald-200 text-emerald-800 font-medium shadow-2xs">
-                          Tunjangan: <strong className="text-emerald-700 font-bold">+{rupiah(Math.round((hrPayroll.crewAllowances ?? hrPayroll.allowances) * ratio))}</strong>
-                        </span>
-                        {(hrPayroll.crewDeductions ?? hrPayroll.deductions) > 0 && (
-                          <span className="bg-white px-2 py-0.5 rounded-md border border-rose-200 text-rose-800 font-medium shadow-2xs">
-                            Potongan: <strong className="text-rose-700 font-bold">-{rupiah(Math.round((hrPayroll.crewDeductions ?? hrPayroll.deductions) * ratio))}</strong>
-                          </span>
-                        )}
-                        {(hrPayroll.managerAllocation || 0) > 0 && (
-                          <span className="bg-white px-2 py-0.5 rounded-md border border-purple-200 text-purple-800 font-medium shadow-2xs">
-                            AM/RM/SC: <strong className="text-purple-700 font-bold">+{rupiah(Math.round((hrPayroll.managerAllocation || 0) * ratio))}</strong>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowSalaryComposition(prev => !prev)}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 shrink-0 self-start sm:self-auto cursor-pointer px-2.5 py-1 rounded-lg hover:bg-white transition-all border border-transparent hover:border-indigo-200"
-                    >
-                      <span>{showSalaryComposition ? 'Tutup Rincian' : 'Lihat Detail Komposisi'}</span>
-                      {showSalaryComposition ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </button>
-                  </div>
-
-                  {/* Expandable Detailed View (When Clicked) */}
-                  {showSalaryComposition && (() => {
+              {/* Rincian Beban Gaji Rutin: Card 1 (Fix Bulanan) & Card 2 (Prorata Periode Ini) */}
+              {hasHrPayroll && hrPayroll && (() => {
                     // 1. Angka Baseline 1 Bulan Penuh (Fix)
                     const crewGapok1Bln = Math.round(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)
                     const crewTunj1Bln = Math.round(hrPayroll.crewAllowances ?? hrPayroll.allowances)
@@ -692,7 +648,7 @@ export function OpexCardDetailModals({
                     const mgrFullRoutineSum = Math.max(0, mgrFullGapokSum + mgrFullTunjSum - mgrFullPotSum)
 
                     return (
-                      <div className="p-4 sm:p-5 border-t border-slate-200 bg-white space-y-4 animate-in slide-in-from-top-2 duration-150">
+                      <div className="space-y-4">
                         {/* ========================================================================= */}
                         {/* CARD 1 (ATAS): INFORMASI GAJI FIX SETIAP BULANNYA (BASELINE 1 BULAN)     */}
                         {/* ========================================================================= */}
@@ -1304,8 +1260,6 @@ export function OpexCardDetailModals({
                       </div>
                     )
                   })()}
-                </div>
-              )}
 
               {/* Rincian Beban Gaji per Cabang (Khusus Jika Konsolidasi Multi-Cabang / Semua Cabang) */}
               {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && (

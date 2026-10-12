@@ -8,18 +8,22 @@ type MitraOutletContextType = {
   selectedOutletId: string | null
   setSelectedOutletId: (id: string) => void
   selectedOutlet: any | null
+  /** `true` bila yang melihat adalah admin/owner/developer dalam mode pratinjau, bukan mitranya sendiri. */
+  modePratinjau: boolean
 }
 
 const MitraOutletContext = createContext<MitraOutletContextType | undefined>(undefined)
 
 export function MitraOutletProvider({ 
-  children, 
-  outlets, 
-  profile 
-}: { 
+  children,
+  outlets,
+  profile,
+  modePratinjau = false,
+}: {
   children: React.ReactNode
   outlets: any[]
   profile: any
+  modePratinjau?: boolean
 }) {
   const [selectedOutletId, setSelectedOutletId] = useState<string | null>(
     outlets.length === 1 ? outlets[0].id : (outlets.length > 1 ? 'all' : null)
@@ -34,7 +38,7 @@ export function MitraOutletProvider({
   const selectedOutlet = outlets.find((o) => o.id === selectedOutletId) || null
 
   return (
-    <MitraOutletContext.Provider value={{ outlets, profile, selectedOutletId, setSelectedOutletId, selectedOutlet }}>
+    <MitraOutletContext.Provider value={{ outlets, profile, selectedOutletId, setSelectedOutletId, selectedOutlet, modePratinjau }}>
       {children}
     </MitraOutletContext.Provider>
   )

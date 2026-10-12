@@ -5,6 +5,8 @@ import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
 import { getAggregatedMenuSales } from '@/app/actions/menuSales'
 import { getMitraRoiStats } from '@/app/actions/mitraRoi'
 import { MitraDashboardView } from './MitraDashboardView'
+import { createServiceClient } from '@/lib/supabase/server'
+import { COOKIE_PRATINJAU_MITRA, pilihProfilPratinjau } from '@/lib/mitraPratinjau'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +40,6 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   
   // 1. Fetch profil mitra (own profile or admin selected profile)
   let profile: any = null
-  let allMitraProfiles: any[] = []
 
   // Check if user has their own mitra profile
   const { data: ownProfile } = await supabase
@@ -47,31 +48,30 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
     .eq('user_id', userId)
     .single()
 
+  // Mode pratinjau (admin/owner/developer tanpa profil mitra): data mitra dibaca lewat
+  // service client. Perannya sudah diverifikasi di atas, dan RLS tabel mitra_* hanya
+  // mengenal admin & owner — tanpa ini developer melihat halaman kosong.
+  // Untuk akun mitra, `db` tetap klien miliknya sendiri (tunduk RLS seperti biasa).
+  const modePratinjau = isAdminOrOwner && !ownProfile
+  const db = modePratinjau ? createServiceClient() : supabase
+
   if (ownProfile) {
     profile = ownProfile
   } else if (isAdminOrOwner) {
-    // Admin mode: fetch all mitra profiles
-    const { data: allProfiles } = await supabase
+    // Mitra yang dipratinjau = pilihan di cookie; layout.tsx memilih dengan cara yang sama.
+    const { data: allProfiles } = await db
       .from('mitra_profiles')
       .select('*')
       .order('nama_mitra', { ascending: true })
-    
-    allMitraProfiles = allProfiles || []
 
-    if (sp.mitraId) {
-      profile = allMitraProfiles.find(p => p.id === sp.mitraId || p.user_id === sp.mitraId)
-    }
-    
-    if (!profile && allMitraProfiles.length > 0) {
-      profile = allMitraProfiles[0]
-    }
+    profile = pilihProfilPratinjau(allProfiles || [], cookieStore.get(COOKIE_PRATINJAU_MITRA)?.value) ?? null
   }
     
   // If still no profile (even in admin mode or no mitra exists in DB yet)
   if (!profile) {
     if (isAdminOrOwner) {
       // Fallback for Admin: fetch all outlets to preview dashboard
-      const { data: allOutlets } = await supabase.from('outlets').select('*').limit(5)
+      const { data: allOutlets } = await db.from('outlets').select('*').limit(5)
       const outletIds = (allOutlets || []).map(o => o.id)
       
       profile = {
@@ -102,7 +102,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   const outletIds: string[] = profile.outlet_ids || []
   let outlets: any[] = []
   if (outletIds.length > 0) {
-    const { data: out } = await supabase
+    const { data: out } = await db
       .from('outlets')
       .select('*')
       .in('id', outletIds)
@@ -112,7 +112,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   // 3. Fetch investasi
   const investasiMap: Record<string, number> = {}
   if (outletIds.length > 0) {
-    const { data: inv } = await supabase
+    const { data: inv } = await db
       .from('mitra_investments')
       .select('outlet_id, nilai_investasi')
       .in('outlet_id', outletIds)
@@ -177,7 +177,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   // 5. Fetch Recent Orders for Mitra
   let recentOrders: any[] = []
   if (outletIds.length > 0) {
-    const { data: ords } = await supabase
+    const { data: ords } = await db
       .from('orders')
       // `receipt_number` hanya ada di pos_sales; tabel orders memakai order_number.
       // Kolom yang salah membuat query gagal (42703) dan daftar orderan selalu kosong.
@@ -191,7 +191,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   // 6. Fetch Transfers
   let transfers: any[] = []
   if (outletIds.length > 0) {
-    const { data: tf } = await supabase
+    const { data: tf } = await db
       .from('mitra_transfers')
       .select('*')
       .in('outlet_id', outletIds)
@@ -202,7 +202,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   // 7. Fetch Staff (Crew & Leader)
   let staffList: any[] = []
   if (outletIds.length > 0) {
-    const { data: st } = await supabase
+    const { data: st } = await db
       .from('outlet_staff')
       .select('id, name, role, status, outlet_id')
       .in('outlet_id', outletIds)
@@ -220,21 +220,27 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
 
   // 8. Fetch Saran / Suggestions
   let suggestionsList: any[] = []
-  const { data: sg } = await supabase
+  const { data: sg } = await db
     .from('mitra_suggestions')
     .select('*')
     .eq('user_id', profile.user_id || userId)
     .order('created_at', { ascending: false })
   if (sg) suggestionsList = sg
 
+  // Akun mitra hanya menerima baris outletnya sendiri (dibatasi di database). Di mode
+  // pratinjau pemanggilnya admin, jadi barisnya mencakup semua outlet — dipersempit di
+  // sini supaya grafik tren persis seperti yang dilihat mitra itu.
+  const hanyaOutletMitra = <T extends { outlet_id?: string | null }>(rows: T[]): T[] =>
+    modePratinjau ? rows.filter(r => !!r.outlet_id && outletIds.includes(r.outlet_id)) : rows
+
   return (
     <MitraDashboardView 
       mitra={profile} 
       outlets={outlets} 
       investasiMap={investasiMap}
-      curKpiRows={curData.kpiRows}
-      prevKpiRows={prevData.kpiRows}
-      trendKpiRows={trendData.kpiRows}
+      curKpiRows={hanyaOutletMitra(curData.kpiRows)}
+      prevKpiRows={hanyaOutletMitra(prevData.kpiRows)}
+      trendKpiRows={hanyaOutletMitra(trendData.kpiRows)}
       trendFilter={trendFilter}
       hourlyRows={curData.hourlyRows}
       currentFilter={curFilter}
@@ -244,8 +250,6 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
       initialStaff={staffList}
       initialSuggestions={suggestionsList}
       initialRoiStats={initialRoiData}
-      isAdminMode={isAdminOrOwner && !ownProfile}
-      allMitraProfiles={allMitraProfiles}
       lastUpdated={curData.fetchedAt}
       isCached={curData.isCached}
     />

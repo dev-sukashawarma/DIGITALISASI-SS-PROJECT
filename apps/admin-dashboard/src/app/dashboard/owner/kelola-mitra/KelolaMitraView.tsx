@@ -287,6 +287,13 @@ export function KelolaMitraView({
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0 pt-1 lg:pt-0">
+            <a
+              href="/dashboard/mitra"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-suka-gray-50 text-suka-brown border border-suka-gray-200 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:border-suka-orange/40 transition-all active:scale-[0.98]"
+            >
+              <Store className="w-4 h-4 text-suka-orange" />
+              <span>Lihat sebagai Mitra</span>
+            </a>
             <button
               onClick={() => setIsTransferFormOpen(true)}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-suka-gray-50 text-suka-brown border border-suka-gray-200 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:border-suka-orange/40 transition-all active:scale-[0.98]"

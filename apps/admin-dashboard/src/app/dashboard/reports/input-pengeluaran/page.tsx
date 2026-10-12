@@ -119,8 +119,30 @@ export default function InputPengeluaranPage() {
   const paramTo = searchParams.get(BUKU_KAS_PARAMS.to)
   const paramOutlet = searchParams.get(BUKU_KAS_PARAMS.outlet)
 
-  type PresetType = 'today' | 'last_7_days' | 'this_month' | 'last_month' | 'last_30_days' | 'custom'
-  const [activePreset, setActivePreset] = useState<PresetType>(() => (paramFrom || paramTo) ? 'custom' : 'today')
+  type PresetType = 'yesterday' | 'today' | 'last_7_days' | 'this_month' | 'last_month' | 'custom'
+  const [activePreset, setActivePreset] = useState<PresetType>(() => {
+    if (!paramFrom && !paramTo) return 'today'
+    const today = new Date()
+    const todayStr = formatLocalDate(today)
+    const yesterdayStr = formatLocalDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1))
+    const firstOfMonthStr = getFirstOfMonth(today)
+    if (paramFrom === todayStr && paramTo === todayStr) return 'today'
+    if (paramFrom === yesterdayStr && paramTo === yesterdayStr) return 'yesterday'
+    if (paramFrom === firstOfMonthStr && paramTo === todayStr) return 'this_month'
+
+    const prevYear = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()
+    const prevMonth = today.getMonth() === 0 ? 12 : today.getMonth()
+    const padM = String(prevMonth).padStart(2, '0')
+    const lastMonthStart = `${prevYear}-${padM}-01`
+    const lastDay = new Date(prevYear, prevMonth, 0).getDate()
+    const lastMonthEnd = `${prevYear}-${padM}-${String(lastDay).padStart(2, '0')}`
+    if (paramFrom === lastMonthStart && paramTo === lastMonthEnd) return 'last_month'
+
+    const past7 = formatLocalDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6))
+    if (paramFrom === past7 && paramTo === todayStr) return 'last_7_days'
+
+    return 'custom'
+  })
   const [startDate, setStartDate] = useState(() => paramFrom || getToday())
   const [endDate, setEndDate] = useState(() => paramTo || getToday())
 
@@ -320,51 +342,49 @@ export default function InputPengeluaranPage() {
 
   const hasHrPayroll = Boolean(hrPayroll && hrPayroll.totalStaff > 0 && hrPayroll.totalSalary > 0)
 
-  // Realtime & Prorata Crew Bonus (Modul get_monthly_crew_bonus RPC + MTD Sales / fallback HR)
+  // Realtime & Exact Crew Bonus from HR Payroll (get_daily_outlet_bonus_detail) / Prorata fallback
   const displayCrewBonus = useMemo(() => {
     if (isPusat) return 0
+    if (hasHrPayroll && hrPayroll?.crewBonus !== undefined) {
+      return hrPayroll.crewBonus
+    }
     if (prorataBreakdown?.bonus_crew?.nominalProrata > 0) {
       return prorataBreakdown.bonus_crew.nominalProrata
     }
-    if (!hasHrPayroll || !hrPayroll?.crewBonus) return 0
-    if (!prorataInfo.isProrated) return hrPayroll.crewBonus
-    return Math.round(hrPayroll.crewBonus * prorataInfo.ratio)
-  }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo])
+    return 0
+  }, [isPusat, hasHrPayroll, hrPayroll, prorataBreakdown])
 
-  // Realtime & Prorata Manager Bonus (Area Manager + Regional Manager)
+  // Realtime & Exact Manager Bonus from HR Payroll / Prorata fallback
   const displayManagerBonus = useMemo(() => {
     if (isPusat) return 0
+    if (hasHrPayroll && hrPayroll?.managerBonusAllocation !== undefined) {
+      return hrPayroll.managerBonusAllocation
+    }
     const mgrProrata = (prorataBreakdown?.bonus_area_manager?.nominalProrata || 0) + (prorataBreakdown?.bonus_regional_manager?.nominalProrata || 0)
     if (mgrProrata > 0) {
       return mgrProrata
     }
-    if (!hasHrPayroll || !hrPayroll?.managerBonusAllocation) return 0
-    if (!prorataInfo.isProrated) return hrPayroll.managerBonusAllocation
-    return Math.round(hrPayroll.managerBonusAllocation * prorataInfo.ratio)
-  }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo])
+    return 0
+  }, [isPusat, hasHrPayroll, hrPayroll, prorataBreakdown])
 
   // Total Bonus (Kru + Pengawas)
   const displayBonus = useMemo(() => {
-    if (isPusat) return 0
-    const totalBonusRealtime = displayCrewBonus + displayManagerBonus
-    if (totalBonusRealtime > 0) return totalBonusRealtime
-    if (!hasHrPayroll || !hrPayroll?.bonus) return 0
-    if (!prorataInfo.isProrated) return hrPayroll.bonus
-    return Math.round(hrPayroll.bonus * prorataInfo.ratio)
-  }, [isPusat, displayCrewBonus, displayManagerBonus, hasHrPayroll, hrPayroll, prorataInfo])
+    if (isPusat) return displayCrewBonus
+    return displayCrewBonus + displayManagerBonus
+  }, [isPusat, displayCrewBonus, displayManagerBonus])
 
   // Realtime & Prorata Routine Salary (Gaji Pokok + Tunjangan Aktif + Alokasi Rutin Manajer)
   const displayRoutineSalary = useMemo(() => {
-    if (isPusat) return summary.salary
     if (hasHrPayroll && hrPayroll) {
-      const crewGapok = Math.round(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)
-      const crewTunj = Math.round(hrPayroll.crewAllowances ?? hrPayroll.allowances)
-      const crewPot = Math.round(hrPayroll.crewDeductions ?? hrPayroll.deductions)
-      const crewRoutine = Math.max(0, crewGapok + crewTunj - crewPot)
-      const mgrAlloc = Math.round(hrPayroll.managerAllocation || 0)
-      const monthlyRoutine = crewRoutine + mgrAlloc
+      const staffGapok = Math.round(isPusat ? hrPayroll.basicSalary : (hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary))
+      const staffTunj = Math.round(isPusat ? hrPayroll.allowances : (hrPayroll.crewAllowances ?? hrPayroll.allowances))
+      const staffPot = Math.round(isPusat ? hrPayroll.deductions : (hrPayroll.crewDeductions ?? hrPayroll.deductions))
+      const staffRoutine = Math.max(0, staffGapok + staffTunj - staffPot)
+      const mgrAlloc = isPusat ? 0 : Math.round(hrPayroll.managerAllocation || 0)
+      const monthlyRoutine = staffRoutine + mgrAlloc
       return prorataInfo.isProrated ? Math.round(monthlyRoutine * prorataInfo.ratio) : monthlyRoutine
     }
+    if (isPusat) return summary.salary
     if (prorataBreakdown?.gaji_crew_outlet?.nominalProrata > 0) {
       return prorataBreakdown.gaji_crew_outlet.nominalProrata
     }
@@ -384,20 +404,20 @@ export default function InputPengeluaranPage() {
 
   // Baselines sebulan penuh (1 bln) untuk pembanding kartu dan modal rincian
   const baselineRoutineSalary = useMemo(() => {
-    if (isPusat) return summary.salary
     if (hasHrPayroll && hrPayroll) {
-      const crewGapok = Math.round(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)
-      const crewTunj = Math.round(hrPayroll.crewAllowances ?? hrPayroll.allowances)
-      const crewPot = Math.round(hrPayroll.crewDeductions ?? hrPayroll.deductions)
-      const crewRoutine = Math.max(0, crewGapok + crewTunj - crewPot)
-      const mgrAlloc = Math.round(hrPayroll.managerAllocation || 0)
-      return Math.max(0, crewRoutine + mgrAlloc)
+      const staffGapok = Math.round(isPusat ? hrPayroll.basicSalary : (hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary))
+      const staffTunj = Math.round(isPusat ? hrPayroll.allowances : (hrPayroll.crewAllowances ?? hrPayroll.allowances))
+      const staffPot = Math.round(isPusat ? hrPayroll.deductions : (hrPayroll.crewDeductions ?? hrPayroll.deductions))
+      const staffRoutine = Math.max(0, staffGapok + staffTunj - staffPot)
+      const mgrAlloc = isPusat ? 0 : Math.round(hrPayroll.managerAllocation || 0)
+      return Math.max(0, staffRoutine + mgrAlloc)
     }
+    if (isPusat) return summary.salary
     return prorataBreakdown?.gaji_crew_outlet?.nominalBulanan || summary.salary
   }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, summary.salary])
 
   const baselineCrewBonus = useMemo(() => {
-    if (isPusat) return 0
+    if (isPusat) return hrPayroll?.crewBonus || 0
     return prorataBreakdown?.bonus_crew?.nominalBulanan || hrPayroll?.crewBonus || 0
   }, [isPusat, prorataBreakdown, hrPayroll])
 
@@ -753,13 +773,18 @@ export default function InputPengeluaranPage() {
   const setPreset = (preset: PresetType) => {
     setActivePreset(preset)
     const today = new Date()
-    if (preset === 'today') {
+    if (preset === 'yesterday') {
+      const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+      const y = formatLocalDate(yesterday)
+      setStartDate(y)
+      setEndDate(y)
+    } else if (preset === 'today') {
       const t = formatLocalDate(today)
       setStartDate(t)
       setEndDate(t)
     } else if (preset === 'this_month') {
       setStartDate(getFirstOfMonth(today))
-      setEndDate(getLastOfMonth(today))
+      setEndDate(formatLocalDate(today))
     } else if (preset === 'last_month') {
       const prevYear = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()
       const prevMonth = today.getMonth() === 0 ? 12 : today.getMonth() // 1-indexed (1 to 12)
@@ -771,10 +796,6 @@ export default function InputPengeluaranPage() {
       setEndDate(end)
     } else if (preset === 'last_7_days') {
       const past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
-      setStartDate(formatLocalDate(past))
-      setEndDate(formatLocalDate(today))
-    } else if (preset === 'last_30_days') {
-      const past = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)
       setStartDate(formatLocalDate(past))
       setEndDate(formatLocalDate(today))
     }
@@ -908,6 +929,17 @@ export default function InputPengeluaranPage() {
         <div className="flex items-center gap-1 bg-suka-gray-100/90 p-1 rounded-xl border border-suka-gray-200/60 shrink-0 overflow-x-auto max-w-full">
           <button
             type="button"
+            onClick={() => setPreset('yesterday')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activePreset === 'yesterday'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            Kemarin
+          </button>
+          <button
+            type="button"
             onClick={() => setPreset('today')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activePreset === 'today'
@@ -949,17 +981,6 @@ export default function InputPengeluaranPage() {
             }`}
           >
             Bulan Lalu
-          </button>
-          <button
-            type="button"
-            onClick={() => setPreset('last_30_days')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-              activePreset === 'last_30_days'
-                ? 'bg-suka-orange text-white font-bold shadow-xs'
-                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
-            }`}
-          >
-            30 Hari
           </button>
           <button
             type="button"
@@ -1064,8 +1085,8 @@ export default function InputPengeluaranPage() {
         </div>
       )}
 
-      {/* SUMMARY STATS (PURE OPEX - 6 CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, LEMBUR KAS, OPERATIONAL, TOTAL) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4.5">
+      {/* SUMMARY STATS (PURE OPEX - DYNAMIC CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, LEMBUR KAS, OPERATIONAL, TOTAL) */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isPusat && displayCrewBonus === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3.5 sm:gap-4.5`}>
         {/* 1. Gaji & Payroll (Rutin) */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
           <div>
@@ -1073,7 +1094,7 @@ export default function InputPengeluaranPage() {
               <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
                 <div className="flex items-center gap-1 shrink-0">
                   <Users size={14} className="shrink-0" />
-                  <span>Gaji (Rutin)</span>
+                  <span>{isPusat ? 'Gaji Rutin Pusat' : 'Gaji (Rutin)'}</span>
                 </div>
                 {hrPayroll?.status === 'draft' && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
@@ -1112,22 +1133,28 @@ export default function InputPengeluaranPage() {
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
               {hasHrPayroll ? (
                 <span>
-                  Gaji Rutin ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} kru{(() => {
-                    const parts: string[] = []
-                    const reg = hrPayroll!.crewRegularCount ?? 0
-                    const bkp = hrPayroll!.crewBackupCount ?? 0
-                    const trn = hrPayroll!.crewTraineeCount ?? 0
-                    const ojt = hrPayroll!.crewOjtCount ?? 0
-                    if (reg > 0) parts.push(`${reg} Reguler`)
-                    if (bkp > 0) parts.push(`${bkp} Backup`)
-                    if (trn > 0) parts.push(`${trn} Trainee`)
-                    if (ojt > 0) parts.push(`${ojt} OJT`)
-                    return parts.length > 0 ? `: ${parts.join(', ')}` : ''
-                  })()})
-                  {Boolean(hrPayroll!.managerAllocation && hrPayroll!.managerAllocation > 0) && (
-                    <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={`Termasuk alokasi beban rutin AM, RM, & Stock Controller: ${rupiah(hrPayroll!.managerRoutineAllocation ?? hrPayroll!.managerAllocation)}`}>
-                      • Termasuk Rutin AM/RM/SC
-                    </span>
+                  {isPusat ? (
+                    `Gaji Rutin (${hrPayroll!.totalStaff} staf kantor pusat)`
+                  ) : (
+                    <>
+                      Gaji Rutin ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} kru{(() => {
+                        const parts: string[] = []
+                        const reg = hrPayroll!.crewRegularCount ?? 0
+                        const bkp = hrPayroll!.crewBackupCount ?? 0
+                        const trn = hrPayroll!.crewTraineeCount ?? 0
+                        const ojt = hrPayroll!.crewOjtCount ?? 0
+                        if (reg > 0) parts.push(`${reg} Reguler`)
+                        if (bkp > 0) parts.push(`${bkp} Backup`)
+                        if (trn > 0) parts.push(`${trn} Trainee`)
+                        if (ojt > 0) parts.push(`${ojt} OJT`)
+                        return parts.length > 0 ? `: ${parts.join(', ')}` : ''
+                      })()})
+                      {Boolean(hrPayroll!.managerAllocation && hrPayroll!.managerAllocation > 0) && (
+                        <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={`Termasuk alokasi beban rutin AM, RM, & Stock Controller: ${rupiah(hrPayroll!.managerRoutineAllocation ?? hrPayroll!.managerAllocation)}`}>
+                          • Termasuk Rutin AM/RM/SC
+                        </span>
+                      )}
+                    </>
                   )}
                   {prorataInfo.isProrated && (
                     <span className="text-[10px] text-amber-700 font-bold ml-1.5" title="Nilai acuan gaji rutin sebulan penuh sebelum prorata">
@@ -1163,92 +1190,100 @@ export default function InputPengeluaranPage() {
               <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
             </button>
             <span className="text-[10px] text-gray-400 font-medium">
-              {hasHrPayroll && prorataInfo.isProrated ? `Prorata ${prorataInfo.overlapDays} Hari` : 'Breakdown Staf'}
+              {hasHrPayroll && prorataInfo.isProrated
+                ? `Prorata ${prorataInfo.overlapDays} Hari`
+                : (isPusat ? `${hrPayroll?.totalStaff || 23} Staf Kantor` : 'Breakdown Staf')}
             </span>
           </div>
         </div>
 
-        {/* 2. Bonus Kru Toko */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
-                <div className="flex items-center gap-1 shrink-0">
-                  <Award size={14} className="shrink-0" />
-                  <span>Bonus Kru</span>
-                </div>
-                {!isPusat && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
-                    </span>
-                    <span>Realtime Penjualan</span>
-                  </span>
-                )}
-                {prorataInfo.isProrated && (
-                  <span
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
-                    title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
-                  >
-                    <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
-                    <span>Prorata</span>
-                  </span>
-                )}
-              </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200/60 shadow-2xs">
-                <Award size={16} />
-              </div>
-            </div>
-
-            <div className="text-xl sm:text-2xl font-black text-amber-700 mt-2.5 tracking-tight truncate" title={rupiah(displayCrewBonus)}>
-              {rupiah(displayCrewBonus)}
-            </div>
-
-            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
-              {isPusat ? (
-                <span>Beban Kantor Pusat (Tanpa Kru Toko)</span>
-              ) : (
-                <span>
-                  {hasHrPayroll && hrPayroll?.crewBonusDetails ? `${hrPayroll.crewBonusDetails.length} penerima` : 'Bonus Omset Kru'}
-                  <span className="text-[10px] text-amber-700 font-bold ml-1.5">
-                    • Kru Toko
-                  </span>
-                  {baselineCrewBonus > 0 && (
-                    <span className="text-[10px] text-gray-400 font-normal ml-1" title="Estimasi bonus kru sebulan penuh berbasis transaksi penjualan MTD">
-                      • 1 bln: {rupiah(baselineCrewBonus)}
+        {/* 2. Bonus Kru Toko / Bonus Staf Kantor */}
+        {(!isPusat || displayCrewBonus > 0) && (
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Award size={14} className="shrink-0" />
+                    <span>{isPusat ? 'Bonus Staf Kantor' : 'Bonus Kru'}</span>
+                  </div>
+                  {!isPusat && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                      </span>
+                      <span>Realtime Penjualan</span>
                     </span>
                   )}
-                </span>
-              )}
+                  {prorataInfo.isProrated && !isPusat && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
+                      title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>Prorata</span>
+                    </span>
+                  )}
+                </div>
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200/60 shadow-2xs">
+                  <Award size={16} />
+                </div>
+              </div>
+
+              <div className="text-xl sm:text-2xl font-black text-amber-700 mt-2.5 tracking-tight truncate" title={rupiah(displayCrewBonus)}>
+                {rupiah(displayCrewBonus)}
+              </div>
+
+              <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
+                {isPusat ? (
+                  <span>
+                    {displayCrewBonus > 0
+                      ? `${hrPayroll?.crewBonusDetails?.length || 0} penerima • Insentif Staf Kantor`
+                      : 'Staf kantor tidak ada bonus omset toko'}
+                  </span>
+                ) : (
+                  <span>
+                    {hasHrPayroll && hrPayroll?.crewBonusDetails ? `${hrPayroll.crewBonusDetails.length} penerima` : 'Bonus Omset Kru'}
+                    <span className="text-[10px] text-amber-700 font-bold ml-1.5">
+                      • Kru Toko
+                    </span>
+                    {baselineCrewBonus > 0 && (
+                      <span className="text-[10px] text-gray-400 font-normal ml-1" title="Estimasi bonus kru sebulan penuh berbasis transaksi penjualan MTD">
+                        • 1 bln: {rupiah(baselineCrewBonus)}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
+              <button
+                type="button"
+                onClick={() => setActiveDetailModal('bonus_kru')}
+                className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-800 transition-colors cursor-pointer group"
+              >
+                <span>Lihat Detail</span>
+                <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </button>
+              <span className="text-[10px] text-gray-400 font-medium">
+                {isPusat ? 'Rincian Staf' : 'Rincian Kru'}
+              </span>
             </div>
           </div>
+        )}
 
-          <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
-            <button
-              type="button"
-              onClick={() => setActiveDetailModal('bonus_kru')}
-              className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-800 transition-colors cursor-pointer group"
-            >
-              <span>Lihat Detail</span>
-              <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-            </button>
-            <span className="text-[10px] text-gray-400 font-medium">
-              Rincian Kru
-            </span>
-          </div>
-        </div>
-
-        {/* 3. Bonus Sales AM & RM */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-bold text-purple-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
-                <div className="flex items-center gap-1 shrink-0">
-                  <Briefcase size={14} className="shrink-0" />
-                  <span>Bonus AM & RM</span>
-                </div>
-                {!isPusat && (
+        {/* 3. Bonus Sales AM & RM - HANYA UNTUK TOKO/OUTLET */}
+        {!isPusat && (
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-bold text-purple-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Briefcase size={14} className="shrink-0" />
+                    <span>Bonus AM & RM</span>
+                  </div>
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-100/90 px-2 py-0.5 rounded-full border border-purple-300/70 shadow-2xs">
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
@@ -1256,30 +1291,26 @@ export default function InputPengeluaranPage() {
                     </span>
                     <span>Realtime Penjualan</span>
                   </span>
-                )}
-                {prorataInfo.isProrated && (
-                  <span
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-100/90 px-2 py-0.5 rounded-full border border-purple-300/70 shadow-2xs"
-                    title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
-                  >
-                    <Sparkles className="w-3 h-3 text-purple-600 shrink-0" />
-                    <span>Prorata</span>
-                  </span>
-                )}
+                  {prorataInfo.isProrated && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-100/90 px-2 py-0.5 rounded-full border border-purple-300/70 shadow-2xs"
+                      title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
+                    >
+                      <Sparkles className="w-3 h-3 text-purple-600 shrink-0" />
+                      <span>Prorata</span>
+                    </span>
+                  )}
+                </div>
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200/60 shadow-2xs">
+                  <Briefcase size={16} />
+                </div>
               </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200/60 shadow-2xs">
-                <Briefcase size={16} />
+
+              <div className="text-xl sm:text-2xl font-black text-purple-700 mt-2.5 tracking-tight truncate" title={rupiah(displayManagerBonus)}>
+                {rupiah(displayManagerBonus)}
               </div>
-            </div>
 
-            <div className="text-xl sm:text-2xl font-black text-purple-700 mt-2.5 tracking-tight truncate" title={rupiah(displayManagerBonus)}>
-              {rupiah(displayManagerBonus)}
-            </div>
-
-            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
-              {isPusat ? (
-                <span>Beban Kantor Pusat (Bukan Toko)</span>
-              ) : (
+              <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
                 <span>
                   {hasHrPayroll && hrPayroll?.managerBonusDetails ? `${hrPayroll.managerBonusDetails.length} penerima` : 'Alokasi Pengawas'}
                   <span className="text-[10px] text-purple-700 font-bold ml-1.5">
@@ -1291,24 +1322,24 @@ export default function InputPengeluaranPage() {
                     </span>
                   )}
                 </span>
-              )}
+              </div>
+            </div>
+
+            <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
+              <button
+                type="button"
+                onClick={() => setActiveDetailModal('bonus_manager')}
+                className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer group"
+              >
+                <span>Lihat Detail</span>
+                <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </button>
+              <span className="text-[10px] text-gray-400 font-medium">
+                Alokasi AM/RM
+              </span>
             </div>
           </div>
-
-          <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
-            <button
-              type="button"
-              onClick={() => setActiveDetailModal('bonus_manager')}
-              className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors cursor-pointer group"
-            >
-              <span>Lihat Detail</span>
-              <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-            </button>
-            <span className="text-[10px] text-gray-400 font-medium">
-              Alokasi AM/RM
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* 4. Lemburan */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
@@ -1422,12 +1453,27 @@ export default function InputPengeluaranPage() {
               {rupiah(totalCombinedOpex)}
             </div>
 
-            <div className="text-[11px] text-rose-100/90 font-medium mt-0.5 truncate" title={`Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Lemburan: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`}>
+            <div
+              className="text-[11px] text-rose-100/90 font-medium mt-0.5 truncate"
+              title={isPusat
+                ? `Gaji Rutin: ${rupiah(displayRoutineSalary)} + Lemburan: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`
+                : `Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Lemburan: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`}
+            >
               <span>Rutin: {rupiah(displayRoutineSalary)}</span>
-              <span className="text-rose-300 mx-1">+</span>
-              <span>Kru: {rupiah(displayCrewBonus)}</span>
-              <span className="text-rose-300 mx-1">+</span>
-              <span>AM/RM: {rupiah(displayManagerBonus)}</span>
+              {!isPusat && (
+                <>
+                  <span className="text-rose-300 mx-1">+</span>
+                  <span>Kru: {rupiah(displayCrewBonus)}</span>
+                  <span className="text-rose-300 mx-1">+</span>
+                  <span>AM/RM: {rupiah(displayManagerBonus)}</span>
+                </>
+              )}
+              {isPusat && displayCrewBonus > 0 && (
+                <>
+                  <span className="text-rose-300 mx-1">+</span>
+                  <span>Bonus: {rupiah(displayCrewBonus)}</span>
+                </>
+              )}
               <span className="text-rose-300 mx-1">+</span>
               <span>Lemburan: {rupiah(displayLembur)}</span>
               <span className="text-rose-300 mx-1">+</span>
@@ -1626,20 +1672,9 @@ export default function InputPengeluaranPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         {tx.recipient_name && tx.recipient_name !== '-' ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-linear-to-br from-amber-100 to-amber-200 text-amber-800 font-extrabold text-[10px] flex items-center justify-center shrink-0 border border-amber-300/60 shadow-2xs">
-                              {tx.recipient_name
-                                .split(' ')
-                                .filter(Boolean)
-                                .map((n: string) => n[0])
-                                .slice(0, 2)
-                                .join('')
-                                .toUpperCase()}
-                            </div>
-                            <span className="font-bold text-gray-900 text-xs truncate max-w-[170px]" title={tx.recipient_name}>
-                              {tx.recipient_name}
-                            </span>
-                          </div>
+                          <span className="font-bold text-gray-900 text-xs truncate max-w-[180px] block" title={tx.recipient_name}>
+                            {tx.recipient_name}
+                          </span>
                         ) : (
                           <span className="text-gray-400 font-normal">-</span>
                         )}
@@ -1862,6 +1897,7 @@ export default function InputPengeluaranPage() {
       <OpexCardDetailModals
         type={activeDetailModal}
         onClose={() => setActiveDetailModal(null)}
+        isPusat={isPusat}
         salaryData={{
           displaySalary,
           displayRoutineSalary,

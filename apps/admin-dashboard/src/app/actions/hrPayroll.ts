@@ -226,10 +226,73 @@ export async function getHRPayrollSummaryAction(filter: {
       return !isTestOrDevStaff(staffInfo)
     })
 
-    // Query MTD bonus and pcs for each period (Crew, AM, and RM)
+    const target = filter.outletId
+    const isSingleOutlet = target !== 'all' && target !== 'PUSAT' && target !== 'ALL_OUTLETS'
+
+    // 1. Build outlet mapping and operational retail outlet set
+    const outletNameMap = new Map<string, string>()
+    const operationalOutletIds: string[] = []
+    ;(outletData || []).forEach((o: any) => {
+      outletNameMap.set(o.id, o.name)
+      if (isExcludedOutlet(o)) return
+      if (o.slug === 'sawangan-depok-internal') return
+      const isOperational = (o.is_active === true || o.is_active !== false) && (o.status === 'active' || !o.status)
+      if (isOperational) {
+        operationalOutletIds.push(o.id)
+      }
+    })
+
+    // 2. Build staff assignment mapping (staff_id -> outlet_id[]) from staff_outlets
+    const staffAssignmentsMap = new Map<string, string[]>()
+    ;(assignmentData || []).forEach((a: any) => {
+      if (!staffAssignmentsMap.has(a.staff_id)) {
+        staffAssignmentsMap.set(a.staff_id, [])
+      }
+      staffAssignmentsMap.get(a.staff_id)!.push(a.outlet_id)
+    })
+    const managerAssignmentsMap = staffAssignmentsMap
+
+    // Staff info lookup map
+    const staffInfoMap = new Map<string, any>()
+    ;(payrollData || []).forEach((r: any) => {
+      const s = Array.isArray(r.outlet_staff) ? r.outlet_staff[0] : r.outlet_staff
+      if (s?.id && !staffInfoMap.has(s.id)) staffInfoMap.set(s.id, s)
+    })
+    ;(assignmentData || []).forEach((a: any) => {
+      const s = Array.isArray(a.outlet_staff) ? a.outlet_staff[0] : a.outlet_staff
+      if (s?.id && !staffInfoMap.has(s.id)) staffInfoMap.set(s.id, s)
+    })
+
+    // Helper: Determine target outlets for a crew member (backup split vs single home outlet)
+    function getCrewBackupTargets(
+      staffId: string,
+      homeOutletId: string | undefined | null,
+      isBackup: boolean
+    ): string[] {
+      if (!isBackup) {
+        return homeOutletId ? [homeOutletId] : []
+      }
+      const assigned = staffAssignmentsMap.get(staffId) || []
+      const set = new Set<string>()
+      if (homeOutletId && operationalOutletIds.includes(homeOutletId)) {
+        set.add(homeOutletId)
+      }
+      assigned.forEach(id => {
+        if (operationalOutletIds.includes(id)) {
+          set.add(id)
+        }
+      })
+      if (set.size === 0 && homeOutletId) {
+        set.add(homeOutletId)
+      }
+      return Array.from(set)
+    }
+
+    // Query MTD bonus and pcs for each period (Crew, AM, and RM) + daily bonus detail
     const bonusMap = new Map<string, number>()
     const pcsMap = new Map<string, number>()
     const allCrewBonusRpcRows: any[] = []
+    const allDailyBonusRows: any[] = []
 
     // Map: `${staff_id}_${outlet_id}` -> { bonus: number, pcs: number, attendanceDays: number }
     const crewOutletBonusMap = new Map<string, { bonus: number; pcs: number; attendanceDays: number }>()
@@ -243,10 +306,34 @@ export async function getHRPayrollSummaryAction(filter: {
       try {
         const periodMonthStart = `${p.year}-${String(p.month).padStart(2, '0')}-01`
         const periodMonthEnd = new Date(p.year, p.month, 0).toISOString().slice(0, 10)
-        const attFrom = periodMonthStart < filter.from ? periodMonthStart : filter.from
-        const attTo = periodMonthEnd > filter.to ? periodMonthEnd : filter.to
+        // Strictly clamp attendance query bounds to the active filter range
+        const attFrom = filter.from > periodMonthStart ? filter.from : periodMonthStart
+        const attTo = filter.to < periodMonthEnd ? filter.to : periodMonthEnd
 
-        const [crewRes, amRes, rmRes, attRes, logsRes] = await Promise.all([
+        const dailyBonusPromises: any[] = []
+        if (target === 'PUSAT') {
+          // Kantor Pusat tidak memiliki pool penjualan toko
+        } else if (isSingleOutlet) {
+          dailyBonusPromises.push(
+            supabase.rpc('get_daily_outlet_bonus_detail', {
+              p_month: p.month,
+              p_year: p.year,
+              p_outlet_id: target
+            })
+          )
+        } else {
+          operationalOutletIds.forEach(oid => {
+            dailyBonusPromises.push(
+              supabase.rpc('get_daily_outlet_bonus_detail', {
+                p_month: p.month,
+                p_year: p.year,
+                p_outlet_id: oid
+              })
+            )
+          })
+        }
+
+        const [crewRes, amRes, rmRes, attRes, logsRes, ...dailyResList] = await Promise.all([
           supabase.rpc('get_monthly_crew_bonus', {
             p_month: p.month,
             p_year: p.year,
@@ -260,19 +347,30 @@ export async function getHRPayrollSummaryAction(filter: {
             p_month: p.month,
             p_year: p.year
           }),
-          supabase
-            .from('attendance')
-            .select('outlet_staff_id, outlet_id, ts_server')
-            .gte('ts_server', `${attFrom}T00:00:00+07:00`)
-            .lte('ts_server', `${attTo}T23:59:59+07:00`)
-            .in('type', ['in', 'masuk']),
-          supabase
-            .from('attendance_logs')
-            .select('staff_id, outlet_id, date')
-            .gte('date', attFrom)
-            .lte('date', attTo)
-            .eq('status', 'hadir')
+          attFrom <= attTo
+            ? supabase
+                .from('attendance')
+                .select('outlet_staff_id, outlet_id, ts_server')
+                .gte('ts_server', `${attFrom}T00:00:00+07:00`)
+                .lte('ts_server', `${attTo}T23:59:59+07:00`)
+                .in('type', ['in', 'masuk'])
+            : Promise.resolve({ data: [] }),
+          attFrom <= attTo
+            ? supabase
+                .from('attendance_logs')
+                .select('staff_id, outlet_id, date')
+                .gte('date', attFrom)
+                .lte('date', attTo)
+                .eq('status', 'hadir')
+            : Promise.resolve({ data: [] }),
+          ...dailyBonusPromises
         ])
+
+        dailyResList.forEach((dRes: any) => {
+          if (dRes?.data && Array.isArray(dRes.data)) {
+            allDailyBonusRows.push(...dRes.data)
+          }
+        })
 
         if (crewRes.data && Array.isArray(crewRes.data)) {
           allCrewBonusRpcRows.push(...crewRes.data)
@@ -378,7 +476,7 @@ export async function getHRPayrollSummaryAction(filter: {
           )
         `)
         .eq('status', 'active')
-        .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager', 'stock_controller'])
+        .not('role', 'in', '("kiosk","mitra","owner")')
 
       const activeStaffList = (activeStaffData || []).filter(s => !isTestOrDevStaff(s))
       const targetPeriod = periods[0]
@@ -432,54 +530,74 @@ export async function getHRPayrollSummaryAction(filter: {
       })
     }
 
-    // 1. Build outlet mapping and operational retail outlet set
-    // An outlet is an operational retail branch if it's active and not an excluded virtual/warehouse entity
-    const outletNameMap = new Map<string, string>()
-    const operationalOutletIds: string[] = []
-    ;(outletData || []).forEach((o: any) => {
-      outletNameMap.set(o.id, o.name)
-      if (isExcludedOutlet(o)) return
-      if (o.slug === 'sawangan-depok-internal') return
-      const isOperational = (o.is_active === true || o.is_active !== false) && (o.status === 'active' || !o.status)
-      if (isOperational) {
-        operationalOutletIds.push(o.id)
-      }
+    // Populate active staff into staffInfoMap if available
+    ;(matchingPeriodRows || []).forEach((r: any) => {
+      const s = Array.isArray(r.outlet_staff) ? r.outlet_staff[0] : r.outlet_staff
+      if (s?.id && !staffInfoMap.has(s.id)) staffInfoMap.set(s.id, s)
     })
 
-    // 2. Build staff assignment mapping (staff_id -> outlet_id[]) from staff_outlets
-    const staffAssignmentsMap = new Map<string, string[]>()
-    ;(assignmentData || []).forEach((a: any) => {
-      if (!staffAssignmentsMap.has(a.staff_id)) {
-        staffAssignmentsMap.set(a.staff_id, [])
-      }
-      staffAssignmentsMap.get(a.staff_id)!.push(a.outlet_id)
-    })
-    const managerAssignmentsMap = staffAssignmentsMap
-
-    // Helper: Determine target outlets for a crew member (backup split vs single home outlet)
-    function getCrewBackupTargets(
-      staffId: string,
-      homeOutletId: string | undefined | null,
-      isBackup: boolean
-    ): string[] {
-      if (!isBackup) {
-        return homeOutletId ? [homeOutletId] : []
-      }
-      const assigned = staffAssignmentsMap.get(staffId) || []
-      const set = new Set<string>()
-      if (homeOutletId && operationalOutletIds.includes(homeOutletId)) {
-        set.add(homeOutletId)
-      }
-      assigned.forEach(id => {
-        if (operationalOutletIds.includes(id)) {
-          set.add(id)
-        }
-      })
-      if (set.size === 0 && homeOutletId) {
-        set.add(homeOutletId)
-      }
-      return Array.from(set)
+    // Aggregate daily bonus detail strictly within [filter.from, filter.to]
+    interface DailyCrewBonusAccumulator {
+      staffId: string
+      staffName: string
+      role: string
+      subRole: string
+      outletId: string
+      outletName: string
+      bonus: number
+      totalPcs: number
+      dates: Set<string>
     }
+
+    // Key: isSingleOutlet ? staffId : `${staffId}_${outletId}`
+    const dailyCrewBonusMap = new Map<string, DailyCrewBonusAccumulator>()
+    // Outlet ID -> total pcs sold in date range
+    const outletDailyPcsMap = new Map<string, number>()
+
+    allDailyBonusRows.forEach((d: any) => {
+      if (!d.bonus_date) return
+      if (d.bonus_date < filter.from || d.bonus_date > filter.to) return
+      if (isSingleOutlet && d.outlet_id !== target) return
+
+      const totalPcs = Number(d.total_pcs) || 0
+      const poolAmount = Number(d.pool_amount) || 0
+      const crewCount = Number(d.crew_count) || 0
+      const bonusPerCrew = Number(d.bonus_per_crew) || (crewCount > 0 ? Math.floor(poolAmount / crewCount) : 0)
+
+      if (d.outlet_id) {
+        outletDailyPcsMap.set(d.outlet_id, (outletDailyPcsMap.get(d.outlet_id) || 0) + totalPcs)
+      }
+
+      if (crewCount > 0 && Array.isArray(d.crew_list) && d.crew_list.length > 0) {
+        const remainder = totalPcs % crewCount
+        d.crew_list.forEach((c: any, idx: number) => {
+          if (!c.crew_id) return
+          const pcsToday = Math.floor(totalPcs / crewCount) + (idx < remainder ? 1 : 0)
+          const bonusToday = bonusPerCrew
+
+          const key = isSingleOutlet ? c.crew_id : `${c.crew_id}_${d.outlet_id}`
+          let entry = dailyCrewBonusMap.get(key)
+          if (!entry) {
+            entry = {
+              staffId: c.crew_id,
+              staffName: c.crew_name || 'Staff',
+              role: c.role || 'crew',
+              subRole: c.sub_role || 'crew_regular',
+              outletId: d.outlet_id,
+              outletName: d.outlet_name || outletNameMap.get(d.outlet_id) || 'Outlet',
+              bonus: 0,
+              totalPcs: 0,
+              dates: new Set<string>()
+            }
+            dailyCrewBonusMap.set(key, entry)
+          }
+
+          entry.bonus += bonusToday
+          entry.totalPcs += pcsToday
+          entry.dates.add(d.bonus_date)
+        })
+      }
+    })
 
     // Separate Store Crew from Managers (Area Manager, Regional Manager) & Central Overhead (Stock Controller)
     const crewRows: typeof matchingPeriodRows = []
@@ -563,8 +681,26 @@ export async function getHRPayrollSummaryAction(filter: {
       targets.forEach(tId => {
         const g = gSplit.get(tId) || 0
         const a = aSplit.get(tId) || 0
-        const bon = bonSplit.get(tId) || 0
         const ded = dedSplit.get(tId) || 0
+
+        let bon = bonSplit.get(tId) || 0
+        let managerPcs = 0
+        if (outletDailyPcsMap.size > 0 || isSingleOutlet) {
+          const outletPcs = outletDailyPcsMap.get(tId) || 0
+          if (role === 'regional_manager') {
+            bon = outletPcs * 50
+            managerPcs = outletPcs
+          } else if (role === 'area_manager') {
+            bon = targets.includes(tId) ? (outletPcs * 50) : 0
+            managerPcs = targets.includes(tId) ? outletPcs : 0
+          } else if (role === 'stock_controller') {
+            bon = 0
+            managerPcs = 0
+          }
+        } else {
+          managerPcs = Math.round(bon / 50)
+        }
+
         const tot = g + a + bon - ded
         const routineTot = g + a - ded
 
@@ -593,6 +729,7 @@ export async function getHRPayrollSummaryAction(filter: {
           allocatedAllowances: a,
           allocatedDeductions: ded,
           coachedOutletsCount: targets.length,
+          totalPcs: managerPcs,
           status: m.status === 'finalized' ? 'finalized' : 'draft'
         })
       })
@@ -747,9 +884,6 @@ export async function getHRPayrollSummaryAction(filter: {
       group.bonus += alloc.bonus
     }
 
-    const target = filter.outletId
-    const isSingleOutlet = target !== 'all' && target !== 'PUSAT' && target !== 'ALL_OUTLETS'
-
     // 5. Build Final Aggregation according to target filter
     if (isSingleOutlet) {
       // Filtered to one specific outlet (e.g. SUKA SHAWARMA EMPANG or CIBINONG)
@@ -819,7 +953,8 @@ export async function getHRPayrollSummaryAction(filter: {
         let allocatedAllowances = bAllowances
         let allocatedDeductions = bDeductions
         let allocatedRoutine = fullRoutine
-        const bonusAtTarget = (staffOutletId === target) ? bBonus : 0
+        const dailyEntry = dailyCrewBonusMap.get(r.staff_id)
+        const bonusAtTarget = dailyEntry ? dailyEntry.bonus : (dailyCrewBonusMap.size > 0 ? 0 : ((staffOutletId === target) ? bBonus : 0))
         let allocatedTotal = fullRoutine + bonusAtTarget
 
         if (isSplit) {
@@ -927,76 +1062,121 @@ export async function getHRPayrollSummaryAction(filter: {
       const seenCrewIds = new Set<string>()
       const combinedCrewBonusList: StaffBonusDetail[] = []
 
-      // 1. Crew from outletCrewItems with bonus > 0
-      outletCrewItems
-        .filter(item => item.allocatedBonus > 0 || Number(item.rawRow.bonus || 0) > 0)
-        .forEach(item => {
-          const r = item.rawRow
-          const staffId = item.staffId
-          seenCrewIds.add(staffId)
+      if (dailyCrewBonusMap.size > 0) {
+        // Build directly from exact daily attendance & sales pool
+        Array.from(dailyCrewBonusMap.values())
+          .filter(e => e.bonus > 0 || e.totalPcs > 0)
+          .forEach(entry => {
+            const staffId = entry.staffId
+            seenCrewIds.add(staffId)
 
-          const datesAtOutlet = Array.from(staffOutletAttendanceDates.get(`${staffId}_${target}`) || []).sort()
-          const backupDatesFormatted = formatBackupDatesSummary(datesAtOutlet)
+            const staffInfo = staffInfoMap.get(staffId)
+            const subRole = entry.subRole || staffInfo?.sub_role || null
+            const contractType = staffInfo?.contract_type || null
+            const isHome = (staffInfo?.outlet_id === target) || (outletCrewItems.some(i => i.staffId === staffId && !i.isSplitBackup))
+            const isBackup = !isHome || subRole === 'crew_backup' || contractType === 'daily'
 
-          let backupNote = ''
-          if (item.isBackup) {
-            if (datesAtOutlet.length > 0) {
-              backupNote = `Tanggal backup di outlet ini: ${backupDatesFormatted} (${datesAtOutlet.length} hari)`
-            } else {
-              backupNote = 'Jadwal backup fleksibel di outlet ini'
+            const datesAtOutlet = Array.from(entry.dates).sort()
+            const backupDatesFormatted = formatBackupDatesSummary(datesAtOutlet)
+            let backupNote = ''
+            if (isBackup) {
+              if (datesAtOutlet.length > 0) {
+                backupNote = `Tanggal backup di outlet ini: ${backupDatesFormatted} (${datesAtOutlet.length} hari)`
+              } else {
+                backupNote = 'Jadwal backup fleksibel di outlet ini'
+              }
             }
-          }
 
-          const bonus = item.allocatedBonus > 0 ? item.allocatedBonus : Number(r.bonus || 0)
-          combinedCrewBonusList.push({
-            staffId,
-            staffName: item.staffName,
-            role: item.role,
-            subRole: item.subRole,
-            contractType: item.contractType,
-            isBackup: item.isBackup,
-            backupDates: datesAtOutlet,
-            backupDatesFormatted,
-            backupNote,
-            outletName: outletNameMap.get(target) || 'Cabang',
-            bonus,
-            totalPcs: Number((r as any).total_pcs || 0) || Math.round(bonus / 100),
-            status: item.status
+            const matchingItem = outletCrewItems.find(i => i.staffId === staffId)
+            const status = (matchingItem?.status || 'draft') as 'draft' | 'finalized'
+
+            combinedCrewBonusList.push({
+              staffId,
+              staffName: entry.staffName,
+              role: entry.role,
+              subRole,
+              contractType,
+              isBackup,
+              backupDates: datesAtOutlet,
+              backupDatesFormatted,
+              backupNote,
+              outletName: outletNameMap.get(target) || entry.outletName || 'Cabang',
+              bonus: entry.bonus,
+              totalPcs: entry.totalPcs,
+              status
+            })
           })
-        })
+      } else {
+        // Fallback: previous logic if no daily records found
+        outletCrewItems
+          .filter(item => item.allocatedBonus > 0 || Number(item.rawRow.bonus || 0) > 0)
+          .forEach(item => {
+            const r = item.rawRow
+            const staffId = item.staffId
+            seenCrewIds.add(staffId)
 
-      // 2. Also include backup crew who worked at target from RPC (e.g. Reno at Cibinong)
-      allCrewBonusRpcRows
-        .filter(b => b.outlet_id === target && Number(b.total_bonus || 0) > 0)
-        .forEach(b => {
-          if (seenCrewIds.has(b.crew_id)) return
-          seenCrewIds.add(b.crew_id)
+            const datesAtOutlet = Array.from(staffOutletAttendanceDates.get(`${staffId}_${target}`) || []).sort()
+            const backupDatesFormatted = formatBackupDatesSummary(datesAtOutlet)
 
-          const staffId = b.crew_id
-          const subRole = b.sub_role || 'crew_backup'
-          const isBackup = true
-          const datesAtOutlet = Array.from(staffOutletAttendanceDates.get(`${staffId}_${target}`) || []).sort()
-          const backupDatesFormatted = formatBackupDatesSummary(datesAtOutlet)
-          const backupNote = datesAtOutlet.length > 0
-            ? `Tanggal backup di outlet ini: ${backupDatesFormatted} (${datesAtOutlet.length} hari)`
-            : (b.attendance_days ? `Tanggal backup di outlet ini (${b.attendance_days} hari)` : 'Jadwal backup fleksibel di outlet ini')
+            let backupNote = ''
+            if (item.isBackup) {
+              if (datesAtOutlet.length > 0) {
+                backupNote = `Tanggal backup di outlet ini: ${backupDatesFormatted} (${datesAtOutlet.length} hari)`
+              } else {
+                backupNote = 'Jadwal backup fleksibel di outlet ini'
+              }
+            }
 
-          const bonus = Number(b.total_bonus || 0)
-          combinedCrewBonusList.push({
-            staffId,
-            staffName: b.crew_name || 'Staff Backup',
-            role: b.role || 'crew',
-            subRole,
-            isBackup,
-            backupDates: datesAtOutlet,
-            backupDatesFormatted,
-            backupNote,
-            outletName: b.outlet_name || outletNameMap.get(target) || 'Cabang',
-            bonus,
-            totalPcs: Number(b.total_pcs_outlet || 0) || Math.round(bonus / 100),
-            status: 'draft'
+            const bonus = item.allocatedBonus > 0 ? item.allocatedBonus : Number(r.bonus || 0)
+            combinedCrewBonusList.push({
+              staffId,
+              staffName: item.staffName,
+              role: item.role,
+              subRole: item.subRole,
+              contractType: item.contractType,
+              isBackup: item.isBackup,
+              backupDates: datesAtOutlet,
+              backupDatesFormatted,
+              backupNote,
+              outletName: outletNameMap.get(target) || 'Cabang',
+              bonus,
+              totalPcs: Number((r as any).total_pcs || 0) || Math.round(bonus / 100),
+              status: item.status
+            })
           })
-        })
+
+        allCrewBonusRpcRows
+          .filter(b => b.outlet_id === target && Number(b.total_bonus || 0) > 0)
+          .forEach(b => {
+            if (seenCrewIds.has(b.crew_id)) return
+            seenCrewIds.add(b.crew_id)
+
+            const staffId = b.crew_id
+            const subRole = b.sub_role || 'crew_backup'
+            const isBackup = true
+            const datesAtOutlet = Array.from(staffOutletAttendanceDates.get(`${staffId}_${target}`) || []).sort()
+            const backupDatesFormatted = formatBackupDatesSummary(datesAtOutlet)
+            const backupNote = datesAtOutlet.length > 0
+              ? `Tanggal backup di outlet ini: ${backupDatesFormatted} (${datesAtOutlet.length} hari)`
+              : (b.attendance_days ? `Tanggal backup di outlet ini (${b.attendance_days} hari)` : 'Jadwal backup fleksibel di outlet ini')
+
+            const bonus = Number(b.total_bonus || 0)
+            combinedCrewBonusList.push({
+              staffId,
+              staffName: b.crew_name || 'Staff Backup',
+              role: b.role || 'crew',
+              subRole,
+              isBackup,
+              backupDates: datesAtOutlet,
+              backupDatesFormatted,
+              backupNote,
+              outletName: b.outlet_name || outletNameMap.get(target) || 'Cabang',
+              bonus,
+              totalPcs: Number(b.total_pcs_outlet || 0) || Math.round(bonus / 100),
+              status: 'draft'
+            })
+          })
+      }
 
       const crewBonusDetails = combinedCrewBonusList.sort((a, b) => b.bonus - a.bonus)
       const finalCrewBonus = crewBonusDetails.reduce((sum, c) => sum + c.bonus, 0)
@@ -1103,6 +1283,33 @@ export async function getHRPayrollSummaryAction(filter: {
             fullDeductions: item.fullDeductions,
             allocatedOutletNames: item.targets.map(id => outletNameMap.get(id) || 'Cabang')
           })),
+          ...combinedCrewBonusList
+            .filter(c => !outletCrewItems.some(i => i.staffId === c.staffId))
+            .map(c => ({
+              staffId: c.staffId,
+              staffName: c.staffName,
+              role: c.role || 'crew',
+              contractType: c.contractType,
+              subRole: c.subRole,
+              onboardingStage: null,
+              outletId: target,
+              outletName: outletNameMap.get(target) || 'Outlet',
+              basicSalary: 0,
+              allowances: 0,
+              bonus: c.bonus,
+              deductions: 0,
+              routineSalary: 0,
+              totalSalary: c.bonus,
+              status: c.status,
+              isManagerAllocation: false,
+              isBackupAllocation: true,
+              backupOutletsCount: 1,
+              fullRoutineSalary: 0,
+              fullBasicSalary: 0,
+              fullAllowances: 0,
+              fullDeductions: 0,
+              allocatedOutletNames: [outletNameMap.get(target) || 'Cabang']
+            })),
           ...mgrAlloc.details.map(mgr => {
             const routine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
             const bonus = mgr.bonusAmount || 0
@@ -1241,59 +1448,119 @@ export async function getHRPayrollSummaryAction(filter: {
       else if (draftCount > 0 && finalizedCount > 0) status = 'partial'
     }
 
-    const crewBonusDetails = targetCrewRows
-      .filter(r => Number(r.bonus || 0) > 0)
-      .map(r => {
-        const staffRaw: any = r.outlet_staff
-        const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
-        const staffOutletId = r.outlet_id || staffInfo?.outlet_id
-        const outletName = outletNameMap.get(staffOutletId) || 'Outlet'
-        const bonus = Number(r.bonus || 0)
-        const staffId = r.staff_id
+    let crewBonusDetails: StaffBonusDetail[] = []
+    if (dailyCrewBonusMap.size > 0) {
+      const multiCrewMap = new Map<string, StaffBonusDetail>()
+      dailyCrewBonusMap.forEach(entry => {
+        const staffInfo = staffInfoMap.get(entry.staffId)
+        const staffOutletId = staffInfo?.outlet_id || entry.outletId
+        const isPusatStaff = !staffOutletId || staffOutletId === 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+        if (target === 'ALL_OUTLETS' && isPusatStaff) return
+        if (target === 'PUSAT' && !isPusatStaff) return
 
-        const subRole = staffInfo?.sub_role || (r as any).sub_role || null
-        const contractType = staffInfo?.contract_type || (r as any).contract_type || null
-        const isBackup = subRole === 'crew_backup' || contractType === 'daily'
+        let agg = multiCrewMap.get(entry.staffId)
+        if (!agg) {
+          const subRole = entry.subRole || staffInfo?.sub_role || null
+          const contractType = staffInfo?.contract_type || null
+          const isBackup = subRole === 'crew_backup' || contractType === 'daily'
+          const matchingRow = targetCrewRows.find(r => r.staff_id === entry.staffId)
+          agg = {
+            staffId: entry.staffId,
+            staffName: entry.staffName,
+            role: entry.role,
+            subRole,
+            contractType,
+            isBackup,
+            backupDates: [],
+            backupDatesFormatted: '',
+            backupNote: '',
+            outletName: outletNameMap.get(entry.outletId) || entry.outletName || 'Cabang',
+            bonus: 0,
+            totalPcs: 0,
+            status: (matchingRow?.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
+          }
+          multiCrewMap.set(entry.staffId, agg)
+        }
 
-        const datesAtOutlet = Array.from(staffOutletAttendanceDates.get(`${staffId}_${staffOutletId}`) || []).sort()
-        const backupDatesFormatted = formatBackupDatesSummary(datesAtOutlet)
+        agg.bonus += entry.bonus
+        agg.totalPcs = (agg.totalPcs || 0) + entry.totalPcs
+        entry.dates.forEach(d => {
+          if (!agg!.backupDates!.includes(d)) agg!.backupDates!.push(d)
+        })
+      })
 
-        let backupNote = ''
-        if (isBackup) {
-          if (datesAtOutlet.length > 0) {
-            backupNote = `Tanggal backup: ${backupDatesFormatted} (${datesAtOutlet.length} hari)`
-          } else {
-            const otherMap = staffAllOutletsAttendance.get(staffId)
-            if (otherMap && otherMap.size > 0) {
-              const notes: string[] = []
-              otherMap.forEach((dSet, oId) => {
-                const oName = outletNameMap.get(oId) || 'Cabang Lain'
-                notes.push(`${oName} (${formatBackupDatesSummary(Array.from(dSet))})`)
-              })
-              backupNote = `Backup di ${notes.join(', ')}`
+      crewBonusDetails = Array.from(multiCrewMap.values())
+        .map(c => {
+          c.backupDates!.sort()
+          c.backupDatesFormatted = formatBackupDatesSummary(c.backupDates!)
+          if (c.isBackup && c.backupDates!.length > 0) {
+            c.backupNote = `Tanggal backup: ${c.backupDatesFormatted} (${c.backupDates!.length} hari)`
+          }
+          return c
+        })
+        .sort((a, b) => b.bonus - a.bonus)
+
+      if (outletDailyPcsMap.size > 0) {
+        managerBonusAllocation = Array.from(outletManagerAllocations.values()).reduce((sum, a) => sum + a.bonus, 0)
+      }
+      crewBonus = crewBonusDetails.reduce((sum, c) => sum + c.bonus, 0)
+      bonus = crewBonus + managerBonusAllocation
+      totalSalary = basicSalary + allowances + bonus - deductions
+    } else {
+      crewBonusDetails = targetCrewRows
+        .filter(r => Number(r.bonus || 0) > 0)
+        .map(r => {
+          const staffRaw: any = r.outlet_staff
+          const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+          const staffOutletId = r.outlet_id || staffInfo?.outlet_id
+          const outletName = outletNameMap.get(staffOutletId) || 'Outlet'
+          const bonus = Number(r.bonus || 0)
+          const staffId = r.staff_id
+
+          const subRole = staffInfo?.sub_role || (r as any).sub_role || null
+          const contractType = staffInfo?.contract_type || (r as any).contract_type || null
+          const isBackup = subRole === 'crew_backup' || contractType === 'daily'
+
+          const datesAtOutlet = Array.from(staffOutletAttendanceDates.get(`${staffId}_${staffOutletId}`) || []).sort()
+          const backupDatesFormatted = formatBackupDatesSummary(datesAtOutlet)
+
+          let backupNote = ''
+          if (isBackup) {
+            if (datesAtOutlet.length > 0) {
+              backupNote = `Tanggal backup: ${backupDatesFormatted} (${datesAtOutlet.length} hari)`
             } else {
-              backupNote = 'Jadwal backup fleksibel'
+              const otherMap = staffAllOutletsAttendance.get(staffId)
+              if (otherMap && otherMap.size > 0) {
+                const notes: string[] = []
+                otherMap.forEach((dSet, oId) => {
+                  const oName = outletNameMap.get(oId) || 'Cabang Lain'
+                  notes.push(`${oName} (${formatBackupDatesSummary(Array.from(dSet))})`)
+                })
+                backupNote = `Backup di ${notes.join(', ')}`
+              } else {
+                backupNote = 'Jadwal backup fleksibel'
+              }
             }
           }
-        }
 
-        return {
-          staffId,
-          staffName: staffInfo?.name || 'Staff',
-          role: staffInfo?.role || 'crew',
-          subRole,
-          contractType,
-          isBackup,
-          backupDates: datesAtOutlet,
-          backupDatesFormatted,
-          backupNote,
-          outletName,
-          bonus,
-          totalPcs: Number((r as any).total_pcs || 0) || Math.round(bonus / 100),
-          status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
-        }
-      })
-      .sort((a, b) => b.bonus - a.bonus)
+          return {
+            staffId,
+            staffName: staffInfo?.name || 'Staff',
+            role: staffInfo?.role || 'crew',
+            subRole,
+            contractType,
+            isBackup,
+            backupDates: datesAtOutlet,
+            backupDatesFormatted,
+            backupNote,
+            outletName,
+            bonus,
+            totalPcs: Number((r as any).total_pcs || 0) || Math.round(bonus / 100),
+            status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
+          }
+        })
+        .sort((a, b) => b.bonus - a.bonus)
+    }
 
     const managerBonusDetails = target !== 'PUSAT' ? managerRows
       .filter(m => {
@@ -1307,9 +1574,23 @@ export async function getHRPayrollSummaryAction(filter: {
         const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
         const isStockController = (staffInfo?.name || '').toLowerCase().includes('abyansah') || staffInfo?.role === 'stock_controller'
         const role = isStockController ? 'stock_controller' : (staffInfo?.role || 'area_manager')
-        const rawBonus = Number(m.bonus || 0)
-        const bonus = rawBonus > 0 ? rawBonus : (bonusMap.get(m.staff_id) || 0)
-        const totalPcs = Number((m as any).total_pcs || 0) || (pcsMap.get(m.staff_id) || 0) || (bonus > 0 ? Math.round(bonus / 50) : 0)
+        
+        let bonus = 0
+        let totalPcs = 0
+        if (outletDailyPcsMap.size > 0) {
+          for (const alloc of outletManagerAllocations.values()) {
+            const found = alloc.details.find(d => d.staffId === m.staff_id)
+            if (found) {
+              bonus += (found.bonusAmount || 0)
+              totalPcs += (found.totalPcs || 0)
+            }
+          }
+        } else {
+          const rawBonus = Number(m.bonus || 0)
+          bonus = rawBonus > 0 ? rawBonus : (bonusMap.get(m.staff_id) || 0)
+          totalPcs = Number((m as any).total_pcs || 0) || (pcsMap.get(m.staff_id) || 0) || (bonus > 0 ? Math.round(bonus / 50) : 0)
+        }
+
         return {
           staffId: m.staff_id,
           staffName: staffInfo?.name || (role === 'regional_manager' ? 'Regional Manager' : 'Area Manager'),
@@ -1410,7 +1691,7 @@ export async function getHRPayrollSummaryAction(filter: {
             subRole,
             onboardingStage: staffInfo?.onboarding_stage || (r as any).onboarding_stage || null,
             outletId: staffOutletId,
-            outletName: outletNameMap.get(staffOutletId) || 'Outlet',
+            outletName: isPusat ? 'Kantor Pusat' : (outletNameMap.get(staffOutletId) || 'Outlet'),
             basicSalary: bSalary,
             allowances: bAllowances,
             bonus: bBonus,

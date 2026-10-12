@@ -24,6 +24,14 @@ export function susunBarisPengeluaran(expenses: any[], pettyCash: any[]): Expens
         ? row.outlet_staff[0]?.name
         : row.outlet_staff?.name
 
+      let resolvedRecipient = staffName ?? null
+      if (resolvedRecipient && /superadmin\s*2/i.test(resolvedRecipient)) {
+        resolvedRecipient = 'Hesti Qodriani'
+      }
+      if (!resolvedRecipient && (cat === 'endorsement' || cat === 'promo' || (row.description && row.description.includes('[MARCOM:')))) {
+        resolvedRecipient = 'Putri Lestari Hambali'
+      }
+
       return {
         id: row.id,
         outlet_id: row.outlet_id,
@@ -37,7 +45,7 @@ export function susunBarisPengeluaran(expenses: any[], pettyCash: any[]): Expens
         receipt_url: row.receipt_url,
         source: 'petty_cash' as const,
         type: 'expense',
-        recipient_name: staffName ?? null,
+        recipient_name: resolvedRecipient,
         division: null,
         raw_description: row.description,
         raw_category: row.category,

@@ -21,6 +21,11 @@ function toPeriodMonth(dateStr: string): string {
 export const OPEX_CUTOFF_DATE = '2026-09-01'
 
 /**
+ * ID Staff Crew Marcom (Putri Lestari Hambali) di tabel outlet_staff Supabase
+ */
+export const MARCOM_CREW_STAFF_ID = 'd267a03b-5052-4fef-a6a8-0fe05d259239'
+
+/**
  * Sinkronisasi pengeluaran Endorsement (Fee Rate Card & Ongkir Sample) ke OPEX Supabase
  */
 export async function syncEndorsementOpex(endorsementId: bigint | number | string) {
@@ -65,6 +70,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           period_month: periodMonth,
           payment_source: 'transfer_pusat',
           type: 'expense',
+          created_by: MARCOM_CREW_STAFF_ID,
         },
         { onConflict: 'id' }
       ).select('id')
@@ -117,6 +123,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           period_month: periodMonth,
           payment_source: 'transfer_pusat',
           type: 'expense',
+          created_by: MARCOM_CREW_STAFF_ID,
         },
         { onConflict: 'id' }
       ).select('id')
@@ -171,6 +178,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           period_month: periodMonth,
           payment_source: 'transfer_pusat',
           type: 'expense',
+          created_by: MARCOM_CREW_STAFF_ID,
         },
         { onConflict: 'id' }
       ).select('id')
@@ -228,6 +236,7 @@ export async function syncAdOpex(adId: bigint | number | string) {
           period_month: periodMonth,
           payment_source: 'transfer_pusat',
           type: 'expense',
+          created_by: MARCOM_CREW_STAFF_ID,
         },
         { onConflict: 'id' }
       ).select('id')
@@ -333,6 +342,7 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
           period_month: periodMonth,
           payment_source: expense.paymentSource || 'transfer_pusat',
           type: 'expense',
+          created_by: MARCOM_CREW_STAFF_ID,
         },
         { onConflict: 'id' }
       ).select('id')

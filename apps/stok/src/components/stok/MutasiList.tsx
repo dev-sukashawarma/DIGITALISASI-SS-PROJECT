@@ -2,6 +2,7 @@
 import { format } from 'date-fns';
 import Link from 'next/link';
 import type { MutasiAntarOutlet, MutasiStatus } from '@/lib/types/mutasi';
+import { convertToDistribusiUnit } from '@/lib/format/compositeUnit';
 import { Clock, XCircle, Package, Truck, CheckCircle2, ArrowRight } from 'lucide-react';
 
 const statusColorMap: Record<MutasiStatus, string> = {
@@ -79,6 +80,34 @@ export function MutasiList({ items, emptyMessage }: { items: MutasiAntarOutlet[]
                 <span className="block text-sm font-bold text-[#701604]">{mutasi.outlet_tujuan?.nama || '-'}</span>
               </div>
             </div>
+
+            {mutasi.items && mutasi.items.length > 0 && (
+              <div className="mb-3">
+                <ul className="text-xs space-y-1 bg-suka-cream/30 rounded-xl p-2.5 border border-suka-brown/5">
+                  {mutasi.items.slice(0, 3).map((it) => {
+                    const b = it.bahan_baku;
+                    const distUnit = b?.satuan_distribusi || b?.satuan || '';
+                    const rawQtyDist = b ? convertToDistribusiUnit(it.qty_diajukan, b) : it.qty_diajukan;
+                    const qtyDist = Math.round(rawQtyDist * 100) / 100;
+                    return (
+                      <li key={it.id} className="flex justify-between items-center text-[11px]">
+                        <span className="font-semibold text-suka-brown truncate max-w-[65%]">
+                          {b?.nama || '-'}
+                        </span>
+                        <span className="font-extrabold text-suka-brown shrink-0">
+                          {qtyDist} {distUnit}
+                        </span>
+                      </li>
+                    );
+                  })}
+                  {mutasi.items.length > 3 && (
+                    <li className="text-[10px] text-suka-brown/50 font-bold text-center pt-0.5">
+                      +{mutasi.items.length - 3} bahan lainnya...
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
 
             <div className="text-xs text-[#544437] font-medium border-t border-[#d9c2b2]/20 pt-3 flex justify-between">
               <span>{mutasi.items?.length || 0} Item Bahan</span>

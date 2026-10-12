@@ -190,7 +190,7 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
     try {
       const itemsDiterima = data.items?.map((it: any) => ({
         item_id: it.id,
-        qty_diterima: it.qty_dikirim || it.qty_diajukan,
+        qty_diterima: it.qty_dikirim ?? it.qty_diajukan,
         kondisi_diterima: kondisi[it.id] || 'baik'
       })) || [];
       

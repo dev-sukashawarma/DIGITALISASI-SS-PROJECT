@@ -8,10 +8,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Building2,
   Calendar,
-  User,
-  ShieldAlert,
 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import type { EmergencyCrewAssignment } from '@/lib/types'
@@ -79,7 +76,7 @@ export function EmergencyTable({ assignments, isLoading, onOpenCreateModal }: Em
     return (
       <div className="rounded-2xl border border-suka-gray-100 bg-white p-12 text-center shadow-xs">
         <div className="flex flex-col items-center justify-center gap-3">
-          <Spinner size="lg" />
+          <Spinner size={24} />
           <p className="text-xs font-semibold text-suka-gray-400">
             Memuat data penugasan darurat kru...
           </p>

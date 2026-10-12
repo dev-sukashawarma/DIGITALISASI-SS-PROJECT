@@ -283,6 +283,7 @@ export interface CashAdvance {
   id: string
   staff_id: string
   amount: number
+  amount_requested?: number | null
   remaining: number
   reason: string | null
   status: CashAdvanceStatus
@@ -292,6 +293,7 @@ export interface CashAdvance {
   approved_by: string | null
   approved_at?: string | null
   rejection_note?: string | null
+  approval_note?: string | null
   created_at: string
   outlet_staff?: { name: string }
   cash_advance_payments?: CashAdvancePayment[]

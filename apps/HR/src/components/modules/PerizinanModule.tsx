@@ -37,6 +37,7 @@ import { LeaveRequestForm } from '@/components/modules/LeaveRequestForm'
 import { LeaveRequestTable } from '@/components/modules/LeaveRequestTable'
 import { LeaveRejectDialog } from '@/components/modules/LeaveRejectDialog'
 import { KasbonRejectDialog } from '@/components/modules/KasbonRejectDialog'
+import { KasbonApproveModal } from '@/components/modules/KasbonApproveModal'
 import { CashAdvanceTable } from '@/components/modules/CashAdvanceTable'
 import { CashAdvanceForm } from '@/components/modules/CashAdvanceForm'
 import { exportCsv } from '@/lib/exportCsv'
@@ -171,6 +172,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
   const [showKasbonForm, setShowKasbonForm] = useState(false)
   const [payingKasbon, setPayingKasbon] = useState<CashAdvanceRow | null>(null)
   const [rejectKasbonTarget, setRejectKasbonTarget] = useState<CashAdvanceRow | null>(null)
+  const [approveKasbonTarget, setApproveKasbonTarget] = useState<CashAdvanceRow | null>(null)
 
   // Data fetching
   const { data: outlets = [] } = useOutlets()
@@ -356,14 +358,42 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
     )
   }
 
-  const handleApproveKasbon = (id: string) => {
-    const target = kasbonRows.find((r) => r.id === id)
-    const staffName = target?.outlet_staff?.name || 'karyawan'
-    if (!window.confirm(`Setujui permohonan pinjaman kasbon untuk ${staffName}?`)) return
-    kasbonMutations.approve.mutate(id, {
-      onSuccess: () => toast.success(`Kasbon untuk ${staffName} berhasil disetujui`),
-      onError: (e: any) => toast.error(e.message || 'Gagal menyetujui kasbon'),
-    })
+  const handleApproveKasbon = (targetOrId: CashAdvanceRow | string) => {
+    const target =
+      typeof targetOrId === 'string'
+        ? kasbonRows.find((r) => r.id === targetOrId) ?? null
+        : targetOrId
+    if (target) {
+      setApproveKasbonTarget(target)
+    }
+  }
+
+  const handleConfirmApproveKasbon = ({
+    id,
+    amount,
+    approvalNote,
+  }: {
+    id: string
+    amount: number
+    approvalNote?: string
+  }) => {
+    if (!approveKasbonTarget) return
+    const staffName = approveKasbonTarget.outlet_staff?.name || 'karyawan'
+    kasbonMutations.approve.mutate(
+      {
+        id,
+        amount,
+        originalAmount: approveKasbonTarget.amount,
+        approvalNote: approvalNote?.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Kasbon untuk ${staffName} sebesar ${formatRupiah(amount)} berhasil disetujui`)
+          setApproveKasbonTarget(null)
+        },
+        onError: (e: any) => toast.error(e.message || 'Gagal menyetujui kasbon'),
+      }
+    )
   }
 
   const handleOpenRejectKasbon = (id: string) => {
@@ -854,6 +884,16 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
               submitting={kasbonMutations.reject.isPending}
               onSubmit={handleConfirmRejectKasbon}
               onClose={() => setRejectKasbonTarget(null)}
+            />
+          )}
+
+          {/* Approve Kasbon Dialog */}
+          {approveKasbonTarget && (
+            <KasbonApproveModal
+              target={approveKasbonTarget}
+              submitting={kasbonMutations.approve.isPending}
+              onSubmit={handleConfirmApproveKasbon}
+              onClose={() => setApproveKasbonTarget(null)}
             />
           )}
         </div>

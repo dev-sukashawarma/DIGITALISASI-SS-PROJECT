@@ -62,7 +62,7 @@ function ExpandableRow({
 }: {
   row: CashAdvanceRow
   onAddPayment: (row: CashAdvanceRow) => void
-  onApprove?: (id: string) => void
+  onApprove?: (row: CashAdvanceRow) => void
   onReject?: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -85,7 +85,12 @@ function ExpandableRow({
           </span>
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-xs font-mono font-semibold text-gray-700">
-          {formatRupiah(row.amount)}
+          <div>{formatRupiah(row.amount)}</div>
+          {row.amount_requested != null && row.amount_requested !== row.amount && (
+            <div className="text-[10px] text-amber-700 font-sans font-medium">
+              Diajukan: {formatRupiah(row.amount_requested)}
+            </div>
+          )}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-xs font-mono font-black text-red-600">
           {formatRupiah(row.remaining)}
@@ -107,7 +112,7 @@ function ExpandableRow({
             <div className="flex justify-center gap-2">
               {onApprove && (
                 <button
-                  onClick={() => onApprove(row.id)}
+                  onClick={() => onApprove(row)}
                   className="px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1"
                 >
                   Setujui
@@ -151,6 +156,9 @@ function ExpandableRow({
                   )}
                   {row.reason && (
                     <span className="text-gray-500 italic">Alasan: {row.reason}</span>
+                  )}
+                  {row.approval_note && (
+                    <span className="text-emerald-700 font-medium">Catatan Approval: {row.approval_note}</span>
                   )}
                   {row.rejection_note && (
                     <span className="text-red-600 font-medium">Alasan Ditolak: {row.rejection_note}</span>
@@ -197,7 +205,7 @@ function ExpandableRow({
 interface CashAdvanceTableProps {
   rows: CashAdvanceRow[]
   onAddPayment: (row: CashAdvanceRow) => void
-  onApprove?: (id: string) => void
+  onApprove?: (row: CashAdvanceRow) => void
   onReject?: (id: string) => void
 }
 

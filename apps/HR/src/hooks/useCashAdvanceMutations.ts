@@ -2,6 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { CashAdvanceStatus } from '@/lib/types'
 
+export interface ApproveCashAdvancePayload {
+  id: string
+  amount?: number
+  originalAmount?: number
+  approvalNote?: string | null
+}
+
 export function useCashAdvanceMutations() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -21,6 +28,7 @@ export function useCashAdvanceMutations() {
       const { error } = await supabase.from('cash_advances').insert({
         staff_id,
         amount,
+        amount_requested: amount,
         remaining: amount,
         reason,
         status: 'active' as CashAdvanceStatus,
@@ -85,14 +93,32 @@ export function useCashAdvanceMutations() {
   })
 
   const approve = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (payload: string | ApproveCashAdvancePayload) => {
+      const id = typeof payload === 'string' ? payload : payload.id
+      const amount = typeof payload === 'string' ? undefined : payload.amount
+      const originalAmount = typeof payload === 'string' ? undefined : payload.originalAmount
+      const approvalNote = typeof payload === 'string' ? undefined : payload.approvalNote
+
+      const updateData: Record<string, any> = {
+        status_hr: 'approved',
+        status: 'active',
+        approved_at: new Date().toISOString(),
+      }
+
+      if (amount !== undefined) {
+        updateData.amount = amount
+        updateData.remaining = amount
+      }
+      if (originalAmount !== undefined) {
+        updateData.amount_requested = originalAmount
+      }
+      if (approvalNote !== undefined) {
+        updateData.approval_note = approvalNote
+      }
+
       const { error } = await supabase
         .from('cash_advances')
-        .update({
-          status_hr: 'approved',
-          status: 'active',
-          approved_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', id)
       if (error) throw error
     },

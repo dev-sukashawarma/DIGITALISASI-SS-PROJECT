@@ -150,7 +150,7 @@ export function EmergencyAssignmentModal({ isOpen, onClose, defaultDate }: Emerg
               <div className="max-h-40 overflow-y-auto rounded-xl border border-suka-gray-200 divide-y divide-suka-gray-100 bg-white">
                 {isLoadingCrews ? (
                   <div className="p-4 text-center text-xs text-suka-gray-400 flex items-center justify-center gap-2">
-                    <Spinner size="sm" /> Memuat daftar kru...
+                    <Spinner size={16} /> Memuat daftar kru...
                   </div>
                 ) : filteredCrews.length === 0 ? (
                   <div className="p-4 text-center text-xs text-suka-gray-400">
@@ -310,7 +310,7 @@ export function EmergencyAssignmentModal({ isOpen, onClose, defaultDate }: Emerg
             >
               {create.isPending ? (
                 <>
-                  <Spinner size="sm" /> Menyimpan...
+                  <Spinner size={16} /> Menyimpan...
                 </>
               ) : (
                 <>

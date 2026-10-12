@@ -53,7 +53,7 @@ export async function fetchCashAdvancesPage(
     let query = supabase
       .from('cash_advances')
       .select(`
-        id, staff_id, amount, remaining, installment_months, reason, status, status_hr, created_at, approved_at, rejection_note,
+        id, staff_id, amount, amount_requested, remaining, installment_months, reason, status, status_hr, created_at, approved_at, rejection_note, approval_note,
         outlet_staff!cash_advances_staff_id_fkey!inner(
           name, role, username, account_category, outlet_id,
           outlets!outlet_staff_outlet_id_fkey(name)

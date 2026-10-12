@@ -3,18 +3,13 @@
 import { useState, useMemo } from 'react'
 import {
   ArrowRightLeft,
-  Calendar,
   Building2,
-  Users,
   CheckCircle2,
-  Clock,
   Plus,
   Search,
-  Filter,
   ShieldCheck,
-  AlertTriangle,
 } from 'lucide-react'
-import { Button, Spinner } from '@suka/design-system'
+import { Button } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Select } from '@/components/ui/Select'
 import { useEmergencyAssignments, useEmergencyOutlets } from '@/hooks/useEmergencyBackup'

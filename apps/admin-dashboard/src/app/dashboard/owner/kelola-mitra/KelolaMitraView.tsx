@@ -541,6 +541,7 @@ export function KelolaMitraView({
               onFilterChange={handleFilterChange}
               outlets={mitraOutlets}
               className="mt-0"
+              labelClosingInternal="Data Disesuaikan"
             />
           ) : (
             <div className="p-12 text-center bg-white/90 backdrop-blur-md rounded-3xl border border-dashed border-suka-brown/20 shadow-xs space-y-4">

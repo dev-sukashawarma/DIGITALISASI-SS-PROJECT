@@ -8,7 +8,8 @@ import { TEST_OUTLET_ID, isExcludedOutlet } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
-import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
+import { getMitraClosingMonth, isClosingBerlaku, rencanaPeriodeClosing } from './mitraPnlClosingData'
+import { gabungkanPnlMitra } from '@/lib/mitraPnlGabung'
 import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { fetchHppRows, type HppRow } from '@/lib/hpp/fetchHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
@@ -78,13 +79,27 @@ export interface ComprehensiveMitraPnl {
     bepPercentage: number
     roi: number
   }
+  /**
+   * Rentang yang benar-benar disajikan, bila berbeda dari yang diminta: bulan
+   * closing penuh tidak pernah dipotong (lihat rencanaPeriodeClosing).
+   */
+  periodeDisajikan?: { from: string; to: string }
+  /** Bulan yang angkanya berasal dari closing penuh. Dipakai tampilan sisi owner saja. */
+  bulanClosing?: string[]
 }
 
-export async function getMitraComprehensivePnl(
+interface HasilHitungPnl {
+  pnl: ComprehensiveMitraPnl
+  /** `true` bila angka periode ini seluruhnya berasal dari closing penuh. */
+  closingPenuh: boolean
+}
+
+/** Laba rugi untuk SATU rentang tanggal apa adanya. Pintu masuknya getMitraComprehensivePnl di bawah. */
+async function hitungPnlMitra(
   filter: PeriodFilterValue,
   selectedOutletId: string,
   allowedOutletIds: string[]
-): Promise<ComprehensiveMitraPnl> {
+): Promise<HasilHitungPnl> {
   const cookieStore = await cookies()
   const authClient = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
@@ -123,7 +138,7 @@ export async function getMitraComprehensivePnl(
     : secureAllowedOutletIds.filter(id => id === selectedOutletId)
 
   if (targetOutletIds.length === 0) {
-    return {
+    return { closingPenuh: false, pnl: {
       period: { from: filter.from || '', to: filter.to || '' },
       outletName: 'Outlet Tidak Ditemukan',
       profitSharingPct: 50,
@@ -148,7 +163,7 @@ export async function getMitraComprehensivePnl(
       },
       opex: { categories: [], totalPettyCash: 0, totalMonthly: 0, grandTotal: 0 },
       investment: { totalModal: 0, totalProfitDistributed: 0, bepPercentage: 0, roi: 0 }
-    }
+    } }
   }
 
   // 1. Date ranges & periods
@@ -994,54 +1009,90 @@ export async function getMitraComprehensivePnl(
     }
   }
 
-  // 7b. Audited Monthly Closing Data (Agustus 2026)
-  if (isAugust2026Period(filter.from, filter.to)) {
-    let hasClosing = false
+  // 7b. Data closing bulanan (Agustus & September 2026).
+  // Aturan kapan closing boleh menimpa hitungan live ada di isClosingBerlaku().
+  const closingBulan = getMitraClosingMonth(filter.from, filter.to)
+  const closingOf = (oid: string) => closingBulan?.data[oid]
+  const closingAktif = isClosingBerlaku(closingBulan, targetOutletIds, oid => {
+    const f = outletFinancialsMap.get(oid)
+    return !!f && (f.gross !== 0 || f.cogs !== 0)
+  })
+  // September: closing menggantikan SELURUH hitungan (fee, persen bagi hasil, rincian OPEX).
+  const closingPenuh = closingAktif && closingBulan!.terapkanPenuh
+  let closingOpexCategories: OpexCategoryDetail[] | null = null
+  let closingPettyCash = 0
+  let closingMonthly = 0
+
+  if (closingAktif) {
+    posGross = 0
+    posDeductions = 0
+    posCogs = 0
+    faGross = 0
+    faDeductions = 0
+    faCogs = 0
+    tkGross = 0
+    tkDeductions = 0
+    tkCogs = 0
+
     for (const oid of targetOutletIds) {
-      if (getMitraAugustClosing(oid)) {
-        hasClosing = true
-        break
+      const closing = closingOf(oid)
+      if (!closing && closingPenuh) {
+        // Outlet tanpa closing hanya lolos isClosingBerlaku() bila tidak berjualan.
+        // Nilainya nol — termasuk alokasi gaji manajer dari hitungan live, yang di
+        // laporan closing sudah dibagi habis ke outlet yang beroperasi.
+        outletFinancialsMap.set(oid, { gross: 0, deductions: 0, cogs: 0 })
+        outletWasteMap.set(oid, 0)
+        outletOpexMap.set(oid, 0)
+      }
+      if (closing) {
+        outletFinancialsMap.set(oid, {
+          gross: closing.totals.grossRevenue,
+          deductions: closing.totals.totalDeductions,
+          cogs: closing.totals.totalCogs
+        })
+        outletWasteMap.set(oid, closing.totals.totalWaste)
+        outletOpexMap.set(oid, closing.totals.totalOpex)
+
+        posGross += closing.pos.revenue
+        posDeductions += closing.pos.deductions
+        posCogs += closing.pos.cogs
+
+        faGross += closing.foodApps.revenue
+        faDeductions += closing.foodApps.deductions
+        faCogs += closing.foodApps.cogs
+
+        tkGross += closing.tiktok.revenue
+        tkDeductions += closing.tiktok.deductions
+        tkCogs += closing.tiktok.cogs
       }
     }
 
-    if (hasClosing) {
-      posGross = 0
-      posDeductions = 0
-      posCogs = 0
-      faGross = 0
-      faDeductions = 0
-      faCogs = 0
-      tkGross = 0
-      tkDeductions = 0
-      tkCogs = 0
+    totalWaste = targetOutletIds.reduce((sum, oid) => sum + (outletWasteMap.get(oid) || 0), 0)
+    grandTotalOpex = targetOutletIds.reduce((sum, oid) => sum + (outletOpexMap.get(oid) || 0), 0)
 
+    if (closingPenuh) {
+      // Rincian OPEX ikut baris laporan closing, supaya jumlah rincian = total.
+      const banyakOutlet = targetOutletIds.filter(oid => closingOf(oid)).length > 1
+      const catMap = new Map<string, { amount: number; items: OpexCategoryDetail['items'] }>()
       for (const oid of targetOutletIds) {
-        const closing = getMitraAugustClosing(oid)
-        if (closing) {
-          outletFinancialsMap.set(oid, {
-            gross: closing.totals.grossRevenue,
-            deductions: closing.totals.totalDeductions,
-            cogs: closing.totals.totalCogs
+        const closing = closingOf(oid)
+        for (const line of closing?.opexLines ?? []) {
+          const cur = catMap.get(line.label) || { amount: 0, items: [] }
+          cur.amount += line.amount
+          cur.items.push({
+            description: banyakOutlet ? `${line.label} · ${closing!.name}` : line.label,
+            amount: line.amount,
+            date: filter.to,
+            source: line.source,
           })
-          outletWasteMap.set(oid, closing.totals.totalWaste)
-          outletOpexMap.set(oid, closing.totals.totalOpex)
-
-          posGross += closing.pos.revenue
-          posDeductions += closing.pos.deductions
-          posCogs += closing.pos.cogs
-
-          faGross += closing.foodApps.revenue
-          faDeductions += closing.foodApps.deductions
-          faCogs += closing.foodApps.cogs
-
-          tkGross += closing.tiktok.revenue
-          tkDeductions += closing.tiktok.deductions
-          tkCogs += closing.tiktok.cogs
+          catMap.set(line.label, cur)
+          if (line.source === 'petty_cash') closingPettyCash += line.amount
+          else closingMonthly += line.amount
         }
       }
-
-      totalWaste = targetOutletIds.reduce((sum, oid) => sum + (outletWasteMap.get(oid) || 0), 0)
-      grandTotalOpex = targetOutletIds.reduce((sum, oid) => sum + (outletOpexMap.get(oid) || 0), 0)
+      closingOpexCategories = Array.from(catMap.entries())
+        .map(([category, d]) => ({ category, amount: d.amount, items: d.items }))
+        .sort((a, b) => b.amount - a.amount)
     }
   }
 
@@ -1090,7 +1141,7 @@ export async function getMitraComprehensivePnl(
     const opex = outletOpexMap.get(oid) || 0
     const waste = outletWasteMap.get(oid) || 0
 
-    const closing = isAugust2026Period(filter.from, filter.to) ? getMitraAugustClosing(oid) : undefined
+    const closing = closingAktif ? closingOf(oid) : undefined
     let mgmtFee = 0
     if (closing) {
       mgmtFee = Math.round(closing.totals.managementFeeAmount)
@@ -1117,6 +1168,11 @@ export async function getMitraComprehensivePnl(
       singleManagementFeePct = policy.managementFeePct
       singleProfitSharingPct = sharingActive ? policy.profitSharingPct : 0
       singleSharingActive = sharingActive
+      if (closing && closingPenuh) {
+        singlePolicyStatus = `Closing ${closingBulan!.label}`
+        singleManagementFeePct = closing.totals.managementFeePct
+        singleProfitSharingPct = closing.totals.profitSharingPct ?? singleProfitSharingPct
+      }
     }
   }
 
@@ -1124,19 +1180,19 @@ export async function getMitraComprehensivePnl(
   let netProfit = grossProfit - grandTotalOpex - totalWaste - managementFeeAmount
   let mitraShare = totalMitraShare
 
-  if (isAugust2026Period(filter.from, filter.to)) {
+  if (closingAktif) {
     let closingNet = 0
     let closingMitra = 0
     let matchCount = 0
     for (const oid of targetOutletIds) {
-      const c = getMitraAugustClosing(oid)
+      const c = closingOf(oid)
       if (c) {
         closingNet += c.totals.netProfit
         closingMitra += c.totals.mitraShare
         matchCount++
       }
     }
-    if (matchCount === targetOutletIds.length) {
+    if (matchCount === targetOutletIds.length || closingPenuh) {
       netProfit = Math.round(closingNet)
       mitraShare = Math.round(closingMitra)
     }
@@ -1187,7 +1243,7 @@ export async function getMitraComprehensivePnl(
     ? singleIsBep
     : isGlobalBep
 
-  return {
+  const pnl: ComprehensiveMitraPnl = {
     period: {
       from: filter.from || '',
       to: filter.to || ''
@@ -1238,9 +1294,9 @@ export async function getMitraComprehensivePnl(
       }
     },
     opex: {
-      categories: opexCategories,
-      totalPettyCash,
-      totalMonthly,
+      categories: closingOpexCategories ?? opexCategories,
+      totalPettyCash: closingOpexCategories ? closingPettyCash : totalPettyCash,
+      totalMonthly: closingOpexCategories ? closingMonthly : totalMonthly,
       grandTotal: grandTotalOpex
     },
     investment: {
@@ -1249,5 +1305,40 @@ export async function getMitraComprehensivePnl(
       bepPercentage,
       roi
     }
+  }
+  return { pnl, closingPenuh }
+}
+
+export async function getMitraComprehensivePnl(
+  filter: PeriodFilterValue,
+  selectedOutletId: string,
+  allowedOutletIds: string[]
+): Promise<ComprehensiveMitraPnl> {
+  const rencana = rencanaPeriodeClosing(filter.from, filter.to)
+  const persisSebulan = !!rencana && rencana.segmen.length === 1 && rencana.from === filter.from && rencana.to === filter.to
+
+  if (!rencana || persisSebulan) {
+    const { pnl, closingPenuh } = await hitungPnlMitra(filter, selectedOutletId, allowedOutletIds)
+    return closingPenuh && rencana ? { ...pnl, bulanClosing: [rencana.segmen[0].closing!.label] } : pnl
+  }
+
+  // Rentang menyentuh bulan closing penuh tanpa tepat sebulan: bulan itu disajikan
+  // seutuhnya dari closing, hari di luarnya dihitung seperti biasa, lalu dijumlahkan.
+  const hasil = await Promise.all(
+    rencana.segmen.map(seg => hitungPnlMitra({ ...filter, from: seg.from, to: seg.to }, selectedOutletId, allowedOutletIds))
+  )
+  const closingTerpakai = rencana.segmen.every((seg, i) => !seg.closing || hasil[i].closingPenuh)
+  if (!closingTerpakai) {
+    // Closing belum berlaku untuk daftar outlet ini (mis. belum semua outlet tercakup):
+    // jangan melebarkan rentang, tampilkan hitungan biasa untuk rentang yang diminta.
+    return (await hitungPnlMitra(filter, selectedOutletId, allowedOutletIds)).pnl
+  }
+
+  const melebar = rencana.from !== filter.from || rencana.to !== filter.to
+  return {
+    ...gabungkanPnlMitra(hasil.map(h => h.pnl)),
+    period: { from: rencana.from, to: rencana.to },
+    periodeDisajikan: melebar ? { from: rencana.from, to: rencana.to } : undefined,
+    bulanClosing: rencana.segmen.filter(seg => seg.closing).map(seg => seg.closing!.label),
   }
 }

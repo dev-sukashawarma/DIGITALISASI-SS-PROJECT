@@ -3411,6 +3411,30 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
   - **1 Outlet Nonaktif Bebas Beban (Rp 0):** Suka Shawarma Jatiasih (status tutup operasional, baris dihapus dari `expenses`).
 
 
-**Last updated:** 2026-10-10  
+---
+
+## Session 2026-10-12: Closing Mitra September 2026 (apps/admin-dashboard)
+
+**Status:** Kode di `main`. Nol perubahan database. Belum dilihat di browser (verifikasi lewat fungsi server).
+
+- **Sumber angka:** laporan closing owner `SS LAP. LABA RUGI 2026`, sheet `MITRA SEPTEMBER 2026` (11 outlet). Disimpan di `src/app/actions/mitraPnlClosingData.ts` (`MITRA_CLOSING_DATA_SEPTEMBER_2026`), dibangkitkan skrip dari sel Excel. **Angka ini tidak dihitung dari data transaksi dan memang berbeda dari hitungan live — jangan "diperbaiki" agar cocok.**
+- **Yang memakai closing:** Dashboard Mitra (Laba Rugi + kartu ROI/BEP) dan Dashboard Kemitraan owner (`getMitraComprehensivePnl`, `getMitraRealtimeBepBreakdown`). Halaman Laba Rugi owner (`ProfitView`), Rangkuman Penjualan, Ringkasan Bisnis **tetap data asli**.
+- **Agustus vs September:** dua bulan closing punya perilaku berbeda lewat `terapkanPenuh`. Agustus = perilaku lama (tak diubah, diverifikasi identik). September = closing menggantikan seluruh hitungan (fee, persen bagi hasil, rincian OPEX) dan hanya berlaku bila semua outlet yang diminta tercakup atau tidak berjualan (`isClosingBerlaku`).
+- **September tidak pernah dipotong** (`rencanaPeriodeClosing`): rentang apa pun yang menyentuh September disajikan dengan September sebulan penuh + hari di luarnya dihitung biasa, lalu dijumlah (`lib/mitraPnlGabung.ts`). Kepala laporan menulis rentang yang benar-benar tampil (`periodeDisajikan`).
+- **Penanda sisi owner:** `labelClosingInternal` di `MitraProfitLossSection` hanya diisi `KelolaMitraView`. Dashboard mitra tidak boleh mengisinya.
+- **Bagi hasil negatif** (Sawangan DTC) ditampilkan apa adanya dan mengurangi akrual ROI — keputusan owner.
+
+### Temuan terbuka (belum diperbaiki, di luar lingkup sesi ini)
+- **21 menu ber-komponen paket kini `is_package = false`** (Combo #1–#4, semua "… + AQUA"; `updated_at` 10 Okt 10:47–11:42) padahal `hpp_override` sengaja dikosongkan agar ikut komponen → HPP Rp 0 di semua laporan, semua outlet, termasuk Oktober.
+- **Menu Shawarmie Ayam/Sapi terhapus lagi** setelah 10 Okt 09:05 → 291 baris `order_items` September kehilangan `menu_item_id`, riwayat HPP-nya ikut hilang (CASCADE).
+- `fetchHppRows` memakai `new Date(from).setHours(0,0,0,0)` — di container UTC jendelanya bergeser 7 jam. September mitra tidak terdampak (nol order di jam itu), periode lain belum dicek.
+
+### 📝 Next
+- Cek Dashboard Kemitraan setelah deploy, lalu matikan mode maintenance dashboard mitra (`global_settings.mitra_maintenance_config`, aktif sejak 10 Okt).
+- Perbaiki dua temuan menu di atas (sesi terpisah).
+
+---
+
+**Last updated:** 2026-10-12  
 **Owner:** Dev Suka Shawarma
 

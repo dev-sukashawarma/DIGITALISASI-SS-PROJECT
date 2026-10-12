@@ -852,6 +852,16 @@ export async function getHRPayrollSummaryAction(filter: {
         details: []
       }
 
+      // Urutan hierarki manajer: Regional Manager (RM) -> Area Manager (AM) -> Stock Controller (SC)
+      const getManagerPriority = (role: string = '') => {
+        const r = role.toLowerCase()
+        if (r === 'regional_manager' || r === 'rm') return 1
+        if (r === 'area_manager' || r === 'am') return 2
+        if (r === 'stock_controller' || r === 'sc') return 3
+        return 4
+      }
+      mgrAlloc.details.sort((a, b) => getManagerPriority(a.role) - getManagerPriority(b.role))
+
       let crewSalary = 0
       let crewBasicSalary = 0
       let crewAllowances = 0
@@ -1012,7 +1022,11 @@ export async function getHRPayrollSummaryAction(filter: {
           totalPcs: Math.round((mgr.bonusAmount || 0) / 50),
           status: mgr.status
         }))
-        .sort((a, b) => b.bonus - a.bonus)
+        .sort((a, b) => {
+          const diff = getManagerPriority(a.role) - getManagerPriority(b.role)
+          if (diff !== 0) return diff
+          return b.bonus - a.bonus
+        })
 
       const bonusDetails = [...crewBonusDetails, ...managerBonusDetails].sort((a, b) => b.bonus - a.bonus)
 
@@ -1292,7 +1306,18 @@ export async function getHRPayrollSummaryAction(filter: {
           status: (m.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
         }
       })
-      .sort((a, b) => b.bonus - a.bonus) : []
+      .sort((a, b) => {
+        const getPriority = (role: string = '') => {
+          const r = role.toLowerCase()
+          if (r === 'regional_manager' || r === 'rm') return 1
+          if (r === 'area_manager' || r === 'am') return 2
+          if (r === 'stock_controller' || r === 'sc') return 3
+          return 4
+        }
+        const diff = getPriority(a.role) - getPriority(b.role)
+        if (diff !== 0) return diff
+        return b.bonus - a.bonus
+      }) : []
 
     const bonusDetails = [...crewBonusDetails, ...managerBonusDetails].sort((a, b) => b.bonus - a.bonus)
 

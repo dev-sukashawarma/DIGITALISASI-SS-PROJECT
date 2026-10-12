@@ -156,11 +156,20 @@ serve(async (req) => {
       }
     }
 
-    // Sinkronkan staff_outlets bila leader (delete-insert)
-    if (role === "leader" && Array.isArray(outlet_ids)) {
+    // Sinkronkan staff_outlets bila multi-outlet atau outlet_ids disediakan (delete-insert)
+    const isMultiOutlet =
+      role === "leader" ||
+      role === "area_manager" ||
+      body.sub_role === "crew_backup" ||
+      contract_type === "daily";
+
+    if (Array.isArray(outlet_ids)) {
       await admin.from("staff_outlets").delete().eq("staff_id", staff_id);
-      if (outlet_ids.length > 0) {
-        const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }));
+      const targetOutlets = isMultiOutlet
+        ? outlet_ids
+        : (outlet_id ? [outlet_id] : outlet_ids.slice(0, 1));
+      if (targetOutlets.length > 0) {
+        const rows = targetOutlets.map((oid: string) => ({ staff_id, outlet_id: oid }));
         const { error: soError } = await admin.from("staff_outlets").insert(rows);
         if (soError) throw soError;
       }

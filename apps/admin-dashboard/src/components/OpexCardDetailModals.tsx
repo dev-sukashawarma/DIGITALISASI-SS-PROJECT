@@ -352,7 +352,18 @@ export function OpexCardDetailModals({
       }
     }
 
-    return rows.sort((a, b) => b.staffBonus - a.staffBonus)
+    return rows.sort((a, b) => {
+      const getRank = (role: string = '') => {
+        const r = role.toLowerCase()
+        if (r === 'regional_manager' || r === 'rm') return 1
+        if (r === 'area_manager' || r === 'am') return 2
+        if (r === 'stock_controller' || r === 'sc') return 3
+        return 4
+      }
+      const rankDiff = getRank(a.role) - getRank(b.role)
+      if (rankDiff !== 0) return rankDiff
+      return b.staffBonus - a.staffBonus
+    })
   })()
 
   const totalManagerPcs = calculatedManagerRows.length > 0
@@ -648,9 +659,23 @@ export function OpexCardDetailModals({
                     const allStaff = hrPayroll?.staffDetails || []
                     const crewList = allStaff.filter(s => !s.isManagerAllocation)
                     const crewCount = crewList.length > 0 ? crewList.length : (hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0)
-                    const managerList = (hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0)
+                    const rawManagerList = (hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0)
                       ? hrPayroll.managerDetails
                       : (allStaff.filter(s => s.isManagerAllocation) as any[])
+
+                    const getManagerHierarchyRank = (role: string = '') => {
+                      const r = role.toLowerCase()
+                      if (r === 'regional_manager' || r === 'rm') return 1
+                      if (r === 'area_manager' || r === 'am') return 2
+                      if (r === 'stock_controller' || r === 'sc') return 3
+                      return 4
+                    }
+
+                    const managerList = [...rawManagerList].sort((a, b) => {
+                      const rankDiff = getManagerHierarchyRank(a.role) - getManagerHierarchyRank(b.role)
+                      if (rankDiff !== 0) return rankDiff
+                      return (a.staffName || '').localeCompare(b.staffName || '')
+                    })
 
                     const mgrGapok1Bln = Math.round(
                       hrPayroll.managerBasicSalaryAllocation ??
@@ -763,59 +788,71 @@ export function OpexCardDetailModals({
                                 {/* Daftar Personel Kru Fix 1 Bulan */}
                                 <div className="space-y-1.5 max-h-[260px] overflow-y-auto scrollbar-thin pr-0.5">
                                   {crewList.length > 0 ? (
-                                    crewList.map((s) => (
-                                      <div key={s.staffId} className="flex items-center justify-between bg-slate-50 px-2.5 py-2 rounded-lg border border-slate-200 text-xs gap-2">
-                                        <div className="flex flex-col min-w-0">
-                                          <div className="flex items-center gap-1.5">
-                                            <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
-                                            {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
-                                              <span className="text-[9px] text-gray-400 truncate">
-                                                ({s.outletName})
+                                    crewList.map((s) => {
+                                      const isBackupSplit = Boolean(s.isBackupAllocation && (s.backupOutletsCount ?? 1) > 1)
+                                      return (
+                                        <div key={s.staffId} className="flex items-center justify-between bg-slate-50 px-2.5 py-2 rounded-lg border border-slate-200 text-xs gap-2">
+                                          <div className="flex flex-col min-w-0">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
+                                              {isBackupSplit && (
+                                                <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-300 shrink-0">
+                                                  1/{s.backupOutletsCount} Cbg
+                                                </span>
+                                              )}
+                                              {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
+                                                <span className="text-[9px] text-gray-400 truncate">
+                                                  ({s.outletName})
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase shrink-0">
+                                                {s.role.replace(/_/g, ' ')}
                                               </span>
-                                            )}
+                                              {((s.contractType === 'daily' || s.subRole === 'crew_backup')) && (
+                                                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
+                                                  Backup
+                                                </span>
+                                              )}
+                                              {((s.contractType === 'probation' || s.subRole === 'crew_trainee')) && (
+                                                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-300 shrink-0 shadow-2xs">
+                                                  Trainee
+                                                </span>
+                                              )}
+                                              {((s.contractType === 'intern' || s.onboardingStage === 'ojt')) && (
+                                                <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-300 shrink-0 shadow-2xs">
+                                                  OJT
+                                                </span>
+                                              )}
+                                              {s.status === 'finalized' ? (
+                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                  Final
+                                                </span>
+                                              ) : (
+                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                  Draft
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
-                                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase shrink-0">
-                                              {s.role.replace(/_/g, ' ')}
+                                          <div className="text-right shrink-0">
+                                            <span className="font-bold text-indigo-950 font-mono">
+                                              {rupiah(s.routineSalary)}
                                             </span>
-                                            {((s.contractType === 'daily' || s.subRole === 'crew_backup')) && (
-                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
-                                                Backup
+                                            {isBackupSplit && s.fullRoutineSalary ? (
+                                              <span className="text-[9px] text-purple-700 block font-medium">
+                                                (dari {rupiah(s.fullRoutineSalary)})
                                               </span>
-                                            )}
-                                            {((s.contractType === 'probation' || s.subRole === 'crew_trainee')) && (
-                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-300 shrink-0 shadow-2xs">
-                                                Trainee
+                                            ) : (s.allowances > 0 || s.deductions > 0) ? (
+                                              <span className="text-[9px] text-gray-400 block font-normal">
+                                                Gapok {rupiah(s.basicSalary)}{s.allowances > 0 ? ` + Tunj ${rupiah(s.allowances)}` : ''}{s.deductions > 0 ? ` - Pot ${rupiah(s.deductions)}` : ''}
                                               </span>
-                                            )}
-                                            {((s.contractType === 'intern' || s.onboardingStage === 'ojt')) && (
-                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-300 shrink-0 shadow-2xs">
-                                                OJT
-                                              </span>
-                                            )}
-                                            {s.status === 'finalized' ? (
-                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                                Final
-                                              </span>
-                                            ) : (
-                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                                                Draft
-                                              </span>
-                                            )}
+                                            ) : null}
                                           </div>
                                         </div>
-                                        <div className="text-right shrink-0">
-                                          <span className="font-bold text-indigo-950 font-mono">
-                                            {rupiah(s.routineSalary)}
-                                          </span>
-                                          {(s.allowances > 0 || s.deductions > 0) && (
-                                            <span className="text-[9px] text-gray-400 block font-normal">
-                                              Gapok {rupiah(s.basicSalary)}{s.allowances > 0 ? ` + Tunj ${rupiah(s.allowances)}` : ''}{s.deductions > 0 ? ` - Pot ${rupiah(s.deductions)}` : ''}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))
+                                      )
+                                    })
                                   ) : (
                                     <span className="text-xs text-gray-400 italic">Tidak ada kru toko tercatat</span>
                                   )}
@@ -1048,14 +1085,20 @@ export function OpexCardDetailModals({
                                 <div className="space-y-1.5 max-h-[260px] overflow-y-auto scrollbar-thin pr-0.5">
                                   {crewList.length > 0 ? (
                                     crewList.map((s) => {
+                                      const isBackupSplit = Boolean(s.isBackupAllocation && (s.backupOutletsCount ?? 1) > 1)
                                       const sRoutineProrata = Math.round(s.routineSalary * ratio)
                                       const sGapokProrata = Math.round(s.basicSalary * ratio)
                                       const sBonusProrata = Math.round(s.bonus * ratio)
                                       return (
                                         <div key={s.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-2 rounded-lg border border-amber-200/80 text-xs gap-2">
                                           <div className="flex flex-col min-w-0">
-                                            <div className="flex items-center gap-1.5">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
                                               <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
+                                              {isBackupSplit && (
+                                                <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-300 shrink-0">
+                                                  1/{s.backupOutletsCount} Cbg
+                                                </span>
+                                              )}
                                               {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
                                                 <span className="text-[9px] text-gray-400 truncate">
                                                   ({s.outletName})
@@ -1097,7 +1140,9 @@ export function OpexCardDetailModals({
                                               {rupiah(sRoutineProrata)}
                                             </span>
                                             <span className="text-[9px] text-gray-500 block font-normal">
-                                              {isProrated ? `(1 bln: ${rupiah(s.routineSalary)})` : `Gapok ${rupiah(sGapokProrata)}`}
+                                              {isProrated
+                                                ? (isBackupSplit && s.fullRoutineSalary ? `(1 bln: ${rupiah(s.routineSalary)} · dari ${rupiah(s.fullRoutineSalary)})` : `(1 bln: ${rupiah(s.routineSalary)})`)
+                                                : (isBackupSplit && s.fullRoutineSalary ? `(dari ${rupiah(s.fullRoutineSalary)})` : `Gapok ${rupiah(sGapokProrata)}`)}
                                               {sBonusProrata > 0 && <span className="text-amber-700 font-bold ml-1">· +{rupiah(sBonusProrata)} bonus di Card 2</span>}
                                             </span>
                                           </div>

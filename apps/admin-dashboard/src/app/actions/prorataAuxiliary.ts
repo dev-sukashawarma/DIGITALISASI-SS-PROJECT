@@ -8,6 +8,7 @@ import {
   type RolloverExpenseBaseline,
   type CrewBonusRecord,
   type ManagerAssignment,
+  distributeEqualSplit,
 } from '@/lib/opexProrata'
 import { getPeriodsInRange } from '@/lib/opexDateRangeProrata'
 import { monthRange } from '@/lib/period'
@@ -83,6 +84,8 @@ export async function getProrataAuxiliaryDataAction({
         username,
         outlet_id,
         role,
+        sub_role,
+        contract_type,
         status,
         account_category
       )
@@ -103,6 +106,8 @@ export async function getProrataAuxiliaryDataAction({
       username,
       outlet_id,
       role,
+      sub_role,
+      contract_type,
       status,
       account_category,
       staff_financials(
@@ -132,15 +137,14 @@ export async function getProrataAuxiliaryDataAction({
     .gte('expense_date', prevMonthRange.from)
     .lte('expense_date', prevMonthRange.to)
 
-  // 4. Staff outlets untuk manajer
-  const qManagerStaffOutlets = supabase
+  // 4. Staff outlets untuk manajer & backup crew
+  const qStaffOutlets = supabase
     .from('staff_outlets')
     .select(`
       staff_id,
       outlet_id,
-      outlet_staff!inner(id, role, is_active)
+      outlet_staff!inner(id, role, sub_role, contract_type, is_active)
     `)
-    .in('outlet_staff.role', ['area_manager', 'regional_manager'])
     .eq('outlet_staff.is_active', true)
 
   // 5. Crew bonus RPC
@@ -172,81 +176,20 @@ export async function getProrataAuxiliaryDataAction({
     .select('id, name, slug, type, is_active, status')
     .in('type', ['internal', 'mitra'])
 
-  const [payrollRes, staffRes, lastMonthRes, managerRes, opOutletsRes, ...bonusResults] = await Promise.all([
+  const [payrollRes, staffRes, lastMonthRes, staffOutletsRes, opOutletsRes, ...bonusResults] = await Promise.all([
     qPayroll,
     qStaff,
     qLastMonth,
-    qManagerStaffOutlets,
+    qStaffOutlets,
     qOpOutlets,
     ...bonusPromises,
   ])
 
   const ALLOWED_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager']
 
-  const payrollRecords = ((payrollRes.data ?? []) as any[])
-    .filter(r => {
-      const s = r.outlet_staff
-      if (!s) return false
-      if (isTestOrDevStaff(s)) return false
-      if (!ALLOWED_ROLES.includes(s.role)) return false
-      const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
-      const effectiveOutletId = r.outlet_id || s.outlet_id
-      if (!isManager && (!effectiveOutletId || effectiveOutletId === KANTOR_PUSAT_ID)) return false
-      return true
-    })
-    .map(r => ({
-      staff_id: (r.outlet_staff?.id || r.staff_id) as string,
-      outlet_id: (r.outlet_id || r.outlet_staff?.outlet_id) as string,
-      total_salary: Number(r.total_salary) || 0,
-      bonus: Number(r.bonus) || 0,
-      period_month: Number(r.period_month),
-      period_year: Number(r.period_year),
-      role: r.outlet_staff?.role as string,
-    }))
-    .filter(r => Boolean(r.outlet_id))
-
-  const staffFinancials = ((staffRes.data ?? []) as any[])
-    .filter(s => {
-      if (!s || s.status !== 'active') return false
-      if (isTestOrDevStaff(s)) return false
-      if (!ALLOWED_ROLES.includes(s.role)) return false
-      const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
-      if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID)) return false
-      return true
-    })
-    .map(s => {
-      const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
-      return {
-        staff_id: s.id as string,
-        outlet_id: s.outlet_id as string,
-        basic_salary: Number(fin?.basic_salary) || 0,
-        allowance_position: Number(fin?.allowance_position) || 0,
-        allowance_presence: Number(fin?.allowance_presence) || 0,
-        role: s.role as string,
-      }
-    })
-    .filter(s => Boolean(s.outlet_id))
-
-  const lastMonthExpenses: RolloverExpenseBaseline[] = ((lastMonthRes.data ?? []) as any[]).map(e => ({
-    outlet_id: e.outlet_id as string | null,
-    category: e.category as string,
-    amount: Number(e.amount) || 0,
-  }))
-
   const crewBonusRecords: CrewBonusRecord[] = bonusResults.flat()
-
-  const managerMap = new Map<string, ManagerAssignment>()
-  for (const row of ((managerRes.data ?? []) as any[])) {
-    const sid = row.staff_id
-    const role = (row.outlet_staff as any)?.role || 'area_manager'
-    if (!managerMap.has(sid)) {
-      managerMap.set(sid, { staff_id: sid, role, outlet_ids: [] })
-    }
-    managerMap.get(sid)!.outlet_ids.push(row.outlet_id)
-  }
-  const managerAssignments: ManagerAssignment[] = Array.from(managerMap.values())
-
   const bonusOutletIds = new Set(crewBonusRecords.map(c => c.outlet_id))
+
   const operationalOutletIds: string[] = ((opOutletsRes.data ?? []) as any[])
     .filter(o => {
       if (isExcludedOutlet(o)) return false
@@ -257,6 +200,181 @@ export async function getProrataAuxiliaryDataAction({
       return isActive || hadActivityInPeriod
     })
     .map(o => o.id)
+
+  const opOutletIdSet = new Set(operationalOutletIds)
+
+  // Map penugasan outlet untuk manajer & backup crew
+  const staffAssignmentsMap = new Map<string, string[]>()
+  const managerMap = new Map<string, ManagerAssignment>()
+
+  for (const row of ((staffOutletsRes.data ?? []) as any[])) {
+    const sid = row.staff_id
+    if (!staffAssignmentsMap.has(sid)) {
+      staffAssignmentsMap.set(sid, [])
+    }
+    staffAssignmentsMap.get(sid)!.push(row.outlet_id)
+
+    const role = (row.outlet_staff as any)?.role || 'area_manager'
+    if (role === 'area_manager' || role === 'regional_manager') {
+      if (!managerMap.has(sid)) {
+        managerMap.set(sid, { staff_id: sid, role, outlet_ids: [] })
+      }
+      managerMap.get(sid)!.outlet_ids.push(row.outlet_id)
+    }
+  }
+  const managerAssignments: ManagerAssignment[] = Array.from(managerMap.values())
+
+  function getBackupCrewTargets(
+    staffId: string,
+    homeOutletId: string | undefined | null,
+    isBackup: boolean
+  ): string[] {
+    if (!isBackup) {
+      return homeOutletId ? [homeOutletId] : []
+    }
+    const assigned = staffAssignmentsMap.get(staffId) || []
+    const set = new Set<string>()
+    if (homeOutletId && opOutletIdSet.has(homeOutletId)) {
+      set.add(homeOutletId)
+    }
+    assigned.forEach(id => {
+      if (opOutletIdSet.has(id)) {
+        set.add(id)
+      }
+    })
+    if (set.size === 0 && homeOutletId) {
+      set.add(homeOutletId)
+    }
+    return Array.from(set)
+  }
+
+  const payrollRecords: {
+    staff_id?: string
+    outlet_id: string
+    total_salary: number
+    bonus?: number
+    period_month: number
+    period_year: number
+    role: string
+  }[] = []
+
+  ;((payrollRes.data ?? []) as any[])
+    .filter(r => {
+      const s = r.outlet_staff
+      if (!s) return false
+      if (isTestOrDevStaff(s)) return false
+      if (!ALLOWED_ROLES.includes(s.role)) return false
+      const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+      const effectiveOutletId = r.outlet_id || s.outlet_id
+      if (!isManager && (!effectiveOutletId || effectiveOutletId === KANTOR_PUSAT_ID)) return false
+      return true
+    })
+    .forEach(r => {
+      const s = r.outlet_staff
+      const isManager = s?.role === 'area_manager' || s?.role === 'regional_manager'
+      const tot = Number(r.total_salary) || 0
+      const bon = Number(r.bonus) || 0
+      const routine = Math.max(0, tot - bon)
+      const isBackup = !isManager && (s?.sub_role === 'crew_backup' || s?.contract_type === 'daily')
+      const homeOutletId = (r.outlet_id || s?.outlet_id) as string
+
+      if (isBackup && s?.id) {
+        const targets = getBackupCrewTargets(s.id, homeOutletId, true)
+        if (targets.length > 1) {
+          const splitRoutine = distributeEqualSplit(routine, targets)
+          targets.forEach(tId => {
+            const allocRoutine = splitRoutine.get(tId) || 0
+            const allocBonus = tId === homeOutletId ? bon : 0
+            payrollRecords.push({
+              staff_id: (s?.id || r.staff_id) as string,
+              outlet_id: tId,
+              total_salary: allocRoutine + allocBonus,
+              bonus: allocBonus,
+              period_month: Number(r.period_month),
+              period_year: Number(r.period_year),
+              role: s?.role as string,
+            })
+          })
+          return
+        }
+      }
+
+      if (homeOutletId) {
+        payrollRecords.push({
+          staff_id: (s?.id || r.staff_id) as string,
+          outlet_id: homeOutletId,
+          total_salary: tot,
+          bonus: bon,
+          period_month: Number(r.period_month),
+          period_year: Number(r.period_year),
+          role: s?.role as string,
+        })
+      }
+    })
+
+  const staffFinancials: {
+    staff_id?: string
+    outlet_id: string
+    basic_salary: number
+    allowance_position: number
+    allowance_presence: number
+    role: string
+  }[] = []
+
+  ;((staffRes.data ?? []) as any[])
+    .filter(s => {
+      if (!s || s.status !== 'active') return false
+      if (isTestOrDevStaff(s)) return false
+      if (!ALLOWED_ROLES.includes(s.role)) return false
+      const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+      if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID)) return false
+      return true
+    })
+    .forEach(s => {
+      const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
+      const bSalary = Number(fin?.basic_salary) || 0
+      const aPos = Number(fin?.allowance_position) || 0
+      const aPres = Number(fin?.allowance_presence) || 0
+      const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+      const isBackup = !isManager && (s.sub_role === 'crew_backup' || s.contract_type === 'daily')
+
+      if (isBackup) {
+        const targets = getBackupCrewTargets(s.id, s.outlet_id, true)
+        if (targets.length > 1) {
+          const splitBasic = distributeEqualSplit(bSalary, targets)
+          const splitPos = distributeEqualSplit(aPos, targets)
+          const splitPres = distributeEqualSplit(aPres, targets)
+          targets.forEach(tId => {
+            staffFinancials.push({
+              staff_id: s.id as string,
+              outlet_id: tId,
+              basic_salary: splitBasic.get(tId) || 0,
+              allowance_position: splitPos.get(tId) || 0,
+              allowance_presence: splitPres.get(tId) || 0,
+              role: s.role as string,
+            })
+          })
+          return
+        }
+      }
+
+      if (s.outlet_id) {
+        staffFinancials.push({
+          staff_id: s.id as string,
+          outlet_id: s.outlet_id as string,
+          basic_salary: bSalary,
+          allowance_position: aPos,
+          allowance_presence: aPres,
+          role: s.role as string,
+        })
+      }
+    })
+
+  const lastMonthExpenses: RolloverExpenseBaseline[] = ((lastMonthRes.data ?? []) as any[]).map(e => ({
+    outlet_id: e.outlet_id as string | null,
+    category: e.category as string,
+    amount: Number(e.amount) || 0,
+  }))
 
   return {
     payrollRecords,

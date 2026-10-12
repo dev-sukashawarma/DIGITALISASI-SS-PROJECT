@@ -136,6 +136,9 @@ export function StaffForm({
   })
 
   const watchRole = watch('role')
+  const watchContract = watch('contract_type')
+  const watchSubRole = watch('sub_role')
+  const isMultiOutlet = watchRole === 'leader' || watchRole === 'area_manager' || watchContract === 'daily' || watchSubRole === 'crew_backup'
   const watchBasic = watch('basic_salary') || 0
   const watchMeal = watch('allowance_meal') || 0
   const watchTransport = watch('allowance_transport') || 0
@@ -220,7 +223,7 @@ export function StaffForm({
       username: data.username || '',
       role: data.role,
       outlet_id: data.outlet_id,
-      outlet_ids: data.role === 'leader' || data.role === 'area_manager' ? data.outlet_ids : [],
+      outlet_ids: (data.role === 'leader' || data.role === 'area_manager' || data.contract_type === 'daily' || data.sub_role === 'crew_backup') ? (data.outlet_ids || []) : [],
       is_bonus_eligible: data.is_bonus_eligible !== undefined ? data.is_bonus_eligible : true,
       // Personal
       nik: data.nik || null,
@@ -429,9 +432,13 @@ export function StaffForm({
               {errors.resign_date && <span className="text-xs text-red-500 mt-1 block">{errors.resign_date?.message ?.toString()}</span>}
             </div>
 
-            {(watchRole === 'leader' || watchRole === 'area_manager') && (
+            {isMultiOutlet && (
               <div className="col-span-1 md:col-span-2 mt-2">
-                <label className={labelCls}>Outlet Binaan / Supervisi</label>
+                <label className={labelCls}>
+                  {watchRole === 'leader' || watchRole === 'area_manager'
+                    ? 'Outlet Binaan / Supervisi'
+                    : 'Outlet Penugasan Backup (Gaji rutin dibagi rata ke outlet-outlet ini)'}
+                </label>
                 <Controller
                   name="outlet_ids"
                   control={control}

@@ -28,7 +28,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
       nik, email: personal_email, phone, address_ktp, address_domicile,
       birth_place, birth_date, gender, religion,
       emergency_name, emergency_relationship, emergency_phone,
-      nip, contract_type, join_date, resign_date, leave_quota,
+      nip, contract_type, sub_role, join_date, resign_date, leave_quota,
       basic_salary, allowance_position, allowance_presence,
       allowance_meal, allowance_transport, allowance_communication,
       sales_bonus, deduction_kasbon, deduction_bpjs,
@@ -195,7 +195,8 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
       }
     }
 
-    if (role === "leader" && Array.isArray(outlet_ids)) {
+    const isMultiOutlet = role === "leader" || role === "area_manager" || sub_role === "crew_backup" || contract_type === "daily";
+    if (isMultiOutlet && Array.isArray(outlet_ids) && outlet_ids.length > 0) {
       const rows = outlet_ids.map((oid: string) => ({ staff_id: staffId, outlet_id: oid }));
       await admin.from("staff_outlets").insert(rows);
     }

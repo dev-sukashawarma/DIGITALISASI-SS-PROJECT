@@ -72,7 +72,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       'admin', 'owner', 'regional_manager', 'area_manager', 
       'leader', 'admin_hr', 'admin_finance', 
       'purchasing', 'mitra', 'developer', 'marcom'
-    ].includes(role);
+    ].includes(role) || body?.sub_role === 'crew_backup' || body?.contract_type === 'daily';
     const finalOutletIds = (isMultiOutletRole && Array.isArray(outlet_ids) && outlet_ids.length > 0) 
       ? outlet_ids 
       : [outlet_id].filter(Boolean);

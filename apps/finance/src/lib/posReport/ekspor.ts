@@ -14,7 +14,7 @@ import { cleanItemName } from '@/lib/order-item-name'
 import { resolveOrderSource } from '@/lib/order-source'
 import { getChannel } from '@/lib/channels'
 import {
-  buildGofoodSettlementPromoMap,
+  buildFoodAppsSettlementPromoMap,
   computeItemShares,
   computeOrderDeduction,
   computeOrderGross,
@@ -168,10 +168,12 @@ export function computeExportReport(params: {
   const byChannel = filterOrdersByChannels(orders, selectedChannels)
   const valid = byChannel.filter(o => o.status === 'completed' || o.status === 'settled')
 
-  const gofoodSettlementPromoMap = buildGofoodSettlementPromoMap(valid, settlements)
+  const foodAppsSettlementPromoMap = buildFoodAppsSettlementPromoMap(valid, settlements)
   const kpiOpts = {
     ssOnlineMode: isSSOnlineSelected,
-    getGofoodSettlementPromo: (order: any) => gofoodSettlementPromoMap.get(order.id ?? order),
+    getSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    getGofoodSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    gofoodSettlementMap: foodAppsSettlementPromoMap,
   }
 
   const outletMeta = new Map<string, { nama: string; type: string }>()

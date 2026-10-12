@@ -89,6 +89,32 @@ export function isTikTokGoOrder(order: { channel?: string | null; sales_source?:
   )
 }
 
+const GRABFOOD_IDENTIFIERS = new Set(['grabfood', 'grab', 'grab_food'])
+
+export function isGrabFoodOrder(order: { channel?: string | null; sales_source?: string | null }): boolean {
+  const ch = (order.channel || '').toLowerCase()
+  const src = (order.sales_source || '').toLowerCase()
+  return (
+    GRABFOOD_IDENTIFIERS.has(ch) ||
+    GRABFOOD_IDENTIFIERS.has(src) ||
+    ch.includes('grab') ||
+    src.includes('grab')
+  )
+}
+
+const SHOPEEFOOD_IDENTIFIERS = new Set(['shopeefood', 'shopee_food'])
+
+export function isShopeeFoodOrder(order: { channel?: string | null; sales_source?: string | null }): boolean {
+  const ch = (order.channel || '').toLowerCase()
+  const src = (order.sales_source || '').toLowerCase()
+  return (
+    SHOPEEFOOD_IDENTIFIERS.has(ch) ||
+    SHOPEEFOOD_IDENTIFIERS.has(src) ||
+    (ch.includes('shopee') && !ch.includes('shop') && !ch.includes('seller')) ||
+    (src.includes('shopee') && !src.includes('shop') && !src.includes('seller'))
+  )
+}
+
 /** Format tanggal YYYY-MM-DD dalam zona waktu Jakarta (WIB). */
 export function getOrderJakartaDateStr(dateOrIso?: string | Date | null): string {
   if (!dateOrIso) return ''
@@ -137,6 +163,8 @@ export interface KpiOrderOptions {
   ssOnlineMode?: boolean
   /** Fungsi pengambil promo merchant GoFood dari settlement berdasarkan pesanan. */
   getGofoodSettlementPromo?: (order: KpiOrder) => number | null | undefined
+  /** Fungsi pengambil promo merchant Food Apps umum dari settlement berdasarkan pesanan. */
+  getSettlementPromo?: (order: KpiOrder) => number | null | undefined
   /** Map promo settlement GoFood keyed by order id / order ref / outlet_id|tanggal. */
   gofoodSettlementMap?: Map<string | KpiOrder, number> | Record<string, number>
 }
@@ -145,24 +173,50 @@ function itemValue(item: KpiOrderItem): number {
   return Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0
 }
 
+export function getOrderPlatformKey(order: { channel?: string | null; sales_source?: string | null }): 'gofood' | 'grabfood' | 'shopeefood' | 'tiktokgo' | null {
+  if (isGoFoodOrder(order)) return 'gofood'
+  if (isGrabFoodOrder(order)) return 'grabfood'
+  if (isShopeeFoodOrder(order)) return 'shopeefood'
+  if (isTikTokGoOrder(order)) return 'tiktokgo'
+  return null
+}
+
+export function normalizeSettlementPlatformKey(platform?: string | null): 'gofood' | 'grabfood' | 'shopeefood' | 'tiktokgo' | null {
+  const p = (platform || '').toLowerCase().trim()
+  if (p === 'gofood' || p === 'gojek' || p === 'go_food') return 'gofood'
+  if (p === 'grabfood' || p === 'grab' || p === 'grab_food') return 'grabfood'
+  if (p === 'shopeefood' || p === 'shopee' || p === 'shopee_food') return 'shopeefood'
+  if (p === 'tiktokgo' || p === 'tiktok' || p === 'tiktok_go') return 'tiktokgo'
+  return null
+}
+
 /**
  * Menghitung porsi promo yang menjadi beban merchant (Potongan Merchant / Card Biru).
  *
  * Aturan Bisnis (Food Apps Rekonsiliasi):
- * - GoFood: kasir sering menginput total promo konsumen yang memuat subsidi Gojek di dalamnya.
- *   Jika ada data settlement GoBiz (via order.settlement_promo_merchant atau options),
- *   Card Biru menggunakan promo_merchant dari settlement (Single Source of Truth).
- *   Jika belum ada data settlement, fallback ke promo_subsidy kasir.
- * - GrabFood & ShopeeFood: input kasir sudah murni diskon merchant (akurat),
- *   tetap memakai promo_subsidy kasir.
+ * - File Rekonsiliasi Settlement (`platform_settlements`) adalah Single Source of Truth!
+ * - Jika ada data settlement untuk platform (GoFood, GrabFood, ShopeeFood),
+ *   Card Biru & Laba Rugi menggunakan `promo_merchant` dari file rekonsiliasi.
+ * - Jika belum ada data settlement untuk platform tersebut, fallback ke `promo_subsidy` kasir.
+ * - Khusus TikTok Go: promo voucher 100% disubsidi TikTok (platform incentive), promo resto = 0.
  */
 export function resolveMerchantPromo(order: KpiOrder, opts: KpiOrderOptions = {}): number {
   const promoSubsidy = Number(order.promo_subsidy) || 0
 
-  if (isGoFoodOrder(order)) {
-    if (order.settlement_promo_merchant !== undefined && order.settlement_promo_merchant !== null) {
-      return Number(order.settlement_promo_merchant) || 0
+  // 1. Single Source of Truth: jika sudah ada alokasi settlement promo_merchant dari file settlement
+  if (order.settlement_promo_merchant !== undefined && order.settlement_promo_merchant !== null) {
+    return Number(order.settlement_promo_merchant) || 0
+  }
+
+  // 2. Cek callback resolver settlement promo umum
+  if (opts.getSettlementPromo) {
+    const settlementPromo = opts.getSettlementPromo(order)
+    if (settlementPromo !== undefined && settlementPromo !== null) {
+      return Number(settlementPromo) || 0
     }
+  }
+
+  if (isGoFoodOrder(order)) {
     if (opts.getGofoodSettlementPromo) {
       const settlementPromo = opts.getGofoodSettlementPromo(order)
       if (settlementPromo !== undefined && settlementPromo !== null) {
@@ -173,9 +227,10 @@ export function resolveMerchantPromo(order: KpiOrder, opts: KpiOrderOptions = {}
       const map = opts.gofoodSettlementMap
       const dateStr = getOrderJakartaDateStr(order.created_at)
       const groupKey = `${order.outlet_id || ''}|${dateStr}`
+      const platGroupKey = `${order.outlet_id || ''}|gofood|${dateStr}`
       const val = map instanceof Map
-        ? (map.get(order.id ?? order) ?? (order.id ? map.get(order.id) : undefined) ?? map.get(groupKey))
-        : (order.id ? map[order.id] : undefined) ?? map[groupKey]
+        ? (map.get(order.id ?? order) ?? (order.id ? map.get(order.id) : undefined) ?? map.get(platGroupKey) ?? map.get(groupKey))
+        : (order.id ? map[order.id] : undefined) ?? map[platGroupKey] ?? map[groupKey]
       if (val !== undefined && val !== null) {
         return Number(val) || 0
       }
@@ -188,26 +243,38 @@ export function resolveMerchantPromo(order: KpiOrder, opts: KpiOrderOptions = {}
     // Di TikTok Go, promo voucher disubsidi platform TikTok (Platform incentive).
     // Beban toko (Merchant incentive) hampir Rp 0. Jika kasir menginput diskon di POS,
     // itu bukan beban toko melainkan subsidi voucher TikTok.
-    if (order.settlement_promo_merchant !== undefined && order.settlement_promo_merchant !== null) {
-      return Number(order.settlement_promo_merchant) || 0
-    }
     return 0
   }
 
-  // GrabFood & ShopeeFood atau order umum: kasir input sudah murni diskon merchant (sudah akurat)
+  // GrabFood & ShopeeFood atau order umum:
+  // Cek apakah ada map settlement Food Apps yang relevan
+  if (opts.gofoodSettlementMap) {
+    const map = opts.gofoodSettlementMap
+    const platKey = getOrderPlatformKey(order)
+    const dateStr = getOrderJakartaDateStr(order.created_at)
+    const platGroupKey = `${order.outlet_id || ''}|${platKey}|${dateStr}`
+    const val = map instanceof Map
+      ? (map.get(order.id ?? order) ?? (order.id ? map.get(order.id) : undefined) ?? (platKey ? map.get(platGroupKey) : undefined))
+      : (order.id ? map[order.id] : undefined) ?? (platKey ? map[platGroupKey] : undefined)
+    if (val !== undefined && val !== null) {
+      return Number(val) || 0
+    }
+  }
+
+  // Fallback ke input kasir (promo_subsidy)
   return promoSubsidy
 }
 
 /**
  * Subsidi dari platform aplikasi (misal Gojek / TikTok), BUKAN beban resto.
  *
- * Untuk GoFood & TikTok Go:
+ * Untuk Food Apps:
  *   Selisih = MAX(0, promo_subsidy_kasir - promo_merchant_settlement)
  * Selisih ini dipisahkan dari Card Biru agar laba kotor (Gross Profit) tidak understated.
  */
 export function computeOrderPlatformSubsidy(order: KpiOrder, opts: KpiOrderOptions = {}): number {
   if (opts.ssOnlineMode || order.outlet_id === 'ss-online') return 0
-  if (!isGoFoodOrder(order) && !isTikTokGoOrder(order)) return 0
+  if (!isFoodAppOrder(order)) return 0
 
   const kasirPromo = Number(order.promo_subsidy) || 0
   const merchantPromo = resolveMerchantPromo(order, opts)
@@ -229,7 +296,7 @@ export function computeOrderDeduction(order: KpiOrder, opts: KpiOrderOptions = {
 
   if (isFoodApp) {
     // Pada pesanan Food Apps, potongan promo merchant adalah diskon toko
-    // (GoFood dioverride settlement GoBiz; Grab/Shopee dari input kasir).
+    // (diambil dari rekonsiliasi settlement jika tersedia; fallback ke kasir).
     // Pesanan Food Apps tidak menggunakan potongan offline kasir.
     return merchantPromo
   }
@@ -254,15 +321,14 @@ export interface SettlementInputRow {
 }
 
 /**
- * Membangun peta alokasi promo_merchant settlement GoFood per order.
+ * Membangun peta alokasi promo_merchant settlement Food Apps (GoFood, GrabFood, ShopeeFood) per order.
  *
- * Bila settlement GoFood tersedia untuk (outlet_id, tanggal), total promo_merchant
- * dari settlement dialokasikan secara proporsional ke order-order GoFood pada
- * hari & outlet tersebut.
+ * Bila settlement Food Apps tersedia untuk (outlet_id, platform, tanggal), total promo_merchant
+ * dari settlement dialokasikan secara proporsional ke order-order pada hari, outlet, dan platform tersebut.
  *
  * Mengembalikan Map yang bisa diakses via order.id ataupun referensi order langsung.
  */
-export function buildGofoodSettlementPromoMap(
+export function buildFoodAppsSettlementPromoMap(
   orders: KpiOrder[],
   settlements: SettlementInputRow[] = []
 ): Map<string | KpiOrder, number> {
@@ -271,29 +337,30 @@ export function buildGofoodSettlementPromoMap(
     return promoMap
   }
 
-  // 1. Kumpulkan settlement GoFood per groupKey `${outlet_id}|${tanggal}`
+  // 1. Kumpulkan settlement Food Apps per groupKey `${outlet_id}|${platformKey}|${tanggal}`
   const settlementByGroup = new Map<string, number>()
   for (const s of settlements) {
-    const plat = (s.platform || '').toLowerCase()
-    if (plat !== 'gofood') continue
+    const platKey = normalizeSettlementPlatformKey(s.platform)
+    if (!platKey) continue
     const oid = s.outlet_id || ''
     const tgl = (s.tanggal || '').slice(0, 10)
     if (!tgl) continue
-    const key = `${oid}|${tgl}`
+    const key = `${oid}|${platKey}|${tgl}`
     const val = Number(s.promo_merchant) || 0
     settlementByGroup.set(key, (settlementByGroup.get(key) || 0) + Math.max(0, val))
   }
 
   if (settlementByGroup.size === 0) return promoMap
 
-  // 2. Kelompokkan order GoFood berdasarkan groupKey `${outlet_id}|${tanggal}`
+  // 2. Kelompokkan order Food Apps berdasarkan groupKey `${outlet_id}|${platformKey}|${tanggal}`
   const ordersByGroup = new Map<string, KpiOrder[]>()
   for (const o of orders) {
-    if (!isGoFoodOrder(o)) continue
+    const platKey = getOrderPlatformKey(o)
+    if (!platKey) continue
     const oid = o.outlet_id || ''
     const tgl = getOrderJakartaDateStr(o.created_at)
     if (!tgl) continue
-    const key = `${oid}|${tgl}`
+    const key = `${oid}|${platKey}|${tgl}`
     if (!settlementByGroup.has(key)) continue
 
     const list = ordersByGroup.get(key) || []
@@ -353,6 +420,19 @@ export function buildGofoodSettlementPromoMap(
   }
 
   return promoMap
+}
+
+/**
+ * Membangun peta alokasi promo_merchant settlement GoFood per order.
+ * Mempertahankan backward compatibility untuk modul-modul yang memanggil fungsi ini secara spesifik.
+ */
+export function buildGofoodSettlementPromoMap(
+  orders: KpiOrder[],
+  settlements: SettlementInputRow[] = []
+): Map<string | KpiOrder, number> {
+  const goOrders = orders.filter(isGoFoodOrder)
+  const goSettlements = settlements.filter(s => normalizeSettlementPlatformKey(s.platform) === 'gofood')
+  return buildFoodAppsSettlementPromoMap(goOrders, goSettlements)
 }
 
 /** Omzet kotor satu order = total nilai menu sebelum diskon. */

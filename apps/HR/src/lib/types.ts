@@ -370,3 +370,53 @@ export interface PerformanceRecord {
   kpi_score: number
   grade: 'A' | 'B' | 'C' | 'D'
 }
+
+// ── Emergency Crew Backup (BKO Sementara) ─────────────────────
+export type EmergencyAssignmentStatus = 'active' | 'completed' | 'cancelled'
+
+export interface EmergencyCrewAssignment {
+  id: string
+  staff_id: string
+  origin_outlet_id: string
+  target_outlet_id: string
+  assignment_date: string // YYYY-MM-DD
+  reason: string | null
+  status: EmergencyAssignmentStatus
+  assigned_by: string | null
+  created_at: string
+  updated_at: string
+  staff?: {
+    id: string
+    name: string
+    role: string
+    sub_role?: string | null
+    avatar_url?: string | null
+    phone?: string | null
+  }
+  origin_outlet?: {
+    id: string
+    name: string
+    type?: string
+  }
+  target_outlet?: {
+    id: string
+    name: string
+    type?: string
+  }
+  assigned_by_staff?: {
+    id: string
+    name: string
+  }
+  today_attendance?: {
+    has_attended: boolean
+    first_in?: string | null
+    last_out?: string | null
+  }
+}
+
+export interface CreateEmergencyAssignmentInput {
+  staff_id: string
+  target_outlet_id: string
+  assignment_date: string
+  reason?: string
+}

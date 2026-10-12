@@ -61,22 +61,37 @@ async function fetchMyOutletFromNetwork(): Promise<MyOutletData> {
   let outletName = (profile.outlets as any)?.name ?? null;
   let outletRegion = (profile.outlets as any)?.region ?? null;
 
-  // Override outlet_id berdasarkan lokasi absen hari ini (jika karyawan BKO/mutasi harian)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const { data: attData } = await supabase.from('attendance')
-    .select('outlet_id, outlets(name, region)')
-    .eq('outlet_staff_id', userId)
-    .gte('created_at', today.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(1)
+  // Override outlet_id berdasarkan penugasan darurat BKO atau lokasi absen hari ini
+  const todayWib = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+  const { data: bkoData } = await supabase
+    .from('emergency_crew_assignments')
+    .select('target_outlet_id, target_outlet:outlets!target_outlet_id(name, region)')
+    .eq('staff_id', userId)
+    .eq('assignment_date', todayWib)
+    .eq('status', 'active')
     .maybeSingle();
 
-  if (attData && attData.outlet_id) {
-    outletId = attData.outlet_id;
-    outletName = (attData.outlets as any)?.name ?? outletName;
-    outletRegion = (attData.outlets as any)?.region ?? outletRegion;
+  if (bkoData?.target_outlet_id) {
+    outletId = bkoData.target_outlet_id;
+    outletName = (bkoData.target_outlet as any)?.name ?? outletName;
+    outletRegion = (bkoData.target_outlet as any)?.region ?? outletRegion;
+  } else {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const { data: attData } = await supabase.from('attendance')
+      .select('outlet_id, outlets(name, region)')
+      .eq('outlet_staff_id', userId)
+      .gte('created_at', today.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (attData && attData.outlet_id) {
+      outletId = attData.outlet_id;
+      outletName = (attData.outlets as any)?.name ?? outletName;
+      outletRegion = (attData.outlets as any)?.region ?? outletRegion;
+    }
   }
 
   // Fallback untuk Admin yang ingin mengetes Kasir/Kiosk

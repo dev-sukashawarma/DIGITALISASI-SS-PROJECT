@@ -49,6 +49,21 @@ export async function authorizeOutletAccess(
       return { ok: true };
     }
 
+    // Check if staff has active emergency assignment (BKO) for this outlet on today's date
+    const todayWib = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+    const { data: bko } = await supabase
+      .from('emergency_crew_assignments')
+      .select('id')
+      .eq('staff_id', user.id)
+      .eq('target_outlet_id', outlet_id)
+      .eq('assignment_date', todayWib)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (bko) {
+      return { ok: true };
+    }
+
     return { ok: false, status: 403, error: 'Forbidden: outlet mismatch' };
   } catch (err: any) {
     console.error('[authorizeOutletAccess] unexpected error:', err);

@@ -49,15 +49,17 @@ export async function POST(req: NextRequest) {
     } else {
       // (filter .or() disusun di sini, diterapkan di buildCandidates)
       // MODE 1:N (kiosk bersama): staff outlet ini, penempatan (staff_outlets), crew
-      // berizin tambahan / semua outlet, dan peran pengawas. Ketiga daftar dibaca paralel.
+      // berizin tambahan / semua outlet, peran pengawas, dan penugasan darurat (BKO). Keempat daftar dibaca paralel.
       // Galat daftar izin tetap diabaikan seperti dulu (daftar itu dianggap kosong/sebagian).
-      const [penempatanRes, aksesRes, semuaRes] = await Promise.all([
+      const todayWib = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+      const [penempatanRes, aksesRes, semuaRes, emergencyRes] = await Promise.all([
         fetchAll(() => admin.from("staff_outlets").select("staff_id").eq("outlet_id", outletId).order("staff_id", { ascending: true })),
         fetchAll(() => admin.from("attendance_outlet_access").select("staff_id").eq("outlet_id", outletId).order("staff_id", { ascending: true })),
         fetchAll(() => admin.from("attendance_any_outlet_staff").select("staff_id").order("staff_id", { ascending: true })),
+        fetchAll(() => admin.from("emergency_crew_assignments").select("staff_id").eq("target_outlet_id", outletId).eq("assignment_date", todayWib).eq("status", "active")),
       ]);
       const allowedStaffIds = Array.from(new Set(
-        [penempatanRes.data, aksesRes.data, semuaRes.data]
+        [penempatanRes.data, aksesRes.data, semuaRes.data, emergencyRes.data]
           .flatMap((rows) => (rows || []).map((row: any) => row.staff_id as string))
       ));
       let orQuery = `outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`;

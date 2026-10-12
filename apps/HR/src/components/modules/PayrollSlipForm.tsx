@@ -196,12 +196,15 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
             p_year: record.period_year,
             p_outlet_id: null,
           })
-          const match = (data || []).find((c: any) => c.crew_id === record.staff_id)
-          if (match) {
-            const amt = Number(match.total_bonus) || 0
+          const matches = (data || []).filter((c: any) => c.crew_id === record.staff_id)
+          if (matches.length > 0) {
+            const totalAmt = matches.reduce((sum: number, c: any) => sum + (Number(c.total_bonus) || 0), 0)
+            const desc = matches.length === 1
+              ? `Pool (${matches[0].total_pcs_outlet} pcs / ${matches[0].active_crew_count} kru)`
+              : `Multi-Outlet (${matches.map((m: any) => `${m.outlet_name || 'Outlet'}: Rp ${(Number(m.total_bonus) || 0).toLocaleString('id-ID')}`).join(', ')})`
             setLiveBonusInfo({
-              amount: amt,
-              description: `Pool (${match.total_pcs_outlet} pcs / ${match.active_crew_count} kru)`,
+              amount: totalAmt,
+              description: desc,
             })
           }
         }

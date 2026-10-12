@@ -82,16 +82,39 @@ export async function POST(request: Request) {
   }
 
   let outlet_id = profile.outlet_id
-  if (body.outlet_id && body.outlet_id !== outlet_id) {
-    const { data: isMapped } = await supabaseService
-      .from('staff_outlets')
-      .select('outlet_id')
-      .eq('staff_id', userId)
-      .eq('outlet_id', body.outlet_id)
-      .maybeSingle()
+  const todayWib = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
 
-    if (isMapped || ['admin', 'owner', 'spv', 'leader', 'korlap', 'regional_manager', 'developer'].includes(profile.role)) {
+  if (body.outlet_id && body.outlet_id !== outlet_id) {
+    const [mappedRes, bkoRes] = await Promise.all([
+      supabaseService
+        .from('staff_outlets')
+        .select('outlet_id')
+        .eq('staff_id', userId)
+        .eq('outlet_id', body.outlet_id)
+        .maybeSingle(),
+      supabaseService
+        .from('emergency_crew_assignments')
+        .select('id')
+        .eq('staff_id', userId)
+        .eq('target_outlet_id', body.outlet_id)
+        .eq('assignment_date', todayWib)
+        .eq('status', 'active')
+        .maybeSingle(),
+    ])
+
+    if (mappedRes.data || bkoRes.data || ['admin', 'owner', 'spv', 'leader', 'korlap', 'regional_manager', 'developer'].includes(profile.role)) {
       outlet_id = body.outlet_id
+    }
+  } else if (!body.outlet_id) {
+    const { data: bko } = await supabaseService
+      .from('emergency_crew_assignments')
+      .select('target_outlet_id')
+      .eq('staff_id', userId)
+      .eq('assignment_date', todayWib)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (bko?.target_outlet_id) {
+      outlet_id = bko.target_outlet_id
     }
   }
   if ((profile.role === 'admin' || profile.role === 'developer') && !outlet_id) {

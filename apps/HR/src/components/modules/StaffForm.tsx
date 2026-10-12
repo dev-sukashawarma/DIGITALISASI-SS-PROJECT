@@ -958,13 +958,18 @@ export function StaffForm({
                 render={({ field }) => (
                   <CurrencyInput
                     id="sf-basic-salary"
-                    label="Gaji Pokok (Rp)"
+                    label={watchOnboardingStage === 'ojt' ? 'Gaji Pokok Acuan OJT (Rp)' : 'Gaji Pokok (Rp)'}
                     className={inputCls}
                     value={field.value ?? ''}
                     onChange={field.onChange}
                   />
                 )}
               />
+              {watchOnboardingStage === 'ojt' && (
+                <span className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md px-2 py-1 mt-1.5 inline-flex items-center gap-1 font-semibold">
+                  ℹ️ Tahap OJT: Gaji Pokok dihitung otomatis prorata (Rp 2.000.000 / 26 x jumlah hadir absensi) saat generate payroll.
+                </span>
+              )}
             </div>
 
             <div>

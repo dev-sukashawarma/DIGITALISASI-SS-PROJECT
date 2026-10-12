@@ -265,6 +265,8 @@ export interface PayrollRecord {
   outlet_staff?: { 
     name: string
     role: string
+    sub_role?: CrewSubRole | null
+    onboarding_stage?: OnboardingStage | null
     outlet_id: string
     phone?: string | null
     outlets: { name: string } | null

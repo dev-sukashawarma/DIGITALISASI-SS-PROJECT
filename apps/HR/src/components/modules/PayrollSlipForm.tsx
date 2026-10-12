@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { isOjtStaff, calculateOjtBasicSalary } from '@/lib/ojtPayrollValidation'
 
 interface PayrollSlipFormProps {
   record: PayrollRecord
@@ -66,6 +67,10 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
   // Live attendance lookup
   const [fetchingAtt, setFetchingAtt] = useState(false)
   const [liveAttMinutes, setLiveAttMinutes] = useState<number | null>(null)
+  const [liveAttDays, setLiveAttDays] = useState<number | null>(null)
+
+  // Status OJT check
+  const isOjt = isOjtStaff(record.outlet_staff as any)
 
   // Live sales bonus lookup (Crew, AM, RM)
   const [fetchingBonus, setFetchingBonus] = useState(false)
@@ -150,6 +155,20 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
         const finalMins = Math.max(totalMins, logMins)
         setLiveAttMinutes(finalMins)
+
+        // 3. Fetch attendance days via hr_rekap_absensi_staf
+        try {
+          const { data: rekap } = await supabase.rpc('hr_rekap_absensi_staf', {
+            p_from: startDay,
+            p_to: endDay,
+          })
+          const staffRekap = (rekap || []).find((r: any) => r.staff_id === record.staff_id)
+          if (staffRekap && typeof staffRekap.hari_masuk === 'number') {
+            setLiveAttDays(staffRekap.hari_masuk)
+          }
+        } catch {
+          // Ignore
+        }
       } catch (e) {
         // Ignore
       } finally {
@@ -351,13 +370,18 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
         {/* Modal Header */}
         <div className="flex items-start justify-between pb-3 border-b border-stone-100">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-lg font-black text-suka-brown">
                 Rincian Slip Gaji: {record.outlet_staff?.name}
               </h3>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-suka-orange/10 text-suka-orange border border-suka-orange/20">
                 {record.outlet_staff?.role?.replace('_', ' ').toUpperCase()}
               </span>
+              {isOjt && (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  OJT (TRAINING)
+                </span>
+              )}
             </div>
             <p className="text-xs text-stone-500 font-medium mt-0.5">
               Periode: <strong className="text-stone-700">Bulan {record.period_month}/{record.period_year}</strong> &bull; Outlet: <strong className="text-stone-700">{record.outlet_staff?.outlets?.name || 'Kantor Pusat'}</strong>
@@ -430,6 +454,11 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
               <div className="bg-white p-3 rounded-xl border border-stone-200 shadow-2xs">
                 <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Gaji Pokok</span>
                 <span className="text-sm font-bold font-mono text-stone-800">{formatRupiah(basicSalary)}</span>
+                {isOjt && (
+                  <span className="text-[9px] text-indigo-600 font-semibold block mt-0.5">
+                    Prorata: Rp 2.000.000/26 x {liveAttDays !== null ? `${liveAttDays} hr` : 'hadir'}
+                  </span>
+                )}
               </div>
 
               <div className="bg-white p-3 rounded-xl border border-stone-200 shadow-2xs">
@@ -487,7 +516,19 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
-                  <label className="text-[11px] font-bold text-stone-700 block mb-1">Gaji Pokok (Rp)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-stone-700 block">Gaji Pokok (Rp)</label>
+                    {isOjt && liveAttDays !== null && (
+                      <button
+                        type="button"
+                        onClick={() => setBasicSalary(calculateOjtBasicSalary(liveAttDays))}
+                        className="text-[10px] text-indigo-700 hover:text-indigo-900 font-semibold underline cursor-pointer"
+                        title="Hitung ulang otomatis prorata OJT"
+                      >
+                        Prorata ({liveAttDays} hr)
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="number"
                     className={overrideInputClass}
@@ -495,6 +536,11 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
                     onChange={(e) => setBasicSalary(Number(e.target.value))}
                     min={0}
                   />
+                  {isOjt && (
+                    <span className="text-[9px] text-indigo-600 block mt-0.5">
+                      Formula: 2.000.000/26 x {liveAttDays || 0} hr
+                    </span>
+                  )}
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-stone-700 block mb-1">Uang Makan (Rp)</label>

@@ -4,41 +4,48 @@ import type { PayrollStatus, CashAdvanceStatus } from '@/lib/types'
 import { LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
 
+import {
+  isOjtStaff,
+  calculateOjtBasicSalary,
+  OJT_MONTHLY_BASE_SALARY,
+  OJT_STANDARD_WORKING_DAYS,
+} from '@/lib/ojtPayrollValidation'
+
 /**
- * Fetch total late minutes for all staff in a specific month & year from attendance & attendance_logs
+ * Fetch total late minutes and attendance days for all staff in a specific month & year from attendance & attendance_logs
  */
-async function fetchMonthlyLateMinutes(
+async function fetchMonthlyAttendanceRekap(
   supabase: ReturnType<typeof createClient>,
   month: number,
   year: number
-): Promise<Map<string, number>> {
+): Promise<{ lateMinutesMap: Map<string, number>; attendanceDaysMap: Map<string, number> }> {
   const startDay = `${year}-${String(month).padStart(2, '0')}-01`
   const lastDate = new Date(year, month, 0).getDate()
   const endDay = `${year}-${String(month).padStart(2, '0')}-${String(lastDate).padStart(2, '0')}`
 
   const lateMinutesMap = new Map<string, number>()
+  const attendanceDaysMap = new Map<string, number>()
 
-  // 1. Menit telat dari `attendance`, diagregasi per staf di database.
-  //    (Dulu: select semua baris sebulan tanpa pagination → terpotong 1.000 baris,
-  //    sebagian staf dapat denda Rp 0.) Error sengaja dilempar: denda yang diam-diam
-  //    nol lebih berbahaya daripada generate yang gagal.
+  // 1. Rekap absensi per staf di database via hr_rekap_absensi_staf
   const { data: rekap, error: rekapErr } = await supabase.rpc('hr_rekap_absensi_staf', {
     p_from: startDay,
     p_to: endDay,
   })
   if (rekapErr) throw new Error(`Gagal membaca rekap absensi: ${rekapErr.message}`)
-  for (const r of (rekap ?? []) as { staff_id: string; telat_menit_total: number }[]) {
+  for (const r of (rekap ?? []) as { staff_id: string; hari_masuk: number; telat_menit_total: number }[]) {
     if (r.telat_menit_total > 0) lateMinutesMap.set(r.staff_id, r.telat_menit_total)
+    if (r.hari_masuk > 0) attendanceDaysMap.set(r.staff_id, r.hari_masuk)
   }
 
   // 2. Query attendance_logs table (used by manual / synced logs)
   try {
     const { data: logs } = await supabase
       .from('attendance_logs')
-      .select('staff_id, late_minutes')
+      .select('staff_id, late_minutes, status, date')
       .gte('date', startDay)
       .lte('date', endDay)
 
+    const logsDaySet = new Map<string, Set<string>>()
     logs?.forEach((l: any) => {
       const mins = Number(l.late_minutes) || 0
       if (mins > 0) {
@@ -48,12 +55,23 @@ async function fetchMonthlyLateMinutes(
           lateMinutesMap.set(staffId, mins)
         }
       }
+      if (l.status === 'hadir' && l.date) {
+        if (!logsDaySet.has(l.staff_id)) logsDaySet.set(l.staff_id, new Set())
+        logsDaySet.get(l.staff_id)!.add(l.date)
+      }
+    })
+
+    logsDaySet.forEach((dates, staffId) => {
+      const existingDays = attendanceDaysMap.get(staffId) || 0
+      if (dates.size > existingDays) {
+        attendanceDaysMap.set(staffId, dates.size)
+      }
     })
   } catch (e) {
     // Ignore
   }
 
-  return lateMinutesMap
+  return { lateMinutesMap, attendanceDaysMap }
 }
 
 /**
@@ -155,6 +173,9 @@ export function usePayrollMutations() {
           id,
           name,
           role,
+          sub_role,
+          onboarding_stage,
+          contract_type,
           username,
           status,
           is_active,
@@ -181,6 +202,9 @@ export function usePayrollMutations() {
       const eligibleStaff = (staff || []).filter((s: any) => {
         if (isTestOrDevStaff(s)) return false
 
+        // Trainee tahap 1 (orientasi 7 hari) dibayar uang makan harian via petty cash, bukan via payroll bulanan
+        if (s.onboarding_stage === 'training_7_days') return false
+
         const isActive = s.status === 'active' || s.is_active === true
         if (isActive) return true
 
@@ -199,8 +223,8 @@ export function usePayrollMutations() {
 
       if (eligibleStaff.length === 0) throw new Error('Tidak ada staf yang memenuhi syarat ditemukan.')
 
-      /* 2. Fetch Automatic Attendance Late Minutes */
-      const lateMinutesMap = await fetchMonthlyLateMinutes(supabase, month, year)
+      /* 2. Fetch Automatic Attendance Late Minutes & Attendance Days */
+      const { lateMinutesMap, attendanceDaysMap } = await fetchMonthlyAttendanceRekap(supabase, month, year)
 
       /* 3. Fetch Automatic Sales Bonuses (Crew, AM, RM) */
       const salesBonusMap = await fetchMonthlySalesBonuses(supabase, month, year)
@@ -228,7 +252,15 @@ export function usePayrollMutations() {
           ? s.staff_financials[0]
           : s.staff_financials
 
-        const basicSalary = Number(fin?.basic_salary) || 0
+        const isOjt = isOjtStaff(s)
+        const attendanceDays = attendanceDaysMap.get(s.id) || 0
+
+        let basicSalary = Number(fin?.basic_salary) || 0
+        if (isOjt) {
+          // Prorata OJT: Rp 2.000.000 / 26 * jumlah hadir
+          const baseRate = basicSalary > 0 ? basicSalary : OJT_MONTHLY_BASE_SALARY
+          basicSalary = calculateOjtBasicSalary(attendanceDays, baseRate, OJT_STANDARD_WORKING_DAYS)
+        }
         const allowanceMeal = Number(fin?.allowance_meal) || Number(fin?.allowance_presence) || 0
         const allowanceTransport = Number(fin?.allowance_transport) || 0
         const allowanceCommunication = Number(fin?.allowance_communication) || 0
@@ -308,7 +340,16 @@ export function usePayrollMutations() {
       // 1. Fetch current draft slips
       const { data: slips, error: slipsErr } = await supabase
         .from('payroll_records')
-        .select('*')
+        .select(`
+          *,
+          outlet_staff:staff_id(
+            id,
+            onboarding_stage,
+            sub_role,
+            contract_type,
+            staff_financials(basic_salary)
+          )
+        `)
         .eq('period_month', month)
         .eq('period_year', year)
         .eq('status', 'draft')
@@ -316,8 +357,8 @@ export function usePayrollMutations() {
       if (slipsErr) throw slipsErr
       if (!slips || slips.length === 0) throw new Error('Tidak ada slip draft untuk disinkronkan.')
 
-      // 2. Fetch monthly late minutes & sales bonuses
-      const lateMinutesMap = await fetchMonthlyLateMinutes(supabase, month, year)
+      // 2. Fetch monthly late minutes, attendance days & sales bonuses
+      const { lateMinutesMap, attendanceDaysMap } = await fetchMonthlyAttendanceRekap(supabase, month, year)
       const salesBonusMap = await fetchMonthlySalesBonuses(supabase, month, year)
 
       let updatedCount = 0
@@ -357,8 +398,21 @@ export function usePayrollMutations() {
         if (currentOvertime > 0) bonusNotes.push(`Lembur: Rp ${currentOvertime.toLocaleString('id-ID')}`)
         if (autoBonusInfo?.note) bonusNotes.push(autoBonusInfo.note)
 
+        // For OJT staff, recalculate basic salary based on attendance
+        const staffObj = Array.isArray(slip.outlet_staff) ? slip.outlet_staff[0] : slip.outlet_staff
+        const isOjt = isOjtStaff(staffObj as any)
+        let basicSalary = Number(slip.basic_salary) || 0
+        if (isOjt) {
+          const attendanceDays = attendanceDaysMap.get(slip.staff_id) || 0
+          const finRaw = staffObj?.staff_financials
+          const fin = Array.isArray(finRaw) ? finRaw[0] : finRaw
+          const finBase = Number(fin?.basic_salary) || 0
+          const baseRate = finBase > 0 ? finBase : OJT_MONTHLY_BASE_SALARY
+          basicSalary = calculateOjtBasicSalary(attendanceDays, baseRate, OJT_STANDARD_WORKING_DAYS)
+        }
+
         const totalEarnings =
-          Number(slip.basic_salary) +
+          basicSalary +
           Number(slip.allowance_position) +
           Number(slip.allowance_presence) +
           Number(totalBonus)
@@ -368,6 +422,7 @@ export function usePayrollMutations() {
         await supabase
           .from('payroll_records')
           .update({
+            basic_salary: basicSalary,
             bonus: totalBonus,
             bonus_note: bonusNotes.join(' | ') || null,
             deductions: totalDeductions,
@@ -694,7 +749,26 @@ export function usePayrollMutations() {
       // 1. Fetch slip draft yang perlu di-sync
       let query = supabase
         .from('payroll_records')
-        .select('id, staff_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, bonus, deductions, deduction_note, bonus_note')
+        .select(`
+          id,
+          staff_id,
+          basic_salary,
+          allowance_meal,
+          allowance_transport,
+          allowance_communication,
+          allowance_position,
+          allowance_presence,
+          bonus,
+          deductions,
+          deduction_note,
+          bonus_note,
+          outlet_staff:staff_id(
+            id,
+            onboarding_stage,
+            sub_role,
+            contract_type
+          )
+        `)
         .eq('period_month', month)
         .eq('period_year', year)
         .eq('status', 'draft')
@@ -709,7 +783,10 @@ export function usePayrollMutations() {
         return { updatedCount: 0, skippedCount: 0 }
       }
 
-      // 2. Fetch data gaji terbaru dari staff_financials
+      // 2. Fetch rekap absensi untuk staf OJT
+      const { attendanceDaysMap } = await fetchMonthlyAttendanceRekap(supabase, month, year)
+
+      // 3. Fetch data gaji terbaru dari staff_financials
       const staffIds = slips.map((s: any) => s.staff_id)
       const { data: financials, error: finErr } = await supabase
         .from('staff_financials')
@@ -725,26 +802,33 @@ export function usePayrollMutations() {
       let skippedCount = 0
 
       for (const slip of slips) {
+        const staffObj = Array.isArray(slip.outlet_staff) ? slip.outlet_staff[0] : slip.outlet_staff
+        const isOjt = isOjtStaff(staffObj as any)
+
         const fin = finMap.get(slip.staff_id)
-        if (!fin) {
+        if (!fin && !isOjt) {
           skippedCount++
           continue
         }
 
-        const basicSalary = Number(fin.basic_salary) || 0
-        if (!forceAll && basicSalary === 0) {
+        let basicSalary = Number(fin?.basic_salary) || 0
+        if (isOjt) {
+          const attendanceDays = attendanceDaysMap.get(slip.staff_id) || 0
+          const baseRate = basicSalary > 0 ? basicSalary : OJT_MONTHLY_BASE_SALARY
+          basicSalary = calculateOjtBasicSalary(attendanceDays, baseRate, OJT_STANDARD_WORKING_DAYS)
+        } else if (!forceAll && basicSalary === 0) {
           // Data di staff_financials juga 0, tidak bisa sync
           skippedCount++
           continue
         }
 
         const allowanceMeal =
-          fin.allowance_meal !== undefined && fin.allowance_meal !== null
+          fin?.allowance_meal !== undefined && fin?.allowance_meal !== null
             ? Number(fin.allowance_meal)
-            : Number(fin.allowance_presence) || 0
-        const allowanceTransport = Number(fin.allowance_transport) || 0
-        const allowanceCommunication = Number(fin.allowance_communication) || 0
-        const allowancePosition = Number(fin.allowance_position) || 0
+            : Number(fin?.allowance_presence) || 0
+        const allowanceTransport = Number(fin?.allowance_transport) || 0
+        const allowanceCommunication = Number(fin?.allowance_communication) || 0
+        const allowancePosition = Number(fin?.allowance_position) || 0
 
         // Pertahankan bonus & potongan yang sudah ada, hanya update komponen gaji pokok
         const currentBonus = Number(slip.bonus) || 0

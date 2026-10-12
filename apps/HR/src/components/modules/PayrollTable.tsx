@@ -21,6 +21,7 @@ import { formatRupiah } from '@/lib/format'
 import { SalarySlipModal } from './SalarySlipModal'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
+import { isOjtStaff } from '@/lib/ojtPayrollValidation'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -400,10 +401,22 @@ export function PayrollTable({
                 const isKasbonManual = b.cashAdvanceDeduction > 0 && !!systemKasbonStaffIds && !systemKasbonStaffIds.has(r.staff_id)
                 const isKasbonSystem = b.cashAdvanceDeduction > 0 && !!systemKasbonStaffIds?.has(r.staff_id)
 
+                const isStaffOjt = isOjtStaff(r.outlet_staff as any)
+
                 return (
                   <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
                     <td className="px-4 py-3 align-middle">
-                      <div className="font-bold text-suka-ink text-sm leading-tight">{staffName}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-suka-ink text-sm leading-tight">{staffName}</span>
+                        {isStaffOjt && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                            title="On the Job Training (Gaji Pokok Prorata Rp 2.000.000/26 x Kehadiran)"
+                          >
+                            OJT
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] text-suka-brown font-semibold uppercase mt-0.5">
                         {roleName}
                       </div>
@@ -412,7 +425,12 @@ export function PayrollTable({
                       {outletName}
                     </td>
                     <td className="px-4 py-3 align-middle text-right text-xs font-mono font-medium text-gray-800 tabular-nums whitespace-nowrap">
-                      {formatRupiah(b.basicSalary)}
+                      <div>{formatRupiah(b.basicSalary)}</div>
+                      {isStaffOjt && (
+                        <div className="text-[10px] text-indigo-600 font-sans font-semibold">
+                          Prorata OJT
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-middle text-right text-xs font-mono font-medium text-gray-800 tabular-nums whitespace-nowrap">
                       {totalTunjangan > 0 ? (

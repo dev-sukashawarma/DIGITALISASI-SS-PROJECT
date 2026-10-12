@@ -47,6 +47,24 @@ export function mapExpenseRow(row: any): ExpenseRow {
     }
   }
 
+  const staffName = Array.isArray(row.outlet_staff)
+    ? row.outlet_staff[0]?.name
+    : row.outlet_staff?.name
+
+  if (!recipientName && staffName) {
+    recipientName = staffName
+  }
+
+  // Penggantian Superadmin 2 menjadi akun Hesti Qodriani
+  if (recipientName && /superadmin\s*2/i.test(recipientName)) {
+    recipientName = 'Hesti Qodriani'
+  }
+
+  // Pengeluaran Endorsement & Promo: nama pemohon dari Crew Marcom (Putri Lestari Hambali)
+  if (!recipientName && (cat === 'endorsement' || cat === 'promo' || displayDesc.includes('[MARCOM:'))) {
+    recipientName = 'Putri Lestari Hambali'
+  }
+
   const isPusat = !row.outlet_id || 
     row.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ||
     row.outlets?.name?.toLowerCase().includes('kantor pusat') ||

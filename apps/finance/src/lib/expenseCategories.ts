@@ -39,6 +39,19 @@ export function isSalaryCategory(category: string): boolean {
   return (SALARY_CATEGORIES as readonly string[]).includes(category)
 }
 
+/**
+ * Mendeteksi apakah suatu transaksi adalah lemburan outlet/petty cash
+ * baik dari kategori sistem ('lembur', 'overtime') maupun dari kata kunci deskripsi.
+ */
+export function isLemburExpense(category?: string | null, description?: string | null): boolean {
+  if (!category && !description) return false
+  const cat = (category || '').toLowerCase().trim()
+  if (cat === 'lembur' || cat === 'overtime') return true
+  const d = (description || '').toLowerCase()
+  if (d.includes('hpp menu kol') || d.includes('kol -')) return false
+  return /\blembur(?:an)?\b/i.test(d) || /\bovertime\b/i.test(d)
+}
+
 export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: string; icon: LucideIcon }> = {
   pengeluaran_outlet: { label: 'Pengeluaran Outlet', color: '#4b5563', icon: Wallet },
   gaji_crew_outlet:   { label: 'Gaji Crew Outlet',   color: '#701604', icon: Users },

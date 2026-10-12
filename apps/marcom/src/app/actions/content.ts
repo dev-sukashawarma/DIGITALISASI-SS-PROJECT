@@ -224,6 +224,32 @@ export async function deleteContentType(id: string): Promise<ActionState> {
   }
 }
 
+async function resolveOutletId(outletIdStr: string | null): Promise<bigint | null> {
+  if (!outletIdStr || outletIdStr === 'ALL') {
+    return null
+  }
+  if (outletIdStr === 'SS_ONLINE') {
+    let ssOnline = await prisma.outlet.findFirst({
+      where: { name: { equals: 'SS Online', mode: 'insensitive' } },
+    })
+    if (!ssOnline) {
+      ssOnline = await prisma.outlet.create({
+        data: {
+          name: 'SS Online',
+          type: 'INTERNAL',
+          isActive: false,
+        },
+      })
+    }
+    return ssOnline.id
+  }
+  try {
+    return BigInt(outletIdStr)
+  } catch {
+    return null
+  }
+}
+
 export async function createInternalContent(
   prevState: ActionState,
   formData: FormData
@@ -287,7 +313,7 @@ export async function createInternalContent(
 
   try {
     const postDate = new Date(postDateStr)
-    const outletId = outletIdStr && outletIdStr !== 'ALL' ? BigInt(outletIdStr) : null
+    const outletId = await resolveOutletId(outletIdStr)
     const reach = reachStr ? parseInt(reachStr, 10) : 0
     const views = viewsStr ? parseInt(viewsStr, 10) : 0
     const likes = likesStr ? parseInt(likesStr, 10) : 0
@@ -394,7 +420,7 @@ export async function updateInternalContent(
   try {
     const contentId = BigInt(id)
     const postDate = new Date(postDateStr)
-    const outletId = outletIdStr && outletIdStr !== 'ALL' ? BigInt(outletIdStr) : null
+    const outletId = await resolveOutletId(outletIdStr)
     const reach = reachStr ? parseInt(reachStr, 10) : 0
     const views = viewsStr ? parseInt(viewsStr, 10) : 0
     const likes = likesStr ? parseInt(likesStr, 10) : 0

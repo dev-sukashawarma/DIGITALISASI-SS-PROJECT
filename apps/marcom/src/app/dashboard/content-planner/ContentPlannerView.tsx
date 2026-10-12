@@ -32,6 +32,8 @@ import {
   Zap,
   Settings2,
   Link2,
+  Package,
+  ChevronDown,
 } from 'lucide-react'
 import {
   createInternalContent,
@@ -70,6 +72,7 @@ export default function ContentPlannerView({
   const searchParams = useSearchParams()
 
   const rawScope = searchParams.get('scope') || searchParams.get('tab')
+  const rawOutlet = searchParams.get('outlet')
   const initialScope: ContentScope =
     rawScope?.toLowerCase() === 'region' || rawScope?.toLowerCase() === 'outlet'
       ? 'REGION'
@@ -77,22 +80,40 @@ export default function ContentPlannerView({
       ? 'ALL'
       : 'OFFICIAL'
 
+  const initialOutletFilter = rawScope?.toLowerCase() === 'ss_online' ? 'SS_ONLINE' : (rawOutlet || '')
+
   const [scope, setScope] = useState<ContentScope>(initialScope)
+  const [outletFilter, setOutletFilter] = useState(initialOutletFilter)
 
   useEffect(() => {
     const urlScope = searchParams.get('scope') || searchParams.get('tab')
+    const urlOutlet = searchParams.get('outlet')
     if (urlScope?.toLowerCase() === 'region' || urlScope?.toLowerCase() === 'outlet') {
       setScope('REGION')
+      setOutletFilter(urlOutlet || '')
     } else if (urlScope?.toLowerCase() === 'all') {
       setScope('ALL')
+      setOutletFilter(urlOutlet || '')
+    } else if (urlScope?.toLowerCase() === 'ss_online') {
+      setScope('OFFICIAL')
+      setOutletFilter('SS_ONLINE')
     } else {
       setScope('OFFICIAL')
+      if (urlOutlet) {
+        setOutletFilter(urlOutlet)
+      }
     }
   }, [searchParams])
 
+  const isSSOnlineContent = (item: SerializedInternalContent) => {
+    return item.outletName === 'SS Online' || item.outletName?.toLowerCase().includes('ss online')
+  }
+
   const countAll = initialContents.length
-  const countOfficial = useMemo(() => initialContents.filter((i) => !i.outletId).length, [initialContents])
-  const countRegion = useMemo(() => initialContents.filter((i) => !!i.outletId).length, [initialContents])
+  const countSSOnline = useMemo(() => initialContents.filter((i) => isSSOnlineContent(i)).length, [initialContents])
+  const countOfficialOnly = useMemo(() => initialContents.filter((i) => !i.outletId && !isSSOnlineContent(i)).length, [initialContents])
+  const countOfficial = useMemo(() => initialContents.filter((i) => !i.outletId || isSSOnlineContent(i)).length, [initialContents])
+  const countRegion = useMemo(() => initialContents.filter((i) => !!i.outletId && !isSSOnlineContent(i)).length, [initialContents])
 
   const handleScopeChange = (newScope: ContentScope) => {
     setScope(newScope)
@@ -105,6 +126,7 @@ export default function ContentPlannerView({
     } else {
       params.set('scope', 'official')
     }
+    params.delete('outlet')
     params.delete('tab')
     const queryStr = params.toString()
     router.push(queryStr ? `?${queryStr}` : '/dashboard/content-planner', { scroll: false })
@@ -123,7 +145,6 @@ export default function ContentPlannerView({
   const [contentTypeFilter, setContentTypeFilter] = useState('ALL')
   const [pillarFilter, setPillarFilter] = useState('ALL')
   const [platformFilter, setPlatformFilter] = useState('ALL')
-  const [outletFilter, setOutletFilter] = useState('')
 
   // Table view pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -238,23 +259,38 @@ export default function ContentPlannerView({
 
         // Scope filter: ALL vs OFFICIAL vs REGION
         let matchesScope = true
+        const isSSOnline = isSSOnlineContent(item)
+        const isOfficialGroup = !item.outletId || isSSOnline
+        const isRegionGroup = !!item.outletId && !isSSOnline
+
         if (scope === 'OFFICIAL') {
-          matchesScope = !item.outletId
+          matchesScope = isOfficialGroup
         } else if (scope === 'REGION') {
-          matchesScope = !!item.outletId
+          matchesScope = isRegionGroup
         }
 
         // Outlet Filter
         let matchesOutlet = true
         if (scope === 'OFFICIAL') {
-          matchesOutlet = true
+          if (outletFilter === 'OFFICIAL_ONLY' || outletFilter === 'OFFICIAL') {
+            matchesOutlet = !item.outletId && !isSSOnline
+          } else if (outletFilter === 'SS_ONLINE') {
+            matchesOutlet = isSSOnline
+          } else {
+            matchesOutlet = true
+          }
         } else if (scope === 'REGION') {
           matchesOutlet = outletFilter === '' || item.outletId === outletFilter
         } else {
-          matchesOutlet =
-            outletFilter === '' ||
-            (outletFilter === 'ALL' && !item.outletId) ||
-            item.outletId === outletFilter
+          if (outletFilter === '') {
+            matchesOutlet = true
+          } else if (outletFilter === 'ALL' || outletFilter === 'OFFICIAL' || outletFilter === 'OFFICIAL_ONLY') {
+            matchesOutlet = !item.outletId && !isSSOnline
+          } else if (outletFilter === 'SS_ONLINE') {
+            matchesOutlet = isSSOnline
+          } else {
+            matchesOutlet = item.outletId === outletFilter
+          }
         }
 
         return (
@@ -285,8 +321,13 @@ export default function ContentPlannerView({
 
   // Selected outlet name helper
   const selectedOutletName = useMemo(() => {
-    if (scope === 'OFFICIAL') return 'Official'
-    if (outletFilter === 'ALL') return 'Official'
+    if (scope === 'OFFICIAL') {
+      if (outletFilter === 'SS_ONLINE') return 'SS Online'
+      if (outletFilter === 'OFFICIAL_ONLY' || outletFilter === 'OFFICIAL') return 'Official'
+      return 'Official'
+    }
+    if (outletFilter === 'ALL' || outletFilter === 'OFFICIAL' || outletFilter === 'OFFICIAL_ONLY') return 'Official'
+    if (outletFilter === 'SS_ONLINE') return 'SS Online'
     if (!outletFilter) return scope === 'REGION' ? 'Semua Region' : 'Semua'
     const found = outlets.find((o) => o.id === outletFilter)
     return found ? found.name : 'Outlet'
@@ -295,19 +336,26 @@ export default function ContentPlannerView({
   // Contents for metrics (responsive to active scope AND outlet filter)
   const metricContents = useMemo(() => {
     return initialContents.filter((item) => {
+      const isSSOnline = isSSOnlineContent(item)
+      const isOfficialGroup = !item.outletId || isSSOnline
+      const isRegionGroup = !!item.outletId && !isSSOnline
+
       // 1. Scope filter
-      if (scope === 'OFFICIAL' && item.outletId) return false
-      if (scope === 'REGION' && !item.outletId) return false
+      if (scope === 'OFFICIAL' && !isOfficialGroup) return false
+      if (scope === 'REGION' && !isRegionGroup) return false
 
       // 2. Outlet filter
       if (scope === 'OFFICIAL') {
+        if ((outletFilter === 'OFFICIAL_ONLY' || outletFilter === 'OFFICIAL') && isSSOnline) return false
+        if (outletFilter === 'SS_ONLINE' && !isSSOnline) return false
         return true
       }
       if (scope === 'REGION') {
         if (outletFilter !== '' && item.outletId !== outletFilter) return false
       } else {
-        if (outletFilter === 'ALL' && item.outletId) return false
-        if (outletFilter !== '' && outletFilter !== 'ALL' && item.outletId !== outletFilter) return false
+        if ((outletFilter === 'ALL' || outletFilter === 'OFFICIAL' || outletFilter === 'OFFICIAL_ONLY') && (!isOfficialGroup || isSSOnline)) return false
+        if (outletFilter === 'SS_ONLINE' && !isSSOnline) return false
+        if (outletFilter !== '' && outletFilter !== 'ALL' && outletFilter !== 'OFFICIAL' && outletFilter !== 'OFFICIAL_ONLY' && outletFilter !== 'SS_ONLINE' && item.outletId !== outletFilter) return false
       }
 
       return true
@@ -511,11 +559,11 @@ export default function ContentPlannerView({
     setCreatePostDate(new Date().toISOString().split('T')[0])
     setCreatePostTime('11:00')
     if (scope === 'OFFICIAL') {
-      setCreateOutletId('ALL')
+      setCreateOutletId(outletFilter === 'SS_ONLINE' ? 'SS_ONLINE' : 'ALL')
     } else if (scope === 'REGION') {
-      setCreateOutletId(outletFilter && outletFilter !== 'ALL' ? outletFilter : (outlets[0]?.id || ''))
+      setCreateOutletId(outletFilter && outletFilter !== 'ALL' && outletFilter !== 'SS_ONLINE' && outletFilter !== 'OFFICIAL_ONLY' ? outletFilter : (outlets[0]?.id || ''))
     } else {
-      setCreateOutletId(outletFilter && outletFilter !== 'ALL' ? outletFilter : 'ALL')
+      setCreateOutletId(outletFilter && outletFilter !== 'OFFICIAL_ONLY' ? outletFilter : 'ALL')
     }
     setCreateTakeLocation('')
     setCreateCreator('MARCOM')
@@ -718,7 +766,7 @@ export default function ContentPlannerView({
               </span>
               {scope === 'OFFICIAL' ? (
                 <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
-                  Official
+                  {outletFilter === 'SS_ONLINE' ? 'SS Online' : outletFilter === 'OFFICIAL_ONLY' ? 'Official' : 'Official'}
                 </span>
               ) : scope === 'REGION' ? (
                 <span className="text-[10px] font-bold text-[#D9480F] bg-[#FFF4ED] px-1.5 py-0.5 rounded-md border border-[#D9480F]/20">
@@ -917,14 +965,18 @@ export default function ContentPlannerView({
           {/* Outlet Filter */}
           <div>
             {scope === 'OFFICIAL' ? (
-              <div className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-amber-200 bg-amber-50/80 text-amber-900 font-bold flex items-center justify-between shadow-2xs">
-                <span className="flex items-center gap-1.5 truncate">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>Jangkauan: Official</span>
-                </span>
-                <span className="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full font-mono font-bold">
-                  {countOfficial} konten
-                </span>
+              <div className="relative">
+                <select
+                  value={outletFilter}
+                  onChange={(e) => setOutletFilter(e.target.value)}
+                  className="w-full pl-8 pr-7 py-2 text-xs sm:text-sm rounded-xl border border-amber-300 bg-amber-50/90 text-amber-950 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors shadow-2xs cursor-pointer appearance-none"
+                >
+                  <option value="">Semua Official ({countOfficial})</option>
+                  <option value="OFFICIAL_ONLY">Official ({countOfficialOnly})</option>
+                  <option value="SS_ONLINE">SS Online ({countSSOnline})</option>
+                </select>
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-amber-700 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             ) : scope === 'REGION' ? (
               <select
@@ -946,12 +998,17 @@ export default function ContentPlannerView({
                 className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
               >
                 <option value="">Semua Cabang Outlet</option>
-                <option value="ALL">Official</option>
-                {outlets.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
+                <optgroup label="Official & Online">
+                  <option value="ALL">Official</option>
+                  <option value="SS_ONLINE">SS Online</option>
+                </optgroup>
+                <optgroup label="Cabang Outlet (Region)">
+                  {outlets.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             )}
           </div>
@@ -962,7 +1019,7 @@ export default function ContentPlannerView({
             Menampilkan <span className="font-bold text-[#1A1715]">{filtered.length}</span> dari {totalContents} rencana konten
             {scope !== 'ALL' && (
               <span className="ml-1.5 text-xs text-stone-400">
-                (Kategori: <strong className="text-[#D9480F]">{scope === 'OFFICIAL' ? 'Official' : 'Region'}</strong>)
+                (Kategori: <strong className="text-[#D9480F]">{scope === 'OFFICIAL' ? (outletFilter === 'SS_ONLINE' ? 'SS Online' : outletFilter === 'OFFICIAL_ONLY' ? 'Official' : 'Official') : 'Region'}</strong>)
               </span>
             )}
           </span>
@@ -1328,7 +1385,12 @@ export default function ContentPlannerView({
                               <Megaphone className={`w-2.5 h-2.5 ${item.isAds ? 'fill-purple-600 text-purple-600' : 'text-stone-400'}`} />
                               <span>{item.isAds ? 'Diiklanin' : 'Organik'}</span>
                             </button>
-                            {item.outletId ? (
+                            {isSSOnlineContent(item) ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-800 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md">
+                                <Package className="w-3 h-3 text-blue-600" />
+                                <span>SS Online</span>
+                              </span>
+                            ) : item.outletId ? (
                               <span className="inline-flex items-center gap-1 text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
                                 <MapPin className="w-3 h-3 text-stone-400" />
                                 <span>{item.outletName}</span>
@@ -1829,11 +1891,12 @@ export default function ContentPlannerView({
                   {scope === 'OFFICIAL' ? (
                     <select
                       name="outletId"
-                      value="ALL"
+                      value={createOutletId}
                       onChange={(e) => setCreateOutletId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800 font-semibold"
                     >
                       <option value="ALL">Official</option>
+                      <option value="SS_ONLINE">SS Online</option>
                     </select>
                   ) : scope === 'REGION' ? (
                     <select
@@ -1841,7 +1904,7 @@ export default function ContentPlannerView({
                       value={createOutletId}
                       onChange={(e) => setCreateOutletId(e.target.value)}
                       required
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800 font-semibold"
                     >
                       {outlets.map((o) => (
                         <option key={o.id} value={o.id}>{o.name}</option>
@@ -1852,12 +1915,17 @@ export default function ContentPlannerView({
                       name="outletId"
                       value={createOutletId}
                       onChange={(e) => setCreateOutletId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800 font-semibold"
                     >
-                      <option value="ALL">Official</option>
-                      {outlets.map((o) => (
-                        <option key={o.id} value={o.id}>{o.name}</option>
-                      ))}
+                      <optgroup label="Official">
+                        <option value="ALL">Official</option>
+                        <option value="SS_ONLINE">SS Online</option>
+                      </optgroup>
+                      <optgroup label="Cabang Outlet">
+                        {outlets.map((o) => (
+                          <option key={o.id} value={o.id}>{o.name}</option>
+                        ))}
+                      </optgroup>
                     </select>
                   )}
                 </div>
@@ -1871,6 +1939,7 @@ export default function ContentPlannerView({
                   >
                     <option value="">-- Pilih Lokasi Outlet --</option>
                     <option value="Studio / Kantor Pusat">Studio / Kantor Pusat</option>
+                    <option value="Gudang SS Online">Gudang SS Online</option>
                     <option value="Luar Outlet / Event">Luar Outlet / Event</option>
                     <optgroup label="Cabang Outlet">
                       {outlets.map((o) => (
@@ -2087,21 +2156,33 @@ export default function ContentPlannerView({
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Cabang Outlet</label>
                   <select
                     name="outletId"
-                    defaultValue={editingContent.outletId || (scope === 'REGION' ? (outlets[0]?.id || '') : 'ALL')}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                    defaultValue={
+                      isSSOnlineContent(editingContent)
+                        ? 'SS_ONLINE'
+                        : editingContent.outletId || (scope === 'REGION' ? (outlets[0]?.id || '') : 'ALL')
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800 font-semibold"
                   >
                     {scope === 'OFFICIAL' ? (
-                      <option value="ALL">Official</option>
+                      <>
+                        <option value="ALL">Official</option>
+                        <option value="SS_ONLINE">SS Online</option>
+                      </>
                     ) : scope === 'REGION' ? (
                       outlets.map((o) => (
                         <option key={o.id} value={o.id}>{o.name}</option>
                       ))
                     ) : (
                       <>
-                        <option value="ALL">Official</option>
-                        {outlets.map((o) => (
-                          <option key={o.id} value={o.id}>{o.name}</option>
-                        ))}
+                        <optgroup label="Official">
+                          <option value="ALL">Official</option>
+                          <option value="SS_ONLINE">SS Online</option>
+                        </optgroup>
+                        <optgroup label="Cabang Outlet">
+                          {outlets.map((o) => (
+                            <option key={o.id} value={o.id}>{o.name}</option>
+                          ))}
+                        </optgroup>
                       </>
                     )}
                   </select>
@@ -2115,9 +2196,11 @@ export default function ContentPlannerView({
                   >
                     <option value="">-- Pilih Lokasi Outlet --</option>
                     <option value="Studio / Kantor Pusat">Studio / Kantor Pusat</option>
+                    <option value="Gudang SS Online">Gudang SS Online</option>
                     <option value="Luar Outlet / Event">Luar Outlet / Event</option>
                     {editingContent.takeLocation &&
                       editingContent.takeLocation !== 'Studio / Kantor Pusat' &&
+                      editingContent.takeLocation !== 'Gudang SS Online' &&
                       editingContent.takeLocation !== 'Luar Outlet / Event' &&
                       !outlets.some((o) => o.name === editingContent.takeLocation) && (
                         <option value={editingContent.takeLocation}>{editingContent.takeLocation}</option>

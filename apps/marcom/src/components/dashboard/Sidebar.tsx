@@ -97,8 +97,11 @@ export default function Sidebar({
       if (pathname === path) {
         if (targetScope) {
           const currentScope = searchParams.get('scope')?.toLowerCase()
+          if (targetScope.toLowerCase() === 'ss_online') {
+            return currentScope === 'ss_online'
+          }
           if (targetScope.toLowerCase() === 'official') {
-            return currentScope === 'official' || !currentScope
+            return (currentScope === 'official' || !currentScope) && currentScope !== 'ss_online'
           }
           return currentScope === targetScope.toLowerCase()
         }
@@ -246,6 +249,11 @@ export default function Sidebar({
             {
               name: 'Official',
               href: '/dashboard/content-planner?scope=official',
+              badge: null,
+            },
+            {
+              name: 'SS Online',
+              href: '/dashboard/content-planner?scope=ss_online',
               badge: null,
             },
             {

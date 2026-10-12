@@ -9,6 +9,32 @@ export type ActionState = {
   error?: string
 }
 
+async function resolveOutletId(outletIdStr: string | null): Promise<bigint | null> {
+  if (!outletIdStr || outletIdStr === 'ALL') {
+    return null
+  }
+  if (outletIdStr === 'SS_ONLINE') {
+    let ssOnline = await prisma.outlet.findFirst({
+      where: { name: { equals: 'SS Online', mode: 'insensitive' } },
+    })
+    if (!ssOnline) {
+      ssOnline = await prisma.outlet.create({
+        data: {
+          name: 'SS Online',
+          type: 'INTERNAL',
+          isActive: false,
+        },
+      })
+    }
+    return ssOnline.id
+  }
+  try {
+    return BigInt(outletIdStr)
+  } catch {
+    return null
+  }
+}
+
 export async function createPromoEvent(
   prevState: ActionState,
   formData: FormData
@@ -37,7 +63,7 @@ export async function createPromoEvent(
       return { error: 'Tanggal selesai tidak boleh sebelum tanggal mulai' }
     }
 
-    const outletId = outletIdStr && outletIdStr !== 'ALL' ? BigInt(outletIdStr) : null
+    const outletId = await resolveOutletId(outletIdStr)
 
     await prisma.promoEvent.create({
       data: {
@@ -89,7 +115,7 @@ export async function updatePromoEvent(
       return { error: 'Tanggal selesai tidak boleh sebelum tanggal mulai' }
     }
 
-    const outletId = outletIdStr && outletIdStr !== 'ALL' ? BigInt(outletIdStr) : null
+    const outletId = await resolveOutletId(outletIdStr)
 
     await prisma.promoEvent.update({
       where: { id: eventId },

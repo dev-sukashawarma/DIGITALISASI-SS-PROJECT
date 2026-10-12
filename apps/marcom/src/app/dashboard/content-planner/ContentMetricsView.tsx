@@ -638,9 +638,11 @@ export default function ContentMetricsView({
             ? item.platform === 'INSTAGRAM' || item.platform === 'IG_REELS'
             : item.platform === platformFilter)
 
+        const isSSOnline = item.outletName === 'SS Online' || item.outletName?.toLowerCase().includes('ss online')
         const matchesOutlet =
           outletFilter === '' ||
-          (outletFilter === 'ALL' && !item.outletId) ||
+          (outletFilter === 'ALL' && (!item.outletId || item.outletName === 'Official') && !isSSOnline) ||
+          (outletFilter === 'SS_ONLINE' && isSSOnline) ||
           item.outletId === outletFilter
 
         return matchesSearch && matchesAds && matchesFormat && matchesGoal && matchesContentType && matchesPillar && matchesPlatform && matchesOutlet
@@ -2182,12 +2184,17 @@ export default function ContentMetricsView({
               className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
             >
               <option value="">Semua Cabang Outlet</option>
-              <option value="ALL">Official</option>
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
+              <optgroup label="Official & Online">
+                <option value="ALL">Official</option>
+                <option value="SS_ONLINE">SS Online</option>
+              </optgroup>
+              <optgroup label="Cabang Outlet">
+                {outlets.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -3253,12 +3260,17 @@ export default function ContentMetricsView({
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Cabang Outlet</label>
                   <select
                     name="outletId"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800 font-semibold"
                   >
-                    <option value="ALL">Official</option>
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>{o.name}</option>
-                    ))}
+                    <optgroup label="Official & Online">
+                      <option value="ALL">Official</option>
+                      <option value="SS_ONLINE">SS Online</option>
+                    </optgroup>
+                    <optgroup label="Cabang Outlet">
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
                 <div>
@@ -3269,6 +3281,7 @@ export default function ContentMetricsView({
                   >
                     <option value="">-- Pilih Lokasi Outlet --</option>
                     <option value="Studio / Kantor Pusat">Studio / Kantor Pusat</option>
+                    <option value="Gudang SS Online">Gudang SS Online</option>
                     <option value="Luar Outlet / Event">Luar Outlet / Event</option>
                     <optgroup label="Cabang Outlet">
                       {outlets.map((o) => (
@@ -3535,13 +3548,22 @@ export default function ContentMetricsView({
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Cabang Outlet</label>
                   <select
                     name="outletId"
-                    defaultValue={editingContent.outletId || 'ALL'}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                    defaultValue={
+                      editingContent.outletName === 'SS Online' || editingContent.outletName?.toLowerCase().includes('ss online')
+                        ? 'SS_ONLINE'
+                        : editingContent.outletId || 'ALL'
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800 font-semibold"
                   >
-                    <option value="ALL">Official</option>
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>{o.name}</option>
-                    ))}
+                    <optgroup label="Official & Online">
+                      <option value="ALL">Official</option>
+                      <option value="SS_ONLINE">SS Online</option>
+                    </optgroup>
+                    <optgroup label="Cabang Outlet">
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
                 <div>
@@ -3553,9 +3575,11 @@ export default function ContentMetricsView({
                   >
                     <option value="">-- Pilih Lokasi Outlet --</option>
                     <option value="Studio / Kantor Pusat">Studio / Kantor Pusat</option>
+                    <option value="Gudang SS Online">Gudang SS Online</option>
                     <option value="Luar Outlet / Event">Luar Outlet / Event</option>
                     {editingContent.takeLocation &&
                       editingContent.takeLocation !== 'Studio / Kantor Pusat' &&
+                      editingContent.takeLocation !== 'Gudang SS Online' &&
                       editingContent.takeLocation !== 'Luar Outlet / Event' &&
                       !outlets.some((o) => o.name === editingContent.takeLocation) && (
                         <option value={editingContent.takeLocation}>{editingContent.takeLocation}</option>

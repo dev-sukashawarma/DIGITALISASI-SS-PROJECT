@@ -795,6 +795,7 @@ export default function CalendarView({
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                       >
                         <option value="ALL">Official</option>
+                        <option value="SS_ONLINE">SS Online</option>
                         {outlets
                           .filter((o) => o.isActive !== false)
                           .map((o) => (

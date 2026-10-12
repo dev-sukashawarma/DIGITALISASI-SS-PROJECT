@@ -1089,7 +1089,6 @@ export function OpexCardDetailModals({
                                       const isBackupSplit = Boolean(s.isBackupAllocation && (s.backupOutletsCount ?? 1) > 1)
                                       const sRoutineProrata = Math.round(s.routineSalary * ratio)
                                       const sGapokProrata = Math.round(s.basicSalary * ratio)
-                                      const sBonusProrata = Math.round(s.bonus * ratio)
                                       return (
                                         <div key={s.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-2 rounded-lg border border-amber-200/80 text-xs gap-2">
                                           <div className="flex flex-col min-w-0">
@@ -1144,7 +1143,6 @@ export function OpexCardDetailModals({
                                               {isProrated
                                                 ? (isBackupSplit && s.fullRoutineSalary ? `(1 bln: ${rupiah(s.routineSalary)} · dari ${rupiah(s.fullRoutineSalary)})` : `(1 bln: ${rupiah(s.routineSalary)})`)
                                                 : (isBackupSplit && s.fullRoutineSalary ? `(dari ${rupiah(s.fullRoutineSalary)})` : `Gapok ${rupiah(sGapokProrata)}`)}
-                                              {sBonusProrata > 0 && <span className="text-amber-700 font-bold ml-1">· +{rupiah(sBonusProrata)} bonus di Card 2</span>}
                                             </span>
                                           </div>
                                         </div>

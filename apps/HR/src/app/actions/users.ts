@@ -326,18 +326,33 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
       if (finError) return { ok: false, error: `Gagal menyimpan data finansial: ${finError.message}` }
     }
 
-    // 5. Update staff_outlets if leader, area_manager, or crew_backup
-    const isMultiOutlet =
-      role === 'leader' ||
-      role === 'area_manager' ||
-      (role === 'crew' && sub_role === 'crew_backup')
-
-    if (isMultiOutlet && Array.isArray(outlet_ids)) {
-      await admin.from('staff_outlets').delete().eq('staff_id', staff_id)
-      if (outlet_ids.length > 0) {
-        const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }))
-        await admin.from('staff_outlets').insert(rows)
+    // 5. Update staff_outlets
+    let targetRole = role
+    let targetSubRole = sub_role
+    if (targetRole === undefined || (targetRole === 'crew' && targetSubRole === undefined)) {
+      const { data: curr } = await admin
+        .from('outlet_staff')
+        .select('role, sub_role')
+        .eq('id', staff_id)
+        .maybeSingle()
+      if (curr) {
+        if (targetRole === undefined) targetRole = curr.role
+        if (targetSubRole === undefined) targetSubRole = curr.sub_role
       }
+    }
+
+    const isMultiOutlet =
+      targetRole === 'leader' ||
+      targetRole === 'area_manager' ||
+      (targetRole === 'crew' && targetSubRole === 'crew_backup')
+
+    // Always delete existing staff_outlets on update to avoid stale multi-outlet entries
+    await admin.from('staff_outlets').delete().eq('staff_id', staff_id)
+
+    // Re-insert only if this staff has a multi-outlet role and outlet_ids are provided
+    if (isMultiOutlet && Array.isArray(outlet_ids) && outlet_ids.length > 0) {
+      const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }))
+      await admin.from('staff_outlets').insert(rows)
     }
 
     return { ok: true, staff_id }

@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { deserializeVoucherFromRow, serializeVoucherToDescription } from '@/lib/officeVoucher'
+import { ambilPengeluaranMentah } from '@/lib/pengeluaran/ambilPengeluaran'
 
 export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   // Server Action = endpoint POST publik; ini melewati RPC upsert_expense
@@ -181,44 +182,8 @@ export async function createSingleExpenseAction(input: {
 
 export async function getExpensesAction(filter: { from: string; to: string; outletId: string; source?: string }) {
   try {
-    const supabase = getServiceSupabase()
-    const PAGE_SIZE = 1000
-
-    const buildQuery = () => {
-      let q = supabase
-        .from('expenses')
-        .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
-        .eq('type', 'expense')
-        .gte('expense_date', filter.from)
-        .lte('expense_date', filter.to)
-        .order('expense_date', { ascending: false })
-        .order('id', { ascending: false })
-
-      if (filter.outletId && filter.outletId !== 'all') {
-        if (filter.outletId === 'PUSAT') {
-          q = q.or('outlet_id.is.null,outlet_id.eq.ffffffff-ffff-ffff-ffff-ffffffffffff')
-        } else {
-          q = q.eq('outlet_id', filter.outletId)
-        }
-      }
-
-      return q
-    }
-
-    const allExpenses: any[] = []
-    for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1)
-      if (error) throw error
-      const page = data ?? []
-      allExpenses.push(...page)
-      if (page.length < PAGE_SIZE) break
-    }
-
-    return {
-      success: true,
-      expenses: allExpenses,
-      pettyCashExpenses: []
-    }
+    const r = await ambilPengeluaranMentah(getServiceSupabase(), filter)
+    return { success: true, expenses: r.expenses, pettyCashExpenses: r.pettyCashExpenses }
   } catch (err: any) {
     console.error('Error in getExpensesAction:', err)
     return {

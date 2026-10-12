@@ -165,11 +165,8 @@ serve(async (req) => {
 
     if (Array.isArray(outlet_ids)) {
       await admin.from("staff_outlets").delete().eq("staff_id", staff_id);
-      const targetOutlets = isMultiOutlet
-        ? outlet_ids
-        : (outlet_id ? [outlet_id] : outlet_ids.slice(0, 1));
-      if (targetOutlets.length > 0) {
-        const rows = targetOutlets.map((oid: string) => ({ staff_id, outlet_id: oid }));
+      if (isMultiOutlet && outlet_ids.length > 0) {
+        const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }));
         const { error: soError } = await admin.from("staff_outlets").insert(rows);
         if (soError) throw soError;
       }

@@ -204,7 +204,7 @@ export function StaffForm({
       outlet_id:
         initial?.role === 'regional_manager' || initial?.role === 'area_manager'
           ? KANTOR_PUSAT_ID
-          : (initial?.outlet_id ?? (outlets[0]?.id ?? '')),
+          : (initial?.outlet_id || initial?.outlet_ids?.[0] || (outlets[0]?.id ?? '')),
       outlet_ids: initial?.outlet_ids ?? [],
       is_bonus_eligible: initial?.is_bonus_eligible ?? true,
       nip: initial?.nip ?? '',

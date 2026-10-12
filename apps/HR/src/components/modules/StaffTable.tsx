@@ -259,7 +259,7 @@ export function StaffTable({
       )
     }
 
-    if (s.outlet_ids && s.outlet_ids.length > 1) {
+    if (s.role === 'leader' && s.outlet_ids && s.outlet_ids.length > 1) {
       const names = getStaffOutletNames(s)
       const isAllOutlets = (outlets.length > 0 && names.length >= outlets.length - 2) || names.length >= 6
 
@@ -603,7 +603,7 @@ export function StaffTable({
                       <div className="mt-0.5">
                         <span className="font-bold text-suka-ink block">KANTOR PUSAT</span>
                       </div>
-                    ) : selectedStaff.outlet_ids && selectedStaff.outlet_ids.length > 1 ? (
+                    ) : selectedStaff.role === 'leader' && selectedStaff.outlet_ids && selectedStaff.outlet_ids.length > 1 ? (
                       (() => {
                         const names = getStaffOutletNames(selectedStaff)
                         const isAllOutlets = (outlets.length > 0 && names.length >= outlets.length - 2) || names.length >= 6

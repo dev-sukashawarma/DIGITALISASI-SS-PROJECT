@@ -820,7 +820,7 @@ export default function InputPengeluaranPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Pengeluaran & OPEX"
+        title="Buku Kas (OPEX)"
         description="Pencatatan dan rincian beban operasional (Gaji, Operasional Cabang, dan Beban Kantor Pusat)."
       >
         <div className="flex flex-wrap items-center gap-2">

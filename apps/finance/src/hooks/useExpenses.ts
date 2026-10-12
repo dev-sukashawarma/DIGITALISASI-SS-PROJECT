@@ -3,7 +3,8 @@
 import { useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { PeriodFilterValue } from '@/lib/types'
-import { mapExpenseRow, type ExpenseRow } from '@/lib/expenseRow'
+import type { ExpenseRow } from '@/lib/expenseRow'
+import { susunBarisPengeluaran } from '@/lib/pengeluaran/susunBaris'
 import { getExpensesAction } from '@/app/actions/expenses'
 import { createClient } from '@/lib/supabase'
 
@@ -39,7 +40,7 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
     }
   }, [supabase, queryClient])
   const query = useQuery<ExpenseRow[]>({
-    queryKey: ['expenses', filter.from, filter.to, filter.outletId],
+    queryKey: ['expenses', filter.from, filter.to, filter.outletId, filter.source],
     initialData,
     staleTime: 30_000,
     queryFn: async () => {
@@ -54,11 +55,7 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
         throw new Error(res.error || 'Gagal memuat data pengeluaran dari server')
       }
 
-      const expenses = res.expenses ?? []
-
-      const monthlyRows = (expenses ?? []).map(mapExpenseRow)
-
-      return monthlyRows as ExpenseRow[]
+      return susunBarisPengeluaran(res.expenses ?? [], res.pettyCashExpenses ?? [])
     },
   })
   return { 

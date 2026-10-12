@@ -2,6 +2,8 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import { MitraOutletProvider } from './MitraOutletContext'
+import { MitraPratinjauBar } from './MitraPratinjauBar'
+import { COOKIE_PRATINJAU_MITRA, pilihProfilPratinjau } from '@/lib/mitraPratinjau'
 import { redirect } from 'next/navigation'
 import { MitraMaintenanceView } from '@/components/maintenance/MitraMaintenanceView'
 import { AlertTriangle } from 'lucide-react'
@@ -64,8 +66,37 @@ export default async function MitraDashboardLayout({
     
   if (!profile) {
     if (isPrivileged) {
-      // Akun privileged (Developer/Admin/Owner) yang membuka portal tanpa profil mitra sendiri
+      // Akun privileged (Developer/Admin/Owner) tanpa profil mitra sendiri = mode pratinjau:
+      // semua sub-halaman dirender dengan konteks outlet milik mitra yang dipilih di cookie.
+      // Tanpa provider di sini, setiap halaman yang memanggil useMitraOutlet() langsung error.
+      let semuaProfil: any[] = []
+      let outletPratinjau: any[] = []
+      try {
+        const svc = createServiceClient()
+        const { data } = await svc.from('mitra_profiles').select('*').order('nama_mitra', { ascending: true })
+        semuaProfil = data || []
+      } catch (err) {
+        console.error('[MitraDashboardLayout] Gagal memuat daftar mitra untuk pratinjau:', err)
+      }
+      const profilPratinjau = pilihProfilPratinjau(semuaProfil, cookieStore.get(COOKIE_PRATINJAU_MITRA)?.value) ?? null
+      const idOutletPratinjau: string[] = profilPratinjau?.outlet_ids || []
+      if (idOutletPratinjau.length > 0) {
+        try {
+          const { data } = await createServiceClient().from('outlets').select('*').in('id', idOutletPratinjau)
+          outletPratinjau = data || []
+        } catch (err) {
+          console.error('[MitraDashboardLayout] Gagal memuat outlet pratinjau:', err)
+        }
+      }
+
       return (
+        <MitraOutletProvider
+          // key: ganti mitra = konteks baru, supaya outlet terpilih milik mitra sebelumnya tidak terbawa.
+          key={profilPratinjau?.id ?? 'tanpa-profil'}
+          profile={profilPratinjau}
+          outlets={outletPratinjau}
+          modePratinjau
+        >
         <div className="min-h-screen bg-slate-50">
           {isMaintenanceActive && (
             <div className="bg-amber-500 text-white px-4 py-2.5 text-center text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-sm sticky top-0 z-50">
@@ -75,8 +106,13 @@ export default async function MitraDashboardLayout({
               </span>
             </div>
           )}
+          <MitraPratinjauBar
+            daftarMitra={semuaProfil.map(p => ({ id: p.id, nama: p.nama_mitra || 'Tanpa nama', jumlahOutlet: (p.outlet_ids || []).length }))}
+            terpilihId={profilPratinjau?.id ?? ''}
+          />
           {children}
         </div>
+        </MitraOutletProvider>
       )
     }
 

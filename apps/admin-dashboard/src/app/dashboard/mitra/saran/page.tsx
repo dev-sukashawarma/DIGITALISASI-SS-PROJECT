@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/ui'
 import { MessageSquare, Send, HelpCircle } from 'lucide-react'
 
 export default function SaranPage() {
-  const { selectedOutletId, selectedOutlet, profile } = useMitraOutlet()
+  const { selectedOutletId, selectedOutlet, profile, modePratinjau } = useMitraOutlet()
   const [saranList, setSaranList] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [isiSaran, setIsiSaran] = useState('')
@@ -34,7 +34,8 @@ export default function SaranPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isiSaran.trim() || !profile?.user_id) return
+    // Mode pratinjau hanya untuk melihat: jangan sampai admin mengirim saran atas nama mitra.
+    if (modePratinjau || !isiSaran.trim() || !profile?.user_id) return
     
     setSubmitting(true)
     const { error } = await supabase
@@ -95,7 +96,7 @@ export default function SaranPage() {
               />
               <button
                 type="submit"
-                disabled={submitting || !isiSaran.trim()}
+                disabled={modePratinjau || submitting || !isiSaran.trim()}
                 className="w-full flex items-center justify-center py-3.5 px-6 bg-gradient-to-r from-suka-orange to-suka-brown text-white rounded-xl hover:shadow-lg hover:shadow-suka-orange/30 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none text-sm font-black uppercase tracking-widest transition-all"
               >
                 {submitting ? (
@@ -107,6 +108,11 @@ export default function SaranPage() {
                   </>
                 )}
               </button>
+              {modePratinjau && (
+                <p className="mt-3 text-xs font-semibold text-amber-800 text-center">
+                  Mode pratinjau: pengiriman saran dinonaktifkan.
+                </p>
+              )}
             </form>
           </div>
 

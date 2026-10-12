@@ -10,7 +10,6 @@ import {
   Clock, 
   CreditCard,
   ShieldCheck,
-  ChevronRight,
   ChevronDown,
   RefreshCw,
   Coins,
@@ -70,8 +69,6 @@ export function MitraDashboardView({
     systemProfitMitra: 0, 
     historisProfitMitra: 0 
   },
-  isAdminMode = false,
-  allMitraProfiles = [],
   lastUpdated,
 }: any) {
   const router = useRouter()
@@ -247,50 +244,6 @@ export function MitraDashboardView({
 
       <div className="max-w-7xl mx-auto space-y-8 p-4 sm:p-6 lg:p-8 relative z-10 animate-fade-in">
         
-        {/* ADMIN PREVIEW MODE BANNER */}
-        {isAdminMode && (
-          <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-300/80 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20 shrink-0">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="font-black text-amber-950 text-sm">Mode Tinjauan Admin: Preview Portal Mitra</h4>
-                <p className="text-xs text-amber-800/80 font-medium">Anda sedang melihat dashboard dalam perspektif Mitra. Pilih profil mitra di samping untuk beralih.</p>
-              </div>
-            </div>
-
-            {allMitraProfiles.length > 0 ? (
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-bold text-amber-900 shrink-0">Pilih Mitra:</span>
-                <select
-                  value={mitra?.id || ''}
-                  onChange={(e) => {
-                    const params = new URLSearchParams(window.location.search)
-                    params.set('mitraId', e.target.value)
-                    router.push(`?${params.toString()}`)
-                  }}
-                  className="bg-white border border-amber-300 text-xs font-black text-amber-950 rounded-xl px-3 py-2 outline-none cursor-pointer shadow-sm focus:ring-2 focus:ring-amber-500/20"
-                >
-                  {allMitraProfiles.map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nama_mitra} ({p.outlet_ids?.length || 0} Outlet)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <a
-                href="/dashboard/owner/kelola-mitra"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white font-bold text-xs rounded-xl shadow-sm hover:bg-amber-600 transition-colors shrink-0"
-              >
-                <span>Kelola / Tambah Mitra</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </a>
-            )}
-          </div>
-        )}
-
         {/* 1. HERO / HEADER SECTION */}
         <div className="bg-white/70 backdrop-blur-xl border border-white p-5 sm:p-7 md:p-8 rounded-[32px] shadow-xl shadow-suka-orange/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
           <div className="absolute inset-0 rounded-[32px] overflow-hidden pointer-events-none -z-10">

@@ -185,6 +185,11 @@ interface MitraProfitLossSectionProps {
    * tidak ikut terbawa ke bundel halaman mitra.
    */
   labelClosingInternal?: string
+  /**
+   * Tampilkan pemilih outlet di dalam filter. Dashboard mitra tidak memakainya
+   * (pemilih outletnya ada di kepala halaman); Dashboard Kemitraan memerlukannya.
+   */
+  tampilkanFilterOutlet?: boolean
 }
 
 export function MitraProfitLossSection({
@@ -195,6 +200,7 @@ export function MitraProfitLossSection({
   outlets = [],
   className = 'mt-6',
   labelClosingInternal,
+  tampilkanFilterOutlet = false,
 }: MitraProfitLossSectionProps) {
   const [activeDrilldown, setActiveDrilldown] = useState<'pos' | 'foodapps' | 'tiktok' | 'opex' | 'netprofit' | null>(null)
   const [selectedOpexCategory, setSelectedOpexCategory] = useState<OpexCategoryDetail | null>(null)
@@ -295,7 +301,7 @@ export function MitraProfitLossSection({
                 onChange={onFilterChange}
                 outlets={outlets}
                 hideSource
-                hideOutlet
+                hideOutlet={!tampilkanFilterOutlet}
                 isLoading={isLoading}
               />
             </div>

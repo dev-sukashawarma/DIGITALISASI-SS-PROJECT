@@ -37,6 +37,11 @@ describe('exportReconciliationToCsv', () => {
         bahan_berselisih_count: 1,
         anomali_skala_count: 0,
         ekstrem_count: 0,
+        omzet_rp: 1000000,
+        potongan_rp: 0,
+        order_count: 50,
+        teoritis_pakai_rp: 280000,
+        teoritis_tidak_terhitung: 0,
       },
       items: [
         {
@@ -48,6 +53,11 @@ describe('exportReconciliationToCsv', () => {
           faktor_tengah: null,
           satuan_kecil: 'gram',
           faktor_tampilan: 1000,
+          satuan_kirim: 'kg',
+          harga_master_kirim: 50000,
+          has_opname: true,
+          status: 'MINUS',
+          selisih_persen: -7.89,
           harga_beli_master: 50000,
           unit_price_kecil: 50,
           saldo_awal_qty: 10000,

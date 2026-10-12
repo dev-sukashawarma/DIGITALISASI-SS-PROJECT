@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutasiActions } from '@/hooks/useMutasi';
 import { useBahanBaku } from '@/hooks/useBahanBaku';
+import { convertToBaseUnit, convertToDistribusiUnit } from '@/lib/format/compositeUnit';
 import { createClient } from '@/lib/supabase';
 import { ChevronDown, Search, Plus, Minus, AlertCircle, X } from 'lucide-react';
 
@@ -26,9 +27,20 @@ export function MutasiForm({ outletId }: { outletId: string }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [catatan, setCatatan] = useState('');
-  const [items, setItems] = useState<Record<string, number>>(
-    initialBahan && initialQty > 0 ? { [initialBahan]: initialQty } : {}
-  );
+  const [items, setItems] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (initialBahan && initialQty > 0 && bahanBaku.length > 0) {
+      const b = bahanBaku.find(x => x.id === initialBahan);
+      const qtyInDist = b ? convertToDistribusiUnit(initialQty, b) : initialQty;
+      setItems(prev => {
+        if (Object.keys(prev).length === 0) {
+          return { [initialBahan]: Math.round(qtyInDist * 100) / 100 };
+        }
+        return prev;
+      });
+    }
+  }, [initialBahan, initialQty, bahanBaku]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [busy, setBusy] = useState(false);
@@ -98,10 +110,14 @@ export function MutasiForm({ outletId }: { outletId: string }) {
     setErrorMsg(null);
     
     try {
-      const itemsPayload = Object.entries(items).map(([id, qty]) => ({
-        bahan_baku_id: id,
-        qty_diajukan: qty
-      }));
+      const itemsPayload = Object.entries(items).map(([id, qty]) => {
+        const b = bahanBaku.find(x => x.id === id);
+        const qtyDiajukanBase = b ? convertToBaseUnit(qty, b) : qty;
+        return {
+          bahan_baku_id: id,
+          qty_diajukan: qtyDiajukanBase
+        };
+      });
       
       const newId = await ajukan(outletId, outletTujuanId, catatan, itemsPayload);
       if (newId) {
@@ -233,47 +249,56 @@ export function MutasiForm({ outletId }: { outletId: string }) {
           <p className="text-xs text-[#544437]/60 text-center py-6">Memuat katalog bahan baku...</p>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-            {filteredBahan.map(b => (
-              <div key={b.id} className="flex items-center justify-between p-3 border border-suka-brown/10 rounded-xl hover:bg-orange-50/20 transition-colors">
-                <div>
-                  <h3 className="font-bold text-xs text-[#1e1b15]">{b.nama}</h3>
-                  <p className="text-[10px] text-[#544437]/60 font-medium">{b.satuan_distribusi || b.satuan}</p>
+            {filteredBahan.map(b => {
+              const distUnit = b.satuan_distribusi || b.satuan;
+              return (
+                <div key={b.id} className="flex items-center justify-between p-3 border border-suka-brown/10 rounded-xl hover:bg-orange-50/20 transition-colors">
+                  <div>
+                    <h3 className="font-bold text-xs text-[#1e1b15]">{b.nama}</h3>
+                    <p className="text-[10px] text-[#544437]/60 font-medium">
+                      Satuan pesan: <span className="font-bold text-suka-orange">{distUnit}</span>
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center bg-[#f9f5f1] rounded-xl p-1 border border-suka-brown/20">
+                    <button 
+                      type="button"
+                      onClick={() => updateQty(b.id, -1)} 
+                      className="w-7 h-7 flex items-center justify-center text-suka-brown hover:bg-white rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="flex items-center px-1">
+                      <input 
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={items[b.id] ?? ''}
+                        placeholder="0"
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : Number(e.target.value);
+                          setItems(prev => {
+                            const copy = { ...prev };
+                            if (val <= 0 || isNaN(val)) delete copy[b.id];
+                            else copy[b.id] = val;
+                            return copy;
+                          });
+                        }}
+                        className="w-12 text-center bg-transparent border-none p-0 font-extrabold text-xs text-[#1e1b15] focus:ring-0 outline-none"
+                      />
+                      <span className="text-[10px] text-suka-brown/60 font-bold ml-0.5">{distUnit}</span>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => updateQty(b.id, 1)} 
+                      className="w-7 h-7 flex items-center justify-center text-suka-brown hover:bg-white rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                
-                <div className="flex items-center bg-[#f9f5f1] rounded-xl p-1 border border-suka-brown/20">
-                  <button 
-                    type="button"
-                    onClick={() => updateQty(b.id, -1)} 
-                    className="w-7 h-7 flex items-center justify-center text-suka-brown hover:bg-white rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <input 
-                    type="number"
-                    min="0"
-                    value={items[b.id] || ''}
-                    placeholder="0"
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setItems(prev => {
-                        const copy = { ...prev };
-                        if (val <= 0) delete copy[b.id];
-                        else copy[b.id] = val;
-                        return copy;
-                      });
-                    }}
-                    className="w-12 text-center bg-transparent border-none p-0 font-extrabold text-xs text-[#1e1b15] focus:ring-0 outline-none"
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => updateQty(b.id, 1)} 
-                    className="w-7 h-7 flex items-center justify-center text-suka-brown hover:bg-white rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

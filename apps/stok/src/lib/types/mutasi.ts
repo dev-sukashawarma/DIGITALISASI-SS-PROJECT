@@ -49,5 +49,14 @@ export interface MutasiAntarOutletItem {
   foto_bukti_terima?: string;
   
   // Joined relation
-  bahan_baku?: { nama: string; satuan: string };
+  bahan_baku?: {
+    id?: string;
+    nama: string;
+    satuan: string;
+    satuan_tengah?: string | null;
+    faktor_tengah?: number | null;
+    satuan_kecil?: string | null;
+    faktor_tampilan?: number | null;
+    satuan_distribusi?: string | null;
+  };
 }

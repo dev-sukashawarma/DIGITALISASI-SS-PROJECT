@@ -7,6 +7,7 @@ import { useAuth } from '@suka/auth';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { useMutasiDetail, useMutasiActions } from '@/hooks/useMutasi';
 import { canApproveMutasi } from '@/lib/stok/approver';
+import { convertToDistribusiUnit } from '@/lib/format/compositeUnit';
 import { BottomNav } from '@/components/common/BottomNav';
 import type { MutasiStatus } from '@/lib/types/mutasi';
 import { 
@@ -338,32 +339,62 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
             Rincian Item Bahan Baku ({data.items?.length || 0})
           </h2>
           <div className="space-y-3">
-            {data.items?.map((item: any) => (
-              <div key={item.id} className="flex justify-between items-center py-2.5 border-b border-suka-brown/10 last:border-0 last:pb-0">
-                <div>
-                  <h3 className="font-bold text-sm text-[#1e1b15]">{item.bahan_baku?.nama || '-'}</h3>
-                  {data.status === 'selesai' && (
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mt-1 inline-block ${
-                      item.kondisi_diterima === 'baik' 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      Kondisi: {item.kondisi_diterima === 'baik' ? 'Baik' : item.kondisi_diterima === 'rusak' ? 'Rusak' : 'Hilang / Kurang'}
-                    </span>
-                  )}
+            {data.items?.map((item: any) => {
+              const b = item.bahan_baku;
+              const distUnit = b?.satuan_distribusi || b?.satuan || '';
+              const rawQtyDiajukanDist = b ? convertToDistribusiUnit(item.qty_diajukan, b) : item.qty_diajukan;
+              const qtyDiajukanDist = Math.round(rawQtyDiajukanDist * 100) / 100;
+
+              const rawQtyDikirimDist = (item.qty_dikirim !== undefined && item.qty_dikirim !== null && b)
+                ? convertToDistribusiUnit(item.qty_dikirim, b)
+                : item.qty_dikirim;
+              const qtyDikirimDist = rawQtyDikirimDist != null ? Math.round(rawQtyDikirimDist * 100) / 100 : null;
+
+              const rawQtyDiterimaDist = (item.qty_diterima !== undefined && item.qty_diterima !== null && b)
+                ? convertToDistribusiUnit(item.qty_diterima, b)
+                : item.qty_diterima;
+              const qtyDiterimaDist = rawQtyDiterimaDist != null ? Math.round(rawQtyDiterimaDist * 100) / 100 : null;
+
+              const isDiffUnit = b?.satuan && distUnit.toLowerCase() !== b.satuan.toLowerCase();
+
+              return (
+                <div key={item.id} className="flex justify-between items-center py-2.5 border-b border-suka-brown/10 last:border-0 last:pb-0">
+                  <div>
+                    <h3 className="font-bold text-sm text-[#1e1b15]">{b?.nama || '-'}</h3>
+                    {data.status === 'selesai' && (
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mt-1 inline-block ${
+                        item.kondisi_diterima === 'baik' 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        Kondisi: {item.kondisi_diterima === 'baik' ? 'Baik' : item.kondisi_diterima === 'rusak' ? 'Rusak' : 'Hilang / Kurang'}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className="font-bold text-suka-brown text-sm">
+                      {qtyDiajukanDist} {distUnit}
+                    </div>
+                    {isDiffUnit && (
+                      <div className="text-[10px] text-suka-brown/50 font-medium">
+                        ({item.qty_diajukan} {b.satuan})
+                      </div>
+                    )}
+                    {qtyDikirimDist !== null && (
+                      <div className="text-[10px] text-blue-600 font-bold uppercase mt-0.5">
+                        Dikirim: {qtyDikirimDist} {distUnit}
+                      </div>
+                    )}
+                    {qtyDiterimaDist !== null && (
+                      <div className="text-[10px] text-green-600 font-bold uppercase mt-0.5">
+                        Diterima: {qtyDiterimaDist} {distUnit}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="text-right">
-                  <div className="font-bold text-suka-brown text-sm">{item.qty_diajukan} {item.bahan_baku?.satuan}</div>
-                  {(item.qty_dikirim !== undefined && item.qty_dikirim !== null) && (
-                    <div className="text-[10px] text-blue-600 font-bold uppercase mt-0.5">Dikirim: {item.qty_dikirim}</div>
-                  )}
-                  {(item.qty_diterima !== undefined && item.qty_diterima !== null) && (
-                    <div className="text-[10px] text-green-600 font-bold uppercase mt-0.5">Diterima: {item.qty_diterima}</div>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -495,12 +526,19 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
               </div>
               
               <div className="space-y-3 mb-4">
-                {data.items?.map((item: any) => (
-                  <div key={item.id} className="p-3 bg-suka-cream/30 border border-suka-brown/10 rounded-xl space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-suka-brown">{item.bahan_baku?.nama}</span>
-                      <span className="text-[11px] font-semibold text-blue-700">Dikirim: {item.qty_dikirim || item.qty_diajukan} {item.bahan_baku?.satuan}</span>
-                    </div>
+                {data.items?.map((item: any) => {
+                  const b = item.bahan_baku;
+                  const distUnit = b?.satuan_distribusi || b?.satuan || '';
+                  const rawQtyDikirim = item.qty_dikirim != null ? item.qty_dikirim : item.qty_diajukan;
+                  const rawQtyDikirimDist = b ? convertToDistribusiUnit(rawQtyDikirim, b) : rawQtyDikirim;
+                  const qtyDikirimDist = Math.round(rawQtyDikirimDist * 100) / 100;
+
+                  return (
+                    <div key={item.id} className="p-3 bg-suka-cream/30 border border-suka-brown/10 rounded-xl space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-suka-brown">{b?.nama}</span>
+                        <span className="text-[11px] font-semibold text-blue-700">Dikirim: {qtyDikirimDist} {distUnit}</span>
+                      </div>
 
                     {/* Custom Segmented Control untuk kondisi fisik (Bukan native select) */}
                     <div className="flex bg-white p-1 rounded-xl border border-suka-brown/15 gap-1">
@@ -522,8 +560,9 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
                         );
                       })}
                     </div>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
 
               <button 

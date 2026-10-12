@@ -48,7 +48,7 @@ export async function fetchMutasiList(outletId?: string): Promise<MutasiAntarOut
   
   let query = supabase
     .from('mutasi_antar_outlet')
-    .select('*, mutasi_antar_outlet_item(*, bahan_baku(nama, satuan)), outlet_asal:outlets!outlet_asal_id(name), outlet_tujuan:outlets!outlet_tujuan_id(name)')
+    .select('*, mutasi_antar_outlet_item(*, bahan_baku(id, nama, satuan, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan, satuan_distribusi)), outlet_asal:outlets!outlet_asal_id(name), outlet_tujuan:outlets!outlet_tujuan_id(name)')
     .order('created_at', { ascending: false })
 
   // If outletId is provided, fetch mutasi where outlet is either asal or tujuan
@@ -91,7 +91,16 @@ export async function fetchMutasiList(outletId?: string): Promise<MutasiAntarOut
       outlet_tujuan: d.outlet_tujuan ? { nama: (d.outlet_tujuan as any).name } : undefined,
       items: (d.mutasi_antar_outlet_item || []).map((item: any) => ({
         ...item,
-        bahan_baku: item.bahan_baku ? { nama: item.bahan_baku.nama, satuan: item.bahan_baku.satuan } : undefined
+        bahan_baku: item.bahan_baku ? {
+          id: item.bahan_baku.id,
+          nama: item.bahan_baku.nama,
+          satuan: item.bahan_baku.satuan,
+          satuan_tengah: item.bahan_baku.satuan_tengah,
+          satuan_kecil: item.bahan_baku.satuan_kecil,
+          faktor_tengah: item.bahan_baku.faktor_tengah,
+          faktor_tampilan: item.bahan_baku.faktor_tampilan,
+          satuan_distribusi: item.bahan_baku.satuan_distribusi,
+        } : undefined
       }))
     } as unknown as MutasiAntarOutlet
   })
@@ -105,7 +114,7 @@ export async function fetchMutasiById(id: string): Promise<MutasiAntarOutlet | n
   
   const { data, error } = await supabase
     .from('mutasi_antar_outlet')
-    .select('*, mutasi_antar_outlet_item(*, bahan_baku(nama, satuan)), outlet_asal:outlets!outlet_asal_id(name), outlet_tujuan:outlets!outlet_tujuan_id(name)')
+    .select('*, mutasi_antar_outlet_item(*, bahan_baku(id, nama, satuan, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan, satuan_distribusi)), outlet_asal:outlets!outlet_asal_id(name), outlet_tujuan:outlets!outlet_tujuan_id(name)')
     .eq('id', id)
     .maybeSingle()
 
@@ -132,7 +141,16 @@ export async function fetchMutasiById(id: string): Promise<MutasiAntarOutlet | n
     outlet_tujuan: data.outlet_tujuan ? { nama: (data.outlet_tujuan as any).name } : undefined,
     items: (data.mutasi_antar_outlet_item || []).map((item: any) => ({
       ...item,
-      bahan_baku: item.bahan_baku ? { nama: item.bahan_baku.nama, satuan: item.bahan_baku.satuan } : undefined
+      bahan_baku: item.bahan_baku ? {
+        id: item.bahan_baku.id,
+        nama: item.bahan_baku.nama,
+        satuan: item.bahan_baku.satuan,
+        satuan_tengah: item.bahan_baku.satuan_tengah,
+        satuan_kecil: item.bahan_baku.satuan_kecil,
+        faktor_tengah: item.bahan_baku.faktor_tengah,
+        faktor_tampilan: item.bahan_baku.faktor_tampilan,
+        satuan_distribusi: item.bahan_baku.satuan_distribusi,
+      } : undefined
     }))
   } as unknown as MutasiAntarOutlet
 }

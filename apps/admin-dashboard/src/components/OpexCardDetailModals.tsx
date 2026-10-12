@@ -17,7 +17,8 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  Calendar
+  Calendar,
+  Calculator
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
@@ -1246,6 +1247,51 @@ export function OpexCardDetailModals({
                               <span className="text-[10px] text-amber-800/70 block italic pt-1 border-t border-amber-100">
                                 * Beban manajer yang dibebankan untuk {isProrated && prorataInfo ? `${prorataInfo.overlapDays} hari berjalan` : 'sebulan penuh'}
                               </span>
+                            </div>
+                          </div>
+
+                          {/* Keterangan Rumus & Metodologi Perhitungan Prorata Card 2 */}
+                          <div className="bg-amber-100/70 rounded-xl border border-amber-300/80 p-3 sm:p-3.5 text-xs text-amber-950 space-y-2 shadow-2xs">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 font-black text-amber-900">
+                                <Calculator size={14} className="text-amber-700 shrink-0" />
+                                <span className="uppercase tracking-wider text-[11px]">Rumus & Logika Perhitungan Prorata Beban Periode Ini:</span>
+                              </div>
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded border border-amber-300">
+                                {isProrated && prorataInfo ? `${prorataInfo.overlapDays} / ${prorataInfo.totalDays} Hari (${((prorataInfo.ratio || 0) * 100).toFixed(1)}%)` : '1 Bulan Penuh (100%)'}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] leading-relaxed">
+                              {/* Box 1: Rumus Utama */}
+                              <div className="bg-white/90 p-2.5 rounded-lg border border-amber-200/90 shadow-2xs space-y-1">
+                                <span className="font-extrabold text-amber-950 block">1. Rumus Akrual Harian</span>
+                                <div className="bg-amber-50/80 p-1.5 rounded font-mono text-[10px] font-semibold text-amber-900 border border-amber-200/60">
+                                  Beban Diakui = Beban 1 Bln × (Hari Filter ÷ Total Hari Bln)
+                                </div>
+                                <p className="text-gray-600 text-[10px] mt-1">
+                                  {isProrated && prorataInfo
+                                    ? `Beban rutin 1 bulan dikalikan rasio (${prorataInfo.overlapDays} ÷ ${prorataInfo.totalDays} hari = ${(prorataInfo.ratio * 100).toFixed(1)}%).`
+                                    : 'Rentang filter 1 bulan penuh, beban diakui 100% utuh.'}
+                                </p>
+                              </div>
+
+                              {/* Box 2: Kru Reguler vs Backup */}
+                              <div className="bg-white/90 p-2.5 rounded-lg border border-amber-200/90 shadow-2xs space-y-1">
+                                <span className="font-extrabold text-amber-950 block">2. Kru Reguler vs Backup</span>
+                                <p className="text-gray-700 text-[10.5px]">
+                                  • <strong>Kru Reguler</strong>: 100% beban rutin bulanan dibebankan ke cabang ini.<br />
+                                  • <strong>Kru Backup</strong>: Gaji rutin dibagi rata ke cabang penugasan (<span className="font-bold text-purple-800 font-mono">1/N Cbg</span>) sebelum dikalikan faktor hari prorata.
+                                </p>
+                              </div>
+
+                              {/* Box 3: Manajer Supervisi */}
+                              <div className="bg-white/90 p-2.5 rounded-lg border border-amber-200/90 shadow-2xs space-y-1">
+                                <span className="font-extrabold text-amber-950 block">3. Alokasi Manajer (RM, AM, SC)</span>
+                                <p className="text-gray-700 text-[10.5px]">
+                                  Gaji bulanan dibagi rata ke outlet binaannya (<span className="font-bold text-purple-800 font-mono">1/N Cbg</span>), kemudian diakui proporsional sesuai rasio hari filter berjalan.
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>

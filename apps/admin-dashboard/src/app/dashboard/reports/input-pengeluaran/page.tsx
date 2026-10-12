@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Plus,
@@ -25,15 +25,20 @@ import {
   Sparkles,
   Award,
   Briefcase,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase'
+import { clearPeriodCache } from '@/lib/periodCache'
+import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 import { PageHeader } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useHRPayroll } from '@/hooks/useHRPayroll'
+import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useRole } from '@/components/layout/RoleContext'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
@@ -46,6 +51,22 @@ import { isExcludedOutlet } from '@/lib/outletFilters'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 import { BUKU_KAS_PARAMS } from '@/lib/bukuKasLink'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
+
+function formatLastUpdated(dateIso?: string) {
+  if (!dateIso) return ''
+  try {
+    const d = new Date(dateIso)
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(d) + ' WIB'
+  } catch {
+    return ''
+  }
+}
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 
@@ -88,6 +109,10 @@ export default function InputPengeluaranPage() {
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
   const { data: outlets = [] } = useOutlets()
   const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const searchParams = useSearchParams()
   const paramFrom = searchParams.get(BUKU_KAS_PARAMS.from)
@@ -98,6 +123,10 @@ export default function InputPengeluaranPage() {
   const [activePreset, setActivePreset] = useState<PresetType>(() => (paramFrom || paramTo) ? 'custom' : 'today')
   const [startDate, setStartDate] = useState(() => paramFrom || getToday())
   const [endDate, setEndDate] = useState(() => paramTo || getToday())
+
+  const todayJakarta = useMemo(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()), [])
+  const isPast = endDate < todayJakarta
+
   const [target, setTarget] = useState<string>(() => {
     if (paramOutlet) {
       if (paramOutlet === 'ffffffff-ffff-ffff-ffff-ffffffffffff') return 'PUSAT'
@@ -139,6 +168,77 @@ export default function InputPengeluaranPage() {
     outletId: target
   }), [startDate, endDate, target])
   const { data: hrPayroll } = useHRPayroll(hrPayrollFilter)
+
+  // Prorata & Realtime OPEX Engine (Single Source of Truth selevel Tab Laba Rugi)
+  const prorataFilter = useMemo(() => ({
+    from: startDate,
+    to: endDate,
+    outletId: isPusat ? 'ffffffff-ffff-ffff-ffff-ffffffffffff' : (isAllOutlets ? 'all' : target),
+  }), [startDate, endDate, target, isPusat, isAllOutlets])
+
+  const {
+    rows: prorataExpenseRows,
+    isProrated: isProratedOpex,
+    monthInfo: prorataMonthInfo,
+    categoryBreakdown: prorataBreakdown,
+    loading: prorataLoading,
+  } = useProratedOpex({
+    filter: prorataFilter,
+    rawExpenses: expenseRows,
+    outlets,
+    enabled: true,
+  })
+
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      clearPeriodCache()
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['expenses'] }),
+        queryClient.refetchQueries({ queryKey: ['hr_payroll_summary'] }),
+        queryClient.refetchQueries({ queryKey: ['prorata-auxiliary-data'] }),
+        queryClient.refetchQueries({ queryKey: ['outlets'] }),
+      ])
+      setLastUpdated(new Date().toISOString())
+      toast.success('Memperbarui data OPEX & Pengeluaran dari database...')
+    } catch (err) {
+      console.error('Failed to refresh data:', err)
+      toast.error('Gagal memperbarui data pengeluaran')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // Supabase Realtime Listener (Throttled 20s - POS Kasir Burst Safe)
+  useEffect(() => {
+    const refresher = createThrottledRefresher(() => {
+      clearPeriodCache()
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['hr_payroll_summary'] })
+      queryClient.invalidateQueries({ queryKey: ['prorata-auxiliary-data'] })
+      queryClient.invalidateQueries({ queryKey: ['outlets'] })
+      setLastUpdated(new Date().toISOString())
+    }, 20_000)
+    const invalidate = () => refresher.trigger()
+
+    const channel = supabase
+      .channel('buku-kas-opex-realtime-sub')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payroll_records' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_financials' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_outlets' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlets' }, invalidate)
+      .subscribe()
+
+    return () => {
+      refresher.dispose()
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, queryClient])
 
   // Pure OPEX Expense Rows
   const allTransactions = useMemo(() => {
@@ -220,12 +320,56 @@ export default function InputPengeluaranPage() {
 
   const hasHrPayroll = Boolean(hrPayroll && hrPayroll.totalStaff > 0 && hrPayroll.totalSalary > 0)
 
-  // Prorated Salary according to the date range filter
+  // Realtime & Prorata Crew Bonus (Modul get_monthly_crew_bonus RPC + MTD Sales / fallback HR)
+  const displayCrewBonus = useMemo(() => {
+    if (isPusat) return 0
+    if (prorataBreakdown?.bonus_crew?.nominalProrata > 0) {
+      return prorataBreakdown.bonus_crew.nominalProrata
+    }
+    if (!hasHrPayroll || !hrPayroll?.crewBonus) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.crewBonus
+    return Math.round(hrPayroll.crewBonus * prorataInfo.ratio)
+  }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo])
+
+  // Realtime & Prorata Manager Bonus (Area Manager + Regional Manager)
+  const displayManagerBonus = useMemo(() => {
+    if (isPusat) return 0
+    const mgrProrata = (prorataBreakdown?.bonus_area_manager?.nominalProrata || 0) + (prorataBreakdown?.bonus_regional_manager?.nominalProrata || 0)
+    if (mgrProrata > 0) {
+      return mgrProrata
+    }
+    if (!hasHrPayroll || !hrPayroll?.managerBonusAllocation) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.managerBonusAllocation
+    return Math.round(hrPayroll.managerBonusAllocation * prorataInfo.ratio)
+  }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo])
+
+  // Total Bonus (Kru + Pengawas)
+  const displayBonus = useMemo(() => {
+    if (isPusat) return 0
+    const totalBonusRealtime = displayCrewBonus + displayManagerBonus
+    if (totalBonusRealtime > 0) return totalBonusRealtime
+    if (!hasHrPayroll || !hrPayroll?.bonus) return 0
+    if (!prorataInfo.isProrated) return hrPayroll.bonus
+    return Math.round(hrPayroll.bonus * prorataInfo.ratio)
+  }, [isPusat, displayCrewBonus, displayManagerBonus, hasHrPayroll, hrPayroll, prorataInfo])
+
+  // Realtime & Prorata Routine Salary (Gaji Pokok + Tunjangan Aktif + Alokasi Rutin Manajer)
+  const displayRoutineSalary = useMemo(() => {
+    if (isPusat) return summary.salary
+    if (prorataBreakdown?.gaji_crew_outlet?.nominalProrata > 0) {
+      return prorataBreakdown.gaji_crew_outlet.nominalProrata
+    }
+    if (hasHrPayroll) {
+      const routineMonthly = Math.max(0, hrPayroll!.totalSalary - (hrPayroll!.bonus || 0))
+      return prorataInfo.isProrated ? Math.round(routineMonthly * prorataInfo.ratio) : routineMonthly
+    }
+    return summary.salary
+  }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo, summary.salary])
+
+  // Total Beban Gaji (Rutin + Bonus)
   const displaySalary = useMemo(() => {
-    if (!hasHrPayroll) return summary.salary
-    if (!prorataInfo.isProrated) return hrPayroll!.totalSalary
-    return Math.round(hrPayroll!.totalSalary * prorataInfo.ratio)
-  }, [hasHrPayroll, hrPayroll, summary.salary, prorataInfo])
+    return displayRoutineSalary + displayBonus
+  }, [displayRoutineSalary, displayBonus])
 
   const displayBasicSalary = useMemo(() => {
     if (!hasHrPayroll || !hrPayroll?.basicSalary) return 0
@@ -233,28 +377,22 @@ export default function InputPengeluaranPage() {
     return Math.round(hrPayroll.basicSalary * prorataInfo.ratio)
   }, [hasHrPayroll, hrPayroll, prorataInfo])
 
-  const displayBonus = useMemo(() => {
-    if (!hasHrPayroll || !hrPayroll?.bonus) return 0
-    if (!prorataInfo.isProrated) return hrPayroll.bonus
-    return Math.round(hrPayroll.bonus * prorataInfo.ratio)
-  }, [hasHrPayroll, hrPayroll, prorataInfo])
+  // Baselines sebulan penuh (1 bln) untuk pembanding kartu dan modal rincian
+  const baselineRoutineSalary = useMemo(() => {
+    if (isPusat) return summary.salary
+    return prorataBreakdown?.gaji_crew_outlet?.nominalBulanan || (hasHrPayroll ? Math.max(0, hrPayroll!.totalSalary - (hrPayroll!.bonus || 0)) : summary.salary)
+  }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, summary.salary])
 
-  const displayCrewBonus = useMemo(() => {
-    if (!hasHrPayroll || !hrPayroll?.crewBonus) return 0
-    if (!prorataInfo.isProrated) return hrPayroll.crewBonus
-    return Math.round(hrPayroll.crewBonus * prorataInfo.ratio)
-  }, [hasHrPayroll, hrPayroll, prorataInfo])
+  const baselineCrewBonus = useMemo(() => {
+    if (isPusat) return 0
+    return prorataBreakdown?.bonus_crew?.nominalBulanan || hrPayroll?.crewBonus || 0
+  }, [isPusat, prorataBreakdown, hrPayroll])
 
-  const displayManagerBonus = useMemo(() => {
-    if (!hasHrPayroll || !hrPayroll?.managerBonusAllocation) return 0
-    if (!prorataInfo.isProrated) return hrPayroll.managerBonusAllocation
-    return Math.round(hrPayroll.managerBonusAllocation * prorataInfo.ratio)
-  }, [hasHrPayroll, hrPayroll, prorataInfo])
-
-  const displayRoutineSalary = useMemo(() => {
-    // Gaji rutin adalah total salary dikurangi bonus
-    return Math.max(0, displaySalary - displayBonus)
-  }, [displaySalary, displayBonus])
+  const baselineManagerBonus = useMemo(() => {
+    if (isPusat) return 0
+    const b = (prorataBreakdown?.bonus_area_manager?.nominalBulanan || 0) + (prorataBreakdown?.bonus_regional_manager?.nominalBulanan || 0)
+    return b > 0 ? b : (hrPayroll?.managerBonusAllocation || 0)
+  }, [isPusat, prorataBreakdown, hrPayroll])
 
   // Data Lembur Kas Outlet (Petty Cash)
   const lemburData = useMemo(() => {
@@ -405,10 +543,9 @@ export default function InputPengeluaranPage() {
       const desc = (tx.description || '').toLowerCase()
       const outlet = (tx.outlet_name || '').toLowerCase()
       const recipient = (tx.recipient_name || '').toLowerCase()
-      const division = (tx.division || '').toLowerCase()
       const catLabel = labelOf(tx.category).toLowerCase()
 
-      return desc.includes(q) || outlet.includes(q) || recipient.includes(q) || division.includes(q) || catLabel.includes(q)
+      return desc.includes(q) || outlet.includes(q) || recipient.includes(q) || catLabel.includes(q)
     })
   }, [allTransactions, selectedCategory, searchQuery])
 
@@ -455,7 +592,7 @@ export default function InputPengeluaranPage() {
       const workbook = new ExcelJS.Workbook()
       const worksheet = workbook.addWorksheet('Laporan OPEX')
 
-      worksheet.mergeCells('A1:J1')
+      worksheet.mergeCells('A1:I1')
       const titleCell = worksheet.getCell('A1')
       titleCell.value = 'Laporan Pengeluaran OPEX - SukaShawarma'
       titleCell.font = { size: 14, bold: true }
@@ -463,7 +600,7 @@ export default function InputPengeluaranPage() {
       worksheet.getCell('A3').value = `Periode: ${startDate} s/d ${endDate}${selectedCategory !== 'all' ? ` | Kategori: ${labelOf(selectedCategory)}` : ''}`
       worksheet.getCell('A3').font = { bold: true }
 
-      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Sumber Biaya', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
+      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Sumber Biaya', 'Nama Pemohon', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
       const headerRow = worksheet.getRow(5)
       headerRow.values = headers
       headerRow.eachCell((cell) => {
@@ -480,23 +617,22 @@ export default function InputPengeluaranPage() {
           r.outlet_name,
           r.source === 'petty_cash' ? 'Kasir POS' : 'Transfer Bulanan',
           r.recipient_name || '-',
-          r.division || '-',
           labelOf(r.category),
           r.description || '-',
           r.receipt_url ? 'Ada Struk' : '-',
           r.amount
         ]
-        row.getCell(10).numFmt = 'Rp #,##0'
+        row.getCell(9).numFmt = 'Rp #,##0'
         curIdx++
       })
 
       const totalRow = worksheet.getRow(curIdx)
-      totalRow.values = ['TOTAL', '', '', '', '', '', '', '', '', displayedTotalOpex]
+      totalRow.values = ['TOTAL', '', '', '', '', '', '', '', displayedTotalOpex]
       totalRow.font = { bold: true }
-      totalRow.getCell(10).numFmt = 'Rp #,##0'
+      totalRow.getCell(9).numFmt = 'Rp #,##0'
 
       worksheet.columns.forEach(col => { col.width = 16 })
-      worksheet.getColumn(8).width = 30
+      worksheet.getColumn(7).width = 30
       worksheet.getColumn(6).width = 24
 
       const buffer = await workbook.xlsx.writeBuffer()
@@ -516,14 +652,13 @@ export default function InputPengeluaranPage() {
     }
 
     try {
-      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Sumber Biaya', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
+      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Sumber Biaya', 'Nama Pemohon', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
       const rows = displayedTransactions.map((r, idx) => [
         idx + 1,
         `"${r.date}"`,
         `"${(r.outlet_name || '').replace(/"/g, '""')}"`,
         `"${r.source === 'petty_cash' ? 'Kasir POS' : 'Transfer Bulanan'}"`,
         `"${(r.recipient_name || '-').replace(/"/g, '""')}"`,
-        `"${(r.division || '-').replace(/"/g, '""')}"`,
         `"${labelOf(r.category).replace(/"/g, '""')}"`,
         `"${(r.description || '-').replace(/"/g, '""')}"`,
         `"${r.receipt_url ? 'Ada Struk' : '-'}"`,
@@ -532,7 +667,6 @@ export default function InputPengeluaranPage() {
 
       const summaryRow = [
         'TOTAL',
-        '',
         '',
         '',
         '',
@@ -704,6 +838,38 @@ export default function InputPengeluaranPage() {
           </Button>
         </div>
       </PageHeader>
+
+      {/* STATUS SINKRONISASI REALTIME & REFRESH BUTTON */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 -mt-3 mb-1 pt-2 border-t border-suka-brown/10 text-xs">
+        <div className="flex items-center gap-2">
+          {isPast ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
+              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Terakhir diperbarui: <strong>{formatLastUpdated(lastUpdated)}</strong> (Data Lampau Tersimpan)</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold text-[11px] shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={expensesLoading || prorataLoading || isRefreshing}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+            title="Muat ulang data pengeluaran dan gaji dari database"
+          >
+            <RefreshCw className={`w-3 h-3 text-suka-orange ${expensesLoading || prorataLoading || isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Segarkan Data</span>
+          </button>
+        </div>
+      </div>
 
       {/* FILTER CONTROLS */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-suka-gray-200 shadow-xs flex flex-wrap items-center gap-3 sm:gap-4">
@@ -886,9 +1052,9 @@ export default function InputPengeluaranPage() {
       )}
 
       {/* SUMMARY STATS (PURE OPEX - 6 CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, LEMBUR KAS, OPERATIONAL, TOTAL) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4.5">
         {/* 1. Gaji & Payroll (Rutin) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
           <div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
@@ -921,12 +1087,12 @@ export default function InputPengeluaranPage() {
                   </span>
                 )}
               </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
-                PAY
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100 shadow-2xs">
+                <Users size={16} />
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-indigo-700 mt-2 tracking-tight truncate" title={rupiah(displayRoutineSalary)}>
+            <div className="text-xl sm:text-2xl font-black text-indigo-700 mt-2.5 tracking-tight truncate" title={rupiah(displayRoutineSalary)}>
               {rupiah(displayRoutineSalary)}
             </div>
 
@@ -941,7 +1107,7 @@ export default function InputPengeluaranPage() {
                   )}
                   {prorataInfo.isProrated && (
                     <span className="text-[10px] text-amber-700 font-bold ml-1.5" title="Nilai acuan gaji rutin sebulan penuh sebelum prorata">
-                      • Baseline 1 bln: {rupiah(Math.max(0, hrPayroll!.totalSalary - (hrPayroll!.bonus || 0)))}
+                      • Baseline 1 bln: {rupiah(baselineRoutineSalary)}
                     </span>
                   )}
                   {Boolean(displayBasicSalary > 0) && (
@@ -951,12 +1117,19 @@ export default function InputPengeluaranPage() {
                   )}
                 </span>
               ) : (
-                'Beban gaji rutin crew & kantor'
+                <span>
+                  Beban gaji rutin crew & kantor
+                  {baselineRoutineSalary > 0 && prorataInfo.isProrated && (
+                    <span className="text-[10px] text-amber-700 font-bold ml-1.5">
+                      • Baseline 1 bln: {rupiah(baselineRoutineSalary)}
+                    </span>
+                  )}
+                </span>
               )}
             </div>
           </div>
 
-          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+          <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
             <button
               type="button"
               onClick={() => setActiveDetailModal('salary')}
@@ -972,7 +1145,7 @@ export default function InputPengeluaranPage() {
         </div>
 
         {/* 2. Bonus Kru Toko */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
           <div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
@@ -980,7 +1153,16 @@ export default function InputPengeluaranPage() {
                   <Award size={14} className="shrink-0" />
                   <span>Bonus Kru</span>
                 </div>
-                {hasHrPayroll && prorataInfo.isProrated && (
+                {!isPusat && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                    </span>
+                    <span>Realtime Penjualan</span>
+                  </span>
+                )}
+                {prorataInfo.isProrated && (
                   <span
                     className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
                     title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
@@ -990,35 +1172,35 @@ export default function InputPengeluaranPage() {
                   </span>
                 )}
               </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs shrink-0">
-                KRU
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200/60 shadow-2xs">
+                <Award size={16} />
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-amber-700 mt-2 tracking-tight truncate" title={rupiah(displayCrewBonus)}>
-              +{rupiah(displayCrewBonus)}
+            <div className="text-xl sm:text-2xl font-black text-amber-700 mt-2.5 tracking-tight truncate" title={rupiah(displayCrewBonus)}>
+              {rupiah(displayCrewBonus)}
             </div>
 
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
-              {hasHrPayroll ? (
+              {isPusat ? (
+                <span>Beban Kantor Pusat (Tanpa Kru Toko)</span>
+              ) : (
                 <span>
-                  {hrPayroll?.crewBonusDetails ? `${hrPayroll.crewBonusDetails.length} penerima` : 'Bonus Omset Kru'}
+                  {hasHrPayroll && hrPayroll?.crewBonusDetails ? `${hrPayroll.crewBonusDetails.length} penerima` : 'Bonus Omset Kru'}
                   <span className="text-[10px] text-amber-700 font-bold ml-1.5">
                     • Kru Toko
                   </span>
-                  {prorataInfo.isProrated && (
-                    <span className="text-[10px] text-gray-400 font-normal ml-1">
-                      • 1 bln: {rupiah(hrPayroll?.crewBonus ?? 0)}
+                  {baselineCrewBonus > 0 && (
+                    <span className="text-[10px] text-gray-400 font-normal ml-1" title="Estimasi bonus kru sebulan penuh berbasis transaksi penjualan MTD">
+                      • 1 bln: {rupiah(baselineCrewBonus)}
                     </span>
                   )}
                 </span>
-              ) : (
-                'Bonus omset target kru toko'
               )}
             </div>
           </div>
 
-          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+          <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
             <button
               type="button"
               onClick={() => setActiveDetailModal('bonus_kru')}
@@ -1034,7 +1216,7 @@ export default function InputPengeluaranPage() {
         </div>
 
         {/* 3. Bonus Sales AM & RM */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
           <div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-purple-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
@@ -1042,7 +1224,16 @@ export default function InputPengeluaranPage() {
                   <Briefcase size={14} className="shrink-0" />
                   <span>Bonus AM & RM</span>
                 </div>
-                {hasHrPayroll && prorataInfo.isProrated && (
+                {!isPusat && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-100/90 px-2 py-0.5 rounded-full border border-purple-300/70 shadow-2xs">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500"></span>
+                    </span>
+                    <span>Realtime Penjualan</span>
+                  </span>
+                )}
+                {prorataInfo.isProrated && (
                   <span
                     className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-800 bg-purple-100/90 px-2 py-0.5 rounded-full border border-purple-300/70 shadow-2xs"
                     title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`}
@@ -1052,35 +1243,35 @@ export default function InputPengeluaranPage() {
                   </span>
                 )}
               </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0">
-                MGR
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200/60 shadow-2xs">
+                <Briefcase size={16} />
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-purple-700 mt-2 tracking-tight truncate" title={rupiah(displayManagerBonus)}>
-              +{rupiah(displayManagerBonus)}
+            <div className="text-xl sm:text-2xl font-black text-purple-700 mt-2.5 tracking-tight truncate" title={rupiah(displayManagerBonus)}>
+              {rupiah(displayManagerBonus)}
             </div>
 
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
-              {hasHrPayroll ? (
+              {isPusat ? (
+                <span>Beban Kantor Pusat (Bukan Toko)</span>
+              ) : (
                 <span>
-                  {hrPayroll?.managerBonusDetails ? `${hrPayroll.managerBonusDetails.length} penerima` : 'Alokasi Pengawas'}
+                  {hasHrPayroll && hrPayroll?.managerBonusDetails ? `${hrPayroll.managerBonusDetails.length} penerima` : 'Alokasi Pengawas'}
                   <span className="text-[10px] text-purple-700 font-bold ml-1.5">
                     • AM & RM
                   </span>
-                  {prorataInfo.isProrated && (
-                    <span className="text-[10px] text-gray-400 font-normal ml-1">
-                      • 1 bln: {rupiah(hrPayroll?.managerBonusAllocation ?? 0)}
+                  {baselineManagerBonus > 0 && (
+                    <span className="text-[10px] text-gray-400 font-normal ml-1" title="Estimasi alokasi bonus bulanan penuh berbasis transaksi penjualan cabang binaan MTD">
+                      • 1 bln: {rupiah(baselineManagerBonus)}
                     </span>
                   )}
                 </span>
-              ) : (
-                'Alokasi omset Area & Regional Manager'
               )}
             </div>
           </div>
 
-          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+          <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
             <button
               type="button"
               onClick={() => setActiveDetailModal('bonus_manager')}
@@ -1095,23 +1286,23 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 4. Lembur Kas Toko (Petty Cash) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+        {/* 4. Lemburan */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
           <div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-orange-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
                 <div className="flex items-center gap-1 shrink-0">
                   <Clock size={14} className="shrink-0" />
-                  <span>Lembur Kas Toko</span>
+                  <span>Lemburan</span>
                 </div>
               </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-xs shrink-0">
-                OT
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0 border border-orange-200/60 shadow-2xs">
+                <Clock size={16} />
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-orange-700 mt-2 tracking-tight truncate" title={rupiah(displayLembur)}>
-              +{rupiah(displayLembur)}
+            <div className="text-xl sm:text-2xl font-black text-orange-700 mt-2.5 tracking-tight truncate" title={rupiah(displayLembur)}>
+              {rupiah(displayLembur)}
             </div>
 
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
@@ -1124,7 +1315,7 @@ export default function InputPengeluaranPage() {
             </div>
           </div>
 
-          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+          <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
             <button
               type="button"
               onClick={() => setActiveDetailModal('lembur')}
@@ -1140,19 +1331,19 @@ export default function InputPengeluaranPage() {
         </div>
 
         {/* 5. Operasional Outlet & Pusat */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
           <div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1 truncate">
                 <Store size={14} className="shrink-0" />
                 <span className="truncate">Operasional Outlet & Pusat</span>
               </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0">
-                OPEX
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-2xs">
+                <Store size={16} />
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-2 tracking-tight truncate" title={rupiah(summary.nonSalary)}>
+            <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-2.5 tracking-tight truncate" title={rupiah(summary.nonSalary)}>
               {rupiah(summary.nonSalary)}
             </div>
 
@@ -1161,7 +1352,7 @@ export default function InputPengeluaranPage() {
             </div>
           </div>
 
-          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+          <div className="mt-3.5 pt-2.5 border-t border-gray-100 flex items-center justify-between mt-auto">
             <button
               type="button"
               onClick={() => setActiveDetailModal('operational')}
@@ -1174,57 +1365,62 @@ export default function InputPengeluaranPage() {
           </div>
         </div>
 
-        {/* 6. Total OPEX */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-col justify-between min-w-0">
-          <div>
+        {/* 6. Total OPEX (Highlighted Full Background) */}
+        <div className="relative overflow-hidden bg-linear-to-br from-rose-600 via-rose-600 to-rose-700 text-white p-4 sm:p-5 rounded-2xl border border-rose-500/80 shadow-md hover:shadow-lg hover:border-rose-400 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
+          {/* Watermark icon decoration */}
+          <div className="absolute -right-4 -bottom-4 text-white/10 pointer-events-none">
+            <ArrowUpRight size={110} strokeWidth={1.5} />
+          </div>
+
+          <div className="relative z-10">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
+              <div className="text-xs font-black text-rose-100 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
                 <div className="flex items-center gap-1 shrink-0">
-                  <ArrowUpRight size={14} className="shrink-0" />
-                  <span>Total OPEX</span>
+                  <ArrowUpRight size={14} className="shrink-0 text-white" />
+                  <span className="text-white">Total OPEX</span>
                 </div>
                 {hasHrPayroll && prorataInfo.isProrated && (
                   <span
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 shadow-2xs"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-white/20 px-2 py-0.5 rounded-full border border-white/30 shadow-2xs backdrop-blur-xs"
                     title="Termasuk beban gaji prorata sesuai rentang filter"
                   >
-                    <Sparkles className="w-3 h-3 text-rose-500 shrink-0" />
+                    <Sparkles className="w-3 h-3 text-rose-200 shrink-0" />
                     <span>Prorata</span>
                   </span>
                 )}
               </div>
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs shrink-0">
-                OUT
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0 border border-white/25 shadow-2xs backdrop-blur-xs">
+                <ArrowUpRight size={16} />
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-rose-700 mt-2 tracking-tight truncate" title={rupiah(totalCombinedOpex)}>
+            <div className="text-xl sm:text-2xl font-black text-white mt-2.5 tracking-tight truncate drop-shadow-xs" title={rupiah(totalCombinedOpex)}>
               {rupiah(totalCombinedOpex)}
             </div>
 
-            <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate" title={`Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Lembur: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`}>
+            <div className="text-[11px] text-rose-100/90 font-medium mt-0.5 truncate" title={`Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Lemburan: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`}>
               <span>Rutin: {rupiah(displayRoutineSalary)}</span>
-              <span className="text-gray-400 mx-1">+</span>
+              <span className="text-rose-300 mx-1">+</span>
               <span>Kru: {rupiah(displayCrewBonus)}</span>
-              <span className="text-gray-400 mx-1">+</span>
+              <span className="text-rose-300 mx-1">+</span>
               <span>AM/RM: {rupiah(displayManagerBonus)}</span>
-              <span className="text-gray-400 mx-1">+</span>
-              <span>Lembur: {rupiah(displayLembur)}</span>
-              <span className="text-gray-400 mx-1">+</span>
+              <span className="text-rose-300 mx-1">+</span>
+              <span>Lemburan: {rupiah(displayLembur)}</span>
+              <span className="text-rose-300 mx-1">+</span>
               <span>Opex: {rupiah(summary.nonSalary)}</span>
             </div>
           </div>
 
-          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+          <div className="mt-3.5 pt-2.5 border-t border-white/20 flex items-center justify-between mt-auto relative z-10">
             <button
               type="button"
               onClick={() => setActiveDetailModal('total')}
-              className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-800 transition-colors cursor-pointer group"
+              className="inline-flex items-center gap-1 text-xs font-bold text-white hover:text-rose-100 transition-colors cursor-pointer group"
             >
               <span>Lihat Detail</span>
               <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
             </button>
-            <span className="text-[10px] text-gray-400 font-medium">Rumus & Akumulasi</span>
+            <span className="text-[10px] text-rose-200/90 font-medium">Rumus & Akumulasi</span>
           </div>
         </div>
       </div>
@@ -1375,7 +1571,6 @@ export default function InputPengeluaranPage() {
                   <th className="px-4 py-3">Outlet</th>
                   <th className="px-3 py-3 text-center">Sumber</th>
                   <th className="px-4 py-3">Nama Pemohon</th>
-                  <th className="px-4 py-3">Divisi</th>
                   <th className="px-4 py-3">Kategori</th>
                   <th className="px-4 py-3">Keterangan</th>
                   <th className="px-3 py-3 text-center">Bukti Nota</th>
@@ -1405,16 +1600,24 @@ export default function InputPengeluaranPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3.5 whitespace-nowrap font-bold text-gray-900">
-                        {tx.recipient_name || '-'}
-                      </td>
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        {tx.division && tx.division !== '-' ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold text-[10px] border border-slate-200">
-                            {tx.division}
-                          </span>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {tx.recipient_name && tx.recipient_name !== '-' ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-linear-to-br from-amber-100 to-amber-200 text-amber-800 font-extrabold text-[10px] flex items-center justify-center shrink-0 border border-amber-300/60 shadow-2xs">
+                              {tx.recipient_name
+                                .split(' ')
+                                .filter(Boolean)
+                                .map((n: string) => n[0])
+                                .slice(0, 2)
+                                .join('')
+                                .toUpperCase()}
+                            </div>
+                            <span className="font-bold text-gray-900 text-xs truncate max-w-[170px]" title={tx.recipient_name}>
+                              {tx.recipient_name}
+                            </span>
+                          </div>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-gray-400 font-normal">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-gray-700 whitespace-nowrap">
@@ -1475,7 +1678,7 @@ export default function InputPengeluaranPage() {
               {displayedTransactions.length > 0 && (
                 <tfoot className="bg-gray-50/90 border-t-2 border-suka-gray-200 text-xs font-bold">
                   <tr>
-                    <td colSpan={8} className="px-4 py-3.5 text-right uppercase tracking-wider text-gray-500 font-extrabold">
+                    <td colSpan={7} className="px-4 py-3.5 text-right uppercase tracking-wider text-gray-500 font-extrabold">
                       Total Pengeluaran OPEX ({displayedTransactions.length} Transaksi{displayedTransactions.length !== allTransactions.length ? ' Terfilter' : ''}):
                     </td>
                     <td className="px-5 py-3.5 text-right font-black text-sm text-rose-600 whitespace-nowrap">
@@ -1644,8 +1847,11 @@ export default function InputPengeluaranPage() {
           hasHrPayroll,
           hrPayroll,
           cashSalary: summary.salary,
-          isProrated: hasHrPayroll && prorataInfo.isProrated,
-          prorataInfo
+          isProrated: (hasHrPayroll && prorataInfo.isProrated) || isProratedOpex,
+          prorataInfo,
+          baselineRoutine: baselineRoutineSalary,
+          baselineCrewBonus,
+          baselineManagerBonus,
         }}
         lemburData={lemburData}
         operationalData={{
@@ -1663,7 +1869,7 @@ export default function InputPengeluaranPage() {
           displayManagerBonus,
           displayLembur,
           totalNonSalary: summary.nonSalary,
-          isProrated: hasHrPayroll && prorataInfo.isProrated,
+          isProrated: (hasHrPayroll && prorataInfo.isProrated) || isProratedOpex,
           prorataInfo
         }}
       />

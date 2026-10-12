@@ -18,6 +18,8 @@ export function useStaffMutations() {
     qc.invalidateQueries({ queryKey: ['monthly-crew-bonus'] })
     qc.invalidateQueries({ queryKey: ['monthly-am-bonus'] })
     qc.invalidateQueries({ queryKey: ['monthly-rm-bonus'] })
+    qc.invalidateQueries({ queryKey: ['hr_payroll_summary'] })
+    qc.invalidateQueries({ queryKey: ['prorated-opex'] })
   }
 
   const create = useMutation({

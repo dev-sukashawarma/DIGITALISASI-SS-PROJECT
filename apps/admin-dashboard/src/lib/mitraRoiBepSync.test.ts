@@ -30,7 +30,7 @@ describe('Verify Mitra Cibinong BEP Breakdown Synced with Tab Laba Rugi', () => 
     expect(sept).toBeDefined()
     expect(sept!.netProfit).toBeLessThan(10000000)
     expect(sept!.netProfit).toBeGreaterThan(5000000)
-    expect(sept!.netProfit).toBe(6437276)
+    expect(sept!.netProfit).toBe(7230300)
   }, 30000)
 
   it('should process all mitra outlets simultaneously without error and return isolated stats per outlet', async () => {

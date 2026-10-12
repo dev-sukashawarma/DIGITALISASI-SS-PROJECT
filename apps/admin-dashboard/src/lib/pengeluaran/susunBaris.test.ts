@@ -35,4 +35,18 @@ describe('susunBarisPengeluaran (perilaku sama dengan useExpenses lama)', () => 
     )
     expect(r.map((x) => x.id)).toEqual(['e1', 'p9'])
   })
+
+  it('kas kecil memetakan nama penginput dari outlet_staff ke recipient_name', () => {
+    const r = susunBarisPengeluaran(
+      [],
+      [
+        kk({ id: 'p1', outlet_staff: { name: 'M. Rifki Muzaki' } }),
+        kk({ id: 'p2', outlet_staff: [{ name: 'Zikri Sawaludin' }] }),
+        kk({ id: 'p3', outlet_staff: null }),
+      ]
+    )
+    expect(r[0].recipient_name).toBe('M. Rifki Muzaki')
+    expect(r[1].recipient_name).toBe('Zikri Sawaludin')
+    expect(r[2].recipient_name).toBeNull()
+  })
 })

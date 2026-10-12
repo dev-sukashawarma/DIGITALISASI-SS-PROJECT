@@ -27,6 +27,9 @@ describe('payrollBreakdown — getPayrollBreakdown', () => {
     expect(breakdown.communicationAllowance).toBe(100000)
     expect(breakdown.salesBonus).toBe(500000)
     expect(breakdown.positionAllowance).toBe(250000)
+    expect(breakdown.totalAllowances).toBe(850000)
+    expect(breakdown.routineEarnings).toBe(2850000)
+    expect(breakdown.totalBonus).toBe(500000)
     expect(breakdown.totalEarnings).toBe(3350000)
 
     expect(breakdown.cashAdvanceDeduction).toBe(150000)
@@ -35,6 +38,9 @@ describe('payrollBreakdown — getPayrollBreakdown', () => {
     expect(breakdown.lateDeduction).toBe(30000)
     expect(breakdown.totalDeductions).toBe(230000)
 
+    // 3 Komponen THP: Gapok (2.000.000) + Tunjangan (850.000) - Potongan (230.000) = 2.620.000
+    expect(breakdown.routineThp).toBe(2620000)
+    // Grand Total Transfer (THP Rutin + Bonus) = 2.620.000 + 500.000 = 3.120.000
     expect(breakdown.takeHomePay).toBe(3120000)
   })
 

@@ -20,6 +20,10 @@ export function susunBarisPengeluaran(expenses: any[], pettyCash: any[]): Expens
       else if (cat === 'outlet' || cat === 'operasional') cat = 'pengeluaran_outlet'
       else if (cat === 'utilities') cat = 'utilitas'
 
+      const staffName = Array.isArray(row.outlet_staff)
+        ? row.outlet_staff[0]?.name
+        : row.outlet_staff?.name
+
       return {
         id: row.id,
         outlet_id: row.outlet_id,
@@ -33,7 +37,7 @@ export function susunBarisPengeluaran(expenses: any[], pettyCash: any[]): Expens
         receipt_url: row.receipt_url,
         source: 'petty_cash' as const,
         type: 'expense',
-        recipient_name: null,
+        recipient_name: staffName ?? null,
         division: null,
         raw_description: row.description,
         raw_category: row.category,

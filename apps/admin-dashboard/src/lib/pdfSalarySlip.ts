@@ -63,16 +63,16 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
   doc.text(`: ${bankName} - ${bankAcc}`, 105, 32)
   doc.text(`: ${new Date().toLocaleDateString('id-ID')}`, 105, 37)
 
-  // Table with explicit Breakdown
+  // Table with explicit Breakdown: 3 Pillars (Gapok + Tunjangan) followed by Bonus
   const earningsList: [string, string][] = [
     ['Gaji Pokok (Gapok)', rupiah(b.basicSalary)],
   ]
-  if (b.overtime > 0) earningsList.push(['Lembur (Overtime)', rupiah(b.overtime)])
   if (b.mealAllowance > 0) earningsList.push(['Uang Makan (Meal)', rupiah(b.mealAllowance)])
   if (b.transportAllowance > 0) earningsList.push(['Uang Transport', rupiah(b.transportAllowance)])
   if (b.communicationAllowance > 0) earningsList.push(['Tunjangan Komunikasi', rupiah(b.communicationAllowance)])
-  if (b.salesBonus > 0) earningsList.push(['Bonus Penjualan (Sales Bonus)', rupiah(b.salesBonus)])
   if (b.positionAllowance > 0) earningsList.push(['Tunjangan Jabatan', rupiah(b.positionAllowance)])
+  if (b.salesBonus > 0) earningsList.push(['Bonus Penjualan (Sales Bonus)', rupiah(b.salesBonus)])
+  if (b.overtime > 0) earningsList.push(['Lembur (Overtime)', rupiah(b.overtime)])
 
   const deductionsList: [string, string][] = []
   if (b.cashAdvanceDeduction > 0) deductionsList.push(['Potongan Kasbon', rupiah(b.cashAdvanceDeduction)])
@@ -126,22 +126,41 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
     margin: { left: 10, right: 10 },
   })
 
-  const finalY = (doc as any).lastAutoTable.finalY + 5
+  const finalY = (doc as any).lastAutoTable.finalY + 4
+  const hasBonus = b.totalBonus > 0
+  const boxHeight = hasBonus ? 17 : 13
+
   doc.setFillColor(254, 243, 199)
-  doc.roundedRect(10, finalY, 128, 14, 2, 2, 'F')
+  doc.roundedRect(10, finalY, 128, boxHeight, 2, 2, 'F')
   doc.setDrawColor(242, 151, 68)
-  doc.roundedRect(10, finalY, 128, 14, 2, 2, 'S')
+  doc.roundedRect(10, finalY, 128, boxHeight, 2, 2, 'S')
 
-  doc.setTextColor(74, 23, 19)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
-  doc.text('TOTAL GAJI BERSIH (TAKE HOME PAY):', 15, finalY + 9)
+  if (hasBonus) {
+    doc.setTextColor(120, 70, 20)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.text(`THP Rutin (3 Pilar): ${rupiah(b.routineThp)}  |  Bonus & Lembur: +${rupiah(b.totalBonus)}`, 14, finalY + 5)
 
-  doc.setFontSize(11)
-  doc.setTextColor(180, 50, 20)
-  doc.text(rupiah(b.takeHomePay), 133, finalY + 9, { align: 'right' })
+    doc.setTextColor(74, 23, 19)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8.5)
+    doc.text('TOTAL DITRANSFER (THP + BONUS):', 14, finalY + 12)
 
-  const signY = finalY + 24
+    doc.setFontSize(10.5)
+    doc.setTextColor(180, 50, 20)
+    doc.text(rupiah(b.takeHomePay), 133, finalY + 12, { align: 'right' })
+  } else {
+    doc.setTextColor(74, 23, 19)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8.5)
+    doc.text('TOTAL GAJI BERSIH (TAKE HOME PAY):', 14, finalY + 8.5)
+
+    doc.setFontSize(10.5)
+    doc.setTextColor(180, 50, 20)
+    doc.text(rupiah(b.takeHomePay), 133, finalY + 8.5, { align: 'right' })
+  }
+
+  const signY = finalY + boxHeight + 7
   doc.setTextColor(60, 60, 60)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
@@ -149,12 +168,12 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
   doc.text('Penerima,', 25, signY, { align: 'center' })
   doc.text('HR & Payroll Dept,', 115, signY, { align: 'center' })
 
-  doc.line(10, signY + 16, 40, signY + 16)
-  doc.line(100, signY + 16, 130, signY + 16)
+  doc.line(10, signY + 14, 40, signY + 14)
+  doc.line(100, signY + 14, 130, signY + 14)
 
   doc.setFont('helvetica', 'bold')
-  doc.text(staffName, 25, signY + 20, { align: 'center' })
-  doc.text('Suka Shawarma Management', 115, signY + 20, { align: 'center' })
+  doc.text(staffName, 25, signY + 18, { align: 'center' })
+  doc.text('Suka Shawarma Management', 115, signY + 18, { align: 'center' })
 
   const cleanStaffName = staffName.replace(/[^a-zA-Z0-9]/g, '_')
   doc.save(`Slip_Gaji_${cleanStaffName}_${slip.period_month}_${slip.period_year}.pdf`)
@@ -172,12 +191,12 @@ export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
   const generatedTime = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' })
 
   const earningsLines: string[] = [`• Gaji Pokok: ${rupiah(b.basicSalary)}`]
-  if (b.overtime > 0) earningsLines.push(`• Lembur (Overtime): ${rupiah(b.overtime)}`)
   if (b.mealAllowance > 0) earningsLines.push(`• Uang Makan (Meal): ${rupiah(b.mealAllowance)}`)
   if (b.transportAllowance > 0) earningsLines.push(`• Uang Transport: ${rupiah(b.transportAllowance)}`)
   if (b.communicationAllowance > 0) earningsLines.push(`• Tunjangan Komunikasi: ${rupiah(b.communicationAllowance)}`)
-  if (b.salesBonus > 0) earningsLines.push(`• Sales Bonus: ${rupiah(b.salesBonus)}`)
   if (b.positionAllowance > 0) earningsLines.push(`• Tunjangan Jabatan: ${rupiah(b.positionAllowance)}`)
+  if (b.salesBonus > 0) earningsLines.push(`• Sales Bonus: ${rupiah(b.salesBonus)}`)
+  if (b.overtime > 0) earningsLines.push(`• Lembur (Overtime): ${rupiah(b.overtime)}`)
 
   const deductionLines: string[] = []
   if (b.cashAdvanceDeduction > 0) deductionLines.push(`• Potongan Kasbon: -${rupiah(b.cashAdvanceDeduction)}`)
@@ -202,8 +221,11 @@ export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
     `*✂️ POTONGAN (DEDUCTIONS):*\n` +
     deductionLines.join('\n') +
     `\n*Total Potongan: -${rupiah(b.totalDeductions)}*\n\n` +
+    `*💵 THP Rutin (3 Pilar): ${rupiah(b.routineThp)}*\n` +
+    (b.totalBonus > 0 ? `*🎯 Total Bonus & Lembur: +${rupiah(b.totalBonus)}*\n\n` : `\n`) +
     `----------------------------\n` +
     `💰 *TAKE HOME PAY: ${rupiah(b.takeHomePay)}*\n` +
+    (b.totalBonus > 0 ? `_(Total Ditransfer: THP Rutin + Bonus)_\n` : '') +
     `============================\n` +
     `_Dokumen ini digenerate otomatis oleh Sistem HR Suka Shawarma pada ${generatedTime} WIB._\n` +
     `_Terima kasih atas kerja keras dan dedikasi Anda!_`

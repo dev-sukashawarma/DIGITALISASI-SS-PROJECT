@@ -13,7 +13,10 @@ import {
   Sparkles,
   Award,
   Briefcase,
-  Clock
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Info
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
@@ -75,6 +78,9 @@ interface OpexCardDetailModalsProps {
     cashSalary: number
     isProrated?: boolean
     prorataInfo?: ProrataInfo
+    baselineRoutine?: number
+    baselineCrewBonus?: number
+    baselineManagerBonus?: number
   }
   lemburData?: LemburData
   operationalData: {
@@ -106,8 +112,8 @@ export function OpexCardDetailModals({
   totalOpexData
 }: OpexCardDetailModalsProps) {
   const [operationalTab, setOperationalTab] = useState<'category' | 'outlet'>('category')
-  const [salaryTab, setSalaryTab] = useState<'personnel' | 'outlet'>('personnel')
   const [lemburTab, setLemburTab] = useState<'outlet' | 'transactions'>('outlet')
+  const [showSalaryComposition, setShowSalaryComposition] = useState(true)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -127,6 +133,11 @@ export function OpexCardDetailModals({
   const crewBonusAmount = displayCrewBonus ?? (hrPayroll ? Math.round((hrPayroll.crewBonus ?? 0) * ratio) : 0)
   const managerBonusAmount = displayManagerBonus ?? (hrPayroll ? Math.round((hrPayroll.managerBonusAllocation ?? 0) * ratio) : 0)
   const routineSalary = displayRoutineSalary ?? Math.max(0, displaySalary - bonusAmount)
+  const baselineRoutineMonthly = salaryData.baselineRoutine && salaryData.baselineRoutine > 0
+    ? salaryData.baselineRoutine
+    : (hasHrPayroll && hrPayroll
+      ? Math.max(0, hrPayroll.totalSalary - (hrPayroll.bonus || 0))
+      : (isProrated && ratio > 0 ? Math.round(routineSalary / ratio) : routineSalary))
   const { totalNonSalary, totalCount: opCount, categories, outlets } = operationalData
   const { totalCombined } = totalOpexData
 
@@ -148,12 +159,169 @@ export function OpexCardDetailModals({
 
   const managerBonusList = (hrPayroll?.managerBonusDetails && hrPayroll.managerBonusDetails.length > 0)
     ? hrPayroll.managerBonusDetails
-    : (hrPayroll?.bonusDetails
-      ? hrPayroll.bonusDetails.filter(b => {
-          const role = (b.role || '').toLowerCase()
-          return role.includes('manager') || role.includes('controller')
-        })
-      : [])
+    : (hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0)
+      ? hrPayroll.managerDetails
+          .filter(mgr => mgr.role === 'area_manager' || mgr.role === 'regional_manager')
+          .map(mgr => ({
+            staffId: mgr.staffId,
+            staffName: mgr.staffName,
+            role: mgr.role,
+            outletName: mgr.role === 'area_manager'
+              ? 'Rp 50 / pcs (Cabang Binaan)'
+              : mgr.role === 'regional_manager'
+              ? 'Rp 50 / pcs (Wilayah Regional)'
+              : 'Rp 50 / pcs',
+            bonus: mgr.bonusAmount || 0,
+            totalPcs: mgr.totalPcs || Math.round((mgr.bonusAmount || 0) / 50),
+            status: mgr.status
+          }))
+      : (hrPayroll?.bonusDetails
+        ? hrPayroll.bonusDetails.filter(b => {
+            const role = (b.role || '').toLowerCase()
+            return role.includes('manager') || role.includes('controller')
+          })
+        : [])
+
+  // Baseline sum of all crew bonuses in the list
+  const totalBaseCrewBonus = crewBonusList.reduce((sum, s) => sum + (Number(s.bonus) || 0), 0)
+
+  // Calculate row-level bonus and pcs sold strictly aligned with the active date filter
+  const calculatedCrewRows = (() => {
+    if (crewBonusList.length === 0) return []
+
+    const rows = crewBonusList.map((staff) => {
+      let staffBonus = staff.bonus
+
+      if (isProrated && prorataInfo) {
+        if (crewBonusAmount > 0 && totalBaseCrewBonus > 0) {
+          // Proporsionalitas murni: setiap kru mendapatkan porsi persis dari total target bonus filter
+          staffBonus = Math.round((staff.bonus / totalBaseCrewBonus) * crewBonusAmount)
+        } else if (prorataInfo.ratio > 0) {
+          staffBonus = Math.round(staff.bonus * prorataInfo.ratio)
+        }
+      } else {
+        staffBonus = staff.bonus
+      }
+
+      // Hitung jumlah pcs terjual yang berkaitan dengan filter tanggal
+      // Di sistem Suka Shawarma, pool bonus kru adalah Rp 100 per pcs produk terjual.
+      let staffPcs = 0
+      if (staff.totalPcs && staff.totalPcs > 0 && totalBaseCrewBonus > 0 && isProrated) {
+        staffPcs = Math.round((staff.bonus / totalBaseCrewBonus) * Math.round(crewBonusAmount / 100))
+      } else if (staff.totalPcs && staff.totalPcs > 0 && !isProrated) {
+        staffPcs = staff.totalPcs
+      } else {
+        staffPcs = Math.round(staffBonus / 100)
+      }
+
+      return {
+        ...staff,
+        staffBonus,
+        staffPcs,
+      }
+    })
+
+    // Zero-discrepancy adjustment: memastikan jumlah baris sama persis dengan total kartu & footer
+    if (isProrated && crewBonusAmount > 0 && totalBaseCrewBonus > 0 && rows.length > 0) {
+      const sumRows = rows.reduce((s, r) => s + r.staffBonus, 0)
+      const diff = crewBonusAmount - sumRows
+      if (diff !== 0) {
+        rows[0].staffBonus += diff
+        rows[0].staffPcs = Math.round(rows[0].staffBonus / 100)
+      }
+    }
+
+    return rows
+  })()
+
+  const totalCrewPcs = calculatedCrewRows.reduce((sum, r) => sum + r.staffPcs, 0)
+
+  // Calculate row-level manager bonus and pcs sold strictly aligned with the active date filter
+  const calculatedManagerRows = (() => {
+    if (managerBonusList.length === 0) return []
+
+    const rmList = managerBonusList.filter(m => m.role === 'regional_manager')
+    const amList = managerBonusList.filter(m => m.role !== 'regional_manager')
+
+    // In Suka Shawarma, AM & RM bonus pool is Rp 100/pcs per outlet (Rp 50 AM + Rp 50 RM)
+    const outletTotalPcs = Math.round(managerBonusAmount / 100)
+
+    // Separate distribution pools: 50% for Regional Manager, 50% for Area Manager(s)
+    const rmPool = Math.round(managerBonusAmount * 0.5)
+    const amPool = managerBonusAmount - rmPool
+
+    // For AMs, calculate total baseline pcs to distribute amPool and outletTotalPcs proportionally
+    const totalAmBasePcs = amList.reduce((s, m) => s + (m.totalPcs || (m.bonus > 0 ? Math.round(m.bonus / 50) : 0)), 0)
+
+    const rows = managerBonusList.map((mgr) => {
+      let staffBonus = 0
+      let staffPcs = 0
+
+      if (mgr.role === 'regional_manager') {
+        // Regional Manager oversees all operational branches
+        staffBonus = Math.round(rmPool / Math.max(1, rmList.length))
+        staffPcs = outletTotalPcs > 0 ? outletTotalPcs : Math.round(staffBonus / 50)
+      } else {
+        // Area Manager only oversees their specific coached branches
+        if (amList.length <= 1) {
+          // Single-outlet mode: 1 AM covers that single outlet
+          staffBonus = amPool
+          staffPcs = outletTotalPcs > 0 ? outletTotalPcs : Math.round(staffBonus / 50)
+        } else if (totalAmBasePcs > 0) {
+          // All-outlets mode: proportional to their coached branches' sales
+          const amBase = mgr.totalPcs || (mgr.bonus > 0 ? Math.round(mgr.bonus / 50) : 0)
+          const ratio = amBase / totalAmBasePcs
+          staffPcs = Math.round(ratio * outletTotalPcs)
+          staffBonus = Math.round(ratio * amPool)
+        } else {
+          // Fallback if no sales data: equal split among AMs
+          staffBonus = Math.round(amPool / Math.max(1, amList.length))
+          staffPcs = Math.round(outletTotalPcs / Math.max(1, amList.length))
+        }
+      }
+
+      return {
+        ...mgr,
+        staffBonus,
+        staffPcs,
+      }
+    })
+
+    // Zero-discrepancy adjustment for AMs: ensures sum of AM staffBonus exactly equals amPool
+    // and sum of AM staffPcs exactly equals outletTotalPcs
+    const amRows = rows.filter(r => r.role !== 'regional_manager')
+    if (amRows.length > 0) {
+      const sumAmBonus = amRows.reduce((s, r) => s + r.staffBonus, 0)
+      const diffBonus = amPool - sumAmBonus
+      if (diffBonus !== 0) {
+        amRows[0].staffBonus += diffBonus
+      }
+
+      if (amRows.length > 1) {
+        const sumAmPcs = amRows.reduce((s, r) => s + r.staffPcs, 0)
+        const diffPcs = outletTotalPcs - sumAmPcs
+        if (diffPcs !== 0) {
+          amRows[0].staffPcs += diffPcs
+        }
+      }
+    }
+
+    // Zero-discrepancy adjustment for RM
+    const rmRows = rows.filter(r => r.role === 'regional_manager')
+    if (rmRows.length > 0) {
+      const sumRmBonus = rmRows.reduce((s, r) => s + r.staffBonus, 0)
+      const diffRmBonus = rmPool - sumRmBonus
+      if (diffRmBonus !== 0) {
+        rmRows[0].staffBonus += diffRmBonus
+      }
+    }
+
+    return rows.sort((a, b) => b.staffBonus - a.staffBonus)
+  })()
+
+  const totalManagerPcs = calculatedManagerRows.length > 0
+    ? (managerBonusAmount > 0 ? Math.round(managerBonusAmount / 100) : 0)
+    : 0
 
   const modalWidthClass = type === 'total'
     ? 'max-w-3xl lg:max-w-4xl'
@@ -215,514 +383,785 @@ export function OpexCardDetailModals({
 
             {/* Content */}
             <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
-              {/* Stat Highlight Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100">
-                  <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider block">
-                    {isProrated ? 'Beban Gaji Rutin (Prorata)' : 'Beban Gaji & Payroll (Rutin)'}
-                  </span>
-                  <span className="text-lg font-black text-indigo-900 mt-1 block">
-                    {rupiah(routineSalary)}
-                  </span>
-                  <span className="text-[10px] text-indigo-600 font-semibold">
-                    {hrPayroll && (hrPayroll.managerAllocation ?? 0) > 0
-                      ? `Kru ${rupiah(Math.round(((hrPayroll.crewSalary ?? (hrPayroll.totalSalary - (hrPayroll.managerAllocation ?? 0))) - (hrPayroll.crewBonus ?? hrPayroll.bonus)) * ratio))} + AM/RM/SC ${rupiah(Math.round((hrPayroll.managerAllocation ?? 0) * ratio))}`
-                      : isProrated && prorataInfo
-                      ? `Alokasi ${prorataInfo.overlapDays}/${prorataInfo.totalDays} hari (${(prorataInfo.ratio * 100).toFixed(1)}%)`
-                      : hasHrPayroll ? 'Berdasarkan Modul HR' : 'Pencatatan Buku Kas'}
-                  </span>
+              {/* Stat Highlight Cards (Executive Layout: Gaji Rutin Hero + Status Operasional) */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                {/* Hero Metric: Gaji Rutin (Bulan Penuh vs Prorata) */}
+                <div className="lg:col-span-2 bg-gradient-to-br from-indigo-50/80 via-blue-50/40 to-white p-4 rounded-xl border border-indigo-100/90 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Wallet size={14} className="text-indigo-600" />
+                      {isProrated ? 'Ringkasan Beban Gaji Rutin' : 'Beban Gaji & Payroll (Rutin)'}
+                    </span>
+                    {isProrated && prorataInfo && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 flex items-center gap-1 shadow-2xs">
+                        <Sparkles size={11} className="text-indigo-600" />
+                        Prorata {prorataInfo.overlapDays} dari {prorataInfo.totalDays} Hari ({((prorataInfo.ratio || 0) * 100).toFixed(1)}%)
+                      </span>
+                    )}
+                  </div>
+
+                  {isProrated ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-indigo-100/60">
+                      <div>
+                        <div className="text-[11px] font-bold text-indigo-800 flex items-center gap-1">
+                          <span>Beban Diakui (Prorata)</span>
+                        </div>
+                        <span className="text-2xl font-black text-indigo-950 block mt-0.5">
+                          {rupiah(routineSalary)}
+                        </span>
+                        <span className="text-[11px] text-indigo-600 font-medium block mt-0.5">
+                          Beban kas aktif {prorataInfo?.overlapDays} hari berjalan
+                        </span>
+                      </div>
+
+                      <div className="sm:border-l sm:border-indigo-100/80 sm:pl-3">
+                        <div className="text-[11px] font-bold text-blue-800 flex items-center gap-1">
+                          <span>Baseline 1 Bulan Penuh</span>
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800">
+                            Penuh
+                          </span>
+                        </div>
+                        <span className="text-2xl font-black text-blue-950 block mt-0.5">
+                          {rupiah(baselineRoutineMonthly)}
+                        </span>
+                        <span className="text-[11px] text-blue-700/80 font-medium block mt-0.5">
+                          Kru Store + Alokasi Manajer (AM/RM/SC)
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-2xl font-black text-indigo-950 block mt-0.5">
+                        {rupiah(routineSalary)}
+                      </span>
+                      <span className="text-[11px] text-indigo-600 font-medium block mt-0.5">
+                        {hasHrPayroll ? 'Total beban gaji rutin sebulan penuh (Kru + Alokasi AM/RM/SC)' : 'Pencatatan Buku Kas'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
-                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
-                    Jumlah Kru Store
-                  </span>
-                  <span className="text-lg font-black text-slate-800 mt-1 block">
-                    {hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0} Kru Store
-                  </span>
-                  <span className="text-[10px] text-indigo-600 font-semibold">
-                    {hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0
-                      ? `+${hrPayroll.managerDetails.length} Manajer/Pusat`
-                      : `${hrPayroll?.finalizedCount ?? 0} Final · ${hrPayroll?.draftCount ?? 0} Draft`}
-                  </span>
-                </div>
+                {/* Operational & Document Status */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-0.5">
+                      Jumlah Kru & Status HR
+                    </span>
+                    <div className="flex items-baseline justify-between gap-1 mt-1">
+                      <span className="text-xl font-black text-slate-800">
+                        {hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0} Kru Store
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                        hrPayroll?.status === 'finalized'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : hrPayroll?.status === 'draft'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      }`}>
+                        {hrPayroll?.status === 'finalized'
+                          ? 'Final'
+                          : hrPayroll?.status === 'draft'
+                          ? 'Draft'
+                          : hrPayroll?.status === 'partial'
+                          ? 'Sebagian Final'
+                          : 'Manual'}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium block mt-1">
+                      {hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0
+                        ? `+${hrPayroll.managerDetails.length} Manajer Binaan (AM/RM/SC)`
+                        : `${hrPayroll?.finalizedCount ?? 0} Final · ${hrPayroll?.draftCount ?? 0} Draft`}
+                    </span>
+                  </div>
 
-                <div className="bg-amber-50/70 p-3.5 rounded-xl border border-amber-100">
-                  <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
-                    Status Dokumen
-                  </span>
-                  <span className="text-sm font-black text-amber-900 mt-1 block capitalize">
-                    {hrPayroll?.status === 'finalized'
-                      ? 'Sudah Difinalisasi'
-                      : hrPayroll?.status === 'draft'
-                      ? 'Draft HR Payroll'
-                      : hrPayroll?.status === 'partial'
-                      ? 'Sebagian Final'
-                      : 'Belum Ada Payroll'}
-                  </span>
-                  <span className="text-[10px] text-amber-600 font-medium">
-                    {hrPayroll?.draftCount ? `${hrPayroll.draftCount} staf menunggu finalisasi` : 'Semua staf terverifikasi'}
-                  </span>
+                  <div className="pt-2 mt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-gray-500">
+                    <span>Total THP (+Bonus):</span>
+                    <strong className="text-gray-900 font-black">
+                      {rupiah(isProrated && prorataInfo ? Math.round((hrPayroll?.totalSalary ?? routineSalary) * ratio) : (hrPayroll?.totalSalary ?? routineSalary))}
+                    </strong>
+                  </div>
                 </div>
               </div>
 
-              {/* Prorata Info Alert */}
-              {isProrated && prorataInfo && hasHrPayroll && hrPayroll && (
-                <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed shadow-2xs">
-                  <Sparkles size={16} className="text-amber-600 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="font-bold">Mode Prorata Harian Aktif:</span> Beban gaji dialokasikan sebesar{' '}
-                    <strong>{prorataInfo.overlapDays} hari</strong> dari total{' '}
-                    <strong>{prorataInfo.totalDays} hari</strong> ({((prorataInfo.ratio || 0) * 100).toFixed(1)}%)
-                    mengikuti filter rentang tanggal yang dipilih. Baseline THP 1 bulan penuh adalah{' '}
-                    <strong>{rupiah(hrPayroll.totalSalary)}</strong>.
-                  </div>
-                </div>
-              )}
-
-              {/* Breakdown Komponen: Gaji Pokok, Tunjangan, Potongan (Murni Kru Store) */}
+              {/* Komposisi Komponen & Alokasi Manajer (Progressive Disclosure) */}
               {hasHrPayroll && hrPayroll && (
-                <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <Wallet size={14} className="text-indigo-600" />
-                      Komposisi Komponen Gaji HR (Kru Store - Gaji Rutin) {isProrated ? '(Prorata)' : ''}
-                    </span>
-                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md">
-                      Subtotal Kru Rutin: {rupiah(Math.round(((hrPayroll.crewSalary ?? hrPayroll.totalSalary) - (hrPayroll.crewBonus ?? hrPayroll.bonus)) * ratio))}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
-                    <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
-                      <span className="text-[10px] text-gray-500 font-semibold block uppercase">1. Gaji Pokok</span>
-                      <span className="text-xs sm:text-sm font-black text-gray-900 block mt-0.5">
-                        {rupiah(Math.round((hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary) * ratio))}
+                <div className="bg-slate-50/90 border border-slate-200/90 rounded-xl overflow-hidden shadow-2xs transition-all">
+                  {/* Summary Bar (Compact ~40px) */}
+                  <div className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="font-extrabold text-gray-700 flex items-center gap-1.5 shrink-0">
+                        <Wallet size={13} className="text-indigo-600" />
+                        Komposisi Beban:
                       </span>
-                      <span className="text-[10px] text-gray-400">
-                        {isProrated ? `1 bln: ${rupiah(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)}` : 'Gapok kru murni'}
-                      </span>
-                    </div>
-
-                    <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
-                      <span className="text-[10px] text-emerald-600 font-semibold block uppercase">2. Tunjangan</span>
-                      <span className="text-xs sm:text-sm font-black text-emerald-700 block mt-0.5">
-                        +{rupiah(Math.round((hrPayroll.crewAllowances ?? hrPayroll.allowances) * ratio))}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {isProrated ? `1 bln: +${rupiah(hrPayroll.crewAllowances ?? hrPayroll.allowances)}` : 'Makan, pulsa, transport'}
-                      </span>
-                    </div>
-
-                    <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-2xs">
-                      <span className="text-[10px] text-rose-600 font-semibold block uppercase">3. Potongan</span>
-                      <span className="text-xs sm:text-sm font-black text-rose-700 block mt-0.5">
-                        -{rupiah(Math.round((hrPayroll.crewDeductions ?? hrPayroll.deductions) * ratio))}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {isProrated ? `1 bln: -${rupiah(hrPayroll.crewDeductions ?? hrPayroll.deductions)}` : 'Kasbon, BPJS, denda'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-[11px] text-indigo-900 bg-white/80 p-2.5 rounded-lg border border-indigo-100/70 leading-relaxed shadow-2xs">
-                    💡 <strong>Penjelasan Angka:</strong> Angka <strong>{rupiah(Math.round(((hrPayroll.crewSalary ?? hrPayroll.totalSalary) - (hrPayroll.crewBonus ?? hrPayroll.bonus)) * ratio))}</strong> adalah <em>Gaji Pokok & Tunjangan</em> rutin {hrPayroll.crewCount ?? hrPayroll.totalStaff} kru toko (tanpa bonus). Ditambah alokasi beban rutin AM/RM/SC sebesar <strong>+{rupiah(isProrated ? Math.round((hrPayroll.managerAllocation || 0) * (prorataInfo?.ratio || 1)) : (hrPayroll.managerAllocation || 0))}</strong>, Total Beban Gaji Rutin Outlet (Card 1) adalah <strong>{rupiah(routineSalary)}</strong>. Bonus omset penjualan (Kru & AM/RM) sebesar <strong>+{rupiah(bonusAmount)}</strong> dipisahkan ke <em>Card 2 (Bonus & Insentif)</em>.
-                  </div>
-                </div>
-              )}
-
-              {/* Manager & Central Staff Allocation Breakdown (AM, RM, Stock Controller) */}
-              {hasHrPayroll && hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0 && (
-                <div className="bg-gradient-to-br from-indigo-50/70 via-purple-50/40 to-white rounded-xl p-4 border border-indigo-100/90 space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
-                      <Users size={14} className="text-indigo-600" />
-                      Alokasi Beban Rutin AM, RM, & Stock Controller
-                    </span>
-                    <span className="text-[11px] font-bold text-indigo-700 bg-white/90 px-2 py-0.5 rounded-md border border-indigo-200/70 shadow-2xs">
-                      Total Rutin: +{rupiah(isProrated ? Math.round((hrPayroll.managerAllocation || 0) * (prorataInfo?.ratio || 1)) : (hrPayroll.managerAllocation || 0))}
-                    </span>
-                  </div>
-
-                  <div className="text-[11px] text-gray-600 leading-relaxed">
-                    Sesuai ketentuan operasional, beban gaji rutin <strong>Area Manager (AM)</strong>, <strong>Regional Manager (RM)</strong>, dan <strong>Stock Controller</strong> dibebankan secara proporsional ke outlet binaan masing-masing (bonus omset dipisahkan ke Card Bonus):
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                    {hrPayroll.managerDetails.map((mgr) => {
-                      const mgrRoutine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
-                      const mgrAlloc = isProrated && prorataInfo ? Math.round(mgrRoutine * prorataInfo.ratio) : mgrRoutine
-                      return (
-                        <div key={mgr.staffId} className="bg-white p-3 rounded-lg border border-indigo-100 shadow-2xs space-y-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-black text-gray-900 text-xs truncate">{mgr.staffName}</span>
-                            <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded border uppercase shrink-0 ${
-                              mgr.role === 'stock_controller'
-                                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                : mgr.role === 'regional_manager'
-                                ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                : 'bg-indigo-50 text-indigo-700 border-indigo-100'
-                            }`}>
-                              {mgr.role === 'stock_controller'
-                                ? 'Stock Controller'
-                                : mgr.role === 'regional_manager'
-                                ? 'Regional Mgr'
-                                : 'Area Mgr'}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between text-xs pt-0.5">
-                            <span className="text-gray-500 text-[11px]">Beban rutin ke outlet ini:</span>
-                            <span className="font-black text-indigo-700">+{rupiah(mgrAlloc)}</span>
-                          </div>
-                          <div className="text-[10px] text-gray-400 flex items-center justify-between pt-0.5 border-t border-gray-100/80">
-                            <span>Alokasi 1/{mgr.coachedOutletsCount} cabang</span>
-                            {mgr.bonusAmount && mgr.bonusAmount > 0 ? (
-                              <span className="text-amber-700 font-semibold" title={`Bonus omset alokasi Rp ${rupiah(mgr.bonusAmount)} dipisahkan ke Card Bonus`}>
-                                Bonus: +{rupiah(mgr.bonusAmount)}
-                              </span>
-                            ) : (
-                              <span>Gaji: {rupiah(mgr.totalSalary)}</span>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Table Breakdown per Personel & Outlet */}
-              {(() => {
-                const allStaff = hrPayroll?.staffDetails || []
-                const crewList = allStaff.filter(s => !s.isManagerAllocation)
-                const managerList = allStaff.filter(s => s.isManagerAllocation)
-
-                const crewGapokTotal = crewList.reduce((sum, s) => sum + s.basicSalary, 0) * ratio
-                const crewTunjTotal = crewList.reduce((sum, s) => sum + s.allowances, 0) * ratio
-                const crewRoutineTotal = crewList.reduce((sum, s) => sum + s.routineSalary, 0) * ratio
-                const crewBonusTotal = crewList.reduce((sum, s) => sum + s.bonus, 0) * ratio
-                const crewThpTotal = crewList.reduce((sum, s) => sum + s.totalSalary, 0) * ratio
-
-                const mgrRoutineTotal = managerList.reduce((sum, m) => sum + (m.allocatedAmount ?? m.routineSalary), 0) * ratio
-
-                const grandRoutine = crewRoutineTotal + mgrRoutineTotal
-                const grandBonus = crewBonusTotal
-                const grandTotal = grandRoutine + grandBonus
-
-                return (
-                  <div className="space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                      <div>
-                        <h4 className="text-xs font-extrabold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
-                          <Users size={15} className="text-indigo-600" />
-                          <span>Rincian Beban Gaji per Personel (Kru Store & Alokasi AM/RM/SC)</span>
-                        </h4>
-                        <p className="text-[11px] text-gray-500 mt-0.5">
-                          Rincian per nama kru toko ditambah beban alokasi manajer operasional & pengendali stok
-                        </p>
-                      </div>
-
-                      {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && (
-                        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => setSalaryTab('personnel')}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              salaryTab === 'personnel'
-                                ? 'bg-white text-indigo-700 shadow-2xs'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                          >
-                            Per Personel ({allStaff.length})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSalaryTab('outlet')}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              salaryTab === 'outlet'
-                                ? 'bg-white text-indigo-700 shadow-2xs'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                          >
-                            Per Cabang ({hrPayroll.outlets.length})
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {salaryTab === 'personnel' ? (
-                      <div>
-                        {allStaff.length === 0 ? (
-                          <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-gray-200/60 text-xs">
-                            <Users size={28} className="mx-auto mb-2 opacity-30 text-indigo-600" />
-                            <p className="font-semibold text-gray-600">Tidak ada rincian data staf</p>
-                            <p className="text-[11px] text-gray-400 mt-0.5">
-                              Data payroll staf belum terisi atau filter tidak memiliki staf aktif.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs bg-white">
-                            <div className="overflow-x-auto max-h-[380px] scrollbar-thin">
-                              <table className="w-full text-left text-xs border-collapse">
-                                <thead className="bg-slate-100 text-gray-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-gray-200 shadow-2xs">
-                                  <tr>
-                                    <th className="px-3.5 py-2.5">Nama Personel & Posisi</th>
-                                    <th className="px-2.5 py-2.5 text-center">Status</th>
-                                    <th className="px-3 py-2.5 text-right">Gaji Pokok</th>
-                                    <th className="px-3 py-2.5 text-right">Tunjangan</th>
-                                    <th className="px-3.5 py-2.5 text-right bg-indigo-50/60 text-indigo-900">
-                                      Gaji Rutin
-                                    </th>
-                                    <th className="px-3 py-2.5 text-right bg-amber-50/60 text-amber-800">
-                                      Sales Bonus
-                                    </th>
-                                    <th className="px-3.5 py-2.5 text-right">
-                                      Total Beban (THP)
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                  {/* 1. SEKSI KRU TOKO */}
-                                  {crewList.length > 0 && (
-                                    <tr className="bg-indigo-50/70 border-y border-indigo-100/80 font-extrabold text-indigo-950 text-[11px]">
-                                      <td colSpan={7} className="px-3.5 py-2">
-                                        <div className="flex items-center justify-between flex-wrap gap-2">
-                                          <span className="flex items-center gap-1.5 uppercase tracking-wider text-xs">
-                                            <Users size={13} className="text-indigo-600" />
-                                            1. Kru Toko Cabang ({crewList.length} orang)
-                                          </span>
-                                          <span className="text-[10px] font-bold text-indigo-800 bg-white/90 px-2 py-0.5 rounded border border-indigo-200 shadow-2xs">
-                                            Subtotal THP Kru: {rupiah(Math.round(crewThpTotal))} (Rutin: {rupiah(Math.round(crewRoutineTotal))} + Bonus: +{rupiah(Math.round(crewBonusTotal))})
-                                          </span>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )}
-                                  {crewList.map((s) => (
-                                    <tr key={s.staffId} className="hover:bg-indigo-50/30 transition-colors">
-                                      <td className="px-3.5 py-2.5">
-                                        <div className="font-bold text-gray-900 text-xs flex items-center gap-1.5 flex-wrap">
-                                          <span>{s.staffName}</span>
-                                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200 uppercase">
-                                            {s.role.replace(/_/g, ' ')}
-                                          </span>
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 mt-0.5">
-                                          {s.outletName || 'Kru Cabang'}
-                                        </div>
-                                      </td>
-                                      <td className="px-2.5 py-2.5 text-center">
-                                        {s.status === 'finalized' ? (
-                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                            Final
-                                          </span>
-                                        ) : (
-                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                            Draft
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-2.5 text-right font-medium text-gray-700 whitespace-nowrap">
-                                        {rupiah(Math.round(s.basicSalary * ratio))}
-                                      </td>
-                                      <td className="px-3 py-2.5 text-right font-medium text-emerald-700 whitespace-nowrap">
-                                        {s.allowances > 0 ? `+${rupiah(Math.round(s.allowances * ratio))}` : 'Rp 0'}
-                                      </td>
-                                      <td className="px-3.5 py-2.5 text-right font-extrabold text-indigo-900 bg-indigo-50/30 whitespace-nowrap">
-                                        {rupiah(Math.round(s.routineSalary * ratio))}
-                                      </td>
-                                      <td className="px-3 py-2.5 text-right font-bold text-amber-700 bg-amber-50/30 whitespace-nowrap">
-                                        {s.bonus > 0 ? `+${rupiah(Math.round(s.bonus * ratio))}` : <span className="text-gray-300">-</span>}
-                                      </td>
-                                      <td className="px-3.5 py-2.5 text-right font-black text-gray-900 whitespace-nowrap">
-                                        {rupiah(Math.round(s.totalSalary * ratio))}
-                                      </td>
-                                    </tr>
-                                  ))}
-
-                                  {/* 2. SEKSI ALOKASI MANAJEMEN & SC */}
-                                  {managerList.length > 0 && (
-                                    <tr className="bg-purple-50/70 border-y border-purple-100/80 font-extrabold text-purple-950 text-[11px]">
-                                      <td colSpan={7} className="px-3.5 py-2">
-                                        <div className="flex items-center justify-between flex-wrap gap-2">
-                                          <span className="flex items-center gap-1.5 uppercase tracking-wider text-xs">
-                                            <Building2 size={13} className="text-purple-600" />
-                                            2. Alokasi Beban AM, RM, & Stock Controller ({managerList.length} orang)
-                                          </span>
-                                          <span className="text-[10px] font-bold text-purple-800 bg-white/90 px-2 py-0.5 rounded border border-purple-200 shadow-2xs">
-                                            Subtotal Alokasi: +{rupiah(Math.round(mgrRoutineTotal))}
-                                          </span>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )}
-                                  {managerList.map((m) => (
-                                    <tr key={m.staffId} className="hover:bg-purple-50/30 transition-colors bg-purple-50/15">
-                                      <td className="px-3.5 py-2.5">
-                                        <div className="font-bold text-gray-900 text-xs flex items-center gap-1.5 flex-wrap">
-                                          <span>{m.staffName}</span>
-                                          <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
-                                            m.role === 'stock_controller'
-                                              ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                              : m.role === 'regional_manager'
-                                              ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                              : 'bg-indigo-50 text-indigo-700 border-indigo-100'
-                                          }`}>
-                                            {m.role === 'stock_controller'
-                                              ? 'Stock Controller'
-                                              : m.role === 'regional_manager'
-                                              ? 'Regional Mgr'
-                                              : 'Area Mgr'}
-                                          </span>
-                                        </div>
-                                        <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
-                                          {m.allocationNote || 'Beban Operasional Pusat'}
-                                        </div>
-                                      </td>
-                                      <td className="px-2.5 py-2.5 text-center">
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                          Final
-                                        </span>
-                                      </td>
-                                      <td className="px-3 py-2.5 text-right font-normal text-gray-400 whitespace-nowrap text-[11px]">
-                                        -
-                                      </td>
-                                      <td className="px-3 py-2.5 text-right font-normal text-gray-400 whitespace-nowrap text-[11px]">
-                                        -
-                                      </td>
-                                      <td className="px-3.5 py-2.5 text-right font-extrabold text-indigo-900 bg-indigo-50/30 whitespace-nowrap">
-                                        +{rupiah(Math.round((m.allocatedAmount ?? m.routineSalary) * ratio))}
-                                      </td>
-                                      <td className="px-3 py-2.5 text-right font-normal text-gray-400 bg-amber-50/30 whitespace-nowrap text-[11px]">
-                                        -
-                                      </td>
-                                      <td className="px-3.5 py-2.5 text-right font-black text-indigo-950 whitespace-nowrap">
-                                        +{rupiah(Math.round((m.allocatedAmount ?? m.totalSalary) * ratio))}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                                <tfoot className="bg-gray-50 border-t-2 border-gray-300 text-xs font-bold">
-                                  <tr>
-                                    <td colSpan={2} className="px-3.5 py-2.5 text-gray-800 font-black">
-                                      Total Keseluruhan ({allStaff.length} Personel):
-                                    </td>
-                                    <td className="px-3 py-2.5 text-right text-gray-700 whitespace-nowrap">
-                                      {rupiah(Math.round(crewGapokTotal))}
-                                    </td>
-                                    <td className="px-3 py-2.5 text-right text-emerald-700 whitespace-nowrap">
-                                      +{rupiah(Math.round(crewTunjTotal))}
-                                    </td>
-                                    <td className="px-3.5 py-2.5 text-right text-indigo-900 font-black bg-indigo-50/80 whitespace-nowrap">
-                                      {rupiah(Math.round(grandRoutine))}
-                                    </td>
-                                    <td className="px-3.5 py-2.5 text-right text-amber-700 font-black bg-amber-50/80 whitespace-nowrap">
-                                      +{rupiah(Math.round(grandBonus))}
-                                    </td>
-                                    <td className="px-3.5 py-2.5 text-right text-rose-700 font-black text-sm whitespace-nowrap">
-                                      {rupiah(Math.round(grandTotal))}
-                                    </td>
-                                  </tr>
-                                </tfoot>
-                              </table>
-                            </div>
-                          </div>
+                      <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                        <span className="bg-white px-2 py-0.5 rounded-md border border-gray-200 text-gray-700 font-medium shadow-2xs">
+                          Gapok: <strong className="text-gray-900 font-bold">{rupiah(Math.round((hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary) * ratio))}</strong>
+                          {isProrated && <span className="text-[10px] text-gray-400 font-normal ml-1">({rupiah(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)})</span>}
+                        </span>
+                        <span className="bg-white px-2 py-0.5 rounded-md border border-emerald-200 text-emerald-800 font-medium shadow-2xs">
+                          Tunjangan: <strong className="text-emerald-700 font-bold">+{rupiah(Math.round((hrPayroll.crewAllowances ?? hrPayroll.allowances) * ratio))}</strong>
+                        </span>
+                        {(hrPayroll.crewDeductions ?? hrPayroll.deductions) > 0 && (
+                          <span className="bg-white px-2 py-0.5 rounded-md border border-rose-200 text-rose-800 font-medium shadow-2xs">
+                            Potongan: <strong className="text-rose-700 font-bold">-{rupiah(Math.round((hrPayroll.crewDeductions ?? hrPayroll.deductions) * ratio))}</strong>
+                          </span>
+                        )}
+                        {(hrPayroll.managerAllocation || 0) > 0 && (
+                          <span className="bg-white px-2 py-0.5 rounded-md border border-purple-200 text-purple-800 font-medium shadow-2xs">
+                            AM/RM/SC: <strong className="text-purple-700 font-bold">+{rupiah(Math.round((hrPayroll.managerAllocation || 0) * ratio))}</strong>
+                          </span>
                         )}
                       </div>
-                    ) : (
-                      /* Outlet Summary Table (when per cabang view is selected) */
-                      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
-                        <div className="overflow-x-auto max-h-[300px] scrollbar-thin">
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead className="bg-slate-100 text-gray-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-gray-200 shadow-2xs">
-                              <tr>
-                                <th className="px-3.5 py-2.5">Unit / Cabang</th>
-                                <th className="px-3 py-2.5 text-center">Staf</th>
-                                <th className="px-3 py-2.5 text-center">Status</th>
-                                <th className="px-3.5 py-2.5 text-right">
-                                  {isProrated ? 'THP Prorata' : 'Subtotal THP'}
-                                </th>
-                                <th className="px-3 py-2.5 text-right">Porsi</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {(hrPayroll?.outlets || []).map((item) => {
-                                const outletSalary = Math.round(item.totalSalary * ratio)
-                                const pct = displaySalary > 0 ? (outletSalary / displaySalary) * 100 : 0
-                                return (
-                                  <tr key={item.outletId} className="hover:bg-indigo-50/30 transition-colors">
-                                    <td className="px-3.5 py-2.5 font-bold text-gray-800">
-                                      <div>{item.outletName}</div>
-                                      {(item.managerAllocation ?? 0) > 0 && (
-                                        <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
-                                          Kru: {rupiah(Math.round((item.crewSalary ?? (item.totalSalary - (item.managerAllocation ?? 0))) * ratio))} · AM/RM/SC: +{rupiah(Math.round((item.managerAllocation ?? 0) * ratio))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowSalaryComposition(prev => !prev)}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 shrink-0 self-start sm:self-auto cursor-pointer px-2.5 py-1 rounded-lg hover:bg-white transition-all border border-transparent hover:border-indigo-200"
+                    >
+                      <span>{showSalaryComposition ? 'Tutup Rincian' : 'Lihat Detail Komposisi'}</span>
+                      {showSalaryComposition ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                  </div>
+
+                  {/* Expandable Detailed View (When Clicked) */}
+                  {showSalaryComposition && (() => {
+                    // 1. Angka Baseline 1 Bulan Penuh (Fix)
+                    const crewGapok1Bln = Math.round(hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)
+                    const crewTunj1Bln = Math.round(hrPayroll.crewAllowances ?? hrPayroll.allowances)
+                    const crewPot1Bln = Math.round(hrPayroll.crewDeductions ?? hrPayroll.deductions)
+                    const crewRoutine1Bln = Math.max(0, crewGapok1Bln + crewTunj1Bln - crewPot1Bln)
+                    const mgrAlloc1Bln = Math.round(hrPayroll.managerAllocation || 0)
+                    const totalFix1Bln = crewRoutine1Bln + mgrAlloc1Bln
+
+                    // 2. Angka Prorata Sesuai Filter
+                    const crewGapokProrata = Math.round(crewGapok1Bln * ratio)
+                    const crewTunjProrata = Math.round(crewTunj1Bln * ratio)
+                    const crewPotProrata = Math.round(crewPot1Bln * ratio)
+                    const crewRoutineProrata = Math.max(0, crewGapokProrata + crewTunjProrata - crewPotProrata)
+                    const mgrAllocProrata = Math.round(mgrAlloc1Bln * ratio)
+                    const totalProrata = crewRoutineProrata + mgrAllocProrata
+
+                    const allStaff = hrPayroll?.staffDetails || []
+                    const crewList = allStaff.filter(s => !s.isManagerAllocation)
+                    const crewCount = crewList.length > 0 ? crewList.length : (hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0)
+                    const managerList = (hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0)
+                      ? hrPayroll.managerDetails
+                      : (allStaff.filter(s => s.isManagerAllocation) as any[])
+
+                    const mgrGapok1Bln = Math.round(
+                      hrPayroll.managerBasicSalaryAllocation ??
+                      managerList.reduce((sum, m) => sum + (m.allocatedBasicSalary ?? (m.basicSalary ? Math.round(m.basicSalary / (m.coachedOutletsCount || 21)) : 0)), 0)
+                    )
+                    const mgrTunj1Bln = Math.round(
+                      hrPayroll.managerAllowancesAllocation ??
+                      managerList.reduce((sum, m) => sum + (m.allocatedAllowances ?? Math.max(0, (m.routineAmount ?? m.allocatedAmount) - (m.allocatedBasicSalary ?? 0))), 0)
+                    )
+                    const mgrFullGapokSum = Math.round(managerList.reduce((sum, m) => sum + (m.basicSalary || 0), 0))
+                    const mgrFullTunjSum = Math.round(managerList.reduce((sum, m) => sum + (m.allowances || 0), 0))
+                    const mgrFullPotSum = Math.round(managerList.reduce((sum, m) => sum + (m.deductions || 0), 0))
+                    const mgrFullRoutineSum = Math.max(0, mgrFullGapokSum + mgrFullTunjSum - mgrFullPotSum)
+
+                    return (
+                      <div className="p-4 sm:p-5 border-t border-slate-200 bg-white space-y-4 animate-in slide-in-from-top-2 duration-150">
+                        {/* ========================================================================= */}
+                        {/* CARD 1 (ATAS): INFORMASI GAJI FIX SETIAP BULANNYA (BASELINE 1 BULAN)     */}
+                        {/* ========================================================================= */}
+                        <div className="rounded-2xl border-2 border-indigo-200 bg-gradient-to-b from-indigo-50/70 via-indigo-50/20 to-white p-4 sm:p-5 shadow-xs space-y-3.5">
+                          {/* Header Card 1 */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-indigo-100">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-200 inline-flex items-center gap-1 shadow-2xs">
+                                  <Building2 size={12} className="text-indigo-600" />
+                                  Komitmen Rutin Tetap
+                                </span>
+                                <span className="text-xs font-black text-indigo-950 uppercase tracking-wide">
+                                  1. Gaji Rutin Fix Bulanan (Baseline 1 Bulan Penuh)
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-indigo-800/80 font-medium mt-1">
+                                Informasi pengeluaran gaji tetap yang wajib keluar setiap bulannya dari outlet ini.
+                              </p>
+                            </div>
+                            <div className="text-left sm:text-right bg-white sm:bg-transparent p-2 sm:p-0 rounded-xl border border-indigo-100 sm:border-0 shadow-2xs sm:shadow-none shrink-0">
+                              <span className="text-[10px] uppercase font-bold text-indigo-600 block">Total Beban Rutin Fix:</span>
+                              <div className="flex items-baseline sm:justify-end gap-1">
+                                <span className="text-lg sm:text-xl font-black text-indigo-950 font-mono">
+                                  {rupiah(totalFix1Bln)}
+                                </span>
+                                <span className="text-[11px] font-bold text-indigo-500">/ bln</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2 Kolom: Kru Toko vs Alokasi Manajer */}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                            {/* Kolom Kiri: Kru Toko Cabang */}
+                            <div className="bg-white p-3.5 rounded-xl border border-indigo-100 shadow-2xs flex flex-col justify-between space-y-3">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                    <Users size={13} className="text-indigo-600" />
+                                    <span>Kru Toko Cabang ({crewCount} Orang)</span>
+                                  </span>
+                                  <span className="text-xs font-black text-indigo-900 font-mono bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                                    {rupiah(crewRoutine1Bln)}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-center">
+                                    <span className="text-[9px] uppercase font-bold text-gray-500 block">1. Gapok Fix</span>
+                                    <span className="text-xs font-bold text-gray-900 mt-0.5 block font-mono">
+                                      {rupiah(crewGapok1Bln)}
+                                    </span>
+                                  </div>
+                                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-center">
+                                    <span className="text-[9px] uppercase font-bold text-emerald-700 block">2. Tunjangan Fix</span>
+                                    <span className="text-xs font-bold text-emerald-700 mt-0.5 block font-mono">
+                                      +{rupiah(crewTunj1Bln)}
+                                    </span>
+                                  </div>
+                                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-center">
+                                    <span className="text-[9px] uppercase font-bold text-rose-700 block">3. Potongan Fix</span>
+                                    <span className="text-xs font-bold text-rose-700 mt-0.5 block font-mono">
+                                      -{rupiah(crewPot1Bln)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Daftar Personel Kru Fix 1 Bulan */}
+                                <div className="space-y-1.5 max-h-[260px] overflow-y-auto scrollbar-thin pr-0.5">
+                                  {crewList.length > 0 ? (
+                                    crewList.map((s) => (
+                                      <div key={s.staffId} className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase shrink-0">
+                                            {s.role.replace(/_/g, ' ')}
+                                          </span>
+                                          {s.contractType === 'probation' && (
+                                            <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-300 shrink-0 shadow-2xs">
+                                              Trainee
+                                            </span>
+                                          )}
+                                          {s.contractType === 'intern' && (
+                                            <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-300 shrink-0 shadow-2xs">
+                                              OJT
+                                            </span>
+                                          )}
+                                          {s.contractType === 'daily' && (
+                                            <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
+                                              Backup
+                                            </span>
+                                          )}
+                                          {s.status === 'finalized' ? (
+                                            <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                              Final
+                                            </span>
+                                          ) : (
+                                            <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                              Draft
+                                            </span>
+                                          )}
+                                          {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
+                                            <span className="text-[9px] text-gray-400 truncate max-w-[80px]">
+                                              ({s.outletName})
+                                            </span>
+                                          )}
                                         </div>
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
-                                      {item.staffCount}
-                                    </td>
-                                    <td className="px-3 py-2.5 text-center">
-                                      {item.status === 'finalized' ? (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                          Final
-                                        </span>
-                                      ) : item.status === 'draft' ? (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                          Draft
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                          {item.finalizedCount}F / {item.draftCount}D
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="px-3.5 py-2.5 text-right font-extrabold text-indigo-900 whitespace-nowrap">
-                                      <div>{rupiah(outletSalary)}</div>
-                                      {isProrated ? (
-                                        <div className="text-[10px] font-normal text-gray-400">
-                                          Baseline bln: {rupiah(item.totalSalary)}
+                                        <div className="text-right shrink-0">
+                                          <span className="font-bold text-indigo-950 font-mono">
+                                            {rupiah(s.routineSalary)}
+                                          </span>
+                                          {(s.allowances > 0 || s.deductions > 0) && (
+                                            <span className="text-[9px] text-gray-400 block font-normal">
+                                              Gapok {rupiah(s.basicSalary)}{s.allowances > 0 ? ` + Tunj ${rupiah(s.allowances)}` : ''}{s.deductions > 0 ? ` - Pot ${rupiah(s.deductions)}` : ''}
+                                            </span>
+                                          )}
                                         </div>
-                                      ) : item.basicSalary && item.basicSalary !== item.totalSalary && (
-                                        <div className="text-[10px] font-normal text-gray-400">
-                                          Gapok: {rupiah(item.basicSalary)}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td className="px-3 py-2.5 text-right text-[11px] font-semibold text-gray-500 whitespace-nowrap">
-                                      {pct.toFixed(1)}%
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                            <tfoot className="bg-gray-50 border-t-2 border-gray-200 text-xs font-bold">
-                              <tr>
-                                <td className="px-3.5 py-2.5 text-gray-700">Total Keseluruhan:</td>
-                                <td className="px-3 py-2.5 text-center text-gray-700">{hrPayroll?.totalStaff ?? 0}</td>
-                                <td className="px-3 py-2.5"></td>
-                                <td className="px-3.5 py-2.5 text-right text-indigo-900 font-black">
-                                  <div>{rupiah(displaySalary)}</div>
-                                  {isProrated ? (
-                                    <div className="text-[10px] font-normal text-gray-500">
-                                      Baseline 1 bln: {rupiah(hrPayroll?.totalSalary ?? 0)}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <span className="text-xs text-gray-400 italic">Tidak ada kru toko tercatat</span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-gray-400 block italic pt-1 border-t border-slate-100">
+                                * Nilai kontrak bulanan tetap (belum termasuk bonus omset POS)
+                              </span>
+                            </div>
+
+                            {/* Kolom Kanan: Alokasi Manajer (AM, RM, SC) */}
+                            <div className="bg-white p-3.5 rounded-xl border border-indigo-100 shadow-2xs flex flex-col justify-between space-y-3">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                  <div>
+                                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                      <Users size={13} className="text-purple-600" />
+                                      <span>Manajer Supervisi ({managerList.length} Orang)</span>
+                                    </span>
+                                    <span className="text-[10px] text-gray-400 block font-normal mt-0.5">
+                                      Total Gaji Utuh: {rupiah(mgrFullRoutineSum)}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-xs font-black text-purple-900 font-mono bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 block">
+                                      Beban Cbg: +{rupiah(mgrAlloc1Bln)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Summary Boxes Gapok vs Tunjangan Manajer Fix */}
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center flex flex-col justify-between">
+                                    <div>
+                                      <span className="text-[9px] uppercase font-bold text-gray-500 block">1. Gapok Utuh 100%</span>
+                                      <span className="text-xs sm:text-sm font-extrabold text-gray-900 mt-0.5 block font-mono">
+                                        {rupiah(mgrFullGapokSum)}
+                                      </span>
                                     </div>
-                                  ) : hrPayroll && hrPayroll.basicSalary > 0 && (
-                                    <div className="text-[10px] font-normal text-gray-500">
-                                      Total Gapok: {rupiah(hrPayroll.basicSalary)}
+                                    <div className="mt-1.5 pt-1.5 border-t border-slate-200/80">
+                                      <span className="text-[9px] text-indigo-700 font-semibold block bg-indigo-50/70 py-0.5 px-1.5 rounded border border-indigo-100">
+                                        Beban Cbg: <strong>+{rupiah(mgrGapok1Bln)}</strong>
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center flex flex-col justify-between">
+                                    <div>
+                                      <span className="text-[9px] uppercase font-bold text-purple-700 block">2. Tunjangan Utuh 100%</span>
+                                      <span className="text-xs sm:text-sm font-extrabold text-purple-700 mt-0.5 block font-mono">
+                                        +{rupiah(mgrFullTunjSum)}
+                                      </span>
+                                    </div>
+                                    <div className="mt-1.5 pt-1.5 border-t border-slate-200/80">
+                                      <span className="text-[9px] text-purple-700 font-semibold block bg-purple-50/70 py-0.5 px-1.5 rounded border border-purple-100">
+                                        Beban Cbg: <strong>+{rupiah(mgrTunj1Bln)}</strong>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 max-h-[280px] overflow-y-auto scrollbar-thin pr-0.5">
+                                  {managerList.length > 0 ? (
+                                    managerList.map((mgr) => {
+                                      const mgrAllocRoutine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
+                                      const mgrFullGapok = mgr.basicSalary ?? 0
+                                      const mgrFullTunj = mgr.allowances ?? 0
+                                      const mgrFullPot = mgr.deductions ?? 0
+                                      const mgrFullRoutine = Math.max(0, mgrFullGapok + mgrFullTunj - mgrFullPot)
+                                      return (
+                                        <div key={mgr.staffId} className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200 text-xs space-y-1.5 hover:bg-slate-50 transition-colors">
+                                          {/* Baris Atas: Profil Manajer & Gaji Master Utuh 100% */}
+                                          <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <span className="font-bold text-gray-900 truncate">{mgr.staffName}</span>
+                                              <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                                                mgr.role === 'stock_controller'
+                                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                  : mgr.role === 'regional_manager'
+                                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                              }`}>
+                                                {mgr.role === 'stock_controller' ? 'SC' : mgr.role === 'regional_manager' ? 'RM' : 'AM'}
+                                              </span>
+                                              {mgr.status === 'finalized' ? (
+                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                  Final
+                                                </span>
+                                              ) : (
+                                                <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                  Draft
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                              <div className="flex items-baseline justify-end gap-1">
+                                                <span className="text-[10px] text-gray-400 font-medium">Gaji Utuh:</span>
+                                                <span className="font-bold text-indigo-950 font-mono text-xs">
+                                                  {rupiah(mgrFullRoutine)}
+                                                </span>
+                                              </div>
+                                              <span className="text-[9px] text-gray-400 block font-normal">
+                                                Gapok {rupiah(mgrFullGapok)}{mgrFullTunj > 0 ? ` + Tunj ${rupiah(mgrFullTunj)}` : ''}{mgrFullPot > 0 ? ` - Pot ${rupiah(mgrFullPot)}` : ''}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          {/* Baris Bawah (Dipisah): Strip Khusus Keterangan Beban Cabang */}
+                                          <div className="bg-purple-50/90 px-2.5 py-1 rounded-lg border border-purple-100/90 flex items-center justify-between text-[11px]">
+                                            <span className="text-purple-900 font-medium flex items-center gap-1.5">
+                                              <Building2 size={11} className="text-purple-600 shrink-0" />
+                                              <span>Beban Cabang Ini <span className="text-[10px] text-purple-700 font-normal">({1}/{mgr.coachedOutletsCount || 21} Cbg)</span>:</span>
+                                            </span>
+                                            <span className="font-black text-purple-800 font-mono">
+                                              +{rupiah(mgrAllocRoutine)} <span className="text-[9px] text-purple-600 font-medium">/ bln</span>
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )
+                                    })
+                                  ) : (
+                                    <span className="text-xs text-gray-400 italic">Tidak ada alokasi manajer</span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-gray-400 block italic pt-1 border-t border-slate-100">
+                                * Gaji utuh bulanan 100% manajer & porsi beban alokasi per cabang
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ========================================================================= */}
+                        {/* CARD 2 (BAWAH): BEBAN GAJI DIAKUI PERIODE INI (PRORATA SESUAI FILTER)     */}
+                        {/* ========================================================================= */}
+                        <div className="rounded-2xl border-2 border-amber-300 bg-gradient-to-b from-amber-50/70 via-amber-50/20 to-white p-4 sm:p-5 shadow-xs space-y-3.5">
+                          {/* Header Card 2 */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-amber-200">
+                            <div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 inline-flex items-center gap-1 shadow-2xs">
+                                  <Sparkles size={12} className="text-amber-600" />
+                                  {isProrated && prorataInfo
+                                    ? `Prorata ${prorataInfo.overlapDays} dari ${prorataInfo.totalDays} Hari (${((prorataInfo.ratio || 0) * 100).toFixed(1)}%)`
+                                    : `Prorata 100% (${prorataInfo?.totalDays || 31} dari ${prorataInfo?.totalDays || 31} Hari)`}
+                                </span>
+                                <span className="text-xs font-black text-amber-950 uppercase tracking-wide">
+                                  2. Beban Diakui Periode Ini (Prorata Filter)
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-amber-900/80 font-medium mt-1">
+                                Beban operasional riil yang dibebankan ke laporan laba rugi sesuai rentang tanggal yang dipilih.
+                              </p>
+                            </div>
+                            <div className="text-left sm:text-right bg-white sm:bg-transparent p-2 sm:p-0 rounded-xl border border-amber-200 sm:border-0 shadow-2xs sm:shadow-none shrink-0">
+                              <span className="text-[10px] uppercase font-bold text-amber-800 block">Total Beban Diakui:</span>
+                              <div className="flex items-baseline sm:justify-end gap-1">
+                                <span className="text-lg sm:text-xl font-black text-amber-950 font-mono">
+                                  {rupiah(totalProrata)}
+                                </span>
+                                <span className="text-[11px] font-bold text-amber-700">diakui</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2 Kolom: Kru Toko Prorata vs Alokasi Manajer Prorata */}
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                            {/* Kolom Kiri: Kru Toko Prorata */}
+                            <div className="bg-white p-3.5 rounded-xl border border-amber-200 shadow-2xs flex flex-col justify-between space-y-3">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between border-b border-amber-100 pb-2">
+                                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                    <Users size={13} className="text-amber-600" />
+                                    <span>Kru Toko Prorata ({crewCount} Orang)</span>
+                                  </span>
+                                  <span className="text-xs font-black text-amber-900 font-mono bg-amber-50 px-2 py-0.5 rounded-md border border-amber-300">
+                                    {rupiah(crewRoutineProrata)}
+                                  </span>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                  <div className="bg-amber-50/40 p-2 rounded-lg border border-amber-200/80 text-center">
+                                    <span className="text-[9px] uppercase font-bold text-gray-600 block">1. Gapok Prorata</span>
+                                    <span className="text-xs font-bold text-gray-900 mt-0.5 block font-mono">
+                                      {rupiah(crewGapokProrata)}
+                                    </span>
+                                  </div>
+                                  <div className="bg-amber-50/40 p-2 rounded-lg border border-amber-200/80 text-center">
+                                    <span className="text-[9px] uppercase font-bold text-emerald-800 block">2. Tunjangan Prorata</span>
+                                    <span className="text-xs font-bold text-emerald-700 mt-0.5 block font-mono">
+                                      +{rupiah(crewTunjProrata)}
+                                    </span>
+                                  </div>
+                                  <div className="bg-amber-50/40 p-2 rounded-lg border border-rose-200/80 text-center">
+                                    <span className="text-[9px] uppercase font-bold text-rose-800 block">3. Potongan Prorata</span>
+                                    <span className="text-xs font-bold text-rose-700 mt-0.5 block font-mono">
+                                      -{rupiah(crewPotProrata)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Daftar Personel Kru Prorata */}
+                                <div className="space-y-1.5 max-h-[260px] overflow-y-auto scrollbar-thin pr-0.5">
+                                  {crewList.length > 0 ? (
+                                    crewList.map((s) => {
+                                      const sRoutineProrata = Math.round(s.routineSalary * ratio)
+                                      const sGapokProrata = Math.round(s.basicSalary * ratio)
+                                      const sBonusProrata = Math.round(s.bonus * ratio)
+                                      return (
+                                        <div key={s.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-1.5 rounded-lg border border-amber-200/80 text-xs">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="font-bold text-gray-900 truncate">{s.staffName}</span>
+                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100/70 text-amber-900 border border-amber-200 uppercase shrink-0">
+                                              {s.role.replace(/_/g, ' ')}
+                                            </span>
+                                            {s.contractType === 'probation' && (
+                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 shrink-0 shadow-2xs">
+                                                Trainee
+                                              </span>
+                                            )}
+                                            {s.contractType === 'intern' && (
+                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-300 shrink-0 shadow-2xs">
+                                                OJT
+                                              </span>
+                                            )}
+                                            {s.contractType === 'daily' && (
+                                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-300 shrink-0 shadow-2xs">
+                                                Backup
+                                              </span>
+                                            )}
+                                            {s.status === 'finalized' ? (
+                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                Final
+                                              </span>
+                                            ) : (
+                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                Draft
+                                              </span>
+                                            )}
+                                            {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
+                                              <span className="text-[9px] text-gray-400 truncate max-w-[80px]">
+                                                ({s.outletName})
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-right shrink-0">
+                                            <span className="font-bold text-amber-950 font-mono">
+                                              {rupiah(sRoutineProrata)}
+                                            </span>
+                                            <span className="text-[9px] text-gray-500 block font-normal">
+                                              {isProrated ? `(1 bln: ${rupiah(s.routineSalary)})` : `Gapok ${rupiah(sGapokProrata)}`}
+                                              {sBonusProrata > 0 && <span className="text-amber-700 font-bold ml-1">· +{rupiah(sBonusProrata)} bonus di Card 2</span>}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )
+                                    })
+                                  ) : (
+                                    <span className="text-xs text-gray-400 italic">Tidak ada kru toko tercatat</span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-amber-800/70 block italic pt-1 border-t border-amber-100">
+                                * Beban proporsional kru toko untuk {isProrated && prorataInfo ? `${prorataInfo.overlapDays} hari berjalan` : 'sebulan penuh'}
+                              </span>
+                            </div>
+
+                            {/* Kolom Kanan: Alokasi Manajer Prorata */}
+                            <div className="bg-white p-3.5 rounded-xl border border-amber-200 shadow-2xs flex flex-col justify-between space-y-3">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between border-b border-amber-100 pb-2">
+                                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                    <Users size={13} className="text-purple-600" />
+                                    <span>Alokasi Manajer Prorata ({managerList.length} Orang)</span>
+                                  </span>
+                                  <span className="text-xs font-black text-purple-900 font-mono bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                                    +{rupiah(mgrAllocProrata)}
+                                  </span>
+                                </div>
+
+                                {/* Summary Boxes Gapok vs Tunjangan Manajer Prorata */}
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="bg-amber-50/40 p-2 rounded-lg border border-amber-200/80 text-center">
+                                    <span className="text-[9px] uppercase font-bold text-gray-600 block">1. Gapok Prorata</span>
+                                    <span className="text-xs font-bold text-gray-900 mt-0.5 block font-mono">
+                                      +{rupiah(Math.round(mgrGapok1Bln * ratio))}
+                                    </span>
+                                  </div>
+                                  <div className="bg-amber-50/40 p-2 rounded-lg border border-purple-200/80 text-center">
+                                    <span className="text-[9px] uppercase font-bold text-purple-800 block">2. Tunjangan Prorata</span>
+                                    <span className="text-xs font-bold text-purple-700 mt-0.5 block font-mono">
+                                      +{rupiah(Math.round(mgrTunj1Bln * ratio))}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5 max-h-[260px] overflow-y-auto scrollbar-thin pr-0.5">
+                                  {managerList.length > 0 ? (
+                                    managerList.map((mgr) => {
+                                      const mgrRoutine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
+                                      const mgrAlloc = Math.round(mgrRoutine * ratio)
+                                      const mgrAllocGapok = mgr.allocatedBasicSalary ?? (mgr.basicSalary ? Math.round(mgr.basicSalary / (mgr.coachedOutletsCount || 21)) : 0)
+                                      const mgrAllocTunj = mgr.allocatedAllowances ?? Math.max(0, mgrRoutine - mgrAllocGapok)
+                                      return (
+                                        <div key={mgr.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-1.5 rounded-lg border border-amber-200/80 text-xs">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="font-bold text-gray-900 truncate">{mgr.staffName}</span>
+                                            <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase shrink-0 ${
+                                              mgr.role === 'stock_controller'
+                                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                : mgr.role === 'regional_manager'
+                                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                                            }`}>
+                                              {mgr.role === 'stock_controller' ? 'SC' : mgr.role === 'regional_manager' ? 'RM' : 'AM'}
+                                            </span>
+                                            {mgr.status === 'finalized' ? (
+                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                                Final
+                                              </span>
+                                            ) : (
+                                              <span className="text-[8px] font-extrabold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                Draft
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-right shrink-0">
+                                            <span className="font-bold text-amber-950 font-mono">
+                                              +{rupiah(mgrAlloc)}
+                                            </span>
+                                            <span className="text-[9px] text-gray-500 block font-normal">
+                                              {isProrated ? (
+                                                <>
+                                                  Gapok {rupiah(Math.round(mgrAllocGapok * ratio))}{mgrAllocTunj > 0 ? ` + Tunj ${rupiah(Math.round(mgrAllocTunj * ratio))}` : ''}
+                                                  <span className="text-gray-400 ml-1">(1 bln: +{rupiah(mgrRoutine)})</span>
+                                                </>
+                                              ) : (
+                                                <>Gapok {rupiah(mgrAllocGapok)}{mgrAllocTunj > 0 ? ` + Tunj ${rupiah(mgrAllocTunj)}` : ''} · 1/{mgr.coachedOutletsCount || 21} Cbg</>
+                                              )}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )
+                                    })
+                                  ) : (
+                                    <span className="text-xs text-gray-400 italic">Tidak ada alokasi manajer</span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-amber-800/70 block italic pt-1 border-t border-amber-100">
+                                * Beban manajer yang dibebankan untuk {isProrated && prorataInfo ? `${prorataInfo.overlapDays} hari berjalan` : 'sebulan penuh'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Footnote */}
+                        <div className="text-[11px] text-gray-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex items-start gap-2 shadow-2xs">
+                          <Info size={14} className="text-indigo-600 mt-0.5 shrink-0" />
+                          <span>
+                            Bonus omset penjualan (Kru & AM/RM) sebesar <strong>+{rupiah(bonusAmount)}</strong> telah dipisahkan ke <em>Card 2 (Bonus & Insentif)</em> agar beban rutin tidak terdistorsi fluktuasi omset penjualan.
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+
+              {/* Rincian Beban Gaji per Cabang (Khusus Jika Konsolidasi Multi-Cabang / Semua Cabang) */}
+              {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <h4 className="text-xs font-extrabold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Building2 size={15} className="text-indigo-600" />
+                      <span>Rincian Beban Gaji per Cabang ({hrPayroll.outlets.length} Cabang)</span>
+                    </h4>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Distribusi alokasi beban operasional gaji rutin per cabang operasional
+                    </p>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-2xs bg-white">
+                    <div className="overflow-x-auto max-h-[480px] scrollbar-thin">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-100 text-gray-700 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-gray-200 shadow-2xs">
+                          <tr>
+                            <th className="px-3.5 py-2.5">Unit / Cabang</th>
+                            <th className="px-3 py-2.5 text-center">Staf</th>
+                            <th className="px-3 py-2.5 text-center">Status</th>
+                            {isProrated && (
+                              <th className="px-3.5 py-2.5 text-right bg-blue-50/80 text-blue-900 border-x border-blue-200">
+                                Rutin 1 Bulan
+                              </th>
+                            )}
+                            <th className="px-3.5 py-2.5 text-right">
+                              {isProrated ? 'Rutin Prorata' : 'Gaji Rutin'}
+                            </th>
+                            <th className="px-3 py-2.5 text-right">Porsi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {(hrPayroll?.outlets || []).map((item) => {
+                            const outletRoutine1Bln = Math.max(0, item.totalSalary - (item.bonus || 0))
+                            const outletRoutineProrata = Math.round(outletRoutine1Bln * ratio)
+                            const pct = routineSalary > 0 ? (outletRoutineProrata / routineSalary) * 100 : 0
+                            return (
+                              <tr key={item.outletId} className="hover:bg-indigo-50/30 transition-colors">
+                                <td className="px-3.5 py-2.5 font-bold text-gray-800">
+                                  <div>{item.outletName}</div>
+                                  {(item.managerAllocation ?? 0) > 0 && (
+                                    <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
+                                      Kru: {rupiah(Math.round(((item.crewSalary ?? (item.totalSalary - (item.managerAllocation ?? 0))) - (item.bonus ?? 0)) * ratio))} · AM/RM/SC: +{rupiah(Math.round((item.managerRoutineAllocation ?? item.managerAllocation ?? 0) * ratio))}
                                     </div>
                                   )}
                                 </td>
-                                <td className="px-3 py-2.5 text-right text-gray-500">100%</td>
+                                <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
+                                  {item.staffCount}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  {item.status === 'finalized' ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      Final
+                                    </span>
+                                  ) : item.status === 'draft' ? (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                      Draft
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                      {item.finalizedCount}F / {item.draftCount}D
+                                    </span>
+                                  )}
+                                </td>
+                                {isProrated && (
+                                  <td className="px-3.5 py-2.5 text-right font-black text-blue-950 bg-blue-50/40 whitespace-nowrap border-x border-blue-100">
+                                    {rupiah(outletRoutine1Bln)}
+                                  </td>
+                                )}
+                                <td className="px-3.5 py-2.5 text-right font-extrabold text-indigo-900 whitespace-nowrap">
+                                  <div>{rupiah(outletRoutineProrata)}</div>
+                                  {!isProrated && item.basicSalary && item.basicSalary !== outletRoutine1Bln && (
+                                    <div className="text-[10px] font-normal text-gray-400">
+                                      Gapok: {rupiah(item.basicSalary)}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-[11px] font-semibold text-gray-500 whitespace-nowrap">
+                                  {pct.toFixed(1)}%
+                                </td>
                               </tr>
-                            </tfoot>
-                          </table>
-                        </div>
-                      </div>
-                    )}
+                            )
+                          })}
+                        </tbody>
+                        <tfoot className="bg-gray-50 border-t-2 border-gray-200 text-xs font-bold">
+                          <tr>
+                            <td className="px-3.5 py-2.5 text-gray-700">Total Keseluruhan:</td>
+                            <td className="px-3 py-2.5 text-center text-gray-700">{hrPayroll?.totalStaff ?? 0}</td>
+                            <td className="px-3 py-2.5"></td>
+                            {isProrated && (
+                              <td className="px-3.5 py-2.5 text-right text-blue-950 font-black bg-blue-100/70 whitespace-nowrap border-x border-blue-200">
+                                {rupiah(baselineRoutineMonthly)}
+                              </td>
+                            )}
+                            <td className="px-3 py-2.5 text-right text-indigo-900 font-black">
+                              <div>{rupiah(routineSalary)}</div>
+                              {!isProrated && hrPayroll && hrPayroll.basicSalary > 0 && (
+                                <div className="text-[10px] font-normal text-gray-500">
+                                  Total Gapok: {rupiah(hrPayroll.basicSalary)}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right text-gray-500">100%</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
-                )
-              })()}
+                </div>
+              )}
             </div>
 
             {/* Footer */}
@@ -759,10 +1198,17 @@ export function OpexCardDetailModals({
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                       Bonus Kru
                     </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100/80 text-amber-800 border border-amber-300">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                      </span>
+                      Realtime Penjualan
+                    </span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {isProrated && prorataInfo
-                      ? `Bonus omset proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`
+                      ? `Bonus omset proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode (dihitung riil dari transaksi penjualan)`
                       : 'Rincian perolehan bonus omset bulanan dan insentif khusus kru toko'}
                   </p>
                 </div>
@@ -785,11 +1231,13 @@ export function OpexCardDetailModals({
                     {isProrated ? 'Bonus Kru (Prorata)' : 'Total Bonus Kru Toko'}
                   </span>
                   <span className="text-lg font-black text-amber-900 mt-1 block">
-                    +{rupiah(crewBonusAmount)}
+                    {rupiah(crewBonusAmount)}
                   </span>
                   <span className="text-[10px] text-amber-700 font-semibold">
-                    {isProrated && prorataInfo
-                      ? `Baseline sebulan: +${rupiah(hrPayroll?.crewBonus ?? 0)}`
+                    {salaryData.baselineCrewBonus
+                      ? `Estimasi sebulan: ${rupiah(salaryData.baselineCrewBonus)} (berbasis penjualan MTD)`
+                      : isProrated && prorataInfo
+                      ? `Baseline sebulan: ${rupiah(hrPayroll?.crewBonus ?? 0)}`
                       : 'Murni insentif target penjualan toko'}
                   </span>
                 </div>
@@ -823,7 +1271,7 @@ export function OpexCardDetailModals({
               <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed shadow-2xs">
                 <Sparkles size={16} className="text-amber-600 mt-0.5 shrink-0" />
                 <div>
-                  <span className="font-bold">Ketentuan Bonus Kru Toko:</span> Bonus ini adalah bonus penjualan (omset) bulanan yang dibagikan langsung kepada kru outlet berdasarkan pencapaian target penjualan outlet, dipisahkan dari gaji pokok & tunjangan rutin agar struktur biaya tetap (*fixed cost*) dan variabel (*variable cost*) dapat dipantau terpisah.
+                  <span className="font-bold">Ketentuan Bonus Kru Toko:</span> Bonus ini adalah bonus penjualan (omset) bulanan yang dibagikan langsung kepada kru outlet berdasarkan pencapaian target penjualan outlet (Rp 100/pcs pool), dipisahkan dari gaji pokok & tunjangan rutin agar struktur biaya tetap (*fixed cost*) dan variabel (*variable cost*) dapat dipantau terpisah.
                 </div>
               </div>
 
@@ -832,7 +1280,7 @@ export function OpexCardDetailModals({
                 <h4 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
                   <span>Daftar Kru Penerima Bonus</span>
                   <span className="text-gray-400 font-normal normal-case">
-                    {crewBonusList.length} orang
+                    {crewBonusList.length} orang {totalCrewPcs > 0 ? `• Total ${totalCrewPcs.toLocaleString('id-ID')} Pcs Terjual` : ''}
                   </span>
                 </h4>
 
@@ -855,6 +1303,7 @@ export function OpexCardDetailModals({
                             {crewBonusList.some(b => b.outletName) && (
                               <th className="px-3.5 py-2.5">Unit / Cabang</th>
                             )}
+                            <th className="px-3.5 py-2.5 text-center">Jumlah Pcs Terjual</th>
                             <th className="px-3 py-2.5 text-center">Status</th>
                             <th className="px-3.5 py-2.5 text-right">
                               {isProrated ? 'Bonus Prorata' : 'Bonus Omset'}
@@ -862,8 +1311,7 @@ export function OpexCardDetailModals({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {crewBonusList.map((staff) => {
-                            const staffBonus = isProrated && prorataInfo ? Math.round(staff.bonus * prorataInfo.ratio) : staff.bonus
+                          {calculatedCrewRows.map((staff) => {
                             return (
                               <tr key={staff.staffId} className="hover:bg-amber-50/30 transition-colors">
                                 <td className="px-3.5 py-2.5 font-bold text-gray-800">
@@ -879,6 +1327,12 @@ export function OpexCardDetailModals({
                                     {staff.outletName || '-'}
                                   </td>
                                 )}
+                                <td className="px-3.5 py-2.5 text-center">
+                                  <span className="font-mono font-bold text-gray-800 text-xs">
+                                    {staff.staffPcs.toLocaleString('id-ID')}
+                                  </span>
+                                  <span className="text-[10px] text-gray-400 font-medium ml-1">pcs</span>
+                                </td>
                                 <td className="px-3 py-2.5 text-center">
                                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                     staff.status === 'finalized'
@@ -889,7 +1343,7 @@ export function OpexCardDetailModals({
                                   </span>
                                 </td>
                                 <td className="px-3.5 py-2.5 text-right font-black text-amber-700">
-                                  +{rupiah(staffBonus)}
+                                  {rupiah(staff.staffBonus)}
                                 </td>
                               </tr>
                             )
@@ -897,11 +1351,16 @@ export function OpexCardDetailModals({
                         </tbody>
                         <tfoot className="bg-amber-50/70 border-t border-amber-200 font-bold text-xs text-amber-950">
                           <tr>
-                            <td colSpan={crewBonusList.some(b => b.outletName) ? 4 : 3} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
-                              Total Bonus Kru Toko:
+                            <td colSpan={crewBonusList.some(b => b.outletName) ? 3 : 2} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
+                              Total:
                             </td>
+                            <td className="px-3.5 py-2.5 text-center font-black text-amber-900">
+                              <span className="font-mono">{totalCrewPcs.toLocaleString('id-ID')}</span>
+                              <span className="text-[10px] text-amber-800 font-medium ml-1">pcs</span>
+                            </td>
+                            <td className="px-3 py-2.5"></td>
                             <td className="px-3.5 py-2.5 text-right font-black text-amber-800">
-                              +{rupiah(crewBonusAmount)}
+                              {rupiah(crewBonusAmount)}
                             </td>
                           </tr>
                         </tfoot>
@@ -915,7 +1374,12 @@ export function OpexCardDetailModals({
             {/* Footer */}
             <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50/50">
               <span className="text-xs text-gray-500 font-semibold">
-                Total Beban Bonus Kru: <strong className="text-amber-700">+{rupiah(crewBonusAmount)}</strong>
+                Total Beban Bonus Kru: <strong className="text-amber-700">{rupiah(crewBonusAmount)}</strong>
+                {totalCrewPcs > 0 && (
+                  <span className="ml-2 text-gray-500 font-normal">
+                    • <strong className="text-gray-800 font-bold">{totalCrewPcs.toLocaleString('id-ID')} pcs</strong> terjual
+                  </span>
+                )}
               </span>
               <button
                 type="button"
@@ -949,11 +1413,18 @@ export function OpexCardDetailModals({
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                       Alokasi Pengawas
                     </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100/80 text-purple-800 border border-purple-300">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500"></span>
+                      </span>
+                      Realtime Penjualan
+                    </span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {isProrated && prorataInfo
-                      ? `Bonus omset manajerial proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode`
-                      : 'Rincian alokasi bonus omset penjualan Area Manager dan Regional Manager'}
+                      ? `Bonus insentif penjualan pengawas proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode (dihitung riil Rp 50/pcs AM + Rp 50/pcs RM dari transaksi penjualan)`
+                      : 'Rincian insentif penjualan Area Manager dan Regional Manager (skema Rp 50 per pcs terjual)'}
                   </p>
                 </div>
               </div>
@@ -975,12 +1446,14 @@ export function OpexCardDetailModals({
                     {isProrated ? 'Bonus AM & RM (Prorata)' : 'Total Alokasi Bonus AM & RM'}
                   </span>
                   <span className="text-lg font-black text-purple-900 mt-1 block">
-                    +{rupiah(managerBonusAmount)}
+                    {rupiah(managerBonusAmount)}
                   </span>
                   <span className="text-[10px] text-purple-700 font-semibold">
-                    {isProrated && prorataInfo
-                      ? `Baseline sebulan: +${rupiah(hrPayroll?.managerBonusAllocation ?? 0)}`
-                      : 'Proporsi alokasi ke cabang'}
+                    {salaryData.baselineManagerBonus
+                      ? `Estimasi sebulan: ${rupiah(salaryData.baselineManagerBonus)} (berbasis penjualan MTD)`
+                      : isProrated && prorataInfo
+                      ? `Baseline sebulan: ${rupiah(hrPayroll?.managerBonusAllocation ?? 0)}`
+                      : 'Skema insentif Rp 100/pcs per cabang (Rp 50 AM + Rp 50 RM)'}
                   </span>
                 </div>
 
@@ -989,7 +1462,7 @@ export function OpexCardDetailModals({
                     Pengawas Penerima
                   </span>
                   <span className="text-lg font-black text-slate-800 mt-1 block">
-                    {managerBonusList.length} Orang
+                    {calculatedManagerRows.length} Orang
                   </span>
                   <span className="text-[10px] text-gray-500 font-semibold">
                     Area & Regional Manager
@@ -1013,12 +1486,12 @@ export function OpexCardDetailModals({
               <div className="bg-purple-50/80 border border-purple-200/90 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-purple-900 leading-relaxed shadow-2xs">
                 <Sparkles size={16} className="text-purple-600 mt-0.5 shrink-0" />
                 <div>
-                  <span className="font-bold">Ketentuan Bonus Sales AM & RM:</span> Bonus ini adalah alokasi proporsional bonus omset penjualan bulanan untuk pengawas operasional lapangan:
+                  <span className="font-bold">Ketentuan Bonus Sales AM & RM:</span> Bonus penjualan (insentif performa) pengawas operasional lapangan dihitung langsung dari volume produk terjual (<em>per pcs</em>):
                   <ul className="list-disc pl-4 mt-1 space-y-0.5">
-                    <li><strong>Area Manager (AM):</strong> Dibagi rata ke cabang binaan aktif (contoh: 1/5 cabang).</li>
-                    <li><strong>Regional Manager (RM):</strong> Dibagi rata ke seluruh cabang wilayah binaan (contoh: 1/21 cabang).</li>
+                    <li><strong>Area Manager (AM):</strong> Mendapatkan insentif <strong>Rp 50 per pcs</strong> dari total produk terjual pada cabang binaannya (<code>Total Pcs Cabang × Rp 50</code>).</li>
+                    <li><strong>Regional Manager (RM):</strong> Mendapatkan insentif <strong>Rp 50 per pcs</strong> dari total produk terjual pada seluruh cabang wilayah binaannya (<code>Total Pcs Cabang × Rp 50</code>).</li>
                   </ul>
-                  Alokasi ini dipisahkan dari gaji rutin dan bonus kru toko agar transparansi performa dan akuntabilitas manajerial tercatat jelas.
+                  Total beban bonus pengawas di cabang ini adalah <strong>Rp 100 per pcs</strong> terjual (Rp 50 AM + Rp 50 RM), dipisahkan dari beban gaji rutin (gaji pokok & tunjangan) agar performa dan efisiensi biaya operasional variabel per cabang dapat dievaluasi secara akurat.
                 </div>
               </div>
 
@@ -1027,11 +1500,11 @@ export function OpexCardDetailModals({
                 <h4 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
                   <span>Daftar Pengawas Penerima Bonus</span>
                   <span className="text-gray-400 font-normal normal-case">
-                    {managerBonusList.length} orang
+                    {calculatedManagerRows.length} orang
                   </span>
                 </h4>
 
-                {managerBonusList.length === 0 ? (
+                {calculatedManagerRows.length === 0 ? (
                   <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-gray-200/60 text-xs">
                     <Briefcase size={28} className="mx-auto mb-2 opacity-30 text-purple-600" />
                     <p className="font-semibold text-gray-600">Tidak ada alokasi bonus AM & RM pada periode ini</p>
@@ -1047,7 +1520,8 @@ export function OpexCardDetailModals({
                           <tr>
                             <th className="px-3.5 py-2.5">Nama Pengawas</th>
                             <th className="px-3 py-2.5 text-center">Peran / Posisi</th>
-                            <th className="px-3.5 py-2.5">Skema Alokasi Cabang</th>
+                            <th className="px-3.5 py-2.5">Tarif Insentif / Skema</th>
+                            <th className="px-3.5 py-2.5 text-center">Jumlah Pcs Terjual</th>
                             <th className="px-3 py-2.5 text-center">Status</th>
                             <th className="px-3.5 py-2.5 text-right">
                               {isProrated ? 'Alokasi Prorata' : 'Alokasi Bonus'}
@@ -1055,8 +1529,7 @@ export function OpexCardDetailModals({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {managerBonusList.map((mgr) => {
-                            const staffBonus = isProrated && prorataInfo ? Math.round(mgr.bonus * prorataInfo.ratio) : mgr.bonus
+                          {calculatedManagerRows.map((mgr) => {
                             return (
                               <tr key={mgr.staffId} className="hover:bg-purple-50/30 transition-colors">
                                 <td className="px-3.5 py-2.5 font-bold text-gray-800">
@@ -1067,8 +1540,19 @@ export function OpexCardDetailModals({
                                     {mgr.role === 'regional_manager' ? 'Regional Manager' : mgr.role === 'area_manager' ? 'Area Manager' : (mgr.role || 'manager')}
                                   </span>
                                 </td>
-                                <td className="px-3.5 py-2.5 text-gray-600 font-medium">
-                                  {mgr.outletName || '-'}
+                                <td className="px-3.5 py-2.5 text-gray-700 font-medium">
+                                  <span className="font-semibold text-purple-900 bg-purple-100/70 px-2 py-0.5 rounded text-[11px] border border-purple-200">
+                                    Rp 50 / pcs
+                                  </span>
+                                  <span className="text-[10px] text-gray-500 ml-1.5 font-normal">
+                                    {mgr.role === 'regional_manager' ? 'Wilayah Regional' : 'Cabang Binaan'}
+                                  </span>
+                                </td>
+                                <td className="px-3.5 py-2.5 text-center">
+                                  <span className="font-mono font-bold text-gray-800 text-xs">
+                                    {mgr.staffPcs.toLocaleString('id-ID')}
+                                  </span>
+                                  <span className="text-[10px] text-gray-400 font-medium ml-1">pcs</span>
                                 </td>
                                 <td className="px-3 py-2.5 text-center">
                                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -1080,7 +1564,7 @@ export function OpexCardDetailModals({
                                   </span>
                                 </td>
                                 <td className="px-3.5 py-2.5 text-right font-black text-purple-700">
-                                  +{rupiah(staffBonus)}
+                                  {rupiah(mgr.staffBonus)}
                                 </td>
                               </tr>
                             )
@@ -1088,11 +1572,16 @@ export function OpexCardDetailModals({
                         </tbody>
                         <tfoot className="bg-purple-50/70 border-t border-purple-200 font-bold text-xs text-purple-950">
                           <tr>
-                            <td colSpan={4} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
-                              Total Alokasi Bonus AM & RM:
+                            <td colSpan={3} className="px-3.5 py-2.5 text-right font-extrabold uppercase">
+                              Total:
                             </td>
+                            <td className="px-3.5 py-2.5 text-center font-black text-purple-900">
+                              <span className="font-mono">{totalManagerPcs.toLocaleString('id-ID')}</span>
+                              <span className="text-[10px] text-purple-800 font-medium ml-1">pcs</span>
+                            </td>
+                            <td className="px-3 py-2.5"></td>
                             <td className="px-3.5 py-2.5 text-right font-black text-purple-800">
-                              +{rupiah(managerBonusAmount)}
+                              {rupiah(managerBonusAmount)}
                             </td>
                           </tr>
                         </tfoot>
@@ -1106,7 +1595,12 @@ export function OpexCardDetailModals({
             {/* Footer */}
             <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50/50">
               <span className="text-xs text-gray-500 font-semibold">
-                Total Alokasi Bonus AM & RM: <strong className="text-purple-700">+{rupiah(managerBonusAmount)}</strong>
+                Total Alokasi Bonus AM & RM: <strong className="text-purple-700">{rupiah(managerBonusAmount)}</strong>
+                {totalManagerPcs > 0 && (
+                  <span className="ml-2 text-gray-500 font-normal">
+                    • <strong className="text-gray-800 font-bold">{totalManagerPcs.toLocaleString('id-ID')} pcs</strong> terjual
+                  </span>
+                )}
               </span>
               <button
                 type="button"
@@ -1677,7 +2171,7 @@ export function OpexCardDetailModals({
                     <div className="flex items-center gap-1.5">
                       <span className="w-3 h-3 rounded-full bg-orange-500 inline-block" />
                       <span className="font-semibold text-gray-700">
-                        Lembur Kas: <strong className="text-orange-700">{lemburShare.toFixed(1)}%</strong> ({rupiah(lemburAmount)})
+                        Lemburan: <strong className="text-orange-700">{lemburShare.toFixed(1)}%</strong> ({rupiah(lemburAmount)})
                       </span>
                     </div>
                   )}
@@ -1744,7 +2238,7 @@ export function OpexCardDetailModals({
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-black text-amber-700 text-sm sm:text-base">
-                        +{rupiah(crewBonusAmount)}
+                        {rupiah(crewBonusAmount)}
                       </div>
                       <div className="text-[10px] text-gray-400 font-semibold">
                         {crewBonusShare.toFixed(1)}% dari total
@@ -1763,13 +2257,13 @@ export function OpexCardDetailModals({
                           3. Bonus Sales AM & RM
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          Alokasi proporsional bonus omset Area Manager (1/5) dan Regional Manager (1/21)
+                          Insentif penjualan produk: Area Manager (Rp 50/pcs) dan Regional Manager (Rp 50/pcs)
                         </div>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-black text-purple-700 text-sm sm:text-base">
-                        +{rupiah(managerBonusAmount)}
+                        {rupiah(managerBonusAmount)}
                       </div>
                       <div className="text-[10px] text-gray-400 font-semibold">
                         {managerBonusShare.toFixed(1)}% dari total
@@ -1786,7 +2280,7 @@ export function OpexCardDetailModals({
                         </div>
                         <div>
                           <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
-                            <span>4. Lembur Kas Toko (Petty Cash)</span>
+                            <span>4. Lemburan</span>
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-200">
                               Kasir Cabang
                             </span>
@@ -1798,7 +2292,7 @@ export function OpexCardDetailModals({
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-black text-orange-700 text-sm sm:text-base">
-                          +{rupiah(lemburAmount)}
+                          {rupiah(lemburAmount)}
                         </div>
                         <div className="text-[10px] text-gray-400 font-semibold">
                           {lemburShare.toFixed(1)}% dari total

@@ -26,7 +26,12 @@ export function ContractEditModal({ contract, onClose, onSave }: ContractEditMod
 
   useEffect(() => {
     if (contract) {
-      setContractType(contract.contract_type === 'Tetap' ? 'permanent' : 'contract')
+      const ct = contract.contract_type?.toLowerCase() || ''
+      if (ct === 'tetap' || ct === 'permanent' || ct === 'pkwtt') setContractType('permanent')
+      else if (ct === 'probation' || ct === 'trainee') setContractType('probation')
+      else if (ct === 'intern' || ct === 'internship' || ct === 'magang') setContractType('intern')
+      else if (ct === 'daily' || ct === 'harian' || ct === 'backup') setContractType('daily')
+      else setContractType('contract')
       setJoinDate(contract.start_date?.split('T')[0] || '')
       setResignDate(contract.end_date?.split('T')[0] || '')
     }
@@ -65,8 +70,9 @@ export function ContractEditModal({ contract, onClose, onSave }: ContractEditMod
             >
               <option value="contract">PKWT (Perjanjian Kerja Waktu Tertentu / Kontrak)</option>
               <option value="permanent">PKWTT (Karyawan Tetap)</option>
-              <option value="intern">Magang (Internship)</option>
-              <option value="daily">Harian / Freelance</option>
+              <option value="probation">Trainee / Masa Percobaan (Probation)</option>
+              <option value="intern">Magang / OJT (Internship)</option>
+              <option value="daily">Harian / Backup Lepas (Daily)</option>
             </select>
           </div>
 

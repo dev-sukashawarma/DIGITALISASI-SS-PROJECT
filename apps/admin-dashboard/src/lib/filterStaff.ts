@@ -7,6 +7,7 @@ export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] 
     if (f.outletId && r.outlet_id !== f.outletId) return false
     if (f.role && r.role !== f.role) return false
     if (f.status && r.status !== f.status) return false
+    if (f.contractType && r.contract_type !== f.contractType) return false
     return true
   })
 }

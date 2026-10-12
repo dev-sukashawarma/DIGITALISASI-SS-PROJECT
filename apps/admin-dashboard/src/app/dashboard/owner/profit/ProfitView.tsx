@@ -156,10 +156,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.refetchQueries({ queryKey: ['hpp-client-calculated'] }),
         queryClient.refetchQueries({ queryKey: ['hpp-client-calculated-v2'] }),
         queryClient.refetchQueries({ queryKey: ['waste'] }),
-        queryClient.refetchQueries({ queryKey: ['prorata-payroll-records'] }),
-        queryClient.refetchQueries({ queryKey: ['prorata-staff-financials'] }),
-        queryClient.refetchQueries({ queryKey: ['prorata-rollover-expenses'] }),
-        queryClient.refetchQueries({ queryKey: ['prorata-crew-bonus'] }),
+        queryClient.refetchQueries({ queryKey: ['prorata-auxiliary-data'] }),
         queryClient.refetchQueries({ queryKey: ['mitra-investments'] }),
         queryClient.refetchQueries({ queryKey: ['outlets'] }),
       ])
@@ -185,10 +182,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
         queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated-v2'] })
         queryClient.invalidateQueries({ queryKey: ['waste'] })
-        queryClient.invalidateQueries({ queryKey: ['prorata-payroll-records'] })
-        queryClient.invalidateQueries({ queryKey: ['prorata-staff-financials'] })
-        queryClient.invalidateQueries({ queryKey: ['prorata-rollover-expenses'] })
-        queryClient.invalidateQueries({ queryKey: ['prorata-crew-bonus'] })
+        queryClient.invalidateQueries({ queryKey: ['prorata-auxiliary-data'] })
         queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
         queryClient.invalidateQueries({ queryKey: ['outlets'] })
     }, 30_000)

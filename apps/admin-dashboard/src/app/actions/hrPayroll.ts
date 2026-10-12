@@ -19,7 +19,14 @@ export interface ManagerAllocationDetail {
   allocatedAmount: number
   routineAmount?: number
   bonusAmount?: number
+  basicSalary?: number
+  allowances?: number
+  deductions?: number
+  allocatedBasicSalary?: number
+  allocatedAllowances?: number
+  allocatedDeductions?: number
   coachedOutletsCount: number
+  totalPcs?: number
   status: 'draft' | 'finalized'
 }
 
@@ -29,6 +36,7 @@ export interface StaffBonusDetail {
   role?: string
   outletName?: string
   bonus: number
+  totalPcs?: number
   status: 'draft' | 'finalized'
 }
 
@@ -36,6 +44,9 @@ export interface StaffPayrollDetail {
   staffId: string
   staffName: string
   role: string
+  contractType?: string | null
+  subRole?: string | null
+  onboardingStage?: string | null
   outletId?: string
   outletName?: string
   basicSalary: number
@@ -88,6 +99,9 @@ export interface HRPayrollSummary {
   managerAllocation?: number
   managerRoutineAllocation?: number
   managerBonusAllocation?: number
+  managerBasicSalaryAllocation?: number
+  managerAllowancesAllocation?: number
+  managerDeductionsAllocation?: number
   managerDetails?: ManagerAllocationDetail[]
   bonusDetails?: StaffBonusDetail[]
   crewBonusDetails?: StaffBonusDetail[]
@@ -144,10 +158,10 @@ export async function getHRPayrollSummaryAction(filter: {
       await Promise.all([
         supabase
           .from('payroll_records')
-          .select('id, period_month, period_year, outlet_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, username, outlet_id, role, account_category, email)')
+          .select('id, period_month, period_year, outlet_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, username, outlet_id, role, account_category, email, contract_type, sub_role, onboarding_stage)')
           .in('period_year', years)
           .in('period_month', months),
-        supabase.from('outlets').select('id, name, is_active'),
+        supabase.from('outlets').select('id, name, slug, is_active, status'),
         supabase
           .from('staff_outlets')
           .select('staff_id, outlet_id, outlet_staff!inner(id, role, is_active)')
@@ -162,7 +176,7 @@ export async function getHRPayrollSummaryAction(filter: {
 
     const rows = payrollData || []
     // Filter matching exact period objects (month & year) and exclude test/bot/mitra accounts
-    const matchingPeriodRows = rows.filter(r => {
+    let matchingPeriodRows: any[] = rows.filter(r => {
       const inPeriod = periods.some(p => p.month === r.period_month && p.year === r.period_year)
       if (!inPeriod) return false
       const staffRaw: any = r.outlet_staff
@@ -170,21 +184,152 @@ export async function getHRPayrollSummaryAction(filter: {
       return !isTestOrDevStaff(staffInfo)
     })
 
-    const outletsWithNonZeroPayroll = new Set(
-      matchingPeriodRows
-        .filter(r => Number(r.total_salary || 0) > 0 && r.outlet_id)
-        .map(r => r.outlet_id!)
-    )
+    // Query MTD bonus and pcs for each period (Crew, AM, and RM)
+    const bonusMap = new Map<string, number>()
+    const pcsMap = new Map<string, number>()
+    for (const p of periods) {
+      try {
+        const [crewRes, amRes, rmRes] = await Promise.all([
+          supabase.rpc('get_monthly_crew_bonus', {
+            p_month: p.month,
+            p_year: p.year,
+            p_outlet_id: null
+          }),
+          supabase.rpc('get_monthly_am_bonus', {
+            p_month: p.month,
+            p_year: p.year
+          }),
+          supabase.rpc('get_monthly_rm_bonus', {
+            p_month: p.month,
+            p_year: p.year
+          })
+        ])
 
-    // 1. Build outlet mapping and operational outlet set
+        if (crewRes.data && Array.isArray(crewRes.data)) {
+          crewRes.data.forEach((b: any) => {
+            if (b.crew_id) {
+              const prev = bonusMap.get(b.crew_id) || 0
+              bonusMap.set(b.crew_id, prev + (Number(b.total_bonus) || 0))
+              pcsMap.set(b.crew_id, (pcsMap.get(b.crew_id) || 0) + (Number(b.total_pcs_outlet) || 0))
+            }
+          })
+        }
+
+        if (amRes.data && Array.isArray(amRes.data)) {
+          amRes.data.forEach((b: any) => {
+            if (b.staff_id) {
+              const prev = bonusMap.get(b.staff_id) || 0
+              bonusMap.set(b.staff_id, prev + (Number(b.total_bonus) || 0))
+              pcsMap.set(b.staff_id, (pcsMap.get(b.staff_id) || 0) + (Number(b.total_pcs) || 0))
+            }
+          })
+        }
+
+        if (rmRes.data && Array.isArray(rmRes.data)) {
+          rmRes.data.forEach((b: any) => {
+            if (b.staff_id) {
+              const prev = bonusMap.get(b.staff_id) || 0
+              bonusMap.set(b.staff_id, prev + (Number(b.total_bonus) || 0))
+              pcsMap.set(b.staff_id, (pcsMap.get(b.staff_id) || 0) + (Number(b.total_pcs_global) || 0))
+            }
+          })
+        }
+      } catch (err) {
+        console.warn('Fallback bonus RPC error:', err)
+      }
+    }
+
+    // Fallback: If no payroll slips have been generated for the requested period(s) (e.g. running current month),
+    // build draft rows from active staff master data (outlet_staff + staff_financials) and MTD crew bonus RPC.
+    if (matchingPeriodRows.length === 0 && periods.length > 0) {
+      const { data: activeStaffData } = await supabase
+        .from('outlet_staff')
+        .select(`
+          id,
+          name,
+          username,
+          outlet_id,
+          role,
+          status,
+          account_category,
+          email,
+          contract_type,
+          sub_role,
+          onboarding_stage,
+          staff_financials(
+            basic_salary,
+            allowance_position,
+            allowance_presence,
+            allowance_meal,
+            allowance_transport,
+            allowance_communication,
+            sales_bonus,
+            deduction_kasbon,
+            deduction_bpjs
+          )
+        `)
+        .eq('status', 'active')
+        .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager', 'stock_controller'])
+
+      const activeStaffList = (activeStaffData || []).filter(s => !isTestOrDevStaff(s))
+      const targetPeriod = periods[0]
+
+      matchingPeriodRows = activeStaffList.map(s => {
+        const finRaw = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
+        const bSalary = Number(finRaw?.basic_salary || 0)
+        const aMeal = Number(finRaw?.allowance_meal || 0)
+        const aTransport = Number(finRaw?.allowance_transport || 0)
+        const aComm = Number(finRaw?.allowance_communication || 0)
+        const aPres = Number(finRaw?.allowance_presence || 0)
+        const aPos = Number(finRaw?.allowance_position || 0)
+        const deductions = Number(finRaw?.deduction_kasbon || 0) + Number(finRaw?.deduction_bpjs || 0)
+        const rpcBonus = bonusMap.get(s.id) || 0
+        const bBonus = rpcBonus > 0 ? rpcBonus : Number(finRaw?.sales_bonus || 0)
+        const total = bSalary + aMeal + aTransport + aComm + aPres + aPos + bBonus - deductions
+
+        return {
+          id: `draft-${s.id}`,
+          period_month: targetPeriod.month,
+          period_year: targetPeriod.year,
+          outlet_id: s.outlet_id,
+          basic_salary: bSalary,
+          allowance_meal: aMeal,
+          allowance_transport: aTransport,
+          allowance_communication: aComm,
+          allowance_presence: aPres,
+          allowance_position: aPos,
+          bonus: bBonus,
+          total_pcs: pcsMap.get(s.id) || (bBonus > 0 ? (s.role === 'area_manager' || s.role === 'regional_manager' ? Math.round(bBonus / 50) : Math.round(bBonus / 100)) : 0),
+          deductions,
+          total_salary: total,
+          status: 'draft' as const,
+          staff_id: s.id,
+          outlet_staff: {
+            id: s.id,
+            name: s.name,
+            username: s.username,
+            outlet_id: s.outlet_id,
+            role: s.role,
+            account_category: s.account_category,
+            email: s.email,
+            contract_type: s.contract_type,
+            sub_role: s.sub_role,
+            onboarding_stage: s.onboarding_stage
+          }
+        }
+      })
+    }
+
+    // 1. Build outlet mapping and operational retail outlet set
+    // An outlet is an operational retail branch if it's active and not an excluded virtual/warehouse entity
     const outletNameMap = new Map<string, string>()
     const operationalOutletIds: string[] = []
     ;(outletData || []).forEach((o: any) => {
       outletNameMap.set(o.id, o.name)
-      const isActiveInPeriod = outletsWithNonZeroPayroll.size > 0
-        ? outletsWithNonZeroPayroll.has(o.id)
-        : o.is_active !== false
-      if (!isExcludedOutlet(o) && isActiveInPeriod) {
+      if (isExcludedOutlet(o)) return
+      if (o.slug === 'sawangan-depok-internal') return
+      const isOperational = (o.is_active === true || o.is_active !== false) && (o.status === 'active' || !o.status)
+      if (isOperational) {
         operationalOutletIds.push(o.id)
       }
     })
@@ -303,6 +448,12 @@ export async function getHRPayrollSummaryAction(filter: {
           allocatedAmount: tot,
           routineAmount: routineTot,
           bonusAmount: bon,
+          basicSalary: bSalary,
+          allowances: bAllowances,
+          deductions: bDeductions,
+          allocatedBasicSalary: g,
+          allocatedAllowances: a,
+          allocatedDeductions: ded,
           coachedOutletsCount: targets.length,
           status: m.status === 'finalized' ? 'finalized' : 'draft'
         })
@@ -316,6 +467,8 @@ export async function getHRPayrollSummaryAction(filter: {
       staffCount: number
       crewSalary: number
       managerAllocation: number
+      managerRoutineAllocation?: number
+      managerBonusAllocation?: number
       totalSalary: number
       basicSalary: number
       bonus: number
@@ -343,6 +496,8 @@ export async function getHRPayrollSummaryAction(filter: {
           staffCount: 0,
           crewSalary: 0,
           managerAllocation: 0,
+          managerRoutineAllocation: 0,
+          managerBonusAllocation: 0,
           totalSalary: 0,
           basicSalary: 0,
           bonus: 0,
@@ -375,6 +530,8 @@ export async function getHRPayrollSummaryAction(filter: {
           staffCount: 0,
           crewSalary: 0,
           managerAllocation: 0,
+          managerRoutineAllocation: 0,
+          managerBonusAllocation: 0,
           totalSalary: 0,
           basicSalary: 0,
           bonus: 0,
@@ -383,7 +540,10 @@ export async function getHRPayrollSummaryAction(filter: {
         }
         outletGroups.set(oid, group)
       }
-      group.managerAllocation += alloc.totalSalary
+      const routineAlloc = alloc.basicSalary + alloc.allowances - alloc.deductions
+      group.managerAllocation += routineAlloc
+      group.managerRoutineAllocation = (group.managerRoutineAllocation || 0) + routineAlloc
+      group.managerBonusAllocation = (group.managerBonusAllocation || 0) + alloc.bonus
       group.totalSalary += alloc.totalSalary
       group.basicSalary += alloc.basicSalary
       group.bonus += alloc.bonus
@@ -474,29 +634,32 @@ export async function getHRPayrollSummaryAction(filter: {
         .map(r => {
           const staffRaw: any = r.outlet_staff
           const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+          const bonus = Number(r.bonus || 0)
           return {
             staffId: r.staff_id,
             staffName: staffInfo?.name || 'Staff',
             role: staffInfo?.role || 'crew',
             outletName: outletNameMap.get(target) || 'Cabang',
-            bonus: Number(r.bonus || 0),
+            bonus,
+            totalPcs: Number((r as any).total_pcs || 0) || Math.round(bonus / 100),
             status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
           }
         })
         .sort((a, b) => b.bonus - a.bonus)
 
       const managerBonusDetails = mgrAlloc.details
-        .filter(mgr => (mgr.bonusAmount || 0) > 0)
+        .filter(mgr => (mgr.bonusAmount || 0) > 0 || mgr.role === 'area_manager' || mgr.role === 'regional_manager')
         .map(mgr => ({
           staffId: mgr.staffId,
           staffName: mgr.staffName,
           role: mgr.role,
           outletName: mgr.role === 'area_manager'
-            ? `Alokasi AM (1/${mgr.coachedOutletsCount} Cabang)`
+            ? 'Rp 50 / pcs (Cabang Binaan)'
             : mgr.role === 'regional_manager'
-            ? `Alokasi RM (1/${mgr.coachedOutletsCount} Cabang)`
-            : `Alokasi (1/${mgr.coachedOutletsCount} Cabang)`,
+            ? 'Rp 50 / pcs (Wilayah Regional)'
+            : 'Rp 50 / pcs',
           bonus: mgr.bonusAmount || 0,
+          totalPcs: Math.round((mgr.bonusAmount || 0) / 50),
           status: mgr.status
         }))
         .sort((a, b) => b.bonus - a.bonus)
@@ -525,6 +688,9 @@ export async function getHRPayrollSummaryAction(filter: {
         managerAllocation: managerRoutineAllocation,
         managerRoutineAllocation,
         managerBonusAllocation,
+        managerBasicSalaryAllocation: mgrAlloc.basicSalary,
+        managerAllowancesAllocation: mgrAlloc.allowances,
+        managerDeductionsAllocation: mgrAlloc.deductions,
         managerDetails: mgrAlloc.details,
         crewBonusDetails,
         managerBonusDetails,
@@ -547,6 +713,9 @@ export async function getHRPayrollSummaryAction(filter: {
               staffId: r.staff_id,
               staffName: staffInfo?.name || 'Staff',
               role: staffInfo?.role || 'crew',
+              contractType: staffInfo?.contract_type || (r as any).contract_type || null,
+              subRole: staffInfo?.sub_role || (r as any).sub_role || null,
+              onboardingStage: staffInfo?.onboarding_stage || (r as any).onboarding_stage || null,
               outletId: target,
               outletName: outletNameMap.get(target) || 'Outlet',
               basicSalary: bSalary,
@@ -568,10 +737,10 @@ export async function getHRPayrollSummaryAction(filter: {
               role: mgr.role,
               outletId: target,
               outletName: outletNameMap.get(target) || 'Outlet',
-              basicSalary: 0,
-              allowances: 0,
+              basicSalary: mgr.allocatedBasicSalary ?? 0,
+              allowances: mgr.allocatedAllowances ?? 0,
               bonus,
-              deductions: 0,
+              deductions: mgr.allocatedDeductions ?? 0,
               routineSalary: routine,
               totalSalary: mgr.allocatedAmount,
               status: mgr.status,
@@ -704,30 +873,41 @@ export async function getHRPayrollSummaryAction(filter: {
         const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
         const staffOutletId = r.outlet_id || staffInfo?.outlet_id
         const outletName = outletNameMap.get(staffOutletId) || 'Outlet'
+        const bonus = Number(r.bonus || 0)
         return {
           staffId: r.staff_id,
           staffName: staffInfo?.name || 'Staff',
           role: staffInfo?.role || 'crew',
           outletName,
-          bonus: Number(r.bonus || 0),
+          bonus,
+          totalPcs: Number((r as any).total_pcs || 0) || Math.round(bonus / 100),
           status: (r.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
         }
       })
       .sort((a, b) => b.bonus - a.bonus)
 
     const managerBonusDetails = target !== 'PUSAT' ? managerRows
-      .filter(m => Number(m.bonus || 0) > 0)
+      .filter(m => {
+        const staffRaw: any = m.outlet_staff
+        const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+        const role = staffInfo?.role
+        return Number(m.bonus || 0) > 0 || role === 'area_manager' || role === 'regional_manager'
+      })
       .map(m => {
         const staffRaw: any = m.outlet_staff
         const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
         const isStockController = (staffInfo?.name || '').toLowerCase().includes('abyansah') || staffInfo?.role === 'stock_controller'
         const role = isStockController ? 'stock_controller' : (staffInfo?.role || 'area_manager')
+        const rawBonus = Number(m.bonus || 0)
+        const bonus = rawBonus > 0 ? rawBonus : (bonusMap.get(m.staff_id) || 0)
+        const totalPcs = Number((m as any).total_pcs || 0) || (pcsMap.get(m.staff_id) || 0) || (bonus > 0 ? Math.round(bonus / 50) : 0)
         return {
           staffId: m.staff_id,
           staffName: staffInfo?.name || (role === 'regional_manager' ? 'Regional Manager' : 'Area Manager'),
           role,
-          outletName: role === 'regional_manager' ? 'Alokasi RM' : 'Alokasi AM',
-          bonus: Number(m.bonus || 0),
+          outletName: role === 'regional_manager' ? 'Rp 50 / pcs (Wilayah Regional)' : 'Rp 50 / pcs (Cabang Binaan)',
+          bonus,
+          totalPcs,
           status: (m.status === 'finalized' ? 'finalized' : 'draft') as 'draft' | 'finalized'
         }
       })
@@ -771,6 +951,9 @@ export async function getHRPayrollSummaryAction(filter: {
             staffId: r.staff_id,
             staffName: staffInfo?.name || 'Staff',
             role: staffInfo?.role || 'crew',
+            contractType: staffInfo?.contract_type || (r as any).contract_type || null,
+            subRole: staffInfo?.sub_role || (r as any).sub_role || null,
+            onboardingStage: staffInfo?.onboarding_stage || (r as any).onboarding_stage || null,
             outletId: staffOutletId,
             outletName: outletNameMap.get(staffOutletId) || 'Outlet',
             basicSalary: bSalary,

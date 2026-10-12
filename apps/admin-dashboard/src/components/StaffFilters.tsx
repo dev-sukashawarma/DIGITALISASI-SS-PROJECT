@@ -32,6 +32,14 @@ export function StaffFilters({
         <option value="inactive">Nonaktif</option>
         <option value="on_leave">Cuti</option>
       </select>
+      <select className={inputCls} value={value.contractType || ''} onChange={(e) => set({ contractType: e.target.value })}>
+        <option value="">Semua Kontrak</option>
+        <option value="permanent">Karyawan Tetap</option>
+        <option value="contract">Karyawan Kontrak (PKWT)</option>
+        <option value="probation">Trainee / Percobaan</option>
+        <option value="intern">Magang / OJT</option>
+        <option value="daily">Harian / Backup Lepas</option>
+      </select>
     </div>
   )
 }

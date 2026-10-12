@@ -48,7 +48,15 @@ export function useContracts(outletFilter?: string) {
           return {
             id: s.id,
             staff_id: s.id,
-            contract_type: s.contract_type === 'permanent' ? 'Tetap' : (s.contract_type?.toUpperCase() || 'PKWT'),
+            contract_type: s.contract_type === 'permanent' 
+              ? 'Tetap' 
+              : s.contract_type === 'probation' 
+              ? 'Probation' 
+              : s.contract_type === 'intern' 
+              ? 'Internship' 
+              : s.contract_type === 'daily' 
+              ? 'Harian' 
+              : (s.contract_type?.toUpperCase() || 'PKWT'),
             start_date: s.join_date || s.created_at || new Date().toISOString(),
             end_date: s.resign_date || null,
             status,

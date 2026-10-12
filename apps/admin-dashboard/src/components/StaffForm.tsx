@@ -24,7 +24,7 @@ const getStaffFormSchema = (isEditing: boolean) => z.object({
   outlet_ids: z.array(z.string()).default([]),
   is_bonus_eligible: z.boolean().default(true).optional(),
   nip: z.string().nullable().optional(),
-  contract_type: z.enum(['permanent', 'contract', 'intern', 'daily']).nullable().optional(),
+  contract_type: z.enum(['permanent', 'contract', 'probation', 'intern', 'daily']).nullable().optional(),
   join_date: z.string().nullable().optional(),
   resign_date: z.string().nullable().optional(),
   leave_quota: z.coerce.number().nullable().optional(),
@@ -138,12 +138,13 @@ export function StaffForm({
   const watchMeal = watch('allowance_meal') || 0
   const watchTransport = watch('allowance_transport') || 0
   const watchComms = watch('allowance_communication') || 0
-  const watchSalesBonus = watch('sales_bonus') || 0
   const watchPosition = watch('allowance_position') || 0
   const watchKasbon = watch('deduction_kasbon') || 0
   const watchBpjs = watch('deduction_bpjs') || 0
 
-  const formEarnings = Number(watchBasic) + Number(watchMeal) + Number(watchTransport) + Number(watchComms) + Number(watchSalesBonus) + Number(watchPosition)
+  // 3 Komponen THP: Gaji Pokok + Total Tunjangan - Total Potongan
+  const formAllowances = Number(watchMeal) + Number(watchTransport) + Number(watchComms) + Number(watchPosition)
+  const formEarnings = Number(watchBasic) + formAllowances
   const formDeductions = Number(watchKasbon) + Number(watchBpjs)
   const formTHP = Math.max(0, formEarnings - formDeductions)
 
@@ -392,9 +393,10 @@ export function StaffForm({
               <label htmlFor="sf-contract" className={labelCls}>Jenis Kontrak</label>
               <select id="sf-contract" className={inputCls} {...register('contract_type')}>
                 <option value="permanent">Tetap (Permanent)</option>
-                <option value="contract">Kontrak (Contract)</option>
-                <option value="intern">Magang (Internship)</option>
-                <option value="daily">Harian / Freelance (Daily)</option>
+                <option value="contract">Kontrak (Contract / PKWT)</option>
+                <option value="probation">Trainee / Masa Percobaan (Probation)</option>
+                <option value="intern">Magang / OJT (Internship)</option>
+                <option value="daily">Harian / Backup Lepas (Daily)</option>
               </select>
               {errors.contract_type && <span className="text-xs text-red-500 mt-1 block">{errors.contract_type?.message ?.toString()}</span>}
             </div>
@@ -627,22 +629,6 @@ export function StaffForm({
 
             <div>
               <Controller
-                name="sales_bonus"
-                control={control}
-                render={({ field }) => (
-                  <CurrencyInput
-                    id="sf-sales-bonus"
-                    label="Sales Bonus (Rp)"
-                    className={inputCls}
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                  />
-                )}
-              />
-            </div>
-
-            <div>
-              <Controller
                 name="allowance_position"
                 control={control}
                 render={({ field }) => (
@@ -695,20 +681,29 @@ export function StaffForm({
               />
             </div>
 
-            {/* 3. Live Take Home Pay Summary */}
-            <div className="md:col-span-2 p-3.5 rounded-2xl bg-[#FDF9F3] border-2 border-suka-orange/40 flex flex-wrap justify-between items-center gap-2 shadow-xs">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-suka-gray-500 block">
-                  Estimasi Gaji Bersih / Take Home Pay (THP)
-                </span>
-                <div className="flex items-center gap-3 text-xs mt-0.5">
-                  <span className="text-emerald-700 font-bold">Penerimaan: {formatRupiah(formEarnings)}</span>
-                  <span className="text-red-600 font-bold">Potongan: -{formatRupiah(formDeductions)}</span>
+            {/* 3. Live Take Home Pay Summary (3 Komponen) */}
+            <div className="md:col-span-2 p-4 rounded-2xl bg-[#FDF9F3] border-2 border-suka-orange/40 space-y-2 shadow-xs">
+              <div className="flex flex-wrap justify-between items-center gap-2">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown block">
+                    Estimasi Gaji Bersih / Take Home Pay (THP Rutin)
+                  </span>
+                  <div className="flex flex-wrap items-center gap-3 text-xs mt-1 text-stone-600 font-medium">
+                    <span>Gapok: <b className="text-suka-ink font-mono">{formatRupiah(Number(watchBasic))}</b></span>
+                    <span>+ Tunjangan: <b className="text-emerald-700 font-mono">+{formatRupiah(formAllowances)}</b></span>
+                    <span>- Potongan: <b className="text-red-600 font-mono">-{formatRupiah(formDeductions)}</b></span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-gray-400 block uppercase">THP Bulanan</span>
+                  <span className="text-xl font-black text-suka-orange font-mono">
+                    {formatRupiah(formTHP)}
+                  </span>
                 </div>
               </div>
-              <span className="text-lg font-black text-suka-orange font-mono">
-                {formatRupiah(formTHP)}
-              </span>
+              <p className="text-[11px] text-stone-500 italic border-t border-suka-brown/10 pt-1.5">
+                💡 3 Pilar THP: Gaji Pokok + Total Tunjangan - Total Potongan. Bonus Penjualan &amp; Lembur dihitung terpisah saat tutup buku bulanan.
+              </p>
             </div>
 
             {/* 4. Rekening Bank & Pajak */}

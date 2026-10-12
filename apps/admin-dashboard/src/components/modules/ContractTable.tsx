@@ -70,8 +70,18 @@ export function ContractTable({
                         {r.outlet_staff?.role?.replace('_', ' ')}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs font-bold text-gray-700">
-                      <span className="inline-block px-2.5 py-0.5 rounded-lg bg-stone-100 border border-stone-200">
+                    <td className="px-4 py-3 text-xs font-bold">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-lg border text-xs font-bold ${
+                        r.contract_type?.toLowerCase().includes('probation') || r.contract_type?.toLowerCase().includes('trainee')
+                          ? 'bg-amber-50 text-amber-800 border-amber-300'
+                          : r.contract_type?.toLowerCase().includes('intern') || r.contract_type?.toLowerCase().includes('magang')
+                          ? 'bg-blue-50 text-blue-800 border-blue-300'
+                          : r.contract_type?.toLowerCase().includes('harian') || r.contract_type?.toLowerCase().includes('backup') || r.contract_type?.toLowerCase().includes('daily')
+                          ? 'bg-purple-50 text-purple-800 border-purple-300'
+                          : r.contract_type?.toLowerCase().includes('tetap')
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                          : 'bg-stone-100 text-stone-700 border-stone-200'
+                      }`}>
                         {r.contract_type}
                       </span>
                     </td>

@@ -64,7 +64,9 @@ export interface StaffRow {
   emergency_relationship?: string | null
   emergency_phone?: string | null
   nip?: string | null
-  contract_type?: 'permanent' | 'contract' | 'intern' | 'daily' | null
+  contract_type?: 'permanent' | 'contract' | 'probation' | 'intern' | 'daily' | null
+  sub_role?: 'crew_regular' | 'crew_backup' | 'crew_trainee' | string | null
+  onboarding_stage?: 'regular' | 'ojt' | string | null
   join_date?: string | null
   resign_date?: string | null
   leave_quota?: number | null
@@ -108,7 +110,9 @@ export interface StaffFormValues {
   emergency_relationship?: string | null
   emergency_phone?: string | null
   nip?: string | null
-  contract_type?: 'permanent' | 'contract' | 'intern' | 'daily' | null
+  contract_type?: 'permanent' | 'contract' | 'probation' | 'intern' | 'daily' | null
+  sub_role?: 'crew_regular' | 'crew_backup' | 'crew_trainee' | string | null
+  onboarding_stage?: 'regular' | 'ojt' | string | null
   join_date?: string | null
   resign_date?: string | null
   leave_quota?: number | null
@@ -134,6 +138,7 @@ export interface StaffFilterValues {
   outletId: string // '' = semua
   role: string // '' = semua
   status: string // '' = semua
+  contractType?: string // '' = semua
 }
 
 export type HealthTargetType = 'app' | 'supabase' | 'cpanel'
@@ -278,6 +283,9 @@ export interface PayrollRecord {
     outlet_id: string
     outlets: { name: string } | null
     phone?: string | null
+    contract_type?: string | null
+    sub_role?: string | null
+    onboarding_stage?: string | null
     financials?: {
       bank_name: string
       bank_account_number: string

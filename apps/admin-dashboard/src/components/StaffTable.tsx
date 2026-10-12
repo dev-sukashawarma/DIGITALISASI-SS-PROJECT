@@ -53,10 +53,51 @@ export function StaffTable({
     const map: Record<string, string> = {
       permanent: 'Karyawan Tetap',
       contract: 'Karyawan Kontrak',
-      intern: 'Magang / Internship',
-      daily: 'Harian / Freelance'
+      probation: 'Trainee / Masa Percobaan',
+      intern: 'Magang / OJT',
+      daily: 'Harian / Backup Lepas'
     }
     return c ? (map[c] || c) : '-'
+  }
+
+  const contractBadge = (c?: string | null) => {
+    if (!c) return null
+    if (c === 'probation') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+          Trainee
+        </span>
+      )
+    }
+    if (c === 'intern') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-300 shadow-2xs">
+          OJT / Magang
+        </span>
+      )
+    }
+    if (c === 'daily') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-300 shadow-2xs">
+          Backup / Harian
+        </span>
+      )
+    }
+    if (c === 'contract') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
+          Kontrak
+        </span>
+      )
+    }
+    if (c === 'permanent') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+          Tetap
+        </span>
+      )
+    }
+    return null
   }
 
   return (
@@ -92,7 +133,10 @@ export function StaffTable({
                 </td>
                 <td className="px-4 py-3 capitalize text-gray-600">
                   <div className="flex flex-col gap-1 items-start">
-                    <span className="font-medium text-stone-800">{s.role.replace('_', ' ')}</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium text-stone-800">{s.role.replace('_', ' ')}</span>
+                      {contractBadge(s.contract_type)}
+                    </div>
                     {onToggleBonus ? (
                       <button
                         type="button"
@@ -212,7 +256,10 @@ export function StaffTable({
                   </div>
                   <div>
                     <span className="text-xs text-gray-400 block">Jenis Kontrak</span>
-                    <span className="font-medium text-gray-700 mt-0.5 block">{formatContract(selectedStaff.contract_type)}</span>
+                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-gray-700 block">{formatContract(selectedStaff.contract_type)}</span>
+                      {contractBadge(selectedStaff.contract_type)}
+                    </div>
                   </div>
                   <div>
                     <span className="text-xs text-gray-400 block">Eligibilitas Bonus</span>
@@ -337,90 +384,111 @@ export function StaffTable({
                     <Wallet size={18} />
                     <span>Keuangan & Rekening Bank</span>
                   </div>
-                  {selectedStaff.financials ? (
+                  {selectedStaff.financials ? (() => {
+                    const fin = selectedStaff.financials
+                    const gapok = Number(fin.basic_salary) || 0
+                    const tunjMakan = Number(fin.allowance_meal ?? fin.allowance_presence ?? 0)
+                    const tunjTrans = Number(fin.allowance_transport ?? 0)
+                    const tunjKoms = Number(fin.allowance_communication ?? 0)
+                    const tunjJab = Number(fin.allowance_position ?? 0)
+                    const totalTunj = tunjMakan + tunjTrans + tunjKoms + tunjJab
+                    const potKasbon = Number(fin.deduction_kasbon ?? 0)
+                    const potBpjs = Number(fin.deduction_bpjs ?? 0)
+                    const totalPot = potKasbon + potBpjs
+                    const thpRutin = Math.max(0, gapok + totalTunj - totalPot)
+
+                    return (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
                           <span className="text-[9px] uppercase font-bold text-gray-500 block">Gapok</span>
                           <span className="text-xs font-bold text-suka-brown mt-0.5 block">
-                            {formatRupiah(selectedStaff.financials.basic_salary)}
+                            {formatRupiah(gapok)}
                           </span>
                         </div>
                         <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
                           <span className="text-[9px] uppercase font-bold text-gray-500 block">Tunj. Makan</span>
                           <span className="text-xs font-bold text-emerald-800 mt-0.5 block">
-                            {formatRupiah(selectedStaff.financials.allowance_meal ?? selectedStaff.financials.allowance_presence ?? 0)}
+                            {formatRupiah(tunjMakan)}
                           </span>
                         </div>
                         <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
                           <span className="text-[9px] uppercase font-bold text-gray-500 block">Tunj. Transport</span>
                           <span className="text-xs font-bold text-emerald-800 mt-0.5 block">
-                            {formatRupiah(selectedStaff.financials.allowance_transport ?? 0)}
+                            {formatRupiah(tunjTrans)}
                           </span>
                         </div>
                         <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
                           <span className="text-[9px] uppercase font-bold text-gray-500 block">Tunj. Komunikasi</span>
                           <span className="text-xs font-bold text-emerald-800 mt-0.5 block">
-                            {formatRupiah(selectedStaff.financials.allowance_communication ?? 0)}
+                            {formatRupiah(tunjKoms)}
                           </span>
                         </div>
-                        <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
-                          <span className="text-[9px] uppercase font-bold text-gray-500 block">Sales Bonus</span>
-                          <span className="text-xs font-bold text-amber-800 mt-0.5 block">
-                            {formatRupiah(selectedStaff.financials.sales_bonus ?? 0)}
-                          </span>
-                        </div>
-                        {Number(selectedStaff.financials.allowance_position) > 0 && (
+                        {tunjJab > 0 && (
                           <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
                             <span className="text-[9px] uppercase font-bold text-gray-500 block">Tunj. Jabatan</span>
                             <span className="text-xs font-bold text-suka-brown mt-0.5 block">
-                              {formatRupiah(selectedStaff.financials.allowance_position)}
+                              {formatRupiah(tunjJab)}
                             </span>
                           </div>
                         )}
                         <div className="bg-red-50/70 p-2 rounded-xl border border-red-200 text-center">
                           <span className="text-[9px] uppercase font-bold text-red-700 block">Pot. Kasbon</span>
                           <span className="text-xs font-bold text-red-600 mt-0.5 block">
-                            -{formatRupiah(selectedStaff.financials.deduction_kasbon ?? 0)}
+                            -{formatRupiah(potKasbon)}
                           </span>
                         </div>
                         <div className="bg-red-50/70 p-2 rounded-xl border border-red-200 text-center">
                           <span className="text-[9px] uppercase font-bold text-red-700 block">Pot. BPJS</span>
                           <span className="text-xs font-bold text-red-600 mt-0.5 block">
-                            -{formatRupiah(selectedStaff.financials.deduction_bpjs ?? 0)}
+                            -{formatRupiah(potBpjs)}
                           </span>
                         </div>
+                      </div>
+
+                      {/* 3 Komponen THP Summary Banner */}
+                      <div className="p-3 bg-[#FDF9F3] rounded-xl border border-suka-orange/30 flex justify-between items-center text-xs">
+                        <div>
+                          <span className="text-[10px] font-bold text-stone-500 uppercase block">THP Rutin (3 Pilar)</span>
+                          <span className="text-[11px] text-stone-600">
+                            Gapok ({formatRupiah(gapok)}) + Tunj ({formatRupiah(totalTunj)}) - Pot ({formatRupiah(totalPot)})
+                          </span>
+                        </div>
+                        <span className="font-mono font-black text-suka-orange text-sm">
+                          {formatRupiah(thpRutin)}
+                        </span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm bg-suka-cream/30 p-3.5 rounded-xl border border-suka-gray-100">
                         <div>
                           <span className="text-xs text-gray-400 block">Bank</span>
-                          <span className="font-semibold text-suka-ink mt-0.5 block">{selectedStaff.financials.bank_name || '-'}</span>
+                          <span className="font-semibold text-suka-ink mt-0.5 block">{fin.bank_name || '-'}</span>
                         </div>
                         <div>
                           <span className="text-xs text-gray-400 block">No. Rekening</span>
-                          <span className="font-mono font-semibold text-suka-ink mt-0.5 block">{selectedStaff.financials.bank_account_number || '-'}</span>
+                          <span className="font-mono font-semibold text-suka-ink mt-0.5 block">{fin.bank_account_number || '-'}</span>
                         </div>
                         <div className="col-span-2">
                           <span className="text-xs text-gray-400 block">Nama Pemilik Rekening</span>
-                          <span className="font-semibold text-suka-ink mt-0.5 block">{selectedStaff.financials.bank_account_name || '-'}</span>
+                          <span className="font-semibold text-suka-ink mt-0.5 block">{fin.bank_account_name || '-'}</span>
                         </div>
                         <div className="col-span-2 border-t border-suka-gray-100 my-1 pt-1"></div>
                         <div>
                           <span className="text-xs text-gray-400 block">NPWP</span>
-                          <span className="font-mono text-xs text-gray-700 mt-0.5 block">{selectedStaff.financials.npwp || '-'}</span>
+                          <span className="font-mono text-xs text-gray-700 mt-0.5 block">{fin.npwp || '-'}</span>
                         </div>
                         <div>
                           <span className="text-xs text-gray-400 block">BPJS TK</span>
-                          <span className="font-mono text-xs text-gray-700 mt-0.5 block">{selectedStaff.financials.bpjs_ketenagakerjaan || '-'}</span>
+                          <span className="font-mono text-xs text-gray-700 mt-0.5 block">{fin.bpjs_ketenagakerjaan || '-'}</span>
                         </div>
                         <div className="col-span-2">
                           <span className="text-xs text-gray-400 block">BPJS Kesehatan</span>
-                          <span className="font-mono text-xs text-gray-700 mt-0.5 block">{selectedStaff.financials.bpjs_kesehatan || '-'}</span>
+                          <span className="font-mono text-xs text-gray-700 mt-0.5 block">{fin.bpjs_kesehatan || '-'}</span>
                         </div>
                       </div>
                     </div>
-                  ) : (
+                    )
+                  })() : (
                     <span className="text-sm text-gray-500 italic">Data keuangan belum diisi atau tidak dapat dimuat.</span>
                   )}
                 </div>

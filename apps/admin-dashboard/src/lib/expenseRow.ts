@@ -47,6 +47,14 @@ export function mapExpenseRow(row: any): ExpenseRow {
     }
   }
 
+  const staffName = Array.isArray(row.outlet_staff)
+    ? row.outlet_staff[0]?.name
+    : row.outlet_staff?.name
+
+  if (!recipientName && staffName) {
+    recipientName = staffName
+  }
+
   const isPusat = !row.outlet_id || 
     row.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ||
     row.outlets?.name?.toLowerCase().includes('kantor pusat') ||

@@ -1,14 +1,13 @@
 import type { PayrollRecord } from './types'
 
 export interface PayrollBreakdown {
-  // ── 1. Komponen Take Home Pay (Penerimaan) ──
+  // ── 1. Komponen Gaji Pokok & Tunjangan ──
   basicSalary: number // gapok
-  overtime: number // overtime / lembur
   mealAllowance: number // meal / uang makan
   transportAllowance: number // transport / uang transport
   communicationAllowance: number // communication / tunjangan pulsa/komunikasi
-  salesBonus: number // sales bonus / bonus target omset
   positionAllowance: number // tunjangan jabatan (opsional)
+  totalAllowances: number // subtotal seluruh tunjangan
 
   // ── 2. Komponen Potongan ──
   cashAdvanceDeduction: number // kasbon
@@ -16,11 +15,20 @@ export interface PayrollBreakdown {
   lateMinutes: number // total menit keterlambatan dari absensi
   lateDeduction: number // keterlambatan = lateMinutes * 1000
   otherDeduction: number // ganti rugi / denda lainnya
-
-  // ── 3. Kalkulasi ──
-  totalEarnings: number
   totalDeductions: number
-  takeHomePay: number
+
+  // ── 3. Komponen THP Rutin (3 Pilar: Gapok + Tunjangan - Potongan) ──
+  routineEarnings: number // basicSalary + totalAllowances
+  routineThp: number // Math.max(0, routineEarnings - totalDeductions)
+
+  // ── 4. Komponen Variabel / Insentif (Bonus & Lembur) ──
+  overtime: number // overtime / lembur
+  salesBonus: number // sales bonus / bonus target omset
+  totalBonus: number // overtime + salesBonus
+
+  // ── 5. Total Penerimaan & Total Transfer Akhir ──
+  totalEarnings: number // routineEarnings + totalBonus
+  takeHomePay: number // Math.max(0, totalEarnings - totalDeductions)
 }
 
 export const LATE_FEE_PER_MINUTE = 1000 // Rp 1.000 / menit keterlambatan
@@ -142,16 +150,23 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
     }
   }
 
-  const totalEarnings =
-    basicSalary +
-    overtime +
+  const totalAllowances =
     mealAllowance +
     transportAllowance +
     communicationAllowance +
-    salesBonus +
     positionAllowance
 
   const totalDeductions = cashAdvanceDeduction + bpjsDeduction + lateDeduction + otherDeduction
+
+  // 3-Komponen Pokok THP: Gaji Pokok + Tunjangan - Potongan
+  const routineEarnings = basicSalary + totalAllowances
+  const routineThp = Math.max(0, routineEarnings - totalDeductions)
+
+  // Komponen Variabel / Insentif
+  const totalBonus = overtime + salesBonus
+
+  // Total Penerimaan & Grand Total Transfer
+  const totalEarnings = routineEarnings + totalBonus
   const takeHomePay = Math.max(0, totalEarnings - totalDeductions)
 
   return {
@@ -162,13 +177,17 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
     communicationAllowance,
     salesBonus,
     positionAllowance,
+    totalAllowances,
     cashAdvanceDeduction,
     bpjsDeduction,
     lateMinutes,
     lateDeduction,
     otherDeduction,
-    totalEarnings,
     totalDeductions,
+    routineEarnings,
+    routineThp,
+    totalBonus,
+    totalEarnings,
     takeHomePay,
   }
 }

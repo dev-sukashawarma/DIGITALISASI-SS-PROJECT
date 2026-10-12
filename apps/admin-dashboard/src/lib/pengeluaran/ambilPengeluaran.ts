@@ -22,7 +22,7 @@ export async function ambilPengeluaranMentah(
   const buildExpensesQuery = () => {
     let q = supabase
       .from('expenses')
-      .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
+      .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name), created_by, outlet_staff:created_by(name)')
       .eq('type', 'expense')
       .gte('expense_date', filter.from)
       .lte('expense_date', filter.to)
@@ -45,7 +45,7 @@ export async function ambilPengeluaranMentah(
   const buildPettyCashQuery = () => {
     let q = supabase
       .from('petty_cash_expenses')
-      .select('id, outlet_id, category, amount, description, expense_date, receipt_url, type, outlets(name)')
+      .select('id, outlet_id, category, amount, description, expense_date, receipt_url, type, outlets(name), created_by, outlet_staff:created_by(name)')
       .neq('outlet_id', TEST_OUTLET_ID)
       .is('deleted_at', null)
       .in('category', [

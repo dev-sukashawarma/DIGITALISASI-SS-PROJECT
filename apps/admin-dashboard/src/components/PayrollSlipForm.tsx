@@ -5,7 +5,7 @@ import { Button } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'
 import type { PayrollRecord } from '@/lib/types'
 import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
-import { Clock, DollarSign, Wallet, ShieldAlert, Sparkles, Phone, Navigation, RefreshCw, Zap } from 'lucide-react'
+import { Clock, DollarSign, Wallet, ShieldAlert, Sparkles, Phone, Navigation, RefreshCw, Zap, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 interface PayrollSlipFormProps {
@@ -182,20 +182,23 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
   // Calculations
   const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
 
-  const totalEarnings =
-    Number(basicSalary) +
-    Number(overtime) +
+  const totalAllowances =
     Number(mealAllowance) +
     Number(transportAllowance) +
     Number(communicationAllowance) +
-    Number(salesBonus) +
     Number(positionAllowance)
+
+  const routineEarnings = Number(basicSalary) + totalAllowances
 
   const totalDeductions =
     Number(cashAdvanceDeduction) +
     Number(bpjsDeduction) +
     Number(lateDeduction) +
     Number(otherDeduction)
+
+  const routineThp = Math.max(0, routineEarnings - totalDeductions)
+  const totalBonus = Number(overtime) + Number(salesBonus)
+  const totalEarnings = routineEarnings + totalBonus
   const takeHomePay = Math.max(0, totalEarnings - totalDeductions)
 
   const handleApplyLiveAttendance = () => {
@@ -256,41 +259,11 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           </p>
         </div>
 
-        {/* Section 1: Komponen Penerimaan (Take Home Pay) */}
+        {/* Section 1: Komponen 1 & 2 - Gaji Pokok & Tunjangan Rutin */}
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-800 tracking-wider bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
             <DollarSign size={14} className="text-emerald-600" />
-            <span>1. Komponen Penerimaan (Earnings)</span>
-          </div>
-
-          {/* Automatic Sales Bonus Indicator Banner */}
-          <div className="p-2.5 rounded-xl bg-orange-50/80 border border-orange-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <Sparkles size={15} className="text-suka-orange shrink-0" />
-              <div>
-                <span className="font-bold text-orange-950">Koneksi Bonus Penjualan (POS):</span>{' '}
-                {fetchingBonus ? (
-                  <span className="text-suka-gray-500">Mengecek bonus porsi terjual...</span>
-                ) : liveBonusInfo && liveBonusInfo.amount > 0 ? (
-                  <span className="text-emerald-800 font-bold">
-                    Terhitung {formatRupiah(liveBonusInfo.amount)} &bull; {liveBonusInfo.description}
-                  </span>
-                ) : (
-                  <span className="text-suka-gray-500 font-medium">Rp 0 / Belum ada target tercapai</span>
-                )}
-              </div>
-            </div>
-
-            {liveBonusInfo && liveBonusInfo.amount > 0 && liveBonusInfo.amount !== salesBonus && (
-              <button
-                type="button"
-                onClick={() => setSalesBonus(liveBonusInfo.amount)}
-                className="px-2 py-1 text-[11px] font-bold bg-white text-orange-900 hover:bg-orange-100 rounded-lg border border-orange-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-              >
-                <RefreshCw size={10} />
-                <span>Terapkan Otomatis ({formatRupiah(liveBonusInfo.amount)})</span>
-              </button>
-            )}
+            <span>1. Komponen 1 & 2: Gaji Pokok & Tunjangan Rutin</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -303,22 +276,6 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
                 onChange={(e) => setBasicSalary(Number(e.target.value))}
                 min={0}
                 required
-              />
-            </div>
-
-            <div>
-              <label className={labelClass}>
-                <span className="flex items-center gap-1">
-                  <Clock size={12} className="text-emerald-600" />
-                  <span>Overtime / Lembur (Rp)</span>
-                </span>
-              </label>
-              <input
-                type="number"
-                className={inputClass}
-                value={overtime}
-                onChange={(e) => setOvertime(Number(e.target.value))}
-                min={0}
               />
             </div>
 
@@ -365,23 +322,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
               />
             </div>
 
-            <div>
-              <label className={labelClass}>
-                <span className="flex items-center gap-1">
-                  <Sparkles size={12} className="text-amber-500" />
-                  <span>Sales Bonus / Bonus Target (Rp)</span>
-                </span>
-              </label>
-              <input
-                type="number"
-                className={inputClass}
-                value={salesBonus}
-                onChange={(e) => setSalesBonus(Number(e.target.value))}
-                min={0}
-              />
-            </div>
-
-            <div>
+            <div className="sm:col-span-2">
               <label className={labelClass}>Tunjangan Jabatan (Rp)</label>
               <input
                 type="number"
@@ -394,17 +335,17 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           </div>
 
           <div className="flex justify-between items-center p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200 text-xs">
-            <span className="font-bold text-emerald-900">Subtotal Penerimaan:</span>
-            <span className="font-mono font-black text-emerald-700">{formatRupiah(totalEarnings)}</span>
+            <span className="font-bold text-emerald-900">Subtotal Gaji Pokok & Tunjangan:</span>
+            <span className="font-mono font-black text-emerald-700">{formatRupiah(routineEarnings)}</span>
           </div>
         </div>
 
-        {/* Section 2: Komponen Potongan & Otomatisasi Absensi */}
+        {/* Section 2: Komponen 3 - Potongan (Deductions) */}
         <div className="space-y-3">
           <div className="flex items-center justify-between bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
             <div className="flex items-center gap-1.5 text-xs font-black uppercase text-red-800 tracking-wider">
               <ShieldAlert size={14} className="text-red-600" />
-              <span>2. Komponen Potongan (Deductions)</span>
+              <span>2. Komponen 3: Potongan (Deductions)</span>
             </div>
             <span className="text-[10px] font-bold text-red-700 bg-white/80 px-2 py-0.5 rounded-full border border-red-200">
               Denda Telat: Rp 1.000 / menit
@@ -508,7 +449,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
               />
             </div>
 
-            <div>
+            <div className="sm:col-span-2">
               <label className={labelClass}>Keterangan Potongan Lain</label>
               <input
                 type="text"
@@ -526,13 +467,111 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           </div>
         </div>
 
-        {/* Section 3: Take Home Pay Summary Banner */}
+        {/* Section 3: THP Rutin (3 Pilar Utama) */}
+        <div className="p-3.5 rounded-2xl bg-amber-50/70 border-2 border-amber-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shadow-xs">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-amber-900 tracking-wider">
+              <CheckCircle2 size={15} className="text-amber-600" />
+              <span>Take Home Pay Rutin 1 Bulan (3 Pilar)</span>
+            </div>
+            <p className="text-[11px] text-amber-800/80 font-medium mt-0.5">
+              Gapok ({formatRupiah(basicSalary)}) + Tunjangan ({formatRupiah(totalAllowances)}) - Potongan ({formatRupiah(totalDeductions)})
+            </p>
+          </div>
+          <span className="text-lg font-black text-amber-950 font-mono self-end sm:self-center">
+            {formatRupiah(routineThp)}
+          </span>
+        </div>
+
+        {/* Section 4: Komponen Tambahan / Variabel - Bonus Penjualan & Lembur */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-200">
+            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-orange-900 tracking-wider">
+              <Sparkles size={14} className="text-suka-orange" />
+              <span>Bonus & Insentif Variabel (Di Luar THP Rutin)</span>
+            </div>
+            <span className="text-[10px] font-bold text-orange-800 bg-white/80 px-2 py-0.5 rounded-full border border-orange-200">
+              Pencapaian Omzet & Overtime
+            </span>
+          </div>
+
+          {/* Automatic Sales Bonus Indicator Banner */}
+          <div className="p-2.5 rounded-xl bg-orange-50/80 border border-orange-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles size={15} className="text-suka-orange shrink-0" />
+              <div>
+                <span className="font-bold text-orange-950">Koneksi Bonus Penjualan (POS):</span>{' '}
+                {fetchingBonus ? (
+                  <span className="text-suka-gray-500">Mengecek bonus porsi terjual...</span>
+                ) : liveBonusInfo && liveBonusInfo.amount > 0 ? (
+                  <span className="text-emerald-800 font-bold">
+                    Terhitung {formatRupiah(liveBonusInfo.amount)} &bull; {liveBonusInfo.description}
+                  </span>
+                ) : (
+                  <span className="text-suka-gray-500 font-medium">Rp 0 / Belum ada target tercapai</span>
+                )}
+              </div>
+            </div>
+
+            {liveBonusInfo && liveBonusInfo.amount > 0 && liveBonusInfo.amount !== salesBonus && (
+              <button
+                type="button"
+                onClick={() => setSalesBonus(liveBonusInfo.amount)}
+                className="px-2 py-1 text-[11px] font-bold bg-white text-orange-900 hover:bg-orange-100 rounded-lg border border-orange-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+              >
+                <RefreshCw size={10} />
+                <span>Terapkan Otomatis ({formatRupiah(liveBonusInfo.amount)})</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <Sparkles size={12} className="text-amber-500" />
+                  <span>Sales Bonus / Bonus Target (Rp)</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={salesBonus}
+                onChange={(e) => setSalesBonus(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <Clock size={12} className="text-emerald-600" />
+                  <span>Overtime / Lembur (Rp)</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={overtime}
+                onChange={(e) => setOvertime(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center p-2.5 rounded-xl bg-orange-50/50 border border-orange-200 text-xs">
+            <span className="font-bold text-orange-950">Subtotal Bonus & Insentif:</span>
+            <span className="font-mono font-black text-suka-orange">{formatRupiah(totalBonus)}</span>
+          </div>
+        </div>
+
+        {/* Section 5: Total Ditransfer Summary Banner */}
         <div className="p-4 rounded-2xl bg-[#FDF9F3] border-2 border-suka-orange/40 flex justify-between items-center shadow-xs">
           <div>
             <span className="text-[11px] font-black uppercase tracking-wider text-suka-gray-500 block">
-              Gaji Bersih Diterima Staf
+              Gaji Bersih Diterima Staf (THP Rutin + Bonus/Lembur)
             </span>
-            <span className="text-base font-black text-suka-brown">TOTAL TAKE HOME PAY (THP)</span>
+            <span className="text-base font-black text-suka-brown">TOTAL DITRANSFER</span>
           </div>
           <span className="text-xl font-black text-suka-orange font-mono">
             {formatRupiah(takeHomePay)}

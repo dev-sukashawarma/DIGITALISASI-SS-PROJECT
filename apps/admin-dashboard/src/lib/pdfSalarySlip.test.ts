@@ -38,6 +38,8 @@ describe('pdfSalarySlip — buildSalarySlipWhatsAppMessage', () => {
     expect(msg).toContain(`• Potongan Kasbon: -${rupiah(200000)}`)
     expect(msg).toContain(`• Potongan BPJS: -${rupiah(50000)}`)
     expect(msg).toContain(`• Denda Keterlambatan (10 menit @ Rp1.000): -${rupiah(10000)}`)
+    expect(msg).toContain(`*💵 THP Rutin (3 Pilar): ${rupiah(2840000)}*`)
+    expect(msg).toContain(`*🎯 Total Bonus & Lembur: +${rupiah(450000)}*`)
     expect(msg).toContain(`💰 *TAKE HOME PAY: ${rupiah(3290000)}*`)
   })
 })

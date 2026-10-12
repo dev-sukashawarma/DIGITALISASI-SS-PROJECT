@@ -86,26 +86,17 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
             </span>
           </div>
 
-          {/* 1. Earnings Breakdown */}
+          {/* 1. Gaji Pokok & Tunjangan Rutin */}
           <div className="space-y-1.5">
             <div className="font-bold text-suka-brown text-[11px] uppercase tracking-wider flex items-center gap-1">
               <DollarSign size={13} className="text-suka-orange" />
-              <span>Komponen Penerimaan (Earnings)</span>
-            </div>
-            
-            <div className="flex justify-between text-gray-700">
-              <span>Gaji Pokok (Gapok)</span>
-              <span className="font-mono font-semibold">{formatRupiah(b.basicSalary)}</span>
+              <span>Gaji Pokok &amp; Tunjangan Rutin</span>
             </div>
 
-            {b.overtime > 0 && (
-              <div className="flex justify-between text-emerald-700 font-medium">
-                <span className="flex items-center gap-1">
-                  <Clock size={11} /> Lembur (Overtime)
-                </span>
-                <span className="font-mono font-bold">+{formatRupiah(b.overtime)}</span>
-              </div>
-            )}
+            <div className="flex justify-between text-gray-700">
+              <span className="font-medium">Gaji Pokok (Gapok)</span>
+              <span className="font-mono font-semibold">{formatRupiah(b.basicSalary)}</span>
+            </div>
 
             {b.mealAllowance > 0 && (
               <div className="flex justify-between text-gray-700">
@@ -132,15 +123,6 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
               </div>
             )}
 
-            {b.salesBonus > 0 && (
-              <div className="flex justify-between text-amber-700 font-bold">
-                <span className="flex items-center gap-1">
-                  <Sparkles size={11} /> Sales Bonus (Target Omset)
-                </span>
-                <span className="font-mono font-bold">+{formatRupiah(b.salesBonus)}</span>
-              </div>
-            )}
-
             {b.positionAllowance > 0 && (
               <div className="flex justify-between text-gray-700">
                 <span>Tunjangan Jabatan</span>
@@ -149,8 +131,8 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
             )}
 
             <div className="flex justify-between font-bold text-suka-ink pt-1.5 border-t border-stone-200">
-              <span>Total Penerimaan</span>
-              <span className="font-mono text-emerald-800">{formatRupiah(b.totalEarnings)}</span>
+              <span>Subtotal Gaji Rutin</span>
+              <span className="font-mono text-emerald-800">{formatRupiah(b.routineEarnings)}</span>
             </div>
           </div>
 
@@ -208,16 +190,54 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
             </div>
           </div>
 
-          {/* 3. Take Home Pay Banner */}
-          <div className="p-3.5 bg-white rounded-2xl border-2 border-suka-orange/40 flex justify-between items-center shadow-xs">
+          {/* 3. Take Home Pay Rutin (3 Komponen) */}
+          <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-300 flex justify-between items-center shadow-xs">
             <div>
-              <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider block">Gaji Bersih Diterima</span>
-              <span className="font-black text-suka-brown text-sm">TOTAL TAKE HOME PAY</span>
+              <span className="text-[10px] text-amber-800 font-black uppercase tracking-wider block">3 Komponen: Gapok + Tunjangan - Potongan</span>
+              <span className="font-black text-suka-brown text-xs sm:text-sm">TAKE HOME PAY (THP RUTIN)</span>
             </div>
-            <span className="text-lg font-black text-suka-orange font-mono">
-              {formatRupiah(b.takeHomePay)}
+            <span className="text-base sm:text-lg font-black text-suka-orange font-mono">
+              {formatRupiah(b.routineThp)}
             </span>
           </div>
+
+          {/* 4. Bonus & Insentif Variabel (Jika ada) */}
+          {b.totalBonus > 0 && (
+            <div className="space-y-1.5 pt-2 border-t border-dashed border-stone-300">
+              <div className="font-bold text-emerald-800 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                <Sparkles size={13} className="text-emerald-600" />
+                <span>Bonus &amp; Insentif Variabel</span>
+              </div>
+
+              {b.salesBonus > 0 && (
+                <div className="flex justify-between text-emerald-700 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Sparkles size={11} /> Sales Bonus (Target Omset POS)
+                  </span>
+                  <span className="font-mono font-bold">+{formatRupiah(b.salesBonus)}</span>
+                </div>
+              )}
+
+              {b.overtime > 0 && (
+                <div className="flex justify-between text-emerald-700 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Clock size={11} /> Lembur (Overtime)
+                  </span>
+                  <span className="font-mono font-bold">+{formatRupiah(b.overtime)}</span>
+                </div>
+              )}
+
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-300 flex justify-between items-center shadow-xs mt-1">
+                <div>
+                  <span className="text-[10px] text-emerald-800 font-black uppercase tracking-wider block">THP Rutin + Bonus</span>
+                  <span className="font-black text-emerald-950 text-xs sm:text-sm">TOTAL DITRANSFER</span>
+                </div>
+                <span className="text-lg font-black text-emerald-700 font-mono">
+                  {formatRupiah(b.takeHomePay)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

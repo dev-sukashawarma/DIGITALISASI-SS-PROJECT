@@ -15,6 +15,8 @@ import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riway
 import { fetchHppRows, type HppRow } from '@/lib/hpp/fetchHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
+import { barisPayrollDariHr, gantiPayrollDenganHr, PAYROLL_HR_DASHBOARD_MITRA_SEJAK } from '@/lib/opexDariHr'
+import { getHRPayrollSummaryAction } from './hrPayroll'
 import {
   calculateProratedExpenses,
   getPeriodsInRange,
@@ -956,11 +958,21 @@ async function hitungPnlMitra(
     operationalOutletIds,
   })
 
+  // Gaji & bonus outlet: sumber kebenaran OPEX adalah Buku Kas (ringkasan
+  // payroll HR), sama dengan Laba Rugi Mitra milik owner — supaya mitra melihat
+  // angka yang sama. Berlaku mulai Oktober 2026; bila HR belum punya slip untuk
+  // rentang ini, angka mesin prorata tetap dipakai.
+  let barisOpex = prorataResult.rows
+  if (filter.from >= PAYROLL_HR_DASHBOARD_MITRA_SEJAK) {
+    const hrRingkasan = await getHRPayrollSummaryAction({ from: filter.from, to: filter.to, outletId: 'ALL_OUTLETS' })
+    barisOpex = gantiPayrollDenganHr(barisOpex, barisPayrollDariHr({ hr: hrRingkasan, from: filter.from, to: filter.to }))
+  }
+
   const outletOpexMap = new Map<string, number>()
   let totalPettyCash = 0
   let totalMonthly = 0
 
-  for (const r of prorataResult.rows) {
+  for (const r of barisOpex) {
     if (!r.outlet_id || !targetOutletIds.includes(r.outlet_id)) continue
 
     const cutoff = outletCutoffMap.get(r.outlet_id)

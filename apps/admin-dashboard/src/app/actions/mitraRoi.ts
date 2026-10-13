@@ -6,6 +6,8 @@ import { fetchAllPages } from '@/lib/fetchAllPages'
 import { adalahJointExpenseDisembunyikan } from '@/lib/pengeluaran/jointExpense'
 import { getMitraClosingMonth } from './mitraPnlClosingData'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
+import { barisPayrollDariHr, gantiPayrollDenganHr, PAYROLL_HR_DASHBOARD_MITRA_SEJAK } from '@/lib/opexDariHr'
+import { getHRPayrollSummaryAction } from './hrPayroll'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchHppRows } from '@/lib/hpp/fetchHpp'
 import { calculateProratedExpenses } from '@/lib/opexProrata'
@@ -432,7 +434,15 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       operationalOutletIds
     })
 
-    for (const r of prorata.rows) {
+    // Gaji & bonus dari ringkasan payroll HR (sumber Buku Kas) mulai Oktober 2026,
+    // sama dengan Laba Rugi Mitra — lihat lib/opexDariHr.ts.
+    let barisOpex = prorata.rows
+    if (from >= PAYROLL_HR_DASHBOARD_MITRA_SEJAK) {
+      const hrRingkasan = await getHRPayrollSummaryAction({ from, to, outletId: 'ALL_OUTLETS' })
+      barisOpex = gantiPayrollDenganHr(barisOpex, barisPayrollDariHr({ hr: hrRingkasan, from, to }))
+    }
+
+    for (const r of barisOpex) {
       if (r.scope === 'outlet' && r.outlet_id && mitraOutletIds.includes(r.outlet_id)) {
         const cutoff = invMap[r.outlet_id]?.tanggal_mulai
         if (cutoff && r.expense_date < cutoff) continue

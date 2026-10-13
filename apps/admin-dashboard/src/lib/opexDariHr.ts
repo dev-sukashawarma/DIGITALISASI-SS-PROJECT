@@ -16,6 +16,13 @@ import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
 import { distributeEqualSplit } from '@/lib/opexProrata'
 
+/**
+ * Dashboard mitra memakai sumber gaji & bonus ini mulai Oktober 2026. Agustus
+ * dan September 2026 sudah closing dengan angka sendiri (mitraPnlClosingData),
+ * jadi rentang yang dimulai sebelum tanggal ini tetap memakai hitungan lama.
+ */
+export const PAYROLL_HR_DASHBOARD_MITRA_SEJAK = '2026-10-01'
+
 /** Kategori baris yang dibuat mesin prorata dan digantikan oleh baris HR. */
 export const KATEGORI_PAYROLL_OUTLET = ['gaji_crew_outlet', 'bonus_crew', 'bonus_area_manager', 'bonus_regional_manager'] as const
 

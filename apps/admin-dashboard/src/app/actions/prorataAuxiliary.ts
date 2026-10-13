@@ -1,5 +1,6 @@
 'use server'
 
+import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import { createServiceClient } from '@/lib/supabase/server'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 import { isExcludedOutlet } from '@/lib/outletFilters'
@@ -53,6 +54,8 @@ export async function getProrataAuxiliaryDataAction({
   from: string
   to: string
 }): Promise<ProrataAuxiliaryData> {
+  // Memuat slip gaji & gaji master per orang — hanya untuk peran keuangan.
+  await requireRole(PERAN_KEUANGAN)
   const supabase = createServiceClient()
 
   const overlap = calculateMonthOverlap(from, to)

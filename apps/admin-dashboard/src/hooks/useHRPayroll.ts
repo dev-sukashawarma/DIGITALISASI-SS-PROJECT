@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { getHRPayrollSummaryAction, type HRPayrollSummary } from '@/app/actions/hrPayroll'
+import { getHRPayrollSummaryAction } from '@/app/actions/hrPayroll'
+import type { HRPayrollSummary } from '@/lib/server/ringkasanPayrollHr'
 
 export type { HRPayrollSummary }
 

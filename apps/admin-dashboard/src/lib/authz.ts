@@ -1,5 +1,5 @@
 import { cache } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getVerifiedUserId } from '@suka/auth'
 
 /**
@@ -39,6 +39,44 @@ export async function requireRole(
   }
 
   return { userId, role: staff.role }
+}
+
+/**
+ * Peran yang diberi menu keuangan di admin-dashboard (Buku Kas, Laba Rugi,
+ * Analisis Pengeluaran, Rekap Bulanan). `developer` otomatis lolos requireRole.
+ */
+export const PERAN_KEUANGAN = ['owner', 'admin']
+
+/**
+ * Saring daftar outlet mitra menurut hak pemanggil: owner/admin/developer boleh
+ * semua; mitra hanya outlet di `mitra_profiles.outlet_ids` miliknya; peran lain
+ * ditolak. Dipakai Server Action dashboard mitra yang menerima daftar outlet
+ * dari browser — daftar itu tidak boleh dipercaya begitu saja.
+ */
+export async function batasiOutletMitra(outletIds: string[]): Promise<string[]> {
+  const supabase = await createClient()
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) throw new Error('Unauthorized: sesi tidak ditemukan')
+
+  const service = createServiceClient()
+  const { data: staff, error } = await service
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', userId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!staff || staff.status !== 'active') throw new Error('Forbidden: akun tidak aktif')
+
+  if (['owner', 'admin', 'developer'].includes(staff.role)) return outletIds
+  if (staff.role !== 'mitra') throw new Error('Forbidden: aksi ini hanya untuk owner/admin/mitra')
+
+  const { data: profil } = await service
+    .from('mitra_profiles')
+    .select('outlet_ids')
+    .eq('user_id', userId)
+    .maybeSingle()
+  const milik = new Set<string>((profil?.outlet_ids as string[] | null) ?? [])
+  return outletIds.filter(id => milik.has(id))
 }
 
 /**

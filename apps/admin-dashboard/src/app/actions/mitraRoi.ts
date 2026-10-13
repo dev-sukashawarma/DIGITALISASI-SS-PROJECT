@@ -7,7 +7,8 @@ import { adalahJointExpenseDisembunyikan } from '@/lib/pengeluaran/jointExpense'
 import { getMitraClosingMonth } from './mitraPnlClosingData'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import { barisPayrollDariHr, gantiPayrollDenganHr, PAYROLL_HR_DASHBOARD_MITRA_SEJAK } from '@/lib/opexDariHr'
-import { getHRPayrollSummaryAction } from './hrPayroll'
+import { hitungRingkasanPayrollHr } from '@/lib/server/ringkasanPayrollHr'
+import { batasiOutletMitra } from '@/lib/authz'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchHppRows } from '@/lib/hpp/fetchHpp'
 import { calculateProratedExpenses } from '@/lib/opexProrata'
@@ -144,7 +145,9 @@ export interface MitraRealtimeBepItem {
   monthlyBreakdown: MitraMonthlyProfitItem[]
 }
 
-export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Promise<Record<string, MitraRealtimeBepItem>> {
+export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): Promise<Record<string, MitraRealtimeBepItem>> {
+  // Daftar outlet datang dari browser: mitra hanya boleh melihat outlet miliknya.
+  const mitraOutletIds = await batasiOutletMitra(outletIdsDiminta)
   if (mitraOutletIds.length === 0) return {}
   const supabase = createServiceClient()
 
@@ -438,7 +441,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     // sama dengan Laba Rugi Mitra — lihat lib/opexDariHr.ts.
     let barisOpex = prorata.rows
     if (from >= PAYROLL_HR_DASHBOARD_MITRA_SEJAK) {
-      const hrRingkasan = await getHRPayrollSummaryAction({ from, to, outletId: 'ALL_OUTLETS' })
+      const hrRingkasan = await hitungRingkasanPayrollHr({ from, to, outletId: 'ALL_OUTLETS' })
       barisOpex = gantiPayrollDenganHr(barisOpex, barisPayrollDariHr({ hr: hrRingkasan, from, to }))
     }
 

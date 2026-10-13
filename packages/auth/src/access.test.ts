@@ -19,10 +19,11 @@ describe('access matrix', () => {
     expect(isSuperuserRole('owner')).toBe(false)
   })
 
-  it('admin_hr memiliki akses ke absensi, admin-dashboard, HR, stok, marcom', () => {
+  it('admin_hr memiliki akses ke absensi, HR, stok, marcom — tidak ke admin-dashboard', () => {
     expect(hasAppAccess('admin_hr', 'stok')).toBe(true)
     expect(hasAppAccess('admin_hr', 'absensi')).toBe(true)
-    expect(hasAppAccess('admin_hr', 'admin-dashboard')).toBe(true)
+    expect(hasAppAccess('admin_hr', 'admin-dashboard')).toBe(false)
+    expect(accessibleApps('admin_hr')).not.toContain('admin-dashboard')
     expect(hasAppAccess('admin_hr', 'HR')).toBe(true)
     expect(hasAppAccess('admin_hr', 'marcom')).toBe(true)
     expect(accessibleApps('admin_hr')).toContain('stok')

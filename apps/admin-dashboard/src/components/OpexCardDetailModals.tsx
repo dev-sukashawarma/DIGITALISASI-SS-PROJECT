@@ -19,7 +19,7 @@ import {
   Calculator
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
-import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
+import type { HRPayrollSummary } from '@/lib/server/ringkasanPayrollHr'
 import type { ProrataInfo } from '@/lib/opexProrata'
 
 function formatBackupDates(dates: string[]): string {

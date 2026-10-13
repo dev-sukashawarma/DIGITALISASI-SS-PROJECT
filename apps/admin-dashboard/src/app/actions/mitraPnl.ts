@@ -16,7 +16,7 @@ import { fetchHppRows, type HppRow } from '@/lib/hpp/fetchHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import { barisPayrollDariHr, gantiPayrollDenganHr, PAYROLL_HR_DASHBOARD_MITRA_SEJAK } from '@/lib/opexDariHr'
-import { getHRPayrollSummaryAction } from './hrPayroll'
+import { hitungRingkasanPayrollHr } from '@/lib/server/ringkasanPayrollHr'
 import {
   calculateProratedExpenses,
   getPeriodsInRange,
@@ -964,7 +964,7 @@ async function hitungPnlMitra(
   // rentang ini, angka mesin prorata tetap dipakai.
   let barisOpex = prorataResult.rows
   if (filter.from >= PAYROLL_HR_DASHBOARD_MITRA_SEJAK) {
-    const hrRingkasan = await getHRPayrollSummaryAction({ from: filter.from, to: filter.to, outletId: 'ALL_OUTLETS' })
+    const hrRingkasan = await hitungRingkasanPayrollHr({ from: filter.from, to: filter.to, outletId: 'ALL_OUTLETS' })
     barisOpex = gantiPayrollDenganHr(barisOpex, barisPayrollDariHr({ hr: hrRingkasan, from: filter.from, to: filter.to }))
   }
 

@@ -12,7 +12,7 @@
  */
 
 import type { ExpenseRow } from '@/lib/expenseRow'
-import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
+import type { HRPayrollSummary } from '@/lib/server/ringkasanPayrollHr'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
 import { distributeEqualSplit } from '@/lib/opexProrata'
 

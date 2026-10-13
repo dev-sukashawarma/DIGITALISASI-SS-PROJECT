@@ -1,5 +1,6 @@
 'use server'
 
+import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import { createClient } from '@supabase/supabase-js'
 import { adalahJointExpenseDisembunyikan, PESAN_JOINT_EXPENSE_DITOLAK } from '@/lib/pengeluaran/jointExpense'
 
@@ -7,6 +8,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function importExpensesAction(rows: any[]) {
+  await requireRole(PERAN_KEUANGAN)
   if ((rows ?? []).some(adalahJointExpenseDisembunyikan)) {
     throw new Error(PESAN_JOINT_EXPENSE_DITOLAK)
   }

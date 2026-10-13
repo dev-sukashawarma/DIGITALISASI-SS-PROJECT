@@ -1,5 +1,6 @@
 'use server'
 
+import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import { createServiceClient } from '@/lib/supabase/server'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { getMitraAugustClosing } from './mitraPnlClosingData'
@@ -35,6 +36,8 @@ export interface MitraInvestmentExtended {
  * menggunakan service client agar bypass batasan RLS PostgREST client browser.
  */
 export async function getMitraInvestmentsAction(): Promise<Record<string, MitraInvestmentExtended>> {
+  // Investasi & riwayat transfer SEMUA mitra — hanya untuk peran keuangan.
+  await requireRole(PERAN_KEUANGAN)
   const supabase = createServiceClient()
 
   const [invRes, transfers] = await Promise.all([

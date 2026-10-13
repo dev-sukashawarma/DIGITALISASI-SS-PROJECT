@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import dotenv from 'dotenv'
 dotenv.config({ path: '.env.local' })
+// Tes ini tidak punya sesi login; penjaga outlet diganti dengan hak owner (semua outlet).
+vi.mock('@/lib/authz', () => ({ batasiOutletMitra: async (ids: string[]) => ids }))
 import { getMitraRealtimeBepBreakdown } from '@/app/actions/mitraRoi'
 
 // Tes integrasi: membaca database sungguhan lewat service role. Hanya jalan bila

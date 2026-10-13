@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
-import { requireRole } from '@/lib/authz'
+import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
 import { deserializeVoucherFromRow, serializeVoucherToDescription } from '@/lib/officeVoucher'
 import { ambilPengeluaranMentah } from '@/lib/pengeluaran/ambilPengeluaran'
@@ -60,6 +60,7 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
 
 export async function uploadExpenseInvoiceAction(formData: FormData) {
   try {
+    await requireRole(PERAN_KEUANGAN)
     const file = formData.get('file') as File | null
     if (!file || file.size === 0) {
       return { success: false, error: 'File tidak ditemukan' }
@@ -110,6 +111,7 @@ export async function createSingleExpenseAction(input: {
   receipt_url?: string | null
 }) {
   try {
+    await requireRole(PERAN_KEUANGAN)
     if (adalahJointExpenseDisembunyikan({ category: input.category, expense_date: input.expenseDate })) {
       return { success: false, error: PESAN_JOINT_EXPENSE_DITOLAK }
     }
@@ -191,6 +193,7 @@ export async function createSingleExpenseAction(input: {
 
 export async function getExpensesAction(filter: { from: string; to: string; outletId: string; source?: string }) {
   try {
+    await requireRole(PERAN_KEUANGAN)
     const r = await ambilPengeluaranMentah(getServiceSupabase(), filter)
     return { success: true, expenses: r.expenses, pettyCashExpenses: r.pettyCashExpenses }
   } catch (err: any) {
@@ -205,6 +208,7 @@ export async function getExpensesAction(filter: { from: string; to: string; outl
 }
 
 export async function deleteTransactionAction(params: { id: string; isTopup?: boolean }) {
+  await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
 
   if (params.isTopup || params.id.startsWith('topup-')) {
@@ -247,6 +251,7 @@ export async function updateSingleExpenseAction(input: {
   division?: string | null
 }) {
   try {
+    await requireRole(PERAN_KEUANGAN)
     if (adalahJointExpenseDisembunyikan({ category: input.category, expense_date: input.expenseDate })) {
       return { success: false, error: PESAN_JOINT_EXPENSE_DITOLAK }
     }

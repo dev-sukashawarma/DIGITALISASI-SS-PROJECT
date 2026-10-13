@@ -175,11 +175,14 @@ def kirim_ke_telegram(token: str, chat_id: str, pesan: str) -> bool:
                     print(f"⚠️ Telegram API mengembalikan error: {hasil}", file=sys.stderr)
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
-            print(f"⚠️ HTTP {e.code} Telegram API: {err_body}", file=sys.stderr)
+            pesan_extra = ""
+            if "chat not found" in err_body:
+                pesan_extra = f" (User {chat_id} belum pernah klik START pada bot)"
+            print(f"⚠️ HTTP {e.code} Telegram API [Chat {chat_id}]: {err_body}{pesan_extra}", file=sys.stderr)
             if e.code in [400, 401, 403]:
                 return False
         except Exception as e:
-            print(f"⚠️ Percobaan {percobaan}/{maks_coba} gagal koneksi ke Telegram: {e}", file=sys.stderr)
+            print(f"⚠️ Percobaan {percobaan}/{maks_coba} gagal koneksi ke Telegram [Chat {chat_id}]: {e}", file=sys.stderr)
 
         if percobaan < maks_coba:
             time.sleep(2 * percobaan)
@@ -218,20 +221,25 @@ def ambil_daftar_target_chat(konfig: dict, chat_id_override: str = None) -> list
 
     return targets
 
-def kirim_ke_semua_target(token: str, chat_ids_str: str, pesan: str) -> bool:
-    """Mengirim pesan ke satu atau beberapa target chat_id (dipisah tanda koma)."""
+def kirim_ke_semua_target(token: str, chat_ids_str: str, pesan: str) -> tuple:
+    """
+    Mengirim pesan ke satu atau beberapa target chat_id (dipisah tanda koma).
+    Mengembalikan tuple: (list_chat_sukses, list_chat_gagal).
+    """
     if not chat_ids_str:
-        return False
+        return ([], [])
     targets = [c.strip() for c in str(chat_ids_str).split(",") if c.strip()]
-    if not targets:
-        return False
+    sukses = []
+    gagal = []
 
-    semua_sukses = True
     for cid in targets:
         ok = kirim_ke_telegram(token, cid, pesan)
-        if not ok:
-            semua_sukses = False
-    return semua_sukses
+        if ok:
+            sukses.append(cid)
+        else:
+            gagal.append(cid)
+
+    return (sukses, gagal)
 
 # ==============================================================================
 # FORMATTER SETIAP JENIS LAPORAN
@@ -1110,12 +1118,16 @@ def main():
                 print("--------------------------------\n")
                 sukses_count += 1
             else:
-                ok = kirim_ke_semua_target(token, chat_id, pesan)
-                if ok:
+                sukses_ids, gagal_ids = kirim_ke_semua_target(token, chat_id, pesan)
+                now_jam = datetime.datetime.now().strftime('%H:%M:%S')
+                if sukses_ids:
                     sukses_count += 1
-                    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ✅ ({nomor}) Berhasil dikirim ke [{chat_id}]: {label}")
+                    detail = f"Terkirim: {', '.join(sukses_ids)}"
+                    if gagal_ids:
+                        detail += f" | ⚠️ Belum /start: {', '.join(gagal_ids)}"
+                    print(f"[{now_jam}] ✅ ({nomor}) Berhasil: {label} [{detail}]")
                 else:
-                    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ❌ ({nomor}) Gagal dikirim ke [{chat_id}]: {label}", file=sys.stderr)
+                    print(f"[{now_jam}] ❌ ({nomor}) Gagal dikirim ke [{chat_id}]: {label}", file=sys.stderr)
                 time.sleep(1.2)  # Delay jeda aman dari rate limit Telegram
 
         print(f"\n🎉 Selesai! {sukses_count} dari {len(DAFTAR_9_CRON)} laporan berhasil diproses.\n")
@@ -1137,10 +1149,13 @@ def main():
         print(f"[{now_str}] ❌ Token Telegram atau Chat ID belum dikonfigurasi.", file=sys.stderr)
         sys.exit(1)
 
-    sukses = kirim_ke_semua_target(token, chat_id, pesan)
-    if sukses:
+    sukses_ids, gagal_ids = kirim_ke_semua_target(token, chat_id, pesan)
+    if sukses_ids:
         if not args.silent:
-            print(f"[{now_str}] ✅ Laporan '{args.jenis}' berhasil dikirim ke Telegram ({chat_id})")
+            detail = f"Terkirim: {', '.join(sukses_ids)}"
+            if gagal_ids:
+                detail += f" | ⚠️ Belum /start: {', '.join(gagal_ids)}"
+            print(f"[{now_str}] ✅ Laporan '{args.jenis}' berhasil! [{detail}]")
         sys.exit(0)
     else:
         print(f"[{now_str}] ❌ Gagal mengirim laporan '{args.jenis}' ke Telegram ({chat_id})", file=sys.stderr)

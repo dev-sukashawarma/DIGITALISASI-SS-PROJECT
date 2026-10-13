@@ -926,9 +926,12 @@ def format_stok(data_stok_map_atau_ayam, data_sapi=None, data_sj=None) -> str:
         if data_sj is None and data_sapi is not None:
             data_sj = data_sapi
 
+    wib_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7)))
+    tgl_teks = wib_now.strftime("%a, %d %b %Y")
+
     teks = (
         "📦 *KONDISI STOK UTAMA & GUDANG*\n"
-        "🕒 *Pukul 04:02 WIB*\n"
+        f"🕒 *Pukul 04:02 WIB · {tgl_teks}*\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         "🏢 *STOK GUDANG PUSAT (HQ):*\n"
     )

@@ -1050,3 +1050,28 @@ describe('opexProrata - bulan berjalan: biaya pusat & baris yang tak diakrual', 
     expect(r.rows.find(x => x.id === 'prorata-internet-o1')?.amount).toBe(Math.round(310_000 * 13 / 31))
   })
 })
+
+describe('opexProrata - rentang menyeberang bulan lampau ke bulan berjalan', () => {
+  const now = new Date('2026-10-13T05:00:00Z')
+  const filter = { from: '2026-09-14', to: '2026-10-13', outletId: 'all', source: 'all' } as any
+
+  it('gaji bulan lampau tetap dihitung dan biaya riil bulan lampau tidak diprorata ulang', () => {
+    const r = calculateProratedExpenses({
+      filter, now,
+      outlets: [{ id: 'o1', name: 'EMPANG' }],
+      payrollRecords: [
+        { outlet_id: 'o1', total_salary: 9_000_000, bonus: 0, period_month: 9, period_year: 2026, role: 'crew' },
+        { outlet_id: 'o1', total_salary: 9_300_000, bonus: 0, period_month: 10, period_year: 2026, role: 'crew' },
+      ],
+      rawExpenses: [
+        { id: 'sewa-sep', outlet_id: 'o1', outlet_name: 'EMPANG', category: 'sewa_outlet' as any, scope: 'outlet', amount: 3_100_000, description: '', expense_date: '2026-09-20', period_month: '2026-09-01', source: 'monthly' },
+      ],
+    })
+    const gaji = r.rows.filter(x => x.category === 'gaji_crew_outlet')
+    // September 14–30 = 17/30 bulan, Oktober 1–13 = 13/31 bulan
+    expect(gaji.find(x => x.period_month === '2026-09-01')?.amount).toBe(Math.round(9_000_000 * 17 / 30))
+    expect(gaji.find(x => x.period_month === '2026-10-01')?.amount).toBe(Math.round(9_300_000 * 13 / 31))
+    expect(r.rows.find(x => x.id === 'sewa-sep')?.amount).toBe(3_100_000)
+    expect(r.categoryBreakdown.gaji_crew_outlet.nominalProrata).toBe(gaji.reduce((s, x) => s + x.amount, 0))
+  })
+})

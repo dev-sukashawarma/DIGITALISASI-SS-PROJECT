@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PayrollStatus, CashAdvanceStatus } from '@/lib/types'
-import { LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
+import { LATE_FEE_PER_MINUTE, dendaTelatBerlaku } from '@/lib/payrollBreakdown'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 import {
@@ -267,7 +267,7 @@ export function usePayrollMutations() {
         const allowancePosition = Number(fin?.allowance_position) || 0
         const staffSalesBonus = Number(fin?.sales_bonus) || 0
 
-        const lateMinutes = lateMinutesMap.get(s.id) || 0
+        const lateMinutes = dendaTelatBerlaku(s) ? (lateMinutesMap.get(s.id) || 0) : 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
         const kasbonActive = kasbonMap.get(s.id) || 0
         const kasbonDeduction = kasbonActive > 0 ? kasbonActive : (Number(fin?.deduction_kasbon) || 0)
@@ -344,6 +344,8 @@ export function usePayrollMutations() {
           *,
           outlet_staff:staff_id(
             id,
+            role,
+            outlet_id,
             onboarding_stage,
             sub_role,
             contract_type,
@@ -364,7 +366,8 @@ export function usePayrollMutations() {
       let updatedCount = 0
 
       for (const slip of slips) {
-        const lateMinutes = lateMinutesMap.get(slip.staff_id) || 0
+        const stafSlip = Array.isArray(slip.outlet_staff) ? slip.outlet_staff[0] : slip.outlet_staff
+        const lateMinutes = dendaTelatBerlaku(stafSlip as any) ? (lateMinutesMap.get(slip.staff_id) || 0) : 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
 
         // Check if there is kasbon in current record or note

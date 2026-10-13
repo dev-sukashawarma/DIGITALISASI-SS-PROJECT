@@ -45,6 +45,7 @@ import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { mitraOutletIds } from '@/lib/outletOwnership'
+import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
 import { useRole } from '@/components/layout/RoleContext'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
@@ -246,7 +247,10 @@ export default function InputPengeluaranPage() {
   const prorataBreakdown = useMemo(() => {
     if (!isGroupTarget) return prorataBreakdownSemua
     const info = calculateDateRangeProrata(startDate, endDate)
-    const jumlah = (...kategori: string[]) => prorataExpenseRows
+    // Sumber yang sama dengan Laba Rugi: baris HR per outlet (jumlahnya = kartu
+    // "Semua Outlet"), dengan angka mesin prorata sebagai cadangan bila HR kosong.
+    const barisGrup = gantiPayrollDenganHr(prorataExpenseRows, barisPayrollDariHr({ hr: hrPayrollData, from: startDate, to: endDate }))
+    const jumlah = (...kategori: string[]) => barisGrup
       .filter(r => r.scope === 'outlet' && kategori.includes(r.category) && inTargetGroup(r.outlet_id))
       .reduce((s, r) => s + r.amount, 0)
     const pos = (nominalProrata: number) => ({
@@ -261,7 +265,7 @@ export default function InputPengeluaranPage() {
       bonus_area_manager: pos(jumlah('bonus_area_manager')),
       bonus_regional_manager: pos(jumlah('bonus_regional_manager')),
     }
-  }, [isGroupTarget, prorataBreakdownSemua, prorataExpenseRows, inTargetGroup, startDate, endDate])
+  }, [isGroupTarget, prorataBreakdownSemua, prorataExpenseRows, hrPayrollData, inTargetGroup, startDate, endDate])
 
   // Manual refresh handler
   const handleRefresh = async () => {

@@ -309,6 +309,44 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
   }
 
   const isCurrentMonthProrata = monthInfo.isCurrentMonth && monthInfo.overlapDays > 0
+
+  // Rentang yang menyeberang dari bulan lampau ke bulan berjalan (mis. preset
+  // "7 Hari" di awal bulan, atau 14 Sep–13 Okt). Mode bulan berjalan di bawah
+  // hanya mengenal bulan berjalan: gaji & bonus bulan lampau hilang, dan baris
+  // sewa/internet bulan lampau ikut dikalikan rasio bulan berjalan. Jadi rentang
+  // dipecah di batas bulan dan tiap bagian dihitung dengan modenya sendiri.
+  if (isCurrentMonthProrata && filter.from < cur.firstDay) {
+    const batas = new Date(Date.parse(cur.firstDay + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10)
+    const tanggal = (r: ExpenseRow) => (r.expense_date || '').slice(0, 10)
+    const lampau = calculateProratedExpenses({
+      ...input,
+      filter: { ...filter, to: batas },
+      rawExpenses: rawExpenses.filter(r => tanggal(r) < cur.firstDay),
+    })
+    const berjalan = calculateProratedExpenses({
+      ...input,
+      filter: { ...filter, from: cur.firstDay },
+      rawExpenses: rawExpenses.filter(r => tanggal(r) >= cur.firstDay),
+    })
+    const gabung = (k: keyof ProratedExpenseResult['categoryBreakdown']) => ({
+      nominalBulanan: lampau.categoryBreakdown[k].nominalBulanan + berjalan.categoryBreakdown[k].nominalBulanan,
+      nominalProrata: lampau.categoryBreakdown[k].nominalProrata + berjalan.categoryBreakdown[k].nominalProrata,
+      source: berjalan.categoryBreakdown[k].source !== 'none' ? berjalan.categoryBreakdown[k].source : lampau.categoryBreakdown[k].source,
+    })
+    return {
+      rows: [...lampau.rows, ...berjalan.rows],
+      isProrated: true,
+      monthInfo: berjalan.monthInfo,
+      categoryBreakdown: {
+        gaji_crew_outlet: gabung('gaji_crew_outlet'),
+        sewa_outlet: gabung('sewa_outlet'),
+        internet: gabung('internet'),
+        bonus_crew: gabung('bonus_crew'),
+        bonus_area_manager: gabung('bonus_area_manager'),
+        bonus_regional_manager: gabung('bonus_regional_manager'),
+      },
+    }
+  }
   const hasHrData = payrollRecords.length > 0 || staffFinancials.length > 0
   const hasBonusData = crewBonusRecords.length > 0
 

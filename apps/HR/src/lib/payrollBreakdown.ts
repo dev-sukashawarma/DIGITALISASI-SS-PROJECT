@@ -25,6 +25,20 @@ export interface PayrollBreakdown {
 
 export const LATE_FEE_PER_MINUTE = 1000 // Rp 1.000 / menit keterlambatan
 
+const KANTOR_PUSAT_OUTLET_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+const ROLE_KANTOR_PUSAT = ['staff_pusat', 'admin_hr', 'admin_finance', 'purchasing', 'developer', 'admin', 'owner']
+
+/**
+ * Denda telat belum berlaku untuk staf kantor pusat: aturan keterlambatannya
+ * belum ada (keputusan owner 13 Okt 2026), jadi dimatikan dulu. Kru outlet &
+ * manajer lapangan tetap kena Rp 1.000/menit.
+ */
+export function dendaTelatBerlaku(staff?: { role?: string | null; outlet_id?: string | null } | null): boolean {
+  if (!staff) return true
+  if (staff.outlet_id === KANTOR_PUSAT_OUTLET_ID) return false
+  return !ROLE_KANTOR_PUSAT.includes((staff.role || '').toLowerCase())
+}
+
 /**
  * Ekstrak rincian komponen THP dan Potongan dari objek PayrollRecord
  */

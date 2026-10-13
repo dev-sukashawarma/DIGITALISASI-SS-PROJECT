@@ -639,6 +639,9 @@ export async function getHRPayrollSummaryAction(filter: {
       })
     })
 
+    // (staff_id|outlet_id) yang bonus porsinya sudah dihitung — lihat penjaga di bawah.
+    const bonusPcsSudahDihitung = new Set<string>()
+
     managerRows.forEach(m => {
       const staffRaw: any = m.outlet_staff
       const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
@@ -686,7 +689,13 @@ export async function getHRPayrollSummaryAction(filter: {
         let bon = bonSplit.get(tId) || 0
         let managerPcs = 0
         if (outletDailyPcsMap.size > 0 || isSingleOutlet) {
-          const outletPcs = outletDailyPcsMap.get(tId) || 0
+          // Porsi di outletDailyPcsMap sudah total SELURUH rentang tanggal, sedangkan
+          // manajer punya satu slip per bulan. Tanpa penjaga ini, rentang dua bulan
+          // memberi bonus "porsi seluruh rentang x 50" ke tiap slip = dua kali lipat.
+          const kunciBonus = `${m.staff_id}|${tId}`
+          const sudahDihitung = bonusPcsSudahDihitung.has(kunciBonus)
+          bonusPcsSudahDihitung.add(kunciBonus)
+          const outletPcs = sudahDihitung ? 0 : (outletDailyPcsMap.get(tId) || 0)
           if (role === 'regional_manager') {
             bon = outletPcs * 50
             managerPcs = outletPcs
@@ -1563,6 +1572,8 @@ export async function getHRPayrollSummaryAction(filter: {
     }
 
     const managerBonusDetails = target !== 'PUSAT' ? managerRows
+      // Satu baris per manajer: bonus porsi dihitung per rentang, bukan per slip bulanan.
+      .filter((m, i, arr) => outletDailyPcsMap.size === 0 || arr.findIndex(x => x.staff_id === m.staff_id) === i)
       .filter(m => {
         const staffRaw: any = m.outlet_staff
         const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw

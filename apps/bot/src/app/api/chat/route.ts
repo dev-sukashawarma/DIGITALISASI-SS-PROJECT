@@ -54,7 +54,24 @@ export async function POST(req: Request) {
     async start(c) {
       let jawaban = ''
       try {
-        if (!baseUrl || !kunci) throw new GalatHermes('konfigurasi', 'HERMES_API_URL / kunci profil kosong')
+        if (!baseUrl || !kunci) {
+          if (process.env.NODE_ENV === 'development') {
+            const devChunks = [
+              'Salam, Sir. J.A.R.V.I.S. Tactical Command Centre online dan siap menerima instruksi.\n\n',
+              '> [!NOTE]\n',
+              '> **Local Development Mode**: Koneksi Hermes VPS aktif di environment produksi (`agents.sukashawarma.com`).\n\n',
+              `Instruksi Anda: *"${v.pesan}"* berhasil diterima oleh Command HUD. Seluruh modul telemetri, voice recognition, dan arc reactor beroperasi secara nominal.`,
+            ]
+            for (const chunk of devChunks) {
+              jawaban += chunk
+              c.enqueue(enc.encode(chunk))
+              await new Promise((r) => setTimeout(r, 60))
+            }
+            await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
+            return
+          }
+          throw new GalatHermes('konfigurasi', 'HERMES_API_URL / kunci profil kosong')
+        }
         for await (const t of tanyaHermes({ baseUrl, kunci, profil: pc.profil, sesiId: pc.hermes_session_id, pesan: v.pesan, signal: req.signal })) {
           jawaban += t
           c.enqueue(enc.encode(t))
@@ -63,7 +80,11 @@ export async function POST(req: Request) {
       } catch (e) {
         const alasan = e instanceof GalatHermes ? e.alasan : 'lain'
         console.error('[bot] Hermes gagal:', alasan, (e as Error)?.message)
-        const teks = jawaban ? `\n\n${GALAT_STANDAR}` : GALAT_STANDAR
+        let teksGalat = GALAT_STANDAR
+        if (process.env.NODE_ENV === 'development' && (alasan === 'jaringan' || alasan === 'timeout')) {
+          teksGalat = `[Local Dev] Tidak dapat terhubung ke Hermes di ${baseUrl}. Server Hermes aktif di produksi (agents.sukashawarma.com).`
+        }
+        const teks = jawaban ? `\n\n${teksGalat}` : teksGalat
         c.enqueue(enc.encode(teks))
         await simpanPesan(supabase, pc.id, 'bot', jawaban + teks, { durasi_ms: Date.now() - mulai, status: 'galat', alasan })
           .catch((e2) => console.error('[bot] gagal simpan galat:', e2))

@@ -49,8 +49,12 @@ describe('GET /api/kantor/status', () => {
     expect(j.meja[1]).toMatchObject({ profil: 'hrd', bolehChat: false, alasanTanpaChat: 'belum_tersambung' })
     expect(typeof j.diambilAt).toBe('string')
   })
-  it('owner: semua meja tampil tanpa izin chat', async () => {
+  it('owner: meja ceo tampil dengan izin chat', async () => {
     ambil.mockResolvedValue(sesiDengan(async () => ({ data: [baris()], error: null }), 'owner'))
+    expect((await (await GET()).json()).meja[0]).toMatchObject({ profil: 'ceo', bolehChat: true, alasanTanpaChat: null })
+  })
+  it('crew: semua meja tampil tanpa izin chat', async () => {
+    ambil.mockResolvedValue(sesiDengan(async () => ({ data: [baris()], error: null }), 'crew'))
     expect((await (await GET()).json()).meja[0]).toMatchObject({ profil: 'ceo', bolehChat: false, alasanTanpaChat: 'peran' })
   })
 })

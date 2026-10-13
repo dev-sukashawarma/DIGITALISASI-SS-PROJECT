@@ -8,6 +8,8 @@ const SEMUA_PROFIL: readonly Profil[] = ['ceo', 'gudang', 'hrd', 'finance']
 // DAN di gerbang tile portal (apps/portal/src/app/launcher/page.tsx, bisaBotCeo).
 const PROFIL_PER_PERAN: Record<string, Profil[]> = {
   developer: ['ceo', 'hrd', 'finance'],
+  owner: ['ceo', 'hrd', 'finance'],
+  admin: ['ceo', 'hrd', 'finance'],
   admin_finance: ['finance'],
 }
 

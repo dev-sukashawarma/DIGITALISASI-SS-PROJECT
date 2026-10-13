@@ -9,7 +9,10 @@ export function bolehChat(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
   if (!profil) return false
-  return profilBolehUntukPeran(role).includes(profil) && !!kunciProfil(profil, env)
+  const bolehPeran = profilBolehUntukPeran(role).includes(profil)
+  if (!bolehPeran) return false
+  if ((env.NODE_ENV ?? process.env.NODE_ENV) === 'development') return true
+  return !!kunciProfil(profil, env)
 }
 
 // Pemeriksaan permintaan chat (route /api/chat): profil wajib dikenal, boleh untuk pemanggil, dan
@@ -37,6 +40,7 @@ export function alasanTanpaChat(
 ): AlasanTanpaChat | null {
   if (!profil) return 'tanpa_profil'
   if (!profilBolehUntukPeran(role).includes(profil)) return 'peran'
+  if ((env.NODE_ENV ?? process.env.NODE_ENV) === 'development') return null
   if (!kunciProfil(profil, env)) return 'belum_tersambung'
   return null
 }

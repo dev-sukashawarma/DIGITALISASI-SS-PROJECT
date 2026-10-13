@@ -10,7 +10,11 @@ describe('bolehChat', () => {
     expect(bolehChat('developer', 'hrd', env)).toBe(false)
   })
   it('role tidak mengizinkan → tidak, walau kunci ada', () => {
-    expect(bolehChat('owner', 'ceo', env)).toBe(false)
+    expect(bolehChat('crew', 'ceo', env)).toBe(false)
+  })
+  it('owner & admin mengizinkan & kunci profil ada → boleh', () => {
+    expect(bolehChat('owner', 'ceo', env)).toBe(true)
+    expect(bolehChat('admin', 'ceo', env)).toBe(true)
   })
   it('profil null → tidak', () => {
     expect(bolehChat('developer', null, env)).toBe(false)
@@ -23,7 +27,7 @@ describe('periksaProfilChat', () => {
     expect(periksaProfilChat('root', 'developer', null, env)).toEqual({ ok: false, status: 400 })
   })
   it('tidak boleh chat → 403', () => {
-    expect(periksaProfilChat('ceo', 'owner', null, env)).toEqual({ ok: false, status: 403 })
+    expect(periksaProfilChat('ceo', 'crew', null, env)).toEqual({ ok: false, status: 403 })
     expect(periksaProfilChat('hrd', 'developer', null, env)).toEqual({ ok: false, status: 403 })
   })
   it('percakapan lama milik profil lain → 409', () => {
@@ -43,7 +47,7 @@ describe('alasanTanpaChat', () => {
     expect(alasanTanpaChat('developer', null, env)).toBe('tanpa_profil')
   })
   it('role tidak mengizinkan → peran (diperiksa sebelum kunci)', () => {
-    expect(alasanTanpaChat('owner', 'hrd', env)).toBe('peran')
+    expect(alasanTanpaChat('crew', 'hrd', env)).toBe('peran')
   })
   it('role boleh tapi kunci tak ada → belum_tersambung', () => {
     expect(alasanTanpaChat('developer', 'hrd', env)).toBe('belum_tersambung')

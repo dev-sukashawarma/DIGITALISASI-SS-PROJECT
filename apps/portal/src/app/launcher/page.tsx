@@ -82,9 +82,9 @@ export default async function LauncherPage() {
   // SUKA Bot: hanya admin/owner/developer (sama dengan is_owner_or_admin() di server).
   const bisaSukaBot = ['admin', 'owner', 'developer'].includes(staff.role)
 
-  // Bot CEO (apps/bot, Hermes) — bukan AppName @suka/auth. Sementara HANYA developer (masa uji);
+  // Bot CEO / JARVIS (apps/bot, Hermes) — terbuka untuk developer, owner, dan admin;
   // harus sama dengan peta role di apps/bot/src/lib/peran.ts.
-  const bisaBotCeo = staff.role === 'developer'
+  const bisaBotCeo = ['developer', 'owner', 'admin'].includes(staff.role)
   const hostLauncher = (await headers()).get('host') || ''
   const BOT_URL = hostLauncher.includes('localhost') || hostLauncher.includes('127.0.0.1')
     ? 'http://localhost:3050'

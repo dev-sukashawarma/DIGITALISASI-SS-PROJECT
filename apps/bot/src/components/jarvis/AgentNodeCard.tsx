@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
+  ShieldAlert,
 } from 'lucide-react'
 
 interface ProfilConfigItem {
@@ -62,6 +63,15 @@ const CONFIG_PROFIL: Record<string, ProfilConfigItem> = {
     icon: DollarSign,
     ringkasanPeran: 'Arus kas harian, rekonsiliasi OPEX otomatis, dan status hutang supplier.',
     contohPertanyaan: ['Utang supplier jatuh tempo', 'Kas kecil bulan ini'],
+  },
+  sentry: {
+    judul: 'SENTRY WATCHDOG',
+    subjudul: 'Database & VPS System Sentinel',
+    kode: 'NODE-05 // SENTRY',
+    warnaAksen: 'rose',
+    icon: ShieldAlert,
+    ringkasanPeran: 'Pemantau kesehatan database Supabase, sisa disk & RAM VPS, dan deteksi dini anomali sistem.',
+    contohPertanyaan: ['Kesehatan database & VPS', 'Berapa sisa disk server?', 'Ada error sistem hari ini?'],
   },
 }
 

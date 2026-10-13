@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer berkala 5 menit untuk Sentry Watchdog
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Sentry System & Database Watchdog (Suka Shawarma)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/bin/sentry-watchdog.sh
+StandardOutput=journal
+StandardError=journal

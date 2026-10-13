@@ -34,6 +34,7 @@ const LABEL_AGENT_BAWAAN: Record<string, { nama: string; badge: string; deskrips
   gudang: { nama: 'JARVIS-02 // BOT GUDANG', badge: 'SUPPLY CHAIN RADAR', deskripsi: 'Analitik stok bahan baku, rantai pasok, dan deteksi bahan kritis' },
   hrd: { nama: 'JARVIS-03 // BOT HRD', badge: 'WORKFORCE TELEMETRY', deskripsi: 'Pemantauan absensi shift, roster tim cabang, dan data SDM' },
   finance: { nama: 'JARVIS-04 // BOT FINANCE', badge: 'TREASURY RECONCILIATION', deskripsi: 'Arus kas harian, rekonsiliasi OPEX, dan liabilitas supplier' },
+  sentry: { nama: 'JARVIS-05 // SENTRY OPS', badge: 'DATABASE & VPS WATCHDOG', deskripsi: 'Pemantau kesehatan database Supabase, sisa disk & RAM VPS, dan deteksi dini anomali sistem' },
 }
 
 const CEPAT_BAWAAN: Record<string, string[]> = {
@@ -41,6 +42,7 @@ const CEPAT_BAWAAN: Record<string, string[]> = {
   hrd: ['Siapa yang belum absen hari ini?', 'Cuti & izin minggu ini', 'Rekap keterlambatan bulan ini'],
   gudang: ['Bahan yang hampir habis', 'Kiriman hari ini'],
   finance: ['Utang supplier jatuh tempo', 'Kas kecil bulan ini'],
+  sentry: ['Status database & VPS sekarang', 'Berapa sisa disk server?', 'Ada error sistem hari ini?'],
 }
 
 function ambilMetaAgent(profil: Profil) {

@@ -186,6 +186,38 @@ def kirim_ke_telegram(token: str, chat_id: str, pesan: str) -> bool:
 
     return False
 
+def ambil_daftar_target_chat(konfig: dict, chat_id_override: str = None) -> list:
+    """
+    Mengumpulkan seluruh target chat_id yang valid tanpa duplikasi.
+    Jika ada TELEGRAM_OWNER_CHAT_ID dan TELEGRAM_CHAT_ID, keduanya digabungkan
+    sehingga laporan otomatis terkirim ke Owner dan Developer sekaligus.
+    """
+    targets = []
+    if chat_id_override:
+        for c in str(chat_id_override).split(","):
+            c = c.strip()
+            if c and c not in targets:
+                targets.append(c)
+        return targets
+
+    for k in ["TELEGRAM_OWNER_CHAT_ID", "TELEGRAM_CHAT_ID"]:
+        v = konfig.get(k)
+        if v:
+            for c in str(v).split(","):
+                c = c.strip()
+                if c and c not in targets:
+                    targets.append(c)
+
+    if not targets:
+        allowed = konfig.get("TELEGRAM_ALLOWED_USERS") or konfig.get("TELEGRAM_HOME_CHANNEL")
+        if allowed:
+            for c in str(allowed).split(","):
+                c = c.strip()
+                if c and c not in targets:
+                    targets.append(c)
+
+    return targets
+
 def kirim_ke_semua_target(token: str, chat_ids_str: str, pesan: str) -> bool:
     """Mengirim pesan ke satu atau beberapa target chat_id (dipisah tanda koma)."""
     if not chat_ids_str:
@@ -740,14 +772,8 @@ def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: 
     current_status = "down" if issues else "up"
 
     token = token_override or konfig.get("TELEGRAM_BOT_TOKEN")
-    allowed_user = (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
-    chat_id = (
-        chat_id_override
-        or allowed_user
-        or konfig.get("TELEGRAM_OWNER_CHAT_ID")
-        or konfig.get("TELEGRAM_CHAT_ID")
-        or konfig.get("TELEGRAM_HOME_CHANNEL")
-    )
+    targets = ambil_daftar_target_chat(konfig, chat_id_override)
+    chat_id = ",".join(targets)
 
     # Logika Pengiriman Pesan
     # Skenario A: Terjadi Gangguan Baru (UP -> DOWN)
@@ -927,15 +953,8 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
     print(f"  • TELEGRAM_ALLOWED_USERS : {konfig.get('TELEGRAM_ALLOWED_USERS', '(kosong)')}")
     print(f"  • TELEGRAM_HOME_CHANNEL  : {konfig.get('TELEGRAM_HOME_CHANNEL', '(kosong)')}")
 
-    allowed_user = (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
-    target_id = (
-        konfig.get("TELEGRAM_OWNER_CHAT_ID")
-        or konfig.get("TELEGRAM_CHAT_ID")
-        or allowed_user
-        or konfig.get("TELEGRAM_HOME_CHANNEL")
-    )
-    target_list = [c.strip() for c in str(target_id).split(",") if c.strip()]
-    print(f"\n🎯 Target Chat ID Terpilih Saat Ini : {', '.join(target_list)}")
+    target_list = ambil_daftar_target_chat(konfig)
+    print(f"\n🎯 Target Chat ID Terpilih Saat Ini : {', '.join(target_list) if target_list else '(tidak ada target)'}")
 
     for t_id in target_list:
         try:
@@ -1048,14 +1067,8 @@ def main():
             print("Pemeriksaan alert selesai.")
         sys.exit(0)
 
-    allowed_user = (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
-    chat_id = (
-        args.chat_id
-        or konfig.get("TELEGRAM_OWNER_CHAT_ID")
-        or konfig.get("TELEGRAM_CHAT_ID")
-        or allowed_user
-        or konfig.get("TELEGRAM_HOME_CHANNEL")
-    )
+    targets = ambil_daftar_target_chat(konfig, args.chat_id)
+    chat_id = ",".join(targets)
 
     mcp_key = args.mcp_key or konfig.get("SUKA_MCP_KEY")
     mcp_url = args.mcp_url or konfig.get("SUKA_MCP_URL") or DEFAULT_MCP_URL

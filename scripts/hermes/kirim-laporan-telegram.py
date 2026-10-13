@@ -41,15 +41,22 @@ if hasattr(sys.stdout, "reconfigure"):
 DEFAULT_MCP_URL = "https://admin.sukashawarma.com/api/hermes/mcp"
 DEFAULT_MARCOM_MCP_URL = "https://marcom.sukashawarma.com/api/hermes/mcp"
 
-# Pencarian otomatis file .env
+# Pencarian otomatis file .env (Urutan dari PRIORITAS TERTINGGI ke TERENDAH)
 ENV_PATHS = [
+    # 1. Custom HERMES_HOME jika dispesifikasikan eksplisit
     pathlib.Path(os.environ.get("HERMES_HOME", "")) / ".env" if os.environ.get("HERMES_HOME") else None,
-    pathlib.Path.home() / ".hermes" / "profiles" / "ceo" / ".env",
-    pathlib.Path.home() / ".hermes" / "profiles" / "marcom" / ".env",
-    pathlib.Path.home() / ".hermes" / ".env",
+    # 2. Direktori resmi Suka Shawarma di VPS Hostinger (/home/suka-hermes) — PRIORITAS UTAMA
     pathlib.Path("/home/suka-hermes/.hermes/profiles/ceo/.env"),
     pathlib.Path("/home/suka-hermes/.hermes/profiles/marcom/.env"),
     pathlib.Path("/home/suka-hermes/.hermes/.env"),
+    # 3. Direktori home aktif JIKA BUKAN root (misal user suka-hermes atau dev)
+    (pathlib.Path.home() / ".hermes" / "profiles" / "ceo" / ".env") if str(pathlib.Path.home()) != "/root" else None,
+    (pathlib.Path.home() / ".hermes" / "profiles" / "marcom" / ".env") if str(pathlib.Path.home()) != "/root" else None,
+    (pathlib.Path.home() / ".hermes" / ".env") if str(pathlib.Path.home()) != "/root" else None,
+    # 4. Fallback root (prioritas terendah agar tidak tertukar dengan bot Rendy)
+    pathlib.Path("/root/.hermes/profiles/ceo/.env"),
+    pathlib.Path("/root/.hermes/.env"),
+    # 5. Direktori project lokal / CWD
     pathlib.Path.cwd() / ".env",
     pathlib.Path(__file__).resolve().parent.parent.parent / ".env",
 ]
@@ -74,17 +81,26 @@ def muat_env_file(path_file: pathlib.Path) -> dict:
 
 def kumpulkan_konfigurasi(custom_env_file=None) -> dict:
     konfigurasi = {}
+    sumber_termuat = []
     if custom_env_file:
-        konfigurasi.update(muat_env_file(pathlib.Path(custom_env_file)))
+        p = pathlib.Path(custom_env_file)
+        if p.is_file():
+            konfigurasi.update(muat_env_file(p))
+            sumber_termuat.append(str(p))
     else:
         for p in reversed(ENV_PATHS):
             if not p:
                 continue
             try:
                 if p.is_file():
-                    konfigurasi.update(muat_env_file(p))
+                    data = muat_env_file(p)
+                    if data:
+                        konfigurasi.update(data)
+                        sumber_termuat.append(str(p))
             except (PermissionError, OSError):
                 continue
+
+    konfigurasi["_SUMBER_TERMUAT"] = sumber_termuat
 
     for k in [
         "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TELEGRAM_OWNER_CHAT_ID",
@@ -942,6 +958,14 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
     if not token:
         print("❌ TELEGRAM_BOT_TOKEN tidak ditemukan di environment maupun .env!")
         return
+
+    user_linux = os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
+    print(f"👤 User Linux Aktif : {user_linux}")
+    sumber_env = konfig.get("_SUMBER_TERMUAT", [])
+    if sumber_env:
+        print(f"📁 File .env Dipakai: {sumber_env[-1]}")
+    if user_linux == "root":
+        print("💡 Catatan: Anda menjalankan sebagai ROOT. Profil resmi Suka Shawarma ada di user 'suka-hermes'.")
 
     bot_username = ""
     # 1. Info Bot via getMe

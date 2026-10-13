@@ -162,7 +162,7 @@ export function NetProfitBreakdownModal({
             bahan yang benar-benar terpakai untuk menu terjual.
           </p>
           <p className="text-[11px] text-suka-gray-500 leading-snug">
-            Beban tetap bulanan (gaji crew, sewa, internet, bonus) dialokasikan secara proporsional (prorata) sesuai durasi hari filter yang dipilih agar sebanding dengan omzet harian/periode tersebut.
+            Beban tetap bulanan (gaji crew, sewa) dialokasikan secara proporsional (prorata) sesuai durasi hari filter yang dipilih agar sebanding dengan omzet harian/periode tersebut.
           </p>
         </div>
       </div>

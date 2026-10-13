@@ -173,7 +173,7 @@ export function OpexBreakdownModal({
           <div className="px-6 py-2.5 bg-amber-50/80 border-b border-amber-200/80 flex items-center gap-2 text-xs text-amber-900">
             <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              <strong>Alokasi Prorata Aktif:</strong> Beban tetap bulanan (gaji, sewa tempat, internet) dihitung proporsional untuk <strong>{prorataInfo.overlapDays} hari</strong> dari total {prorataInfo.totalDays} hari bulan ini agar seimbang dengan omzet harian.
+              <strong>Alokasi Prorata Aktif:</strong> Beban tetap bulanan (gaji, sewa tempat) dihitung proporsional untuk <strong>{prorataInfo.overlapDays} hari</strong> dari total {prorataInfo.totalDays} hari bulan ini agar seimbang dengan omzet harian.
             </span>
           </div>
         )}

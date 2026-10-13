@@ -24,6 +24,17 @@ export const PRORATED_CATEGORIES = [
 ] as const
 export type ProratedCategory = (typeof PRORATED_CATEGORIES)[number]
 
+/**
+ * Semi-tetap: pasti ada tiap bulan, tetapi nominalnya bisa berubah (mis. denda
+ * keterlambatan bayar internet). Keputusan owner 14 Okt 2026: TIDAK diestimasi
+ * dan TIDAK diprorata — dihitung dari tagihan asli yang diinput, sama seperti
+ * Buku Kas. Tanpa tagihan bulan ini, bebannya nol sampai diinput.
+ */
+export const KATEGORI_SEMI_TETAP = ['internet', 'wifi'] as const
+export function adalahSemiTetap(kategori: string | null | undefined): boolean {
+  return (KATEGORI_SEMI_TETAP as readonly string[]).includes((kategori || '').toLowerCase())
+}
+
 export interface StaffSalaryBaseline {
   outlet_id: string
   total_salary: number
@@ -481,7 +492,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       // nonaktif, atau di luar target dulu ditelan lalu tak pernah dikeluarkan
       // lagi — biayanya hilang diam-diam. Sekarang dibiarkan apa adanya.
       const akanDiakrual = Boolean(r.outlet_id) && targetOutletIds.has(r.outlet_id as string) && !inactiveOutletIds.has(r.outlet_id as string)
-      if (isProratedCat(rawCat) && akanDiakrual) {
+      if (isProratedCat(rawCat) && !adalahSemiTetap(rawCat) && akanDiakrual) {
         const normCat = normalizeCategory(rawCat)
         const oid = r.outlet_id as string
         if (!currentMonthRealFixed.has(oid)) {
@@ -654,40 +665,8 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       }
 
       // --- C. INTERNET / WIFI ---
-      let internetMonthly = currentMonthRealFixed.get(outletId)?.get('internet') ?? 0
-      let oInternetSource: 'current_month_real' | 'last_month_rollover' | 'none' = 'none'
-
-      if (internetMonthly > 0) {
-        oInternetSource = 'current_month_real'
-      } else {
-        const lastMonthInternet = lastMonthExpenses
-          .filter(e => e.outlet_id === outletId && (e.category === 'internet' || e.category === 'wifi'))
-          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
-        if (lastMonthInternet > 0) {
-          internetMonthly = lastMonthInternet
-          oInternetSource = 'last_month_rollover'
-        }
-      }
-
-      if (internetMonthly > 0) {
-        const proratedInternet = Math.round(internetMonthly * monthInfo.ratio)
-        totalInternetBulanan += internetMonthly
-        totalInternetProrata += proratedInternet
-        internetSource = oInternetSource
-
-        proratedRows.push({
-          id: `prorata-internet-${outletId}`,
-          outlet_id: outletId,
-          outlet_name: outletName,
-          category: 'internet',
-          scope: rowScope,
-          amount: proratedInternet,
-          description: `Prorata Internet (${durationDesc})`,
-          expense_date: filter.to,
-          period_month: monthInfo.firstDay,
-          source: 'monthly',
-        })
-      }
+      // Semi-tetap (lihat KATEGORI_SEMI_TETAP): tidak diestimasi dari bulan lalu dan
+      // tidak diprorata. Tagihan asli bulan ini lewat apa adanya di variableExpenses.
 
       // --- D. BONUS CREW ---
       let crewBonusMonthly = 0

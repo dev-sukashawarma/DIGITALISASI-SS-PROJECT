@@ -141,10 +141,9 @@ describe('opexProrata - calculateProratedExpenses', () => {
     expect(sewaRow?.amount).toBe(1_200_000)
     expect(res.categoryBreakdown.sewa_outlet.source).toBe('last_month_rollover')
 
-    // Internet: 12/30 * 300.000 = 120.000
-    const netRow = res.rows.find(r => r.category === 'internet')
-    expect(netRow?.amount).toBe(120_000)
-    expect(res.categoryBreakdown.internet.source).toBe('last_month_rollover')
+    // Internet = semi-tetap: tidak diestimasi dari bulan lalu.
+    expect(res.rows.find(r => r.category === 'internet')).toBeUndefined()
+    expect(res.categoryBreakdown.internet.source).toBe('none')
   })
 
   it('menggunakan angka riil bulan berjalan jika transaksi sewa/internet sudah diinput', () => {
@@ -173,11 +172,10 @@ describe('opexProrata - calculateProratedExpenses', () => {
       outlets: [{ id: 'outlet-1', name: 'SS Pogung' }],
     })
 
-    // 12/30 * 270.000 = 108.000
+    // Internet = semi-tetap: tagihan asli dihitung penuh apa adanya, tidak diprorata.
     const netRow = res.rows.find(r => r.category === 'internet')
-    expect(netRow?.amount).toBe(108_000)
-    expect(res.categoryBreakdown.internet.source).toBe('current_month_real')
-    // Memastikan tidak terjadi double-counting (baris net-real digantikan baris prorata)
+    expect(netRow?.id).toBe('net-real')
+    expect(netRow?.amount).toBe(270_000)
     expect(res.rows.filter(r => r.category === 'internet').length).toBe(1)
   })
 
@@ -1021,16 +1019,22 @@ describe('opexProrata - bulan berjalan: biaya pusat & baris yang tak diakrual', 
     amount: 310_000, description: '', expense_date: '2026-10-05', period_month: '2026-10-01', source: 'monthly', ...o,
   })
 
-  it('rollover internet Kantor Pusat keluar sebagai biaya PUSAT, bukan beban outlet', () => {
-    const r = calculateProratedExpenses({
+  it('internet Kantor Pusat: tanpa estimasi dari bulan lalu, tagihan asli tetap biaya PUSAT', () => {
+    const kosong = calculateProratedExpenses({
       filter, now, rawExpenses: [],
       outlets: [{ id: KP, name: 'Kantor Pusat' }],
       lastMonthExpenses: [{ outlet_id: KP, category: 'internet', amount: 2_388_500 }],
     })
-    const row = r.rows.find(x => x.outlet_id === KP)
+    expect(kosong.rows.find(x => x.outlet_id === KP)).toBeUndefined()
+
+    const terisi = calculateProratedExpenses({
+      filter, now,
+      rawExpenses: [baris({ id: 'net-kp', outlet_id: KP, outlet_name: 'Kantor Pusat', scope: 'pusat', amount: 2_400_000 })],
+      outlets: [{ id: KP, name: 'Kantor Pusat' }],
+    })
+    const row = terisi.rows.find(x => x.id === 'net-kp')
     expect(row?.scope).toBe('pusat')
-    expect(row?.amount).toBe(Math.round(2_388_500 * 13 / 31))
-    expect(r.rows.some(x => x.outlet_id === KP && x.scope === 'outlet')).toBe(false)
+    expect(row?.amount).toBe(2_400_000)
   })
 
   it('baris riil tanpa outlet dan milik outlet nonaktif tidak hilang', () => {
@@ -1045,9 +1049,9 @@ describe('opexProrata - bulan berjalan: biaya pusat & baris yang tak diakrual', 
     })
     expect(r.rows.find(x => x.id === 'tanpa-outlet')?.amount).toBe(5_000_000)
     expect(r.rows.find(x => x.id === 'nonaktif')?.amount).toBe(260_850)
-    // outlet aktif tetap diganti akrual harian
-    expect(r.rows.find(x => x.id === 'aktif')).toBeUndefined()
-    expect(r.rows.find(x => x.id === 'prorata-internet-o1')?.amount).toBe(Math.round(310_000 * 13 / 31))
+    // internet outlet aktif juga dihitung apa adanya (semi-tetap, tanpa prorata)
+    expect(r.rows.find(x => x.id === 'aktif')?.amount).toBe(310_000)
+    expect(r.rows.find(x => x.id === 'prorata-internet-o1')).toBeUndefined()
   })
 })
 

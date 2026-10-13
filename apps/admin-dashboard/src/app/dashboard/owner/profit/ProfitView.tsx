@@ -47,7 +47,7 @@ import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
-import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
+import { PRORATED_CATEGORIES, adalahSemiTetap } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
@@ -655,7 +655,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       })
     return [...perKategori.entries()]
       .map(([kategori, jumlah]) => {
-        const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori) && !(payrollDariHr && kategori.startsWith('bonus_'))
+        const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori) && !adalahSemiTetap(kategori) && !(payrollDariHr && kategori.startsWith('bonus_'))
         const baseLabel = labelKategoriOpex(kategori, payrollDariHr)
         const prorataSuffix = prorataMonthInfo.overlapDays === 1
           ? `Beban 1 Hari · 1/${prorataMonthInfo.totalDays} bln`
@@ -794,7 +794,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       : `Beban ${prorataMonthInfo.overlapDays} Hari · ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln`
     return [...perKategori.entries()].map(([kategori, amount]) => {
       const baseLabel = labelKategoriOpex(kategori, payrollDariHr)
-      const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori) && !(payrollDariHr && kategori.startsWith('bonus_'))
+      const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori) && !adalahSemiTetap(kategori) && !(payrollDariHr && kategori.startsWith('bonus_'))
       return { label: isCatProrated ? `${baseLabel} (${prorataSuffix})` : baseLabel, amount }
     })
   }, [expenseRows, isProrated, prorataMonthInfo, payrollDariHr])

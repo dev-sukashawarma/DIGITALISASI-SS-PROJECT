@@ -9,7 +9,7 @@
 
 export const BUKU_KAS_PATH = '/dashboard/reports/input-pengeluaran'
 
-export const BUKU_KAS_PARAMS = { from: 'from', to: 'to', outlet: 'outlet' } as const
+export const BUKU_KAS_PARAMS = { from: 'from', to: 'to', outlet: 'outlet', source: 'sumber', category: 'kategori' } as const
 
 /**
  * `scope` = tab Laba Rugi asal tautan. Dari tab Mitra/Internal dengan semua
@@ -29,6 +29,49 @@ export function bukuKasHref(
   if (outlet) q.set(BUKU_KAS_PARAMS.outlet, outlet)
   const qs = q.toString()
   return qs ? `${BUKU_KAS_PATH}?${qs}` : BUKU_KAS_PATH
+}
+
+/** Kartu di jendela "Rincian Biaya Operasional" Laba Rugi. */
+export type KartuOpex = 'bulanan' | 'lembur' | 'kasKecil' | 'pusat' | 'total'
+
+/**
+ * Tautan "Lihat detail" tiap kartu rincian OPEX: membuka Buku Kas dengan
+ * periode yang sama dan filter yang cakupannya sama dengan kartu itu.
+ *
+ * - bulanan  : outlet dalam cakupan tab, sumber "Buku Kas Bulanan"
+ * - kasKecil : outlet dalam cakupan tab, sumber "Kas Kecil POS"
+ * - lembur   : outlet dalam cakupan tab, kategori Lembur
+ * - pusat    : Kantor Pusat
+ * - total    : cakupan penuh tab (Internal = outlet internal + kantor pusat)
+ */
+export function bukuKasHrefKartu(
+  filter: { from: string; to: string; outletId: string },
+  scope: 'all' | 'internal' | 'mitra',
+  kartu: KartuOpex,
+): string {
+  const q = new URLSearchParams()
+  if (filter.from) q.set(BUKU_KAS_PARAMS.from, filter.from)
+  if (filter.to) q.set(BUKU_KAS_PARAMS.to, filter.to)
+
+  const satuOutlet = filter.outletId && filter.outletId !== 'all'
+  const outletSaja = satuOutlet
+    ? filter.outletId
+    : scope === 'mitra' ? 'MITRA_OUTLETS' : scope === 'internal' ? 'INTERNAL_OUTLETS' : 'ALL_OUTLETS'
+  const cakupanPenuh = satuOutlet
+    ? filter.outletId
+    : scope === 'mitra' ? 'MITRA_OUTLETS' : scope === 'internal' ? 'INTERNAL_PUSAT' : 'all'
+
+  if (kartu === 'pusat') {
+    q.set(BUKU_KAS_PARAMS.outlet, 'PUSAT')
+  } else if (kartu === 'total') {
+    q.set(BUKU_KAS_PARAMS.outlet, cakupanPenuh)
+  } else {
+    q.set(BUKU_KAS_PARAMS.outlet, outletSaja)
+    if (kartu === 'bulanan') q.set(BUKU_KAS_PARAMS.source, 'monthly')
+    if (kartu === 'kasKecil') q.set(BUKU_KAS_PARAMS.source, 'petty_cash')
+    if (kartu === 'lembur') q.set(BUKU_KAS_PARAMS.category, 'lembur')
+  }
+  return `${BUKU_KAS_PATH}?${q.toString()}`
 }
 
 export const PETTY_CASH_PATH = '/dashboard/owner/petty-cash'

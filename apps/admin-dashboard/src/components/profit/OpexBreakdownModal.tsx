@@ -57,6 +57,22 @@ interface OpexBreakdownModalProps {
     pettyCash?: string
     lembur?: string
   }
+  /** Tautan "Lihat detail" per kartu ringkasan → Buku Kas dengan filter yang sama. */
+  cardHref?: Partial<Record<'bulanan' | 'lembur' | 'kasKecil' | 'pusat' | 'total', string>>
+}
+
+function LihatDetail({ href, onClick }: { href?: string; onClick: () => void }) {
+  if (!href) return null
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      title="Buka Buku Kas (OPEX) dengan filter kartu ini"
+      className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-suka-orange hover:text-suka-brown transition-colors"
+    >
+      Lihat detail <ArrowUpRight className="w-3 h-3" />
+    </Link>
+  )
 }
 
 function getCategoryIcon(key: string) {
@@ -89,6 +105,7 @@ export function OpexBreakdownModal({
   prorataInfo,
   categories,
   outlets,
+  cardHref,
   detailHref = {
     monthly: '/dashboard/reports/input-pengeluaran',
     pettyCash: '/dashboard/owner/petty-cash',
@@ -187,22 +204,14 @@ export function OpexBreakdownModal({
               ? 'sm:grid-cols-2 lg:grid-cols-4'
               : 'sm:grid-cols-3'
           } gap-3 sm:gap-3.5`}>
-            {/* Total OPEX */}
-            <div className="min-w-0 bg-rose-50/60 p-3.5 sm:p-4 rounded-2xl border border-rose-200 shadow-2xs">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-800 truncate">Total OPEX</p>
-              <h3 className="text-base sm:text-lg xl:text-xl font-black text-rose-700 tracking-tight mt-1 whitespace-nowrap tabular-nums">
-                -{rupiah(totalOpex)}
-              </h3>
-              <p className="text-[11px] font-semibold text-rose-500 mt-0.5 truncate">Seluruh Beban Operasional</p>
-            </div>
-
             {/* Beban Bulanan Outlet */}
             <div className="min-w-0 bg-white p-3.5 sm:p-4 rounded-2xl border border-suka-gray-200 shadow-2xs">
               <p className="text-[11px] font-bold uppercase tracking-wider text-suka-gray-600 truncate">Beban Bulanan Outlet</p>
               <h3 className="text-base sm:text-lg xl:text-xl font-black text-suka-brown tracking-tight mt-1 whitespace-nowrap tabular-nums">
-                -{rupiah(opexMonthly)}
+                {rupiah(opexMonthly)}
               </h3>
               <p className="text-[11px] font-semibold text-suka-gray-400 mt-0.5 truncate">Gaji, Sewa, Listrik & Utilitas</p>
+              <LihatDetail href={cardHref?.bulanan} onClick={onClose} />
             </div>
 
             {/* Lembur Kas Toko (jika ada) */}
@@ -210,9 +219,10 @@ export function OpexBreakdownModal({
               <div className="min-w-0 bg-orange-50/70 p-3.5 sm:p-4 rounded-2xl border border-orange-200 shadow-2xs">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-orange-800 truncate">Lembur Kas Toko</p>
                 <h3 className="text-base sm:text-lg xl:text-xl font-black text-orange-700 tracking-tight mt-1 whitespace-nowrap tabular-nums">
-                  -{rupiah(opexLembur!)}
+                  {rupiah(opexLembur!)}
                 </h3>
                 <p className="text-[11px] font-semibold text-orange-600 mt-0.5 truncate">Petty Cash Kasir Toko</p>
+                <LihatDetail href={cardHref?.lembur} onClick={onClose} />
               </div>
             )}
 
@@ -220,9 +230,10 @@ export function OpexBreakdownModal({
             <div className="min-w-0 bg-white p-3.5 sm:p-4 rounded-2xl border border-suka-gray-200 shadow-2xs">
               <p className="text-[11px] font-bold uppercase tracking-wider text-suka-gray-600 truncate">Kas Kecil Operasional</p>
               <h3 className="text-base sm:text-lg xl:text-xl font-black text-suka-brown tracking-tight mt-1 whitespace-nowrap tabular-nums">
-                -{rupiah(opexPettyCash)}
+                {rupiah(opexPettyCash)}
               </h3>
               <p className="text-[11px] font-semibold text-suka-gray-400 mt-0.5 truncate">Belanja Kebutuhan Toko</p>
+              <LihatDetail href={cardHref?.kasKecil} onClick={onClose} />
             </div>
 
             {/* Beban Kantor Pusat (jika ada) */}
@@ -230,11 +241,22 @@ export function OpexBreakdownModal({
               <div className="min-w-0 bg-purple-50/50 p-3.5 sm:p-4 rounded-2xl border border-purple-200/70 shadow-2xs">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-purple-800 truncate">Beban Kantor Pusat</p>
                 <h3 className="text-base sm:text-lg xl:text-xl font-black text-purple-900 tracking-tight mt-1 whitespace-nowrap tabular-nums">
-                  -{rupiah(centralExpense)}
+                  {rupiah(centralExpense)}
                 </h3>
                 <p className="text-[11px] font-semibold text-purple-600 mt-0.5 truncate">Operasional Pusat SS</p>
+                <LihatDetail href={cardHref?.pusat} onClick={onClose} />
               </div>
             )}
+
+            {/* Total OPEX — paling kanan: jumlah dari kartu-kartu di sebelah kirinya. */}
+            <div className="min-w-0 bg-rose-50/60 p-3.5 sm:p-4 rounded-2xl border border-rose-200 shadow-2xs">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-800 truncate">Total OPEX</p>
+              <h3 className="text-base sm:text-lg xl:text-xl font-black text-rose-700 tracking-tight mt-1 whitespace-nowrap tabular-nums">
+                {rupiah(totalOpex)}
+              </h3>
+              <p className="text-[11px] font-semibold text-rose-500 mt-0.5 truncate">Seluruh Beban Operasional</p>
+              <LihatDetail href={cardHref?.total} onClick={onClose} />
+            </div>
           </div>
         </div>
 
@@ -324,7 +346,7 @@ export function OpexBreakdownModal({
 
                     <div className="text-right shrink-0">
                       <span className="text-sm font-bold text-rose-600 block">
-                        -{rupiah(absAmount)}
+                        {rupiah(absAmount)}
                       </span>
                       <div className="w-20 h-1 bg-suka-gray-100 rounded-full mt-1.5 ml-auto overflow-hidden">
                         <div
@@ -375,7 +397,7 @@ export function OpexBreakdownModal({
                               </div>
                             </td>
                             <td className="py-2.5 text-right font-bold text-rose-600">
-                              -{rupiah(o.expense)}
+                              {rupiah(o.expense)}
                             </td>
                             <td className="py-2.5 text-right text-suka-gray-600">
                               {sharePct.toFixed(1)}%

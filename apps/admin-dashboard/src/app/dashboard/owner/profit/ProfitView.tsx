@@ -42,7 +42,7 @@ import { GrossSalesBreakdownModal } from '@/components/profit/GrossSalesBreakdow
 import { CogsWasteBreakdownModal } from '@/components/profit/CogsWasteBreakdownModal'
 import { OpexBreakdownModal } from '@/components/profit/OpexBreakdownModal'
 import { DownloadProfitDataModal } from '@/components/profit/DownloadProfitDataModal'
-import { bukuKasHref, pettyCashHref } from '@/lib/bukuKasLink'
+import { bukuKasHref, bukuKasHrefKartu, pettyCashHref } from '@/lib/bukuKasLink'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useHRPayroll } from '@/hooks/useHRPayroll'
@@ -1097,7 +1097,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <CountUp end={pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)} duration={1} separator="." />
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
-                  <span>{includeCentral ? `Outlet + Pusat` : `Beban Outlet`}</span>
+                  {/* Pecahan ditampilkan supaya angka outlet bisa dicocokkan langsung dengan
+                      Buku Kas ("Outlet Internal" / "Semua Outlet"), yang tidak memuat kantor pusat. */}
+                  <span>{includeCentral ? `Outlet ${rupiah(pengeluaranOutlet)} · Pusat ${rupiah(pengeluaranPusat)}` : `Beban Outlet`}</span>
                   {isProrated && (
                     <span
                       className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
@@ -1231,6 +1233,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
               monthly: bukuKasHref(filter, scope),
               lembur: `${pettyCashHref(filter)}&category=lembur`,
               pettyCash: pettyCashHref(filter),
+            }}
+            cardHref={{
+              bulanan: bukuKasHrefKartu(filter, scope, 'bulanan'),
+              lembur: bukuKasHrefKartu(filter, scope, 'lembur'),
+              kasKecil: bukuKasHrefKartu(filter, scope, 'kasKecil'),
+              pusat: bukuKasHrefKartu(filter, scope, 'pusat'),
+              total: bukuKasHrefKartu(filter, scope, 'total'),
             }}
           />
 

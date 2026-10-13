@@ -405,10 +405,11 @@ def main():
 
     konfig = kumpulkan_konfigurasi(args.env_file)
     token = args.token or konfig.get("TELEGRAM_BOT_TOKEN")
+    allowed_user = (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
     chat_id = (
         args.chat_id
+        or allowed_user
         or konfig.get("TELEGRAM_OWNER_CHAT_ID")
-        or (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
         or konfig.get("TELEGRAM_CHAT_ID")
         or konfig.get("TELEGRAM_HOME_CHANNEL")
     )

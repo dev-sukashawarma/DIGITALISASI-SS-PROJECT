@@ -3,6 +3,8 @@ import { DOMAIN } from './domain'
 import { polaTerlarang } from './pengecualian'
 import { absensiPalsu, hrRinciPalsu } from './absensi/fixture'
 import { financePalsu } from './finance/fixture'
+import { stokPalsu } from './stok/fixture'
+import { sistemPalsu } from './sistem/fixture'
 import type { KonteksPenjualan, OutletInfo } from '@/lib/sukaBot/alat/penjualan'
 
 const outlets: OutletInfo[] = [
@@ -19,7 +21,7 @@ const penjualan: KonteksPenjualan = {
     menu: [{ nama: 'Original Sapi Jumbo', qty: 5, omzet: 300_000 }],
   }),
 }
-const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, hrRinci: hrRinciPalsu, finance: financePalsu, sekarang: penjualan.sekarang }
+const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, hrRinci: hrRinciPalsu, finance: financePalsu, stok: stokPalsu, sistem: sistemPalsu, sekarang: penjualan.sekarang }
 
 // §6 spec: pola larangan data per app ada di ./pengecualian (satu sumber, juga dipakai alat baru).
 
@@ -96,4 +98,28 @@ describe('registry alat Hermes', () => {
     const r = await cari('laporan_absensi_harian').jalankan({ tanggal: '2026-10-07' })
     expect(r.ok && String(r.data.teks)).toContain('Rekap Presensi Kru')
   })
+  it('stok_bahan mengembalikan data saldo dan lolos gerbang', async () => {
+    const r = await cari('stok_bahan').jalankan({ bahan: 'sapi' })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.bahan).toBe('SAPI')
+      expect(Array.isArray(r.data.lokasi)).toBe(true)
+    }
+  })
+  it('stok_surat_jalan mengembalikan daftar pengiriman', async () => {
+    const r = await cari('stok_surat_jalan').jalankan({ status: 'dikirim' })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.total).toBe(1)
+    }
+  })
+  it('sistem_status mengembalikan status operasional sistem', async () => {
+    const r = await cari('sistem_status').jalankan({})
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.status).toBe('ok')
+      expect(r.data.database).toBe('terhubung')
+    }
+  })
 })
+

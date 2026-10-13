@@ -15,40 +15,40 @@ const d: DataRekap = {
 
 describe('teksLaporanPagiCeo', () => {
   const t = teksLaporanPagiCeo(d)
-  it('memuat tanggal, omzet & pembanding dalam rupiah, tanpa persen', () => {
+  it('memuat header standar, tanggal, omzet & pembanding dengan icon trend', () => {
+    expect(t).toContain('📊 LAPORAN PENJUALAN HARIAN')
     expect(t).toContain(labelTanggal('2026-10-06'))
-    expect(t).toContain('Omzet kotor: Rp 48.500.000')
-    expect(t).toContain(`Minggu lalu (${labelTanggal('2026-09-29')}): Rp 51.000.000`)
-    expect(t).not.toMatch(/%/)
+    expect(t).toContain('Omzet Total: Rp 48.500.000')
+    expect(t).toContain('📉 vs Minggu Lalu: Rp 51.000.000 (-4.9%)')
+    expect(t).toContain('Total Transaksi: 1.234 struk')
+    expect(t).toContain('Rata-rata Struk (ATV): Rp 39.303')
   })
-  it('memuat total penjualan porsi, ranking seluruh outlet, dan outlet tanpa penjualan', () => {
-    expect(t).toContain('Total penjualan: 1.234 porsi')
+  it('memuat ranking seluruh outlet dengan porsi dan outlet tanpa penjualan', () => {
     expect(t).toContain('1. EMPANG — Rp 6.000.000 (150 porsi)')
     expect(t).toContain('2. BEJI — Rp 4.000.000 (100 porsi)')
     expect(t).toContain('3. KALISARI — Rp 0 (0 porsi)')
     expect(t).toContain('Outlet tanpa penjualan: KALISARI')
   })
   it('memuat 3 menu terlaris berurutan dan sumber', () => {
-    expect(t).toMatch(/1\. Original Sapi Jumbo — 320 porsi\n2\. Original Ayam Jumbo — 290 porsi\n3\. Ice Tea — 150 porsi/)
+    expect(t).toMatch(/1\. Original Sapi Jumbo — 320 porsi\n  2\. Original Ayam Jumbo — 290 porsi\n  3\. Ice Tea — 150 porsi/)
     expect(t).toContain('Sumber: Rangkuman Penjualan')
     expect(t).toContain('tanpa SS Online')
   })
   it('ranking kosong tidak meledak', () => {
     const k = teksLaporanPagiCeo({ ...d, ranking: [], menuTeratas: [] })
-    expect(k).toContain('Ranking Seluruh Outlet:\n—')
+    expect(k).toContain('Ranking Seluruh Outlet:\n  —')
   })
 })
 
 describe('teksLaporanMalamPenjualan', () => {
   const t = teksLaporanMalamPenjualan(d, '22:00 WIB')
   it('memuat judul penutupan malam dan cut-off jam', () => {
-    expect(t).toContain('Laporan Penutupan Malam')
-    expect(t).toContain('Cut-off 22:00 WIB')
-    expect(t).toContain('Omzet kotor hari ini: Rp 48.500.000')
-    expect(t).not.toMatch(/%/)
+    expect(t).toContain('LAPORAN CLOSING PENJUALAN (Cut-off 22:00 WIB)')
+    expect(t).toContain('Omzet Total Closing: Rp 48.500.000')
+    expect(t).toContain('📉 vs Minggu Lalu: Rp 51.000.000 (-4.9%)')
   })
   it('memuat top outlet dan menu terlaris', () => {
-    expect(t).toContain('1. EMPANG — Rp 6.000.000')
+    expect(t).toContain('1. EMPANG — Rp 6.000.000 (150 porsi)')
     expect(t).toContain('Original Sapi Jumbo — 320 porsi')
   })
 })

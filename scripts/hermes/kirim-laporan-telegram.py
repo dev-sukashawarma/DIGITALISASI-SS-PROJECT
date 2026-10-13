@@ -235,11 +235,8 @@ def format_sales_kemarin(data_raw: dict) -> str:
         f"💰 *Omzet Total:* {format_rupiah(omzet)}\n"
         f"{minggu_lalu_line}\n"
         f"🧾 *Total Transaksi:* {format_angka(transaksi)} struk\n"
-        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n"
+        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n\n"
     )
-    if total_qty:
-        teks += f"📦 *Total Qty Penjualan:* {format_angka(total_qty)} porsi\n"
-    teks += "\n"
 
     if ranking:
         teks += "🏆 *Ranking Seluruh Outlet:*\n"
@@ -251,6 +248,10 @@ def format_sales_kemarin(data_raw: dict) -> str:
             qty_str = f" ({format_angka(qty_out)} porsi)" if qty_out is not None else ""
             teks += f"  {p}. *{n}* — {format_rupiah(omz)}{qty_str}\n"
         teks += "\n"
+
+    tanpa_penjualan = [r.get("nama", "-") for r in ranking if r.get("omzet", 0) <= 0]
+    if tanpa_penjualan:
+        teks += f"⚠️ *Outlet Tanpa Penjualan:* {', '.join(tanpa_penjualan)}\n\n"
 
     if menu_top:
         teks += "🥇 *Top 3 Menu Terlaris:*\n"
@@ -269,7 +270,6 @@ def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> 
     menu_list = data_menu.get("menu", []) if isinstance(data_menu, dict) else []
 
     atv = round(omzet_kotor / transaksi) if transaksi > 0 else 0
-    total_qty = sum(r.get("qty", 0) for r in ranking_list) if ranking_list and "qty" in ranking_list[0] else None
 
     wib_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7)))
     hari_map = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
@@ -283,11 +283,8 @@ def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> 
         f"💰 *Omzet Kotor:* {format_rupiah(omzet_kotor)}\n"
         f"💵 *Omzet Bersih:* {format_rupiah(omzet_bersih)}\n"
         f"🧾 *Total Transaksi:* {format_angka(transaksi)} struk\n"
-        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n"
+        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n\n"
     )
-    if total_qty:
-        teks += f"📦 *Total Qty Penjualan:* {format_angka(total_qty)} porsi\n"
-    teks += "\n"
 
     if ranking_list:
         teks += "🏆 *Ranking Seluruh Outlet (s.d. 16:00):*\n"
@@ -300,6 +297,10 @@ def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> 
             qty_str = f" ({format_angka(qty_out)} porsi)" if qty_out is not None else ""
             teks += f"  {p}. *{n}* — {omz_str}{qty_str}\n"
         teks += "\n"
+
+    tanpa_penjualan = [r.get("nama", "-") for r in ranking_list if r.get("omzet", 0) <= 0]
+    if tanpa_penjualan:
+        teks += f"⚠️ *Outlet Tanpa Penjualan:* {', '.join(tanpa_penjualan)}\n\n"
 
     if menu_list:
         teks += "🥇 *Top 3 Menu Terlaris Sore Ini:*\n"
@@ -335,9 +336,6 @@ def format_sales_malam(data_raw: dict) -> str:
         minggu_lalu_line = f"📈 *vs Minggu Lalu:* {format_rupiah(omzet_lalu)}"
 
     atv = round(omzet / transaksi) if transaksi > 0 else 0
-    total_qty = data.get("total_qty")
-    if total_qty is None:
-        total_qty = sum(r.get("qty", 0) for r in ranking) if ranking and "qty" in ranking[0] else None
 
     teks = (
         "🌙 *LAPORAN CLOSING PENJUALAN*\n"
@@ -346,11 +344,8 @@ def format_sales_malam(data_raw: dict) -> str:
         f"💰 *Omzet Total Closing:* {format_rupiah(omzet)}\n"
         f"{minggu_lalu_line}\n"
         f"🧾 *Total Transaksi:* {format_angka(transaksi)} struk\n"
-        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n"
+        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n\n"
     )
-    if total_qty:
-        teks += f"📦 *Total Qty Penjualan:* {format_angka(total_qty)} porsi\n"
-    teks += "\n"
 
     if ranking:
         teks += "🏆 *Ranking Seluruh Outlet:*\n"
@@ -362,6 +357,10 @@ def format_sales_malam(data_raw: dict) -> str:
             qty_str = f" ({format_angka(qty_out)} porsi)" if qty_out is not None else ""
             teks += f"  {p}. *{n}* — {format_rupiah(omz)}{qty_str}\n"
         teks += "\n"
+
+    tanpa_penjualan = [r.get("nama", "-") for r in ranking if r.get("omzet", 0) <= 0]
+    if tanpa_penjualan:
+        teks += f"⚠️ *Outlet Tanpa Penjualan:* {', '.join(tanpa_penjualan)}\n\n"
 
     if menu_top:
         teks += "🥇 *Top 3 Menu Terlaris Hari Ini:*\n"

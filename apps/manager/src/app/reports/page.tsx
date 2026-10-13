@@ -141,7 +141,7 @@ export default async function ReportsPage({
   }
 
   let accessibleOutlets: string[] = [];
-  if (staff?.role === 'area_manager' || staff?.role === 'regional_manager') {
+  if (staff?.role === 'area_manager') {
     const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id);
     const assignedIds = [
       ...((so || []).map((s: any) => s.outlet_id)),
@@ -150,7 +150,7 @@ export default async function ReportsPage({
     const uniqueIds = Array.from(new Set(assignedIds));
     if (uniqueIds.length > 0) {
       accessibleOutlets = uniqueIds;
-    } else if (staff.role === 'area_manager') {
+    } else {
       accessibleOutlets = ['00000000-0000-0000-0000-000000000000'];
     }
   }
@@ -158,7 +158,7 @@ export default async function ReportsPage({
   // Handle Outlet Filter
   let permittedOutletId = outletFilter;
   
-  if (staff?.role === 'area_manager' || (staff?.role === 'regional_manager' && accessibleOutlets.length > 0)) {
+  if (staff?.role === 'area_manager') {
     if (permittedOutletId !== 'all' && accessibleOutlets.includes(permittedOutletId)) {
        ordersQuery = ordersQuery.eq('outlet_id', permittedOutletId);
     } else {
@@ -181,7 +181,7 @@ export default async function ReportsPage({
 
   // Fetch Outlets for the filter dropdown
   let qOutlets = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).neq('id', TEST_OUTLET_ID);
-  if (staff?.role === 'area_manager' || (staff?.role === 'regional_manager' && accessibleOutlets.length > 0)) {
+  if (staff?.role === 'area_manager') {
     qOutlets = qOutlets.in('id', accessibleOutlets);
   } else if (staff?.outlet_id && staff.role !== 'regional_manager' && staff.role !== 'developer') {
     qOutlets = qOutlets.eq('id', staff.outlet_id);

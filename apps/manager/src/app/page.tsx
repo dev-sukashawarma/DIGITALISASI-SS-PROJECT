@@ -207,7 +207,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .eq('status', 'PENDING');
 
   let accessibleOutlets: string[] = [];
-  if (staff?.role === 'area_manager' || staff?.role === 'regional_manager') {
+  if (staff?.role === 'area_manager') {
     const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id);
     const assignedIds = [
       ...((so || []).map((s: any) => s.outlet_id)),
@@ -216,14 +216,14 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     const uniqueIds = Array.from(new Set(assignedIds));
     if (uniqueIds.length > 0) {
       accessibleOutlets = uniqueIds;
-    } else if (staff.role === 'area_manager') {
+    } else {
       accessibleOutlets = ['00000000-0000-0000-0000-000000000000'];
     }
   }
 
   const filterOutletId = searchParams?.outlet_id as string | undefined;
 
-  if (staff?.role === 'area_manager' || (staff?.role === 'regional_manager' && accessibleOutlets.length > 0)) {
+  if (staff?.role === 'area_manager') {
     if (filterOutletId && filterOutletId !== 'all' && accessibleOutlets.includes(filterOutletId)) {
       qOrdersToday = qOrdersToday.eq('outlet_id', filterOutletId);
       qOrdersYesterday = qOrdersYesterday.eq('outlet_id', filterOutletId);

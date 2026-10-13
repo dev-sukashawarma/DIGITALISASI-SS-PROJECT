@@ -25,7 +25,7 @@ export async function getVoidOrders() {
     const supabaseAdmin = getSupabaseAdmin()
     let outletIds: string[] = []
 
-    if (role === 'area_manager' || role === 'leader' || role === 'regional_manager') {
+    if (role === 'area_manager' || role === 'leader') {
       const { data: staffOutlets, error: soErr } = await supabaseAdmin
         .from('staff_outlets')
         .select('outlet_id')
@@ -74,7 +74,7 @@ export async function getVoidOrders() {
 
     if (reqErr) throw reqErr
 
-    // Filter by outletIds jika area_manager / leader / regional_manager
+    // Filter by outletIds jika area_manager / leader
     let filteredRequests = requests || []
     if (role === 'area_manager' || role === 'leader') {
       if (outletIds.length === 0) {
@@ -82,11 +82,7 @@ export async function getVoidOrders() {
       } else {
          filteredRequests = filteredRequests.filter((r: any) => outletIds.includes(r.orders?.outlet_id))
       }
-    } else if (role === 'regional_manager') {
-      if (outletIds.length > 0) {
-        filteredRequests = filteredRequests.filter((r: any) => outletIds.includes(r.orders?.outlet_id))
-      }
-    } else if (role !== 'admin' && (role as string) !== 'developer') {
+    } else if (role !== 'regional_manager' && role !== 'admin' && (role as string) !== 'developer') {
        // Selain admin/rm/am/leader, nggak punya akses
        return { success: false, data: [], error: 'Akses ditolak' }
     }

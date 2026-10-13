@@ -20,6 +20,7 @@ import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
 import { createClient } from '@supabase/supabase-js'
+import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export const metadata: Metadata = {
   title: "SS Manager Dashboard",
@@ -45,9 +46,10 @@ export default async function RootLayout({
       .from('outlets')
       .select('id, name')
       .eq('is_active', true)
+      .neq('id', TEST_OUTLET_ID)
       .order('name');
       
-    if (initialStaff?.role === 'area_manager' || initialStaff?.role === 'regional_manager') {
+    if (initialStaff?.role === 'area_manager') {
       const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', initialStaff.id);
       const outletIds = [
         ...((so || []).map((s: any) => s.outlet_id)),
@@ -57,7 +59,7 @@ export default async function RootLayout({
 
       if (uniqueOutletIds.length > 0) {
         query = query.in('id', uniqueOutletIds);
-      } else if (initialStaff.role === 'area_manager') {
+      } else {
         query = query.in('id', ['00000000-0000-0000-0000-000000000000']);
       }
     }

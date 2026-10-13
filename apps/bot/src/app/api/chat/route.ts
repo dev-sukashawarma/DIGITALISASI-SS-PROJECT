@@ -40,6 +40,23 @@ export async function POST(req: Request) {
     return galat(429, `Batas ${BATAS.pesanPerJam} pesan per jam tercapai. Coba lagi nanti.`)
   }
 
+  let riwayatPesan: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  if (percakapan && percakapan.id) {
+    const { data: dbPesan } = await supabase
+      .from('bot_pesan')
+      .select('peran, isi')
+      .eq('percakapan_id', percakapan.id)
+      .order('dibuat_at', { ascending: true })
+      .limit(10)
+
+    riwayatPesan = (dbPesan || [])
+      .filter((r: any) => r.isi && r.isi.trim())
+      .map((r: any) => ({
+        role: (r.peran === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: r.isi,
+      }))
+  }
+
   if (!percakapan) {
     const baru = await buatPercakapan(supabase, profil, v.pesan)
     percakapan = { ...baru, profil }
@@ -69,6 +86,7 @@ export async function POST(req: Request) {
                   pesan: v.pesan,
                   profil: pc.profil,
                   telemetri,
+                  riwayat: riwayatPesan,
                   signal: req.signal,
                 })) {
                   jawaban += t

@@ -779,6 +779,9 @@ def format_marcom(data_endorse: dict, data_budget: dict) -> str:
     visit_pending = r_end.get("visit_pending", 0)
     belum_posting = r_end.get("belum_posting", 0)
     belum_bayar = r_end.get("belum_bayar", 0)
+    total_biaya = r_end.get("total_biaya", 0)
+
+    daftar_end = data_endorse.get("daftar", [])
 
     r_bgt = data_budget.get("ringkasan_budget", {})
     target_bgt = r_bgt.get("total_target_budget", 0)
@@ -787,31 +790,90 @@ def format_marcom(data_endorse: dict, data_budget: dict) -> str:
     pct_bgt = r_bgt.get("persen_terpakai", 0)
     iklan_aktif = data_budget.get("iklan_aktif", [])
 
+    now = datetime.datetime.now()
+    tgl_str = format_hari_tanggal(now.strftime("%Y-%m-%d"))
+    jam_str = now.strftime("%H:%M")
+
+    # Format persentase bahasa Indonesia (misal: 48,3%)
+    pct_str = f"{pct_bgt:.1f}%".replace(".", ",") if pct_bgt else "0%"
+
     teks = (
-        "📢 *STATUS MARCOM: ENDORSEMENT & IKLAN*\n"
-        "🕒 *Pukul 04:00 WIB*\n"
+        "📢 *STATUS MARCOM: ENDORSEMENT & ADS*\n"
+        f"🗓️ *{tgl_str} · {jam_str} WIB*\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "🌟 *Status Endorsement KOL:*\n"
-        f"• Total Kerja Sama: *{total_end}*\n"
-        f"• Draft Video Menunggu Review: *{draft_pending}* video\n"
-        f"• Jadwal Visit Pending: *{visit_pending}*\n"
-        f"• Belum Posting: *{belum_posting}*\n"
-        f"• Belum Lunas / DP: *{belum_bayar}*\n\n"
-        "📱 *Iklan & Budget Ads Bulan Ini:*\n"
-        f"• Target Budget: *{format_rupiah(target_bgt)}*\n"
-        f"• Realisasi Terpakai: *{format_rupiah(spent_bgt)}* ({pct_bgt}%)\n"
-        f"• Sisa Budget: *{format_rupiah(sisa_bgt)}*\n"
-        f"• Iklan Sedang ON: *{len(iklan_aktif)}* kampanye\n"
+        "🌟 *Kerjasama KOL & Endorsement:*\n"
+        f"• *Total Project:* *{total_end}* KOL"
+    )
+
+    if total_biaya:
+        teks += f" (Realisasi: *{format_rupiah(total_biaya)}*)\n"
+    else:
+        teks += "\n"
+
+    # Detail pending visit
+    kol_visit_pending = [e for e in daftar_end if e.get("visit_status") == "PENDING"]
+    if kol_visit_pending:
+        teks += f"• *Menunggu Jadwal Visit ({len(kol_visit_pending)}):*\n"
+        for e in kol_visit_pending[:5]:
+            kol = e.get("kol_nama", "KOL")
+            outlet = e.get("outlet_nama", "Outlet")
+            teks += f"  - {kol} ({outlet})\n"
+        if len(kol_visit_pending) > 5:
+            teks += f"  ... dan {len(kol_visit_pending) - 5} KOL lainnya\n"
+    elif visit_pending > 0:
+        teks += f"• *Menunggu Jadwal Visit:* *{visit_pending}* KOL\n"
+    else:
+        teks += "• *Jadwal Visit:* ✅ _Semua visit selesai_\n"
+
+    # Detail pending draft review & revision
+    kol_draft_pending = [
+        e for e in daftar_end
+        if e.get("draft_status") in ["PENDING", "REVISION"]
+    ]
+    if kol_draft_pending:
+        teks += f"• *Menunggu Review Draft ({len(kol_draft_pending)}):*\n"
+        for e in kol_draft_pending[:5]:
+            kol = e.get("kol_nama", "KOL")
+            outlet = e.get("outlet_nama", "Outlet")
+            status_draft = e.get("draft_status")
+            tag_rev = " · _Perlu Revisi_" if status_draft == "REVISION" else ""
+            teks += f"  - {kol} ({outlet}{tag_rev})\n"
+        if len(kol_draft_pending) > 5:
+            teks += f"  ... dan {len(kol_draft_pending) - 5} draft video lainnya\n"
+    elif draft_pending > 0:
+        teks += f"• *Menunggu Review Draft:* *{draft_pending}* video\n"
+    else:
+        teks += "• *Review Draft Video:* ✅ _Semua video telah direview_\n"
+
+    teks += f"• *Belum Tayang / Posting:* *{belum_posting}* video\n"
+    teks += f"• *Status Pembayaran:* *{belum_bayar}* belum lunas / masih DP\n\n"
+
+    teks += (
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "📱 *Performa Budget Ads (Bulan Ini):*\n"
+        f"• *Target Budget:* *{format_rupiah(target_bgt)}*\n"
+        f"• *Realisasi Terpakai:* *{format_rupiah(spent_bgt)}* ({pct_str})\n"
+        f"• *Sisa Budget:* *{format_rupiah(sisa_bgt)}*\n"
+        f"• *Kampanye Aktif:* *{len(iklan_aktif)}* iklan berjalan\n"
     )
 
     if iklan_aktif:
-        teks += "\n🎯 *Kampanye Iklan Berjalan:*\n"
-        for ad in iklan_aktif[:4]:
-            nama_ad = ad.get("campaign_name") or ad.get("ad_name", "Iklan")
-            plat = ad.get("platform", "-")
+        teks += "\n🎯 *Rincian Iklan Sedang Tayang (ON):*\n"
+        for ad in iklan_aktif[:5]:
+            plat = str(ad.get("platform", "-")).upper()
+            nama_ad = ad.get("outlet_nama") or ad.get("campaign_name") or ad.get("ad_name") or "Iklan Outlet"
             spent = ad.get("spent", 0)
-            teks += f"  • [{plat}] *{nama_ad}* — {format_rupiah(spent)}\n"
+            budget = ad.get("budget", 0)
+            if budget:
+                teks += f"  • [{plat}] *{nama_ad}* — {format_rupiah(spent)} / {format_rupiah(budget)}\n"
+            else:
+                teks += f"  • [{plat}] *{nama_ad}* — {format_rupiah(spent)}\n"
+        if len(iklan_aktif) > 5:
+            teks += f"  ... dan {len(iklan_aktif) - 5} iklan aktif lainnya\n"
+    else:
+        teks += "\n🎯 *Rincian Iklan:* _Tidak ada kampanye iklan aktif saat ini._\n"
 
+    teks += "\n📍 _Sumber: Sistem Marcom Suka Shawarma._"
     return teks
 
 

@@ -414,10 +414,17 @@ export function usePayrollMutations() {
           basicSalary = calculateOjtBasicSalary(attendanceDays, baseRate, OJT_STANDARD_WORKING_DAYS)
         }
 
+        // Rumus yang SAMA dengan generate & edit slip: tunjangan makan/kehadiran,
+        // transport, komunikasi, dan jabatan semuanya ikut. Dulu transport &
+        // komunikasi terlewat di sini, sehingga sinkron menurunkan total gaji
+        // (yang dipakai Finance untuk membayar) tanpa mengubah slipnya.
+        const tunjanganMakan = Number(slip.allowance_meal) || Number(slip.allowance_presence) || 0
         const totalEarnings =
           basicSalary +
-          Number(slip.allowance_position) +
-          Number(slip.allowance_presence) +
+          tunjanganMakan +
+          (Number(slip.allowance_transport) || 0) +
+          (Number(slip.allowance_communication) || 0) +
+          (Number(slip.allowance_position) || 0) +
           Number(totalBonus)
 
         const totalSalary = Math.max(0, totalEarnings - totalDeductions)

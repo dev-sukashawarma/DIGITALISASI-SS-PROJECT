@@ -135,7 +135,8 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           .lte('ts_server', `${endDay}T23:59:59.999+07:00`)
 
         rawAtt?.forEach((a: any) => {
-          if (a.type === 'in' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
+          // Menit toleransi tidak didenda — sama dengan rekap absensi (hr_rekap_absensi_staf).
+          if (a.type === 'in' && a.status !== 'telat_toleransi' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
             totalMins += Number(a.telat_menit) || 0
           }
         })

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'
 import type { PayrollRecord } from '@/lib/types'
-import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
+import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE, dendaTelatBerlaku } from '@/lib/payrollBreakdown'
 import { Clock, DollarSign, Wallet, ShieldAlert, Sparkles, Phone, Navigation, RefreshCw, Zap, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
@@ -81,7 +81,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           .lte('ts_server', `${endDay}T23:59:59.999+07:00`)
 
         rawAtt?.forEach((a: any) => {
-          if (a.type === 'in' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
+          if (a.type === 'in' && a.status !== 'telat_toleransi' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
             totalMins += Number(a.telat_menit) || 0
           }
         })
@@ -180,7 +180,9 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
   }, [record.staff_id, record.period_month, record.period_year, record.outlet_staff?.role])
 
   // Calculations
-  const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
+  // Staf kantor pusat belum kena denda telat — lihat dendaTelatBerlaku.
+  const kenaDendaTelat = dendaTelatBerlaku(record.outlet_staff as any)
+  const lateDeduction = kenaDendaTelat ? lateMinutes * LATE_FEE_PER_MINUTE : 0
 
   const totalAllowances =
     Number(mealAllowance) +
@@ -217,7 +219,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
       communication: Number(communicationAllowance),
       kasbon: Number(cashAdvanceDeduction),
       bpjs: Number(bpjsDeduction),
-      lateMinutes: Number(lateMinutes),
+      lateMinutes: kenaDendaTelat ? Number(lateMinutes) : 0,
       lateDeduction: Number(lateDeduction),
       otherDeduction: Number(otherDeduction),
       customDeductionNote: otherDeductionReason.trim() || undefined,

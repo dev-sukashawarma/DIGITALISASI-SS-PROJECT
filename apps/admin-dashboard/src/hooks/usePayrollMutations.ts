@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PayrollStatus } from '@/lib/types'
-import { LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
+import { LATE_FEE_PER_MINUTE, dendaTelatBerlaku } from '@/lib/payrollBreakdown'
 
 /**
  * Fetch total late minutes for all staff in a specific month & year from attendance & attendance_logs
@@ -26,7 +26,8 @@ async function fetchMonthlyLateMinutes(
       .lte('ts_server', `${endDay}T23:59:59.999+07:00`)
 
     rawAtt?.forEach((a: any) => {
-      if (a.type === 'in' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
+      // Menit toleransi tidak didenda — sama dengan rekap absensi di app HR.
+      if (a.type === 'in' && a.status !== 'telat_toleransi' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
         const staffId = a.outlet_staff_id
         const mins = Number(a.telat_menit) || 0
         const prev = lateMinutesMap.get(staffId) || 0
@@ -188,7 +189,7 @@ export function usePayrollMutations() {
         const allowancePosition = Number(fin?.allowance_position) || 0
         const staffSalesBonus = Number(fin?.sales_bonus) || 0
 
-        const lateMinutes = lateMinutesMap.get(s.id) || 0
+        const lateMinutes = dendaTelatBerlaku(s) ? (lateMinutesMap.get(s.id) || 0) : 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
         const kasbonActive = kasbonMap.get(s.id) || 0
         const kasbonDeduction = kasbonActive > 0 ? kasbonActive : (Number(fin?.deduction_kasbon) || 0)
@@ -262,7 +263,7 @@ export function usePayrollMutations() {
       // 1. Fetch current draft slips
       const { data: slips, error: slipsErr } = await supabase
         .from('payroll_records')
-        .select('*')
+        .select('*, outlet_staff:staff_id(role, outlet_id)')
         .eq('period_month', month)
         .eq('period_year', year)
         .eq('status', 'draft')
@@ -277,19 +278,24 @@ export function usePayrollMutations() {
       let updatedCount = 0
 
       for (const slip of slips) {
-        const lateMinutes = lateMinutesMap.get(slip.staff_id) || 0
+        const stafSlip = Array.isArray(slip.outlet_staff) ? slip.outlet_staff[0] : slip.outlet_staff
+        const lateMinutes = dendaTelatBerlaku(stafSlip) ? (lateMinutesMap.get(slip.staff_id) || 0) : 0
+        const basicSalary = Number(slip.basic_salary) || 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
 
         // Check if there is kasbon in current note or table
-        let kasbonDeduction = 0
-        if (slip.deduction_note) {
+        let kasbonDeduction = Number(slip.deduction_kasbon) || 0
+        if (kasbonDeduction === 0 && slip.deduction_note) {
           const m = slip.deduction_note.match(/kasbon[:\s]*rp?\s*([0-9.,]+)/i)
           if (m) kasbonDeduction = Number(m[1].replace(/[^0-9]/g, '')) || 0
         }
 
-        const totalDeductions = kasbonDeduction + lateDeduction
+        // BPJS ikut dipertahankan; dulu hilang dari total potongan saat sinkron.
+        const bpjsDeduction = Number(slip.deduction_bpjs) || 0
+        const totalDeductions = kasbonDeduction + lateDeduction + bpjsDeduction
         const dedNotes: string[] = []
         if (kasbonDeduction > 0) dedNotes.push(`Kasbon: Rp ${kasbonDeduction.toLocaleString('id-ID')}`)
+        if (bpjsDeduction > 0) dedNotes.push(`BPJS: Rp ${bpjsDeduction.toLocaleString('id-ID')}`)
         if (lateMinutes > 0) {
           dedNotes.push(`Telat (${lateMinutes} mnt x Rp 1.000): Rp ${lateDeduction.toLocaleString('id-ID')}`)
         }
@@ -309,10 +315,17 @@ export function usePayrollMutations() {
         if (currentOvertime > 0) bonusNotes.push(`Lembur: Rp ${currentOvertime.toLocaleString('id-ID')}`)
         if (autoBonusInfo?.note) bonusNotes.push(autoBonusInfo.note)
 
+        // Rumus yang SAMA dengan generate & edit slip: tunjangan makan/kehadiran,
+        // transport, komunikasi, dan jabatan semuanya ikut. Dulu transport &
+        // komunikasi terlewat di sini, sehingga sinkron menurunkan total gaji
+        // (yang dipakai Finance untuk membayar) tanpa mengubah slipnya.
+        const tunjanganMakan = Number(slip.allowance_meal) || Number(slip.allowance_presence) || 0
         const totalEarnings =
-          Number(slip.basic_salary) +
-          Number(slip.allowance_position) +
-          Number(slip.allowance_presence) +
+          basicSalary +
+          tunjanganMakan +
+          (Number(slip.allowance_transport) || 0) +
+          (Number(slip.allowance_communication) || 0) +
+          (Number(slip.allowance_position) || 0) +
           Number(totalBonus)
 
         const totalSalary = Math.max(0, totalEarnings - totalDeductions)

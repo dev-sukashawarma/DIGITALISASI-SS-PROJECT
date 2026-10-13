@@ -205,11 +205,11 @@ def kirim_ke_telegram(token: str, chat_id: str, pesan: str) -> bool:
 
     return False
 
-def ambil_daftar_target_chat(konfig: dict, chat_id_override: str = None) -> list:
+def ambil_daftar_target_chat(konfig: dict, chat_id_override: str = None, skip_owner: bool = False) -> list:
     """
     Mengumpulkan seluruh target chat_id yang valid tanpa duplikasi.
-    Jika ada TELEGRAM_OWNER_CHAT_ID dan TELEGRAM_CHAT_ID, keduanya digabungkan
-    sehingga laporan otomatis terkirim ke Owner dan Developer sekaligus.
+    Jika skip_owner=True atau env TELEGRAM_DEV_MODE/TELEGRAM_SKIP_OWNER=true,
+    TELEGRAM_OWNER_CHAT_ID dilewati sehingga pesan hanya dikirimkan ke Developer.
     """
     targets = []
     if chat_id_override:
@@ -219,7 +219,15 @@ def ambil_daftar_target_chat(konfig: dict, chat_id_override: str = None) -> list
                 targets.append(c)
         return targets
 
-    for k in ["TELEGRAM_OWNER_CHAT_ID", "TELEGRAM_CHAT_ID"]:
+    mode_dev = (
+        skip_owner
+        or str(konfig.get("TELEGRAM_DEV_MODE", "")).lower() in ["1", "true", "yes"]
+        or str(konfig.get("TELEGRAM_SKIP_OWNER", "")).lower() in ["1", "true", "yes"]
+    )
+
+    daftar_kunci = ["TELEGRAM_CHAT_ID"] if mode_dev else ["TELEGRAM_OWNER_CHAT_ID", "TELEGRAM_CHAT_ID"]
+
+    for k in daftar_kunci:
         v = konfig.get(k)
         if v:
             for c in str(v).split(","):
@@ -767,7 +775,7 @@ def format_watchdog(data_sistem: dict = None, konfig: dict = None) -> str:
     teks += "\nStatus: _Semua layanan server dan database beroperasi normal._"
     return teks
 
-def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: str = None, token_override: str = None) -> None:
+def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: str = None, token_override: str = None, skip_owner: bool = False) -> None:
     """
     Stateful health monitor.
     Dijalankan tiap 2 menit oleh systemd timer.
@@ -833,7 +841,7 @@ def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: 
     current_status = "down" if issues else "up"
 
     token = token_override or konfig.get("TELEGRAM_BOT_TOKEN")
-    targets = ambil_daftar_target_chat(konfig, chat_id_override)
+    targets = ambil_daftar_target_chat(konfig, chat_id_override, skip_owner=skip_owner)
     chat_id = ",".join(targets)
 
     # Logika Pengiriman Pesan
@@ -986,7 +994,7 @@ def buat_pesan_laporan(
         )
     return "Jenis laporan tidak dikenal."
 
-def fungsi_cek_chat(token: str, konfig: dict) -> None:
+def fungsi_cek_chat(token: str, konfig: dict, skip_owner: bool = False) -> None:
     """Mendiagnosis target chat_id yang aktif dan menampilkan riwayat chat bot."""
     print("\n" + "=" * 65)
     print("🔍 DIAGNOSIS KONFIGURASI TARGET CHAT TELEGRAM BOT")
@@ -1024,8 +1032,10 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
     print(f"  • TELEGRAM_ALLOWED_USERS : {konfig.get('TELEGRAM_ALLOWED_USERS', '(kosong)')}")
     print(f"  • TELEGRAM_HOME_CHANNEL  : {konfig.get('TELEGRAM_HOME_CHANNEL', '(kosong)')}")
 
-    target_list = ambil_daftar_target_chat(konfig)
-    print(f"\n🎯 Target Chat ID Terpilih Saat Ini : {', '.join(target_list) if target_list else '(tidak ada target)'}")
+    target_list = ambil_daftar_target_chat(konfig, skip_owner=skip_owner)
+    is_dev_mode = skip_owner or str(konfig.get("TELEGRAM_DEV_MODE", "")).lower() in ["1", "true", "yes"] or str(konfig.get("TELEGRAM_SKIP_OWNER", "")).lower() in ["1", "true", "yes"]
+    mode_str = " 🛠️ (Mode Uji Dev: Akun Owner dilewati)" if is_dev_mode else ""
+    print(f"\n🎯 Target Chat ID Terpilih Saat Ini : {', '.join(target_list) if target_list else '(tidak ada target)'}{mode_str}")
 
     for t_id in target_list:
         try:
@@ -1086,6 +1096,8 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
     print("💡 CARA MENGGANTI TARGET CHAT:")
     print("  • Kirim langsung ke Chat ID spesifik:")
     print("    python3 ~/bin/kirim-laporan-telegram.py --jenis semua --chat-id <ID_CHAT>")
+    print("  • Lewati akun Owner (Hanya kirim ke Developer):")
+    print("    python3 ~/bin/kirim-laporan-telegram.py --jenis semua --hanya-dev")
     print("  • Simpan permanen ke .env:")
     print("    sed -i 's/^TELEGRAM_OWNER_CHAT_ID=.*/TELEGRAM_OWNER_CHAT_ID=<ID_CHAT>/' ~/.hermes/profiles/ceo/.env")
     print("=" * 65 + "\n")
@@ -1114,6 +1126,7 @@ def main():
     parser.add_argument("--mcp-url", help=f"URL MCP Server Suka. Default: {DEFAULT_MCP_URL}")
     parser.add_argument("--mcp-key", help="Kunci MCP Suka.")
     parser.add_argument("--env-file", help="Path spesifik ke file .env.")
+    parser.add_argument("--hanya-dev", "--dev-only", "--skip-owner", action="store_true", help="Hanya kirimkan laporan ke akun Developer (lewati akun Owner selama pengujian)")
     parser.add_argument("--cek-chat", "--cek-chat-id", action="store_true", help="Diagnosa target chat ID Telegram dan riwayat pesan bot")
     parser.add_argument("--dry-run", action="store_true", help="Cetak isi laporan ke terminal tanpa kirim.")
     parser.add_argument("--silent", action="store_true", help="Jangan cetak output status jika berhasil.")
@@ -1125,7 +1138,7 @@ def main():
 
     # Mode Cek Chat ID
     if args.cek_chat:
-        fungsi_cek_chat(token, konfig)
+        fungsi_cek_chat(token, konfig, skip_owner=args.hanya_dev)
         sys.exit(0)
 
     if not args.jenis:
@@ -1134,12 +1147,12 @@ def main():
 
     # Mode alert-check khusus (stateful background monitor)
     if args.jenis == "alert-check" and not args.dry_run:
-        jalankan_alert_check(konfig, dry_run=args.dry_run, chat_id_override=args.chat_id, token_override=args.token)
+        jalankan_alert_check(konfig, dry_run=args.dry_run, chat_id_override=args.chat_id, token_override=args.token, skip_owner=args.hanya_dev)
         if not args.silent:
             print("Pemeriksaan alert selesai.")
         sys.exit(0)
 
-    targets = ambil_daftar_target_chat(konfig, args.chat_id)
+    targets = ambil_daftar_target_chat(konfig, args.chat_id, skip_owner=args.hanya_dev)
     chat_id = ",".join(targets)
 
     mcp_key = args.mcp_key or konfig.get("SUKA_MCP_KEY")

@@ -1596,28 +1596,28 @@ def main():
 
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Mode kirim SEMUA 9 CRON JOB
+    # Mode kirim SEMUA CRON JOB AKTIF
     if args.jenis == "semua":
-        DAFTAR_9_CRON = [
-            ("1/9", "sales-kemarin", "💰 Sales Kemarin (04:00 WIB)"),
-            ("2/9", "absensi-kantor", "👥 Absensi Kantor HQ (08:30 WIB)"),
-            ("3/9", "absensi-outlet", "🛵 Absensi Kru Outlet (14:00 WIB)"),
-            ("4/9", "sales-sore", "📊 Sales Sore (16:00 WIB)"),
-            ("5/9", "sales-malam", "🌙 Sales Closing Malam (22:00 WIB)"),
-            ("6/9", "marcom", "📢 Marcom & KOL (04:01 WIB)"),
-            ("7/9", "stok", "📦 Stok & Gudang (04:02 WIB)"),
-            ("8/9", "watchdog", "🛡️ Sistem Watchdog & DB (Tiap 2 Jam)"),
-            ("9/9", "alert-demo", "🚨 Pengawasan Gangguan (Tiap 2 Menit)"),
+        DAFTAR_CRON = [
+            ("1/8", "sales-kemarin", "💰 Sales Kemarin (04:00 WIB)"),
+            ("2/8", "absensi-kantor", "👥 Absensi Kantor HQ (08:30 WIB)"),
+            ("3/8", "absensi-outlet", "🛵 Absensi Kru Outlet (14:00 WIB)"),
+            ("4/8", "sales-sore", "📊 Sales Sore (16:00 WIB)"),
+            ("5/8", "sales-malam", "🌙 Sales Closing Malam (22:00 WIB)"),
+            ("6/8", "marcom", "📢 Marcom & KOL (04:01 WIB)"),
+            # ("stok", "📦 Stok & Gudang (04:02 WIB) [DIPENDING SEMENTARA]"),
+            ("7/8", "watchdog", "🛡️ Sistem Watchdog & DB (Tiap 2 Jam)"),
+            ("8/8", "alert-demo", "🚨 Pengawasan Gangguan (Tiap 2 Menit)"),
         ]
 
         if not args.dry_run and (not token or not chat_id):
             print(f"[{now_str}] ❌ Token Telegram atau Chat ID belum dikonfigurasi.", file=sys.stderr)
             sys.exit(1)
 
-        print(f"\n🚀 Memulai pengiriman 9 Laporan Cron Job ke Telegram (Target Chat ID: {chat_id or 'DRY-RUN'})...\n")
+        print(f"\n🚀 Memulai pengiriman {len(DAFTAR_CRON)} Laporan Cron Job Aktif ke Telegram (Target Chat ID: {chat_id or 'DRY-RUN'})...\n")
         sukses_count = 0
 
-        for nomor, jenis_item, label in DAFTAR_9_CRON:
+        for nomor, jenis_item, label in DAFTAR_CRON:
             pesan = buat_pesan_laporan(
                 jenis_item, konfig, mcp_url, mcp_key,
                 marcom_mcp_url, marcom_mcp_key, args.tanggal
@@ -1641,8 +1641,8 @@ def main():
                     print(f"[{now_jam}] ❌ ({nomor}) Gagal dikirim ke [{chat_id}]: {label}", file=sys.stderr)
                 time.sleep(1.2)  # Delay jeda aman dari rate limit Telegram
 
-        print(f"\n🎉 Selesai! {sukses_count} dari {len(DAFTAR_9_CRON)} laporan berhasil diproses.\n")
-        sys.exit(0 if sukses_count == len(DAFTAR_9_CRON) else 1)
+        print(f"\n🎉 Selesai! {sukses_count} dari {len(DAFTAR_CRON)} laporan berhasil diproses.\n")
+        sys.exit(0 if sukses_count == len(DAFTAR_CRON) else 1)
 
     # Mode Kirim Tunggal
     pesan = buat_pesan_laporan(

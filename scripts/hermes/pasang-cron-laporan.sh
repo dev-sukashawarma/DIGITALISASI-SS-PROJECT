@@ -47,7 +47,7 @@ DAFTAR_TIMER=(
   "suka-laporan-absensi-kantor"
   "suka-laporan-absensi-outlet"
   "suka-laporan-marcom"
-  "suka-laporan-stok"
+  # "suka-laporan-stok"  # Dipending sementara sesuai permintaan
   "suka-laporan-watchdog"
   "suka-laporan-alert"
 )
@@ -65,13 +65,13 @@ case "$ACTION" in
     exit 0
     ;;
   --status|status)
-    log_info "Memeriksa status 8 timer laporan Suka Shawarma..."
+    log_info "Memeriksa status timer laporan Suka Shawarma..."
     systemctl --user list-timers "suka-laporan-*" --no-pager || true
     exit 0
     ;;
   --disable|disable)
     log_warn "Menonaktifkan semua timer laporan..."
-    systemctl --user disable --now suka-laporan-pagi.timer suka-laporan-absensi.timer suka-laporan-malam.timer 2>/dev/null || true
+    systemctl --user disable --now suka-laporan-pagi.timer suka-laporan-absensi.timer suka-laporan-malam.timer suka-laporan-stok.timer 2>/dev/null || true
     for t in "${DAFTAR_TIMER[@]}"; do
       systemctl --user disable --now "$t.timer" 2>/dev/null || true
     done
@@ -110,11 +110,11 @@ fi
 [ -f "$BIN_DIR/mcp-vps-telemetri.py" ] && chmod +x "$BIN_DIR/mcp-vps-telemetri.py"
 log_ok "Skrip eksekusi siap di $BIN_DIR"
 
-# 3. Nonaktifkan timer lama (jika ada) untuk menghindari duplikasi
-systemctl --user disable --now suka-laporan-pagi.timer suka-laporan-absensi.timer suka-laporan-malam.timer suka-laporan-sales-2100.timer 2>/dev/null || true
+# 3. Nonaktifkan timer lama atau yang dipending untuk menghindari eksekusi yang tidak diinginkan
+systemctl --user disable --now suka-laporan-pagi.timer suka-laporan-absensi.timer suka-laporan-malam.timer suka-laporan-sales-2100.timer suka-laporan-stok.timer 2>/dev/null || true
 
-# 4. Salin atau unduh 8 berkas systemd user service & timer
-log_info "Memasang 8 berkas systemd user service & timer..."
+# 4. Salin atau unduh berkas systemd user service & timer
+log_info "Memasang berkas systemd user service & timer (${#DAFTAR_TIMER[@]} timer aktif)..."
 for t in "${DAFTAR_TIMER[@]}"; do
   for ext in service timer; do
     target_file="$SYSTEMD_USER_DIR/$t.$ext"
@@ -171,7 +171,7 @@ for t in "${DAFTAR_TIMER[@]}"; do
 done
 
 systemctl --user enable --now "${TIMER_FILES[@]}"
-log_ok "8 Timer berhasil di-enable dan dijalankan!"
+log_ok "${#DAFTAR_TIMER[@]} Timer berhasil di-enable dan dijalankan!"
 
 # 7. Mode test pengiriman jika diminta
 if [[ "$ACTION" == "--test" || "$ACTION" == "-t" ]]; then
@@ -181,7 +181,7 @@ if [[ "$ACTION" == "--test" || "$ACTION" == "-t" ]]; then
 fi
 
 echo -e "\n${BOLD}${HIJAU}======================================================${NC}"
-echo -e "${BOLD}${HIJAU}          9 JADWAL CRON JOB RESMI DIAKTIFKAN          ${NC}"
+echo -e "${BOLD}${HIJAU}       ${#DAFTAR_TIMER[@]} JADWAL CRON JOB RESMI DIAKTIFKAN (STOK PENDING)       ${NC}"
 echo -e "${BOLD}${HIJAU}======================================================${NC}\n"
 
 echo -e "${BOLD}Jadwal Pengiriman Laporan & Pengawasan Otomatis ke Telegram:${NC}"
@@ -191,14 +191,14 @@ echo -e "  3. 🛵 ${BOLD}Absensi Outlet${NC}      : 14:00 WIB (07:00 UTC) -> Ke
 echo -e "  4. 📊 ${BOLD}Sales Sore${NC}          : 16:00 WIB (09:00 UTC) -> Omzet & transaksi s.d. jam 16:00"
 echo -e "  5. 🌙 ${BOLD}Sales Closing Malam${NC} : 22:00 WIB (15:00 UTC) -> Rekap closing omzet hari ini"
 echo -e "  6. 📢 ${BOLD}Marcom Ads & KOL${NC}    : 04:01 WIB (21:01 UTC) -> Endorsement & ads yang berjalan"
-echo -e "  7. 📦 ${BOLD}Stok & Gudang${NC}       : 04:02 WIB (21:02 UTC) -> Kondisi stok utama & surat jalan"
+echo -e "  7. ⏸️  ${BOLD}Stok & Gudang${NC}       : [DIPENDING SEMENTARA]"
 echo -e "  8. 🛡️ ${BOLD}Sistem Watchdog${NC}     : Tiap 2 Jam Sekali     -> Telemetri CPU, RAM, Disk VPS & DB"
 echo -e "  9. 🚨 ${BOLD}Alert Gangguan (Down)${NC}: Tiap 2 Menit (Background) -> Notifikasi darurat instan jika down"
 echo ""
 echo -e "${BOLD}Perintah Pemantauan:${NC}"
-echo -e "  - Cek 9 timer aktif     : ${CYAN}systemctl --user list-timers \"suka-laporan-*\"${NC}"
+echo -e "  - Cek timer aktif       : ${CYAN}systemctl --user list-timers \"suka-laporan-*\"${NC}"
 echo -e "  - Uji kirim watchdog    : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis watchdog${NC}"
 echo -e "  - Uji kirim sales sore  : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis sales-sore${NC}"
 echo -e "  - Uji simulasi alert    : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis alert-check --dry-run${NC}"
-echo -e "  - Uji tanpa kirim (dry) : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis stok --dry-run${NC}"
+echo -e "  - Uji manual stok       : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis stok --dry-run${NC}"
 echo ""

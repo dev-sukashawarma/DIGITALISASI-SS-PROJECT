@@ -180,28 +180,66 @@ def kirim_ke_telegram(token: str, chat_id: str, pesan: str) -> bool:
 def format_rupiah(nominal: float) -> str:
     return f"Rp {nominal:,.0f}".replace(",", ".")
 
+def format_angka(angka) -> str:
+    try:
+        return f"{int(angka):,}".replace(",", ".")
+    except Exception:
+        return str(angka)
+
+def format_hari_tanggal(tgl_str: str) -> str:
+    try:
+        dt = datetime.datetime.strptime(tgl_str, "%Y-%m-%d")
+        hari_map = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+        bulan_map = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+        hari = hari_map[dt.weekday()]
+        return f"{hari}, {dt.day} {bulan_map[dt.month]} {dt.year}"
+    except Exception:
+        return tgl_str
+
 def format_sales_kemarin(data_raw: dict) -> str:
     data = data_raw.get("data")
     if not data or not isinstance(data, dict):
         return data_raw.get("teks", "")
 
-    tgl = data_raw.get("tanggal", "Kemarin")
+    tgl_raw = data_raw.get("tanggal", "")
+    tgl_teks = format_hari_tanggal(tgl_raw) if tgl_raw else "Kemarin"
+
     omzet = data.get("omzet_kotor", 0)
     omzet_lalu = data.get("omzet_minggu_lalu", 0)
+    transaksi = data.get("transaksi", 0)
     ranking = data.get("peringkat", [])
     menu_top = data.get("menu_teratas", [])
+
+    # Persentase & Icon vs Minggu Lalu
+    if omzet_lalu and omzet_lalu > 0:
+        selisih_pct = ((omzet - omzet_lalu) / omzet_lalu) * 100
+        icon_minggu = "📈" if selisih_pct >= 0 else "📉"
+        tanda = "+" if selisih_pct > 0 else ""
+        persen_str = f"({tanda}{selisih_pct:.1f}%)"
+        minggu_lalu_line = f"{icon_minggu} *vs Minggu Lalu:* {format_rupiah(omzet_lalu)} {persen_str}"
+    else:
+        minggu_lalu_line = f"📈 *vs Minggu Lalu:* {format_rupiah(omzet_lalu)}"
+
+    # Rata-rata Struk (ATV)
+    atv = round(omzet / transaksi) if transaksi > 0 else 0
+
+    # Total Qty Penjualan (porsi)
     total_qty = data.get("total_qty")
     if total_qty is None:
-        total_qty = sum(r.get("qty", 0) for r in ranking) if ranking and "qty" in ranking[0] else data.get("transaksi", 0)
+        total_qty = sum(r.get("qty", 0) for r in ranking) if ranking and "qty" in ranking[0] else None
 
     teks = (
-        "☀️ *LAPORAN PENJUALAN KEMARIN*\n"
-        f"🗓️ *Tanggal:* `{tgl}`\n"
+        "📊 *LAPORAN PENJUALAN HARIAN*\n"
+        f"🗓️ *Hari/Tanggal:* {tgl_teks}\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💰 *Omzet Kotor:* {format_rupiah(omzet)}\n"
-        f"📈 *Minggu Lalu:* {format_rupiah(omzet_lalu)}\n"
-        f"📦 *Total Penjualan:* {total_qty:,} porsi\n\n"
+        f"💰 *Omzet Total:* {format_rupiah(omzet)}\n"
+        f"{minggu_lalu_line}\n"
+        f"🧾 *Total Transaksi:* {format_angka(transaksi)} struk\n"
+        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n"
     )
+    if total_qty:
+        teks += f"📦 *Total Qty Penjualan:* {format_angka(total_qty)} porsi\n"
+    teks += "\n"
 
     if ranking:
         teks += "🏆 *Ranking Seluruh Outlet:*\n"
@@ -210,14 +248,14 @@ def format_sales_kemarin(data_raw: dict) -> str:
             n = r.get("nama", "-")
             omz = r.get("omzet", 0)
             qty_out = r.get("qty")
-            qty_str = f" ({qty_out:,} porsi)" if qty_out is not None else ""
+            qty_str = f" ({format_angka(qty_out)} porsi)" if qty_out is not None else ""
             teks += f"  {p}. *{n}* — {format_rupiah(omz)}{qty_str}\n"
         teks += "\n"
 
     if menu_top:
-        teks += "🥇 *Top Menu Terlaris:*\n"
+        teks += "🥇 *Top 3 Menu Terlaris:*\n"
         for idx, m in enumerate(menu_top[:3], 1):
-            teks += f"  {idx}. *{m.get('nama', '-')}* — {m.get('qty', 0):,} porsi\n"
+            teks += f"  {idx}. *{m.get('nama', '-')}* — {format_angka(m.get('qty', 0))} porsi\n"
         teks += "\n"
 
     teks += "📍 _Sumber: Rangkuman Penjualan (omzet kotor, outlet internal + mitra, tanpa SS Online)._"
@@ -226,19 +264,31 @@ def format_sales_kemarin(data_raw: dict) -> str:
 def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> str:
     omzet_kotor = data_omzet.get("omzetKotor", 0)
     omzet_bersih = data_omzet.get("omzetBersih", 0)
+    transaksi = data_omzet.get("transaksi", 0)
     ranking_list = data_ranking.get("ranking", []) if isinstance(data_ranking, dict) else []
     menu_list = data_menu.get("menu", []) if isinstance(data_menu, dict) else []
-    
-    total_qty = sum(r.get("qty", 0) for r in ranking_list) if ranking_list and "qty" in ranking_list[0] else data_omzet.get("transaksi", 0)
+
+    atv = round(omzet_kotor / transaksi) if transaksi > 0 else 0
+    total_qty = sum(r.get("qty", 0) for r in ranking_list) if ranking_list and "qty" in ranking_list[0] else None
+
+    wib_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7)))
+    hari_map = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+    bulan_map = ["", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+    tgl_teks = f"{hari_map[wib_now.weekday()]}, {wib_now.day} {bulan_map[wib_now.month]} {wib_now.year}"
 
     teks = (
-        "📊 *PROGRESS PENJUALAN SORE*\n"
-        "📅 *Hari Ini s.d. Pukul 16:00 WIB*\n"
+        "🌤️ *PROGRESS SALES SORE*\n"
+        f"🗓️ *Hari/Tanggal:* {tgl_teks} (s.d. 16:00 WIB)\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"💰 *Omzet Kotor:* {format_rupiah(omzet_kotor)}\n"
         f"💵 *Omzet Bersih:* {format_rupiah(omzet_bersih)}\n"
-        f"📦 *Total Penjualan:* {total_qty:,} porsi\n\n"
+        f"🧾 *Total Transaksi:* {format_angka(transaksi)} struk\n"
+        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n"
     )
+    if total_qty:
+        teks += f"📦 *Total Qty Penjualan:* {format_angka(total_qty)} porsi\n"
+    teks += "\n"
+
     if ranking_list:
         teks += "🏆 *Ranking Seluruh Outlet (s.d. 16:00):*\n"
         for r in ranking_list:
@@ -247,7 +297,7 @@ def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> 
             omz = r.get("omzet", 0)
             omz_str = format_rupiah(omz) if isinstance(omz, (int, float)) else str(omz)
             qty_out = r.get("qty")
-            qty_str = f" ({qty_out:,} porsi)" if qty_out is not None else ""
+            qty_str = f" ({format_angka(qty_out)} porsi)" if qty_out is not None else ""
             teks += f"  {p}. *{n}* — {omz_str}{qty_str}\n"
         teks += "\n"
 
@@ -255,7 +305,7 @@ def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> 
         teks += "🥇 *Top 3 Menu Terlaris Sore Ini:*\n"
         for idx, m in enumerate(menu_list[:3], 1):
             qty = m.get("terjual", m.get("qty", 0))
-            teks += f"  {idx}. *{m.get('nama', '-')}* — {qty:,} porsi\n"
+            teks += f"  {idx}. *{m.get('nama', '-')}* — {format_angka(qty)} porsi\n"
         teks += "\n"
 
     teks += "📍 _Catatan: Transaksi sore masih berjalan menuju jam ramai malam._"
@@ -266,23 +316,41 @@ def format_sales_malam(data_raw: dict) -> str:
     if not data or not isinstance(data, dict):
         return data_raw.get("teks", "")
 
-    tgl = data_raw.get("tanggal", "Hari Ini")
+    tgl_raw = data_raw.get("tanggal", "")
+    tgl_teks = format_hari_tanggal(tgl_raw) if tgl_raw else "Hari Ini"
+
     omzet = data.get("omzet_kotor", 0)
     omzet_lalu = data.get("omzet_minggu_lalu", 0)
+    transaksi = data.get("transaksi", 0)
     ranking = data.get("peringkat", [])
     menu_top = data.get("menu_teratas", [])
+
+    if omzet_lalu and omzet_lalu > 0:
+        selisih_pct = ((omzet - omzet_lalu) / omzet_lalu) * 100
+        icon_minggu = "📈" if selisih_pct >= 0 else "📉"
+        tanda = "+" if selisih_pct > 0 else ""
+        persen_str = f"({tanda}{selisih_pct:.1f}%)"
+        minggu_lalu_line = f"{icon_minggu} *vs Minggu Lalu:* {format_rupiah(omzet_lalu)} {persen_str}"
+    else:
+        minggu_lalu_line = f"📈 *vs Minggu Lalu:* {format_rupiah(omzet_lalu)}"
+
+    atv = round(omzet / transaksi) if transaksi > 0 else 0
     total_qty = data.get("total_qty")
     if total_qty is None:
-        total_qty = sum(r.get("qty", 0) for r in ranking) if ranking and "qty" in ranking[0] else data.get("transaksi", 0)
+        total_qty = sum(r.get("qty", 0) for r in ranking) if ranking and "qty" in ranking[0] else None
 
     teks = (
         "🌙 *LAPORAN CLOSING PENJUALAN*\n"
-        f"🗓️ *Tanggal:* `{tgl}`\n"
+        f"🗓️ *Hari/Tanggal:* {tgl_teks}\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💰 *Omzet Kotor Closing:* {format_rupiah(omzet)}\n"
-        f"📈 *Minggu Lalu:* {format_rupiah(omzet_lalu)}\n"
-        f"📦 *Total Penjualan:* {total_qty:,} porsi\n\n"
+        f"💰 *Omzet Total Closing:* {format_rupiah(omzet)}\n"
+        f"{minggu_lalu_line}\n"
+        f"🧾 *Total Transaksi:* {format_angka(transaksi)} struk\n"
+        f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n"
     )
+    if total_qty:
+        teks += f"📦 *Total Qty Penjualan:* {format_angka(total_qty)} porsi\n"
+    teks += "\n"
 
     if ranking:
         teks += "🏆 *Ranking Seluruh Outlet:*\n"
@@ -291,14 +359,14 @@ def format_sales_malam(data_raw: dict) -> str:
             n = r.get("nama", "-")
             omz = r.get("omzet", 0)
             qty_out = r.get("qty")
-            qty_str = f" ({qty_out:,} porsi)" if qty_out is not None else ""
+            qty_str = f" ({format_angka(qty_out)} porsi)" if qty_out is not None else ""
             teks += f"  {p}. *{n}* — {format_rupiah(omz)}{qty_str}\n"
         teks += "\n"
 
     if menu_top:
         teks += "🥇 *Top 3 Menu Terlaris Hari Ini:*\n"
         for idx, m in enumerate(menu_top[:3], 1):
-            teks += f"  {idx}. *{m.get('nama', '-')}* — {m.get('qty', 0):,} porsi\n"
+            teks += f"  {idx}. *{m.get('nama', '-')}* — {format_angka(m.get('qty', 0))} porsi\n"
         teks += "\n"
 
     teks += "📍 _Sumber: Rangkuman Penjualan (omzet kotor hari berjalan, outlet internal + mitra, tanpa SS Online)._"

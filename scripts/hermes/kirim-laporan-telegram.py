@@ -23,6 +23,7 @@ import datetime
 import json
 import os
 import pathlib
+import re
 import sys
 import time
 import shutil
@@ -288,10 +289,119 @@ def format_hari_tanggal(tgl_str: str) -> str:
     except Exception:
         return tgl_str
 
+def terjemahkan_istilah(teks: str) -> str:
+    """
+    Menerjemahkan teks laporan otomatis dari MCP (jika kembali dalam Bahasa Inggris)
+    menjadi 100% Bahasa Indonesia baku sesuai standar operasional Suka Shawarma.
+    Mencakup judul, label metrik, nama hari/bulan, format tanggal, satuan, hingga pemisah ribuan.
+    """
+    if not teks or not isinstance(teks, str):
+        return str(teks or "")
+
+    # 1. Format tanggal: swap 'October 12, 2026' -> '12 October 2026'
+    teks = re.sub(r'([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})', r'\2 \1 \3', teks)
+
+    pasangan = [
+        # Sales Titles & Headers
+        (r'\**DAILY SALES REPORT\**', '*LAPORAN PENJUALAN HARIAN*'),
+        (r'\**NIGHT CLOSING SALES REPORT\**', '*LAPORAN CLOSING PENJUALAN*'),
+        (r'\**CLOSING SALES REPORT\**', '*LAPORAN CLOSING PENJUALAN*'),
+        (r'\**Date:\**', '*Hari/Tanggal:*'),
+        (r'\**Total Revenue:\**', '*Omzet Total:*'),
+        (r'\**vs\.?\s*Last Week:\**', '*vs Minggu Lalu:*'),
+        (r'\**Total Transactions:\**', '*Total Transaksi:*'),
+        (r'\**Average Transaction Value \(ATV\):\**', '*Rata-rata Struk (ATV):*'),
+        (r'\**Overall Outlet Ranking:\**', '*Ranking Seluruh Outlet:*'),
+        (r'\**Outlet Ranking:\**', '*Ranking Outlet:*'),
+        (r'\**Outlets?\s+with(out)?\s+(No\s+)?Sales:\**', '*Outlet Tanpa Penjualan:*'),
+        (r'\**Outlets?\s+with(out)?\s+(No\s+)?Revenue:\**', '*Outlet Tanpa Penjualan:*'),
+        (r'\**Top\s+\d+\s+Best-?Selling\s+Menu\s+Items:\**', '*Top 3 Menu Terlaris:*'),
+        (r'\**Top\s+\d+\s+Best-?Selling\s+Items:\**', '*Top 3 Menu Terlaris:*'),
+        (r'\**Best-?Selling\s+Menu\s+Items:\**', '*Menu Terlaris:*'),
+
+        # Units & Quantities
+        (r'\breceipts\b', 'struk'),
+        (r'\breceipt\b', 'struk'),
+        (r'\bservings\b', 'porsi'),
+        (r'\bserving\b', 'porsi'),
+        (r'\bBlocks\b', 'Balok'),
+        (r'\bBlock\b', 'Balok'),
+        (r'\bpeople\b', 'orang'),
+        (r'\bperson\b', 'orang'),
+        (r'\bmins\b', 'mnt'),
+        (r'\bminutes\b', 'mnt'),
+
+        # Footers & Sources
+        (r'_?Source:\s*Sales Summary\s*\(gross revenue,\s*internal outlets\s*\+\s*partners,\s*excluding online orders\)\._?', '_Sumber: Rangkuman Penjualan (omzet kotor, outlet internal + mitra, tanpa SS Online)._'),
+        (r'_?Source:\s*Sales Summary_?', '_Sumber: Rangkuman Penjualan_'),
+        (r'\(gross revenue,\s*internal outlets\s*\+\s*partners,\s*excluding online orders\)\.?', '(omzet kotor, outlet internal + mitra, tanpa SS Online).'),
+
+        # Presensi / Attendance
+        (r'\**ATTENDANCE REPORT\**', '*REKAP PRESENSI KRU OPERASIONAL*'),
+        (r'\**Attendance Summary:\**', '*Ringkasan Kehadiran:*'),
+        (r'Total scheduled crew:', 'Total kru terjadwal:'),
+        (r'On-time attendance:', 'Hadir tepat waktu:'),
+        (r'Late:', 'Terlambat:'),
+        (r'Leave / Sick / Permission:', 'Izin / Cuti / Sakit:'),
+        (r'Not yet present:', 'Belum hadir:'),
+        (r'Absent:', 'Alpa:'),
+        (r'Lateness Details:', 'Rincian Keterlambatan:'),
+        (r'No lateness recorded today\.', 'Tidak ada keterlambatan tercatat hari ini.'),
+        (r'Source: Attendance Board', 'Sumber: Papan Kehadiran'),
+
+        # Locations & System Status
+        (r'\bHEADQUARTERS\s*\(HQ\)\b', 'KANTOR PUSAT (HQ)'),
+        (r'\bPARTNER\b', 'MITRA'),
+        (r'\bPARTIALLY RECEIVED\b', 'DITERIMA SEBAGIAN'),
+        (r'\bFULLY RECEIVED\b', 'SELESAI DITERIMA'),
+        (r'\bSHIPPED\b', 'SEDANG DIKIRIM'),
+        (r'\bDRAFT\b', 'DRAF'),
+        (r'\bACTIVE\b', 'AKTIF'),
+        (r'\bUNCONFIGURED\b', 'BELUM DIATUR'),
+        (r'\bUP\b', 'AKTIF'),
+        (r'\bDOWN\b', 'TERPUTUS'),
+        (r'\bDEGRADED\b', 'PENURUNAN'),
+
+        # Days of week
+        (r'\bMonday\b', 'Senin'),
+        (r'\bTuesday\b', 'Selasa'),
+        (r'\bWednesday\b', 'Rabu'),
+        (r'\bThursday\b', 'Kamis'),
+        (r'\bFriday\b', 'Jumat'),
+        (r'\bSaturday\b', 'Sabtu'),
+        (r'\bSunday\b', 'Minggu'),
+
+        # Months
+        (r'\bJanuary\b', 'Januari'),
+        (r'\bFebruary\b', 'Februari'),
+        (r'\bMarch\b', 'Maret'),
+        (r'\bApril\b', 'April'),
+        (r'\bMay\b', 'Mei'),
+        (r'\bJune\b', 'Juni'),
+        (r'\bJuly\b', 'Juli'),
+        (r'\bAugust\b', 'Agustus'),
+        (r'\bSeptember\b', 'September'),
+        (r'\bOctober\b', 'Oktober'),
+        (r'\bNovember\b', 'November'),
+        (r'\bDecember\b', 'Desember'),
+        (r'\bOct\b', 'Okt'),
+        (r'\bAug\b', 'Agu'),
+        (r'\bDec\b', 'Des'),
+    ]
+
+    for pola, pengganti in pasangan:
+        teks = re.sub(pola, pengganti, teks, flags=re.IGNORECASE)
+
+    # 3. Format angka pemisah ribuan dari koma ke titik (misal 61,262,528 -> 61.262.528, 1,044 -> 1.044)
+    while re.search(r'(\d+),(\d{3})', teks):
+        teks = re.sub(r'(\d+),(\d{3})', r'\1.\2', teks)
+
+    return teks
+
 def format_sales_kemarin(data_raw: dict) -> str:
     data = data_raw.get("data")
     if not data or not isinstance(data, dict):
-        return data_raw.get("teks", "")
+        return terjemahkan_istilah(data_raw.get("teks", ""))
 
     tgl_raw = data_raw.get("tanggal", "")
     tgl_teks = format_hari_tanggal(tgl_raw) if tgl_raw else "Kemarin"
@@ -423,7 +533,7 @@ def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> 
 def format_sales_malam(data_raw: dict) -> str:
     data = data_raw.get("data")
     if not data or not isinstance(data, dict):
-        return data_raw.get("teks", "")
+        return terjemahkan_istilah(data_raw.get("teks", ""))
 
     tgl_raw = data_raw.get("tanggal", "")
     tgl_teks = format_hari_tanggal(tgl_raw) if tgl_raw else "Hari Ini"
@@ -569,29 +679,7 @@ def format_marcom(data_endorse: dict, data_budget: dict) -> str:
 
     return teks
 
-def terjemahkan_istilah(teks_str: str) -> str:
-    """Menerjemahkan nama lokasi, status surat jalan, dan satuan dari bahasa Inggris ke Bahasa Indonesia."""
-    if not teks_str or not isinstance(teks_str, str):
-        return str(teks_str or "")
-    kamus = {
-        "HEADQUARTERS (HQ)": "KANTOR PUSAT (HQ)",
-        "PARTNER": "MITRA",
-        "Blocks": "Balok",
-        "Block": "Balok",
-        "PARTIALLY RECEIVED": "DITERIMA SEBAGIAN",
-        "FULLY RECEIVED": "SELESAI DITERIMA",
-        "SHIPPED": "SEDANG DIKIRIM",
-        "DRAFT": "DRAF",
-        "ACTIVE": "AKTIF",
-        "UNCONFIGURED": "BELUM DIATUR",
-        "UP": "AKTIF",
-        "DOWN": "TERPUTUS",
-        "DEGRADED": "PENURUNAN",
-    }
-    hasil = teks_str
-    for k, v in kamus.items():
-        hasil = hasil.replace(k, v)
-    return hasil
+
 
 def format_stok(data_ayam: dict, data_sapi: dict, data_sj: dict) -> str:
     teks = (
@@ -903,7 +991,7 @@ def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: 
     except Exception:
         pass
 
-def buat_pesan_laporan(
+def _buat_pesan_laporan_raw(
     jenis: str,
     konfig: dict,
     mcp_url: str,
@@ -993,6 +1081,20 @@ def buat_pesan_laporan(
             "Status: _Pengawasan 24/7 aktif & senyap (zero-spam saat normal)._"
         )
     return "Jenis laporan tidak dikenal."
+
+def buat_pesan_laporan(
+    jenis: str,
+    konfig: dict,
+    mcp_url: str,
+    mcp_key: str,
+    marcom_mcp_url: str,
+    marcom_mcp_key: str,
+    tanggal: str = None
+) -> str:
+    pesan_mentah = _buat_pesan_laporan_raw(
+        jenis, konfig, mcp_url, mcp_key, marcom_mcp_url, marcom_mcp_key, tanggal
+    )
+    return terjemahkan_istilah(pesan_mentah)
 
 def fungsi_cek_chat(token: str, konfig: dict, skip_owner: bool = False) -> None:
     """Mendiagnosis target chat_id yang aktif dan menampilkan riwayat chat bot."""

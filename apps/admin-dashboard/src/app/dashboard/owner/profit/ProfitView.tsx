@@ -1097,7 +1097,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <CountUp end={pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)} duration={1} separator="." />
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
-                  <span>{isAllOutlets ? `Outlet + Pusat` : `Beban Outlet`}</span>
+                  <span>{includeCentral ? `Outlet + Pusat` : `Beban Outlet`}</span>
                   {isProrated && (
                     <span
                       className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"

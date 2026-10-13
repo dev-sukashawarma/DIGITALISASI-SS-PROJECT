@@ -22,7 +22,7 @@ export const KANAL: Record<KodeKanal, { channels: string[]; label: string }> = {
 }
 
 export interface ArgPeriode { periode: KodePeriode; dari?: string; sampai?: string }
-export interface BarisRanking { peringkat: number; nama: string; omzet: number }
+export interface BarisRanking { peringkat: number; nama: string; omzet: number; qty?: number }
 
 // Outlet sungguhan = 'internal' | 'mitra' (migration 20261003150000, keputusan owner 3 Okt).
 // Aturan nama & slug disamakan dengan view valid_operational_outlets / sales_board_outlets:
@@ -126,12 +126,13 @@ export async function hitungRanking(ctx: KonteksPenjualan, p: Periode, kanal: st
   const daftar = outletTerhitung(ctx.outlets)
   const baris = await mapWithConcurrency(daftar, KONKURENSI, async (o) => {
     const l = await ctx.ambilLaporan({ dari: p.dari, sampai: p.sampai, outletIds: [o.id], kanal })
-    return { o, omzet: l.omzetKotor }
+    const qty = l.menu.reduce((sum, m) => sum + m.qty, 0)
+    return { o, omzet: l.omzetKotor, qty }
   })
   return baris
     .filter((b) => b.o.is_active || b.omzet > 0)
     .sort((x, y) => y.omzet - x.omzet)
-    .map((b, i) => ({ peringkat: i + 1, nama: b.o.name, omzet: b.omzet }))
+    .map((b, i) => ({ peringkat: i + 1, nama: b.o.name, omzet: b.omzet, qty: b.qty }))
 }
 
 export async function alatRankingOutlet(ctx: KonteksPenjualan, a: ArgPeriode & { kanal?: KodeKanal }) {
@@ -142,7 +143,7 @@ export async function alatRankingOutlet(ctx: KonteksPenjualan, a: ArgPeriode & {
     status: 'ok',
     periode: p.label,
     kanal: kanal.label,
-    ranking: ranking.map((r) => ({ peringkat: r.peringkat, nama: r.nama, omzet: rupiah(r.omzet) })),
+    ranking: ranking.map((r) => ({ peringkat: r.peringkat, nama: r.nama, omzet: rupiah(r.omzet), qty: r.qty })),
     catatan: catatanBerjalan(ctx, p),
     sumber: SUMBER,
   }

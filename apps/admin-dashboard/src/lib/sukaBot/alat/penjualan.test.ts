@@ -108,8 +108,8 @@ describe('alatRankingOutlet', () => {
     const ctx = konteks()
     const r: any = await alatRankingOutlet(ctx, { periode: 'kemarin' })
     expect(r.ranking).toEqual([
-      { peringkat: 1, nama: 'MITRA CIBUBUR', omzet: 'Rp 3.000.000' },
-      { peringkat: 2, nama: 'SUKA SHAWARMA BEJI', omzet: 'Rp 1.000.000' },
+      { peringkat: 1, nama: 'MITRA CIBUBUR', omzet: 'Rp 3.000.000', qty: 44 },
+      { peringkat: 2, nama: 'SUKA SHAWARMA BEJI', omzet: 'Rp 1.000.000', qty: 44 },
     ])
     expect(r).not.toHaveProperty('pembanding')
     expect(JSON.stringify(r)).not.toContain('%')

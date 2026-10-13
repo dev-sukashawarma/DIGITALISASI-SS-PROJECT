@@ -4,19 +4,23 @@ import { labelTanggal } from '@/lib/sukaBot/periode'
 
 // Teks dirakit kode, bukan AI (spec K12). Omzet tanpa persen (keputusan owner 2026-10-05).
 export function teksLaporanPagiCeo(d: DataRekap): string {
-  const atas = d.ranking[0]
-  const bawah = d.ranking.length > 1 ? d.ranking[d.ranking.length - 1] : undefined
   const nol = d.ranking.filter((r) => r.omzet <= 0).map((r) => r.nama)
+  const qtyTotal = d.totalQty ?? d.transaksi
   return [
-    `☀️ Laporan Pagi — ${labelTanggal(d.tanggal)}`,
+    `☀️ Laporan Pagi — Penjualan Kemarin — ${labelTanggal(d.tanggal)}`,
     '',
     `Omzet kotor: ${rupiah(d.omzet)}`,
     `Minggu lalu (${labelTanggal(d.pembanding)}): ${rupiah(d.omzetPembanding)}`,
-    `Transaksi: ${d.transaksi.toLocaleString('id-ID')}`,
+    `Total penjualan: ${qtyTotal.toLocaleString('id-ID')} porsi`,
     '',
-    atas ? `Tertinggi: ${atas.nama} — ${rupiah(atas.omzet)}` : 'Tertinggi: —',
-    bawah ? `Terendah: ${bawah.nama} — ${rupiah(bawah.omzet)}` : 'Terendah: —',
-    ...(nol.length ? [`Tanpa penjualan: ${nol.join(', ')}`] : []),
+    '🏆 Ranking Seluruh Outlet:',
+    ...(d.ranking.length
+      ? d.ranking.map((r) => {
+          const qtyStr = r.qty !== undefined ? ` (${r.qty.toLocaleString('id-ID')} porsi)` : ''
+          return `${r.peringkat}. ${r.nama} — ${rupiah(r.omzet)}${qtyStr}`
+        })
+      : ['—']),
+    ...(nol.length ? ['', `Outlet tanpa penjualan: ${nol.join(', ')}`] : []),
     '',
     'Menu terlaris:',
     ...(d.menuTeratas.length
@@ -30,22 +34,25 @@ export function teksLaporanPagiCeo(d: DataRekap): string {
 // Laporan penutupan malam (closing harian)
 export function teksLaporanMalamPenjualan(d: DataRekap, jamWibStr?: string): string {
   const jamSuffix = jamWibStr ? ` (Cut-off ${jamWibStr})` : ''
-  const top5 = d.ranking.slice(0, 5)
   const nol = d.ranking.filter((r) => r.omzet <= 0).map((r) => r.nama)
   const selisih = d.omzet - d.omzetPembanding
   const tanda = selisih >= 0 ? '+' : '-'
   const infoBanding = `Minggu lalu (${labelTanggal(d.pembanding)}): ${rupiah(d.omzetPembanding)} (${tanda}${rupiah(Math.abs(selisih))})`
+  const qtyTotal = d.totalQty ?? d.transaksi
 
   return [
     `🌙 Laporan Penutupan Malam — ${labelTanggal(d.tanggal)}${jamSuffix}`,
     '',
     `Omzet kotor hari ini: ${rupiah(d.omzet)}`,
     infoBanding,
-    `Total transaksi: ${d.transaksi.toLocaleString('id-ID')}`,
+    `Total penjualan: ${qtyTotal.toLocaleString('id-ID')} porsi`,
     '',
-    'Top Outlet Hari Ini:',
-    ...(top5.length
-      ? top5.map((r) => `${r.peringkat}. ${r.nama} — ${rupiah(r.omzet)}`)
+    '🏆 Ranking Seluruh Outlet Hari Ini:',
+    ...(d.ranking.length
+      ? d.ranking.map((r) => {
+          const qtyStr = r.qty !== undefined ? ` (${r.qty.toLocaleString('id-ID')} porsi)` : ''
+          return `${r.peringkat}. ${r.nama} — ${rupiah(r.omzet)}${qtyStr}`
+        })
       : ['—']),
     ...(nol.length ? ['', `Outlet tanpa penjualan: ${nol.join(', ')}`] : []),
     '',

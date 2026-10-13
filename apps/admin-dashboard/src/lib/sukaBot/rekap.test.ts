@@ -51,7 +51,7 @@ describe('teksRekap', () => {
       'Rekap penjualan Jum 2 Okt 2026, Bos 👋',
       '',
       'Omzet kotor: Rp 48.200.000 (Jum 25 Sep 2026: Rp 51.300.000)',
-      'Transaksi: 1.240',
+      'Total penjualan: 1.240 porsi',
       '',
       'Ranking outlet:',
       '1. MITRA CIBUBUR — Rp 6.100.000',

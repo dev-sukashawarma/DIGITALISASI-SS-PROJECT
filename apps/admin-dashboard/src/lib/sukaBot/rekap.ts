@@ -11,6 +11,7 @@ export interface DataRekap {
   omzet: number
   omzetPembanding: number
   transaksi: number
+  totalQty?: number
   ranking: BarisRanking[]
   menuTeratas: { nama: string; qty: number }[]
 }
@@ -32,26 +33,32 @@ export async function hitungRekap(ctx: KonteksPenjualan, tanggal: string): Promi
     ctx.ambilLaporan({ dari: pembanding, sampai: pembanding, outletIds: ids, kanal: ['all'] }),
     hitungRanking(ctx, p, ['all']),
   ])
+  const totalQty = total.menu.reduce((sum, m) => sum + m.qty, 0)
   return {
     tanggal,
     pembanding,
     omzet: total.omzetKotor,
     omzetPembanding: totalP.omzetKotor,
     transaksi: total.transaksi,
+    totalQty,
     ranking,
     menuTeratas: [...total.menu].sort((a, b) => b.qty - a.qty).slice(0, 3).map((m) => ({ nama: m.nama, qty: m.qty })),
   }
 }
 
 export function teksRekap(d: DataRekap): string {
+  const qtyTotal = d.totalQty ?? d.transaksi
   const baris = [
     `Rekap penjualan ${labelTanggal(d.tanggal)}, Bos 👋`,
     '',
     `Omzet kotor: ${rupiah(d.omzet)} (${labelTanggal(d.pembanding)}: ${rupiah(d.omzetPembanding)})`,
-    `Transaksi: ${d.transaksi.toLocaleString('id-ID')}`,
+    `Total penjualan: ${qtyTotal.toLocaleString('id-ID')} porsi`,
     '',
     'Ranking outlet:',
-    ...d.ranking.map((r) => `${r.peringkat}. ${r.nama} — ${rupiah(r.omzet)}`),
+    ...d.ranking.map((r) => {
+      const qtyStr = r.qty !== undefined ? ` (${r.qty.toLocaleString('id-ID')} porsi)` : ''
+      return `${r.peringkat}. ${r.nama} — ${rupiah(r.omzet)}${qtyStr}`
+    }),
     '',
     'Menu terlaris:',
     ...d.menuTeratas.map((m, i) => `${i + 1}. ${m.nama} — ${m.qty.toLocaleString('id-ID')} porsi`),

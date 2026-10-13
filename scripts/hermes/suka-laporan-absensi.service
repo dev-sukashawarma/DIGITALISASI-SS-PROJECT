@@ -1,0 +1,10 @@
+[Unit]
+Description=Rekap Presensi Kru Operasional Suka Shawarma ke Telegram
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python3 %h/bin/kirim-laporan-telegram.py --jenis absensi
+StandardOutput=journal
+StandardError=journal

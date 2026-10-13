@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { alpaDariHariHadir, jumlahHariRekap } from '@suka/hr-rumus'
 import type { DefinisiAlat, KonteksHermes } from '../registry'
 import { pilihOutlet } from '../absensi/outlet'
+import { type DataLaporanAbsensi, teksLaporanAbsensiHarian } from '../laporanPagi'
 
 const TGL = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'format YYYY-MM-DD')
 const OUTLET = z.string().min(1).max(60).describe('Nama outlet (sebagian nama boleh). Kosong = semua lokasi.')
@@ -175,6 +176,46 @@ async function ceklistKepatuhan(ctx: KonteksHermes, a: { tanggal?: string }) {
   })
 }
 
+async function laporanAbsensiHarian(ctx: KonteksHermes, a: { tanggal?: string }) {
+  const tanggal = a.tanggal ?? ctx.absensi.hariIni
+  const res = await hariIni(ctx, { tanggal })
+  if ('status' in res && res.status === 'galat') return res
+
+  const dataHariIni = res as any
+  const daftarTelat: Array<{ nama: string; outlet: string; menit: number; jam?: string }> = []
+  const daftarCuti: Array<{ nama: string; outlet: string; keterangan: string }> = []
+
+  for (const o of dataHariIni.outlet || []) {
+    for (const t of o.telat || []) {
+      daftarTelat.push({ nama: t.nama, outlet: o.outlet, menit: t.menit, jam: t.jam })
+    }
+    for (const t of o.telat_toleransi || []) {
+      daftarTelat.push({ nama: t.nama, outlet: o.outlet, menit: t.menit, jam: t.jam })
+    }
+    for (const c of o.cuti || []) {
+      daftarCuti.push({ nama: c.nama, outlet: o.outlet, keterangan: c.keterangan })
+    }
+  }
+
+  daftarTelat.sort((x, y) => y.menit - x.menit)
+
+  const dataLaporan: DataLaporanAbsensi = {
+    tanggal,
+    jamWib: pukulWib(ctx.sekarang),
+    total: dataHariIni.total,
+    daftarTelat,
+    daftarCuti,
+  }
+
+  return dgn(ctx, {
+    status: 'ok',
+    tanggal,
+    teks: teksLaporanAbsensiHarian(dataLaporan),
+    data: dataLaporan,
+    sumber: SUMBER_PAPAN,
+  })
+}
+
 export const ALAT_ABSENSI: DefinisiAlat[] = [
   {
     nama: 'absensi_hari_ini',
@@ -235,5 +276,15 @@ export const ALAT_ABSENSI: DefinisiAlat[] = [
     skema: z.object({ tanggal: TGL.optional() }).strict(),
     contoh: {},
     jalankan: ceklistKepatuhan,
+  },
+  {
+    nama: 'laporan_absensi_harian',
+    domain: 'absensi',
+    sumber: SUMBER_PAPAN,
+    catatanMeta: CATATAN_ALPA,
+    deskripsi: 'Laporan ringkasan presensi kru harian siap kirim (teks) + datanya: jumlah hadir, telat, cuti/izin, rincian staf telat. Kirim field "teks" apa adanya.',
+    skema: z.object({ tanggal: TGL.optional() }).strict(),
+    contoh: {},
+    jalankan: laporanAbsensiHarian,
   },
 ]

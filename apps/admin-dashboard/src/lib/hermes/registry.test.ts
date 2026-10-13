@@ -88,4 +88,12 @@ describe('registry alat Hermes', () => {
     const r = await cari('laporan_pagi_ceo').jalankan({ tanggal: '2026-10-06' })
     expect(r.ok && String(r.data.teks)).toContain('Laporan Pagi')
   })
+  it('laporan_penutupan_malam mengembalikan teks template', async () => {
+    const r = await cari('laporan_penutupan_malam').jalankan({ tanggal: '2026-10-07' })
+    expect(r.ok && String(r.data.teks)).toContain('Laporan Penutupan Malam')
+  })
+  it('laporan_absensi_harian mengembalikan teks template', async () => {
+    const r = await cari('laporan_absensi_harian').jalankan({ tanggal: '2026-10-07' })
+    expect(r.ok && String(r.data.teks)).toContain('Rekap Presensi Kru')
+  })
 })

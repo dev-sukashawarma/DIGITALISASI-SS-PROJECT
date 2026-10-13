@@ -1,7 +1,9 @@
 import { z } from 'zod'
 import { alatOmzet, alatBandingkan, alatMenuTerlaris, alatRankingOutlet } from '@/lib/sukaBot/alat/penjualan'
 import { hitungRekap, tanggalRekapUntuk } from '@/lib/sukaBot/rekap'
-import { teksLaporanPagiCeo } from '../laporanPagi'
+import { teksLaporanPagiCeo, teksLaporanMalamPenjualan } from '../laporanPagi'
+import { jakartaDate } from '@/lib/ownerDashboardCache'
+import { jamWib } from '@/lib/sukaBot/format'
 import type { DefinisiAlat } from '../registry'
 
 // Domain penjualan. Semua alat membungkus fungsi SUKA Bot yang sudah teruji (rumus =
@@ -74,6 +76,31 @@ export const ALAT_PENJUALAN: DefinisiAlat[] = [
         status: 'ok',
         tanggal,
         teks: teksLaporanPagiCeo(d),
+        data: {
+          omzet_kotor: d.omzet,
+          omzet_minggu_lalu: d.omzetPembanding,
+          transaksi: d.transaksi,
+          peringkat: d.ranking,
+          menu_teratas: d.menuTeratas,
+        },
+        sumber: 'Rangkuman Penjualan',
+      }
+    },
+  },
+  {
+    nama: 'laporan_penutupan_malam',
+    domain: 'penjualan',
+    deskripsi: 'Laporan penutupan malam penjualan siap kirim (teks) + datanya. Tanggal default = hari ini. Kirim field "teks" apa adanya.',
+    skema: z.object({ tanggal: TGL.optional() }).strict(),
+    contoh: {},
+    jalankan: async (ctx, a: { tanggal?: string }) => {
+      const tanggal = a.tanggal ?? jakartaDate(ctx.sekarang)
+      const d = await hitungRekap(ctx.penjualan, tanggal)
+      const jamStr = `${jamWib(ctx.sekarang)} WIB`
+      return {
+        status: 'ok',
+        tanggal,
+        teks: teksLaporanMalamPenjualan(d, jamStr),
         data: {
           omzet_kotor: d.omzet,
           omzet_minggu_lalu: d.omzetPembanding,

@@ -1,4 +1,4 @@
-import { teksLaporanPagiCeo } from './laporanPagi'
+import { teksLaporanPagiCeo, teksLaporanMalamPenjualan, teksLaporanAbsensiHarian, type DataLaporanAbsensi } from './laporanPagi'
 import { labelTanggal } from '@/lib/sukaBot/periode'
 import type { DataRekap } from '@/lib/sukaBot/rekap'
 
@@ -36,5 +36,45 @@ describe('teksLaporanPagiCeo', () => {
     const k = teksLaporanPagiCeo({ ...d, ranking: [], menuTeratas: [] })
     expect(k).toContain('Tertinggi: —')
     expect(k).toContain('Terendah: —')
+  })
+})
+
+describe('teksLaporanMalamPenjualan', () => {
+  const t = teksLaporanMalamPenjualan(d, '22:00 WIB')
+  it('memuat judul penutupan malam dan cut-off jam', () => {
+    expect(t).toContain('Laporan Penutupan Malam')
+    expect(t).toContain('Cut-off 22:00 WIB')
+    expect(t).toContain('Omzet kotor hari ini: Rp 48.500.000')
+    expect(t).not.toMatch(/%/)
+  })
+  it('memuat top outlet dan menu terlaris', () => {
+    expect(t).toContain('1. EMPANG — Rp 6.000.000')
+    expect(t).toContain('Original Sapi Jumbo — 320 porsi')
+  })
+})
+
+describe('teksLaporanAbsensiHarian', () => {
+  const dataAbsensi: DataLaporanAbsensi = {
+    tanggal: '2026-10-07',
+    jamWib: '11.00 WIB',
+    total: { staf: 50, hadir: 45, telat: 3, telat_toleransi: 2, belum: 2, alpa: 1, cuti: 2, libur: 0 },
+    daftarTelat: [
+      { nama: 'Ahmad', outlet: 'EMPANG', menit: 35, jam: '08:35' },
+      { nama: 'Bambang', outlet: 'BEJI', menit: 12, jam: '08:12' },
+    ],
+    daftarCuti: [{ nama: 'Citra', outlet: 'DTC', keterangan: 'Cuti Tahunan' }],
+  }
+  const t = teksLaporanAbsensiHarian(dataAbsensi)
+  it('memuat ringkasan kehadiran, tepat waktu, dan keterlambatan', () => {
+    expect(t).toContain('Rekap Presensi Kru Operasional')
+    expect(t).toContain('Total kru terjadwal: 50 orang')
+    expect(t).toContain('Hadir tepat waktu: 40 orang')
+    expect(t).toContain('Terlambat: 5 orang (3 di luar toleransi, 2 toleransi)')
+    expect(t).toContain('1. Ahmad (EMPANG) — 35 mnt [Masuk 08:35]')
+    expect(t).toContain('Citra (DTC): Cuti Tahunan')
+  })
+  it('tidak meledak bila tidak ada yang telat', () => {
+    const bersih = teksLaporanAbsensiHarian({ ...dataAbsensi, daftarTelat: [] })
+    expect(bersih).toContain('Tidak ada keterlambatan tercatat hari ini')
   })
 })

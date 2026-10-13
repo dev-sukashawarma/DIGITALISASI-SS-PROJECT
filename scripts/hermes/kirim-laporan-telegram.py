@@ -47,6 +47,9 @@ ENV_PATHS = [
     pathlib.Path.home() / ".hermes" / "profiles" / "ceo" / ".env",
     pathlib.Path.home() / ".hermes" / "profiles" / "marcom" / ".env",
     pathlib.Path.home() / ".hermes" / ".env",
+    pathlib.Path("/home/suka-hermes/.hermes/profiles/ceo/.env"),
+    pathlib.Path("/home/suka-hermes/.hermes/profiles/marcom/.env"),
+    pathlib.Path("/home/suka-hermes/.hermes/.env"),
     pathlib.Path.cwd() / ".env",
     pathlib.Path(__file__).resolve().parent.parent.parent / ".env",
 ]

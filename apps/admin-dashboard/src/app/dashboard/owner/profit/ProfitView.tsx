@@ -1228,7 +1228,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             categories={opexCategoriesList}
             outlets={opexOutletList}
             detailHref={{
-              monthly: bukuKasHref(filter),
+              monthly: bukuKasHref(filter, scope),
               lembur: `${pettyCashHref(filter)}&category=lembur`,
               pettyCash: pettyCashHref(filter),
             }}
@@ -1245,7 +1245,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
             input={waterfallInput}
             detailHref={{ 
-              opex_monthly: bukuKasHref(filter),
+              opex_monthly: bukuKasHref(filter, scope),
               opex_lembur: `${pettyCashHref(filter)}&category=lembur`,
               opex_petty_cash: pettyCashHref(filter) 
             }}

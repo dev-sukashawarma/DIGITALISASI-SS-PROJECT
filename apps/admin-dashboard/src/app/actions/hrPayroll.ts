@@ -72,6 +72,7 @@ export interface StaffPayrollDetail {
   fullAllowances?: number
   fullDeductions?: number
   allocatedOutletNames?: string[]
+  allocatedOutletIds?: string[]
 }
 
 export interface HRPayrollOutletSummary {
@@ -122,6 +123,8 @@ export interface HRPayrollSummary {
   managerDetails?: ManagerAllocationDetail[]
   bonusDetails?: StaffBonusDetail[]
   crewBonusDetails?: StaffBonusDetail[]
+  /** Bonus kru per outlet tempat bonus itu DIPEROLEH (outletId → rupiah). Jumlahnya = crewBonus. */
+  crewBonusByOutlet?: Record<string, number>
   managerBonusDetails?: StaffBonusDetail[]
   staffDetails?: StaffPayrollDetail[]
 }
@@ -1458,6 +1461,9 @@ export async function getHRPayrollSummaryAction(filter: {
     }
 
     let crewBonusDetails: StaffBonusDetail[] = []
+    // Rincian per staf di bawah menaruh seluruh bonus seseorang di satu nama outlet;
+    // peta ini menyimpan bonus per outlet yang sebenarnya, untuk Laba Rugi per outlet.
+    const crewBonusByOutlet: Record<string, number> = {}
     if (dailyCrewBonusMap.size > 0) {
       const multiCrewMap = new Map<string, StaffBonusDetail>()
       dailyCrewBonusMap.forEach(entry => {
@@ -1492,6 +1498,7 @@ export async function getHRPayrollSummaryAction(filter: {
         }
 
         agg.bonus += entry.bonus
+        if (entry.outletId) crewBonusByOutlet[entry.outletId] = (crewBonusByOutlet[entry.outletId] || 0) + entry.bonus
         agg.totalPcs = (agg.totalPcs || 0) + entry.totalPcs
         entry.dates.forEach(d => {
           if (!agg!.backupDates!.includes(d)) agg!.backupDates!.push(d)
@@ -1670,6 +1677,7 @@ export async function getHRPayrollSummaryAction(filter: {
       status,
       outlets: outletsSummary,
       crewBonusDetails,
+      crewBonusByOutlet,
       managerBonusDetails,
       bonusDetails,
       staffDetails: [
@@ -1717,7 +1725,10 @@ export async function getHRPayrollSummaryAction(filter: {
             fullBasicSalary: bSalary,
             fullAllowances: bAllowances,
             fullDeductions: bDeductions,
-            allocatedOutletNames: targets.map(id => outletNameMap.get(id) || 'Cabang')
+            allocatedOutletNames: targets.map(id => outletNameMap.get(id) || 'Cabang'),
+            // Id outlet tempat kru backup ini bertugas — dipakai lib/opexDariHr.ts untuk
+            // membagi gajinya per outlet persis seperti tampilan satu outlet.
+            allocatedOutletIds: targets
           }
         }),
         ...(target !== 'PUSAT' ? managerRows.map(m => {

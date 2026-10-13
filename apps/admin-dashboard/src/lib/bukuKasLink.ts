@@ -11,11 +11,22 @@ export const BUKU_KAS_PATH = '/dashboard/reports/input-pengeluaran'
 
 export const BUKU_KAS_PARAMS = { from: 'from', to: 'to', outlet: 'outlet' } as const
 
-export function bukuKasHref(filter: { from: string; to: string; outletId: string }): string {
+/**
+ * `scope` = tab Laba Rugi asal tautan. Dari tab Mitra/Internal dengan semua
+ * outlet terpilih, Buku Kas harus terbuka di kelompok outlet yang sama — tanpa
+ * ini ia terbuka di "Semua Unit" dan totalnya tampak tidak cocok.
+ */
+export function bukuKasHref(
+  filter: { from: string; to: string; outletId: string },
+  scope: 'all' | 'internal' | 'mitra' = 'all',
+): string {
   const q = new URLSearchParams()
   if (filter.from) q.set(BUKU_KAS_PARAMS.from, filter.from)
   if (filter.to) q.set(BUKU_KAS_PARAMS.to, filter.to)
-  if (filter.outletId) q.set(BUKU_KAS_PARAMS.outlet, filter.outletId)
+  const outlet = filter.outletId === 'all' && scope !== 'all'
+    ? (scope === 'mitra' ? 'MITRA_OUTLETS' : 'INTERNAL_OUTLETS')
+    : filter.outletId
+  if (outlet) q.set(BUKU_KAS_PARAMS.outlet, outlet)
   const qs = q.toString()
   return qs ? `${BUKU_KAS_PATH}?${qs}` : BUKU_KAS_PATH
 }

@@ -52,6 +52,26 @@ describe('barisPayrollDariHr', () => {
     expect(rows.filter(r => r.category === 'bonus_area_manager').map(r => r.outlet_id)).toEqual(['a'])
   })
 
+  it('kru backup dibagi rata ke outlet tempatnya bertugas, bukan menumpuk di outlet asal', () => {
+    const h = hr({
+      basicSalary: 2_000_000, allowances: 390_000, deductions: 77_000,
+      outlets: [
+        { outletId: 'a', outletName: 'CIMANGGU', staffCount: 1, totalSalary: 0, draftCount: 0, finalizedCount: 0, status: 'draft' },
+        { outletId: 'b', outletName: 'DRAMAGA', staffCount: 0, totalSalary: 0, draftCount: 0, finalizedCount: 0, status: 'draft' },
+      ],
+      staffDetails: [{
+        staffId: 'bk', outletId: 'a', outletName: 'CIMANGGU', routineSalary: 2_313_000,
+        isBackupAllocation: true, allocatedOutletIds: ['a', 'b'],
+        fullBasicSalary: 2_000_000, fullAllowances: 390_000, fullDeductions: 77_000,
+      }],
+      crewBonusDetails: [], crewBonus: 0, managerBonusAllocation: 0,
+    })
+    const rows = barisPayrollDariHr({ hr: h, from: '2026-10-01', to: '2026-10-31' })!
+    const gaji = (id: string) => rows.find(r => r.category === 'gaji_crew_outlet' && r.outlet_id === id)?.amount
+    expect(gaji('a')).toBe(1_156_500)
+    expect(gaji('b')).toBe(1_156_500)
+  })
+
   it('tanpa slip HR mengembalikan null', () => {
     expect(barisPayrollDariHr({ hr: hr({ totalStaff: 0 }), from: '2026-09-01', to: '2026-09-30' })).toBeNull()
     expect(barisPayrollDariHr({ hr: undefined, from: '2026-09-01', to: '2026-09-30' })).toBeNull()

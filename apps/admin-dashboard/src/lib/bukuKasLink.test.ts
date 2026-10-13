@@ -28,6 +28,18 @@ describe('bukuKasHref', () => {
   })
 })
 
+describe('bukuKasHref dengan tab Laba Rugi', () => {
+  const f = { from: '2026-10-01', to: '2026-10-13', outletId: 'all' }
+  it('tab Mitra/Internal dengan semua outlet membuka kelompok yang sama di Buku Kas', () => {
+    expect(bukuKasHref(f, 'mitra')).toContain('outlet=MITRA_OUTLETS')
+    expect(bukuKasHref(f, 'internal')).toContain('outlet=INTERNAL_OUTLETS')
+    expect(bukuKasHref(f, 'all')).toContain('outlet=all')
+  })
+  it('satu outlet terpilih tetap membawa outlet itu', () => {
+    expect(bukuKasHref({ ...f, outletId: 'outlet-1' }, 'mitra')).toContain('outlet=outlet-1')
+  })
+})
+
 describe('pettyCashHref', () => {
   it('membawa periode dan outlet yang sedang dipilih ke halaman petty cash', () => {
     const href = pettyCashHref({ from: '2026-09-01', to: '2026-09-07', outletId: 'outlet-1' })

@@ -14,6 +14,7 @@
 import type { ExpenseRow } from '@/lib/expenseRow'
 import type { HRPayrollSummary } from '@/app/actions/hrPayroll'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
+import { distributeEqualSplit } from '@/lib/opexProrata'
 
 /** Kategori baris yang dibuat mesin prorata dan digantikan oleh baris HR. */
 export const KATEGORI_PAYROLL_OUTLET = ['gaji_crew_outlet', 'bonus_crew', 'bonus_area_manager', 'bonus_regional_manager'] as const
@@ -85,6 +86,20 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
   const tambah = (m: Map<string, number>, id: string, v: number) => m.set(id, (m.get(id) ?? 0) + v)
   ;(hr.staffDetails ?? []).forEach(s => {
     if (s.isManagerAllocation || !s.outletId || s.outletId === 'PUSAT') return
+    // Kru backup yang bertugas di beberapa outlet: gajinya dibagi rata per
+    // komponen, dengan fungsi yang SAMA dengan tampilan satu outlet di Buku Kas
+    // (hrPayroll.ts). Tanpa ini seluruh gajinya menumpuk di outlet asal, sehingga
+    // angka per outlet — dan pembagian Internal/Mitra — tidak cocok dengan Buku Kas.
+    const tujuan = (s.allocatedOutletIds ?? []).filter(id => id && id !== 'PUSAT')
+    if (s.isBackupAllocation && tujuan.length > 1) {
+      const pokok = distributeEqualSplit(Number(s.fullBasicSalary ?? s.basicSalary) || 0, tujuan)
+      const tunjangan = distributeEqualSplit(Number(s.fullAllowances ?? s.allowances) || 0, tujuan)
+      const potongan = distributeEqualSplit(Number(s.fullDeductions ?? s.deductions) || 0, tujuan)
+      for (const id of tujuan) {
+        tambah(rutinBulanan, id, (pokok.get(id) || 0) + (tunjangan.get(id) || 0) - (potongan.get(id) || 0))
+      }
+      return
+    }
     tambah(rutinBulanan, s.outletId, Number(s.routineSalary) || 0)
   })
   ringkasanOutlet.forEach(o => {
@@ -97,10 +112,17 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
 
   // 2. Bonus kru per outlet (rincian HR hanya membawa nama outlet).
   const bonusKruMentah = new Map<string, number>()
-  ;(hr.crewBonusDetails ?? []).forEach(c => {
-    const id = idDariNama.get((c.outletName || '').trim().toLowerCase()) ?? '__tak_dikenal__'
-    tambah(bonusKruMentah, id, Number(c.bonus) || 0)
-  })
+  const perOutlet = Object.entries(hr.crewBonusByOutlet ?? {})
+  if (perOutlet.length > 0) {
+    // Bonus per outlet tempat bonus itu diperoleh — sama dengan tampilan satu outlet.
+    perOutlet.forEach(([id, b]) => { if (Number(b) > 0) tambah(bonusKruMentah, id, Number(b)) })
+  } else {
+    // Cadangan (bonus dari slip, tanpa data harian): rincian per staf, dipetakan lewat nama outlet.
+    ;(hr.crewBonusDetails ?? []).forEach(c => {
+      const id = idDariNama.get((c.outletName || '').trim().toLowerCase()) ?? '__tak_dikenal__'
+      tambah(bonusKruMentah, id, Number(c.bonus) || 0)
+    })
+  }
   const bonusKru = bagiPersis(Math.round(hr.crewBonus ?? 0), bonusKruMentah)
 
   // 3. Bonus AM & RM per outlet (hanya outlet yang punya manajer binaan).

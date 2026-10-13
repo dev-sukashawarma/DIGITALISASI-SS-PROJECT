@@ -1,0 +1,10 @@
+[Unit]
+Description=Pemeriksaan Instan Gangguan Sistem & Database Suka Shawarma (Alert Monitor Tiap 2 Menit)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python3 %h/bin/kirim-laporan-telegram.py --jenis alert-check --silent
+StandardOutput=journal
+StandardError=journal

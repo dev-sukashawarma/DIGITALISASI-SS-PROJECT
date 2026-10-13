@@ -11,6 +11,7 @@
 # 6. Marcom         : 04:01 WIB (21:01 UTC) -> Endorsement KOL & Iklan Aktif
 # 7. Stok           : 04:02 WIB (21:02 UTC) -> Kondisi stok utama & Surat Jalan
 # 8. Watchdog       : Tiap 2 Jam Sekali     -> Telemetri CPU, RAM, Disk VPS Hostinger
+# 9. Alert Down     : Tiap 2 Menit Sekali   -> Peringatan instan darurat jika DB / server down
 #
 # Penggunaan di VPS Hostinger (user suka-hermes):
 #   bash ~/bin/pasang-cron-laporan.sh
@@ -48,6 +49,7 @@ DAFTAR_TIMER=(
   "suka-laporan-marcom"
   "suka-laporan-stok"
   "suka-laporan-watchdog"
+  "suka-laporan-alert"
 )
 
 ACTION="${1:-install}"
@@ -179,22 +181,24 @@ if [[ "$ACTION" == "--test" || "$ACTION" == "-t" ]]; then
 fi
 
 echo -e "\n${BOLD}${HIJAU}======================================================${NC}"
-echo -e "${BOLD}${HIJAU}          8 JADWAL CRON JOB RESMI DIAKTIFKAN          ${NC}"
+echo -e "${BOLD}${HIJAU}          9 JADWAL CRON JOB RESMI DIAKTIFKAN          ${NC}"
 echo -e "${BOLD}${HIJAU}======================================================${NC}\n"
 
-echo -e "${BOLD}Jadwal Pengiriman Laporan Otomatis ke Telegram Boss:${NC}"
+echo -e "${BOLD}Jadwal Pengiriman Laporan & Pengawasan Otomatis ke Telegram:${NC}"
 echo -e "  1. 💰 ${BOLD}Sales Kemarin${NC}       : 04:00 WIB (21:00 UTC) -> Omzet kemarin, top menu, target"
 echo -e "  2. 👥 ${BOLD}Absensi Kantor${NC}      : 08:30 WIB (01:30 UTC) -> Kehadiran khusus staff kantor HQ"
 echo -e "  3. 🛵 ${BOLD}Absensi Outlet${NC}      : 14:00 WIB (07:00 UTC) -> Kehadiran kru operasional outlet"
 echo -e "  4. 📊 ${BOLD}Sales Sore${NC}          : 16:00 WIB (09:00 UTC) -> Omzet & transaksi s.d. jam 16:00"
-echo -e "  5. 🌙 ${BOLD}Sales Closing Malam${NC} : 21:00 WIB (14:00 UTC) -> Rekap closing omzet hari ini"
+echo -e "  5. 🌙 ${BOLD}Sales Closing Malam${NC} : 22:00 WIB (15:00 UTC) -> Rekap closing omzet hari ini"
 echo -e "  6. 📢 ${BOLD}Marcom Ads & KOL${NC}    : 04:01 WIB (21:01 UTC) -> Endorsement & ads yang berjalan"
 echo -e "  7. 📦 ${BOLD}Stok & Gudang${NC}       : 04:02 WIB (21:02 UTC) -> Kondisi stok utama & surat jalan"
-echo -e "  8. 🛡️ ${BOLD}Sistem Watchdog${NC}     : Tiap 2 Jam Sekali     -> Telemetri CPU, RAM, Disk VPS Hostinger"
+echo -e "  8. 🛡️ ${BOLD}Sistem Watchdog${NC}     : Tiap 2 Jam Sekali     -> Telemetri CPU, RAM, Disk VPS & DB"
+echo -e "  9. 🚨 ${BOLD}Alert Gangguan (Down)${NC}: Tiap 2 Menit (Background) -> Notifikasi darurat instan jika down"
 echo ""
 echo -e "${BOLD}Perintah Pemantauan:${NC}"
-echo -e "  - Cek 8 timer aktif     : ${CYAN}systemctl --user list-timers \"suka-laporan-*\"${NC}"
+echo -e "  - Cek 9 timer aktif     : ${CYAN}systemctl --user list-timers \"suka-laporan-*\"${NC}"
 echo -e "  - Uji kirim watchdog    : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis watchdog${NC}"
 echo -e "  - Uji kirim sales sore  : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis sales-sore${NC}"
+echo -e "  - Uji simulasi alert    : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis alert-check --dry-run${NC}"
 echo -e "  - Uji tanpa kirim (dry) : ${CYAN}python3 ~/bin/kirim-laporan-telegram.py --jenis stok --dry-run${NC}"
 echo ""

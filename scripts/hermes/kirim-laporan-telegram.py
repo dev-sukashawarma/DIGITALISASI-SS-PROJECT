@@ -30,6 +30,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+# Pastikan encoding stdout/stderr selalu UTF-8 (terutama pada lingkungan Windows/terminal legacy)
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 DEFAULT_MCP_URL = "https://admin.sukashawarma.com/api/hermes/mcp"
 DEFAULT_MARCOM_MCP_URL = "https://marcom.sukashawarma.com/api/hermes/mcp"
 
@@ -648,6 +656,140 @@ def format_watchdog(data_sistem: dict = None, konfig: dict = None) -> str:
     teks += "\nStatus: _Semua layanan server dan database beroperasi normal._"
     return teks
 
+def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: str = None, token_override: str = None) -> None:
+    """
+    Stateful health monitor.
+    Dijalankan tiap 2 menit oleh systemd timer.
+    Jika sehat: diam (silent).
+    Jika mendadak down/kritis: LANGSUNG kirim alert darurat ke Telegram.
+    Ketika pulih: kirim pesan pemulihan (recovery).
+    Anti-spam: menggunakan transisi status & cooldown 30 menit.
+    """
+    state_file = pathlib.Path.home() / ".hermes" / "alert-state.json"
+    try:
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    prev_state = {"status": "up", "last_alert_ts": 0, "issues": []}
+    if state_file.is_file():
+        try:
+            with open(state_file, "r") as f:
+                prev_state = json.load(f)
+        except Exception:
+            pass
+
+    issues = []
+
+    # 1. Cek Kapasitas Disk VPS
+    try:
+        total_b, used_b, _ = shutil.disk_usage("/")
+        disk_pct = round((used_b / total_b) * 100, 1)
+        if disk_pct >= 90:
+            issues.append(f"Kapasitas Disk Kritis: `{disk_pct}%` terpakai (Hampir Penuh)")
+        elif disk_pct >= 85:
+            issues.append(f"Kapasitas Disk Tinggi: `{disk_pct}%` terpakai")
+    except Exception:
+        pass
+
+    # 2. Cek Penggunaan Memori RAM
+    mem_total_mb, mem_avail_mb = 0, 0
+    if os.path.exists("/proc/meminfo"):
+        try:
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"): mem_total_mb = round(int(line.split()[1])/1024)
+                    elif line.startswith("MemAvailable:"): mem_avail_mb = round(int(line.split()[1])/1024)
+        except Exception: pass
+    if mem_total_mb > 0:
+        mem_used_mb = mem_total_mb - mem_avail_mb
+        mem_pct = round((mem_used_mb / mem_total_mb) * 100, 1)
+        if mem_pct >= 95:
+            issues.append(f"RAM Overload Kritis: `{mem_pct}%` ({mem_used_mb}MB / {mem_total_mb}MB)")
+
+    # 3. Cek Koneksi & Latensi Database Supabase
+    sb_url = konfig.get("SUPABASE_URL") or konfig.get("NEXT_PUBLIC_SUPABASE_URL") or "https://khpkoreaaucvyqfhynfq.supabase.co"
+    sb_key = konfig.get("SUPABASE_SERVICE_ROLE_KEY") or konfig.get("SUPABASE_ANON_KEY") or konfig.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    sb_ok, sb_lat, sb_code = cek_ping_supabase(sb_url, sb_key)
+
+    if not sb_ok:
+        issues.append(f"Database Supabase Tidak Merespon: `{sb_code}` (Terputus)")
+    elif sb_lat and sb_lat > 5000:
+        issues.append(f"Latensi Database Kritis: `{sb_lat} ms` (> 5 detik)")
+
+    now_ts = int(time.time())
+    wib_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).strftime("%H:%M WIB, %d %b %Y")
+    current_status = "down" if issues else "up"
+
+    token = token_override or konfig.get("TELEGRAM_BOT_TOKEN")
+    allowed_user = (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
+    chat_id = (
+        chat_id_override
+        or allowed_user
+        or konfig.get("TELEGRAM_OWNER_CHAT_ID")
+        or konfig.get("TELEGRAM_CHAT_ID")
+        or konfig.get("TELEGRAM_HOME_CHANNEL")
+    )
+
+    # Logika Pengiriman Pesan
+    # Skenario A: Terjadi Gangguan Baru (UP -> DOWN)
+    if current_status == "down":
+        should_alert = False
+        if prev_state.get("status") == "up":
+            should_alert = True
+        elif (now_ts - prev_state.get("last_alert_ts", 0)) > 1800:
+            should_alert = True  # Re-alert berkala setiap 30 menit jika masih down
+
+        if should_alert:
+            pesan = (
+                "🚨 *[PERINGATAN DARURAT: GANGGUAN SISTEM]*\n"
+                f"🕒 *Waktu Terdeteksi:* {wib_now}\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "🔴 *Terdeteksi Kendala Operasional:*\n"
+            )
+            for iss in issues:
+                pesan += f"• ⚠️ {iss}\n"
+            pesan += (
+                "\n📍 _Peringatan instan otomatis. Tim teknis/server sedang melakukan pengecekan._\n"
+                "ℹ️ _Ketik /status pada bot untuk memantau pemulihan._"
+            )
+
+            if dry_run:
+                print(f"--- [DRY-RUN ALERT] ---\n{pesan}")
+            elif token and chat_id:
+                kirim_telegram(token, chat_id, pesan)
+
+            prev_state["last_alert_ts"] = now_ts
+
+    # Skenario B: Sistem Pulih Kembali (DOWN -> UP)
+    elif current_status == "up" and prev_state.get("status") == "down":
+        pesan = (
+            "✅ *[SISTEM & DATABASE KEMBALI NORMAL]*\n"
+            f"🕒 *Waktu Pemulihan:* {wib_now}\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🟢 Seluruh kendala sebelumnya telah terselesaikan:\n"
+            "• Koneksi Database Supabase: `🟢 ONLINE`\n"
+            f"• Latensi Database: `{sb_lat} ms (Optimal)`\n"
+            "• Resource Server VPS: `NORMAL`\n\n"
+            "Status: _Operasional sistem Suka Shawarma telah pulih sepenuhnya._"
+        )
+        if dry_run:
+            print(f"--- [DRY-RUN RECOVERY] ---\n{pesan}")
+        elif token and chat_id:
+            kirim_telegram(token, chat_id, pesan)
+
+        prev_state["last_alert_ts"] = 0
+
+    # Simpan state terbaru
+    prev_state["status"] = current_status
+    prev_state["issues"] = issues
+    prev_state["last_check_wib"] = wib_now
+    try:
+        with open(state_file, "w") as f:
+            json.dump(prev_state, f, indent=2)
+    except Exception:
+        pass
+
 # ==============================================================================
 # MAIN DISPATCHER
 # ==============================================================================
@@ -659,7 +801,7 @@ def main():
         choices=[
             "sales-kemarin", "sales-sore", "sales-malam",
             "absensi-kantor", "absensi-outlet",
-            "marcom", "stok", "watchdog",
+            "marcom", "stok", "watchdog", "alert-check",
             # backward compatibility
             "pagi", "malam", "absensi", "test"
         ],
@@ -681,6 +823,14 @@ def main():
         sys.exit(1)
 
     konfig = kumpulkan_konfigurasi(args.env_file)
+
+    # Mode alert-check khusus (stateful background monitor)
+    if args.jenis == "alert-check":
+        jalankan_alert_check(konfig, dry_run=args.dry_run, chat_id_override=args.chat_id, token_override=args.token)
+        if not args.silent and not args.dry_run:
+            print("Pemeriksaan alert selesai.")
+        sys.exit(0)
+
     token = args.token or konfig.get("TELEGRAM_BOT_TOKEN")
     allowed_user = (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
     chat_id = (

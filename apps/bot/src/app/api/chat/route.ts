@@ -46,10 +46,11 @@ export async function POST(req: Request) {
       .from('bot_pesan')
       .select('peran, isi')
       .eq('percakapan_id', percakapan.id)
-      .order('dibuat_at', { ascending: true })
+      .order('dibuat_at', { ascending: false })
       .limit(10)
 
     riwayatPesan = (dbPesan || [])
+      .reverse()
       .filter((r: any) => r.isi && r.isi.trim())
       .map((r: any) => ({
         role: (r.peran === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
@@ -75,43 +76,44 @@ export async function POST(req: Request) {
       let jawaban = ''
       try {
         if (!baseUrl || !kunci) {
-          if (process.env.NODE_ENV === 'development') {
-            const telemetri = await ambilTelemetriNyata()
+          const telemetri = await ambilTelemetriNyata()
 
-            // Jika AI Router tersedia (9Router di .env.local), gunakan LLM dinamis dengan konteks telemetri live
-            let suksesAi = false
-            if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
-              try {
-                for await (const t of tanyaAiRouter({
-                  pesan: v.pesan,
-                  profil: pc.profil,
-                  telemetri,
-                  riwayat: riwayatPesan,
-                  signal: req.signal,
-                })) {
-                  jawaban += t
-                  c.enqueue(enc.encode(t))
-                  suksesAi = true
-                }
-              } catch (aiErr) {
-                console.warn('[bot] AI Router gagal, fallback ke template telemetri:', aiErr)
+          // Jika AI Router tersedia (9Router di .env.local), gunakan LLM dinamis dengan konteks telemetri live
+          let suksesAi = false
+          if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
+            try {
+              for await (const t of tanyaAiRouter({
+                pesan: v.pesan,
+                profil: pc.profil,
+                telemetri,
+                riwayat: riwayatPesan,
+                signal: req.signal,
+              })) {
+                jawaban += t
+                c.enqueue(enc.encode(t))
+                suksesAi = true
               }
+            } catch (aiErr) {
+              console.warn('[bot] AI Router gagal, fallback ke template telemetri:', aiErr)
             }
+          }
 
-            // Fallback ke generator telemetri terstruktur jika AI Router belum siap atau gagal
-            if (!suksesAi || !jawaban.trim()) {
+          // Fallback ke generator telemetri terstruktur jika AI Router belum siap atau gagal
+          if (!suksesAi || !jawaban.trim()) {
+            if (process.env.NODE_ENV === 'development') {
               const devChunks = buatJawabanDev(v.pesan, pc.profil, telemetri)
               for (const chunk of devChunks) {
                 jawaban += chunk
                 c.enqueue(enc.encode(chunk))
                 await new Promise((r) => setTimeout(r, 25))
               }
+            } else {
+              throw new GalatHermes('konfigurasi', 'HERMES_API_URL atau AI Router belum terkonfigurasi')
             }
-
-            await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
-            return
           }
-          throw new GalatHermes('konfigurasi', 'HERMES_API_URL / kunci profil kosong')
+
+          await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
+          return
         }
         for await (const t of tanyaHermes({ baseUrl, kunci, profil: pc.profil, sesiId: pc.hermes_session_id, pesan: v.pesan, signal: req.signal })) {
           jawaban += t
@@ -125,10 +127,14 @@ export async function POST(req: Request) {
         if (process.env.NODE_ENV === 'development' && (alasan === 'jaringan' || alasan === 'timeout')) {
           teksGalat = `[Local Dev] Tidak dapat terhubung ke Hermes di ${baseUrl}. Server Hermes aktif di produksi (agents.sukashawarma.com).`
         }
-        const teks = jawaban ? `\n\n${teksGalat}` : teksGalat
-        c.enqueue(enc.encode(teks))
-        await simpanPesan(supabase, pc.id, 'bot', jawaban + teks, { durasi_ms: Date.now() - mulai, status: 'galat', alasan })
-          .catch((e2) => console.error('[bot] gagal simpan galat:', e2))
+        if (!req.signal.aborted) {
+          const teks = jawaban ? `\n\n${teksGalat}` : teksGalat
+          try {
+            c.enqueue(enc.encode(teks))
+          } catch {}
+          await simpanPesan(supabase, pc.id, 'bot', jawaban + teks, { durasi_ms: Date.now() - mulai, status: 'galat', alasan })
+            .catch((e2) => console.error('[bot] gagal simpan galat:', e2))
+        }
       } finally {
         await sentuhPercakapan(supabase, pc.id).catch(() => {})
         c.close()

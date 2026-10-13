@@ -151,6 +151,9 @@ export function buatJawabanDev(
     p.includes('izin') ||
     p.includes('telat') ||
     p.includes('masuk') ||
+    p.includes('hadir') ||
+    p.includes('libur') ||
+    p.includes('bolos') ||
     (profil === 'hrd' && !p.includes('stok') && !p.includes('omzet'))
   ) {
     const totalAtt = t?.kehadiranTotal ?? 0

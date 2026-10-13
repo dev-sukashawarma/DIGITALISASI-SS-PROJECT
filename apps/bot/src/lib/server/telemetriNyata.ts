@@ -58,23 +58,32 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const offset = 7 * 60
     const wib = new Date(Date.now() + (offset + d.getTimezoneOffset()) * 60000)
     const tglStr = wib.toISOString().slice(0, 10)
+    const wibBesok = new Date(wib.getTime() + 24 * 60 * 60 * 1000)
+    const tglBesokStr = wibBesok.toISOString().slice(0, 10)
     const startToday = `${tglStr}T00:00:00+07:00`
+    const endToday = `${tglBesokStr}T00:00:00+07:00`
 
     const [resOrders, resItems, resAtt, resOutlets, resBahan, resLeave, resLate] = await Promise.all([
       sb
         .from('orders')
         .select('id, total_amount, status, outlet_id, outlets(name)')
         .gte('created_at', startToday)
-        .neq('status', 'cancelled'),
+        .lt('created_at', endToday)
+        .neq('status', 'cancelled')
+        .limit(5000),
       sb
         .from('order_items')
         .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status)')
         .gte('orders.created_at', startToday)
-        .neq('orders.status', 'cancelled'),
+        .lt('orders.created_at', endToday)
+        .neq('orders.status', 'cancelled')
+        .limit(10000),
       sb
         .from('attendance')
         .select('id, outlet_staff_id, status, telat_menit, type')
-        .gte('created_at', startToday),
+        .gte('created_at', startToday)
+        .lt('created_at', endToday)
+        .limit(2000),
       sb
         .from('outlets')
         .select('id, name, type, is_active')
@@ -84,19 +93,22 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .from('bahan_baku')
         .select('id, nama, satuan')
         .eq('is_active', true)
-        .limit(12),
+        .limit(20),
       sb
         .from('leave_requests')
         .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role)')
         .lte('start_date', tglStr)
-        .gte('end_date', tglStr),
+        .gte('end_date', tglStr)
+        .in('status', ['approved', 'pending'])
+        .limit(50),
       sb
         .from('attendance')
         .select('id, outlet_staff_id, telat_menit, outlets(name)')
         .gte('created_at', startToday)
+        .lt('created_at', endToday)
         .gt('telat_menit', 0)
         .order('telat_menit', { ascending: false })
-        .limit(10),
+        .limit(15),
     ])
 
     const orders = resOrders.data || []

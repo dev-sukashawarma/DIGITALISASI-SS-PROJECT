@@ -263,8 +263,14 @@ def format_sales_kemarin(data_raw: dict) -> str:
     return teks
 
 def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> str:
-    omzet_kotor = data_omzet.get("omzetKotor", 0)
-    omzet_bersih = data_omzet.get("omzetBersih", 0)
+    omzet_kotor = data_omzet.get("omzet_kotor_angka") or data_omzet.get("omzetKotor") or 0
+    if not omzet_kotor and isinstance(data_omzet.get("omzet_kotor"), str):
+        omz_clean = data_omzet.get("omzet_kotor", "").replace("Rp", "").replace(".", "").strip()
+        try:
+            omzet_kotor = int(omz_clean)
+        except Exception:
+            pass
+
     transaksi = data_omzet.get("transaksi", 0)
     ranking_list = data_ranking.get("ranking", []) if isinstance(data_ranking, dict) else []
     menu_list = data_menu.get("menu", []) if isinstance(data_menu, dict) else []
@@ -277,17 +283,16 @@ def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> 
     tgl_teks = f"{hari_map[wib_now.weekday()]}, {wib_now.day} {bulan_map[wib_now.month]} {wib_now.year}"
 
     teks = (
-        "🌤️ *PROGRESS SALES SORE*\n"
+        "🌤️ *PROGRESS PENJUALAN SORE*\n"
         f"🗓️ *Hari/Tanggal:* {tgl_teks} (s.d. 16:00 WIB)\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💰 *Omzet Kotor:* {format_rupiah(omzet_kotor)}\n"
-        f"💵 *Omzet Bersih:* {format_rupiah(omzet_bersih)}\n"
+        f"💰 *Omzet Total:* {format_rupiah(omzet_kotor)}\n"
         f"🧾 *Total Transaksi:* {format_angka(transaksi)} struk\n"
         f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n\n"
     )
 
     if ranking_list:
-        teks += "🏆 *Ranking Seluruh Outlet (s.d. 16:00):*\n"
+        teks += "🏆 *Ranking Seluruh Outlet:*\n"
         for r in ranking_list:
             p = r.get("peringkat", "-")
             n = r.get("nama", "-")
@@ -298,18 +303,29 @@ def format_sales_sore(data_omzet: dict, data_ranking: dict, data_menu: dict) -> 
             teks += f"  {p}. *{n}* — {omz_str}{qty_str}\n"
         teks += "\n"
 
-    tanpa_penjualan = [r.get("nama", "-") for r in ranking_list if r.get("omzet", 0) <= 0]
+    def adalah_nol(v):
+        if isinstance(v, (int, float)):
+            return v <= 0
+        if isinstance(v, str):
+            c = v.replace("Rp", "").replace(".", "").strip()
+            try:
+                return int(c) <= 0
+            except Exception:
+                return False
+        return False
+
+    tanpa_penjualan = [r.get("nama", "-") for r in ranking_list if adalah_nol(r.get("omzet", 0))]
     if tanpa_penjualan:
         teks += f"⚠️ *Outlet Tanpa Penjualan:* {', '.join(tanpa_penjualan)}\n\n"
 
     if menu_list:
-        teks += "🥇 *Top 3 Menu Terlaris Sore Ini:*\n"
+        teks += "🥇 *Top 3 Menu Terlaris:*\n"
         for idx, m in enumerate(menu_list[:3], 1):
             qty = m.get("terjual", m.get("qty", 0))
             teks += f"  {idx}. *{m.get('nama', '-')}* — {format_angka(qty)} porsi\n"
         teks += "\n"
 
-    teks += "📍 _Catatan: Transaksi sore masih berjalan menuju jam ramai malam._"
+    teks += "📍 _Sumber: Rangkuman Penjualan (omzet berjalan s.d. 16:00 WIB, outlet internal + mitra, tanpa SS Online)._"
     return teks
 
 def format_sales_malam(data_raw: dict) -> str:
@@ -339,9 +355,9 @@ def format_sales_malam(data_raw: dict) -> str:
 
     teks = (
         "🌙 *LAPORAN CLOSING PENJUALAN*\n"
-        f"🗓️ *Hari/Tanggal:* {tgl_teks}\n"
+        f"🗓️ *Hari/Tanggal:* {tgl_teks} (Closing 22:00 WIB)\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💰 *Omzet Total Closing:* {format_rupiah(omzet)}\n"
+        f"💰 *Omzet Total:* {format_rupiah(omzet)}\n"
         f"{minggu_lalu_line}\n"
         f"🧾 *Total Transaksi:* {format_angka(transaksi)} struk\n"
         f"💵 *Rata-rata Struk (ATV):* {format_rupiah(atv)}\n\n"
@@ -363,12 +379,12 @@ def format_sales_malam(data_raw: dict) -> str:
         teks += f"⚠️ *Outlet Tanpa Penjualan:* {', '.join(tanpa_penjualan)}\n\n"
 
     if menu_top:
-        teks += "🥇 *Top 3 Menu Terlaris Hari Ini:*\n"
+        teks += "🥇 *Top 3 Menu Terlaris:*\n"
         for idx, m in enumerate(menu_top[:3], 1):
             teks += f"  {idx}. *{m.get('nama', '-')}* — {format_angka(m.get('qty', 0))} porsi\n"
         teks += "\n"
 
-    teks += "📍 _Sumber: Rangkuman Penjualan (omzet kotor hari berjalan, outlet internal + mitra, tanpa SS Online)._"
+    teks += "📍 _Sumber: Rangkuman Penjualan (omzet kotor closing 22:00 WIB, outlet internal + mitra, tanpa SS Online)._"
     return teks
 
 def format_absensi_kantor(data_papan: dict) -> str:

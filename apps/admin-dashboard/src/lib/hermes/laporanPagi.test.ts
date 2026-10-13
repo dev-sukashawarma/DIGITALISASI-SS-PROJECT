@@ -43,8 +43,9 @@ describe('teksLaporanPagiCeo', () => {
 describe('teksLaporanMalamPenjualan', () => {
   const t = teksLaporanMalamPenjualan(d, '22:00 WIB')
   it('memuat judul penutupan malam dan cut-off jam', () => {
-    expect(t).toContain('LAPORAN CLOSING PENJUALAN (Cut-off 22:00 WIB)')
-    expect(t).toContain('Omzet Total Closing: Rp 48.500.000')
+    expect(t).toContain('LAPORAN CLOSING PENJUALAN')
+    expect(t).toContain('(22:00 WIB)')
+    expect(t).toContain('Omzet Total: Rp 48.500.000')
     expect(t).toContain('📉 vs Minggu Lalu: Rp 51.000.000 (-4.9%)')
   })
   it('memuat top outlet dan menu terlaris', () => {

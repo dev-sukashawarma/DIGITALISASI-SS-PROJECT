@@ -44,7 +44,7 @@ export function teksLaporanPagiCeo(d: DataRekap): string {
 
 // Laporan penutupan malam (closing harian)
 export function teksLaporanMalamPenjualan(d: DataRekap, jamWibStr?: string): string {
-  const jamSuffix = jamWibStr ? ` (Cut-off ${jamWibStr})` : ''
+  const jamSuffix = jamWibStr ? ` (${jamWibStr})` : ' (Closing 22:00 WIB)'
   const nol = d.ranking.filter((r) => r.omzet <= 0).map((r) => r.nama)
   const atv = d.transaksi > 0 ? Math.round(d.omzet / d.transaksi) : 0
   const selisih = d.omzet - d.omzetPembanding
@@ -56,16 +56,16 @@ export function teksLaporanMalamPenjualan(d: DataRekap, jamWibStr?: string): str
     : `📈 vs Minggu Lalu: ${rupiah(d.omzetPembanding)}`
 
   return [
-    `🌙 LAPORAN CLOSING PENJUALAN${jamSuffix}`,
-    `🗓️ Hari/Tanggal: ${labelTanggal(d.tanggal)}`,
+    '🌙 LAPORAN CLOSING PENJUALAN',
+    `🗓️ Hari/Tanggal: ${labelTanggal(d.tanggal)}${jamSuffix}`,
     '━━━━━━━━━━━━━━━━━━━━━',
     '',
-    `💰 Omzet Total Closing: ${rupiah(d.omzet)}`,
+    `💰 Omzet Total: ${rupiah(d.omzet)}`,
     bandingStr,
     `🧾 Total Transaksi: ${d.transaksi.toLocaleString('id-ID')} struk`,
     `💵 Rata-rata Struk (ATV): ${rupiah(atv)}`,
     '',
-    '🏆 Ranking Seluruh Outlet Hari Ini:',
+    '🏆 Ranking Seluruh Outlet:',
     ...(d.ranking.length
       ? d.ranking.map((r) => {
           const qtyStr = r.qty !== undefined ? ` (${r.qty.toLocaleString('id-ID')} porsi)` : ''
@@ -74,12 +74,12 @@ export function teksLaporanMalamPenjualan(d: DataRekap, jamWibStr?: string): str
       : ['  —']),
     ...(nol.length ? ['', `⚠️ Outlet tanpa penjualan: ${nol.join(', ')}`] : []),
     '',
-    '🥇 Top 3 Menu Terlaris Hari Ini:',
+    '🥇 Top 3 Menu Terlaris:',
     ...(d.menuTeratas.length
       ? d.menuTeratas.slice(0, 3).map((m, i) => `  ${i + 1}. ${m.nama} — ${m.qty.toLocaleString('id-ID')} porsi`)
       : ['  —']),
     '',
-    `📍 Sumber: Rangkuman Penjualan (omzet kotor hari berjalan${jamSuffix}, internal + mitra, tanpa SS Online).`,
+    '📍 Sumber: Rangkuman Penjualan (omzet kotor closing 22:00 WIB, internal + mitra, tanpa SS Online).',
   ].join('\n')
 }
 

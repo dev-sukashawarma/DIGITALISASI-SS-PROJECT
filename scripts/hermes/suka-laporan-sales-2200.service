@@ -1,5 +1,5 @@
 [Unit]
-Description=Laporan Penjualan Closing Malam (s.d. 21:00 WIB) Suka Shawarma ke Telegram
+Description=Laporan Penjualan Closing Malam (s.d. 22:00 WIB) Suka Shawarma ke Telegram
 After=network-online.target
 Wants=network-online.target
 

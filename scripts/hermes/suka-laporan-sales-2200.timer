@@ -1,0 +1,10 @@
+[Unit]
+Description=Jalankan Laporan Penjualan Closing Malam Suka Shawarma tiap 22:00 WIB (15:00 UTC)
+
+[Timer]
+# 22:00 WIB = 15:00:00 UTC
+OnCalendar=*-*-* 15:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

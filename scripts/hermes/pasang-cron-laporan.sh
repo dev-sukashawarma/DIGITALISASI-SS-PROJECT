@@ -7,7 +7,7 @@
 # 2. Absensi Kantor : 08:30 WIB (01:30 UTC) -> Kehadiran staf Kantor Pusat HQ
 # 3. Absensi Outlet : 14:00 WIB (07:00 UTC) -> Kehadiran kru operasional outlet
 # 4. Sales Sore     : 16:00 WIB (09:00 UTC) -> Omzet & transaksi s.d. jam 16:00
-# 5. Sales Closing  : 21:00 WIB (14:00 UTC) -> Closing omzet harian s.d. jam 21:00
+# 5. Sales Closing  : 22:00 WIB (15:00 UTC) -> Closing omzet harian s.d. jam 22:00
 # 6. Marcom         : 04:01 WIB (21:01 UTC) -> Endorsement KOL & Iklan Aktif
 # 7. Stok           : 04:02 WIB (21:02 UTC) -> Kondisi stok utama & Surat Jalan
 # 8. Watchdog       : Tiap 2 Jam Sekali     -> Telemetri CPU, RAM, Disk VPS Hostinger
@@ -42,7 +42,7 @@ RAW_BASE="https://raw.githubusercontent.com/dev-sukashawarma/DIGITALISASI-SS-PRO
 DAFTAR_TIMER=(
   "suka-laporan-sales-0400"
   "suka-laporan-sales-1600"
-  "suka-laporan-sales-2100"
+  "suka-laporan-sales-2200"
   "suka-laporan-absensi-kantor"
   "suka-laporan-absensi-outlet"
   "suka-laporan-marcom"
@@ -109,7 +109,7 @@ fi
 log_ok "Skrip eksekusi siap di $BIN_DIR"
 
 # 3. Nonaktifkan timer lama (jika ada) untuk menghindari duplikasi
-systemctl --user disable --now suka-laporan-pagi.timer suka-laporan-absensi.timer suka-laporan-malam.timer 2>/dev/null || true
+systemctl --user disable --now suka-laporan-pagi.timer suka-laporan-absensi.timer suka-laporan-malam.timer suka-laporan-sales-2100.timer 2>/dev/null || true
 
 # 4. Salin atau unduh 8 berkas systemd user service & timer
 log_info "Memasang 8 berkas systemd user service & timer..."

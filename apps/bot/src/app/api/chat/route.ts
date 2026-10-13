@@ -6,6 +6,7 @@ import { periksaProfilChat } from '@/lib/server/izinChat'
 import {
   hitungPesanSejamTerakhir, buatPercakapan, ambilPercakapan, pangkasPercakapan, simpanPesan, sentuhPercakapan,
 } from '@/lib/server/percakapan'
+import { buatJawabanDev } from '@/lib/server/devSimulasi'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 150
@@ -56,16 +57,11 @@ export async function POST(req: Request) {
       try {
         if (!baseUrl || !kunci) {
           if (process.env.NODE_ENV === 'development') {
-            const devChunks = [
-              'Salam, Sir. J.A.R.V.I.S. Tactical Command Centre online dan siap menerima instruksi.\n\n',
-              '> [!NOTE]\n',
-              '> **Local Development Mode**: Koneksi Hermes VPS aktif di environment produksi (`agents.sukashawarma.com`).\n\n',
-              `Instruksi Anda: *"${v.pesan}"* berhasil diterima oleh Command HUD. Seluruh modul telemetri, voice recognition, dan arc reactor beroperasi secara nominal.`,
-            ]
+            const devChunks = buatJawabanDev(v.pesan, pc.profil)
             for (const chunk of devChunks) {
               jawaban += chunk
               c.enqueue(enc.encode(chunk))
-              await new Promise((r) => setTimeout(r, 60))
+              await new Promise((r) => setTimeout(r, 40))
             }
             await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
             return

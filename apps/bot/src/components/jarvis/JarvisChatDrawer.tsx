@@ -198,8 +198,12 @@ export default function JarvisChatDrawer({
     setAktif(id)
     setPesan([])
     const r = await fetch(`/api/percakapan/${id}`, { cache: 'no-store' })
-    if (r.ok) setPesan((await r.json()).pesan)
-    else setGalat('Gagal memuat arsip transmisi.')
+    if (r.ok) {
+      const data = (await r.json()) as { pesan: Pesan[] }
+      setPesan((data.pesan || []).filter((m) => m.isi && m.isi.trim()))
+    } else {
+      setGalat('Gagal memuat arsip transmisi.')
+    }
   }
 
   const baru = () => {
@@ -425,65 +429,71 @@ export default function JarvisChatDrawer({
             </div>
           )}
 
-          {pesan.map((p, idx) => (
-            <div
-              key={idx}
-              className={`flex flex-col ${
-                p.peran === 'user' ? 'items-end' : 'items-start'
-              }`}
-            >
-              <div className="flex items-center justify-between w-full mb-1 px-1 text-[10px] font-mono-hud text-zinc-400 uppercase tracking-widest">
-                {p.peran === 'user' ? (
-                  <span>OPERATOR // DIRECTIVE</span>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-1.5">
-                      <Cpu className="w-3 h-3 text-cyan-400" />
-                      <span className="text-cyan-400 font-semibold">{meta.nama}</span>
-                    </div>
-                    {p.isi && ttsDidukung && (
-                      <button
-                        onClick={() => toggleBicaraPesan(p.id, p.isi)}
-                        className="flex items-center gap-1 text-[9px] text-cyan-300 hover:text-cyan-100 p-0.5 rounded cursor-pointer"
-                        title={sedangBicara === p.id ? 'Hentikan Suara Jarvis' : 'Dengarkan Suara Jarvis (Voice Output)'}
-                      >
-                        {sedangBicara === p.id ? (
-                          <>
-                            <VolumeX className="w-3 h-3 text-red-400" />
-                            <span className="text-red-400 font-bold">STOP</span>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 className="w-3 h-3 text-cyan-400 animate-pulse" />
-                            <span>SPEAK</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
+          {pesan.map((p, idx) => {
+            // Sembunyikan pesan bot kosong jika tidak sedang menunggu streaming
+            if (p.peran === 'bot' && !p.isi.trim() && !(menunggu && idx === pesan.length - 1)) {
+              return null
+            }
+            return (
               <div
-                className={`max-w-[85%] rounded-xl p-3.5 border transition-all ${
-                  p.peran === 'user'
-                    ? 'bg-gradient-to-r from-blue-900/60 to-cyan-900/60 border-cyan-400/40 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-mono-hud text-xs sm:text-sm'
-                    : 'bg-zinc-900/90 border-cyan-500/25 text-zinc-100 shadow-[0_0_20px_rgba(0,0,0,0.5)]'
+                key={idx}
+                className={`flex flex-col ${
+                  p.peran === 'user' ? 'items-end' : 'items-start'
                 }`}
               >
-                {p.peran === 'user' ? (
-                  <p className="whitespace-pre-wrap">{p.isi}</p>
-                ) : p.isi ? (
-                  <FormatIsiHologram isi={p.isi} />
-                ) : menunggu ? (
-                  <div className="flex items-center gap-2 text-cyan-400 font-mono-hud text-xs">
-                    <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                    <span>SYNCHRONIZING WITH HERMES MCP DATA STREAM...</span>
-                  </div>
-                ) : null}
+                <div className="flex items-center justify-between w-full mb-1 px-1 text-[10px] font-mono-hud text-zinc-400 uppercase tracking-widest">
+                  {p.peran === 'user' ? (
+                    <span>OPERATOR // DIRECTIVE</span>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <Cpu className="w-3 h-3 text-cyan-400" />
+                        <span className="text-cyan-400 font-semibold">{meta.nama}</span>
+                      </div>
+                      {p.isi && ttsDidukung && (
+                        <button
+                          onClick={() => toggleBicaraPesan(p.id, p.isi)}
+                          className="flex items-center gap-1 text-[9px] text-cyan-300 hover:text-cyan-100 p-0.5 rounded cursor-pointer"
+                          title={sedangBicara === p.id ? 'Hentikan Suara Jarvis' : 'Dengarkan Suara Jarvis (Voice Output)'}
+                        >
+                          {sedangBicara === p.id ? (
+                            <>
+                              <VolumeX className="w-3 h-3 text-red-400" />
+                              <span className="text-red-400 font-bold">STOP</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3 h-3 text-cyan-400 animate-pulse" />
+                              <span>SPEAK</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <div
+                  className={`max-w-[85%] rounded-xl p-3.5 border transition-all ${
+                    p.peran === 'user'
+                      ? 'bg-gradient-to-r from-blue-900/60 to-cyan-900/60 border-cyan-400/40 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-mono-hud text-xs sm:text-sm'
+                      : 'bg-zinc-900/90 border-cyan-500/25 text-zinc-100 shadow-[0_0_20px_rgba(0,0,0,0.5)]'
+                  }`}
+                >
+                  {p.peran === 'user' ? (
+                    <p className="whitespace-pre-wrap">{p.isi}</p>
+                  ) : p.isi ? (
+                    <FormatIsiHologram isi={p.isi} />
+                  ) : menunggu ? (
+                    <div className="flex items-center gap-2 text-cyan-400 font-mono-hud text-xs">
+                      <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                      <span>SYNCHRONIZING WITH HERMES MCP DATA STREAM...</span>
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
 
           {menunggu && (
             <div className="flex items-center gap-2 p-2 font-mono-hud text-xs text-cyan-400">

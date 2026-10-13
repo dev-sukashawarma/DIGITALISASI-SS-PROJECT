@@ -884,6 +884,104 @@ def buat_pesan_laporan(
         )
     return "Jenis laporan tidak dikenal."
 
+def fungsi_cek_chat(token: str, konfig: dict) -> None:
+    """Mendiagnosis target chat_id yang aktif dan menampilkan riwayat chat bot."""
+    print("\n" + "=" * 65)
+    print("🔍 DIAGNOSIS KONFIGURASI TARGET CHAT TELEGRAM BOT")
+    print("=" * 65)
+
+    if not token:
+        print("❌ TELEGRAM_BOT_TOKEN tidak ditemukan di environment maupun .env!")
+        return
+
+    # 1. Info Bot via getMe
+    try:
+        url_me = f"https://api.telegram.org/bot{token}/getMe"
+        with urllib.request.urlopen(url_me, timeout=10) as resp:
+            data_me = json.load(resp)
+            if data_me.get("ok"):
+                r = data_me["result"]
+                print(f"🤖 Bot Aktif      : @{r.get('username')} ({r.get('first_name')}) [ID Bot: {r.get('id')}]")
+    except Exception as e:
+        print(f"⚠️ Gagal cek bot (getMe): {e}")
+
+    # 2. Nilai di File Konfigurasi
+    print("\n📋 Konfigurasi Terdeteksi di .env:")
+    print(f"  • TELEGRAM_OWNER_CHAT_ID : {konfig.get('TELEGRAM_OWNER_CHAT_ID', '(kosong)')}")
+    print(f"  • TELEGRAM_CHAT_ID       : {konfig.get('TELEGRAM_CHAT_ID', '(kosong)')}")
+    print(f"  • TELEGRAM_ALLOWED_USERS : {konfig.get('TELEGRAM_ALLOWED_USERS', '(kosong)')}")
+    print(f"  • TELEGRAM_HOME_CHANNEL  : {konfig.get('TELEGRAM_HOME_CHANNEL', '(kosong)')}")
+
+    allowed_user = (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
+    target_id = (
+        konfig.get("TELEGRAM_OWNER_CHAT_ID")
+        or konfig.get("TELEGRAM_CHAT_ID")
+        or allowed_user
+        or konfig.get("TELEGRAM_HOME_CHANNEL")
+    )
+    print(f"\n🎯 Target Chat ID Terpilih Saat Ini : {target_id}")
+
+    if target_id:
+        try:
+            url_chat = f"https://api.telegram.org/bot{token}/getChat?chat_id={target_id}"
+            with urllib.request.urlopen(url_chat, timeout=10) as resp:
+                data_chat = json.load(resp)
+                if data_chat.get("ok"):
+                    res = data_chat["result"]
+                    c_type = res.get("type", "unknown")
+                    c_title = res.get("title") or res.get("first_name", "")
+                    c_user = res.get("username", "")
+                    print(f"   Status Target    : 🟢 TERHUBUNG & VALID")
+                    print(f"   Tipe Chat        : {c_type.upper()}")
+                    print(f"   Nama/Judul Chat  : {c_title} (@{c_user})" if c_user else f"   Nama/Judul Chat  : {c_title}")
+                else:
+                    print(f"   Status Target    : ⚠️ Telegram mengembalikan: {data_chat}")
+        except urllib.error.HTTPError as e:
+            print(f"   Status Target    : ❌ HTTP {e.code}: {e.read().decode('utf-8', errors='replace')}")
+        except Exception as e:
+            print(f"   Status Target    : ⚠️ Gagal cek getChat: {e}")
+
+    # 3. Riwayat Update Chat Masuk ke Bot
+    print("\n💬 5 Riwayat Chat / Percakapan Terbaru dengan Bot:")
+    print("-" * 65)
+    try:
+        url_up = f"https://api.telegram.org/bot{token}/getUpdates?limit=25"
+        with urllib.request.urlopen(url_up, timeout=10) as resp:
+            data_up = json.load(resp)
+            updates = data_up.get("result", [])
+            if not updates:
+                print("   (Belum ada riwayat pesan di getUpdates bot)")
+            else:
+                seen_chats = set()
+                found = 0
+                for u in reversed(updates):
+                    msg = u.get("message") or u.get("channel_post") or u.get("my_chat_member") or {}
+                    c = msg.get("chat", {})
+                    cid = c.get("id")
+                    if cid and cid not in seen_chats:
+                        seen_chats.add(cid)
+                        found += 1
+                        c_title = c.get("title") or c.get("first_name") or c.get("username") or str(cid)
+                        c_type = c.get("type", "unknown")
+                        teks = (msg.get("text") or msg.get("caption") or "")[:45]
+                        sender = msg.get("from", {}).get("first_name") or msg.get("from", {}).get("username") or ""
+                        print(f"  [{found}] Chat ID   : {cid}")
+                        print(f"      Nama/Judul: {c_title} ({c_type})")
+                        if sender or teks:
+                            print(f"      Pesan     : [{sender}] \"{teks}\"")
+                if found == 0:
+                    print("   (Tidak ada chat yang ditemukan di updates)")
+    except Exception as e:
+        print(f"   ⚠️ Gagal cek getUpdates: {e}")
+
+    print("=" * 65)
+    print("💡 CARA MENGGANTI TARGET CHAT:")
+    print("  • Kirim langsung ke Chat ID spesifik:")
+    print("    python3 ~/bin/kirim-laporan-telegram.py --jenis semua --chat-id <ID_CHAT>")
+    print("  • Simpan permanen ke .env:")
+    print("    sed -i 's/^TELEGRAM_OWNER_CHAT_ID=.*/TELEGRAM_OWNER_CHAT_ID=<ID_CHAT>/' ~/.hermes/profiles/ceo/.env")
+    print("=" * 65 + "\n")
+
 # ==============================================================================
 # MAIN DISPATCHER
 # ==============================================================================
@@ -908,16 +1006,23 @@ def main():
     parser.add_argument("--mcp-url", help=f"URL MCP Server Suka. Default: {DEFAULT_MCP_URL}")
     parser.add_argument("--mcp-key", help="Kunci MCP Suka.")
     parser.add_argument("--env-file", help="Path spesifik ke file .env.")
+    parser.add_argument("--cek-chat", "--cek-chat-id", action="store_true", help="Diagnosa target chat ID Telegram dan riwayat pesan bot")
     parser.add_argument("--dry-run", action="store_true", help="Cetak isi laporan ke terminal tanpa kirim.")
     parser.add_argument("--silent", action="store_true", help="Jangan cetak output status jika berhasil.")
 
     args = parser.parse_args()
 
+    konfig = kumpulkan_konfigurasi(args.env_file)
+    token = args.token or konfig.get("TELEGRAM_BOT_TOKEN")
+
+    # Mode Cek Chat ID
+    if args.cek_chat:
+        fungsi_cek_chat(token, konfig)
+        sys.exit(0)
+
     if not args.jenis:
         parser.print_help()
         sys.exit(1)
-
-    konfig = kumpulkan_konfigurasi(args.env_file)
 
     # Mode alert-check khusus (stateful background monitor)
     if args.jenis == "alert-check" and not args.dry_run:
@@ -926,13 +1031,12 @@ def main():
             print("Pemeriksaan alert selesai.")
         sys.exit(0)
 
-    token = args.token or konfig.get("TELEGRAM_BOT_TOKEN")
     allowed_user = (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
     chat_id = (
         args.chat_id
-        or allowed_user
         or konfig.get("TELEGRAM_OWNER_CHAT_ID")
         or konfig.get("TELEGRAM_CHAT_ID")
+        or allowed_user
         or konfig.get("TELEGRAM_HOME_CHANNEL")
     )
 
@@ -961,7 +1065,7 @@ def main():
             print(f"[{now_str}] ❌ Token Telegram atau Chat ID belum dikonfigurasi.", file=sys.stderr)
             sys.exit(1)
 
-        print(f"\n🚀 Memulai pengiriman 9 Laporan Cron Job ke Telegram ({chat_id or 'DRY-RUN'})...\n")
+        print(f"\n🚀 Memulai pengiriman 9 Laporan Cron Job ke Telegram (Target Chat ID: {chat_id or 'DRY-RUN'})...\n")
         sukses_count = 0
 
         for nomor, jenis_item, label in DAFTAR_9_CRON:
@@ -979,9 +1083,9 @@ def main():
                 ok = kirim_ke_telegram(token, chat_id, pesan)
                 if ok:
                     sukses_count += 1
-                    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ✅ ({nomor}) Berhasil: {label}")
+                    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ✅ ({nomor}) Berhasil dikirim ke [{chat_id}]: {label}")
                 else:
-                    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ❌ ({nomor}) Gagal: {label}", file=sys.stderr)
+                    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ❌ ({nomor}) Gagal dikirim ke [{chat_id}]: {label}", file=sys.stderr)
                 time.sleep(1.2)  # Delay jeda aman dari rate limit Telegram
 
         print(f"\n🎉 Selesai! {sukses_count} dari {len(DAFTAR_9_CRON)} laporan berhasil diproses.\n")

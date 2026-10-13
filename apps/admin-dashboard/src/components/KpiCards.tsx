@@ -18,6 +18,13 @@ interface KpiCardsProps {
   prevOpex?: number
   curCogsOpex?: number
   prevCogsOpex?: number
+  /** Nilai waste disetujui — mengurangi laba bersih, sama seperti Laba Rugi. */
+  curWaste?: number
+  prevWaste?: number
+  /** OPEX dihitung dengan rumus Laba Rugi / Buku Kas (termasuk gaji & bonus HR). */
+  opexAcuanLabaRugi?: boolean
+  /** false = periode pembanding memakai rumus lain → ▲▼% OPEX & Laba disembunyikan. */
+  pembandingLabaSepadan?: boolean
   cogsBreakdown?: { cogs: number; opex: number }
 }
 
@@ -33,6 +40,10 @@ export function KpiCards({
   prevOpex: propPrevOpex,
   curCogsOpex = 0,
   prevCogsOpex = 0,
+  curWaste = 0,
+  prevWaste = 0,
+  opexAcuanLabaRugi = false,
+  pembandingLabaSepadan = true,
   cogsBreakdown,
 }: KpiCardsProps) {
   // Extract COGS & OPEX with fallback
@@ -63,16 +74,16 @@ export function KpiCards({
   const prevTotalPcs = (prevMenuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
 
   // Deltas: Laba Bersih (Net) = Omzet Kotor - Potongan - (COGS + OPEX)
-  const netProfit = (grossRevenue - totalDeductions) - totalCurCogsOpex
-  const prevNetProfit = (prevGrossRevenue - prevTotalDeductions) - totalPrevCogsOpex
+  const netProfit = (grossRevenue - totalDeductions) - totalCurCogsOpex - curWaste
+  const prevNetProfit = (prevGrossRevenue - prevTotalDeductions) - totalPrevCogsOpex - prevWaste
 
   const dGross = deltaPct(grossRevenue, prevGrossRevenue)
   const dCogs = prevCogs > 0 ? deltaPct(curCogs, prevCogs) : null
-  const dOpex = prevOpex > 0 ? deltaPct(curOpex, prevOpex) : null
+  const dOpex = pembandingLabaSepadan && prevOpex > 0 ? deltaPct(curOpex, prevOpex) : null
   const dPcs = prevTotalPcs > 0 ? deltaPct(totalPcs, prevTotalPcs) : (totalPcs > 0 && prevTotalPcs === 0 ? 100 : null)
   const dCompleted = deltaPct(completed, prevCompleted)
   const dAov = deltaPct(currentAov, prevAov)
-  const dNet = prevNetProfit !== 0 ? deltaPct(netProfit, prevNetProfit) : null
+  const dNet = pembandingLabaSepadan && prevNetProfit !== 0 ? deltaPct(netProfit, prevNetProfit) : null
 
   const cards = [
     // 1. Omzet Kotor
@@ -109,7 +120,7 @@ export function KpiCards({
       delta: dOpex,
       icon: Receipt,
       color: '#ef4444', // Rose / Red
-      subtext: 'Biaya operasional & petty cash',
+      subtext: opexAcuanLabaRugi ? 'Gaji, operasional & kas kecil — sama dengan Laba Rugi' : 'Biaya operasional & petty cash',
     },
     // 4. Total Pcs Terjual + Jumlah Order (Combined)
     {
@@ -146,7 +157,7 @@ export function KpiCards({
       delta: dNet,
       icon: TrendingUp,
       color: netProfit >= 0 ? '#0a7d2c' : '#ef4444',
-      subtext: 'Omzet kotor - potongan - (COGS+OPEX)',
+      subtext: opexAcuanLabaRugi ? 'Omzet kotor - potongan - (COGS+OPEX) - waste' : 'Omzet kotor - potongan - (COGS+OPEX)',
     },
   ]
 

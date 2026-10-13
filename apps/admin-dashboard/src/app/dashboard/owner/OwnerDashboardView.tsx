@@ -58,6 +58,10 @@ interface OwnerDashboardViewProps {
   prevOpex?: number
   curCogsOpex?: number
   prevCogsOpex?: number
+  curWaste?: number
+  prevWaste?: number
+  opexAcuanLabaRugi?: boolean
+  pembandingLabaSepadan?: boolean
   cogsBreakdown?: { cogs: number; opex: number }
   buyOneGetOne?: { transactions: number; giftUnits: number }
   lastUpdated?: string
@@ -94,6 +98,10 @@ export default function OwnerDashboardView({
   prevOpex,
   curCogsOpex,
   prevCogsOpex,
+  curWaste,
+  prevWaste,
+  opexAcuanLabaRugi,
+  pembandingLabaSepadan,
   cogsBreakdown,
   buyOneGetOne,
   lastUpdated,
@@ -200,6 +208,10 @@ export default function OwnerDashboardView({
             prevOpex={prevOpex}
             curCogsOpex={curCogsOpex}
             prevCogsOpex={prevCogsOpex}
+            curWaste={curWaste}
+            prevWaste={prevWaste}
+            opexAcuanLabaRugi={opexAcuanLabaRugi}
+            pembandingLabaSepadan={pembandingLabaSepadan}
             cogsBreakdown={cogsBreakdown}
           />
 

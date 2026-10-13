@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "buat:bot": "node ../../scripts/hermes/buat-bot.mjs"
   },
   "dependencies": {
     "@suka/auth": "*",

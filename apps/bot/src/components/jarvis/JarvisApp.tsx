@@ -327,6 +327,7 @@ export default function JarvisApp({
           </form>
 
           {/* Quick Directive Chips */}
+          {/* Quick Directive Chips */}
           <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">
             <span className="font-mono-hud text-[9px] text-zinc-500 uppercase tracking-wider hidden sm:inline">
               DIRECTIVES:
@@ -336,6 +337,13 @@ export default function JarvisApp({
               { label: '📦 Audit Bahan Kritis', profil: 'gudang' as Profil, pesan: 'Bahan baku mana saja yang stoknya hampir habis dan butuh order segera?' },
               { label: '👥 Absensi Outlet Live', profil: 'hrd' as Profil, pesan: 'Siapa saja staf outlet yang belum absen atau terlambat hari ini?' },
               { label: '💰 Rekonsiliasi OPEX', profil: 'finance' as Profil, pesan: 'Berapa total pengeluaran OPEX bulan ini dan apakah ada tagihan jatuh tempo?' },
+              ...((meja ?? [])
+                .filter((m) => m.profil && !['ceo', 'gudang', 'hrd', 'finance'].includes(m.profil))
+                .map((m) => ({
+                  label: `🤖 ${m.nama}`,
+                  profil: m.profil as Profil,
+                  pesan: `Status operasional dan data terkini dari ${m.nama}`,
+                }))),
             ].map((chip, idx) => (
               <button
                 key={idx}
@@ -349,51 +357,79 @@ export default function JarvisApp({
         </div>
 
         {/* TACTICAL ORBITAL GRID: Left Nodes, Arc Reactor in Center, Right Nodes */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 xl:gap-6 items-center">
-          {/* Left Column: CEO & FINANCE NODES */}
-          <div className="lg:col-span-4 xl:col-span-3 2xl:col-span-3 flex flex-col gap-2.5 sm:gap-3.5 justify-center h-full">
-            <AgentNodeCard
-              profilFallback="ceo"
-              meja={getMejaByProfil('ceo')}
-              terpilih={agenTerpilih === 'ceo'}
-              onPilih={(p, q) => bukaAgen(p, q)}
-            />
+        {(() => {
+          const extraMeja = (meja ?? []).filter((m) => m.profil && !['ceo', 'finance', 'gudang', 'hrd'].includes(m.profil))
+          const extraKiri = extraMeja.filter((_, i) => i % 2 === 0)
+          const extraKanan = extraMeja.filter((_, i) => i % 2 === 1)
 
-            <AgentNodeCard
-              profilFallback="finance"
-              meja={getMejaByProfil('finance')}
-              terpilih={agenTerpilih === 'finance'}
-              onPilih={(p, q) => bukaAgen(p, q)}
-            />
-          </div>
+          return (
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 xl:gap-6 items-center">
+              {/* Left Column: CEO, FINANCE & Dynamic Extra Nodes */}
+              <div className="lg:col-span-4 xl:col-span-3 2xl:col-span-3 flex flex-col gap-2.5 sm:gap-3.5 justify-center h-full max-h-[75vh] overflow-y-auto pr-0.5">
+                <AgentNodeCard
+                  profilFallback="ceo"
+                  meja={getMejaByProfil('ceo')}
+                  terpilih={agenTerpilih === 'ceo'}
+                  onPilih={(p, q) => bukaAgen(p, q)}
+                />
 
-          {/* Center Column: ARC REACTOR / NEURAL CORE */}
-          <div className="lg:col-span-4 xl:col-span-6 2xl:col-span-6 flex flex-col items-center justify-center h-full py-1">
-            <ArcReactor
-              status={adaGalat ? 'warning' : 'optimal'}
-              agentAktifCount={nodeAktifCount}
-              totalMeja={meja?.length || 4}
-              onClickCore={() => bukaAgen('ceo', 'Jarvis, berikan status report menyeluruh sistem operasional sekarang.')}
-            />
-          </div>
+                <AgentNodeCard
+                  profilFallback="finance"
+                  meja={getMejaByProfil('finance')}
+                  terpilih={agenTerpilih === 'finance'}
+                  onPilih={(p, q) => bukaAgen(p, q)}
+                />
 
-          {/* Right Column: GUDANG & HRD NODES */}
-          <div className="lg:col-span-4 xl:col-span-3 2xl:col-span-3 flex flex-col gap-2.5 sm:gap-3.5 justify-center h-full">
-            <AgentNodeCard
-              profilFallback="gudang"
-              meja={getMejaByProfil('gudang')}
-              terpilih={agenTerpilih === 'gudang'}
-              onPilih={(p, q) => bukaAgen(p, q)}
-            />
+                {extraKiri.map((m) => (
+                  <AgentNodeCard
+                    key={m.id}
+                    profilFallback={m.profil as Profil}
+                    meja={m}
+                    terpilih={agenTerpilih === m.profil}
+                    onPilih={(p, q) => bukaAgen(p, q)}
+                  />
+                ))}
+              </div>
 
-            <AgentNodeCard
-              profilFallback="hrd"
-              meja={getMejaByProfil('hrd')}
-              terpilih={agenTerpilih === 'hrd'}
-              onPilih={(p, q) => bukaAgen(p, q)}
-            />
-          </div>
-        </div>
+              {/* Center Column: ARC REACTOR / NEURAL CORE */}
+              <div className="lg:col-span-4 xl:col-span-6 2xl:col-span-6 flex flex-col items-center justify-center h-full py-1">
+                <ArcReactor
+                  status={adaGalat ? 'warning' : 'optimal'}
+                  agentAktifCount={nodeAktifCount}
+                  totalMeja={meja?.length || 4}
+                  onClickCore={() => bukaAgen('ceo', 'Jarvis, berikan status report menyeluruh sistem operasional sekarang.')}
+                />
+              </div>
+
+              {/* Right Column: GUDANG, HRD & Dynamic Extra Nodes */}
+              <div className="lg:col-span-4 xl:col-span-3 2xl:col-span-3 flex flex-col gap-2.5 sm:gap-3.5 justify-center h-full max-h-[75vh] overflow-y-auto pl-0.5">
+                <AgentNodeCard
+                  profilFallback="gudang"
+                  meja={getMejaByProfil('gudang')}
+                  terpilih={agenTerpilih === 'gudang'}
+                  onPilih={(p, q) => bukaAgen(p, q)}
+                />
+
+                <AgentNodeCard
+                  profilFallback="hrd"
+                  meja={getMejaByProfil('hrd')}
+                  terpilih={agenTerpilih === 'hrd'}
+                  onPilih={(p, q) => bukaAgen(p, q)}
+                />
+
+                {extraKanan.map((m) => (
+                  <AgentNodeCard
+                    key={m.id}
+                    profilFallback={m.profil as Profil}
+                    meja={m}
+                    terpilih={agenTerpilih === m.profil}
+                    onPilih={(p, q) => bukaAgen(p, q)}
+                  />
+                ))}
+              </div>
+            </div>
+          )
+        })()}
       </main>
 
       {/* BOTTOM TELEMETRY TICKER */}

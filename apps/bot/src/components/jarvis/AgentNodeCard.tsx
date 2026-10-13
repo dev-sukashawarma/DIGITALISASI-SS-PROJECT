@@ -15,19 +15,18 @@ import {
   Clock,
 } from 'lucide-react'
 
-// Peta konfigurasi tampilan per profil agen
-const CONFIG_PROFIL: Record<
-  Profil,
-  {
-    judul: string
-    subjudul: string
-    kode: string
-    warnaAksen: string
-    icon: typeof TrendingUp
-    ringkasanPeran: string
-    contohPertanyaan: string[]
-  }
-> = {
+interface ProfilConfigItem {
+  judul: string
+  subjudul: string
+  kode: string
+  warnaAksen: string
+  icon: typeof TrendingUp
+  ringkasanPeran: string
+  contohPertanyaan: string[]
+}
+
+// Peta konfigurasi tampilan per profil agen bawaan
+const CONFIG_PROFIL: Record<string, ProfilConfigItem> = {
   ceo: {
     judul: 'J.A.R.V.I.S. MASTER CORE',
     subjudul: 'Executive Command & Strategic Ops',
@@ -66,6 +65,20 @@ const CONFIG_PROFIL: Record<
   },
 }
 
+export function ambilConfigProfil(profil: string): ProfilConfigItem {
+  if (CONFIG_PROFIL[profil]) return CONFIG_PROFIL[profil]
+  const namaKapital = profil.toUpperCase()
+  return {
+    judul: `AGENT ${namaKapital}`,
+    subjudul: `Subsystem Division Radar`,
+    kode: `NODE-SUB // ${namaKapital}`,
+    warnaAksen: 'cyan',
+    icon: Radio,
+    ringkasanPeran: `Asisten AI operasional terpadu untuk divisi ${profil}.`,
+    contohPertanyaan: [`Status operasional ${profil}`, `Data terbaru ${profil}`, `Pemeriksaan metrik`],
+  }
+}
+
 interface AgentNodeCardProps {
   meja?: MejaKantor | null
   profilFallback: Profil
@@ -80,7 +93,7 @@ export default function AgentNodeCard({
   onPilih,
 }: AgentNodeCardProps) {
   const profil = meja?.profil ?? profilFallback
-  const config = CONFIG_PROFIL[profil] || CONFIG_PROFIL.ceo
+  const config = ambilConfigProfil(profil)
   const IconComponent = config.icon
 
   const keadaan = meja?.keadaan ?? 'siaga'

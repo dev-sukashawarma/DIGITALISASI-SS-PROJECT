@@ -74,6 +74,32 @@ bawaan. Tambah env ke **stage runner** Dockerfile (§9).
 
 ## 5. Siapkan profil di VPS (sebagai `suka-hermes`)
 
+### ⚡ Cara Cepat & Otomatis (Dianjurkan)
+
+Gunakan wizard otomatisasi yang telah disediakan:
+1. **Di lokal (komputer dev):**
+   ```bash
+   yarn buat:bot    # atau: npm run buat:bot
+   ```
+   Wizard interaktif akan otomatis membuat template `docs/hermes/SOUL-<p>.md`, template gerbang verifikasi, dan menghasilkan kunci aman.
+
+2. **Di VPS (user `suka-hermes`):**
+   Cukup jalankan satu perintah:
+   ```bash
+   ./scripts/hermes/provision-bot.sh --name <p> --mcp-key "<kunci-bot-ini>"
+   ```
+   Skrip otomatis:
+   - Membuat direktori profil terisolasi tanpa mewariskan kunci CEO.
+   - Mengisi `.env` dengan `API_SERVER_KEY` acak baru & izin ketat `chmod 600`.
+   - Mengonfigurasi `config.yaml` dengan MCP server dan model teruji.
+   - **Mengunci 27 tool bawaan** berbahaya di semua platform (`api_server`, `cli`, `telegram`).
+   - Me-restart `hermes-gateway` dan menguji koneksi (HTTP 200).
+   - Menghasilkan snippet JSON `HERMES_KEYS` untuk Coolify.
+
+---
+
+### 🛠️ Cara Manual (Sebagai Referensi / Debugging)
+
 ```bash
 hermes profile create <p> --clone-from ceo
 ```

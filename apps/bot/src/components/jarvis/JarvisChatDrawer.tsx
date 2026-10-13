@@ -29,18 +29,33 @@ import {
 type Percakapan = { id: string; judul: string; diperbarui_at: string }
 type Pesan = { id: string | number; peran: 'user' | 'bot'; isi: string }
 
-const LABEL_AGENT: Record<Profil, { nama: string; badge: string; deskripsi: string }> = {
+const LABEL_AGENT_BAWAAN: Record<string, { nama: string; badge: string; deskripsi: string }> = {
   ceo: { nama: 'J.A.R.V.I.S. // MASTER CORE', badge: 'EXECUTIVE INTELLIGENCE MATRIX', deskripsi: 'Pusat komando strategis, analitik penjualan, dan eksekutif AI Suka Shawarma' },
   gudang: { nama: 'JARVIS-02 // BOT GUDANG', badge: 'SUPPLY CHAIN RADAR', deskripsi: 'Analitik stok bahan baku, rantai pasok, dan deteksi bahan kritis' },
   hrd: { nama: 'JARVIS-03 // BOT HRD', badge: 'WORKFORCE TELEMETRY', deskripsi: 'Pemantauan absensi shift, roster tim cabang, dan data SDM' },
   finance: { nama: 'JARVIS-04 // BOT FINANCE', badge: 'TREASURY RECONCILIATION', deskripsi: 'Arus kas harian, rekonsiliasi OPEX, dan liabilitas supplier' },
 }
 
-const CEPAT: Record<Profil, string[]> = {
+const CEPAT_BAWAAN: Record<string, string[]> = {
   ceo: ['Omzet kemarin berapa?', 'Peringkat outlet minggu ini', 'Menu terlaris bulan ini', 'Laporan pagi hari ini'],
   hrd: ['Siapa yang belum absen hari ini?', 'Cuti & izin minggu ini', 'Rekap keterlambatan bulan ini'],
   gudang: ['Bahan yang hampir habis', 'Kiriman hari ini'],
   finance: ['Utang supplier jatuh tempo', 'Kas kecil bulan ini'],
+}
+
+function ambilMetaAgent(profil: Profil) {
+  if (profil in LABEL_AGENT_BAWAAN) return LABEL_AGENT_BAWAAN[profil]
+  const namaKapital = profil.toUpperCase()
+  return {
+    nama: `JARVIS // BOT ${namaKapital}`,
+    badge: 'SUBSYSTEM RADAR',
+    deskripsi: `Modul operasional AI dan analitik terpadu untuk divisi ${profil}`,
+  }
+}
+
+function ambilOpsiCepat(profil: Profil): string[] {
+  if (profil in CEPAT_BAWAAN) return CEPAT_BAWAAN[profil]
+  return [`Status operasional ${profil}`, `Rangkuman metrik hari ini`, `Bantuan dan analitik divisi`]
 }
 
 const GALAT_UMUM = 'Koneksi ke Hermes Core terputus. Pastikan gateway aktif.'
@@ -291,7 +306,7 @@ export default function JarvisChatDrawer({
   const inisialisasiRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  const meta = LABEL_AGENT[profil] || LABEL_AGENT.ceo
+  const meta = ambilMetaAgent(profil)
 
   useEffect(() => {
     const support = apakahVoiceDidukung()
@@ -576,7 +591,7 @@ export default function JarvisChatDrawer({
 
               {/* Quick Directives */}
               <div className="flex flex-wrap justify-center gap-2 pt-3">
-                {CEPAT[profil]?.map((q, idx) => (
+                {ambilOpsiCepat(profil).map((q, idx) => (
                   <button
                     key={idx}
                     onClick={() => kirim(q)}

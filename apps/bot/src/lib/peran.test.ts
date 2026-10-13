@@ -14,9 +14,11 @@ describe('peran → profil yang boleh diajak chat', () => {
       expect(profilBolehUntukPeran(r as any)).toEqual([])
     }
   })
-  it('label profil', () => {
+  it('label profil bawaan & dinamis', () => {
     expect(LABEL_PROFIL.ceo).toBe('Bot CEO')
     expect(LABEL_PROFIL.hrd).toBe('Bot HRD')
+    expect(LABEL_PROFIL.marcom).toBe('Bot Marcom')
+    expect(LABEL_PROFIL['purchasing']).toBe('Bot Purchasing')
   })
 })
 
@@ -29,6 +31,8 @@ describe('profilUntukKunci (scope kunci Hermes → profil)', () => {
     expect(profilUntukKunci(['absensi'])).toBe('hrd')
     expect(profilUntukKunci(['gudang'])).toBe('gudang')
     expect(profilUntukKunci(['finance'])).toBe('finance')
+    expect(profilUntukKunci(['marcom'])).toBe('marcom')
+    expect(profilUntukKunci(['purchasing'])).toBe('purchasing')
   })
   it('kombinasi tanpa penjualan atau kosong → null', () => {
     expect(profilUntukKunci(['absensi', 'gudang'])).toBeNull()
@@ -37,9 +41,13 @@ describe('profilUntukKunci (scope kunci Hermes → profil)', () => {
 })
 
 describe('adalahProfil', () => {
-  it('menerima profil dikenal saja', () => {
+  it('menerima profil dikenal dan slug profil valid', () => {
     expect(adalahProfil('hrd')).toBe(true)
+    expect(adalahProfil('marcom')).toBe(true)
+    expect(adalahProfil('bot-gudang')).toBe(true)
     expect(adalahProfil('root')).toBe(false)
+    expect(adalahProfil('admin')).toBe(false)
     expect(adalahProfil(undefined)).toBe(false)
+    expect(adalahProfil('')).toBe(false)
   })
 })

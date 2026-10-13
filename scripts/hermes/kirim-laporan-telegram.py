@@ -561,29 +561,57 @@ def format_marcom(data_endorse: dict, data_budget: dict) -> str:
 
     return teks
 
+def terjemahkan_istilah(teks_str: str) -> str:
+    """Menerjemahkan nama lokasi, status surat jalan, dan satuan dari bahasa Inggris ke Bahasa Indonesia."""
+    if not teks_str or not isinstance(teks_str, str):
+        return str(teks_str or "")
+    kamus = {
+        "HEADQUARTERS (HQ)": "KANTOR PUSAT (HQ)",
+        "PARTNER": "MITRA",
+        "Blocks": "Balok",
+        "Block": "Balok",
+        "PARTIALLY RECEIVED": "DITERIMA SEBAGIAN",
+        "FULLY RECEIVED": "SELESAI DITERIMA",
+        "SHIPPED": "SEDANG DIKIRIM",
+        "DRAFT": "DRAF",
+        "ACTIVE": "AKTIF",
+        "UNCONFIGURED": "BELUM DIATUR",
+        "UP": "AKTIF",
+        "DOWN": "TERPUTUS",
+        "DEGRADED": "PENURUNAN",
+    }
+    hasil = teks_str
+    for k, v in kamus.items():
+        hasil = hasil.replace(k, v)
+    return hasil
+
 def format_stok(data_ayam: dict, data_sapi: dict, data_sj: dict) -> str:
     teks = (
-        "📦 *KONDISI STOK SECARA KESELURUHAN*\n"
-        "🕒 *Pukul 04:00 WIB*\n"
+        "📦 *KONDISI STOK UTAMA & GUDANG*\n"
+        "🕒 *Pukul 04:02 WIB*\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
         "🥩 *Saldo Sistem Bahan Baku Vital:*\n"
     )
     if data_ayam and "lokasi" in data_ayam:
         teks += "\n🍗 *AYAM:*\n"
         for loc in data_ayam.get("lokasi", [])[:6]:
-            teks += f"  • {loc.get('lokasi')}: *{loc.get('saldo_sistem')}*\n"
+            lok = terjemahkan_istilah(loc.get('lokasi', '-'))
+            sal = terjemahkan_istilah(loc.get('saldo_sistem', '-'))
+            teks += f"  • {lok}: *{sal}*\n"
 
     if data_sapi and "lokasi" in data_sapi:
         teks += "\n🥩 *SAPI:*\n"
         for loc in data_sapi.get("lokasi", [])[:6]:
-            teks += f"  • {loc.get('lokasi')}: *{loc.get('saldo_sistem')}*\n"
+            lok = terjemahkan_istilah(loc.get('lokasi', '-'))
+            sal = terjemahkan_istilah(loc.get('saldo_sistem', '-'))
+            teks += f"  • {lok}: *{sal}*\n"
 
     sj_list = data_sj.get("daftar", []) if isinstance(data_sj, dict) else []
     if sj_list:
         teks += "\n🚚 *Surat Jalan Pengiriman Terakhir:*\n"
         for sj in sj_list[:4]:
-            outlet = sj.get("outlet", "-")
-            status = sj.get("status", "-").upper()
+            outlet = terjemahkan_istilah(sj.get("outlet", "-"))
+            status = terjemahkan_istilah(sj.get("status", "-").upper())
             tgl = sj.get("tanggal", "-")
             teks += f"  • [{status}] *{outlet}* ({tgl})\n"
 
@@ -693,7 +721,7 @@ def format_watchdog(data_sistem: dict = None, konfig: dict = None) -> str:
         f"• *RAM:* `{format_angka(mem_used_mb)} MB` / `{format_angka(mem_total_mb)} MB` (*{mem_pct}%*)\n"
         f"• *Disk:* `{disk_free_gb} GB bebas` / `{disk_total_gb} GB` (*{disk_pct}% terpakai*)\n"
         f"• *Uptime:* `{uptime_str}`\n"
-        "• *Gateway Hermes:* `ACTIVE`\n\n"
+        "• *Gateway Hermes:* `AKTIF`\n\n"
         "🗄️ *Monitoring Database (Supabase PostgreSQL)*\n"
         f"• *Status:* {db_status_icon} `{db_status_text}`\n"
         f"• *Latensi Query:* `{db_lat_val} ms ({lat_label})`\n"
@@ -712,20 +740,29 @@ def format_watchdog(data_sistem: dict = None, konfig: dict = None) -> str:
             "stok": "Modul Stok & Gudang",
             "absensi": "Modul Presensi Kru",
             "distribusi": "Modul Distribusi",
+            "cpanel-server": "Server cPanel",
+            "owner-dashboard": "Dashboard Owner",
+        }
+        status_map = {
+            "up": "AKTIF",
+            "degraded": "PENURUNAN",
+            "down": "TERPUTUS",
+            "unconfigured": "BELUM DIATUR",
         }
         for item in layanan_list:
-            t_name = item.get("target", "")
-            label = nama_map.get(t_name, t_name.upper())
-            st = item.get("status", "up")
+            t_name = str(item.get("target", "")).lower()
+            label = nama_map.get(t_name, str(item.get("target", "")).upper())
+            st = str(item.get("status", "up")).lower()
+            st_teks = status_map.get(st, st.upper())
             icon = "🟢" if st == "up" else "🟡" if st == "degraded" else "🔴"
             lat = item.get("latensi_ms")
             lat_str = f" ({lat} ms)" if lat else ""
-            teks += f"  - {label}: {icon} `{st.upper()}`{lat_str}\n"
+            teks += f"  - {label}: {icon} `{st_teks}`{lat_str}\n"
     else:
-        teks += f"  - Supabase DB Core: 🟢 `UP` ({db_lat_val} ms)\n"
-        teks += "  - Modul POS Kasir: 🟢 `UP`\n"
-        teks += "  - Modul Stok & Gudang: 🟢 `UP`\n"
-        teks += "  - Modul Presensi Kru: 🟢 `UP`\n"
+        teks += f"  - Supabase DB Core: 🟢 `AKTIF` ({db_lat_val} ms)\n"
+        teks += "  - Modul POS Kasir: 🟢 `AKTIF`\n"
+        teks += "  - Modul Stok & Gudang: 🟢 `AKTIF`\n"
+        teks += "  - Modul Presensi Kru: 🟢 `AKTIF`\n"
 
     teks += "\nStatus: _Semua layanan server dan database beroperasi normal._"
     return teks

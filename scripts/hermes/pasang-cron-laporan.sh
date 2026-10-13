@@ -91,18 +91,18 @@ fi
 # 1. Pastikan direktori tujuan ada
 mkdir -p "$BIN_DIR" "$SYSTEMD_USER_DIR"
 
-# 2. Salin atau unduh executable python
+# 2. Salin atau unduh executable python (selalu perbarui dengan versi terbaru)
 log_info "Menyiapkan skrip eksekusi di $BIN_DIR..."
 if [ -f "$SKRIP_DIR/kirim-laporan-telegram.py" ] && [ "$SKRIP_DIR" != "$BIN_DIR" ]; then
-  cp "$SKRIP_DIR/kirim-laporan-telegram.py" "$BIN_DIR/kirim-laporan-telegram.py"
-elif [ ! -f "$BIN_DIR/kirim-laporan-telegram.py" ]; then
+  cp -f "$SKRIP_DIR/kirim-laporan-telegram.py" "$BIN_DIR/kirim-laporan-telegram.py"
+else
   curl -fsSL "$RAW_BASE/kirim-laporan-telegram.py" -o "$BIN_DIR/kirim-laporan-telegram.py"
 fi
 chmod +x "$BIN_DIR/kirim-laporan-telegram.py"
 
 if [ -f "$SKRIP_DIR/mcp-vps-telemetri.py" ] && [ "$SKRIP_DIR" != "$BIN_DIR" ]; then
-  cp "$SKRIP_DIR/mcp-vps-telemetri.py" "$BIN_DIR/mcp-vps-telemetri.py"
-elif [ ! -f "$BIN_DIR/mcp-vps-telemetri.py" ]; then
+  cp -f "$SKRIP_DIR/mcp-vps-telemetri.py" "$BIN_DIR/mcp-vps-telemetri.py"
+else
   curl -fsSL "$RAW_BASE/mcp-vps-telemetri.py" -o "$BIN_DIR/mcp-vps-telemetri.py" 2>/dev/null || true
 fi
 [ -f "$BIN_DIR/mcp-vps-telemetri.py" ] && chmod +x "$BIN_DIR/mcp-vps-telemetri.py"

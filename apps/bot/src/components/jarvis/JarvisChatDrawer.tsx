@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { mainkanSuaraHud } from '@/lib/audioHud'
-import { pecahTeks } from '@/lib/teks'
 import type { Profil } from '@/lib/peran'
 import {
   mulaiMendengar,
@@ -46,57 +45,218 @@ const CEPAT: Record<Profil, string[]> = {
 
 const GALAT_UMUM = 'Koneksi ke Hermes Core terputus. Pastikan gateway aktif.'
 
+function parseInline(text: string) {
+  const parts: Array<{ type: 'text' | 'bold' | 'code'; val: string }> = []
+  const regex = /(`[^`]+`|\*\*[^*]+\*\*)/g
+  let lastIdx = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIdx) {
+      parts.push({ type: 'text', val: text.slice(lastIdx, match.index) })
+    }
+    const chunk = match[0]
+    if (chunk.startsWith('`') && chunk.endsWith('`')) {
+      parts.push({ type: 'code', val: chunk.slice(1, -1) })
+    } else if (chunk.startsWith('**') && chunk.endsWith('**')) {
+      parts.push({ type: 'bold', val: chunk.slice(2, -2) })
+    }
+    lastIdx = regex.lastIndex
+  }
+  if (lastIdx < text.length) {
+    parts.push({ type: 'text', val: text.slice(lastIdx) })
+  }
+  return parts
+}
+
+function RenderInline({ text }: { text: string }) {
+  const parts = parseInline(text)
+  return (
+    <>
+      {parts.map((p, idx) => {
+        if (p.type === 'bold') {
+          return (
+            <strong key={idx} className="text-cyan-300 font-semibold">
+              {p.val}
+            </strong>
+          )
+        }
+        if (p.type === 'code') {
+          return (
+            <code
+              key={idx}
+              className="px-1.5 py-0.5 mx-0.5 rounded bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 font-mono text-[11px]"
+            >
+              {p.val}
+            </code>
+          )
+        }
+        return <span key={idx}>{p.val}</span>
+      })}
+    </>
+  )
+}
+
+function RenderTable({ rows }: { rows: string[] }) {
+  const parseRow = (r: string) =>
+    r
+      .replace(/^\||\|$/g, '')
+      .split('|')
+      .map((c) => c.trim())
+
+  if (rows.length === 0) return null
+  const header = parseRow(rows[0])
+  const isSeparator = (r: string) => /^\|?\s*:?-+:?\s*(\|:?-+:?\s*)*\|?$/.test(r.trim())
+  const bodyRows = rows.slice(1).filter((r) => !isSeparator(r)).map(parseRow)
+
+  return (
+    <div className="my-2.5 overflow-x-auto rounded border border-cyan-800/60 bg-zinc-950/70 shadow-lg">
+      <table className="w-full text-left text-[11px] sm:text-xs">
+        <thead className="bg-cyan-950/80 text-cyan-300 font-mono-hud uppercase tracking-wider border-b border-cyan-800/60">
+          <tr>
+            {header.map((col, idx) => (
+              <th key={idx} className="px-2.5 py-1.5 font-semibold">
+                <RenderInline text={col} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-cyan-950/60 font-mono-hud text-zinc-300">
+          {bodyRows.map((cols, rIdx) => (
+            <tr key={rIdx} className="hover:bg-cyan-950/30 transition-colors">
+              {cols.map((col, cIdx) => (
+                <td key={cIdx} className="px-2.5 py-1.5">
+                  <RenderInline text={col} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function FormatIsiHologram({ isi }: { isi: string }) {
-  const barisList = isi.split('\n')
+  const lines = isi.split('\n')
+  const blocks: Array<
+    | { type: 'table'; rows: string[] }
+    | { type: 'quote'; lines: string[] }
+    | { type: 'heading'; level: number; text: string }
+    | { type: 'list-item'; marker: string; text: string }
+    | { type: 'p'; text: string }
+  > = []
+
+  let i = 0
+  while (i < lines.length) {
+    const raw = lines[i]
+    const trimmed = raw.trim()
+
+    // Table block
+    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
+      const tableRows: string[] = []
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        tableRows.push(lines[i].trim())
+        i++
+      }
+      blocks.push({ type: 'table', rows: tableRows })
+      continue
+    }
+
+    // Quote block
+    if (raw.trimStart().startsWith('>')) {
+      const quoteLines: string[] = []
+      while (i < lines.length && lines[i].trimStart().startsWith('>')) {
+        quoteLines.push(lines[i].replace(/^\s*>\s*/, ''))
+        i++
+      }
+      blocks.push({ type: 'quote', lines: quoteLines })
+      continue
+    }
+
+    // Heading block
+    const headingMatch = raw.match(/^(#{1,4})\s+(.+)$/)
+    if (headingMatch) {
+      blocks.push({ type: 'heading', level: headingMatch[1].length, text: headingMatch[2] })
+      i++
+      continue
+    }
+
+    // List item block
+    const listMatch = raw.match(/^(\s*)([-*]|\d+\.)\s+(.+)$/)
+    if (listMatch) {
+      blocks.push({ type: 'list-item', marker: listMatch[2], text: listMatch[3] })
+      i++
+      continue
+    }
+
+    // Regular paragraph
+    blocks.push({ type: 'p', text: raw })
+    i++
+  }
+
   return (
     <div className="space-y-1.5 leading-relaxed font-mono-hud text-xs sm:text-sm">
-      {barisList.map((rawBaris, i) => {
-        const isQuote = rawBaris.trimStart().startsWith('>')
-        const cleanBaris = isQuote ? rawBaris.replace(/^\s*>\s*/, '') : rawBaris
-        const isAlertNote = cleanBaris.startsWith('[!NOTE]') || cleanBaris.startsWith('[!IMPORTANT]')
-
-        if (isAlertNote) {
+      {blocks.map((b, idx) => {
+        if (b.type === 'table') {
+          return <RenderTable key={idx} rows={b.rows} />
+        }
+        if (b.type === 'quote') {
+          const isDirective = b.lines.some((l) => l.includes('[!NOTE]') || l.includes('[!IMPORTANT]') || l.includes('[!WARNING]'))
+          if (isDirective) {
+            const cleanText = b.lines.map((l) => l.replace(/^\[!(NOTE|IMPORTANT|WARNING)\]\s*/, '')).join(' ')
+            return (
+              <div
+                key={idx}
+                className="my-2 px-3 py-2 rounded-r bg-cyan-950/70 border-l-2 border-cyan-400 text-cyan-200 text-[11px] sm:text-xs flex items-start gap-2 shadow-sm"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse mt-1 shrink-0" />
+                <div className="font-mono-hud">
+                  <RenderInline text={cleanText} />
+                </div>
+              </div>
+            )
+          }
           return (
-            <div key={i} className="my-1.5 px-3 py-1.5 rounded-r bg-cyan-950/70 border-l-2 border-cyan-400 text-cyan-200 text-[11px] sm:text-xs font-mono-hud flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="font-bold tracking-wider uppercase text-cyan-300">
-                {cleanBaris.replace(/^\[!(NOTE|IMPORTANT)\]\s*/, '') || 'SYSTEM DIRECTIVE'}
+            <div
+              key={idx}
+              className="pl-3 py-1 my-1 border-l-2 border-cyan-500/40 text-cyan-100/90 text-[11px] sm:text-xs italic bg-cyan-950/20"
+            >
+              {b.lines.map((l, lIdx) => (
+                <p key={lIdx}>
+                  <RenderInline text={l} />
+                </p>
+              ))}
+            </div>
+          )
+        }
+        if (b.type === 'heading') {
+          return (
+            <h4
+              key={idx}
+              className="text-cyan-400 font-bold text-xs sm:text-sm tracking-wider uppercase mt-3 mb-1.5 flex items-center gap-1.5 border-b border-cyan-800/40 pb-1"
+            >
+              <span className="w-1.5 h-1.5 bg-cyan-400 rounded-sm" />
+              <RenderInline text={b.text} />
+            </h4>
+          )
+        }
+        if (b.type === 'list-item') {
+          const isNum = /^\d+\./.test(b.marker)
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-2 my-0.5">
+              <span className={isNum ? 'text-cyan-400 text-[11px] font-bold mt-0.5 shrink-0' : 'text-cyan-400 text-xs mt-0.5 shrink-0'}>
+                {isNum ? b.marker : '•'}
               </span>
+              <div className="text-zinc-200">
+                <RenderInline text={b.text} />
+              </div>
             </div>
           )
         }
-
-        const segments = pecahTeks(cleanBaris)[0] || []
-
-        if (isQuote) {
-          return (
-            <div key={i} className="pl-3 py-0.5 border-l-2 border-cyan-500/40 text-cyan-100/90 text-[11px] sm:text-xs italic bg-cyan-950/20 my-0.5">
-              {segments.map((s, j) =>
-                s.tebal ? (
-                  <strong key={j} className="text-cyan-300 font-semibold not-italic">
-                    {s.teks}
-                  </strong>
-                ) : (
-                  <span key={j}>{s.teks}</span>
-                )
-              )}
-            </div>
-          )
-        }
-
         return (
-          <p key={i} className="min-h-[1.2em]">
-            {segments.map((s, j) =>
-              s.tebal ? (
-                <strong key={j} className="text-cyan-300 font-semibold">
-                  {s.teks}
-                </strong>
-              ) : (
-                <span key={j} className="text-zinc-200">
-                  {s.teks}
-                </span>
-              )
-            )}
+          <p key={idx} className="min-h-[1.2em] text-zinc-200">
+            <RenderInline text={b.text} />
           </p>
         )
       })}

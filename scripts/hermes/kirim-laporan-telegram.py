@@ -45,9 +45,11 @@ ENV_PATHS = [
 
 def muat_env_file(path_file: pathlib.Path) -> dict:
     env = {}
-    if not path_file or not path_file.is_file():
+    if not path_file:
         return env
     try:
+        if not path_file.is_file():
+            return env
         for baris in path_file.read_text(encoding="utf-8").splitlines():
             baris = baris.strip()
             if not baris or baris.startswith("#"):
@@ -55,7 +57,7 @@ def muat_env_file(path_file: pathlib.Path) -> dict:
             if "=" in baris:
                 k, v = baris.split("=", 1)
                 env[k.strip()] = v.strip().strip("'\"")
-    except Exception:
+    except (PermissionError, OSError, Exception):
         pass
     return env
 
@@ -65,8 +67,13 @@ def kumpulkan_konfigurasi(custom_env_file=None) -> dict:
         konfigurasi.update(muat_env_file(pathlib.Path(custom_env_file)))
     else:
         for p in reversed(ENV_PATHS):
-            if p and p.is_file():
-                konfigurasi.update(muat_env_file(p))
+            if not p:
+                continue
+            try:
+                if p.is_file():
+                    konfigurasi.update(muat_env_file(p))
+            except (PermissionError, OSError):
+                continue
 
     for k in [
         "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TELEGRAM_OWNER_CHAT_ID",

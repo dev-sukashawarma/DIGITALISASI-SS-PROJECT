@@ -1,9 +1,9 @@
 import { profilBolehUntukPeran, profilUntukKunci, adalahProfil, LABEL_PROFIL } from './peran'
 
 describe('peran → profil yang boleh diajak chat', () => {
-  it('developer, owner, admin → ceo, hrd, finance', () => {
+  it('developer, owner, admin → ceo, gudang, hrd, finance', () => {
     for (const r of ['developer', 'owner', 'admin']) {
-      expect(profilBolehUntukPeran(r)).toEqual(['ceo', 'hrd', 'finance'])
+      expect(profilBolehUntukPeran(r)).toEqual(['ceo', 'gudang', 'hrd', 'finance'])
     }
   })
   it('admin_finance → finance', () => {

@@ -349,9 +349,9 @@ export default function JarvisApp({
         </div>
 
         {/* TACTICAL ORBITAL GRID: Left Nodes, Arc Reactor in Center, Right Nodes */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-5 items-center">
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 xl:gap-6 items-center">
           {/* Left Column: CEO & FINANCE NODES */}
-          <div className="lg:col-span-4 flex flex-col gap-2.5 sm:gap-3.5 justify-center h-full">
+          <div className="lg:col-span-4 xl:col-span-3 2xl:col-span-3 flex flex-col gap-2.5 sm:gap-3.5 justify-center h-full">
             <AgentNodeCard
               profilFallback="ceo"
               meja={getMejaByProfil('ceo')}
@@ -368,7 +368,7 @@ export default function JarvisApp({
           </div>
 
           {/* Center Column: ARC REACTOR / NEURAL CORE */}
-          <div className="lg:col-span-4 flex flex-col items-center justify-center h-full py-1">
+          <div className="lg:col-span-4 xl:col-span-6 2xl:col-span-6 flex flex-col items-center justify-center h-full py-1">
             <ArcReactor
               status={adaGalat ? 'warning' : 'optimal'}
               agentAktifCount={nodeAktifCount}
@@ -378,7 +378,7 @@ export default function JarvisApp({
           </div>
 
           {/* Right Column: GUDANG & HRD NODES */}
-          <div className="lg:col-span-4 flex flex-col gap-2.5 sm:gap-3.5 justify-center h-full">
+          <div className="lg:col-span-4 xl:col-span-3 2xl:col-span-3 flex flex-col gap-2.5 sm:gap-3.5 justify-center h-full">
             <AgentNodeCard
               profilFallback="gudang"
               meja={getMejaByProfil('gudang')}

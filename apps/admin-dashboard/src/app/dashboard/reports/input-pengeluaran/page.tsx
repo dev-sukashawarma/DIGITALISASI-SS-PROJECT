@@ -26,7 +26,10 @@ import {
   Award,
   Briefcase,
   Clock,
-  RefreshCw
+  RefreshCw,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -104,6 +107,9 @@ function getToday(d = new Date()) {
   return formatLocalDate(d)
 }
 
+type SortField = 'date' | 'amount' | 'outlet_name' | 'recipient_name' | 'category' | 'source'
+type SortDirection = 'asc' | 'desc'
+
 export default function InputPengeluaranPage() {
   const { role, outletId: userOutletId } = useRole()
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
@@ -166,9 +172,20 @@ export default function InputPengeluaranPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [editingTx, setEditingTx] = useState<any | null>(null)
 
-  // Table filters: category & search query
+  // Table filters & sorting
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [sortField, setSortField] = useState<SortField>('date')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDirection(field === 'date' || field === 'amount' ? 'desc' : 'asc')
+    }
+  }
 
   const isPusat = target === 'PUSAT'
   const isAllOutlets = target === 'ALL_OUTLETS'
@@ -565,9 +582,9 @@ export default function InputPengeluaranPage() {
     return { present, others }
   }, [allTransactions])
 
-  // Filtered transactions based on selected category & search query
+  // Filtered and sorted transactions based on selected category, search query, and sort settings
   const displayedTransactions = useMemo(() => {
-    return allTransactions.filter(tx => {
+    const filtered = allTransactions.filter(tx => {
       const matchCat = matchesCategory(tx.category, selectedCategory)
       if (!matchCat) return false
 
@@ -580,7 +597,43 @@ export default function InputPengeluaranPage() {
 
       return desc.includes(q) || outlet.includes(q) || recipient.includes(q) || catLabel.includes(q)
     })
-  }, [allTransactions, selectedCategory, searchQuery])
+
+    return [...filtered].sort((a, b) => {
+      let comparison = 0
+
+      switch (sortField) {
+        case 'date':
+          comparison = (a.date || '').localeCompare(b.date || '')
+          break
+        case 'amount':
+          comparison = Number(a.amount || 0) - Number(b.amount || 0)
+          break
+        case 'outlet_name':
+          comparison = (a.outlet_name || '').localeCompare(b.outlet_name || '', 'id')
+          break
+        case 'recipient_name':
+          comparison = (a.recipient_name || '').localeCompare(b.recipient_name || '', 'id')
+          break
+        case 'category':
+          comparison = labelOf(a.category).localeCompare(labelOf(b.category), 'id')
+          break
+        case 'source':
+          comparison = (a.source || '').localeCompare(b.source || '', 'id')
+          break
+        default:
+          comparison = 0
+      }
+
+      if (comparison === 0) {
+        // Fallback secondary sort: tanggal terbaru lalu nominal terbesar
+        const dateCmp = (b.date || '').localeCompare(a.date || '')
+        if (dateCmp !== 0) return dateCmp
+        return Number(b.amount || 0) - Number(a.amount || 0)
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
+  }, [allTransactions, selectedCategory, searchQuery, sortField, sortDirection])
 
   // Total amount of currently displayed transactions in table
   const displayedTotalOpex = useMemo(() => {
@@ -1543,6 +1596,36 @@ export default function InputPengeluaranPage() {
               </select>
             </div>
 
+            {/* Urutkan / Sort Dropdown */}
+            <div className="relative flex-1 sm:flex-none min-w-[160px]">
+              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
+                <ArrowUpDown size={13} className="text-suka-orange" />
+              </div>
+              <select
+                value={`${sortField}-${sortDirection}`}
+                onChange={(e) => {
+                  const [field, dir] = e.target.value.split('-') as [SortField, SortDirection]
+                  setSortField(field)
+                  setSortDirection(dir)
+                }}
+                className="block w-full pl-8 pr-7 py-1.5 border border-suka-gray-200 rounded-xl leading-5 bg-white text-suka-brown font-bold focus:outline-none focus:ring-1 focus:ring-suka-orange focus:border-suka-orange transition-colors text-xs cursor-pointer shadow-2xs"
+                title="Urutkan daftar pengeluaran"
+              >
+                <option value="date-desc">Tanggal Terbaru</option>
+                <option value="date-asc">Tanggal Terlama</option>
+                <option value="amount-desc">Nominal Terbesar</option>
+                <option value="amount-asc">Nominal Terkecil</option>
+                <option value="outlet_name-asc">Outlet (A - Z)</option>
+                <option value="outlet_name-desc">Outlet (Z - A)</option>
+                <option value="recipient_name-asc">Pemohon (A - Z)</option>
+                <option value="recipient_name-desc">Pemohon (Z - A)</option>
+                <option value="category-asc">Kategori (A - Z)</option>
+                <option value="category-desc">Kategori (Z - A)</option>
+                <option value="source-asc">Sumber Kasir POS Dulu</option>
+                <option value="source-desc">Sumber Bulanan Dulu</option>
+              </select>
+            </div>
+
             {/* Pencarian Keterangan / Pemohon */}
             <div className="relative flex-1 sm:flex-none min-w-[150px] sm:w-48">
               <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
@@ -1567,16 +1650,18 @@ export default function InputPengeluaranPage() {
               )}
             </div>
 
-            {/* Tombol Reset Filter */}
-            {(selectedCategory !== 'all' || searchQuery) && (
+            {/* Tombol Reset Filter & Urutan */}
+            {(selectedCategory !== 'all' || searchQuery || sortField !== 'date' || sortDirection !== 'desc') && (
               <button
                 type="button"
                 onClick={() => {
                   setSelectedCategory('all')
                   setSearchQuery('')
+                  setSortField('date')
+                  setSortDirection('desc')
                 }}
                 className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-xl border border-rose-200 transition-all cursor-pointer shrink-0"
-                title="Reset semua filter"
+                title="Reset semua filter dan urutan"
               >
                 <X size={13} />
                 <span>Reset</span>
@@ -1625,11 +1710,13 @@ export default function InputPengeluaranPage() {
               onClick={() => {
                 setSelectedCategory('all')
                 setSearchQuery('')
+                setSortField('date')
+                setSortDirection('desc')
               }}
               className="mt-3.5 px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs rounded-xl border border-amber-200 transition-colors cursor-pointer inline-flex items-center gap-1.5"
             >
               <X size={13} />
-              Reset Filter
+              Reset Filter & Urutan
             </button>
           </div>
         ) : (
@@ -1637,14 +1724,116 @@ export default function InputPengeluaranPage() {
             <table className="w-full text-left text-xs border-collapse min-w-[960px]">
               <thead className="bg-gray-50 border-b border-suka-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="px-4 py-3">Tanggal</th>
-                  <th className="px-4 py-3">Outlet</th>
-                  <th className="px-3 py-3 text-center">Sumber</th>
-                  <th className="px-4 py-3">Nama Pemohon</th>
-                  <th className="px-4 py-3">Kategori</th>
+                  <th
+                    onClick={() => handleSort('date')}
+                    className="px-4 py-3 cursor-pointer select-none hover:bg-gray-100 hover:text-suka-brown transition-colors group"
+                    title="Klik untuk mengurutkan berdasarkan tanggal"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Tanggal</span>
+                      {sortField === 'date' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp size={13} className="text-suka-orange shrink-0" />
+                        ) : (
+                          <ArrowDown size={13} className="text-suka-orange shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown size={12} className="text-gray-300 group-hover:text-gray-400 shrink-0 transition-colors" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('outlet_name')}
+                    className="px-4 py-3 cursor-pointer select-none hover:bg-gray-100 hover:text-suka-brown transition-colors group"
+                    title="Klik untuk mengurutkan berdasarkan outlet"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Outlet</span>
+                      {sortField === 'outlet_name' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp size={13} className="text-suka-orange shrink-0" />
+                        ) : (
+                          <ArrowDown size={13} className="text-suka-orange shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown size={12} className="text-gray-300 group-hover:text-gray-400 shrink-0 transition-colors" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('source')}
+                    className="px-3 py-3 text-center cursor-pointer select-none hover:bg-gray-100 hover:text-suka-brown transition-colors group"
+                    title="Klik untuk mengurutkan berdasarkan sumber dana"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>Sumber</span>
+                      {sortField === 'source' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp size={13} className="text-suka-orange shrink-0" />
+                        ) : (
+                          <ArrowDown size={13} className="text-suka-orange shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown size={12} className="text-gray-300 group-hover:text-gray-400 shrink-0 transition-colors" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('recipient_name')}
+                    className="px-4 py-3 cursor-pointer select-none hover:bg-gray-100 hover:text-suka-brown transition-colors group"
+                    title="Klik untuk mengurutkan berdasarkan nama pemohon"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Nama Pemohon</span>
+                      {sortField === 'recipient_name' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp size={13} className="text-suka-orange shrink-0" />
+                        ) : (
+                          <ArrowDown size={13} className="text-suka-orange shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown size={12} className="text-gray-300 group-hover:text-gray-400 shrink-0 transition-colors" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('category')}
+                    className="px-4 py-3 cursor-pointer select-none hover:bg-gray-100 hover:text-suka-brown transition-colors group"
+                    title="Klik untuk mengurutkan berdasarkan kategori"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Kategori</span>
+                      {sortField === 'category' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp size={13} className="text-suka-orange shrink-0" />
+                        ) : (
+                          <ArrowDown size={13} className="text-suka-orange shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown size={12} className="text-gray-300 group-hover:text-gray-400 shrink-0 transition-colors" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-4 py-3">Keterangan</th>
                   <th className="px-3 py-3 text-center">Bukti Nota</th>
-                  <th className="px-5 py-3 text-right">Nominal Pengeluaran (Rp)</th>
+                  <th
+                    onClick={() => handleSort('amount')}
+                    className="px-5 py-3 text-right cursor-pointer select-none hover:bg-gray-100 hover:text-suka-brown transition-colors group"
+                    title="Klik untuk mengurutkan berdasarkan nominal pengeluaran"
+                  >
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span>Nominal Pengeluaran (Rp)</span>
+                      {sortField === 'amount' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp size={13} className="text-suka-orange shrink-0" />
+                        ) : (
+                          <ArrowDown size={13} className="text-suka-orange shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown size={12} className="text-gray-300 group-hover:text-gray-400 shrink-0 transition-colors" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-3 py-3 text-center">Aksi</th>
                 </tr>
               </thead>

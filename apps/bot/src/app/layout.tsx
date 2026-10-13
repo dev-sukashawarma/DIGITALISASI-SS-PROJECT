@@ -4,7 +4,12 @@ export const metadata = {
   title: 'SukaShawarma Command Centre',
   description: 'SukaShawarma Command Centre — J.A.R.V.I.S. Multi-Agent Tactical Operations',
 }
-export const viewport = { themeColor: '#030712', width: 'device-width', initialScale: 1 }
+export const viewport = {
+  themeColor: '#030712',
+  width: 'device-width',
+  initialScale: 1,
+  interactiveWidget: 'resizes-content',
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

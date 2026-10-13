@@ -105,37 +105,47 @@ export function apakahSedangMendengar(): boolean {
 
 // Fitur Text-to-Speech untuk suara Jarvis
 export function bicaraJarvis(teks: string, onSelesai?: () => void) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
-
-  // Hentikan suara sebelumnya bila masih bicara
-  window.speechSynthesis.cancel()
-
-  // Bersihkan karakter markdown sebelum dibacakan
-  const teksBersih = teks
-    .replace(/[#*_`~[\]()]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  if (!teksBersih) return
-
-  const utterance = new SpeechSynthesisUtterance(teksBersih)
-  utterance.lang = 'id-ID'
-  utterance.rate = 1.05 // Sedikit lebih tegas dan taktis
-  utterance.pitch = 0.95 // Sedikit lebih berat/berwibawa ala AI
-
-  // Cari suara Indonesia jika tersedia di OS
-  const voices = window.speechSynthesis.getVoices()
-  const suaraId = voices.find((v) => v.lang.startsWith('id') || v.name.toLowerCase().includes('indonesia'))
-  if (suaraId) {
-    utterance.voice = suaraId
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    onSelesai?.()
+    return
   }
 
-  if (onSelesai) {
-    utterance.onend = () => onSelesai()
-    utterance.onerror = () => onSelesai()
-  }
+  try {
+    // Hentikan suara sebelumnya bila masih bicara
+    window.speechSynthesis.cancel()
 
-  window.speechSynthesis.speak(utterance)
+    // Bersihkan karakter markdown sebelum dibacakan
+    const teksBersih = teks
+      .replace(/[#*_`~[\]()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    if (!teksBersih) {
+      onSelesai?.()
+      return
+    }
+
+    const utterance = new SpeechSynthesisUtterance(teksBersih)
+    utterance.lang = 'id-ID'
+    utterance.rate = 1.05 // Sedikit lebih tegas dan taktis
+    utterance.pitch = 0.95 // Sedikit lebih berat/berwibawa ala AI
+
+    // Cari suara Indonesia jika tersedia di OS
+    const voices = window.speechSynthesis.getVoices()
+    const suaraId = voices.find((v) => v.lang.startsWith('id') || v.name.toLowerCase().includes('indonesia'))
+    if (suaraId) {
+      utterance.voice = suaraId
+    }
+
+    if (onSelesai) {
+      utterance.onend = () => onSelesai()
+      utterance.onerror = () => onSelesai()
+    }
+
+    window.speechSynthesis.speak(utterance)
+  } catch {
+    onSelesai?.()
+  }
 }
 
 export function hentiBicaraJarvis() {

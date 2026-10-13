@@ -47,23 +47,59 @@ const CEPAT: Record<Profil, string[]> = {
 const GALAT_UMUM = 'Koneksi ke Hermes Core terputus. Pastikan gateway aktif.'
 
 function FormatIsiHologram({ isi }: { isi: string }) {
+  const barisList = isi.split('\n')
   return (
     <div className="space-y-1.5 leading-relaxed font-mono-hud text-xs sm:text-sm">
-      {pecahTeks(isi).map((baris, i) => (
-        <p key={i} className="min-h-[1.2em]">
-          {baris.map((s, j) =>
-            s.tebal ? (
-              <strong key={j} className="text-cyan-300 font-semibold">
-                {s.teks}
-              </strong>
-            ) : (
-              <span key={j} className="text-zinc-200">
-                {s.teks}
+      {barisList.map((rawBaris, i) => {
+        const isQuote = rawBaris.trimStart().startsWith('>')
+        const cleanBaris = isQuote ? rawBaris.replace(/^\s*>\s*/, '') : rawBaris
+        const isAlertNote = cleanBaris.startsWith('[!NOTE]') || cleanBaris.startsWith('[!IMPORTANT]')
+
+        if (isAlertNote) {
+          return (
+            <div key={i} className="my-1.5 px-3 py-1.5 rounded-r bg-cyan-950/70 border-l-2 border-cyan-400 text-cyan-200 text-[11px] sm:text-xs font-mono-hud flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="font-bold tracking-wider uppercase text-cyan-300">
+                {cleanBaris.replace(/^\[!(NOTE|IMPORTANT)\]\s*/, '') || 'SYSTEM DIRECTIVE'}
               </span>
-            )
-          )}
-        </p>
-      ))}
+            </div>
+          )
+        }
+
+        const segments = pecahTeks(cleanBaris)[0] || []
+
+        if (isQuote) {
+          return (
+            <div key={i} className="pl-3 py-0.5 border-l-2 border-cyan-500/40 text-cyan-100/90 text-[11px] sm:text-xs italic bg-cyan-950/20 my-0.5">
+              {segments.map((s, j) =>
+                s.tebal ? (
+                  <strong key={j} className="text-cyan-300 font-semibold not-italic">
+                    {s.teks}
+                  </strong>
+                ) : (
+                  <span key={j}>{s.teks}</span>
+                )
+              )}
+            </div>
+          )
+        }
+
+        return (
+          <p key={i} className="min-h-[1.2em]">
+            {segments.map((s, j) =>
+              s.tebal ? (
+                <strong key={j} className="text-cyan-300 font-semibold">
+                  {s.teks}
+                </strong>
+              ) : (
+                <span key={j} className="text-zinc-200">
+                  {s.teks}
+                </span>
+              )
+            )}
+          </p>
+        )
+      })}
     </div>
   )
 }
@@ -89,15 +125,20 @@ export default function JarvisChatDrawer({
   const [galat, setGalat] = useState<string | null>(null)
   const [sedangMendengar, setSedangMendengar] = useState(false)
   const [voiceDidukung, setVoiceDidukung] = useState(false)
+  const [ttsDidukung, setTtsDidukung] = useState(false)
   const [sedangBicara, setSedangBicara] = useState<string | number | null>(null)
   const bawah = useRef<HTMLDivElement>(null)
   const inisialisasiRef = useRef(false)
+  const abortRef = useRef<AbortController | null>(null)
 
   const meta = LABEL_AGENT[profil] || LABEL_AGENT.ceo
 
   useEffect(() => {
-    setVoiceDidukung(apakahVoiceDidukung().stt)
+    const support = apakahVoiceDidukung()
+    setVoiceDidukung(support.stt)
+    setTtsDidukung(support.tts)
     return () => {
+      abortRef.current?.abort()
       hentiMendengar()
       hentiBicaraJarvis()
     }
@@ -191,11 +232,16 @@ export default function JarvisChatDrawer({
       { id: `b${Date.now()}`, peran: 'bot', isi: '' },
     ])
 
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       const r = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pesan: isi, profil, percakapanId: aktif ?? undefined }),
+        signal: controller.signal,
       })
       if (!r.ok || !r.body) {
         const b = await r.json().catch(() => ({}))
@@ -220,8 +266,20 @@ export default function JarvisChatDrawer({
       mainkanSuaraHud('blip')
       void muatDaftar()
     } catch (e) {
+      if ((e as Error).name === 'AbortError') return
       mainkanSuaraHud('alert')
-      setPesan((p) => p.slice(0, -1))
+      setPesan((p) => {
+        const s = [...p]
+        const last = s[s.length - 1]
+        if (last && last.peran === 'bot' && last.isi.trim()) {
+          s[s.length - 1] = {
+            ...last,
+            isi: `${last.isi}\n\n[Transmisi terputus: ${(e as Error).message || GALAT_UMUM}]`,
+          }
+          return s
+        }
+        return s.slice(0, -1)
+      })
       setGalat((e as Error).message || GALAT_UMUM)
     } finally {
       setSibuk(false)
@@ -383,7 +441,7 @@ export default function JarvisChatDrawer({
                       <Cpu className="w-3 h-3 text-cyan-400" />
                       <span className="text-cyan-400 font-semibold">{meta.nama}</span>
                     </div>
-                    {p.isi && (
+                    {p.isi && ttsDidukung && (
                       <button
                         onClick={() => toggleBicaraPesan(p.id, p.isi)}
                         className="flex items-center gap-1 text-[9px] text-cyan-300 hover:text-cyan-100 p-0.5 rounded cursor-pointer"
@@ -466,7 +524,7 @@ export default function JarvisChatDrawer({
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={sedangMendengar ? 'Mendengarkan suara Anda...' : `Instruksikan ${meta.nama}...`}
                 disabled={sibuk}
-                className="w-full bg-zinc-950/80 border border-cyan-500/30 focus:border-cyan-400 rounded-lg pl-8 pr-4 py-2.5 font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
+                className="w-full bg-zinc-950/80 border border-cyan-500/30 focus:border-cyan-400 rounded-lg pl-8 pr-4 py-2.5 font-mono-hud text-base sm:text-sm text-cyan-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
               />
             </div>
 

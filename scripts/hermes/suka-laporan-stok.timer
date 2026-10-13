@@ -1,0 +1,10 @@
+[Unit]
+Description=Jalankan Laporan Kondisi Stok Suka Shawarma tiap 04:02 WIB (21:02 UTC)
+
+[Timer]
+# 04:02 WIB = 21:02:00 UTC
+OnCalendar=*-*-* 21:02:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

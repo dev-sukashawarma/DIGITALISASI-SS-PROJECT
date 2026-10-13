@@ -1,0 +1,10 @@
+[Unit]
+Description=Laporan Absensi Staff Kantor HQ Suka Shawarma ke Telegram (08:30 WIB)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python3 %h/bin/kirim-laporan-telegram.py --jenis absensi-kantor
+StandardOutput=journal
+StandardError=journal

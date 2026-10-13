@@ -1,0 +1,10 @@
+[Unit]
+Description=Laporan Penjualan Sore (s.d. 16:00 WIB) Suka Shawarma ke Telegram
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python3 %h/bin/kirim-laporan-telegram.py --jenis sales-sore
+StandardOutput=journal
+StandardError=journal

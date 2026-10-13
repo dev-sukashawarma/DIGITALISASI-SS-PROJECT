@@ -1,0 +1,10 @@
+[Unit]
+Description=Jalankan Laporan Watchdog Sistem Suka Shawarma Tiap 2 Jam Sekali
+
+[Timer]
+# Tiap 2 jam sekali pada menit ke-00 (00:00, 02:00, 04:00, ..., 22:00 UTC)
+OnCalendar=*-*-* 00,02,04,06,08,10,12,14,16,18,20,22:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

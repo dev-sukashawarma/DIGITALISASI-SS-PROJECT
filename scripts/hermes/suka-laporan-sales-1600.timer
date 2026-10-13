@@ -1,0 +1,10 @@
+[Unit]
+Description=Jalankan Laporan Penjualan Sore Suka Shawarma tiap 16:00 WIB (09:00 UTC)
+
+[Timer]
+# 16:00 WIB = 09:00:00 UTC
+OnCalendar=*-*-* 09:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

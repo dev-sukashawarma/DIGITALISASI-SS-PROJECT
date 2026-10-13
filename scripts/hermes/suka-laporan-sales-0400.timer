@@ -1,0 +1,10 @@
+[Unit]
+Description=Jalankan Laporan Penjualan Kemarin Suka Shawarma tiap 04:00 WIB (21:00 UTC)
+
+[Timer]
+# 04:00 WIB = 21:00:00 UTC
+OnCalendar=*-*-* 21:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

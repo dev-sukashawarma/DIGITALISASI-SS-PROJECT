@@ -1,0 +1,10 @@
+[Unit]
+Description=Laporan Kondisi Stok & Surat Jalan Suka Shawarma ke Telegram (04:00 WIB)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python3 %h/bin/kirim-laporan-telegram.py --jenis stok
+StandardOutput=journal
+StandardError=journal

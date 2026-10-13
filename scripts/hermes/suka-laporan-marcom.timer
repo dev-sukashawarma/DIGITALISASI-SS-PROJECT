@@ -1,0 +1,10 @@
+[Unit]
+Description=Jalankan Laporan Status Marcom Suka Shawarma tiap 04:01 WIB (21:01 UTC)
+
+[Timer]
+# 04:01 WIB = 21:01:00 UTC
+OnCalendar=*-*-* 21:01:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

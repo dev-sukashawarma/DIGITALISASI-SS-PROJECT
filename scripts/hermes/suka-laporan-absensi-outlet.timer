@@ -1,0 +1,10 @@
+[Unit]
+Description=Jalankan Laporan Absensi Crew Outlet Suka Shawarma tiap 14:00 WIB (07:00 UTC)
+
+[Timer]
+# 14:00 WIB = 07:00:00 UTC
+OnCalendar=*-*-* 07:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

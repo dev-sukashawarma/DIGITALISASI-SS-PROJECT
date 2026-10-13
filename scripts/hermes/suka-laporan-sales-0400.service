@@ -1,0 +1,10 @@
+[Unit]
+Description=Laporan Penjualan Kemarin Suka Shawarma ke Telegram (04:00 WIB)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python3 %h/bin/kirim-laporan-telegram.py --jenis sales-kemarin
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,10 @@
+[Unit]
+Description=Laporan Watchdog Sistem & VPS Hostinger Suka Shawarma ke Telegram (Tiap 2 Jam)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python3 %h/bin/kirim-laporan-telegram.py --jenis watchdog
+StandardOutput=journal
+StandardError=journal

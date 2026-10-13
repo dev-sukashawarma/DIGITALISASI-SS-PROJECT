@@ -7,6 +7,7 @@ import {
   hitungPesanSejamTerakhir, buatPercakapan, ambilPercakapan, pangkasPercakapan, simpanPesan, sentuhPercakapan,
 } from '@/lib/server/percakapan'
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
+import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 150
@@ -57,11 +58,12 @@ export async function POST(req: Request) {
       try {
         if (!baseUrl || !kunci) {
           if (process.env.NODE_ENV === 'development') {
-            const devChunks = buatJawabanDev(v.pesan, pc.profil)
+            const telemetri = await ambilTelemetriNyata()
+            const devChunks = buatJawabanDev(v.pesan, pc.profil, telemetri)
             for (const chunk of devChunks) {
               jawaban += chunk
               c.enqueue(enc.encode(chunk))
-              await new Promise((r) => setTimeout(r, 40))
+              await new Promise((r) => setTimeout(r, 35))
             }
             await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
             return

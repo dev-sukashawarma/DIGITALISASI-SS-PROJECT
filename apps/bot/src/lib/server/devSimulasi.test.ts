@@ -1,50 +1,77 @@
 import { describe, it, expect } from 'vitest'
 import { buatJawabanDev } from './devSimulasi'
+import type { TelemetriHariIni } from './telemetriNyata'
+
+const mockTelemetri: TelemetriHariIni = {
+  tanggalWIB: '2026-10-13',
+  omzetTotal: 2787000,
+  totalOrder: 34,
+  aov: 81970,
+  outlets: [
+    { nama: 'SUKA SHAWARMA CIMANGGU', omzet: 1292000, orderCount: 8 },
+    { nama: 'SUKA SHAWARMA BNR', omzet: 710000, orderCount: 8 },
+  ],
+  topMenu: [
+    { nama: 'Original Ayam Jumbo', qty: 23, omzet: 1012000 },
+    { nama: 'Original Sapi Besar', qty: 7, omzet: 270000 },
+  ],
+  kehadiranTotal: 70,
+  kehadiranTepatWaktu: 65,
+  kehadiranTelat: 5,
+  persenOnTime: 93,
+  totalOutletAktif: 28,
+  bahanBaku: [
+    { nama: 'GAS 12 KG', satuan: 'tabung' },
+    { nama: 'KULIT 25', satuan: 'Pack' },
+  ],
+}
 
 describe('buatJawabanDev', () => {
-  it('menghasilkan telemetri penjualan ketika user bertanya omzet', () => {
-    const chunks = buatJawabanDev('bagaimana omzet hari ini?', 'ceo')
+  it('menghasilkan telemetri penjualan nyata ketika user bertanya omzet', () => {
+    const chunks = buatJawabanDev('bagaimana omzet hari ini?', 'ceo', mockTelemetri)
     const full = chunks.join('')
     expect(full).toContain('Ringkasan Penjualan Hari Ini')
-    expect(full).toContain('SS Paledang')
-    expect(full).toContain('SS Lodaya')
+    expect(full).toContain('SUKA SHAWARMA CIMANGGU')
+    expect(full).toContain('SUKA SHAWARMA BNR')
+    expect(full).toContain('Original Ayam Jumbo')
+    expect(full).toContain('LIVE POS CONNECTED')
   })
 
-  it('menghasilkan telemetri gudang ketika user bertanya stok', () => {
-    const chunks = buatJawabanDev('cek stok bahan baku', 'gudang')
+  it('menghasilkan katalog bahan baku ketika user bertanya stok', () => {
+    const chunks = buatJawabanDev('cek stok bahan baku', 'gudang', mockTelemetri)
     const full = chunks.join('')
     expect(full).toContain('Gudang Central')
-    expect(full).toContain('Daging Sapi Marinasi')
-    expect(full).toContain('Roti Pita Premium')
+    expect(full).toContain('GAS 12 KG')
+    expect(full).toContain('KULIT 25')
   })
 
-  it('menghasilkan telemetri hrd ketika user bertanya absensi', () => {
-    const chunks = buatJawabanDev('siapa saja kru yang bertugas hari ini?', 'hrd')
+  it('menghasilkan telemetri presensi nyata ketika user bertanya absensi', () => {
+    const chunks = buatJawabanDev('siapa saja kru yang bertugas hari ini?', 'hrd', mockTelemetri)
     const full = chunks.join('')
     expect(full).toContain('Workforce Management')
-    expect(full).toContain('Total Kru Bertugas')
-    expect(full).toContain('Shift Pagi')
+    expect(full).toContain('70 catatan clock-in/out')
+    expect(full).toContain('93%')
   })
 
-  it('menghasilkan telemetri finance ketika user bertanya opex', () => {
-    const chunks = buatJawabanDev('laporan opex dan petty cash', 'finance')
+  it('menghasilkan ringkasan finance nyata ketika user bertanya opex / finance', () => {
+    const chunks = buatJawabanDev('laporan keuangan dan kas', 'finance', mockTelemetri)
     const full = chunks.join('')
-    expect(full).toContain('Realisasi OPEX')
-    expect(full).toContain('Petty Cash')
+    expect(full).toContain('Ringkasan Keuangan')
+    expect(full).toContain('LIVE FINANCE RECONCILIATION')
   })
 
   it('menghasilkan status diagnostik sistem menyeluruh', () => {
-    const chunks = buatJawabanDev('status report menyeluruh', 'ceo')
+    const chunks = buatJawabanDev('status report menyeluruh', 'ceo', mockTelemetri)
     const full = chunks.join('')
     expect(full).toContain('SEMUA SISTEM NOMINAL')
     expect(full).toContain('Arc Reactor Core')
-    expect(full).toContain('Node CEO')
+    expect(full).toContain('SUKA SHAWARMA CIMANGGU')
   })
 
   it('menghasilkan sapaan default jika pertanyaan tidak spesifik', () => {
-    const chunks = buatJawabanDev('halo selamat siang', 'ceo')
+    const chunks = buatJawabanDev('halo selamat siang', 'ceo', mockTelemetri)
     const full = chunks.join('')
     expect(full).toContain('Salam, Sir')
-    expect(full).toContain('Local Development Mode')
+    expect(full).toContain('LIVE DATA STREAM ACTIVE')
   })
 })

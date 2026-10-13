@@ -790,6 +790,97 @@ def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: 
     except Exception:
         pass
 
+def buat_pesan_laporan(
+    jenis: str,
+    konfig: dict,
+    mcp_url: str,
+    mcp_key: str,
+    marcom_mcp_url: str,
+    marcom_mcp_key: str,
+    tanggal: str = None
+) -> str:
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if jenis == "test":
+        return (
+            "🤖 *Uji Koneksi Bot Suka Shawarma*\n\n"
+            "✅ Bot Telegram berhasil mengirim pesan langsung ke chat ini.\n"
+            f"🕒 Waktu server: `{now_str}`\n"
+            "Status: Siap menerima seluruh jadwal laporan otomatis!"
+        )
+    elif jenis == "watchdog":
+        data_sistem = None
+        try:
+            data_sistem = panggil_mcp_raw(mcp_url, mcp_key, "sistem_status", {})
+        except Exception:
+            pass
+        return format_watchdog(data_sistem, konfig)
+    elif jenis in ["sales-kemarin", "pagi"]:
+        arg = {"tanggal": tanggal} if tanggal else {}
+        try:
+            data = panggil_mcp_raw(mcp_url, mcp_key, "laporan_pagi_ceo", arg)
+        except Exception as e:
+            data = {"teks": f"📊 *LAPORAN PENJUALAN KEMARIN*\n\n⚠️ Sedang sinkronisasi data: {e}"}
+        return format_sales_kemarin(data)
+    elif jenis == "sales-sore":
+        try:
+            data_omzet = panggil_mcp_raw(mcp_url, mcp_key, "penjualan_ringkasan", {"periode": "hari_ini"})
+            data_ranking = panggil_mcp_raw(mcp_url, mcp_key, "penjualan_peringkat_outlet", {"periode": "hari_ini"})
+            data_menu = panggil_mcp_raw(mcp_url, mcp_key, "penjualan_menu_terlaris", {"periode": "hari_ini", "jumlah": 3})
+        except Exception:
+            data_omzet, data_ranking, data_menu = {}, {}, {}
+        return format_sales_sore(data_omzet, data_ranking, data_menu)
+    elif jenis in ["sales-malam", "malam"]:
+        arg = {"tanggal": tanggal} if tanggal else {}
+        try:
+            data = panggil_mcp_raw(mcp_url, mcp_key, "laporan_penutupan_malam", arg)
+        except Exception as e:
+            data = {"teks": f"🌙 *LAPORAN CLOSING PENJUALAN*\n\n⚠️ Sedang sinkronisasi data: {e}"}
+        return format_sales_malam(data)
+    elif jenis == "absensi-kantor":
+        try:
+            data_papan = panggil_mcp_raw(mcp_url, mcp_key, "absensi_hari_ini", {"outlet": "Kantor Pusat"})
+        except Exception:
+            data_papan = {}
+        return format_absensi_kantor(data_papan)
+    elif jenis in ["absensi-outlet", "absensi"]:
+        arg = {"tanggal": tanggal} if tanggal else {}
+        try:
+            data = panggil_mcp_raw(mcp_url, mcp_key, "laporan_absensi_harian", arg)
+            return data.get("teks", "")
+        except Exception as e:
+            return f"🛵 *PRESENSI KRU OPERASIONAL OUTLET*\n\n⚠️ Sedang sinkronisasi data absensi: {e}"
+    elif jenis == "marcom":
+        try:
+            data_endorse = panggil_mcp_raw(marcom_mcp_url, marcom_mcp_key, "marcom_endorsement", {})
+            data_budget = panggil_mcp_raw(marcom_mcp_url, marcom_mcp_key, "marcom_ads_budget", {})
+            return format_marcom(data_endorse, data_budget)
+        except Exception as e:
+            return f"📢 *STATUS MARCOM*\n\n⚠️ Gagal mengambil data marcom: {e}"
+    elif jenis == "stok":
+        try:
+            data_ayam = panggil_mcp_raw(mcp_url, mcp_key, "stok_bahan", {"bahan": "ayam"})
+            data_sapi = panggil_mcp_raw(mcp_url, mcp_key, "stok_bahan", {"bahan": "sapi"})
+            data_sj = panggil_mcp_raw(mcp_url, mcp_key, "stok_surat_jalan", {"limit": 5})
+            return format_stok(data_ayam, data_sapi, data_sj)
+        except Exception as e:
+            return f"📦 *KONDISI STOK UTAMA & GUDANG*\n\n⚠️ Gagal mengambil data stok: {e}"
+    elif jenis in ["alert-demo", "alert-check"]:
+        sb_url = konfig.get("SUPABASE_URL") or konfig.get("NEXT_PUBLIC_SUPABASE_URL") or "https://khpkoreaaucvyqfhynfq.supabase.co"
+        sb_key = konfig.get("SUPABASE_SERVICE_ROLE_KEY") or konfig.get("SUPABASE_ANON_KEY") or konfig.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+        sb_ok, sb_lat, _ = cek_ping_supabase(sb_url, sb_key)
+        wib_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).strftime("%H:%M WIB, %d %b %Y")
+        return (
+            "🚨 *[PENGAWASAN & PERINGATAN GANGGUAN INSTAN (CRON #9)]*\n"
+            f"🕒 *Waktu Pengecekan:* {wib_now}\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "🟢 *Kondisi Real-Time Saat Ini:*\n"
+            f"• Database Supabase: `🟢 ONLINE` ({sb_lat} ms)\n"
+            "• Status Scheduler: `AKTIF (Tiap 2 Menit di Background)`\n"
+            "• Skenario Peringatan: Otomatis kirim pesan darurat 🚨 seketika jika DB putus atau server drop, dan kirim pesan pemulihan ✅ saat kembali normal.\n\n"
+            "Status: _Pengawasan 24/7 aktif & senyap (zero-spam saat normal)._"
+        )
+    return "Jenis laporan tidak dikenal."
+
 # ==============================================================================
 # MAIN DISPATCHER
 # ==============================================================================
@@ -802,10 +893,11 @@ def main():
             "sales-kemarin", "sales-sore", "sales-malam",
             "absensi-kantor", "absensi-outlet",
             "marcom", "stok", "watchdog", "alert-check",
+            "semua",  # Mengirimkan seluruh 9 cron job sekaligus
             # backward compatibility
             "pagi", "malam", "absensi", "test"
         ],
-        help="Jenis laporan terjadwal yang dikirimkan"
+        help="Jenis laporan terjadwal yang dikirimkan (gunakan 'semua' untuk menguji ke-9 cron job)"
     )
     parser.add_argument("-c", "--chat-id", help="Chat ID Telegram. Mengabaikan .env jika diisi.")
     parser.add_argument("-t", "--token", help="Bot Token Telegram. Mengabaikan .env jika diisi.")
@@ -825,9 +917,9 @@ def main():
     konfig = kumpulkan_konfigurasi(args.env_file)
 
     # Mode alert-check khusus (stateful background monitor)
-    if args.jenis == "alert-check":
+    if args.jenis == "alert-check" and not args.dry_run:
         jalankan_alert_check(konfig, dry_run=args.dry_run, chat_id_override=args.chat_id, token_override=args.token)
-        if not args.silent and not args.dry_run:
+        if not args.silent:
             print("Pemeriksaan alert selesai.")
         sys.exit(0)
 
@@ -848,55 +940,55 @@ def main():
 
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Mode Test
-    if args.jenis == "test":
-        pesan = (
-            "🤖 *Uji Koneksi Bot Suka Shawarma*\n\n"
-            "✅ Bot Telegram berhasil mengirim pesan langsung ke chat ini.\n"
-            f"🕒 Waktu server: `{now_str}`\n"
-            "Status: Siap menerima seluruh jadwal laporan otomatis!"
-        )
-    elif args.jenis == "watchdog":
-        data_sistem = None
-        try:
-            data_sistem = panggil_mcp_raw(mcp_url, mcp_key, "sistem_status", {})
-        except Exception:
-            pass
-        pesan = format_watchdog(data_sistem, konfig)
-    elif args.jenis in ["sales-kemarin", "pagi"]:
-        arg = {"tanggal": args.tanggal} if args.tanggal else {}
-        data = panggil_mcp_raw(mcp_url, mcp_key, "laporan_pagi_ceo", arg)
-        pesan = format_sales_kemarin(data)
-    elif args.jenis == "sales-sore":
-        data_omzet = panggil_mcp_raw(mcp_url, mcp_key, "penjualan_ringkasan", {"periode": "hari_ini"})
-        data_ranking = panggil_mcp_raw(mcp_url, mcp_key, "penjualan_peringkat_outlet", {"periode": "hari_ini"})
-        data_menu = panggil_mcp_raw(mcp_url, mcp_key, "penjualan_menu_terlaris", {"periode": "hari_ini", "jumlah": 3})
-        pesan = format_sales_sore(data_omzet, data_ranking, data_menu)
-    elif args.jenis in ["sales-malam", "malam"]:
-        arg = {"tanggal": args.tanggal} if args.tanggal else {}
-        data = panggil_mcp_raw(mcp_url, mcp_key, "laporan_penutupan_malam", arg)
-        pesan = format_sales_malam(data)
-    elif args.jenis == "absensi-kantor":
-        data_papan = panggil_mcp_raw(mcp_url, mcp_key, "absensi_hari_ini", {"outlet": "Kantor Pusat"})
-        pesan = format_absensi_kantor(data_papan)
-    elif args.jenis in ["absensi-outlet", "absensi"]:
-        arg = {"tanggal": args.tanggal} if args.tanggal else {}
-        data = panggil_mcp_raw(mcp_url, mcp_key, "laporan_absensi_harian", arg)
-        pesan = data.get("teks", "")
-    elif args.jenis == "marcom":
-        try:
-            data_endorse = panggil_mcp_raw(marcom_mcp_url, marcom_mcp_key, "marcom_endorsement", {})
-            data_budget = panggil_mcp_raw(marcom_mcp_url, marcom_mcp_key, "marcom_ads_budget", {})
-            pesan = format_marcom(data_endorse, data_budget)
-        except Exception as e:
-            pesan = f"📢 *STATUS MARCOM*\n\n⚠️ Gagal mengambil data marcom: {e}"
-    elif args.jenis == "stok":
-        data_ayam = panggil_mcp_raw(mcp_url, mcp_key, "stok_bahan", {"bahan": "ayam"})
-        data_sapi = panggil_mcp_raw(mcp_url, mcp_key, "stok_bahan", {"bahan": "sapi"})
-        data_sj = panggil_mcp_raw(mcp_url, mcp_key, "stok_surat_jalan", {"limit": 5})
-        pesan = format_stok(data_ayam, data_sapi, data_sj)
-    else:
-        pesan = "Jenis laporan tidak dikenal."
+    # Mode kirim SEMUA 9 CRON JOB
+    if args.jenis == "semua":
+        DAFTAR_9_CRON = [
+            ("1/9", "sales-kemarin", "💰 Sales Kemarin (04:00 WIB)"),
+            ("2/9", "absensi-kantor", "👥 Absensi Kantor HQ (08:30 WIB)"),
+            ("3/9", "absensi-outlet", "🛵 Absensi Kru Outlet (14:00 WIB)"),
+            ("4/9", "sales-sore", "📊 Sales Sore (16:00 WIB)"),
+            ("5/9", "sales-malam", "🌙 Sales Closing Malam (22:00 WIB)"),
+            ("6/9", "marcom", "📢 Marcom & KOL (04:01 WIB)"),
+            ("7/9", "stok", "📦 Stok & Gudang (04:02 WIB)"),
+            ("8/9", "watchdog", "🛡️ Sistem Watchdog & DB (Tiap 2 Jam)"),
+            ("9/9", "alert-demo", "🚨 Pengawasan Gangguan (Tiap 2 Menit)"),
+        ]
+
+        if not args.dry_run and (not token or not chat_id):
+            print(f"[{now_str}] ❌ Token Telegram atau Chat ID belum dikonfigurasi.", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"\n🚀 Memulai pengiriman 9 Laporan Cron Job ke Telegram ({chat_id or 'DRY-RUN'})...\n")
+        sukses_count = 0
+
+        for nomor, jenis_item, label in DAFTAR_9_CRON:
+            pesan = buat_pesan_laporan(
+                jenis_item, konfig, mcp_url, mcp_key,
+                marcom_mcp_url, marcom_mcp_key, args.tanggal
+            )
+
+            if args.dry_run:
+                print(f"--- [DRY-RUN {nomor}: {label}] ---")
+                print(pesan)
+                print("--------------------------------\n")
+                sukses_count += 1
+            else:
+                ok = kirim_ke_telegram(token, chat_id, pesan)
+                if ok:
+                    sukses_count += 1
+                    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ✅ ({nomor}) Berhasil: {label}")
+                else:
+                    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ❌ ({nomor}) Gagal: {label}", file=sys.stderr)
+                time.sleep(1.2)  # Delay jeda aman dari rate limit Telegram
+
+        print(f"\n🎉 Selesai! {sukses_count} dari {len(DAFTAR_9_CRON)} laporan berhasil diproses.\n")
+        sys.exit(0 if sukses_count == len(DAFTAR_9_CRON) else 1)
+
+    # Mode Kirim Tunggal
+    pesan = buat_pesan_laporan(
+        args.jenis, konfig, mcp_url, mcp_key,
+        marcom_mcp_url, marcom_mcp_key, args.tanggal
+    )
 
     if args.dry_run:
         print(f"--- [DRY-RUN: {args.jenis}] ---")

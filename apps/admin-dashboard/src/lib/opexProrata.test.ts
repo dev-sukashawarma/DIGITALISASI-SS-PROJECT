@@ -1011,3 +1011,42 @@ describe('opexProrata - calculateProratedExpenses', () => {
 
 
 
+
+describe('opexProrata - bulan berjalan: biaya pusat & baris yang tak diakrual', () => {
+  const now = new Date('2026-10-13T05:00:00Z')
+  const filter = { from: '2026-10-01', to: '2026-10-13', outletId: 'all', source: 'all' } as any
+  const KP = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+  const baris = (o: Partial<ExpenseRow>): ExpenseRow => ({
+    id: 'x', outlet_id: 'o1', outlet_name: 'EMPANG', category: 'internet' as any, scope: 'outlet',
+    amount: 310_000, description: '', expense_date: '2026-10-05', period_month: '2026-10-01', source: 'monthly', ...o,
+  })
+
+  it('rollover internet Kantor Pusat keluar sebagai biaya PUSAT, bukan beban outlet', () => {
+    const r = calculateProratedExpenses({
+      filter, now, rawExpenses: [],
+      outlets: [{ id: KP, name: 'Kantor Pusat' }],
+      lastMonthExpenses: [{ outlet_id: KP, category: 'internet', amount: 2_388_500 }],
+    })
+    const row = r.rows.find(x => x.outlet_id === KP)
+    expect(row?.scope).toBe('pusat')
+    expect(row?.amount).toBe(Math.round(2_388_500 * 13 / 31))
+    expect(r.rows.some(x => x.outlet_id === KP && x.scope === 'outlet')).toBe(false)
+  })
+
+  it('baris riil tanpa outlet dan milik outlet nonaktif tidak hilang', () => {
+    const r = calculateProratedExpenses({
+      filter, now,
+      outlets: [{ id: 'o1', name: 'EMPANG' }, { id: 'mati', name: 'JATIASIH', is_active: false }],
+      rawExpenses: [
+        baris({ id: 'tanpa-outlet', outlet_id: null, outlet_name: null, scope: 'pusat', category: 'sewa_outlet' as any, amount: 5_000_000 }),
+        baris({ id: 'nonaktif', outlet_id: 'mati', outlet_name: 'JATIASIH', amount: 260_850 }),
+        baris({ id: 'aktif' }),
+      ],
+    })
+    expect(r.rows.find(x => x.id === 'tanpa-outlet')?.amount).toBe(5_000_000)
+    expect(r.rows.find(x => x.id === 'nonaktif')?.amount).toBe(260_850)
+    // outlet aktif tetap diganti akrual harian
+    expect(r.rows.find(x => x.id === 'aktif')).toBeUndefined()
+    expect(r.rows.find(x => x.id === 'prorata-internet-o1')?.amount).toBe(Math.round(310_000 * 13 / 31))
+  })
+})

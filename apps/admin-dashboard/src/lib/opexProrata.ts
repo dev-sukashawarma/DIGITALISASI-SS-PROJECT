@@ -11,6 +11,9 @@ import type { PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, isExcludedOutlet } from '@/lib/outletFilters'
 import { getPeriodsInRange } from './opexDateRangeProrata'
 
+/** Outlet dummy "Kantor Pusat" — biaya atas id ini adalah biaya pusat, bukan beban outlet. */
+const KANTOR_PUSAT_OUTLET_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+
 export const PRORATED_CATEGORIES = [
   'gaji_crew_outlet',
   'sewa_outlet',
@@ -435,9 +438,14 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
 
     rawExpenses.forEach(r => {
       const rawCat = r.category?.toLowerCase() || ''
-      if (isProratedCat(rawCat)) {
+      // Baris riil hanya boleh "ditelan" untuk diganti akrual bila outlet-nya
+      // memang akan diproses di loop bawah. Baris tanpa outlet, milik outlet
+      // nonaktif, atau di luar target dulu ditelan lalu tak pernah dikeluarkan
+      // lagi — biayanya hilang diam-diam. Sekarang dibiarkan apa adanya.
+      const akanDiakrual = Boolean(r.outlet_id) && targetOutletIds.has(r.outlet_id as string) && !inactiveOutletIds.has(r.outlet_id as string)
+      if (isProratedCat(rawCat) && akanDiakrual) {
         const normCat = normalizeCategory(rawCat)
-        const oid = r.outlet_id || 'ALL'
+        const oid = r.outlet_id as string
         if (!currentMonthRealFixed.has(oid)) {
           currentMonthRealFixed.set(oid, new Map())
         }
@@ -490,7 +498,12 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
 
     for (const outletId of targetOutletIds) {
       if (inactiveOutletIds.has(outletId)) continue
-      const outletName = outletNameMap.get(outletId) ?? 'Outlet'
+      // Kantor Pusat ikut diakrual (internet/sewa kantor), tetapi hasilnya tetap
+      // biaya PUSAT. Dulu keluar sebagai beban "outlet" sehingga biaya pusat
+      // bulan berjalan pindah kantong ke OPEX outlet.
+      const isKantorPusat = outletId === KANTOR_PUSAT_OUTLET_ID
+      const rowScope: 'pusat' | 'outlet' = isKantorPusat ? 'pusat' : 'outlet'
+      const outletName = isKantorPusat ? 'Kantor Pusat' : (outletNameMap.get(outletId) ?? 'Outlet')
 
       // --- A. GAJI CREW OUTLET ---
       let gajiMonthly = 0
@@ -593,7 +606,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
           outlet_id: outletId,
           outlet_name: outletName,
           category: 'sewa_outlet',
-          scope: 'outlet',
+          scope: rowScope,
           amount: proratedSewa,
           description: `Prorata Sewa Outlet (${durationDesc})`,
           expense_date: filter.to,
@@ -629,7 +642,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
           outlet_id: outletId,
           outlet_name: outletName,
           category: 'internet',
-          scope: 'outlet',
+          scope: rowScope,
           amount: proratedInternet,
           description: `Prorata Internet (${durationDesc})`,
           expense_date: filter.to,

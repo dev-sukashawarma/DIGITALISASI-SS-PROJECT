@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Plus,
@@ -43,6 +43,8 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useOutlets } from '@/hooks/useOutlets'
+import { useMitraInvestments } from '@/hooks/useMitraInvestments'
+import { mitraOutletIds } from '@/lib/outletOwnership'
 import { useRole } from '@/components/layout/RoleContext'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
@@ -188,7 +190,17 @@ export default function InputPengeluaranPage() {
   }
 
   const isPusat = target === 'PUSAT'
-  const isAllOutlets = target === 'ALL_OUTLETS'
+  // Kelompok outlet: Internal + Mitra = "Semua Outlet (Khusus Cabang)".
+  // Aturan mitra sama dengan Laba Rugi (lib/outletOwnership.ts).
+  const isGroupTarget = target === 'INTERNAL_OUTLETS' || target === 'MITRA_OUTLETS'
+  const isAllOutlets = target === 'ALL_OUTLETS' || isGroupTarget
+  const { investments: mitraInvestments } = useMitraInvestments()
+  const mitraIds = useMemo(() => mitraOutletIds(outlets as any, mitraInvestments), [outlets, mitraInvestments])
+  const inTargetGroup = useCallback((outletId: string | null | undefined) => {
+    if (!isGroupTarget) return true
+    const isMitra = !!outletId && mitraIds.has(outletId)
+    return target === 'MITRA_OUTLETS' ? isMitra : !isMitra
+  }, [isGroupTarget, target, mitraIds])
 
   const [sourceFilter, setSourceFilter] = useState<'all' | 'monthly' | 'petty_cash'>('all')
 
@@ -204,9 +216,12 @@ export default function InputPengeluaranPage() {
   const hrPayrollFilter = useMemo(() => ({
     from: startDate,
     to: endDate,
-    outletId: target
-  }), [startDate, endDate, target])
-  const { data: hrPayroll } = useHRPayroll(hrPayrollFilter)
+    outletId: isGroupTarget ? 'ALL_OUTLETS' : target
+  }), [startDate, endDate, target, isGroupTarget])
+  const { data: hrPayrollData } = useHRPayroll(hrPayrollFilter)
+  // Ringkasan HR belum bisa dipecah Internal/Mitra; untuk dua pilihan itu kartu
+  // gaji & bonus memakai baris mesin Laba Rugi per outlet (lihat prorataBreakdown).
+  const hrPayroll = isGroupTarget ? undefined : hrPayrollData
 
   // Prorata & Realtime OPEX Engine (Single Source of Truth selevel Tab Laba Rugi)
   const prorataFilter = useMemo(() => ({
@@ -219,7 +234,7 @@ export default function InputPengeluaranPage() {
     rows: prorataExpenseRows,
     isProrated: isProratedOpex,
     monthInfo: prorataMonthInfo,
-    categoryBreakdown: prorataBreakdown,
+    categoryBreakdown: prorataBreakdownSemua,
     loading: prorataLoading,
   } = useProratedOpex({
     filter: prorataFilter,
@@ -227,6 +242,26 @@ export default function InputPengeluaranPage() {
     outlets,
     enabled: true,
   })
+
+  const prorataBreakdown = useMemo(() => {
+    if (!isGroupTarget) return prorataBreakdownSemua
+    const info = calculateDateRangeProrata(startDate, endDate)
+    const jumlah = (...kategori: string[]) => prorataExpenseRows
+      .filter(r => r.scope === 'outlet' && kategori.includes(r.category) && inTargetGroup(r.outlet_id))
+      .reduce((s, r) => s + r.amount, 0)
+    const pos = (nominalProrata: number) => ({
+      nominalProrata,
+      nominalBulanan: info.isProrated && info.ratio > 0 ? Math.round(nominalProrata / info.ratio) : nominalProrata,
+      source: 'laba_rugi',
+    })
+    return {
+      ...prorataBreakdownSemua,
+      gaji_crew_outlet: pos(jumlah('gaji_crew_outlet')),
+      bonus_crew: pos(jumlah('bonus_crew')),
+      bonus_area_manager: pos(jumlah('bonus_area_manager')),
+      bonus_regional_manager: pos(jumlah('bonus_regional_manager')),
+    }
+  }, [isGroupTarget, prorataBreakdownSemua, prorataExpenseRows, inTargetGroup, startDate, endDate])
 
   // Manual refresh handler
   const handleRefresh = async () => {
@@ -285,8 +320,9 @@ export default function InputPengeluaranPage() {
 
     expenseRows.forEach(r => {
       if (target === 'PUSAT' && r.scope === 'outlet') return
-      if (target === 'ALL_OUTLETS' && r.scope === 'pusat') return
-      if (target !== 'all' && target !== 'PUSAT' && target !== 'ALL_OUTLETS' && (r.scope === 'pusat' || r.outlet_id !== target)) return
+      if (isAllOutlets && r.scope === 'pusat') return
+      if (isGroupTarget && !inTargetGroup(r.outlet_id)) return
+      if (target !== 'all' && target !== 'PUSAT' && !isAllOutlets && (r.scope === 'pusat' || r.outlet_id !== target)) return
       
       const isLembur = isLemburExpense(r.category, r.description)
       const effectiveCategory = isLembur ? 'lembur' : r.category
@@ -315,7 +351,7 @@ export default function InputPengeluaranPage() {
     // Sort descending by date
     list.sort((a, b) => b.date.localeCompare(a.date))
     return list
-  }, [expenseRows, target])
+  }, [expenseRows, target, isAllOutlets, isGroupTarget, inTargetGroup])
 
   // Summary OPEX calculation
   const summary = useMemo(() => {
@@ -659,6 +695,8 @@ export default function InputPengeluaranPage() {
   const selectOptions = useMemo(() => [
     { label: 'Semua Unit (Cabang & Pusat)', value: 'all' },
     { label: 'Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
+    { label: 'Outlet Internal', value: 'INTERNAL_OUTLETS' },
+    { label: 'Outlet Mitra', value: 'MITRA_OUTLETS' },
     ...(isAdmin ? [{ label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' }] : []),
     ...validOutlets.map(o => ({ label: o.name, value: o.id }))
   ], [isAdmin, validOutlets])

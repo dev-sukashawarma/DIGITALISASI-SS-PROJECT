@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
 import { deserializeVoucherFromRow, serializeVoucherToDescription } from '@/lib/officeVoucher'
 import { ambilPengeluaranMentah } from '@/lib/pengeluaran/ambilPengeluaran'
+import { adalahJointExpenseDisembunyikan, PESAN_JOINT_EXPENSE_DITOLAK } from '@/lib/pengeluaran/jointExpense'
 
 function getServiceSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -17,6 +18,11 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   const supabase = getServiceSupabase()
 
   for (const it of items) {
+    // Joint expense Oktober 2026 ke atas tidak dihitung di laporan mana pun; kalau
+    // tetap boleh disimpan, barisnya lenyap dari Buku Kas dan tak bisa diedit.
+    if (adalahJointExpenseDisembunyikan({ category: it.category, expense_date: it.periodMonth })) {
+      throw new Error(PESAN_JOINT_EXPENSE_DITOLAK)
+    }
     const isPusat = ['pengeluaran_global', 'gaji_staff_kantor'].includes(it.category) && !it.outletId
     if (isPusat && role !== 'owner' && role !== 'developer') {
       throw new Error('Forbidden: pengeluaran scope Pusat hanya boleh diisi owner')
@@ -104,6 +110,10 @@ export async function createSingleExpenseAction(input: {
   receipt_url?: string | null
 }) {
   try {
+    if (adalahJointExpenseDisembunyikan({ category: input.category, expense_date: input.expenseDate })) {
+      return { success: false, error: PESAN_JOINT_EXPENSE_DITOLAK }
+    }
+
     const supabase = getServiceSupabase()
 
     if (input.outletId) {
@@ -237,6 +247,10 @@ export async function updateSingleExpenseAction(input: {
   division?: string | null
 }) {
   try {
+    if (adalahJointExpenseDisembunyikan({ category: input.category, expense_date: input.expenseDate })) {
+      return { success: false, error: PESAN_JOINT_EXPENSE_DITOLAK }
+    }
+
     const supabase = getServiceSupabase()
 
     if (input.outletId && input.outletId !== 'PUSAT') {

@@ -12,6 +12,7 @@ import {
 } from '@/lib/opexProrata'
 import { getPeriodsInRange } from '@/lib/opexDateRangeProrata'
 import { monthRange } from '@/lib/period'
+import type { OfficePayrollRecord } from '@/lib/gajiKantorPusat'
 
 export interface ProrataAuxiliaryData {
   payrollRecords: {
@@ -35,6 +36,10 @@ export interface ProrataAuxiliaryData {
   lastMonthExpenses: RolloverExpenseBaseline[]
   managerAssignments?: ManagerAssignment[]
   operationalOutletIds?: string[]
+  /** Slip gaji HR staf kantor pusat — lihat lib/gajiKantorPusat.ts. */
+  officePayrollRecords?: OfficePayrollRecord[]
+  /** Total gaji bulanan master staf kantor aktif (cadangan bulan berjalan). */
+  officeStaffMonthlyTotal?: number
 }
 
 /**
@@ -119,6 +124,26 @@ export async function getProrataAuxiliaryDataAction({
     .eq('status', 'active')
     .in('role', ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager'])
 
+  // 2b. Master gaji staf kantor pusat (semua role di luar kru outlet & manajer)
+  const qOfficeStaff = supabase
+    .from('outlet_staff')
+    .select(`
+      id,
+      name,
+      username,
+      outlet_id,
+      role,
+      status,
+      account_category,
+      email,
+      staff_financials(
+        basic_salary,
+        allowance_position,
+        allowance_presence
+      )
+    `)
+    .eq('status', 'active')
+
   // 3. Last month expenses (rollover)
   const prevMonth = overlap.month === 1 ? 12 : overlap.month - 1
   const prevYear = overlap.month === 1 ? overlap.year - 1 : overlap.year
@@ -176,16 +201,42 @@ export async function getProrataAuxiliaryDataAction({
     .select('id, name, slug, type, is_active, status')
     .in('type', ['internal', 'mitra'])
 
-  const [payrollRes, staffRes, lastMonthRes, staffOutletsRes, opOutletsRes, ...bonusResults] = await Promise.all([
+  const [payrollRes, staffRes, lastMonthRes, staffOutletsRes, opOutletsRes, officeStaffRes, ...bonusResults] = await Promise.all([
     qPayroll,
     qStaff,
     qLastMonth,
     qStaffOutlets,
     qOpOutlets,
-    ...bonusPromises,
+    qOfficeStaff,
+    ...(bonusPromises as Promise<any>[]),
   ])
 
   const ALLOWED_ROLES = ['crew', 'leader', 'kasir', 'kitchen', 'driver', 'area_manager', 'regional_manager']
+
+  // Staf kantor pusat = karyawan sungguhan yang TIDAK lolos saringan kru outlet
+  // di bawah (role kantor, atau kru non-manajer yang berpangkalan di Kantor Pusat).
+  const isStafKantor = (s: any, effectiveOutletId: string | null | undefined): boolean => {
+    if (!s || isTestOrDevStaff(s)) return false
+    if (!ALLOWED_ROLES.includes(s.role)) return true
+    const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
+    return !isManager && (!effectiveOutletId || effectiveOutletId === KANTOR_PUSAT_ID)
+  }
+
+  const officePayrollRecords: OfficePayrollRecord[] = ((payrollRes.data ?? []) as any[])
+    .filter(r => isStafKantor(r.outlet_staff, r.outlet_id || r.outlet_staff?.outlet_id))
+    .map(r => ({
+      period_month: Number(r.period_month),
+      period_year: Number(r.period_year),
+      total_salary: Number(r.total_salary) || 0,
+    }))
+    .filter(r => r.total_salary > 0)
+
+  const officeStaffMonthlyTotal = ((officeStaffRes.data ?? []) as any[])
+    .filter(s => isStafKantor(s, s.outlet_id))
+    .reduce((sum, s) => {
+      const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
+      return sum + (Number(fin?.basic_salary) || 0) + (Number(fin?.allowance_position) || 0) + (Number(fin?.allowance_presence) || 0)
+    }, 0)
 
   const crewBonusRecords: CrewBonusRecord[] = bonusResults.flat()
   const bonusOutletIds = new Set(crewBonusRecords.map(c => c.outlet_id))
@@ -383,5 +434,7 @@ export async function getProrataAuxiliaryDataAction({
     lastMonthExpenses,
     managerAssignments,
     operationalOutletIds,
+    officePayrollRecords,
+    officeStaffMonthlyTotal,
   }
 }

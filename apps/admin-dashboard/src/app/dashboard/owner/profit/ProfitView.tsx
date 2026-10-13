@@ -232,7 +232,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   )
 
   const {
-    rows: expenseRows,
+    rows: prorataRows,
     isProrated,
     monthInfo: prorataMonthInfo,
     loading: prorataLoading,
@@ -240,7 +240,19 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     filter: effectiveFilter,
     rawExpenses: rawExpenseRows,
     outlets,
+    // Gaji staf kantor pusat (HR) = biaya pusat: ikut di Global & Internal, tidak di Mitra.
+    includeOfficePayroll: scope !== 'mitra',
   })
+
+  // Mesin prorata membuat baris gaji/bonus/internet untuk SEMUA outlet yang
+  // punya slip HR — bukan hanya outlet yang lolos saringan scope di atas.
+  // Tanpa saringan kedua ini, Laba Rugi Mitra ikut memikul gaji outlet
+  // internal (dan sebaliknya). Ekspor (profitExportFetcher) sudah menyaring
+  // setelah prorata; layar harus sama.
+  const expenseRows = useMemo(
+    () => prorataRows.filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).expense_date || (r as any).date))),
+    [prorataRows, inScope, scope],
+  )
 
   const loading = sales.loading || expenses.loading || hpp.loading || waste.loading || mitraLoading || prorataLoading
   const error = sales.error || expenses.error || hpp.error || waste.error

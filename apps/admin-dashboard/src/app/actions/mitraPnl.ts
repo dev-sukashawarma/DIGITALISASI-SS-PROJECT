@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import type { PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID, isExcludedOutlet } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { adalahJointExpenseDisembunyikan } from '@/lib/pengeluaran/jointExpense'
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { getMitraClosingMonth, isClosingBerlaku, rencanaPeriodeClosing } from './mitraPnlClosingData'
@@ -397,7 +398,8 @@ async function hitungPnlMitra(
   const investments = investmentsRes.data
   const transfers = transfersRes.data
   let pettyExpenses = pettyExpensesRes.data || []
-  let monthlyExpenses = monthlyExpensesRes.data || []
+  // Joint expense mulai Oktober 2026 tidak dihitung — lihat lib/pengeluaran/jointExpense.ts.
+  let monthlyExpenses = (monthlyExpensesRes.data || []).filter((e: any) => !adalahJointExpenseDisembunyikan(e))
   let wasteRows = wasteRowsRes.data || []
   const { data: rpcData, error: rpcError } = rpcRes
   let settlements = (settlementsRes as any)?.data || []

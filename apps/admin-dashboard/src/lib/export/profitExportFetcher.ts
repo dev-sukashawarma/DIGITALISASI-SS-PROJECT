@@ -6,7 +6,8 @@ import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import { fetchHppRows } from '@/hooks/useHpp'
 import { getAllPlatformSettlementSummaries } from '@/app/actions/platformSettlement'
 import { reconcileSalesRowsWithSettlements } from './settlementReconciliation'
-import { calculateProratedExpenses } from '@/lib/opexProrata'
+import { calculateProratedExpenses, getJakartaCurrentMonthInfo } from '@/lib/opexProrata'
+import { susunBarisGajiKantor, gabungGajiKantor } from '@/lib/gajiKantorPusat'
 import { computeCompanyProfit } from '@/lib/profit'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { isInScope, mitraOutletIds, type ProfitScope } from '@/lib/outletOwnership'
@@ -197,7 +198,15 @@ export async function fetchProfitExportData({
     managerAssignments: auxData.managerAssignments,
     operationalOutletIds: auxData.operationalOutletIds,
   })
-  const expenseRows = prorataResult.rows
+  // Gaji staf kantor pusat (HR) sebagai biaya pusat — sama dengan layar Laba Rugi.
+  // Baris pusat disaring per scope di bawah (tidak ikut di scope mitra).
+  const expenseRows = gabungGajiKantor(prorataResult.rows, susunBarisGajiKantor({
+    from,
+    to,
+    officePayrollRecords: auxData.officePayrollRecords || [],
+    officeStaffMonthlyTotal: auxData.officeStaffMonthlyTotal || 0,
+    currentMonthFirstDay: getJakartaCurrentMonthInfo().firstDay,
+  }))
 
   // 3. Ambil HPP
   onProgress?.('Mengambil data HPP bahan baku...')

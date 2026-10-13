@@ -147,12 +147,30 @@ export function buatJawabanDev(
     p.includes('karyawan') ||
     p.includes('shift') ||
     p.includes('tim') ||
+    p.includes('cuti') ||
+    p.includes('izin') ||
+    p.includes('telat') ||
+    p.includes('masuk') ||
     (profil === 'hrd' && !p.includes('stok') && !p.includes('omzet'))
   ) {
     const totalAtt = t?.kehadiranTotal ?? 0
     const onTimeRate = t?.persenOnTime ?? 95
     const lateCount = t?.kehadiranTelat ?? 0
     const onTimeCount = t?.kehadiranTepatWaktu ?? totalAtt
+
+    const cutiLines =
+      t && t.stafCutiIzin.length > 0
+        ? t.stafCutiIzin
+            .map((c) => `- **${c.nama}** (${c.role}): ${c.jenis} [status: ${c.status}] - *Alasan: ${c.alasan}*`)
+            .join('\n')
+        : '- *(Tidak ada kru tercatat izin/cuti hari ini)*'
+
+    const telatLines =
+      t && t.stafTelat.length > 0
+        ? t.stafTelat
+            .map((s) => `- **${s.nama}** (\`${s.outlet}\`): terlambat **${s.telatMenit} menit**`)
+            .join('\n')
+        : '- *(Seluruh kru on-time hari ini)*'
 
     return [
       `Mengakses data satelit **HRD & Workforce Management** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
@@ -163,7 +181,11 @@ export function buatJawabanDev(
       `- **Tingkat Tepat Waktu (On-Time)**: **${onTimeRate}%** (${onTimeCount} tepat waktu)\n`,
       `- **Keterlambatan Terdeteksi**: ${lateCount} catatan\n`,
       `- **Distribusi Wilayah**: Tersebar di ${t?.totalOutletAktif ?? 28} cabang aktif Suka Shawarma\n\n`,
-      'Semua kru bertugas sesuai shift yang ditetapkan, Sir.',
+      '### 🏖️ Kru Izin / Cuti Terdata\n',
+      `${cutiLines}\n\n`,
+      '### ⏱️ Kru Datang Terlambat\n',
+      `${telatLines}\n\n`,
+      'Semua data SDM tersinkronisasi dengan sistem HRD, Sir.',
     ]
   }
 

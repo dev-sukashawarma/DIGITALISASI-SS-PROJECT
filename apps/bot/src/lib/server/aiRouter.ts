@@ -42,6 +42,12 @@ export async function* tanyaAiRouter(o: {
     const listNol = t.outletsNolTransaksi.map((out) => `- ${out.nama} (${out.type})`).join('\n')
     const listMenu = t.topMenu.map((m, i) => `${i + 1}. ${m.nama}: ${m.qty} porsi (${formatRupiah(m.omzet)})`).join('\n')
     const listBahan = t.bahanBaku.map((b) => `- ${b.nama} (${b.satuan})`).join('\n')
+    const listCuti = (t.stafCutiIzin || [])
+      .map((c) => `- ${c.nama} (${c.role}): ${c.jenis} [status: ${c.status}] - Alasan: ${c.alasan}`)
+      .join('\n')
+    const listTelat = (t.stafTelat || [])
+      .map((s) => `- ${s.nama} (${s.outlet}): telat ${s.telatMenit} menit`)
+      .join('\n')
 
     konteksData = `
 TANGGAL OPERASIONAL (WIB): ${t.tanggalWIB}
@@ -59,10 +65,14 @@ ${listNol || '(Semua cabang sudah ada transaksi)'}
 MENU TERLARIS HARI INI:
 ${listMenu || '(Belum ada data porsi)'}
 
-DATA PRESENSI & SDM:
+DATA PRESENSI & SDM (HRD):
 - Total Catatan Presensi: ${t.kehadiranTotal} clock-in
 - Presensi Tepat Waktu: ${t.kehadiranTepatWaktu} (${t.persenOnTime}%)
 - Presensi Terlambat: ${t.kehadiranTelat}
+- Daftar Kru Izin / Cuti Hari Ini:
+${listCuti || '(Tidak ada kru yang izin/cuti hari ini)'}
+- Daftar Kru Terlambat Masuk Hari Ini:
+${listTelat || '(Tidak ada kru terlambat)'}
 
 KATALOG BAHAN BAKU UTAMA GUDANG:
 ${listBahan || '- Gas, Kulit, Daging, Saus'}
@@ -82,6 +92,9 @@ PANDUAN KOMUNIKASI & PERILAKU:
      JANGAN langsung menumpahkan laporan angka penjualan panjang jika tidak diminta.
    - Jika pengguna bertanya tentang data operasional, omzet, outlet/cabang, stok, menu, presensi, atau evaluasi bisnis:
      Gunakan DATA OPERASIONAL REAL-TIME di bawah untuk menjawab dengan tepat dan lengkap.
+   - PERTANYAAN PRESENSI / SDM:
+     Pahami istilah sehari-hari seperti "yang ga masuk siapa", "siapa yang absen", "siapa yang tidak hadir", "siapa yang cuti/izin", "siapa yang telat", "bagaimana presensi kru" sebagai pertanyaan DATA PRESENSI & SDM (HRD), BUKAN order cabang.
+     Sebutkan nama kru yang sedang izin/cuti beserta status/alasannya, serta kru yang datang terlambat.
    - Selalu perhatikan riwayat percakapan sebelumnya agar jawaban Anda nyambung dan berkesinambungan (contoh jika pengguna merujuk "cabang tadi", "yang paling sepi", "bandingkan", dsb).
 4. Format teks menggunakan GitHub Flavored Markdown yang rapi:
    - Gunakan tabel markdown jika diminta menampilkan daftar banyak outlet atau perbandingan angka.

@@ -32,6 +32,22 @@ const mockTelemetri: TelemetriHariIni = {
     { nama: 'GAS 12 KG', satuan: 'tabung' },
     { nama: 'KULIT 25', satuan: 'Pack' },
   ],
+  stafCutiIzin: [
+    {
+      nama: 'Muhamad Andrian Hermawan',
+      role: 'Staff Outlet',
+      jenis: 'cuti tahunan',
+      status: 'pending',
+      alasan: 'ada kepentingan di rumah',
+    },
+  ],
+  stafTelat: [
+    {
+      nama: 'Mohamad Raka',
+      outlet: 'Mitra Sentul',
+      telatMenit: 74,
+    },
+  ],
 }
 
 describe('buatJawabanDev', () => {
@@ -68,6 +84,16 @@ describe('buatJawabanDev', () => {
     expect(full).toContain('Workforce Management')
     expect(full).toContain('70 catatan clock-in/out')
     expect(full).toContain('93%')
+    expect(full).toContain('Muhamad Andrian Hermawan')
+    expect(full).toContain('Mohamad Raka')
+  })
+
+  it('menghasilkan data cuti dan telat ketika user bertanya yang ga masuk siapa', () => {
+    const chunks = buatJawabanDev('yang ga masuk hari ini siapa?', 'ceo', mockTelemetri)
+    const full = chunks.join('')
+    expect(full).toContain('Kru Izin / Cuti Terdata')
+    expect(full).toContain('Muhamad Andrian Hermawan')
+    expect(full).toContain('Mohamad Raka')
   })
 
   it('menghasilkan ringkasan finance nyata ketika user bertanya opex / finance', () => {

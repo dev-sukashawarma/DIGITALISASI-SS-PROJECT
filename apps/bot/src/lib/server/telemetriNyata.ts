@@ -8,6 +8,20 @@ export interface OutletTelemetri {
   orderCount: number
 }
 
+export interface StafCutiTelemetri {
+  nama: string
+  role: string
+  jenis: string
+  status: string
+  alasan: string
+}
+
+export interface StafTelatTelemetri {
+  nama: string
+  outlet: string
+  telatMenit: number
+}
+
 export interface TelemetriHariIni {
   tanggalWIB: string
   omzetTotal: number
@@ -23,6 +37,8 @@ export interface TelemetriHariIni {
   persenOnTime: number
   totalOutletAktif: number
   bahanBaku: Array<{ nama: string; satuan: string }>
+  stafCutiIzin: StafCutiTelemetri[]
+  stafTelat: StafTelatTelemetri[]
 }
 
 function getSupabaseAdmin() {
@@ -44,7 +60,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const tglStr = wib.toISOString().slice(0, 10)
     const startToday = `${tglStr}T00:00:00+07:00`
 
-    const [resOrders, resItems, resAtt, resOutlets, resBahan] = await Promise.all([
+    const [resOrders, resItems, resAtt, resOutlets, resBahan, resLeave, resLate] = await Promise.all([
       sb
         .from('orders')
         .select('id, total_amount, status, outlet_id, outlets(name)')
@@ -69,6 +85,18 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .select('id, nama, satuan')
         .eq('is_active', true)
         .limit(12),
+      sb
+        .from('leave_requests')
+        .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role)')
+        .lte('start_date', tglStr)
+        .gte('end_date', tglStr),
+      sb
+        .from('attendance')
+        .select('id, outlet_staff_id, telat_menit, outlets(name)')
+        .gte('created_at', startToday)
+        .gt('telat_menit', 0)
+        .order('telat_menit', { ascending: false })
+        .limit(10),
     ])
 
     const orders = resOrders.data || []
@@ -120,6 +148,31 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const totalOutletAktif = allOutlets.length
     const bahanBaku = (resBahan.data || []).map((b: any) => ({ nama: b.nama, satuan: b.satuan }))
 
+    // Staf Cuti / Izin
+    const stafCutiIzin: StafCutiTelemetri[] = (resLeave.data || []).map((l: any) => ({
+      nama: l.outlet_staff?.name || 'Kru',
+      role: l.outlet_staff?.role || 'Staff',
+      jenis: l.leave_type || 'Cuti',
+      status: l.status || 'pending',
+      alasan: l.reason || '-',
+    }))
+
+    // Staf Telat dengan Nama
+    const staffIds = (resLate.data || []).map((a: any) => a.outlet_staff_id).filter(Boolean)
+    const { data: staffList } = staffIds.length > 0
+      ? await sb.from('outlet_staff').select('id, name').in('id', staffIds)
+      : { data: [] }
+    const staffMap: Record<string, string> = {}
+    for (const s of (staffList || []) as any[]) {
+      staffMap[s.id] = s.name
+    }
+
+    const stafTelat: StafTelatTelemetri[] = (resLate.data || []).map((a: any) => ({
+      nama: staffMap[a.outlet_staff_id] || 'Kru',
+      outlet: a.outlets?.name || 'Cabang',
+      telatMenit: Number(a.telat_menit) || 0,
+    }))
+
     return {
       tanggalWIB: tglStr,
       omzetTotal,
@@ -135,6 +188,8 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       persenOnTime,
       totalOutletAktif,
       bahanBaku,
+      stafCutiIzin,
+      stafTelat,
     }
   } catch (err) {
     console.error('[telemetriNyata] gagal ambil telemetri:', err)

@@ -186,6 +186,21 @@ def kirim_ke_telegram(token: str, chat_id: str, pesan: str) -> bool:
 
     return False
 
+def kirim_ke_semua_target(token: str, chat_ids_str: str, pesan: str) -> bool:
+    """Mengirim pesan ke satu atau beberapa target chat_id (dipisah tanda koma)."""
+    if not chat_ids_str:
+        return False
+    targets = [c.strip() for c in str(chat_ids_str).split(",") if c.strip()]
+    if not targets:
+        return False
+
+    semua_sukses = True
+    for cid in targets:
+        ok = kirim_ke_telegram(token, cid, pesan)
+        if not ok:
+            semua_sukses = False
+    return semua_sukses
+
 # ==============================================================================
 # FORMATTER SETIAP JENIS LAPORAN
 # ==============================================================================
@@ -760,7 +775,7 @@ def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: 
             if dry_run:
                 print(f"--- [DRY-RUN ALERT] ---\n{pesan}")
             elif token and chat_id:
-                kirim_telegram(token, chat_id, pesan)
+                kirim_ke_semua_target(token, chat_id, pesan)
 
             prev_state["last_alert_ts"] = now_ts
 
@@ -779,7 +794,7 @@ def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: 
         if dry_run:
             print(f"--- [DRY-RUN RECOVERY] ---\n{pesan}")
         elif token and chat_id:
-            kirim_telegram(token, chat_id, pesan)
+            kirim_ke_semua_target(token, chat_id, pesan)
 
         prev_state["last_alert_ts"] = 0
 
@@ -919,11 +934,12 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
         or allowed_user
         or konfig.get("TELEGRAM_HOME_CHANNEL")
     )
-    print(f"\n🎯 Target Chat ID Terpilih Saat Ini : {target_id}")
+    target_list = [c.strip() for c in str(target_id).split(",") if c.strip()]
+    print(f"\n🎯 Target Chat ID Terpilih Saat Ini : {', '.join(target_list)}")
 
-    if target_id:
+    for t_id in target_list:
         try:
-            url_chat = f"https://api.telegram.org/bot{token}/getChat?chat_id={target_id}"
+            url_chat = f"https://api.telegram.org/bot{token}/getChat?chat_id={t_id}"
             with urllib.request.urlopen(url_chat, timeout=10) as resp:
                 data_chat = json.load(resp)
                 if data_chat.get("ok"):
@@ -931,15 +947,16 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
                     c_type = res.get("type", "unknown")
                     c_title = res.get("title") or res.get("first_name", "")
                     c_user = res.get("username", "")
-                    print(f"   Status Target    : 🟢 TERHUBUNG & VALID")
-                    print(f"   Tipe Chat        : {c_type.upper()}")
-                    print(f"   Nama/Judul Chat  : {c_title} (@{c_user})" if c_user else f"   Nama/Judul Chat  : {c_title}")
+                    print(f"   • [ID: {t_id}] 🟢 VALID ({c_type.upper()}): {c_title}" + (f" (@{c_user})" if c_user else ""))
                 else:
-                    print(f"   Status Target    : ⚠️ Telegram mengembalikan: {data_chat}")
+                    print(f"   • [ID: {t_id}] ⚠️ Telegram mengembalikan: {data_chat}")
         except urllib.error.HTTPError as e:
-            print(f"   Status Target    : ❌ HTTP {e.code}: {e.read().decode('utf-8', errors='replace')}")
+            err_b = e.read().decode('utf-8', errors='replace')
+            print(f"   • [ID: {t_id}] ❌ HTTP {e.code}: {err_b}")
+            if e.code == 403:
+                print(f"      👉 PENTING: User ID {t_id} belum pernah klik START (/start) pada bot @devsshermesbot!")
         except Exception as e:
-            print(f"   Status Target    : ⚠️ Gagal cek getChat: {e}")
+            print(f"   • [ID: {t_id}] ⚠️ Gagal cek getChat: {e}")
 
     # 3. Riwayat Update Chat Masuk ke Bot
     print("\n💬 5 Riwayat Chat / Percakapan Terbaru dengan Bot:")
@@ -1080,7 +1097,7 @@ def main():
                 print("--------------------------------\n")
                 sukses_count += 1
             else:
-                ok = kirim_ke_telegram(token, chat_id, pesan)
+                ok = kirim_ke_semua_target(token, chat_id, pesan)
                 if ok:
                     sukses_count += 1
                     print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ✅ ({nomor}) Berhasil dikirim ke [{chat_id}]: {label}")
@@ -1107,7 +1124,7 @@ def main():
         print(f"[{now_str}] ❌ Token Telegram atau Chat ID belum dikonfigurasi.", file=sys.stderr)
         sys.exit(1)
 
-    sukses = kirim_ke_telegram(token, chat_id, pesan)
+    sukses = kirim_ke_semua_target(token, chat_id, pesan)
     if sukses:
         if not args.silent:
             print(f"[{now_str}] ✅ Laporan '{args.jenis}' berhasil dikirim ke Telegram ({chat_id})")

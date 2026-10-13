@@ -1113,7 +1113,7 @@ def main():
         choices=[
             "sales-kemarin", "sales-sore", "sales-malam",
             "absensi-kantor", "absensi-outlet",
-            "marcom", "stok", "watchdog", "alert-check",
+            "marcom", "stok", "watchdog", "alert-check", "alert-demo",
             "semua",  # Mengirimkan seluruh 9 cron job sekaligus
             # backward compatibility
             "pagi", "malam", "absensi", "test"

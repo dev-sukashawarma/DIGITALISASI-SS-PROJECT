@@ -943,6 +943,7 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
         print("❌ TELEGRAM_BOT_TOKEN tidak ditemukan di environment maupun .env!")
         return
 
+    bot_username = ""
     # 1. Info Bot via getMe
     try:
         url_me = f"https://api.telegram.org/bot{token}/getMe"
@@ -950,7 +951,8 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
             data_me = json.load(resp)
             if data_me.get("ok"):
                 r = data_me["result"]
-                print(f"🤖 Bot Aktif      : @{r.get('username')} ({r.get('first_name')}) [ID Bot: {r.get('id')}]")
+                bot_username = r.get("username", "")
+                print(f"🤖 Bot Aktif      : @{bot_username} ({r.get('first_name')}) [ID Bot: {r.get('id')}]")
     except Exception as e:
         print(f"⚠️ Gagal cek bot (getMe): {e}")
 
@@ -980,8 +982,9 @@ def fungsi_cek_chat(token: str, konfig: dict) -> None:
         except urllib.error.HTTPError as e:
             err_b = e.read().decode('utf-8', errors='replace')
             print(f"   • [ID: {t_id}] ❌ HTTP {e.code}: {err_b}")
-            if e.code == 403:
-                print(f"      👉 PENTING: User ID {t_id} belum pernah klik START (/start) pada bot @devsshermesbot!")
+            if e.code in [400, 403]:
+                target_bot = f"@{bot_username}" if bot_username else "bot ini"
+                print(f"      👉 PENTING: User ID {t_id} belum pernah klik START (/start) pada {target_bot}!")
         except Exception as e:
             print(f"   • [ID: {t_id}] ⚠️ Gagal cek getChat: {e}")
 

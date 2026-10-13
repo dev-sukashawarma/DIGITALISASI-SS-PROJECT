@@ -10,11 +10,12 @@ export const ALAT_SISTEM: DefinisiAlat[] = [
     skema: z.object({}).strict(),
     contoh: {},
     jalankan: async (ctx) => {
-      const dbStatus = await ctx.sistem.database()
+      const dbInfo = await ctx.sistem.database()
       return {
         status: 'ok',
         waktu_server_wib: ctx.sekarang.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }),
-        database: dbStatus,
+        database: dbInfo.status,
+        telemetri_database: dbInfo,
         modul_aktif: [
           'penjualan',
           'absensi',
@@ -22,7 +23,9 @@ export const ALAT_SISTEM: DefinisiAlat[] = [
           'stok',
           'marcom',
         ],
-        pesan: 'Sistem operasional pusat Suka Shawarma berjalan normal.',
+        pesan: dbInfo.status === 'terhubung'
+          ? 'Sistem operasional dan database Supabase beroperasi normal.'
+          : 'Peringatan: Database terdeteksi kendala koneksi.',
       }
     },
   },

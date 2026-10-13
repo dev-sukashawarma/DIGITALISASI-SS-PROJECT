@@ -7,6 +7,10 @@ export interface TargetOption {
   value: string
   label: string
   icon?: React.ReactNode
+  /** Tampilkan menjorok ke dalam (sub-pilihan dari pilihan di atasnya). */
+  indent?: boolean
+  /** Garis pemisah dengan teks di tengah, digambar tepat di atas pilihan ini. */
+  groupLabel?: string
 }
 
 interface TargetComboboxProps {
@@ -105,6 +109,14 @@ export function TargetCombobox({
               const isActive = o.value === value
               return (
                 <li key={o.value}>
+                  {/* Pemisah kelompok hanya saat tidak sedang mencari, supaya hasil cari tetap rapat. */}
+                  {o.groupLabel && !query.trim() && (
+                    <div className="flex items-center gap-2 px-3 pt-2.5 pb-1" role="separator" aria-label={o.groupLabel}>
+                      <span className="h-px flex-1 bg-suka-gray-200" />
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-brown/50">{o.groupLabel}</span>
+                      <span className="h-px flex-1 bg-suka-gray-200" />
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -112,7 +124,7 @@ export function TargetCombobox({
                       setOpen(false)
                       setQuery('')
                     }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left transition-colors ${
+                    className={`w-full flex items-center justify-between gap-2 ${o.indent ? 'pl-7 pr-3' : 'px-3'} py-2 text-xs font-bold text-left transition-colors ${
                       isActive ? 'bg-suka-orange/10 text-suka-orange' : 'text-suka-brown hover:bg-suka-cream/60'
                     }`}
                   >

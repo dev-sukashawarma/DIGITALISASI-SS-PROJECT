@@ -104,7 +104,7 @@ export default function ExpensesPage() {
   const validOutlets = useMemo(() => outlets.filter(o => !isExcludedOutlet(o)), [outlets])
 
   const selectOptions = useMemo(() => [
-    { label: '🏢 Semua Unit (Cabang & Pusat)', value: 'all' },
+    { label: '🏢 Semua Unit (Pusat & Outlet)', value: 'all' },
     { label: '🏪 Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
     ...(isAdmin ? [{ label: '🏢 Kantor Pusat (OPEX Pusat)', value: 'PUSAT' }] : []),
     ...validOutlets.map(o => ({ label: o.name, value: o.id }))
@@ -115,7 +115,7 @@ export default function ExpensesPage() {
     : target === 'ALL_OUTLETS'
     ? 'Pengeluaran Outlet (Khusus Cabang)'
     : target === 'all'
-    ? 'Pengeluaran Semua Unit (Cabang & Pusat)'
+    ? 'Pengeluaran Semua Unit (Pusat & Outlet)'
     : (outlets.find(o => o.id === target)?.name || 'Pengeluaran Outlet')
 
   return (

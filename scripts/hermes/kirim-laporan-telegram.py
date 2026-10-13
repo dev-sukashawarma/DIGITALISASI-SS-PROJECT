@@ -258,7 +258,13 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    chat_id = args.chat_id or konfig.get("TELEGRAM_OWNER_CHAT_ID") or konfig.get("TELEGRAM_CHAT_ID") or konfig.get("TELEGRAM_HOME_CHANNEL")
+    chat_id = (
+        args.chat_id
+        or konfig.get("TELEGRAM_OWNER_CHAT_ID")
+        or konfig.get("TELEGRAM_CHAT_ID")
+        or konfig.get("TELEGRAM_HOME_CHANNEL")
+        or (konfig.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip() or None)
+    )
     mcp_key = args.mcp_key or konfig.get("SUKA_MCP_KEY")
     mcp_url = args.mcp_url or konfig.get("SUKA_MCP_URL") or DEFAULT_MCP_URL
 

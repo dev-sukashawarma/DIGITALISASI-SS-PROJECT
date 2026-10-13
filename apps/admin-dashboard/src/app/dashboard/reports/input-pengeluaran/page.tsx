@@ -696,14 +696,22 @@ export default function InputPengeluaranPage() {
     return outlets.filter(o => !isExcludedOutlet(o))
   }, [outlets])
 
-  const selectOptions = useMemo(() => [
-    { label: 'Semua Unit (Cabang & Pusat)', value: 'all' },
-    { label: 'Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
-    { label: 'Outlet Internal', value: 'INTERNAL_OUTLETS' },
-    { label: 'Outlet Mitra', value: 'MITRA_OUTLETS' },
-    ...(isAdmin ? [{ label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' }] : []),
-    ...validOutlets.map(o => ({ label: o.name, value: o.id }))
-  ], [isAdmin, validOutlets])
+  const selectOptions = useMemo(() => {
+    const outletMitra = validOutlets.filter(o => mitraIds.has(o.id))
+    const outletInternal = validOutlets.filter(o => !mitraIds.has(o.id))
+    // `groupLabel` menggambar garis pemisah berteks tepat di atas pilihan itu.
+    const berkelompok = (daftar: typeof validOutlets, judul: string) =>
+      daftar.map((o, i) => ({ label: o.name, value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
+    return [
+      { label: 'Semua Unit (Pusat & Outlet)', value: 'all' },
+      { label: 'Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
+      { label: 'Outlet Internal', value: 'INTERNAL_OUTLETS', indent: true },
+      { label: 'Outlet Mitra', value: 'MITRA_OUTLETS', indent: true },
+      ...(isAdmin ? [{ label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' }] : []),
+      ...berkelompok(outletMitra, 'Mitra'),
+      ...berkelompok(outletInternal, 'Internal'),
+    ]
+  }, [isAdmin, validOutlets, mitraIds])
 
   const loading = expensesLoading
 

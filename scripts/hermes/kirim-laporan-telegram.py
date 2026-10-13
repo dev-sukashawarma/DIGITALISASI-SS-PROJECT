@@ -19,6 +19,7 @@ Daftar Jenis Laporan:
 """
 
 import argparse
+import concurrent.futures
 import datetime
 import json
 import os
@@ -681,37 +682,206 @@ def format_marcom(data_endorse: dict, data_budget: dict) -> str:
 
 
 
-def format_stok(data_ayam: dict, data_sapi: dict, data_sj: dict) -> str:
+DAFTAR_BAHAN_PANTAU = [
+    # (query_mcp, nama_tampilan, kategori)
+    # Kategori 1: Bahan Inti
+    ("ayam", "Daging Ayam", "utama"),
+    ("sapi", "Daging Sapi", "utama"),
+    ("kulit 25", "Kulit Tortilla 25", "utama"),
+    ("kulit 28", "Kulit Tortilla 28", "utama"),
+    ("kulit 32", "Kulit Tortilla 32", "utama"),
+    # Kategori 2: Bahan Pendamping Kritis
+    ("saos cabe", "Saos Cabe", "pendamping"),
+    ("mayonaise", "Mayonaise", "pendamping"),
+    ("keju", "Keju", "pendamping"),
+    ("kentang", "Kentang", "pendamping"),
+    ("lettuce", "Sayur (Lettuce)", "pendamping"),
+]
+
+def cek_stok_kritis(bahan_query: str, saldo_str: str) -> tuple[bool, str]:
+    """Mengevaluasi apakah saldo_sistem suatu outlet berada dalam kondisi kritis / perlu restock."""
+    if not saldo_str:
+        return True, "0 (Kosong)"
+    s = str(saldo_str).strip()
+    s_low = s.lower()
+
+    # 1. Defisit / Minus
+    if s.startswith("-"):
+        return True, f"{s} (Defisit)"
+
+    # 2. Nol / Kosong / Tanda Strip
+    if re.match(r"^0(\.0+)?\s*(kg|blok|pack|dus|lembar|gram|kompan)?$", s_low) or s in ["0", "-", "habis"]:
+        return True, "0 (Habis)"
+
+    b_low = bahan_query.lower()
+
+    # 3. Daging Ayam (< 5 Kg)
+    if "ayam" in b_low:
+        if "kg" not in s_low:
+            return True, s  # Hanya gram
+        m = re.match(r"^(\d+)\s*kg", s_low)
+        if m and int(m.group(1)) < 5:
+            return True, s
+
+    # 4. Daging Sapi (<= 1 Blok)
+    elif "sapi" in b_low:
+        if "blok" not in s_low:
+            return True, s  # Tanpa blok (cuma kg/gram)
+        m = re.match(r"^(\d+)\s*blok", s_low)
+        if m and int(m.group(1)) <= 1:
+            return True, s
+
+    # 5. Kulit Tortilla (<= 1 Pack)
+    elif "kulit" in b_low:
+        if "pack" not in s_low:
+            return True, s  # Cuma lembar
+        m = re.match(r"^(\d+)\s*pack", s_low)
+        if m and int(m.group(1)) <= 1:
+            return True, s
+
+    # 6. Keju (<= 2 Pack)
+    elif "keju" in b_low:
+        if "dus" in s_low:
+            return False, s
+        if "pack" not in s_low:
+            return True, s  # Cuma lembar
+        m = re.match(r"^(\d+)\s*pack", s_low)
+        if m and int(m.group(1)) <= 2:
+            return True, s
+
+    # 7. Saos Cabe (Kritis jika habis kompan, hanya sisa gram)
+    elif "saos" in b_low:
+        if "dus" in s_low or "kompan" in s_low:
+            return False, s
+        return True, s  # Hanya gram
+
+    # 8. Mayonaise (Kritis jika tanpa dus dan < 3 kg)
+    elif "mayo" in b_low:
+        if "dus" in s_low:
+            return False, s
+        if "kg" not in s_low:
+            return True, s  # Cuma gram
+        m = re.match(r"^(\d+)\s*kg", s_low)
+        if m and int(m.group(1)) < 3:
+            return True, s
+
+    # 9. Kentang (Kritis jika tanpa dus dan < 3 kg)
+    elif "kentang" in b_low:
+        if "dus" in s_low:
+            return False, s
+        if "kg" not in s_low:
+            return True, s
+        m = re.match(r"^(\d+)\s*kg", s_low)
+        if m and int(m.group(1)) < 3:
+            return True, s
+
+    # 10. Sayur Lettuce (Kritis jika defisit, habis, atau hanya sisa gram)
+    elif any(x in b_low for x in ["sayur", "lettuce"]):
+        if "kg" not in s_low:
+            return True, s  # Hanya gram
+
+    return False, s
+
+def format_stok(data_stok_map_atau_ayam, data_sapi=None, data_sj=None) -> str:
+    """Format Laporan Stok General: Stok Gudang Pusat (HQ) & Peringatan Outlet Kritis."""
+    # Dukungan panggilan legacy: format_stok(data_ayam, data_sapi, data_sj)
+    if isinstance(data_stok_map_atau_ayam, dict) and data_sapi is not None and "lokasi" in data_stok_map_atau_ayam:
+        data_stok_map = {"ayam": data_stok_map_atau_ayam, "sapi": data_sapi}
+    else:
+        data_stok_map = data_stok_map_atau_ayam or {}
+        if data_sj is None and data_sapi is not None:
+            data_sj = data_sapi
+
     teks = (
         "📦 *KONDISI STOK UTAMA & GUDANG*\n"
         "🕒 *Pukul 04:02 WIB*\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "🥩 *Saldo Sistem Bahan Baku Vital:*\n"
+        "🏢 *STOK GUDANG PUSAT (HQ):*\n"
     )
-    if data_ayam and "lokasi" in data_ayam:
-        teks += "\n🍗 *AYAM:*\n"
-        for loc in data_ayam.get("lokasi", [])[:6]:
-            lok = terjemahkan_istilah(loc.get('lokasi', '-'))
-            sal = terjemahkan_istilah(loc.get('saldo_sistem', '-'))
-            teks += f"  • {lok}: *{sal}*\n"
 
-    if data_sapi and "lokasi" in data_sapi:
-        teks += "\n🥩 *SAPI:*\n"
-        for loc in data_sapi.get("lokasi", [])[:6]:
-            lok = terjemahkan_istilah(loc.get('lokasi', '-'))
-            sal = terjemahkan_istilah(loc.get('saldo_sistem', '-'))
-            teks += f"  • {lok}: *{sal}*\n"
+    stok_hq_utama = []
+    stok_hq_pendamping = []
+    outlet_kritis = {}
 
+    for query_key, nama_tampilan, kategori in DAFTAR_BAHAN_PANTAU:
+        res = data_stok_map.get(query_key)
+        if not res or not isinstance(res, dict) or res.get("status") != "ok":
+            continue
+
+        daftar_lokasi = res.get("lokasi", [])
+
+        # 1. Cari Stok Gudang Pusat
+        saldo_hq = None
+        for loc in daftar_lokasi:
+            nama_lok = loc.get("lokasi", "")
+            if "GUDANG PUSAT" in nama_lok.upper() or "HQ" in nama_lok.upper():
+                saldo_hq = loc.get("saldo_sistem", "-")
+                break
+
+        if saldo_hq is None:
+            saldo_hq = "Tidak tercatat"
+
+        baris_hq = f"  • {nama_tampilan}: *{saldo_hq}*"
+        if kategori == "utama":
+            stok_hq_utama.append(baris_hq)
+        else:
+            stok_hq_pendamping.append(baris_hq)
+
+        # 2. Periksa stok tiap outlet cabang
+        for loc in daftar_lokasi:
+            nama_lok = loc.get("lokasi", "")
+            nama_upper = nama_lok.upper()
+
+            # Abaikan entitas non-outlet operasional
+            if any(skip in nama_upper for skip in ["GUDANG", "PUSAT", "KANTOR", "GLOBAL", "ONLINE", "TES", "TEST"]):
+                continue
+
+            saldo = loc.get("saldo_sistem", "")
+            kritis, ket = cek_stok_kritis(query_key, saldo)
+            if kritis:
+                if nama_lok not in outlet_kritis:
+                    outlet_kritis[nama_lok] = []
+                outlet_kritis[nama_lok].append((nama_tampilan, ket))
+
+    # Render Gudang Pusat
+    if stok_hq_utama:
+        teks += "*Bahan Inti (Kategori 1):*\n" + "\n".join(stok_hq_utama) + "\n\n"
+    if stok_hq_pendamping:
+        teks += "*Bahan Pendamping (Kategori 2):*\n" + "\n".join(stok_hq_pendamping) + "\n\n"
+
+    # Render Peringatan Outlet Kritis
+    teks += "━━━━━━━━━━━━━━━━━━━━━\n"
+    teks += "⚠️ *OUTLET KRITIS (PERLU RESTOCK / PESAN):*\n"
+    if outlet_kritis:
+        for outlet, items in sorted(outlet_kritis.items()):
+            teks += f"• *{outlet}:*\n"
+            for b_nama, b_saldo in items:
+                teks += f"  - {b_nama}: {b_saldo} ⚠️\n"
+    else:
+        teks += "✅ Seluruh outlet terpantau aman (tidak ada stok kritis).\n"
+
+    # Render Surat Jalan Logistik Terakhir
     sj_list = data_sj.get("daftar", []) if isinstance(data_sj, dict) else []
     if sj_list:
-        teks += "\n🚚 *Surat Jalan Pengiriman Terakhir:*\n"
-        for sj in sj_list[:4]:
-            outlet = terjemahkan_istilah(sj.get("outlet", "-"))
-            status = terjemahkan_istilah(sj.get("status", "-").upper())
+        teks += "\n━━━━━━━━━━━━━━━━━━━━━\n"
+        teks += "🚚 *Surat Jalan Pengiriman Terakhir:*\n"
+        for sj in sj_list[:5]:
+            outlet = sj.get("outlet", "-")
+            status_raw = str(sj.get("status", "-")).lower()
+            if status_raw == "dikirim":
+                status_label = "🟡 Sedang Dikirim"
+            elif status_raw == "diterima_lengkap":
+                status_label = "🟢 Diterima Lengkap"
+            elif status_raw == "diterima_sebagian":
+                status_label = "⚠️ Diterima Sebagian"
+            elif status_raw == "draft":
+                status_label = "⚪ Draft (Disiapkan)"
+            else:
+                status_label = f"ℹ️ {status_raw.capitalize()}"
             tgl = sj.get("tanggal", "-")
-            teks += f"  • [{status}] *{outlet}* ({tgl})\n"
+            teks += f"  • [{status_label}] *{outlet}* ({tgl})\n"
 
-    teks += "\n📍 _Catatan: Saldo sistem mencatat posisi opname terakhir._"
+    teks += "\n📍 _Catatan: Saldo berdasarkan sinkronisasi sistem dan opname terakhir._"
     return teks
 
 def cek_ping_supabase(supabase_url: str = None, api_key: str = None) -> tuple:
@@ -1059,10 +1229,22 @@ def _buat_pesan_laporan_raw(
             return f"📢 *STATUS MARCOM*\n\n⚠️ Gagal mengambil data marcom: {e}"
     elif jenis == "stok":
         try:
-            data_ayam = panggil_mcp_raw(mcp_url, mcp_key, "stok_bahan", {"bahan": "ayam"})
-            data_sapi = panggil_mcp_raw(mcp_url, mcp_key, "stok_bahan", {"bahan": "sapi"})
+            data_stok_map = {}
+            def _ambil_satu_bahan(item):
+                q_key, nama_label, kat = item
+                try:
+                    return q_key, panggil_mcp_raw(mcp_url, mcp_key, "stok_bahan", {"bahan": q_key})
+                except Exception as ex:
+                    return q_key, {"status": "error", "pesan": str(ex)}
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                futures = [executor.submit(_ambil_satu_bahan, it) for it in DAFTAR_BAHAN_PANTAU]
+                for fut in concurrent.futures.as_completed(futures):
+                    k, v = fut.result()
+                    data_stok_map[k] = v
+
             data_sj = panggil_mcp_raw(mcp_url, mcp_key, "stok_surat_jalan", {"limit": 5})
-            return format_stok(data_ayam, data_sapi, data_sj)
+            return format_stok(data_stok_map, data_sj)
         except Exception as e:
             return f"📦 *KONDISI STOK UTAMA & GUDANG*\n\n⚠️ Gagal mengambil data stok: {e}"
     elif jenis in ["alert-demo", "alert-check"]:

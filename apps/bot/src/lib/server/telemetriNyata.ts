@@ -1,11 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
 
+export interface OutletTelemetri {
+  id: string
+  nama: string
+  type: string
+  omzet: number
+  orderCount: number
+}
+
 export interface TelemetriHariIni {
   tanggalWIB: string
   omzetTotal: number
   totalOrder: number
   aov: number
-  outlets: Array<{ nama: string; omzet: number; orderCount: number }>
+  outlets: OutletTelemetri[]
+  outletsAktifTransaksi: OutletTelemetri[]
+  outletsNolTransaksi: OutletTelemetri[]
   topMenu: Array<{ nama: string; qty: number; omzet: number }>
   kehadiranTotal: number
   kehadiranTepatWaktu: number
@@ -52,12 +62,13 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       sb
         .from('outlets')
         .select('id, name, type, is_active')
-        .eq('is_active', true),
+        .eq('is_active', true)
+        .order('name'),
       sb
         .from('bahan_baku')
         .select('id, nama, satuan')
         .eq('is_active', true)
-        .limit(10),
+        .limit(12),
     ])
 
     const orders = resOrders.data || []
@@ -65,17 +76,25 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const omzetTotal = orders.reduce((acc, o: any) => acc + (Number(o.total_amount) || 0), 0)
     const aov = totalOrder > 0 ? Math.round(omzetTotal / totalOrder) : 0
 
-    // Outlet Breakdown
-    const perOutlet: Record<string, { omzet: number; orderCount: number }> = {}
+    // Outlet Breakdown - Gabungkan seluruh outlet aktif dengan data transaksi hari ini
+    const mapOmzet: Record<string, number> = {}
+    const mapCount: Record<string, number> = {}
     for (const o of orders as any[]) {
-      const nama = o.outlets?.name || 'Cabang Belum Terpetakan'
-      if (!perOutlet[nama]) perOutlet[nama] = { omzet: 0, orderCount: 0 }
-      perOutlet[nama].omzet += Number(o.total_amount) || 0
-      perOutlet[nama].orderCount += 1
+      const id = o.outlet_id
+      mapOmzet[id] = (mapOmzet[id] || 0) + (Number(o.total_amount) || 0)
+      mapCount[id] = (mapCount[id] || 0) + 1
     }
-    const sortedOutlets = Object.entries(perOutlet)
-      .map(([nama, val]) => ({ nama, ...val }))
-      .sort((a, b) => b.omzet - a.omzet)
+
+    const allOutlets: OutletTelemetri[] = (resOutlets.data || []).map((o: any) => ({
+      id: o.id,
+      nama: o.name,
+      type: o.type || 'internal',
+      omzet: mapOmzet[o.id] || 0,
+      orderCount: mapCount[o.id] || 0,
+    })).sort((a, b) => b.omzet - a.omzet)
+
+    const outletsAktifTransaksi = allOutlets.filter((o) => o.orderCount > 0)
+    const outletsNolTransaksi = allOutlets.filter((o) => o.orderCount === 0)
 
     // Top Menu
     const items = resItems.data || []
@@ -89,7 +108,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const sortedMenu = Object.entries(perMenu)
       .map(([nama, val]) => ({ nama, ...val }))
       .sort((a, b) => b.qty - a.qty)
-      .slice(0, 5)
+      .slice(0, 8)
 
     // Kehadiran / HRD
     const att = resAtt.data || []
@@ -98,7 +117,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const kehadiranTepatWaktu = kehadiranTotal - kehadiranTelat
     const persenOnTime = kehadiranTotal > 0 ? Math.round((kehadiranTepatWaktu / kehadiranTotal) * 100) : 100
 
-    const totalOutletAktif = resOutlets.data?.length || 0
+    const totalOutletAktif = allOutlets.length
     const bahanBaku = (resBahan.data || []).map((b: any) => ({ nama: b.nama, satuan: b.satuan }))
 
     return {
@@ -106,7 +125,9 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       omzetTotal,
       totalOrder,
       aov,
-      outlets: sortedOutlets,
+      outlets: allOutlets,
+      outletsAktifTransaksi,
+      outletsNolTransaksi,
       topMenu: sortedMenu,
       kehadiranTotal,
       kehadiranTepatWaktu,

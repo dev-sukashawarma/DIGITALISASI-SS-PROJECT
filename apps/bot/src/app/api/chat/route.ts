@@ -8,6 +8,7 @@ import {
 } from '@/lib/server/percakapan'
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
 import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
+import { tanyaAiRouter } from '@/lib/server/aiRouter'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 150
@@ -59,12 +60,36 @@ export async function POST(req: Request) {
         if (!baseUrl || !kunci) {
           if (process.env.NODE_ENV === 'development') {
             const telemetri = await ambilTelemetriNyata()
-            const devChunks = buatJawabanDev(v.pesan, pc.profil, telemetri)
-            for (const chunk of devChunks) {
-              jawaban += chunk
-              c.enqueue(enc.encode(chunk))
-              await new Promise((r) => setTimeout(r, 35))
+
+            // Jika AI Router tersedia (9Router di .env.local), gunakan LLM dinamis dengan konteks telemetri live
+            let suksesAi = false
+            if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
+              try {
+                for await (const t of tanyaAiRouter({
+                  pesan: v.pesan,
+                  profil: pc.profil,
+                  telemetri,
+                  signal: req.signal,
+                })) {
+                  jawaban += t
+                  c.enqueue(enc.encode(t))
+                  suksesAi = true
+                }
+              } catch (aiErr) {
+                console.warn('[bot] AI Router gagal, fallback ke template telemetri:', aiErr)
+              }
             }
+
+            // Fallback ke generator telemetri terstruktur jika AI Router belum siap atau gagal
+            if (!suksesAi || !jawaban.trim()) {
+              const devChunks = buatJawabanDev(v.pesan, pc.profil, telemetri)
+              for (const chunk of devChunks) {
+                jawaban += chunk
+                c.enqueue(enc.encode(chunk))
+                await new Promise((r) => setTimeout(r, 25))
+              }
+            }
+
             await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
             return
           }

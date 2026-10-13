@@ -8,8 +8,16 @@ const mockTelemetri: TelemetriHariIni = {
   totalOrder: 34,
   aov: 81970,
   outlets: [
-    { nama: 'SUKA SHAWARMA CIMANGGU', omzet: 1292000, orderCount: 8 },
-    { nama: 'SUKA SHAWARMA BNR', omzet: 710000, orderCount: 8 },
+    { id: '1', nama: 'SUKA SHAWARMA CIMANGGU', type: 'internal', omzet: 1292000, orderCount: 8 },
+    { id: '2', nama: 'SUKA SHAWARMA BNR', type: 'internal', omzet: 710000, orderCount: 8 },
+    { id: '3', nama: 'GUDANG PUSAT (HQ)', type: 'office', omzet: 0, orderCount: 0 },
+  ],
+  outletsAktifTransaksi: [
+    { id: '1', nama: 'SUKA SHAWARMA CIMANGGU', type: 'internal', omzet: 1292000, orderCount: 8 },
+    { id: '2', nama: 'SUKA SHAWARMA BNR', type: 'internal', omzet: 710000, orderCount: 8 },
+  ],
+  outletsNolTransaksi: [
+    { id: '3', nama: 'GUDANG PUSAT (HQ)', type: 'office', omzet: 0, orderCount: 0 },
   ],
   topMenu: [
     { nama: 'Original Ayam Jumbo', qty: 23, omzet: 1012000 },
@@ -27,6 +35,15 @@ const mockTelemetri: TelemetriHariIni = {
 }
 
 describe('buatJawabanDev', () => {
+  it('menghasilkan direktori semua cabang ketika user bertanya tampilkan semua outlet', () => {
+    const chunks = buatJawabanDev('tampilkan semua outlet', 'ceo', mockTelemetri)
+    const full = chunks.join('')
+    expect(full).toContain('NETWORK TELEMETRY DIRECTIVE')
+    expect(full).toContain('SUKA SHAWARMA CIMANGGU')
+    expect(full).toContain('SUKA SHAWARMA BNR')
+    expect(full).toContain('GUDANG PUSAT (HQ)')
+  })
+
   it('menghasilkan telemetri penjualan nyata ketika user bertanya omzet', () => {
     const chunks = buatJawabanDev('bagaimana omzet hari ini?', 'ceo', mockTelemetri)
     const full = chunks.join('')

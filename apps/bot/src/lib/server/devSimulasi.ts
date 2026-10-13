@@ -10,7 +10,54 @@ export function buatJawabanDev(
 ): string[] {
   const p = (pesanUser || '').toLowerCase().trim()
 
-  // 1. Telemetri Penjualan & Omzet
+  // 1. Telemetri Semua Outlet & Peringkat Cabang
+  if (
+    p.includes('outlet') ||
+    p.includes('cabang') ||
+    p.includes('toko') ||
+    p.includes('peringkat') ||
+    p.includes('ranking')
+  ) {
+    if (!t) {
+      return [
+        'Salam, Sir. Menghubungi database cabang Suka Shawarma...\n\n',
+        '> [!WARNING]\n',
+        '> Data cabang real-time belum dapat diambil dari database.\n',
+      ]
+    }
+
+    const aktifLines =
+      t.outletsAktifTransaksi.length > 0
+        ? t.outletsAktifTransaksi
+            .map((o, idx) => {
+              const badge = idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`
+              const tipe = o.type === 'mitra' ? 'Mitra' : 'Internal'
+              const aov = o.orderCount > 0 ? Math.round(o.omzet / o.orderCount) : 0
+              return `${badge} **${o.nama}** [${tipe}]\n   - Omzet: **${formatRupiah(o.omzet)}** (${o.orderCount} order, AOV ${formatRupiah(aov)})`
+            })
+            .join('\n')
+        : '   *(Belum ada cabang yang mencatat transaksi hari ini)*'
+
+    const nolLines =
+      t.outletsNolTransaksi.length > 0
+        ? t.outletsNolTransaksi.map((o) => `- **${o.nama}** *(${o.type})*`).join('\n')
+        : '   *(Semua cabang sudah membukukan transaksi)*'
+
+    return [
+      `Salam, Sir. Menampilkan direktori telemetri seluruh cabang Suka Shawarma per tanggal **${t.tanggalWIB}**:\n\n`,
+      '> [!NOTE]\n',
+      `> **NETWORK TELEMETRY DIRECTIVE**: **${t.outletsAktifTransaksi.length}** dari **${t.totalOutletAktif}** cabang telah membukukan transaksi hari ini (Total Omzet: **${formatRupiah(t.omzetTotal)}**).\n\n`,
+      `### 🟢 Peringkat Cabang Berpenjualan Hari Ini (${t.outletsAktifTransaksi.length} Outlet)\n`,
+      `${aktifLines}\n\n`,
+      `### 🟡 Cabang / Unit Belum Ada Order Hari Ini (${t.outletsNolTransaksi.length} Unit)\n`,
+      `${nolLines}\n\n`,
+      `- **Total Akumulasi Order**: ${t.totalOrder} transaksi\n`,
+      `- **Rata-rata Order Network**: ${formatRupiah(t.aov)} / transaksi\n\n`,
+      'Data radar POS terhubung real-time ke seluruh node kasir cabang, Sir.',
+    ]
+  }
+
+  // 2. Telemetri Penjualan & Omzet
   if (
     p.includes('omzet') ||
     p.includes('omset') ||
@@ -62,7 +109,7 @@ export function buatJawabanDev(
     ]
   }
 
-  // 2. Telemetri Stok & Gudang (Bahan Baku)
+  // 3. Telemetri Stok & Gudang (Bahan Baku)
   if (
     p.includes('stok') ||
     p.includes('gudang') ||
@@ -92,7 +139,7 @@ export function buatJawabanDev(
     ]
   }
 
-  // 3. Telemetri HRD & Kehadiran Kru
+  // 4. Telemetri HRD & Kehadiran Kru
   if (
     p.includes('hrd') ||
     p.includes('absen') ||
@@ -120,7 +167,7 @@ export function buatJawabanDev(
     ]
   }
 
-  // 4. Telemetri Finance & Keuangan
+  // 5. Telemetri Finance & Keuangan
   if (
     p.includes('finance') ||
     p.includes('opex') ||
@@ -146,7 +193,7 @@ export function buatJawabanDev(
     ]
   }
 
-  // 5. Status Keseluruhan / Laporan / Sistem
+  // 6. Status Keseluruhan / Laporan / Sistem
   if (
     p.includes('status') ||
     p.includes('lapor') ||
@@ -176,14 +223,15 @@ export function buatJawabanDev(
     ]
   }
 
-  // 6. Default / Sapaan Umum
+  // 7. Default / Sapaan Umum
   return [
     'Salam, Sir. J.A.R.V.I.S. Tactical Command Centre online dan terhubung ke database live Suka Shawarma.\n\n',
     '> [!NOTE]\n',
     `> **LIVE DATA STREAM ACTIVE**: Terhubung langsung ke database produksi (${t?.totalOutletAktif ?? 28} outlet aktif).\n\n`,
     `Instruksi Anda: *"${pesanUser}"* berhasil diterima oleh Command HUD.\n\n`,
     'Anda dapat memberikan arahan operasional langsung seperti:\n',
-    '- **"Omzet hari ini"** untuk melihat omzet real-time dan peringkat outlet yang sedang buka\n',
+    '- **"Tampilkan semua outlet"** untuk melihat daftar peringkat seluruh 28 cabang\n',
+    '- **"Omzet hari ini"** untuk telemetri penjualan dan menu terlaris\n',
     '- **"Status report menyeluruh"** untuk pemindaian diagnostik lengkap semua cabang\n',
     '- **"Cek stok gudang"** untuk katalog bahan baku operasional\n',
     '- **"Monitoring absensi kru"** untuk log presensi shift hari ini\n',

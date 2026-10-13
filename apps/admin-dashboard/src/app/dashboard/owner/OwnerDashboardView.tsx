@@ -60,6 +60,8 @@ interface OwnerDashboardViewProps {
   prevCogsOpex?: number
   curWaste?: number
   prevWaste?: number
+  curMarginMitra?: number
+  prevMarginMitra?: number
   opexAcuanLabaRugi?: boolean
   pembandingLabaSepadan?: boolean
   cogsBreakdown?: { cogs: number; opex: number }
@@ -100,6 +102,8 @@ export default function OwnerDashboardView({
   prevCogsOpex,
   curWaste,
   prevWaste,
+  curMarginMitra,
+  prevMarginMitra,
   opexAcuanLabaRugi,
   pembandingLabaSepadan,
   cogsBreakdown,
@@ -210,6 +214,8 @@ export default function OwnerDashboardView({
             prevCogsOpex={prevCogsOpex}
             curWaste={curWaste}
             prevWaste={prevWaste}
+            curMarginMitra={curMarginMitra}
+            prevMarginMitra={prevMarginMitra}
             opexAcuanLabaRugi={opexAcuanLabaRugi}
             pembandingLabaSepadan={pembandingLabaSepadan}
             cogsBreakdown={cogsBreakdown}

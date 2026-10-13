@@ -130,6 +130,12 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const prevOpex = curAcuan ? (prevAcuan?.opex ?? 0) : prevData.totalOpex
   const curWaste = curAcuan?.waste ?? 0
   const prevWaste = curAcuan ? (prevAcuan?.waste ?? 0) : 0
+  // Margin pasokan bahan mitra: Laba Rugi Global mengakuinya sebagai pendapatan
+  // pusat (HPP mitra di kartu COGS sudah ber-markup 10%). Hanya saat semua
+  // outlet digabung — di situ kedua kantongnya sama-sama ada di layar.
+  const akuiMargin = Boolean(curAcuan) && filter.outletId === 'all'
+  const curMarginMitra = akuiMargin ? Number((curData as any).totalMitraMarkup || 0) : 0
+  const prevMarginMitra = akuiMargin ? Number((prevData as any).totalMitraMarkup || 0) : 0
 
   const buyOneGetOne = curData.buyOneGetOne || { transactions: 0, giftUnits: 0 }
   // menu_rows sudah include dalam respons RPC masing-masing periode
@@ -161,6 +167,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       prevCogsOpex={prevData.totalCogs + prevOpex}
       curWaste={curWaste}
       prevWaste={prevWaste}
+      curMarginMitra={curMarginMitra}
+      prevMarginMitra={prevMarginMitra}
       opexAcuanLabaRugi={Boolean(curAcuan)}
       pembandingLabaSepadan={pembandingSepadan}
       cogsBreakdown={{ cogs: curData.totalCogs, opex: curOpex }}

@@ -341,6 +341,7 @@ function mergeSummaryResult(a: any, b: any) {
       ['qty', 'revenue']
     ),
     total_cogs:        Number(a.total_cogs ?? 0)        + Number(b.total_cogs ?? 0),
+    total_mitra_markup: Number(a.total_mitra_markup ?? 0) + Number(b.total_mitra_markup ?? 0),
     total_opex:        Number(a.total_opex ?? 0)        + Number(b.total_opex ?? 0),
     bogo_transactions: Number(a.bogo_transactions ?? 0) + Number(b.bogo_transactions ?? 0),
     bogo_gift_units:   Number(a.bogo_gift_units ?? 0)   + Number(b.bogo_gift_units ?? 0),
@@ -474,7 +475,7 @@ export async function getOwnerDashboardDataFast(
     const { fromIso, toIso } = jakartaRangeIso(chunk.from, chunk.to)
     return unstable_cache(
       () => fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source),
-      ['owner-dashboard-chunk-v7', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, daysGeneration(chunk.dates)],
+      ['owner-dashboard-chunk-v8', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, daysGeneration(chunk.dates)],
       {
         revalidate: 3600,
         tags: ['owner-dashboard', ...chunk.dates.map(ownerDashboardDayTag)],
@@ -585,6 +586,8 @@ export async function getOwnerDashboardDataFast(
     totalCogs,
     totalOpex,
     totalCogsOpex: totalCogs + totalOpex,
+    // Margin pasokan bahan mitra (HPP ditagihkan - HPP dasar); nol untuk SS Online.
+    totalMitraMarkup: Number(result?.total_mitra_markup ?? 0),
     buyOneGetOne: {
       transactions: Number(result?.bogo_transactions ?? 0),
       giftUnits: Number(result?.bogo_gift_units ?? 0)

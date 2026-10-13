@@ -21,6 +21,9 @@ interface KpiCardsProps {
   /** Nilai waste disetujui — mengurangi laba bersih, sama seperti Laba Rugi. */
   curWaste?: number
   prevWaste?: number
+  /** Margin pasokan bahan mitra — menambah laba bersih, sama seperti Laba Rugi Global. */
+  curMarginMitra?: number
+  prevMarginMitra?: number
   /** OPEX dihitung dengan rumus Laba Rugi / Buku Kas (termasuk gaji & bonus HR). */
   opexAcuanLabaRugi?: boolean
   /** false = periode pembanding memakai rumus lain → ▲▼% OPEX & Laba disembunyikan. */
@@ -42,6 +45,8 @@ export function KpiCards({
   prevCogsOpex = 0,
   curWaste = 0,
   prevWaste = 0,
+  curMarginMitra = 0,
+  prevMarginMitra = 0,
   opexAcuanLabaRugi = false,
   pembandingLabaSepadan = true,
   cogsBreakdown,
@@ -74,8 +79,8 @@ export function KpiCards({
   const prevTotalPcs = (prevMenuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
 
   // Deltas: Laba Bersih (Net) = Omzet Kotor - Potongan - (COGS + OPEX)
-  const netProfit = (grossRevenue - totalDeductions) - totalCurCogsOpex - curWaste
-  const prevNetProfit = (prevGrossRevenue - prevTotalDeductions) - totalPrevCogsOpex - prevWaste
+  const netProfit = (grossRevenue - totalDeductions) - totalCurCogsOpex - curWaste + curMarginMitra
+  const prevNetProfit = (prevGrossRevenue - prevTotalDeductions) - totalPrevCogsOpex - prevWaste + prevMarginMitra
 
   const dGross = deltaPct(grossRevenue, prevGrossRevenue)
   const dCogs = prevCogs > 0 ? deltaPct(curCogs, prevCogs) : null
@@ -157,7 +162,7 @@ export function KpiCards({
       delta: dNet,
       icon: TrendingUp,
       color: netProfit >= 0 ? '#0a7d2c' : '#ef4444',
-      subtext: opexAcuanLabaRugi ? 'Omzet kotor - potongan - (COGS+OPEX) - waste' : 'Omzet kotor - potongan - (COGS+OPEX)',
+      subtext: opexAcuanLabaRugi ? (curMarginMitra > 0 ? 'Sama dengan Laba Rugi Global (termasuk waste & margin bahan mitra)' : 'Omzet kotor - potongan - (COGS+OPEX) - waste') : 'Omzet kotor - potongan - (COGS+OPEX)',
     },
   ]
 

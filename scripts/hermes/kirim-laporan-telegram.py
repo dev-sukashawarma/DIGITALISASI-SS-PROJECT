@@ -592,6 +592,7 @@ def format_sales_malam(data_raw: dict) -> str:
 
 def format_absensi_kantor(data_papan: dict) -> str:
     pukul = data_papan.get("diambil_pukul_wib", "08.30 WIB")
+    pukul_teks = pukul.replace(".", ":")
     total = data_papan.get("total", {})
     outlets = data_papan.get("outlet", [])
 
@@ -599,43 +600,176 @@ def format_absensi_kantor(data_papan: dict) -> str:
     telat = total.get("telat", 0)
     toleransi = total.get("telat_toleransi", 0)
     belum = total.get("belum", 0)
+    alpa = total.get("alpa", 0)
     cuti = total.get("cuti", 0)
+    total_staf = total.get("staf", hadir + telat + toleransi + belum + alpa + cuti)
+
+    persen_hadir = round(((hadir + telat + toleransi) / total_staf) * 100, 1) if total_staf > 0 else 100
+
+    wib_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7)))
+    tgl_teks = wib_now.strftime("%a, %d %b %Y")
 
     teks = (
         "🏢 *PRESENSI STAF KANTOR PUSAT*\n"
-        f"🕒 *Waktu:* {pukul}\n"
+        f"🕒 *Pukul {pukul_teks} · {tgl_teks}*\n"
         "━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "👥 *Ringkasan Kehadiran:*\n"
-        f"• Hadir Tepat Waktu: *{hadir}*\n"
-        f"• Telat: *{telat}*\n"
-        f"• Telat Toleransi: *{toleransi}*\n"
-        f"• Belum Hadir: *{belum}*\n"
-        f"• Cuti / Izin / Sakit: *{cuti}*\n\n"
+        "📊 *Ringkasan Kehadiran:*\n"
+        f"• *Tingkat Kehadiran:* `{persen_hadir}%` ({hadir + telat + toleransi}/{total_staf} staf)\n"
+        f"• *Hadir Tepat Waktu:* *{hadir}* orang\n"
+        f"• *Terlambat (Toleransi):* *{toleransi}* orang\n"
+    )
+    if telat > 0:
+        teks += f"• *Terlambat (di Luar Toleransi):* *{telat}* orang ⚠️\n"
+    teks += (
+        f"• *Belum Hadir:* *{belum}* orang\n"
+        f"• *Alpa:* *{alpa}* orang\n"
+        f"• *Cuti / Izin / Sakit:* *{cuti}* orang\n\n"
     )
 
-    staf_list = []
-    for o in outlets:
-        staf_list.extend(o.get("staf", []))
+    telat_list = []
+    toleransi_list = []
+    belum_list = []
+    alpa_list = []
+    cuti_list = []
 
-    if staf_list:
-        teks += "📋 *Rincian Staf:*\n"
-        for s in staf_list:
+    for o in outlets:
+        telat_list.extend(o.get("telat", []))
+        toleransi_list.extend(o.get("telat_toleransi", []))
+        belum_list.extend(o.get("belum_hadir", []))
+        alpa_list.extend(o.get("alpa", []))
+        cuti_list.extend(o.get("cuti", []))
+
+    if telat_list:
+        teks += "🚨 *Terlambat di Luar Toleransi:*\n"
+        for idx, s in enumerate(telat_list, 1):
             nama = s.get("nama", "Staf")
-            state = s.get("state", "-")
-            jam = s.get("jam", "-")
-            if state == "masuk":
-                teks += f"  • ✅ *{nama}* — Masuk {jam} WIB\n"
-            elif state == "telat":
-                mnt = s.get("menitTelat", 0)
-                teks += f"  • ⚠️ *{nama}* — Masuk {jam} WIB (Telat {mnt} mnt)\n"
-            elif state == "telat_toleransi":
-                mnt = s.get("menitTelat", 0)
-                teks += f"  • 🟡 *{nama}* — Masuk {jam} WIB (Toleransi {mnt} mnt)\n"
-            elif state == "cuti":
-                ket = s.get("keterangan", "Izin/Sakit")
-                teks += f"  • 🏖️ *{nama}* — {ket}\n"
-            elif state == "belum":
-                teks += f"  • ⏳ *{nama}* — Belum Hadir\n"
+            mnt = s.get("menit", 0)
+            jam = str(s.get("jam", "-")).replace(".", ":")
+            teks += f"  {idx}. *{nama}* — Telat {mnt} mnt (Masuk {jam} WIB) ⚠️\n"
+        teks += "\n"
+
+    if toleransi_list:
+        teks += "🟡 *Terlambat (Batas Toleransi):*\n"
+        for idx, s in enumerate(toleransi_list, 1):
+            nama = s.get("nama", "Staf")
+            mnt = s.get("menit", 0)
+            jam = str(s.get("jam", "-")).replace(".", ":")
+            teks += f"  {idx}. *{nama}* — {mnt} mnt (Masuk {jam} WIB)\n"
+        teks += "\n"
+
+    if belum_list:
+        teks += f"⏳ *Belum Hadir:* {', '.join(belum_list)}\n\n"
+
+    if alpa_list:
+        teks += f"❌ *Alpa:* {', '.join(alpa_list)}\n\n"
+
+    if cuti_list:
+        teks += "🏖️ *Cuti / Izin / Sakit:*\n"
+        for c in cuti_list:
+            nama = c.get("nama", "Staf")
+            ket = c.get("keterangan", "Cuti")
+            teks += f"  • *{nama}*: {ket}\n"
+        teks += "\n"
+
+    if not telat_list and not toleransi_list and not belum_list and not alpa_list and not cuti_list:
+        teks += "✅ *Seluruh staf kantor hadir tepat waktu.*\n\n"
+
+    teks += "📍 _Sumber: Papan Kehadiran (App Absensi)._"
+    return teks
+
+def format_absensi_outlet(data_raw: dict) -> str:
+    """Format Laporan Presensi Kru Operasional Outlet (14:00 WIB)."""
+    data = data_raw.get("data")
+    if not data or not isinstance(data, dict):
+        return data_raw.get("teks", "")
+
+    tgl_raw = data.get("tanggal", "")
+    tgl_teks = format_hari_tanggal(tgl_raw) if tgl_raw else "Hari Ini"
+    jam_wib = str(data.get("jamWib", "14:00 WIB")).replace(".", ":")
+
+    total = data.get("total", {})
+    daftar_telat_raw = data.get("daftarTelat", [])
+    daftar_cuti_raw = data.get("daftarCuti", [])
+
+    # Filter KANTOR PUSAT dan HQ dari laporan operasional kru outlet
+    daftar_telat = [
+        t for t in daftar_telat_raw 
+        if not any(skip in str(t.get("outlet", "")).upper() for skip in ["KANTOR PUSAT", "HQ"])
+    ]
+    daftar_cuti = [
+        c for c in daftar_cuti_raw 
+        if not any(skip in str(c.get("outlet", "")).upper() for skip in ["KANTOR PUSAT", "HQ"])
+    ]
+
+    total_staf = total.get("staf", 0)
+    alpa = total.get("alpa", 0)
+    cuti = total.get("cuti", len(daftar_cuti))
+    belum = total.get("belum", 0)
+
+    telat_kritis = [t for t in daftar_telat if t.get("menit", 0) > 15]
+    telat_toleransi = [t for t in daftar_telat if t.get("menit", 0) <= 15]
+    total_telat = len(daftar_telat)
+
+    hadir_tepat = max(0, total.get("hadir", 0) - total_telat)
+    total_hadir = hadir_tepat + total_telat
+    persen_hadir = round((total_hadir / total_staf) * 100, 1) if total_staf > 0 else 0
+
+    badge_hadir = "🟢 Baik" if persen_hadir >= 90 else ("🟡 Perlu Perhatian" if persen_hadir >= 70 else "🔴 Kritis")
+
+    teks = (
+        "🛵 *PRESENSI KRU OPERASIONAL OUTLET*\n"
+        f"🕒 *Pukul {jam_wib} · {tgl_teks}*\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "📊 *Ringkasan Kehadiran:*\n"
+        f"• *Tingkat Kehadiran:* `{persen_hadir}%` ({total_hadir}/{total_staf} kru) [{badge_hadir}]\n"
+        f"• *Hadir Tepat Waktu:* *{hadir_tepat}* orang\n"
+        f"• *Terlambat:* *{total_telat}* orang ({len(telat_kritis)} kritis, {len(telat_toleransi)} toleransi)\n"
+        f"• *Alpa:* *{alpa}* orang ⚠️\n"
+        f"• *Izin / Cuti / Sakit:* *{cuti}* orang\n"
+        f"• *Belum Hadir:* *{belum}* orang\n\n"
+    )
+
+    if telat_kritis:
+        teks += "🚨 *Keterlambatan Kritis (> 15 mnt):*\n"
+        for idx, t in enumerate(telat_kritis[:10], 1):
+            nama = t.get("nama", "Kru")
+            outlet = t.get("outlet", "-")
+            mnt = t.get("menit", 0)
+            jam = str(t.get("jam", "")).replace(".", ":")
+            jam_str = f" [Masuk {jam} WIB]" if jam else ""
+            teks += f"  {idx}. *{nama}* ({outlet}) — {mnt} mnt{jam_str} ⚠️\n"
+        if len(telat_kritis) > 10:
+            teks += f"  ... dan {len(telat_kritis) - 10} kru lainnya.\n"
+        teks += "\n"
+
+    if telat_toleransi:
+        teks += "🟡 *Dalam Batas Toleransi (≤ 15 mnt):*\n"
+        for t in telat_toleransi[:8]:
+            nama = t.get("nama", "Kru")
+            outlet = t.get("outlet", "-")
+            mnt = t.get("menit", 0)
+            jam = str(t.get("jam", "")).replace(".", ":")
+            jam_str = f" [Masuk {jam} WIB]" if jam else ""
+            teks += f"  • {nama} ({outlet}) — {mnt} mnt{jam_str}\n"
+        if len(telat_toleransi) > 8:
+            teks += f"  ... dan {len(telat_toleransi) - 8} kru lainnya.\n"
+        teks += "\n"
+
+    if not telat_kritis and not telat_toleransi:
+        teks += "✅ *Seluruh kru hadir tepat waktu.*\n\n"
+
+    if daftar_cuti:
+        teks += "🏖️ *Kru Izin / Cuti / Sakit:*\n"
+        for c in daftar_cuti[:6]:
+            nama = c.get("nama", "Kru")
+            outlet = c.get("outlet", "-")
+            ket = c.get("keterangan", "Izin/Cuti")
+            teks += f"  • *{nama}* ({outlet}): {ket}\n"
+        if len(daftar_cuti) > 6:
+            teks += f"  ... dan {len(daftar_cuti) - 6} kru lainnya.\n"
+        teks += "\n"
+
+    teks += "📍 _Sumber: Papan Kehadiran (App Absensi)._"
     return teks
 
 def format_marcom(data_endorse: dict, data_budget: dict) -> str:
@@ -986,11 +1120,11 @@ def format_watchdog(data_sistem: dict = None, konfig: dict = None) -> str:
         f"• *CPU Load:* `{cpu_str}`\n"
         f"• *RAM:* `{format_angka(mem_used_mb)} MB` / `{format_angka(mem_total_mb)} MB` (*{mem_pct}%*)\n"
         f"• *Disk:* `{disk_free_gb} GB bebas` / `{disk_total_gb} GB` (*{disk_pct}% terpakai*)\n"
-        f"• *Uptime:* `{uptime_str}`\n"
-        "• *Gateway Hermes:* `AKTIF`\n\n"
+        f"• *Uptime:* `{uptime_str}`\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
         "🗄️ *Monitoring Database (Supabase PostgreSQL)*\n"
         f"• *Status:* {db_status_icon} `{db_status_text}`\n"
-        f"• *Latensi Query:* `{db_lat_val} ms ({lat_label})`\n"
+        f"• *Latensi Query:* `{format_angka(db_lat_val)} ms ({lat_label})`\n"
         "• *Koneksi Pooler:* `Optimal`\n"
         "• *Sinkron Transaksi:* `Real-time Aktif`\n"
     )
@@ -1006,8 +1140,6 @@ def format_watchdog(data_sistem: dict = None, konfig: dict = None) -> str:
             "stok": "Modul Stok & Gudang",
             "absensi": "Modul Presensi Kru",
             "distribusi": "Modul Distribusi",
-            "cpanel-server": "Server cPanel",
-            "owner-dashboard": "Dashboard Owner",
         }
         status_map = {
             "up": "AKTIF",
@@ -1015,22 +1147,37 @@ def format_watchdog(data_sistem: dict = None, konfig: dict = None) -> str:
             "down": "TERPUTUS",
             "unconfigured": "BELUM DIATUR",
         }
-        for item in layanan_list:
+        urutan_prioritas = {
+            "supabase-db": 1,
+            "pos-kasir": 2,
+            "stok": 3,
+            "distribusi": 4,
+            "absensi": 5,
+        }
+        # Saring cPanel dan Dashboard Owner sesuai instruksi Bos
+        item_terpilih = [
+            it for it in layanan_list 
+            if str(it.get("target", "")).lower() not in ["cpanel-server", "owner-dashboard"]
+        ]
+        item_terpilih.sort(key=lambda x: urutan_prioritas.get(str(x.get("target", "")).lower(), 99))
+
+        for item in item_terpilih:
             t_name = str(item.get("target", "")).lower()
             label = nama_map.get(t_name, str(item.get("target", "")).upper())
             st = str(item.get("status", "up")).lower()
             st_teks = status_map.get(st, st.upper())
             icon = "🟢" if st == "up" else "🟡" if st == "degraded" else "🔴"
             lat = item.get("latensi_ms")
-            lat_str = f" ({lat} ms)" if lat else ""
+            lat_str = f" ({format_angka(lat)} ms)" if lat else ""
             teks += f"  - {label}: {icon} `{st_teks}`{lat_str}\n"
     else:
-        teks += f"  - Supabase DB Core: 🟢 `AKTIF` ({db_lat_val} ms)\n"
+        teks += f"  - Supabase DB Core: 🟢 `AKTIF` ({format_angka(db_lat_val)} ms)\n"
         teks += "  - Modul POS Kasir: 🟢 `AKTIF`\n"
         teks += "  - Modul Stok & Gudang: 🟢 `AKTIF`\n"
+        teks += "  - Modul Distribusi: 🟢 `AKTIF`\n"
         teks += "  - Modul Presensi Kru: 🟢 `AKTIF`\n"
 
-    teks += "\nStatus: _Semua layanan server dan database beroperasi normal._"
+    teks += "\n✅ *Status:* _Semua layanan server dan database beroperasi normal._"
     return teks
 
 def jalankan_alert_check(konfig: dict, dry_run: bool = False, chat_id_override: str = None, token_override: str = None, skip_owner: bool = False) -> None:
@@ -1217,7 +1364,7 @@ def _buat_pesan_laporan_raw(
         arg = {"tanggal": tanggal} if tanggal else {}
         try:
             data = panggil_mcp_raw(mcp_url, mcp_key, "laporan_absensi_harian", arg)
-            return data.get("teks", "")
+            return format_absensi_outlet(data)
         except Exception as e:
             return f"🛵 *PRESENSI KRU OPERASIONAL OUTLET*\n\n⚠️ Sedang sinkronisasi data absensi: {e}"
     elif jenis == "marcom":

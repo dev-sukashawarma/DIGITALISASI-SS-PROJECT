@@ -185,7 +185,8 @@ async function laporanAbsensiHarian(ctx: KonteksHermes, a: { tanggal?: string })
   const daftarTelat: Array<{ nama: string; outlet: string; menit: number; jam?: string }> = []
   const daftarCuti: Array<{ nama: string; outlet: string; keterangan: string }> = []
 
-  for (const o of dataHariIni.outlet || []) {
+  const outletsKru = (dataHariIni.outlet || []).filter((o: any) => !/kantor\s*pusat|hq/i.test(o.outlet))
+  for (const o of outletsKru) {
     for (const t of o.telat || []) {
       daftarTelat.push({ nama: t.nama, outlet: o.outlet, menit: t.menit, jam: t.jam })
     }

@@ -8,6 +8,8 @@ import { getAllPlatformSettlementSummaries } from '@/app/actions/platformSettlem
 import { reconcileSalesRowsWithSettlements } from './settlementReconciliation'
 import { calculateProratedExpenses, getJakartaCurrentMonthInfo } from '@/lib/opexProrata'
 import { susunBarisGajiKantor, gabungGajiKantor } from '@/lib/gajiKantorPusat'
+import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
+import { getHRPayrollSummaryAction } from '@/app/actions/hrPayroll'
 import { computeCompanyProfit } from '@/lib/profit'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { isInScope, mitraOutletIds, type ProfitScope } from '@/lib/outletOwnership'
@@ -200,7 +202,15 @@ export async function fetchProfitExportData({
   })
   // Gaji staf kantor pusat (HR) sebagai biaya pusat — sama dengan layar Laba Rugi.
   // Baris pusat disaring per scope di bawah (tidak ikut di scope mitra).
-  const expenseRows = gabungGajiKantor(prorataResult.rows, susunBarisGajiKantor({
+  // Gaji & bonus outlet dari ringkasan payroll HR (sumber Buku Kas) — sama dengan layar.
+  let hrRingkasan: Awaited<ReturnType<typeof getHRPayrollSummaryAction>> | null = null
+  try {
+    hrRingkasan = await getHRPayrollSummaryAction({ from, to, outletId: 'ALL_OUTLETS' })
+  } catch (err) {
+    console.warn('Gagal memuat ringkasan payroll HR di profitExportFetcher:', err)
+  }
+  const barisEngineDanHr = gantiPayrollDenganHr(prorataResult.rows, barisPayrollDariHr({ hr: hrRingkasan, from, to }))
+  const expenseRows = gabungGajiKantor(barisEngineDanHr, susunBarisGajiKantor({
     from,
     to,
     officePayrollRecords: auxData.officePayrollRecords || [],

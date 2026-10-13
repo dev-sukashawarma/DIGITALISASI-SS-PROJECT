@@ -126,8 +126,10 @@ function CustomDateRangePopover({
 }
 
 
+const DEFAULT_PRESETS: Preset[] = ['yesterday', 'today', 'last_month', 'this_month']
+
 export function PeriodFilter({
-  value, onChange, outlets, lockedOutletId, hideSource, hideOutlet, isLoading
+  value, onChange, outlets, lockedOutletId, hideSource, hideOutlet, isLoading, presets = DEFAULT_PRESETS
 }: {
   value: PeriodFilterValue
   onChange: (v: PeriodFilterValue) => void
@@ -138,6 +140,8 @@ export function PeriodFilter({
    *  punya satu arti, mis. Laba Rugi Global yang selalu seluruh outlet. */
   hideOutlet?: boolean
   isLoading?: boolean
+  /** Tombol preset yang ditampilkan, berurutan. Default = empat tombol lama. */
+  presets?: Preset[]
 }) {
   const [pendingPreset, setPendingPreset] = useState<Preset | null>(null)
 
@@ -166,6 +170,11 @@ export function PeriodFilter({
     const pThisMonth = presetRange('this_month')
     if (value.from === pThisMonth.from && value.to === pThisMonth.to) return 'this_month'
 
+    if (presets.includes('7d')) {
+      const p7 = presetRange('7d')
+      if (value.from === p7.from && value.to === p7.to) return '7d'
+    }
+
     return null
   }
 
@@ -174,11 +183,10 @@ export function PeriodFilter({
   return (
     <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap gap-2 sm:gap-2.5 sm:items-center w-full 2xl:w-auto justify-end">
       <div className="bg-white/60 backdrop-blur-xl p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-nowrap items-stretch gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-bold w-full sm:w-auto overflow-x-auto">
-        {(['kemarin', 'today', 'last_month', 'this_month'] as const).map((pOrKemarin) => {
-          const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
+        {presets.map((p) => {
           const isActive = currentPreset === p
           const isButtonLoading = (isLoading || pendingPreset === p) && isActive
-          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === 'last_month' ? 'Bulan Lalu' : 'Bulan ini'
+          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === 'last_month' ? 'Bulan Lalu' : p === '7d' ? '7 Hari' : p === '30d' ? '30 Hari' : 'Bulan ini'
           return (
             <button
               key={p}

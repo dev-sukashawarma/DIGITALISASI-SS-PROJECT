@@ -11,6 +11,7 @@ import { useHpp } from '@/hooks/useHpp'
 import { useWaste } from '@/hooks/useWaste'
 import { computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
+import type { Preset } from '@/lib/period'
 import { rupiah } from '@/lib/format'
 import { PageHeader, StatTilesSkeleton } from '@/components/ui'
 import { toast } from 'sonner'
@@ -44,12 +45,22 @@ import { DownloadProfitDataModal } from '@/components/profit/DownloadProfitDataM
 import { bukuKasHref, pettyCashHref } from '@/lib/bukuKasLink'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
+import { useHRPayroll } from '@/hooks/useHRPayroll'
+import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
 import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { getSourceLabel } from '@/lib/channels'
 import { useTikTokSettlement } from '@/hooks/useTikTokSettlement'
+
+// Urutan & isi tombol preset disamakan dengan Buku Kas (OPEX).
+const PRESET_SAMA_DENGAN_BUKU_KAS: Preset[] = ['yesterday', 'today', '7d', 'this_month', 'last_month']
+
+function labelKategoriOpex(kategori: string, payrollDariHr: boolean): string {
+  if (payrollDariHr && kategori === 'bonus_area_manager') return 'Bonus AM & RM'
+  return CATEGORY_META[kategori as keyof typeof CATEGORY_META]?.label ?? kategori
+}
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -157,6 +168,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.refetchQueries({ queryKey: ['hpp-client-calculated-v2'] }),
         queryClient.refetchQueries({ queryKey: ['waste'] }),
         queryClient.refetchQueries({ queryKey: ['prorata-auxiliary-data'] }),
+        queryClient.refetchQueries({ queryKey: ['hr_payroll_summary'] }),
         queryClient.refetchQueries({ queryKey: ['mitra-investments'] }),
         queryClient.refetchQueries({ queryKey: ['outlets'] }),
       ])
@@ -183,6 +195,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated-v2'] })
         queryClient.invalidateQueries({ queryKey: ['waste'] })
         queryClient.invalidateQueries({ queryKey: ['prorata-auxiliary-data'] })
+        queryClient.invalidateQueries({ queryKey: ['hr_payroll_summary'] })
         queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
         queryClient.invalidateQueries({ queryKey: ['outlets'] })
     }, 30_000)
@@ -249,12 +262,30 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   // Tanpa saringan kedua ini, Laba Rugi Mitra ikut memikul gaji outlet
   // internal (dan sebaliknya). Ekspor (profitExportFetcher) sudah menyaring
   // setelah prorata; layar harus sama.
-  const expenseRows = useMemo(
-    () => prorataRows.filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).expense_date || (r as any).date))),
-    [prorataRows, inScope, scope],
+  //
+  // Gaji & bonus outlet: sumber kebenaran OPEX adalah Buku Kas, yang menghitungnya
+  // dari ringkasan payroll HR. Baris gaji/bonus buatan mesin prorata diganti
+  // dengan baris HR itu (lihat lib/opexDariHr.ts); kalau HR belum punya slip
+  // untuk rentang ini, angka mesin tetap dipakai — sama seperti kartu Buku Kas.
+  const hrFilter = useMemo(
+    () => ({ from: effectiveFilter.from, to: effectiveFilter.to, outletId: 'ALL_OUTLETS' }),
+    [effectiveFilter.from, effectiveFilter.to],
   )
+  const hrPayroll = useHRPayroll(hrFilter)
+  const expenseRows = useMemo(() => {
+    let barisHr = barisPayrollDariHr({ hr: hrPayroll.data, from: effectiveFilter.from, to: effectiveFilter.to })
+    if (barisHr && effectiveFilter.outletId !== 'all') {
+      barisHr = barisHr.filter(r => r.outlet_id === effectiveFilter.outletId)
+    }
+    return gantiPayrollDenganHr(prorataRows, barisHr)
+      .filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).expense_date || (r as any).date)))
+  }, [prorataRows, hrPayroll.data, effectiveFilter.from, effectiveFilter.to, effectiveFilter.outletId, inScope, scope])
 
-  const loading = sales.loading || expenses.loading || hpp.loading || waste.loading || mitraLoading || prorataLoading
+  // Baris gaji/bonus berasal dari ringkasan HR (id 'hr-…')? Bonus dari HR adalah
+  // angka nyata rentang itu (bukan prorata), dan bonus AM & RM digabung satu baris.
+  const payrollDariHr = useMemo(() => expenseRows.some(r => String(r.id).startsWith('hr-bonus') || String(r.id).startsWith('hr-gaji-') && r.scope === 'outlet'), [expenseRows])
+
+  const loading = sales.loading || expenses.loading || hpp.loading || waste.loading || mitraLoading || prorataLoading || hrPayroll.isLoading
   const error = sales.error || expenses.error || hpp.error || waste.error
 
   const isAllOutlets = filter.outletId === 'all'
@@ -624,8 +655,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       })
     return [...perKategori.entries()]
       .map(([kategori, jumlah]) => {
-        const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori)
-        const baseLabel = CATEGORY_META[kategori as keyof typeof CATEGORY_META]?.label ?? kategori
+        const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori) && !(payrollDariHr && kategori.startsWith('bonus_'))
+        const baseLabel = labelKategoriOpex(kategori, payrollDariHr)
         const prorataSuffix = prorataMonthInfo.overlapDays === 1
           ? `Beban 1 Hari · 1/${prorataMonthInfo.totalDays} bln`
           : `Beban ${prorataMonthInfo.overlapDays} Hari · ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln`
@@ -638,7 +669,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         }
       })
       .sort((a, b) => a.amount - b.amount)
-  }, [expenseRows, isProrated, prorataMonthInfo])
+  }, [expenseRows, isProrated, prorataMonthInfo, payrollDariHr])
 
   // Rincian Omzet Kotor per Channel Penjualan (POS, Food Apps, Online Marketplace)
   const grossRevenueBreakdown = useMemo(() => {
@@ -741,15 +772,46 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     }))
   }, [outletBreakdown])
 
+  // Rincian per kategori untuk modal OPEX: seluruh beban outlet (bulanan + kas
+  // kecil) di luar lembur & joint expense, yang punya baris sendiri.
+  const opexKategoriGabungan = useMemo(() => {
+    const perKategori = new Map<string, number>()
+    expenseRows
+      .filter(r =>
+        r.scope === 'outlet' &&
+        !isTestOutlet(r.outlet_id) &&
+        !isTestOutlet(r.outlet_name) &&
+        !isLemburExpense((r as any).category, (r as any).description) &&
+        (r as any).category !== 'joint_expense' &&
+        (r as any).category !== 'joint_expanse'
+      )
+      .forEach(r => {
+        const key = (r as any).category || 'lainnya'
+        perKategori.set(key, (perKategori.get(key) ?? 0) + r.amount)
+      })
+    const prorataSuffix = prorataMonthInfo.overlapDays === 1
+      ? `Beban 1 Hari · 1/${prorataMonthInfo.totalDays} bln`
+      : `Beban ${prorataMonthInfo.overlapDays} Hari · ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln`
+    return [...perKategori.entries()].map(([kategori, amount]) => {
+      const baseLabel = labelKategoriOpex(kategori, payrollDariHr)
+      const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori) && !(payrollDariHr && kategori.startsWith('bonus_'))
+      return { label: isCatProrated ? `${baseLabel} (${prorataSuffix})` : baseLabel, amount }
+    })
+  }, [expenseRows, isProrated, prorataMonthInfo, payrollDariHr])
+
   // Rincian Kategori & Lokasi untuk Modal Biaya Operasional (OPEX)
   const opexCategoriesList = useMemo(() => {
     const list: Array<{ key: string; label: string; amount: number; isProrated?: boolean }> = []
 
-    opexMonthlyBreakdown.forEach((item) => {
+    // Per kategori, gabungan input bulanan + kas kecil — sama dengan cara Buku
+    // Kas (OPEX) mengelompokkan. Dulu kas kecil dijadikan satu baris gelondongan
+    // "Kas Kecil", sehingga mis. "Pengeluaran Outlet" di sini hanya memuat porsi
+    // input bulanan dan tak pernah cocok dengan Buku Kas.
+    opexKategoriGabungan.forEach((item) => {
       list.push({
         key: item.label,
         label: item.label,
-        amount: Math.abs(item.amount),
+        amount: item.amount,
         isProrated: isProrated && item.label.includes('Beban'),
       })
     })
@@ -772,15 +834,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       })
     }
 
-    if (pengeluaranOutletPettyCashMurni > 0) {
-      list.push({
-        key: 'petty_cash',
-        label: 'Kas Kecil (Petty Cash Operasional)',
-        amount: pengeluaranOutletPettyCashMurni,
-        isProrated: false,
-      })
-    }
-
     if (includeCentral && pengeluaranPusat > 0) {
       list.push({
         key: 'pusat',
@@ -791,7 +844,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     }
 
     return list.sort((a, b) => b.amount - a.amount)
-  }, [opexMonthlyBreakdown, totalJointExpense, pengeluaranLembur, pengeluaranOutletPettyCashMurni, includeCentral, pengeluaranPusat, isProrated])
+  }, [opexKategoriGabungan, totalJointExpense, pengeluaranLembur, includeCentral, pengeluaranPusat, isProrated])
 
   const opexOutletList = useMemo(() => {
     const list = outletBreakdown.map(o => ({
@@ -855,7 +908,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         {/* Baris atas hanya berisi PENYARING — "apa yang sedang dilihat".
             Tombol perintah turun ke pita di bawah supaya keduanya tak
             berdesakan sebagai hal yang setara. */}
-        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} hideOutlet={hideOutletPicker} />
+        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} hideOutlet={hideOutletPicker} presets={PRESET_SAMA_DENGAN_BUKU_KAS} />
       </PageHeader>
 
       {/* Status Sinkronisasi / Last Updated */}

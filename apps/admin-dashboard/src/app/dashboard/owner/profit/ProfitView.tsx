@@ -961,6 +961,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       {scope !== 'mitra' && hasilClosingOpex.catatan && (
         <div className={`-mt-3 mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${hasilClosingOpex.diterapkan ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
           {hasilClosingOpex.catatan}
+          {scope === 'all' && isAllOutlets && abaikanTanggalMulai && (
+            <p className="mt-1">
+              Global bulan <strong>September</strong> memakai data aktual. Laba Rugi Internal dan Mitra mengikuti laporan closing,
+              termasuk beban mitra yang ditanggung pusat, sehingga Internal + Mitra tidak sama dengan Global. Menunggu konfirmasi
+              jika ingin diselaraskan.
+            </p>
+          )}
         </div>
       )}
 

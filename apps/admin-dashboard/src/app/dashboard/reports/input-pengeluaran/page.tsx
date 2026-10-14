@@ -336,20 +336,66 @@ export default function InputPengeluaranPage() {
     }
   }, [supabase, queryClient])
 
+  // Sewa outlet = biaya TETAP (validasi Finance 14 Okt 2026): pada bulan berjalan
+  // dibebankan per hari, sama dengan Laba Rugi. Angka per outlet diambil dari
+  // mesin prorata yang sama (baris `prorata-sewa-<outlet>`), supaya kedua halaman
+  // tidak bisa berbeda. Bulan yang sudah lewat tidak tersentuh (map kosong).
+  const sewaProrata = useMemo(() => {
+    const m = new Map<string, number>()
+    if (!isProratedOpex) return m
+    prorataExpenseRows.forEach(r => {
+      if (String(r.id).startsWith('prorata-sewa-') && r.outlet_id) m.set(r.outlet_id, r.amount)
+    })
+    return m
+  }, [isProratedOpex, prorataExpenseRows])
+
   // Pure OPEX Expense Rows
   const allTransactions = useMemo(() => {
     let list: any[] = []
 
+    const adalahSewa = (c?: string | null) => { const k = (c || '').toLowerCase(); return k === 'sewa' || k === 'sewa_outlet' }
+    // Total sewa riil per outlet, untuk membagi angka prorata bila barisnya lebih dari satu.
+    const sewaRiil = new Map<string, number>()
     expenseRows.forEach(r => {
-      if (target === 'PUSAT' && r.scope === 'outlet') return
-      if (isAllOutlets && r.scope === 'pusat' && !sertakanPusat) return
-      if (isGroupTarget && r.scope !== 'pusat' && !inTargetGroup(r.outlet_id)) return
-      if (target !== 'all' && target !== 'PUSAT' && !isAllOutlets && (r.scope === 'pusat' || r.outlet_id !== target)) return
-      
+      if (r.outlet_id && adalahSewa(r.category) && sewaProrata.has(r.outlet_id)) {
+        sewaRiil.set(r.outlet_id, (sewaRiil.get(r.outlet_id) ?? 0) + r.amount)
+      }
+    })
+    const lolosTarget = (r: { scope?: string; outlet_id?: string | null }) => {
+      if (target === 'PUSAT' && r.scope === 'outlet') return false
+      if (isAllOutlets && r.scope === 'pusat' && !sertakanPusat) return false
+      if (isGroupTarget && r.scope !== 'pusat' && !inTargetGroup(r.outlet_id)) return false
+      if (target !== 'all' && target !== 'PUSAT' && !isAllOutlets && (r.scope === 'pusat' || r.outlet_id !== target)) return false
+      return true
+    }
+    // Outlet tanpa input sewa bulan ini: mesin memakai nominal bulan lalu. Baris
+    // estimasinya ditampilkan juga di sini (tanpa tombol edit/hapus).
+    prorataExpenseRows.forEach(r => {
+      if (!String(r.id).startsWith('prorata-sewa-') || !r.outlet_id || !isProratedOpex) return
+      if ((sewaRiil.get(r.outlet_id) ?? 0) > 0 || !lolosTarget(r)) return
+      list.push({
+        id: r.id, date: r.expense_date, category: 'sewa_outlet', outlet_name: r.outlet_name ?? '-', outlet_id: r.outlet_id,
+        recipient_name: '-', division: '-', description: `${r.description} · estimasi dari nominal bulan lalu`,
+        amount: r.amount, type: 'expense', receipt_url: null, isTopup: false,
+        raw_description: r.description, raw_category: 'sewa_outlet', scope: r.scope, source: 'monthly', isLembur: false,
+        sintetis: true,
+      })
+    })
+
+    expenseRows.forEach(r => {
+      if (!lolosTarget(r)) return
+
       const isLembur = isLemburExpense(r.category, r.description)
       const effectiveCategory = isLembur ? 'lembur' : r.category
 
+      // Sewa bulan berjalan: tampilkan porsi yang sudah berjalan, simpan nominal aslinya.
+      const totalSewa = r.outlet_id && adalahSewa(r.category) ? (sewaRiil.get(r.outlet_id) ?? 0) : 0
+      const sewaBerjalan = totalSewa > 0
+        ? Math.round((sewaProrata.get(r.outlet_id as string) ?? 0) * (r.amount / totalSewa))
+        : null
+
       list.push({
+        ...(sewaBerjalan !== null ? { amount_asli: r.amount, description_asli: r.description } : {}),
         id: r.id,
         date: r.expense_date,
         category: effectiveCategory,
@@ -357,8 +403,10 @@ export default function InputPengeluaranPage() {
         outlet_id: r.outlet_id,
         recipient_name: r.recipient_name ?? '-',
         division: r.division ?? (r.scope === 'pusat' ? 'General' : '-'),
-        description: r.description,
-        amount: r.amount,
+        description: sewaBerjalan !== null
+          ? `${r.description || 'Sewa outlet'} · dibebankan per hari (sebulan ${rupiah(r.amount)})`
+          : r.description,
+        amount: sewaBerjalan !== null ? sewaBerjalan : r.amount,
         type: 'expense',
         receipt_url: r.receipt_url || null,
         isTopup: false,
@@ -373,7 +421,7 @@ export default function InputPengeluaranPage() {
     // Sort descending by date
     list.sort((a, b) => b.date.localeCompare(a.date))
     return list
-  }, [expenseRows, target, isAllOutlets, isGroupTarget, sertakanPusat, inTargetGroup])
+  }, [expenseRows, prorataExpenseRows, isProratedOpex, sewaProrata, target, isAllOutlets, isGroupTarget, sertakanPusat, inTargetGroup])
 
   // Summary OPEX calculation
   const summary = useMemo(() => {
@@ -1971,10 +2019,10 @@ export default function InputPengeluaranPage() {
                         -{rupiah(tx.amount)}
                       </td>
                       <td className="px-3 py-3.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <div className={`flex items-center justify-center gap-1.5 ${tx.sintetis ? 'invisible' : ''}`}>
                           <button
                             type="button"
-                            onClick={() => setEditingTx(tx)}
+                            onClick={() => setEditingTx(tx.amount_asli != null ? { ...tx, amount: tx.amount_asli, description: tx.description_asli } : tx)}
                             title="Edit Transaksi OPEX"
                             className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer"
                           >

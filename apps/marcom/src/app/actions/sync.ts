@@ -126,15 +126,16 @@ export async function syncSingleContentVideo(id: string): Promise<{ success: boo
       return { success: false, error: metrics.error || 'Gagal mengambil metrik video' }
     }
 
-    // Only update if metrics has actual positive or valid data
+    // Update with scraped metrics
     await prisma.internalContent.update({
       where: { id: content.id },
       data: {
-        views: metrics.views !== undefined && metrics.views > 0 ? metrics.views : content.views,
-        likes: metrics.likes !== undefined && metrics.likes > 0 ? metrics.likes : content.likes,
-        comments: metrics.comments !== undefined && metrics.comments > 0 ? metrics.comments : content.comments,
-        shares: metrics.shares !== undefined && metrics.shares > 0 ? metrics.shares : content.shares,
-        saves: metrics.saves !== undefined && metrics.saves > 0 ? metrics.saves : content.saves,
+        views: typeof metrics.views === 'number' ? metrics.views : content.views,
+        likes: typeof metrics.likes === 'number' ? metrics.likes : content.likes,
+        comments: typeof metrics.comments === 'number' ? metrics.comments : content.comments,
+        shares: typeof metrics.shares === 'number' ? metrics.shares : content.shares,
+        saves: typeof metrics.saves === 'number' ? metrics.saves : content.saves,
+        reach: typeof metrics.views === 'number' && metrics.views > 0 && content.reach === 0 ? Math.round(metrics.views * 0.9) : content.reach,
       },
     })
 
@@ -184,17 +185,21 @@ export async function syncSingleEndorsementVideo(id: string): Promise<{ success:
       let anyScraped = false
       let lastMetrics: ScrapedMetrics | undefined
 
-      for (const p of endorsement.posts) {
+      for (let i = 0; i < endorsement.posts.length; i++) {
+        const p = endorsement.posts[i]
         if (!p.postUrl) continue
+        if (i > 0) {
+          await new Promise((r) => setTimeout(r, 1200))
+        }
         const metrics = await scrapeVideoMetrics(p.postUrl)
         if (metrics.success) {
           anyScraped = true
           lastMetrics = metrics
-          const views = metrics.views !== undefined && metrics.views > 0 ? metrics.views : p.views
-          const likes = metrics.likes !== undefined && metrics.likes > 0 ? metrics.likes : p.likes
-          const comments = metrics.comments !== undefined && metrics.comments > 0 ? metrics.comments : p.comments
-          const shares = metrics.shares !== undefined && metrics.shares > 0 ? metrics.shares : p.shares
-          const saves = metrics.saves !== undefined && metrics.saves > 0 ? metrics.saves : p.saves
+          const views = typeof metrics.views === 'number' ? metrics.views : p.views
+          const likes = typeof metrics.likes === 'number' ? metrics.likes : p.likes
+          const comments = typeof metrics.comments === 'number' ? metrics.comments : p.comments
+          const shares = typeof metrics.shares === 'number' ? metrics.shares : p.shares
+          const saves = typeof metrics.saves === 'number' ? metrics.saves : p.saves
 
           totalViews += views
           totalLikes += likes
@@ -267,11 +272,11 @@ export async function syncSingleEndorsementVideo(id: string): Promise<{ success:
     await prisma.endorsement.update({
       where: { id: endorsement.id },
       data: {
-        finalViews: metrics.views !== undefined && metrics.views > 0 ? metrics.views : endorsement.finalViews,
-        likes: metrics.likes !== undefined && metrics.likes > 0 ? metrics.likes : endorsement.likes,
-        comments: metrics.comments !== undefined && metrics.comments > 0 ? metrics.comments : endorsement.comments,
-        shares: metrics.shares !== undefined && metrics.shares > 0 ? metrics.shares : endorsement.shares,
-        saves: metrics.saves !== undefined && metrics.saves > 0 ? metrics.saves : endorsement.saves,
+        finalViews: typeof metrics.views === 'number' ? metrics.views : endorsement.finalViews,
+        likes: typeof metrics.likes === 'number' ? metrics.likes : endorsement.likes,
+        comments: typeof metrics.comments === 'number' ? metrics.comments : endorsement.comments,
+        shares: typeof metrics.shares === 'number' ? metrics.shares : endorsement.shares,
+        saves: typeof metrics.saves === 'number' ? metrics.saves : endorsement.saves,
         postStatus: 'ON',
       },
     })
@@ -317,16 +322,21 @@ export async function syncAllActiveVideos(isCron: boolean = false): Promise<Sync
   let failedCount = 0
 
   try {
-    // 1. Fetch all internal contents with a URL
+    // 1. Fetch internal contents with a URL (most recent first)
     const internalContents = await prisma.internalContent.findMany({
       where: {
         postUrl: {
           not: null,
         },
       },
+      orderBy: [
+        { postDate: 'desc' },
+        { id: 'desc' },
+      ],
+      take: isCron ? 100 : 40,
     })
 
-    // 2. Fetch all endorsements with a URL or posts
+    // 2. Fetch endorsements with a URL or posts (most recent first)
     const endorsements = await prisma.endorsement.findMany({
       where: {
         OR: [
@@ -339,6 +349,11 @@ export async function syncAllActiveVideos(isCron: boolean = false): Promise<Sync
         outlet: { select: { name: true } },
         posts: true,
       },
+      orderBy: [
+        { scheduleDate: 'desc' },
+        { id: 'desc' },
+      ],
+      take: isCron ? 100 : 40,
     })
 
     const totalProcessed = internalContents.length + endorsements.length
@@ -355,11 +370,12 @@ export async function syncAllActiveVideos(isCron: boolean = false): Promise<Sync
           await prisma.internalContent.update({
             where: { id: item.id },
             data: {
-              views: metrics.views !== undefined && metrics.views > 0 ? metrics.views : item.views,
-              likes: metrics.likes !== undefined && metrics.likes > 0 ? metrics.likes : item.likes,
-              comments: metrics.comments !== undefined && metrics.comments > 0 ? metrics.comments : item.comments,
-              shares: metrics.shares !== undefined && metrics.shares > 0 ? metrics.shares : item.shares,
-              saves: metrics.saves !== undefined && metrics.saves > 0 ? metrics.saves : item.saves,
+              views: typeof metrics.views === 'number' ? metrics.views : item.views,
+              likes: typeof metrics.likes === 'number' ? metrics.likes : item.likes,
+              comments: typeof metrics.comments === 'number' ? metrics.comments : item.comments,
+              shares: typeof metrics.shares === 'number' ? metrics.shares : item.shares,
+              saves: typeof metrics.saves === 'number' ? metrics.saves : item.saves,
+              reach: typeof metrics.views === 'number' && metrics.views > 0 && item.reach === 0 ? Math.round(metrics.views * 0.9) : item.reach,
             },
           })
           try {
@@ -399,8 +415,8 @@ export async function syncAllActiveVideos(isCron: boolean = false): Promise<Sync
         })
       }
 
-      // Small delay between requests
-      await sleep(350)
+      // Delay between requests to respect platform API rate limits
+      await sleep(1200)
     }
 
     // Process Endorsements
@@ -415,18 +431,22 @@ export async function syncAllActiveVideos(isCron: boolean = false): Promise<Sync
           let anySuccess = false
           let lastPlatform: string | undefined
 
-          for (const p of item.posts) {
+          for (let pIdx = 0; pIdx < item.posts.length; pIdx++) {
+            const p = item.posts[pIdx]
             if (!p.postUrl) continue
+            if (pIdx > 0) {
+              await sleep(1200)
+            }
             try {
               const metrics = await scrapeVideoMetrics(p.postUrl)
               if (metrics.success) {
                 anySuccess = true
                 lastPlatform = metrics.platform
-                const views = metrics.views !== undefined && metrics.views > 0 ? metrics.views : p.views
-                const likes = metrics.likes !== undefined && metrics.likes > 0 ? metrics.likes : p.likes
-                const comments = metrics.comments !== undefined && metrics.comments > 0 ? metrics.comments : p.comments
-                const shares = metrics.shares !== undefined && metrics.shares > 0 ? metrics.shares : p.shares
-                const saves = metrics.saves !== undefined && metrics.saves > 0 ? metrics.saves : p.saves
+                const views = typeof metrics.views === 'number' ? metrics.views : p.views
+                const likes = typeof metrics.likes === 'number' ? metrics.likes : p.likes
+                const comments = typeof metrics.comments === 'number' ? metrics.comments : p.comments
+                const shares = typeof metrics.shares === 'number' ? metrics.shares : p.shares
+                const saves = typeof metrics.saves === 'number' ? metrics.saves : p.saves
 
                 totalViews += views
                 totalLikes += likes
@@ -497,11 +517,11 @@ export async function syncAllActiveVideos(isCron: boolean = false): Promise<Sync
             await prisma.endorsement.update({
               where: { id: item.id },
               data: {
-                finalViews: metrics.views !== undefined && metrics.views > 0 ? metrics.views : item.finalViews,
-                likes: metrics.likes !== undefined && metrics.likes > 0 ? metrics.likes : item.likes,
-                comments: metrics.comments !== undefined && metrics.comments > 0 ? metrics.comments : item.comments,
-                shares: metrics.shares !== undefined && metrics.shares > 0 ? metrics.shares : item.shares,
-                saves: metrics.saves !== undefined && metrics.saves > 0 ? metrics.saves : item.saves,
+                finalViews: typeof metrics.views === 'number' ? metrics.views : item.finalViews,
+                likes: typeof metrics.likes === 'number' ? metrics.likes : item.likes,
+                comments: typeof metrics.comments === 'number' ? metrics.comments : item.comments,
+                shares: typeof metrics.shares === 'number' ? metrics.shares : item.shares,
+                saves: typeof metrics.saves === 'number' ? metrics.saves : item.saves,
                 postStatus: 'ON',
               },
             })
@@ -543,8 +563,8 @@ export async function syncAllActiveVideos(isCron: boolean = false): Promise<Sync
         })
       }
 
-      // Small delay between requests
-      await sleep(350)
+      // Delay between requests
+      await sleep(1200)
     }
 
     // Record last sync timestamp to persistent settings

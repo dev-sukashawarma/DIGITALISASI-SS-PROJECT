@@ -24,6 +24,24 @@ export function normalizePostUrl(rawUrl: string): string {
 
   try {
     const parsed = new URL(url)
+    const lowerHost = parsed.hostname.toLowerCase()
+
+    // Special clean handling for TikTok URLs
+    if (lowerHost.includes('tiktok.com')) {
+      const videoMatch = parsed.pathname.match(/\/video\/(\d+)/)
+      if (videoMatch) {
+        const userMatch = parsed.pathname.match(/@([a-zA-Z0-9_.-]+)/)
+        if (userMatch) {
+          return `https://www.tiktok.com/@${userMatch[1]}/video/${videoMatch[1]}`
+        }
+        return `https://www.tiktok.com/video/${videoMatch[1]}`
+      }
+      if (lowerHost.includes('vt.tiktok.com') || lowerHost.includes('vm.tiktok.com')) {
+        parsed.search = ''
+        return parsed.toString().replace(/\/$/, '')
+      }
+    }
+
     const trackingParams = [
       'utm_source',
       'utm_medium',
@@ -106,96 +124,81 @@ async function scrapeTikTok(url: string): Promise<ScrapedMetrics> {
     // Follow redirects for vt.tiktok.com / vm.tiktok.com short links
     if (url.includes('vt.tiktok.com') || url.includes('vm.tiktok.com')) {
       try {
-        const headRes = await fetch(url, { method: 'HEAD', redirect: 'follow' })
-        if (headRes.url) targetUrl = headRes.url
+        const headRes = await fetch(url, {
+          method: 'HEAD',
+          redirect: 'follow',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          },
+        })
+        if (headRes.url && !headRes.url.includes('vt.tiktok.com') && !headRes.url.includes('vm.tiktok.com')) {
+          targetUrl = normalizePostUrl(headRes.url)
+        }
       } catch {
         // Fallback to original url
       }
     }
 
-    const headers = {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      Accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-      'Sec-Ch-Ua': '"Google Chrome";v="124", "Chromium";v="124"',
-      'Sec-Ch-Ua-Mobile': '?0',
-      'Sec-Ch-Ua-Platform': '"Windows"',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
+    // Tier 1: Query TikWM API (Supports full URLs, short URLs, and video IDs)
+    const tikwmEndpoints = [
+      `https://www.tikwm.com/api/?url=${encodeURIComponent(targetUrl)}`,
+      `https://tikwm.com/api/?url=${encodeURIComponent(targetUrl)}`,
+    ]
+
+    // If targetUrl differs from original url, also try original url as backup
+    if (targetUrl !== url) {
+      tikwmEndpoints.push(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`)
     }
 
-    const response = await fetch(targetUrl, {
-      headers,
-      redirect: 'follow',
-    })
+    for (const endpoint of tikwmEndpoints) {
+      let attempts = 0
+      while (attempts < 2) {
+        attempts++
+        try {
+          const res = await fetch(endpoint, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; MARCOM/1.0)',
+              Accept: 'application/json',
+            },
+            signal: AbortSignal.timeout(10000),
+          })
 
-    if (!response.ok) {
-      return await fallbackTikTokOEmbed(targetUrl)
-    }
-
-    const html = await response.text()
-
-    // Method 1: Extract from __UNIVERSAL_DATA_FOR_REHYDRATION__
-    const universalMatch = html.match(
-      /<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/
-    )
-
-    if (universalMatch) {
-      try {
-        const jsonData = JSON.parse(universalMatch[1])
-        const defaultScope = jsonData['__DEFAULT_SCOPE__']
-        const itemInfo =
-          defaultScope?.['webapp.video-detail']?.['itemInfo']?.['itemStruct']
-
-        if (itemInfo && itemInfo.stats) {
-          const stats = itemInfo.stats
-          const title = itemInfo.desc || undefined
-          const views = parseInt(stats.playCount, 10) || 0
-          const likes = parseInt(stats.diggCount, 10) || 0
-          const comments = parseInt(stats.commentCount, 10) || 0
-          const shares = parseInt(stats.shareCount, 10) || 0
-          const saves = parseInt(stats.collectCount, 10) || 0
-
-          return {
-            success: true,
-            platform: 'TIKTOK',
-            title,
-            views,
-            likes,
-            comments,
-            shares,
-            saves,
+          if (!res.ok) {
+            break
           }
+
+          const data = await res.json()
+
+          // Handle successful response
+          if (data.code === 0 && data.data) {
+            const item = data.data
+            return {
+              success: true,
+              platform: 'TIKTOK',
+              title: item.title || undefined,
+              views: typeof item.play_count === 'number' ? item.play_count : 0,
+              likes: typeof item.digg_count === 'number' ? item.digg_count : 0,
+              comments: typeof item.comment_count === 'number' ? item.comment_count : 0,
+              shares: typeof item.share_count === 'number' ? item.share_count : 0,
+              saves: typeof item.collect_count === 'number' ? item.collect_count : 0,
+            }
+          }
+
+          // Rate limit hit: wait 1.3s and retry once
+          if (data.code === -1 && typeof data.msg === 'string' && data.msg.includes('Free Api Limit')) {
+            await new Promise((resolve) => setTimeout(resolve, 1300))
+            continue
+          }
+
+          break
+        } catch {
+          break
         }
-      } catch {
-        // Continue to regex fallback
       }
     }
 
-    // Method 2: Regex extraction from raw HTML
-    const playMatch = html.match(/"playCount":\s*(\d+)/)
-    const diggMatch = html.match(/"diggCount":\s*(\d+)/)
-    const commentMatch = html.match(/"commentCount":\s*(\d+)/)
-    const shareMatch = html.match(/"shareCount":\s*(\d+)/)
-    const collectMatch = html.match(/"collectCount":\s*(\d+)/)
-
-    if (playMatch || diggMatch) {
-      return {
-        success: true,
-        platform: 'TIKTOK',
-        views: playMatch ? parseInt(playMatch[1], 10) : 0,
-        likes: diggMatch ? parseInt(diggMatch[1], 10) : 0,
-        comments: commentMatch ? parseInt(commentMatch[1], 10) : 0,
-        shares: shareMatch ? parseInt(shareMatch[1], 10) : 0,
-        saves: collectMatch ? parseInt(collectMatch[1], 10) : 0,
-      }
-    }
-
-    // Method 3: Fallback to oEmbed for basic details
+    // Tier 2: Check oEmbed if video exists to return title or meaningful status
     return await fallbackTikTokOEmbed(targetUrl)
   } catch (err: any) {
     return {
@@ -209,18 +212,14 @@ async function scrapeTikTok(url: string): Promise<ScrapedMetrics> {
 async function fallbackTikTokOEmbed(url: string): Promise<ScrapedMetrics> {
   try {
     const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
-    const res = await fetch(oembedUrl)
+    const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const data = await res.json()
       return {
-        success: true,
+        success: false,
         platform: 'TIKTOK',
         title: data.title,
-        views: 0,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        saves: 0,
+        error: 'Video ditemukan, namun metrik tayangan dibatasi oleh TikTok. Silakan input manual.',
       }
     }
   } catch {
@@ -230,7 +229,7 @@ async function fallbackTikTokOEmbed(url: string): Promise<ScrapedMetrics> {
   return {
     success: false,
     platform: 'TIKTOK',
-    error: 'Video TikTok privat atau tidak dapat diakses publik.',
+    error: 'Video TikTok privat, dihapus, atau link tidak valid.',
   }
 }
 

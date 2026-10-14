@@ -12,6 +12,7 @@ import {
   getWasteHistory,
   getWasteSummary,
 } from '../actions/waste'
+import { presetRange } from '../../lib/period'
 
 export const metadata = {
   title: 'Waste Stok | SS Manager',
@@ -31,7 +32,7 @@ export default async function WastePage() {
   }
 
   const { isAllOutlets } = await getStaffAndAccessibleOutlets()
-  const todayStr = new Date().toISOString().split('T')[0]
+  const { from: todayStr } = presetRange('today')
 
   const [outletsRes, pendingRes, historyRes, summaryRes] = await Promise.all([
     getAccessibleOutletsForWaste(),

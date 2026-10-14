@@ -6,7 +6,7 @@ import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
 import type { PeriodFilterValue } from '@/lib/types'
 import { presetRange } from '@/lib/period'
-import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock } from 'lucide-react'
+import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardCheck, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock, Smartphone, Globe } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 
@@ -206,6 +206,7 @@ export default function MonitoringPage() {
   const [staffOutletMappings, setStaffOutletMappings] = useState<StaffOutletMap[]>([])
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [opnames, setOpnames] = useState<Opname[]>([])
+  const [clientTypes, setClientTypes] = useState<Record<string, string>>({})
   const [connectedPrinters, setConnectedPrinters] = useState<Set<string>>(new Set())
   const [crewLocations, setCrewLocations] = useState<any[]>([])
   
@@ -263,14 +264,17 @@ export default function MonitoringPage() {
       }
 
       const ticksMap: Record<string, string[]> = {}
-      if (data.checklistRecords && data.checklistRecords.length > 0) {
-        if (data.checklistTicks) {
-          data.checklistRecords.forEach((rec: any) => {
-            if (!ticksMap[rec.outlet_id]) ticksMap[rec.outlet_id] = []
-            const ticksForRec = data.checklistTicks.filter((t: any) => t.record_id === rec.id).map((t: any) => t.item_id)
-            ticksMap[rec.outlet_id].push(...ticksForRec)
-          })
+      if (data.checklistRecords && data.checklistRecords.length > 0 && data.checklistTicks) {
+        const ticksByRecord = new Map<string, string[]>()
+        for (const t of data.checklistTicks) {
+          const arr = ticksByRecord.get(t.record_id)
+          if (arr) arr.push(t.item_id)
+          else ticksByRecord.set(t.record_id, [t.item_id])
         }
+        data.checklistRecords.forEach((rec: any) => {
+          if (!ticksMap[rec.outlet_id]) ticksMap[rec.outlet_id] = []
+          ticksMap[rec.outlet_id].push(...(ticksByRecord.get(rec.id) ?? []))
+        })
       }
 
       setOutlets(validOutlets)
@@ -280,6 +284,7 @@ export default function MonitoringPage() {
       setChecklistReq(reqMap)
       setChecklistTicks(ticksMap)
       setOpnames(data.opnames || [])
+      setClientTypes(data.clientTypes || {})
       
     } catch (err) {
       console.error(err)
@@ -306,6 +311,7 @@ export default function MonitoringPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, onChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_outlets' }, onChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'outlet_staff' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, onChange)
       .subscribe()
 
     const presenceRoom = supabase.channel('room:printer_status')
@@ -396,9 +402,10 @@ export default function MonitoringPage() {
 
   // Helper render per outlet card for a specific date
   const renderOutletCardForDate = (outlet: Outlet, targetDateStr: string) => {
-    // 1. Staff belonging to this outlet (either primary outlet_id OR mapped in staff_outlets) OR spv
+    // 1. Staff belonging to this outlet (either primary outlet_id OR mapped in staff_outlets) OR spv / regional_manager
     const outletStaff = staffList.filter(s => 
       s.role === 'spv' ||
+      s.role === 'regional_manager' ||
       s.outlet_id === outlet.id || 
       staffOutletMappings.some(m => m.staff_id === s.id && m.outlet_id === outlet.id)
     )
@@ -486,8 +493,8 @@ export default function MonitoringPage() {
     if (crewStatusFilter !== 'ALL' && visibleStaff.length === 0) return null
 
     // Multi-day filter: if multi-day view, only show crew who actually attended on that day
-    const roleOrder: Record<string, number> = { spv: 1, leader: 2, crew: 3 };
-    const getRoleRank = (role: string) => roleOrder[role.toLowerCase()] || 99;
+    const roleOrder: Record<string, number> = { regional_manager: 0, area_manager: 1, spv: 2, leader: 3, crew: 4 };
+    const getRoleRank = (role: string) => roleOrder[role.toLowerCase()] ?? 99;
 
     const displayedStaff = (isMultiDay 
       ? visibleStaff.filter(s => staffAttMap.has(s.id)) 
@@ -531,6 +538,17 @@ export default function MonitoringPage() {
                 {connectedPrinters.has(outlet.id) ? <BluetoothConnected className="w-3 h-3 mr-1" /> : <Bluetooth className="w-3 h-3 mr-1" />}
                 Printer
               </span>
+              {clientTypes[outlet.id] === 'native' ? (
+                <span title="Outlet ini menggunakan POS Native Android" className="flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border bg-red-50 text-red-600 border-red-200">
+                  <Smartphone className="w-3 h-3 mr-1" />
+                  Native POS
+                </span>
+              ) : clientTypes[outlet.id] === 'web' ? (
+                <span title="Outlet ini menggunakan POS Web" className="flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-200">
+                  <Globe className="w-3 h-3 mr-1" />
+                  Web POS
+                </span>
+              ) : null}
             </div>
           </div>
 

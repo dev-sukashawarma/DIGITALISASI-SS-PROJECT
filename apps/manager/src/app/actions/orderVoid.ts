@@ -3,8 +3,9 @@
 import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { createClient } from '@supabase/supabase-js'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
-const ALLOWED_ROLES = ['area_manager', 'leader', 'regional_manager', 'admin', 'developer']
+const ALLOWED_ROLES = ['area_manager', 'leader', 'regional_manager', 'admin', 'owner', 'spv', 'developer']
 
 const getSupabaseAdmin = () => {
   return createClient(
@@ -26,7 +27,12 @@ async function requireStaffWithOutletAccess(outletId: string) {
       .from('staff_outlets')
       .select('outlet_id')
       .eq('staff_id', staff.id)
-    const outletIds = (staffOutlets || []).map((so: any) => so.outlet_id)
+    const outletIds = Array.from(
+      new Set([
+        ...((staffOutlets || []).map((so: any) => so.outlet_id)),
+        ...(staff.outlet_id ? [staff.outlet_id] : []),
+      ])
+    )
     if (!outletIds.includes(outletId)) {
       return { error: 'Outlet ini bukan tanggung jawab Anda' as const }
     }
@@ -41,21 +47,34 @@ export async function getMyOutletsForVoid() {
   if (!staff || !ALLOWED_ROLES.includes(staff.role)) return { success: false, data: [] }
 
   const supabaseAdmin = getSupabaseAdmin()
-  let query = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).order('name')
+  let query = supabaseAdmin
+    .from('outlets')
+    .select('id, name, type')
+    .eq('is_active', true)
+    .neq('id', TEST_OUTLET_ID)
+    .order('name')
 
   if (staff.role === 'area_manager' || staff.role === 'leader') {
     const { data: staffOutlets } = await supabaseAdmin
       .from('staff_outlets')
       .select('outlet_id')
       .eq('staff_id', staff.id)
-    const outletIds = (staffOutlets || []).map((so: any) => so.outlet_id)
+    const outletIds = Array.from(
+      new Set([
+        ...((staffOutlets || []).map((so: any) => so.outlet_id)),
+        ...(staff.outlet_id ? [staff.outlet_id] : []),
+      ])
+    ).filter((id) => id && id !== TEST_OUTLET_ID)
     if (outletIds.length === 0) return { success: true, data: [] }
     query = query.in('id', outletIds)
   }
 
   const { data, error } = await query
   if (error) return { success: false, data: [] }
-  return { success: true, data: data || [] }
+  const validOutlets = (data || [])
+    .filter((o: any) => !isTestOutlet(o))
+    .map((o: any) => ({ id: o.id, name: o.name }))
+  return { success: true, data: validOutlets }
 }
 
 export async function searchCompletedOrders(

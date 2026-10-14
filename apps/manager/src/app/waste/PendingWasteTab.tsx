@@ -158,7 +158,15 @@ export default function PendingWasteTab({
                         {item.bahan_nama}
                       </h4>
                       <p className="text-xs font-semibold text-suka-gray-500 mt-0.5">
-                        Kuantitas: <span className="text-suka-brown font-black">{item.qty} {item.satuan}</span>
+                        Kuantitas:{' '}
+                        <span className="text-suka-brown font-black">
+                          {item.qty.toLocaleString('id-ID', { maximumFractionDigits: 4 })} {item.satuan}
+                        </span>
+                        {item.satuan_kecil && item.satuan_kecil.toLowerCase() !== item.satuan.toLowerCase() && (
+                          <span className="text-suka-gray-400 font-semibold ml-1">
+                            ({item.qty_kecil.toLocaleString('id-ID', { maximumFractionDigits: 2 })} {item.satuan_kecil})
+                          </span>
+                        )}
                       </p>
                     </div>
 

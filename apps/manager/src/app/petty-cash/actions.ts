@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -21,13 +22,22 @@ export async function getAreaManagerPettyCashTopups(selectedOutletId: string | n
 
     const supabase = getAdminClient()
 
-    // 1. Get all assigned outlets for this staff
-    let outletQuery = supabase.from('outlets').select('id, name, region').eq('is_active', true)
+    // 1. Get all assigned outlets for this staff (exclude test/marketplace outlets)
+    let outletQuery = supabase
+      .from('outlets')
+      .select('id, name, region, type')
+      .eq('is_active', true)
+      .neq('id', TEST_OUTLET_ID)
     
-    if (staff.role === 'area_manager') {
+    if (staff.role === 'area_manager' || staff.role === 'leader') {
       const { data: so } = await supabase.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id)
-      if (so && so.length > 0) {
-        outletQuery = outletQuery.in('id', so.map((s: any) => s.outlet_id))
+      const assignedIds = [
+        ...((so || []).map((s: any) => s.outlet_id)),
+        ...(staff.outlet_id ? [staff.outlet_id] : []),
+      ].filter((id) => id && id !== TEST_OUTLET_ID)
+      const uniqueIds = Array.from(new Set(assignedIds))
+      if (uniqueIds.length > 0) {
+        outletQuery = outletQuery.in('id', uniqueIds)
       } else {
         return { success: true, data: [], outlets: [] } // No assigned outlets
       }
@@ -36,7 +46,7 @@ export async function getAreaManagerPettyCashTopups(selectedOutletId: string | n
     const { data: outlets, error: outletErr } = await outletQuery
     if (outletErr) throw outletErr
 
-    const allOutlets = outlets || []
+    const allOutlets = (outlets || []).filter((o: any) => !isTestOutlet(o))
     const outletIds = allOutlets.map(o => o.id)
     const outletMap = new Map(allOutlets.map(o => [o.id, o]))
 

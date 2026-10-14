@@ -4,8 +4,19 @@ import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suk
 import { createClient } from '@supabase/supabase-js';
 import ReportsClient from './ReportsClient';
 import { TEST_OUTLET_ID } from '@/lib/outletFilters';
+import { cleanItemName } from '@/lib/order-item-name';
+import {
+  buildFoodAppsSettlementPromoMap,
+  computeOrderDeduction,
+  computeOrderGross,
+  computeOrderPlatformSubsidy,
+  filterOrdersByChannel,
+  mapEcommerceSaleToOrder,
+} from '@/lib/posReportKpi';
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
+
+const FULL_ACCESS_ROLES = ['regional_manager', 'admin', 'owner', 'developer'];
 
 export default async function ReportsPage({
   searchParams,
@@ -36,75 +47,49 @@ export default async function ReportsPage({
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Calculate Date Boundaries
-  let p_start = new Date();
-  let p_end = new Date();
-  
-  // Use UTC times for DB query, we want Jakarta +7 equivalent
-  // Actually, pos-kasir uses local times, since the server might be in UTC, we need to handle timezone carefully.
-  // We'll stick to a simple approach, but assuming server is UTC, we might want to offset to Jakarta (UTC+7).
-  // For now, let's replicate the pos-kasir logic exactly, which depends on server local time (or Node's timezone).
-  // Wait, Manager is Next.js. We should create dates in UTC representing Jakarta time.
-  // Actually, Vercel edge/serverless is usually UTC. So new Date() gets UTC. 
-  
-  // A helper to get start of day in Jakarta
-  const getJakartaBoundary = (offsetDays: number = 0, isStartOfDay: boolean = true) => {
-    // Create a string representing current Jakarta time
-    const jakartaStr = new Date().toLocaleString("en-US", {timeZone: "Asia/Jakarta"});
+  // Helper tanggal YYYY-MM-DD dalam zona waktu Asia/Jakarta (WIB)
+  const getJakartaDateStr = (offsetDays: number = 0): string => {
+    const jakartaStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' });
     const d = new Date(jakartaStr);
     d.setDate(d.getDate() + offsetDays);
-    if (isStartOfDay) {
-      d.setHours(0, 0, 0, 0);
-    } else {
-      d.setHours(23, 59, 59, 999);
-    }
-    
-    // We need to construct a Date object that is exactly this time in UTC+7
-    // A robust way in JS is to build the ISO string manually:
     const pad = (n: number) => String(n).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    const mm = pad(d.getMonth() + 1);
-    const dd = pad(d.getDate());
-    const HH = pad(d.getHours());
-    const MM = pad(d.getMinutes());
-    const SS = pad(d.getSeconds());
-    const ms = String(d.getMilliseconds()).padStart(3, '0');
-    
-    return new Date(`${yyyy}-${mm}-${dd}T${HH}:${MM}:${SS}.${ms}+07:00`);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
 
+  let fromDateStr = getJakartaDateStr(0);
+  let toDateStr = getJakartaDateStr(0);
+
   if (range === 'today') {
-    p_start = getJakartaBoundary(0, true);
-    p_end = getJakartaBoundary(0, false);
+    fromDateStr = getJakartaDateStr(0);
+    toDateStr = getJakartaDateStr(0);
   } else if (range === 'yesterday') {
-    p_start = getJakartaBoundary(-1, true);
-    p_end = getJakartaBoundary(-1, false);
+    fromDateStr = getJakartaDateStr(-1);
+    toDateStr = getJakartaDateStr(-1);
   } else if (range === '7days') {
-    p_start = getJakartaBoundary(-6, true);
-    p_end = getJakartaBoundary(0, false);
+    fromDateStr = getJakartaDateStr(-6);
+    toDateStr = getJakartaDateStr(0);
   } else if (range === '30days') {
-    p_start = getJakartaBoundary(-29, true);
-    p_end = getJakartaBoundary(0, false);
+    fromDateStr = getJakartaDateStr(-29);
+    toDateStr = getJakartaDateStr(0);
   } else if (range === 'all') {
-    p_start = new Date(0);
-    p_end = getJakartaBoundary(0, false);
+    fromDateStr = '2020-01-01';
+    toDateStr = getJakartaDateStr(0);
   } else if (range === 'custom' && customStart && customEnd) {
-    p_start = new Date(customStart + 'T00:00:00+07:00');
-    p_end = new Date(customEnd + 'T23:59:59+07:00');
-  } else {
-    // Default today
-    p_start = getJakartaBoundary(0, true);
-    p_end = getJakartaBoundary(0, false);
+    fromDateStr = customStart;
+    toDateStr = customEnd;
   }
 
+  const p_start = new Date(`${fromDateStr}T00:00:00.000+07:00`);
+  const p_end = new Date(`${toDateStr}T23:59:59.999+07:00`);
+
   // Supabase PostgREST max-rows default = 1000, cannot be overridden by .limit().
-  // Use manual pagination with .range() to fetch all rows beyond that limit.
-  const fetchAllPages = async (baseQuery: any): Promise<any[]> => {
+  // Use manual pagination with .range() and fresh query builder to fetch all rows deterministically.
+  const fetchAllPages = async (buildQuery: () => any): Promise<any[]> => {
     const PAGE = 1000;
     let all: any[] = [];
     let from = 0;
     while (true) {
-      const { data, error } = await baseQuery.range(from, from + PAGE - 1);
+      const { data, error } = await buildQuery().range(from, from + PAGE - 1);
       if (error || !data || data.length === 0) break;
       all = all.concat(data);
       if (data.length < PAGE) break;
@@ -112,33 +97,6 @@ export default async function ReportsPage({
     }
     return all;
   };
-
-  let ordersQuery = supabaseAdmin
-    .from('orders')
-    .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, voided_by, void_reason, cancellation_reason, outlet_id, order_items(id, menu_item_name, quantity, subtotal)')
-    .gte('created_at', p_start.toISOString())
-    .lte('created_at', p_end.toISOString())
-    // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
-    .neq('outlet_id', TEST_OUTLET_ID);
-
-  // Apply filters
-  if (statusFilter !== 'all') {
-    ordersQuery = ordersQuery.eq('status', statusFilter);
-  }
-  if (paymentFilter !== 'all') {
-    ordersQuery = ordersQuery.eq('payment_method', paymentFilter);
-  }
-  if (channelFilter !== 'all') {
-    if (channelFilter === 'offline') {
-      ordersQuery = ordersQuery.is('channel', null);
-    } else if (channelFilter === 'food_apps') {
-      ordersQuery = ordersQuery.in('channel', ['gofood', 'grabfood', 'shopeefood', 'tiktokgo', 'tiktok', 'tiktok_go']);
-    } else if (channelFilter === 'tiktokgo' || channelFilter === 'tiktok') {
-      ordersQuery = ordersQuery.in('channel', ['tiktokgo', 'tiktok', 'tiktok_go']);
-    } else {
-      ordersQuery = ordersQuery.eq('channel', channelFilter);
-    }
-  }
 
   let accessibleOutlets: string[] = [];
   if (staff?.role === 'area_manager') {
@@ -156,83 +114,127 @@ export default async function ReportsPage({
   }
 
   // Handle Outlet Filter
-  let permittedOutletId = outletFilter;
-  
-  if (staff?.role === 'area_manager') {
-    if (permittedOutletId !== 'all' && accessibleOutlets.includes(permittedOutletId)) {
-       ordersQuery = ordersQuery.eq('outlet_id', permittedOutletId);
-    } else {
-       ordersQuery = ordersQuery.in('outlet_id', accessibleOutlets);
-    }
-  } else if (!staff || staff.role === 'regional_manager' || staff.role === 'developer') {
-    if (permittedOutletId !== 'all') {
-      ordersQuery = ordersQuery.eq('outlet_id', permittedOutletId);
-    }
-  } else if (staff?.outlet_id) {
-    ordersQuery = ordersQuery.eq('outlet_id', staff.outlet_id);
-  }
+  const permittedOutletId = outletFilter;
+  const isFullAccess = !staff || FULL_ACCESS_ROLES.includes(staff.role);
 
-  // Urutan UNIK wajib untuk paginasi .range(): tanpa ORDER BY, Postgres bebas
-  // mengembalikan urutan berbeda tiap halaman sehingga order bisa terhitung
-  // ganda atau terlewat. `id` jadi pemecah seri created_at yang kembar.
-  ordersQuery = ordersQuery
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
+  const buildOrdersQuery = () => {
+    let q = supabaseAdmin
+      .from('orders')
+      .select('id, order_number, status, payment_method, channel, sales_source, customer_name, is_endorse, total_amount, discount_amount, promo_subsidy, created_at, voided_by, void_reason, cancellation_reason, outlet_id, order_items(id, menu_item_id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward)')
+      .gte('created_at', p_start.toISOString())
+      .lte('created_at', p_end.toISOString())
+      .neq('outlet_id', TEST_OUTLET_ID);
+
+    if (statusFilter !== 'all') {
+      q = q.eq('status', statusFilter);
+    }
+    if (paymentFilter !== 'all') {
+      q = q.eq('payment_method', paymentFilter);
+    }
+
+    if (staff?.role === 'area_manager') {
+      if (permittedOutletId !== 'all' && accessibleOutlets.includes(permittedOutletId)) {
+        q = q.eq('outlet_id', permittedOutletId);
+      } else {
+        q = q.in('outlet_id', accessibleOutlets);
+      }
+    } else if (isFullAccess) {
+      if (permittedOutletId !== 'all' && permittedOutletId !== 'ss-online') {
+        q = q.eq('outlet_id', permittedOutletId);
+      }
+    } else if (staff?.outlet_id) {
+      q = q.eq('outlet_id', staff.outlet_id);
+    }
+
+    return q
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true });
+  };
+
+  // Sertakan penjualan SS Online (ecommerce_sales) untuk RM/Admin/Developer saat memilih Semua Outlet atau SS Online
+  const shouldIncludeEcommerce =
+    isFullAccess &&
+    (permittedOutletId === 'all' || permittedOutletId === 'ss-online') &&
+    paymentFilter === 'all' &&
+    (statusFilter === 'all' || statusFilter === 'completed');
+
+  const buildEcommerceQuery = () =>
+    supabaseAdmin
+      .from('ecommerce_sales')
+      .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(id, name))')
+      .gte('order_date', p_start.toISOString())
+      .lte('order_date', p_end.toISOString())
+      .order('order_date', { ascending: true })
+      .order('id', { ascending: true });
+
+  // Ambil data rekonsiliasi platform_settlements (Single Source of Truth untuk Potongan Merchant & Subsidi Platform Food Apps)
+  const buildSettlementsQuery = () => {
+    let q = supabaseAdmin
+      .from('platform_settlements')
+      .select('id, outlet_id, platform, tanggal, omzet_kotor, promo_merchant, commission')
+      .gte('tanggal', fromDateStr)
+      .lte('tanggal', toDateStr);
+
+    if (staff?.role === 'area_manager') {
+      if (permittedOutletId !== 'all' && accessibleOutlets.includes(permittedOutletId)) {
+        q = q.eq('outlet_id', permittedOutletId);
+      } else {
+        q = q.in('outlet_id', accessibleOutlets);
+      }
+    } else if (isFullAccess) {
+      if (permittedOutletId !== 'all' && permittedOutletId !== 'ss-online') {
+        q = q.eq('outlet_id', permittedOutletId);
+      }
+    } else if (staff?.outlet_id) {
+      q = q.eq('outlet_id', staff.outlet_id);
+    }
+
+    return q.order('id', { ascending: true });
+  };
 
   // Fetch Outlets for the filter dropdown
   let qOutlets = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).neq('id', TEST_OUTLET_ID);
   if (staff?.role === 'area_manager') {
     qOutlets = qOutlets.in('id', accessibleOutlets);
-  } else if (staff?.outlet_id && staff.role !== 'regional_manager' && staff.role !== 'developer') {
+  } else if (staff?.outlet_id && !isFullAccess) {
     qOutlets = qOutlets.eq('id', staff.outlet_id);
   }
 
-  const [ordersData, { data: outletsData }] = await Promise.all([
-    fetchAllPages(ordersQuery),
-    qOutlets
+  const [posOrdersData, ecommerceSalesData, settlementsData, { data: outletsData }] = await Promise.all([
+    permittedOutletId === 'ss-online' ? Promise.resolve([]) : fetchAllPages(buildOrdersQuery),
+    shouldIncludeEcommerce ? fetchAllPages(buildEcommerceQuery) : Promise.resolve([]),
+    fetchAllPages(buildSettlementsQuery),
+    qOutlets,
   ]);
 
-  // Aggregate the data
-  const completedOrders = (ordersData || []).filter((o: any) => o.status === 'completed');
+  const ecommerceOrders = (ecommerceSalesData || []).map(mapEcommerceSaleToOrder);
+  const combinedOrders = [...(posOrdersData || []), ...ecommerceOrders];
 
-  // total_amount tersimpan SUDAH net (checkout/walk-in/manual sudah mengurangi
-  // discount_amount & promo_subsidy sebelum insert) — jangan dikurangi lagi di sini.
-  const netRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0);
+  // Filter channel menggunakan resolveOrderSource (konsisten dengan Dashboard Admin)
+  const filteredOrders = filterOrdersByChannel(combinedOrders, channelFilter);
 
-  // ACUAN TUNGGAL Omzet Kotor (lihat migration 20300128000000):
-  //   Potongan    = MAX(0, SUM(order_items.subtotal) - total_amount)
-  //   Omzet Kotor = total_amount + Potongan
-  // Bertumpu pada nilai menu, bukan discount_amount/promo_subsidy, karena arti
-  // `total_amount` sempat berubah (19 Agustus 2026, commit b41efc7a) sehingga
-  // menjumlahkan promo ke total_amount menghitungnya dua kali.
-  const totalDeductions = completedOrders.reduce((s: number, o: any) => {
-    const items = Array.isArray(o.order_items) ? o.order_items : [];
-    const total = Number(o.total_amount) || 0;
-    if (items.length === 0) {
-      return s + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
-    }
-    const itemValue = items.reduce((sum: number, i: any) => sum + (Number(i.subtotal) || 0), 0);
-    return s + Math.max(0, itemValue - total);
-  }, 0);
+  // Aggregate the data (sama dengan Admin: completed atau settled)
+  const completedOrders = filteredOrders.filter(
+    (o: any) => o.status === 'completed' || o.status === 'settled'
+  );
 
-  // Subsidi platform (Grab/Gojek/Shopee) yang diketik kasir di kolom
-  // "Promo Apps". BUKAN pendapatan outlet dan BUKAN biaya outlet -- tidak ikut
-  // omzet maupun potongan, ditampilkan sebagai kartu informasi.
-  const totalPlatformSubsidy = completedOrders.reduce((s: number, o: any) => {
-    return s + (Number(o.promo_subsidy) || 0);
-  }, 0);
+  // Rekonsiliasi Platform Settlement sebagai Single Source of Truth untuk Potongan Merchant Food Apps
+  const foodAppsSettlementPromoMap = buildFoodAppsSettlementPromoMap(completedOrders, settlementsData || []);
+  const kpiOpts = {
+    ssOnlineMode: permittedOutletId === 'ss-online',
+    getSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    getGofoodSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    gofoodSettlementMap: foodAppsSettlementPromoMap,
+  };
 
-  // Samakan dengan POS Kasir & dashboard pusat.
-  const totalRevenue = netRevenue + totalDeductions;
-  const totalOrders = completedOrders.length;
-  const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length;
-  const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled').length;
-  const avgOrderValue = totalOrders > 0 ? Math.round(netRevenue / totalOrders) : 0;
+  let grossRevenue = 0;
+  let totalDeductions = 0;
+  let totalPlatformSubsidy = 0;
 
   const paymentBreakdown: Record<string, { count: number; revenue: number }> = {};
   const hourly = Array(24).fill(0);
   const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {};
-  const outletSalesMap: Record<string, { itemsSold: number, items: Record<string, { name: string, qty: number, revenue: number }> }> = {};
+  const outletSalesMap: Record<string, { itemsSold: number; items: Record<string, { name: string; qty: number; revenue: number }> }> = {};
 
   completedOrders.forEach((o: any) => {
     const outletId = o.outlet_id;
@@ -240,41 +242,55 @@ export default async function ReportsPage({
       if (!outletSalesMap[outletId]) outletSalesMap[outletId] = { itemsSold: 0, items: {} };
     }
 
-    // Payment Breakdown
+    // 1. Omzet Kotor, Potongan Merchant, & Subsidi Platform (sama persis dengan Admin computeAnalytics)
+    const orderDeduction = computeOrderDeduction(o, kpiOpts);
+    const orderGross = computeOrderGross(o, kpiOpts);
+    totalDeductions += orderDeduction;
+    grossRevenue += orderGross;
+    if (o.outlet_id !== 'ss-online') {
+      totalPlatformSubsidy += computeOrderPlatformSubsidy(o, kpiOpts);
+    }
+
+    // 2. Payment Breakdown
     const pm = o.payment_method || 'unknown';
     if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, revenue: 0 };
     paymentBreakdown[pm].count++;
     paymentBreakdown[pm].revenue += Number(o.total_amount) || 0;
 
-    // Hourly (Asia/Jakarta +7)
+    // 3. Hourly (Asia/Jakarta +7)
     const d = new Date(o.created_at);
     const h = (d.getUTCHours() + 7) % 24;
     hourly[h]++;
 
-    // Best Sellers
+    // 4. Best Sellers (menggunakan cleanItemName seperti Admin)
     if (Array.isArray(o.order_items)) {
       o.order_items.forEach((oi: any) => {
-        let name = oi.menu_item_name || 'Item';
-        if (name.includes('|')) {
-          name = name.split('|')[0].trim();
-        }
-        
+        const name = cleanItemName(oi.menu_item_name) || 'Item';
         const qty = Number(oi.quantity) || 0;
+        const sub = Number(oi.subtotal) || 0;
+
         if (!itemMap[name]) itemMap[name] = { name, qty: 0, revenue: 0 };
         itemMap[name].qty += qty;
-        itemMap[name].revenue += Number(oi.subtotal) || 0;
-        
+        itemMap[name].revenue += sub;
+
         if (outletId) {
           outletSalesMap[outletId].itemsSold += qty;
           if (!outletSalesMap[outletId].items[name]) {
             outletSalesMap[outletId].items[name] = { name, qty: 0, revenue: 0 };
           }
           outletSalesMap[outletId].items[name].qty += qty;
-          outletSalesMap[outletId].items[name].revenue += Number(oi.subtotal) || 0;
+          outletSalesMap[outletId].items[name].revenue += sub;
         }
       });
     }
   });
+
+  const totalRevenue = grossRevenue;
+  const netRevenue = grossRevenue - totalDeductions;
+  const totalOrders = completedOrders.length;
+  const pendingCount = filteredOrders.filter((o: any) => o.status === 'pending').length;
+  const canceledCount = filteredOrders.filter((o: any) => o.status === 'cancelled').length;
+  const avgOrderValue = totalOrders > 0 ? Math.round(netRevenue / totalOrders) : 0;
 
   const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty);
   const totalItemsSold = Object.values(itemMap).reduce((sum, item) => sum + item.qty, 0);

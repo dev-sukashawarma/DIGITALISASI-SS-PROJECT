@@ -3,6 +3,7 @@
 import { cookies, headers } from 'next/headers'
 import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { createClient } from '@supabase/supabase-js'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
 const getSupabaseAdmin = () => {
   return createClient(
@@ -31,9 +32,11 @@ export async function getVoidOrders() {
         .select('outlet_id')
         .eq('staff_id', staff.id)
         
-      if (!soErr && staffOutlets) {
-        outletIds = staffOutlets.map((so: any) => so.outlet_id)
-      }
+      const assigned = [
+        ...((!soErr && staffOutlets ? staffOutlets : []).map((so: any) => so.outlet_id)),
+        ...(staff.outlet_id ? [staff.outlet_id] : []),
+      ].filter((id) => id && id !== TEST_OUTLET_ID)
+      outletIds = Array.from(new Set(assigned))
     }
 
     // Query cancellation requests yang pending
@@ -54,7 +57,8 @@ export async function getVoidOrders() {
           outlet_id,
           outlets (
             id,
-            name
+            name,
+            type
           ),
           order_items (
             menu_item_name,
@@ -74,16 +78,25 @@ export async function getVoidOrders() {
 
     if (reqErr) throw reqErr
 
-    // Filter by outletIds jika area_manager / leader
-    let filteredRequests = requests || []
+    // Filter by outletIds jika area_manager / leader & kecualikan outlet uji
+    let filteredRequests = (requests || []).filter(
+      (r: any) => r.orders?.outlet_id !== TEST_OUTLET_ID && !isTestOutlet(r.orders?.outlets)
+    )
     if (role === 'area_manager' || role === 'leader') {
       if (outletIds.length === 0) {
          filteredRequests = [] // tidak ada outlet yg dibawahi
       } else {
          filteredRequests = filteredRequests.filter((r: any) => outletIds.includes(r.orders?.outlet_id))
       }
-    } else if (role !== 'regional_manager' && role !== 'admin' && (role as string) !== 'developer') {
-       // Selain admin/rm/am/leader, nggak punya akses
+    } else if (
+      role !== 'regional_manager' &&
+      role !== 'admin' &&
+      (role as string) !== 'owner' &&
+      (role as string) !== 'spv' &&
+      (role as string) !== 'superadmin' &&
+      (role as string) !== 'developer'
+    ) {
+       // Selain admin/owner/rm/am/leader/spv, nggak punya akses
        return { success: false, data: [], error: 'Akses ditolak' }
     }
 

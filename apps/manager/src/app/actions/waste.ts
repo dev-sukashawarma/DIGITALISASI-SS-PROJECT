@@ -4,12 +4,54 @@ import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { createClient } from '@supabase/supabase-js'
 import { fetchAllRows } from '@/lib/fetchAllRows'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
 const getSupabaseAdmin = () => {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
+}
+
+/**
+ * Rumus kanonik konversi satuan & valuasi waste (identik dengan RPC
+ * `get_waste_summary_v2`, `get_waste_incidents`, dan `get_waste_periode` di Admin):
+ * - faktor_penuh = GREATEST(COALESCE(CASE WHEN faktor_tengah IS NOT NULL AND faktor_tampilan IS NOT NULL THEN faktor_tampilan ELSE faktor_konversi END, 1), 1)
+ * - qty_kecil    = qty * faktor_penuh
+ * - hpp_kecil    = harga_beli / COALESCE(NULLIF(kemasan_qty, 0), faktor_penuh)
+ * - nilai        = qty * harga_beli (tanpa pembulatan per baris sebelum dijumlahkan)
+ */
+function computeCanonicalWasteRow(
+  qtyRaw: any,
+  bahanBaku: any,
+  hargaRow?: { harga_beli?: number | null; kemasan_qty?: number | null }
+) {
+  const qty = Number(qtyRaw) || 0
+  const rawFaktor =
+    bahanBaku?.faktor_tengah != null && bahanBaku?.faktor_tampilan != null
+      ? Number(bahanBaku.faktor_tampilan)
+      : Number(bahanBaku?.faktor_konversi)
+  const faktorPenuh = Math.max(Number.isFinite(rawFaktor) && rawFaktor > 0 ? rawFaktor : 1, 1)
+
+  const satuanBesar = (bahanBaku?.satuan as string) || 'Pcs'
+  const satuanKecil = (bahanBaku?.satuan_kecil as string) || satuanBesar
+  const hargaBeli = Number(hargaRow?.harga_beli) || 0
+  const kemasanQtyRaw = Number(hargaRow?.kemasan_qty)
+  const kemasanQty = Number.isFinite(kemasanQtyRaw) && kemasanQtyRaw > 0 ? kemasanQtyRaw : null
+
+  const qtyKecil = qty * faktorPenuh
+  const hppKecil = hargaBeli / (kemasanQty ?? faktorPenuh)
+  const nilai = qty * hargaBeli
+
+  return {
+    qty,
+    qty_kecil: qtyKecil,
+    satuan: satuanBesar,
+    satuan_kecil: satuanKecil,
+    harga_beli: hargaBeli,
+    hpp_kecil: hppKecil,
+    nilai_waste: nilai,
+  }
 }
 
 export type PendingWasteItem = {
@@ -19,8 +61,11 @@ export type PendingWasteItem = {
   bahan_baku_id: string
   bahan_nama: string
   satuan: string
+  satuan_kecil: string
   qty: number
+  qty_kecil: number
   harga_beli: number
+  hpp_kecil: number
   nilai_waste: number
   reason: string
   photo_url: string | null
@@ -37,8 +82,11 @@ export type WasteHistoryItem = {
   bahan_baku_id: string
   bahan_nama: string
   satuan: string
+  satuan_kecil: string
   qty: number
+  qty_kecil: number
   harga_beli: number
+  hpp_kecil: number
   nilai_waste: number
   reason: string
   photo_url: string | null
@@ -53,7 +101,14 @@ export type WasteHistoryItem = {
 export type WasteSummaryData = {
   totalNilaiWaste: number
   totalIncidents: number
-  topItems: { nama: string; qty: number; satuan: string; nilai: number }[]
+  topItems: {
+    nama: string
+    qty: number
+    satuan: string
+    qty_kecil: number
+    satuan_kecil: string
+    nilai: number
+  }[]
   pendingCount: number
 }
 
@@ -78,19 +133,24 @@ export async function getStaffAndAccessibleOutlets() {
     return { staff, isAllOutlets: true, accessibleOutletIds: [] }
   }
 
-  // Area Manager or Leader: scope to staff_outlets
+  // Area Manager or Leader: scope to staff_outlets + staff.outlet_id (dikecualikan TEST_OUTLET_ID)
   if (role === 'area_manager' || role === 'leader') {
     const { data: so } = await supabaseAdmin
       .from('staff_outlets')
       .select('outlet_id')
       .eq('staff_id', staff.id)
 
-    const ids = (so || []).map((x: any) => x.outlet_id)
-    return { staff, isAllOutlets: false, accessibleOutletIds: ids }
+    const assignedIds = [
+      ...(so || []).map((x: any) => x.outlet_id),
+      ...(staff.outlet_id ? [staff.outlet_id] : []),
+    ].filter((id) => id && id !== TEST_OUTLET_ID)
+
+    const uniqueIds = Array.from(new Set(assignedIds))
+    return { staff, isAllOutlets: false, accessibleOutletIds: uniqueIds }
   }
 
   // Single outlet fallback
-  if (staff.outlet_id) {
+  if (staff.outlet_id && staff.outlet_id !== TEST_OUTLET_ID) {
     return { staff, isAllOutlets: false, accessibleOutletIds: [staff.outlet_id] }
   }
 
@@ -103,7 +163,12 @@ export async function getAccessibleOutletsForWaste(): Promise<{ success: boolean
     if (!staff) return { success: false, data: [], error: 'Belum login' }
 
     const supabaseAdmin = getSupabaseAdmin()
-    let q = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).order('name')
+    let q = supabaseAdmin
+      .from('outlets')
+      .select('id, name, type')
+      .eq('is_active', true)
+      .neq('id', TEST_OUTLET_ID)
+      .order('name')
 
     if (!isAllOutlets) {
       if (accessibleOutletIds.length === 0) {
@@ -115,7 +180,11 @@ export async function getAccessibleOutletsForWaste(): Promise<{ success: boolean
     const { data, error } = await q
     if (error) throw error
 
-    return { success: true, data: data || [] }
+    const filtered = (data || [])
+      .filter((o: any) => !isTestOutlet(o))
+      .map((o: any) => ({ id: o.id, name: o.name }))
+
+    return { success: true, data: filtered }
   } catch (err: any) {
     console.error('getAccessibleOutletsForWaste error:', err)
     return { success: false, data: [], error: err.message }
@@ -144,14 +213,19 @@ export async function getPendingWasteReports(filterOutletId?: string): Promise<{
         status,
         rejection_reason,
         created_at,
-        outlets (
+        outlets!inner (
           id,
-          name
+          name,
+          type
         ),
-        bahan_baku (
+        bahan_baku!inner (
           id,
           nama,
-          satuan
+          satuan,
+          satuan_kecil,
+          faktor_konversi,
+          faktor_tengah,
+          faktor_tampilan
         ),
         reporter:outlet_staff!reported_by (
           id,
@@ -159,10 +233,11 @@ export async function getPendingWasteReports(filterOutletId?: string): Promise<{
         )
       `)
       .eq('status', 'PENDING')
+      .neq('outlet_id', TEST_OUTLET_ID)
       .order('created_at', { ascending: false })
 
     if (filterOutletId && filterOutletId !== 'all') {
-      if (!isAllOutlets && !accessibleOutletIds.includes(filterOutletId)) {
+      if (filterOutletId === TEST_OUTLET_ID || (!isAllOutlets && !accessibleOutletIds.includes(filterOutletId))) {
         return { success: true, data: [] }
       }
       query = query.eq('outlet_id', filterOutletId)
@@ -176,26 +251,28 @@ export async function getPendingWasteReports(filterOutletId?: string): Promise<{
     const { data: rawReports, error: reqErr } = await query
     if (reqErr) throw reqErr
 
-    if (!rawReports || rawReports.length === 0) {
+    const validReports = (rawReports || []).filter((r: any) => !isTestOutlet(r.outlets))
+    if (validReports.length === 0) {
       return { success: true, data: [] }
     }
 
-    // Get bahan baku prices
-    const bahanBakuIds = Array.from(new Set(rawReports.map((r: any) => r.bahan_baku_id)))
+    // Get bahan baku prices & kemasan_qty
+    const bahanBakuIds = Array.from(new Set(validReports.map((r: any) => r.bahan_baku_id)))
     const { data: prices } = await supabaseAdmin
       .from('bahan_baku_harga')
-      .select('bahan_baku_id, harga_beli')
+      .select('bahan_baku_id, harga_beli, kemasan_qty')
       .in('bahan_baku_id', bahanBakuIds)
 
-    const priceMap = new Map<string, number>()
+    const priceMap = new Map<string, { harga_beli: number; kemasan_qty: number | null }>()
     for (const p of prices || []) {
-      priceMap.set(p.bahan_baku_id, Number(p.harga_beli) || 0)
+      priceMap.set(p.bahan_baku_id, {
+        harga_beli: Number(p.harga_beli) || 0,
+        kemasan_qty: p.kemasan_qty != null ? Number(p.kemasan_qty) : null,
+      })
     }
 
-    const formattedData: PendingWasteItem[] = rawReports.map((r: any) => {
-      const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
-      const qtyNum = Number(r.qty) || 0
-      const nilai = Math.round(qtyNum * hargaBeli)
+    const formattedData: PendingWasteItem[] = validReports.map((r: any) => {
+      const calc = computeCanonicalWasteRow(r.qty, r.bahan_baku, priceMap.get(r.bahan_baku_id))
 
       return {
         id: r.id,
@@ -203,10 +280,13 @@ export async function getPendingWasteReports(filterOutletId?: string): Promise<{
         outlet_name: r.outlets?.name || 'Unknown Outlet',
         bahan_baku_id: r.bahan_baku_id,
         bahan_nama: r.bahan_baku?.nama || 'Bahan Tidak Diketahui',
-        satuan: r.bahan_baku?.satuan || 'Pcs',
-        qty: qtyNum,
-        harga_beli: hargaBeli,
-        nilai_waste: nilai,
+        satuan: calc.satuan,
+        satuan_kecil: calc.satuan_kecil,
+        qty: calc.qty,
+        qty_kecil: calc.qty_kecil,
+        harga_beli: calc.harga_beli,
+        hpp_kecil: calc.hpp_kecil,
+        nilai_waste: calc.nilai_waste,
         reason: r.reason,
         photo_url: r.photo_url,
         status: r.status,
@@ -228,9 +308,7 @@ export async function getPendingWasteReports(filterOutletId?: string): Promise<{
  *
  * Cakupan outlet IDENTIK dengan getPendingWasteReports() tanpa filterOutletId
  * (status PENDING; semua outlet untuk RM/admin/owner/dev, staff_outlets untuk
- * AM/leader, outlet sendiri untuk lainnya). Join di query daftar itu bukan
- * inner join, jadi tak menyaring baris — hitungan ini sama dengan .length-nya,
- * tanpa menarik seluruh daftar + harga bahan tiap ada perubahan realtime.
+ * AM/leader, outlet sendiri untuk lainnya, minus TEST_OUTLET_ID).
  */
 export async function getPendingWasteCount(): Promise<{ success: boolean; count: number; error?: string }> {
   try {
@@ -242,6 +320,7 @@ export async function getPendingWasteCount(): Promise<{ success: boolean; count:
       .from('stok_waste_reports')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'PENDING')
+      .neq('outlet_id', TEST_OUTLET_ID)
 
     if (!isAllOutlets) {
       if (accessibleOutletIds.length === 0) {
@@ -300,14 +379,19 @@ export async function getWasteHistory(params: {
         rejection_reason,
         created_at,
         updated_at,
-        outlets (
+        outlets!inner (
           id,
-          name
+          name,
+          type
         ),
-        bahan_baku (
+        bahan_baku!inner (
           id,
           nama,
-          satuan
+          satuan,
+          satuan_kecil,
+          faktor_konversi,
+          faktor_tengah,
+          faktor_tampilan
         ),
         reporter:outlet_staff!reported_by (
           id,
@@ -320,6 +404,7 @@ export async function getWasteHistory(params: {
       `,
         { count: 'exact' }
       )
+      .neq('outlet_id', TEST_OUTLET_ID)
       .gte('created_at', `${params.from}T00:00:00+07:00`)
       .lte('created_at', `${params.to}T23:59:59.999+07:00`)
 
@@ -332,7 +417,7 @@ export async function getWasteHistory(params: {
 
     // Outlet filter
     if (params.outletId && params.outletId !== 'all') {
-      if (!isAllOutlets && !accessibleOutletIds.includes(params.outletId)) {
+      if (params.outletId === TEST_OUTLET_ID || (!isAllOutlets && !accessibleOutletIds.includes(params.outletId))) {
         return { success: true, data: [], totalCount: 0, page, totalPages: 0 }
       }
       query = query.eq('outlet_id', params.outletId)
@@ -348,29 +433,31 @@ export async function getWasteHistory(params: {
     const { data: rawReports, count, error: reqErr } = await query
     if (reqErr) throw reqErr
 
+    const validReports = (rawReports || []).filter((r: any) => !isTestOutlet(r.outlets))
     const totalCount = count || 0
     const totalPages = Math.ceil(totalCount / limit) || 1
 
-    if (!rawReports || rawReports.length === 0) {
+    if (validReports.length === 0) {
       return { success: true, data: [], totalCount: 0, page, totalPages }
     }
 
-    // Fetch prices for bahan_baku
-    const bahanBakuIds = Array.from(new Set(rawReports.map((r: any) => r.bahan_baku_id)))
+    // Fetch prices & kemasan_qty for bahan_baku
+    const bahanBakuIds = Array.from(new Set(validReports.map((r: any) => r.bahan_baku_id)))
     const { data: prices } = await supabaseAdmin
       .from('bahan_baku_harga')
-      .select('bahan_baku_id, harga_beli')
+      .select('bahan_baku_id, harga_beli, kemasan_qty')
       .in('bahan_baku_id', bahanBakuIds)
 
-    const priceMap = new Map<string, number>()
+    const priceMap = new Map<string, { harga_beli: number; kemasan_qty: number | null }>()
     for (const p of prices || []) {
-      priceMap.set(p.bahan_baku_id, Number(p.harga_beli) || 0)
+      priceMap.set(p.bahan_baku_id, {
+        harga_beli: Number(p.harga_beli) || 0,
+        kemasan_qty: p.kemasan_qty != null ? Number(p.kemasan_qty) : null,
+      })
     }
 
-    const formattedData: WasteHistoryItem[] = rawReports.map((r: any) => {
-      const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
-      const qtyNum = Number(r.qty) || 0
-      const nilai = Math.round(qtyNum * hargaBeli)
+    const formattedData: WasteHistoryItem[] = validReports.map((r: any) => {
+      const calc = computeCanonicalWasteRow(r.qty, r.bahan_baku, priceMap.get(r.bahan_baku_id))
 
       return {
         id: r.id,
@@ -378,10 +465,13 @@ export async function getWasteHistory(params: {
         outlet_name: r.outlets?.name || 'Unknown Outlet',
         bahan_baku_id: r.bahan_baku_id,
         bahan_nama: r.bahan_baku?.nama || 'Bahan Tidak Diketahui',
-        satuan: r.bahan_baku?.satuan || 'Pcs',
-        qty: qtyNum,
-        harga_beli: hargaBeli,
-        nilai_waste: nilai,
+        satuan: calc.satuan,
+        satuan_kecil: calc.satuan_kecil,
+        qty: calc.qty,
+        qty_kecil: calc.qty_kecil,
+        harga_beli: calc.harga_beli,
+        hpp_kecil: calc.hpp_kecil,
+        nilai_waste: calc.nilai_waste,
         reason: r.reason,
         photo_url: r.photo_url,
         status: r.status,
@@ -401,7 +491,8 @@ export async function getWasteHistory(params: {
 }
 
 /**
- * Agregasi KPI Waste untuk periode dan outlet yang dipilih
+ * Agregasi KPI Waste untuk periode dan outlet yang dipilih.
+ * Selaras 100% dengan RPC `get_waste_summary_v2` & `get_waste_periode` di Dashboard Admin.
  */
 export async function getWasteSummary(params: {
   from: string
@@ -420,32 +511,39 @@ export async function getWasteSummary(params: {
 
     const supabaseAdmin = getSupabaseAdmin()
 
-    // 1. Pending count
+    // 1. Pending count (kecualikan TEST_OUTLET_ID)
     let pendingQuery = supabaseAdmin
       .from('stok_waste_reports')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'PENDING')
+      .neq('outlet_id', TEST_OUTLET_ID)
 
-    // 2. Approved waste for the period
-    // Pabrik query (bukan builder tunggal) supaya bisa dipaginasi: dulu satu
-    // query polos terpotong diam-diam di 1.000 baris sehingga total nilai waste
-    // & jumlah insiden periode panjang kurang hitung. Urutan unik created_at+id.
-    let approvedScope: ((q: any) => any) = (q) => q
+    // 2. Approved waste for the period (inner join outlets & bahan_baku, kecualikan TEST_OUTLET_ID)
+    let approvedScope: (q: any) => any = (q) => q
     const buildApproved = () =>
       approvedScope(
         supabaseAdmin
           .from('stok_waste_reports')
           .select(`
-        id,
-        outlet_id,
-        bahan_baku_id,
-        qty,
-        bahan_baku (
-          nama,
-          satuan
-        )
-      `)
+            id,
+            outlet_id,
+            bahan_baku_id,
+            qty,
+            outlets!inner (
+              id,
+              type
+            ),
+            bahan_baku!inner (
+              nama,
+              satuan,
+              satuan_kecil,
+              faktor_konversi,
+              faktor_tengah,
+              faktor_tampilan
+            )
+          `)
           .eq('status', 'APPROVED')
+          .neq('outlet_id', TEST_OUTLET_ID)
           .gte('created_at', `${params.from}T00:00:00+07:00`)
           .lte('created_at', `${params.to}T23:59:59.999+07:00`)
       )
@@ -453,7 +551,7 @@ export async function getWasteSummary(params: {
         .order('id', { ascending: true })
 
     if (params.outletId && params.outletId !== 'all') {
-      if (!isAllOutlets && !accessibleOutletIds.includes(params.outletId)) {
+      if (params.outletId === TEST_OUTLET_ID || (!isAllOutlets && !accessibleOutletIds.includes(params.outletId))) {
         return {
           success: true,
           data: { totalNilaiWaste: 0, totalIncidents: 0, topItems: [], pendingCount: 0 },
@@ -482,7 +580,7 @@ export async function getWasteSummary(params: {
 
     if (appErr) throw appErr
 
-    const approvedItems = approvedList || []
+    const approvedItems = (approvedList || []).filter((r: any) => !isTestOutlet(r.outlets))
     const totalIncidents = approvedItems.length
 
     if (totalIncidents === 0) {
@@ -497,39 +595,52 @@ export async function getWasteSummary(params: {
       }
     }
 
-    // Fetch prices for bahan_baku in approved list
+    // Fetch prices & kemasan_qty for bahan_baku in approved list
     const bahanBakuIds = Array.from(new Set(approvedItems.map((r: any) => r.bahan_baku_id)))
     const { data: prices } = await supabaseAdmin
       .from('bahan_baku_harga')
-      .select('bahan_baku_id, harga_beli')
+      .select('bahan_baku_id, harga_beli, kemasan_qty')
       .in('bahan_baku_id', bahanBakuIds)
 
-    const priceMap = new Map<string, number>()
+    const priceMap = new Map<string, { harga_beli: number; kemasan_qty: number | null }>()
     for (const p of prices || []) {
-      priceMap.set(p.bahan_baku_id, Number(p.harga_beli) || 0)
+      priceMap.set(p.bahan_baku_id, {
+        harga_beli: Number(p.harga_beli) || 0,
+        kemasan_qty: p.kemasan_qty != null ? Number(p.kemasan_qty) : null,
+      })
     }
 
     let totalNilai = 0
-    const aggMap = new Map<string, { nama: string; qty: number; satuan: string; nilai: number }>()
+    const aggMap = new Map<
+      string,
+      {
+        nama: string
+        qty: number
+        satuan: string
+        qty_kecil: number
+        satuan_kecil: string
+        nilai: number
+      }
+    >()
 
     for (const item of approvedItems as any[]) {
-      const hargaBeli = priceMap.get(item.bahan_baku_id) || 0
-      const qtyNum = Number(item.qty) || 0
-      const subtotal = Math.round(qtyNum * hargaBeli)
-      totalNilai += subtotal
+      const calc = computeCanonicalWasteRow(item.qty, item.bahan_baku, priceMap.get(item.bahan_baku_id))
+      totalNilai += calc.nilai_waste
 
       const nama = item.bahan_baku?.nama || 'Unknown'
-      const satuan = item.bahan_baku?.satuan || 'Pcs'
       const existing = aggMap.get(item.bahan_baku_id)
       if (existing) {
-        existing.qty += qtyNum
-        existing.nilai += subtotal
+        existing.qty += calc.qty
+        existing.qty_kecil += calc.qty_kecil
+        existing.nilai += calc.nilai_waste
       } else {
         aggMap.set(item.bahan_baku_id, {
           nama,
-          qty: qtyNum,
-          satuan,
-          nilai: subtotal,
+          qty: calc.qty,
+          satuan: calc.satuan,
+          qty_kecil: calc.qty_kecil,
+          satuan_kecil: calc.satuan_kecil,
+          nilai: calc.nilai_waste,
         })
       }
     }

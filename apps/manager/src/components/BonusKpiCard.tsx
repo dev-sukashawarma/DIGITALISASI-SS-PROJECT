@@ -15,6 +15,9 @@ const formatRupiah = (amount: number) => {
 interface BonusKpiCardProps {
   itemsSoldToday: number;
   itemsSoldYesterday: number;
+  bonusTodayAmount?: number;
+  bonusYesterdayAmount?: number;
+  subtitle?: string;
   userRole?: string;
   userName?: string;
 }
@@ -22,6 +25,9 @@ interface BonusKpiCardProps {
 export function BonusKpiCard({
   itemsSoldToday,
   itemsSoldYesterday,
+  bonusTodayAmount,
+  bonusYesterdayAmount,
+  subtitle,
   userRole,
 }: BonusKpiCardProps) {
   // Perhitungan tarif bonus berdasarkan role pengguna
@@ -35,8 +41,8 @@ export function BonusKpiCard({
     bonusRate = 100;
   }
 
-  const bonusToday = itemsSoldToday * bonusRate;
-  const bonusYesterday = itemsSoldYesterday * bonusRate;
+  const bonusToday = bonusTodayAmount !== undefined ? bonusTodayAmount : itemsSoldToday * bonusRate;
+  const bonusYesterday = bonusYesterdayAmount !== undefined ? bonusYesterdayAmount : itemsSoldYesterday * bonusRate;
 
   let percentageChange = 0;
   if (bonusYesterday === 0) {
@@ -76,6 +82,11 @@ export function BonusKpiCard({
         <p className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-amber-950 via-amber-900 to-yellow-900 bg-clip-text text-transparent mt-3 tracking-tight">
           {formatRupiah(bonusToday)}
         </p>
+        {subtitle && (
+          <p className="text-[10px] font-bold text-amber-900/70 mt-1 truncate">
+            {subtitle}
+          </p>
+        )}
       </div>
 
       <div className="relative z-10 mt-3 pt-2 border-t border-amber-900/10">

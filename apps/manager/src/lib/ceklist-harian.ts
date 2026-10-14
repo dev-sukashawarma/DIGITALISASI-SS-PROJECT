@@ -240,7 +240,13 @@ export type DataHari = { outlets: OutletPilihan[]; laporan: Record<string, Lapor
  * Area manager dibatasi ke binaannya (`staff_outlets`); role lain seluruh cabang.
  */
 async function muatOutlet(db: SupabaseClient, staffId: string, role: string): Promise<OutletPilihan[]> {
-  let q = db.from('outlets').select('id,name').eq('is_active', true).in('type', ['internal', 'mitra']).order('name')
+  let q = db
+    .from('outlets')
+    .select('id,name,type')
+    .eq('is_active', true)
+    .neq('id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+    .in('type', ['internal', 'mitra'])
+    .order('name')
   if (role === 'area_manager') {
     const { data, error } = await db.from('staff_outlets').select('outlet_id').eq('staff_id', staffId)
     if (error) throw error
@@ -251,7 +257,12 @@ async function muatOutlet(db: SupabaseClient, staffId: string, role: string): Pr
   }
   const { data, error } = await q
   if (error) throw error
-  return (data ?? []).map((o: { id: string; name: string | null }) => ({ id: o.id, nama: o.name ?? '' }))
+  return (data ?? [])
+    .filter((o: { id: string; name: string | null }) => {
+      const lower = (o.name ?? '').toLowerCase()
+      return !lower.includes('outlet test') && !/\btest\b/.test(lower)
+    })
+    .map((o: { id: string; name: string | null }) => ({ id: o.id, nama: o.name ?? '' }))
 }
 
 type BarisLaporan = {

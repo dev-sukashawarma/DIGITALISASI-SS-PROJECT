@@ -20,7 +20,7 @@ import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
 import { createClient } from '@supabase/supabase-js'
-import { TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
 export const metadata: Metadata = {
   title: "SS Manager Dashboard",
@@ -44,17 +44,17 @@ export default async function RootLayout({
     );
     let query = supabaseAdmin
       .from('outlets')
-      .select('id, name')
+      .select('id, name, type')
       .eq('is_active', true)
       .neq('id', TEST_OUTLET_ID)
       .order('name');
       
-    if (initialStaff?.role === 'area_manager') {
+    if (initialStaff?.role === 'area_manager' || initialStaff?.role === 'leader') {
       const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', initialStaff.id);
       const outletIds = [
         ...((so || []).map((s: any) => s.outlet_id)),
         ...(initialStaff.outlet_id ? [initialStaff.outlet_id] : [])
-      ];
+      ].filter((id) => id && id !== TEST_OUTLET_ID);
       const uniqueOutletIds = Array.from(new Set(outletIds));
 
       if (uniqueOutletIds.length > 0) {
@@ -65,7 +65,11 @@ export default async function RootLayout({
     }
 
     const { data } = await query;
-    if (data) outlets = data;
+    if (data) {
+      outlets = data
+        .filter((o: any) => !isTestOutlet(o))
+        .map((o: any) => ({ id: o.id, name: o.name }));
+    }
   } catch (e) {
     console.error('Failed to fetch outlets for layout', e);
   }

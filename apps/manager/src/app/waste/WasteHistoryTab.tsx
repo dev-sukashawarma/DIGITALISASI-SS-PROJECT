@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import type { WasteHistoryItem, WasteSummaryData } from '../actions/waste'
+import { presetRange } from '../../lib/period'
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -83,23 +84,10 @@ export default function WasteHistoryTab({
     outlet: string
   } | null>(null)
 
-  // Preset ranges
+  // Preset ranges (WIB Asia/Jakarta)
   const setPreset = (type: 'today' | '7d' | '30d') => {
-    const now = new Date()
-    const formatDate = (d: Date) => d.toISOString().split('T')[0]
-    const to = formatDate(now)
-
-    if (type === 'today') {
-      onDateRangeChange({ from: to, to })
-    } else if (type === '7d') {
-      const past = new Date(now)
-      past.setDate(past.getDate() - 6)
-      onDateRangeChange({ from: formatDate(past), to })
-    } else if (type === '30d') {
-      const past = new Date(now)
-      past.setDate(past.getDate() - 29)
-      onDateRangeChange({ from: formatDate(past), to })
-    }
+    const range = presetRange(type)
+    onDateRangeChange(range)
   }
 
   return (
@@ -164,7 +152,7 @@ export default function WasteHistoryTab({
                     {idx + 1}. {item.nama}
                   </span>
                   <span className="font-semibold text-red-600">
-                    {item.qty} {item.satuan} ({formatRupiah(item.nilai)})
+                    {item.qty_kecil.toLocaleString('id-ID', { maximumFractionDigits: 2 })} {item.satuan_kecil} ({formatRupiah(item.nilai)})
                   </span>
                 </div>
               ))
@@ -277,7 +265,12 @@ export default function WasteHistoryTab({
                       {item.bahan_nama}
                     </td>
                     <td className="px-4 py-3 text-right font-black text-suka-brown whitespace-nowrap">
-                      {item.qty} {item.satuan}
+                      <div>{item.qty.toLocaleString('id-ID', { maximumFractionDigits: 4 })} {item.satuan}</div>
+                      {item.satuan_kecil && item.satuan_kecil.toLowerCase() !== item.satuan.toLowerCase() && (
+                        <div className="text-[10px] font-semibold text-suka-gray-400">
+                          ({item.qty_kecil.toLocaleString('id-ID', { maximumFractionDigits: 2 })} {item.satuan_kecil})
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-black text-red-600 whitespace-nowrap">
                       {formatRupiah(item.nilai_waste)}

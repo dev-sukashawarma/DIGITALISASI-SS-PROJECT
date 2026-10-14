@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { createClient } from '@supabase/supabase-js'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
 const getSupabaseAdmin = () => {
   return createClient(
@@ -40,9 +41,11 @@ export async function getBypassRequests() {
         .select('outlet_id')
         .eq('staff_id', staff.id)
 
-      if (!soErr && staffOutlets) {
-        outletIds = staffOutlets.map((so: any) => so.outlet_id)
-      }
+      const assigned = [
+        ...((!soErr && staffOutlets ? staffOutlets : []).map((so: any) => so.outlet_id)),
+        ...(staff.outlet_id ? [staff.outlet_id] : []),
+      ].filter((id) => id && id !== TEST_OUTLET_ID)
+      outletIds = Array.from(new Set(assigned))
     }
 
     const { data: requests, error: reqErr } = await supabaseAdmin
@@ -55,23 +58,33 @@ export async function getBypassRequests() {
         status,
         created_at,
         outlets (
-          name
+          id,
+          name,
+          type
         )
       `)
       .eq('status', 'pending')
+      .neq('outlet_id', TEST_OUTLET_ID)
       .order('created_at', { ascending: false })
       .limit(100)
 
     if (reqErr) throw reqErr
 
-    let filteredRequests = requests || []
+    let filteredRequests = (requests || []).filter((r: any) => !isTestOutlet(r.outlets))
     if (role === 'area_manager' || role === 'leader') {
       if (outletIds.length === 0) {
         filteredRequests = []
       } else {
         filteredRequests = filteredRequests.filter((r: any) => outletIds.includes(r.outlet_id))
       }
-    } else if (role !== 'regional_manager' && role !== 'admin' && (role as string) !== 'superadmin' && (role as string) !== 'developer') {
+    } else if (
+      role !== 'regional_manager' &&
+      role !== 'admin' &&
+      (role as string) !== 'owner' &&
+      (role as string) !== 'spv' &&
+      (role as string) !== 'superadmin' &&
+      (role as string) !== 'developer'
+    ) {
       return { success: false, data: [], error: 'Akses ditolak' }
     }
 

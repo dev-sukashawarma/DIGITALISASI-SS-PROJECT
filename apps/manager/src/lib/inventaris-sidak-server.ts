@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { OutletStaffProfile } from '@suka/auth'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
 export type SidakOutlet = { id: string; name: string; region: string | null }
 export type SidakReview = {
@@ -47,15 +48,23 @@ export function getAdminClient() {
 }
 
 export async function getScopedOutletIds(db: SupabaseClient, staff: OutletStaffProfile) {
-  if (staff.role === 'regional_manager' || staff.role === 'developer') {
-    const { data, error } = await db.from('outlets').select('id').eq('is_active', true)
+  if (['regional_manager', 'admin', 'owner', 'developer'].includes(staff.role)) {
+    const { data, error } = await db
+      .from('outlets')
+      .select('id, name, type')
+      .eq('is_active', true)
+      .neq('id', TEST_OUTLET_ID)
     if (error) throw new Error(error.message)
-    return (data ?? []).map((row) => row.id as string)
+    return (data ?? []).filter((o: any) => !isTestOutlet(o)).map((row) => row.id as string)
   }
 
   const { data, error } = await db.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id)
   if (error) throw new Error(error.message)
-  return (data ?? []).map((row) => row.outlet_id as string)
+  const assigned = [
+    ...((data ?? []).map((row) => row.outlet_id as string)),
+    ...(staff.outlet_id ? [staff.outlet_id] : []),
+  ].filter((id) => id && id !== TEST_OUTLET_ID)
+  return Array.from(new Set(assigned))
 }
 
 export async function getSidakData(staff: OutletStaffProfile) {
@@ -64,7 +73,7 @@ export async function getSidakData(staff: OutletStaffProfile) {
   if (outletIds.length === 0) return { outlets: [], submissions: [], reviews: [] as SidakReview[] }
 
   const [outletResult, submissionResult, masterResult] = await Promise.all([
-    db.from('outlets').select('id, name, region').eq('is_active', true).in('id', outletIds).order('name'),
+    db.from('outlets').select('id, name, region, type').eq('is_active', true).neq('id', TEST_OUTLET_ID).in('id', outletIds).order('name'),
     db.from('inventaris_submissions').select('id, outlet_id, submitted_by, tanggal, notes, updated_at').in('outlet_id', outletIds).order('updated_at', { ascending: false }),
     db.from('inventaris_master_items').select('id, name, section, subsection, mode, target_qty, target_min, target_max, unit').eq('is_active', true).order('sort_order'),
   ])

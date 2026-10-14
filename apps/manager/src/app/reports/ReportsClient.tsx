@@ -10,6 +10,7 @@ import {
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar
 } from 'recharts'
+import { getChannel } from '@/lib/channels'
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom'
 
@@ -87,6 +88,21 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
     unknown: { label: 'Lainnya', color: '#6b7280', bg: 'bg-gray-50', icon: Package },
   }
 
+  const getPaymentMeta = (key: string) => {
+    const k = (key || 'unknown').toLowerCase()
+    if (PAYMENT_META[k]) return PAYMENT_META[k]
+    const ch = getChannel(key)
+    if (ch) {
+      return {
+        label: ch.label,
+        color: ch.bg === '#000000' ? '#111827' : ch.bg,
+        bg: 'bg-orange-50',
+        icon: ShoppingBag,
+      }
+    }
+    return { ...PAYMENT_META.unknown, label: key }
+  }
+
   const totalProcessed = analytics.totalOrders + analytics.canceledCount;
   const successRate = totalProcessed > 0 
     ? Math.round((analytics.totalOrders / totalProcessed) * 100)
@@ -126,6 +142,10 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
             <option value="grabfood">GrabFood</option>
             <option value="shopeefood">ShopeeFood</option>
             <option value="tiktokgo">TikTok Go</option>
+            <option value="online">Website Online</option>
+            <option value="ss_online">SS Online (Marketplace)</option>
+            <option value="tiktok_shop">TikTok Seller</option>
+            <option value="shopee_shop">Shopee Seller</option>
           </select>
 
           {/* Filter Metode Bayar */}
@@ -333,14 +353,14 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
                   <PieChart>
                     <Pie
                       data={Object.entries(analytics.paymentBreakdown).map(([k, v]: [string, any]) => ({
-                        name: PAYMENT_META[k]?.label || k,
+                        name: getPaymentMeta(k).label,
                         value: v.count,
-                        color: PAYMENT_META[k]?.color || '#cbd5e1'
+                        color: getPaymentMeta(k).color || '#cbd5e1'
                       }))}
                       cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none"
                     >
                       {Object.entries(analytics.paymentBreakdown).map(([k]: [string, any], index) => (
-                        <Cell key={`cell-${index}`} fill={PAYMENT_META[k]?.color || '#cbd5e1'} />
+                        <Cell key={`cell-${index}`} fill={getPaymentMeta(k).color || '#cbd5e1'} />
                       ))}
                     </Pie>
                     <RechartsTooltip 
@@ -360,7 +380,7 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
                 {Object.entries(analytics.paymentBreakdown)
                   .sort((a: any, b: any) => b[1].revenue - a[1].revenue)
                   .map(([method, data]: [string, any]) => {
-                    const meta = PAYMENT_META[method] || PAYMENT_META.unknown
+                    const meta = getPaymentMeta(method)
                     const Icon = meta.icon
                     const percent = analytics.totalRevenue > 0 ? (data.revenue / analytics.totalRevenue) * 100 : 0
                     return (

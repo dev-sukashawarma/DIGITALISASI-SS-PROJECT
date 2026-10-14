@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { createClient } from '@supabase/supabase-js'
 import { getStaffAndAccessibleOutlets } from './waste'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
 const getSupabaseAdmin = () => {
   return createClient(
@@ -59,7 +60,8 @@ export async function getPendingReturRequests(): Promise<{
         catatan_manager,
         outlets (
           id,
-          name
+          name,
+          type
         ),
         created_by_staff:outlet_staff!created_by (
           id,
@@ -86,6 +88,7 @@ export async function getPendingReturRequests(): Promise<{
         )
       `)
       .eq('status', 'diajukan')
+      .neq('outlet_id', TEST_OUTLET_ID)
       .order('created_at', { ascending: false })
 
     if (!isAllOutlets) {
@@ -98,7 +101,8 @@ export async function getPendingReturRequests(): Promise<{
     const { data, error } = await query
     if (error) throw error
 
-    const formatted: ReturApprovalItem[] = (data || []).map((r: any) => ({
+    const validRows = (data || []).filter((r: any) => !isTestOutlet(r.outlets))
+    const formatted: ReturApprovalItem[] = validRows.map((r: any) => ({
       id: r.id,
       nomor_retur: r.nomor_retur,
       outlet_id: r.outlet_id,

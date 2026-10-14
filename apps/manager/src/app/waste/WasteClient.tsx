@@ -24,6 +24,7 @@ import {
   type WasteSummaryData,
   type OutletOption,
 } from '../actions/waste'
+import { presetRange } from '../../lib/period'
 
 interface WasteClientProps {
   initialPendingReports: PendingWasteItem[]
@@ -54,8 +55,8 @@ export default function WasteClient({
   const [tab, setTab] = useState<'pending' | 'history'>('pending')
   const [selectedOutletId, setSelectedOutletId] = useState<string>('all')
 
-  // Date range defaults to today
-  const todayStr = new Date().toISOString().split('T')[0]
+  // Date range defaults to today (WIB)
+  const { from: todayStr } = presetRange('today')
   const [dateRange, setDateRange] = useState({ from: todayStr, to: todayStr })
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(1)

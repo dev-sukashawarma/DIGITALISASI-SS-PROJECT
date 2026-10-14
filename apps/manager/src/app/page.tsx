@@ -12,7 +12,8 @@ import { cookies, headers } from 'next/headers';
 import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth';
 import { createClient } from '@supabase/supabase-js';
 import { presetRange, previousRange, type Preset } from '../lib/period';
-import { TEST_OUTLET_ID } from '@/lib/outletFilters';
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters';
+import { computeOrderGross, mapEcommerceSaleToOrder } from '../lib/posReportKpi';
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -37,20 +38,48 @@ const formatWIBTime = (tsServerStr: string) => {
   }
 };
 
-const getAMName = (outletId: string, outletName: string, amMap: Map<string, string>, staffRole?: string, staffName?: string) => {
+/**
+ * Mengabaikan nama akun staff AM dummy/uji saat membangun peta AM dari `staff_outlets`,
+ * tetapi TIDAK menyembunyikan outlet yang belum memiliki AM (masuk grup "Mitra" / "Lainnya").
+ */
+const isIgnoredAMStaffName = (name: string) => {
+  if (!name) return true;
+  const n = name.trim().toUpperCase();
+  return (
+    n.startsWith('AREA MANAGER') ||
+    n.includes('TEST') ||
+    n.includes('TES ') ||
+    n === 'TES' ||
+    n === 'ADMIN' ||
+    n === 'DEVELOPER' ||
+    n === 'LAINNYA' ||
+    n === 'LAIN-LAIN' ||
+    n === 'OTHER' ||
+    n === 'OTHERS'
+  );
+};
+
+const getAMName = (
+  outletId: string,
+  outletName: string,
+  amMap: Map<string, string>,
+  staffRole?: string,
+  staffName?: string,
+  outletRegion?: string | null
+) => {
   if (staffRole === 'area_manager') {
     return staffName || 'Area Anda';
   }
-  
+
   if (amMap.has(outletId)) {
     const mapped = amMap.get(outletId)!;
-    if (!isIgnoredAM(mapped)) {
+    if (!isIgnoredAMStaffName(mapped)) {
       return mapped;
     }
   }
 
-  const name = outletName.toUpperCase();
-  
+  const name = (outletName || '').toUpperCase();
+
   if (name.includes('EMPANG') || name.includes('BCC') || name.includes('DRAMAGA') || name.includes('PALEDANG') || name.includes('CICURUG') || name.includes('CIMANGGU')) {
     return 'Abu Bakar';
   }
@@ -66,23 +95,16 @@ const getAMName = (outletId: string, outletName: string, amMap: Map<string, stri
   if (name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWARINGIN')) {
     return 'Mulyadi';
   }
-  
-  return 'Lainnya';
-};
 
-const isIgnoredAM = (name: string) => {
-  if (!name) return true;
-  const n = name.trim().toUpperCase();
-  return (
-    n.startsWith('AREA MANAGER') ||
-    n.includes('TEST') ||
-    n === 'ADMIN' ||
-    n === 'DEVELOPER' ||
-    n === 'LAINNYA' ||
-    n === 'LAIN-LAIN' ||
-    n === 'OTHER' ||
-    n === 'OTHERS'
-  );
+  if (outletRegion && !isIgnoredAMStaffName(outletRegion)) {
+    return outletRegion.trim();
+  }
+
+  if (name.startsWith('MITRA')) {
+    return 'Mitra';
+  }
+
+  return 'Lainnya';
 };
 
 export default async function DashboardOverview(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -133,13 +155,13 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   );
 
   // Supabase PostgREST max-rows default = 1000, cannot be overridden by .limit().
-  // Use manual pagination with .range() to fetch all rows beyond that limit deterministically.
-  const fetchAllPages = async (baseQuery: any): Promise<any[]> => {
+  // Use manual pagination with .range() on a fresh query builder per page to fetch all rows deterministically.
+  const fetchAllPages = async (buildQuery: () => any): Promise<any[]> => {
     const PAGE = 1000;
     let all: any[] = [];
     let from = 0;
     while (true) {
-      const { data, error } = await baseQuery.range(from, from + PAGE - 1);
+      const { data, error } = await buildQuery().range(from, from + PAGE - 1);
       if (error || !data || data.length === 0) break;
       all = all.concat(data);
       if (data.length < PAGE) break;
@@ -147,64 +169,6 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     }
     return all;
   };
-
-  // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
-  // Disaring di daftar outlet DAN di tiap agregat di bawah — menyaring
-  // daftarnya saja tidak cukup, omzet/waste dijumlahkan dari tabel mentah.
-  let qOutlets = supabaseAdmin.from('outlets').select('id, name, is_active, region, type').neq('id', TEST_OUTLET_ID).order('name');
-
-  let qOrdersToday = supabaseAdmin
-    .from('orders')
-    .select('id, outlet_id, total_amount, order_items(quantity)')
-    .gte('created_at', `${mainStartDate}T00:00:00+07:00`)
-    .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`)
-    .eq('status', 'completed')
-    .neq('outlet_id', TEST_OUTLET_ID)
-    // `id` sebagai pemecah seri: created_at bisa kembar, dan paginasi tanpa
-    // urutan unik bisa melompati/menggandakan baris antar halaman.
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
-
-  let qOrdersYesterday = supabaseAdmin
-    .from('orders')
-    .select('id, outlet_id, total_amount, order_items(quantity)')
-    .gte('created_at', `${prevStartDate}T00:00:00+07:00`)
-    .lte('created_at', `${prevEndDate}T23:59:59.999+07:00`)
-    .eq('status', 'completed')
-    .neq('outlet_id', TEST_OUTLET_ID)
-    // `id` sebagai pemecah seri: created_at bisa kembar, dan paginasi tanpa
-    // urutan unik bisa melompati/menggandakan baris antar halaman.
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
-
-  let qAttendance = supabaseAdmin.from('attendance')
-    .select('outlet_id, ts_server, type, outlet_staff_id')
-    .gte('ts_server', `${mainEndDate}T00:00:00+07:00`)
-    .lte('ts_server', `${mainEndDate}T23:59:59.999+07:00`)
-    .eq('type', 'in')
-    .order('ts_server', { ascending: true });
-
-  let qStaffOutlets = supabaseAdmin.from('staff_outlets')
-    .select('outlet_id, staff_id, outlet_staff(name, role, is_active)')
-    .order('staff_id');
-
-  let qWasteApproved = supabaseAdmin
-    .from('stok_waste_reports')
-    .select('bahan_baku_id, qty')
-    .eq('status', 'APPROVED')
-    .neq('outlet_id', TEST_OUTLET_ID)
-    .gte('created_at', `${mainStartDate}T00:00:00+07:00`)
-    .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`)
-    // Dipaginasi (fetchAllPages) dengan urutan unik: dulu terpotong diam-diam
-    // di 1.000 baris sehingga "kerugian waste" periode panjang kurang hitung.
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
-
-  let qWastePending = supabaseAdmin
-    .from('stok_waste_reports')
-    .select('id', { count: 'exact', head: true })
-    .neq('outlet_id', TEST_OUTLET_ID)
-    .eq('status', 'PENDING');
 
   let accessibleOutlets: string[] = [];
   if (staff?.role === 'area_manager') {
@@ -222,81 +186,331 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   }
 
   const filterOutletId = searchParams?.outlet_id as string | undefined;
+  const isFullAccess = !staff || ['regional_manager', 'admin', 'owner', 'developer'].includes(staff.role);
+  const includeEcommerce = isFullAccess && (!filterOutletId || filterOutletId === 'all' || filterOutletId === 'ss-online');
+  const shouldFetchPosOrders = filterOutletId !== 'ss-online';
 
-  if (staff?.role === 'area_manager') {
-    if (filterOutletId && filterOutletId !== 'all' && accessibleOutlets.includes(filterOutletId)) {
-      qOrdersToday = qOrdersToday.eq('outlet_id', filterOutletId);
-      qOrdersYesterday = qOrdersYesterday.eq('outlet_id', filterOutletId);
-      qOutlets = qOutlets.eq('id', filterOutletId);
-      qAttendance = qAttendance.eq('outlet_id', filterOutletId);
-      qStaffOutlets = qStaffOutlets.eq('outlet_id', filterOutletId);
-      qWasteApproved = qWasteApproved.eq('outlet_id', filterOutletId);
-      qWastePending = qWastePending.eq('outlet_id', filterOutletId);
-    } else {
-      qOrdersToday = qOrdersToday.in('outlet_id', accessibleOutlets);
-      qOrdersYesterday = qOrdersYesterday.in('outlet_id', accessibleOutlets);
-      qOutlets = qOutlets.in('id', accessibleOutlets);
-      qAttendance = qAttendance.in('outlet_id', accessibleOutlets);
-      qStaffOutlets = qStaffOutlets.in('outlet_id', accessibleOutlets);
-      qWasteApproved = qWasteApproved.in('outlet_id', accessibleOutlets);
-      qWastePending = qWastePending.in('outlet_id', accessibleOutlets);
+  const applyOutletFilter = <T,>(query: T, col: string = 'outlet_id'): T => {
+    const q = query as any;
+    if (staff?.role === 'area_manager') {
+      if (filterOutletId && filterOutletId !== 'all' && accessibleOutlets.includes(filterOutletId)) {
+        return q.eq(col, filterOutletId);
+      }
+      return q.in(col, accessibleOutlets);
+    } else if (isFullAccess) {
+      if (filterOutletId && filterOutletId !== 'all' && filterOutletId !== 'ss-online') {
+        return q.eq(col, filterOutletId);
+      }
+      return q;
+    } else if (staff?.outlet_id) {
+      return q.eq(col, staff.outlet_id);
     }
-  } else if (!staff || staff.role === 'regional_manager' || staff.role === 'developer') {
-    if (filterOutletId && filterOutletId !== 'all') {
-      qOrdersToday = qOrdersToday.eq('outlet_id', filterOutletId);
-      qOrdersYesterday = qOrdersYesterday.eq('outlet_id', filterOutletId);
-      qOutlets = qOutlets.eq('id', filterOutletId);
-      qAttendance = qAttendance.eq('outlet_id', filterOutletId);
-      qStaffOutlets = qStaffOutlets.eq('outlet_id', filterOutletId);
-      qWasteApproved = qWasteApproved.eq('outlet_id', filterOutletId);
-      qWastePending = qWastePending.eq('outlet_id', filterOutletId);
-    }
-  } else if (staff?.outlet_id) {
-    qOrdersToday = qOrdersToday.eq('outlet_id', staff.outlet_id);
-    qOrdersYesterday = qOrdersYesterday.eq('outlet_id', staff.outlet_id);
-    qOutlets = qOutlets.eq('id', staff.outlet_id);
-    qAttendance = qAttendance.eq('outlet_id', staff.outlet_id);
-    qStaffOutlets = qStaffOutlets.eq('outlet_id', staff.outlet_id);
-    qWasteApproved = qWasteApproved.eq('outlet_id', staff.outlet_id);
-    qWastePending = qWastePending.eq('outlet_id', staff.outlet_id);
-  }
+    return q;
+  };
+
+  // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
+  // Disaring di daftar outlet DAN di tiap agregat di bawah — menyaring
+  // daftarnya saja tidak cukup, omzet/waste dijumlahkan dari tabel mentah.
+  const qOutlets = applyOutletFilter(
+    supabaseAdmin.from('outlets').select('id, name, is_active, region, type').neq('id', TEST_OUTLET_ID).order('name'),
+    'id'
+  );
+
+  const buildOrdersQuery = (startDate: string, endDate: string) =>
+    applyOutletFilter(
+      supabaseAdmin
+        .from('orders')
+        .select('id, outlet_id, status, total_amount, discount_amount, promo_subsidy, channel, sales_source, created_at, order_items(quantity, subtotal, unit_price)')
+        .gte('created_at', `${startDate}T00:00:00+07:00`)
+        .lte('created_at', `${endDate}T23:59:59.999+07:00`)
+        .in('status', ['completed', 'settled'])
+        .neq('outlet_id', TEST_OUTLET_ID)
+        // `id` sebagai pemecah seri: created_at bisa kembar, dan paginasi tanpa
+        // urutan unik bisa melompati/menggandakan baris antar halaman.
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true }),
+      'outlet_id'
+    );
+
+  const buildEcommerceQuery = (startDate: string, endDate: string) =>
+    supabaseAdmin
+      .from('ecommerce_sales')
+      .select('*')
+      .gte('tanggal', startDate)
+      .lte('tanggal', endDate)
+      .order('tanggal', { ascending: true })
+      .order('id', { ascending: true });
+
+  const qAttendance = applyOutletFilter(
+    supabaseAdmin.from('attendance')
+      .select('outlet_id, ts_server, type, outlet_staff_id')
+      .gte('ts_server', `${mainEndDate}T00:00:00+07:00`)
+      .lte('ts_server', `${mainEndDate}T23:59:59.999+07:00`)
+      .order('ts_server', { ascending: true }),
+    'outlet_id'
+  );
+
+  const qStaffOutlets = applyOutletFilter(
+    supabaseAdmin.from('staff_outlets')
+      .select('outlet_id, staff_id, outlet_staff(name, role, is_active)')
+      .order('staff_id'),
+    'outlet_id'
+  );
+
+  const buildWasteApprovedQuery = () =>
+    applyOutletFilter(
+      supabaseAdmin
+        .from('stok_waste_reports')
+        .select('bahan_baku_id, qty, outlets!inner(id, type), bahan_baku!inner(id)')
+        .eq('status', 'APPROVED')
+        .neq('outlet_id', TEST_OUTLET_ID)
+        .gte('created_at', `${mainStartDate}T00:00:00+07:00`)
+        .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`)
+        // Dipaginasi (fetchAllPages) dengan urutan unik: dulu terpotong diam-diam
+        // di 1.000 baris sehingga "kerugian waste" periode panjang kurang hitung.
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true }),
+      'outlet_id'
+    );
+
+  const qWastePending = applyOutletFilter(
+    supabaseAdmin
+      .from('stok_waste_reports')
+      .select('id', { count: 'exact', head: true })
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .eq('status', 'PENDING'),
+    'outlet_id'
+  );
 
   const [
-    ordersToday,
-    ordersYesterday,
-    { data: outlets },
+    rawPosOrdersToday,
+    rawPosOrdersYesterday,
+    ecommerceSalesToday,
+    ecommerceSalesYesterday,
+    { data: rawOutlets },
     { data: attendanceToday },
     { data: staffOutlets },
     wasteApprovedData,
     { count: pendingWasteCount }
   ] = await Promise.all([
-    fetchAllPages(qOrdersToday),
-    fetchAllPages(qOrdersYesterday),
+    shouldFetchPosOrders ? fetchAllPages(() => buildOrdersQuery(mainStartDate, mainEndDate)) : Promise.resolve([]),
+    shouldFetchPosOrders ? fetchAllPages(() => buildOrdersQuery(prevStartDate, prevEndDate)) : Promise.resolve([]),
+    includeEcommerce ? fetchAllPages(() => buildEcommerceQuery(mainStartDate, mainEndDate)) : Promise.resolve([]),
+    includeEcommerce ? fetchAllPages(() => buildEcommerceQuery(prevStartDate, prevEndDate)) : Promise.resolve([]),
     qOutlets,
     qAttendance,
     qStaffOutlets,
-    fetchAllPages(qWasteApproved),
+    fetchAllPages(buildWasteApprovedQuery),
     qWastePending
   ]);
 
-  // Samakan dengan POS Kasir: omzet adalah total_amount pesanan selesai (completed)
-  const getOrderGrossRevenue = (o: any) => Number(o.total_amount) || 0;
+  const outlets = (rawOutlets || []).filter((o: any) => !isTestOutlet(o));
+  const validOutletIdSet = new Set(outlets.map((o: any) => o.id));
+
+  const posOrdersToday = (rawPosOrdersToday || []).filter((o: any) => validOutletIdSet.has(o.outlet_id));
+  const posOrdersYesterday = (rawPosOrdersYesterday || []).filter((o: any) => validOutletIdSet.has(o.outlet_id));
+
+  const ordersToday = [
+    ...posOrdersToday,
+    ...(ecommerceSalesToday || []).map(mapEcommerceSaleToOrder),
+  ];
+  const ordersYesterday = [
+    ...posOrdersYesterday,
+    ...(ecommerceSalesYesterday || []).map(mapEcommerceSaleToOrder),
+  ];
+
+  // Samakan 100% dengan Dashboard Admin (computeOrderGross):
+  // - Walk-in/Offline: merekonstruksi Gross dari total_amount + diskon kasir
+  // - Food Apps: total_amount sudah merupakan Harga Jual (Gross)
+  // - SS Online (ecommerce_sales): omzet_net + total_potongan = Gross
+  const getOrderGrossRevenue = (o: any) => computeOrderGross(o);
 
   const omzetToday = (ordersToday || []).reduce((sum, o) => sum + getOrderGrossRevenue(o), 0);
   const txToday = (ordersToday || []).length;
   const omzetYesterday = (ordersYesterday || []).reduce((sum, o) => sum + getOrderGrossRevenue(o), 0);
 
-  const itemsSoldToday = (ordersToday || []).reduce((sum, order) => {
+  const sumOrderItems = (order: any) => {
     const items = order.order_items || [];
     // @ts-ignore
-    return sum + items.reduce((s, item) => s + (Number(item.quantity) || 0), 0);
-  }, 0);
+    return items.reduce((s, item) => s + (Number(item.quantity) || 0), 0);
+  };
 
-  const itemsSoldYesterday = (ordersYesterday || []).reduce((sum, order) => {
-    const items = order.order_items || [];
-    // @ts-ignore
-    return sum + items.reduce((s, item) => s + (Number(item.quantity) || 0), 0);
-  }, 0);
+  const itemsSoldToday = (ordersToday || []).reduce((sum, order) => sum + sumOrderItems(order), 0);
+  const itemsSoldYesterday = (ordersYesterday || []).reduce((sum, order) => sum + sumOrderItems(order), 0);
+
+  // Samakan 100% dengan RPC Bonus di Dashboard Admin (get_monthly_rm_bonus, get_monthly_am_bonus, get_monthly_crew_bonus):
+  // 1. Hanya menghitung outlet operasional (bukan marketplace/SS Online, bukan tes/test/trial/demo/backup/kantor pusat/gudang)
+  // 2. Hanya menghitung order POS dengan status === 'completed'
+  const isBonusOperationalOutlet = (outlet?: { id?: string; name?: string | null; type?: string | null } | null): boolean => {
+    if (!outlet || !outlet.id) return false;
+    if (outlet.id === TEST_OUTLET_ID) return false;
+    if (outlet.type === 'marketplace') return false;
+    const lower = (outlet.name || '').toLowerCase();
+    if (
+      lower.includes('tes') ||
+      lower.includes('test') ||
+      lower.includes('trial') ||
+      lower.includes('demo') ||
+      lower.includes('backup') ||
+      lower.includes('kantor pusat') ||
+      lower.includes('gudang')
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  const bonusOutletIdSet = new Set(
+    (outlets || []).filter(isBonusOperationalOutlet).map((o: any) => o.id)
+  );
+
+  const bonusOrdersToday = (posOrdersToday || []).filter(
+    (o: any) => o.status === 'completed' && bonusOutletIdSet.has(o.outlet_id)
+  );
+  const bonusOrdersYesterday = (posOrdersYesterday || []).filter(
+    (o: any) => o.status === 'completed' && bonusOutletIdSet.has(o.outlet_id)
+  );
+
+  const bonusItemsToday = bonusOrdersToday.reduce((sum: number, o: any) => sum + sumOrderItems(o), 0);
+  const bonusItemsYesterday = bonusOrdersYesterday.reduce((sum: number, o: any) => sum + sumOrderItems(o), 0);
+
+  let bonusTodayAmount = bonusItemsToday * 50;
+  let bonusYesterdayAmount = bonusItemsYesterday * 50;
+  let bonusSubtitle = `${bonusItemsToday.toLocaleString('id-ID')} pcs × Rp 50/pcs`;
+
+  if (staff?.role === 'leader' || staff?.role === 'crew') {
+    const targetOutletIds = Array.from(bonusOutletIdSet);
+    if (targetOutletIds.length > 0) {
+      const [
+        { data: eligibleStaffRows },
+        { data: attMainRows },
+        { data: attPrevRows },
+        { data: attLogMainRows },
+        { data: attLogPrevRows }
+      ] = await Promise.all([
+        supabaseAdmin
+          .from('outlet_staff')
+          .select('id, name, outlet_id, role, is_active, is_bonus_eligible, onboarding_stage, account_category')
+          .in('role', ['crew', 'leader']),
+        supabaseAdmin
+          .from('attendance')
+          .select('outlet_id, outlet_staff_id, ts_server, type, status')
+          .in('outlet_id', targetOutletIds)
+          .in('type', ['in', 'masuk'])
+          .gte('ts_server', `${mainStartDate}T00:00:00+07:00`)
+          .lte('ts_server', `${mainEndDate}T23:59:59.999+07:00`),
+        supabaseAdmin
+          .from('attendance')
+          .select('outlet_id, outlet_staff_id, ts_server, type, status')
+          .in('outlet_id', targetOutletIds)
+          .in('type', ['in', 'masuk'])
+          .gte('ts_server', `${prevStartDate}T00:00:00+07:00`)
+          .lte('ts_server', `${prevEndDate}T23:59:59.999+07:00`),
+        supabaseAdmin
+          .from('attendance_logs')
+          .select('outlet_id, staff_id, date, status')
+          .in('outlet_id', targetOutletIds)
+          .eq('status', 'hadir')
+          .gte('date', mainStartDate)
+          .lte('date', mainEndDate),
+        supabaseAdmin
+          .from('attendance_logs')
+          .select('outlet_id, staff_id, date, status')
+          .in('outlet_id', targetOutletIds)
+          .eq('status', 'hadir')
+          .gte('date', prevStartDate)
+          .lte('date', prevEndDate),
+      ]);
+
+      const eligibleCrewSet = new Set<string>();
+      const activeCrewCountByOutlet = new Map<string, number>();
+
+      for (const s of eligibleStaffRows || []) {
+        const nameLower = (s.name || '').trim().toLowerCase();
+        const isTestStaff =
+          nameLower.startsWith('tes ') ||
+          nameLower.startsWith('test') ||
+          nameLower.includes(' tester') ||
+          nameLower.includes('developer') ||
+          nameLower.includes('devai') ||
+          nameLower === 'tes' ||
+          nameLower === 'test';
+        const isBonusElig = s.is_bonus_eligible ?? true;
+        const stage = s.onboarding_stage ?? 'completed';
+        const cat = s.account_category ?? 'employee';
+
+        if (!isTestStaff && isBonusElig && stage !== 'training_7_days' && stage !== 'failed' && cat === 'employee') {
+          eligibleCrewSet.add(s.id);
+          if (s.is_active && s.outlet_id) {
+            activeCrewCountByOutlet.set(s.outlet_id, (activeCrewCountByOutlet.get(s.outlet_id) || 0) + 1);
+          }
+        }
+      }
+
+      const toWibDate = (iso: string) =>
+        new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Jakarta',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date(iso));
+
+      const computeDailyProrataBonus = (ordersList: any[], attRows: any[], attLogRows: any[]) => {
+        const dailyAttendanceMap = new Map<string, Set<string>>();
+        const validAttStat = new Set(['tepat', 'telat', 'hadir', 'masuk', 'telat_toleransi']);
+
+        for (const a of attRows || []) {
+          if (!a.outlet_staff_id || !eligibleCrewSet.has(a.outlet_staff_id)) continue;
+          if (a.status && !validAttStat.has(a.status)) continue;
+          const d = toWibDate(a.ts_server);
+          const key = `${a.outlet_id}::${d}`;
+          if (!dailyAttendanceMap.has(key)) dailyAttendanceMap.set(key, new Set());
+          dailyAttendanceMap.get(key)!.add(a.outlet_staff_id);
+        }
+
+        for (const al of attLogRows || []) {
+          if (!al.staff_id || !eligibleCrewSet.has(al.staff_id)) continue;
+          const key = `${al.outlet_id}::${al.date}`;
+          if (!dailyAttendanceMap.has(key)) dailyAttendanceMap.set(key, new Set());
+          dailyAttendanceMap.get(key)!.add(al.staff_id);
+        }
+
+        const dailyPcsMap = new Map<string, { outletId: string; pcs: number }>();
+        for (const o of ordersList) {
+          const d = toWibDate(o.created_at);
+          const key = `${o.outlet_id}::${d}`;
+          const prev = dailyPcsMap.get(key) || { outletId: o.outlet_id, pcs: 0 };
+          prev.pcs += sumOrderItems(o);
+          dailyPcsMap.set(key, prev);
+        }
+
+        let totalPerCrewShare = 0;
+        let lastDivider = 1;
+        for (const [key, { outletId, pcs }] of dailyPcsMap.entries()) {
+          if (pcs <= 0) continue;
+          const attSet = dailyAttendanceMap.get(key);
+          const cnt = attSet && attSet.size > 0
+            ? attSet.size
+            : Math.max(activeCrewCountByOutlet.get(outletId) || 1, 1);
+          lastDivider = cnt;
+          totalPerCrewShare += Math.round((pcs * 100) / cnt);
+        }
+
+        return { totalPerCrewShare, lastDivider };
+      };
+
+      const curCrewBonus = computeDailyProrataBonus(bonusOrdersToday, attMainRows || [], attLogMainRows || []);
+      const prevCrewBonus = computeDailyProrataBonus(bonusOrdersYesterday, attPrevRows || [], attLogPrevRows || []);
+
+      bonusTodayAmount = curCrewBonus.totalPerCrewShare;
+      bonusYesterdayAmount = prevCrewBonus.totalPerCrewShare;
+      bonusSubtitle = `Pool ${bonusItemsToday.toLocaleString('id-ID')} pcs × Rp 100 ÷ ${curCrewBonus.lastDivider} kru`;
+    } else {
+      bonusTodayAmount = 0;
+      bonusYesterdayAmount = 0;
+      bonusSubtitle = '0 pcs × Rp 100/pcs';
+    }
+  }
 
   let percentageChange = 0;
   if (omzetYesterday === 0) {
@@ -306,8 +520,9 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   }
 
   let totalWasteLossToday = 0;
-  if (wasteApprovedData && wasteApprovedData.length > 0) {
-    const wasteBahanIds = Array.from(new Set(wasteApprovedData.map((w: any) => w.bahan_baku_id)));
+  const validWasteApproved = (wasteApprovedData || []).filter((w: any) => !isTestOutlet(w.outlets));
+  if (validWasteApproved.length > 0) {
+    const wasteBahanIds = Array.from(new Set(validWasteApproved.map((w: any) => w.bahan_baku_id)));
     const { data: bHarga } = await supabaseAdmin
       .from('bahan_baku_harga')
       .select('bahan_baku_id, harga_beli')
@@ -316,9 +531,9 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     for (const bh of bHarga || []) {
       hargaMap.set(bh.bahan_baku_id, Number(bh.harga_beli) || 0);
     }
-    for (const w of wasteApprovedData) {
+    for (const w of validWasteApproved) {
       const h = hargaMap.get(w.bahan_baku_id) || 0;
-      totalWasteLossToday += Math.round((Number(w.qty) || 0) * h);
+      totalWasteLossToday += (Number(w.qty) || 0) * h;
     }
   }
   const pendingWasteCountToday = pendingWasteCount || 0;
@@ -335,12 +550,25 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   });
 
   const outletFirstCheckIn = new Map<string, string>();
-  
-  (attendanceToday || []).forEach(att => {
-    if (!outletFirstCheckIn.has(att.outlet_id)) {
-      // @ts-ignore
-      const wibTime = new Date(att.ts_server).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+  const outletLastCheckOut = new Map<string, string>();
+  const outletStaffStateMap = new Map<string, Map<string, 'in' | 'out'>>();
+
+  (attendanceToday || []).forEach((att: any) => {
+    const wibTime = new Date(att.ts_server)
+      .toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false })
+      .replace(':', '.');
+
+    if (att.type === 'in' && !outletFirstCheckIn.has(att.outlet_id)) {
       outletFirstCheckIn.set(att.outlet_id, wibTime);
+    }
+    if (att.type === 'out') {
+      outletLastCheckOut.set(att.outlet_id, wibTime);
+    }
+    if (att.outlet_staff_id && (att.type === 'in' || att.type === 'out')) {
+      if (!outletStaffStateMap.has(att.outlet_id)) {
+        outletStaffStateMap.set(att.outlet_id, new Map());
+      }
+      outletStaffStateMap.get(att.outlet_id)!.set(att.outlet_staff_id, att.type);
     }
   });
 
@@ -355,7 +583,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     staffOutlets.forEach((so: any) => {
       if (so.outlet_staff && so.outlet_staff.role === 'area_manager' && so.outlet_staff.is_active !== false) {
         const staffName = (so.outlet_staff.name || '').trim();
-        if (isIgnoredAM(staffName)) return;
+        if (isIgnoredAMStaffName(staffName)) return;
         amMap.set(so.outlet_id, staffName);
       }
     });
@@ -363,23 +591,30 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
 
   const activeOutlets = (outlets || []).filter(o => o.is_active);
 
-  const outletRanking = activeOutlets
-    .map(outlet => ({
-      id: outlet.id,
-      name: outlet.name,
-      amName: getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name),
-      omzet: outletOmzetMap.get(outlet.id) || 0
-    }))
-    .filter(o => !isIgnoredAM(o.amName))
-    .sort((a, b) => b.omzet - a.omzet);
+  const outletRankingBase = activeOutlets.map(outlet => ({
+    id: outlet.id,
+    name: outlet.name,
+    amName: getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name, outlet.region),
+    omzet: outletOmzetMap.get(outlet.id) || 0
+  }));
+
+  const outletRanking = [
+    ...outletRankingBase,
+    ...(includeEcommerce
+      ? [{
+          id: 'ss-online',
+          name: 'SS ONLINE',
+          amName: 'Marketplace',
+          omzet: outletOmzetMap.get('ss-online') || 0
+        }]
+      : [])
+  ].sort((a, b) => b.omzet - a.omzet);
 
   const maxOmzet = outletRanking.length > 0 ? outletRanking[0].omzet : 1;
 
   const groupedOutlets = new Map<string, any[]>();
   allOutlets.forEach(outlet => {
-    const amName = getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name);
-    if (isIgnoredAM(amName)) return;
-    
+    const amName = getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name, outlet.region);
     const groupKey = amName;
     if (!groupedOutlets.has(groupKey)) {
       groupedOutlets.set(groupKey, []);
@@ -516,8 +751,11 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
 
         {/* KPI 5: Estimasi Bonus & Insentif */}
         <BonusKpiCard
-          itemsSoldToday={itemsSoldToday}
-          itemsSoldYesterday={itemsSoldYesterday}
+          itemsSoldToday={bonusItemsToday}
+          itemsSoldYesterday={bonusItemsYesterday}
+          bonusTodayAmount={bonusTodayAmount}
+          bonusYesterdayAmount={bonusYesterdayAmount}
+          subtitle={bonusSubtitle}
           userRole={staff?.role}
           userName={staff?.name}
         />
@@ -530,8 +768,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
         const zonePerformanceMap = new Map<string, { outlets: { id: string; name: string; omzet: number }[]; totalOmzet: number }>();
 
         activeOutlets.forEach(outlet => {
-          const amName = getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name);
-          if (isIgnoredAM(amName)) return;
+          const amName = getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name, outlet.region);
 
           const omzet = outletOmzetMap.get(outlet.id) || 0;
           if (!zonePerformanceMap.has(amName)) {
@@ -593,19 +830,27 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
                   )}
                   <ul className="divide-y divide-suka-brown/5">
                     {groupOutlets.map(outlet => {
-                      const isOpen = outletFirstCheckIn.has(outlet.id);
+                      const staffStates = outletStaffStateMap.get(outlet.id);
+                      const stateValues = staffStates ? Array.from(staffStates.values()) : [];
+                      const hasAnyoneIn = stateValues.some(s => s === 'in');
+                      const isEveryoneOut = stateValues.length > 0 && stateValues.every(s => s === 'out');
                       const openTime = outletFirstCheckIn.get(outlet.id);
+                      const closeTime = outletLastCheckOut.get(outlet.id);
 
                       return (
                         <li key={outlet.id} className="py-3 flex justify-between items-center first:pt-0 last:pb-0 hover:bg-suka-brown/[0.02] px-2 rounded-xl transition-colors">
                           <span className="text-sm font-extrabold text-suka-brown truncate mr-2">{outlet.name}</span>
-                          {isOpen ? (
+                          {hasAnyoneIn || (openTime && !isEveryoneOut) ? (
                             <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-800 text-[10px] rounded-full font-black uppercase tracking-wider border border-emerald-200 shrink-0">
                               <span className="relative flex h-2 w-2 mr-1.5">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                               </span>
-                              Buka - {openTime}
+                              Buka{openTime ? ` - ${openTime}` : ''}
+                            </span>
+                          ) : isEveryoneOut ? (
+                            <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-[10px] rounded-full font-black uppercase tracking-wider border border-slate-200 shrink-0">
+                              Tutup Shift{closeTime ? ` - ${closeTime}` : ''}
                             </span>
                           ) : (
                             <span className="px-2.5 py-1 bg-red-50 text-red-700 text-[10px] rounded-full font-black uppercase tracking-wider border border-red-200 shrink-0">

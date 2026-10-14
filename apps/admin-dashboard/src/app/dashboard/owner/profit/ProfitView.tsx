@@ -47,7 +47,8 @@ import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
-import { terapkanClosingOpex } from '@/lib/closing/terapkanClosingOpex'
+import { terapkanClosingOpex, rentangClosingTepat } from '@/lib/closing/terapkanClosingOpex'
+import { pendapatanMitraClosingUntuk } from '@/lib/closing/pendapatanMitraClosingSeptember2026'
 import { PRORATED_CATEGORIES, adalahSemiTetap } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
@@ -98,15 +99,20 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     () => mitraOutletIds(allOutlets, mitraInvestments),
     [allOutlets, mitraInvestments],
   )
+  // Closing September 2026: semua transaksi outlet mitra di bulan itu milik kolom
+  // mitra (sheet FIXED), termasuk yang sebelum tanggal mulai kemitraan (Pamulang
+  // 8 Sep, Sawangan DTC 26 Sep) — jadi batas tanggal mulai tidak dipakai.
+  const abaikanTanggalMulai = rentangClosingTepat(filter.from, filter.to)
   const cutoffDates = useMemo(() => {
     const map = new Map<string, string>()
+    if (abaikanTanggalMulai) return map
     for (const [id, inv] of Object.entries(mitraInvestments)) {
       if (inv?.tanggal_mulai) {
         map.set(id, inv.tanggal_mulai)
       }
     }
     return map
-  }, [mitraInvestments])
+  }, [mitraInvestments, abaikanTanggalMulai])
 
   const inScope = useMemo(
     () => (outletId: string | null | undefined, dateStr?: string | null) => {
@@ -348,8 +354,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     [salesRows]
   )
 
+  // Closing September 2026 (Laba Rugi Internal, semua outlet): pendapatan pusat dari
+  // mitra = baris NET PROFIT SS + NET PROFIT HPP sheet FIXED, bukan hitungan live.
+  const pendapatanMitraClosing = scope === 'internal' && isAllOutlets
+    ? pendapatanMitraClosingUntuk(effectiveFilter.from, effectiveFilter.to)
+    : null
+
   // Penerimaan Management Fee oleh Kantor Pusat (scope all & internal)
-  const managementFeeReceived = (scope === 'all' || scope === 'internal')
+  const managementFeeReceived = pendapatanMitraClosing ? pendapatanMitraClosing.feeManajemen : (scope === 'all' || scope === 'internal')
     ? (isAllOutlets 
         ? managementFeeData.totalMitraFee 
         : (mitraIds.has(filter.outletId) ? (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0) : 0))
@@ -392,7 +404,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   // - `all`: HPP mitra ikut sebagai biaya dalam angka yang SUDAH ber-markup,
   //   jadi margin ini mengembalikannya ke modal sebenarnya. Kalau dicabut,
   //   laba global malah terlalu kecil sebesar markup itu.
-  const mitraHppMarginReceived = (scope === 'all' || scope === 'internal')
+  const mitraHppMarginReceived = pendapatanMitraClosing
+    ? pendapatanMitraClosing.marginHpp
+    : (scope === 'all' || scope === 'internal')
     ? mitraHppTotals.markup
     : 0
 
@@ -925,6 +939,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       {scope !== 'mitra' && hasilClosingOpex.catatan && (
         <div className={`-mt-3 mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${hasilClosingOpex.diterapkan ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
           {hasilClosingOpex.catatan}
+          {pendapatanMitraClosing && ' Pendapatan dari mitra (bagi hasil & margin HPP) juga mengikuti laporan closing.'}
         </div>
       )}
 

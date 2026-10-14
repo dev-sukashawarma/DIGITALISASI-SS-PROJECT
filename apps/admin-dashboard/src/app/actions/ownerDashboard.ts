@@ -13,6 +13,7 @@ import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { resolveCallerScope } from '@/lib/server/callerScope'
 import { bumpDayGenerations, daysGeneration } from '@/lib/server/dayGenerations'
 import { ambilRiwayatHpp, ambilVersiRiwayatHpp, buatPenerapRiwayat } from '@/lib/hpp/riwayatHpp'
+import { clearOpexLabaRugiMemo } from '@/lib/server/opexLabaRugi'
 import {
   DAY_FETCH_CONCURRENCY,
   codeFingerprint,
@@ -31,7 +32,38 @@ import {
  * unstable_cache — cache Next bersifat stale-while-revalidate, sehingga
  * pembaca pertama setelah kedaluwarsa masih mendapat angka lama. */
 const TODAY_MEMO_TTL_MS = 10_000
+const PAST_CHUNK_MEMO_TTL_MS = 3600_000
+const MAX_PAST_CHUNK_MEMO_ENTRIES = 1500
+const PREPARED_PAST_TTL_MS = 300_000
+const MAX_PREPARED_MEMO_ENTRIES = 48
+const HPP_MEMO_TTL_MS = 60_000
+
 const todayMemo = new Map<string, { at: number; promise: Promise<any> }>()
+const pastChunkMemo = new Map<string, { at: number; promise: Promise<any> }>()
+const ownerPreparedMemo = new Map<string, { expiresAt: number; promise: Promise<any> }>()
+let hppVersionMemo: { at: number; promise: Promise<string> } | null = null
+let hppRiwayatMemo: { at: number; promise: Promise<any[]> } | null = null
+
+function getCachedHppVersion(supabase: any): Promise<string> {
+  if (hppVersionMemo && Date.now() - hppVersionMemo.at < HPP_MEMO_TTL_MS) {
+    return hppVersionMemo.promise
+  }
+  const promise = ambilVersiRiwayatHpp(supabase).catch(() => 'unknown')
+  hppVersionMemo = { at: Date.now(), promise }
+  return promise
+}
+
+function getCachedRiwayatHpp(supabase: any): Promise<any[]> {
+  if (hppRiwayatMemo && Date.now() - hppRiwayatMemo.at < HPP_MEMO_TTL_MS) {
+    return hppRiwayatMemo.promise
+  }
+  const promise = ambilRiwayatHpp(supabase)
+  hppRiwayatMemo = { at: Date.now(), promise }
+  promise.catch(() => {
+    if (hppRiwayatMemo?.promise === promise) hppRiwayatMemo = null
+  })
+  return promise
+}
 
 function cleanItemName(name: string) {
   if (!name) return ''
@@ -143,11 +175,11 @@ async function fetchEcommerceOwnerData(
   }
 
   // HPP per tanggal order (dateStr = tanggal WIB di bawah)
-  // Dilewati bila tidak ada penjualan — fungsi ini kini dipanggil per hari
-  // (cache per hari), dan riwayat HPP dibaca utuh setiap kali.
+  // Dilewati bila tidak ada penjualan — riwayat HPP di-memo 60 detik agar
+  // pembacaan 30-60 potongan hari berbagi 1 kueri saja.
   const penerapHpp = buatPenerapRiwayat(
     [],
-    ecommerceSalesList.length > 0 ? await ambilRiwayatHpp(supabase) : [],
+    ecommerceSalesList.length > 0 ? await getCachedRiwayatHpp(supabase) : [],
     (n: string) => n
   )
 
@@ -165,9 +197,10 @@ async function fetchEcommerceOwnerData(
     const omzetKotor = Number(saleRecord.total_amount) || 0
     const omzetNet = Math.max(0, omzetKotor - totalPotongan)
 
-    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(saleRecord.order_date))
-    const hourStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: 'numeric', hour12: false }).format(new Date(saleRecord.order_date))
-    const hour = parseInt(hourStr, 10) || 0
+    const orderMs = new Date(saleRecord.order_date).getTime()
+    const wibDate = new Date(orderMs + 7 * 3600_000)
+    const dateStr = Number.isNaN(orderMs) ? '' : wibDate.toISOString().slice(0, 10)
+    const hour = Number.isNaN(orderMs) ? 0 : wibDate.getUTCHours()
 
     const chNorm = (saleRecord.channel_id || '').toLowerCase()
     let salesSource: SalesSource = 'online'
@@ -279,6 +312,11 @@ export async function revalidateOwnerDashboardCache(range?: { from: string; to: 
     updateTag('owner-dashboard')
   }
   todayMemo.clear()
+  pastChunkMemo.clear()
+  ownerPreparedMemo.clear()
+  hppVersionMemo = null
+  hppRiwayatMemo = null
+  clearOpexLabaRugiMemo()
   revalidatePath('/dashboard/owner')
   revalidatePath('/dashboard/mitra')
 }
@@ -298,6 +336,8 @@ export async function invalidateOwnerDashboardDays(dates: string[]) {
   const valid = Array.from(new Set(dates.filter((d) => isDateStr(d) && d < today))).slice(0, 31)
   for (const d of valid) updateTag(ownerDashboardDayTag(d))
   bumpDayGenerations(valid)
+  ownerPreparedMemo.clear()
+  clearOpexLabaRugiMemo()
 }
 
 /* ── Penggabungan dua potongan periode yang saling lepas (disjoint) ──────
@@ -434,9 +474,10 @@ const OWNER_CACHE_FINGERPRINT = codeFingerprint(fetchOwnerDashboardSummaryRaw, f
 // ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC + Smart Cache ────────────
 export async function getOwnerDashboardDataFast(
   filter: PeriodFilterValue,
-  outlets: Outlet[]
+  outlets: Outlet[],
+  callerScopeOverride?: Awaited<ReturnType<typeof resolveCallerScope>>
 ) {
-  const { supabase, scopeKey, allowedOutletIds } = await resolveCallerScope()
+  const { supabase, scopeKey, allowedOutletIds } = callerScopeOverride ?? (await resolveCallerScope())
 
   if (!isDateStr(filter.from) || !isDateStr(filter.to)) {
     throw new Error('Rentang tanggal tidak valid')
@@ -464,137 +505,207 @@ export async function getOwnerDashboardDataFast(
 
   // COGS dihitung dengan HPP yang berlaku per tanggal (menu_hpp_riwayat). Versi
   // riwayat ikut kunci cache: begitu HPP diubah, potongan lama otomatis tidak
-  // dipakai lagi. Satu kueri `limit 1`, hanya bila ada potongan lampau.
+  // dipakai lagi. Satu kueri `limit 1` (di-memo 60 detik), hanya bila ada potongan lampau.
   // Gagal membaca versi (mis. role tanpa akses tabel riwayat) tidak boleh
   // menjatuhkan dashboard; TTL 1 jam tetap membatasi umur cache.
   const hppVersion = chunks.length > 0
-    ? await ambilVersiRiwayatHpp(supabase).catch(() => 'unknown')
+    ? await getCachedHppVersion(supabase)
     : 'none'
 
-  const fetchChunk = (chunk: { from: string; to: string; dates: string[] }) => {
-    const { fromIso, toIso } = jakartaRangeIso(chunk.from, chunk.to)
-    return unstable_cache(
-      () => fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source),
-      ['owner-dashboard-chunk-v8', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, daysGeneration(chunk.dates)],
-      {
-        revalidate: 3600,
-        tags: ['owner-dashboard', ...chunk.dates.map(ownerDashboardDayTag)],
+  const pastGenKey = chunks.length > 0 ? daysGeneration(chunks.flatMap((c) => c.dates)) : '0'
+  const preparedKey = [
+    OWNER_CACHE_FINGERPRINT,
+    scopeKey,
+    hppVersion,
+    filter.from,
+    filter.to,
+    outletId ?? 'all',
+    source,
+    outlets.length,
+    pastGenKey,
+  ].join('|')
+
+  const now = Date.now()
+  const preparedHit = ownerPreparedMemo.get(preparedKey)
+  if (preparedHit && preparedHit.expiresAt > now) {
+    ownerPreparedMemo.delete(preparedKey)
+    ownerPreparedMemo.set(preparedKey, preparedHit)
+    return preparedHit.promise
+  }
+
+  const computePrepared = async () => {
+    const fetchChunk = (chunk: { from: string; to: string; dates: string[] }) => {
+      const chunkGen = daysGeneration(chunk.dates)
+      const chunkKey = [
+        OWNER_CACHE_FINGERPRINT,
+        scopeKey,
+        hppVersion,
+        chunk.from,
+        chunk.to,
+        outletId ?? 'all',
+        source,
+        chunkGen,
+      ].join('|')
+
+      const chunkHit = pastChunkMemo.get(chunkKey)
+      if (chunkHit && Date.now() - chunkHit.at < PAST_CHUNK_MEMO_TTL_MS) {
+        pastChunkMemo.delete(chunkKey)
+        pastChunkMemo.set(chunkKey, chunkHit)
+        return chunkHit.promise
       }
-    )()
-  }
 
-  const fetchToday = () => {
-    const key = [scopeKey, todayJakarta, outletId ?? 'all', source].join('|')
-    const hit = todayMemo.get(key)
-    if (hit && Date.now() - hit.at < TODAY_MEMO_TTL_MS) return hit.promise
-    const { fromIso, toIso } = jakartaRangeIso(todayJakarta, todayJakarta)
-    const promise = fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source)
-    todayMemo.set(key, { at: Date.now(), promise })
-    // Jangan simpan kegagalan — request berikutnya harus mencoba lagi.
-    promise.catch(() => { if (todayMemo.get(key)?.promise === promise) todayMemo.delete(key) })
-    // Buang entri basi supaya Map tidak tumbuh tanpa batas.
-    if (todayMemo.size > 200) {
-      for (const [k, v] of todayMemo) if (Date.now() - v.at >= TODAY_MEMO_TTL_MS) todayMemo.delete(k)
+      const { fromIso, toIso } = jakartaRangeIso(chunk.from, chunk.to)
+      const runRaw = () => fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source)
+      const promise = unstable_cache(
+        runRaw,
+        ['owner-dashboard-chunk-v8', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, chunkGen],
+        {
+          revalidate: 3600,
+          tags: ['owner-dashboard', ...chunk.dates.map(ownerDashboardDayTag)],
+        }
+      )().catch((err: any) => {
+        if (err && String(err.message || err).includes('incrementalCache')) {
+          return runRaw()
+        }
+        throw err
+      })
+
+      pastChunkMemo.set(chunkKey, { at: Date.now(), promise })
+      promise.catch(() => {
+        if (pastChunkMemo.get(chunkKey)?.promise === promise) pastChunkMemo.delete(chunkKey)
+      })
+      if (pastChunkMemo.size > MAX_PAST_CHUNK_MEMO_ENTRIES) {
+        const oldest = pastChunkMemo.keys().next().value
+        if (oldest !== undefined) pastChunkMemo.delete(oldest)
+      }
+      return promise
     }
-    return promise
-  }
 
-  const [pastPayloads, livePayload] = await Promise.all([
-    mapWithConcurrency(chunks, DAY_FETCH_CONCURRENCY, fetchChunk),
-    includesToday ? fetchToday() : Promise.resolve(null),
-  ])
-  const payload = mergeSummaryPayloads([...pastPayloads, livePayload], livePayload?.fetchedAt)
+    const fetchToday = () => {
+      const key = [scopeKey, todayJakarta, outletId ?? 'all', source].join('|')
+      const hit = todayMemo.get(key)
+      if (hit && Date.now() - hit.at < TODAY_MEMO_TTL_MS) return hit.promise
+      const { fromIso, toIso } = jakartaRangeIso(todayJakarta, todayJakarta)
+      const promise = fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source)
+      todayMemo.set(key, { at: Date.now(), promise })
+      // Jangan simpan kegagalan — request berikutnya harus mencoba lagi.
+      promise.catch(() => { if (todayMemo.get(key)?.promise === promise) todayMemo.delete(key) })
+      // Buang entri basi supaya Map tidak tumbuh tanpa batas.
+      if (todayMemo.size > 200) {
+        for (const [k, v] of todayMemo) if (Date.now() - v.at >= TODAY_MEMO_TTL_MS) todayMemo.delete(k)
+      }
+      return promise
+    }
 
-  const result = payload.result
-  const ecommerceData = payload.ecommerceData
-  const fetchedAt = payload.fetchedAt || new Date().toISOString()
+    const [pastPayloads, livePayload] = await Promise.all([
+      mapWithConcurrency(chunks, Math.max(DAY_FETCH_CONCURRENCY, 10), fetchChunk),
+      includesToday ? fetchToday() : Promise.resolve(null),
+    ])
+    const payload = mergeSummaryPayloads([...pastPayloads, livePayload], livePayload?.fetchedAt)
 
-  if (!result && ecommerceData) {
+    const result = payload.result
+    const ecommerceData = payload.ecommerceData
+    const fetchedAt = payload.fetchedAt || new Date().toISOString()
+
+    if (!result && ecommerceData) {
+      return {
+        ...ecommerceData,
+        totalCogsOpex: ecommerceData.totalCogs + ecommerceData.totalOpex,
+        fetchedAt,
+        isCached: isPast,
+      }
+    }
+
+    const nameById = new Map(outlets.map((o) => [o.id, o.name]))
+
+    const posKpiRows: SalesSummaryRow[] = (result?.kpi_rows ?? []).map((r: any) => ({
+      outlet_id:              r.outlet_id,
+      outlet_name:            nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
+      sales_source:           r.sales_source as SalesSource,
+      sales_date:             r.sales_date,
+      omzet:                  Number(r.omzet),
+      jumlah_order_completed: Number(r.order_count),
+      jumlah_order_all:       Number(r.order_count),
+      total_deductions:       Number(r.total_deductions),
+      total_qty:              Number(r.total_qty || 0),
+    }))
+
+    const hourMap = new Map<number, SalesHourlyRow>()
+    for (let i = 0; i < 24; i++) {
+      hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
+    }
+    for (const h of result?.hourly_rows ?? []) {
+      hourMap.set(h.sales_hour, {
+        sales_hour:             h.sales_hour,
+        omzet:                  Number(h.omzet),
+        jumlah_order_completed: Number(h.order_count),
+      })
+    }
+
+    const menuMap = new Map<string, { name: string; qty: number; revenue: number }>()
+    for (const r of result?.menu_rows ?? []) {
+      const clean = cleanItemName(r.menu_name) || 'Unknown Menu'
+      const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
+      cur.qty += Number(r.qty || 0)
+      cur.revenue += Number(r.revenue || 0)
+      menuMap.set(clean, cur)
+    }
+
+    let totalCogs = Number(result?.total_cogs ?? 0)
+    let totalOpex = Number(result?.total_opex ?? 0)
+
+    let kpiRows = posKpiRows
+    if (ecommerceData) {
+      kpiRows = [...posKpiRows, ...ecommerceData.kpiRows]
+      for (const h of ecommerceData.hourlyRows) {
+        const cur = hourMap.get(h.sales_hour) || { sales_hour: h.sales_hour, omzet: 0, jumlah_order_completed: 0 }
+        cur.omzet += h.omzet
+        cur.jumlah_order_completed += h.jumlah_order_completed
+        hourMap.set(h.sales_hour, cur)
+      }
+      for (const m of ecommerceData.menuRows) {
+        const clean = cleanItemName(m.name) || 'Unknown Menu'
+        const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
+        cur.qty += m.qty
+        cur.revenue += m.revenue
+        menuMap.set(clean, cur)
+      }
+      totalCogs += ecommerceData.totalCogs
+      totalOpex += ecommerceData.totalOpex
+    }
+
+    const hourlyRows = Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour)
+    const menuRows = Array.from(menuMap.values())
+
     return {
-      ...ecommerceData,
-      totalCogsOpex: ecommerceData.totalCogs + ecommerceData.totalOpex,
+      kpiRows,
+      hourlyRows,
+      menuRows,
+      totalCogs,
+      totalOpex,
+      totalCogsOpex: totalCogs + totalOpex,
+      // Margin pasokan bahan mitra (HPP ditagihkan - HPP dasar); nol untuk SS Online.
+      totalMitraMarkup: Number(result?.total_mitra_markup ?? 0),
+      buyOneGetOne: {
+        transactions: Number(result?.bogo_transactions ?? 0),
+        giftUnits: Number(result?.bogo_gift_units ?? 0)
+      },
       fetchedAt,
       isCached: isPast,
     }
   }
 
-  const nameById = new Map(outlets.map((o) => [o.id, o.name]))
-
-  const posKpiRows: SalesSummaryRow[] = (result?.kpi_rows ?? []).map((r: any) => ({
-    outlet_id:              r.outlet_id,
-    outlet_name:            nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
-    sales_source:           r.sales_source as SalesSource,
-    sales_date:             r.sales_date,
-    omzet:                  Number(r.omzet),
-    jumlah_order_completed: Number(r.order_count),
-    jumlah_order_all:       Number(r.order_count),
-    total_deductions:       Number(r.total_deductions),
-    total_qty:              Number(r.total_qty || 0),
-  }))
-
-  const hourMap = new Map<number, SalesHourlyRow>()
-  for (let i = 0; i < 24; i++) {
-    hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
+  const preparedTtl = includesToday ? TODAY_MEMO_TTL_MS : PREPARED_PAST_TTL_MS
+  const preparedPromise = computePrepared()
+  ownerPreparedMemo.set(preparedKey, { expiresAt: now + preparedTtl, promise: preparedPromise })
+  preparedPromise.catch(() => {
+    if (ownerPreparedMemo.get(preparedKey)?.promise === preparedPromise) ownerPreparedMemo.delete(preparedKey)
+  })
+  if (ownerPreparedMemo.size > MAX_PREPARED_MEMO_ENTRIES) {
+    const oldest = ownerPreparedMemo.keys().next().value
+    if (oldest !== undefined) ownerPreparedMemo.delete(oldest)
   }
-  for (const h of result?.hourly_rows ?? []) {
-    hourMap.set(h.sales_hour, {
-      sales_hour:             h.sales_hour,
-      omzet:                  Number(h.omzet),
-      jumlah_order_completed: Number(h.order_count),
-    })
-  }
-
-  const menuMap = new Map<string, { name: string; qty: number; revenue: number }>()
-  for (const r of result?.menu_rows ?? []) {
-    const clean = cleanItemName(r.menu_name) || 'Unknown Menu'
-    const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
-    cur.qty += Number(r.qty || 0)
-    cur.revenue += Number(r.revenue || 0)
-    menuMap.set(clean, cur)
-  }
-
-  let totalCogs = Number(result?.total_cogs ?? 0)
-  let totalOpex = Number(result?.total_opex ?? 0)
-
-  let kpiRows = posKpiRows
-  if (ecommerceData) {
-    kpiRows = [...posKpiRows, ...ecommerceData.kpiRows]
-    for (const h of ecommerceData.hourlyRows) {
-      const cur = hourMap.get(h.sales_hour) || { sales_hour: h.sales_hour, omzet: 0, jumlah_order_completed: 0 }
-      cur.omzet += h.omzet
-      cur.jumlah_order_completed += h.jumlah_order_completed
-      hourMap.set(h.sales_hour, cur)
-    }
-    for (const m of ecommerceData.menuRows) {
-      const clean = cleanItemName(m.name) || 'Unknown Menu'
-      const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
-      cur.qty += m.qty
-      cur.revenue += m.revenue
-      menuMap.set(clean, cur)
-    }
-    totalCogs += ecommerceData.totalCogs
-    totalOpex += ecommerceData.totalOpex
-  }
-
-  const hourlyRows = Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour)
-  const menuRows = Array.from(menuMap.values())
-
-  return {
-    kpiRows,
-    hourlyRows,
-    menuRows,
-    totalCogs,
-    totalOpex,
-    totalCogsOpex: totalCogs + totalOpex,
-    // Margin pasokan bahan mitra (HPP ditagihkan - HPP dasar); nol untuk SS Online.
-    totalMitraMarkup: Number(result?.total_mitra_markup ?? 0),
-    buyOneGetOne: {
-      transactions: Number(result?.bogo_transactions ?? 0),
-      giftUnits: Number(result?.bogo_gift_units ?? 0)
-    },
-    fetchedAt,
-    isCached: isPast,
-  }
+  return preparedPromise
 }
 
 /* ── Fetch REAL Petty Cash (Expenses + Shifts Starting Cash) ─────────── */

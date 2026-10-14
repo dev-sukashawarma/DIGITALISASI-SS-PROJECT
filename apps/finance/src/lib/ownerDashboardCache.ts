@@ -42,9 +42,19 @@ export function eachDateInclusive(from: string, to: string): string[] {
   return out
 }
 
+const JAKARTA_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' })
+const JAKARTA_OFFSET_MS = 7 * 3600_000
+const YEAR_2000_MS = 946684800000
+
 /** Tanggal (YYYY-MM-DD) zona Asia/Jakarta dari sebuah instant. */
 export function jakartaDate(instant: Date | string | number): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(instant))
+  const d = instant instanceof Date ? instant : new Date(instant)
+  const ms = d.getTime()
+  if (Number.isNaN(ms)) return ''
+  if (ms >= YEAR_2000_MS) {
+    return new Date(ms + JAKARTA_OFFSET_MS).toISOString().slice(0, 10)
+  }
+  return JAKARTA_DATE_FORMATTER.format(d)
 }
 
 /** Batas awal & akhir satu rentang tanggal WIB, dalam ISO UTC. */

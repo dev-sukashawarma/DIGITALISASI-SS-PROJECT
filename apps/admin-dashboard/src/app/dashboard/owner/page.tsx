@@ -7,8 +7,9 @@ import OwnerDashboardView from './OwnerDashboardView'
 import DashboardLoadError from './DashboardLoadError'
 import type { SalesSource, PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
-import { hitungOpexLabaRugi } from '@/lib/server/opexLabaRugi'
+import { hitungOpexLabaRugi, hitungWastePeriode } from '@/lib/server/opexLabaRugi'
 import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
+import { resolveCallerScope } from '@/lib/server/callerScope'
 
 /** Di atas ini, hitungan acuan Laba Rugi terlalu berat untuk halaman pendaratan. */
 const BATAS_HARI_ACUAN = 62
@@ -22,11 +23,28 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     setAll: () => {}
   })
   
-  const sp = await searchParams
+  const [sp, userId] = await Promise.all([
+    searchParams,
+    getVerifiedUserId(supabase),
+  ])
   
-  // 1. Fetch User Role & Locked Outlet
-  const userId = await getVerifiedUserId(supabase)
-  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', userId || '').single()
+  // 1. Fetch User Profile, Outlets, Caller Scope & Financial Role Check in parallel
+  const [
+    { data: profile },
+    { data: rawOutlets = [] },
+    callerScope,
+    hasKeuanganRole,
+  ] = await Promise.all([
+    supabase.from('users').select('role, outlet_id').eq('id', userId || '').maybeSingle(),
+    supabase
+      .from('outlets')
+      .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
+      .neq('id', TEST_OUTLET_ID)
+      .order('name'),
+    resolveCallerScope().catch(() => undefined),
+    requireRole(PERAN_KEUANGAN).then(() => true, () => false),
+  ])
+
   const isReadOnly = profile?.role === 'MITRA'
   const lockedOutletId = isReadOnly ? profile?.outlet_id : null
 
@@ -43,13 +61,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     ...previousRange({ from: filter.from, to: filter.to }) 
   }
 
-  // 3. Fetch Outlets (Exclude Test Outlets)
-  const { data: rawOutlets = [] } = await supabase
-    .from('outlets')
-    .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
-    .neq('id', TEST_OUTLET_ID)
-    .order('name')
-    
+  // 3. Prepare Outlets (Exclude Test Outlets)
   const outlets = (rawOutlets ?? []).filter(o => !isTestOutlet(o))
   const allOutletsWithSS = [
     { id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any,
@@ -73,19 +85,15 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     filter.outletId !== 'ss-online' &&
     filter.outletId !== 'PUSAT' &&
     diffDays(filter.from, filter.to) <= BATAS_HARI_ACUAN &&
-    (await requireRole(PERAN_KEUANGAN).then(() => true, () => false))
+    hasKeuanganRole
 
   const acuanLabaRugi = async (f: PeriodFilterValue) => {
     if (!pakaiAcuan) return null
     try {
-      const [opex, wasteRes] = await Promise.all([
-        hitungOpexLabaRugi(f, outlets),
-        supabase.rpc('get_waste_periode', { p_from: f.from, p_to: f.to }),
+      const [opex, waste] = await Promise.all([
+        hitungOpexLabaRugi(f, outlets, { skipRoleCheck: true }),
+        hitungWastePeriode(supabase, f),
       ])
-      if (wasteRes.error) throw wasteRes.error
-      const waste = ((wasteRes.data ?? []) as any[])
-        .filter(r => !isTestOutlet(r.outlet_id) && (f.outletId === 'all' || r.outlet_id === f.outletId))
-        .reduce((sum, r) => sum + (Number(r.nilai_waste) || 0), 0)
       return { opex: opex.total, waste }
     } catch (err) {
       console.error('[owner-dashboard] OPEX acuan Laba Rugi gagal, memakai angka RPC:', err)
@@ -98,11 +106,11 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   // jadi error 500 seperti sebelumnya. Acuan Laba Rugi ikut berjalan bersamaan
   // (tidak pernah melempar) supaya tidak menambah waktu tunggu.
   const [curRes, prevRes, curAcuan, prevAcuan] = await Promise.all([
-    getOwnerDashboardDataFast(filter, scopedOutlets).then(
+    getOwnerDashboardDataFast(filter, scopedOutlets, callerScope).then(
       value => ({ status: 'fulfilled' as const, value }),
       reason => ({ status: 'rejected' as const, reason }),
     ),
-    getOwnerDashboardDataFast(prevFilter, scopedOutlets).then(
+    getOwnerDashboardDataFast(prevFilter, scopedOutlets, callerScope).then(
       value => ({ status: 'fulfilled' as const, value }),
       reason => ({ status: 'rejected' as const, reason }),
     ),

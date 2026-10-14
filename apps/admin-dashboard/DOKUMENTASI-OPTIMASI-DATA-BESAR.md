@@ -193,3 +193,30 @@ Jika ingin menyalin pola ini ke halaman laporan baru atau aplikasi lain, gunakan
 6. **Fast WIB Date Formatter (`UTC+7`)**: [`src/lib/posReportKpi.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/posReportKpi.ts) & [`src/lib/hpp/riwayatHpp.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/hpp/riwayatHpp.ts)
 7. **Migrasi Indeks Database**: [`supabase/migrations/20261014031500_optimize_pos_report_indexes.sql`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/supabase/migrations/20261014031500_optimize_pos_report_indexes.sql)
 8. **Pengujian Kesetaraan Matematis & Benchmark CPU**: [`src/lib/posReport/perfEquivalence.test.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/posReport/perfEquivalence.test.ts)
+
+---
+
+## 5. Penerapan pada Halaman Ringkasan Bisnis (`/dashboard/owner`)
+
+Pola arsitektur yang sama telah diterapkan pada halaman **Ringkasan Bisnis (`/dashboard/owner`)**:
+
+1. **Multi-Tier In-Memory Cache pada [`ownerDashboard.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/app/actions/ownerDashboard.ts)**:
+   - **`pastChunkMemo` (Tier-1A LRU RAM Cache, maks 1.500 potongan hari)**: Menyimpan hasil RPC `get_owner_dashboard_summary` + data `SS Online` per tanggal lampau di memori proses sehingga pembacaan 30–60 potongan hari (`Bulan Ini` / `Bulan Lalu` beserta periode pembandingnya) tidak perlu menyentuh disk/jaringan berulang kali.
+   - **`ownerPreparedMemo` (Tier-1B Prepared Result Cache)**: Menyimpan hasil gabungan periode penuh (`kpiRows`, `hourlyRows`, `menuRows`, `totalCogs`, `buyOneGetOne`) selama 10 detik (jika mencakup hari ini) atau 5 menit (jika periode lampau).
+   - **Memoisasi Versi & Riwayat HPP (`getCachedHppVersion` & `getCachedRiwayatHpp`, TTL 60 detik)**: Mengeliminasi hingga 60 kueri `menu_hpp_riwayat` berulang saat memuat potongan harian `SS Online`.
+2. **Memoisasi Lintas-Outlet untuk OPEX Laba Rugi & Waste pada [`opexLabaRugi.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/server/opexLabaRugi.ts)**:
+   - **`opexRangeRawMemo`**: Mengambil `ambilPengeluaranMentah` (`outletId: 'all'`), `getProrataAuxiliaryDataAction`, dan `hitungRingkasanPayrollHr` cukup **1 kali per rentang tanggal `(from, to)`**, lalu memfilter per `outletId` langsung di memori. Berpindah filter dari *Semua Outlet* ke outlet tertentu kini membutuhkan **0 kueri database tambahan** untuk perhitungan OPEX.
+   - **`wasteRangeMemo` (`hitungWastePeriode`)**: Menyimpan hasil RPC `get_waste_periode` per rentang `(from, to)` dan memfilter `outlet_id` di memori.
+3. **Paralelisasi Setup SSR pada [`owner/page.tsx`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/app/dashboard/owner/page.tsx)**:
+   - Menggabungkan pengambilan profil `users`, daftar `outlets`, `resolveCallerScope()`, dan `requireRole(PERAN_KEUANGAN)` ke dalam satu `Promise.all` tunggal serta meneruskan `callerScope` dan `skipRoleCheck: true` ke fungsi hilir.
+
+### Hasil Benchmark Live Supabase (`/dashboard/owner` — 31 Outlet Aktif + SS Online)
+
+| Filter Periode | Rentang Tanggal | Jumlah Order | Total Omzet | Cold Fetch (Cur + Prev) | Warm Cache / Filter Switch | Speedup |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: |
+| **Kemarin (Default)** | `2026-10-13` | 1.070 | Rp 54.374.159 | `247,6 ms` | **`0,13 ms`** | **1.978x** |
+| **Hari Ini** | `2026-10-14` | 0 | Rp 0 | `197,5 ms` | **`0,12 ms`** | **1.598x** |
+| **Bulan Ini** | `2026-10-01 s/d 2026-10-14` | 15.943 | Rp 796.807.147 | `1.185,4 ms` | **`0,27 ms`** | **4.407x** |
+| **Bulan Lalu** | `2026-09-01 s/d 2026-09-30` | 34.099 | Rp 1.648.864.939 | `1.433,4 ms` | **`0,27 ms`** | **5.331x** |
+| **Kustom (7 Hari)** | `2026-10-08 s/d 2026-10-14` | 7.287 | Rp 368.542.839 | **`58,6 ms`** *(Reuse Chunk)* | **`0,19 ms`** | **312x** |
+

@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { TEST_OUTLET_ID, isExcludedOutlet } from '@/lib/outletFilters'
+import { updateCashDepositMethodAction, deleteCashDepositAction } from '@/app/actions/setoran'
 
 export interface OutletOption {
   id: string
@@ -65,6 +66,37 @@ export function useCashDeposit() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cash_transaction'] })
       qc.invalidateQueries({ queryKey: ['cash_balance'] })
+      qc.invalidateQueries({ queryKey: ['cash_deposit_history'] })
+    },
+  })
+}
+
+export function useUpdateCashDepositMethod() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: string; newLocationId: string }) => {
+      return await updateCashDepositMethodAction(v)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cash_transaction'] })
+      qc.invalidateQueries({ queryKey: ['cash_balance'] })
+      qc.invalidateQueries({ queryKey: ['cash_location'] })
+      qc.invalidateQueries({ queryKey: ['cash_deposit_history'] })
+    },
+  })
+}
+
+export function useDeleteCashDeposit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return await deleteCashDepositAction({ id })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cash_transaction'] })
+      qc.invalidateQueries({ queryKey: ['cash_balance'] })
+      qc.invalidateQueries({ queryKey: ['cash_location'] })
+      qc.invalidateQueries({ queryKey: ['cash_deposit_history'] })
     },
   })
 }

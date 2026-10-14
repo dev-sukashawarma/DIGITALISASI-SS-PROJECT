@@ -46,6 +46,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { mitraOutletIds } from '@/lib/outletOwnership'
 import { barisPayrollDariHr, gantiPayrollDenganHr, gajiRutinBulananKartu, adaDataHr } from '@/lib/opexDariHr'
+import { kartuClosingUntuk } from '@/lib/closing/targetKartuClosing'
 import { useRole } from '@/components/layout/RoleContext'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
@@ -460,6 +461,12 @@ export default function InputPengeluaranPage() {
     }
   }, [allTransactions])
 
+  // Closing OPEX September 2026: untuk rentang tepat 1–30 Sep dan cakupan internal/pusat,
+  // angka kartu = target sheet FIXED (lib/closing). Daftar transaksi tetap data asli.
+  const closingKartu = useMemo(() => kartuClosingUntuk(target, startDate, endDate), [target, startDate, endDate])
+  const kartuClosing = closingKartu.kartu
+  const nonSalaryTampil = kartuClosing ? kartuClosing.nonGaji : summary.nonSalary
+
   // Prorata calculation based on current date filter (starts / ends)
   const prorataInfo = useMemo(() => calculateDateRangeProrata(startDate, endDate), [startDate, endDate])
 
@@ -467,6 +474,7 @@ export default function InputPengeluaranPage() {
 
   // Realtime & Exact Crew Bonus from HR Payroll (get_daily_outlet_bonus_detail) / Prorata fallback
   const displayCrewBonus = useMemo(() => {
+    if (kartuClosing) return kartuClosing.bonusKru
     if (isPusat) return 0
     if (hasHrPayroll && hrPayroll?.crewBonus !== undefined) {
       return hrPayroll.crewBonus
@@ -475,10 +483,11 @@ export default function InputPengeluaranPage() {
       return prorataBreakdown.bonus_crew.nominalProrata
     }
     return 0
-  }, [isPusat, hasHrPayroll, hrPayroll, prorataBreakdown])
+  }, [kartuClosing, isPusat, hasHrPayroll, hrPayroll, prorataBreakdown])
 
   // Realtime & Exact Manager Bonus from HR Payroll / Prorata fallback
   const displayManagerBonus = useMemo(() => {
+    if (kartuClosing) return kartuClosing.bonusManajer
     if (isPusat) return 0
     if (hasHrPayroll && hrPayroll?.managerBonusAllocation !== undefined) {
       return hrPayroll.managerBonusAllocation
@@ -488,7 +497,7 @@ export default function InputPengeluaranPage() {
       return mgrProrata
     }
     return 0
-  }, [isPusat, hasHrPayroll, hrPayroll, prorataBreakdown])
+  }, [kartuClosing, isPusat, hasHrPayroll, hrPayroll, prorataBreakdown])
 
   // Total Bonus (Kru + Pengawas)
   const displayBonus = useMemo(() => {
@@ -498,6 +507,7 @@ export default function InputPengeluaranPage() {
 
   // Realtime & Prorata Routine Salary (Gaji Pokok + Tunjangan Aktif + Alokasi Rutin Manajer)
   const displayRoutineSalary = useMemo(() => {
+    if (kartuClosing) return kartuClosing.gajiRutin
     if (hasHrPayroll && hrPayroll) {
       const staffGapok = Math.round(isPusat ? hrPayroll.basicSalary : (hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary))
       const staffTunj = Math.round(isPusat ? hrPayroll.allowances : (hrPayroll.crewAllowances ?? hrPayroll.allowances))
@@ -512,7 +522,7 @@ export default function InputPengeluaranPage() {
       return prorataBreakdown.gaji_crew_outlet.nominalProrata
     }
     return summary.salary
-  }, [isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo, summary.salary])
+  }, [kartuClosing, isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo, summary.salary])
 
   // Total Beban Gaji (Rutin + Bonus)
   const displaySalary = useMemo(() => {
@@ -585,8 +595,8 @@ export default function InputPengeluaranPage() {
     }
   }, [allTransactions])
 
-  const displayLembur = lemburData.totalLembur
-  const totalCombinedOpex = displaySalary + displayLembur + summary.nonSalary
+  const displayLembur = kartuClosing ? kartuClosing.lembur : lemburData.totalLembur
+  const totalCombinedOpex = displaySalary + displayLembur + nonSalaryTampil
 
   // Operational breakdown for details modal (Category & Outlet)
   const operationalBreakdown = useMemo(() => {
@@ -1257,6 +1267,14 @@ export default function InputPengeluaranPage() {
         </div>
       )}
 
+      {(kartuClosing || closingKartu.catatan) && (
+        <div className={`mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${kartuClosing ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+          {kartuClosing
+            ? 'Kartu OPEX September 2026 mengikuti laporan closing (sheet FIXED SEPTEMBER 2026). Daftar transaksi di bawah tetap data asli.'
+            : closingKartu.catatan}
+        </div>
+      )}
+
       {/* SUMMARY STATS (PURE OPEX - DYNAMIC CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, LEMBUR KAS, OPERATIONAL, TOTAL) */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${isPusat && displayCrewBonus === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3.5 sm:gap-4.5`}>
         {/* 1. Gaji & Payroll (Rutin) */}
@@ -1570,8 +1588,8 @@ export default function InputPengeluaranPage() {
               </div>
             </div>
 
-            <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-2.5 tracking-tight truncate" title={rupiah(summary.nonSalary)}>
-              {rupiah(summary.nonSalary)}
+            <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-2.5 tracking-tight truncate" title={rupiah(nonSalaryTampil)}>
+              {rupiah(nonSalaryTampil)}
             </div>
 
             <div className="text-[11px] text-gray-500 font-semibold mt-0.5 truncate">
@@ -1628,8 +1646,8 @@ export default function InputPengeluaranPage() {
             <div
               className="text-[11px] text-rose-100/90 font-medium mt-0.5 truncate"
               title={isPusat
-                ? `Gaji Rutin: ${rupiah(displayRoutineSalary)} + Lemburan: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`
-                : `Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Lemburan: ${rupiah(displayLembur)} + Opex: ${rupiah(summary.nonSalary)}`}
+                ? `Gaji Rutin: ${rupiah(displayRoutineSalary)} + Lemburan: ${rupiah(displayLembur)} + Opex: ${rupiah(nonSalaryTampil)}`
+                : `Gaji Rutin: ${rupiah(displayRoutineSalary)} + Kru: ${rupiah(displayCrewBonus)} + AM/RM: ${rupiah(displayManagerBonus)} + Lemburan: ${rupiah(displayLembur)} + Opex: ${rupiah(nonSalaryTampil)}`}
             >
               <span>Rutin: {rupiah(displayRoutineSalary)}</span>
               {!isPusat && (
@@ -1649,7 +1667,7 @@ export default function InputPengeluaranPage() {
               <span className="text-rose-300 mx-1">+</span>
               <span>Lemburan: {rupiah(displayLembur)}</span>
               <span className="text-rose-300 mx-1">+</span>
-              <span>Opex: {rupiah(summary.nonSalary)}</span>
+              <span>Opex: {rupiah(nonSalaryTampil)}</span>
             </div>
           </div>
 
@@ -2223,7 +2241,7 @@ export default function InputPengeluaranPage() {
         }}
         lemburData={lemburData}
         operationalData={{
-          totalNonSalary: summary.nonSalary,
+          totalNonSalary: nonSalaryTampil,
           totalCount: operationalBreakdown.count,
           categories: operationalBreakdown.categories,
           outlets: operationalBreakdown.outlets
@@ -2236,7 +2254,7 @@ export default function InputPengeluaranPage() {
           displayCrewBonus,
           displayManagerBonus,
           displayLembur,
-          totalNonSalary: summary.nonSalary,
+          totalNonSalary: nonSalaryTampil,
           isProrated: (hasHrPayroll && prorataInfo.isProrated) || isProratedOpex,
           prorataInfo
         }}

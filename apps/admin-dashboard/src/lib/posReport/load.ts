@@ -38,9 +38,25 @@ const TODAY_MEMO_TTL_MS = 20_000
 // perubahan HPP tidak menunggu cache ini kedaluwarsa.
 const PAST_DAY_TTL_S = 86_400
 const todayMemo = new Map<string, { at: number; promise: Promise<any> }>()
+const MAX_DECODED_PAST_ORDERS = 300_000
+let decodedPastOrdersTotal = 0
+const decodedPastDayMemo = new Map<string, { pos: any[]; ecommerce: any[]; fetchedAt: string; count: number }>()
+
+const orderTsMemo = new WeakMap<object, number>()
+function getOrderTs(o: any): number {
+  let ts = orderTsMemo.get(o)
+  if (ts === undefined) {
+    ts = Date.parse(o.created_at)
+    if (isNaN(ts)) ts = 0
+    orderTsMemo.set(o, ts)
+  }
+  return ts
+}
 
 export function clearPosReportTodayMemo() {
   todayMemo.clear()
+  decodedPastDayMemo.clear()
+  decodedPastOrdersTotal = 0
 }
 
 const ORDER_SELECT = 'id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices)'
@@ -129,6 +145,8 @@ export function encodeRange(raw: { pos: any[]; ecommerce: any[] }) {
   return { pos: encodeDay(raw.pos), ecommerce: encodeDay(raw.ecommerce), fetchedAt: new Date().toISOString() }
 }
 
+const PAST_FETCH_CONCURRENCY = Math.max(DAY_FETCH_CONCURRENCY, 12)
+
 /**
  * Semua order (POS + SS Online) di rentang tanggal WIB [from, to], diambil
  * per hari lewat cache. Belum difilter outlet.
@@ -143,15 +161,53 @@ export async function loadPosReportOrders(
   const { past, includesToday } = splitRangeByToday(from, to, today)
   const pastDates = past ? eachDateInclusive(past.from, past.to) : []
 
-  const fetchDay = (date: string) => {
+  const fetchDay = async (date: string) => {
+    const gen = String(dayGeneration(date))
+    const memoKey = `${scopeKey}|${date}|${gen}`
+    const memoHit = decodedPastDayMemo.get(memoKey)
+    if (memoHit) {
+      decodedPastDayMemo.delete(memoKey)
+      decodedPastDayMemo.set(memoKey, memoHit)
+      return memoHit
+    }
+
     const { fromIso, toIso } = jakartaRangeIso(date, date)
-    return unstable_cache(
-      async () => encodeRange(await fetchRangeRaw(supabase, fromIso, toIso)),
-      // dayGeneration: naik tiap cache tanggal ini dibuang, tersimpan di disk →
-      // pembuangan tetap berlaku sesudah restart/redeploy.
-      ['pos-report-day-v2', DAY_CACHE_FINGERPRINT, scopeKey, date, String(dayGeneration(date))],
-      { revalidate: PAST_DAY_TTL_S, tags: ['pos-report', posReportDayTag(date)] }
-    )()
+    let encoded: { pos: any; ecommerce: any; fetchedAt: string }
+    try {
+      encoded = await unstable_cache(
+        async () => encodeRange(await fetchRangeRaw(supabase, fromIso, toIso)),
+        // dayGeneration: naik tiap cache tanggal ini dibuang, tersimpan di disk →
+        // pembuangan tetap berlaku sesudah restart/redeploy.
+        ['pos-report-day-v2', DAY_CACHE_FINGERPRINT, scopeKey, date, gen],
+        { revalidate: PAST_DAY_TTL_S, tags: ['pos-report', posReportDayTag(date)] }
+      )()
+    } catch (err: any) {
+      if (String(err?.message || '').includes('incrementalCache')) {
+        encoded = encodeRange(await fetchRangeRaw(supabase, fromIso, toIso))
+      } else {
+        throw err
+      }
+    }
+
+    const decodedPos = decodeDay(encoded.pos).sort((a: any, b: any) => getOrderTs(b) - getOrderTs(a))
+    const decodedEcommerce = decodeDay(encoded.ecommerce).sort((a: any, b: any) => getOrderTs(b) - getOrderTs(a))
+    const count = decodedPos.length + decodedEcommerce.length
+    const entry = {
+      pos: decodedPos,
+      ecommerce: decodedEcommerce,
+      fetchedAt: encoded.fetchedAt,
+      count,
+    }
+
+    while (decodedPastOrdersTotal + count > MAX_DECODED_PAST_ORDERS && decodedPastDayMemo.size > 0) {
+      const oldestKey = decodedPastDayMemo.keys().next().value
+      const oldest = decodedPastDayMemo.get(oldestKey)
+      decodedPastDayMemo.delete(oldestKey)
+      if (oldest) decodedPastOrdersTotal -= oldest.count
+    }
+    decodedPastDayMemo.set(memoKey, entry)
+    decodedPastOrdersTotal += count
+    return entry
   }
 
   const fetchToday = () => {
@@ -159,7 +215,11 @@ export async function loadPosReportOrders(
     const hit = todayMemo.get(key)
     if (hit && Date.now() - hit.at < TODAY_MEMO_TTL_MS) return hit.promise
     const { fromIso, toIso } = jakartaRangeIso(today, today)
-    const promise = fetchRangeRaw(supabase, fromIso, toIso).then(encodeRange)
+    const promise = fetchRangeRaw(supabase, fromIso, toIso).then((raw) => ({
+      pos: raw.pos.sort((a: any, b: any) => getOrderTs(b) - getOrderTs(a)),
+      ecommerce: raw.ecommerce.sort((a: any, b: any) => getOrderTs(b) - getOrderTs(a)),
+      fetchedAt: new Date().toISOString(),
+    }))
     todayMemo.set(key, { at: Date.now(), promise })
     promise.catch(() => { if (todayMemo.get(key)?.promise === promise) todayMemo.delete(key) })
     if (todayMemo.size > 100) {
@@ -169,17 +229,24 @@ export async function loadPosReportOrders(
   }
 
   const [pastParts, todayPart] = await Promise.all([
-    mapWithConcurrency(pastDates, DAY_FETCH_CONCURRENCY, fetchDay),
+    mapWithConcurrency(pastDates, PAST_FETCH_CONCURRENCY, fetchDay),
     includesToday ? fetchToday() : Promise.resolve(null),
   ])
 
-  const parts = todayPart ? [...pastParts, todayPart] : pastParts
+  // Gabungkan dari hari terbaru ke terlama supaya pos dan ecommerce langsung
+  // berurutan created_at DESC tanpa perlu .sort() ulang ratusan ribu elemen.
   const pos: any[] = []
   const ecommerce: any[] = []
   let newest = ''
-  for (const p of parts) {
-    pos.push(...decodeDay(p.pos))
-    ecommerce.push(...decodeDay(p.ecommerce))
+  if (todayPart) {
+    for (let i = 0; i < todayPart.pos.length; i++) pos.push(todayPart.pos[i])
+    for (let i = 0; i < todayPart.ecommerce.length; i++) ecommerce.push(todayPart.ecommerce[i])
+    if (todayPart.fetchedAt > newest) newest = todayPart.fetchedAt
+  }
+  for (let pIdx = pastParts.length - 1; pIdx >= 0; pIdx--) {
+    const p = pastParts[pIdx]
+    for (let i = 0; i < p.pos.length; i++) pos.push(p.pos[i])
+    for (let i = 0; i < p.ecommerce.length; i++) ecommerce.push(p.ecommerce[i])
     if (p.fetchedAt > newest) newest = p.fetchedAt
   }
   return {
@@ -224,12 +291,62 @@ export function getEarliestSalesDate(supabase: any, scopeKey: string): Promise<s
  */
 export function selectReportOrders(pos: any[], ecommerce: any[], selectedOutlets: string[]) {
   const includeAll = selectedOutlets.includes('all')
-  const selectedSet = new Set(selectedOutlets)
-  const posRows = !selectedOutlets.includes('ss-online')
-    ? (includeAll ? pos : pos.filter((o: any) => selectedSet.has(o.outlet_id)))
-    : []
-  const ecommerceRows = includeAll || selectedOutlets.includes('ss-online') ? ecommerce : []
-  return [...posRows, ...ecommerceRows]
-    .filter((o: any) => !isTestOutlet(o.outlet_id))
-    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const includeSSOnline = selectedOutlets.includes('ss-online')
+  const isSSOnlineOnly = selectedOutlets.length === 1 && includeSSOnline
+  const selectedSet = includeAll ? null : new Set(selectedOutlets)
+
+  const posList: any[] = []
+  let posSorted = true
+  let prevPosTs = Infinity
+  if (!isSSOnlineOnly) {
+    for (let i = 0; i < pos.length; i++) {
+      const o = pos[i]
+      if (!isTestOutlet(o.outlet_id) && (includeAll || selectedSet!.has(o.outlet_id))) {
+        const ts = getOrderTs(o)
+        if (ts > prevPosTs) posSorted = false
+        prevPosTs = ts
+        posList.push(o)
+      }
+    }
+  }
+
+  const ecList: any[] = []
+  let ecSorted = true
+  let prevEcTs = Infinity
+  if (includeAll || includeSSOnline) {
+    for (let i = 0; i < ecommerce.length; i++) {
+      const o = ecommerce[i]
+      if (!isTestOutlet(o.outlet_id)) {
+        const ts = getOrderTs(o)
+        if (ts > prevEcTs) ecSorted = false
+        prevEcTs = ts
+        ecList.push(o)
+      }
+    }
+  }
+
+  if (ecList.length === 0) {
+    return posSorted ? posList : posList.sort((a: any, b: any) => getOrderTs(b) - getOrderTs(a))
+  }
+  if (posList.length === 0) {
+    return ecSorted ? ecList : ecList.sort((a: any, b: any) => getOrderTs(b) - getOrderTs(a))
+  }
+  if (posSorted && ecSorted) {
+    const merged = new Array(posList.length + ecList.length)
+    let i = 0
+    let j = 0
+    let k = 0
+    while (i < posList.length && j < ecList.length) {
+      if (getOrderTs(posList[i]) >= getOrderTs(ecList[j])) {
+        merged[k++] = posList[i++]
+      } else {
+        merged[k++] = ecList[j++]
+      }
+    }
+    while (i < posList.length) merged[k++] = posList[i++]
+    while (j < ecList.length) merged[k++] = ecList[j++]
+    return merged
+  }
+
+  return posList.concat(ecList).sort((a: any, b: any) => getOrderTs(b) - getOrderTs(a))
 }

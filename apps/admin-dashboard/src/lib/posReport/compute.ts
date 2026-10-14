@@ -84,6 +84,8 @@ export interface OrderRow {
   }[]
 }
 
+const itemHppMemo = new WeakMap<object, Map<string, number>>()
+
 export function getItemHpp(
   menuItem: any,
   outletType?: string,
@@ -105,8 +107,16 @@ export function getItemHpp(
   }
   if (!itemObj) return 0
 
-  let baseHpp = 0
   const normCh = channel ? channel.toLowerCase() : null
+  const isMitra = outletType === 'mitra'
+  const memoKey = `${isMitra ? 1 : 0}|${normCh || ''}|${itemObj.hpp_override ?? ''}`
+  let objMap = itemHppMemo.get(itemObj)
+  if (objMap) {
+    const hit = objMap.get(memoKey)
+    if (hit !== undefined) return hit
+  }
+
+  let baseHpp = 0
   let channelHppVal: number | null = null
 
   if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
@@ -133,10 +143,13 @@ export function getItemHpp(
       return sum + (compHpp * qty)
     }, 0)
   }
-  if (outletType === 'mitra' && baseHpp > 0) {
-    return Math.round(baseHpp * 1.10)
+  const finalHpp = isMitra && baseHpp > 0 ? Math.round(baseHpp * 1.10) : baseHpp
+  if (!objMap) {
+    objMap = new Map<string, number>()
+    itemHppMemo.set(itemObj, objMap)
   }
-  return baseHpp
+  objMap.set(memoKey, finalHpp)
+  return finalHpp
 }
 
 // ─── Helper for extracting packages/combos ───
@@ -282,46 +295,29 @@ export function computeAnalytics({
 }: AnalyticsInput) {
   const filteredOrders = filterOrdersByChannels(orders, selectedChannels)
 
-  const completed = filteredOrders.filter(o => o.status === 'completed' || o.status === 'settled')
+  const completed: OrderRow[] = []
+  let cancelled = 0
+  for (let i = 0; i < filteredOrders.length; i++) {
+    const o = filteredOrders[i]
+    if (o.status === 'completed' || o.status === 'settled') {
+      completed.push(o)
+    } else if (o.status === 'cancelled') {
+      cancelled++
+    }
+  }
   const totalOrders = completed.length
-  const buyOneGetOneOrders = completed.filter(order => order.order_items.some(item => item.is_promo_reward))
-  const buyOneGetOneGiftUnits = buyOneGetOneOrders.reduce(
-    (sum, order) => sum + order.order_items
-      .filter(item => item.is_promo_reward)
-      .reduce((itemSum, item) => itemSum + Number(item.quantity || 0), 0),
-    0
-  )
-  // NET methodology (konsisten dengan halaman Laba Kotor, keputusan owner
-  // 2026-07-29): lihat computeNetRevenueVoidAware.
-  const actualNetRevenue = computeNetRevenueVoidAware(filteredOrders)
+  const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
   // Hitung total selisih laci (variance) dari tutup shift
-  const totalCashVariance = shifts.reduce((s, shift) => s + (shift.variance || 0), 0)
+  let totalCashVariance = 0
+  for (let i = 0; i < shifts.length; i++) {
+    totalCashVariance += shifts[i].variance || 0
+  }
 
   const outletTypeMap = new Map<string, string>()
-  outlets.forEach(o => outletTypeMap.set(o.id, o.type || 'outlet'))
-
-  // Calculate Total HPP using order_items menu_items
-  const totalHPP = completed
-    .reduce((sum, o) => {
-      const outletType = outletTypeMap.get(o.outlet_id)
-      const orderChannel = o.channel || o.sales_source
-      const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
-      return sum + o.order_items.reduce((itemSum, item) => {
-        const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(cleanItemName(item.menu_item_name))
-        const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, orderChannel, item.menu_item_id, pHpp.byId);
-        return itemSum + (hpp * item.quantity);
-      }, 0)
-    }, 0)
-
-  // Payment method breakdown
-  const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}
-  completed.forEach(o => {
-    const method = o.payment_method || 'unknown'
-    if (!paymentBreakdown[method]) paymentBreakdown[method] = { count: 0, revenue: 0 }
-    paymentBreakdown[method].count++
-    paymentBreakdown[method].revenue += o.total_amount
-  })
+  for (let i = 0; i < outlets.length; i++) {
+    outletTypeMap.set(outlets[i].id, outlets[i].type || 'outlet')
+  }
 
   // Bangun pemetaan settlement Food Apps (GoFood, GrabFood, ShopeeFood)
   // File rekonsiliasi platform settlement adalah Single Source of Truth
@@ -333,10 +329,25 @@ export function computeAnalytics({
     gofoodSettlementMap: foodAppsSettlementPromoMap,
   }
 
-  // Terapkan alokasi settlement ke tiap order di completedOrders agar tabel transaksi & turunan langsung membacanya
-  completed.forEach(o => {
+  let buyOneGetOneTransactions = 0
+  let buyOneGetOneGiftUnits = 0
+  let totalHPP = 0
+  const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}
+  const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
+  const itemPdfMap: Record<string, { name: string; channel: string; qty: number; revenue: number }> = {}
+  let mainFoodQty = 0
+  let addOnsQty = 0
+  let totalDeductions = 0
+  let totalPlatformSubsidy = 0
+  let grossRevenue = 0
+  let estimatedCommission = 0
+
+  for (let i = 0; i < completed.length; i++) {
+    const o = completed[i]
+    const target = o as any
+
+    // 1. Terapkan alokasi settlement ke tiap order di completedOrders agar tabel transaksi & turunan langsung membacanya
     if (isFoodAppOrder(o)) {
-      const target = o as any
       const allocated = foodAppsSettlementPromoMap.get(o.id ?? target)
       if (allocated !== undefined) {
         target.settlement_promo_merchant = allocated
@@ -344,45 +355,90 @@ export function computeAnalytics({
         target.platform_subsidy = Math.max(0, kasirPromo - allocated)
       }
     } else if (isTikTokGoOrder(o)) {
-      const target = o as any
       target.settlement_promo_merchant = 0
       const kasirPromo = Number(target.promo_subsidy) || 0
       target.platform_subsidy = kasirPromo
     }
-  })
 
-  // Best sellers & Category Breakdown
-  const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
-  const itemPdfMap: Record<string, { name: string; channel: string; qty: number; revenue: number }> = {}
-  let mainFoodQty = 0
-  let addOnsQty = 0
+    // 2. Payment method breakdown
+    const method = o.payment_method || 'unknown'
+    let pb = paymentBreakdown[method]
+    if (!pb) {
+      pb = { count: 0, revenue: 0 }
+      paymentBreakdown[method] = pb
+    }
+    pb.count++
+    pb.revenue += o.total_amount
 
-  completed.forEach(o => {
-    const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
-    // PDF Eksekutif: revenue per item = porsi gross order (acuan sama dengan
-    // kartu Gross Revenue), supaya kolom "% Kontribusi Omzet" berjumlah 100%.
-    const pdfOrderGross = computeOrderGross(o, kpiOpts)
-    const pdfShares = computeItemShares(o.order_items || [])
+    // 3. ACUAN TUNGGAL Omzet Kotor, Potongan, Subsidi Platform & Estimasi Komisi (dihitung sekali per order)
+    const orderDeduction = computeOrderDeduction(o, kpiOpts)
+    const orderGross = computeOrderGross(o, kpiOpts)
+    totalDeductions += orderDeduction
+    grossRevenue += orderGross
+    if (target.outlet_id !== 'ss-online') {
+      totalPlatformSubsidy += computeOrderPlatformSubsidy(o, kpiOpts)
+    }
 
-    o.order_items.forEach((oi, idx) => {
-      const key = cleanItemName(oi.menu_item_name)
-      if (!itemMap[key]) itemMap[key] = { name: key, qty: 0, revenue: 0 }
-      itemMap[key].qty += oi.quantity
-      itemMap[key].revenue += oi.subtotal
+    if (!isSSOnlineSelected && o.outlet_id !== 'ss-online') {
+      const ch = (o.channel || '').toLowerCase()
+      const src = (o.sales_source || '').toLowerCase()
+      if (isGoFoodOrder(o)) estimatedCommission += Math.round(orderGross * 0.20)
+      else if (ch.includes('grab') || src.includes('grab')) estimatedCommission += Math.round(orderGross * 0.20)
+      else if (ch.includes('shopee') || src.includes('shopee')) estimatedCommission += Math.round(orderGross * 0.20)
+      else if (isTikTokGoOrder(o)) estimatedCommission += Math.round(orderGross * 0.092)
+    }
 
-      const pdfKey = `${key}__${channelName}`
-      if (!itemPdfMap[pdfKey]) itemPdfMap[pdfKey] = { name: key, channel: channelName, qty: 0, revenue: 0 }
-      itemPdfMap[pdfKey].qty += oi.quantity
-      itemPdfMap[pdfKey].revenue += pdfShares[idx] * pdfOrderGross
+    // 4. Rincian item (BOGO, HPP, Best Sellers, PDF Best Sellers, Kategori) dalam satu iterasi
+    const items = o.order_items || []
+    if (items.length > 0) {
+      const outletType = outletTypeMap.get(o.outlet_id)
+      const orderChannel = o.channel || o.sales_source
+      const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
+      const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
+      const pdfShares = computeItemShares(items)
+      let hasBogo = false
+      let orderHpp = 0
 
-      // Simple logic to detect Category: if parentId exists or "Extra" in name -> Add-on
-      if (oi.menu_item_name.includes('|PARENT|') || oi.menu_item_name.toLowerCase().includes('extra')) {
-        addOnsQty += oi.quantity
-      } else {
-        mainFoodQty += oi.quantity
+      for (let idx = 0; idx < items.length; idx++) {
+        const oi = items[idx]
+        if (oi.is_promo_reward) {
+          hasBogo = true
+          buyOneGetOneGiftUnits += Number(oi.quantity || 0)
+        }
+
+        const key = cleanItemName(oi.menu_item_name)
+        const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(key)
+        const hpp = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, orderChannel, oi.menu_item_id, pHpp.byId)
+        orderHpp += hpp * oi.quantity
+
+        let im = itemMap[key]
+        if (!im) {
+          im = { name: key, qty: 0, revenue: 0 }
+          itemMap[key] = im
+        }
+        im.qty += oi.quantity
+        im.revenue += oi.subtotal
+
+        const pdfKey = `${key}__${channelName}`
+        let ipm = itemPdfMap[pdfKey]
+        if (!ipm) {
+          ipm = { name: key, channel: channelName, qty: 0, revenue: 0 }
+          itemPdfMap[pdfKey] = ipm
+        }
+        ipm.qty += oi.quantity
+        ipm.revenue += pdfShares[idx] * orderGross
+
+        if (oi.menu_item_name.includes('|PARENT|') || oi.menu_item_name.toLowerCase().includes('extra')) {
+          addOnsQty += oi.quantity
+        } else {
+          mainFoodQty += oi.quantity
+        }
       }
-    })
-  })
+
+      if (hasBogo) buyOneGetOneTransactions++
+      totalHPP += orderHpp
+    }
+  }
 
   const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty)
   const bestSellersPdf = Object.values(itemPdfMap).sort((a, b) => b.qty - a.qty)
@@ -391,29 +447,6 @@ export function computeAnalytics({
     { name: 'Ekstra / Topping', value: addOnsQty, color: '#10b981' }
   ].filter(d => d.value > 0)
 
-  // Success vs Failure
-  const cancelled = filteredOrders.filter(o => o.status === 'cancelled').length
-  const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
-
-  // ACUAN TUNGGAL Omzet Kotor & Potongan (lihat lib/posReportKpi):
-  // Card Biru: Potongan Merchant mencakup diskon offline dan potongan promo Food Apps yang ditanggung merchant.
-  // GoFood dioverride settlement GoBiz, sementara GrabFood & ShopeeFood dari input kasir.
-  const totalDeductions = completed.reduce(
-    (s, o) => s + computeOrderDeduction(o, kpiOpts),
-    0
-  )
-
-  // Subsidi platform (Gojek / Food Apps) yang BUKAN merupakan beban resto
-  const totalPlatformSubsidy = completed.reduce((s, o) => {
-    if ((o as any).outlet_id === 'ss-online') return s
-    return s + computeOrderPlatformSubsidy(o, kpiOpts)
-  }, 0)
-
-  // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon
-  const grossRevenue = completed.reduce(
-    (s, o) => s + computeOrderGross(o, kpiOpts),
-    0
-  )
   const netRevenue = grossRevenue - totalDeductions
   const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
@@ -456,11 +489,15 @@ export function computeAnalytics({
 
   if (relevantSettlements.length > 0) {
     hasSettlementData = true
-    totalSettlement = relevantSettlements.reduce((sum, s) => {
-      return sum + (Number(s.omzet_kotor) || 0) - (Number(s.promo_merchant) || 0) - (Number(s.commission) || 0)
-    }, 0)
-    totalSettlementGross = relevantSettlements.reduce((sum, s) => sum + (Number(s.omzet_kotor) || 0), 0)
-    totalRealAdmin = relevantSettlements.reduce((sum, s) => sum + (Number(s.commission) || 0), 0)
+    for (let i = 0; i < relevantSettlements.length; i++) {
+      const s = relevantSettlements[i]
+      const kotor = Number(s.omzet_kotor) || 0
+      const promo = Number(s.promo_merchant) || 0
+      const comm = Number(s.commission) || 0
+      totalSettlement += kotor - promo - comm
+      totalSettlementGross += kotor
+      totalRealAdmin += comm
+    }
     settlementRate = grossRevenue > 0 ? Number(((totalSettlement / grossRevenue) * 100).toFixed(1)) : 0
     settlementGrossRate = grossRevenue > 0 ? Number(((totalSettlementGross / grossRevenue) * 100).toFixed(1)) : 0
 
@@ -481,19 +518,6 @@ export function computeAnalytics({
     }
   }
 
-  // Estimasi komisi platform bila data settlement belum diunggah untuk order food apps
-  const estimatedCommission = completed.reduce((sum, o) => {
-    if (isSSOnlineSelected || o.outlet_id === 'ss-online') return sum
-    const gross = computeOrderGross(o, kpiOpts)
-    const ch = (o.channel || '').toLowerCase()
-    const src = (o.sales_source || '').toLowerCase()
-    if (isGoFoodOrder(o)) return sum + Math.round(gross * 0.20)
-    if (ch.includes('grab') || src.includes('grab')) return sum + Math.round(gross * 0.20)
-    if (ch.includes('shopee') || src.includes('shopee')) return sum + Math.round(gross * 0.20)
-    if (isTikTokGoOrder(o)) return sum + Math.round(gross * 0.092)
-    return sum
-  }, 0)
-
   const totalCommission = totalRealAdmin
   const totalAdminFee = totalDeductions + totalCommission
   const isCommissionEstimated = totalRealAdmin === 0 && estimatedCommission > 0
@@ -507,7 +531,7 @@ export function computeAnalytics({
     bestSellersPdf,
     categoryData,
     totalOrders,
-    buyOneGetOneTransactions: buyOneGetOneOrders.length,
+    buyOneGetOneTransactions,
     buyOneGetOneGiftUnits,
     successRate,
     cancelledCount: cancelled,
@@ -559,7 +583,8 @@ export function computeAvailablePaymentMethods(orders: OrderRow[]) {
 export function filterTableData(completedOrders: OrderRow[], selectedPaymentMethod: string, searchQuery: string) {
   let result = completedOrders
   if (selectedPaymentMethod !== 'all') {
-    result = result.filter(o => (o.payment_method || 'unknown').toLowerCase() === selectedPaymentMethod.toLowerCase())
+    const targetMethod = selectedPaymentMethod.toLowerCase()
+    result = result.filter(o => (o.payment_method || 'unknown').toLowerCase() === targetMethod)
   }
   if (searchQuery) {
     const q = searchQuery.toLowerCase()
@@ -583,18 +608,28 @@ export function computeTableFooter(filteredTableData: OrderRow[], settlements: a
     getGofoodSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
     gofoodSettlementMap: foodAppsSettlementPromoMap,
   }
-  const totalGross = filteredTableData.reduce((acc, curr) => {
-    return acc + computeOrderGross(curr, kpiOpts);
-  }, 0);
-  const totalNet = filteredTableData.reduce((acc, curr) => acc + Number(curr.total_amount), 0);
-  const totalOfflineDiscount = filteredTableData.reduce((acc, curr) => acc + (Number((curr as any).discount_amount) || 0), 0);
-  const totalAppSubsidy = filteredTableData.reduce((acc, curr) => acc + (Number((curr as any).promo_subsidy) || 0), 0);
-  const totalMerchantDeductions = filteredTableData.reduce((acc, curr) => acc + computeOrderDeduction(curr, kpiOpts), 0);
-  const totalPlatformSubsidy = filteredTableData.reduce((acc, curr) => acc + computeOrderPlatformSubsidy(curr, kpiOpts), 0);
-  const totalEcommerceDiscount = Math.max(0, totalGross - totalNet);
-  const totalItems = filteredTableData.reduce((acc, curr) => {
-    return acc + curr.order_items.reduce((sum, item) => sum + item.quantity, 0);
-  }, 0);
+  let totalGross = 0
+  let totalNet = 0
+  let totalOfflineDiscount = 0
+  let totalAppSubsidy = 0
+  let totalMerchantDeductions = 0
+  let totalPlatformSubsidy = 0
+  let totalItems = 0
+
+  for (let i = 0; i < filteredTableData.length; i++) {
+    const curr = filteredTableData[i]
+    totalGross += computeOrderGross(curr, kpiOpts)
+    totalNet += Number(curr.total_amount)
+    totalOfflineDiscount += Number((curr as any).discount_amount) || 0
+    totalAppSubsidy += Number((curr as any).promo_subsidy) || 0
+    totalMerchantDeductions += computeOrderDeduction(curr, kpiOpts)
+    totalPlatformSubsidy += computeOrderPlatformSubsidy(curr, kpiOpts)
+    const items = curr.order_items
+    for (let j = 0; j < items.length; j++) {
+      totalItems += items[j].quantity
+    }
+  }
+  const totalEcommerceDiscount = Math.max(0, totalGross - totalNet)
   return { totalGross, totalNet, totalOfflineDiscount, totalAppSubsidy, totalMerchantDeductions, totalPlatformSubsidy, totalEcommerceDiscount, totalItems }
 }
 
@@ -606,39 +641,50 @@ export function computeItemBreakdown(
 ) {
   const map = new Map<string, { name: string; groupLabel: string; qty: number; grossRevenue: number; netRevenue: number; hppPerUnit: number; totalHpp: number }>()
   const outletTypeMap = new Map<string, string>()
-  outlets.forEach(o => outletTypeMap.set(o.id, o.type || 'outlet'))
+  for (let i = 0; i < outlets.length; i++) {
+    outletTypeMap.set(outlets[i].id, outlets[i].type || 'outlet')
+  }
 
-  filteredTableData.forEach(order => {
+  for (let i = 0; i < filteredTableData.length; i++) {
+    const order = filteredTableData[i]
+    const items = order.order_items
+    if (!items || items.length === 0) continue
+
     const outletType = outletTypeMap.get(order.outlet_id)
+    const orderChannel = order.channel || order.sales_source
 
     // Hitung subtotal kotor dari seluruh item di pesanan ini
-    const orderSubtotal = order.order_items.reduce((sum, item) => sum + (item.subtotal || 0), 0)
+    let orderSubtotal = 0
+    for (let j = 0; j < items.length; j++) {
+      orderSubtotal += items[j].subtotal || 0
+    }
 
     // Jika ada diskon/pajak di tingkat pesanan, distribusikan secara proporsional ke tiap item
     const ratio = orderSubtotal > 0 ? (order.total_amount / orderSubtotal) : 1
     const pHpp = penerapHpp.untuk(tanggalWib(order.created_at))
 
-    order.order_items.forEach(item => {
+    const srcKey = resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse).key
+    let groupLabel = 'OFFLINE'
+    if (order.outlet_id === 'ss-online' || srcKey.includes('tiktok_shop') || srcKey.includes('shopee_shop')) {
+      groupLabel = 'SS ONLINE'
+    } else if (srcKey === 'shopeefood' || srcKey === 'grabfood' || srcKey === 'gofood') {
+      groupLabel = 'FOOD APPS'
+    } else if (srcKey === 'tiktokgo' || srcKey === 'tiktok' || srcKey === 'tiktok_go') {
+      groupLabel = 'TIKTOK'
+    } else if (srcKey === 'online') {
+      groupLabel = 'WEB ONLINE'
+    }
+
+    for (let j = 0; j < items.length; j++) {
+      const item = items[j]
       const cleanName = cleanItemName(item.menu_item_name)
-      const src = resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse)
-
-      let groupLabel = 'OFFLINE'
-      if (order.outlet_id === 'ss-online' || src.key.includes('tiktok_shop') || src.key.includes('shopee_shop')) {
-        groupLabel = 'SS ONLINE'
-      } else if (['shopeefood', 'grabfood', 'gofood'].includes(src.key)) {
-        groupLabel = 'FOOD APPS'
-      } else if (['tiktokgo', 'tiktok', 'tiktok_go'].includes(src.key)) {
-        groupLabel = 'TIKTOK'
-      } else if (src.key === 'online') {
-        groupLabel = 'WEB ONLINE'
-      }
-
       const key = `${cleanName}-${groupLabel}`
-      const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(cleanItemName(item.menu_item_name))
-      const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, order.channel || order.sales_source, item.menu_item_id, pHpp.byId)
+      const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(cleanName)
+      const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, orderChannel, item.menu_item_id, pHpp.byId)
 
-      if (!map.has(key)) {
-        map.set(key, {
+      let existing = map.get(key)
+      if (!existing) {
+        existing = {
           name: cleanName,
           groupLabel,
           qty: 0,
@@ -646,17 +692,17 @@ export function computeItemBreakdown(
           netRevenue: 0,
           hppPerUnit,
           totalHpp: 0
-        })
+        }
+        map.set(key, existing)
       }
 
-      const existing = map.get(key)!
       existing.qty += item.quantity
       existing.grossRevenue += item.subtotal
       existing.netRevenue += (item.subtotal * ratio)
       existing.totalHpp += (hppPerUnit * item.quantity)
       existing.hppPerUnit = existing.qty > 0 ? Math.round(existing.totalHpp / existing.qty) : hppPerUnit
-    })
-  })
+    }
+  }
 
   return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
 }

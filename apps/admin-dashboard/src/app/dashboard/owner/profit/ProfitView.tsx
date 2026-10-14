@@ -49,6 +49,7 @@ import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
 import { terapkanClosingOpex, rentangClosingTepat } from '@/lib/closing/terapkanClosingOpex'
 import { pendapatanMitraClosingUntuk } from '@/lib/closing/pendapatanMitraClosingSeptember2026'
+import { penyesuaianLabaKotorClosing } from '@/lib/closing/labaKotorInternalClosingSeptember2026'
 import { PRORATED_CATEGORIES, adalahSemiTetap } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
@@ -349,7 +350,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   }, [mitraInvestments, sales.rows, effectiveFilter.from, mitraIds, cutoffDates])
 
   // Omzet penjualan outlet (sebelum ditambahkan management fee)
-  const actualGrossSales = useMemo(
+  const actualGrossSalesLive = useMemo(
     () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0), 
     [salesRows]
   )
@@ -416,8 +417,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   // bergeser). Selama keduanya ikut di sini, Margin Kotor % dan seluruh kartu
   // rasio memakai penyebut yang digelembungkan — dan gelembungnya membesar
   // seiring bertambahnya outlet mitra.
-  const actualGrossRevenue = actualGrossSales
-
   const totalPotongan = useMemo(
     () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0), 
     [salesRows]
@@ -426,7 +425,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.platform_fee) || 0), 0), 
     [salesRows]
   )
-  const totalDeductions = totalPotongan + totalPlatformFee
+  const totalDeductionsLive = totalPotongan + totalPlatformFee
 
   const pengeluaranLembur = useMemo(
     () => expenseRows
@@ -484,14 +483,28 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     [expenseRows]
   )
     
-  const totalHpp = useMemo(
+  const totalHppLive = useMemo(
     () => hppRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.hpp, 0), 
     [hppRows]
   )
-  const totalWaste = useMemo(
+  const totalWasteLive = useMemo(
     () => wasteRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.nilai_waste, 0), 
     [wasteRows]
   )
+
+  // Closing September 2026 (Laba Rugi Internal, semua outlet): omzet, potongan, HPP,
+  // dan waste mengikuti sheet FIXED kolom B–M, termasuk komisi TikTok GO yang di Excel
+  // terpotong dua kali. Penyesuaiannya tampil sebagai baris sendiri di rincian.
+  const penyesuaianLabaKotor = scope === 'internal' && isAllOutlets
+    ? penyesuaianLabaKotorClosing(effectiveFilter.from, effectiveFilter.to, {
+        omzet: actualGrossSalesLive, potongan: totalDeductionsLive, hpp: totalHppLive, waste: totalWasteLive,
+      })
+    : null
+  const actualGrossSales = actualGrossSalesLive + (penyesuaianLabaKotor?.omzet ?? 0)
+  const actualGrossRevenue = actualGrossSales
+  const totalDeductions = totalDeductionsLive + (penyesuaianLabaKotor ? penyesuaianLabaKotor.potongan + penyesuaianLabaKotor.komisiTiktokKedua : 0)
+  const totalHpp = totalHppLive + (penyesuaianLabaKotor?.hpp ?? 0)
+  const totalWaste = totalWasteLive + (penyesuaianLabaKotor?.waste ?? 0)
   
   // Pendapatan bersih: Gross - Potongan (sudah termasuk Management Fee Mitra pada scope internal)
   const netRevenue = actualGrossRevenue - totalDeductions + managementFeeReceived + mitraHppMarginReceived - managementFeeExpense
@@ -696,6 +709,10 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       .sort((a, b) => a.amount - b.amount)
   }, [expenseRows, isProrated, prorataMonthInfo, payrollDariHr])
 
+  const penyesuaianOmzet = penyesuaianLabaKotor?.omzet ?? 0
+  const penyesuaianPotongan = penyesuaianLabaKotor?.potongan ?? 0
+  const komisiTiktokKedua = penyesuaianLabaKotor?.komisiTiktokKedua ?? 0
+
   // Rincian Omzet Kotor per Channel Penjualan (POS, Food Apps, Online Marketplace)
   const grossRevenueBreakdown = useMemo(() => {
     const map = new Map<string, number>()
@@ -706,14 +723,16 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
         map.set(src, (map.get(src) ?? 0) + gross)
       })
-    return [...map.entries()]
+    const list = [...map.entries()]
       .filter(([_, amount]) => amount > 0)
       .map(([src, amount]) => ({
         label: getSourceLabel(src),
         amount,
       }))
       .sort((a, b) => b.amount - a.amount)
-  }, [salesRows])
+    if (Math.abs(penyesuaianOmzet) >= 0.5) list.push({ label: 'Penyesuaian closing September 2026', amount: penyesuaianOmzet })
+    return list
+  }, [salesRows, penyesuaianOmzet])
 
   // Rincian Potongan Merchant per Channel Penjualan
   const deductionsBreakdown = useMemo(() => {
@@ -725,14 +744,17 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const ded = (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0)
         map.set(src, (map.get(src) ?? 0) + ded)
       })
-    return [...map.entries()]
+    const list = [...map.entries()]
       .filter(([_, amount]) => amount > 0)
       .map(([src, amount]) => ({
         label: getSourceLabel(src),
         amount: -amount,
       }))
       .sort((a, b) => a.amount - b.amount)
-  }, [salesRows])
+    if (komisiTiktokKedua >= 0.5) list.push({ label: 'Komisi TikTok Go — potongan kedua (closing)', amount: -komisiTiktokKedua })
+    if (Math.abs(penyesuaianPotongan) >= 0.5) list.push({ label: 'Penyesuaian closing September 2026', amount: -penyesuaianPotongan })
+    return list
+  }, [salesRows, komisiTiktokKedua, penyesuaianPotongan])
 
   // Rincian Saluran Penjualan untuk Modal Omzet Penjualan
   const salesChannelBreakdown = useMemo(() => {
@@ -940,6 +962,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         <div className={`-mt-3 mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${hasilClosingOpex.diterapkan ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
           {hasilClosingOpex.catatan}
           {pendapatanMitraClosing && ' Pendapatan dari mitra (bagi hasil & margin HPP) juga mengikuti laporan closing.'}
+          {penyesuaianLabaKotor && ' Omzet, admin fee, HPP, dan waste juga mengikuti laporan closing, termasuk komisi TikTok GO yang terpotong dua kali.'}
         </div>
       )}
 

@@ -47,6 +47,7 @@ import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
+import { terapkanClosingOpex } from '@/lib/closing/terapkanClosingOpex'
 import { PRORATED_CATEGORIES, adalahSemiTetap } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
@@ -272,14 +273,24 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     [effectiveFilter.from, effectiveFilter.to],
   )
   const hrPayroll = useHRPayroll(hrFilter)
-  const expenseRows = useMemo(() => {
+  // Closing OPEX September 2026 (lib/closing): untuk rentang tepat 1–30 Sep,
+  // baris "Penyesuaian closing" menyamakan OPEX internal & HQ dengan sheet FIXED.
+  const hasilClosingOpex = useMemo(() => {
     let barisHr = barisPayrollDariHr({ hr: hrPayroll.data, from: effectiveFilter.from, to: effectiveFilter.to })
     if (barisHr && effectiveFilter.outletId !== 'all') {
       barisHr = barisHr.filter(r => r.outlet_id === effectiveFilter.outletId)
     }
-    return gantiPayrollDenganHr(prorataRows, barisHr)
-      .filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).expense_date || (r as any).date)))
-  }, [prorataRows, hrPayroll.data, effectiveFilter.from, effectiveFilter.to, effectiveFilter.outletId, inScope, scope])
+    return terapkanClosingOpex(gantiPayrollDenganHr(prorataRows, barisHr), {
+      from: effectiveFilter.from,
+      to: effectiveFilter.to,
+      outletId: effectiveFilter.outletId,
+    })
+  }, [prorataRows, hrPayroll.data, effectiveFilter.from, effectiveFilter.to, effectiveFilter.outletId])
+  const expenseRows = useMemo(
+    () => hasilClosingOpex.rows
+      .filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id, (r as any).expense_date || (r as any).date))),
+    [hasilClosingOpex, inScope, scope],
+  )
 
   // Baris gaji/bonus berasal dari ringkasan HR (id 'hr-…')? Bonus dari HR adalah
   // angka nyata rentang itu (bukan prorata), dan bonus AM & RM digabung satu baris.
@@ -910,6 +921,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             berdesakan sebagai hal yang setara. */}
         <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} hideOutlet={hideOutletPicker} presets={PRESET_SAMA_DENGAN_BUKU_KAS} />
       </PageHeader>
+
+      {scope !== 'mitra' && hasilClosingOpex.catatan && (
+        <div className={`-mt-3 mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${hasilClosingOpex.diterapkan ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+          {hasilClosingOpex.catatan}
+        </div>
+      )}
 
       {/* Status Sinkronisasi / Last Updated */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 -mt-5 mb-2 pt-3 border-t border-suka-brown/10 text-xs">

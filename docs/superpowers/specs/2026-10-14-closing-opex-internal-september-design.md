@@ -249,3 +249,16 @@ expenses + petty cash ─► susunBarisPengeluaran ─► calculateProratedExpen
 - **Kode Finance terduplikasi.** Perubahan berikutnya pada penerap wajib dilakukan di dua app; dijaga
   tes paritas.
 - **Jalur cadangan Ringkasan Bisnis** tidak memuat penyesuaian (§3).
+
+## 12. Revisi saat penyusunan rencana (14 Okt 2026)
+
+- **K5 dipersempit:** penyesuaian hanya dipasang untuk rentang **tepat** 1–30 September 2026.
+  Alasannya: baris gaji/bonus dari HR untuk rentang multi-bulan dijumlah jadi satu baris
+  bertanggal akhir rentang, sehingga bagian September tidak bisa dipisahkan dengan aman.
+  Rentang lain yang memuat/memotong September memakai data apa adanya + catatan.
+- **Buku Kas:** kartu closing berlaku untuk pilihan satu outlet internal, *Outlet Internal*,
+  *Internal + Kantor Pusat*, dan *Kantor Pusat*. Pilihan *Semua Outlet* dan *Outlet Mitra*
+  memakai data apa adanya + catatan (closing internal tidak bisa dicampur dengan data mitra
+  di kartu yang dihitung dari ringkasan HR). App Finance hanya punya pilihan satu outlet dan
+  Kantor Pusat untuk cakupan ini.
+- **Kategori baris penyesuaian Gaji & Bonus Crew Backup (HQ)** memakai kategori `salary`.

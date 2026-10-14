@@ -11,7 +11,7 @@ import {
 import { createClient } from '@/lib/supabase'
 import { getPosReport, getPosReportExport, invalidatePosReportDays, refreshPosReportRange } from '@/app/actions/posReport'
 import { extractOrderPackages, type ShiftRow } from '@/lib/posReport/compute'
-import { orderDatesFromRealtime, refreshDelayMs } from '@/lib/ownerDashboardCache'
+import { addDaysStr, orderDatesFromRealtime, refreshDelayMs } from '@/lib/ownerDashboardCache'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
@@ -102,27 +102,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   const [customEndDate, setCustomEndDate] = useState<string>('')
 
   const dateStrRange = useMemo(() => {
-    const fmt = (d: Date) => {
-      const m = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      return `${d.getFullYear()}-${m}-${day}`
-    }
-    const today = new Date()
-    if (range === 'today') return { from: fmt(today), to: fmt(today) }
+    if (range === 'today') return { from: todayJakarta, to: todayJakarta }
     if (range === 'yesterday') {
-      const y = new Date()
-      y.setDate(y.getDate() - 1)
-      return { from: fmt(y), to: fmt(y) }
+      const y = addDaysStr(todayJakarta, -1)
+      return { from: y, to: y }
     }
     if (range === '7days') {
-      const s = new Date()
-      s.setDate(s.getDate() - 7)
-      return { from: fmt(s), to: fmt(today) }
+      return { from: addDaysStr(todayJakarta, -7), to: todayJakarta }
     }
     if (range === 'thisMonth') {
-      const s = new Date()
-      s.setDate(1)
-      return { from: fmt(s), to: fmt(today) }
+      return { from: `${todayJakarta.slice(0, 8)}01`, to: todayJakarta }
     }
     if (range === 'lastMonth') {
       const jkt = new Date(Date.now() + 7 * 3600 * 1000)
@@ -144,8 +133,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
       if (!customStartDate || !customEndDate) return { from: '', to: '' }
       return { from: customStartDate, to: customEndDate }
     }
-    return { from: '2000-01-01', to: fmt(today) }
-  }, [range, customStartDate, customEndDate])
+    return { from: '2000-01-01', to: todayJakarta }
+  }, [range, customStartDate, customEndDate, todayJakarta])
 
   const isPast = useMemo(() => {
     if (range === 'yesterday' || range === '7days' || range === 'lastMonth') {
@@ -189,29 +178,29 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     setActivePettyCashTab('pengeluaran')
     setLoadingShiftExpenses(true)
     const supabase = createClient()
-    
+    const endTimeIso = shift.end_time || new Date().toISOString()
+
     const expensesPromise = supabase
       .from('petty_cash_expenses')
-      .select('*')
+      .select('id, outlet_id, category, description, amount, receipt_url, created_at')
       .eq('outlet_id', shift.outlet_id)
-      .is('deleted_at', null)
-      .gte('created_at', shift.start_time)
-      .lte('created_at', shift.end_time || new Date().toISOString())
       // Daftar ini ikut dijumlahkan jadi total shift, jadi baris ter-void harus
       // dibuang agar totalnya cocok dengan get_petty_cash_balance() di DB.
       .is('deleted_at', null)
+      .gte('created_at', shift.start_time)
+      .lte('created_at', endTimeIso)
       .order('created_at', { ascending: true })
 
     const topupsPromise = supabase
       .from('petty_cash_topups')
-      .select('*')
+      .select('id, outlet_id, description, status, amount, created_at')
       .eq('outlet_id', shift.outlet_id)
       .gte('created_at', shift.start_time)
-      .lte('created_at', shift.end_time || new Date().toISOString())
+      .lte('created_at', endTimeIso)
       .order('created_at', { ascending: true })
-      
+
     const [expRes, topRes] = await Promise.all([expensesPromise, topupsPromise])
-    
+
     setShiftExpenses(expRes.data || [])
     setShiftTopups(topRes.data || [])
     setLoadingShiftExpenses(false)
@@ -413,6 +402,19 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     
     return result
   }, [itemBreakdownData, itemBreakdownFilter, itemBreakdownSearch, itemBreakdownSortColumn, itemBreakdownSortDirection])
+
+  const itemBreakdownFooter = useMemo(() => {
+    let totalQty = 0
+    let totalHpp = 0
+    let totalGross = 0
+    for (let i = 0; i < filteredItemBreakdownData.length; i++) {
+      const curr = filteredItemBreakdownData[i]
+      totalQty += curr.qty
+      totalHpp += curr.totalHpp
+      totalGross += curr.grossRevenue
+    }
+    return { totalQty, totalHpp, totalGross }
+  }, [filteredItemBreakdownData])
 
   const [itemBreakdownPage, setItemBreakdownPage] = useState(1)
   const paginatedItemBreakdown = filteredItemBreakdownData.slice((itemBreakdownPage - 1) * itemsPerPage, itemBreakdownPage * itemsPerPage)
@@ -1528,14 +1530,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       </td>
                       <td className="px-5 py-3 text-center">
                         <span className="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-xs">
-                          {filteredItemBreakdownData.reduce((acc, curr) => acc + curr.qty, 0)} Item
+                          {itemBreakdownFooter.totalQty} Item
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right text-base text-rose-700 col-span-2" colSpan={2}>
-                        {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.totalHpp, 0))}
+                        {formatRupiah(itemBreakdownFooter.totalHpp)}
                       </td>
                       <td className="px-5 py-3 text-right text-base text-amber-700">
-                        {formatRupiah(filteredItemBreakdownData.reduce((acc, curr) => acc + curr.grossRevenue, 0))}
+                        {formatRupiah(itemBreakdownFooter.totalGross)}
                       </td>
                     </tr>
                   </tfoot>

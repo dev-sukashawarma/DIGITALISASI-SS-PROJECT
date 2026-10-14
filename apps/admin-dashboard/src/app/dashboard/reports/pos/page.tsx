@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import ReportsView from './ReportsView'
-import { getPosReport } from '@/app/actions/posReport'
+import { laporanPosUntukScope } from '@/lib/posReport/laporan'
 import { isTestOutlet } from '@/lib/outletFilters'
 import { addDaysStr, jakartaDate } from '@/lib/ownerDashboardCache'
 
@@ -18,20 +18,25 @@ export default async function AdminReportsPage() {
   const userId = await getVerifiedUserId(supabase)
   if (!userId) redirect('/login')
 
-  const { data: staff } = await supabase
-    .from('outlet_staff')
-    .select('role')
-    .eq('id', userId)
-    .maybeSingle()
+  // Jalankan pengecekan role dan pengambilan daftar outlet secara paralel,
+  // serta pilih kolom spesifik sesuai standar optimasi database.
+  const [{ data: staff }, { data: outletsData }] = await Promise.all([
+    supabase
+      .from('outlet_staff')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabase
+      .from('outlets')
+      .select('id, name, type, slug, code, address, is_active')
+      .order('name'),
+  ])
 
   const userRole = staff?.role?.toLowerCase()
   const allowed = ['developer', 'owner', 'admin']
   if (!userRole || !allowed.includes(userRole)) {
     redirect('/dashboard')
   }
-
-  // Pre-fetch outlets to avoid loading state for filters
-  const { data: outletsData } = await supabase.from('outlets').select('*').order('name')
 
   const initialOutlets = outletsData || []
 
@@ -59,7 +64,13 @@ export default async function AdminReportsPage() {
 
   let initialReport = null
   try {
-    initialReport = await getPosReport(initialRequest)
+    // Role sudah terverifikasi di atas (developer/owner/admin → cakupan 'all'),
+    // panggil laporanPosUntukScope langsung agar tidak mengulang getVerifiedUserId + query outlet_staff.
+    initialReport = await laporanPosUntukScope(initialRequest, {
+      supabase,
+      scopeKey: 'all',
+      allowedOutletIds: 'all',
+    })
   } catch (err) {
     // Gagal di server bukan akhir: browser akan mencoba lagi & menampilkan pesan.
     console.error('[reports/pos] gagal menyiapkan data awal:', err)

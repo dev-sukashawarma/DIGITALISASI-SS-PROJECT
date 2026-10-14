@@ -42,25 +42,82 @@ export type PosReportRequest = {
 
 const SHIFT_SELECT = 'id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance'
 const MENU_SELECT = 'id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))'
+const SETTLEMENT_SELECT = 'id, outlet_id, platform, tanggal, omzet_kotor, promo_merchant, commission'
 
 // Master menu (±90 baris) dipakai setiap interaksi (ketik cari, ganti halaman);
 // memo singkat agar tidak ditarik ulang tiap kali. 60 detik = perubahan HPP
-// tetap terlihat dalam semenit.
+// tetap terlihat dalam semenit. Peta nama/ID dan penerapHpp ikut di-memo agar
+// cache per-tanggal `penerapHpp.untuk(tgl)` bertahan lintas permintaan.
 const MENU_MEMO_TTL_MS = 60_000
-const menuMemo = new Map<string, { at: number; promise: Promise<{ menuItems: any[]; riwayat: any[] }> }>()
-function getMenuItems(supabase: any, scopeKey: string): Promise<{ menuItems: any[]; riwayat: any[] }> {
+type MenuMemoEntry = {
+  menuItems: any[]
+  riwayat: any[]
+  outlets: any[]
+  menuItemByNameMap: Map<string, any>
+  menuItemByIdMap: Map<string, any>
+  penerapHpp: ReturnType<typeof buildPenerapHpp>
+}
+const menuMemo = new Map<string, { at: number; promise: Promise<MenuMemoEntry> }>()
+function getMenuItems(supabase: any, scopeKey: string): Promise<MenuMemoEntry> {
   const hit = menuMemo.get(scopeKey)
   if (hit && Date.now() - hit.at < MENU_MEMO_TTL_MS) return hit.promise
   const promise = (async () => {
-    const [{ data, error }, riwayat] = await Promise.all([
+    const [{ data, error }, riwayat, outletsRes] = await Promise.all([
       supabase.from('menu_items').select(MENU_SELECT),
       ambilRiwayatHpp(supabase),
+      supabase.from('outlets').select('id, type, name'),
     ])
     if (error) throw new Error(`posReport.menu_items: ${error.message}`)
-    return { menuItems: data ?? [], riwayat }
+    if (outletsRes?.error) throw new Error(`posReport.outlets: ${outletsRes.error.message}`)
+    const menuItems = data ?? []
+    const outlets = outletsRes?.data ?? []
+    const { menuItemByNameMap, menuItemByIdMap } = buildMenuMaps(menuItems)
+    const penerapHpp = buildPenerapHpp(menuItems, riwayat)
+    return { menuItems, riwayat, outlets, menuItemByNameMap, menuItemByIdMap, penerapHpp }
   })()
   menuMemo.set(scopeKey, { at: Date.now(), promise })
   promise.catch(() => { if (menuMemo.get(scopeKey)?.promise === promise) menuMemo.delete(scopeKey) })
+  return promise
+}
+
+const RANGE_AUX_TTL_MS = 20_000
+const rangeAuxMemo = new Map<string, { at: number; promise: Promise<{ allShifts: any[]; allSettlements: any[] }> }>()
+function getRangeAux(supabase: any, scopeKey: string, from: string, to: string) {
+  const key = `${scopeKey}|${from}|${to}`
+  const hit = rangeAuxMemo.get(key)
+  if (hit && Date.now() - hit.at < RANGE_AUX_TTL_MS) return hit.promise
+  const { fromIso, toIso } = jakartaRangeIso(from, to)
+  const promise = (async () => {
+    const [shiftsRes, allSettlements] = await Promise.all([
+      supabase
+        .from('shifts')
+        .select(SHIFT_SELECT)
+        .neq('outlet_id', TEST_OUTLET_ID)
+        .eq('status', 'closed')
+        .gte('end_time', fromIso)
+        .lte('end_time', toIso)
+        .order('end_time', { ascending: false }),
+      fetchAllPages<any>(() =>
+        supabase
+          .from('platform_settlements')
+          .select(SETTLEMENT_SELECT)
+          .gte('tanggal', from)
+          .lte('tanggal', to)
+          .order('id', { ascending: true })
+      ),
+    ])
+    if (shiftsRes.error) throw new Error(`posReport.shifts: ${shiftsRes.error.message}`)
+    return {
+      allShifts: shiftsRes.data ?? [],
+      allSettlements,
+    }
+  })()
+  if (rangeAuxMemo.size >= 16) {
+    const oldestKey = rangeAuxMemo.keys().next().value
+    if (oldestKey) rangeAuxMemo.delete(oldestKey)
+  }
+  rangeAuxMemo.set(key, { at: Date.now(), promise })
+  promise.catch(() => { if (rangeAuxMemo.get(key)?.promise === promise) rangeAuxMemo.delete(key) })
   return promise
 }
 
@@ -97,64 +154,36 @@ async function loadReportContext(
   const includeAll = req.outlets.includes('all')
   const realOutlets = req.outlets.filter((id) => id !== 'all' && id !== 'ss-online')
 
-  const { fromIso, toIso } = jakartaRangeIso(req.from, req.to)
-
-  let qShifts = supabase
-    .from('shifts')
-    .select(SHIFT_SELECT)
-    .neq('outlet_id', TEST_OUTLET_ID)
-    .eq('status', 'closed')
-    .gte('end_time', fromIso)
-    .lte('end_time', toIso)
-    .order('end_time', { ascending: false })
-  if (!includeAll) qShifts = qShifts.in('outlet_id', realOutlets.length > 0 ? realOutlets : ['00000000-0000-0000-0000-000000000000'])
-
-  // `name` hanya dipakai ekspor PDF/Excel (kolom Outlet).
-  let qOutlets = supabase.from('outlets').select('id, type, name')
-
-  const [ordersRes, shiftsRes, { menuItems, riwayat }, outletsRes] = await Promise.all([
+  const [ordersRes, menuCtx, auxRes] = await Promise.all([
     from <= to ? loadPosReportOrders(supabase, scopeKey, from, to, today) : Promise.resolve({ pos: [], ecommerce: [], fetchedAt: new Date().toISOString(), isCached: true }),
-    qShifts,
     getMenuItems(supabase, scopeKey),
-    qOutlets,
+    getRangeAux(supabase, scopeKey, req.from, req.to),
   ])
-  if (shiftsRes.error) throw new Error(`posReport.shifts: ${shiftsRes.error.message}`)
-  if (outletsRes.error) throw new Error(`posReport.outlets: ${outletsRes.error.message}`)
-  const outlets = outletsRes.data ?? []
 
-  // Settlement: SS Online disimpan di outlet virtual marketplace ('ss-online'
-  // bukan UUID) — logika sama dengan versi browser sebelumnya.
-  // Tarik SELURUH baris settlement dengan fetchAllPages agar tidak terpotong batas 1.000 baris PostgREST
-  const settlements = await fetchAllPages<any>(() => {
-    let q = supabase
-      .from('platform_settlements')
-      .select('*')
-      .gte('tanggal', req.from)
-      .lte('tanggal', req.to)
-      .order('id', { ascending: true })
+  const outlets = menuCtx.outlets
+  const realOutletSet = includeAll ? null : new Set(realOutlets)
+  const shifts = includeAll
+    ? auxRes.allShifts
+    : auxRes.allShifts.filter((s: any) => realOutletSet!.has(s.outlet_id))
 
-    if (isSSOnlineSelected) {
-      const ids = outlets.filter((o: any) => o.type === 'marketplace').map((o: any) => o.id)
-      q = q.in('outlet_id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'])
-    } else if (!includeAll) {
-      q = q.in('outlet_id', realOutlets.length > 0 ? realOutlets : ['00000000-0000-0000-0000-000000000000'])
-    }
-    return q
-  })
+  let settlements = auxRes.allSettlements
+  if (isSSOnlineSelected) {
+    const ssOnlineSet = new Set(outlets.filter((o: any) => o.type === 'marketplace').map((o: any) => o.id))
+    settlements = auxRes.allSettlements.filter((s: any) => ssOnlineSet.has(s.outlet_id))
+  } else if (!includeAll) {
+    settlements = auxRes.allSettlements.filter((s: any) => realOutletSet!.has(s.outlet_id))
+  }
 
   const orders = selectReportOrders(ordersRes.pos, ordersRes.ecommerce, req.outlets)
 
-  const { menuItemByNameMap, menuItemByIdMap } = buildMenuMaps(menuItems)
-  const penerapHpp = buildPenerapHpp(menuItems, riwayat)
-
   return {
     orders,
-    shifts: shiftsRes.data ?? [],
+    shifts,
     settlements,
     outlets,
-    menuItemByNameMap,
-    menuItemByIdMap,
-    penerapHpp,
+    menuItemByNameMap: menuCtx.menuItemByNameMap,
+    menuItemByIdMap: menuCtx.menuItemByIdMap,
+    penerapHpp: menuCtx.penerapHpp,
     isSSOnlineSelected,
     fetchedAt: ordersRes.fetchedAt,
     isCached: ordersRes.isCached,
@@ -277,4 +306,5 @@ export async function eksporLaporanPosUntukScope(rawReq: PosReportRequest, scope
 
 export function clearMenuMemo() {
   menuMemo.clear()
+  rangeAuxMemo.clear()
 }

@@ -28,7 +28,7 @@ export default async function AdminReportsPage() {
       .maybeSingle(),
     supabase
       .from('outlets')
-      .select('id, name, type, slug, code, address, is_active')
+      .select('id, name, address, phone, type, status, is_active, deleted_at, created_at, updated_at')
       .order('name'),
   ])
 

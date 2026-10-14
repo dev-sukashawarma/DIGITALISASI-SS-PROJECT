@@ -9,6 +9,7 @@ import { reconcileSalesRowsWithSettlements } from './settlementReconciliation'
 import { calculateProratedExpenses, getJakartaCurrentMonthInfo } from '@/lib/opexProrata'
 import { susunBarisGajiKantor, gabungGajiKantor } from '@/lib/gajiKantorPusat'
 import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
+import { terapkanClosingOpex } from '@/lib/closing/terapkanClosingOpex'
 import { getHRPayrollSummaryAction } from '@/app/actions/hrPayroll'
 import { computeCompanyProfit } from '@/lib/profit'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
@@ -210,13 +211,15 @@ export async function fetchProfitExportData({
     console.warn('Gagal memuat ringkasan payroll HR di profitExportFetcher:', err)
   }
   const barisEngineDanHr = gantiPayrollDenganHr(prorataResult.rows, barisPayrollDariHr({ hr: hrRingkasan, from, to }))
-  const expenseRows = gabungGajiKantor(barisEngineDanHr, susunBarisGajiKantor({
+  const expenseRowsData = gabungGajiKantor(barisEngineDanHr, susunBarisGajiKantor({
     from,
     to,
     officePayrollRecords: auxData.officePayrollRecords || [],
     officeStaffMonthlyTotal: auxData.officeStaffMonthlyTotal || 0,
     currentMonthFirstDay: getJakartaCurrentMonthInfo().firstDay,
   }))
+  // Closing OPEX September 2026 — sama dengan layar Laba Rugi.
+  const expenseRows = terapkanClosingOpex(expenseRowsData, { from, to, outletId: 'all' }).rows
 
   // 3. Ambil HPP
   onProgress?.('Mengambil data HPP bahan baku...')

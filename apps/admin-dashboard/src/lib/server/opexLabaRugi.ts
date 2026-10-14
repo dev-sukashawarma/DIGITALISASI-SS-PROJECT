@@ -18,6 +18,7 @@ import { susunBarisPengeluaran } from '@/lib/pengeluaran/susunBaris'
 import { calculateProratedExpenses, getJakartaCurrentMonthInfo } from '@/lib/opexProrata'
 import { susunBarisGajiKantor, gabungGajiKantor } from '@/lib/gajiKantorPusat'
 import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
+import { terapkanClosingOpex } from '@/lib/closing/terapkanClosingOpex'
 import { hitungRingkasanPayrollHr } from '@/lib/server/ringkasanPayrollHr'
 import { getProrataAuxiliaryDataAction } from '@/app/actions/prorataAuxiliary'
 import { isLemburExpense } from '@/lib/expenseCategories'
@@ -117,28 +118,13 @@ async function getRawOpexRangeBundle(from: string, to: string): Promise<RawOpexR
   return promise
 }
 
-export async function hitungOpexLabaRugi(
+/** Baris OPEX versi Laba Rugi (sudah termasuk penyesuaian closing). Tanpa cek peran & memo hasil. */
+export async function susunBarisOpexLabaRugi(
   filter: { from: string; to: string; outletId: string },
   outlets: { id: string; name: string; type?: string; is_active?: boolean }[],
-  opts?: { skipRoleCheck?: boolean },
-): Promise<OpexLabaRugi> {
-  // Memuat pengeluaran & gaji semua outlet lewat service client.
-  if (!opts?.skipRoleCheck) {
-    await requireRole(PERAN_KEUANGAN)
-  }
-
+): Promise<{ rows: ExpenseRow[]; semuaOutlet: boolean }> {
   const semuaOutlet = !filter.outletId || filter.outletId === 'all'
   const f = { from: filter.from, to: filter.to, outletId: semuaOutlet ? 'all' : filter.outletId, source: 'all' as const }
-
-  const resultKey = `${f.from}|${f.to}|${f.outletId}|${outlets.length}`
-  const now = Date.now()
-  const cachedResult = opexResultMemo.get(resultKey)
-  if (cachedResult && cachedResult.expiresAt > now) {
-    opexResultMemo.delete(resultKey)
-    opexResultMemo.set(resultKey, cachedResult)
-    return cachedResult.value
-  }
-
   const { mentahAll, aux, hr } = await getRawOpexRangeBundle(f.from, f.to)
 
   const filteredExpenses = semuaOutlet
@@ -165,9 +151,9 @@ export async function hitungOpexLabaRugi(
     operationalOutletIds: aux.operationalOutletIds || [],
   })
 
-  let rows = hasil.rows
+  let rowsProrataDanKantor = hasil.rows
   if (semuaOutlet) {
-    rows = gabungGajiKantor(rows, susunBarisGajiKantor({
+    rowsProrataDanKantor = gabungGajiKantor(rowsProrataDanKantor, susunBarisGajiKantor({
       from: f.from,
       to: f.to,
       officePayrollRecords: aux.officePayrollRecords || [],
@@ -179,7 +165,38 @@ export async function hitungOpexLabaRugi(
   let barisHr = barisPayrollDariHr({ hr: hr ?? undefined, from: f.from, to: f.to })
   if (barisHr && !semuaOutlet) barisHr = barisHr.filter(r => r.outlet_id === f.outletId)
 
-  const computed = jumlahkanOpexLabaRugi(gantiPayrollDenganHr(rows, barisHr), semuaOutlet)
+  const rows = terapkanClosingOpex(gantiPayrollDenganHr(rowsProrataDanKantor, barisHr), {
+    from: f.from,
+    to: f.to,
+    outletId: f.outletId,
+  }).rows
+  return { rows, semuaOutlet }
+}
+
+export async function hitungOpexLabaRugi(
+  filter: { from: string; to: string; outletId: string },
+  outlets: { id: string; name: string; type?: string; is_active?: boolean }[],
+  opts?: { skipRoleCheck?: boolean },
+): Promise<OpexLabaRugi> {
+  // Memuat pengeluaran & gaji semua outlet lewat service client.
+  if (!opts?.skipRoleCheck) {
+    await requireRole(PERAN_KEUANGAN)
+  }
+
+  const semuaOutlet = !filter.outletId || filter.outletId === 'all'
+  const f = { from: filter.from, to: filter.to, outletId: semuaOutlet ? 'all' : filter.outletId, source: 'all' as const }
+
+  const resultKey = `${f.from}|${f.to}|${f.outletId}|${outlets.length}`
+  const now = Date.now()
+  const cachedResult = opexResultMemo.get(resultKey)
+  if (cachedResult && cachedResult.expiresAt > now) {
+    opexResultMemo.delete(resultKey)
+    opexResultMemo.set(resultKey, cachedResult)
+    return cachedResult.value
+  }
+
+  const { rows } = await susunBarisOpexLabaRugi(filter, outlets)
+  const computed = jumlahkanOpexLabaRugi(rows, semuaOutlet)
   const today = jakartaDate(new Date())
   const ttl = f.to >= today ? OPEX_LIVE_TTL_MS : OPEX_PAST_TTL_MS
   opexResultMemo.set(resultKey, { expiresAt: Date.now() + ttl, value: computed })

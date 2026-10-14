@@ -44,5 +44,7 @@ describe('targetKartuClosing', () => {
     expect(kartuClosingUntuk(BNR, '2026-09-01', '2026-09-15')).toEqual({ kartu: null, catatan: expect.stringMatching(/1–30 September/) })
     expect(kartuClosingUntuk(BNR, '2026-08-01', '2026-08-31')).toEqual({ kartu: null, catatan: null })
     expect(kartuClosingUntuk('ALL_OUTLETS', '2026-09-01', '2026-09-30')).toEqual({ kartu: null, catatan: expect.stringMatching(/Outlet Internal/) })
+    // Finance hanya punya 'all', satu outlet, dan Kantor Pusat: catatan harus menyebut pilihan yang ada di sana dulu.
+    expect(kartuClosingUntuk('all', '2026-09-01', '2026-09-30').catatan).toMatch(/Kantor Pusat atau satu outlet internal/)
   })
 })

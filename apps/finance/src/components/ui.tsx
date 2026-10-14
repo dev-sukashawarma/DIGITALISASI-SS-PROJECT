@@ -36,23 +36,21 @@ export function StatCard({
 
   return (
     <motion.div 
-      whileHover={{ y: -4, scale: 1.01 }}
+      whileHover={{ y: -2, scale: 1.005 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className={`bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl hover:shadow-suka-brown/5 border border-suka-brown/5 transition-all duration-300 flex flex-col justify-between group relative overflow-hidden ${bgTone[tone]}`}
+      className={`bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm hover:shadow-lg hover:shadow-suka-brown/5 border border-suka-brown/5 transition-all duration-300 flex flex-col justify-between group relative overflow-hidden ${bgTone[tone]}`}
     >
-      <div className="absolute right-0 top-0 w-32 h-32 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-bl-full -z-0 pointer-events-none ${iconTone[tone].split(' ')[0]}"></div>
-      
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-suka-ink/60 leading-tight">{label}</p>
           {icon && (
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${iconTone[tone]}`}>
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconTone[tone]}`}>
               {icon}
             </div>
           )}
         </div>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-suka-ink/60 mb-1">{label}</p>
-        <div className="text-3xl font-display text-suka-ink tracking-tight">{value}</div>
-        {hint && <p className="text-[10px] font-semibold text-suka-orange mt-2">{hint}</p>}
+        <div className="text-xl sm:text-2xl xl:text-3xl font-display text-suka-ink tracking-tight tabular-nums truncate">{value}</div>
+        {hint && <p className="text-[10px] font-semibold text-suka-orange mt-1.5 truncate">{hint}</p>}
       </div>
     </motion.div>
   )
@@ -79,13 +77,13 @@ export function SectionCard({ title, action, children }: { title: string; action
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-      className="bg-white rounded-[2rem] shadow-sm border border-suka-brown/5 overflow-hidden"
+      className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-suka-brown/5 overflow-hidden"
     >
-      <div className="flex items-center justify-between px-6 py-5 border-b border-suka-brown/5">
-        <h2 className="font-display text-xl text-suka-brown tracking-wide">{title}</h2>
+      <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-suka-brown/5">
+        <h2 className="font-display text-lg sm:text-xl text-suka-brown tracking-wide">{title}</h2>
         {action}
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </motion.div>
   )
 }
@@ -107,20 +105,20 @@ export function PageHeader({
   icon?: React.ElementType
 }) {
   return (
-    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between mb-8 relative z-50">
-      <div className="flex-1">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-5 relative z-50">
+      <div className="flex-1 min-w-0">
         {/* Playful Display Header */}
-        <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide flex items-center gap-3">
-          {icon && React.createElement(icon, { className: "w-8 h-8 md:w-10 md:h-10 text-suka-orange" })}
-          {title}
+        <h1 className="font-display text-2xl sm:text-3xl text-suka-brown tracking-wide flex items-center gap-2.5">
+          {icon && React.createElement(icon, { className: "w-6 h-6 sm:w-7 sm:h-7 text-suka-orange shrink-0" })}
+          <span className="truncate">{title}</span>
         </h1>
         {description && (
-          <p className="text-suka-ink/60 mt-3 font-medium text-sm">
+          <p className="text-suka-ink/60 mt-1 font-medium text-xs sm:text-sm">
             {description}
           </p>
         )}
       </div>
-      {children && <div className="shrink-0 xl:mt-2">{children}</div>}
+      {children && <div className="shrink-0">{children}</div>}
     </div>
   )
 }

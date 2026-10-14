@@ -285,19 +285,19 @@ export default function PembelianView({
 
 function MatchingProgressTable({ pos }: { pos: POSummary[] }) {
   return (
-    <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden">
+    <div className="bg-white/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[1000px] text-xs sm:text-sm">
+        <table className="w-full text-left border-collapse min-w-[860px] text-xs">
           <thead>
-            <tr className="bg-suka-cream/70 border-b border-suka-brown/10 text-[11px] uppercase font-bold tracking-wider text-suka-brown/80 select-none">
-              <th className="py-4 px-5">Nomor PO &amp; Tanggal</th>
-              <th className="py-4 px-5">Supplier</th>
-              <th className="py-4 px-5 text-center">Progress &amp; Kedatangan</th>
-              <th className="py-4 px-5 text-right">Pesan vs Terima</th>
-              <th className="py-4 px-5 text-right">Selisih (Variance)</th>
-              <th className="py-4 px-5 text-center">Jatuh Tempo &amp; Bayar</th>
-              <th className="py-4 px-5 text-center">3-Way Match</th>
-              <th className="py-4 px-5 text-right">Aksi</th>
+            <tr className="bg-suka-cream/70 border-b border-suka-brown/10 text-[10px] uppercase font-bold tracking-wider text-suka-brown/80 select-none">
+              <th className="py-3 px-3.5">Nomor PO &amp; Tanggal</th>
+              <th className="py-3 px-3.5">Supplier</th>
+              <th className="py-3 px-3.5 text-center">Progress &amp; Kedatangan</th>
+              <th className="py-3 px-3.5 text-right">Pesan vs Terima</th>
+              <th className="py-3 px-3.5 text-right">Selisih (Variance)</th>
+              <th className="py-3 px-3.5 text-center">Jatuh Tempo &amp; Bayar</th>
+              <th className="py-3 px-3.5 text-center">3-Way Match</th>
+              <th className="py-3 px-3.5 text-right">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-suka-brown/5 text-suka-ink font-medium">
@@ -341,12 +341,12 @@ function MatchingProgressTable({ pos }: { pos: POSummary[] }) {
               return (
                 <tr key={po.id} className="hover:bg-amber-50/40 transition-colors group">
                   {/* 1. Nomor PO & Date of Issue */}
-                  <td className="py-4 px-5">
-                    <Link href={`/pembelian/${po.id}`} className="font-mono font-bold text-suka-brown group-hover:text-suka-orange transition-colors text-sm">
+                  <td className="py-3 px-3.5">
+                    <Link href={`/pembelian/${po.id}`} className="font-mono font-bold text-suka-brown group-hover:text-suka-orange transition-colors text-xs sm:text-sm">
                       {po.nomor_po}
                     </Link>
-                    <div className="flex items-center gap-1.5 text-[11px] text-suka-brown/60 font-medium mt-0.5">
-                      <span className="bg-suka-cream px-1.5 py-0.5 rounded text-[10px] text-suka-brown font-bold uppercase tracking-wider border border-suka-brown/10">Issue</span>
+                    <div className="flex items-center gap-1.5 text-[10px] text-suka-brown/60 font-medium mt-0.5">
+                      <span className="bg-suka-cream px-1.5 py-0.5 rounded text-[9px] text-suka-brown font-bold uppercase tracking-wider border border-suka-brown/10">Issue</span>
                       <span>{new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                     {po.nama_dibuat_oleh && (
@@ -355,14 +355,14 @@ function MatchingProgressTable({ pos }: { pos: POSummary[] }) {
                   </td>
 
                   {/* 2. Supplier */}
-                  <td className="py-4 px-5 font-bold text-suka-brown max-w-[160px] truncate">
+                  <td className="py-3 px-3.5 font-bold text-suka-brown max-w-[140px] truncate">
                     {po.supplier_nama}
                   </td>
 
                   {/* 3. Physical Progress & Date of Arrival */}
-                  <td className="py-4 px-5">
-                    <div className="w-36 mx-auto space-y-1.5 text-center">
-                      <div className="flex justify-between text-[11px] font-semibold">
+                  <td className="py-3 px-3.5">
+                    <div className="w-32 mx-auto space-y-1 text-center">
+                      <div className="flex justify-between text-[10px] font-semibold">
                         <span className="text-suka-brown/70">{itemTerima}/{itemPesan} item</span>
                         <span className={pctProgress === 100 ? 'text-emerald-700 font-bold' : 'text-suka-brown'}>{pctProgress}%</span>
                       </div>
@@ -376,7 +376,7 @@ function MatchingProgressTable({ pos }: { pos: POSummary[] }) {
                       </div>
                       <div className="text-[10px] font-medium">
                         {isArrived ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 text-emerald-800 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
                             ✓ Tiba: {arrivalDateText}
                           </span>
                         ) : arrivalDateText ? (
@@ -389,38 +389,38 @@ function MatchingProgressTable({ pos }: { pos: POSummary[] }) {
                   </td>
 
                   {/* 4. Nilai Pesan vs Terima */}
-                  <td className="py-4 px-5 text-right">
-                    <div className="font-bold text-suka-brown text-sm tabular-nums">{rupiah(totalPesan)}</div>
+                  <td className="py-3 px-3.5 text-right">
+                    <div className="font-bold text-suka-brown text-xs sm:text-sm tabular-nums">{rupiah(totalPesan)}</div>
                     {totalTerima > 0 && (
-                      <div className="text-[11px] font-semibold text-emerald-700 mt-0.5 tabular-nums">
+                      <div className="text-[10px] font-semibold text-emerald-700 mt-0.5 tabular-nums">
                         Terima: {rupiah(totalTerima)}
                       </div>
                     )}
                   </td>
 
                   {/* 5. Financial Variance */}
-                  <td className="py-4 px-5 text-right font-bold tabular-nums">
+                  <td className="py-3 px-3.5 text-right font-bold tabular-nums">
                     {po.status === 'draft' || po.status === 'menunggu_approval_finance' || po.status === 'dikirim_ke_supplier' ? (
                       <span className="text-suka-brown/30 font-normal">-</span>
                     ) : selisih === 0 ? (
-                      <span className="text-emerald-700 text-[11px] font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      <span className="text-emerald-700 text-[10px] font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                         Pas (0)
                       </span>
                     ) : selisih < 0 ? (
-                      <div className="text-amber-800 text-[11px] font-bold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-block">
+                      <div className="text-amber-800 text-[10px] font-bold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-block">
                         {rupiah(selisih)}
                       </div>
                     ) : (
-                      <div className="text-rose-700 text-[11px] font-bold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 inline-block">
+                      <div className="text-rose-700 text-[10px] font-bold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 inline-block">
                         +{rupiah(selisih)}
                       </div>
                     )}
                   </td>
 
                   {/* 6. Date of Payment & Aging */}
-                  <td className="py-4 px-5 text-center">
+                  <td className="py-3 px-3.5 text-center">
                     <div className="space-y-1">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-0.5 rounded-lg border ${agingInfo.style}`}>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${agingInfo.style}`}>
                         <Calendar className="w-3 h-3" /> {agingInfo.label}
                       </span>
                       <div className="text-[10px] font-medium">
@@ -440,31 +440,31 @@ function MatchingProgressTable({ pos }: { pos: POSummary[] }) {
                   </td>
 
                   {/* 7. 3-Way Match Status */}
-                  <td className="py-4 px-5 text-center">
+                  <td className="py-3 px-3.5 text-center">
                     {matchStatus === 'validated' && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-lg">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-lg">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Match Valid
                       </span>
                     )}
                     {matchStatus === 'discrepancy' && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 rounded-lg animate-pulse">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-lg animate-pulse">
                         <ShieldAlert className="w-3 h-3 text-rose-600" /> Selisih / Tahan
                       </span>
                     )}
                     {matchStatus === 'pending' && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-lg">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-lg">
                         <Clock className="w-3 h-3 text-blue-600" /> In Transit
                       </span>
                     )}
                     {matchStatus === 'draft' && (
-                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-lg uppercase tracking-wider border ${STATUS_COLOR[po.status]}`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg uppercase tracking-wider border ${STATUS_COLOR[po.status]}`}>
                         {STATUS_LABEL[po.status]}
                       </span>
                     )}
                   </td>
 
                   {/* 8. Aksi */}
-                  <td className="py-4 px-5 text-right">
+                  <td className="py-3 px-3.5 text-right">
                     <Link
                       href={`/pembelian/${po.id}`}
                       className="inline-flex items-center gap-1 text-xs font-bold text-suka-orange hover:text-suka-brown transition-colors"

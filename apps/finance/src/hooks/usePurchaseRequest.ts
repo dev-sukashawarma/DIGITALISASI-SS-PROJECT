@@ -34,6 +34,21 @@ export function usePurchaseRequests() {
   return { rows: q.data ?? [], loading: q.isLoading, error: q.error }
 }
 
+export function usePendingPrCount() {
+  return useQuery<number>({
+    queryKey: ['purchase-requests', 'count'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('purchase_request')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending')
+      if (error) throw error
+      return count ?? 0
+    },
+  })
+}
+
 export function useRejectPr() {
   const qc = useQueryClient()
   return useMutation({

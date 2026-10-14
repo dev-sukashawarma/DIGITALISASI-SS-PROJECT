@@ -292,12 +292,13 @@ export function getEarliestSalesDate(supabase: any, scopeKey: string): Promise<s
 export function selectReportOrders(pos: any[], ecommerce: any[], selectedOutlets: string[]) {
   const includeAll = selectedOutlets.includes('all')
   const includeSSOnline = selectedOutlets.includes('ss-online')
+  const isSSOnlineOnly = selectedOutlets.length === 1 && includeSSOnline
   const selectedSet = includeAll ? null : new Set(selectedOutlets)
 
   const posList: any[] = []
   let posSorted = true
   let prevPosTs = Infinity
-  if (!includeSSOnline) {
+  if (!isSSOnlineOnly) {
     for (let i = 0; i < pos.length; i++) {
       const o = pos[i]
       if (!isTestOutlet(o.outlet_id) && (includeAll || selectedSet!.has(o.outlet_id))) {

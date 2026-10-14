@@ -151,6 +151,7 @@ async function loadReportContext(
   const to = req.to
 
   const isSSOnlineSelected = req.outlets.length === 1 && req.outlets[0] === 'ss-online'
+  const hasSSOnline = req.outlets.includes('ss-online')
   const includeAll = req.outlets.includes('all')
   const realOutlets = req.outlets.filter((id) => id !== 'all' && id !== 'ss-online')
 
@@ -167,11 +168,13 @@ async function loadReportContext(
     : auxRes.allShifts.filter((s: any) => realOutletSet!.has(s.outlet_id))
 
   let settlements = auxRes.allSettlements
-  if (isSSOnlineSelected) {
-    const ssOnlineSet = new Set(outlets.filter((o: any) => o.type === 'marketplace').map((o: any) => o.id))
-    settlements = auxRes.allSettlements.filter((s: any) => ssOnlineSet.has(s.outlet_id))
-  } else if (!includeAll) {
-    settlements = auxRes.allSettlements.filter((s: any) => realOutletSet!.has(s.outlet_id))
+  if (!includeAll) {
+    const ssOnlineSet = hasSSOnline
+      ? new Set(outlets.filter((o: any) => o.type === 'marketplace').map((o: any) => o.id))
+      : null
+    settlements = auxRes.allSettlements.filter(
+      (s: any) => realOutletSet!.has(s.outlet_id) || (ssOnlineSet ? ssOnlineSet.has(s.outlet_id) : false)
+    )
   }
 
   const orders = selectReportOrders(ordersRes.pos, ordersRes.ecommerce, req.outlets)

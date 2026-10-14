@@ -961,8 +961,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       {scope !== 'mitra' && hasilClosingOpex.catatan && (
         <div className={`-mt-3 mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${hasilClosingOpex.diterapkan ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
           {hasilClosingOpex.catatan}
-          {pendapatanMitraClosing && ' Pendapatan dari mitra (bagi hasil & margin HPP) juga mengikuti laporan closing.'}
-          {penyesuaianLabaKotor && ' Omzet, admin fee, HPP, dan waste juga mengikuti laporan closing, termasuk komisi TikTok GO yang terpotong dua kali.'}
         </div>
       )}
 

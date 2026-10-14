@@ -174,7 +174,7 @@ Pada 119.000 order terdapat lebih dari **250.000 baris item**, tetapi jumlah nam
    - `ecommerce_sales (order_date, id DESC)`
    - `shifts (status, end_time DESC) WHERE status = 'closed'`
    - `platform_settlements (tanggal, outlet_id, id ASC)`
-   *(Lihat migrasi: `supabase/migrations/20300254001400_optimize_pos_report_indexes.sql`)*.
+   *(Lihat migrasi: `supabase/migrations/20261014031500_optimize_pos_report_indexes.sql`)*.
 
 ### Prinsip 8: Direct Server Call pada SSR Pertama (`page.tsx`)
 Pada Server Component (`src/app/dashboard/reports/pos/page.tsx`), jalankan query autentikasi/staff, daftar `outlets`, dan pengambilan data laporan awal (`laporanPosUntukScope`) secara paralel dengan `Promise.all` langsung di server dan kirim sebagai `initialData` ke Client Component (`ReportsView.tsx`). Client Component tidak boleh menembak ulang Server Action pada _mount_ pertama apabila `initialData` sudah sesuai dengan filter awal.
@@ -191,5 +191,5 @@ Jika ingin menyalin pola ini ke halaman laporan baru atau aplikasi lain, gunakan
 4. **Deduplikasi In-Flight & Prepared Cache**: [`src/lib/posReport/prepared.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/posReport/prepared.ts)
 5. **Single-Pass Compute Engine**: [`src/lib/posReport/compute.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/posReport/compute.ts)
 6. **Fast WIB Date Formatter (`UTC+7`)**: [`src/lib/posReportKpi.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/posReportKpi.ts) & [`src/lib/hpp/riwayatHpp.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/hpp/riwayatHpp.ts)
-7. **Migrasi Indeks Database**: [`supabase/migrations/20300254001400_optimize_pos_report_indexes.sql`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/supabase/migrations/20300254001400_optimize_pos_report_indexes.sql)
+7. **Migrasi Indeks Database**: [`supabase/migrations/20261014031500_optimize_pos_report_indexes.sql`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/supabase/migrations/20261014031500_optimize_pos_report_indexes.sql)
 8. **Pengujian Kesetaraan Matematis & Benchmark CPU**: [`src/lib/posReport/perfEquivalence.test.ts`](file:///d:/PROJECT-WEB-SS/DIGITALISASI-SS-PROJECT/apps/admin-dashboard/src/lib/posReport/perfEquivalence.test.ts)

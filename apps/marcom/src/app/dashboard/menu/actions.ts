@@ -124,6 +124,8 @@ export async function saveMenuItem(form: {
   available_outlets?: string[] | null
   is_published_order_online?: boolean
   tampil_di_app?: boolean
+  campaign_price?: number | null
+  is_campaign_active?: boolean
 }) {
   const supabase = getPosSupabase()
 
@@ -164,6 +166,17 @@ export async function saveMenuItem(form: {
     order_online_sync_status: form.is_published_order_online ? 'pending' : 'not_published',
     order_online_sync_updated_at: nowIso,
     updated_at: nowIso,
+  }
+
+  // Harga campaign TikTok GO (kolom sama dengan form menu admin-dashboard).
+  // Hanya ditulis bila dikirim, agar pemanggil lain tidak menghapusnya.
+  if (form.is_campaign_active !== undefined) {
+    const campaign = form.campaign_price != null ? Number(form.campaign_price) : null
+    if (form.is_campaign_active && (campaign === null || isNaN(campaign) || campaign <= 0)) {
+      throw new Error('Harga campaign TikTok GO wajib diisi (lebih dari 0) selama campaign aktif.')
+    }
+    payload.is_campaign_active = form.is_campaign_active
+    payload.campaign_price = campaign !== null && !isNaN(campaign) && campaign > 0 ? campaign : null
   }
 
   const isEdit = Boolean(form.id && String(form.id).trim().length > 0)

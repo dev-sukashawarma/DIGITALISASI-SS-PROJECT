@@ -91,6 +91,8 @@ interface FormState {
   available_online_channels: string[] | null
   image_url: string | null
   outlet_ids: string[] | null
+  campaign_price: string
+  is_campaign_active: boolean
 }
 
 const EMPTY_FORM: FormState = {
@@ -108,6 +110,8 @@ const EMPTY_FORM: FormState = {
   available_online_channels: null,
   image_url: null,
   outlet_ids: null,
+  campaign_price: '',
+  is_campaign_active: false,
 }
 
 const SLUG_APLIKASI = 'aplikasi'
@@ -224,6 +228,53 @@ export default function MenuManagementClient({
     if (s === 'tiktokgo' || s === 'tiktok_go') return 'tiktokgo'
     return s
   }
+
+  // Harga campaign TikTok GO — kolom & perilaku sama dengan form menu admin-dashboard
+  // (menu_items.campaign_price + is_campaign_active; kasir memilih harga normal vs campaign).
+  const toggleCampaign = () => setForm((p) => ({ ...p, is_campaign_active: !p.is_campaign_active }))
+  const renderCampaignTiktok = () => (
+    <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50/70 p-2.5 space-y-2">
+      <div
+        role="switch"
+        aria-checked={form.is_campaign_active}
+        tabIndex={0}
+        onClick={toggleCampaign}
+        onKeyDown={(e) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault()
+            toggleCampaign()
+          }
+        }}
+        className="flex items-center justify-between gap-3 cursor-pointer select-none"
+      >
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-stone-900">Harga Campaign TikTok GO</p>
+          <p className="text-[10px] text-stone-400">Kasir dapat memilih harga normal vs harga campaign saat transaksi.</p>
+        </div>
+        <div
+          className={cn(
+            'w-10 h-5 rounded-full transition-colors relative shrink-0',
+            form.is_campaign_active ? 'bg-stone-900' : 'bg-stone-300'
+          )}
+        >
+          <span
+            className={cn(
+              'absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform',
+              form.is_campaign_active ? 'left-5' : 'left-0.5'
+            )}
+          />
+        </div>
+      </div>
+      {form.is_campaign_active && (
+        <CurrencyInput
+          label="Nominal Harga Campaign *"
+          value={form.campaign_price}
+          onChange={(v) => setForm((p) => ({ ...p, campaign_price: String(v) }))}
+          placeholder="0"
+        />
+      )}
+    </div>
+  )
 
   const getChannelPriceValue = (ch: SalesChannel) => {
     const slug = ch.name.toLowerCase().replace(/[\s_]+/g, '')
@@ -426,6 +477,8 @@ export default function MenuManagementClient({
         item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0
           ? item.available_outlets
           : null,
+      campaign_price: item.campaign_price ? String(item.campaign_price) : '',
+      is_campaign_active: item.is_campaign_active ?? false,
     })
     setOnlinePriceMode(isUnified ? 'unified' : 'per_channel')
     setPreview(null)
@@ -468,6 +521,8 @@ export default function MenuManagementClient({
         item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0
           ? [...item.available_outlets]
           : null,
+      campaign_price: item.campaign_price ? String(item.campaign_price) : '',
+      is_campaign_active: item.is_campaign_active ?? false,
     })
     setPreview(null)
     setImageFile(null)
@@ -496,6 +551,11 @@ export default function MenuManagementClient({
     }
     if (form.price === '' || isNaN(Number(form.price)) || Number(form.price) < 0) {
       setFormError('Harga offline harus diisi dengan angka valid.')
+      return
+    }
+    const campaignPrice = form.campaign_price ? Number(form.campaign_price) : null
+    if (form.is_campaign_active && (campaignPrice === null || isNaN(campaignPrice) || campaignPrice <= 0)) {
+      setFormError('Harga campaign TikTok wajib diisi (lebih dari 0) selama campaign aktif.')
       return
     }
 
@@ -570,6 +630,8 @@ export default function MenuManagementClient({
         available_outlets: form.outlet_ids,
         is_published_order_online: form.is_published_order_online,
         tampil_di_app: form.tampil_di_app,
+        campaign_price: campaignPrice,
+        is_campaign_active: form.is_campaign_active,
       })
 
       const targetId = form.id || saveRes?.id || `temp-${Date.now()}`
@@ -971,6 +1033,11 @@ export default function MenuManagementClient({
                                 ? formatRupiah(channelPrice)
                                 : '—'}
                             </span>
+                            {activeSlug === 'tiktokgo' && item.is_campaign_active && item.campaign_price ? (
+                              <span className="text-[10px] font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded">
+                                Campaign {formatRupiah(item.campaign_price)}
+                              </span>
+                            ) : null}
                           </div>
                         ) : (
                           // Multi-Channel Overview
@@ -990,6 +1057,12 @@ export default function MenuManagementClient({
                                 <span className="font-bold font-mono">{onlinePriceDisplay}</span>
                               </div>
                             )}
+                            {item.is_campaign_active && item.campaign_price ? (
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-stone-900 text-white text-xs">
+                                <span className="text-[10px] font-bold uppercase opacity-70">Campaign TikTok:</span>
+                                <span className="font-bold font-mono">{formatRupiah(item.campaign_price)}</span>
+                              </div>
+                            ) : null}
                           </div>
                         )}
                       </td>
@@ -1633,6 +1706,7 @@ export default function MenuManagementClient({
                           <p className="text-[10px] text-stone-500 mt-1 font-medium">
                             Harga online ini berlaku seragam untuk GoFood, GrabFood, ShopeeFood, dan TikTok Go.
                           </p>
+                          <div className="mt-2">{renderCampaignTiktok()}</div>
                         </div>
                       ) : (
                         <div className="space-y-2 pt-1">
@@ -1642,9 +1716,10 @@ export default function MenuManagementClient({
                           <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
                             {foodAppChannels.map((ch) => {
                               const val = getChannelPriceValue(ch)
+                              const isTiktok = getSlug(ch.id) === 'tiktokgo'
                               return (
+                                <div key={ch.id} className="space-y-2">
                                 <div
-                                  key={ch.id}
                                   className="flex items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-stone-200/80 shadow-2xs hover:border-amber-300 transition-colors"
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0">
@@ -1665,6 +1740,8 @@ export default function MenuManagementClient({
                                       placeholder={form.price || '0'}
                                     />
                                   </div>
+                                </div>
+                                {isTiktok && renderCampaignTiktok()}
                                 </div>
                               )
                             })}
@@ -1694,6 +1771,7 @@ export default function MenuManagementClient({
                         Harga pemesanan oleh pelanggan melalui aplikasi mobile SukaShawarma.
                       </p>
                     </div>
+
                   </div>
                 </div>
               </div>

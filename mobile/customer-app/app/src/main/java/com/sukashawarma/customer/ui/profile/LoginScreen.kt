@@ -1,9 +1,13 @@
 package com.sukashawarma.customer.ui.profile
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,9 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,12 +60,16 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sukashawarma.customer.R
 import com.sukashawarma.customer.ui.components.bounceClick
+import com.sukashawarma.customer.ui.config.LocalConfigApp
+import com.sukashawarma.customer.ui.config.urlKebijakanPrivasi
+import com.sukashawarma.customer.ui.config.urlSyaratKetentuan
 import com.sukashawarma.customer.ui.theme.LilitaOne
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
@@ -94,6 +100,15 @@ fun LoginScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val config = LocalConfigApp.current
+
+    fun bukaTautan(url: String) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: ActivityNotFoundException) {
+            // Tidak ada browser tersedia; diamkan, jangan crash.
+        }
+    }
 
     LaunchedEffect(state.berhasil) {
         if (state.berhasil) onBerhasil()
@@ -143,19 +158,55 @@ fun LoginScreen(
                 onKlik = { viewModel.masukDenganGoogle(context) },
             )
 
-            // Dulu hanya ada di layar perkenalan, yang kini dihapus. Tanpa ini
-            // tak ada lagi tempat pelanggan melihat persetujuan tersebut.
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Text(
-                text = "Dengan masuk, kamu menyetujui Ketentuan Layanan & Kebijakan Privasi Suka Shawarma.",
+                text = "Dengan masuk, kamu menyetujui:",
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = SukaMuted,
                     fontSize = 11.sp,
                     lineHeight = 15.sp,
                 ),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp),
             )
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 2.dp),
+            ) {
+                Text(
+                    text = "Ketentuan Layanan",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = SukaBrown,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        textDecoration = TextDecoration.Underline,
+                    ),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { bukaTautan(urlSyaratKetentuan(config.urlSyarat)) }
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                )
+                Text(
+                    text = "&",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = SukaMuted,
+                        fontSize = 11.sp,
+                    ),
+                )
+                Text(
+                    text = "Kebijakan Privasi",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = SukaBrown,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        textDecoration = TextDecoration.Underline,
+                    ),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { bukaTautan(urlKebijakanPrivasi(config.urlPrivasi)) }
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                )
+            }
 
             state.pesanGalat?.let { pesan ->
                 Spacer(Modifier.height(12.dp))
@@ -163,12 +214,6 @@ fun LoginScreen(
             }
 
             Spacer(Modifier.height(24.dp))
-            PemisahAtau()
-            Spacer(Modifier.height(16.dp))
-
-            TombolWhatsAppSegera()
-
-            Spacer(Modifier.height(28.dp))
 
             Text(
                 text = buildAnnotatedString {
@@ -348,58 +393,6 @@ private fun TombolMasukGoogle(memuat: Boolean, onKlik: () -> Unit) {
                     ),
                 )
             }
-        }
-    }
-}
-
-/** Garis — "atau" — garis, seperti "or continue with" di referensi. */
-@Composable
-private fun PemisahAtau() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        HorizontalDivider(modifier = Modifier.weight(1f), color = SukaBorder)
-        Text(
-            text = "atau",
-            style = MaterialTheme.typography.labelMedium.copy(color = SukaMuted, fontSize = 12.sp),
-            modifier = Modifier.padding(horizontal = 12.dp),
-        )
-        HorizontalDivider(modifier = Modifier.weight(1f), color = SukaBorder)
-    }
-}
-
-/**
- * Masuk lewat WhatsApp belum aktif. Ditampilkan redup dan tak bisa diketuk,
- * dengan keterangan yang jujur, bukan disembunyikan.
- */
-@Composable
-private fun TombolWhatsAppSegera() {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 52.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, SukaBorder),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Phone,
-                contentDescription = null,
-                tint = SukaMuted,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "WhatsApp · segera hadir",
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = SukaMuted,
-                    fontSize = 14.sp,
-                ),
-            )
         }
     }
 }

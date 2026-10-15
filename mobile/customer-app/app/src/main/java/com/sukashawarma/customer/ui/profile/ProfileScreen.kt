@@ -38,11 +38,13 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +69,8 @@ import com.sukashawarma.customer.ui.components.SukaBottomNavBar
 import com.sukashawarma.customer.ui.components.bounceClick
 import com.sukashawarma.customer.ui.config.LocalConfigApp
 import com.sukashawarma.customer.ui.config.tautanWa
+import com.sukashawarma.customer.ui.config.urlKebijakanPrivasi
+import com.sukashawarma.customer.ui.config.urlSyaratKetentuan
 import com.sukashawarma.customer.ui.theme.LilitaOne
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
@@ -97,6 +101,7 @@ fun ProfileScreen(
     val konteks = LocalContext.current
     val config = LocalConfigApp.current
     var tampilkanDialogNotifikasi by remember { mutableStateOf(false) }
+    var tampilkanDialogFaq by remember { mutableStateOf(false) }
 
     if (tampilkanDialogNotifikasi) {
         NotificationSettingsDialog(
@@ -104,6 +109,12 @@ fun ProfileScreen(
             promoAwal = promoAktif,
             onSimpan = onSimpanPreferensiNotifikasi,
             onDismiss = { tampilkanDialogNotifikasi = false }
+        )
+    }
+
+    if (tampilkanDialogFaq) {
+        FaqBantuanDialog(
+            onTutup = { tampilkanDialogFaq = false }
         )
     }
 
@@ -304,6 +315,8 @@ fun ProfileScreen(
             )
 
             val tautanCs = tautanWa(config.waCs, "Halo CS Suka Shawarma")
+            val tautanPrivasi = urlKebijakanPrivasi(config.urlPrivasi)
+            val tautanSyarat = urlSyaratKetentuan(config.urlSyarat)
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -316,7 +329,7 @@ fun ProfileScreen(
                         icon = Icons.Filled.HelpOutline,
                         title = "Pusat Bantuan & FAQ",
                         subtitle = "Pertanyaan seputar order & ambil pesanan",
-                        onClick = {}
+                        onClick = { tampilkanDialogFaq = true }
                     )
 
                     if (tautanCs != null) {
@@ -335,37 +348,33 @@ fun ProfileScreen(
                         )
                     }
 
-                    if (!config.urlPrivasi.isNullOrBlank()) {
-                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
-                        ProfileMenuItem(
-                            icon = Icons.Filled.Security,
-                            title = "Kebijakan Privasi",
-                            subtitle = "Keamanan data pelanggan Suka Shawarma",
-                            onClick = {
-                                try {
-                                    konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.urlPrivasi)))
-                                } catch (e: ActivityNotFoundException) {
-                                    // Tidak ada browser tersedia; diamkan, jangan crash.
-                                }
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                    ProfileMenuItem(
+                        icon = Icons.Filled.Security,
+                        title = "Kebijakan Privasi",
+                        subtitle = "Keamanan data pelanggan Suka Shawarma",
+                        onClick = {
+                            try {
+                                konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tautanPrivasi)))
+                            } catch (e: ActivityNotFoundException) {
+                                // Tidak ada browser tersedia; diamkan, jangan crash.
                             }
-                        )
-                    }
+                        }
+                    )
 
-                    if (!config.urlSyarat.isNullOrBlank()) {
-                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
-                        ProfileMenuItem(
-                            icon = Icons.Filled.Description,
-                            title = "Syarat & Ketentuan",
-                            subtitle = "Ketentuan pemesanan & pengambilan",
-                            onClick = {
-                                try {
-                                    konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.urlSyarat)))
-                                } catch (e: ActivityNotFoundException) {
-                                    // Tidak ada browser tersedia; diamkan, jangan crash.
-                                }
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                    ProfileMenuItem(
+                        icon = Icons.Filled.Description,
+                        title = "Syarat & Ketentuan",
+                        subtitle = "Ketentuan pemesanan & pengambilan",
+                        onClick = {
+                            try {
+                                konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tautanSyarat)))
+                            } catch (e: ActivityNotFoundException) {
+                                // Tidak ada browser tersedia; diamkan, jangan crash.
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             }
 
@@ -425,6 +434,69 @@ fun ProfileScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun FaqBantuanDialog(onTutup: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onTutup,
+        containerColor = Color.White,
+        title = {
+            Text(
+                text = "Pusat Bantuan & FAQ",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = SukaBrown
+                )
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                FaqItem(
+                    tanya = "1. Bagaimana cara mengambil pesanan?",
+                    jawab = "Pilih outlet terdekat, pesan & bayar dengan QRIS, lalu tunjukkan Nomor Antrean di layar Status Pesanan kepada kasir saat status berubah menjadi Siap Diambil."
+                )
+                FaqItem(
+                    tanya = "2. Berapa lama batas waktu pembayaran QRIS?",
+                    jawab = "Kode QRIS berlaku selama 15 menit sejak pesanan dibuat. Setelah membayar, status akan terverifikasi otomatis tanpa perlu kirim bukti transfer."
+                )
+                FaqItem(
+                    tanya = "3. Bisakah saya mengubah atau menghapus akun?",
+                    jawab = "Buka menu Informasi Akun untuk mengubah Nama/No WhatsApp atau menghapus akun beserta data pribadimu secara permanen."
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onTutup) {
+                Text("Mengerti", color = SukaBrown, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+    )
+}
+
+@Composable
+private fun FaqItem(tanya: String, jawab: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = tanya,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = SukaInk,
+                fontSize = 12.sp
+            )
+        )
+        Text(
+            text = jawab,
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = SukaMuted,
+                fontSize = 12.sp,
+                lineHeight = 17.sp
+            )
+        )
     }
 }
 

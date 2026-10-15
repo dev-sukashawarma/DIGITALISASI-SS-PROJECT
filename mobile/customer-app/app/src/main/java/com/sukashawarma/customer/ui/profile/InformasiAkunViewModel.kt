@@ -23,6 +23,8 @@ data class InformasiAkunState(
     val galatNama: String? = null,
     val galatWhatsApp: String? = null,
     val menyimpan: Boolean = false,
+    val menghapus: Boolean = false,
+    val akunDihapus: Boolean = false,
     val pesanGalat: String? = null,
     val tersimpan: Boolean = false,
 ) {
@@ -71,7 +73,7 @@ class InformasiAkunViewModel(
 
     fun simpan() {
         val s = _state.value
-        if (s.menyimpan || !s.adaPerubahan) return
+        if (s.menyimpan || s.menghapus || !s.adaPerubahan) return
 
         val galatNama = ProfilForm.galatNama(s.nama)
         val galatWa = ProfilForm.galatWhatsApp(s.whatsApp)
@@ -92,6 +94,23 @@ class InformasiAkunViewModel(
                 is GatewayResult.Sukses -> terapkanDariServer(hasil.data, tandaiTersimpan = true)
                 is GatewayResult.Gagal -> _state.update {
                     it.copy(menyimpan = false, pesanGalat = pesanGalat(hasil.error))
+                }
+            }
+        }
+    }
+
+    fun hapusAkun() {
+        val s = _state.value
+        if (s.menghapus || s.menyimpan) return
+        _state.update { it.copy(menghapus = true, pesanGalat = null, tersimpan = false) }
+        viewModelScope.launch {
+            when (val hasil = repository.hapusAkun()) {
+                is GatewayResult.Sukses -> {
+                    sessionStore.hapus()
+                    _state.update { it.copy(menghapus = false, akunDihapus = true) }
+                }
+                is GatewayResult.Gagal -> _state.update {
+                    it.copy(menghapus = false, pesanGalat = pesanGalat(hasil.error))
                 }
             }
         }

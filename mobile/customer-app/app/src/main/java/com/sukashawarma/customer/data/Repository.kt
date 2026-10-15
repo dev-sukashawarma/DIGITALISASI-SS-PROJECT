@@ -157,4 +157,6 @@ class Repository(private val gateway: GatewayClient) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(h.data.customer)
             is GatewayResult.Gagal -> h
         }
+
+    suspend fun hapusAkun(): GatewayResult<Unit> = gateway.deleteAccount()
 }

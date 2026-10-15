@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -65,6 +66,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sukashawarma.customer.data.uraiWaktuIso
 import com.sukashawarma.customer.ui.components.KartuQris
 import com.sukashawarma.customer.ui.components.bounceClick
 import com.sukashawarma.customer.ui.format.rupiah
@@ -96,6 +98,7 @@ fun PaymentWaitScreen(
     val scrollState = rememberScrollState()
 
     var urlTerbuka by remember { mutableStateOf<String?>(null) }
+    var tampilkanInfoQris by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.paymentUrl, state.qrString) {
         val url = state.paymentUrl
@@ -109,12 +112,25 @@ fun PaymentWaitScreen(
         if (state.dibayar) onSelesai(state.nomorPesanan)
     }
 
-    // Countdown Timer 15 menit (15:00)
-    var detikTersisa by remember { mutableIntStateOf(15 * 60) }
-    LaunchedEffect(Unit) {
+    // Countdown Timer berdasarkan expiresAt dari server (fallback 15 menit)
+    var detikTersisa by remember(state.expiresAt) {
+        val batasEpoch = state.expiresAt?.let { uraiWaktuIso(it) }
+        val sisaAwal = if (batasEpoch != null) {
+            ((batasEpoch - System.currentTimeMillis() / 1000L).toInt()).coerceAtLeast(0)
+        } else {
+            15 * 60
+        }
+        mutableIntStateOf(sisaAwal)
+    }
+    LaunchedEffect(state.expiresAt) {
+        val batasEpoch = state.expiresAt?.let { uraiWaktuIso(it) }
         while (detikTersisa > 0) {
             delay(1000L)
-            detikTersisa--
+            detikTersisa = if (batasEpoch != null) {
+                ((batasEpoch - System.currentTimeMillis() / 1000L).toInt()).coerceAtLeast(0)
+            } else {
+                (detikTersisa - 1).coerceAtLeast(0)
+            }
         }
     }
     val menit = detikTersisa / 60
@@ -132,6 +148,41 @@ fun PaymentWaitScreen(
         ),
         label = "dotAlpha"
     )
+
+    if (tampilkanInfoQris) {
+        AlertDialog(
+            onDismissRequest = { tampilkanInfoQris = false },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text(
+                    text = "Informasi Pembayaran QRIS",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = SukaBrown
+                    )
+                )
+            },
+            text = {
+                Text(
+                    text = "Kode QRIS ini berlaku untuk satu transaksi pesanan Suka Shawarma dan dapat dipindai dari seluruh aplikasi mobile banking maupun e-wallet berstandar QRIS nasional.\n\nStatus pembayaran diperiksa secara otomatis setiap beberapa detik, atau tekan tombol 'Cek Status Pembayaran' setelah berhasil membayar.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = SukaMuted,
+                        lineHeight = 18.sp
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { tampilkanInfoQris = false }) {
+                    Text(
+                        text = "Mengerti",
+                        fontWeight = FontWeight.ExtraBold,
+                        color = SukaOrange
+                    )
+                }
+            }
+        )
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -188,7 +239,8 @@ fun PaymentWaitScreen(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(Color.White),
+                            .background(Color.White)
+                            .bounceClick(onClick = { tampilkanInfoQris = true }),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -218,7 +270,7 @@ fun PaymentWaitScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Button(
-                        onClick = viewModel::bayar,
+                        onClick = viewModel::periksaStatusSekarang,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
@@ -252,7 +304,10 @@ fun PaymentWaitScreen(
                     }
 
                     TextButton(
-                        onClick = onKembaliKeRingkasan,
+                        onClick = {
+                            viewModel.batalkanPercobaan()
+                            onKembaliKeRingkasan()
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -481,14 +536,6 @@ fun PaymentWaitScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
                             ) {
-                                Text(
-                                    text = "NMID: ID1024398182901",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = SukaMuted,
-                                        fontSize = 10.sp
-                                    )
-                                )
-                                Text("•", color = Color(0xFFD1D5DB), fontSize = 10.sp)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = Icons.Filled.Verified,
@@ -498,7 +545,7 @@ fun PaymentWaitScreen(
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "Terverifikasi",
+                                        text = "Merchant QRIS Terverifikasi",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = SukaGreen,

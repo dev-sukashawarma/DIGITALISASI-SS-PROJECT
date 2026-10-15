@@ -1,5 +1,6 @@
 package com.sukashawarma.customer.ui.product
 
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -50,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,10 +91,12 @@ fun ItemDetailScreen(
     // bawah tombol saat `outletBolehPesan == false`.
     outletBolehPesan: Boolean = true,
     labelOutletTutup: String? = null,
+    isBestSeller: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
 
     val selectedToppingsList = remember(state.selectedToppingIds, availableToppings) {
         availableToppings.filter { state.selectedToppingIds.contains(it.id) }
@@ -115,7 +119,22 @@ fun ItemDetailScreen(
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.15f))
                             .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)), CircleShape)
-                            .bounceClick(scaleDown = 0.90f) { /* no-op share */ },
+                            .bounceClick(scaleDown = 0.90f) {
+                                val teksBagikan = buildString {
+                                    append("Cobain ${item.name} (${rupiah(item.price)}) di Suka Shawarma!")
+                                    if (!item.description.isNullOrBlank()) {
+                                        append("\n${item.description}")
+                                    }
+                                }
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_SUBJECT, item.name)
+                                    putExtra(Intent.EXTRA_TEXT, teksBagikan)
+                                }
+                                runCatching {
+                                    context.startActivity(Intent.createChooser(sendIntent, "Bagikan Menu"))
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -314,22 +333,24 @@ fun ItemDetailScreen(
                 }
 
                 // Badge Favorit
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(14.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(SukaBrown)
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "🔥 Terlaris",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 10.sp
+                if (isBestSeller) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(14.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(SukaBrown)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "🔥 Terlaris",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 10.sp
+                            )
                         )
-                    )
+                    }
                 }
             }
 

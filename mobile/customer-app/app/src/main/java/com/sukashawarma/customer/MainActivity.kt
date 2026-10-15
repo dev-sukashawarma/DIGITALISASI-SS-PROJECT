@@ -1,5 +1,7 @@
 package com.sukashawarma.customer
 
+import android.annotation.SuppressLint
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -29,6 +31,7 @@ import kotlinx.coroutines.launch
  */
 class MainActivity : ComponentActivity() {
 
+    @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         // WAJIB sebelum super.onCreate(), sesuai kontrak androidx.core.splashscreen.
         // Splash sistem TIDAK lagi ditahan: ia hilang di frame pertama, lalu
@@ -47,6 +50,7 @@ class MainActivity : ComponentActivity() {
         }
 
         super.onCreate(savedInstanceState)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         val container = AppContainer(applicationContext)
 
         // Di balik layar, untuk pembukaan berikutnya. Tak pernah menahan splash.

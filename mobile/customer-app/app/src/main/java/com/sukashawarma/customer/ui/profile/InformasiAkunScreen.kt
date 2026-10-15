@@ -20,24 +20,31 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,7 +72,7 @@ import com.sukashawarma.customer.ui.theme.SukaOrange
 import com.sukashawarma.customer.ui.theme.SukaTint
 
 /**
- * Halaman Informasi Akun: Nama, Email, No WhatsApp.
+ * Halaman Informasi Akun: Nama, Email, No WhatsApp, serta Penghapusan Akun.
  *
  * Nama & No WhatsApp bisa diubah. Email terkunci -- itu identitas akun Google
  * yang dipakai untuk masuk. Nama yang diubah di sini TIDAK ditimpa Google saat
@@ -75,11 +82,62 @@ import com.sukashawarma.customer.ui.theme.SukaTint
 fun InformasiAkunScreen(
     viewModel: InformasiAkunViewModel,
     onKembali: () -> Unit,
+    onAkunDihapus: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
     val fokus = LocalFocusManager.current
     val inisial = remember(state.namaTersimpan) { InformasiAkun.inisial(state.namaTersimpan) }
+    var konfirmasiHapus by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.akunDihapus) {
+        if (state.akunDihapus) onAkunDihapus()
+    }
+
+    if (konfirmasiHapus) {
+        AlertDialog(
+            onDismissRequest = { if (!state.menghapus) konfirmasiHapus = false },
+            containerColor = Color.White,
+            title = {
+                Text(
+                    text = "Hapus Akun Permanen?",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = SukaBrown,
+                    ),
+                )
+            },
+            text = {
+                Text(
+                    text = "Seluruh data profil pribadi (nama, email, nomor WhatsApp, dan notifikasi) akan dihapus secara permanen dari Suka Shawarma. Tindakan ini tidak dapat dibatalkan.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = SukaInk,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                    ),
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        konfirmasiHapus = false
+                        viewModel.hapusAkun()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626),
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Text("Ya, Hapus Akun", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { konfirmasiHapus = false }) {
+                    Text("Batal", color = SukaMuted, fontWeight = FontWeight.Bold)
+                }
+            },
+        )
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -196,7 +254,7 @@ fun InformasiAkunScreen(
                     fokus.clearFocus()
                     viewModel.simpan()
                 },
-                enabled = state.adaPerubahan && !state.menyimpan,
+                enabled = state.adaPerubahan && !state.menyimpan && !state.menghapus,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = SukaButtonShape,
                 colors = ButtonDefaults.buttonColors(
@@ -214,6 +272,69 @@ fun InformasiAkunScreen(
                     )
                 } else {
                     Text("Simpan", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                }
+            }
+
+            // Bagian Penghapusan Akun (Kepatuhan Google Play Data Safety)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFFECACA)),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = "Penghapusan Akun & Data",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF991B1B),
+                            fontSize = 14.sp,
+                        ),
+                    )
+                    Text(
+                        text = "Kamu dapat menghapus akun Suka Shawarma beserta seluruh data profil pribadimu secara permanen kapan saja.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = SukaMuted,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                        ),
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            fokus.clearFocus()
+                            konfirmasiHapus = true
+                        },
+                        enabled = !state.menghapus && !state.menyimpan,
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = SukaButtonShape,
+                        border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFDC2626),
+                        ),
+                    ) {
+                        if (state.menghapus) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                color = Color(0xFFDC2626),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.DeleteForever,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                text = "Hapus Akun Saya",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(start = 6.dp),
+                            )
+                        }
+                    }
                 }
             }
         }

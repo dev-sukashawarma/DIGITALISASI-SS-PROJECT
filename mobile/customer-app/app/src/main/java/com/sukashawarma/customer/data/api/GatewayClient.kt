@@ -8,6 +8,7 @@ import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
@@ -317,6 +318,22 @@ class GatewayClient(
                 contentType(ContentType.Application.Json)
                 sisipkanOtorisasi()
                 setBody(request)
+            }
+            if (response.status.isSuccess()) {
+                GatewayResult.Sukses(Unit)
+            } else {
+                val body = runCatching { response.bodyAsText() }.getOrNull()
+                GatewayResult.Gagal(petakanGalat(response.status.value, body))
+            }
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun deleteAccount(): GatewayResult<Unit> {
+        return try {
+            val response = client.delete("$baseUrl/api/v1/customer/profile") {
+                sisipkanOtorisasi()
             }
             if (response.status.isSuccess()) {
                 GatewayResult.Sukses(Unit)

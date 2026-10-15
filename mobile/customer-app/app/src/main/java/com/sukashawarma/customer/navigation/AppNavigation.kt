@@ -61,6 +61,7 @@ import com.sukashawarma.customer.ui.home.OutletPickerScreen
 import com.sukashawarma.customer.ui.home.OutletPickerViewModel
 import com.sukashawarma.customer.ui.home.bolehPesan
 import com.sukashawarma.customer.ui.home.labelStatusOutlet
+import com.sukashawarma.customer.ui.home.pilihMenuTerlaris
 import com.sukashawarma.customer.ui.menu.CatalogScreen
 import com.sukashawarma.customer.ui.menu.CatalogViewModel
 import com.sukashawarma.customer.ui.menu.MenuScreen
@@ -354,7 +355,16 @@ fun CustomerAppRoot(container: AppContainer) {
                 )
                 InformasiAkunScreen(
                     viewModel = infoAkunViewModel,
-                    onKembali = { navController.popBackStack() }
+                    onKembali = { navController.popBackStack() },
+                    onAkunDihapus = {
+                        container.sessionStore.hapus()
+                        container.cartStore.kosongkan()
+                        container.orderAttemptStore.selesai()
+                        cartViewModel.segarkan()
+                        navController.navigate(Rute.masuk()) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                        }
+                    }
                 )
             }
 
@@ -482,6 +492,10 @@ fun CustomerAppRoot(container: AppContainer) {
                         it.categoryName.equals("Topping", ignoreCase = true) && it.isAvailable
                     }
                 }
+                val menuTerlarisIds = LocalConfigApp.current.menuTerlarisIds
+                val isBestSeller = remember(catalogState.semuaItem, menuTerlarisIds, item.id) {
+                    pilihMenuTerlaris(catalogState.semuaItem, menuTerlarisIds).any { it.id == item.id }
+                }
                 ItemDetailScreen(
                     item = item,
                     viewModel = detailViewModel,
@@ -489,6 +503,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     cartLines = cartState.baris,
                     cartSubtotal = cartState.subtotal,
                     cartTotalPorsi = cartState.porsi,
+                    isBestSeller = isBestSeller,
                     outletBolehPesan = catalogState.outlet?.bolehPesan() != false,
                     labelOutletTutup = catalogState.outlet?.let { if (!it.bolehPesan()) labelStatusOutlet(it) else null },
                     onLihatKeranjang = { navController.navigate(Rute.KERANJANG) },
@@ -694,6 +709,9 @@ fun CustomerAppRoot(container: AppContainer) {
                     },
                     onKeluar = {
                         container.sessionStore.hapus()
+                        container.cartStore.kosongkan()
+                        container.orderAttemptStore.selesai()
+                        cartViewModel.segarkan()
                         navController.navigate(Rute.masuk()) {
                             popUpTo(navController.graph.id) { inclusive = true }
                         }

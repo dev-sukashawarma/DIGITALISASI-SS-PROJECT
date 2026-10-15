@@ -80,7 +80,8 @@ data class PaymentState(
      * ia menutupnya -- lingkaran yang tak bisa diputus.
      */
     val urlBayarTersimpan: String? = null,
-    val totalTagihan: Long = 0L
+    val totalTagihan: Long = 0L,
+    val expiresAt: String? = null
 )
 
 class PaymentViewModel(
@@ -158,7 +159,8 @@ class PaymentViewModel(
                         // Angka gateway menang atas subtotal lokal (yang tidak
                         // tahu soal voucher). QRIS dan layar ini WAJIB menagih
                         // angka yang sama.
-                        totalTagihan = r.totalAmount.roundToLong()
+                        totalTagihan = r.totalAmount.roundToLong(),
+                        expiresAt = r.expiresAt
                     )
                     tanyaSampaiPasti(r.orderId)
                 }
@@ -203,7 +205,10 @@ class PaymentViewModel(
                         // yang cocok. Menunggu sampai `dibayar` berarti layar
                         // ini menampilkan Rp0 (tersembunyi) atau angka lokal
                         // yang salah selama pesanan masih diproses.
-                        _state.value = _state.value.copy(totalTagihan = d.totalAmount.roundToLong())
+                        _state.value = _state.value.copy(
+                            totalTagihan = d.totalAmount.roundToLong(),
+                            expiresAt = d.expiresAt ?: _state.value.expiresAt
+                        )
                         when (d.status) {
                             "dibayar" -> {
                                 cart.kosongkan()
@@ -247,6 +252,57 @@ class PaymentViewModel(
             // Habis waktu bukan berarti gagal. Pesanan bisa saja tetap masuk;
             // pelanggan diarahkan memeriksa riwayat, bukan membayar lagi.
             _state.value = _state.value.copy(menungguKonfirmasi = false, waktuHabis = true)
+        }
+    }
+
+    /**
+     * Memeriksa status pesanan segera ketika pelanggan mengetuk tombol
+     * "Cek Status Pembayaran" tanpa membuat tagihan ganda.
+     */
+    fun periksaStatusSekarang() {
+        val orderId = _state.value.orderId ?: percobaan.orderId()
+        if (orderId == null) {
+            bayar()
+            return
+        }
+        viewModelScope.launch {
+            if ( repository.statusPesanan(orderId).let { hasil ->
+                if (hasil is GatewayResult.Sukses) {
+                    val d = hasil.data
+                    _state.value = _state.value.copy(
+                        totalTagihan = d.totalAmount.roundToLong(),
+                        expiresAt = d.expiresAt ?: _state.value.expiresAt
+                    )
+                    when (d.status) {
+                        "dibayar" -> {
+                            cart.kosongkan()
+                            percobaan.selesai()
+                            _state.value = _state.value.copy(
+                                menungguKonfirmasi = false,
+                                dibayar = true,
+                                nomorPesanan = d.posOrderNumber
+                            )
+                            true
+                        }
+                        "gagal" -> {
+                            _state.value = _state.value.copy(
+                                menungguKonfirmasi = false,
+                                gagalBayar = true
+                            )
+                            true
+                        }
+                        "kadaluarsa" -> {
+                            percobaan.simpanClientOrderId(idPesananBaru())
+                            _state.value = _state.value.copy(
+                                menungguKonfirmasi = false,
+                                kadaluarsa = true
+                            )
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            }) return@launch
         }
     }
 
@@ -338,7 +394,8 @@ class PaymentViewModel(
                                 // Angka gateway menang -- pesanan lama ini bisa
                                 // saja dibuat dengan voucher, dan cart.subtotal()
                                 // tidak tahu itu.
-                                totalTagihan = d.totalAmount.roundToLong()
+                                totalTagihan = d.totalAmount.roundToLong(),
+                                expiresAt = d.expiresAt
                             )
                             tanyaSampaiPasti(orderId)
                         }

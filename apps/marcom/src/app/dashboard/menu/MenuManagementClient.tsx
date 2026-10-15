@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { formatRupiah, cn } from '@/lib/utils'
+import { compressImage } from '@/lib/compressImage'
 import { DEFAULT_FOOD_CHANNELS } from '@/lib/supabase-pos'
 import type { MenuItem, Category, SalesChannel, Outlet, MenuPromo } from '@/types/menu'
 
@@ -568,7 +569,7 @@ export default function MenuManagementClient({
       // If user selected a new image file, upload via server action to avoid client RLS issues
       if (imageFile) {
         const uploadData = new FormData()
-        uploadData.append('file', imageFile)
+        uploadData.append('file', await compressImage(imageFile))
         finalImageUrl = await uploadMenuImage(uploadData)
       }
 

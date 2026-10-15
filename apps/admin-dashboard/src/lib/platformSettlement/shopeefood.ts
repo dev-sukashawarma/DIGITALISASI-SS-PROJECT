@@ -9,7 +9,7 @@ import { PlatformParser, SettlementRow, parseIdNumber, parseSlashDate } from './
 //
 // Angka ditulis gaya Indonesia ("39.000" = tiga puluh sembilan ribu), tanggal MM/DD/YYYY.
 
-const SHEET = 'Order_Payment_Details';
+const CANDIDATE_SHEETS = ['Order_Payment_Details', 'Shopeefood_Income_Details'];
 
 export const shopeefoodParser: PlatformParser = {
   id: 'shopeefood',
@@ -18,15 +18,16 @@ export const shopeefoodParser: PlatformParser = {
 
   parse(buffer: ArrayBuffer): SettlementRow[] {
     const wb = xlsx.read(buffer, { type: 'buffer' });
-    if (!wb.SheetNames.includes(SHEET)) {
+    const targetSheet = wb.SheetNames.find((s) => CANDIDATE_SHEETS.includes(s));
+    if (!targetSheet) {
       throw new Error(
-        `Sheet "${SHEET}" tidak ditemukan. Pastikan ini file settlement ShopeeFood ` +
+        `Sheet transaksi ShopeeFood tidak ditemukan. Pastikan file memiliki sheet "Order_Payment_Details" atau "Shopeefood_Income_Details" ` +
         `(sheet yang ada: ${wb.SheetNames.join(', ')}).`
       );
     }
 
-    const rows = xlsx.utils.sheet_to_json<any[]>(wb.Sheets[SHEET], { header: 1 });
-    if (rows.length < 2) throw new Error(`Sheet "${SHEET}" kosong.`);
+    const rows = xlsx.utils.sheet_to_json<any[]>(wb.Sheets[targetSheet], { header: 1 });
+    if (rows.length < 2) throw new Error(`Sheet "${targetSheet}" kosong.`);
 
     const header = (rows[0] as string[]).map((h) => String(h ?? '').trim());
     const col = (name: string) => {

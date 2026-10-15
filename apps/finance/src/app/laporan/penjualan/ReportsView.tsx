@@ -17,6 +17,7 @@ import { formatRupiah } from '@/lib/format'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
+import AdminFeeBreakdownTooltip from '@/components/AdminFeeBreakdownTooltip'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -674,14 +675,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
             </div>
 
             {/* 2. Admin Fee (Gabungan Diskon Promo Resto & Komisi Platform) */}
-            <div className="bg-gradient-to-br from-rose-500 to-rose-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+            <div className="bg-gradient-to-br from-rose-500 to-rose-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-rose-500/20 relative flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+              <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+                <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+              </div>
               <div className="relative z-10">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                    Admin Fee
-                  </p>
-                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest">
+                      Admin Fee
+                    </p>
+                    <AdminFeeBreakdownTooltip
+                      selectedChannels={selectedChannels}
+                      analytics={analytics}
+                      isPosKasirOnly={isPosKasirOnly}
+                      adminUrl={ADMIN_URL}
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs shrink-0">
                     {(analytics.totalRealAdmin ?? 0) > 0 ? '✓ Settlement' : isPosKasirOnly ? '0% Kasir' : 'Promo & Komisi'}
                   </span>
                 </div>

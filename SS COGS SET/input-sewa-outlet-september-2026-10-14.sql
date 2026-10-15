@@ -1,0 +1,15 @@
+-- ARSIP — SUDAH DIJALANKAN 2026-10-14. JANGAN DIJALANKAN ULANG.
+-- Sewa outlet September 2026 untuk 10 outlet internal, angka dari sheet
+-- FIXED SEPTEMBER 2026 (baris 49). Sebelumnya September tidak punya baris
+-- sewa_outlet sama sekali. Total Rp 37.085.000. Mitra tidak disentuh.
+-- Pembatalan: DELETE FROM expenses WHERE category='sewa_outlet' AND period_month='2026-09-01'
+--   AND description LIKE '%closing Excel FIXED SEPTEMBER 2026%';
+--
+-- Empang 6.250.000 · Cimanggu 5.417.000 · Sukmajaya 6.167.000 · Jagakarsa 4.375.000
+-- Beji 3.000.000 · Sawangan (Internal) 3.333.333 · Pajajaran 2.000.000
+-- Jatiwaringin 2.084.000 · Cirendeu 2.166.667 · Dramaga 2.292.000
+-- id: 6af65b75-6381-49ca-b082-4012a644301a, 9a6cbad1-e22b-456a-8af1-a69ea99e4fdf,
+--     ad274a9b-c751-4da5-a8e0-1f61ffae0193, b01a33b6-7817-4922-aa95-b6f03595dd6e,
+--     8e4f61f2-313f-4d74-89be-69b912927381, 4ba6772f-5c36-4226-9de4-f29a34eaf0e3,
+--     23e6f931-eb9f-4c27-9fb4-1a0fe0933f09, dc270e4a-c949-4c40-8f31-2062d9d46da5,
+--     ffda8f29-47ce-4e08-991a-beecfc057fc3, 2e104a39-ce33-49fe-87c7-86825f9a8186

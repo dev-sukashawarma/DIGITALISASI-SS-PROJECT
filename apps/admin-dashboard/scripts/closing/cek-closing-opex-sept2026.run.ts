@@ -33,7 +33,9 @@ const PENYESUAIAN_DIHARAPKAN: Record<string, [number, number, number, number, nu
   'SUKA SHAWARMA CIRENDEU': [-185257, -12700, 37874, 0, 0, 0],
   'SUKA SHAWARMA DRAMAGA': [-1420000, -45350, -96, 250000, -250000, 0],
 }
-const PENYESUAIAN_PUSAT_DIHARAPKAN: Record<string, number> = { crew_backup: 8694636, gaji_staff_kantor: -2050000, internet: -113000 }
+// pengeluaran_global −400.000 (data 15 Okt): spreadsheet final membuang 400.000 yang masih ada di DB
+// (kandidat: "Pembelian Frame" 18 Sep, id 987be5c2…). Kalau finance menghapusnya, nilai ini jadi 0.
+const PENYESUAIAN_PUSAT_DIHARAPKAN: Record<string, number> = { crew_backup: 8694636, gaji_staff_kantor: -2050000, internet: -113000, pengeluaran_global: -400000 }
 
 test('OPEX September 2026 setelah closing = sheet FIXED', async () => {
   const { createServiceClient } = await import('@/lib/supabase/server')

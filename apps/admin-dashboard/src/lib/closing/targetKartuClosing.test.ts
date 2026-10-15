@@ -29,13 +29,13 @@ describe('targetKartuClosing', () => {
 
   it('kantor pusat', () => {
     expect(targetKartuClosing({ jenis: 'pusat' })).toEqual({
-      gajiRutin: 80400404, bonusKru: 0, bonusManajer: 0, lembur: 0, nonGaji: 142439866, total: 222840270,
+      gajiRutin: 80400404, bonusKru: 0, bonusManajer: 0, lembur: 0, nonGaji: 141215866, total: 221616270,
     })
   })
 
   it('internal + pusat = jumlah keduanya', () => {
     const k = targetKartuClosing({ jenis: 'internal_pusat' })
-    expect(k.total).toBe(169433823 + 222840270)
+    expect(k.total).toBe(169433823 + 221616270)
     expect(k.gajiRutin).toBe(78894292 + 80400404)
   })
 

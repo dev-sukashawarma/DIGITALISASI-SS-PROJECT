@@ -33,10 +33,10 @@ describe('data closing OPEX internal September 2026', () => {
     }
   })
 
-  it('jumlah 9 baris HQ = Total OPEX HQ 222.840.270', () => {
+  it('jumlah 9 baris HQ = Total OPEX HQ 221.616.270', () => {
     expect(Object.keys(C.pusat.target).sort()).toEqual([...BARIS_OPEX_PUSAT].sort())
-    expect(jumlah(C.pusat.target)).toBe(222840270)
-    expect(C.pusat.totalExcel).toBe(222840270)
+    expect(jumlah(C.pusat.target)).toBe(221616270)
+    expect(C.pusat.totalExcel).toBe(221616270)
   })
 
   it('titik uji sama dengan sel Excel', () => {
@@ -46,7 +46,7 @@ describe('data closing OPEX internal September 2026', () => {
     expect(C.outlets['ss-online'].target.gaji_crew_outlet).toBe(6630000)
     expect(C.outlets['ss-online'].target.internet).toBe(260850)
     expect(C.outlets['550e8400-e29b-41d4-a716-446655440008'].totalExcel).toBe(10114336)
-    expect(C.pusat.target.pengeluaran_global).toBe(126079883)
+    expect(C.pusat.target.pengeluaran_global).toBe(124855883)
     expect(C.pusat.target.crew_backup).toBe(8694636)
     expect(C.pusat.target.bahan_baku).toBe(1504609)
   })

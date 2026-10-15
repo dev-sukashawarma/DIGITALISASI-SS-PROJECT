@@ -126,7 +126,7 @@ describe('terapkanClosingOpex', () => {
     expect(p.every(r => r.scope === 'pusat')).toBe(true)
     expect(p.find(r => r.category === 'gaji_staff_kantor')?.amount).toBe(-2050000)
     expect(p.find(r => r.category === 'salary')?.amount).toBe(8694636)
-    expect(p.find(r => r.category === 'pengeluaran_global')?.amount).toBe(126079883 - 50000)
+    expect(p.find(r => r.category === 'pengeluaran_global')?.amount).toBe(124855883 - 50000)
   })
 
   it('baris penyesuaian non-lembur tidak terbaca sebagai lembur', () => {

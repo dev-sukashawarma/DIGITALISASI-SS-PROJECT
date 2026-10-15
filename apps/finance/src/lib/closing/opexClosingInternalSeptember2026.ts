@@ -1,5 +1,7 @@
 // File ini DIBANGKITKAN oleh scripts/closing/bangkitkan_opex_internal_sept2026.py.
 // Jangan diedit tangan. Salinan identik ada di apps/finance/src/lib/closing/.
+// Pengecualian (15 Okt 2026): Pengeluaran Global & total HQ disesuaikan tangan ke spreadsheet FINAL
+// (B65 124.855.883, B73 221.616.270). Kalau generator dijalankan ulang, pakai file Excel final.
 
 export type BarisOpexOutlet = 'pengeluaran_outlet' | 'gaji_crew_outlet' | 'bonus_crew' | 'bonus_area_manager' | 'bonus_regional_manager' | 'lembur' | 'ads' | 'endorsement' | 'promo' | 'pdam' | 'pln' | 'internet' | 'sewa_outlet'
 export type BarisOpexPusat = 'pdam' | 'pln' | 'internet' | 'pengeluaran_global' | 'gaji_staff_kantor' | 'crew_backup' | 'transport' | 'bahan_baku' | 'ads'
@@ -375,14 +377,14 @@ export const CLOSING_OPEX_INTERNAL_SEPT_2026: ClosingOpexBulan = {
       "pdam": 972800,
       "pln": 4502475,
       "internet": 2014650,
-      "pengeluaran_global": 126079883,
+      "pengeluaran_global": 124855883,
       "gaji_staff_kantor": 71705768,
       "crew_backup": 8694636,
       "transport": 6368669,
       "bahan_baku": 1504609,
       "ads": 996780
     },
-    "totalExcel": 222840270,
+    "totalExcel": 221616270,
     "alasan": {
       "gaji_staff_kantor": "Slip Abdul Hanan dibebankan ke SS Online",
       "crew_backup": "Gaji & bonus kru SS BACKUP dibebankan ke pusat",

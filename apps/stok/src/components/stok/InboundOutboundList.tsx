@@ -68,6 +68,8 @@ const DELIVERY_UNITS_FALLBACK: Record<string, { label: string; factorFromLarge: 
   'MINYAK SAYUR': { label: 'kompan', factorFromLarge: 1 },
   'MINYAK': { label: 'kompan', factorFromLarge: 1 },
   'FOIL': { label: 'roll', factorFromLarge: 48 },
+  'FOIL 5M': { label: 'roll', factorFromLarge: 48 },
+  'FOIL 7,6M': { label: 'roll', factorFromLarge: 48 },
   'FOIL (48)': { label: 'roll', factorFromLarge: 48 },
   'SARUNG TANGAN BENING': { label: 'pack', factorFromLarge: 1 },
   'HAND GLOVE': { label: 'box', factorFromLarge: 75 },

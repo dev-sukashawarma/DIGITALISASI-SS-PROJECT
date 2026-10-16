@@ -25,6 +25,13 @@ function getInvoiceUrl(pathOrUrl: string): string {
   return data?.publicUrl || ''
 }
 
+function formatStokDisplay(val: number | null | undefined): string {
+  if (val === null || val === undefined || !Number.isFinite(val)) return '-'
+  // Hilangkan artefak drift floating-point (mis. 0.3333333333333349 -> 0,333)
+  const rounded = Math.round(val * 1000) / 1000
+  return rounded.toLocaleString('id-ID', { maximumFractionDigits: 3 })
+}
+
 type Props = {
   poId: string
   onClose: () => void
@@ -395,14 +402,14 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                                 <span className="text-xs font-black text-suka-brown">{idx + 1}. {it.nama_item}</span>
                                 {it.qty_terima_sebelumnya > 0 && (
                                   <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-black rounded-lg border border-amber-200">
-                                    Sudah Tiba: {it.qty_terima_sebelumnya} {it.satuan}
+                                    Sudah Tiba: {formatStokDisplay(it.qty_terima_sebelumnya)} {it.satuan}
                                   </span>
                                 )}
                               </div>
                               <div className="text-[10px] text-suka-brown/60 font-semibold mt-0.5">
-                                Total Dipesan: <span className="font-bold text-suka-brown">{it.qty_pesan} {it.satuan}</span>
+                                Total Dipesan: <span className="font-bold text-suka-brown">{formatStokDisplay(it.qty_pesan)} {it.satuan}</span>
                                 {it.qty_terima_sebelumnya > 0 && (
-                                  <span> · Sisa Belum Tiba: <span className="font-bold text-amber-700">{Math.max(0, it.qty_pesan - it.qty_terima_sebelumnya)} {it.satuan}</span></span>
+                                  <span> · Sisa Belum Tiba: <span className="font-bold text-amber-700">{formatStokDisplay(Math.max(0, it.qty_pesan - it.qty_terima_sebelumnya))} {it.satuan}</span></span>
                                 )}
                               </div>
                             </div>
@@ -442,7 +449,7 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                                 </label>
                                 {it.qty_terima_sebelumnya > 0 && (
                                   <span className="text-[9px] font-bold text-suka-brown/50">
-                                    Total: {totalAkumulasi}/{it.qty_pesan}
+                                    Total: {formatStokDisplay(totalAkumulasi)}/{formatStokDisplay(it.qty_pesan)}
                                   </span>
                                 )}
                               </div>
@@ -461,10 +468,10 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                                   <span className="text-suka-brown/40">belum termuat</span>
                                 ) : (
                                   <>
-                                    <span className="tabular-nums">{stokSekarang}</span>
+                                    <span className="tabular-nums">{formatStokDisplay(stokSekarang)}</span>
                                     <span className="mx-1">&rarr;</span>
                                     <span className={`tabular-nums font-black ${warnings.length > 0 ? 'text-red-600' : 'text-suka-brown'}`}>
-                                      {stokNanti}
+                                      {formatStokDisplay(stokNanti)}
                                     </span>{' '}
                                     {it.satuan}
                                   </>

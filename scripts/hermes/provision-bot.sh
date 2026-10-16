@@ -46,7 +46,7 @@ ${BOLD}OPSI TAMBAHAN:${NC}
   -u, --mcp-url <url>       URL MCP endpoint (default: https://admin.sukashawarma.com/api/hermes/mcp)
   -s, --mcp-name <nama>     Nama server MCP di config.yaml (default: suka)
   -m, --model <model>       Model AI default (default: salin dari profil ceo atau 'cx/gpt-5.5')
-  -t, --telegram-token <tk> Token Telegram Bot dari @BotFather (opsional)
+      --telegram            Aktifkan Telegram; token diminta tersembunyi dan user ID di-allowlist
   -f, --force               Timpa profil yang sudah ada jika ditemukan
   -d, --dry-run             Simulasikan langkah tanpa mengubah sistem
   -h, --help                Tampilkan bantuan ini
@@ -67,6 +67,8 @@ MCP_URL="https://admin.sukashawarma.com/api/hermes/mcp"
 MCP_NAME="suka"
 MODEL=""
 TELEGRAM_TOKEN=""
+TELEGRAM_ALLOWED_USERS=""
+SETUP_TELEGRAM=false
 FORCE=false
 DRY_RUN=false
 
@@ -93,9 +95,9 @@ while [[ $# -gt 0 ]]; do
       MODEL="$2"
       shift 2
       ;;
-    -t|--telegram-token)
-      TELEGRAM_TOKEN="$2"
-      shift 2
+    --telegram)
+      SETUP_TELEGRAM=true
+      shift
       ;;
     -f|--force)
       FORCE=true
@@ -157,6 +159,16 @@ if [ -d "$PROFIL_DIR" ] && [ "$FORCE" != true ]; then
   log_err "Profil '$NAMA' sudah ada di $PROFIL_DIR!"
   log_err "Gunakan --force jika ingin mengonfigurasi ulang."
   exit 1
+fi
+
+if [ "$SETUP_TELEGRAM" = true ]; then
+  read -r -s -p "Token Telegram bot (input disembunyikan): " TELEGRAM_TOKEN
+  echo
+  read -r -p "Telegram user ID yang diizinkan (angka, pisahkan koma): " TELEGRAM_ALLOWED_USERS
+  if [ -z "$TELEGRAM_TOKEN" ] || ! [[ "$TELEGRAM_ALLOWED_USERS" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
+    log_err "Token wajib diisi dan allowlist harus berupa user ID numerik dipisahkan koma."
+    exit 1
+  fi
 fi
 
 if [ "$DRY_RUN" = true ]; then
@@ -221,6 +233,7 @@ EOF
   if [ -n "$TELEGRAM_TOKEN" ]; then
     echo "# Token bot Telegram" >> "$ENV_FILE"
     echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_TOKEN" >> "$ENV_FILE"
+    echo "TELEGRAM_ALLOWED_USERS=$TELEGRAM_ALLOWED_USERS" >> "$ENV_FILE"
     echo "" >> "$ENV_FILE"
   fi
 

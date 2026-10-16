@@ -7,21 +7,6 @@ export function supabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
-export async function urlBotTelegram(): Promise<string | null> {
-  const token = process.env.TELEGRAM_STOKIST_BOT_TOKEN
-  if (!token) return null
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/getMe`, { cache: 'no-store' })
-    const result = await response.json()
-    const username = result?.result?.username
-    return response.ok && result?.ok === true && typeof username === 'string' && /^[a-zA-Z0-9_]{5,32}$/.test(username)
-      ? `https://t.me/${username}`
-      : null
-  } catch {
-    return null
-  }
-}
-
 export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi'): string | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value !== 'string' || value.length > 500) return null

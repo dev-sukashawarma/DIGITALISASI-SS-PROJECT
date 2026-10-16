@@ -65,8 +65,7 @@ COPY --from=builder /repo/apps/bot/node_module[s] /repo/apps/bot/node_modules/
 COPY --from=builder /repo/apps/bot/package.json ./package.json
 COPY --from=builder /repo/apps/bot/.next ./.next
 COPY --from=builder /repo/apps/bot/public ./public
-COPY --from=builder /repo/apps/bot/scripts/telegram ./scripts/telegram
 
 EXPOSE 3000
 
-CMD ["node", "scripts/telegram/start.mjs"]
+CMD ["npx", "next", "start", "-p", "3000"]

@@ -18,10 +18,19 @@ export interface SuratJalanRingkas {
   item: SuratJalanItemRingkas[]
 }
 
+export interface AktivitasStokRingkas {
+  outlet: string
+  tanggal: string
+  status: string
+  tipe?: string
+}
+
 export interface KonteksStokHermes {
   hariIni: string
   outlets: OutletInfo[]
   daftarBahan: () => Promise<BahanInfo[]>
   barisStok: (bahanId: string) => Promise<BarisStok[]>
   suratJalan: (opts: { status?: string; limit?: number }) => Promise<SuratJalanRingkas[]>
+  opname: (opts: { outlet?: string; hari: number; limit: number }) => Promise<AktivitasStokRingkas[]>
+  permintaanBahan: (opts: { outlet?: string; hari: number; limit: number }) => Promise<AktivitasStokRingkas[]>
 }

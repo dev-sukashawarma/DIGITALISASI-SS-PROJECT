@@ -81,7 +81,7 @@ Gunakan wizard otomatisasi yang telah disediakan:
    ```bash
    yarn buat:bot    # atau: npm run buat:bot
    ```
-   Wizard interaktif akan otomatis membuat template `docs/hermes/SOUL-<p>.md`, template gerbang verifikasi, dan menghasilkan kunci aman.
+   Wizard interaktif akan membuat template `docs/hermes/SOUL-<p>.md` dan template gerbang verifikasi. `API_SERVER_KEY` otoritatif dibuat sekali oleh skrip provisioning di VPS.
 
 2. **Di VPS (user `suka-hermes`):**
    Cukup jalankan satu perintah:
@@ -184,7 +184,10 @@ Baris pertama boleh komentar `<!-- … -->` (dibuang saat sinkron).
 `HERMES_KEYS` app `bot`, restart.
 
 **Telegram:** butuh bot token tersendiri di `.env` profil; kunci toolset platform `telegram`
-sebelum pesan pertama.
+sebelum pesan pertama. Untuk setup Telegram, tambahkan `--telegram`. Skrip meminta token secara
+tersembunyi dan user ID numerik yang diizinkan, lalu menyimpannya sebagai `TELEGRAM_BOT_TOKEN`
+dan `TELEGRAM_ALLOWED_USERS` dalam `.env` profil dengan izin `600`. Jangan masukkan token sebagai
+argumen shell.
 
 ## 8. Uji gerbang (sebelum diumumkan)
 

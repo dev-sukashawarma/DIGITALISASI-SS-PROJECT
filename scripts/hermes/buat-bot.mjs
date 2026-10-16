@@ -11,7 +11,7 @@
  * 1. Mengumpulkan metadata bot baru secara interaktif (atau via argumen CLI)
  * 2. Menghasilkan template berkas SOUL di docs/hermes/SOUL-<nama>.md
  * 3. Menghasilkan template uji gerbang di supabase/verifikasi/hermes/gerbang-<nama>.md
- * 4. Menghasilkan API_SERVER_KEY kriptografis yang aman
+ * 4. Menyiapkan instruksi provisioning; API_SERVER_KEY dibuat secara otoritatif di VPS
  * 5. Mencetak 1-baris perintah eksekusi otomatis untuk VPS Hostinger
  * 6. Mencetak snippet konfigurasi env Coolify (HERMES_KEYS)
  * ==============================================================================
@@ -19,7 +19,6 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import crypto from 'node:crypto'
 import readline from 'node:readline'
 import { fileURLToPath } from 'node:url'
 
@@ -74,7 +73,6 @@ async function main() {
     const scope = await tanya(rl, '4. Scope izin data MCP (cth: gudang, penjualan, absensi, finance)', scopeBawaan)
 
     // 5. Generate kunci aman
-    const apiServerKey = crypto.randomBytes(32).toString('hex')
 
     console.log('\n------------------------------------------------------')
     console.log('Membuat berkas-berkas otomasi proyek...')
@@ -134,15 +132,15 @@ Tanggal dibuat: ${new Date().toISOString().split('T')[0]}
     console.log('📌 INFORMASI KUNCI:')
     console.log(`   - Profil         : ${nama}`)
     console.log(`   - Label Tampilan : ${label}`)
-    console.log(`   - API_SERVER_KEY : ${apiServerKey}\n`)
+    console.log('   - API_SERVER_KEY : dibuat oleh provision-bot.sh di VPS; gunakan nilai output VPS\n')
 
     console.log('🚀 LANGKAH 1: EKSEKUSI DI VPS HOSTINGER (1 PERINTAH OTOMATIS)')
     console.log('   SSH ke VPS sebagai suka-hermes, lalu jalankan:')
-    console.log(`   ./scripts/hermes/provision-bot.sh --name "${nama}" --mcp-key "<KUNCI_MCP_DARI_ADMIN>"\n`)
+    console.log(`   ./scripts/hermes/provision-bot.sh --name "${nama}" --mcp-key "<KUNCI_MCP_DARI_ADMIN>"${nama === 'stokist' ? ' --telegram' : ''}\n`)
 
     console.log('⚙️  LANGKAH 2: UPDATE ENVIRONMENT WEBAPP (COOLIFY)')
     console.log('   Tambahkan pasangan kunci berikut ke variabel env HERMES_KEYS di Coolify app bot:')
-    console.log(`   {"${nama}":"${apiServerKey}"}\n`)
+    console.log(`   {"${nama}":"<API_SERVER_KEY_DARI_OUTPUT_PROVISIONING_VPS>"}\n`)
 
     console.log('✨ SELESAI!')
     console.log('   Webapp agents.sukashawarma.com sudah mendukung dynamic profile.')

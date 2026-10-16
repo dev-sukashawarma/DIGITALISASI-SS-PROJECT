@@ -20,48 +20,53 @@ yarn workspace @suka/bot type-check
 | `NEXT_PUBLIC_COOKIE_DOMAIN`, `NEXT_PUBLIC_PORTAL_URL` | SSO (produksi: `.sukashawarma.com`, `https://app.sukashawarma.com`) |
 | `SUPABASE_JWT_SECRET` | verifikasi sesi lokal cepat (server-only) |
 | `HERMES_API_URL` | API server Hermes, mis. `http://<IP gateway Docker Coolify>:8643` (server-only) |
-| `HERMES_KEYS` | JSON `{"ceo":"<API_SERVER_KEY profil ceo>"}` — **satu env untuk semua agen**; agen baru = tambah pasangan `"gudang":"…"` lalu restart (tanpa rebuild). Server-only, **jangan** awalan `NEXT_PUBLIC_`. |
-| `TELEGRAM_STOKIST_BOT_TOKEN` | Token bot **Stokist** untuk alert Stok dan Distribusi; berbeda dari bot CEO Hermes di VPS |
-| `TELEGRAM_STOKIST_WEBHOOK_SECRET` | Secret internal untuk memvalidasi update Telegram yang diteruskan worker polling |
+| `HERMES_KEYS` | JSON `{"ceo":"<key>","stokist":"<API_SERVER_KEY profil stokist>"}` — satu env untuk semua agen; restart setelah perubahan. Server-only. |
+| `TELEGRAM_STOKIST_BOT_TOKEN` | Token bot Stokist untuk mengirim alert dan kode pengaitan Telegram. Token yang sama dipasang di profil Hermes `stokist` untuk menerima chat. |
 | `TELEGRAM_STOKIST_SEND_SECRET` | Secret antarlayanan untuk endpoint `/api/telegram/send` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only untuk menyimpan tautan Telegram staf dan mencari penerima alert |
 
 Tanpa `HERMES_*` app tetap jalan; setiap pertanyaan dijawab teks galat standar.
 
-## Bot Stokist Telegram
+## Bot Stokist Telegram (Hermes)
 
-Bot CEO tetap berada di gateway Hermes VPS dan bisa menjawab pertanyaan lintas app.
-Bot Stokist memakai token terpisah dan worker polling yang selalu berjalan di
-container app ini. Polanya sama dengan gateway Bot CEO: app mengambil update
-Telegram secara kontinu, bukan menunggu webhook yang perlu didaftarkan manual.
-Bot Stokist mengirim alert **Stok dan Distribusi** hanya ke staf aktif yang
-menautkan Telegram dan masuk dalam role serta outlet tujuan event. Kedua bot
-tetap terpisah dan Bot CEO tidak menggunakan token Stokist.
+Bot Stokist adalah profil Hermes terpisah bernama `stokist`, mengikuti SOP
+[`docs/hermes/PANDUAN-AGENT-BARU.md`](../../docs/hermes/PANDUAN-AGENT-BARU.md).
+Profilnya memakai server MCP pusat dengan scope `stok`, sehingga hanya alat
+Stok & Distribusi tersedia. User ID Telegram yang di-allowlist dapat membaca
+data domain tersebut lintas outlet. Bot CEO tetap bot terpisah dengan scope CEO.
 
-Staf yang sudah menautkan akun juga dapat mengirim pertanyaan biasa ke bot
-Stokist. Jawaban menggunakan data stok, opname, permintaan bahan, dan pengiriman
-yang dibatasi menurut role dan outlet staf. Jika `AI_BASE_URL` dan `AI_API_KEY`
-tersedia di Coolify app Bot, AI menyusun jawaban dari data tersebut; tanpa
-keduanya bot tetap menjawab pertanyaan umum dengan format data sederhana.
-`AI_MODEL` opsional (default `cx/gpt-5.5`). Profil Hermes CEO tidak dipakai untuk
-pertanyaan Stokist karena kunci Hermes tidak membawa lingkup outlet staf.
+Hermes menjadi satu-satunya penerima update Telegram untuk token Stokist. App
+Bot hanya mengirim alert dan kode verifikasi; app tidak menjalankan `getUpdates`
+atau webhook untuk menerima pesan. Alert database tetap dikirim ke staf aktif
+yang sudah menautkan Telegram berdasarkan role dan outlet penerima event.
 
-Setelah migration `20261016140000_bot_telegram_alerts.sql` dan
-`20261016150000_stok_distribusi_alert_telegram.sql` diterapkan:
+Untuk menautkan akun, user buka `/telegram`, kirim `/start` lalu `/id` ke bot,
+masukkan Telegram User ID, minta kode, dan masukkan kode 6 digit yang dikirim
+bot. Pemutusan koneksi dilakukan dari halaman yang sama.
 
-1. Simpan tiga env `TELEGRAM_STOKIST_*` di Coolify app `agents.sukashawarma.com`,
-   lalu deploy kode app ini. Gunakan bot Stokist, bukan token bot CEO. Saat container
-   berjalan, worker polling otomatis menghapus webhook lama dan mengambil update
-   Telegram terus-menerus, seperti gateway Bot CEO. Tidak perlu perintah setup webhook.
-2. User login dan buka `/telegram`, kemudian hubungkan akun dengan tautan
-   sekali pakai. Perintah `/stop` memutus koneksi.
-3. Di Supabase Vault, simpan `telegram_stokist_send_url` berisi
+Setelah migration `20261016140000_bot_telegram_alerts.sql`,
+`20261016150000_stok_distribusi_alert_telegram.sql`, dan
+`20300254001800_stokist_telegram_otp_target.sql` diterapkan:
+
+1. Buat kunci MCP scope `stok` di Admin Dashboard → Sistem → Kunci Hermes.
+2. Pastikan migration di atas sudah diterapkan. Di Coolify app Bot, pertahankan
+   `TELEGRAM_STOKIST_BOT_TOKEN` dan `TELEGRAM_STOKIST_SEND_SECRET`, lalu deploy
+   kode baru terlebih dahulu. Ini menghentikan poller lama tanpa mematikan kirim alert.
+3. Setelah deploy app selesai, jalankan di VPS sebagai `suka-hermes`:
+   `./scripts/hermes/provision-bot.sh --name stokist --mcp-key "<KUNCI_MCP>" --telegram`.
+   Skrip meminta token secara tersembunyi dan user ID allowlist. Salin snippet
+   `HERMES_KEYS` dari output provisioning ke Coolify app `agents.sukashawarma.com`.
+   Pastikan `TELEGRAM_STOKIST_BOT_TOKEN` di Coolify app Bot sama dengan token profil
+   Hermes. Gateway Hermes akan mengambil alih pesan masuk.
+4. Di Supabase Vault, simpan `telegram_stokist_send_url` berisi
    `https://agents.sukashawarma.com/api/telegram/send` dan
    `telegram_stokist_send_secret` berisi nilai yang sama dengan
    `TELEGRAM_STOKIST_SEND_SECRET`. Event database memanggil endpoint ini.
 
-Username bot diambil otomatis dari Telegram melalui `getMe` saat staf membuat
-tautan; env username tidak diperlukan.
+Jangan simpan `TELEGRAM_STOKIST_WEBHOOK_SECRET`; webhook dan poller app telah
+dihapus. Username bot tidak diperlukan. Aturan persona dan pengujian profil ada
+di [`docs/hermes/SOUL-stokist.md`](../../docs/hermes/SOUL-stokist.md) dan
+[`supabase/verifikasi/hermes/gerbang-stokis.md`](../../supabase/verifikasi/hermes/gerbang-stokis.md).
 
 Jika Coolify masih menyimpan nama env lama `TELEGRAM_ALERT_*`, pindahkan nilainya
 ke nama `TELEGRAM_STOKIST_*` sebelum deploy kode ini. Nama lama tidak dibaca lagi.

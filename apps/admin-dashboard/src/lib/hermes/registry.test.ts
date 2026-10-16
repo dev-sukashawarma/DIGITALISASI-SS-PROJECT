@@ -113,6 +113,22 @@ describe('registry alat Hermes', () => {
       expect(r.data.total).toBe(1)
     }
   })
+  it('stok_opname mengembalikan riwayat opname tanpa identitas staf', async () => {
+    const r = await cari('stok_opname').jalankan({ hari: 30, limit: 20 })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.daftar).toEqual([{ outlet: 'SUKA SHAWARMA EMPANG', tanggal: '2026-10-06', status: 'finalized', tipe: 'harian' }])
+      expect(JSON.stringify(r.data)).not.toMatch(/created_by|staff_id|nama_staf/i)
+    }
+  })
+  it('stok_permintaan_bahan mengembalikan status ringkas tanpa catatan atau identitas', async () => {
+    const r = await cari('stok_permintaan_bahan').jalankan({ hari: 30, limit: 20 })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.daftar).toEqual([{ outlet: 'SUKA SHAWARMA EMPANG', tanggal: '2026-10-06', status: 'menunggu' }])
+      expect(JSON.stringify(r.data)).not.toMatch(/catatan|dibuat_oleh|staff_id/i)
+    }
+  })
   it('sistem_status mengembalikan status operasional sistem', async () => {
     const r = await cari('sistem_status').jalankan({})
     expect(r.ok).toBe(true)

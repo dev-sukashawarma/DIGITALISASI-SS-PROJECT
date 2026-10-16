@@ -20,7 +20,7 @@ export default async function HalamanTelegram() {
         <a href="/" className="text-sm text-cyan-300 hover:underline">← Kembali ke Bot</a>
         <h1 className="mt-5 text-2xl font-bold">Bot Stokist di Telegram</h1>
         <p className="mt-2 text-sm text-zinc-300">
-          Hubungkan akun untuk menerima alert dan bertanya tentang Stok serta Distribusi sesuai role dan outlet Anda.
+          Hubungkan Telegram untuk menerima alert sesuai role dan outlet Anda. User bot yang diizinkan dapat bertanya tentang Stok dan Distribusi lintas outlet.
         </p>
         <TelegramSettings
           awalTerhubung={!!data}
@@ -28,7 +28,7 @@ export default async function HalamanTelegram() {
           botTersedia={!!process.env.TELEGRAM_STOKIST_BOT_TOKEN}
         />
         <p className="mt-6 text-xs text-zinc-400">
-          Tautan berlaku 10 menit dan hanya dapat digunakan sekali. Ketik /stop ke bot untuk memutus koneksi.
+          Kirim /start lalu /id ke bot Stokist untuk melihat User ID Telegram Anda. Kode berlaku 10 menit. Putuskan koneksi dari halaman ini.
         </p>
       </div>
     </main>

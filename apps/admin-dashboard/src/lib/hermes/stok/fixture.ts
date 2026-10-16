@@ -25,4 +25,10 @@ export const stokPalsu: KonteksStokHermes = {
       ],
     },
   ],
+  opname: async () => [
+    { outlet: 'SUKA SHAWARMA EMPANG', tanggal: '2026-10-06', status: 'finalized', tipe: 'harian' },
+  ],
+  permintaanBahan: async () => [
+    { outlet: 'SUKA SHAWARMA EMPANG', tanggal: '2026-10-06', status: 'menunggu' },
+  ],
 }

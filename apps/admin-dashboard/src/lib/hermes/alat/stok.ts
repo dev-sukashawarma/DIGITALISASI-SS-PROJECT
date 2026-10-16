@@ -37,4 +37,38 @@ export const ALAT_STOK: DefinisiAlat[] = [
       }
     },
   },
+  {
+    nama: 'stok_opname',
+    domain: 'stok',
+    deskripsi: 'Riwayat opname stok terbaru per outlet untuk periode terbatas. Hanya data status, tipe, tanggal, dan outlet; tanpa identitas staf.',
+    sumber: 'App Stok (Opname)',
+    skema: z.object({
+      outlet: z.string().min(1).optional().describe('Nama atau slug outlet yang persis; kosong berarti semua outlet.'),
+      hari: z.number().int().min(1).max(90).default(30).describe('Rentang riwayat dalam hari (maksimal 90).'),
+      limit: z.number().int().min(1).max(50).default(20).describe('Jumlah maksimal baris.'),
+    }).strict(),
+    contoh: { hari: 30, limit: 20 },
+    jalankan: async (ctx, a: { outlet?: string; hari: number; limit: number }) => ({
+      status: 'ok',
+      rentang_hari: a.hari,
+      daftar: await ctx.stok.opname(a),
+    }),
+  },
+  {
+    nama: 'stok_permintaan_bahan',
+    domain: 'stok',
+    deskripsi: 'Riwayat permintaan bahan terbaru per outlet untuk periode terbatas. Hanya status, tanggal, dan outlet; tanpa catatan bebas atau identitas staf.',
+    sumber: 'App Stok (Permintaan Bahan)',
+    skema: z.object({
+      outlet: z.string().min(1).optional().describe('Nama atau slug outlet yang persis; kosong berarti semua outlet.'),
+      hari: z.number().int().min(1).max(90).default(30).describe('Rentang riwayat dalam hari (maksimal 90).'),
+      limit: z.number().int().min(1).max(50).default(20).describe('Jumlah maksimal baris.'),
+    }).strict(),
+    contoh: { hari: 30, limit: 20 },
+    jalankan: async (ctx, a: { outlet?: string; hari: number; limit: number }) => ({
+      status: 'ok',
+      rentang_hari: a.hari,
+      daftar: await ctx.stok.permintaanBahan(a),
+    }),
+  },
 ]

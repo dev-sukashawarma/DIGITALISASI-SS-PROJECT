@@ -22,6 +22,7 @@ import { SalarySlipModal } from './SalarySlipModal'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 import { isOjtStaff } from '@/lib/ojtPayrollValidation'
+import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations, splitPayrollAmount } from '@/lib/payrollAllocation'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -337,6 +338,7 @@ export function PayrollTable({
                   onSort={handleSort}
                   className="whitespace-nowrap min-w-[170px]"
                 />
+                <th className="px-4 py-3.5 whitespace-nowrap min-w-[200px]">Alokasi PT</th>
                 <SortHeader
                   label="Gaji Pokok"
                   field="basicSalary"
@@ -402,6 +404,10 @@ export function PayrollTable({
                 const isKasbonSystem = b.cashAdvanceDeduction > 0 && !!systemKasbonStaffIds?.has(r.staff_id)
 
                 const isStaffOjt = isOjtStaff(r.outlet_staff as any)
+                const companyAllocations = splitPayrollAmount(
+                  b.takeHomePay,
+                  normalizePayrollAllocations(r.payroll_allocations || DEFAULT_PAYROLL_ALLOCATION)
+                )
 
                 return (
                   <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
@@ -423,6 +429,18 @@ export function PayrollTable({
                     </td>
                     <td className="px-4 py-3 align-middle text-xs font-semibold text-gray-700">
                       {outletName}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-xs">
+                      <div className="space-y-1">
+                        {companyAllocations.map((allocation) => (
+                          <div key={allocation.company_name} className="flex items-center justify-between gap-3 whitespace-nowrap">
+                            <span className="font-semibold text-gray-700">
+                              {allocation.company_name} <span className="text-gray-500">{allocation.percentage}%</span>
+                            </span>
+                            <span className="font-mono font-bold text-suka-brown">{formatRupiah(allocation.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3 align-middle text-right text-xs font-mono font-medium text-gray-800 tabular-nums whitespace-nowrap">
                       <div>{formatRupiah(b.basicSalary)}</div>
@@ -559,7 +577,7 @@ export function PayrollTable({
 
               {filteredAndSortedRows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-14 text-center">
+                  <td colSpan={10} className="px-4 py-14 text-center">
                     {searchQuery ? (
                       <div className="space-y-2 max-w-sm mx-auto">
                         <p className="text-sm font-semibold text-suka-ink">

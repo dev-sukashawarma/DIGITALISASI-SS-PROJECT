@@ -1,0 +1,39 @@
+-- Limit payroll allocations to the current two legal entities.
+-- Existing editable allocations that used the old default company are mapped
+-- to PT Suka Profit Berkah. Finalized payroll snapshots remain unchanged.
+ALTER TABLE public.staff_financials
+  ALTER COLUMN payroll_allocations
+  SET DEFAULT '[{"company_name":"PT Suka Profit Berkah","percentage":100}]'::jsonb;
+
+ALTER TABLE public.payroll_records
+  ALTER COLUMN payroll_allocations
+  SET DEFAULT '[{"company_name":"PT Suka Profit Berkah","percentage":100}]'::jsonb;
+
+UPDATE public.staff_financials AS financials
+SET payroll_allocations = (
+  SELECT jsonb_agg(
+    CASE
+      WHEN allocation.value ->> 'company_name' = 'PT Suka Kuliner Nusantara'
+        THEN jsonb_set(allocation.value, '{company_name}', '"PT Suka Profit Berkah"'::jsonb)
+      ELSE allocation.value
+    END
+    ORDER BY allocation.ordinality
+  )
+  FROM jsonb_array_elements(financials.payroll_allocations) WITH ORDINALITY AS allocation(value, ordinality)
+)
+WHERE financials.payroll_allocations @> '[{"company_name":"PT Suka Kuliner Nusantara"}]'::jsonb;
+
+UPDATE public.payroll_records AS payroll
+SET payroll_allocations = (
+  SELECT jsonb_agg(
+    CASE
+      WHEN allocation.value ->> 'company_name' = 'PT Suka Kuliner Nusantara'
+        THEN jsonb_set(allocation.value, '{company_name}', '"PT Suka Profit Berkah"'::jsonb)
+      ELSE allocation.value
+    END
+    ORDER BY allocation.ordinality
+  )
+  FROM jsonb_array_elements(payroll.payroll_allocations) WITH ORDINALITY AS allocation(value, ordinality)
+)
+WHERE payroll.status = 'draft'
+  AND payroll.payroll_allocations @> '[{"company_name":"PT Suka Kuliner Nusantara"}]'::jsonb;

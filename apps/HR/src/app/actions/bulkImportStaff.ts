@@ -57,6 +57,7 @@ export async function bulkImportStaffAction(
         existingMapByUsername.get(cleanUsernameKey) || existingMapByName.get(cleanNameKey)
 
       let staffId: string
+      let salaryForPayroll = row.basicSalary
 
       if (existing) {
         staffId = existing.id
@@ -75,13 +76,23 @@ export async function bulkImportStaffAction(
 
           if (updateStaffErr) throw updateStaffErr
 
+          // Preserve the current salary when the import file has no salary value.
+          const { data: currentFinancials, error: currentFinancialsError } = await admin
+            .from('staff_financials')
+            .select('basic_salary')
+            .eq('staff_id', existing.id)
+            .maybeSingle()
+          if (currentFinancialsError) throw currentFinancialsError
+          const salaryProvided = row.basicSalaryProvided ?? true
+          salaryForPayroll = salaryProvided ? row.basicSalary : Number(currentFinancials?.basic_salary) || 0
+
           // Upsert financials
           await admin
             .from('staff_financials')
             .upsert(
               {
                 staff_id: existing.id,
-                basic_salary: row.basicSalary,
+                basic_salary: salaryForPayroll,
                 allowance_presence: row.mealAllowance || row.allowancePresence,
                 allowance_position: 0,
                 bank_name: row.bankName || '',
@@ -156,7 +167,7 @@ export async function bulkImportStaffAction(
         // 3. Insert into staff_financials
         await admin.from('staff_financials').insert({
           staff_id: staffId,
-          basic_salary: row.basicSalary,
+          basic_salary: salaryForPayroll,
           allowance_presence: row.mealAllowance || row.allowancePresence,
           allowance_position: 0,
           bank_name: row.bankName || '',
@@ -194,7 +205,7 @@ export async function bulkImportStaffAction(
           staff_id: staffId,
           period_month: syncMonth,
           period_year: syncYear,
-          basic_salary: row.basicSalary,
+          basic_salary: salaryForPayroll,
           allowance_position: 0,
           allowance_presence: row.mealAllowance || row.allowancePresence,
           bonus: row.overtime,

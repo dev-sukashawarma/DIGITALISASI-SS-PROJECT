@@ -341,6 +341,7 @@ export default function StaffPage() {
                       emergency_relationship: editingStaff.emergency_relationship || '',
                       emergency_phone: editingStaff.emergency_phone || '',
                       basic_salary: editingStaff.financials?.basic_salary || 0,
+                      payroll_allocations: editingStaff.financials?.payroll_allocations || [{ company_name: 'PT Suka Profit Berkah', percentage: 100 }],
                       allowance_meal: editingStaff.financials?.allowance_meal ?? editingStaff.financials?.allowance_presence ?? 0,
                       allowance_transport: editingStaff.financials?.allowance_transport || 0,
                       allowance_communication: editingStaff.financials?.allowance_communication || 0,

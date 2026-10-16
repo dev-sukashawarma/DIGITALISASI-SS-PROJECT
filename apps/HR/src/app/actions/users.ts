@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { requireRole } from '@/lib/authz'
 import type { StaffFormValues } from '@/lib/types'
+import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations, payrollAllocationError } from '@/lib/payrollAllocation'
 
 function getAdminSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -28,9 +29,13 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     basic_salary, allowance_position, allowance_presence,
     allowance_meal, allowance_transport, allowance_communication,
     sales_bonus, deduction_kasbon, deduction_bpjs,
+    payroll_allocations,
     bank_name, bank_account_number, bank_account_name,
     npwp, bpjs_ketenagakerjaan, bpjs_kesehatan
   } = values as any
+
+  const allocationError = payrollAllocationError(normalizePayrollAllocations(payroll_allocations ?? DEFAULT_PAYROLL_ALLOCATION))
+  if (allocationError) return { ok: false, error: allocationError }
 
   const isPusatRole = role === 'regional_manager' || role === 'area_manager'
   let finalOutletId = isPusatRole ? KANTOR_PUSAT_ID : (outlet_id || null)
@@ -134,6 +139,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     bank_name ||
     bank_account_number ||
     bank_account_name ||
+    payroll_allocations !== undefined ||
     basic_salary !== undefined ||
     allowance_meal !== undefined ||
     allowance_transport !== undefined ||
@@ -145,6 +151,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     await admin.from('staff_financials').insert({
       staff_id: staffId,
       basic_salary: basic_salary || 0,
+      payroll_allocations: payroll_allocations || DEFAULT_PAYROLL_ALLOCATION,
       allowance_meal: allowance_meal || 0,
       allowance_transport: allowance_transport || 0,
       allowance_communication: allowance_communication || 0,
@@ -194,9 +201,15 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
       basic_salary, allowance_position, allowance_presence,
       allowance_meal, allowance_transport, allowance_communication,
       sales_bonus, deduction_kasbon, deduction_bpjs,
+      payroll_allocations,
       bank_name, bank_account_number, bank_account_name,
       npwp, bpjs_ketenagakerjaan, bpjs_kesehatan
     } = values as any
+
+    if (payroll_allocations !== undefined) {
+      const allocationError = payrollAllocationError(normalizePayrollAllocations(payroll_allocations))
+      if (allocationError) return { ok: false, error: allocationError }
+    }
 
     const cleanNik = typeof nik === 'string' && nik.trim() ? nik.trim() : null
     const cleanNip = typeof nip === 'string' && nip.trim() ? nip.trim() : null
@@ -286,6 +299,7 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
     // 4. Update / Upsert staff_financials
     const hasFinancialsInput =
       basic_salary !== undefined ||
+      payroll_allocations !== undefined ||
       allowance_meal !== undefined ||
       allowance_transport !== undefined ||
       allowance_communication !== undefined ||
@@ -302,9 +316,16 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
       bpjs_kesehatan !== undefined
 
     if (hasFinancialsInput) {
+      const existingFinancialsResult = basic_salary === undefined
+        ? await admin.from('staff_financials').select('basic_salary').eq('staff_id', staff_id).maybeSingle()
+        : null
+      if (existingFinancialsResult?.error) {
+        return { ok: false, error: `Gagal membaca gaji karyawan: ${existingFinancialsResult.error.message}` }
+      }
       const finPayload = {
         staff_id,
-        basic_salary: basic_salary || 0,
+        basic_salary: basic_salary ?? existingFinancialsResult?.data?.basic_salary ?? 0,
+        payroll_allocations: payroll_allocations || DEFAULT_PAYROLL_ALLOCATION,
         allowance_meal: allowance_meal || 0,
         allowance_transport: allowance_transport || 0,
         allowance_communication: allowance_communication || 0,

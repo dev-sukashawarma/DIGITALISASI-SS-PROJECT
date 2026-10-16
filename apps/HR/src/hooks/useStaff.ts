@@ -53,6 +53,7 @@ export function useStaff(options?: { includeAllCategories?: boolean }) {
           staff_outlets(outlet_id),
           staff_financials(
             basic_salary, allowance_position, allowance_presence,
+            payroll_allocations,
             allowance_meal, allowance_transport, allowance_communication,
             sales_bonus, deduction_kasbon, deduction_bpjs,
             bank_name, bank_account_number, bank_account_name,

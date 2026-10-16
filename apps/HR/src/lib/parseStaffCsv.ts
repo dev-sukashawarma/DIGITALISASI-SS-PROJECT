@@ -15,6 +15,7 @@ export interface ParsedStaffRow {
   outletName: string
   isOutletMatched: boolean
   basicSalary: number
+  basicSalaryProvided?: boolean
   mealAllowance: number
   allowancePresence: number
   overtime: number
@@ -234,9 +235,11 @@ export function parseRawStaffRows(rawRows: any[], outlets: Outlet[]): ParsedStaf
     const statusRaw = cleanString(normalized['STATUS'] || normalized['STATUS KARYAWAN'] || '')
     const locationRaw = cleanString(normalized['LOCATION'] || normalized['OUTLET'] || normalized['LOKASI'] || '')
     
-    const basicSalary = parseCurrency(
-      normalized['BASE SALARY'] || normalized['GAJI POKOK'] || normalized['BASIC SALARY'] || normalized['GAJI']
-    )
+    const salaryColumns = ['BASE SALARY', 'GAJI POKOK', 'BASIC SALARY', 'GAJI']
+    const salaryColumn = salaryColumns.find((key) => Object.prototype.hasOwnProperty.call(normalized, key))
+    const basicSalaryRaw = salaryColumn ? normalized[salaryColumn] : undefined
+    const basicSalaryProvided = basicSalaryRaw !== undefined && basicSalaryRaw !== null && String(basicSalaryRaw).trim() !== ''
+    const basicSalary = parseCurrency(basicSalaryRaw)
     const mealAllowance = parseCurrency(
       normalized['MEAL ALLOWANCE'] || normalized['TUNJANGAN MAKAN'] || normalized['TUNJANGAN KEHADIRAN'] || normalized['TUNJANGAN']
     )
@@ -281,6 +284,7 @@ export function parseRawStaffRows(rawRows: any[], outlets: Outlet[]): ParsedStaf
       outletName,
       isOutletMatched: isMatched,
       basicSalary,
+      basicSalaryProvided,
       mealAllowance,
       allowancePresence: mealAllowance,
       overtime,

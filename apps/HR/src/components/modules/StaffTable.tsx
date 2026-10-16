@@ -28,6 +28,7 @@ import type { StaffRow, StaffStatus, StaffSortKey, SortOrder, AccountCategory, O
 import { ACCOUNT_CATEGORY_LABELS } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
 import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
+import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations } from '@/lib/payrollAllocation'
 
 function statusBadge(status: StaffStatus) {
   const map: Record<StaffStatus, string> = {
@@ -41,6 +42,20 @@ function statusBadge(status: StaffStatus) {
       {label[status]}
     </span>
   )
+}
+
+function getStaffPayBreakdown(staff: StaffRow) {
+  const financials = staff.financials
+  const mealAllowance = financials?.allowance_meal ?? financials?.allowance_presence ?? 0
+  const basicSalary = financials?.basic_salary ?? 0
+  const allowances =
+    mealAllowance +
+    (financials?.allowance_transport ?? 0) +
+    (financials?.allowance_communication ?? 0) +
+    (financials?.allowance_position ?? 0)
+  const bonus = financials?.sales_bonus ?? 0
+  const deductions = (financials?.deduction_kasbon ?? 0) + (financials?.deduction_bpjs ?? 0)
+  return { basicSalary, allowances, bonus, deductions, thp: Math.max(0, basicSalary + allowances + bonus - deductions) }
 }
 
 function flagStatusBadge(s: StaffRow) {
@@ -353,14 +368,9 @@ export function StaffTable({
                     {renderSortIcon('outlet')}
                   </div>
                 </th>
-                <th
-                  onClick={() => onSort?.('salary')}
-                  className="px-4 py-3.5 text-right cursor-pointer select-none group hover:bg-stone-100/60 transition-colors hidden sm:table-cell"
-                >
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Gaji Pokok</span>
-                    {renderSortIcon('salary')}
-                  </div>
+                <th className="px-4 py-3.5 whitespace-nowrap">PT Penanggung</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap min-w-[190px] hidden sm:table-cell">
+                  <span title="Estimasi THP dari komponen gaji dan potongan di profil">THP</span>
                 </th>
                 <th
                   onClick={() => onSort?.('status')}
@@ -430,8 +440,29 @@ export function StaffTable({
                   <td className="px-4 py-3 text-xs font-semibold text-suka-ink">
                     {renderOutletCell(s)}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono font-bold text-xs text-stone-800 hidden sm:table-cell">
-                    {formatRupiah(s.financials?.basic_salary || 0)}
+                  <td className="px-4 py-3 text-xs text-suka-ink">
+                    <div className="space-y-1">
+                      {normalizePayrollAllocations(s.financials?.payroll_allocations || DEFAULT_PAYROLL_ALLOCATION).map((allocation) => (
+                        <div key={allocation.company_name} className="whitespace-nowrap">
+                          <span className="font-semibold">{allocation.company_name}</span>
+                          <span className="ml-1 text-suka-gray-500">{allocation.percentage}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-[10px] text-stone-600 hidden sm:table-cell" title="Estimasi dari komponen profil; bonus/lembur periode berjalan belum termasuk">
+                    {(() => {
+                      const breakdown = getStaffPayBreakdown(s)
+                      return (
+                        <div className="space-y-0.5 whitespace-nowrap">
+                          <div className="flex justify-between gap-3"><span>Gapok</span><span>{formatRupiah(breakdown.basicSalary)}</span></div>
+                          <div className="flex justify-between gap-3"><span>Tunjangan</span><span>{formatRupiah(breakdown.allowances)}</span></div>
+                          {breakdown.bonus > 0 && <div className="flex justify-between gap-3"><span>Bonus</span><span>{formatRupiah(breakdown.bonus)}</span></div>}
+                          <div className="flex justify-between gap-3"><span>Potongan</span><span>-{formatRupiah(breakdown.deductions)}</span></div>
+                          <div className="flex justify-between gap-3 border-t border-stone-200 pt-0.5 font-black text-stone-800"><span>THP</span><span>{formatRupiah(breakdown.thp)}</span></div>
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-center">{statusBadge(s.status)}</td>
                   <td className="px-4 py-3 text-right">
@@ -480,7 +511,7 @@ export function StaffTable({
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-suka-gray-500 font-medium">
+                  <td colSpan={8} className="px-4 py-12 text-center text-suka-gray-500 font-medium">
                     Tidak ada data karyawan yang cocok.
                   </td>
                 </tr>

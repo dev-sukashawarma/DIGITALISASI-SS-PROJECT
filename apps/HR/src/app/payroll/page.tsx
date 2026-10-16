@@ -36,6 +36,7 @@ import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import { isRendyOrDeveloperStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 import { todayWib } from '@/lib/dateIso'
 import type { PayrollRecord } from '@/lib/types'
+import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations, splitPayrollAmount } from '@/lib/payrollAllocation'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -195,6 +196,21 @@ export default function PayrollPage() {
     }
   }, [filteredPayrollData])
 
+  const companyPayrollTotals = useMemo(() => {
+    const totals = new Map<string, { companyName: string; amount: number; staffCount: number }>()
+    filteredPayrollData.forEach((record) => {
+      const allocations = normalizePayrollAllocations(record.payroll_allocations || DEFAULT_PAYROLL_ALLOCATION)
+      splitPayrollAmount(getPayrollBreakdown(record).takeHomePay, allocations).forEach((item) => {
+        const companyKey = item.company_name.toLocaleLowerCase('id-ID')
+        const current = totals.get(companyKey) || { companyName: item.company_name, amount: 0, staffCount: 0 }
+        current.amount += item.amount
+        if (item.amount !== 0) current.staffCount += 1
+        totals.set(companyKey, current)
+      })
+    })
+    return [...totals.entries()].sort((a, b) => b[1].amount - a[1].amount)
+  }, [filteredPayrollData])
+
   const hasSlips = payrollData.length > 0
   const isAllFinalized = hasSlips && payrollData.every((r) => r.status === 'finalized')
   const hasDrafts = hasSlips && payrollData.some((r) => r.status === 'draft')
@@ -350,6 +366,8 @@ export default function PayrollPage() {
         'Total Penerimaan': b.totalEarnings,
         'Total Potongan': b.totalDeductions,
         'Total Gaji Bersih (THP)': b.takeHomePay,
+        'Alokasi Beban per PT': splitPayrollAmount(b.takeHomePay, normalizePayrollAllocations(r.payroll_allocations || DEFAULT_PAYROLL_ALLOCATION))
+          .map((item) => `${item.company_name} ${item.percentage}%: ${formatRupiah(item.amount)}`).join(' | '),
         Status: r.status,
       }
     })
@@ -638,6 +656,34 @@ export default function PayrollPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {payrollData.length > 0 && (
+            <section className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-suka-gray-100">
+                <h2 className="text-sm font-black text-suka-brown">Rekap Beban Gaji per PT</h2>
+                <p className="text-xs text-suka-gray-500 mt-1">Pembagian THP mengikuti persentase pada profil karyawan. Slip dan transfer karyawan tetap utuh.</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-suka-cream/50 text-suka-gray-600 text-xs uppercase">
+                    <tr><th className="text-left px-5 py-3">Badan Usaha</th><th className="text-right px-5 py-3">Karyawan</th><th className="text-right px-5 py-3">Beban THP</th></tr>
+                  </thead>
+                  <tbody>
+                    {companyPayrollTotals.map(([companyKey, totals]) => (
+                      <tr key={companyKey} className="border-t border-suka-gray-100">
+                        <td className="px-5 py-3 font-bold text-suka-ink">{totals.companyName}</td>
+                        <td className="px-5 py-3 text-right">{totals.staffCount} orang</td>
+                        <td className="px-5 py-3 text-right font-mono font-black">{formatRupiah(totals.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-suka-cream/30 font-black">
+                    <tr><td className="px-5 py-3">Total</td><td className="px-5 py-3 text-right">{summaryTotals.staffCount} orang</td><td className="px-5 py-3 text-right font-mono">{formatRupiah(summaryTotals.totalKeseluruhan)}</td></tr>
+                  </tfoot>
+                </table>
+              </div>
+            </section>
           )}
 
           {/* Table */}

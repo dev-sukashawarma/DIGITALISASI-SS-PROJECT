@@ -69,6 +69,7 @@ export interface StaffRow {
   leave_quota?: number | null
   financials?: {
     basic_salary: number
+    payroll_allocations?: PayrollAllocation[] | null
     allowance_meal?: number
     allowance_transport?: number
     allowance_communication?: number
@@ -116,6 +117,7 @@ export interface StaffFormValues {
   resign_date?: string | null
   leave_quota?: number | null
   basic_salary?: number
+  payroll_allocations?: PayrollAllocation[]
   allowance_meal?: number
   allowance_transport?: number
   allowance_communication?: number
@@ -130,6 +132,11 @@ export interface StaffFormValues {
   npwp?: string | null
   bpjs_ketenagakerjaan?: string | null
   bpjs_kesehatan?: string | null
+}
+
+export interface PayrollAllocation {
+  company_name: string
+  percentage: number
 }
 
 export type StaffSortKey = 'name' | 'username' | 'role' | 'outlet' | 'status' | 'salary' | 'date' | 'flag_status'
@@ -259,6 +266,7 @@ export interface PayrollRecord {
   deductions: number
   deduction_note: string | null
   total_salary: number
+  payroll_allocations?: PayrollAllocation[] | null
   status: PayrollStatus
   created_at?: string
   updated_at?: string

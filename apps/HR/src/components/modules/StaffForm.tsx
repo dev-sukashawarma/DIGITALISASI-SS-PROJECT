@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button, CurrencyInput } from '@suka/design-system'
@@ -13,6 +13,7 @@ import { generateTempPassword } from '@/lib/generatePassword'
 import { formatRupiah } from '@/lib/format'
 import { toast } from 'sonner'
 import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
+import { DEFAULT_PAYROLL_ALLOCATION, PAYROLL_COMPANIES, payrollAllocationError, splitPayrollAmount } from '@/lib/payrollAllocation'
 
 export const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
@@ -107,6 +108,7 @@ const getStaffFormSchema = (isEditing: boolean) =>
     emergency_phone: z.string().nullable().optional(),
 
     basic_salary: z.coerce.number().nullable().optional(),
+    payroll_allocations: z.array(z.object({ company_name: z.string(), percentage: z.coerce.number() })).min(1),
     allowance_meal: z.coerce.number().nullable().optional(),
     allowance_transport: z.coerce.number().nullable().optional(),
     allowance_communication: z.coerce.number().nullable().optional(),
@@ -147,6 +149,7 @@ const stepFields: Record<string, (keyof FormData)[]> = {
   darurat: ['emergency_name', 'emergency_relationship', 'emergency_phone'],
   keuangan: [
     'basic_salary',
+    'payroll_allocations',
     'allowance_meal',
     'allowance_transport',
     'allowance_communication',
@@ -190,7 +193,7 @@ export function StaffForm({
     watch,
     setValue,
     setError,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<any>({
     resolver: zodResolver(schema as any) as any,
     defaultValues: {
@@ -225,6 +228,7 @@ export function StaffForm({
       emergency_relationship: initial?.emergency_relationship ?? '',
       emergency_phone: initial?.emergency_phone ?? '',
       basic_salary: initial?.basic_salary ?? 0,
+      payroll_allocations: (initial as any)?.payroll_allocations ?? DEFAULT_PAYROLL_ALLOCATION,
       allowance_meal: initial?.allowance_meal ?? (initial?.allowance_presence ?? 0),
       allowance_transport: initial?.allowance_transport ?? 0,
       allowance_communication: initial?.allowance_communication ?? 0,
@@ -242,6 +246,9 @@ export function StaffForm({
     },
     mode: 'onChange',
   })
+  const { fields: allocationFields, append: appendAllocation, remove: removeAllocation } = useFieldArray({ control, name: 'payroll_allocations' })
+  const payrollAllocations = watch('payroll_allocations') || []
+  const allocationTotal = payrollAllocations.reduce((sum: number, item: any) => sum + (Number(item?.percentage) || 0), 0)
 
   const watchRole = watch('role')
   const watchSubRole = watch('sub_role')
@@ -328,6 +335,15 @@ export function StaffForm({
   const formEarnings = watchBasic + watchMeal + watchTransport + watchComms + watchBonus + watchPos
   const formDeductions = watchKasbon + watchBpjs
   const formTHP = Math.max(0, formEarnings - formDeductions)
+  const allocationPreview = payrollAllocations
+    .filter((item: any) => item?.company_name?.trim() && Number(item?.percentage) > 0)
+    .map((item: any) => ({
+      company_name: item.company_name,
+      percentage: Number(item.percentage),
+      amount: Math.abs(allocationTotal - 100) < 0.0001
+        ? splitPayrollAmount(formTHP, payrollAllocations).find((split) => split.company_name === item.company_name)?.amount ?? 0
+        : Math.round((formTHP * Number(item.percentage)) / 100),
+    }))
 
   const roleSelectOptions = useMemo(
     () =>
@@ -476,6 +492,13 @@ export function StaffForm({
   const onSubmitForm = async (rawData: any) => {
     const data = rawData as FormData
 
+    const allocationError = payrollAllocationError(data.payroll_allocations || [])
+    if (allocationError) {
+      setActiveTab('keuangan')
+      toast.error(allocationError)
+      return
+    }
+
     if (duplicateNipOwner) {
       setActiveTab('utama')
       setError('nip', { type: 'manual', message: `NIP sudah terdaftar atas nama ${duplicateNipOwner}` })
@@ -551,7 +574,8 @@ export function StaffForm({
       join_date: data.join_date || null,
       resign_date: calculatedResignDate,
       leave_quota: isTrainee ? 0 : (data.leave_quota || 0),
-      basic_salary: data.basic_salary || 0,
+      basic_salary: isEditing && !dirtyFields.basic_salary ? undefined : (data.basic_salary ?? 0),
+      payroll_allocations: data.payroll_allocations.map((item) => ({ company_name: item.company_name.trim(), percentage: Number(item.percentage) })),
       allowance_meal: data.allowance_meal || 0,
       allowance_transport: data.allowance_transport || 0,
       allowance_communication: data.allowance_communication || 0,
@@ -1088,6 +1112,70 @@ export function StaffForm({
                   />
                 )}
               />
+            </div>
+
+            <div className="md:col-span-2 rounded-2xl border border-suka-gray-200 p-4 bg-white">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <h4 className="text-xs font-black text-suka-brown uppercase tracking-wider">Pembagian Beban Gaji per PT</h4>
+                  <p className="text-xs text-suka-gray-500 mt-1">Atur persentase beban THP karyawan untuk setiap badan usaha. Total harus 100%.</p>
+                </div>
+                <span className={`text-sm font-black ${Math.abs(allocationTotal - 100) < 0.0001 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                  Total {allocationTotal}%
+                </span>
+              </div>
+              <div className="space-y-2">
+                {allocationFields.map((field, index) => (
+                  <div key={field.id} className="grid grid-cols-1 sm:grid-cols-[1fr_130px_auto] gap-2 items-end">
+                    <div>
+                      {index === 0 && <label className={labelCls}>Nama PT</label>}
+                      <select className={inputCls} {...register(`payroll_allocations.${index}.company_name`)}>
+                        <option value="">Pilih PT</option>
+                        {PAYROLL_COMPANIES.map((company) => (
+                          <option
+                            key={company}
+                            value={company}
+                            disabled={payrollAllocations.some((item: any, selectedIndex: number) => selectedIndex !== index && item?.company_name === company)}
+                          >
+                            {company}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      {index === 0 && <label className={labelCls}>Persentase (%)</label>}
+                      <input type="number" min="0.01" max="100" step="0.01" className={inputCls} {...register(`payroll_allocations.${index}.percentage`, { valueAsNumber: true })} />
+                    </div>
+                    <button type="button" onClick={() => removeAllocation(index)} disabled={allocationFields.length === 1} className="h-10 px-3 rounded-xl border border-rose-200 text-rose-700 text-xs font-bold disabled:opacity-40">
+                      Hapus
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => appendAllocation({ company_name: '', percentage: 0 })} disabled={allocationFields.length >= PAYROLL_COMPANIES.length} className="mt-3 px-3 py-2 rounded-xl border border-suka-orange/30 text-suka-orange text-xs font-bold hover:bg-orange-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                + Tambah PT
+              </button>
+              <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/60 p-3">
+                <div className="flex flex-wrap justify-between gap-2 text-xs">
+                  <span className="font-bold text-suka-brown">Pratinjau pembagian dari estimasi THP</span>
+                  <span className="font-semibold text-suka-gray-600">Total alokasi {allocationTotal}%</span>
+                </div>
+                {allocationPreview.length > 0 ? (
+                  <div className="mt-2 space-y-1.5">
+                    {allocationPreview.map((item) => (
+                      <div key={item.company_name} className="flex justify-between gap-3 text-sm">
+                        <span className="text-suka-gray-700">{item.company_name} ({item.percentage}%)</span>
+                        <span className="font-bold tabular-nums text-suka-brown">{formatRupiah(item.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-suka-gray-500">Pilih PT dan isi persentasenya untuk melihat estimasi nominal.</p>
+                )}
+                <p className="mt-2 text-[11px] leading-relaxed text-suka-gray-500">
+                  Estimasi memakai THP dari komponen di atas. Pastikan total persentase 100%; nominal payroll aktual bisa berubah karena bonus, lembur, atau potongan periode berjalan.
+                </p>
+              </div>
             </div>
 
             {/* 3. Live Take Home Pay Summary */}

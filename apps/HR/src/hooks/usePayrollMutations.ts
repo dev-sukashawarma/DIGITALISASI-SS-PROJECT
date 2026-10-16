@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase'
 import type { PayrollStatus, CashAdvanceStatus } from '@/lib/types'
 import { LATE_FEE_PER_MINUTE, dendaTelatBerlaku } from '@/lib/payrollBreakdown'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
+import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations, payrollAllocationError } from '@/lib/payrollAllocation'
 
 import {
   isOjtStaff,
@@ -191,7 +192,8 @@ export function usePayrollMutations() {
             deduction_kasbon,
             deduction_bpjs,
             allowance_position,
-            allowance_presence
+            allowance_presence,
+            payroll_allocations
           )
         `)
         .neq('role', 'kiosk')
@@ -266,6 +268,9 @@ export function usePayrollMutations() {
         const allowanceCommunication = Number(fin?.allowance_communication) || 0
         const allowancePosition = Number(fin?.allowance_position) || 0
         const staffSalesBonus = Number(fin?.sales_bonus) || 0
+        const payrollAllocations = normalizePayrollAllocations(fin?.payroll_allocations)
+        const allocationError = payrollAllocationError(payrollAllocations)
+        if (allocationError) throw new Error(`${s.name}: ${allocationError}`)
 
         const lateMinutes = dendaTelatBerlaku(s) ? (lateMinutesMap.get(s.id) || 0) : 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
@@ -317,6 +322,7 @@ export function usePayrollMutations() {
           deductions: totalDeductions,
           deduction_note: deductionNotes.join(' | ') || null,
           total_salary: totalSalary,
+          payroll_allocations: fin?.payroll_allocations ? payrollAllocations : DEFAULT_PAYROLL_ALLOCATION,
           status: 'draft' as PayrollStatus,
         }
       })
@@ -800,7 +806,7 @@ export function usePayrollMutations() {
       const staffIds = slips.map((s: any) => s.staff_id)
       const { data: financials, error: finErr } = await supabase
         .from('staff_financials')
-        .select('staff_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, deduction_bpjs')
+        .select('staff_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, deduction_bpjs, payroll_allocations')
         .in('staff_id', staffIds)
 
       if (finErr) throw finErr
@@ -852,6 +858,9 @@ export function usePayrollMutations() {
           allowancePosition +
           currentBonus
         const totalSalary = Math.max(0, totalEarnings - currentDeductions)
+        const payrollAllocations = normalizePayrollAllocations(fin?.payroll_allocations)
+        const allocationError = payrollAllocationError(payrollAllocations)
+        if (allocationError) throw new Error(`${staffObj?.name || 'Karyawan'}: ${allocationError}`)
 
         const { error: updateErr } = await supabase
           .from('payroll_records')
@@ -862,6 +871,7 @@ export function usePayrollMutations() {
             allowance_communication: allowanceCommunication,
             allowance_position: allowancePosition,
             allowance_presence: allowanceMeal,
+            payroll_allocations: payrollAllocations,
             total_salary: totalSalary,
           })
           .eq('id', slip.id)

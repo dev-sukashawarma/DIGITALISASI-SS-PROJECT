@@ -1,8 +1,10 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
+import { tanyaStokist } from '@/lib/server/stokistChat'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 function secretValid(given: string, expected: string): boolean {
   const a = Buffer.from(given)
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
   const chat = message?.chat
   const sender = message?.from
   const text = typeof message?.text === 'string' ? message.text.trim() : ''
-  if (chat?.type !== 'private' || !chat?.id || !sender?.id || !text.startsWith('/')) {
+  if (chat?.type !== 'private' || !chat?.id || !sender?.id || !text) {
     return NextResponse.json({ ok: true })
   }
 
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
       console.error('[stokist] gagal menautkan akun:', error.message)
       return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
     }
-    if (data?.ok) return balas(chatId, 'Akun terhubung. Bot Stokist akan mengirim alert Stok dan Distribusi yang sesuai role serta outlet Anda.')
+    if (data?.ok) return balas(chatId, 'Akun terhubung. Anda akan menerima alert Stok dan Distribusi sesuai role dan outlet. Anda juga bisa bertanya tentang stok, opname, permintaan bahan, dan pengiriman di sini.')
     if (data?.reason === 'linked_elsewhere') return balas(chatId, 'Akun Telegram ini sudah terhubung ke akun staf lain.')
     return balas(chatId, 'Tautan sudah kedaluwarsa atau digunakan. Buat tautan baru di aplikasi.')
   }
@@ -64,7 +66,15 @@ export async function POST(request: Request) {
     return balas(chatId, 'Koneksi alert Stokist sudah diputus.')
   }
   if (/^\/help(?:@[a-zA-Z0-9_]+)?$/.test(text)) {
-    return balas(chatId, 'Bot Stokist mengirim alert Stok dan Distribusi. Hubungkan akun melalui aplikasi Bot. Ketik /stop untuk berhenti.')
+    return balas(chatId, 'Bot Stokist mengirim alert dan menjawab pertanyaan Stok serta Distribusi sesuai akses akun staf Anda. Contoh: “stok daging berapa?”, “opname terakhir kapan?”, “pengiriman yang belum diterima?”. Hubungkan akun melalui https://agents.sukashawarma.com/telegram. Ketik /stop untuk berhenti.')
   }
-  return NextResponse.json({ ok: true })
+  if (text.startsWith('/')) return balas(chatId, 'Perintah tidak dikenal. Ketik /help atau langsung tulis pertanyaan Stok dan Distribusi.')
+  try {
+    const answer = await tanyaStokist(senderId, chatId, text, Number.isSafeInteger(update?.update_id) ? update.update_id : null)
+    if (answer) return balas(chatId, answer)
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('[stokist] gagal menjawab pertanyaan:', error)
+    return NextResponse.json({ error: 'Chat unavailable' }, { status: 503 })
+  }
 }

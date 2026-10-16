@@ -35,6 +35,14 @@ Bot Stokist memakai token terpisah di app ini untuk mengirim alert **Stok dan
 Distribusi** hanya ke staf aktif yang menautkan Telegram dan masuk dalam role
 serta outlet tujuan event. Bot CEO tidak menggunakan endpoint ini.
 
+Staf yang sudah menautkan akun juga dapat mengirim pertanyaan biasa ke bot
+Stokist. Jawaban menggunakan data stok, opname, permintaan bahan, dan pengiriman
+yang dibatasi menurut role dan outlet staf. Jika `AI_BASE_URL` dan `AI_API_KEY`
+tersedia di Coolify app Bot, AI menyusun jawaban dari data tersebut; tanpa
+keduanya bot tetap menjawab pertanyaan umum dengan format data sederhana.
+`AI_MODEL` opsional (default `cx/gpt-5.5`). Profil Hermes CEO tidak dipakai untuk
+pertanyaan Stokist karena kunci Hermes tidak membawa lingkup outlet staf.
+
 Setelah migration `20261016140000_bot_telegram_alerts.sql` dan
 `20261016150000_stok_distribusi_alert_telegram.sql` diterapkan:
 

@@ -20,7 +20,7 @@ export default async function HalamanTelegram() {
         <a href="/" className="text-sm text-cyan-300 hover:underline">← Kembali ke Bot</a>
         <h1 className="mt-5 text-2xl font-bold">Bot Stokist di Telegram</h1>
         <p className="mt-2 text-sm text-zinc-300">
-          Hubungkan akun untuk menerima alert Stok dan Distribusi yang sesuai dengan role dan outlet Anda.
+          Hubungkan akun untuk menerima alert dan bertanya tentang Stok serta Distribusi sesuai role dan outlet Anda.
         </p>
         <TelegramSettings
           awalTerhubung={!!data}

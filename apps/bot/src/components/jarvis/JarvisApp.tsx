@@ -28,6 +28,7 @@ import {
   Shield,
   Maximize2,
   Minimize2,
+  Bell,
   Mic,
   MicOff,
 } from 'lucide-react'
@@ -252,6 +253,16 @@ export default function JarvisApp({
                 {isLayarPenuh ? 'EXIT FULLSCREEN' : 'FULL SCREEN'}
               </span>
             </button>
+
+            <a
+              href="/telegram"
+              onClick={() => mainkanSuaraHud('blip')}
+              className="p-1.5 rounded-lg border border-cyan-500/30 bg-zinc-900/80 text-cyan-300 hover:border-cyan-400 transition-colors cursor-pointer"
+              title="Pengaturan bot Stokist Telegram"
+              aria-label="Pengaturan bot Stokist Telegram"
+            >
+              <Bell className="w-3.5 h-3.5" />
+            </a>
 
             {/* Link Portal */}
             <a

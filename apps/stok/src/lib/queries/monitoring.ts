@@ -377,7 +377,9 @@ export async function fetchOpnameStatus() {
         outlet_name: outlet.outlet_name,
         last_opname_date: lastOpname,
         days_since: daysSince,
-        is_overdue: daysSince !== null && daysSince > 7,
+        // Outlet yang belum pernah opname juga tidak patuh; jangan biarkan
+        // last_opname_date NULL lolos dari status overdue.
+        is_overdue: daysSince === null || daysSince > 7,
       };
     }) || []
   );

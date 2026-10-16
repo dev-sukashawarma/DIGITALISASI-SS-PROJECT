@@ -27,6 +27,9 @@ export function MutasiForm({ outletId }: { outletId: string }) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [catatan, setCatatan] = useState('');
+  // Wajib: ikut ditinjau Admin Kitchen, lalu terkunci saat barang dikirim.
+  const [namaKurir, setNamaKurir] = useState('');
+  const [ongkir, setOngkir] = useState(''); // digit saja; "0" sah untuk antar sendiri
   const [items, setItems] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -105,6 +108,14 @@ export function MutasiForm({ outletId }: { outletId: string }) {
       setErrorMsg('Pilih minimal 1 bahan baku yang akan dimutasi');
       return;
     }
+    if (!namaKurir.trim()) {
+      setErrorMsg('Isi nama kurir');
+      return;
+    }
+    if (ongkir === '') {
+      setErrorMsg('Isi ongkir (0 bila antar sendiri)');
+      return;
+    }
     
     setBusy(true);
     setErrorMsg(null);
@@ -119,7 +130,7 @@ export function MutasiForm({ outletId }: { outletId: string }) {
         };
       });
       
-      const newId = await ajukan(outletId, outletTujuanId, catatan, itemsPayload);
+      const newId = await ajukan(outletId, outletTujuanId, catatan, itemsPayload, namaKurir.trim(), Number(ongkir));
       if (newId) {
         router.push(`/stok/mutasi/${newId}`);
       } else {
@@ -209,6 +220,40 @@ export function MutasiForm({ outletId }: { outletId: string }) {
         )}
       </div>
       
+      {/* Kurir & Ongkir (wajib, disetujui Admin Kitchen) */}
+      <div className="bg-white rounded-2xl p-5 border border-suka-brown/10 shadow-xs">
+        <label className="block text-xs font-extrabold text-suka-brown uppercase tracking-wider mb-1">
+          Kurir & Ongkir *
+        </label>
+        <p className="text-[11px] text-[#544437]/60 font-medium mb-3">
+          Ikut ditinjau Admin Kitchen saat persetujuan dan tidak bisa diubah saat pengiriman.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <input
+            type="text"
+            value={namaKurir}
+            maxLength={100}
+            onChange={(e) => setNamaKurir(e.target.value)}
+            placeholder="Nama kurir (cth: GoSend Budi, Kru Sendiri)"
+            className="w-full bg-[#f9f5f1] border border-suka-brown/20 text-[#1e1b15] rounded-xl px-4 py-3 text-xs font-semibold focus:ring-2 focus:ring-suka-orange outline-none"
+          />
+          <div className="relative">
+            <span className="absolute left-4 top-3 text-suka-brown/50 font-bold text-xs">Rp</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={ongkir === '' ? '' : Number(ongkir).toLocaleString('id-ID')}
+              onChange={(e) => {
+                const digit = e.target.value.replace(/\D/g, '').slice(0, 9);
+                setOngkir(digit === '' ? '' : String(Number(digit)));
+              }}
+              placeholder="Ongkir (0 bila antar sendiri)"
+              className="w-full bg-[#f9f5f1] border border-suka-brown/20 text-[#1e1b15] rounded-xl pl-10 pr-4 py-3 text-xs font-semibold focus:ring-2 focus:ring-suka-orange outline-none"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Catatan Pengajuan */}
       <div className="bg-white rounded-2xl p-5 border border-suka-brown/10 shadow-xs">
         <label className="block text-xs font-extrabold text-suka-brown uppercase tracking-wider mb-2">
@@ -306,7 +351,7 @@ export function MutasiForm({ outletId }: { outletId: string }) {
       <div className="pt-2 pb-8">
         <button
           onClick={handleSubmit}
-          disabled={busy || cartItemsCount === 0 || !outletTujuanId}
+          disabled={busy || cartItemsCount === 0 || !outletTujuanId || !namaKurir.trim() || ongkir === ''}
           className="w-full bg-suka-orange hover:bg-orange-600 disabled:bg-gray-300 disabled:opacity-50 text-white font-extrabold py-3.5 rounded-xl flex justify-center items-center gap-2 transition-all active:scale-95 shadow-xs uppercase tracking-wider text-xs cursor-pointer"
         >
           {busy ? 'Mengajukan...' : `Ajukan ${cartItemsCount} Bahan Baku Mutasi`}

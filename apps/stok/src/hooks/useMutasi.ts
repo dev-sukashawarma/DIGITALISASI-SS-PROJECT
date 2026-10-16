@@ -148,8 +148,15 @@ export function useMutasiDetail(mutasiId: string) {
 // Hook: useMutasiActions
 // ---------------------------------------------------------------------------
 export function useMutasiActions() {
-  const ajukan = async (outletAsalId: string, outletTujuanId: string, catatan: string, items: { bahan_baku_id: string, qty_diajukan: number }[]) => {
-    return await ajukanMutasi(outletAsalId, outletTujuanId, catatan, items)
+  const ajukan = async (
+    outletAsalId: string,
+    outletTujuanId: string,
+    catatan: string,
+    items: { bahan_baku_id: string, qty_diajukan: number }[],
+    namaKurir: string,
+    ongkir: number
+  ) => {
+    return await ajukanMutasi(outletAsalId, outletTujuanId, catatan, items, namaKurir, ongkir)
   }
 
   const approve = async (mutasiId: string, isApproved: boolean, catatanPenolakan?: string) => {

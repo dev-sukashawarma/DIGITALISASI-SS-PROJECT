@@ -10,7 +10,8 @@
     "start": "next start",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "buat:bot": "node ../../scripts/hermes/buat-bot.mjs"
+    "buat:bot": "node ../../scripts/hermes/buat-bot.mjs",
+    "telegram:stokist:set-webhook": "node scripts/telegram/set-webhook.mjs"
   },
   "dependencies": {
     "@suka/auth": "*",

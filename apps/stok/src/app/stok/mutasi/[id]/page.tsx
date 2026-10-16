@@ -155,8 +155,13 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  // Kurir & ongkir diajukan bersama mutasi dan sudah disetujui Admin Kitchen;
+  // kirim_mutasi mempertahankannya. Isian di form kirim hanya untuk mutasi lama.
+  const kurirDisetujui: string | undefined =
+    data?.kurir_info?.provider || (data?.kurir_info as any)?.nama || undefined;
+
   const handleKirim = async () => {
-    if (!kurirProvider.trim()) {
+    if (!kurirDisetujui && !kurirProvider.trim()) {
       setErrorMsg('Nama kurir atau pengantar harus diisi');
       return;
     }
@@ -169,9 +174,9 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
       })) || [];
       
       await kirim(data.id, { 
-        provider: kurirProvider.trim(), 
+        provider: kurirDisetujui || kurirProvider.trim(),
         resi: kurirResi.trim() || undefined,
-        ongkos: kurirOngkos ? parseInt(kurirOngkos, 10) : undefined,
+        ongkos: kurirDisetujui ? data.kurir_info?.ongkos : (kurirOngkos ? parseInt(kurirOngkos, 10) : undefined),
         pengirim_nama: (pengirimNama.trim() || outletStaff.name || '').trim()
       }, itemsDikirim);
 
@@ -326,7 +331,7 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
               <div>
                 <p className="text-suka-brown/60 font-bold uppercase text-[10px]">Ongkos Kirim</p>
                 <p className="font-semibold text-suka-orange mt-0.5">
-                  {data.kurir_info.ongkos ? `Rp ${data.kurir_info.ongkos.toLocaleString('id-ID')}` : '-'}
+                  {data.kurir_info.ongkos != null ? `Rp ${Number(data.kurir_info.ongkos).toLocaleString('id-ID')}` : '-'}
                 </p>
               </div>
             </div>
@@ -458,6 +463,12 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
                     className="w-full bg-[#f9f5f1] border border-suka-brown/20 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-suka-orange outline-none"
                   />
                 </div>
+                {kurirDisetujui ? (
+                  <p className="text-[11px] font-semibold text-blue-900 bg-blue-50 border border-blue-100 rounded-xl px-3.5 py-2.5">
+                    Kurir <strong>{kurirDisetujui}</strong> · ongkir{' '}
+                    <strong>Rp {Number(data.kurir_info?.ongkos ?? 0).toLocaleString('id-ID')}</strong> sudah disetujui Admin Kitchen.
+                  </p>
+                ) : (
                 <div>
                   <label className="block text-[10px] font-extrabold text-suka-brown/70 uppercase tracking-wider mb-1">
                     Nama Kurir / Pengantar (Contoh: Lalamove, Gosend, Kru Sendiri) *
@@ -470,6 +481,7 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
                     className="w-full bg-[#f9f5f1] border border-suka-brown/20 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-suka-orange outline-none"
                   />
                 </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-extrabold text-suka-brown/70 uppercase tracking-wider mb-1">
                     Nomor Resi / Link Tracking (Opsional)
@@ -482,6 +494,7 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
                     className="w-full bg-[#f9f5f1] border border-suka-brown/20 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-suka-orange outline-none"
                   />
                 </div>
+                {!kurirDisetujui && (
                 <div>
                   <label className="block text-[10px] font-extrabold text-suka-brown/70 uppercase tracking-wider mb-1">
                     Ongkos Kirim (Opsional)
@@ -497,11 +510,12 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
                     />
                   </div>
                 </div>
+                )}
               </div>
 
               <button 
                 onClick={handleKirim}
-                disabled={busy || !kurirProvider.trim()}
+                disabled={busy || (!kurirDisetujui && !kurirProvider.trim())}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs disabled:opacity-50 mt-2 cursor-pointer active:scale-95"
               >
                 {busy ? 'Mengirim Data...' : 'Konfirmasi Pengiriman & Potong Stok Asal'}

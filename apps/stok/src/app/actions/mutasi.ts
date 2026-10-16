@@ -162,15 +162,23 @@ export async function ajukanMutasi(
   outletAsalId: string,
   outletTujuanId: string,
   catatan: string,
-  items: { bahan_baku_id: string, qty_diajukan: number }[]
+  items: { bahan_baku_id: string, qty_diajukan: number }[],
+  namaKurir: string,
+  ongkir: number
 ): Promise<string> {
   const supabase = await getAuthClient()
-  
+
+  // Wajib sejak migrasi 20300254001600; ditinjau Admin Kitchen saat persetujuan.
+  if (!namaKurir?.trim()) throw new Error('Nama kurir wajib diisi')
+  if (!Number.isFinite(ongkir) || ongkir < 0) throw new Error('Ongkir wajib diisi (boleh 0)')
+
   const { data, error } = await supabase.rpc('ajukan_mutasi', {
     p_outlet_asal_id: outletAsalId,
     p_outlet_tujuan_id: outletTujuanId,
     p_catatan: catatan,
-    p_items: items
+    p_items: items,
+    p_nama_kurir: namaKurir.trim(),
+    p_ongkir: Math.round(ongkir)
   })
   
   if (error) throw new Error(error.message)

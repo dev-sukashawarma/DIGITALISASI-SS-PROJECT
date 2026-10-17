@@ -3,7 +3,7 @@ import { Wallet, Users, Award, UserCog, Clock, Megaphone, Star, Tag,
 
 export const OUTLET_CATEGORIES = [
   'pengeluaran_outlet', 'gaji_crew_outlet', 'bonus_leader', 'bonus_area_manager',
-  'lembur', 'ads', 'endorsement', 'promo', 'pdam', 'pln', 'internet', 'sewa_outlet',
+  'lembur', 'ads', 'endorsement', 'promo', 'pdam', 'pln', 'gas', 'internet', 'sewa_outlet',
   'joint_expense', 'salary', 'bahan_baku', 'transport', 'utilitas', 'lainnya',
   'bonus_crew', 'bonus_regional_manager'
 ] as const
@@ -63,6 +63,7 @@ export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: stri
   promo:              { label: 'Promo',              color: '#db2777', icon: Tag },
   pdam:               { label: 'PDAM',               color: '#0891b2', icon: Droplets },
   pln:                { label: 'PLN',                color: '#0a7d2c', icon: Zap },
+  gas:                { label: 'Gas',                color: '#ea580c', icon: Wallet },
   internet:           { label: 'Internet',           color: '#0d9488', icon: Wifi },
   sewa_outlet:        { label: 'Biaya Sewa Outlet',  color: '#d97706', icon: Home },
   joint_expense:      { label: 'Joint Expense',      color: '#dc2626', icon: Globe },
@@ -72,7 +73,7 @@ export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: stri
   pemasukan_lain:     { label: 'Pemasukan Lain',     color: '#16a34a', icon: Wallet },
   modal_awal:         { label: 'Modal Awal',         color: '#059669', icon: Wallet },
   setoran_owner:      { label: 'Setoran Owner',      color: '#10b981', icon: Wallet },
-  bahan_baku:         { label: 'Bahan Baku',         color: '#ca8a04', icon: Wallet },
+  bahan_baku:         { label: 'Bahan Baku Lainnya',  color: '#ca8a04', icon: Wallet },
   utilitas:           { label: 'Utilitas',           color: '#0891b2', icon: Zap },
   transport:          { label: 'Transport',          color: '#0369a1', icon: Wallet },
   lainnya:            { label: 'Lainnya',            color: '#4b5563', icon: Wallet },

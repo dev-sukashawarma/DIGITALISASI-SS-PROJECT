@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3050",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "type-check": "tsc --noEmit",
     "test": "vitest run",

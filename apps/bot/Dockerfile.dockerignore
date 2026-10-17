@@ -1,0 +1,23 @@
+# This context applies only to apps/bot/Dockerfile, including builds from CI.
+**
+!package.json
+!yarn.lock
+!.npmrc
+!tsconfig.json
+!packages/
+!packages/auth/
+!packages/auth/**
+!packages/design-system/
+!packages/design-system/**
+!apps/
+!apps/bot/
+!apps/bot/**
+
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+**/*.log

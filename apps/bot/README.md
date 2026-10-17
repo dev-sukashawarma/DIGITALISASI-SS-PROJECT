@@ -26,6 +26,37 @@ yarn workspace @suka/bot type-check
 | `TELEGRAM_STOKIST_LOGIN_REDIRECT_URI` | `https://agents.sukashawarma.com/api/telegram/login/callback`; daftarkan sebagai Allowed URL di @BotFather. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only untuk menyimpan tautan Telegram staf dan mencari penerima alert |
 
+## Build dan deployment Bot
+
+`yarn workspace @suka/bot build` memakai Webpack secara eksplisit. Pada Next.js
+16, `NEXT_TURBOPACK=0` tidak memilih Webpack; log deployment lama tetap menampilkan
+Turbopack. Build tetap memeriksa TypeScript, membatasi worker prerender menjadi
+satu, dan memakai optimasi memori Webpack.
+
+Dockerfile memakai cache khusus Bot untuk Yarn dan `.next/cache`; perubahan
+source tidak mengulang instalasi dependensi. Konteks Docker dibatasi oleh
+`apps/bot/Dockerfile.dockerignore` ke Bot dan dua package yang dipakainya.
+Image runtime memakai output `standalone` dan berjalan sebagai user `node`.
+Cache build dan dependensi development tidak disalin ke image runtime.
+Cache mount dipakai kembali pada builder Docker yang sama. Runner GitHub Actions
+yang baru memakai cache layer GHA; isi cache mount tidak otomatis ikut cache GHA.
+
+Semua secret server wajib tersedia sebagai **runtime environment** di Coolify,
+termasuk `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `HERMES_API_URL`,
+`HERMES_KEYS`, `TELEGRAM_STOKIST_BOT_TOKEN`, dan `TELEGRAM_STOKIST_SEND_SECRET`.
+Secret tidak disimpan dalam image. Variabel `NEXT_PUBLIC_*` tetap diberikan
+saat build. Mengubah secret runtime memerlukan penggantian/restart container
+dengan environment baru; image yang sama dapat dipakai kembali.
+
+Workflow `.github/workflows/deploy-bot-coolify.yml` sudah membangun image
+`ghcr.io/dev-sukashawarma/digitalisasi-ss-project/bot:latest`. Jika resource
+Coolify masih memakai source Git + Dockerfile, trigger workflow akan membuat
+Coolify melakukan build source lagi di VPS. Untuk menghindari build dua kali,
+gunakan resource **Docker Image** di Coolify dengan image GHCR tersebut, port
+`3000`, domain `agents.sukashawarma.com`, dan runtime environment yang sama.
+Gunakan tag `sha-<7 karakter SHA>` untuk mengunci versi saat rollback. Perubahan
+jenis resource dan perpindahan domain dilakukan setelah image baru diverifikasi.
+
 Tanpa `HERMES_*` app tetap jalan; setiap pertanyaan dijawab teks galat standar.
 
 ## Bot Stokist Telegram (Hermes)

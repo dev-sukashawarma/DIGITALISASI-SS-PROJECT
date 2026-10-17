@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { buatLinkAktivasiTelegram, daftarkanBotTelegram, ubahAksesBotTelegram } from './actions'
+import { daftarkanBotTelegram, simpanIdTelegramStaf, ubahAksesBotTelegram } from './actions'
 
 type Bot = { slug: string; nama: string }
 type Staff = {
@@ -24,8 +24,12 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
   const [search, setSearch] = useState('')
   const [newSlug, setNewSlug] = useState('')
   const [newName, setNewName] = useState('')
-  const [botUsername, setBotUsername] = useState('')
-  const [activationLinks, setActivationLinks] = useState<Record<string, string>>({})
+  const [telegramIds, setTelegramIds] = useState<Record<string, string>>(
+    () => Object.fromEntries(initialStaff.map((row) => [row.id, row.telegramUserId ?? '']))
+  )
+  const [savedTelegramIds, setSavedTelegramIds] = useState<Record<string, string>>(
+    () => Object.fromEntries(initialStaff.map((row) => [row.id, row.telegramUserId ?? '']))
+  )
   const [showRegister, setShowRegister] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -68,29 +72,19 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
     }
   }
 
-  async function createActivationLink(row: Staff) {
-    setBusy(`invite:${row.id}`)
+  async function saveTelegramId(row: Staff, value = telegramIds[row.id] ?? '') {
+    setBusy(`telegram:${row.id}`)
     setError(null)
     try {
-      const result = await buatLinkAktivasiTelegram(selectedBot, row.id, botUsername)
+      const result = await simpanIdTelegramStaf(selectedBot, row.id, value)
       if (result.error) throw new Error(result.error)
-      if (!result.url) throw new Error('Link aktivasi gagal dibuat.')
-      setActivationLinks((current) => ({ ...current, [`${selectedBot}:${row.id}`]: result.url! }))
+      const savedId = result.telegramUserId ?? ''
+      setTelegramIds((current) => ({ ...current, [row.id]: savedId }))
+      setSavedTelegramIds((current) => ({ ...current, [row.id]: savedId }))
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Link aktivasi gagal dibuat.')
+      setError(cause instanceof Error ? cause.message : 'ID Telegram gagal disimpan.')
     } finally {
       setBusy(null)
-    }
-  }
-
-  async function copyActivationLink(key: string) {
-    const url = activationLinks[key]
-    if (!url) return
-    try {
-      await navigator.clipboard.writeText(url)
-      setError(null)
-    } catch {
-      setError('Browser tidak mengizinkan penyalinan otomatis. Salin link yang ditampilkan secara manual.')
     }
   }
 
@@ -133,13 +127,8 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
 
       {bot && <p className="text-sm text-gray-600">{selectedCount} staf diberi akses ke <strong>{bot.nama}</strong>.</p>}
       {selectedBot && (
-        <div className="space-y-3 rounded-lg bg-green-50 p-3 text-sm text-green-900">
-          <p>Setelah memberi akses, buat link aktivasi khusus untuk staf. Staf cukup membuka link, mengonfirmasi akun Telegram, lalu menekan Start pada bot.</p>
-          <label className="block text-sm font-medium">Username bot Telegram
-            <input value={botUsername} onChange={(event) => setBotUsername(event.target.value.replace(/^@/, ''))}
-              placeholder="mis. Stokis_SukaShawarmaBot" className="mt-1 block w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-gray-900" />
-          </label>
-          <p className="text-xs text-green-800">Link berlaku 24 jam dan hanya bisa dipakai sekali. Kirim link melalui kanal internal yang aman.</p>
+        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-900">
+          Masukkan Telegram ID numerik staf yang sudah diberi akses (bukan username seperti @nama). ID berlaku untuk semua bot yang diizinkan bagi staf tersebut. Setelah disimpan dan sinkronisasi Hermes berjalan, staf tinggal membuka bot dan menekan Start.
         </div>
       )}
 
@@ -153,34 +142,40 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
       {selectedBot && <div className="max-h-[65vh] divide-y divide-gray-200 overflow-y-auto rounded-lg border border-gray-200 bg-white">
         {filtered.map((row) => {
           const allowed = access.some((item) => item.botSlug === selectedBot && item.staffId === row.id)
-          const inviteKey = `${selectedBot}:${row.id}`
-          const inviteUrl = activationLinks[inviteKey]
           return (
-            <div key={row.id} className="space-y-2 p-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 text-sm">
-                  <p className="font-medium text-gray-900">{row.name}</p>
-                  <p className="text-gray-500">{row.role}{row.telegramUserId
-                    ? ` · Telegram terhubung (${row.telegramUserId})`
-                    : ' · Telegram belum terhubung'}</p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  {allowed && <button type="button" onClick={() => createActivationLink(row)} disabled={busy !== null || !botUsername}
-                    className="rounded-lg border border-blue-300 px-3 py-2 text-xs font-semibold text-blue-700 disabled:opacity-50">
-                    {busy === `invite:${row.id}` ? 'Membuat…' : 'Buat link aktivasi'}
-                  </button>}
-                  <button type="button" onClick={() => changeAccess(row)} disabled={busy !== null}
-                    className={`rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50 ${allowed
-                      ? 'border border-red-300 text-red-700'
-                      : 'bg-blue-600 text-white'}`}>
-                    {busy === row.id ? 'Menyimpan…' : allowed ? 'Cabut akses' : 'Beri akses'}
-                  </button>
-                </div>
+            <div key={row.id} className="flex flex-wrap items-center gap-3 p-3">
+              <div className="min-w-48 flex-1 text-sm">
+                <p className="font-medium text-gray-900">{row.name}</p>
+                <p className="text-gray-500">{row.role}{savedTelegramIds[row.id]
+                  ? ` · Telegram ID ${savedTelegramIds[row.id]}`
+                  : ' · Telegram belum diatur'}</p>
               </div>
-              {inviteUrl && <div className="flex gap-2 rounded-lg bg-gray-50 p-2">
-                <input readOnly value={inviteUrl} className="min-w-0 flex-1 bg-transparent text-xs text-gray-600" aria-label={`Link aktivasi ${row.name}`} />
-                <button type="button" onClick={() => copyActivationLink(inviteKey)} className="text-xs font-semibold text-blue-700">Salin</button>
+              {allowed && <div className="flex min-w-64 flex-1 gap-2">
+                <input value={telegramIds[row.id] ?? ''}
+                  onChange={(event) => setTelegramIds((current) => ({
+                    ...current,
+                    [row.id]: event.target.value.replace(/\D/g, '').slice(0, 24),
+                  }))}
+                  inputMode="numeric" placeholder="ID Telegram numerik"
+                  aria-label={`ID Telegram ${row.name}`}
+                  className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => saveTelegramId(row)} disabled={busy !== null || !(telegramIds[row.id] ?? '')}
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                    {busy === `telegram:${row.id}` ? 'Menyimpan…' : 'Simpan ID'}
+                  </button>
+                  {savedTelegramIds[row.id] && <button type="button" onClick={() => saveTelegramId(row, '')} disabled={busy !== null}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 disabled:opacity-50">
+                    Hapus ID
+                  </button>}
+                </div>
               </div>}
+              <button type="button" onClick={() => changeAccess(row)} disabled={busy !== null}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50 ${allowed
+                  ? 'border border-red-300 text-red-700'
+                  : 'bg-blue-600 text-white'}`}>
+                {busy === row.id ? 'Menyimpan…' : allowed ? 'Cabut akses' : 'Beri akses'}
+              </button>
             </div>
           )
         })}

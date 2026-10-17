@@ -9,7 +9,7 @@ export default function TelegramSettings({ awalTerhubung, username }: Props) {
         </p>
       ) : (
         <p className="rounded-lg border border-zinc-700 bg-zinc-950 p-3 text-sm text-zinc-300">
-          Aktivasi dilakukan oleh admin. Minta link undangan jika Anda belum menerimanya.
+          Admin akan memasukkan ID Telegram Anda. Setelah itu, buka bot yang diberikan dan tekan Start.
         </p>
       )}
     </section>

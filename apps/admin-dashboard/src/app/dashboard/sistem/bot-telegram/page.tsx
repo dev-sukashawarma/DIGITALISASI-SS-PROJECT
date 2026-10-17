@@ -45,7 +45,7 @@ export default async function HalamanAksesBotTelegram() {
         </p>
       ) : <AksesBotTelegram initialBots={bots ?? []} initialStaff={rows} initialAccess={access} />}
       <p className="text-sm text-gray-600">
-        Perubahan akses otomatis tersinkron ke allowlist Hermes. Admin memilih staf dan membuat link aktivasi untuk bot yang dipilih; staf cukup mengonfirmasi akun Telegram lalu menekan Start.
+        Perubahan akses otomatis tersinkron ke allowlist Hermes. Admin memasukkan ID Telegram staf; staf tinggal membuka bot dan menekan Start.
         Untuk Stokis, akses ini juga mengatur penerimaan alert Stok &amp; Distribusi.
       </p>
     </div>

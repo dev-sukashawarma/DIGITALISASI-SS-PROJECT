@@ -1,6 +1,5 @@
 'use server'
 
-import { createHash, randomBytes } from 'node:crypto'
 import { requireRole } from '@/lib/authz'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -57,12 +56,15 @@ export async function ubahAksesBotTelegram(botSlug: string, staffId: string, ena
   return { ok: true }
 }
 
-export async function buatLinkAktivasiTelegram(botSlug: string, staffId: string, usernameInput: string) {
-  const { userId } = await requireRole(['owner', 'admin'])
-  const botUsername = usernameInput.trim().replace(/^@/, '')
+export async function simpanIdTelegramStaf(botSlug: string, staffId: string, telegramIdInput: string) {
+  await requireRole(['owner', 'admin'])
+  if (typeof botSlug !== 'string' || typeof staffId !== 'string' || typeof telegramIdInput !== 'string') {
+    return { error: 'Data Telegram tidak valid.' }
+  }
+  const telegramUserId = telegramIdInput.trim()
   if (!botSlugPattern.test(botSlug) || !staffIdPattern.test(staffId)
-    || !/^[A-Za-z0-9_]{5,32}$/.test(botUsername)) {
-    return { error: 'Username bot Telegram tidak valid.' }
+    || (telegramUserId !== '' && !/^[0-9]{1,24}$/.test(telegramUserId))) {
+    return { error: 'ID Telegram harus berupa angka.' }
   }
 
   const service = createServiceClient()
@@ -81,25 +83,26 @@ export async function buatLinkAktivasiTelegram(botSlug: string, staffId: string,
   if (grantError) return { error: 'Akses staf gagal diperiksa.' }
   if (!grant) return { error: 'Beri akses bot kepada staf lebih dulu.' }
 
-  const token = randomBytes(32).toString('base64url')
-  const tokenHash = createHash('sha256').update(token).digest('hex')
-  const { error: revokeError } = await service.from('hermes_telegram_activation_invites')
-    .update({ revoked_at: new Date().toISOString() })
-    .eq('staff_id', staffId).eq('bot_slug', botSlug).is('used_at', null).is('revoked_at', null)
-  if (revokeError) return { error: 'Undangan sebelumnya gagal diperbarui. Pastikan migrasi aktivasi Telegram sudah diterapkan.' }
-
-  const { error: insertError } = await service.from('hermes_telegram_activation_invites').insert({
-    token_hash: tokenHash,
-    bot_slug: botSlug,
-    staff_id: staffId,
-    bot_username: botUsername,
-    issued_by: userId,
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  })
-  if (insertError) return { error: 'Link aktivasi gagal dibuat. Pastikan migrasi aktivasi Telegram sudah diterapkan.' }
-
-  return {
-    url: `https://agents.sukashawarma.com/api/telegram/login/invite?token=${token}`,
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  if (!telegramUserId) {
+    const { error } = await service.from('bot_telegram_links').delete().eq('staff_id', staffId)
+    if (error) return { error: 'ID Telegram gagal dihapus.' }
+    return { telegramUserId: null }
   }
+
+  const { data: existing, error: existingError } = await service.from('bot_telegram_links')
+    .select('staff_id').eq('telegram_user_id', telegramUserId).maybeSingle()
+  if (existingError) return { error: 'ID Telegram gagal diperiksa.' }
+  if (existing && existing.staff_id !== staffId) return { error: 'ID Telegram ini sudah terhubung ke staf lain.' }
+
+  const { error } = await service.from('bot_telegram_links').upsert({
+    staff_id: staffId,
+    telegram_user_id: telegramUserId,
+    chat_id: telegramUserId,
+    telegram_username: null,
+    telegram_first_name: null,
+    linked_at: new Date().toISOString(),
+  }, { onConflict: 'staff_id' })
+  if (error) return { error: error.code === '23505' ? 'ID Telegram ini sudah terhubung ke staf lain.' : 'ID Telegram gagal disimpan.' }
+
+  return { telegramUserId }
 }

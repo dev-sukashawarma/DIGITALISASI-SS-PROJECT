@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 const loginMessages: Record<string, string> = {
   connected: 'Telegram berhasil dihubungkan.',
   denied: 'Akses bot Telegram belum diberikan untuk akun staf ini.',
-  invite_required: 'Pengaitan Telegram dilakukan admin melalui link aktivasi khusus.',
+  invite_required: 'ID Telegram Anda perlu dimasukkan admin sebelum bisa memakai bot.',
   invalid: 'Verifikasi Telegram gagal atau sudah kedaluwarsa. Coba lagi.',
   unavailable: 'Pengaitan Telegram sedang tidak tersedia.',
   used: 'Akun Telegram ini sudah terhubung ke staf lain.',
@@ -43,7 +43,7 @@ export default async function HalamanTelegram({ searchParams }: { searchParams: 
         <a href="/" className="text-sm text-cyan-300 hover:underline">← Kembali ke Bot</a>
         <h1 className="mt-5 text-2xl font-bold">Hubungkan Telegram</h1>
         <p className="mt-2 text-sm text-zinc-300">
-          Akses bot diberikan dan diaktifkan oleh admin melalui link undangan khusus. Jika Anda belum menerima undangan, hubungi admin.
+          Admin mengatur akses bot dan menautkan ID Telegram Anda. Jika belum bisa memakai bot, hubungi admin.
         </p>
         {isAdmin && <a href="https://admin.sukashawarma.com/dashboard/sistem/bot-telegram" className="mt-3 inline-block text-sm text-cyan-300 hover:underline">Kelola akses staf di Admin Dashboard →</a>}
         {loginStatus && loginMessages[loginStatus] && <p role="status" className="mt-4 text-sm text-amber-300">{loginMessages[loginStatus]}</p>}

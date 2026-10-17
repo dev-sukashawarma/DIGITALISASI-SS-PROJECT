@@ -18,11 +18,11 @@ export async function GET() {
 }
 
 export async function POST() {
-  return NextResponse.json({ error: 'Pengaitan Telegram dilakukan admin melalui link aktivasi.' }, { status: 403 })
+  return NextResponse.json({ error: 'Hubungi admin untuk memasukkan ID Telegram Anda.' }, { status: 403 })
 }
 
 export async function PUT() {
-  return NextResponse.json({ error: 'Pengaitan Telegram dilakukan admin melalui link aktivasi.' }, { status: 403 })
+  return NextResponse.json({ error: 'Hubungi admin untuk memasukkan ID Telegram Anda.' }, { status: 403 })
 }
 
 export async function DELETE() {

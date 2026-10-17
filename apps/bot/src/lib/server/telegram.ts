@@ -7,6 +7,16 @@ export function supabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
+export async function stafBolehPakaiStokist(staffId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin()
+    .from('bot_telegram_access')
+    .select('staff_id')
+    .eq('staff_id', staffId)
+    .maybeSingle()
+  if (error) throw new Error('Daftar akses Bot Stokist tidak tersedia.')
+  return !!data
+}
+
 export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi'): string | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value !== 'string' || value.length > 500) return null

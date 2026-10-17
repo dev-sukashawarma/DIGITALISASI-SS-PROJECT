@@ -30,12 +30,13 @@ export async function POST(request: Request) {
   if (input?.url && !url) return NextResponse.json({ error: 'URL aplikasi tidak valid.' }, { status: 400 })
 
   const admin = supabaseAdmin()
-  const [{ data: link, error: linkError }, { data: staff, error: staffError }] = await Promise.all([
+  const [{ data: link, error: linkError }, { data: staff, error: staffError }, { data: access, error: accessError }] = await Promise.all([
     admin.from('bot_telegram_links').select('chat_id').eq('staff_id', userId).maybeSingle(),
     admin.from('outlet_staff').select('status').eq('id', userId).maybeSingle(),
+    admin.from('bot_telegram_access').select('staff_id').eq('staff_id', userId).maybeSingle(),
   ])
-  if (linkError || staffError) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
-  if (!link || staff?.status !== 'active') return NextResponse.json({ delivered: false, reason: 'not_linked' })
+  if (linkError || staffError || accessError) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+  if (!link || !access || staff?.status !== 'active') return NextResponse.json({ delivered: false, reason: 'not_linked' })
 
   try {
     await kirimPesanTelegram(link.chat_id, `${title.trim()}\n\n${body.trim()}`, url ?? undefined)

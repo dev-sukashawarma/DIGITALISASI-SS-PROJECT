@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 
-type Props = { awalTerhubung: boolean; username: string | null; botTersedia: boolean }
+type Props = { awalTerhubung: boolean; username: string | null; botTersedia: boolean; loginTersedia: boolean }
 
-export default function TelegramSettings({ awalTerhubung, username, botTersedia }: Props) {
+export default function TelegramSettings({ awalTerhubung, username, botTersedia, loginTersedia }: Props) {
   const [linked, setLinked] = useState(awalTerhubung)
   const [name, setName] = useState(username)
   const [telegramUserId, setTelegramUserId] = useState('')
@@ -82,6 +82,12 @@ export default function TelegramSettings({ awalTerhubung, username, botTersedia 
         </>
       ) : (
         <>
+          {loginTersedia && (
+            <a href="/api/telegram/login/start" className="inline-block rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white">
+              Hubungkan dengan Telegram
+            </a>
+          )}
+          {loginTersedia && <p className="text-xs text-zinc-400">Alternatif: hubungkan dengan kode manual di bawah.</p>}
           <label className="block text-sm text-zinc-300">Telegram User ID
             <input value={telegramUserId} onChange={(event) => setTelegramUserId(event.target.value.replace(/\D/g, '').slice(0, 24))} inputMode="numeric" className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2" placeholder="Kirim /id ke bot Stokist" />
           </label>

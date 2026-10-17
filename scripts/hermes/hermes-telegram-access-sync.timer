@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically synchronize Telegram bot access from Agents SS
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=hermes-telegram-access-sync.service
+
+[Install]
+WantedBy=timers.target

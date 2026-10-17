@@ -41,14 +41,30 @@ Bot hanya mengirim alert dan kode verifikasi; app tidak menjalankan `getUpdates`
 atau webhook untuk menerima pesan. Alert database tetap dikirim ke staf aktif
 yang sudah menautkan Telegram berdasarkan role dan outlet penerima event.
 
-Owner/admin memilih staf yang boleh memakai Bot Stokist di `/telegram/akses`.
+Owner/admin memilih staf yang boleh memakai Bot Stokist di Admin Dashboard →
+Sistem → Agents SS → Akses Bot Telegram
+(`https://admin.sukashawarma.com/dashboard/sistem/bot-telegram`).
+Di halaman tersebut, pilih bot lebih dulu lalu tentukan stafnya. Bot lain yang
+sudah dipasang pada VPS dapat didaftarkan memakai nama profil Hermesnya.
+Daftar akses semua bot tersimpan per profil. Endpoint privat Admin Dashboard
+menyediakan daftar Telegram ID yang diizinkan, lalu skrip VPS
+`scripts/hermes/sinkron-akses-telegram.py` memperbarui
+`TELEGRAM_ALLOWED_USERS` secara berkala. Perubahan akses muncul setelah sinkronisasi
+berikutnya (maksimal sekitar satu menit) dan gateway Hermes dimuat ulang otomatis
+jika allowlist berubah. ID yang sudah ada di allowlist sebelum pemasangan pertama
+disimpan sebagai daftar lama agar akses yang sedang berjalan tidak terputus.
+Untuk memasang sinkronisasi, ikuti bagian *Sinkronisasi akses Telegram* di
+`docs/RUNBOOK-HERMES-VPS.md`.
 Migrasi `20300254002100_bot_telegram_exclusive_access.sql` membuat daftar ini
 kosong pada awal pemasangan; tautan lama tetap tersimpan, tetapi alert baru
 tidak terkirim sebelum staf dipilih. API pengaitan, endpoint kirim, dan fungsi
 database sama-sama memeriksa daftar akses tersebut. Menghapus akses langsung
 menghentikan alert, termasuk untuk tautan yang sudah ada.
 
-Staf terpilih membuka `/telegram` dan menekan **Hubungkan dengan Telegram**.
+Staf yang dipilih di satu atau lebih bot membuka `/telegram` dan menekan
+**Hubungkan dengan Telegram** satu kali. Setelah terhubung, staf perlu menekan
+`/start` satu kali pada setiap bot yang dipilihkan agar Telegram membuka chat
+privat dengan bot tersebut.
 Telegram Login memakai OIDC Authorization Code + PKCE; server memverifikasi
 ID token Telegram sebelum menyimpan Telegram User ID. Di @BotFather, pilih bot
 Stokist → Login Widget, daftarkan origin `https://agents.sukashawarma.com` dan
@@ -57,10 +73,9 @@ pasang Client ID/Secret di Coolify app Bot. Minta izin bot mengirim pesan agar
 alert dapat dikirim ke chat privat. Metode manual `/start`, `/id`, dan kode 6
 digit tetap tersedia sebagai cadangan sampai Telegram Login dikonfigurasi.
 
-Allowlist chat Hermes tetap dikelola di VPS dan harus disamakan dengan Telegram
-User ID staf yang dipilih. Halaman `/telegram/akses` menampilkan ID terverifikasi
-setelah pengaitan, tetapi saat ini belum mengubah allowlist Hermes secara
-otomatis. Bot CEO tetap memakai profil serta token Telegram terpisah.
+Allowlist chat Hermes disinkronkan otomatis dari pilihan staf di Agents SS. Setiap
+profil tetap memakai token Telegramnya sendiri; yang dibagikan hanya Telegram ID
+staf yang diberi akses ke profil tersebut.
 
 Setelah migration `20261016140000_bot_telegram_alerts.sql`,
 `20261016150000_stok_distribusi_alert_telegram.sql`, dan

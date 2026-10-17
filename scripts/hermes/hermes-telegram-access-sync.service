@@ -1,0 +1,9 @@
+[Unit]
+Description=Synchronize Telegram bot access from Agents SS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.hermes/telegram-sync.env
+ExecStart=/usr/bin/python3 %h/.hermes/sinkron-akses-telegram.py

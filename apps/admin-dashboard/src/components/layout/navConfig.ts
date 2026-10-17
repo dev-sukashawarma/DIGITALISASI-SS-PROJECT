@@ -196,7 +196,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/petty-cash-balance', label: 'Penyesuaian Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
-      { href: '/dashboard/sistem/hermes', label: 'Kunci Hermes', shortLabel: 'Hermes', icon: KeyRound, roles: ['ADMIN', 'OWNER'] },
+      {
+        href: '/dashboard/sistem/agents-ss', label: 'Agents SS', shortLabel: 'Agents SS', icon: MessageSquare, roles: ['ADMIN', 'OWNER'],
+        children: [
+          { href: '/dashboard/sistem/hermes', label: 'Kunci Hermes', shortLabel: 'Hermes', icon: KeyRound, roles: ['ADMIN', 'OWNER'] },
+          { href: '/dashboard/sistem/bot-telegram', label: 'Akses Bot Telegram', shortLabel: 'Bot Telegram', icon: UserCheck, roles: ['ADMIN', 'OWNER'] },
+        ],
+      },
       { href: '/dashboard/printer', label: 'Pengaturan Printer', shortLabel: 'Printer', icon: Printer, roles: ['ADMIN'] },
 
 

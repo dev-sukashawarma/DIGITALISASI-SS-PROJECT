@@ -64,7 +64,7 @@ bawaan. Tambah env ke **stage runner** Dockerfile (§9).
 
 ## 4. Kunci & akses
 
-- **Pola A:** buat kunci di admin-dashboard **Sistem → Kunci Hermes**: pilih app (scope)
+- **Pola A:** buat kunci di admin-dashboard **Sistem → Agents SS → Kunci Hermes**: pilih app (scope)
   seperlunya saja, IP = `76.13.193.138` dan `2a02:4780:59:ce0d::1`. Kunci hanya tampil sekali.
 - **Pola B:** buat kunci sendiri dengan `openssl rand -hex 32` di VPS (PowerShell Windows tak
   punya `openssl`).
@@ -188,6 +188,12 @@ sebelum pesan pertama. Untuk setup Telegram, tambahkan `--telegram`. Skrip memin
 tersembunyi dan user ID numerik yang diizinkan, lalu menyimpannya sebagai `TELEGRAM_BOT_TOKEN`
 dan `TELEGRAM_ALLOWED_USERS` dalam `.env` profil dengan izin `600`. Jangan masukkan token sebagai
 argumen shell.
+
+Setelah profil bot terpasang, daftarkan nama profilnya di Admin Dashboard → Sistem →
+Agents SS → Akses Bot Telegram. Owner/admin memilih bot lalu staf yang boleh memakainya.
+Sinkronisasi `TELEGRAM_ALLOWED_USERS` dari Agents SS berjalan otomatis melalui timer
+systemd user. Ikuti bagian *Sinkronisasi akses Telegram* di `docs/RUNBOOK-HERMES-VPS.md`
+untuk memasang service VPS dan mengisi rahasia bersama di Coolify serta VPS.
 
 ## 8. Uji gerbang (sebelum diumumkan)
 

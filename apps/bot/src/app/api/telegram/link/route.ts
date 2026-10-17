@@ -1,14 +1,14 @@
 import { createHash, randomInt } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { ambilIdentitasTelegram } from '@/lib/server/identitasTelegram'
-import { kirimPesanTelegram, stafBolehPakaiStokist, supabaseAdmin } from '@/lib/server/telegram'
+import { kirimPesanTelegram, stafBolehPakaiBotApaPun, supabaseAdmin } from '@/lib/server/telegram'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const identity = await ambilIdentitasTelegram()
   if (!identity) return NextResponse.json({ error: 'Silakan login sebagai staf aktif.' }, { status: 401 })
-  if (!(await stafBolehPakaiStokist(identity.userId))) return NextResponse.json({ error: 'Akses Bot Stokist belum diberikan.' }, { status: 403 })
+  if (!(await stafBolehPakaiBotApaPun(identity.userId))) return NextResponse.json({ error: 'Akses ke bot Telegram belum diberikan.' }, { status: 403 })
   const { data, error } = await supabaseAdmin()
     .from('bot_telegram_links')
     .select('telegram_username, linked_at')
@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const identity = await ambilIdentitasTelegram()
   if (!identity) return NextResponse.json({ error: 'Silakan login sebagai staf aktif.' }, { status: 401 })
-  if (!(await stafBolehPakaiStokist(identity.userId))) return NextResponse.json({ error: 'Akses Bot Stokist belum diberikan.' }, { status: 403 })
+  if (!(await stafBolehPakaiBotApaPun(identity.userId))) return NextResponse.json({ error: 'Akses ke bot Telegram belum diberikan.' }, { status: 403 })
   const input = await request.json().catch(() => null)
   const telegramUserId = input?.telegramUserId
   if (typeof telegramUserId !== 'string' || !/^[0-9]{1,24}$/.test(telegramUserId)) {
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const identity = await ambilIdentitasTelegram()
   if (!identity) return NextResponse.json({ error: 'Silakan login sebagai staf aktif.' }, { status: 401 })
-  if (!(await stafBolehPakaiStokist(identity.userId))) return NextResponse.json({ error: 'Akses Bot Stokist belum diberikan.' }, { status: 403 })
+  if (!(await stafBolehPakaiBotApaPun(identity.userId))) return NextResponse.json({ error: 'Akses ke bot Telegram belum diberikan.' }, { status: 403 })
   const input = await request.json().catch(() => null)
   const telegramUserId = input?.telegramUserId
   const code = input?.code

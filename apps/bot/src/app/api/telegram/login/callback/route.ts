@@ -1,7 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { NextRequest, NextResponse } from 'next/server'
 import { ambilIdentitasTelegram } from '@/lib/server/identitasTelegram'
-import { stafBolehPakaiStokist, supabaseAdmin } from '@/lib/server/telegram'
+import { stafBolehPakaiBotApaPun, supabaseAdmin } from '@/lib/server/telegram'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   }
 
   const identity = await ambilIdentitasTelegram()
-  if (!identity || identity.userId !== staffId || !(await stafBolehPakaiStokist(staffId))) return finish('denied')
+  if (!identity || identity.userId !== staffId || !(await stafBolehPakaiBotApaPun(staffId))) return finish('denied')
 
   try {
     const tokenResponse = await fetch('https://oauth.telegram.org/token', {

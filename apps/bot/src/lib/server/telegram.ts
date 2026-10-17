@@ -7,14 +7,14 @@ export function supabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
-export async function stafBolehPakaiStokist(staffId: string): Promise<boolean> {
-  const { data, error } = await supabaseAdmin()
-    .from('bot_telegram_access')
-    .select('staff_id')
-    .eq('staff_id', staffId)
-    .maybeSingle()
-  if (error) throw new Error('Daftar akses Bot Stokist tidak tersedia.')
-  return !!data
+export async function stafBolehPakaiBotApaPun(staffId: string): Promise<boolean> {
+  const admin = supabaseAdmin()
+  const [{ data: access, error: accessError }, { data: stokis, error: stokisError }] = await Promise.all([
+    admin.from('hermes_bot_user_access').select('staff_id').eq('staff_id', staffId).limit(1),
+    admin.from('bot_telegram_access').select('staff_id').eq('staff_id', staffId).limit(1),
+  ])
+  if (accessError || stokisError) throw new Error('Daftar akses bot Telegram tidak tersedia.')
+  return !!access?.length || !!stokis?.length
 }
 
 export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi'): string | null {

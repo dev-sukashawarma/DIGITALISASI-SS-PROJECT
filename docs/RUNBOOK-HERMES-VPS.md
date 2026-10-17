@@ -326,3 +326,60 @@ Urutan per paket (Absensi dulu). JANGAN pernah mencentang `hr_rinci` untuk kunci
   404 di 9Router (Hermes retry 2 menit → widget timeout 60 dtk). Keduanya kini masuk
   `docs/hermes/PANDUAN-AGENT-BARU.md` §5 & §10.
 
+## Sinkronisasi akses Telegram dari Agents SS
+
+Sinkronisasi periodik mengambil izin dari endpoint privat Admin Dashboard lalu
+memperbarui `TELEGRAM_ALLOWED_USERS` pada profil Hermes yang ada. Allowlist yang
+sudah ada sebelum sinkronisasi pertama disimpan sebagai ID lama dan tetap
+diizinkan; grant baru dan pencabutannya dikelola melalui Agents SS.
+
+### Coolify — app Admin Dashboard
+
+Buat satu rahasia minimal 32 byte dan simpan nilainya di password manager:
+
+```bash
+openssl rand -hex 32
+```
+
+Tambahkan env `HERMES_TELEGRAM_SYNC_SECRET` ke app **Admin Dashboard** di Coolify
+dengan nilai acak tersebut, lalu redeploy app.
+
+### VPS — user `suka-hermes`
+
+Jalankan perintah berikut sebagai `suka-hermes`. Masukkan nilai yang sama pada
+prompt tanpa menempelkannya ke history shell:
+
+```bash
+umask 077
+install -d -m 700 ~/.config/systemd/user ~/.hermes
+install -m 700 scripts/hermes/sinkron-akses-telegram.py ~/.hermes/sinkron-akses-telegram.py
+install -m 600 scripts/hermes/hermes-telegram-access-sync.service ~/.config/systemd/user/
+install -m 600 scripts/hermes/hermes-telegram-access-sync.timer ~/.config/systemd/user/
+read -rsp 'HERMES_TELEGRAM_SYNC_SECRET: ' SYNC_SECRET; echo
+printf 'HERMES_TELEGRAM_SYNC_SECRET=%s\nHERMES_TELEGRAM_SYNC_URL=https://admin.sukashawarma.com/api/hermes/telegram-access\n' "$SYNC_SECRET" > ~/.hermes/telegram-sync.env
+unset SYNC_SECRET
+chmod 600 ~/.hermes/telegram-sync.env
+systemctl --user daemon-reload
+systemctl --user enable --now hermes-telegram-access-sync.timer
+systemctl --user start hermes-telegram-access-sync.service
+systemctl --user status hermes-telegram-access-sync.timer --no-pager
+```
+
+Salin tiga file dari repo ke direktori kerja VPS sebelum menjalankan `install`:
+`scripts/hermes/sinkron-akses-telegram.py`,
+`scripts/hermes/hermes-telegram-access-sync.service`, dan
+`scripts/hermes/hermes-telegram-access-sync.timer`. Jangan menyalin rahasia ke
+file repo atau menuliskannya langsung sebagai argumen perintah.
+
+Timer memeriksa perubahan setiap menit; jika allowlist berubah, gateway Hermes
+dimuat ulang. Lihat log dengan:
+
+```bash
+journalctl --user -u hermes-telegram-access-sync.service -n 30 --no-pager
+```
+
+Endpoint gagal atau secret tidak cocok akan membatalkan sinkronisasi tanpa
+mengubah `.env`. Daftar ID Telegram lama disimpan di
+`~/.hermes/telegram-access-sync-state.json`; jangan hapus file status ini saat
+timer aktif.
+

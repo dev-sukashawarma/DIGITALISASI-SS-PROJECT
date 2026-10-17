@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { ambilIdentitasTelegram } from '@/lib/server/identitasTelegram'
-import { stafBolehPakaiStokist } from '@/lib/server/telegram'
+import { stafBolehPakaiBotApaPun } from '@/lib/server/telegram'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +10,7 @@ const cookieName = 'stokist_telegram_login'
 export async function GET() {
   const identity = await ambilIdentitasTelegram()
   if (!identity) return NextResponse.redirect(process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com')
-  if (!(await stafBolehPakaiStokist(identity.userId))) return NextResponse.redirect('https://agents.sukashawarma.com/telegram?login=denied')
+  if (!(await stafBolehPakaiBotApaPun(identity.userId))) return NextResponse.redirect('https://agents.sukashawarma.com/telegram?login=denied')
 
   const clientId = process.env.TELEGRAM_STOKIST_LOGIN_CLIENT_ID
   const clientSecret = process.env.TELEGRAM_STOKIST_LOGIN_CLIENT_SECRET

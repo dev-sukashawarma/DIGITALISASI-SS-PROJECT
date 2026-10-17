@@ -75,7 +75,15 @@ def write_env(path, content, allowed, existed):
 def main():
     if not SECRET:
         fail("HERMES_TELEGRAM_SYNC_SECRET belum disetel")
-    request = urllib.request.Request(API_URL, headers={"Authorization": f"Bearer {SECRET}"})
+    request = urllib.request.Request(
+        API_URL,
+        headers={
+            "Authorization": f"Bearer {SECRET}",
+            # Cloudflare Browser Integrity Check rejects urllib's default Python-urllib UA.
+            "User-Agent": "curl/8.5.0",
+            "Accept": "application/json",
+        },
+    )
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             payload = json.loads(response.read())

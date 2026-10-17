@@ -651,9 +651,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
         </div>
       ) : (
         <>
-          {/* ── 6 KPI Cards (Alur Kas & Potongan Platform + Profitabilitas P&L) ── */}
-          {/* ── 5 KPI Cards (Alur Kas & Potongan Platform + Profitabilitas P&L) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 xl:gap-5">
+          {/* ── 4 KPI Cards (Alur Kas & Potongan Platform + Profitabilitas P&L) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-5">
             {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
@@ -746,36 +745,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
               </div>
             </div>
 
-            {/* 3. Estimasi Dana Masuk Bank (Net Disbursement) */}
-            <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-              <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-              <div className="relative z-10">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                    {isSSOnlineSelected
-                      ? 'Net Pencairan Marketplace'
-                      : isPosKasirOnly
-                        ? 'Net Penerimaan Kasir'
-                        : 'Estimasi Masuk Bank'}
-                  </p>
-                  <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs">
-                    Masuk Bank
-                  </span>
-                </div>
-                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">
-                  {formatRupiah(analytics.netDisbursement ?? Math.max(0, analytics.grossRevenue - (analytics.totalAdminFee ?? (analytics.totalDeductions + (analytics.totalCommission ?? 0)))))}
-                </p>
-                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
-                  {isSSOnlineSelected
-                    ? 'Dana bersih yang ditransfer platform ke rekening bank'
-                    : isPosKasirOnly
-                      ? 'Total uang fisik kas laci & QRIS yang diterima'
-                      : 'Uang bersih yang cair ke rekening (Gross Omset - Admin Fee)'}
-                </p>
-              </div>
-            </div>
 
-            {/* 4. Total COGS (HPP Bahan Baku) — WAJIB TETAP ADA */}
+            {/* 3. Total COGS (HPP Bahan Baku) — WAJIB TETAP ADA */}
             <div className="bg-gradient-to-br from-slate-600 to-slate-800 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-slate-600/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
@@ -799,7 +770,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
               </div>
             </div>
 
-            {/* 5. Gross Profit (Laba Kotor) — WAJIB TETAP ADA */}
+            {/* 4. Gross Profit (Laba Kotor) — WAJIB TETAP ADA */}
             <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">

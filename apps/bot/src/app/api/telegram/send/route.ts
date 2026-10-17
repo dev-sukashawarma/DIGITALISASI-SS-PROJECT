@@ -29,13 +29,18 @@ export async function POST(request: Request) {
   const url = urlAplikasiDiizinkan(input?.url, app)
   if (input?.url && !url) return NextResponse.json({ error: 'URL aplikasi tidak valid.' }, { status: 400 })
 
-  const admin = supabaseAdmin()
+  const admin = supabaseAdmin(3_000)
+  const lookupStartedAt = Date.now()
   const [{ data: link, error: linkError }, { data: staff, error: staffError }, { data: access, error: accessError }] = await Promise.all([
     admin.from('bot_telegram_links').select('chat_id').eq('staff_id', userId).maybeSingle(),
     admin.from('outlet_staff').select('status').eq('id', userId).maybeSingle(),
     admin.from('bot_telegram_access').select('staff_id').eq('staff_id', userId).maybeSingle(),
   ])
   if (linkError || staffError || accessError) {
+    console.error('[stokist] recipient lookup failed', {
+      elapsedMs: Date.now() - lookupStartedAt,
+      errors: [linkError?.message, staffError?.message, accessError?.message].filter(Boolean),
+    })
     const { error: alertError } = await admin.rpc('bot_telegram_alert_delivery_failure', {
       p_app: app,
       p_failure_code: 'recipient_lookup_failed',

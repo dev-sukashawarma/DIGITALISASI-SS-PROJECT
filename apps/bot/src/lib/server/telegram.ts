@@ -1,10 +1,20 @@
 import { createClient } from '@supabase/supabase-js'
 
-export function supabaseAdmin() {
+export function supabaseAdmin(timeoutMs?: number) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Supabase server belum dikonfigurasi.')
-  return createClient(url, key, { auth: { persistSession: false } })
+  return createClient(url, key, {
+    auth: { persistSession: false },
+    ...(timeoutMs ? {
+      global: {
+        fetch: (input, init) => fetch(input, {
+          ...init,
+          signal: init?.signal ?? AbortSignal.timeout(timeoutMs),
+        }),
+      },
+    } : {}),
+  })
 }
 
 export async function stafBolehPakaiBotApaPun(staffId: string): Promise<boolean> {
@@ -39,6 +49,7 @@ export async function kirimPesanTelegram(chatId: string, text: string, url?: str
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text: message.slice(0, 4000), disable_web_page_preview: true }),
     cache: 'no-store',
+    signal: AbortSignal.timeout(7_000),
   })
   const result = await response.json().catch(() => null)
   if (!response.ok || result?.ok !== true) {

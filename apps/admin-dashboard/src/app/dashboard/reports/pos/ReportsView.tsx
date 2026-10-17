@@ -18,6 +18,7 @@ import {
 } from '@/lib/posReport/receiptReprint'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
+import ReceiptReprintBadge from './ReceiptReprintBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import AdminFeeBreakdownTooltip from '@/components/profit/AdminFeeBreakdownTooltip'
@@ -1181,14 +1182,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                 </span>
                               ))}
                               {receiptReprintLabels(order).map((label) => (
-                                <span
-                                  key={label.kind}
-                                  className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 rounded-md text-[10px] font-bold"
-                                  title="Jumlah struk yang berhasil dikirim ke printer dari tablet kasir, termasuk cetak ulang"
-                                >
-                                  <Printer className="w-3 h-3" />
-                                  {label.text}
-                                </span>
+                                <ReceiptReprintBadge key={label.kind} orderId={order.id} label={label} />
                               ))}
                             </div>
                           </td>

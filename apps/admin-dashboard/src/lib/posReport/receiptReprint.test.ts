@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchesReceiptFilter, receiptReprintLabels, receiptStatusLabels, toReceiptFilter } from './receiptReprint'
+import { matchesReceiptFilter, receiptPrintTimeline, receiptReprintLabels, receiptStatusLabels, toReceiptFilter } from './receiptReprint'
 
 describe('receiptReprintLabels', () => {
   it('tidak berlabel bila struk dicetak sekali atau belum tercatat', () => {
@@ -82,5 +82,29 @@ describe('matchesReceiptFilter', () => {
     expect(toReceiptFilter('hapus_semua')).toBe('all')
     expect(toReceiptFilter(undefined)).toBe('all')
     expect(matchesReceiptFilter(lewati, 'all')).toBe(true)
+  })
+})
+
+describe('receiptPrintTimeline', () => {
+  const logs = [
+    { kind: 'customer' as const, printed_at: '2026-10-17T04:20:00+00:00', printed_by_name: 'Sari' },
+    { kind: 'kitchen' as const, printed_at: '2026-10-17T04:00:00+00:00', printed_by_name: 'Sari' },
+    { kind: 'customer' as const, printed_at: '2026-10-17T04:00:30+00:00', printed_by_name: 'Budi' },
+  ]
+
+  it('mengurutkan cetak satu jenis struk dan memberi nomor ke-N', () => {
+    expect(receiptPrintTimeline(logs, 'customer', 2)).toEqual({
+      untracked: 0,
+      entries: [
+        { nth: 1, printedAt: '2026-10-17T04:00:30+00:00', by: 'Budi' },
+        { nth: 2, printedAt: '2026-10-17T04:20:00+00:00', by: 'Sari' },
+      ],
+    })
+  })
+
+  it('cetakan sebelum log ada dihitung sebagai cetak paling awal tanpa waktu', () => {
+    const t = receiptPrintTimeline(logs, 'customer', 7)
+    expect(t.untracked).toBe(5)
+    expect(t.entries.map((e) => e.nth)).toEqual([6, 7])
   })
 })

@@ -74,3 +74,21 @@ export async function refreshPosReportRange(from: string, to: string) {
   for (const d of dates) updateTag(posReportDayTag(d))
   bumpDayGenerations(dates)
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Riwayat waktu cetak struk satu order — dipanggil saat label "dicetak Nx" diklik.
+ *  Dibaca dengan sesi pengguna, jadi RLS order_receipt_prints membatasi ke outlet
+ *  yang boleh ia lihat. */
+export async function getReceiptPrintLog(orderId: string) {
+  if (typeof orderId !== 'string' || !UUID_RE.test(orderId)) throw new Error('Order tidak valid')
+  const { supabase } = await resolveCallerScope()
+  const { data, error } = await supabase
+    .from('order_receipt_prints')
+    .select('kind, printed_at, printed_by_name')
+    .eq('order_id', orderId)
+    .order('printed_at', { ascending: true })
+    .limit(200)
+  if (error) throw new Error(`getReceiptPrintLog: ${error.message}`)
+  return data ?? []
+}

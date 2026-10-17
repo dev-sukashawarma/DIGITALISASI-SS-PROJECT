@@ -85,3 +85,30 @@ export function matchesReceiptFilter(order: ReceiptFields, filter: ReceiptFilter
   if (filter === 'reprinted') return receiptReprintLabels(order).length > 0
   return true
 }
+
+/* Riwayat waktu cetak (tabel order_receipt_prints), dimuat saat label diklik. */
+export type ReceiptPrintLogRow = { kind: 'customer' | 'kitchen'; printed_at: string; printed_by_name: string | null }
+export type ReceiptPrintTimeline = {
+  entries: { nth: number; printedAt: string; by: string | null }[]
+  /** Cetakan yang terjadi sebelum log ada (hitungan > jumlah baris log). */
+  untracked: number
+}
+
+/**
+ * Baris log satu jenis struk, diberi nomor cetak ke-N. Cetakan lama yang tidak punya
+ * baris log dihitung sebagai cetak paling awal, jadi nomor log dimulai setelahnya.
+ */
+export function receiptPrintTimeline(
+  logs: ReceiptPrintLogRow[],
+  kind: 'customer' | 'kitchen',
+  totalCount: number
+): ReceiptPrintTimeline {
+  const rows = logs
+    .filter((l) => l.kind === kind)
+    .sort((a, b) => a.printed_at.localeCompare(b.printed_at))
+  const untracked = Math.max(0, (Number(totalCount) || 0) - rows.length)
+  return {
+    untracked,
+    entries: rows.map((r, i) => ({ nth: untracked + i + 1, printedAt: r.printed_at, by: r.printed_by_name })),
+  }
+}

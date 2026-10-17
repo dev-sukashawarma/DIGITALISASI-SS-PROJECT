@@ -6,6 +6,8 @@ const posOrder = {
   discount_amount: 5000, promo_subsidy: 0, created_at: '2026-09-20T12:00:00+07:00', outlet_id: 'x',
   channel: null, sales_source: 'pos_kasir', customer_name: 'Budi', cashier_name: 'Sari',
   external_order_id: null, is_endorse: false,
+  customer_receipt_print_count: 2, kitchen_receipt_print_count: 1,
+  customer_receipt_skipped: true, kitchen_receipt_skipped: false,
   order_items: [
     { id: 'i1', menu_item_id: 'm1', menu_item_name: 'Original Sapi|NOTE|pedas', quantity: 2, unit_price: 25000,
       subtotal: 50000, is_promo_reward: false, promo_id: null, promo_name: null, promo_buy_quantity: null,
@@ -37,6 +39,30 @@ describe('dayCodec', () => {
     const [o] = decodeDay(encodeDay([posOrder]))
     expect('raw_data' in o).toBe(false)
     expect('menu_items' in o.order_items[0]).toBe(false)
+  })
+
+  it('baris SS Online tanpa hitungan cetak tidak mendapat kolom hitungan', () => {
+    const {
+      customer_receipt_print_count, kitchen_receipt_print_count,
+      customer_receipt_skipped, kitchen_receipt_skipped, ...ecomTanpaHitungan
+    } = ecommerceOrder
+    const [o] = decodeDay(encodeDay([ecomTanpaHitungan]))
+    expect('customer_receipt_print_count' in o).toBe(false)
+    expect('kitchen_receipt_print_count' in o).toBe(false)
+    expect('customer_receipt_skipped' in o).toBe(false)
+    expect('kitchen_receipt_skipped' in o).toBe(false)
+  })
+
+  it('hitungan cetak 0 tetap 0, bukan hilang', () => {
+    const [o] = decodeDay(encodeDay([{ ...posOrder, customer_receipt_print_count: 0, kitchen_receipt_print_count: 0 }]))
+    expect(o.customer_receipt_print_count).toBe(0)
+    expect(o.kitchen_receipt_print_count).toBe(0)
+  })
+
+  it('flag lewati false tetap false, bukan hilang', () => {
+    const [o] = decodeDay(encodeDay([{ ...posOrder, customer_receipt_skipped: false, kitchen_receipt_skipped: false }]))
+    expect(o.customer_receipt_skipped).toBe(false)
+    expect(o.kitchen_receipt_skipped).toBe(false)
   })
 
   it('lebih ringkas dari JSON biasa', () => {

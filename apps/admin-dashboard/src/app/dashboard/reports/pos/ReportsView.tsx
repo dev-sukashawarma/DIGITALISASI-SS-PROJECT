@@ -13,6 +13,9 @@ import { getPosReport, getPosReportExport, invalidatePosReportDays, refreshPosRe
 import { extractOrderPackages, type ShiftRow } from '@/lib/posReport/compute'
 import { addDaysStr, orderDatesFromRealtime, refreshDelayMs } from '@/lib/ownerDashboardCache'
 import { cleanItemName } from '@/lib/order-item-name'
+import {
+  RECEIPT_FILTERS, RECEIPT_FILTER_LABEL, receiptReprintLabels, receiptStatusLabels, toReceiptFilter, type ReceiptFilter,
+} from '@/lib/posReport/receiptReprint'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
@@ -89,6 +92,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
   const isPosKasirOnly = !selectedChannels.includes('all') && selectedChannels.length > 0 && selectedChannels.every(c => c === 'pos_kasir' || c === 'pos_pawoon')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
+  const [selectedReceiptFilter, setSelectedReceiptFilter] = useState<ReceiptFilter>('all')
   const [refreshing, setRefreshing] = useState(false)
   // Kerangka (skeleton) hanya saat belum ada data sama sekali; pembaruan
   // berikutnya (ganti halaman, cari, realtime) tidak mengosongkan layar.
@@ -219,12 +223,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
       outlets: selectedOutlets,
       channels: selectedChannels,
       paymentMethod: selectedPaymentMethod,
+      receiptFilter: selectedReceiptFilter,
       search: debouncedSearch,
       page: currentPage,
       pageSize: itemsPerPage,
       isPawoonVisible,
     }
-  }, [dateStrRange, selectedOutlets, selectedChannels, selectedPaymentMethod, debouncedSearch, currentPage, isPawoonVisible])
+  }, [dateStrRange, selectedOutlets, selectedChannels, selectedPaymentMethod, selectedReceiptFilter, debouncedSearch, currentPage, isPawoonVisible])
 
   const fetchOrders = useCallback(async () => {
     if (!reportRequest) return
@@ -334,6 +339,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
   useEffect(() => {
     if (isSSOnlineSelected) {
       setSelectedPaymentMethod('all')
+      // Order SS Online tidak lewat tablet kasir, jadi tidak punya data struk.
+      setSelectedReceiptFilter('all')
       if (selectedChannels.some(ch => ch !== 'all' && ch !== 'tiktok_shop' && ch !== 'shopee_shop')) {
         setSelectedChannels(['all'])
       }
@@ -998,9 +1005,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
+                  {!isSSOnlineSelected && selectedReceiptFilter !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedReceiptFilter('all'); setCurrentPage(1); }}
+                      className="inline-flex items-center gap-1.5 text-xs bg-rose-100 hover:bg-rose-200 text-rose-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs cursor-pointer"
+                      title="Klik untuk hapus filter status struk"
+                    >
+                      <span>Struk: <strong className="font-bold">{RECEIPT_FILTER_LABEL[selectedReceiptFilter]}</strong></span>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 <p className="text-gray-400 text-xs mt-0.5">
-                  {selectedChannels.includes('all') && selectedPaymentMethod === 'all'
+                  {selectedChannels.includes('all') && selectedPaymentMethod === 'all' && selectedReceiptFilter === 'all'
                     ? 'Semua transaksi sukses pada periode ini' 
                     : `Menampilkan transaksi terfilter (${filteredTableCount} transaksi)`}
                 </p>
@@ -1048,6 +1066,28 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                       <option value="all">Semua Metode Bayar</option>
                       {availablePaymentMethods.map(pm => (
                         <option key={pm.key} value={pm.key}>{pm.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Dropdown Status Struk (order SS Online tidak punya data struk) */}
+                {!isSSOnlineSelected && (
+                  <div className="relative flex-1 sm:flex-none min-w-[170px]">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Printer className="h-4 w-4 text-rose-500" />
+                    </div>
+                    <select
+                      value={selectedReceiptFilter}
+                      onChange={(e) => {
+                        setSelectedReceiptFilter(toReceiptFilter(e.target.value))
+                        setCurrentPage(1)
+                      }}
+                      title="Status struk dari tablet kasir; order dari APK lama tidak punya data ini"
+                      className="block w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition-colors text-sm cursor-pointer shadow-2xs"
+                    >
+                      {RECEIPT_FILTERS.map((key) => (
+                        <option key={key} value={key}>{RECEIPT_FILTER_LABEL[key]}</option>
                       ))}
                     </select>
                   </div>
@@ -1118,6 +1158,38 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                               <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
                               <ScheduledPromoBadge names={order.scheduled_promo_names} />
                               {buyOneGetOneName && <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold">BUY {rewardItem?.promo_buy_quantity ?? 1} GET {rewardItem?.promo_get_quantity ?? 1}</span>}
+                              {receiptStatusLabels(order).map((label) => (
+                                <span
+                                  key={label.tone}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border ${
+                                    label.tone === 'skipped'
+                                      ? 'bg-red-50 text-red-700 border-red-200'
+                                      : label.tone === 'late'
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  }`}
+                                  title={
+                                    label.tone === 'skipped'
+                                      ? 'Crew menekan "Lewati & Tutup" di layar Order Berhasil tanpa mencetak struk ini'
+                                      : label.tone === 'late'
+                                        ? 'Struk sempat dilewati di layar Order Berhasil, lalu dicetak dari kartu order'
+                                        : 'Struk tercetak dari tablet kasir'
+                                  }
+                                >
+                                  {label.tone === 'skipped' ? <XCircle className="w-3 h-3" /> : <Printer className="w-3 h-3" />}
+                                  {label.text}
+                                </span>
+                              ))}
+                              {receiptReprintLabels(order).map((label) => (
+                                <span
+                                  key={label.kind}
+                                  className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 rounded-md text-[10px] font-bold"
+                                  title="Jumlah struk yang berhasil dikirim ke printer dari tablet kasir, termasuk cetak ulang"
+                                >
+                                  <Printer className="w-3 h-3" />
+                                  {label.text}
+                                </span>
+                              ))}
                             </div>
                           </td>
                           <td className="px-5 py-4 text-gray-500 font-medium text-xs">

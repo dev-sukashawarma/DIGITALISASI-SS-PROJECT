@@ -9,6 +9,7 @@
 
 import { ambilRiwayatHpp } from '@/lib/hpp/riwayatHpp'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { toReceiptFilter } from './receiptReprint'
 import { eachDateInclusive, isDateStr, jakartaDate, jakartaRangeIso } from '@/lib/ownerDashboardCache'
 import { loadPosReportOrders, getEarliestSalesDate, posReportDayTag, clearPosReportTodayMemo, selectReportOrders } from '@/lib/posReport/load'
 import { getPrepared, clearPrepared, PREPARED_TTL_WITH_TODAY_MS, PREPARED_TTL_PAST_ONLY_MS } from '@/lib/posReport/prepared'
@@ -34,6 +35,8 @@ export type PosReportRequest = {
   outlets: string[]
   channels: string[]
   paymentMethod: string
+  /** 'all' | 'not_printed' | 'reprinted' — lihat receiptReprint.ts. Opsional untuk pemanggil lama. */
+  receiptFilter?: string
   search: string
   page: number
   pageSize: number
@@ -133,6 +136,7 @@ function sanitizeRequest(req: PosReportRequest) {
     outlets,
     channels,
     paymentMethod: typeof req.paymentMethod === 'string' ? req.paymentMethod : 'all',
+    receiptFilter: toReceiptFilter(req.receiptFilter),
     search: typeof req.search === 'string' ? req.search.slice(0, 100) : '',
     page: Math.max(1, Math.floor(Number(req.page) || 1)),
     pageSize: Math.min(100, Math.max(1, Math.floor(Number(req.pageSize) || 10))),
@@ -250,10 +254,10 @@ async function getPreparedReport(rawReq: PosReportRequest, scope: CakupanLaporan
 export async function laporanPosUntukScope(rawReq: PosReportRequest, scope: CakupanLaporan) {
   const { req, prepared } = await getPreparedReport(rawReq, scope)
 
-  const filterKey = JSON.stringify([req.paymentMethod, req.search])
+  const filterKey = JSON.stringify([req.paymentMethod, req.search, req.receiptFilter])
   let derived = prepared.derived.get(filterKey)
   if (!derived) {
-    const tableRows = filterTableData(prepared.analytics.completedOrders, req.paymentMethod, req.search)
+    const tableRows = filterTableData(prepared.analytics.completedOrders, req.paymentMethod, req.search, req.receiptFilter)
     derived = {
       tableRows,
       footer: computeTableFooter(tableRows, prepared.settlements),

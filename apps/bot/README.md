@@ -22,7 +22,7 @@ yarn workspace @suka/bot type-check
 | `HERMES_KEYS` | JSON `{"ceo":"<key>","stokis":"<API_SERVER_KEY profil stokis>"}` — satu env untuk semua agen; restart setelah perubahan. Server-only. |
 | `TELEGRAM_STOKIST_BOT_TOKEN` | Token bot Stokist untuk mengirim alert dan kode pengaitan Telegram. Token yang sama dipasang di profil Hermes `stokis` untuk menerima chat. |
 | `TELEGRAM_STOKIST_SEND_SECRET` | Secret antarlayanan untuk endpoint `/api/telegram/send` |
-| `TELEGRAM_STOKIST_LOGIN_CLIENT_ID`, `TELEGRAM_STOKIST_LOGIN_CLIENT_SECRET` | Kredensial Telegram Login dari @BotFather untuk tombol pengaitan satu klik. Server-only. |
+| `TELEGRAM_STOKIST_LOGIN_CLIENT_ID`, `TELEGRAM_STOKIST_LOGIN_CLIENT_SECRET` | Kredensial Telegram Login dari @BotFather untuk aktivasi link undangan admin. Server-only. |
 | `TELEGRAM_STOKIST_LOGIN_REDIRECT_URI` | `https://agents.sukashawarma.com/api/telegram/login/callback`; daftarkan sebagai Allowed URL di @BotFather. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only untuk menyimpan tautan Telegram staf dan mencari penerima alert |
 
@@ -41,11 +41,14 @@ Bot hanya mengirim alert dan kode verifikasi; app tidak menjalankan `getUpdates`
 atau webhook untuk menerima pesan. Alert database tetap dikirim ke staf aktif
 yang sudah menautkan Telegram berdasarkan role dan outlet penerima event.
 
-Owner/admin memilih staf yang boleh memakai Bot Stokist di Admin Dashboard →
-Sistem → Agents SS → Akses Bot Telegram
-(`https://admin.sukashawarma.com/dashboard/sistem/bot-telegram`).
-Di halaman tersebut, pilih bot lebih dulu lalu tentukan stafnya. Bot lain yang
-sudah dipasang pada VPS dapat didaftarkan memakai nama profil Hermesnya.
+Owner/admin memilih staf yang boleh memakai bot di Admin Dashboard → Sistem →
+Agents SS → Akses Bot Telegram
+(`https://admin.sukashawarma.com/dashboard/sistem/bot-telegram`). Di halaman
+tersebut, pilih bot lebih dulu lalu tentukan stafnya. Bot lain yang sudah
+dipasang pada VPS dapat didaftarkan memakai nama profil Hermesnya. Setelah akses
+diberikan, admin memasukkan username bot dan membuat link aktivasi khusus untuk
+staf. Link hanya berlaku 24 jam dan sekali pakai; staf membuka link, mengonfirmasi
+akun Telegram, lalu menekan Start untuk memulai chat dengan bot tersebut.
 Daftar akses semua bot tersimpan per profil. Endpoint privat Admin Dashboard
 menyediakan daftar Telegram ID yang diizinkan, lalu skrip VPS
 `scripts/hermes/sinkron-akses-telegram.py` memperbarui
@@ -61,17 +64,17 @@ tidak terkirim sebelum staf dipilih. API pengaitan, endpoint kirim, dan fungsi
 database sama-sama memeriksa daftar akses tersebut. Menghapus akses langsung
 menghentikan alert, termasuk untuk tautan yang sudah ada.
 
-Staf yang dipilih di satu atau lebih bot membuka `/telegram` dan menekan
-**Hubungkan dengan Telegram** satu kali. Setelah terhubung, staf perlu menekan
-`/start` satu kali pada setiap bot yang dipilihkan agar Telegram membuka chat
-privat dengan bot tersebut.
-Telegram Login memakai OIDC Authorization Code + PKCE; server memverifikasi
-ID token Telegram sebelum menyimpan Telegram User ID. Di @BotFather, pilih bot
+Aktivasi undangan memakai Telegram Login OIDC Authorization Code + PKCE; server
+memverifikasi ID token Telegram dan menautkan akun ke staf yang dipilih admin.
+Token undangan disimpan sebagai hash, kedaluwarsa setelah 24 jam, dan hanya dapat
+digunakan satu kali. Jika akses staf dicabut sebelum link dipakai, penukaran
+ditolak. Di @BotFather, pilih bot
 Stokist → Login Widget, daftarkan origin `https://agents.sukashawarma.com` dan
 redirect URI `https://agents.sukashawarma.com/api/telegram/login/callback`, lalu
 pasang Client ID/Secret di Coolify app Bot. Minta izin bot mengirim pesan agar
-alert dapat dikirim ke chat privat. Metode manual `/start`, `/id`, dan kode 6
-digit tetap tersedia sebagai cadangan sampai Telegram Login dikonfigurasi.
+alert dapat dikirim ke chat privat. Terapkan migration
+`20300254002300_hermes_telegram_activation_invites.sql` sebelum admin membuat
+link undangan. Halaman pengaitan lama tetap tersedia untuk kebutuhan admin.
 
 Allowlist chat Hermes disinkronkan otomatis dari pilihan staf di Agents SS. Setiap
 profil tetap memakai token Telegramnya sendiri; yang dibagikan hanya Telegram ID

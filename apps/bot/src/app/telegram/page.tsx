@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 const loginMessages: Record<string, string> = {
   connected: 'Telegram berhasil dihubungkan.',
   denied: 'Akses bot Telegram belum diberikan untuk akun staf ini.',
+  invite_required: 'Pengaitan Telegram dilakukan admin melalui link aktivasi khusus.',
   invalid: 'Verifikasi Telegram gagal atau sudah kedaluwarsa. Coba lagi.',
   unavailable: 'Pengaitan Telegram sedang tidak tersedia.',
   used: 'Akun Telegram ini sudah terhubung ke staf lain.',
@@ -42,19 +43,14 @@ export default async function HalamanTelegram({ searchParams }: { searchParams: 
         <a href="/" className="text-sm text-cyan-300 hover:underline">← Kembali ke Bot</a>
         <h1 className="mt-5 text-2xl font-bold">Hubungkan Telegram</h1>
         <p className="mt-2 text-sm text-zinc-300">
-          Hubungkan akun Telegram satu kali. Anda dapat memakai bot yang dipilihkan admin; setiap bot tetap memiliki akses dan data tersendiri.
+          Akses bot diberikan dan diaktifkan oleh admin melalui link undangan khusus. Jika Anda belum menerima undangan, hubungi admin.
         </p>
         {isAdmin && <a href="https://admin.sukashawarma.com/dashboard/sistem/bot-telegram" className="mt-3 inline-block text-sm text-cyan-300 hover:underline">Kelola akses staf di Admin Dashboard →</a>}
         {loginStatus && loginMessages[loginStatus] && <p role="status" className="mt-4 text-sm text-amber-300">{loginMessages[loginStatus]}</p>}
         <TelegramSettings
           awalTerhubung={!!data}
           username={data?.telegram_username ?? null}
-          botTersedia={!!process.env.TELEGRAM_STOKIST_BOT_TOKEN}
-          loginTersedia={!!(process.env.TELEGRAM_STOKIST_LOGIN_CLIENT_ID && process.env.TELEGRAM_STOKIST_LOGIN_CLIENT_SECRET && process.env.TELEGRAM_STOKIST_LOGIN_REDIRECT_URI)}
         />
-        <p className="mt-6 text-xs text-zinc-400">
-          Jika memakai kode manual, kirim /start lalu /id ke bot Stokist. Kode berlaku 10 menit. Putuskan koneksi dari halaman ini.
-        </p>
       </div>
     </main>
   )

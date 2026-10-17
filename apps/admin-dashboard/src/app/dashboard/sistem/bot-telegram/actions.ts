@@ -1,5 +1,6 @@
 'use server'
 
+import { createHash, randomBytes } from 'node:crypto'
 import { requireRole } from '@/lib/authz'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -54,4 +55,51 @@ export async function ubahAksesBotTelegram(botSlug: string, staffId: string, ena
   }
 
   return { ok: true }
+}
+
+export async function buatLinkAktivasiTelegram(botSlug: string, staffId: string, usernameInput: string) {
+  const { userId } = await requireRole(['owner', 'admin'])
+  const botUsername = usernameInput.trim().replace(/^@/, '')
+  if (!botSlugPattern.test(botSlug) || !staffIdPattern.test(staffId)
+    || !/^[A-Za-z0-9_]{5,32}$/.test(botUsername)) {
+    return { error: 'Username bot Telegram tidak valid.' }
+  }
+
+  const service = createServiceClient()
+  const [{ data: bot, error: botError }, { data: staff, error: staffError }] = await Promise.all([
+    service.from('hermes_bot_registry').select('slug').eq('slug', botSlug).maybeSingle(),
+    service.from('outlet_staff').select('id').eq('id', staffId).eq('status', 'active').maybeSingle(),
+  ])
+  if (botError || staffError) return { error: 'Bot atau staf gagal diperiksa.' }
+  if (!bot) return { error: 'Bot belum terdaftar.' }
+  if (!staff) return { error: 'Staf tidak aktif.' }
+
+  const grantTable = botSlug === 'stokis' ? 'bot_telegram_access' : 'hermes_bot_user_access'
+  let grantQuery = service.from(grantTable).select('staff_id').eq('staff_id', staffId)
+  if (botSlug !== 'stokis') grantQuery = grantQuery.eq('bot_slug', botSlug)
+  const { data: grant, error: grantError } = await grantQuery.maybeSingle()
+  if (grantError) return { error: 'Akses staf gagal diperiksa.' }
+  if (!grant) return { error: 'Beri akses bot kepada staf lebih dulu.' }
+
+  const token = randomBytes(32).toString('base64url')
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const { error: revokeError } = await service.from('hermes_telegram_activation_invites')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('staff_id', staffId).eq('bot_slug', botSlug).is('used_at', null).is('revoked_at', null)
+  if (revokeError) return { error: 'Undangan sebelumnya gagal diperbarui. Pastikan migrasi aktivasi Telegram sudah diterapkan.' }
+
+  const { error: insertError } = await service.from('hermes_telegram_activation_invites').insert({
+    token_hash: tokenHash,
+    bot_slug: botSlug,
+    staff_id: staffId,
+    bot_username: botUsername,
+    issued_by: userId,
+    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  })
+  if (insertError) return { error: 'Link aktivasi gagal dibuat. Pastikan migrasi aktivasi Telegram sudah diterapkan.' }
+
+  return {
+    url: `https://agents.sukashawarma.com/api/telegram/login/invite?token=${token}`,
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  }
 }

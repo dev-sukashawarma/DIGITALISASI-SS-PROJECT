@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { daftarkanBotTelegram, ubahAksesBotTelegram } from './actions'
+import { buatLinkAktivasiTelegram, daftarkanBotTelegram, ubahAksesBotTelegram } from './actions'
 
 type Bot = { slug: string; nama: string }
 type Staff = {
@@ -24,6 +24,8 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
   const [search, setSearch] = useState('')
   const [newSlug, setNewSlug] = useState('')
   const [newName, setNewName] = useState('')
+  const [botUsername, setBotUsername] = useState('')
+  const [activationLinks, setActivationLinks] = useState<Record<string, string>>({})
   const [showRegister, setShowRegister] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -66,6 +68,32 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
     }
   }
 
+  async function createActivationLink(row: Staff) {
+    setBusy(`invite:${row.id}`)
+    setError(null)
+    try {
+      const result = await buatLinkAktivasiTelegram(selectedBot, row.id, botUsername)
+      if (result.error) throw new Error(result.error)
+      if (!result.url) throw new Error('Link aktivasi gagal dibuat.')
+      setActivationLinks((current) => ({ ...current, [`${selectedBot}:${row.id}`]: result.url! }))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Link aktivasi gagal dibuat.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function copyActivationLink(key: string) {
+    const url = activationLinks[key]
+    if (!url) return
+    try {
+      await navigator.clipboard.writeText(url)
+      setError(null)
+    } catch {
+      setError('Browser tidak mengizinkan penyalinan otomatis. Salin link yang ditampilkan secara manual.')
+    }
+  }
+
   const bot = bots.find((item) => item.slug === selectedBot)
   const filtered = initialStaff.filter((row) =>
     `${row.name} ${row.username ?? ''} ${row.role}`.toLowerCase().includes(search.toLowerCase()))
@@ -105,10 +133,14 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
 
       {bot && <p className="text-sm text-gray-600">{selectedCount} staf diberi akses ke <strong>{bot.nama}</strong>.</p>}
       {selectedBot && (
-        <p className="rounded-lg bg-green-50 p-3 text-sm text-green-900">
-          Telegram ID staf yang sudah terhubung otomatis disinkronkan ke profil Hermes {selectedBot}. Staf menghubungkan akun satu kali di{' '}
-          <a href="https://agents.sukashawarma.com/telegram" className="font-medium underline">halaman Telegram</a>, lalu mengirim /start ke bot ini.
-        </p>
+        <div className="space-y-3 rounded-lg bg-green-50 p-3 text-sm text-green-900">
+          <p>Setelah memberi akses, buat link aktivasi khusus untuk staf. Staf cukup membuka link, mengonfirmasi akun Telegram, lalu menekan Start pada bot.</p>
+          <label className="block text-sm font-medium">Username bot Telegram
+            <input value={botUsername} onChange={(event) => setBotUsername(event.target.value.replace(/^@/, ''))}
+              placeholder="mis. Stokis_SukaShawarmaBot" className="mt-1 block w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-gray-900" />
+          </label>
+          <p className="text-xs text-green-800">Link berlaku 24 jam dan hanya bisa dipakai sekali. Kirim link melalui kanal internal yang aman.</p>
+        </div>
       )}
 
       {!selectedBot && <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-600">Pilih bot untuk melihat dan mengatur stafnya.</p>}
@@ -121,22 +153,34 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
       {selectedBot && <div className="max-h-[65vh] divide-y divide-gray-200 overflow-y-auto rounded-lg border border-gray-200 bg-white">
         {filtered.map((row) => {
           const allowed = access.some((item) => item.botSlug === selectedBot && item.staffId === row.id)
+          const inviteKey = `${selectedBot}:${row.id}`
+          const inviteUrl = activationLinks[inviteKey]
           return (
-            <div key={row.id} className="flex items-center justify-between gap-4 p-3">
-              <div className="min-w-0 text-sm">
-                <p className="font-medium text-gray-900">{row.name}</p>
-                <p className="text-gray-500">{row.role}{selectedBot === 'stokis'
-                  ? row.telegramUserId ? ` · Telegram ID ${row.telegramUserId}` : ' · Telegram belum terhubung'
-                  : ''}</p>
+            <div key={row.id} className="space-y-2 p-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 text-sm">
+                  <p className="font-medium text-gray-900">{row.name}</p>
+                  <p className="text-gray-500">{row.role}{row.telegramUserId
+                    ? ` · Telegram terhubung (${row.telegramUserId})`
+                    : ' · Telegram belum terhubung'}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {allowed && <button type="button" onClick={() => createActivationLink(row)} disabled={busy !== null || !botUsername}
+                    className="rounded-lg border border-blue-300 px-3 py-2 text-xs font-semibold text-blue-700 disabled:opacity-50">
+                    {busy === `invite:${row.id}` ? 'Membuat…' : 'Buat link aktivasi'}
+                  </button>}
+                  <button type="button" onClick={() => changeAccess(row)} disabled={busy !== null}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50 ${allowed
+                      ? 'border border-red-300 text-red-700'
+                      : 'bg-blue-600 text-white'}`}>
+                    {busy === row.id ? 'Menyimpan…' : allowed ? 'Cabut akses' : 'Beri akses'}
+                  </button>
+                </div>
               </div>
-              <button type="button" onClick={() => changeAccess(row)} disabled={busy !== null}
-                className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50 ${allowed
-                  ? 'border border-red-300 text-red-700'
-                  : 'bg-blue-600 text-white'}`}>
-                {busy === row.id ? 'Menyimpan…' : selectedBot === 'stokis'
-                  ? allowed ? 'Cabut akses' : 'Beri akses'
-                  : allowed ? 'Hapus pilihan' : 'Pilih staf'}
-              </button>
+              {inviteUrl && <div className="flex gap-2 rounded-lg bg-gray-50 p-2">
+                <input readOnly value={inviteUrl} className="min-w-0 flex-1 bg-transparent text-xs text-gray-600" aria-label={`Link aktivasi ${row.name}`} />
+                <button type="button" onClick={() => copyActivationLink(inviteKey)} className="text-xs font-semibold text-blue-700">Salin</button>
+              </div>}
             </div>
           )
         })}

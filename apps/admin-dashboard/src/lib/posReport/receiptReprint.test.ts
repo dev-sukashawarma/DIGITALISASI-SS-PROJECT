@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchesReceiptFilter, receiptPrintTimeline, receiptReprintLabels, receiptStatusLabels, toReceiptFilter } from './receiptReprint'
+import { matchesReceiptFilter, receiptChips, receiptPrintTimeline, receiptReprintLabels, receiptStatusLabels, toReceiptFilter } from './receiptReprint'
 
 describe('receiptReprintLabels', () => {
   it('tidak berlabel bila struk dicetak sekali atau belum tercatat', () => {
@@ -106,5 +106,23 @@ describe('receiptPrintTimeline', () => {
     const t = receiptPrintTimeline(logs, 'customer', 7)
     expect(t.untracked).toBe(5)
     expect(t.entries.map((e) => e.nth)).toEqual([6, 7])
+  })
+})
+
+describe('receiptChips', () => {
+  it('satu chip per jenis struk: status dan jumlah cetak digabung', () => {
+    expect(receiptChips({
+      customer_receipt_print_count: 3, customer_receipt_skipped: true,
+      kitchen_receipt_print_count: 0, kitchen_receipt_skipped: true,
+    })).toEqual([
+      { kind: 'customer', name: 'Customer', count: 3, tone: 'late', status: 'Dicetak susulan' },
+      { kind: 'kitchen', name: 'Dapur', count: 0, tone: 'skipped', status: 'Tidak dicetak' },
+    ])
+  })
+
+  it('struk normal dan order tanpa data', () => {
+    expect(receiptChips({ customer_receipt_print_count: 1, kitchen_receipt_print_count: 2 }).map((c) => [c.name, c.status, c.count]))
+      .toEqual([['Customer', 'Tercetak', 1], ['Dapur', 'Tercetak', 2]])
+    expect(receiptChips({})).toEqual([])
   })
 })

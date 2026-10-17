@@ -112,3 +112,34 @@ export function receiptPrintTimeline(
     entries: rows.map((r, i) => ({ nth: untracked + i + 1, printedAt: r.printed_at, by: r.printed_by_name })),
   }
 }
+
+/* Satu chip per jenis struk (Customer, Dapur) untuk tabel Histori Transaksi:
+ * status + jumlah cetak digabung, menggantikan label terpisah. */
+export type ReceiptChip = {
+  kind: 'customer' | 'kitchen'
+  name: 'Customer' | 'Dapur'
+  tone: 'ok' | 'late' | 'skipped'
+  status: string
+  count: number
+}
+
+export function receiptChips(order: ReceiptFields): ReceiptChip[] {
+  const chips: ReceiptChip[] = []
+  const kinds = [
+    ['customer', 'Customer', order.customer_receipt_print_count, order.customer_receipt_skipped],
+    ['kitchen', 'Dapur', order.kitchen_receipt_print_count, order.kitchen_receipt_skipped],
+  ] as const
+  for (const [kind, name, rawCount, skipped] of kinds) {
+    const count = Number(rawCount) || 0
+    const s = kindStatus(count, skipped)
+    if (s === 'unknown') continue
+    chips.push({
+      kind,
+      name,
+      count,
+      tone: s === 'printed' ? 'ok' : s,
+      status: s === 'skipped' ? 'Tidak dicetak' : s === 'late' ? 'Dicetak susulan' : 'Tercetak',
+    })
+  }
+  return chips
+}

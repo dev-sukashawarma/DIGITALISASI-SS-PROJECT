@@ -14,11 +14,11 @@ import { extractOrderPackages, type ShiftRow } from '@/lib/posReport/compute'
 import { addDaysStr, orderDatesFromRealtime, refreshDelayMs } from '@/lib/ownerDashboardCache'
 import { cleanItemName } from '@/lib/order-item-name'
 import {
-  RECEIPT_FILTERS, RECEIPT_FILTER_LABEL, receiptReprintLabels, receiptStatusLabels, toReceiptFilter, type ReceiptFilter,
+  RECEIPT_FILTERS, RECEIPT_FILTER_LABEL, receiptChips, toReceiptFilter, type ReceiptFilter,
 } from '@/lib/posReport/receiptReprint'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
-import ReceiptReprintBadge from './ReceiptReprintBadge'
+import ReceiptChipBadge from './ReceiptReprintBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import AdminFeeBreakdownTooltip from '@/components/profit/AdminFeeBreakdownTooltip'
@@ -1159,30 +1159,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                               <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
                               <ScheduledPromoBadge names={order.scheduled_promo_names} />
                               {buyOneGetOneName && <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold">BUY {rewardItem?.promo_buy_quantity ?? 1} GET {rewardItem?.promo_get_quantity ?? 1}</span>}
-                              {receiptStatusLabels(order).map((label) => (
-                                <span
-                                  key={label.tone}
-                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border ${
-                                    label.tone === 'skipped'
-                                      ? 'bg-red-50 text-red-700 border-red-200'
-                                      : label.tone === 'late'
-                                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  }`}
-                                  title={
-                                    label.tone === 'skipped'
-                                      ? 'Crew menekan "Lewati & Tutup" di layar Order Berhasil tanpa mencetak struk ini'
-                                      : label.tone === 'late'
-                                        ? 'Struk sempat dilewati di layar Order Berhasil, lalu dicetak dari kartu order'
-                                        : 'Struk tercetak dari tablet kasir'
-                                  }
-                                >
-                                  {label.tone === 'skipped' ? <XCircle className="w-3 h-3" /> : <Printer className="w-3 h-3" />}
-                                  {label.text}
-                                </span>
-                              ))}
-                              {receiptReprintLabels(order).map((label) => (
-                                <ReceiptReprintBadge key={label.kind} orderId={order.id} label={label} />
+                              {receiptChips(order).map((chip) => (
+                                <ReceiptChipBadge key={chip.kind} orderId={order.id} chip={chip} />
                               ))}
                             </div>
                           </td>

@@ -93,6 +93,15 @@ Setelah migration `20261016140000_bot_telegram_alerts.sql`,
    `telegram_stokist_send_secret` berisi nilai yang sama dengan
    `TELEGRAM_STOKIST_SEND_SECRET`. Event database memanggil endpoint ini.
 
+Migration `20300254002400_stokist_unusual_stock_drop_and_delivery_failure_alert.sql`
+menambahkan alert penurunan stok tidak wajar (turun minimal 50% dalam satu
+perubahan, saldo masih di atas reorder point, maksimal sekali per bahan/outlet
+per jam) dan watchdog hasil kirim Telegram. Watchdog berjalan tiap menit; jika
+Telegram atau endpoint Bot gagal, fallback push dikirim ke owner/admin/developer
+dan dibatasi satu kali per jenis kegagalan tiap 15 menit. Jalur fallback memakai
+Vault `push_webhook_url` dan `fcm_webhook_secret` yang sudah digunakan push lain.
+Terapkan migration ini sebelum deploy app Bot yang memanggil fungsi fallback.
+
 Jangan simpan `TELEGRAM_STOKIST_WEBHOOK_SECRET`; webhook dan poller app telah
 dihapus. Username bot tidak diperlukan. Aturan persona dan pengujian profil ada
 di [`docs/hermes/SOUL-stokis.md`](../../docs/hermes/SOUL-stokis.md) dan

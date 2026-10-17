@@ -35,7 +35,14 @@ export async function POST(request: Request) {
     admin.from('outlet_staff').select('status').eq('id', userId).maybeSingle(),
     admin.from('bot_telegram_access').select('staff_id').eq('staff_id', userId).maybeSingle(),
   ])
-  if (linkError || staffError || accessError) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+  if (linkError || staffError || accessError) {
+    const { error: alertError } = await admin.rpc('bot_telegram_alert_delivery_failure', {
+      p_app: app,
+      p_failure_code: 'recipient_lookup_failed',
+    })
+    if (alertError) console.error('[stokist] gagal memberi tahu admin soal lookup penerima:', alertError)
+    return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
+  }
   if (!link || !access || staff?.status !== 'active') return NextResponse.json({ delivered: false, reason: 'not_linked' })
 
   try {
@@ -43,6 +50,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ delivered: true })
   } catch (error) {
     console.error('[stokist] gagal mengirim alert:', error)
+    const { error: alertError } = await admin.rpc('bot_telegram_alert_delivery_failure', {
+      p_app: app,
+      p_failure_code: 'telegram_api_error',
+    })
+    if (alertError) console.error('[stokist] gagal memberi tahu admin soal pengiriman Telegram:', alertError)
     return NextResponse.json({ delivered: false, reason: 'telegram_error' }, { status: 502 })
   }
 }

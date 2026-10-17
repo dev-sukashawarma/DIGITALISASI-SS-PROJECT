@@ -1,0 +1,21 @@
+[Unit]
+Description=9Router AI gateway for Hermes profiles
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root
+Environment=HOME=/root
+Environment=DATA_DIR=/root/.9router
+Environment=PATH=/opt/node-v24.22.0-linux-x64/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/usr/bin/test -x /opt/node-v24.22.0-linux-x64/bin/node
+ExecStartPre=/usr/bin/test -f /usr/local/lib/node_modules/9router/cli.js
+ExecStart=/opt/node-v24.22.0-linux-x64/bin/node /usr/local/lib/node_modules/9router/cli.js --tray --no-browser --skip-update
+Restart=always
+RestartSec=5
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target

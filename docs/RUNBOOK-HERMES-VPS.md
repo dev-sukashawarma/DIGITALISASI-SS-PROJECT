@@ -68,6 +68,50 @@ Wizard install memasang gateway otomatis — ia tak melayani apa pun sampai plat
   sendiri (mis. `suka-combo`) agar perubahan Rendy tak ikut mengubah bot SS.
 - ⚠️ Port 20128 9Router terbuka ke internet tanpa https — pertimbangkan firewall/https.
 
+#### Menjaga 9Router tetap hidup (insiden 2026-10-17)
+
+Pada 17 Oktober, `npm i 9router@latest` memasang 9Router v0.5.104, sedangkan
+prosesnya berjalan dengan `/usr/bin/node` v18.19.1. Log menampilkan
+`ReferenceError: File is not defined`; port 20128 sempat tidak aktif dan bot
+Stokis terus *typing*. Setelah dijalankan dengan Node v24.22.0, permintaan
+`STOKIS_SS` selesai dalam 3,5 detik dan bot kembali menjawab di Telegram.
+Jangan menyimpulkan layanan sehat hanya dari status port `LISTEN`: cek respons
+HTTP dan percakapan sesungguhnya.
+
+9Router memakai data di `/root/.9router` dan berjalan sebagai `root`, terpisah
+dari service Hermes milik `suka-hermes`. Pasang Node 24 berdampingan agar Node
+sistem dan aplikasi lain tidak ikut berubah. Pada VPS `x86_64`, sebagai `root`:
+
+```bash
+cd /tmp
+curl -fsSLO https://nodejs.org/dist/v24.22.0/node-v24.22.0-linux-x64.tar.xz
+curl -fsSLO https://nodejs.org/dist/v24.22.0/SHASUMS256.txt
+grep ' node-v24.22.0-linux-x64.tar.xz$' SHASUMS256.txt | sha256sum -c -
+# Lanjutkan hanya jika checksum OK.
+tar -xJf node-v24.22.0-linux-x64.tar.xz -C /opt
+/opt/node-v24.22.0-linux-x64/bin/node -p 'process.version + " File=" + typeof File'
+```
+
+Unit service ada di `scripts/hermes/9router.service`. Setelah file repo tersedia
+di VPS, hentikan 9Router manual dengan Ctrl+C, pastikan port 20128 bebas,
+kemudian pasang dan jalankan unit sebagai `root`:
+
+```bash
+ss -ltnp | grep ':20128' || echo 'Port bebas'
+install -m 644 scripts/hermes/9router.service /etc/systemd/system/9router.service
+systemctl daemon-reload
+systemctl enable --now 9router.service
+systemctl status 9router.service --no-pager
+ss -ltnp | grep ':20128'
+curl -sS -o /dev/null -w 'HTTP %{http_code}, %{time_total}s\n' --max-time 10 http://127.0.0.1:20128/
+```
+
+Unit ini mengunci Node 24 pada proses induk dan `PATH` anak, memakai direktori
+data yang sudah ada, serta melewati pembaruan otomatis. Jika service gagal,
+lihat `journalctl -u 9router.service -n 80 --no-pager`. Setelah pembaruan
+9Router berikutnya, periksa lagi versi Node dan jawaban model sebelum
+meninggalkan server.
+
 ### 4. Kunci toolset (✅ CLI 2026-10-07) — WAJIB per platform
 Pengaturan **per platform** (`--platform`, default `cli`). Yang dipertahankan hanya
 `clarify` (+ MCP Suka Shawarma nanti).

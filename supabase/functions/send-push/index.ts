@@ -51,7 +51,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { user_id, outlet_id, title, body, url, app, broadcast, target_roles } = await req.json()
+    const { user_id, outlet_id, title, body, url, app, broadcast, target_roles, type, event_key } = await req.json()
 
     if (!title || !body) {
       return new Response(
@@ -70,11 +70,13 @@ serve(async (req) => {
     // Query web push subscriptions
     let query = supabase.from('push_subscriptions').select('*, outlet_staff!inner(outlet_id, role)')
     let fcmQuery = supabase.from('fcm_tokens').select('token')
+    let superappTokenPromise: Promise<{ data: { token: string }[] | null; error: any }> = Promise.resolve({ data: [], error: null })
 
     if (!broadcast) {
       if (user_id) {
         query = query.eq('user_id', user_id)
         fcmQuery = fcmQuery.eq('staff_id', user_id)
+        superappTokenPromise = supabase.from('chat_push_tokens').select('token').eq('staff_id', user_id)
       } else if (outlet_id) {
         query = query.eq('outlet_staff.outlet_id', outlet_id)
         fcmQuery = fcmQuery.eq('outlet_id', outlet_id)
@@ -89,16 +91,25 @@ serve(async (req) => {
       query = query.eq('app', app)
     }
 
-    const [webRes, fcmRes] = await Promise.all([
+    const [webRes, fcmRes, superappRes] = await Promise.all([
       query,
-      fcmQuery
+      fcmQuery,
+      superappTokenPromise
     ])
 
     if (webRes.error) throw webRes.error
     if (fcmRes.error) console.error("Error fetching FCM tokens:", fcmRes.error)
+    if (superappRes.error) console.error("Error fetching Superapp FCM tokens:", superappRes.error)
 
     const subscriptions = webRes.data || []
-    const fcmTokens = fcmRes.data || []
+    const tokenSet = new Set<string>()
+    for (const row of (fcmRes.data || [])) {
+      if (row?.token) tokenSet.add(row.token)
+    }
+    for (const row of (superappRes.data || [])) {
+      if (row?.token) tokenSet.add(row.token)
+    }
+    const fcmTokens = Array.from(tokenSet).map((token) => ({ token }))
 
     if (subscriptions.length === 0 && fcmTokens.length === 0) {
       return new Response(
@@ -146,20 +157,26 @@ serve(async (req) => {
         try {
           // Clean the title for data payload if it contains "Pesan Dari Owner: " (Opsi 1 integration)
           let cleanTitle = title;
-          let msgType = broadcast ? 'broadcast' : 'info';
+          let msgType = typeof type === 'string' && type.length > 0 ? type : (broadcast ? 'broadcast' : 'info');
           if (title.startsWith("Pesan Dari Owner: ")) {
               cleanTitle = title.replace("Pesan Dari Owner: ", "");
               msgType = 'owner_message'; // Maps to isOwnerMessage in Android
           }
           
+          const dataPayload: Record<string, string> = {
+            title: String(cleanTitle),
+            body: String(body),
+            type: String(msgType),
+            url: String(url || '/'),
+          };
+          if (typeof event_key === 'string' && event_key.length > 0) {
+            dataPayload.event_key = event_key;
+          }
+
           await getMessaging().send({
             token: tokenData.token,
-            data: {
-              title: cleanTitle,
-              body: body,
-              type: msgType,
-              url: url || '/'
-            }
+            data: dataPayload,
+            android: { priority: 'high' },
           });
           return { status: 'fulfilled', token: tokenData.token };
         } catch (e: any) {
@@ -167,6 +184,7 @@ serve(async (req) => {
           if (e.code === 'messaging/registration-token-not-registered') {
              console.log(`FCM Token ${tokenData.token} invalid. Deleting...`);
              await supabase.from('fcm_tokens').delete().eq('token', tokenData.token);
+             await supabase.from('chat_push_tokens').delete().eq('token', tokenData.token);
           }
           throw e;
         }

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
+import { tanyaHermes, kunciProfil } from '@/lib/hermes'
 
 export const dynamic = 'force-dynamic'
 
@@ -215,7 +216,76 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    return NextResponse.json({ ok: true, ignored: true })
+    // ─────────────────────────────────────────────────────────── Tanya Jawab Hermes AI 2-Way
+    const admin = supabaseAdmin()
+    const { data: linkInfo } = await admin
+      .from('bot_telegram_links')
+      .select('staff_id, outlet_staff(id, name, role, status)')
+      .eq('telegram_user_id', fromId)
+      .maybeSingle()
+
+    const staff = linkInfo?.outlet_staff as unknown as { id?: string; name?: string; role?: string; status?: string } | null
+    if (!staff || staff.status !== 'active') {
+      await kirimPesanTelegram(
+        chatId,
+        '⚠️ Akun Telegram Anda belum terhubung atau status staf tidak aktif. Silakan hubungi Admin atau gunakan tautan aktivasi.',
+        undefined,
+        'manager'
+      )
+      return NextResponse.json({ ok: true })
+    }
+
+    // Ambil daftar cabang binaan jika role Area Manager
+    let cabangBinaanTeks = ''
+    if (staff.role === 'area_manager' && staff.id) {
+      const { data: outlets } = await admin
+        .from('staff_outlets')
+        .select('outlet_id, outlets(name)')
+        .eq('staff_id', staff.id)
+      const namaCabang = ((outlets as unknown as Array<{ outlets?: { name?: string } }>) || [])
+        .map((o) => o.outlets?.name)
+        .filter(Boolean)
+      cabangBinaanTeks = namaCabang.length > 0
+        ? `\nCabang Binaan Anda: ${namaCabang.join(', ')}`
+        : '\nCabang Binaan: (Belum ada cabang binaan terdaftar)'
+    }
+
+    const baseUrl = process.env.HERMES_API_URL
+    const kunci = kunciProfil('manager')
+
+    if (!baseUrl || !kunci) {
+      await kirimPesanTelegram(
+        chatId,
+        '⚠️ Layanan asisten AI Hermes Manager sedang dalam proses pemeliharaan. Silakan coba beberapa saat lagi.',
+        undefined,
+        'manager'
+      )
+      return NextResponse.json({ ok: true })
+    }
+
+    const promptUser = `[Konteks Manajer: Nama: ${staff.name}, Role: ${staff.role}${cabangBinaanTeks}]\nPertanyaan: ${text}`
+
+    let jawabanAi = ''
+    try {
+      for await (const chunk of tanyaHermes({
+        baseUrl,
+        kunci,
+        profil: 'manager',
+        sesiId: `telegram-${fromId}`,
+        pesan: promptUser,
+      })) {
+        jawabanAi += chunk
+      }
+    } catch (e) {
+      console.error('[telegram-webhook] Error memanggil Hermes:', e)
+      jawabanAi = '⚠️ Terjadi kendala saat memproses jawaban dengan asisten AI operasional. Silakan coba lagi.'
+    }
+
+    if (jawabanAi.trim()) {
+      await kirimPesanTelegram(chatId, jawabanAi.trim(), undefined, 'manager')
+    }
+
+    return NextResponse.json({ ok: true })
   } catch (err: unknown) {
     console.error('[telegram-webhook] Error handling update:', err)
     return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : 'Unknown error' }, { status: 500 })

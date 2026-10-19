@@ -224,4 +224,33 @@ describe('POST /api/telegram/manager/webhook', () => {
       'manager'
     )
   })
+
+  it('menolak pertanyaan teks bebas jika akun belum terhubung', async () => {
+    const mockMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    const mockSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle }),
+    })
+    vi.mocked(supabaseAdmin).mockReturnValue({
+      from: vi.fn().mockReturnValue({ select: mockSelect }),
+    } as any)
+
+    const req = buatRequest({
+      update_id: 7,
+      message: {
+        message_id: 20,
+        from: { id: 777111 },
+        chat: { id: 777111, type: 'private' },
+        text: 'Berapa omzet cabang Jakal hari ini?',
+      },
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(kirimPesanTelegram).toHaveBeenCalledWith(
+      '777111',
+      expect.stringContaining('belum terhubung'),
+      undefined,
+      'manager'
+    )
+  })
 })

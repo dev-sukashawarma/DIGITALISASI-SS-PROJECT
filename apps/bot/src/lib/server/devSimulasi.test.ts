@@ -138,6 +138,13 @@ describe('buatJawabanDev', () => {
     expect(fullDiagnostik).toContain('Halo Rekan Tim Operasional')
     expect(fullDiagnostik).not.toContain('Arc Reactor Core')
     expect(fullDiagnostik).not.toContain('Sir')
+
+    const telemetriNolTelat = { ...mockTelemetri, stafTelat: [] }
+    const chunksPresensi = buatJawabanDev('ada yang telat ga hari ini', 'manager', telemetriNolTelat)
+    const fullPresensi = chunksPresensi.join('')
+    expect(fullPresensi).toContain('Seluruh kru outlet on-time hari ini, tidak ada keterlambatan di cabang')
+    expect(fullPresensi).toContain('Presensi & Kedisiplinan Kru')
+    expect(fullPresensi).not.toContain('Sir')
   })
 })
 

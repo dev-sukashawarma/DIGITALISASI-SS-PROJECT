@@ -28,6 +28,11 @@ describe('absensi_hari_ini', () => {
     expect(r.outlet.map((o: any) => o.outlet)).toEqual(['Kantor Pusat'])
     expect(await jalan('absensi_hari_ini', { outlet: 'bekasi' })).toMatchObject({ status: 'galat' })
   })
+  it('hanya_kru_outlet mengecualikan Kantor Pusat dari hasil hari_ini', async () => {
+    const r: any = await jalan('absensi_hari_ini', { hanya_kru_outlet: true })
+    expect(r.status).toBe('ok')
+    expect(r.outlet.some((o: any) => /kantor\s*pusat/i.test(o.outlet))).toBe(false)
+  })
 })
 
 describe('diambil_pukul_wib & petunjuk_tampilan', () => {

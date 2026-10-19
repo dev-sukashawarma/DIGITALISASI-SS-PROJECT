@@ -191,7 +191,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       ),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
         .eq('type', 'in')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
@@ -208,26 +208,47 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .limit(20),
       sb
         .from('leave_requests')
-        .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role)')
+        .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role, outlet_id)')
         .lte('start_date', tglStr)
         .gte('end_date', tglStr)
         .in('status', ['approved', 'pending'])
         .limit(50),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlets(name)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
         .eq('type', 'in')
         .neq('status', 'telat_toleransi')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
         .gt('telat_menit', 0)
         .order('telat_menit', { ascending: false })
-        .limit(15),
+        .limit(30),
     ])
 
     const rawOutlets = (resOutlets.data || []).filter((o: any) =>
       adalahOutletPenjualan(o.name, o.type, o.code)
     )
+    const validOutletIds = new Set(rawOutlets.map((o: any) => o.id))
+
+    const isOutletCabang = (a: any) => {
+      if (a.outlet_id && validOutletIds.has(a.outlet_id)) return true
+      const outName = a.outlets?.name || ''
+      const outType = a.outlets?.type || ''
+      const outCode = a.outlets?.code || ''
+      return adalahOutletPenjualan(outName, outType, outCode)
+    }
+
+    const ROLE_BUKAN_KRU_OUTLET = new Set([
+      'staff_pusat',
+      'admin_hr',
+      'admin_finance',
+      'purchasing',
+      'developer',
+      'admin',
+      'owner',
+      'mitra',
+      'kiosk',
+    ])
 
     const ringkasanHariIni = hitungRingkasan(ordersHariIni, rawOutlets, `Hari Ini (${tglStr})`, tglStr)
     const ringkasanKemarin = hitungRingkasan(ordersKemarin, rawOutlets, `Kemarin (${tglKemarinStr})`, tglKemarinStr)
@@ -245,8 +266,8 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 8)
 
-    // Kehadiran / HRD (hanya absensi masuk / clock-in, abaikan telat_toleransi)
-    const att = resAtt.data || []
+    // Kehadiran / HRD Kru Outlet (hanya clock-in di cabang operasional, abaikan telat_toleransi)
+    const att = (resAtt.data || []).filter(isOutletCabang)
     const kehadiranTotal = att.length
     const kehadiranTelat = att.filter(
       (a: any) =>
@@ -259,30 +280,46 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const totalOutletAktif = rawOutlets.length
     const bahanBaku = (resBahan.data || []).map((b: any) => ({ nama: b.nama, satuan: b.satuan }))
 
-    // Staf Cuti / Izin
-    const stafCutiIzin: StafCutiTelemetri[] = (resLeave.data || []).map((l: any) => ({
-      nama: l.outlet_staff?.name || 'Kru',
-      role: l.outlet_staff?.role || 'Staff',
-      jenis: l.leave_type || 'Cuti',
-      status: l.status || 'pending',
-      alasan: l.reason || '-',
-    }))
+    // Staf Cuti / Izin (khusus kru operasional outlet)
+    const stafCutiIzin: StafCutiTelemetri[] = (resLeave.data || [])
+      .filter((l: any) => {
+        const staff = l.outlet_staff
+        if (!staff) return false
+        const role = (staff.role || '').toLowerCase()
+        if (ROLE_BUKAN_KRU_OUTLET.has(role)) return false
+        if (staff.outlet_id && !validOutletIds.has(staff.outlet_id)) return false
+        return true
+      })
+      .map((l: any) => ({
+        nama: l.outlet_staff?.name || 'Kru',
+        role: l.outlet_staff?.role || 'Staff',
+        jenis: l.leave_type || 'Cuti',
+        status: l.status || 'pending',
+        alasan: l.reason || '-',
+      }))
 
-    // Staf Telat dengan Nama
-    const staffIds = (resLate.data || []).map((a: any) => a.outlet_staff_id).filter(Boolean)
+    // Staf Telat Kru Outlet
+    const lateFiltered = (resLate.data || []).filter(isOutletCabang)
+    const staffIds = lateFiltered.map((a: any) => a.outlet_staff_id).filter(Boolean)
     const { data: staffList } = staffIds.length > 0
-      ? await sb.from('outlet_staff').select('id, name').in('id', staffIds)
+      ? await sb.from('outlet_staff').select('id, name, role').in('id', staffIds)
       : { data: [] }
-    const staffMap: Record<string, string> = {}
+    const staffMap: Record<string, { name: string; role: string }> = {}
     for (const s of (staffList || []) as any[]) {
-      staffMap[s.id] = s.name
+      staffMap[s.id] = { name: s.name, role: s.role }
     }
 
-    const stafTelat: StafTelatTelemetri[] = (resLate.data || []).map((a: any) => ({
-      nama: staffMap[a.outlet_staff_id] || 'Kru',
-      outlet: a.outlets?.name || 'Cabang',
-      telatMenit: Number(a.telat_menit) || 0,
-    }))
+    const stafTelat: StafTelatTelemetri[] = lateFiltered
+      .filter((a: any) => {
+        const role = (staffMap[a.outlet_staff_id]?.role || '').toLowerCase()
+        return !ROLE_BUKAN_KRU_OUTLET.has(role)
+      })
+      .slice(0, 15)
+      .map((a: any) => ({
+        nama: staffMap[a.outlet_staff_id]?.name || 'Kru',
+        outlet: a.outlets?.name || 'Cabang',
+        telatMenit: Number(a.telat_menit) || 0,
+      }))
 
     return {
       tanggalWIB: tglStr,

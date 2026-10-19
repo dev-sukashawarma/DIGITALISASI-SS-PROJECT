@@ -146,23 +146,31 @@ export function buatJawabanDev(
         ? t.stafCutiIzin
             .map((c) => `- **${c.nama}** (${c.role}): ${c.jenis} [status: ${c.status}] - *Alasan: ${c.alasan}*`)
             .join('\n')
-        : '- *(Tidak ada kru tercatat izin/cuti hari ini)*'
+        : isManager
+          ? '- *(Tidak ada kru outlet tercatat izin/cuti hari ini)*'
+          : '- *(Tidak ada kru tercatat izin/cuti hari ini)*'
 
     const telatLines =
       t && t.stafTelat.length > 0
         ? t.stafTelat
             .map((s) => `- **${s.nama}** (\`${s.outlet}\`): terlambat **${s.telatMenit} menit**`)
             .join('\n')
-        : '- *(Seluruh kru on-time hari ini)*'
+        : isManager
+          ? '- *(Seluruh kru outlet on-time hari ini, tidak ada keterlambatan di cabang)*'
+          : '- *(Seluruh kru on-time hari ini)*'
 
     const headerHR = isManager
       ? `Mengakses data **Presensi & Kedisiplinan Kru** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`
       : `Mengakses data satelit **HRD & Workforce Management** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`
 
+    const feedNote = isManager
+      ? '> **LIVE ATTENDANCE FEED**: Menampilkan data presensi kru di outlet cabang hari ini (khusus kru operasional outlet, tidak mencakup kantor pusat).\n\n'
+      : '> **LIVE ATTENDANCE FEED**: Menampilkan data presensi kru di outlet hari ini dari sistem absensi geofencing.\n\n'
+
     return [
       headerHR,
       '> [!NOTE]\n',
-      `> **LIVE ATTENDANCE FEED**: Menampilkan data presensi kru di outlet hari ini dari sistem absensi geofencing.\n\n`,
+      feedNote,
       '### 👥 Status Presensi Hari Ini\n',
       `- **Total Aktivitas Presensi**: **${totalAtt} catatan clock-in/out**\n`,
       `- **Tingkat Tepat Waktu (On-Time)**: **${onTimeRate}%** (${onTimeCount} tepat waktu)\n`,

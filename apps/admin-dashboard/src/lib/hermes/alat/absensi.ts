@@ -6,6 +6,10 @@ import { type DataLaporanAbsensi, teksLaporanAbsensiHarian } from '../laporanPag
 
 const TGL = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'format YYYY-MM-DD')
 const OUTLET = z.string().min(1).max(60).describe('Nama outlet (sebagian nama boleh). Kosong = semua lokasi.')
+const HANYA_KRU_OUTLET = z
+  .boolean()
+  .optional()
+  .describe('Jika true, hanya menyertakan outlet cabang operasional (mengabaikan Kantor Pusat dan HQ).')
 const CATATAN_ALPA =
   'Alpa sudah mengecualikan cuti/izin/sakit yang disetujui, hari libur role kantor (Minggu & tanggal merah), dan Off di Shift Roster.'
 const SUMBER_PAPAN = 'Papan Kehadiran (app absensi)'
@@ -23,13 +27,16 @@ const PETUNJUK_REKAP = 'Tampilkan per lokasi sebagai tabel suka-ui (kolom: Lokas
 const galat = (pesan: string) => ({ status: 'galat', pesan })
 const selisihHari = (dari: string, sampai: string) => (Date.parse(sampai) - Date.parse(dari)) / 86_400_000
 
-async function hariIni(ctx: KonteksHermes, a: { tanggal?: string; outlet?: string }) {
+async function hariIni(ctx: KonteksHermes, a: { tanggal?: string; outlet?: string; hanya_kru_outlet?: boolean }) {
   const tanggal = a.tanggal ?? ctx.absensi.hariIni
   if (tanggal > ctx.absensi.hariIni) return galat('Tanggal di masa depan.')
   const pilih = pilihOutlet(await ctx.absensi.outlets(), a.outlet)
   if (!pilih.ok) return galat(pilih.pesan)
   const ids = new Set(pilih.outlets.map((o) => o.id))
-  const papan = (await ctx.absensi.papan(tanggal)).filter((p) => ids.has(p.outlet.id))
+  let papan = (await ctx.absensi.papan(tanggal)).filter((p) => ids.has(p.outlet.id))
+  if (a.hanya_kru_outlet) {
+    papan = papan.filter((p) => !/kantor\s*pusat|hq/i.test(p.outlet.name) && p.outlet.type !== 'office')
+  }
   const total = { hadir: 0, telat: 0, telat_toleransi: 0, belum: 0, alpa: 0, cuti: 0, libur: 0, staf: 0 }
   const outlet = papan.map((p) => {
     total.hadir += p.ringkas.hadir
@@ -55,8 +62,12 @@ async function hariIni(ctx: KonteksHermes, a: { tanggal?: string; outlet?: strin
   return dgn(ctx, { status: 'ok', tanggal, total, outlet, petunjuk_tampilan: PETUNJUK_HARI_INI })
 }
 
-async function rekapDasar(ctx: KonteksHermes, dari: string, sampai: string, teksOutlet?: string) {
-  const pilih = pilihOutlet(await ctx.absensi.outlets(), teksOutlet)
+async function rekapDasar(ctx: KonteksHermes, dari: string, sampai: string, teksOutlet?: string, hanyaKruOutlet?: boolean) {
+  let daftarOutlets = await ctx.absensi.outlets()
+  if (hanyaKruOutlet) {
+    daftarOutlets = daftarOutlets.filter((o) => !/kantor\s*pusat|hq/i.test(o.name) && o.type !== 'office')
+  }
+  const pilih = pilihOutlet(daftarOutlets, teksOutlet)
   if (!pilih.ok) return { galat: pilih.pesan } as const
   const [stafMap, rekap] = await Promise.all([ctx.absensi.stafPerOutlet(), ctx.absensi.rekapStaf(dari, sampai)])
   const perStaf = new Map(rekap.map((r) => [r.staffId, r]))
@@ -78,11 +89,11 @@ async function rekapDasar(ctx: KonteksHermes, dari: string, sampai: string, teks
   return { outlets: pilih.outlets, baris, hariDinilai: jumlahHariRekap(dari, sampai, hariIniStr) } as const
 }
 
-async function rekap(ctx: KonteksHermes, a: { dari?: string; sampai?: string; outlet?: string }) {
+async function rekap(ctx: KonteksHermes, a: { dari?: string; sampai?: string; outlet?: string; hanya_kru_outlet?: boolean }) {
   const sampai = a.sampai ?? ctx.absensi.hariIni
   const dari = a.dari ?? `${sampai.slice(0, 8)}01`
   if (dari > sampai) return galat('Tanggal "dari" setelah "sampai".')
-  const d = await rekapDasar(ctx, dari, sampai, a.outlet)
+  const d = await rekapDasar(ctx, dari, sampai, a.outlet, a.hanya_kru_outlet)
   if ('galat' in d) return galat(d.galat!)
   const outlet = d.outlets.map((o) => {
     const b = d.baris.filter((x) => x.outlet === o.name)
@@ -98,10 +109,10 @@ async function rekap(ctx: KonteksHermes, a: { dari?: string; sampai?: string; ou
   return dgn(ctx, { status: 'ok', dari, sampai, hari_dinilai: d.hariDinilai, outlet, petunjuk_tampilan: PETUNJUK_REKAP })
 }
 
-async function telatBulanIni(ctx: KonteksHermes, a: { outlet?: string }) {
+async function telatBulanIni(ctx: KonteksHermes, a: { outlet?: string; hanya_kru_outlet?: boolean }) {
   const sampai = ctx.absensi.hariIni
   const dari = `${sampai.slice(0, 8)}01`
-  const d = await rekapDasar(ctx, dari, sampai, a.outlet)
+  const d = await rekapDasar(ctx, dari, sampai, a.outlet, a.hanya_kru_outlet)
   if ('galat' in d) return galat(d.galat!)
   const orang = d.baris
     .filter((x) => x.telat + x.telat_toleransi + x.alpa > 0)
@@ -224,7 +235,7 @@ export const ALAT_ABSENSI: DefinisiAlat[] = [
     sumber: SUMBER_PAPAN,
     catatanMeta: CATATAN_ALPA,
     deskripsi: 'Kehadiran satu hari (default hari ini) per lokasi: ringkasan, siapa telat (menit), siapa belum hadir, siapa alpa. Angka = Papan Kehadiran.',
-    skema: z.object({ tanggal: TGL.optional(), outlet: OUTLET.optional() }).strict(),
+    skema: z.object({ tanggal: TGL.optional(), outlet: OUTLET.optional(), hanya_kru_outlet: HANYA_KRU_OUTLET }).strict(),
     contoh: {},
     jalankan: hariIni,
   },
@@ -235,7 +246,7 @@ export const ALAT_ABSENSI: DefinisiAlat[] = [
     catatanMeta: CATATAN_ALPA,
     deskripsi: 'Rekap absensi rentang tanggal (default awal bulan s/d hari ini, maks 62 hari) per lokasi: jumlah staf, telat, telat toleransi, alpa. Angka = Rekap Absensi.',
     skema: z
-      .object({ dari: TGL.optional(), sampai: TGL.optional(), outlet: OUTLET.optional() })
+      .object({ dari: TGL.optional(), sampai: TGL.optional(), outlet: OUTLET.optional(), hanya_kru_outlet: HANYA_KRU_OUTLET })
       .strict()
       .refine((a) => !a.dari || !a.sampai || selisihHari(a.dari, a.sampai) <= 61, 'rentang maksimal 62 hari'),
     contoh: { dari: '2026-10-01', sampai: '2026-10-07' },
@@ -247,7 +258,7 @@ export const ALAT_ABSENSI: DefinisiAlat[] = [
     sumber: SUMBER_REKAP,
     catatanMeta: CATATAN_ALPA,
     deskripsi: 'Daftar orang yang telat atau alpa bulan berjalan (awal bulan s/d hari ini), urut telat terbanyak: jumlah telat, telat toleransi, total menit telat, alpa.',
-    skema: z.object({ outlet: OUTLET.optional() }).strict(),
+    skema: z.object({ outlet: OUTLET.optional(), hanya_kru_outlet: HANYA_KRU_OUTLET }).strict(),
     contoh: {},
     jalankan: telatBulanIni,
   },

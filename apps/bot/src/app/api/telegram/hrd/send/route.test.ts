@@ -1,7 +1,14 @@
 import { POST } from './route'
 import { kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
 
-vi.mock('@/lib/server/telegram', () => ({ kirimPesanTelegram: vi.fn(), supabaseAdmin: vi.fn() }))
+vi.mock('@/lib/server/telegram', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/server/telegram')>('@/lib/server/telegram')
+  return {
+    ...actual,
+    kirimPesanTelegram: vi.fn(),
+    supabaseAdmin: vi.fn(),
+  }
+})
 const id = '20000000-0000-0000-0000-000000000001'
 const payload = { user_id: id, title: 'Terlambat', body: '16 menit' }
 function request(body: unknown = payload, secret = 'test-secret') {
@@ -56,6 +63,11 @@ it.each(['admin_hr', 'developer'])('uses the HRD profile and checks hrd access f
   expect(await (await POST(request({ ...payload, url: 'https://example.com' }))).json()).toEqual({ delivered: true })
   expect(filters).toContainEqual(['hermes_bot_user_access', 'bot_slug', 'hrd'])
   expect(kirimPesanTelegram).toHaveBeenCalledWith('123', 'Terlambat\n\n16 menit', 'https://hr.sukashawarma.com/attendance', 'hrd')
+})
+it('accepts allowed hr application urls for inline button', async () => {
+  database('admin_hr')
+  expect(await (await POST(request({ ...payload, url: 'https://hr.sukashawarma.com/perizinan/kasbon' }))).json()).toEqual({ delivered: true })
+  expect(kirimPesanTelegram).toHaveBeenCalledWith('123', 'Terlambat\n\n16 menit', 'https://hr.sukashawarma.com/perizinan/kasbon', 'hrd')
 })
 it('returns a retryable status when lookup fails', async () => {
   database('admin_hr', 'active', true, true, true)

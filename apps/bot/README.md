@@ -217,7 +217,10 @@ Bot HRD memiliki jalur terpisah `/api/telegram/hrd/send` untuk admin HR dan deve
 Telegram. Migration `20300254002900_hrd_telegram_alerts.sql` menambahkan alert
 keterlambatan **lebih dari 15 menit** dan rekap pemeriksaan harian pukul 09.00 WIB
 (absensi tidak lengkap, alfa, izin tertunda, kontrak mendekati akhir). Terapkan juga
-`20300254003100_hrd_developer_alert_recipients.sql` untuk penerima developer.
+`20300254003100_hrd_developer_alert_recipients.sql` untuk penerima developer, serta
+`20300254004300_hrd_leave_and_cash_advance_alerts.sql` untuk alert pengajuan cuti/izin baru,
+pengajuan kasbon baru, penambahan kasbon pending di rekap 09.00 WIB, dan sinkronisasi
+katalog trigger.
 Panduan perilaku, konfigurasi `TELEGRAM_HRD_BOT_TOKEN`/`TELEGRAM_HRD_SEND_SECRET`,
 Vault, verifikasi dan rollback tersedia di
 [`docs/hermes/ALERT-HRD.md`](../../docs/hermes/ALERT-HRD.md).

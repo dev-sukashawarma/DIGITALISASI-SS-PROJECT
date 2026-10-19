@@ -27,7 +27,7 @@ export async function stafBolehPakaiBotApaPun(staffId: string): Promise<boolean>
   return !!access?.length || !!stokis?.length
 }
 
-export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi' | 'manager'): string | null {
+export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi' | 'manager' | 'hr'): string | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value !== 'string' || value.length > 500) return null
   try {

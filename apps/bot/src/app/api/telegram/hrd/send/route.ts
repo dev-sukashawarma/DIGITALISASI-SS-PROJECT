@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
-import { kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
+import { kirimPesanTelegram, supabaseAdmin, urlAplikasiDiizinkan } from '@/lib/server/telegram'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,8 +17,9 @@ export async function POST(request: Request) {
     || typeof input?.body !== 'string' || !input.body.trim() || input.body.length > 1200) {
     return NextResponse.json({ error: 'Payload tidak valid.' }, { status: 400 })
   }
-  // Fixed HR destination: payloads cannot redirect confidential alerts elsewhere.
-  const url = 'https://hr.sukashawarma.com/attendance'
+  // Safe HR destination: payloads cannot redirect confidential alerts outside hr.sukashawarma.com.
+  const rawUrl = typeof input?.url === 'string' ? input.url : null
+  const url = urlAplikasiDiizinkan(rawUrl, 'hr') || 'https://hr.sukashawarma.com/attendance'
   try {
     const admin = supabaseAdmin(3_000)
     const results = await Promise.all([

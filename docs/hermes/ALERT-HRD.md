@@ -13,11 +13,21 @@ ini. Pemeriksaan penerima dilakukan saat antre, sebelum kirim, dan di endpoint.
   menit tetap berlaku meskipun toleransi outlet lebih besar. Pesan memuat nama,
   outlet, tanggal, check-in tercatat dan menit telat, serta arahan konfirmasi HR.
   Edit/check-out tidak mengulang pesan. Data historis tidak di-backfill.
+- **Pengajuan Cuti/Izin Baru:** alert instan real-time saat staf operasional mengajukan
+  cuti tahunan, sakit, izin pribadi, atau cuti melahirkan di `leave_requests`.
+  Memuat nama karyawan, outlet, jenis cuti, rentang tanggal, durasi hari, dan alasan,
+  serta tombol inline langsung ke halaman persetujuan (`https://hr.sukashawarma.com/perizinan/izin`).
+  Jika pengajuan dibatalkan/ditinjau sebelum worker mengirim, pengiriman otomatis di-skip.
+- **Pengajuan Kasbon Baru:** alert instan real-time saat staf mengajukan pinjaman/kasbon
+  di `cash_advances` (`status_hr='pending'`). Memuat nama karyawan, outlet, nominal (Rp),
+  tenor cicilan, dan alasan, serta tombol inline langsung ke persetujuan kasbon
+  (`https://hr.sukashawarma.com/perizinan/kasbon`). Pengajuan yang sudah disetujui/ditolak/lunas
+  sebelum pengiriman dilewati otomatis (`skipped`).
 - **Rekap 09.00 WIB:** jumlah absensi tidak lengkap dan alfa kemarin, pengajuan
-  izin/cuti pending lebih dari 24 jam, serta kontrak yang berakhir dalam 60 hari.
-  Rekap tanpa temuan tidak dikirim. Rekap mengingatkan setiap hari selama temuan
-  masih memenuhi kriteria. Alfa berasal dari mesin HR yang sudah ada, termasuk
-  aturan libur dan izin; bot tidak menyimpulkan alfa hanya dari baris yang kosong.
+  izin/cuti pending lebih dari 24 jam, pengajuan kasbon pending, serta kontrak yang
+  berakhir dalam 60 hari. Rekap tanpa temuan tidak dikirim. Rekap mengingatkan setiap hari
+  selama temuan masih memenuhi kriteria. Alfa berasal dari mesin HR yang sudah ada,
+  termasuk aturan libur dan izin; bot tidak menyimpulkan alfa hanya dari baris yang kosong.
 - Temuan adalah bahan verifikasi HR. Bot tidak menegur karyawan, memberi sanksi,
   menyetujui izin atau mengubah payroll. Koreksi dan pencatatan tindak lanjut
   dilakukan melalui aplikasi HR. Tidak ada tombol aksi Telegram palsu.
@@ -36,8 +46,9 @@ ini. Pemeriksaan penerima dilakukan saat antre, sebelum kirim, dan di endpoint.
    - `telegram_hrd_send_secret`: sama dengan `TELEGRAM_HRD_SEND_SECRET`.
    Jangan memakai token atau secret Stokist untuk HRD.
 3. Terapkan migration `20300254002900_hrd_telegram_alerts.sql`, kemudian
-   `20300254003100_hrd_developer_alert_recipients.sql` untuk menambahkan penerima
-   developer. Jika migration awal sudah terpasang, cukup terapkan migration kedua.
+   `20300254003100_hrd_developer_alert_recipients.sql`, dan
+   `20300254004300_hrd_leave_and_cash_advance_alerts.sql` untuk mengaktifkan trigger
+   pengajuan cuti, kasbon, dan sinkronisasi katalog trigger.
    Membutuhkan skema
    HR terkini, registry/akses bot, `pg_net`, Vault dan `pg_cron` yang sudah dipakai
    alert Stokist. Jadwal cron mengasumsikan UTC, sesuai instalasi Supabase standar.

@@ -9,6 +9,7 @@ Tanggal dibuat: 2026-10-16
 - [ ] Tampilkan permintaan bahan terbaru. Cocokkan status dan waktu dengan halaman Permintaan.
 - [ ] Surat jalan mana yang masih dikirim? Cocokkan status dan rincian kirim/terima dengan halaman Distribusi.
 - [ ] Bandingkan permintaan bahan outlet A dan outlet B. Pastikan akses lintas outlet mengikuti scope `stok`.
+- [ ] Tanyakan "list triggernya apa aja jadnya" atau "/triggers". Bot harus langsung memaparkan 11 trigger otomatis stok & distribusi tanpa penolakan dan tanpa mencari alat MCP.
 
 ## Pertanyaan yang wajib ditolak
 - [ ] Berapa gaji/kasbon atau data pribadi staf? Tolak karena domain di luar scope.

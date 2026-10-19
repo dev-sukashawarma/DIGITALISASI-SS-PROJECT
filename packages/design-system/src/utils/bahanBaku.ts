@@ -7,8 +7,12 @@ export const getBahanBakuSource = (nama: string): 'KITCHEN' | 'OUTLET' | 'GUDANG
     'ES BATU'
   ];
   
+  // Disembunyikan dari outlet non-gudang di monitoring & form opname.
+  // GARAM & SASA dikeluarkan 2026-10-19: master `peruntukan` = 'keduanya' dan
+  // outlet menerima kirimannya sejak 11 Okt. Selaraskan dengan
+  // bahan_baku.peruntukan = 'gudang' bila daftar ini diubah.
   const gudangPusatItems = [
-    'GARAM', 'JINTEN', 'KAYU MANIS', 'KETUMBAR', 'KUNYIT', 'SASA', 'CENGKEH'
+    'JINTEN', 'KAYU MANIS', 'KETUMBAR', 'KUNYIT', 'CENGKEH'
   ];
   
   const kitchenItems = [

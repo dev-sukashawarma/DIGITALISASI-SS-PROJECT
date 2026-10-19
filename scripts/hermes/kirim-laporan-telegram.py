@@ -55,10 +55,8 @@ ENV_PATHS = [
     (pathlib.Path.home() / ".hermes" / "profiles" / "ceo" / ".env") if str(pathlib.Path.home()) != "/root" else None,
     (pathlib.Path.home() / ".hermes" / "profiles" / "marcom" / ".env") if str(pathlib.Path.home()) != "/root" else None,
     (pathlib.Path.home() / ".hermes" / ".env") if str(pathlib.Path.home()) != "/root" else None,
-    # 4. Fallback root (prioritas terendah agar tidak tertukar dengan bot Rendy)
-    pathlib.Path("/root/.hermes/profiles/ceo/.env"),
-    pathlib.Path("/root/.hermes/.env"),
-    # 5. Direktori project lokal / CWD
+    # PERHATIAN: /root/.hermes/.env DIHAPUS agar TIDAK PERNAH memakai bot Bang Hermes (Rendy)
+    # 4. Direktori project lokal / CWD
     pathlib.Path.cwd() / ".env",
     pathlib.Path(__file__).resolve().parent.parent.parent / ".env",
 ]
@@ -104,6 +102,9 @@ def kumpulkan_konfigurasi(custom_env_file=None) -> dict:
 
     konfigurasi["_SUMBER_TERMUAT"] = sumber_termuat
 
+    user_sekarang = os.environ.get("USER") or os.environ.get("USERNAME") or ""
+    abaikan_root_tg = (user_sekarang == "root" and not custom_env_file and "TELEGRAM_BOT_TOKEN" in konfigurasi)
+
     for k in [
         "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TELEGRAM_OWNER_CHAT_ID",
         "TELEGRAM_ALLOWED_USERS", "TELEGRAM_HOME_CHANNEL",
@@ -112,6 +113,8 @@ def kumpulkan_konfigurasi(custom_env_file=None) -> dict:
         "SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"
     ]:
         if os.environ.get(k):
+            if k == "TELEGRAM_BOT_TOKEN" and abaikan_root_tg:
+                continue
             konfigurasi[k] = os.environ[k]
 
     return konfigurasi

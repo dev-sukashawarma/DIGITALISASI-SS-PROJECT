@@ -78,6 +78,19 @@ case "$ACTION" in
     log_ok "Semua timer laporan berhasil dinonaktifkan."
     exit 0
     ;;
+  --clean-root|--bersihkan-root|clean-root)
+    log_warn "Menonaktifkan dan menghapus seluruh timer suka-laporan dari user ROOT..."
+    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+    systemctl --user disable --now suka-laporan-* 2>/dev/null || true
+    rm -f ~/.config/systemd/user/suka-laporan-* 2>/dev/null || true
+    rm -f ~/bin/kirim-laporan-telegram.py 2>/dev/null || true
+    systemctl --user daemon-reload 2>/dev/null || true
+    log_ok "Seluruh timer & executable di user ROOT berhasil dibersihkan."
+    log_info "Pastikan timer resmi hanya berjalan di user 'suka-hermes':"
+    echo "  su - suka-hermes"
+    echo "  bash ~/bin/pasang-cron-laporan.sh --status"
+    exit 0
+    ;;
 esac
 
 echo -e "\n${BOLD}${BIRU}======================================================${NC}"
@@ -86,8 +99,14 @@ echo -e "${BOLD}${BIRU}======================================================${N
 
 USER_SEKARANG=$(id -un || whoami)
 if [ "$USER_SEKARANG" = "root" ]; then
-  log_warn "Skrip berjalan sebagai ROOT. Bot Suka Shawarma seharusnya berada di user 'suka-hermes'."
-  log_warn "Pertimbangkan berpindah user: 'su - suka-hermes'"
+  log_err "DILARANG memasang cron job laporan sebagai ROOT!"
+  log_err "Menjalankan timer di root menyebabkan bot Bang Hermes (Rendy) ikut mengirim laporan duplikat."
+  echo ""
+  echo "Langkah perbaikan:"
+  echo "  1. Bersihkan timer root  : $0 --clean-root"
+  echo "  2. Pindah ke suka-hermes : su - suka-hermes"
+  echo "  3. Pasang timer resmi    : bash ~/bin/pasang-cron-laporan.sh"
+  exit 1
 fi
 
 # 1. Pastikan direktori tujuan ada

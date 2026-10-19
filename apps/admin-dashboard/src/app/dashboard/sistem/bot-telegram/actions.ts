@@ -230,3 +230,31 @@ export async function ubahStatusInviteCode(id: string, isActive: boolean) {
   return { ok: true }
 }
 
+export async function daftarkanCommandBotTelegram(botToken: string) {
+  await requireRole(['owner', 'admin'])
+  const token = botToken.trim()
+  if (!/^\d{8,12}:[A-Za-z0-9_-]{30,50}$/.test(token)) {
+    return { error: 'Format token bot Telegram tidak valid. Contoh: 123456789:AAFnk...' }
+  }
+  const commands = [
+    { command: 'start', description: 'Mulai bot & aktivasi akun' },
+    { command: 'help', description: 'Panduan & 10 trigger alert operasional' },
+    { command: 'new', description: 'Mulai sesi percakapan baru' },
+    { command: 'id', description: 'Lihat info akun Telegram Anda' },
+  ]
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands }),
+    })
+    const json = await res.json()
+    if (!json.ok) {
+      return { error: `Telegram Bot API: ${json.description || 'Gagal mendaftarkan menu commands'}` }
+    }
+    return { ok: true }
+  } catch (err: unknown) {
+    return { error: `Jaringan error: ${err instanceof Error ? err.message : 'Unknown'}` }
+  }
+}
+

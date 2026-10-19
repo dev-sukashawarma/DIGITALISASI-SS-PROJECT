@@ -12,6 +12,7 @@ import {
   ubahStatusWhitelist,
   hapusWhitelist,
   ubahStatusInviteCode,
+  daftarkanCommandBotTelegram,
 } from './actions'
 
 type Bot = { slug: string; nama: string; bot_username?: string | null }
@@ -77,6 +78,8 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
   const [manualTgId, setManualTgId] = useState('')
   const [manualNama, setManualNama] = useState('')
   const [manualCatatan, setManualCatatan] = useState('')
+  const [showSyncCommands, setShowSyncCommands] = useState(false)
+  const [tokenCommandsInput, setTokenCommandsInput] = useState('')
 
   const [telegramIds, setTelegramIds] = useState<Record<string, string>>(
     () => Object.fromEntries(initialStaff.map((row) => [row.id, row.telegramUserId ?? '']))
@@ -229,6 +232,27 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
     setTimeout(() => setCopiedCode(null), 2500)
   }
 
+  async function handleSyncCommands() {
+    if (!tokenCommandsInput.trim()) {
+      setError('Masukkan token bot dari @BotFather terlebih dahulu.')
+      return
+    }
+    setBusy('sync_commands')
+    setError(null)
+    setSuccessMsg(null)
+    try {
+      const res = await daftarkanCommandBotTelegram(tokenCommandsInput)
+      if (res.error) throw new Error(res.error)
+      setSuccessMsg('✅ Menu slash commands (/start, /help, /new, /id) berhasil didaftarkan ke Telegram!')
+      setShowSyncCommands(false)
+      setTokenCommandsInput('')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Gagal mendaftarkan menu commands.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   async function changeAccess(row: Staff) {
     const botSlug = selectedBot
     const enabled = !access.some((item) => item.botSlug === botSlug && item.staffId === row.id)
@@ -338,6 +362,80 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
               </button>
             </div>
             <span className="text-xs text-gray-400">(Wajib diisi agar tautan undangan langsung membuka Telegram bot yang sesuai)</span>
+          </div>
+        )}
+
+        {/* Menu Slash Commands Helper */}
+        {selectedBot && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+            <span className="text-xs font-medium text-gray-500">Menu Slash Commands:</span>
+            <button
+              type="button"
+              onClick={() => setShowSyncCommands((curr) => !curr)}
+              className="rounded-md border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              📋 {showSyncCommands ? 'Tutup Pengaturan Menu' : 'Sinkronkan Menu Perintah (/) Telegram'}
+            </button>
+            <span className="text-xs text-gray-400">
+              (Agar menu perintah otomatis muncul saat user mengetik &apos;/&apos; di Telegram)
+            </span>
+          </div>
+        )}
+
+        {showSyncCommands && selectedBot && (
+          <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+            <h4 className="text-sm font-semibold text-blue-900">
+              Sinkronisasi Menu Slash Commands untuk {currentBot?.nama}
+            </h4>
+            <p className="mt-1 text-xs text-blue-700">
+              Telegram memerlukan pendaftaran perintah agar saat pengguna mengetik <code className="bg-blue-100 px-1 rounded">/</code>, daftar pilihan perintah muncul otomatis di aplikasi.
+            </p>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-md border border-gray-200 bg-white p-3">
+                <span className="text-xs font-semibold text-gray-700">Cara 1: Otomatis via Token Bot</span>
+                <p className="mt-1 text-xs text-gray-500">Masukkan token bot Telegram Anda dari @BotFather:</p>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="password"
+                    placeholder="mis. 7123456789:AAFnk..."
+                    value={tokenCommandsInput}
+                    onChange={(e) => setTokenCommandsInput(e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSyncCommands}
+                    disabled={busy === 'sync_commands'}
+                    className="rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {busy === 'sync_commands' ? 'Memproses...' : 'Daftarkan'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-gray-200 bg-white p-3">
+                <span className="text-xs font-semibold text-gray-700">Cara 2: Manual via @BotFather</span>
+                <p className="mt-1 text-xs text-gray-500">
+                  Kirim <code className="bg-gray-100 px-1 rounded">/setcommands</code> ke <b>@BotFather</b>, pilih bot Anda, lalu salin teks ini:
+                </p>
+                <div className="mt-2">
+                  <pre className="rounded bg-gray-50 p-2 text-[11px] text-gray-700 overflow-x-auto select-all">
+{`start - Mulai bot & aktivasi akun
+help - Panduan & 10 trigger alert operasional
+new - Mulai percakapan / sesi baru
+id - Cek info User ID & Chat ID Anda`}
+                  </pre>
+                  <button
+                    type="button"
+                    onClick={() => salinTeks(`start - Mulai bot & aktivasi akun\nhelp - Panduan & 10 trigger alert operasional\nnew - Mulai percakapan / sesi baru\nid - Cek info User ID & Chat ID Anda`, 'botfather_cmds')}
+                    className="mt-1 text-xs font-medium text-blue-600 hover:underline"
+                  >
+                    {copiedCode === 'botfather_cmds' ? '✅ Tersalin!' : '📋 Salin Teks Perintah'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

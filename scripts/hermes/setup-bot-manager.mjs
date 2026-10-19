@@ -61,7 +61,28 @@ async function main() {
 
     console.log('      ✅ Webhook BERHASIL didaftarkan!')
 
-    console.log('\n[2/2] 🔍 Memeriksa Status Webhook di Telegram...')
+    console.log('\n[2/3] 📋 Mendaftarkan Menu Perintah (Slash Commands)...')
+    const commandsPayload = {
+      commands: [
+        { command: 'start', description: 'Mulai bot & aktivasi akun' },
+        { command: 'help', description: 'Panduan & 10 trigger alert operasional' },
+        { command: 'new', description: 'Mulai sesi percakapan baru' },
+        { command: 'id', description: 'Lihat ID & info akun Telegram' },
+      ],
+    }
+    const cmdRes = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(commandsPayload),
+    })
+    const cmdJson = await cmdRes.json()
+    if (cmdJson.ok) {
+      console.log('      ✅ Menu Slash Commands BERHASIL didaftarkan ke Telegram!')
+    } else {
+      console.log(`      ⚠️ Gagal daftarkan commands: ${cmdJson.description || 'Unknown'}`)
+    }
+
+    console.log('\n[3/3] 🔍 Memeriksa Status Webhook di Telegram...')
     const infoRes = await fetch(`https://api.telegram.org/bot${token}/getWebhookInfo`)
     const info = await infoRes.json()
 

@@ -3435,6 +3435,16 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 
 ---
 
-**Last updated:** 2026-10-12  
+## Session 2026-10-19: Resep Extra Keju 1 → 2 lembar (DB)
+
+**Status:** ✅ LIVE — migration `20261019100000_extra_keju_2_lembar` applied, terstempel, diverifikasi (asersi + kontrol negatif). Nol app perlu redeploy.
+
+- Keluhan: opname KEJU selalu minus. Dicek ke ledger 1–18 Okt: **Suka Beef & Suka Chicken (dan paket berisinya) sudah benar 2 lembar** (−2/−4 per order). Yang kurang hanya **Extra Keju** (resep 1 lembar, nyatanya 2; ±1.100 porsi Okt). Minus opname per outlet sebanding jumlah Extra Keju terjual.
+- Berlaku ke depan saja (keputusan owner); ledger historis tak disentuh. `hpp_override` Extra Keju (3.850) tak diubah; HPP resep naik Rp 1.204 → Rp 2.409.
+- Suka Fried Chicken & Suka Samyang **tidak** memakai keju di resep — angka opname tak menunjukkan kekurangan dari sana, jadi dibiarkan.
+
+---
+
+**Last updated:** 2026-10-19  
 **Owner:** Dev Suka Shawarma
 

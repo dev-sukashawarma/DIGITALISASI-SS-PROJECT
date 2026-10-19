@@ -320,8 +320,9 @@ export async function createOrReuseOpnameDraftAction(
     ]
     const isCatchupException = CATCHUP_OUTLETS_SEP5.includes(outletId) && (todayWIB === '2026-09-05' || todayWIB === '2026-09-06')
     const isPamulangException = (todayWIB === '2026-09-24' || todayWIB === '2026-09-25') && outletId === 'bba67dba-2dca-4e98-bdb2-6a9e265e288c'
+    const isPekayonException = (todayWIB === '2026-10-18' || todayWIB === '2026-10-19') && outletId === '550e8400-e29b-41d4-a716-446655440018'
 
-    if (existing && existing.status === 'finalized' && (isOutletTes || isEmpangException || isJatiwaringinException || isCicurugException || isCatchupException || isPamulangException)) {
+    if (existing && existing.status === 'finalized' && (isOutletTes || isEmpangException || isJatiwaringinException || isCicurugException || isCatchupException || isPamulangException || isPekayonException)) {
       // Jika sudah ada draft (mis. ad_hoc) yang sedang aktif, reuse draft tersebut
       const { data: activeDraft } = await serviceClient.from('opname')
         .select('*')

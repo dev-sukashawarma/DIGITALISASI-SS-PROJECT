@@ -163,4 +163,38 @@ describe('getEffectiveTodayWIB', () => {
     const effectiveDate = await getEffectiveTodayWIB(PAMULANG_ID, mockSupabase)
     expect(effectiveDate).toBe('2026-09-25')
   })
+
+  const PEKAYON_ID = '550e8400-e29b-41d4-a716-446655440018'
+
+  it('returns 2026-10-18 for Pekayon on 2026-10-19 when Oct 18 finalized opnames count < 1 (not finalized yet)', async () => {
+    vi.setSystemTime(new Date('2026-10-19T04:00:00.000Z')) // 11:00 WIB
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnThis(),
+          then: (resolve: any) => resolve({ count: 0, error: null }),
+        }),
+      }),
+    }
+
+    const effectiveDate = await getEffectiveTodayWIB(PEKAYON_ID, mockSupabase)
+    expect(effectiveDate).toBe('2026-10-18')
+  })
+
+  it('returns 2026-10-19 for Pekayon on 2026-10-19 when Oct 18 finalized opnames count is 1', async () => {
+    vi.setSystemTime(new Date('2026-10-19T04:00:00.000Z')) // 11:00 WIB
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnThis(),
+          then: (resolve: any) => resolve({ count: 1, error: null }),
+        }),
+      }),
+    }
+
+    const effectiveDate = await getEffectiveTodayWIB(PEKAYON_ID, mockSupabase)
+    expect(effectiveDate).toBe('2026-10-19')
+  })
 })

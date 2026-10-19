@@ -44,7 +44,7 @@ export default function PanelSetelanNayra({
             <Sliders className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="text-xs font-bold text-stone-900">Pengaturan Nayra Bot</h4>
+            <h4 className="text-xs font-bold text-stone-900">Pengaturan Suka-Chan Bot</h4>
             <p className="text-[10px] text-stone-500">Sesuaikan ukuran avatar & tampilan</p>
           </div>
         </div>
@@ -150,7 +150,7 @@ export default function PanelSetelanNayra({
           className="w-full py-2.5 px-3 rounded-xl bg-white border border-[#EFE8DE] hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
         >
           <RotateCcw className="w-3.5 h-3.5 text-stone-500" />
-          <span>Kembalikan Posisi Nayra ke Pojok Layar</span>
+          <span>Kembalikan Posisi Suka-Chan ke Pojok Layar</span>
         </button>
 
         <button

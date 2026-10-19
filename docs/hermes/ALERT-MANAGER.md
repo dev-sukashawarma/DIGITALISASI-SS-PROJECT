@@ -1,10 +1,20 @@
 # Alert Telegram Bot Manager (Area Manager & Regional Manager)
 
-Penerima alert adalah staf aktif dengan role database `area_manager`, `regional_manager`, atau `developer`, serta memiliki akun Telegram yang tertaut di `public.bot_telegram_links`.
+Penerima alert dan pengguna bot adalah staf aktif dengan role database `area_manager`, `regional_manager`, atau `developer`, serta memiliki akun Telegram yang tertaut di `public.bot_telegram_links`.
 
-Pemeriksaan hak akses dan kepemilikan outlet dilakukan secara berjenjang:
-- **Area Manager (AM)**: Hanya menerima alert terkait outlet yang menjadi wewenang binaannya (berdasarkan relasi `public.staff_outlets`).
-- **Regional Manager (RM)**: Menerima alert eskalasi bernilai tinggi atau keterlambatan parah di seluruh cabang operasional aktif.
+## Prinsip Pemisahan Wewenang AM vs RM
+
+Sistem secara ketat menerapkan pemisahan wewenang berjenjang antara **Area Manager (Taktis Lapangan)** dan **Regional Manager (Supervisi Eksekutif)**:
+
+1. **Area Manager (AM) — Level Mikro / Lapangan:**
+   - **Wilayah Wewenang:** Terikat ketat hanya pada cabang binaan langsungnya (`public.staff_outlets`).
+   - **Tanggung Jawab:** Bertanggung jawab langsung atas kehadiran & disiplin kru, fisik operasional cabang, eksekusi sidak kebersihan, pengawalan stok opname fisik malam hari, dan verifikasi awal selisih kas.
+   - **Batas Otoritas:** Berwenang menyetujui waste normal ($\le$ Rp 150.000) dan verifikasi fisik retur. Dilarang melihat data cabang milik AM lain.
+
+2. **Regional Manager (RM) — Level Makro / Supervisi Regional:**
+   - **Wilayah Wewenang:** Seluruh cabang operasional aktif di tingkat regional.
+   - **Tanggung Jawab:** Memantau performa kepemimpinan manajerial para AM, menjaga konsistensi standar SOP antar-area, meninjau hasil sidak AM, dan mengendalikan kebocoran bernilai tinggi.
+   - **Batas Otoritas:** Otorisasi khusus waste bernilai besar ($>$ Rp 150.000), otorisasi logistik retur gudang/vendor, audit investigasi selisih kas kritis ($>$ Rp 100.000), dan intervensi keterlambatan buka parah ($\ge 30$ menit).
 
 ---
 
@@ -118,6 +128,35 @@ Pemeriksaan hak akses dan kepemilikan outlet dilakukan secara berjenjang:
   - Dilindungi advisory lock `bot-manager-omzet-<sesi>`.
   - Event key unik harian: `omzet_am:<sesi>:<am_id>:<tanggal>` dan `omzet_rm:<sesi>:<rm_id>:<tanggal>`.
 - **Tautan Aksi:** Dilengkapi tombol link ke `https://manager.sukashawarma.com`.
+
+---
+
+## Mode Interaktif: Tanya Jawab AI Hermes (Two-Way Chat)
+
+Selain menerima **Push Alert** otomatis, bot Telegram Manager ini terhubung langsung ke **Hermes AI Agent** di VPS Hostinger (`suka-hermes`, profil `manager`). Staf AM dan RM dapat berinteraksi secara dua arah (tanya jawab langsung) menggunakan bahasa natural kapan saja melalui Telegram maupun web widget.
+
+Spesifikasi kepribadian dan aturan akses data diatur dalam:
+👉 **[`docs/hermes/SOUL-manager.md`](file:///d:/MIT/CLAUDE%20CODE%20PROJECT/SS%20DIGITAL%20PROJECT/docs/hermes/SOUL-manager.md)**
+
+### Kemampuan Tanya Jawab On-Demand:
+1. **Penjualan & Omzet Real-Time:**
+   - *"Berapa omzet cabang Jakal hari ini sampai siang ini?"* ➡️ Bot mengeksekusi alat MCP `penjualan_ringkasan`.
+   - *"Tampilkan 3 menu paling laku di cabang Babarsari minggu ini."* ➡️ Bot mengeksekusi `penjualan_menu_terlaris`.
+   - *"Bandingkan omzet area saya minggu ini vs minggu lalu."* ➡️ Bot mengeksekusi `penjualan_bandingkan`.
+2. **Kepatuhan Stok Opname:**
+   - *"Cabang mana saja di area binaan saya yang belum selesai opname fisik malam ini?"* ➡️ Bot memeriksa `stok_opname`.
+3. **Presensi & SDM Kru:**
+   - *"Siapa saja kru yang belum absen di cabang Seturan hari ini?"* ➡️ Bot memeriksa `absensi_hari_ini`.
+   - *"Ada berapa staf yang telat di cabang Monjali bulan ini?"* ➡️ Bot memeriksa `absensi_telat_bulan_ini`.
+4. **Stok Bahan Baku Kritis:**
+   - *"Cek sisa stok roti dan daging sapi di cabang Sagan sekarang."* ➡️ Bot memeriksa `stok_saldo`.
+5. **Ceklist & Sidak Lapangan:**
+   - *"Apakah checklist buka cabang hari ini sudah lengkap di semua cabang saya?"* ➡️ Bot memeriksa `ceklist_kepatuhan`.
+
+### Perintah Cepat Telegram:
+- `/start` : Sapaan awal dan ringkasan kemampuan bot asisten manajer.
+- `/help` : Panduan contoh format pertanyaan operasional.
+- `/id` : Menampilkan Telegram User ID staf untuk diverifikasi admin di Admin Dashboard.
 
 ---
 

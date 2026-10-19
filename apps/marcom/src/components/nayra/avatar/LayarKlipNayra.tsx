@@ -62,7 +62,7 @@ function LapisanWebp({
   return (
     <img
       src={url}
-      alt="Nayra Animasi WebP"
+      alt="Suka-Chan Animasi WebP"
       draggable={false}
       className={`${GAYA} transition-opacity duration-300 ${tampak ? 'opacity-100' : 'opacity-0'}`}
       onLoad={onSiap}
@@ -158,7 +158,7 @@ export default function LayarKlipNayra({
       {!adaSiap && (
         <img
           src={KLIP_NAYRA[klip].gambar}
-          alt="Nayra"
+          alt="Suka-Chan"
           draggable={false}
           className={`${GAYA} transition-opacity duration-300 opacity-100`}
         />

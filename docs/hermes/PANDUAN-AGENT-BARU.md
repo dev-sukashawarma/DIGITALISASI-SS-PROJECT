@@ -1,7 +1,7 @@
 # Panduan Membuat Agent (Bot Divisi) Baru di Hermes
 
 Untuk siapa pun yang mau menambah bot baru (mis. Bot Gudang, Bot Finance, Bot Outlet) di atas
-Hermes. Disusun dari pengalaman Bot CEO, Bot HRD, dan Bot Marcom/Nayra (Okt 2026), termasuk
+Hermes. Disusun dari pengalaman Bot CEO, Bot HRD, dan Bot Marcom/Suka-Chan (Okt 2026), termasuk
 kesalahan yang sempat terjadi. Rincian VPS ada di `docs/RUNBOOK-HERMES-VPS.md`.
 
 ## 0. Gambaran besar
@@ -169,7 +169,7 @@ Baris pertama boleh komentar `<!-- … -->` (dibuang saat sinkron).
 
 ## 7. Sambungkan ke pengguna
 
-**Widget di app** (seperti Nayra di Marcom):
+**Widget di app** (seperti Suka-Chan di Marcom):
 - Server action **wajib cek login** dan menolak pesan kosong/terlalu panjang.
 - Klien Hermes: `HERMES_API_URL=http://10.0.1.1:8643`, `HERMES_API_KEY=` nilai `API_SERVER_KEY`
   profil, endpoint `/p/<p>/v1/chat/completions`. **Tanpa nilai bawaan** untuk keduanya.

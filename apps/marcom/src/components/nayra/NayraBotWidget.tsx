@@ -54,7 +54,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     role: 'assistant',
     content:
-      'Halo Kak! Aku **Nayra**, asisten Marketing & Communication Suka Shawarma! 🌯✨\n\nAku bisa cek data marcom (jadwal konten, endorsement, budget iklan, promo, performa video) sekaligus bantu ide konten & caption. Mau mulai dari mana?',
+      'Halo Kak! Aku **Suka-Chan**, asisten Marketing & Communication Suka Shawarma! 🌯✨\n\nAku bisa cek data marcom (jadwal konten, endorsement, budget iklan, promo, performa video) sekaligus bantu ide konten & caption. Mau mulai dari mana?',
     timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
   },
 ]
@@ -76,7 +76,7 @@ export default function NayraBotWidget() {
   const [setelan, setSetelan] = useState<SetelanNayra>(SETELAN_BAWAAN)
   const [showSpeechBubble, setShowSpeechBubble] = useState(true)
   const [speechBubbleText, setSpeechBubbleText] = useState(
-    'Halo! Nayra siap bantu strategi marketing & konten! ✨'
+    'Halo! Suka-Chan siap bantu strategi marketing & konten! ✨'
   )
 
   // Pose state ('diam' | 'sapa' | 'berpikir' | 'bingung')
@@ -158,8 +158,8 @@ export default function NayraBotWidget() {
   // Periodic speech bubble tips
   useEffect(() => {
     const tips = [
-      'Mau Nayra bantu buat hook 3 detik video TikTok? 🎯',
-      'Lagi butuh ide promo atau caption Instagram? Tanya Nayra ya! 🌯',
+      'Mau Suka-Chan bantu buat hook 3 detik video TikTok? 🎯',
+      'Lagi butuh ide promo atau caption Instagram? Tanya Suka-Chan ya! 🌯',
       'Yuk evaluasi draf video konten kamu biar makin viral! ✨',
       'Ada yang mau didiskusikan seputar strategi marcom hari ini? 💡',
     ]
@@ -227,7 +227,7 @@ export default function NayraBotWidget() {
       } else {
         const errorMsg: ChatMessage = {
           role: 'assistant',
-          content: res.error || 'Maaf Kak, Nayra sedang ada kendala teknis. Coba lagi sebentar ya!',
+          content: res.error || 'Maaf Kak, Suka-Chan sedang ada kendala teknis. Coba lagi sebentar ya!',
           timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         }
         setMessages((prev) => [...prev, errorMsg])
@@ -273,8 +273,8 @@ export default function NayraBotWidget() {
       <button
         type="button"
         onClick={() => handleTogglePark(false)}
-        aria-label="Tampilkan Nayra Bot"
-        title="Klik untuk memanggil Nayra"
+        aria-label="Tampilkan Suka-Chan Bot"
+        title="Klik untuk memanggil Suka-Chan"
         className="fixed z-50 rounded-l-2xl bg-white border border-r-0 border-[#D9480F]/40 shadow-xl overflow-hidden hover:scale-105 transition-all flex items-center justify-center p-1 group cursor-pointer"
         style={{
           left: tabPos.x,
@@ -286,7 +286,7 @@ export default function NayraBotWidget() {
         <div className="relative w-8 h-8 rounded-full overflow-hidden border border-[#D9480F]/40">
           <Image
             src="/nayra/nayra_avatar.png"
-            alt="Nayra Tab"
+            alt="Suka-Chan Tab"
             fill
             className="object-cover"
           />
@@ -352,7 +352,7 @@ export default function NayraBotWidget() {
               setTab('setelan')
             }}
             className="absolute -top-1 -right-1 z-20 w-6 h-6 rounded-full bg-white/95 border border-[#EFE8DE] shadow-md flex items-center justify-center text-stone-600 hover:text-[#D9480F] hover:scale-110 opacity-0 group-hover:opacity-100 transition-all cursor-pointer pointer-events-auto"
-            title="Atur ukuran & animasi Nayra"
+            title="Atur ukuran & animasi Suka-Chan"
           >
             <Settings2 className="w-3 h-3" />
           </button>
@@ -375,7 +375,7 @@ export default function NayraBotWidget() {
               }`}
             />
             <span className="text-[10px] font-black text-stone-800 tracking-tight">
-              {pose === 'berpikir' ? 'Menganalisis' : 'Nayra'}
+              {pose === 'berpikir' ? 'Menganalisis' : 'Suka-Chan'}
             </span>
           </div>
         </div>
@@ -400,7 +400,7 @@ export default function NayraBotWidget() {
               <div className="relative w-9 h-9 rounded-xl bg-white/10 p-0.5 border border-white/20 overflow-hidden shrink-0">
                 <Image
                   src="/nayra/nayra_avatar.png"
-                  alt="Nayra Avatar"
+                  alt="Suka-Chan Avatar"
                   fill
                   className="object-cover"
                 />
@@ -409,7 +409,7 @@ export default function NayraBotWidget() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-extrabold text-xs sm:text-sm tracking-tight text-white">
-                    Nayra
+                    Suka-Chan
                   </h3>
                   <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#D9480F] text-white font-bold">
                     MARCOM AI
@@ -438,7 +438,7 @@ export default function NayraBotWidget() {
                 className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                   tab === 'setelan' ? 'bg-[#D9480F] text-white' : 'hover:bg-white/10 text-stone-300'
                 }`}
-                title="Atur ukuran Nayra & animasi"
+                title="Atur ukuran Suka-Chan & animasi"
               >
                 <Settings2 className="w-3.5 h-3.5" />
               </button>
@@ -510,7 +510,7 @@ export default function NayraBotWidget() {
                         <div className="relative w-7 h-7 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-[#EFE8DE] shadow-2xs">
                           <Image
                             src="/nayra/nayra_avatar.png"
-                            alt="Nayra"
+                            alt="Suka-Chan"
                             fill
                             className="object-cover"
                           />
@@ -545,7 +545,7 @@ export default function NayraBotWidget() {
                     <div className="relative w-7 h-7 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-[#EFE8DE]">
                       <Image
                         src="/nayra/nayra_avatar.png"
-                        alt="Nayra"
+                        alt="Suka-Chan"
                         fill
                         className="object-cover"
                       />
@@ -557,7 +557,7 @@ export default function NayraBotWidget() {
                         <span className="w-1.5 h-1.5 bg-[#D9480F] rounded-full animate-bounce" />
                       </div>
                       <span className="text-[11px] font-medium text-stone-500">
-                        Nayra sedang menganalisis...
+                        Suka-Chan sedang menganalisis...
                       </span>
                     </div>
                   </div>
@@ -595,7 +595,7 @@ export default function NayraBotWidget() {
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Tanya Nayra seputar ide konten & marketing..."
+                    placeholder="Tanya Suka-Chan seputar ide konten & marketing..."
                     disabled={isLoading}
                     className="flex-1 px-3.5 py-2 text-xs border border-[#EFE8DE] rounded-2xl bg-[#FAF8F5] focus:bg-white focus:outline-none focus:border-[#D9480F] transition-all font-medium"
                   />
@@ -608,7 +608,7 @@ export default function NayraBotWidget() {
                   </button>
                 </form>
                 <div className="mt-1 text-[9px] text-center text-stone-400">
-                  Nayra Marketing & Communication Bot • Suka Shawarma
+                  Suka-Chan Marketing & Communication Bot • Suka Shawarma
                 </div>
               </div>
             </>

@@ -141,6 +141,18 @@ di [`docs/hermes/SOUL-stokis.md`](../../docs/hermes/SOUL-stokis.md) dan
 Jika Coolify masih menyimpan nama env lama `TELEGRAM_ALERT_*`, pindahkan nilainya
 ke nama `TELEGRAM_STOKIST_*` sebelum deploy kode ini. Nama lama tidak dibaca lagi.
 
+## Alert Telegram HRD
+
+Bot HRD memiliki jalur terpisah `/api/telegram/hrd/send` untuk admin HR dan developer aktif
+(`admin_hr` atau `developer` di database), yang telah diberi akses profil `hrd` dan menautkan
+Telegram. Migration `20300254002900_hrd_telegram_alerts.sql` menambahkan alert
+keterlambatan **lebih dari 15 menit** dan rekap pemeriksaan harian pukul 09.00 WIB
+(absensi tidak lengkap, alfa, izin tertunda, kontrak mendekati akhir). Terapkan juga
+`20300254003100_hrd_developer_alert_recipients.sql` untuk penerima developer.
+Panduan perilaku, konfigurasi `TELEGRAM_HRD_BOT_TOKEN`/`TELEGRAM_HRD_SEND_SECRET`,
+Vault, verifikasi dan rollback tersedia di
+[`docs/hermes/ALERT-HRD.md`](../../docs/hermes/ALERT-HRD.md).
+
 ## Untuk apa
 
 Tempat bos (dan nanti staf divisi) **bertanya langsung** ke bot Suka Shawarma lewat

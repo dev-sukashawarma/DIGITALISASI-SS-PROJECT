@@ -40,9 +40,9 @@ export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi')
   }
 }
 
-export async function kirimPesanTelegram(chatId: string, text: string, url?: string) {
-  const token = process.env.TELEGRAM_STOKIST_BOT_TOKEN
-  if (!token) throw new Error('Token bot Stokist belum dikonfigurasi.')
+export async function kirimPesanTelegram(chatId: string, text: string, url?: string, profil: 'stokis' | 'hrd' = 'stokis') {
+  const token = profil === 'hrd' ? process.env.TELEGRAM_HRD_BOT_TOKEN : process.env.TELEGRAM_STOKIST_BOT_TOKEN
+  if (!token) throw new Error(`Token bot ${profil} belum dikonfigurasi.`)
   const message = `${text}${url ? `\n\n${url}` : ''}`
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',

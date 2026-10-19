@@ -179,7 +179,9 @@ export function buatJawabanDev(
     p.includes('cabang') ||
     p.includes('toko') ||
     p.includes('peringkat') ||
-    p.includes('ranking')
+    p.includes('ranking') ||
+    p.includes('buka') ||
+    p.includes('tutup')
   ) {
     if (!t) {
       return [
@@ -188,6 +190,25 @@ export function buatJawabanDev(
         '> Data cabang real-time belum dapat diambil dari database.\n',
       ]
     }
+
+    const isTanyaBuka = p.includes('buka') || p.includes('tutup')
+    const headerTitle = isTanyaBuka
+      ? `Salam, Sir. Menampilkan status operasional buka/tutup cabang Suka Shawarma per tanggal **${t.tanggalWIB}**:\n\n`
+      : `Salam, Sir. Menampilkan direktori telemetri seluruh cabang Suka Shawarma per tanggal **${t.tanggalWIB}**:\n\n`
+
+    const statusNote = isTanyaBuka
+      ? (t.outletsNolTransaksi.length === 0
+          ? `> **STATUS OPERASIONAL CABANG**: Seluruh **${t.totalOutletAktif}** cabang sudah buka dan aktif mencatatkan transaksi penjualan hari ini.`
+          : `> **STATUS OPERASIONAL CABANG**: **${t.outletsAktifTransaksi.length}** dari **${t.totalOutletAktif}** cabang sudah aktif membukukan transaksi (buka), sedangkan **${t.outletsNolTransaksi.length}** cabang belum mencatatkan transaksi (belum buka / belum ada order).`)
+      : `> **NETWORK TELEMETRY DIRECTIVE**: **${t.outletsAktifTransaksi.length}** dari **${t.totalOutletAktif}** cabang telah membukukan transaksi hari ini (Total Omzet: **${formatRupiah(t.omzetTotal)}**).`
+
+    const labelAktif = isTanyaBuka
+      ? `### 🟢 Cabang Sudah Buka & Bertransaksi (${t.outletsAktifTransaksi.length} Outlet)\n`
+      : `### 🟢 Peringkat Cabang Berpenjualan Hari Ini (${t.outletsAktifTransaksi.length} Outlet)\n`
+
+    const labelNol = isTanyaBuka
+      ? `### 🟡 Cabang Belum Ada Transaksi / Belum Buka (${t.outletsNolTransaksi.length} Unit)\n`
+      : `### 🟡 Cabang / Unit Belum Ada Order Hari Ini (${t.outletsNolTransaksi.length} Unit)\n`
 
     const aktifLines =
       t.outletsAktifTransaksi.length > 0
@@ -207,12 +228,12 @@ export function buatJawabanDev(
         : '   *(Semua cabang sudah membukukan transaksi)*'
 
     return [
-      `Salam, Sir. Menampilkan direktori telemetri seluruh cabang Suka Shawarma per tanggal **${t.tanggalWIB}**:\n\n`,
+      headerTitle,
       '> [!NOTE]\n',
-      `> **NETWORK TELEMETRY DIRECTIVE**: **${t.outletsAktifTransaksi.length}** dari **${t.totalOutletAktif}** cabang telah membukukan transaksi hari ini (Total Omzet: **${formatRupiah(t.omzetTotal)}**).\n\n`,
-      `### 🟢 Peringkat Cabang Berpenjualan Hari Ini (${t.outletsAktifTransaksi.length} Outlet)\n`,
+      `${statusNote}\n\n`,
+      labelAktif,
       `${aktifLines}\n\n`,
-      `### 🟡 Cabang / Unit Belum Ada Order Hari Ini (${t.outletsNolTransaksi.length} Unit)\n`,
+      labelNol,
       `${nolLines}\n\n`,
       `- **Total Akumulasi Order**: ${t.totalOrder} transaksi\n`,
       `- **Rata-rata Order Network**: ${formatRupiah(t.aov)} / transaksi\n\n`,

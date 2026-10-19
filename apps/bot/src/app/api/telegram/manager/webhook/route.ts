@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
+import { kirimAksiChatTelegram, kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
 import { tanyaHermes, kunciProfil } from '@/lib/hermes'
 import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
 import { tanyaAiRouter } from '@/lib/server/aiRouter'
@@ -327,68 +327,100 @@ export async function POST(req: NextRequest) {
       userRole = 'pengguna_terotorisasi'
     }
 
-    // Ambil daftar cabang binaan jika role Area Manager
-    let cabangBinaanTeks = ''
-    if (staff?.role === 'area_manager' && staff.id) {
-      const { data: outlets } = await admin
-        .from('staff_outlets')
-        .select('outlet_id, outlets(name)')
-        .eq('staff_id', staff.id)
-      const namaCabang = ((outlets as unknown as Array<{ outlets?: { name?: string } }>) || [])
-        .map((o) => o.outlets?.name)
-        .filter(Boolean)
-      cabangBinaanTeks = namaCabang.length > 0
-        ? `\nCabang Binaan Anda: ${namaCabang.join(', ')}`
-        : '\nCabang Binaan: (Belum ada cabang binaan terdaftar)'
-    }
+    // Kirim indikasi typing segera dan pertahankan setiap 4 detik selama memproses
+    await kirimAksiChatTelegram(chatId, 'typing', 'manager').catch(() => {})
+    const typingInterval = setInterval(() => {
+      kirimAksiChatTelegram(chatId, 'typing', 'manager').catch(() => {})
+    }, 4000)
 
-    const baseUrl = process.env.HERMES_API_URL
-    const kunci = kunciProfil('manager')
-    const promptUser = `[Konteks Manajer: Nama: ${userName}, Role: ${userRole}${cabangBinaanTeks}]\nPertanyaan: ${text}`
-
-    let jawabanAi = ''
-    if (baseUrl && kunci) {
-      try {
-        for await (const chunk of tanyaHermes({
-          baseUrl,
-          kunci,
-          profil: 'manager',
-          sesiId: `telegram-${fromId}`,
-          pesan: promptUser,
-        })) {
-          jawabanAi += chunk
-        }
-      } catch (e) {
-        console.warn('[telegram-webhook] Hermes gagal, beralih ke AI Router + Telemetri Nyata:', e)
+    try {
+      // Ambil daftar cabang binaan jika role Area Manager
+      let cabangBinaanTeks = ''
+      if (staff?.role === 'area_manager' && staff.id) {
+        const { data: outlets } = await admin
+          .from('staff_outlets')
+          .select('outlet_id, outlets(name)')
+          .eq('staff_id', staff.id)
+        const namaCabang = ((outlets as unknown as Array<{ outlets?: { name?: string } }>) || [])
+          .map((o) => o.outlets?.name)
+          .filter(Boolean)
+        cabangBinaanTeks = namaCabang.length > 0
+          ? `\nCabang Binaan Anda: ${namaCabang.join(', ')}`
+          : '\nCabang Binaan: (Belum ada cabang binaan terdaftar)'
       }
-    }
 
-    // Fallback ke AI Router (9Router) + Telemetri Nyata (identik dengan In-App Copilot)
-    if (!jawabanAi.trim()) {
-      try {
-        const telemetri = await ambilTelemetriNyata()
-        if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
-          for await (const chunk of tanyaAiRouter({
-            pesan: promptUser,
+      const baseUrl = process.env.HERMES_API_URL
+      const kunci = kunciProfil('manager')
+      const promptUser = `[Konteks Manajer: Nama: ${userName}, Role: ${userRole}${cabangBinaanTeks}]\nPertanyaan: ${text}`
+
+      let jawabanAi = ''
+      // Coba Hermes dengan batas waktu 12 detik agar webhook tidak timeout
+      if (baseUrl && kunci) {
+        try {
+          for await (const chunk of tanyaHermes({
+            baseUrl,
+            kunci,
             profil: 'manager',
-            telemetri,
+            sesiId: `telegram-${fromId}`,
+            pesan: promptUser,
+            signal: AbortSignal.timeout(12_000),
           })) {
             jawabanAi += chunk
           }
+        } catch (e) {
+          console.warn('[telegram-webhook] Hermes gagal atau timeout, beralih ke AI Router + Telemetri Nyata:', e)
         }
-        if (!jawabanAi.trim()) {
-          for (const chunk of buatJawabanDev(text, 'ceo', telemetri)) {
-            jawabanAi += chunk
+      }
+
+      // Fallback ke AI Router (9Router) + Telemetri Nyata (identik dengan In-App Copilot)
+      if (!jawabanAi.trim()) {
+        let telemetri = null
+        try {
+          telemetri = await ambilTelemetriNyata()
+        } catch (teleErr) {
+          console.warn('[telegram-webhook] Gagal mengambil telemetri nyata:', teleErr)
+        }
+
+        if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
+          try {
+            for await (const chunk of tanyaAiRouter({
+              pesan: promptUser,
+              profil: 'manager',
+              telemetri,
+              signal: AbortSignal.timeout(8_000),
+            })) {
+              jawabanAi += chunk
+            }
+          } catch (fallbackErr) {
+            console.warn('[telegram-webhook] Fallback AI Router gagal atau timeout:', fallbackErr)
           }
         }
-      } catch (fallbackErr) {
-        console.error('[telegram-webhook] Fallback AI Router gagal:', fallbackErr)
-        jawabanAi = '⚠️ Terjadi kendala saat memproses jawaban dengan asisten AI operasional. Silakan coba lagi.'
-      }
-    }
 
-    if (jawabanAi.trim()) {
-      await kirimPesanTelegram(chatId, jawabanAi.trim(), undefined, 'manager')
+        // Jika AI Router juga kosong atau gagal, gunakan analisis cerdas telemetri langsung
+        if (!jawabanAi.trim()) {
+          try {
+            for (const chunk of buatJawabanDev(text, 'ceo', telemetri)) {
+              jawabanAi += chunk
+            }
+          } catch (simErr) {
+            console.error('[telegram-webhook] buatJawabanDev gagal:', simErr)
+            jawabanAi = '⚠️ Terjadi kendala saat memproses jawaban operasional. Silakan ulangi pertanyaan Anda.'
+          }
+        }
+      }
+
+      if (jawabanAi.trim()) {
+        await kirimPesanTelegram(chatId, jawabanAi.trim(), undefined, 'manager')
+      } else {
+        await kirimPesanTelegram(
+          chatId,
+          '⚠️ Maaf, sistem belum dapat memproses pertanyaan tersebut. Silakan ketik pertanyaan seputar omzet, status cabang, atau presensi.',
+          undefined,
+          'manager'
+        )
+      }
+    } finally {
+      clearInterval(typingInterval)
     }
 
     return NextResponse.json({ ok: true })

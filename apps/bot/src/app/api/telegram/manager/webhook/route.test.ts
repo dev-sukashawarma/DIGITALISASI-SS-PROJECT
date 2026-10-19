@@ -4,10 +4,35 @@ import { POST } from './route'
 
 vi.mock('@/lib/server/telegram', () => ({
   kirimPesanTelegram: vi.fn().mockResolvedValue(undefined),
+  kirimAksiChatTelegram: vi.fn().mockResolvedValue(undefined),
   supabaseAdmin: vi.fn(),
 }))
 
-import { kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
+vi.mock('@/lib/server/telemetriNyata', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/server/telemetriNyata')>()
+  return {
+    ...actual,
+    ambilTelemetriNyata: vi.fn().mockResolvedValue({
+      tanggalWIB: '2026-10-19',
+      omzetTotal: 5000000,
+      totalOrder: 50,
+      aov: 100000,
+      totalOutletAktif: 28,
+      outletsAktifTransaksi: [
+        { id: '1', nama: 'SUKA SHAWARMA CIMANGGU', type: 'internal', omzet: 3000000, orderCount: 30 },
+        { id: '2', nama: 'SUKA SHAWARMA BNR', type: 'internal', omzet: 2000000, orderCount: 20 },
+      ],
+      outletsNolTransaksi: [
+        { id: '3', nama: 'SUKA SHAWARMA JAKAL', type: 'mitra', omzet: 0, orderCount: 0 },
+      ],
+      outlets: [],
+      topMenu: [],
+      bahanBaku: [],
+    }),
+  }
+})
+
+import { kirimPesanTelegram, kirimAksiChatTelegram, supabaseAdmin } from '@/lib/server/telegram'
 
 function buatRequest(body: unknown, headers: Record<string, string> = {}): NextRequest {
   return new NextRequest('https://agents.sukashawarma.com/api/telegram/manager/webhook', {
@@ -249,6 +274,42 @@ describe('POST /api/telegram/manager/webhook', () => {
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '777111',
       expect.stringContaining('belum terhubung'),
+      undefined,
+      'manager'
+    )
+  })
+
+  it('mengirim indikasi typing dan jawaban telemetri untuk pengguna terotorisasi (misal: cek buka outlet)', async () => {
+    const mockMaybeSingle = vi.fn().mockResolvedValue({
+      data: { staff_id: 'staf-123', outlet_staff: { id: 'staf-123', name: 'Tri Rizky', role: 'regional_manager', status: 'active' } },
+      error: null,
+    })
+    const mockSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle }),
+    })
+    vi.mocked(supabaseAdmin).mockReturnValue({
+      from: vi.fn().mockReturnValue({ select: mockSelect }),
+    } as any)
+
+    const req = buatRequest({
+      update_id: 8,
+      message: {
+        message_id: 25,
+        from: { id: 888222, first_name: 'Tri' },
+        chat: { id: 888222, type: 'private' },
+        text: 'udah buka semua belum outlet?',
+      },
+    })
+
+    const res = await POST(req)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.ok).toBe(true)
+    expect(kirimAksiChatTelegram).toHaveBeenCalledWith('888222', 'typing', 'manager')
+    expect(kirimPesanTelegram).toHaveBeenCalledWith(
+      '888222',
+      expect.stringContaining('STATUS OPERASIONAL CABANG'),
       undefined,
       'manager'
     )

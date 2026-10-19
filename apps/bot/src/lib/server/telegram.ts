@@ -75,3 +75,28 @@ export async function kirimPesanTelegram(
     throw new Error(`Telegram sendMessage gagal (${response.status}): ${result?.description || 'unknown error'}`)
   }
 }
+
+export async function kirimAksiChatTelegram(
+  chatId: string,
+  action: 'typing' | 'upload_photo' | 'record_video' | 'choose_sticker' = 'typing',
+  profil: 'stokis' | 'hrd' | 'manager' = 'stokis'
+) {
+  const token = profil === 'hrd'
+    ? process.env.TELEGRAM_HRD_BOT_TOKEN
+    : profil === 'manager'
+    ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
+    : process.env.TELEGRAM_STOKIST_BOT_TOKEN
+  if (!token) return
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, action }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(3_000),
+    })
+  } catch {
+    // Ignore error
+  }
+}
+

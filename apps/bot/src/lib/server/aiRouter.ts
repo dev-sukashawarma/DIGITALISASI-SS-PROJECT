@@ -28,7 +28,7 @@ export function kandidatModel9Router(profil: string, envModel?: string): string[
   }
   switch (profil.trim().toLowerCase()) {
     case 'ceo':
-      return ['MANAGER_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
+      return ['CEO_SS', 'MANAGER_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
     case 'manager':
       return ['MANAGER_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
     case 'gudang':

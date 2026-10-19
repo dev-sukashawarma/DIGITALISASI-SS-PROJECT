@@ -186,6 +186,8 @@ export async function POST(req: NextRequest) {
           ? 'Developer'
           : staff.role === 'regional_manager'
           ? 'Regional Manager'
+          : staff.role === 'admin_hr'
+          ? 'Admin HR'
           : 'Area Manager'
         await kirimPesanTelegram(
           chatId,
@@ -236,7 +238,12 @@ export async function POST(req: NextRequest) {
           .eq('telegram_user_id', fromId)
           .maybeSingle()
         const staffRole = (linkRow?.outlet_staff as unknown as { role?: string } | null)?.role
-        const targetRole = staffRole === 'regional_manager' ? 'regional_manager' : 'area_manager'
+        const targetRole =
+          staffRole === 'regional_manager'
+            ? 'regional_manager'
+            : staffRole === 'admin_hr'
+            ? 'admin_hr'
+            : 'area_manager'
 
         const { data: catalogRows } = await admin
           .from('bot_trigger_catalog')

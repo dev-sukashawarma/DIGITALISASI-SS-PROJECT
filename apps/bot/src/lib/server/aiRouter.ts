@@ -49,17 +49,35 @@ export async function* tanyaAiRouter(o: {
       .map((s) => `- ${s.nama} (${s.outlet}): telat ${s.telatMenit} menit`)
       .join('\n')
 
+    const k = t.ringkasanKemarin
+    const listKemarinTransaksi = (k?.outletsAktifTransaksi || [])
+      .map(
+        (out, i) =>
+          `${i + 1}. ${out.nama} [${out.type}]: ${formatRupiah(out.omzet)} (${out.orderCount} order, AOV ${formatRupiah(
+            out.orderCount > 0 ? Math.round(out.omzet / out.orderCount) : 0
+          )})`
+      )
+      .join('\n')
+    const listKemarinNol = (k?.outletsNolTransaksi || []).map((out) => `- ${out.nama} (${out.type})`).join('\n')
+
     konteksData = `
-TANGGAL OPERASIONAL (WIB): ${t.tanggalWIB}
-TOTAL PENJUALAN KESELURUHAN: ${formatRupiah(t.omzetTotal)}
-TOTAL TRANSAKSI ORDER: ${t.totalOrder} order
-RATA-RATA ORDER (AOV): ${formatRupiah(t.aov)}
-TOTAL CABANG AKTIF TERDATA: ${t.totalOutletAktif} cabang
+DATA PENJUALAN KEMARIN (${k?.tanggalLabel || 'Kemarin'}):
+- Total Penjualan Jaringan Kemarin: ${formatRupiah(k?.omzetTotal || 0)}
+- Total Akumulasi Order Kemarin: ${k?.totalOrder || 0} transaksi
+- Rata-rata Order (AOV) Kemarin: ${formatRupiah(k?.aov || 0)}
+- Peringkat Cabang Berpenjualan Kemarin (${k?.outletsAktifTransaksi?.length || 0} cabang):
+${listKemarinTransaksi || '(Tidak ada transaksi kemarin)'}
+- Cabang Tanpa Transaksi Kemarin:
+${listKemarinNol || '(Seluruh cabang mencatat penjualan)'}
 
-PERINGKAT CABANG DENGAN TRANSAKSI HARI INI (${t.outletsAktifTransaksi.length} cabang):
+DATA OPERASIONAL HARI INI (${t.tanggalWIB}):
+- Total Penjualan Jaringan Hari Ini: ${formatRupiah(t.omzetTotal)}
+- Total Transaksi Order Hari Ini: ${t.totalOrder} order
+- Rata-rata Order (AOV) Hari Ini: ${formatRupiah(t.aov)}
+- Total Cabang Aktif Terdata: ${t.totalOutletAktif} cabang
+- Peringkat Cabang Berpenjualan Hari Ini (${t.outletsAktifTransaksi.length} cabang):
 ${listTransaksi || '(Belum ada cabang bertransaksi)'}
-
-CABANG / UNIT BELUM MENCATATKAN ORDER HARI INI (${t.outletsNolTransaksi.length} unit):
+- Cabang Belum Mencatatkan Order Hari Ini (${t.outletsNolTransaksi.length} unit):
 ${listNol || '(Semua cabang sudah ada transaksi)'}
 
 MENU TERLARIS HARI INI:
@@ -86,7 +104,12 @@ Anda bertugas mendampingi Bos/Owner dan manajemen Suka Shawarma.
 PANDUAN KOMUNIKASI & PERILAKU:
 1. Panggil pengguna selalu dengan "Sir".
 2. Bersikap sangat profesional, taktis, presisi, analitis, sigap, dan berorientasi data (seperti AI Command HUD Iron Man).
-3. RESPON KONTEKSTUAL & PROPORSIONAL:
+3. PANDUAN TEMPORAL (SANGAT PENTING):
+   - Bedakan tegas antara KEMARIN (yesterday) dan HARI INI (today):
+     * Jika pengguna menanyakan 'kemarin' ('omzet kemarin', 'kemarin seluruh outlet berapa', 'ranking kemarin', 'kemarin bro'), JAWAB MENGGUNAKAN DATA PENJUALAN KEMARIN.
+     * Jika pengguna menanyakan 'hari ini', gunakan DATA OPERASIONAL HARI INI.
+     * Jangan mencampuradukkan angka kemarin dengan hari ini.
+4. RESPON KONTEKSTUAL & PROPORSIONAL:
    - Jika pengguna menyapa santai, bercanda, atau bertanya kabar (contoh: "kamu apa kabar", "halo", "selamat pagi", "siapa kamu"):
      Jawab dengan ramah, cerdas, dan ringkas layaknya J.A.R.V.I.S. (contoh: "Kabar baik, Sir. Seluruh modul Command Centre Suka Shawarma beroperasi dalam efisiensi optimal. Ada arahan operasional atau data cabang yang ingin Anda tinjau?").
      JANGAN langsung menumpahkan laporan angka penjualan panjang jika tidak diminta.

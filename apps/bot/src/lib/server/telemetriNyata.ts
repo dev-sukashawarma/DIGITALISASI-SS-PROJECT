@@ -22,6 +22,16 @@ export interface StafTelatTelemetri {
   telatMenit: number
 }
 
+export interface RingkasanHari {
+  tanggalLabel: string
+  tglIso: string
+  omzetTotal: number
+  totalOrder: number
+  aov: number
+  outletsAktifTransaksi: OutletTelemetri[]
+  outletsNolTransaksi: OutletTelemetri[]
+}
+
 export interface TelemetriHariIni {
   tanggalWIB: string
   omzetTotal: number
@@ -39,6 +49,8 @@ export interface TelemetriHariIni {
   bahanBaku: Array<{ nama: string; satuan: string }>
   stafCutiIzin: StafCutiTelemetri[]
   stafTelat: StafTelatTelemetri[]
+  ringkasanHariIni?: RingkasanHari
+  ringkasanKemarin?: RingkasanHari
 }
 
 function getSupabaseAdmin() {
@@ -51,6 +63,68 @@ export function formatRupiah(angka: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(angka)
 }
 
+function hitungRingkasan(
+  ordersData: any[],
+  baseOutlets: any[],
+  tglLabel: string,
+  tglIso: string
+): RingkasanHari {
+  const mapOmzet: Record<string, number> = {}
+  const mapCount: Record<string, number> = {}
+  let omzetTotal = 0
+  for (const o of ordersData) {
+    const id = o.outlet_id
+    const amt = Number(o.total_amount) || 0
+    mapOmzet[id] = (mapOmzet[id] || 0) + amt
+    mapCount[id] = (mapCount[id] || 0) + 1
+    omzetTotal += amt
+  }
+  const allOutlets: OutletTelemetri[] = baseOutlets.map((o: any) => ({
+    id: o.id,
+    nama: o.name,
+    type: o.type || 'internal',
+    omzet: mapOmzet[o.id] || 0,
+    orderCount: mapCount[o.id] || 0,
+  })).sort((a, b) => b.omzet - a.omzet)
+
+  const outletsAktifTransaksi = allOutlets.filter((o) => o.orderCount > 0)
+  const outletsNolTransaksi = allOutlets.filter((o) => o.orderCount === 0)
+  const totalOrder = ordersData.length
+  const aov = totalOrder > 0 ? Math.round(omzetTotal / totalOrder) : 0
+
+  return {
+    tanggalLabel: tglLabel,
+    tglIso,
+    omzetTotal,
+    totalOrder,
+    aov,
+    outletsAktifTransaksi,
+    outletsNolTransaksi,
+  }
+}
+
+async function fetchAllRows(
+  sb: any,
+  table: string,
+  buildFn: (q: any) => any,
+  pageSize = 1000,
+  maxRows = 10000
+): Promise<any[]> {
+  const all: any[] = []
+  let page = 0
+  while (all.length < maxRows) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const base = sb.from(table)
+    const { data, error } = await buildFn(base).range(from, to)
+    if (error || !data || data.length === 0) break
+    all.push(...data)
+    if (data.length < pageSize) break
+    page++
+  }
+  return all
+}
+
 export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
   try {
     const sb = getSupabaseAdmin()
@@ -60,24 +134,36 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const tglStr = wib.toISOString().slice(0, 10)
     const wibBesok = new Date(wib.getTime() + 24 * 60 * 60 * 1000)
     const tglBesokStr = wibBesok.toISOString().slice(0, 10)
+    const wibKemarin = new Date(wib.getTime() - 24 * 60 * 60 * 1000)
+    const tglKemarinStr = wibKemarin.toISOString().slice(0, 10)
+
+    const startKemarin = `${tglKemarinStr}T00:00:00+07:00`
+    const endKemarin = `${tglStr}T00:00:00+07:00`
     const startToday = `${tglStr}T00:00:00+07:00`
     const endToday = `${tglBesokStr}T00:00:00+07:00`
 
-    const [resOrders, resItems, resAtt, resOutlets, resBahan, resLeave, resLate] = await Promise.all([
-      sb
-        .from('orders')
-        .select('id, total_amount, status, outlet_id, outlets(name)')
-        .gte('created_at', startToday)
-        .lt('created_at', endToday)
-        .neq('status', 'cancelled')
-        .limit(5000),
-      sb
-        .from('order_items')
-        .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status)')
-        .gte('orders.created_at', startToday)
-        .lt('orders.created_at', endToday)
-        .neq('orders.status', 'cancelled')
-        .limit(10000),
+    const [ordersHariIni, ordersKemarin, items, resAtt, resOutlets, resBahan, resLeave, resLate] = await Promise.all([
+      fetchAllRows(sb, 'orders', (q) =>
+        q
+          .select('id, total_amount, status, outlet_id, outlets(name)')
+          .gte('created_at', startToday)
+          .lt('created_at', endToday)
+          .neq('status', 'cancelled')
+      ),
+      fetchAllRows(sb, 'orders', (q) =>
+        q
+          .select('id, total_amount, status, outlet_id, outlets(name)')
+          .gte('created_at', startKemarin)
+          .lt('created_at', endKemarin)
+          .neq('status', 'cancelled')
+      ),
+      fetchAllRows(sb, 'order_items', (q) =>
+        q
+          .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status)')
+          .gte('orders.created_at', startToday)
+          .lt('orders.created_at', endToday)
+          .neq('orders.status', 'cancelled')
+      ),
       sb
         .from('attendance')
         .select('id, outlet_staff_id, status, telat_menit, type')
@@ -111,33 +197,12 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .limit(15),
     ])
 
-    const orders = resOrders.data || []
-    const totalOrder = orders.length
-    const omzetTotal = orders.reduce((acc, o: any) => acc + (Number(o.total_amount) || 0), 0)
-    const aov = totalOrder > 0 ? Math.round(omzetTotal / totalOrder) : 0
+    const rawOutlets = resOutlets.data || []
 
-    // Outlet Breakdown - Gabungkan seluruh outlet aktif dengan data transaksi hari ini
-    const mapOmzet: Record<string, number> = {}
-    const mapCount: Record<string, number> = {}
-    for (const o of orders as any[]) {
-      const id = o.outlet_id
-      mapOmzet[id] = (mapOmzet[id] || 0) + (Number(o.total_amount) || 0)
-      mapCount[id] = (mapCount[id] || 0) + 1
-    }
-
-    const allOutlets: OutletTelemetri[] = (resOutlets.data || []).map((o: any) => ({
-      id: o.id,
-      nama: o.name,
-      type: o.type || 'internal',
-      omzet: mapOmzet[o.id] || 0,
-      orderCount: mapCount[o.id] || 0,
-    })).sort((a, b) => b.omzet - a.omzet)
-
-    const outletsAktifTransaksi = allOutlets.filter((o) => o.orderCount > 0)
-    const outletsNolTransaksi = allOutlets.filter((o) => o.orderCount === 0)
+    const ringkasanHariIni = hitungRingkasan(ordersHariIni, rawOutlets, `Hari Ini (${tglStr})`, tglStr)
+    const ringkasanKemarin = hitungRingkasan(ordersKemarin, rawOutlets, `Kemarin (${tglKemarinStr})`, tglKemarinStr)
 
     // Top Menu
-    const items = resItems.data || []
     const perMenu: Record<string, { qty: number; omzet: number }> = {}
     for (const it of items as any[]) {
       const nama = it.menu_item_name || 'Menu Lain'
@@ -157,7 +222,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const kehadiranTepatWaktu = kehadiranTotal - kehadiranTelat
     const persenOnTime = kehadiranTotal > 0 ? Math.round((kehadiranTepatWaktu / kehadiranTotal) * 100) : 100
 
-    const totalOutletAktif = allOutlets.length
+    const totalOutletAktif = rawOutlets.length
     const bahanBaku = (resBahan.data || []).map((b: any) => ({ nama: b.nama, satuan: b.satuan }))
 
     // Staf Cuti / Izin
@@ -187,12 +252,12 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
 
     return {
       tanggalWIB: tglStr,
-      omzetTotal,
-      totalOrder,
-      aov,
-      outlets: allOutlets,
-      outletsAktifTransaksi,
-      outletsNolTransaksi,
+      omzetTotal: ringkasanHariIni.omzetTotal,
+      totalOrder: ringkasanHariIni.totalOrder,
+      aov: ringkasanHariIni.aov,
+      outlets: ringkasanHariIni.outletsAktifTransaksi.concat(ringkasanHariIni.outletsNolTransaksi),
+      outletsAktifTransaksi: ringkasanHariIni.outletsAktifTransaksi,
+      outletsNolTransaksi: ringkasanHariIni.outletsNolTransaksi,
       topMenu: sortedMenu,
       kehadiranTotal,
       kehadiranTepatWaktu,
@@ -202,6 +267,8 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       bahanBaku,
       stafCutiIzin,
       stafTelat,
+      ringkasanHariIni,
+      ringkasanKemarin,
     }
   } catch (err) {
     console.error('[telemetriNyata] gagal ambil telemetri:', err)

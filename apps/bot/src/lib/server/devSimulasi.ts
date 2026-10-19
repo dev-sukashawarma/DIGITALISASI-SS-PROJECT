@@ -10,6 +10,64 @@ export function buatJawabanDev(
 ): string[] {
   const p = (pesanUser || '').toLowerCase().trim()
 
+  const isKemarin =
+    p.includes('kemarin') ||
+    p.includes('kemaren') ||
+    p.includes('yesterday') ||
+    p.includes('h-1') ||
+    p === 'kemarin bro'
+
+  // 0. Pertanyaan Penjualan & Ranking KEMARIN
+  if (
+    isKemarin &&
+    (p.includes('omzet') ||
+      p.includes('omset') ||
+      p.includes('jual') ||
+      p.includes('sales') ||
+      p.includes('outlet') ||
+      p.includes('cabang') ||
+      p.includes('ranking') ||
+      p.includes('peringkat') ||
+      p.includes('kemarin') ||
+      p.includes('kemaren'))
+  ) {
+    const k = t?.ringkasanKemarin
+    if (!k || (k.omzetTotal === 0 && k.totalOrder === 0)) {
+      return [
+        'Salam, Sir. Menghubungi database Suka Shawarma...\n\n',
+        '> [!WARNING]\n',
+        '> Data penjualan kemarin belum berhasil dimuat dari database.\n',
+      ]
+    }
+
+    const aktifLines =
+      k.outletsAktifTransaksi.length > 0
+        ? k.outletsAktifTransaksi
+            .map((o, idx) => {
+              const badge = idx === 0 ? '👑' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`
+              const tipe = o.type === 'mitra' ? 'Mitra' : 'Internal'
+              const aov = o.orderCount > 0 ? Math.round(o.omzet / o.orderCount) : 0
+              return `${badge} **${o.nama}** [${tipe}]\n   - Omzet: **${formatRupiah(o.omzet)}** (${o.orderCount} order, AOV ${formatRupiah(aov)})`
+            })
+            .join('\n')
+        : '   *(Tidak ada cabang bertransaksi kemarin)*'
+
+    const nolLines =
+      k.outletsNolTransaksi.length > 0
+        ? k.outletsNolTransaksi.map((o) => `- **${o.nama}** *(${o.type})*`).join('\n')
+        : '   *(Semua cabang aktif mencatat order)*'
+
+    return [
+      `Salam, Sir. Menampilkan laporan telemetri penjualan seluruh cabang untuk **KEMARIN (${k.tanggalLabel})**:\n\n`,
+      '> [!NOTE]\n',
+      `> **REKAP PENJUALAN JARINGAN KEMARIN**: Total Omzet **${formatRupiah(k.omzetTotal)}** (${k.totalOrder} order, AOV ${formatRupiah(k.aov)}). Partisipasi: **${k.outletsAktifTransaksi.length}** dari **${k.outletsAktifTransaksi.length + k.outletsNolTransaksi.length}** cabang aktif.\n\n`,
+      `### 🏆 Peringkat Omzet Cabang Kemarin (${k.outletsAktifTransaksi.length} Outlet)\n`,
+      `${aktifLines}\n\n`,
+      k.outletsNolTransaksi.length > 0 ? `### 🟡 Cabang Tanpa Transaksi Kemarin (${k.outletsNolTransaksi.length} Unit)\n${nolLines}\n\n` : '',
+      'Data radar POS terverifikasi valid dari server database Suka Shawarma, Sir.',
+    ].filter(Boolean)
+  }
+
   // 1. Telemetri Semua Outlet & Peringkat Cabang
   if (
     p.includes('outlet') ||

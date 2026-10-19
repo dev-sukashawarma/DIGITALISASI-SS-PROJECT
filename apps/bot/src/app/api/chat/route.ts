@@ -100,15 +100,12 @@ export async function POST(req: Request) {
 
           // Fallback ke generator telemetri terstruktur jika AI Router belum siap atau gagal
           if (!suksesAi || !jawaban.trim()) {
-            if (process.env.NODE_ENV === 'development') {
-              const devChunks = buatJawabanDev(v.pesan, pc.profil, telemetri)
-              for (const chunk of devChunks) {
-                jawaban += chunk
-                c.enqueue(enc.encode(chunk))
-                await new Promise((r) => setTimeout(r, 25))
-              }
-            } else {
-              throw new GalatHermes('konfigurasi', 'HERMES_API_URL atau AI Router belum terkonfigurasi')
+            console.warn('[bot] AI Router tidak menghasilkan respon, mengalirkan fallback telemetri terstruktur...')
+            const devChunks = buatJawabanDev(v.pesan, pc.profil, telemetri)
+            for (const chunk of devChunks) {
+              jawaban += chunk
+              c.enqueue(enc.encode(chunk))
+              await new Promise((r) => setTimeout(r, 20))
             }
           }
 

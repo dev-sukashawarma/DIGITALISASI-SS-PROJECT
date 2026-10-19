@@ -12,7 +12,8 @@ export function bolehChat(
   const bolehPeran = profilBolehUntukPeran(role).includes(profil)
   if (!bolehPeran) return false
   if ((env.NODE_ENV ?? process.env.NODE_ENV) === 'development') return true
-  return !!kunciProfil(profil, env)
+  const aiRouterTersedia = !!(env.AI_BASE_URL && env.AI_API_KEY)
+  return !!kunciProfil(profil, env) || aiRouterTersedia
 }
 
 // Pemeriksaan permintaan chat (route /api/chat): profil wajib dikenal, boleh untuk pemanggil, dan
@@ -41,6 +42,7 @@ export function alasanTanpaChat(
   if (!profil) return 'tanpa_profil'
   if (!profilBolehUntukPeran(role).includes(profil)) return 'peran'
   if ((env.NODE_ENV ?? process.env.NODE_ENV) === 'development') return null
-  if (!kunciProfil(profil, env)) return 'belum_tersambung'
+  const aiRouterTersedia = !!(env.AI_BASE_URL && env.AI_API_KEY)
+  if (!kunciProfil(profil, env) && !aiRouterTersedia) return 'belum_tersambung'
   return null
 }

@@ -13,27 +13,33 @@ export interface PesanRiwayat {
 export const DEFAULT_HERMES_COMBO_MODEL = 'hermes-combo'
 
 /**
+ * Model fallback 9Router berkeandalan tinggi jika model combo divisi gagal atau mengalami depresi/outage.
+ */
+export const MODEL_FALLBACK_STABIL = ['ag/gemini-3.8-flash', 'cx/gpt-6-luna']
+
+/**
  * Mengembalikan kandidat model combo 9Router yang sesuai dengan profil agen Hermes.
- * Urutan pertama adalah combo spesifik divisi, diikuti fallback ke `hermes-combo`.
+ * Urutan pertama adalah combo spesifik divisi, diikuti fallback stabil & `hermes-combo`.
  */
 export function kandidatModel9Router(profil: string, envModel?: string): string[] {
   const override = envModel?.trim()
   if (override && override !== DEFAULT_HERMES_COMBO_MODEL) {
-    return [override]
+    return [override, ...MODEL_FALLBACK_STABIL]
   }
   switch (profil.trim().toLowerCase()) {
+    case 'ceo':
+      return ['MANAGER_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
     case 'manager':
-      return ['MANAGER_SS', DEFAULT_HERMES_COMBO_MODEL]
+      return ['MANAGER_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
     case 'gudang':
     case 'stokis':
-      return ['STOKIS_SS', DEFAULT_HERMES_COMBO_MODEL]
+      return ['STOKIS_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
     case 'marcom':
-      return ['ANALYTIC-SOSMED-COMBO', DEFAULT_HERMES_COMBO_MODEL]
-    case 'ceo':
+      return ['ANALYTIC-SOSMED-COMBO', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', DEFAULT_HERMES_COMBO_MODEL]
     case 'hrd':
     case 'finance':
     default:
-      return [DEFAULT_HERMES_COMBO_MODEL]
+      return [...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
   }
 }
 
@@ -176,25 +182,31 @@ ${konteksData}
   let res: Response | null = null
   let statusTerakhir = 500
   for (const modelKandidat of daftarModel) {
-    const percobaan = await fetch(`${base}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-      },
-      body: JSON.stringify({
-        model: modelKandidat,
-        stream: true,
-        messages,
-        temperature: 0.2,
-      }),
-      signal,
-    })
-    statusTerakhir = percobaan.status
-    if (percobaan.ok && percobaan.body) {
-      res = percobaan
-      break
+    try {
+      const percobaan = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({
+          model: modelKandidat,
+          stream: true,
+          messages,
+          temperature: 0.2,
+        }),
+        signal,
+      })
+      statusTerakhir = percobaan.status
+      if (percobaan.ok && percobaan.body) {
+        res = percobaan
+        break
+      } else {
+        console.warn(`[aiRouter] Model ${modelKandidat} gagal (HTTP ${percobaan.status}), mencoba model berikutnya...`)
+      }
+    } catch (netErr) {
+      console.warn(`[aiRouter] Fetch error pada model ${modelKandidat}:`, netErr)
     }
   }
 

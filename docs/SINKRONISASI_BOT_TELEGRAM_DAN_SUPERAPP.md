@@ -73,7 +73,7 @@ Agar penambahan/perubahan nama atau jadwal trigger **langsung tampil di Tab "Tri
 | Kolom | Tipe | Penjelasan |
 |---|---|---|
 | `id` | `text` (PK) | ID unik trigger (contoh: `tg_am_zero_sales_1700`, `tg_rm_opname_finalized`) |
-| `target_role` | `text` | Role target: `'regional_manager'`, `'area_manager'`, `'owner'`, `'admin_hr'`, `'kitchen'`, `'purchasing'`, `'admin_finance'` |
+| `target_role` | `text` | Role target: `'regional_manager'`, `'area_manager'`, `'owner'`, `'admin_hr'`, `'kitchen'`, `'purchasing'`, `'admin_finance'`, `'stokist'` |
 | `bot_slug` | `text` | `'manager'`, `'ceo'`, `'hrd'`, `'gudang'`, `'finance'` |
 | `judul` | `text` | Judul trigger yang tampil di Tab Trigger Superapp & `/help` Telegram |
 | `deskripsi` | `text` | Penjelasan cara kerja & ambang batas trigger |
@@ -138,7 +138,7 @@ Jika trigger baru memiliki kata kunci khusus untuk **Tombol Tindak Lanjut 1-Klik
 | Komponen | Lokasi File | Peran dalam Sinkronisasi |
 |---|---|---|
 | **Dispatcher Push HP & Telegram** | `supabase/migrations/20300254003900_bot_hp_push_notifications.sql` & `20300254004000_bot_rm_am_extra_triggers.sql` | Fungsi `bot_manager_antrekan`, `bot_hrd_antrekan`, `bot_kirim_push_hp` |
-| **Katalog Trigger Terpusat** | `supabase/migrations/20300254004100_bot_trigger_catalog_sync.sql` | Tabel `public.bot_trigger_catalog` (dibaca oleh Android & Telegram) |
+| **Katalog Trigger Terpusat** | `supabase/migrations/20300254004200_bot_trigger_catalog_sync.sql` | Tabel `public.bot_trigger_catalog` (dibaca oleh Android & Telegram) |
 | **Webhook & `/help` Telegram** | `apps/bot/src/app/api/telegram/manager/webhook/route.ts` | Membaca `bot_trigger_catalog` + fallback AI Router (`tanyaAiRouter` + `ambilTelemetriNyata`) |
 | **Endpoint Kirim Telegram** | `apps/bot/src/app/api/telegram/manager/send/route.ts` | Mengirim outbox ke Telegram & menormalisasi `url='bot'` ke `https://manager.sukashawarma.com` |
 | **Repository Android Bot** | `SS SUPERAPP/SUPER-APPS-SS-MOBILE/feature/bot/.../data/BotRepository.kt` | `muatKatalogTrigger()`, `muatNotifikasiHpSaya()`, cache riwayat chat & notifikasi |

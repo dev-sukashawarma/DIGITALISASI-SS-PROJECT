@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     }
     const [{ data: staff }, { data: link }] = results
 
-    const allowedRoles = ['area_manager', 'regional_manager', 'developer']
+    const allowedRoles = ['area_manager', 'regional_manager', 'korlap', 'developer']
     if (!staff || !allowedRoles.includes(staff.role) || staff.status !== 'active' || !link?.chat_id) {
       return NextResponse.json({ delivered: false, reason: 'not_eligible' })
     }

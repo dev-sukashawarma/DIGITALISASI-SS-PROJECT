@@ -145,6 +145,21 @@ describe('buatJawabanDev', () => {
     expect(fullPresensi).toContain('Seluruh kru outlet on-time hari ini, tidak ada keterlambatan di cabang')
     expect(fullPresensi).toContain('Presensi & Kedisiplinan Kru')
     expect(fullPresensi).not.toContain('Sir')
+
+    const chunksSidak = buatJawabanDev('ceklist pembukaan cabang dan sidak', 'manager', mockTelemetri)
+    const fullSidak = chunksSidak.join('')
+    expect(fullSidak).toContain('Ceklist Buka & Sidak Lapangan')
+    expect(fullSidak).not.toContain('Sir')
+
+    const chunksKas = buatJawabanDev('apakah ada selisih kas kasir closing?', 'manager', mockTelemetri)
+    const fullKas = chunksKas.join('')
+    expect(fullKas).toContain('Parameter Alert Selisih Kas')
+    expect(fullKas).not.toContain('Sir')
+
+    const chunksFinance = buatJawabanDev('laporan keuangan dan kas', 'manager', mockTelemetri)
+    const fullFinance = chunksFinance.join('')
+    expect(fullFinance).toContain('seluruh modul keuangan siaga, Rekan.')
+    expect(fullFinance).not.toContain('Sir')
   })
 })
 

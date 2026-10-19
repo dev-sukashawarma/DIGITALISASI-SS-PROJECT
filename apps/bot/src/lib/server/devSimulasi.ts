@@ -117,6 +117,44 @@ export function buatJawabanDev(
     ]
   }
 
+  // 1c. Sidak & Ceklist Operasional Cabang
+  if (
+    p.includes('sidak') ||
+    p.includes('ceklist') ||
+    p.includes('checklist') ||
+    p.includes('audit outlet') ||
+    p.includes('kepatuhan buka')
+  ) {
+    return [
+      `${salamAwal} Menampilkan status kepatuhan **Ceklist Buka & Sidak Lapangan** cabang:\n\n`,
+      '> [!NOTE]\n',
+      '> **SISTEM CEKLIST OPERASIONAL**: Ceklist buka/tutup cabang dan form evaluasi sidak AM diinput langsung melalui SuperApp Manager.\n\n',
+      '### 📋 Panduan Standar Sidak Area Manager:\n',
+      '1. **Ceklist Buka Outlet**: Wajib diisi kru saat persiapan buka (kebersihan, kesiapan bahan marinasi, display showcase, dan kebersihan seragam).\n',
+      '2. **Form Sidak AM**: Area Manager wajib mengisi checklist berkala saat kunjungan fisik ke cabang binaan.\n',
+      '3. **Status Real-time**: Rincian status pengisian checklist per cabang dapat dipantau di menu **Monitoring -> Ceklist** di SuperApp Manager.\n\n',
+      `Ada cabang tertentu yang ingin Anda jadwalkan untuk sidak khusus, ${sebutan}?`,
+    ]
+  }
+
+  // 1d. Selisih Kas & Closing Kasir
+  if (
+    p.includes('selisih kas') ||
+    p.includes('kasir closing') ||
+    p.includes('petty cash') ||
+    p.includes('uang kas')
+  ) {
+    return [
+      `${salamAwal} Rekap selisih kas dan rekonsiliasi kasir cabang:\n\n`,
+      '> [!NOTE]\n',
+      '> **REKONSILIASI KASIR**: Input rekonsiliasi kas laci POS dan petty cash dilakukan kru saat proses closing shift outlet.\n\n',
+      '### 💵 Parameter Alert Selisih Kas:\n',
+      '- **Tingkat AM**: Notifikasi otomatis terpicu jika selisih kas closing cabang antara **Rp 20.000 s/d Rp 100.000**.\n',
+      '- **Tingkat RM**: Eskalasi otomatis terpicu jika selisih kas kritis **> Rp 100.000**.\n\n',
+      `Untuk audit fisik laci kasir saat ini, silakan koordinasikan langsung dengan leader outlet terkait, ${sebutan}.`,
+    ]
+  }
+
   // 2. Telemetri HRD & Kehadiran Kru — sebelum pengecekan kata 'cabang'/'outlet'
   if (
     p.includes('hrd') ||
@@ -189,7 +227,7 @@ export function buatJawabanDev(
     const k = t?.ringkasanKemarin
     if (!k || (k.omzetTotal === 0 && k.totalOrder === 0)) {
       return [
-        'Salam, Sir. Menghubungi database Suka Shawarma...\n\n',
+        `${salamAwal} Menghubungi database Suka Shawarma...\n\n`,
         '> [!WARNING]\n',
         '> Data penjualan kemarin belum berhasil dimuat dari database.\n',
       ]
@@ -213,13 +251,13 @@ export function buatJawabanDev(
         : '   *(Semua cabang aktif mencatat order)*'
 
     return [
-      `Salam, Sir. Menampilkan laporan telemetri penjualan seluruh cabang untuk **KEMARIN (${k.tanggalLabel})**:\n\n`,
+      `${salamAwal} Menampilkan laporan penjualan seluruh cabang untuk **KEMARIN (${k.tanggalLabel})**:\n\n`,
       '> [!NOTE]\n',
       `> **REKAP PENJUALAN JARINGAN KEMARIN**: Total Omzet **${formatRupiah(k.omzetTotal)}** (${k.totalOrder} order, AOV ${formatRupiah(k.aov)}). Partisipasi: **${k.outletsAktifTransaksi.length}** dari **${k.outletsAktifTransaksi.length + k.outletsNolTransaksi.length}** cabang aktif.\n\n`,
       `### 🏆 Peringkat Omzet Cabang Kemarin (${k.outletsAktifTransaksi.length} Outlet)\n`,
       `${aktifLines}\n\n`,
       k.outletsNolTransaksi.length > 0 ? `### 🟡 Cabang Tanpa Transaksi Kemarin (${k.outletsNolTransaksi.length} Unit)\n${nolLines}\n\n` : '',
-      'Data radar POS terverifikasi valid dari server database Suka Shawarma, Sir.',
+      `Data penjualan POS terverifikasi valid dari server database Suka Shawarma, ${sebutan}.`,
     ].filter(Boolean)
   }
 
@@ -235,7 +273,7 @@ export function buatJawabanDev(
   ) {
     if (!t) {
       return [
-        'Salam, Sir. Menghubungi database cabang Suka Shawarma...\n\n',
+        `${salamAwal} Menghubungi database cabang Suka Shawarma...\n\n`,
         '> [!WARNING]\n',
         '> Data cabang real-time belum dapat diambil dari database.\n',
       ]
@@ -243,14 +281,16 @@ export function buatJawabanDev(
 
     const isTanyaBuka = p.includes('buka') || p.includes('tutup')
     const headerTitle = isTanyaBuka
-      ? `Salam, Sir. Menampilkan status operasional buka/tutup cabang Suka Shawarma per tanggal **${t.tanggalWIB}**:\n\n`
-      : `Salam, Sir. Menampilkan direktori telemetri seluruh cabang Suka Shawarma per tanggal **${t.tanggalWIB}**:\n\n`
+      ? `${salamAwal} Menampilkan status operasional buka/tutup cabang Suka Shawarma per tanggal **${t.tanggalWIB}**:\n\n`
+      : `${salamAwal} Menampilkan direktori operasional seluruh cabang Suka Shawarma per tanggal **${t.tanggalWIB}**:\n\n`
 
     const statusNote = isTanyaBuka
       ? (t.outletsNolTransaksi.length === 0
           ? `> **STATUS OPERASIONAL CABANG**: Seluruh **${t.totalOutletAktif}** cabang sudah buka dan aktif mencatatkan transaksi penjualan hari ini.`
           : `> **STATUS OPERASIONAL CABANG**: **${t.outletsAktifTransaksi.length}** dari **${t.totalOutletAktif}** cabang sudah aktif membukukan transaksi (buka), sedangkan **${t.outletsNolTransaksi.length}** cabang belum mencatatkan transaksi (belum buka / belum ada order).`)
-      : `> **NETWORK TELEMETRY DIRECTIVE**: **${t.outletsAktifTransaksi.length}** dari **${t.totalOutletAktif}** cabang telah membukukan transaksi hari ini (Total Omzet: **${formatRupiah(t.omzetTotal)}**).`
+      : (isManager
+          ? `> **STATUS PENJUALAN JARINGAN**: **${t.outletsAktifTransaksi.length}** dari **${t.totalOutletAktif}** cabang telah membukukan transaksi hari ini (Total Omzet: **${formatRupiah(t.omzetTotal)}**).`
+          : `> **NETWORK TELEMETRY DIRECTIVE**: **${t.outletsAktifTransaksi.length}** dari **${t.totalOutletAktif}** cabang telah membukukan transaksi hari ini (Total Omzet: **${formatRupiah(t.omzetTotal)}**).`)
 
     const labelAktif = isTanyaBuka
       ? `### 🟢 Cabang Sudah Buka & Bertransaksi (${t.outletsAktifTransaksi.length} Outlet)\n`
@@ -287,7 +327,7 @@ export function buatJawabanDev(
       `${nolLines}\n\n`,
       `- **Total Akumulasi Order**: ${t.totalOrder} transaksi\n`,
       `- **Rata-rata Order Network**: ${formatRupiah(t.aov)} / transaksi\n\n`,
-      'Data radar POS terhubung real-time ke seluruh node kasir cabang, Sir.',
+      `Data operasional kasir cabang terhubung real-time ke sistem POS pusat, ${sebutan}.`,
     ]
   }
 
@@ -302,7 +342,7 @@ export function buatJawabanDev(
   ) {
     if (!t) {
       return [
-        'Salam, Sir. Menghubungi database POS Suka Shawarma...\n\n',
+        `${salamAwal} Menghubungi database POS Suka Shawarma...\n\n`,
         '> [!WARNING]\n',
         '> Data telemetri real-time belum dapat diambil dari database. Menampilkan data estimasi.\n\n',
         'Silakan pastikan koneksi database Supabase aktif.',
@@ -365,7 +405,7 @@ export function buatJawabanDev(
       `- **Total Transaksi Terverifikasi**: ${t?.totalOrder ?? 0} tiket\n`,
       `- **Rata-rata Nilai Transaksi (AOV)**: ${t ? formatRupiah(t.aov) : 'Rp 0'}\n`,
       `- **Status Kas Operasional**: Rekonsiliasi sinkron dengan mutasi pembayaran QRIS dan Cash.\n\n`,
-      'Arus kas tercatat positif dan seluruh modul keuangan siaga, Sir.',
+      `Arus kas tercatat positif dan seluruh modul keuangan siaga, ${sebutan}.`,
     ]
   }
 
@@ -381,6 +421,20 @@ export function buatJawabanDev(
     const topPerformer = t?.outlets?.[0]
       ? `${t.outlets[0].nama} (${formatRupiah(t.outlets[0].omzet)})`
       : 'Belum ada transaksi'
+
+    if (isManager) {
+      return [
+        `Halo Rekan Tim Operasional. Berikut ringkasan status operasional cabang Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
+        '> [!NOTE]\n',
+        `> **STATUS OPERASIONAL**: Terhubung langsung ke data live (${t?.totalOutletAktif ?? 28} outlet aktif).\n\n`,
+        '### 📊 Ringkasan Operasional Hari Ini\n',
+        `1. **Penjualan / POS**: Total Omzet **${t ? formatRupiah(t.omzetTotal) : 'Rp 0'}** (${t?.totalOrder ?? 0} transaksi)\n`,
+        `2. **Top Performer Cabang**: **${topPerformer}**\n`,
+        `3. **Katalog Bahan Aktif**: ${t?.bahanBaku?.slice(0, 3).map((b) => b.nama).join(', ') || 'Gas, Kulit, Daging'}\n`,
+        `4. **Presensi Kru**: ${t?.kehadiranTotal ?? 0} staf bertugas hari ini (On-time ${t?.persenOnTime ?? 95}%)\n\n`,
+        'Semua sistem pemantauan operasional berjalan lancar. Ada cabang binaan yang ingin Anda cek detailnya?',
+      ]
+    }
 
     return [
       `Salam, Sir. Menginisialisasi pemindaian status diagnostik Command Centre Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,

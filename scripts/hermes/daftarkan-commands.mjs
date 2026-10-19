@@ -16,6 +16,11 @@ import readline from 'node:readline'
 const DAFTAR_COMMANDS = [
   { command: 'start', description: 'Mulai bot & aktivasi akun' },
   { command: 'help', description: 'Panduan & 10 trigger alert operasional' },
+  { command: 'omzet', description: 'Cek omzet & ranking cabang hari ini' },
+  { command: 'buka', description: 'Cek cabang buka & belum transaksi' },
+  { command: 'absen', description: 'Presensi & kedisiplinan kru outlet' },
+  { command: 'stok', description: 'Status stok opname & bahan baku' },
+  { command: 'sidak', description: 'Kepatuhan ceklist & audit cabang' },
   { command: 'new', description: 'Mulai sesi percakapan baru' },
   { command: 'id', description: 'Lihat ID & info akun Telegram Anda' },
 ]

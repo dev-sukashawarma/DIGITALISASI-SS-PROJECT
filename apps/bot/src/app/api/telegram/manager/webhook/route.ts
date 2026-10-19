@@ -282,6 +282,14 @@ export async function POST(req: NextRequest) {
         `Seluruh trigger otomatis dikirimkan secara paralel ke *Telegram* ini dan ke *Notifikasi HP + Chat Copilot* di SuperApp.\n\n` +
         `🔔 *Daftar Trigger Otomatis Aktif:*\n` +
         `${daftarTriggerTeks}\n\n` +
+        `⚡ *Menu Pintasan Cepat (Slash Commands):*\n` +
+        `• /omzet - Cek penjualan & ranking cabang hari ini\n` +
+        `• /buka - Cek cabang buka & cabang 0 transaksi\n` +
+        `• /absen - Presensi kru outlet & status keterlambatan\n` +
+        `• /stok - Status stok opname & katalog bahan baku\n` +
+        `• /sidak - Kepatuhan ceklist & audit harian cabang\n` +
+        `• /new - Mulai sesi percakapan baru\n` +
+        `• /id - Cek info akun Telegram Anda\n\n` +
         `💬 *Contoh Pertanyaan yang Bisa Anda Ketik Langsung:*\n` +
         `• *"Berapa omzet seluruh cabang hari ini?"*\n` +
         `• *"Cabang mana yang masih 0 transaksi hari ini?"*\n` +
@@ -291,6 +299,33 @@ export async function POST(req: NextRequest) {
         'manager'
       )
       return NextResponse.json({ ok: true })
+    }
+
+    // ─────────────────────────────────────────────────────────── Command /new
+    if (text === '/new' || text.startsWith('/new ')) {
+      await kirimPesanTelegram(
+        chatId,
+        `🔄 *Sesi Percakapan Baru Dimulai*\n\n` +
+        `Konteks percakapan telah direset. Silakan ketik pertanyaan operasional atau gunakan menu /omzet, /buka, /absen, /stok, /sidak.`,
+        'https://manager.sukashawarma.com',
+        'manager'
+      )
+      return NextResponse.json({ ok: true })
+    }
+
+    // ─────────────────────────────────────────────────────────── Normalisasi Shortcut Slash Commands
+    let queryTeks = text.trim()
+    const cmdClean = queryTeks.toLowerCase().split(' ')[0]
+    if (cmdClean === '/omzet' || cmdClean.startsWith('/omzet@')) {
+      queryTeks = 'Berapa omzet seluruh cabang hari ini dan peringkat penjualannya?'
+    } else if (cmdClean === '/buka' || cmdClean.startsWith('/buka@')) {
+      queryTeks = 'Cabang mana yang sudah buka dan mana yang belum ada transaksi hari ini?'
+    } else if (cmdClean === '/absen' || cmdClean.startsWith('/absen@')) {
+      queryTeks = 'Siapa saja kru outlet yang telat, hadir, atau izin hari ini?'
+    } else if (cmdClean === '/stok' || cmdClean.startsWith('/stok@')) {
+      queryTeks = 'Bagaimana status stok opname dan stok bahan baku hari ini?'
+    } else if (cmdClean === '/sidak' || cmdClean.startsWith('/sidak@')) {
+      queryTeks = 'Bagaimana status kepatuhan sidak dan ceklist pembukaan cabang hari ini?'
     }
 
     // ─────────────────────────────────────────────────────────── Tanya Jawab Hermes AI 2-Way
@@ -341,9 +376,9 @@ export async function POST(req: NextRequest) {
     }, 4000)
 
     try {
-      // Ambil daftar cabang binaan jika role Area Manager
+      // Ambil daftar cabang binaan jika role Area Manager atau Korlap
       let cabangBinaanTeks = ''
-      if (staff?.role === 'area_manager' && staff.id) {
+      if ((staff?.role === 'area_manager' || staff?.role === 'korlap') && staff.id) {
         const { data: outlets } = await admin
           .from('staff_outlets')
           .select('outlet_id, outlets(name)')
@@ -354,11 +389,13 @@ export async function POST(req: NextRequest) {
         cabangBinaanTeks = namaCabang.length > 0
           ? `\nCabang Binaan Anda: ${namaCabang.join(', ')}`
           : '\nCabang Binaan: (Belum ada cabang binaan terdaftar)'
+      } else if (staff?.role === 'regional_manager') {
+        cabangBinaanTeks = '\nCakupan Wilayah: Seluruh Cabang Regional Suka Shawarma'
       }
 
       const baseUrl = process.env.HERMES_API_URL
       const kunci = kunciProfil('manager')
-      const promptUser = `[Konteks Manajer: Nama: ${userName}, Role: ${userRole}${cabangBinaanTeks}]\nPertanyaan: ${text}`
+      const promptUser = `[Konteks Manajer: Nama: ${userName}, Role: ${userRole}${cabangBinaanTeks}]\nPertanyaan: ${queryTeks}`
 
       let jawabanAi = ''
       // Coba Hermes dengan batas waktu 12 detik agar webhook tidak timeout
@@ -406,7 +443,7 @@ export async function POST(req: NextRequest) {
         // Jika AI Router juga kosong atau gagal, gunakan analisis cerdas telemetri langsung
         if (!jawabanAi.trim()) {
           try {
-            for (const chunk of buatJawabanDev(text, 'manager', telemetri)) {
+            for (const chunk of buatJawabanDev(queryTeks, 'manager', telemetri)) {
               jawabanAi += chunk
             }
           } catch (simErr) {

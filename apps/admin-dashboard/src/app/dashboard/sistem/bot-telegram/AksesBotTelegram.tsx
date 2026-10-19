@@ -243,7 +243,7 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
     try {
       const res = await daftarkanCommandBotTelegram(tokenCommandsInput)
       if (res.error) throw new Error(res.error)
-      setSuccessMsg('✅ Menu slash commands (/start, /help, /new, /id) berhasil didaftarkan ke Telegram!')
+      setSuccessMsg('✅ Menu slash commands (/start, /help, /omzet, /buka, /absen, /stok, /sidak, /new, /id) berhasil didaftarkan ke Telegram!')
       setShowSyncCommands(false)
       setTokenCommandsInput('')
     } catch (cause) {

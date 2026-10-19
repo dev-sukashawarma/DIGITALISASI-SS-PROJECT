@@ -24,15 +24,19 @@ export async function GET(request: Request) {
     { data: stokisGrants, error: stokisError },
     { data: links, error: linksError },
     { data: staff, error: staffError },
+    { data: whitelist, error: whitelistError },
   ] = await Promise.all([
     service.from('hermes_bot_registry').select('slug'),
     service.from('hermes_bot_user_access').select('bot_slug, staff_id'),
     service.from('bot_telegram_access').select('staff_id'),
     service.from('bot_telegram_links').select('staff_id, telegram_user_id'),
     service.from('outlet_staff').select('id').eq('status', 'active'),
+    service.from('bot_telegram_whitelist').select('bot_slug, telegram_user_id').eq('is_active', true),
   ])
 
-  if (botsError || grantsError || stokisError || linksError || staffError) {
+  // Ignore 42P01 if migration is pending in local/test
+  const isWhitelistMissing = whitelistError && (whitelistError as { code?: string }).code === '42P01'
+  if (botsError || grantsError || stokisError || linksError || staffError || (whitelistError && !isWhitelistMissing)) {
     return NextResponse.json({ error: 'Database unavailable' }, { status: 503 })
   }
 
@@ -45,10 +49,19 @@ export async function GET(request: Request) {
 
   const profiles: Record<string, string[]> = {}
   for (const [slug, staffIds] of staffByBot) {
-    profiles[slug] = [...staffIds]
-      .filter((id) => activeStaff.has(id) && telegramByStaff.has(id))
-      .map((id) => telegramByStaff.get(id)!)
-      .sort()
+    const ids = new Set<string>()
+    for (const id of staffIds) {
+      if (activeStaff.has(id) && telegramByStaff.has(id)) {
+        ids.add(telegramByStaff.get(id)!)
+      }
+    }
+    // Tambahkan ID mandiri dari bot_telegram_whitelist
+    for (const row of whitelist ?? []) {
+      if (row.bot_slug === slug && row.telegram_user_id) {
+        ids.add(String(row.telegram_user_id))
+      }
+    }
+    profiles[slug] = Array.from(ids).sort((a, b) => a.length - b.length || a.localeCompare(b))
   }
   return NextResponse.json({ profiles }, { headers: { 'Cache-Control': 'no-store' } })
 }

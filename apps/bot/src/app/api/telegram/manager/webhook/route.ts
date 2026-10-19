@@ -61,8 +61,32 @@ export async function POST(req: NextRequest) {
 
       // KASUS 1: Klik link dengan token rahasia (/start <token>) -> AUTO LINK INSTANT
       if (tokenRaw) {
-        const tokenHash = createHash('sha256').update(tokenRaw).digest('hex')
         const admin = supabaseAdmin()
+
+        // 1A. Jika diawali 'inv_', proses sebagai kode undangan mandiri
+        if (tokenRaw.startsWith('inv_')) {
+          const { data: inviteRes } = await admin.rpc('bot_telegram_redeem_invite_code', {
+            p_code: tokenRaw,
+            p_telegram_user_id: fromId,
+            p_nama: fromFirstName,
+            p_username: fromUsername,
+          })
+
+          const invObj = (inviteRes as { ok?: boolean; reason?: string; bot_nama?: string }) || {}
+          if (invObj.ok === true) {
+            await kirimPesanTelegram(
+              chatId,
+              `🎉 *Aktivasi Berhasil!*\n\nHalo *${fromFirstName}*!\nAkun Telegram Anda telah resmi terdaftar untuk mengakses *${invObj.bot_nama || 'Bot Manager'}* Suka Shawarma.\n\n` +
+              `Anda sekarang dapat langsung menggunakan bot ini atau ketik /help untuk panduan.`,
+              'https://manager.sukashawarma.com',
+              'manager'
+            )
+            return NextResponse.json({ ok: true, linked: true })
+          }
+        }
+
+        // 1B. Fallback ke tautan token staf lama
+        const tokenHash = createHash('sha256').update(tokenRaw).digest('hex')
 
         const { data: linkRes, error: rpcErr } = await admin.rpc('bot_telegram_tautkan', {
           p_token_hash: tokenHash,
@@ -264,6 +288,8 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────── Tanya Jawab Hermes AI 2-Way
     const admin = supabaseAdmin()
+
+    // 1. Cek apakah staf terdaftar
     const { data: linkInfo } = await admin
       .from('bot_telegram_links')
       .select('staff_id, outlet_staff(id, name, role, status)')
@@ -271,19 +297,39 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     const staff = linkInfo?.outlet_staff as unknown as { id?: string; name?: string; role?: string; status?: string } | null
+    let userName = staff?.name
+    let userRole = staff?.role
+
     if (!staff || staff.status !== 'active') {
-      await kirimPesanTelegram(
-        chatId,
-        '⚠️ Akun Telegram Anda belum terhubung atau status staf tidak aktif. Silakan hubungi Admin atau gunakan tautan aktivasi.',
-        undefined,
-        'manager'
-      )
-      return NextResponse.json({ ok: true })
+      // 2. Fallback cek standalone whitelist per bot
+      let whitelistUser: { nama_pengguna?: string } | null = null
+      try {
+        const { data } = await admin
+          .from('bot_telegram_whitelist')
+          .select('nama_pengguna')
+          .eq('telegram_user_id', fromId)
+          .maybeSingle()
+        whitelistUser = data
+      } catch {
+        // Abaikan jika tabel belum ada di mock unit test
+      }
+
+      if (!whitelistUser) {
+        await kirimPesanTelegram(
+          chatId,
+          '⚠️ Akun Telegram Anda belum terhubung atau status staf tidak aktif. Silakan hubungi Admin atau gunakan tautan aktivasi.',
+          undefined,
+          'manager'
+        )
+        return NextResponse.json({ ok: true })
+      }
+      userName = whitelistUser.nama_pengguna
+      userRole = 'pengguna_terotorisasi'
     }
 
     // Ambil daftar cabang binaan jika role Area Manager
     let cabangBinaanTeks = ''
-    if (staff.role === 'area_manager' && staff.id) {
+    if (staff?.role === 'area_manager' && staff.id) {
       const { data: outlets } = await admin
         .from('staff_outlets')
         .select('outlet_id, outlets(name)')
@@ -298,7 +344,7 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.HERMES_API_URL
     const kunci = kunciProfil('manager')
-    const promptUser = `[Konteks Manajer: Nama: ${staff.name}, Role: ${staff.role}${cabangBinaanTeks}]\nPertanyaan: ${text}`
+    const promptUser = `[Konteks Manajer: Nama: ${userName}, Role: ${userRole}${cabangBinaanTeks}]\nPertanyaan: ${text}`
 
     let jawabanAi = ''
     if (baseUrl && kunci) {

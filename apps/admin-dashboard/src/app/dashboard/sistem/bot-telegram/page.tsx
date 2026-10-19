@@ -14,7 +14,7 @@ export default async function HalamanAksesBotTelegram() {
     { data: otherAccess, error: otherAccessError },
     { data: links, error: linksError },
   ] = await Promise.all([
-    service.from('hermes_bot_registry').select('slug, nama').order('nama'),
+    service.from('hermes_bot_registry').select('slug, nama, bot_username').order('nama'),
     service.from('outlet_staff').select('id, name, username, role').eq('status', 'active').order('name').limit(1000),
     service.from('bot_telegram_access').select('staff_id'),
     service.from('hermes_bot_user_access').select('bot_slug, staff_id'),

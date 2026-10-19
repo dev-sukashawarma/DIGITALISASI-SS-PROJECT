@@ -103,6 +103,130 @@ export async function simpanIdTelegramStaf(botSlug: string, staffId: string, tel
     linked_at: new Date().toISOString(),
   }, { onConflict: 'staff_id' })
   if (error) return { error: error.code === '23505' ? 'ID Telegram ini sudah terhubung ke staf lain.' : 'ID Telegram gagal disimpan.' }
-
   return { telegramUserId }
 }
+
+export async function simpanBotUsername(botSlug: string, usernameInput: string) {
+  await requireRole(['owner', 'admin'])
+  const slug = botSlug.trim().toLowerCase()
+  const username = usernameInput.trim().replace(/^@/, '')
+  if (!botSlugPattern.test(slug)) return { error: 'Slug bot tidak valid.' }
+  if (username && !/^[A-Za-z0-9_]{5,32}$/.test(username)) {
+    return { error: 'Username bot harus 5-32 karakter (huruf, angka, garis bawah).' }
+  }
+  const service = createServiceClient()
+  const { error } = await service.from('hermes_bot_registry')
+    .update({ bot_username: username || null })
+    .eq('slug', slug)
+  if (error) return { error: 'Gagal memperbarui username bot.' }
+  return { ok: true, botUsername: username || null }
+}
+
+export async function ambilDataWhitelistDanInvite(botSlug: string) {
+  await requireRole(['owner', 'admin'])
+  const slug = botSlug.trim().toLowerCase()
+  if (!botSlugPattern.test(slug)) return { error: 'Slug bot tidak valid.' }
+  const service = createServiceClient()
+
+  const [{ data: whitelist, error: wErr }, { data: invites, error: iErr }, { data: bot, error: bErr }] = await Promise.all([
+    service.from('bot_telegram_whitelist')
+      .select('id, bot_slug, telegram_user_id, nama_pengguna, username_telegram, is_active, catatan, dibuat_at')
+      .eq('bot_slug', slug)
+      .order('dibuat_at', { ascending: false }),
+    service.from('bot_telegram_invite_codes')
+      .select('id, code, bot_slug, label, max_uses, used_count, expires_at, is_active, dibuat_at')
+      .eq('bot_slug', slug)
+      .order('dibuat_at', { ascending: false })
+      .limit(20),
+    service.from('hermes_bot_registry').select('slug, nama, bot_username').eq('slug', slug).maybeSingle(),
+  ])
+
+  if (wErr || iErr || bErr) {
+    return { error: 'Gagal memuat data whitelist atau undangan bot.' }
+  }
+
+  return {
+    whitelist: whitelist ?? [],
+    invites: invites ?? [],
+    botUsername: bot?.bot_username ?? null,
+  }
+}
+
+export async function buatInviteCode(botSlug: string, label: string, maxUses: number | null = 1, expiresHours: number | null = 24) {
+  const { userId } = await requireRole(['owner', 'admin'])
+  const slug = botSlug.trim().toLowerCase()
+  if (!botSlugPattern.test(slug)) return { error: 'Slug bot tidak valid.' }
+
+  const service = createServiceClient()
+  const { data: bot } = await service.from('hermes_bot_registry').select('bot_username').eq('slug', slug).maybeSingle()
+
+  // Generate 8-character random readable hex code
+  const code = Math.random().toString(36).substring(2, 10).toUpperCase()
+  const expiresAt = expiresHours ? new Date(Date.now() + expiresHours * 3600 * 1000).toISOString() : null
+
+  const { data, error } = await service.from('bot_telegram_invite_codes').insert({
+    code,
+    bot_slug: slug,
+    label: label.trim() || 'Undangan Pengguna',
+    max_uses: maxUses && maxUses > 0 ? maxUses : null,
+    expires_at: expiresAt,
+    dibuat_oleh: userId,
+  }).select().single()
+
+  if (error) return { error: 'Gagal membuat kode undangan.' }
+
+  const deepLink = bot?.bot_username
+    ? `https://t.me/${bot.bot_username}?start=inv_${code}`
+    : `/start inv_${code}`
+
+  return { ok: true, invite: data, deepLink }
+}
+
+export async function tambahWhitelistManual(botSlug: string, telegramUserId: string, namaPengguna: string, catatan = '') {
+  const { userId } = await requireRole(['owner', 'admin'])
+  const slug = botSlug.trim().toLowerCase()
+  const tgId = telegramUserId.trim()
+  const nama = namaPengguna.trim()
+
+  if (!botSlugPattern.test(slug) || !/^[0-9]{1,24}$/.test(tgId) || nama.length < 2) {
+    return { error: 'Data ID Telegram dan Nama Pengguna tidak valid.' }
+  }
+
+  const service = createServiceClient()
+  const { error } = await service.from('bot_telegram_whitelist').upsert({
+    bot_slug: slug,
+    telegram_user_id: tgId,
+    nama_pengguna: nama,
+    catatan: catatan.trim() || 'Ditambahkan manual oleh admin',
+    is_active: true,
+    dibuat_oleh: userId,
+  }, { onConflict: 'bot_slug,telegram_user_id' })
+
+  if (error) return { error: 'Gagal menambahkan ID Telegram ke whitelist.' }
+  return { ok: true }
+}
+
+export async function ubahStatusWhitelist(id: string, isActive: boolean) {
+  await requireRole(['owner', 'admin'])
+  const service = createServiceClient()
+  const { error } = await service.from('bot_telegram_whitelist').update({ is_active: isActive }).eq('id', id)
+  if (error) return { error: 'Gagal mengubah status akses.' }
+  return { ok: true }
+}
+
+export async function hapusWhitelist(id: string) {
+  await requireRole(['owner', 'admin'])
+  const service = createServiceClient()
+  const { error } = await service.from('bot_telegram_whitelist').delete().eq('id', id)
+  if (error) return { error: 'Gagal menghapus ID Telegram dari whitelist.' }
+  return { ok: true }
+}
+
+export async function ubahStatusInviteCode(id: string, isActive: boolean) {
+  await requireRole(['owner', 'admin'])
+  const service = createServiceClient()
+  const { error } = await service.from('bot_telegram_invite_codes').update({ is_active: isActive }).eq('id', id)
+  if (error) return { error: 'Gagal mengubah status kode undangan.' }
+  return { ok: true }
+}
+

@@ -24,6 +24,13 @@ class StatusPesananTest {
     }
 
     @Test
+    fun `pending dipetakan ke pesanan diterima`() {
+        val t = tampilanStatus("pending")
+        assertEquals("Pesanan diterima", t.judul)
+        assertEquals(TahapPesanan.DITERIMA, t.tahap)
+    }
+
+    @Test
     fun `preparing dipetakan ke sedang dibuat`() {
         assertEquals(TahapPesanan.DIBUAT, tampilanStatus("preparing").tahap)
     }

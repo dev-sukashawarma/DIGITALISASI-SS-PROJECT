@@ -116,7 +116,7 @@ fun PaymentWaitScreen(
     var detikTersisa by remember(state.expiresAt) {
         val batasEpoch = state.expiresAt?.let { uraiWaktuIso(it) }
         val sisaAwal = if (batasEpoch != null) {
-            ((batasEpoch - System.currentTimeMillis() / 1000L).toInt()).coerceAtLeast(0)
+            (((batasEpoch - System.currentTimeMillis()) / 1000L).coerceAtLeast(0L)).toInt()
         } else {
             15 * 60
         }
@@ -127,7 +127,7 @@ fun PaymentWaitScreen(
         while (detikTersisa > 0) {
             delay(1000L)
             detikTersisa = if (batasEpoch != null) {
-                ((batasEpoch - System.currentTimeMillis() / 1000L).toInt()).coerceAtLeast(0)
+                (((batasEpoch - System.currentTimeMillis()) / 1000L).coerceAtLeast(0L)).toInt()
             } else {
                 (detikTersisa - 1).coerceAtLeast(0)
             }
@@ -254,70 +254,74 @@ fun PaymentWaitScreen(
             }
         },
         bottomBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                shadowElevation = 12.dp,
-                border = BorderStroke(1.dp, SukaBorder.copy(alpha = 0.6f)),
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+            val sedangMenunggu = (state.memuat || state.menungguKonfirmasi || state.qrString != null) &&
+                !state.gagalBayar && !state.kadaluarsa && !state.waktuHabis && state.pesanGalat == null
+            if (sedangMenunggu) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color.White,
+                    shadowElevation = 12.dp,
+                    border = BorderStroke(1.dp, SukaBorder.copy(alpha = 0.6f)),
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
                 ) {
-                    Button(
-                        onClick = viewModel::periksaStatusSekarang,
+                    Column(
                         modifier = Modifier
+                            .navigationBarsPadding()
                             .fillMaxWidth()
-                            .height(52.dp)
-                            .bounceClick(),
-                        shape = RoundedCornerShape(26.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SukaOrange,
-                            contentColor = SukaBrown
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Button(
+                            onClick = viewModel::periksaStatusSekarang,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .bounceClick(),
+                            shape = RoundedCornerShape(26.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SukaOrange,
+                                contentColor = SukaBrown
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = null,
-                                tint = SukaBrown,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = null,
+                                    tint = SukaBrown,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = "Cek Status Pembayaran",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SukaBrown,
+                                        fontSize = 15.sp
+                                    )
+                                )
+                            }
+                        }
+
+                        TextButton(
+                            onClick = {
+                                viewModel.batalkanPercobaan()
+                                onKembaliKeRingkasan()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text(
-                                text = "Cek Status Pembayaran",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = SukaBrown,
-                                    fontSize = 15.sp
+                                text = "Batalkan Pembayaran",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFD92D20),
+                                    fontSize = 12.sp
                                 )
                             )
                         }
-                    }
-
-                    TextButton(
-                        onClick = {
-                            viewModel.batalkanPercobaan()
-                            onKembaliKeRingkasan()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "Batalkan Pembayaran",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFD92D20),
-                                fontSize = 12.sp
-                            )
-                        )
                     }
                 }
             }
@@ -332,6 +336,50 @@ fun PaymentWaitScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             when {
+                state.gagalBayar -> {
+                    StatusCardState(
+                        judul = "Pembayaran Tidak Berhasil",
+                        keterangan = "Pembayaran ditolak atau dibatalkan. Keranjangmu masih tersimpan.",
+                        onAksiUtama = viewModel::bayar,
+                        labelUtama = "Coba Bayar Lagi",
+                        onAksiKedua = onKembaliKeRingkasan,
+                        labelKedua = "Kembali ke Ringkasan"
+                    )
+                }
+
+                state.kadaluarsa -> {
+                    StatusCardState(
+                        judul = "Batas Waktu Habis",
+                        keterangan = "Batas waktu pesanan ini sudah lewat. Tekan di bawah untuk membuat pembayaran baru.",
+                        onAksiUtama = viewModel::bayar,
+                        labelUtama = "Buat Pembayaran Baru",
+                        onAksiKedua = onKembaliKeRingkasan,
+                        labelKedua = "Kembali ke Ringkasan"
+                    )
+                }
+
+                state.waktuHabis -> {
+                    StatusCardState(
+                        judul = "Belum Ada Kabar dari Bank",
+                        keterangan = "Kalau kamu sudah membayar, pesananmu sedang diproses di kasir — cek riwayat beberapa saat lagi. Kalau belum, coba bayar lagi.",
+                        onAksiUtama = onLihatRiwayat,
+                        labelUtama = "Cek Riwayat Pesanan",
+                        onAksiKedua = viewModel::bayar,
+                        labelKedua = "Coba Bayar Lagi"
+                    )
+                }
+
+                state.pesanGalat != null -> {
+                    StatusCardState(
+                        judul = "Terjadi Kendala",
+                        keterangan = state.pesanGalat!!,
+                        onAksiUtama = viewModel::bayar,
+                        labelUtama = "Coba Lagi",
+                        onAksiKedua = onKembaliKeRingkasan,
+                        labelKedua = "Kembali ke Ringkasan"
+                    )
+                }
+
                 state.memuat || state.menungguKonfirmasi || state.qrString != null -> {
                     // 1. Timer & Waiting Status Card
                     Surface(
@@ -771,50 +819,6 @@ fun PaymentWaitScreen(
                             )
                         }
                     }
-                }
-
-                state.gagalBayar -> {
-                    StatusCardState(
-                        judul = "Pembayaran Tidak Berhasil",
-                        keterangan = "Pembayaran ditolak atau dibatalkan. Keranjangmu masih tersimpan.",
-                        onAksiUtama = viewModel::bayar,
-                        labelUtama = "Coba Bayar Lagi",
-                        onAksiKedua = onKembaliKeRingkasan,
-                        labelKedua = "Kembali ke Ringkasan"
-                    )
-                }
-
-                state.kadaluarsa -> {
-                    StatusCardState(
-                        judul = "Batas Waktu Habis",
-                        keterangan = "Batas waktu pesanan ini sudah lewat. Tekan di bawah untuk membuat pembayaran baru.",
-                        onAksiUtama = viewModel::bayar,
-                        labelUtama = "Buat Pembayaran Baru",
-                        onAksiKedua = onKembaliKeRingkasan,
-                        labelKedua = "Kembali ke Ringkasan"
-                    )
-                }
-
-                state.waktuHabis -> {
-                    StatusCardState(
-                        judul = "Belum Ada Kabar dari Bank",
-                        keterangan = "Kalau kamu sudah membayar, pesananmu sedang diproses di kasir — cek riwayat beberapa saat lagi. Kalau belum, coba bayar lagi.",
-                        onAksiUtama = onLihatRiwayat,
-                        labelUtama = "Cek Riwayat Pesanan",
-                        onAksiKedua = viewModel::bayar,
-                        labelKedua = "Coba Bayar Lagi"
-                    )
-                }
-
-                state.pesanGalat != null -> {
-                    StatusCardState(
-                        judul = "Terjadi Kendala",
-                        keterangan = state.pesanGalat!!,
-                        onAksiUtama = viewModel::bayar,
-                        labelUtama = "Coba Lagi",
-                        onAksiKedua = onKembaliKeRingkasan,
-                        labelKedua = "Kembali ke Ringkasan"
-                    )
                 }
 
                 else -> {

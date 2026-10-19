@@ -33,7 +33,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -204,7 +203,7 @@ fun CustomerAppRoot(container: AppContainer) {
                             BottomNavTab.BERANDA -> {
                                 if (currentRoute != Rute.BERANDA) {
                                     navController.navigate(Rute.BERANDA) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
+                                        popUpTo(Rute.BERANDA) {
                                             saveState = true
                                         }
                                         launchSingleTop = true
@@ -215,7 +214,7 @@ fun CustomerAppRoot(container: AppContainer) {
                             BottomNavTab.MENU -> {
                                 if (currentRoute != Rute.MENU) {
                                     navController.navigate(Rute.MENU) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
+                                        popUpTo(Rute.BERANDA) {
                                             saveState = true
                                         }
                                         launchSingleTop = true
@@ -226,7 +225,7 @@ fun CustomerAppRoot(container: AppContainer) {
                             BottomNavTab.PESANAN -> {
                                 if (currentRoute != Rute.RIWAYAT) {
                                     navController.navigate(Rute.RIWAYAT) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
+                                        popUpTo(Rute.BERANDA) {
                                             saveState = true
                                         }
                                         launchSingleTop = true
@@ -237,7 +236,7 @@ fun CustomerAppRoot(container: AppContainer) {
                             BottomNavTab.PROFIL -> {
                                 if (currentRoute != Rute.PROFIL) {
                                     navController.navigate(Rute.PROFIL) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
+                                        popUpTo(Rute.BERANDA) {
                                             saveState = true
                                         }
                                         launchSingleTop = true
@@ -330,6 +329,11 @@ fun CustomerAppRoot(container: AppContainer) {
                 LoginScreen(
                     viewModel = loginViewModel,
                     onBerhasil = {
+                        cakupanConfig.launch {
+                            (container.repository.ambilNotifikasi() as? GatewayResult.Sukses)?.let {
+                                container.notificationStore.setUnreadCount(it.data.unreadCount)
+                            }
+                        }
                         if (tujuan == "checkout") {
                             navController.navigate(Rute.CHECKOUT) {
                                 popUpTo(Rute.MASUK) { inclusive = true }
@@ -360,6 +364,7 @@ fun CustomerAppRoot(container: AppContainer) {
                         container.sessionStore.hapus()
                         container.cartStore.kosongkan()
                         container.orderAttemptStore.selesai()
+                        container.notificationStore.setUnreadCount(0)
                         cartViewModel.segarkan()
                         navController.navigate(Rute.masuk()) {
                             popUpTo(navController.graph.id) { inclusive = true }
@@ -374,7 +379,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     onGantiOutlet = { navController.navigate(Rute.PILIH_OUTLET) },
                     onBukaProfil = {
                         navController.navigate(Rute.PROFIL) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Rute.BERANDA) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -383,7 +388,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     },
                     onBukaMenu = {
                         navController.navigate(Rute.MENU) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Rute.BERANDA) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -404,7 +409,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     onGantiOutlet = { navController.navigate(Rute.PILIH_OUTLET) },
                     onBukaProfil = {
                         navController.navigate(Rute.PROFIL) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Rute.BERANDA) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -610,7 +615,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     onKembaliKeRingkasan = { navController.popBackStack() },
                     onLihatRiwayat = {
                         navController.navigate(Rute.RIWAYAT) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Rute.BERANDA) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -642,7 +647,11 @@ fun CustomerAppRoot(container: AppContainer) {
                 SuccessScreen(
                     nomorPesanan = nomor,
                     namaOutlet = catalogState.outlet?.name,
-                    onLihatStatus = { navController.navigate(Rute.status(orderId)) },
+                    onLihatStatus = {
+                        navController.navigate(Rute.status(orderId)) {
+                            popUpTo(Rute.SUKSES) { inclusive = true }
+                        }
+                    },
                     onKembaliKeKatalog = {
                         navController.popBackStack(Rute.KATALOG, inclusive = false)
                     }
@@ -672,7 +681,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     onBukaPesanan = { navController.navigate(Rute.status(it)) },
                     onKembali = {
                         navController.navigate(Rute.KATALOG) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Rute.BERANDA) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -681,7 +690,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     },
                     onBukaProfil = {
                         navController.navigate(Rute.PROFIL) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Rute.BERANDA) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -711,6 +720,7 @@ fun CustomerAppRoot(container: AppContainer) {
                         container.sessionStore.hapus()
                         container.cartStore.kosongkan()
                         container.orderAttemptStore.selesai()
+                        container.notificationStore.setUnreadCount(0)
                         cartViewModel.segarkan()
                         navController.navigate(Rute.masuk()) {
                             popUpTo(navController.graph.id) { inclusive = true }
@@ -720,7 +730,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     onBukaVoucher = { navController.navigate(Rute.VOUCHER) },
                     onLihatRiwayat = {
                         navController.navigate(Rute.RIWAYAT) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Rute.BERANDA) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -729,7 +739,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     },
                     onKembali = {
                         navController.navigate(Rute.KATALOG) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(Rute.BERANDA) {
                                 saveState = true
                             }
                             launchSingleTop = true

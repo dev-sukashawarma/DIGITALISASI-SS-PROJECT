@@ -61,11 +61,6 @@ fun tampilanStatus(statusDapur: String?, statusDraft: String? = null): TampilanS
         else -> menungguPembayaran
     }
     "pending" -> TampilanStatus(
-        judul = "Menunggu pembayaran",
-        penjelasan = "Pesanan diteruskan ke dapur setelah pembayaran dikonfirmasi.",
-        tahap = null
-    )
-    "pending" -> TampilanStatus(
         judul = "Pesanan diterima",
         penjelasan = "Pesananmu sudah masuk ke kasir.",
         tahap = TahapPesanan.DITERIMA

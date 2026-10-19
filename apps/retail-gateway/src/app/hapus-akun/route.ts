@@ -1,11 +1,20 @@
 import { NextRequest } from 'next/server'
 
+function escapeHtml(teks: string): string {
+  return teks
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function renderHtml(statusPesan?: { sukses: boolean; pesan: string; kodeTiket?: string }) {
   const blokNotifikasi = statusPesan
     ? `<div class="${statusPesan.sukses ? 'alert-success' : 'alert-error'}">
         <strong>${statusPesan.sukses ? 'Permintaan Penghapusan Akun Diterima' : 'Permintaan Belum Dapat Diproses'}</strong>
-        <p style="margin:6px 0 0;">${statusPesan.pesan}</p>
-        ${statusPesan.kodeTiket ? `<p style="margin:6px 0 0;font-size:0.85rem;">Nomor Referensi: <code>${statusPesan.kodeTiket}</code></p>` : ''}
+        <p style="margin:6px 0 0;">${escapeHtml(statusPesan.pesan)}</p>
+        ${statusPesan.kodeTiket ? `<p style="margin:6px 0 0;font-size:0.85rem;">Nomor Referensi: <code>${escapeHtml(statusPesan.kodeTiket)}</code></p>` : ''}
       </div>`
     : ''
 
@@ -306,13 +315,17 @@ export async function GET() {
   })
 }
 
+const POLA_EMAIL = /^[^\s@<>'"\\]+@[^\s@<>'"\\]+\.[^\s@<>'"\\]+$/
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const email = String(formData.get('email') ?? '').trim().toLowerCase()
+    const telepon = String(formData.get('telepon') ?? '').trim().slice(0, 30)
+    const alasan = String(formData.get('alasan') ?? '').trim().slice(0, 500)
     const konfirmasi = String(formData.get('konfirmasi') ?? '')
 
-    if (!email || !email.includes('@') || konfirmasi !== 'ya') {
+    if (!email || email.length > 254 || !POLA_EMAIL.test(email) || konfirmasi !== 'ya') {
       return new Response(
         renderHtml({
           sukses: false,
@@ -326,6 +339,13 @@ export async function POST(req: NextRequest) {
     }
 
     const kodeTiket = `DEL-${Date.now().toString(36).toUpperCase()}`
+    console.info('[ACCOUNT_DELETION_WEB_REQUEST]', {
+      kodeTiket,
+      email,
+      telepon: telepon || null,
+      alasan: alasan || null,
+      waktu: new Date().toISOString(),
+    })
 
     return new Response(
       renderHtml({

@@ -9,6 +9,7 @@ import com.sukashawarma.customer.data.api.GatewayError
 import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.ui.components.pesanGalat
 import com.sukashawarma.customer.ui.checkout.kePayloadList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -92,6 +93,7 @@ class PaymentViewModel(
 
     private val _state = MutableStateFlow(PaymentState(totalTagihan = totalAwal()))
     val state: StateFlow<PaymentState> = _state.asStateFlow()
+    private var pollingJob: Job? = null
 
     /**
      * Angka pra-server yang aman ditampilkan sebelum gateway membalas.
@@ -130,7 +132,14 @@ class PaymentViewModel(
         // pembayaran nyata), tapi begitu request BENAR-BENAR dikirim (memuat =
         // true), tampilkan totalAwal() -- sembunyikan angka pra-voucher yang
         // salah sampai gateway membalas (I2).
-        _state.value = _state.value.copy(memuat = true, pesanGalat = null, totalTagihan = totalAwal())
+        _state.value = _state.value.copy(
+            memuat = true,
+            pesanGalat = null,
+            gagalBayar = false,
+            kadaluarsa = false,
+            waktuHabis = false,
+            totalTagihan = totalAwal()
+        )
 
         viewModelScope.launch {
             when (
@@ -190,9 +199,10 @@ class PaymentViewModel(
      * Xendit ke gateway; layar ini hanya menunggu gateway mengakuinya.
      */
     fun tanyaSampaiPasti(orderId: String) {
+        pollingJob?.cancel()
         _state.value = _state.value.copy(menungguKonfirmasi = true, waktuHabis = false)
 
-        viewModelScope.launch {
+        pollingJob = viewModelScope.launch {
             val mulai = System.currentTimeMillis()
             val batas = mulai + BATAS_TUNGGU_MS
 
@@ -221,9 +231,13 @@ class PaymentViewModel(
                                 return@launch
                             }
                             "gagal" -> {
+                                percobaan.simpanClientOrderId(idPesananBaru())
                                 _state.value = _state.value.copy(
                                     menungguKonfirmasi = false,
-                                    gagalBayar = true
+                                    gagalBayar = true,
+                                    qrString = null,
+                                    paymentUrl = null,
+                                    urlBayarTersimpan = null
                                 )
                                 return@launch
                             }
@@ -234,7 +248,10 @@ class PaymentViewModel(
                                 percobaan.simpanClientOrderId(idPesananBaru())
                                 _state.value = _state.value.copy(
                                     menungguKonfirmasi = false,
-                                    kadaluarsa = true
+                                    kadaluarsa = true,
+                                    qrString = null,
+                                    paymentUrl = null,
+                                    urlBayarTersimpan = null
                                 )
                                 return@launch
                             }
@@ -251,7 +268,13 @@ class PaymentViewModel(
 
             // Habis waktu bukan berarti gagal. Pesanan bisa saja tetap masuk;
             // pelanggan diarahkan memeriksa riwayat, bukan membayar lagi.
-            _state.value = _state.value.copy(menungguKonfirmasi = false, waktuHabis = true)
+            _state.value = _state.value.copy(
+                menungguKonfirmasi = false,
+                waktuHabis = true,
+                qrString = null,
+                paymentUrl = null,
+                urlBayarTersimpan = null
+            )
         }
     }
 
@@ -275,6 +298,7 @@ class PaymentViewModel(
                     )
                     when (d.status) {
                         "dibayar" -> {
+                            pollingJob?.cancel()
                             cart.kosongkan()
                             percobaan.selesai()
                             _state.value = _state.value.copy(
@@ -285,17 +309,26 @@ class PaymentViewModel(
                             true
                         }
                         "gagal" -> {
+                            pollingJob?.cancel()
+                            percobaan.simpanClientOrderId(idPesananBaru())
                             _state.value = _state.value.copy(
                                 menungguKonfirmasi = false,
-                                gagalBayar = true
+                                gagalBayar = true,
+                                qrString = null,
+                                paymentUrl = null,
+                                urlBayarTersimpan = null
                             )
                             true
                         }
                         "kadaluarsa" -> {
+                            pollingJob?.cancel()
                             percobaan.simpanClientOrderId(idPesananBaru())
                             _state.value = _state.value.copy(
                                 menungguKonfirmasi = false,
-                                kadaluarsa = true
+                                kadaluarsa = true,
+                                qrString = null,
+                                paymentUrl = null,
+                                urlBayarTersimpan = null
                             )
                             true
                         }
@@ -406,8 +439,16 @@ class PaymentViewModel(
     }
 
     fun batalkanPercobaan() {
+        pollingJob?.cancel()
+        pollingJob = null
+        val orderId = _state.value.orderId ?: percobaan.orderId()
         percobaan.selesai()
         _state.value = PaymentState()
+        if (orderId != null) {
+            viewModelScope.launch {
+                repository.batalkanPesanan(orderId)
+            }
+        }
     }
 
     fun bersihkanGalat() {

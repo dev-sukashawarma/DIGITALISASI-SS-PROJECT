@@ -232,4 +232,32 @@ describe('POST /api/v1/orders -- voucher', () => {
     const payload = retail.insertDraftMock.mock.calls[0][0]
     expect(payload.items).toEqual([{ menu_item_id: 'A', name: 'A', unit_price: 30000, quantity: 1, note: undefined }])
   })
+
+  it('idempotensi QRIS: percobaan ulang dengan payment_url null tetapi qr_string terisi mengembalikan 200 duplicate', async () => {
+    const retail = buildRetail({
+      existingDraft: {
+        id: 'draft-qris-1',
+        payment_url: null,
+        qr_string: '00020101021226660014ID.CO.QRIS.WWW',
+        total_amount: 30000,
+        expires_at: '2026-10-19T12:30:00.000Z',
+        status: 'menunggu_bayar',
+      },
+    })
+    vi.mocked(supabase.createRetailClient).mockReturnValue(retail as any)
+
+    const res = await POST(req(BASE_BODY))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual({
+      order_id: 'draft-qris-1',
+      payment_url: null,
+      qr_string: '00020101021226660014ID.CO.QRIS.WWW',
+      total_amount: 30000,
+      expires_at: '2026-10-19T12:30:00.000Z',
+      duplicate: true,
+    })
+    expect(retail.insertDraftMock).not.toHaveBeenCalled()
+    expect(xendit.buatQris).not.toHaveBeenCalled()
+  })
 })

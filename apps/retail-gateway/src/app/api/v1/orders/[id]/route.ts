@@ -71,3 +71,32 @@ export async function GET(
     qr_string: draft.qr_string,
   })
 }
+
+/**
+ * Membatalkan draft pesanan yang masih `menunggu_bayar` saat pelanggan menekan
+ * "Batalkan Pembayaran" di layar tunggu QRIS.
+ */
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const sesi = await requireCustomer(request)
+  if (!sesi) return NextResponse.json({ error: 'Sesi tidak sah' }, { status: 401 })
+
+  const { id } = await params
+  const retail = createRetailClient()
+
+  const { error } = await retail
+    .from('order_drafts')
+    .update({ status: 'gagal' })
+    .eq('id', id)
+    .eq('customer_id', sesi.customerId)
+    .eq('status', 'menunggu_bayar')
+
+  if (error) {
+    console.error('Gagal membatalkan draft pesanan:', error)
+    return NextResponse.json({ error: 'Gagal membatalkan pesanan' }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true })
+}

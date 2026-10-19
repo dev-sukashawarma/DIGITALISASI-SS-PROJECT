@@ -118,6 +118,9 @@ class Repository(private val gateway: GatewayClient) {
     suspend fun statusPesanan(orderId: String): GatewayResult<OrderDetailDto> =
         gateway.orderDetail(orderId)
 
+    suspend fun batalkanPesanan(orderId: String): GatewayResult<Unit> =
+        gateway.cancelOrder(orderId)
+
     suspend fun riwayat(): GatewayResult<List<OrderDetailDto>> =
         when (val hasil = gateway.ordersList()) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.orders)

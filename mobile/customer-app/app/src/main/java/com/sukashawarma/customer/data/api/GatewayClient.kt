@@ -216,6 +216,22 @@ class GatewayClient(
         }
     }
 
+    suspend fun cancelOrder(orderId: String): GatewayResult<Unit> {
+        return try {
+            val response = client.delete("$baseUrl/api/v1/orders/$orderId") {
+                sisipkanOtorisasi()
+            }
+            if (response.status.isSuccess()) {
+                GatewayResult.Sukses(Unit)
+            } else {
+                val body = runCatching { response.bodyAsText() }.getOrNull()
+                GatewayResult.Gagal(petakanGalat(response.status.value, body))
+            }
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
     suspend fun ordersList(): GatewayResult<OrdersListResponse> {
         return try {
             val response = client.get("$baseUrl/api/v1/orders/list") {

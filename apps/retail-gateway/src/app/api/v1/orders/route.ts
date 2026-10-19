@@ -80,7 +80,7 @@ export async function POST(request: Request) {
   // mengembalikan draft yang sudah ada, bukan membuat tagihan baru.
   const { data: sudahAda } = await retail
     .from('order_drafts')
-    .select('id, payment_url, total_amount, expires_at, status')
+    .select('id, payment_url, qr_string, total_amount, expires_at, status')
     .eq('client_order_id', body.client_order_id)
     .eq('customer_id', sesi.customerId)
     .maybeSingle()
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
 
     // Draft hidup tapi tagihannya belum tercatat: proses mati di tengah, atau
     // permintaan kembar yang pemenangnya belum selesai membuat tagihan.
-    if (!sudahAda.payment_url) {
+    if (!sudahAda.payment_url && !sudahAda.qr_string) {
       return NextResponse.json(
         {
           error: 'pesanan_sedang_diproses',
@@ -116,6 +116,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       order_id: sudahAda.id,
       payment_url: sudahAda.payment_url,
+      qr_string: sudahAda.qr_string,
       total_amount: sudahAda.total_amount,
       expires_at: sudahAda.expires_at,
       duplicate: true,
@@ -235,13 +236,13 @@ export async function POST(request: Request) {
     if ((draftError as { code?: string } | null)?.code === '23505') {
       const { data: pemenang } = await retail
         .from('order_drafts')
-        .select('id, payment_url, total_amount, expires_at')
+        .select('id, payment_url, qr_string, total_amount, expires_at')
         .eq('client_order_id', body.client_order_id)
         .maybeSingle()
 
       // Pemenang mungkin belum selesai membuat tagihannya. Jangan kembalikan
-      // payment_url kosong -- suruh aplikasi mencoba lagi sebentar lagi.
-      if (pemenang && !pemenang.payment_url) {
+      // payment_url/qr_string kosong -- suruh aplikasi mencoba lagi sebentar lagi.
+      if (pemenang && !pemenang.payment_url && !pemenang.qr_string) {
         // Bentuk balasan SAMA dengan jalur pemeriksaan awal. Aplikasi Android
         // mencocokkan kode mesin `error`, bukan kalimatnya.
         return NextResponse.json(
@@ -257,6 +258,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           order_id: pemenang.id,
           payment_url: pemenang.payment_url,
+          qr_string: pemenang.qr_string,
           total_amount: pemenang.total_amount,
           expires_at: pemenang.expires_at,
           duplicate: true,

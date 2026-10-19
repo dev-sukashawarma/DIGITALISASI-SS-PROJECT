@@ -184,6 +184,16 @@ Untuk menghentikan fitur, `cron.unschedule` kedua job
 `bot-telegram-kitchen-opname-pengingat` dan `bot-telegram-kitchen-opname-ringkasan`.
 Fitur tidak mengubah jadwal pengingat opname lewat 7 hari yang sudah ada.
 
+Migration `20300254003700_exclude_leader_from_telegram_alerts.sql` menegakkan
+kebijakan bahwa role `leader` tidak menerima notifikasi Telegram apa pun.
+Alert stok kritis (`bot_telegram_alert_stok_kritis`) dialihkan ke staf
+`kitchen` dan `purchasing` aktif, alert penurunan stok tidak biasa hanya
+dikirim ke tim pusat (`owner`, `admin`, `developer`, `kitchen`, `purchasing`),
+dan alert surat jalan dikirim dinonaktifkan untuk level kru/leader outlet.
+Endpoint `/api/telegram/send` memvalidasi role staf dan menolak pengiriman ke
+role `leader` (`role_not_eligible`). Uji terisolasi:
+`supabase/verifikasi/hermes/t12_exclude_leader_alerts.sql`.
+
 Jangan simpan `TELEGRAM_STOKIST_WEBHOOK_SECRET`; webhook dan poller app telah
 dihapus. Username bot tidak diperlukan. Aturan persona dan pengujian profil ada
 di [`docs/hermes/SOUL-stokis.md`](../../docs/hermes/SOUL-stokis.md) dan

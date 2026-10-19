@@ -203,11 +203,37 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────── Command /help
     if (text === '/help' || text.startsWith('/help ')) {
-      await kirimPesanTelegram(
-        chatId,
-        `📖 *Panduan Bot Manager Suka Shawarma (Telegram & SuperApp)*\n\n` +
-        `Seluruh trigger otomatis dikirimkan secara paralel ke *Telegram* ini dan ke *Notifikasi HP + Chat Copilot* di SuperApp.\n\n` +
-        `🔔 *10 Trigger Otomatis Aktif (RM & AM):*\n` +
+      let barisTriggerDinamis = ''
+      try {
+        const admin = supabaseAdmin(3_000)
+        const { data: linkRow } = await admin
+          .from('bot_telegram_links')
+          .select('outlet_staff(role)')
+          .eq('telegram_user_id', fromId)
+          .maybeSingle()
+        const staffRole = (linkRow?.outlet_staff as unknown as { role?: string } | null)?.role
+        const targetRole = staffRole === 'regional_manager' ? 'regional_manager' : 'area_manager'
+
+        const { data: catalogRows } = await admin
+          .from('bot_trigger_catalog')
+          .select('judul, jadwal_atau_trigger')
+          .eq('target_role', targetRole)
+          .eq('is_active', true)
+          .order('urutan', { ascending: true })
+
+        if (Array.isArray(catalogRows) && catalogRows.length > 0) {
+          barisTriggerDinamis = catalogRows
+            .map((r: { judul?: string; jadwal_atau_trigger?: string }, idx: number) =>
+              `${idx + 1}. *${r.judul}* _(${r.jadwal_atau_trigger})_`
+            )
+            .join('\n')
+        }
+      } catch {
+        // Gunakan daftar default jika query katalog gagal
+      }
+
+      const daftarTriggerTeks =
+        barisTriggerDinamis ||
         `1. 📋 *Finalize Stock Opname Real-Time* (Daftar Sudah, Draft & Belum Opname)\n` +
         `2. 🚨 *Cabang Zero Sales / 0 Transaksi* (17:00 WIB AM & 19:30 WIB RM)\n` +
         `3. 🛑 *Pembatalan / Void Order POS* (Real-Time)\n` +
@@ -217,7 +243,14 @@ export async function POST(req: NextRequest) {
         `7. 🚨 *Outlet Telat Buka* (+5 menit AM & +30 menit RM)\n` +
         `8. 💵 *Selisih Kas Closing Shift* (>Rp 20rb AM & >Rp 100rb RM)\n` +
         `9. 🗑️ *Pengajuan Waste & Sidak Ceklist Harian*\n` +
-        `10. 📈 *Rekap Omzet & Kepatuhan Opname Berkala*\n\n` +
+        `10. 📈 *Rekap Omzet & Kepatuhan Opname Berkala*`
+
+      await kirimPesanTelegram(
+        chatId,
+        `📖 *Panduan Bot Manager Suka Shawarma (Telegram & SuperApp)*\n\n` +
+        `Seluruh trigger otomatis dikirimkan secara paralel ke *Telegram* ini dan ke *Notifikasi HP + Chat Copilot* di SuperApp.\n\n` +
+        `🔔 *Daftar Trigger Otomatis Aktif:*\n` +
+        `${daftarTriggerTeks}\n\n` +
         `💬 *Contoh Pertanyaan yang Bisa Anda Ketik Langsung:*\n` +
         `• *"Berapa omzet seluruh cabang hari ini?"*\n` +
         `• *"Cabang mana yang masih 0 transaksi hari ini?"*\n` +

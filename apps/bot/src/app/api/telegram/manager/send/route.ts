@@ -32,8 +32,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Payload tidak valid.' }, { status: 400 })
   }
 
-  const url = input?.url ? urlAplikasiDiizinkan(input.url, 'manager') : undefined
-  if (input?.url && !url) {
+  const rawUrl = input?.url === 'bot' ? 'https://manager.sukashawarma.com' : input?.url
+  const url = rawUrl ? urlAplikasiDiizinkan(rawUrl, 'manager') : undefined
+  if (rawUrl && !url) {
     return NextResponse.json({ error: 'URL aplikasi tidak valid.' }, { status: 400 })
   }
 

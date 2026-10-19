@@ -544,3 +544,65 @@ CREATE TRIGGER trg_bot_manager_opname_finalized
   WHEN (NEW.status = 'finalized')
   EXECUTE FUNCTION public.trg_fn_bot_manager_opname_finalized();
 
+-- ─────────────────────────────────────────────────────────── 7. Sinkronisasi URL Outbox Telegram & Rute In-App HP
+CREATE OR REPLACE FUNCTION public.bot_manager_antrekan(
+  p_key text,
+  p_staff_id uuid,
+  p_title text,
+  p_body text,
+  p_url text DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tg_url text;
+BEGIN
+  -- 1. Jalur Notifikasi HP Native (SUKA Superapp): selalu arahkan ke rute in-app 'bot'
+  IF EXISTS (
+    SELECT 1 FROM public.outlet_staff s
+    WHERE s.id = p_staff_id
+      AND s.status = 'active'
+      AND s.role IN ('area_manager', 'regional_manager', 'developer')
+  ) THEN
+    PERFORM public.bot_kirim_push_hp(
+      p_key,
+      p_staff_id,
+      'manager',
+      p_title,
+      p_body,
+      'bot'
+    );
+  END IF;
+
+  -- 2. Jalur Telegram Bot Manager: pastikan URL yang masuk ke outbox Telegram adalah HTTPS valid
+  v_tg_url := CASE
+    WHEN p_url IS NULL OR btrim(p_url) = '' OR btrim(p_url) = 'bot' OR p_url NOT LIKE 'https://%'
+      THEN 'https://manager.sukashawarma.com'
+    ELSE btrim(p_url)
+  END;
+
+  INSERT INTO public.bot_manager_alert_outbox(event_key, staff_id, title, body, url)
+  SELECT p_key, s.id, left(p_title, 180), left(p_body, 1200), v_tg_url
+  FROM public.outlet_staff s
+  JOIN public.bot_telegram_links l ON l.staff_id = s.id
+  WHERE s.id = p_staff_id
+    AND s.status = 'active'
+    AND s.role IN ('area_manager', 'regional_manager', 'developer')
+    AND l.chat_id IS NOT NULL
+  ON CONFLICT (event_key, staff_id) DO NOTHING;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.bot_manager_antrekan(text, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
+
+-- Normalisasi antrean yang sempat tersimpan dengan url = 'bot' agar langsung terkirim ke Telegram
+UPDATE public.bot_manager_alert_outbox
+SET url = 'https://manager.sukashawarma.com',
+    request_id = NULL,
+    attempted_at = NULL
+WHERE url = 'bot' AND outcome = 'pending';
+
+

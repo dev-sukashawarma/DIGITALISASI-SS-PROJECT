@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
 import { tanyaHermes, kunciProfil } from '@/lib/hermes'
+import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
+import { tanyaAiRouter } from '@/lib/server/aiRouter'
+import { buatJawabanDev } from '@/lib/server/devSimulasi'
 
 export const dynamic = 'force-dynamic'
 
@@ -100,15 +103,19 @@ export async function POST(req: NextRequest) {
 
           await kirimPesanTelegram(
             chatId,
-            `🎉 *Aktivasi Berhasil!*\n\nHalo *${staffName}*!\nAkun Telegram Anda telah resmi terhubung sebagai *${roleLabel}* Suka Shawarma.\n\n` +
-            `Mulai saat ini, Anda akan menerima alert operasional otomatis:\n` +
-            `• 🚨 Keterlambatan buka outlet (+5 menit)\n` +
-            `• 💵 Selisih kas closing kasir\n` +
-            `• 🗑️ Pengajuan waste bahan baku\n` +
-            `• 📋 Laporan sidak ceklist harian\n` +
-            `• 📦 Monitoring kepatuhan stok opname\n` +
-            `• 📈 Laporan omzet berkala (15:00, 19:30, 22:30 WIB)\n\n` +
-            `Ketik /help untuk melihat wewenang dan contoh pertanyaan.`,
+            `🎉 *Aktivasi Berhasil!*\n\nHalo *${staffName}*!\nAkun Telegram Anda telah resmi terhubung sebagai *${roleLabel}* Suka Shawarma (sinkron dengan Bot Manager di SuperApp).\n\n` +
+            `Mulai saat ini, Anda akan menerima 10 trigger alert operasional otomatis:\n` +
+            `• 📋 *Update Finalize Stock Opname* (Real-Time: rincian cabang Sudah Opname, Masih Draft & Belum Opname)\n` +
+            `• 🚨 *Alert Cabang Zero Sales / 0 Transaksi* (17:00 WIB untuk AM & 19:30 WIB untuk RM)\n` +
+            `• 🛑 *Alert Pembatalan / Void Order POS* (AM & eskalasi RM ≥Rp 50rb / beruntun)\n` +
+            `• 📉 *Anomali Penurunan Stok Drastis (≥50%)*\n` +
+            `• 📦 *Surat Jalan Menggantung (>2 Jam belum diterima cabang)*\n` +
+            `• 👥 *Outlet Understaffed / Izin Mendadak Hari Ini (H-0)*\n` +
+            `• 🚨 *Keterlambatan Buka Outlet (+5 menit & eskalasi +30 menit)*\n` +
+            `• 💵 *Selisih Kas Closing Shift Kasir (>Rp 20rb AM & >Rp 100rb RM)*\n` +
+            `• 🗑️ *Pengajuan Waste Bahan Baku & Sidak Ceklist Harian*\n` +
+            `• 📈 *Laporan Omzet Berkala (15:00, 19:30, 22:30 WIB)*\n\n` +
+            `Ketik /help untuk melihat daftar trigger & contoh pertanyaan.`,
             'https://manager.sukashawarma.com',
             'manager'
           )
@@ -159,8 +166,8 @@ export async function POST(req: NextRequest) {
         await kirimPesanTelegram(
           chatId,
           `👋 *Selamat Datang Kembali, ${staff.name}!* (${roleLabel})\n\n` +
-          `Bot Manager Suka Shawarma siap siaga. Sistem akan mengirimkan notifikasi operasional dan laporan omzet berkala langsung ke sini.\n\n` +
-          `Ketik /help untuk panduan atau langsung ketik pertanyaan seputar omzet dan cabang binaan Anda.`,
+          `Bot Manager Suka Shawarma siap siaga (tersinkronisasi penuh dengan notifikasi HP & Chat Copilot di SuperApp).\n\n` +
+          `Ketik /help untuk melihat 10 trigger otomatis & panduan tanya-jawab AI.`,
           'https://manager.sukashawarma.com',
           'manager'
         )
@@ -171,7 +178,7 @@ export async function POST(req: NextRequest) {
           `Akun Telegram Anda belum terhubung dengan akun staf Suka Shawarma.\n\n` +
           `🆔 *Telegram User ID Anda:* \`${fromId}\`\n\n` +
           `💡 *Cara Aktivasi Otomatis:*\n` +
-          `Mintalah *Tautan Aktivasi Khusus* kepada Admin, lalu klik tautan tersebut untuk menghubungkan akun secara otomatis.`,
+          `Buka menu *Bot Manager* di SuperApp lalu klik tombol *Hubungkan Telegram*, atau mintalah *Tautan Aktivasi Khusus* kepada Admin.`,
           undefined,
           'manager'
         )
@@ -198,18 +205,24 @@ export async function POST(req: NextRequest) {
     if (text === '/help' || text.startsWith('/help ')) {
       await kirimPesanTelegram(
         chatId,
-        `📖 *Panduan Bot Manager Suka Shawarma*\n\n` +
-        `Bot ini memantau operasional cabang dan melayani tanya jawab dua arah via AI Hermes.\n\n` +
-        `📌 *Perintah Cepat:*\n` +
-        `• /start : Memeriksa status akun & sambutan\n` +
-        `• /id : Melihat ID Telegram Anda\n` +
-        `• /help : Panduan ini\n\n` +
-        `💬 *Contoh Pertanyaan yang Bisa Anda Tanyakan:*\n` +
-        `• *"Berapa omzet cabang Jakal hari ini?"*\n` +
-        `• *"Menu terlaris di Babarsari minggu ini apa saja?"*\n` +
-        `• *"Siapa kru yang belum absen di cabang Seturan?"*\n` +
-        `• *"Cabang mana yang belum selesai stok opname malam ini?"*\n` +
-        `• *"Cek stok daging sapi di cabang Monjali"*`,
+        `📖 *Panduan Bot Manager Suka Shawarma (Telegram & SuperApp)*\n\n` +
+        `Seluruh trigger otomatis dikirimkan secara paralel ke *Telegram* ini dan ke *Notifikasi HP + Chat Copilot* di SuperApp.\n\n` +
+        `🔔 *10 Trigger Otomatis Aktif (RM & AM):*\n` +
+        `1. 📋 *Finalize Stock Opname Real-Time* (Daftar Sudah, Draft & Belum Opname)\n` +
+        `2. 🚨 *Cabang Zero Sales / 0 Transaksi* (17:00 WIB AM & 19:30 WIB RM)\n` +
+        `3. 🛑 *Pembatalan / Void Order POS* (Real-Time)\n` +
+        `4. 📉 *Anomali Penurunan Stok ≥50%* (Real-Time)\n` +
+        `5. 📦 *Surat Jalan Menggantung >2 Jam* (Tiap 15 menit)\n` +
+        `6. 👥 *Izin Mendadak H-0 / Outlet Understaffed* (Real-Time)\n` +
+        `7. 🚨 *Outlet Telat Buka* (+5 menit AM & +30 menit RM)\n` +
+        `8. 💵 *Selisih Kas Closing Shift* (>Rp 20rb AM & >Rp 100rb RM)\n` +
+        `9. 🗑️ *Pengajuan Waste & Sidak Ceklist Harian*\n` +
+        `10. 📈 *Rekap Omzet & Kepatuhan Opname Berkala*\n\n` +
+        `💬 *Contoh Pertanyaan yang Bisa Anda Ketik Langsung:*\n` +
+        `• *"Berapa omzet seluruh cabang hari ini?"*\n` +
+        `• *"Cabang mana yang masih 0 transaksi hari ini?"*\n` +
+        `• *"Siapa kru yang izin atau telat hari ini?"*\n` +
+        `• *"Bandingkan omzet hari ini dengan kemarin"*`,
         'https://manager.sukashawarma.com',
         'manager'
       )
@@ -252,33 +265,47 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.HERMES_API_URL
     const kunci = kunciProfil('manager')
-
-    if (!baseUrl || !kunci) {
-      await kirimPesanTelegram(
-        chatId,
-        '⚠️ Layanan asisten AI Hermes Manager sedang dalam proses pemeliharaan. Silakan coba beberapa saat lagi.',
-        undefined,
-        'manager'
-      )
-      return NextResponse.json({ ok: true })
-    }
-
     const promptUser = `[Konteks Manajer: Nama: ${staff.name}, Role: ${staff.role}${cabangBinaanTeks}]\nPertanyaan: ${text}`
 
     let jawabanAi = ''
-    try {
-      for await (const chunk of tanyaHermes({
-        baseUrl,
-        kunci,
-        profil: 'manager',
-        sesiId: `telegram-${fromId}`,
-        pesan: promptUser,
-      })) {
-        jawabanAi += chunk
+    if (baseUrl && kunci) {
+      try {
+        for await (const chunk of tanyaHermes({
+          baseUrl,
+          kunci,
+          profil: 'manager',
+          sesiId: `telegram-${fromId}`,
+          pesan: promptUser,
+        })) {
+          jawabanAi += chunk
+        }
+      } catch (e) {
+        console.warn('[telegram-webhook] Hermes gagal, beralih ke AI Router + Telemetri Nyata:', e)
       }
-    } catch (e) {
-      console.error('[telegram-webhook] Error memanggil Hermes:', e)
-      jawabanAi = '⚠️ Terjadi kendala saat memproses jawaban dengan asisten AI operasional. Silakan coba lagi.'
+    }
+
+    // Fallback ke AI Router (9Router) + Telemetri Nyata (identik dengan In-App Copilot)
+    if (!jawabanAi.trim()) {
+      try {
+        const telemetri = await ambilTelemetriNyata()
+        if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
+          for await (const chunk of tanyaAiRouter({
+            pesan: promptUser,
+            profil: 'manager',
+            telemetri,
+          })) {
+            jawabanAi += chunk
+          }
+        }
+        if (!jawabanAi.trim()) {
+          for (const chunk of buatJawabanDev(text, 'ceo', telemetri)) {
+            jawabanAi += chunk
+          }
+        }
+      } catch (fallbackErr) {
+        console.error('[telegram-webhook] Fallback AI Router gagal:', fallbackErr)
+        jawabanAi = '⚠️ Terjadi kendala saat memproses jawaban dengan asisten AI operasional. Silakan coba lagi.'
+      }
     }
 
     if (jawabanAi.trim()) {

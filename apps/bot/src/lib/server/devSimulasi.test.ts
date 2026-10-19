@@ -117,4 +117,27 @@ describe('buatJawabanDev', () => {
     expect(full).toContain('Salam, Sir')
     expect(full).toContain('LIVE DATA STREAM ACTIVE')
   })
+
+  it('menggunakan persona manajer operasional dan tidak membocorkan persona CEO / Sir', () => {
+    const chunksDefault = buatJawabanDev('halo selamat siang', 'manager', mockTelemetri)
+    const fullDefault = chunksDefault.join('')
+    expect(fullDefault).toContain('Halo Rekan Tim Operasional Suka Shawarma')
+    expect(fullDefault).not.toContain('Sir')
+    expect(fullDefault).not.toContain('J.A.R.V.I.S.')
+    expect(fullDefault).not.toContain('Arc Reactor')
+
+    const chunksWaste = buatJawabanDev('ada waste ga hari ini', 'manager', mockTelemetri)
+    const fullWaste = chunksWaste.join('')
+    expect(fullWaste).toContain('Data waste dan reject bahan baku hari ini belum tercatat')
+    expect(fullWaste).toContain('closing shift dan stok opname fisik')
+    expect(fullWaste).not.toContain('Sir')
+    expect(fullWaste).not.toContain('J.A.R.V.I.S.')
+
+    const chunksDiagnostik = buatJawabanDev('status report menyeluruh', 'manager', mockTelemetri)
+    const fullDiagnostik = chunksDiagnostik.join('')
+    expect(fullDiagnostik).toContain('Halo Rekan Tim Operasional')
+    expect(fullDiagnostik).not.toContain('Arc Reactor Core')
+    expect(fullDiagnostik).not.toContain('Sir')
+  })
 })
+

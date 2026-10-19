@@ -406,7 +406,7 @@ export async function POST(req: NextRequest) {
         // Jika AI Router juga kosong atau gagal, gunakan analisis cerdas telemetri langsung
         if (!jawabanAi.trim()) {
           try {
-            for (const chunk of buatJawabanDev(text, 'ceo', telemetri)) {
+            for (const chunk of buatJawabanDev(text, 'manager', telemetri)) {
               jawabanAi += chunk
             }
           } catch (simErr) {

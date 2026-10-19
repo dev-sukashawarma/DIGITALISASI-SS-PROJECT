@@ -9,6 +9,9 @@ export function buatJawabanDev(
   t: TelemetriHariIni | null = null
 ): string[] {
   const p = (pesanUser || '').toLowerCase().trim()
+  const isManager = profil.trim().toLowerCase() === 'manager'
+  const sebutan = isManager ? 'Rekan' : 'Sir'
+  const salamAwal = isManager ? 'Halo Rekan Tim Operasional Suka Shawarma.' : 'Salam, Sir.'
 
   const isKemarin =
     p.includes('kemarin') ||
@@ -28,6 +31,20 @@ export function buatJawabanDev(
     const topPerformer = t?.outlets?.[0]
       ? `${t.outlets[0].nama} (${formatRupiah(t.outlets[0].omzet)})`
       : 'Belum ada transaksi'
+
+    if (isManager) {
+      return [
+        `Halo Rekan Tim Operasional Suka Shawarma. Menginisialisasi pemindaian status diagnostik Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
+        '> [!NOTE]\n',
+        `> **SEMUA SISTEM NOMINAL**: Seluruh modul operasional beroperasi efisien. Koneksi database real-time aktif.\n\n`,
+        '### 🛰️ Telemetri Operasional Real-time\n',
+        `1. **Node Sales / POS**: Total Omzet **${t ? formatRupiah(t.omzetTotal) : 'Rp 0'}** (${t?.totalOrder ?? 0} order dari ${t?.totalOutletAktif ?? 0} cabang)\n`,
+        `2. **Top Performer Outlet**: **${topPerformer}**\n`,
+        `3. **Node Gudang**: Katalog bahan aktif (${t?.bahanBaku?.slice(0, 3).map((b) => b.nama).join(', ') || 'Gas, Kulit, Daging'})\n`,
+        `4. **Node HRD**: ${t?.kehadiranTotal ?? 0} log presensi aktif (On-time ${t?.persenOnTime ?? 95}%)\n\n`,
+        'Semua stasiun operasional berjalan mulus. Ada data atau cabang binaan yang ingin Anda evaluasi?',
+      ]
+    }
 
     return [
       `Salam, Sir. Menginisialisasi pemindaian status diagnostik Command Centre Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
@@ -66,8 +83,12 @@ export function buatJawabanDev(
         ? t.bahanBaku.map((b) => `- **${b.nama}** \`[Satuan: ${b.satuan}]\``).join('\n')
         : '- Daging Sapi Marinasi (Kg)\n- Daging Ayam Marinasi (Kg)\n- Roti Pita / Kulit (Pack)\n- Garlic Mayo (Dus)'
 
+    const headerStok = isManager
+      ? 'Bot Manager terhubung ke data **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n'
+      : 'J.A.R.V.I.S. terhubung ke satelit **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n'
+
     return [
-      'J.A.R.V.I.S. terhubung ke satelit **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n',
+      headerStok,
       '> [!NOTE]\n',
       '> **LIVE INVENTORY FEED**: Data master bahan baku operasional tersinkronisasi dari database.\n\n',
       '### 🥩 Katalog Bahan Baku Utama\n',
@@ -75,7 +96,24 @@ export function buatJawabanDev(
       `### 📦 Distribusi & Logistik\n`,
       `- **Cakupan Outlet Aktif**: ${t?.totalOutletAktif ?? 28} cabang\n`,
       '- **Status Cold Storage**: Buffer aman dan terpantau dalam parameter standar SOP.\n\n',
-      'Siap menerima instruksi pencatatan mutasi atau audit stok outlet, Sir.',
+      `Siap menerima instruksi pencatatan mutasi atau audit stok outlet, ${sebutan}.`,
+    ]
+  }
+
+  // 1b. Telemetri Waste & Reject Bahan Baku
+  if (
+    p.includes('waste') ||
+    p.includes('reject') ||
+    p.includes('rusak') ||
+    p.includes('buang') ||
+    p.includes('basi') ||
+    p.includes('sampah')
+  ) {
+    return [
+      'Data waste dan reject bahan baku hari ini belum tercatat di sistem.\n\n',
+      '> [!NOTE]\n',
+      '> **PENCATATAN WASTE HARIAN**: Rekap waste dan selisih bahan baku biasanya baru masuk saat closing shift dan stok opname fisik malam hari (cut-off 22:30 WIB).\n\n',
+      'Untuk investigasi fisik saat ini, silakan koordinasikan langsung dengan PIC outlet atau pantau pengajuan waste di SuperApp.',
     ]
   }
 
@@ -117,8 +155,12 @@ export function buatJawabanDev(
             .join('\n')
         : '- *(Seluruh kru on-time hari ini)*'
 
+    const headerHR = isManager
+      ? `Mengakses data **Presensi & Kedisiplinan Kru** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`
+      : `Mengakses data satelit **HRD & Workforce Management** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`
+
     return [
-      `Mengakses data satelit **HRD & Workforce Management** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
+      headerHR,
       '> [!NOTE]\n',
       `> **LIVE ATTENDANCE FEED**: Menampilkan data presensi kru di outlet hari ini dari sistem absensi geofencing.\n\n`,
       '### 👥 Status Presensi Hari Ini\n',
@@ -130,7 +172,7 @@ export function buatJawabanDev(
       `${cutiLines}\n\n`,
       '### ⏱️ Kru Datang Terlambat\n',
       `${telatLines}\n\n`,
-      'Semua data SDM tersinkronisasi dengan sistem HRD, Sir.',
+      `Semua data presensi tersinkronisasi dengan sistem HRD & geofencing, ${sebutan}.`,
     ]
   }
 
@@ -278,7 +320,7 @@ export function buatJawabanDev(
         : '- *(Belum ada data porsi menu hari ini)*'
 
     return [
-      `Salam, Sir. Telemetri penjualan Suka Shawarma telah dikompilasi secara real-time dari seluruh Point of Sale (POS) untuk tanggal **${t.tanggalWIB}**:\n\n`,
+      `${salamAwal} Telemetri penjualan Suka Shawarma telah dikompilasi secara real-time dari seluruh Point of Sale (POS) untuk tanggal **${t.tanggalWIB}**:\n\n`,
       '> [!NOTE]\n',
       `> **LIVE POS CONNECTED**: Menampilkan data real-time langsung dari database POS (${t.totalOutletAktif} cabang aktif).\n\n`,
       '### 📊 Ringkasan Penjualan Hari Ini\n',
@@ -289,7 +331,7 @@ export function buatJawabanDev(
       `${outletLines}\n\n`,
       '### 🌯 Menu Terlaris Hari Ini\n',
       `${menuLines}\n\n`,
-      'Sistem radar POS tetap siaga memantau order masuk berikutnya, Sir.',
+      `Sistem radar POS tetap siaga memantau order masuk berikutnya, ${sebutan}.`,
     ]
   }
 
@@ -350,6 +392,22 @@ export function buatJawabanDev(
   }
 
   // 7. Default / Sapaan Umum
+  if (isManager) {
+    return [
+      'Halo Rekan Tim Operasional Suka Shawarma. Bot Manager siap membantu Anda mengawal operasional cabang.\n\n',
+      '> [!NOTE]\n',
+      `> **LIVE MONITORING AKTIF**: Terhubung langsung ke data operasional cabang (${t?.totalOutletAktif ?? 28} outlet aktif).\n\n`,
+      `Pertanyaan Anda: *"${pesanUser}"* telah diterima.\n\n`,
+      'Anda dapat menanyakan hal-hal operasional seperti:\n',
+      '- **"Udah buka semua belum outlet?"** untuk cek status buka & transaksi cabang\n',
+      '- **"Omzet hari ini"** untuk melihat pencapaian penjualan real-time\n',
+      '- **"Siapa yang telat hari ini?"** untuk monitoring kedisiplinan dan absensi kru\n',
+      '- **"Ada waste ga hari ini?"** untuk cek catatan waste bahan baku\n',
+      '- **"Cek stok gudang"** untuk ketersediaan bahan baku di central\n\n',
+      'Ada data cabang binaan yang ingin Anda evaluasi lebih lanjut?',
+    ]
+  }
+
   return [
     'Salam, Sir. J.A.R.V.I.S. Tactical Command Centre online dan terhubung ke database live Suka Shawarma.\n\n',
     '> [!NOTE]\n',

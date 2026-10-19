@@ -27,7 +27,7 @@ export async function stafBolehPakaiBotApaPun(staffId: string): Promise<boolean>
   return !!access?.length || !!stokis?.length
 }
 
-export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi'): string | null {
+export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi' | 'manager'): string | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value !== 'string' || value.length > 500) return null
   try {
@@ -40,14 +40,33 @@ export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi')
   }
 }
 
-export async function kirimPesanTelegram(chatId: string, text: string, url?: string, profil: 'stokis' | 'hrd' = 'stokis') {
-  const token = profil === 'hrd' ? process.env.TELEGRAM_HRD_BOT_TOKEN : process.env.TELEGRAM_STOKIST_BOT_TOKEN
+export async function kirimPesanTelegram(
+  chatId: string,
+  text: string,
+  url?: string,
+  profil: 'stokis' | 'hrd' | 'manager' = 'stokis'
+) {
+  const token = profil === 'hrd'
+    ? process.env.TELEGRAM_HRD_BOT_TOKEN
+    : profil === 'manager'
+    ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
+    : process.env.TELEGRAM_STOKIST_BOT_TOKEN
   if (!token) throw new Error(`Token bot ${profil} belum dikonfigurasi.`)
   const message = `${text}${url ? `\n\n${url}` : ''}`
+  const bodyPayload: Record<string, unknown> = {
+    chat_id: chatId,
+    text: message.slice(0, 4000),
+    disable_web_page_preview: true,
+  }
+  if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+    bodyPayload.reply_markup = {
+      inline_keyboard: [[{ text: '🔗 Buka di Dashboard', url }]],
+    }
+  }
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text: message.slice(0, 4000), disable_web_page_preview: true }),
+    body: JSON.stringify(bodyPayload),
     cache: 'no-store',
     signal: AbortSignal.timeout(7_000),
   })

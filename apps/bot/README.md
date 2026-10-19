@@ -133,6 +133,57 @@ dan dibatasi satu kali per jenis kegagalan tiap 15 menit. Jalur fallback memakai
 Vault `push_webhook_url` dan `fcm_webhook_secret` yang sudah digunakan push lain.
 Terapkan migration ini sebelum deploy app Bot yang memanggil fungsi fallback.
 
+Migration `20300254002700_kitchen_telegram_receipt_alerts.sql` menambah dua alert
+khusus staf `kitchen` aktif yang sudah diberi akses dan ditautkan ke Telegram:
+
+- **Crew selesai verifikasi**: satu ringkasan per surat jalan yang diterima
+  lengkap dan sesuai, berisi outlet, nomor SJ, crew, waktu, jumlah baris bahan,
+  serta tautan detail/bukti. Penutupan otomatis dan administratif tidak dianggap
+  verifikasi crew. Alert selisih penerimaan yang sudah ada tetap berlaku.
+- **Crew belum verifikasi**: mulai 2 jam setelah pengiriman baru, diperiksa
+  setiap 10 menit pada 08.00–21.00 WIB, diulang paling cepat 4 jam per SJ.
+  Nama PIC outlet ikut dicantumkan. Pengingat berhenti saat status penerimaan
+  selesai/sebagian, dibatalkan, atau ditutup otomatis. Pengiriman historis
+  sebelum pemasangan tidak diikutkan ke pengingat.
+
+Jam kirim dicatat terpisah dari `surat_jalan.updated_at`, sehingga tanda tangan
+atau edit catatan tidak mengulang hitungan 2 jam. State bersifat privat (RLS),
+dan scheduler memproses paling banyak 50 SJ per eksekusi. Pemeriksaan terisolasi:
+`supabase/verifikasi/hermes/t5_alert_verifikasi_kitchen.sql`; jalankan hanya di
+database PostgreSQL sementara bernama `ss_kitchen_alert_test`.
+
+Untuk rollback alert baru, hentikan job
+`bot-telegram-kitchen-verification-reminder` dengan `cron.unschedule`, lalu
+hapus trigger `trg_bot_telegram_verifikasi_kitchen` pada `surat_jalan`. State dan
+fungsi dapat dipertahankan untuk audit; jalur alert lain tetap berjalan.
+
+Migration `20300254002800_telegram_stock_number_format.sql` merapikan angka pada
+alert stok kritis dan penurunan stok: maksimal 3 desimal, koma desimal, tanpa
+nol di belakang (`5 → 2`, `2,5`, `60%`). Hanya teks pesan yang dibulatkan;
+saldo database dan batas pemicu tetap memakai nilai presisi aslinya. Uji
+terisolasi ada di `supabase/verifikasi/hermes/t6_format_angka_alert_stok.sql`.
+
+Migration `20300254003000_kitchen_daily_opname_summary.sql` menambah ringkasan
+opname harian Telegram khusus kitchen aktif yang sudah diberi akses bot dan
+ditautkan. **21.00 WIB** mengirim outlet yang belum final; jika semuanya selesai,
+pengingat tidak dikirim. **22.30 WIB** mengirim rangkuman akhir selesai dan belum
+selesai. Setiap laporan membaca data terbaru untuk tanggal kalender WIB itu,
+hanya opname `harian`, satu hitungan per outlet aktif `internal`/`mitra` yang
+belum dihapus. Gudang, kantor, marketplace, outlet tes dan nonaktif tidak masuk.
+
+Status belum selesai dibedakan menjadi belum mulai, draft, menunggu persetujuan,
+dan perlu perbaikan. PIC/penulis opname dan waktu pencatatan ikut ditampilkan;
+waktu memakai `approved_at`, lalu `updated_at`/`created_at` bila perlu, karena
+skema tidak mempunyai `finalized_at`. Daftar panjang dibagi ke pesan bernomor
+agar semua outlet tetap tercantum dan payload tidak terpotong. Log privat
+mencegah pengiriman ulang per tanggal/fase/penerima, dan mencatat antrean pesan;
+status pengiriman HTTP tetap diperiksa watchdog yang sudah ada.
+
+Uji terisolasi: `supabase/verifikasi/hermes/t7_ringkasan_opname_kitchen.sql`.
+Untuk menghentikan fitur, `cron.unschedule` kedua job
+`bot-telegram-kitchen-opname-pengingat` dan `bot-telegram-kitchen-opname-ringkasan`.
+Fitur tidak mengubah jadwal pengingat opname lewat 7 hari yang sudah ada.
+
 Jangan simpan `TELEGRAM_STOKIST_WEBHOOK_SECRET`; webhook dan poller app telah
 dihapus. Username bot tidak diperlukan. Aturan persona dan pengujian profil ada
 di [`docs/hermes/SOUL-stokis.md`](../../docs/hermes/SOUL-stokis.md) dan

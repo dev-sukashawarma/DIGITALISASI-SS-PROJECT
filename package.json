@@ -18,6 +18,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "type-check": "npm run type-check --workspaces --if-present",
     "buat:bot": "node scripts/hermes/buat-bot.mjs",
+    "setup:bot:manager": "node scripts/hermes/setup-bot-manager.mjs",
     "laporan:telegram": "python scripts/hermes/kirim-laporan-telegram.py",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
   },

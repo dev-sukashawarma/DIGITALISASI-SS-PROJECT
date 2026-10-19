@@ -16,6 +16,10 @@ Sistem secara ketat menerapkan pemisahan wewenang berjenjang antara **Area Manag
    - **Tanggung Jawab:** Memantau performa kepemimpinan manajerial para AM, menjaga konsistensi standar SOP antar-area, meninjau hasil sidak AM, dan mengendalikan kebocoran bernilai tinggi.
    - **Batas Otoritas:** Otorisasi khusus waste bernilai besar ($>$ Rp 150.000), otorisasi logistik retur gudang/vendor, audit investigasi selisih kas kritis ($>$ Rp 100.000), dan intervensi keterlambatan buka parah ($\ge 30$ menit).
 
+3. **Developer — Level Teknis & Observabilitas Sistem:**
+   - **Wilayah Wewenang:** Memiliki akses pengawasan teknis menyeluruh (menerima alert eskalasi & omzet regional seperti RM) untuk memantau integritas pipeline pengiriman alert.
+   - **Tanggung Jawab:** Memastikan sistem notifikasi, database outbox, dan bot Hermes beroperasi normal tanpa kendala teknis di lapangan.
+
 ---
 
 ## Matriks Ringkasan Alert & Notifikasi
@@ -181,6 +185,7 @@ Terapkan migrasi berurutan:
 2. `supabase/migrations/20300254003300_manager_waste_and_checklist_alerts.sql` (Tahap 2: Waste Reports, Sidak Ceklist Harian AM/RM)
 3. `supabase/migrations/20300254003400_manager_stok_opname_and_retur_alerts.sql` (Tahap 3: Status Stok Opname, Stok Kritis, Approval Retur)
 4. `supabase/migrations/20300254003500_manager_sales_broadcast_alerts.sql` (Tahap 4: Otomasi Laporan Omzet Terjadwal 3x Sehari)
+5. `supabase/migrations/20300254003600_manager_telegram_activation_links.sql` (Aktivasi Otomatis: Deep Linking /start)
 
 Cron scheduler berjalan otomatis:
 - `bot-manager-cek-telat-buka`: Berjalan setiap 5 menit pada jam operasional pagi (01:00-06:00 UTC = 08:00-13:00 WIB).
@@ -190,6 +195,23 @@ Cron scheduler berjalan otomatis:
 - `bot-manager-omzet-siang`: Berjalan setiap hari pukul 15:00 WIB (08:00 UTC).
 - `bot-manager-omzet-dinner`: Berjalan setiap hari pukul 19:30 WIB (12:30 UTC).
 - `bot-manager-omzet-closing`: Berjalan setiap hari pukul 22:30 WIB (15:30 UTC).
+
+### 4. Aktivasi Otomatis AM & RM (Deep Linking /start)
+AM dan RM **tidak perlu mencari Telegram User ID angka** atau menginput manual.
+
+1. **Daftarkan Webhook Bot ke Telegram:**
+   Jalankan URL ini di browser (ganti `<TOKEN_BOT>`):
+   ```text
+   https://api.telegram.org/bot<TOKEN_BOT>/setWebhook?url=https://agents.sukashawarma.com/api/telegram/manager/webhook
+   ```
+2. **Generate Link Aktivasi AM & RM:**
+   Jalankan query ini di SQL Editor Supabase:
+   ```sql
+   SELECT * FROM public.bot_manager_daftar_link_aktivasi('sukashawarma_manager_bot');
+   ```
+   Query ini mengembalikan daftar seluruh nama AM & RM beserta **URL tautan aktivasi unik** masing-masing.
+3. **Kirim Link ke Staf:**
+   Admin cukup membagikan link ke masing-masing staf via WhatsApp. Begitu staf mengklik link dan menekan tombol **START** di Telegram, akun staf seketika langsung tertaut otomatis ke database dan bot langsung mengirim ucapan selamat datang!
 
 ---
 

@@ -194,7 +194,7 @@ BEGIN
     FOR v_rm IN
       SELECT s.id, s.name
       FROM public.outlet_staff s
-      WHERE s.role = 'regional_manager' AND s.status = 'active'
+      WHERE s.role IN ('regional_manager', 'developer') AND s.status = 'active'
     LOOP
       PERFORM public.bot_manager_antrekan(
         'omzet_rm:' || p_sesi || ':' || v_rm.id || ':' || v_today,

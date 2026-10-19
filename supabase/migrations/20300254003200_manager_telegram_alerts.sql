@@ -118,7 +118,7 @@ BEGIN
     FOR v_rm IN 
       SELECT s.id AS staff_id 
       FROM public.outlet_staff s
-      WHERE s.role = 'regional_manager' 
+      WHERE s.role IN ('regional_manager', 'developer') 
         AND s.status = 'active'
     LOOP
       PERFORM public.bot_manager_antrekan(
@@ -232,7 +232,7 @@ BEGIN
       FOR v_rm IN
         SELECT st.id AS staff_id
         FROM public.outlet_staff st
-        WHERE st.role = 'regional_manager'
+        WHERE st.role IN ('regional_manager', 'developer')
           AND st.status = 'active'
       LOOP
         PERFORM public.bot_manager_antrekan(

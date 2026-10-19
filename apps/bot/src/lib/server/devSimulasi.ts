@@ -17,20 +17,125 @@ export function buatJawabanDev(
     p.includes('h-1') ||
     p === 'kemarin bro'
 
-  // 0. Pertanyaan Penjualan & Ranking KEMARIN
+  // 0. Executive Daily Briefing / Status Diagnostik Menyeluruh
   if (
-    isKemarin &&
-    (p.includes('omzet') ||
-      p.includes('omset') ||
-      p.includes('jual') ||
-      p.includes('sales') ||
-      p.includes('outlet') ||
-      p.includes('cabang') ||
-      p.includes('ranking') ||
-      p.includes('peringkat') ||
-      p.includes('kemarin') ||
-      p.includes('kemaren'))
+    p.includes('ringkasan eksekutif') ||
+    p.includes('executive') ||
+    p.includes('status report') ||
+    p.includes('diagnostik') ||
+    (p.includes('omzet') && p.includes('stok') && p.includes('absen'))
   ) {
+    const topPerformer = t?.outlets?.[0]
+      ? `${t.outlets[0].nama} (${formatRupiah(t.outlets[0].omzet)})`
+      : 'Belum ada transaksi'
+
+    return [
+      `Salam, Sir. Menginisialisasi pemindaian status diagnostik Command Centre Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
+      '> [!NOTE]\n',
+      '> **SEMUA SISTEM NOMINAL**: Arc Reactor Core beroperasi efisien. Koneksi database real-time aktif.\n\n',
+      '### 🛰️ Telemetri Satelit Real-time\n',
+      `1. **Node Sales / POS**: Total Omzet **${t ? formatRupiah(t.omzetTotal) : 'Rp 0'}** (${t?.totalOrder ?? 0} order dari ${t?.totalOutletAktif ?? 0} cabang)\n`,
+      `2. **Top Performer Outlet**: **${topPerformer}**\n`,
+      `3. **Node Gudang**: Katalog bahan aktif (${t?.bahanBaku?.slice(0, 3).map((b) => b.nama).join(', ') || 'Gas, Kulit, Daging'})\n`,
+      `4. **Node HRD**: ${t?.kehadiranTotal ?? 0} log presensi aktif (On-time ${t?.persenOnTime ?? 95}%)\n\n`,
+      '### ⚡ Telemetri Command HUD\n',
+      '- **Database Link**: LIVE (Supabase PostgreSQL)\n',
+      '- **Neural Voice Pipeline**: Standby (Speech Recognition & TTS ready)\n',
+      '- **Keamanan Clearance**: Level Alpha (Owner / Admin / Developer Verified)\n\n',
+      'Semua stasiun operasional berjalan mulus. Ada arahan strategis berikutnya, Sir?',
+    ]
+  }
+
+  // 1. Telemetri Stok & Gudang (Bahan Baku) — sebelum pengecekan kata 'cabang'/'outlet'
+  if (
+    p.includes('stok') ||
+    p.includes('gudang') ||
+    p.includes('bahan') ||
+    p.includes('inventori') ||
+    p.includes('kritis') ||
+    p.includes('reorder') ||
+    p.includes('permintaan') ||
+    p.includes('katalog') ||
+    p.includes('daging') ||
+    p.includes('pita') ||
+    p.includes('kulit') ||
+    p.includes('roti')
+  ) {
+    const listBahan =
+      t && t.bahanBaku.length > 0
+        ? t.bahanBaku.map((b) => `- **${b.nama}** \`[Satuan: ${b.satuan}]\``).join('\n')
+        : '- Daging Sapi Marinasi (Kg)\n- Daging Ayam Marinasi (Kg)\n- Roti Pita / Kulit (Pack)\n- Garlic Mayo (Dus)'
+
+    return [
+      'J.A.R.V.I.S. terhubung ke satelit **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n',
+      '> [!NOTE]\n',
+      '> **LIVE INVENTORY FEED**: Data master bahan baku operasional tersinkronisasi dari database.\n\n',
+      '### 🥩 Katalog Bahan Baku Utama\n',
+      `${listBahan}\n\n`,
+      `### 📦 Distribusi & Logistik\n`,
+      `- **Cakupan Outlet Aktif**: ${t?.totalOutletAktif ?? 28} cabang\n`,
+      '- **Status Cold Storage**: Buffer aman dan terpantau dalam parameter standar SOP.\n\n',
+      'Siap menerima instruksi pencatatan mutasi atau audit stok outlet, Sir.',
+    ]
+  }
+
+  // 2. Telemetri HRD & Kehadiran Kru — sebelum pengecekan kata 'cabang'/'outlet'
+  if (
+    p.includes('hrd') ||
+    p.includes('absen') ||
+    p.includes('presensi') ||
+    p.includes('kru') ||
+    p.includes('karyawan') ||
+    p.includes('shift') ||
+    p.includes('tim') ||
+    p.includes('cuti') ||
+    p.includes('izin') ||
+    p.includes('telat') ||
+    p.includes('terlambat') ||
+    (p.includes('masuk') && !p.includes('kas masuk') && !p.includes('order masuk')) ||
+    p.includes('hadir') ||
+    p.includes('libur') ||
+    p.includes('bolos') ||
+    (profil === 'hrd' && !p.includes('stok') && !p.includes('omzet'))
+  ) {
+    const totalAtt = t?.kehadiranTotal ?? 0
+    const onTimeRate = t?.persenOnTime ?? 95
+    const lateCount = t?.kehadiranTelat ?? 0
+    const onTimeCount = t?.kehadiranTepatWaktu ?? totalAtt
+
+    const cutiLines =
+      t && t.stafCutiIzin.length > 0
+        ? t.stafCutiIzin
+            .map((c) => `- **${c.nama}** (${c.role}): ${c.jenis} [status: ${c.status}] - *Alasan: ${c.alasan}*`)
+            .join('\n')
+        : '- *(Tidak ada kru tercatat izin/cuti hari ini)*'
+
+    const telatLines =
+      t && t.stafTelat.length > 0
+        ? t.stafTelat
+            .map((s) => `- **${s.nama}** (\`${s.outlet}\`): terlambat **${s.telatMenit} menit**`)
+            .join('\n')
+        : '- *(Seluruh kru on-time hari ini)*'
+
+    return [
+      `Mengakses data satelit **HRD & Workforce Management** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
+      '> [!NOTE]\n',
+      `> **LIVE ATTENDANCE FEED**: Menampilkan data presensi kru di outlet hari ini dari sistem absensi geofencing.\n\n`,
+      '### 👥 Status Presensi Hari Ini\n',
+      `- **Total Aktivitas Presensi**: **${totalAtt} catatan clock-in/out**\n`,
+      `- **Tingkat Tepat Waktu (On-Time)**: **${onTimeRate}%** (${onTimeCount} tepat waktu)\n`,
+      `- **Keterlambatan Terdeteksi**: ${lateCount} catatan\n`,
+      `- **Distribusi Wilayah**: Tersebar di ${t?.totalOutletAktif ?? 28} cabang aktif Suka Shawarma\n\n`,
+      '### 🏖️ Kru Izin / Cuti Terdata\n',
+      `${cutiLines}\n\n`,
+      '### ⏱️ Kru Datang Terlambat\n',
+      `${telatLines}\n\n`,
+      'Semua data SDM tersinkronisasi dengan sistem HRD, Sir.',
+    ]
+  }
+
+  // 3. Pertanyaan Penjualan & Ranking KEMARIN
+  if (isKemarin) {
     const k = t?.ringkasanKemarin
     if (!k || (k.omzetTotal === 0 && k.totalOrder === 0)) {
       return [
@@ -68,7 +173,7 @@ export function buatJawabanDev(
     ].filter(Boolean)
   }
 
-  // 1. Telemetri Semua Outlet & Peringkat Cabang
+  // 4. Telemetri Semua Outlet & Peringkat Cabang HARI INI
   if (
     p.includes('outlet') ||
     p.includes('cabang') ||
@@ -115,7 +220,7 @@ export function buatJawabanDev(
     ]
   }
 
-  // 2. Telemetri Penjualan & Omzet
+  // 5. Telemetri Penjualan & Omzet
   if (
     p.includes('omzet') ||
     p.includes('omset') ||
@@ -164,89 +269,6 @@ export function buatJawabanDev(
       '### 🌯 Menu Terlaris Hari Ini\n',
       `${menuLines}\n\n`,
       'Sistem radar POS tetap siaga memantau order masuk berikutnya, Sir.',
-    ]
-  }
-
-  // 3. Telemetri Stok & Gudang (Bahan Baku)
-  if (
-    p.includes('stok') ||
-    p.includes('gudang') ||
-    p.includes('bahan') ||
-    p.includes('inventori') ||
-    p.includes('daging') ||
-    p.includes('pita') ||
-    p.includes('kulit') ||
-    p.includes('roti') ||
-    (profil === 'gudang' && !p.includes('absensi') && !p.includes('keuangan'))
-  ) {
-    const listBahan =
-      t && t.bahanBaku.length > 0
-        ? t.bahanBaku.map((b) => `- **${b.nama}** \`[Satuan: ${b.satuan}]\``).join('\n')
-        : '- Daging Sapi Marinasi (Kg)\n- Daging Ayam Marinasi (Kg)\n- Roti Pita / Kulit (Pack)\n- Garlic Mayo (Dus)'
-
-    return [
-      'J.A.R.V.I.S. terhubung ke satelit **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n',
-      '> [!NOTE]\n',
-      '> **LIVE INVENTORY FEED**: Data master bahan baku operasional tersinkronisasi dari database.\n\n',
-      '### 🥩 Katalog Bahan Baku Utama\n',
-      `${listBahan}\n\n`,
-      `### 📦 Distribusi & Logistik\n`,
-      `- **Cakupan Outlet Aktif**: ${t?.totalOutletAktif ?? 28} cabang\n`,
-      '- **Status Cold Storage**: Buffer aman dan terpantau dalam parameter standar SOP.\n\n',
-      'Siap menerima instruksi pencatatan mutasi atau audit stok outlet, Sir.',
-    ]
-  }
-
-  // 4. Telemetri HRD & Kehadiran Kru
-  if (
-    p.includes('hrd') ||
-    p.includes('absen') ||
-    p.includes('kru') ||
-    p.includes('karyawan') ||
-    p.includes('shift') ||
-    p.includes('tim') ||
-    p.includes('cuti') ||
-    p.includes('izin') ||
-    p.includes('telat') ||
-    p.includes('masuk') ||
-    p.includes('hadir') ||
-    p.includes('libur') ||
-    p.includes('bolos') ||
-    (profil === 'hrd' && !p.includes('stok') && !p.includes('omzet'))
-  ) {
-    const totalAtt = t?.kehadiranTotal ?? 0
-    const onTimeRate = t?.persenOnTime ?? 95
-    const lateCount = t?.kehadiranTelat ?? 0
-    const onTimeCount = t?.kehadiranTepatWaktu ?? totalAtt
-
-    const cutiLines =
-      t && t.stafCutiIzin.length > 0
-        ? t.stafCutiIzin
-            .map((c) => `- **${c.nama}** (${c.role}): ${c.jenis} [status: ${c.status}] - *Alasan: ${c.alasan}*`)
-            .join('\n')
-        : '- *(Tidak ada kru tercatat izin/cuti hari ini)*'
-
-    const telatLines =
-      t && t.stafTelat.length > 0
-        ? t.stafTelat
-            .map((s) => `- **${s.nama}** (\`${s.outlet}\`): terlambat **${s.telatMenit} menit**`)
-            .join('\n')
-        : '- *(Seluruh kru on-time hari ini)*'
-
-    return [
-      `Mengakses data satelit **HRD & Workforce Management** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
-      '> [!NOTE]\n',
-      `> **LIVE ATTENDANCE FEED**: Menampilkan data presensi kru di outlet hari ini dari sistem absensi geofencing.\n\n`,
-      '### 👥 Status Presensi Hari Ini\n',
-      `- **Total Aktivitas Presensi**: **${totalAtt} catatan clock-in/out**\n`,
-      `- **Tingkat Tepat Waktu (On-Time)**: **${onTimeRate}%** (${onTimeCount} tepat waktu)\n`,
-      `- **Keterlambatan Terdeteksi**: ${lateCount} catatan\n`,
-      `- **Distribusi Wilayah**: Tersebar di ${t?.totalOutletAktif ?? 28} cabang aktif Suka Shawarma\n\n`,
-      '### 🏖️ Kru Izin / Cuti Terdata\n',
-      `${cutiLines}\n\n`,
-      '### ⏱️ Kru Datang Terlambat\n',
-      `${telatLines}\n\n`,
-      'Semua data SDM tersinkronisasi dengan sistem HRD, Sir.',
     ]
   }
 

@@ -63,21 +63,45 @@ export function formatRupiah(angka: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(angka)
 }
 
+const TIPE_OUTLET_NON_PENJUALAN = new Set([
+  'test',
+  'marketplace',
+  'office',
+  'gudang',
+  'warehouse',
+  'kitchen',
+  'system',
+])
+
+export function adalahOutletPenjualan(nama: string, tipe: string, kode = ''): boolean {
+  const t = (tipe || '').trim().toLowerCase()
+  const k = (kode || '').trim().toLowerCase()
+  const n = (nama || '').trim().toLowerCase()
+  if (TIPE_OUTLET_NON_PENJUALAN.has(t)) return false
+  if (k === 'ss-backup') return false
+  if (n.includes('gudang') || n.includes('kantor pusat') || n.includes('(hq)')) return false
+  return true
+}
+
 function hitungRingkasan(
   ordersData: any[],
   baseOutlets: any[],
   tglLabel: string,
   tglIso: string
 ): RingkasanHari {
+  const validOutletIds = new Set(baseOutlets.map((o: any) => o.id))
   const mapOmzet: Record<string, number> = {}
   const mapCount: Record<string, number> = {}
   let omzetTotal = 0
+  let totalOrder = 0
   for (const o of ordersData) {
     const id = o.outlet_id
+    if (validOutletIds.size > 0 && !validOutletIds.has(id)) continue
     const amt = Number(o.total_amount) || 0
     mapOmzet[id] = (mapOmzet[id] || 0) + amt
     mapCount[id] = (mapCount[id] || 0) + 1
     omzetTotal += amt
+    totalOrder += 1
   }
   const allOutlets: OutletTelemetri[] = baseOutlets.map((o: any) => ({
     id: o.id,
@@ -89,7 +113,6 @@ function hitungRingkasan(
 
   const outletsAktifTransaksi = allOutlets.filter((o) => o.orderCount > 0)
   const outletsNolTransaksi = allOutlets.filter((o) => o.orderCount === 0)
-  const totalOrder = ordersData.length
   const aov = totalOrder > 0 ? Math.round(omzetTotal / totalOrder) : 0
 
   return {
@@ -128,9 +151,8 @@ async function fetchAllRows(
 export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
   try {
     const sb = getSupabaseAdmin()
-    const d = new Date()
-    const offset = 7 * 60
-    const wib = new Date(Date.now() + (offset + d.getTimezoneOffset()) * 60000)
+    // Konversi langsung UTC epoch -> WIB (UTC+7) agar .toISOString() menghasilkan tanggal WIB akurat di semua timezone server
+    const wib = new Date(Date.now() + 7 * 60 * 60 * 1000)
     const tglStr = wib.toISOString().slice(0, 10)
     const wibBesok = new Date(wib.getTime() + 24 * 60 * 60 * 1000)
     const tglBesokStr = wibBesok.toISOString().slice(0, 10)
@@ -149,6 +171,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
           .gte('created_at', startToday)
           .lt('created_at', endToday)
           .neq('status', 'cancelled')
+          .order('id', { ascending: true })
       ),
       fetchAllRows(sb, 'orders', (q) =>
         q
@@ -156,6 +179,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
           .gte('created_at', startKemarin)
           .lt('created_at', endKemarin)
           .neq('status', 'cancelled')
+          .order('id', { ascending: true })
       ),
       fetchAllRows(sb, 'order_items', (q) =>
         q
@@ -163,16 +187,18 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
           .gte('orders.created_at', startToday)
           .lt('orders.created_at', endToday)
           .neq('orders.status', 'cancelled')
+          .order('id', { ascending: true })
       ),
       sb
         .from('attendance')
         .select('id, outlet_staff_id, status, telat_menit, type')
+        .eq('type', 'in')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
         .limit(2000),
       sb
         .from('outlets')
-        .select('id, name, type, is_active')
+        .select('id, name, type, code, is_active')
         .eq('is_active', true)
         .order('name'),
       sb
@@ -189,7 +215,9 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .limit(50),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, telat_menit, outlets(name)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlets(name)')
+        .eq('type', 'in')
+        .neq('status', 'telat_toleransi')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
         .gt('telat_menit', 0)
@@ -197,7 +225,9 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .limit(15),
     ])
 
-    const rawOutlets = resOutlets.data || []
+    const rawOutlets = (resOutlets.data || []).filter((o: any) =>
+      adalahOutletPenjualan(o.name, o.type, o.code)
+    )
 
     const ringkasanHariIni = hitungRingkasan(ordersHariIni, rawOutlets, `Hari Ini (${tglStr})`, tglStr)
     const ringkasanKemarin = hitungRingkasan(ordersKemarin, rawOutlets, `Kemarin (${tglKemarinStr})`, tglKemarinStr)
@@ -215,10 +245,14 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 8)
 
-    // Kehadiran / HRD
+    // Kehadiran / HRD (hanya absensi masuk / clock-in, abaikan telat_toleransi)
     const att = resAtt.data || []
     const kehadiranTotal = att.length
-    const kehadiranTelat = att.filter((a: any) => Number(a.telat_menit) > 0).length
+    const kehadiranTelat = att.filter(
+      (a: any) =>
+        a.status !== 'telat_toleransi' &&
+        (a.status === 'telat' || a.status === 'terlambat' || Number(a.telat_menit) > 0)
+    ).length
     const kehadiranTepatWaktu = kehadiranTotal - kehadiranTelat
     const persenOnTime = kehadiranTotal > 0 ? Math.round((kehadiranTepatWaktu / kehadiranTotal) * 100) : 100
 

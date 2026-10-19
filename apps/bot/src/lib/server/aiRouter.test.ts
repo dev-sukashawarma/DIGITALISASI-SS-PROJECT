@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { tanyaAiRouter } from './aiRouter'
+import { tanyaAiRouter, kandidatModel9Router } from './aiRouter'
 import type { TelemetriHariIni } from './telemetriNyata'
 
 const mockTelemetri: TelemetriHariIni = {
@@ -53,6 +53,16 @@ describe('aiRouter', () => {
   afterEach(() => {
     process.env = envAsli
     vi.restoreAllMocks()
+  })
+
+  it('memetakan profil Hermes ke model combo 9Router yang sesuai', () => {
+    expect(kandidatModel9Router('ceo')).toEqual(['hermes-combo'])
+    expect(kandidatModel9Router('manager')).toEqual(['MANAGER_SS', 'hermes-combo'])
+    expect(kandidatModel9Router('gudang')).toEqual(['STOKIS_SS', 'hermes-combo'])
+    expect(kandidatModel9Router('stokis')).toEqual(['STOKIS_SS', 'hermes-combo'])
+    expect(kandidatModel9Router('marcom')).toEqual(['ANALYTIC-SOSMED-COMBO', 'hermes-combo'])
+    expect(kandidatModel9Router('hrd')).toEqual(['hermes-combo'])
+    expect(kandidatModel9Router('finance')).toEqual(['hermes-combo'])
   })
 
   it('melempar error jika AI_BASE_URL atau AI_API_KEY kosong', async () => {
@@ -143,3 +153,4 @@ describe('aiRouter', () => {
     await expect(iter.next()).rejects.toThrow('AI Router HTTP 502')
   })
 })
+

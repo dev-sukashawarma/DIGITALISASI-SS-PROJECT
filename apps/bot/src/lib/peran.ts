@@ -68,7 +68,10 @@ export function profilBolehUntukPeran(
 // Scope kunci MCP (hermes_api_key.scope) → profil Hermes yang memakainya.
 const PROFIL_PER_SCOPE: Record<string, Profil> = {
   absensi: 'hrd',
+  hr_rinci: 'hrd',
   gudang: 'gudang',
+  stok: 'gudang',
+  stokis: 'gudang',
   finance: 'finance',
 }
 
@@ -78,11 +81,18 @@ const PROFIL_PER_SCOPE: Record<string, Profil> = {
  * otomatis dipetakan ke profil dengan nama yang sama.
  */
 export function profilUntukKunci(scope: string[]): Profil | null {
+  if (!Array.isArray(scope) || scope.length === 0) return null
   if (scope.includes('penjualan')) return 'ceo'
-  if (scope.length === 1) {
-    const s = scope[0]
-    if (PROFIL_PER_SCOPE[s]) return PROFIL_PER_SCOPE[s]
-    if (adalahProfil(s)) return s
+  const mapped: Profil[] = []
+  for (const s of scope) {
+    if (PROFIL_PER_SCOPE[s]) {
+      mapped.push(PROFIL_PER_SCOPE[s])
+    } else if (adalahProfil(s)) {
+      mapped.push(s)
+    } else {
+      return null
+    }
   }
-  return null
+  const unik = Array.from(new Set(mapped))
+  return unik.length === 1 ? unik[0] : null
 }

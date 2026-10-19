@@ -27,14 +27,16 @@ describe('profilUntukKunci (scope kunci Hermes → profil)', () => {
     expect(profilUntukKunci(['penjualan'])).toBe('ceo')
     expect(profilUntukKunci(['absensi', 'penjualan', 'gudang'])).toBe('ceo')
   })
-  it('scope tunggal domain → profil divisi', () => {
+  it('scope tunggal atau multi-scope satu divisi → profil divisi', () => {
     expect(profilUntukKunci(['absensi'])).toBe('hrd')
+    expect(profilUntukKunci(['absensi', 'hr_rinci'])).toBe('hrd')
     expect(profilUntukKunci(['gudang'])).toBe('gudang')
+    expect(profilUntukKunci(['stok'])).toBe('gudang')
     expect(profilUntukKunci(['finance'])).toBe('finance')
     expect(profilUntukKunci(['marcom'])).toBe('marcom')
     expect(profilUntukKunci(['purchasing'])).toBe('purchasing')
   })
-  it('kombinasi tanpa penjualan atau kosong → null', () => {
+  it('kombinasi lintas divisi tanpa penjualan atau kosong → null', () => {
     expect(profilUntukKunci(['absensi', 'gudang'])).toBeNull()
     expect(profilUntukKunci([])).toBeNull()
   })

@@ -1,6 +1,6 @@
 /**
  * Klien AI Router (OpenAI-compatible) untuk inferensi J.A.R.V.I.S. berbasis live data.
- * Memanfaatkan model 9Router (misal cx/gpt-5.5) yang dikonfigurasi di lingkungan.
+ * Memanfaatkan model combo 9Router & Hermes (hermes-combo, MANAGER_SS, STOKIS_SS, ANALYTIC-SOSMED-COMBO).
  */
 import { buatPengurai } from '@/lib/hermes'
 import { TelemetriHariIni, formatRupiah } from './telemetriNyata'
@@ -8,6 +8,33 @@ import { TelemetriHariIni, formatRupiah } from './telemetriNyata'
 export interface PesanRiwayat {
   role: 'user' | 'assistant'
   content: string
+}
+
+export const DEFAULT_HERMES_COMBO_MODEL = 'hermes-combo'
+
+/**
+ * Mengembalikan kandidat model combo 9Router yang sesuai dengan profil agen Hermes.
+ * Urutan pertama adalah combo spesifik divisi, diikuti fallback ke `hermes-combo`.
+ */
+export function kandidatModel9Router(profil: string, envModel?: string): string[] {
+  const override = envModel?.trim()
+  if (override && override !== DEFAULT_HERMES_COMBO_MODEL) {
+    return [override]
+  }
+  switch (profil.trim().toLowerCase()) {
+    case 'manager':
+      return ['MANAGER_SS', DEFAULT_HERMES_COMBO_MODEL]
+    case 'gudang':
+    case 'stokis':
+      return ['STOKIS_SS', DEFAULT_HERMES_COMBO_MODEL]
+    case 'marcom':
+      return ['ANALYTIC-SOSMED-COMBO', DEFAULT_HERMES_COMBO_MODEL]
+    case 'ceo':
+    case 'hrd':
+    case 'finance':
+    default:
+      return [DEFAULT_HERMES_COMBO_MODEL]
+  }
 }
 
 export async function* tanyaAiRouter(o: {
@@ -19,7 +46,7 @@ export async function* tanyaAiRouter(o: {
 }): AsyncGenerator<string> {
   const base = process.env.AI_BASE_URL?.replace(/\/+$/, '')
   const key = process.env.AI_API_KEY
-  const model = process.env.AI_MODEL || 'cx/gpt-5.5'
+  const daftarModel = kandidatModel9Router(o.profil, process.env.AI_MODEL)
 
   if (!base || !key) {
     throw new Error('AI Router belum dikonfigurasi (AI_BASE_URL atau AI_API_KEY kosong)')
@@ -146,24 +173,33 @@ ${konteksData}
     { role: 'user', content: o.pesan },
   ]
 
-  const res = await fetch(`${base}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-    },
-    body: JSON.stringify({
-      model,
-      stream: true,
-      messages,
-      temperature: 0.2,
-    }),
-    signal,
-  })
+  let res: Response | null = null
+  let statusTerakhir = 500
+  for (const modelKandidat of daftarModel) {
+    const percobaan = await fetch(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({
+        model: modelKandidat,
+        stream: true,
+        messages,
+        temperature: 0.2,
+      }),
+      signal,
+    })
+    statusTerakhir = percobaan.status
+    if (percobaan.ok && percobaan.body) {
+      res = percobaan
+      break
+    }
+  }
 
-  if (!res.ok || !res.body) {
-    throw new Error(`AI Router HTTP ${res.status}`)
+  if (!res || !res.ok || !res.body) {
+    throw new Error(`AI Router HTTP ${statusTerakhir}`)
   }
 
   const pengurai = buatPengurai()

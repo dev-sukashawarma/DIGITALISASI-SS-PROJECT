@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import type { ReconciliationItem, ReconciliationPeriodInfo } from '@/app/actions/jurnalMutasi'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
+import { nilaiToleransiSelisih } from '@/lib/stok/selisih'
 import { DrillDownTimeline } from './DrillDownTimeline'
 
 interface RekonsiliasiTableProps {
@@ -224,6 +225,13 @@ export function RekonsiliasiTable({ outletId, items, startDate, endDate, period 
                 const isExpanded = expandedId === item.bahan_baku_id
                 const isNegativeDiff = item.selisih_qty < -0.01
                 const isPositiveDiff = item.selisih_qty > 0.01
+                const toleransi = nilaiToleransiSelisih(
+                  item.selisih_qty,
+                  item.stok_sistem_qty,
+                  item.satuan,
+                  item.satuan_kecil,
+                  item.nama
+                )
 
                 return (
                   <React.Fragment key={item.bahan_baku_id}>
@@ -386,6 +394,22 @@ export function RekonsiliasiTable({ outletId, items, startDate, endDate, period 
                               {item.selisih_rp > 0 ? '+' : ''}
                               {formatRp(item.selisih_rp)}
                             </div>
+                            {toleransi.dalamToleransi && (
+                              <div
+                                className="mt-0.5 text-[9px] font-black text-emerald-700"
+                                title={`Selisih masih di bawah batas toleransi ${toleransi.thresholdPersen}% dari stok sistem`}
+                              >
+                                ✓ Dalam threshold ({toleransi.thresholdPersen}%)
+                              </div>
+                            )}
+                            {toleransi.lewatToleransi && (
+                              <div
+                                className="mt-0.5 text-[9px] font-black text-red-700"
+                                title={`Selisih melewati batas toleransi ${toleransi.thresholdPersen}% dari stok sistem`}
+                              >
+                                ! Lewat threshold ({toleransi.thresholdPersen}%)
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>

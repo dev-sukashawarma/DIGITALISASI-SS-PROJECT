@@ -135,3 +135,32 @@ export function isSelisihFlagged(
   const baseQty = Math.abs(qtySystem);
   return Math.abs(selisih) > threshold * baseQty;
 }
+
+export interface ToleransiSelisih {
+  /** Batas toleransi bahan ini (persen dari stok sistem). */
+  thresholdPersen: number;
+  /** true bila ada selisih tapi masih di dalam batas toleransi. */
+  dalamToleransi: boolean;
+  /** true bila selisih melewati batas toleransi (sama dengan isSelisihFlagged). */
+  lewatToleransi: boolean;
+}
+
+/**
+ * Status toleransi selisih untuk ditampilkan ke pengguna. Aturannya sama dengan
+ * isSelisihFlagged (form opname, approval, PDF Jurnal Mutasi). Selisih ~0 tidak
+ * dianggap dalam/lewat toleransi.
+ */
+export function nilaiToleransiSelisih(
+  selisih: number,
+  qtySystem: number,
+  satuan?: string,
+  satuanKecil?: string | null,
+  nama?: string | null,
+): ToleransiSelisih {
+  const thresholdPersen = getThresholdPersen(satuan, satuanKecil, nama);
+  if (Math.abs(selisih) <= 0.01) {
+    return { thresholdPersen, dalamToleransi: false, lewatToleransi: false };
+  }
+  const lewat = isSelisihFlagged(selisih, qtySystem, satuan, satuanKecil, nama);
+  return { thresholdPersen, dalamToleransi: !lewat, lewatToleransi: lewat };
+}

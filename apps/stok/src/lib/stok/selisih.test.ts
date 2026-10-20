@@ -5,6 +5,7 @@ import {
   computeSelisihPersen,
   isSelisihFlagged,
   getMaterialType,
+  nilaiToleransiSelisih,
 } from './selisih'
 
 describe('selisih logic & threshold helpers', () => {
@@ -145,5 +146,35 @@ describe('getMaterialType', () => {
     for (const [s, sk, n] of kasus) {
       expect(getMaterialType(s, sk, n) === 'bulk').toBe(getThresholdPersen(s, sk, n) > 0)
     }
+  })
+})
+
+describe('nilaiToleransiSelisih', () => {
+  it('SAPI minus 9,4% masih dalam toleransi 40%', () => {
+    expect(nilaiToleransiSelisih(-940, 10000, 'blok', 'gram', 'SAPI')).toEqual({
+      thresholdPersen: 40,
+      dalamToleransi: true,
+      lewatToleransi: false,
+    })
+  })
+
+  it('bahan timbang minus 25% melewati toleransi 20%', () => {
+    expect(nilaiToleransiSelisih(-2500, 10000, 'kg', 'gram')).toEqual({
+      thresholdPersen: 20,
+      dalamToleransi: false,
+      lewatToleransi: true,
+    })
+  })
+
+  it('bahan hitung: selisih sekecil apa pun melewati toleransi 0%', () => {
+    expect(nilaiToleransiSelisih(1, 100, 'pcs').lewatToleransi).toBe(true)
+  })
+
+  it('tanpa selisih: tidak dalam maupun lewat toleransi', () => {
+    expect(nilaiToleransiSelisih(0, 100, 'kg', 'gram')).toEqual({
+      thresholdPersen: 20,
+      dalamToleransi: false,
+      lewatToleransi: false,
+    })
   })
 })

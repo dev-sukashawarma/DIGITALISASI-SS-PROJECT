@@ -210,10 +210,43 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────── Command /help
     if (text === '/help' || text.startsWith('/help ')) {
+      const admin = supabaseAdmin()
+      let barisTriggerDinamis = ''
+      try {
+        const { data: catalogRows } = await admin
+          .from('bot_trigger_catalog')
+          .select('judul, jadwal_atau_trigger')
+          .eq('bot_slug', 'finance')
+          .eq('is_active', true)
+          .order('urutan', { ascending: true })
+
+        if (Array.isArray(catalogRows) && catalogRows.length > 0) {
+          barisTriggerDinamis = catalogRows
+            .map((r: { judul?: string; jadwal_atau_trigger?: string }, idx: number) =>
+              `${idx + 1}. *${r.judul}* _(${r.jadwal_atau_trigger})_`
+            )
+            .join('\n')
+        }
+      } catch {
+        // Fallback jika database gagal
+      }
+
+      const daftarTriggerTeks =
+        barisTriggerDinamis ||
+        `1. 💳 *Pengingat Jatuh Tempo PO Supplier* _(Cron Harian 08:15 WIB)_\n` +
+        `2. ⏳ *Alert Transaksi Treasury Menunggu Approval* _(Real-Time)_\n` +
+        `3. 💵 *Alert Selisih Kasir Tutup Shift Cabang* _(Real-Time)_\n` +
+        `4. 💸 *Pengajuan Top Up / Penyesuaian Petty Cash Outlet* _(Real-Time)_\n` +
+        `5. 📥 *Notifikasi Input Setoran Kas Outlet* _(Real-Time)_\n` +
+        `6. 🛑 *Audit Pembatalan / Void Order POS Bernilai Tinggi* _(Real-Time)_\n` +
+        `7. 📊 *Pengingat Closing Buku Akhir Bulan (EOM Hub)* _(Bulanan)_`
+
       await kirimPesanTelegram(
         chatId,
-        `📖 *Panduan Bot Finance Suka Shawarma*\n\n` +
+        `📖 *Panduan Bot Finance Suka Shawarma (Telegram & SuperApp)*\n\n` +
         `Bot Finance bertindak sebagai asisten AI operasional keuangan, treasury, dan rekonsiliasi kas Suka Shawarma.\n\n` +
+        `🔔 *Daftar Trigger Otomatis Aktif:*\n` +
+        `${daftarTriggerTeks}\n\n` +
         `⚡ *Menu Pintasan Cepat (Slash Commands):*\n` +
         `• /utang - Cek tagihan & utang PO supplier jatuh tempo\n` +
         `• /pengeluaran - Ringkasan pengeluaran kas kecil & beban pusat vs outlet\n` +

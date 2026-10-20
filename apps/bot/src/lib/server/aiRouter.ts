@@ -82,6 +82,30 @@ export async function* tanyaAiRouter(o: {
       .map((s) => `- ${s.nama} (${s.outlet}): telat ${s.telatMenit} menit`)
       .join('\n')
 
+    const w = t.waste
+    const listWasteBahan = (w?.topBahan || [])
+      .map(
+        (b, i) =>
+          `${i + 1}. ${b.nama}: ${b.totalQty} ${b.satuan} (${b.frekuensi}x dilaporkan) — Est. Rugi: ${formatRupiah(
+            b.estKerugianRp
+          )} | Alasan: ${b.alasanDominan}`
+      )
+      .join('\n')
+    const listWasteOutlet = (w?.topOutlet || [])
+      .map((out, i) => `${i + 1}. ${out.nama}: ${out.frekuensi} laporan (${out.totalQty} unit)`)
+      .join('\n')
+
+    const v = t.voidOrder
+    const listVoid = (v?.daftarOutletVoidHariIni || [])
+      .map((vo) => `- ${vo.outlet}: ${formatRupiah(vo.nilai)} (${vo.waktu} WIB)`)
+      .join('\n')
+
+    const sbk = t.statusBuka
+    const listBuka = (sbk?.daftarBuka || [])
+      .map((b) => `- ${b.outlet}: buka shift jam ${b.jamBuka} WIB [status: ${b.status}]`)
+      .join('\n')
+    const listBelumBuka = (sbk?.daftarBelumBuka || []).map((b) => `- ${b}`).join('\n')
+
     const k = t.ringkasanKemarin
     const listKemarinTransaksi = (k?.outletsAktifTransaksi || [])
       .map(
@@ -112,6 +136,27 @@ DATA OPERASIONAL HARI INI (${t.tanggalWIB}):
 ${listTransaksi || '(Belum ada cabang bertransaksi)'}
 - Cabang Belum Mencatatkan Order Hari Ini (${t.outletsNolTransaksi.length} unit):
 ${listNol || '(Semua cabang sudah ada transaksi)'}
+
+STATUS BUKA CABANG & SHIFT KASIR HARI INI:
+- Total Cabang Sudah Buka Shift Kasir: ${sbk?.totalBuka || 0} cabang
+${listBuka || '(Belum ada shift kasir yang tercatat hari ini)'}
+- Cabang Belum Buka Shift Kasir: ${sbk?.totalBelumBuka || 0} cabang
+${listBelumBuka || '(Seluruh cabang operasional sudah buka)'}
+
+AUDIT VOID & PEMBATALAN TRANSAKSI POS HARI INI:
+- Total Transaksi Void / Batal Hari Ini: ${v?.totalVoidHariIni || 0} transaksi
+- Total Nilai Order Void Hari Ini: ${formatRupiah(v?.totalNilaiVoidHariIni || 0)}
+- Rincian Transaksi Void Hari Ini:
+${listVoid || '(Nol / Tidak ada pembatalan transaksi hari ini - kasir bersih)'}
+
+DATA WASTE & REJECT BAHAN BAKU (AUDIT LOSS PREVENTION 30 HARI TERAKHIR):
+- Total Laporan Waste Tercatat: ${w?.totalLaporan30Hari || 0} laporan
+- Total Akumulasi Kerugian Estimasi: ${formatRupiah(w?.totalEstKerugianRp || 0)}
+- Top 5 Bahan Paling Banyak Waste / Terbuang:
+${listWasteBahan || '(Belum ada data waste)'}
+- Top 5 Cabang Penyumbang Laporan Waste Terbanyak:
+${listWasteOutlet || '(Belum ada catatan waste cabang)'}
+- Laporan Waste Baru Hari Ini: ${w?.laporanHariIniCount || 0} laporan
 
 MENU TERLARIS HARI INI:
 ${listMenu || '(Belum ada data porsi)'}
@@ -171,8 +216,12 @@ PANDUAN KOMUNIKASI & PERILAKU:
      * Jika pengguna menanyakan 'hari ini', gunakan DATA OPERASIONAL HARI INI.
      * Jangan mencampuradukkan angka kemarin dengan hari ini.
 4. PERTANYAAN KHUSUS OPERASIONAL MANAJER:
-   - Pertanyaan waste / reject / barang rusak / sampah bahan:
-     Jelaskan bahwa data rekap waste harian dicatat oleh kru saat closing shift / stok opname fisik malam hari (cut-off 22:30 WIB). Untuk investigasi fisik saat ini, sarankan koordinasi dengan PIC outlet atau cek menu Pengajuan Waste di SuperApp.
+   - Pertanyaan waste / reject / barang rusak / sampah bahan / kerugian bahan:
+     Sajikan data waste secara presisi dari DATA WASTE & REJECT di bawah. Sebutkan bahan baku penyumbang waste tertinggi (seperti Sayur Lettuce, Kulit 25, Ayam), jumlah qty, alasan dominan (seperti potongan bonggol, busuk, gosong, basi), serta cabang-cabang penyumbang laporan waste terbanyak.
+   - Pertanyaan void / pembatalan order / transaksi di-cancel POS:
+     Sajikan total frekuensi void hari ini, total estimasi nominal rupiah yang dibatalkan, dan rincian cabang yang mencatat pembatalan order hari ini. Jika 0, tegaskan bahwa transaksi hari ini bersih tanpa ada void.
+   - Pertanyaan jam buka / cabang belum buka / cabang sudah buka / telat buka:
+     Sajikan daftar cabang yang sudah buka shift kasir beserta jam bukanya, dan sebutkan jika ada cabang yang belum buka.
    - Pertanyaan presensi / SDM / telat / izin (KHUSUS KRU OUTLET CABANG):
      * HANYA evaluasi dan tampilkan data presensi KRU OUTLET / CABANG OPERASIONAL.
      * JANGAN PERNAH menampilkan staf Kantor Pusat / Office / HQ (karena staf kantor pusat adalah urusan HRD, bukan manajer cabang/area).

@@ -25,6 +25,29 @@ export interface AktivitasStokRingkas {
   tipe?: string
 }
 
+export interface WasteItemRingkas {
+  bahan: string
+  satuan: string
+  total_qty: number
+  frekuensi: number
+  estimasi_kerugian: number
+  faktor_dominan: string
+}
+
+export interface WasteOutletRingkas {
+  outlet: string
+  frekuensi: number
+  total_qty: number
+}
+
+export interface HasilWasteHermes {
+  rentang_hari: number
+  total_laporan: number
+  total_estimasi_kerugian: number
+  top_bahan: WasteItemRingkas[]
+  top_outlet: WasteOutletRingkas[]
+}
+
 export interface KonteksStokHermes {
   hariIni: string
   outlets: OutletInfo[]
@@ -33,4 +56,5 @@ export interface KonteksStokHermes {
   suratJalan: (opts: { status?: string; limit?: number }) => Promise<SuratJalanRingkas[]>
   opname: (opts: { outlet?: string; hari: number; limit: number }) => Promise<AktivitasStokRingkas[]>
   permintaanBahan: (opts: { outlet?: string; hari: number; limit: number }) => Promise<AktivitasStokRingkas[]>
+  waste: (opts: { outlet?: string; bahan?: string; hari: number; limit: number }) => Promise<HasilWasteHermes>
 }

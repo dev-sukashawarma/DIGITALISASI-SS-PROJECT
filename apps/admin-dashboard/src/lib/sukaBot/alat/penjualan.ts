@@ -6,7 +6,18 @@ import { rupiah, jamWib } from '../format'
 export interface RingkasanLaporan { omzetKotor: number; omzetBersih: number; transaksi: number; menu: { nama: string; qty: number; omzet: number }[] }
 export type AmbilLaporan = (r: { dari: string; sampai: string; outletIds: string[]; kanal: string[] }) => Promise<RingkasanLaporan>
 export interface OutletInfo { id: string; name: string; type: string; is_active: boolean; slug?: string | null }
-export interface KonteksPenjualan { ambilLaporan: AmbilLaporan; outlets: OutletInfo[]; hariIni: string; sekarang: Date }
+export interface BarisVoidRingkas { id: string; outlet: string; total_nilai: number; waktu: string }
+export interface HasilVoidHermes { rentang_hari: number; total_void: number; total_nilai_void: number; daftar_void: BarisVoidRingkas[] }
+export interface CabangBukaRingkas { outlet: string; jam_buka: string }
+export interface HasilStatusBukaHermes { tanggal: string; total_outlet_aktif: number; total_sudah_buka: number; total_belum_buka: number; daftar_belum_buka: string[]; daftar_sudah_buka: CabangBukaRingkas[] }
+export interface KonteksPenjualan {
+  ambilLaporan: AmbilLaporan
+  outlets: OutletInfo[]
+  hariIni: string
+  sekarang: Date
+  auditVoid?: (opts: { hari?: number; outlet?: string; limit?: number }) => Promise<HasilVoidHermes>
+  statusBuka?: (opts: { tanggal?: string }) => Promise<HasilStatusBukaHermes>
+}
 
 export type KodeKanal = 'semua' | 'kasir' | 'gofood' | 'grabfood' | 'shopeefood' | 'food_apps' | 'tiktok_go' | 'web'
 // Kunci = kunci channel Rangkuman Penjualan (computeAvailableChannels/isChannelSelected).

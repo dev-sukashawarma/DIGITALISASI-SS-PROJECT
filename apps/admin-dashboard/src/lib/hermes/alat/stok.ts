@@ -71,4 +71,26 @@ export const ALAT_STOK: DefinisiAlat[] = [
       daftar: await ctx.stok.permintaanBahan(a),
     }),
   },
+  {
+    nama: 'stok_waste',
+    domain: 'stok',
+    deskripsi: 'Audit rekapitulasi waste dan reject bahan baku (kerusakan, kadaluarsa, basi, sisa olahan) per bahan baku atau outlet. Dilengkapi estimasi kerugian finansial.',
+    sumber: 'App Stok (Waste & Reject)',
+    skema: z
+      .object({
+        hari: z.number().int().min(1).max(90).default(30).describe('Rentang hari analisis (default 30 hari, maksimal 90)'),
+        outlet: z.string().min(1).optional().describe('Nama atau slug outlet tertentu; kosongkan untuk seluruh outlet.'),
+        bahan: z.string().min(1).optional().describe('Nama bahan baku tertentu (misal: SAPI, SAYUR, KULIT).'),
+        limit: z.number().int().min(1).max(50).default(10).describe('Jumlah maksimal daftar top bahan/outlet'),
+      })
+      .strict(),
+    contoh: { hari: 30, limit: 5 },
+    jalankan: async (ctx, a: { hari: number; outlet?: string; bahan?: string; limit: number }) => {
+      const hasil = await ctx.stok.waste(a)
+      return {
+        status: 'ok',
+        ...hasil,
+      }
+    },
+  },
 ]

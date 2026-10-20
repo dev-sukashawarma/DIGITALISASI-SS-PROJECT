@@ -22,6 +22,50 @@ export interface StafTelatTelemetri {
   telatMenit: number
 }
 
+export interface WasteItemTelemetri {
+  nama: string
+  satuan: string
+  totalQty: number
+  frekuensi: number
+  alasanDominan: string
+  estKerugianRp: number
+}
+
+export interface WasteOutletTelemetri {
+  nama: string
+  frekuensi: number
+  totalQty: number
+}
+
+export interface WasteTelemetri {
+  totalLaporan30Hari: number
+  totalEstKerugianRp: number
+  topBahan: WasteItemTelemetri[]
+  topOutlet: WasteOutletTelemetri[]
+  laporanHariIniCount: number
+}
+
+export interface VoidOrderTelemetri {
+  totalVoidHariIni: number
+  totalNilaiVoidHariIni: number
+  daftarOutletVoidHariIni: Array<{
+    outlet: string
+    nilai: number
+    waktu: string
+  }>
+}
+
+export interface StatusBukaTelemetri {
+  totalBuka: number
+  totalBelumBuka: number
+  daftarBuka: Array<{
+    outlet: string
+    jamBuka: string
+    status: string
+  }>
+  daftarBelumBuka: string[]
+}
+
 export interface RingkasanHari {
   tanggalLabel: string
   tglIso: string
@@ -49,6 +93,9 @@ export interface TelemetriHariIni {
   bahanBaku: Array<{ nama: string; satuan: string }>
   stafCutiIzin: StafCutiTelemetri[]
   stafTelat: StafTelatTelemetri[]
+  waste?: WasteTelemetri
+  voidOrder?: VoidOrderTelemetri
+  statusBuka?: StatusBukaTelemetri
   ringkasanHariIni?: RingkasanHari
   ringkasanKemarin?: RingkasanHari
 }
@@ -163,8 +210,24 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
     const endKemarin = `${tglStr}T00:00:00+07:00`
     const startToday = `${tglStr}T00:00:00+07:00`
     const endToday = `${tglBesokStr}T00:00:00+07:00`
+    const wib30 = new Date(wib.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const tgl30Str = wib30.toISOString().slice(0, 10)
+    const start30 = `${tgl30Str}T00:00:00+07:00`
 
-    const [ordersHariIni, ordersKemarin, items, resAtt, resOutlets, resBahan, resLeave, resLate] = await Promise.all([
+    const [
+      ordersHariIni,
+      ordersKemarin,
+      items,
+      resAtt,
+      resOutlets,
+      resBahan,
+      resLeave,
+      resLate,
+      resWaste,
+      resVoid,
+      resShifts,
+      resPrices,
+    ] = await Promise.all([
       fetchAllRows(sb, 'orders', (q) =>
         q
           .select('id, total_amount, status, outlet_id, outlets(name)')
@@ -223,6 +286,32 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .gt('telat_menit', 0)
         .order('telat_menit', { ascending: false })
         .limit(30),
+      sb
+        .from('stok_waste_reports')
+        .select('id, qty, reason, status, created_at, outlet_id, bahan_baku_id, outlets(name), bahan_baku(nama, satuan)')
+        .gte('created_at', start30)
+        .order('created_at', { ascending: false })
+        .limit(600),
+      sb
+        .from('orders')
+        .select('id, total_amount, created_at, outlet_id, outlets(name)')
+        .gte('created_at', startToday)
+        .lt('created_at', endToday)
+        .eq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(100),
+      sb
+        .from('shifts')
+        .select('id, outlet_id, status, start_time, end_time, variance, petty_cash_variance, outlets(name)')
+        .gte('start_time', startToday)
+        .lt('start_time', endToday)
+        .order('start_time', { ascending: true })
+        .limit(100),
+      sb
+        .from('bahan_baku_harga')
+        .select('bahan_baku_id, harga_beli, harga_updated_at')
+        .order('harga_updated_at', { ascending: false })
+        .limit(200),
     ])
 
     const rawOutlets = (resOutlets.data || []).filter((o: any) =>
@@ -321,6 +410,138 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         telatMenit: Number(a.telat_menit) || 0,
       }))
 
+    // ─────────────────────────────────────────────────────────── Waste & Reject Bahan Baku
+    const priceMap: Record<string, number> = {}
+    for (const p of (resPrices?.data || []) as any[]) {
+      if (!priceMap[p.bahan_baku_id]) {
+        priceMap[p.bahan_baku_id] = Number(p.harga_beli) || 0
+      }
+    }
+
+    const wasteRows = (resWaste?.data || []) as any[]
+    let totalEstKerugianRp = 0
+    let laporanHariIniCount = 0
+    const bahanMap: Record<string, { nama: string; satuan: string; totalQty: number; frekuensi: number; reasons: Record<string, number>; estKerugianRp: number }> = {}
+    const outletWasteMap: Record<string, { nama: string; frekuensi: number; totalQty: number }> = {}
+
+    for (const r of wasteRows) {
+      const isToday = r.created_at && r.created_at.startsWith(tglStr)
+      if (isToday) laporanHariIniCount++
+
+      const bNama = r.bahan_baku?.nama || 'Bahan Baku'
+      const sat = r.bahan_baku?.satuan || 'unit'
+      const qty = Number(r.qty) || 0
+      const hBeli = priceMap[r.bahan_baku_id] || 0
+      const estLoss = Math.round(qty * hBeli)
+      totalEstKerugianRp += estLoss
+
+      if (!bahanMap[bNama]) {
+        bahanMap[bNama] = { nama: bNama, satuan: sat, totalQty: 0, frekuensi: 0, reasons: {}, estKerugianRp: 0 }
+      }
+      bahanMap[bNama].totalQty += qty
+      bahanMap[bNama].frekuensi += 1
+      bahanMap[bNama].estKerugianRp += estLoss
+      const reas = (r.reason || 'Lainnya').trim()
+      bahanMap[bNama].reasons[reas] = (bahanMap[bNama].reasons[reas] || 0) + 1
+
+      const outNama = r.outlets?.name || 'Cabang'
+      if (!outletWasteMap[outNama]) {
+        outletWasteMap[outNama] = { nama: outNama, frekuensi: 0, totalQty: 0 }
+      }
+      outletWasteMap[outNama].frekuensi += 1
+      outletWasteMap[outNama].totalQty += qty
+    }
+
+    const topBahanWaste = Object.values(bahanMap)
+      .sort((a, b) => b.totalQty - a.totalQty)
+      .slice(0, 5)
+      .map(b => {
+        const topReason = Object.entries(b.reasons).sort((x, y) => y[1] - x[1])[0]?.[0] || '-'
+        return {
+          nama: b.nama,
+          satuan: b.satuan,
+          totalQty: Math.round(b.totalQty * 100) / 100,
+          frekuensi: b.frekuensi,
+          alasanDominan: topReason,
+          estKerugianRp: b.estKerugianRp,
+        }
+      })
+
+    const topOutletWaste = Object.values(outletWasteMap)
+      .sort((a, b) => b.frekuensi - a.frekuensi)
+      .slice(0, 5)
+      .map(o => ({
+        nama: o.nama,
+        frekuensi: o.frekuensi,
+        totalQty: Math.round(o.totalQty * 10) / 10,
+      }))
+
+    const waste: WasteTelemetri = {
+      totalLaporan30Hari: wasteRows.length,
+      totalEstKerugianRp,
+      topBahan: topBahanWaste,
+      topOutlet: topOutletWaste,
+      laporanHariIniCount,
+    }
+
+    // ─────────────────────────────────────────────────────────── Void & Pembatalan Transaksi POS
+    const voidRows = (resVoid?.data || []) as any[]
+    let totalNilaiVoidHariIni = 0
+    const daftarOutletVoidHariIni = voidRows.map((v) => {
+      const amt = Number(v.total_amount) || 0
+      totalNilaiVoidHariIni += amt
+      const waktuWib = v.created_at
+        ? new Date(v.created_at).toLocaleTimeString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '-'
+      return {
+        outlet: v.outlets?.name || 'Cabang',
+        nilai: amt,
+        waktu: waktuWib,
+      }
+    })
+
+    const voidOrder: VoidOrderTelemetri = {
+      totalVoidHariIni: voidRows.length,
+      totalNilaiVoidHariIni,
+      daftarOutletVoidHariIni,
+    }
+
+    // ─────────────────────────────────────────────────────────── Status Buka Outlet & Jam Shift
+    const shiftRows = (resShifts?.data || []) as any[]
+    const openedMap = new Map<string, { outlet: string; jamBuka: string; status: string }>()
+    for (const s of shiftRows) {
+      if (s.outlet_id && !openedMap.has(s.outlet_id)) {
+        const startWib = s.start_time
+          ? new Date(s.start_time).toLocaleTimeString('id-ID', {
+              timeZone: 'Asia/Jakarta',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '-'
+        openedMap.set(s.outlet_id, {
+          outlet: s.outlets?.name || 'Cabang',
+          jamBuka: startWib,
+          status: s.status || 'open',
+        })
+      }
+    }
+
+    const daftarBuka = Array.from(openedMap.values())
+    const daftarBelumBuka = rawOutlets
+      .filter((o: any) => !openedMap.has(o.id))
+      .map((o: any) => o.name)
+
+    const statusBuka: StatusBukaTelemetri = {
+      totalBuka: daftarBuka.length,
+      totalBelumBuka: daftarBelumBuka.length,
+      daftarBuka,
+      daftarBelumBuka,
+    }
+
     return {
       tanggalWIB: tglStr,
       omzetTotal: ringkasanHariIni.omzetTotal,
@@ -338,6 +559,9 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       bahanBaku,
       stafCutiIzin,
       stafTelat,
+      waste,
+      voidOrder,
+      statusBuka,
       ringkasanHariIni,
       ringkasanKemarin,
     }

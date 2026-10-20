@@ -12,6 +12,7 @@ export function buatJawabanDev(
   const isManager = profil.trim().toLowerCase() === 'manager'
   const sebutan = isManager ? 'Rekan' : 'Sir'
   const salamAwal = isManager ? 'Halo Rekan Tim Operasional Suka Shawarma.' : 'Salam, Sir.'
+  const telemetri = t
 
   const isKemarin =
     p.includes('kemarin') ||
@@ -109,12 +110,88 @@ export function buatJawabanDev(
     p.includes('basi') ||
     p.includes('sampah')
   ) {
+    if (telemetri?.waste && telemetri.waste.topBahan.length > 0) {
+      const topList = telemetri.waste.topBahan
+        .map(
+          (b, i) =>
+            `${i + 1}. **${b.nama}**: ${b.totalQty} ${b.satuan} (${b.frekuensi}x laporan) — Est. Rugi: ${formatRupiah(
+              b.estKerugianRp
+            )}\n   *Alasan Dominan:* ${b.alasanDominan}`
+        )
+        .join('\n')
+
+      const outList = telemetri.waste.topOutlet
+        .map((o, i) => `${i + 1}. **${o.nama}**: ${o.frekuensi} laporan (${o.totalQty} unit)`)
+        .join('\n')
+
+      return [
+        `${salamAwal} Berikut rekap analitis **Waste & Reject Bahan Baku** (Audit Loss Prevention 30 Hari Terakhir):\n\n`,
+        `📊 **TOTAL KERUGIAN ESTIMASI**: **${formatRupiah(telemetri.waste.totalEstKerugianRp)}** (${telemetri.waste.totalLaporan30Hari} total laporan)\n\n`,
+        `### 🥬 5 Bahan Baku Paling Banyak Jadi Waste:\n${topList}\n\n`,
+        `### 📍 Cabang Penyumbang Laporan Waste Terbanyak:\n${outList}\n\n`,
+        '> [!TIP]\n',
+        '> Segera evaluasi SOP trimming sayur/lettuce (pemotongan bonggol) dan kontrol suhu chiller agar mengurangi kerugian bahan basi/expired.',
+      ]
+    }
     return [
       'Data waste dan reject bahan baku hari ini belum tercatat di sistem.\n\n',
       '> [!NOTE]\n',
       '> **PENCATATAN WASTE HARIAN**: Rekap waste dan selisih bahan baku biasanya baru masuk saat closing shift dan stok opname fisik malam hari (cut-off 22:30 WIB).\n\n',
       'Untuk investigasi fisik saat ini, silakan koordinasikan langsung dengan PIC outlet atau pantau pengajuan waste di SuperApp.',
     ]
+  }
+
+  // 1e. Void & Pembatalan Transaksi POS
+  if (
+    p.includes('void') ||
+    p.includes('cancel') ||
+    p.includes('batal') ||
+    p.includes('dibatalkan')
+  ) {
+    if (telemetri?.voidOrder) {
+      if (telemetri.voidOrder.totalVoidHariIni > 0) {
+        const vList = telemetri.voidOrder.daftarOutletVoidHariIni
+          .map((vo) => `- **${vo.outlet}**: ${formatRupiah(vo.nilai)} (pukul ${vo.waktu} WIB)`)
+          .join('\n')
+        return [
+          `${salamAwal} Berikut audit **Pembatalan Transaksi POS (VOID)** hari ini:\n\n`,
+          `🚨 **TOTAL VOID HARI INI**: **${telemetri.voidOrder.totalVoidHariIni} transaksi** (Total Nilai: **${formatRupiah(telemetri.voidOrder.totalNilaiVoidHariIni)}**)\n\n`,
+          `### 📋 Rincian Cabang Pembatalan Order:\n${vList}\n\n`,
+          'Mohon konfirmasi alasan pembatalan order ke kasir/leader cabang terkait untuk memastikan tidak ada indikasi manipulasi struk kasir.',
+        ]
+      }
+      return [
+        `${salamAwal} Hasil audit **Pembatalan Transaksi POS (VOID)** hari ini:\n\n`,
+        '✅ **BERSIH / 0 VOID**: Tidak ada transaksi yang dibatalkan / di-void oleh kasir di seluruh cabang operasional hari ini.\n\n',
+        'Seluruh order POS yang diinput kasir tercatat valid dan berjalan normal.',
+      ]
+    }
+  }
+
+  // 1f. Status Buka Cabang & Shift Kasir
+  if (
+    p.includes('belum buka') ||
+    p.includes('sudah buka') ||
+    p.includes('telat buka') ||
+    p.includes('status buka') ||
+    p.includes('buka shift')
+  ) {
+    if (telemetri?.statusBuka) {
+      const bukaList = telemetri.statusBuka.daftarBuka
+        .map((b) => `- **${b.outlet}**: buka jam ${b.jamBuka} WIB`)
+        .join('\n')
+      const belumList = telemetri.statusBuka.daftarBelumBuka.length > 0
+        ? telemetri.statusBuka.daftarBelumBuka.map((b) => `- ⏳ **${b}**`).join('\n')
+        : '🎉 *Seluruh cabang operasional sudah membuka shift kasir!*'
+
+      return [
+        `${salamAwal} Status operasional **Buka Cabang & Shift Kasir** hari ini:\n\n`,
+        `✅ **Sudah Buka**: **${telemetri.statusBuka.totalBuka} cabang**\n`,
+        `⏳ **Belum Buka**: **${telemetri.statusBuka.totalBelumBuka} cabang**\n\n`,
+        `### 📍 Cabang Belum Buka Shift:\n${belumList}\n\n`,
+        `### ⏱️ Jam Buka Cabang Hari Ini:\n${bukaList}`,
+      ]
+    }
   }
 
   // 1c. Sidak & Ceklist Operasional Cabang

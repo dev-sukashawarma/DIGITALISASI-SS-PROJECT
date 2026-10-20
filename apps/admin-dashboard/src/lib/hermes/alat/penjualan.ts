@@ -114,4 +114,50 @@ export const ALAT_PENJUALAN: DefinisiAlat[] = [
       }
     },
   },
+  {
+    nama: 'penjualan_void',
+    domain: 'penjualan',
+    deskripsi: 'Audit pembatalan transaksi kasir (void order) per cabang atau seluruh cabang untuk pemantauan fraud dan integritas kasir.',
+    sumber: 'POS Kasir (Audit Void)',
+    skema: z
+      .object({
+        hari: z.number().int().min(1).max(30).default(1).describe('Rentang hari audit (default 1 = hari ini)'),
+        outlet: OUTLET.optional(),
+        limit: z.number().int().min(1).max(50).default(20).describe('Maksimal daftar transaksi void ditampilkan'),
+      })
+      .strict(),
+    contoh: { hari: 1, limit: 10 },
+    jalankan: async (ctx, a: { hari: number; outlet?: string; limit: number }) => {
+      if (!ctx.penjualan.auditVoid) {
+        return { status: 'galat', pesan: 'Fitur audit void tidak tersedia' }
+      }
+      const hasil = await ctx.penjualan.auditVoid(a)
+      return {
+        status: 'ok',
+        ...hasil,
+      }
+    },
+  },
+  {
+    nama: 'penjualan_status_buka',
+    domain: 'penjualan',
+    deskripsi: 'Status operasional buka cabang dan shift kasir hari ini: membandingkan cabang yang sudah buka shift vs cabang yang belum buka shift kasir.',
+    sumber: 'POS Kasir (Shift Cabang)',
+    skema: z
+      .object({
+        tanggal: TGL.optional().describe('Tanggal WIB (default hari ini)'),
+      })
+      .strict(),
+    contoh: {},
+    jalankan: async (ctx, a: { tanggal?: string }) => {
+      if (!ctx.penjualan.statusBuka) {
+        return { status: 'galat', pesan: 'Fitur status buka cabang tidak tersedia' }
+      }
+      const hasil = await ctx.penjualan.statusBuka(a)
+      return {
+        status: 'ok',
+        ...hasil,
+      }
+    },
+  },
 ]

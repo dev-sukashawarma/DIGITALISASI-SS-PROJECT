@@ -1,6 +1,6 @@
 import type { OutletInfo } from '@/lib/sukaBot/alat/penjualan'
 import type { BahanInfo, BarisStok } from '@/lib/sukaBot/alat/stok'
-import type { AktivitasStokRingkas, KonteksStokHermes, SuratJalanRingkas } from '../stok/tipe'
+import type { AktivitasStokRingkas, KonteksStokHermes, SuratJalanRingkas, HasilWasteHermes } from '../stok/tipe'
 
 export function buatKonteksStok(svc: any, outlets: OutletInfo[], hariIni: string): KonteksStokHermes {
   const cariOutletIds = (nama?: string) => {
@@ -103,5 +103,118 @@ export function buatKonteksStok(svc: any, outlets: OutletInfo[], hariIni: string
     },
     opname: (opts) => ambilAktivitas('opname', opts),
     permintaanBahan: (opts) => ambilAktivitas('permintaan_bahan', opts),
+    waste: async (opts): Promise<HasilWasteHermes> => {
+      const outletIds = opts.outlet ? cariOutletIds(opts.outlet) : outlets.map((o) => o.id)
+      const sejak = new Date(Date.now() - opts.hari * 24 * 60 * 60 * 1000).toISOString()
+
+      const { data: rawPrices } = await svc
+        .from('bahan_baku_harga')
+        .select('bahan_baku_id, harga_beli, harga_updated_at')
+        .order('harga_updated_at', { ascending: false })
+        .limit(250)
+
+      const priceMap = new Map<string, number>()
+      for (const p of (rawPrices ?? []) as any[]) {
+        if (!priceMap.has(p.bahan_baku_id)) {
+          priceMap.set(p.bahan_baku_id, Number(p.harga_beli) || 0)
+        }
+      }
+
+      let q = svc
+        .from('stok_waste_reports')
+        .select(`
+          id,
+          qty,
+          reason,
+          status,
+          created_at,
+          outlet_id,
+          bahan_baku_id,
+          outlets (name),
+          bahan_baku (nama, satuan)
+        `)
+        .gte('created_at', sejak)
+        .order('created_at', { ascending: false })
+        .limit(600)
+
+      if (opts.outlet) {
+        q = q.in('outlet_id', outletIds)
+      }
+
+      const { data, error } = await q
+      if (error) throw new Error(`stok_waste_reports: ${error.message}`)
+
+      const rows = (data ?? []) as any[]
+      const filterBahan = opts.bahan ? opts.bahan.trim().toLowerCase() : null
+
+      let totalEstKerugian = 0
+      const bahanMap: Record<string, { nama: string; satuan: string; totalQty: number; frekuensi: number; reasons: Record<string, number>; estKerugian: number }> = {}
+      const outletMap: Record<string, { nama: string; frekuensi: number; totalQty: number }> = {}
+
+      let hitungLaporan = 0
+
+      for (const r of rows) {
+        const bNama = r.bahan_baku?.nama || 'Bahan Baku'
+        if (filterBahan && !bNama.toLowerCase().includes(filterBahan)) {
+          continue
+        }
+
+        hitungLaporan++
+        const sat = r.bahan_baku?.satuan || 'unit'
+        const qty = Number(r.qty) || 0
+        const hBeli = priceMap.get(r.bahan_baku_id) || 0
+        const loss = Math.round(qty * hBeli)
+        totalEstKerugian += loss
+
+        if (!bahanMap[bNama]) {
+          bahanMap[bNama] = { nama: bNama, satuan: sat, totalQty: 0, frekuensi: 0, reasons: {}, estKerugian: 0 }
+        }
+        bahanMap[bNama].totalQty += qty
+        bahanMap[bNama].frekuensi += 1
+        bahanMap[bNama].estKerugian += loss
+
+        const rClean = (r.reason || 'Lainnya').replace(/alasan/gi, 'ket').trim()
+        bahanMap[bNama].reasons[rClean] = (bahanMap[bNama].reasons[rClean] || 0) + 1
+
+        const outNama = r.outlets?.name || '(outlet tidak dikenal)'
+        if (!outletMap[outNama]) {
+          outletMap[outNama] = { nama: outNama, frekuensi: 0, totalQty: 0 }
+        }
+        outletMap[outNama].frekuensi += 1
+        outletMap[outNama].totalQty += qty
+      }
+
+      const topBahan = Object.values(bahanMap)
+        .sort((a, b) => b.totalQty - a.totalQty)
+        .slice(0, opts.limit)
+        .map((b) => {
+          const topReason = Object.entries(b.reasons).sort((x, y) => y[1] - x[1])[0]?.[0] || '-'
+          return {
+            bahan: b.nama,
+            satuan: b.satuan,
+            total_qty: Math.round(b.totalQty * 100) / 100,
+            frekuensi: b.frekuensi,
+            estimasi_kerugian: b.estKerugian,
+            faktor_dominan: topReason,
+          }
+        })
+
+      const topOutlet = Object.values(outletMap)
+        .sort((a, b) => b.frekuensi - a.frekuensi)
+        .slice(0, opts.limit)
+        .map((o) => ({
+          outlet: o.nama,
+          frekuensi: o.frekuensi,
+          total_qty: Math.round(o.totalQty * 10) / 10,
+        }))
+
+      return {
+        rentang_hari: opts.hari,
+        total_laporan: hitungLaporan,
+        total_estimasi_kerugian: totalEstKerugian,
+        top_bahan: topBahan,
+        top_outlet: topOutlet,
+      }
+    },
   }
 }

@@ -118,6 +118,56 @@ describe('buatJawabanDev', () => {
     expect(full).toContain('LIVE DATA STREAM ACTIVE')
   })
 
+  it('menampilkan rincian waste bahan baku ketika data waste tersedia', () => {
+    const telemetriDenganWaste: TelemetriHariIni = {
+      ...mockTelemetri,
+      waste: {
+        totalLaporan30Hari: 120,
+        totalEstKerugianRp: 15000000,
+        topBahan: [
+          {
+            nama: 'Sayur (lettuce)',
+            satuan: 'kg',
+            totalQty: 50,
+            frekuensi: 40,
+            estKerugianRp: 12000000,
+            alasanDominan: 'bonggol',
+          },
+        ],
+        topOutlet: [{ nama: 'MITRA CIBINONG', frekuensi: 25, totalQty: 30 }],
+      },
+    }
+    const chunks = buatJawabanDev('waste yang paling tinggi apa ya?', 'manager', telemetriDenganWaste)
+    const full = chunks.join('')
+    expect(full).toContain('Waste & Reject Bahan Baku')
+    expect(full).toContain('Sayur (lettuce)')
+    expect(full).toContain('MITRA CIBINONG')
+  })
+
+  it('menampilkan audit void dan status buka cabang dengan tepat', () => {
+    const telemetriVoidDanBuka: TelemetriHariIni = {
+      ...mockTelemetri,
+      voidOrder: {
+        totalVoidHariIni: 2,
+        totalNilaiVoidHariIni: 75000,
+        daftarOutletVoidHariIni: [{ outlet: 'PAJAJARAN', nilai: 75000, waktu: '11:20' }],
+      },
+      statusBuka: {
+        totalBuka: 17,
+        totalBelumBuka: 11,
+        daftarBuka: [{ outlet: 'CIMANGGU', jamBuka: '10:55' }],
+        daftarBelumBuka: ['OUTLET TEST'],
+      },
+    }
+    const chunksVoid = buatJawabanDev('ada void hari ini?', 'manager', telemetriVoidDanBuka)
+    expect(chunksVoid.join('')).toContain('PAJAJARAN')
+    expect(chunksVoid.join('')).toContain('2 transaksi')
+
+    const chunksBuka = buatJawabanDev('cabang mana yang belum buka?', 'manager', telemetriVoidDanBuka)
+    expect(chunksBuka.join('')).toContain('OUTLET TEST')
+    expect(chunksBuka.join('')).toContain('CIMANGGU')
+  })
+
   it('menggunakan persona manajer operasional dan tidak membocorkan persona CEO / Sir', () => {
     const chunksDefault = buatJawabanDev('halo selamat siang', 'manager', mockTelemetri)
     const fullDefault = chunksDefault.join('')

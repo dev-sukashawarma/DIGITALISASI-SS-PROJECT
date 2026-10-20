@@ -20,6 +20,23 @@ const penjualan: KonteksPenjualan = {
     omzetKotor: 1_000_000 * outletIds.length, omzetBersih: 900_000 * outletIds.length, transaksi: 10 * outletIds.length,
     menu: [{ nama: 'Original Sapi Jumbo', qty: 5, omzet: 300_000 }],
   }),
+  auditVoid: async () => ({
+    rentang_hari: 1,
+    total_void: 0,
+    total_nilai_void: 0,
+    daftar_void: [],
+  }),
+  statusBuka: async () => ({
+    tanggal: '2026-10-07',
+    total_outlet_aktif: 2,
+    total_sudah_buka: 2,
+    total_belum_buka: 0,
+    daftar_belum_buka: [],
+    daftar_sudah_buka: [
+      { outlet: 'SUKA SHAWARMA EMPANG', jam_buka: '10:00' },
+      { outlet: 'MITRA CIBINONG', jam_buka: '10:30' },
+    ],
+  }),
 }
 const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, hrRinci: hrRinciPalsu, finance: financePalsu, stok: stokPalsu, sistem: sistemPalsu, sekarang: penjualan.sekarang }
 
@@ -129,6 +146,32 @@ describe('registry alat Hermes', () => {
       expect(JSON.stringify(r.data)).not.toMatch(/catatan|dibuat_oleh|staff_id/i)
     }
   })
+  it('stok_waste mengembalikan data waste bahan baku', async () => {
+    const r = await cari('stok_waste').jalankan({ hari: 30, limit: 5 })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.status).toBe('ok')
+      expect(r.data.total_laporan).toBe(15)
+      expect(Array.isArray(r.data.top_bahan)).toBe(true)
+    }
+  })
+  it('penjualan_void mengembalikan data pembatalan transaksi POS', async () => {
+    const r = await cari('penjualan_void').jalankan({ hari: 1, limit: 10 })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.status).toBe('ok')
+      expect(r.data.total_void).toBe(0)
+    }
+  })
+  it('penjualan_status_buka mengembalikan status operasional shift cabang', async () => {
+    const r = await cari('penjualan_status_buka').jalankan({})
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.status).toBe('ok')
+      expect(r.data.total_sudah_buka).toBe(2)
+      expect(Array.isArray(r.data.daftar_sudah_buka)).toBe(true)
+    }
+  })
   it('sistem_status mengembalikan status operasional sistem', async () => {
     const r = await cari('sistem_status').jalankan({})
     expect(r.ok).toBe(true)
@@ -138,4 +181,3 @@ describe('registry alat Hermes', () => {
     }
   })
 })
-

@@ -31,4 +31,15 @@ export const stokPalsu: KonteksStokHermes = {
   permintaanBahan: async () => [
     { outlet: 'SUKA SHAWARMA EMPANG', tanggal: '2026-10-06', status: 'menunggu' },
   ],
+  waste: async () => ({
+    rentang_hari: 30,
+    total_laporan: 15,
+    total_estimasi_kerugian: 250000,
+    top_bahan: [
+      { bahan: 'SAPI', satuan: 'Pack', total_qty: 2, frekuensi: 2, estimasi_kerugian: 100000, faktor_dominan: 'gosong' },
+    ],
+    top_outlet: [
+      { outlet: 'SUKA SHAWARMA EMPANG', frekuensi: 2, total_qty: 2 },
+    ],
+  }),
 }

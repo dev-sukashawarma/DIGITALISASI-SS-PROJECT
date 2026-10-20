@@ -3445,6 +3445,17 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 
 ---
 
-**Last updated:** 2026-10-19  
+## Session 2026-10-20: "Pemakaian resep" di Detail Opname dihitung server (DB + apps/stok + native)
+
+**Status:** ✅ DB LIVE — `20261020100000_pemakaian_resep_harian` applied & terstempel; uji `supabase/verifikasi/pemakaian_resep/t1_pemakaian_resep_harian.sql` LULUS (kontrol kanal gagal sesuai harapan). Kode web (`apps/stok/src/components/stok/OpnameDetail.tsx`) & native (`feature/stok/.../OpnameRepository.kt`) **belum di-commit**. ⚠️ Perlu redeploy `stok` + rilis APK.
+
+- **Dua bug lama** (web & native sama): (1) select `ledger_stok` mentah kena cap 1.000 baris PostgREST — outlet ramai menulis 1.000–3.100 baris `pemakaian`/hari (Cileungsi 19 Okt terbaca 49%, Cimanggu 71%, Empang 94%); (2) order batal tetap terhitung — pembaliknya `adjustment` ber-`ref_order_id` tak dibaca (±140 order batal / 21 hari).
+- **RPC `pemakaian_resep_harian(p_outlet_id, p_tanggal)`** (SECURITY INVOKER, tunduk `ledger_read`): bersih per order×bahan = −SUM(`pemakaian`+`adjustment`) order itu, **di tanggal mana pun pembaliknya** (56% pembalik terjadi hari berikutnya), diatribusikan sekali ke tanggal pemakaian PERTAMA order (siklus selesai→batal→selesai tak dihitung dua kali); baris tanpa order apa adanya. Satuan = qty mentah ledger (sama seperti sebelumnya).
+- ⚠️ Gotcha performa: tanpa `OFFSET 0` di LATERAL, planner meratakannya jadi hash join atas seluruh ledger outlet (1,8 dtk) — dengan `OFFSET 0` ±7 ms.
+- `monitoring.ts` (stok & admin-dashboard) juga membaca `pemakaian` mentah tapi `limit(30)` per bahan — fitur lain, sengaja tak disentuh.
+
+---
+
+**Last updated:** 2026-10-20  
 **Owner:** Dev Suka Shawarma
 

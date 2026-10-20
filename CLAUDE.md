@@ -3425,7 +3425,7 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 - **Bagi hasil negatif** (Sawangan DTC) ditampilkan apa adanya dan mengurangi akrual ROI — keputusan owner.
 
 ### Temuan terbuka (belum diperbaiki, di luar lingkup sesi ini)
-- **21 menu ber-komponen paket kini `is_package = false`** (Combo #1–#4, semua "… + AQUA"; `updated_at` 10 Okt 10:47–11:42) padahal `hpp_override` sengaja dikosongkan agar ikut komponen → HPP Rp 0 di semua laporan, semua outlet, termasuk Oktober.
+- ✅ **DITUTUP 2026-10-20** — ~~21 menu ber-komponen paket kini `is_package = false`~~ (ternyata 34; akar = editor marcom, lihat Session 2026-10-20 "Pilihan combo hilang di POS").
 - **Menu Shawarmie Ayam/Sapi terhapus lagi** setelah 10 Okt 09:05 → 291 baris `order_items` September kehilangan `menu_item_id`, riwayat HPP-nya ikut hilang (CASCADE).
 - `fetchHppRows` memakai `new Date(from).setHours(0,0,0,0)` — di container UTC jendelanya bergeser 7 jam. September mitra tidak terdampak (nol order di jam itu), periode lain belum dicek.
 
@@ -3453,6 +3453,18 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 - **RPC `pemakaian_resep_harian(p_outlet_id, p_tanggal)`** (SECURITY INVOKER, tunduk `ledger_read`): bersih per order×bahan = −SUM(`pemakaian`+`adjustment`) order itu, **di tanggal mana pun pembaliknya** (56% pembalik terjadi hari berikutnya), diatribusikan sekali ke tanggal pemakaian PERTAMA order (siklus selesai→batal→selesai tak dihitung dua kali); baris tanpa order apa adanya. Satuan = qty mentah ledger (sama seperti sebelumnya).
 - ⚠️ Gotcha performa: tanpa `OFFSET 0` di LATERAL, planner meratakannya jadi hash join atas seluruh ledger outlet (1,8 dtk) — dengan `OFFSET 0` ±7 ms.
 - `monitoring.ts` (stok & admin-dashboard) juga membaca `pemakaian` mentah tapi `limit(30)` per bahan — fitur lain, sengaja tak disentuh.
+
+---
+
+## Session 2026-10-20: Pilihan combo hilang di POS — `is_package` tertimpa editor marcom (DB + marcom + pos-kasir + native)
+
+**Status:** ✅ DB LIVE — 34 menu dipulihkan `is_package = true` (skrip arsip `SS COGS SET/pulihkan-is-package-tertimpa-marcom-2026-10-20.sql`, dijalankan dengan penjaga jumlah = 34; kontrol negatif: jalan ulang ditolak "0 baris"). Kode **belum di-commit**: marcom, pos-kasir, native POS. APK debug terpasang di tablet SM-X133 (APK rilis 1.3.17 di-uninstall). ⚠️ Perlu redeploy `marcom` + `pos-kasir`, dan rilis APK native.
+
+- **Akar:** `apps/marcom/src/app/dashboard/menu/actions.ts` menulis `is_package: form.is_package || false` & `sort_order: form.sort_order || 0`, padahal `MenuManagementClient.tsx` tak pernah mengirim keduanya → tiap simpan dari marcom (harga/foto/campaign, 10/13/15 Okt) menjadikan paket "satuan" dan urutan 0. `menu_packages` tak terhapus, jadi admin tetap menampilkan pilihan.
+- **Dampak:** POS (web & native) hanya menampilkan pilihan "A atau B" bila `is_package`; `trg_process_bom_stok` hanya menguraikan paket bila `is_package`, dan combo tak punya resep sendiri → **511 porsi sejak 10 Okt tak memotong stok isinya**, HPP combo tanpa override = 0. Ledger lama tidak dikoreksi (opname menyerap).
+- **Fix:** marcom hanya menulis `is_package`/`sort_order` bila dikirim (atau saat insert) — test `actions.paket.test.ts`. POS native & web: pilihan paket **wajib dipilih**, tanpa bawaan, tombol terkunci "Pilih isi paket dulu", paket berpilihan selalu lewat modal walau di kategori minuman (`POSManualOrderPackageChoiceTest.kt`, `pos-kasir/lib/packageChoices.ts`).
+- **Tidak dipulihkan:** `sort_order` 60 menu yang diedit marcom sejak 10 Okt = 0 (nilai lama tak tersimpan) — atur ulang di admin. Kios swalayan (native & web pelanggan) belum mewajibkan pilihan.
+- ⚠️ **Pelajaran:** form yang tidak mengelola sebuah kolom jangan pernah menulis nilai bawaannya saat UPDATE (pola `if (x !== undefined)` seperti campaign).
 
 ---
 

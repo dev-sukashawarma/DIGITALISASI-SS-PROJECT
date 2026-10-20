@@ -191,6 +191,22 @@ ${listSelisih || '(Nol / Selisih kasir klop)'}
 `
     }
 
+    const r = t.review
+    let teksReview = ''
+    if (r) {
+      const listNegatif = (r.ulasanNegatifTerbaru || [])
+        .map((n, i) => `${i + 1}. ⭐${n.rating} ${n.outlet} (Oleh: ${n.reviewer}, Tgl: ${n.waktu}): "${n.komentar}"`)
+        .join('\n')
+
+      teksReview = `
+DATA ULASAN GOOGLE REVIEWS & KEPUASAN PELANGGAN (SUKAREVIEW):
+- Total Ulasan Terpantau: ${r.totalUlasan} ulasan
+- Rating Rata-rata Konsolidasi: ${r.ratingRataRata}⭐
+- Ulasan Kritis / Negatif Terbaru:
+${listNegatif || '(Tidak ada ulasan negatif terbaru - kepuasan pelanggan terjaga)'}
+`
+    }
+
     konteksData = `
 DATA PENJUALAN KEMARIN (${k?.tanggalLabel || 'Kemarin'}):
 - Total Penjualan Jaringan Kemarin: ${formatRupiah(k?.omzetTotal || 0)}
@@ -247,6 +263,7 @@ ${listTelat || '(Tidak ada kru terlambat)'}
 KATALOG BAHAN BAKU UTAMA GUDANG:
 ${listBahan || '- Gas, Kulit, Daging, Saus'}
 ${teksFinance}
+${teksReview}
 `.trim()
   }
 

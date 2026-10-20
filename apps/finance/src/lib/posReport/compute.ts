@@ -27,6 +27,7 @@ import {
 } from '@/lib/posReportKpi'
 import { buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
+import { matchesReceiptFilter, type ReceiptFilter } from './receiptReprint'
 
 export interface ShiftRow {
   id: string
@@ -57,6 +58,10 @@ export interface OrderRow {
   cashier_name?: string | null
   external_order_id?: string | null
   is_endorse?: boolean | null
+  customer_receipt_print_count?: number | null
+  kitchen_receipt_print_count?: number | null
+  customer_receipt_skipped?: boolean | null
+  kitchen_receipt_skipped?: boolean | null
   order_items: {
     id: string
     menu_item_id?: string | null
@@ -580,8 +585,16 @@ export function computeAvailablePaymentMethods(orders: OrderRow[]) {
 }
 
 // Table filtering
-export function filterTableData(completedOrders: OrderRow[], selectedPaymentMethod: string, searchQuery: string) {
+export function filterTableData(
+  completedOrders: OrderRow[],
+  selectedPaymentMethod: string,
+  searchQuery: string,
+  receiptFilter: ReceiptFilter = 'all'
+) {
   let result = completedOrders
+  if (receiptFilter !== 'all') {
+    result = result.filter(o => matchesReceiptFilter(o, receiptFilter))
+  }
   if (selectedPaymentMethod !== 'all') {
     const targetMethod = selectedPaymentMethod.toLowerCase()
     result = result.filter(o => (o.payment_method || 'unknown').toLowerCase() === targetMethod)

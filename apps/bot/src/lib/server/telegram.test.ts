@@ -70,6 +70,19 @@ describe('formatPesanTelegramHtml', () => {
     expect(formatted).toBe('Silakan cek <a href="https://finance.sukashawarma.com">Dashboard Finance</a>.')
   })
 
+  it('mengonversi teks miring berturut-turut tanpa melompati kata (lookaround regex)', () => {
+    const raw = '*satu* *dua* *tiga*'
+    const formatted = formatPesanTelegramHtml(raw)
+    expect(formatted).toBe('<i>satu</i> <i>dua</i> <i>tiga</i>')
+  })
+
+  it('mencegah tag ganda <b><b>...</b></b> pada header yang sudah dibold', () => {
+    const raw = '### **Judul Penting**'
+    const formatted = formatPesanTelegramHtml(raw)
+    expect(formatted).toBe('<b>Judul Penting</b>')
+    expect(formatted).not.toContain('<b><b>')
+  })
+
   it('memotong pesan yang melebihi 3800 karakter secara aman', () => {
     const longText = 'a'.repeat(4500)
     const formatted = formatPesanTelegramHtml(longText)

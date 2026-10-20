@@ -13,6 +13,8 @@ const CEPAT: Record<Profil, string[]> = {
   hrd: ['Siapa yang belum absen hari ini?', 'Cuti & izin minggu ini', 'Rekap keterlambatan bulan ini'],
   gudang: ['Bahan yang hampir habis', 'Kiriman hari ini'],
   finance: ['Utang supplier jatuh tempo', 'Pengeluaran bulan ini', 'Setoran kas minggu ini', 'Selisih kasir kemarin'],
+  manager: ['Outlet yang butuh perhatian hari ini', 'Cek performa area', 'Target penjualan minggu ini'],
+  review: ['Ranking rating Google Maps cabang', 'Ulasan negatif terbaru', 'Alert ulasan aktif', 'Rekap sentimen pelanggan'],
 }
 const GALAT_UMUM = 'Bot sedang tidak bisa dihubungi. Coba lagi sebentar lagi.'
 

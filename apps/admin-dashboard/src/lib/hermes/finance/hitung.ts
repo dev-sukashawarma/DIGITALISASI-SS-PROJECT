@@ -96,11 +96,27 @@ export const tanggalJualSetoran = (s: SetoranBaris) => s.tanggalJual ?? tambahHa
 /** Setoran TERCATAT per tanggal jual. Kosong ≠ belum setor (pencatatan mulai 2026-10-08). */
 export function ringkasSetoran(rows: SetoranBaris[], outlets: OutletNama[], dari: string, sampai: string) {
   const nama = namaOutlet(outlets)
-  const setoran = rows
-    .filter((s) => s.outletId !== TEST_OUTLET_ID)
+  const valid = rows.filter((s) => s.outletId !== TEST_OUTLET_ID)
+
+  const setoran = valid
     .map((s) => ({ outlet: nama(s.outletId), tanggal_jual: tanggalJualSetoran(s), nominal: rp(s.nominal), jenis: s.jenis ?? 'Setoran' }))
     .filter((s) => s.tanggal_jual >= dari && s.tanggal_jual <= sampai)
     .sort((a, b) => a.tanggal_jual.localeCompare(b.tanggal_jual) || a.outlet.localeCompare(b.outlet))
+
+  const setoranDiinput = valid
+    .filter((s) => {
+      const tglW = tglWib(s.occurredAt)
+      return tglW >= dari && tglW <= sampai
+    })
+    .map((s) => ({
+      outlet: nama(s.outletId),
+      tanggal_jual: tanggalJualSetoran(s),
+      tanggal_input: tglWib(s.occurredAt),
+      nominal: rp(s.nominal),
+      jenis: s.jenis ?? 'Setoran',
+    }))
+    .sort((a, b) => a.tanggal_input.localeCompare(b.tanggal_input) || a.outlet.localeCompare(b.outlet))
+
   const perOutlet = new Map<string, { outlet: string; total: number; jumlah: number }>()
   for (const s of setoran) {
     const o = perOutlet.get(s.outlet) ?? { outlet: s.outlet, total: 0, jumlah: 0 }
@@ -113,6 +129,11 @@ export function ringkasSetoran(rows: SetoranBaris[], outlets: OutletNama[], dari
     jumlah: setoran.length,
     per_outlet: [...perOutlet.values()].sort((a, b) => b.total - a.total),
     setoran,
+    diinput_pada_periode: {
+      total: setoranDiinput.reduce((t, s) => t + s.nominal, 0),
+      jumlah: setoranDiinput.length,
+      setoran: setoranDiinput,
+    },
   }
 }
 

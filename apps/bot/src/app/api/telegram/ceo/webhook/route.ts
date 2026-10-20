@@ -473,11 +473,12 @@ export async function POST(req: NextRequest) {
 
       // Fallback ke AI Router (9Router) + Telemetri Nyata (identik dengan In-App Executive Copilot)
       if (!jawabanAi.trim()) {
-        let telemetri = null
-        try {
-          telemetri = await ambilTelemetriNyata()
-        } catch (teleErr) {
-          console.warn('[telegram-ceo-webhook] Gagal mengambil telemetri nyata:', teleErr)
+        if (!telemetri) {
+          try {
+            telemetri = await ambilTelemetriNyata()
+          } catch (teleErr) {
+            console.warn('[telegram-ceo-webhook] Gagal mengambil telemetri nyata:', teleErr)
+          }
         }
 
         if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {

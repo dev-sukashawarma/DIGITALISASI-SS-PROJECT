@@ -1,20 +1,24 @@
 // Satu-satunya peta role → profil Hermes yang boleh diajak chat, dan kunci Hermes → profil
 // (spec kantor bot §10). Mendukung profil bawaan dan profil dinamis otomatis.
 
-export type ProfilBawaan = 'ceo' | 'gudang' | 'hrd' | 'finance'
+export type ProfilBawaan = 'ceo' | 'gudang' | 'hrd' | 'finance' | 'manager' | 'review'
 export type Profil = ProfilBawaan | (string & {})
 
-export const SEMUA_PROFIL_BAWAAN: readonly ProfilBawaan[] = ['ceo', 'gudang', 'hrd', 'finance']
+export const SEMUA_PROFIL_BAWAAN: readonly ProfilBawaan[] = ['ceo', 'gudang', 'hrd', 'finance', 'manager', 'review']
 
 // Daftar kata kunci terlarang / bukan profil bot
 const KATA_TERLARANG = new Set(['root', 'admin', 'system', 'default', 'guest', 'user', 'undefined', 'null'])
 
 // Peta awal role bawaan
 const PROFIL_PER_PERAN_BAWAAN: Record<string, ProfilBawaan[]> = {
-  developer: ['ceo', 'gudang', 'hrd', 'finance'],
-  owner: ['ceo', 'gudang', 'hrd', 'finance'],
-  admin: ['ceo', 'gudang', 'hrd', 'finance'],
+  developer: ['ceo', 'gudang', 'hrd', 'finance', 'manager', 'review'],
+  owner: ['ceo', 'gudang', 'hrd', 'finance', 'manager', 'review'],
+  admin: ['ceo', 'gudang', 'hrd', 'finance', 'manager', 'review'],
   admin_finance: ['finance'],
+  area_manager: ['manager'],
+  regional_manager: ['manager'],
+  korlap: ['manager'],
+  marcom: ['review'],
 }
 
 const LABEL_PROFIL_BAWAAN: Record<string, string> = {
@@ -22,6 +26,7 @@ const LABEL_PROFIL_BAWAAN: Record<string, string> = {
   gudang: 'Bot Gudang',
   hrd: 'Bot HRD',
   finance: 'Bot Finance',
+  manager: 'Bot Manager',
   review: 'Bot SukaReview',
   sukareview: 'Bot SukaReview',
 }
@@ -75,6 +80,8 @@ const PROFIL_PER_SCOPE: Record<string, Profil> = {
   stok: 'gudang',
   stokis: 'gudang',
   finance: 'finance',
+  manager: 'manager',
+  operasional: 'manager',
   review: 'review',
   sukareview: 'review',
 }

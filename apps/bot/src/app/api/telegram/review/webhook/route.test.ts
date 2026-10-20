@@ -116,7 +116,7 @@ describe('POST /api/telegram/review/webhook', () => {
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '123456',
       expect.stringContaining('Panduan Bot SukaReview Suka Shawarma'),
-      'https://review.sukashawarma.com',
+      'https://suka.pantaureview.com',
       'review'
     )
   })
@@ -137,7 +137,7 @@ describe('POST /api/telegram/review/webhook', () => {
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '123456',
       expect.stringContaining('Sesi Percakapan Baru Dimulai'),
-      'https://review.sukashawarma.com',
+      'https://suka.pantaureview.com',
       'review'
     )
   })

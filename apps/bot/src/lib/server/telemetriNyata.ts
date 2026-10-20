@@ -140,6 +140,13 @@ export interface FinanceTelemetri {
   }
 }
 
+export interface ReviewTelemetri {
+  totalUlasan: number
+  ratingRataRata: number
+  topCabangRating: Array<{ outlet: string; rating: number; totalUlasan: number }>
+  ulasanNegatifTerbaru: Array<{ outlet: string; reviewer: string; rating: number; komentar: string; waktu: string }>
+}
+
 export interface TelemetriHariIni {
   tanggalWIB: string
   omzetTotal: number
@@ -163,6 +170,16 @@ export interface TelemetriHariIni {
   ringkasanHariIni?: RingkasanHari
   ringkasanKemarin?: RingkasanHari
   finance?: FinanceTelemetri
+  review?: ReviewTelemetri
+}
+
+let cachedTelemetri: { data: TelemetriHariIni; timestamp: number } | null = null
+let inFlightPromise: Promise<TelemetriHariIni | null> | null = null
+const TELEMETRI_CACHE_TTL_MS = 30_000
+
+export function resetTelemetriCache(): void {
+  cachedTelemetri = null
+  inFlightPromise = null
 }
 
 function getSupabaseAdmin() {
@@ -260,7 +277,28 @@ async function fetchAllRows(
   return all
 }
 
-export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
+export async function ambilTelemetriNyata(forceRefresh = false): Promise<TelemetriHariIni | null> {
+  const now = Date.now()
+  if (!forceRefresh && cachedTelemetri && now - cachedTelemetri.timestamp < TELEMETRI_CACHE_TTL_MS) {
+    return cachedTelemetri.data
+  }
+  if (!forceRefresh && inFlightPromise) {
+    return inFlightPromise
+  }
+  inFlightPromise = muatTelemetriNyataInternal()
+    .then((data) => {
+      if (data) {
+        cachedTelemetri = { data, timestamp: Date.now() }
+      }
+      return data
+    })
+    .finally(() => {
+      inFlightPromise = null
+    })
+  return inFlightPromise
+}
+
+async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
   try {
     const sb = getSupabaseAdmin()
     // Konversi langsung UTC epoch -> WIB (UTC+7) agar .toISOString() menghasilkan tanggal WIB akurat di semua timezone server
@@ -298,6 +336,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       resPo,
       resSetoran,
       resSelisih,
+      resReviews,
     ] = await Promise.all([
       fetchAllRows(sb, 'orders', (q) =>
         q
@@ -306,7 +345,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
           .lt('created_at', endToday)
           .neq('status', 'cancelled')
           .order('id', { ascending: true })
-      ),
+      ).catch(() => []),
       fetchAllRows(sb, 'orders', (q) =>
         q
           .select('id, total_amount, status, outlet_id, outlets(name)')
@@ -314,7 +353,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
           .lt('created_at', endKemarin)
           .neq('status', 'cancelled')
           .order('id', { ascending: true })
-      ),
+      ).catch(() => []),
       fetchAllRows(sb, 'order_items', (q) =>
         q
           .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status)')
@@ -322,31 +361,35 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
           .lt('orders.created_at', endToday)
           .neq('orders.status', 'cancelled')
           .order('id', { ascending: true })
-      ),
+      ).catch(() => []),
       sb
         .from('attendance')
         .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
         .eq('type', 'in')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
-        .limit(2000),
+        .limit(2000)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('outlets')
         .select('id, name, type, code, is_active')
         .eq('is_active', true)
-        .order('name'),
+        .order('name')
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('bahan_baku')
         .select('id, nama, satuan')
         .eq('is_active', true)
-        .limit(20),
+        .limit(20)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('leave_requests')
         .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role, outlet_id)')
         .lte('start_date', tglStr)
         .gte('end_date', tglStr)
         .in('status', ['approved', 'pending'])
-        .limit(50),
+        .limit(50)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('attendance')
         .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
@@ -356,13 +399,15 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .lt('created_at', endToday)
         .gt('telat_menit', 0)
         .order('telat_menit', { ascending: false })
-        .limit(30),
+        .limit(30)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('stok_waste_reports')
         .select('id, qty, reason, status, created_at, outlet_id, bahan_baku_id, outlets(name), bahan_baku(nama, satuan)')
         .gte('created_at', start30)
         .order('created_at', { ascending: false })
-        .limit(600),
+        .limit(600)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('orders')
         .select('id, total_amount, created_at, outlet_id, outlets(name)')
@@ -370,38 +415,44 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .lt('created_at', endToday)
         .eq('status', 'cancelled')
         .order('created_at', { ascending: false })
-        .limit(100),
+        .limit(100)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('shifts')
         .select('id, outlet_id, status, start_time, end_time, variance, petty_cash_variance, outlets(name)')
         .gte('start_time', startToday)
         .lt('start_time', endToday)
         .order('start_time', { ascending: true })
-        .limit(100),
+        .limit(100)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('bahan_baku_harga')
         .select('bahan_baku_id, harga_beli, harga_updated_at')
         .order('harga_updated_at', { ascending: false })
-        .limit(200),
+        .limit(200)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('petty_cash_expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .eq('expense_date', tglStr)
         .is('deleted_at', null)
         .order('amount', { ascending: false })
-        .limit(100),
+        .limit(100)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .eq('expense_date', tglStr)
         .order('amount', { ascending: false })
-        .limit(100),
+        .limit(100)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .gte('expense_date', `${tglStr.slice(0, 7)}-01`)
         .order('amount', { ascending: false })
-        .limit(10),
+        .limit(10)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .rpc('get_purchase_orders', { p_from: `${tglStr.slice(0, 4)}-01-01`, p_to: tglStr, p_status: null })
         .then((r: any) => r, () => ({ data: [] })),
@@ -411,14 +462,22 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .eq('source_type', 'cash_deposit')
         .in('status', ['reconciled', 'paid', 'approved', 'pending_approval'])
         .order('occurred_at', { ascending: false })
-        .limit(10),
+        .limit(10)
+        .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('shifts')
         .select('id, outlet_id, status, start_time, end_time, variance, expected_ending_cash, actual_ending_cash, staff:outlet_staff!shifts_staff_id_fkey(name), outlets(name)')
         .eq('status', 'closed')
         .neq('variance', 0)
         .order('start_time', { ascending: false })
-        .limit(10),
+        .limit(10)
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
+        .from('reviews')
+        .select('id, rating, comment, reviewer_name, google_created_at, outlets(name)')
+        .order('google_created_at', { ascending: false })
+        .limit(30)
+        .then((r: any) => r, () => ({ data: [] })),
     ])
 
     const rawOutlets = (resOutlets.data || []).filter((o: any) =>
@@ -782,6 +841,29 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       },
     }
 
+    const reviewData = resReviews?.data || []
+    let reviewTelemetri: ReviewTelemetri | undefined = undefined
+    if (reviewData.length > 0) {
+      const totalUlasan = reviewData.length
+      const avg = reviewData.reduce((acc: number, r: any) => acc + (Number(r.rating) || 0), 0) / totalUlasan
+      const ulasanNegatifTerbaru = reviewData
+        .filter((r: any) => (Number(r.rating) || 0) <= 2)
+        .slice(0, 5)
+        .map((r: any) => ({
+          outlet: r.outlets?.name || 'Cabang',
+          reviewer: r.reviewer_name || 'Pelanggan',
+          rating: Number(r.rating) || 0,
+          komentar: r.comment || '',
+          waktu: r.google_created_at ? String(r.google_created_at).slice(0, 10) : '',
+        }))
+      reviewTelemetri = {
+        totalUlasan,
+        ratingRataRata: Math.round(avg * 10) / 10,
+        topCabangRating: [],
+        ulasanNegatifTerbaru,
+      }
+    }
+
     return {
       tanggalWIB: tglStr,
       omzetTotal: ringkasanHariIni.omzetTotal,
@@ -805,6 +887,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       ringkasanHariIni,
       ringkasanKemarin,
       finance,
+      review: reviewTelemetri,
     }
   } catch (err) {
     console.error('[telemetriNyata] gagal ambil telemetri:', err)

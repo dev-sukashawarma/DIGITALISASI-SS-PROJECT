@@ -75,7 +75,34 @@ export async function POST(req: Request) {
     async start(c) {
       let jawaban = ''
       try {
-        if (!baseUrl || !kunci) {
+        let suksesHermes = false
+        if (baseUrl && kunci) {
+          try {
+            for await (const t of tanyaHermes({ baseUrl, kunci, profil: pc.profil, sesiId: pc.hermes_session_id, pesan: v.pesan, signal: req.signal })) {
+              jawaban += t
+              c.enqueue(enc.encode(t))
+            }
+            if (jawaban.trim()) {
+              const textLower = jawaban.toLowerCase()
+              const kendalaHermes =
+                textLower.includes('provider authentication failed') ||
+                textLower.includes('not connected to any ai provider') ||
+                textLower.includes('belum memiliki endpoint') ||
+                textLower.includes('belum memiliki tool mcp') ||
+                textLower.includes('alat mcp belum tersambung')
+
+              if (!kendalaHermes) {
+                suksesHermes = true
+              } else {
+                console.warn('[bot] Hermes menghasilkan kendala provider/tool saat streaming:', textLower)
+              }
+            }
+          } catch (hermesErr) {
+            console.warn('[bot] Hermes gagal atau timeout, beralih ke fallback AI Router / telemetri:', hermesErr)
+          }
+        }
+
+        if (!suksesHermes && !jawaban.trim()) {
           const telemetri = await ambilTelemetriNyata()
 
           // Jika AI Router tersedia (9Router di .env.local), gunakan LLM dinamis dengan konteks telemetri live
@@ -108,18 +135,13 @@ export async function POST(req: Request) {
               await new Promise((r) => setTimeout(r, 20))
             }
           }
+        }
 
-          await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
-          return
-        }
-        for await (const t of tanyaHermes({ baseUrl, kunci, profil: pc.profil, sesiId: pc.hermes_session_id, pesan: v.pesan, signal: req.signal })) {
-          jawaban += t
-          c.enqueue(enc.encode(t))
-        }
         await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
+        return
       } catch (e) {
         const alasan = e instanceof GalatHermes ? e.alasan : 'lain'
-        console.error('[bot] Hermes gagal:', alasan, (e as Error)?.message)
+        console.error('[bot] Chat handler error:', alasan, (e as Error)?.message)
         let teksGalat = GALAT_STANDAR
         if (process.env.NODE_ENV === 'development' && (alasan === 'jaringan' || alasan === 'timeout')) {
           teksGalat = `[Local Dev] Tidak dapat terhubung ke Hermes di ${baseUrl}. Server Hermes aktif di produksi (agents.sukashawarma.com).`

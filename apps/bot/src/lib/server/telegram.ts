@@ -57,7 +57,7 @@ export function urlAplikasiDiizinkan(
 }
 
 export function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 export function formatPesanTelegramHtml(raw: string): string {
@@ -90,12 +90,19 @@ export function formatPesanTelegramHtml(raw: string): string {
   const formatInline = (t: string): string => {
     let s = escapeHtml(t)
     // Links: [label](url)
-    s = s.replace(/\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>')
+    s = s.replace(/\[(.*?)\]\((https?:\/\/[^\s]+?)\)/g, (_, label, url) => {
+      let cleanUrl = url
+      if (cleanUrl.endsWith(')') && !cleanUrl.includes('(')) {
+        cleanUrl = cleanUrl.slice(0, -1)
+        return `<a href="${cleanUrl}">${label}</a>)`
+      }
+      return `<a href="${cleanUrl}">${label}</a>`
+    })
     // Bold: **text** atau __text__
     s = s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     s = s.replace(/__(.+?)__/g, '<b>$1</b>')
-    // Italic: *text* (hindari snake_case kata_kunci)
-    s = s.replace(/(^|[^\w*])\*([^*\n]+?)\*([^\w*]|$)/g, '$1<i>$2</i>$3')
+    // Italic: *text* (menggunakan lookaround agar tidak mengonsumsi spasi pembatas antar kata)
+    s = s.replace(/(?<=[^\w*]|^)\*([^*\n]+?)\*(?=[^\w*]|$)/g, '<i>$1</i>')
     // Strikethrough: ~~text~~
     s = s.replace(/~~(.+?)~~/g, '<s>$1</s>')
     return s
@@ -122,7 +129,12 @@ export function formatPesanTelegramHtml(raw: string): string {
 
     const headerMatch = line.match(/^[ \t]*#{1,6}[ \t]+(.*)$/)
     if (headerMatch) {
-      resultLines.push(`<b>${formatInline(headerMatch[1])}</b>`)
+      const formattedHeader = formatInline(headerMatch[1])
+      if (formattedHeader.startsWith('<b>') && formattedHeader.endsWith('</b>')) {
+        resultLines.push(formattedHeader)
+      } else {
+        resultLines.push(`<b>${formattedHeader}</b>`)
+      }
       continue
     }
 
@@ -152,11 +164,11 @@ export function bersihkanMarkdown(raw: string): string {
   text = text.replace(/^[ \t]*[-*][ \t]+/gm, '• ')
   text = text.replace(/\*\*(.+?)\*\*/g, '$1')
   text = text.replace(/__(.+?)__/g, '$1')
-  text = text.replace(/(^|[^\w*])\*([^*\n]+?)\*([^\w*]|$)/g, '$1$2$3')
+  text = text.replace(/(?<=[^\w*]|^)\*([^*\n]+?)\*(?=[^\w*]|$)/g, '$1')
   text = text.replace(/~~(.+?)~~/g, '$1')
   text = text.replace(/`([^`\n]+)`/g, '$1')
   text = text.replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, '$1')
-  text = text.replace(/\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)')
+  text = text.replace(/\[(.*?)\]\((https?:\/\/[^\s]+?)\)/g, '$1 ($2)')
   return text.slice(0, 4000).trim()
 }
 

@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
               chatId,
               `🎉 *Aktivasi Berhasil!*\n\nHalo *${fromFirstName}*!\nAkun Telegram Anda telah resmi terdaftar untuk mengakses *${invObj.bot_nama || 'Bot SukaReview'}* Suka Shawarma.\n\n` +
               `Anda sekarang dapat langsung menggunakan bot ini atau ketik /help untuk panduan komando ulasan & kepuasan pelanggan.`,
-              'https://review.sukashawarma.com',
+              'https://suka.pantaureview.com',
               'review'
             )
             return NextResponse.json({ ok: true, linked: true })
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
             `• 🚨 *Alert Ulasan Aktif* (/alert)\n` +
             `• 📊 *Rekapitulasi Sentimen* (/rekap)\n\n` +
             `Ketik /help untuk panduan lengkap atau ajukan pertanyaan seputar ulasan cabang langsung.`,
-            'https://review.sukashawarma.com',
+            'https://suka.pantaureview.com',
             'review'
           )
           return NextResponse.json({ ok: true, linked: true })
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
           `👋 *Halo, ${staff.name}!* (${staff.role || 'Staff'})\n\n` +
           `Bot SukaReview siaga memantau sentimen ulasan Google Reviews dan kepuasan pelanggan cabang Suka Shawarma.\n\n` +
           `Ketik /help untuk melihat menu perintah cepat atau tanyakan langsung performa rating cabang, ulasan negatif, dan analisis keluhan pelanggan.`,
-          'https://review.sukashawarma.com',
+          'https://suka.pantaureview.com',
           'review'
         )
       } else {
@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
         `• *"Apa saja komplain paling sering tentang rasa atau porsi shawarma?"*\n` +
         `• *"Bagaimana review untuk cabang Dramaga atau Pondok Aren?"*\n` +
         `• *"Berapa proporsi sentimen positif vs negatif bulan ini?"*`,
-        'https://review.sukashawarma.com',
+        'https://suka.pantaureview.com',
         'review'
       )
       return NextResponse.json({ ok: true })
@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
         chatId,
         `🔄 *Sesi Percakapan Baru Dimulai*\n\n` +
         `Konteks percakapan telah direset. Silakan tanyakan seputar ulasan pelanggan atau gunakan menu /rating, /negatif, /alert, /rekap.`,
-        'https://review.sukashawarma.com',
+        'https://suka.pantaureview.com',
         'review'
       )
       return NextResponse.json({ ok: true })
@@ -430,7 +430,7 @@ export async function POST(req: NextRequest) {
       await kirimPesanTelegram(
         chatId,
         jawabanAi,
-        'https://review.sukashawarma.com',
+        'https://suka.pantaureview.com',
         'review'
       )
       return NextResponse.json({ ok: true })

@@ -70,23 +70,24 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
         setOpname(opData)
         setItems((itemsRes.data as OpnameItem[]) ?? [])
 
-        // Fetch daily BOM usage for the opname date
+        // Pemakaian resep (BOM) tanggal opname, bersih per bahan — dihitung
+        // server (migration 20261020100000). Dulu dijumlah di sini dari
+        // ledger_stok mentah: outlet ramai menulis >1.000 baris sehari dan
+        // PostgREST memotong di 1.000, dan order batal tetap terhitung.
         if (opData?.tanggal && opData?.outlet_id) {
-          const startIso = `${opData.tanggal}T00:00:00+07:00`
-          const endIso = `${opData.tanggal}T23:59:59+07:00`
-          const { data: usageData } = await supabase
-            .from('ledger_stok')
-            .select('bahan_baku_id, qty')
-            .eq('outlet_id', opData.outlet_id)
-            .eq('tipe', 'pemakaian')
-            .gte('created_at', startIso)
-            .lte('created_at', endIso)
-
-          const usageMap: Record<string, number> = {}
-          for (const row of usageData || []) {
-            usageMap[row.bahan_baku_id] = (usageMap[row.bahan_baku_id] || 0) + Math.abs(row.qty || 0)
+          const { data: usageData, error: usageError } = await supabase.rpc('pemakaian_resep_harian', {
+            p_outlet_id: opData.outlet_id,
+            p_tanggal: String(opData.tanggal).slice(0, 10),
+          })
+          if (usageError) {
+            console.error('[OpnameDetail] pemakaian_resep_harian:', usageError)
+          } else {
+            const usageMap: Record<string, number> = {}
+            for (const row of (usageData as { bahan_baku_id: string; qty: number | string }[] | null) ?? []) {
+              usageMap[row.bahan_baku_id] = Number(row.qty) || 0
+            }
+            setBomUsage(usageMap)
           }
-          setBomUsage(usageMap)
         }
 
         // Waste sejak opname sebelumnya: mana yang sudah memotong Sistem,

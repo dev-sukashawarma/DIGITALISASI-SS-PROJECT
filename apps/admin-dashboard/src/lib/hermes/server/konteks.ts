@@ -8,6 +8,7 @@ import { buatKonteksHrRinci } from './hrRinciSumber'
 import { buatKonteksFinance } from './financeSumber'
 import { buatKonteksStok } from './stokSumber'
 import { buatKonteksSistem } from './sistemSumber'
+import { buatKonteksReview } from './reviewSumber'
 
 export async function konteksHermes(svc: any, sekarang: Date): Promise<KonteksHermes> {
   // Cakupan 'all' = sama dengan role berakses penuh (owner/admin) di layar Rangkuman Penjualan,
@@ -141,5 +142,6 @@ export async function konteksHermes(svc: any, sekarang: Date): Promise<KonteksHe
     finance: buatKonteksFinance(svc, sekarang, outlets),
     stok: buatKonteksStok(svc, outlets, hariIni),
     sistem: buatKonteksSistem(svc, sekarang),
+    review: buatKonteksReview(svc, sekarang),
   }
 }

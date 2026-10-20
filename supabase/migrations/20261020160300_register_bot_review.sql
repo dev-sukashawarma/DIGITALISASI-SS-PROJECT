@@ -1,13 +1,19 @@
--- 20300254004900_register_bot_review.sql
+-- 20261020160300_register_bot_review.sql
 -- Daftarkan profil Bot SukaReview ke dalam hermes_bot_registry dan 6 trigger operasional ke bot_trigger_catalog
 
--- 1. Registrasi Bot di hermes_bot_registry
+-- 1. Tambahkan 'marcom' ke constraint bot_trigger_catalog_target_role_check bila belum ada
+ALTER TABLE public.bot_trigger_catalog DROP CONSTRAINT IF EXISTS bot_trigger_catalog_target_role_check;
+ALTER TABLE public.bot_trigger_catalog ADD CONSTRAINT bot_trigger_catalog_target_role_check CHECK (
+  target_role = ANY (ARRAY['regional_manager'::text, 'area_manager'::text, 'owner'::text, 'admin'::text, 'admin_hr'::text, 'kitchen'::text, 'purchasing'::text, 'admin_finance'::text, 'stokist'::text, 'marcom'::text])
+);
+
+-- 2. Registrasi Bot di hermes_bot_registry
 INSERT INTO public.hermes_bot_registry (slug, nama) VALUES
   ('review', 'Bot SukaReview (Google Reviews & Kepuasan Pelanggan)')
 ON CONFLICT (slug) DO UPDATE
 SET nama = EXCLUDED.nama;
 
--- 2. Daftarkan 6 katalog trigger operasional Bot SukaReview
+-- 3. Daftarkan 6 katalog trigger operasional Bot SukaReview
 INSERT INTO public.bot_trigger_catalog (
   id,
   target_role,

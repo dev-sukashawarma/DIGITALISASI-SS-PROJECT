@@ -387,6 +387,21 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Deteksi jika Hermes menolak karena kendala provider AI atau tool MCP
+      if (jawabanAi.trim()) {
+        const textLower = jawabanAi.toLowerCase()
+        const kendalaHermes =
+          textLower.includes('provider authentication failed') ||
+          textLower.includes('not connected to any ai provider') ||
+          textLower.includes('belum memiliki endpoint') ||
+          textLower.includes('belum memiliki tool mcp') ||
+          textLower.includes('alat mcp belum tersambung')
+        if (kendalaHermes) {
+          console.warn('[review-webhook] Hermes mengembalikan kendala provider/tool, beralih ke AI Router / telemetri nyata')
+          jawabanAi = ''
+        }
+      }
+
       // Fallback ke 9Router AI Gateway jika Hermes tidak merespons
       if (!jawabanAi.trim()) {
         try {

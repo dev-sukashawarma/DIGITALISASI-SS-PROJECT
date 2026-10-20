@@ -220,7 +220,10 @@ if [ "$DRY_RUN" != true ]; then
   # Salin provider custom (9Router) dari profil ceo jika ada
   KUNCI_PROVIDER_CUSTOM=""
   if [ -f "$PROFIL_CEO_DIR/.env" ]; then
-    KUNCI_PROVIDER_CUSTOM=$(grep -E '^HERMES_CUSTOM_' "$PROFIL_CEO_DIR/.env" || true)
+    KUNCI_PROVIDER_CUSTOM=$(grep -E '^(HERMES_CUSTOM_|OPENROUTER_|OPENAI_)' "$PROFIL_CEO_DIR/.env" || true)
+  fi
+  if [ -z "$KUNCI_PROVIDER_CUSTOM" ] && [ -f "$HOME/.hermes/.env" ]; then
+    KUNCI_PROVIDER_CUSTOM=$(grep -E '^(HERMES_CUSTOM_|OPENROUTER_|OPENAI_)' "$HOME/.hermes/.env" || true)
   fi
 
   # Tulis .env bersih (TIDAK menyalin SUKA_MCP_KEY dari CEO!)
@@ -256,6 +259,21 @@ EOF
   chmod 600 "$ENV_FILE"
   log_ok ".env berhasil dibuat dengan izin ketat (chmod 600)."
 
+  # Ambil konfigurasi custom_providers dari profil ceo atau global hermes
+  BLOK_CUSTOM_PROVIDERS=""
+  if [ -f "$PROFIL_CEO_DIR/config.yaml" ] && grep -q '^custom_providers:' "$PROFIL_CEO_DIR/config.yaml"; then
+    BLOK_CUSTOM_PROVIDERS=$(awk '/^custom_providers:/{f=1; print; next} /^[a-zA-Z0-9_-]+:/{if(f) exit} f{print}' "$PROFIL_CEO_DIR/config.yaml")
+  elif [ -f "$HOME/.hermes/config.yaml" ] && grep -q '^custom_providers:' "$HOME/.hermes/config.yaml"; then
+    BLOK_CUSTOM_PROVIDERS=$(awk '/^custom_providers:/{f=1; print; next} /^[a-zA-Z0-9_-]+:/{if(f) exit} f{print}' "$HOME/.hermes/config.yaml")
+  fi
+
+  if [ -z "$BLOK_CUSTOM_PROVIDERS" ]; then
+    BLOK_CUSTOM_PROVIDERS="custom_providers:
+  \"76.13.193.138:20128\":
+    base_url: \"http://127.0.0.1:20128/v1\"
+    model: \"$MODEL\""
+  fi
+
   # Tulis config.yaml
   CONFIG_FILE="$PROFIL_DIR/config.yaml"
   cat > "$CONFIG_FILE" << EOF
@@ -265,10 +283,7 @@ EOF
 model:
   default: "$MODEL"
 
-custom_providers:
-  "76.13.193.138:20128":
-    base_url: "http://127.0.0.1:20128/v1"
-    model: "$MODEL"
+$BLOK_CUSTOM_PROVIDERS
 
 mcp_servers:
   $MCP_NAME:

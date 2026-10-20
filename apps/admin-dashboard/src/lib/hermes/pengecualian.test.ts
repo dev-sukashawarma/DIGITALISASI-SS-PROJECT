@@ -5,6 +5,7 @@ describe('pengecualian data per app (spec §3)', () => {
     for (const teks of ['{"nik":"3201"}', '{"hp":"081234567890"}', '{"token":"x"}', '{"rekening":"123"}']) {
       expect(cariPelanggaran(teks, 'penjualan_ringkasan', 'penjualan'), teks).not.toBeNull()
       expect(cariPelanggaran(teks, 'status_app', 'sistem'), teks).not.toBeNull()
+      expect(cariPelanggaran(teks, 'review_ranking_outlet', 'review'), teks).not.toBeNull()
     }
   })
   it('gaji & kasbon per orang hanya lolos di hr_rinci', () => {
@@ -30,7 +31,12 @@ describe('pengecualian data per app (spec §3)', () => {
   it('bukti transfer ditolak di finance', () => {
     expect(cariPelanggaran('{"bukti_transfer":"url"}', 'utang_po', 'finance')).not.toBeNull()
   })
+  it('review: kredensial oauth ditolak', () => {
+    for (const t of ['{"access_token":"ya29.xyz"}', '{"refresh_token":"1//xyz"}', '{"client_secret":"sec"}'])
+      expect(cariPelanggaran(t, 'review_ranking_outlet', 'review'), t).not.toBeNull()
+  })
   it('keluaran wajar lolos', () => {
     expect(cariPelanggaran('{"omzet_kotor":1000,"transaksi":5,"outlet":"EMPANG"}', 'penjualan_ringkasan', 'penjualan')).toBeNull()
+    expect(cariPelanggaran('{"rating":4.8,"reviewer":"Ahmad Fauzi","outlet":"SUKA SHAWARMA EMPANG"}', 'review_negatif_terbaru', 'review')).toBeNull()
   })
 })

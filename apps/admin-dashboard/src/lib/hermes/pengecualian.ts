@@ -20,11 +20,14 @@ const PELANGGAN = /nama_pelanggan|customer_name|customer_phone|no_hp_pelanggan|a
 const BUKTI_TRANSFER = /bukti_transfer|bukti_bayar|proof_url/i
 // Finance 1 (F6): keterangan bebas pengeluaran & nota/bukti tidak keluar dari bot; cukup kategori.
 const KETERANGAN_BUKTI = /description|keterangan|receipt|proof_url|stealth_photo/i
+// Review: kredensial OAuth & token Google tidak boleh keluar.
+const KREDENSIAL_OAUTH = /access_token|refresh_token|client_secret|private_key/i
 
 const PER_APP: Partial<Record<Domain, RegExp[]>> = {
   penjualan: [PELANGGAN],
   app_retail: [PELANGGAN],
   finance: [BUKTI_TRANSFER, KETERANGAN_BUKTI],
+  review: [KREDENSIAL_OAUTH],
 }
 
 export function polaTerlarang(namaAlat: string, domain: Domain): RegExp[] {

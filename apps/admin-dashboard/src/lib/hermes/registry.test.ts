@@ -5,6 +5,7 @@ import { absensiPalsu, hrRinciPalsu } from './absensi/fixture'
 import { financePalsu } from './finance/fixture'
 import { stokPalsu } from './stok/fixture'
 import { sistemPalsu } from './sistem/fixture'
+import { reviewPalsu } from './review/fixture'
 import type { KonteksPenjualan, OutletInfo } from '@/lib/sukaBot/alat/penjualan'
 
 const outlets: OutletInfo[] = [
@@ -38,7 +39,7 @@ const penjualan: KonteksPenjualan = {
     ],
   }),
 }
-const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, hrRinci: hrRinciPalsu, finance: financePalsu, stok: stokPalsu, sistem: sistemPalsu, sekarang: penjualan.sekarang }
+const ctx: KonteksHermes = { penjualan, absensi: absensiPalsu, hrRinci: hrRinciPalsu, finance: financePalsu, stok: stokPalsu, sistem: sistemPalsu, review: reviewPalsu, sekarang: penjualan.sekarang }
 
 // §6 spec: pola larangan data per app ada di ./pengecualian (satu sumber, juga dipakai alat baru).
 
@@ -178,6 +179,45 @@ describe('registry alat Hermes', () => {
     if (r.ok) {
       expect(r.data.status).toBe('ok')
       expect(r.data.database).toBe('terhubung')
+    }
+  })
+  it('review_ranking_outlet mengembalikan ranking rating cabang Google Maps', async () => {
+    const r = await cari('review_ranking_outlet').jalankan({})
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.status).toBe('ok')
+      expect(r.data.total_outlet).toBe(3)
+      expect(Array.isArray(r.data.peringkat)).toBe(true)
+      expect((r.data.peringkat as any[])[0].outlet).toBe('SUKA SHAWARMA EMPANG')
+    }
+  })
+  it('review_negatif_terbaru mengembalikan daftar keluhan pelanggan', async () => {
+    const r = await cari('review_negatif_terbaru').jalankan({ limit: 5 })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.status).toBe('ok')
+      expect(r.data.total_ulasan_negatif).toBe(2)
+      expect(Array.isArray(r.data.daftar_ulasan)).toBe(true)
+      expect((r.data.daftar_ulasan as any[])[0].reviewer).toBe('Dewi Lestari')
+    }
+  })
+  it('review_sentimen_ringkasan mengembalikan persentase dan topik keluhan', async () => {
+    const r = await cari('review_sentimen_ringkasan').jalankan({ rentang_hari: 30 })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.status).toBe('ok')
+      expect(r.data.total_ulasan).toBe(4)
+      expect((r.data.sentimen as any).positif.persen).toBeGreaterThan(0)
+      expect(Array.isArray(r.data.topik_keluhan_utama)).toBe(true)
+    }
+  })
+  it('review_alert_aktif mengembalikan daftar alert ulasan aktif', async () => {
+    const r = await cari('review_alert_aktif').jalankan({})
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.status).toBe('ok')
+      expect(r.data.total_alert_aktif).toBe(2)
+      expect(Array.isArray(r.data.daftar_alert)).toBe(true)
     }
   })
 })

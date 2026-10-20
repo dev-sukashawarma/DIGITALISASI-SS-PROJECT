@@ -455,7 +455,10 @@ export async function POST(req: NextRequest) {
           textLower.includes('belum memiliki tool mcp') ||
           textLower.includes('tidak dapat dicek. sistem bot saat ini belum memiliki') ||
           textLower.includes('mcp untuk membaca data log/pencatatan waste') ||
-          textLower.includes('dilarang menebak atau mengarang angka/data waste')
+          textLower.includes('dilarang menebak atau mengarang angka/data waste') ||
+          textLower.includes('provider authentication failed') ||
+          textLower.includes('not connected to any ai provider') ||
+          textLower.includes('alat mcp belum tersambung')
         if (penolakanMcp) {
           console.warn('[telegram-webhook] Hermes menolak karena aturan lama, beralih ke AI Router / dev simulation')
           jawabanAi = ''

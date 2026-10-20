@@ -6,12 +6,14 @@ import type { KonteksAbsensi, KonteksHrRinci } from './absensi/tipe'
 import type { KonteksFinance } from './finance/tipe'
 import type { KonteksStokHermes } from './stok/tipe'
 import type { KonteksSistemHermes } from './sistem/tipe'
+import type { KonteksReview } from './review/tipe'
 import { ALAT_PENJUALAN } from './alat/penjualan'
 import { ALAT_ABSENSI } from './alat/absensi'
 import { ALAT_HR_RINCI } from './alat/hrRinci'
 import { ALAT_FINANCE } from './alat/finance'
 import { ALAT_STOK } from './alat/stok'
 import { ALAT_SISTEM } from './alat/sistem'
+import { ALAT_REVIEW } from './alat/review'
 
 export interface KonteksHermes {
   penjualan: KonteksPenjualan
@@ -20,6 +22,7 @@ export interface KonteksHermes {
   finance: KonteksFinance
   stok: KonteksStokHermes
   sistem: KonteksSistemHermes
+  review: KonteksReview
   sekarang: Date
 }
 
@@ -44,6 +47,7 @@ export const ALAT_HERMES: DefinisiAlat[] = [
   ...ALAT_FINANCE,
   ...ALAT_STOK,
   ...ALAT_SISTEM,
+  ...ALAT_REVIEW,
 ]
 
 export function skemaJson(s: z.ZodType): Record<string, unknown> {

@@ -29,7 +29,7 @@ export async function stafBolehPakaiBotApaPun(staffId: string): Promise<boolean>
 
 export function urlAplikasiDiizinkan(
   value: unknown,
-  app: 'stok' | 'distribusi' | 'manager' | 'hr' | 'ceo' | 'admin' | 'finance'
+  app: 'stok' | 'distribusi' | 'manager' | 'hr' | 'ceo' | 'admin' | 'finance' | 'review'
 ): string | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value !== 'string' || value.length > 500) return null
@@ -38,6 +38,10 @@ export function urlAplikasiDiizinkan(
     if (url.protocol !== 'https:' || url.username || url.password) return null
     if (app === 'ceo') {
       if (url.hostname !== 'agents.sukashawarma.com' && url.hostname !== 'admin.sukashawarma.com') return null
+      return url.toString()
+    }
+    if (app === 'review') {
+      if (url.hostname !== 'review.sukashawarma.com' && url.hostname !== 'sukareview.sukashawarma.com' && url.hostname !== 'agents.sukashawarma.com') return null
       return url.toString()
     }
     if (url.hostname !== `${app}.sukashawarma.com`) return null
@@ -51,7 +55,7 @@ export async function kirimPesanTelegram(
   chatId: string,
   text: string,
   url?: string,
-  profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' = 'stokis'
+  profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' | 'review' = 'stokis'
 ) {
   const token = profil === 'hrd'
     ? process.env.TELEGRAM_HRD_BOT_TOKEN
@@ -61,6 +65,8 @@ export async function kirimPesanTelegram(
     ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : profil === 'finance'
     ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    : profil === 'review'
+    ? (process.env.TELEGRAM_REVIEW_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : process.env.TELEGRAM_STOKIST_BOT_TOKEN
   if (!token) throw new Error(`Token bot ${profil} belum dikonfigurasi.`)
   const message = `${text}${url ? `\n\n${url}` : ''}`
@@ -90,7 +96,7 @@ export async function kirimPesanTelegram(
 export async function kirimAksiChatTelegram(
   chatId: string,
   action: 'typing' | 'upload_photo' | 'record_video' | 'choose_sticker' = 'typing',
-  profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' = 'stokis'
+  profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' | 'review' = 'stokis'
 ) {
   const token = profil === 'hrd'
     ? process.env.TELEGRAM_HRD_BOT_TOKEN
@@ -100,6 +106,8 @@ export async function kirimAksiChatTelegram(
     ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : profil === 'finance'
     ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    : profil === 'review'
+    ? (process.env.TELEGRAM_REVIEW_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : process.env.TELEGRAM_STOKIST_BOT_TOKEN
   if (!token) return
   try {
@@ -114,4 +122,3 @@ export async function kirimAksiChatTelegram(
     // Ignore error
   }
 }
-

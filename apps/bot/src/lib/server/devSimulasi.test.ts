@@ -172,6 +172,26 @@ describe('buatJawabanDev', () => {
     expect(full).not.toContain('Sir')
   })
 
+  it('menjawab pertanyaan tools apa saja dengan katalog 4 alat MCP finance', () => {
+    const chunks = buatJawabanDev('tools yang kamu punya apa aaja', 'finance', mockTelemetri)
+    const full = chunks.join('')
+    expect(full).toContain('utang_po')
+    expect(full).toContain('pengeluaran_ringkasan')
+    expect(full).toContain('setoran_ringkasan')
+    expect(full).toContain('selisih_kasir')
+    expect(full).toContain('Rekan')
+    expect(full).not.toContain('Sir')
+  })
+
+  it('menghapus tanda kutip ganda dan menjawab opex terbesar hari ini secara presisi', () => {
+    const chunks = buatJawabanDev('"opex terbesar hari ini berapa?"', 'finance', mockTelemetri)
+    const full = chunks.join('')
+    expect(full).toContain('OPEX TERBESAR HARI INI')
+    expect(full).toContain('154.000')
+    expect(full).toContain('gas x7')
+    expect(full).toContain('SUKA SHAWARMA CIMANGGU')
+  })
+
   it('menjawab pertanyaan utang po supplier secara presisi', () => {
     const chunks = buatJawabanDev('berapa utang po ke supplier?', 'finance', mockTelemetri)
     const full = chunks.join('')

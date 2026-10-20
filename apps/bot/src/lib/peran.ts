@@ -22,6 +22,8 @@ const LABEL_PROFIL_BAWAAN: Record<string, string> = {
   gudang: 'Bot Gudang',
   hrd: 'Bot HRD',
   finance: 'Bot Finance',
+  review: 'Bot SukaReview',
+  sukareview: 'Bot SukaReview',
 }
 
 // Proxy agar LABEL_PROFIL[p] otomatis menghasilkan label jika belum ada di peta bawaan
@@ -73,6 +75,8 @@ const PROFIL_PER_SCOPE: Record<string, Profil> = {
   stok: 'gudang',
   stokis: 'gudang',
   finance: 'finance',
+  review: 'review',
+  sukareview: 'review',
 }
 
 /**

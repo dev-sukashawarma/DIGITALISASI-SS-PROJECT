@@ -8,14 +8,17 @@ export function buatJawabanDev(
   profil: string,
   t: TelemetriHariIni | null = null
 ): string[] {
-  const p = (pesanUser || '').toLowerCase().trim()
+  const p = (pesanUser || '').replace(/["'“”‘’]/g, ' ').toLowerCase().trim()
   const isManager = profil.trim().toLowerCase() === 'manager'
   const isFinance = profil.trim().toLowerCase() === 'finance'
-  const sebutan = isManager || isFinance ? 'Rekan' : 'Sir'
+  const isReview = profil.trim().toLowerCase() === 'review' || profil.trim().toLowerCase() === 'sukareview'
+  const sebutan = isManager || isFinance || isReview ? 'Rekan' : 'Sir'
   const salamAwal = isFinance
     ? 'Halo Rekan Tim Finance Suka Shawarma.'
     : isManager
     ? 'Halo Rekan Tim Operasional Suka Shawarma.'
+    : isReview
+    ? 'Halo Rekan Tim Customer Experience & Review Suka Shawarma.'
     : 'Salam, Sir.'
   const telemetri = t
 
@@ -66,6 +69,54 @@ export function buatJawabanDev(
       '- **Neural Voice Pipeline**: Standby (Speech Recognition & TTS ready)\n',
       '- **Keamanan Clearance**: Level Alpha (Owner / Admin / Developer Verified)\n\n',
       'Semua stasiun operasional berjalan mulus. Ada arahan strategis berikutnya, Sir?',
+    ]
+  }
+
+  // 0b. Telemetri Ulasan Pelanggan & Google Reviews (SukaReview)
+  if (
+    isReview ||
+    p.includes('review') ||
+    p.includes('rating') ||
+    p.includes('ulasan') ||
+    p.includes('komplain') ||
+    p.includes('keluhan') ||
+    p.includes('bintang') ||
+    p.includes('kepuasan')
+  ) {
+    if (p.includes('negatif') || p.includes('bintang 1') || p.includes('bintang 2') || p.includes('buruk') || p.includes('kecewa') || p.includes('komplain')) {
+      return [
+        `${salamAwal} Berikut rekapitulasi ulasan kritis & keluhan pelanggan Google Reviews:\n\n`,
+        '> [!WARNING]\n',
+        '> **PERHATIAN KHUSUS**: Terdeteksi 3 ulasan dengan rating ≤ 2⭐ dalam 48 jam terakhir yang membutuhkan tindak lanjut operasional.\n\n',
+        '### ⚠️ Ulasan Negatif Memerlukan Respon Segera:\n',
+        '1. ⭐ **SUKA SHAWARMA DRAMAGA** (Oleh Budi S., kemarin):\n',
+        '   _"Dagingnya dingin dan rotinya agak alot, antrean pesanannya juga lama hampir 25 menit padahal tidak ramai."_\n',
+        '   *Kategori*: `RASA`, `KECEPATAN` | *Tindakan*: Audit holding cabinet & waktu pemanggangan.\n\n',
+        '2. ⭐⭐ **SUKA SHAWARMA PONDOK AREN** (Oleh Sarah M., 2 hari lalu):\n',
+        '   _"Saus garlicnya asin banget hari ini, beda sama yang biasa saya beli di cabang lain."_\n',
+        '   *Kategori*: `RASA` | *Tindakan*: Cek takaran racikan bumbu saus batch kemarin.\n\n',
+        '3. ⭐ **SUKA SHAWARMA GALAXY BEKASI** (Oleh Rizky A., 3 hari lalu):\n',
+        '   _"Pesanan salah, minta pedas dikasih original tanpa sambal."_\n',
+        '   *Kategori*: `PESANAN_SALAH` | *Tindakan*: Briefing kasir dan assembler terkait ketelitian tiket order.\n\n',
+        'Ketik `/outlet [nama]` untuk cek performa cabang spesifik atau hubungi supervisor cabang terkait.',
+      ]
+    }
+
+    return [
+      `${salamAwal} Berikut pemindaian sentimen dan skor Google Reviews jaringan Suka Shawarma:\n\n`,
+      '> [!NOTE]\n',
+      '> **STATUS RATING KONSOLIDASI**: Rata-rata keseluruhan outlet adalah **4.6⭐** dari total 1.420 ulasan Google Maps.\n\n',
+      '### 📊 Distribusi Sentimen Ulasan (30 Hari Terakhir):\n',
+      '- 🟢 **Positif (78%)**: Daging empuk berlimpah, saus garlic khas, porsi mengenyangkan.\n',
+      '- 🟡 **Netral (14%)**: Waktu tunggu standar, tempat duduk terbatas saat jam makan malam.\n',
+      '- 🔴 **Negatif (8%)**: Antrean kasir di jam puncak, saus kurang merata, komplain es habis.\n\n',
+      '### 🏆 Top 3 Outlet Rating Tertinggi:\n',
+      '1. **SUKA SHAWARMA TEBET**: 4.8⭐ (310 ulasan)\n',
+      '2. **SUKA SHAWARMA BINTARO**: 4.7⭐ (245 ulasan)\n',
+      '3. **SUKA SHAWARMA MARGONDA**: 4.7⭐ (180 ulasan)\n\n',
+      '### ⚠️ Outlet Membutuhkan Perhatian (< 4.2⭐):\n',
+      '1. **SUKA SHAWARMA DRAMAGA**: 3.9⭐ (112 ulasan, keluhan kecepatan penyajian & suhu daging)\n\n',
+      'Ketik `/negatif` untuk membaca keluhan ulasan terbaru atau `/alert` untuk melihat peringatan aktif.',
     ]
   }
 
@@ -480,6 +531,41 @@ export function buatJawabanDev(
     p.includes('selisih') ||
     (profil === 'finance' && !p.includes('omzet') && !p.includes('stok') && !p.includes('absen'))
   ) {
+    // 5-Tools: Pertanyaan tentang Tools / Kemampuan Bot
+    const isTanyaTools =
+      p.includes('tool') ||
+      p.includes('alat') ||
+      p.includes('fitur') ||
+      p.includes('bisa apa') ||
+      p.includes('bisa ngapain') ||
+      p.includes('fungsi kamu') ||
+      p.includes('menu apa')
+
+    if (isTanyaTools) {
+      return [
+        `${salamAwal} Bot Finance Suka Shawarma dibekali 4 alat (tools) MCP operasional keuangan:\n\n`,
+        '> [!NOTE]\n',
+        '> **KATALOG ALAT OPERASIONAL (MCP)**: Terintegrasi langsung dengan database Suka Shawarma.\n\n',
+        '### 🛠️ 4 Alat (Tools) Utama Bot Finance\n',
+        '1. 📑 **`utang_po`** (Utang PO Supplier):\n',
+        '   - Menghitung PO supplier yang barangnya sudah diterima dan belum lunas (nilai terima).\n',
+        '   - Melacak jatuh tempo dan menandai PO yang sudah lewat jatuh tempo (overdue).\n',
+        '   - *Contoh: "Berapa utang PO supplier?", "Ada PO yang lewat jatuh tempo?"*\n\n',
+        '2. 💸 **`pengeluaran_ringkasan`** (Biaya & OPEX):\n',
+        '   - Total pengeluaran bulanan dan kas kecil (petty cash).\n',
+        '   - Memisahkan secara tegas beban Outlet vs beban Pusat, serta per kategori beban.\n',
+        '   - *Contoh: "Opex terbesar hari ini berapa?", "Berapa pengeluaran pusat vs outlet bulan ini?"*\n\n',
+        '3. 📥 **`setoran_ringkasan`** (Setoran Kas Outlet):\n',
+        '   - Melaporkan setoran kas cabang yang sudah tercatat/terverifikasi di sistem app Finance.\n',
+        '   - *Contoh: "Bagaimana ringkasan setoran kas outlet minggu ini?"*\n\n',
+        '4. ⚖️ **`selisih_kasir`** (Audit Kasir POS):\n',
+        '   - Selisih uang fisik vs nilai seharusnya saat tutup shift kasir POS (minus = tekor, plus = lebih).\n',
+        '   - Mendeteksi shift hari sebelumnya yang belum ditutup.\n',
+        '   - *Contoh: "Apakah ada kasir yang selisih kemarin?"*\n\n',
+        `Silakan ketik pertanyaan spesifik keuangan atau gunakan menu pintasan: /utang, /pengeluaran, /setoran, /selisih.`,
+      ]
+    }
+
     // 5A. Pertanyaan OPEX / Pengeluaran Terbesar
     const isTanyaOpex =
       p.includes('opex') ||
@@ -488,19 +574,7 @@ export function buatJawabanDev(
       p.includes('biaya') ||
       p.includes('petty')
 
-    const isTanyaTerbesar =
-      p.includes('terbesar') ||
-      p.includes('terbedsar') ||
-      p.includes('paling besar') ||
-      p.includes('paling banyak') ||
-      p.includes('top opex') ||
-      p.includes('top pengeluaran') ||
-      p.includes('tertinggi') ||
-      p.includes('apa saja') ||
-      p.includes('apa ya') ||
-      p.includes('apa ni')
-
-    if (isTanyaOpex && (isTanyaTerbesar || p.includes('hari ini') || profil === 'finance')) {
+    if (isTanyaOpex) {
       const top1 = t?.finance?.pengeluaranHariIni?.topPengeluaran?.[0]
       if (top1) {
         const listTop = t?.finance?.pengeluaranHariIni?.topPengeluaran?.slice(0, 5).map((x, i) =>

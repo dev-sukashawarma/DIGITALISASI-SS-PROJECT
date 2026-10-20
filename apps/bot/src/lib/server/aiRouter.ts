@@ -37,7 +37,9 @@ export function kandidatModel9Router(profil: string, envModel?: string): string[
     case 'marcom':
       return ['ANALYTIC-SOSMED-COMBO', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', DEFAULT_HERMES_COMBO_MODEL]
     case 'hrd':
+      return [...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
     case 'finance':
+      return ['FINANCE_SS', 'MANAGER_SS', 'CEO_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
     default:
       return [...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
   }
@@ -117,6 +119,76 @@ export async function* tanyaAiRouter(o: {
       .join('\n')
     const listKemarinNol = (k?.outletsNolTransaksi || []).map((out) => `- ${out.nama} (${out.type})`).join('\n')
 
+    const f = t.finance
+    let teksFinance = ''
+    if (f) {
+      const listExpHariIni = (f.pengeluaranHariIni?.topPengeluaran || [])
+        .map(
+          (x, i) =>
+            `${i + 1}. ${formatRupiah(x.nominal)} - ${x.deskripsi} (${x.outlet}) [kategori: ${x.kategori}, jenis: ${x.tipe}]`
+        )
+        .join('\n')
+
+      const listExpBulan = (f.pengeluaranBulanIni?.topPengeluaran || [])
+        .map(
+          (x, i) =>
+            `${i + 1}. ${formatRupiah(x.nominal)} - ${x.deskripsi} (${x.outlet}) [kategori: ${x.kategori}]`
+        )
+        .join('\n')
+
+      const listPo = (f.utangPo?.daftarPo || [])
+        .slice(0, 5)
+        .map(
+          (p, i) =>
+            `${i + 1}. ${p.nomorPo} - ${p.supplier}: ${formatRupiah(p.nilaiTerima)} [Jatuh Tempo: ${p.jatuhTempo || '-'}, Overdue: ${p.hariLewat ? `${p.hariLewat} hari` : 'Belum'}]`
+        )
+        .join('\n')
+
+      const listSupplier = (f.utangPo?.topSupplier || [])
+        .map((s, i) => `${i + 1}. ${s.supplier}: ${formatRupiah(s.total)} (${s.jumlahPo} PO)`)
+        .join('\n')
+
+      const listSetoran = (f.setoranKas?.daftarSetoranTerbaru || [])
+        .slice(0, 5)
+        .map(
+          (s, i) =>
+            `${i + 1}. ${s.outlet}: ${formatRupiah(s.nominal)} (Tgl Jual: ${s.tanggalJual}, Status: ${s.status})`
+        )
+        .join('\n')
+
+      const listSelisih = (f.selisihKasir?.daftarSelisihTerbaru || [])
+        .slice(0, 5)
+        .map(
+          (s, i) =>
+            `${i + 1}. ${s.outlet} (Kasir: ${s.kasir}): Selisih ${s.selisih < 0 ? 'Minus/Tekor' : 'Lebih'} ${formatRupiah(s.selisih)}`
+        )
+        .join('\n')
+
+      teksFinance = `
+DATA KEUANGAN, BIAYA, OPEX, & REKONSILIASI KAS (FINANCE):
+- Total Pengeluaran / OPEX Hari Ini (${t.tanggalWIB}): ${formatRupiah(f.pengeluaranHariIni?.totalNominal || 0)} (${f.pengeluaranHariIni?.jumlahTransaksi || 0} transaksi kas kecil/operasional)
+- Rincian Pengeluaran Hari Ini (Dari Terbesar ke Terkecil):
+${listExpHariIni || '(Belum ada pengeluaran hari ini)'}
+
+- Top Pengeluaran Terbesar Bulan Berjalan:
+${listExpBulan || '(Belum ada pengeluaran besar bulan ini)'}
+
+- Ringkasan Utang PO Supplier:
+  * Total Utang Diterima Belum Lunas: ${formatRupiah(f.utangPo?.totalUtang || 0)} (${f.utangPo?.jumlahPo || 0} PO)
+  * Total Utang Overdue / Lewat Jatuh Tempo: ${formatRupiah(f.utangPo?.totalLewatJatuhTempo || 0)}
+  * Top Supplier Utang Terbesar:
+${listSupplier || '  (Tidak ada utang supplier)'}
+  * Rincian PO Jatuh Tempo Terdekat:
+${listPo || '  (Tidak ada PO aktif)'}
+
+- Pencatatan Setoran Kas Outlet Terbaru:
+${listSetoran || '(Belum ada setoran dicatat)'}
+
+- Rekap Audit Selisih Kasir Tutup Shift POS Terbaru:
+${listSelisih || '(Nol / Selisih kasir klop)'}
+`
+    }
+
     konteksData = `
 DATA PENJUALAN KEMARIN (${k?.tanggalLabel || 'Kemarin'}):
 - Total Penjualan Jaringan Kemarin: ${formatRupiah(k?.omzetTotal || 0)}
@@ -172,6 +244,7 @@ ${listTelat || '(Tidak ada kru terlambat)'}
 
 KATALOG BAHAN BAKU UTAMA GUDANG:
 ${listBahan || '- Gas, Kulit, Daging, Saus'}
+${teksFinance}
 `.trim()
   }
 

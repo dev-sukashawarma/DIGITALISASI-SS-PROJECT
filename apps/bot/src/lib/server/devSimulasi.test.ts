@@ -48,6 +48,55 @@ const mockTelemetri: TelemetriHariIni = {
       telatMenit: 74,
     },
   ],
+  finance: {
+    pengeluaranHariIni: {
+      totalNominal: 668500,
+      jumlahTransaksi: 13,
+      topPengeluaran: [
+        {
+          id: '1',
+          nominal: 154000,
+          deskripsi: 'gas x7',
+          outlet: 'SUKA SHAWARMA CIMANGGU',
+          kategori: 'pengeluaran_outlet',
+          tipe: 'petty_cash',
+          tanggal: '2026-10-13',
+        },
+        {
+          id: '2',
+          nominal: 104500,
+          deskripsi: 'token listrik toko',
+          outlet: 'MITRA CICURUG',
+          kategori: 'pengeluaran_outlet',
+          tipe: 'petty_cash',
+          tanggal: '2026-10-13',
+        },
+      ],
+    },
+    pengeluaranBulanIni: {
+      totalNominal: 25000000,
+      topPengeluaran: [],
+    },
+    utangPo: {
+      totalUtang: 1548595382,
+      jumlahPo: 85,
+      totalLewatJatuhTempo: 35000000,
+      topSupplier: [
+        { supplier: 'PT Agro Boga Utama', total: 19200000, jumlahPo: 1, jatuhTempoTerdekat: '2026-12-03' },
+      ],
+      daftarPo: [],
+    },
+    setoranKas: {
+      daftarSetoranTerbaru: [
+        { id: '1', nominal: 886000, outlet: 'MITRA CICURUG', tanggalJual: '2026-10-12', status: 'reconciled', kategori: 'Setoran Bank', waktu: '' },
+      ],
+    },
+    selisihKasir: {
+      daftarSelisihTerbaru: [
+        { id: '1', outlet: 'MITRA CIBUBUR', kasir: 'Adhi Setiawan', selisih: 92000, seharusnya: 0, fisik: 92000, tanggal: '' },
+      ],
+    },
+  },
 }
 
 describe('buatJawabanDev', () => {
@@ -103,6 +152,33 @@ describe('buatJawabanDev', () => {
     expect(full).toContain('LIVE FINANCE RECONCILIATION')
   })
 
+  it('menjawab pertanyaan opex terbesar hari ini secara presisi dari telemetri finance', () => {
+    const chunks = buatJawabanDev('opex terbedsar hari ini berapa?', 'finance', mockTelemetri)
+    const full = chunks.join('')
+    expect(full).toContain('OPEX TERBESAR HARI INI')
+    expect(full).toContain('154.000')
+    expect(full).toContain('gas x7')
+    expect(full).toContain('SUKA SHAWARMA CIMANGGU')
+    expect(full).not.toContain('Sir')
+  })
+
+  it('menjawab pertanyaan pengeluaran terbesar hari ini dengan persona Rekan Tim Finance', () => {
+    const chunks = buatJawabanDev('pengeluran terbesar hari ni apa?', 'finance', mockTelemetri)
+    const full = chunks.join('')
+    expect(full).toContain('OPEX TERBESAR HARI INI')
+    expect(full).toContain('154.000')
+    expect(full).toContain('gas x7')
+    expect(full).toContain('Rekan')
+    expect(full).not.toContain('Sir')
+  })
+
+  it('menjawab pertanyaan utang po supplier secara presisi', () => {
+    const chunks = buatJawabanDev('berapa utang po ke supplier?', 'finance', mockTelemetri)
+    const full = chunks.join('')
+    expect(full).toContain('UTANG PO SUPPLIER')
+    expect(full).toContain('PT Agro Boga Utama')
+  })
+
   it('menghasilkan status diagnostik sistem menyeluruh', () => {
     const chunks = buatJawabanDev('status report menyeluruh', 'ceo', mockTelemetri)
     const full = chunks.join('')
@@ -135,6 +211,7 @@ describe('buatJawabanDev', () => {
           },
         ],
         topOutlet: [{ nama: 'MITRA CIBINONG', frekuensi: 25, totalQty: 30 }],
+        laporanHariIniCount: 2,
       },
     }
     const chunks = buatJawabanDev('waste yang paling tinggi apa ya?', 'manager', telemetriDenganWaste)
@@ -155,7 +232,7 @@ describe('buatJawabanDev', () => {
       statusBuka: {
         totalBuka: 17,
         totalBelumBuka: 11,
-        daftarBuka: [{ outlet: 'CIMANGGU', jamBuka: '10:55' }],
+        daftarBuka: [{ outlet: 'CIMANGGU', jamBuka: '10:55', status: 'open' }],
         daftarBelumBuka: ['OUTLET TEST'],
       },
     }

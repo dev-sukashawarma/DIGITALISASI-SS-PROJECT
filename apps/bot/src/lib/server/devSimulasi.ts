@@ -10,8 +10,13 @@ export function buatJawabanDev(
 ): string[] {
   const p = (pesanUser || '').toLowerCase().trim()
   const isManager = profil.trim().toLowerCase() === 'manager'
-  const sebutan = isManager ? 'Rekan' : 'Sir'
-  const salamAwal = isManager ? 'Halo Rekan Tim Operasional Suka Shawarma.' : 'Salam, Sir.'
+  const isFinance = profil.trim().toLowerCase() === 'finance'
+  const sebutan = isManager || isFinance ? 'Rekan' : 'Sir'
+  const salamAwal = isFinance
+    ? 'Halo Rekan Tim Finance Suka Shawarma.'
+    : isManager
+    ? 'Halo Rekan Tim Operasional Suka Shawarma.'
+    : 'Salam, Sir.'
   const telemetri = t
 
   const isKemarin =
@@ -469,9 +474,122 @@ export function buatJawabanDev(
     p.includes('kas') ||
     p.includes('petty') ||
     p.includes('pengeluaran') ||
-    (profil === 'finance' && !p.includes('omzet') && !p.includes('stok'))
+    p.includes('utang') ||
+    p.includes('supplier') ||
+    p.includes('setoran') ||
+    p.includes('selisih') ||
+    (profil === 'finance' && !p.includes('omzet') && !p.includes('stok') && !p.includes('absen'))
   ) {
+    // 5A. Pertanyaan OPEX / Pengeluaran Terbesar
+    const isTanyaOpex =
+      p.includes('opex') ||
+      p.includes('pengeluaran') ||
+      p.includes('pengeluran') ||
+      p.includes('biaya') ||
+      p.includes('petty')
+
+    const isTanyaTerbesar =
+      p.includes('terbesar') ||
+      p.includes('terbedsar') ||
+      p.includes('paling besar') ||
+      p.includes('paling banyak') ||
+      p.includes('top opex') ||
+      p.includes('top pengeluaran') ||
+      p.includes('tertinggi') ||
+      p.includes('apa saja') ||
+      p.includes('apa ya') ||
+      p.includes('apa ni')
+
+    if (isTanyaOpex && (isTanyaTerbesar || p.includes('hari ini') || profil === 'finance')) {
+      const top1 = t?.finance?.pengeluaranHariIni?.topPengeluaran?.[0]
+      if (top1) {
+        const listTop = t?.finance?.pengeluaranHariIni?.topPengeluaran?.slice(0, 5).map((x, i) =>
+          `${i + 1}. **${formatRupiah(x.nominal)}** — ${x.deskripsi} (*${x.outlet}* | \`${x.kategori}\`)`
+        ).join('\n') || ''
+
+        return [
+          `${salamAwal} Berikut rincian pengeluaran / OPEX terbesar hari ini (**${t?.tanggalWIB || 'Hari Ini'}**):\n\n`,
+          '> [!NOTE]\n',
+          `> **OPEX TERBESAR HARI INI**: **${formatRupiah(top1.nominal)}** untuk **${top1.deskripsi}** di outlet **${top1.outlet}**.\n\n`,
+          '### 💸 Daftar Pengeluaran Terbesar Hari Ini\n',
+          listTop,
+          `\n\n- **Total Pengeluaran Hari Ini**: **${formatRupiah(t?.finance?.pengeluaranHariIni?.totalNominal || 0)}** (${t?.finance?.pengeluaranHariIni?.jumlahTransaksi || 0} transaksi tercatat)\n`,
+          `- **Kategori**: Biaya operasional outlet & kas kecil cabang.\n\n`,
+          `Ada rincian pengeluaran outlet lain yang ingin Anda ketahui, ${sebutan}?`,
+        ]
+      }
+    }
+
+    // 5B. Pertanyaan Utang PO Supplier
+    const isTanyaPo =
+      p.includes('utang') ||
+      p.includes('hutang') ||
+      p.includes('supplier') ||
+      p.includes('vendor') ||
+      /\bpo\b/.test(p) ||
+      p.includes('purchase order')
+
+    if (isTanyaPo) {
+      const utang = t?.finance?.utangPo
+      if (utang) {
+        const listSup = utang.topSupplier.map((s, i) => `${i + 1}. **${s.supplier}**: **${formatRupiah(s.total)}** (${s.jumlahPo} PO)`).join('\n')
+        return [
+          `${salamAwal} Berikut rekapitulasi utang PO ke supplier per tanggal **${t?.tanggalWIB || 'Hari Ini'}**:\n\n`,
+          '> [!NOTE]\n',
+          `> **UTANG PO SUPPLIER**: **${formatRupiah(utang.totalUtang)}** (${utang.jumlahPo} PO diterima & belum lunas).\n\n`,
+          '### 📑 Rincian Utang per Supplier Utama\n',
+          listSup || '(Tidak ada utang supplier)',
+          `\n\n- **Total Lewat Jatuh Tempo (Overdue)**: **${formatRupiah(utang.totalLewatJatuhTempo)}**\n`,
+          `- **Status**: Monitoring termin pembayaran supplier aktif.\n\n`,
+          `Ketik nama supplier untuk melihat detail nomor PO tertentu, ${sebutan}.`,
+        ]
+      }
+    }
+
+    // 5C. Pertanyaan Setoran Kas Outlet
+    if (p.includes('setoran')) {
+      const setoran = t?.finance?.setoranKas
+      if (setoran) {
+        const listSet = setoran.daftarSetoranTerbaru.slice(0, 5).map((s, i) =>
+          `${i + 1}. **${s.outlet}**: **${formatRupiah(s.nominal)}** (Tgl Jual: ${s.tanggalJual}, Status: \`${s.status}\`)`
+        ).join('\n')
+        return [
+          `${salamAwal} Berikut status pencatatan setoran kas outlet terbaru:\n\n`,
+          '> [!NOTE]\n',
+          '> **SETORAN KAS OUTLET**: Rekonsiliasi setoran bank cabang tercatat di sistem Finance.\n\n',
+          '### 📥 Setoran Kas Terbaru\n',
+          listSet || '(Belum ada setoran tercatat)',
+          `\n\n*Catatan: Data di atas adalah setoran yang sudah diinput/diverifikasi ke dalam sistem Finance.*\n\n`,
+          `Ada cabang yang ingin Anda verifikasi setorannya, ${sebutan}?`,
+        ]
+      }
+    }
+
+    // 5D. Pertanyaan Selisih Kasir Tutup Shift
+    if (p.includes('selisih')) {
+      const selisih = t?.finance?.selisihKasir
+      if (selisih) {
+        const listSel = selisih.daftarSelisihTerbaru.slice(0, 5).map((s, i) =>
+          `${i + 1}. **${s.outlet}** (Kasir: ${s.kasir}): Selisih **${s.selisih < 0 ? 'Minus ' : 'Lebih +'}${formatRupiah(s.selisih)}**`
+        ).join('\n')
+        return [
+          `${salamAwal} Berikut rekapitulasi selisih kasir tutup shift POS:\n\n`,
+          '> [!NOTE]\n',
+          '> **AUDIT SELISIH KASIR**: Perbandingan uang fisik vs nilai seharusnya saat tutup shift kasir.\n\n',
+          '### ⚖️ Daftar Selisih Kasir Terbaru\n',
+          listSel || '(Seluruh shift kasir tercatat klop tanpa selisih)',
+          `\n\n*Selisih minus menunjukkan tekor uang fisik kasir; selisih lebih menunjukkan kelebihan kas.*\n\n`,
+          `Ada tindak lanjut yang diperlukan untuk kasir tersebut, ${sebutan}?`,
+        ]
+      }
+    }
+
+    // 5E. Ringkasan Umum Keuangan / Cash Flow
     const totalOmzet = t ? formatRupiah(t.omzetTotal) : 'Rp 2.787.000'
+    const totalExpHariIni = t?.finance?.pengeluaranHariIni ? formatRupiah(t.finance.pengeluaranHariIni.totalNominal) : 'Rp 0'
+    const top1 = t?.finance?.pengeluaranHariIni?.topPengeluaran?.[0]
+    const barisTop1 = top1 ? `- **Pengeluaran Terbesar Hari Ini**: **${formatRupiah(top1.nominal)}** (${top1.deskripsi} - ${top1.outlet})\n` : ''
+    const barisUtang = t?.finance?.utangPo ? `- **Total Utang PO Supplier Belum Lunas**: **${formatRupiah(t.finance.utangPo.totalUtang)}** (${t.finance.utangPo.jumlahPo} PO)\n` : ''
 
     return [
       'Sinkronisasi satelit **Finance & Keuangan** Suka Shawarma berhasil dilakukan:\n\n',
@@ -481,6 +599,9 @@ export function buatJawabanDev(
       `- **Gross Sales / Kas Masuk Hari Ini**: **${totalOmzet}**\n`,
       `- **Total Transaksi Terverifikasi**: ${t?.totalOrder ?? 0} tiket\n`,
       `- **Rata-rata Nilai Transaksi (AOV)**: ${t ? formatRupiah(t.aov) : 'Rp 0'}\n`,
+      `- **Total Pengeluaran Kas Kecil Hari Ini**: **${totalExpHariIni}** (${t?.finance?.pengeluaranHariIni?.jumlahTransaksi ?? 0} transaksi)\n`,
+      barisTop1,
+      barisUtang,
       `- **Status Kas Operasional**: Rekonsiliasi sinkron dengan mutasi pembayaran QRIS dan Cash.\n\n`,
       `Arus kas tercatat positif dan seluruh modul keuangan siaga, ${sebutan}.`,
     ]

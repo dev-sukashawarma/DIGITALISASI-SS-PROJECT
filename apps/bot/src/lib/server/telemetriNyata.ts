@@ -76,6 +76,70 @@ export interface RingkasanHari {
   outletsNolTransaksi: OutletTelemetri[]
 }
 
+export interface FinanceItemPengeluaran {
+  id: string
+  nominal: number
+  deskripsi: string
+  kategori: string
+  outlet: string
+  tipe: 'petty_cash' | 'operasional'
+  tanggal: string
+}
+
+export interface FinancePoUtang {
+  nomorPo: string
+  supplier: string
+  nilaiTerima: number
+  jatuhTempo: string | null
+  statusBayar: string
+  hariLewat: number | null
+}
+
+export interface FinanceSetoran {
+  id: string
+  nominal: number
+  outlet: string
+  tanggalJual: string
+  kategori: string
+  status: string
+  waktu: string
+}
+
+export interface FinanceSelisihKasir {
+  id: string
+  outlet: string
+  kasir: string
+  selisih: number
+  seharusnya: number
+  fisik: number
+  tanggal: string
+}
+
+export interface FinanceTelemetri {
+  pengeluaranHariIni: {
+    totalNominal: number
+    jumlahTransaksi: number
+    topPengeluaran: FinanceItemPengeluaran[]
+  }
+  pengeluaranBulanIni: {
+    totalNominal: number
+    topPengeluaran: FinanceItemPengeluaran[]
+  }
+  utangPo: {
+    totalUtang: number
+    jumlahPo: number
+    totalLewatJatuhTempo: number
+    topSupplier: Array<{ supplier: string; total: number; jumlahPo: number; jatuhTempoTerdekat: string | null }>
+    daftarPo: FinancePoUtang[]
+  }
+  setoranKas: {
+    daftarSetoranTerbaru: FinanceSetoran[]
+  }
+  selisihKasir: {
+    daftarSelisihTerbaru: FinanceSelisihKasir[]
+  }
+}
+
 export interface TelemetriHariIni {
   tanggalWIB: string
   omzetTotal: number
@@ -98,6 +162,7 @@ export interface TelemetriHariIni {
   statusBuka?: StatusBukaTelemetri
   ringkasanHariIni?: RingkasanHari
   ringkasanKemarin?: RingkasanHari
+  finance?: FinanceTelemetri
 }
 
 function getSupabaseAdmin() {
@@ -227,6 +292,12 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       resVoid,
       resShifts,
       resPrices,
+      resPettyHariIni,
+      resExpHariIni,
+      resExpBulanIni,
+      resPo,
+      resSetoran,
+      resSelisih,
     ] = await Promise.all([
       fetchAllRows(sb, 'orders', (q) =>
         q
@@ -312,6 +383,42 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
         .select('bahan_baku_id, harga_beli, harga_updated_at')
         .order('harga_updated_at', { ascending: false })
         .limit(200),
+      sb
+        .from('petty_cash_expenses')
+        .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
+        .eq('expense_date', tglStr)
+        .is('deleted_at', null)
+        .order('amount', { ascending: false })
+        .limit(100),
+      sb
+        .from('expenses')
+        .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
+        .eq('expense_date', tglStr)
+        .order('amount', { ascending: false })
+        .limit(100),
+      sb
+        .from('expenses')
+        .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
+        .gte('expense_date', `${tglStr.slice(0, 7)}-01`)
+        .order('amount', { ascending: false })
+        .limit(10),
+      sb
+        .rpc('get_purchase_orders', { p_from: `${tglStr.slice(0, 4)}-01-01`, p_to: tglStr, p_status: null })
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
+        .from('cash_transaction')
+        .select('id, amount, category, occurred_at, sales_date, status, outlets(name)')
+        .eq('source_type', 'cash_deposit')
+        .in('status', ['reconciled', 'paid', 'approved', 'pending_approval'])
+        .order('occurred_at', { ascending: false })
+        .limit(10),
+      sb
+        .from('shifts')
+        .select('id, outlet_id, status, start_time, end_time, variance, expected_ending_cash, actual_ending_cash, staff:outlet_staff!shifts_staff_id_fkey(name), outlets(name)')
+        .eq('status', 'closed')
+        .neq('variance', 0)
+        .order('start_time', { ascending: false })
+        .limit(10),
     ])
 
     const rawOutlets = (resOutlets.data || []).filter((o: any) =>
@@ -542,6 +649,139 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       daftarBelumBuka,
     }
 
+    // ─────────────────────────────────────────────────────────── Telemetri Finance
+    const rawPetty = (resPettyHariIni?.data || []) as any[]
+    const rawExp = (resExpHariIni?.data || []) as any[]
+    const rawExpBulan = (resExpBulanIni?.data || []) as any[]
+    const rawPo = (resPo?.data || []) as any[]
+    const rawSetoran = (resSetoran?.data || []) as any[]
+    const rawSelisih = (resSelisih?.data || []) as any[]
+
+    const itemsHariIni: FinanceItemPengeluaran[] = [
+      ...rawPetty.map((r: any) => ({
+        id: r.id,
+        nominal: Number(r.amount) || 0,
+        deskripsi: r.description || 'Pengeluaran kas kecil',
+        kategori: r.category || 'petty_cash',
+        outlet: r.outlets?.name || 'Cabang',
+        tipe: 'petty_cash' as const,
+        tanggal: r.expense_date || tglStr,
+      })),
+      ...rawExp.map((r: any) => ({
+        id: r.id,
+        nominal: Number(r.amount) || 0,
+        deskripsi: r.description || 'Operasional outlet',
+        kategori: r.category || 'operasional',
+        outlet: r.outlets?.name || 'Pusat',
+        tipe: 'operasional' as const,
+        tanggal: r.expense_date || tglStr,
+      })),
+    ].sort((a, b) => b.nominal - a.nominal)
+
+    const totalNominalHariIni = itemsHariIni.reduce((sum, item) => sum + item.nominal, 0)
+
+    const topExpBulan: FinanceItemPengeluaran[] = rawExpBulan.map((r: any) => ({
+      id: r.id,
+      nominal: Number(r.amount) || 0,
+      deskripsi: r.description || '-',
+      kategori: r.category || 'beban_operasional',
+      outlet: r.outlets?.name || 'Pusat',
+      tipe: 'operasional' as const,
+      tanggal: r.expense_date || tglStr,
+    }))
+
+    // PO Utang
+    const poBelumLunas = rawPo.filter((p: any) => p.payment_status !== 'paid')
+    const poDiterima = poBelumLunas.filter((p: any) =>
+      ['sebagian_diterima', 'diterima_lengkap'].includes(p.status)
+    )
+    const totalUtangPo = poDiterima.reduce((s: number, p: any) => s + (Number(p.total_nilai_terima) || 0), 0)
+
+    const supplierMap = new Map<string, { supplier: string; total: number; jumlahPo: number; jatuhTempoTerdekat: string | null }>()
+    let totalLewatJatuhTempo = 0
+    const daftarPoUtang: FinancePoUtang[] = poDiterima.map((p: any) => {
+      const nilai = Number(p.total_nilai_terima) || 0
+      const jt = p.jatuh_tempo ? String(p.jatuh_tempo).slice(0, 10) : null
+      let hariLewat: number | null = null
+      if (jt) {
+        const diffMs = Date.parse(`${tglStr}T00:00:00Z`) - Date.parse(`${jt}T00:00:00Z`)
+        hariLewat = Math.round(diffMs / (86_400_000))
+        if (hariLewat > 0) {
+          totalLewatJatuhTempo += nilai
+        }
+      }
+
+      const sNama = p.supplier_nama || 'Supplier Umum'
+      const existing = supplierMap.get(sNama) ?? {
+        supplier: sNama,
+        total: 0,
+        jumlahPo: 0,
+        jatuhTempoTerdekat: null,
+      }
+      existing.total += nilai
+      existing.jumlahPo += 1
+      if (jt && (!existing.jatuhTempoTerdekat || jt < existing.jatuhTempoTerdekat)) {
+        existing.jatuhTempoTerdekat = jt
+      }
+      supplierMap.set(sNama, existing)
+
+      return {
+        nomorPo: p.nomor_po || '-',
+        supplier: sNama,
+        nilaiTerima: nilai,
+        jatuhTempo: jt,
+        statusBayar: p.payment_status || 'unpaid',
+        hariLewat,
+      }
+    })
+
+    const topSupplier = Array.from(supplierMap.values()).sort((a, b) => b.total - a.total).slice(0, 5)
+
+    const daftarSetoranTerbaru: FinanceSetoran[] = rawSetoran.map((s: any) => ({
+      id: s.id,
+      nominal: Number(s.amount) || 0,
+      outlet: s.outlets?.name || 'Cabang',
+      tanggalJual: s.sales_date ? String(s.sales_date).slice(0, 10) : '-',
+      kategori: s.category || 'Setoran Bank',
+      status: s.status || 'pending',
+      waktu: s.occurred_at || '',
+    }))
+
+    const daftarSelisihTerbaru: FinanceSelisihKasir[] = rawSelisih.map((s: any) => ({
+      id: s.id,
+      outlet: s.outlets?.name || 'Cabang',
+      kasir: s.staff?.name || '-',
+      selisih: Number(s.variance) || 0,
+      seharusnya: Number(s.expected_ending_cash) || 0,
+      fisik: Number(s.actual_ending_cash) || 0,
+      tanggal: s.start_time || '',
+    }))
+
+    const finance: FinanceTelemetri = {
+      pengeluaranHariIni: {
+        totalNominal: totalNominalHariIni,
+        jumlahTransaksi: itemsHariIni.length,
+        topPengeluaran: itemsHariIni.slice(0, 10),
+      },
+      pengeluaranBulanIni: {
+        totalNominal: topExpBulan.reduce((sum, item) => sum + item.nominal, 0),
+        topPengeluaran: topExpBulan,
+      },
+      utangPo: {
+        totalUtang: totalUtangPo,
+        jumlahPo: poDiterima.length,
+        totalLewatJatuhTempo,
+        topSupplier,
+        daftarPo: daftarPoUtang.slice(0, 10),
+      },
+      setoranKas: {
+        daftarSetoranTerbaru,
+      },
+      selisihKasir: {
+        daftarSelisihTerbaru,
+      },
+    }
+
     return {
       tanggalWIB: tglStr,
       omzetTotal: ringkasanHariIni.omzetTotal,
@@ -564,6 +804,7 @@ export async function ambilTelemetriNyata(): Promise<TelemetriHariIni | null> {
       statusBuka,
       ringkasanHariIni,
       ringkasanKemarin,
+      finance,
     }
   } catch (err) {
     console.error('[telemetriNyata] gagal ambil telemetri:', err)

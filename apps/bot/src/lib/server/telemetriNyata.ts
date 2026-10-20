@@ -474,7 +474,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .eq('source_type', 'cash_deposit')
         .in('status', ['reconciled', 'paid', 'approved', 'pending_approval'])
         .order('occurred_at', { ascending: false })
-        .limit(100)
+        .limit(300)
         .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('shifts')

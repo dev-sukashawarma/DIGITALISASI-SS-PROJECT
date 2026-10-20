@@ -105,14 +105,14 @@ describe('ringkasSetoran', () => {
 
   it('di luar rentang & outlet tes dibuang; per outlet bernama', () => {
     const r = ringkasSetoran(
-      [s({}), s({ tanggalJual: '2026-09-30' }), s({ outletId: TEST_OUTLET_ID })],
+      [s({}), s({ tanggalJual: '2026-09-30', occurredAt: '2026-09-30T03:00:00Z' }), s({ outletId: TEST_OUTLET_ID })],
       OUTLETS, '2026-10-01', '2026-10-31',
     )
     expect(r.jumlah).toBe(1)
     expect(r.per_outlet).toEqual([{ outlet: 'MITRA CIBINONG', total: 430000, jumlah: 1 }])
   })
 
-  it('menyertakan rekap setoran yang diinput pada periode (occurredAt)', () => {
+  it('mengambil data setoran yang diinput admin finance pada periode (occurredAt)', () => {
     const r = ringkasSetoran(
       [
         s({ tanggalJual: '2026-10-18', occurredAt: '2026-10-20T07:15:00Z', nominal: 500000 }),
@@ -121,9 +121,14 @@ describe('ringkasSetoran', () => {
       ],
       OUTLETS, '2026-10-20', '2026-10-20',
     )
-    expect(r.diinput_pada_periode.jumlah).toBe(2)
+    expect(r.total).toBe(800000)
+    expect(r.jumlah).toBe(2)
     expect(r.diinput_pada_periode.total).toBe(800000)
-    expect(r.total).toBe(200000)
+    expect(r.berdasarkan_tanggal_jual.total).toBe(200000)
+    expect(r.rekap_per_tanggal_jual).toEqual([
+      { tanggal_jual: '2026-10-18', total: 500000, jumlah: 1 },
+      { tanggal_jual: '2026-10-15', total: 300000, jumlah: 1 },
+    ])
   })
 })
 

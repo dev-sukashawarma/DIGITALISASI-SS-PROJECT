@@ -93,16 +93,14 @@ const namaOutlet = (outlets: OutletNama[]) => {
 /** Tanggal jual setoran: sales_date, atau sehari sebelum dicatat (WIB) — aturan app Finance. */
 export const tanggalJualSetoran = (s: SetoranBaris) => s.tanggalJual ?? tambahHari(tglWib(s.occurredAt), -1)
 
-/** Setoran TERCATAT per tanggal jual. Kosong ≠ belum setor (pencatatan mulai 2026-10-08). */
+/** Setoran kas yang DIINPUT oleh admin Finance pada periode tersebut (occurred_at WIB).
+ * Mengutamakan data input admin finance sebagai sumber kebenaran (paritas app Finance /setoran).
+ */
 export function ringkasSetoran(rows: SetoranBaris[], outlets: OutletNama[], dari: string, sampai: string) {
   const nama = namaOutlet(outlets)
   const valid = rows.filter((s) => s.outletId !== TEST_OUTLET_ID)
 
-  const setoran = valid
-    .map((s) => ({ outlet: nama(s.outletId), tanggal_jual: tanggalJualSetoran(s), nominal: rp(s.nominal), jenis: s.jenis ?? 'Setoran' }))
-    .filter((s) => s.tanggal_jual >= dari && s.tanggal_jual <= sampai)
-    .sort((a, b) => a.tanggal_jual.localeCompare(b.tanggal_jual) || a.outlet.localeCompare(b.outlet))
-
+  // 1. Setoran yang diinput admin finance pada rentang tanggal ini (occurred_at WIB)
   const setoranDiinput = valid
     .filter((s) => {
       const tglW = tglWib(s.occurredAt)
@@ -110,29 +108,63 @@ export function ringkasSetoran(rows: SetoranBaris[], outlets: OutletNama[], dari
     })
     .map((s) => ({
       outlet: nama(s.outletId),
-      tanggal_jual: tanggalJualSetoran(s),
       tanggal_input: tglWib(s.occurredAt),
+      tanggal_jual: tanggalJualSetoran(s),
       nominal: rp(s.nominal),
       jenis: s.jenis ?? 'Setoran',
     }))
-    .sort((a, b) => a.tanggal_input.localeCompare(b.tanggal_input) || a.outlet.localeCompare(b.outlet))
+    .sort((a, b) => a.tanggal_jual.localeCompare(b.tanggal_jual) || a.outlet.localeCompare(b.outlet))
+
+  // 2. Setoran berdasarkan tanggal penjualan (sales_date)
+  const setoranTglJual = valid
+    .map((s) => ({
+      outlet: nama(s.outletId),
+      tanggal_input: tglWib(s.occurredAt),
+      tanggal_jual: tanggalJualSetoran(s),
+      nominal: rp(s.nominal),
+      jenis: s.jenis ?? 'Setoran',
+    }))
+    .filter((s) => s.tanggal_jual >= dari && s.tanggal_jual <= sampai)
+    .sort((a, b) => a.tanggal_jual.localeCompare(b.tanggal_jual) || a.outlet.localeCompare(b.outlet))
+
+  // Prioritas utama: data yang di-input admin finance pada periode ini
+  const pakaiInput = setoranDiinput.length > 0 || setoranTglJual.length === 0
+  const daftarUtama = pakaiInput ? setoranDiinput : setoranTglJual
 
   const perOutlet = new Map<string, { outlet: string; total: number; jumlah: number }>()
-  for (const s of setoran) {
+  for (const s of daftarUtama) {
     const o = perOutlet.get(s.outlet) ?? { outlet: s.outlet, total: 0, jumlah: 0 }
     o.total += s.nominal
     o.jumlah += 1
     perOutlet.set(s.outlet, o)
   }
+
+  // Rincian tanggal penjualan yang dicakup oleh setoran yang diinput admin finance
+  const rekapPerTglJualMap = new Map<string, { tanggal_jual: string; total: number; jumlah: number }>()
+  for (const s of setoranDiinput) {
+    const tj = s.tanggal_jual
+    const ex = rekapPerTglJualMap.get(tj) ?? { tanggal_jual: tj, total: 0, jumlah: 0 }
+    ex.total += s.nominal
+    ex.jumlah += 1
+    rekapPerTglJualMap.set(tj, ex)
+  }
+
   return {
-    total: setoran.reduce((t, s) => t + s.nominal, 0),
-    jumlah: setoran.length,
+    sumber_rekap: pakaiInput ? 'input_admin_finance' : 'tanggal_penjualan',
+    total: daftarUtama.reduce((t, s) => t + s.nominal, 0),
+    jumlah: daftarUtama.length,
     per_outlet: [...perOutlet.values()].sort((a, b) => b.total - a.total),
-    setoran,
+    rekap_per_tanggal_jual: [...rekapPerTglJualMap.values()].sort((a, b) => b.tanggal_jual.localeCompare(a.tanggal_jual)),
+    setoran: daftarUtama,
     diinput_pada_periode: {
       total: setoranDiinput.reduce((t, s) => t + s.nominal, 0),
       jumlah: setoranDiinput.length,
       setoran: setoranDiinput,
+    },
+    berdasarkan_tanggal_jual: {
+      total: setoranTglJual.reduce((t, s) => t + s.nominal, 0),
+      jumlah: setoranTglJual.length,
+      setoran: setoranTglJual,
     },
   }
 }

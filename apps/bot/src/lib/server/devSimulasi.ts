@@ -616,21 +616,29 @@ export function buatJawabanDev(
           `${i + 1}. **${s.outlet}**: **${formatRupiah(s.nominal)}** (Tgl Jual: ${s.tanggalJual}, Status: \`${s.status}\`)`
         ).join('\n')
 
+        const rekapTglJual = inputHariIni?.rekapPerTanggalJual?.map(
+          r => `• Penjualan ${r.tanggalJual}: **${formatRupiah(r.totalNominal)}** (${r.jumlah} transaksi)`
+        ).join('\n')
+
         const infoInputHariIni = inputHariIni && inputHariIni.jumlahTransaksi > 0
-          ? `\n\n- **Setoran Di-input Hari Ini (${t?.tanggalWIB || 'Hari Ini'})**: **${formatRupiah(inputHariIni.totalNominal)}** (${inputHariIni.jumlahTransaksi} setoran diverifikasi)`
+          ? `### 💰 Setoran Di-input Admin Finance Hari Ini (${t?.tanggalWIB || 'Hari Ini'})\n` +
+            `Total: **${formatRupiah(inputHariIni.totalNominal)}** (${inputHariIni.jumlahTransaksi} setoran diverifikasi)\n\n` +
+            `**Rincian Tanggal Penjualan yang Dicakup:**\n${rekapTglJual || '-'}\n\n`
           : ''
 
         const infoShiftKemarin = shiftKemarin && shiftKemarin.jumlahOutletClosed > 0
-          ? `\n- **Kas Fisik Tutup Shift Kemarin**: **${formatRupiah(shiftKemarin.totalFisikKas)}** (${shiftKemarin.jumlahOutletClosed} outlet closed, ${shiftKemarin.sudahDirekap} sudah masuk bank pusat)`
+          ? `### 🏦 Rekonsiliasi Kas Tutup Shift Kemarin\n` +
+            `• Kas Fisik: **${formatRupiah(shiftKemarin.totalFisikKas)}** (${shiftKemarin.jumlahOutletClosed} outlet closed)\n` +
+            `• Status Rekonsiliasi Bank: **${shiftKemarin.sudahDirekap}** cabang sudah direkap, **${shiftKemarin.belumDirekap}** dalam antrean verifikasi.\n\n`
           : ''
 
         return [
-          `${salamAwal} Berikut status pencatatan setoran kas outlet terbaru:\n\n`,
-          '> **SETORAN KAS OUTLET**: Rekonsiliasi setoran bank cabang tercatat di sistem Finance.\n\n',
-          '### 📥 Setoran Kas Terbaru\n',
-          listSet || '(Belum ada setoran tercatat)',
+          `${salamAwal} Berikut status pencatatan setoran kas outlet:\n\n`,
+          '> **SETORAN KAS OUTLET**: Rekonsiliasi setoran bank cabang yang diinput admin di sistem Finance.\n\n',
           infoInputHariIni,
           infoShiftKemarin,
+          '### 📥 Transaksi Setoran Bank Terbaru\n',
+          listSet || '(Belum ada setoran tercatat)',
           `\n\n*Catatan: Cabang beroperasi sampai malam (cut-off 22:00 WIB), setoran penjualan hari ini secara normal disetor H+1.*\n\n`,
           `Ada cabang yang ingin Anda verifikasi setorannya, ${sebutan}?`,
         ]

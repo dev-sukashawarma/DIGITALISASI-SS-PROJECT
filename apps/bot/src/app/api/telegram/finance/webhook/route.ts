@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
     } else if (cmdClean === '/pengeluaran' || cmdClean.startsWith('/pengeluaran@')) {
       queryTeks = 'Berapa total pengeluaran bulan ini yang terbagi antara outlet dan pusat?'
     } else if (cmdClean === '/setoran' || cmdClean.startsWith('/setoran@')) {
-      queryTeks = 'Bagaimana ringkasan pencatatan setoran kas outlet minggu ini?'
+      queryTeks = 'Bagaimana ringkasan pencatatan setoran kas outlet yang diinput admin Finance hari ini dan status rekonsiliasi kas cabang?'
     } else if (cmdClean === '/selisih' || cmdClean.startsWith('/selisih@')) {
       queryTeks = 'Bagaimana rekap selisih kasir dan shift yang belum ditutup kemarin?'
     }

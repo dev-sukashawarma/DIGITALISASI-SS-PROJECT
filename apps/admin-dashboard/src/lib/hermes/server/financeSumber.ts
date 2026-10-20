@@ -9,8 +9,6 @@ import type { OutletInfo } from '@/lib/sukaBot/alat/penjualan'
 import type { KonteksFinance, OutletNama, PoBaris, SetoranBaris, ShiftBaris } from '../finance/tipe'
 import { semuaHalaman } from './absensiSumber'
 
-const tambahHari = (tgl: string, n: number) => new Date(Date.parse(`${tgl}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
-
 export function buatKonteksFinance(svc: SupabaseClient, sekarang: Date, outletsSemua: OutletInfo[]): KonteksFinance {
   const hariIni = jakartaDate(sekarang)
   let po: Promise<PoBaris[]> | null = null
@@ -49,15 +47,15 @@ export function buatKonteksFinance(svc: SupabaseClient, sekarang: Date, outletsS
     // jual fallback = tanggal catat − 1; penyaringan akhir di ringkasSetoran.
     setoran: async (dari, sampai) => {
       const fromIso = `${dari}T00:00:00+07:00`
-      const toIso = `${tambahHari(sampai, 1)}T23:59:59.999+07:00`
+      const toIso = `${sampai}T23:59:59.999+07:00`
       const rows = await semuaHalaman<any>(() =>
         svc
           .from('cash_transaction')
           .select('id, outlet_id, amount, sales_date, occurred_at, category')
           .eq('source_type', 'cash_deposit')
           .in('status', ['reconciled', 'paid', 'approved'])
-          .or(`and(sales_date.gte.${dari},sales_date.lte.${sampai}),and(sales_date.is.null,occurred_at.gte.${fromIso},occurred_at.lte.${toIso})`)
-          .order('id', { ascending: true }),
+          .or(`and(occurred_at.gte.${fromIso},occurred_at.lte.${toIso}),and(sales_date.gte.${dari},sales_date.lte.${sampai})`)
+          .order('occurred_at', { ascending: false }),
       )
       return rows.map((r): SetoranBaris => ({
         outletId: r.outlet_id,

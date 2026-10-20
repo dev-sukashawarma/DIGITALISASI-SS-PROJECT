@@ -66,9 +66,9 @@ export const ALAT_FINANCE: DefinisiAlat[] = [
     nama: 'setoran_ringkasan',
     domain: 'finance',
     deskripsi:
-      'Setoran kas outlet yang SUDAH DICATAT di app Finance, per tanggal jual. Data kosong berarti belum ada setoran yang dicatat — bukan bukti outlet belum setor.',
+      'Setoran kas outlet yang DIINPUT/DICATAT oleh admin Finance pada periode tersebut (berdasarkan occurred_at/tanggal catat di app Finance). Menyajikan total nominal yang sudah diinput admin finance, per outlet, serta rincian tanggal penjualan yang dicakup.',
     sumber: 'Setoran (app Finance)',
-    catatanMeta: 'Pencatatan setoran di sistem dimulai 2026-10-08; data kosong berarti belum dicatat, bukan pasti belum setor.',
+    catatanMeta: 'Pencatatan setoran di sistem bersumber langsung dari data yang diinput oleh admin finance di app Finance.',
     skema: z.object(zPeriode).strict(),
     contoh: { periode: 'minggu_ini' },
     jalankan: async (ctx, a) => {

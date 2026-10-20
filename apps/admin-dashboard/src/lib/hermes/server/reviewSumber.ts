@@ -11,9 +11,12 @@ import type {
   ReviewBaris,
 } from '../review/tipe'
 
+const DEFAULT_SUKAREVIEW_URL = 'https://ajvzmicqtwgrcknovubf.supabase.co'
+const DEFAULT_SUKAREVIEW_KEY = 'sb_publishable_6WuTWf-ucDNha96WITsBwA_YLqfMNd4'
+
 function dapatkanClientSukaReview(svcDefault: SupabaseClient): SupabaseClient {
-  const url = process.env.SUKAREVIEW_SUPABASE_URL
-  const key = process.env.SUKAREVIEW_SERVICE_ROLE_KEY || process.env.SUKAREVIEW_SUPABASE_ANON_KEY
+  const url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
+  const key = process.env.SUKAREVIEW_SERVICE_ROLE_KEY || process.env.SUKAREVIEW_SUPABASE_ANON_KEY || DEFAULT_SUKAREVIEW_KEY
   if (url && key) {
     return createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },

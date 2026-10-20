@@ -7,6 +7,7 @@ import { getDistribusiFactor } from '@/lib/format/compositeUnit'
 import { attributeFifo, labelFifo, type FifoWindowRow } from '@/lib/stok/vendorFifo'
 import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
+import { bagiMutasiOrder, isMutasiOrder } from '@/lib/stok/mutasiOrder'
 
 
 function makeServiceClient() {
@@ -934,7 +935,7 @@ export async function fetchReconciliationSnapshot(
     rawLedgerRows = await fetchAllPages<any>(() =>
       supabase
         .from('ledger_stok')
-        .select('id, bahan_baku_id, tipe, qty, created_at, ref_shipment_id, ref_opname_id, ref_terima_vendor_id, ref_po_id, saldo_sebelum, saldo_sesudah')
+        .select('id, bahan_baku_id, tipe, qty, created_at, ref_shipment_id, ref_opname_id, ref_terima_vendor_id, ref_po_id, ref_order_id, saldo_sebelum, saldo_sesudah')
         .eq('outlet_id', outletId)
         .gte('created_at', startIso)
         .lte('created_at', endIso)
@@ -1284,6 +1285,8 @@ export async function fetchReconciliationSnapshot(
       masukRpRiilTotal: number
       hasRealPrice: boolean
       pakaiQty: number
+      // Neto bertanda pemakaian + pembalik order batal (lihat lib/stok/mutasiOrder)
+      orderNetQty: number
       wasteQty: number
       mutasiLainQty: number
       rowCount: number
@@ -1300,6 +1303,7 @@ export async function fetchReconciliationSnapshot(
         masukRpRiilTotal: 0,
         hasRealPrice: false,
         pakaiQty: 0,
+        orderNetQty: 0,
         wasteQty: 0,
         mutasiLainQty: 0,
         rowCount: 0,
@@ -1312,7 +1316,10 @@ export async function fetchReconciliationSnapshot(
 
     const rawQty = Number(row.qty || 0)
 
-    if (row.tipe === 'pemakaian') {
+    if (isMutasiOrder(row)) {
+      // Potongan BOM & pembalik order batal dihitung neto, bukan Pakai + Masuk terpisah.
+      agg.orderNetQty += rawQty
+    } else if (row.tipe === 'pemakaian') {
       agg.pakaiQty += Math.abs(rawQty)
     } else if (row.tipe === 'waste') {
       agg.wasteQty += Math.abs(rawQty)
@@ -1409,9 +1416,11 @@ export async function fetchReconciliationSnapshot(
     }
 
     const masukQty = agg?.masukQty || 0
-    const pakaiQty = agg?.pakaiQty || 0
+    const mutasiOrder = bagiMutasiOrder(agg?.orderNetQty || 0)
+    const pakaiQty = (agg?.pakaiQty || 0) + mutasiOrder.pakai
     const wasteQty = agg?.wasteQty || 0
-    const mutasiLainQty = agg?.mutasiLainQty || 0
+    // Pembalik order yang potongannya terjadi sebelum periode = koreksi, bukan barang masuk.
+    const mutasiLainQty = (agg?.mutasiLainQty || 0) + mutasiOrder.pembalikSebelumPeriode
 
     // Stok Ekspektasi Sistem = Awal + Masuk - Pakai - Waste + Mutasi Lain
     const stokSistem = Math.round((saldoAwal + masukQty - pakaiQty - wasteQty + mutasiLainQty) * 100) / 100

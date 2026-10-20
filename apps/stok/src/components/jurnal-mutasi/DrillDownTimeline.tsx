@@ -23,6 +23,7 @@ import {
   type ReconciliationPeriodInfo,
 } from '@/app/actions/jurnalMutasi'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
+import { nilaiToleransiSelisih } from '@/lib/stok/selisih'
 import { ProofDetailModal } from './ProofDetailModal'
 
 interface DrillDownTimelineProps {
@@ -145,6 +146,14 @@ export function DrillDownTimeline({
   const isNegativeDiff = hasOpname && (item.selisih_qty ?? 0) < -0.01
   const itemStatus: 'MATCH' | 'MINUS' | 'SURPLUS' | 'TIDAK_OPNAME' =
     item.status || (!hasOpname ? 'TIDAK_OPNAME' : isMatch ? 'MATCH' : isNegativeDiff ? 'MINUS' : 'SURPLUS')
+  // Batas toleransi aman -- aturan yang sama dengan form opname, approval & PDF.
+  const toleransi = nilaiToleransiSelisih(
+    item.selisih_qty ?? 0,
+    item.stok_sistem_qty,
+    item.satuan,
+    item.satuan_kecil,
+    item.nama
+  )
 
   return (
     <div className="bg-suka-cream/15 p-4 sm:p-5 border-t border-b border-suka-brown/10 text-xs">
@@ -477,6 +486,18 @@ export function DrillDownTimeline({
                         ? 'Stok fisik lebih banyak dari catatan sistem (indikasi surat jalan belum masuk atau porsi hemat).'
                         : 'Belum dilakukan penghitungan fisik opname untuk periode ini.'}
                     </span>
+                    {hasOpname && toleransi.dalamToleransi && (
+                      <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Masih dalam threshold aman (toleransi {toleransi.thresholdPersen}%)
+                      </span>
+                    )}
+                    {hasOpname && toleransi.lewatToleransi && (
+                      <span className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-100 text-red-800 border border-red-300 text-[10px] font-black">
+                        <AlertTriangle className="w-3 h-3" />
+                        Melewati threshold aman (toleransi {toleransi.thresholdPersen}%)
+                      </span>
+                    )}
                   </td>
                   <td className="p-3 text-right text-slate-300">-</td>
                   <td className="p-3 text-right text-slate-300">-</td>

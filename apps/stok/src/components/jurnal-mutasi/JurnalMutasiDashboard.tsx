@@ -466,7 +466,21 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
       {/* ========================================================================= */}
       {!loading && data && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            {/* Omzet Penjualan (kotor, sama dengan baris "Omzet kotor periode" di PDF) */}
+            <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 shadow-2xs space-y-0.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">
+                Omzet Penjualan
+              </span>
+              <div className="text-sm sm:text-base font-black text-amber-900">
+                {formatRp(data.totals.omzet_rp)}
+              </div>
+              <p className="text-[9px] text-amber-800/70 font-bold">
+                {data.totals.order_count.toLocaleString('id-ID')} order selesai
+                {data.totals.potongan_rp > 0 && ` · diskon ${formatRp(data.totals.potongan_rp)}`}
+              </p>
+            </div>
+
             {/* Saldo Awal */}
             <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown/60">

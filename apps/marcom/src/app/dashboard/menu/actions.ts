@@ -156,9 +156,7 @@ export async function saveMenuItem(form: {
     is_available: form.is_available,
     is_available_online: form.is_available_online ?? true,
     available_online_channels: form.available_online_channels ?? null,
-    sort_order: form.sort_order || 0,
     channel_prices: cleanedChannelPrices,
-    is_package: form.is_package || false,
     outlet_id: form.outlet_id || null,
     available_outlets: form.available_outlets || null,
     is_published_order_online: form.is_published_order_online ?? false,
@@ -181,6 +179,12 @@ export async function saveMenuItem(form: {
 
   const isEdit = Boolean(form.id && String(form.id).trim().length > 0)
   let savedId: string | null = null
+
+  // Status paket & urutan dikelola admin-dashboard, bukan form marcom. Saat edit
+  // tanpa nilainya, kolom dibiarkan: menimpanya dengan false membuat combo kehilangan
+  // pilihan minuman di POS dan berhenti memotong stok isinya (insiden 10–15 Okt 2026).
+  if (form.is_package !== undefined || !isEdit) payload.is_package = form.is_package ?? false
+  if (form.sort_order !== undefined || !isEdit) payload.sort_order = form.sort_order ?? 0
 
   if (isEdit) {
     const { data, error } = await supabase

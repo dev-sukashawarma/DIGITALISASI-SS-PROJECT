@@ -24,3 +24,22 @@ export function bagiMutasiOrder(netQty: number): { pakai: number; pembalikSebelu
     pembalikSebelumPeriode: netQty > 0 ? netQty : 0,
   }
 }
+
+/**
+ * "Pemakaian POS" satu bahan dalam satu periode ledger — aturan yang sama
+ * dengan kolom Pemakaian POS di Jurnal Rekonsiliasi (jurnalMutasi.ts):
+ * mutasi order dinetokan lalu dibagi lewat bagiMutasiOrder, pemakaian tanpa
+ * order dijumlah apa adanya, tipe lain diabaikan.
+ */
+export function pemakaianPosPeriode(
+  rows: { tipe: string; qty: number | string | null; ref_order_id?: string | null }[]
+): number {
+  let orderNet = 0
+  let pakaiLain = 0
+  for (const row of rows) {
+    const qty = Number(row.qty || 0)
+    if (isMutasiOrder(row)) orderNet += qty
+    else if (row.tipe === 'pemakaian') pakaiLain += Math.abs(qty)
+  }
+  return pakaiLain + bagiMutasiOrder(orderNet).pakai
+}

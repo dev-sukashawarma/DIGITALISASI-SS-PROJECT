@@ -1,6 +1,7 @@
 // Use @suka/auth browser client yang properly configure session untuk browser
 import { createSupabaseBrowserClient } from '@suka/auth';
 import { TEST_OUTLET_ID } from '@/lib/outletFilters';
+import { pemakaianPosPeriode } from '@/lib/stok/mutasiOrder';
 
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
 
@@ -228,6 +229,56 @@ export async function fetchCrewMonitoringData(userId?: string) {
 }
 
 /**
+ * Pemakaian POS satu bahan untuk opname yang ditampilkan — jendela & aturan
+ * SAMA dengan kolom Pemakaian POS di Jurnal Rekonsiliasi: dari opname
+ * finalized sebelumnya s/d opname ini (tanpa opname sebelumnya: 7 hari),
+ * dihitung lewat pemakaianPosPeriode. Dulu dijumlah dari 30 baris pemakaian
+ * TERAKHIR pada hari kalender opname: terpotong di outlet ramai, menyusut
+ * tiap penjualan sesudah opname, dan jendelanya tak sama dengan jurnal.
+ */
+async function fetchPemakaianPosOpname(
+  supabase: SupabaseBrowserClient,
+  outletId: string,
+  bahanBakuId: string,
+  opnameCreatedAt: string
+): Promise<number> {
+  const { data: prev } = await supabase
+    .from('opname')
+    .select('created_at')
+    .eq('outlet_id', outletId)
+    .eq('status', 'finalized')
+    .lt('created_at', opnameCreatedAt)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const start = prev?.created_at
+    ?? new Date(new Date(opnameCreatedAt).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const PAGE = 1000;
+  const rows: { tipe: string; qty: number | string | null; ref_order_id: string | null }[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('ledger_stok')
+      .select('tipe, qty, ref_order_id')
+      .eq('outlet_id', outletId)
+      .eq('bahan_baku_id', bahanBakuId)
+      .in('tipe', ['pemakaian', 'adjustment'])
+      .gte('created_at', start)
+      .lte('created_at', opnameCreatedAt)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.error('[fetchItemDetail] pemakaian POS:', error);
+      return 0;
+    }
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
+  return pemakaianPosPeriode(rows);
+}
+
+/**
  * Fetch detail for a specific item, scoped to accessible_outlet_ids()
  * (admin/owner/spv: all outlets; leader: their bound outlets; kasir/crew/
  * kiosk: their own outlet only). Previously checked a hardcoded role list
@@ -247,7 +298,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   if (itemError) throw itemError;
 
-  // The 4 queries below only depend on bahan_baku_id/outletId (already known
+  // The 3 queries below only depend on bahan_baku_id/outletId (already known
   // at this point) — run them in parallel instead of one-by-one to avoid
   // unnecessary sequential network round-trips.
   const [
@@ -264,8 +315,6 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
     // so recency is taken from the parent opname row (ordering directly by
     // created_at returns HTTP 400).
     { data: opnameRow },
-    // Query pemakaian (BOM sales deduction) to provide context for discrepancy
-    { data: pemakaianData },
   ] = await Promise.all([
     supabase
       .from('bahan_baku')
@@ -290,14 +339,6 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from('ledger_stok')
-      .select('qty, created_at')
-      .eq('outlet_id', outletId)
-      .eq('bahan_baku_id', bahan_baku_id)
-      .eq('tipe', 'pemakaian')
-      .order('created_at', { ascending: false })
-      .limit(30),
   ]);
 
   if (ledgerError) throw ledgerError;
@@ -307,25 +348,16 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
     ? { ...opnameItem, opname: { created_at: opnameRow!.created_at } }
     : null;
 
-  const opnameDateStr = (opnameData?.opname as any)?.created_at;
-  const opnameDate = opnameDateStr ? new Date(opnameDateStr) : new Date();
-  const startOfDay = new Date(opnameDate);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(opnameDate);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const pemakaianToday = (pemakaianData || [])
-    .filter(p => {
-      const d = new Date(p.created_at);
-      return d >= startOfDay && d <= endOfDay;
-    })
-    .reduce((sum, p) => sum + Math.abs(p.qty || 0), 0);
-
   const isGudang = (itemData?.outlet_name || '').toUpperCase().includes('GUDANG');
+  const showDiscrepancy = !isGudang && !!opnameData?.flagged;
+
+  const pemakaianPos = showDiscrepancy && opnameRow?.created_at
+    ? await fetchPemakaianPosOpname(supabase, outletId, bahan_baku_id, opnameRow.created_at)
+    : 0;
 
   // Khusus outlet Gudang, hasil opname fisik berfungsi sebagai patokan awal (baseline) stok riil,
   // sehingga tidak dimunculkan sebagai flagged discrepancy di modal monitoring.
-  const discrepancyDetails = (!isGudang && opnameData?.flagged)
+  const discrepancyDetails = showDiscrepancy && opnameData
     ? {
         // Type detection logic: qty_mismatch if qty_fisik < qty_system, otherwise damaged.
         // Note: 'lost' type requires additional context not available from opname_item data.
@@ -333,7 +365,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
         qty_system: opnameData.qty_system,
         qty_fisik: opnameData.qty_fisik,
         catatan: opnameData.catatan || '',
-        pemakaian_bom: pemakaianToday > 0 ? pemakaianToday : undefined,
+        pemakaian_bom: pemakaianPos > 0 ? pemakaianPos : undefined,
       }
     : undefined;
 

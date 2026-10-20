@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { kirimAksiChatTelegram, kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
 import { tanyaHermes, kunciProfil } from '@/lib/hermes'
-import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
+import { ambilTelemetriNyata, formatRupiah } from '@/lib/server/telemetriNyata'
 import { tanyaAiRouter } from '@/lib/server/aiRouter'
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
 
@@ -402,18 +402,49 @@ export async function POST(req: NextRequest) {
     }, 4000)
 
     try {
-      const baseUrl = process.env.HERMES_API_URL
-      const kunci = kunciProfil('ceo')
-      const promptUser = `[Konteks Eksekutif: Nama: ${userName || fromFirstName}, Role: ${userRole || 'Executive'}]\nPertanyaan: ${queryTeks}`
+      let telemetri = null
+      try {
+        telemetri = await ambilTelemetriNyata()
+      } catch (teleErr) {
+        console.warn("[telegram-ceo-webhook] Gagal mengambil telemetri nyata:", teleErr)
+      }
 
-      let jawabanAi = ''
+      let ringkasanTelemetri = ""
+      if (telemetri) {
+        const w = telemetri.waste
+        const topWaste = w?.topBahan
+          ?.map(
+            (b) =>
+              `${b.nama} (${b.totalQty} ${b.satuan}, Est Rugi: ${formatRupiah(b.estKerugianRp)}, Alasan: ${b.alasanDominan})`
+          )
+          .join("; ")
+        const topOutWaste = w?.topOutlet?.map((o) => `${o.nama} (${o.frekuensi}x)`).join("; ")
+        const v = telemetri.voidOrder
+        const voidSummary = v ? `${v.totalVoidHariIni} order (${formatRupiah(v.totalNilaiVoidHariIni)})` : "0 void"
+        const sb = telemetri.statusBuka
+        const bukaSummary = sb ? `${sb.totalBuka} buka, ${sb.totalBelumBuka} belum buka` : ""
+
+        ringkasanTelemetri = `\n[Data Telemetri Live Database Suka Shawarma]:\n- Omzet Hari Ini: ${formatRupiah(
+          telemetri.omzetTotal
+        )} (${telemetri.totalOrder} order dari ${telemetri.outletsAktifTransaksi.length} cabang)\n- Audit Waste 30 Hari: Total ${
+          w?.totalLaporan30Hari || 0
+        } laporan (Est Kerugian: ${formatRupiah(w?.totalEstKerugianRp || 0)}). Top 5 Bahan Waste: ${
+          topWaste || "-"
+        }. Top Cabang Waste: ${topOutWaste || "-"}\n- Audit Void Hari Ini: ${voidSummary}\n- Status Buka Cabang: ${bukaSummary}`
+      }
+
+      const baseUrl = process.env.HERMES_API_URL
+      const kunci = kunciProfil("ceo")
+      const promptUser = `[Konteks Eksekutif: Nama: ${userName || fromFirstName}, Role: ${userRole || "Executive"}]${ringkasanTelemetri}\nPertanyaan: ${queryTeks}`
+
+      let jawabanAi = ""
       // Coba Hermes dengan batas waktu 12 detik agar webhook tidak timeout
       if (baseUrl && kunci) {
         try {
           for await (const chunk of tanyaHermes({
             baseUrl,
             kunci,
-            profil: 'ceo',
+            profil: "ceo",
             sesiId: `telegram-ceo-${fromId}`,
             pesan: promptUser,
             signal: AbortSignal.timeout(12_000),
@@ -421,7 +452,22 @@ export async function POST(req: NextRequest) {
             jawabanAi += chunk
           }
         } catch (e) {
-          console.warn('[telegram-ceo-webhook] Hermes gagal atau timeout, beralih ke AI Router + Telemetri Nyata:', e)
+          console.warn("[telegram-ceo-webhook] Hermes gagal atau timeout, beralih ke AI Router + Telemetri Nyata:", e)
+        }
+      }
+
+      // Deteksi jika Hermes menolak karena prompt lama di VPS belum reload tool MCP
+      if (jawabanAi.trim()) {
+        const textLower = jawabanAi.toLowerCase()
+        const penolakanMcp =
+          textLower.includes("belum memiliki endpoint") ||
+          textLower.includes("belum memiliki tool mcp") ||
+          textLower.includes("tidak dapat dicek. sistem bot saat ini belum memiliki") ||
+          textLower.includes("mcp untuk membaca data log/pencatatan waste") ||
+          textLower.includes("dilarang menebak atau mengarang angka/data waste")
+        if (penolakanMcp) {
+          console.warn("[telegram-ceo-webhook] Hermes menolak karena aturan lama, beralih ke AI Router / dev simulation")
+          jawabanAi = ""
         }
       }
 

@@ -12,7 +12,8 @@
     "test": "vitest run",
     "buat:bot": "node ../../scripts/hermes/buat-bot.mjs",
     "setup:bot:manager": "node ../../scripts/hermes/setup-bot-manager.mjs",
-    "setup:bot:finance": "node ../../scripts/hermes/setup-bot-finance.mjs"
+    "setup:bot:finance": "node ../../scripts/hermes/setup-bot-finance.mjs",
+    "setup:bot:review": "node ../../scripts/hermes/setup-bot-review.mjs"
   },
   "dependencies": {
     "@suka/auth": "*",

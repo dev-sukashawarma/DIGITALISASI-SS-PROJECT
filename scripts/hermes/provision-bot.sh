@@ -47,6 +47,8 @@ ${BOLD}OPSI TAMBAHAN:${NC}
   -s, --mcp-name <nama>     Nama server MCP di config.yaml (default: suka)
   -m, --model <model>       Model AI default (default: salin dari profil ceo atau 'cx/gpt-5.5')
       --telegram            Aktifkan Telegram; token diminta tersembunyi dan user ID di-allowlist
+      --telegram-token <tk> Isi token Telegram secara non-interaktif
+      --telegram-users <id> Isi user ID Telegram yang diizinkan (angka dipisah koma)
   -f, --force               Timpa profil yang sudah ada jika ditemukan
   -d, --dry-run             Simulasikan langkah tanpa mengubah sistem
   -h, --help                Tampilkan bantuan ini
@@ -98,6 +100,16 @@ while [[ $# -gt 0 ]]; do
     --telegram)
       SETUP_TELEGRAM=true
       shift
+      ;;
+    --telegram-token)
+      TELEGRAM_TOKEN="$2"
+      SETUP_TELEGRAM=true
+      shift 2
+      ;;
+    --telegram-users)
+      TELEGRAM_ALLOWED_USERS="$2"
+      SETUP_TELEGRAM=true
+      shift 2
       ;;
     -f|--force)
       FORCE=true
@@ -162,9 +174,13 @@ if [ -d "$PROFIL_DIR" ] && [ "$FORCE" != true ]; then
 fi
 
 if [ "$SETUP_TELEGRAM" = true ]; then
-  read -r -s -p "Token Telegram bot (input disembunyikan): " TELEGRAM_TOKEN
-  echo
-  read -r -p "Telegram user ID yang diizinkan (angka, pisahkan koma): " TELEGRAM_ALLOWED_USERS
+  if [ -z "$TELEGRAM_TOKEN" ]; then
+    read -r -s -p "Token Telegram bot (input disembunyikan): " TELEGRAM_TOKEN
+    echo
+  fi
+  if [ -z "$TELEGRAM_ALLOWED_USERS" ]; then
+    read -r -p "Telegram user ID yang diizinkan (angka, pisahkan koma): " TELEGRAM_ALLOWED_USERS
+  fi
   if [ -z "$TELEGRAM_TOKEN" ] || ! [[ "$TELEGRAM_ALLOWED_USERS" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
     log_err "Token wajib diisi dan allowlist harus berupa user ID numerik dipisahkan koma."
     exit 1

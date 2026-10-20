@@ -1,7 +1,7 @@
 # Panduan Membuat Agent (Bot Divisi) Baru di Hermes
 
-Untuk siapa pun yang mau menambah bot baru (mis. Bot Gudang, Bot Finance, Bot Outlet) di atas
-Hermes. Disusun dari pengalaman Bot CEO, Bot HRD, dan Bot Marcom/Suka-Chan (Okt 2026), termasuk
+Untuk siapa pun yang mau menambah bot baru (mis. Bot Gudang, Bot Finance, Bot Outlet, Bot Review) di atas
+Hermes. Disusun dari pengalaman Bot CEO, Bot HRD, Bot Manager, Bot Finance, dan Bot Marcom/Suka-Chan (Okt 2026), termasuk
 kesalahan yang sempat terjadi. Rincian VPS ada di `docs/RUNBOOK-HERMES-VPS.md`.
 
 ## 0. Gambaran besar
@@ -26,10 +26,10 @@ Pengguna ──► (widget di app | Telegram | Kantor Bot)
 
 | Pertanyaan | Contoh jawaban |
 |---|---|
-| Nama profil (huruf kecil, tanpa spasi) | `gudang` |
-| Siapa pengguna & dari mana mereka bertanya | Tim gudang, lewat widget di app Stok |
-| Data apa yang boleh dibaca | Stok gudang, surat jalan, PO masuk |
-| Data apa yang **dilarang** keluar | Harga beli per vendor? Nama kurir? Tulis eksplisit |
+| Nama profil (huruf kecil, tanpa spasi) | `finance`, `gudang`, `review` |
+| Siapa pengguna & dari mana mereka bertanya | Tim finance lewat Telegram / widget webapp |
+| Data apa yang boleh dibaca | Tagihan vendor, OPEX kas kecil, selisih kasir, setoran |
+| Data apa yang **dilarang** keluar | Password DB, token sistem, nominal gaji personal non-HR |
 | Data ada di mana | Supabase (kebanyakan) atau DB app sendiri (mis. Prisma marcom) |
 
 ## 2. Pilih pola sumber data
@@ -64,13 +64,10 @@ bawaan. Tambah env ke **stage runner** Dockerfile (§9).
 
 ## 4. Kunci & akses
 
-- **Pola A:** buat kunci di admin-dashboard **Sistem → Agents SS → Kunci Hermes**: pilih app (scope)
-  seperlunya saja, IP = `76.13.193.138` dan `2a02:4780:59:ce0d::1`. Kunci hanya tampil sekali.
-- **Pola B:** buat kunci sendiri dengan `openssl rand -hex 32` di VPS (PowerShell Windows tak
-  punya `openssl`).
-- **Jangan pernah menempel kunci ke chat/Telegram/screenshot.** Untuk memeriksa isi `.env`,
-  tampilkan nama variabelnya saja: `cut -d= -f1 ~/.hermes/profiles/<p>/.env`. Kalau sampai
-  tertempel, cabut & buat ulang kuncinya.
+- **Pola A (Otomatis via Wizard):** Saat menjalankan `yarn buat:bot` (atau `npm run buat:bot`), wizard akan otomatis membuatkan kunci aman (`hms_<prefix>_<secret>`), menghitung hash SHA-256, dan mendaftarkannya otomatis ke tabel `hermes_api_key` di Supabase dengan IP `76.13.193.138` dan `2a02:4780:59:ce0d::1`.
+- **Pola A (Manual via Dashboard):** Buat kunci di admin-dashboard **Sistem → Agents SS → Kunci Hermes**: pilih app (scope) seperlunya saja, IP = `76.13.193.138` dan `2a02:4780:59:ce0d::1`. Kunci hanya tampil sekali.
+- **Pola B:** Buat kunci sendiri dengan `openssl rand -hex 32` di VPS (PowerShell Windows tak punya `openssl`).
+- **Jangan pernah menempel kunci ke chat/Telegram/screenshot.** Untuk memeriksa isi `.env`, tampilkan nama variabelnya saja: `cut -d= -f1 ~/.hermes/profiles/<p>/.env`. Kalau sampai tertempel, cabut & buat ulang kuncinya.
 
 ## 5. Siapkan profil di VPS (sebagai `suka-hermes`)
 
@@ -81,14 +78,25 @@ Gunakan wizard otomatisasi yang telah disediakan:
    ```bash
    yarn buat:bot    # atau: npm run buat:bot
    ```
-   Wizard interaktif akan membuat template `docs/hermes/SOUL-<p>.md` dan template gerbang verifikasi. `API_SERVER_KEY` otoritatif dibuat sekali oleh skrip provisioning di VPS.
+   Wizard interaktif akan otomatis:
+   - Membuat template kepribadian `docs/hermes/SOUL-<p>.md`.
+   - Membuat template uji gerbang `supabase/verifikasi/hermes/gerbang-<p>.md`.
+   - Mendaftarkan Kunci MCP resmi ke Supabase (`hermes_api_key`).
+   - Mendaftarkan Webhook Telegram (`setWebhook`) & menu perintah (`setMyCommands`) ke Telegram API.
+   - Memberikan 1-baris perintah eksekusi yang aman untuk VPS.
 
 2. **Di VPS (user `suka-hermes`):**
-   Cukup jalankan satu perintah:
+   SSH ke VPS (`ssh suka-hermes@76.13.193.138`) lalu jalankan perintah yang diunduh langsung via curl (tidak butuh git clone di VPS):
    ```bash
-   ./scripts/hermes/provision-bot.sh --name <p> --mcp-key "<kunci-bot-ini>"
+   curl -fsSL https://raw.githubusercontent.com/dev-sukashawarma/DIGITALISASI-SS-PROJECT/main/scripts/hermes/provision-bot.sh -o ~/provision-bot.sh && chmod +x ~/provision-bot.sh
+   ~/provision-bot.sh --name <p> --mcp-key "<kunci-bot-ini>"
+   ```
+   Bila profil bot menggunakan Telegram, sertakan parameter non-interaktif:
+   ```bash
+   ~/provision-bot.sh --name <p> --mcp-key "<kunci-bot-ini>" --telegram-token "<token-bot>" --telegram-users "<id_telegram_pemilik>"
    ```
    Skrip otomatis:
+   - Mengunduh `provision-bot.sh` ke home directory VPS (anti-galat "No such file or directory").
    - Membuat direktori profil terisolasi tanpa mewariskan kunci CEO.
    - Mengisi `.env` dengan `API_SERVER_KEY` acak baru & izin ketat `chmod 600`.
    - Mengonfigurasi `config.yaml` dengan MCP server dan model teruji.
@@ -183,17 +191,11 @@ Baris pertama boleh komentar `<!-- … -->` (dibuang saat sinkron).
 **Kantor Bot (`agents.sukashawarma.com`):** tambah pasangan `{"<p>":"<API_SERVER_KEY>"}` ke env
 `HERMES_KEYS` app `bot`, restart.
 
-**Telegram:** butuh bot token tersendiri di `.env` profil; kunci toolset platform `telegram`
-sebelum pesan pertama. Untuk setup Telegram, tambahkan `--telegram`. Skrip meminta token secara
-tersembunyi dan user ID numerik yang diizinkan, lalu menyimpannya sebagai `TELEGRAM_BOT_TOKEN`
-dan `TELEGRAM_ALLOWED_USERS` dalam `.env` profil dengan izin `600`. Jangan masukkan token sebagai
-argumen shell.
-
-Setelah profil bot terpasang, daftarkan nama profilnya di Admin Dashboard → Sistem →
-Agents SS → Akses Bot Telegram. Owner/admin memilih bot lalu staf yang boleh memakainya.
-Sinkronisasi `TELEGRAM_ALLOWED_USERS` dari Agents SS berjalan otomatis melalui timer
-systemd user. Ikuti bagian *Sinkronisasi akses Telegram* di `docs/RUNBOOK-HERMES-VPS.md`
-untuk memasang service VPS dan mengisi rahasia bersama di Coolify serta VPS.
+**Telegram:**
+- Wizard `yarn buat:bot` secara otomatis mendaftarkan webhook (`setWebhook`) dan slash commands (`setMyCommands`) jika token dimasukkan.
+- Simpan `TELEGRAM_<NAMA>_BOT_TOKEN` di environment Coolify app `bot`.
+- Setelah profil bot terpasang di VPS, daftarkan nama profilnya di Admin Dashboard → Sistem → Agents SS → Akses Bot Telegram (`https://admin.sukashawarma.com/dashboard/sistem/bot-telegram`).
+- Owner/admin dapat membagikan link aktivasi mandiri (`/start inv_...`) atau menambahkan ID staf yang diizinkan. Sinkronisasi `TELEGRAM_ALLOWED_USERS` berjalan otomatis via timer systemd.
 
 ## 8. Uji gerbang (sebelum diumumkan)
 
@@ -220,6 +222,7 @@ Buat `supabase/verifikasi/hermes/gerbang-<p>.md`:
 
 | Gejala | Penyebab paling mungkin |
 |---|---|
+| VPS: `-bash: ./scripts/hermes/provision-bot.sh: No such file or directory` | Di VPS `/home/suka-hermes` tidak ada git clone. Gunakan perintah unduh `curl -fsSL https://raw.githubusercontent.com/... -o ~/provision-bot.sh && chmod +x ~/provision-bot.sh` lalu jalankan `~/provision-bot.sh`. |
 | Widget: "tidak dapat terhubung ke server Hermes" | Container tak menjangkau `10.0.1.1:8643`, atau `HERMES_API_URL` salah tulis, atau jawaban >60 dtk |
 | Widget: "kesalahan koneksi internal" tepat setelah redeploy | Tab lama memegang ID server action lama → hard refresh |
 | Widget: "belum dikonfigurasi" | `HERMES_API_URL`/`HERMES_API_KEY` kosong di runtime (Coolify / stage runner) |

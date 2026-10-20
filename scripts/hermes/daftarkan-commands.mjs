@@ -66,6 +66,25 @@ const COMMANDS_MAP = {
     { command: 'new', description: 'Mulai sesi percakapan baru' },
     { command: 'id', description: 'Lihat ID & info akun Telegram Anda' },
   ],
+  review: [
+    { command: 'start', description: 'Mulai bot & aktivasi akun SukaReview' },
+    { command: 'help', description: 'Panduan & 6 trigger alert ulasan pelanggan' },
+    { command: 'rating', description: 'Leaderboard & skor rating Google cabang' },
+    { command: 'negatif', description: 'Ulasan negatif bintang 1-2 & keluhan kritis' },
+    { command: 'alert', description: 'Status peringatan aktif lonjakan komplain' },
+    { command: 'rekap', description: 'Rekapitulasi sentimen ulasan & topik keluhan' },
+    { command: 'new', description: 'Mulai sesi percakapan baru' },
+    { command: 'id', description: 'Lihat ID & info akun Telegram Anda' },
+  ],
+  gudang: [
+    { command: 'start', description: 'Mulai bot & aktivasi akun logistik gudang' },
+    { command: 'help', description: 'Panduan & monitoring logistik gudang' },
+    { command: 'stok', description: 'Stok bahan baku kritis & batas aman' },
+    { command: 'po', description: 'Status Purchase Order & pengiriman vendor' },
+    { command: 'suratjalan', description: 'Status surat jalan & distribusi cabang' },
+    { command: 'new', description: 'Mulai sesi percakapan baru' },
+    { command: 'id', description: 'Lihat ID & info akun Telegram Anda' },
+  ],
 }
 
 function tanya(rl, pertanyaan) {
@@ -118,11 +137,14 @@ async function main() {
   }
 
   if (!process.argv.includes('--bot')) {
-    const pilihanBot = await tanya(rl, '👉 Pilih profil bot (1: CEO / J.A.R.V.I.S., 2: Manager, 3: HRD, 4: Stokis) [default: 1]: ')
+    const pilihanBot = await tanya(rl, '👉 Pilih profil bot (1: CEO, 2: Manager, 3: HRD, 4: Stokis, 5: Finance, 6: Review, 7: Gudang) [default: 1]: ')
     if (pilihanBot === '1' || pilihanBot.toLowerCase() === 'ceo') botType = 'ceo'
+    else if (pilihanBot === '2' || pilihanBot.toLowerCase() === 'manager') botType = 'manager'
     else if (pilihanBot === '3' || pilihanBot.toLowerCase() === 'hrd') botType = 'hrd'
     else if (pilihanBot === '4' || pilihanBot.toLowerCase() === 'stokis') botType = 'stokis'
-    else if (pilihanBot === '2' || pilihanBot.toLowerCase() === 'manager') botType = 'manager'
+    else if (pilihanBot === '5' || pilihanBot.toLowerCase() === 'finance') botType = 'finance'
+    else if (pilihanBot === '6' || pilihanBot.toLowerCase() === 'review') botType = 'review'
+    else if (pilihanBot === '7' || pilihanBot.toLowerCase() === 'gudang') botType = 'gudang'
     else if (pilihanBot === '') botType = 'ceo'
   }
   rl.close()

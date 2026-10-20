@@ -27,12 +27,19 @@ export async function stafBolehPakaiBotApaPun(staffId: string): Promise<boolean>
   return !!access?.length || !!stokis?.length
 }
 
-export function urlAplikasiDiizinkan(value: unknown, app: 'stok' | 'distribusi' | 'manager' | 'hr'): string | null {
+export function urlAplikasiDiizinkan(
+  value: unknown,
+  app: 'stok' | 'distribusi' | 'manager' | 'hr' | 'ceo' | 'admin' | 'finance'
+): string | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value !== 'string' || value.length > 500) return null
   try {
     const url = new URL(value)
     if (url.protocol !== 'https:' || url.username || url.password) return null
+    if (app === 'ceo') {
+      if (url.hostname !== 'agents.sukashawarma.com' && url.hostname !== 'admin.sukashawarma.com') return null
+      return url.toString()
+    }
     if (url.hostname !== `${app}.sukashawarma.com`) return null
     return url.toString()
   } catch {
@@ -44,12 +51,16 @@ export async function kirimPesanTelegram(
   chatId: string,
   text: string,
   url?: string,
-  profil: 'stokis' | 'hrd' | 'manager' = 'stokis'
+  profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' = 'stokis'
 ) {
   const token = profil === 'hrd'
     ? process.env.TELEGRAM_HRD_BOT_TOKEN
     : profil === 'manager'
     ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
+    : profil === 'ceo'
+    ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    : profil === 'finance'
+    ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : process.env.TELEGRAM_STOKIST_BOT_TOKEN
   if (!token) throw new Error(`Token bot ${profil} belum dikonfigurasi.`)
   const message = `${text}${url ? `\n\n${url}` : ''}`
@@ -79,12 +90,16 @@ export async function kirimPesanTelegram(
 export async function kirimAksiChatTelegram(
   chatId: string,
   action: 'typing' | 'upload_photo' | 'record_video' | 'choose_sticker' = 'typing',
-  profil: 'stokis' | 'hrd' | 'manager' = 'stokis'
+  profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' = 'stokis'
 ) {
   const token = profil === 'hrd'
     ? process.env.TELEGRAM_HRD_BOT_TOKEN
     : profil === 'manager'
     ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
+    : profil === 'ceo'
+    ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    : profil === 'finance'
+    ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : process.env.TELEGRAM_STOKIST_BOT_TOKEN
   if (!token) return
   try {

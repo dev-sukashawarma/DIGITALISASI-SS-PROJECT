@@ -230,23 +230,76 @@ export async function ubahStatusInviteCode(id: string, isActive: boolean) {
   return { ok: true }
 }
 
-export async function daftarkanCommandBotTelegram(botToken: string) {
+export async function daftarkanCommandBotTelegram(botToken: string, botSlug = 'manager') {
   await requireRole(['owner', 'admin'])
   const token = botToken.trim()
   if (!/^\d{8,12}:[A-Za-z0-9_-]{30,50}$/.test(token)) {
     return { error: 'Format token bot Telegram tidak valid. Contoh: 123456789:AAFnk...' }
   }
-  const commands = [
-    { command: 'start', description: 'Mulai bot & aktivasi akun' },
-    { command: 'help', description: 'Panduan & 10 trigger alert operasional' },
-    { command: 'omzet', description: 'Cek omzet & ranking cabang hari ini' },
-    { command: 'buka', description: 'Cek cabang buka & belum transaksi' },
-    { command: 'absen', description: 'Presensi & kedisiplinan kru outlet' },
-    { command: 'stok', description: 'Status stok opname & bahan baku' },
-    { command: 'sidak', description: 'Kepatuhan ceklist & audit cabang' },
-    { command: 'new', description: 'Mulai sesi percakapan baru' },
-    { command: 'id', description: 'Lihat info akun Telegram Anda' },
-  ]
+
+  const slug = botSlug.trim().toLowerCase()
+  let commands: Array<{ command: string; description: string }>
+
+  if (slug === 'ceo') {
+    commands = [
+      { command: 'start', description: 'Mulai bot & aktivasi akun eksekutif' },
+      { command: 'help', description: 'Panduan & ringkasan komando eksekutif' },
+      { command: 'omzet', description: 'Omzet & ranking cabang hari ini' },
+      { command: 'kemarin', description: 'Evaluasi & ranking cabang kemarin' },
+      { command: 'buka', description: 'Cek cabang buka & belum transaksi' },
+      { command: 'absensi', description: 'Presensi kru & staf operasional' },
+      { command: 'stok', description: 'Status stok gudang pusat & outlet' },
+      { command: 'finance', description: 'Rekonsiliasi kas & arus keuangan' },
+      { command: 'status', description: 'Executive daily briefing & sistem' },
+      { command: 'new', description: 'Mulai sesi percakapan baru' },
+      { command: 'id', description: 'Lihat info akun Telegram Anda' },
+    ]
+  } else if (slug === 'hrd') {
+    commands = [
+      { command: 'start', description: 'Mulai bot & aktivasi akun' },
+      { command: 'help', description: 'Panduan & alert SDM / HRD' },
+      { command: 'absen', description: 'Presensi & keterlambatan hari ini' },
+      { command: 'cuti', description: 'Pengajuan cuti & perizinan staf' },
+      { command: 'kasbon', description: 'Monitoring kasbon aktif per cabang' },
+      { command: 'new', description: 'Mulai sesi percakapan baru' },
+      { command: 'id', description: 'Lihat info akun Telegram Anda' },
+    ]
+  } else if (slug === 'stokis') {
+    commands = [
+      { command: 'start', description: 'Mulai bot & aktivasi akun' },
+      { command: 'help', description: 'Panduan & alert stok & distribusi' },
+      { command: 'stok', description: 'Saldo stok bahan gudang & cabang' },
+      { command: 'opname', description: 'Status kepatuhan stok opname' },
+      { command: 'suratjalan', description: 'Status pengiriman logistik cabang' },
+      { command: 'new', description: 'Mulai sesi percakapan baru' },
+      { command: 'id', description: 'Lihat info akun Telegram Anda' },
+    ]
+  } else if (slug === 'finance') {
+    commands = [
+      { command: 'start', description: 'Mulai bot & aktivasi akun finance' },
+      { command: 'help', description: 'Panduan & ringkasan operasional finance' },
+      { command: 'utang', description: 'Tagihan & utang PO supplier jatuh tempo' },
+      { command: 'pengeluaran', description: 'Pengeluaran kas kecil & operasional' },
+      { command: 'setoran', description: 'Status pencatatan setoran kas cabang' },
+      { command: 'selisih', description: 'Rekap selisih kasir tutup shift POS' },
+      { command: 'new', description: 'Mulai sesi percakapan baru' },
+      { command: 'id', description: 'Lihat info akun Telegram Anda' },
+    ]
+  } else {
+    // Default Manager
+    commands = [
+      { command: 'start', description: 'Mulai bot & aktivasi akun' },
+      { command: 'help', description: 'Panduan & 10 trigger alert operasional' },
+      { command: 'omzet', description: 'Cek omzet & ranking cabang hari ini' },
+      { command: 'buka', description: 'Cek cabang buka & belum transaksi' },
+      { command: 'absen', description: 'Presensi & kedisiplinan kru outlet' },
+      { command: 'stok', description: 'Status stok opname & bahan baku' },
+      { command: 'sidak', description: 'Kepatuhan ceklist & audit cabang' },
+      { command: 'new', description: 'Mulai sesi percakapan baru' },
+      { command: 'id', description: 'Lihat info akun Telegram Anda' },
+    ]
+  }
+
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
       method: 'POST',
@@ -257,7 +310,7 @@ export async function daftarkanCommandBotTelegram(botToken: string) {
     if (!json.ok) {
       return { error: `Telegram Bot API: ${json.description || 'Gagal mendaftarkan menu commands'}` }
     }
-    return { ok: true }
+    return { ok: true, commands }
   } catch (err: unknown) {
     return { error: `Jaringan error: ${err instanceof Error ? err.message : 'Unknown'}` }
   }

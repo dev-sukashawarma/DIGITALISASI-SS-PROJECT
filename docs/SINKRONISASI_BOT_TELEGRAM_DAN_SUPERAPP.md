@@ -139,9 +139,11 @@ Jika trigger baru memiliki kata kunci khusus untuk **Tombol Tindak Lanjut 1-Klik
 |---|---|---|
 | **Dispatcher Push HP & Telegram** | `supabase/migrations/20300254003900_bot_hp_push_notifications.sql` & `20300254004300_hrd_leave_and_cash_advance_alerts.sql` | Fungsi `bot_manager_antrekan`, `bot_hrd_antrekan`, `bot_kirim_push_hp` |
 | **Katalog Trigger Terpusat** | `supabase/migrations/20300254004200_bot_trigger_catalog_sync.sql` & `20300254004300_hrd_leave_and_cash_advance_alerts.sql` | Tabel `public.bot_trigger_catalog` (dibaca oleh Android & Telegram) |
-| **Webhook & `/help` Telegram** | `apps/bot/src/app/api/telegram/manager/webhook/route.ts` | Membaca `bot_trigger_catalog` + fallback AI Router (`tanyaAiRouter` + `ambilTelemetriNyata`) |
+| **Webhook & `/help` Telegram Manager** | `apps/bot/src/app/api/telegram/manager/webhook/route.ts` | Membaca `bot_trigger_catalog` + fallback AI Router (`tanyaAiRouter` + `ambilTelemetriNyata`) |
+| **Webhook & `/help` Telegram CEO** | `apps/bot/src/app/api/telegram/ceo/webhook/route.ts` | Webhook Bot CEO (J.A.R.V.I.S.) + fallback AI Router multi-model & telemetri |
 | **Endpoint Kirim Telegram Manager** | `apps/bot/src/app/api/telegram/manager/send/route.ts` | Mengirim outbox Manager ke Telegram & normalisasi action URL |
 | **Endpoint Kirim Telegram HRD** | `apps/bot/src/app/api/telegram/hrd/send/route.ts` | Mengirim outbox HRD (cuti, kasbon, telat, rekap) ke Telegram & inline button action URL |
+| **Endpoint Kirim Telegram CEO** | `apps/bot/src/app/api/telegram/ceo/send/route.ts` | Mengirim alert/briefing eksekutif CEO ke Telegram Owner/Admin |
 | **Repository Android Bot** | `SS SUPERAPP/SUPER-APPS-SS-MOBILE/feature/bot/.../data/BotRepository.kt` | `muatKatalogTrigger()`, `muatNotifikasiHpSaya()`, cache riwayat chat & telemetri |
 | **ViewModel Android Bot** | `SS SUPERAPP/SUPER-APPS-SS-MOBILE/feature/bot/.../ui/BotViewModel.kt` | Menggabungkan notifikasi ke riwayat Chat Copilot & menyegarkan katalog trigger dari DB |
 | **UI Chat Copilot & Warna Alert** | `SS SUPERAPP/SUPER-APPS-SS-MOBILE/feature/bot/.../ui/BotHubScreen.kt` | Warna kartu notifikasi (Merah/Oranye/Hijau) + Tombol Tindak Lanjut 1-Klik |

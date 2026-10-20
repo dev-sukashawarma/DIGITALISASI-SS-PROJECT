@@ -11,7 +11,8 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "buat:bot": "node ../../scripts/hermes/buat-bot.mjs",
-    "setup:bot:manager": "node ../../scripts/hermes/setup-bot-manager.mjs"
+    "setup:bot:manager": "node ../../scripts/hermes/setup-bot-manager.mjs",
+    "setup:bot:finance": "node ../../scripts/hermes/setup-bot-finance.mjs"
   },
   "dependencies": {
     "@suka/auth": "*",

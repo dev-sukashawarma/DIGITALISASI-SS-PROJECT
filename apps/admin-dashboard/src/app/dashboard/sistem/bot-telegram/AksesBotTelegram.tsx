@@ -241,9 +241,10 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
     setError(null)
     setSuccessMsg(null)
     try {
-      const res = await daftarkanCommandBotTelegram(tokenCommandsInput)
+      const res = await daftarkanCommandBotTelegram(tokenCommandsInput, selectedBot)
       if (res.error) throw new Error(res.error)
-      setSuccessMsg('✅ Menu slash commands (/start, /help, /omzet, /buka, /absen, /stok, /sidak, /new, /id) berhasil didaftarkan ke Telegram!')
+      const ringkasan = res.commands ? res.commands.map(c => `/${c.command}`).join(', ') : 'Menu slash commands'
+      setSuccessMsg(`✅ ${ringkasan} berhasil didaftarkan ke Telegram untuk ${currentBot?.nama || selectedBot}!`)
       setShowSyncCommands(false)
       setTokenCommandsInput('')
     } catch (cause) {
@@ -420,19 +421,32 @@ export default function AksesBotTelegram({ initialBots, initialStaff, initialAcc
                   Kirim <code className="bg-gray-100 px-1 rounded">/setcommands</code> ke <b>@BotFather</b>, pilih bot Anda, lalu salin teks ini:
                 </p>
                 <div className="mt-2">
-                  <pre className="rounded bg-gray-50 p-2 text-[11px] text-gray-700 overflow-x-auto select-all">
-{`start - Mulai bot & aktivasi akun
-help - Panduan & 10 trigger alert operasional
-new - Mulai percakapan / sesi baru
-id - Cek info User ID & Chat ID Anda`}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={() => salinTeks(`start - Mulai bot & aktivasi akun\nhelp - Panduan & 10 trigger alert operasional\nnew - Mulai percakapan / sesi baru\nid - Cek info User ID & Chat ID Anda`, 'botfather_cmds')}
-                    className="mt-1 text-xs font-medium text-blue-600 hover:underline"
-                  >
-                    {copiedCode === 'botfather_cmds' ? '✅ Tersalin!' : '📋 Salin Teks Perintah'}
-                  </button>
+                  {(() => {
+                    const teksPerintah = selectedBot === 'ceo'
+                      ? `start - Mulai bot & aktivasi akun eksekutif\nhelp - Panduan & ringkasan komando eksekutif\nomzet - Omzet & ranking cabang hari ini\nkemarin - Evaluasi & ranking cabang kemarin\nbuka - Cek cabang buka & belum transaksi\nabsensi - Presensi kru & staf operasional\nstok - Status stok gudang pusat & outlet\nfinance - Rekonsiliasi kas & arus keuangan\nstatus - Executive daily briefing & sistem\nnew - Mulai percakapan / sesi baru\nid - Cek info User ID & Chat ID Anda`
+                      : selectedBot === 'hrd'
+                      ? `start - Mulai bot & aktivasi akun\nhelp - Panduan & alert SDM / HRD\nabsen - Presensi & keterlambatan hari ini\ncuti - Pengajuan cuti & perizinan staf\nkasbon - Monitoring kasbon aktif per cabang\nnew - Mulai percakapan / sesi baru\nid - Cek info User ID & Chat ID Anda`
+                      : selectedBot === 'stokis'
+                      ? `start - Mulai bot & aktivasi akun\nhelp - Panduan & alert stok & distribusi\nstok - Saldo stok bahan gudang & cabang\nopname - Status kepatuhan stok opname\nsuratjalan - Status pengiriman logistik cabang\nnew - Mulai percakapan / sesi baru\nid - Cek info User ID & Chat ID Anda`
+                      : selectedBot === 'finance'
+                      ? `start - Mulai bot & aktivasi akun finance\nhelp - Panduan & ringkasan operasional keuangan\nutang - Tagihan & utang PO supplier jatuh tempo\npengeluaran - Pengeluaran kas kecil & operasional\nsetoran - Status pencatatan setoran kas cabang\nselisih - Rekap selisih kasir tutup shift POS\nnew - Mulai percakapan / sesi baru\nid - Cek info User ID & Chat ID Anda`
+                      : `start - Mulai bot & aktivasi akun\nhelp - Panduan & 10 trigger alert operasional\nomzet - Cek omzet & ranking cabang hari ini\nbuka - Cek cabang buka & belum transaksi\nabsen - Presensi & kedisiplinan kru outlet\nstok - Status stok opname & bahan baku\nsidak - Kepatuhan ceklist & audit cabang\nnew - Mulai percakapan / sesi baru\nid - Cek info User ID & Chat ID Anda`
+
+                    return (
+                      <>
+                        <pre className="rounded bg-gray-50 p-2 text-[11px] text-gray-700 overflow-x-auto select-all whitespace-pre">
+                          {teksPerintah}
+                        </pre>
+                        <button
+                          type="button"
+                          onClick={() => salinTeks(teksPerintah, 'botfather_cmds')}
+                          className="mt-1 text-xs font-medium text-blue-600 hover:underline"
+                        >
+                          {copiedCode === 'botfather_cmds' ? '✅ Tersalin!' : '📋 Salin Teks Perintah'}
+                        </button>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
             </div>

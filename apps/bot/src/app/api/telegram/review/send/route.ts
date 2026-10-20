@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   const rawUrl = input?.url === 'review' || input?.url === 'sukareview'
-    ? 'https://review.sukashawarma.com'
+    ? 'https://suka.pantaureview.com'
     : input?.url === 'agents' || input?.url === 'bot'
     ? 'https://agents.sukashawarma.com'
     : input?.url

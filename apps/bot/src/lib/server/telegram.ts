@@ -41,7 +41,12 @@ export function urlAplikasiDiizinkan(
       return url.toString()
     }
     if (app === 'review') {
-      if (url.hostname !== 'review.sukashawarma.com' && url.hostname !== 'sukareview.sukashawarma.com' && url.hostname !== 'agents.sukashawarma.com') return null
+      if (
+        url.hostname !== 'review.sukashawarma.com' &&
+        url.hostname !== 'sukareview.sukashawarma.com' &&
+        url.hostname !== 'agents.sukashawarma.com' &&
+        url.hostname !== 'suka.pantaureview.com'
+      ) return null
       return url.toString()
     }
     if (url.hostname !== `${app}.sukashawarma.com`) return null

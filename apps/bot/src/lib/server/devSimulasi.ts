@@ -610,15 +610,28 @@ export function buatJawabanDev(
     if (p.includes('setoran')) {
       const setoran = t?.finance?.setoranKas
       if (setoran) {
+        const inputHariIni = setoran.inputHariIni
+        const shiftKemarin = setoran.tutupShiftKemarin
         const listSet = setoran.daftarSetoranTerbaru.slice(0, 5).map((s, i) =>
           `${i + 1}. **${s.outlet}**: **${formatRupiah(s.nominal)}** (Tgl Jual: ${s.tanggalJual}, Status: \`${s.status}\`)`
         ).join('\n')
+
+        const infoInputHariIni = inputHariIni && inputHariIni.jumlahTransaksi > 0
+          ? `\n\n- **Setoran Di-input Hari Ini (${t?.tanggalWIB || 'Hari Ini'})**: **${formatRupiah(inputHariIni.totalNominal)}** (${inputHariIni.jumlahTransaksi} setoran diverifikasi)`
+          : ''
+
+        const infoShiftKemarin = shiftKemarin && shiftKemarin.jumlahOutletClosed > 0
+          ? `\n- **Kas Fisik Tutup Shift Kemarin**: **${formatRupiah(shiftKemarin.totalFisikKas)}** (${shiftKemarin.jumlahOutletClosed} outlet closed, ${shiftKemarin.sudahDirekap} sudah masuk bank pusat)`
+          : ''
+
         return [
           `${salamAwal} Berikut status pencatatan setoran kas outlet terbaru:\n\n`,
           '> **SETORAN KAS OUTLET**: Rekonsiliasi setoran bank cabang tercatat di sistem Finance.\n\n',
           '### 📥 Setoran Kas Terbaru\n',
           listSet || '(Belum ada setoran tercatat)',
-          `\n\n*Catatan: Data di atas adalah setoran yang sudah diinput/diverifikasi ke dalam sistem Finance.*\n\n`,
+          infoInputHariIni,
+          infoShiftKemarin,
+          `\n\n*Catatan: Cabang beroperasi sampai malam (cut-off 22:00 WIB), setoran penjualan hari ini secara normal disetor H+1.*\n\n`,
           `Ada cabang yang ingin Anda verifikasi setorannya, ${sebutan}?`,
         ]
       }

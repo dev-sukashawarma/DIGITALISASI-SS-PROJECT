@@ -166,6 +166,13 @@ export async function* tanyaAiRouter(o: {
         )
         .join('\n')
 
+      const inputHariIni = f.setoranKas?.inputHariIni
+      const shiftKemarin = f.setoranKas?.tutupShiftKemarin
+
+      const listPerTglJual = inputHariIni?.rekapPerTanggalJual?.map(
+        r => `    * Penjualan ${r.tanggalJual}: ${formatRupiah(r.totalNominal)} (${r.jumlah} transaksi)`
+      ).join('\n') || '    (Belum ada transaksi diinput hari ini)'
+
       teksFinance = `
 DATA KEUANGAN, BIAYA, OPEX, & REKONSILIASI KAS (FINANCE):
 - Total Pengeluaran / OPEX Hari Ini (${t.tanggalWIB}): ${formatRupiah(f.pengeluaranHariIni?.totalNominal || 0)} (${f.pengeluaranHariIni?.jumlahTransaksi || 0} transaksi kas kecil/operasional)
@@ -183,8 +190,15 @@ ${listSupplier || '  (Tidak ada utang supplier)'}
   * Rincian PO Jatuh Tempo Terdekat:
 ${listPo || '  (Tidak ada PO aktif)'}
 
-- Pencatatan Setoran Kas Outlet Terbaru:
-${listSetoran || '(Belum ada setoran dicatat)'}
+- Rekapitulasi Setoran Kas & Rekonsiliasi Bank:
+  * Setoran Di-input / Direkap Finance Hari Ini (${t.tanggalWIB}): ${formatRupiah(inputHariIni?.totalNominal || 0)} (${inputHariIni?.jumlahTransaksi || 0} setoran bank tercatat)
+    Rincian tanggal penjualan yang dicakup:
+${listPerTglJual}
+  * Kas Fisik Tutup Shift POS Kemarin (${k?.tanggalLabel || 'Kemarin'}): Total Kas Fisik ${formatRupiah(shiftKemarin?.totalFisikKas || 0)} (${shiftKemarin?.jumlahOutletClosed || 0} cabang closed shift).
+    Status rekonsiliasi: ${shiftKemarin?.sudahDirekap || 0} cabang sudah direkap ke bank pusat, ${shiftKemarin?.belumDirekap || 0} cabang dalam proses verifikasi mutasi bank.
+  * Status Setoran Penjualan Hari Ini (${t.tanggalWIB}): Seluruh cabang masih beroperasi (closing shift malam nanti cut-off 22:00-23:00 WIB). Setoran penjualan hari ini secara normal baru disetor H+1.
+  * Transaksi Setoran Bank Terbaru di Sistem:
+${listSetoran || '    (Belum ada setoran dicatat)'}
 
 - Rekap Audit Selisih Kasir Tutup Shift POS Terbaru:
 ${listSelisih || '(Nol / Selisih kasir klop)'}
@@ -277,7 +291,7 @@ Anda adalah Bot Finance Suka Shawarma, asisten AI operasional divisi Keuangan & 
 Tugas Anda mendampingi tim finance dan manajemen operasional dalam membaca serta menganalisis data keuangan:
 1. Utang Supplier & PO: PO yang barangnya sudah diterima dan belum lunas (nilai terima), monitoring jatuh tempo, dan rincian per supplier. Komitmen (PO belum diterima) dilaporkan terpisah.
 2. Pengeluaran Operasional: Biaya operasional bulanan dan kas kecil (petty cash), memisahkan dengan tegas antara beban Outlet dan beban Pusat, serta per kategori beban.
-3. Setoran Kas Outlet: Setoran kas cabang yang sudah dicatat di sistem app Finance. Jika data kosong, jelaskan bahwa belum ada setoran yang dicatat di sistem untuk periode tersebut (bukan berarti outlet belum setor).
+3. Setoran Kas Outlet: Bedakan secara tegas antara Tanggal Penjualan yang disetor (sales_date) vs Tanggal Input/Rekap Bank oleh Admin (occurred_at). Jika ada puluhan setoran yang diinput hari ini, sebutkan bahwa admin sudah merekap setoran tersebut di sistem. Jangan pernah menuduh "admin belum rekap" bila setoran hari ini belum ada, karena closing shift cabang berlangsung malam hari (H+1).
 4. Selisih Kasir: Selisih uang fisik vs nilai seharusnya saat tutup shift kasir POS (angka negatif = tekor/kurang, angka positif = lebih), serta shift belum tutup.
 
 ATURAN MUTLAK DATA & INTEGRITAS:

@@ -134,6 +134,17 @@ export interface FinanceTelemetri {
   }
   setoranKas: {
     daftarSetoranTerbaru: FinanceSetoran[]
+    inputHariIni?: {
+      totalNominal: number
+      jumlahTransaksi: number
+      rekapPerTanggalJual: Array<{ tanggalJual: string; totalNominal: number; jumlah: number }>
+    }
+    tutupShiftKemarin?: {
+      totalFisikKas: number
+      jumlahOutletClosed: number
+      sudahDirekap: number
+      belumDirekap: number
+    }
   }
   selisihKasir: {
     daftarSelisihTerbaru: FinanceSelisihKasir[]
@@ -337,6 +348,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       resSetoran,
       resSelisih,
       resReviews,
+      resShiftsKemarin,
     ] = await Promise.all([
       fetchAllRows(sb, 'orders', (q) =>
         q
@@ -458,11 +470,11 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('cash_transaction')
-        .select('id, amount, category, occurred_at, sales_date, status, outlets(name)')
+        .select('id, outlet_id, amount, category, occurred_at, sales_date, status, outlets(name)')
         .eq('source_type', 'cash_deposit')
         .in('status', ['reconciled', 'paid', 'approved', 'pending_approval'])
         .order('occurred_at', { ascending: false })
-        .limit(10)
+        .limit(100)
         .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('shifts')
@@ -477,6 +489,14 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .select('id, rating, comment, reviewer_name, google_created_at, outlets(name)')
         .order('google_created_at', { ascending: false })
         .limit(30)
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
+        .from('shifts')
+        .select('id, outlet_id, status, actual_ending_cash, expected_ending_cash, variance, outlets(name)')
+        .gte('start_time', startKemarin)
+        .lt('start_time', endKemarin)
+        .eq('status', 'closed')
+        .limit(100)
         .then((r: any) => r, () => ({ data: [] })),
     ])
 
@@ -816,6 +836,35 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       tanggal: s.start_time || '',
     }))
 
+    const setoranHariIniInput = rawSetoran.filter((s: any) => {
+      if (!s.occurred_at) return false
+      const wibDate = new Date(Date.parse(s.occurred_at) + 7 * 3600000).toISOString().slice(0, 10)
+      return wibDate === tglStr
+    })
+    const totalSetoranInputHariIni = setoranHariIniInput.reduce((sum: number, s: any) => sum + (Number(s.amount) || 0), 0)
+
+    const rekapMap = new Map<string, { totalNominal: number; jumlah: number }>()
+    for (const s of setoranHariIniInput) {
+      const tj = s.sales_date ? String(s.sales_date).slice(0, 10) : 'Tanpa Tgl'
+      const ex = rekapMap.get(tj) || { totalNominal: 0, jumlah: 0 }
+      ex.totalNominal += Number(s.amount) || 0
+      ex.jumlah += 1
+      rekapMap.set(tj, ex)
+    }
+    const rekapPerTanggalJual = Array.from(rekapMap.entries())
+      .map(([tanggalJual, val]) => ({ tanggalJual, totalNominal: val.totalNominal, jumlah: val.jumlah }))
+      .sort((a, b) => b.tanggalJual.localeCompare(a.tanggalJual))
+
+    const rawShiftsKemarin = (resShiftsKemarin?.data || []) as any[]
+    const totalFisikKasKemarin = rawShiftsKemarin.reduce((sum: number, sh: any) => sum + (Number(sh.actual_ending_cash) || 0), 0)
+    const outletSetorKemarin = new Set(rawSetoran.filter((s: any) => String(s.sales_date).slice(0, 10) === tglKemarinStr).map((s: any) => s.outlet_id))
+    let sudahDirekapKemarin = 0
+    let belumDirekapKemarin = 0
+    for (const sh of rawShiftsKemarin) {
+      if (outletSetorKemarin.has(sh.outlet_id)) sudahDirekapKemarin++
+      else belumDirekapKemarin++
+    }
+
     const finance: FinanceTelemetri = {
       pengeluaranHariIni: {
         totalNominal: totalNominalHariIni,
@@ -835,6 +884,17 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       },
       setoranKas: {
         daftarSetoranTerbaru,
+        inputHariIni: {
+          totalNominal: totalSetoranInputHariIni,
+          jumlahTransaksi: setoranHariIniInput.length,
+          rekapPerTanggalJual,
+        },
+        tutupShiftKemarin: {
+          totalFisikKas: totalFisikKasKemarin,
+          jumlahOutletClosed: rawShiftsKemarin.length,
+          sudahDirekap: sudahDirekapKemarin,
+          belumDirekap: belumDirekapKemarin,
+        },
       },
       selisihKasir: {
         daftarSelisihTerbaru,

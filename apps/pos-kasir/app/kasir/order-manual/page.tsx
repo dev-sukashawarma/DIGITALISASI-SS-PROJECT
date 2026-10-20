@@ -23,6 +23,7 @@ import { fetchWithTimeout } from '@/lib/offline-utils'
 import { createLocalOrder, estimateOrderNumber, isNetworkError, type OfflineIngestPayload } from '@/lib/offline'
 import { QRCodeSVG } from 'qrcode.react'
 import { useDialogStore } from '@/lib/dialogStore'
+import { missingPackageChoices, packageChoiceGroups } from '@/lib/packageChoices'
 
 type Mode = 'walkin' | 'online' | 'endorse' | 'website'
 
@@ -520,7 +521,9 @@ export default function OrderManualPage() {
     const cat = categories.find(c => c.id === it.category_id)
     const catName = (cat?.name || '').toLowerCase()
 
-    if (catName.includes('drink') || catName.includes('minuman') || catName.includes('topping')) {
+    // Paket ber-pilihan selalu lewat modal supaya kasir memilih isinya.
+    const isDirectAdd = catName.includes('drink') || catName.includes('minuman') || catName.includes('topping')
+    if (isDirectAdd && packageChoiceGroups(it).length === 0) {
       addItem(it, 1, '')
       return
     }
@@ -529,6 +532,7 @@ export default function OrderManualPage() {
     setSelectedMenuQty(1)
     setSelectedMenuNote('')
     setSelectedExtras({})
+    setSelectedPackageChoices({})
   }, [categories, addItem])
 
   const lineList = lines
@@ -1581,35 +1585,31 @@ export default function OrderManualPage() {
               </div>
 
               {/* Package Choices */}
-              {selectedMenu.is_package && selectedMenu.package_items && selectedMenu.package_items.length > 0 && selectedMenu.package_items.some(pi => pi.or_menu_item_id) && (
+              {packageChoiceGroups(selectedMenu).length > 0 && (
                 <div>
                   <label className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
                     <Sandwich className="w-4 h-4 text-amber-500" /> Pilihan Item Paket
+                    <span className="text-[11px] font-bold text-amber-600">Wajib dipilih</span>
                   </label>
                   <div className="space-y-3">
-                    {selectedMenu.package_items.filter(pi => pi.or_menu_item_id).map(pi => {
-                      const mainItem = items.find(i => i.id === pi.menu_item_id)
-                      const orItem = items.find(i => i.id === pi.or_menu_item_id)
-                      if (!mainItem || !orItem) return null
-                      
-                      const selected = selectedPackageChoices[pi.id] || pi.menu_item_id
-                      
+                    {packageChoiceGroups(selectedMenu).map(pi => {
+                      // Tanpa pilihan bawaan: kasir harus menanyakan pelanggan.
+                      const selected = selectedPackageChoices[pi.id]
+                      const options = [pi.menu_item_id, pi.or_menu_item_id as string]
+
                       return (
                         <div key={pi.id} className="bg-white border border-amber-100 shadow-sm rounded-xl p-3">
                           <p className="text-xs font-bold text-gray-500 mb-2">Pilih salah satu:</p>
                           <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: mainItem.id }))}
-                              className={`p-2.5 rounded-lg border text-sm font-bold text-center transition-all active:scale-95 ${selected === mainItem.id ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200'}`}
-                            >
-                              {mainItem.name}
-                            </button>
-                            <button
-                              onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: orItem.id }))}
-                              className={`p-2.5 rounded-lg border text-sm font-bold text-center transition-all active:scale-95 ${selected === orItem.id ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200'}`}
-                            >
-                              {orItem.name}
-                            </button>
+                            {options.map(optionId => (
+                              <button
+                                key={optionId}
+                                onClick={() => setSelectedPackageChoices(prev => ({ ...prev, [pi.id]: optionId }))}
+                                className={`p-2.5 rounded-lg border text-sm font-bold text-center transition-all active:scale-95 ${selected === optionId ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 bg-white text-gray-600 hover:border-amber-200'}`}
+                              >
+                                {items.find(i => i.id === optionId)?.name ?? 'Menu'}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       )
@@ -1684,7 +1684,9 @@ export default function OrderManualPage() {
 
             <div className="p-4 border-t border-gray-100 bg-white">
               <button
+                disabled={missingPackageChoices(selectedMenu, selectedPackageChoices).length > 0}
                 onClick={() => {
+                  if (missingPackageChoices(selectedMenu, selectedPackageChoices).length > 0) return
                   let finalNote = selectedMenuNote
                   if (selectedMenu.is_package && selectedMenu.package_items) {
                     const choicesText = Object.entries(selectedPackageChoices).map(([piId, itemId]) => {
@@ -1709,9 +1711,9 @@ export default function OrderManualPage() {
                   setSelectedMenu(null)
                   setSelectedPackageChoices({})
                 }}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-amber-500/20"
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-amber-500/20 disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none disabled:active:scale-100"
               >
-                Tambah ke Keranjang
+                {missingPackageChoices(selectedMenu, selectedPackageChoices).length > 0 ? 'Pilih isi paket dulu' : 'Tambah ke Keranjang'}
               </button>
             </div>
           </div>

@@ -86,6 +86,7 @@ export function isHiddenOutlet(name: string, posType?: string | null): boolean {
   const tipe = (posType || '').toLowerCase()
   if (tipe === 'system' || tipe === 'test') return true
   const lower = name.toLowerCase()
+  if (/\btes\d*\b/i.test(lower)) return true
   return (
     lower.includes('(system)') ||
     lower.includes('gudang pusat') ||
@@ -115,12 +116,13 @@ function sama(a: OutletSyncData, b: MarcomOutletInput): boolean {
 
 /**
  * @param mode
- *  - `otomatis` (tiap halaman dibuka): hanya outlet yang sudah tertaut `posOutletId`,
- *    tanpa membuat baris baru. Status aktif hanya diturunkan (POS nonaktif / lokasi
+ *  - `otomatis` (tiap halaman dibuka): menyelaraskan outlet yang sudah tertaut serta
+ *    otomatis menambahkan outlet baru dari POS yang berstatus aktif & bukan lokasi tersembunyi.
+ *    Untuk outlet yang sudah ada, status aktif hanya diturunkan (POS nonaktif / lokasi
  *    tersembunyi → nonaktif), tidak pernah dinyalakan, supaya tombol nonaktif di
  *    MARCOM tidak ditimpa.
- *  - `penuh` (tombol Sinkronisasi): juga mencocokkan berdasarkan nama, membuat outlet
- *    POS yang belum ada, dan status aktif mengikuti POS.
+ *  - `penuh` (tombol Sinkronisasi): mencocokkan semua outlet POS, membuat outlet
+ *    POS yang belum ada, dan status aktif mengikuti POS sepenuhnya.
  */
 export function rencanakanSinkronOutlet(
   posOutlets: PosOutletInput[],
@@ -151,14 +153,14 @@ export function rencanakanSinkronOutlet(
     }
 
     let match = marcomOutlets.find((m) => m.posOutletId === sb.id)
-    if (!match && mode === 'penuh') {
+    if (!match) {
       const target = namaTampilOutlet(sb.name).toLowerCase()
       match = marcomOutlets.find(
         (m) =>
           !m.posOutletId &&
           !sudahDicocokkan.has(m.id) &&
           (namaTampilOutlet(m.name).toLowerCase() === target ||
-            m.name.toLowerCase() === sb.name.toLowerCase())
+            m.name.toLowerCase() === sb.name.trim().toLowerCase())
       )
     }
 
@@ -177,7 +179,7 @@ export function rencanakanSinkronOutlet(
         name: nama,
         type: tipe,
         posOutletId: sb.id,
-        posName: sb.name,
+        posName: sb.name.trim(),
         posType: sb.type,
         region: sb.region || match.region,
         address: sb.address || match.address,
@@ -188,7 +190,7 @@ export function rencanakanSinkronOutlet(
       continue
     }
 
-    if (mode === 'otomatis') continue
+    if (mode === 'otomatis' && (hidden || !sb.isActive)) continue
 
     const bebas = (n: string) => !namaTerpakai.has(n.toLowerCase())
     const nama = sb.name.trim()
@@ -201,7 +203,7 @@ export function rencanakanSinkronOutlet(
       name: nama,
       type: tipe,
       posOutletId: sb.id,
-      posName: sb.name,
+      posName: nama,
       posType: sb.type,
       region: sb.region || null,
       address: sb.address || null,

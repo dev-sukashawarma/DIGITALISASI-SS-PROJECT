@@ -24,18 +24,32 @@ export default async function OutletsPage() {
     fetchPosOutlets(),
   ])
 
-  // Nama/tipe outlet diedit di admin (tabel outlets POS) — selaraskan salinan MARCOM
+  // Nama/tipe/outlet baru diedit di admin (tabel outlets POS) — selaraskan salinan MARCOM
   // setiap halaman dibuka. Biasanya nol baris berubah, jadi tak ada query tulis.
   const plan = rencanakanSinkronOutlet(posOutlets, outlets, 'otomatis')
-  if (plan.updates.length > 0) {
+  let daftarOutlet = outlets
+  if (plan.updates.length > 0 || plan.creates.length > 0) {
     try {
       await terapkanRencanaSinkronOutlet(plan)
+      if (plan.creates.length > 0) {
+        daftarOutlet = await prisma.outlet.findMany({
+          orderBy: { name: 'asc' },
+          include: {
+            _count: {
+              select: {
+                endorsements: true,
+                ads: true,
+              },
+            },
+          },
+        })
+      }
     } catch (err) {
       console.error('Auto-sync outlet dari POS gagal:', err)
     }
   }
   const perubahan = new Map(plan.updates.map((u) => [u.id, u.data]))
-  const outletsTerkini = outlets
+  const outletsTerkini = daftarOutlet
     .map((o) => ({ ...o, ...perubahan.get(o.id) }))
     .sort((a, b) => a.name.localeCompare(b.name, 'id'))
 

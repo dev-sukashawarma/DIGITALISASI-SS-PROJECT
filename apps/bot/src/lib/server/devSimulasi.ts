@@ -44,7 +44,6 @@ export function buatJawabanDev(
     if (isManager) {
       return [
         `Halo Rekan Tim Operasional Suka Shawarma. Menginisialisasi pemindaian status diagnostik Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
-        '> [!NOTE]\n',
         `> **SEMUA SISTEM NOMINAL**: Seluruh modul operasional beroperasi efisien. Koneksi database real-time aktif.\n\n`,
         '### 🛰️ Telemetri Operasional Real-time\n',
         `1. **Node Sales / POS**: Total Omzet **${t ? formatRupiah(t.omzetTotal) : 'Rp 0'}** (${t?.totalOrder ?? 0} order dari ${t?.totalOutletAktif ?? 0} cabang)\n`,
@@ -57,7 +56,6 @@ export function buatJawabanDev(
 
     return [
       `Salam, Sir. Menginisialisasi pemindaian status diagnostik Command Centre Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
-      '> [!NOTE]\n',
       '> **SEMUA SISTEM NOMINAL**: Arc Reactor Core beroperasi efisien. Koneksi database real-time aktif.\n\n',
       '### 🛰️ Telemetri Satelit Real-time\n',
       `1. **Node Sales / POS**: Total Omzet **${t ? formatRupiah(t.omzetTotal) : 'Rp 0'}** (${t?.totalOrder ?? 0} order dari ${t?.totalOutletAktif ?? 0} cabang)\n`,
@@ -104,7 +102,6 @@ export function buatJawabanDev(
 
     return [
       `${salamAwal} Berikut pemindaian sentimen dan skor Google Reviews jaringan Suka Shawarma:\n\n`,
-      '> [!NOTE]\n',
       '> **STATUS RATING KONSOLIDASI**: Rata-rata keseluruhan outlet adalah **4.6⭐** dari total 1.420 ulasan Google Maps.\n\n',
       '### 📊 Distribusi Sentimen Ulasan (30 Hari Terakhir):\n',
       '- 🟢 **Positif (78%)**: Daging empuk berlimpah, saus garlic khas, porsi mengenyangkan.\n',
@@ -146,7 +143,6 @@ export function buatJawabanDev(
 
     return [
       headerStok,
-      '> [!NOTE]\n',
       '> **LIVE INVENTORY FEED**: Data master bahan baku operasional tersinkronisasi dari database.\n\n',
       '### 🥩 Katalog Bahan Baku Utama\n',
       `${listBahan}\n\n`,
@@ -191,7 +187,6 @@ export function buatJawabanDev(
     }
     return [
       'Data waste dan reject bahan baku hari ini belum tercatat di sistem.\n\n',
-      '> [!NOTE]\n',
       '> **PENCATATAN WASTE HARIAN**: Rekap waste dan selisih bahan baku biasanya baru masuk saat closing shift dan stok opname fisik malam hari (cut-off 22:30 WIB).\n\n',
       'Untuk investigasi fisik saat ini, silakan koordinasikan langsung dengan PIC outlet atau pantau pengajuan waste di SuperApp.',
     ]
@@ -260,7 +255,6 @@ export function buatJawabanDev(
   ) {
     return [
       `${salamAwal} Menampilkan status kepatuhan **Ceklist Buka & Sidak Lapangan** cabang:\n\n`,
-      '> [!NOTE]\n',
       '> **SISTEM CEKLIST OPERASIONAL**: Ceklist buka/tutup cabang dan form evaluasi sidak AM diinput langsung melalui SuperApp Manager.\n\n',
       '### 📋 Panduan Standar Sidak Area Manager:\n',
       '1. **Ceklist Buka Outlet**: Wajib diisi kru saat persiapan buka (kebersihan, kesiapan bahan marinasi, display showcase, dan kebersihan seragam).\n',
@@ -279,7 +273,6 @@ export function buatJawabanDev(
   ) {
     return [
       `${salamAwal} Rekap selisih kas dan rekonsiliasi kasir cabang:\n\n`,
-      '> [!NOTE]\n',
       '> **REKONSILIASI KASIR**: Input rekonsiliasi kas laci POS dan petty cash dilakukan kru saat proses closing shift outlet.\n\n',
       '### 💵 Parameter Alert Selisih Kas:\n',
       '- **Tingkat AM**: Notifikasi otomatis terpicu jika selisih kas closing cabang antara **Rp 20.000 s/d Rp 100.000**.\n',
@@ -340,7 +333,6 @@ export function buatJawabanDev(
 
     return [
       headerHR,
-      '> [!NOTE]\n',
       feedNote,
       '### 👥 Status Presensi Hari Ini\n',
       `- **Total Aktivitas Presensi**: **${totalAtt} catatan clock-in/out**\n`,
@@ -385,7 +377,6 @@ export function buatJawabanDev(
 
     return [
       `${salamAwal} Menampilkan laporan penjualan seluruh cabang untuk **KEMARIN (${k.tanggalLabel})**:\n\n`,
-      '> [!NOTE]\n',
       `> **REKAP PENJUALAN JARINGAN KEMARIN**: Total Omzet **${formatRupiah(k.omzetTotal)}** (${k.totalOrder} order, AOV ${formatRupiah(k.aov)}). Partisipasi: **${k.outletsAktifTransaksi.length}** dari **${k.outletsAktifTransaksi.length + k.outletsNolTransaksi.length}** cabang aktif.\n\n`,
       `### 🏆 Peringkat Omzet Cabang Kemarin (${k.outletsAktifTransaksi.length} Outlet)\n`,
       `${aktifLines}\n\n`,
@@ -452,7 +443,6 @@ export function buatJawabanDev(
 
     return [
       headerTitle,
-      '> [!NOTE]\n',
       `${statusNote}\n\n`,
       labelAktif,
       `${aktifLines}\n\n`,
@@ -502,7 +492,6 @@ export function buatJawabanDev(
 
     return [
       `${salamAwal} Telemetri penjualan Suka Shawarma telah dikompilasi secara real-time dari seluruh Point of Sale (POS) untuk tanggal **${t.tanggalWIB}**:\n\n`,
-      '> [!NOTE]\n',
       `> **LIVE POS CONNECTED**: Menampilkan data real-time langsung dari database POS (${t.totalOutletAktif} cabang aktif).\n\n`,
       '### 📊 Ringkasan Penjualan Hari Ini\n',
       `- **Total Omzet Real-time**: **${formatRupiah(t.omzetTotal)}** (${t.totalOrder} Transaksi)\n`,
@@ -544,7 +533,6 @@ export function buatJawabanDev(
     if (isTanyaTools) {
       return [
         `${salamAwal} Bot Finance Suka Shawarma dibekali 4 alat (tools) MCP operasional keuangan:\n\n`,
-        '> [!NOTE]\n',
         '> **KATALOG ALAT OPERASIONAL (MCP)**: Terintegrasi langsung dengan database Suka Shawarma.\n\n',
         '### 🛠️ 4 Alat (Tools) Utama Bot Finance\n',
         '1. 📑 **`utang_po`** (Utang PO Supplier):\n',
@@ -583,7 +571,6 @@ export function buatJawabanDev(
 
         return [
           `${salamAwal} Berikut rincian pengeluaran / OPEX terbesar hari ini (**${t?.tanggalWIB || 'Hari Ini'}**):\n\n`,
-          '> [!NOTE]\n',
           `> **OPEX TERBESAR HARI INI**: **${formatRupiah(top1.nominal)}** untuk **${top1.deskripsi}** di outlet **${top1.outlet}**.\n\n`,
           '### 💸 Daftar Pengeluaran Terbesar Hari Ini\n',
           listTop,
@@ -609,7 +596,6 @@ export function buatJawabanDev(
         const listSup = utang.topSupplier.map((s, i) => `${i + 1}. **${s.supplier}**: **${formatRupiah(s.total)}** (${s.jumlahPo} PO)`).join('\n')
         return [
           `${salamAwal} Berikut rekapitulasi utang PO ke supplier per tanggal **${t?.tanggalWIB || 'Hari Ini'}**:\n\n`,
-          '> [!NOTE]\n',
           `> **UTANG PO SUPPLIER**: **${formatRupiah(utang.totalUtang)}** (${utang.jumlahPo} PO diterima & belum lunas).\n\n`,
           '### 📑 Rincian Utang per Supplier Utama\n',
           listSup || '(Tidak ada utang supplier)',
@@ -629,7 +615,6 @@ export function buatJawabanDev(
         ).join('\n')
         return [
           `${salamAwal} Berikut status pencatatan setoran kas outlet terbaru:\n\n`,
-          '> [!NOTE]\n',
           '> **SETORAN KAS OUTLET**: Rekonsiliasi setoran bank cabang tercatat di sistem Finance.\n\n',
           '### 📥 Setoran Kas Terbaru\n',
           listSet || '(Belum ada setoran tercatat)',
@@ -648,7 +633,6 @@ export function buatJawabanDev(
         ).join('\n')
         return [
           `${salamAwal} Berikut rekapitulasi selisih kasir tutup shift POS:\n\n`,
-          '> [!NOTE]\n',
           '> **AUDIT SELISIH KASIR**: Perbandingan uang fisik vs nilai seharusnya saat tutup shift kasir.\n\n',
           '### ⚖️ Daftar Selisih Kasir Terbaru\n',
           listSel || '(Seluruh shift kasir tercatat klop tanpa selisih)',
@@ -667,7 +651,6 @@ export function buatJawabanDev(
 
     return [
       'Sinkronisasi satelit **Finance & Keuangan** Suka Shawarma berhasil dilakukan:\n\n',
-      '> [!NOTE]\n',
       '> **LIVE FINANCE RECONCILIATION**: Rekonsiliasi kas masuk dan operasional cabang.\n\n',
       '### 💰 Ringkasan Keuangan Hari Ini\n',
       `- **Gross Sales / Kas Masuk Hari Ini**: **${totalOmzet}**\n`,
@@ -697,7 +680,6 @@ export function buatJawabanDev(
     if (isManager) {
       return [
         `Halo Rekan Tim Operasional. Berikut ringkasan status operasional cabang Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
-        '> [!NOTE]\n',
         `> **STATUS OPERASIONAL**: Terhubung langsung ke data live (${t?.totalOutletAktif ?? 28} outlet aktif).\n\n`,
         '### 📊 Ringkasan Operasional Hari Ini\n',
         `1. **Penjualan / POS**: Total Omzet **${t ? formatRupiah(t.omzetTotal) : 'Rp 0'}** (${t?.totalOrder ?? 0} transaksi)\n`,
@@ -710,7 +692,6 @@ export function buatJawabanDev(
 
     return [
       `Salam, Sir. Menginisialisasi pemindaian status diagnostik Command Centre Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`,
-      '> [!NOTE]\n',
       '> **SEMUA SISTEM NOMINAL**: Arc Reactor Core beroperasi efisien. Koneksi database real-time aktif.\n\n',
       '### 🛰️ Telemetri Satelit Real-time\n',
       `1. **Node Sales / POS**: Total Omzet **${t ? formatRupiah(t.omzetTotal) : 'Rp 0'}** (${t?.totalOrder ?? 0} order dari ${t?.totalOutletAktif ?? 0} cabang)\n`,
@@ -729,7 +710,6 @@ export function buatJawabanDev(
   if (isManager) {
     return [
       'Halo Rekan Tim Operasional Suka Shawarma. Bot Manager siap membantu Anda mengawal operasional cabang.\n\n',
-      '> [!NOTE]\n',
       `> **LIVE MONITORING AKTIF**: Terhubung langsung ke data operasional cabang (${t?.totalOutletAktif ?? 28} outlet aktif).\n\n`,
       `Pertanyaan Anda: *"${pesanUser}"* telah diterima.\n\n`,
       'Anda dapat menanyakan hal-hal operasional seperti:\n',
@@ -744,7 +724,6 @@ export function buatJawabanDev(
 
   return [
     'Salam, Sir. J.A.R.V.I.S. Tactical Command Centre online dan terhubung ke database live Suka Shawarma.\n\n',
-    '> [!NOTE]\n',
     `> **LIVE DATA STREAM ACTIVE**: Terhubung langsung ke database produksi (${t?.totalOutletAktif ?? 28} outlet aktif).\n\n`,
     `Instruksi Anda: *"${pesanUser}"* berhasil diterima oleh Command HUD.\n\n`,
     'Anda dapat memberikan arahan operasional langsung seperti:\n',

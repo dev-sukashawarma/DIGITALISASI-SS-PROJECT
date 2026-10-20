@@ -134,6 +134,77 @@ export async function fetchLeaderMonitoringData() {
 }
 
 /**
+ * Salinan identik pemakaianPosPeriode di apps/stok/src/lib/stok/mutasiOrder.ts
+ * (ber-test di sana) — ubah keduanya bersamaan. Aturan kolom Pemakaian POS
+ * Jurnal Rekonsiliasi: mutasi order (pemakaian/adjustment ber-ref_order_id)
+ * dinetokan, hanya neto negatif yang jadi pemakaian; pemakaian tanpa order
+ * dijumlah apa adanya; tipe lain diabaikan.
+ */
+function pemakaianPosPeriode(
+  rows: { tipe: string; qty: number | string | null; ref_order_id?: string | null }[]
+): number {
+  let orderNet = 0;
+  let pakaiLain = 0;
+  for (const row of rows) {
+    const qty = Number(row.qty || 0);
+    const isOrder = !!row.ref_order_id && (row.tipe === 'pemakaian' || row.tipe === 'adjustment');
+    if (isOrder) orderNet += qty;
+    else if (row.tipe === 'pemakaian') pakaiLain += Math.abs(qty);
+  }
+  return pakaiLain + (orderNet < 0 ? -orderNet : 0);
+}
+
+/**
+ * Pemakaian POS satu bahan untuk opname yang ditampilkan — jendela & aturan
+ * SAMA dengan kolom Pemakaian POS di Jurnal Rekonsiliasi: dari opname
+ * finalized sebelumnya s/d opname ini (tanpa opname sebelumnya: 7 hari).
+ * Dulu dijumlah dari 30 baris pemakaian TERAKHIR pada hari kalender opname:
+ * terpotong di outlet ramai, menyusut tiap penjualan sesudah opname, dan
+ * jendelanya tak sama dengan jurnal.
+ */
+async function fetchPemakaianPosOpname(
+  supabase: SupabaseBrowserClient,
+  outletId: string,
+  bahanBakuId: string,
+  opnameCreatedAt: string
+): Promise<number> {
+  const { data: prev } = await supabase
+    .from('opname')
+    .select('created_at')
+    .eq('outlet_id', outletId)
+    .eq('status', 'finalized')
+    .lt('created_at', opnameCreatedAt)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const start = prev?.created_at
+    ?? new Date(new Date(opnameCreatedAt).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const PAGE = 1000;
+  const rows: { tipe: string; qty: number | string | null; ref_order_id: string | null }[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('ledger_stok')
+      .select('tipe, qty, ref_order_id')
+      .eq('outlet_id', outletId)
+      .eq('bahan_baku_id', bahanBakuId)
+      .in('tipe', ['pemakaian', 'adjustment'])
+      .gte('created_at', start)
+      .lte('created_at', opnameCreatedAt)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.error('[fetchItemDetail] pemakaian POS:', error);
+      return 0;
+    }
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
+  return pemakaianPosPeriode(rows);
+}
+
+/**
  * Fetch detailed item info for modal inspection
  */
 export async function fetchItemDetail(outletId: string, bahan_baku_id: string): Promise<DetailItem> {
@@ -145,7 +216,6 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string): 
     { data: bahanExtra },
     { data: ledgerData, error: ledgerError },
     { data: opnameRow },
-    { data: pemakaianData },
   ] = await Promise.all([
     supabase
       .from('monitoring_view_spv')
@@ -176,14 +246,6 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string): 
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from('ledger_stok')
-      .select('qty, created_at')
-      .eq('outlet_id', outletId)
-      .eq('bahan_baku_id', bahan_baku_id)
-      .eq('tipe', 'pemakaian')
-      .order('created_at', { ascending: false })
-      .limit(30),
   ]);
 
   if (itemError) throw itemError;
@@ -194,29 +256,20 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string): 
     ? { ...opnameItem, opname: { created_at: opnameRow!.created_at } }
     : null;
 
-  const opnameDateStr = (opnameData?.opname as any)?.created_at;
-  const opnameDate = opnameDateStr ? new Date(opnameDateStr) : new Date();
-  const startOfDay = new Date(opnameDate);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(opnameDate);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const pemakaianToday = (pemakaianData || [])
-    .filter(p => {
-      const d = new Date(p.created_at);
-      return d >= startOfDay && d <= endOfDay;
-    })
-    .reduce((sum, p) => sum + Math.abs(p.qty || 0), 0);
-
   const isGudang = (itemData?.outlet_name || '').toUpperCase().includes('GUDANG');
+  const showDiscrepancy = !isGudang && !!opnameData?.flagged;
 
-  const discrepancyDetails = (!isGudang && opnameData?.flagged)
+  const pemakaianPos = showDiscrepancy && opnameRow?.created_at
+    ? await fetchPemakaianPosOpname(supabase, outletId, bahan_baku_id, opnameRow.created_at)
+    : 0;
+
+  const discrepancyDetails = showDiscrepancy && opnameData
     ? {
         type: opnameData.qty_fisik < opnameData.qty_system ? ('qty_mismatch' as const) : ('damaged' as const),
         qty_system: opnameData.qty_system,
         qty_fisik: opnameData.qty_fisik,
         catatan: opnameData.catatan || '',
-        pemakaian_bom: pemakaianToday > 0 ? pemakaianToday : undefined,
+        pemakaian_bom: pemakaianPos > 0 ? pemakaianPos : undefined,
       }
     : undefined;
 

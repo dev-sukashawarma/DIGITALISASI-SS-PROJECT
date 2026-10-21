@@ -14,89 +14,105 @@ export interface OpsiSuaraJarvis {
   deskripsi: string
   gender: 'Pria' | 'Wanita'
   voiceName: string
+  geminiVoice: string
   pitch: string
   rate: string
 }
 
+export const GEMINI_TTS_MODELS = [
+  'gemini-3.8-flash-tts',
+  'gemini-3.8-flash-lite-tts',
+  'gemini-2.5-flash-preview-tts',
+] as const
+
 export const DAFTAR_SUARA_JARVIS: OpsiSuaraJarvis[] = [
   {
     id: 'brian',
-    label: 'BRIAN HD (Jarvis Bariton)',
-    deskripsi: 'Suara AI Pria Bariton Luwes & Natural (Multilingual HD)',
+    label: 'BRIAN / PUCK HD (Jarvis Conversational)',
+    deskripsi: 'Suara AI Pria Bariton Luwes & Natural (Gemini Puck / Brian HD)',
     gender: 'Pria',
     voiceName: 'en-US-BrianMultilingualNeural',
+    geminiVoice: 'Puck',
     pitch: '-2Hz',
     rate: '+3%',
   },
   {
     id: 'andrew',
-    label: 'ANDREW HD (Pria Hangat)',
-    deskripsi: 'Suara AI Pria Hangat, Santai & Mengalir (Multilingual HD)',
+    label: 'ANDREW / CHARON HD (Warm Executive)',
+    deskripsi: 'Suara AI Pria Hangat, Santai & Mengalir (Gemini Charon / Andrew HD)',
     gender: 'Pria',
     voiceName: 'en-US-AndrewMultilingualNeural',
+    geminiVoice: 'Charon',
     pitch: '-1Hz',
     rate: '+4%',
   },
   {
     id: 'william',
-    label: 'WILLIAM HD (Aksen Jarvis Klasik)',
-    deskripsi: 'Suara AI Pria Elegan ala Butler Inggris/Aussie (Multilingual HD)',
+    label: 'WILLIAM / ORUS HD (Aksen Jarvis Klasik)',
+    deskripsi: 'Suara AI Pria Elegan ala Butler J.A.R.V.I.S. (Gemini Orus / William HD)',
     gender: 'Pria',
     voiceName: 'en-AU-WilliamMultilingualNeural',
+    geminiVoice: 'Orus',
     pitch: '-2Hz',
     rate: '+4%',
   },
   {
     id: 'florian',
-    label: 'FLORIAN HD (Deep Commander)',
-    deskripsi: 'Suara AI Pria Berat & Berwibawa Eropa (Multilingual HD)',
+    label: 'FLORIAN / FENRIR HD (Deep Commander)',
+    deskripsi: 'Suara AI Pria Berat & Berwibawa (Gemini Fenrir / Florian HD)',
     gender: 'Pria',
     voiceName: 'de-DE-FlorianMultilingualNeural',
+    geminiVoice: 'Fenrir',
     pitch: '-2Hz',
     rate: '+4%',
   },
   {
     id: 'remy',
-    label: 'REMY HD (Eksekutif Halus)',
-    deskripsi: 'Suara AI Pria Halus & Tenang (Multilingual HD)',
+    label: 'REMY / IAPETUS HD (Smooth Analyst)',
+    deskripsi: 'Suara AI Pria Halus & Tenang (Gemini Iapetus / Remy HD)',
     gender: 'Pria',
     voiceName: 'fr-FR-RemyMultilingualNeural',
+    geminiVoice: 'Iapetus',
     pitch: '-1Hz',
     rate: '+4%',
   },
   {
     id: 'ava',
-    label: 'F.R.I.D.A.Y. / AVA HD (Wanita AI)',
-    deskripsi: 'Suara AI Wanita Luwes & Ekspresif (Multilingual HD)',
+    label: 'F.R.I.D.A.Y. / KORE HD (Wanita AI)',
+    deskripsi: 'Suara AI Wanita Luwes & Ekspresif (Gemini Kore / Ava HD)',
     gender: 'Wanita',
     voiceName: 'en-US-AvaMultilingualNeural',
+    geminiVoice: 'Kore',
     pitch: '+0Hz',
     rate: '+4%',
   },
   {
     id: 'emma',
-    label: 'EMMA HD (Wanita Hangat)',
-    deskripsi: 'Suara AI Wanita Lembut & Natural (Multilingual HD)',
+    label: 'EMMA / AOEDE HD (Wanita Hangat)',
+    deskripsi: 'Suara AI Wanita Lembut & Natural (Gemini Aoede / Emma HD)',
     gender: 'Wanita',
     voiceName: 'en-US-EmmaMultilingualNeural',
+    geminiVoice: 'Aoede',
     pitch: '+0Hz',
     rate: '+4%',
   },
   {
     id: 'ardi',
-    label: 'ARDI NEURAL (Pria Indonesia)',
+    label: 'ARDI / ENCELADUS (Pria Indonesia)',
     deskripsi: 'Suara Pria Indonesia Formal & Tegas',
     gender: 'Pria',
     voiceName: 'id-ID-ArdiNeural',
+    geminiVoice: 'Enceladus',
     pitch: '-2Hz',
     rate: '+4%',
   },
   {
     id: 'gadis',
-    label: 'GADIS NEURAL (Wanita Indonesia)',
+    label: 'GADIS / ZEPHYR (Wanita Indonesia)',
     deskripsi: 'Suara Wanita Indonesia Jernih & Ramah',
     gender: 'Wanita',
     voiceName: 'id-ID-GadisNeural',
+    geminiVoice: 'Zephyr',
     pitch: '+0Hz',
     rate: '+5%',
   },
@@ -432,6 +448,104 @@ function synthesizeEdgeNeuralMp3(
   })
 }
 
+/**
+ * Membungkus raw 16-bit signed little-endian mono PCM (24kHz) dari Gemini Native Audio TTS
+ * menjadi file RIFF WAV standar agar langsung bisa di-decode oleh Web Audio API (`decodeAudioData`).
+ */
+function wrapPcm16ToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1): Buffer {
+  const bitsPerSample = 16
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8
+  const blockAlign = (numChannels * bitsPerSample) / 8
+  const dataSize = pcmBuffer.length
+  const header = Buffer.alloc(44)
+
+  header.write('RIFF', 0, 'ascii')
+  header.writeUInt32LE(36 + dataSize, 4)
+  header.write('WAVE', 8, 'ascii')
+  header.write('fmt ', 12, 'ascii')
+  header.writeUInt32LE(16, 16) // Subchunk1Size (16 untuk PCM)
+  header.writeUInt16LE(1, 20) // AudioFormat (1 = Linear PCM)
+  header.writeUInt16LE(numChannels, 22)
+  header.writeUInt32LE(sampleRate, 24)
+  header.writeUInt32LE(byteRate, 28)
+  header.writeUInt16LE(blockAlign, 32)
+  header.writeUInt16LE(bitsPerSample, 34)
+  header.write('data', 36, 'ascii')
+  header.writeUInt32LE(dataSize, 40)
+
+  return Buffer.concat([header, pcmBuffer])
+}
+
+/**
+ * Sintesis suara menggunakan Google Gemini Native Audio TTS terbaru
+ * (cascade: `gemini-3.8-flash-tts` -> `gemini-3.8-flash-lite-tts` -> `gemini-2.5-flash-preview-tts`).
+ */
+async function synthesizeGeminiNativeWav(
+  teks: string,
+  opsiSuara: OpsiSuaraJarvis,
+  apiKey: string
+): Promise<{ wavBuffer: Buffer; modelUsed: string }> {
+  const promptBerpengarah = `Ucapkan kalimat berikut dalam Bahasa Indonesia dengan gaya asisten eksekutif J.A.R.V.I.S. yang sangat natural, luwes, hangat, dan mengalir seperti obrolan telepon langsung:\n\n${teks}`
+  let galatTerakhir = 'Tidak ada model Gemini TTS yang merespons.'
+
+  for (const model of GEMINI_TTS_MODELS) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptBerpengarah }] }],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: opsiSuara.geminiVoice || 'Puck',
+                },
+              },
+            },
+          },
+        }),
+        signal: AbortSignal.timeout(9500),
+      })
+
+      if (!res.ok) {
+        const errTxt = await res.text().catch(() => '')
+        galatTerakhir = `${model} HTTP ${res.status}: ${errTxt.slice(0, 140)}`
+        continue
+      }
+
+      const data = await res.json()
+      const inlineData = data?.candidates?.[0]?.content?.parts?.find(
+        (p: { inlineData?: { data?: string; mimeType?: string } }) => p?.inlineData?.data
+      )?.inlineData
+
+      if (!inlineData?.data) {
+        galatTerakhir = `${model}: respons tidak memuat inlineData audio.`
+        continue
+      }
+
+      const rawAudio = Buffer.from(inlineData.data, 'base64')
+      const mime = String(inlineData.mimeType || '').toLowerCase()
+      const matchRate = mime.match(/rate=(\d+)/)
+      const sampleRate = matchRate ? Number(matchRate[1]) || 24000 : 24000
+
+      // Jika sudah memiliki header RIFF/WAV langsung gunakan, jika masih raw PCM L16 bungkus dengan WAV header
+      const wavBuffer =
+        rawAudio.subarray(0, 4).toString('ascii') === 'RIFF'
+          ? rawAudio
+          : wrapPcm16ToWav(rawAudio, sampleRate, 1)
+
+      return { wavBuffer, modelUsed: model }
+    } catch (err) {
+      galatTerakhir = `${model}: ${(err as Error)?.message}`
+    }
+  }
+
+  throw new Error(galatTerakhir)
+}
+
 export async function POST(req: Request) {
   const g = await ambilSesi()
   if (!g.ok) {
@@ -452,7 +566,27 @@ export async function POST(req: Request) {
   }
 
   const opsiSuara = cariKonfigurasiSuara(voiceId)
+  const geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim()
 
+  // 1. Prioritaskan Google Gemini Native Audio TTS terbaru jika GEMINI_API_KEY / GOOGLE_API_KEY tersedia
+  if (geminiKey) {
+    try {
+      const { wavBuffer, modelUsed } = await synthesizeGeminiNativeWav(teksSuara, opsiSuara, geminiKey)
+      return new NextResponse(new Uint8Array(wavBuffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/wav',
+          'Cache-Control': 'no-store',
+          'X-Jarvis-Engine': `gemini-native-tts (${modelUsed})`,
+          'X-Jarvis-Voice': opsiSuara.geminiVoice,
+        },
+      })
+    } catch (err) {
+      console.warn('[jarvis-tts] Gemini Native TTS gagal, beralih ke Cloud Neural HD:', (err as Error)?.message)
+    }
+  }
+
+  // 2. Fallback otomatis tanpa API key: Cloud Neural HD 24kHz (100% Gratis & Unlimited)
   try {
     const mp3Buffer = await synthesizeEdgeNeuralMp3(teksSuara, opsiSuara)
     return new NextResponse(new Uint8Array(mp3Buffer), {
@@ -460,6 +594,7 @@ export async function POST(req: Request) {
       headers: {
         'Content-Type': 'audio/mpeg',
         'Cache-Control': 'no-store',
+        'X-Jarvis-Engine': 'cloud-neural-hd',
         'X-Jarvis-Voice': opsiSuara.voiceName,
       },
     })

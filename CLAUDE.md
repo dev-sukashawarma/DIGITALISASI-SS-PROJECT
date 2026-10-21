@@ -3469,6 +3469,20 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 
 ---
 
-**Last updated:** 2026-10-20  
+## Session 2026-10-21: Gramasi Crew "HPP GRAND NEW" ke resep, gas keluar dari BOM (DB)
+
+**Status:** ✅ LIVE — migration `20261021100000_gramasi_crew_grand_new` applied, terstempel, diverifikasi (34/34 nilai cocok; uji tandingan qty lama salah → `ASERSI GAGAL` 29≠30). Nol app perlu redeploy. Berkas migration di branch `feat/gramasi-crew-grand-new`, **belum di-push**.
+
+- **Sumber:** `HPP GRAND NEW (Sedang-Besar-Jumbo).xlsx`, tab GRAMASI CREW (12 menu Original/Suka). 30 baris resep global diubah: TUM naik hampir semua menu, mayo turun 15–25 g, lettuce/kentang disesuaikan. Suka Samyang: +TUM 10 g, SAOS TOMAT POUCH dibuang. Suka Chicken sudah sama.
+- **Keputusan owner atas selisih Excel:** lettuce Ayam Besar tetap 65 (Excel 30 = salah ketik); Mix Jumbo tetap ayam 80/sapi 105 (Excel menukar); minyak/foil/plastik/paper wrap tetap angka DB (Excel per "porsi"/"pcs"); gramasi = berat matang.
+- **GAS 3Kg keluar dari BOM** (39 baris, semua resep aktif termasuk Online/Reguler/BOGO/Best Seller). Stok gas outlet kini hanya bergerak lewat kiriman & opname; pemakaian terlihat sebagai selisih opname.
+- **12 menu "Voucher Pamulang 10%" dinonaktifkan, bukan DELETE** (29 order_items merujuknya; DELETE meng-CASCADE riwayat HPP). Resepnya sengaja tetap aktif untuk order susulan offline.
+- Best Seller (Mix Jumbo), Best Seller 2, menu Online/Reguler/BOGO gramasinya tidak disentuh (tak ada di Excel). `hpp_override` tidak disentuh.
+- ⏸ **Suka Sosis belum dibuat:** menu & bahan SOSIS belum ada di DB. Data owner: Rp 28.850 per pack isi 10. Masih perlu supplier (harga master diturunkan dari katalog vendor), satuan beli, harga jual (Excel Rp 25.000), kategori.
+- ⚠️ **Gotcha alat:** konektor `mcp__supabase__execute_sql` / `apply_migration` menolak otomatis (`declined`) setiap SQL yang memuat `DELETE` (konfirmasi perintah destruktif tak pernah sampai ke user); `UPDATE` saja lolos. Konektor kedua (`mcp__5f2e798c-…__execute_sql`, project `khpkoreaaucvyqfhynfq`) menjalankannya setelah user menyetujui di chat.
+
+---
+
+**Last updated:** 2026-10-21  
 **Owner:** Dev Suka Shawarma
 

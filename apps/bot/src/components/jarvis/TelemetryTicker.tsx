@@ -128,8 +128,8 @@ export default function TelemetryTicker({
         </div>
       )}
 
-      {/* Main Single-line Ticker */}
-      <div className="max-w-[1700px] mx-auto px-4 py-1.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono-hud">
+      {/* Main Single-line Ticker (Full Width) */}
+      <div className="w-full px-4 py-1.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono-hud">
         {/* Left: Terminal Icon + Status */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
@@ -150,7 +150,7 @@ export default function TelemetryTicker({
         </div>
 
         {/* Center: Cycling Active Live Database Headline */}
-        <div className="hidden md:flex items-center gap-2 text-cyan-300/90 text-[11px] overflow-hidden max-w-xl lg:max-w-2xl flex-1 justify-center">
+        <div className="hidden md:flex items-center gap-2 text-cyan-300/90 text-[11px] overflow-hidden flex-1 justify-center px-2">
           <span className="text-cyan-500 font-bold select-none shrink-0">&gt;&gt;</span>
           <span key={indexLog} className="truncate animate-in fade-in duration-300">
             {logAktif}

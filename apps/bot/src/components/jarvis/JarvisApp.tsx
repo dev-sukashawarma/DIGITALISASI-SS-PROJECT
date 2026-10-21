@@ -576,9 +576,9 @@ export default function JarvisApp({
       <div className="fixed bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-cyan-400/60 pointer-events-none z-30" />
       <div className="fixed bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-cyan-400/60 pointer-events-none z-30" />
 
-      {/* TOP AVIONICS HUD HEADER */}
-      <header className="relative z-20 border-b border-cyan-500/25 bg-black/75 backdrop-blur-md px-3 sm:px-5 py-2 shrink-0">
-        <div className="w-full max-w-[1700px] mx-auto flex items-center justify-between gap-2">
+      {/* TOP AVIONICS HUD HEADER (100% Full Width) */}
+      <header className="relative z-20 w-full border-b border-cyan-500/25 bg-black/75 backdrop-blur-md px-3 sm:px-5 py-2 shrink-0">
+        <div className="w-full flex items-center justify-between gap-2">
           {/* Logo & Callout */}
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.3)] shrink-0">
@@ -762,10 +762,10 @@ export default function JarvisApp({
         </div>
       </header>
 
-      {/* MAIN COMMAND INTERFACE */}
-      <main className="relative z-20 flex-1 min-h-0 w-full max-w-[1700px] mx-auto px-3 sm:px-6 py-2 sm:py-3 flex flex-col justify-between gap-2.5 overflow-y-auto lg:overflow-hidden">
-        {/* TOP EXECUTIVE DIRECTIVE TEXT & VOICE CONSOLE BAR */}
-        <div className="w-full max-w-3xl mx-auto shrink-0">
+      {/* MAIN COMMAND INTERFACE (100% Full Width Edge-to-Edge) */}
+      <main className="relative z-20 flex-1 min-h-0 w-full px-3 sm:px-5 py-2 sm:py-3 flex flex-col justify-between gap-2.5 overflow-y-auto lg:overflow-hidden">
+        {/* TOP EXECUTIVE DIRECTIVE TEXT & VOICE CONSOLE BAR (Full Width) */}
+        <div className="w-full shrink-0">
           <form
             onSubmit={handleSubmitForm}
             className="relative flex items-center rounded-xl bg-zinc-950/90 border border-cyan-500/45 shadow-[0_0_20px_rgba(6,182,212,0.18)] focus-within:border-cyan-400 focus-within:shadow-[0_0_28px_rgba(6,182,212,0.35)] transition-all p-0.5 sm:p-1"
@@ -854,10 +854,10 @@ export default function JarvisApp({
           </div>
         </div>
 
-        {/* TACTICAL 3-COLUMN HUD GRID: Left = Direct Hologram Chat Box, Center = Full-Size Arc Reactor, Right = All 4 Division Telemetry Boxes */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-center">
-          {/* Left Column: J.A.R.V.I.S. DIRECT HOLOGRAM & CHAT CONSOLE (Selalu di kiri agar Circle Jarvis di tengah tidak mengecil) */}
-          <div className="lg:col-span-4 flex flex-col justify-center h-full max-h-[75vh] min-h-0">
+        {/* TACTICAL 3-COLUMN HUD GRID (100% Full Width): Left = Direct Hologram Chat Box, Center = Full-Size Arc Reactor, Right = All 4 Division Telemetry Boxes */}
+        <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-center">
+          {/* Left Column: J.A.R.V.I.S. DIRECT HOLOGRAM & CHAT CONSOLE (Selalu di kiri, Full Width di kolomnya) */}
+          <div className="w-full lg:col-span-4 xl:col-span-4 flex flex-col justify-center h-full max-h-[76vh] min-h-0">
             <div className="w-full h-full rounded-xl bg-zinc-950/90 border border-cyan-400/55 shadow-[0_0_32px_rgba(6,182,212,0.22)] backdrop-blur-xl overflow-hidden flex flex-col relative">
               {/* Reticle Corners */}
               <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
@@ -997,7 +997,7 @@ export default function JarvisApp({
           </div>
 
           {/* Center Column: FULL-SIZE ARC REACTOR CORE (Tidak pernah mengecil!) */}
-          <div className="order-first lg:order-none lg:col-span-4 flex flex-col items-center justify-center h-full min-h-0 py-1 relative">
+          <div className="order-first lg:order-none w-full lg:col-span-4 xl:col-span-4 flex flex-col items-center justify-center h-full min-h-0 py-1 relative">
             <ArcReactor
               status={statusCore}
               compact={false}
@@ -1013,8 +1013,8 @@ export default function JarvisApp({
             />
           </div>
 
-          {/* Right Column: ALL 4 DIVISION TELEMETRY BOXES (DIV-01 SALES, DIV-02 FINANCE, DIV-03 OPS/WASTE, DIV-04 HRD/REVIEW) */}
-          <div className="lg:col-span-4 flex flex-col gap-2.5 sm:gap-3 justify-start h-full max-h-[75vh] overflow-y-auto overflow-x-hidden px-1.5 py-1">
+          {/* Right Column: ALL 4 DIVISION TELEMETRY BOXES (Full Width di kolom kanan, 2x2 grid di layar ultra-lebar) */}
+          <div className="w-full lg:col-span-4 xl:col-span-4 grid grid-cols-1 2xl:grid-cols-2 gap-2.5 sm:gap-3 content-start h-full max-h-[76vh] overflow-y-auto overflow-x-hidden px-1.5 py-1">
             <AgentNodeCard
               profilFallback="ceo"
               meja={getMejaByProfil('ceo')}

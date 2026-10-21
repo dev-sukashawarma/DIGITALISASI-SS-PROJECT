@@ -448,8 +448,8 @@ export default function AgentNodeCard({
                   : 'text-cyan-100'
           return (
             <div key={idx} className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px]">
-              <span className="text-zinc-400 truncate">{m.label}</span>
-              <span className={`truncate max-w-[165px] text-right ${warnaNilai}`}>{m.nilai}</span>
+              <span className="text-zinc-400 shrink-0">{m.label}</span>
+              <span className={`truncate text-right ${warnaNilai}`}>{m.nilai}</span>
             </div>
           )
         })}

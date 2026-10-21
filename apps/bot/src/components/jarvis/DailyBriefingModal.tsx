@@ -50,7 +50,7 @@ export default function DailyBriefingModal({
   onTanyaJarvis,
   onStatusBicaraChange,
 }: DailyBriefingModalProps) {
-  const [tabWaktu, setTabWaktu] = useState<'hari_ini' | 'kemarin'>('hari_ini')
+  const [tabWaktu, setTabWaktu] = useState<'hari_ini' | 'kemarin'>('kemarin')
   const [mengirimTg, setMengirimTg] = useState(false)
   const [statusTg, setStatusTg] = useState<{ ok: boolean; pesan: string } | null>(null)
 
@@ -73,6 +73,34 @@ export default function DailyBriefingModal({
         outletsAktifTransaksi: t?.outletsAktifTransaksi ?? [],
         outletsNolTransaksi: t?.outletsNolTransaksi ?? [],
       }
+
+  const menuAktif = isKemarin
+    ? (t?.topMenuKemarin ?? t?.ringkasanKemarin?.topMenu ?? [])
+    : (t?.topMenu ?? [])
+
+  const opexNominalAktif = isKemarin
+    ? (t?.finance?.pengeluaranKemarin?.totalNominal ?? 0)
+    : (t?.finance?.pengeluaranHariIni?.totalNominal ?? 0)
+  const opexTxCountAktif = isKemarin
+    ? (t?.finance?.pengeluaranKemarin?.jumlahTransaksi ?? 0)
+    : (t?.finance?.pengeluaranHariIni?.jumlahTransaksi ?? 0)
+
+  const voidCountAktif = isKemarin
+    ? (t?.voidOrder?.totalVoidKemarin ?? 0)
+    : (t?.voidOrder?.totalVoidHariIni ?? 0)
+  const voidRpAktif = isKemarin
+    ? (t?.voidOrder?.totalNilaiVoidKemarin ?? 0)
+    : (t?.voidOrder?.totalNilaiVoidHariIni ?? 0)
+
+  const hrdOnTimeAktif = isKemarin ? (t?.hrdKemarin?.persenOnTime ?? 100) : (t?.persenOnTime ?? 100)
+  const hrdTotalAktif = isKemarin ? (t?.hrdKemarin?.kehadiranTotal ?? 0) : (t?.kehadiranTotal ?? 0)
+  const hrdTelatAktif = isKemarin ? (t?.hrdKemarin?.kehadiranTelat ?? 0) : (t?.kehadiranTelat ?? 0)
+  const hrdCutiAktif = isKemarin ? (t?.hrdKemarin?.stafCutiIzin ?? []) : (t?.stafCutiIzin ?? [])
+  const hrdStafTelatAktif = isKemarin ? (t?.hrdKemarin?.stafTelat ?? []) : (t?.stafTelat ?? [])
+
+  const actionItemsAktif = isKemarin
+    ? (data?.actionItemsKemarin ?? data?.actionItems ?? [])
+    : (data?.actionItemsHariIni ?? data?.actionItems ?? [])
 
   const narasiAktif =
     tabWaktu === 'kemarin' ? data?.narasiSuaraKemarin || '' : data?.narasiSuaraHariIni || ''
@@ -223,25 +251,9 @@ export default function DailyBriefingModal({
           </div>
         </div>
 
-        {/* Subheader: Smart Time Tabs (Live Hari Ini vs Evaluasi Penuh Kemarin) */}
+        {/* Subheader: Smart Time Tabs (Evaluasi Full Kemarin H-1 sebagai Default Utama vs Live Hari Ini) */}
         <div className="px-4 py-2.5 border-b border-cyan-500/20 bg-zinc-900/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                mainkanSuaraHud('chirp')
-                setTabWaktu('hari_ini')
-              }}
-              className={`px-3 py-1.5 rounded-lg font-hud text-[10px] sm:text-xs tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                tabWaktu === 'hari_ini'
-                  ? 'bg-cyan-600/80 border-cyan-300 text-white shadow-[0_0_15px_rgba(6,182,212,0.35)]'
-                  : 'bg-zinc-950/70 border-cyan-500/25 text-zinc-400 hover:text-cyan-200'
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>LIVE HARI INI ({t?.tanggalWIB || 'TODAY'})</span>
-            </button>
-
             <button
               type="button"
               onClick={() => {
@@ -256,6 +268,22 @@ export default function DailyBriefingModal({
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>EVALUASI FULL KEMARIN ({t?.ringkasanKemarin?.tglIso || 'H-1'})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                mainkanSuaraHud('chirp')
+                setTabWaktu('hari_ini')
+              }}
+              className={`px-3 py-1.5 rounded-lg font-hud text-[10px] sm:text-xs tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                tabWaktu === 'hari_ini'
+                  ? 'bg-cyan-600/80 border-cyan-300 text-white shadow-[0_0_15px_rgba(6,182,212,0.35)]'
+                  : 'bg-zinc-950/70 border-cyan-500/25 text-zinc-400 hover:text-cyan-200'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>LIVE HARI INI ({t?.tanggalWIB || 'TODAY'})</span>
             </button>
           </div>
 
@@ -293,7 +321,7 @@ export default function DailyBriefingModal({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="font-hud text-[10px] tracking-widest uppercase text-cyan-300 font-bold">
-                        INTISARI LISAN J.A.R.V.I.S. ({tabWaktu === 'kemarin' ? 'CLOSING KEMARIN + SIAGA HARI INI' : 'PROGRES HARI INI'})
+                        INTISARI LISAN J.A.R.V.I.S. ({tabWaktu === 'kemarin' ? 'CLOSING FULL KEMARIN H-1' : 'PROGRES LIVE HARI INI'})
                       </span>
                       {sedangBicaraBriefing && (
                         <span className="text-[10px] text-emerald-300 font-bold animate-pulse">
@@ -306,19 +334,21 @@ export default function DailyBriefingModal({
                 </div>
               )}
 
-              {/* AI Executive Action Items (Prioritas Tindak Lanjut) */}
-              {data?.actionItems && data.actionItems.length > 0 && (
+              {/* AI Executive Action Items (Prioritas Tindak Lanjut mengikuti tab waktu) */}
+              {actionItemsAktif.length > 0 && (
                 <div className="rounded-xl bg-zinc-900/80 border border-cyan-500/30 p-3.5">
                   <div className="flex items-center justify-between mb-2.5">
                     <h3 className="font-hud text-xs font-bold tracking-wider uppercase text-cyan-300 flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 text-amber-400" />
-                      <span>AI EXECUTIVE ACTION ITEMS &amp; ANOMALY RADAR</span>
+                      <span>
+                        AI EXECUTIVE ACTION ITEMS &amp; ANOMALY RADAR ({isKemarin ? 'EVALUASI KEMARIN H-1' : 'LIVE HARI INI'})
+                      </span>
                     </h3>
                     <span className="text-[10px] text-zinc-400">Klik kartu untuk instruksikan Jarvis</span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                    {data.actionItems.map((item) => {
+                    {actionItemsAktif.map((item) => {
                       const warnaBorder =
                         item.level === 'critical'
                           ? 'border-red-500/60 bg-red-950/30 hover:border-red-400'
@@ -364,7 +394,7 @@ export default function DailyBriefingModal({
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-cyan-400" />
                         <h4 className="font-hud text-xs font-bold uppercase tracking-wider text-white">
-                          1. SALES &amp; OUTLET LEADERBOARD ({isKemarin ? 'KEMARIN' : 'HARI INI'})
+                          1. SALES &amp; OUTLET LEADERBOARD ({isKemarin ? 'KEMARIN H-1' : 'HARI INI'})
                         </h4>
                       </div>
                       <button
@@ -373,7 +403,7 @@ export default function DailyBriefingModal({
                           onTutup()
                           onTanyaJarvis(
                             isKemarin
-                              ? 'Tampilkan tabel peringkat lengkap omzet seluruh cabang kemarin.'
+                              ? 'Tampilkan tabel peringkat lengkap omzet seluruh cabang kemarin beserta menu terlaris kemarin.'
                               : 'Tampilkan tabel peringkat lengkap omzet seluruh cabang hari ini.'
                           )
                         }}
@@ -430,14 +460,14 @@ export default function DailyBriefingModal({
                     </div>
                   </div>
 
-                  {/* Top 3 Menu Hari Ini */}
-                  {t?.topMenu && t.topMenu.length > 0 && (
+                  {/* Top 3 Menu Terlaris (Kemarin vs Hari Ini) */}
+                  {menuAktif.length > 0 && (
                     <div className="mt-3 pt-2.5 border-t border-cyan-500/15">
                       <div className="text-[10px] text-cyan-400 font-bold uppercase mb-1">
-                        🌯 TOP 3 MENU TERLARIS HARI INI
+                        🌯 TOP 3 MENU TERLARIS ({isKemarin ? 'KEMARIN H-1' : 'HARI INI'})
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {t.topMenu.slice(0, 3).map((m, idx) => (
+                        {menuAktif.slice(0, 3).map((m, idx) => (
                           <span
                             key={idx}
                             className="text-[10px] px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-200"
@@ -457,14 +487,18 @@ export default function DailyBriefingModal({
                       <div className="flex items-center gap-2">
                         <DollarSign className="w-4 h-4 text-amber-400" />
                         <h4 className="font-hud text-xs font-bold uppercase tracking-wider text-white">
-                          2. TREASURY, OPEX &amp; SUPPLIER PO
+                          2. TREASURY, OPEX &amp; SUPPLIER PO ({isKemarin ? 'KEMARIN H-1' : 'HARI INI'})
                         </h4>
                       </div>
                       <button
                         type="button"
                         onClick={() => {
                           onTutup()
-                          onTanyaJarvis('Berikan rincian lengkap keuangan hari ini: OPEX, setoran kas, dan utang PO supplier.')
+                          onTanyaJarvis(
+                            isKemarin
+                              ? 'Berikan rincian lengkap keuangan kemarin: OPEX kemarin, rekonsiliasi kas tutup shift kemarin, selisih kasir, dan utang PO supplier.'
+                              : 'Berikan rincian lengkap keuangan hari ini: OPEX, setoran kas, dan utang PO supplier.'
+                          )
                         }}
                         className="text-[10px] text-cyan-300 hover:underline cursor-pointer"
                       >
@@ -474,15 +508,29 @@ export default function DailyBriefingModal({
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                       <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[9px] text-zinc-400">OPEX HARI INI</div>
-                        <div className="text-xs font-bold text-amber-300 mt-0.5">
-                          {fmtRp(t?.finance?.pengeluaranHariIni?.totalNominal ?? 0)}
+                        <div className="text-[9px] text-zinc-400">
+                          OPEX {isKemarin ? 'KEMARIN' : 'HARI INI'}
                         </div>
+                        <div className="text-xs font-bold text-amber-300 mt-0.5">
+                          {fmtRp(opexNominalAktif)}
+                        </div>
+                        <div className="text-[9px] text-zinc-500">{opexTxCountAktif} transaksi</div>
                       </div>
                       <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[9px] text-zinc-400">SETORAN DIREKAP</div>
+                        <div className="text-[9px] text-zinc-400">
+                          {isKemarin ? 'KAS TUTUP SHIFT' : 'SETORAN DIREKAP'}
+                        </div>
                         <div className="text-xs font-bold text-emerald-300 mt-0.5">
-                          {fmtRp(t?.finance?.setoranKas?.inputHariIni?.totalNominal ?? 0)}
+                          {fmtRp(
+                            isKemarin
+                              ? (t?.finance?.setoranKas?.tutupShiftKemarin?.totalFisikKas ?? 0)
+                              : (t?.finance?.setoranKas?.inputHariIni?.totalNominal ?? 0)
+                          )}
+                        </div>
+                        <div className="text-[9px] text-zinc-500">
+                          {isKemarin
+                            ? `${t?.finance?.setoranKas?.tutupShiftKemarin?.jumlahOutletClosed ?? 0} shift closed`
+                            : `${t?.finance?.setoranKas?.inputHariIni?.jumlahTransaksi ?? 0} setoran`}
                         </div>
                       </div>
                       <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
@@ -490,6 +538,7 @@ export default function DailyBriefingModal({
                         <div className="text-xs font-bold text-cyan-200 mt-0.5">
                           {fmtRp(t?.finance?.utangPo?.totalUtang ?? 0)}
                         </div>
+                        <div className="text-[9px] text-zinc-500">{t?.finance?.utangPo?.jumlahPo ?? 0} PO aktif</div>
                       </div>
                       <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
                         <div className="text-[9px] text-zinc-400">PO OVERDUE</div>
@@ -500,6 +549,7 @@ export default function DailyBriefingModal({
                         >
                           {fmtRp(t?.finance?.utangPo?.totalLewatJatuhTempo ?? 0)}
                         </div>
+                        <div className="text-[9px] text-zinc-500">Jatuh tempo</div>
                       </div>
                     </div>
 
@@ -527,11 +577,18 @@ export default function DailyBriefingModal({
                   {/* Rekonsiliasi Kas Tutup Shift Kemarin */}
                   {t?.finance?.setoranKas?.tutupShiftKemarin && (
                     <div className="mt-3 pt-2.5 border-t border-cyan-500/15 flex items-center justify-between text-[11px] text-zinc-300">
-                      <span>Kas Fisik Closing Kemarin:</span>
+                      <span>Rekonsiliasi Setoran Shift Kemarin:</span>
                       <span className="text-cyan-200 font-bold">
-                        {fmtRp(t.finance.setoranKas.tutupShiftKemarin.totalFisikKas)} (
                         {t.finance.setoranKas.tutupShiftKemarin.sudahDirekap} direkap /{' '}
-                        {t.finance.setoranKas.tutupShiftKemarin.belumDirekap} antrean)
+                        <span
+                          className={
+                            t.finance.setoranKas.tutupShiftKemarin.belumDirekap > 0
+                              ? 'text-amber-300'
+                              : 'text-emerald-300'
+                          }
+                        >
+                          {t.finance.setoranKas.tutupShiftKemarin.belumDirekap} belum setor
+                        </span>
                       </span>
                     </div>
                   )}
@@ -543,26 +600,32 @@ export default function DailyBriefingModal({
                     <div className="flex items-center gap-2">
                       <Package className="w-4 h-4 text-emerald-400" />
                       <h4 className="font-hud text-xs font-bold uppercase tracking-wider text-white">
-                        3. OPS, VOID &amp; WASTE
+                        3. OPS, VOID &amp; WASTE ({isKemarin ? 'H-1' : 'TODAY'})
                       </h4>
                     </div>
                   </div>
 
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between p-2 rounded bg-black/50 border border-zinc-800">
-                      <span className="text-zinc-400">Shift Kasir Buka:</span>
+                      <span className="text-zinc-400">
+                        {isKemarin ? 'Shift Closed Kemarin:' : 'Shift Kasir Buka:'}
+                      </span>
                       <span className="font-bold text-emerald-300">
-                        {t?.statusBuka?.totalBuka ?? 0} Buka / {t?.statusBuka?.totalBelumBuka ?? 0} Belum
+                        {isKemarin
+                          ? `${t?.statusBuka?.shiftKemarinClosedCount ?? 0} Cabang Closed`
+                          : `${t?.statusBuka?.totalBuka ?? 0} Buka / ${t?.statusBuka?.totalBelumBuka ?? 0} Belum`}
                       </span>
                     </div>
                     <div className="flex justify-between p-2 rounded bg-black/50 border border-zinc-800">
-                      <span className="text-zinc-400">Void POS Hari Ini:</span>
+                      <span className="text-zinc-400">
+                        Void POS {isKemarin ? 'Kemarin:' : 'Hari Ini:'}
+                      </span>
                       <span
                         className={`font-bold ${
-                          (t?.voidOrder?.totalVoidHariIni ?? 0) > 0 ? 'text-amber-300' : 'text-emerald-300'
+                          voidCountAktif > 0 ? 'text-amber-300' : 'text-emerald-300'
                         }`}
                       >
-                        {t?.voidOrder?.totalVoidHariIni ?? 0} tx ({fmtRp(t?.voidOrder?.totalNilaiVoidHariIni ?? 0)})
+                        {voidCountAktif} tx ({fmtRp(voidRpAktif)})
                       </span>
                     </div>
                     <div className="flex justify-between p-2 rounded bg-black/50 border border-zinc-800">
@@ -591,7 +654,7 @@ export default function DailyBriefingModal({
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-indigo-400" />
                       <h4 className="font-hud text-xs font-bold uppercase tracking-wider text-white">
-                        4. WORKFORCE &amp; HRD
+                        4. WORKFORCE &amp; HRD ({isKemarin ? 'H-1' : 'TODAY'})
                       </h4>
                     </div>
                   </div>
@@ -600,24 +663,26 @@ export default function DailyBriefingModal({
                     <div className="flex justify-between p-2 rounded bg-black/50 border border-zinc-800">
                       <span className="text-zinc-400">Tingkat On-Time:</span>
                       <span className="font-bold text-emerald-300">
-                        {t?.persenOnTime ?? 100}% ({t?.kehadiranTotal ?? 0} clock-in)
+                        {hrdOnTimeAktif}% ({hrdTotalAktif} clock-in)
                       </span>
                     </div>
                     <div className="flex justify-between p-2 rounded bg-black/50 border border-zinc-800">
                       <span className="text-zinc-400">Kru Terlambat:</span>
-                      <span className={`font-bold ${(t?.kehadiranTelat ?? 0) > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
-                        {t?.kehadiranTelat ?? 0} orang
+                      <span className={`font-bold ${hrdTelatAktif > 0 ? 'text-amber-300' : 'text-emerald-300'}`}>
+                        {hrdTelatAktif} orang
                       </span>
                     </div>
                     <div className="flex justify-between p-2 rounded bg-black/50 border border-zinc-800">
                       <span className="text-zinc-400">Kru Izin / Cuti:</span>
-                      <span className="font-bold text-cyan-200">{t?.stafCutiIzin?.length ?? 0} orang</span>
+                      <span className="font-bold text-cyan-200">{hrdCutiAktif.length} orang</span>
                     </div>
 
-                    {t?.stafTelat && t.stafTelat.length > 0 && (
+                    {hrdStafTelatAktif.length > 0 && (
                       <div className="pt-1">
-                        <div className="text-[10px] text-amber-300 font-bold uppercase mb-1">Catatan Keterlambatan:</div>
-                        {t.stafTelat.slice(0, 2).map((s, i) => (
+                        <div className="text-[10px] text-amber-300 font-bold uppercase mb-1">
+                          Catatan Keterlambatan ({isKemarin ? 'Kemarin' : 'Hari Ini'}):
+                        </div>
+                        {hrdStafTelatAktif.slice(0, 2).map((s, i) => (
                           <div key={i} className="text-[11px] text-zinc-300 truncate">
                             • {s.nama} ({s.outlet}): {s.telatMenit} mnt
                           </div>

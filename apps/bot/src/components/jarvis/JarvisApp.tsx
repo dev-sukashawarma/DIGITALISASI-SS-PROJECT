@@ -135,6 +135,7 @@ export default function JarvisApp({
   const [pertanyaanTerakhir, setPertanyaanTerakhir] = useState<string | null>(null)
   const [jawabanHologram, setJawabanHologram] = useState<string>('')
   const [divisiSorot, setDivisiSorot] = useState<Profil | null>(null)
+  const [modeWaktuKotak, setModeWaktuKotak] = useState<'kemarin' | 'hari_ini'>('kemarin')
 
   // Modal / Drawer States
   const [tampilDailyBriefing, setTampilDailyBriefing] = useState(false)
@@ -891,14 +892,14 @@ export default function JarvisApp({
                     onClick={() => bukaModalDailyBriefing(true)}
                     className="px-2 py-0.5 rounded bg-cyan-600/35 hover:bg-cyan-600/55 text-cyan-100 border border-cyan-400/50 font-mono-hud text-[9px] font-bold transition-all cursor-pointer"
                   >
-                    ⚡ Daily Briefing (5 Pilar)
+                    ⚡ Daily Briefing (H-1)
                   </button>
                   {[
-                    { label: '📊 Omzet Hari Ini', pesan: 'Tampilkan peringkat omzet seluruh cabang hari ini.' },
-                    { label: '📅 Evaluasi Kemarin', pesan: 'Bagaimana rekapitulasi dan peringkat penjualan seluruh cabang kemarin?' },
-                    { label: '💰 Utang PO & OPEX', pesan: 'Berapa total pengeluaran OPEX hari ini dan rincian utang PO supplier?' },
-                    { label: '🥬 Waste & Void POS', pesan: 'Analisis laporan waste bahan baku tertinggi dan cek transaksi void hari ini.' },
-                    { label: '👥 Presensi & Telat', pesan: 'Siapa saja kru outlet yang terlambat atau izin/cuti hari ini?' },
+                    { label: '📅 Evaluasi Kemarin (H-1)', pesan: 'Bagaimana rekapitulasi dan peringkat penjualan seluruh cabang kemarin beserta menu terlaris kemarin?' },
+                    { label: '💰 OPEX & Kas Kemarin', pesan: 'Berapa total pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier?' },
+                    { label: '🥬 Waste & Void Kemarin', pesan: 'Analisis laporan waste bahan baku tertinggi dan cek transaksi void POS kemarin.' },
+                    { label: '👥 Presensi & Telat Kemarin', pesan: 'Siapa saja kru outlet yang terlambat atau izin/cuti kemarin?' },
+                    { label: '📊 Pantau Live Hari Ini', pesan: 'Tampilkan progres omzet berjalan dan cabang yang sudah buka hari ini.' },
                     { label: '📨 Kirim ke Telegram', pesan: 'Kirim laporan daily ke Telegram' },
                   ].map((chip, idx) => (
                     <button
@@ -989,59 +990,118 @@ export default function JarvisApp({
             />
           </div>
 
-          {/* Right Column: ALL 4 DIVISION TELEMETRY BOXES (Full Width di kolom kanan, 2x2 grid di layar ultra-lebar) */}
-          <div className="w-full lg:col-span-4 xl:col-span-4 grid grid-cols-1 2xl:grid-cols-2 gap-2.5 sm:gap-3 content-start h-full max-h-[86vh] overflow-y-auto overflow-x-hidden px-1.5 py-1">
-            <AgentNodeCard
-              profilFallback="ceo"
-              meja={getMejaByProfil('ceo')}
-              telemetri={dailyData?.telemetri}
-              terpilih={divisiSorot === 'ceo'}
-              onPilih={(_p, q) =>
-                void eksekusiPerintahJarvis(
-                  q || 'Tampilkan peringkat omzet seluruh cabang hari ini beserta menu terlaris.',
-                  false
-                )
-              }
-            />
+          {/* Right Column: ALL 4 DIVISION TELEMETRY BOXES + SWITCH [H-1 KEMARIN | LIVE HARI INI] */}
+          <div className="w-full lg:col-span-4 xl:col-span-4 flex flex-col gap-2.5 h-full max-h-[86vh] min-h-0">
+            {/* Compact HUD Time Switch Bar above 4 Division Cards */}
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.15)] shrink-0 mx-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                <span className="font-hud text-[9px] sm:text-[10px] tracking-widest uppercase text-cyan-300 font-bold truncate">
+                  RADAR DIVISI:
+                </span>
+              </div>
 
-            <AgentNodeCard
-              profilFallback="finance"
-              meja={getMejaByProfil('finance')}
-              telemetri={dailyData?.telemetri}
-              terpilih={divisiSorot === 'finance'}
-              onPilih={(_p, q) =>
-                void eksekusiPerintahJarvis(
-                  q || 'Rincikan pengeluaran OPEX hari ini, setoran kas, dan utang PO supplier.',
-                  false
-                )
-              }
-            />
+              <div className="flex items-center gap-1 bg-black/80 p-0.5 rounded-lg border border-cyan-500/25 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    mainkanSuaraHud('chirp')
+                    setModeWaktuKotak('kemarin')
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-mono-hud text-[9px] sm:text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                    modeWaktuKotak === 'kemarin'
+                      ? 'bg-cyan-600/85 text-white border border-cyan-300/60 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
+                      : 'text-zinc-400 hover:text-cyan-200'
+                  }`}
+                >
+                  H-1 KEMARIN ({dailyData?.telemetri?.ringkasanKemarin?.tglIso?.slice(5) || 'CLOSING'})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    mainkanSuaraHud('chirp')
+                    setModeWaktuKotak('hari_ini')
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-mono-hud text-[9px] sm:text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                    modeWaktuKotak === 'hari_ini'
+                      ? 'bg-emerald-600/85 text-white border border-emerald-300/60 shadow-[0_0_10px_rgba(16,185,129,0.4)]'
+                      : 'text-zinc-400 hover:text-emerald-200'
+                  }`}
+                >
+                  LIVE HARI INI ({dailyData?.telemetri?.tanggalWIB?.slice(5) || 'TODAY'})
+                </button>
+              </div>
+            </div>
 
-            <AgentNodeCard
-              profilFallback="gudang"
-              meja={getMejaByProfil('gudang')}
-              telemetri={dailyData?.telemetri}
-              terpilih={divisiSorot === 'gudang'}
-              onPilih={(_p, q) =>
-                void eksekusiPerintahJarvis(
-                  q || 'Analisis laporan waste bahan baku tertinggi, status buka cabang, dan void kasir hari ini.',
-                  false
-                )
-              }
-            />
+            <div className="grid grid-cols-1 2xl:grid-cols-2 gap-2.5 sm:gap-3 content-start flex-1 overflow-y-auto overflow-x-hidden px-1.5 pb-1">
+              <AgentNodeCard
+                profilFallback="ceo"
+                meja={getMejaByProfil('ceo')}
+                telemetri={dailyData?.telemetri}
+                modeWaktu={modeWaktuKotak}
+                terpilih={divisiSorot === 'ceo'}
+                onPilih={(_p, q) =>
+                  void eksekusiPerintahJarvis(
+                    q ||
+                      (modeWaktuKotak === 'kemarin'
+                        ? 'Tampilkan peringkat omzet seluruh cabang kemarin beserta menu terlaris kemarin.'
+                        : 'Tampilkan peringkat omzet seluruh cabang live hari ini beserta menu terlaris.'),
+                    false
+                  )
+                }
+              />
 
-            <AgentNodeCard
-              profilFallback="hrd"
-              meja={getMejaByProfil('hrd')}
-              telemetri={dailyData?.telemetri}
-              terpilih={divisiSorot === 'hrd'}
-              onPilih={(_p, q) =>
-                void eksekusiPerintahJarvis(
-                  q || 'Siapa saja kru outlet yang terlambat atau izin hari ini, dan bagaimana rating Google Review?',
-                  false
-                )
-              }
-            />
+              <AgentNodeCard
+                profilFallback="finance"
+                meja={getMejaByProfil('finance')}
+                telemetri={dailyData?.telemetri}
+                modeWaktu={modeWaktuKotak}
+                terpilih={divisiSorot === 'finance'}
+                onPilih={(_p, q) =>
+                  void eksekusiPerintahJarvis(
+                    q ||
+                      (modeWaktuKotak === 'kemarin'
+                        ? 'Rincikan pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier.'
+                        : 'Rincikan pengeluaran OPEX hari ini, setoran kas, dan utang PO supplier.'),
+                    false
+                  )
+                }
+              />
+
+              <AgentNodeCard
+                profilFallback="gudang"
+                meja={getMejaByProfil('gudang')}
+                telemetri={dailyData?.telemetri}
+                modeWaktu={modeWaktuKotak}
+                terpilih={divisiSorot === 'gudang'}
+                onPilih={(_p, q) =>
+                  void eksekusiPerintahJarvis(
+                    q ||
+                      (modeWaktuKotak === 'kemarin'
+                        ? 'Analisis laporan waste bahan baku tertinggi, rekap tutup shift kemarin, dan void kasir kemarin.'
+                        : 'Analisis laporan waste bahan baku tertinggi, status buka cabang, dan void kasir hari ini.'),
+                    false
+                  )
+                }
+              />
+
+              <AgentNodeCard
+                profilFallback="hrd"
+                meja={getMejaByProfil('hrd')}
+                telemetri={dailyData?.telemetri}
+                modeWaktu={modeWaktuKotak}
+                terpilih={divisiSorot === 'hrd'}
+                onPilih={(_p, q) =>
+                  void eksekusiPerintahJarvis(
+                    q ||
+                      (modeWaktuKotak === 'kemarin'
+                        ? 'Siapa saja kru outlet yang terlambat atau izin kemarin, dan bagaimana rating Google Review?'
+                        : 'Siapa saja kru outlet yang terlambat atau izin hari ini, dan bagaimana rating Google Review?'),
+                    false
+                  )
+                }
+              />
+            </div>
           </div>
         </div>
       </main>

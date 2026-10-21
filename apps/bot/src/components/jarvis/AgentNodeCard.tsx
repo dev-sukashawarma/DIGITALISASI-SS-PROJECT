@@ -138,18 +138,30 @@ const TEMA_STYLE: Record<
   },
 }
 
-function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefined): DivisiVisual {
+function bangunVisualDivisi(
+  profil: string,
+  t: TelemetriHariIni | null | undefined,
+  modeWaktu: 'kemarin' | 'hari_ini' = 'kemarin'
+): DivisiVisual {
   const p = profil.toLowerCase()
+  const isKemarin = modeWaktu === 'kemarin'
 
   if (p === 'ceo' || p === 'sales') {
     const omzetHariIni = t?.omzetTotal ?? 0
     const orderHariIni = t?.totalOrder ?? 0
     const omzetKemarin = t?.ringkasanKemarin?.omzetTotal ?? 0
-    const aktifCount = t?.outletsAktifTransaksi?.length ?? 0
+    const orderKemarin = t?.ringkasanKemarin?.totalOrder ?? 0
+    const aktifCount = isKemarin
+      ? (t?.ringkasanKemarin?.outletsAktifTransaksi?.length ?? 0)
+      : (t?.outletsAktifTransaksi?.length ?? 0)
     const totalOut = t?.totalOutletAktif ?? 0
-    const top1 = t?.outletsAktifTransaksi?.[0] || t?.ringkasanKemarin?.outletsAktifTransaksi?.[0]
+    const top1 = isKemarin
+      ? (t?.ringkasanKemarin?.outletsAktifTransaksi?.[0] || t?.outletsAktifTransaksi?.[0])
+      : (t?.outletsAktifTransaksi?.[0] || t?.ringkasanKemarin?.outletsAktifTransaksi?.[0])
+    const topMenu1 = isKemarin
+      ? (t?.topMenuKemarin?.[0] || t?.ringkasanKemarin?.topMenu?.[0] || t?.topMenu?.[0])
+      : (t?.topMenu?.[0] || t?.topMenuKemarin?.[0])
 
-    // Progress bar: % cabang yang sudah aktif bertransaksi (atau perbandingan omzet terhadap kemarin)
     const pctOutletAktif =
       totalOut > 0
         ? Math.min(100, Math.round((aktifCount / totalOut) * 100))
@@ -158,47 +170,81 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
           : 0
 
     return {
-      kode: 'DIV-01 // SALES & POS RADAR',
+      kode: `DIV-01 // SALES & POS (${isKemarin ? 'H-1' : 'LIVE'})`,
       judul: 'SALES & OUTLET NETWORK',
-      subjudul: 'Real-Time POS Revenue & Leaderboard',
+      subjudul: isKemarin ? 'Full Closing Yesterday (H-1) & Leaderboard' : 'Real-Time POS Revenue & Leaderboard',
       tema: 'cyan',
       icon: TrendingUp,
-      statusLabel: t ? `${aktifCount}/${totalOut} OUTLET AKTIF` : 'SYNCING POS...',
+      statusLabel: t ? `${aktifCount}/${totalOut} AKTIF (${isKemarin ? 'H-1' : 'LIVE'})` : 'SYNCING POS...',
       statusLevel: 'optimal',
-      progressLabel: `AKTIVASI TRANSAKSI CABANG (${pctOutletAktif}%)`,
+      progressLabel: `PARTISIPASI CABANG ${isKemarin ? 'KEMARIN' : 'HARI INI'} (${pctOutletAktif}%)`,
       progressPersen: pctOutletAktif,
-      metrik: [
-        {
-          label: 'OMZET HARI INI',
-          nilai: t ? `${fmtRpSingkat(omzetHariIni)} (${orderHariIni} struk)` : 'Memuat...',
-          sorot: omzetHariIni > 0 ? 'good' : 'normal',
-        },
-        {
-          label: 'CLOSING KEMARIN',
-          nilai: t ? `${fmtRpSingkat(omzetKemarin)} (${t.ringkasanKemarin?.totalOrder ?? 0} struk)` : 'Memuat...',
-          sorot: 'normal',
-        },
-        {
-          label: 'RATA-RATA STRUK (AOV)',
-          nilai: t ? fmtRpSingkat(t.aov || t.ringkasanKemarin?.aov || 0) : '-',
-          sorot: 'normal',
-        },
-        {
-          label: 'TOP #1 CABANG',
-          nilai: top1 ? `${top1.nama.replace(/^SUKA SHAWARMA\s+/i, '')} (${fmtRpSingkat(top1.omzet)})` : '-',
-          sorot: 'good',
-        },
-      ],
-      contohPertanyaan: [
-        'Tampilkan peringkat omzet seluruh cabang hari ini',
-        'Bagaimana evaluasi lengkap penjualan kemarin?',
-      ],
+      metrik: isKemarin
+        ? [
+            {
+              label: 'OMZET KEMARIN (H-1)',
+              nilai: t ? `${fmtRpSingkat(omzetKemarin)} (${orderKemarin} struk)` : 'Memuat...',
+              sorot: omzetKemarin > 0 ? 'good' : 'normal',
+            },
+            {
+              label: 'RATA-RATA STRUK (AOV)',
+              nilai: t ? fmtRpSingkat(t.ringkasanKemarin?.aov || t.aov || 0) : '-',
+              sorot: 'normal',
+            },
+            {
+              label: 'TOP #1 CABANG (H-1)',
+              nilai: top1 ? `${top1.nama.replace(/^SUKA SHAWARMA\s+/i, '')} (${fmtRpSingkat(top1.omzet)})` : '-',
+              sorot: 'good',
+            },
+            {
+              label: 'MENU TERLARIS (H-1)',
+              nilai: topMenu1 ? `${topMenu1.nama} (${topMenu1.qty} porsi)` : `${fmtRpSingkat(omzetHariIni)} (Live)`,
+              sorot: 'normal',
+            },
+          ]
+        : [
+            {
+              label: 'OMZET LIVE HARI INI',
+              nilai: t ? `${fmtRpSingkat(omzetHariIni)} (${orderHariIni} struk)` : 'Memuat...',
+              sorot: omzetHariIni > 0 ? 'good' : 'normal',
+            },
+            {
+              label: 'CLOSING KEMARIN (H-1)',
+              nilai: t ? `${fmtRpSingkat(omzetKemarin)} (${orderKemarin} struk)` : 'Memuat...',
+              sorot: 'normal',
+            },
+            {
+              label: 'RATA-RATA STRUK (AOV)',
+              nilai: t ? fmtRpSingkat(t.aov || t.ringkasanKemarin?.aov || 0) : '-',
+              sorot: 'normal',
+            },
+            {
+              label: 'TOP #1 CABANG LIVE',
+              nilai: top1 ? `${top1.nama.replace(/^SUKA SHAWARMA\s+/i, '')} (${fmtRpSingkat(top1.omzet)})` : '-',
+              sorot: 'good',
+            },
+          ],
+      contohPertanyaan: isKemarin
+        ? [
+            'Bagaimana evaluasi lengkap penjualan & peringkat cabang kemarin?',
+            'Apa saja menu paling laris kemarin dan cabang yang nol transaksi?',
+          ]
+        : [
+            'Tampilkan peringkat omzet seluruh cabang live hari ini',
+            'Bandingkan omzet berjalan hari ini dengan penutupan kemarin',
+          ],
     }
   }
 
   if (p === 'finance') {
     const opexHariIni = t?.finance?.pengeluaranHariIni?.totalNominal ?? 0
+    const opexHariIniTx = t?.finance?.pengeluaranHariIni?.jumlahTransaksi ?? 0
+    const opexKemarin = t?.finance?.pengeluaranKemarin?.totalNominal ?? 0
+    const opexKemarinTx = t?.finance?.pengeluaranKemarin?.jumlahTransaksi ?? 0
     const setoranHariIni = t?.finance?.setoranKas?.inputHariIni?.totalNominal ?? 0
+    const fisikKasKemarin = t?.finance?.setoranKas?.tutupShiftKemarin?.totalFisikKas ?? 0
+    const sudahDirekapKemarin = t?.finance?.setoranKas?.tutupShiftKemarin?.sudahDirekap ?? 0
+    const belumDirekapKemarin = t?.finance?.setoranKas?.tutupShiftKemarin?.belumDirekap ?? 0
     const utangTotal = t?.finance?.utangPo?.totalUtang ?? 0
     const overdue = t?.finance?.utangPo?.totalLewatJatuhTempo ?? 0
 
@@ -206,41 +252,71 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
       utangTotal > 0 ? Math.max(0, Math.min(100, Math.round(((utangTotal - overdue) / utangTotal) * 100))) : 100
 
     return {
-      kode: 'DIV-02 // TREASURY & VAULT',
+      kode: `DIV-02 // TREASURY (${isKemarin ? 'H-1' : 'LIVE'})`,
       judul: 'FINANCE & RECONCILIATION',
-      subjudul: 'Cash Flow, OPEX & Supplier Liability',
+      subjudul: isKemarin ? 'Yesterday OPEX, Shift Cash & PO Liability' : 'Live Cash Flow, OPEX & Supplier Liability',
       tema: 'amber',
       icon: DollarSign,
       statusLabel: overdue > 0 ? 'PO OVERDUE ALERT' : 'TREASURY NOMINAL',
       statusLevel: overdue > 0 ? 'warning' : 'optimal',
       progressLabel: `RASIO PO BELUM JATUH TEMPO (${pctPoSehat}%)`,
       progressPersen: pctPoSehat,
-      metrik: [
-        {
-          label: 'OPEX / KAS KECIL HARI INI',
-          nilai: t ? `${fmtRpSingkat(opexHariIni)} (${t.finance?.pengeluaranHariIni?.jumlahTransaksi ?? 0} tx)` : 'Memuat...',
-          sorot: 'normal',
-        },
-        {
-          label: 'SETORAN DIREKAP HARI INI',
-          nilai: t ? fmtRpSingkat(setoranHariIni) : 'Memuat...',
-          sorot: setoranHariIni > 0 ? 'good' : 'normal',
-        },
-        {
-          label: 'UTANG PO SUPPLIER',
-          nilai: t ? `${fmtRpSingkat(utangTotal)} (${t.finance?.utangPo?.jumlahPo ?? 0} PO)` : 'Memuat...',
-          sorot: 'normal',
-        },
-        {
-          label: 'PO LEWAT JATUH TEMPO',
-          nilai: t ? (overdue > 0 ? fmtRpSingkat(overdue) : 'Rp 0 (Aman)') : '-',
-          sorot: overdue > 0 ? 'crit' : 'good',
-        },
-      ],
-      contohPertanyaan: [
-        'Rincikan utang PO supplier & yang jatuh tempo',
-        'Bagaimana rincian pengeluaran OPEX & setoran kas hari ini?',
-      ],
+      metrik: isKemarin
+        ? [
+            {
+              label: 'OPEX / KAS KECIL (H-1)',
+              nilai: t ? `${fmtRpSingkat(opexKemarin)} (${opexKemarinTx} tx)` : 'Memuat...',
+              sorot: 'normal',
+            },
+            {
+              label: 'KAS TUTUP SHIFT (H-1)',
+              nilai: t
+                ? `${fmtRpSingkat(fisikKasKemarin)} (${sudahDirekapKemarin} rekap/${belumDirekapKemarin} blm)`
+                : 'Memuat...',
+              sorot: belumDirekapKemarin > 0 ? 'warn' : 'good',
+            },
+            {
+              label: 'UTANG PO SUPPLIER',
+              nilai: t ? `${fmtRpSingkat(utangTotal)} (${t.finance?.utangPo?.jumlahPo ?? 0} PO)` : 'Memuat...',
+              sorot: 'normal',
+            },
+            {
+              label: 'PO LEWAT JATUH TEMPO',
+              nilai: t ? (overdue > 0 ? fmtRpSingkat(overdue) : 'Rp 0 (Aman)') : '-',
+              sorot: overdue > 0 ? 'crit' : 'good',
+            },
+          ]
+        : [
+            {
+              label: 'OPEX LIVE HARI INI',
+              nilai: t ? `${fmtRpSingkat(opexHariIni)} (${opexHariIniTx} tx)` : 'Memuat...',
+              sorot: 'normal',
+            },
+            {
+              label: 'SETORAN DIREKAP HARI INI',
+              nilai: t ? fmtRpSingkat(setoranHariIni) : 'Memuat...',
+              sorot: setoranHariIni > 0 ? 'good' : 'normal',
+            },
+            {
+              label: 'UTANG PO SUPPLIER',
+              nilai: t ? `${fmtRpSingkat(utangTotal)} (${t.finance?.utangPo?.jumlahPo ?? 0} PO)` : 'Memuat...',
+              sorot: 'normal',
+            },
+            {
+              label: 'PO LEWAT JATUH TEMPO',
+              nilai: t ? (overdue > 0 ? fmtRpSingkat(overdue) : 'Rp 0 (Aman)') : '-',
+              sorot: overdue > 0 ? 'crit' : 'good',
+            },
+          ],
+      contohPertanyaan: isKemarin
+        ? [
+            'Rincikan pengeluaran OPEX kemarin, kas tutup shift kemarin, & selisih kasir',
+            'Rincikan utang PO supplier & yang sudah lewat jatuh tempo',
+          ]
+        : [
+            'Bagaimana rincian pengeluaran OPEX & setoran kas live hari ini?',
+            'Rincikan utang PO supplier & yang jatuh tempo',
+          ],
     }
   }
 
@@ -248,30 +324,43 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
     const buka = t?.statusBuka?.totalBuka ?? 0
     const belumBuka = t?.statusBuka?.totalBelumBuka ?? 0
     const totalCabang = buka + belumBuka
-    const pctBuka = totalCabang > 0 ? Math.min(100, Math.round((buka / totalCabang) * 100)) : 100
-    const voidCount = t?.voidOrder?.totalVoidHariIni ?? 0
-    const voidRp = t?.voidOrder?.totalNilaiVoidHariIni ?? 0
+    const closedKemarin = t?.statusBuka?.shiftKemarinClosedCount ?? t?.finance?.setoranKas?.tutupShiftKemarin?.jumlahOutletClosed ?? 0
+    const pctShift = isKemarin
+      ? (totalCabang > 0 ? Math.min(100, Math.round((closedKemarin / totalCabang) * 100)) : 100)
+      : (totalCabang > 0 ? Math.min(100, Math.round((buka / totalCabang) * 100)) : 100)
+    const voidCount = isKemarin
+      ? (t?.voidOrder?.totalVoidKemarin ?? 0)
+      : (t?.voidOrder?.totalVoidHariIni ?? 0)
+    const voidRp = isKemarin
+      ? (t?.voidOrder?.totalNilaiVoidKemarin ?? 0)
+      : (t?.voidOrder?.totalNilaiVoidHariIni ?? 0)
     const wasteRp = t?.waste?.totalEstKerugianRp ?? 0
     const topWaste = t?.waste?.topBahan?.[0]
 
     return {
-      kode: 'DIV-03 // SUPPLY & LOSS PREV',
+      kode: `DIV-03 // OPS & LOSS PREV (${isKemarin ? 'H-1' : 'LIVE'})`,
       judul: 'OPS, VOID & WASTE RADAR',
-      subjudul: 'Shift Readiness, POS Audit & Inventory Loss',
+      subjudul: isKemarin ? 'Yesterday Shift Closing, Void & Waste Audit' : 'Live Shift Readiness, POS Void & Waste',
       tema: 'emerald',
       icon: Package,
-      statusLabel: voidCount > 0 ? `${voidCount} VOID TERDETEKSI` : 'AUDIT BERSIH',
+      statusLabel: voidCount > 0 ? `${voidCount} VOID (${isKemarin ? 'H-1' : 'LIVE'})` : 'AUDIT BERSIH',
       statusLevel: voidCount > 0 ? 'warning' : 'optimal',
-      progressLabel: `KESIAPAN SHIFT KASIR CABANG (${pctBuka}%)`,
-      progressPersen: pctBuka,
+      progressLabel: isKemarin
+        ? `REKAP TUTUP SHIFT KEMARIN (${pctShift}%)`
+        : `KESIAPAN SHIFT KASIR CABANG (${pctShift}%)`,
+      progressPersen: pctShift,
       metrik: [
         {
-          label: 'SHIFT KASIR CABANG',
-          nilai: t ? `${buka} Buka • ${belumBuka} Belum Buka` : 'Memuat...',
-          sorot: belumBuka === 0 ? 'good' : 'warn',
+          label: isKemarin ? 'SHIFT CLOSED KEMARIN' : 'SHIFT KASIR CABANG',
+          nilai: t
+            ? isKemarin
+              ? `${closedKemarin}/${totalCabang} Cabang Closed`
+              : `${buka} Buka • ${belumBuka} Belum Buka`
+            : 'Memuat...',
+          sorot: isKemarin ? 'good' : belumBuka === 0 ? 'good' : 'warn',
         },
         {
-          label: 'VOID POS HARI INI',
+          label: isKemarin ? 'VOID POS KEMARIN (H-1)' : 'VOID POS HARI INI',
           nilai: t ? (voidCount > 0 ? `${voidCount} struk (${fmtRpSingkat(voidRp)})` : '0 Void (Bersih)') : '-',
           sorot: voidCount > 0 ? 'warn' : 'good',
         },
@@ -286,40 +375,45 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
           sorot: 'normal',
         },
       ],
-      contohPertanyaan: [
-        'Analisis laporan waste bahan baku & kerugian tertinggi',
-        'Cabang mana yang belum buka & ada transaksi void hari ini?',
-      ],
+      contohPertanyaan: isKemarin
+        ? [
+            'Analisis laporan waste bahan baku & cek transaksi void kemarin',
+            'Cabang mana saja yang mencatat void atau selisih shift kemarin?',
+          ]
+        : [
+            'Cabang mana yang belum buka & ada transaksi void hari ini?',
+            'Analisis laporan waste bahan baku & kerugian tertinggi',
+          ],
     }
   }
 
   // Default: HRD & Customer Experience (Review)
-  const onTimePct = t?.persenOnTime ?? 100
-  const hadirTotal = t?.kehadiranTotal ?? 0
-  const telatCount = t?.kehadiranTelat ?? 0
-  const cutiCount = t?.stafCutiIzin?.length ?? 0
+  const onTimePct = isKemarin ? (t?.hrdKemarin?.persenOnTime ?? 100) : (t?.persenOnTime ?? 100)
+  const hadirTotal = isKemarin ? (t?.hrdKemarin?.kehadiranTotal ?? 0) : (t?.kehadiranTotal ?? 0)
+  const telatCount = isKemarin ? (t?.hrdKemarin?.kehadiranTelat ?? 0) : (t?.kehadiranTelat ?? 0)
+  const cutiCount = isKemarin ? (t?.hrdKemarin?.stafCutiIzin?.length ?? 0) : (t?.stafCutiIzin?.length ?? 0)
   const rating = t?.review?.ratingRataRata ?? 4.8
   const totalUlasan = t?.review?.totalUlasan ?? 0
   const komplainCount = t?.review?.ulasanNegatifTerbaru?.length ?? 0
 
   return {
-    kode: 'DIV-04 // WORKFORCE & REVIEW',
+    kode: `DIV-04 // WORKFORCE & REVIEW (${isKemarin ? 'H-1' : 'LIVE'})`,
     judul: 'HRD & CUSTOMER SENTIMENT',
-    subjudul: 'Live Attendance & Google Review Radar',
+    subjudul: isKemarin ? 'Yesterday Attendance & Google Review Radar' : 'Live Attendance & Google Review Radar',
     tema: 'indigo',
     icon: Users,
-    statusLabel: telatCount > 0 ? `${telatCount} KRU TERLAMBAT` : `ON-TIME ${onTimePct}%`,
+    statusLabel: telatCount > 0 ? `${telatCount} TELAT (${isKemarin ? 'H-1' : 'LIVE'})` : `ON-TIME ${onTimePct}%`,
     statusLevel: telatCount > 3 ? 'warning' : 'optimal',
-    progressLabel: `DISIPLIN PRESENSI KRU (${onTimePct}% ON-TIME)`,
+    progressLabel: `DISIPLIN PRESENSI ${isKemarin ? 'KEMARIN' : 'HARI INI'} (${onTimePct}% ON-TIME)`,
     progressPersen: Math.max(0, Math.min(100, onTimePct)),
     metrik: [
       {
-        label: 'KEHADIRAN KRU OUTLET',
+        label: isKemarin ? 'PRESENSI KRU (H-1)' : 'PRESENSI KRU HARI INI',
         nilai: t ? `${onTimePct}% On-Time (${hadirTotal} clock-in)` : 'Memuat...',
         sorot: onTimePct >= 90 ? 'good' : 'warn',
       },
       {
-        label: 'TERLAMBAT / IZIN CUTI',
+        label: isKemarin ? 'TELAT / CUTI KEMARIN' : 'TERLAMBAT / IZIN CUTI',
         nilai: t ? `${telatCount} Telat • ${cutiCount} Izin/Cuti` : 'Memuat...',
         sorot: telatCount > 0 ? 'warn' : 'good',
       },
@@ -334,10 +428,15 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
         sorot: komplainCount > 0 ? 'warn' : 'good',
       },
     ],
-    contohPertanyaan: [
-      'Siapa saja kru cabang yang terlambat atau izin hari ini?',
-      'Tampilkan ulasan negatif pelanggan terbaru di Google Review',
-    ],
+    contohPertanyaan: isKemarin
+      ? [
+          'Siapa saja kru cabang yang terlambat atau izin/cuti kemarin?',
+          'Tampilkan ulasan negatif pelanggan terbaru di Google Review',
+        ]
+      : [
+          'Siapa saja kru cabang yang terlambat atau izin hari ini?',
+          'Tampilkan ulasan negatif pelanggan terbaru di Google Review',
+        ],
   }
 }
 
@@ -345,6 +444,7 @@ interface AgentNodeCardProps {
   meja?: MejaKantor | null
   profilFallback: Profil
   telemetri?: TelemetriHariIni | null
+  modeWaktu?: 'kemarin' | 'hari_ini'
   terpilih: boolean
   onPilih: (profil: Profil, pesanAwal?: string) => void
 }
@@ -353,11 +453,12 @@ export default function AgentNodeCard({
   meja,
   profilFallback,
   telemetri,
+  modeWaktu = 'kemarin',
   terpilih,
   onPilih,
 }: AgentNodeCardProps) {
   const profil = meja?.profil ?? profilFallback
-  const vis = bangunVisualDivisi(profil, telemetri)
+  const vis = bangunVisualDivisi(profil, telemetri, modeWaktu)
   const tema = TEMA_STYLE[vis.tema]
   const IconComponent = vis.icon
 

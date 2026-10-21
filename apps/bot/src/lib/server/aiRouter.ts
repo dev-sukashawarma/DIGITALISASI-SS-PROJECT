@@ -78,11 +78,20 @@ export async function* tanyaAiRouter(o: {
 
     const listNol = t.outletsNolTransaksi.map((out) => `- ${out.nama} (${out.type})`).join('\n')
     const listMenu = t.topMenu.map((m, i) => `${i + 1}. ${m.nama}: ${m.qty} porsi (${formatRupiah(m.omzet)})`).join('\n')
+    const listMenuKemarin = (t.topMenuKemarin ?? t.ringkasanKemarin?.topMenu ?? [])
+      .map((m, i) => `${i + 1}. ${m.nama}: ${m.qty} porsi (${formatRupiah(m.omzet)})`)
+      .join('\n')
     const listBahan = t.bahanBaku.map((b) => `- ${b.nama} (${b.satuan})`).join('\n')
     const listCuti = (t.stafCutiIzin || [])
       .map((c) => `- ${c.nama} (${c.role}): ${c.jenis} [status: ${c.status}] - Alasan: ${c.alasan}`)
       .join('\n')
     const listTelat = (t.stafTelat || [])
+      .map((s) => `- ${s.nama} (${s.outlet}): telat ${s.telatMenit} menit`)
+      .join('\n')
+    const listCutiKemarin = (t.hrdKemarin?.stafCutiIzin || [])
+      .map((c) => `- ${c.nama} (${c.role}): ${c.jenis} [status: ${c.status}] - Alasan: ${c.alasan}`)
+      .join('\n')
+    const listTelatKemarin = (t.hrdKemarin?.stafTelat || [])
       .map((s) => `- ${s.nama} (${s.outlet}): telat ${s.telatMenit} menit`)
       .join('\n')
 
@@ -101,6 +110,9 @@ export async function* tanyaAiRouter(o: {
 
     const v = t.voidOrder
     const listVoid = (v?.daftarOutletVoidHariIni || [])
+      .map((vo) => `- ${vo.outlet}: ${formatRupiah(vo.nilai)} (${vo.waktu} WIB)`)
+      .join('\n')
+    const listVoidKemarin = (v?.daftarOutletVoidKemarin || [])
       .map((vo) => `- ${vo.outlet}: ${formatRupiah(vo.nilai)} (${vo.waktu} WIB)`)
       .join('\n')
 
@@ -125,6 +137,13 @@ export async function* tanyaAiRouter(o: {
     let teksFinance = ''
     if (f) {
       const listExpHariIni = (f.pengeluaranHariIni?.topPengeluaran || [])
+        .map(
+          (x, i) =>
+            `${i + 1}. ${formatRupiah(x.nominal)} - ${x.deskripsi} (${x.outlet}) [kategori: ${x.kategori}, jenis: ${x.tipe}]`
+        )
+        .join('\n')
+
+      const listExpKemarin = (f.pengeluaranKemarin?.topPengeluaran || [])
         .map(
           (x, i) =>
             `${i + 1}. ${formatRupiah(x.nominal)} - ${x.deskripsi} (${x.outlet}) [kategori: ${x.kategori}, jenis: ${x.tipe}]`
@@ -174,9 +193,13 @@ export async function* tanyaAiRouter(o: {
       ).join('\n') || '    (Belum ada transaksi diinput hari ini)'
 
       teksFinance = `
-DATA KEUANGAN, BIAYA, OPEX, & REKONSILIASI KAS (FINANCE):
-- Total Pengeluaran / OPEX Hari Ini (${t.tanggalWIB}): ${formatRupiah(f.pengeluaranHariIni?.totalNominal || 0)} (${f.pengeluaranHariIni?.jumlahTransaksi || 0} transaksi kas kecil/operasional)
-- Rincian Pengeluaran Hari Ini (Dari Terbesar ke Terkecil):
+DATA KEUANGAN, BIAYA, OPEX, & REKONSILIASI KAS (FINANCE H-1 KEMARIN & HARI INI):
+- Total Pengeluaran / OPEX Kemarin (${k?.tglIso || 'H-1'}): ${formatRupiah(f.pengeluaranKemarin?.totalNominal || 0)} (${f.pengeluaranKemarin?.jumlahTransaksi || 0} transaksi kas kecil/operasional)
+- Rincian Pengeluaran Kemarin (H-1):
+${listExpKemarin || '(Tidak ada pengeluaran tercatat kemarin)'}
+
+- Total Pengeluaran / OPEX Live Hari Ini (${t.tanggalWIB}): ${formatRupiah(f.pengeluaranHariIni?.totalNominal || 0)} (${f.pengeluaranHariIni?.jumlahTransaksi || 0} transaksi kas kecil/operasional)
+- Rincian Pengeluaran Hari Ini:
 ${listExpHariIni || '(Belum ada pengeluaran hari ini)'}
 
 - Top Pengeluaran Terbesar Bulan Berjalan:
@@ -191,12 +214,11 @@ ${listSupplier || '  (Tidak ada utang supplier)'}
 ${listPo || '  (Tidak ada PO aktif)'}
 
 - Rekapitulasi Setoran Kas & Rekonsiliasi Bank:
+  * Kas Fisik Tutup Shift POS Kemarin (${k?.tanggalLabel || 'Kemarin'}): Total Kas Fisik ${formatRupiah(shiftKemarin?.totalFisikKas || 0)} (${shiftKemarin?.jumlahOutletClosed || 0} cabang closed shift).
+    Status rekonsiliasi: ${shiftKemarin?.sudahDirekap || 0} cabang sudah direkap ke bank pusat, ${shiftKemarin?.belumDirekap || 0} cabang belum direkap${shiftKemarin?.daftarBelumSetor?.length ? ` (${shiftKemarin.daftarBelumSetor.slice(0, 5).join(', ')})` : ''}.
   * Setoran Di-input / Direkap Finance Hari Ini (${t.tanggalWIB}): ${formatRupiah(inputHariIni?.totalNominal || 0)} (${inputHariIni?.jumlahTransaksi || 0} setoran bank tercatat)
     Rincian tanggal penjualan yang dicakup:
 ${listPerTglJual}
-  * Kas Fisik Tutup Shift POS Kemarin (${k?.tanggalLabel || 'Kemarin'}): Total Kas Fisik ${formatRupiah(shiftKemarin?.totalFisikKas || 0)} (${shiftKemarin?.jumlahOutletClosed || 0} cabang closed shift).
-    Status rekonsiliasi: ${shiftKemarin?.sudahDirekap || 0} cabang sudah direkap ke bank pusat, ${shiftKemarin?.belumDirekap || 0} cabang dalam proses verifikasi mutasi bank.
-  * Status Setoran Penjualan Hari Ini (${t.tanggalWIB}): Seluruh cabang masih beroperasi (closing shift malam nanti cut-off 22:00-23:00 WIB). Setoran penjualan hari ini secara normal baru disetor H+1.
   * Transaksi Setoran Bank Terbaru di Sistem:
 ${listSetoran || '    (Belum ada setoran dicatat)'}
 
@@ -222,57 +244,64 @@ ${listNegatif || '(Tidak ada ulasan negatif terbaru - kepuasan pelanggan terjaga
     }
 
     konteksData = `
-DATA PENJUALAN KEMARIN (${k?.tanggalLabel || 'Kemarin'}):
+======================================================================
+ACUAN UTAMA DEFAULT: EVALUASI FULL CLOSING KEMARIN / H-1 (${k?.tanggalLabel || 'Kemarin'})
+======================================================================
+1. DATA PENJUALAN & MENU TERLARIS KEMARIN (H-1):
 - Total Penjualan Jaringan Kemarin: ${formatRupiah(k?.omzetTotal || 0)}
-- Total Akumulasi Order Kemarin: ${k?.totalOrder || 0} transaksi
+- Total Akumulasi Order Kemarin: ${k?.totalOrder || 0} struk
 - Rata-rata Order (AOV) Kemarin: ${formatRupiah(k?.aov || 0)}
 - Peringkat Cabang Berpenjualan Kemarin (${k?.outletsAktifTransaksi?.length || 0} cabang):
 ${listKemarinTransaksi || '(Tidak ada transaksi kemarin)'}
 - Cabang Tanpa Transaksi Kemarin:
 ${listKemarinNol || '(Seluruh cabang mencatat penjualan)'}
+- Top Menu Terlaris Kemarin (H-1):
+${listMenuKemarin || '(Belum ada data menu kemarin)'}
 
-DATA OPERASIONAL HARI INI (${t.tanggalWIB}):
-- Total Penjualan Jaringan Hari Ini: ${formatRupiah(t.omzetTotal)}
-- Total Transaksi Order Hari Ini: ${t.totalOrder} order
-- Rata-rata Order (AOV) Hari Ini: ${formatRupiah(t.aov)}
+2. DATA PRESENSI & SDM KEMARIN (HRD H-1):
+- Total Clock-in Kru Kemarin: ${t.hrdKemarin?.kehadiranTotal ?? 0} clock-in
+- Presensi Tepat Waktu Kemarin: ${t.hrdKemarin?.kehadiranTepatWaktu ?? 0} (${t.hrdKemarin?.persenOnTime ?? 100}% On-Time)
+- Presensi Terlambat Kemarin: ${t.hrdKemarin?.kehadiranTelat ?? 0} kru
+- Daftar Kru Terlambat Masuk Kemarin (H-1):
+${listTelatKemarin || '(Tidak ada kru terlambat kemarin)'}
+- Daftar Kru Izin / Cuti Kemarin (H-1):
+${listCutiKemarin || '(Tidak ada kru yang izin/cuti kemarin)'}
+
+3. AUDIT VOID POS & SHIFT KEMARIN (OPERASIONAL H-1):
+- Total Cabang Closed Shift Kemarin: ${sbk?.shiftKemarinClosedCount ?? 0} cabang
+- Total Transaksi Void / Batal Kemarin: ${v?.totalVoidKemarin ?? 0} transaksi (${formatRupiah(v?.totalNilaiVoidKemarin ?? 0)})
+- Rincian Transaksi Void Kemarin:
+${listVoidKemarin || '(Nol / Tidak ada pembatalan transaksi kemarin)'}
+- Laporan Waste Kemarin: ${w?.laporanKemarinCount ?? 0} laporan (Est. Rugi Kemarin: ${formatRupiah(w?.estKerugianKemarinRp ?? 0)})
+
+======================================================================
+DATA PANTAUAN LIVE HARI INI / BERJALAN (${t.tanggalWIB})
+======================================================================
+- Total Penjualan Jaringan Live Hari Ini: ${formatRupiah(t.omzetTotal)} (${t.totalOrder} struk, AOV ${formatRupiah(t.aov)})
 - Total Cabang Aktif Terdata: ${t.totalOutletAktif} cabang
 - Peringkat Cabang Berpenjualan Hari Ini (${t.outletsAktifTransaksi.length} cabang):
-${listTransaksi || '(Belum ada cabang bertransaksi)'}
+${listTransaksi || '(Belum ada cabang bertransaksi hari ini)'}
 - Cabang Belum Mencatatkan Order Hari Ini (${t.outletsNolTransaksi.length} unit):
 ${listNol || '(Semua cabang sudah ada transaksi)'}
-
-STATUS BUKA CABANG & SHIFT KASIR HARI INI:
-- Total Cabang Sudah Buka Shift Kasir: ${sbk?.totalBuka || 0} cabang
+- Top Menu Terlaris Live Hari Ini:
+${listMenu || '(Belum ada data porsi hari ini)'}
+- Status Shift Kasir Hari Ini: ${sbk?.totalBuka || 0} cabang sudah buka / ${sbk?.totalBelumBuka || 0} belum buka
 ${listBuka || '(Belum ada shift kasir yang tercatat hari ini)'}
-- Cabang Belum Buka Shift Kasir: ${sbk?.totalBelumBuka || 0} cabang
-${listBelumBuka || '(Seluruh cabang operasional sudah buka)'}
+- Audit Void POS Live Hari Ini: ${v?.totalVoidHariIni || 0} transaksi (${formatRupiah(v?.totalNilaiVoidHariIni || 0)})
+${listVoid || '(Nol void hari ini)'}
+- Presensi Kru Live Hari Ini: ${t.kehadiranTotal} clock-in (${t.persenOnTime}% On-Time, ${t.kehadiranTelat} telat)
+${listTelat || '(Belum ada catatan keterlambatan hari ini)'}
 
-AUDIT VOID & PEMBATALAN TRANSAKSI POS HARI INI:
-- Total Transaksi Void / Batal Hari Ini: ${v?.totalVoidHariIni || 0} transaksi
-- Total Nilai Order Void Hari Ini: ${formatRupiah(v?.totalNilaiVoidHariIni || 0)}
-- Rincian Transaksi Void Hari Ini:
-${listVoid || '(Nol / Tidak ada pembatalan transaksi hari ini - kasir bersih)'}
-
+======================================================================
+DATA WASTE 30 HARI, KEUANGAN, & GOOGLE REVIEW
+======================================================================
 DATA WASTE & REJECT BAHAN BAKU (AUDIT LOSS PREVENTION 30 HARI TERAKHIR):
-- Total Laporan Waste Tercatat: ${w?.totalLaporan30Hari || 0} laporan
-- Total Akumulasi Kerugian Estimasi: ${formatRupiah(w?.totalEstKerugianRp || 0)}
+- Total Laporan Waste Tercatat (30H): ${w?.totalLaporan30Hari || 0} laporan
+- Total Akumulasi Kerugian Estimasi (30H): ${formatRupiah(w?.totalEstKerugianRp || 0)}
 - Top 5 Bahan Paling Banyak Waste / Terbuang:
 ${listWasteBahan || '(Belum ada data waste)'}
 - Top 5 Cabang Penyumbang Laporan Waste Terbanyak:
 ${listWasteOutlet || '(Belum ada catatan waste cabang)'}
-- Laporan Waste Baru Hari Ini: ${w?.laporanHariIniCount || 0} laporan
-
-MENU TERLARIS HARI INI:
-${listMenu || '(Belum ada data porsi)'}
-
-DATA PRESENSI & SDM (HRD):
-- Total Catatan Presensi: ${t.kehadiranTotal} clock-in
-- Presensi Tepat Waktu: ${t.kehadiranTepatWaktu} (${t.persenOnTime}%)
-- Presensi Terlambat: ${t.kehadiranTelat}
-- Daftar Kru Izin / Cuti Hari Ini:
-${listCuti || '(Tidak ada kru yang izin/cuti hari ini)'}
-- Daftar Kru Terlambat Masuk Hari Ini:
-${listTelat || '(Tidak ada kru terlambat)'}
 
 KATALOG BAHAN BAKU UTAMA GUDANG:
 ${listBahan || '- Gas, Kulit, Daging, Saus'}
@@ -375,11 +404,10 @@ PANDUAN KOMUNIKASI & PERILAKU:
    - Paragraf pertama dari jawaban Anda AKAN DIUCAPKAN LANGSUNG DENGAN SUARA (Neural TTS) ke telinga pengguna.
    - Oleh karena itu, WAJIB awali setiap jawaban dengan 1-2 kalimat bahasa lisan/percakapan Indonesia yang sangat natural, mengalir, dan enak didengar seperti asisten pribadi yang sedang berbicara tatap muka (contoh: "Siap, Sir. Untuk penjualan kemarin kita berhasil menutup di angka **Rp65.600.000** dari **1.080 struk**, dengan cabang tertinggi dipimpin oleh Condet." atau "Aman terkendali, Sir. Sampai jam ini seluruh kru outlet hadir tepat waktu dan belum ada kendala di lapangan.").
    - DILARANG mengawali jawaban dengan judul bab/dokumen kaku seperti "### Laporan Penjualan" atau "Berikut adalah rekapitulasi data:". Letakkan tabel atau rincian poin-poin di paragraf kedua setelah kalimat pembuka lisan tersebut.
-4. PANDUAN TEMPORAL (SANGAT PENTING):
-   - Bedakan tegas antara KEMARIN (yesterday) dan HARI INI (today):
-     * Jika pengguna menanyakan 'kemarin' ('omzet kemarin', 'kemarin seluruh outlet berapa', 'ranking kemarin', 'kemarin bro'), JAWAB MENGGUNAKAN DATA PENJUALAN KEMARIN.
-     * Jika pengguna menanyakan 'hari ini', gunakan DATA OPERASIONAL HARI INI.
-     * Jangan mencampuradukkan angka kemarin dengan hari ini.
+4. PANDUAN TEMPORAL & ACUAN DEFAULT H-1 (SANGAT PENTING):
+   - Jadikan **H-1 (Evaluasi Full Closing Kemarin)** sebagai **ACUAN DEFAULT UTAMA** saat Bos bertanya secara umum tanpa menyebut kata 'hari ini' (misalnya tanya "gimana omzet?", "berapa OPEX?", "siapa yang telat?", "gimana laporan daily?", "menu apa yang paling laris?"). Setelah menyebutkan data H-1 Kemarin secara lengkap, Anda boleh menambahkan 1 kalimat singkat progres Live Hari Ini sebagai perbandingan jika shift hari ini sudah berjalan.
+   - Jika pengguna secara spesifik menanyakan 'hari ini' / 'live' / 'sekarang', barulah fokuskan jawaban utama pada DATA PANTAUAN LIVE HARI INI.
+   - Jangan pernah mencampuradukkan angka kemarin dengan angka hari ini tanpa memberi label waktu yang jelas.
 4. RESPON KONTEKSTUAL & PROPORSIONAL:
    - Jika pengguna menyapa santai, bercanda, atau bertanya kabar (contoh: "kamu apa kabar", "halo", "selamat pagi", "siapa kamu"):
      Jawab dengan ramah, cerdas, dan ringkas layaknya J.A.R.V.I.S. (contoh: "Kabar baik, Sir. Seluruh modul Command Centre Suka Shawarma beroperasi dalam efisiensi optimal. Ada arahan operasional atau data cabang yang ingin Anda tinjau?").

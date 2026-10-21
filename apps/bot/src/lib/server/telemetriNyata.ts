@@ -43,12 +43,22 @@ export interface WasteTelemetri {
   topBahan: WasteItemTelemetri[]
   topOutlet: WasteOutletTelemetri[]
   laporanHariIniCount: number
+  estKerugianHariIniRp?: number
+  laporanKemarinCount?: number
+  estKerugianKemarinRp?: number
 }
 
 export interface VoidOrderTelemetri {
   totalVoidHariIni: number
   totalNilaiVoidHariIni: number
   daftarOutletVoidHariIni: Array<{
+    outlet: string
+    nilai: number
+    waktu: string
+  }>
+  totalVoidKemarin?: number
+  totalNilaiVoidKemarin?: number
+  daftarOutletVoidKemarin?: Array<{
     outlet: string
     nilai: number
     waktu: string
@@ -64,6 +74,18 @@ export interface StatusBukaTelemetri {
     status: string
   }>
   daftarBelumBuka: string[]
+  shiftKemarinClosedCount?: number
+  shiftKemarinTotalCount?: number
+}
+
+export interface HrdHarianTelemetri {
+  tanggalIso: string
+  kehadiranTotal: number
+  kehadiranTepatWaktu: number
+  kehadiranTelat: number
+  persenOnTime: number
+  stafTelat: StafTelatTelemetri[]
+  stafCutiIzin: StafCutiTelemetri[]
 }
 
 export interface RingkasanHari {
@@ -74,6 +96,7 @@ export interface RingkasanHari {
   aov: number
   outletsAktifTransaksi: OutletTelemetri[]
   outletsNolTransaksi: OutletTelemetri[]
+  topMenu?: Array<{ nama: string; qty: number; omzet: number }>
 }
 
 export interface FinanceItemPengeluaran {
@@ -121,6 +144,11 @@ export interface FinanceTelemetri {
     jumlahTransaksi: number
     topPengeluaran: FinanceItemPengeluaran[]
   }
+  pengeluaranKemarin?: {
+    totalNominal: number
+    jumlahTransaksi: number
+    topPengeluaran: FinanceItemPengeluaran[]
+  }
   pengeluaranBulanIni: {
     totalNominal: number
     topPengeluaran: FinanceItemPengeluaran[]
@@ -141,13 +169,17 @@ export interface FinanceTelemetri {
     }
     tutupShiftKemarin?: {
       totalFisikKas: number
+      totalSetoranDirekap?: number
       jumlahOutletClosed: number
       sudahDirekap: number
       belumDirekap: number
+      daftarBelumSetor?: string[]
     }
   }
   selisihKasir: {
     daftarSelisihTerbaru: FinanceSelisihKasir[]
+    selisihKemarin?: FinanceSelisihKasir[]
+    totalSelisihKemarinRp?: number
   }
 }
 
@@ -160,6 +192,7 @@ export interface ReviewTelemetri {
 
 export interface TelemetriHariIni {
   tanggalWIB: string
+  tanggalKemarinWIB?: string
   omzetTotal: number
   totalOrder: number
   aov: number
@@ -167,6 +200,7 @@ export interface TelemetriHariIni {
   outletsAktifTransaksi: OutletTelemetri[]
   outletsNolTransaksi: OutletTelemetri[]
   topMenu: Array<{ nama: string; qty: number; omzet: number }>
+  topMenuKemarin?: Array<{ nama: string; qty: number; omzet: number }>
   kehadiranTotal: number
   kehadiranTepatWaktu: number
   kehadiranTelat: number
@@ -175,6 +209,7 @@ export interface TelemetriHariIni {
   bahanBaku: Array<{ nama: string; satuan: string }>
   stafCutiIzin: StafCutiTelemetri[]
   stafTelat: StafTelatTelemetri[]
+  hrdKemarin?: HrdHarianTelemetri
   waste?: WasteTelemetri
   voidOrder?: VoidOrderTelemetri
   statusBuka?: StatusBukaTelemetri
@@ -332,17 +367,24 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       ordersHariIni,
       ordersKemarin,
       items,
+      itemsKemarin,
       resAtt,
+      resAttKemarin,
       resOutlets,
       resBahan,
       resLeave,
+      resLeaveKemarin,
       resLate,
+      resLateKemarin,
       resWaste,
       resVoid,
+      resVoidKemarin,
       resShifts,
       resPrices,
       resPettyHariIni,
       resExpHariIni,
+      resPettyKemarin,
+      resExpKemarin,
       resExpBulanIni,
       resPo,
       resSetoran,
@@ -374,12 +416,28 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           .neq('orders.status', 'cancelled')
           .order('id', { ascending: true })
       ).catch(() => []),
+      fetchAllRows(sb, 'order_items', (q) =>
+        q
+          .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status)')
+          .gte('orders.created_at', startKemarin)
+          .lt('orders.created_at', endKemarin)
+          .neq('orders.status', 'cancelled')
+          .order('id', { ascending: true })
+      ).catch(() => []),
       sb
         .from('attendance')
         .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
         .eq('type', 'in')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
+        .limit(2000)
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
+        .from('attendance')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
+        .eq('type', 'in')
+        .gte('created_at', startKemarin)
+        .lt('created_at', endKemarin)
         .limit(2000)
         .then((r: any) => r, () => ({ data: [] })),
       sb
@@ -403,12 +461,31 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .limit(50)
         .then((r: any) => r, () => ({ data: [] })),
       sb
+        .from('leave_requests')
+        .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role, outlet_id)')
+        .lte('start_date', tglKemarinStr)
+        .gte('end_date', tglKemarinStr)
+        .in('status', ['approved', 'pending'])
+        .limit(50)
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
         .from('attendance')
         .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
         .eq('type', 'in')
         .neq('status', 'telat_toleransi')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
+        .gt('telat_menit', 0)
+        .order('telat_menit', { ascending: false })
+        .limit(30)
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
+        .from('attendance')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
+        .eq('type', 'in')
+        .neq('status', 'telat_toleransi')
+        .gte('created_at', startKemarin)
+        .lt('created_at', endKemarin)
         .gt('telat_menit', 0)
         .order('telat_menit', { ascending: false })
         .limit(30)
@@ -425,6 +502,15 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .select('id, total_amount, created_at, outlet_id, outlets(name)')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
+        .eq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(100)
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
+        .from('orders')
+        .select('id, total_amount, created_at, outlet_id, outlets(name)')
+        .gte('created_at', startKemarin)
+        .lt('created_at', endKemarin)
         .eq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(100)
@@ -455,6 +541,21 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .from('expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .eq('expense_date', tglStr)
+        .order('amount', { ascending: false })
+        .limit(100)
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
+        .from('petty_cash_expenses')
+        .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
+        .eq('expense_date', tglKemarinStr)
+        .is('deleted_at', null)
+        .order('amount', { ascending: false })
+        .limit(100)
+        .then((r: any) => r, () => ({ data: [] })),
+      sb
+        .from('expenses')
+        .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
+        .eq('expense_date', tglKemarinStr)
         .order('amount', { ascending: false })
         .limit(100)
         .then((r: any) => r, () => ({ data: [] })),
@@ -492,7 +593,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .then((r: any) => r, () => ({ data: [] })),
       sb
         .from('shifts')
-        .select('id, outlet_id, status, actual_ending_cash, expected_ending_cash, variance, outlets(name)')
+        .select('id, outlet_id, status, start_time, end_time, actual_ending_cash, expected_ending_cash, variance, staff:outlet_staff!shifts_staff_id_fkey(name), outlets(name)')
         .gte('start_time', startKemarin)
         .lt('start_time', endKemarin)
         .eq('status', 'closed')
@@ -528,7 +629,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const ringkasanHariIni = hitungRingkasan(ordersHariIni, rawOutlets, `Hari Ini (${tglStr})`, tglStr)
     const ringkasanKemarin = hitungRingkasan(ordersKemarin, rawOutlets, `Kemarin (${tglKemarinStr})`, tglKemarinStr)
 
-    // Top Menu
+    // Top Menu Hari Ini
     const perMenu: Record<string, { qty: number; omzet: number }> = {}
     for (const it of items as any[]) {
       const nama = it.menu_item_name || 'Menu Lain'
@@ -540,8 +641,23 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       .map(([nama, val]) => ({ nama, ...val }))
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 8)
+    ringkasanHariIni.topMenu = sortedMenu
 
-    // Kehadiran / HRD Kru Outlet (hanya clock-in di cabang operasional, abaikan telat_toleransi)
+    // Top Menu Kemarin (H-1)
+    const perMenuKemarin: Record<string, { qty: number; omzet: number }> = {}
+    for (const it of itemsKemarin as any[]) {
+      const nama = it.menu_item_name || 'Menu Lain'
+      if (!perMenuKemarin[nama]) perMenuKemarin[nama] = { qty: 0, omzet: 0 }
+      perMenuKemarin[nama].qty += Number(it.quantity) || 1
+      perMenuKemarin[nama].omzet += Number(it.subtotal) || 0
+    }
+    const sortedMenuKemarin = Object.entries(perMenuKemarin)
+      .map(([nama, val]) => ({ nama, ...val }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 8)
+    ringkasanKemarin.topMenu = sortedMenuKemarin
+
+    // Kehadiran / HRD Kru Outlet Hari Ini
     const att = (resAtt.data || []).filter(isOutletCabang)
     const kehadiranTotal = att.length
     const kehadiranTelat = att.filter(
@@ -552,49 +668,84 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const kehadiranTepatWaktu = kehadiranTotal - kehadiranTelat
     const persenOnTime = kehadiranTotal > 0 ? Math.round((kehadiranTepatWaktu / kehadiranTotal) * 100) : 100
 
+    // Kehadiran / HRD Kru Outlet Kemarin (H-1)
+    const attKemarin = (resAttKemarin?.data || []).filter(isOutletCabang)
+    const kehadiranTotalKemarin = attKemarin.length
+    const kehadiranTelatKemarin = attKemarin.filter(
+      (a: any) =>
+        a.status !== 'telat_toleransi' &&
+        (a.status === 'telat' || a.status === 'terlambat' || Number(a.telat_menit) > 0)
+    ).length
+    const kehadiranTepatWaktuKemarin = kehadiranTotalKemarin - kehadiranTelatKemarin
+    const persenOnTimeKemarin =
+      kehadiranTotalKemarin > 0 ? Math.round((kehadiranTepatWaktuKemarin / kehadiranTotalKemarin) * 100) : 100
+
     const totalOutletAktif = rawOutlets.length
     const bahanBaku = (resBahan.data || []).map((b: any) => ({ nama: b.nama, satuan: b.satuan }))
 
-    // Staf Cuti / Izin (khusus kru operasional outlet)
-    const stafCutiIzin: StafCutiTelemetri[] = (resLeave.data || [])
-      .filter((l: any) => {
-        const staff = l.outlet_staff
-        if (!staff) return false
-        const role = (staff.role || '').toLowerCase()
-        if (ROLE_BUKAN_KRU_OUTLET.has(role)) return false
-        if (staff.outlet_id && !validOutletIds.has(staff.outlet_id)) return false
-        return true
-      })
-      .map((l: any) => ({
-        nama: l.outlet_staff?.name || 'Kru',
-        role: l.outlet_staff?.role || 'Staff',
-        jenis: l.leave_type || 'Cuti',
-        status: l.status || 'pending',
-        alasan: l.reason || '-',
-      }))
+    const filterDanMapLeave = (rows: any[]): StafCutiTelemetri[] =>
+      rows
+        .filter((l: any) => {
+          const staff = l.outlet_staff
+          if (!staff) return false
+          const role = (staff.role || '').toLowerCase()
+          if (ROLE_BUKAN_KRU_OUTLET.has(role)) return false
+          if (staff.outlet_id && !validOutletIds.has(staff.outlet_id)) return false
+          return true
+        })
+        .map((l: any) => ({
+          nama: l.outlet_staff?.name || 'Kru',
+          role: l.outlet_staff?.role || 'Staff',
+          jenis: l.leave_type || 'Cuti',
+          status: l.status || 'pending',
+          alasan: l.reason || '-',
+        }))
 
-    // Staf Telat Kru Outlet
+    const stafCutiIzin = filterDanMapLeave(resLeave.data || [])
+    const stafCutiIzinKemarin = filterDanMapLeave(resLeaveKemarin?.data || [])
+
+    // Staf Telat Kru Outlet (Hari Ini & Kemarin)
     const lateFiltered = (resLate.data || []).filter(isOutletCabang)
-    const staffIds = lateFiltered.map((a: any) => a.outlet_staff_id).filter(Boolean)
-    const { data: staffList } = staffIds.length > 0
-      ? await sb.from('outlet_staff').select('id, name, role').in('id', staffIds)
+    const lateKemarinFiltered = (resLateKemarin?.data || []).filter(isOutletCabang)
+    const allLateStaffIds = Array.from(
+      new Set([
+        ...lateFiltered.map((a: any) => a.outlet_staff_id),
+        ...lateKemarinFiltered.map((a: any) => a.outlet_staff_id),
+      ].filter(Boolean))
+    )
+    const { data: staffList } = allLateStaffIds.length > 0
+      ? await sb.from('outlet_staff').select('id, name, role').in('id', allLateStaffIds)
       : { data: [] }
     const staffMap: Record<string, { name: string; role: string }> = {}
     for (const s of (staffList || []) as any[]) {
       staffMap[s.id] = { name: s.name, role: s.role }
     }
 
-    const stafTelat: StafTelatTelemetri[] = lateFiltered
-      .filter((a: any) => {
-        const role = (staffMap[a.outlet_staff_id]?.role || '').toLowerCase()
-        return !ROLE_BUKAN_KRU_OUTLET.has(role)
-      })
-      .slice(0, 15)
-      .map((a: any) => ({
-        nama: staffMap[a.outlet_staff_id]?.name || 'Kru',
-        outlet: a.outlets?.name || 'Cabang',
-        telatMenit: Number(a.telat_menit) || 0,
-      }))
+    const mapLateRows = (rows: any[]): StafTelatTelemetri[] =>
+      rows
+        .filter((a: any) => {
+          const role = (staffMap[a.outlet_staff_id]?.role || '').toLowerCase()
+          return !ROLE_BUKAN_KRU_OUTLET.has(role)
+        })
+        .slice(0, 15)
+        .map((a: any) => ({
+          nama: staffMap[a.outlet_staff_id]?.name || 'Kru',
+          outlet: a.outlets?.name || 'Cabang',
+          telatMenit: Number(a.telat_menit) || 0,
+        }))
+
+    const stafTelat = mapLateRows(lateFiltered)
+    const stafTelatKemarin = mapLateRows(lateKemarinFiltered)
+
+    const hrdKemarin: HrdHarianTelemetri = {
+      tanggalIso: tglKemarinStr,
+      kehadiranTotal: kehadiranTotalKemarin,
+      kehadiranTepatWaktu: kehadiranTepatWaktuKemarin,
+      kehadiranTelat: kehadiranTelatKemarin,
+      persenOnTime: persenOnTimeKemarin,
+      stafTelat: stafTelatKemarin,
+      stafCutiIzin: stafCutiIzinKemarin,
+    }
 
     // ─────────────────────────────────────────────────────────── Waste & Reject Bahan Baku
     const priceMap: Record<string, number> = {}
@@ -607,19 +758,30 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const wasteRows = (resWaste?.data || []) as any[]
     let totalEstKerugianRp = 0
     let laporanHariIniCount = 0
+    let estKerugianHariIniRp = 0
+    let laporanKemarinCount = 0
+    let estKerugianKemarinRp = 0
     const bahanMap: Record<string, { nama: string; satuan: string; totalQty: number; frekuensi: number; reasons: Record<string, number>; estKerugianRp: number }> = {}
     const outletWasteMap: Record<string, { nama: string; frekuensi: number; totalQty: number }> = {}
 
     for (const r of wasteRows) {
-      const isToday = r.created_at && r.created_at.startsWith(tglStr)
-      if (isToday) laporanHariIniCount++
-
       const bNama = r.bahan_baku?.nama || 'Bahan Baku'
       const sat = r.bahan_baku?.satuan || 'unit'
       const qty = Number(r.qty) || 0
       const hBeli = priceMap[r.bahan_baku_id] || 0
       const estLoss = Math.round(qty * hBeli)
       totalEstKerugianRp += estLoss
+
+      if (r.created_at) {
+        const wibWasteDate = new Date(Date.parse(r.created_at) + 7 * 3600000).toISOString().slice(0, 10)
+        if (wibWasteDate === tglStr || r.created_at.startsWith(tglStr)) {
+          laporanHariIniCount++
+          estKerugianHariIniRp += estLoss
+        } else if (wibWasteDate === tglKemarinStr || r.created_at.startsWith(tglKemarinStr)) {
+          laporanKemarinCount++
+          estKerugianKemarinRp += estLoss
+        }
+      }
 
       if (!bahanMap[bNama]) {
         bahanMap[bNama] = { nama: bNama, satuan: sat, totalQty: 0, frekuensi: 0, reasons: {}, estKerugianRp: 0 }
@@ -668,32 +830,43 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       topBahan: topBahanWaste,
       topOutlet: topOutletWaste,
       laporanHariIniCount,
+      estKerugianHariIniRp,
+      laporanKemarinCount,
+      estKerugianKemarinRp,
     }
 
-    // ─────────────────────────────────────────────────────────── Void & Pembatalan Transaksi POS
-    const voidRows = (resVoid?.data || []) as any[]
-    let totalNilaiVoidHariIni = 0
-    const daftarOutletVoidHariIni = voidRows.map((v) => {
-      const amt = Number(v.total_amount) || 0
-      totalNilaiVoidHariIni += amt
-      const waktuWib = v.created_at
-        ? new Date(v.created_at).toLocaleTimeString('id-ID', {
-            timeZone: 'Asia/Jakarta',
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : '-'
-      return {
-        outlet: v.outlets?.name || 'Cabang',
-        nilai: amt,
-        waktu: waktuWib,
-      }
-    })
+    // ─────────────────────────────────────────────────────────── Void & Pembatalan Transaksi POS (Hari Ini & Kemarin)
+    const mapVoidRows = (rows: any[]) => {
+      let totalNilai = 0
+      const daftar = rows.map((v) => {
+        const amt = Number(v.total_amount) || 0
+        totalNilai += amt
+        const waktuWib = v.created_at
+          ? new Date(v.created_at).toLocaleTimeString('id-ID', {
+              timeZone: 'Asia/Jakarta',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '-'
+        return {
+          outlet: v.outlets?.name || 'Cabang',
+          nilai: amt,
+          waktu: waktuWib,
+        }
+      })
+      return { totalVoid: rows.length, totalNilai, daftar }
+    }
+
+    const voidHariIniObj = mapVoidRows((resVoid?.data || []) as any[])
+    const voidKemarinObj = mapVoidRows((resVoidKemarin?.data || []) as any[])
 
     const voidOrder: VoidOrderTelemetri = {
-      totalVoidHariIni: voidRows.length,
-      totalNilaiVoidHariIni,
-      daftarOutletVoidHariIni,
+      totalVoidHariIni: voidHariIniObj.totalVoid,
+      totalNilaiVoidHariIni: voidHariIniObj.totalNilai,
+      daftarOutletVoidHariIni: voidHariIniObj.daftar,
+      totalVoidKemarin: voidKemarinObj.totalVoid,
+      totalNilaiVoidKemarin: voidKemarinObj.totalNilai,
+      daftarOutletVoidKemarin: voidKemarinObj.daftar,
     }
 
     // ─────────────────────────────────────────────────────────── Status Buka Outlet & Jam Shift
@@ -721,43 +894,55 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       .filter((o: any) => !openedMap.has(o.id))
       .map((o: any) => o.name)
 
+    const rawShiftsKemarin = (resShiftsKemarin?.data || []) as any[]
+    const uniqueOutletsShiftKemarin = new Set(rawShiftsKemarin.map((s: any) => s.outlet_id).filter(Boolean))
+
     const statusBuka: StatusBukaTelemetri = {
       totalBuka: daftarBuka.length,
       totalBelumBuka: daftarBelumBuka.length,
       daftarBuka,
       daftarBelumBuka,
+      shiftKemarinClosedCount: uniqueOutletsShiftKemarin.size || rawShiftsKemarin.length,
+      shiftKemarinTotalCount: rawOutlets.length,
     }
 
-    // ─────────────────────────────────────────────────────────── Telemetri Finance
+    // ─────────────────────────────────────────────────────────── Telemetri Finance (Hari Ini & Kemarin H-1)
     const rawPetty = (resPettyHariIni?.data || []) as any[]
     const rawExp = (resExpHariIni?.data || []) as any[]
+    const rawPettyKemarin = (resPettyKemarin?.data || []) as any[]
+    const rawExpKemarin = (resExpKemarin?.data || []) as any[]
     const rawExpBulan = (resExpBulanIni?.data || []) as any[]
     const rawPo = (resPo?.data || []) as any[]
     const rawSetoran = (resSetoran?.data || []) as any[]
     const rawSelisih = (resSelisih?.data || []) as any[]
 
-    const itemsHariIni: FinanceItemPengeluaran[] = [
-      ...rawPetty.map((r: any) => ({
-        id: r.id,
-        nominal: Number(r.amount) || 0,
-        deskripsi: r.description || 'Pengeluaran kas kecil',
-        kategori: r.category || 'petty_cash',
-        outlet: r.outlets?.name || 'Cabang',
-        tipe: 'petty_cash' as const,
-        tanggal: r.expense_date || tglStr,
-      })),
-      ...rawExp.map((r: any) => ({
-        id: r.id,
-        nominal: Number(r.amount) || 0,
-        deskripsi: r.description || 'Operasional outlet',
-        kategori: r.category || 'operasional',
-        outlet: r.outlets?.name || 'Pusat',
-        tipe: 'operasional' as const,
-        tanggal: r.expense_date || tglStr,
-      })),
-    ].sort((a, b) => b.nominal - a.nominal)
+    const gabungPengeluaranHarian = (pettyRows: any[], expRows: any[], defaultTgl: string): FinanceItemPengeluaran[] =>
+      [
+        ...pettyRows.map((r: any) => ({
+          id: r.id,
+          nominal: Number(r.amount) || 0,
+          deskripsi: r.description || 'Pengeluaran kas kecil',
+          kategori: r.category || 'petty_cash',
+          outlet: r.outlets?.name || 'Cabang',
+          tipe: 'petty_cash' as const,
+          tanggal: r.expense_date || defaultTgl,
+        })),
+        ...expRows.map((r: any) => ({
+          id: r.id,
+          nominal: Number(r.amount) || 0,
+          deskripsi: r.description || 'Operasional outlet',
+          kategori: r.category || 'operasional',
+          outlet: r.outlets?.name || 'Pusat',
+          tipe: 'operasional' as const,
+          tanggal: r.expense_date || defaultTgl,
+        })),
+      ].sort((a, b) => b.nominal - a.nominal)
 
+    const itemsHariIni = gabungPengeluaranHarian(rawPetty, rawExp, tglStr)
     const totalNominalHariIni = itemsHariIni.reduce((sum, item) => sum + item.nominal, 0)
+
+    const itemsKemarinPengeluaran = gabungPengeluaranHarian(rawPettyKemarin, rawExpKemarin, tglKemarinStr)
+    const totalNominalKemarin = itemsKemarinPengeluaran.reduce((sum, item) => sum + item.nominal, 0)
 
     const topExpBulan: FinanceItemPengeluaran[] = rawExpBulan.map((r: any) => ({
       id: r.id,
@@ -836,6 +1021,19 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       tanggal: s.start_time || '',
     }))
 
+    const selisihKemarin: FinanceSelisihKasir[] = rawShiftsKemarin
+      .filter((s: any) => Number(s.variance) !== 0)
+      .map((s: any) => ({
+        id: s.id,
+        outlet: s.outlets?.name || 'Cabang',
+        kasir: s.staff?.name || '-',
+        selisih: Number(s.variance) || 0,
+        seharusnya: Number(s.expected_ending_cash) || 0,
+        fisik: Number(s.actual_ending_cash) || 0,
+        tanggal: s.start_time || tglKemarinStr,
+      }))
+    const totalSelisihKemarinRp = selisihKemarin.reduce((acc, s) => acc + s.selisih, 0)
+
     const setoranHariIniInput = rawSetoran.filter((s: any) => {
       if (!s.occurred_at) return false
       const wibDate = new Date(Date.parse(s.occurred_at) + 7 * 3600000).toISOString().slice(0, 10)
@@ -855,14 +1053,20 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       .map(([tanggalJual, val]) => ({ tanggalJual, totalNominal: val.totalNominal, jumlah: val.jumlah }))
       .sort((a, b) => b.tanggalJual.localeCompare(a.tanggalJual))
 
-    const rawShiftsKemarin = (resShiftsKemarin?.data || []) as any[]
     const totalFisikKasKemarin = rawShiftsKemarin.reduce((sum: number, sh: any) => sum + (Number(sh.actual_ending_cash) || 0), 0)
-    const outletSetorKemarin = new Set(rawSetoran.filter((s: any) => String(s.sales_date).slice(0, 10) === tglKemarinStr).map((s: any) => s.outlet_id))
+    const setoranUntukSalesKemarin = rawSetoran.filter((s: any) => String(s.sales_date).slice(0, 10) === tglKemarinStr)
+    const totalSetoranDirekapKemarin = setoranUntukSalesKemarin.reduce((sum: number, s: any) => sum + (Number(s.amount) || 0), 0)
+    const outletSetorKemarin = new Set(setoranUntukSalesKemarin.map((s: any) => s.outlet_id))
     let sudahDirekapKemarin = 0
     let belumDirekapKemarin = 0
+    const daftarBelumSetorSet = new Set<string>()
     for (const sh of rawShiftsKemarin) {
-      if (outletSetorKemarin.has(sh.outlet_id)) sudahDirekapKemarin++
-      else belumDirekapKemarin++
+      if (outletSetorKemarin.has(sh.outlet_id)) {
+        sudahDirekapKemarin++
+      } else {
+        belumDirekapKemarin++
+        if (sh.outlets?.name) daftarBelumSetorSet.add(sh.outlets.name)
+      }
     }
 
     const finance: FinanceTelemetri = {
@@ -870,6 +1074,11 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         totalNominal: totalNominalHariIni,
         jumlahTransaksi: itemsHariIni.length,
         topPengeluaran: itemsHariIni.slice(0, 10),
+      },
+      pengeluaranKemarin: {
+        totalNominal: totalNominalKemarin,
+        jumlahTransaksi: itemsKemarinPengeluaran.length,
+        topPengeluaran: itemsKemarinPengeluaran.slice(0, 10),
       },
       pengeluaranBulanIni: {
         totalNominal: topExpBulan.reduce((sum, item) => sum + item.nominal, 0),
@@ -891,13 +1100,17 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         },
         tutupShiftKemarin: {
           totalFisikKas: totalFisikKasKemarin,
+          totalSetoranDirekap: totalSetoranDirekapKemarin,
           jumlahOutletClosed: rawShiftsKemarin.length,
           sudahDirekap: sudahDirekapKemarin,
           belumDirekap: belumDirekapKemarin,
+          daftarBelumSetor: Array.from(daftarBelumSetorSet),
         },
       },
       selisihKasir: {
         daftarSelisihTerbaru,
+        selisihKemarin,
+        totalSelisihKemarinRp,
       },
     }
 
@@ -926,6 +1139,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
 
     return {
       tanggalWIB: tglStr,
+      tanggalKemarinWIB: tglKemarinStr,
       omzetTotal: ringkasanHariIni.omzetTotal,
       totalOrder: ringkasanHariIni.totalOrder,
       aov: ringkasanHariIni.aov,
@@ -933,6 +1147,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       outletsAktifTransaksi: ringkasanHariIni.outletsAktifTransaksi,
       outletsNolTransaksi: ringkasanHariIni.outletsNolTransaksi,
       topMenu: sortedMenu,
+      topMenuKemarin: sortedMenuKemarin,
       kehadiranTotal,
       kehadiranTepatWaktu,
       kehadiranTelat,
@@ -941,6 +1156,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       bahanBaku,
       stafCutiIzin,
       stafTelat,
+      hrdKemarin,
       waste,
       voidOrder,
       statusBuka,

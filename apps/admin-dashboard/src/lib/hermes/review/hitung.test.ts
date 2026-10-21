@@ -36,6 +36,48 @@ describe('hitung.ts domain review', () => {
       expect(hasil.total_outlet).toBe(1)
       expect(hasil.peringkat[0].outlet).toBe('MITRA KALISARI')
     })
+
+    it('mengecualikan outlet non-ritel (Kitchen Pusat) dan memposisikan outlet 0 ulasan di bagian bawah', () => {
+      const campuran = [
+        ...OUTLETS_PALSU,
+        {
+          id: 'out-kitchen',
+          nama: 'Suka Shawarma Kitchen (Outlet Pusat)',
+          slug: 'kitchen',
+          kota: 'Bogor',
+          ratingRataRata: 5.0,
+          totalUlasan: 0,
+          statusOperasional: 'good' as const,
+          isActive: true,
+        },
+        {
+          id: 'out-ciledug',
+          nama: 'Suka Shawarma Ciledug',
+          slug: 'ciledug',
+          kota: 'Tangerang',
+          ratingRataRata: 0,
+          totalUlasan: 0,
+          statusOperasional: 'good' as const,
+          isActive: true,
+        },
+      ]
+      const hasil = hitungRankingOutlet(campuran)
+      // Kitchen Pusat & out-tes diabaikan, Ciledug masuk tapi tanpa ulasan
+      expect(hasil.total_outlet).toBe(4)
+      expect(hasil.peringkat.find((p) => p.outlet.includes('Kitchen'))).toBeUndefined()
+      // Peringkat 1-3 adalah outlet dengan ulasan nyata (Empang 4.8, Cibinong 4.2, Kalisari 3.9)
+      expect(hasil.peringkat[0].outlet).toBe('SUKA SHAWARMA EMPANG')
+      expect(hasil.peringkat[1].outlet).toBe('MITRA CIBINONG')
+      expect(hasil.peringkat[2].outlet).toBe('MITRA KALISARI')
+      // Ciledug (0 ulasan) berada di peringkat terbawah dan berlabel belum ada ulasan
+      const ciledug = hasil.peringkat[3]
+      expect(ciledug.outlet).toBe('Suka Shawarma Ciledug')
+      expect(ciledug.rating).toBe(0)
+      expect(ciledug.catatan).toBe('Belum ada ulasan di Google Maps')
+      expect(hasil.outlet_tanpa_ulasan).toEqual(['Suka Shawarma Ciledug'])
+      // Rata-rata rating tidak terdistorsi oleh 0 ulasan
+      expect(hasil.rata_rata_rating).toBe(4.3)
+    })
   })
 
   describe('saringReviewNegatif', () => {

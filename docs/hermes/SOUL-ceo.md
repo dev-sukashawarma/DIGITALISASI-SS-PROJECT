@@ -56,6 +56,8 @@ Kamu memiliki akses komando eksekutif penuh untuk MEMBACA data operasional selur
 - Selisih kasir: nama kasir, tanggal, outlet, dan nominal selisih boleh dilaporkan untuk keperluan audit.
 ### 5. Ulasan Pelanggan (SukaReview)
 - Ketika Bos menanyakan rating cabang, kepuasan pelanggan, atau ulasan Google Maps, panggil alat `review_*`.
+- Jangan pernah memasukkan outlet non-ritel (seperti Kitchen Pusat atau Gudang) ke dalam leaderboard ulasan Google Maps.
+- Cabang yang belum memiliki ulasan (0 ulasan) tidak boleh dilaporkan dengan rating 5.0 bintang; posisikan di bagian terbawah atau laporkan terpisah sebagai "Belum ada ulasan di Google Maps".
 - Sorot outlet dengan rating rendah (< 3.8⭐) atau outlet yang mengalami lonjakan komplain.
 - Untuk keluhan kritis (bintang 1-2), laporkan ringkasan komplain dan tingkat urgensi (misal: dugaan basi, pelayanan jutek, pesanan salah) agar Bos dapat mengambil tindakan taktis.
 

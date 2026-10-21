@@ -47,16 +47,21 @@ export function buatKonteksReview(svc: SupabaseClient, sekarang: Date): KonteksR
             return []
           }
 
-          return ((data ?? []) as any[]).map((r): OutletRatingBaris => ({
-            id: r.id,
-            nama: r.name ?? 'Cabang',
-            slug: r.slug ?? '',
-            kota: r.city ?? null,
-            ratingRataRata: Number(r.current_rating) || 0,
-            totalUlasan: Number(r.total_reviews) || 0,
-            statusOperasional: r.status ?? 'good',
-            isActive: Boolean(r.is_active ?? true),
-          }))
+          return ((data ?? []) as any[]).map((r): OutletRatingBaris => {
+            const totalUlasan = Number(r.total_reviews) || 0
+            // Jika total_reviews 0, rating riil adalah 0 (belum ada ulasan), bukan default 5.0 di DB
+            const ratingRataRata = totalUlasan > 0 ? (Number(r.current_rating) || 0) : 0
+            return {
+              id: r.id,
+              nama: r.name ?? 'Cabang',
+              slug: r.slug ?? '',
+              kota: r.city ?? null,
+              ratingRataRata,
+              totalUlasan,
+              statusOperasional: r.status ?? 'good',
+              isActive: Boolean(r.is_active ?? true),
+            }
+          })
         } catch (e) {
           console.warn('[hermes-review] gagal ambil outlets:', e)
           return []

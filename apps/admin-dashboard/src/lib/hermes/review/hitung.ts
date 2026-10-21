@@ -6,11 +6,16 @@ export function hitungRankingOutlet(
   outlets: OutletRatingBaris[],
   opsi?: { urutkan?: UrutanRanking; status?: string }
 ) {
-  // Hanya outlet operasional aktif
+  // Hanya outlet operasional aktif ritel
   let valid = outlets.filter((o) => {
     if (!o.isActive) return false
     const n = o.nama.toLowerCase()
-    return !n.includes('tes') && !n.includes('test')
+    const s = o.slug.toLowerCase()
+    // Abaikan cabang tes
+    if (n.includes('tes') || n.includes('test')) return false
+    // Pisahkan outlet non-ritel (seperti Kitchen Pusat / Gudang) dari leaderboard ulasan publik Google Maps
+    if (n.includes('kitchen') || s.includes('kitchen') || n.includes('gudang')) return false
+    return true
   })
 
   if (opsi?.status) {
@@ -19,6 +24,14 @@ export function hitungRankingOutlet(
 
   const urutan = opsi?.urutkan ?? 'tertinggi'
   valid.sort((a, b) => {
+    const aPunya = a.totalUlasan > 0
+    const bPunya = b.totalUlasan > 0
+
+    // Outlet yang memiliki ulasan selalu diprioritaskan di atas outlet tanpa ulasan
+    if (aPunya !== bPunya) {
+      return aPunya ? -1 : 1
+    }
+
     if (urutan === 'terendah') {
       if (a.ratingRataRata !== b.ratingRataRata) return a.ratingRataRata - b.ratingRataRata
       return b.totalUlasan - a.totalUlasan
@@ -27,29 +40,37 @@ export function hitungRankingOutlet(
       if (a.totalUlasan !== b.totalUlasan) return b.totalUlasan - a.totalUlasan
       return b.ratingRataRata - a.ratingRataRata
     }
-    // Default 'tertinggi'
+    // Default 'tertinggi': urutkan rating DESC, lalu sort sekunder: total ulasan DESC
     if (a.ratingRataRata !== b.ratingRataRata) return b.ratingRataRata - a.ratingRataRata
     return b.totalUlasan - a.totalUlasan
   })
 
-  const totalRating = valid.reduce((acc, o) => acc + o.ratingRataRata, 0)
-  const rataRata = valid.length > 0 ? Math.round((totalRating / valid.length) * 10) / 10 : 0
+  // Rata-rata rating jaringan hanya menghitung outlet yang memiliki ulasan nyata
+  const outletBerulasan = valid.filter((o) => o.totalUlasan > 0)
+  const totalRating = outletBerulasan.reduce((acc, o) => acc + o.ratingRataRata, 0)
+  const rataRata = outletBerulasan.length > 0 ? Math.round((totalRating / outletBerulasan.length) * 10) / 10 : 0
   const totalUlasanSemua = valid.reduce((acc, o) => acc + o.totalUlasan, 0)
+
+  const outletTanpaUlasan = valid.filter((o) => o.totalUlasan === 0).map((o) => o.nama)
 
   const peringkat = valid.map((o, idx) => ({
     peringkat: idx + 1,
     outlet: o.nama,
-    rating: o.ratingRataRata,
+    rating: o.totalUlasan > 0 ? o.ratingRataRata : 0,
     total_ulasan: o.totalUlasan,
     status: o.statusOperasional,
     kota: o.kota ?? '-',
+    ...(o.totalUlasan === 0 ? { catatan: 'Belum ada ulasan di Google Maps' } : {}),
   }))
 
   return {
     total_outlet: valid.length,
+    total_outlet_berulasan: outletBerulasan.length,
+    total_outlet_tanpa_ulasan: outletTanpaUlasan.length,
     rata_rata_rating: rataRata,
     total_ulasan_terkumpul: totalUlasanSemua,
     peringkat,
+    ...(outletTanpaUlasan.length > 0 ? { outlet_tanpa_ulasan: outletTanpaUlasan } : {}),
   }
 }
 

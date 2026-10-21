@@ -3478,7 +3478,7 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 - **GAS 3Kg keluar dari BOM** (39 baris, semua resep aktif termasuk Online/Reguler/BOGO/Best Seller). Stok gas outlet kini hanya bergerak lewat kiriman & opname; pemakaian terlihat sebagai selisih opname.
 - **12 menu "Voucher Pamulang 10%" dinonaktifkan, bukan DELETE** (29 order_items merujuknya; DELETE meng-CASCADE riwayat HPP). Resepnya sengaja tetap aktif untuk order susulan offline.
 - Best Seller (Mix Jumbo), Best Seller 2, menu Online/Reguler/BOGO gramasinya tidak disentuh (tak ada di Excel). `hpp_override` tidak disentuh.
-- ⏸ **Suka Sosis belum dibuat:** menu & bahan SOSIS belum ada di DB. Data owner: Rp 28.850 per pack isi 10. Masih perlu supplier (harga master diturunkan dari katalog vendor), satuan beli, harga jual (Excel Rp 25.000), kategori.
+- ⏸ **Suka Sosis ditunda** (owner 2026-10-21: "dinonaktifkan dulu"). Menu, bahan SOSIS, dan resepnya belum ada sama sekali di DB, jadi tidak ada yang dimatikan. Data untuk nanti: Rp 28.850 per pack isi 10; gramasi Excel 2 pcs sosis, lettuce 50, TUM 10, mayo/saos cabe/saos tomat 25, minyak 2 porsi. Saat dibuat masih perlu supplier (harga master diturunkan dari katalog vendor), harga jual (Excel Rp 25.000), kategori; buat menunya nonaktif dulu.
 - ⚠️ **Gotcha alat:** konektor `mcp__supabase__execute_sql` / `apply_migration` menolak otomatis (`declined`) setiap SQL yang memuat `DELETE` (konfirmasi perintah destruktif tak pernah sampai ke user); `UPDATE` saja lolos. Konektor kedua (`mcp__5f2e798c-…__execute_sql`, project `khpkoreaaucvyqfhynfq`) menjalankannya setelah user menyetujui di chat.
 
 ---

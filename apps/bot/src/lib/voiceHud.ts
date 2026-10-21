@@ -1,18 +1,17 @@
-// Sistem Interaksi Suara J.A.R.V.I.S. (Dual-Engine Voice-to-Voice: Web Audio Mic Stream + VAD + AI Server STT + Web Speech API)
-// Bekerja di SEMUA browser (Chrome, Brave, Edge, Firefox, Safari) menggunakan tangkapan mikrofon langsung (16kHz Mono WAV)
-// yang dikirim ke /api/voice/stt serta live interim preview dari Web Speech API jika tersedia.
+// Sistem Interaksi Suara J.A.R.V.I.S. (Dual-Engine Voice-to-Voice: Web Audio Mic Stream + MediaRecorder WAV + AI Server STT + Web Speech API)
+// Bekerja di SEMUA browser (Chrome, Brave, Edge, Firefox, Safari) dengan visualisasi spektrum mikrofon real-time yang responsif.
 
 let recognitionInstance: any = null
 let wakeWordInstance: any = null
 let sedangMendengar = false
 let wakeWordAktif = false
 
-// State untuk perekaman mikrofon langsung (Universal Web Audio + VAD)
+// State untuk perekaman mikrofon langsung (Universal Web Audio + MediaRecorder + VAD)
 let micStream: MediaStream | null = null
 let micSourceNode: MediaStreamAudioSourceNode | null = null
 let micAnalyserNode: AnalyserNode | null = null
-let micProcessorNode: ScriptProcessorNode | null = null
-let micMuteGainNode: GainNode | null = null
+let mediaRecorderInstance: MediaRecorder | null = null
+let vadIntervalId: ReturnType<typeof setInterval> | null = null
 let finalizeMicSessionFn: ((kirimSekarang: boolean) => void) | null = null
 
 let audioCtxVoice: AudioContext | null = null
@@ -185,24 +184,23 @@ export interface ListenerSuaraOptions {
 }
 
 function bersihkanResourceMikrofon() {
-  if (micProcessorNode) {
+  if (vadIntervalId) {
+    clearInterval(vadIntervalId)
+    vadIntervalId = null
+  }
+  if (mediaRecorderInstance) {
     try {
-      micProcessorNode.onaudioprocess = null
-      micProcessorNode.disconnect()
+      if (mediaRecorderInstance.state !== 'inactive') {
+        mediaRecorderInstance.stop()
+      }
     } catch {}
-    micProcessorNode = null
+    mediaRecorderInstance = null
   }
   if (micSourceNode) {
     try {
       micSourceNode.disconnect()
     } catch {}
     micSourceNode = null
-  }
-  if (micMuteGainNode) {
-    try {
-      micMuteGainNode.disconnect()
-    } catch {}
-    micMuteGainNode = null
   }
   micAnalyserNode = null
   if (micStream) {
@@ -237,6 +235,12 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
   }
 
   bersihkanResourceMikrofon()
+
+  // PENTING: Bangunkan AudioContext secara sinkron tepat di dalam event klik user!
+  const ctxSinkron = getVoiceAudioContext()
+  if (ctxSinkron && ctxSinkron.state === 'suspended') {
+    void ctxSinkron.resume().catch(() => {})
+  }
 
   const SpeechRecognitionClass =
     (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -301,7 +305,6 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
       }
 
       recognition.onerror = (event: any) => {
-        // Jika getUserMedia TIDAK tersedia dan Web Speech gagal, laporkan galatnya
         if (!punyaGetUserMedia && event.error !== 'no-speech' && event.error !== 'aborted') {
           sudahSelesai = true
           sedangMendengar = false
@@ -311,7 +314,6 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
       }
 
       recognition.onend = () => {
-        // Jika hanya mengandalkan Web Speech tanpa getUserMedia (misal di unit test)
         if (!punyaGetUserMedia && !sudahSelesai) {
           sudahSelesai = true
           sedangMendengar = false
@@ -330,12 +332,11 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
     }
   }
 
-  // 2. Jika hanya di lingkungan test atau browser tanpa getUserMedia, selesai di sini
   if (!punyaGetUserMedia) {
     return true
   }
 
-  // 3. Buka stream mikrofon nyata dengan getUserMedia + VAD + Spektrum Visualizer + Server AI STT Fallback
+  // 2. Buka stream mikrofon nyata dengan getUserMedia + AnalyserNode (512 FFT + TimeDomain) + MediaRecorder
   sedangMendengar = true
   options.onMulai?.()
 
@@ -357,29 +358,43 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
       micStream = stream
       const ctx = getVoiceAudioContext()
       if (!ctx) return
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {})
+      }
 
       const source = ctx.createMediaStreamSource(stream)
       const analyser = ctx.createAnalyser()
-      analyser.fftSize = 64
-      analyser.smoothingTimeConstant = 0.7
-
-      const processor = ctx.createScriptProcessor(4096, 1, 1)
-      const muteGain = ctx.createGain()
-      muteGain.gain.value = 0
+      // fftSize 512 memberi resolusi ~93Hz per bin (frekuensi vokal manusia berada di bin 1..18)
+      analyser.fftSize = 512
+      analyser.minDecibels = -85
+      analyser.maxDecibels = -18
+      analyser.smoothingTimeConstant = 0.65
 
       source.connect(analyser)
-      analyser.connect(processor)
-      processor.connect(muteGain)
-      muteGain.connect(ctx.destination)
-
       micSourceNode = source
       micAnalyserNode = analyser
-      micProcessorNode = processor
-      micMuteGainNode = muteGain
 
+      // Mulai animasi grafik spektrum suara mikrofon secara real-time!
       mulaiLoopSpektrum()
 
-      const pcmChunks: Float32Array[] = []
+      // Rekam audio mikrofon via MediaRecorder untuk dikirim ke /api/voice/stt
+      const recordedBlobs: BlobPart[] = []
+      let recorder: MediaRecorder | null = null
+      if (typeof MediaRecorder !== 'undefined') {
+        try {
+          recorder = new MediaRecorder(stream)
+          recorder.ondataavailable = (ev) => {
+            if (ev.data && ev.data.size > 0) {
+              recordedBlobs.push(ev.data)
+            }
+          }
+          recorder.start(150)
+          mediaRecorderInstance = recorder
+        } catch {}
+      }
+
+      const timeDomainBuf = new Float32Array(analyser.fftSize)
+      const pcmFallbackChunks: Float32Array[] = []
       let pernahBicara = false
       let waktuTerakhirBicara = Date.now()
       let waktuMulaiBicara = 0
@@ -391,6 +406,23 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         sedangMendengar = false
         finalizeMicSessionFn = null
         if (webSpeechTimer) clearTimeout(webSpeechTimer)
+
+        // Hentikan MediaRecorder dengan aman dan tunggu blob terakhir
+        if (recorder && recorder.state !== 'inactive') {
+          await new Promise<void>((resolve) => {
+            const timeout = setTimeout(resolve, 250)
+            recorder!.onstop = () => {
+              clearTimeout(timeout)
+              resolve()
+            }
+            try {
+              recorder!.stop()
+            } catch {
+              clearTimeout(timeout)
+              resolve()
+            }
+          })
+        }
 
         const sampleRate = ctx.sampleRate || 44100
         bersihkanResourceMikrofon()
@@ -405,9 +437,26 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           return
         }
 
-        // Prioritas 2: Jika ada suara yang terekam di mikrofon, kirim ke /api/voice/stt (9Router Gemini Audio)
-        if (kirimSekarang && (pernahBicara || pcmChunks.length > 4)) {
-          const wavB64 = encodeWav16kBase64(pcmChunks, sampleRate)
+        // Prioritas 2: Kirim rekaman suara ke /api/voice/stt (9Router Gemini Audio)
+        if (kirimSekarang && (pernahBicara || recordedBlobs.length > 0)) {
+          let wavB64 = ''
+          try {
+            if (recordedBlobs.length > 0) {
+              const fullBlob = new Blob(recordedBlobs, {
+                type: recorder?.mimeType || 'audio/webm',
+              })
+              const arrBuf = await fullBlob.arrayBuffer()
+              const decoded = await ctx.decodeAudioData(arrBuf.slice(0))
+              wavB64 = encodeWav16kBase64([decoded.getChannelData(0)], decoded.sampleRate)
+            }
+          } catch {
+            // Fallback ke sampel PCM langsung jika decodeAudioData gagal
+          }
+
+          if (!wavB64 && pcmFallbackChunks.length > 0) {
+            wavB64 = encodeWav16kBase64(pcmFallbackChunks, sampleRate)
+          }
+
           if (wavB64.length > 200) {
             options.onHasil('⏳ Mengenali suara Anda...', false)
             try {
@@ -429,7 +478,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
                 return
               }
             } catch {
-              // Abaikan dan lanjut ke onSelesai
+              // Lanjut ke onSelesai
             }
           }
         }
@@ -442,54 +491,53 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         void akhiriDanProses(kirimSekarang)
       }
 
-      processor.onaudioprocess = (e: AudioProcessingEvent) => {
-        if (sudahSelesai || !sedangMendengar) return
-        const input = e.inputBuffer.getChannelData(0)
+      // Polling 45ms pada AnalyserNode untuk deteksi aktivitas suara (VAD) & tangkapan PCM cadangan
+      vadIntervalId = setInterval(() => {
+        if (sudahSelesai || !sedangMendengar || !micAnalyserNode) return
 
-        // Hitung energi RMS suara untuk Voice Activity Detection (VAD)
+        micAnalyserNode.getFloatTimeDomainData(timeDomainBuf)
         let sumSq = 0
-        for (let i = 0; i < input.length; i++) {
-          sumSq += input[i] * input[i]
+        for (let i = 0; i < timeDomainBuf.length; i++) {
+          const s = timeDomainBuf[i]
+          sumSq += s * s
         }
-        const rms = Math.sqrt(sumSq / input.length)
+        const rms = Math.sqrt(sumSq / timeDomainBuf.length)
 
-        // Simpan sampel audio (maksimal ~20 detik terakhir)
-        if (pcmChunks.length < 240) {
-          pcmChunks.push(new Float32Array(input))
+        if (pcmFallbackChunks.length < 400) {
+          pcmFallbackChunks.push(new Float32Array(timeDomainBuf))
         }
 
         const sekarang = Date.now()
-        // Threshold suara bicara manusia normal
-        if (rms > 0.016) {
+        // Threshold sensitif untuk suara bicara di mikrofon laptop/HP
+        if (rms > 0.012) {
           if (!pernahBicara) {
             pernahBicara = true
             waktuMulaiBicara = sekarang
             if (!teksWebSpeech) {
-              options.onHasil('🎙️ Mendeteksi suara Anda...', false)
+              options.onHasil('🎙️ Suara terdeteksi, silakan lanjut bicara...', false)
             }
           }
           waktuTerakhirBicara = sekarang
         } else if (pernahBicara) {
           const durasiBicara = waktuTerakhirBicara - waktuMulaiBicara
           const durasiHening = sekarang - waktuTerakhirBicara
-          // Jika sudah bicara minimal 250ms lalu berhenti bicara selama ~1.35 detik -> kirim otomatis!
-          if (durasiBicara >= 250 && durasiHening >= jedaAuto) {
+          // Jika sudah bicara minimal 220ms lalu berhenti bicara selama ~1.35 detik -> kirim otomatis!
+          if (durasiBicara >= 220 && durasiHening >= jedaAuto) {
             void akhiriDanProses(true)
           }
         } else if (sekarang - waktuMulaiSesi > 25_000) {
-          // Timeout aman jika mikrofon dibiarkan tanpa bicara selama 25 detik
           void akhiriDanProses(false)
         }
-      }
+      }, 45)
     } catch (err) {
       if (sudahSelesai) return
-      // Jika getUserMedia ditolak izinnya (NotAllowedError), beri tahu pengguna dengan jelas
       sudahSelesai = true
       sedangMendengar = false
       bersihkanResourceMikrofon()
-      const msg = (err as Error)?.name === 'NotAllowedError'
-        ? 'Izin mikrofon diblokir oleh browser. Klik ikon gembok/mikrofon di address bar lalu pilih Allow (Izinkan).'
-        : `Mikrofon tidak dapat diakses: ${(err as Error)?.message || 'Periksa perangkat mikrofon Anda.'}`
+      const msg =
+        (err as Error)?.name === 'NotAllowedError'
+          ? 'Izin mikrofon diblokir oleh browser. Klik ikon gembok/pengaturan situs di sebelah kiri URL lalu izinkan Microphone (Allow).'
+          : `Mikrofon tidak dapat diakses: ${(err as Error)?.message || 'Periksa perangkat mikrofon Anda.'}`
       options.onGalat?.(msg)
       options.onSelesai?.()
     }
@@ -597,7 +645,8 @@ export function pasangListenerSpektrumSuara(cb: ((bands: number[]) => void) | nu
 
 function mulaiLoopSpektrum() {
   if (animFrameId) cancelAnimationFrame(animFrameId)
-  const dataArray = new Uint8Array(32)
+  const freqData = new Uint8Array(64)
+  const timeData = new Uint8Array(128)
 
   const tick = () => {
     if (!sedangBicaraFlag && !sedangMendengar) {
@@ -606,13 +655,34 @@ function mulaiLoopSpektrum() {
     }
     const analyserAktif = activeAnalyser || micAnalyserNode
     if (analyserAktif) {
-      analyserAktif.getByteFrequencyData(dataArray)
+      analyserAktif.getByteFrequencyData(freqData)
+      analyserAktif.getByteTimeDomainData(timeData)
+
+      // Hitung energi amplitudo waktu nyata (time-domain RMS) agar suara pelan di mic tetap menggerakkan grafik dengan jelas
+      let sumDev = 0
+      let peakDev = 0
+      for (let i = 0; i < timeData.length; i++) {
+        const dev = Math.abs(timeData[i] - 128) / 128
+        sumDev += dev * dev
+        if (dev > peakDev) peakDev = dev
+      }
+      const rmsBoost = Math.min(1, Math.sqrt(sumDev / timeData.length) * 6.5 + peakDev * 1.8)
+
+      // 9 band frekuensi vokal manusia (bin 1..18 pada FFT 512 mencakup ~93Hz s/d ~1700Hz)
+      // Disusun simetris (center-weighted) agar bar tengah paling tinggi saat bicara
+      const bobotTengah = [0.55, 0.72, 0.88, 1.0, 1.08, 1.0, 0.88, 0.72, 0.55]
+      const binIndex = [8, 6, 4, 2, 1, 3, 5, 7, 9]
+      const t = Date.now() / 90
+
       const bands: number[] = []
       for (let i = 0; i < 9; i++) {
-        const v1 = dataArray[i * 2 + 1] || 0
-        const v2 = dataArray[i * 2 + 2] || 0
-        const avg = (v1 + v2) / 510
-        bands.push(Math.max(0.14, Math.min(1, avg * 1.65)))
+        const bIdx = binIndex[i]
+        const fVal = (freqData[bIdx] || 0) / 255
+        // Gelombang hidup halus saat mic aktif menunggu suara + lonjakan drastis saat ada suara
+        const idleBreath = 0.16 + Math.abs(Math.sin(t + i * 0.65)) * 0.1
+        const voiceEnergy = Math.max(fVal * 1.15, rmsBoost * bobotTengah[i])
+        const nilai = Math.max(idleBreath, Math.min(1, voiceEnergy))
+        bands.push(nilai)
       }
       listenerSpektrum?.(bands)
     } else {
@@ -620,7 +690,7 @@ function mulaiLoopSpektrum() {
       const t = Date.now() / 110
       const bands = DEFAULT_BANDS.map((_, idx) => {
         const wave = Math.abs(Math.sin(t + idx * 0.7) * Math.cos(t * 0.6 - idx * 0.4))
-        return Math.max(0.15, Math.min(0.95, 0.2 + wave * 0.75))
+        return Math.max(0.18, Math.min(0.95, 0.22 + wave * 0.75))
       })
       listenerSpektrum?.(bands)
     }
@@ -735,8 +805,8 @@ export function bicaraJarvis(
       presenceFilter.gain.value = 2.5
 
       const analyser = ctx.createAnalyser()
-      analyser.fftSize = 64
-      analyser.smoothingTimeConstant = 0.75
+      analyser.fftSize = 512
+      analyser.smoothingTimeConstant = 0.7
 
       source.connect(presenceFilter)
       presenceFilter.connect(analyser)

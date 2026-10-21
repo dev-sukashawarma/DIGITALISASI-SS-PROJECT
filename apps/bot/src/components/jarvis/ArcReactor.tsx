@@ -72,17 +72,16 @@ export default function ArcReactor({
               ? 'VOICE LOOP STANDBY // SIAP MENDENGAR'
               : 'UNIFIED J.A.R.V.I.S. CORE READY'
 
-  // Hitung rata-rata energi suara untuk efek denyut cincin saat bicara
+  // Hitung rata-rata energi suara untuk efek denyut cincin saat bicara MAUPUN saat mendengarkan mikrofon
   const avgEnergy =
     spektrumSuara.reduce((acc, v) => acc + v, 0) / (spektrumSuara.length || 1)
+  const micLevelPct = Math.min(100, Math.max(0, Math.round((avgEnergy - 0.15) * 135)))
   const coreScale =
-    status === 'speaking'
-      ? 1 + Math.min(0.08, (avgEnergy - 0.2) * 0.14)
-      : status === 'listening'
-        ? 1.03
-        : hovered
-          ? 1.04
-          : 1
+    status === 'speaking' || status === 'listening'
+      ? 1 + Math.min(0.1, Math.max(0, (avgEnergy - 0.18) * 0.16))
+      : hovered
+        ? 1.04
+        : 1
 
   const containerSizeClass = compact
     ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh]'
@@ -340,25 +339,25 @@ export default function ArcReactor({
             )}
           </div>
 
-          {/* Real-Time 9-Band Waveform Equalizer */}
+          {/* Real-Time 9-Band Waveform Equalizer (Bergerak dinamis saat Anda bicara di Mic maupun saat Jarvis menjawab) */}
           <div
-            className={`relative z-10 flex items-end gap-[2.5px] sm:gap-1 ${
-              compact ? 'mt-1 h-3' : 'mt-1.5 h-5 sm:h-6'
+            className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 ${
+              compact ? 'mt-1 h-4' : 'mt-2 h-8 sm:h-9'
             } pointer-events-none`}
           >
             {spektrumSuara.slice(0, 9).map((val, idx) => {
               const aktifSuara = status === 'speaking' || status === 'listening'
-              const maxBarPx = compact ? 13 : 24
-              const tinggiPx = aktifSuara ? Math.max(3, Math.round(val * maxBarPx)) : undefined
+              const maxBarPx = compact ? 16 : 36
+              const tinggiPx = aktifSuara ? Math.max(5, Math.round(val * maxBarPx)) : undefined
               return (
                 <div
                   key={idx}
-                  className={`w-[2px] sm:w-[2.5px] rounded-full transition-all duration-75 ${
+                  className={`w-1 sm:w-1.5 rounded-full transition-all duration-75 ${
                     status === 'listening'
-                      ? 'bg-emerald-300'
+                      ? 'bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.95)]'
                       : status === 'speaking'
-                        ? 'bg-cyan-200'
-                        : 'bg-cyan-400/80 animate-pulse'
+                        ? 'bg-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.95)]'
+                        : 'bg-cyan-400/75 animate-pulse'
                   }`}
                   style={{
                     height: tinggiPx ? `${tinggiPx}px` : `${(compact ? 4 : 8) + ((idx * 2) % 7)}px`,
@@ -367,14 +366,21 @@ export default function ArcReactor({
               )
             })}
           </div>
+
+          {/* Indikator Persentase Sinyal Mikrofon saat Mode Listening */}
+          {!compact && status === 'listening' && (
+            <span className="mt-1 font-mono-hud text-[8px] sm:text-[9px] text-emerald-300/90 tracking-widest uppercase font-bold">
+              MIC GAIN: {micLevelPct > 8 ? `ACTIVE (${micLevelPct}%)` : 'READY — SILAKAN BICARA'}
+            </span>
+          )}
         </button>
       </div>
 
       {/* Live Voice Transcript Bubble */}
       {transkripLive && (
-        <div className="mt-1.5 px-3 py-1 rounded-xl bg-emerald-950/85 border border-emerald-400/50 text-emerald-200 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.25)] animate-in fade-in">
-          <span className="text-emerald-400 font-bold mr-1.5">🎙️ ANDA:</span>
-          <span>&ldquo;{transkripLive}&rdquo;</span>
+        <div className="mt-1.5 px-3.5 py-1 rounded-xl bg-emerald-950/90 border border-emerald-400/60 text-emerald-100 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-in fade-in">
+          <span className="text-emerald-400 font-bold mr-1.5">🎙️ VOICE INPUT:</span>
+          <span>&ldquo;{transkripLive.replace(/^🎙️\s*/, '')}&rdquo;</span>
         </div>
       )}
 

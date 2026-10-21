@@ -183,6 +183,32 @@ export interface FinanceTelemetri {
   }
 }
 
+export interface SaldoStokItemTelemetri {
+  bahanId: string
+  nama: string
+  satuan: string
+  totalStokJaringan: number
+  stokGudangPusat: number
+  outletKritisCount: number
+  daftarOutlet: Array<{ outlet: string; qty: number; opnameTerakhir: string | null }>
+}
+
+export interface SuratJalanTelemetri {
+  id: string
+  outlet: string
+  status: string
+  tanggal: string
+  totalItem: number
+  adaSelisih: boolean
+  rincianSelisih?: string[]
+}
+
+export interface DistribusiTelemetri {
+  totalSuratJalanDikirim: number
+  totalSuratJalanAdaSelisih: number
+  daftarSuratJalanTerbaru: SuratJalanTelemetri[]
+}
+
 export interface ReviewTelemetri {
   totalUlasan: number
   ratingRataRata: number
@@ -217,6 +243,8 @@ export interface TelemetriHariIni {
   ringkasanKemarin?: RingkasanHari
   finance?: FinanceTelemetri
   review?: ReviewTelemetri
+  saldoStok?: SaldoStokItemTelemetri[]
+  distribusi?: DistribusiTelemetri
 }
 
 let cachedTelemetri: { data: TelemetriHariIni; timestamp: number } | null = null
@@ -234,6 +262,15 @@ function getSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
+const DEFAULT_SUKAREVIEW_URL = 'https://ajvzmicqtwgrcknovubf.supabase.co'
+const DEFAULT_SUKAREVIEW_KEY = 'sb_publishable_6WuTWf-ucDNha96WITsBwA_YLqfMNd4'
+
+function getSukaReviewClient() {
+  const url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
+  const key = process.env.SUKAREVIEW_SERVICE_ROLE_KEY || process.env.SUKAREVIEW_SUPABASE_ANON_KEY || DEFAULT_SUKAREVIEW_KEY
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
 export function formatRupiah(angka: number): string {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(angka)
 }
@@ -248,15 +285,19 @@ const TIPE_OUTLET_NON_PENJUALAN = new Set([
   'system',
 ])
 
-export function adalahOutletPenjualan(nama: string, tipe: string, kode = ''): boolean {
+export function adalahOutletPenjualan(nama: string, tipe: string, kode = '', slug = ''): boolean {
   const t = (tipe || '').trim().toLowerCase()
   const k = (kode || '').trim().toLowerCase()
+  const s = (slug || '').trim().toLowerCase()
   const n = (nama || '').trim().toLowerCase()
   if (TIPE_OUTLET_NON_PENJUALAN.has(t)) return false
-  if (k === 'ss-backup') return false
-  if (n.includes('gudang') || n.includes('kantor pusat') || n.includes('(hq)')) return false
+  if (k === 'ss-backup' || s === 'ss-backup') return false
+  if (/\b(tes|test|trial|demo)\b/i.test(n)) return false
+  if (n.includes('gudang') || n.includes('kantor pusat') || n.includes('(hq)') || n.includes('ss backup')) return false
   return true
 }
+
+const FOOD_APP_CHANNELS = new Set(['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'])
 
 function hitungRingkasan(
   ordersData: any[],
@@ -272,10 +313,20 @@ function hitungRingkasan(
   for (const o of ordersData) {
     const id = o.outlet_id
     if (validOutletIds.size > 0 && !validOutletIds.has(id)) continue
-    const amt = Number(o.total_amount) || 0
-    mapOmzet[id] = (mapOmzet[id] || 0) + amt
+
+    // Acuan Tunggal Omzet Kotor (Gross Revenue):
+    // Jika Food Apps, total_amount sudah harga menu utuh (Gross).
+    // Jika non-Food Apps, omzet kotor = total_amount + discount_amount.
+    const ch = (o.channel || '').toLowerCase()
+    const src = (o.sales_source || '').toLowerCase()
+    const isFoodApp = FOOD_APP_CHANNELS.has(ch) || FOOD_APP_CHANNELS.has(src)
+    const baseAmt = Number(o.total_amount) || 0
+    const disc = Number(o.discount_amount) || 0
+    const grossAmt = isFoodApp ? baseAmt : (baseAmt + disc)
+
+    mapOmzet[id] = (mapOmzet[id] || 0) + grossAmt
     mapCount[id] = (mapCount[id] || 0) + 1
-    omzetTotal += amt
+    omzetTotal += grossAmt
     totalOrder += 1
   }
   const allOutlets: OutletTelemetri[] = baseOutlets.map((o: any) => ({
@@ -315,7 +366,11 @@ async function fetchAllRows(
     const to = from + pageSize - 1
     const base = sb.from(table)
     const { data, error } = await buildFn(base).range(from, to)
-    if (error || !data || data.length === 0) break
+    if (error) {
+      console.error(`[telemetriNyata:fetchAllRows] Error fetching ${table} (page ${page}):`, error.message)
+      break
+    }
+    if (!data || data.length === 0) break
     all.push(...data)
     if (data.length < pageSize) break
     page++
@@ -391,67 +446,106 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       resSelisih,
       resReviews,
       resShiftsKemarin,
+      resReviewOutlets,
+      resSaldoStok,
+      resSuratJalan,
     ] = await Promise.all([
       fetchAllRows(sb, 'orders', (q) =>
         q
-          .select('id, total_amount, status, outlet_id, outlets(name)')
+          .select('id, total_amount, discount_amount, channel, sales_source, status, outlet_id, outlets(name)')
           .gte('created_at', startToday)
           .lt('created_at', endToday)
-          .neq('status', 'cancelled')
+          .in('status', ['completed', 'settled'])
           .order('id', { ascending: true })
-      ).catch(() => []),
+      ).catch((err) => {
+        console.error('[telemetriNyata] gagal fetch orders hari ini:', err)
+        return []
+      }),
       fetchAllRows(sb, 'orders', (q) =>
         q
-          .select('id, total_amount, status, outlet_id, outlets(name)')
+          .select('id, total_amount, discount_amount, channel, sales_source, status, outlet_id, outlets(name)')
           .gte('created_at', startKemarin)
           .lt('created_at', endKemarin)
-          .neq('status', 'cancelled')
+          .in('status', ['completed', 'settled'])
           .order('id', { ascending: true })
-      ).catch(() => []),
+      ).catch((err) => {
+        console.error('[telemetriNyata] gagal fetch orders kemarin:', err)
+        return []
+      }),
       fetchAllRows(sb, 'order_items', (q) =>
         q
           .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status)')
           .gte('orders.created_at', startToday)
           .lt('orders.created_at', endToday)
-          .neq('orders.status', 'cancelled')
+          .in('orders.status', ['completed', 'settled'])
           .order('id', { ascending: true })
-      ).catch(() => []),
+      ).catch((err) => {
+        console.error('[telemetriNyata] gagal fetch order_items hari ini:', err)
+        return []
+      }),
       fetchAllRows(sb, 'order_items', (q) =>
         q
           .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status)')
           .gte('orders.created_at', startKemarin)
           .lt('orders.created_at', endKemarin)
-          .neq('orders.status', 'cancelled')
+          .in('orders.status', ['completed', 'settled'])
           .order('id', { ascending: true })
-      ).catch(() => []),
+      ).catch((err) => {
+        console.error('[telemetriNyata] gagal fetch order_items kemarin:', err)
+        return []
+      }),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code, slug)')
         .eq('type', 'in')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
         .limit(2000)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error attendance hari ini:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject attendance hari ini:', err)
+          return { data: [] }
+        }),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code, slug)')
         .eq('type', 'in')
         .gte('created_at', startKemarin)
         .lt('created_at', endKemarin)
         .limit(2000)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error attendance kemarin:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject attendance kemarin:', err)
+          return { data: [] }
+        }),
       sb
         .from('outlets')
-        .select('id, name, type, code, is_active')
+        .select('id, name, type, code, slug, is_active')
         .eq('is_active', true)
         .order('name')
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error outlets:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject outlets:', err)
+          return { data: [] }
+        }),
       sb
         .from('bahan_baku')
         .select('id, nama, satuan')
         .eq('is_active', true)
-        .limit(20)
-        .then((r: any) => r, () => ({ data: [] })),
+        .limit(30)
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error bahan_baku:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject bahan_baku:', err)
+          return { data: [] }
+        }),
       sb
         .from('leave_requests')
         .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role, outlet_id)')
@@ -459,7 +553,13 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .gte('end_date', tglStr)
         .in('status', ['approved', 'pending'])
         .limit(50)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error leave hari ini:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject leave hari ini:', err)
+          return { data: [] }
+        }),
       sb
         .from('leave_requests')
         .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role, outlet_id)')
@@ -467,10 +567,16 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .gte('end_date', tglKemarinStr)
         .in('status', ['approved', 'pending'])
         .limit(50)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error leave kemarin:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject leave kemarin:', err)
+          return { data: [] }
+        }),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code, slug)')
         .eq('type', 'in')
         .neq('status', 'telat_toleransi')
         .gte('created_at', startToday)
@@ -478,10 +584,16 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .gt('telat_menit', 0)
         .order('telat_menit', { ascending: false })
         .limit(30)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error late attendance hari ini:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject late attendance hari ini:', err)
+          return { data: [] }
+        }),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code, slug)')
         .eq('type', 'in')
         .neq('status', 'telat_toleransi')
         .gte('created_at', startKemarin)
@@ -489,14 +601,26 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .gt('telat_menit', 0)
         .order('telat_menit', { ascending: false })
         .limit(30)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error late attendance kemarin:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject late attendance kemarin:', err)
+          return { data: [] }
+        }),
       sb
         .from('stok_waste_reports')
         .select('id, qty, reason, status, created_at, outlet_id, bahan_baku_id, outlets(name), bahan_baku(nama, satuan)')
         .gte('created_at', start30)
         .order('created_at', { ascending: false })
         .limit(600)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error waste:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject waste:', err)
+          return { data: [] }
+        }),
       sb
         .from('orders')
         .select('id, total_amount, created_at, outlet_id, outlets(name)')
@@ -505,7 +629,13 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .eq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(100)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error void hari ini:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject void hari ini:', err)
+          return { data: [] }
+        }),
       sb
         .from('orders')
         .select('id, total_amount, created_at, outlet_id, outlets(name)')
@@ -514,21 +644,38 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .eq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(100)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error void kemarin:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject void kemarin:', err)
+          return { data: [] }
+        }),
       sb
         .from('shifts')
         .select('id, outlet_id, status, start_time, end_time, variance, petty_cash_variance, outlets(name)')
-        .gte('start_time', startToday)
-        .lt('start_time', endToday)
+        .or(`and(start_time.gte.${startToday},start_time.lt.${endToday}),status.eq.open`)
         .order('start_time', { ascending: true })
         .limit(100)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error shifts:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject shifts:', err)
+          return { data: [] }
+        }),
       sb
         .from('bahan_baku_harga')
         .select('bahan_baku_id, harga_beli, harga_updated_at')
         .order('harga_updated_at', { ascending: false })
         .limit(200)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error bahan_baku_harga:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject bahan_baku_harga:', err)
+          return { data: [] }
+        }),
       sb
         .from('petty_cash_expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
@@ -536,14 +683,26 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .is('deleted_at', null)
         .order('amount', { ascending: false })
         .limit(100)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error petty cash hari ini:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject petty cash hari ini:', err)
+          return { data: [] }
+        }),
       sb
         .from('expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .eq('expense_date', tglStr)
         .order('amount', { ascending: false })
         .limit(100)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error expenses hari ini:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject expenses hari ini:', err)
+          return { data: [] }
+        }),
       sb
         .from('petty_cash_expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
@@ -551,24 +710,48 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .is('deleted_at', null)
         .order('amount', { ascending: false })
         .limit(100)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error petty cash kemarin:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject petty cash kemarin:', err)
+          return { data: [] }
+        }),
       sb
         .from('expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .eq('expense_date', tglKemarinStr)
         .order('amount', { ascending: false })
         .limit(100)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error expenses kemarin:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject expenses kemarin:', err)
+          return { data: [] }
+        }),
       sb
         .from('expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .gte('expense_date', `${tglStr.slice(0, 7)}-01`)
         .order('amount', { ascending: false })
         .limit(10)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error expenses bulan ini:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject expenses bulan ini:', err)
+          return { data: [] }
+        }),
       sb
         .rpc('get_purchase_orders', { p_from: `${tglStr.slice(0, 4)}-01-01`, p_to: tglStr, p_status: null })
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error get_purchase_orders:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject get_purchase_orders:', err)
+          return { data: [] }
+        }),
       sb
         .from('cash_transaction')
         .select('id, outlet_id, amount, category, occurred_at, sales_date, status, outlets(name)')
@@ -576,7 +759,13 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .in('status', ['reconciled', 'paid', 'approved', 'pending_approval'])
         .order('occurred_at', { ascending: false })
         .limit(300)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error cash_transaction:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject cash_transaction:', err)
+          return { data: [] }
+        }),
       sb
         .from('shifts')
         .select('id, outlet_id, status, start_time, end_time, variance, expected_ending_cash, actual_ending_cash, staff:outlet_staff!shifts_staff_id_fkey(name), outlets(name)')
@@ -584,13 +773,25 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .neq('variance', 0)
         .order('start_time', { ascending: false })
         .limit(10)
-        .then((r: any) => r, () => ({ data: [] })),
-      sb
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error shifts variance:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject shifts variance:', err)
+          return { data: [] }
+        }),
+      getSukaReviewClient()
         .from('reviews')
-        .select('id, rating, comment, reviewer_name, google_created_at, outlets(name)')
+        .select('id, rating, comment, reviewer_name, google_created_at, sentiment, urgency, outlets(name)')
         .order('google_created_at', { ascending: false })
-        .limit(30)
-        .then((r: any) => r, () => ({ data: [] })),
+        .limit(40)
+        .then((r: any) => {
+          if (r.error) console.warn('[telemetriNyata] warn SukaReview reviews:', r.error.message)
+          return r
+        }, (err: any) => {
+          console.warn('[telemetriNyata] reject SukaReview reviews:', err)
+          return { data: [] }
+        }),
       sb
         .from('shifts')
         .select('id, outlet_id, status, start_time, end_time, actual_ending_cash, expected_ending_cash, variance, staff:outlet_staff!shifts_staff_id_fkey(name), outlets(name)')
@@ -598,11 +799,66 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .lt('start_time', endKemarin)
         .eq('status', 'closed')
         .limit(100)
-        .then((r: any) => r, () => ({ data: [] })),
+        .then((r: any) => {
+          if (r.error) console.error('[telemetriNyata] error shifts kemarin:', r.error)
+          return r
+        }, (err: any) => {
+          console.error('[telemetriNyata] reject shifts kemarin:', err)
+          return { data: [] }
+        }),
+      getSukaReviewClient()
+        .from('outlets')
+        .select('id, name, slug, current_rating, total_reviews, is_active')
+        .eq('is_active', true)
+        .order('name')
+        .then((r: any) => {
+          if (r.error) console.warn('[telemetriNyata] warn SukaReview outlets:', r.error.message)
+          return r
+        }, (err: any) => {
+          console.warn('[telemetriNyata] reject SukaReview outlets:', err)
+          return { data: [] }
+        }),
+      sb
+        .from('monitoring_view_spv')
+        .select('outlet_id, bahan_baku_id, current_qty, last_opname_date, saldo_is_gram, outlets(name), bahan_baku(nama, satuan)')
+        .limit(500)
+        .then((r: any) => {
+          if (r.error) console.warn('[telemetriNyata] warn monitoring_view_spv:', r.error.message)
+          return r
+        }, (err: any) => {
+          console.warn('[telemetriNyata] reject monitoring_view_spv:', err)
+          return { data: [] }
+        }),
+      sb
+        .from('surat_jalan')
+        .select(`
+          id,
+          outlet_id,
+          status,
+          created_at,
+          outlets(name),
+          surat_jalan_item(
+            id,
+            qty_dikirim,
+            qty_terima,
+            kondisi,
+            selisih,
+            bahan_baku(nama, satuan)
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(15)
+        .then((r: any) => {
+          if (r.error) console.warn('[telemetriNyata] warn surat_jalan:', r.error.message)
+          return r
+        }, (err: any) => {
+          console.warn('[telemetriNyata] reject surat_jalan:', err)
+          return { data: [] }
+        }),
     ])
 
     const rawOutlets = (resOutlets.data || []).filter((o: any) =>
-      adalahOutletPenjualan(o.name, o.type, o.code)
+      adalahOutletPenjualan(o.name, o.type, o.code, o.slug)
     )
     const validOutletIds = new Set(rawOutlets.map((o: any) => o.id))
 
@@ -611,7 +867,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       const outName = a.outlets?.name || ''
       const outType = a.outlets?.type || ''
       const outCode = a.outlets?.code || ''
-      return adalahOutletPenjualan(outName, outType, outCode)
+      const outSlug = a.outlets?.slug || ''
+      return adalahOutletPenjualan(outName, outType, outCode, outSlug)
     }
 
     const ROLE_BUKAN_KRU_OUTLET = new Set([
@@ -1114,11 +1371,100 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       },
     }
 
-    const reviewData = resReviews?.data || []
+    // ─────────────────────────────────────────────────────────── Saldo Stok Bahan Baku (monitoring_view_spv)
+    const rawSaldoStok = (resSaldoStok?.data || []) as any[]
+    const stokBahanMap = new Map<string, SaldoStokItemTelemetri>()
+
+    for (const r of rawSaldoStok) {
+      const bId = r.bahan_baku_id || 'unknown'
+      const bNama = r.bahan_baku?.nama || 'Bahan Baku'
+      const bSat = r.bahan_baku?.satuan || 'unit'
+      const qty = Number(r.current_qty) || 0
+      const outNama = r.outlets?.name || 'Cabang'
+      const isPusat = /pusat|gudang|hq/i.test(outNama)
+
+      if (!stokBahanMap.has(bId)) {
+        stokBahanMap.set(bId, {
+          bahanId: bId,
+          nama: bNama,
+          satuan: bSat,
+          totalStokJaringan: 0,
+          stokGudangPusat: 0,
+          outletKritisCount: 0,
+          daftarOutlet: [],
+        })
+      }
+      const item = stokBahanMap.get(bId)!
+      if (isPusat) {
+        item.stokGudangPusat += qty
+      } else {
+        item.totalStokJaringan += qty
+        if (qty <= 0) {
+          item.outletKritisCount += 1
+        }
+      }
+      item.daftarOutlet.push({
+        outlet: outNama,
+        qty,
+        opnameTerakhir: r.last_opname_date || null,
+      })
+    }
+
+    const saldoStok: SaldoStokItemTelemetri[] = Array.from(stokBahanMap.values())
+      .sort((a, b) => b.outletKritisCount - a.outletKritisCount || b.totalStokJaringan - a.totalStokJaringan)
+
+    // ─────────────────────────────────────────────────────────── Distribusi & Pengiriman Surat Jalan
+    const rawSj = (resSuratJalan?.data || []) as any[]
+    const daftarSuratJalanTerbaru: SuratJalanTelemetri[] = rawSj.map((sj: any) => {
+      const items = sj.surat_jalan_item || []
+      const rincianSelisih: string[] = []
+      let adaSelisih = false
+      for (const it of items) {
+        const diff = Number(it.selisih) || 0
+        if (diff !== 0 || (it.kondisi && it.kondisi !== 'baik')) {
+          adaSelisih = true
+          const bNama = it.bahan_baku?.nama || 'Item'
+          const sat = it.bahan_baku?.satuan || ''
+          rincianSelisih.push(
+            `${bNama}: kirim ${it.qty_dikirim}, terima ${it.qty_terima} (${diff > 0 ? '+' : ''}${diff} ${sat}) - ${it.kondisi || 'selisih'}`
+          )
+        }
+      }
+      return {
+        id: sj.id,
+        outlet: sj.outlets?.name || 'Cabang',
+        status: sj.status || 'draft',
+        tanggal: sj.created_at ? String(sj.created_at).slice(0, 10) : '-',
+        totalItem: items.length,
+        adaSelisih,
+        rincianSelisih: rincianSelisih.length > 0 ? rincianSelisih : undefined,
+      }
+    })
+
+    const distribusi: DistribusiTelemetri = {
+      totalSuratJalanDikirim: rawSj.length,
+      totalSuratJalanAdaSelisih: daftarSuratJalanTerbaru.filter((s) => s.adaSelisih).length,
+      daftarSuratJalanTerbaru,
+    }
+
+    // ─────────────────────────────────────────────────────────── Ulasan Pelanggan (SukaReview External Supabase)
+    const reviewData = (resReviews?.data || []) as any[]
+    const reviewOutletsData = (resReviewOutlets?.data || []) as any[]
     let reviewTelemetri: ReviewTelemetri | undefined = undefined
-    if (reviewData.length > 0) {
-      const totalUlasan = reviewData.length
-      const avg = reviewData.reduce((acc: number, r: any) => acc + (Number(r.rating) || 0), 0) / totalUlasan
+    if (reviewData.length > 0 || reviewOutletsData.length > 0) {
+      const totalUlasan = reviewOutletsData.reduce((acc, o) => acc + (Number(o.total_reviews) || 0), 0) || reviewData.length
+      const avg = reviewOutletsData.length > 0
+        ? reviewOutletsData.reduce((acc, o) => acc + (Number(o.current_rating) || 0), 0) / reviewOutletsData.length
+        : reviewData.reduce((acc: number, r: any) => acc + (Number(r.rating) || 0), 0) / (reviewData.length || 1)
+
+      const topCabangRating = reviewOutletsData
+        .map((o: any) => ({
+          outlet: o.name || 'Cabang',
+          rating: Number(o.current_rating) || 0,
+          totalUlasan: Number(o.total_reviews) || 0,
+        }))
+        .sort((a, b) => b.rating - a.rating)
+
       const ulasanNegatifTerbaru = reviewData
         .filter((r: any) => (Number(r.rating) || 0) <= 2)
         .slice(0, 5)
@@ -1129,10 +1475,11 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           komentar: r.comment || '',
           waktu: r.google_created_at ? String(r.google_created_at).slice(0, 10) : '',
         }))
+
       reviewTelemetri = {
         totalUlasan,
         ratingRataRata: Math.round(avg * 10) / 10,
-        topCabangRating: [],
+        topCabangRating,
         ulasanNegatifTerbaru,
       }
     }
@@ -1164,6 +1511,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       ringkasanKemarin,
       finance,
       review: reviewTelemetri,
+      saldoStok,
+      distribusi,
     }
   } catch (err) {
     console.error('[telemetriNyata] gagal ambil telemetri:', err)

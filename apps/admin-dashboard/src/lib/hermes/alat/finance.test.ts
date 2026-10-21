@@ -74,7 +74,7 @@ describe('setoran_ringkasan', () => {
     expect(r.total).toBe(430_000)
     expect(r.per_outlet).toEqual([{ outlet: 'MITRA CIBINONG', total: 430_000, jumlah: 1 }])
     expect(r.setoran).toEqual([
-      { outlet: 'MITRA CIBINONG', tanggal_jual: '2026-10-01', nominal: 430_000, jenis: 'Setoran Bank' },
+      { outlet: 'MITRA CIBINONG', tanggal_jual: '2026-10-01', tanggal_input: '2026-10-07', nominal: 430_000, jenis: 'Setoran Bank' },
     ])
   })
 })

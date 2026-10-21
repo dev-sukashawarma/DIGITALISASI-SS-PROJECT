@@ -308,5 +308,53 @@ describe('buatJawabanDev', () => {
     expect(fullFinance).toContain('seluruh modul keuangan siaga, Rekan.')
     expect(fullFinance).not.toContain('Sir')
   })
-})
+  it('menangani pertanyaan temporal presensi dan opex kemarin (H-1) dengan data hrdKemarin dan pengeluaranKemarin', () => {
+    const telemetriDenganKemarin: TelemetriHariIni = {
+      ...mockTelemetri,
+      tanggalKemarinWIB: '2026-10-12',
+      hrdKemarin: {
+        tanggalIso: '2026-10-12',
+        kehadiranTotal: 68,
+        kehadiranTepatWaktu: 60,
+        kehadiranTelat: 8,
+        persenOnTime: 88,
+        stafTelat: [
+          { nama: 'Budi Kemarin', outlet: 'Cabang Tebet', telatMenit: 35 },
+        ],
+        stafCutiIzin: [
+          { nama: 'Siti Kemarin', role: 'Staff Outlet', jenis: 'izin sakit', status: 'approved', alasan: 'demam' },
+        ],
+      },
+      finance: {
+        ...mockTelemetri.finance!,
+        pengeluaranKemarin: {
+          totalNominal: 1250000,
+          jumlahTransaksi: 5,
+          topPengeluaran: [
+            {
+              id: 'k1',
+              nominal: 500000,
+              deskripsi: 'Service Chiller Kemarin',
+              outlet: 'SUKA SHAWARMA TEBET',
+              kategori: 'maintenance',
+              tipe: 'operasional',
+              tanggal: '2026-10-12',
+            },
+          ],
+        },
+      },
+    }
 
+    const chunksPresensi = buatJawabanDev('siapa yang telat kemarin?', 'ceo', telemetriDenganKemarin)
+    const textPresensi = chunksPresensi.join('')
+    expect(textPresensi).toContain('Budi Kemarin')
+    expect(textPresensi).toContain('35 menit')
+    expect(textPresensi).toContain('Siti Kemarin')
+    expect(textPresensi).toContain('Status Presensi Kemarin')
+
+    const chunksOpex = buatJawabanDev('berapa opex kemarin?', 'ceo', telemetriDenganKemarin)
+    const textOpex = chunksOpex.join('')
+    expect(textOpex).toContain('Service Chiller Kemarin')
+    expect(textOpex).toContain('OPEX TERBESAR KEMARIN')
+  })
+})

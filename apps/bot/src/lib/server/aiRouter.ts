@@ -227,9 +227,63 @@ ${listSelisih || '(Nol / Selisih kasir klop)'}
 `
     }
 
+    const sStok = t.saldoStok
+    let teksStok = ''
+    if (sStok && sStok.length > 0) {
+      const topStokKritis = sStok.filter((s) => s.outletKritisCount > 0).slice(0, 5)
+      const listKritis =
+        topStokKritis.length > 0
+          ? topStokKritis
+              .map(
+                (s) =>
+                  `  * ${s.nama}: ${s.outletKritisCount} cabang stok menipis/kosong (Gudang Pusat: ${s.stokGudangPusat} ${s.satuan}, Total Jaringan: ${s.totalStokJaringan} ${s.satuan})`
+              )
+              .join('\n')
+          : '  (Seluruh stok bahan baku aman, tidak ada cabang dengan saldo kosong)'
+
+      const topBahan = sStok
+        .slice(0, 5)
+        .map((s) => `  * ${s.nama}: ${s.totalStokJaringan} ${s.satuan} di cabang (${s.stokGudangPusat} ${s.satuan} di gudang pusat)`)
+        .join('\n')
+
+      teksStok = `
+DATA SALDO STOK BAHAN BAKU REAL-TIME (MONITORING VIEW GUDANG & CABANG):
+- Bahan Baku dengan Cabang Stok Menipis/Kosong:
+${listKritis}
+- Saldo Bahan Baku Utama Jaringan:
+${topBahan}
+`
+    }
+
+    const dist = t.distribusi
+    let teksDistribusi = ''
+    if (dist) {
+      const listSj = (dist.daftarSuratJalanTerbaru || [])
+        .slice(0, 5)
+        .map((s) => {
+          const selisihInfo =
+            s.adaSelisih && s.rincianSelisih?.length ? ` [PERHATIAN SELISIH: ${s.rincianSelisih.join('; ')}]` : ''
+          return `  * [${s.tanggal}] Ke ${s.outlet} (Status: ${s.status}, ${s.totalItem} item)${selisihInfo}`
+        })
+        .join('\n')
+
+      teksDistribusi = `
+DATA LOGISTIK & PENGIRIMAN SURAT JALAN (DISTRIBUSI):
+- Total Surat Jalan Terpantau: ${dist.totalSuratJalanDikirim} pengiriman
+- Surat Jalan dengan Catatan Selisih/Rusak: ${dist.totalSuratJalanAdaSelisih} pengiriman
+- Pengiriman Surat Jalan Terbaru:
+${listSj || '  (Tidak ada riwayat pengiriman)'}
+`
+    }
+
     const r = t.review
     let teksReview = ''
     if (r) {
+      const listTopRating = (r.topCabangRating || [])
+        .slice(0, 5)
+        .map((c) => `  * ${c.outlet}: ${c.rating}⭐ (${c.totalUlasan} ulasan)`)
+        .join('\n')
+
       const listNegatif = (r.ulasanNegatifTerbaru || [])
         .map((n, i) => `${i + 1}. ⭐${n.rating} ${n.outlet} (Oleh: ${n.reviewer}, Tgl: ${n.waktu}): "${n.komentar}"`)
         .join('\n')
@@ -238,6 +292,8 @@ ${listSelisih || '(Nol / Selisih kasir klop)'}
 DATA ULASAN GOOGLE REVIEWS & KEPUASAN PELANGGAN (SUKAREVIEW):
 - Total Ulasan Terpantau: ${r.totalUlasan} ulasan
 - Rating Rata-rata Konsolidasi: ${r.ratingRataRata}⭐
+- Peringkat Rating Tertinggi Cabang:
+${listTopRating || '  (Belum ada data cabang)'}
 - Ulasan Kritis / Negatif Terbaru:
 ${listNegatif || '(Tidak ada ulasan negatif terbaru - kepuasan pelanggan terjaga)'}
 `
@@ -291,9 +347,11 @@ ${listBuka || '(Belum ada shift kasir yang tercatat hari ini)'}
 ${listVoid || '(Nol void hari ini)'}
 - Presensi Kru Live Hari Ini: ${t.kehadiranTotal} clock-in (${t.persenOnTime}% On-Time, ${t.kehadiranTelat} telat)
 ${listTelat || '(Belum ada catatan keterlambatan hari ini)'}
+- Kru Izin / Cuti Live Hari Ini:
+${listCuti || '(Tidak ada kru yang izin/cuti hari ini)'}
 
 ======================================================================
-DATA WASTE 30 HARI, KEUANGAN, & GOOGLE REVIEW
+DATA WASTE 30 HARI, STOK, DISTRIBUSI, KEUANGAN, & GOOGLE REVIEW
 ======================================================================
 DATA WASTE & REJECT BAHAN BAKU (AUDIT LOSS PREVENTION 30 HARI TERAKHIR):
 - Total Laporan Waste Tercatat (30H): ${w?.totalLaporan30Hari || 0} laporan
@@ -305,6 +363,8 @@ ${listWasteOutlet || '(Belum ada catatan waste cabang)'}
 
 KATALOG BAHAN BAKU UTAMA GUDANG:
 ${listBahan || '- Gas, Kulit, Daging, Saus'}
+${teksStok}
+${teksDistribusi}
 ${teksFinance}
 ${teksReview}
 `.trim()

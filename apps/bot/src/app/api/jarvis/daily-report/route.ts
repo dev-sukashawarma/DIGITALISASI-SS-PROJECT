@@ -209,6 +209,35 @@ function bangunActionItems(
     })
   }
 
+  // 8. Evaluasi Stok Kritis & Menipis (Gudang & Cabang)
+  const kritisStok = (t.saldoStok || []).filter((s) => s.outletKritisCount > 0)
+  if (kritisStok.length > 0) {
+    const topKritis = kritisStok[0]
+    items.push({
+      id: 'stok-kritis',
+      level: topKritis.outletKritisCount >= 3 ? 'critical' : 'warning',
+      divisi: 'OPERASIONAL',
+      judul: `Stok Kritis: ${topKritis.nama} Kosong di ${topKritis.outletKritisCount} Cabang`,
+      deskripsi: `Sisa stok di gudang pusat: ${topKritis.stokGudangPusat} ${topKritis.satuan}. Total jaringan: ${topKritis.totalStokJaringan} ${topKritis.satuan}.`,
+      perintahTindakLanjut: 'Tampilkan status stok bahan baku kritis dan cabang mana saja yang kehabisan.',
+    })
+  }
+
+  // 9. Evaluasi Distribusi & Selisih Surat Jalan
+  const dist = t.distribusi
+  if (dist && dist.totalSuratJalanAdaSelisih > 0) {
+    const sjSelisih = dist.daftarSuratJalanTerbaru.find((s) => s.adaSelisih)
+    const catatan = sjSelisih?.rincianSelisih?.[0] || 'Terdapat perbedaan qty kirim vs terima'
+    items.push({
+      id: 'dist-selisih',
+      level: 'warning',
+      divisi: 'OPERASIONAL',
+      judul: `${dist.totalSuratJalanAdaSelisih} Surat Jalan Pengiriman Ada Catatan Selisih/Rusak`,
+      deskripsi: `Terbaru ke ${sjSelisih?.outlet || 'Cabang'}: ${catatan}.`,
+      perintahTindakLanjut: 'Tampilkan audit surat jalan dan pengiriman yang mengalami selisih atau barang rusak.',
+    })
+  }
+
   if (items.length === 0) {
     items.push({
       id: 'all-optimal',
@@ -356,6 +385,18 @@ function bangunTeksTelegram(t: TelemetriHariIni, mode: 'hari_ini' | 'kemarin', a
     ``,
     `### 5. ⭐ CUSTOMER EXPERIENCE (SUKAREVIEW)`,
     `- **Rating Rata-rata:** **${t.review?.ratingRataRata ?? 4.8}⭐** (${t.review?.totalUlasan ?? 0} ulasan terpantau)`,
+    ``,
+    `### 6. 📦 LOGISTIK, DISTRIBUSI & STOK`,
+    t.distribusi
+      ? `- **Pengiriman Surat Jalan:** ${t.distribusi.totalSuratJalanDikirim} kiriman (${t.distribusi.totalSuratJalanAdaSelisih} catatan selisih/rusak)`
+      : `- **Pengiriman Surat Jalan:** Terpantau lancar`,
+    t.saldoStok && t.saldoStok.some((s) => s.outletKritisCount > 0)
+      ? `- **Peringatan Stok Cabang:** ${t.saldoStok
+          .filter((s) => s.outletKritisCount > 0)
+          .map((s) => `${s.nama} (${s.outletKritisCount} cabang kosong)`)
+          .slice(0, 3)
+          .join(', ')}`
+      : `- **Status Stok Jaringan:** Seluruh bahan baku utama dalam ambang batas aman`,
     ``,
     `### 🎯 AI EXECUTIVE ACTION ITEMS`,
     actionLines,

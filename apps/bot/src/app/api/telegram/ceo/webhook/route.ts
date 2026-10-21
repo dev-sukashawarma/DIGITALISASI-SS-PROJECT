@@ -411,6 +411,7 @@ export async function POST(req: NextRequest) {
 
       let ringkasanTelemetri = ""
       if (telemetri) {
+        const k = telemetri.ringkasanKemarin
         const w = telemetri.waste
         const topWaste = w?.topBahan
           ?.map(
@@ -420,17 +421,42 @@ export async function POST(req: NextRequest) {
           .join("; ")
         const topOutWaste = w?.topOutlet?.map((o) => `${o.nama} (${o.frekuensi}x)`).join("; ")
         const v = telemetri.voidOrder
-        const voidSummary = v ? `${v.totalVoidHariIni} order (${formatRupiah(v.totalNilaiVoidHariIni)})` : "0 void"
+        const voidSummary = v
+          ? `Hari ini: ${v.totalVoidHariIni} order (${formatRupiah(v.totalNilaiVoidHariIni)}), Kemarin: ${v.totalVoidKemarin} order (${formatRupiah(v.totalNilaiVoidKemarin)})`
+          : "0 void"
         const sb = telemetri.statusBuka
-        const bukaSummary = sb ? `${sb.totalBuka} buka, ${sb.totalBelumBuka} belum buka` : ""
+        const bukaSummary = sb
+          ? `${sb.totalBuka} cabang buka live, ${sb.totalBelumBuka} belum buka (Kemarin: ${sb.shiftKemarinClosedCount} closed shift)`
+          : ""
 
-        ringkasanTelemetri = `\n[Data Telemetri Live Database Suka Shawarma]:\n- Omzet Hari Ini: ${formatRupiah(
-          telemetri.omzetTotal
-        )} (${telemetri.totalOrder} order dari ${telemetri.outletsAktifTransaksi.length} cabang)\n- Audit Waste 30 Hari: Total ${
-          w?.totalLaporan30Hari || 0
-        } laporan (Est Kerugian: ${formatRupiah(w?.totalEstKerugianRp || 0)}). Top 5 Bahan Waste: ${
-          topWaste || "-"
-        }. Top Cabang Waste: ${topOutWaste || "-"}\n- Audit Void Hari Ini: ${voidSummary}\n- Status Buka Cabang: ${bukaSummary}`
+        const fin = telemetri.finance
+        const finSummary = fin
+          ? `Utang PO: ${formatRupiah(fin.utangPo.totalUtang)} (${fin.utangPo.jumlahPo} PO), OPEX Hari ini: ${formatRupiah(fin.pengeluaranHariIni.totalNominal)}, OPEX Kemarin: ${formatRupiah(fin.pengeluaranKemarin.totalNominal)}, Setoran input hari ini: ${formatRupiah(fin.setoranKas.inputHariIni?.totalNominal || 0)}`
+          : ""
+
+        const rev = telemetri.review
+        const revSummary = rev
+          ? `Rating rata-rata: ${rev.ratingRataRata}⭐ (${rev.totalUlasan} ulasan)`
+          : ""
+
+        const dist = telemetri.distribusi
+        const distSummary = dist
+          ? `Total SJ: ${dist.totalSuratJalanDikirim}, Ada selisih: ${dist.totalSuratJalanAdaSelisih}`
+          : ""
+
+        const hrdKemarin = telemetri.hrdKemarin
+        const hrdSummary = `Live: ${telemetri.kehadiranTotal} clock-in (${telemetri.persenOnTime}% On-Time, ${telemetri.kehadiranTelat} telat). Kemarin: ${hrdKemarin?.kehadiranTotal || 0} clock-in (${hrdKemarin?.persenOnTime || 100}% On-Time, ${hrdKemarin?.kehadiranTelat || 0} telat)`
+
+        ringkasanTelemetri = `\n[Data Telemetri Database Suka Shawarma]:
+- Evaluasi Closing Kemarin (H-1): ${formatRupiah(k?.omzetTotal || 0)} (${k?.totalOrder || 0} order, AOV ${formatRupiah(k?.aov || 0)})
+- Omzet Live Hari Ini: ${formatRupiah(telemetri.omzetTotal)} (${telemetri.totalOrder} order dari ${telemetri.outletsAktifTransaksi.length} cabang aktif)
+- Presensi & SDM Kru: ${hrdSummary}
+- Keuangan & OPEX: ${finSummary}
+- Ulasan Google Reviews: ${revSummary}
+- Logistik Distribusi: ${distSummary}
+- Audit Waste 30 Hari: Total ${w?.totalLaporan30Hari || 0} laporan (Est Kerugian: ${formatRupiah(w?.totalEstKerugianRp || 0)}). Top Bahan: ${topWaste || "-"}. Top Cabang: ${topOutWaste || "-"}
+- Audit Void POS: ${voidSummary}
+- Status Buka Cabang: ${bukaSummary}`
       }
 
       const baseUrl = process.env.HERMES_API_URL

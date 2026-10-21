@@ -117,42 +117,6 @@ export function buatJawabanDev(
     ]
   }
 
-  // 1. Telemetri Stok & Gudang (Bahan Baku) — sebelum pengecekan kata 'cabang'/'outlet'
-  if (
-    p.includes('stok') ||
-    p.includes('gudang') ||
-    p.includes('bahan') ||
-    p.includes('inventori') ||
-    p.includes('kritis') ||
-    p.includes('reorder') ||
-    p.includes('permintaan') ||
-    p.includes('katalog') ||
-    p.includes('daging') ||
-    p.includes('pita') ||
-    p.includes('kulit') ||
-    p.includes('roti')
-  ) {
-    const listBahan =
-      t && t.bahanBaku.length > 0
-        ? t.bahanBaku.map((b) => `- **${b.nama}** \`[Satuan: ${b.satuan}]\``).join('\n')
-        : '- Daging Sapi Marinasi (Kg)\n- Daging Ayam Marinasi (Kg)\n- Roti Pita / Kulit (Pack)\n- Garlic Mayo (Dus)'
-
-    const headerStok = isManager
-      ? 'Bot Manager terhubung ke data **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n'
-      : 'J.A.R.V.I.S. terhubung ke satelit **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n'
-
-    return [
-      headerStok,
-      '> **LIVE INVENTORY FEED**: Data master bahan baku operasional tersinkronisasi dari database.\n\n',
-      '### 🥩 Katalog Bahan Baku Utama\n',
-      `${listBahan}\n\n`,
-      `### 📦 Distribusi & Logistik\n`,
-      `- **Cakupan Outlet Aktif**: ${t?.totalOutletAktif ?? 28} cabang\n`,
-      '- **Status Cold Storage**: Buffer aman dan terpantau dalam parameter standar SOP.\n\n',
-      `Siap menerima instruksi pencatatan mutasi atau audit stok outlet, ${sebutan}.`,
-    ]
-  }
-
   // 1b. Telemetri Waste & Reject Bahan Baku
   if (
     p.includes('waste') ||
@@ -192,7 +156,55 @@ export function buatJawabanDev(
     ]
   }
 
-  // 1e. Void & Pembatalan Transaksi POS
+  // 1. Telemetri Stok & Gudang (Bahan Baku) — sebelum pengecekan kata 'cabang'/'outlet'
+  if (
+    p.includes('stok') ||
+    p.includes('gudang') ||
+    p.includes('bahan') ||
+    p.includes('inventori') ||
+    p.includes('kritis') ||
+    p.includes('reorder') ||
+    p.includes('permintaan') ||
+    p.includes('katalog') ||
+    p.includes('daging') ||
+    p.includes('pita') ||
+    p.includes('kulit') ||
+    p.includes('roti')
+  ) {
+    const sStok = t?.saldoStok
+    let infoSaldo = ''
+    if (sStok && sStok.length > 0) {
+      const topStok = sStok.slice(0, 5).map((s) => `- **${s.nama}**: ${s.totalStokJaringan} ${s.satuan} di cabang (${s.stokGudangPusat} ${s.satuan} di pusat)`).join('\n')
+      const kritis = sStok.filter((s) => s.outletKritisCount > 0)
+      const listKritis = kritis.length > 0
+        ? kritis.slice(0, 4).map((s) => `- ⚠️ **${s.nama}**: ${s.outletKritisCount} cabang stok kosong/kritis`).join('\n')
+        : '- ✅ *Seluruh cabang aman, tidak ada stok kosong/kritis*'
+
+      infoSaldo = `\n\n### 📦 Monitoring Saldo Stok Real-time\n${topStok}\n\n### ⚠️ Status Stok Cabang\n${listKritis}`
+    }
+
+    const listBahan =
+      t && t.bahanBaku.length > 0
+        ? t.bahanBaku.map((b) => `- **${b.nama}** \`[Satuan: ${b.satuan}]\``).join('\n')
+        : '- Daging Sapi Marinasi (Kg)\n- Daging Ayam Marinasi (Kg)\n- Roti Pita / Kulit (Pack)\n- Garlic Mayo (Dus)'
+
+    const headerStok = isManager
+      ? 'Bot Manager terhubung ke data **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n'
+      : 'J.A.R.V.I.S. terhubung ke satelit **Gudang Central & Master Bahan Baku** Suka Shawarma:\n\n'
+
+    return [
+      headerStok,
+      '> **LIVE INVENTORY FEED**: Data master bahan baku operasional tersinkronisasi dari database.\n\n',
+      '### 🥩 Katalog Bahan Baku Utama\n',
+      `${listBahan}${infoSaldo}\n\n`,
+      `### 📦 Distribusi & Logistik\n`,
+      `- **Cakupan Outlet Aktif**: ${t?.totalOutletAktif ?? 28} cabang\n`,
+      '- **Status Cold Storage**: Buffer aman dan terpantau dalam parameter standar SOP.\n\n',
+      `Siap menerima instruksi pencatatan mutasi atau audit stok outlet, ${sebutan}.`,
+    ]
+  }
+
+    // 1e. Void & Pembatalan Transaksi POS
   if (
     p.includes('void') ||
     p.includes('cancel') ||
@@ -300,55 +312,73 @@ export function buatJawabanDev(
     p.includes('bolos') ||
     (profil === 'hrd' && !p.includes('stok') && !p.includes('omzet'))
   ) {
-    const totalAtt = t?.kehadiranTotal ?? 0
-    const onTimeRate = t?.persenOnTime ?? 95
-    const lateCount = t?.kehadiranTelat ?? 0
-    const onTimeCount = t?.kehadiranTepatWaktu ?? totalAtt
+    const hrdData = isKemarin && t?.hrdKemarin ? t.hrdKemarin : null
+    const totalAtt = hrdData ? hrdData.kehadiranTotal : (t?.kehadiranTotal ?? 0)
+    const onTimeRate = hrdData ? hrdData.persenOnTime : (t?.persenOnTime ?? 95)
+    const lateCount = hrdData ? hrdData.kehadiranTelat : (t?.kehadiranTelat ?? 0)
+    const onTimeCount = hrdData ? hrdData.kehadiranTepatWaktu : (t?.kehadiranTepatWaktu ?? totalAtt)
+
+    const cutiList = hrdData ? hrdData.stafCutiIzin : (t?.stafCutiIzin || [])
+    const telatList = hrdData ? hrdData.stafTelat : (t?.stafTelat || [])
+    const labelWaktu = isKemarin ? (t?.tanggalKemarinWIB || 'Kemarin') : (t?.tanggalWIB || 'Hari Ini')
 
     const cutiLines =
-      t && t.stafCutiIzin.length > 0
-        ? t.stafCutiIzin
+      cutiList.length > 0
+        ? cutiList
             .map((c) => `- **${c.nama}** (${c.role}): ${c.jenis} [status: ${c.status}] - *Alasan: ${c.alasan}*`)
             .join('\n')
         : isManager
-          ? '- *(Tidak ada kru outlet tercatat izin/cuti hari ini)*'
-          : '- *(Tidak ada kru tercatat izin/cuti hari ini)*'
+          ? `- *(Tidak ada kru outlet tercatat izin/cuti ${isKemarin ? 'kemarin' : 'hari ini'})*`
+          : `- *(Tidak ada kru tercatat izin/cuti ${isKemarin ? 'kemarin' : 'hari ini'})*`
 
     const telatLines =
-      t && t.stafTelat.length > 0
-        ? t.stafTelat
+      telatList.length > 0
+        ? telatList
             .map((s) => `- **${s.nama}** (\`${s.outlet}\`): terlambat **${s.telatMenit} menit**`)
             .join('\n')
         : isManager
-          ? '- *(Seluruh kru outlet on-time hari ini, tidak ada keterlambatan di cabang)*'
-          : '- *(Seluruh kru on-time hari ini)*'
+          ? `- *(Seluruh kru outlet on-time ${isKemarin ? 'kemarin' : 'hari ini'}, tidak ada keterlambatan di cabang)*`
+          : `- *(Seluruh kru on-time ${isKemarin ? 'kemarin' : 'hari ini'})*`
 
     const headerHR = isManager
-      ? `Mengakses data **Presensi & Kedisiplinan Kru** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`
-      : `Mengakses data satelit **HRD & Workforce Management** Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):\n\n`
+      ? `Mengakses data **Presensi & Kedisiplinan Kru** Suka Shawarma (${labelWaktu}):\n\n`
+      : `Mengakses data satelit **HRD & Workforce Management** Suka Shawarma (${labelWaktu}):\n\n`
 
     const feedNote = isManager
-      ? '> **LIVE ATTENDANCE FEED**: Menampilkan data presensi kru di outlet cabang hari ini (khusus kru operasional outlet, tidak mencakup kantor pusat).\n\n'
-      : '> **LIVE ATTENDANCE FEED**: Menampilkan data presensi kru di outlet hari ini dari sistem absensi geofencing.\n\n'
+      ? `> **${isKemarin ? 'CLOSING' : 'LIVE'} ATTENDANCE FEED**: Menampilkan data presensi kru di outlet cabang ${isKemarin ? 'kemarin' : 'hari ini'} (khusus kru operasional outlet, tidak mencakup kantor pusat).\n\n`
+      : `> **${isKemarin ? 'CLOSING' : 'LIVE'} ATTENDANCE FEED**: Menampilkan data presensi kru di outlet ${isKemarin ? 'kemarin' : 'hari ini'} dari sistem absensi geofencing.\n\n`
 
     return [
       headerHR,
       feedNote,
-      '### 👥 Status Presensi Hari Ini\n',
+      `### 👥 Status Presensi ${isKemarin ? 'Kemarin' : 'Hari Ini'}\n`,
       `- **Total Aktivitas Presensi**: **${totalAtt} catatan clock-in/out**\n`,
       `- **Tingkat Tepat Waktu (On-Time)**: **${onTimeRate}%** (${onTimeCount} tepat waktu)\n`,
       `- **Keterlambatan Terdeteksi**: ${lateCount} catatan\n`,
       `- **Distribusi Wilayah**: Tersebar di ${t?.totalOutletAktif ?? 28} cabang aktif Suka Shawarma\n\n`,
-      '### 🏖️ Kru Izin / Cuti Terdata\n',
+      `### 🏖️ Kru Izin / Cuti Terdata (${isKemarin ? 'Kemarin' : 'Hari Ini'})\n`,
       `${cutiLines}\n\n`,
-      '### ⏱️ Kru Datang Terlambat\n',
+      `### ⏱️ Kru Datang Terlambat (${isKemarin ? 'Kemarin' : 'Hari Ini'})\n`,
       `${telatLines}\n\n`,
       `Semua data presensi tersinkronisasi dengan sistem HRD & geofencing, ${sebutan}.`,
     ]
   }
 
   // 3. Pertanyaan Penjualan & Ranking KEMARIN
-  if (isKemarin) {
+  const isTanyaFinance =
+    p.includes('finance') ||
+    p.includes('opex') ||
+    p.includes('biaya') ||
+    p.includes('keuangan') ||
+    p.includes('petty') ||
+    p.includes('pengeluaran') ||
+    p.includes('pengeluran') ||
+    p.includes('utang') ||
+    p.includes('supplier') ||
+    p.includes('setoran') ||
+    p.includes('selisih')
+
+  if (isKemarin && !isTanyaFinance) {
     const k = t?.ringkasanKemarin
     if (!k || (k.omzetTotal === 0 && k.totalOrder === 0)) {
       return [
@@ -377,7 +407,7 @@ export function buatJawabanDev(
 
     return [
       `${salamAwal} Menampilkan laporan penjualan seluruh cabang untuk **KEMARIN (${k.tanggalLabel})**:\n\n`,
-      `> **REKAP PENJUALAN JARINGAN KEMARIN**: Total Omzet **${formatRupiah(k.omzetTotal)}** (${k.totalOrder} order, AOV ${formatRupiah(k.aov)}). Partisipasi: **${k.outletsAktifTransaksi.length}** dari **${k.outletsAktifTransaksi.length + k.outletsNolTransaksi.length}** cabang aktif.\n\n`,
+      `> **REKAP PENJUALAN JARINGAN KEMARIN**: Total Omzet **${formatRupiah(k.omzetTotal)}** (${k.totalOrder.toLocaleString('id-ID')} order, AOV ${formatRupiah(k.aov)}). Partisipasi: **${k.outletsAktifTransaksi.length}** dari **${k.outletsAktifTransaksi.length + k.outletsNolTransaksi.length}** cabang aktif.\n\n`,
       `### 🏆 Peringkat Omzet Cabang Kemarin (${k.outletsAktifTransaksi.length} Outlet)\n`,
       `${aktifLines}\n\n`,
       k.outletsNolTransaksi.length > 0 ? `### 🟡 Cabang Tanpa Transaksi Kemarin (${k.outletsNolTransaksi.length} Unit)\n${nolLines}\n\n` : '',
@@ -563,18 +593,27 @@ export function buatJawabanDev(
       p.includes('petty')
 
     if (isTanyaOpex) {
-      const top1 = t?.finance?.pengeluaranHariIni?.topPengeluaran?.[0]
+      const pengeluaran =
+        isKemarin && t?.finance?.pengeluaranKemarin
+          ? t.finance.pengeluaranKemarin
+          : t?.finance?.pengeluaranHariIni
+      const labelTgl = isKemarin ? (t?.tanggalKemarinWIB || 'Kemarin') : (t?.tanggalWIB || 'Hari Ini')
+      const labelWaktu = isKemarin ? 'kemarin' : 'hari ini'
+      const labelWaktuKapital = isKemarin ? 'KEMARIN' : 'HARI INI'
+
+      const top1 = pengeluaran?.topPengeluaran?.[0]
       if (top1) {
-        const listTop = t?.finance?.pengeluaranHariIni?.topPengeluaran?.slice(0, 5).map((x, i) =>
-          `${i + 1}. **${formatRupiah(x.nominal)}** — ${x.deskripsi} (*${x.outlet}* | \`${x.kategori}\`)`
-        ).join('\n') || ''
+        const listTop =
+          pengeluaran?.topPengeluaran?.slice(0, 5).map((x, i) =>
+            `${i + 1}. **${formatRupiah(x.nominal)}** — ${x.deskripsi} (*${x.outlet}* | \`${x.kategori}\`)`
+          ).join('\n') || ''
 
         return [
-          `${salamAwal} Berikut rincian pengeluaran / OPEX terbesar hari ini (**${t?.tanggalWIB || 'Hari Ini'}**):\n\n`,
-          `> **OPEX TERBESAR HARI INI**: **${formatRupiah(top1.nominal)}** untuk **${top1.deskripsi}** di outlet **${top1.outlet}**.\n\n`,
-          '### 💸 Daftar Pengeluaran Terbesar Hari Ini\n',
+          `${salamAwal} Berikut rincian pengeluaran / OPEX terbesar ${labelWaktu} (**${labelTgl}**):\n\n`,
+          `> **OPEX TERBESAR ${labelWaktuKapital}**: **${formatRupiah(top1.nominal)}** untuk **${top1.deskripsi}** di outlet **${top1.outlet}**.\n\n`,
+          `### 💸 Daftar Pengeluaran Terbesar ${isKemarin ? 'Kemarin' : 'Hari Ini'}\n`,
           listTop,
-          `\n\n- **Total Pengeluaran Hari Ini**: **${formatRupiah(t?.finance?.pengeluaranHariIni?.totalNominal || 0)}** (${t?.finance?.pengeluaranHariIni?.jumlahTransaksi || 0} transaksi tercatat)\n`,
+          `\n\n- **Total Pengeluaran ${isKemarin ? 'Kemarin' : 'Hari Ini'}**: **${formatRupiah(pengeluaran?.totalNominal || 0)}** (${pengeluaran?.jumlahTransaksi || 0} transaksi tercatat)\n`,
           `- **Kategori**: Biaya operasional outlet & kas kecil cabang.\n\n`,
           `Ada rincian pengeluaran outlet lain yang ingin Anda ketahui, ${sebutan}?`,
         ]

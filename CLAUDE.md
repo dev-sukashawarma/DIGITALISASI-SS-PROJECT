@@ -3488,6 +3488,13 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 - ⚠️ **Gotcha uji skrip HPP:** `get_owner_dashboard_summary` yang dipanggil sebagai `postgres` **tanpa** `request.jwt.claims` mengembalikan COGS **0** (tak melihat outlet). Pasang klaim Admin Dev SEBELUM pengukuran "sebelum", kalau tidak asersi baseline gagal palsu. (Skrip 28 Sep memasangnya sesudah baseline.)
 - ℹ️ COGS owner September kini **1.012.112.265**, bukan 1.017.387.460 yang tercatat 10 Okt (−5,3 jt). Bukan dari sesi ini (asersi identik sebelum/sesudah); kemungkinan menu Shawarmie terhapus lagi setelah 10 Okt (lihat Session 2026-10-12). Belum ditelusuri.
 
+### Lanjutan 21 Okt: HPP & resep menu Reguler (DB, LIVE)
+- **Akar HPP 0:** riwayat kunci `hpp_override` ketiga menu Reguler kosong (NULL) sejak 1 Sep, sehingga kasir & food apps tercatat tanpa HPP, padahal `menu_items.hpp_override` di layar terisi. HPP SS Online terisi.
+- **HPP (berlaku 21 Okt, 1–20 Okt tetap 0):** Ayam 10.316,9, Sapi 10.595,2 (= jumlah rincian kartu HPP owner 9.379 / 9.632 × 1,1); Mix 12.269,4 (= HPP SS Online-nya, tanpa kartu). Angka kuning kartu (9.000 / 9.700) = HPP lama sebelum 1 Sep, tidak dipakai. Mitra tampilan = round(×1,1). Arsip `SS COGS SET/input-hpp-reguler-berlaku-21okt-2026-10-21.sql` — jangan diulang. COGS Agu/Sep/1–20 Okt identik. NONGKI 1/2 ikut naik (15.395,2 / 15.116,9).
+- **Resep (migration `20261021120000_resep_reguler_ikut_kartu`, applied+terstempel):** 5 resep (Ayam/Sapi/Mix Reguler + 2 BOGO): FOIL 5M + PLASTIK MERAH + PAPER WRAP dibuang, diganti PLASTIK VACUM 1 lembar + DUS PACKING 1 pcs, + sayur 20 g (Ayam) / 25 g (Sapi & Mix). Gas kartu tidak dimasukkan.
+- ⚠️ **Stok:** per 21 Okt DUS PACKING belum pernah dikirim ke outlet (Gudang Pusat 6.250 pcs) dan PLASTIK VACUM hanya di BNR (Gudang 2.100). Potongan `pemakaian` boleh minus, jadi order tidak gagal, tetapi saldo outlet minus sampai dikirim. Reguler hampir hanya laku di MITRA CILEUDUG (81 porsi 1–20 Okt).
+- ℹ️ COGS owner 1–20 Okt bergeser 792.765.158 → 792.095.492 antara pagi dan siang 21 Okt: 23 order periode itu diubah hari ini (status tetap completed). Bukan dari perubahan HPP; belum ditelusuri.
+
 ---
 
 **Last updated:** 2026-10-21  

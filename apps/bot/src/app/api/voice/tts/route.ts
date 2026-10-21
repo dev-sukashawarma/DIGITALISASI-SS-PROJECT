@@ -485,7 +485,6 @@ async function synthesizeGeminiNativeWav(
   opsiSuara: OpsiSuaraJarvis,
   apiKey: string
 ): Promise<{ wavBuffer: Buffer; modelUsed: string }> {
-  const promptBerpengarah = `Ucapkan kalimat berikut dalam Bahasa Indonesia dengan gaya asisten eksekutif J.A.R.V.I.S. yang sangat natural, luwes, hangat, dan mengalir seperti obrolan telepon langsung:\n\n${teks}`
   let galatTerakhir = 'Tidak ada model Gemini TTS yang merespons.'
 
   for (const model of GEMINI_TTS_MODELS) {
@@ -495,7 +494,7 @@ async function synthesizeGeminiNativeWav(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: promptBerpengarah }] }],
+          contents: [{ parts: [{ text: teks }] }],
           generationConfig: {
             responseModalities: ['AUDIO'],
             speechConfig: {
@@ -507,7 +506,7 @@ async function synthesizeGeminiNativeWav(
             },
           },
         }),
-        signal: AbortSignal.timeout(9500),
+        signal: AbortSignal.timeout(14000),
       })
 
       if (!res.ok) {

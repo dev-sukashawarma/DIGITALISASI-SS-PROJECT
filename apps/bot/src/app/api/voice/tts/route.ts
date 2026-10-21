@@ -21,8 +21,8 @@ export interface OpsiSuaraJarvis {
 export const DAFTAR_SUARA_JARVIS: OpsiSuaraJarvis[] = [
   {
     id: 'brian',
-    label: 'BRIAN (Jarvis Natural)',
-    deskripsi: 'Pria Bariton Luwes & Percakapan Natural',
+    label: 'BRIAN HD (Jarvis Bariton)',
+    deskripsi: 'Suara AI Pria Bariton Luwes & Natural (Multilingual HD)',
     gender: 'Pria',
     voiceName: 'en-US-BrianMultilingualNeural',
     pitch: '-2Hz',
@@ -30,35 +30,71 @@ export const DAFTAR_SUARA_JARVIS: OpsiSuaraJarvis[] = [
   },
   {
     id: 'andrew',
-    label: 'ANDREW (Eksekutif Santai)',
-    deskripsi: 'Pria Hangat, Halus & Tidak Kaku',
+    label: 'ANDREW HD (Pria Hangat)',
+    deskripsi: 'Suara AI Pria Hangat, Santai & Mengalir (Multilingual HD)',
     gender: 'Pria',
     voiceName: 'en-US-AndrewMultilingualNeural',
     pitch: '-1Hz',
     rate: '+4%',
   },
   {
-    id: 'ardi',
-    label: 'ARDI (Komando Tegas)',
-    deskripsi: 'Pria Indonesia Formal & Jelas',
+    id: 'william',
+    label: 'WILLIAM HD (Aksen Jarvis Klasik)',
+    deskripsi: 'Suara AI Pria Elegan ala Butler Inggris/Aussie (Multilingual HD)',
     gender: 'Pria',
-    voiceName: 'id-ID-ArdiNeural',
+    voiceName: 'en-AU-WilliamMultilingualNeural',
     pitch: '-2Hz',
     rate: '+4%',
   },
   {
+    id: 'florian',
+    label: 'FLORIAN HD (Deep Commander)',
+    deskripsi: 'Suara AI Pria Berat & Berwibawa Eropa (Multilingual HD)',
+    gender: 'Pria',
+    voiceName: 'de-DE-FlorianMultilingualNeural',
+    pitch: '-2Hz',
+    rate: '+4%',
+  },
+  {
+    id: 'remy',
+    label: 'REMY HD (Eksekutif Halus)',
+    deskripsi: 'Suara AI Pria Halus & Tenang (Multilingual HD)',
+    gender: 'Pria',
+    voiceName: 'fr-FR-RemyMultilingualNeural',
+    pitch: '-1Hz',
+    rate: '+4%',
+  },
+  {
     id: 'ava',
-    label: 'F.R.I.D.A.Y. / AVA (Wanita Natural)',
-    deskripsi: 'Wanita AI Luwes & Percakapan Natural',
+    label: 'F.R.I.D.A.Y. / AVA HD (Wanita AI)',
+    deskripsi: 'Suara AI Wanita Luwes & Ekspresif (Multilingual HD)',
     gender: 'Wanita',
     voiceName: 'en-US-AvaMultilingualNeural',
     pitch: '+0Hz',
     rate: '+4%',
   },
   {
+    id: 'emma',
+    label: 'EMMA HD (Wanita Hangat)',
+    deskripsi: 'Suara AI Wanita Lembut & Natural (Multilingual HD)',
+    gender: 'Wanita',
+    voiceName: 'en-US-EmmaMultilingualNeural',
+    pitch: '+0Hz',
+    rate: '+4%',
+  },
+  {
+    id: 'ardi',
+    label: 'ARDI NEURAL (Pria Indonesia)',
+    deskripsi: 'Suara Pria Indonesia Formal & Tegas',
+    gender: 'Pria',
+    voiceName: 'id-ID-ArdiNeural',
+    pitch: '-2Hz',
+    rate: '+4%',
+  },
+  {
     id: 'gadis',
-    label: 'GADIS (Asisten Indonesia)',
-    deskripsi: 'Wanita Indonesia Ramah & Jernih',
+    label: 'GADIS NEURAL (Wanita Indonesia)',
+    deskripsi: 'Suara Wanita Indonesia Jernih & Ramah',
     gender: 'Wanita',
     voiceName: 'id-ID-GadisNeural',
     pitch: '+0Hz',
@@ -234,10 +270,16 @@ function sendWsText(socket: import('node:net').Socket, text: string) {
   socket.write(Buffer.concat([header, masked]))
 }
 
-function synthesizeEdgeNeuralMp3(teks: string, opsiSuara = VOICE_DEFAULT): Promise<Buffer> {
+let clockSkewOffsetMs = 0
+
+function synthesizeEdgeNeuralMp3(
+  teks: string,
+  opsiSuara = VOICE_DEFAULT,
+  sudahRetryClock = false
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const reqId = crypto.randomBytes(16).toString('hex')
-    const secMsGec = generateSecMsGec()
+    const secMsGec = generateSecMsGec(Date.now() + clockSkewOffsetMs)
     const path =
       `/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=${TRUSTED_CLIENT_TOKEN}` +
       `&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${EDGE_VERSION}&ConnectionId=${reqId}`
@@ -269,6 +311,14 @@ function synthesizeEdgeNeuralMp3(teks: string, opsiSuara = VOICE_DEFAULT): Promi
 
     req.on('response', (res) => {
       clearTimeout(timeout)
+      if (!sudahRetryClock && res.headers?.date) {
+        const serverMs = Date.parse(res.headers.date)
+        if (!isNaN(serverMs)) {
+          clockSkewOffsetMs = serverMs - Date.now()
+          synthesizeEdgeNeuralMp3(teks, opsiSuara, true).then(resolve, reject)
+          return
+        }
+      }
       reject(new Error(`Edge TTS unexpected HTTP ${res.statusCode}`))
     })
 
@@ -293,13 +343,14 @@ function synthesizeEdgeNeuralMp3(teks: string, opsiSuara = VOICE_DEFAULT): Promi
 
       sendWsText(socket, configMsg)
 
-      // Sisipkan jeda napas halus (break 140ms) antar kalimat agar intonasi lebih hidup dan tidak terburu-buru seperti membaca teks
-      const kalimatDenganJeda = escapeXml(teks).replace(/\.\s+/g, ". <break time='140ms'/> ")
+      // PENTING: Jangan gunakan tag <break/> di dalam <prosody> karena Edge WebSocket menolak nested tag di dalam prosody (menyebabkan 0 byte audio).
+      const xmlLang = opsiSuara.voiceName.slice(0, 5) || 'id-ID'
+      const kalimatBersihXml = escapeXml(teks)
 
       const ssml =
-        `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='id-ID'>` +
+        `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${escapeXml(xmlLang)}'>` +
         `<voice name='${escapeXml(opsiSuara.voiceName)}'>` +
-        `<prosody pitch='${opsiSuara.pitch}' rate='${opsiSuara.rate}'>${kalimatDenganJeda}</prosody>` +
+        `<prosody pitch='${opsiSuara.pitch}' rate='${opsiSuara.rate}'>${kalimatBersihXml}</prosody>` +
         `</voice></speak>`
 
       const ssmlMsg =

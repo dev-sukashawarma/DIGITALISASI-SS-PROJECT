@@ -35,31 +35,55 @@ export interface PilihanSuaraHud {
 export const PILIHAN_SUARA_JARVIS: PilihanSuaraHud[] = [
   {
     id: 'brian',
-    label: 'BRIAN (Jarvis Natural)',
-    deskripsi: 'Pria Bariton Luwes & Mengalir',
+    label: 'BRIAN HD (Jarvis Bariton)',
+    deskripsi: 'Pria Bariton Luwes & Mengalir (US Neural HD)',
     gender: 'Pria',
   },
   {
     id: 'andrew',
-    label: 'ANDREW (Eksekutif Santai)',
-    deskripsi: 'Pria Hangat & Percakapan Natural',
+    label: 'ANDREW HD (Pria Hangat)',
+    deskripsi: 'Pria Hangat & Percakapan Natural (US Neural HD)',
     gender: 'Pria',
   },
   {
-    id: 'ardi',
-    label: 'ARDI (Komando Tegas)',
-    deskripsi: 'Pria Indonesia Formal & Jelas',
+    id: 'william',
+    label: 'WILLIAM HD (Aksen Jarvis Klasik)',
+    deskripsi: 'Pria Elegan ala Butler Inggris/Aussie (Neural HD)',
+    gender: 'Pria',
+  },
+  {
+    id: 'florian',
+    label: 'FLORIAN HD (Deep Commander)',
+    deskripsi: 'Pria Suara Berat & Berwibawa Eropa (Neural HD)',
+    gender: 'Pria',
+  },
+  {
+    id: 'remy',
+    label: 'REMY HD (Eksekutif Halus)',
+    deskripsi: 'Pria Suara Halus & Tenang Eropa (Neural HD)',
     gender: 'Pria',
   },
   {
     id: 'ava',
-    label: 'F.R.I.D.A.Y. / AVA (Wanita AI)',
-    deskripsi: 'Wanita AI Luwes & Natural',
+    label: 'F.R.I.D.A.Y. / AVA HD (Wanita AI)',
+    deskripsi: 'Wanita AI Luwes & Natural (US Neural HD)',
     gender: 'Wanita',
   },
   {
+    id: 'emma',
+    label: 'EMMA HD (Wanita Hangat)',
+    deskripsi: 'Wanita Lembut & Mengalir (US Neural HD)',
+    gender: 'Wanita',
+  },
+  {
+    id: 'ardi',
+    label: 'ARDI NEURAL (Pria Indonesia)',
+    deskripsi: 'Pria Indonesia Formal & Jelas',
+    gender: 'Pria',
+  },
+  {
     id: 'gadis',
-    label: 'GADIS (Asisten Ramah)',
+    label: 'GADIS NEURAL (Wanita Indonesia)',
     deskripsi: 'Wanita Indonesia Jernih & Santun',
     gender: 'Wanita',
   },
@@ -877,6 +901,7 @@ export function bicaraJarvis(
   }
 
   const voicePilihan = opsi?.voiceId || ambilSuaraJarvisAktif()
+  const ctxAwal = getVoiceAudioContext()
 
   sedangBicaraFlag = true
   const controller = new AbortController()
@@ -898,10 +923,14 @@ export function bicaraJarvis(
       const arrayBuf = await res.arrayBuffer()
       if (controller.signal.aborted) return
 
-      const ctx = getVoiceAudioContext()
+      const ctx = ctxAwal || getVoiceAudioContext()
       if (!ctx) {
         bicaraFallbackBrowser(teksUcapan, onSelesai)
         return
+      }
+
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {})
       }
 
       const audioBuffer = await ctx.decodeAudioData(arrayBuf.slice(0))

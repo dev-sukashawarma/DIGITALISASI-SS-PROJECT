@@ -120,7 +120,6 @@ export async function* tanyaAiRouter(o: {
     const listBuka = (sbk?.daftarBuka || [])
       .map((b) => `- ${b.outlet}: buka shift jam ${b.jamBuka} WIB [status: ${b.status}]`)
       .join('\n')
-    const listBelumBuka = (sbk?.daftarBelumBuka || []).map((b) => `- ${b}`).join('\n')
 
     const k = t.ringkasanKemarin
     const listKemarinTransaksi = (k?.outletsAktifTransaksi || [])
@@ -137,16 +136,32 @@ export async function* tanyaAiRouter(o: {
     let teksFinance = ''
     if (f) {
       const listExpHariIni = (f.pengeluaranHariIni?.topPengeluaran || [])
+        .slice(0, 15)
         .map(
           (x, i) =>
             `${i + 1}. ${formatRupiah(x.nominal)} - ${x.deskripsi} (${x.outlet}) [kategori: ${x.kategori}, jenis: ${x.tipe}]`
         )
         .join('\n')
 
+      const listExpHariIniPerOutlet = (f.pengeluaranHariIni?.rekapPerOutlet || [])
+        .map(
+          (o, i) =>
+            `  ${i + 1}. ${o.outlet}: Total ${formatRupiah(o.totalNominal)} (${o.jumlahTransaksi} item: ${o.rincian.join(', ')})`
+        )
+        .join('\n')
+
       const listExpKemarin = (f.pengeluaranKemarin?.topPengeluaran || [])
+        .slice(0, 15)
         .map(
           (x, i) =>
             `${i + 1}. ${formatRupiah(x.nominal)} - ${x.deskripsi} (${x.outlet}) [kategori: ${x.kategori}, jenis: ${x.tipe}]`
+        )
+        .join('\n')
+
+      const listExpKemarinPerOutlet = (f.pengeluaranKemarin?.rekapPerOutlet || [])
+        .map(
+          (o, i) =>
+            `  ${i + 1}. ${o.outlet}: Total ${formatRupiah(o.totalNominal)} (${o.jumlahTransaksi} item: ${o.rincian.join(', ')})`
         )
         .join('\n')
 
@@ -158,7 +173,7 @@ export async function* tanyaAiRouter(o: {
         .join('\n')
 
       const listPo = (f.utangPo?.daftarPo || [])
-        .slice(0, 5)
+        .slice(0, 10)
         .map(
           (p, i) =>
             `${i + 1}. ${p.nomorPo} - ${p.supplier}: ${formatRupiah(p.nilaiTerima)} [Jatuh Tempo: ${p.jatuhTempo || '-'}, Overdue: ${p.hariLewat ? `${p.hariLewat} hari` : 'Belum'}]`
@@ -170,10 +185,17 @@ export async function* tanyaAiRouter(o: {
         .join('\n')
 
       const listSetoran = (f.setoranKas?.daftarSetoranTerbaru || [])
-        .slice(0, 5)
+        .slice(0, 10)
         .map(
           (s, i) =>
             `${i + 1}. ${s.outlet}: ${formatRupiah(s.nominal)} (Tgl Jual: ${s.tanggalJual}, Status: ${s.status})`
+        )
+        .join('\n')
+
+      const listSelisihKemarin = (f.selisihKasir?.selisihKemarin || [])
+        .map(
+          (s, i) =>
+            `${i + 1}. ${s.outlet} (Kasir: ${s.kasir}): Fisik ${formatRupiah(s.fisik)} vs Seharusnya ${formatRupiah(s.seharusnya)} -> Selisih ${s.selisih < 0 ? 'Minus/Tekor' : 'Lebih'} ${formatRupiah(s.selisih)}`
         )
         .join('\n')
 
@@ -188,6 +210,13 @@ export async function* tanyaAiRouter(o: {
       const inputHariIni = f.setoranKas?.inputHariIni
       const shiftKemarin = f.setoranKas?.tutupShiftKemarin
 
+      const listShiftCabangKemarin = (shiftKemarin?.rincianCabang || [])
+        .map(
+          (c, i) =>
+            `    ${i + 1}. ${c.outlet} (Kasir: ${c.kasir}): Kas Fisik ${formatRupiah(c.fisik)} | Seharusnya ${formatRupiah(c.seharusnya)} | Selisih ${formatRupiah(c.selisih)} [${c.sudahDirekap ? 'SUDAH DIREKAP BANK' : 'BELUM SETOR/REKAP'}]`
+        )
+        .join('\n')
+
       const listPerTglJual = inputHariIni?.rekapPerTanggalJual?.map(
         r => `    * Penjualan ${r.tanggalJual}: ${formatRupiah(r.totalNominal)} (${r.jumlah} transaksi)`
       ).join('\n') || '    (Belum ada transaksi diinput hari ini)'
@@ -195,11 +224,15 @@ export async function* tanyaAiRouter(o: {
       teksFinance = `
 DATA KEUANGAN, BIAYA, OPEX, & REKONSILIASI KAS (FINANCE H-1 KEMARIN & HARI INI):
 - Total Pengeluaran / OPEX Kemarin (${k?.tglIso || 'H-1'}): ${formatRupiah(f.pengeluaranKemarin?.totalNominal || 0)} (${f.pengeluaranKemarin?.jumlahTransaksi || 0} transaksi kas kecil/operasional)
-- Rincian Pengeluaran Kemarin (H-1):
+- Rekap Total OPEX & Petty Cash Per Cabang Kemarin (H-1):
+${listExpKemarinPerOutlet || '  (Tidak ada pengeluaran per cabang kemarin)'}
+- Top 15 Item Pengeluaran Terbesar Kemarin (H-1):
 ${listExpKemarin || '(Tidak ada pengeluaran tercatat kemarin)'}
 
 - Total Pengeluaran / OPEX Live Hari Ini (${t.tanggalWIB}): ${formatRupiah(f.pengeluaranHariIni?.totalNominal || 0)} (${f.pengeluaranHariIni?.jumlahTransaksi || 0} transaksi kas kecil/operasional)
-- Rincian Pengeluaran Hari Ini:
+- Rekap OPEX Per Cabang Hari Ini:
+${listExpHariIniPerOutlet || '  (Belum ada pengeluaran per cabang hari ini)'}
+- Rincian Item Pengeluaran Hari Ini:
 ${listExpHariIni || '(Belum ada pengeluaran hari ini)'}
 
 - Top Pengeluaran Terbesar Bulan Berjalan:
@@ -215,14 +248,18 @@ ${listPo || '  (Tidak ada PO aktif)'}
 
 - Rekapitulasi Setoran Kas & Rekonsiliasi Bank:
   * Kas Fisik Tutup Shift POS Kemarin (${k?.tanggalLabel || 'Kemarin'}): Total Kas Fisik ${formatRupiah(shiftKemarin?.totalFisikKas || 0)} (${shiftKemarin?.jumlahOutletClosed || 0} cabang closed shift).
-    Status rekonsiliasi: ${shiftKemarin?.sudahDirekap || 0} cabang sudah direkap ke bank pusat, ${shiftKemarin?.belumDirekap || 0} cabang belum direkap${shiftKemarin?.daftarBelumSetor?.length ? ` (${shiftKemarin.daftarBelumSetor.slice(0, 5).join(', ')})` : ''}.
+    Status rekonsiliasi: ${shiftKemarin?.sudahDirekap || 0} cabang sudah direkap ke bank pusat, ${shiftKemarin?.belumDirekap || 0} cabang belum direkap${shiftKemarin?.daftarBelumSetor?.length ? ` (${shiftKemarin.daftarBelumSetor.join(', ')})` : ''}.
+  * Rincian Kas Fisik Tutup Shift Per Cabang Kemarin (H-1):
+${listShiftCabangKemarin || '    (Tidak ada data tutup shift kemarin)'}
   * Setoran Di-input / Direkap Finance Hari Ini (${t.tanggalWIB}): ${formatRupiah(inputHariIni?.totalNominal || 0)} (${inputHariIni?.jumlahTransaksi || 0} setoran bank tercatat)
     Rincian tanggal penjualan yang dicakup:
 ${listPerTglJual}
   * Transaksi Setoran Bank Terbaru di Sistem:
 ${listSetoran || '    (Belum ada setoran dicatat)'}
 
-- Rekap Audit Selisih Kasir Tutup Shift POS Terbaru:
+- Rekap Audit Selisih Kasir Tutup Shift POS Kemarin (H-1):
+${listSelisihKemarin || '(Nol / Seluruh kasir kemarin klop Rp 0 selisih)'}
+- Rekap Audit Selisih Kasir Tutup Shift POS Terbaru (Lintas Hari):
 ${listSelisih || '(Nol / Selisih kasir klop)'}
 `
     }
@@ -230,25 +267,28 @@ ${listSelisih || '(Nol / Selisih kasir klop)'}
     const sStok = t.saldoStok
     let teksStok = ''
     if (sStok && sStok.length > 0) {
-      const topStokKritis = sStok.filter((s) => s.outletKritisCount > 0).slice(0, 5)
+      const topStokKritis = sStok.filter((s) => s.outletKritisCount > 0).slice(0, 12)
       const listKritis =
         topStokKritis.length > 0
           ? topStokKritis
-              .map(
-                (s) =>
-                  `  * ${s.nama}: ${s.outletKritisCount} cabang stok menipis/kosong (Gudang Pusat: ${s.stokGudangPusat} ${s.satuan}, Total Jaringan: ${s.totalStokJaringan} ${s.satuan})`
-              )
+              .map((s) => {
+                const cabangKosong = s.daftarOutlet
+                  .filter((d) => d.qty <= 0)
+                  .map((d) => `${d.outlet} (${d.qty})`)
+                  .join(', ')
+                return `  * ${s.nama}: ${s.outletKritisCount} cabang stok kosong/minus [${cabangKosong}] (Gudang Pusat: ${s.stokGudangPusat} ${s.satuan}, Total Cabang: ${s.totalStokJaringan} ${s.satuan})`
+              })
               .join('\n')
           : '  (Seluruh stok bahan baku aman, tidak ada cabang dengan saldo kosong)'
 
       const topBahan = sStok
-        .slice(0, 5)
+        .slice(0, 10)
         .map((s) => `  * ${s.nama}: ${s.totalStokJaringan} ${s.satuan} di cabang (${s.stokGudangPusat} ${s.satuan} di gudang pusat)`)
         .join('\n')
 
       teksStok = `
 DATA SALDO STOK BAHAN BAKU REAL-TIME (MONITORING VIEW GUDANG & CABANG):
-- Bahan Baku dengan Cabang Stok Menipis/Kosong:
+- Bahan Baku dengan Cabang Stok Menipis/Kosong (beserta nama cabang):
 ${listKritis}
 - Saldo Bahan Baku Utama Jaringan:
 ${topBahan}

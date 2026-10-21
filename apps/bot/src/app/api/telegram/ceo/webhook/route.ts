@@ -422,7 +422,7 @@ export async function POST(req: NextRequest) {
         const topOutWaste = w?.topOutlet?.map((o) => `${o.nama} (${o.frekuensi}x)`).join("; ")
         const v = telemetri.voidOrder
         const voidSummary = v
-          ? `Hari ini: ${v.totalVoidHariIni} order (${formatRupiah(v.totalNilaiVoidHariIni)}), Kemarin: ${v.totalVoidKemarin} order (${formatRupiah(v.totalNilaiVoidKemarin)})`
+          ? `Hari ini: ${v.totalVoidHariIni} order (${formatRupiah(v.totalNilaiVoidHariIni)}), Kemarin: ${v.totalVoidKemarin || 0} order (${formatRupiah(v.totalNilaiVoidKemarin || 0)})`
           : "0 void"
         const sb = telemetri.statusBuka
         const bukaSummary = sb
@@ -431,7 +431,7 @@ export async function POST(req: NextRequest) {
 
         const fin = telemetri.finance
         const finSummary = fin
-          ? `Utang PO: ${formatRupiah(fin.utangPo.totalUtang)} (${fin.utangPo.jumlahPo} PO), OPEX Hari ini: ${formatRupiah(fin.pengeluaranHariIni.totalNominal)}, OPEX Kemarin: ${formatRupiah(fin.pengeluaranKemarin.totalNominal)}, Setoran input hari ini: ${formatRupiah(fin.setoranKas.inputHariIni?.totalNominal || 0)}`
+          ? `Utang PO: ${formatRupiah(fin.utangPo.totalUtang)} (${fin.utangPo.jumlahPo} PO), OPEX Hari ini: ${formatRupiah(fin.pengeluaranHariIni.totalNominal)}, OPEX Kemarin: ${formatRupiah(fin.pengeluaranKemarin?.totalNominal || 0)}, Setoran input hari ini: ${formatRupiah(fin.setoranKas.inputHariIni?.totalNominal || 0)}`
           : ""
 
         const rev = telemetri.review

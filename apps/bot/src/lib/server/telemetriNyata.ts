@@ -308,11 +308,15 @@ function hitungRingkasan(
   const validOutletIds = new Set(baseOutlets.map((o: any) => o.id))
   const mapOmzet: Record<string, number> = {}
   const mapCount: Record<string, number> = {}
+  const mapFallbackNama: Record<string, string> = {}
   let omzetTotal = 0
   let totalOrder = 0
   for (const o of ordersData) {
     const id = o.outlet_id
+    if (!id) continue
+    const fallbackName = o.outlets?.name || ''
     if (validOutletIds.size > 0 && !validOutletIds.has(id)) continue
+    if (validOutletIds.size === 0 && fallbackName && !adalahOutletPenjualan(fallbackName, 'internal')) continue
 
     // Acuan Tunggal Omzet Kotor (Gross Revenue):
     // Jika Food Apps, total_amount sudah harga menu utuh (Gross).
@@ -326,10 +330,21 @@ function hitungRingkasan(
 
     mapOmzet[id] = (mapOmzet[id] || 0) + grossAmt
     mapCount[id] = (mapCount[id] || 0) + 1
+    if (fallbackName && !mapFallbackNama[id]) mapFallbackNama[id] = fallbackName
     omzetTotal += grossAmt
     totalOrder += 1
   }
-  const allOutlets: OutletTelemetri[] = baseOutlets.map((o: any) => ({
+
+  const effectiveOutlets =
+    baseOutlets.length > 0
+      ? baseOutlets
+      : Object.keys(mapCount).map((id) => ({
+          id,
+          name: mapFallbackNama[id] || `Outlet ${id.slice(0, 6)}`,
+          type: 'internal',
+        }))
+
+  const allOutlets: OutletTelemetri[] = effectiveOutlets.map((o: any) => ({
     id: o.id,
     nama: o.name,
     type: o.type || 'internal',
@@ -496,7 +511,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       }),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code, slug)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, slug)')
         .eq('type', 'in')
         .gte('created_at', startToday)
         .lt('created_at', endToday)
@@ -510,7 +525,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         }),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code, slug)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, slug)')
         .eq('type', 'in')
         .gte('created_at', startKemarin)
         .lt('created_at', endKemarin)
@@ -524,7 +539,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         }),
       sb
         .from('outlets')
-        .select('id, name, type, code, slug, is_active')
+        .select('id, name, type, slug, is_active')
         .eq('is_active', true)
         .order('name')
         .then((r: any) => {
@@ -576,7 +591,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         }),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code, slug)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, slug)')
         .eq('type', 'in')
         .neq('status', 'telat_toleransi')
         .gte('created_at', startToday)
@@ -593,7 +608,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         }),
       sb
         .from('attendance')
-        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, code, slug)')
+        .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(id, name, type, slug)')
         .eq('type', 'in')
         .neq('status', 'telat_toleransi')
         .gte('created_at', startKemarin)

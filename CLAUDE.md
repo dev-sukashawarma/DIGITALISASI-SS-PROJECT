@@ -3481,6 +3481,13 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 - ⏸ **Suka Sosis ditunda** (owner 2026-10-21: "dinonaktifkan dulu"). Menu, bahan SOSIS, dan resepnya belum ada sama sekali di DB, jadi tidak ada yang dimatikan. Data untuk nanti: Rp 28.850 per pack isi 10; gramasi Excel 2 pcs sosis, lettuce 50, TUM 10, mayo/saos cabe/saos tomat 25, minyak 2 porsi. Saat dibuat masih perlu supplier (harga master diturunkan dari katalog vendor), harga jual (Excel Rp 25.000), kategori; buat menunya nonaktif dulu.
 - ⚠️ **Gotcha alat:** konektor `mcp__supabase__execute_sql` / `apply_migration` menolak otomatis (`declined`) setiap SQL yang memuat `DELETE` (konfirmasi perintah destruktif tak pernah sampai ke user); `UPDATE` saja lolos. Konektor kedua (`mcp__5f2e798c-…__execute_sql`, project `khpkoreaaucvyqfhynfq`) menjalankannya setelah user menyetujui di chat.
 
+### Lanjutan 21 Okt: HPP dari tab SUMMARY HPP (DB, LIVE)
+- **Keputusan owner (grilling):** `hpp_override` = kolom **HPP + OPEX** (HPP × 1,1, pola sama dengan file XX); **berlaku 21 Okt 2026** (1–20 Okt tetap XX); HPP SS Online (`channel_hpp`) **tidak diubah**; Ayam Besar & Mix Jumbo pakai **angka koreksi** sesuai gramasi yang benar (19.401,8 & 27.078,4, dihitung dengan harga per gram Excel); **Best Seller 2 = Sapi Jumbo, Best Seller (Mix Jumbo) = Mix Jumbo** (gramasi + HPP).
+- 14 menu lewat `ubah_hpp_menu` (Admin Dev) dengan alasan "HPP GRAND NEW … kolom HPP + OPEX"; tampilan mitra `menu_outlet_prices` = round(× 1,1) untuk 14 outlet mitra. Arsip: `SS COGS SET/input-hpp-grand-new-berlaku-21okt-2026-10-21.sql` — jangan diulang. Gramasi Best Seller: migration `20261021110000_gramasi_best_seller_ikut_jumbo` (applied+terstempel).
+- Diverifikasi: COGS owner & mitra Agustus/September/1–20 Okt identik sampai rupiah; paket ikut sendiri (Shawarma Duo Combo 31.786,7 → 29.267,7); SS Online Sapi Sedang tetap 13.081,2.
+- ⚠️ **Gotcha uji skrip HPP:** `get_owner_dashboard_summary` yang dipanggil sebagai `postgres` **tanpa** `request.jwt.claims` mengembalikan COGS **0** (tak melihat outlet). Pasang klaim Admin Dev SEBELUM pengukuran "sebelum", kalau tidak asersi baseline gagal palsu. (Skrip 28 Sep memasangnya sesudah baseline.)
+- ℹ️ COGS owner September kini **1.012.112.265**, bukan 1.017.387.460 yang tercatat 10 Okt (−5,3 jt). Bukan dari sesi ini (asersi identik sebelum/sesudah); kemungkinan menu Shawarmie terhapus lagi setelah 10 Okt (lihat Session 2026-10-12). Belum ditelusuri.
+
 ---
 
 **Last updated:** 2026-10-21  

@@ -7,7 +7,76 @@ export const dynamic = 'force-dynamic'
 
 const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4'
 const EDGE_VERSION = '1-132.0.2957.140'
-const VOICE_DEFAULT = 'id-ID-ArdiNeural'
+
+export interface OpsiSuaraJarvis {
+  id: string
+  label: string
+  deskripsi: string
+  gender: 'Pria' | 'Wanita'
+  voiceName: string
+  pitch: string
+  rate: string
+}
+
+export const DAFTAR_SUARA_JARVIS: OpsiSuaraJarvis[] = [
+  {
+    id: 'brian',
+    label: 'BRIAN (Jarvis Natural)',
+    deskripsi: 'Pria Bariton Luwes & Percakapan Natural',
+    gender: 'Pria',
+    voiceName: 'en-US-BrianMultilingualNeural',
+    pitch: '-2Hz',
+    rate: '+3%',
+  },
+  {
+    id: 'andrew',
+    label: 'ANDREW (Eksekutif Santai)',
+    deskripsi: 'Pria Hangat, Halus & Tidak Kaku',
+    gender: 'Pria',
+    voiceName: 'en-US-AndrewMultilingualNeural',
+    pitch: '-1Hz',
+    rate: '+4%',
+  },
+  {
+    id: 'ardi',
+    label: 'ARDI (Komando Tegas)',
+    deskripsi: 'Pria Indonesia Formal & Jelas',
+    gender: 'Pria',
+    voiceName: 'id-ID-ArdiNeural',
+    pitch: '-2Hz',
+    rate: '+4%',
+  },
+  {
+    id: 'ava',
+    label: 'F.R.I.D.A.Y. / AVA (Wanita Natural)',
+    deskripsi: 'Wanita AI Luwes & Percakapan Natural',
+    gender: 'Wanita',
+    voiceName: 'en-US-AvaMultilingualNeural',
+    pitch: '+0Hz',
+    rate: '+4%',
+  },
+  {
+    id: 'gadis',
+    label: 'GADIS (Asisten Indonesia)',
+    deskripsi: 'Wanita Indonesia Ramah & Jernih',
+    gender: 'Wanita',
+    voiceName: 'id-ID-GadisNeural',
+    pitch: '+0Hz',
+    rate: '+5%',
+  },
+]
+
+const VOICE_DEFAULT = DAFTAR_SUARA_JARVIS[0]
+
+export function cariKonfigurasiSuara(voiceId?: string): OpsiSuaraJarvis {
+  if (!voiceId) return VOICE_DEFAULT
+  const clean = voiceId.trim().toLowerCase()
+  return (
+    DAFTAR_SUARA_JARVIS.find(
+      (v) => v.id === clean || v.voiceName.toLowerCase() === clean
+    ) ?? VOICE_DEFAULT
+  )
+}
 
 function escapeXml(unsafe: string): string {
   return unsafe
@@ -19,20 +88,65 @@ function escapeXml(unsafe: string): string {
 }
 
 /**
- * Mengubah format angka Rupiah (contoh: Rp 42.500.000 atau Rp1.250.000)
- * menjadi teks terucap bahasa Indonesia yang natural ("42,5 juta rupiah")
- * agar suara Neural TTS J.A.R.V.I.S. terdengar luwes seperti asisten eksekutif asli.
+ * Mengubah teks laporan/markdown yang kaku menjadi kalimat bahasa lisan/percakapan Indonesia yang natural
+ * sehingga saat diucapkan terdengar seperti mengobrol langsung dengan asisten pribadi (bukan membaca teks laporan).
  */
 export function naturalisasiTeksSuara(teks: string): string {
-  let s = teks
-    // Hapus blok tabel markdown
-    .replace(/^\|.*\|$/gm, ' ')
-    // Hapus tag kutipan seperti [!NOTE], [!WARNING], [!IMPORTANT]
-    .replace(/\[!(NOTE|WARNING|IMPORTANT|TIP|CAUTION)\]/gi, '')
-    // Ubah Rp X.XXX.XXX.XXX menjadi miliar/juta/ribu
+  if (!teks) return ''
+
+  // 1. Jika ada blok khusus <suara>...</suara>, prioritaskan isi percakapan di dalamnya
+  const matchSuara = teks.match(/<suara>([\s\S]*?)<\/suara>/i)
+  const sumberTeks = matchSuara ? matchSuara[1] : teks
+
+  // 2. Bersihkan baris tabel, garis pemisah, dan judul-judul laporan yang kaku
+  const baris = sumberTeks
+    .split('\n')
+    .map((b) => b.trim())
+    .filter((b) => {
+      if (!b) return false
+      if (b.startsWith('|') && b.endsWith('|')) return false
+      if (/^[-━═*]{3,}$/.test(b)) return false
+      if (/^\[!(NOTE|WARNING|IMPORTANT|TIP|CAUTION)\]/i.test(b)) return false
+      if (b.startsWith('📍') && b.includes('_Sumber:')) return false
+      // Buang baris yang hanya berupa judul bab/dokumen kaku (misal: ### Laporan Penjualan Hari Ini)
+      if (/^#{1,6}\s+/.test(b)) return false
+      if (/^(?:\*\*|__)?(?:LAPORAN|RINGKASAN|EVALUASI|REKAPITULASI|DATA OPERASIONAL|RINCIAN|DAFTAR)\b[^:.\n]*[*_]*:?$/i.test(b)) {
+        return false
+      }
+      return true
+    })
+    .map((b) => {
+      let line = b
+        .replace(/^#{1,6}\s+/, '')
+        .replace(/^>\s*/, '')
+        .replace(/^[-*•]\s+/, '')
+        .replace(/^\d+\.\s+/, '')
+        .replace(/\*\*/g, '')
+        .replace(/__/g, '')
+        .trim()
+
+      // Ubah pola kaku "Label: Nilai" di awal kalimat menjadi alur bicara natural ("Untuk Label tercatat Nilai")
+      line = line
+        .replace(/^Total Omzet(?:\s+Jaringan)?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'Total omzet $1 ada di angka ')
+        .replace(/^Total Penjualan(?:\s+Jaringan)?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'Total penjualan $1 mencapai ')
+        .replace(/^Total(?:\s+Akumulasi)?\s+(?:Order|Transaksi)\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'dengan total transaksi $1 sebanyak ')
+        .replace(/^Rata-rata\s+(?:Order|Struk)(?:\s*\(AOV\))?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'dan rata-rata nilai struk ')
+        .replace(/^TEMUAN PENTING\s*:\s*/i, 'Sebagai catatan penting, ')
+        .replace(/^PERINGATAN(?:\s+MIKROFON)?\s*:\s*/i, 'Perhatian, ')
+        .replace(/^([A-Za-z0-9\s/()-]{3,32})\s*:\s+/i, '$1 tercatat ')
+
+      return line
+    })
+
+  // Gabungkan maksimal 3-4 kalimat pertama agar obrolan terasa mengalir dan tidak bertele-tele
+  let s = baris.slice(0, 4).join('. ')
+
+  s = s
+    .replace(/\.\s*\./g, '.')
+    // Ubah Rp X.XXX.XXX.XXX menjadi pengucapan lisan natural ("42,5 juta rupiah")
     .replace(/Rp\s?(\d{1,3}(?:\.\d{3})+)/gi, (_m, angkaStr: string) => {
       const n = Number(angkaStr.replace(/\./g, ''))
-      if (isNaN(n) || n === 0) return '0 rupiah'
+      if (isNaN(n) || n === 0) return 'nol rupiah'
       if (n >= 1_000_000_000) {
         const val = (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '').replace('.', ',')
         return `${val} miliar rupiah`
@@ -47,24 +161,38 @@ export function naturalisasiTeksSuara(teks: string): string {
       }
       return `${n} rupiah`
     })
-    // Ubah J.A.R.V.I.S. menjadi Jarvis agar tidak dieja per huruf
+    // PENTING: Hilangkan titik ribuan pada angka non-Rupiah (misal 1.080 struk -> 1080 struk) agar tidak dibaca "satu titik nol delapan nol"
+    .replace(/\b(\d{1,3})\.(\d{3})(?!\d)/g, '$1$2')
+    // Ubah angka di dalam kurung seperti (1080 struk) menjadi ", sebanyak 1080 struk," agar tidak terdengar kaku
+    .replace(/\(\s*(\d+\s*(?:struk|order|transaksi|cabang|outlet|PO|laporan|kru|ulasan)[^)]*)\)/gi, ', yaitu $1, ')
+    // Sederhanakan pengulangan nama brand "SUKA SHAWARMA " pada penyebutan cabang agar enak didengar
+    .replace(/\bSUKA SHAWARMA\s+/gi, 'Cabang ')
+    .replace(/\bCabang\s+Cabang\s+/gi, 'Cabang ')
+    // Naturalisasi kata-kata tulisan kaku menjadi bahasa lisan
+    .replace(/\bBerikut adalah\b/gi, 'Ini untuk')
+    .replace(/\bBerikut rincian\b/gi, 'Ini rincian')
+    .replace(/\bTidak terdapat\b/gi, 'Belum ada')
+    .replace(/\bTercatat sebesar\b/gi, 'ada di angka')
     .replace(/J\.A\.R\.V\.I\.S\.?/gi, 'Jarvis')
+    .replace(/F\.R\.I\.D\.A\.Y\.?/gi, 'Friday')
     .replace(/\bAOV\b/g, 'rata-rata struk')
     .replace(/\bATV\b/g, 'rata-rata struk')
-    .replace(/\bOPEX\b/gi, 'opeks')
+    .replace(/\bOPEX\b/gi, 'biaya operasional')
     .replace(/\bPOS\b/g, 'kasir')
     .replace(/\bHQ\b/g, 'Kantor Pusat')
-    // Bersihkan simbol markdown & emoji berlebih
-    .replace(/[#*_`~>|]/g, ' ')
+    .replace(/\bWIB\b/g, '')
+    // Bersihkan simbol markdown & emoji
+    .replace(/[#*_`~>|[\]()]/g, ' ')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
     .replace(/\s+/g, ' ')
     .trim()
 
-  // Batasi maksimal ~420 karakter (sekitar 3-4 kalimat eksekutif) agar respons suara tetap cepat dan taktis
-  if (s.length > 420) {
-    const potong = s.slice(0, 420)
+  if (s.length > 380) {
+    const potong = s.slice(0, 380)
     const titikTerakhir = Math.max(potong.lastIndexOf('. '), potong.lastIndexOf('! '), potong.lastIndexOf('? '))
-    if (titikTerakhir > 140) {
+    if (titikTerakhir > 110) {
       s = potong.slice(0, titikTerakhir + 1)
     } else {
       s = potong + '.'
@@ -106,7 +234,7 @@ function sendWsText(socket: import('node:net').Socket, text: string) {
   socket.write(Buffer.concat([header, masked]))
 }
 
-function synthesizeEdgeNeuralMp3(teks: string, voice = VOICE_DEFAULT): Promise<Buffer> {
+function synthesizeEdgeNeuralMp3(teks: string, opsiSuara = VOICE_DEFAULT): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const reqId = crypto.randomBytes(16).toString('hex')
     const secMsGec = generateSecMsGec()
@@ -165,10 +293,13 @@ function synthesizeEdgeNeuralMp3(teks: string, voice = VOICE_DEFAULT): Promise<B
 
       sendWsText(socket, configMsg)
 
+      // Sisipkan jeda napas halus (break 140ms) antar kalimat agar intonasi lebih hidup dan tidak terburu-buru seperti membaca teks
+      const kalimatDenganJeda = escapeXml(teks).replace(/\.\s+/g, ". <break time='140ms'/> ")
+
       const ssml =
         `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='id-ID'>` +
-        `<voice name='${escapeXml(voice)}'>` +
-        `<prosody pitch='-3Hz' rate='+6%'>${escapeXml(teks)}</prosody>` +
+        `<voice name='${escapeXml(opsiSuara.voiceName)}'>` +
+        `<prosody pitch='${opsiSuara.pitch}' rate='${opsiSuara.rate}'>${kalimatDenganJeda}</prosody>` +
         `</voice></speak>`
 
       const ssmlMsg =
@@ -258,6 +389,8 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}))
   const teksMentah = typeof body?.teks === 'string' ? body.teks.trim() : ''
+  const voiceId = typeof body?.voice === 'string' ? body.voice.trim() : undefined
+
   if (!teksMentah) {
     return NextResponse.json({ galat: 'Teks kosong.' }, { status: 400 })
   }
@@ -267,14 +400,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ galat: 'Teks tidak mengandung kalimat terucap.' }, { status: 400 })
   }
 
+  const opsiSuara = cariKonfigurasiSuara(voiceId)
+
   try {
-    const mp3Buffer = await synthesizeEdgeNeuralMp3(teksSuara, VOICE_DEFAULT)
+    const mp3Buffer = await synthesizeEdgeNeuralMp3(teksSuara, opsiSuara)
     return new NextResponse(new Uint8Array(mp3Buffer), {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
         'Cache-Control': 'no-store',
-        'X-Jarvis-Voice': VOICE_DEFAULT,
+        'X-Jarvis-Voice': opsiSuara.voiceName,
       },
     })
   } catch (err) {

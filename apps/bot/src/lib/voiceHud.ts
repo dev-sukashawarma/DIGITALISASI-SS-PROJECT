@@ -23,6 +23,71 @@ let animFrameId: number | null = null
 let listenerSpektrum: ((bands: number[]) => void) | null = null
 
 const DEFAULT_BANDS = [0.15, 0.25, 0.18, 0.35, 0.22, 0.35, 0.18, 0.25, 0.15]
+const STORAGE_KEY_VOICE = 'jarvis_voice_id'
+
+export interface PilihanSuaraHud {
+  id: string
+  label: string
+  deskripsi: string
+  gender: 'Pria' | 'Wanita'
+}
+
+export const PILIHAN_SUARA_JARVIS: PilihanSuaraHud[] = [
+  {
+    id: 'brian',
+    label: 'BRIAN (Jarvis Natural)',
+    deskripsi: 'Pria Bariton Luwes & Mengalir',
+    gender: 'Pria',
+  },
+  {
+    id: 'andrew',
+    label: 'ANDREW (Eksekutif Santai)',
+    deskripsi: 'Pria Hangat & Percakapan Natural',
+    gender: 'Pria',
+  },
+  {
+    id: 'ardi',
+    label: 'ARDI (Komando Tegas)',
+    deskripsi: 'Pria Indonesia Formal & Jelas',
+    gender: 'Pria',
+  },
+  {
+    id: 'ava',
+    label: 'F.R.I.D.A.Y. / AVA (Wanita AI)',
+    deskripsi: 'Wanita AI Luwes & Natural',
+    gender: 'Wanita',
+  },
+  {
+    id: 'gadis',
+    label: 'GADIS (Asisten Ramah)',
+    deskripsi: 'Wanita Indonesia Jernih & Santun',
+    gender: 'Wanita',
+  },
+]
+
+let suaraJarvisAktifId = 'brian'
+
+export function ambilSuaraJarvisAktif(): string {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY_VOICE)
+      if (saved && PILIHAN_SUARA_JARVIS.some((v) => v.id === saved)) {
+        suaraJarvisAktifId = saved
+      }
+    } catch {}
+  }
+  return suaraJarvisAktifId
+}
+
+export function setSuaraJarvisAktif(voiceId: string) {
+  const valid = PILIHAN_SUARA_JARVIS.find((v) => v.id === voiceId)?.id ?? 'brian'
+  suaraJarvisAktifId = valid
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(STORAGE_KEY_VOICE, valid)
+    } catch {}
+  }
+}
 
 function getVoiceAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -113,30 +178,62 @@ function encodeWav16kBase64(chunks: Float32Array[], sampleRateAsli: number): str
 }
 
 /**
- * Meringkas jawaban panjang/markdown menjadi 2-4 kalimat eksekutif yang enak didengar saat diucapkan J.A.R.V.I.S.
- * Tabel dan rincian panjang tetap tampil di layar HUD, sedangkan suara hanya membacakan intisarinya.
+ * Meringkas jawaban panjang/markdown menjadi 2-4 kalimat bahasa lisan/percakapan natural yang enak didengar
+ * saat diucapkan J.A.R.V.I.S. (tidak terdengar kaku seperti membaca judul atau bullet-point laporan).
  */
 export function ringkasUntukSuara(teks: string): string {
   if (!teks) return ''
 
-  const barisBersih = teks
+  const matchSuara = teks.match(/<suara>([\s\S]*?)<\/suara>/i)
+  const sumberTeks = matchSuara ? matchSuara[1] : teks
+
+  const barisBersih = sumberTeks
     .split('\n')
     .map((b) => b.trim())
     .filter((b) => {
       if (!b) return false
       if (b.startsWith('|') && b.endsWith('|')) return false
-      if (/^[-━═]{3,}$/.test(b)) return false
+      if (/^[-━═*]{3,}$/.test(b)) return false
       if (/^\[!(NOTE|WARNING|IMPORTANT|TIP|CAUTION)\]/i.test(b)) return false
       if (b.startsWith('📍') && b.includes('_Sumber:')) return false
+      // Buang baris judul dokumen/bab laporan yang kaku
+      if (/^#{1,6}\s+/.test(b)) return false
+      if (
+        /^(?:\*\*|__)?(?:LAPORAN|RINGKASAN|EVALUASI|REKAPITULASI|DATA OPERASIONAL|RINCIAN|DAFTAR)\b[^:.\n]*[*_]*:?$/i.test(
+          b
+        )
+      ) {
+        return false
+      }
       return true
     })
-    .map((b) =>
-      b
+    .map((b) => {
+      let line = b
         .replace(/^#{1,6}\s+/, '')
         .replace(/^>\s*/, '')
         .replace(/^[-*•]\s+/, '')
         .replace(/^\d+\.\s+/, '')
-    )
+        .replace(/\*\*/g, '')
+        .replace(/__/g, '')
+        .trim()
+
+      line = line
+        .replace(/^Total Omzet(?:\s+Jaringan)?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'Total omzet $1 ada di angka ')
+        .replace(/^Total Penjualan(?:\s+Jaringan)?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'Total penjualan $1 mencapai ')
+        .replace(
+          /^Total(?:\s+Akumulasi)?\s+(?:Order|Transaksi)\s*(Hari Ini|Kemarin)?\s*:\s*/i,
+          'dengan total transaksi $1 sebanyak '
+        )
+        .replace(
+          /^Rata-rata\s+(?:Order|Struk)(?:\s*\(AOV\))?\s*(Hari Ini|Kemarin)?\s*:\s*/i,
+          'dan rata-rata nilai struk '
+        )
+        .replace(/^TEMUAN PENTING\s*:\s*/i, 'Sebagai catatan penting, ')
+        .replace(/^PERINGATAN(?:\s+MIKROFON)?\s*:\s*/i, 'Perhatian, ')
+        .replace(/^([A-Za-z0-9\s/()-]{3,32})\s*:\s+/i, '$1 tercatat ')
+
+      return line
+    })
 
   const kandidat = barisBersih.slice(0, 4).join('. ')
 
@@ -144,7 +241,7 @@ export function ringkasUntukSuara(teks: string): string {
     .replace(/\.\s*\./g, '.')
     .replace(/Rp\s?(\d{1,3}(?:\.\d{3})+)/gi, (_m, angkaStr: string) => {
       const n = Number(angkaStr.replace(/\./g, ''))
-      if (isNaN(n) || n === 0) return '0 rupiah'
+      if (isNaN(n) || n === 0) return 'nol rupiah'
       if (n >= 1_000_000_000) {
         const val = (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '').replace('.', ',')
         return `${val} miliar rupiah`
@@ -159,16 +256,30 @@ export function ringkasUntukSuara(teks: string): string {
       }
       return `${n} rupiah`
     })
+    .replace(/\b(\d{1,3})\.(\d{3})(?!\d)/g, '$1$2')
+    .replace(
+      /\(\s*(\d+\s*(?:struk|order|transaksi|cabang|outlet|PO|laporan|kru|ulasan)[^)]*)\)/gi,
+      ', yaitu $1, '
+    )
+    .replace(/\bSUKA SHAWARMA\s+/gi, 'Cabang ')
+    .replace(/\bCabang\s+Cabang\s+/gi, 'Cabang ')
+    .replace(/\bBerikut adalah\b/gi, 'Ini untuk')
+    .replace(/\bBerikut rincian\b/gi, 'Ini rincian')
+    .replace(/\bTidak terdapat\b/gi, 'Belum ada')
+    .replace(/\bTercatat sebesar\b/gi, 'ada di angka')
     .replace(/J\.A\.R\.V\.I\.S\.?/gi, 'Jarvis')
+    .replace(/F\.R\.I\.D\.A\.Y\.?/gi, 'Friday')
     .replace(/[#*_`~[\]()]/g, ' ')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
     .replace(/\s+/g, ' ')
     .trim()
 
   if (s.length > 380) {
     const potong = s.slice(0, 380)
     const titik = Math.max(potong.lastIndexOf('. '), potong.lastIndexOf('! '), potong.lastIndexOf('? '))
-    s = titik > 120 ? potong.slice(0, titik + 1) : potong + '.'
+    s = titik > 110 ? potong.slice(0, titik + 1) : potong + '.'
   }
 
   return s
@@ -750,7 +861,7 @@ function bicaraFallbackBrowser(teksBersih: string, onSelesai?: () => void) {
 export function bicaraJarvis(
   teks: string,
   onSelesai?: () => void,
-  opsi?: { gunakanTeksPenuh?: boolean }
+  opsi?: { gunakanTeksPenuh?: boolean; voiceId?: string }
 ) {
   if (typeof window === 'undefined') {
     onSelesai?.()
@@ -765,6 +876,8 @@ export function bicaraJarvis(
     return
   }
 
+  const voicePilihan = opsi?.voiceId || ambilSuaraJarvisAktif()
+
   sedangBicaraFlag = true
   const controller = new AbortController()
   ttsAbortController = controller
@@ -774,7 +887,7 @@ export function bicaraJarvis(
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teks: teksUcapan }),
+        body: JSON.stringify({ teks: teksUcapan, voice: voicePilihan }),
         signal: controller.signal,
       })
 

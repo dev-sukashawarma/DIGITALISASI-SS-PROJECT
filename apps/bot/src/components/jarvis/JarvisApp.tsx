@@ -24,6 +24,9 @@ import {
   pasangListenerSpektrumSuara,
   mulaiWakeWordJarvis,
   hentiWakeWordJarvis,
+  PILIHAN_SUARA_JARVIS,
+  ambilSuaraJarvisAktif,
+  setSuaraJarvisAktif,
 } from '@/lib/voiceHud'
 import {
   Volume2,
@@ -115,6 +118,7 @@ export default function JarvisApp({
   // Audio & Voice States
   const [suaraNyala, setSuaraNyala] = useState(true)
   const [autoVoiceReply, setAutoVoiceReply] = useState(true)
+  const [voiceIdAktif, setVoiceIdAktif] = useState('brian')
   const [isLayarPenuh, setIsLayarPenuh] = useState(false)
   const [voiceDidukung, setVoiceDidukung] = useState(false)
   const [sedangMendengar, setSedangMendengar] = useState(false)
@@ -147,6 +151,7 @@ export default function JarvisApp({
   // Inisialisasi dukungan suara & listener spektrum frekuensi Arc Reactor
   useEffect(() => {
     setSuaraNyala(apakahSuaraHudAktif())
+    setVoiceIdAktif(ambilSuaraJarvisAktif())
     setVoiceDidukung(apakahVoiceDidukung().stt)
     pasangListenerSpektrumSuara((bands) => {
       setSpektrumSuara(bands)
@@ -630,6 +635,38 @@ export default function JarvisApp({
                 </span>
               </button>
             )}
+
+            {/* Pilihan Karakter Suara (Voice Persona Selector) */}
+            <div className="relative flex items-center">
+              <select
+                value={voiceIdAktif}
+                onChange={(e) => {
+                  const idBaru = e.target.value
+                  setVoiceIdAktif(idBaru)
+                  setSuaraJarvisAktif(idBaru)
+                  mainkanSuaraHud('chirp')
+                  const info = PILIHAN_SUARA_JARVIS.find((v) => v.id === idBaru)
+                  const sapaanTes =
+                    info?.gender === 'Wanita'
+                      ? 'Siap Bos, sistem suara saya sekarang aktif mendampingi Anda.'
+                      : 'Siap Sir, modul suara saya sudah aktif dan siap berdiskusi.'
+                  setSedangBicara(true)
+                  bicaraJarvis(sapaanTes, () => setSedangBicara(false), {
+                    gunakanTeksPenuh: true,
+                    voiceId: idBaru,
+                  })
+                }}
+                className="px-2 py-1 rounded-lg bg-cyan-950/80 border border-cyan-400/50 text-cyan-200 font-mono-hud text-[10px] font-semibold focus:outline-none focus:border-cyan-300 cursor-pointer hover:bg-cyan-900/70 transition-colors"
+                title="Pilih Karakter Suara J.A.R.V.I.S. / F.R.I.D.A.Y."
+                aria-label="Pilih Karakter Suara J.A.R.V.I.S."
+              >
+                {PILIHAN_SUARA_JARVIS.map((v) => (
+                  <option key={v.id} value={v.id} className="bg-zinc-950 text-cyan-100">
+                    🎙️ {v.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Auto-Voice Reply Toggle */}
             <button

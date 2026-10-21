@@ -71,7 +71,9 @@ export async function* tanyaAiRouter(o: {
     const formatBarisOutlet = (out: any, i: number) => {
       const aov = out.orderCount > 0 ? Math.round(out.omzet / out.orderCount) : 0
       const net = out.omzetBersih !== undefined ? ` | Net: ${formatRupiah(out.omzetBersih)}` : ''
-      const pot = out.potongan ? ` | Potongan Promo/Diskon: ${formatRupiah(out.potongan)}` : ''
+      const pot = out.potongan ? ` | Potongan: ${formatRupiah(out.potongan)}` : ''
+      const hpp = out.totalHpp !== undefined ? ` | HPP: ${formatRupiah(out.totalHpp)} | Laba Kotor: ${formatRupiah(out.labaKotor || 0)}` : ''
+      const porsi = out.totalPorsi !== undefined ? `, ${out.totalPorsi} porsi` : ''
       const kanalInfo =
         out.rincianKanal && out.rincianKanal.length > 0
           ? ` [Kanal: ${out.rincianKanal
@@ -82,7 +84,21 @@ export async function* tanyaAiRouter(o: {
               )
               .join(', ')}]`
           : ''
-      return `${i + 1}. ${out.nama} [${out.type}]: Kotor ${formatRupiah(out.omzet)}${net}${pot} (${out.orderCount} order, AOV ${formatRupiah(aov)})${kanalInfo}`
+      const menuCabangInfo =
+        out.topMenuCabang && out.topMenuCabang.length > 0
+          ? ` [Top Menu: ${out.topMenuCabang
+              .slice(0, 3)
+              .map((m: any) => `${m.nama} (${m.qty} porsi)`)
+              .join(', ')}]`
+          : ''
+      const sepiCabangInfo =
+        out.menuTersepiCabang && out.menuTersepiCabang.length > 0
+          ? ` [Menu Tersepi: ${out.menuTersepiCabang
+              .slice(0, 2)
+              .map((m: any) => `${m.nama} (${m.qty} porsi)`)
+              .join(', ')}]`
+          : ''
+      return `${i + 1}. ${out.nama} [${out.type}]: Kotor ${formatRupiah(out.omzet)}${net}${pot}${hpp} (${out.orderCount} order${porsi}, AOV ${formatRupiah(aov)})${kanalInfo}${menuCabangInfo}${sepiCabangInfo}`
     }
 
     const listTransaksi = t.outletsAktifTransaksi.map(formatBarisOutlet).join('\n')
@@ -90,6 +106,9 @@ export async function* tanyaAiRouter(o: {
     const listNol = t.outletsNolTransaksi.map((out) => `- ${out.nama} (${out.type})`).join('\n')
     const listMenu = t.topMenu.map((m, i) => `${i + 1}. ${m.nama}: ${m.qty} porsi (${formatRupiah(m.omzet)})`).join('\n')
     const listMenuKemarin = (t.topMenuKemarin ?? t.ringkasanKemarin?.topMenu ?? [])
+      .map((m, i) => `${i + 1}. ${m.nama}: ${m.qty} porsi (${formatRupiah(m.omzet)})`)
+      .join('\n')
+    const listMenuTersepiKemarin = (t.ringkasanKemarin?.menuTersepi ?? [])
       .map((m, i) => `${i + 1}. ${m.nama}: ${m.qty} porsi (${formatRupiah(m.omzet)})`)
       .join('\n')
     const listBahan = t.bahanBaku.map((b) => `- ${b.nama} (${b.satuan})`).join('\n')
@@ -347,17 +366,20 @@ ${listNegatif || '(Tidak ada ulasan negatif terbaru - kepuasan pelanggan terjaga
 ======================================================================
 ACUAN UTAMA DEFAULT: EVALUASI FULL CLOSING KEMARIN / H-1 (${k?.tanggalLabel || 'Kemarin'})
 ======================================================================
-1. DATA PENJUALAN & MENU TERLARIS KEMARIN (H-1):
+1. DATA PENJUALAN, HPP, LABA KOTOR, & MENU TERLARIS KEMARIN (H-1):
 - Total Omzet Kotor Jaringan Kemarin: ${formatRupiah(k?.omzetTotal || 0)}
 - Total Omzet Bersih (Net) Jaringan Kemarin: ${formatRupiah(k?.omzetBersihTotal ?? k?.omzetTotal ?? 0)} (Potongan Promo/Diskon: ${formatRupiah(k?.potonganTotal || 0)})
-- Total Akumulasi Order Kemarin: ${k?.totalOrder || 0} struk
-- Rata-rata Order (AOV) Kemarin: ${formatRupiah(k?.aov || 0)}
-- Peringkat Cabang Berpenjualan Kemarin (${k?.outletsAktifTransaksi?.length || 0} cabang):
+- Total HPP (COGS) Jaringan Kemarin: ${formatRupiah(k?.totalHpp || 0)}
+- Total Laba Kotor (Gross Profit) Jaringan Kemarin: ${formatRupiah(k?.labaKotorTotal || 0)}
+- Total Akumulasi Order & Porsi Kemarin: ${k?.totalOrder || 0} struk (${k?.totalPorsi || 0} porsi terjual, AOV ${formatRupiah(k?.aov || 0)})
+- Peringkat Cabang Berpenjualan Kemarin (${k?.outletsAktifTransaksi?.length || 0} cabang — lengkap dengan Omzet Kotor, Net, Potongan, HPP, Laba Kotor, Porsi, Kanal, Top Menu & Menu Tersepi per cabang):
 ${listKemarinTransaksi || '(Tidak ada transaksi kemarin)'}
 - Cabang Tanpa Transaksi Kemarin:
 ${listKemarinNol || '(Seluruh cabang mencatat penjualan)'}
-- Top Menu Terlaris Kemarin (H-1):
+- Top Menu Terlaris Jaringan Kemarin (H-1):
 ${listMenuKemarin || '(Belum ada data menu kemarin)'}
+- Menu Paling Sepi (Tersepi) Jaringan Kemarin (H-1):
+${listMenuTersepiKemarin || '(Belum ada data menu tersepi kemarin)'}
 
 2. DATA PRESENSI & SDM KEMARIN (HRD H-1):
 - Total Clock-in Kru Kemarin: ${t.hrdKemarin?.kehadiranTotal ?? 0} clock-in

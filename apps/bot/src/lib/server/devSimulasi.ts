@@ -443,13 +443,23 @@ export function buatJawabanDev(
               .join(' | ')}`
           : ''
 
+      const barisTopMenu =
+        o.topMenuCabang && o.topMenuCabang.length > 0
+          ? `\n- **Top Menu Terlaris**: ${o.topMenuCabang.map((m) => `${m.nama} (${m.qty} porsi, ${formatRupiah(m.omzet)})`).join(', ')}`
+          : ''
+      const barisMenuTersepi =
+        o.menuTersepiCabang && o.menuTersepiCabang.length > 0
+          ? `\n- **Menu Paling Sepi**: ${o.menuTersepiCabang.map((m) => `${m.nama} (${m.qty} porsi, ${formatRupiah(m.omzet)})`).join(', ')}`
+          : ''
+
       return [
-        `Siap, ${sebutan}. Kemarin (${k.tanggalLabel}), cabang **${o.nama}** membukukan omzet kotor sebesar **${formatRupiah(o.omzet)}** dan omzet bersih (net) **${formatRupiah(o.omzetBersih ?? o.omzet)}** dari **${o.orderCount} transaksi**.\n\n`,
+        `Siap, ${sebutan}. Kemarin (${k.tanggalLabel}), cabang **${o.nama}** membukukan omzet kotor sebesar **${formatRupiah(o.omzet)}**, omzet bersih (net) **${formatRupiah(o.omzetBersih ?? o.omzet)}**, HPP **${formatRupiah(o.totalHpp || 0)}**, dan laba kotor **${formatRupiah(o.labaKotor || 0)}** dari **${o.orderCount} transaksi (${o.totalPorsi || 0} porsi)**.\n\n`,
         `### 📍 Rincian Evaluasi Cabang — ${o.nama} [${tipe}]\n`,
         `- **Omzet Kotor Kemarin**: **${formatRupiah(o.omzet)}**\n`,
         `- **Omzet Bersih (Net)**: **${formatRupiah(o.omzetBersih ?? o.omzet)}** (Potongan Promo/Diskon: **${formatRupiah(o.potongan || 0)}**)\n`,
-        `- **Total Transaksi**: **${o.orderCount} struk** (AOV: **${formatRupiah(aov)}**)\n`,
-        `- **Peringkat Jaringan**: **#${rank >= 0 ? rank + 1 : '-'}** dari ${k.outletsAktifTransaksi.length} cabang bertransaksi${barisKanal}${barisOpex}${barisShift}\n`,
+        `- **HPP (COGS)**: **${formatRupiah(o.totalHpp || 0)}** | **Laba Kotor (Gross Profit)**: **${formatRupiah(o.labaKotor || 0)}**\n`,
+        `- **Total Transaksi & Porsi**: **${o.orderCount} struk** (**${o.totalPorsi || 0} porsi terjual**, AOV: **${formatRupiah(aov)}**)\n`,
+        `- **Peringkat Jaringan**: **#${rank >= 0 ? rank + 1 : '-'}** dari ${k.outletsAktifTransaksi.length} cabang bertransaksi${barisKanal}${barisTopMenu}${barisMenuTersepi}${barisOpex}${barisShift}\n`,
       ]
     }
 

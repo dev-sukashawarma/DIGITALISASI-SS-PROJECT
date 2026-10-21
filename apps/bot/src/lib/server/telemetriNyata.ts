@@ -15,8 +15,13 @@ export interface OutletTelemetri {
   omzet: number
   omzetBersih?: number
   potongan?: number
+  totalPorsi?: number
+  totalHpp?: number
+  labaKotor?: number
   orderCount: number
   rincianKanal?: RincianKanalOutlet[]
+  topMenuCabang?: Array<{ nama: string; qty: number; omzet: number }>
+  menuTersepiCabang?: Array<{ nama: string; qty: number; omzet: number }>
 }
 
 export interface StafCutiTelemetri {
@@ -105,11 +110,15 @@ export interface RingkasanHari {
   omzetTotal: number
   omzetBersihTotal?: number
   potonganTotal?: number
+  totalPorsi?: number
+  totalHpp?: number
+  labaKotorTotal?: number
   totalOrder: number
   aov: number
   outletsAktifTransaksi: OutletTelemetri[]
   outletsNolTransaksi: OutletTelemetri[]
   topMenu?: Array<{ nama: string; qty: number; omzet: number }>
+  menuTersepi?: Array<{ nama: string; qty: number; omzet: number }>
 }
 
 export interface FinanceItemPengeluaran {
@@ -475,6 +484,209 @@ function hitungRingkasan(
   }
 }
 
+function bersihkanNamaMenu(raw: string): string {
+  if (!raw) return ''
+  if (raw.indexOf('|') === -1) return raw
+  let end = raw.length
+  const iNote = raw.indexOf('|NOTE|')
+  if (iNote !== -1 && iNote < end) end = iNote
+  const iParent = raw.indexOf('|PARENT|')
+  if (iParent !== -1 && iParent < end) end = iParent
+  const iId = raw.indexOf('|ID|')
+  if (iId !== -1 && iId < end) end = iId
+  return end === raw.length ? raw : raw.slice(0, end)
+}
+
+function bangunPenerapHppTanggal(menus: any[], riwayatRows: any[], tgl: string) {
+  const indeks = new Map<string, Map<string, Array<{ tgl: string; nilai: number | null }>>>()
+  for (const r of riwayatRows) {
+    let perKunci = indeks.get(r.menu_item_id)
+    if (!perKunci) {
+      perKunci = new Map()
+      indeks.set(r.menu_item_id, perKunci)
+    }
+    let titik = perKunci.get(r.kunci)
+    if (!titik) {
+      titik = []
+      perKunci.set(r.kunci, titik)
+    }
+    titik.push({
+      tgl: String(r.berlaku_mulai).slice(0, 10),
+      nilai: r.nilai === null || r.nilai === undefined ? null : Number(r.nilai),
+    })
+  }
+  for (const perKunci of indeks.values()) {
+    for (const titik of perKunci.values()) titik.sort((a, b) => a.tgl.localeCompare(b.tgl))
+  }
+
+  const nilaiPada = (menuId: string) => {
+    const perKunci = indeks.get(menuId)
+    if (!perKunci) return null
+    let hpp_override: number | null = null
+    const channel_hpp: Record<string, number> = {}
+    for (const [kunci, titik] of perKunci) {
+      let nilai: number | null | undefined
+      for (const t of titik) {
+        if (t.tgl <= tgl) nilai = t.nilai
+        else break
+      }
+      if (nilai === undefined) continue
+      if (kunci === 'hpp_override') hpp_override = nilai
+      else if (nilai !== null) channel_hpp[kunci] = nilai
+    }
+    return { hpp_override, channel_hpp }
+  }
+
+  const timpa = (m: any): any => {
+    if (!m || typeof m !== 'object') return m
+    const v = typeof m.id === 'string' ? nilaiPada(m.id) : null
+    const salinan: any = v ? { ...m, hpp_override: v.hpp_override, channel_hpp: v.channel_hpp } : { ...m }
+    if (Array.isArray(m.package_items)) {
+      salinan.package_items = m.package_items.map((p: any) =>
+        p && p.component ? { ...p, component: timpa(p.component) } : p
+      )
+    }
+    return salinan
+  }
+
+  const byId = new Map<string, any>()
+  const byName = new Map<string, any>()
+  for (const m of menus) {
+    const t = timpa(m)
+    if (m?.id) byId.set(m.id, t)
+    if (m?.name) byName.set(bersihkanNamaMenu(m.name), t)
+  }
+  return { byId, byName }
+}
+
+function hitungHppItem(
+  menuItem: any,
+  outletType?: string,
+  fallbackName?: string,
+  byName?: Map<string, any>,
+  channel?: string | null,
+  menuItemId?: string | null,
+  byId?: Map<string, any>
+): number {
+  let itemObj = menuItem
+  if (!itemObj && menuItemId && byId?.has(menuItemId)) {
+    itemObj = byId.get(menuItemId)
+  }
+  if ((!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) && fallbackName && byName) {
+    const cleanKey = bersihkanNamaMenu(fallbackName)
+    if (byName.has(cleanKey)) {
+      itemObj = byName.get(cleanKey)
+    }
+  }
+  if (!itemObj) return 0
+
+  const normCh = channel ? channel.toLowerCase() : null
+  const isMitra = outletType === 'mitra'
+  let baseHpp = 0
+  let channelHppVal: number | null = null
+
+  if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
+    channelHppVal = itemObj.channel_hpp[normCh] ?? null
+  }
+
+  if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+    baseHpp = Number(channelHppVal)
+  } else if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
+    baseHpp = Number(itemObj.hpp_override)
+  } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
+    baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
+      const compHpp = pkg.component ? hitungHppItem(pkg.component, undefined, undefined, undefined, channel) : 0
+      const qty = pkg.quantity || 1
+      return sum + compHpp * qty
+    }, 0)
+  }
+
+  return isMitra && baseHpp > 0 ? Math.round(baseHpp * 1.1) : baseHpp
+}
+
+function terapkanItemDanHppKeRingkasan(
+  ringkasan: RingkasanHari,
+  itemsData: any[],
+  validOutletIds: Set<string>,
+  outletTypeMap: Map<string, string>,
+  penerapHpp: { byId: Map<string, any>; byName: Map<string, any> }
+) {
+  const perMenuGlobal: Record<string, { qty: number; omzet: number }> = {}
+  const perMenuCabang: Record<string, Record<string, { qty: number; omzet: number }>> = {}
+  const porsiPerCabang: Record<string, number> = {}
+  const hppPerCabang: Record<string, number> = {}
+
+  let totalPorsiGlobal = 0
+  let totalHppGlobal = 0
+
+  for (const it of itemsData) {
+    const ord = it.orders || {}
+    const ordOutletId = ord.outlet_id
+    if (validOutletIds.size > 0 && ordOutletId && !validOutletIds.has(ordOutletId)) continue
+
+    const nama = bersihkanNamaMenu(it.menu_item_name || 'Menu Lain')
+    const qty = Number(it.quantity) || 1
+    const sub = Number(it.subtotal) || 0
+
+    if (!perMenuGlobal[nama]) perMenuGlobal[nama] = { qty: 0, omzet: 0 }
+    perMenuGlobal[nama].qty += qty
+    perMenuGlobal[nama].omzet += sub
+    totalPorsiGlobal += qty
+
+    const outType = ordOutletId ? outletTypeMap.get(ordOutletId) : 'internal'
+    const ordChannel = ord.channel || ord.sales_source || null
+    const menuItem =
+      (it.menu_item_id ? penerapHpp.byId.get(it.menu_item_id) : null) || penerapHpp.byName.get(nama)
+    const unitHpp = hitungHppItem(
+      menuItem,
+      outType,
+      nama,
+      penerapHpp.byName,
+      ordChannel,
+      it.menu_item_id,
+      penerapHpp.byId
+    )
+    const itemHpp = unitHpp * qty
+    totalHppGlobal += itemHpp
+
+    if (ordOutletId) {
+      porsiPerCabang[ordOutletId] = (porsiPerCabang[ordOutletId] || 0) + qty
+      hppPerCabang[ordOutletId] = (hppPerCabang[ordOutletId] || 0) + itemHpp
+      if (!perMenuCabang[ordOutletId]) perMenuCabang[ordOutletId] = {}
+      if (!perMenuCabang[ordOutletId][nama]) perMenuCabang[ordOutletId][nama] = { qty: 0, omzet: 0 }
+      perMenuCabang[ordOutletId][nama].qty += qty
+      perMenuCabang[ordOutletId][nama].omzet += sub
+    }
+  }
+
+  const semuaMenuGlobal = Object.entries(perMenuGlobal)
+    .map(([nama, val]) => ({ nama, ...val }))
+    .filter((m) => m.qty > 0)
+
+  ringkasan.topMenu = [...semuaMenuGlobal].sort((a, b) => b.qty - a.qty).slice(0, 10)
+  ringkasan.menuTersepi = [...semuaMenuGlobal].sort((a, b) => a.qty - b.qty).slice(0, 5)
+  ringkasan.totalPorsi = totalPorsiGlobal
+  ringkasan.totalHpp = Math.round(totalHppGlobal)
+  const netJaringan = ringkasan.omzetBersihTotal ?? ringkasan.omzetTotal
+  ringkasan.labaKotorTotal = Math.max(0, Math.round(netJaringan - totalHppGlobal))
+
+  for (const out of ringkasan.outletsAktifTransaksi) {
+    const porsi = porsiPerCabang[out.id] || 0
+    const hpp = Math.round(hppPerCabang[out.id] || 0)
+    const netCabang = out.omzetBersih ?? out.omzet
+    out.totalPorsi = porsi
+    out.totalHpp = hpp
+    out.labaKotor = Math.max(0, Math.round(netCabang - hpp))
+
+    const menuCabangMap = perMenuCabang[out.id] || {}
+    const daftarMenuCabang = Object.entries(menuCabangMap)
+      .map(([nama, val]) => ({ nama, ...val }))
+      .filter((m) => m.qty > 0)
+    out.topMenuCabang = [...daftarMenuCabang].sort((a, b) => b.qty - a.qty).slice(0, 5)
+    out.menuTersepiCabang = [...daftarMenuCabang].sort((a, b) => a.qty - b.qty).slice(0, 3)
+  }
+}
+
 async function fetchAllRows(
   sb: any,
   table: string,
@@ -572,6 +784,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       resReviewOutlets,
       resSaldoStok,
       resSuratJalan,
+      resMenuItems,
+      resRiwayatHpp,
     ] = await Promise.all([
       fetchAllRows(sb, 'orders', (q) =>
         q
@@ -597,7 +811,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       }),
       fetchAllRows(sb, 'order_items', (q) =>
         q
-          .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status, outlet_id)')
+          .select('id, menu_item_id, quantity, menu_item_name, subtotal, orders!inner(created_at, status, outlet_id, channel, sales_source)')
           .gte('orders.created_at', startToday)
           .lt('orders.created_at', endToday)
           .in('orders.status', ['completed', 'settled'])
@@ -608,7 +822,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       }),
       fetchAllRows(sb, 'order_items', (q) =>
         q
-          .select('id, quantity, menu_item_name, subtotal, orders!inner(created_at, status, outlet_id)')
+          .select('id, menu_item_id, quantity, menu_item_name, subtotal, orders!inner(created_at, status, outlet_id, channel, sales_source)')
           .gte('orders.created_at', startKemarin)
           .lt('orders.created_at', endKemarin)
           .in('orders.status', ['completed', 'settled'])
@@ -986,12 +1200,38 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           console.warn('[telemetriNyata] reject surat_jalan:', err)
           return { data: [] }
         }),
+      sb
+        .from('menu_items')
+        .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))')
+        .then((r: any) => {
+          if (r.error) console.warn('[telemetriNyata] warn menu_items:', r.error.message)
+          return r
+        }, (err: any) => {
+          console.warn('[telemetriNyata] reject menu_items:', err)
+          return { data: [] }
+        }),
+      sb
+        .from('menu_hpp_riwayat')
+        .select('menu_item_id, kunci, nilai, berlaku_mulai')
+        .order('id', { ascending: true })
+        .limit(2000)
+        .then((r: any) => {
+          if (r.error) console.warn('[telemetriNyata] warn menu_hpp_riwayat:', r.error.message)
+          return r
+        }, (err: any) => {
+          console.warn('[telemetriNyata] reject menu_hpp_riwayat:', err)
+          return { data: [] }
+        }),
     ])
 
     const rawOutlets = (resOutlets.data || []).filter((o: any) =>
       adalahOutletPenjualan(o.name, o.type, o.code, o.slug)
     )
     const validOutletIds = new Set(rawOutlets.map((o: any) => o.id))
+    const outletTypeMap = new Map<string, string>()
+    for (const o of rawOutlets) {
+      outletTypeMap.set(o.id, o.type || 'internal')
+    }
 
     const isOutletCabang = (a: any) => {
       if (a.outlet_id && validOutletIds.has(a.outlet_id)) return true
@@ -1017,37 +1257,15 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const ringkasanHariIni = hitungRingkasan(ordersHariIni, rawOutlets, `Hari Ini (${tglStr})`, tglStr)
     const ringkasanKemarin = hitungRingkasan(ordersKemarin, rawOutlets, `Kemarin (${tglKemarinStr})`, tglKemarinStr)
 
-    // Top Menu Hari Ini (hanya dari cabang penjualan aktif)
-    const perMenu: Record<string, { qty: number; omzet: number }> = {}
-    for (const it of items as any[]) {
-      const ordOutletId = it.orders?.outlet_id
-      if (validOutletIds.size > 0 && ordOutletId && !validOutletIds.has(ordOutletId)) continue
-      const nama = it.menu_item_name || 'Menu Lain'
-      if (!perMenu[nama]) perMenu[nama] = { qty: 0, omzet: 0 }
-      perMenu[nama].qty += Number(it.quantity) || 1
-      perMenu[nama].omzet += Number(it.subtotal) || 0
-    }
-    const sortedMenu = Object.entries(perMenu)
-      .map(([nama, val]) => ({ nama, ...val }))
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 8)
-    ringkasanHariIni.topMenu = sortedMenu
+    const masterMenus = (resMenuItems?.data || []) as any[]
+    const masterRiwayatHpp = (resRiwayatHpp?.data || []) as any[]
+    const penerapHppHariIni = bangunPenerapHppTanggal(masterMenus, masterRiwayatHpp, tglStr)
+    const penerapHppKemarin = bangunPenerapHppTanggal(masterMenus, masterRiwayatHpp, tglKemarinStr)
 
-    // Top Menu Kemarin (H-1, hanya dari cabang penjualan aktif)
-    const perMenuKemarin: Record<string, { qty: number; omzet: number }> = {}
-    for (const it of itemsKemarin as any[]) {
-      const ordOutletId = it.orders?.outlet_id
-      if (validOutletIds.size > 0 && ordOutletId && !validOutletIds.has(ordOutletId)) continue
-      const nama = it.menu_item_name || 'Menu Lain'
-      if (!perMenuKemarin[nama]) perMenuKemarin[nama] = { qty: 0, omzet: 0 }
-      perMenuKemarin[nama].qty += Number(it.quantity) || 1
-      perMenuKemarin[nama].omzet += Number(it.subtotal) || 0
-    }
-    const sortedMenuKemarin = Object.entries(perMenuKemarin)
-      .map(([nama, val]) => ({ nama, ...val }))
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 8)
-    ringkasanKemarin.topMenu = sortedMenuKemarin
+    terapkanItemDanHppKeRingkasan(ringkasanHariIni, items as any[], validOutletIds, outletTypeMap, penerapHppHariIni)
+    terapkanItemDanHppKeRingkasan(ringkasanKemarin, itemsKemarin as any[], validOutletIds, outletTypeMap, penerapHppKemarin)
+    const sortedMenu = ringkasanHariIni.topMenu || []
+    const sortedMenuKemarin = ringkasanKemarin.topMenu || []
 
     // Kehadiran / HRD Kru Outlet Hari Ini
     const att = (resAtt.data || []).filter(isOutletCabang)

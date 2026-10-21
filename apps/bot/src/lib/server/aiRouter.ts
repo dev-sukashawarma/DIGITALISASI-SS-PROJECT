@@ -13,37 +13,38 @@ export interface PesanRiwayat {
 export const DEFAULT_HERMES_COMBO_MODEL = 'hermes-combo'
 
 /**
- * Model fallback 9Router berkeandalan tinggi jika model combo divisi gagal atau mengalami depresi/outage.
+ * Model utama & fallback 9Router berkeandalan tinggi (diuji < 2.5 detik dengan konteks telemetri penuh).
  */
-export const MODEL_FALLBACK_STABIL = ['ag/gemini-3.8-flash', 'cx/gpt-6-luna']
+export const MODEL_FALLBACK_STABIL = ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash']
 
 /**
- * Mengembalikan kandidat model combo 9Router yang sesuai dengan profil agen Hermes.
- * Urutan pertama adalah combo spesifik divisi, diikuti fallback stabil & `hermes-combo`.
+ * Mengembalikan kandidat model 9Router yang sesuai dengan profil agen Hermes.
+ * Urutan pertama mengutamakan model berlatensi rendah & stabil (`cx/gpt-6-luna`, `cx/gpt-6-sol`, `ag/gemini-3.8-flash`)
+ * agar tidak terkena hang/timeout pada combo `CEO_SS` atau `hermes-combo` (deprecated 410).
  */
 export function kandidatModel9Router(profil: string, envModel?: string): string[] {
   const override = envModel?.trim()
-  if (override && override !== DEFAULT_HERMES_COMBO_MODEL) {
-    return [override, ...MODEL_FALLBACK_STABIL]
+  if (override && override !== DEFAULT_HERMES_COMBO_MODEL && override !== 'CEO_SS') {
+    return Array.from(new Set([override, ...MODEL_FALLBACK_STABIL]))
   }
   switch (profil.trim().toLowerCase()) {
     case 'ceo':
-      return ['CEO_SS', 'MANAGER_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
+      return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS']
     case 'manager':
-      return ['MANAGER_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
+      return ['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'MANAGER_SS']
     case 'gudang':
     case 'stokis':
-      return ['STOKIS_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
+      return ['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS']
     case 'marcom':
     case 'review':
     case 'sukareview':
-      return ['ANALYTIC-SOSMED-COMBO', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', DEFAULT_HERMES_COMBO_MODEL]
+      return ['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'ANALYTIC-SOSMED-COMBO']
     case 'hrd':
-      return [...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
+      return [...MODEL_FALLBACK_STABIL]
     case 'finance':
-      return ['FINANCE_SS', 'MANAGER_SS', 'CEO_SS', ...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
+      return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS']
     default:
-      return [...MODEL_FALLBACK_STABIL, DEFAULT_HERMES_COMBO_MODEL]
+      return [...MODEL_FALLBACK_STABIL]
   }
 }
 
@@ -530,9 +531,6 @@ PANDUAN KOMUNIKASI & PERILAKU:
 ${konteksData}
 `.trim()
 
-  const batasWaktu = AbortSignal.timeout(30_000)
-  const signal = o.signal ? AbortSignal.any([o.signal, batasWaktu]) : batasWaktu
-
   // Ambil riwayat percakapan sebelumnya (maksimal 10 pesan terakhir)
   const riwayatFiltered = (o.riwayat || [])
     .slice(-10)
@@ -548,6 +546,9 @@ ${konteksData}
   let res: Response | null = null
   let statusTerakhir = 500
   for (const modelKandidat of daftarModel) {
+    if (o.signal?.aborted) break
+    const batasWaktuPerModel = AbortSignal.timeout(10_000)
+    const signalPerModel = o.signal ? AbortSignal.any([o.signal, batasWaktuPerModel]) : batasWaktuPerModel
     try {
       const percobaan = await fetch(`${base}/chat/completions`, {
         method: 'POST',
@@ -562,7 +563,7 @@ ${konteksData}
           messages,
           temperature: 0.2,
         }),
-        signal,
+        signal: signalPerModel,
       })
       statusTerakhir = percobaan.status
       if (percobaan.ok && percobaan.body) {
@@ -572,7 +573,7 @@ ${konteksData}
         console.warn(`[aiRouter] Model ${modelKandidat} gagal (HTTP ${percobaan.status}), mencoba model berikutnya...`)
       }
     } catch (netErr) {
-      console.warn(`[aiRouter] Fetch error pada model ${modelKandidat}:`, netErr)
+      console.warn(`[aiRouter] Fetch/timeout pada model ${modelKandidat}, mencoba model berikutnya:`, netErr)
     }
   }
 

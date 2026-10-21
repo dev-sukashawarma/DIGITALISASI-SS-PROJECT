@@ -105,8 +105,10 @@ export async function POST(req: Request) {
         if (!suksesHermes && !jawaban.trim()) {
           const telemetri = await ambilTelemetriNyata()
 
-          // Jika AI Router tersedia (9Router di .env.local), gunakan LLM dinamis dengan konteks telemetri live
+          // Gunakan AI Router (9Router) dengan fallback konfigurasi default jika env server belum diset
           let suksesAi = false
+          if (!process.env.AI_BASE_URL) process.env.AI_BASE_URL = 'http://76.13.193.138:20128/v1'
+          if (!process.env.AI_API_KEY) process.env.AI_API_KEY = 'sk-09f612c52578948f-zfpefg-d18a0fd3'
           if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
             try {
               for await (const t of tanyaAiRouter({

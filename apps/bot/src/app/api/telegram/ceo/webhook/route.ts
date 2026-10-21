@@ -507,13 +507,15 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        if (!process.env.AI_BASE_URL) process.env.AI_BASE_URL = 'http://76.13.193.138:20128/v1'
+        if (!process.env.AI_API_KEY) process.env.AI_API_KEY = 'sk-09f612c52578948f-zfpefg-d18a0fd3'
         if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
           try {
             for await (const chunk of tanyaAiRouter({
               pesan: promptUser,
               profil: 'ceo',
               telemetri,
-              signal: AbortSignal.timeout(8_000),
+              signal: AbortSignal.timeout(18_000),
             })) {
               jawabanAi += chunk
             }

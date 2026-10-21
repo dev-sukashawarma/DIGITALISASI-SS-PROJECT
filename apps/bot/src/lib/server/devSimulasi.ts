@@ -378,6 +378,29 @@ export function buatJawabanDev(
     p.includes('setoran') ||
     p.includes('selisih')
 
+  // Helper deteksi jika pengguna menanyakan 1 cabang spesifik (mis. "cek omzet cimanggu kemaren")
+  const mintaSemuaCabang =
+    p.includes('semua') ||
+    p.includes('seluruh') ||
+    p.includes('peringkat') ||
+    p.includes('ranking')
+
+  const cocokkanCabangSpesifik = <T extends { nama: string }>(daftar: T[]): { item: T; index: number } | null => {
+    if (mintaSemuaCabang) return null
+    for (let i = 0; i < daftar.length; i++) {
+      const namaLower = daftar[i].nama.toLowerCase()
+      const kataKunci = namaLower
+        .replace(/\b(suka|shawarma|mitra|outlet|cabang)\b/g, '')
+        .trim()
+        .split(/\s+/)
+        .filter((w) => w.length >= 3)
+      if (kataKunci.length > 0 && kataKunci.some((k) => p.includes(k))) {
+        return { item: daftar[i], index: i }
+      }
+    }
+    return null
+  }
+
   if (isKemarin && !isTanyaFinance) {
     const k = t?.ringkasanKemarin
     if (!k || (k.omzetTotal === 0 && k.totalOrder === 0)) {
@@ -385,6 +408,36 @@ export function buatJawabanDev(
         `${salamAwal} Menghubungi database Suka Shawarma...\n\n`,
         '> [!WARNING]\n',
         '> Data penjualan kemarin belum berhasil dimuat dari database.\n',
+      ]
+    }
+
+    const semuaCabangKemarin = [...k.outletsAktifTransaksi, ...k.outletsNolTransaksi]
+    const cabangSpesifik = cocokkanCabangSpesifik(semuaCabangKemarin)
+    if (cabangSpesifik) {
+      const o = cabangSpesifik.item
+      const rank = k.outletsAktifTransaksi.findIndex((x) => x.nama === o.nama)
+      const aov = o.orderCount > 0 ? Math.round(o.omzet / o.orderCount) : 0
+      const tipe = o.type === 'mitra' ? 'Mitra' : 'Internal'
+      const opexCabang = t?.finance?.pengeluaranKemarin?.rekapPerOutlet?.find(
+        (x) => x.outlet.toLowerCase() === o.nama.toLowerCase()
+      )
+      const shiftCabang = t?.finance?.setoranKas?.tutupShiftKemarin?.rincianCabang?.find(
+        (x) => x.outlet.toLowerCase() === o.nama.toLowerCase()
+      )
+
+      const barisOpex = opexCabang
+        ? `\n- **Pengeluaran / OPEX Cabang**: **${formatRupiah(opexCabang.totalNominal)}** (${opexCabang.jumlahTransaksi} item: ${opexCabang.rincian.join(', ')})`
+        : ''
+      const barisShift = shiftCabang
+        ? `\n- **Tutup Shift Kasir**: Kasir **${shiftCabang.kasir}** | Kas Fisik **${formatRupiah(shiftCabang.fisik)}** | Seharusnya **${formatRupiah(shiftCabang.seharusnya)}** | Selisih **${formatRupiah(shiftCabang.selisih)}**`
+        : ''
+
+      return [
+        `Siap, ${sebutan}. Kemarin (${k.tanggalLabel}), cabang **${o.nama}** membukukan omzet sebesar **${formatRupiah(o.omzet)}** dari **${o.orderCount} transaksi**, dengan rata-rata order **${formatRupiah(aov)}**.\n\n`,
+        `### 📍 Rincian Evaluasi Cabang — ${o.nama} [${tipe}]\n`,
+        `- **Total Omzet Kemarin**: **${formatRupiah(o.omzet)}**\n`,
+        `- **Total Transaksi**: **${o.orderCount} struk** (AOV: **${formatRupiah(aov)}**)\n`,
+        `- **Peringkat Jaringan**: **#${rank >= 0 ? rank + 1 : '-'}** dari ${k.outletsAktifTransaksi.length} cabang bertransaksi${barisOpex}${barisShift}\n`,
       ]
     }
 

@@ -215,6 +215,19 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
     month: 'long',
     year: 'numeric',
   });
+  // Tabel opname tak punya kolom finalized_at; updated_at = saat finalisasi
+  // (dipakai juga sebagai cutoff waste di atas).
+  const waktuFinalisasi = isFinalized && opname.updated_at
+    ? new Date(opname.updated_at).toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }) + ' WIB'
+    : null;
 
   return (
     <div className="space-y-6">
@@ -270,6 +283,13 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
             <span className="text-xs font-bold text-[#544437]/70">Tanggal Opname</span>
             <span className="text-xs font-bold text-[#1e1b15]">{formattedDate}</span>
           </div>
+
+          {waktuFinalisasi && (
+            <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-2.5">
+              <span className="text-xs font-bold text-[#544437]/70">Waktu Finalisasi</span>
+              <span className="text-xs font-bold text-[#1e1b15] text-right">{waktuFinalisasi}</span>
+            </div>
+          )}
 
           <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-2.5">
             <span className="text-xs font-bold text-[#544437]/70">Tipe Opname</span>

@@ -854,10 +854,167 @@ export default function JarvisApp({
           </div>
         </div>
 
-        {/* TACTICAL ORBITAL GRID: Left Live Telemetry, Center Arc Reactor + Hologram Response, Right Live Telemetry */}
+        {/* TACTICAL 3-COLUMN HUD GRID: Left = Direct Hologram Chat Box, Center = Full-Size Arc Reactor, Right = All 4 Division Telemetry Boxes */}
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-center">
-          {/* Left Column: DIV-01 SALES & DIV-02 FINANCE */}
-          <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-2.5 sm:gap-3 justify-center h-full max-h-[76vh] overflow-y-auto pr-0.5">
+          {/* Left Column: J.A.R.V.I.S. DIRECT HOLOGRAM & CHAT CONSOLE (Selalu di kiri agar Circle Jarvis di tengah tidak mengecil) */}
+          <div className="lg:col-span-4 flex flex-col justify-center h-full max-h-[75vh] min-h-0">
+            <div className="w-full h-full rounded-xl bg-zinc-950/90 border border-cyan-400/55 shadow-[0_0_32px_rgba(6,182,212,0.22)] backdrop-blur-xl overflow-hidden flex flex-col relative">
+              {/* Reticle Corners */}
+              <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
+              <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-400 pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-400 pointer-events-none" />
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-400 pointer-events-none" />
+
+              {/* Hologram Header */}
+              <div className="flex items-center justify-between px-3 py-2 bg-cyan-950/75 border-b border-cyan-500/30 font-mono-hud text-[10px] shrink-0">
+                <div className="flex items-center gap-1.5 truncate pr-2">
+                  <Cpu className="w-3.5 h-3.5 text-cyan-300 shrink-0 animate-pulse" />
+                  <span className="font-hud text-cyan-200 font-bold tracking-wider uppercase">
+                    J.A.R.V.I.S. DIRECT HOLOGRAM
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {jawabanHologram && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (sedangBicara) {
+                          hentiBicaraJarvis()
+                          setSedangBicara(false)
+                        } else {
+                          setSedangBicara(true)
+                          bicaraJarvis(jawabanHologram, () => setSedangBicara(false))
+                        }
+                      }}
+                      className="px-2 py-0.5 rounded bg-cyan-900/70 hover:bg-cyan-800 border border-cyan-400/40 text-cyan-200 flex items-center gap-1 cursor-pointer"
+                    >
+                      {sedangBicara ? (
+                        <>
+                          <VolumeX className="w-3 h-3 text-red-400" />
+                          <span className="text-red-300 font-bold">STOP</span>
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="w-3 h-3 text-cyan-300" />
+                          <span>SPEAK</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      mainkanSuaraHud('chirp')
+                      setPesanAwalDrawer(null)
+                      setTampilChatDrawer(true)
+                    }}
+                    className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-500/40 text-cyan-300 flex items-center gap-1 cursor-pointer"
+                    title="Buka di Panel Chat & Tabel Lengkap"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>LAYAR PENUH</span>
+                  </button>
+
+                  {(pertanyaanTerakhir || jawabanHologram) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hentiBicaraJarvis()
+                        setSedangBicara(false)
+                        setPertanyaanTerakhir(null)
+                        setJawabanHologram('')
+                        setDivisiSorot(null)
+                      }}
+                      className="p-0.5 rounded text-zinc-400 hover:text-red-300 cursor-pointer"
+                      title="Bersihkan Layar Hologram"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Pertanyaan Terakhir User */}
+              {pertanyaanTerakhir && (
+                <div className="px-3.5 py-2 bg-cyan-950/35 border-b border-cyan-500/20 font-mono-hud text-xs text-cyan-100 flex items-start gap-2 shrink-0">
+                  <span className="text-cyan-400 font-bold shrink-0">ANDA:</span>
+                  <span className="italic text-cyan-200">&ldquo;{pertanyaanTerakhir}&rdquo;</span>
+                </div>
+              )}
+
+              {/* Hologram Stream Body */}
+              <div className="p-3.5 overflow-y-auto overflow-x-hidden flex-1">
+                {jawabanHologram ? (
+                  <FormatIsiHologram isi={jawabanHologram} />
+                ) : sedangMemproses ? (
+                  <div className="flex items-center gap-2 text-cyan-300 font-mono-hud text-xs py-4">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                    <span>J.A.R.V.I.S. SEDANG MENGANALISIS TELEMETRI DATABASE...</span>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col justify-between gap-4 py-2 font-mono-hud">
+                    <div className="space-y-2">
+                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/30 text-[10px] text-cyan-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>HOLOGRAM TERMINAL STANDBY</span>
+                      </div>
+                      <p className="text-xs text-zinc-300 leading-relaxed">
+                        Selamat bertugas, <span className="text-cyan-300 font-bold">{nama}</span>. Klik bola inti{' '}
+                        <span className="text-cyan-300 font-semibold">J.A.R.V.I.S.</span> di tengah untuk mulai mengobrol dengan suara, atau ketik pertanyaan di bar atas.
+                      </p>
+                      <p className="text-[11px] text-zinc-400 leading-relaxed">
+                        Seluruh jawaban lisan dan tabel analisis lintas divisi (Sales, Finance, Gudang/Waste, HRD &amp; Google Review) akan ditampilkan langsung di panel kiri ini tanpa mengecilkan bola inti.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 pt-2 border-t border-cyan-500/15">
+                      <span className="text-[10px] text-cyan-400/80 uppercase tracking-wider font-bold block">
+                        CONTOH PERINTAH SUARA / TEKS CEPAT:
+                      </span>
+                      {[
+                        'Bagaimana evaluasi lengkap penjualan seluruh cabang kemarin?',
+                        'Rincikan utang PO supplier yang sudah lewat jatuh tempo',
+                        'Analisis bahan baku penyumbang waste tertinggi bulan ini',
+                        'Apakah ada selisih kasir atau kru yang terlambat hari ini?',
+                      ].map((q, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => void eksekusiPerintahJarvis(q, false)}
+                          className="w-full text-left text-[10px] sm:text-[11px] px-2.5 py-1.5 rounded-lg bg-cyan-950/35 hover:bg-cyan-900/55 border border-cyan-500/25 hover:border-cyan-400 text-cyan-200 transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Sparkles className="w-3 h-3 text-cyan-400 shrink-0" />
+                          <span className="truncate">{q}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Center Column: FULL-SIZE ARC REACTOR CORE (Tidak pernah mengecil!) */}
+          <div className="order-first lg:order-none lg:col-span-4 flex flex-col items-center justify-center h-full min-h-0 py-1 relative">
+            <ArcReactor
+              status={statusCore}
+              compact={false}
+              voiceLoopAktif={voiceLoopAktif}
+              spektrumSuara={spektrumSuara}
+              transkripLive={transkripLive}
+              onClickCore={handleToggleVoiceLoop}
+              onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
+              onBukaChatLengkap={() => {
+                setPesanAwalDrawer(null)
+                setTampilChatDrawer(true)
+              }}
+            />
+          </div>
+
+          {/* Right Column: ALL 4 DIVISION TELEMETRY BOXES (DIV-01 SALES, DIV-02 FINANCE, DIV-03 OPS/WASTE, DIV-04 HRD/REVIEW) */}
+          <div className="lg:col-span-4 flex flex-col gap-2.5 sm:gap-3 justify-start h-full max-h-[75vh] overflow-y-auto overflow-x-hidden px-1.5 py-1">
             <AgentNodeCard
               profilFallback="ceo"
               meja={getMejaByProfil('ceo')}
@@ -883,118 +1040,7 @@ export default function JarvisApp({
                 )
               }
             />
-          </div>
 
-          {/* Center Column: ARC REACTOR + LIVE HOLOGRAM READOUT (Prioritas paling atas di Mobile <1024px) */}
-          <div className="order-first lg:order-none lg:col-span-4 xl:col-span-6 flex flex-col items-center justify-center h-full min-h-0 py-1 relative">
-            <ArcReactor
-              status={statusCore}
-              compact={Boolean(pertanyaanTerakhir || jawabanHologram || sedangMemproses)}
-              voiceLoopAktif={voiceLoopAktif}
-              spektrumSuara={spektrumSuara}
-              transkripLive={transkripLive}
-              onClickCore={handleToggleVoiceLoop}
-              onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
-              onBukaChatLengkap={() => {
-                setPesanAwalDrawer(null)
-                setTampilChatDrawer(true)
-              }}
-            />
-
-            {/* CENTER-STAGE HOLOGRAM RESPONSE CARD (Tampil langsung di tengah saat Jarvis menjawab via Suara atau Teks) */}
-            {(pertanyaanTerakhir || jawabanHologram || sedangMemproses) && (
-              <div className="w-full max-w-2xl mt-2 rounded-xl bg-zinc-950/95 border border-cyan-400/60 shadow-[0_0_35px_rgba(6,182,212,0.3)] backdrop-blur-xl overflow-hidden flex flex-col max-h-[46vh] animate-in fade-in duration-200 z-30">
-                {/* Hologram Header */}
-                <div className="flex items-center justify-between px-3 py-1.5 bg-cyan-950/70 border-b border-cyan-500/30 font-mono-hud text-[10px]">
-                  <div className="flex items-center gap-1.5 truncate pr-2">
-                    <Cpu className="w-3.5 h-3.5 text-cyan-300 shrink-0 animate-pulse" />
-                    <span className="font-hud text-cyan-200 font-bold tracking-wider uppercase">
-                      J.A.R.V.I.S. DIRECT HOLOGRAM
-                    </span>
-                    {pertanyaanTerakhir && (
-                      <span className="text-zinc-400 truncate">
-                        &bull; &ldquo;{pertanyaanTerakhir}&rdquo;
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {jawabanHologram && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (sedangBicara) {
-                            hentiBicaraJarvis()
-                            setSedangBicara(false)
-                          } else {
-                            setSedangBicara(true)
-                            bicaraJarvis(jawabanHologram, () => setSedangBicara(false))
-                          }
-                        }}
-                        className="px-2 py-0.5 rounded bg-cyan-900/70 hover:bg-cyan-800 border border-cyan-400/40 text-cyan-200 flex items-center gap-1 cursor-pointer"
-                      >
-                        {sedangBicara ? (
-                          <>
-                            <VolumeX className="w-3 h-3 text-red-400" />
-                            <span className="text-red-300 font-bold">STOP</span>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 className="w-3 h-3 text-cyan-300" />
-                            <span>SPEAK</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        mainkanSuaraHud('chirp')
-                        setPesanAwalDrawer(null)
-                        setTampilChatDrawer(true)
-                      }}
-                      className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-500/40 text-cyan-300 flex items-center gap-1 cursor-pointer"
-                      title="Buka di Panel Chat & Tabel Lengkap"
-                    >
-                      <MessageSquare className="w-3 h-3" />
-                      <span className="hidden sm:inline">LAYAR PENUH</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hentiBicaraJarvis()
-                        setSedangBicara(false)
-                        setPertanyaanTerakhir(null)
-                        setJawabanHologram('')
-                        setDivisiSorot(null)
-                      }}
-                      className="p-0.5 rounded text-zinc-400 hover:text-red-300 cursor-pointer"
-                      title="Tutup Kartu Hologram"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Hologram Stream Body */}
-                <div className="p-3 overflow-y-auto flex-1">
-                  {jawabanHologram ? (
-                    <FormatIsiHologram isi={jawabanHologram} />
-                  ) : (
-                    <div className="flex items-center gap-2 text-cyan-300 font-mono-hud text-xs py-2">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                      <span>J.A.R.V.I.S. SEDANG MENGANALISIS TELEMETRI DATABASE...</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column: DIV-03 OPS/WASTE & DIV-04 HRD/REVIEW */}
-          <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-2.5 sm:gap-3 justify-center h-full max-h-[76vh] overflow-y-auto pl-0.5">
             <AgentNodeCard
               profilFallback="gudang"
               meja={getMejaByProfil('gudang')}

@@ -105,3 +105,29 @@ body { font-family: var(--font-sans); }
 .animate-hud-pulse {
   animation: hud-pulse-glow 3.5s ease-in-out infinite;
 }
+
+
+/* Custom Sci-Fi HUD Scrollbars (Menghilangkan scrollbar putih bawaan Windows) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(6, 182, 212, 0.35) rgba(3, 7, 18, 0.6);
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(3, 7, 18, 0.6);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.38);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.7);
+}

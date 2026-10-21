@@ -368,23 +368,25 @@ export default function JarvisChatDrawer({
 
   const handleToggleVoice = () => {
     if (sedangMendengar) {
-      hentiMendengar()
-      setSedangMendengar(false)
+      hentiMendengar(true)
       mainkanSuaraHud('chirp')
     } else {
       mainkanSuaraHud('engage')
       const sukses = mulaiMendengar({
         onMulai: () => setSedangMendengar(true),
         onHasil: (teks) => {
-          setInput(teks)
+          if (teks && !teks.startsWith('🎙️') && !teks.startsWith('⏳')) {
+            setInput(teks)
+          }
         },
         onFinalOtomatis: (teksFinal) => {
           setSedangMendengar(false)
           void kirim(teksFinal, true)
         },
         onSelesai: () => setSedangMendengar(false),
-        onGalat: () => {
+        onGalat: (pesan) => {
           setSedangMendengar(false)
+          setGalat(pesan)
           mainkanSuaraHud('alert')
         },
       })

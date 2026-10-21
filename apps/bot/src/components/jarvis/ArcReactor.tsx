@@ -8,6 +8,7 @@ export type StatusArcReactor = 'optimal' | 'listening' | 'processing' | 'speakin
 
 interface ArcReactorProps {
   status: StatusArcReactor
+  compact?: boolean
   voiceLoopAktif?: boolean
   spektrumSuara?: number[]
   transkripLive?: string
@@ -20,6 +21,7 @@ const DEFAULT_SPEKTRUM = [0.2, 0.35, 0.22, 0.45, 0.3, 0.45, 0.22, 0.35, 0.2]
 
 export default function ArcReactor({
   status = 'optimal',
+  compact = false,
   voiceLoopAktif = false,
   spektrumSuara = DEFAULT_SPEKTRUM,
   transkripLive = '',
@@ -82,31 +84,39 @@ export default function ArcReactor({
           ? 1.04
           : 1
 
+  const containerSizeClass = compact
+    ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh]'
+    : 'w-[250px] h-[250px] sm:w-[310px] sm:h-[310px] md:w-[350px] md:h-[350px] lg:w-[375px] lg:h-[375px] xl:w-[425px] xl:h-[425px] 2xl:w-[465px] 2xl:h-[465px] max-w-[min(100%,43vh)] max-h-[43vh]'
+
   return (
-    <div className="relative flex flex-col items-center justify-center select-none py-1 w-full">
-      {/* Target Reticle Container */}
-      <div className="relative flex items-center justify-center w-[260px] h-[260px] sm:w-[320px] sm:h-[320px] md:w-[360px] md:h-[360px] lg:w-[380px] lg:h-[380px] xl:w-[430px] xl:h-[430px] 2xl:w-[470px] 2xl:h-[470px] max-w-[min(100%,44vh)] max-h-[44vh] aspect-square">
+    <div className="relative flex flex-col items-center justify-center select-none py-0.5 w-full transition-all duration-300">
+      {/* Target Reticle Container (Auto-Compact saat kartu jawaban Hologram terbuka) */}
+      <div className={`relative flex items-center justify-center aspect-square transition-all duration-300 ${containerSizeClass}`}>
         {/* Corner Reticles with Sci-Fi HUD Coordinates */}
-        <div className="absolute top-0 left-0 w-8 h-8 sm:w-10 sm:h-10 border-t-2 border-l-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col justify-start">
-          <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
-            {voiceLoopAktif ? 'VOICE // LOOP' : 'SYS // CORE-01'}
-          </span>
-        </div>
-        <div className="absolute top-0 right-0 w-8 h-8 sm:w-10 sm:h-10 border-t-2 border-r-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col items-end justify-start">
-          <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
-            ALL-DIV ACCESS
-          </span>
-        </div>
-        <div className="absolute bottom-0 left-0 w-8 h-8 sm:w-10 sm:h-10 border-b-2 border-l-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col justify-end">
-          <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
-            NEURAL // ID
-          </span>
-        </div>
-        <div className="absolute bottom-0 right-0 w-8 h-8 sm:w-10 sm:h-10 border-b-2 border-r-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col items-end justify-end">
-          <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
-            MK-VIII
-          </span>
-        </div>
+        {!compact && (
+          <>
+            <div className="absolute top-0 left-0 w-8 h-8 sm:w-10 sm:h-10 border-t-2 border-l-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col justify-start">
+              <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
+                {voiceLoopAktif ? 'VOICE // LOOP' : 'SYS // CORE-01'}
+              </span>
+            </div>
+            <div className="absolute top-0 right-0 w-8 h-8 sm:w-10 sm:h-10 border-t-2 border-r-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col items-end justify-start">
+              <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
+                ALL-DIV ACCESS
+              </span>
+            </div>
+            <div className="absolute bottom-0 left-0 w-8 h-8 sm:w-10 sm:h-10 border-b-2 border-l-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col justify-end">
+              <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
+                NEURAL // ID
+              </span>
+            </div>
+            <div className="absolute bottom-0 right-0 w-8 h-8 sm:w-10 sm:h-10 border-b-2 border-r-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col items-end justify-end">
+              <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
+                MK-VIII
+              </span>
+            </div>
+          </>
+        )}
 
         {/* Ambient Back Glow */}
         <div
@@ -264,7 +274,7 @@ export default function ArcReactor({
             mainkanSuaraHud('chirp')
           }}
           onMouseLeave={() => setHovered(false)}
-          className={`group relative z-10 w-[52%] h-[52%] rounded-full flex flex-col items-center justify-center transition-transform duration-150 cursor-pointer overflow-hidden ${glowClass}`}
+          className={`group relative z-10 w-[54%] h-[54%] rounded-full flex flex-col items-center justify-center transition-transform duration-150 cursor-pointer overflow-hidden ${glowClass}`}
           style={{
             transform: `scale(${coreScale})`,
             background:
@@ -278,17 +288,29 @@ export default function ArcReactor({
           aria-label="Aktivasi Suara J.A.R.V.I.S."
         >
           <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#00f0ff_1px,transparent_1px)] [background-size:10px_10px]" />
-          <div className="absolute inset-2 sm:inset-3 rounded-full border border-cyan-400/25 border-dashed animate-hud-spin pointer-events-none" />
+          <div className="absolute inset-2 rounded-full border border-cyan-400/25 border-dashed animate-hud-spin pointer-events-none" />
 
           {/* Central Dynamic Icon */}
           <div className="relative z-10 flex flex-col items-center">
             <div className="relative">
               {status === 'listening' ? (
-                <Mic className="w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13 text-emerald-300 animate-bounce drop-shadow-[0_0_15px_rgba(16,185,129,0.9)]" />
+                <Mic
+                  className={`${
+                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13'
+                  } text-emerald-300 animate-bounce drop-shadow-[0_0_15px_rgba(16,185,129,0.9)]`}
+                />
               ) : status === 'speaking' ? (
-                <Volume2 className="w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13 text-cyan-200 animate-pulse drop-shadow-[0_0_18px_rgba(34,211,238,0.95)]" />
+                <Volume2
+                  className={`${
+                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13'
+                  } text-cyan-200 animate-pulse drop-shadow-[0_0_18px_rgba(34,211,238,0.95)]`}
+                />
               ) : (
-                <Cpu className="w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13 text-cyan-200 group-hover:text-white group-hover:scale-110 transition-all drop-shadow-[0_0_15px_rgba(6,182,212,0.8)]" />
+                <Cpu
+                  className={`${
+                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13'
+                  } text-cyan-200 group-hover:text-white group-hover:scale-110 transition-all drop-shadow-[0_0_15px_rgba(6,182,212,0.8)]`}
+                />
               )}
               <div
                 className="absolute inset-0 blur-md rounded-full animate-ping pointer-events-none"
@@ -296,31 +318,42 @@ export default function ArcReactor({
               />
             </div>
 
-            <span className="mt-1 font-hud text-xs sm:text-sm md:text-base lg:text-lg tracking-[0.22em] text-cyan-100 group-hover:text-white font-black uppercase text-glow-cyan">
+            <span
+              className={`mt-0.5 font-hud ${
+                compact ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm md:text-base lg:text-lg'
+              } tracking-[0.22em] text-cyan-100 group-hover:text-white font-black uppercase text-glow-cyan`}
+            >
               J.A.R.V.I.S.
             </span>
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className="font-mono-hud text-[8px] sm:text-[9px] md:text-[10px] tracking-widest text-cyan-300 font-bold uppercase">
-                {status === 'listening'
-                  ? 'LISTENING...'
-                  : status === 'speaking'
-                    ? 'SPEAKING...'
-                    : status === 'processing'
-                      ? 'THINKING...'
-                      : 'TAP TO SPEAK'}
-              </span>
-            </div>
+            {!compact && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="font-mono-hud text-[8px] sm:text-[9px] md:text-[10px] tracking-widest text-cyan-300 font-bold uppercase">
+                  {status === 'listening'
+                    ? 'LISTENING...'
+                    : status === 'speaking'
+                      ? 'SPEAKING...'
+                      : status === 'processing'
+                        ? 'THINKING...'
+                        : 'TAP TO SPEAK'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Real-Time 9-Band Waveform Equalizer */}
-          <div className="relative z-10 flex items-end gap-[3px] sm:gap-1 mt-1.5 h-5 sm:h-6 pointer-events-none">
+          <div
+            className={`relative z-10 flex items-end gap-[2.5px] sm:gap-1 ${
+              compact ? 'mt-1 h-3' : 'mt-1.5 h-5 sm:h-6'
+            } pointer-events-none`}
+          >
             {spektrumSuara.slice(0, 9).map((val, idx) => {
               const aktifSuara = status === 'speaking' || status === 'listening'
-              const tinggiPx = aktifSuara ? Math.max(4, Math.round(val * 24)) : undefined
+              const maxBarPx = compact ? 13 : 24
+              const tinggiPx = aktifSuara ? Math.max(3, Math.round(val * maxBarPx)) : undefined
               return (
                 <div
                   key={idx}
-                  className={`w-[2.5px] sm:w-[3px] rounded-full transition-all duration-75 ${
+                  className={`w-[2px] sm:w-[2.5px] rounded-full transition-all duration-75 ${
                     status === 'listening'
                       ? 'bg-emerald-300'
                       : status === 'speaking'
@@ -328,7 +361,7 @@ export default function ArcReactor({
                         : 'bg-cyan-400/80 animate-pulse'
                   }`}
                   style={{
-                    height: tinggiPx ? `${tinggiPx}px` : `${8 + ((idx * 3) % 10)}px`,
+                    height: tinggiPx ? `${tinggiPx}px` : `${(compact ? 4 : 8) + ((idx * 2) % 7)}px`,
                   }}
                 />
               )
@@ -337,39 +370,41 @@ export default function ArcReactor({
         </button>
       </div>
 
-      {/* Live Voice Transcript Bubble (jika sedang mendengar kalimat pengguna) */}
+      {/* Live Voice Transcript Bubble */}
       {transkripLive && (
-        <div className="mt-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-400/50 text-emerald-200 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.25)] animate-in fade-in">
+        <div className="mt-1.5 px-3 py-1 rounded-xl bg-emerald-950/85 border border-emerald-400/50 text-emerald-200 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.25)] animate-in fade-in">
           <span className="text-emerald-400 font-bold mr-1.5">🎙️ ANDA:</span>
           <span>&ldquo;{transkripLive}&rdquo;</span>
         </div>
       )}
 
       {/* Telemetry Readouts & Tactical Controls Under Core */}
-      <div className="mt-2.5 flex flex-col items-center text-center gap-2">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/40 backdrop-blur-md shadow-[0_0_20px_rgba(6,182,212,0.2)]">
-          <span
-            className="w-2 h-2 rounded-full animate-ping"
-            style={{ backgroundColor: warnaAksen }}
-          />
-          <span className="font-hud text-[9px] sm:text-[11px] uppercase tracking-widest text-cyan-100 font-bold">
-            {labelStatus}
-          </span>
-        </div>
+      <div className={`${compact ? 'mt-1.5 gap-1.5' : 'mt-2.5 gap-2'} flex flex-col items-center text-center`}>
+        {!compact && (
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/40 backdrop-blur-md shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+            <span
+              className="w-2 h-2 rounded-full animate-ping"
+              style={{ backgroundColor: warnaAksen }}
+            />
+            <span className="font-hud text-[9px] sm:text-[11px] uppercase tracking-widest text-cyan-100 font-bold">
+              {labelStatus}
+            </span>
+          </div>
+        )}
 
-        {/* Quick Core Action Buttons: Voice-to-Voice, Laporan Daily, Chat & Tabel */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        {/* Quick Core Action Buttons */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={handleKlik}
-            className={`px-3 py-1.5 rounded-lg border font-hud text-[10px] tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border font-hud text-[9px] sm:text-[10px] tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               voiceLoopAktif || status === 'listening'
                 ? 'bg-emerald-600/80 border-emerald-300 text-white shadow-[0_0_18px_rgba(16,185,129,0.45)]'
                 : 'bg-cyan-950/70 hover:bg-cyan-900/80 border-cyan-400/50 text-cyan-200'
             }`}
           >
-            <Radio className="w-3.5 h-3.5 animate-pulse" />
-            <span>{voiceLoopAktif ? 'VOICE-TO-VOICE: ON' : 'MULAI VOICE-TO-VOICE'}</span>
+            <Radio className="w-3 h-3 animate-pulse" />
+            <span>{voiceLoopAktif ? 'VOICE-TO-VOICE: ON' : 'VOICE-TO-VOICE'}</span>
           </button>
 
           {onBukaDailyBriefing && (
@@ -379,9 +414,9 @@ export default function ArcReactor({
                 mainkanSuaraHud('engage')
                 onBukaDailyBriefing()
               }}
-              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:from-cyan-500 hover:to-blue-500 border border-cyan-300/60 text-white font-hud text-[10px] tracking-wider uppercase font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.35)] flex items-center gap-1.5 cursor-pointer"
+              className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:from-cyan-500 hover:to-blue-500 border border-cyan-300/60 text-white font-hud text-[9px] sm:text-[10px] tracking-wider uppercase font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.35)] flex items-center gap-1.5 cursor-pointer"
             >
-              <FileBarChart2 className="w-3.5 h-3.5" />
+              <FileBarChart2 className="w-3 h-3" />
               <span>LAPORAN DAILY</span>
             </button>
           )}
@@ -393,10 +428,10 @@ export default function ArcReactor({
                 mainkanSuaraHud('chirp')
                 onBukaChatLengkap()
               }}
-              className="px-3 py-1.5 rounded-lg bg-zinc-900/90 hover:bg-cyan-950/80 border border-cyan-500/35 hover:border-cyan-400 text-cyan-300 font-hud text-[10px] tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-zinc-900/90 hover:bg-cyan-950/80 border border-cyan-500/35 hover:border-cyan-400 text-cyan-300 font-hud text-[9px] sm:text-[10px] tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>PANEL CHAT & TABEL</span>
+              <MessageSquare className="w-3 h-3" />
+              <span>PANEL CHAT &amp; TABEL</span>
             </button>
           )}
         </div>

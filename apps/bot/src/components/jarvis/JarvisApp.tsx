@@ -237,7 +237,7 @@ export default function JarvisApp({
     }
   }, [muatStatus, muatDailyTelemetry])
 
-  // Fungsi mulai mendengarkan suara (mendukung Auto-Turn Loop)
+  // Fungsi mulai mendengarkan suara (mendukung Auto-Turn Loop & Dual-Engine STT)
   const mulaiSesiDengar = useCallback(
     (dariLoop = false) => {
       if (!dariLoop) {
@@ -245,7 +245,9 @@ export default function JarvisApp({
       }
       hentiBicaraJarvis()
       setSedangBicara(false)
-      setTranskripLive('')
+      setTranskripLive('🎙️ Mendengarkan suara Anda...')
+
+      let adaFinalTerkirim = false
 
       const sukses = mulaiMendengar({
         onMulai: () => {
@@ -253,9 +255,12 @@ export default function JarvisApp({
         },
         onHasil: (teks) => {
           setTranskripLive(teks)
-          setInputPerintah(teks)
+          if (teks && !teks.startsWith('🎙️') && !teks.startsWith('⏳')) {
+            setInputPerintah(teks)
+          }
         },
         onFinalOtomatis: (teksFinal) => {
+          adaFinalTerkirim = true
           setSedangMendengar(false)
           setTranskripLive('')
           setInputPerintah('')
@@ -263,15 +268,24 @@ export default function JarvisApp({
         },
         onSelesai: () => {
           setSedangMendengar(false)
+          if (!adaFinalTerkirim) {
+            setVoiceLoopAktif(false)
+            setTranskripLive('')
+          }
         },
-        onGalat: () => {
+        onGalat: (pesan) => {
           setSedangMendengar(false)
+          setVoiceLoopAktif(false)
+          setTranskripLive('')
           mainkanSuaraHud('alert')
+          setJawabanHologram(`> **PERINGATAN MIKROFON**: ${pesan}`)
         },
       })
 
       if (!sukses) {
         setSedangMendengar(false)
+        setVoiceLoopAktif(false)
+        setTranskripLive('')
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -473,8 +487,15 @@ export default function JarvisApp({
       return
     }
 
-    if (sedangMendengar || voiceLoopAktif) {
-      hentiMendengar()
+    if (sedangMendengar) {
+      // Jika sedang merekam suara, klik kedua akan langsung memproses/mengirim suara yang sudah diucapkan (atau mematikan mic jika hening)
+      mainkanSuaraHud('chirp')
+      hentiMendengar(true)
+      return
+    }
+
+    if (voiceLoopAktif) {
+      hentiMendengar(false)
       hentiBicaraJarvis()
       setSedangMendengar(false)
       setSedangBicara(false)
@@ -827,10 +848,11 @@ export default function JarvisApp({
             />
           </div>
 
-          {/* Center Column: ARC REACTOR + LIVE HOLOGRAM READOUT */}
-          <div className="lg:col-span-4 xl:col-span-6 flex flex-col items-center justify-center h-full min-h-0 py-1 relative">
+          {/* Center Column: ARC REACTOR + LIVE HOLOGRAM READOUT (Prioritas paling atas di Mobile <1024px) */}
+          <div className="order-first lg:order-none lg:col-span-4 xl:col-span-6 flex flex-col items-center justify-center h-full min-h-0 py-1 relative">
             <ArcReactor
               status={statusCore}
+              compact={Boolean(pertanyaanTerakhir || jawabanHologram || sedangMemproses)}
               voiceLoopAktif={voiceLoopAktif}
               spektrumSuara={spektrumSuara}
               transkripLive={transkripLive}
@@ -844,7 +866,7 @@ export default function JarvisApp({
 
             {/* CENTER-STAGE HOLOGRAM RESPONSE CARD (Tampil langsung di tengah saat Jarvis menjawab via Suara atau Teks) */}
             {(pertanyaanTerakhir || jawabanHologram || sedangMemproses) && (
-              <div className="w-full max-w-2xl mt-2 rounded-xl bg-zinc-950/95 border border-cyan-400/60 shadow-[0_0_35px_rgba(6,182,212,0.3)] backdrop-blur-xl overflow-hidden flex flex-col max-h-[34vh] animate-in fade-in duration-200 z-30">
+              <div className="w-full max-w-2xl mt-2 rounded-xl bg-zinc-950/95 border border-cyan-400/60 shadow-[0_0_35px_rgba(6,182,212,0.3)] backdrop-blur-xl overflow-hidden flex flex-col max-h-[46vh] animate-in fade-in duration-200 z-30">
                 {/* Hologram Header */}
                 <div className="flex items-center justify-between px-3 py-1.5 bg-cyan-950/70 border-b border-cyan-500/30 font-mono-hud text-[10px]">
                   <div className="flex items-center gap-1.5 truncate pr-2">
@@ -970,6 +992,7 @@ export default function JarvisApp({
         diambilAt={diambilAt}
         pollingGagal={pollingGagal}
         totalActive={nodeAktifCount}
+        telemetri={dailyData?.telemetri}
       />
 
       {/* MODAL HOLOGRAM LAPORAN DAILY (5 PILAR + AI ACTION ITEMS) */}

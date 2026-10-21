@@ -35,15 +35,107 @@ interface BarisMetrik {
   sorot?: 'normal' | 'good' | 'warn' | 'crit'
 }
 
+type TemaWarnaDivisi = 'cyan' | 'amber' | 'emerald' | 'indigo'
+
 interface DivisiVisual {
   kode: string
   judul: string
   subjudul: string
+  tema: TemaWarnaDivisi
   icon: typeof TrendingUp
   statusLabel: string
   statusLevel: 'optimal' | 'warning' | 'critical'
+  progressLabel: string
+  progressPersen: number
   metrik: BarisMetrik[]
   contohPertanyaan: string[]
+}
+
+const TEMA_STYLE: Record<
+  TemaWarnaDivisi,
+  {
+    cardSelected: string
+    cardIdle: string
+    corner: string
+    dot: string
+    kodeText: string
+    iconBox: string
+    titleHover: string
+    subtitle: string
+    barFill: string
+    chip: string
+    chipIcon: string
+    ctaBtn: string
+  }
+> = {
+  cyan: {
+    cardSelected:
+      'bg-cyan-950/45 border-cyan-400/85 shadow-[0_0_25px_rgba(6,182,212,0.32)] ring-1 ring-cyan-400',
+    cardIdle:
+      'bg-zinc-950/85 border-cyan-500/25 hover:border-cyan-400/60 hover:bg-zinc-900/85 hover:shadow-[0_0_18px_rgba(6,182,212,0.18)]',
+    corner: 'border-cyan-400/75',
+    dot: 'bg-cyan-400',
+    kodeText: 'text-cyan-300',
+    iconBox: 'bg-cyan-950/75 border-cyan-500/40 text-cyan-300',
+    titleHover: 'group-hover:text-cyan-300',
+    subtitle: 'text-cyan-400/75',
+    barFill: 'from-cyan-500 to-sky-400',
+    chip: 'bg-cyan-950/35 hover:bg-cyan-900/60 text-cyan-200 border-cyan-500/25 hover:border-cyan-400',
+    chipIcon: 'text-cyan-400',
+    ctaBtn:
+      'from-cyan-600/80 to-blue-600/80 hover:from-cyan-500 hover:to-blue-500 border-cyan-400/45 shadow-[0_0_12px_rgba(6,182,212,0.22)]',
+  },
+  amber: {
+    cardSelected:
+      'bg-amber-950/40 border-amber-400/85 shadow-[0_0_25px_rgba(245,158,11,0.3)] ring-1 ring-amber-400',
+    cardIdle:
+      'bg-zinc-950/85 border-amber-500/25 hover:border-amber-400/60 hover:bg-zinc-900/85 hover:shadow-[0_0_18px_rgba(245,158,11,0.16)]',
+    corner: 'border-amber-400/75',
+    dot: 'bg-amber-400',
+    kodeText: 'text-amber-300',
+    iconBox: 'bg-amber-950/75 border-amber-500/40 text-amber-300',
+    titleHover: 'group-hover:text-amber-300',
+    subtitle: 'text-amber-400/75',
+    barFill: 'from-amber-500 to-yellow-400',
+    chip: 'bg-amber-950/30 hover:bg-amber-900/55 text-amber-100 border-amber-500/25 hover:border-amber-400',
+    chipIcon: 'text-amber-400',
+    ctaBtn:
+      'from-amber-600/80 to-orange-600/80 hover:from-amber-500 hover:to-orange-500 border-amber-400/45 shadow-[0_0_12px_rgba(245,158,11,0.22)]',
+  },
+  emerald: {
+    cardSelected:
+      'bg-emerald-950/40 border-emerald-400/85 shadow-[0_0_25px_rgba(16,185,129,0.3)] ring-1 ring-emerald-400',
+    cardIdle:
+      'bg-zinc-950/85 border-emerald-500/25 hover:border-emerald-400/60 hover:bg-zinc-900/85 hover:shadow-[0_0_18px_rgba(16,185,129,0.16)]',
+    corner: 'border-emerald-400/75',
+    dot: 'bg-emerald-400',
+    kodeText: 'text-emerald-300',
+    iconBox: 'bg-emerald-950/75 border-emerald-500/40 text-emerald-300',
+    titleHover: 'group-hover:text-emerald-300',
+    subtitle: 'text-emerald-400/75',
+    barFill: 'from-emerald-500 to-teal-400',
+    chip: 'bg-emerald-950/30 hover:bg-emerald-900/55 text-emerald-100 border-emerald-500/25 hover:border-emerald-400',
+    chipIcon: 'text-emerald-400',
+    ctaBtn:
+      'from-emerald-600/80 to-teal-600/80 hover:from-emerald-500 hover:to-teal-500 border-emerald-400/45 shadow-[0_0_12px_rgba(16,185,129,0.22)]',
+  },
+  indigo: {
+    cardSelected:
+      'bg-indigo-950/45 border-indigo-400/85 shadow-[0_0_25px_rgba(99,102,241,0.3)] ring-1 ring-indigo-400',
+    cardIdle:
+      'bg-zinc-950/85 border-indigo-500/25 hover:border-indigo-400/60 hover:bg-zinc-900/85 hover:shadow-[0_0_18px_rgba(99,102,241,0.16)]',
+    corner: 'border-indigo-400/75',
+    dot: 'bg-indigo-400',
+    kodeText: 'text-indigo-300',
+    iconBox: 'bg-indigo-950/75 border-indigo-500/40 text-indigo-300',
+    titleHover: 'group-hover:text-indigo-300',
+    subtitle: 'text-indigo-400/75',
+    barFill: 'from-indigo-500 to-violet-400',
+    chip: 'bg-indigo-950/35 hover:bg-indigo-900/55 text-indigo-100 border-indigo-500/25 hover:border-indigo-400',
+    chipIcon: 'text-indigo-400',
+    ctaBtn:
+      'from-indigo-600/80 to-violet-600/80 hover:from-indigo-500 hover:to-violet-500 border-indigo-400/45 shadow-[0_0_12px_rgba(99,102,241,0.22)]',
+  },
 }
 
 function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefined): DivisiVisual {
@@ -57,13 +149,24 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
     const totalOut = t?.totalOutletAktif ?? 0
     const top1 = t?.outletsAktifTransaksi?.[0] || t?.ringkasanKemarin?.outletsAktifTransaksi?.[0]
 
+    // Progress bar: % cabang yang sudah aktif bertransaksi (atau perbandingan omzet terhadap kemarin)
+    const pctOutletAktif =
+      totalOut > 0
+        ? Math.min(100, Math.round((aktifCount / totalOut) * 100))
+        : omzetKemarin > 0
+          ? 100
+          : 0
+
     return {
       kode: 'DIV-01 // SALES & POS RADAR',
       judul: 'SALES & OUTLET NETWORK',
       subjudul: 'Real-Time POS Revenue & Leaderboard',
+      tema: 'cyan',
       icon: TrendingUp,
       statusLabel: t ? `${aktifCount}/${totalOut} OUTLET AKTIF` : 'SYNCING POS...',
       statusLevel: 'optimal',
+      progressLabel: `AKTIVASI TRANSAKSI CABANG (${pctOutletAktif}%)`,
+      progressPersen: pctOutletAktif,
       metrik: [
         {
           label: 'OMZET HARI INI',
@@ -99,13 +202,19 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
     const utangTotal = t?.finance?.utangPo?.totalUtang ?? 0
     const overdue = t?.finance?.utangPo?.totalLewatJatuhTempo ?? 0
 
+    const pctPoSehat =
+      utangTotal > 0 ? Math.max(0, Math.min(100, Math.round(((utangTotal - overdue) / utangTotal) * 100))) : 100
+
     return {
       kode: 'DIV-02 // TREASURY & VAULT',
       judul: 'FINANCE & RECONCILIATION',
       subjudul: 'Cash Flow, OPEX & Supplier Liability',
+      tema: 'amber',
       icon: DollarSign,
       statusLabel: overdue > 0 ? 'PO OVERDUE ALERT' : 'TREASURY NOMINAL',
       statusLevel: overdue > 0 ? 'warning' : 'optimal',
+      progressLabel: `RASIO PO BELUM JATUH TEMPO (${pctPoSehat}%)`,
+      progressPersen: pctPoSehat,
       metrik: [
         {
           label: 'OPEX / KAS KECIL HARI INI',
@@ -138,6 +247,8 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
   if (p === 'gudang') {
     const buka = t?.statusBuka?.totalBuka ?? 0
     const belumBuka = t?.statusBuka?.totalBelumBuka ?? 0
+    const totalCabang = buka + belumBuka
+    const pctBuka = totalCabang > 0 ? Math.min(100, Math.round((buka / totalCabang) * 100)) : 100
     const voidCount = t?.voidOrder?.totalVoidHariIni ?? 0
     const voidRp = t?.voidOrder?.totalNilaiVoidHariIni ?? 0
     const wasteRp = t?.waste?.totalEstKerugianRp ?? 0
@@ -147,9 +258,12 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
       kode: 'DIV-03 // SUPPLY & LOSS PREV',
       judul: 'OPS, VOID & WASTE RADAR',
       subjudul: 'Shift Readiness, POS Audit & Inventory Loss',
+      tema: 'emerald',
       icon: Package,
       statusLabel: voidCount > 0 ? `${voidCount} VOID TERDETEKSI` : 'AUDIT BERSIH',
       statusLevel: voidCount > 0 ? 'warning' : 'optimal',
+      progressLabel: `KESIAPAN SHIFT KASIR CABANG (${pctBuka}%)`,
+      progressPersen: pctBuka,
       metrik: [
         {
           label: 'SHIFT KASIR CABANG',
@@ -192,9 +306,12 @@ function bangunVisualDivisi(profil: string, t: TelemetriHariIni | null | undefin
     kode: 'DIV-04 // WORKFORCE & REVIEW',
     judul: 'HRD & CUSTOMER SENTIMENT',
     subjudul: 'Live Attendance & Google Review Radar',
+    tema: 'indigo',
     icon: Users,
     statusLabel: telatCount > 0 ? `${telatCount} KRU TERLAMBAT` : `ON-TIME ${onTimePct}%`,
     statusLevel: telatCount > 3 ? 'warning' : 'optimal',
+    progressLabel: `DISIPLIN PRESENSI KRU (${onTimePct}% ON-TIME)`,
+    progressPersen: Math.max(0, Math.min(100, onTimePct)),
     metrik: [
       {
         label: 'KEHADIRAN KRU OUTLET',
@@ -241,6 +358,7 @@ export default function AgentNodeCard({
 }: AgentNodeCardProps) {
   const profil = meja?.profil ?? profilFallback
   const vis = bangunVisualDivisi(profil, telemetri)
+  const tema = TEMA_STYLE[vis.tema]
   const IconComponent = vis.icon
 
   const badgeStyle =
@@ -262,22 +380,20 @@ export default function AgentNodeCard({
   return (
     <div
       className={`relative group rounded-xl p-3 sm:p-3.5 transition-all duration-300 backdrop-blur-md border ${
-        terpilih
-          ? 'bg-cyan-950/45 border-cyan-400/80 shadow-[0_0_25px_rgba(6,182,212,0.3)] ring-1 ring-cyan-400'
-          : 'bg-zinc-950/80 border-cyan-500/25 hover:border-cyan-400/55 hover:bg-zinc-900/85 hover:shadow-[0_0_18px_rgba(6,182,212,0.18)]'
+        terpilih ? tema.cardSelected : tema.cardIdle
       }`}
     >
       {/* Reticle Corners */}
-      <div className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-400/70 pointer-events-none" />
-      <div className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-400/70 pointer-events-none" />
-      <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-400/70 pointer-events-none" />
-      <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-400/70 pointer-events-none" />
+      <div className={`absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 ${tema.corner} pointer-events-none`} />
+      <div className={`absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 ${tema.corner} pointer-events-none`} />
+      <div className={`absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 ${tema.corner} pointer-events-none`} />
+      <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 ${tema.corner} pointer-events-none`} />
 
       {/* Header Card: Division Code & Live Telemetry Status */}
-      <div className="flex items-center justify-between gap-2 border-b border-cyan-500/15 pb-1.5 mb-2">
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-1.5 mb-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping shrink-0" />
-          <span className="font-mono-hud text-[9px] sm:text-[10px] tracking-widest text-cyan-300 font-bold uppercase truncate">
+          <div className={`w-1.5 h-1.5 rounded-full ${tema.dot} animate-ping shrink-0`} />
+          <span className={`font-mono-hud text-[9px] sm:text-[10px] tracking-widest ${tema.kodeText} font-bold uppercase truncate`}>
             {vis.kode}
           </span>
         </div>
@@ -292,21 +408,35 @@ export default function AgentNodeCard({
 
       {/* Main Title */}
       <div className="flex items-center gap-2.5 mb-2">
-        <div className="p-1.5 sm:p-2 rounded-lg bg-cyan-950/70 border border-cyan-500/35 text-cyan-300 group-hover:scale-105 transition-transform shrink-0">
+        <div className={`p-1.5 sm:p-2 rounded-lg border ${tema.iconBox} group-hover:scale-105 transition-transform shrink-0`}>
           <IconComponent className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
         </div>
-        <div className="min-w-0">
-          <h3 className="font-hud text-xs sm:text-sm font-bold text-white tracking-wider group-hover:text-cyan-300 transition-colors truncate">
+        <div className="min-w-0 flex-1">
+          <h3 className={`font-hud text-xs sm:text-sm font-bold text-white tracking-wider ${tema.titleHover} transition-colors truncate`}>
             {vis.judul}
           </h3>
-          <p className="font-mono-hud text-[9px] sm:text-[10px] text-cyan-400/75 truncate">
+          <p className={`font-mono-hud text-[9px] sm:text-[10px] ${tema.subtitle} truncate`}>
             {vis.subjudul}
           </p>
         </div>
       </div>
 
+      {/* Mini Division Telemetry Progress Bar */}
+      <div className="mb-2">
+        <div className="flex items-center justify-between font-mono-hud text-[8px] sm:text-[9px] text-zinc-400 mb-0.5">
+          <span className="truncate">{vis.progressLabel}</span>
+          <span className={`font-bold ${tema.kodeText}`}>{vis.progressPersen}%</span>
+        </div>
+        <div className="w-full h-1 rounded-full bg-zinc-900 overflow-hidden border border-white/5">
+          <div
+            className={`h-full bg-gradient-to-r ${tema.barFill} transition-all duration-700`}
+            style={{ width: `${Math.max(4, vis.progressPersen)}%` }}
+          />
+        </div>
+      </div>
+
       {/* Live 4-Row Division Telemetry Readout */}
-      <div className="space-y-1 bg-black/60 rounded-lg p-2 border border-cyan-500/15 font-mono-hud">
+      <div className="space-y-1 bg-black/60 rounded-lg p-2 border border-white/10 font-mono-hud">
         {vis.metrik.map((m, idx) => {
           const warnaNilai =
             m.sorot === 'crit'
@@ -315,7 +445,7 @@ export default function AgentNodeCard({
                 ? 'text-amber-300 font-semibold'
                 : m.sorot === 'good'
                   ? 'text-emerald-300 font-semibold'
-                  : 'text-cyan-200'
+                  : 'text-cyan-100'
           return (
             <div key={idx} className="flex items-center justify-between gap-2 text-[10px] sm:text-[11px]">
               <span className="text-zinc-400 truncate">{m.label}</span>
@@ -326,7 +456,7 @@ export default function AgentNodeCard({
       </div>
 
       {/* Quick Ask Jarvis Chips */}
-      <div className="mt-2 pt-1.5 border-t border-cyan-500/15 flex flex-col gap-1">
+      <div className="mt-2 pt-1.5 border-t border-white/10 flex flex-col gap-1">
         {vis.contohPertanyaan.map((q, idx) => (
           <button
             key={idx}
@@ -335,10 +465,10 @@ export default function AgentNodeCard({
               e.stopPropagation()
               handleTanyaJarvis(q)
             }}
-            className="w-full text-left font-mono-hud text-[9px] sm:text-[10px] px-2 py-1 rounded bg-cyan-950/35 hover:bg-cyan-900/60 text-cyan-200 border border-cyan-500/25 hover:border-cyan-400 transition-all cursor-pointer truncate flex items-center gap-1"
+            className={`w-full text-left font-mono-hud text-[9px] sm:text-[10px] px-2 py-1 rounded border transition-all cursor-pointer truncate flex items-center gap-1 ${tema.chip}`}
             title={q}
           >
-            <Sparkles className="w-2.5 h-2.5 text-cyan-400 shrink-0" />
+            <Sparkles className={`w-2.5 h-2.5 ${tema.chipIcon} shrink-0`} />
             <span className="truncate">{q}</span>
           </button>
         ))}
@@ -348,7 +478,7 @@ export default function AgentNodeCard({
       <button
         type="button"
         onClick={() => handleTanyaJarvis()}
-        className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg font-hud text-[10px] tracking-wider uppercase font-bold transition-all cursor-pointer bg-gradient-to-r from-cyan-600/75 to-blue-600/75 hover:from-cyan-500 hover:to-blue-500 text-white shadow-[0_0_12px_rgba(6,182,212,0.2)] border border-cyan-400/40"
+        className={`mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg font-hud text-[10px] tracking-wider uppercase font-bold transition-all cursor-pointer bg-gradient-to-r text-white border ${tema.ctaBtn}`}
       >
         <Radio className="w-3 h-3 animate-pulse" />
         <span>ANALISIS DIVISI VIA J.A.R.V.I.S.</span>

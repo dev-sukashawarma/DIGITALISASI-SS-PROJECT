@@ -3,7 +3,16 @@ import { resolvePeriode, periodePembanding, type KodePeriode, type Periode } fro
 import { cariSatu, normalisasiOutlet } from '../pencarian'
 import { rupiah, jamWib } from '../format'
 
-export interface RingkasanLaporan { omzetKotor: number; omzetBersih: number; transaksi: number; menu: { nama: string; qty: number; omzet: number }[] }
+export interface RingkasanLaporan {
+  omzetKotor: number
+  omzetBersih: number
+  potongan?: number
+  totalHpp?: number
+  labaKotor?: number
+  totalPorsi?: number
+  transaksi: number
+  menu: { nama: string; qty: number; omzet: number }[]
+}
 export type AmbilLaporan = (r: { dari: string; sampai: string; outletIds: string[]; kanal: string[] }) => Promise<RingkasanLaporan>
 export interface OutletInfo { id: string; name: string; type: string; is_active: boolean; slug?: string | null }
 export interface BarisVoidRingkas { id: string; outlet: string; total_nilai: number; waktu: string }
@@ -70,11 +79,16 @@ function pilihCakupan(ctx: KonteksPenjualan, outlet?: string): Cakupan {
 }
 
 function ringkas(p: Periode, l: RingkasanLaporan) {
+  const totalPorsi = l.totalPorsi ?? l.menu.reduce((sum, m) => sum + m.qty, 0)
   return {
     periode: p.label,
     omzet_kotor: rupiah(l.omzetKotor),
     omzet_kotor_angka: Math.round(l.omzetKotor),
     omzet_bersih: rupiah(l.omzetBersih),
+    ...(l.potongan !== undefined ? { potongan: rupiah(l.potongan) } : {}),
+    ...(l.totalHpp !== undefined ? { hpp: rupiah(l.totalHpp) } : {}),
+    ...(l.labaKotor !== undefined ? { laba_kotor: rupiah(l.labaKotor) } : {}),
+    total_porsi: totalPorsi,
     transaksi: l.transaksi,
   }
 }

@@ -144,12 +144,12 @@ export default function SalesMonitoringPage() {
       const fromStart = `${todayStr}T00:00:00.000+07:00`
       const toEnd = `${todayStr}T23:59:59.999+07:00`
 
-      // 1. Fetch Today's Orders (Completed) for Sales Total
+      // 1. Fetch Today's Orders (Completed & Settled) for Sales Total
       const { data: orders } = await supabase
         .from('orders')
-        .select('total_amount')
+        .select('total_amount, discount_amount')
         .eq('outlet_id', outletId)
-        .eq('status', 'completed')
+        .in('status', ['completed', 'settled'])
         .gte('created_at', fromStart)
         .lte('created_at', toEnd)
 
@@ -188,7 +188,7 @@ export default function SalesMonitoringPage() {
         .from('historical_daily_targets')
         .select('target_amount')
         .eq('outlet_id', outletId)
-        .eq('record_date', today)
+        .eq('record_date', todayStr)
         .maybeSingle()
 
       if (targetData && targetData.target_amount) {

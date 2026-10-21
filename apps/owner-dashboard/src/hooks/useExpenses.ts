@@ -46,12 +46,33 @@ export function useExpenses(filter: PeriodFilterValue) {
         .order('id', { ascending: false })
     }
 
-    fetchAllRows<any>(build).then(({ data, error }) => {
+    const buildPetty = () => {
+      let q = supabase
+        .from('petty_cash_transactions')
+        .select('id, outlet_id, category, amount, description, created_at, outlets(name)')
+        .eq('type', 'debit')
+        .eq('approval_status', 'approved')
+        .gte('created_at', `${filter.from}T00:00:00+07:00`)
+        .lte('created_at', `${filter.to}T23:59:59+07:00`)
+
+      if (filter.outletId !== 'all') {
+        q = q.eq('outlet_id', filter.outletId)
+      }
+
+      return q
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+    }
+
+    Promise.all([
+      fetchAllRows<any>(build),
+      fetchAllRows<any>(buildPetty),
+    ]).then(([expRes, pettyRes]) => {
       if (!active) return
-      if (error) {
-        setError(error)
+      if (expRes.error) {
+        setError(expRes.error)
       } else {
-        const mapped = data.map((row: any) => ({
+        const mappedExp = (expRes.data || []).map((row: any) => ({
           id: row.id,
           outlet_id: row.outlet_id,
           outlet_name: row.outlets?.name ?? 'Outlet Tidak Dikenal',
@@ -60,7 +81,24 @@ export function useExpenses(filter: PeriodFilterValue) {
           description: row.description,
           expense_date: row.expense_date,
         })) as ExpenseRow[]
-        setRows(mapped)
+
+        const mappedPetty = (pettyRes.data || []).map((row: any) => {
+          const tglWib = row.created_at
+            ? new Date(new Date(row.created_at).getTime() + 7 * 3600_000).toISOString().slice(0, 10)
+            : filter.from
+          return {
+            id: `petty-${row.id}`,
+            outlet_id: row.outlet_id,
+            outlet_name: row.outlets?.name ?? 'Outlet Tidak Dikenal',
+            category: (row.category || 'operasional') as ExpenseRow['category'],
+            amount: Number(row.amount),
+            description: row.description,
+            expense_date: tglWib,
+          }
+        }) as ExpenseRow[]
+
+        const combined = [...mappedExp, ...mappedPetty].sort((a, b) => b.expense_date.localeCompare(a.expense_date))
+        setRows(combined)
       }
       setLoading(false)
     })

@@ -192,20 +192,120 @@ export default async function ReportsPage({
     return q.order('id', { ascending: true });
   };
 
-  // Fetch Outlets for the filter dropdown
-  let qOutlets = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).neq('id', TEST_OUTLET_ID);
+  // Fetch Outlets for the filter dropdown & mitra HPP markup
+  let qOutlets = supabaseAdmin.from('outlets').select('id, name, type').eq('is_active', true).neq('id', TEST_OUTLET_ID);
   if (staff?.role === 'area_manager') {
     qOutlets = qOutlets.in('id', accessibleOutlets);
   } else if (staff?.outlet_id && !isFullAccess) {
     qOutlets = qOutlets.eq('id', staff.outlet_id);
   }
 
-  const [posOrdersData, ecommerceSalesData, settlementsData, { data: outletsData }] = await Promise.all([
+  const [posOrdersData, ecommerceSalesData, settlementsData, { data: outletsData }, { data: menuItemsData }, { data: riwayatHppData }] = await Promise.all([
     permittedOutletId === 'ss-online' ? Promise.resolve([]) : fetchAllPages(buildOrdersQuery),
     shouldIncludeEcommerce ? fetchAllPages(buildEcommerceQuery) : Promise.resolve([]),
     fetchAllPages(buildSettlementsQuery),
     qOutlets,
+    supabaseAdmin
+      .from('menu_items')
+      .select(
+        'id, name, hpp_override, channel_hpp, is_package, package_items:menu_package_items!menu_package_items_package_menu_id_fkey(quantity, component:menu_items!menu_package_items_component_menu_id_fkey(id, name, hpp_override, channel_hpp))'
+      ),
+    supabaseAdmin
+      .from('menu_hpp_riwayat')
+      .select('menu_id, berlaku_mulai, hpp_override, channel_hpp')
+      .order('berlaku_mulai', { ascending: true }),
   ]);
+
+  const outletTypeMap = new Map<string, string>();
+  for (const o of outletsData || []) {
+    if (o.id) outletTypeMap.set(o.id, String(o.type || 'internal').toLowerCase());
+  }
+
+  const riwayatByMenu = new Map<string, any[]>();
+  for (const r of riwayatHppData || []) {
+    if (!r?.menu_id || !r?.berlaku_mulai) continue;
+    const list = riwayatByMenu.get(r.menu_id);
+    if (list) list.push(r);
+    else riwayatByMenu.set(r.menu_id, [r]);
+  }
+  for (const list of riwayatByMenu.values()) {
+    list.sort((a: any, b: any) => (a.berlaku_mulai < b.berlaku_mulai ? -1 : a.berlaku_mulai > b.berlaku_mulai ? 1 : 0));
+  }
+
+  const cachePenerapTanggal = new Map<string, { byId: Map<string, any>; byName: Map<string, any> }>();
+  const getPenerapUntukTanggal = (tgl: string) => {
+    const cached = cachePenerapTanggal.get(tgl);
+    if (cached) return cached;
+    const pilihBaris = (menuId?: string) => {
+      if (!menuId) return undefined;
+      const list = riwayatByMenu.get(menuId);
+      if (!list || list.length === 0) return undefined;
+      let kandidat: any = undefined;
+      for (const b of list) {
+        if (b.berlaku_mulai <= tgl) kandidat = b;
+        else break;
+      }
+      return kandidat ?? list[0];
+    };
+    const timpa = (m: any): any => {
+      if (!m || typeof m !== 'object') return m;
+      const r = pilihBaris(m.id);
+      const next: any = r ? { ...m, hpp_override: r.hpp_override, channel_hpp: r.channel_hpp ?? {} } : { ...m };
+      if (Array.isArray(m.package_items)) {
+        next.package_items = m.package_items.map((pi: any) =>
+          pi?.component ? { ...pi, component: timpa(pi.component) } : pi
+        );
+      }
+      return next;
+    };
+    const byId = new Map<string, any>();
+    const byName = new Map<string, any>();
+    for (const m of menuItemsData || []) {
+      const t = timpa(m);
+      if (m?.id) byId.set(m.id, t);
+      if (m?.name) byName.set(cleanItemName(m.name), t);
+    }
+    const res = { byId, byName };
+    cachePenerapTanggal.set(tgl, res);
+    return res;
+  };
+
+  const hitungHppItem = (
+    menuItem: any,
+    outletType?: string,
+    fallbackName?: string,
+    byName?: Map<string, any>,
+    channel?: string | null,
+    menuItemId?: string | null,
+    byId?: Map<string, any>
+  ): number => {
+    let itemObj = menuItem;
+    if (!itemObj && menuItemId && byId?.has(menuItemId)) itemObj = byId.get(menuItemId);
+    if ((!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) && fallbackName && byName) {
+      const cleanKey = cleanItemName(fallbackName);
+      if (byName.has(cleanKey)) itemObj = byName.get(cleanKey);
+    }
+    if (!itemObj) return 0;
+    const normCh = channel ? channel.toLowerCase() : null;
+    const isMitra = outletType === 'mitra';
+    let baseHpp = 0;
+    let channelHppVal: number | null = null;
+    if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
+      channelHppVal = itemObj.channel_hpp[normCh] ?? null;
+    }
+    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+      baseHpp = Number(channelHppVal);
+    } else if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
+      baseHpp = Number(itemObj.hpp_override);
+    } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
+      baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
+        const compHpp = pkg.component ? hitungHppItem(pkg.component, undefined, undefined, undefined, channel) : 0;
+        const qty = pkg.quantity || 1;
+        return sum + compHpp * qty;
+      }, 0);
+    }
+    return isMitra && baseHpp > 0 ? Math.round(baseHpp * 1.1) : baseHpp;
+  };
 
   const ecommerceOrders = (ecommerceSalesData || []).map(mapEcommerceSaleToOrder);
   const combinedOrders = [...(posOrdersData || []), ...ecommerceOrders];
@@ -230,6 +330,7 @@ export default async function ReportsPage({
   let grossRevenue = 0;
   let totalDeductions = 0;
   let totalPlatformSubsidy = 0;
+  let totalHPP = 0;
 
   const paymentBreakdown: Record<string, { count: number; revenue: number }> = {};
   const hourly = Array(24).fill(0);
@@ -238,6 +339,13 @@ export default async function ReportsPage({
 
   completedOrders.forEach((o: any) => {
     const outletId = o.outlet_id;
+    const outType = outletId ? outletTypeMap.get(outletId) : 'internal';
+    const ordChannel = o.channel || o.sales_source || null;
+    const tglWib = o.created_at
+      ? new Date(new Date(o.created_at).getTime() + 7 * 3600_000).toISOString().slice(0, 10)
+      : toDateStr;
+    const penerap = getPenerapUntukTanggal(tglWib);
+
     if (outletId) {
       if (!outletSalesMap[outletId]) outletSalesMap[outletId] = { itemsSold: 0, items: {} };
     }
@@ -262,12 +370,16 @@ export default async function ReportsPage({
     const h = (d.getUTCHours() + 7) % 24;
     hourly[h]++;
 
-    // 4. Best Sellers (menggunakan cleanItemName seperti Admin)
+    // 4. Best Sellers & HPP (menggunakan cleanItemName & riwayatHpp seperti Admin)
     if (Array.isArray(o.order_items)) {
       o.order_items.forEach((oi: any) => {
         const name = cleanItemName(oi.menu_item_name) || 'Item';
         const qty = Number(oi.quantity) || 0;
         const sub = Number(oi.subtotal) || 0;
+
+        const menuItem = (oi.menu_item_id ? penerap.byId.get(oi.menu_item_id) : null) || penerap.byName.get(name);
+        const unitHpp = hitungHppItem(menuItem, outType, name, penerap.byName, ordChannel, oi.menu_item_id, penerap.byId);
+        totalHPP += unitHpp * qty;
 
         if (!itemMap[name]) itemMap[name] = { name, qty: 0, revenue: 0 };
         itemMap[name].qty += qty;
@@ -287,6 +399,8 @@ export default async function ReportsPage({
 
   const totalRevenue = grossRevenue;
   const netRevenue = grossRevenue - totalDeductions;
+  totalHPP = Math.round(totalHPP);
+  const grossProfit = Math.max(0, Math.round(netRevenue - totalHPP));
   const totalOrders = completedOrders.length;
   const pendingCount = filteredOrders.filter((o: any) => o.status === 'pending').length;
   const canceledCount = filteredOrders.filter((o: any) => o.status === 'cancelled').length;
@@ -309,6 +423,8 @@ export default async function ReportsPage({
     totalDeductions,
     totalPlatformSubsidy,
     netRevenue,
+    totalHPP,
+    grossProfit,
     totalOrders,
     totalItemsSold,
     avgOrderValue,

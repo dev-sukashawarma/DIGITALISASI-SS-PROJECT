@@ -17,6 +17,10 @@ export function buatAmbilLaporan(panggil: (req: PosReportRequest) => Promise<any
     return {
       omzetKotor: Number(r.analytics.grossRevenue) || 0,
       omzetBersih: Number(r.analytics.netRevenue) || 0,
+      potongan: Number(r.analytics.totalDeductions) || 0,
+      totalHpp: Number(r.analytics.totalHPP) || 0,
+      labaKotor: Number(r.analytics.grossProfit) || 0,
+      totalPorsi: Number(r.analytics.totalItemsSold) || 0,
       transaksi: Number(r.analytics.totalOrders) || 0,
       menu: (r.analytics.bestSellers ?? []).map((b: any) => ({ nama: String(b.name), qty: Number(b.qty) || 0, omzet: Number(b.revenue) || 0 })),
     }

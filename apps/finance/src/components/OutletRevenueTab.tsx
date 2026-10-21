@@ -24,15 +24,22 @@ interface SalesItemRow {
 
 const ITEMS_PER_PAGE = 50;
 
+function getWibTodayDate(): Date {
+  return new Date(Date.now() + 7 * 3600 * 1000)
+}
+
+function formatWibYmd(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
 export default function OutletRevenueTab() {
   const [preset, setPreset] = useState('bulan_ini')
   const [startDate, setStartDate] = useState(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+    const ymd = formatWibYmd(getWibTodayDate())
+    return `${ymd.slice(0, 7)}-01`
   })
   const [endDate, setEndDate] = useState(() => {
-    const d = new Date()
-    return d.toISOString().slice(0, 10)
+    return formatWibYmd(getWibTodayDate())
   })
   
   const [viewMode, setViewMode] = useState<'ringkasan' | 'item'>('ringkasan')
@@ -49,32 +56,28 @@ export default function OutletRevenueTab() {
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
     setPreset(val)
-    const today = new Date()
+    const todayWib = getWibTodayDate()
+    const todayStr = formatWibYmd(todayWib)
     
     if (val === 'hari_ini') {
-      const d = today.toISOString().slice(0, 10)
-      setStartDate(d)
-      setEndDate(d)
+      setStartDate(todayStr)
+      setEndDate(todayStr)
     } else if (val === 'kemarin') {
-      const d = new Date(today)
-      d.setDate(d.getDate() - 1)
-      const str = d.toISOString().slice(0, 10)
+      const d = new Date(todayWib.getTime() - 24 * 3600 * 1000)
+      const str = formatWibYmd(d)
       setStartDate(str)
       setEndDate(str)
     } else if (val === '7_hari') {
-      const start = new Date(today)
-      start.setDate(start.getDate() - 6)
-      setStartDate(start.toISOString().slice(0, 10))
-      setEndDate(today.toISOString().slice(0, 10))
+      const start = new Date(todayWib.getTime() - 6 * 24 * 3600 * 1000)
+      setStartDate(formatWibYmd(start))
+      setEndDate(todayStr)
     } else if (val === '30_hari') {
-      const start = new Date(today)
-      start.setDate(start.getDate() - 29)
-      setStartDate(start.toISOString().slice(0, 10))
-      setEndDate(today.toISOString().slice(0, 10))
+      const start = new Date(todayWib.getTime() - 29 * 24 * 3600 * 1000)
+      setStartDate(formatWibYmd(start))
+      setEndDate(todayStr)
     } else if (val === 'bulan_ini') {
-      const d = new Date(today)
-      setStartDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`)
-      setEndDate(d.toISOString().slice(0, 10))
+      setStartDate(`${todayStr.slice(0, 7)}-01`)
+      setEndDate(todayStr)
     }
     setPageRingkasan(1)
     setPageItems(1)
@@ -114,8 +117,8 @@ export default function OutletRevenueTab() {
       const buildSalesQuery = () => {
         return supabase
           .from('orders')
-          .select('outlet_id, sales_source, channel, is_endorse, total_amount, created_at, status')
-          .eq('status', 'completed')
+          .select('outlet_id, sales_source, channel, is_endorse, total_amount, discount_amount, created_at, status')
+          .in('status', ['completed', 'settled'])
           .gte('created_at', `${from}T00:00:00.000+07:00`)
           .lte('created_at', `${to}T23:59:59.999+07:00`) as any // Type bypass
       }
@@ -125,7 +128,7 @@ export default function OutletRevenueTab() {
       const nameMap = new Map<string, string>()
       outlets.forEach(o => nameMap.set(o.id, o.name))
 
-      const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; totalRevenue: number; totalOrders: number }>()
+      const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; totalRevenue: number; totalDiscount: number; netRevenue: number; totalOrders: number }>()
 
       orderRows.forEach(s => {
         if (selectedOutletId !== 'all' && s.outlet_id !== selectedOutletId) return;
@@ -140,10 +143,15 @@ export default function OutletRevenueTab() {
         const outletId = s.outlet_id
         const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
         const key = `${date}-${outletId}-${channelRaw}`
+        const gross = Number(s.total_amount || 0)
+        const disc = Math.max(0, Number(s.discount_amount || 0))
+        const net = Math.max(0, gross - disc)
         
         const existing = aggMap.get(key)
         if (existing) {
-          existing.totalRevenue += Number(s.total_amount || 0)
+          existing.totalRevenue += gross
+          existing.totalDiscount += disc
+          existing.netRevenue += net
           existing.totalOrders += 1
         } else {
           aggMap.set(key, {
@@ -151,7 +159,9 @@ export default function OutletRevenueTab() {
             outletId,
             outletName,
             channel: channelRaw,
-            totalRevenue: Number(s.total_amount || 0),
+            totalRevenue: gross,
+            totalDiscount: disc,
+            netRevenue: net,
             totalOrders: 1
           })
         }
@@ -237,6 +247,14 @@ export default function OutletRevenueTab() {
 
   const totalOmzetAllOutlets = useMemo(() => {
     return revenueData.reduce((sum, item) => sum + item.totalRevenue, 0)
+  }, [revenueData])
+
+  const totalNetOmzetAllOutlets = useMemo(() => {
+    return revenueData.reduce((sum, item) => sum + (item.netRevenue ?? item.totalRevenue), 0)
+  }, [revenueData])
+
+  const totalDiscountAllOutlets = useMemo(() => {
+    return revenueData.reduce((sum, item) => sum + (item.totalDiscount ?? 0), 0)
   }, [revenueData])
 
   const totalOrdersAllOutlets = useMemo(() => {
@@ -386,11 +404,14 @@ export default function OutletRevenueTab() {
                   <TrendingUp size={20} />
                 </div>
               </div>
-              <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-1">Total Omzet Keseluruhan</p>
+              <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-1">Total Omzet Kotor</p>
               <h3 className="font-display text-3xl text-suka-ink flex items-baseline">
                 <span className="text-lg mr-1 font-sans font-bold">Rp</span>
                 <NumberFlow value={totalOmzetAllOutlets} />
               </h3>
+              <p className="text-[11px] font-bold text-emerald-700 mt-1">
+                Net: {rupiah(totalNetOmzetAllOutlets)} (Potongan: {rupiah(totalDiscountAllOutlets)})
+              </p>
             </div>
           </div>
         </div>
@@ -478,7 +499,9 @@ export default function OutletRevenueTab() {
                       <th className="py-3 px-5 font-semibold">Nama Outlet</th>
                       <th className="py-3 px-5 font-semibold">Channel</th>
                       <th className="py-3 px-5 font-semibold text-right">Jumlah Order</th>
-                      <th className="py-3 px-5 font-semibold text-right">Total Omzet</th>
+                      <th className="py-3 px-5 font-semibold text-right">Omzet Kotor</th>
+                      <th className="py-3 px-5 font-semibold text-right">Potongan</th>
+                      <th className="py-3 px-5 font-semibold text-right">Omzet Bersih (Net)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-suka-brown/5">
@@ -513,6 +536,16 @@ export default function OutletRevenueTab() {
                               <span className="text-[#d946ef]">{item.totalOrders} porsi</span>
                             ) : (
                               rupiah(item.totalRevenue)
+                            )}
+                          </td>
+                          <td className="py-4 px-5 text-right font-medium text-rose-600">
+                            {item.channel === 'endors' ? '-' : rupiah(item.totalDiscount ?? 0)}
+                          </td>
+                          <td className="py-4 px-5 text-right font-black text-emerald-700">
+                            {item.channel === 'endors' ? (
+                              <span className="text-[#d946ef]">{item.totalOrders} porsi</span>
+                            ) : (
+                              rupiah(item.netRevenue ?? item.totalRevenue)
                             )}
                           </td>
                         </tr>

@@ -244,6 +244,46 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
           <p className="text-[10px] text-suka-gray-400 mt-3 font-medium">Diskon yang ditanggung outlet</p>
         </div>
 
+        {/* Omzet Bersih (Net Revenue) */}
+        <div className="bg-white border border-suka-brown/10 p-5 rounded-2xl flex flex-col justify-between min-w-0 shadow-sm">
+          <div className="min-w-0">
+            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center mb-3">
+              <Banknote className="w-5 h-5 text-emerald-600" strokeWidth={2} />
+            </div>
+            <p className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider">Omzet Bersih (Net)</p>
+            <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.netRevenue ?? analytics.totalRevenue)}</p>
+          </div>
+          <p className="text-[10px] text-suka-gray-400 mt-3 font-medium">Omzet kotor dikurangi potongan merchant</p>
+        </div>
+
+        {/* HPP (COGS) */}
+        {analytics.totalHPP !== undefined && (
+          <div className="bg-white border border-suka-brown/10 p-5 rounded-2xl flex flex-col justify-between min-w-0 shadow-sm">
+            <div className="min-w-0">
+              <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center mb-3">
+                <Package className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              </div>
+              <p className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider">Total HPP (COGS)</p>
+              <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalHPP)}</p>
+            </div>
+            <p className="text-[10px] text-suka-gray-400 mt-3 font-medium">Biaya pokok bahan baku ({analytics.totalItemsSold || 0} porsi)</p>
+          </div>
+        )}
+
+        {/* Laba Kotor (Gross Profit) */}
+        {analytics.grossProfit !== undefined && (
+          <div className="bg-white border border-suka-brown/10 p-5 rounded-2xl flex flex-col justify-between min-w-0 shadow-sm">
+            <div className="min-w-0">
+              <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center mb-3">
+                <TrendingUp className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              </div>
+              <p className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider">Laba Kotor (Gross Profit)</p>
+              <p className="text-2xl sm:text-3xl font-black text-teal-700 mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.grossProfit)}</p>
+            </div>
+            <p className="text-[10px] text-suka-gray-400 mt-3 font-medium">Omzet bersih dikurangi HPP</p>
+          </div>
+        )}
+
         {/* Subsidi Platform -- INFORMASI. Ditanggung Grab/Gojek/Shopee,
             tidak memotong omzet maupun laba. */}
         <div className="bg-white border border-suka-brown/10 p-5 rounded-2xl flex flex-col justify-between min-w-0 shadow-sm">

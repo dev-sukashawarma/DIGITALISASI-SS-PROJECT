@@ -5,7 +5,7 @@
   "description": "Webapp Bot Suka Shawarma — meja depan Hermes (agents.sukashawarma.com)",
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 3050",
+    "dev": "next dev --webpack -p 3050",
     "build": "next build --webpack",
     "start": "next start",
     "type-check": "tsc --noEmit",

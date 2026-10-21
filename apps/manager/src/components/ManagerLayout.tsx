@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen, Menu, X, ArrowLeft, Trash2, ListChecks } from 'lucide-react'
+import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen, Menu, X, ArrowLeft, Trash2, ListChecks, Wallet } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useApprovals } from '../lib/ApprovalsContext'
@@ -24,6 +24,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/', label: 'Overview', icon: LayoutDashboard },
       { href: '/reports', label: 'Laporan', icon: BarChart3 },
+      { href: '/buku-kas', label: 'Buku Kas (OPEX)', icon: Wallet },
       { href: '/inventaris-sidak', label: 'Sidak Inventaris', icon: ClipboardCheck, allowedRoles: ['regional_manager', 'area_manager'] },
       { href: '/ceklist-harian', label: 'Ceklist Harian', icon: ListChecks, allowedRoles: ['regional_manager', 'area_manager', 'admin', 'owner', 'developer'] },
     ]
@@ -44,6 +45,7 @@ const NAV_GROUPS: NavGroup[] = [
 const PRIMARY_NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
   { href: '/reports', label: 'Laporan', icon: BarChart3 },
+      { href: '/buku-kas', label: 'Buku Kas (OPEX)', icon: Wallet },
   { href: '/approvals', label: 'Persetujuan', icon: CheckSquare },
   { href: '/petty-cash', label: 'Petty Cash', icon: Receipt },
 ];

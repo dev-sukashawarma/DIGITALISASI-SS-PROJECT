@@ -157,7 +157,7 @@ export interface PeriodFilterValue {
   from: string                  // 'YYYY-MM-DD' inklusif
   to: string                    // 'YYYY-MM-DD' inklusif
   outletId: string | 'all'
-  source: SalesSource | 'all'
+  source?: SalesSource | string | 'all'
 }
 
 // ── Attendance ──────────────────────────────────────────────

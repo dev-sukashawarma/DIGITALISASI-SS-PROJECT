@@ -8,6 +8,12 @@ vi.mock('@/lib/server/telegram', () => ({
   supabaseAdmin: vi.fn(),
 }))
 
+vi.mock('@/lib/server/aiRouter', () => ({
+  tanyaAiRouter: vi.fn().mockImplementation(async function* () {
+    yield 'Laporan Omzet Hari Ini: Rp 15.000.000 dari 150 order.'
+  }),
+}))
+
 vi.mock('@/lib/server/telemetriNyata', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/server/telemetriNyata')>()
   return {

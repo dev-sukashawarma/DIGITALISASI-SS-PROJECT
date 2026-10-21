@@ -68,14 +68,24 @@ export async function* tanyaAiRouter(o: {
   // Bangun data operasional real-time Suka Shawarma sebagai referensi knowledge base
   let konteksData = 'Data operasional real-time saat ini tidak tersedia.'
   if (t) {
-    const listTransaksi = t.outletsAktifTransaksi
-      .map(
-        (out, i) =>
-          `${i + 1}. ${out.nama} [${out.type}]: ${formatRupiah(out.omzet)} (${out.orderCount} order, AOV ${formatRupiah(
-            out.orderCount > 0 ? Math.round(out.omzet / out.orderCount) : 0
-          )})`
-      )
-      .join('\n')
+    const formatBarisOutlet = (out: any, i: number) => {
+      const aov = out.orderCount > 0 ? Math.round(out.omzet / out.orderCount) : 0
+      const net = out.omzetBersih !== undefined ? ` | Net: ${formatRupiah(out.omzetBersih)}` : ''
+      const pot = out.potongan ? ` | Potongan Promo/Diskon: ${formatRupiah(out.potongan)}` : ''
+      const kanalInfo =
+        out.rincianKanal && out.rincianKanal.length > 0
+          ? ` [Kanal: ${out.rincianKanal
+              .map((rk: any) =>
+                rk.potongan > 0
+                  ? `${rk.kanal} Kotor ${formatRupiah(rk.omzetKotor)}/Net ${formatRupiah(rk.omzetBersih)} (${rk.orderCount})`
+                  : `${rk.kanal} ${formatRupiah(rk.omzetKotor)} (${rk.orderCount})`
+              )
+              .join(', ')}]`
+          : ''
+      return `${i + 1}. ${out.nama} [${out.type}]: Kotor ${formatRupiah(out.omzet)}${net}${pot} (${out.orderCount} order, AOV ${formatRupiah(aov)})${kanalInfo}`
+    }
+
+    const listTransaksi = t.outletsAktifTransaksi.map(formatBarisOutlet).join('\n')
 
     const listNol = t.outletsNolTransaksi.map((out) => `- ${out.nama} (${out.type})`).join('\n')
     const listMenu = t.topMenu.map((m, i) => `${i + 1}. ${m.nama}: ${m.qty} porsi (${formatRupiah(m.omzet)})`).join('\n')
@@ -123,14 +133,7 @@ export async function* tanyaAiRouter(o: {
       .join('\n')
 
     const k = t.ringkasanKemarin
-    const listKemarinTransaksi = (k?.outletsAktifTransaksi || [])
-      .map(
-        (out, i) =>
-          `${i + 1}. ${out.nama} [${out.type}]: ${formatRupiah(out.omzet)} (${out.orderCount} order, AOV ${formatRupiah(
-            out.orderCount > 0 ? Math.round(out.omzet / out.orderCount) : 0
-          )})`
-      )
-      .join('\n')
+    const listKemarinTransaksi = (k?.outletsAktifTransaksi || []).map(formatBarisOutlet).join('\n')
     const listKemarinNol = (k?.outletsNolTransaksi || []).map((out) => `- ${out.nama} (${out.type})`).join('\n')
 
     const f = t.finance
@@ -345,7 +348,8 @@ ${listNegatif || '(Tidak ada ulasan negatif terbaru - kepuasan pelanggan terjaga
 ACUAN UTAMA DEFAULT: EVALUASI FULL CLOSING KEMARIN / H-1 (${k?.tanggalLabel || 'Kemarin'})
 ======================================================================
 1. DATA PENJUALAN & MENU TERLARIS KEMARIN (H-1):
-- Total Penjualan Jaringan Kemarin: ${formatRupiah(k?.omzetTotal || 0)}
+- Total Omzet Kotor Jaringan Kemarin: ${formatRupiah(k?.omzetTotal || 0)}
+- Total Omzet Bersih (Net) Jaringan Kemarin: ${formatRupiah(k?.omzetBersihTotal ?? k?.omzetTotal ?? 0)} (Potongan Promo/Diskon: ${formatRupiah(k?.potonganTotal || 0)})
 - Total Akumulasi Order Kemarin: ${k?.totalOrder || 0} struk
 - Rata-rata Order (AOV) Kemarin: ${formatRupiah(k?.aov || 0)}
 - Peringkat Cabang Berpenjualan Kemarin (${k?.outletsAktifTransaksi?.length || 0} cabang):

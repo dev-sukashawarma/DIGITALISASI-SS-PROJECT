@@ -1,11 +1,22 @@
 import { createClient } from '@supabase/supabase-js'
 
+export interface RincianKanalOutlet {
+  kanal: string
+  omzetKotor: number
+  omzetBersih: number
+  potongan: number
+  orderCount: number
+}
+
 export interface OutletTelemetri {
   id: string
   nama: string
   type: string
   omzet: number
+  omzetBersih?: number
+  potongan?: number
   orderCount: number
+  rincianKanal?: RincianKanalOutlet[]
 }
 
 export interface StafCutiTelemetri {
@@ -92,6 +103,8 @@ export interface RingkasanHari {
   tanggalLabel: string
   tglIso: string
   omzetTotal: number
+  omzetBersihTotal?: number
+  potonganTotal?: number
   totalOrder: number
   aov: number
   outletsAktifTransaksi: OutletTelemetri[]
@@ -318,6 +331,46 @@ export function adalahOutletPenjualan(nama: string, tipe: string, kode = '', slu
 
 const FOOD_APP_CHANNELS = new Set(['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'])
 
+function identifikasiKanalOrder(chRaw: string, srcRaw: string): { label: string; isFoodApp: boolean; isTikTokGo: boolean } {
+  const ch = (chRaw || '').toLowerCase().trim()
+  const src = (srcRaw || '').toLowerCase().trim()
+  if (
+    ch === 'tiktok' ||
+    ch === 'tiktokgo' ||
+    ch === 'tiktok_go' ||
+    src === 'tiktok' ||
+    src === 'tiktokgo' ||
+    src === 'tiktok_go' ||
+    (ch.includes('tiktok') && !ch.includes('shop') && !ch.includes('seller')) ||
+    (src.includes('tiktok') && !src.includes('shop') && !src.includes('seller'))
+  ) {
+    return { label: 'TikTok GO', isFoodApp: true, isTikTokGo: true }
+  }
+  if (ch.includes('gofood') || src.includes('gofood') || ch.includes('gojek') || src.includes('gojek')) {
+    return { label: 'GoFood', isFoodApp: true, isTikTokGo: false }
+  }
+  if (ch.includes('grab') || src.includes('grab')) {
+    return { label: 'GrabFood', isFoodApp: true, isTikTokGo: false }
+  }
+  if (
+    ch === 'shopeefood' ||
+    src === 'shopeefood' ||
+    ch === 'shopee_food' ||
+    src === 'shopee_food' ||
+    (ch.includes('shopee') && !ch.includes('shopee_shop') && !ch.includes('seller')) ||
+    (src.includes('shopee') && !src.includes('shopee_shop') && !src.includes('seller'))
+  ) {
+    return { label: 'ShopeeFood', isFoodApp: true, isTikTokGo: false }
+  }
+  if (FOOD_APP_CHANNELS.has(ch) || FOOD_APP_CHANNELS.has(src)) {
+    return { label: 'Food Apps', isFoodApp: true, isTikTokGo: false }
+  }
+  if (ch === 'online' || src === 'online' || ch === 'website' || src === 'website') {
+    return { label: 'Website Online', isFoodApp: false, isTikTokGo: false }
+  }
+  return { label: 'POS Kasir', isFoodApp: false, isTikTokGo: false }
+}
+
 function hitungRingkasan(
   ordersData: any[],
   baseOutlets: any[],
@@ -326,10 +379,17 @@ function hitungRingkasan(
 ): RingkasanHari {
   const validOutletIds = new Set(baseOutlets.map((o: any) => o.id))
   const mapOmzet: Record<string, number> = {}
+  const mapOmzetBersih: Record<string, number> = {}
+  const mapPotongan: Record<string, number> = {}
   const mapCount: Record<string, number> = {}
   const mapFallbackNama: Record<string, string> = {}
+  const mapKanal: Record<string, Record<string, RincianKanalOutlet>> = {}
+
   let omzetTotal = 0
+  let omzetBersihTotal = 0
+  let potonganTotal = 0
   let totalOrder = 0
+
   for (const o of ordersData) {
     const id = o.outlet_id
     if (!id) continue
@@ -337,20 +397,42 @@ function hitungRingkasan(
     if (validOutletIds.size > 0 && !validOutletIds.has(id)) continue
     if (validOutletIds.size === 0 && fallbackName && !adalahOutletPenjualan(fallbackName, 'internal')) continue
 
-    // Acuan Tunggal Omzet Kotor (Gross Revenue):
-    // Jika Food Apps, total_amount sudah harga menu utuh (Gross).
-    // Jika non-Food Apps, omzet kotor = total_amount + discount_amount.
-    const ch = (o.channel || '').toLowerCase()
-    const src = (o.sales_source || '').toLowerCase()
-    const isFoodApp = FOOD_APP_CHANNELS.has(ch) || FOOD_APP_CHANNELS.has(src)
+    const infoKanal = identifikasiKanalOrder(o.channel || '', o.sales_source || '')
     const baseAmt = Number(o.total_amount) || 0
     const disc = Number(o.discount_amount) || 0
-    const grossAmt = isFoodApp ? baseAmt : (baseAmt + disc)
+    const promo = Number(o.promo_subsidy) || 0
+
+    // Sesuai rumus Rangkuman Penjualan (posReportKpi.ts):
+    // - Food Apps: total_amount sudah harga menu utuh (Gross). Potongan = promo_subsidy (kecuali TikTok GO = 0). Net = Gross - Potongan.
+    // - POS Kasir / Offline: total_amount sudah Net. Potongan = discount_amount. Gross = Net + Potongan.
+    const deduction = infoKanal.isFoodApp ? (infoKanal.isTikTokGo ? 0 : promo) : disc
+    const grossAmt = infoKanal.isFoodApp ? baseAmt : baseAmt + deduction
+    const netAmt = Math.max(0, grossAmt - deduction)
 
     mapOmzet[id] = (mapOmzet[id] || 0) + grossAmt
+    mapOmzetBersih[id] = (mapOmzetBersih[id] || 0) + netAmt
+    mapPotongan[id] = (mapPotongan[id] || 0) + deduction
     mapCount[id] = (mapCount[id] || 0) + 1
     if (fallbackName && !mapFallbackNama[id]) mapFallbackNama[id] = fallbackName
+
+    if (!mapKanal[id]) mapKanal[id] = {}
+    if (!mapKanal[id][infoKanal.label]) {
+      mapKanal[id][infoKanal.label] = {
+        kanal: infoKanal.label,
+        omzetKotor: 0,
+        omzetBersih: 0,
+        potongan: 0,
+        orderCount: 0,
+      }
+    }
+    mapKanal[id][infoKanal.label].omzetKotor += grossAmt
+    mapKanal[id][infoKanal.label].omzetBersih += netAmt
+    mapKanal[id][infoKanal.label].potongan += deduction
+    mapKanal[id][infoKanal.label].orderCount += 1
+
     omzetTotal += grossAmt
+    omzetBersihTotal += netAmt
+    potonganTotal += deduction
     totalOrder += 1
   }
 
@@ -368,7 +450,12 @@ function hitungRingkasan(
     nama: o.name,
     type: o.type || 'internal',
     omzet: mapOmzet[o.id] || 0,
+    omzetBersih: mapOmzetBersih[o.id] || 0,
+    potongan: mapPotongan[o.id] || 0,
     orderCount: mapCount[o.id] || 0,
+    rincianKanal: mapKanal[o.id]
+      ? Object.values(mapKanal[o.id]).sort((a, b) => b.omzetKotor - a.omzetKotor)
+      : [],
   })).sort((a, b) => b.omzet - a.omzet)
 
   const outletsAktifTransaksi = allOutlets.filter((o) => o.orderCount > 0)
@@ -379,6 +466,8 @@ function hitungRingkasan(
     tanggalLabel: tglLabel,
     tglIso,
     omzetTotal,
+    omzetBersihTotal,
+    potonganTotal,
     totalOrder,
     aov,
     outletsAktifTransaksi,
@@ -486,7 +575,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     ] = await Promise.all([
       fetchAllRows(sb, 'orders', (q) =>
         q
-          .select('id, total_amount, discount_amount, channel, sales_source, status, outlet_id, outlets(name)')
+          .select('id, total_amount, discount_amount, promo_subsidy, channel, sales_source, status, outlet_id, outlets(name)')
           .gte('created_at', startToday)
           .lt('created_at', endToday)
           .in('status', ['completed', 'settled'])
@@ -497,7 +586,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       }),
       fetchAllRows(sb, 'orders', (q) =>
         q
-          .select('id, total_amount, discount_amount, channel, sales_source, status, outlet_id, outlets(name)')
+          .select('id, total_amount, discount_amount, promo_subsidy, channel, sales_source, status, outlet_id, outlets(name)')
           .gte('created_at', startKemarin)
           .lt('created_at', endKemarin)
           .in('status', ['completed', 'settled'])

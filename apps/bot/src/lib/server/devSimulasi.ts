@@ -432,12 +432,24 @@ export function buatJawabanDev(
         ? `\n- **Tutup Shift Kasir**: Kasir **${shiftCabang.kasir}** | Kas Fisik **${formatRupiah(shiftCabang.fisik)}** | Seharusnya **${formatRupiah(shiftCabang.seharusnya)}** | Selisih **${formatRupiah(shiftCabang.selisih)}**`
         : ''
 
+      const barisKanal =
+        o.rincianKanal && o.rincianKanal.length > 0
+          ? `\n- **Rincian Per Kanal**: ${o.rincianKanal
+              .map((rk) =>
+                rk.potongan > 0
+                  ? `${rk.kanal}: Kotor ${formatRupiah(rk.omzetKotor)} / Net ${formatRupiah(rk.omzetBersih)} (${rk.orderCount} order)`
+                  : `${rk.kanal}: ${formatRupiah(rk.omzetKotor)} (${rk.orderCount} order)`
+              )
+              .join(' | ')}`
+          : ''
+
       return [
-        `Siap, ${sebutan}. Kemarin (${k.tanggalLabel}), cabang **${o.nama}** membukukan omzet sebesar **${formatRupiah(o.omzet)}** dari **${o.orderCount} transaksi**, dengan rata-rata order **${formatRupiah(aov)}**.\n\n`,
+        `Siap, ${sebutan}. Kemarin (${k.tanggalLabel}), cabang **${o.nama}** membukukan omzet kotor sebesar **${formatRupiah(o.omzet)}** dan omzet bersih (net) **${formatRupiah(o.omzetBersih ?? o.omzet)}** dari **${o.orderCount} transaksi**.\n\n`,
         `### 📍 Rincian Evaluasi Cabang — ${o.nama} [${tipe}]\n`,
-        `- **Total Omzet Kemarin**: **${formatRupiah(o.omzet)}**\n`,
+        `- **Omzet Kotor Kemarin**: **${formatRupiah(o.omzet)}**\n`,
+        `- **Omzet Bersih (Net)**: **${formatRupiah(o.omzetBersih ?? o.omzet)}** (Potongan Promo/Diskon: **${formatRupiah(o.potongan || 0)}**)\n`,
         `- **Total Transaksi**: **${o.orderCount} struk** (AOV: **${formatRupiah(aov)}**)\n`,
-        `- **Peringkat Jaringan**: **#${rank >= 0 ? rank + 1 : '-'}** dari ${k.outletsAktifTransaksi.length} cabang bertransaksi${barisOpex}${barisShift}\n`,
+        `- **Peringkat Jaringan**: **#${rank >= 0 ? rank + 1 : '-'}** dari ${k.outletsAktifTransaksi.length} cabang bertransaksi${barisKanal}${barisOpex}${barisShift}\n`,
       ]
     }
 

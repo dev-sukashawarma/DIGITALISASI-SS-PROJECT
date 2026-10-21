@@ -30,15 +30,41 @@ type Percakapan = { id: string; judul: string; diperbarui_at: string }
 type Pesan = { id: string | number; peran: 'user' | 'bot'; isi: string }
 
 const LABEL_AGENT_BAWAAN: Record<string, { nama: string; badge: string; deskripsi: string }> = {
-  ceo: { nama: 'J.A.R.V.I.S. // MASTER CORE', badge: 'EXECUTIVE INTELLIGENCE MATRIX', deskripsi: 'Pusat komando strategis, analitik penjualan, dan eksekutif AI Suka Shawarma' },
-  gudang: { nama: 'JARVIS-02 // BOT GUDANG', badge: 'SUPPLY CHAIN RADAR', deskripsi: 'Analitik stok bahan baku, rantai pasok, dan deteksi bahan kritis' },
-  hrd: { nama: 'JARVIS-03 // BOT HRD', badge: 'WORKFORCE TELEMETRY', deskripsi: 'Pemantauan absensi shift, roster tim cabang, dan data SDM' },
-  finance: { nama: 'JARVIS-04 // BOT FINANCE', badge: 'TREASURY RECONCILIATION', deskripsi: 'Arus kas harian, rekonsiliasi OPEX, dan liabilitas supplier' },
-  sentry: { nama: 'JARVIS-05 // SENTRY OPS', badge: 'DATABASE & VPS WATCHDOG', deskripsi: 'Pemantau kesehatan database Supabase, sisa disk & RAM VPS, dan deteksi dini anomali sistem' },
+  ceo: {
+    nama: 'J.A.R.V.I.S. // UNIFIED MASTER CORE',
+    badge: 'ALL-DIVISION EXECUTIVE INTELLIGENCE',
+    deskripsi: 'Pusat komando terpadu Suka Shawarma (Sales, Finance, Gudang/Waste, HRD, & SukaReview)',
+  },
+  gudang: {
+    nama: 'JARVIS // SUBSYSTEM GUDANG',
+    badge: 'SUPPLY CHAIN RADAR',
+    deskripsi: 'Analitik stok bahan baku, rantai pasok, dan deteksi bahan kritis',
+  },
+  hrd: {
+    nama: 'JARVIS // SUBSYSTEM HRD',
+    badge: 'WORKFORCE TELEMETRY',
+    deskripsi: 'Pemantauan absensi shift, roster tim cabang, dan data SDM',
+  },
+  finance: {
+    nama: 'JARVIS // SUBSYSTEM FINANCE',
+    badge: 'TREASURY RECONCILIATION',
+    deskripsi: 'Arus kas harian, rekonsiliasi OPEX, dan liabilitas supplier',
+  },
+  sentry: {
+    nama: 'JARVIS // SENTRY OPS',
+    badge: 'DATABASE & VPS WATCHDOG',
+    deskripsi: 'Pemantau kesehatan database Supabase, sisa disk & RAM VPS, dan deteksi dini anomali sistem',
+  },
 }
 
 const CEPAT_BAWAAN: Record<string, string[]> = {
-  ceo: ['Omzet kemarin berapa?', 'Peringkat outlet minggu ini', 'Menu terlaris bulan ini', 'Laporan pagi hari ini'],
+  ceo: [
+    'Peringkat omzet semua cabang hari ini',
+    'Evaluasi penjualan kemarin',
+    'Rincian utang PO supplier & OPEX',
+    'Siapa kru yang telat atau izin hari ini?',
+    'Audit bahan waste & void kasir',
+  ],
   hrd: ['Siapa yang belum absen hari ini?', 'Cuti & izin minggu ini', 'Rekap keterlambatan bulan ini'],
   gudang: ['Bahan yang hampir habis', 'Kiriman hari ini'],
   finance: ['Utang supplier jatuh tempo', 'Kas kecil bulan ini'],
@@ -154,7 +180,7 @@ function RenderTable({ rows }: { rows: string[] }) {
   )
 }
 
-function FormatIsiHologram({ isi }: { isi: string }) {
+export function FormatIsiHologram({ isi }: { isi: string }) {
   const lines = isi.split('\n')
   const blocks: Array<
     | { type: 'table'; rows: string[] }
@@ -169,7 +195,6 @@ function FormatIsiHologram({ isi }: { isi: string }) {
     const raw = lines[i]
     const trimmed = raw.trim()
 
-    // Table block
     if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2) {
       const tableRows: string[] = []
       while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
@@ -180,7 +205,6 @@ function FormatIsiHologram({ isi }: { isi: string }) {
       continue
     }
 
-    // Quote block
     if (raw.trimStart().startsWith('>')) {
       const quoteLines: string[] = []
       while (i < lines.length && lines[i].trimStart().startsWith('>')) {
@@ -191,7 +215,6 @@ function FormatIsiHologram({ isi }: { isi: string }) {
       continue
     }
 
-    // Heading block
     const headingMatch = raw.match(/^(#{1,4})\s+(.+)$/)
     if (headingMatch) {
       blocks.push({ type: 'heading', level: headingMatch[1].length, text: headingMatch[2] })
@@ -199,7 +222,6 @@ function FormatIsiHologram({ isi }: { isi: string }) {
       continue
     }
 
-    // List item block
     const listMatch = raw.match(/^(\s*)([-*]|\d+\.)\s+(.+)$/)
     if (listMatch) {
       blocks.push({ type: 'list-item', marker: listMatch[2], text: listMatch[3] })
@@ -207,7 +229,6 @@ function FormatIsiHologram({ isi }: { isi: string }) {
       continue
     }
 
-    // Regular paragraph
     blocks.push({ type: 'p', text: raw })
     i++
   }
@@ -219,7 +240,9 @@ function FormatIsiHologram({ isi }: { isi: string }) {
           return <RenderTable key={idx} rows={b.rows} />
         }
         if (b.type === 'quote') {
-          const isDirective = b.lines.some((l) => l.includes('[!NOTE]') || l.includes('[!IMPORTANT]') || l.includes('[!WARNING]'))
+          const isDirective = b.lines.some(
+            (l) => l.includes('[!NOTE]') || l.includes('[!IMPORTANT]') || l.includes('[!WARNING]')
+          )
           if (isDirective) {
             const cleanText = b.lines.map((l) => l.replace(/^\[!(NOTE|IMPORTANT|WARNING)\]\s*/, '')).join(' ')
             return (
@@ -262,7 +285,13 @@ function FormatIsiHologram({ isi }: { isi: string }) {
           const isNum = /^\d+\./.test(b.marker)
           return (
             <div key={idx} className="flex items-start gap-2 pl-2 my-0.5">
-              <span className={isNum ? 'text-cyan-400 text-[11px] font-bold mt-0.5 shrink-0' : 'text-cyan-400 text-xs mt-0.5 shrink-0'}>
+              <span
+                className={
+                  isNum
+                    ? 'text-cyan-400 text-[11px] font-bold mt-0.5 shrink-0'
+                    : 'text-cyan-400 text-xs mt-0.5 shrink-0'
+                }
+              >
                 {isNum ? b.marker : '•'}
               </span>
               <div className="text-zinc-200">
@@ -284,16 +313,20 @@ function FormatIsiHologram({ isi }: { isi: string }) {
 interface JarvisChatDrawerProps {
   profil: Profil
   pesanAwal?: string | null
+  percakapanIdAwal?: string | null
+  onPercakapanIdChange?: (id: string | null) => void
   onTutup: () => void
 }
 
 export default function JarvisChatDrawer({
   profil,
   pesanAwal,
+  percakapanIdAwal,
+  onPercakapanIdChange,
   onTutup,
 }: JarvisChatDrawerProps) {
   const [daftar, setDaftar] = useState<Percakapan[]>([])
-  const [aktif, setAktif] = useState<string | null>(null)
+  const [aktif, setAktif] = useState<string | null>(percakapanIdAwal ?? null)
   const [pesan, setPesan] = useState<Pesan[]>([])
   const [input, setInput] = useState('')
   const [sibuk, setSibuk] = useState(false)
@@ -303,6 +336,7 @@ export default function JarvisChatDrawer({
   const [sedangMendengar, setSedangMendengar] = useState(false)
   const [voiceDidukung, setVoiceDidukung] = useState(false)
   const [ttsDidukung, setTtsDidukung] = useState(false)
+  const [autoSuara, setAutoSuara] = useState(true)
   const [sedangBicara, setSedangBicara] = useState<string | number | null>(null)
   const bawah = useRef<HTMLDivElement>(null)
   const inisialisasiRef = useRef(false)
@@ -344,6 +378,10 @@ export default function JarvisChatDrawer({
         onHasil: (teks) => {
           setInput(teks)
         },
+        onFinalOtomatis: (teksFinal) => {
+          setSedangMendengar(false)
+          void kirim(teksFinal, true)
+        },
         onSelesai: () => setSedangMendengar(false),
         onGalat: () => {
           setSedangMendengar(false)
@@ -362,6 +400,9 @@ export default function JarvisChatDrawer({
   useEffect(() => {
     void muatDaftar()
     mainkanSuaraHud('engage')
+    if (percakapanIdAwal && !pesanAwal) {
+      void buka(percakapanIdAwal)
+    }
   }, [profil])
 
   useEffect(() => {
@@ -373,6 +414,7 @@ export default function JarvisChatDrawer({
     setRiwayat(false)
     setGalat(null)
     setAktif(id)
+    onPercakapanIdChange?.(id)
     setPesan([])
     const r = await fetch(`/api/percakapan/${id}`, { cache: 'no-store' })
     if (r.ok) {
@@ -386,6 +428,7 @@ export default function JarvisChatDrawer({
   const baru = () => {
     mainkanSuaraHud('chirp')
     setAktif(null)
+    onPercakapanIdChange?.(null)
     setPesan([])
     setRiwayat(false)
     setGalat(null)
@@ -399,18 +442,21 @@ export default function JarvisChatDrawer({
     void muatDaftar()
   }
 
-  const kirim = async (teks: string) => {
+  const kirim = async (teks: string, dariVoice = false) => {
     const isi = teks.trim()
     if (!isi || sibuk) return
     mainkanSuaraHud('transmit')
+    hentiBicaraJarvis()
+    setSedangBicara(null)
     setSibuk(true)
     setMenunggu(true)
     setGalat(null)
     setInput('')
+    const botMsgId = `b${Date.now()}`
     setPesan((p) => [
       ...p,
       { id: `u${Date.now()}`, peran: 'user', isi },
-      { id: `b${Date.now()}`, peran: 'bot', isi: '' },
+      { id: botMsgId, peran: 'bot', isi: '' },
     ])
 
     abortRef.current?.abort()
@@ -429,14 +475,19 @@ export default function JarvisChatDrawer({
         throw new Error(b.galat || GALAT_UMUM)
       }
       const id = r.headers.get('X-Percakapan-Id')
-      if (id) setAktif(id)
+      if (id) {
+        setAktif(id)
+        onPercakapanIdChange?.(id)
+      }
 
       const pembaca = r.body.getReader()
       const dek = new TextDecoder()
+      let jawabanLengkap = ''
       for (;;) {
         const { value, done } = await pembaca.read()
         if (done) break
         const t = dek.decode(value, { stream: true })
+        jawabanLengkap += t
         setMenunggu(false)
         setPesan((p) => {
           const s = [...p]
@@ -446,6 +497,11 @@ export default function JarvisChatDrawer({
       }
       mainkanSuaraHud('blip')
       void muatDaftar()
+
+      if ((dariVoice || autoSuara) && jawabanLengkap.trim()) {
+        setSedangBicara(botMsgId)
+        bicaraJarvis(jawabanLengkap, () => setSedangBicara(null))
+      }
     } catch (e) {
       if ((e as Error).name === 'AbortError') return
       mainkanSuaraHud('alert')
@@ -468,7 +524,6 @@ export default function JarvisChatDrawer({
     }
   }
 
-  // Jika ada pesan awal dari Quick Directives, langsung jalankan
   useEffect(() => {
     if (pesanAwal && !inisialisasiRef.current) {
       inisialisasiRef.current = true
@@ -478,9 +533,7 @@ export default function JarvisChatDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      {/* Side Holographic Drawer */}
-      <div className="relative w-full max-w-xl h-full flex flex-col bg-zinc-950/95 border-l border-cyan-500/40 shadow-[-15px_0_50px_rgba(6,182,212,0.25)] text-zinc-100 backdrop-blur-xl">
-        {/* Reticles Corner HUD */}
+      <div className="relative w-full max-w-2xl h-full flex flex-col bg-zinc-950/95 border-l border-cyan-500/40 shadow-[-15px_0_50px_rgba(6,182,212,0.25)] text-zinc-100 backdrop-blur-xl">
         <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-400 pointer-events-none" />
 
@@ -498,12 +551,36 @@ export default function JarvisChatDrawer({
                 </h2>
               </div>
               <p className="font-mono-hud text-[10px] text-cyan-400/80 tracking-wider">
-                {meta.badge} &bull; DIRECT TELEMETRY COMM
+                {meta.badge} &bull; TEXT &amp; VOICE TELEMETRY
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
+            {ttsDidukung && (
+              <button
+                type="button"
+                onClick={() => {
+                  const baruVal = !autoSuara
+                  setAutoSuara(baruVal)
+                  if (!baruVal) {
+                    hentiBicaraJarvis()
+                    setSedangBicara(null)
+                  }
+                  mainkanSuaraHud('chirp')
+                }}
+                className={`p-2 rounded-lg border font-mono-hud text-[10px] transition-colors flex items-center gap-1 cursor-pointer ${
+                  autoSuara
+                    ? 'bg-cyan-950/80 border-cyan-400/60 text-cyan-200'
+                    : 'bg-zinc-900/80 border-zinc-700 text-zinc-400'
+                }`}
+                title={autoSuara ? 'Balasan Suara Otomatis: AKTIF' : 'Balasan Suara Otomatis: MATI'}
+              >
+                {autoSuara ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">{autoSuara ? 'VOICE: AUTO' : 'VOICE: OFF'}</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 mainkanSuaraHud('chirp')
@@ -533,7 +610,7 @@ export default function JarvisChatDrawer({
           </div>
         </div>
 
-        {/* Archives Panel (Overlay jika diaktifkan) */}
+        {/* Archives Panel */}
         {riwayat && (
           <div className="p-3 border-b border-cyan-500/25 bg-black/80 font-mono-hud text-xs max-h-60 overflow-y-auto space-y-1.5">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800">
@@ -565,7 +642,7 @@ export default function JarvisChatDrawer({
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      hapus(item.id)
+                      void hapus(item.id)
                     }}
                     className="text-zinc-500 hover:text-red-400 p-1"
                   >
@@ -588,15 +665,14 @@ export default function JarvisChatDrawer({
                 NEURAL CHANNEL ESTABLISHED
               </h3>
               <p className="font-mono-hud text-xs text-cyan-400/70 max-w-sm">
-                {meta.deskripsi}. Ajukan instruksi komando atau pilih direktif cepat di bawah.
+                {meta.deskripsi}. Ketik pertanyaan Anda atau gunakan mikrofon untuk bicara langsung.
               </p>
 
-              {/* Quick Directives */}
               <div className="flex flex-wrap justify-center gap-2 pt-3">
                 {ambilOpsiCepat(profil).map((q, idx) => (
                   <button
                     key={idx}
-                    onClick={() => kirim(q)}
+                    onClick={() => void kirim(q)}
                     className="px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 font-mono-hud text-xs transition-all cursor-pointer"
                   >
                     &gt; {q}
@@ -607,16 +683,13 @@ export default function JarvisChatDrawer({
           )}
 
           {pesan.map((p, idx) => {
-            // Sembunyikan pesan bot kosong jika tidak sedang menunggu streaming
             if (p.peran === 'bot' && !p.isi.trim() && !(menunggu && idx === pesan.length - 1)) {
               return null
             }
             return (
               <div
                 key={idx}
-                className={`flex flex-col ${
-                  p.peran === 'user' ? 'items-end' : 'items-start'
-                }`}
+                className={`flex flex-col ${p.peran === 'user' ? 'items-end' : 'items-start'}`}
               >
                 <div className="flex items-center justify-between w-full mb-1 px-1 text-[10px] font-mono-hud text-zinc-400 uppercase tracking-widest">
                   {p.peran === 'user' ? (
@@ -631,7 +704,7 @@ export default function JarvisChatDrawer({
                         <button
                           onClick={() => toggleBicaraPesan(p.id, p.isi)}
                           className="flex items-center gap-1 text-[9px] text-cyan-300 hover:text-cyan-100 p-0.5 rounded cursor-pointer"
-                          title={sedangBicara === p.id ? 'Hentikan Suara Jarvis' : 'Dengarkan Suara Jarvis (Voice Output)'}
+                          title={sedangBicara === p.id ? 'Hentikan Suara Jarvis' : 'Dengarkan Suara Jarvis'}
                         >
                           {sedangBicara === p.id ? (
                             <>
@@ -651,7 +724,7 @@ export default function JarvisChatDrawer({
                 </div>
 
                 <div
-                  className={`max-w-[85%] rounded-xl p-3.5 border transition-all ${
+                  className={`max-w-[90%] rounded-xl p-3.5 border transition-all ${
                     p.peran === 'user'
                       ? 'bg-gradient-to-r from-blue-900/60 to-cyan-900/60 border-cyan-400/40 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.15)] font-mono-hud text-xs sm:text-sm'
                       : 'bg-zinc-900/90 border-cyan-500/25 text-zinc-100 shadow-[0_0_20px_rgba(0,0,0,0.5)]'
@@ -697,7 +770,7 @@ export default function JarvisChatDrawer({
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              void kirim(input)
+              void kirim(input, false)
             }}
             className="flex items-center gap-2"
           >
@@ -709,7 +782,11 @@ export default function JarvisChatDrawer({
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={sedangMendengar ? 'Mendengarkan suara Anda...' : `Instruksikan ${meta.nama}...`}
+                placeholder={
+                  sedangMendengar
+                    ? 'Mendengarkan suara Anda (otomatis kirim saat jeda)...'
+                    : 'Ketik pertanyaan atau instruksi ke J.A.R.V.I.S...'
+                }
                 disabled={sibuk}
                 className="w-full bg-zinc-950/80 border border-cyan-500/30 focus:border-cyan-400 rounded-lg pl-8 pr-4 py-2.5 font-mono-hud text-base sm:text-sm text-cyan-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-400 disabled:opacity-50"
               />
@@ -721,10 +798,10 @@ export default function JarvisChatDrawer({
                 onClick={handleToggleVoice}
                 className={`p-2.5 rounded-lg border transition-all cursor-pointer ${
                   sedangMendengar
-                    ? 'bg-red-950/80 border-red-500 text-red-300 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                    ? 'bg-emerald-950/80 border-emerald-400 text-emerald-300 animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.5)]'
                     : 'bg-cyan-950/60 border-cyan-500/30 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900/60'
                 }`}
-                title={sedangMendengar ? 'Hentikan Mendengar' : 'Bicara (Voice Input)'}
+                title={sedangMendengar ? 'Hentikan Mendengar' : 'Bicara ke Jarvis (Auto-Send & Auto-Voice)'}
               >
                 {sedangMendengar ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </button>
@@ -741,8 +818,8 @@ export default function JarvisChatDrawer({
           </form>
 
           <div className="mt-2 flex items-center justify-between text-[10px] font-mono-hud text-zinc-500">
-            <span>PRESS [ENTER] TO TRANSMIT DIRECTIVE</span>
-            <span className="text-cyan-400/70">END-TO-END MCP ENCRYPTED</span>
+            <span>KETIK [ENTER] ATAU BICARA VIA MIC UNTUK TRANSMISI</span>
+            <span className="text-cyan-400/70">UNIFIED J.A.R.V.I.S. MEMORY</span>
           </div>
         </div>
       </div>

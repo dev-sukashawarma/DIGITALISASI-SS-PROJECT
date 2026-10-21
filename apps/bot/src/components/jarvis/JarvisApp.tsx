@@ -763,101 +763,11 @@ export default function JarvisApp({
       </header>
 
       {/* MAIN COMMAND INTERFACE (100% Full Width Edge-to-Edge) */}
-      <main className="relative z-20 flex-1 min-h-0 w-full px-3 sm:px-5 py-2 sm:py-3 flex flex-col justify-between gap-2.5 overflow-y-auto lg:overflow-hidden">
-        {/* TOP EXECUTIVE DIRECTIVE TEXT & VOICE CONSOLE BAR (Full Width) */}
-        <div className="w-full shrink-0">
-          <form
-            onSubmit={handleSubmitForm}
-            className="relative flex items-center rounded-xl bg-zinc-950/90 border border-cyan-500/45 shadow-[0_0_20px_rgba(6,182,212,0.18)] focus-within:border-cyan-400 focus-within:shadow-[0_0_28px_rgba(6,182,212,0.35)] transition-all p-0.5 sm:p-1"
-          >
-            <div className="pl-3 pr-2 text-cyan-400 flex items-center">
-              <Sparkles className="w-3.5 h-3.5 animate-spin text-cyan-300" />
-            </div>
-
-            <input
-              type="text"
-              value={inputPerintah}
-              onChange={(e) => setInputPerintah(e.target.value)}
-              placeholder={
-                sedangMendengar
-                  ? '🎙️ Mendengarkan Anda... (otomatis dikirim saat selesai bicara)'
-                  : "Ketik pertanyaan/instruksi atau klik VOICE (misal: 'Analisis omzet hari ini', 'Laporan daily')..."
-              }
-              className="w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/45 py-1.5 sm:py-2 focus:outline-none"
-            />
-
-            {voiceDidukung && (
-              <button
-                type="button"
-                onClick={handleToggleVoiceLoop}
-                className={`p-1.5 sm:px-3 py-1.5 rounded-lg border transition-all cursor-pointer mr-1.5 flex items-center gap-1.5 shrink-0 ${
-                  sedangMendengar || voiceLoopAktif
-                    ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.5)]'
-                    : 'bg-cyan-950/60 border-cyan-500/35 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900/60'
-                }`}
-                title={
-                  sedangMendengar || voiceLoopAktif
-                    ? 'Hentikan Mode Voice-to-Voice'
-                    : 'Mulai Ngobrol Voice-to-Voice dengan Jarvis'
-                }
-              >
-                {sedangMendengar || voiceLoopAktif ? (
-                  <MicOff className="w-3.5 h-3.5 text-emerald-300" />
-                ) : (
-                  <Mic className="w-3.5 h-3.5" />
-                )}
-                <span className="hidden md:inline text-[9px] font-mono-hud font-bold">
-                  {sedangMendengar ? 'LISTENING...' : voiceLoopAktif ? 'VOICE LOOP: ON' : 'VOICE-TO-VOICE'}
-                </span>
-              </button>
-            )}
-
-            <button
-              type="submit"
-              disabled={sedangMemproses || !inputPerintah.trim()}
-              className="px-3 sm:px-4 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-hud text-[11px] tracking-wider font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-1 shrink-0 cursor-pointer"
-            >
-              <Send className="w-3 h-3" />
-              <span className="hidden sm:inline">TANYA / EKSEKUSI</span>
-            </button>
-          </form>
-
-          {/* Quick Directive Chips */}
-          <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">
-            <span className="font-mono-hud text-[9px] text-zinc-500 uppercase tracking-wider hidden sm:inline">
-              DIRECTIVES:
-            </span>
-            <button
-              type="button"
-              onClick={() => bukaModalDailyBriefing(true)}
-              className="px-2.5 py-0.5 rounded bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-100 border border-cyan-400/50 font-mono-hud text-[9px] font-bold transition-all cursor-pointer"
-            >
-              ⚡ Executive Daily Briefing (5 Pilar)
-            </button>
-            {[
-              { label: '📊 Ranking Omzet Hari Ini', pesan: 'Tampilkan peringkat omzet seluruh cabang hari ini.' },
-              { label: '📅 Evaluasi Kemarin', pesan: 'Bagaimana rekapitulasi dan peringkat penjualan seluruh cabang kemarin?' },
-              { label: '💰 Utang PO & OPEX Finance', pesan: 'Berapa total pengeluaran OPEX hari ini dan rincian utang PO supplier?' },
-              { label: '🥬 Audit Waste & Void POS', pesan: 'Analisis laporan waste bahan baku tertinggi dan cek transaksi void hari ini.' },
-              { label: '👥 Presensi & Kru Telat', pesan: 'Siapa saja kru outlet yang terlambat atau izin/cuti hari ini?' },
-              { label: '📨 Kirim Daily ke Telegram', pesan: 'Kirim laporan daily ke Telegram' },
-            ].map((chip, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => void eksekusiPerintahJarvis(chip.pesan, false)}
-                className="px-2 py-0.5 rounded bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-500/25 hover:border-cyan-400 font-mono-hud text-[9px] transition-all cursor-pointer"
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* TACTICAL 3-COLUMN HUD GRID (100% Full Width): Left = Direct Hologram Chat Box, Center = Full-Size Arc Reactor, Right = All 4 Division Telemetry Boxes */}
+      <main className="relative z-20 flex-1 min-h-0 w-full px-3 sm:px-5 py-2 sm:py-3 flex flex-col justify-between overflow-y-auto lg:overflow-hidden">
+        {/* TACTICAL 3-COLUMN HUD GRID (100% Full Width): Left = Direct Hologram Chat Box (with Input & Directives inside), Center = Full-Size Arc Reactor, Right = All 4 Division Telemetry Boxes */}
         <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-center">
-          {/* Left Column: J.A.R.V.I.S. DIRECT HOLOGRAM & CHAT CONSOLE (Selalu di kiri, Full Width di kolomnya) */}
-          <div className="w-full lg:col-span-4 xl:col-span-4 flex flex-col justify-center h-full max-h-[76vh] min-h-0">
+          {/* Left Column: J.A.R.V.I.S. DIRECT HOLOGRAM & CHAT CONSOLE (Lengkap dengan Input & Directives di dalamnya) */}
+          <div className="w-full lg:col-span-4 xl:col-span-4 flex flex-col justify-center h-full max-h-[86vh] min-h-0">
             <div className="w-full h-full rounded-xl bg-zinc-950/90 border border-cyan-400/55 shadow-[0_0_32px_rgba(6,182,212,0.22)] backdrop-blur-xl overflow-hidden flex flex-col relative">
               {/* Reticle Corners */}
               <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
@@ -945,7 +855,7 @@ export default function JarvisApp({
               )}
 
               {/* Hologram Stream Body */}
-              <div className="p-3.5 overflow-y-auto overflow-x-hidden flex-1">
+              <div className="p-3.5 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
                 {jawabanHologram ? (
                   <FormatIsiHologram isi={jawabanHologram} />
                 ) : sedangMemproses ? (
@@ -954,7 +864,7 @@ export default function JarvisApp({
                     <span>J.A.R.V.I.S. SEDANG MENGANALISIS TELEMETRI DATABASE...</span>
                   </div>
                 ) : (
-                  <div className="h-full flex flex-col justify-between gap-4 py-2 font-mono-hud">
+                  <div className="h-full flex flex-col justify-between gap-4 py-1 font-mono-hud">
                     <div className="space-y-2">
                       <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/30 text-[10px] text-cyan-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -962,36 +872,102 @@ export default function JarvisApp({
                       </div>
                       <p className="text-xs text-zinc-300 leading-relaxed">
                         Selamat bertugas, <span className="text-cyan-300 font-bold">{nama}</span>. Klik bola inti{' '}
-                        <span className="text-cyan-300 font-semibold">J.A.R.V.I.S.</span> di tengah untuk mulai mengobrol dengan suara, atau ketik pertanyaan di bar atas.
+                        <span className="text-cyan-300 font-semibold">J.A.R.V.I.S.</span> di tengah untuk mulai mengobrol dengan suara, atau ketik pertanyaan di kolom bawah ini.
                       </p>
                       <p className="text-[11px] text-zinc-400 leading-relaxed">
-                        Seluruh jawaban lisan dan tabel analisis lintas divisi (Sales, Finance, Gudang/Waste, HRD &amp; Google Review) akan ditampilkan langsung di panel kiri ini tanpa mengecilkan bola inti.
+                        Seluruh jawaban lisan dan tabel analisis lintas divisi (Sales, Finance, Gudang/Waste, HRD &amp; Google Review) ditampilkan langsung di panel kiri ini.
                       </p>
-                    </div>
-
-                    <div className="space-y-1.5 pt-2 border-t border-cyan-500/15">
-                      <span className="text-[10px] text-cyan-400/80 uppercase tracking-wider font-bold block">
-                        CONTOH PERINTAH SUARA / TEKS CEPAT:
-                      </span>
-                      {[
-                        'Bagaimana evaluasi lengkap penjualan seluruh cabang kemarin?',
-                        'Rincikan utang PO supplier yang sudah lewat jatuh tempo',
-                        'Analisis bahan baku penyumbang waste tertinggi bulan ini',
-                        'Apakah ada selisih kasir atau kru yang terlambat hari ini?',
-                      ].map((q, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => void eksekusiPerintahJarvis(q, false)}
-                          className="w-full text-left text-[10px] sm:text-[11px] px-2.5 py-1.5 rounded-lg bg-cyan-950/35 hover:bg-cyan-900/55 border border-cyan-500/25 hover:border-cyan-400 text-cyan-200 transition-all cursor-pointer flex items-center gap-1.5"
-                        >
-                          <Sparkles className="w-3 h-3 text-cyan-400 shrink-0" />
-                          <span className="truncate">{q}</span>
-                        </button>
-                      ))}
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* BOTTOM CONSOLE INSIDE CHAT BOX: Quick Directive Chips + Input Bar */}
+              <div className="p-2.5 bg-black/75 border-t border-cyan-500/25 space-y-2 shrink-0">
+                {/* Quick Directive Chips */}
+                <div className="flex flex-wrap items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => bukaModalDailyBriefing(true)}
+                    className="px-2 py-0.5 rounded bg-cyan-600/35 hover:bg-cyan-600/55 text-cyan-100 border border-cyan-400/50 font-mono-hud text-[9px] font-bold transition-all cursor-pointer"
+                  >
+                    ⚡ Daily Briefing (5 Pilar)
+                  </button>
+                  {[
+                    { label: '📊 Omzet Hari Ini', pesan: 'Tampilkan peringkat omzet seluruh cabang hari ini.' },
+                    { label: '📅 Evaluasi Kemarin', pesan: 'Bagaimana rekapitulasi dan peringkat penjualan seluruh cabang kemarin?' },
+                    { label: '💰 Utang PO & OPEX', pesan: 'Berapa total pengeluaran OPEX hari ini dan rincian utang PO supplier?' },
+                    { label: '🥬 Waste & Void POS', pesan: 'Analisis laporan waste bahan baku tertinggi dan cek transaksi void hari ini.' },
+                    { label: '👥 Presensi & Telat', pesan: 'Siapa saja kru outlet yang terlambat atau izin/cuti hari ini?' },
+                    { label: '📨 Kirim ke Telegram', pesan: 'Kirim laporan daily ke Telegram' },
+                  ].map((chip, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => void eksekusiPerintahJarvis(chip.pesan, false)}
+                      className="px-2 py-0.5 rounded bg-cyan-950/50 hover:bg-cyan-900/70 text-cyan-300 border border-cyan-500/25 hover:border-cyan-400 font-mono-hud text-[9px] transition-all cursor-pointer"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Input Command Form inside Chat Box */}
+                <form
+                  onSubmit={handleSubmitForm}
+                  className="relative flex items-center rounded-xl bg-zinc-950/95 border border-cyan-500/45 shadow-[0_0_16px_rgba(6,182,212,0.15)] focus-within:border-cyan-400 focus-within:shadow-[0_0_24px_rgba(6,182,212,0.3)] transition-all p-1"
+                >
+                  <div className="pl-2.5 pr-1.5 text-cyan-400 flex items-center">
+                    <Sparkles className="w-3.5 h-3.5 animate-spin text-cyan-300" />
+                  </div>
+
+                  <input
+                    type="text"
+                    value={inputPerintah}
+                    onChange={(e) => setInputPerintah(e.target.value)}
+                    placeholder={
+                      sedangMendengar
+                        ? '🎙️ Mendengarkan Anda... (otomatis terkirim)'
+                        : "Ketik pertanyaan/instruksi atau klik VOICE..."
+                    }
+                    className="w-full bg-transparent font-mono-hud text-xs text-cyan-100 placeholder-cyan-400/45 py-1.5 focus:outline-none"
+                  />
+
+                  {voiceDidukung && (
+                    <button
+                      type="button"
+                      onClick={handleToggleVoiceLoop}
+                      className={`p-1.5 sm:px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer mr-1 flex items-center gap-1 shrink-0 ${
+                        sedangMendengar || voiceLoopAktif
+                          ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                          : 'bg-cyan-950/60 border-cyan-500/35 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900/60'
+                      }`}
+                      title={
+                        sedangMendengar || voiceLoopAktif
+                          ? 'Hentikan / Kirim Suara Sekarang'
+                          : 'Mulai Ngobrol Voice-to-Voice dengan Jarvis'
+                      }
+                    >
+                      {sedangMendengar || voiceLoopAktif ? (
+                        <MicOff className="w-3.5 h-3.5 text-emerald-300" />
+                      ) : (
+                        <Mic className="w-3.5 h-3.5" />
+                      )}
+                      <span className="hidden xl:inline text-[9px] font-mono-hud font-bold">
+                        {sedangMendengar ? 'LISTENING' : voiceLoopAktif ? 'LOOP: ON' : 'VOICE'}
+                      </span>
+                    </button>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={sedangMemproses || !inputPerintah.trim()}
+                    className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-hud text-[10px] tracking-wider font-bold transition-all shadow-[0_0_12px_rgba(6,182,212,0.4)] flex items-center gap-1 shrink-0 cursor-pointer"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>KIRIM</span>
+                  </button>
+                </form>
               </div>
             </div>
           </div>
@@ -1014,7 +990,7 @@ export default function JarvisApp({
           </div>
 
           {/* Right Column: ALL 4 DIVISION TELEMETRY BOXES (Full Width di kolom kanan, 2x2 grid di layar ultra-lebar) */}
-          <div className="w-full lg:col-span-4 xl:col-span-4 grid grid-cols-1 2xl:grid-cols-2 gap-2.5 sm:gap-3 content-start h-full max-h-[76vh] overflow-y-auto overflow-x-hidden px-1.5 py-1">
+          <div className="w-full lg:col-span-4 xl:col-span-4 grid grid-cols-1 2xl:grid-cols-2 gap-2.5 sm:gap-3 content-start h-full max-h-[86vh] overflow-y-auto overflow-x-hidden px-1.5 py-1">
             <AgentNodeCard
               profilFallback="ceo"
               meja={getMejaByProfil('ceo')}

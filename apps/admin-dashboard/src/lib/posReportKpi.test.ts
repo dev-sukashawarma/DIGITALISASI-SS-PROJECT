@@ -166,6 +166,15 @@ describe('computeOrderPlatformSubsidy', () => {
     expect(computeOrderPlatformSubsidy(shopee)).toBe(0)
   })
 
+  it('ShopeeFood & GrabFood dengan settlement: sisa alokasi bukan subsidi platform', () => {
+    const shopee = { channel: 'shopeefood', total_amount: 108_000, promo_subsidy: 34_488, settlement_promo_merchant: 34_409, order_items: [] }
+    const grab = { channel: 'grabfood', total_amount: 50_000, promo_subsidy: 15_000, settlement_promo_merchant: 12_000, order_items: [] }
+    expect(computeOrderPlatformSubsidy(shopee)).toBe(0)
+    expect(computeOrderPlatformSubsidy(grab)).toBe(0)
+    // Potongan tetap mengikuti settlement
+    expect(computeOrderDeduction(shopee)).toBe(34_409)
+  })
+
   it('TikTok Go: seluruh promo yang diinput kasir dipisahkan sebagai subsidi platform', () => {
     const tt = { channel: 'tiktokgo', total_amount: 34_000, promo_subsidy: 34_000, order_items: [] }
     expect(computeOrderPlatformSubsidy(tt)).toBe(34_000)

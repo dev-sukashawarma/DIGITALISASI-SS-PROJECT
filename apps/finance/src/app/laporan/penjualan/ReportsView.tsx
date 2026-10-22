@@ -40,6 +40,7 @@ import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import BranchFilter from '@/components/BranchFilter'
 import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { isTikTokGoOrder } from '@/lib/posReportKpi'
 
 // Halaman upload settlement hanya ada di admin-dashboard.
 const ADMIN_URL = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
@@ -1288,8 +1289,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                         </div>
                                       )}
                                       {(order as any).platform_subsidy > 0 && (
-                                        <div className="text-[11px] font-medium text-emerald-600 mt-0.5" title="Disubsidi Gojek (bukan beban resto)">
-                                          (Subsidi Gojek: +{formatRupiah((order as any).platform_subsidy)})
+                                        <div className="text-[11px] font-medium text-emerald-600 mt-0.5" title="Disubsidi platform (bukan beban resto)">
+                                          (Subsidi {isTikTokGoOrder(order) ? 'TikTok' : 'Gojek'}: +{formatRupiah((order as any).platform_subsidy)})
                                         </div>
                                       )}
                                     </>

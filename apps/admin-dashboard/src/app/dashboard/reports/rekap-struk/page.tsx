@@ -4,11 +4,22 @@ import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import RekapStrukView from './RekapStrukView'
 import { laporanRekapStrukUntukScope } from '@/lib/posReport/laporanStruk'
 import { isTestOutlet } from '@/lib/outletFilters'
-import { addDaysStr, jakartaDate } from '@/lib/ownerDashboardCache'
+import { addDaysStr, isDateStr, jakartaDate } from '@/lib/ownerDashboardCache'
 
 export const dynamic = 'force-dynamic'
 
-export default async function RekapStrukPage() {
+interface RekapStrukPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+function getStr(val: string | string[] | undefined, fallback = ''): string {
+  if (typeof val === 'string') return val
+  if (Array.isArray(val) && typeof val[0] === 'string') return val[0]
+  return fallback
+}
+
+export default async function RekapStrukPage({ searchParams }: RekapStrukPageProps) {
+  const params = await searchParams
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
@@ -42,14 +53,31 @@ export default async function RekapStrukPage() {
 
   const today = jakartaDate(new Date())
   const isSingleOutlet = initialOutlets.length === 1
-  const from = isSingleOutlet ? addDaysStr(today, -1) : `${today.slice(0, 8)}01`
-  const to = isSingleOutlet ? from : today
+  const defaultFrom = isSingleOutlet ? addDaysStr(today, -1) : `${today.slice(0, 8)}01`
+  const defaultTo = isSingleOutlet ? defaultFrom : today
+
+  const rawFrom = getStr(params.from)
+  const rawTo = getStr(params.to)
+  const from = isDateStr(rawFrom) ? rawFrom : defaultFrom
+  const to = isDateStr(rawTo) && rawTo >= from ? rawTo : defaultTo
+  const initialRange = getStr(params.range) || (isSingleOutlet ? 'yesterday' : 'thisMonth')
+  const rawOutlets = getStr(params.outlets)
+  const outlets = rawOutlets
+    ? rawOutlets.split(',').map((s) => s.trim()).filter(Boolean)
+    : isSingleOutlet
+    ? [initialOutlets[0].id]
+    : ['all']
+  const rawChannels = getStr(params.channels)
+  const channels = rawChannels
+    ? rawChannels.split(',').map((s) => s.trim()).filter(Boolean)
+    : ['all']
+  const initialAm = getStr(params.am) || 'all'
 
   const initialRequest = {
     from,
     to,
-    outlets: isSingleOutlet ? [initialOutlets[0].id] : ['all'],
-    channels: ['all'],
+    outlets,
+    channels,
     skipKindFilter: 'all_not_printed' as const,
     outletDrilldown: 'all',
     cashierDrilldown: 'all',
@@ -76,6 +104,14 @@ export default async function RekapStrukPage() {
       initialOutlets={initialOutlets as any}
       initialReport={initialReport}
       initialRequestKey={initialReport ? JSON.stringify(initialRequest) : null}
+      initialFilterState={{
+        range: initialRange as any,
+        from,
+        to,
+        outlets,
+        am: initialAm,
+        channels,
+      }}
     />
   )
 }

@@ -2,12 +2,14 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Printer,
   Store,
   Calendar,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Search,
   AlertTriangle,
   Clock,
@@ -82,13 +84,23 @@ interface RekapStrukViewProps {
   initialOutlets: Outlet[]
   initialReport?: Awaited<ReturnType<typeof getRekapStrukReport>> | null
   initialRequestKey?: string | null
+  initialFilterState?: {
+    range?: DateRangeType
+    from?: string
+    to?: string
+    outlets?: string[]
+    am?: string
+    channels?: string[]
+  }
 }
 
 export default function RekapStrukView({
   initialOutlets: rawInitialOutlets,
   initialReport = null,
   initialRequestKey = null,
+  initialFilterState,
 }: RekapStrukViewProps) {
+  const router = useRouter()
   const initialOutlets = useMemo(
     () => rawInitialOutlets.filter((o) => !isTestOutlet(o) && o.type !== 'marketplace'),
     [rawInitialOutlets]
@@ -118,16 +130,26 @@ export default function RekapStrukView({
 
   // Global Top Filters
   const [selectedOutlets, setSelectedOutlets] = useState<string[]>(
-    initialOutlets.length === 1 ? [initialOutlets[0].id] : ['all']
+    initialFilterState?.outlets?.length
+      ? initialFilterState.outlets
+      : initialOutlets.length === 1
+      ? [initialOutlets[0].id]
+      : ['all']
   )
-  const [selectedAm, setSelectedAm] = useState<string>('all')
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
+  const [selectedAm, setSelectedAm] = useState<string>(initialFilterState?.am || 'all')
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(
+    initialFilterState?.channels?.length ? initialFilterState.channels : ['all']
+  )
   const [range, setRange] = useState<DateRangeType>(
-    initialOutlets.length === 1 ? 'yesterday' : 'thisMonth'
+    initialFilterState?.range && initialFilterState.range in RANGE_LABELS
+      ? initialFilterState.range
+      : initialOutlets.length === 1
+      ? 'yesterday'
+      : 'thisMonth'
   )
   const [showRangePicker, setShowRangePicker] = useState(false)
-  const [customStartDate, setCustomStartDate] = useState<string>('')
-  const [customEndDate, setCustomEndDate] = useState<string>('')
+  const [customStartDate, setCustomStartDate] = useState<string>(initialFilterState?.from || '')
+  const [customEndDate, setCustomEndDate] = useState<string>(initialFilterState?.to || '')
 
   // Table Search & Sort
   const [cashierSearch, setCashierSearch] = useState<string>('')
@@ -414,7 +436,9 @@ export default function RekapStrukView({
             .map((ch) => availableChannels.find((c) => c.key === ch)?.label || ch)
             .join(', ')
 
-      const filterParts: string[] = ['Daftar Kasir Tidak Cetak Struk (Khusus Order Offline & Website)']
+      const filterParts: string[] = [
+        'Daftar Kasir Tidak Cetak Struk (Khusus Order Offline & Website)',
+      ]
       if (selectedChannels.length > 0 && !selectedChannels.includes('all')) {
         filterParts.push(`Sumber: ${channelLabel}`)
       }
@@ -450,7 +474,7 @@ export default function RekapStrukView({
               <span>Rekap Cetak Struk Kasir & Outlet</span>
             </h1>
             <p className="text-stone-500 text-xs sm:text-sm mt-1 font-medium">
-              Rekap khusus <strong className="text-[#2C1810]">Orderan Offline & Order Website</strong> (tanpa Food Apps) — daftar kasir yang tidak mencetak struk beserta cabang, AM, jumlah dicetak, tidak dicetak, dan persentasenya.
+              Rekap khusus <strong className="text-[#2C1810]">Orderan Offline & Order Website</strong> (tanpa Food Apps) — klik baris kasir pada tabel untuk melihat detail per order beserta tanggal & waktu WIB.
             </p>
           </div>
 
@@ -821,12 +845,13 @@ export default function RekapStrukView({
                       ))}
                   </button>
                 </th>
+                <th className="py-3.5 px-4 w-32 text-right">Detail Order</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-stone-400 font-semibold">
+                  <td colSpan={9} className="py-12 text-center text-stone-400 font-semibold">
                     <div className="inline-flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin text-suka-orange" />
                       <span>Memuat data rekap cetak struk...</span>
@@ -835,7 +860,7 @@ export default function RekapStrukView({
                 </tr>
               ) : filteredCashiers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-14 text-center">
+                  <td colSpan={9} className="py-14 text-center">
                     <CheckCircle2 className="w-9 h-9 text-emerald-500 mx-auto mb-2" />
                     <div className="text-sm font-bold text-[#2C1810]">
                       Tidak Ada Kasir yang Melewati Cetak Struk pada Filter Ini
@@ -851,16 +876,32 @@ export default function RekapStrukView({
                     cashier.printedRate,
                     cashier.notPrintedOrders
                   )
+                  const detailParams = new URLSearchParams({
+                    outletId: cashier.outletId,
+                    cashier: cashier.cashierName,
+                    from: dateStrRange.from,
+                    to: dateStrRange.to,
+                    range,
+                    outlets: selectedOutlets.join(','),
+                    am: selectedAm,
+                    channels: selectedChannels.join(','),
+                  })
+                  const detailHref = `/dashboard/reports/rekap-struk/detail?${detailParams.toString()}`
 
                   return (
-                    <tr key={cashier.key} className="hover:bg-stone-50/80 transition-colors">
+                    <tr
+                      key={cashier.key}
+                      onClick={() => router.push(detailHref)}
+                      className="hover:bg-amber-50/40 transition-colors cursor-pointer group"
+                      title={`Klik untuk melihat daftar order detail ${cashier.cashierName}`}
+                    >
                       {/* No */}
                       <td className="py-3.5 px-4 text-center font-bold text-stone-400 text-xs tabular-nums">
                         {idx + 1}
                       </td>
 
                       {/* Nama Kasir */}
-                      <td className="py-3.5 px-4 font-bold text-[#2C1810] text-sm">
+                      <td className="py-3.5 px-4 font-bold text-[#2C1810] group-hover:text-suka-orange transition-colors text-sm">
                         {cashier.cashierName}
                       </td>
 
@@ -923,6 +964,14 @@ export default function RekapStrukView({
                           />
                         </div>
                       </td>
+
+                      {/* Tombol Aksi Detail Order */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-stone-100 group-hover:bg-[#4A1713] text-[#2C1810] group-hover:text-white text-[11px] font-bold transition-colors">
+                          <span>Lihat Order</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </span>
+                      </td>
                     </tr>
                   )
                 })
@@ -945,7 +994,7 @@ export default function RekapStrukView({
                   <td className="py-3.5 px-4 text-right tabular-nums text-sm text-red-600">
                     {cashierTableTotals.notPrintedOrders.toLocaleString('id-ID')}
                   </td>
-                  <td className="py-3.5 px-4 tabular-nums">
+                  <td colSpan={2} className="py-3.5 px-4 tabular-nums">
                     <span className="text-emerald-700">
                       {cashierTableTotals.printedRate}% Dicetak
                     </span>

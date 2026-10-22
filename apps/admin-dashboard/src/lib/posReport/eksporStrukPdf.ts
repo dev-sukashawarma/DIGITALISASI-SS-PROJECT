@@ -1,7 +1,10 @@
 /* ── Ekspor PDF Rekap & Audit Cetak Struk POS ─────────────────────────────────
  *
- * A4 Landscape. Hanya mengekspor Tabel Rekap Kasir yang Tidak Cetak Struk
- * sesuai filter yang sedang aktif di layar (tanpa tabel rincian orderan).
+ * A4 Landscape.
+ * 1. `buatPdfRekapStruk`: Mengekspor Tabel Rekap Kasir yang Tidak Cetak Struk
+ *    sesuai filter yang sedang aktif di halaman utama.
+ * 2. `buatPdfDetailKasirStruk`: Mengekspor Tabel Rincian Per Order (beserta
+ *    Tanggal & Waktu WIB) untuk 1 kasir pada halaman detail.
  * Lebar seluruh kolom dirancang presisi pas dengan lebar halaman (273 mm)
  * dan mendukung word-wrap sehingga tidak pernah terpotong.
  */
@@ -11,10 +14,15 @@ import {
   angka,
   hexKeRgb,
   jumlahHari,
+  rupiah,
   tanggalPendek,
   waktuCetak,
 } from '@/lib/posReport/eksporUi'
-import type { CashierStrukRecapRow } from '@/lib/posReport/rekapStruk'
+import {
+  getSourceLabel,
+  type CashierStrukRecapRow,
+  type RekapStrukOrderRow,
+} from '@/lib/posReport/rekapStruk'
 
 type RGB = [number, number, number]
 const rgb = (hex: string): RGB => hexKeRgb(hex)
@@ -34,6 +42,28 @@ function aman(s: unknown): string {
     .replace(/[“”]/g, '"')
     .replace(/[^\x20-\x7E\xA0-\xFF]/g, '')
     .trim()
+}
+
+function formatWibDateTimePdf(isoStr: string): string {
+  try {
+    const d = new Date(isoStr)
+    const tgl = new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(d)
+    const jam = new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(d)
+    return `${tgl}, ${jam} WIB`
+  } catch {
+    return isoStr
+  }
 }
 
 function muatGambar(url: string): Promise<HTMLImageElement | null> {
@@ -188,7 +218,7 @@ export function susunPdfRekapStruk(
   // ── Tabel Rekap Cetak Struk per Kasir, Outlet & AM ──
   // Total lebar kolom = 10 + 48 + 52 + 35 + 24 + 24 + 24 + 32 + 24 = 273 mm (100% pas LK)
   const y = judulBagian(
-    'Tabel Rekap Kasir Tidak Cetak Struk',
+    'Tabel Rekap Kasir Tidak Cetak Struk (Order Offline & Website)',
     56.5,
     '% Struk Dicetak = (Struk Dicetak / Total Transaksi) x 100%'
   )
@@ -353,6 +383,301 @@ export async function buatPdfRekapStruk(input: RekapStrukPdfInput): Promise<void
     .replace(/^_|_$/g, '')
     .slice(0, 32)
   const fileName = `Rekap_Cetak_Struk_${cabangAman || 'Semua_Cabang'}_${
+    from === to ? from : `${from}_sd_${to}`
+  }.pdf`
+  doc.save(fileName)
+}
+
+export interface DetailKasirStrukPdfInput {
+  periode: { from: string; to: string }
+  cashierSummary: CashierStrukRecapRow
+  filterStatusLabel: string
+  orders: RekapStrukOrderRow[]
+  totalOrderAmount: number
+  totalOrderItems: number
+}
+
+export function susunPdfDetailKasirStruk(
+  JsPDF: any,
+  autoTable: any,
+  input: DetailKasirStrukPdfInput,
+  logo: HTMLImageElement | null = null
+) {
+  const doc = new JsPDF({ orientation: 'landscape', unit: 'mm', compress: true, format: 'a4' })
+  const { from, to } = input.periode
+  const hari = jumlahHari(from, to)
+  const periodeStr = aman(
+    `${from === to ? tanggalPendek(from) : `${tanggalPendek(from)} - ${tanggalPendek(to)}`} (${hari} hari)`
+  )
+  const cs = input.cashierSummary
+  const dicetak = waktuCetak()
+
+  const teks = (
+    s: unknown,
+    x: number,
+    y: number,
+    o: {
+      size?: number
+      bold?: boolean
+      warna?: RGB
+      align?: 'left' | 'right' | 'center'
+      maxW?: number
+    } = {}
+  ) => {
+    doc.setFont('helvetica', o.bold ? 'bold' : 'normal')
+    doc.setFontSize(o.size ?? 8)
+    doc.setTextColor(...(o.warna ?? rgb(WARNA.teks)))
+    let isi = aman(s)
+    if (o.maxW && doc.getTextWidth(isi) > o.maxW) {
+      while (isi.length > 1 && doc.getTextWidth(`${isi}...`) > o.maxW) isi = isi.slice(0, -1)
+      isi = `${isi.trimEnd()}...`
+    }
+    doc.text(isi, x, y, { align: o.align ?? 'left' })
+  }
+
+  // ── Kop Halaman 1 ──
+  doc.setFillColor(...rgb(WARNA.primary))
+  doc.rect(0, 0, W, 30, 'F')
+  doc.setFillColor(...rgb(WARNA.oranye))
+  doc.rect(0, 30, W, 1.2, 'F')
+  let xJudul = M
+  if (logo) {
+    doc.setFillColor(...PUTIH)
+    doc.circle(M + 9.5, 15, 9.5, 'F')
+    doc.addImage(logo, 'PNG', M + 1.8, 7.3, 15.4, 15.4)
+    xJudul = M + 24
+  }
+  teks(`DETAIL ORDER KASIR: ${aman(cs.cashierName)}`, xJudul, 14.2, {
+    size: 16,
+    bold: true,
+    warna: PUTIH,
+    maxW: 145,
+  })
+  teks(
+    `Cabang: ${aman(cs.outletName)}  ·  AM: ${aman(cs.amName)}  ·  ${aman(input.filterStatusLabel)}`,
+    xJudul,
+    20.8,
+    { size: 8.5, warna: [251, 227, 208], maxW: 145 }
+  )
+
+  const meta: [string, string][] = [
+    ['Periode', periodeStr],
+    ['Kasir', aman(cs.cashierName)],
+    ['Cabang', aman(cs.outletName)],
+    ['Dicetak', dicetak],
+  ]
+  const xLabel = W - M - 102
+  meta.forEach(([label, nilai], i) => {
+    const y = 8.6 + i * 5
+    teks(label, xLabel, y, { size: 7.1, warna: [245, 201, 166] })
+    teks(nilai, xLabel + 19, y, { size: 7.6, bold: true, warna: PUTIH, maxW: 83 })
+  })
+
+  // Strip Ringkasan Kasir
+  const yS = 36
+  const stripItems: [string, string][] = [
+    ['TOTAL TRANSAKSI KASIR', `${angka(cs.totalOrders)} order (Offline & Web)`],
+    ['STRUK DICETAK', `${angka(cs.printedOrders)} order (${cs.printedRate.toFixed(1).replace('.', ',')}%)`],
+    ['STRUK TIDAK DICETAK', `${angka(cs.notPrintedOrders)} order (${cs.notPrintedRate.toFixed(1).replace('.', ',')}%)`],
+    ['NOMINAL PADA TABEL INI', `${rupiah(input.totalOrderAmount)} (${angka(input.orders.length)} order)`],
+  ]
+  const lebarS = (LK - 3 * 3) / 4
+  stripItems.forEach(([label, nilai], i) => {
+    const x = M + i * (lebarS + 3)
+    doc.setFillColor(...rgb(WARNA.krem))
+    doc.setDrawColor(...rgb(WARNA.garis))
+    doc.setLineWidth(0.2)
+    doc.roundedRect(x, yS, lebarS, 13.5, 1.5, 1.5, 'FD')
+    doc.setFillColor(...rgb(i === 2 ? WARNA.merah : i === 1 ? WARNA.hijau : WARNA.primary))
+    doc.rect(x, yS + 2.2, 1.1, 9.1, 'F')
+    teks(label, x + 3.8, yS + 5.1, { size: 6.2, bold: true, warna: rgb(WARNA.teksPudar) })
+    teks(nilai, x + 3.8, yS + 10.6, {
+      size: 9.5,
+      bold: true,
+      warna: rgb(i === 2 ? WARNA.merah : i === 1 ? WARNA.hijau : WARNA.primary),
+      maxW: lebarS - 6,
+    })
+  })
+
+  // Total lebar kolom = 9 + 20 + 34 + 28 + 28 + 68 + 20 + 40 + 26 = 273 mm (100% pas LK)
+  doc.setFillColor(...rgb(WARNA.oranye))
+  doc.rect(M, 56.5 - 3.7, 1.4, 4.8, 'F')
+  teks(
+    `Daftar Rincian Per Order (${angka(input.orders.length)} Transaksi · Zona Waktu WIB)`,
+    M + 3.6,
+    56.5,
+    { size: 10.5, bold: true, warna: rgb(WARNA.primary) }
+  )
+
+  autoTable(doc, {
+    theme: 'plain',
+    startY: 59.5,
+    tableWidth: LK,
+    margin: { left: M, right: M, top: ATAS_LANJUTAN, bottom: BAWAH },
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.4,
+      textColor: rgb(WARNA.teks),
+      valign: 'middle',
+      overflow: 'linebreak',
+      cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+      lineColor: rgb(WARNA.garis),
+      lineWidth: { bottom: 0.15 },
+    },
+    headStyles: {
+      fillColor: rgb(WARNA.primary),
+      textColor: PUTIH,
+      fontStyle: 'bold',
+      fontSize: 7.2,
+      halign: 'left',
+      lineWidth: 0,
+    },
+    footStyles: {
+      fillColor: rgb(WARNA.kremTua),
+      textColor: rgb(WARNA.primary),
+      fontStyle: 'bold',
+      fontSize: 7.8,
+      halign: 'right',
+      lineWidth: { top: 0.35 },
+      lineColor: rgb(WARNA.primary),
+    },
+    alternateRowStyles: { fillColor: rgb(WARNA.krem) },
+    showFoot: 'lastPage',
+    rowPageBreak: 'avoid',
+    head: [
+      [
+        'No',
+        'No. Order',
+        'Tanggal & Waktu (WIB)',
+        'Sumber Order',
+        'Pelanggan',
+        'Rincian Item Pesanan',
+        'Metode Bayar',
+        'Status Struk (Cust / Dapur)',
+        'Nominal',
+      ],
+    ],
+    body: input.orders.map((o, idx) => {
+      const itemsText = (o.order_items || [])
+        .map((it) => `${it.quantity}x ${aman(it.menu_item_name)}`)
+        .join(', ')
+      const custStat = o.receiptMeta?.customerSkipped
+        ? 'Cust: Tidak Cetak'
+        : `Cust: Cetak (${Number(o.customer_receipt_print_count) || 0}x)`
+      const kitStat = o.receiptMeta?.kitchenSkipped
+        ? 'Dapur: Tidak Cetak'
+        : `Dapur: Cetak (${Number(o.kitchen_receipt_print_count) || 0}x)`
+      return [
+        idx + 1,
+        `#${o.order_number}`,
+        formatWibDateTimePdf(o.created_at),
+        aman(getSourceLabel(o)),
+        aman(o.customer_name || '-'),
+        itemsText || '-',
+        aman((o.payment_method || '-').toUpperCase()),
+        `${custStat} | ${kitStat}`,
+        rupiah(Number(o.total_amount) || 0),
+      ]
+    }),
+    foot: [
+      [
+        '',
+        `TOTAL (${angka(input.orders.length)} ORDER)`,
+        '',
+        '',
+        '',
+        `${angka(input.totalOrderItems)} item terjual`,
+        '',
+        '',
+        rupiah(input.totalOrderAmount),
+      ],
+    ],
+    columnStyles: {
+      0: { cellWidth: 9, halign: 'center', textColor: rgb(WARNA.teksPudar) },
+      1: { cellWidth: 20, halign: 'left', fontStyle: 'bold' },
+      2: { cellWidth: 34, halign: 'left' },
+      3: { cellWidth: 28, halign: 'left' },
+      4: { cellWidth: 28, halign: 'left' },
+      5: { cellWidth: 68, halign: 'left', fontSize: 7 },
+      6: { cellWidth: 20, halign: 'center' },
+      7: { cellWidth: 40, halign: 'left', fontSize: 7 },
+      8: { cellWidth: 26, halign: 'right', fontStyle: 'bold' },
+    },
+    didParseCell: (c: any) => {
+      if (c.section === 'head') {
+        if (c.column.index === 0 || c.column.index === 6) c.cell.styles.halign = 'center'
+        else if (c.column.index === 8) c.cell.styles.halign = 'right'
+        else c.cell.styles.halign = 'left'
+      }
+      if (c.section === 'foot') {
+        if (c.column.index === 1 || c.column.index === 5) c.cell.styles.halign = 'left'
+      }
+      if (c.section === 'body') {
+        const row = input.orders[c.row.index]
+        if (c.column.index === 7 && row?.receiptMeta?.isNotPrinted) {
+          c.cell.styles.textColor = rgb(WARNA.merah)
+          c.cell.styles.fontStyle = 'bold'
+        }
+      }
+    },
+  })
+
+  const jumlah = doc.internal.getNumberOfPages()
+  for (let i = 1; i <= jumlah; i++) {
+    doc.setPage(i)
+    if (i > 1) {
+      doc.setFillColor(...rgb(WARNA.primary))
+      doc.rect(0, 0, W, 12, 'F')
+      doc.setFillColor(...rgb(WARNA.oranye))
+      doc.rect(0, 12, W, 0.6, 'F')
+      teks(`DETAIL ORDER KASIR: ${aman(cs.cashierName)}  ·  ${aman(cs.outletName)}`, M, 7.8, {
+        size: 8.6,
+        bold: true,
+        warna: PUTIH,
+      })
+      teks(periodeStr, W - M, 7.8, {
+        size: 7.4,
+        warna: [245, 201, 166],
+        align: 'right',
+        maxW: 155,
+      })
+    }
+    doc.setDrawColor(...rgb(WARNA.garis))
+    doc.setLineWidth(0.25)
+    doc.line(M, H - 9, W - M, H - 9)
+    teks('SS Shawarma Digital Hub  ·  Dokumen Audit Operasional POS', M, H - 5, {
+      size: 6.8,
+      warna: rgb(WARNA.teksPudar),
+    })
+    teks(`Dicetak ${dicetak}`, W / 2, H - 5, {
+      size: 6.8,
+      warna: rgb(WARNA.teksPudar),
+      align: 'center',
+    })
+    teks(`Halaman ${i} dari ${jumlah}`, W - M, H - 5, {
+      size: 6.8,
+      bold: true,
+      warna: rgb(WARNA.primary),
+      align: 'right',
+    })
+  }
+
+  return doc
+}
+
+export async function buatPdfDetailKasirStruk(input: DetailKasirStrukPdfInput): Promise<void> {
+  const [{ default: JsPDF }, { default: autoTable }, logo] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+    muatGambar('/logo.png'),
+  ])
+  const doc = susunPdfDetailKasirStruk(JsPDF, autoTable, input, logo)
+  const { from, to } = input.periode
+  const kasirAman = input.cashierSummary.cashierName
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 28)
+  const fileName = `Detail_Order_Struk_${kasirAman || 'Kasir'}_${
     from === to ? from : `${from}_sd_${to}`
   }.pdf`
   doc.save(fileName)

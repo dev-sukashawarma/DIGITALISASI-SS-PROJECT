@@ -14,6 +14,7 @@ import {
   computeAvailableRekapStrukChannels,
   computeRekapStrukBase,
   filterRekapStrukOrders,
+  normalizeCashierName,
   toSkipKindFilter,
   type SkipKindFilter,
 } from '@/lib/posReport/rekapStruk'
@@ -30,6 +31,21 @@ export type RekapStrukRequest = {
   cashierDrilldown?: string
   paymentMethod?: string
   search?: string
+  page?: number
+  pageSize?: number
+  isPawoonVisible?: boolean
+}
+
+export type DetailKasirStrukRequest = {
+  outletId: string
+  cashierName: string
+  from: string
+  to: string
+  channels?: string[]
+  skipKindFilter?: SkipKindFilter | string
+  paymentMethod?: string
+  search?: string
+  sortDir?: 'asc' | 'desc'
   page?: number
   pageSize?: number
   isPawoonVisible?: boolean
@@ -264,6 +280,206 @@ export async function eksporRekapStrukUntukScope(
     summary: prepared.summary,
     cashierRecap: prepared.cashierRecap,
     orders: derived.rows,
+    totalOrderAmount: derived.totalAmount,
+    totalOrderItems: derived.totalItems,
+  }
+}
+
+function sanitizeDetailKasirRequest(req: DetailKasirStrukRequest) {
+  if (!req || !isDateStr(req.from) || !isDateStr(req.to) || req.from > req.to) {
+    throw new Error('Rentang tanggal tidak valid')
+  }
+  const outletId = String(req.outletId || '').trim()
+  if (!outletId || outletId === 'all' || outletId === 'ss-online') {
+    throw new Error('Cabang/outlet tidak valid')
+  }
+  const cashierName = normalizeCashierName(req.cashierName)
+  const channels =
+    Array.isArray(req.channels) && req.channels.length > 0
+      ? req.channels.map(String)
+      : ['all']
+
+  return {
+    outletId,
+    cashierName,
+    from: req.from,
+    to: req.to,
+    channels,
+    skipKindFilter: toSkipKindFilter(req.skipKindFilter),
+    paymentMethod: typeof req.paymentMethod === 'string' && req.paymentMethod ? req.paymentMethod : 'all',
+    search: typeof req.search === 'string' ? req.search.slice(0, 100) : '',
+    sortDir: req.sortDir === 'asc' ? ('asc' as const) : ('desc' as const),
+    page: Math.max(1, Math.floor(Number(req.page) || 1)),
+    pageSize: Math.min(100, Math.max(1, Math.floor(Number(req.pageSize) || 20))),
+    isPawoonVisible: Boolean(req.isPawoonVisible),
+  }
+}
+
+async function getPreparedDetailKasirStruk(rawReq: DetailKasirStrukRequest, scope: CakupanLaporan) {
+  const req = sanitizeDetailKasirRequest(rawReq)
+  const { supabase, scopeKey, allowedOutletIds } = scope
+
+  if (allowedOutletIds !== 'all' && !allowedOutletIds.includes(req.outletId)) {
+    throw new Error('Forbidden: outlet not in caller scope')
+  }
+
+  const earliest = await getEarliestSalesDate(supabase, scopeKey)
+  const from = earliest && req.from < earliest ? earliest : req.from
+  const today = jakartaDate(new Date())
+  const includesToday = from <= today && today <= req.to
+
+  const key = [
+    'rekap-struk-detail-v1',
+    scopeKey,
+    from,
+    req.to,
+    today,
+    req.outletId,
+    req.cashierName,
+    req.channels.join(','),
+    req.isPawoonVisible ? 1 : 0,
+  ].join('|')
+  const ttl = includesToday ? PREPARED_TTL_WITH_TODAY_MS : PREPARED_TTL_PAST_ONLY_MS
+
+  const prepared = await getPrepared(key, ttl, async () => {
+    const [ordersRes, outlets] = await Promise.all([
+      from <= req.to
+        ? loadPosReportOrders(supabase, scopeKey, from, req.to, today)
+        : Promise.resolve({
+            pos: [],
+            ecommerce: [],
+            fetchedAt: new Date().toISOString(),
+            isCached: true,
+          }),
+      getCachedOutletsWithAm(supabase, scopeKey),
+    ])
+
+    // Filter super cepat hanya untuk 1 outlet dan 1 kasir target sebelum agregasi
+    const outletOrders = selectReportOrders(ordersRes.pos, [], [req.outletId]).filter(
+      (o) => normalizeCashierName(o.cashier_name) === req.cashierName
+    )
+
+    const base = computeRekapStrukBase({
+      orders: outletOrders,
+      outlets,
+      selectedChannels: req.channels,
+    })
+
+    const outletMeta = outlets.find((o: any) => o.id === req.outletId) || {
+      id: req.outletId,
+      name: 'Cabang',
+      type: 'outlet',
+      amName: '-',
+    }
+
+    const cashierRow = base.cashierRecap[0] || {
+      key: `${req.outletId}__${req.cashierName}`,
+      cashierName: req.cashierName,
+      outletId: req.outletId,
+      outletName: outletMeta.name,
+      amName: outletMeta.amName || '-',
+      totalOrders: 0,
+      trackedOrders: 0,
+      printedOrders: 0,
+      latePrintedOrders: 0,
+      notPrintedOrders: 0,
+      customerSkippedOrders: 0,
+      kitchenSkippedOrders: 0,
+      bothSkippedOrders: 0,
+      printedRate: 0,
+      notPrintedRate: 0,
+      notPrintedRateAll: 0,
+      notPrintedRevenue: 0,
+      totalRevenue: 0,
+      lastNotPrintedAt: null,
+    }
+
+    // Urutkan default berdasarkan created_at descending (terbaru di atas)
+    const sortedCompleted = [...base.completedOrders].sort((a, b) =>
+      b.created_at.localeCompare(a.created_at)
+    )
+
+    return {
+      from,
+      cashierSummary: cashierRow,
+      completedOrders: sortedCompleted,
+      availableChannels: computeAvailableRekapStrukChannels(req.isPawoonVisible),
+      availablePaymentMethods: computeAvailablePaymentMethods(outletOrders),
+      fetchedAt: ordersRes.fetchedAt,
+      isCached: ordersRes.isCached,
+    }
+  })
+
+  return { req, prepared }
+}
+
+/** Detail per-order untuk 1 kasir pada 1 cabang (dengan paginasi server hemat memori). */
+export async function laporanDetailKasirStrukUntukScope(
+  rawReq: DetailKasirStrukRequest,
+  scope: CakupanLaporan
+) {
+  const { req, prepared } = await getPreparedDetailKasirStruk(rawReq, scope)
+
+  const derived = filterRekapStrukOrders({
+    completedOrders: prepared.completedOrders,
+    skipKindFilter: req.skipKindFilter,
+    outletFilter: req.outletId,
+    amFilter: 'all',
+    cashierFilter: req.cashierName,
+    paymentMethod: req.paymentMethod,
+    searchQuery: req.search,
+  })
+
+  const orderedRows =
+    req.sortDir === 'asc' ? [...derived.rows].reverse() : derived.rows
+
+  const totalRows = orderedRows.length
+  const totalPages = Math.max(1, Math.ceil(totalRows / req.pageSize))
+  const page = Math.min(req.page, totalPages)
+  const pageRows = orderedRows.slice((page - 1) * req.pageSize, page * req.pageSize)
+
+  return {
+    periode: { from: prepared.from, to: req.to },
+    cashierSummary: prepared.cashierSummary,
+    availableChannels: prepared.availableChannels,
+    availablePaymentMethods: prepared.availablePaymentMethods,
+    table: {
+      rows: pageRows,
+      total: totalRows,
+      page,
+      totalPages,
+      totalAmount: derived.totalAmount,
+      totalItems: derived.totalItems,
+    },
+    fetchedAt: prepared.fetchedAt,
+    isCached: prepared.isCached,
+  }
+}
+
+/** Seluruh baris order sesuai filter aktif untuk ekspor PDF halaman detail kasir. */
+export async function eksporDetailKasirStrukUntukScope(
+  rawReq: DetailKasirStrukRequest,
+  scope: CakupanLaporan
+) {
+  const { req, prepared } = await getPreparedDetailKasirStruk(rawReq, scope)
+
+  const derived = filterRekapStrukOrders({
+    completedOrders: prepared.completedOrders,
+    skipKindFilter: req.skipKindFilter,
+    outletFilter: req.outletId,
+    amFilter: 'all',
+    cashierFilter: req.cashierName,
+    paymentMethod: req.paymentMethod,
+    searchQuery: req.search,
+  })
+
+  const orderedRows =
+    req.sortDir === 'asc' ? [...derived.rows].reverse() : derived.rows
+
+  return {
+    periode: { from: prepared.from, to: req.to },
+    cashierSummary: prepared.cashierSummary,
+    orders: orderedRows,
     totalOrderAmount: derived.totalAmount,
     totalOrderItems: derived.totalItems,
   }

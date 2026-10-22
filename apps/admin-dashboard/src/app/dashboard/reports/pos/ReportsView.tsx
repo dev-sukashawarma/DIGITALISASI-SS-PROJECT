@@ -1308,7 +1308,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                     </>
                                   ) : (
                                     <div className="text-[11px] font-medium text-orange-600 mt-1">
-                                      (Subsidi App: -{formatRupiah(appSubsidy)})
+                                      (Diskon Promo: -{formatRupiah(appSubsidy)})
                                     </div>
                                   )
                                 )}
@@ -1378,7 +1378,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                             {totalAppSubsidy > 0 && (
                               <tr>
                                 <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
-                                  Total Subsidi Promo Food Apps (Kasir)
+                                  Total Diskon Promo Food Apps (Kasir)
                                 </td>
                                 <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">
                                   - {formatRupiah(totalAppSubsidy)}

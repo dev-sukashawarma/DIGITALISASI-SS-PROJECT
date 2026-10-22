@@ -7,7 +7,8 @@ import { getDistribusiFactor } from '@/lib/format/compositeUnit'
 import { attributeFifo, labelFifo, type FifoWindowRow } from '@/lib/stok/vendorFifo'
 import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
-import { bagiMutasiOrder, isMutasiOrder } from '@/lib/stok/mutasiOrder'
+import { isMutasiOrder, pemakaianPosPerBahan } from '@/lib/stok/mutasiOrder'
+import { ambilWaktuTutupOpname } from '@/lib/stok/waktuTutupOpname'
 
 
 function makeServiceClient() {
@@ -732,7 +733,7 @@ export async function fetchReconciliationSnapshot(
     // Ambil opname terpilih
     const { data: curOpname, error: curErr } = await supabase
       .from('opname')
-      .select('id, tanggal, tipe, status, notes, created_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
+      .select('id, tanggal, tipe, status, notes, created_at, updated_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
       .eq('id', params.opnameId)
       .single()
 
@@ -752,7 +753,8 @@ export async function fetchReconciliationSnapshot(
     }
     auditNote = curOpname.notes
 
-    endIso = curOpname.created_at
+    // Batas = saat finalisasi, bukan saat draf dibuat (lihat lib/stok/waktuTutupOpname)
+    endIso = await ambilWaktuTutupOpname(supabase, curOpname)
 
     // Ambil item opname terpilih
     const { data: curItems } = await supabase
@@ -771,7 +773,7 @@ export async function fetchReconciliationSnapshot(
     // Cari opname sebelumnya sebelum opname terpilih
     const { data: prevOpnameList } = await supabase
       .from('opname')
-      .select('id, tanggal, tipe, status, notes, created_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
+      .select('id, tanggal, tipe, status, notes, created_at, updated_at, approved_at, outlet_staff!opname_created_by_fkey(name)')
       .eq('outlet_id', outletId)
       .eq('status', 'finalized')
       .lt('created_at', curOpname.created_at)
@@ -792,7 +794,7 @@ export async function fetchReconciliationSnapshot(
         item_count: 0,
         flagged_count: 0,
       }
-      startIso = prev.created_at
+      startIso = await ambilWaktuTutupOpname(supabase, prev)
 
       // Ambil item opname sebelumnya sebagai baseline Saldo Awal
       const { data: prevItems } = await supabase
@@ -951,6 +953,39 @@ export async function fetchReconciliationSnapshot(
   // Catatan: 'opname_selisih' BUKAN mutasi operasional (bukan kiriman, pemakaian, atau waste).
   // Jika 'opname_selisih' dimasukkan ke mutasi, maka stok sistem otomatis dipaksa sama dengan fisik!
   const ledgerRows = (rawLedgerRows || []).filter((row) => row.tipe !== 'opname_selisih')
+
+  // 4b. Pemakaian POS dari order: tiap order diatribusikan ke periode potongan
+  // PERTAMANYA dengan neto SELURUH mutasinya (lihat lib/stok/mutasiOrder). Untuk
+  // itu perlu juga baris order yang sama di luar periode: pembalik yang datang
+  // belakangan, dan potongan sebelum periode (order lama yang dibatalkan di sini).
+  const orderRowsPeriode = ledgerRows.filter((r) => isMutasiOrder(r))
+  const orderIdsPeriode = [...new Set(orderRowsPeriode.map((r) => r.ref_order_id as string))]
+  const orderRowsLuar: any[] = []
+  try {
+    for (let i = 0; i < orderIdsPeriode.length; i += 200) {
+      const chunk = orderIdsPeriode.slice(i, i + 200)
+      orderRowsLuar.push(
+        ...(await fetchAllPages<any>(() =>
+          supabase
+            .from('ledger_stok')
+            .select('id, bahan_baku_id, tipe, qty, created_at, ref_order_id')
+            .eq('outlet_id', outletId)
+            .in('ref_order_id', chunk)
+            .in('tipe', ['pemakaian', 'adjustment'])
+            .or(`created_at.lt."${startIso}",created_at.gt."${endIso}"`)
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true })
+        ))
+      )
+    }
+  } catch (e: any) {
+    throw new Error(`Gagal memuat mutasi order di luar periode: ${e?.message ?? e}`)
+  }
+  const pakaiOrderByBahan = pemakaianPosPerBahan(
+    [...orderRowsPeriode, ...orderRowsLuar],
+    startIso,
+    endIso
+  )
 
   // 5. Ambil harga pengadaan riil dari surat_jalan_item untuk transaksi terima_kiriman dalam periode
   const shipmentIds = [
@@ -1285,8 +1320,6 @@ export async function fetchReconciliationSnapshot(
       masukRpRiilTotal: number
       hasRealPrice: boolean
       pakaiQty: number
-      // Neto bertanda pemakaian + pembalik order batal (lihat lib/stok/mutasiOrder)
-      orderNetQty: number
       wasteQty: number
       mutasiLainQty: number
       rowCount: number
@@ -1303,7 +1336,6 @@ export async function fetchReconciliationSnapshot(
         masukRpRiilTotal: 0,
         hasRealPrice: false,
         pakaiQty: 0,
-        orderNetQty: 0,
         wasteQty: 0,
         mutasiLainQty: 0,
         rowCount: 0,
@@ -1318,7 +1350,7 @@ export async function fetchReconciliationSnapshot(
 
     if (isMutasiOrder(row)) {
       // Potongan BOM & pembalik order batal dihitung neto, bukan Pakai + Masuk terpisah.
-      agg.orderNetQty += rawQty
+      // Dihitung terpisah lewat pakaiOrderByBahan (atribusi per order).
     } else if (row.tipe === 'pemakaian') {
       agg.pakaiQty += Math.abs(rawQty)
     } else if (row.tipe === 'waste') {
@@ -1416,11 +1448,11 @@ export async function fetchReconciliationSnapshot(
     }
 
     const masukQty = agg?.masukQty || 0
-    const mutasiOrder = bagiMutasiOrder(agg?.orderNetQty || 0)
-    const pakaiQty = (agg?.pakaiQty || 0) + mutasiOrder.pakai
+    const pakaiQty = (agg?.pakaiQty || 0) + (pakaiOrderByBahan.get(b.id) || 0)
     const wasteQty = agg?.wasteQty || 0
-    // Pembalik order yang potongannya terjadi sebelum periode = koreksi, bukan barang masuk.
-    const mutasiLainQty = (agg?.mutasiLainQty || 0) + mutasiOrder.pembalikSebelumPeriode
+    // Pembalik order yang potongannya terjadi sebelum periode tidak dihitung di sini:
+    // Saldo Awal sudah hasil hitung fisik, jadi pembalik itu bukan barang masuk.
+    const mutasiLainQty = agg?.mutasiLainQty || 0
 
     // Stok Ekspektasi Sistem = Awal + Masuk - Pakai - Waste + Mutasi Lain
     const stokSistem = Math.round((saldoAwal + masukQty - pakaiQty - wasteQty + mutasiLainQty) * 100) / 100

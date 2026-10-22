@@ -1225,7 +1225,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const rawOutlets = (resOutlets.data || []).filter((o: any) =>
       adalahOutletPenjualan(o.name, o.type, o.code, o.slug)
     )
-    const validOutletIds = new Set(rawOutlets.map((o: any) => o.id))
+    const validOutletIds = new Set<string>(rawOutlets.map((o: any) => String(o.id)))
     const outletTypeMap = new Map<string, string>()
     for (const o of rawOutlets) {
       outletTypeMap.set(o.id, o.type || 'internal')

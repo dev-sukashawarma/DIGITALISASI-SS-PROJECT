@@ -1388,7 +1388,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                             {totalPlatformSubsidy > 0 && (
                               <tr>
                                 <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-emerald-600">
-                                  Disubsidi Platform (Gojek — Bukan Beban Resto)
+                                  Disubsidi Platform (GoFood &amp; TikTok Go — Bukan Beban Resto)
                                 </td>
                                 <td className="px-5 py-3 text-right text-sm font-bold text-emerald-600 whitespace-nowrap">
                                   + {formatRupiah(totalPlatformSubsidy)}

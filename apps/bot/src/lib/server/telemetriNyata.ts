@@ -960,9 +960,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         }),
       sb
         .from('orders')
-        .select('id, total_amount, created_at, outlet_id, outlets(name)')
-        .gte('created_at', startToday)
-        .lt('created_at', endToday)
+        .select('id, total_amount, created_at, void_at, outlet_id, outlets(name)')
+        .or(`and(created_at.gte.${startToday},created_at.lt.${endToday}),and(void_at.gte.${startToday},void_at.lt.${endToday})`)
         .eq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(100)
@@ -975,9 +974,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         }),
       sb
         .from('orders')
-        .select('id, total_amount, created_at, outlet_id, outlets(name)')
-        .gte('created_at', startKemarin)
-        .lt('created_at', endKemarin)
+        .select('id, total_amount, created_at, void_at, outlet_id, outlets(name)')
+        .or(`and(created_at.gte.${startKemarin},created_at.lt.${endKemarin}),and(void_at.gte.${startKemarin},void_at.lt.${endKemarin})`)
         .eq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(100)
@@ -1227,7 +1225,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const rawOutlets = (resOutlets.data || []).filter((o: any) =>
       adalahOutletPenjualan(o.name, o.type, o.code, o.slug)
     )
-    const validOutletIds = new Set(rawOutlets.map((o: any) => o.id))
+    const validOutletIds = new Set<string>(rawOutlets.map((o: any) => String(o.id)))
     const outletTypeMap = new Map<string, string>()
     for (const o of rawOutlets) {
       outletTypeMap.set(o.id, o.type || 'internal')
@@ -1451,8 +1449,9 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       const daftar = rows.map((v) => {
         const amt = Number(v.total_amount) || 0
         totalNilai += amt
-        const waktuWib = v.created_at
-          ? new Date(v.created_at).toLocaleTimeString('id-ID', {
+        const tsVoid = v.void_at || v.created_at
+        const waktuWib = tsVoid
+          ? new Date(tsVoid).toLocaleTimeString('id-ID', {
               timeZone: 'Asia/Jakarta',
               hour: '2-digit',
               minute: '2-digit',

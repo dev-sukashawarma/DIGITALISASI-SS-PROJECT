@@ -357,7 +357,8 @@ export function computeAnalytics({
       if (allocated !== undefined) {
         target.settlement_promo_merchant = allocated
         const kasirPromo = Number(target.promo_subsidy) || 0
-        target.platform_subsidy = Math.max(0, kasirPromo - allocated)
+        // Hanya GoFood yang punya subsidi platform; ShopeeFood/GrabFood = diskon toko murni
+        target.platform_subsidy = isGoFoodOrder(o) ? Math.max(0, kasirPromo - allocated) : 0
       }
     } else if (isTikTokGoOrder(o)) {
       target.settlement_promo_merchant = 0

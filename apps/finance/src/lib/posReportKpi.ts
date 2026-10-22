@@ -275,6 +275,10 @@ export function resolveMerchantPromo(order: KpiOrder, opts: KpiOrderOptions = {}
 export function computeOrderPlatformSubsidy(order: KpiOrder, opts: KpiOrderOptions = {}): number {
   if (opts.ssOnlineMode || order.outlet_id === 'ss-online') return 0
   if (!isFoodAppOrder(order)) return 0
+  // Subsidi platform hanya dikenal di GoFood (voucher Gojek) & TikTok Go. Di
+  // ShopeeFood & GrabFood promo kasir = diskon toko murni; selisihnya dengan
+  // settlement hanya sisa pembagian proporsional, bukan subsidi.
+  if (!isGoFoodOrder(order) && !isTikTokGoOrder(order)) return 0
 
   const kasirPromo = Number(order.promo_subsidy) || 0
   const merchantPromo = resolveMerchantPromo(order, opts)

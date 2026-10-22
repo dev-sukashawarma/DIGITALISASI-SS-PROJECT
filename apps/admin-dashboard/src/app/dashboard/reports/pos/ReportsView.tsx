@@ -44,6 +44,7 @@ import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import BranchFilter from '@/components/BranchFilter'
 import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { isTikTokGoOrder } from '@/lib/posReportKpi'
 
 type DateRangeType = 'today' | 'yesterday' | '7days' | 'thisMonth' | 'lastMonth' | 'all' | 'custom'
 
@@ -1300,14 +1301,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                                         </div>
                                       )}
                                       {(order as any).platform_subsidy > 0 && (
-                                        <div className="text-[11px] font-medium text-emerald-600 mt-0.5" title="Disubsidi Gojek (bukan beban resto)">
-                                          (Subsidi Gojek: +{formatRupiah((order as any).platform_subsidy)})
+                                        <div className="text-[11px] font-medium text-emerald-600 mt-0.5" title="Disubsidi platform (bukan beban resto)">
+                                          (Subsidi {isTikTokGoOrder(order) ? 'TikTok' : 'Gojek'}: +{formatRupiah((order as any).platform_subsidy)})
                                         </div>
                                       )}
                                     </>
                                   ) : (
                                     <div className="text-[11px] font-medium text-orange-600 mt-1">
-                                      (Subsidi App: -{formatRupiah(appSubsidy)})
+                                      (Diskon Promo: -{formatRupiah(appSubsidy)})
                                     </div>
                                   )
                                 )}
@@ -1377,7 +1378,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                             {totalAppSubsidy > 0 && (
                               <tr>
                                 <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
-                                  Total Subsidi Promo Food Apps (Kasir)
+                                  Total Diskon Promo Food Apps (Kasir)
                                 </td>
                                 <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">
                                   - {formatRupiah(totalAppSubsidy)}
@@ -1387,7 +1388,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                             {totalPlatformSubsidy > 0 && (
                               <tr>
                                 <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-emerald-600">
-                                  Disubsidi Platform (Gojek — Bukan Beban Resto)
+                                  Disubsidi Platform (GoFood &amp; TikTok Go — Bukan Beban Resto)
                                 </td>
                                 <td className="px-5 py-3 text-right text-sm font-bold text-emerald-600 whitespace-nowrap">
                                   + {formatRupiah(totalPlatformSubsidy)}

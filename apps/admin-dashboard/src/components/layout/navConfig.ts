@@ -96,6 +96,7 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/reports/pos', label: 'Rangkuman Penjualan', shortLabel: 'Penjualan', icon: PieChart, roles: ['OWNER', 'ADMIN'], primary: ['ADMIN'] },
+      { href: '/dashboard/reports/rekap-struk', label: 'Rekap Cetak Struk', shortLabel: 'Struk', icon: Printer, roles: ['OWNER', 'ADMIN'] },
       // "Selisih Stok" (/dashboard/reports/shrinkage) sengaja dilepas dari nav
       // atas permintaan owner — halamannya TETAP ADA dan masih bisa dibuka
       // lewat URL. Kembalikan barisnya di sini kalau mau ditampilkan lagi.

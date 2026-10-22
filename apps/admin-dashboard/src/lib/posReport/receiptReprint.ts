@@ -8,14 +8,52 @@
  * mengirim struk ke printer (cetak pertama di layar "Order Berhasil" + cetak ulang
  * dari kartu tab Selesai). Label hanya muncul bila lebih dari sekali, jadi order
  * lama / dari APK lama (hitungan 0) tidak pernah berlabel.
+ *
+ * Catatan: Order Food Apps (GoFood, GrabFood, ShopeeFood, TikTok Go, dll)
+ * tidak dideteksi sebagai struk tidak dicetak (hanya order Offline & Website).
  */
 export type ReceiptReprintLabel = { kind: 'customer' | 'kitchen'; count: number; text: string }
 
 type ReceiptFields = {
+  channel?: string | null
+  sales_source?: string | null
   customer_receipt_print_count?: number | null
   kitchen_receipt_print_count?: number | null
   customer_receipt_skipped?: boolean | null
   kitchen_receipt_skipped?: boolean | null
+}
+
+const FOOD_APP_RECEIPT_IGNORE = new Set([
+  'gofood',
+  'gojek',
+  'go_food',
+  '1284ac2a-e753-4380-9f32-59219a322459',
+  'grabfood',
+  'grab',
+  'grab_food',
+  'shopeefood',
+  'shopee',
+  'shopee_food',
+  'tiktokgo',
+  'tiktok',
+  'tiktok_go',
+  'generic_food_app',
+  'food_apps',
+  'foodapp',
+  'food_app',
+  'tiktok_shop',
+  'tiktokshop',
+  'f3305089-b9e4-4b92-95da-14bf6e7fb6d5',
+  'shopee_shop',
+  'shopeeseller',
+  'shopee_seller',
+  'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584',
+])
+
+export function isIgnoredFoodAppReceiptOrder(order: Pick<ReceiptFields, 'channel' | 'sales_source'>): boolean {
+  const ch = (order.channel || '').trim().toLowerCase()
+  const src = (order.sales_source || '').trim().toLowerCase()
+  return FOOD_APP_RECEIPT_IGNORE.has(ch) || FOOD_APP_RECEIPT_IGNORE.has(src)
 }
 
 export function receiptReprintLabels(order: ReceiptFields): ReceiptReprintLabel[] {
@@ -31,10 +69,15 @@ export type ReceiptStatusLabel = { tone: 'ok' | 'late' | 'skipped'; text: string
 
 type KindStatus = 'printed' | 'late' | 'skipped' | 'unknown'
 
-function kindStatus(count: number | null | undefined, skipped: boolean | null | undefined): KindStatus {
+function kindStatus(
+  count: number | null | undefined,
+  skipped: boolean | null | undefined,
+  ignoreSkip = false
+): KindStatus {
   const printed = (Number(count) || 0) > 0
-  if (printed) return skipped ? 'late' : 'printed'
-  return skipped ? 'skipped' : 'unknown'
+  const effectiveSkip = ignoreSkip ? false : Boolean(skipped)
+  if (printed) return effectiveSkip ? 'late' : 'printed'
+  return effectiveSkip ? 'skipped' : 'unknown'
 }
 
 const KIND_NAME = { customer: 'customer', kitchen: 'dapur' } as const
@@ -43,11 +86,13 @@ function phrase(kinds: (keyof typeof KIND_NAME)[], suffix: string) {
   return kinds.length === 2 ? `Struk ${suffix}` : `Struk ${KIND_NAME[kinds[0]]} ${suffix}`
 }
 
-/** Order lama / dari APK lama (belum pernah tercatat cetak maupun lewati) tidak berlabel. */
+/** Order lama / dari APK lama (belum pernah tercatat cetak maupun lewati) tidak berlabel.
+ *  Order Food Apps tidak pernah dideteksi sebagai struk tidak dicetak. */
 export function receiptStatusLabels(order: ReceiptFields): ReceiptStatusLabel[] {
+  const ignoreSkip = isIgnoredFoodAppReceiptOrder(order)
   const status = {
-    customer: kindStatus(order.customer_receipt_print_count, order.customer_receipt_skipped),
-    kitchen: kindStatus(order.kitchen_receipt_print_count, order.kitchen_receipt_skipped),
+    customer: kindStatus(order.customer_receipt_print_count, order.customer_receipt_skipped, ignoreSkip),
+    kitchen: kindStatus(order.kitchen_receipt_print_count, order.kitchen_receipt_skipped, ignoreSkip),
   }
   const kinds = ['customer', 'kitchen'] as const
   const skipped = kinds.filter((k) => status[k] === 'skipped')
@@ -125,13 +170,14 @@ export type ReceiptChip = {
 
 export function receiptChips(order: ReceiptFields): ReceiptChip[] {
   const chips: ReceiptChip[] = []
+  const ignoreSkip = isIgnoredFoodAppReceiptOrder(order)
   const kinds = [
     ['customer', 'Customer', order.customer_receipt_print_count, order.customer_receipt_skipped],
     ['kitchen', 'Dapur', order.kitchen_receipt_print_count, order.kitchen_receipt_skipped],
   ] as const
   for (const [kind, name, rawCount, skipped] of kinds) {
     const count = Number(rawCount) || 0
-    const s = kindStatus(count, skipped)
+    const s = kindStatus(count, skipped, ignoreSkip)
     if (s === 'unknown') continue
     chips.push({
       kind,

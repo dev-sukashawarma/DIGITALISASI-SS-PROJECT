@@ -134,24 +134,66 @@ export async function fetchLeaderMonitoringData() {
 }
 
 /**
+ * Salinan identik pilihWaktuTutupOpname + ambilWaktuTutupOpname di
+ * apps/stok/src/lib/stok/waktuTutupOpname.ts (ber-test di sana) — ubah
+ * keduanya bersamaan. Batas opname di ledger = saat finalisasi (baris
+ * opname_selisih pertama → updated_at → created_at), bukan saat draf dibuat.
+ */
+async function ambilWaktuTutupOpname(
+  supabase: SupabaseBrowserClient,
+  opname: { id: string; created_at: string; updated_at?: string | null; status?: string | null }
+): Promise<string> {
+  const { data } = await supabase
+    .from('ledger_stok')
+    .select('created_at')
+    .eq('ref_opname_id', opname.id)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (data?.created_at) return data.created_at;
+  if (opname.status === 'finalized' && opname.updated_at) return opname.updated_at;
+  return opname.created_at;
+}
+
+/**
  * Salinan identik pemakaianPosPeriode di apps/stok/src/lib/stok/mutasiOrder.ts
- * (ber-test di sana) — ubah keduanya bersamaan. Aturan kolom Pemakaian POS
- * Jurnal Rekonsiliasi: mutasi order (pemakaian/adjustment ber-ref_order_id)
- * dinetokan, hanya neto negatif yang jadi pemakaian; pemakaian tanpa order
- * dijumlah apa adanya; tipe lain diabaikan.
+ * (ber-test di sana) — ubah keduanya bersamaan. Tiap order diatribusikan ke
+ * periode potongan PERTAMANYA dengan neto SELURUH mutasinya (pembalik yang
+ * datang belakangan ikut mengurangi; pembalik order lama diabaikan).
+ * `rows` = baris periode + baris order yang sama di luar periode.
  */
 function pemakaianPosPeriode(
-  rows: { tipe: string; qty: number | string | null; ref_order_id?: string | null }[]
+  rows: { tipe: string; qty: number | string | null; ref_order_id?: string | null; created_at: string }[],
+  startIso: string,
+  endIso: string
 ): number {
-  let orderNet = 0;
+  const start = Date.parse(startIso);
+  const end = Date.parse(endIso);
+  const potonganPertama = new Map<string, number>();
+  const neto = new Map<string, number>();
   let pakaiLain = 0;
   for (const row of rows) {
     const qty = Number(row.qty || 0);
+    const t = Date.parse(row.created_at);
     const isOrder = !!row.ref_order_id && (row.tipe === 'pemakaian' || row.tipe === 'adjustment');
-    if (isOrder) orderNet += qty;
-    else if (row.tipe === 'pemakaian') pakaiLain += Math.abs(qty);
+    if (isOrder) {
+      const id = row.ref_order_id as string;
+      if (row.tipe === 'pemakaian') {
+        const cur = potonganPertama.get(id);
+        if (cur === undefined || t < cur) potonganPertama.set(id, t);
+      }
+      neto.set(id, (neto.get(id) || 0) + qty);
+    } else if (row.tipe === 'pemakaian' && t >= start && t <= end) {
+      pakaiLain += Math.abs(qty);
+    }
   }
-  return pakaiLain + (orderNet < 0 ? -orderNet : 0);
+  let pakaiOrder = 0;
+  for (const [id, n] of neto) {
+    const t = potonganPertama.get(id);
+    if (t === undefined || t < start || t > end) continue;
+    if (n < 0) pakaiOrder += -n;
+  }
+  return pakaiLain + pakaiOrder;
 }
 
 /**
@@ -166,42 +208,64 @@ async function fetchPemakaianPosOpname(
   supabase: SupabaseBrowserClient,
   outletId: string,
   bahanBakuId: string,
-  opnameCreatedAt: string
+  opname: { id: string; created_at: string; updated_at?: string | null; status?: string | null }
 ): Promise<number> {
   const { data: prev } = await supabase
     .from('opname')
-    .select('created_at')
+    .select('id, created_at, updated_at, status')
     .eq('outlet_id', outletId)
     .eq('status', 'finalized')
-    .lt('created_at', opnameCreatedAt)
+    .lt('created_at', opname.created_at)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  const start = prev?.created_at
-    ?? new Date(new Date(opnameCreatedAt).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // Batas jendela = saat finalisasi, bukan saat draf dibuat (sama dengan jurnal).
+  const end = await ambilWaktuTutupOpname(supabase, opname);
+  const start = prev
+    ? await ambilWaktuTutupOpname(supabase, prev)
+    : new Date(new Date(opname.created_at).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const PAGE = 1000;
-  const rows: { tipe: string; qty: number | string | null; ref_order_id: string | null }[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
+  type Baris = { tipe: string; qty: number | string | null; ref_order_id: string | null; created_at: string };
+  const ambil = async (build: () => any): Promise<Baris[] | null> => {
+    const PAGE = 1000;
+    const out: Baris[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await build().range(from, from + PAGE - 1);
+      if (error) {
+        console.error('[fetchItemDetail] pemakaian POS:', error);
+        return null;
+      }
+      out.push(...(data ?? []));
+      if (!data || data.length < PAGE) return out;
+    }
+  };
+  const base = () =>
+    supabase
       .from('ledger_stok')
-      .select('tipe, qty, ref_order_id')
+      .select('tipe, qty, ref_order_id, created_at')
       .eq('outlet_id', outletId)
       .eq('bahan_baku_id', bahanBakuId)
-      .in('tipe', ['pemakaian', 'adjustment'])
-      .gte('created_at', start)
-      .lte('created_at', opnameCreatedAt)
-      .order('created_at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error) {
-      console.error('[fetchItemDetail] pemakaian POS:', error);
-      return 0;
-    }
-    rows.push(...(data ?? []));
-    if (!data || data.length < PAGE) break;
+      .in('tipe', ['pemakaian', 'adjustment']);
+
+  const rows = await ambil(() =>
+    base().gte('created_at', start).lte('created_at', end).order('created_at', { ascending: true }).order('id', { ascending: true })
+  );
+  if (!rows) return 0;
+  // Baris order yang sama di luar periode (pembalik terlambat / potongan lebih awal).
+  const orderIds = [...new Set(rows.filter((r) => r.ref_order_id).map((r) => r.ref_order_id as string))];
+  for (let i = 0; i < orderIds.length; i += 200) {
+    const chunk = orderIds.slice(i, i + 200);
+    const luar = await ambil(() =>
+      base()
+        .in('ref_order_id', chunk)
+        .or(`created_at.lt."${start}",created_at.gt."${end}"`)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+    );
+    if (!luar) return 0;
+    rows.push(...luar);
   }
-  return pemakaianPosPeriode(rows);
+  return pemakaianPosPeriode(rows, start, end);
 }
 
 /**
@@ -240,7 +304,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string): 
     // limit(1) dulu mengambil opname sembarang (mis. sebulan lalu).
     supabase
       .from('opname')
-      .select('created_at, opname_item!inner(qty_system, qty_fisik, catatan, flagged)')
+      .select('id, created_at, updated_at, status, opname_item!inner(qty_system, qty_fisik, catatan, flagged)')
       .eq('outlet_id', outletId)
       .eq('opname_item.bahan_baku_id', bahan_baku_id)
       .order('created_at', { ascending: false })
@@ -260,7 +324,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string): 
   const showDiscrepancy = !isGudang && !!opnameData?.flagged;
 
   const pemakaianPos = showDiscrepancy && opnameRow?.created_at
-    ? await fetchPemakaianPosOpname(supabase, outletId, bahan_baku_id, opnameRow.created_at)
+    ? await fetchPemakaianPosOpname(supabase, outletId, bahan_baku_id, opnameRow)
     : 0;
 
   const discrepancyDetails = showDiscrepancy && opnameData

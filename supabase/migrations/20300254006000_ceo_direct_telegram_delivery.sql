@@ -84,14 +84,7 @@ BEGIN
           body := jsonb_build_object(
             'chat_id', r.chat_id,
             'text', v_text,
-            'parse_mode', 'HTML',
-            'reply_markup', jsonb_build_object(
-              'inline_keyboard', jsonb_build_array(
-                jsonb_build_array(
-                  jsonb_build_object('text', '🔗 Buka di Dashboard', 'url', coalesce(r.url, 'https://admin.sukashawarma.com'))
-                )
-              )
-            )
+            'parse_mode', 'HTML'
           ),
           timeout_milliseconds := 15000
         );

@@ -218,9 +218,14 @@ export async function kirimPesanTelegram(
     : process.env.TELEGRAM_STOKIST_BOT_TOKEN
   if (!token) throw new Error(`Token bot ${profil} belum dikonfigurasi.`)
 
-  const hasInlineButton = !!(url && (url.startsWith('https://') || url.startsWith('http://')))
-  // Jika URL sudah dijadikan inline keyboard button, jangan tempel URL mentah lagi di ujung pesan
-  const rawMessage = hasInlineButton ? text.trim() : `${text.trim()}${url ? `\n\n${url}` : ''}`
+  const hasInlineButton = !!(url && (url.startsWith('https://') || url.startsWith('http://')) && profil !== 'ceo')
+  // Jika URL sudah dijadikan inline keyboard button, jangan tempel URL mentah lagi di ujung pesan.
+  // Khusus profil 'ceo', hilangkan link URL agar pesan bersih tanpa tautan dashboard.
+  const rawMessage = hasInlineButton
+    ? text.trim()
+    : profil === 'ceo'
+    ? text.trim()
+    : `${text.trim()}${url ? `\n\n${url}` : ''}`
   const htmlMessage = formatPesanTelegramHtml(rawMessage)
 
   const bodyPayload: Record<string, unknown> = {

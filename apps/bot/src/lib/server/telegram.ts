@@ -164,6 +164,41 @@ export function bersihkanMarkdown(raw: string): string {
   return text.slice(0, 4000).trim()
 }
 
+export async function ambilTokenBotTelegram(
+  profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' | 'review' = 'stokis'
+): Promise<string | undefined> {
+  const token = profil === 'hrd'
+    ? (process.env.TELEGRAM_HRD_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    : profil === 'manager'
+    ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
+    : profil === 'ceo'
+    ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    : profil === 'finance'
+    ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    : profil === 'review'
+    ? (process.env.TELEGRAM_REVIEW_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    : process.env.TELEGRAM_STOKIST_BOT_TOKEN
+
+  if (token) return token
+
+  // Fallback dinamis: periksa tabel public.hermes_bot_registry
+  try {
+    const admin = supabaseAdmin(2_000)
+    const { data } = await admin
+      .from('hermes_bot_registry')
+      .select('bot_token')
+      .eq('slug', profil)
+      .maybeSingle()
+    if (data?.bot_token && typeof data.bot_token === 'string' && data.bot_token.trim().length > 10) {
+      return data.bot_token.trim()
+    }
+  } catch (err) {
+    console.warn(`[telegram] Gagal membaca token dinamis dari hermes_bot_registry (${profil}):`, err)
+  }
+
+  return undefined
+}
+
 export async function kirimPesanTelegram(
   chatId: string,
   text: string,

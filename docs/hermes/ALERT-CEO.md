@@ -81,7 +81,7 @@ Menu perintah dapat diaktifkan secara instan di Telegram dengan mengetik `/`:
 
 ## 6. Daftar Trigger Otomatis Eksekutif (Single Source of Truth)
 
-Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalog` (dibaca otomatis oleh Native SuperApp Tab Trigger dan Telegram `/help`). Terdiri dari **9 Pemicu / Cron Terjadwal** dan **15 Eskalasi Kritis Real-Time (Total 24 Pemicu Eksekutif Terdaftar)**:
+Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalog` (dibaca otomatis oleh Native SuperApp Tab Trigger dan Telegram `/help`). Terdiri dari **12 Pemicu / Cron Terjadwal** dan **19 Eskalasi Kritis Real-Time (Total 31 Pemicu Eksekutif Terdaftar)**:
 
 | No | ID Trigger | Judul Pemicu | Sumber Aplikasi | Jadwal / Pola Pemicu | Target Role |
 |---|---|---|---|---|---|
@@ -109,6 +109,13 @@ Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalo
 | 22 | `tg_ceo_distribusi_sj_unconfirmed_night` | Surat Jalan CK Menggantung (> 3.5 Jam / Closing) | App Distribusi | Cron Cek Berkala 17:00 - 23:00 WIB | `owner`, `admin` |
 | 23 | `tg_ceo_stok_phantom_drop` | Penurunan Saldo Stok Bahan Baku Drastis (≥ 50%) | App Stok / Ledger | Trigger Real-Time `stok_balance -> drop >= 50%` | `owner`, `admin` |
 | 24 | `tg_ceo_stok_opname_missing` | Rekapitulasi Cabang Belum Finalisasi Opname Malam | App Stok / Opname | Cron Malam 23:15 WIB | `owner`, `admin` |
+| 25 | `tg_ceo_ops_understaffed_shift` | Cabang Kritis Kekurangan Kru (Hanya 1 Orang Hadir) | App Absensi / Ops | Cron Siang 14:45 WIB | `owner`, `admin` |
+| 26 | `tg_ceo_hr_mass_absenteeism` | Anomali Absen Masal di Cabang (≥ 50% Kru Tidak Hadir) | App Absensi / HRD | Cron Siang 15:30 WIB | `owner`, `admin` |
+| 27 | `tg_ceo_absensi_fraud_attempt` | Percobaan Titip Absen / Fake GPS di Luar Radius (> 100m) | App Absensi Kru | Trigger Real-Time `attendance -> insert` | `owner`, `admin` |
+| 28 | `tg_ceo_ops_checklist_buruk` | Supervisi AM Kategori BURUK (Food Safety / Rasa) | App Manager / Audit | Trigger Real-Time `ceklist_harian -> insert/update` | `owner`, `admin` |
+| 29 | `tg_ceo_ops_checklist_missing` | Cabang Belum Disupervisi Area Manager (21:00 WIB) | App Manager / Ops | Cron Malam 21:00 WIB | `owner`, `admin` |
+| 30 | `tg_ceo_hr_excessive_kasbon` | Pengajuan Kasbon Berisiko Karyawan (> Rp 2.5 Jt / Probation) | App HRD & Kasbon | Trigger Real-Time `cash_advances -> pending` | `owner`, `admin` |
+| 31 | `tg_ceo_hr_turnover_spike` | Anomali Gelombang Resign Kru (≥ 3 Kru / 30 Hari) | App HRD & Staf | Trigger Real-Time `outlet_staff -> inactive` | `owner`, `admin` |
 
 ---
 

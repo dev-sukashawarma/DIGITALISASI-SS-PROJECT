@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   ChevronLeft,
   ChevronRight,
@@ -44,7 +45,7 @@ export interface CalendarEndorsement {
 
 export interface CalendarAd {
   id: string
-  outletId: string
+  outletId: string | null
   scheduleDate: string // YYYY-MM-DD
   budget: number
   adUrl: string | null
@@ -89,6 +90,7 @@ export default function CalendarView({
   kols,
   userRole,
 }: CalendarViewProps) {
+  const router = useRouter()
   // Calendar month state
   const today = new Date()
   const [currentYear, setCurrentYear] = useState(today.getFullYear())
@@ -167,7 +169,7 @@ export default function CalendarView({
       style: 'currency',
       currency: 'IDR',
       maximumFractionDigits: 0,
-    }).format(val)
+    }).format(Number(val) || 0)
   }
 
   // Filter Items
@@ -209,6 +211,7 @@ export default function CalendarView({
         setErrorMessage(res.error)
       } else {
         setIsAddOpen(false)
+        router.refresh()
       }
     })
   }
@@ -231,6 +234,7 @@ export default function CalendarView({
         setErrorMessage(res.error)
       } else {
         setDetailItem(null)
+        router.refresh()
       }
     })
   }
@@ -402,11 +406,13 @@ export default function CalendarView({
 
             // Collect items for this specific date
             const dayEndorsements = filteredEndorsements.filter(
-              (e) => e.scheduleDate === cell.dateStr
+              (e) => Boolean(e.scheduleDate) && e.scheduleDate === cell.dateStr
             )
-            const dayAds = filteredAds.filter((a) => a.scheduleDate === cell.dateStr)
+            const dayAds = filteredAds.filter(
+              (a) => Boolean(a.scheduleDate) && a.scheduleDate === cell.dateStr
+            )
             const dayPromos = filteredPromos.filter(
-              (p) => cell.dateStr >= p.startDate && cell.dateStr <= p.endDate
+              (p) => Boolean(p.startDate && p.endDate) && cell.dateStr >= p.startDate && cell.dateStr <= p.endDate
             )
 
             const totalAgendaToday =

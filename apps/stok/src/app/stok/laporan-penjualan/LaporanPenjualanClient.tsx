@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   RefreshCw,
   SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { refreshLaporanPenjualan } from '@/app/actions/laporanPenjualan';
@@ -29,6 +30,28 @@ const RANGE_LABELS: Record<DateRange, string> = {
   '30days': '30 Hari Terakhir',
   all: 'Semua Waktu',
   custom: 'Kustom Tanggal',
+};
+
+const getTodayWib = () => {
+  const d = new Date();
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const wib = new Date(utc + (3600000 * 7));
+  const y = wib.getFullYear();
+  const m = String(wib.getMonth() + 1).padStart(2, '0');
+  const day = String(wib.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const formatDateIndo = (dStr: string) => {
+  if (!dStr) return '';
+  try {
+    const parts = dStr.split('-');
+    if (parts.length !== 3) return dStr;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return `${parseInt(parts[2], 10)} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+  } catch (_) {
+    return dStr;
+  }
 };
 
 const formatRupiah = (amount: number) => {
@@ -54,7 +77,7 @@ interface LaporanPenjualanClientProps {
     hourlyRevenue: number[];
     hourlyPorsi: number[];
     channelStats: Record<string, { label: string; count: number; revenue: number; porsi: number }>;
-    bestSellers: Array<{ name: string; qty: number; revenue: number; orderCount: number }>;
+    bestSellers: Array<{ name: string; qty: number; revenue: number; orderCount: number; fromPackage?: string | null }>;
     outletVolumeList: Array<{
       outletId: string;
       outletName: string;
@@ -94,7 +117,6 @@ export default function LaporanPenjualanClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [showRangePicker, setShowRangePicker] = useState(false);
   const [menuSearch, setMenuSearch] = useState('');
   const [outletSearch, setOutletSearch] = useState('');
   const [outletCategoryTab, setOutletCategoryTab] = useState<'all' | 'internal' | 'mitra'>('all');
@@ -144,11 +166,67 @@ export default function LaporanPenjualanClient({
   const internalOutlets = useMemo(() => outlets.filter(o => o.category === 'internal'), [outlets]);
   const mitraOutlets = useMemo(() => outlets.filter(o => o.category === 'mitra'), [outlets]);
 
+  const defaultDate = dateRange?.from || getTodayWib();
+  const [localStart, setLocalStart] = useState(customStart || defaultDate);
+  const [localEnd, setLocalEnd] = useState(customEnd || dateRange?.to || defaultDate);
+
+  useEffect(() => {
+    if (customStart) setLocalStart(customStart);
+    if (customEnd) setLocalEnd(customEnd);
+  }, [customStart, customEnd]);
+
+  const handleApplyCustom = () => {
+    if (!localStart || !localEnd) return;
+    if (localEnd < localStart) {
+      alert('Tanggal akhir tidak boleh lebih awal dari tanggal awal');
+      return;
+    }
+    updateCustomRange(localStart, localEnd);
+  };
+
+  const handleQuickPreset = (type: 'today' | 'yesterday' | '7days' | 'this_month' | 'last_month') => {
+    const todayStr = getTodayWib();
+    const d = new Date(todayStr + 'T12:00:00Z');
+    
+    if (type === 'today') {
+      setLocalStart(todayStr);
+      setLocalEnd(todayStr);
+    } else if (type === 'yesterday') {
+      d.setDate(d.getDate() - 1);
+      const yStr = d.toISOString().split('T')[0];
+      setLocalStart(yStr);
+      setLocalEnd(yStr);
+    } else if (type === '7days') {
+      const startD = new Date(d);
+      startD.setDate(startD.getDate() - 6);
+      setLocalStart(startD.toISOString().split('T')[0]);
+      setLocalEnd(todayStr);
+    } else if (type === 'this_month') {
+      const startStr = `${todayStr.slice(0, 7)}-01`;
+      setLocalStart(startStr);
+      setLocalEnd(todayStr);
+    } else if (type === 'last_month') {
+      const curYear = parseInt(todayStr.slice(0, 4), 10);
+      const curMonth = parseInt(todayStr.slice(5, 7), 10);
+      const prevMonthDate = new Date(curYear, curMonth - 2, 1);
+      const lastDayPrevMonth = new Date(curYear, curMonth - 1, 0);
+      const y = prevMonthDate.getFullYear();
+      const m = String(prevMonthDate.getMonth() + 1).padStart(2, '0');
+      const startStr = `${y}-${m}-01`;
+      const endStr = `${y}-${m}-${String(lastDayPrevMonth.getDate()).padStart(2, '0')}`;
+      setLocalStart(startStr);
+      setLocalEnd(endStr);
+    }
+  };
+
+
   // Filter menu items berdasarkan search
   const filteredBestSellers = useMemo(() => {
     const q = menuSearch.trim().toLowerCase();
     if (!q) return analytics.bestSellers;
-    return analytics.bestSellers.filter(item => item.name.toLowerCase().includes(q));
+    return analytics.bestSellers.filter(item => 
+      item.name.toLowerCase().includes(q) || (item.fromPackage && item.fromPackage.toLowerCase().includes(q))
+    );
   }, [analytics.bestSellers, menuSearch]);
 
   // Filter outlet volume berdasarkan kategori & search
@@ -225,8 +303,8 @@ export default function LaporanPenjualanClient({
         <div className="bg-white border border-[#d9c2b2]/60 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
           {/* Row 1: Date Presets & Outlet Filter */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            {/* Date Preset Buttons */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            {/* Date Preset Buttons & Custom Date Range */}
+            <div className="flex flex-wrap items-center gap-1.5">
               {(['today', 'yesterday', '7days', '30days'] as DateRange[]).map((r) => (
                 <button
                   key={r}
@@ -241,43 +319,34 @@ export default function LaporanPenjualanClient({
                 </button>
               ))}
 
-              {/* Custom Date Dropdown Button */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowRangePicker(!showRangePicker)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-                    range === 'custom' || range === 'all'
-                      ? 'bg-[#f29744] text-white shadow-sm'
-                      : 'bg-[#faf2e9] text-[#544437] hover:bg-[#ffdcc2]'
-                  }`}
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>{range === 'custom' || range === 'all' ? RANGE_LABELS[range] : 'Lainnya'}</span>
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-
-                {showRangePicker && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowRangePicker(false)} />
-                    <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 bg-white border border-[#d9c2b2] rounded-2xl shadow-xl py-2 z-50 w-48 animate-in fade-in zoom-in-95 duration-150">
-                      {(['all', 'custom'] as DateRange[]).map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => {
-                            updateFilters('range', r);
-                            setShowRangePicker(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors ${
-                            range === r ? 'bg-[#ffdcc2] text-[#701604] font-black' : 'text-[#544437] hover:bg-[#faf2e9]'
-                          }`}
-                        >
-                          {RANGE_LABELS[r]}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+              {/* Custom Date Trigger Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const fallback = dateRange?.from || getTodayWib();
+                  const s = customStart || fallback;
+                  const e = customEnd || dateRange?.to || fallback;
+                  setLocalStart(s);
+                  setLocalEnd(e);
+                  if (range !== 'custom') {
+                    updateCustomRange(s, e);
+                  }
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+                  range === 'custom'
+                    ? 'bg-[#f29744] text-white shadow-sm ring-2 ring-[#f29744]/20'
+                    : 'bg-[#faf2e9] text-[#544437] hover:bg-[#ffdcc2]'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>
+                  {range === 'custom' && customStart && customEnd
+                    ? customStart === customEnd
+                      ? `${formatDateIndo(customStart)}`
+                      : `${formatDateIndo(customStart)} - ${formatDateIndo(customEnd)}`
+                    : 'Kustom Tanggal'}
+                </span>
+              </button>
             </div>
 
             {/* Outlet Filter Dropdown */}
@@ -315,23 +384,103 @@ export default function LaporanPenjualanClient({
             </div>
           </div>
 
-          {/* Row 2: Custom Date Inputs (if custom selected) */}
+          {/* Row 2: Custom Date Inline Bar (directly inline, no modal) */}
           {range === 'custom' && (
-            <div className="flex flex-wrap items-center gap-3 p-3 bg-[#faf2e9] rounded-xl border border-[#d9c2b2]/60 animate-in fade-in">
-              <span className="text-xs font-bold text-[#544437]">Rentang Tanggal:</span>
-              <input
-                type="date"
-                value={customStart}
-                onChange={(e) => updateCustomRange(e.target.value, customEnd)}
-                className="bg-white border border-[#d9c2b2] text-xs font-bold text-[#1e1b15] px-3 py-1.5 rounded-lg outline-none"
-              />
-              <span className="text-xs text-[#544437] font-bold">s.d</span>
-              <input
-                type="date"
-                value={customEnd}
-                onChange={(e) => updateCustomRange(customStart, e.target.value)}
-                className="bg-white border border-[#d9c2b2] text-xs font-bold text-[#1e1b15] px-3 py-1.5 rounded-lg outline-none"
-              />
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-[#faf2e9] rounded-xl border border-[#d9c2b2] animate-in fade-in">
+              <span className="text-xs font-black text-[#701604] flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-[#f29744]" />
+                <span>Pilih Tanggal:</span>
+              </span>
+
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] font-bold text-[#544437]">Dari:</label>
+                <input
+                  type="date"
+                  value={localStart}
+                  onChange={(e) => setLocalStart(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (_) {}
+                  }}
+                  className="bg-white border border-[#d9c2b2] text-xs font-bold text-[#1e1b15] px-3 py-1.5 rounded-lg outline-none cursor-pointer focus:ring-2 focus:ring-[#f29744]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] font-bold text-[#544437]">Sampai:</label>
+                <input
+                  type="date"
+                  value={localEnd}
+                  min={localStart}
+                  onChange={(e) => setLocalEnd(e.target.value)}
+                  onClick={(e) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (_) {}
+                  }}
+                  className="bg-white border border-[#d9c2b2] text-xs font-bold text-[#1e1b15] px-3 py-1.5 rounded-lg outline-none cursor-pointer focus:ring-2 focus:ring-[#f29744]"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleApplyCustom}
+                disabled={!localStart || !localEnd || localEnd < localStart}
+                className="px-4 py-1.5 bg-[#f29744] hover:bg-[#d97c2e] disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg text-xs font-black shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                Terapkan
+              </button>
+
+              {/* Quick shortcut pills */}
+              <div className="flex items-center gap-1.5 sm:ml-auto">
+                <span className="text-[10px] text-[#544437]/70 font-bold mr-1">Cepat:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = getTodayWib();
+                    setLocalStart(t);
+                    setLocalEnd(t);
+                    updateCustomRange(t, t);
+                  }}
+                  className="px-2 py-1 text-[10px] font-bold rounded-md bg-white hover:bg-[#ffdcc2] text-[#701604] border border-[#d9c2b2]/60 cursor-pointer transition-colors"
+                >
+                  Hari Ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = getTodayWib();
+                    const startStr = `${t.slice(0, 7)}-01`;
+                    setLocalStart(startStr);
+                    setLocalEnd(t);
+                    updateCustomRange(startStr, t);
+                  }}
+                  className="px-2 py-1 text-[10px] font-bold rounded-md bg-white hover:bg-[#ffdcc2] text-[#701604] border border-[#d9c2b2]/60 cursor-pointer transition-colors"
+                >
+                  Bulan Ini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const t = getTodayWib();
+                    const curYear = parseInt(t.slice(0, 4), 10);
+                    const curMonth = parseInt(t.slice(5, 7), 10);
+                    const prevMonthDate = new Date(curYear, curMonth - 2, 1);
+                    const lastDayPrevMonth = new Date(curYear, curMonth - 1, 0);
+                    const y = prevMonthDate.getFullYear();
+                    const m = String(prevMonthDate.getMonth() + 1).padStart(2, '0');
+                    const startStr = `${y}-${m}-01`;
+                    const endStr = `${y}-${m}-${String(lastDayPrevMonth.getDate()).padStart(2, '0')}`;
+                    setLocalStart(startStr);
+                    setLocalEnd(endStr);
+                    updateCustomRange(startStr, endStr);
+                  }}
+                  className="px-2 py-1 text-[10px] font-bold rounded-md bg-white hover:bg-[#ffdcc2] text-[#701604] border border-[#d9c2b2]/60 cursor-pointer transition-colors"
+                >
+                  Bulan Lalu
+                </button>
+              </div>
             </div>
           )}
 
@@ -613,7 +762,7 @@ export default function LaporanPenjualanClient({
 
                 return (
                   <div
-                    key={item.name}
+                    key={item.fromPackage ? `${item.name}-pkg-${item.fromPackage}` : item.name}
                     className="p-3.5 bg-[#faf2e9]/40 hover:bg-[#faf2e9] rounded-xl border border-[#d9c2b2]/30 transition-all space-y-2"
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -628,9 +777,24 @@ export default function LaporanPenjualanClient({
                           {index + 1}
                         </span>
                         <div className="min-w-0">
-                          <p className="text-xs font-black text-[#1e1b15] truncate">{item.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-black text-[#1e1b15] truncate">{item.name}</p>
+                            {item.fromPackage && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-[#ffdcc2] text-[#701604] border border-[#f29744]/40 shrink-0">
+                                <span>📦</span> Dari {item.fromPackage}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] font-bold text-[#544437]/70">
-                            {formatRupiah(item.revenue)} • {totalPorsiPercent.toFixed(1)}% total dapur
+                            {item.fromPackage ? (
+                              <>
+                                <span className="text-emerald-700 font-black">Termasuk Paket</span> • {totalPorsiPercent.toFixed(1)}% total dapur
+                              </>
+                            ) : (
+                              <>
+                                {formatRupiah(item.revenue)} • {totalPorsiPercent.toFixed(1)}% total dapur
+                              </>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -767,7 +931,8 @@ export default function LaporanPenjualanClient({
           </div>
         </div>
       </main>
-    </div>
+
+          </div>
     </AppLayout>
   );
 }

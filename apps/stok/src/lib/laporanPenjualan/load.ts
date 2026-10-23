@@ -16,7 +16,7 @@ import { dayGeneration } from '@/lib/server/dayGenerations'
 
 export const laporanDayTag = (date: string) => `laporan-penjualan-day:${date}`
 
-const ORDER_SELECT = 'id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, order_items(id, menu_item_name, quantity, subtotal)'
+const ORDER_SELECT = 'id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, order_items(id, menu_item_name, quantity, subtotal, package_choices)'
 const PAGE = 1000
 const CONCURRENCY = 6
 const PAST_DAY_TTL_S = 3600

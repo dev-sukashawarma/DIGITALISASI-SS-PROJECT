@@ -462,6 +462,7 @@ export function computeAnalytics({
   let settlementGrossRate = 0
   let totalRealAdmin = 0
   let settlementDateRange = ''
+  let settlementLastUpdate = ''
   let hasSettlementData = false
 
   // Kartu settlement mencocokkan platform settlement yang diunggah
@@ -522,6 +523,34 @@ export function computeAnalytics({
         ? formatDateStr(minDate)
         : `${formatDateStr(minDate)} - ${formatDateStr(maxDate)}`
     }
+
+    const importedDates = relevantSettlements
+      .map(s => s.imported_at || s.created_at)
+      .filter(Boolean)
+      .sort()
+    if (importedDates.length > 0) {
+      const latestIso = importedDates[importedDates.length - 1]
+      try {
+        const dt = new Date(latestIso)
+        settlementLastUpdate = new Intl.DateTimeFormat('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).format(dt) + ' WIB'
+      } catch {
+        settlementLastUpdate = ''
+      }
+    }
+    if (!settlementLastUpdate && dates.length > 0) {
+      const maxDate = dates[dates.length - 1]
+      const [y, m, day] = maxDate.split('-')
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+      settlementLastUpdate = `${day} ${months[parseInt(m) - 1]} ${y}`
+    }
   }
 
   const totalCommission = totalRealAdmin
@@ -559,6 +588,7 @@ export function computeAnalytics({
     settlementGrossRate,
     totalRealAdmin,
     settlementDateRange,
+    settlementLastUpdate,
     hasSettlementData,
     totalCashVariance,
   }

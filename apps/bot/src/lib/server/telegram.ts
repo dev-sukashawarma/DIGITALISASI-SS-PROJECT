@@ -29,27 +29,19 @@ export async function stafBolehPakaiBotApaPun(staffId: string): Promise<boolean>
 
 export function urlAplikasiDiizinkan(
   value: unknown,
-  app: 'stok' | 'distribusi' | 'manager' | 'hr' | 'ceo' | 'admin' | 'finance' | 'review'
+  _app: 'stok' | 'distribusi' | 'manager' | 'hr' | 'ceo' | 'admin' | 'finance' | 'review'
 ): string | null {
   if (value === null || value === undefined || value === '') return null
   if (typeof value !== 'string' || value.length > 500) return null
   try {
     const url = new URL(value)
     if (url.protocol !== 'https:' || url.username || url.password) return null
-    if (app === 'ceo') {
-      if (url.hostname !== 'agents.sukashawarma.com' && url.hostname !== 'admin.sukashawarma.com') return null
-      return url.toString()
-    }
-    if (app === 'review') {
-      if (
-        url.hostname !== 'review.sukashawarma.com' &&
-        url.hostname !== 'sukareview.sukashawarma.com' &&
-        url.hostname !== 'agents.sukashawarma.com' &&
-        url.hostname !== 'suka.pantaureview.com'
-      ) return null
-      return url.toString()
-    }
-    if (url.hostname !== `${app}.sukashawarma.com`) return null
+    const hostname = url.hostname.toLowerCase()
+    const domainResmi =
+      hostname.endsWith('.sukashawarma.com') ||
+      hostname === 'sukashawarma.com' ||
+      hostname === 'suka.pantaureview.com'
+    if (!domainResmi) return null
     return url.toString()
   } catch {
     return null
@@ -179,7 +171,7 @@ export async function kirimPesanTelegram(
   profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' | 'review' = 'stokis'
 ) {
   const token = profil === 'hrd'
-    ? process.env.TELEGRAM_HRD_BOT_TOKEN
+    ? (process.env.TELEGRAM_HRD_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : profil === 'manager'
     ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
     : profil === 'ceo'
@@ -245,7 +237,7 @@ export async function kirimAksiChatTelegram(
   profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' | 'review' = 'stokis'
 ) {
   const token = profil === 'hrd'
-    ? process.env.TELEGRAM_HRD_BOT_TOKEN
+    ? (process.env.TELEGRAM_HRD_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : profil === 'manager'
     ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
     : profil === 'ceo'

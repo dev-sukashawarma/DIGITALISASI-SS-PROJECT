@@ -56,40 +56,40 @@ export default async function CalendarPage() {
 
   const serializedEndorsements: CalendarEndorsement[] = endorsements.map((item: any) => ({
     id: item.id.toString(),
-    kolId: item.kolId.toString(),
-    outletId: item.outletId.toString(),
-    scheduleDate: item.scheduleDate.toISOString().split('T')[0],
-    rateCard: Number(item.rateCard),
-    postUrl: item.postUrl,
-    initialViews: item.initialViews,
-    finalViews: item.finalViews,
-    visitStatus: item.visitStatus,
-    postStatus: item.postStatus,
+    kolId: item.kolId ? item.kolId.toString() : '',
+    outletId: item.outletId ? item.outletId.toString() : '',
+    scheduleDate: item.scheduleDate ? item.scheduleDate.toISOString().split('T')[0] : '',
+    rateCard: Number(item.rateCard) || 0,
+    postUrl: item.postUrl || null,
+    initialViews: item.initialViews ?? null,
+    finalViews: item.finalViews ?? null,
+    visitStatus: item.visitStatus || 'PENDING',
+    postStatus: item.postStatus || 'OFF',
     kolName: item.kol?.name || 'Unknown KOL',
     outletName: item.outlet?.name || 'Unknown Outlet',
   }))
 
   const serializedAds: CalendarAd[] = ads.map((item: any) => ({
     id: item.id.toString(),
-    outletId: item.outletId.toString(),
-    scheduleDate: item.scheduleDate.toISOString().split('T')[0],
-    budget: Number(item.budget),
-    adUrl: item.adUrl,
-    initialViews: item.initialViews,
-    finalViews: item.finalViews,
-    status: item.status,
-    outletName: item.outlet?.name || 'Unknown Outlet',
+    outletId: item.outletId ? item.outletId.toString() : null,
+    scheduleDate: item.scheduleDate ? item.scheduleDate.toISOString().split('T')[0] : '',
+    budget: Number(item.budget) || 0,
+    adUrl: item.adUrl || null,
+    initialViews: item.initialViews ?? null,
+    finalViews: item.finalViews ?? null,
+    status: item.status || 'OFF',
+    outletName: item.outlet?.name || item.accountName || 'Official (Pusat)',
   }))
 
   const serializedPromoEvents: CalendarPromoEvent[] = promoEvents.map((item: any) => ({
     id: item.id.toString(),
-    title: item.title,
-    description: item.description,
+    title: item.title || '',
+    description: item.description || null,
     outletId: item.outletId ? item.outletId.toString() : null,
     outletName: item.outlet?.name || 'Official',
-    startDate: item.startDate.toISOString().split('T')[0],
-    endDate: item.endDate.toISOString().split('T')[0],
-    type: item.type,
+    startDate: item.startDate ? item.startDate.toISOString().split('T')[0] : '',
+    endDate: item.endDate ? item.endDate.toISOString().split('T')[0] : '',
+    type: item.type || 'PROMO',
   }))
 
   const serializedOutlets = outlets.map((o: any) => ({

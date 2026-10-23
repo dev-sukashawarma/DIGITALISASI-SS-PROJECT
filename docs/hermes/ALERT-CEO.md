@@ -81,7 +81,7 @@ Menu perintah dapat diaktifkan secara instan di Telegram dengan mengetik `/`:
 
 ## 6. Daftar Trigger Otomatis Eksekutif (Single Source of Truth)
 
-Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalog` (dibaca otomatis oleh Native SuperApp Tab Trigger dan Telegram `/help`). Terdiri dari **7 Digest Makro Terjadwal** dan **8 Eskalasi Operasional & Finansial Kritis Real-Time**:
+Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalog` (dibaca otomatis oleh Native SuperApp Tab Trigger dan Telegram `/help`). Terdiri dari **9 Pemicu / Cron Terjadwal** dan **15 Eskalasi Kritis Real-Time (Total 24 Pemicu Eksekutif Terdaftar)**:
 
 | No | ID Trigger | Judul Pemicu | Sumber Aplikasi | Jadwal / Pola Pemicu | Target Role |
 |---|---|---|---|---|---|
@@ -100,6 +100,15 @@ Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalo
 | 13 | `tg_ceo_waste_eskalasi` | Eskalasi Pengajuan Waste Bahan Baku (> Rp 150rb) | App Gudang & Dapur | Trigger Real-Time `stok_waste_reports` | `owner`, `admin` |
 | 14 | `tg_ceo_watchdog_2h` | Heartbeat & Diagnostik VPS / Supabase | VPS Hostinger & Supabase | Cron Watchdog Tiap 2 Jam | `owner`, `admin`, `developer` |
 | 15 | `tg_ceo_alert_down` | Alert Darurat Kegagalan Server / Database Down | Monitor Watchdog | Cron Healthcheck Tiap 2 Menit | `owner`, `admin`, `developer` |
+| 16 | `tg_ceo_review_kritis` | Eskalasi Ulasan Negatif Google Maps | App SukaReview | Trigger Real-Time `rating <= 2 / spike` | `owner`, `admin` |
+| 17 | `tg_ceo_pos_unclosed_shift` | Shift Kasir Belum Ditutup Lewat Jam Buka | App POS Kasir | Cron Malam 23:45 WIB | `owner`, `admin` |
+| 18 | `tg_ceo_pos_cash_ratio_anomaly` | Anomali Rasio Uang Tunai Closing (≥ 85% Cash) | App POS Kasir | Trigger Real-Time `shifts -> closed` | `owner`, `admin` |
+| 19 | `tg_ceo_marcom_voucher_abuse` | Lonjakan Pemotongan Diskon / Potensi Voucher Abuse | App POS & Marcom | Trigger Real-Time `orders -> discount_amount` | `owner`, `admin` |
+| 20 | `tg_ceo_retail_store_rejection_surge` | Lonjakan Penolakan Pesanan Retail Online oleh Kru | App Retail Gateway | Trigger Real-Time `orders -> cancelled (app)` | `owner`, `admin` |
+| 21 | `tg_ceo_distribusi_inbound_rejected` | Penolakan Kiriman Central Kitchen di Cabang | App Distribusi / Retur | Trigger Real-Time `retur_stok -> inbound_sj` | `owner`, `admin` |
+| 22 | `tg_ceo_distribusi_sj_unconfirmed_night` | Surat Jalan CK Menggantung (> 3.5 Jam / Closing) | App Distribusi | Cron Cek Berkala 17:00 - 23:00 WIB | `owner`, `admin` |
+| 23 | `tg_ceo_stok_phantom_drop` | Penurunan Saldo Stok Bahan Baku Drastis (≥ 50%) | App Stok / Ledger | Trigger Real-Time `stok_balance -> drop >= 50%` | `owner`, `admin` |
+| 24 | `tg_ceo_stok_opname_missing` | Rekapitulasi Cabang Belum Finalisasi Opname Malam | App Stok / Opname | Cron Malam 23:15 WIB | `owner`, `admin` |
 
 ---
 

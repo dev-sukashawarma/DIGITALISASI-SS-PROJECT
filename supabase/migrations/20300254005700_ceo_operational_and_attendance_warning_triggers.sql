@@ -40,12 +40,8 @@ BEGIN
     SELECT o.id, o.name,
            coalesce(o.open_hour, '14:00:00'::time) AS jam_buka
     FROM public.outlets o
-    WHERE o.is_active IS TRUE
-      AND lower(coalesce(o.type, 'internal')) NOT IN ('office', 'gudang', 'warehouse', 'hq', 'dapur', 'kitchen', 'test', 'marketplace', 'system')
-      AND o.name NOT ILIKE '%kantor pusat%'
-      AND o.name NOT ILIKE '%gudang%'
-      AND o.name NOT ILIKE '%backup%'
-      AND o.name NOT ILIKE '%tes%'
+    WHERE public.bot_is_sales_outlet(o.id)
+      AND NOT public.bot_is_outlet_tutup_sementara(o.id)
     ORDER BY o.name
   LOOP
     -- Hitung total staf aktif bertugas di cabang ini (crew & leader)
@@ -139,7 +135,7 @@ DECLARE
   v_staff_name text;
   v_ceo record;
 BEGIN
-  IF NEW.type <> 'in' THEN
+  IF NEW.type <> 'in' OR NOT public.bot_is_sales_outlet(NEW.outlet_id) THEN
     RETURN NEW;
   END IF;
 
@@ -261,24 +257,32 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_today date := (now() AT TIME ZONE 'Asia/Jakarta')::date;
+  v_now_wib timestamp := now() AT TIME ZONE 'Asia/Jakarta';
+  v_today date := v_now_wib::date;
+  v_jam int := extract(hour FROM v_now_wib);
   v_out record;
   v_missing text[] := '{}';
   v_missing_count int := 0;
   v_ceo record;
 BEGIN
+  -- Hanya dievaluasi pada malam hari (>= 21:00 WIB)
+  IF v_jam < 21 THEN
+    RETURN;
+  END IF;
+
   FOR v_out IN
     SELECT o.id, o.name,
-           coalesce(st.name, 'Tanpa AM') AS nama_am
+           coalesce(
+             (SELECT st.name
+              FROM public.staff_outlets so
+              JOIN public.outlet_staff st ON st.id = so.staff_id
+              WHERE so.outlet_id = o.id AND st.role = 'area_manager' AND st.status = 'active'
+              LIMIT 1),
+             'Tanpa AM'
+           ) AS nama_am
     FROM public.outlets o
-    LEFT JOIN public.staff_outlets so ON so.outlet_id = o.id
-    LEFT JOIN public.outlet_staff st ON st.id = so.staff_id AND st.role = 'area_manager' AND st.status = 'active'
-    WHERE o.is_active IS TRUE
-      AND lower(coalesce(o.type, 'internal')) NOT IN ('office', 'gudang', 'warehouse', 'hq', 'dapur', 'kitchen', 'test', 'marketplace', 'system')
-      AND o.name NOT ILIKE '%kantor pusat%'
-      AND o.name NOT ILIKE '%gudang%'
-      AND o.name NOT ILIKE '%backup%'
-      AND o.name NOT ILIKE '%tes%'
+    WHERE public.bot_is_sales_outlet(o.id)
+      AND NOT public.bot_is_outlet_tutup_sementara(o.id)
       AND NOT EXISTS (
         SELECT 1 FROM public.ceklist_harian ch
         WHERE ch.outlet_id = o.id
@@ -419,7 +423,7 @@ DECLARE
   v_tgl_bulan text := to_char(now() AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM');
   v_ceo record;
 BEGIN
-  IF NEW.status <> 'inactive' OR OLD.status = 'inactive' OR NEW.outlet_id IS NULL THEN
+  IF NEW.status <> 'inactive' OR OLD.status = 'inactive' OR NEW.outlet_id IS NULL OR NOT public.bot_is_sales_outlet(NEW.outlet_id) THEN
     RETURN NEW;
   END IF;
 

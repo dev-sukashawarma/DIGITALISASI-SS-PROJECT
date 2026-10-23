@@ -81,7 +81,7 @@ Menu perintah dapat diaktifkan secara instan di Telegram dengan mengetik `/`:
 
 ## 6. Daftar Trigger Otomatis Eksekutif (Single Source of Truth)
 
-Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalog` (dibaca otomatis oleh Native SuperApp Tab Trigger dan Telegram `/help`). Terdiri dari **12 Pemicu / Cron Terjadwal** dan **19 Eskalasi Kritis Real-Time (Total 31 Pemicu Eksekutif Terdaftar)**:
+Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalog` (dibaca otomatis oleh Native SuperApp Tab Trigger dan Telegram `/help`). Terdiri dari **13 Pemicu / Cron Terjadwal** dan **21 Eskalasi Kritis Real-Time (Total 34 Pemicu Eksekutif Terdaftar)**:
 
 | No | ID Trigger | Judul Pemicu | Sumber Aplikasi | Jadwal / Pola Pemicu | Target Role |
 |---|---|---|---|---|---|
@@ -116,6 +116,9 @@ Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalo
 | 29 | `tg_ceo_ops_checklist_missing` | Cabang Belum Disupervisi Area Manager (21:00 WIB) | App Manager / Ops | Cron Malam 21:00 WIB | `owner`, `admin` |
 | 30 | `tg_ceo_hr_excessive_kasbon` | Pengajuan Kasbon Berisiko Karyawan (> Rp 2.5 Jt / Probation) | App HRD & Kasbon | Trigger Real-Time `cash_advances -> pending` | `owner`, `admin` |
 | 31 | `tg_ceo_hr_turnover_spike` | Anomali Gelombang Resign Kru (≥ 3 Kru / 30 Hari) | App HRD & Staf | Trigger Real-Time `outlet_staff -> inactive` | `owner`, `admin` |
+| 32 | `tg_ceo_finance_petty_cash_deficit` | Saldo Kas Kecil Jebol / Minus (Defisit Laci Kas) | App Finance / Kasir | Trigger Real-Time `petty_cash_expenses / shifts` | `owner`, `admin` |
+| 33 | `tg_ceo_finance_no_receipt_expense` | Pengeluaran Kas Tanpa Bukti Nota Fisik | App Finance / Kasir | Trigger Real-Time `petty_cash_expenses -> insert` | `owner`, `admin` |
+| 34 | `tg_ceo_finance_delayed_bank_deposit` | Uang Setoran Tunai Menggantung di Gerai (> 48 Jam) | App Finance / Rekonsiliasi | Cron Pagi 10:00 WIB | `owner`, `admin` |
 
 ---
 

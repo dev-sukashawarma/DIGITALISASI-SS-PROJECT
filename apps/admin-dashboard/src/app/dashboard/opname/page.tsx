@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase'
 import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
@@ -46,7 +47,9 @@ function CustomDateRangePopover({
   isActive: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null)
   
   const [localFrom, setLocalFrom] = useState(from)
   const [localTo, setLocalTo] = useState(to)
@@ -58,12 +61,44 @@ function CustomDateRangePopover({
     }
   }, [open, from, to])
 
+  const updatePosition = () => {
+    if (!buttonRef.current) return
+    const rect = buttonRef.current.getBoundingClientRect()
+    const popoverWidth = 280
+    let right = window.innerWidth - rect.right
+    if (right < 16) right = 16
+    if (right + popoverWidth > window.innerWidth - 16) {
+      right = Math.max(16, window.innerWidth - 16 - popoverWidth)
+    }
+
+    const popoverHeight = 240
+    const spaceBelow = window.innerHeight - rect.bottom
+    const top = spaceBelow < popoverHeight && rect.top > popoverHeight
+      ? Math.max(16, rect.top - popoverHeight - 8)
+      : rect.bottom + 8
+
+    setCoords({ top, right })
+  }
+
+  useEffect(() => {
+    if (!open) return
+    updatePosition()
+    const handleReposition = () => updatePosition()
+    window.addEventListener('resize', handleReposition)
+    window.addEventListener('scroll', handleReposition, true)
+    return () => {
+      window.removeEventListener('resize', handleReposition)
+      window.removeEventListener('scroll', handleReposition, true)
+    }
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     const onClickOutside = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      const target = e.target as Node
+      if (buttonRef.current && buttonRef.current.contains(target)) return
+      if (popoverRef.current && popoverRef.current.contains(target)) return
+      setOpen(false)
     }
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
@@ -84,10 +119,12 @@ function CustomDateRangePopover({
   }
 
   return (
-    <div ref={rootRef} className="relative flex">
+    <>
       <button
+        ref={buttonRef}
+        type="button"
         onClick={() => setOpen(!open)}
-        className={`px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-sm cursor-pointer ${
+        className={`px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-sm cursor-pointer whitespace-nowrap ${
           isActive || open
             ? 'bg-suka-orange text-white shadow-sm font-extrabold'
             : 'text-slate-600 hover:text-slate-900 hover:bg-white/80 font-bold'
@@ -98,8 +135,17 @@ function CustomDateRangePopover({
         <span>Kustom</span>
       </button>
 
-      {open && (
-        <div className="absolute top-full mt-2 left-0 right-0 sm:left-auto bg-white p-4 rounded-xl shadow-xl border border-slate-200 z-50 flex flex-col gap-3 min-w-[280px] w-max sm:w-auto">
+      {open && coords && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={popoverRef}
+          style={{
+            position: 'fixed',
+            top: `${coords.top}px`,
+            right: `${coords.right}px`,
+            zIndex: 99999,
+          }}
+          className="bg-white p-4 rounded-xl shadow-xl border border-slate-200 z-[99999] flex flex-col gap-3 w-[280px] max-w-[calc(100vw-2rem)] animate-in fade-in zoom-in-95 duration-200"
+        >
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Dari</label>
@@ -122,15 +168,17 @@ function CustomDateRangePopover({
             </div>
           </div>
           <button
+            type="button"
             onClick={handleApply}
             disabled={!localFrom || !localTo || localTo < localFrom}
-            className="w-full bg-suka-orange text-white py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full bg-suka-orange text-white py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             Terapkan Filter
           </button>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 
@@ -199,7 +247,7 @@ export default function OpnamePage() {
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
           
           {/* Period Filter */}
-          <div className="flex p-1.5 bg-slate-100 rounded-xl w-full md:w-auto overflow-x-auto hide-scrollbar gap-1">
+          <div className="flex p-1.5 bg-slate-100 rounded-xl w-full md:w-auto overflow-x-auto md:overflow-visible no-scrollbar hide-scrollbar gap-1">
             <button
               onClick={() => setPeriod(presetRange('today'))}
               className={`px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all text-sm font-bold whitespace-nowrap cursor-pointer flex-1 md:flex-none ${

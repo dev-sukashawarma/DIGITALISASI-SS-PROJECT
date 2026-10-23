@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { isTestOutlet } from '@/lib/outletFilters';
 import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
+import { statusPantau } from '@/lib/stok/statusPantau';
 
 function getOutletRegion(slug: string, address: string | null): string {
   const addr = (address || '').toLowerCase();
@@ -131,19 +132,15 @@ export function LiveMonitoringPage() {
 
       let kritisCount = 0;
       let menipisCount = 0;
-      let status: 'below' | 'warning' | 'ok' = 'ok';
+      const status = statusPantau(outletItems.map(item => item.status));
       const lowItems: typeof items = [];
 
       for (const item of outletItems) {
         if (item.status === 'below') {
           kritisCount++;
-          status = 'below';
           lowItems.push(item);
         } else if (item.status === 'warning') {
           menipisCount++;
-          if (status !== 'below') {
-            status = 'warning';
-          }
           lowItems.push(item);
         }
       }
@@ -173,7 +170,7 @@ export function LiveMonitoringPage() {
       if (regA !== regB) {
         return regA - regB;
       }
-      const statusOrder = { below: 0, warning: 1, ok: 2 };
+      const statusOrder = { below: 0, warning: 1, unknown: 2, ok: 3 };
       if (a.status !== b.status) {
         return statusOrder[a.status] - statusOrder[b.status];
       }
@@ -215,7 +212,7 @@ export function LiveMonitoringPage() {
     for (const o of gridOutlets) {
       if (o.status === 'below') kritis++;
       else if (o.status === 'warning') menipis++;
-      else aman++;
+      else if (o.status === 'ok') aman++;
     }
 
     return { kritis, menipis, aman, total: gridOutlets.length };
@@ -288,6 +285,9 @@ export function LiveMonitoringPage() {
       hoverShadowClass = 'hover:shadow-[0px_8px_20px_rgba(242,151,68,0.12)]';
       statusPill = 'bg-suka-orange/10 text-suka-orange border-suka-orange/20';
       statusLabel = 'Menipis';
+    } else if (outlet.status === 'unknown') {
+      statusPill = 'bg-slate-100 text-slate-600 border-slate-200';
+      statusLabel = 'Belum diketahui';
     }
 
     const cleanOutletName = outlet.outlet_name
@@ -335,6 +335,9 @@ export function LiveMonitoringPage() {
           </div>
         ) : (
           <div className="flex-grow flex flex-col gap-2 justify-center">
+            {outlet.status === 'unknown' && (
+              <p className="text-xs text-slate-600">Data satuan belum lengkap. Periksa detail stok.</p>
+            )}
             <div className="space-y-1.5">
               {outlet.lowItems.slice(0, 3).map((item) => (
                 <div key={item.bahan_baku_id} className="bg-suka-cream/35 border border-suka-brown/5 rounded-lg py-1.5 px-3 flex items-center justify-between gap-2">

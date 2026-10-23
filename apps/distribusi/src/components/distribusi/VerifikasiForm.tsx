@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { galatVerifikasi, qtyDistribusi, qtyDasar } from '@/lib/verifikasi'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@suka/auth'
@@ -108,6 +109,8 @@ export function VerifikasiForm({ id }: { id: string }) {
   const [unlocked, setUnlocked] = useState(false)
   const [kondisiConfirmed, setKondisiConfirmed] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+  const submittingRef = useRef(false)
+  const uploadingRef = useRef(false)
 
   const items = useMemo(() => {
     if (!data?.surat_jalan_item) return [];
@@ -132,7 +135,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       }
       return {
         ...item,
-        qty_dikirim_dist: Math.round(item.qty_dikirim * factor),
+        qty_dikirim_dist: qtyDistribusi(item.qty_dikirim, factor),
         satuan_dist: b?.satuan_distribusi || b?.satuan,
         factor,
       }
@@ -189,7 +192,7 @@ export function VerifikasiForm({ id }: { id: string }) {
             const { data: blob } = await supabase.storage.from('verif-foto-bahan').download(item.foto_path)
             if (blob) foto_preview = URL.createObjectURL(blob)
           }
-          const qty_terima = typeof item.qty_terima === 'number' ? Math.round(item.qty_terima * item.factor * 1000) / 1000 : ''
+          const qty_terima = typeof item.qty_terima === 'number' ? qtyDistribusi(item.qty_terima, item.factor) : ''
           return [item.id, {
             qty_terima,
             kondisi: (item.kondisi === 'rusak' ? 'tidak_sesuai' : 'baik') as Kondisi,
@@ -405,9 +408,11 @@ export function VerifikasiForm({ id }: { id: string }) {
   const isTidakSesuaiMode = currentVerif.kondisi === 'tidak_sesuai'
 
   const setVerif = (patch: Partial<ItemVerification>) => {
+    if (submittingRef.current || uploadingRef.current) return
+    setKondisiConfirmed(false)
     setVerifications((prev) => ({
       ...prev,
-      [currentItem.id]: { ...currentVerif, ...patch },
+      [currentItem.id]: { ...(prev[currentItem.id] ?? currentVerif), ...patch },
     }))
   }
 
@@ -420,18 +425,9 @@ export function VerifikasiForm({ id }: { id: string }) {
   }
 
   const handleBaik = () => {
-    if (currentVerif.qty_terima === '' || currentVerif.qty_terima === 0) {
-      toast.warning('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
-      return
-    }
-    if (currentVerif.qty_terima < 0) {
-      toast.error('Qty terima tidak boleh kurang dari 0')
-      return
-    }
-    if (currentVerif.qty_terima > currentItem.qty_dikirim_dist) {
-      toast.error('Qty terima tidak boleh melebihi qty dikirim')
-      return
-    }
+    if (uploadingRef.current || submittingRef.current) return
+    const galat = galatVerifikasi({ ...currentVerif, kondisi: 'baik' }, currentItem.qty_dikirim_dist, false)
+    if (galat) { toast.warning(galat); return }
     setVerifications((prev) => ({
       ...prev,
       [currentItem.id]: { ...currentVerif, kondisi: 'baik', catatan: '' },
@@ -440,26 +436,16 @@ export function VerifikasiForm({ id }: { id: string }) {
   }
 
   const handleTidakSesuaiConfirm = () => {
-    if (currentVerif.qty_terima === '') {
-      toast.warning('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
-      return
-    }
-    if (currentVerif.qty_terima < 0) {
-      toast.error('Qty terima tidak boleh kurang dari 0')
-      return
-    }
-    if (currentVerif.qty_terima > currentItem.qty_dikirim_dist) {
-      toast.error('Qty terima tidak boleh melebihi qty dikirim')
-      return
-    }
-    if (!currentVerif.catatan.trim()) {
-      toast.warning('Wajib isi catatan alasan untuk item tidak sesuai')
-      return
-    }
+    if (uploadingRef.current || submittingRef.current) return
+    const galat = galatVerifikasi(currentVerif, currentItem.qty_dikirim_dist, false)
+    if (galat) { toast.warning(galat); return }
     setKondisiConfirmed(true)
   }
 
   const handleAdvance = () => {
+    if (uploadingRef.current || submittingRef.current || !kondisiConfirmed) return
+    const galat = galatVerifikasi(currentVerif, currentItem.qty_dikirim_dist)
+    if (galat) { toast.warning(galat); return }
     if (!currentVerif.foto_path) {
       toast.warning('Foto bukti wajib diambil sebelum lanjut ke item berikutnya')
       return
@@ -507,37 +493,50 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   const handleFotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file || uploadingRef.current || submittingRef.current) return
+    const itemId = currentItem.id
+    uploadingRef.current = true
     setUploadingFoto(true)
     try {
       toast.info('Mengompres dan mengunggah foto bukti...')
       const compressed = await compressImage(file, 200 * 1024)
       const supabase = createSupabaseBrowserClient()
-      const path = `${id}/${currentItem.id}.jpg`
+      const path = `${id}/${itemId}.jpg`
       const { error: uploadError } = await supabase.storage
         .from('verif-foto-bahan')
         .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' })
       if (uploadError) throw uploadError
       const preview = URL.createObjectURL(compressed)
-      setVerif({ foto_path: path, foto_preview: preview })
+      setVerifications(prev => {
+        const asal = prev[itemId]
+        return asal ? { ...prev, [itemId]: { ...asal, foto_path: path, foto_preview: preview } } : prev
+      })
       toast.success('Foto bukti berhasil disimpan!')
     } catch (err: any) {
       toast.error(`Gagal upload foto: ${err?.message || 'Error'}`)
     } finally {
+      uploadingRef.current = false
       setUploadingFoto(false)
       if (e.target) e.target.value = ''
     }
   }
 
   const handleSubmit = async () => {
-    if (submitting) return
+    if (submittingRef.current || uploadingRef.current) return
+    if (!items.length) { toast.error('Surat jalan belum memiliki item'); return }
+    for (const item of items) {
+      const galat = galatVerifikasi(verifications[item.id], item.qty_dikirim_dist)
+      if (galat) { toast.error(`${item.bahan_baku?.nama || 'Item'}: ${galat}`); return }
+    }
+    submittingRef.current = true
     setSubmitting(true)
     const supabase = createSupabaseBrowserClient()
     try {
       toast.info('Menyimpan verifikasi penerimaan...')
       const updatePromises = items.map((item: any) => {
-        const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim_dist, kondisi: 'baik' as const, catatan: '', foto_path: null, foto_preview: null }
-        const qty_terima_base = typeof v.qty_terima === 'number' ? (v.qty_terima / item.factor) : item.qty_dikirim
+        const v = verifications[item.id]
+        if (!v || typeof v.qty_terima !== 'number') throw new Error('Ada item yang belum diperiksa')
+        const qty_terima_base = qtyDasar(v.qty_terima, item.qty_dikirim, item.factor)
         return supabase
           .from('surat_jalan_item')
           .update({
@@ -575,6 +574,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     } catch (err: any) {
       toast.error(`Error: ${err?.message || 'Gagal menyimpan'}`)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }

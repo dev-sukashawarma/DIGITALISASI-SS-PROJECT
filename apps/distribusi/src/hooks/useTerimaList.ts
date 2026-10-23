@@ -18,7 +18,7 @@ async function fetchTerima(outletId: string | null | undefined): Promise<SuratJa
   let query = supabase
     .from('surat_jalan')
     .select('id, outlet_id, status, created_at, document_number, outlets(name)')
-    .in('status', ['dikirim', 'dikirim_lengkap', 'diterima_sebagian'])
+    .in('status', ['dikirim', 'dikirim_lengkap'])
 
   if (outletId) query = query.eq('outlet_id', outletId)
 

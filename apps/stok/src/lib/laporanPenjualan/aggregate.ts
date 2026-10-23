@@ -26,18 +26,73 @@ export type RawOrder = {
   promo_subsidy: number | string | null
   created_at: string
   outlet_id: string | null
-  order_items?: { menu_item_name: string | null; quantity: number | string | null; subtotal: number | string | null }[] | null
+  order_items?: {
+    menu_item_name: string | null
+    quantity: number | string | null
+    subtotal: number | string | null
+    package_choices?: Record<string, string> | null
+  }[] | null
 }
 
 export type DayGroup = { o: string | null; c: string | null; h: number; n: number; rev: number; ded: number; porsi: number; f: number }
-export type DayItem = { o: string | null; c: string | null; name: string; qty: number; rev: number; cnt: number; f: number }
+export type DayItem = { o: string | null; c: string | null; name: string; qty: number; rev: number; cnt: number; f: number; fromPackage?: string | null }
 export type DayCancel = { o: string | null; c: string | null; n: number }
 export type DaySummary = { v: 1; groups: DayGroup[]; items: DayItem[]; cancel: DayCancel[] }
 
 export function cleanMenuName(raw: string | null | undefined): string {
   let name = (raw || 'Item Tanpa Nama').trim()
   if (name.includes('|')) name = name.split('|')[0].trim()
+  name = name.replace(/\s*\([^)]*Paket:[^)]*\)/i, '').trim()
   return name
+}
+
+export const KNOWN_DRINK_NAMES_BY_ID: Record<string, string> = {
+  'c543b78e-3341-44e0-b3ef-53349e71e3d3': 'Orange Juice',
+  '08a57f8f-f212-4205-a3eb-fb88066ae1b8': 'Ice Tea',
+  'c8427af3-0a41-48dd-9a08-6b93cd913ec6': 'Aqua',
+}
+
+/**
+ * Ekstraksi pilihan minuman (Suka Drink) dari menu paket.
+ * Mendukung pembacaan dari:
+ * 1. `order_items.package_choices` (JSON mapping UUID: { [slot_id]: menu_item_id })
+ * 2. Fallback note di `menu_item_name` jika package_choices kosong/belum ada (mis. "(Paket: Orange Juice)")
+ */
+export function extractPackageDrinks(oi: {
+  menu_item_name: string | null
+  package_choices?: Record<string, string> | null
+}): string[] {
+  const drinks: string[] = []
+
+  // 1. Dari package_choices
+  if (oi.package_choices && typeof oi.package_choices === 'object') {
+    for (const val of Object.values(oi.package_choices)) {
+      if (typeof val === 'string' && KNOWN_DRINK_NAMES_BY_ID[val]) {
+        drinks.push(KNOWN_DRINK_NAMES_BY_ID[val])
+      }
+    }
+  }
+
+  // 2. Fallback jika package_choices tidak ada / kosong
+  if (drinks.length === 0 && oi.menu_item_name) {
+    const raw = oi.menu_item_name
+    const match = /(?:Paket:\s*|\(Paket:\s*)([^)\|]+)/i.exec(raw)
+    if (match) {
+      const parts = match[1].replace(/\)/g, '').split(',')
+      for (const p of parts) {
+        const s = p.toLowerCase().trim()
+        if (s.includes('orange')) {
+          drinks.push('Orange Juice')
+        } else if (s.includes('tea') || s.includes('teh')) {
+          drinks.push('Ice Tea')
+        } else if (s.includes('aqua')) {
+          drinks.push('Aqua')
+        }
+      }
+    }
+  }
+
+  return drinks
 }
 
 /** Ringkas order satu hari. `orders` WAJIB urut created_at, id (seperti query lama). */
@@ -72,13 +127,25 @@ export function summarizeDay(orders: RawOrder[]): DaySummary {
       for (const oi of o.order_items) {
         const name = cleanMenuName(oi.menu_item_name)
         const qty = Number(oi.quantity) || 0
-        const ik = JSON.stringify([oid, ch, name])
-        const it = items.get(ik) ?? { o: oid, c: ch, name, qty: 0, rev: 0, cnt: 0, f: order }
+        const ik = JSON.stringify([oid, ch, name, null])
+        const it = items.get(ik) ?? { o: oid, c: ch, name, qty: 0, rev: 0, cnt: 0, f: order, fromPackage: null }
         it.qty += qty
         it.rev += Number(oi.subtotal) || 0
         it.cnt += 1
         items.set(ik, it)
         g.porsi += qty
+
+        // Minuman pilihan dari menu paket (Suka Drink)
+        const drinks = extractPackageDrinks(oi)
+        for (const drink of drinks) {
+          const dk = JSON.stringify([oid, ch, drink, name])
+          const dit = items.get(dk) ?? { o: oid, c: ch, name: drink, qty: 0, rev: 0, cnt: 0, f: order, fromPackage: name }
+          dit.qty += qty
+          dit.rev += 0
+          dit.cnt += 1
+          items.set(dk, dit)
+          g.porsi += qty
+        }
       }
     }
   }
@@ -189,15 +256,25 @@ export function buildAnalytics(
     hourlyPorsi[g.h] += g.porsi
   }
 
-  const itemMap: Record<string, { name: string; qty: number; revenue: number; orderCount: number }> = {}
+  const itemMap: Record<string, { name: string; qty: number; revenue: number; orderCount: number; fromPackage?: string | null }> = {}
   for (const it of items) {
-    if (!itemMap[it.name]) itemMap[it.name] = { name: it.name, qty: 0, revenue: 0, orderCount: 0 }
-    itemMap[it.name].qty += it.qty
-    itemMap[it.name].revenue += it.rev
-    itemMap[it.name].orderCount += it.cnt
+    const itemKey = it.fromPackage ? `${it.name}__pkg__${it.fromPackage}` : it.name
+    if (!itemMap[itemKey]) {
+      itemMap[itemKey] = {
+        name: it.name,
+        qty: 0,
+        revenue: 0,
+        orderCount: 0,
+        fromPackage: it.fromPackage || null,
+      }
+    }
+    itemMap[itemKey].qty += it.qty
+    itemMap[itemKey].revenue += it.rev
+    itemMap[itemKey].orderCount += it.cnt
     const os = ensureOutlet(it.o)
     os.itemsSold += it.qty
-    os.items[it.name] = (os.items[it.name] || 0) + it.qty
+    const outletItemKey = it.fromPackage ? `${it.name} (Dari ${it.fromPackage})` : it.name
+    os.items[outletItemKey] = (os.items[outletItemKey] || 0) + it.qty
   }
 
   const totalRevenue = netRevenue + totalDeductions

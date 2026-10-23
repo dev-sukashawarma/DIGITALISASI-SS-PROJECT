@@ -36,6 +36,10 @@ function database(role = 'owner', status = 'active', link = true, error = false)
           filters.push([table, key, value])
           return query
         },
+        in: () => ({
+          data: link ? [{ chat_id: '12345678' }, { chat_id: '87654321' }] : [],
+          error: error ? { message: 'unavailable' } : null,
+        }),
         maybeSingle: async () => ({
           error: error ? { message: 'unavailable' } : null,
           data:
@@ -67,6 +71,12 @@ describe('POST /api/telegram/ceo/send', () => {
     const res = await POST(request(payload, 'wrong-secret'))
     expect(res.status).toBe(401)
     expect(supabaseAdmin).not.toHaveBeenCalled()
+  })
+
+  it('menolak jika tidak ada target pengiriman (tanpa user_id, chat_id, broadcast)', async () => {
+    const res = await POST(request({ title: 'Test', body: 'Body' }))
+    expect(res.status).toBe(400)
+    expect(kirimPesanTelegram).not.toHaveBeenCalled()
   })
 
   it('menolak payload tidak valid', async () => {
@@ -106,6 +116,17 @@ describe('POST /api/telegram/ceo/send', () => {
     )
   })
 
+  it('menormalisasi url: "review" atau "sukareview" ke suka.pantaureview.com', async () => {
+    const res = await POST(request({ ...payload, url: 'review' }))
+    expect(res.status).toBe(200)
+    expect(kirimPesanTelegram).toHaveBeenCalledWith(
+      '12345678',
+      expect.any(String),
+      'https://suka.pantaureview.com/',
+      'ceo'
+    )
+  })
+
   it('mengirim pesan ke chat_id Telegram untuk role owner', async () => {
     const res = await POST(request())
     expect(res.status).toBe(200)
@@ -117,6 +138,38 @@ describe('POST /api/telegram/ceo/send', () => {
       undefined,
       'ceo'
     )
+  })
+
+  it('mengirim pesan langsung via chat_id tanpa user_id', async () => {
+    const res = await POST(request({
+      chat_id: '99887766',
+      title: '🚨 ALERT LANGSUNG',
+      body: 'Pesan ke chat_id tertentu',
+    }))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.delivered).toBe(true)
+    expect(json.count).toBe(1)
+    expect(kirimPesanTelegram).toHaveBeenCalledWith(
+      '99887766',
+      '🚨 ALERT LANGSUNG\n\nPesan ke chat_id tertentu',
+      undefined,
+      'ceo'
+    )
+  })
+
+  it('mengirim pesan via broadcast: true ke seluruh staf eksekutif', async () => {
+    const res = await POST(request({
+      broadcast: true,
+      title: '🚨 [ESKALASI REVIEW] Ulasan Buruk ⭐1 — Sentul',
+      body: 'Ulasan negatif masuk',
+      url: 'https://suka.pantaureview.com',
+    }))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.delivered).toBe(true)
+    expect(json.count).toBe(2)
+    expect(kirimPesanTelegram).toHaveBeenCalledTimes(2)
   })
 
   it('mengirim pesan ke chat_id Telegram untuk role admin', async () => {

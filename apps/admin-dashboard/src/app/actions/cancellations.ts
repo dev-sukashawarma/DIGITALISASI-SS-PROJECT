@@ -152,7 +152,8 @@ export async function processVoidOrder(tokenId: string, action: 'approve' | 'rej
       .from('orders')
       .update({
         cancellation_status: newStatus,
-        status: newStatus === 'approved' ? 'cancelled' : (request.previous_order_status ?? 'pending')
+        status: newStatus === 'approved' ? 'cancelled' : (request.previous_order_status ?? 'pending'),
+        ...(newStatus === 'approved' ? { void_at: new Date().toISOString() } : {})
       })
       .eq('id', request.order_id)
 

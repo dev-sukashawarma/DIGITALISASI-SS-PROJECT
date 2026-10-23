@@ -362,7 +362,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     totalOrders: 0, buyOneGetOneTransactions: 0, buyOneGetOneGiftUnits: 0, successRate: 0, cancelledCount: 0,
     grossRevenue: 0, totalDeductions: 0, totalPlatformSubsidy: 0, netRevenue: 0, totalHPP: 0, grossProfit: 0,
     totalCommission: 0, isCommissionEstimated: false, netDisbursement: 0, realGrossProfit: 0,
-    totalSettlement: 0, totalSettlementGross: 0, settlementRate: 0, settlementGrossRate: 0, totalRealAdmin: 0, settlementDateRange: '', hasSettlementData: false,
+    totalSettlement: 0, totalSettlementGross: 0, settlementRate: 0, settlementGrossRate: 0, totalRealAdmin: 0, settlementDateRange: '', settlementLastUpdate: '', hasSettlementData: false,
   }
   const analytics = report?.analytics ?? EMPTY_ANALYTICS
   const shifts: ShiftRow[] = report?.shifts ?? []
@@ -728,10 +728,18 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
 
                 <div className="mt-2.5 flex items-center justify-between gap-2 flex-wrap text-[10px]">
                   {analytics.settlementDateRange ? (
-                    <span className="text-white/85 font-medium bg-white/15 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {analytics.settlementDateRange}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-white/90 font-medium bg-white/15 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 w-fit">
+                        <Calendar className="w-3 h-3" />
+                        Periode: {analytics.settlementDateRange}
+                      </span>
+                      {analytics.settlementLastUpdate && (
+                        <span className="text-white/85 text-[9.5px] ml-1 flex items-center gap-1 font-medium">
+                          <Clock className="w-2.5 h-2.5" />
+                          Last Update: {analytics.settlementLastUpdate}
+                        </span>
+                      )}
+                    </div>
                   ) : (analytics.totalCommission ?? 0) === 0 && (analytics.estimatedCommission ?? 0) > 0 ? (
                     <span className="text-white/75 italic">
                       * Est. komisi: {formatRupiah(analytics.estimatedCommission)}

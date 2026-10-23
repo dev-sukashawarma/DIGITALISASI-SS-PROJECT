@@ -5,7 +5,7 @@ import { kirimPesanTelegram, supabaseAdmin, urlAplikasiDiizinkan } from '@/lib/s
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
-  const expected = process.env.TELEGRAM_HRD_SEND_SECRET
+  const expected = process.env.TELEGRAM_HRD_SEND_SECRET || process.env.TELEGRAM_STOKIST_SEND_SECRET
   const given = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? ''
   if (!expected || Buffer.byteLength(given) !== Buffer.byteLength(expected)
     || !timingSafeEqual(Buffer.from(given), Buffer.from(expected))) {

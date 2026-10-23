@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ringkasUntukSuara, PILIHAN_SUARA_JARVIS } from './voiceHud'
-import { naturalisasiTeksSuara, cariKonfigurasiSuara } from '@/app/api/voice/tts/route'
+import { naturalisasiTeksSuara, cariKonfigurasiSuara } from './ttsConfig'
 
 describe('voiceHud & naturalisasiTeksSuara', () => {
   it('mengubah format angka Rupiah dan ribuan non-Rupiah menjadi kalimat lisan natural', () => {

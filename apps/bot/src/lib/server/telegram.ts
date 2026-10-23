@@ -175,9 +175,9 @@ export async function kirimPesanTelegram(
     : profil === 'manager'
     ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
     : profil === 'ceo'
-    ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
     : profil === 'finance'
-    ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
     : profil === 'review'
     ? (process.env.TELEGRAM_REVIEW_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : process.env.TELEGRAM_STOKIST_BOT_TOKEN
@@ -241,9 +241,9 @@ export async function kirimAksiChatTelegram(
     : profil === 'manager'
     ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
     : profil === 'ceo'
-    ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
     : profil === 'finance'
-    ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
+    ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
     : profil === 'review'
     ? (process.env.TELEGRAM_REVIEW_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
     : process.env.TELEGRAM_STOKIST_BOT_TOKEN

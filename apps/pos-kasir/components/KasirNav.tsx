@@ -207,7 +207,7 @@ export default function KasirNav() {
         <div className={`flex flex-col relative justify-center border-b border-[#d9c2b2] shrink-0 ${isCollapsed ? 'h-[5.5rem] px-4 items-center' : 'py-6 px-6 items-center'}`}>
           <Link href="/kasir" className={`flex min-w-0 ${isCollapsed ? 'flex-col gap-0 justify-center items-center' : 'flex-col gap-3 items-center text-center'}`} onClick={() => setOpen(false)}>
             {brandLogo ? (
-              <img src={brandLogo} alt="Logo" className="w-12 h-12 object-contain rounded-2xl shrink-0 shadow-sm" />
+              <img src={brandLogo} alt="Logo" className="max-w-[140px] max-h-12 w-auto h-auto object-contain rounded-2xl shrink-0 shadow-sm" />
             ) : (
               <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain rounded-2xl shrink-0 shadow-sm" />
             )}

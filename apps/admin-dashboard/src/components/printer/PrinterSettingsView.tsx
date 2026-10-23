@@ -102,7 +102,7 @@ function wrapHtml(paperWidth: number, typo: Typography, body: string, forPrint: 
     .lg { font-size:${px(1.25)}px; }
     .muted { font-size:${px(0.85)}px; }
     .logo { font-size:11px; border:1px dashed #000; display:inline-block; padding:2px 6px; margin-bottom:4px; }
-    .logo-img { width:44px; height:44px; object-fit:contain; display:block; margin:0 auto 4px auto; filter:grayscale(100%) contrast(150%); }
+    .logo-img { max-width:80px; max-height:48px; width:auto; height:auto; object-fit:contain; display:block; margin:0 auto 4px auto; filter:grayscale(100%) contrast(150%); }
     .hr { border-top:2px dashed #000; margin:5px 0; }
     .row, .child, .total { display:flex; justify-content:space-between; text-align:left; }
     .child { padding-left:10px; border-left:2px solid #000; margin-left:4px; }

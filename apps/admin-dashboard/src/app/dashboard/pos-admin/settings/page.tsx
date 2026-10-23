@@ -107,39 +107,58 @@ export default function AdminSettingsPage() {
           <label className="block text-sm font-bold text-gray-900">Logo Brand (Opsional)</label>
           
           <div className="flex items-start gap-6">
-            {/* Preview Box */}
-            <div className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 shrink-0 overflow-hidden group">
+            {/* Preview Box - Flexible aspect ratio */}
+            <div className="relative min-w-[120px] max-w-[280px] h-28 sm:h-32 px-4 py-3 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50/80 shrink-0 group transition-all">
               {preview ? (
                 <>
-                  <img src={preview} alt="Logo Preview" className="w-full h-full object-cover" />
+                  <img
+                    src={preview}
+                    alt="Logo Preview"
+                    className="max-w-full max-h-full w-auto h-auto object-contain transition-transform group-hover:scale-105"
+                  />
                   <button
                     type="button"
                     onClick={removeLogo}
-                    className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Hapus Logo"
+                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full shadow-md transition-all hover:scale-110"
                   >
-                    <X className="w-6 h-6 text-white" />
+                    <X className="w-4 h-4" />
                   </button>
                 </>
               ) : (
-                <ImageIcon className="w-8 h-8 text-gray-300" />
+                <div className="flex flex-col items-center justify-center text-gray-300 gap-1.5 p-2">
+                  <ImageIcon className="w-8 h-8" />
+                  <span className="text-[11px] font-medium text-gray-400">Belum ada logo</span>
+                </div>
               )}
             </div>
 
             {/* Upload Button */}
-            <div className="flex-1 space-y-2">
-              <label className="inline-flex items-center justify-center px-4 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl cursor-pointer hover:bg-gray-200 transition-colors text-sm">
-                <span>Pilih Gambar</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleImageChange}
-                  className="hidden"
-                />
-              </label>
+            <div className="flex-1 space-y-2.5">
+              <div className="flex items-center gap-3">
+                <label className="inline-flex items-center justify-center px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl cursor-pointer transition-colors text-sm shadow-sm">
+                  <span>Pilih Gambar</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
+                {preview && (
+                  <button
+                    type="button"
+                    onClick={removeLogo}
+                    className="px-3 py-2 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
+                  >
+                    Hapus Logo
+                  </button>
+                )}
+              </div>
               <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                Format: JPG, PNG, WEBP.<br/>
-                Ukuran maksimal 2MB.<br/>
-                Disarankan gambar berbentuk persegi (1:1).
+                Format: JPG, PNG, WEBP (Maksimal 2MB).<br/>
+                <span className="text-emerald-700 font-semibold">Rasio Bebas & Fleksibel:</span> Bisa persegi (1:1), horizontal / memanjang (landscape), maupun vertikal.<br/>
+                Disarankan menggunakan logo dengan latar belakang transparan (PNG).
               </p>
             </div>
           </div>

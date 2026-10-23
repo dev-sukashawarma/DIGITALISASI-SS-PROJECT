@@ -99,8 +99,8 @@ export const Sidebar = () => {
         className="p-6 pb-2 text-center flex flex-col items-center justify-center cursor-pointer group shrink-0"
         title="Klik untuk scroll ke atas"
       >
-        <div className="w-14 h-14 mb-2 rounded-full overflow-hidden flex items-center justify-center bg-white/5 shadow-inner border border-white/10 group-hover:scale-105 transition-transform">
-          <img src={brandLogo || "/logo.png"} alt={brandName || "Logo"} className="w-full h-full object-cover" />
+        <div className="min-w-14 max-w-[200px] h-14 mb-2 px-3 py-1.5 rounded-2xl overflow-hidden flex items-center justify-center bg-white/5 shadow-inner border border-white/10 group-hover:scale-105 transition-all">
+          <img src={brandLogo || "/logo.png"} alt={brandName || "Logo"} className="max-w-full max-h-full w-auto h-auto object-contain" />
         </div>
         <div className="text-lg font-extrabold text-white tracking-tight leading-tight">
           {brandName || <>Suka<span className="text-suka-orange">Admin</span></>}

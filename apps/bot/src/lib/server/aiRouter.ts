@@ -138,6 +138,36 @@ export async function* tanyaAiRouter(o: {
       .map((out, i) => `${i + 1}. ${out.nama}: ${out.frekuensi} laporan (${out.totalQty} unit)`)
       .join('\n')
 
+    const listWasteKemarinPerOutlet = (w?.rekapOutletKemarin || [])
+      .map(
+        (o, i) =>
+          `  ${i + 1}. ${o.outlet}: ${o.totalLaporan} laporan (${Math.round(o.totalQty * 100) / 100} unit, Est. Rugi: ${formatRupiah(o.estKerugianRp)}) [Item: ${o.items.slice(0, 4).join(', ')}]`
+      )
+      .join('\n')
+
+    const listWasteKemarinDetail = (w?.rincianKemarin || [])
+      .slice(0, 25)
+      .map(
+        (r, i) =>
+          `  ${i + 1}. ${r.outlet}: ${r.bahan} ${r.qty} ${r.satuan} (${r.reason}) — Est. Rugi ${formatRupiah(r.estKerugianRp)} [${r.status}]`
+      )
+      .join('\n')
+
+    const listWasteHariIniPerOutlet = (w?.rekapOutletHariIni || [])
+      .map(
+        (o, i) =>
+          `  ${i + 1}. ${o.outlet}: ${o.totalLaporan} laporan (${Math.round(o.totalQty * 100) / 100} unit, Est. Rugi: ${formatRupiah(o.estKerugianRp)}) [Item: ${o.items.slice(0, 4).join(', ')}]`
+      )
+      .join('\n')
+
+    const listWasteHariIniDetail = (w?.rincianHariIni || [])
+      .slice(0, 15)
+      .map(
+        (r, i) =>
+          `  ${i + 1}. ${r.outlet}: ${r.bahan} ${r.qty} ${r.satuan} (${r.reason}) — Est. Rugi ${formatRupiah(r.estKerugianRp)} [${r.status}]`
+      )
+      .join('\n')
+
     const v = t.voidOrder
     const listVoid = (v?.daftarOutletVoidHariIni || [])
       .map((vo) => `- ${vo.outlet}: ${formatRupiah(vo.nilai)} (${vo.waktu} WIB)`)
@@ -396,6 +426,10 @@ ${listCutiKemarin || '(Tidak ada kru yang izin/cuti kemarin)'}
 - Rincian Transaksi Void Kemarin:
 ${listVoidKemarin || '(Nol / Tidak ada pembatalan transaksi kemarin)'}
 - Laporan Waste Kemarin: ${w?.laporanKemarinCount ?? 0} laporan (Est. Rugi Kemarin: ${formatRupiah(w?.estKerugianKemarinRp ?? 0)})
+- Rekapitulasi Waste Per Cabang Kemarin (H-1):
+${listWasteKemarinPerOutlet || '  (Tidak ada laporan waste per cabang kemarin)'}
+- Rincian Laporan Waste Kemarin (H-1):
+${listWasteKemarinDetail || '  (Tidak ada rincian laporan waste kemarin)'}
 
 ======================================================================
 DATA PANTAUAN LIVE HARI INI / BERJALAN (${t.tanggalWIB})
@@ -416,6 +450,11 @@ ${listVoid || '(Nol void hari ini)'}
 ${listTelat || '(Belum ada catatan keterlambatan hari ini)'}
 - Kru Izin / Cuti Live Hari Ini:
 ${listCuti || '(Tidak ada kru yang izin/cuti hari ini)'}
+- Laporan Waste Live Hari Ini: ${w?.laporanHariIniCount ?? 0} laporan (Est. Rugi Hari Ini: ${formatRupiah(w?.estKerugianHariIniRp ?? 0)})
+- Rekapitulasi Waste Per Cabang Hari Ini:
+${listWasteHariIniPerOutlet || '  (Belum ada laporan waste per cabang hari ini)'}
+- Rincian Laporan Waste Hari Ini:
+${listWasteHariIniDetail || '  (Belum ada rincian waste hari ini)'}
 
 ======================================================================
 DATA WASTE 30 HARI, STOK, DISTRIBUSI, KEUANGAN, & GOOGLE REVIEW
@@ -480,7 +519,11 @@ PANDUAN KOMUNIKASI & PERILAKU:
      * Jangan mencampuradukkan angka kemarin dengan hari ini.
 4. PERTANYAAN KHUSUS OPERASIONAL MANAJER:
    - Pertanyaan waste / reject / barang rusak / sampah bahan / kerugian bahan:
-     Sajikan data waste secara presisi dari DATA WASTE & REJECT di bawah. Sebutkan bahan baku penyumbang waste tertinggi (seperti Sayur Lettuce, Kulit 25, Ayam), jumlah qty, alasan dominan (seperti potongan bonggol, busuk, gosong, basi), serta cabang-cabang penyumbang laporan waste terbanyak.
+     * Bedakan dengan tegas antara WASTE KEMARIN (H-1) dan WASTE HARI INI / 30 HARI.
+     * Jika pengguna menanyakan waste kemarin (misalnya "ada laporan waste kemarin", "data waste kemarin", "waste 22 Oktober", "apakah ada waste kemarin", dsb):
+       Sajikan secara presisi total laporan kemarin (jumlah laporan dan total estimasi kerugian), rincian cabang yang melaporkan waste beserta nominal dan itemnya dari REKAPITULASI & RINCIAN WASTE KEMARIN di atas. DILARANG menyatakan data waste kemarin tidak ada jika ada data tercatat di atas.
+     * Jika pengguna menanyakan waste hari ini, sajikan data live waste hari ini.
+     * Jika pengguna menanyakan tren akumulasi atau umum, sajikan top bahan dan cabang dari AUDIT LOSS PREVENTION 30 HARI TERAKHIR.
    - Pertanyaan void / pembatalan order / transaksi di-cancel POS:
      Sajikan total frekuensi void hari ini, total estimasi nominal rupiah yang dibatalkan, dan rincian cabang yang mencatat pembatalan order hari ini. Jika 0, tegaskan bahwa transaksi hari ini bersih tanpa ada void.
    - Pertanyaan jam buka / cabang belum buka / cabang sudah buka / telat buka:
@@ -544,6 +587,8 @@ PANDUAN KOMUNIKASI & PERILAKU:
    - PERTANYAAN PRESENSI / SDM:
      Pahami istilah sehari-hari seperti "yang ga masuk siapa", "siapa yang absen", "siapa yang tidak hadir", "siapa yang cuti/izin", "siapa yang telat", "bagaimana presensi kru" sebagai pertanyaan DATA PRESENSI & SDM (HRD), BUKAN order cabang.
      Sebutkan nama kru yang sedang izin/cuti beserta status/alasannya, serta kru yang datang terlambat.
+   - PERTANYAAN WASTE / REJECT / KERUGIAN BAHAN:
+     Pahami pertanyaan seputar waste, sampah bahan, reject, atau barang basi/rusak (baik kemarin H-1, hari ini, atau akumulasi 30 hari) menggunakan data REKAPITULASI & RINCIAN WASTE di bawah. Jika menanyakan kemarin, laporkan secara presisi total laporan, total estimasi kerugian, dan cabang serta bahan yang dilaporkan kemarin.
    - Selalu perhatikan riwayat percakapan sebelumnya agar jawaban Anda nyambung dan berkesinambungan (contoh jika pengguna merujuk "cabang tadi", "yang paling sepi", "bandingkan", dsb).
 4. Format teks yang rapi dan elegan:
    - Gunakan tabel markdown jika diminta menampilkan perbandingan angka antar outlet.

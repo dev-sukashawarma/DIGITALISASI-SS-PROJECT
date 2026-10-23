@@ -53,6 +53,26 @@ export interface WasteOutletTelemetri {
   totalQty: number
 }
 
+export interface WasteLaporanItem {
+  id: string
+  outlet: string
+  bahan: string
+  qty: number
+  satuan: string
+  reason: string
+  status: string
+  estKerugianRp: number
+  waktu?: string
+}
+
+export interface WasteOutletRekap {
+  outlet: string
+  totalLaporan: number
+  totalQty: number
+  estKerugianRp: number
+  items: string[]
+}
+
 export interface WasteTelemetri {
   totalLaporan30Hari: number
   totalEstKerugianRp: number
@@ -60,8 +80,12 @@ export interface WasteTelemetri {
   topOutlet: WasteOutletTelemetri[]
   laporanHariIniCount: number
   estKerugianHariIniRp?: number
+  rincianHariIni?: WasteLaporanItem[]
+  rekapOutletHariIni?: WasteOutletRekap[]
   laporanKemarinCount?: number
   estKerugianKemarinRp?: number
+  rincianKemarin?: WasteLaporanItem[]
+  rekapOutletKemarin?: WasteOutletRekap[]
 }
 
 export interface VoidOrderTelemetri {
@@ -1371,6 +1395,10 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     let estKerugianKemarinRp = 0
     const bahanMap: Record<string, { nama: string; satuan: string; totalQty: number; frekuensi: number; reasons: Record<string, number>; estKerugianRp: number }> = {}
     const outletWasteMap: Record<string, { nama: string; frekuensi: number; totalQty: number }> = {}
+    const rincianHariIni: WasteLaporanItem[] = []
+    const rincianKemarin: WasteLaporanItem[] = []
+    const outletHariIniMap: Record<string, { outlet: string; totalLaporan: number; totalQty: number; estKerugianRp: number; items: string[] }> = {}
+    const outletKemarinMap: Record<string, { outlet: string; totalLaporan: number; totalQty: number; estKerugianRp: number; items: string[] }> = {}
 
     for (const r of wasteRows) {
       const bNama = r.bahan_baku?.nama || 'Bahan Baku'
@@ -1380,14 +1408,43 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       const estLoss = Math.round(qty * hBeli)
       totalEstKerugianRp += estLoss
 
+      const outNama = r.outlets?.name || 'Cabang'
+      const itemLaporan: WasteLaporanItem = {
+        id: r.id,
+        outlet: outNama,
+        bahan: bNama,
+        qty: Math.round(qty * 100) / 100,
+        satuan: sat,
+        reason: (r.reason || 'Lainnya').trim(),
+        status: (r.status || 'PENDING').toUpperCase(),
+        estKerugianRp: estLoss,
+        waktu: r.created_at ? new Date(Date.parse(r.created_at) + 7 * 3600000).toISOString().slice(11, 16) : undefined,
+      }
+
       if (r.created_at) {
         const wibWasteDate = new Date(Date.parse(r.created_at) + 7 * 3600000).toISOString().slice(0, 10)
         if (wibWasteDate === tglStr || r.created_at.startsWith(tglStr)) {
           laporanHariIniCount++
           estKerugianHariIniRp += estLoss
+          rincianHariIni.push(itemLaporan)
+          if (!outletHariIniMap[outNama]) {
+            outletHariIniMap[outNama] = { outlet: outNama, totalLaporan: 0, totalQty: 0, estKerugianRp: 0, items: [] }
+          }
+          outletHariIniMap[outNama].totalLaporan++
+          outletHariIniMap[outNama].totalQty += qty
+          outletHariIniMap[outNama].estKerugianRp += estLoss
+          outletHariIniMap[outNama].items.push(`${bNama} ${itemLaporan.qty} ${sat}`)
         } else if (wibWasteDate === tglKemarinStr || r.created_at.startsWith(tglKemarinStr)) {
           laporanKemarinCount++
           estKerugianKemarinRp += estLoss
+          rincianKemarin.push(itemLaporan)
+          if (!outletKemarinMap[outNama]) {
+            outletKemarinMap[outNama] = { outlet: outNama, totalLaporan: 0, totalQty: 0, estKerugianRp: 0, items: [] }
+          }
+          outletKemarinMap[outNama].totalLaporan++
+          outletKemarinMap[outNama].totalQty += qty
+          outletKemarinMap[outNama].estKerugianRp += estLoss
+          outletKemarinMap[outNama].items.push(`${bNama} ${itemLaporan.qty} ${sat}`)
         }
       }
 
@@ -1400,7 +1457,6 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       const reas = (r.reason || 'Lainnya').trim()
       bahanMap[bNama].reasons[reas] = (bahanMap[bNama].reasons[reas] || 0) + 1
 
-      const outNama = r.outlets?.name || 'Cabang'
       if (!outletWasteMap[outNama]) {
         outletWasteMap[outNama] = { nama: outNama, frekuensi: 0, totalQty: 0 }
       }
@@ -1439,8 +1495,12 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       topOutlet: topOutletWaste,
       laporanHariIniCount,
       estKerugianHariIniRp,
+      rincianHariIni,
+      rekapOutletHariIni: Object.values(outletHariIniMap).sort((a, b) => b.estKerugianRp - a.estKerugianRp),
       laporanKemarinCount,
       estKerugianKemarinRp,
+      rincianKemarin,
+      rekapOutletKemarin: Object.values(outletKemarinMap).sort((a, b) => b.estKerugianRp - a.estKerugianRp),
     }
 
     // ─────────────────────────────────────────────────────────── Void & Pembatalan Transaksi POS (Hari Ini & Kemarin)

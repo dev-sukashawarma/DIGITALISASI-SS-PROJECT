@@ -152,5 +152,55 @@ describe('aiRouter', () => {
     const iter = tanyaAiRouter({ pesan: 'test', profil: 'ceo', telemetri: null })
     await expect(iter.next()).rejects.toThrow('AI Router HTTP 502')
   })
-})
 
+  it('menyertakan rekapitulasi waste kemarin dan hari ini per cabang dalam prompt sistem', async () => {
+    process.env.AI_BASE_URL = 'http://test-ai:20128/v1'
+    process.env.AI_API_KEY = 'test-key'
+    process.env.AI_MODEL = 'test-model'
+
+    let requestBody = null
+    const chunks = ['data: {"choices":[{"delta":{"content":"Siap."}}]}\\n\\n', 'data: [DONE]\\n\\n']
+    const encoder = new TextEncoder()
+    const readableStream = new ReadableStream({
+      start(controller) {
+        for (const c of chunks) controller.enqueue(encoder.encode(c))
+        controller.close()
+      },
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      requestBody = JSON.parse(init.body)
+      return { ok: true, status: 200, body: readableStream }
+    })
+
+    const telemetriDenganWaste = {
+      ...mockTelemetri,
+      waste: {
+        totalLaporan30Hari: 45,
+        totalEstKerugianRp: 1800000,
+        topBahan: [{ nama: 'Sayur (lettuce)', satuan: 'kg', totalQty: 10, frekuensi: 8, alasanDominan: 'Bonggol', estKerugianRp: 250000 }],
+        topOutlet: [{ nama: 'MITRA CIBUBUR', frekuensi: 4, totalQty: 5 }],
+        laporanHariIniCount: 2,
+        estKerugianHariIniRp: 75000,
+        rekapOutletHariIni: [{ outlet: 'MITRA CIBUBUR', totalLaporan: 2, totalQty: 3, estKerugianRp: 75000, items: ['Sayur 3 kg'] }],
+        rincianHariIni: [{ id: 'w1', outlet: 'MITRA CIBUBUR', bahan: 'Sayur', qty: 3, satuan: 'kg', reason: 'Basi', status: 'APPROVED', estKerugianRp: 75000 }],
+        laporanKemarinCount: 35,
+        estKerugianKemarinRp: 1450000,
+        rekapOutletKemarin: [{ outlet: 'MITRA CILEUDUG', totalLaporan: 5, totalQty: 8, estKerugianRp: 350000, items: ['Sayur (lettuce) 5 kg'] }],
+        rincianKemarin: [{ id: 'w2', outlet: 'MITRA CILEUDUG', bahan: 'Sayur (lettuce)', qty: 5, satuan: 'kg', reason: 'Basi / Expired', status: 'APPROVED', estKerugianRp: 350000 }],
+      },
+    }
+
+    const iter = tanyaAiRouter({ pesan: 'ada laporan waste kemarin?', profil: 'manager', telemetri: telemetriDenganWaste })
+    for await (const _ of iter) {}
+
+    expect(requestBody).not.toBeNull()
+    const systemPrompt = requestBody.messages[0].content
+    expect(systemPrompt).toContain('Laporan Waste Kemarin: 35 laporan')
+    expect(systemPrompt).toContain('MITRA CILEUDUG: 5 laporan')
+    expect(systemPrompt).toContain('Sayur (lettuce) 5 kg')
+    expect(systemPrompt).toContain('Laporan Waste Live Hari Ini: 2 laporan')
+    expect(systemPrompt).toContain('MITRA CIBUBUR: 2 laporan')
+  })
+
+})

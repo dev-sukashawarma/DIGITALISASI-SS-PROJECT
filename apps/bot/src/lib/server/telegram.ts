@@ -79,6 +79,14 @@ export function formatPesanTelegramHtml(raw: string): string {
     return `@@@INLINE_CODE_${idx}@@@`
   })
 
+  // Lindungi tag HTML Telegram valid yang sudah ada agar tidak di-escape ganda
+  const htmlTags: string[] = []
+  text = text.replace(/<\/?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler)\b[^>]*>|<\/?a\b(?:\s+href="[^"]*")?\s*\/?>/gi, (tag) => {
+    const idx = htmlTags.length
+    htmlTags.push(tag)
+    return `@@@HTML_TAG_${idx}@@@`
+  })
+
   const formatInline = (t: string): string => {
     let s = escapeHtml(t)
     // Links: [label](url)
@@ -143,6 +151,7 @@ export function formatPesanTelegramHtml(raw: string): string {
   let formatted = resultLines.join('\n')
   formatted = formatted.replace(/@@@CODE_BLOCK_(\d+)@@@/g, (_, i) => codeBlocks[Number(i)] || '')
   formatted = formatted.replace(/@@@INLINE_CODE_(\d+)@@@/g, (_, i) => inlineCodes[Number(i)] || '')
+  formatted = formatted.replace(/@@@HTML_TAG_(\d+)@@@/g, (_, i) => htmlTags[Number(i)] || '')
   return formatted.replace(/\n{3,}/g, '\n\n').trim()
 }
 

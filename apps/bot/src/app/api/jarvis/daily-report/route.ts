@@ -306,16 +306,17 @@ function bangunTeksTelegram(t: TelemetriHariIni, mode: 'hari_ini' | 'kemarin', a
     outletsNolTransaksi: t.outletsNolTransaksi,
   }
 
+  const topMedals = ['🥇', '🥈', '🥉', '4.', '5.']
   const top5 = sales.outletsAktifTransaksi
     .slice(0, 5)
-    .map((o, i) => `${i + 1}. **${o.nama}** — **${formatRupiah(o.omzet)}** (${o.orderCount} struk)`)
-    .join('\n') || '• Belum ada transaksi tercatat'
+    .map((o, i) => `${topMedals[i] || `${i + 1}.`} <b>${o.nama}</b> — <code>${formatRupiah(o.omzet)}</code> (${o.orderCount} struk)`)
+    .join('\n') || '• <i>Belum ada transaksi tercatat</i>'
 
   const menuSumber = isKemarin ? (t.topMenuKemarin ?? t.ringkasanKemarin?.topMenu ?? []) : t.topMenu
   const menuTop3 = menuSumber
     .slice(0, 3)
-    .map((m, i) => `${i + 1}. **${m.nama}** — ${m.qty} porsi (${formatRupiah(m.omzet)})`)
-    .join('\n') || '• Belum ada data menu'
+    .map((m, i) => `${i + 1}. <b>${m.nama}</b> — <code>${m.qty} porsi</code> (${formatRupiah(m.omzet)})`)
+    .join('\n') || '• <i>Belum ada data menu</i>'
 
   const expAktif = isKemarin
     ? (t.finance?.pengeluaranKemarin?.totalNominal ?? 0)
@@ -343,63 +344,66 @@ function bangunTeksTelegram(t: TelemetriHariIni, mode: 'hari_ini' | 'kemarin', a
 
   const actionLines = actionItems
     .slice(0, 4)
-    .map((a, i) => {
+    .map((a) => {
       const icon = a.level === 'critical' ? '🚨' : a.level === 'warning' ? '⚠️' : '✅'
-      return `${i + 1}. ${icon} **[${a.divisi}] ${a.judul}**\n   _${a.deskripsi}_`
+      return `<blockquote>${icon} <b>[${a.divisi}] ${a.judul}</b>\n<i>${a.deskripsi}</i></blockquote>`
     })
-    .join('\n')
+    .join('\n\n')
 
   return [
-    `⚡ **J.A.R.V.I.S. EXECUTIVE DAILY BRIEFING**`,
-    `🗓️ **Periode Fokus:** ${sales.tanggalLabel}`,
+    `⚡ <b>J.A.R.V.I.S. EXECUTIVE DAILY BRIEFING</b>`,
+    `🗓️ <b>Periode Fokus:</b> <code>${sales.tanggalLabel}</code>`,
     `━━━━━━━━━━━━━━━━━━━━━`,
     ``,
-    `### 1. 📊 SALES & POS LEADERBOARD (${labelPeriode})`,
-    `- **Total Omzet:** **${formatRupiah(sales.omzetTotal)}**`,
-    `- **Total Transaksi:** ${sales.totalOrder} struk (AOV: **${formatRupiah(sales.aov)}**)`,
-    `- **Partisipasi Cabang:** ${sales.outletsAktifTransaksi.length} aktif / ${sales.outletsNolTransaksi.length} nol transaksi`,
+    `📊 <b>1. SALES & POS LEADERBOARD (${labelPeriode})</b>`,
+    `• <b>Total Omzet:</b> <code>${formatRupiah(sales.omzetTotal)}</code>`,
+    `• <b>Total Transaksi:</b> <code>${sales.totalOrder} Struk</code> (ATV: <code>${formatRupiah(sales.aov)}</code>)`,
+    `• <b>Partisipasi Cabang:</b> <code>${sales.outletsAktifTransaksi.length} Aktif / ${sales.outletsNolTransaksi.length} Nol Transaksi</code>`,
     ``,
-    `**Top 5 Cabang Tertinggi:**`,
+    `🏆 <b>Top Cabang Tertinggi:</b>`,
     top5,
     ``,
-    `**Top 3 Menu Terlaris (${labelPeriode}):**`,
+    `🥇 <b>Top 3 Menu Terlaris (${labelPeriode}):</b>`,
     menuTop3,
     ``,
-    `### 2. 🛡️ OPERASIONAL, VOID & WASTE (${labelPeriode})`,
+    `🛡️ <b>2. OPERASIONAL, VOID & WASTE (${labelPeriode})</b>`,
     isKemarin
-      ? `- **Rekap Tutup Shift Kemarin:** ${t.statusBuka?.shiftKemarinClosedCount ?? 0} cabang closed shift`
-      : `- **Status Shift Kasir Hari Ini:** ${t.statusBuka?.totalBuka ?? 0} buka / ${t.statusBuka?.totalBelumBuka ?? 0} belum buka`,
-    `- **Audit Void POS (${labelPeriode}):** ${voidCount} transaksi (**${formatRupiah(voidRp)}**)`,
-    `- **Estimasi Kerugian Waste (30 Hari):** **${formatRupiah(wasteRp)}** (${t.waste?.totalLaporan30Hari ?? 0} laporan)`,
+      ? `• <b>Rekap Tutup Shift:</b> <code>${t.statusBuka?.shiftKemarinClosedCount ?? 0} Cabang Closed Shift</code>`
+      : `• <b>Status Shift Kasir:</b> <code>${t.statusBuka?.totalBuka ?? 0} Buka / ${t.statusBuka?.totalBelumBuka ?? 0} Belum Buka</code>`,
+    `• <b>Audit Void POS:</b> <code>${voidCount} Transaksi</code> (<code>${formatRupiah(voidRp)}</code>)`,
+    `• <b>Estimasi Kerugian Waste (30 Hari):</b> <code>${formatRupiah(wasteRp)}</code> (${t.waste?.totalLaporan30Hari ?? 0} laporan)`,
     ``,
-    `### 3. 👥 WORKFORCE & PRESENSI (${labelPeriode})`,
-    `- **Kehadiran Kru Cabang:** ${hadirTotal} clock-in (**${hadirOnTime}%** On-Time)`,
-    `- **Terlambat / Cuti:** ${hadirTelat} terlambat, ${hadirCuti} izin/cuti`,
+    `👥 <b>3. WORKFORCE & PRESENSI (${labelPeriode})</b>`,
+    `• <b>Kehadiran Kru Cabang:</b> <code>${hadirTotal} Clock-in</code> (<b>${hadirOnTime}%</b> On-Time)`,
+    `• <b>Terlambat / Izin:</b> <code>${hadirTelat} Terlambat</code>, <code>${hadirCuti} Izin/Cuti</code>`,
     ``,
-    `### 4. 💰 TREASURY & FINANCE (${labelPeriode})`,
-    `- **OPEX / Kas Kecil (${labelPeriode}):** **${formatRupiah(expAktif)}** (${expTxCount} transaksi)`,
+    `💰 <b>4. TREASURY & FINANCE (${labelPeriode})</b>`,
+    `• <b>OPEX / Kas Kecil (${labelPeriode}):</b> <code>${formatRupiah(expAktif)}</code> (${expTxCount} transaksi)`,
     isKemarin
-      ? `- **Kas Fisik Closing Kemarin:** **${formatRupiah(setoranAktif)}** (${t.finance?.setoranKas?.tutupShiftKemarin?.sudahDirekap ?? 0} direkap / ${t.finance?.setoranKas?.tutupShiftKemarin?.belumDirekap ?? 0} belum setor)`
-      : `- **Setoran Kas Direkap Hari Ini:** **${formatRupiah(setoranAktif)}**`,
-    `- **Utang PO Supplier Belum Lunas:** **${formatRupiah(utangTotal)}** (Overdue: **${formatRupiah(utangOverdue)}**)`,
+      ? `• <b>Kas Fisik Closing:</b> <code>${formatRupiah(setoranAktif)}</code> (${t.finance?.setoranKas?.tutupShiftKemarin?.sudahDirekap ?? 0} direkap / ${t.finance?.setoranKas?.tutupShiftKemarin?.belumDirekap ?? 0} belum setor)`
+      : `• <b>Setoran Kas Direkap:</b> <code>${formatRupiah(setoranAktif)}</code>`,
+    `• <b>Utang PO Supplier:</b> <code>${formatRupiah(utangTotal)}</code> (Overdue: <code>${formatRupiah(utangOverdue)}</code>)`,
     ``,
-    `### 5. ⭐ CUSTOMER EXPERIENCE (SUKAREVIEW)`,
-    `- **Rating Rata-rata:** **${t.review?.ratingRataRata ?? 4.8}⭐** (${t.review?.totalUlasan ?? 0} ulasan terpantau)`,
+    `⭐ <b>5. CUSTOMER EXPERIENCE (SUKAREVIEW)</b>`,
+    `• <b>Rating Rata-rata:</b> <code>${t.review?.ratingRataRata ?? 4.8}⭐</code> (${t.review?.totalUlasan ?? 0} ulasan terpantau)`,
     ``,
-    `### 6. 📦 LOGISTIK, DISTRIBUSI & STOK`,
+    `📦 <b>6. LOGISTIK, DISTRIBUSI & STOK</b>`,
     t.distribusi
-      ? `- **Pengiriman Surat Jalan:** ${t.distribusi.totalSuratJalanDikirim} kiriman (${t.distribusi.totalSuratJalanAdaSelisih} catatan selisih/rusak)`
-      : `- **Pengiriman Surat Jalan:** Terpantau lancar`,
+      ? `• <b>Pengiriman Surat Jalan:</b> <code>${t.distribusi.totalSuratJalanDikirim} Pengiriman</code> (${t.distribusi.totalSuratJalanAdaSelisih} catatan selisih/rusak)`
+      : `• <b>Pengiriman Surat Jalan:</b> <i>Terpantau lancar</i>`,
     t.saldoStok && t.saldoStok.some((s) => s.outletKritisCount > 0)
-      ? `- **Peringatan Stok Cabang:** ${t.saldoStok
+      ? `• <b>Peringatan Stok Cabang:</b> ${t.saldoStok
           .filter((s) => s.outletKritisCount > 0)
-          .map((s) => `${s.nama} (${s.outletKritisCount} cabang kosong)`)
+          .map((s) => `<code>${s.nama}</code> (${s.outletKritisCount} cabang kosong)`)
           .slice(0, 3)
           .join(', ')}`
-      : `- **Status Stok Jaringan:** Seluruh bahan baku utama dalam ambang batas aman`,
+      : `• <b>Status Stok Jaringan:</b> <i>Seluruh bahan baku utama dalam ambang batas aman</i>`,
     ``,
-    `### 🎯 AI EXECUTIVE ACTION ITEMS`,
+    `━━━━━━━━━━━━━━━━━━━━━`,
+    `🎯 <b>AI EXECUTIVE ACTION ITEMS:</b>`,
     actionLines,
+    `━━━━━━━━━━━━━━━━━━━━━`,
+    `🕒 <i>J.A.R.V.I.S. Command Centre · agents.sukashawarma.com</i>`,
   ].join('\n')
 }
 

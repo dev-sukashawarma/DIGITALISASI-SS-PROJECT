@@ -120,7 +120,7 @@ describe('POST /api/telegram/ceo/webhook', () => {
     expect(json.ok).toBe(true)
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '987654',
-      expect.stringContaining('Panduan Komando Eksekutif J.A.R.V.I.S.'),
+      expect.stringMatching(/PANDUAN KOMANDO EKSEKUTIF J\.A\.R\.V\.I\.S\./i),
       'https://agents.sukashawarma.com',
       'ceo'
     )
@@ -157,7 +157,7 @@ describe('POST /api/telegram/ceo/webhook', () => {
     expect(res.status).toBe(200)
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '987654',
-      expect.stringContaining('1. *Rekapitulasi Penjualan Kemarin* _(04:00 WIB)_'),
+      expect.stringContaining('1. <b>Rekapitulasi Penjualan Kemarin</b> <code>04:00 WIB</code>'),
       'https://agents.sukashawarma.com',
       'ceo'
     )
@@ -180,7 +180,7 @@ describe('POST /api/telegram/ceo/webhook', () => {
     expect(json.ok).toBe(true)
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '987654',
-      expect.stringContaining('Sesi Percakapan Baru Dimulai'),
+      expect.stringMatching(/SESI PERCAKAPAN BARU DIMULAI/i),
       'https://agents.sukashawarma.com',
       'ceo'
     )
@@ -210,7 +210,7 @@ describe('POST /api/telegram/ceo/webhook', () => {
     expect(json.linked).toBe(true)
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '987654',
-      expect.stringContaining('Aktivasi Berhasil!'),
+      expect.stringMatching(/Aktivasi Eksekutif Berhasil!/i),
       'https://agents.sukashawarma.com',
       'ceo'
     )

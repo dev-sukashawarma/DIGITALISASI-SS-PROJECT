@@ -89,6 +89,16 @@ describe('formatPesanTelegramHtml', () => {
     expect(formatted.length).toBeLessThan(4000)
     expect(formatted).toContain('...(pesan dipotong)')
   })
+
+  it('mempertahankan tag HTML Telegram native tanpa escaping ganda', () => {
+    const raw = '⚡ <b>J.A.R.V.I.S. ALERT</b>\n• Nominal: <code>Rp 1.500.000</code>\n<blockquote>Atensi Direksi & Manajemen</blockquote>'
+    const formatted = formatPesanTelegramHtml(raw)
+    expect(formatted).toContain('⚡ <b>J.A.R.V.I.S. ALERT</b>')
+    expect(formatted).toContain('<code>Rp 1.500.000</code>')
+    expect(formatted).toContain('<blockquote>Atensi Direksi &amp; Manajemen</blockquote>')
+    expect(formatted).not.toContain('&lt;b&gt;')
+    expect(formatted).not.toContain('&lt;code&gt;')
+  })
 })
 
 describe('bersihkanMarkdown', () => {

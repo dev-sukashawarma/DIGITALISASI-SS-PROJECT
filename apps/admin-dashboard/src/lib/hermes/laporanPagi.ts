@@ -11,34 +11,35 @@ export function teksLaporanPagiCeo(d: DataRekap): string {
   const iconBanding = selisih >= 0 ? '📈' : '📉'
   const tandaPersen = selisih > 0 ? '+' : ''
   const bandingStr = d.omzetPembanding > 0
-    ? `${iconBanding} vs Minggu Lalu: ${rupiah(d.omzetPembanding)} (${tandaPersen}${persenBanding}%)`
-    : `📈 vs Minggu Lalu: ${rupiah(d.omzetPembanding)}`
+    ? `${iconBanding} <b>vs Minggu Lalu:</b> <code>${rupiah(d.omzetPembanding)}</code> (<code>${tandaPersen}${persenBanding}%</code>)`
+    : `📈 <b>vs Minggu Lalu:</b> <code>${rupiah(d.omzetPembanding)}</code>`
 
   return [
-    '📊 LAPORAN PENJUALAN HARIAN',
-    `🗓️ Hari/Tanggal: ${labelTanggal(d.tanggal)}`,
+    '📊 <b>LAPORAN PENJUALAN HARIAN</b>',
+    `🗓️ Hari/Tanggal: <b>${labelTanggal(d.tanggal)}</b>`,
     '━━━━━━━━━━━━━━━━━━━━━',
     '',
-    `💰 Omzet Total: ${rupiah(d.omzet)}`,
+    `💰 <b>Omzet Total:</b> <code>${rupiah(d.omzet)}</code>`,
     bandingStr,
-    `🧾 Total Transaksi: ${d.transaksi.toLocaleString('id-ID')} struk`,
-    `💵 Rata-rata Struk (ATV): ${rupiah(atv)}`,
+    `🧾 <b>Total Transaksi:</b> <code>${d.transaksi.toLocaleString('id-ID')}</code> struk`,
+    `💵 <b>Rata-rata Struk (ATV):</b> <code>${rupiah(atv)}</code>`,
     '',
-    '🏆 Ranking Seluruh Outlet:',
+    '🏆 <b>Ranking Seluruh Outlet:</b>',
     ...(d.ranking.length
       ? d.ranking.map((r) => {
-          const qtyStr = r.qty !== undefined ? ` (${r.qty.toLocaleString('id-ID')} porsi)` : ''
-          return `  ${r.peringkat}. ${r.nama} — ${rupiah(r.omzet)}${qtyStr}`
+          const medal = r.peringkat === 1 ? '🥇 ' : r.peringkat === 2 ? '🥈 ' : r.peringkat === 3 ? '🥉 ' : '   '
+          const qtyStr = r.qty !== undefined ? ` (<code>${r.qty.toLocaleString('id-ID')}</code> porsi)` : ''
+          return `  ${medal}${r.peringkat}. <b>${r.nama}</b> — <code>${rupiah(r.omzet)}</code>${qtyStr}`
         })
       : ['  —']),
-    ...(nol.length ? ['', `⚠️ Outlet tanpa penjualan: ${nol.join(', ')}`] : []),
+    ...(nol.length ? ['', `⚠️ <b>Outlet tanpa penjualan:</b> <code>${nol.join(', ')}</code>`] : []),
     '',
-    '🥇 Top 3 Menu Terlaris:',
+    '🥇 <b>Top 3 Menu Terlaris:</b>',
     ...(d.menuTeratas.length
-      ? d.menuTeratas.slice(0, 3).map((m, i) => `  ${i + 1}. ${m.nama} — ${m.qty.toLocaleString('id-ID')} porsi`)
+      ? d.menuTeratas.slice(0, 3).map((m, i) => `  ${i + 1}. <b>${m.nama}</b> — <code>${m.qty.toLocaleString('id-ID')}</code> porsi`)
       : ['  —']),
     '',
-    '📍 Sumber: Rangkuman Penjualan (omzet kotor, outlet internal + mitra, tanpa SS Online).',
+    '<blockquote>📍 <i>Sumber: Rangkuman Penjualan (omzet kotor, outlet internal + mitra, tanpa SS Online).</i></blockquote>',
   ].join('\n')
 }
 
@@ -52,34 +53,35 @@ export function teksLaporanMalamPenjualan(d: DataRekap, jamWibStr?: string): str
   const iconBanding = selisih >= 0 ? '📈' : '📉'
   const tandaPersen = selisih > 0 ? '+' : ''
   const bandingStr = d.omzetPembanding > 0
-    ? `${iconBanding} vs Minggu Lalu: ${rupiah(d.omzetPembanding)} (${tandaPersen}${persenBanding}%)`
-    : `📈 vs Minggu Lalu: ${rupiah(d.omzetPembanding)}`
+    ? `${iconBanding} <b>vs Minggu Lalu:</b> <code>${rupiah(d.omzetPembanding)}</code> (<code>${tandaPersen}${persenBanding}%</code>)`
+    : `📈 <b>vs Minggu Lalu:</b> <code>${rupiah(d.omzetPembanding)}</code>`
 
   return [
-    '🌙 LAPORAN CLOSING PENJUALAN',
-    `🗓️ Hari/Tanggal: ${labelTanggal(d.tanggal)}${jamSuffix}`,
+    '🌙 <b>LAPORAN CLOSING PENJUALAN</b>',
+    `🗓️ Hari/Tanggal: <b>${labelTanggal(d.tanggal)}${jamSuffix}</b>`,
     '━━━━━━━━━━━━━━━━━━━━━',
     '',
-    `💰 Omzet Total: ${rupiah(d.omzet)}`,
+    `💰 <b>Omzet Total:</b> <code>${rupiah(d.omzet)}</code>`,
     bandingStr,
-    `🧾 Total Transaksi: ${d.transaksi.toLocaleString('id-ID')} struk`,
-    `💵 Rata-rata Struk (ATV): ${rupiah(atv)}`,
+    `🧾 <b>Total Transaksi:</b> <code>${d.transaksi.toLocaleString('id-ID')}</code> struk`,
+    `💵 <b>Rata-rata Struk (ATV):</b> <code>${rupiah(atv)}</code>`,
     '',
-    '🏆 Ranking Seluruh Outlet:',
+    '🏆 <b>Ranking Seluruh Outlet:</b>',
     ...(d.ranking.length
       ? d.ranking.map((r) => {
-          const qtyStr = r.qty !== undefined ? ` (${r.qty.toLocaleString('id-ID')} porsi)` : ''
-          return `  ${r.peringkat}. ${r.nama} — ${rupiah(r.omzet)}${qtyStr}`
+          const medal = r.peringkat === 1 ? '🥇 ' : r.peringkat === 2 ? '🥈 ' : r.peringkat === 3 ? '🥉 ' : '   '
+          const qtyStr = r.qty !== undefined ? ` (<code>${r.qty.toLocaleString('id-ID')}</code> porsi)` : ''
+          return `  ${medal}${r.peringkat}. <b>${r.nama}</b> — <code>${rupiah(r.omzet)}</code>${qtyStr}`
         })
       : ['  —']),
-    ...(nol.length ? ['', `⚠️ Outlet tanpa penjualan: ${nol.join(', ')}`] : []),
+    ...(nol.length ? ['', `⚠️ <b>Outlet tanpa penjualan:</b> <code>${nol.join(', ')}</code>`] : []),
     '',
-    '🥇 Top 3 Menu Terlaris:',
+    '🥇 <b>Top 3 Menu Terlaris:</b>',
     ...(d.menuTeratas.length
-      ? d.menuTeratas.slice(0, 3).map((m, i) => `  ${i + 1}. ${m.nama} — ${m.qty.toLocaleString('id-ID')} porsi`)
+      ? d.menuTeratas.slice(0, 3).map((m, i) => `  ${i + 1}. <b>${m.nama}</b> — <code>${m.qty.toLocaleString('id-ID')}</code> porsi`)
       : ['  —']),
     '',
-    '📍 Sumber: Rangkuman Penjualan (omzet kotor closing 22:00 WIB, internal + mitra, tanpa SS Online).',
+    '<blockquote>📍 <i>Sumber: Rangkuman Penjualan (omzet kotor closing 22:00 WIB, internal + mitra, tanpa SS Online).</i></blockquote>',
   ].join('\n')
 }
 
@@ -105,41 +107,43 @@ export function teksLaporanAbsensiHarian(d: DataLaporanAbsensi): string {
   const tepatWaktu = Math.max(0, d.total.hadir - d.total.telat - d.total.telat_toleransi)
 
   const baris = [
-    `👥 Rekap Presensi Kru Operasional — ${labelTanggal(d.tanggal)}${jamSuffix}`,
+    `👥 <b>Rekap Presensi Kru Operasional</b>`,
+    `🗓️ Hari/Tanggal: <b>${labelTanggal(d.tanggal)}${jamSuffix}</b>`,
+    '━━━━━━━━━━━━━━━━━━━━━',
     '',
-    '📊 Ringkasan Kehadiran:',
-    `• Total kru terjadwal: ${d.total.staf} orang`,
-    `• Hadir tepat waktu: ${tepatWaktu} orang`,
-    `• Terlambat: ${d.total.telat + d.total.telat_toleransi} orang (${d.total.telat} di luar toleransi, ${d.total.telat_toleransi} toleransi)`,
-    `• Izin / Cuti / Sakit: ${d.total.cuti} orang`,
-    `• Belum hadir: ${d.total.belum} orang`,
-    `• Alpa: ${d.total.alpa} orang`,
+    '📊 <b>Ringkasan Kehadiran:</b>',
+    `• Total kru terjadwal: <code>${d.total.staf}</code> orang`,
+    `• Hadir tepat waktu: <code>${tepatWaktu}</code> orang`,
+    `• Terlambat: <code>${d.total.telat + d.total.telat_toleransi}</code> orang (<code>${d.total.telat}</code> di luar toleransi, <code>${d.total.telat_toleransi}</code> toleransi)`,
+    `• Izin / Cuti / Sakit: <code>${d.total.cuti}</code> orang`,
+    `• Belum hadir: <code>${d.total.belum}</code> orang`,
+    `• Alpa: <code>${d.total.alpa}</code> orang`,
     '',
   ]
 
   if (d.daftarTelat.length > 0) {
-    baris.push('⚠️ Rincian Keterlambatan:')
+    baris.push('⚠️ <b>Rincian Keterlambatan:</b>')
     d.daftarTelat.slice(0, 10).forEach((t, i) => {
       const jamMasuk = t.jam ? ` [Masuk ${t.jam}]` : ''
-      baris.push(`${i + 1}. ${t.nama} (${t.outlet}) — ${t.menit} mnt${jamMasuk}`)
+      baris.push(`${i + 1}. <b>${t.nama}</b> (${t.outlet}) — <code>${t.menit} mnt</code>${jamMasuk}`)
     })
     if (d.daftarTelat.length > 10) {
-      baris.push(`... dan ${d.daftarTelat.length - 10} staf lainnya.`)
+      baris.push(`<i>... dan ${d.daftarTelat.length - 10} staf lainnya.</i>`)
     }
     baris.push('')
   } else {
-    baris.push('✅ Tidak ada keterlambatan tercatat hari ini.')
+    baris.push('✅ <i>Tidak ada keterlambatan tercatat hari ini.</i>')
     baris.push('')
   }
 
   if (d.daftarCuti.length > 0) {
-    baris.push('🏖️ Kru Izin / Cuti / Sakit:')
+    baris.push('🏖️ <b>Kru Izin / Cuti / Sakit:</b>')
     d.daftarCuti.slice(0, 8).forEach((c) => {
-      baris.push(`• ${c.nama} (${c.outlet}): ${c.keterangan}`)
+      baris.push(`• <b>${c.nama}</b> (${c.outlet}): ${c.keterangan}`)
     })
     baris.push('')
   }
 
-  baris.push('Sumber: Papan Kehadiran (app absensi).')
+  baris.push('<blockquote>📍 <i>Sumber: Papan Kehadiran (app absensi).</i></blockquote>')
   return baris.join('\n')
 }

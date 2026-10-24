@@ -76,8 +76,12 @@ export async function POST(req: NextRequest) {
           if (invObj.ok === true) {
             await kirimPesanTelegram(
               chatId,
-              `🎉 *Aktivasi Berhasil!*\n\nSalam, *${fromFirstName}*!\nAkun Telegram Anda telah resmi terdaftar untuk mengakses *${invObj.bot_nama || 'J.A.R.V.I.S. // Bot CEO'}* Suka Shawarma.\n\n` +
-              `Pusat komando eksekutif kini siaga. Anda dapat langsung memberikan instruksi atau ketik /help untuk ringkasan menu perintah.`,
+              `⚡ <b>J.A.R.V.I.S. // COMMAND CENTRE</b>\n` +
+              `━━━━━━━━━━━━━━━━━━━━━\n` +
+              `🎉 <b>Aktivasi Eksekutif Berhasil!</b>\n\n` +
+              `Salam hormat, <b>${fromFirstName}</b>!\n` +
+              `Akun Telegram Anda telah resmi terdaftar untuk mengakses <b>${invObj.bot_nama || 'J.A.R.V.I.S. // Bot CEO'}</b> Suka Shawarma.\n\n` +
+              `<blockquote>💡 <b>Pusat Komando Siaga:</b>\nAnda dapat langsung memberikan instruksi analitik atau ketik /help untuk ringkasan menu komando eksekutif.</blockquote>`,
               'https://agents.sukashawarma.com',
               'ceo'
             )
@@ -100,7 +104,10 @@ export async function POST(req: NextRequest) {
           console.error('[telegram-ceo-webhook] RPC bot_telegram_tautkan error:', rpcErr)
           await kirimPesanTelegram(
             chatId,
-            '⚠️ Terjadi gangguan saat memproses aktivasi akun eksekutif. Silakan coba lagi beberapa saat atau hubungi Administrator.',
+            `⚠️ <b>Kendala Aktivasi Akun Eksekutif</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Terjadi gangguan saat memproses aktivasi akun eksekutif.\n\n` +
+            `<blockquote>Silakan coba beberapa saat lagi atau hubungi Administrator jika kendala berlanjut.</blockquote>`,
             undefined,
             'ceo'
           )
@@ -126,15 +133,19 @@ export async function POST(req: NextRequest) {
 
           await kirimPesanTelegram(
             chatId,
-            `🎉 *Aktivasi Eksekutif Berhasil!*\n\nSalam, *${staffName}*!\nAkun Telegram Anda telah resmi terhubung dengan *J.A.R.V.I.S. // Bot CEO* Suka Shawarma (${roleLabel}).\n\n` +
-            `Satelit telemetri dan modul kecerdasan buatan kini online:\n` +
-            `• 📊 *Real-Time Sales & POS Leaderboard* (Omzet, AOV, dan porsi menu)\n` +
-            `• 🟢 *Monitoring Buka/Tutup Cabang* (Deteksi outlet nol transaksi)\n` +
-            `• ⏱️ *Presensi Kru & SDM* (Kedisiplinan, keterlambatan, dan perizinan)\n` +
-            `• 🥩 *Gudang Pusat & Stok Bahan* (Katalog bahan dan buffer aman)\n` +
-            `• 💰 *Finance & Rekonsiliasi Kas* (Gross sales dan mutasi operasional)\n` +
-            `• ⚡ *Executive Daily Briefing* (Diagnostik menyeluruh sistem)\n\n` +
-            `Ketik /help untuk panduan perintah atau langsung ajukan pertanyaan bisnis Anda, Sir.`,
+            `⚡ <b>J.A.R.V.I.S. // COMMAND CENTRE</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🎉 <b>Aktivasi Eksekutif Berhasil!</b>\n\n` +
+            `Salam hormat, <b>${staffName}</b>!\n` +
+            `Akun Telegram Anda telah resmi terhubung dengan <b>J.A.R.V.I.S. // Bot CEO</b> Suka Shawarma (<code>${roleLabel}</code>).\n\n` +
+            `📡 <b>Satelit Telemetri & Intelijen Aktif:</b>\n` +
+            `• 📊 <b>Real-Time Sales & Leaderboard</b> (Omzet, AOV, dan porsi menu)\n` +
+            `• 🟢 <b>Monitoring Cabang Live</b> (Deteksi outlet nol transaksi & telat buka)\n` +
+            `• ⏱️ <b>Presensi Kru & SDM</b> (Kedisiplinan, keterlambatan, dan cut-off)\n` +
+            `• 🥩 <b>Gudang Pusat & Bahan Baku</b> (Katalog bahan dan buffer aman)\n` +
+            `• 💰 <b>Finance & Rekonsiliasi Kas</b> (Gross sales, selisih kas & mutasi OPEX)\n` +
+            `• ⚡ <b>Executive Daily Briefing</b> (Diagnostik menyeluruh 6 divisi)\n\n` +
+            `<blockquote>💡 Ketik /help untuk daftar komando pintasan eksekutif atau berikan instruksi bisnis langsung, Sir.</blockquote>`,
             'https://agents.sukashawarma.com',
             'ceo'
           )
@@ -145,21 +156,30 @@ export async function POST(req: NextRequest) {
         if (resObj.reason === 'expired') {
           await kirimPesanTelegram(
             chatId,
-            '⚠️ *Tautan Aktivasi Kedaluwarsa*\n\nTautan ini sudah pernah digunakan atau batas waktunya telah habis. Silakan hubungi Administrator untuk tautan aktivasi baru.',
+            `⚠️ <b>Tautan Aktivasi Kedaluwarsa</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Tautan undangan ini sudah pernah digunakan atau batas waktunya telah habis.\n\n` +
+            `<blockquote>Silakan hubungi Administrator untuk menerbitkan tautan aktivasi baru di Admin Dashboard.</blockquote>`,
             undefined,
             'ceo'
           )
         } else if (resObj.reason === 'linked_elsewhere') {
           await kirimPesanTelegram(
             chatId,
-            '⚠️ *Akun Telegram Sudah Terdaftar*\n\nAkun Telegram ini sudah terhubung ke akun staf lain di sistem Suka Shawarma.',
+            `⚠️ <b>Akun Telegram Sudah Terdaftar</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Akun Telegram ini sudah terhubung ke akun staf lain di sistem Suka Shawarma.\n\n` +
+            `<blockquote>Gunakan akun Telegram terpisah atau perbarui tautan akun di Admin Dashboard.</blockquote>`,
             undefined,
             'ceo'
           )
         } else {
           await kirimPesanTelegram(
             chatId,
-            '⚠️ *Tautan Aktivasi Tidak Valid*\n\nFormat token tidak dikenali. Silakan pastikan Anda mengklik tautan resmi dari Admin Dashboard.',
+            `⚠️ <b>Tautan Aktivasi Tidak Valid</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `Format token undangan tidak dikenali oleh sistem.\n\n` +
+            `<blockquote>Pastikan Anda mengklik tautan resmi dari Admin Dashboard atau hubungi Administrator.</blockquote>`,
             undefined,
             'ceo'
           )
@@ -184,20 +204,24 @@ export async function POST(req: NextRequest) {
           : 'Owner / Executive'
         await kirimPesanTelegram(
           chatId,
-          `👋 *Salam Hormat, ${staff.name}!* (${roleLabel})\n\n` +
-          `J.A.R.V.I.S. Command Centre online dan terhubung ke database live Suka Shawarma.\n\n` +
-          `Ketik /help untuk daftar komando pintasan eksekutif, atau berikan instruksi bisnis langsung, Sir.`,
+          `⚡ <b>J.A.R.V.I.S. // COMMAND CENTRE</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👋 <b>Salam Hormat, ${staff.name}!</b> (<code>${roleLabel}</code>)\n\n` +
+          `Satelit telemetri online dan terhubung langsung ke database live Suka Shawarma.\n\n` +
+          `<blockquote>💡 Ketik /help untuk daftar komando pintasan eksekutif, atau langsung berikan instruksi bisnis Anda, Sir.</blockquote>`,
           'https://agents.sukashawarma.com',
           'ceo'
         )
       } else {
         await kirimPesanTelegram(
           chatId,
-          `👋 *Salam, ${fromFirstName}!*\n\n` +
-          `Akun Telegram Anda belum terhubung dengan akses eksekutif Bot CEO Suka Shawarma.\n\n` +
-          `🆔 *Telegram User ID Anda:* \`${fromId}\`\n\n` +
-          `💡 *Cara Aktivasi:*\n` +
-          `Buka *Admin Dashboard → Sistem → Agents SS → Akses Bot Telegram*, lalu buatkan *Tautan Undangan* atau daftarkan ID Telegram Anda ke Whitelist Bot CEO.`,
+          `⚡ <b>J.A.R.V.I.S. // COMMAND CENTRE</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👋 <b>Salam, ${fromFirstName}!</b>\n\n` +
+          `Akun Telegram Anda belum terhubung dengan otorisasi eksekutif Bot CEO Suka Shawarma.\n\n` +
+          `• <b>Telegram User ID:</b> <code>${fromId}</code>\n` +
+          `• <b>Chat ID:</b> <code>${chatId}</code>\n\n` +
+          `<blockquote>💡 <b>Langkah Aktivasi:</b>\nBuka Admin Dashboard → Sistem → Agents SS → Akses Bot Telegram, lalu buatkan Tautan Undangan atau daftarkan ID Anda ke Whitelist Bot CEO.</blockquote>`,
           undefined,
           'ceo'
         )
@@ -209,11 +233,13 @@ export async function POST(req: NextRequest) {
     if (text === '/id' || text.startsWith('/id ')) {
       await kirimPesanTelegram(
         chatId,
-        `🆔 *Informasi Akun Telegram Anda:*\n\n` +
-        `• *Telegram User ID:* \`${fromId}\`\n` +
-        `• *Chat ID:* \`${chatId}\`\n` +
-        `• *Username:* ${fromUsername ? `@${fromUsername}` : '-(belum disetel)-'}\n\n` +
-        `Gunakan User ID ini untuk pendaftaran whitelist di Admin Dashboard.`,
+        `🆔 <b>INFORMASI AKUN TELEGRAM</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `• <b>User ID:</b> <code>${fromId}</code>\n` +
+        `• <b>Chat ID:</b> <code>${chatId}</code>\n` +
+        `• <b>Nama:</b> <b>${fromFirstName}</b>\n` +
+        `• <b>Username:</b> ${fromUsername ? `@${fromUsername}` : '<i>-(belum disetel)-</i>'}\n\n` +
+        `<blockquote>Gunakan <b>User ID</b> di atas untuk pendaftaran whitelist atau verifikasi akses di Admin Dashboard.</blockquote>`,
         undefined,
         'ceo'
       )
@@ -242,7 +268,7 @@ export async function POST(req: NextRequest) {
           barisTriggerDinamis = uniqueRows
             .map(
               (r: { judul?: string; jadwal_atau_trigger?: string }, idx: number) =>
-                `${idx + 1}. *${r.judul}* _(${r.jadwal_atau_trigger})_`
+                `${idx + 1}. <b>${r.judul}</b> <code>${r.jadwal_atau_trigger || 'Auto'}</code>`
             )
             .join('\n')
         }
@@ -252,45 +278,44 @@ export async function POST(req: NextRequest) {
 
       const daftarTriggerTeks =
         barisTriggerDinamis ||
-        `1. 📊 *Rekapitulasi & Ranking Penjualan Kemarin* _(04:00 WIB)_\n` +
-        `2. 📢 *Ringkasan Kinerja Marketing & Promo Kemarin* _(04:01 WIB)_\n` +
-        `3. 🏢 *Laporan Presensi Staf HQ* _(08:30 WIB)_\n` +
-        `4. 👥 *Laporan Presensi Kru Seluruh Outlet* _(14:00 WIB)_\n` +
-        `5. 📈 *Flash Report Penjualan Sore* _(16:00 WIB)_\n` +
-        `6. ⚠️ *Eskalasi Outlet Rp 0 Transaksi di Prime Time* _(19:30 WIB)_\n` +
-        `7. 🌙 *Laporan Penutupan & Omzet Final Harian* _(22:00 WIB)_\n` +
-        `8. ⏳ *Eskalasi Cut-Off Stok Opname Malam* _(22:30 WIB)_\n` +
-        `9. 📋 *Notifikasi Rekap Finalize Stok Opname Cabang* _(Real-Time)_\n` +
-        `10. 🛑 *Eskalasi Void POS Berisiko Tinggi ≥Rp 50rb* _(Real-Time)_\n` +
-        `11. 💵 *Eskalasi Selisih Kas Closing >Rp 100rb* _(Real-Time)_\n` +
-        `12. 🚨 *Eskalasi Outlet Telat Buka ≥30 Menit* _(Jam Buka Cabang)_\n` +
-        `13. 🥩 *Eskalasi Pengajuan Waste Bahan >Rp 150rb* _(Real-Time)_\n` +
-        `14. 💓 *Heartbeat & Diagnostik VPS / Supabase* _(Tiap 2 Jam)_\n` +
-        `15. 🚨 *Alert Darurat Server / Database Down* _(Tiap 2 Menit)_`
+        `1. 📊 <b>Rekapitulasi & Ranking Penjualan Kemarin</b> <code>04:00 WIB</code>\n` +
+        `2. 📢 <b>Ringkasan Kinerja Marketing & Promo Kemarin</b> <code>04:01 WIB</code>\n` +
+        `3. 🏢 <b>Laporan Presensi Staf HQ</b> <code>08:30 WIB</code>\n` +
+        `4. 👥 <b>Laporan Presensi Kru Seluruh Outlet</b> <code>14:00 WIB</code>\n` +
+        `5. 📈 <b>Flash Report Penjualan Sore</b> <code>16:00 WIB</code>\n` +
+        `6. ⚠️ <b>Eskalasi Outlet Nol Transaksi di Prime Time</b> <code>19:30 WIB</code>\n` +
+        `7. 🌙 <b>Laporan Penutupan & Omzet Final Harian</b> <code>22:00 WIB</code>\n` +
+        `8. ⏳ <b>Eskalasi Cut-Off Stok Opname Malam</b> <code>22:30 WIB</code>\n` +
+        `9. 📋 <b>Notifikasi Rekap Finalize Stok Opname</b> <code>Real-Time</code>\n` +
+        `10. 🛑 <b>Eskalasi Void POS Berisiko Tinggi ≥Rp 50rb</b> <code>Real-Time</code>\n` +
+        `11. 💵 <b>Eskalasi Selisih Kas Closing >Rp 100rb</b> <code>Real-Time</code>\n` +
+        `12. 🚨 <b>Eskalasi Outlet Telat Buka ≥30 Menit</b> <code>Jam Operasional</code>\n` +
+        `13. 🥩 <b>Eskalasi Pengajuan Waste Bahan >Rp 150rb</b> <code>Real-Time</code>\n` +
+        `14. 💓 <b>Heartbeat & Diagnostik VPS / Supabase</b> <code>Tiap 2 Jam</code>\n` +
+        `15. 🚨 <b>Alert Darurat Server / Database Down</b> <code>Tiap 2 Menit</code>`
 
       await kirimPesanTelegram(
         chatId,
-        `📖 *Panduan Komando Eksekutif J.A.R.V.I.S. (Bot CEO)*\n\n` +
-        `Bot CEO bertindak sebagai pusat komando strategis, analitik penjualan, dan eksekutif AI Suka Shawarma yang terhubung langsung ke seluruh stasiun operasional.\n\n` +
-        `⚡ *Menu Pintasan Cepat (Slash Commands):*\n` +
-        `• /omzet - Cek penjualan, AOV & ranking cabang hari ini\n` +
-        `• /kemarin - Rekapitulasi & evaluasi omzet cabang kemarin\n` +
-        `• /buka - Cek cabang buka & cabang 0 transaksi\n` +
-        `• /absensi - Presensi kru outlet & staf kantor pusat\n` +
-        `• /stok - Katalog bahan baku & stok gudang pusat\n` +
-        `• /finance - Ringkasan kas, OPEX & rekonsiliasi keuangan\n` +
-        `• /status - Executive Daily Briefing & diagnostik sistem\n` +
-        `• /new - Mulai sesi percakapan baru\n` +
-        `• /id - Cek info akun Telegram Anda\n\n` +
-        `🔔 *Katalog Pemicu & Notifikasi Otomatis Eksekutif:*\n` +
+        `📖 <b>PANDUAN KOMANDO EKSEKUTIF J.A.R.V.I.S.</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Pusat kendali operasional, analitik penjualan real-time, dan asisten AI Suka Shawarma yang terhubung langsung ke seluruh stasiun cabang.\n\n` +
+        `⚡ <b>Menu Komando Utama (Slash Commands):</b>\n` +
+        `• /omzet — <i>Cek penjualan, AOV & ranking cabang hari ini</i>\n` +
+        `• /kemarin — <i>Rekapitulasi & evaluasi omzet cabang kemarin</i>\n` +
+        `• /buka — <i>Cek status cabang buka & cabang 0 transaksi</i>\n` +
+        `• /absensi — <i>Presensi kru outlet & staf kantor pusat</i>\n` +
+        `• /stok — <i>Katalog bahan baku & buffer stok gudang pusat</i>\n` +
+        `• /finance — <i>Ringkasan kas, OPEX & rekonsiliasi keuangan</i>\n` +
+        `• /status — <i>Executive Daily Briefing 6 divisi</i>\n` +
+        `• /new — <i>Mulai sesi percakapan baru (reset konteks)</i>\n` +
+        `• /id — <i>Cek info akun Telegram Anda</i>\n\n` +
+        `🔔 <b>Katalog Pemicu & Notifikasi Otomatis Eksekutif:</b>\n` +
         daftarTriggerTeks + '\n\n' +
-        `💬 *Contoh Instruksi yang Bisa Anda Ketik Langsung:*\n` +
-        `• *"Tampilkan semua outlet hari ini"*\n` +
-        `• *"Omzet kemarin berapa?"*\n` +
-        `• *"Cabang mana yang paling sepi dan paling ramai?"*\n` +
-        `• *"Siapa saja yang telat atau alpa hari ini?"*\n` +
-        `• *"Bagaimana kondisi arus kas dan rekonsiliasi hari ini?"*\n` +
-        `• *"Status report menyeluruh"*`,
+        `<blockquote>💡 <b>Contoh Instruksi Langsung:</b>\n` +
+        `• "Tampilkan omzet seluruh outlet hari ini"\n` +
+        `• "Cabang mana yang paling sepi dan paling ramai?"\n` +
+        `• "Siapa saja staf yang telat atau belum absen hari ini?"\n` +
+        `• "Bagaimana kondisi arus kas dan rekonsiliasi hari ini?"</blockquote>`,
         'https://agents.sukashawarma.com',
         'ceo'
       )
@@ -301,8 +326,10 @@ export async function POST(req: NextRequest) {
     if (text === '/new' || text.startsWith('/new ')) {
       await kirimPesanTelegram(
         chatId,
-        `🔄 *Sesi Percakapan Baru Dimulai*\n\n` +
-        `Konteks memori percakapan telah direset. Silakan berikan instruksi baru atau gunakan menu /omzet, /kemarin, /buka, /absensi, /stok, /finance, /status.`,
+        `🔄 <b>SESI PERCAKAPAN BARU DIMULAI</b>\n` +
+        `━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Konteks memori percakapan telah direset. Pusat komando siap menerima instruksi analitik atau operasional baru, Sir.\n\n` +
+        `<blockquote>💡 Ketik /help untuk daftar komando pintasan eksekutif atau berikan instruksi bisnis langsung.</blockquote>`,
         'https://agents.sukashawarma.com',
         'ceo'
       )

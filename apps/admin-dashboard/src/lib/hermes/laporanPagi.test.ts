@@ -16,27 +16,27 @@ const d: DataRekap = {
 describe('teksLaporanPagiCeo', () => {
   const t = teksLaporanPagiCeo(d)
   it('memuat header standar, tanggal, omzet & pembanding dengan icon trend', () => {
-    expect(t).toContain('📊 LAPORAN PENJUALAN HARIAN')
+    expect(t).toContain('📊 <b>LAPORAN PENJUALAN HARIAN</b>')
     expect(t).toContain(labelTanggal('2026-10-06'))
-    expect(t).toContain('Omzet Total: Rp 48.500.000')
-    expect(t).toContain('📉 vs Minggu Lalu: Rp 51.000.000 (-4.9%)')
-    expect(t).toContain('Total Transaksi: 1.234 struk')
-    expect(t).toContain('Rata-rata Struk (ATV): Rp 39.303')
+    expect(t).toContain('<b>Omzet Total:</b> <code>Rp 48.500.000</code>')
+    expect(t).toContain('📉 <b>vs Minggu Lalu:</b> <code>Rp 51.000.000</code> (<code>-4.9%</code>)')
+    expect(t).toContain('<b>Total Transaksi:</b> <code>1.234</code> struk')
+    expect(t).toContain('<b>Rata-rata Struk (ATV):</b> <code>Rp 39.303</code>')
   })
   it('memuat ranking seluruh outlet dengan porsi dan outlet tanpa penjualan', () => {
-    expect(t).toContain('1. EMPANG — Rp 6.000.000 (150 porsi)')
-    expect(t).toContain('2. BEJI — Rp 4.000.000 (100 porsi)')
-    expect(t).toContain('3. KALISARI — Rp 0 (0 porsi)')
-    expect(t).toContain('Outlet tanpa penjualan: KALISARI')
+    expect(t).toContain('🥇 1. <b>EMPANG</b> — <code>Rp 6.000.000</code> (<code>150</code> porsi)')
+    expect(t).toContain('🥈 2. <b>BEJI</b> — <code>Rp 4.000.000</code> (<code>100</code> porsi)')
+    expect(t).toContain('🥉 3. <b>KALISARI</b> — <code>Rp 0</code> (<code>0</code> porsi)')
+    expect(t).toContain('<b>Outlet tanpa penjualan:</b> <code>KALISARI</code>')
   })
   it('memuat 3 menu terlaris berurutan dan sumber', () => {
-    expect(t).toMatch(/1\. Original Sapi Jumbo — 320 porsi\n  2\. Original Ayam Jumbo — 290 porsi\n  3\. Ice Tea — 150 porsi/)
+    expect(t).toMatch(/1\. <b>Original Sapi Jumbo<\/b> — <code>320<\/code> porsi\n  2\. <b>Original Ayam Jumbo<\/b> — <code>290<\/code> porsi\n  3\. <b>Ice Tea<\/b> — <code>150<\/code> porsi/)
     expect(t).toContain('Sumber: Rangkuman Penjualan')
     expect(t).toContain('tanpa SS Online')
   })
   it('ranking kosong tidak meledak', () => {
     const k = teksLaporanPagiCeo({ ...d, ranking: [], menuTeratas: [] })
-    expect(k).toContain('Ranking Seluruh Outlet:\n  —')
+    expect(k).toContain('<b>Ranking Seluruh Outlet:</b>\n  —')
   })
 })
 
@@ -45,12 +45,12 @@ describe('teksLaporanMalamPenjualan', () => {
   it('memuat judul penutupan malam dan cut-off jam', () => {
     expect(t).toContain('LAPORAN CLOSING PENJUALAN')
     expect(t).toContain('(22:00 WIB)')
-    expect(t).toContain('Omzet Total: Rp 48.500.000')
-    expect(t).toContain('📉 vs Minggu Lalu: Rp 51.000.000 (-4.9%)')
+    expect(t).toContain('<b>Omzet Total:</b> <code>Rp 48.500.000</code>')
+    expect(t).toContain('📉 <b>vs Minggu Lalu:</b> <code>Rp 51.000.000</code> (<code>-4.9%</code>)')
   })
   it('memuat top outlet dan menu terlaris', () => {
-    expect(t).toContain('1. EMPANG — Rp 6.000.000 (150 porsi)')
-    expect(t).toContain('Original Sapi Jumbo — 320 porsi')
+    expect(t).toContain('🥇 1. <b>EMPANG</b> — <code>Rp 6.000.000</code> (<code>150</code> porsi)')
+    expect(t).toContain('Original Sapi Jumbo')
   })
 })
 
@@ -68,11 +68,11 @@ describe('teksLaporanAbsensiHarian', () => {
   const t = teksLaporanAbsensiHarian(dataAbsensi)
   it('memuat ringkasan kehadiran, tepat waktu, dan keterlambatan', () => {
     expect(t).toContain('Rekap Presensi Kru Operasional')
-    expect(t).toContain('Total kru terjadwal: 50 orang')
-    expect(t).toContain('Hadir tepat waktu: 40 orang')
-    expect(t).toContain('Terlambat: 5 orang (3 di luar toleransi, 2 toleransi)')
-    expect(t).toContain('1. Ahmad (EMPANG) — 35 mnt [Masuk 08:35]')
-    expect(t).toContain('Citra (DTC): Cuti Tahunan')
+    expect(t).toContain('Total kru terjadwal: <code>50</code> orang')
+    expect(t).toContain('Hadir tepat waktu: <code>40</code> orang')
+    expect(t).toContain('Terlambat: <code>5</code> orang (<code>3</code> di luar toleransi, <code>2</code> toleransi)')
+    expect(t).toContain('1. <b>Ahmad</b> (EMPANG) — <code>35 mnt</code> [Masuk 08:35]')
+    expect(t).toContain('<b>Citra</b> (DTC): Cuti Tahunan')
   })
   it('tidak meledak bila tidak ada yang telat', () => {
     const bersih = teksLaporanAbsensiHarian({ ...dataAbsensi, daftarTelat: [] })

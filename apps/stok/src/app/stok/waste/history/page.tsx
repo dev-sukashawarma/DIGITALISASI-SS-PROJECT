@@ -3,7 +3,12 @@
 import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useWasteHistory } from '@/hooks/useWaste'
-import { getAccessibleOutletsForWaste, type WasteHistoryFilter } from '@/app/actions/waste'
+import {
+  getAccessibleOutletsForWaste,
+  type WasteHistoryFilter,
+  type WasteSortField,
+  type WasteSortOrder,
+} from '@/app/actions/waste'
 import { formatTriUnitSaldo } from '@/lib/format/compositeUnit'
 import { WastePhotoModal } from '@/components/waste/WastePhotoModal'
 import {
@@ -11,13 +16,16 @@ import {
   Camera,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
   CheckCircle2,
   XCircle,
   Clock,
   Inbox,
   Loader2,
   FileSpreadsheet,
-  Coins
+  Coins,
 } from 'lucide-react'
 
 function formatDateInput(d: Date): string {
@@ -27,6 +35,20 @@ function formatDateInput(d: Date): string {
 function formatRp(n: number): string {
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`
 }
+
+const sortOptions: { value: `${WasteSortField}_${WasteSortOrder}`; label: string }[] = [
+  { value: 'created_at_desc', label: 'Waktu: Terbaru' },
+  { value: 'created_at_asc', label: 'Waktu: Terlama' },
+  { value: 'nilai_waste_desc', label: 'Est. Kerugian: Terbesar' },
+  { value: 'nilai_waste_asc', label: 'Est. Kerugian: Terkecil' },
+  { value: 'qty_desc', label: 'Jumlah (Qty): Terbanyak' },
+  { value: 'qty_asc', label: 'Jumlah (Qty): Tersedikit' },
+  { value: 'bahan_baku_asc', label: 'Bahan Baku: A → Z' },
+  { value: 'bahan_baku_desc', label: 'Bahan Baku: Z → A' },
+  { value: 'outlet_asc', label: 'Outlet: A → Z' },
+  { value: 'outlet_desc', label: 'Outlet: Z → A' },
+  { value: 'status_asc', label: 'Status: A → Z' },
+]
 
 export default function WasteHistoryPage() {
   const defaultTo = useMemo(() => formatDateInput(new Date()), [])
@@ -41,6 +63,8 @@ export default function WasteHistoryPage() {
   const [to, setTo] = useState(defaultTo)
   const [status, setStatus] = useState<'ALL' | 'APPROVED' | 'REJECTED' | 'PENDING'>('ALL')
   const [selectedOutlet, setSelectedOutlet] = useState<string>('')
+  const [sortBy, setSortBy] = useState<WasteSortField>('created_at')
+  const [sortOrder, setSortOrder] = useState<WasteSortOrder>('desc')
   const [page, setPage] = useState(1)
 
   // Photo modal state
@@ -64,10 +88,12 @@ export default function WasteHistoryPage() {
       to,
       status,
       outletId: selectedOutlet || undefined,
+      sortBy,
+      sortOrder,
       page,
       limit: 20,
     }),
-    [from, to, status, selectedOutlet, page]
+    [from, to, status, selectedOutlet, sortBy, sortOrder, page]
   )
 
   const { reports, totalCount, totalNilai, totalPages, loading, fetching } = useWasteHistory(queryFilters)
@@ -89,7 +115,60 @@ export default function WasteHistoryPage() {
     setTo(defaultTo)
     setStatus('ALL')
     setSelectedOutlet('')
+    setSortBy('created_at')
+    setSortOrder('desc')
     setPage(1)
+  }
+
+  const handleSortChange = (combinedVal: string) => {
+    if (combinedVal.startsWith('nilai_waste_')) {
+      const ord = combinedVal.replace('nilai_waste_', '') as WasteSortOrder
+      setSortBy('nilai_waste')
+      setSortOrder(ord)
+    } else if (combinedVal.startsWith('created_at_')) {
+      const ord = combinedVal.replace('created_at_', '') as WasteSortOrder
+      setSortBy('created_at')
+      setSortOrder(ord)
+    } else if (combinedVal.startsWith('bahan_baku_')) {
+      const ord = combinedVal.replace('bahan_baku_', '') as WasteSortOrder
+      setSortBy('bahan_baku')
+      setSortOrder(ord)
+    } else if (combinedVal.startsWith('qty_')) {
+      const ord = combinedVal.replace('qty_', '') as WasteSortOrder
+      setSortBy('qty')
+      setSortOrder(ord)
+    } else if (combinedVal.startsWith('outlet_')) {
+      const ord = combinedVal.replace('outlet_', '') as WasteSortOrder
+      setSortBy('outlet')
+      setSortOrder(ord)
+    } else if (combinedVal.startsWith('status_')) {
+      const ord = combinedVal.replace('status_', '') as WasteSortOrder
+      setSortBy('status')
+      setSortOrder(ord)
+    }
+    setPage(1)
+  }
+
+  const handleHeaderSort = (field: WasteSortField) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(field)
+      setSortOrder(field === 'created_at' || field === 'qty' || field === 'nilai_waste' ? 'desc' : 'asc')
+    }
+    setPage(1)
+  }
+
+  const renderSortIndicator = (field: WasteSortField) => {
+    if (sortBy !== field) {
+      return (
+        <ArrowUpDown className="w-3 h-3 text-[#544437]/30 group-hover:text-[#544437]/80 transition-colors shrink-0 ml-1" />
+      )
+    }
+    if (sortOrder === 'asc') {
+      return <ChevronUp className="w-3.5 h-3.5 text-suka-orange shrink-0 ml-1" />
+    }
+    return <ChevronDown className="w-3.5 h-3.5 text-suka-orange shrink-0 ml-1" />
   }
 
   const statusPills: { id: 'ALL' | 'APPROVED' | 'REJECTED' | 'PENDING'; label: string; icon: any; color: string }[] = [
@@ -98,6 +177,8 @@ export default function WasteHistoryPage() {
     { id: 'REJECTED', label: 'Ditolak', icon: XCircle, color: 'text-red-600' },
     { id: 'PENDING', label: 'Menunggu', icon: Clock, color: 'text-amber-600' },
   ]
+
+  const isCustomSort = sortBy !== 'created_at' || sortOrder !== 'desc'
 
   return (
     <div className="space-y-6">
@@ -109,7 +190,7 @@ export default function WasteHistoryPage() {
               <span>🔍</span> Filter Riwayat Waste
             </h2>
             <p className="text-xs text-[#544437]/70 font-semibold mt-0.5">
-              Tentukan periode tanggal, status persetujuan, atau outlet spesifik
+              Tentukan periode tanggal, status persetujuan, outlet, dan urutan data
             </p>
           </div>
 
@@ -125,8 +206,8 @@ export default function WasteHistoryPage() {
           </div>
         </div>
 
-        {/* Date Inputs & Presets */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        {/* Date Inputs, Outlet & Sort Dropdown */}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${outlets.length > 1 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3.5`}>
           <div>
             <label className="text-[10px] font-bold text-[#544437] uppercase tracking-wider block mb-1">
               Dari Tanggal
@@ -185,6 +266,41 @@ export default function WasteHistoryPage() {
               </div>
             </div>
           )}
+
+          <div>
+            <label className="text-[10px] font-bold text-[#544437] uppercase tracking-wider block mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <ArrowUpDown className="w-3 h-3 text-suka-orange" />
+                Urutkan Data
+              </span>
+              {isCustomSort && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortBy('created_at')
+                    setSortOrder('desc')
+                    setPage(1)
+                  }}
+                  className="text-[9px] lowercase font-bold text-suka-orange hover:underline cursor-pointer"
+                >
+                  reset
+                </button>
+              )}
+            </label>
+            <div className="relative">
+              <select
+                value={`${sortBy}_${sortOrder}`}
+                onChange={(e) => handleSortChange(e.target.value)}
+                className="w-full bg-[#faf2e9]/40 border border-[#d9c2b2]/60 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:ring-2 focus:ring-suka-orange focus:outline-none"
+              >
+                {sortOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Quick Date Presets & Status Pills */}
@@ -284,16 +400,24 @@ export default function WasteHistoryPage() {
 
       {/* Content Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-black text-[#544437] uppercase tracking-wider">
               Daftar Insiden Waste
             </h3>
             {fetching && <Loader2 className="w-3.5 h-3.5 animate-spin text-suka-orange" />}
           </div>
-          <span className="text-xs font-bold text-[#544437]/60">
-            Ditemukan {totalCount} laporan
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {isCustomSort && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200">
+                <ArrowUpDown className="w-2.5 h-2.5 text-amber-700" />
+                Urut: {sortOptions.find((o) => o.value === `${sortBy}_${sortOrder}`)?.label}
+              </span>
+            )}
+            <span className="text-xs font-bold text-[#544437]/60">
+              Ditemukan {totalCount} laporan
+            </span>
+          </div>
         </div>
 
         {loading ? (
@@ -328,13 +452,67 @@ export default function WasteHistoryPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#faf2e9]/70 border-b border-[#d9c2b2]/40 text-[#544437] font-black uppercase text-[10px] tracking-wider">
                     <tr>
-                      <th className="py-3.5 px-4">Waktu</th>
-                      <th className="py-3.5 px-4">Outlet</th>
-                      <th className="py-3.5 px-4">Bahan Baku</th>
-                      <th className="py-3.5 px-4 text-right">Jumlah</th>
-                      <th className="py-3.5 px-4 text-right">Est. Nilai Kerugian</th>
+                      <th
+                        className="py-3.5 px-4 cursor-pointer select-none group hover:bg-[#faf2e9]"
+                        onClick={() => handleHeaderSort('created_at')}
+                        title="Klik untuk mengurutkan berdasarkan waktu"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Waktu</span>
+                          {renderSortIndicator('created_at')}
+                        </div>
+                      </th>
+                      <th
+                        className="py-3.5 px-4 cursor-pointer select-none group hover:bg-[#faf2e9]"
+                        onClick={() => handleHeaderSort('outlet')}
+                        title="Klik untuk mengurutkan berdasarkan nama outlet"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Outlet</span>
+                          {renderSortIndicator('outlet')}
+                        </div>
+                      </th>
+                      <th
+                        className="py-3.5 px-4 cursor-pointer select-none group hover:bg-[#faf2e9]"
+                        onClick={() => handleHeaderSort('bahan_baku')}
+                        title="Klik untuk mengurutkan berdasarkan bahan baku"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Bahan Baku</span>
+                          {renderSortIndicator('bahan_baku')}
+                        </div>
+                      </th>
+                      <th
+                        className="py-3.5 px-4 text-right cursor-pointer select-none group hover:bg-[#faf2e9]"
+                        onClick={() => handleHeaderSort('qty')}
+                        title="Klik untuk mengurutkan berdasarkan jumlah"
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <span>Jumlah</span>
+                          {renderSortIndicator('qty')}
+                        </div>
+                      </th>
+                      <th
+                        className="py-3.5 px-4 text-right cursor-pointer select-none group hover:bg-[#faf2e9]"
+                        onClick={() => handleHeaderSort('nilai_waste')}
+                        title="Klik untuk mengurutkan berdasarkan estimasi nilai kerugian"
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <span>Est. Nilai Kerugian</span>
+                          {renderSortIndicator('nilai_waste')}
+                        </div>
+                      </th>
                       <th className="py-3.5 px-4">Alasan</th>
-                      <th className="py-3.5 px-4">Status</th>
+                      <th
+                        className="py-3.5 px-4 cursor-pointer select-none group hover:bg-[#faf2e9]"
+                        onClick={() => handleHeaderSort('status')}
+                        title="Klik untuk mengurutkan berdasarkan status"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Status</span>
+                          {renderSortIndicator('status')}
+                        </div>
+                      </th>
                       <th className="py-3.5 px-4">Pelapor / Penyetuju</th>
                       <th className="py-3.5 px-4 text-center">Bukti</th>
                     </tr>

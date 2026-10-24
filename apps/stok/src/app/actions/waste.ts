@@ -274,6 +274,9 @@ export async function getWasteReportDetails(id: string) {
   return data
 }
 
+export type WasteSortField = 'created_at' | 'qty' | 'nilai_waste' | 'bahan_baku' | 'outlet' | 'status'
+export type WasteSortOrder = 'asc' | 'desc'
+
 export interface WasteHistoryFilter {
   outletId?: string
   status?: 'ALL' | 'APPROVED' | 'REJECTED' | 'PENDING'
@@ -281,6 +284,8 @@ export interface WasteHistoryFilter {
   to?: string   // YYYY-MM-DD
   page?: number // default: 1
   limit?: number // default: 25
+  sortBy?: WasteSortField
+  sortOrder?: WasteSortOrder
 }
 
 export interface WasteHistoryResult {
@@ -390,7 +395,105 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   const fromIdx = (page - 1) * limit
   const toIdx = page * limit - 1
 
-  query = query.order('created_at', { ascending: false }).range(fromIdx, toIdx)
+  const sortBy: WasteSortField = filters.sortBy || 'created_at'
+  const sortOrder: WasteSortOrder = filters.sortOrder || 'desc'
+  const isAsc = sortOrder === 'asc'
+
+  if (sortBy === 'nilai_waste') {
+    // Tarik seluruh laporan yang cocok untuk dihitung nilai_waste lalu disortir presisi
+    const PAGE_SIZE = 1000
+    let allReports: any[] = []
+    let fromRow = 0
+    while (true) {
+      let pageQ = supabase
+        .from('stok_waste_reports')
+        .select(
+          '*, bahan_baku(nama, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan), outlets(name), reported_by_staff:outlet_staff!reported_by(name), approved_by_staff:outlet_staff!approved_by(name)'
+        )
+      if (!isApprover) {
+        pageQ = pageQ.eq('outlet_id', staff.outlet_id!)
+      } else if (filters.outletId) {
+        pageQ = pageQ.eq('outlet_id', filters.outletId)
+      } else if (allowedOutletIds.size > 0) {
+        pageQ = pageQ.in('outlet_id', Array.from(allowedOutletIds))
+      }
+      if (filters.status && filters.status !== 'ALL') pageQ = pageQ.eq('status', filters.status)
+      if (filters.from) pageQ = pageQ.gte('created_at', `${filters.from}T00:00:00`)
+      if (filters.to) pageQ = pageQ.lte('created_at', `${filters.to}T23:59:59.999Z`)
+
+      const { data: rows, error: pageErr } = await pageQ
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(fromRow, fromRow + PAGE_SIZE - 1)
+
+      if (pageErr) throw new Error(pageErr.message)
+      const pageRows = rows ?? []
+      allReports = allReports.concat(pageRows)
+      if (pageRows.length < PAGE_SIZE) break
+      fromRow += PAGE_SIZE
+    }
+
+    const allBahanBakuIds = Array.from(
+      new Set(allReports.map((r: any) => r.bahan_baku_id).filter(Boolean))
+    )
+
+    const priceMap = new Map<string, number>()
+    if (allBahanBakuIds.length > 0) {
+      const { data: prices } = await supabase
+        .from('bahan_baku_harga')
+        .select('bahan_baku_id, harga_beli')
+        .in('bahan_baku_id', allBahanBakuIds)
+
+      for (const p of prices || []) {
+        priceMap.set(p.bahan_baku_id, Number(p.harga_beli) || 0)
+      }
+    }
+
+    let totalNilai = 0
+    const formattedData = allReports.map((r: any) => {
+      const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
+      const qtyNum = Number(r.qty) || 0
+      const nilai = Math.round(qtyNum * hargaBeli)
+      totalNilai += nilai
+      return {
+        ...r,
+        harga_beli: hargaBeli,
+        nilai_waste: nilai,
+      }
+    })
+
+    formattedData.sort((a, b) => (isAsc ? a.nilai_waste - b.nilai_waste : b.nilai_waste - a.nilai_waste))
+
+    const totalCount = formattedData.length
+    const totalPages = Math.ceil(totalCount / limit) || 1
+    const pagedData = formattedData.slice(fromIdx, fromIdx + limit)
+
+    return {
+      data: pagedData,
+      totalCount,
+      totalNilai,
+      page,
+      limit,
+      totalPages,
+    }
+  }
+
+  // Pengurutan database untuk field standar lainnya
+  if (sortBy === 'created_at') {
+    query = query.order('created_at', { ascending: isAsc }).order('id', { ascending: false })
+  } else if (sortBy === 'qty') {
+    query = query.order('qty', { ascending: isAsc }).order('id', { ascending: false })
+  } else if (sortBy === 'status') {
+    query = query.order('status', { ascending: isAsc }).order('created_at', { ascending: false })
+  } else if (sortBy === 'bahan_baku') {
+    query = query.order('bahan_baku(nama)', { ascending: isAsc }).order('created_at', { ascending: false })
+  } else if (sortBy === 'outlet') {
+    query = query.order('outlets(name)', { ascending: isAsc }).order('created_at', { ascending: false })
+  } else {
+    query = query.order('created_at', { ascending: false }).order('id', { ascending: false })
+  }
+
+  query = query.range(fromIdx, toIdx)
 
   const [{ data, count, error }, allSummary] = await Promise.all([
     query,

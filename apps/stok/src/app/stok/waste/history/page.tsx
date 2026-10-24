@@ -105,7 +105,16 @@ export default function WasteHistoryPage() {
     [from, to, status, selectedOutlet, selectedBahanId, sortBy, sortOrder, page]
   )
 
-  const { reports, totalCount, totalNilai, totalPages, loading, fetching } = useWasteHistory(queryFilters)
+  const {
+    reports,
+    totalCount,
+    totalNilai,
+    totalQty,
+    selectedBahanHarga,
+    totalPages,
+    loading,
+    fetching,
+  } = useWasteHistory(queryFilters)
 
   // Quick Preset Handlers
   const handlePreset = (days: number) => {
@@ -198,6 +207,27 @@ export default function WasteHistoryPage() {
 
   const isCustomSort = sortBy !== 'created_at' || sortOrder !== 'desc'
   const isCustomBahan = selectedBahanId !== 'ALL'
+  const selectedBahan = useMemo(
+    () => bahanBaku.find((b) => b.id === selectedBahanId),
+    [bahanBaku, selectedBahanId]
+  )
+  const effectiveHargaBeli =
+    selectedBahanHarga ??
+    reports.find((r) => r.bahan_baku_id === selectedBahanId)?.harga_beli ??
+    0
+
+  const formatQtyDisplay = (qty: number) => {
+    if (!selectedBahan) return `${Math.round(qty * 100) / 100}`
+    return formatTriUnitSaldo(
+      qty,
+      selectedBahan.satuan || '',
+      selectedBahan.satuan_tengah,
+      selectedBahan.faktor_tengah,
+      selectedBahan.satuan_kecil,
+      selectedBahan.faktor_tampilan,
+      true
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -425,31 +455,82 @@ export default function WasteHistoryPage() {
             <Coins className="w-6 h-6" />
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] font-bold text-[#544437]/70 uppercase tracking-wider block">
-              Total Estimasi Kerugian
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-[#544437]/70 uppercase tracking-wider block">
+                Total Estimasi Kerugian
+              </span>
+              {isCustomBahan && selectedBahan && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-100 text-red-800 rounded-md truncate max-w-[140px]">
+                  {selectedBahan.nama}
+                </span>
+              )}
+            </div>
             <div className="text-xl sm:text-2xl font-black text-[#ba1a1a] mt-0.5 truncate">
               {formatRp(totalNilai)}
             </div>
-            <p className="text-[11px] text-[#544437]/60 font-medium truncate mt-0.5">
-              Akumulasi nilai berdasarkan harga beli master
+            <p className="text-[11px] text-[#544437]/70 font-medium truncate mt-0.5">
+              {isCustomBahan ? (
+                <>
+                  Harga Master: <span className="font-bold text-[#701604]">{formatRp(effectiveHargaBeli)}</span> / {selectedBahan?.satuan || 'satuan'}
+                </>
+              ) : (
+                'Akumulasi nilai berdasarkan harga beli master'
+              )}
             </p>
           </div>
         </div>
 
         <div className="bg-white border border-[#d9c2b2]/60 rounded-3xl p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#faf2e9] border border-[#d9c2b2]/50 flex items-center justify-center text-[#701604] shrink-0">
-            <FileSpreadsheet className="w-6 h-6" />
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+              isCustomBahan
+                ? 'bg-amber-50 border border-amber-200 text-amber-700'
+                : 'bg-[#faf2e9] border border-[#d9c2b2]/50 text-[#701604]'
+            }`}
+          >
+            {isCustomBahan ? <Package className="w-6 h-6" /> : <FileSpreadsheet className="w-6 h-6" />}
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] font-bold text-[#544437]/70 uppercase tracking-wider block">
-              Total Laporan Waste
-            </span>
-            <div className="text-xl sm:text-2xl font-black text-[#701604] mt-0.5 truncate">
-              {totalCount} <span className="text-sm font-bold text-[#544437]/70">Insiden</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-[#544437]/70 uppercase tracking-wider block">
+                {isCustomBahan ? 'Total Volume Terbuang' : 'Total Laporan Waste'}
+              </span>
+              {isCustomBahan && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-800 rounded-md">
+                  {totalCount} Insiden
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-[#544437]/60 font-medium truncate mt-0.5">
-              Sesuai filter status & tanggal yang dipilih
+            <div
+              className="text-xl sm:text-2xl font-black text-[#701604] mt-0.5 truncate"
+              title={
+                isCustomBahan && selectedBahan
+                  ? `${totalQty.toLocaleString('id-ID', { maximumFractionDigits: 2 })} ${selectedBahan.satuan}`
+                  : undefined
+              }
+            >
+              {isCustomBahan ? (
+                formatQtyDisplay(totalQty)
+              ) : (
+                <>
+                  {totalCount} <span className="text-sm font-bold text-[#544437]/70">Insiden</span>
+                </>
+              )}
+            </div>
+            <p className="text-[11px] text-[#544437]/70 font-medium truncate mt-0.5">
+              {isCustomBahan ? (
+                <>
+                  Akumulasi dari <span className="font-bold text-[#701604]">{totalCount} insiden</span>
+                  {selectedBahan?.satuan && (
+                    <span className="text-[#544437]/50 font-normal">
+                      {' '}
+                      ({totalQty.toLocaleString('id-ID', { maximumFractionDigits: 2 })} {selectedBahan.satuan})
+                    </span>
+                  )}
+                </>
+              ) : (
+                'Sesuai filter status & tanggal yang dipilih'
+              )}
             </p>
           </div>
         </div>

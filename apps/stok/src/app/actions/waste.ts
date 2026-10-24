@@ -293,6 +293,8 @@ export interface WasteHistoryResult {
   data: any[]
   totalCount: number
   totalNilai: number
+  totalQty: number
+  selectedBahanHarga?: number
   page: number
   limit: number
   totalPages: number
@@ -441,7 +443,10 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     }
 
     const allBahanBakuIds = Array.from(
-      new Set(allReports.map((r: any) => r.bahan_baku_id).filter(Boolean))
+      new Set([
+        ...allReports.map((r: any) => r.bahan_baku_id),
+        ...(filters.bahanBakuId && filters.bahanBakuId !== 'ALL' ? [filters.bahanBakuId] : []),
+      ].filter(Boolean))
     )
 
     const priceMap = new Map<string, number>()
@@ -457,11 +462,13 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     }
 
     let totalNilai = 0
+    let totalQty = 0
     const formattedData = allReports.map((r: any) => {
       const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
       const qtyNum = Number(r.qty) || 0
       const nilai = Math.round(qtyNum * hargaBeli)
       totalNilai += nilai
+      totalQty += qtyNum
       return {
         ...r,
         harga_beli: hargaBeli,
@@ -478,11 +485,16 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     const totalCount = formattedData.length
     const totalPages = Math.ceil(totalCount / limit) || 1
     const pagedData = formattedData.slice(fromIdx, fromIdx + limit)
+    const selectedBahanHarga = filters.bahanBakuId && filters.bahanBakuId !== 'ALL'
+      ? (priceMap.get(filters.bahanBakuId) ?? 0)
+      : undefined
 
     return {
       data: pagedData,
       totalCount,
       totalNilai,
+      totalQty,
+      selectedBahanHarga,
       page,
       limit,
       totalPages,
@@ -520,6 +532,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     new Set([
       ...rawReports.map((r: any) => r.bahan_baku_id),
       ...allSummary.map((s: any) => s.bahan_baku_id),
+      ...(filters.bahanBakuId && filters.bahanBakuId !== 'ALL' ? [filters.bahanBakuId] : []),
     ].filter(Boolean))
   )
 
@@ -536,9 +549,12 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   }
 
   let totalNilai = 0
+  let totalQty = 0
   for (const s of allSummary) {
     const price = priceMap.get(s.bahan_baku_id) || 0
-    totalNilai += Math.round((Number(s.qty) || 0) * price)
+    const q = Number(s.qty) || 0
+    totalQty += q
+    totalNilai += Math.round(q * price)
   }
 
   const formattedData = rawReports.map((r: any) => {
@@ -555,10 +571,16 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   const totalCount = count ?? 0
   const totalPages = Math.ceil(totalCount / limit) || 1
 
+  const selectedBahanHarga = filters.bahanBakuId && filters.bahanBakuId !== 'ALL'
+    ? (priceMap.get(filters.bahanBakuId) ?? 0)
+    : undefined
+
   return {
     data: formattedData,
     totalCount,
     totalNilai,
+    totalQty,
+    selectedBahanHarga,
     page,
     limit,
     totalPages,

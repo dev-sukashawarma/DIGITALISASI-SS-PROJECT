@@ -124,6 +124,8 @@ export function useWasteHistory(filters: WasteHistoryFilter) {
     reports: (data?.data ?? []) as WasteReport[],
     totalCount: data?.totalCount ?? 0,
     totalNilai: data?.totalNilai ?? 0,
+    totalQty: data?.totalQty ?? 0,
+    selectedBahanHarga: data?.selectedBahanHarga,
     page: data?.page ?? 1,
     totalPages: data?.totalPages ?? 1,
     limit: data?.limit ?? 25,

@@ -49,8 +49,8 @@ export default function WasteLayout({ children }: { children: React.ReactNode })
     <AppLayout>
       <div className="min-h-screen bg-[#faf2e9]/30 text-suka-brown flex flex-col pb-16">
         {/* Top Header Banner */}
-        <header className="bg-white/95 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 lg:px-8 py-4 sticky top-0 z-20 shadow-2xs">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <header className="bg-white/95 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sticky top-0 z-20 shadow-2xs">
+          <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl">🗑️</span>
@@ -70,7 +70,7 @@ export default function WasteLayout({ children }: { children: React.ReactNode })
           </div>
 
           {/* Navigation Tab Switcher */}
-          <div className="max-w-7xl mx-auto mt-4 pt-1 flex items-center gap-2 border-t border-suka-brown/10">
+          <div className="w-full mt-4 pt-1 flex items-center gap-2 border-t border-suka-brown/10">
             {tabs.map((tab) => {
               const active = pathname.startsWith(tab.href)
               const Icon = tab.icon
@@ -103,7 +103,7 @@ export default function WasteLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6">
           {children}
         </main>
       </div>

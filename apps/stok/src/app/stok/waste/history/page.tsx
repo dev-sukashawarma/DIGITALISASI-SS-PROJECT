@@ -740,7 +740,7 @@ export default function WasteHistoryPage() {
                               <span className="text-[#ba1a1a]">{formatRp(r.nilai_waste || 0)}</span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 italic text-suka-brown/80 max-w-[200px] truncate">
+                          <td className="py-3.5 px-4 italic text-suka-brown/80 max-w-[320px] truncate" title={r.reason}>
                             "{r.reason}"
                           </td>
                           <td className="py-3.5 px-4 whitespace-nowrap">
@@ -760,7 +760,7 @@ export default function WasteHistoryPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 text-[11px] leading-tight max-w-[220px]">
+                          <td className="py-3.5 px-4 text-[11px] leading-tight max-w-[280px]">
                             <div className="font-bold text-suka-brown truncate">
                               Oleh: {r.reported_by_staff?.name || '-'}
                             </div>

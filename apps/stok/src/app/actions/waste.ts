@@ -368,10 +368,14 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   const buildSummaryPage = (fromRow: number, toRow: number) => {
     let q = supabase
       .from('stok_waste_reports')
-      .select('bahan_baku_id, qty')
+      .select('bahan_baku_id, qty, status')
     if (summaryOutletEq) q = q.eq('outlet_id', summaryOutletEq)
     else if (summaryOutletIn) q = q.in('outlet_id', summaryOutletIn)
-    if (filters.status && filters.status !== 'ALL') q = q.eq('status', filters.status)
+    if (filters.status && filters.status !== 'ALL') {
+      q = q.eq('status', filters.status)
+    } else {
+      q = q.neq('status', 'REJECTED')
+    }
     if (filters.bahanBakuId && filters.bahanBakuId !== 'ALL') q = q.eq('bahan_baku_id', filters.bahanBakuId)
     if (filters.from) q = q.gte('created_at', `${filters.from}T00:00:00`)
     if (filters.to) q = q.lte('created_at', `${filters.to}T23:59:59.999Z`)
@@ -467,8 +471,10 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
       const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
       const qtyNum = Number(r.qty) || 0
       const nilai = Math.round(qtyNum * hargaBeli)
-      totalNilai += nilai
-      totalQty += qtyNum
+      if (r.status !== 'REJECTED') {
+        totalNilai += nilai
+        totalQty += qtyNum
+      }
       return {
         ...r,
         harga_beli: hargaBeli,
@@ -479,7 +485,11 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     if (sortBy === 'harga_beli') {
       formattedData.sort((a, b) => (isAsc ? a.harga_beli - b.harga_beli : b.harga_beli - a.harga_beli))
     } else {
-      formattedData.sort((a, b) => (isAsc ? a.nilai_waste - b.nilai_waste : b.nilai_waste - a.nilai_waste))
+      formattedData.sort((a, b) => {
+        const aVal = a.status === 'REJECTED' ? 0 : a.nilai_waste
+        const bVal = b.status === 'REJECTED' ? 0 : b.nilai_waste
+        return isAsc ? aVal - bVal : bVal - aVal
+      })
     }
 
     const totalCount = formattedData.length
@@ -551,6 +561,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   let totalNilai = 0
   let totalQty = 0
   for (const s of allSummary) {
+    if (s.status === 'REJECTED') continue
     const price = priceMap.get(s.bahan_baku_id) || 0
     const q = Number(s.qty) || 0
     totalQty += q

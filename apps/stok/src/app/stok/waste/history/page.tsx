@@ -469,12 +469,17 @@ export default function WasteHistoryPage() {
               {formatRp(totalNilai)}
             </div>
             <p className="text-[11px] text-[#544437]/70 font-medium truncate mt-0.5">
-              {isCustomBahan ? (
+              {status === 'REJECTED' ? (
+                <span className="text-red-600 font-semibold">
+                  Laporan ditolak tidak dihitung dalam estimasi kerugian
+                </span>
+              ) : isCustomBahan ? (
                 <>
                   Harga Master: <span className="font-bold text-[#701604]">{formatRp(effectiveHargaBeli)}</span> / {selectedBahan?.satuan || 'satuan'}
+                  <span className="text-[#544437]/50 font-normal"> · Ditolak tidak dihitung</span>
                 </>
               ) : (
-                'Akumulasi nilai berdasarkan harga beli master'
+                'Akumulasi nilai riil (laporan ditolak tidak dihitung)'
               )}
             </p>
           </div>
@@ -518,15 +523,14 @@ export default function WasteHistoryPage() {
               )}
             </div>
             <p className="text-[11px] text-[#544437]/70 font-medium truncate mt-0.5">
-              {isCustomBahan ? (
+              {status === 'REJECTED' ? (
+                <span className="text-red-600 font-semibold">
+                  Laporan ditolak tidak dihitung dalam volume terbuang
+                </span>
+              ) : isCustomBahan ? (
                 <>
-                  Akumulasi dari <span className="font-bold text-[#701604]">{totalCount} insiden</span>
-                  {selectedBahan?.satuan && (
-                    <span className="text-[#544437]/50 font-normal">
-                      {' '}
-                      ({totalQty.toLocaleString('id-ID', { maximumFractionDigits: 2 })} {selectedBahan.satuan})
-                    </span>
-                  )}
+                  Akumulasi riil ({totalQty.toLocaleString('id-ID', { maximumFractionDigits: 2 })} {selectedBahan?.satuan})
+                  <span className="text-[#544437]/50 font-normal"> · dari {totalCount} total laporan</span>
                 </>
               ) : (
                 'Sesuai filter status & tanggal yang dipilih'
@@ -711,7 +715,7 @@ export default function WasteHistoryPage() {
                               / {r.bahan_baku?.satuan || 'satuan'}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-right font-black text-[#ba1a1a] whitespace-pre-line">
+                          <td className={`py-3.5 px-4 text-right font-black whitespace-pre-line ${r.status === 'REJECTED' ? 'text-stone-400 line-through' : 'text-[#ba1a1a]'}`}>
                             {formatTriUnitSaldo(
                               r.qty,
                               r.bahan_baku?.satuan || '',
@@ -722,8 +726,19 @@ export default function WasteHistoryPage() {
                               true
                             )}
                           </td>
-                          <td className="py-3.5 px-4 text-right font-black text-[#ba1a1a] whitespace-nowrap">
-                            {formatRp(r.nilai_waste || 0)}
+                          <td className="py-3.5 px-4 text-right font-black whitespace-nowrap">
+                            {r.status === 'REJECTED' ? (
+                              <div className="flex flex-col items-end">
+                                <span className="line-through text-stone-400 font-bold text-xs">
+                                  {formatRp(r.nilai_waste || 0)}
+                                </span>
+                                <span className="text-[9px] font-bold text-red-500 uppercase tracking-tight">
+                                  Ditolak (Tidak Dihitung)
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[#ba1a1a]">{formatRp(r.nilai_waste || 0)}</span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4 italic text-suka-brown/80 max-w-[200px] truncate">
                             "{r.reason}"
@@ -841,7 +856,7 @@ export default function WasteHistoryPage() {
                       </div>
 
                       <div className="text-right shrink-0">
-                        <p className="font-black text-sm text-[#ba1a1a] whitespace-pre-line">
+                        <p className={`font-black text-sm whitespace-pre-line ${r.status === 'REJECTED' ? 'text-stone-400 line-through' : 'text-[#ba1a1a]'}`}>
                           {formatTriUnitSaldo(
                             r.qty,
                             r.bahan_baku?.satuan || '',
@@ -855,9 +870,20 @@ export default function WasteHistoryPage() {
                         <p className="text-[10px] font-bold text-[#544437]/70 mt-0.5">
                           @ {formatRp(r.harga_beli || 0)} / {r.bahan_baku?.satuan || 'satuan'}
                         </p>
-                        <p className="text-xs font-black text-[#ba1a1a] mt-0.5">
-                          {formatRp(r.nilai_waste || 0)}
-                        </p>
+                        {r.status === 'REJECTED' ? (
+                          <div className="mt-0.5">
+                            <span className="line-through text-stone-400 font-bold text-xs block">
+                              {formatRp(r.nilai_waste || 0)}
+                            </span>
+                            <span className="text-[9px] font-bold text-red-500 uppercase tracking-tight block">
+                              Ditolak (Tidak Dihitung)
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="text-xs font-black text-[#ba1a1a] mt-0.5">
+                            {formatRp(r.nilai_waste || 0)}
+                          </p>
+                        )}
                       </div>
                     </div>
 

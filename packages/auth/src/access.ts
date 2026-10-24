@@ -8,7 +8,6 @@ export const ALL_APPS: AppName[] = [
   'inventori',
   'stok',
   'distribusi',
-  'owner-dashboard',
   'admin-dashboard',
   'finance',
   'manager',
@@ -29,7 +28,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin: ['admin-dashboard', 'absensi', 'inventori', 'stok', 'distribusi', 'finance', 'HR', 'marcom'],
   // admin_hr bekerja di app HR; akses ke admin-dashboard dicabut (keputusan owner 14 Okt 2026).
   admin_hr: ['absensi', 'HR', 'stok', 'marcom'],
-  owner: ['owner-dashboard', 'inventori', 'stok', 'HR', 'marcom'],
+  owner: ['inventori', 'stok', 'HR', 'marcom'],
   spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard', 'finance', 'manager'],
   regional_manager: ['manager', 'absensi', 'inventori', 'stok', 'distribusi', 'pos-kasir'],
   kitchen: ['stok', 'distribusi'],
@@ -81,4 +80,3 @@ export function normalizeLoginIdentifier(identifier: string): string {
   const id = identifier.trim()
   return id.includes('@') ? id : `${id}@ss.com`
 }
-

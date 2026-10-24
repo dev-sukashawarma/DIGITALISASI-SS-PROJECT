@@ -24,7 +24,6 @@ export type AppName =
   | 'inventori'
   | 'stok'
   | 'distribusi'
-  | 'owner-dashboard'
   | 'admin-dashboard'
   | 'finance'
   | 'manager'

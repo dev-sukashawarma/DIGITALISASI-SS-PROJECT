@@ -24,7 +24,6 @@ const getAppUrls = async () => {
     absensi:           isLocal ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_APP_URL_ABSENSI || 'https://absensi.sukashawarma.com'),
     distribusi:        isLocal ? 'http://localhost:3002' : (process.env.NEXT_PUBLIC_APP_URL_DISTRIBUSI || 'https://distribusi.sukashawarma.com'),
     'pos-kasir':       isLocal ? 'http://localhost:3004' : (process.env.NEXT_PUBLIC_APP_URL_POS_KASIR || 'https://pos.sukashawarma.com'),
-    'owner-dashboard': isLocal ? 'http://localhost:3003' : (process.env.NEXT_PUBLIC_APP_URL_OWNER_DASHBOARD || 'https://owner.sukashawarma.com'),
     finance:           isLocal ? 'http://localhost:3020' : (process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'),
     manager:           isLocal ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_APP_URL_MANAGER || 'https://manager.sukashawarma.com'),
     inventori:         isLocal ? 'http://localhost:3011' : (process.env.NEXT_PUBLIC_APP_URL_INVENTORI || 'https://inventori.sukashawarma.com'),
@@ -128,7 +127,6 @@ export default async function LauncherPage() {
     absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah', category: 'Presensi Kru', group: 'Operasional' },
     distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan', category: 'Logistik & Armada', group: 'Operasional' },
     'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale', category: 'Point of Sale', group: 'Operasional' },
-    'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan', category: 'Eksekutif & Omzet', group: 'Keuangan & Data' },
     finance:           { 
       label: staff.role === 'purchasing' ? 'Purchasing & PO' : 'Finance', 
       url: ['purchasing', 'purchase'].includes(staff.role) ? `${APP_URL.finance}/pembelian/dashboard` : APP_URL.finance, 

@@ -12,7 +12,6 @@ import {
   ClipboardList,
   Cctv,
   Briefcase,
-  TrendingUp,
   Star,
   Building2,
   Sparkles,
@@ -205,18 +204,6 @@ export default function AppTile({ id = '', label, url, desc, category, badge }: 
       }
     }
 
-    if (key.includes('owner')) {
-      return {
-        icon: <TrendingUp size={24} strokeWidth={2.25} className="drop-shadow-xs" />,
-        tag: category || 'Eksekutif & Omzet',
-        chip: 'bg-gradient-to-br from-amber-500 via-amber-600 to-suka-brown',
-        hover: 'hover:border-amber-600/40 hover:shadow-[0_20px_36px_-12px_rgba(217,119,6,0.22)]',
-        accentText: 'group-hover:text-amber-800',
-        accentBg: 'group-hover:bg-amber-600 group-hover:border-amber-600',
-        glow: 'bg-amber-600/20',
-        tagBadge: 'bg-amber-500/10 text-amber-800 border-amber-500/20',
-      }
-    }
 
     if (key.includes('pos') || key.includes('kasir')) {
       return {

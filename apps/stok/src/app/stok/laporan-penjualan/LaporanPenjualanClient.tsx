@@ -7,7 +7,6 @@ import {
   ShoppingBag,
   Banknote,
   Calendar,
-  ChevronDown,
   Clock,
   Search,
   Store,
@@ -16,7 +15,6 @@ import {
   ArrowLeft,
   RefreshCw,
   SlidersHorizontal,
-  X,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { refreshLaporanPenjualan } from '@/app/actions/laporanPenjualan';
@@ -183,42 +181,6 @@ export default function LaporanPenjualanClient({
     }
     updateCustomRange(localStart, localEnd);
   };
-
-  const handleQuickPreset = (type: 'today' | 'yesterday' | '7days' | 'this_month' | 'last_month') => {
-    const todayStr = getTodayWib();
-    const d = new Date(todayStr + 'T12:00:00Z');
-    
-    if (type === 'today') {
-      setLocalStart(todayStr);
-      setLocalEnd(todayStr);
-    } else if (type === 'yesterday') {
-      d.setDate(d.getDate() - 1);
-      const yStr = d.toISOString().split('T')[0];
-      setLocalStart(yStr);
-      setLocalEnd(yStr);
-    } else if (type === '7days') {
-      const startD = new Date(d);
-      startD.setDate(startD.getDate() - 6);
-      setLocalStart(startD.toISOString().split('T')[0]);
-      setLocalEnd(todayStr);
-    } else if (type === 'this_month') {
-      const startStr = `${todayStr.slice(0, 7)}-01`;
-      setLocalStart(startStr);
-      setLocalEnd(todayStr);
-    } else if (type === 'last_month') {
-      const curYear = parseInt(todayStr.slice(0, 4), 10);
-      const curMonth = parseInt(todayStr.slice(5, 7), 10);
-      const prevMonthDate = new Date(curYear, curMonth - 2, 1);
-      const lastDayPrevMonth = new Date(curYear, curMonth - 1, 0);
-      const y = prevMonthDate.getFullYear();
-      const m = String(prevMonthDate.getMonth() + 1).padStart(2, '0');
-      const startStr = `${y}-${m}-01`;
-      const endStr = `${y}-${m}-${String(lastDayPrevMonth.getDate()).padStart(2, '0')}`;
-      setLocalStart(startStr);
-      setLocalEnd(endStr);
-    }
-  };
-
 
   // Filter menu items berdasarkan search
   const filteredBestSellers = useMemo(() => {

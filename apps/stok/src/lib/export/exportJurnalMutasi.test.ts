@@ -111,4 +111,88 @@ describe('exportReconciliationToCsv', () => {
     expect(appendChildMock).toHaveBeenCalled()
     expect(removeChildMock).toHaveBeenCalled()
   })
+
+  it('should include menu breakdown section in CSV when menu_breakdown is provided', () => {
+    let capturedBlobContent: string = ''
+    const originalBlob = global.Blob
+    global.Blob = class MockBlob extends originalBlob {
+      constructor(blobParts?: BlobPart[], options?: BlobPropertyBag) {
+        super(blobParts, options)
+        if (blobParts && blobParts.length > 0) {
+          capturedBlobContent = String(blobParts[0])
+        }
+      }
+    } as any
+
+    const mockData: ReconciliationSnapshotResponse = {
+      outlet: { id: 'ALL', name: 'Semua Outlet (3 Cabang)' },
+      period: {
+        mode: 'date_range',
+        start_date: '2026-09-10T00:00:00Z',
+        end_date: '2026-09-15T23:59:59Z',
+        opname_terpilih: null,
+      },
+      pending_surat_jalan_count: 0,
+      audit_note: null,
+      totals: {
+        total_awal_rp: 1000000,
+        total_masuk_rp_master: 500000,
+        total_masuk_rp_riil: 500000,
+        total_pakai_rp: 400000,
+        total_waste_rp: 0,
+        total_sistem_rp: 1100000,
+        total_fisik_rp: 1100000,
+        total_selisih_rp: 0,
+        bahan_berselisih_count: 0,
+        anomali_skala_count: 0,
+        ekstrem_count: 0,
+        omzet_rp: 2000000,
+        potongan_rp: 0,
+        order_count: 100,
+        teoritis_pakai_rp: 400000,
+        teoritis_tidak_terhitung: 0,
+      },
+      items: [],
+      menu_breakdown: [
+        {
+          menu_item_id: 'm-1',
+          menu_item_name: 'Ayam Goreng Spesial',
+          total_porsi: 25,
+          has_recipe: true,
+          ingredients: [
+            {
+              bahan_baku_id: 'b-1',
+              nama_bahan: 'Ayam Potong',
+              qty_per_porsi: 0.25,
+              satuan: 'kg',
+              total_kebutuhan: 6.25,
+            },
+          ],
+        },
+      ],
+    }
+
+    const mockAnchor = {
+      setAttribute: vi.fn(),
+      click: vi.fn(),
+    }
+    vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor as any)
+    vi.spyOn(document.body, 'appendChild').mockImplementation(vi.fn())
+    vi.spyOn(document.body, 'removeChild').mockImplementation(vi.fn())
+
+    exportReconciliationToCsv(mockData)
+
+    expect(capturedBlobContent).toContain('RINCIAN PEMAKAIAN BAHAN BAKU SETIAP MENU POS (BOM)')
+    expect(capturedBlobContent).toContain('Ayam Goreng Spesial')
+    expect(capturedBlobContent).toContain('Ayam Potong')
+    expect(capturedBlobContent).toContain('6.25')
+    expect(capturedBlobContent).toContain('Masuk (Qty)')
+    expect(capturedBlobContent).toContain('Pemakaian POS (Qty)')
+    expect(capturedBlobContent).toContain('Waste (Qty)')
+    expect(capturedBlobContent).not.toContain('Saldo Awal (Qty)')
+    expect(capturedBlobContent).not.toContain('Stok Sistem (Qty)')
+    expect(capturedBlobContent).not.toContain('Stok Fisik Opname (Qty)')
+
+    global.Blob = originalBlob
+  })
 })

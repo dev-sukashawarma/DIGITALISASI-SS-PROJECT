@@ -91,13 +91,14 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
 
   // 2. Sinkronisasi jika user mengganti outlet di Top Navbar (OutletSwitcher)
   useEffect(() => {
-    if (selectedOutletId && selectedOutletId !== currentOutletId) {
+    if (selectedOutletId && selectedOutletId !== currentOutletId && currentOutletId !== 'ALL') {
       setCurrentOutletId(selectedOutletId)
     }
   }, [selectedOutletId, currentOutletId])
 
   // 3. Pastikan currentOutletId selalu valid di antara daftar outlets
   useEffect(() => {
+    if (currentOutletId === 'ALL') return
     if (outlets.length > 0 && !outlets.some((o) => o.id === currentOutletId)) {
       const fallbackId = (selectedOutletId && outlets.some((o) => o.id === selectedOutletId))
         ? selectedOutletId
@@ -134,7 +135,12 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
   // 5. Fetch Sesi Opname ketika outlet berubah
   useEffect(() => {
     let active = true
-    if (!currentOutletId) return
+    if (!currentOutletId || currentOutletId === 'ALL') {
+      setSessions([])
+      setSessionsLoading(false)
+      setSelectedOpnameId('')
+      return
+    }
 
     setSessionsLoading(true)
     fetchOpnameSessions(currentOutletId)
@@ -165,17 +171,17 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
   // 6. Fetch Detail Rekonsiliasi Snapshot
   const loadReconciliationData = useCallback(async () => {
     if (!currentOutletId) return
-    if (mode === 'opname_session' && !selectedOpnameId) return
+    if (currentOutletId !== 'ALL' && mode === 'opname_session' && !selectedOpnameId) return
 
     setLoading(true)
     setError(null)
 
     try {
       const res = await fetchReconciliationSnapshot(currentOutletId, {
-        mode,
-        opnameId: mode === 'opname_session' ? selectedOpnameId : undefined,
-        startDate: mode === 'date_range' ? startDate : undefined,
-        endDate: mode === 'date_range' ? endDate : undefined,
+        mode: currentOutletId === 'ALL' ? 'date_range' : mode,
+        opnameId: mode === 'opname_session' && currentOutletId !== 'ALL' ? selectedOpnameId : undefined,
+        startDate: (mode === 'date_range' || currentOutletId === 'ALL') ? startDate : undefined,
+        endDate: (mode === 'date_range' || currentOutletId === 'ALL') ? endDate : undefined,
       })
       setData(res)
     } catch (err: any) {
@@ -193,7 +199,34 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
 
   const handleSelectOutlet = (id: string) => {
     setCurrentOutletId(id)
-    syncGlobalOutlet(id)
+    if (id === 'ALL') {
+      setMode('date_range')
+    } else {
+      syncGlobalOutlet(id)
+    }
+  }
+
+  const setPresetRange = (preset: 'today' | '7days' | '30days' | 'this_month') => {
+    const today = new Date()
+    const todayStr = today.toISOString().slice(0, 10)
+    if (preset === 'today') {
+      setStartDate(todayStr)
+      setEndDate(todayStr)
+    } else if (preset === '7days') {
+      const d = new Date()
+      d.setDate(d.getDate() - 7)
+      setStartDate(d.toISOString().slice(0, 10))
+      setEndDate(todayStr)
+    } else if (preset === '30days') {
+      const d = new Date()
+      d.setDate(d.getDate() - 30)
+      setStartDate(d.toISOString().slice(0, 10))
+      setEndDate(todayStr)
+    } else if (preset === 'this_month') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+      setStartDate(firstDay.toISOString().slice(0, 10))
+      setEndDate(todayStr)
+    }
   }
 
   const handleExportPdf = async () => {
@@ -224,14 +257,16 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
                 Audit Persediaan Bahan Baku
               </span>
               <span className="text-xs font-black text-suka-brown/60">
-                • {data?.outlet.name || 'Pilih Cabang'}
+                • {currentOutletId === 'ALL' ? (data?.outlet.name || `Konsolidasi Semua Outlet (${outlets.length} Cabang)`) : (data?.outlet.name || 'Pilih Cabang')}
               </span>
             </div>
             <h2 className="text-xl font-black text-suka-brown tracking-tight mt-1">
               Rekonsiliasi Mutasi & Jurnal Bahan Baku
             </h2>
             <p className="text-xs text-suka-brown/60 font-medium mt-0.5">
-              Melacak alur stok: Saldo Awal + Kiriman Masuk - Pemakaian Menu POS - Waste = Stok Sistem vs Fisik Opname.
+              {currentOutletId === 'ALL'
+                ? 'Rekapitulasi konsolidasi seluruh outlet: Masuk (Inbound), Pemakaian POS, dan Waste Bahan Baku.'
+                : 'Melacak alur stok: Saldo Awal + Kiriman Masuk - Pemakaian Menu POS - Waste = Stok Sistem vs Fisik Opname.'}
             </p>
           </div>
 
@@ -248,13 +283,15 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
 
             {data && (
               <>
-                <button
-                  onClick={() => setShowNotesModal(true)}
-                  className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-2xl font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
-                >
-                  <FileEdit className="w-4 h-4 text-amber-600" />
-                  <span>Catatan Audit</span>
-                </button>
+                {currentOutletId !== 'ALL' && (
+                  <button
+                    onClick={() => setShowNotesModal(true)}
+                    className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-2xl font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-2xs"
+                  >
+                    <FileEdit className="w-4 h-4 text-amber-600" />
+                    <span>Catatan Audit</span>
+                  </button>
+                )}
 
                 <button
                   onClick={handleExportPdf}
@@ -295,6 +332,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
                 onChange={(e) => handleSelectOutlet(e.target.value)}
                 className="bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer flex-1 md:w-56 truncate"
               >
+                <option value="ALL">🏢 Semua Outlet (Konsolidasi)</option>
                 {outlets.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.name}
@@ -309,11 +347,17 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
             {/* Mode Switcher */}
             <div className="flex items-center p-1 bg-suka-cream/30 rounded-xl border border-suka-brown/15">
               <button
-                onClick={() => setMode('opname_session')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                  mode === 'opname_session'
-                    ? 'bg-white text-suka-brown shadow-2xs'
-                    : 'text-suka-brown/60 hover:text-suka-brown'
+                onClick={() => {
+                  if (currentOutletId !== 'ALL') setMode('opname_session')
+                }}
+                disabled={currentOutletId === 'ALL'}
+                title={currentOutletId === 'ALL' ? 'Mode Sesi Opname hanya tersedia untuk pilihan satu cabang' : undefined}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                  currentOutletId === 'ALL'
+                    ? 'opacity-40 cursor-not-allowed text-suka-brown/40'
+                    : mode === 'opname_session'
+                    ? 'bg-white text-suka-brown shadow-2xs cursor-pointer'
+                    : 'text-suka-brown/60 hover:text-suka-brown cursor-pointer'
                 }`}
               >
                 Sesi Opname
@@ -321,7 +365,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
               <button
                 onClick={() => setMode('date_range')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                  mode === 'date_range'
+                  mode === 'date_range' || currentOutletId === 'ALL'
                     ? 'bg-white text-suka-brown shadow-2xs'
                     : 'text-suka-brown/60 hover:text-suka-brown'
                 }`}
@@ -331,7 +375,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
             </div>
 
             {/* Sesi Opname Select */}
-            {mode === 'opname_session' ? (
+            {mode === 'opname_session' && currentOutletId !== 'ALL' ? (
               sessionsLoading ? (
                 <div className="flex items-center gap-1.5 text-xs text-suka-brown/50">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Memuat sesi...
@@ -352,7 +396,30 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
                 </select>
               )
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPresetRange('today')}
+                    className="px-2 py-1 rounded-lg text-[10px] font-black bg-suka-cream/40 hover:bg-suka-cream text-suka-brown border border-suka-brown/15 cursor-pointer"
+                  >
+                    Hari Ini
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresetRange('7days')}
+                    className="px-2 py-1 rounded-lg text-[10px] font-black bg-suka-cream/40 hover:bg-suka-cream text-suka-brown border border-suka-brown/15 cursor-pointer"
+                  >
+                    7 Hari
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPresetRange('this_month')}
+                    className="px-2 py-1 rounded-lg text-[10px] font-black bg-suka-cream/40 hover:bg-suka-cream text-suka-brown border border-suka-brown/15 cursor-pointer"
+                  >
+                    Bulan Ini
+                  </button>
+                </div>
                 <div className="flex items-center gap-1.5 bg-suka-cream/20 border border-suka-brown/20 rounded-xl px-2.5 py-1.5 text-xs">
                   <Calendar className="w-3.5 h-3.5 text-suka-brown/50" />
                   <input
@@ -466,7 +533,13 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
       {/* ========================================================================= */}
       {!loading && data && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div
+            className={`grid gap-3 ${
+              currentOutletId === 'ALL'
+                ? 'grid-cols-2 lg:grid-cols-4'
+                : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-7'
+            }`}
+          >
             {/* Omzet Penjualan (kotor, sama dengan baris "Omzet kotor periode" di PDF) */}
             <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200 shadow-2xs space-y-0.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">
@@ -481,21 +554,23 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
               </p>
             </div>
 
-            {/* Saldo Awal */}
-            <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown/60">
-                1. Saldo Awal
-              </span>
-              <div className="text-sm sm:text-base font-black text-suka-brown">
-                {formatRp(data.totals.total_awal_rp)}
+            {/* Saldo Awal (hanya untuk cabang spesifik) */}
+            {currentOutletId !== 'ALL' && (
+              <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown/60">
+                  1. Saldo Awal
+                </span>
+                <div className="text-sm sm:text-base font-black text-suka-brown">
+                  {formatRp(data.totals.total_awal_rp)}
+                </div>
+                <p className="text-[9px] text-suka-brown/40 font-bold">Stok awal periode</p>
               </div>
-              <p className="text-[9px] text-suka-brown/40 font-bold">Stok awal periode</p>
-            </div>
+            )}
 
             {/* Masuk */}
             <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                2. Masuk (Inbound)
+                {currentOutletId === 'ALL' ? 'Masuk (Inbound)' : '2. Masuk (Inbound)'}
               </span>
               <div className="text-sm sm:text-base font-black text-emerald-700">
                 +{formatRp(data.totals.total_masuk_rp_master)}
@@ -506,7 +581,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
             {/* Pemakaian Menu POS */}
             <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">
-                3. Pemakaian Menu
+                {currentOutletId === 'ALL' ? 'Pemakaian POS' : '3. Pemakaian Menu'}
               </span>
               <div className="text-sm sm:text-base font-black text-blue-700">
                 -{formatRp(data.totals.total_pakai_rp)}
@@ -517,7 +592,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
             {/* Waste */}
             <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-red-600">
-                4. Waste / Rusak
+                {currentOutletId === 'ALL' ? 'Waste' : '4. Waste / Rusak'}
               </span>
               <div className="text-sm sm:text-base font-black text-red-600">
                 -{formatRp(data.totals.total_waste_rp)}
@@ -525,43 +600,46 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
               <p className="text-[9px] text-red-600/60 font-bold">Laporan kerusakan</p>
             </div>
 
-            {/* Stok Sistem */}
-            <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5 bg-suka-cream/10">
-              <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown">
-                5. Stok Sistem
-              </span>
-              <div className="text-sm sm:text-base font-black text-suka-brown">
-                {formatRp(data.totals.total_sistem_rp)}
-              </div>
-              <p className="text-[9px] text-suka-brown/50 font-bold">Saldo Teoretis</p>
-            </div>
+            {/* Stok Sistem & Net Selisih (hanya untuk cabang spesifik) */}
+            {currentOutletId !== 'ALL' && (
+              <>
+                <div className="bg-white p-3.5 rounded-2xl border border-suka-brown/10 shadow-2xs space-y-0.5 bg-suka-cream/10">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown">
+                    5. Stok Sistem
+                  </span>
+                  <div className="text-sm sm:text-base font-black text-suka-brown">
+                    {formatRp(data.totals.total_sistem_rp)}
+                  </div>
+                  <p className="text-[9px] text-suka-brown/50 font-bold">Saldo Teoretis</p>
+                </div>
 
-            {/* Net Selisih */}
-            <div
-              className={`p-3.5 rounded-2xl border shadow-2xs space-y-0.5 ${
-                data.totals.total_selisih_rp < 0
-                  ? 'bg-red-50 border-red-200 text-red-900'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              }`}
-            >
-              <span className="text-[10px] font-black uppercase tracking-wider">
-                6. Net Selisih (Rp)
-              </span>
-              <div className="text-sm sm:text-base font-black flex items-center gap-1">
-                {data.totals.total_selisih_rp < 0 ? (
-                  <TrendingDown className="w-4 h-4 text-red-600" />
-                ) : (
-                  <TrendingUp className="w-4 h-4 text-emerald-600" />
-                )}
-                <span>
-                  {data.totals.total_selisih_rp > 0 ? '+' : ''}
-                  {formatRp(data.totals.total_selisih_rp)}
-                </span>
-              </div>
-              <p className="text-[9px] font-bold">
-                {data.totals.total_selisih_rp < 0 ? 'Defisit / Rugi Fisik' : 'Surplus Fisik'}
-              </p>
-            </div>
+                <div
+                  className={`p-3.5 rounded-2xl border shadow-2xs space-y-0.5 ${
+                    data.totals.total_selisih_rp < 0
+                      ? 'bg-red-50 border-red-200 text-red-900'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  }`}
+                >
+                  <span className="text-[10px] font-black uppercase tracking-wider">
+                    6. Net Selisih (Rp)
+                  </span>
+                  <div className="text-sm sm:text-base font-black flex items-center gap-1">
+                    {data.totals.total_selisih_rp < 0 ? (
+                      <TrendingDown className="w-4 h-4 text-red-600" />
+                    ) : (
+                      <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    )}
+                    <span>
+                      {data.totals.total_selisih_rp > 0 ? '+' : ''}
+                      {formatRp(data.totals.total_selisih_rp)}
+                    </span>
+                  </div>
+                  <p className="text-[9px] font-bold">
+                    {data.totals.total_selisih_rp < 0 ? 'Defisit / Rugi Fisik' : 'Surplus Fisik'}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Diagnostic quick badges */}
@@ -573,19 +651,27 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-suka-cream text-suka-brown">
                 {data.items.length} Bahan Terdata
               </span>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  data.totals.bahan_berselisih_count > 0
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-emerald-100 text-emerald-800'
-                }`}
-              >
-                {data.totals.bahan_berselisih_count} Bahan Berselisih
-              </span>
-              {data.totals.anomali_skala_count > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white animate-pulse">
-                  🚨 {data.totals.anomali_skala_count} Salah Input Skala Satuan
+              {currentOutletId === 'ALL' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900">
+                  {data.items.filter((i) => i.masuk_qty > 0 || i.pakai_qty > 0 || i.waste_qty > 0).length} Bahan Aktif Bergerak
                 </span>
+              ) : (
+                <>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      data.totals.bahan_berselisih_count > 0
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {data.totals.bahan_berselisih_count} Bahan Berselisih
+                  </span>
+                  {data.totals.anomali_skala_count > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white animate-pulse">
+                      🚨 {data.totals.anomali_skala_count} Salah Input Skala Satuan
+                    </span>
+                  )}
+                </>
               )}
             </div>
 
@@ -599,10 +685,12 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
           {/* ========================================================================= */}
           <RekonsiliasiTable
             outletId={currentOutletId}
+            outletName={data.outlet.name}
             items={data.items}
             startDate={data.period.start_date}
             endDate={data.period.end_date}
             period={data.period}
+            menuBreakdown={data.menu_breakdown}
           />
         </>
       )}

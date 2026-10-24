@@ -435,6 +435,12 @@ export function InboundOutboundList({ items }: Props) {
                               <span className="font-bold text-suka-brown text-sm">
                                 {item.bahan_baku?.nama || 'Unknown'}
                               </span>
+                              {item.outlet_nama && (
+                                <span className="text-[10px] font-semibold text-suka-brown/60 flex items-center gap-1 mt-0.5">
+                                  <Store className="w-3 h-3 text-suka-orange/70" />
+                                  {item.outlet_nama}
+                                </span>
+                              )}
                             </td>
                             <td className="px-5 py-3.5">
                               <div className="flex items-center gap-2">

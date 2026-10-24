@@ -132,6 +132,7 @@ export type InboundOutboundSumber = 'vendor_po' | 'vendor_manual' | 'kirim_outle
 export interface InboundOutbound {
   id: string;
   outlet_id: string;
+  outlet_nama?: string | null;
   bahan_baku_id: string;
   tipe: InboundOutboundTipe;
   sumber: InboundOutboundSumber;

@@ -82,7 +82,8 @@ export function useInboundOutbound(
   page: number = 0,
   searchQuery?: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  bahanId?: string
 ) {
   const [data, setData] = useState<InboundOutbound[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,8 +100,15 @@ export function useInboundOutbound(
     try {
       let query = supabase
         .from('inbound_outbound_feed')
-        .select(FEED_COLUMNS)
-        .eq('outlet_id', outletId);
+        .select(FEED_COLUMNS);
+
+      if (outletId !== 'ALL') {
+        query = query.eq('outlet_id', outletId);
+      }
+
+      if (bahanId && bahanId !== 'ALL') {
+        query = query.eq('bahan_baku_id', bahanId);
+      }
 
       if (startDate) {
         query = query.gte('created_at', `${startDate}T00:00:00`);
@@ -145,7 +153,7 @@ export function useInboundOutbound(
     if (outletId) {
       refresh();
     }
-  }, [outletId, page, searchQuery, startDate, endDate]);
+  }, [outletId, page, searchQuery, startDate, endDate, bahanId]);
 
   return { data, loading, error, refresh };
 }

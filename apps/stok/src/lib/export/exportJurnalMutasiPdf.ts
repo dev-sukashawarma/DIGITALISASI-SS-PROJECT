@@ -49,6 +49,7 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 12
   let currentY = 14
+  const isAll = data.outlet.id === 'ALL'
 
   // ── Header / Kop Resmi Suka Shawarma ──
   doc.setFillColor(242, 102, 34) // Suka Orange
@@ -67,7 +68,13 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
-  doc.text('Audit Alur Persediaan: Awal + Masuk - Pemakaian POS - Waste = Sistem vs Hasil Fisik', margin + 8, currentY + 16)
+  doc.text(
+    isAll
+      ? 'Rekapitulasi Konsolidasi Semua Outlet: Masuk (Inbound), Pemakaian POS, dan Waste'
+      : 'Audit Alur Persediaan: Awal + Masuk - Pemakaian POS - Waste = Sistem vs Hasil Fisik',
+    margin + 8,
+    currentY + 16
+  )
 
   // Right Metadata
   const rightX = pageWidth - margin
@@ -95,20 +102,32 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
   currentY += 22
 
   // ── 1. Tabel Utama Rekonsiliasi Mutasi ──
-  const tableHeaders = [
-    'No',
-    'Bahan Baku',
-    'Satuan',
-    'Saldo Awal',
-    'Masuk',
-    'Pemakaian',
-    'Waste',
-    'Stok Sistem',
-    'Stok Fisik',
-    'Selisih (Qty)',
-    'Threshold',
-    'Selisih (Rp)',
-  ]
+  const tableHeaders = isAll
+    ? [
+        'No',
+        'Bahan Baku',
+        'Satuan',
+        'Masuk (Inbound)',
+        'Nilai Masuk (Rp)',
+        'Pemakaian POS',
+        'Nilai Pakai (Rp)',
+        'Waste',
+        'Nilai Waste (Rp)',
+      ]
+    : [
+        'No',
+        'Bahan Baku',
+        'Satuan',
+        'Saldo Awal',
+        'Masuk',
+        'Pemakaian',
+        'Waste',
+        'Stok Sistem',
+        'Stok Fisik',
+        'Selisih (Qty)',
+        'Threshold',
+        'Selisih (Rp)',
+      ]
 
   // Urutkan: Bulk dulu lalu Count (sama dengan detail opname), di dalamnya per kategori, lalu nama.
   const tipeOf = (item: (typeof data.items)[number]) => getMaterialType(item.satuan, item.satuan_kecil, item.nama)
@@ -150,33 +169,47 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
       tableBody.push([{ content: kat, colSpan: COLS }])
     }
 
-    const selisihQtyStr =
-      item.selisih_qty === 0
-        ? '0'
-        : item.selisih_qty > 0
-        ? `+${formatQty(item.selisih_qty, item)}`
-        : `-${formatQty(Math.abs(item.selisih_qty), item)}`
-
-    const selisihRpStr =
-      item.selisih_rp === 0
-        ? 'Rp 0'
-        : `${item.selisih_rp > 0 ? '+' : ''}${formatRp(item.selisih_rp)}`
-
     rowMeta.push({ jenis: 'item', item })
-    tableBody.push([
-      ++no,
-      item.nama,
-      item.satuan,
-      formatQty(item.saldo_awal_qty, item),
-      formatQty(item.masuk_qty, item),
-      formatQty(item.pakai_qty, item),
-      formatQty(item.waste_qty, item),
-      formatQty(item.stok_sistem_qty, item),
-      item.stok_fisik_qty !== null ? formatQty(item.stok_fisik_qty, item) : '-',
-      selisihQtyStr,
-      `${getThresholdPersen(item.satuan, item.satuan_kecil, item.nama)}%${lewat(item) ? ' !' : ''}`,
-      selisihRpStr,
-    ])
+    if (isAll) {
+      tableBody.push([
+        ++no,
+        item.nama,
+        item.satuan,
+        formatQty(item.masuk_qty, item),
+        formatRp(item.masuk_rp_master),
+        formatQty(item.pakai_qty, item),
+        formatRp(item.pakai_rp),
+        formatQty(item.waste_qty, item),
+        formatRp(item.waste_rp),
+      ])
+    } else {
+      const selisihQtyStr =
+        item.selisih_qty === 0
+          ? '0'
+          : item.selisih_qty > 0
+          ? `+${formatQty(item.selisih_qty, item)}`
+          : `-${formatQty(Math.abs(item.selisih_qty), item)}`
+
+      const selisihRpStr =
+        item.selisih_rp === 0
+          ? 'Rp 0'
+          : `${item.selisih_rp > 0 ? '+' : ''}${formatRp(item.selisih_rp)}`
+
+      tableBody.push([
+        ++no,
+        item.nama,
+        item.satuan,
+        formatQty(item.saldo_awal_qty, item),
+        formatQty(item.masuk_qty, item),
+        formatQty(item.pakai_qty, item),
+        formatQty(item.waste_qty, item),
+        formatQty(item.stok_sistem_qty, item),
+        item.stok_fisik_qty !== null ? formatQty(item.stok_fisik_qty, item) : '-',
+        selisihQtyStr,
+        `${getThresholdPersen(item.satuan, item.satuan_kecil, item.nama)}%${lewat(item) ? ' !' : ''}`,
+        selisihRpStr,
+      ])
+    }
   }
 
   // Tambahkan baris total
@@ -186,20 +219,32 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
     head: [tableHeaders],
     body: tableBody,
     foot: [
-      [
-        '',
-        'TOTAL NOMINAL',
-        '',
-        formatRp(data.totals.total_awal_rp),
-        formatRp(data.totals.total_masuk_rp_master),
-        formatRp(data.totals.total_pakai_rp),
-        formatRp(data.totals.total_waste_rp),
-        formatRp(data.totals.total_sistem_rp),
-        formatRp(data.totals.total_fisik_rp),
-        `${data.totals.bahan_berselisih_count} Bahan`,
-        `${jumlahLewat} lewat`,
-        totalSelisihStr,
-      ],
+      isAll
+        ? [
+            '',
+            'TOTAL NOMINAL',
+            '',
+            '',
+            formatRp(data.totals.total_masuk_rp_master),
+            '',
+            formatRp(data.totals.total_pakai_rp),
+            '',
+            formatRp(data.totals.total_waste_rp),
+          ]
+        : [
+            '',
+            'TOTAL NOMINAL',
+            '',
+            formatRp(data.totals.total_awal_rp),
+            formatRp(data.totals.total_masuk_rp_master),
+            formatRp(data.totals.total_pakai_rp),
+            formatRp(data.totals.total_waste_rp),
+            formatRp(data.totals.total_sistem_rp),
+            formatRp(data.totals.total_fisik_rp),
+            `${data.totals.bahan_berselisih_count} Bahan`,
+            `${jumlahLewat} lewat`,
+            totalSelisihStr,
+          ],
     ],
     startY: currentY,
     tableWidth: 'auto',
@@ -223,20 +268,32 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
       textColor: [15, 23, 42],
       fontStyle: 'bold',
     },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 8 },
-      1: { fontStyle: 'bold' },
-      2: { halign: 'center', cellWidth: 14 },
-      3: { halign: 'right', cellWidth: 22 },
-      4: { halign: 'right', cellWidth: 22 },
-      5: { halign: 'right', cellWidth: 22 },
-      6: { halign: 'right', cellWidth: 22 },
-      7: { halign: 'right', cellWidth: 24 },
-      8: { halign: 'right', cellWidth: 24 },
-      9: { halign: 'right', cellWidth: 24 },
-      10: { halign: 'center', cellWidth: 16 },
-      11: { halign: 'right', fontStyle: 'bold', cellWidth: 30 },
-    },
+    columnStyles: isAll
+      ? {
+          0: { halign: 'center', cellWidth: 10 },
+          1: { fontStyle: 'bold' },
+          2: { halign: 'center', cellWidth: 18 },
+          3: { halign: 'right', cellWidth: 32 },
+          4: { halign: 'right', cellWidth: 32 },
+          5: { halign: 'right', cellWidth: 32 },
+          6: { halign: 'right', cellWidth: 32 },
+          7: { halign: 'right', cellWidth: 32 },
+          8: { halign: 'right', cellWidth: 32 },
+        }
+      : {
+          0: { halign: 'center', cellWidth: 8 },
+          1: { fontStyle: 'bold' },
+          2: { halign: 'center', cellWidth: 14 },
+          3: { halign: 'right', cellWidth: 22 },
+          4: { halign: 'right', cellWidth: 22 },
+          5: { halign: 'right', cellWidth: 22 },
+          6: { halign: 'right', cellWidth: 22 },
+          7: { halign: 'right', cellWidth: 24 },
+          8: { halign: 'right', cellWidth: 24 },
+          9: { halign: 'right', cellWidth: 24 },
+          10: { halign: 'center', cellWidth: 16 },
+          11: { halign: 'right', fontStyle: 'bold', cellWidth: 30 },
+        },
     didParseCell: (hookData) => {
       const meta = hookData.section === 'body' ? rowMeta[hookData.row.index] : undefined
       if (meta?.jenis === 'tipe') {
@@ -254,6 +311,7 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
         hookData.cell.styles.halign = 'left'
         return
       }
+      if (isAll) return
       const rowItem = meta?.jenis === 'item' ? meta.item : undefined
       // Threshold: merah tebal bila selisih melewati toleransi
       if (hookData.column.index === 10 && rowItem && lewat(rowItem)) {
@@ -294,35 +352,38 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
     doc.setFontSize(9)
     doc.setTextColor(64, 10, 7)
     doc.text('EFISIENSI BAHAN: OMZET vs BIAYA BAHAN', margin, yE)
+    const efisiensiBody: any[] = [
+      ['Omzet kotor periode', formatRp(t.omzet_rp), '100%', `${t.order_count} order selesai${t.potongan_rp > 0 ? `, diskon/promo ${formatRp(t.potongan_rp)}` : ''}`],
+      ['Pemakaian bahan aktual (ledger)', formatRp(t.total_pakai_rp), pct(t.total_pakai_rp), 'Food cost aktual'],
+      [
+        'Pemakaian menurut resep (teoritis)',
+        formatRp(t.teoritis_pakai_rp),
+        pct(t.teoritis_pakai_rp),
+        t.teoritis_tidak_terhitung > 0
+          ? `Food cost seharusnya (${t.teoritis_tidak_terhitung} baris resep tanpa harga master tak dihitung)`
+          : 'Food cost seharusnya',
+      ],
+      [
+        'Selisih aktual - resep',
+        `${selisihResep > 0 ? '+' : ''}${formatRp(selisihResep)}`,
+        pct(Math.abs(selisihResep)),
+        selisihResep > 0 ? 'Aktual lebih boros dari resep' : 'Aktual di bawah resep',
+      ],
+      ['Waste tercatat', formatRp(t.total_waste_rp), pct(t.total_waste_rp), 'Bahan terbuang'],
+    ]
+    if (!isAll) {
+      efisiensiBody.push([
+        'Sisa stok akhir (belum terpakai)',
+        formatRp(t.total_fisik_rp > 0 ? t.total_fisik_rp : t.total_sistem_rp),
+        pct(t.total_fisik_rp > 0 ? t.total_fisik_rp : t.total_sistem_rp),
+        t.total_fisik_rp > 0 ? 'Berdasarkan hitung fisik opname' : 'Berdasarkan stok sistem (belum ada opname)',
+      ])
+    }
     autoTable(doc, {
       startY: yE + 2,
       theme: 'grid',
       head: [['Komponen', 'Nilai (Rp)', '% Omzet', 'Keterangan']],
-      body: [
-        ['Omzet kotor periode', formatRp(t.omzet_rp), '100%', `${t.order_count} order selesai${t.potongan_rp > 0 ? `, diskon/promo ${formatRp(t.potongan_rp)}` : ''}`],
-        ['Pemakaian bahan aktual (ledger)', formatRp(t.total_pakai_rp), pct(t.total_pakai_rp), 'Food cost aktual'],
-        [
-          'Pemakaian menurut resep (teoritis)',
-          formatRp(t.teoritis_pakai_rp),
-          pct(t.teoritis_pakai_rp),
-          t.teoritis_tidak_terhitung > 0
-            ? `Food cost seharusnya (${t.teoritis_tidak_terhitung} baris resep tanpa harga master tak dihitung)`
-            : 'Food cost seharusnya',
-        ],
-        [
-          'Selisih aktual - resep',
-          `${selisihResep > 0 ? '+' : ''}${formatRp(selisihResep)}`,
-          pct(Math.abs(selisihResep)),
-          selisihResep > 0 ? 'Aktual lebih boros dari resep' : 'Aktual di bawah resep',
-        ],
-        ['Waste tercatat', formatRp(t.total_waste_rp), pct(t.total_waste_rp), 'Bahan terbuang'],
-        [
-          'Sisa stok akhir (belum terpakai)',
-          formatRp(t.total_fisik_rp > 0 ? t.total_fisik_rp : t.total_sistem_rp),
-          pct(t.total_fisik_rp > 0 ? t.total_fisik_rp : t.total_sistem_rp),
-          t.total_fisik_rp > 0 ? 'Berdasarkan hitung fisik opname' : 'Berdasarkan stok sistem (belum ada opname)',
-        ],
-      ],
+      body: efisiensiBody,
       styles: { fontSize: 8, cellPadding: 1.8 },
       headStyles: { fillColor: [112, 22, 4], textColor: 255 },
       columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
@@ -632,4 +693,3 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
 
   doc.save(filename)
 }
-

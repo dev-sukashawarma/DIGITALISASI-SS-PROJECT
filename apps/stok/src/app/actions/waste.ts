@@ -274,11 +274,12 @@ export async function getWasteReportDetails(id: string) {
   return data
 }
 
-export type WasteSortField = 'created_at' | 'qty' | 'nilai_waste' | 'bahan_baku' | 'outlet' | 'status'
+export type WasteSortField = 'created_at' | 'qty' | 'nilai_waste' | 'harga_beli' | 'bahan_baku' | 'outlet' | 'status'
 export type WasteSortOrder = 'asc' | 'desc'
 
 export interface WasteHistoryFilter {
   outletId?: string
+  bahanBakuId?: string
   status?: 'ALL' | 'APPROVED' | 'REJECTED' | 'PENDING'
   from?: string // YYYY-MM-DD
   to?: string   // YYYY-MM-DD
@@ -350,6 +351,10 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     query = query.eq('status', filters.status)
   }
 
+  if (filters.bahanBakuId && filters.bahanBakuId !== 'ALL') {
+    query = query.eq('bahan_baku_id', filters.bahanBakuId)
+  }
+
   if (filters.from) {
     query = query.gte('created_at', `${filters.from}T00:00:00`)
   }
@@ -365,6 +370,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     if (summaryOutletEq) q = q.eq('outlet_id', summaryOutletEq)
     else if (summaryOutletIn) q = q.in('outlet_id', summaryOutletIn)
     if (filters.status && filters.status !== 'ALL') q = q.eq('status', filters.status)
+    if (filters.bahanBakuId && filters.bahanBakuId !== 'ALL') q = q.eq('bahan_baku_id', filters.bahanBakuId)
     if (filters.from) q = q.gte('created_at', `${filters.from}T00:00:00`)
     if (filters.to) q = q.lte('created_at', `${filters.to}T23:59:59.999Z`)
     // Urutan unik (created_at + id) supaya batas halaman deterministik.
@@ -399,7 +405,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   const sortOrder: WasteSortOrder = filters.sortOrder || 'desc'
   const isAsc = sortOrder === 'asc'
 
-  if (sortBy === 'nilai_waste') {
+  if (sortBy === 'nilai_waste' || sortBy === 'harga_beli') {
     // Tarik seluruh laporan yang cocok untuk dihitung nilai_waste lalu disortir presisi
     const PAGE_SIZE = 1000
     let allReports: any[] = []
@@ -418,6 +424,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
         pageQ = pageQ.in('outlet_id', Array.from(allowedOutletIds))
       }
       if (filters.status && filters.status !== 'ALL') pageQ = pageQ.eq('status', filters.status)
+      if (filters.bahanBakuId && filters.bahanBakuId !== 'ALL') pageQ = pageQ.eq('bahan_baku_id', filters.bahanBakuId)
       if (filters.from) pageQ = pageQ.gte('created_at', `${filters.from}T00:00:00`)
       if (filters.to) pageQ = pageQ.lte('created_at', `${filters.to}T23:59:59.999Z`)
 
@@ -462,7 +469,11 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
       }
     })
 
-    formattedData.sort((a, b) => (isAsc ? a.nilai_waste - b.nilai_waste : b.nilai_waste - a.nilai_waste))
+    if (sortBy === 'harga_beli') {
+      formattedData.sort((a, b) => (isAsc ? a.harga_beli - b.harga_beli : b.harga_beli - a.harga_beli))
+    } else {
+      formattedData.sort((a, b) => (isAsc ? a.nilai_waste - b.nilai_waste : b.nilai_waste - a.nilai_waste))
+    }
 
     const totalCount = formattedData.length
     const totalPages = Math.ceil(totalCount / limit) || 1

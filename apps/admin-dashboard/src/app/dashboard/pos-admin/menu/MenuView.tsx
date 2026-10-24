@@ -8,7 +8,8 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles, Globe, Tag, Smartphone
+  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles, Globe, Tag, Smartphone,
+  BookOpen
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
@@ -16,7 +17,8 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, nonaktifkanMenu, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync, toggleTampilDiApp } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, nonaktifkanMenu, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync, toggleTampilDiApp, quickCreateBahanBaku } from './actions'
+import { computeResepHpp, type HppBahan } from '@/lib/hpp'
 import { getChannel } from '@/lib/channels'
 import { getPromoStatus } from '@/lib/promoSchedule'
 
@@ -242,6 +244,13 @@ async function deleteStorageImage(url: string) {
   } catch { /* non-fatal */ }
 }
 
+interface RecipeRow {
+  temp_id: string
+  bahan_baku_id: string
+  qty_per_porsi: number | string
+  satuan: string
+}
+
 interface MenuViewProps {
   initialItems: MenuItem[]
   initialCategories: Category[]
@@ -252,6 +261,16 @@ interface MenuViewProps {
   initialBestsellers?: string[]
   initialRecommendations?: string[]
   searchQuery?: string
+  initialBahanBaku?: Array<{
+    id: string
+    nama: string
+    satuan: string
+    satuan_kecil?: string
+    harga_beli?: number
+    kemasan_qty?: number
+    kemasan_satuan?: string
+  }>
+  initialRecipes?: Record<string, { id: string; resep_item: { bahan_baku_id: string; qty_per_porsi: number; satuan: string }[] }>
 }
 
 export default function MenuView({ 
@@ -263,7 +282,9 @@ export default function MenuView({
   initialUpsells = [], 
   initialBestsellers = [], 
   initialRecommendations = [],
-  searchQuery = ''
+  searchQuery = '',
+  initialBahanBaku = [],
+  initialRecipes = {},
 }: MenuViewProps) {
   const router = useRouter()
 
@@ -290,6 +311,54 @@ export default function MenuView({
   const [promoNow, setPromoNow] = useState(() => Date.now())
   const fileRef = useRef<HTMLInputElement>(null)
   const channelDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Resep (BOM) & Live HPP State
+  const [recipeItems, setRecipeItems] = useState<RecipeRow[]>([])
+  const [bahanList, setBahanList] = useState(initialBahanBaku || [])
+  const [copyNotice, setCopyNotice] = useState<string | null>(null)
+  const [showQuickBahanModal, setShowQuickBahanModal] = useState(false)
+  const [quickBahanLoading, setQuickBahanLoading] = useState(false)
+  const [quickBahanError, setQuickBahanError] = useState('')
+  const [quickBahanForm, setQuickBahanForm] = useState({
+    nama: '',
+    satuan: 'Pack',
+    satuan_kecil: 'Pcs',
+    faktor_konversi: '10',
+    harga_beli: '',
+  })
+
+  useEffect(() => {
+    if (initialBahanBaku && initialBahanBaku.length > 0) {
+      setBahanList(initialBahanBaku)
+    }
+  }, [initialBahanBaku])
+
+  const bahanById = useMemo(() => {
+    const map: Record<string, HppBahan> = {}
+    for (const b of bahanList) {
+      map[b.id] = {
+        hargaBeliDisplay: b.harga_beli || 0,
+        kemasanQty: b.kemasan_qty || 1,
+        kemasanSatuan: b.kemasan_satuan || b.satuan_kecil || b.satuan || '',
+      }
+    }
+    return map
+  }, [bahanList])
+
+  const hppResult = useMemo(() => {
+    const numPrice = parseFloat(form.price) || 0
+    const validItems = recipeItems.filter(r => r.bahan_baku_id && Number(r.qty_per_porsi) > 0)
+    return computeResepHpp(
+      validItems.map(r => ({
+        bahan_baku_id: r.bahan_baku_id,
+        qty_per_porsi: Number(r.qty_per_porsi) || 0,
+        satuan: r.satuan || ''
+      })),
+      bahanById,
+      numPrice,
+      0
+    )
+  }, [recipeItems, bahanById, form.price])
 
   useEffect(() => {
     const timer = window.setInterval(() => setPromoNow(Date.now()), 60_000)
@@ -522,6 +591,8 @@ export default function MenuView({
 
   function openAdd() {
     setForm({ ...EMPTY, category_id: initialCategories[0]?.id ?? '' })
+    setRecipeItems([])
+    setCopyNotice(null)
     setOutletSearch('')
     resetImage(); setError(''); setShowForm(true)
   }
@@ -553,6 +624,14 @@ export default function MenuView({
       package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || [],
       outlet_ids: (item as any).available_outlets ? (item as any).available_outlets : (item.outlet_id ? [item.outlet_id] : null)
     })
+    const existingRecipe = initialRecipes[item.id]?.resep_item || []
+    setRecipeItems(existingRecipe.map(ri => ({
+      temp_id: crypto.randomUUID(),
+      bahan_baku_id: ri.bahan_baku_id,
+      qty_per_porsi: ri.qty_per_porsi,
+      satuan: ri.satuan || ''
+    })))
+    setCopyNotice(null)
     setOutletSearch('')
     resetImage(); setError(''); setShowForm(true)
   }
@@ -588,8 +667,137 @@ export default function MenuView({
       package_items: item.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || [],
       outlet_ids: (item as any).available_outlets ? (item as any).available_outlets : (item.outlet_id ? [item.outlet_id] : null)
     })
+    const existingRecipe = initialRecipes[item.id]?.resep_item || []
+    setRecipeItems(existingRecipe.map(ri => ({
+      temp_id: crypto.randomUUID(),
+      bahan_baku_id: ri.bahan_baku_id,
+      qty_per_porsi: ri.qty_per_porsi,
+      satuan: ri.satuan || ''
+    })))
+    setCopyNotice(`Data dan ${existingRecipe.length} bahan resep disalin dari ${item.name}!`)
     setOutletSearch('')
     resetImage(); setError(''); setShowForm(true)
+  }
+
+  function handleCopyFrom(sourceId: string) {
+    const source = initialItems.find(i => i.id === sourceId)
+    if (!source) return
+
+    const formattedChannelPrices: Record<string, string> = {}
+    if (source.channel_prices) {
+      Object.entries(source.channel_prices).forEach(([k, v]) => {
+        formattedChannelPrices[k] = String(v)
+      })
+    }
+
+    setForm(prev => ({
+      ...prev,
+      name: prev.name.trim() ? prev.name : `${source.name} (Salinan)`,
+      description: prev.description.trim() ? prev.description : (source.description ?? ''),
+      price: String(source.price),
+      strike_price: source.strike_price ? String(source.strike_price) : '',
+      campaign_price: source.campaign_price ? String(source.campaign_price) : '',
+      is_campaign_active: source.is_campaign_active ?? false,
+      base_price: String(source.price),
+      channel_prices: formattedChannelPrices,
+      category_id: source.category_id ?? prev.category_id,
+      is_available: source.is_available,
+      is_available_online: source.is_available_online ?? true,
+      available_online_channels: source.available_online_channels ?? null,
+      outlet_ids: (source as any).available_outlets ? (source as any).available_outlets : (source.outlet_id ? [source.outlet_id] : null),
+      is_package: source.is_package ?? false,
+      package_items: source.package_items?.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity, temp_id: Math.random().toString() })) || [],
+    }))
+
+    const sourceRecipe = initialRecipes[sourceId]?.resep_item || []
+    setRecipeItems(sourceRecipe.map(ri => ({
+      temp_id: crypto.randomUUID(),
+      bahan_baku_id: ri.bahan_baku_id,
+      qty_per_porsi: ri.qty_per_porsi,
+      satuan: ri.satuan || ''
+    })))
+
+    setCopyNotice(`Data harga, kategori & ${sourceRecipe.length} bahan resep disalin dari ${source.name}!`)
+  }
+
+  function handleAddRecipeItem() {
+    setRecipeItems(prev => [
+      ...prev,
+      { temp_id: crypto.randomUUID(), bahan_baku_id: '', qty_per_porsi: '', satuan: '' }
+    ])
+  }
+
+  function handleRemoveRecipeItem(index: number) {
+    setRecipeItems(prev => prev.filter((_, i) => i !== index))
+  }
+
+  function handleRecipeBahanChange(index: number, bahanId: string) {
+    const bb = bahanList.find(b => b.id === bahanId)
+    setRecipeItems(prev => {
+      const next = [...prev]
+      next[index] = {
+        ...next[index],
+        bahan_baku_id: bahanId,
+        satuan: bb?.satuan_kecil || bb?.kemasan_satuan || bb?.satuan || ''
+      }
+      return next
+    })
+  }
+
+  function handleRecipeQtyChange(index: number, val: string) {
+    setRecipeItems(prev => {
+      const next = [...prev]
+      next[index] = {
+        ...next[index],
+        qty_per_porsi: val
+      }
+      return next
+    })
+  }
+
+  async function handleQuickCreateBahan(e: React.FormEvent) {
+    e.preventDefault()
+    if (!quickBahanForm.nama.trim()) {
+      setQuickBahanError('Nama bahan wajib diisi')
+      return
+    }
+    if (!quickBahanForm.satuan.trim() || !quickBahanForm.satuan_kecil.trim()) {
+      setQuickBahanError('Satuan beli & satuan resep wajib diisi')
+      return
+    }
+    setQuickBahanLoading(true)
+    setQuickBahanError('')
+    try {
+      const res = await quickCreateBahanBaku({
+        nama: quickBahanForm.nama,
+        satuan: quickBahanForm.satuan,
+        satuan_kecil: quickBahanForm.satuan_kecil,
+        faktor_konversi: Number(quickBahanForm.faktor_konversi) || 1,
+        harga_beli: Number(quickBahanForm.harga_beli) || 0,
+      })
+      if (res?.ok && res.data) {
+        const newBb = res.data
+        setBahanList(prev => {
+          if (prev.some(b => b.id === newBb.id)) return prev
+          return [...prev, newBb]
+        })
+        setRecipeItems(prev => [
+          ...prev,
+          {
+            temp_id: crypto.randomUUID(),
+            bahan_baku_id: newBb.id,
+            qty_per_porsi: '',
+            satuan: newBb.satuan_kecil || newBb.satuan || ''
+          }
+        ])
+        setShowQuickBahanModal(false)
+        setQuickBahanForm({ nama: '', satuan: 'Pack', satuan_kecil: 'Pcs', faktor_konversi: '10', harga_beli: '' })
+      }
+    } catch (err: any) {
+      setQuickBahanError(err?.message || 'Gagal membuat bahan baku')
+    } finally {
+      setQuickBahanLoading(false)
+    }
   }
 
   function closeForm() { setShowForm(false); resetImage(); setError('') }
@@ -659,6 +867,16 @@ export default function MenuView({
       })
     }
 
+    const recipeItemsToSave = form.is_package
+      ? undefined
+      : recipeItems
+          .filter(r => r.bahan_baku_id && Number(r.qty_per_porsi) > 0)
+          .map(r => ({
+            bahan_baku_id: r.bahan_baku_id,
+            qty_per_porsi: Number(r.qty_per_porsi),
+            satuan: r.satuan || 'gram',
+          }))
+
     const payload = {
       id: form.id ?? undefined,
       name: form.name.trim(), description: form.description.trim() || null,
@@ -672,12 +890,14 @@ export default function MenuView({
       is_package: form.is_package,
       package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : [],
       outlet_id: form.outlet_ids && form.outlet_ids.length === 1 ? form.outlet_ids[0] : null,
-      available_outlets: form.outlet_ids
+      available_outlets: form.outlet_ids,
+      recipe_items_to_save: recipeItemsToSave,
     }
 
     try {
       await saveMenuItem(payload as any)
       closeForm()
+      router.refresh()
     } catch (err: any) {
       const errMsg = err?.message || String(err || '')
       if (errMsg.includes('Server Action') || errMsg.includes('not found on the server') || err?.digest?.includes('ACTION_NOT_FOUND')) {
@@ -953,6 +1173,65 @@ export default function MenuView({
                     <span className="font-semibold">{error}</span>
                   </div>
                 )}
+
+                {/* Notifikasi Salin / Duplikat */}
+                {copyNotice && (
+                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-2xl p-3.5 text-blue-800 text-xs sm:text-sm shadow-xs animate-in fade-in">
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span className="font-bold">{copyNotice}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCopyNotice(null)}
+                      className="text-blue-500 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* ── BANNER SALIN DARI MENU LAIN (DUPLIKASI DI DALAM MODAL) ── */}
+                <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/80 to-sky-50/90 border border-blue-200/80 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Copy className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-extrabold text-blue-950 flex items-center gap-1.5">
+                        Salin Data &amp; Resep Menu
+                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                          Duplikat Cepat
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-blue-700/90 font-medium">
+                        Salin harga, kategori, dan racikan resep bahan baku dari menu lain, lalu sesuaikan nama dan perbedaannya.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-full sm:w-auto shrink-0">
+                    <select
+                      defaultValue=""
+                      onChange={(e) => {
+                        const sourceId = e.target.value
+                        if (sourceId) {
+                          handleCopyFrom(sourceId)
+                          e.target.value = ''
+                        }
+                      }}
+                      className="w-full sm:w-64 bg-white border border-blue-300 text-slate-800 text-xs font-bold rounded-xl px-3 py-2 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer"
+                    >
+                      <option value="" disabled>-- Salin dari Menu Lain --</option>
+                      {initialItems
+                        .filter(i => i.id !== form.id)
+                        .map(item => (
+                          <option key={item.id} value={item.id}>
+                            {item.name} ({formatRupiah(item.price)})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                   
@@ -1789,6 +2068,186 @@ export default function MenuView({
 
                 </div>
 
+                {/* ── CARD RESEP & BAHAN BAKU (HPP & POTONG STOK OTOMATIS) ── */}
+                {!form.is_package && (
+                  <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-xs">
+                          <BookOpen className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                              Resep &amp; Bahan Baku (BOM / HPP)
+                            </h3>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                              {recipeItems.length} Bahan
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            Bahan baku ini otomatis memotong stok gudang/outlet saat menu terjual di POS.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Live HPP & Margin Indicators */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 text-right">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider leading-none">
+                            Total HPP
+                          </span>
+                          <span className="text-xs sm:text-sm font-extrabold text-slate-800">
+                            {formatRupiah(hppResult.totalHpp)}
+                          </span>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 text-right">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider leading-none">
+                            Margin
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs sm:text-sm font-extrabold text-slate-800">
+                              {hppResult.marginPct !== null ? `${hppResult.marginPct.toFixed(1)}%` : '—'}
+                            </span>
+                            {hppResult.marginPct !== null && (
+                              <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
+                                hppResult.marginPct >= 35 ? 'bg-emerald-100 text-emerald-700' :
+                                hppResult.marginPct >= 20 ? 'bg-amber-100 text-amber-700' :
+                                'bg-red-100 text-red-700'
+                              }`}>
+                                {hppResult.marginPct >= 35 ? 'SEHAT' : hppResult.marginPct >= 20 ? 'SEDANG' : 'TIPIS'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Recipe Items Table / List */}
+                    {recipeItems.length === 0 ? (
+                      <div className="text-center py-8 px-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50">
+                        <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs font-bold text-slate-700">Belum ada bahan baku pada resep menu ini</p>
+                        <p className="text-[11px] text-slate-400 max-w-md mx-auto mt-0.5 font-medium">
+                          Tambahkan bahan baku agar stok terpotong otomatis setiap kali menu terjual di kasir POS.
+                        </p>
+                        <div className="mt-3.5 flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleAddRecipeItem}
+                            className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Tambah Bahan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowQuickBahanModal(true)}
+                            className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            + Buat Bahan Baru
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                              <tr>
+                                <th className="py-2.5 px-3">Bahan Baku</th>
+                                <th className="py-2.5 px-3 w-32">Qty Porsi</th>
+                                <th className="py-2.5 px-3 w-28">Satuan</th>
+                                <th className="py-2.5 px-3 w-28 text-right">Subtotal HPP</th>
+                                <th className="py-2.5 px-2 w-10 text-center"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {recipeItems.map((item, idx) => {
+                                const lineHpp = hppResult.lines.find(l => l.bahan_baku_id === item.bahan_baku_id)
+                                return (
+                                  <tr key={item.temp_id} className="hover:bg-slate-50/60 transition-colors">
+                                    <td className="py-2 px-3">
+                                      <select
+                                        value={item.bahan_baku_id}
+                                        onChange={(e) => handleRecipeBahanChange(idx, e.target.value)}
+                                        className="w-full bg-slate-50/50 hover:bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                                      >
+                                        <option value="">-- Pilih Bahan Baku --</option>
+                                        {bahanList.map((bb) => (
+                                          <option key={bb.id} value={bb.id}>
+                                            {bb.nama} ({bb.satuan_kecil || bb.satuan})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <input
+                                        type="number"
+                                        step="any"
+                                        min="0"
+                                        value={item.qty_per_porsi}
+                                        onChange={(e) => handleRecipeQtyChange(idx, e.target.value)}
+                                        placeholder="0"
+                                        className="w-full bg-slate-50/50 hover:bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 text-right focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                      />
+                                    </td>
+                                    <td className="py-2 px-3 text-slate-600 font-semibold">
+                                      <span className="inline-block px-2 py-1 bg-slate-100 rounded-md text-[11px] font-bold text-slate-700">
+                                        {item.satuan || '—'}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-3 text-right font-bold text-slate-800">
+                                      {lineHpp ? formatRupiah(lineHpp.subtotal) : 'Rp 0'}
+                                    </td>
+                                    <td className="py-2 px-2 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveRecipeItem(idx)}
+                                        className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors mx-auto cursor-pointer"
+                                        title="Hapus baris"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Buttons below table */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleAddRecipeItem}
+                              className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Tambah Bahan
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowQuickBahanModal(true)}
+                              className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                              + Buat Bahan Baru
+                            </button>
+                          </div>
+
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            * Satuan otomatis mengikuti satuan pemakaian bahan baku (gram/pcs/lembar/cm).
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
 
               {/* ── STICKY FOOTER (Always visible & fixed on mobile & desktop) ── */}
@@ -1808,6 +2267,141 @@ export default function MenuView({
                   {(saving || uploading)
                     ? <div className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span>{uploading ? 'Mengupload...' : 'Menyimpan...'}</span></div>
                     : form.id ? 'Simpan Perubahan' : 'Tambah Menu Baru'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {showQuickBahanModal && createPortal(
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[60] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !quickBahanLoading) setShowQuickBahanModal(false) }}
+        >
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 border border-slate-100 animate-scale-in space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">Buat Bahan Baku Baru</h3>
+                  <p className="text-xs text-slate-500 font-medium">Bahan langsung terhubung dan siap dipakai di resep</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={quickBahanLoading}
+                onClick={() => setShowQuickBahanModal(false)}
+                className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {quickBahanError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+                {quickBahanError}
+              </div>
+            )}
+
+            <form onSubmit={handleQuickCreateBahan} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Nama Bahan Baku <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={quickBahanForm.nama}
+                  onChange={(e) => setQuickBahanForm({ ...quickBahanForm, nama: e.target.value })}
+                  placeholder="Cth: SOSIS JUMBO"
+                  className="input bg-slate-50 focus:bg-white text-xs font-bold uppercase"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Satuan Beli (Besar) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={quickBahanForm.satuan}
+                    onChange={(e) => setQuickBahanForm({ ...quickBahanForm, satuan: e.target.value })}
+                    placeholder="Cth: Pack / Kg / Pouch"
+                    className="input bg-slate-50 focus:bg-white text-xs font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Satuan Resep (Kecil) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={quickBahanForm.satuan_kecil}
+                    onChange={(e) => setQuickBahanForm({ ...quickBahanForm, satuan_kecil: e.target.value })}
+                    placeholder="Cth: Pcs / Gram / Lembar"
+                    className="input bg-slate-50 focus:bg-white text-xs font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Isi per Satuan Beli
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={quickBahanForm.faktor_konversi}
+                    onChange={(e) => setQuickBahanForm({ ...quickBahanForm, faktor_konversi: e.target.value })}
+                    placeholder="10"
+                    className="input bg-slate-50 focus:bg-white text-xs font-bold text-right"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                    1 {quickBahanForm.satuan || 'Satuan'} = {quickBahanForm.faktor_konversi || 1} {quickBahanForm.satuan_kecil || 'satuan kecil'}
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Harga Beli (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quickBahanForm.harga_beli}
+                    onChange={(e) => setQuickBahanForm({ ...quickBahanForm, harga_beli: e.target.value })}
+                    placeholder="0"
+                    className="input bg-slate-50 focus:bg-white text-xs font-bold text-right"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                    Harga per {quickBahanForm.satuan || 'satuan besar'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={quickBahanLoading}
+                  onClick={() => setShowQuickBahanModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickBahanLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  {quickBahanLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan & Pakai'}
                 </button>
               </div>
             </form>

@@ -120,7 +120,17 @@ export async function nonaktifkanMenu(id: string): Promise<HasilUbahMenu> {
   return { ok: true }
 }
 
-export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number }[], available_outlets?: string[] | null }) {
+export type RecipeItemInput = {
+  bahan_baku_id: string
+  qty_per_porsi: number
+  satuan?: string
+}
+
+export async function saveMenuItem(form: Partial<MenuItem> & { 
+  package_items_to_save?: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number }[], 
+  available_outlets?: string[] | null,
+  recipe_items_to_save?: RecipeItemInput[],
+}) {
   const supabase = await getSupabase()
   
   const payload = {
@@ -183,6 +193,51 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
         if (pkgError) throw new Error(`Package items error: ${pkgError.message}`)
       }
     }
+  }
+
+  // Simpan resep (BOM) jika dikirim dari form terpadu
+  if (finalId && form.recipe_items_to_save !== undefined && !payload.is_package) {
+    const { data: existingResep } = await supabase
+      .from('resep')
+      .select('id')
+      .eq('menu_item_ref', finalId)
+      .eq('scope', 'global')
+      .maybeSingle()
+
+    let resepId = existingResep?.id
+    const validItems = form.recipe_items_to_save.filter(
+      (r) => r.bahan_baku_id && Number(r.qty_per_porsi) > 0
+    )
+
+    if (!resepId && validItems.length > 0) {
+      const { data: newR, error: rErr } = await supabase
+        .from('resep')
+        .insert({
+          menu_item_ref: finalId,
+          nama: `Resep ${form.name}`,
+          scope: 'global',
+          is_active: true,
+          buffer_amount: 0,
+        })
+        .select('id')
+        .single()
+      if (!rErr && newR) resepId = newR.id
+    }
+
+    if (resepId) {
+      await supabase.from('resep_item').delete().eq('resep_id', resepId)
+      if (validItems.length > 0) {
+        await supabase.from('resep_item').insert(
+          validItems.map((r) => ({
+            resep_id: resepId,
+            bahan_baku_id: r.bahan_baku_id,
+            qty_per_porsi: Number(r.qty_per_porsi),
+            satuan: r.satuan || 'gram',
+          }))
+        )
+      }
+    }
+    revalidatePath('/dashboard/resep')
   }
   
   if (finalId) {
@@ -314,5 +369,92 @@ export async function updateMenuChannelPrices(menuId: string, channelPrices: Rec
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
+/** Quick add bahan baku baru langsung dari form menu */
+export async function quickCreateBahanBaku(payload: {
+  nama: string
+  satuan: string
+  satuan_kecil: string
+  faktor_konversi?: number
+  harga_beli?: number
+}) {
+  const supabase = await getSupabase()
+  const namaBahan = payload.nama.trim().toUpperCase()
+  const satuanBesar = payload.satuan.trim()
+  const satuanKecil = payload.satuan_kecil.trim()
+  const faktor = Math.max(1, Number(payload.faktor_konversi) || 1)
+  const harga = Math.max(0, Number(payload.harga_beli) || 0)
 
+  // Periksa apakah sudah ada
+  const { data: existing } = await supabase
+    .from('bahan_baku')
+    .select('id, nama, satuan, satuan_kecil, bahan_baku_harga(harga_beli, kemasan_qty, kemasan_satuan)')
+    .ilike('nama', namaBahan)
+    .maybeSingle()
 
+  if (existing) {
+    const h = Array.isArray(existing.bahan_baku_harga) ? existing.bahan_baku_harga[0] : existing.bahan_baku_harga
+    return {
+      ok: true,
+      data: {
+        id: existing.id,
+        nama: existing.nama,
+        satuan: existing.satuan,
+        satuan_kecil: existing.satuan_kecil,
+        harga_beli: Number(h?.harga_beli) || 0,
+        kemasan_qty: Number(h?.kemasan_qty) || 1,
+        kemasan_satuan: h?.kemasan_satuan || existing.satuan_kecil || existing.satuan,
+      }
+    }
+  }
+
+  const { data: newBahan, error: errBahan } = await supabase
+    .from('bahan_baku')
+    .insert({
+      nama: namaBahan,
+      satuan: satuanBesar,
+      satuan_kecil: satuanKecil,
+      faktor_tampilan: faktor,
+      faktor_konversi: faktor,
+      faktor_po: faktor,
+      kategori: 'FOOD & BEVERAGE',
+      kategori_core: null,
+      is_active: true,
+      is_opname: true,
+      is_fisik_checked: true,
+      peruntukan: 'keduanya',
+      satuan_distribusi: satuanBesar.toLowerCase(),
+      satuan_po: satuanBesar.toLowerCase(),
+      default_reorder_point: 1,
+    })
+    .select('id, nama, satuan, satuan_kecil')
+    .single()
+
+  if (errBahan) {
+    throw new Error(`Gagal membuat bahan baku: ${errBahan.message}`)
+  }
+
+  await supabase.from('bahan_baku_harga').insert({
+    bahan_baku_id: newBahan.id,
+    harga_beli: harga,
+    harga_beli_display: harga,
+    kemasan_qty: faktor,
+    kemasan_satuan: satuanKecil,
+  })
+
+  revalidatePath('/dashboard/pos-admin/menu')
+  revalidatePath('/dashboard/resep')
+  revalidatePath('/dashboard/bahan-baku')
+
+  return {
+    ok: true,
+    data: {
+      id: newBahan.id,
+      nama: newBahan.nama,
+      satuan: newBahan.satuan,
+      satuan_kecil: newBahan.satuan_kecil,
+      harga_beli: harga,
+      kemasan_qty: faktor,
+      kemasan_satuan: satuanKecil,
+    }
+  }
+}

@@ -83,9 +83,12 @@ export function useInboundOutbound(
   searchQuery?: string,
   startDate?: string,
   endDate?: string,
-  bahanId?: string
+  bahanId?: string,
+  filterTipe?: 'ALL' | 'IN' | 'OUT'
 ) {
   const [data, setData] = useState<InboundOutbound[] | null>(null);
+  const [summaryData, setSummaryData] = useState<InboundOutbound[] | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,10 +103,14 @@ export function useInboundOutbound(
     try {
       let query = supabase
         .from('inbound_outbound_feed')
-        .select(FEED_COLUMNS);
+        .select(FEED_COLUMNS, { count: 'exact' });
 
       if (outletId !== 'ALL') {
         query = query.eq('outlet_id', outletId);
+      }
+
+      if (filterTipe && filterTipe !== 'ALL') {
+        query = query.eq('tipe', filterTipe);
       }
 
       if (bahanId && bahanId !== 'ALL') {
@@ -121,9 +128,12 @@ export function useInboundOutbound(
         .order('created_at', { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      const { data: result, error: fetchErr } = await query;
+      const { data: result, count, error: fetchErr } = await query;
 
       if (fetchErr) throw fetchErr;
+
+      const exactCount = count ?? 0;
+      setTotalCount(exactCount);
 
       let rows = ((result as unknown as FeedRow[]) || []).map(toInboundOutbound);
 
@@ -142,6 +152,43 @@ export function useInboundOutbound(
       }
 
       setData(rows);
+
+      // Bila filter tipe 'ALL' dan total data lebih dari 1 halaman,
+      // ambil seluruh dataset ringkas untuk kalkulasi summary card yang akurat satu periode
+      if ((!filterTipe || filterTipe === 'ALL') && exactCount > pageSize) {
+        let sumQuery = supabase
+          .from('inbound_outbound_feed')
+          .select(FEED_COLUMNS);
+
+        if (outletId !== 'ALL') sumQuery = sumQuery.eq('outlet_id', outletId);
+        if (bahanId && bahanId !== 'ALL') sumQuery = sumQuery.eq('bahan_baku_id', bahanId);
+        if (startDate) sumQuery = sumQuery.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) sumQuery = sumQuery.lte('created_at', `${endDate}T23:59:59`);
+        sumQuery = sumQuery.limit(2000);
+
+        const { data: allSumResult } = await sumQuery;
+        if (allSumResult) {
+          let sumRows = ((allSumResult as unknown as FeedRow[]) || []).map(toInboundOutbound);
+          if (searchQuery && searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            sumRows = sumRows.filter(
+              (item) =>
+                item.bahan_baku?.nama.toLowerCase().includes(q) ||
+                item.kategori.toLowerCase().includes(q) ||
+                item.catatan?.toLowerCase().includes(q) ||
+                item.tujuan_outlet_nama?.toLowerCase().includes(q) ||
+                item.nomor_sj?.toLowerCase().includes(q) ||
+                item.nomor_po?.toLowerCase().includes(q) ||
+                item.supplier_nama?.toLowerCase().includes(q)
+            );
+          }
+          setSummaryData(sumRows);
+        } else {
+          setSummaryData(rows);
+        }
+      } else {
+        setSummaryData(rows);
+      }
     } catch (err: any) {
       setError(err.message || 'Gagal memuat data mutasi');
     } finally {
@@ -153,7 +200,7 @@ export function useInboundOutbound(
     if (outletId) {
       refresh();
     }
-  }, [outletId, page, searchQuery, startDate, endDate, bahanId]);
+  }, [outletId, page, searchQuery, startDate, endDate, bahanId, filterTipe]);
 
-  return { data, loading, error, refresh };
+  return { data, summaryData, totalCount, pageSize, loading, error, refresh };
 }

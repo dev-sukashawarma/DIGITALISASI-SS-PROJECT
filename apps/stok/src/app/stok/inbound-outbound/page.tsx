@@ -68,13 +68,14 @@ export default function InboundOutboundPage() {
     setPage(0);
   };
 
-  const { data, loading, error } = useInboundOutbound(
+  const { data, summaryData, totalCount, pageSize, loading, error } = useInboundOutbound(
     currentOutletId, 
     page, 
     searchTerm,
     startDate || undefined,
     endDate || undefined,
-    selectedBahanId
+    selectedBahanId,
+    filterTipe
   );
 
   const applyPreset = (preset: 'ALL' | 'TODAY' | '7DAYS' | 'THIS_MONTH') => {
@@ -180,8 +181,9 @@ export default function InboundOutboundPage() {
     let otherUnitLabel = '';
 
     const isSingleBahan = selectedBahanId && selectedBahanId !== 'ALL';
+    const sourceData = (summaryData && summaryData.length > 0) ? summaryData : filteredData;
 
-    for (const item of filteredData) {
+    for (const item of sourceData) {
       const calc = getDistribusiCalculation(item);
       const nilai = calc.totalNilai || 0;
       const unit = (calc.unitLabel || '').toLowerCase().trim();
@@ -212,7 +214,7 @@ export default function InboundOutboundPage() {
     }
 
     const unitLabel = isSingleBahan
-      ? (filteredData[0]?.bahan_baku?.satuan_distribusi || filteredData[0]?.bahan_baku?.satuan || 'kg')
+      ? (sourceData[0]?.bahan_baku?.satuan_distribusi || sourceData[0]?.bahan_baku?.satuan || 'kg')
       : 'kg';
 
     const formatNumber = (val: number) => {
@@ -251,7 +253,7 @@ export default function InboundOutboundPage() {
       diffKg,
       diffKgDisplay,
     };
-  }, [filteredData, selectedBahanId]);
+  }, [summaryData, filteredData, selectedBahanId]);
 
   const isFiltered = Boolean(
     searchTerm || 
@@ -623,7 +625,7 @@ export default function InboundOutboundPage() {
               <InboundOutboundList items={filteredData} />
 
               {/* Pagination Controls */}
-              {(data || []).length > 0 && (
+              {(totalCount > 0 || (data || []).length > 0) && (
                 <div className="flex justify-between items-center bg-white border border-suka-brown/10 p-4 rounded-2xl shadow-xs mt-6">
                   <button
                     disabled={page === 0}
@@ -633,10 +635,10 @@ export default function InboundOutboundPage() {
                     <ChevronLeft className="w-4 h-4" /> Halaman Sebelumnya
                   </button>
                   <span className="text-xs font-bold text-suka-brown/60">
-                    Halaman {page + 1}
+                    Halaman {page + 1} dari {Math.max(1, Math.ceil(totalCount / pageSize))} ({totalCount} pergerakan)
                   </span>
                   <button
-                    disabled={(data || []).length < 100}
+                    disabled={(page + 1) * pageSize >= totalCount}
                     onClick={() => setPage((p) => p + 1)}
                     className="px-4 py-2 flex items-center gap-2 bg-white border border-suka-brown/15 hover:bg-suka-cream text-suka-brown disabled:opacity-35 disabled:hover:bg-white rounded-xl font-bold text-xs transition-all shadow-2xs active:scale-95 cursor-pointer"
                   >

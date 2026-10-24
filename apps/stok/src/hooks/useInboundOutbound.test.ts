@@ -119,4 +119,29 @@ describe('useInboundOutbound hook', () => {
     const bahanCalls = mockEq.mock.calls.filter((call) => call[0] === 'bahan_baku_id');
     expect(bahanCalls).toHaveLength(0);
   });
+
+  it('filters by tipe when filterTipe is IN or OUT', async () => {
+    const { result } = renderHook(() =>
+      useInboundOutbound('ALL', 0, undefined, undefined, undefined, 'ALL', 'IN')
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(mockEq).toHaveBeenCalledWith('tipe', 'IN');
+  });
+
+  it('does NOT filter by tipe when filterTipe is ALL', async () => {
+    const { result } = renderHook(() =>
+      useInboundOutbound('ALL', 0, undefined, undefined, undefined, 'ALL', 'ALL')
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    const tipeCalls = mockEq.mock.calls.filter((call) => call[0] === 'tipe');
+    expect(tipeCalls).toHaveLength(0);
+  });
 });

@@ -20,6 +20,10 @@ export interface MonitoringItem {
   // arah dekomposisi yang benar. Lihat migration
   // 20300105000003_saldo_is_gram_and_last_opname_date.sql.
   saldo_is_gram: boolean;
+  // current_qty dalam satuan BESAR (dihitung view: saldo / faktor_tampilan bila
+  // saldo_is_gram). Skalanya sama dengan threshold -- pakai ini, bukan
+  // current_qty, untuk membandingkan atau membagi dengan threshold.
+  current_qty_besar: number;
   threshold: number;
   status: StockStatus;
   is_flagged: boolean;

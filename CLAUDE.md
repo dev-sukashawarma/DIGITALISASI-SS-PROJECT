@@ -3497,6 +3497,22 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 
 ---
 
-**Last updated:** 2026-10-21  
+## Session 2026-10-26: Laporan WhatsApp untuk Area Manager (DB, GOWA)
+
+**Status:** Fungsi & antrean **LIVE** (`20261026160000_laporan_wa_am`, applied + terstempel). Jadwal pg_cron **BELUM aktif** — `20261026160100_laporan_wa_am_jadwal.sql` ditulis, belum di-apply (menunggu OK owner). Nol app perlu redeploy.
+
+**Spec:** `docs/superpowers/specs/2026-10-26-laporan-wa-am-design.md`
+
+- Pengirim: GOWA (`blast.sukashawarma.com`, Coolify VPS 1), device **`AM_REMINDER`** (per 26 Okt sore: 6282299329686 "DEV AI SS"; device `HR` = 6283832676624 — nomor di device bisa berganti saat di-pair ulang, cek `GET /devices`). Penerima: `outlet_staff.phone` AM aktif, outlet binaan dari `staff_outlets` (tanpa Kantor Pusat/tes/SS Backup).
+- `wa_am_susun_status_opname(cutoff)` 21:30/22:30 WIB · `wa_am_susun_reminder_setor()` 08:00 WIB, omzet tunai **kemarin** per outlet + total tunai (setor H+1; **hanya tunai** — baris "total semua kanal" dibuang di `20261026170000` karena terbaca seolah wajib disetor) → `wa_am_outbox` (idempoten per AM/jenis/tanggal) → `wa_am_kirim_antrean()` (pg_net, maks 5 kirim/putaran, retry 3x, `INVALID_JID` langsung gagal, gagal → alert developer). Kredensial GOWA di Vault (`gowa_base_url`, `gowa_basic_auth`).
+- Kolom baru **`opname.finalized_at`** (trigger `trg_opname_isi_finalized_at`); 1.642 baris lama di-backfill dari `updated_at` (perkiraan).
+- Uji kirim ke Tri Rizky 26 Okt: 2/2 `sent`. Uji manual: `wa_am_susun_*(…, p_staff_id, p_phone_uji)` (event_key `uji:…`, tak bentrok dengan jadwal).
+- ⚠️ Bot Telegram AM (`bot_manager_*`) jalan tapi **0/398 pesan terkirim** (tak ada AM menautkan Telegram), dan `bot_manager_broadcast_omzet` menggelembungkan omzet ±56% (SUM `total_amount` setelah JOIN `order_items`). Belum diperbaiki.
+- ⚠️ GOWA (Go Fiber) menolak header > ~4 KB → buka `blast.` di Incognito (cookie SSO `.sukashawarma.com` terlalu besar, error 431). Password GOWA masih tertulis di `apps/HR/src/lib/waha.ts`, `apps/admin-dashboard/src/lib/waha.ts`, dan compose Coolify — perlu diganti, lalu perbarui secret Vault `gowa_basic_auth`.
+- Data: nomor Chairul Rizky dikoreksi 089675750974 → 081367472113 (nomor lama tak terdaftar WA).
+
+---
+
+**Last updated:** 2026-10-26  
 **Owner:** Dev Suka Shawarma
 

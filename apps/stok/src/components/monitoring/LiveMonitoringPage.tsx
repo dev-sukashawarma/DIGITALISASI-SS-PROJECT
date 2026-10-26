@@ -197,7 +197,7 @@ export function LiveMonitoringPage() {
     return belowItems
       .map((it) => ({
         ...it,
-        ratio: it.threshold > 0 ? it.current_qty / it.threshold : 0,
+        ratio: it.threshold > 0 ? it.current_qty_besar / it.threshold : 0,
       }))
       .sort((a, b) => a.ratio - b.ratio)
       .slice(0, 3);

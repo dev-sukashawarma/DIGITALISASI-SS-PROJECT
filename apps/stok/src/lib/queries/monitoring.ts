@@ -110,7 +110,7 @@ export async function fetchSPVMonitoringData() {
   const data = await fetchAllRows<any>(
     supabase,
     'monitoring_view_spv',
-    'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram'
+    'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram, current_qty_besar'
   );
 
   // Deduplicate by composite key (outlet_id, bahan_baku_id)
@@ -142,7 +142,7 @@ export async function fetchLeaderMonitoringData() {
   const data = await fetchAllRows<any>(
     supabase,
     'monitoring_view_scoped',
-    'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram'
+    'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram, current_qty_besar'
   );
 
   // Deduplicate by composite key (outlet_id, bahan_baku_id)
@@ -193,7 +193,7 @@ export async function fetchCrewMonitoringData(userId?: string) {
 
   const { data, error } = await supabase
     .from('monitoring_view_crew')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram, current_qty_besar')
     .eq('outlet_id', staffData.outlet_id)
     .order('item_name');
 
@@ -314,7 +314,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   const { data: itemData, error: itemError } = await supabase
     .from('monitoring_view_spv')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, last_updated, saldo_is_gram')
+    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, last_updated, saldo_is_gram, current_qty_besar')
     .eq('outlet_id', outletId)
     .eq('bahan_baku_id', bahan_baku_id)
     .single();
@@ -546,6 +546,8 @@ export interface OutletDetailItem {
   bahan_baku_id: string;
   item_name: string;
   current_qty: number;
+  /** current_qty dalam satuan BESAR (sama dengan skala threshold). */
+  current_qty_besar: number;
   threshold: number;
   satuan: string | null;
   status: 'below' | 'warning' | 'ok';
@@ -572,7 +574,7 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
 
   const { data: items, error } = await supabase
     .from('monitoring_view_spv')
-    .select('bahan_baku_id, item_name, current_qty, threshold, satuan, status')
+    .select('bahan_baku_id, item_name, current_qty, current_qty_besar, threshold, satuan, status')
     .eq('outlet_id', outletId)
     .order('item_name');
 
@@ -620,6 +622,7 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
     bahan_baku_id: it.bahan_baku_id,
     item_name: it.item_name,
     current_qty: it.current_qty,
+    current_qty_besar: it.current_qty_besar,
     threshold: it.threshold,
     satuan: it.satuan,
     status: it.status,

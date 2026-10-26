@@ -189,7 +189,7 @@ export function PermintaanForm({
   }
 
   function addCriticalItem(s: SaranItem) {
-    const kekuranganBase = Math.max(1, Math.ceil(s.threshold - s.current_qty))
+    const kekuranganBase = Math.max(1, Math.ceil(s.threshold - s.current_qty_besar))
     const b_info = bahanBaku.find(x => x.id === s.bahan_baku_id)
     const distQty = b_info ? convertToDistribusiUnit(kekuranganBase, b_info) : kekuranganBase
     setManualBahan(p => ({ ...p, [s.bahan_baku_id]: Math.ceil(distQty) }))
@@ -206,7 +206,7 @@ export function PermintaanForm({
     setManualBahan(prev => {
       const copy = { ...prev }
       unadded.forEach(s => {
-        const kekuranganBase = Math.max(1, Math.ceil(s.threshold - s.current_qty))
+        const kekuranganBase = Math.max(1, Math.ceil(s.threshold - s.current_qty_besar))
         const b_info = bahanBaku.find(x => x.id === s.bahan_baku_id)
         const distQty = b_info ? convertToDistribusiUnit(kekuranganBase, b_info) : kekuranganBase
         copy[s.bahan_baku_id] = Math.ceil(distQty)

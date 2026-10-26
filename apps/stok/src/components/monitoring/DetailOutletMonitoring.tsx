@@ -318,7 +318,7 @@ export function DetailOutletMonitoring({ outletId }: { outletId: string }) {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {filteredItems.map((item) => {
-              const ratio = item.threshold > 0 ? item.current_qty / item.threshold : 0;
+              const ratio = item.threshold > 0 ? item.current_qty_besar / item.threshold : 0;
               const percent = Math.min(100, Math.round(ratio * 100));
               const ledgerList = item.recent_ledger?.slice(0, 3) || [];
 

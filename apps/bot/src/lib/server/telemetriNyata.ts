@@ -265,13 +265,16 @@ export interface SuratJalanTelemetri {
   status: string
   tanggal: string
   totalItem: number
+  ringkasanItem?: string
   adaSelisih: boolean
   rincianSelisih?: string[]
 }
 
 export interface DistribusiTelemetri {
   totalSuratJalanDikirim: number
+  totalSuratJalanMenggantung?: number
   totalSuratJalanAdaSelisih: number
+  daftarSuratJalanMenggantung?: SuratJalanTelemetri[]
   daftarSuratJalanTerbaru: SuratJalanTelemetri[]
 }
 
@@ -1285,7 +1288,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(15)
+        .limit(60)
         .then((r: any) => {
           if (r.error) console.warn('[telemetriNyata] warn surat_jalan:', r.error.message)
           return r
@@ -2079,13 +2082,16 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const daftarSuratJalanTerbaru: SuratJalanTelemetri[] = rawSj.map((sj: any) => {
       const items = sj.surat_jalan_item || []
       const rincianSelisih: string[] = []
+      const itemStrs: string[] = []
       let adaSelisih = false
       for (const it of items) {
+        const bNama = it.bahan_baku?.nama || 'Item'
+        const sat = it.bahan_baku?.satuan || ''
+        const qKirim = Number(it.qty_dikirim) || 0
+        itemStrs.push(`${bNama} ${qKirim}${sat ? ` ${sat}` : ''}`)
         const diff = Number(it.selisih) || 0
         if (diff !== 0 || (it.kondisi && it.kondisi !== 'baik')) {
           adaSelisih = true
-          const bNama = it.bahan_baku?.nama || 'Item'
-          const sat = it.bahan_baku?.satuan || ''
           rincianSelisih.push(
             `${bNama}: kirim ${it.qty_dikirim}, terima ${it.qty_terima} (${diff > 0 ? '+' : ''}${diff} ${sat}) - ${it.kondisi || 'selisih'}`
           )
@@ -2097,14 +2103,21 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         status: sj.status || 'draft',
         tanggal: sj.created_at ? String(sj.created_at).slice(0, 10) : '-',
         totalItem: items.length,
+        ringkasanItem: itemStrs.join(', '),
         adaSelisih,
         rincianSelisih: rincianSelisih.length > 0 ? rincianSelisih : undefined,
       }
     })
 
+    const daftarSuratJalanMenggantung = daftarSuratJalanTerbaru.filter((s) =>
+      ['dikirim', 'dikirim_lengkap'].includes(String(s.status || '').toLowerCase())
+    )
+
     const distribusi: DistribusiTelemetri = {
       totalSuratJalanDikirim: rawSj.length,
+      totalSuratJalanMenggantung: daftarSuratJalanMenggantung.length,
       totalSuratJalanAdaSelisih: daftarSuratJalanTerbaru.filter((s) => s.adaSelisih).length,
+      daftarSuratJalanMenggantung,
       daftarSuratJalanTerbaru,
     }
 

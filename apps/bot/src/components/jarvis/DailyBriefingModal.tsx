@@ -314,9 +314,9 @@ export default function DailyBriefingModal({
   return (
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 lg:p-6 animate-in fade-in duration-200"
     >
-      <div className="relative w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl bg-zinc-950/95 border border-cyan-400/50 shadow-[0_0_60px_rgba(6,182,212,0.3)] text-zinc-100 overflow-hidden">
+      <div className="relative w-full max-w-7xl max-h-[92vh] flex flex-col rounded-2xl bg-zinc-950/95 border border-cyan-400/50 shadow-[0_0_60px_rgba(6,182,212,0.3)] text-zinc-100 overflow-hidden">
         {/* Corner Reticles */}
         <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-300 pointer-events-none" />
         <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-cyan-300 pointer-events-none" />

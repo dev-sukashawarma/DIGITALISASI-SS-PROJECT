@@ -357,20 +357,33 @@ ${topBahan}
     const dist = t.distribusi
     let teksDistribusi = ''
     if (dist) {
+      const menggantung = dist.daftarSuratJalanMenggantung || (dist.daftarSuratJalanTerbaru || []).filter((s) =>
+        ['dikirim', 'dikirim_lengkap'].includes(String(s.status || '').toLowerCase())
+      )
+      const listSjMenggantung = menggantung
+        .map(
+          (s, idx) =>
+            `  ${idx + 1}. ${s.outlet} — ID: ${s.id} | Status: ${s.status} (Tgl: ${s.tanggal}) | Item (${s.totalItem}): ${s.ringkasanItem || '-'}`
+        )
+        .join('\n')
+
       const listSj = (dist.daftarSuratJalanTerbaru || [])
-        .slice(0, 5)
+        .slice(0, 15)
         .map((s) => {
           const selisihInfo =
             s.adaSelisih && s.rincianSelisih?.length ? ` [PERHATIAN SELISIH: ${s.rincianSelisih.join('; ')}]` : ''
-          return `  * [${s.tanggal}] Ke ${s.outlet} (Status: ${s.status}, ${s.totalItem} item)${selisihInfo}`
+          return `  * [${s.tanggal}] Ke ${s.outlet} (ID: ${s.id}, Status: ${s.status}, ${s.totalItem} item: ${s.ringkasanItem || '-'})${selisihInfo}`
         })
         .join('\n')
 
       teksDistribusi = `
 DATA LOGISTIK & PENGIRIMAN SURAT JALAN (DISTRIBUSI):
+- Total Surat Jalan Menggantung / Status DIKIRIM (Belum Diterima/Verifikasi Cabang): ${menggantung.length} pengiriman aktif
+- Daftar Surat Jalan Menggantung / Status DIKIRIM (WAJIB sebutkan semua jika ditanya SJ menggantung):
+${listSjMenggantung || '  (Nihil - seluruh Surat Jalan sudah diverifikasi oleh cabang)'}
 - Total Surat Jalan Terpantau: ${dist.totalSuratJalanDikirim} pengiriman
 - Surat Jalan dengan Catatan Selisih/Rusak: ${dist.totalSuratJalanAdaSelisih} pengiriman
-- Pengiriman Surat Jalan Terbaru:
+- Riwayat Pengiriman Surat Jalan Terbaru:
 ${listSj || '  (Tidak ada riwayat pengiriman)'}
 `
     }

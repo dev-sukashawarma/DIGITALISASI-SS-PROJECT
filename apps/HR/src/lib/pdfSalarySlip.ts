@@ -4,6 +4,35 @@ import { getPayrollBreakdown } from './payrollBreakdown'
 import { isRendyOrDeveloperStaff } from './staffFilters'
 import { SUKA_LOGO_BASE64 } from './logoBase64'
 
+// Lebar satu kolom di kartu informasi karyawan (mm): x 14 → 72 dan x 78 → 136.
+const COLUMN_WIDTH = 58
+
+/**
+ * Tulis teks satu baris yang muat di `maxWidth`: font diperkecil sampai
+ * `minSize`, lalu dipotong dengan "…" bila masih terlalu panjang.
+ */
+function textFit(
+  doc: import('jspdf').jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  size: number,
+  minSize = 6
+) {
+  let fontSize = size
+  doc.setFontSize(fontSize)
+  while (doc.getTextWidth(text) > maxWidth && fontSize > minSize) {
+    fontSize = Math.max(minSize, fontSize - 0.25)
+    doc.setFontSize(fontSize)
+  }
+  let fitted = text
+  while (doc.getTextWidth(fitted) > maxWidth && fitted.length > 1) {
+    fitted = fitted.slice(0, -2) + '…'
+  }
+  doc.text(fitted, x, y)
+}
+
 export async function generateSalarySlipPdf(
   slip: PayrollRecord,
   options?: { autoSave?: boolean; hrdSignatureBase64?: string }
@@ -122,16 +151,16 @@ export async function generateSalarySlipPdf(
   doc.setTextColor(115, 115, 115)
   doc.text('INFORMASI KARYAWAN', 14, 34.5)
 
+  // Lebar kolom kiri dibatasi garis tengah (x = 74), jadi teks panjang
+  // (mis. "SUKA SHAWARMA DEPOK SUKMAJAYA") diperkecil agar tidak menabraknya.
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
   doc.setTextColor(58, 20, 16)
-  doc.text(staffName, 14, 39.5)
+  textFit(doc, staffName, 14, 39.5, COLUMN_WIDTH, 9)
 
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
   doc.setTextColor(70, 70, 70)
-  doc.text(`Jabatan : ${roleName}`, 14, 44)
-  doc.text(`Lokasi   : ${outletName}`, 14, 48)
+  textFit(doc, `Jabatan : ${roleName}`, 14, 44, COLUMN_WIDTH, 7.5)
+  textFit(doc, `Lokasi   : ${outletName}`, 14, 48, COLUMN_WIDTH, 7.5)
 
   // Right Column: Rincian Pembayaran
   doc.setFont('helvetica', 'bold')
@@ -140,9 +169,8 @@ export async function generateSalarySlipPdf(
   doc.text('RINCIAN PEMBAYARAN', 78, 34.5)
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
   doc.setTextColor(40, 40, 40)
-  doc.text(`${bankName} • ${bankAcc}`, 78, 39.5)
+  textFit(doc, `${bankName} • ${bankAcc}`, 78, 39.5, COLUMN_WIDTH, 8)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
@@ -377,14 +405,35 @@ export async function generateSalarySlipPdf(
   doc.setFontSize(7.5)
   doc.text('HRD Suka Profit Berkah,', hrdCenterX, signY, { align: 'center' })
 
-  // Ruang tanda tangan (placeholder ttd sebelum gambar fisik/scan disematkan)
+  // Ruang tanda tangan: gambar TTD bila disediakan, selain itu keterangan
+  // tanda tangan elektronik (slip final) atau penanda draft.
   if (options?.hrdSignatureBase64) {
     doc.addImage(options.hrdSignatureBase64, 'PNG', 102, signY + 2, 29, 13)
   } else {
-    doc.setTextColor(170, 170, 170)
-    doc.setFont('helvetica', 'italic')
-    doc.setFontSize(7)
-    doc.text('( ttd )', hrdCenterX, signY + 9, { align: 'center' })
+    const signedDate = new Date(isFinal && slip.updated_at ? slip.updated_at : Date.now())
+      .toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' })
+    doc.setLineWidth(0.3)
+    if (isFinal) {
+      doc.setDrawColor(22, 101, 52)
+      doc.setFillColor(240, 253, 244)
+    } else {
+      doc.setDrawColor(217, 119, 6)
+      doc.setFillColor(255, 251, 235)
+    }
+    doc.roundedRect(95, signY + 2.5, 43, 10.5, 1.5, 1.5, 'FD')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(5.2)
+    if (isFinal) {
+      doc.setTextColor(22, 101, 52)
+      doc.text('DITANDATANGANI SECARA ELEKTRONIK', hrdCenterX, signY + 6.5, { align: 'center' })
+    } else {
+      doc.setTextColor(180, 83, 9)
+      doc.text('BELUM DITANDATANGANI (DRAFT)', hrdCenterX, signY + 6.5, { align: 'center' })
+    }
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(5.5)
+    doc.setTextColor(90, 90, 90)
+    doc.text(isFinal ? `${signedDate} · ${refCode}` : refCode, hrdCenterX, signY + 10.5, { align: 'center' })
   }
 
   // Garis tanda tangan

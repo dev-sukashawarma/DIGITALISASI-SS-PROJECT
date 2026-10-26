@@ -3,7 +3,7 @@ import { buatPengurai } from '@/lib/hermes'
 
 export const dynamic = 'force-dynamic'
 
-const MODEL_AUDIO_STT = ['ag/gemini-3.8-flash', 'CEO_SS', 'MANAGER_SS', 'hermes-combo']
+const MODEL_AUDIO_STT = ['ag/gemini-3.8-flash-high', 'ag/gemini-3.8-flash', 'CEO_SS', 'MANAGER_SS', 'hermes-combo']
 
 const PROMPT_TRANSKRIPSI = `Transkripsikan ucapan suara Bahasa Indonesia pada audio ini menjadi teks kalimat perintah/pertanyaan secara akurat.
 Konteks kosakata bisnis Suka Shawarma: Jarvis, laporan daily, daily briefing, omzet, penjualan, cabang, outlet, kemarin, hari ini, waste, bahan baku, void, kasir, OPEX, pengeluaran, utang PO, supplier, setoran kas, selisih, presensi, absen, kru telat, cuti, izin, Google Review, ulasan, kirim ke Telegram.

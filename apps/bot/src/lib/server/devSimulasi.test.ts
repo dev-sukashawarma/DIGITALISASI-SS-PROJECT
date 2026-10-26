@@ -357,4 +357,19 @@ describe('buatJawabanDev', () => {
     expect(textOpex).toContain('Service Chiller Kemarin')
     expect(textOpex).toContain('OPEX TERBESAR KEMARIN')
   })
+
+  it('menghasilkan laporan evaluasi komprehensif dari semua app dan saran taktis saat ditanya evaluasi kemarin', () => {
+    const chunks = buatJawabanDev(
+      'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi (penjualan, finance, HRD, waste, stok, distribusi, dan review) lengkap dengan rekomendasi dan saran taktis dari agent.',
+      'ceo',
+      mockTelemetri
+    )
+    const full = chunks.join('')
+    expect(full).toContain('LAPORAN EVALUASI OPERASIONAL & EKSEKUTIF KOMPREHENSIF')
+    expect(full).toContain('EXECUTIVE SUMMARY & MULTI-APP SCORECARD')
+    expect(full).toContain('REKAPITULASI KINERJA MULTI-APP (LINTAS DIVISI)')
+    expect(full).toContain('RADAR ANOMALI & RED FLAGS KRITIS')
+    expect(full).toContain('REKOMENDASI & SARAN STRATEGIS AGENT (ACTIONABLE SUGGESTIONS)')
+    expect(full).toContain('Sir')
+  })
 })

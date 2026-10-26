@@ -301,7 +301,8 @@ export async function POST(req: NextRequest) {
         `Pusat kendali operasional, analitik penjualan real-time, dan asisten AI Suka Shawarma yang terhubung langsung ke seluruh stasiun cabang.\n\n` +
         `⚡ <b>Menu Komando Utama (Slash Commands):</b>\n` +
         `• /omzet — <i>Cek penjualan, AOV & ranking cabang hari ini</i>\n` +
-        `• /kemarin — <i>Rekapitulasi & evaluasi omzet cabang kemarin</i>\n` +
+        `• /kemarin — <i>Laporan evaluasi komprehensif seluruh modul kemarin (H-1)</i>\n` +
+        `• /evaluasi — <i>Evaluasi multi-app & rekomendasi taktis agent</i>\n` +
         `• /buka — <i>Cek status cabang buka & cabang 0 transaksi</i>\n` +
         `• /absensi — <i>Presensi kru outlet & staf kantor pusat</i>\n` +
         `• /stok — <i>Katalog bahan baku & buffer stok gudang pusat</i>\n` +
@@ -341,8 +342,14 @@ export async function POST(req: NextRequest) {
     const cmdClean = queryTeks.toLowerCase().split(' ')[0]
     if (cmdClean === '/omzet' || cmdClean.startsWith('/omzet@')) {
       queryTeks = 'Berapa omzet seluruh cabang hari ini dan peringkat penjualannya?'
-    } else if (cmdClean === '/kemarin' || cmdClean.startsWith('/kemarin@')) {
-      queryTeks = 'Bagaimana rekapitulasi dan peringkat penjualan seluruh cabang kemarin?'
+    } else if (
+      cmdClean === '/kemarin' ||
+      cmdClean.startsWith('/kemarin@') ||
+      cmdClean === '/evaluasi' ||
+      cmdClean.startsWith('/evaluasi@')
+    ) {
+      queryTeks =
+        'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi (penjualan, finance, HRD, waste, stok, distribusi, dan review) lengkap dengan rekomendasi dan saran taktis dari agent.'
     } else if (cmdClean === '/buka' || cmdClean.startsWith('/buka@')) {
       queryTeks = 'Cabang mana yang sudah buka dan mana yang belum ada transaksi hari ini?'
     } else if (cmdClean === '/absensi' || cmdClean.startsWith('/absensi@') || cmdClean === '/absen' || cmdClean.startsWith('/absen@')) {

@@ -895,7 +895,7 @@ export default function JarvisApp({
                     ⚡ Daily Briefing (H-1)
                   </button>
                   {[
-                    { label: '📅 Evaluasi Kemarin (H-1)', pesan: 'Bagaimana rekapitulasi dan peringkat penjualan seluruh cabang kemarin beserta menu terlaris kemarin?' },
+                    { label: '📅 Evaluasi Kemarin (H-1)', pesan: 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi (penjualan, finance, HRD, waste, stok, distribusi, dan review) lengkap dengan rekomendasi dan saran taktis dari agent.' },
                     { label: '💰 OPEX & Kas Kemarin', pesan: 'Berapa total pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier?' },
                     { label: '🥬 Waste & Void Kemarin', pesan: 'Analisis laporan waste bahan baku tertinggi dan cek transaksi void POS kemarin.' },
                     { label: '👥 Presensi & Telat Kemarin', pesan: 'Siapa saja kru outlet yang terlambat atau izin/cuti kemarin?' },
@@ -1044,7 +1044,7 @@ export default function JarvisApp({
                   void eksekusiPerintahJarvis(
                     q ||
                       (modeWaktuKotak === 'kemarin'
-                        ? 'Tampilkan peringkat omzet seluruh cabang kemarin beserta menu terlaris kemarin.'
+                        ? 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi lengkap dengan analisis performa dan rekomendasi taktis.'
                         : 'Tampilkan peringkat omzet seluruh cabang live hari ini beserta menu terlaris.'),
                     false
                   )

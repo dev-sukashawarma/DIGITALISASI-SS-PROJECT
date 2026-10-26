@@ -60,7 +60,7 @@ const LABEL_AGENT_BAWAAN: Record<string, { nama: string; badge: string; deskrips
 const CEPAT_BAWAAN: Record<string, string[]> = {
   ceo: [
     'Peringkat omzet semua cabang hari ini',
-    'Evaluasi penjualan kemarin',
+    'Laporan evaluasi komprehensif kemarin (semua app)',
     'Rincian utang PO supplier & OPEX',
     'Siapa kru yang telat atau izin hari ini?',
     'Audit bahan waste & void kasir',

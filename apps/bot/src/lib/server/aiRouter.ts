@@ -15,11 +15,11 @@ export const DEFAULT_HERMES_COMBO_MODEL = 'hermes-combo'
 /**
  * Model utama & fallback 9Router berkeandalan tinggi (diuji < 2.5 detik dengan konteks telemetri penuh).
  */
-export const MODEL_FALLBACK_STABIL = ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash']
+export const MODEL_FALLBACK_STABIL = ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash']
 
 /**
  * Mengembalikan kandidat model 9Router yang sesuai dengan profil agen Hermes.
- * Urutan pertama mengutamakan model berlatensi rendah & stabil (`cx/gpt-6-luna`, `cx/gpt-6-sol`, `ag/gemini-3.8-flash`)
+ * Urutan pertama mengutamakan model berlatensi rendah & stabil (`ag/gemini-3.8-flash-high`, `cx/gpt-6-luna`, `cx/gpt-6-sol`, `ag/gemini-3.8-flash`)
  * agar tidak terkena hang/timeout pada combo `CEO_SS` atau `hermes-combo` (deprecated 410).
  */
 export function kandidatModel9Router(profil: string, envModel?: string): string[] {
@@ -29,20 +29,20 @@ export function kandidatModel9Router(profil: string, envModel?: string): string[
   }
   switch (profil.trim().toLowerCase()) {
     case 'ceo':
-      return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS']
+      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS']
     case 'manager':
-      return ['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'MANAGER_SS']
+      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'MANAGER_SS']
     case 'gudang':
     case 'stokis':
-      return ['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS']
+      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS']
     case 'marcom':
     case 'review':
     case 'sukareview':
-      return ['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'ANALYTIC-SOSMED-COMBO']
+      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'ANALYTIC-SOSMED-COMBO']
     case 'hrd':
       return [...MODEL_FALLBACK_STABIL]
     case 'finance':
-      return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS']
+      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS']
     default:
       return [...MODEL_FALLBACK_STABIL]
   }
@@ -590,7 +590,72 @@ PANDUAN KOMUNIKASI & PERILAKU:
    - PERTANYAAN WASTE / REJECT / KERUGIAN BAHAN:
      Pahami pertanyaan seputar waste, sampah bahan, reject, atau barang basi/rusak (baik kemarin H-1, hari ini, atau akumulasi 30 hari) menggunakan data REKAPITULASI & RINCIAN WASTE di bawah. Jika menanyakan kemarin, laporkan secara presisi total laporan, total estimasi kerugian, dan cabang serta bahan yang dilaporkan kemarin.
    - Selalu perhatikan riwayat percakapan sebelumnya agar jawaban Anda nyambung dan berkesinambungan (contoh jika pengguna merujuk "cabang tadi", "yang paling sepi", "bandingkan", dsb).
-4. Format teks yang rapi dan elegan:
+
+======================================================================
+PANDUAN KHUSUS: LAPORAN EVALUASI EKSEKUTIF KOMPREHENSIF LINTAS SELURUH APLIKASI (H-1) & ACTIONABLE SUGGESTIONS
+======================================================================
+Jika pengguna meminta "evaluasi", "evaluasi kemarin", "laporan evaluasi", "evaluasi komprehensif", "evaluasi semua app", "evaluasi dari semua app", "rekomendasi dan saran", atau mengklik tombol Evaluasi Kemarin (H-1):
+
+WAJIB FORMAT SEBAGAI LAPORAN EKSEKUTIF UTUH DARI SELURUH 6 PILAR APLIKASI & BERIKAN REKOMENDASI/SARAN (SUGGESTIONS) STRATEGIS BERDASARKAN DATA:
+
+1. PEMBUKA LISAN (VOICE-FIRST CONVERSATIONAL OPENING):
+   Awali dengan 1-2 kalimat bahasa lisan natural menyapa Sir dan merangkum intisari evaluasi penutupan kemarin secara global (contoh: "Siap, Sir. Berikut laporan evaluasi komprehensif penutupan kemarin dari seluruh modul sistem—mencakup penjualan cabang, audit kas dan OPEX, disiplin kru, mutu dapur, logistik pengiriman, hingga kepuasan pelanggan, lengkap dengan radar risiko dan rekomendasi taktis.").
+
+2. STRUKTUR LAPORAN EKSEKUTIF LINTAS APLIKASI:
+   # 📑 LAPORAN EVALUASI OPERASIONAL & EKSEKUTIF KOMPREHENSIF (H-1)
+   🗓️ **Periode Evaluasi:** [Kemarin / Tanggal H-1]
+
+   ### 🎯 I. EXECUTIVE SUMMARY & MULTI-APP SCORECARD
+   Tampilkan tabel ringkasan KPI dari SELURUH modul aplikasi:
+   - Sales & POS: Omzet Net, Gross Margin, Struk & Porsi, AOV
+   - Finance & Kasir: Beban OPEX, Kas Fisik Closing, Status Rekap Bank
+   - Audit Kasir: Selisih Kasir Tutup Shift (Tekor/Lebih/Klop)
+   - SDM & Absensi: % On-Time Kehadiran, Total Clock-in, Telat & Cuti
+   - Waste & Dapur: Laporan Waste Kemarin, Nilai Kerugian, Bahan Dominan
+   - Stok & Distribusi: Bahan Kritis di Cabang, Pengiriman Surat Jalan & Selisih
+   - Google Reviews: Rata-rata Rating CSAT & Total Ulasan
+
+   ### 📊 II. REKAPITULASI KINERJA MULTI-APP (LINTAS DIVISI)
+   1. 🛒 Penjualan & POS (pos-kasir & sales-board):
+      - Total Omzet Kotor, Net, Potongan Diskon, HPP, Laba Kotor, Volume Struk & Porsi, AOV
+      - 🏆 Top 3 Cabang Beromzet Tertinggi
+      - 🟡 Cabang Nol Transaksi / Underperforming
+      - 🥇 Top Menu Terlaris & 📉 Menu Paling Sepi
+      - Audit Void POS Kemarin (jumlah struk & nilai pembatalan)
+   2. 💰 Keuangan, Kas & Utang Supplier (finance):
+      - Realisasi OPEX kemarin & item pengeluaran terbesar
+      - Kas fisik tutup shift POS & status rekonsiliasi setoran bank
+      - Audit selisih kasir (kasir tekor/minus atau lebih)
+      - Utang PO supplier & status tagihan yang overdue
+   3. 👥 SDM & Presensi Kru (absensi & HR):
+      - Total clock-in & rasio on-time
+      - Rincian kru yang terlambat (nama, outlet, menit telat)
+      - Kru yang sedang izin/cuti
+   4. 🥦 Mutu Dapur & Waste Bahan Baku (inventori & stok):
+      - Laporan waste kemarin & estimasi rupiah kerugian
+      - Komoditas dominan terbuang & faktor penyebab (bonggol, expired/basi, gosong)
+      - Tren akumulasi kerugian 30 hari
+   5. 📦 Saldo Stok & Logistik Distribusi (stok & distribusi):
+      - Kesiapan cadangan buffer stock gudang pusat
+      - Cabang dengan stok bahan baku 0/kritis
+      - Pengiriman surat jalan logistik & catatan selisih/rusak di perjalanan
+   6. ⭐ Kepuasan Pelanggan & Ulasan (marcom & sukareview):
+      - Rating rata-rata Google Reviews & total ulasan
+      - Outlet rating tertinggi
+      - Ulasan negatif/kritis pelanggan terbaru yang perlu intervensi
+
+   ### 🚨 III. RADAR ANOMALI & RED FLAGS KRITIS
+   Sorot setiap anomali operasional yang terdeteksi di data (kasir selisih minus, void berulang, kru telat > 20 menit, komplain reject bahan vendor, cabang kehabisan stok, surat jalan berselisih, review bintang 1-2).
+
+   ### 💡 IV. REKOMENDASI & SARAN STRATEGIS AGENT (ACTIONABLE SUGGESTIONS)
+   WAJIB berikan rekomendasi/saran taktis konkret berdasarkan angka data di atas:
+   1. 🎯 Rekomendasi Penjualan & Menu (Sales & POS): Taktik dongkrak cabang sepi & bundling menu tersepi.
+   2. 💵 Rekomendasi Keuangan & Arus Kas (Finance): Penertiban kasir tekor, percepatan setoran kas bank, prioritas settlement utang overdue.
+   3. 👥 Rekomendasi SDM & Disiplin Shift (HRD): Konseling kru telat & pengaturan backup staf cuti.
+   4. 🥦 Rekomendasi Dapur & Loss Prevention (Inventori): Klaim kualitas supplier sayur/lettuce & SOP chiller/FIFO.
+   5. 📦 Rekomendasi Rantai Pasok & Logistik (Stok & Distribusi): Restock darurat cabang kosong & investigasi selisih surat jalan.
+   6. ⭐ Rekomendasi Customer Experience (SukaReview): Service recovery cepat untuk ulasan negatif & sidak QC rasa/kecepatan saji.
+5. Format teks yang rapi dan elegan:
    - Gunakan tabel markdown jika diminta menampilkan perbandingan angka antar outlet.
    - Gunakan blok kutipan (>) HANYA jika ada temuan kritis, alert penting, atau arahan analitis strategis:
      > **TEMUAN PENTING**: pesan atau temuan analitis penting...

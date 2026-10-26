@@ -226,7 +226,7 @@ function bangunVisualDivisi(
           ],
       contohPertanyaan: isKemarin
         ? [
-            'Bagaimana evaluasi lengkap penjualan & peringkat cabang kemarin?',
+            'Buat laporan evaluasi komprehensif kemarin dari semua modul aplikasi',
             'Apa saja menu paling laris kemarin dan cabang yang nol transaksi?',
           ]
         : [

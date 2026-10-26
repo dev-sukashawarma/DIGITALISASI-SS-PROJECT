@@ -56,13 +56,13 @@ describe('aiRouter', () => {
   })
 
   it('memetakan profil Hermes ke model combo 9Router yang sesuai', () => {
-    expect(kandidatModel9Router('ceo')).toEqual(['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
-    expect(kandidatModel9Router('manager')).toEqual(['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
-    expect(kandidatModel9Router('gudang')).toEqual(['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS'])
-    expect(kandidatModel9Router('stokis')).toEqual(['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS'])
-    expect(kandidatModel9Router('marcom')).toEqual(['cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'ANALYTIC-SOSMED-COMBO'])
-    expect(kandidatModel9Router('hrd')).toEqual(['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash'])
-    expect(kandidatModel9Router('finance')).toEqual(['cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
+    expect(kandidatModel9Router('ceo')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
+    expect(kandidatModel9Router('manager')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
+    expect(kandidatModel9Router('gudang')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS'])
+    expect(kandidatModel9Router('stokis')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS'])
+    expect(kandidatModel9Router('marcom')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'ANALYTIC-SOSMED-COMBO'])
+    expect(kandidatModel9Router('hrd')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash'])
+    expect(kandidatModel9Router('finance')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
   })
 
   it('melempar error jika AI_BASE_URL atau AI_API_KEY kosong', async () => {
@@ -158,8 +158,8 @@ describe('aiRouter', () => {
     process.env.AI_API_KEY = 'test-key'
     process.env.AI_MODEL = 'test-model'
 
-    let requestBody = null
-    const chunks = ['data: {"choices":[{"delta":{"content":"Siap."}}]}\\n\\n', 'data: [DONE]\\n\\n']
+    let requestBody: any = null
+    const chunks = ['data: {"choices":[{"delta":{"content":"Siap."}}]}\n\n', 'data: [DONE]\n\n']
     const encoder = new TextEncoder()
     const readableStream = new ReadableStream({
       start(controller) {
@@ -168,9 +168,9 @@ describe('aiRouter', () => {
       },
     })
 
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
-      requestBody = JSON.parse(init.body)
-      return { ok: true, status: 200, body: readableStream }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init: any) => {
+      requestBody = JSON.parse(init?.body as string)
+      return { ok: true, status: 200, body: readableStream } as any
     })
 
     const telemetriDenganWaste = {

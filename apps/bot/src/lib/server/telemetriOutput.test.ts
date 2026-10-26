@@ -291,4 +291,63 @@ describe('Bot CEO Cross-App Integrated Output Verification', () => {
     expect(resSetoran).toContain('18.400.000')
     expect(resSetoran).toContain('SUKA SHAWARMA CONDET')
   })
+
+  it('CEO: Menghasilkan Laporan Evaluasi Komprehensif Lintas Semua App dengan Rekomendasi & Saran Taktis Agent', () => {
+    const resEvaluasi = buatJawabanDev(
+      'di evluasinya buat kompershensif dong dari semua app jadi bentuknya nanti kaya laporan dan agentsnya bisa ngasih suggestu berdasarkan data tersebuut',
+      'ceo',
+      fullFixedTelemetri
+    ).join('')
+
+    // 1. Bentuk laporan eksekutif terstruktur
+    expect(resEvaluasi).toContain('LAPORAN EVALUASI OPERASIONAL & EKSEKUTIF KOMPREHENSIF')
+    expect(resEvaluasi).toContain('EXECUTIVE SUMMARY & MULTI-APP SCORECARD')
+    expect(resEvaluasi).toContain('REKAPITULASI KINERJA MULTI-APP (LINTAS DIVISI)')
+
+    // 2. Data lengkap dari semua aplikasi
+    // POS & Penjualan (pos-kasir, sales-board)
+    expect(resEvaluasi).toContain('65.600.000')
+    expect(resEvaluasi).toContain('1.080')
+    expect(resEvaluasi).toContain('SUKA SHAWARMA CONDET')
+    expect(resEvaluasi).toContain('Shawarma Beef Large Garlic Mayo')
+    expect(resEvaluasi).toContain('SUKA SHAWARMA MARGONDA')
+    expect(resEvaluasi).toContain('90.000') // Void POS
+
+    // Keuangan & Kasir (finance)
+    expect(resEvaluasi).toContain('2.850.000') // OPEX
+    expect(resEvaluasi).toContain('Service Exhaust Fan & Chiller')
+    expect(resEvaluasi).toContain('64.200.000') // Kas fisik closing
+    expect(resEvaluasi).toContain('Bambang') // Kasir tekor
+    expect(resEvaluasi).toContain('38.400.000') // Utang PO supplier
+    expect(resEvaluasi).toContain('12.000.000') // Overdue PO
+
+    // SDM & Presensi (absensi, HR)
+    expect(resEvaluasi).toContain('97% On-Time')
+    expect(resEvaluasi).toContain('Indra Pratama')
+    expect(resEvaluasi).toContain('25 menit')
+    expect(resEvaluasi).toContain('Ahmad Fauzi')
+
+    // Waste & Mutu Dapur (inventori, stok)
+    expect(resEvaluasi).toContain('140.000')
+    expect(resEvaluasi).toContain('Sayur Lettuce')
+
+    // Stok & Logistik (stok, distribusi)
+    expect(resEvaluasi).toContain('Daging Sapi Marinasi')
+    expect(resEvaluasi).toContain('bocor di perjalanan')
+
+    // Kepuasan Pelanggan (Google Reviews)
+    expect(resEvaluasi).toContain('4.6⭐')
+
+    // 3. Radar Anomali & Red Flags Kritis
+    expect(resEvaluasi).toContain('RADAR ANOMALI & RED FLAGS KRITIS')
+
+    // 4. Rekomendasi & Saran Strategis Agent (Suggestions)
+    expect(resEvaluasi).toContain('REKOMENDASI & SARAN STRATEGIS AGENT (ACTIONABLE SUGGESTIONS)')
+    expect(resEvaluasi).toContain('Penjualan & Pemasaran')
+    expect(resEvaluasi).toContain('Keuangan & Kontrol Kas')
+    expect(resEvaluasi).toContain('SDM & Kedisiplinan Kru')
+    expect(resEvaluasi).toContain('Dapur & Pengurangan Waste')
+    expect(resEvaluasi).toContain('Rantai Pasok & Logistik')
+    expect(resEvaluasi).toContain('Kepuasan Pelanggan')
+  })
 })

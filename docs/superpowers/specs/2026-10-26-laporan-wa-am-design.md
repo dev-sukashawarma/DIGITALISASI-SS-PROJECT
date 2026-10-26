@@ -18,7 +18,7 @@ semua outlet binaannya:
 
 | # | Keputusan |
 |---|---|
-| K1 | Reminder setor menampilkan **omzet tunai** per outlet (yang wajib disetor) + total tunai, plus **total omzet semua kanal** sebagai info. |
+| K1 | Reminder setor menampilkan **omzet tunai** per outlet (yang wajib disetor) + total tunai **saja**. (Baris "total omzet semua kanal" sempat ada, dibuang 2026-10-26 di `20261026170000` atas permintaan owner.) |
 | K2 | Pola setor **H+1**: omzet hari Senin disetor hari Selasa, dst. Reminder dikirim **08:00 WIB** hari setor, berisi omzet hari sebelumnya. |
 | K3 | Status opname dikirim **21:30 WIB** (progres semua outlet) dan **22:30 WIB** (cut-off, hanya bila masih ada outlet yang belum selesai). |
 

@@ -123,6 +123,7 @@ export function useWasteHistory(filters: WasteHistoryFilter) {
   return {
     reports: (data?.data ?? []) as WasteReport[],
     totalCount: data?.totalCount ?? 0,
+    activeCount: data?.activeCount ?? data?.totalCount ?? 0,
     totalNilai: data?.totalNilai ?? 0,
     totalQty: data?.totalQty ?? 0,
     selectedBahanHarga: data?.selectedBahanHarga,

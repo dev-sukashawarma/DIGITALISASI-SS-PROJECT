@@ -25,6 +25,7 @@ export default function WasteApprovalPage() {
     'area_manager',
     'regional_manager',
     'admin',
+    'owner',
     'kitchen',
     'developer',
   ].includes(role ?? '')
@@ -43,13 +44,14 @@ export default function WasteApprovalPage() {
   const { balances } = useStokBalance(outletId || '')
   const { reports, loading, refresh: loadReports } = useWasteApprovalList()
 
-  const handleApprove = async (id: string, qty: number, bahanBakuId: string) => {
-    const bal = balances.find(b => b.bahan_baku_id === bahanBakuId)
+  const handleApprove = async (id: string, qty: number, bahanBakuId: string, reportOutletId?: string) => {
+    const isSameOutlet = Boolean(outletId && reportOutletId && outletId === reportOutletId)
+    const bal = isSameOutlet ? balances.find(b => b.bahan_baku_id === bahanBakuId) : undefined
     const currentSaldoBesar = bal?.saldo_is_gram
       ? convertGramToBesar(bal.saldo, reports.find(r => r.bahan_baku_id === bahanBakuId)?.bahan_baku ?? {})
       : (bal?.saldo || 0)
 
-    if (qty > currentSaldoBesar) {
+    if (bal && qty > currentSaldoBesar) {
       const confirmMsg = `PERINGATAN: Kuantitas waste (${qty}) lebih besar dari saldo saat ini (${currentSaldoBesar}). Saldo akan menjadi negatif setelah disetujui. Tetap setujui laporan ini?`
       if (!window.confirm(confirmMsg)) return
     }
@@ -125,11 +127,12 @@ export default function WasteApprovalPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {reports.map((r: any) => {
-            const bal = balances.find(b => b.bahan_baku_id === r.bahan_baku_id)
+            const isSameOutlet = Boolean(outletId && r.outlet_id && outletId === r.outlet_id)
+            const bal = isSameOutlet ? balances.find(b => b.bahan_baku_id === r.bahan_baku_id) : undefined
             const currentSaldoBesar = bal?.saldo_is_gram
               ? convertGramToBesar(bal.saldo, r.bahan_baku ?? {})
               : (bal?.saldo || 0)
-            const isNegativeWarning = r.qty > currentSaldoBesar
+            const isNegativeWarning = Boolean(bal && r.qty > currentSaldoBesar)
 
             const createdDate = r.created_at ? new Date(r.created_at) : null
             const formattedDate = createdDate
@@ -216,7 +219,7 @@ export default function WasteApprovalPage() {
                   <div className="bg-red-50 text-red-700 text-[11px] font-bold p-3 rounded-xl border border-red-200 mb-3 flex gap-2 items-start">
                     <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
                     <p>
-                      Saldo saat ini: <span className="font-black">{bal?.saldo || 0}</span>. Menyetujui ini akan membuat saldo menjadi negatif!
+                      Saldo saat ini: <span className="font-black">{Math.round(currentSaldoBesar * 100) / 100} {r.bahan_baku?.satuan || ''}</span>. Menyetujui ini akan membuat saldo menjadi negatif!
                     </p>
                   </div>
                 )}
@@ -252,7 +255,7 @@ export default function WasteApprovalPage() {
                   <button
                     type="button"
                     className="flex-1 bg-suka-green hover:bg-green-700 text-white font-bold text-xs sm:text-sm py-2.5 rounded-xl transition-all shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
-                    onClick={() => handleApprove(r.id, r.qty, r.bahan_baku_id)}
+                    onClick={() => handleApprove(r.id, r.qty, r.bahan_baku_id, r.outlet_id)}
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Setujui</span>

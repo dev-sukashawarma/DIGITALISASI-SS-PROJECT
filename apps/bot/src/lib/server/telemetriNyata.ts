@@ -1255,7 +1255,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         'monitoring_view_spv',
         (q) =>
           q
-            .select('outlet_id, bahan_baku_id, current_qty, last_opname_date, saldo_is_gram, outlets(name), bahan_baku(nama, satuan, satuan_kecil, faktor_tampilan)')
+            .select('outlet_id, bahan_baku_id, current_qty, last_opname_date, saldo_is_gram, outlets(name), bahan_baku(nama, satuan, satuan_kecil, faktor_tampilan, faktor_konversi, faktor_tengah)')
             .order('outlet_id', { ascending: true })
             .order('bahan_baku_id', { ascending: true }),
         1000,
@@ -1387,6 +1387,10 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       'owner',
       'mitra',
       'kiosk',
+      'area_manager',
+      'regional_manager',
+      'korlap',
+      'spv',
     ])
 
     const ringkasanHariIni = hitungRingkasan(ordersHariIni, rawOutlets, `Hari Ini (${tglStr})`, tglStr)
@@ -1402,28 +1406,15 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const sortedMenu = ringkasanHariIni.topMenu || []
     const sortedMenuKemarin = ringkasanKemarin.topMenu || []
 
-    // Kehadiran / HRD Kru Outlet Hari Ini
-    const att = (resAtt.data || []).filter(isOutletCabang)
-    const kehadiranTotal = att.length
-    const kehadiranTelat = att.filter(
-      (a: any) =>
-        a.status !== 'telat_toleransi' &&
-        (a.status === 'telat' || a.status === 'terlambat' || Number(a.telat_menit) > 0)
-    ).length
-    const kehadiranTepatWaktu = kehadiranTotal - kehadiranTelat
-    const persenOnTime = kehadiranTotal > 0 ? Math.round((kehadiranTepatWaktu / kehadiranTotal) * 100) : 100
+    // Kehadiran / HRD Kru Outlet Hari Ini & Kemarin (H-1)
+    const isLateAttRow = (a: any) =>
+      a.status !== 'telat_toleransi' &&
+      (a.status === 'telat' || a.status === 'terlambat' || Number(a.telat_menit) > 0)
 
-    // Kehadiran / HRD Kru Outlet Kemarin (H-1)
+    const att = (resAtt.data || []).filter(isOutletCabang)
     const attKemarin = (resAttKemarin?.data || []).filter(isOutletCabang)
-    const kehadiranTotalKemarin = attKemarin.length
-    const kehadiranTelatKemarin = attKemarin.filter(
-      (a: any) =>
-        a.status !== 'telat_toleransi' &&
-        (a.status === 'telat' || a.status === 'terlambat' || Number(a.telat_menit) > 0)
-    ).length
-    const kehadiranTepatWaktuKemarin = kehadiranTotalKemarin - kehadiranTelatKemarin
-    const persenOnTimeKemarin =
-      kehadiranTotalKemarin > 0 ? Math.round((kehadiranTepatWaktuKemarin / kehadiranTotalKemarin) * 100) : 100
+    const attLateRaw = att.filter(isLateAttRow)
+    const attKemarinLateRaw = attKemarin.filter(isLateAttRow)
 
     const totalOutletAktif = rawOutlets.length
     const bahanBaku = (resBahan.data || []).map((b: any) => ({ nama: b.nama, satuan: b.satuan }))
@@ -1449,11 +1440,13 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const stafCutiIzin = filterDanMapLeave(resLeave.data || [])
     const stafCutiIzinKemarin = filterDanMapLeave(resLeaveKemarin?.data || [])
 
-    // Staf Telat Kru Outlet (Hari Ini & Kemarin)
+    // Staf Telat Kru Outlet (Hari Ini & Kemarin) — diselaraskan dengan kehadiranTelat agar tidak kontradiktif
     const lateFiltered = (resLate.data || []).filter(isOutletCabang)
     const lateKemarinFiltered = (resLateKemarin?.data || []).filter(isOutletCabang)
     const allLateStaffIds = Array.from(
       new Set([
+        ...attLateRaw.map((a: any) => a.outlet_staff_id),
+        ...attKemarinLateRaw.map((a: any) => a.outlet_staff_id),
         ...lateFiltered.map((a: any) => a.outlet_staff_id),
         ...lateKemarinFiltered.map((a: any) => a.outlet_staff_id),
       ].filter(Boolean))
@@ -1466,12 +1459,15 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       staffMap[s.id] = { name: s.name, role: s.role }
     }
 
+    const filterKruLateRows = (rows: any[]) =>
+      rows.filter((a: any) => {
+        const role = (staffMap[a.outlet_staff_id]?.role || '').toLowerCase()
+        return !ROLE_BUKAN_KRU_OUTLET.has(role)
+      })
+
     const mapLateRows = (rows: any[]): StafTelatTelemetri[] =>
-      rows
-        .filter((a: any) => {
-          const role = (staffMap[a.outlet_staff_id]?.role || '').toLowerCase()
-          return !ROLE_BUKAN_KRU_OUTLET.has(role)
-        })
+      filterKruLateRows(rows)
+        .sort((a: any, b: any) => (Number(b.telat_menit) || 0) - (Number(a.telat_menit) || 0))
         .slice(0, 15)
         .map((a: any) => ({
           nama: staffMap[a.outlet_staff_id]?.name || 'Kru',
@@ -1479,8 +1475,22 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           telatMenit: Number(a.telat_menit) || 0,
         }))
 
-    const stafTelat = mapLateRows(lateFiltered)
-    const stafTelatKemarin = mapLateRows(lateKemarinFiltered)
+    const kruLateHariIni = filterKruLateRows(attLateRaw.length >= lateFiltered.length ? attLateRaw : lateFiltered)
+    const kruLateKemarin = filterKruLateRows(attKemarinLateRaw.length >= lateKemarinFiltered.length ? attKemarinLateRaw : lateKemarinFiltered)
+
+    const kehadiranTotal = att.length
+    const kehadiranTelat = kruLateHariIni.length
+    const kehadiranTepatWaktu = Math.max(0, kehadiranTotal - kehadiranTelat)
+    const persenOnTime = kehadiranTotal > 0 ? Math.round((kehadiranTepatWaktu / kehadiranTotal) * 100) : 100
+
+    const kehadiranTotalKemarin = attKemarin.length
+    const kehadiranTelatKemarin = kruLateKemarin.length
+    const kehadiranTepatWaktuKemarin = Math.max(0, kehadiranTotalKemarin - kehadiranTelatKemarin)
+    const persenOnTimeKemarin =
+      kehadiranTotalKemarin > 0 ? Math.round((kehadiranTepatWaktuKemarin / kehadiranTotalKemarin) * 100) : 100
+
+    const stafTelat = mapLateRows(kruLateHariIni)
+    const stafTelatKemarin = mapLateRows(kruLateKemarin)
 
     const hrdKemarin: HrdHarianTelemetri = {
       tanggalIso: tglKemarinStr,
@@ -1608,7 +1618,9 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       .sort((a, b) => b.estKerugianExact - a.estKerugianExact || b.totalQty - a.totalQty)
       .slice(0, 5)
       .map(b => {
-        const topReason = Object.entries(b.reasons).sort((x, y) => y[1] - x[1])[0]?.[0] || '-'
+        const sortedReasons = Object.entries(b.reasons).sort((x, y) => y[1] - x[1])
+        const nonGeneric = sortedReasons.filter(([k]) => !/^(lainnya|-)$/i.test(k.trim()))
+        const topReason = (nonGeneric[0] || sortedReasons[0])?.[0] || '-'
         return {
           nama: b.nama,
           satuan: b.satuan,
@@ -2021,10 +2033,13 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       const bNama = r.bahan_baku?.nama || 'Bahan Baku'
       const bSat = r.bahan_baku?.satuan || 'unit'
       const rawQty = Number(r.current_qty) || 0
-      const fTampil = Number(r.bahan_baku?.faktor_tampilan) || 0
+      const fPenuh =
+        r.bahan_baku?.faktor_tengah && r.bahan_baku?.faktor_tampilan
+          ? Number(r.bahan_baku.faktor_tampilan) || 0
+          : Number(r.bahan_baku?.faktor_tampilan) || Number(r.bahan_baku?.faktor_konversi) || 0
       const qty =
-        r.saldo_is_gram && r.bahan_baku?.satuan_kecil && fTampil > 0
-          ? Math.round((rawQty / fTampil) * 100) / 100
+        r.saldo_is_gram && r.bahan_baku?.satuan_kecil && fPenuh > 0
+          ? Math.round((rawQty / fPenuh) * 100) / 100
           : Math.round(rawQty * 100) / 100
       const outNama = r.outlets?.name || 'Cabang'
 

@@ -31,7 +31,7 @@ import {
 } from 'lucide-react'
 
 function formatDateInput(d: Date): string {
-  return d.toISOString().split('T')[0]
+  return new Date(d.getTime() + 7 * 3600_000).toISOString().split('T')[0]
 }
 
 function formatRp(n: number): string {
@@ -58,7 +58,7 @@ export default function WasteHistoryPage() {
   const defaultTo = useMemo(() => formatDateInput(new Date()), [])
   const defaultFrom = useMemo(() => {
     const d = new Date()
-    d.setDate(d.getDate() - 30)
+    d.setDate(d.getDate() - 29)
     return formatDateInput(d)
   }, [])
 
@@ -108,6 +108,7 @@ export default function WasteHistoryPage() {
   const {
     reports,
     totalCount,
+    activeCount,
     totalNilai,
     totalQty,
     selectedBahanHarga,
@@ -116,12 +117,14 @@ export default function WasteHistoryPage() {
     fetching,
   } = useWasteHistory(queryFilters)
 
-  // Quick Preset Handlers
+  const kpiIncidentCount = status === 'ALL' ? activeCount : totalCount
+
+  // Quick Preset Handlers (inclusive: 30 Hari = hari ini s/d H-29, 7 Hari = hari ini s/d H-6)
   const handlePreset = (days: number) => {
     const end = new Date()
     const start = new Date()
     if (days > 0) {
-      start.setDate(start.getDate() - days)
+      start.setDate(start.getDate() - (days - 1))
     }
     setFrom(formatDateInput(start))
     setTo(formatDateInput(end))
@@ -502,7 +505,7 @@ export default function WasteHistoryPage() {
               </span>
               {isCustomBahan && (
                 <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-800 rounded-md">
-                  {totalCount} Insiden
+                  {kpiIncidentCount} Insiden
                 </span>
               )}
             </div>
@@ -518,7 +521,7 @@ export default function WasteHistoryPage() {
                 formatQtyDisplay(totalQty)
               ) : (
                 <>
-                  {totalCount} <span className="text-sm font-bold text-[#544437]/70">Insiden</span>
+                  {kpiIncidentCount} <span className="text-sm font-bold text-[#544437]/70">Insiden</span>
                 </>
               )}
             </div>
@@ -530,8 +533,10 @@ export default function WasteHistoryPage() {
               ) : isCustomBahan ? (
                 <>
                   Akumulasi riil ({totalQty.toLocaleString('id-ID', { maximumFractionDigits: 2 })} {selectedBahan?.satuan})
-                  <span className="text-[#544437]/50 font-normal"> · dari {totalCount} total laporan</span>
+                  <span className="text-[#544437]/50 font-normal"> · dari {kpiIncidentCount} laporan valid</span>
                 </>
+              ) : status === 'ALL' && totalCount > activeCount ? (
+                `Insiden valid (${totalCount - activeCount} ditolak dari ${totalCount} total laporan)`
               ) : (
                 'Sesuai filter status & tanggal yang dipilih'
               )}

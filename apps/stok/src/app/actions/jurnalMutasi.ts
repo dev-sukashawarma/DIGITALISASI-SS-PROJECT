@@ -1170,11 +1170,11 @@ export async function fetchReconciliationSnapshot(
     .filter((row) => row.tipe !== 'opname_selisih')
     .map(normalizeLedgerRow)
 
-  // 4a. Untuk mode konsolidasi "Semua Outlet", ambil juga stok_waste_reports berstatus APPROVED
-  // pada rentang waktu ini karena waste yang disetujui sesudah opname hari yang sama dicatat
-  // dengan qty = 0 di ledger_stok (agar tidak memotong stok_balance dua kali).
+  // 4a. Ambil stok_waste_reports berstatus APPROVED pada rentang waktu ini (baik mode
+  // Semua Outlet maupun outlet tunggal) karena waste yang disetujui sesudah opname hari
+  // yang sama dicatat dengan qty = 0 di ledger_stok (agar tidak memotong stok_balance dua kali).
   const approvedWasteByBahan = new Map<string, number>()
-  if (isAll) {
+  if (targetOutletIds.length > 0) {
     try {
       const wasteReports = await fetchAllPages<any>(() =>
         supabase
@@ -1193,7 +1193,7 @@ export async function fetchReconciliationSnapshot(
         approvedWasteByBahan.set(w.bahan_baku_id, (approvedWasteByBahan.get(w.bahan_baku_id) || 0) + qKecil)
       }
     } catch (e) {
-      console.warn('Gagal memuat laporan waste konsolidasi:', e)
+      console.warn('Gagal memuat laporan waste rekonsiliasi:', e)
     }
   }
 
@@ -1614,16 +1614,13 @@ export async function fetchReconciliationSnapshot(
     } else if (row.tipe === 'pemakaian') {
       agg.pakaiQty += Math.abs(rawQty)
     } else if (row.tipe === 'waste') {
-      // Pada mode Semua Outlet (isAll), waste ber-ref_waste_id sudah dihitung otoritatif dari
-      // stok_waste_reports (APPROVED); hanya waste manual tanpa ref_waste_id yang ditambahkan dari ledger.
-      if (!isAll || !row.ref_waste_id) {
+      // Waste ber-ref_waste_id sudah dihitung otoritatif dari stok_waste_reports (APPROVED);
+      // hanya waste manual tanpa ref_waste_id yang ditambahkan dari ledger.
+      if (!row.ref_waste_id) {
         agg.wasteQty += Math.abs(rawQty)
       }
     } else if (row.ref_waste_id && row.tipe === 'adjustment') {
-      // Koreksi / pembatalan laporan waste mengurangi wasteQty, BUKAN barang masuk (Inbound)
-      if (!isAll) {
-        agg.wasteQty = Math.max(0, agg.wasteQty - rawQty)
-      }
+      // Koreksi / pembatalan laporan waste sudah tercermin pada status stok_waste_reports
     } else if (row.tipe === 'rejected_kiriman' && row.ref_terima_vendor_id) {
       // Koreksi / penolakan terima vendor drop-ship mengurangi masukQty yang sebelumnya tercatat
       const deductQty = Math.abs(rawQty)
@@ -1754,9 +1751,7 @@ export async function fetchReconciliationSnapshot(
 
     const masukQty = agg?.masukQty || 0
     const pakaiQty = (agg?.pakaiQty || 0) + (pakaiOrderByBahan.get(b.id) || 0)
-    const wasteQty = isAll
-      ? (approvedWasteByBahan.get(b.id) || 0) + (agg?.wasteQty || 0)
-      : (agg?.wasteQty || 0)
+    const wasteQty = (approvedWasteByBahan.get(b.id) || 0) + (agg?.wasteQty || 0)
     // Pembalik order yang potongannya terjadi sebelum periode tidak dihitung di sini:
     // Saldo Awal sudah hasil hitung fisik, jadi pembalik itu bukan barang masuk.
     const mutasiLainQty = agg?.mutasiLainQty || 0

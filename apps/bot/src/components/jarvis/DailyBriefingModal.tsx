@@ -262,7 +262,7 @@ export default function DailyBriefingModal({
   <div class="kpi-grid">
     <div class="kpi"><div class="lbl">Omzet Bersih (Net)</div><div class="val">${fmtRp(omzetBersihAktif)}</div><div class="sub">${salesAktif.totalOrder} struk (AOV ${fmtRp(salesAktif.aov)})</div></div>
     <div class="kpi"><div class="lbl">Laba Kotor (Gross Profit)</div><div class="val">${fmtRp(labaKotorAktif)}</div><div class="sub">Margin ${marginPersenAktif}% | HPP ${fmtRp(hppAktif)}</div></div>
-    <div class="kpi"><div class="lbl">OPEX &amp; Kas Closing</div><div class="val">${fmtRp(opexNominalAktif)}</div><div class="sub">Kas Fisik: ${fmtRp(t.finance?.setoranKas?.tutupShiftKemarin?.totalFisikKas ?? 0)}</div></div>
+    <div class="kpi"><div class="lbl">OPEX &amp; Kas Closing</div><div class="val">${fmtRp(opexNominalAktif)}</div><div class="sub">Kas ${isKemarin ? 'Fisik' : 'Direkap'}: ${fmtRp(isKemarin ? (t.finance?.setoranKas?.tutupShiftKemarin?.totalFisikKas ?? 0) : (t.finance?.setoranKas?.inputHariIni?.totalNominal ?? 0))}</div></div>
     <div class="kpi"><div class="lbl">Presensi &amp; Sidak AM</div><div class="val">${hrdOnTimeAktif}% On-Time</div><div class="sub">${hrdTotalAktif} clock-in | Rating ${t.review?.ratingRataRata ?? 4.8}⭐</div></div>
   </div>
   <h2>I. Peringkat Penjualan Cabang (Top 10)</h2>
@@ -815,7 +815,7 @@ export default function DailyBriefingModal({
                         {isKemarin
                           ? `${t?.ceklistHarian?.totalSudahDicekKemarin ?? t?.totalOutletAktif ?? 0}/${t?.ceklistHarian?.totalOutletWajib ?? t?.totalOutletAktif ?? 0} Cabang`
                           : `${t?.ceklistHarian?.totalSudahDicekHariIni ?? 0}/${t?.ceklistHarian?.totalOutletWajib ?? t?.totalOutletAktif ?? 0} Cabang`}
-                        {(t?.ceklistHarian?.totalPerluPerhatianKemarin ?? 0) > 0 && (
+                        {isKemarin && (t?.ceklistHarian?.totalPerluPerhatianKemarin ?? 0) > 0 && (
                           <span className="text-amber-300 ml-1">
                             ({t?.ceklistHarian?.totalPerluPerhatianKemarin} temuan)
                           </span>
@@ -832,6 +832,16 @@ export default function DailyBriefingModal({
                         }`}
                       >
                         {voidCountAktif} tx ({fmtRp(voidRpAktif)})
+                      </span>
+                    </div>
+                    <div className="flex justify-between p-2 rounded bg-black/50 border border-zinc-800">
+                      <span className="text-zinc-400">
+                        Waste {isKemarin ? 'Kemarin:' : 'Hari Ini:'}
+                      </span>
+                      <span className="font-bold text-amber-300">
+                        {isKemarin
+                          ? `${fmtRp(t?.waste?.estKerugianKemarinRp ?? 0)} (${t?.waste?.laporanKemarinCount ?? 0} lap)`
+                          : `${fmtRp(t?.waste?.estKerugianHariIniRp ?? 0)} (${t?.waste?.laporanHariIniCount ?? 0} lap)`}
                       </span>
                     </div>
                     <div className="flex justify-between p-2 rounded bg-black/50 border border-zinc-800">

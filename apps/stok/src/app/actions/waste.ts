@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
+import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters'
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL! || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -37,7 +38,7 @@ export type WasteReportData = {
   photo_url: string;
 }
 
-const WASTE_APPROVER_ROLES = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'] as const
+const WASTE_APPROVER_ROLES = ['area_manager', 'regional_manager', 'admin', 'owner', 'kitchen', 'developer'] as const
 
 /**
  * Cek role approver waste saja (tanpa scope outlet).
@@ -82,9 +83,10 @@ async function requireWasteApprover(outletId: string): Promise<string> {
 async function requireWasteApproverForList(outletId?: string): Promise<Set<string> | null> {
   const { authedClient } = await requireApproverIdentity()
   const allowed = await getAccessibleOutletIds(authedClient)
+  allowed.delete(TEST_OUTLET_ID)
 
   if (outletId) {
-    if (!allowed.has(outletId)) {
+    if (!allowed.has(outletId) && outletId !== TEST_OUTLET_ID) {
       throw new Error('Forbidden: outlet di luar scope akses Anda')
     }
     return null
@@ -189,8 +191,11 @@ export async function fetchPendingWasteReports(outletId?: string) {
 
   if (outletId) {
     query = query.eq('outlet_id', outletId)
-  } else if (scopeToOutletIds) {
-    query = query.in('outlet_id', Array.from(scopeToOutletIds))
+  } else {
+    query = query.neq('outlet_id', TEST_OUTLET_ID)
+    if (scopeToOutletIds && scopeToOutletIds.size > 0) {
+      query = query.in('outlet_id', Array.from(scopeToOutletIds))
+    }
   }
 
   const { data, error } = await query
@@ -233,8 +238,11 @@ export async function countPendingWasteReports(outletId?: string) {
 
   if (outletId) {
     query = query.eq('outlet_id', outletId)
-  } else if (scopeToOutletIds) {
-    query = query.in('outlet_id', Array.from(scopeToOutletIds))
+  } else {
+    query = query.neq('outlet_id', TEST_OUTLET_ID)
+    if (scopeToOutletIds && scopeToOutletIds.size > 0) {
+      query = query.in('outlet_id', Array.from(scopeToOutletIds))
+    }
   }
 
   const { count, error } = await query
@@ -292,6 +300,7 @@ export interface WasteHistoryFilter {
 export interface WasteHistoryResult {
   data: any[]
   totalCount: number
+  activeCount: number
   totalNilai: number
   totalQty: number
   selectedBahanHarga?: number
@@ -317,6 +326,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
 
   const isApprover = (WASTE_APPROVER_ROLES as readonly string[]).includes(staff.role)
   const allowedOutletIds = await getAccessibleOutletIds(authedClient)
+  allowedOutletIds.delete(TEST_OUTLET_ID)
 
   let query = supabase
     .from('stok_waste_reports')
@@ -344,9 +354,12 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     }
     query = query.eq('outlet_id', filters.outletId)
     summaryOutletEq = filters.outletId
-  } else if (allowedOutletIds.size > 0) {
-    query = query.in('outlet_id', Array.from(allowedOutletIds))
-    summaryOutletIn = Array.from(allowedOutletIds)
+  } else {
+    query = query.neq('outlet_id', TEST_OUTLET_ID)
+    if (allowedOutletIds.size > 0) {
+      query = query.in('outlet_id', Array.from(allowedOutletIds))
+      summaryOutletIn = Array.from(allowedOutletIds)
+    }
   }
 
   if (filters.status && filters.status !== 'ALL') {
@@ -358,10 +371,10 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   }
 
   if (filters.from) {
-    query = query.gte('created_at', `${filters.from}T00:00:00`)
+    query = query.gte('created_at', `${filters.from}T00:00:00+07:00`)
   }
   if (filters.to) {
-    query = query.lte('created_at', `${filters.to}T23:59:59.999Z`)
+    query = query.lte('created_at', `${filters.to}T23:59:59.999+07:00`)
   }
 
   // Satu halaman ringkasan dengan filter IDENTIK dengan kueri daftar.
@@ -370,15 +383,18 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
       .from('stok_waste_reports')
       .select('bahan_baku_id, qty, status')
     if (summaryOutletEq) q = q.eq('outlet_id', summaryOutletEq)
-    else if (summaryOutletIn) q = q.in('outlet_id', summaryOutletIn)
+    else {
+      q = q.neq('outlet_id', TEST_OUTLET_ID)
+      if (summaryOutletIn) q = q.in('outlet_id', summaryOutletIn)
+    }
     if (filters.status && filters.status !== 'ALL') {
       q = q.eq('status', filters.status)
     } else {
       q = q.neq('status', 'REJECTED')
     }
     if (filters.bahanBakuId && filters.bahanBakuId !== 'ALL') q = q.eq('bahan_baku_id', filters.bahanBakuId)
-    if (filters.from) q = q.gte('created_at', `${filters.from}T00:00:00`)
-    if (filters.to) q = q.lte('created_at', `${filters.to}T23:59:59.999Z`)
+    if (filters.from) q = q.gte('created_at', `${filters.from}T00:00:00+07:00`)
+    if (filters.to) q = q.lte('created_at', `${filters.to}T23:59:59.999+07:00`)
     // Urutan unik (created_at + id) supaya batas halaman deterministik.
     return q.order('created_at', { ascending: false }).order('id', { ascending: false }).range(fromRow, toRow)
   }
@@ -426,13 +442,16 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
         pageQ = pageQ.eq('outlet_id', staff.outlet_id!)
       } else if (filters.outletId) {
         pageQ = pageQ.eq('outlet_id', filters.outletId)
-      } else if (allowedOutletIds.size > 0) {
-        pageQ = pageQ.in('outlet_id', Array.from(allowedOutletIds))
+      } else {
+        pageQ = pageQ.neq('outlet_id', TEST_OUTLET_ID)
+        if (allowedOutletIds.size > 0) {
+          pageQ = pageQ.in('outlet_id', Array.from(allowedOutletIds))
+        }
       }
       if (filters.status && filters.status !== 'ALL') pageQ = pageQ.eq('status', filters.status)
       if (filters.bahanBakuId && filters.bahanBakuId !== 'ALL') pageQ = pageQ.eq('bahan_baku_id', filters.bahanBakuId)
-      if (filters.from) pageQ = pageQ.gte('created_at', `${filters.from}T00:00:00`)
-      if (filters.to) pageQ = pageQ.lte('created_at', `${filters.to}T23:59:59.999Z`)
+      if (filters.from) pageQ = pageQ.gte('created_at', `${filters.from}T00:00:00+07:00`)
+      if (filters.to) pageQ = pageQ.lte('created_at', `${filters.to}T23:59:59.999+07:00`)
 
       const { data: rows, error: pageErr } = await pageQ
         .order('created_at', { ascending: false })
@@ -465,15 +484,18 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
       }
     }
 
-    let totalNilai = 0
+    let totalNilaiExact = 0
     let totalQty = 0
+    let activeCount = 0
     const formattedData = allReports.map((r: any) => {
       const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
       const qtyNum = Number(r.qty) || 0
-      const nilai = Math.round(qtyNum * hargaBeli)
+      const exact = qtyNum * hargaBeli
+      const nilai = Math.round(exact)
       if (r.status !== 'REJECTED') {
-        totalNilai += nilai
+        totalNilaiExact += exact
         totalQty += qtyNum
+        activeCount++
       }
       return {
         ...r,
@@ -481,6 +503,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
         nilai_waste: nilai,
       }
     })
+    const totalNilai = Math.round(totalNilaiExact)
 
     if (sortBy === 'harga_beli') {
       formattedData.sort((a, b) => (isAsc ? a.harga_beli - b.harga_beli : b.harga_beli - a.harga_beli))
@@ -502,6 +525,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     return {
       data: pagedData,
       totalCount,
+      activeCount,
       totalNilai,
       totalQty,
       selectedBahanHarga,
@@ -558,15 +582,18 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     }
   }
 
-  let totalNilai = 0
+  let totalNilaiExact = 0
   let totalQty = 0
+  let activeCount = 0
   for (const s of allSummary) {
     if (s.status === 'REJECTED') continue
+    activeCount++
     const price = priceMap.get(s.bahan_baku_id) || 0
     const q = Number(s.qty) || 0
     totalQty += q
-    totalNilai += Math.round(q * price)
+    totalNilaiExact += q * price
   }
+  const totalNilai = Math.round(totalNilaiExact)
 
   const formattedData = rawReports.map((r: any) => {
     const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
@@ -589,6 +616,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   return {
     data: formattedData,
     totalCount,
+    activeCount,
     totalNilai,
     totalQty,
     selectedBahanHarga,
@@ -601,13 +629,21 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
 export async function getAccessibleOutletsForWaste(): Promise<{ id: string; name: string }[]> {
   const authedClient = await getAuthedClient()
   const allowedOutletIds = await getAccessibleOutletIds(authedClient)
+  allowedOutletIds.delete(TEST_OUTLET_ID)
   const supabase = makeServiceClient()
 
-  let query = supabase.from('outlets').select('id, name').eq('is_active', true).order('name')
+  let query = supabase
+    .from('outlets')
+    .select('id, name, type')
+    .eq('is_active', true)
+    .neq('id', TEST_OUTLET_ID)
+    .order('name')
   if (allowedOutletIds.size > 0) {
     query = query.in('id', Array.from(allowedOutletIds))
   }
   const { data, error } = await query
   if (error) return []
-  return data ?? []
+  return (data ?? [])
+    .filter((o: any) => !isTestOutlet(o))
+    .map((o: any) => ({ id: o.id, name: o.name }))
 }

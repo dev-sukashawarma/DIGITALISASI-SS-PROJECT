@@ -449,9 +449,11 @@ function bangunTeksTelegram(
     isKemarin
       ? `• <b>Rekap Tutup Shift:</b> <code>${t.statusBuka?.shiftKemarinClosedCount ?? 0} Cabang Closed Shift</code>`
       : `• <b>Status Shift Kasir:</b> <code>${t.statusBuka?.totalBuka ?? 0} Buka / ${t.statusBuka?.totalBelumBuka ?? 0} Belum Buka</code>`,
-    `• <b>Sidak & Ceklist AM:</b> <code>${sudahCekCount}/${wajibCekCount} Cabang Dicek</code> (${ceklist?.totalPerluPerhatianKemarin ?? 0} catatan temuan)`,
+    `• <b>Sidak & Ceklist AM:</b> <code>${sudahCekCount}/${wajibCekCount} Cabang Dicek</code>${isKemarin ? ` (${ceklist?.totalPerluPerhatianKemarin ?? 0} catatan temuan)` : ''}`,
     `• <b>Audit Void POS:</b> <code>${voidCount} Transaksi</code> (<code>${formatRupiah(voidRp)}</code>)`,
-    `• <b>Loss Prevention Waste:</b> Kemarin <code>${formatRupiah(wasteKemarinRp)}</code>${badgeTrenWaste} | 30H: <code>${formatRupiah(wasteRp)}</code> (${t.waste?.totalLaporan30Hari ?? 0} lap)`,
+    isKemarin
+      ? `• <b>Loss Prevention Waste:</b> Kemarin <code>${formatRupiah(wasteKemarinRp)}</code>${badgeTrenWaste} | 30H: <code>${formatRupiah(wasteRp)}</code> (${t.waste?.totalLaporan30Hari ?? 0} lap)`
+      : `• <b>Loss Prevention Waste:</b> Hari Ini <code>${formatRupiah(t.waste?.estKerugianHariIniRp ?? 0)}</code> (${t.waste?.laporanHariIniCount ?? 0} lap) | 30H: <code>${formatRupiah(wasteRp)}</code> (${t.waste?.totalLaporan30Hari ?? 0} lap)`,
     ``,
     `👥 <b>3. WORKFORCE, PRESENSI & KASBON (${labelPeriode})</b>`,
     `• <b>Kehadiran Kru Cabang:</b> <code>${hadirTotal} Clock-in</code> (<b>${hadirOnTime}%</b> On-Time)`,

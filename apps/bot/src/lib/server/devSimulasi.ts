@@ -655,7 +655,7 @@ export function bangunLaporanEvaluasiKomprehensif(
   if (wasteKemarinRp > 0 || waste30HRp > 500_000) {
     saranWasteParts.push(
       `Ajukan klaim komplain mutu ke supplier sayur/lettuce terkait tingginya rasio potongan bonggol/layu (${formatRupiah(
-        wasteKemarinRp || 450_000
+        wasteKemarinRp || waste30HRp
       )}), serta berikan pelatihan teknik trimming efisien kepada kru kitchen.`
     )
     saranWasteParts.push(
@@ -950,40 +950,31 @@ export function buatJawabanDev(
     p.includes('bintang') ||
     p.includes('kepuasan')
   ) {
-    if (p.includes('negatif') || p.includes('bintang 1') || p.includes('bintang 2') || p.includes('buruk') || p.includes('kecewa') || p.includes('komplain')) {
+    if (telemetri?.review) {
+      const rv = telemetri.review
+      if (p.includes('negatif') || p.includes('bintang 1') || p.includes('bintang 2') || p.includes('buruk') || p.includes('kecewa') || p.includes('komplain')) {
+        const negList = rv.ulasanNegatifTerbaru.length > 0
+          ? rv.ulasanNegatifTerbaru.map((u, idx) => `${idx + 1}. ⭐ **${u.outlet}** (Oleh ${u.reviewer}, ${u.rating}⭐ — ${u.waktu}):\n   _"${u.komentar}"_`).join('\n\n')
+          : '✅ Tidak ada ulasan negatif baru dalam periode pemantauan.'
+        return [
+          `${salamAwal} Berikut rekapitulasi ulasan kritis & keluhan pelanggan SukaReview (Real-Time):\n\n`,
+          `> **PERHATIAN KHUSUS**: Terdeteksi **${rv.ulasanNegatifTerbaru.length} ulasan negatif terbaru** dari total **${rv.totalUlasan} ulasan** (Rating rata-rata: **${rv.ratingRataRata}⭐**).\n\n`,
+          `### ⚠️ Ulasan Negatif Terbaru:\n${negList}\n\n`,
+          'Ketik `/outlet [nama]` untuk cek performa cabang spesifik atau hubungi supervisor cabang terkait.',
+        ]
+      }
+      const topOutList = rv.topCabangRating.slice(0, 5).map((o, idx) => `${idx + 1}. **${o.outlet}**: ${o.rating}⭐ (${o.totalUlasan} ulasan)`).join('\n') || '- Belum ada data rating cabang.'
+      const negSummary = rv.ulasanNegatifTerbaru.length > 0
+        ? rv.ulasanNegatifTerbaru.slice(0, 3).map((u, idx) => `${idx + 1}. **${u.outlet}** (${u.rating}⭐ — ${u.reviewer}): _"${u.komentar}"_`).join('\n')
+        : '- Seluruh cabang tidak memiliki keluhan negatif baru.'
       return [
-        `${salamAwal} Berikut rekapitulasi ulasan kritis & keluhan pelanggan Google Reviews:\n\n`,
-        '> [!WARNING]\n',
-        '> **PERHATIAN KHUSUS**: Terdeteksi 3 ulasan dengan rating ≤ 2⭐ dalam 48 jam terakhir yang membutuhkan tindak lanjut operasional.\n\n',
-        '### ⚠️ Ulasan Negatif Memerlukan Respon Segera:\n',
-        '1. ⭐ **SUKA SHAWARMA DRAMAGA** (Oleh Budi S., kemarin):\n',
-        '   _"Dagingnya dingin dan rotinya agak alot, antrean pesanannya juga lama hampir 25 menit padahal tidak ramai."_\n',
-        '   *Kategori*: `RASA`, `KECEPATAN` | *Tindakan*: Audit holding cabinet & waktu pemanggangan.\n\n',
-        '2. ⭐⭐ **SUKA SHAWARMA PONDOK AREN** (Oleh Sarah M., 2 hari lalu):\n',
-        '   _"Saus garlicnya asin banget hari ini, beda sama yang biasa saya beli di cabang lain."_\n',
-        '   *Kategori*: `RASA` | *Tindakan*: Cek takaran racikan bumbu saus batch kemarin.\n\n',
-        '3. ⭐ **SUKA SHAWARMA GALAXY BEKASI** (Oleh Rizky A., 3 hari lalu):\n',
-        '   _"Pesanan salah, minta pedas dikasih original tanpa sambal."_\n',
-        '   *Kategori*: `PESANAN_SALAH` | *Tindakan*: Briefing kasir dan assembler terkait ketelitian tiket order.\n\n',
-        'Ketik `/outlet [nama]` untuk cek performa cabang spesifik atau hubungi supervisor cabang terkait.',
+        `${salamAwal} Berikut pemindaian sentimen dan skor SukaReview jaringan Suka Shawarma (Real-Time):\n\n`,
+        `> **STATUS RATING KONSOLIDASI**: Rata-rata keseluruhan outlet adalah **${rv.ratingRataRata}⭐** dari total **${rv.totalUlasan} ulasan** pelanggan.\n\n`,
+        `### 🏆 Top Cabang Rating Tertinggi:\n${topOutList}\n\n`,
+        `### ⚠️ Ulasan Negatif Terbaru (${rv.ulasanNegatifTerbaru.length} ulasan):\n${negSummary}\n\n`,
+        'Ketik `/negatif` untuk membaca keluhan ulasan terbaru atau `/alert` untuk melihat peringatan aktif.',
       ]
     }
-
-    return [
-      `${salamAwal} Berikut pemindaian sentimen dan skor Google Reviews jaringan Suka Shawarma:\n\n`,
-      '> **STATUS RATING KONSOLIDASI**: Rata-rata keseluruhan outlet adalah **4.6⭐** dari total 1.420 ulasan Google Maps.\n\n',
-      '### 📊 Distribusi Sentimen Ulasan (30 Hari Terakhir):\n',
-      '- 🟢 **Positif (78%)**: Daging empuk berlimpah, saus garlic khas, porsi mengenyangkan.\n',
-      '- 🟡 **Netral (14%)**: Waktu tunggu standar, tempat duduk terbatas saat jam makan malam.\n',
-      '- 🔴 **Negatif (8%)**: Antrean kasir di jam puncak, saus kurang merata, komplain es habis.\n\n',
-      '### 🏆 Top 3 Outlet Rating Tertinggi:\n',
-      '1. **SUKA SHAWARMA TEBET**: 4.8⭐ (310 ulasan)\n',
-      '2. **SUKA SHAWARMA BINTARO**: 4.7⭐ (245 ulasan)\n',
-      '3. **SUKA SHAWARMA MARGONDA**: 4.7⭐ (180 ulasan)\n\n',
-      '### ⚠️ Outlet Membutuhkan Perhatian (< 4.2⭐):\n',
-      '1. **SUKA SHAWARMA DRAMAGA**: 3.9⭐ (112 ulasan, keluhan kecepatan penyajian & suhu daging)\n\n',
-      'Ketik `/negatif` untuk membaca keluhan ulasan terbaru atau `/alert` untuk melihat peringatan aktif.',
-    ]
   }
 
   // 1b. Telemetri Waste & Reject Bahan Baku
@@ -1113,20 +1104,26 @@ export function buatJawabanDev(
     p.includes('dibatalkan')
   ) {
     if (telemetri?.voidOrder) {
-      if (telemetri.voidOrder.totalVoidHariIni > 0) {
-        const vList = telemetri.voidOrder.daftarOutletVoidHariIni
+      const askKemarinVoid = p.includes('kemarin') || p.includes('h-1')
+      const vCount = (askKemarinVoid ? telemetri.voidOrder.totalVoidKemarin : telemetri.voidOrder.totalVoidHariIni) ?? 0
+      const vNominal = (askKemarinVoid ? telemetri.voidOrder.totalNilaiVoidKemarin : telemetri.voidOrder.totalNilaiVoidHariIni) ?? 0
+      const vOutlets = (askKemarinVoid ? telemetri.voidOrder.daftarOutletVoidKemarin : telemetri.voidOrder.daftarOutletVoidHariIni) ?? []
+      const labelWaktuVoid = askKemarinVoid ? 'kemarin (H-1)' : 'hari ini'
+
+      if (vCount > 0) {
+        const vList = vOutlets
           .map((vo) => `- **${vo.outlet}**: ${formatRupiah(vo.nilai)} (pukul ${vo.waktu} WIB)`)
           .join('\n')
         return [
-          `${salamAwal} Berikut audit **Pembatalan Transaksi POS (VOID)** hari ini:\n\n`,
-          `🚨 **TOTAL VOID HARI INI**: **${telemetri.voidOrder.totalVoidHariIni} transaksi** (Total Nilai: **${formatRupiah(telemetri.voidOrder.totalNilaiVoidHariIni)}**)\n\n`,
+          `${salamAwal} Berikut audit **Pembatalan Transaksi POS (VOID)** ${labelWaktuVoid}:\n\n`,
+          `🚨 **TOTAL VOID ${labelWaktuVoid.toUpperCase()}**: **${vCount} transaksi** (Total Nilai: **${formatRupiah(vNominal)}**)\n\n`,
           `### 📋 Rincian Cabang Pembatalan Order:\n${vList}\n\n`,
           'Mohon konfirmasi alasan pembatalan order ke kasir/leader cabang terkait untuk memastikan tidak ada indikasi manipulasi struk kasir.',
         ]
       }
       return [
-        `${salamAwal} Hasil audit **Pembatalan Transaksi POS (VOID)** hari ini:\n\n`,
-        '✅ **BERSIH / 0 VOID**: Tidak ada transaksi yang dibatalkan / di-void oleh kasir di seluruh cabang operasional hari ini.\n\n',
+        `${salamAwal} Hasil audit **Pembatalan Transaksi POS (VOID)** ${labelWaktuVoid}:\n\n`,
+        `✅ **BERSIH / 0 VOID**: Tidak ada transaksi yang dibatalkan / di-void oleh kasir di seluruh cabang operasional ${labelWaktuVoid}.\n\n`,
         'Seluruh order POS yang diinput kasir tercatat valid dan berjalan normal.',
       ]
     }

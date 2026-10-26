@@ -169,13 +169,10 @@ const MENU_HPP_SELECT =
   "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))";
 
 export async function fetchHppRows(supabase: any, filter: PeriodFilterValue): Promise<HppRow[]> {
-  const start = new Date(filter.from);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(filter.to);
-  end.setHours(23, 59, 59, 999);
-
-  const ordersGte = start.toISOString();
-  const ordersLte = end.toISOString();
+  const fromDateStr = filter.from.slice(0, 10);
+  const toDateStr = filter.to.slice(0, 10);
+  const ordersGte = `${fromDateStr}T00:00:00+07:00`;
+  const ordersLte = `${toDateStr}T23:59:59.999+07:00`;
 
   // Tabel master untuk resep dan outlet
   const [outletsRes, menuItemsRes, mitraInvRes, riwayatRows] = await Promise.all([

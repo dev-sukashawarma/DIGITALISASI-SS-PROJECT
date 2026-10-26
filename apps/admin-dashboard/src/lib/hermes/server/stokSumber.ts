@@ -1,8 +1,9 @@
-import type { OutletInfo } from '@/lib/sukaBot/alat/penjualan'
+import { outletTerhitung, type OutletInfo } from '@/lib/sukaBot/alat/penjualan'
 import type { BahanInfo, BarisStok } from '@/lib/sukaBot/alat/stok'
 import type { AktivitasStokRingkas, KonteksStokHermes, SuratJalanRingkas, HasilWasteHermes } from '../stok/tipe'
 
-export function buatKonteksStok(svc: any, outlets: OutletInfo[], hariIni: string): KonteksStokHermes {
+export function buatKonteksStok(svc: any, rawOutlets: OutletInfo[], hariIni: string): KonteksStokHermes {
+  const outlets = outletTerhitung(rawOutlets)
   const cariOutletIds = (nama?: string) => {
     if (!nama) return outlets.map((o) => o.id)
     const target = nama.trim().toLocaleLowerCase('id-ID')
@@ -133,11 +134,12 @@ export function buatKonteksStok(svc: any, outlets: OutletInfo[], hariIni: string
           outlets (name),
           bahan_baku (nama, satuan)
         `)
+        .neq('status', 'REJECTED')
         .gte('created_at', sejak)
         .order('created_at', { ascending: false })
-        .limit(600)
+        .limit(2500)
 
-      if (opts.outlet) {
+      if (outletIds.length > 0) {
         q = q.in('outlet_id', outletIds)
       }
 
@@ -147,13 +149,14 @@ export function buatKonteksStok(svc: any, outlets: OutletInfo[], hariIni: string
       const rows = (data ?? []) as any[]
       const filterBahan = opts.bahan ? opts.bahan.trim().toLowerCase() : null
 
-      let totalEstKerugian = 0
-      const bahanMap: Record<string, { nama: string; satuan: string; totalQty: number; frekuensi: number; reasons: Record<string, number>; estKerugian: number }> = {}
-      const outletMap: Record<string, { nama: string; frekuensi: number; totalQty: number }> = {}
+      let totalEstKerugianExact = 0
+      const bahanMap: Record<string, { nama: string; satuan: string; totalQty: number; frekuensi: number; reasons: Record<string, number>; estKerugianExact: number }> = {}
+      const outletMap: Record<string, { nama: string; frekuensi: number; totalQty: number; estKerugianExact: number }> = {}
 
       let hitungLaporan = 0
 
       for (const r of rows) {
+        if (String(r.status || 'APPROVED').toUpperCase() === 'REJECTED') continue
         const bNama = r.bahan_baku?.nama || 'Bahan Baku'
         if (filterBahan && !bNama.toLowerCase().includes(filterBahan)) {
           continue
@@ -163,44 +166,47 @@ export function buatKonteksStok(svc: any, outlets: OutletInfo[], hariIni: string
         const sat = r.bahan_baku?.satuan || 'unit'
         const qty = Number(r.qty) || 0
         const hBeli = priceMap.get(r.bahan_baku_id) || 0
-        const loss = Math.round(qty * hBeli)
-        totalEstKerugian += loss
+        const exactLoss = qty * hBeli
+        totalEstKerugianExact += exactLoss
 
         if (!bahanMap[bNama]) {
-          bahanMap[bNama] = { nama: bNama, satuan: sat, totalQty: 0, frekuensi: 0, reasons: {}, estKerugian: 0 }
+          bahanMap[bNama] = { nama: bNama, satuan: sat, totalQty: 0, frekuensi: 0, reasons: {}, estKerugianExact: 0 }
         }
         bahanMap[bNama].totalQty += qty
         bahanMap[bNama].frekuensi += 1
-        bahanMap[bNama].estKerugian += loss
+        bahanMap[bNama].estKerugianExact += exactLoss
 
         const rClean = (r.reason || 'Lainnya').replace(/alasan/gi, 'ket').trim()
         bahanMap[bNama].reasons[rClean] = (bahanMap[bNama].reasons[rClean] || 0) + 1
 
         const outNama = r.outlets?.name || '(outlet tidak dikenal)'
         if (!outletMap[outNama]) {
-          outletMap[outNama] = { nama: outNama, frekuensi: 0, totalQty: 0 }
+          outletMap[outNama] = { nama: outNama, frekuensi: 0, totalQty: 0, estKerugianExact: 0 }
         }
         outletMap[outNama].frekuensi += 1
         outletMap[outNama].totalQty += qty
+        outletMap[outNama].estKerugianExact += exactLoss
       }
 
       const topBahan = Object.values(bahanMap)
-        .sort((a, b) => b.totalQty - a.totalQty)
+        .sort((a, b) => b.estKerugianExact - a.estKerugianExact || b.totalQty - a.totalQty)
         .slice(0, opts.limit)
         .map((b) => {
-          const topReason = Object.entries(b.reasons).sort((x, y) => y[1] - x[1])[0]?.[0] || '-'
+          const sortedReasons = Object.entries(b.reasons).sort((x, y) => y[1] - x[1])
+          const nonGeneric = sortedReasons.filter(([k]) => !/^(lainnya|-)$/i.test(k.trim()))
+          const topReason = (nonGeneric[0] || sortedReasons[0])?.[0] || '-'
           return {
             bahan: b.nama,
             satuan: b.satuan,
             total_qty: Math.round(b.totalQty * 100) / 100,
             frekuensi: b.frekuensi,
-            estimasi_kerugian: b.estKerugian,
+            estimasi_kerugian: Math.round(b.estKerugianExact),
             faktor_dominan: topReason,
           }
         })
 
       const topOutlet = Object.values(outletMap)
-        .sort((a, b) => b.frekuensi - a.frekuensi)
+        .sort((a, b) => b.estKerugianExact - a.estKerugianExact || b.frekuensi - a.frekuensi)
         .slice(0, opts.limit)
         .map((o) => ({
           outlet: o.nama,
@@ -211,7 +217,7 @@ export function buatKonteksStok(svc: any, outlets: OutletInfo[], hariIni: string
       return {
         rentang_hari: opts.hari,
         total_laporan: hitungLaporan,
-        total_estimasi_kerugian: totalEstKerugian,
+        total_estimasi_kerugian: Math.round(totalEstKerugianExact),
         top_bahan: topBahan,
         top_outlet: topOutlet,
       }

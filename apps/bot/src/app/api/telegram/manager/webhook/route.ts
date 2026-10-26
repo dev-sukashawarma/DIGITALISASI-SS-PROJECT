@@ -128,18 +128,18 @@ export async function POST(req: NextRequest) {
           await kirimPesanTelegram(
             chatId,
             `🎉 *Aktivasi Berhasil!*\n\nHalo *${staffName}*!\nAkun Telegram Anda telah resmi terhubung sebagai *${roleLabel}* Suka Shawarma (sinkron dengan Bot Manager di SuperApp).\n\n` +
-            `Mulai saat ini, Anda akan menerima 10 trigger alert operasional otomatis:\n` +
-            `• 📋 *Update Finalize Stock Opname* (Real-Time: rincian cabang Sudah Opname, Masih Draft & Belum Opname)\n` +
+            `Mulai saat ini, Anda akan menerima trigger alert operasional otomatis sesuai jabatan Anda (18 Trigger AM / 13 Trigger RM):\n` +
+            `• 📋 *Update Finalize Stock Opname, Peringatan 22:30 & Rekap 23:45 WIB*\n` +
             `• 🚨 *Alert Cabang Zero Sales / 0 Transaksi* (17:00 WIB untuk AM & 19:30 WIB untuk RM)\n` +
             `• 🛑 *Alert Pembatalan / Void Order POS* (AM & eskalasi RM ≥Rp 50rb / beruntun)\n` +
-            `• 📉 *Anomali Penurunan Stok Drastis (≥50%)*\n` +
-            `• 📦 *Surat Jalan Menggantung (>2 Jam belum diterima cabang)*\n` +
-            `• 👥 *Outlet Understaffed / Izin Mendadak Hari Ini (H-0)*\n` +
+            `• 📉 *Stok Kritis & Anomali Penurunan Stok Drastis (≥50%)*\n` +
+            `• 🚚 *Surat Jalan Berangkat, Selesai Verifikasi, Selisih & Menggantung (>2 Jam)*\n` +
+            `• 👥 *Audit Fake GPS (>100m) & Izin Mendadak Hari Ini (H-0)*\n` +
             `• 🚨 *Keterlambatan Buka Outlet (+5 menit & eskalasi +30 menit)*\n` +
             `• 💵 *Selisih Kas Closing Shift Kasir (>Rp 20rb AM & >Rp 100rb RM)*\n` +
-            `• 🗑️ *Pengajuan Waste Bahan Baku & Sidak Ceklist Harian*\n` +
+            `• 🗑️ *Pengajuan Waste, Retur Bahan Baku & Sidak Ceklist Harian*\n` +
             `• 📈 *Laporan Omzet Berkala (15:00, 19:30, 22:30 WIB)*\n\n` +
-            `Ketik /help untuk melihat daftar trigger & contoh pertanyaan.`,
+            `Ketik /help untuk melihat daftar lengkap trigger & contoh pertanyaan.`,
             'https://manager.sukashawarma.com',
             'manager'
           )
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
           chatId,
           `👋 *Selamat Datang Kembali, ${staff.name}!* (${roleLabel})\n\n` +
           `Bot Manager Suka Shawarma siap siaga (tersinkronisasi penuh dengan notifikasi HP & Chat Copilot di SuperApp).\n\n` +
-          `Ketik /help untuk melihat 10 trigger otomatis & panduan tanya-jawab AI.`,
+          `Ketik /help untuk melihat daftar trigger otomatis sesuai jabatan Anda & panduan tanya-jawab AI.`,
           'https://manager.sukashawarma.com',
           'manager'
         )

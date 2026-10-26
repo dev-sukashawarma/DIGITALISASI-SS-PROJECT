@@ -27,12 +27,14 @@ export async function POST(request: Request) {
     title.length > 180 ||
     typeof body !== 'string' ||
     !body.trim() ||
-    body.length > 1200
+    body.length > 4000
   ) {
     return NextResponse.json({ error: 'Payload tidak valid.' }, { status: 400 })
   }
 
-  const rawUrl = input?.url === 'bot' ? 'https://manager.sukashawarma.com' : input?.url
+  const rawUrl = input?.url === 'bot' || input?.url === 'manager_waste' || input?.url === 'manager_ceklist' || input?.url === 'manager_persetujuan'
+    ? 'https://manager.sukashawarma.com'
+    : input?.url
   const url = rawUrl ? urlAplikasiDiizinkan(rawUrl, 'manager') : undefined
   if (rawUrl && !url) {
     return NextResponse.json({ error: 'URL aplikasi tidak valid.' }, { status: 400 })

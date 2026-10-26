@@ -214,17 +214,11 @@ export async function kirimPesanTelegram(
   url?: string,
   profil: 'stokis' | 'hrd' | 'manager' | 'ceo' | 'finance' | 'review' = 'stokis'
 ) {
-  const token = profil === 'hrd'
-    ? (process.env.TELEGRAM_HRD_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
-    : profil === 'manager'
-    ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
-    : profil === 'ceo'
-    ? (process.env.TELEGRAM_CEO_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
-    : profil === 'finance'
-    ? (process.env.TELEGRAM_FINANCE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
-    : profil === 'review'
-    ? (process.env.TELEGRAM_REVIEW_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN)
-    : process.env.TELEGRAM_STOKIST_BOT_TOKEN
+  const token = (await ambilTokenBotTelegram(profil)) || (
+    profil === 'ceo' || profil === 'finance'
+      ? (process.env.TELEGRAM_MANAGER_BOT_TOKEN || process.env.TELEGRAM_STOKIST_BOT_TOKEN)
+      : undefined
+  )
   if (!token) throw new Error(`Token bot ${profil} belum dikonfigurasi.`)
 
   const hasInlineButton = !!(url && (url.startsWith('https://') || url.startsWith('http://')) && profil !== 'ceo')

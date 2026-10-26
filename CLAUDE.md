@@ -3503,7 +3503,7 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 
 **Spec:** `docs/superpowers/specs/2026-10-26-laporan-wa-am-design.md`
 
-- Pengirim: GOWA (`blast.sukashawarma.com`, Coolify VPS 1), device **`AM_REMINDER`** (6283832676624). Penerima: `outlet_staff.phone` AM aktif, outlet binaan dari `staff_outlets` (tanpa Kantor Pusat/tes/SS Backup).
+- Pengirim: GOWA (`blast.sukashawarma.com`, Coolify VPS 1), device **`AM_REMINDER`** (per 26 Okt sore: 6282299329686 "DEV AI SS"; device `HR` = 6283832676624 — nomor di device bisa berganti saat di-pair ulang, cek `GET /devices`). Penerima: `outlet_staff.phone` AM aktif, outlet binaan dari `staff_outlets` (tanpa Kantor Pusat/tes/SS Backup).
 - `wa_am_susun_status_opname(cutoff)` 21:30/22:30 WIB · `wa_am_susun_reminder_setor()` 08:00 WIB, omzet tunai **kemarin** per outlet + total tunai (setor H+1; **hanya tunai** — baris "total semua kanal" dibuang di `20261026170000` karena terbaca seolah wajib disetor) → `wa_am_outbox` (idempoten per AM/jenis/tanggal) → `wa_am_kirim_antrean()` (pg_net, maks 5 kirim/putaran, retry 3x, `INVALID_JID` langsung gagal, gagal → alert developer). Kredensial GOWA di Vault (`gowa_base_url`, `gowa_basic_auth`).
 - Kolom baru **`opname.finalized_at`** (trigger `trg_opname_isi_finalized_at`); 1.642 baris lama di-backfill dari `updated_at` (perkiraan).
 - Uji kirim ke Tri Rizky 26 Okt: 2/2 `sent`. Uji manual: `wa_am_susun_*(…, p_staff_id, p_phone_uji)` (event_key `uji:…`, tak bentrok dengan jadwal).

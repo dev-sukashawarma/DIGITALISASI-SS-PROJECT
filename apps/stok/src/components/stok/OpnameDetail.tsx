@@ -7,7 +7,7 @@ import { useAuth } from '@suka/auth'
 import type { Opname, OpnameItem } from '@/types/stok'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
-import { getThresholdPersen, computeSelisihPersen, getMaterialType, THRESHOLD_BULK_PERSEN } from '@/lib/stok/selisih'
+import { getThresholdPersen, computeSelisihPersen, getMaterialType, isSelisihFlagged, THRESHOLD_BULK_PERSEN } from '@/lib/stok/selisih'
 import { isBahanOpname } from '@/lib/stok/opnameScope'
 import { ringkasWasteOpname, type WasteReportRow, type WasteOpnameRingkas } from '@/lib/stok/wasteOpname'
 
@@ -186,9 +186,13 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
 
     for (const it of items) {
       if (it.qty_fisik === null) continue;
+      const b = bahanMap[it.bahan_baku_id];
+      const isFlagged = b
+        ? isSelisihFlagged(it.selisih, it.qty_system, b.satuan, b.satuan_kecil, b.nama)
+        : it.flagged;
       if (it.selisih === 0) {
         pas++;
-      } else if (it.flagged) {
+      } else if (isFlagged) {
         flagged++;
       } else {
         withinTol++;
@@ -196,7 +200,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
     }
 
     return { pas, withinTol, flagged };
-  }, [items]);
+  }, [items, bahanMap]);
 
   const opnamedBahanIds = useMemo(() => new Set(items.map(it => it.bahan_baku_id)), [items]);
   const skippedBahan = useMemo(() => {

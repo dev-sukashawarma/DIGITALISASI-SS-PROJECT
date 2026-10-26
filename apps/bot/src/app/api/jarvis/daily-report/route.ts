@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { ambilSesi } from '@/lib/server/sesi'
 import { ambilTelemetriNyata, formatRupiah, type TelemetriHariIni } from '@/lib/server/telemetriNyata'
+import {
+  bangunSaranStrategisDivisi,
+  formatBadgeTren,
+  type SaranStrategisDivisi,
+} from '@/lib/server/devSimulasi'
 import { kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +27,8 @@ export interface DailyReportPayload {
   actionItems: JarvisActionItem[]
   actionItemsKemarin: JarvisActionItem[]
   actionItemsHariIni: JarvisActionItem[]
+  saranStrategisKemarin: SaranStrategisDivisi[]
+  saranStrategisHariIni: SaranStrategisDivisi[]
   narasiSuaraHariIni: string
   narasiSuaraKemarin: string
   teksLaporanHariIni: string
@@ -238,6 +245,33 @@ function bangunActionItems(
     })
   }
 
+  // 10. Evaluasi Ceklist Harian & Sidak Area Manager (app manager)
+  const ceklist = t.ceklistHarian
+  if (ceklist && (ceklist.totalPerluPerhatianKemarin > 0 || ceklist.daftarTemuanTerbaru.length > 0)) {
+    const temuan0 = ceklist.daftarTemuanTerbaru[0]
+    items.push({
+      id: 'mgr-sidak-temuan',
+      level: temuan0?.nilaiTerburuk === 'buruk' ? 'critical' : 'warning',
+      divisi: 'OPERASIONAL',
+      judul: `Temuan Sidak AM di ${temuan0?.outlet || 'Cabang'} (${ceklist.totalSudahDicekKemarin}/${ceklist.totalOutletWajib} Cabang Dicek)`,
+      deskripsi: `${temuan0 ? `AM ${temuan0.namaAm}: ${temuan0.temuan[0] || `Status ${temuan0.nilaiTerburuk}`}.` : `${ceklist.totalPerluPerhatianKemarin} cabang butuh tindakan perbaikan.`}`,
+      perintahTindakLanjut: 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi beserta rekomendasi taktisnya.',
+    })
+  }
+
+  // 11. Evaluasi Kasbon Kru Pending (app HR)
+  const kasbonPending = t.kasbonHrd?.totalPendingCount ?? 0
+  if (kasbonPending > 0) {
+    items.push({
+      id: 'hrd-kasbon-pending',
+      level: 'warning',
+      divisi: 'HRD',
+      judul: `${kasbonPending} Pengajuan Kasbon Kru Menunggu Persetujuan (${formatRupiah(t.kasbonHrd?.totalPendingNominal ?? 0)})`,
+      deskripsi: `Total kasbon aktif berjalan: ${t.kasbonHrd?.totalAktifCount ?? 0} kru (sisa piutang ${formatRupiah(t.kasbonHrd?.totalSisaPiutang ?? 0)}).`,
+      perintahTindakLanjut: 'Siapa saja kru outlet yang mengajukan kasbon atau izin/cuti terbaru?',
+    })
+  }
+
   if (items.length === 0) {
     items.push({
       id: 'all-optimal',
@@ -295,16 +329,38 @@ function bangunNarasiSuara(t: TelemetriHariIni | null, mode: 'hari_ini' | 'kemar
   )
 }
 
-function bangunTeksTelegram(t: TelemetriHariIni, mode: 'hari_ini' | 'kemarin', actionItems: JarvisActionItem[]): string {
+function bangunTeksTelegram(
+  t: TelemetriHariIni,
+  mode: 'hari_ini' | 'kemarin',
+  actionItems: JarvisActionItem[],
+  saranStrategis: SaranStrategisDivisi[]
+): string {
   const isKemarin = mode === 'kemarin' && Boolean(t.ringkasanKemarin)
   const sales = isKemarin ? t.ringkasanKemarin! : {
     tanggalLabel: `Hari Ini (${t.tanggalWIB})`,
     omzetTotal: t.omzetTotal,
+    omzetBersihTotal: t.ringkasanHariIni?.omzetBersihTotal ?? t.omzetTotal,
+    potonganTotal: t.ringkasanHariIni?.potonganTotal ?? 0,
+    totalHpp: t.ringkasanHariIni?.totalHpp ?? 0,
+    labaKotorTotal: t.ringkasanHariIni?.labaKotorTotal ?? 0,
+    totalPorsi: t.ringkasanHariIni?.totalPorsi ?? 0,
     totalOrder: t.totalOrder,
     aov: t.aov,
     outletsAktifTransaksi: t.outletsAktifTransaksi,
     outletsNolTransaksi: t.outletsNolTransaksi,
+    menuTersepi: t.ringkasanHariIni?.menuTersepi ?? [],
   }
+
+  const omzetBersih = sales.omzetBersihTotal ?? sales.omzetTotal
+  const hppTotal = sales.totalHpp ?? 0
+  const labaKotor = sales.labaKotorTotal ?? Math.max(0, omzetBersih - hppTotal)
+  const marginPct = omzetBersih > 0 && labaKotor > 0 ? Math.round((labaKotor / omzetBersih) * 1000) / 10 : 0
+
+  const tren = isKemarin ? t.trenHarian : undefined
+  const badgeTrenOmzet = formatBadgeTren(tren?.deltaOmzetPersen, true)
+  const badgeTrenOrder = formatBadgeTren(tren?.deltaOrderPersen, true)
+  const badgeTrenOpex = formatBadgeTren(tren?.deltaOpexPersen, false)
+  const badgeTrenWaste = formatBadgeTren(tren?.deltaWastePersen, false)
 
   const topMedals = ['🥇', '🥈', '🥉', '4.', '5.']
   const top5 = sales.outletsAktifTransaksi
@@ -317,6 +373,11 @@ function bangunTeksTelegram(t: TelemetriHariIni, mode: 'hari_ini' | 'kemarin', a
     .slice(0, 3)
     .map((m, i) => `${i + 1}. <b>${m.nama}</b> — <code>${m.qty} porsi</code> (${formatRupiah(m.omzet)})`)
     .join('\n') || '• <i>Belum ada data menu</i>'
+
+  const menuSepiSumber = (isKemarin ? t.ringkasanKemarin?.menuTersepi : t.ringkasanHariIni?.menuTersepi) ?? []
+  const menuSepiTeks = menuSepiSumber.length > 0
+    ? menuSepiSumber.slice(0, 2).map((m) => `<code>${m.nama}</code> (${m.qty} porsi)`).join(', ')
+    : ''
 
   const expAktif = isKemarin
     ? (t.finance?.pengeluaranKemarin?.totalNominal ?? 0)
@@ -336,11 +397,18 @@ function bangunTeksTelegram(t: TelemetriHariIni, mode: 'hari_ini' | 'kemarin', a
     ? (t.voidOrder?.totalNilaiVoidKemarin ?? 0)
     : (t.voidOrder?.totalNilaiVoidHariIni ?? 0)
   const wasteRp = t.waste?.totalEstKerugianRp ?? 0
+  const wasteKemarinRp = t.waste?.estKerugianKemarinRp ?? 0
   const hadirTotal = isKemarin ? (t.hrdKemarin?.kehadiranTotal ?? 0) : t.kehadiranTotal
   const hadirOnTime = isKemarin ? (t.hrdKemarin?.persenOnTime ?? 100) : t.persenOnTime
   const hadirTelat = isKemarin ? (t.hrdKemarin?.kehadiranTelat ?? 0) : t.kehadiranTelat
   const hadirCuti = isKemarin ? (t.hrdKemarin?.stafCutiIzin?.length ?? 0) : t.stafCutiIzin.length
   const labelPeriode = isKemarin ? 'Kemarin (H-1)' : 'Hari Ini'
+
+  const ceklist = t.ceklistHarian
+  const sudahCekCount = isKemarin
+    ? (ceklist?.totalSudahDicekKemarin ?? t.totalOutletAktif)
+    : (ceklist?.totalSudahDicekHariIni ?? 0)
+  const wajibCekCount = ceklist?.totalOutletWajib ?? t.totalOutletAktif
 
   const actionLines = actionItems
     .slice(0, 4)
@@ -350,35 +418,50 @@ function bangunTeksTelegram(t: TelemetriHariIni, mode: 'hari_ini' | 'kemarin', a
     })
     .join('\n\n')
 
+  const saranLines = saranStrategis
+    .slice(0, 5)
+    .map((s, idx) => {
+      const poinUtama = s.poinSaran[0] || s.judul
+      return `${idx + 1}. <b>[${s.divisi}]</b> ${poinUtama}`
+    })
+    .join('\n')
+
   return [
     `⚡ <b>J.A.R.V.I.S. EXECUTIVE DAILY BRIEFING</b>`,
     `🗓️ <b>Periode Fokus:</b> <code>${sales.tanggalLabel}</code>`,
     `━━━━━━━━━━━━━━━━━━━━━`,
     ``,
-    `📊 <b>1. SALES & POS LEADERBOARD (${labelPeriode})</b>`,
-    `• <b>Total Omzet:</b> <code>${formatRupiah(sales.omzetTotal)}</code>`,
-    `• <b>Total Transaksi:</b> <code>${sales.totalOrder} Struk</code> (ATV: <code>${formatRupiah(sales.aov)}</code>)`,
-    `• <b>Partisipasi Cabang:</b> <code>${sales.outletsAktifTransaksi.length} Aktif / ${sales.outletsNolTransaksi.length} Nol Transaksi</code>`,
+    `📊 <b>1. SALES, MARGIN & POS LEADERBOARD (${labelPeriode})</b>`,
+    `• <b>Omzet Kotor / Net:</b> <code>${formatRupiah(sales.omzetTotal)}</code> / <code>${formatRupiah(omzetBersih)}</code>${badgeTrenOmzet}`,
+    labaKotor > 0
+      ? `• <b>Laba Kotor (Gross Profit):</b> <code>${formatRupiah(labaKotor)}</code> (Margin <b>${marginPct}%</b> | HPP: <code>${formatRupiah(hppTotal)}</code>)`
+      : `• <b>Rata-Rata Struk (ATV):</b> <code>${formatRupiah(sales.aov)}</code>`,
+    `• <b>Total Transaksi:</b> <code>${sales.totalOrder} Struk</code>${badgeTrenOrder} (${sales.outletsAktifTransaksi.length} Aktif / ${sales.outletsNolTransaksi.length} Nol Order)`,
     ``,
     `🏆 <b>Top Cabang Tertinggi:</b>`,
     top5,
     ``,
     `🥇 <b>Top 3 Menu Terlaris (${labelPeriode}):</b>`,
     menuTop3,
+    ...(menuSepiTeks ? [`• <b>Menu Paling Sepi:</b> ${menuSepiTeks}`] : []),
     ``,
-    `🛡️ <b>2. OPERASIONAL, VOID & WASTE (${labelPeriode})</b>`,
+    `🛡️ <b>2. OPERASIONAL, SIDAK AM, VOID & WASTE (${labelPeriode})</b>`,
     isKemarin
       ? `• <b>Rekap Tutup Shift:</b> <code>${t.statusBuka?.shiftKemarinClosedCount ?? 0} Cabang Closed Shift</code>`
       : `• <b>Status Shift Kasir:</b> <code>${t.statusBuka?.totalBuka ?? 0} Buka / ${t.statusBuka?.totalBelumBuka ?? 0} Belum Buka</code>`,
+    `• <b>Sidak & Ceklist AM:</b> <code>${sudahCekCount}/${wajibCekCount} Cabang Dicek</code> (${ceklist?.totalPerluPerhatianKemarin ?? 0} catatan temuan)`,
     `• <b>Audit Void POS:</b> <code>${voidCount} Transaksi</code> (<code>${formatRupiah(voidRp)}</code>)`,
-    `• <b>Estimasi Kerugian Waste (30 Hari):</b> <code>${formatRupiah(wasteRp)}</code> (${t.waste?.totalLaporan30Hari ?? 0} laporan)`,
+    `• <b>Loss Prevention Waste:</b> Kemarin <code>${formatRupiah(wasteKemarinRp)}</code>${badgeTrenWaste} | 30H: <code>${formatRupiah(wasteRp)}</code> (${t.waste?.totalLaporan30Hari ?? 0} lap)`,
     ``,
-    `👥 <b>3. WORKFORCE & PRESENSI (${labelPeriode})</b>`,
+    `👥 <b>3. WORKFORCE, PRESENSI & KASBON (${labelPeriode})</b>`,
     `• <b>Kehadiran Kru Cabang:</b> <code>${hadirTotal} Clock-in</code> (<b>${hadirOnTime}%</b> On-Time)`,
     `• <b>Terlambat / Izin:</b> <code>${hadirTelat} Terlambat</code>, <code>${hadirCuti} Izin/Cuti</code>`,
+    ...(t.kasbonHrd && (t.kasbonHrd.totalPendingCount > 0 || t.kasbonHrd.totalAktifCount > 0)
+      ? [`• <b>Kasbon Kru (HR):</b> <code>${t.kasbonHrd.totalPendingCount} Pending</code> (${formatRupiah(t.kasbonHrd.totalPendingNominal)}) | <code>${t.kasbonHrd.totalAktifCount} Aktif</code>`]
+      : []),
     ``,
     `💰 <b>4. TREASURY & FINANCE (${labelPeriode})</b>`,
-    `• <b>OPEX / Kas Kecil (${labelPeriode}):</b> <code>${formatRupiah(expAktif)}</code> (${expTxCount} transaksi)`,
+    `• <b>OPEX / Kas Kecil (${labelPeriode}):</b> <code>${formatRupiah(expAktif)}</code>${badgeTrenOpex} (${expTxCount} transaksi)`,
     isKemarin
       ? `• <b>Kas Fisik Closing:</b> <code>${formatRupiah(setoranAktif)}</code> (${t.finance?.setoranKas?.tutupShiftKemarin?.sudahDirekap ?? 0} direkap / ${t.finance?.setoranKas?.tutupShiftKemarin?.belumDirekap ?? 0} belum setor)`
       : `• <b>Setoran Kas Direkap:</b> <code>${formatRupiah(setoranAktif)}</code>`,
@@ -402,6 +485,9 @@ function bangunTeksTelegram(t: TelemetriHariIni, mode: 'hari_ini' | 'kemarin', a
     `━━━━━━━━━━━━━━━━━━━━━`,
     `🎯 <b>AI EXECUTIVE ACTION ITEMS:</b>`,
     actionLines,
+    ``,
+    `💡 <b>REKOMENDASI & SARAN STRATEGIS AGENT PER DIVISI:</b>`,
+    saranLines,
     `━━━━━━━━━━━━━━━━━━━━━`,
     `🕒 <i>J.A.R.V.I.S. Command Centre · agents.sukashawarma.com</i>`,
   ].join('\n')
@@ -430,14 +516,16 @@ export async function GET(req: Request) {
   const actionItemsKemarin = bangunActionItems(telemetri, jam, 'kemarin')
   const actionItemsHariIni = bangunActionItems(telemetri, jam, 'hari_ini')
   const actionItems = actionItemsKemarin
+  const saranStrategisKemarin = bangunSaranStrategisDivisi(telemetri, true)
+  const saranStrategisHariIni = bangunSaranStrategisDivisi(telemetri, false)
   const narasiSuaraHariIni = bangunNarasiSuara(telemetri, 'hari_ini', sapaan)
   const narasiSuaraKemarin = bangunNarasiSuara(telemetri, 'kemarin', sapaan)
 
   const teksLaporanHariIni = telemetri
-    ? bangunTeksTelegram(telemetri, 'hari_ini', actionItemsHariIni)
+    ? bangunTeksTelegram(telemetri, 'hari_ini', actionItemsHariIni, saranStrategisHariIni)
     : 'Data telemetri belum tersedia.'
   const teksLaporanKemarin = telemetri
-    ? bangunTeksTelegram(telemetri, 'kemarin', actionItemsKemarin)
+    ? bangunTeksTelegram(telemetri, 'kemarin', actionItemsKemarin, saranStrategisKemarin)
     : 'Data telemetri belum tersedia.'
 
   const payload: DailyReportPayload = {
@@ -448,6 +536,8 @@ export async function GET(req: Request) {
     actionItems,
     actionItemsKemarin,
     actionItemsHariIni,
+    saranStrategisKemarin,
+    saranStrategisHariIni,
     narasiSuaraHariIni,
     narasiSuaraKemarin,
     teksLaporanHariIni,
@@ -455,6 +545,14 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } })
+}
+
+const ROLE_PER_BOT_SLUG: Record<'manager' | 'finance' | 'hrd' | 'stokis' | 'review', string[]> = {
+  manager: ['area_manager', 'regional_manager', 'korlap', 'owner', 'admin', 'developer'],
+  finance: ['admin_finance', 'owner', 'admin', 'developer'],
+  hrd: ['admin_hr', 'owner', 'admin', 'developer'],
+  stokis: ['purchasing', 'staff_pusat', 'owner', 'admin', 'developer'],
+  review: ['owner', 'admin', 'developer'],
 }
 
 export async function POST(req: Request) {
@@ -473,7 +571,99 @@ export async function POST(req: Request) {
 
   const { jam } = getJamWib()
   const actionItems = bangunActionItems(telemetri, jam, mode)
-  const teksLaporan = bangunTeksTelegram(telemetri, mode, actionItems)
+  const saranStrategis = bangunSaranStrategisDivisi(telemetri, mode === 'kemarin')
+
+  // ── Mode One-Click Dispatch Directive ke Bot Divisi ──
+  if (body?.action === 'dispatch') {
+    const targetBotRaw = String(body?.targetBot || 'all').toLowerCase()
+    const saranId = body?.saranId ? String(body.saranId) : null
+
+    const daftarSaranTarget = saranId
+      ? saranStrategis.filter((s) => s.id === saranId)
+      : targetBotRaw === 'all'
+      ? saranStrategis
+      : saranStrategis.filter((s) => s.targetBot === targetBotRaw)
+
+    if (daftarSaranTarget.length === 0) {
+      return NextResponse.json({ ok: false, galat: 'Rekomendasi divisi tidak ditemukan.' }, { status: 400 })
+    }
+
+    const ceoFallbackTargets = new Set<string>()
+    for (const envKey of ['TELEGRAM_OWNER_CHAT_ID', 'TELEGRAM_CHAT_ID']) {
+      const val = process.env[envKey]
+      if (val) {
+        for (const cid of val.split(',')) {
+          const clean = cid.trim()
+          if (clean) ceoFallbackTargets.add(clean)
+        }
+      }
+    }
+
+    let totalTerkirim = 0
+    let galatTerakhir = ''
+
+    for (const saran of daftarSaranTarget) {
+      const botProfil = saran.targetBot
+      const allowedRoles = ROLE_PER_BOT_SLUG[botProfil] || ['owner', 'admin', 'developer']
+      const divTargets = new Set<string>(ceoFallbackTargets)
+
+      try {
+        const admin = supabaseAdmin(4_000)
+        const [{ data: links }, { data: whitelist }] = await Promise.all([
+          admin
+            .from('bot_telegram_links')
+            .select('chat_id, outlet_staff!inner(role, status)')
+            .in('outlet_staff.role', allowedRoles)
+            .eq('outlet_staff.status', 'active'),
+          admin
+            .from('bot_telegram_whitelist')
+            .select('telegram_user_id')
+            .in('bot_slug', [botProfil, 'ceo'])
+            .eq('is_active', true),
+        ])
+        for (const row of (links || []) as Array<{ chat_id?: string }>) {
+          if (row.chat_id) divTargets.add(String(row.chat_id).trim())
+        }
+        for (const row of (whitelist || []) as Array<{ telegram_user_id?: string }>) {
+          if (row.telegram_user_id) divTargets.add(String(row.telegram_user_id).trim())
+        }
+      } catch (err) {
+        console.warn(`[jarvis-dispatch] Gagal memuat target divisi ${botProfil}:`, err)
+      }
+
+      for (const chatId of divTargets) {
+        try {
+          await kirimPesanTelegram(chatId, saran.pesanInstruksiTelegram, undefined, botProfil)
+          totalTerkirim++
+        } catch {
+          // Fallback kirim melalui bot CEO jika token bot divisi belum di-set di env
+          try {
+            await kirimPesanTelegram(chatId, saran.pesanInstruksiTelegram, undefined, 'ceo')
+            totalTerkirim++
+          } catch (e2) {
+            galatTerakhir = (e2 as Error)?.message || 'Gagal dispatch ke Telegram'
+          }
+        }
+      }
+    }
+
+    if (totalTerkirim === 0) {
+      return NextResponse.json(
+        { ok: false, galat: galatTerakhir || 'Belum ada kontak Telegram divisi/CEO yang tertaut.' },
+        { status: 400 }
+      )
+    }
+
+    const labelDivisi =
+      daftarSaranTarget.length === 1 ? daftarSaranTarget[0].labelBot : `${daftarSaranTarget.length} Divisi Operasional`
+    return NextResponse.json({
+      ok: true,
+      terkirimKe: totalTerkirim,
+      ringkasanSuara: `Siap, Sir. Instruksi strategis telah berhasil diteruskan ke ${labelDivisi} melalui Telegram.`,
+    })
+  }
+
+  const teksLaporan = bangunTeksTelegram(telemetri, mode, actionItems, saranStrategis)
 
   // Kumpulkan daftar chat_id Telegram eksekutif (Owner / Admin / Developer)
   const targets = new Set<string>()

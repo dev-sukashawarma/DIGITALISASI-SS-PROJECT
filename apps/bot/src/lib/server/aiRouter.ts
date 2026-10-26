@@ -135,7 +135,12 @@ export async function* tanyaAiRouter(o: {
       )
       .join('\n')
     const listWasteOutlet = (w?.topOutlet || [])
-      .map((out, i) => `${i + 1}. ${out.nama}: ${out.frekuensi} laporan (${out.totalQty} unit)`)
+      .map(
+        (out, i) =>
+          `${i + 1}. ${out.nama}: ${out.frekuensi} laporan (${out.totalQty} unit${
+            out.estKerugianRp ? `, Est. Rugi: ${formatRupiah(out.estKerugianRp)}` : ''
+          })`
+      )
       .join('\n')
 
     const listWasteKemarinPerOutlet = (w?.rekapOutletKemarin || [])
@@ -288,6 +293,7 @@ ${listExpHariIniPerOutlet || '  (Belum ada pengeluaran per cabang hari ini)'}
 - Rincian Item Pengeluaran Hari Ini:
 ${listExpHariIni || '(Belum ada pengeluaran hari ini)'}
 
+- Total Pengeluaran Operasional Bulan Berjalan: ${formatRupiah(f.pengeluaranBulanIni?.totalNominal || 0)}
 - Top Pengeluaran Terbesar Bulan Berjalan:
 ${listExpBulan || '(Belum ada pengeluaran besar bulan ini)'}
 
@@ -392,6 +398,30 @@ ${listNegatif || '(Tidak ada ulasan negatif terbaru - kepuasan pelanggan terjaga
 `
     }
 
+    const cek = t.ceklistHarian
+    const listTemuanCeklist = (cek?.daftarTemuanTerbaru || [])
+      .map(
+        (c, i) =>
+          `  ${i + 1}. ${c.outlet} (AM: ${c.namaAm}, Tgl: ${c.tanggal}) [Status: ${c.nilaiTerburuk.toUpperCase()}] -> Temuan: ${c.temuan.join('; ') || '-'} | Perbaikan: ${c.perbaikan.join('; ') || '-'}`
+      )
+      .join('\n')
+
+    const kb = t.kasbonHrd
+    const listKasbonPending = (kb?.daftarPendingTerbaru || [])
+      .map((x, i) => `  ${i + 1}. ${x.nama} (${x.role} - ${x.outlet}): ${formatRupiah(x.nominal)} (Alasan: ${x.alasan})`)
+      .join('\n')
+
+    const tr = t.trenHarian
+    const teksTrenH2 = tr
+      ? `
+PERBANDINGAN TREN DAY-OVER-DAY (H-1 KEMARIN VS H-2 TANGGAL ${tr.tanggalH2Iso}):
+- Omzet H-2: ${formatRupiah(tr.omzetH2)} | Delta H-1 vs H-2: ${tr.deltaOmzetPersen !== null ? `${tr.deltaOmzetPersen > 0 ? '+' : ''}${tr.deltaOmzetPersen}%` : 'N/A'}
+- Order H-2: ${tr.orderH2} struk | Delta H-1 vs H-2: ${tr.deltaOrderPersen !== null ? `${tr.deltaOrderPersen > 0 ? '+' : ''}${tr.deltaOrderPersen}%` : 'N/A'}
+- OPEX H-2: ${formatRupiah(tr.opexH2)} | Delta H-1 vs H-2: ${tr.deltaOpexPersen !== null ? `${tr.deltaOpexPersen > 0 ? '+' : ''}${tr.deltaOpexPersen}%` : 'N/A'}
+- Waste H-2: ${formatRupiah(tr.wasteH2Rp)} | Delta H-1 vs H-2: ${tr.deltaWastePersen !== null ? `${tr.deltaWastePersen > 0 ? '+' : ''}${tr.deltaWastePersen}%` : 'N/A'}
+`
+      : ''
+
     konteksData = `
 ======================================================================
 ACUAN UTAMA DEFAULT: EVALUASI FULL CLOSING KEMARIN / H-1 (${k?.tanggalLabel || 'Kemarin'})
@@ -419,6 +449,11 @@ ${listMenuTersepiKemarin || '(Belum ada data menu tersepi kemarin)'}
 ${listTelatKemarin || '(Tidak ada kru terlambat kemarin)'}
 - Daftar Kru Izin / Cuti Kemarin (H-1):
 ${listCutiKemarin || '(Tidak ada kru yang izin/cuti kemarin)'}
+- Pengajuan Kasbon Kru (App HR): ${kb?.totalPendingCount ?? 0} pengajuan pending (${formatRupiah(kb?.totalPendingNominal ?? 0)}) | ${kb?.totalAktifCount ?? 0} kasbon aktif berjalan (Sisa Piutang: ${formatRupiah(kb?.totalSisaPiutang ?? 0)})
+${listKasbonPending ? `  Rincian Kasbon Pending:\n${listKasbonPending}` : ''}
+- Kepatuhan Ceklist Harian & Sidak Area Manager (App Manager): ${cek?.totalSudahDicekKemarin ?? t.totalOutletAktif}/${cek?.totalOutletWajib ?? t.totalOutletAktif} cabang disidak kemarin (${cek?.totalPerluPerhatianKemarin ?? 0} cabang ada temuan perhatian/buruk, ${cek?.totalBelumDitinjauRm ?? 0} belum ditinjau RM)
+${listTemuanCeklist ? `  Rincian Temuan Sidak AM:\n${listTemuanCeklist}` : '  (Seluruh aspek kebersihan, rasa, stok, seragam & peralatan baik)'}
+${teksTrenH2}
 
 3. AUDIT VOID POS & SHIFT KEMARIN (OPERASIONAL H-1):
 - Total Cabang Closed Shift Kemarin: ${sbk?.shiftKemarinClosedCount ?? 0} cabang

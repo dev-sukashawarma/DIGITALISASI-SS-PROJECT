@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buatJawabanDev } from './devSimulasi'
+import { buatJawabanDev, bangunSaranStrategisDivisi } from './devSimulasi'
 import type { TelemetriHariIni } from './telemetriNyata'
 
 describe('Bot CEO Cross-App Integrated Output Verification', () => {
@@ -349,5 +349,85 @@ describe('Bot CEO Cross-App Integrated Output Verification', () => {
     expect(resEvaluasi).toContain('Dapur & Pengurangan Waste')
     expect(resEvaluasi).toContain('Rantai Pasok & Logistik')
     expect(resEvaluasi).toContain('Kepuasan Pelanggan')
+  })
+
+  it('CEO: Menampilkan Tren Day-over-Day (H-1 vs H-2), Ceklist Sidak AM, Kasbon Kru, dan Saran Dispatch per Divisi', () => {
+    const telemetriLengkapPlus: TelemetriHariIni = {
+      ...fullFixedTelemetri,
+      ceklistHarian: {
+        totalOutletWajib: 18,
+        totalSudahDicekHariIni: 12,
+        totalSudahDicekKemarin: 17,
+        totalPerluPerhatianKemarin: 2,
+        totalBelumDitinjauRm: 1,
+        daftarTemuanTerbaru: [
+          {
+            outlet: 'SUKA SHAWARMA SUHAT',
+            namaAm: 'Reza AM',
+            tanggal: '2026-10-20',
+            nilaiTerburuk: 'perhatian',
+            temuan: ['Exhaust fan dapur agak berdebu'],
+            perbaikan: ['Jadwalkan deep cleaning exhaust fan'],
+            sudahDitinjauRm: false,
+          },
+        ],
+        daftarBelumDicekKemarin: ['SUKA SHAWARMA BOGOR BARAT'],
+      },
+      kasbonHrd: {
+        totalPendingCount: 2,
+        totalPendingNominal: 1500000,
+        totalAktifCount: 5,
+        totalSisaPiutang: 4200000,
+        daftarPendingTerbaru: [
+          {
+            id: 'kb-1',
+            nama: 'Rizky Ramadhan',
+            role: 'crew',
+            outlet: 'SUKA SHAWARMA CONDET',
+            nominal: 750000,
+            sisa: 750000,
+            alasan: 'Biaya berobat keluarga',
+            status: 'pending',
+            tanggal: '2026-10-20',
+          },
+        ],
+      },
+      trenHarian: {
+        tanggalH2Iso: '2026-10-19',
+        omzetH2: 60000000,
+        orderH2: 1000,
+        opexH2: 3000000,
+        wasteH2Rp: 120000,
+        deltaOmzetPersen: 9.3,
+        deltaOrderPersen: 8.0,
+        deltaOpexPersen: -5.0,
+        deltaWastePersen: 16.7,
+      },
+    }
+
+    const resEvaluasi = buatJawabanDev(
+      'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi',
+      'ceo',
+      telemetriLengkapPlus
+    ).join('')
+
+    // Indikator Tren DoD (vs H-2)
+    expect(resEvaluasi).toContain('+9.3% vs H-2')
+    expect(resEvaluasi).toContain('+8% vs H-2')
+    expect(resEvaluasi).toContain('-5% vs H-2')
+
+    // Ceklist Sidak AM & Kasbon HR
+    expect(resEvaluasi).toContain('17/18 Cabang Dicek')
+    expect(resEvaluasi).toContain('Exhaust fan dapur agak berdebu')
+    expect(resEvaluasi).toContain('2 pengajuan pending')
+    expect(resEvaluasi).toContain('1.500.000')
+
+    // Structured Division Suggestions untuk One-Click Dispatch
+    const saranDivisi = bangunSaranStrategisDivisi(telemetriLengkapPlus, true)
+    expect(saranDivisi.length).toBeGreaterThanOrEqual(5)
+    expect(saranDivisi.map((s) => s.targetBot)).toEqual(['manager', 'finance', 'hrd', 'stokis', 'review'])
+    expect(saranDivisi[0].pesanInstruksiTelegram).toContain('DIRECTIVE CEO')
+    expect(saranDivisi[0].poinSaran.join(' ')).toContain('Reza AM')
+    expect(saranDivisi[2].poinSaran.join(' ')).toContain('kasbon')
   })
 })

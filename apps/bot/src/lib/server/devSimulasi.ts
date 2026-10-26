@@ -3,10 +3,305 @@
  */
 import { TelemetriHariIni, formatRupiah } from './telemetriNyata'
 
+export interface SaranStrategisDivisi {
+  id: string
+  divisi:
+    | 'SALES & POS'
+    | 'FINANCE & TREASURY'
+    | 'HRD & PRESENSI'
+    | 'DAPUR & WASTE'
+    | 'GUDANG & LOGISTIK'
+    | 'AREA MANAGER & SIDAK'
+    | 'CUSTOMER REVIEW'
+  targetBot: 'manager' | 'finance' | 'hrd' | 'stokis' | 'review'
+  labelBot: string
+  prioritas: 'critical' | 'warning' | 'optimal'
+  judul: string
+  poinSaran: string[]
+  dampakTarget: string
+  pesanInstruksiTelegram: string
+}
+
+export function formatBadgeTren(delta: number | null | undefined, naikBagus = true): string {
+  if (delta === null || delta === undefined || Number.isNaN(delta)) return ''
+  if (delta === 0) return ' (➖ 0% vs H-2)'
+  const tanda = delta > 0 ? `+${delta}%` : `${delta}%`
+  const panah = delta > 0 ? '📈' : '📉'
+  const ikonStatus = (delta > 0 && !naikBagus) || (delta < 0 && naikBagus) ? '⚠️' : ''
+  return ` (${panah} ${tanda} vs H-2${ikonStatus ? ` ${ikonStatus}` : ''})`
+}
+
+export function bangunSaranStrategisDivisi(
+  t: TelemetriHariIni | null,
+  isKemarin: boolean = true
+): SaranStrategisDivisi[] {
+  if (!t) return []
+
+  const k = t.ringkasanKemarin
+  const labelPeriode = isKemarin ? k?.tanggalLabel || t.tanggalKemarinWIB || 'Kemarin (H-1)' : `Hari Ini (${t.tanggalWIB})`
+  const outletsAktif = (isKemarin ? k?.outletsAktifTransaksi : t.outletsAktifTransaksi) ?? t.outletsAktifTransaksi ?? []
+  const lowestOutlet = outletsAktif.length > 3 ? outletsAktif[outletsAktif.length - 1] : null
+  const topMenu = ((isKemarin ? k?.topMenu ?? t.topMenuKemarin : t.topMenu) ?? t.topMenu ?? []).slice(0, 3)
+  const menuTersepi = (k?.menuTersepi ?? []).slice(0, 3)
+  const aov = (isKemarin ? k?.aov : t.aov) ?? t.aov ?? 0
+
+  const f = t.finance
+  const selisihList = f?.selisihKasir?.selisihKemarin ?? f?.selisihKasir?.daftarSelisihTerbaru ?? []
+  const kasirTekor = selisihList.filter((s) => s.selisih < 0)
+  const shiftKemarin = f?.setoranKas?.tutupShiftKemarin
+  const belumDirekap = shiftKemarin?.belumDirekap ?? 0
+  const daftarBelumSetor = shiftKemarin?.daftarBelumSetor ?? []
+  const utangOverdue = f?.utangPo?.totalLewatJatuhTempo ?? 0
+  const topSupplier = f?.utangPo?.topSupplier ?? []
+
+  const hrd = isKemarin ? t.hrdKemarin : undefined
+  const onTimePct = hrd?.persenOnTime ?? t.persenOnTime ?? 100
+  const telatCount = hrd?.kehadiranTelat ?? t.kehadiranTelat ?? 0
+  const daftarTelat = hrd?.stafTelat ?? t.stafTelat ?? []
+  const daftarCuti = hrd?.stafCutiIzin ?? t.stafCutiIzin ?? []
+  const kasbonPending = t.kasbonHrd?.totalPendingCount ?? 0
+  const kasbonPendingRp = t.kasbonHrd?.totalPendingNominal ?? 0
+
+  const w = t.waste
+  const wasteKemarinRp = w?.estKerugianKemarinRp ?? 0
+  const waste30HRp = w?.totalEstKerugianRp ?? 0
+  const topWasteBahan = w?.topBahan?.[0]
+
+  const kritisBahan = (t.saldoStok ?? []).filter((s) => s.outletKritisCount > 0)
+  const sjSelisih = t.distribusi?.totalSuratJalanAdaSelisih ?? 0
+
+  const ceklist = t.ceklistHarian
+  const temuanCeklist = ceklist?.daftarTemuanTerbaru ?? []
+  const belumDicekCount = ceklist?.daftarBelumDicekKemarin?.length ?? 0
+
+  const ulasanNegatif = t.review?.ulasanNegatifTerbaru ?? []
+  const ratingAvg = t.review?.ratingRataRata ?? 4.8
+
+  const hasil: SaranStrategisDivisi[] = []
+
+  // 1. SALES & POS (Target: Bot Manager / Operasional)
+  const poinSales: string[] = []
+  if (lowestOutlet) {
+    poinSales.push(
+      `Intervensi Cabang ${lowestOutlet.nama}: Audit traffic jam makan siang/malam & pasang promo walk-in lokal untuk mengangkat omzet dari ${formatRupiah(lowestOutlet.omzet)}.`
+    )
+    poinSales.push(
+      `Menu Bundling: Pasangkan ${menuTersepi[0]?.nama || 'menu slow-moving'} dengan ${topMenu[0]?.nama || 'Shawarma Beef Large'} untuk mempercepat perputaran stok.`
+    )
+  } else {
+    poinSales.push(
+      `Pertahankan momentum menu terlaris (${topMenu[0]?.nama || 'Shawarma Beef Large'}) dan dorong upselling minuman/add-on keju untuk menaikkan AOV dari ${formatRupiah(aov)}.`
+    )
+  }
+  if (temuanCeklist.length > 0 || belumDicekCount > 0) {
+    const contohTemuan = temuanCeklist[0]
+    poinSales.push(
+      contohTemuan
+        ? `Tindak Lanjut Sidak AM di ${contohTemuan.outlet} (AM: ${contohTemuan.namaAm}): ${contohTemuan.temuan[0] || `Status ${contohTemuan.nilaiTerburuk}`}.`
+        : `Pastikan Area Manager menuntaskan ${belumDicekCount} ceklist harian cabang yang belum terisi.`
+    )
+  }
+
+  hasil.push({
+    id: 'saran-sales-ops',
+    divisi: 'SALES & POS',
+    targetBot: 'manager',
+    labelBot: 'Bot Operasional / AM',
+    prioritas: lowestOutlet || temuanCeklist.some((x) => x.nilaiTerburuk === 'buruk') ? 'warning' : 'optimal',
+    judul: lowestOutlet
+      ? `Intervensi Omzet ${lowestOutlet.nama} & Optimasi Bundling Menu`
+      : `Akselerasi Upselling & Konsistensi SOP Cabang`,
+    poinSaran: poinSales,
+    dampakTarget: 'Kenaikan AOV +10% & kepatuhan SOP ceklist cabang 100%',
+    pesanInstruksiTelegram: [
+      `⚡ <b>DIRECTIVE CEO // SALES & OPERASIONAL CABANG</b>`,
+      `🗓️ <b>Acuan Evaluasi:</b> <code>${labelPeriode}</code>`,
+      ``,
+      ...poinSales.map((p, i) => `${i + 1}. ${p}`),
+      ``,
+      `🎯 <b>Target Eksekusi:</b> Koordinasikan dengan SPV & Area Manager hari ini.`,
+    ].join('\n'),
+  })
+
+  // 2. FINANCE & TREASURY (Target: Bot Finance)
+  const poinFinance: string[] = []
+  if (kasirTekor.length > 0) {
+    poinFinance.push(
+      `Tarik Berita Acara Selisih Kasir dari SPV untuk kasir ${kasirTekor[0].kasir} di ${kasirTekor[0].outlet} (${formatRupiah(kasirTekor[0].selisih)}) sebelum buka shift berikutnya.`
+    )
+  }
+  if (belumDirekap > 0) {
+    poinFinance.push(
+      `Tagih bukti setor bank dari ${belumDirekap} cabang yang belum rekap setoran closing kemarin (${daftarBelumSetor.slice(0, 3).join(', ') || 'cabang terkait'}).`
+    )
+  }
+  if (utangOverdue > 0) {
+    poinFinance.push(
+      `Jadwalkan prioritas pembayaran PO jatuh tempo senilai ${formatRupiah(utangOverdue)} (terbesar: ${topSupplier[0]?.supplier || 'Supplier Utama'}) agar suplai bahan baku tidak tertahan.`
+    )
+  }
+  if (poinFinance.length === 0) {
+    poinFinance.push(`Pertahankan ketertiban rekonsiliasi setoran kasir dan pengawasan rasio OPEX harian cabang.`)
+  }
+
+  hasil.push({
+    id: 'saran-finance',
+    divisi: 'FINANCE & TREASURY',
+    targetBot: 'finance',
+    labelBot: 'Bot Finance',
+    prioritas: kasirTekor.length > 0 || utangOverdue > 0 ? 'critical' : belumDirekap > 0 ? 'warning' : 'optimal',
+    judul:
+      kasirTekor.length > 0
+        ? `Audit Kasir Tekor (${kasirTekor[0].outlet}) & Penyelesaian PO Overdue`
+        : utangOverdue > 0
+        ? `Settlement Utang PO Overdue (${formatRupiah(utangOverdue)})`
+        : `Rekonsiliasi Setoran Kas & Pengendalian OPEX`,
+    poinSaran: poinFinance,
+    dampakTarget: 'Zero unverified cash variance & kelancaran arus kas supplier',
+    pesanInstruksiTelegram: [
+      `💰 <b>DIRECTIVE CEO // FINANCE & AUDIT KASIR</b>`,
+      `🗓️ <b>Acuan Evaluasi:</b> <code>${labelPeriode}</code>`,
+      ``,
+      ...poinFinance.map((p, i) => `${i + 1}. ${p}`),
+      ``,
+      `🎯 <b>Target Eksekusi:</b> Laporkan status rekonsiliasi & settlement sebelum pukul 15:00 WIB.`,
+    ].join('\n'),
+  })
+
+  // 3. HRD & PRESENSI (Target: Bot HRD)
+  const poinHrd: string[] = []
+  if (telatCount > 0 && daftarTelat.length > 0) {
+    poinHrd.push(
+      `Berikan teguran/konseling disiplin shift pagi kepada ${daftarTelat[0].nama} (${daftarTelat[0].outlet}, telat ${daftarTelat[0].telatMenit} menit) agar rasio on-time (${onTimePct}%) kembali ke 100%.`
+    )
+  }
+  if (daftarCuti.length > 0) {
+    poinHrd.push(
+      `Pastikan rotasi kru pengganti (backup helper) untuk posisi ${daftarCuti[0].nama} (${daftarCuti[0].role}) yang sedang ${daftarCuti[0].jenis}.`
+    )
+  }
+  if (kasbonPending > 0) {
+    poinHrd.push(
+      `Verifikasi ${kasbonPending} pengajuan kasbon kru yang masih menunggu persetujuan HRD (total ${formatRupiah(kasbonPendingRp)}).`
+    )
+  }
+  if (poinHrd.length === 0) {
+    poinHrd.push(`Pertahankan kedisiplinan presensi geofencing kru cabang pada level optimal.`)
+  }
+
+  hasil.push({
+    id: 'saran-hrd',
+    divisi: 'HRD & PRESENSI',
+    targetBot: 'hrd',
+    labelBot: 'Bot HRD',
+    prioritas: telatCount > 2 ? 'critical' : telatCount > 0 || kasbonPending > 0 ? 'warning' : 'optimal',
+    judul:
+      telatCount > 0
+        ? `Disiplin Clock-In Kru (${telatCount} Terlambat) & Rotasi Shift`
+        : `Pertahankan Presensi 100% On-Time & Verifikasi SDM`,
+    poinSaran: poinHrd,
+    dampakTarget: '100% On-Time Clock-In & kesiapan penuh manning jam sibuk',
+    pesanInstruksiTelegram: [
+      `👥 <b>DIRECTIVE CEO // HRD & KEDISIPLINAN KRU</b>`,
+      `🗓️ <b>Acuan Evaluasi:</b> <code>${labelPeriode}</code>`,
+      ``,
+      ...poinHrd.map((p, i) => `${i + 1}. ${p}`),
+      ``,
+      `🎯 <b>Target Eksekusi:</b> Tindak lanjuti bersama Korlap/SPV cabang terkait.`,
+    ].join('\n'),
+  })
+
+  // 4. DAPUR & WASTE + 5. GUDANG & LOGISTIK (Target: Bot Gudang / Stokis)
+  const poinGudangWaste: string[] = []
+  if (wasteKemarinRp > 0 || waste30HRp > 500_000) {
+    poinGudangWaste.push(
+      `Ajukan klaim QC ke supplier terkait tingginya waste ${topWasteBahan?.nama || 'Sayur Lettuce'} (${formatRupiah(wasteKemarinRp || waste30HRp)}) akibat ${topWasteBahan?.alasanDominan || 'potongan bonggol/layu'}.`
+    )
+    poinGudangWaste.push(
+      `Perketat audit suhu chiller (2–4°C) dan protokol FIFO bahan baku setiap pergantian shift dapur.`
+    )
+  }
+  if (kritisBahan.length > 0) {
+    poinGudangWaste.push(
+      `Segera kirim transfer buffer stock ${kritisBahan[0].nama} dari Gudang Pusat (${kritisBahan[0].stokGudangPusat} ${kritisBahan[0].satuan}) ke ${kritisBahan[0].outletKritisCount} cabang yang saldonya kritis/kosong.`
+    )
+  }
+  if (sjSelisih > 0) {
+    poinGudangWaste.push(
+      `Evaluasi SOP pengemasan pengiriman Surat Jalan (${sjSelisih} pengiriman tercatat selisih/rusak) menggunakan container bersegel.`
+    )
+  }
+  if (poinGudangWaste.length === 0) {
+    poinGudangWaste.push(`Stok jaringan, distribusi surat jalan, dan efisiensi waste dapur terkendali aman.`)
+  }
+
+  hasil.push({
+    id: 'saran-gudang-waste',
+    divisi: 'GUDANG & LOGISTIK',
+    targetBot: 'stokis',
+    labelBot: 'Bot Gudang / Stokis',
+    prioritas: kritisBahan.length > 0 ? 'critical' : wasteKemarinRp > 0 || sjSelisih > 0 ? 'warning' : 'optimal',
+    judul:
+      kritisBahan.length > 0
+        ? `Restock Darurat ${kritisBahan[0].nama} (${kritisBahan[0].outletKritisCount} Cabang) & Tekan Waste`
+        : `Loss Prevention Dapur (${topWasteBahan?.nama || 'Bahan Baku'}) & Akurasi Distribusi`,
+    poinSaran: poinGudangWaste,
+    dampakTarget: 'Zero stock-out cabang & penurunan waste bahan baku -30%',
+    pesanInstruksiTelegram: [
+      `📦 <b>DIRECTIVE CEO // GUDANG PUSAT, DISTRIBUSI & LOSS PREVENTION</b>`,
+      `🗓️ <b>Acuan Evaluasi:</b> <code>${labelPeriode}</code>`,
+      ``,
+      ...poinGudangWaste.map((p, i) => `${i + 1}. ${p}`),
+      ``,
+      `🎯 <b>Target Eksekusi:</b> Prioritaskan pengiriman buffer stock pagi ini.`,
+    ].join('\n'),
+  })
+
+  // 5. CUSTOMER EXPERIENCE & SUKAREVIEW (Target: Bot SukaReview)
+  const poinReview: string[] = []
+  if (ulasanNegatif.length > 0) {
+    const rev = ulasanNegatif[0]
+    poinReview.push(
+      `Respon ulasan ⭐${rev.rating} dari pelanggan ${rev.reviewer} di ${rev.outlet} maksimal 1x24 jam dengan solusi empatik & kompensasi voucher.`
+    )
+    poinReview.push(
+      `Koordinasikan Area Manager untuk sidak takaran bumbu & suhu saji produk di ${rev.outlet} sesuai keluhan pelanggan.`
+    )
+  } else {
+    poinReview.push(
+      `Pertahankan standar keramahtamahan kasir dan kecepatan saji untuk menjaga rating jaringan (${ratingAvg}⭐).`
+    )
+  }
+
+  hasil.push({
+    id: 'saran-review',
+    divisi: 'CUSTOMER REVIEW',
+    targetBot: 'review',
+    labelBot: 'Bot SukaReview',
+    prioritas: ulasanNegatif.length > 0 ? 'warning' : 'optimal',
+    judul:
+      ulasanNegatif.length > 0
+        ? `Pemulihan Komplain Pelanggan ⭐${ulasanNegatif[0].rating} di ${ulasanNegatif[0].outlet}`
+        : `Penjagaan Reputasi Google Review (${ratingAvg}⭐)`,
+    poinSaran: poinReview,
+    dampakTarget: '100% respon ulasan kritis <24 jam & rating cabang ≥ 4.7⭐',
+    pesanInstruksiTelegram: [
+      `⭐ <b>DIRECTIVE CEO // CUSTOMER EXPERIENCE & SUKAREVIEW</b>`,
+      `🗓️ <b>Acuan Evaluasi:</b> <code>${labelPeriode}</code>`,
+      ``,
+      ...poinReview.map((p, i) => `${i + 1}. ${p}`),
+      ``,
+      `🎯 <b>Target Eksekusi:</b> Pastikan tim CS/Marcom dan AM menindaklanjuti ulasan hari ini.`,
+    ].join('\n'),
+  })
+
+  return hasil
+}
+
 /**
  * Membangun Laporan Evaluasi Operasional & Eksekutif Komprehensif (H-1)
- * yang mencakup seluruh modul aplikasi (Sales/POS, Finance, HRD, Waste/Inventori, Stok/Distribusi, SukaReview)
- * beserta Radar Anomali dan Rekomendasi/Saran Strategis Taktis dari Agent.
+ * yang mencakup seluruh modul aplikasi (Sales/POS, Finance, HRD, Waste/Inventori, Stok/Distribusi, Manager/Sidak, SukaReview)
+ * beserta Indikator Tren Day-over-Day (H-1 vs H-2), Radar Anomali, dan Rekomendasi/Saran Strategis Taktis dari Agent.
  */
 export function bangunLaporanEvaluasiKomprehensif(
   t: TelemetriHariIni | null,
@@ -82,11 +377,10 @@ export function bangunLaporanEvaluasiKomprehensif(
   const w = t.waste
   const wasteKemarinCount = w?.laporanKemarinCount ?? 0
   const wasteKemarinRp = w?.estKerugianKemarinRp ?? 0
-  const wasteKemarinDetail = w?.laporanKemarinDetail ?? []
+  const wasteKemarinDetail = w?.rincianKemarin ?? []
   const waste30HCount = w?.totalLaporan30Hari ?? 0
   const waste30HRp = w?.totalEstKerugianRp ?? 0
   const topWaste30HBahan = w?.topBahan ?? []
-  const topWaste30HOutlet = w?.topOutlet ?? []
 
   // 6. Stok & Distribusi (stok & distribusi)
   const sStok = t.saldoStok ?? []
@@ -102,6 +396,26 @@ export function bangunLaporanEvaluasiKomprehensif(
   const totalUlasan = rev?.totalUlasan ?? 0
   const topRatingCabang = rev?.topCabangRating ?? []
   const ulasanNegatif = rev?.ulasanNegatifTerbaru ?? []
+
+  // 8. Ceklist Harian & Sidak Area Manager (app manager) + Kasbon Kru (app HR) + Tren H-1 vs H-2
+  const ceklist = t.ceklistHarian
+  const totalWajibCek = ceklist?.totalOutletWajib ?? t.totalOutletAktif ?? outletsAktif.length
+  const sudahDicekKemarin = ceklist?.totalSudahDicekKemarin ?? totalWajibCek
+  const perluPerhatianCek = ceklist?.totalPerluPerhatianKemarin ?? 0
+  const daftarTemuanCek = ceklist?.daftarTemuanTerbaru ?? []
+  const daftarBelumCek = ceklist?.daftarBelumDicekKemarin ?? []
+
+  const kasbon = t.kasbonHrd
+  const kasbonPendingCount = kasbon?.totalPendingCount ?? 0
+  const kasbonPendingRp = kasbon?.totalPendingNominal ?? 0
+  const kasbonAktifCount = kasbon?.totalAktifCount ?? 0
+  const kasbonSisaPiutang = kasbon?.totalSisaPiutang ?? 0
+
+  const tren = t.trenHarian
+  const badgeTrenOmzet = formatBadgeTren(tren?.deltaOmzetPersen, true)
+  const badgeTrenOrder = formatBadgeTren(tren?.deltaOrderPersen, true)
+  const badgeTrenOpex = formatBadgeTren(tren?.deltaOpexPersen, false)
+  const badgeTrenWaste = formatBadgeTren(tren?.deltaWastePersen, false)
 
   // Format Helper Sub-bagian
   const top3OutletsText =
@@ -167,7 +481,7 @@ export function bangunLaporanEvaluasiKomprehensif(
 
   const wasteKemarinDetailText =
     wasteKemarinDetail.length > 0
-      ? ` (Dominan: ${wasteKemarinDetail.slice(0, 2).map((d) => `${d.bahan} ${d.qty} ${d.satuan} [${d.alasan}]`).join(', ')})`
+      ? ` (Dominan: ${wasteKemarinDetail.slice(0, 2).map((d) => `${d.bahan} ${d.qty} ${d.satuan} [${d.reason}]`).join(', ')})`
       : topWaste30HBahan.length > 0
       ? ` (Dominan: **${topWaste30HBahan[0].nama}**, faktor: ${topWaste30HBahan[0].alasanDominan})`
       : ''
@@ -398,10 +712,10 @@ export function bangunLaporanEvaluasiKomprehensif(
       `### 🎯 I. EXECUTIVE SUMMARY & MULTI-APP SCORECARD\n` +
       `| Modul Aplikasi | Indikator Kunci (KPI) | Realisasi Closing Kemarin | Status & Catatan |\n` +
       `| :--- | :--- | :--- | :--- |\n` +
-      `| 🛒 **Sales & POS** | Omzet Bersih & Margin | **${formatRupiah(omzetBersih)}** (Laba: **${formatRupiah(
+      `| 🛒 **Sales & POS** | Omzet Bersih & Margin | **${formatRupiah(omzetBersih)}**${badgeTrenOmzet} (Laba: **${formatRupiah(
         labaKotorTotal
-      )}**) | ${orderCount.toLocaleString('id-ID')} struk / ${porsiCount} porsi (AOV ${formatRupiah(aov)}) |\n` +
-      `| 💰 **Finance & Kasir** | Beban OPEX & Kas Fisik | **${formatRupiah(opexKemarin)}** OPEX / **${formatRupiah(
+      )}**) | ${orderCount.toLocaleString('id-ID')} struk${badgeTrenOrder} / ${porsiCount} porsi (AOV ${formatRupiah(aov)}) |\n` +
+      `| 💰 **Finance & Kasir** | Beban OPEX & Kas Fisik | **${formatRupiah(opexKemarin)}** OPEX${badgeTrenOpex} / **${formatRupiah(
         fisikKas
       )}** Kas Fisik | Rekap bank: ${sudahDirekap} disetor, ${belumDirekap} pending |\n` +
       `| ⚖️ **Audit Kasir** | Selisih Kasir Tutup Shift | ${
@@ -415,20 +729,25 @@ export function bangunLaporanEvaluasiKomprehensif(
           ? `${kasirTekor[0].outlet} (Kasir: ${kasirTekor[0].kasir})`
           : 'Seluruh kasir klop tepat'
       } |\n` +
-      `| 👥 **SDM & Absensi** | Kehadiran & Ketepatan Kru | **${onTimePct}% On-Time** (${hadirTotal} clock-in) | ${telatCount} terlambat, ${daftarCuti.length} izin/cuti |\n` +
+      `| 📋 **Manager & Sidak** | Ceklist Harian Area Manager | **${sudahDicekKemarin}/${totalWajibCek} Cabang Dicek** | ${
+        perluPerhatianCek > 0 ? `${perluPerhatianCek} cabang ada temuan` : 'SOP Kebersihan, Rasa & Peralatan Baik'
+      } |\n` +
+      `| 👥 **SDM & Absensi** | Kehadiran & Ketepatan Kru | **${onTimePct}% On-Time** (${hadirTotal} clock-in) | ${telatCount} terlambat, ${daftarCuti.length} izin/cuti${
+        kasbonPendingCount > 0 ? `, ${kasbonPendingCount} kasbon pending` : ''
+      } |\n` +
       `| 🥦 **Mutu Dapur & Waste** | Loss Prevention Bahan Baku | **${wasteKemarinCount} Laporan** (${formatRupiah(
         wasteKemarinRp
-      )}) | Bahan dominan: ${topWaste30HBahan[0]?.nama || 'Sayur Lettuce'} |\n` +
+      )}${badgeTrenWaste}) | Bahan dominan: ${topWaste30HBahan[0]?.nama || 'Sayur Lettuce'} |\n` +
       `| 📦 **Stok & Logistik** | Kesiapan Stok & Distribusi | ${kritisBahan.length} bahan kritis di cabang | ${sjSelisih} SJ selisih/rusak dari ${sjKirim} pengiriman |\n` +
       `| ⭐ **Google Reviews** | Kepuasan Pelanggan (CSAT) | **${ratingAvg}⭐** (${totalUlasan} ulasan) | ${ulasanNegatif.length} ulasan kritis perlu penanganan |\n\n`,
 
     `### 📊 II. REKAPITULASI KINERJA MULTI-APP (LINTAS DIVISI)\n\n` +
       `#### 🛒 1. Penjualan & POS (pos-kasir & sales-board)\n` +
       `- **Total Omzet Kotor Jaringan**: **${formatRupiah(omzetKotor)}**\n` +
-      `- **Total Omzet Bersih (Net)**: **${formatRupiah(omzetBersih)}** (Diskon/Promo: **${formatRupiah(
+      `- **Total Omzet Bersih (Net)**: **${formatRupiah(omzetBersih)}**${badgeTrenOmzet} (Diskon/Promo: **${formatRupiah(
         potonganDiskon
       )}**, HPP: **${formatRupiah(hppTotal)}**, Laba Kotor: **${formatRupiah(labaKotorTotal)}**)\n` +
-      `- **Volume Transaksi**: **${orderCount.toLocaleString('id-ID')} struk** (**${porsiCount} porsi** terjual, AOV: **${formatRupiah(
+      `- **Volume Transaksi**: **${orderCount.toLocaleString('id-ID')} struk**${badgeTrenOrder} (**${porsiCount} porsi** terjual, AOV: **${formatRupiah(
         aov
       )}**)\n` +
       `- **🏆 Top 3 Cabang Beromzet Tertinggi**:\n` +
@@ -441,7 +760,7 @@ export function bangunLaporanEvaluasiKomprehensif(
         voidRp
       )}** dibatalkan kasir${voidDetailText}.\n\n` +
       `#### 💰 2. Keuangan, Kas & Utang Supplier (finance)\n` +
-      `- **Realisasi Beban OPEX**: **${formatRupiah(opexKemarin)}** (${opexKemarinTx} transaksi operasional/kas kecil cabang)\n` +
+      `- **Realisasi Beban OPEX**: **${formatRupiah(opexKemarin)}**${badgeTrenOpex} (${opexKemarinTx} transaksi operasional/kas kecil cabang)\n` +
       (topOpexText ? `  * *Pengeluaran Terbesar*: ${topOpexText}\n` : '') +
       `- **Kas Fisik Tutup Shift POS**: Total fisik **${formatRupiah(fisikKas)}** (${cabangClosed} cabang closed shift)\n` +
       `  * *Status Rekonsiliasi Bank*: **${sudahDirekap} cabang** sudah direkap setorannya, **${belumDirekap} cabang** masih pending/dalam antrean setor${
@@ -451,14 +770,26 @@ export function bangunLaporanEvaluasiKomprehensif(
       `- **Utang PO Supplier**: Total **${formatRupiah(utangTotal)}**, dengan **${formatRupiah(
         utangOverdue
       )}** berstatus **lewat jatuh tempo (overdue)**${topSupText}.\n\n` +
-      `#### 👥 3. SDM & Presensi Kru (absensi & HR)\n` +
+      `#### 👥 3. SDM, Presensi & Kasbon Kru (absensi, HR & manager)\n` +
       `- **Kehadiran Kru Cabang**: **${hadirTotal} clock-in** dengan rasio ketepatan waktu **${onTimePct}% On-Time**.\n` +
       `- **Keterlambatan Masuk**: **${telatCount} kru terlambat**${telatDetailText}.\n` +
-      `- **Staf Izin / Cuti**: ${cutiDetailText}.\n\n` +
+      `- **Staf Izin / Cuti**: ${cutiDetailText}.\n` +
+      (kasbonPendingCount > 0 || kasbonAktifCount > 0
+        ? `- **Status Kasbon Kru (App HR)**: **${kasbonPendingCount} pengajuan pending** (${formatRupiah(
+            kasbonPendingRp
+          )}) & **${kasbonAktifCount} kasbon berjalan** (sisa piutang: ${formatRupiah(kasbonSisaPiutang)}).\n`
+        : '') +
+      `- **Kepatuhan Ceklist & Sidak Area Manager (App Manager)**: **${sudahDicekKemarin}/${totalWajibCek} cabang** telah disidak AM${
+        daftarTemuanCek.length > 0
+          ? ` (Temuan di **${daftarTemuanCek[0].outlet}**: ${daftarTemuanCek[0].temuan[0] || daftarTemuanCek[0].nilaiTerburuk})`
+          : daftarBelumCek.length > 0
+          ? ` (${daftarBelumCek.length} cabang belum submit ceklist)`
+          : ' (Seluruh aspek kebersihan, rasa & peralatan sesuai SOP)'
+      }.\n\n` +
       `#### 🥦 4. Waste Bahan Baku & Mutu Dapur (inventori & stok)\n` +
       `- **Laporan Waste Kemarin**: **${wasteKemarinCount} laporan** dengan estimasi kerugian **${formatRupiah(
         wasteKemarinRp
-      )}**${wasteKemarinDetailText}.\n` +
+      )}**${badgeTrenWaste}${wasteKemarinDetailText}.\n` +
       `- **Akumulasi Loss Prevention (30 Hari)**: Total **${waste30HCount} laporan** senilai **${formatRupiah(
         waste30HRp
       )}** (komoditas dominan: **${topWaste30HBahan[0]?.nama || 'Sayur Lettuce'}**).\n\n` +
@@ -664,8 +995,9 @@ export function buatJawabanDev(
     p.includes('basi') ||
     p.includes('sampah')
   ) {
-    if (telemetri?.waste && telemetri.waste.topBahan.length > 0) {
-      const topList = telemetri.waste.topBahan
+    if (telemetri?.waste && (telemetri.waste.topBahan.length > 0 || (telemetri.waste.laporanKemarinCount ?? 0) > 0 || telemetri.waste.laporanHariIniCount > 0)) {
+      const w = telemetri.waste
+      const topList = w.topBahan
         .map(
           (b, i) =>
             `${i + 1}. **${b.nama}**: ${b.totalQty} ${b.satuan} (${b.frekuensi}x laporan) — Est. Rugi: ${formatRupiah(
@@ -674,18 +1006,49 @@ export function buatJawabanDev(
         )
         .join('\n')
 
-      const outList = telemetri.waste.topOutlet
-        .map((o, i) => `${i + 1}. **${o.nama}**: ${o.frekuensi} laporan (${o.totalQty} unit)`)
+      const outList = w.topOutlet
+        .map(
+          (o, i) =>
+            `${i + 1}. **${o.nama}**: ${o.frekuensi} laporan (${o.totalQty} unit${
+              o.estKerugianRp ? ` — Est. Rugi: ${formatRupiah(o.estKerugianRp)}` : ''
+            })`
+        )
         .join('\n')
 
+      const kemarinCount = w.laporanKemarinCount ?? 0
+      const kemarinRp = w.estKerugianKemarinRp ?? 0
+      const rekapKemarin = w.rekapOutletKemarin ?? []
+      const kemarinSection =
+        kemarinCount > 0
+          ? `### 📅 Rekap Waste Kemarin (${t?.tanggalKemarinWIB || 'H-1'}): **${formatRupiah(kemarinRp)}** (${kemarinCount} laporan)\n` +
+            (rekapKemarin.length > 0
+              ? rekapKemarin
+                  .slice(0, 8)
+                  .map(
+                    (o, i) =>
+                      `${i + 1}. **${o.outlet}**: **${formatRupiah(o.estKerugianRp)}** (${o.totalLaporan} laporan: ${o.items
+                        .slice(0, 4)
+                        .join(', ')})`
+                  )
+                  .join('\n') + '\n\n'
+              : '\n')
+          : ''
+
+      const hariIniSection =
+        w.laporanHariIniCount > 0
+          ? `### ⚡ Waste Tercatat Hari Ini (${t?.tanggalWIB || 'Live'}): **${formatRupiah(w.estKerugianHariIniRp || 0)}** (${w.laporanHariIniCount} laporan)\n\n`
+          : ''
+
       return [
-        `${salamAwal} Berikut rekap analitis **Waste & Reject Bahan Baku** (Audit Loss Prevention 30 Hari Terakhir):\n\n`,
-        `📊 **TOTAL KERUGIAN ESTIMASI**: **${formatRupiah(telemetri.waste.totalEstKerugianRp)}** (${telemetri.waste.totalLaporan30Hari} total laporan)\n\n`,
-        `### 🥬 5 Bahan Baku Paling Banyak Jadi Waste:\n${topList}\n\n`,
-        `### 📍 Cabang Penyumbang Laporan Waste Terbanyak:\n${outList}\n\n`,
+        `${salamAwal} Berikut rekap analitis **Waste & Reject Bahan Baku** (Audit Loss Prevention):\n\n`,
+        hariIniSection,
+        kemarinSection,
+        `📊 **TOTAL KERUGIAN ESTIMASI (30 HARI)**: **${formatRupiah(w.totalEstKerugianRp)}** (${w.totalLaporan30Hari} total laporan disetujui)\n\n`,
+        `### 🥬 5 Bahan Baku Paling Tinggi Kerugian Waste (30H):\n${topList}\n\n`,
+        `### 📍 Cabang Penyumbang Waste Terbesar (30H):\n${outList}\n\n`,
         '> [!TIP]\n',
         '> Segera evaluasi SOP trimming sayur/lettuce (pemotongan bonggol) dan kontrol suhu chiller agar mengurangi kerugian bahan basi/expired.',
-      ]
+      ].filter(Boolean)
     }
     return [
       'Data waste dan reject bahan baku hari ini belum tercatat di sistem.\n\n',

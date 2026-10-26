@@ -46,6 +46,7 @@ import {
   MessageSquare,
   X,
   Cpu,
+  Printer,
 } from 'lucide-react'
 
 const POLL_STATUS_MS = 12_000
@@ -351,21 +352,28 @@ export default function JarvisApp({
       return
     }
 
-    // 2. Pintasan Perintah: Kirim Laporan Daily ke Telegram
+    // 2. Pintasan Perintah: Kirim Laporan Daily atau Dispatch Instruksi ke Telegram
     if (
-      (lower.includes('kirim') || lower.includes('broadcast') || lower.includes('share')) &&
-      lower.includes('telegram')
+      ((lower.includes('kirim') || lower.includes('broadcast') || lower.includes('share') || lower.includes('dispatch') || lower.includes('teruskan')) &&
+        (lower.includes('telegram') || lower.includes('divisi') || lower.includes('instruksi')))
     ) {
+      const isDispatchDivisi = lower.includes('dispatch') || lower.includes('divisi') || lower.includes('instruksi')
       mainkanSuaraHud('transmit')
       setPertanyaanTerakhir(isi)
       setSedangMemproses(true)
-      setJawabanHologram('Mengirim **Executive Daily Briefing** ke Bot Telegram CEO...')
+      setJawabanHologram(
+        isDispatchDivisi
+          ? 'Meneruskan **Instruksi & Rekomendasi Strategis Agent** ke Bot Telegram masing-masing Divisi...'
+          : 'Mengirim **Executive Daily Briefing** ke Bot Telegram CEO...'
+      )
       try {
-        const mode = lower.includes('kemarin') ? 'kemarin' : (dailyData?.modeRekomendasi ?? 'hari_ini')
+        const mode = lower.includes('hari ini') ? 'hari_ini' : (dailyData?.modeRekomendasi ?? 'kemarin')
         const r = await fetch('/api/jarvis/daily-report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode }),
+          body: JSON.stringify(
+            isDispatchDivisi ? { action: 'dispatch', targetBot: 'all', mode } : { mode }
+          ),
         })
         const j = await r.json().catch(() => ({}))
         if (!r.ok || !j.ok) {
@@ -787,31 +795,69 @@ export default function JarvisApp({
 
                 <div className="flex items-center gap-1.5 shrink-0">
                   {jawabanHologram && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (sedangBicara) {
-                          hentiBicaraJarvis()
-                          setSedangBicara(false)
-                        } else {
-                          setSedangBicara(true)
-                          bicaraJarvis(jawabanHologram, () => setSedangBicara(false))
-                        }
-                      }}
-                      className="px-2 py-0.5 rounded bg-cyan-900/70 hover:bg-cyan-800 border border-cyan-400/40 text-cyan-200 flex items-center gap-1 cursor-pointer"
-                    >
-                      {sedangBicara ? (
-                        <>
-                          <VolumeX className="w-3 h-3 text-red-400" />
-                          <span className="text-red-300 font-bold">STOP</span>
-                        </>
-                      ) : (
-                        <>
-                          <Volume2 className="w-3 h-3 text-cyan-300" />
-                          <span>SPEAK</span>
-                        </>
-                      )}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (sedangBicara) {
+                            hentiBicaraJarvis()
+                            setSedangBicara(false)
+                          } else {
+                            setSedangBicara(true)
+                            bicaraJarvis(jawabanHologram, () => setSedangBicara(false))
+                          }
+                        }}
+                        className="px-2 py-0.5 rounded bg-cyan-900/70 hover:bg-cyan-800 border border-cyan-400/40 text-cyan-200 flex items-center gap-1 cursor-pointer"
+                      >
+                        {sedangBicara ? (
+                          <>
+                            <VolumeX className="w-3 h-3 text-red-400" />
+                            <span className="text-red-300 font-bold">STOP</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3 h-3 text-cyan-300" />
+                            <span>SPEAK</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void eksekusiPerintahJarvis('Dispatch semua instruksi rekomendasi ke divisi Telegram', false)}
+                        className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-800 border border-cyan-400/40 text-cyan-200 flex items-center gap-1 cursor-pointer"
+                        title="Dispatch Rekomendasi Strategis ke Bot Telegram Divisi"
+                      >
+                        <Send className="w-3 h-3 text-cyan-300" />
+                        <span>DISPATCH</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          mainkanSuaraHud('engage')
+                          if (typeof window === 'undefined') return
+                          const win = window.open('', '_blank', 'width=920,height=800')
+                          if (!win) return
+                          const escaped = jawabanHologram
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                            .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+                            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                          win.document.open()
+                          win.document.write(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"/><title>Laporan Evaluasi J.A.R.V.I.S. - Suka Shawarma</title><style>body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;margin:28px;line-height:1.5;white-space:pre-wrap;}h1{font-size:18px;border-bottom:2px solid #0284c7;padding-bottom:6px;margin-bottom:8px;}h3{font-size:14px;color:#0369a1;margin:14px 0 4px 0;}h4{font-size:13px;color:#0f172a;margin:10px 0 2px 0;}</style></head><body>${escaped}<script>window.onload=()=>{setTimeout(()=>window.print(),250);};</script></body></html>`)
+                          win.document.close()
+                        }}
+                        className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-500/40 text-cyan-300 flex items-center gap-1 cursor-pointer"
+                        title="Cetak / Simpan PDF Laporan Hologram"
+                      >
+                        <Printer className="w-3 h-3" />
+                        <span>PDF</span>
+                      </button>
+                    </>
                   )}
 
                   <button

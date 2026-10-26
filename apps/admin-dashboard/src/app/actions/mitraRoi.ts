@@ -3,7 +3,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { fetchAllPages } from '@/lib/fetchAllPages'
-import { adalahJointExpenseDisembunyikan } from '@/lib/pengeluaran/jointExpense'
+import { adalahJointExpenseDisembunyikan, adalahHppKolMarcomDisembunyikan } from '@/lib/pengeluaran/jointExpense'
 import { getMitraClosingMonth } from './mitraPnlClosingData'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import { barisPayrollDariHr, gantiPayrollDenganHr, PAYROLL_HR_DASHBOARD_MITRA_SEJAK } from '@/lib/opexDariHr'
@@ -374,7 +374,9 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
 
     // 3. OPEX via calculateProratedExpenses (termasuk Gaji HR & Alokasi Manajer)
     // Joint expense mulai Oktober 2026 tidak dihitung — lihat lib/pengeluaran/jointExpense.ts.
-    const monthlyRows = (monthlyRowsMentah || []).filter((m: any) => !adalahJointExpenseDisembunyikan(m))
+    const monthlyRows = (monthlyRowsMentah || [])
+    .filter((m: any) => !adalahJointExpenseDisembunyikan(m))
+    .filter((m: any) => !adalahHppKolMarcomDisembunyikan(m))
     const simpanKasKecil = buatSaringanKasKecil(monthlyRows || [])
     const rawExpenses = [
       ...(monthlyRows || []).map((m: any) => ({

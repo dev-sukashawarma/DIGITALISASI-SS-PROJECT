@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
-import { adalahJointExpenseDisembunyikan } from './jointExpense'
+import { adalahJointExpenseDisembunyikan, adalahHppKolMarcomDisembunyikan } from './jointExpense'
 
 export interface FilterPengeluaran {
   from: string
@@ -104,6 +104,7 @@ export async function ambilPengeluaranMentah(
     // Joint expense mulai Oktober 2026 tidak dihitung — lihat ./jointExpense.ts.
     expenses: (allExpenses ?? [])
       .filter((e: any) => !adalahJointExpenseDisembunyikan(e))
+      .filter((e: any) => !adalahHppKolMarcomDisembunyikan(e))
       .filter((e: any) => !e.outlet_id || (!isTestOutlet(e.outlet_id) && e.outlet_id !== TEST_OUTLET_ID)),
     pettyCashExpenses: (allPettyCash ?? []).filter((p: any) => !p.outlet_id || (!isTestOutlet(p.outlet_id) && p.outlet_id !== TEST_OUTLET_ID)),
   }

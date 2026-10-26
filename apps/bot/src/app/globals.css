@@ -131,3 +131,12 @@ body { font-family: var(--font-sans); }
 *::-webkit-scrollbar-thumb:hover {
   background: rgba(34, 211, 238, 0.7);
 }
+
+/* Hide scrollbar for clean horizontal chip trays */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

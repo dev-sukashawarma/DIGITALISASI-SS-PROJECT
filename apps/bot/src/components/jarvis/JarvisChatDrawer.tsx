@@ -355,6 +355,18 @@ export default function JarvisChatDrawer({
     }
   }, [])
 
+  // Accessibility: Tutup drawer saat tombol Escape ditekan
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        mainkanSuaraHud('chirp')
+        onTutup()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onTutup])
+
   const toggleBicaraPesan = (id: string | number, teks: string) => {
     if (sedangBicara === id) {
       hentiBicaraJarvis()
@@ -533,8 +545,18 @@ export default function JarvisChatDrawer({
     }
   }, [pesanAwal])
 
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      mainkanSuaraHud('chirp')
+      onTutup()
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+    >
       <div className="relative w-full max-w-2xl h-full flex flex-col bg-zinc-950/95 border-l border-cyan-500/40 shadow-[-15px_0_50px_rgba(6,182,212,0.25)] text-zinc-100 backdrop-blur-xl">
         <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-400 pointer-events-none" />

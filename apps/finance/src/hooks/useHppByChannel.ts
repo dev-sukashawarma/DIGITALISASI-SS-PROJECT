@@ -22,45 +22,67 @@ function getItemHpp(
   channel?: string | null,
 ): number {
   let itemObj = menuItem
-  if (
-    (!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) &&
-    fallbackName &&
-    menuItemByNameMap
-  ) {
-    const cleanKey = cleanItemName(fallbackName)
-    if (menuItemByNameMap.has(cleanKey)) {
-      itemObj = menuItemByNameMap.get(cleanKey)
+
+  const extractBase = (obj: any): number => {
+    if (!obj) return 0
+    const normCh = channel ? channel.toLowerCase() : null
+    let channelHppVal: number | null = null
+    if (obj.channel_hpp && typeof obj.channel_hpp === 'object' && normCh) {
+      if (adalahKanalSsOnline(normCh)) {
+        channelHppVal = obj.channel_hpp.ss_online ?? obj.channel_hpp.tiktok_shop ?? obj.channel_hpp.shopee_shop ?? obj.channel_hpp[normCh] ?? null
+      } else {
+        channelHppVal = obj.channel_hpp[normCh] ?? null
+      }
+    }
+
+    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+      return Number(channelHppVal)
+    } else if (
+      obj.hpp_override !== null &&
+      obj.hpp_override !== undefined &&
+      Number(obj.hpp_override) > 0
+    ) {
+      return Number(obj.hpp_override)
+    } else if (obj.is_package && Array.isArray(obj.package_items)) {
+      return obj.package_items.reduce((sum: number, pkg: any) => {
+        const compHpp = pkg.component?.hpp_override || 0
+        const qty = pkg.quantity || 1
+        return sum + compHpp * qty
+      }, 0)
+    }
+    return 0
+  }
+
+  let baseHpp = extractBase(itemObj)
+
+  if (baseHpp === 0 && fallbackName && menuItemByNameMap) {
+    const rawClean = cleanItemName(fallbackName)
+    const rawLower = rawClean.trim().toLowerCase()
+    const candidates = [
+      rawClean,
+      rawLower,
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').trim(),
+      rawLower.replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+      rawLower.replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+      rawLower.replace(/\s+shawarma\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s+shawarma\s*$/i, '').trim(),
+    ]
+
+    for (const key of candidates) {
+      if (menuItemByNameMap.has(key)) {
+        const candObj = menuItemByNameMap.get(key)
+        const candBase = extractBase(candObj)
+        if (candBase > 0) {
+          itemObj = candObj
+          baseHpp = candBase
+          break
+        }
+      }
     }
   }
-  if (!itemObj) return 0
 
-  let baseHpp = 0
-  const normCh = channel ? channel.toLowerCase() : null
-  let channelHppVal: number | null = null
-
-  if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
-    if (adalahKanalSsOnline(normCh)) { // hanya marketplace; ShopeeFood & TikTok GO pakai hpp_override
-      channelHppVal = itemObj.channel_hpp.ss_online ?? itemObj.channel_hpp.tiktok_shop ?? itemObj.channel_hpp.shopee_shop ?? itemObj.channel_hpp[normCh] ?? null
-    } else {
-      channelHppVal = itemObj.channel_hpp[normCh] ?? null
-    }
-  }
-
-  if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-    baseHpp = Number(channelHppVal)
-  } else if (
-    itemObj.hpp_override !== null &&
-    itemObj.hpp_override !== undefined &&
-    Number(itemObj.hpp_override) > 0
-  ) {
-    baseHpp = Number(itemObj.hpp_override)
-  } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
-    baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
-      const compHpp = pkg.component?.hpp_override || 0
-      const qty = pkg.quantity || 1
-      return sum + compHpp * qty
-    }, 0)
-  }
   if (outletType === "mitra" && baseHpp > 0) {
     return Math.round(baseHpp * 1.1)
   }

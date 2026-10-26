@@ -104,10 +104,25 @@ export function getItemHpp(
   if (!itemObj && menuItemId && menuItemByIdMap?.has(menuItemId)) {
     itemObj = menuItemByIdMap.get(menuItemId)
   }
-  if ((!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) && fallbackName && menuItemByNameMap) {
+  if (!itemObj && fallbackName && menuItemByNameMap) {
     const cleanKey = cleanItemName(fallbackName)
-    if (menuItemByNameMap.has(cleanKey)) {
-      itemObj = menuItemByNameMap.get(cleanKey)
+    const rawLower = cleanKey.trim().toLowerCase()
+    const candidates = [
+      cleanKey,
+      rawLower,
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').trim(),
+      rawLower.replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+      rawLower.replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+      rawLower.replace(/\s+shawarma\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s+shawarma\s*$/i, '').trim(),
+    ]
+    for (const key of candidates) {
+      if (menuItemByNameMap.has(key)) {
+        itemObj = menuItemByNameMap.get(key)
+        break
+      }
     }
   }
   if (!itemObj) return 0
@@ -147,6 +162,33 @@ export function getItemHpp(
       const qty = pkg.quantity || 1
       return sum + (compHpp * qty)
     }, 0)
+  }
+
+  // Jika itemObj menghasilkan baseHpp 0 (mis. menu lama dengan hpp null & channel_hpp {}), coba fallbackName
+  if (baseHpp === 0 && fallbackName && menuItemByNameMap) {
+    const rawClean = cleanItemName(fallbackName)
+    const rawLower = rawClean.trim().toLowerCase()
+    const candidates = [
+      rawClean,
+      rawLower,
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').trim(),
+      rawLower.replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+      rawLower.replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+      rawLower.replace(/\s+shawarma\s*$/i, '').trim(),
+      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s+shawarma\s*$/i, '').trim(),
+    ]
+    for (const key of candidates) {
+      if (menuItemByNameMap.has(key)) {
+        const candObj = menuItemByNameMap.get(key)
+        const candHpp = getItemHpp(candObj, undefined, undefined, undefined, channel)
+        if (candHpp > 0) {
+          baseHpp = candHpp
+          break
+        }
+      }
+    }
   }
   const finalHpp = isMitra && baseHpp > 0 ? Math.round(baseHpp * 1.10) : baseHpp
   if (!objMap) {

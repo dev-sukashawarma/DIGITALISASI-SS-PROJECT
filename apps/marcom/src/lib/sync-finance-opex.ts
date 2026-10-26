@@ -152,9 +152,14 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
     // ==========================================
     // 3. Sinkronisasi Biaya HPP Menu Complimentary (Jatah KOL)
     // ==========================================
+    // Sesuai keputusan owner/finance (26 Okt 2026): HPP endorsement tetap
+    // memakai HPP POS (order is_endorse = true). Biaya HPP Menu KOL di tabel
+    // expenses dihentikan mulai 1 Oktober 2026 agar tidak tercatat ganda.
+    // Bulan September 2026 dan sebelumnya tetap dipertahankan (sudah closing).
+    const MARCOM_HPP_KOL_OPEX_BERHENTI_SEJAK = '2026-10-01'
     const hppMenu = Number(endorsement.hppMenu) || 0
     const hppDate = toDateString(endorsement.scheduleDate)
-    const isHppAfterCutoff = hppDate >= OPEX_CUTOFF_DATE
+    const isHppAfterCutoff = hppDate >= OPEX_CUTOFF_DATE && hppDate < MARCOM_HPP_KOL_OPEX_BERHENTI_SEJAK
     const isHppValid = hppMenu > 0 && isHppAfterCutoff
 
     // Gunakan deterministic UUID berbasis ID endorsement agar idempotent tanpa perlu alter schema

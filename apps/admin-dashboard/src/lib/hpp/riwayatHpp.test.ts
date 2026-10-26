@@ -112,4 +112,27 @@ describe('buatPenerapRiwayat', () => {
     const p = penerap.untuk('2026-09-19')
     expect(p.terapkan(menu)).toBe(p.byId.get('m1'))
   })
+
+  it('menu global aktif diprioritaskan di byName dibanding duplikat voucher/outlet lokal', () => {
+    const globalMenu = { id: 'g1', name: 'Original Sapi Besar', hpp_override: 18746, outlet_id: null, is_available: true }
+    const voucherMenu = {
+      id: 'v1',
+      name: 'Original Sapi Besar',
+      hpp_override: 15000,
+      outlet_id: 'out1',
+      is_available: false,
+      categories: { name: 'Voucher Pamulang 10%' }
+    }
+    // Sengaja taruh voucherMenu di akhir daftar untuk memastikan ia tidak menimpa globalMenu
+    const p = buatPenerapRiwayat([globalMenu, voucherMenu], [], (n) => n.toLowerCase())
+    const res = p.untuk('2026-10-26').byName.get('original sapi besar')
+    expect(res.id).toBe('g1')
+    expect(res.hpp_override).toBe(18746)
+
+    // Dan sebaliknya jika voucherMenu di awal daftar
+    const p2 = buatPenerapRiwayat([voucherMenu, globalMenu], [], (n) => n.toLowerCase())
+    const res2 = p2.untuk('2026-10-26').byName.get('original sapi besar')
+    expect(res2.id).toBe('g1')
+    expect(res2.hpp_override).toBe(18746)
+  })
 })

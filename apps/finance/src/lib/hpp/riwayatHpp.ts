@@ -152,10 +152,26 @@ export function buatPenerapRiwayat(
       if (ada) return ada
       const byId = new Map<string, any>()
       const byName = new Map<string, any>()
-      for (const m of menus) {
+
+      // Prioritaskan menu aktif & global agar duplikat voucher/outlet lokal tidak menimpa menu utama
+      const menuPrioritas = (m: any) => {
+        const cat = (m?.categories?.name || m?.category_name || '').toLowerCase()
+        const isVoucher = cat.includes('voucher pamulang') ? 0 : 1
+        const isGlobal = !m?.outlet_id ? 1 : 0
+        const isActive = m?.is_available !== false ? 1 : 0
+        return isVoucher * 100 + isGlobal * 10 + isActive
+      }
+      const sortedMenus = [...menus].sort((a, b) => menuPrioritas(b) - menuPrioritas(a))
+
+      for (const m of sortedMenus) {
         const t = timpa(m, indeks, tgl)
         if (m?.id) byId.set(m.id, t)
-        if (m?.name) byName.set(kunciNama(m.name), t)
+        if (m?.name) {
+          const kAsli = kunciNama(m.name)
+          const kLower = kAsli.trim().toLowerCase()
+          if (!byName.has(kAsli)) byName.set(kAsli, t)
+          if (!byName.has(kLower)) byName.set(kLower, t)
+        }
       }
       const penerap: PenerapHpp = {
         byId,

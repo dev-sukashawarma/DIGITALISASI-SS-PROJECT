@@ -292,7 +292,9 @@ export async function fetchProfitExportData({
   let totalMitraFee = 0
   const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean }>()
 
-  for (const [oid, inv] of Object.entries(activeInvestments)) {
+  const allMitraOids = new Set([...Object.keys(activeInvestments), ...Array.from(mitraIds)])
+  for (const oid of allMitraOids) {
+    const inv = (activeInvestments as Record<string, any>)[oid]
     const outletSales = reconciledSalesRows.filter(
       (r: any) =>
         r.outlet_id === oid &&
@@ -301,12 +303,12 @@ export async function fetchProfitExportData({
     )
     const gross = outletSales.reduce((sum: number, r: any) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
 
-    const bepInfo = calculateMitraBepStatus(inv, oid, from, inv.isBep)
+    const bepInfo = calculateMitraBepStatus(inv, oid, from, inv?.isBep)
     const policy = resolveMitraPolicy({
       periodFrom: from,
       isBep: bepInfo.isBep,
-      legacyProfitSharingPct: inv.persentase_bagi_hasil,
-      legacyManagementFee: inv.management_fee,
+      legacyProfitSharingPct: inv?.persentase_bagi_hasil,
+      legacyManagementFee: inv?.management_fee,
     })
 
     const fee = policy.managementFeePct > 0 ? Math.round((gross * policy.managementFeePct) / 100) : 0

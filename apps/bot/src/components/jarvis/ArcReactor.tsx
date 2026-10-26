@@ -2,19 +2,31 @@
 
 import { useState } from 'react'
 import { mainkanSuaraHud } from '@/lib/audioHud'
-import { Cpu, Mic, Volume2, Radio, FileBarChart2, MessageSquare } from 'lucide-react'
+import { Cpu, Mic, Volume2, Radio, FileBarChart2, AlertTriangle } from 'lucide-react'
 
 export type StatusArcReactor = 'optimal' | 'listening' | 'processing' | 'speaking' | 'warning'
+
+export interface AnomaliItem {
+  id: string
+  level: 'critical' | 'warning' | 'optimal'
+  divisi: string
+  judul: string
+  perintahTindakLanjut?: string
+}
 
 interface ArcReactorProps {
   status: StatusArcReactor
   compact?: boolean
+  stageMode?: 'center-hero' | 'standalone'
   voiceLoopAktif?: boolean
   spektrumSuara?: number[]
   transkripLive?: string
+  anomaliItems?: AnomaliItem[]
   onClickCore?: () => void
+  onPilihAnomali?: (item: AnomaliItem) => void
   onBukaDailyBriefing?: () => void
   onBukaChatLengkap?: () => void
+  tampilkanTombolBawah?: boolean
 }
 
 const DEFAULT_SPEKTRUM = [0.2, 0.35, 0.22, 0.45, 0.3, 0.45, 0.22, 0.35, 0.2]
@@ -22,12 +34,15 @@ const DEFAULT_SPEKTRUM = [0.2, 0.35, 0.22, 0.45, 0.3, 0.45, 0.22, 0.35, 0.2]
 export default function ArcReactor({
   status = 'optimal',
   compact = false,
+  stageMode = 'standalone',
   voiceLoopAktif = false,
   spektrumSuara = DEFAULT_SPEKTRUM,
   transkripLive = '',
+  anomaliItems,
   onClickCore,
+  onPilihAnomali,
   onBukaDailyBriefing,
-  onBukaChatLengkap,
+  tampilkanTombolBawah = false,
 }: ArcReactorProps) {
   const [hovered, setHovered] = useState(false)
 
@@ -36,28 +51,32 @@ export default function ArcReactor({
     onClickCore?.()
   }
 
-  // Warna aksen berdasarkan status neural
-  const warnaAksen =
+  // Warna status aksen luar (Amber saat warning/anomali, Emerald saat listening, Cyan saat normal/bicara)
+  const warnaStatus =
     status === 'warning'
-      ? '#ef4444'
+      ? '#f59e0b'
       : status === 'processing'
-        ? '#f59e0b'
+        ? '#38bdf8'
         : status === 'listening'
           ? '#10b981'
           : status === 'speaking'
             ? '#22d3ee'
             : '#06b6d4'
 
+  // Inti plasma energi SELALU cyan/ice blue elektrik untuk mempertahankan keaslian Arc Reactor Iron Man
+  const warnaPlasma = '#00f0ff'
+  const warnaTurbin = '#22d3ee'
+
   const glowClass =
     status === 'warning'
-      ? 'shadow-[0_0_75px_rgba(239,68,68,0.55)]'
+      ? 'shadow-[0_0_50px_rgba(6,182,212,0.45),0_0_25px_rgba(245,158,11,0.35)] ring-1 ring-amber-400/60'
       : status === 'processing'
-        ? 'shadow-[0_0_75px_rgba(245,158,11,0.55)]'
+        ? 'shadow-[0_0_60px_rgba(56,189,248,0.5)] ring-1 ring-sky-400/50'
         : status === 'listening'
           ? 'shadow-[0_0_85px_rgba(16,185,129,0.65)] ring-2 ring-emerald-400'
           : status === 'speaking'
             ? 'shadow-[0_0_95px_rgba(34,211,238,0.75)] ring-2 ring-cyan-300'
-            : 'shadow-[0_0_70px_rgba(6,182,212,0.5)]'
+            : 'shadow-[0_0_65px_rgba(6,182,212,0.45)] ring-1 ring-cyan-400/30'
 
   const labelStatus =
     status === 'listening'
@@ -65,65 +84,71 @@ export default function ArcReactor({
       : status === 'processing'
         ? 'SYNCHRONIZING LIVE DATA...'
         : status === 'speaking'
-          ? 'J.A.R.V.I.S. SPEAKING (KLIK UNTUK POTONG)'
+          ? 'J.A.R.V.I.S. MERESPON (KLIK POTONG)'
           : status === 'warning'
             ? 'ANOMALY DETECTED // SIAGA'
             : voiceLoopAktif
               ? 'VOICE LOOP STANDBY // SIAP MENDENGAR'
               : 'UNIFIED J.A.R.V.I.S. CORE READY'
 
-  // Hitung rata-rata energi suara untuk efek denyut cincin saat bicara MAUPUN saat mendengarkan mikrofon
   const avgEnergy =
     spektrumSuara.reduce((acc, v) => acc + v, 0) / (spektrumSuara.length || 1)
   const micLevelPct = Math.min(100, Math.max(0, Math.round((avgEnergy - 0.15) * 135)))
   const coreScale =
     status === 'speaking' || status === 'listening'
-      ? 1 + Math.min(0.1, Math.max(0, (avgEnergy - 0.18) * 0.16))
+      ? 1 + Math.min(0.08, Math.max(0, (avgEnergy - 0.18) * 0.14))
       : hovered
-        ? 1.04
+        ? 1.03
         : 1
 
   const containerSizeClass = compact
     ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh]'
-    : 'w-[250px] h-[250px] sm:w-[310px] sm:h-[310px] md:w-[350px] md:h-[350px] lg:w-[375px] lg:h-[375px] xl:w-[425px] xl:h-[425px] 2xl:w-[465px] 2xl:h-[465px] max-w-[min(100%,43vh)] max-h-[43vh]'
+    : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[250px] md:h-[250px] lg:w-[265px] lg:h-[265px] xl:w-[280px] xl:h-[280px] max-w-[min(100%,30vh)] max-h-[30vh]'
 
   return (
     <div className="relative flex flex-col items-center justify-center select-none py-0.5 w-full transition-all duration-300">
-      {/* Target Reticle Container (Auto-Compact saat kartu jawaban Hologram terbuka) */}
+      {/* Target Reticle Container */}
       <div className={`relative flex items-center justify-center aspect-square transition-all duration-300 ${containerSizeClass}`}>
         {/* Corner Reticles with Sci-Fi HUD Coordinates */}
         {!compact && (
           <>
-            <div className="absolute top-0 left-0 w-8 h-8 sm:w-10 sm:h-10 border-t-2 border-l-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col justify-start">
-              <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
+            <div className={`absolute top-0 left-0 w-7 h-7 sm:w-8 sm:h-8 border-t-2 border-l-2 pointer-events-none p-1 flex flex-col justify-start transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
+              <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
                 {voiceLoopAktif ? 'VOICE // LOOP' : 'SYS // CORE-01'}
               </span>
             </div>
-            <div className="absolute top-0 right-0 w-8 h-8 sm:w-10 sm:h-10 border-t-2 border-r-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col items-end justify-start">
-              <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
+            <div className={`absolute top-0 right-0 w-7 h-7 sm:w-8 sm:h-8 border-t-2 border-r-2 pointer-events-none p-1 flex flex-col items-end justify-start transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
+              <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
                 ALL-DIV ACCESS
               </span>
             </div>
-            <div className="absolute bottom-0 left-0 w-8 h-8 sm:w-10 sm:h-10 border-b-2 border-l-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col justify-end">
-              <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
+            <div className={`absolute bottom-0 left-0 w-7 h-7 sm:w-8 sm:h-8 border-b-2 border-l-2 pointer-events-none p-1 flex flex-col justify-end transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
+              <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
                 NEURAL // ID
               </span>
             </div>
-            <div className="absolute bottom-0 right-0 w-8 h-8 sm:w-10 sm:h-10 border-b-2 border-r-2 border-cyan-400/70 pointer-events-none p-1 flex flex-col items-end justify-end">
-              <span className="font-mono-hud text-[7px] sm:text-[8px] text-cyan-400/70 font-semibold tracking-wider leading-none">
+            <div className={`absolute bottom-0 right-0 w-7 h-7 sm:w-8 sm:h-8 border-b-2 border-r-2 pointer-events-none p-1 flex flex-col items-end justify-end transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
+              <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
                 MK-VIII
               </span>
             </div>
           </>
         )}
 
-        {/* Ambient Back Glow */}
+        {/* Ambient Plasma Glow (Electric Cyan Core) */}
         <div
-          className="absolute inset-[4%] rounded-full blur-3xl opacity-40 transition-all duration-300 pointer-events-none animate-hud-pulse"
-          style={{ backgroundColor: warnaAksen }}
+          className="absolute inset-[12%] rounded-full blur-2xl opacity-45 transition-all duration-300 pointer-events-none animate-hud-pulse bg-cyan-400/40"
         />
 
-        {/* Layer 1: Outermost Tachymeter & Degree Compass */}
+        {/* Subtle Outer Status Rim Glow (Hanya halo lembut di pinggir jika warning/listening) */}
+        {status !== 'optimal' && (
+          <div
+            className="absolute inset-[2%] rounded-full blur-3xl opacity-30 transition-all duration-300 pointer-events-none"
+            style={{ backgroundColor: warnaStatus }}
+          />
+        )}
+
+        {/* Layer 1: Outermost Tachymeter & Degree Compass (Bereaksi terhadap status) */}
         <div className="absolute inset-0 sm:inset-1 animate-hud-spin pointer-events-none">
           <svg className="w-full h-full" viewBox="0 0 400 400">
             <circle
@@ -131,7 +156,7 @@ export default function ArcReactor({
               cy="200"
               r="192"
               fill="none"
-              stroke={warnaAksen}
+              stroke={warnaStatus}
               strokeWidth="1.5"
               strokeDasharray="3 6"
               opacity="0.35"
@@ -141,7 +166,7 @@ export default function ArcReactor({
               cy="200"
               r="182"
               fill="none"
-              stroke={warnaAksen}
+              stroke={warnaStatus}
               strokeWidth="1"
               strokeDasharray="20 4 2 4"
               opacity="0.35"
@@ -151,116 +176,118 @@ export default function ArcReactor({
               cy="200"
               r="172"
               fill="none"
-              stroke={warnaAksen}
+              stroke={warnaStatus}
               strokeWidth="2.5"
               strokeDasharray="70 20 15 20"
               opacity="0.65"
             />
             <path
               d="M200 4 L200 18 M200 382 L200 396 M4 200 L18 200 M382 200 L396 200"
-              stroke={warnaAksen}
+              stroke={warnaStatus}
               strokeWidth="2.5"
               opacity="0.9"
             />
             <path
               d="M62 62 L72 72 M338 62 L328 72 M62 338 L72 328 M338 338 L328 328"
-              stroke={warnaAksen}
+              stroke={warnaStatus}
               strokeWidth="1.5"
               opacity="0.6"
             />
-            <text x="200" y="32" fill={warnaAksen} fontSize="9" fontFamily="monospace" textAnchor="middle" opacity="0.75" letterSpacing="1">
+            <text x="200" y="32" fill={warnaStatus} fontSize="10" fontFamily="monospace" textAnchor="middle" opacity="0.85" letterSpacing="1">
               SALES
             </text>
-            <text x="364" y="203" fill={warnaAksen} fontSize="9" fontFamily="monospace" textAnchor="middle" opacity="0.75" letterSpacing="1">
+            <text x="364" y="203" fill={warnaStatus} fontSize="10" fontFamily="monospace" textAnchor="middle" opacity="0.85" letterSpacing="1">
               OPS
             </text>
-            <text x="200" y="378" fill={warnaAksen} fontSize="9" fontFamily="monospace" textAnchor="middle" opacity="0.75" letterSpacing="1">
+            <text x="200" y="378" fill={warnaStatus} fontSize="10" fontFamily="monospace" textAnchor="middle" opacity="0.85" letterSpacing="1">
               HRD
             </text>
-            <text x="36" y="203" fill={warnaAksen} fontSize="9" fontFamily="monospace" textAnchor="middle" opacity="0.75" letterSpacing="1">
+            <text x="36" y="203" fill={warnaStatus} fontSize="10" fontFamily="monospace" textAnchor="middle" opacity="0.85" letterSpacing="1">
               FIN
             </text>
           </svg>
         </div>
 
-        {/* Layer 2: Counter-Rotating Tactical Ring */}
-        <div className="absolute inset-[6%] animate-hud-spin-reverse pointer-events-none">
+        {/* Layer 2: 10 Arc Reactor Transformer Coils (Mechanical Realism) */}
+        <div className="absolute inset-[6%] pointer-events-none">
           <svg className="w-full h-full" viewBox="0 0 340 340">
-            <circle
-              cx="170"
-              cy="170"
-              r="160"
-              fill="none"
-              stroke={warnaAksen}
-              strokeWidth="2.5"
-              strokeDasharray="45 15 10 15"
-              opacity="0.7"
-            />
-            <circle
-              cx="170"
-              cy="170"
-              r="148"
-              fill="none"
-              stroke={warnaAksen}
-              strokeWidth="1"
-              strokeDasharray="2 4"
-              opacity="0.45"
-            />
-            <circle cx="276" cy="64" r="3.5" fill={warnaAksen} opacity="0.85" />
-            <circle cx="276" cy="276" r="3.5" fill={warnaAksen} opacity="0.85" />
-            <circle cx="64" cy="276" r="3.5" fill={warnaAksen} opacity="0.85" />
-            <circle cx="64" cy="64" r="3.5" fill={warnaAksen} opacity="0.85" />
+            <circle cx="170" cy="170" r="158" fill="none" stroke="#0e7490" strokeWidth="1.5" opacity="0.4" />
+            <circle cx="170" cy="170" r="136" fill="none" stroke="#0891b2" strokeWidth="1.5" opacity="0.5" />
+            {Array.from({ length: 10 }).map((_, i) => {
+              const angle = i * 36
+              return (
+                <g key={i} transform={`rotate(${angle} 170 170)`}>
+                  <rect
+                    x="163"
+                    y="14"
+                    width="14"
+                    height="20"
+                    rx="2"
+                    fill="#082f49"
+                    stroke={status === 'warning' ? '#f59e0b' : '#22d3ee'}
+                    strokeWidth="1.2"
+                    opacity="0.85"
+                  />
+                  <line x1="170" y1="17" x2="170" y2="31" stroke="#38bdf8" strokeWidth="2" opacity="0.9" />
+                  <circle cx="170" cy="10" r="2" fill={status === 'warning' ? '#f59e0b' : '#00f0ff'} opacity="0.9" />
+                </g>
+              )
+            })}
           </svg>
         </div>
 
-        {/* Layer 3: Middle Turbine Ring */}
-        <div className="absolute inset-[13%] animate-hud-spin pointer-events-none">
+        {/* Layer 3: Middle Turbine Ring (Counter-Rotating Electric Cyan) */}
+        <div className="absolute inset-[13%] animate-hud-spin-reverse pointer-events-none">
           <svg className="w-full h-full" viewBox="0 0 280 280">
             <circle
               cx="140"
               cy="140"
-              r="128"
+              r="126"
               fill="none"
-              stroke={warnaAksen}
+              stroke={warnaTurbin}
               strokeWidth="2"
               strokeDasharray="18 10 32 10"
-              opacity="0.6"
+              opacity="0.75"
             />
             <circle
               cx="140"
               cy="140"
-              r="116"
+              r="114"
               fill="none"
-              stroke={warnaAksen}
+              stroke={warnaTurbin}
               strokeWidth="1.5"
               strokeDasharray="4 6"
-              opacity="0.5"
+              opacity="0.6"
             />
+            <circle cx="230" cy="50" r="3" fill={warnaTurbin} opacity="0.8" />
+            <circle cx="230" cy="230" r="3" fill={warnaTurbin} opacity="0.8" />
+            <circle cx="50" cy="230" r="3" fill={warnaTurbin} opacity="0.8" />
+            <circle cx="50" cy="50" r="3" fill={warnaTurbin} opacity="0.8" />
           </svg>
         </div>
 
-        {/* Layer 4: Core Plasma Containment Arc */}
-        <div className="absolute inset-[19%] animate-hud-spin-reverse pointer-events-none">
+        {/* Layer 4: Core Plasma Containment Arc (Brilliant Cyan Plasma) */}
+        <div className="absolute inset-[19%] animate-hud-spin pointer-events-none">
           <svg className="w-full h-full" viewBox="0 0 220 220">
             <circle
               cx="110"
               cy="110"
               r="98"
               fill="none"
-              stroke={warnaAksen}
+              stroke={warnaPlasma}
               strokeWidth="2.5"
               strokeDasharray="60 15 20 15"
-              opacity="0.85"
+              opacity="0.9"
             />
             <circle
               cx="110"
               cy="110"
               r="88"
               fill="none"
-              stroke={warnaAksen}
-              strokeWidth="1"
+              stroke={warnaTurbin}
+              strokeWidth="1.5"
               strokeDasharray="6 3 12 3"
-              opacity="0.55"
+              opacity="0.65"
             />
           </svg>
         </div>
@@ -273,7 +300,7 @@ export default function ArcReactor({
             mainkanSuaraHud('chirp')
           }}
           onMouseLeave={() => setHovered(false)}
-          className={`group relative z-10 w-[54%] h-[54%] rounded-full flex flex-col items-center justify-center transition-transform duration-150 cursor-pointer overflow-hidden ${glowClass}`}
+          className={`group relative z-10 w-[54%] h-[54%] rounded-full flex flex-col items-center justify-center transition-transform duration-150 cursor-pointer overflow-hidden ${glowClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300`}
           style={{
             transform: `scale(${coreScale})`,
             background:
@@ -295,38 +322,38 @@ export default function ArcReactor({
               {status === 'listening' ? (
                 <Mic
                   className={`${
-                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13'
+                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12'
                   } text-emerald-300 animate-bounce drop-shadow-[0_0_15px_rgba(16,185,129,0.9)]`}
                 />
               ) : status === 'speaking' ? (
                 <Volume2
                   className={`${
-                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13'
+                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12'
                   } text-cyan-200 animate-pulse drop-shadow-[0_0_18px_rgba(34,211,238,0.95)]`}
                 />
               ) : (
                 <Cpu
                   className={`${
-                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13'
+                    compact ? 'w-5 h-5 sm:w-6 sm:h-6' : 'w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12'
                   } text-cyan-200 group-hover:text-white group-hover:scale-110 transition-all drop-shadow-[0_0_15px_rgba(6,182,212,0.8)]`}
                 />
               )}
               <div
                 className="absolute inset-0 blur-md rounded-full animate-ping pointer-events-none"
-                style={{ backgroundColor: `${warnaAksen}66` }}
+                style={{ backgroundColor: `${warnaStatus}66` }}
               />
             </div>
 
             <span
               className={`mt-0.5 font-hud ${
-                compact ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm md:text-base lg:text-lg'
-              } tracking-[0.22em] text-cyan-100 group-hover:text-white font-black uppercase text-glow-cyan`}
+                compact ? 'text-[9px] sm:text-[10px]' : 'text-xs sm:text-sm md:text-base'
+              } tracking-[0.16em] text-cyan-100 group-hover:text-white font-black uppercase text-glow-cyan whitespace-nowrap`}
             >
               J.A.R.V.I.S.
             </span>
             {!compact && (
               <div className="flex items-center gap-1 mt-0.5">
-                <span className="font-mono-hud text-[8px] sm:text-[9px] md:text-[10px] tracking-widest text-cyan-300 font-bold uppercase">
+                <span className="font-mono-hud text-[9px] sm:text-[10px] tracking-widest text-cyan-300 font-bold uppercase whitespace-nowrap">
                   {status === 'listening'
                     ? 'LISTENING...'
                     : status === 'speaking'
@@ -339,16 +366,16 @@ export default function ArcReactor({
             )}
           </div>
 
-          {/* Real-Time 9-Band Waveform Equalizer (Bergerak dinamis saat Anda bicara di Mic maupun saat Jarvis menjawab) */}
+          {/* Real-Time 9-Band Waveform Equalizer */}
           <div
             className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 ${
-              compact ? 'mt-1 h-4' : 'mt-2 h-8 sm:h-9'
+              compact ? 'mt-1 h-3.5' : 'mt-2 h-6 sm:h-7'
             } pointer-events-none`}
           >
             {spektrumSuara.slice(0, 9).map((val, idx) => {
               const aktifSuara = status === 'speaking' || status === 'listening'
-              const maxBarPx = compact ? 16 : 36
-              const tinggiPx = aktifSuara ? Math.max(5, Math.round(val * maxBarPx)) : undefined
+              const maxBarPx = compact ? 14 : 28
+              const tinggiPx = aktifSuara ? Math.max(4, Math.round(val * maxBarPx)) : undefined
               return (
                 <div
                   key={idx}
@@ -360,17 +387,17 @@ export default function ArcReactor({
                         : 'bg-cyan-400/75 animate-pulse'
                   }`}
                   style={{
-                    height: tinggiPx ? `${tinggiPx}px` : `${(compact ? 4 : 8) + ((idx * 2) % 7)}px`,
+                    height: tinggiPx ? `${tinggiPx}px` : `${(compact ? 4 : 7) + ((idx * 2) % 6)}px`,
                   }}
                 />
               )
             })}
           </div>
 
-          {/* Indikator Persentase Sinyal Mikrofon saat Mode Listening */}
+          {/* Indikator Mikrofon saat Mode Listening */}
           {!compact && status === 'listening' && (
-            <span className="mt-1 font-mono-hud text-[8px] sm:text-[9px] text-emerald-300/90 tracking-widest uppercase font-bold">
-              MIC GAIN: {micLevelPct > 8 ? `ACTIVE (${micLevelPct}%)` : 'READY — SILAKAN BICARA'}
+            <span className="mt-0.5 font-mono-hud text-[9px] sm:text-[10px] text-emerald-300/90 tracking-wider uppercase font-bold">
+              MIC GAIN: {micLevelPct > 8 ? `ACTIVE (${micLevelPct}%)` : 'READY'}
             </span>
           )}
         </button>
@@ -378,69 +405,58 @@ export default function ArcReactor({
 
       {/* Live Voice Transcript Bubble */}
       {transkripLive && (
-        <div className="mt-1.5 px-3.5 py-1 rounded-xl bg-emerald-950/90 border border-emerald-400/60 text-emerald-100 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-in fade-in">
-          <span className="text-emerald-400 font-bold mr-1.5">🎙️ VOICE INPUT:</span>
+        <div className="mt-1.5 px-3 py-1 rounded-xl bg-emerald-950/90 border border-emerald-400/60 text-emerald-100 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-in fade-in flex items-center justify-center gap-1.5">
+          <Mic className="size-3.5 text-emerald-400 shrink-0" />
+          <span className="text-emerald-400 font-bold">INPUT SUARA:</span>
           <span>&ldquo;{transkripLive.replace(/^🎙️\s*/, '')}&rdquo;</span>
         </div>
       )}
 
-      {/* Telemetry Readouts & Tactical Controls Under Core */}
-      <div className={`${compact ? 'mt-1.5 gap-1.5' : 'mt-2.5 gap-2'} flex flex-col items-center text-center`}>
+      {/* Tactical Telemetry & Contextual Diagnostic Ticker Under Core */}
+      <div className={`${compact ? 'mt-1 gap-1' : 'mt-1.5 gap-1.5'} flex flex-col items-center text-center w-full max-w-lg px-2`}>
         {!compact && (
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/40 backdrop-blur-md shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/70 border border-cyan-400/40 backdrop-blur-md shadow-[0_0_20px_rgba(6,182,212,0.2)]">
             <span
-              className="w-2 h-2 rounded-full animate-ping"
-              style={{ backgroundColor: warnaAksen }}
+              className="w-2 h-2 rounded-full animate-ping shrink-0"
+              style={{ backgroundColor: warnaStatus }}
             />
-            <span className="font-hud text-[9px] sm:text-[11px] uppercase tracking-widest text-cyan-100 font-bold">
+            <span className="font-hud text-[10px] sm:text-xs uppercase tracking-widest text-cyan-100 font-bold truncate">
               {labelStatus}
             </span>
           </div>
         )}
 
-        {/* Quick Core Action Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={handleKlik}
-            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border font-hud text-[9px] sm:text-[10px] tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              voiceLoopAktif || status === 'listening'
-                ? 'bg-emerald-600/80 border-emerald-300 text-white shadow-[0_0_18px_rgba(16,185,129,0.45)]'
-                : 'bg-cyan-950/70 hover:bg-cyan-900/80 border-cyan-400/50 text-cyan-200'
-            }`}
-          >
-            <Radio className="w-3 h-3 animate-pulse" />
-            <span>{voiceLoopAktif ? 'VOICE-TO-VOICE: ON' : 'VOICE-TO-VOICE'}</span>
-          </button>
-
-          {onBukaDailyBriefing && (
+        {/* Primary Controls Under Core (Clean, Non-Redundant) */}
+        {tampilkanTombolBawah && (
+          <div className="flex items-center justify-center gap-2 mt-0.5">
             <button
               type="button"
-              onClick={() => {
-                mainkanSuaraHud('engage')
-                onBukaDailyBriefing()
-              }}
-              className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:from-cyan-500 hover:to-blue-500 border border-cyan-300/60 text-white font-hud text-[9px] sm:text-[10px] tracking-wider uppercase font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.35)] flex items-center gap-1.5 cursor-pointer"
+              onClick={handleKlik}
+              className={`px-3 py-1.5 rounded-lg border font-hud text-[10px] sm:text-xs tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                voiceLoopAktif || status === 'listening'
+                  ? 'bg-emerald-600/90 border-emerald-300 text-white shadow-[0_0_18px_rgba(16,185,129,0.45)]'
+                  : 'bg-cyan-950/80 hover:bg-cyan-900/90 border-cyan-400/50 text-cyan-200'
+              }`}
             >
-              <FileBarChart2 className="w-3 h-3" />
-              <span>LAPORAN DAILY</span>
+              <Radio className="w-3.5 h-3.5 animate-pulse" />
+              <span>{voiceLoopAktif ? 'VOICE LOOP: ON' : 'VOICE-TO-VOICE'}</span>
             </button>
-          )}
 
-          {onBukaChatLengkap && (
-            <button
-              type="button"
-              onClick={() => {
-                mainkanSuaraHud('chirp')
-                onBukaChatLengkap()
-              }}
-              className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-zinc-900/90 hover:bg-cyan-950/80 border border-cyan-500/35 hover:border-cyan-400 text-cyan-300 font-hud text-[9px] sm:text-[10px] tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <MessageSquare className="w-3 h-3" />
-              <span>PANEL CHAT &amp; TABEL</span>
-            </button>
-          )}
-        </div>
+            {onBukaDailyBriefing && (
+              <button
+                type="button"
+                onClick={() => {
+                  mainkanSuaraHud('engage')
+                  onBukaDailyBriefing()
+                }}
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:from-cyan-500 hover:to-blue-500 border border-cyan-300/60 text-white font-hud text-[10px] sm:text-xs tracking-wider uppercase font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileBarChart2 className="w-3.5 h-3.5" />
+                <span>LAPORAN DAILY</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
-import { adalahJointExpenseDisembunyikan } from '@/lib/pengeluaran/jointExpense'
+import { adalahJointExpenseDisembunyikan, adalahHppKolMarcomDisembunyikan } from '@/lib/pengeluaran/jointExpense'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 
 export type OutletBreakdownDetails = {
@@ -77,7 +77,9 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
   ])
 
   // Joint expense mulai Oktober 2026 tidak dihitung — lihat lib/pengeluaran/jointExpense.ts.
-  const expenseRows = expenseRowsMentah.filter((r: any) => !adalahJointExpenseDisembunyikan(r))
+  const expenseRows = expenseRowsMentah
+    .filter((r: any) => !adalahJointExpenseDisembunyikan(r))
+    .filter((r: any) => !adalahHppKolMarcomDisembunyikan(r))
 
   const processExpense = (row: any, mapCat: (c: string) => string) => {
     if (isTestOutlet(row.outlet_id) || !row.outlet_id) return

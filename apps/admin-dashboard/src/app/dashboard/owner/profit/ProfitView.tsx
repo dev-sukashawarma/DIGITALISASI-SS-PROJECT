@@ -314,7 +314,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     let grossMitraBelumBep = 0
     const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean }>()
 
-    for (const [oid, inv] of Object.entries(mitraInvestments)) {
+    const allMitraOids = new Set([...Object.keys(mitraInvestments), ...Array.from(mitraIds)])
+    for (const oid of allMitraOids) {
+      const inv = mitraInvestments[oid]
       const outletSales = sales.rows.filter(
         r => r.outlet_id === oid && 
              !isTestOutlet(r.outlet_id) &&
@@ -322,12 +324,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       )
       const gross = outletSales.reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
 
-      const bepInfo = calculateMitraBepStatus(inv, oid, effectiveFilter.from, inv.isBep)
+      const bepInfo = calculateMitraBepStatus(inv, oid, effectiveFilter.from, inv?.isBep)
       const policy = resolveMitraPolicy({
         periodFrom: effectiveFilter.from,
         isBep: bepInfo.isBep,
-        legacyProfitSharingPct: inv.persentase_bagi_hasil,
-        legacyManagementFee: inv.management_fee,
+        legacyProfitSharingPct: inv?.persentase_bagi_hasil,
+        legacyManagementFee: inv?.management_fee,
       })
 
       const fee = policy.managementFeePct > 0 ? Math.round((gross * policy.managementFeePct) / 100) : 0

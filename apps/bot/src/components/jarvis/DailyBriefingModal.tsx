@@ -64,6 +64,29 @@ export default function DailyBriefingModal({
     }
   }, [data?.modeRekomendasi])
 
+  // Accessibility: Escape key listener untuk menutup modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        mainkanSuaraHud('chirp')
+        hentiBicaraJarvis()
+        onStatusBicaraChange(false)
+        onTutup()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onStatusBicaraChange, onTutup])
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      mainkanSuaraHud('chirp')
+      hentiBicaraJarvis()
+      onStatusBicaraChange(false)
+      onTutup()
+    }
+  }
+
   const t = data?.telemetri
   const isKemarin = tabWaktu === 'kemarin' && Boolean(t?.ringkasanKemarin)
   const salesAktif = isKemarin
@@ -289,7 +312,10 @@ export default function DailyBriefingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200"
+    >
       <div className="relative w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl bg-zinc-950/95 border border-cyan-400/50 shadow-[0_0_60px_rgba(6,182,212,0.3)] text-zinc-100 overflow-hidden">
         {/* Corner Reticles */}
         <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-300 pointer-events-none" />
@@ -701,48 +727,48 @@ export default function DailyBriefingModal({
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                       <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[9px] text-zinc-400">
+                        <div className="text-[11px] text-zinc-400">
                           OPEX {isKemarin ? 'KEMARIN' : 'HARI INI'}
                         </div>
-                        <div className="text-xs font-bold text-amber-300 mt-0.5">
+                        <div className="text-xs sm:text-sm font-bold text-amber-300 mt-0.5">
                           {fmtRp(opexNominalAktif)}
                         </div>
-                        <div className="text-[9px] text-zinc-500">{opexTxCountAktif} transaksi</div>
+                        <div className="text-[11px] text-zinc-500">{opexTxCountAktif} transaksi</div>
                       </div>
                       <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[9px] text-zinc-400">
+                        <div className="text-[11px] text-zinc-400">
                           {isKemarin ? 'KAS TUTUP SHIFT' : 'SETORAN DIREKAP'}
                         </div>
-                        <div className="text-xs font-bold text-emerald-300 mt-0.5">
+                        <div className="text-xs sm:text-sm font-bold text-emerald-300 mt-0.5">
                           {fmtRp(
                             isKemarin
                               ? (t?.finance?.setoranKas?.tutupShiftKemarin?.totalFisikKas ?? 0)
                               : (t?.finance?.setoranKas?.inputHariIni?.totalNominal ?? 0)
                           )}
                         </div>
-                        <div className="text-[9px] text-zinc-500">
+                        <div className="text-[11px] text-zinc-500">
                           {isKemarin
                             ? `${t?.finance?.setoranKas?.tutupShiftKemarin?.jumlahOutletClosed ?? 0} shift closed`
                             : `${t?.finance?.setoranKas?.inputHariIni?.jumlahTransaksi ?? 0} setoran`}
                         </div>
                       </div>
                       <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[9px] text-zinc-400">UTANG PO SUPPLIER</div>
-                        <div className="text-xs font-bold text-cyan-200 mt-0.5">
+                        <div className="text-[11px] text-zinc-400">UTANG PO SUPPLIER</div>
+                        <div className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5">
                           {fmtRp(t?.finance?.utangPo?.totalUtang ?? 0)}
                         </div>
-                        <div className="text-[9px] text-zinc-500">{t?.finance?.utangPo?.jumlahPo ?? 0} PO aktif</div>
+                        <div className="text-[11px] text-zinc-500">{t?.finance?.utangPo?.jumlahPo ?? 0} PO aktif</div>
                       </div>
                       <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[9px] text-zinc-400">PO OVERDUE</div>
+                        <div className="text-[11px] text-zinc-400">PO OVERDUE</div>
                         <div
-                          className={`text-xs font-bold mt-0.5 ${
+                          className={`text-xs sm:text-sm font-bold mt-0.5 ${
                             (t?.finance?.utangPo?.totalLewatJatuhTempo ?? 0) > 0 ? 'text-red-400' : 'text-emerald-300'
                           }`}
                         >
                           {fmtRp(t?.finance?.utangPo?.totalLewatJatuhTempo ?? 0)}
                         </div>
-                        <div className="text-[9px] text-zinc-500">Jatuh tempo</div>
+                        <div className="text-[11px] text-zinc-500">Jatuh tempo</div>
                       </div>
                     </div>
 

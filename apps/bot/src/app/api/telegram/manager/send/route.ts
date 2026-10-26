@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     title.length > 180 ||
     typeof body !== 'string' ||
     !body.trim() ||
-    body.length > 4000
+    body.length > 1200
   ) {
     return NextResponse.json({ error: 'Payload tidak valid.' }, { status: 400 })
   }

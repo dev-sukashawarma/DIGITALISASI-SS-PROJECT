@@ -3,6 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import { Trash2, AlertCircle, AlertTriangle } from 'lucide-react'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useWasteSummary } from '@/hooks/useWasteSummary'
@@ -14,7 +15,7 @@ import { aggregateByBahanWithSpread } from '@/lib/wasteMetrics'
 import { normalizeReason, countFreeTextIncidents } from '@/lib/wasteReasons'
 import { previousRange } from '@/lib/period'
 import { PeriodFilter } from '@/components/PeriodFilter'
-import { PageHeader, Section, StatTilesSkeleton } from '@/components/ui'
+import { PageHeader, StatTilesSkeleton } from '@/components/ui'
 import { WasteKpiRow } from '@/components/waste/WasteKpiRow'
 import { WasteOutletRanking } from '@/components/waste/WasteOutletRanking'
 import { WasteReasonBreakdown } from '@/components/waste/WasteReasonBreakdown'
@@ -24,7 +25,12 @@ import { WasteIncidentDetailModal } from '@/components/waste/WasteIncidentDetail
 
 const WasteTrendChart = dynamic(
   () => import('@/components/WasteTrendChart').then((m) => m.WasteTrendChart),
-  { ssr: false, loading: () => <div className="h-64 bg-white rounded-2xl border border-suka-gray-200 animate-pulse" /> }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 bg-white/80 backdrop-blur-xl rounded-3xl border border-suka-brown/10 animate-pulse" />
+    ),
+  }
 )
 
 export default function WastePage() {
@@ -44,7 +50,9 @@ export default function WastePage() {
 
   // Ganti filter -> kembali ke halaman 1, supaya tidak terjebak di halaman
   // yang sudah tidak ada pada hasil baru.
-  useEffect(() => { setPage(1) }, [filter.from, filter.to, filter.outletId])
+  useEffect(() => {
+    setPage(1)
+  }, [filter.from, filter.to, filter.outletId])
 
   // summaryPrev & sales ikut digate: kalau tidak, tile sempat menampilkan
   // "N/A" palsu (delta & % omzet) sebelum datanya datang.
@@ -92,27 +100,46 @@ export default function WastePage() {
   const showOutletColumn = filter.outletId === 'all'
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Kerugian Waste" description="Rincian waste bahan baku yang sudah di-approve">
+    <div className="space-y-6 animate-fade-in">
+      {/* Page Header with brand icon and filters */}
+      <PageHeader
+        title="Kerugian Waste"
+        description="Rincian waste bahan baku yang sudah disetujui (approved) & evaluasi efisiensi operasional"
+        icon={Trash2}
+      >
         <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource />
       </PageHeader>
 
+      {/* Error / Alert Notices */}
       {error && (
-        <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">
-          Gagal memuat data waste: {error}
+        <div className="p-4 bg-red-50 text-red-700 rounded-2xl border border-red-200 text-xs font-semibold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+          <span>Gagal memuat data waste: {error}</span>
         </div>
       )}
 
       {summary.truncated && (
-        <div className="p-4 bg-amber-50 text-amber-800 rounded-xl border border-amber-100 text-sm">
-          Rentang tanggal terlalu panjang — data dipotong di 1.000 baris, angka di bawah ini tidak lengkap. Persempit rentangnya.
+        <div className="p-4 bg-amber-50 text-amber-800 rounded-2xl border border-amber-200 text-xs font-semibold flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+          <span>
+            Rentang tanggal terlalu panjang — data dipotong di 1.000 baris. Persempit rentang tanggal untuk melihat akurasi
+            angka lengkap.
+          </span>
         </div>
       )}
 
       {loading ? (
-        <StatTilesSkeleton count={4} />
+        <div className="space-y-6">
+          <StatTilesSkeleton count={4} />
+          <div className="h-64 bg-white/80 backdrop-blur-xl rounded-3xl border border-suka-brown/10 animate-pulse" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="h-96 bg-white/80 backdrop-blur-xl rounded-3xl border border-suka-brown/10 animate-pulse" />
+            <div className="h-96 bg-white/80 backdrop-blur-xl rounded-3xl border border-suka-brown/10 animate-pulse" />
+          </div>
+        </div>
       ) : (
         <>
+          {/* Baris 1: 4 KPI Cards */}
           <WasteKpiRow
             totalNilai={totalNilai}
             totalPrevious={totalPrevious}
@@ -122,21 +149,36 @@ export default function WastePage() {
             outletCount={byOutlet.length}
           />
 
-          <Section title="Tren Waktu">
-            <WasteTrendChart data={byDate} />
-          </Section>
+          {/* Baris 2: Tren Waktu / Ringkasan Harian */}
+          <WasteTrendChart
+            data={byDate}
+            summaryRows={summary.rows}
+            totalNilai={totalNilai}
+            totalInsiden={totalInsiden}
+          />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Baris 3: Ranking per Outlet & Breakdown per Alasan */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
             {showOutletColumn && (
-              <WasteOutletRanking rows={byOutlet} budgetByOutlet={budgetByOutlet} omzetByOutlet={omzetByOutlet} />
+              <WasteOutletRanking
+                rows={byOutlet}
+                budgetByOutlet={budgetByOutlet}
+                omzetByOutlet={omzetByOutlet}
+              />
             )}
             <div className={showOutletColumn ? '' : 'lg:col-span-2'}>
-              <WasteReasonBreakdown rows={byReason} total={totalNilai} freeTextCount={freeTextCount} />
+              <WasteReasonBreakdown
+                rows={byReason}
+                total={totalNilai}
+                freeTextCount={freeTextCount}
+              />
             </div>
           </div>
 
+          {/* Baris 4: Ranking Bahan Baku Terbuang */}
           <WasteBahanRanking rows={byBahan} />
 
+          {/* Baris 5: Rincian Insiden Tabel Granular */}
           <WasteIncidentTable
             rows={incidents.rows}
             totalCount={incidents.totalCount}
@@ -149,7 +191,12 @@ export default function WastePage() {
         </>
       )}
 
-      <WasteIncidentDetailModal isOpen={selected !== null} onClose={() => setSelected(null)} row={selected} />
+      {/* Modal Detail Insiden */}
+      <WasteIncidentDetailModal
+        isOpen={selected !== null}
+        onClose={() => setSelected(null)}
+        row={selected}
+      />
     </div>
   )
 }

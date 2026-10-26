@@ -1,4 +1,33 @@
 import { createClient } from '@supabase/supabase-js'
+import { formatTriUnitSaldoAdaptive, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
+
+function formatQtyBahanAdaptif(
+  qtyBesar: number,
+  b?: {
+    satuan?: string | null
+    satuan_tengah?: string | null
+    faktor_tengah?: number | null
+    satuan_kecil?: string | null
+    faktor_tampilan?: number | null
+  } | null
+): string {
+  const satBesar = (b?.satuan || 'unit').trim()
+  const satTengah = b?.satuan_tengah ? String(b.satuan_tengah).trim() : null
+  const fTengah = Number(b?.faktor_tengah) || null
+  const satKecil = b?.satuan_kecil ? String(b.satuan_kecil).trim() : null
+  const fTampilan = Number(b?.faktor_tampilan) || null
+  if (satKecil && fTampilan && fTampilan > 0) {
+    return formatTriUnitSaldoFromGram(
+      Math.round(qtyBesar * fTampilan * 100) / 100,
+      satBesar,
+      satTengah,
+      fTengah,
+      satKecil,
+      fTampilan
+    )
+  }
+  return formatTriUnitSaldoAdaptive(qtyBesar, false, satBesar, satTengah, fTengah, satKecil, fTampilan)
+}
 
 export interface RincianKanalOutlet {
   kanal: string
@@ -1284,7 +1313,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
             qty_terima,
             kondisi,
             selisih,
-            bahan_baku(nama, satuan)
+            bahan_baku(nama, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan)
           )
         `)
         .order('created_at', { ascending: false })
@@ -2086,14 +2115,16 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       let adaSelisih = false
       for (const it of items) {
         const bNama = it.bahan_baku?.nama || 'Item'
-        const sat = it.bahan_baku?.satuan || ''
         const qKirim = Number(it.qty_dikirim) || 0
-        itemStrs.push(`${bNama} ${qKirim}${sat ? ` ${sat}` : ''}`)
+        const kirimFmt = formatQtyBahanAdaptif(qKirim, it.bahan_baku)
+        itemStrs.push(`${bNama} ${kirimFmt}`)
         const diff = Number(it.selisih) || 0
         if (diff !== 0 || (it.kondisi && it.kondisi !== 'baik')) {
           adaSelisih = true
+          const terimaFmt = it.qty_terima != null ? formatQtyBahanAdaptif(Number(it.qty_terima) || 0, it.bahan_baku) : '-'
+          const diffFmt = formatQtyBahanAdaptif(diff, it.bahan_baku)
           rincianSelisih.push(
-            `${bNama}: kirim ${it.qty_dikirim}, terima ${it.qty_terima} (${diff > 0 ? '+' : ''}${diff} ${sat}) - ${it.kondisi || 'selisih'}`
+            `${bNama}: kirim ${kirimFmt}, terima ${terimaFmt} (${diff > 0 ? '+' : ''}${diffFmt}) - ${it.kondisi || 'selisih'}`
           )
         }
       }

@@ -314,9 +314,9 @@ export default function DailyBriefingModal({
   return (
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 lg:p-6 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-3 lg:p-4 animate-in fade-in duration-200"
     >
-      <div className="relative w-full max-w-7xl max-h-[92vh] flex flex-col rounded-2xl bg-zinc-950/95 border border-cyan-400/50 shadow-[0_0_60px_rgba(6,182,212,0.3)] text-zinc-100 overflow-hidden">
+      <div className="relative w-full max-w-[96vw] 2xl:max-w-[1640px] xl:max-w-[1560px] max-h-[94vh] flex flex-col rounded-2xl bg-zinc-950/95 border border-cyan-400/50 shadow-[0_0_60px_rgba(6,182,212,0.3)] text-zinc-100 overflow-hidden">
         {/* Corner Reticles */}
         <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-300 pointer-events-none" />
         <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-cyan-300 pointer-events-none" />
@@ -582,15 +582,18 @@ export default function DailyBriefingModal({
                     </div>
 
                     {/* Top KPI Boxes (4 Cols: Omzet, Laba Kotor, Transaksi, AOV) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                      <div className="p-2.5 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[10px] text-zinc-400">OMZET BERSIH</div>
-                        <div className="text-xs sm:text-sm font-bold text-emerald-300 mt-0.5">
+                    <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 mb-3">
+                      <div className="p-2 sm:p-2.5 rounded-lg bg-black/60 border border-cyan-500/20 min-w-0 flex flex-col justify-between overflow-hidden">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-400 truncate">OMZET BERSIH</div>
+                        <div
+                          className="text-xs sm:text-sm font-bold text-emerald-300 mt-0.5 truncate tracking-tight"
+                          title={fmtRp(omzetBersihAktif)}
+                        >
                           {fmtRp(omzetBersihAktif)}
                         </div>
                         {trenAktif?.deltaOmzetPersen !== null && trenAktif?.deltaOmzetPersen !== undefined && (
                           <div
-                            className={`text-[9px] font-bold mt-0.5 ${
+                            className={`text-[9px] font-bold mt-0.5 truncate ${
                               trenAktif.deltaOmzetPersen >= 0 ? 'text-emerald-400' : 'text-amber-300'
                             }`}
                           >
@@ -599,23 +602,26 @@ export default function DailyBriefingModal({
                           </div>
                         )}
                       </div>
-                      <div className="p-2.5 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[10px] text-zinc-400">LABA KOTOR</div>
-                        <div className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5">
+                      <div className="p-2 sm:p-2.5 rounded-lg bg-black/60 border border-cyan-500/20 min-w-0 flex flex-col justify-between overflow-hidden">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-400 truncate">LABA KOTOR</div>
+                        <div
+                          className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5 truncate tracking-tight"
+                          title={fmtRp(labaKotorAktif)}
+                        >
                           {fmtRp(labaKotorAktif)}
                         </div>
-                        <div className="text-[9px] text-zinc-400 mt-0.5">
+                        <div className="text-[9px] text-zinc-400 mt-0.5 truncate">
                           Margin {marginPersenAktif}% &bull; HPP {fmtRp(hppAktif)}
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[10px] text-zinc-400">TRANSAKSI</div>
-                        <div className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5">
+                      <div className="p-2 sm:p-2.5 rounded-lg bg-black/60 border border-cyan-500/20 min-w-0 flex flex-col justify-between overflow-hidden">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-400 truncate">TRANSAKSI</div>
+                        <div className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5 truncate tracking-tight">
                           {salesAktif.totalOrder} struk
                         </div>
                         {trenAktif?.deltaOrderPersen !== null && trenAktif?.deltaOrderPersen !== undefined && (
                           <div
-                            className={`text-[9px] font-bold mt-0.5 ${
+                            className={`text-[9px] font-bold mt-0.5 truncate ${
                               trenAktif.deltaOrderPersen >= 0 ? 'text-emerald-400' : 'text-amber-300'
                             }`}
                           >
@@ -624,12 +630,15 @@ export default function DailyBriefingModal({
                           </div>
                         )}
                       </div>
-                      <div className="p-2.5 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[10px] text-zinc-400">RATA-RATA (AOV)</div>
-                        <div className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5">
+                      <div className="p-2 sm:p-2.5 rounded-lg bg-black/60 border border-cyan-500/20 min-w-0 flex flex-col justify-between overflow-hidden">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-400 truncate">RATA-RATA (AOV)</div>
+                        <div
+                          className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5 truncate tracking-tight"
+                          title={fmtRp(salesAktif.aov)}
+                        >
                           {fmtRp(salesAktif.aov)}
                         </div>
-                        <div className="text-[9px] text-zinc-400 mt-0.5">
+                        <div className="text-[9px] text-zinc-400 mt-0.5 truncate">
                           {salesAktif.totalPorsi ? `${salesAktif.totalPorsi} porsi` : 'Gross ' + fmtRp(salesAktif.omzetTotal)}
                         </div>
                       </div>
@@ -725,50 +734,67 @@ export default function DailyBriefingModal({
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                      <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[11px] text-zinc-400">
+                    <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 mb-3">
+                      <div className="p-2 sm:p-2.5 rounded-lg bg-black/60 border border-cyan-500/20 min-w-0 flex flex-col justify-between overflow-hidden">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
                           OPEX {isKemarin ? 'KEMARIN' : 'HARI INI'}
                         </div>
-                        <div className="text-xs sm:text-sm font-bold text-amber-300 mt-0.5">
+                        <div
+                          className="text-xs sm:text-sm font-bold text-amber-300 mt-0.5 truncate tracking-tight"
+                          title={fmtRp(opexNominalAktif)}
+                        >
                           {fmtRp(opexNominalAktif)}
                         </div>
-                        <div className="text-[11px] text-zinc-500">{opexTxCountAktif} transaksi</div>
+                        <div className="text-[10px] sm:text-[11px] text-zinc-500 truncate">{opexTxCountAktif} transaksi</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[11px] text-zinc-400">
+
+                      <div className="p-2 sm:p-2.5 rounded-lg bg-black/60 border border-cyan-500/20 min-w-0 flex flex-col justify-between overflow-hidden">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-400 truncate">
                           {isKemarin ? 'KAS TUTUP SHIFT' : 'SETORAN DIREKAP'}
                         </div>
-                        <div className="text-xs sm:text-sm font-bold text-emerald-300 mt-0.5">
+                        <div
+                          className="text-xs sm:text-sm font-bold text-emerald-300 mt-0.5 truncate tracking-tight"
+                          title={fmtRp(
+                            isKemarin
+                              ? (t?.finance?.setoranKas?.tutupShiftKemarin?.totalFisikKas ?? 0)
+                              : (t?.finance?.setoranKas?.inputHariIni?.totalNominal ?? 0)
+                          )}
+                        >
                           {fmtRp(
                             isKemarin
                               ? (t?.finance?.setoranKas?.tutupShiftKemarin?.totalFisikKas ?? 0)
                               : (t?.finance?.setoranKas?.inputHariIni?.totalNominal ?? 0)
                           )}
                         </div>
-                        <div className="text-[11px] text-zinc-500">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-500 truncate">
                           {isKemarin
                             ? `${t?.finance?.setoranKas?.tutupShiftKemarin?.jumlahOutletClosed ?? 0} shift closed`
                             : `${t?.finance?.setoranKas?.inputHariIni?.jumlahTransaksi ?? 0} setoran`}
                         </div>
                       </div>
-                      <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[11px] text-zinc-400">UTANG PO SUPPLIER</div>
-                        <div className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5">
+
+                      <div className="p-2 sm:p-2.5 rounded-lg bg-black/60 border border-cyan-500/20 min-w-0 flex flex-col justify-between overflow-hidden">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-400 truncate">UTANG PO SUPPLIER</div>
+                        <div
+                          className="text-xs sm:text-sm font-bold text-cyan-200 mt-0.5 truncate tracking-tight"
+                          title={fmtRp(t?.finance?.utangPo?.totalUtang ?? 0)}
+                        >
                           {fmtRp(t?.finance?.utangPo?.totalUtang ?? 0)}
                         </div>
-                        <div className="text-[11px] text-zinc-500">{t?.finance?.utangPo?.jumlahPo ?? 0} PO aktif</div>
+                        <div className="text-[10px] sm:text-[11px] text-zinc-500 truncate">{t?.finance?.utangPo?.jumlahPo ?? 0} PO aktif</div>
                       </div>
-                      <div className="p-2 rounded-lg bg-black/60 border border-cyan-500/20">
-                        <div className="text-[11px] text-zinc-400">PO OVERDUE</div>
+
+                      <div className="p-2 sm:p-2.5 rounded-lg bg-black/60 border border-cyan-500/20 min-w-0 flex flex-col justify-between overflow-hidden">
+                        <div className="text-[10px] sm:text-[11px] text-zinc-400 truncate">PO OVERDUE</div>
                         <div
-                          className={`text-xs sm:text-sm font-bold mt-0.5 ${
+                          className={`text-xs sm:text-sm font-bold mt-0.5 truncate tracking-tight ${
                             (t?.finance?.utangPo?.totalLewatJatuhTempo ?? 0) > 0 ? 'text-red-400' : 'text-emerald-300'
                           }`}
+                          title={fmtRp(t?.finance?.utangPo?.totalLewatJatuhTempo ?? 0)}
                         >
                           {fmtRp(t?.finance?.utangPo?.totalLewatJatuhTempo ?? 0)}
                         </div>
-                        <div className="text-[11px] text-zinc-500">Jatuh tempo</div>
+                        <div className="text-[10px] sm:text-[11px] text-zinc-500 truncate">Jatuh tempo</div>
                       </div>
                     </div>
 

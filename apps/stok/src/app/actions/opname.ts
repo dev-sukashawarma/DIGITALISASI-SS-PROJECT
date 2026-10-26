@@ -6,6 +6,7 @@ import { canApproveOpname } from '@/lib/stok/approver'
 import { assertOutletAccessible, getAccessibleOutletIds, assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { getEffectiveTodayWIB } from '@/lib/stok/opnameDate'
 import { isBahanOpname } from '@/lib/stok/opnameScope'
+import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih'
 import type { Opname, OpnameItem } from '@/types/stok'
 
 function makeServiceClient() {
@@ -232,13 +233,25 @@ export async function upsertOpnameItems(
     const bahanIds = [...new Set(items.map((i) => i.bahan_baku_id))]
     const { data: bahanRows, error: bahanErr } = await serviceClient
       .from('bahan_baku')
-      .select('id, nama, kategori')
+      .select('id, nama, kategori, satuan, satuan_kecil')
       .in('id', bahanIds)
     if (bahanErr) return { error: `DB error: ${bahanErr.message}` }
+    const bahanById = new Map((bahanRows ?? []).map((b) => [b.id, b]))
     const nonOpname = new Set(
       (bahanRows ?? []).filter((b) => !isBahanOpname(b)).map((b) => b.id)
     )
-    const itemsOpname = items.filter((i) => !nonOpname.has(i.bahan_baku_id))
+    const itemsOpname = items
+      .filter((i) => !nonOpname.has(i.bahan_baku_id))
+      .map((i) => {
+        const b = bahanById.get(i.bahan_baku_id)
+        const selisih = computeSelisih(i.qty_fisik, i.qty_system)
+        return {
+          ...i,
+          flagged: b
+            ? isSelisihFlagged(selisih, i.qty_system, b.satuan, b.satuan_kecil, b.nama)
+            : i.flagged,
+        }
+      })
     if (!itemsOpname.length) return { error: null }
 
     const { error } = await serviceClient

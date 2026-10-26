@@ -422,7 +422,13 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
               })
               if (rows.length === 0) return null
               const meta = TIPE_META[tipe]
-              const jmlFlag = rows.filter((it) => it.qty_fisik !== null && it.flagged).length
+              const jmlFlag = rows.filter((it) => {
+                if (it.qty_fisik === null) return false
+                const b = bahanMap[it.bahan_baku_id]
+                return b
+                  ? isSelisihFlagged(it.selisih, it.qty_system, b.satuan, b.satuan_kecil, b.nama)
+                  : it.flagged
+              }).length
               return (
                 <section key={tipe} className="space-y-2.5 pt-2">
                   <div className={`flex items-center justify-between gap-3 rounded-xl border border-l-[6px] px-4 py-3 ${meta.header}`}>
@@ -459,6 +465,9 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
 
                     const thresholdPersen = getThresholdPersen(bahan?.satuan, bahan?.satuan_kecil, bahan?.nama);
                     const selisihPersenInfo = computeSelisihPersen(it.selisih, it.qty_system);
+                    const isFlagged = it.qty_fisik !== null && (bahan
+                      ? isSelisihFlagged(it.selisih, it.qty_system, bahan.satuan, bahan.satuan_kecil, bahan.nama)
+                      : it.flagged);
 
                     // qty_fisik/qty_system/selisih SELALU dalam satuan kecil (gram) --
                     // OpnameForm.calculateTotalFisik menghitungnya begitu, tanpa
@@ -486,7 +495,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                       <div
                         key={it.id}
                         className={`p-4 rounded-xl border flex justify-between items-center transition-all duration-200 ${
-                          it.flagged
+                          isFlagged
                             ? 'bg-[#ffdad6]/10 border-[#ba1a1a]/30 shadow-[0_2px_8px_rgba(186,26,26,0.03)]'
                             : 'bg-white border-[#d9c2b2]/45 shadow-[0_2px_8px_rgba(144,77,0,0.015)] hover:border-[#f29744]/30'
                         }`}
@@ -497,7 +506,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                             <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-1.5 py-0.5 rounded border border-[#d9c2b2]/25">
                               {category || 'Bahan'}
                             </span>
-                            {it.flagged && (
+                            {isFlagged && (
                               <span className="text-[8px] font-bold uppercase bg-[#ffdad6] text-[#ba1a1a] px-1.5 py-0.5 rounded border border-[#ba1a1a]/10">
                                 ⚠️ Selisih Kritis
                               </span>
@@ -542,7 +551,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                               {/* Persentase Loss / Surplus */}
                               <span className={`text-[9px] font-black px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
                                 selisihPersenInfo.isLoss
-                                  ? it.flagged
+                                  ? isFlagged
                                     ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/25'
                                     : 'bg-orange-100 text-orange-800 border-orange-200'
                                   : selisihPersenInfo.isSurplus
@@ -568,11 +577,11 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                               {/* Status Terhadap Threshold */}
                               {it.selisih !== 0 && (
                                 <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                                  it.flagged
+                                  isFlagged
                                     ? 'bg-red-50 text-[#ba1a1a] border-red-200 animate-pulse-subtle'
                                     : 'bg-emerald-50 text-[#0a7d2c] border-emerald-200'
                                 }`}>
-                                  {it.flagged ? '⚠️ Melebihi Toleransi' : '✅ Dalam Batas'}
+                                  {isFlagged ? '⚠️ Melebihi Toleransi' : '✅ Dalam Batas'}
                                 </span>
                               )}
                             </div>
@@ -595,7 +604,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                           ) : (
                             <div className="flex flex-col items-end">
                               <span className={`text-[10px] font-black px-2.5 py-0.5 rounded border ${
-                                it.flagged
+                                isFlagged
                                   ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/15 font-black animate-pulse-subtle'
                                   : it.selisih < 0
                                     ? 'bg-orange-50 text-orange-700 border-orange-100'
@@ -605,7 +614,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                               </span>
                               {canViewThresholdAndLoss && (
                                 <span className={`text-[9px] font-black mt-0.5 ${
-                                  it.flagged ? 'text-[#ba1a1a]' : it.selisih < 0 ? 'text-orange-700' : 'text-green-700'
+                                  isFlagged ? 'text-[#ba1a1a]' : it.selisih < 0 ? 'text-orange-700' : 'text-green-700'
                                 }`}>
                                   {selisihPersenInfo.formatted}
                                 </span>

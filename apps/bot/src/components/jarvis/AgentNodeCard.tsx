@@ -411,6 +411,7 @@ interface AgentNodeCardProps {
   modeWaktu?: 'kemarin' | 'hari_ini'
   terpilih: boolean
   onPilih: (profil: Profil, pesanAwal?: string) => void
+  className?: string
 }
 
 export default function AgentNodeCard({
@@ -420,6 +421,7 @@ export default function AgentNodeCard({
   modeWaktu = 'kemarin',
   terpilih,
   onPilih,
+  className,
 }: AgentNodeCardProps) {
   const profil = meja?.profil ?? profilFallback
   const vis = bangunVisualDivisi(profil, telemetri, modeWaktu)
@@ -443,11 +445,11 @@ export default function AgentNodeCard({
 
   return (
     <div
-      className={`relative group rounded-xl p-3 sm:p-3.5 transition-all duration-300 backdrop-blur-xl border ${
+      className={`relative group rounded-xl p-3 sm:p-3.5 transition-all duration-300 backdrop-blur-xl border flex flex-col justify-between ${
         terpilih
           ? 'bg-cyan-950/40 border-cyan-400 ring-1 ring-cyan-400/70 shadow-[0_0_24px_rgba(6,182,212,0.28)]'
           : 'bg-zinc-950/80 border-cyan-500/20 hover:border-cyan-400/50 hover:bg-zinc-900/80 hover:shadow-[0_4px_24px_rgba(6,182,212,0.12)]'
-      }`}
+      } ${className || ''}`}
     >
       {/* Reticle Corners (Unified Cyan/Teal HUD language) */}
       <div className="absolute -top-0.5 -left-0.5 w-2 h-2 border-t-2 border-l-2 border-cyan-400/60 pointer-events-none" />

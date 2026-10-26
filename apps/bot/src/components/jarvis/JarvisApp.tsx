@@ -45,17 +45,14 @@ import {
   FileBarChart2,
   MessageSquare,
   X,
-  Cpu,
   Printer,
   CheckCircle2,
   Activity,
-  Layers,
   Zap,
   Calendar,
   DollarSign,
   Trash2,
   Users,
-  AlertTriangle,
 } from 'lucide-react'
 
 const POLL_STATUS_MS = 12_000
@@ -155,7 +152,6 @@ export default function JarvisApp({
   const [percakapanIdAktif, setPercakapanIdAktif] = useState<string | null>(null)
   const [inputPerintah, setInputPerintah] = useState('')
   const [sedangMemproses, setSedangMemproses] = useState(false)
-  const [pertanyaanTerakhir, setPertanyaanTerakhir] = useState<string | null>(null)
   const [jawabanHologram, setJawabanHologram] = useState<string>('')
   const [riwayatHologram, setRiwayatHologram] = useState<PesanHologram[]>([])
   const [divisiSorot, setDivisiSorot] = useState<Profil | null>(null)
@@ -206,16 +202,17 @@ export default function JarvisApp({
   // Inisialisasi Audio HUD & Web Speech Detection
   useEffect(() => {
     setSuaraNyala(apakahSuaraHudAktif())
-    setVoiceDidukung(apakahVoiceDidukung())
+    const infoVoice = apakahVoiceDidukung()
+    setVoiceDidukung(Boolean(infoVoice.stt || infoVoice.tts))
     setVoiceIdAktif(ambilSuaraJarvisAktif())
 
     // Spektrum visualizer
-    const lepasAudio = pasangListenerSpektrumSuara((bars) => {
+    pasangListenerSpektrumSuara((bars) => {
       setSpektrumSuara(bars)
     })
 
     return () => {
-      lepasAudio()
+      pasangListenerSpektrumSuara(null)
       hentiMendengar()
       hentiBicaraJarvis()
       hentiWakeWordJarvis()
@@ -404,7 +401,6 @@ export default function JarvisApp({
     ) {
       const isDispatchDivisi = lower.includes('dispatch') || lower.includes('divisi') || lower.includes('instruksi')
       mainkanSuaraHud('transmit')
-      setPertanyaanTerakhir(isi)
       setSedangMemproses(true)
 
       const idUser = 'u-' + Date.now()
@@ -498,7 +494,6 @@ export default function JarvisApp({
     mainkanSuaraHud('transmit')
     hentiBicaraJarvis()
     setSedangBicara(false)
-    setPertanyaanTerakhir(isi)
     setSedangMemproses(true)
     setDivisiSorot(deteksiDivisiTopik(isi))
 
@@ -861,12 +856,12 @@ export default function JarvisApp({
       </header>
 
       {/* MAIN COMMAND INTERFACE (Opsi A: Center Stage Iron Man Layout) */}
-      <main className="relative z-20 flex-1 min-h-0 w-full px-3 sm:px-4 lg:px-5 py-2 sm:py-2.5 flex flex-col justify-between overflow-y-auto lg:overflow-hidden">
+      <main className="relative z-20 flex-1 min-h-0 w-full px-3 sm:px-4 lg:px-5 py-2 flex flex-col justify-between overflow-hidden">
         {/* TACTICAL 3-COLUMN HUD GRID: Left = 3 Cols (Ops & HRD), Center = 6 Cols (Arc Reactor + Hologram Stage), Right = 3 Cols (Sales & Finance) */}
         <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-3.5 items-stretch">
           
           {/* Left Wing (3 Cols / 25%): OPERASIONAL & KRU (DIV-03 Ops & DIV-04 HRD) */}
-          <div className="w-full lg:col-span-3 flex flex-col gap-2 h-full max-h-[86vh] min-h-0">
+          <div className="w-full lg:col-span-3 flex flex-col gap-2 h-full min-h-0">
             {/* Radar Header */}
             <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.15)] shrink-0">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -888,6 +883,7 @@ export default function JarvisApp({
                 telemetri={dailyData?.telemetri}
                 modeWaktu={modeWaktuKotak}
                 terpilih={divisiSorot === 'gudang'}
+                className="flex-1 min-h-0 h-full"
                 onPilih={(_p, q) =>
                   void eksekusiPerintahJarvis(
                     q ||
@@ -905,6 +901,7 @@ export default function JarvisApp({
                 telemetri={dailyData?.telemetri}
                 modeWaktu={modeWaktuKotak}
                 terpilih={divisiSorot === 'hrd'}
+                className="flex-1 min-h-0 h-full"
                 onPilih={(_p, q) =>
                   void eksekusiPerintahJarvis(
                     q ||
@@ -918,8 +915,8 @@ export default function JarvisApp({
             </div>
           </div>
 
-          {/* Center Stage (6 Cols / 50%): THE HERO COMMAND CORE (Majestic Arc Reactor + Floating Console) */}
-          <div className="order-first lg:order-none w-full lg:col-span-6 flex flex-col justify-between items-center h-full max-h-[86vh] min-h-0 relative px-1 sm:px-2 py-1">
+          {/* Center Stage (6 Cols / 50%): THE HERO COMMAND CORE (Majestic Arc Reactor + Hologram Stage) */}
+          <div className="order-first lg:order-none w-full lg:col-span-6 flex flex-col justify-between items-center h-full min-h-0 relative px-1 py-0.5">
             {/* Top / Center: The Majestic Arc Reactor */}
             <div className="shrink-0 flex flex-col items-center justify-center relative w-full">
               <ArcReactor
@@ -947,7 +944,7 @@ export default function JarvisApp({
 
             {/* Middle: Floating Holographic Transmission Feed OR Standby Aura */}
             {riwayatHologram.length > 0 ? (
-              <div className="w-full max-w-2xl flex-1 min-h-0 max-h-[38vh] rounded-2xl bg-zinc-950/85 border border-cyan-400/35 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.18)] flex flex-col overflow-hidden my-1 animate-in fade-in duration-200 relative">
+              <div className="w-full flex-1 min-h-0 rounded-2xl bg-zinc-950/85 border border-cyan-400/35 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.18)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
                 {/* Hologram Reticles */}
                 <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
                 <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-cyan-400 pointer-events-none" />
@@ -1050,7 +1047,6 @@ export default function JarvisApp({
                       onClick={() => {
                         hentiBicaraJarvis()
                         setSedangBicara(false)
-                        setPertanyaanTerakhir(null)
                         setJawabanHologram('')
                         setRiwayatHologram([])
                         setDivisiSorot(null)
@@ -1142,7 +1138,7 @@ export default function JarvisApp({
               </div>
             ) : (
               /* Standby: Hermes Tactical Anomaly & Operations Matrix Deck */
-              <div className="w-full max-w-2xl flex-1 min-h-0 max-h-[40vh] rounded-2xl bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.12)] flex flex-col overflow-hidden my-1 animate-in fade-in duration-200 relative">
+              <div className="w-full flex-1 min-h-0 rounded-2xl bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.12)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
                 {/* Hologram Reticles */}
                 <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
                 <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-cyan-400 pointer-events-none" />
@@ -1265,104 +1261,10 @@ export default function JarvisApp({
                 </div>
               </div>
             )}
-
-            {/* Bottom: Floating Command Console (Chips + Form Input) */}
-            <div className="w-full flex flex-col items-center gap-2 shrink-0 pt-1 pb-0.5">
-              {/* Quick Directive Chips (Strict No-Emoji HUD Standard) */}
-              <div className="w-full max-w-2xl flex items-center justify-center flex-wrap gap-1.5 py-0.5">
-                <button
-                  type="button"
-                  onClick={() => bukaModalDailyBriefing(true)}
-                  className="px-2.5 py-1 min-h-[30px] rounded-lg bg-cyan-600/40 hover:bg-cyan-600/70 text-cyan-100 border border-cyan-400/60 font-mono-hud text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300"
-                >
-                  <Zap className="size-3 text-cyan-300 shrink-0" />
-                  <span>Daily Briefing</span>
-                </button>
-                {[
-                  { icon: Calendar, label: 'Evaluasi Kemarin', pesan: 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi (penjualan, finance, HRD, waste, stok, distribusi, dan review) lengkap dengan rekomendasi dan saran taktis dari agent.' },
-                  { icon: DollarSign, label: 'OPEX & Kas', pesan: 'Berapa total pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier?' },
-                  { icon: Trash2, label: 'Waste & Void', pesan: 'Analisis laporan waste bahan baku tertinggi dan cek transaksi void POS kemarin.' },
-                  { icon: Users, label: 'Presensi Kru', pesan: 'Siapa saja kru outlet yang terlambat atau izin/cuti kemarin?' },
-                  { icon: Activity, label: 'Live Hari Ini', pesan: 'Tampilkan progres omzet berjalan dan cabang yang sudah buka hari ini.' },
-                  { icon: Send, label: 'Kirim Telegram', pesan: 'Kirim laporan daily ke Telegram' },
-                ].map((chip, idx) => {
-                  const ChipIcon = chip.icon
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => void eksekusiPerintahJarvis(chip.pesan, false)}
-                      className="px-2.5 py-1 min-h-[30px] rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-200 border border-cyan-500/30 hover:border-cyan-400 font-mono-hud text-[11px] sm:text-xs transition-all cursor-pointer shrink-0 whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                    >
-                      <ChipIcon className="size-3 text-cyan-400/80 shrink-0" />
-                      <span>{chip.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Centered Command Bar */}
-              <form
-                onSubmit={handleSubmitForm}
-                className="w-full max-w-2xl relative flex items-center rounded-2xl bg-zinc-950/90 border border-cyan-400/50 shadow-[0_0_24px_rgba(6,182,212,0.2)] backdrop-blur-xl focus-within:border-cyan-300 focus-within:shadow-[0_0_32px_rgba(6,182,212,0.35)] transition-all p-1.5"
-              >
-                <div className="pl-3 pr-2 text-cyan-400 flex items-center">
-                  <Sparkles className="w-4 h-4 animate-spin text-cyan-300" />
-                </div>
-
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputPerintah}
-                  onChange={(e) => setInputPerintah(e.target.value)}
-                  placeholder={
-                    sedangMendengar
-                      ? '🎙️ Mendengarkan Anda... (otomatis terkirim)'
-                      : "Ketik instruksi/pertanyaan atau tekan '/'..."
-                  }
-                  className="w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/45 py-1.5 focus:outline-none"
-                />
-
-                {voiceDidukung && (
-                  <button
-                    type="button"
-                    onClick={handleToggleVoiceLoop}
-                    className={`p-1.5 sm:px-3 py-1.5 rounded-xl border transition-all cursor-pointer mr-1 flex items-center gap-1.5 shrink-0 ${
-                      sedangMendengar || voiceLoopAktif
-                        ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]'
-                        : 'bg-cyan-950/60 border-cyan-500/35 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900/60'
-                    }`}
-                    title={
-                      sedangMendengar || voiceLoopAktif
-                        ? 'Hentikan / Kirim Suara Sekarang'
-                        : 'Mulai Ngobrol Voice-to-Voice dengan Jarvis'
-                    }
-                  >
-                    {sedangMendengar || voiceLoopAktif ? (
-                      <MicOff className="w-3.5 h-3.5 text-emerald-300" />
-                    ) : (
-                      <Mic className="w-3.5 h-3.5" />
-                    )}
-                    <span className="hidden sm:inline text-xs font-mono-hud font-bold">
-                      {sedangMendengar ? 'LISTENING' : voiceLoopAktif ? 'LOOP: ON' : 'VOICE'}
-                    </span>
-                  </button>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={sedangMemproses || !inputPerintah.trim()}
-                  className="px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-hud text-xs tracking-wider font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-1.5 shrink-0 cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>KIRIM</span>
-                </button>
-              </form>
-            </div>
           </div>
 
           {/* Right Wing (3 Cols / 25%): SALES & TREASURY (DIV-01 Sales & DIV-02 Finance) */}
-          <div className="w-full lg:col-span-3 flex flex-col gap-2 h-full max-h-[86vh] min-h-0">
+          <div className="w-full lg:col-span-3 flex flex-col gap-2 h-full min-h-0">
             {/* Radar Header with Time Switch */}
             <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.15)] shrink-0">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -1414,6 +1316,7 @@ export default function JarvisApp({
                 telemetri={dailyData?.telemetri}
                 modeWaktu={modeWaktuKotak}
                 terpilih={divisiSorot === 'ceo'}
+                className="flex-1 min-h-0 h-full"
                 onPilih={(_p, q) =>
                   void eksekusiPerintahJarvis(
                     q ||
@@ -1431,6 +1334,7 @@ export default function JarvisApp({
                 telemetri={dailyData?.telemetri}
                 modeWaktu={modeWaktuKotak}
                 terpilih={divisiSorot === 'finance'}
+                className="flex-1 min-h-0 h-full"
                 onPilih={(_p, q) =>
                   void eksekusiPerintahJarvis(
                     q ||
@@ -1443,6 +1347,100 @@ export default function JarvisApp({
               />
             </div>
           </div>
+        </div>
+
+        {/* BOTTOM COMMAND CONSOLE DOCK (Centered, Balanced Cockpit Foundation) */}
+        <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-1.5 shrink-0 pt-2 pb-0.5">
+          {/* Quick Directive Chips (Strict No-Emoji HUD Standard) */}
+          <div className="w-full flex items-center justify-center flex-wrap gap-1.5 py-0.5">
+            <button
+              type="button"
+              onClick={() => bukaModalDailyBriefing(true)}
+              className="px-2.5 py-1 min-h-[30px] rounded-lg bg-cyan-600/40 hover:bg-cyan-600/70 text-cyan-100 border border-cyan-400/60 font-mono-hud text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
+            >
+              <Zap className="size-3 text-cyan-300 shrink-0" />
+              <span>Daily Briefing</span>
+            </button>
+            {[
+              { icon: Calendar, label: 'Evaluasi Kemarin', pesan: 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi (penjualan, finance, HRD, waste, stok, distribusi, dan review) lengkap dengan rekomendasi dan saran taktis dari agent.' },
+              { icon: DollarSign, label: 'OPEX & Kas', pesan: 'Berapa total pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier?' },
+              { icon: Trash2, label: 'Waste & Void', pesan: 'Analisis laporan waste bahan baku tertinggi dan cek transaksi void POS kemarin.' },
+              { icon: Users, label: 'Presensi Kru', pesan: 'Siapa saja kru outlet yang terlambat atau izin/cuti kemarin?' },
+              { icon: Activity, label: 'Live Hari Ini', pesan: 'Tampilkan progres omzet berjalan dan cabang yang sudah buka hari ini.' },
+              { icon: Send, label: 'Kirim Telegram', pesan: 'Kirim laporan daily ke Telegram' },
+            ].map((chip, idx) => {
+              const ChipIcon = chip.icon
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => void eksekusiPerintahJarvis(chip.pesan, false)}
+                  className="px-2.5 py-1 min-h-[30px] rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-200 border border-cyan-500/30 hover:border-cyan-400 font-mono-hud text-[11px] sm:text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                >
+                  <ChipIcon className="size-3 text-cyan-400/80 shrink-0" />
+                  <span>{chip.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Centered Command Bar */}
+          <form
+            onSubmit={handleSubmitForm}
+            className="w-full relative flex items-center rounded-2xl bg-zinc-950/90 border border-cyan-400/50 shadow-[0_0_24px_rgba(6,182,212,0.2)] backdrop-blur-xl focus-within:border-cyan-300 focus-within:shadow-[0_0_32px_rgba(6,182,212,0.35)] transition-all p-1.5"
+          >
+            <div className="pl-3 pr-2 text-cyan-400 flex items-center">
+              <Sparkles className="w-4 h-4 animate-spin text-cyan-300" />
+            </div>
+
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputPerintah}
+              onChange={(e) => setInputPerintah(e.target.value)}
+              placeholder={
+                sedangMendengar
+                  ? '🎙️ Mendengarkan Anda... (otomatis terkirim)'
+                  : "Ketik instruksi/pertanyaan atau tekan '/'..."
+              }
+              className="w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/45 py-1.5 focus:outline-none"
+            />
+
+            {voiceDidukung && (
+              <button
+                type="button"
+                onClick={handleToggleVoiceLoop}
+                className={`p-1.5 sm:px-3 py-1.5 rounded-xl border transition-all cursor-pointer mr-1 flex items-center gap-1.5 shrink-0 ${
+                  sedangMendengar || voiceLoopAktif
+                    ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                    : 'bg-cyan-950/60 border-cyan-500/35 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900/60'
+                }`}
+                title={
+                  sedangMendengar || voiceLoopAktif
+                    ? 'Hentikan / Kirim Suara Sekarang'
+                    : 'Mulai Ngobrol Voice-to-Voice dengan Jarvis'
+                }
+              >
+                {sedangMendengar || voiceLoopAktif ? (
+                  <MicOff className="w-3.5 h-3.5 text-emerald-300" />
+                ) : (
+                  <Mic className="w-3.5 h-3.5" />
+                )}
+                <span className="hidden sm:inline text-xs font-mono-hud font-bold">
+                  {sedangMendengar ? 'LISTENING' : voiceLoopAktif ? 'LOOP: ON' : 'VOICE'}
+                </span>
+              </button>
+            )}
+
+            <button
+              type="submit"
+              disabled={sedangMemproses || !inputPerintah.trim()}
+              className="px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-hud text-xs tracking-wider font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>KIRIM</span>
+            </button>
+          </form>
         </div>
       </main>
 

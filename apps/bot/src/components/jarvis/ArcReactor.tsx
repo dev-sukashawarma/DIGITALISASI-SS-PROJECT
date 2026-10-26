@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { mainkanSuaraHud } from '@/lib/audioHud'
-import { Cpu, Mic, Volume2, Radio, FileBarChart2, AlertTriangle } from 'lucide-react'
+import { Cpu, Mic, Volume2, Radio, FileBarChart2 } from 'lucide-react'
 
 export type StatusArcReactor = 'optimal' | 'listening' | 'processing' | 'speaking' | 'warning'
 
@@ -34,13 +34,13 @@ const DEFAULT_SPEKTRUM = [0.2, 0.35, 0.22, 0.45, 0.3, 0.45, 0.22, 0.35, 0.2]
 export default function ArcReactor({
   status = 'optimal',
   compact = false,
-  stageMode = 'standalone',
+  stageMode: _stageMode = 'standalone',
   voiceLoopAktif = false,
   spektrumSuara = DEFAULT_SPEKTRUM,
   transkripLive = '',
-  anomaliItems,
+  anomaliItems: _anomaliItems,
   onClickCore,
-  onPilihAnomali,
+  onPilihAnomali: _onPilihAnomali,
   onBukaDailyBriefing,
   tampilkanTombolBawah = false,
 }: ArcReactorProps) {

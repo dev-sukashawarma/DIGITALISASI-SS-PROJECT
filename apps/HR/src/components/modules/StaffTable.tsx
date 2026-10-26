@@ -27,7 +27,7 @@ import { StatusToggle } from './StatusToggle'
 import type { StaffRow, StaffStatus, StaffSortKey, SortOrder, AccountCategory, Outlet } from '@/lib/types'
 import { ACCOUNT_CATEGORY_LABELS } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
-import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
+import { isRendyOrDeveloperStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations } from '@/lib/payrollAllocation'
 
 function statusBadge(status: StaffStatus) {
@@ -165,6 +165,24 @@ export function StaffTable({
     return map
   }, [outlets])
 
+  const activeBinaanOutletMap = useMemo(() => {
+    const map = new Map<string, string>()
+    outlets?.forEach((o) => {
+      if (o.id === KANTOR_PUSAT_ID) return
+      if (o.is_active === false) return
+      const upper = o.name.toUpperCase()
+      if (upper.includes('KANTOR PUSAT') || upper.includes('GUDANG') || upper === 'SS BACKUP') return
+      map.set(o.id, o.name)
+    })
+    return map
+  }, [outlets])
+
+  const getAmOutletNames = (s: StaffRow) => {
+    return (s.outlet_ids || [])
+      .map((id) => activeBinaanOutletMap.get(id))
+      .filter((n): n is string => Boolean(n))
+  }
+
   const getStaffOutletNames = (s: StaffRow) => {
     const list: string[] = []
     if (s.outlets?.name && s.role !== 'regional_manager' && s.role !== 'area_manager') {
@@ -202,23 +220,7 @@ export function StaffTable({
     }
 
     if (s.role === 'area_manager') {
-      const amOutlets = (s.outlet_ids || [])
-        .map((id) => outletMap.get(id))
-        .filter((n): n is string => Boolean(n))
-
-      const isAll = (outlets.length > 0 && amOutlets.length >= outlets.length - 2) || amOutlets.length >= 6
-
-      if (isAll) {
-        return (
-          <div className="space-y-1">
-            <span className="font-bold text-xs text-suka-ink block">KANTOR PUSAT</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-              All outlet
-            </span>
-          </div>
-        )
-      }
+      const amOutlets = getAmOutletNames(s)
 
       return (
         <div className="space-y-1">
@@ -595,35 +597,23 @@ export function StaffTable({
                     ) : selectedStaff.role === 'area_manager' ? (
                       <div className="mt-1 space-y-1">
                         <span className="font-semibold text-suka-ink block">KANTOR PUSAT</span>
-                        {(selectedStaff.outlet_ids || []).length > 0 && (
-                          (() => {
-                            const amOutlets = (selectedStaff.outlet_ids || [])
-                              .map((id) => outletMap.get(id))
-                              .filter((n): n is string => Boolean(n))
-                            const isAll = (outlets.length > 0 && amOutlets.length >= outlets.length - 2) || amOutlets.length >= 6
-                            if (isAll) {
-                              return (
-                                <span className="inline-flex items-center gap-1.5 mt-0.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                                  All outlet
+                        {(() => {
+                          const amOutlets = getAmOutletNames(selectedStaff)
+                          if (amOutlets.length === 0) return null
+                          return (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {amOutlets.map((name, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-medium"
+                                >
+                                  <Building2 size={10} className="text-amber-600 shrink-0" />
+                                  {name}
                                 </span>
-                              )
-                            }
-                            return (
-                              <div className="flex flex-wrap gap-1 pt-0.5">
-                                {selectedStaff.outlet_ids!.map((id) => (
-                                  <span
-                                    key={id}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-medium"
-                                  >
-                                    <Building2 size={10} className="text-amber-600 shrink-0" />
-                                    {outletMap.get(id) || id}
-                                  </span>
-                                ))}
-                              </div>
-                            )
-                          })()
-                        )}
+                              ))}
+                            </div>
+                          )
+                        })()}
                       </div>
                     ) : selectedStaff.role === 'regional_manager' ? (
                       <div className="mt-0.5">

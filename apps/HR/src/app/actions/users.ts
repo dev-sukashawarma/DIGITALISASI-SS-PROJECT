@@ -170,9 +170,14 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
   }
 
   const isMultiOutlet = role === 'leader' || role === 'area_manager' || (role === 'crew' && sub_role === 'crew_backup')
-  if (isMultiOutlet && Array.isArray(outlet_ids) && outlet_ids.length > 0) {
-    const rows = outlet_ids.map((oid: string) => ({ staff_id: staffId, outlet_id: oid }))
-    await admin.from('staff_outlets').insert(rows)
+  if (isMultiOutlet && Array.isArray(outlet_ids)) {
+    const finalOutletIds = role === 'area_manager'
+      ? Array.from(new Set([...outlet_ids, KANTOR_PUSAT_ID]))
+      : Array.from(new Set(outlet_ids))
+    if (finalOutletIds.length > 0) {
+      const rows = finalOutletIds.map((oid: string) => ({ staff_id: staffId, outlet_id: oid }))
+      await admin.from('staff_outlets').insert(rows)
+    }
   }
 
     return { ok: true, staff_id: staffId }
@@ -371,9 +376,14 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
     await admin.from('staff_outlets').delete().eq('staff_id', staff_id)
 
     // Re-insert only if this staff has a multi-outlet role and outlet_ids are provided
-    if (isMultiOutlet && Array.isArray(outlet_ids) && outlet_ids.length > 0) {
-      const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }))
-      await admin.from('staff_outlets').insert(rows)
+    if (isMultiOutlet && Array.isArray(outlet_ids)) {
+      const finalOutletIds = targetRole === 'area_manager'
+        ? Array.from(new Set([...outlet_ids, KANTOR_PUSAT_ID]))
+        : Array.from(new Set(outlet_ids))
+      if (finalOutletIds.length > 0) {
+        const rows = finalOutletIds.map((oid: string) => ({ staff_id, outlet_id: oid }))
+        await admin.from('staff_outlets').insert(rows)
+      }
     }
 
     return { ok: true, staff_id }

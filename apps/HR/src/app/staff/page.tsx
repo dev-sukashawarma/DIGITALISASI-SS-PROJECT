@@ -15,7 +15,7 @@ import { StaffForm } from '@/components/modules/StaffForm'
 import { ResetPasswordDialog } from '@/components/modules/ResetPasswordDialog'
 import { BulkImportStaffModal } from '@/components/modules/BulkImportStaffModal'
 import { filterStaff } from '@/lib/filterStaff'
-import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
+import { isRendyOrDeveloperStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 import { exportCsv } from '@/lib/exportCsv'
 import type { StaffRow, StaffFilterValues, StaffFormValues, StaffStatus, StaffSortKey } from '@/lib/types'
 
@@ -321,7 +321,7 @@ export default function StaffPage() {
                       onboarding_stage: editingStaff.onboarding_stage || 'regular',
                       training_start_date: editingStaff.training_start_date || '',
                       outlet_id: editingStaff.outlet_id || '',
-                      outlet_ids: editingStaff.outlet_ids || [],
+                      outlet_ids: (editingStaff.outlet_ids || []).filter((id) => id !== KANTOR_PUSAT_ID && outlets.some((o) => o.id === id && o.is_active !== false)),
                       is_bonus_eligible: editingStaff.is_bonus_eligible !== false,
                       nip: editingStaff.nip || '',
                       contract_type: editingStaff.contract_type || 'contract',

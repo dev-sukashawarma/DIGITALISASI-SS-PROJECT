@@ -15,7 +15,20 @@ export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] 
           f.outletId === KANTOR_PUSAT_ID ||
           (r.outlet_id === KANTOR_PUSAT_ID && r.outlet_id === f.outletId)
         if (!isKantorPusatFilter) return false
-      } else if (r.outlet_id !== f.outletId) {
+      } else if (r.role === 'regional_manager') {
+        if (f.outletId !== KANTOR_PUSAT_ID) return false
+      } else if (r.role === 'area_manager') {
+        const matchPusat = f.outletId === KANTOR_PUSAT_ID
+        const matchBinaan = Array.isArray(r.outlet_ids) && r.outlet_ids.includes(f.outletId)
+        if (!matchPusat && !matchBinaan) return false
+      } else if (
+        r.outlet_id !== f.outletId &&
+        !(
+          (r.role === 'leader' || (r.role === 'crew' && r.sub_role === 'crew_backup')) &&
+          Array.isArray(r.outlet_ids) &&
+          r.outlet_ids.includes(f.outletId)
+        )
+      ) {
         return false
       }
     }
@@ -40,8 +53,10 @@ export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] 
       case 'role':
         return a.role.localeCompare(b.role, 'id') * mult
       case 'outlet': {
-        const outletA = isRendyOrDeveloperStaff(a) ? 'KANTOR PUSAT' : (a.outlets?.name || '')
-        const outletB = isRendyOrDeveloperStaff(b) ? 'KANTOR PUSAT' : (b.outlets?.name || '')
+        const isPusatA = isRendyOrDeveloperStaff(a) || a.role === 'regional_manager' || a.role === 'area_manager'
+        const isPusatB = isRendyOrDeveloperStaff(b) || b.role === 'regional_manager' || b.role === 'area_manager'
+        const outletA = isPusatA ? 'KANTOR PUSAT' : (a.outlets?.name || '')
+        const outletB = isPusatB ? 'KANTOR PUSAT' : (b.outlets?.name || '')
         return outletA.localeCompare(outletB, 'id') * mult
       }
       case 'status':

@@ -729,11 +729,11 @@ export function bangunLaporanEvaluasiKomprehensif(
           ? `${kasirTekor[0].outlet} (Kasir: ${kasirTekor[0].kasir})`
           : 'Seluruh kasir klop tepat'
       } |\n` +
-      `| 📋 **Manager & Sidak** | Ceklist Harian Area Manager | **${sudahDicekKemarin}/${totalWajibCek} Cabang Dicek** | ${
-        perluPerhatianCek > 0 ? `${perluPerhatianCek} cabang ada temuan` : 'SOP Kebersihan, Rasa & Peralatan Baik'
+      `| 📋 **Manager & Sidak** | Kunjungan Sidak Area Manager | **${sudahDicekKemarin} Cabang Disidak** (dari ${totalWajibCek} jaringan) | ${
+        perluPerhatianCek > 0 ? `${perluPerhatianCek} cabang ada catatan perhatian` : 'SOP Kebersihan, Rasa & Peralatan Baik'
       } |\n` +
       `| 👥 **SDM & Absensi** | Kehadiran & Ketepatan Kru | **${onTimePct}% On-Time** (${hadirTotal} clock-in) | ${telatCount} terlambat, ${daftarCuti.length} izin/cuti${
-        kasbonPendingCount > 0 ? `, ${kasbonPendingCount} kasbon pending` : ''
+        kasbonPendingCount > 0 ? `, ${kasbonPendingCount} pengajuan kasbon menunggu approval` : ''
       } |\n` +
       `| 🥦 **Mutu Dapur & Waste** | Loss Prevention Bahan Baku | **${wasteKemarinCount} Laporan** (${formatRupiah(
         wasteKemarinRp
@@ -775,15 +775,19 @@ export function bangunLaporanEvaluasiKomprehensif(
       `- **Keterlambatan Masuk**: **${telatCount} kru terlambat**${telatDetailText}.\n` +
       `- **Staf Izin / Cuti**: ${cutiDetailText}.\n` +
       (kasbonPendingCount > 0 || kasbonAktifCount > 0
-        ? `- **Status Kasbon Kru (App HR)**: **${kasbonPendingCount} pengajuan pending** (${formatRupiah(
+        ? `- **Status Kasbon Kru (App HR)**: **${kasbonPendingCount} pengajuan baru menunggu persetujuan HR (belum cair)** senilai **${formatRupiah(
             kasbonPendingRp
-          )}) & **${kasbonAktifCount} kasbon berjalan** (sisa piutang: ${formatRupiah(kasbonSisaPiutang)}).\n`
+          )}**, serta **${kasbonAktifCount} pinjaman kasbon berjalan (sedang dicicil potong gaji)** dengan sisa saldo piutang **${formatRupiah(
+            kasbonSisaPiutang
+          )}**.\n`
         : '') +
-      `- **Kepatuhan Ceklist & Sidak Area Manager (App Manager)**: **${sudahDicekKemarin}/${totalWajibCek} cabang** telah disidak AM${
+      `- **Laporan Kunjungan / Sidak Lapangan Area Manager (App Manager)**: Tercatat **${sudahDicekKemarin} cabang dikunjungi AM** dari total **${totalWajibCek} cabang jaringan** (kunjungan bersifat bergilir per wilayah AM)${
         daftarTemuanCek.length > 0
-          ? ` (Temuan di **${daftarTemuanCek[0].outlet}**: ${daftarTemuanCek[0].temuan[0] || daftarTemuanCek[0].nilaiTerburuk})`
+          ? ` — Catatan pada kunjungan **AM ${daftarTemuanCek[0].namaAm}** di **${daftarTemuanCek[0].outlet}**: ${
+              daftarTemuanCek[0].temuan[0] || `Status ${daftarTemuanCek[0].nilaiTerburuk}`
+            }`
           : daftarBelumCek.length > 0
-          ? ` (${daftarBelumCek.length} cabang belum submit ceklist)`
+          ? ` (${daftarBelumCek.length} cabang lainnya belum ada input kunjungan AM pada hari tersebut)`
           : ' (Seluruh aspek kebersihan, rasa & peralatan sesuai SOP)'
       }.\n\n` +
       `#### 🥦 4. Waste Bahan Baku & Mutu Dapur (inventori & stok)\n` +

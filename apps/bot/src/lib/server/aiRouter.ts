@@ -399,10 +399,24 @@ ${listNegatif || '(Tidak ada ulasan negatif terbaru - kepuasan pelanggan terjaga
     }
 
     const cek = t.ceklistHarian
+    const listKunjunganKemarin = (cek?.daftarKunjunganKemarin || [])
+      .map(
+        (c, i) =>
+          `  ${i + 1}. Cabang ${c.outlet} — Dikunjungi oleh AM ${c.namaAm} (${c.tanggal}) | Status Evaluasi: ${
+            c.nilaiTerburuk === 'baik'
+              ? 'BAIK (Sesuai SOP)'
+              : c.nilaiTerburuk === 'perhatian'
+              ? 'PERLU PERHATIAN'
+              : 'BURUK (Kritis)'
+          }${c.temuan.length > 0 ? ` | Catatan Temuan: ${c.temuan.join('; ')}` : ''}${
+            c.perbaikan.length > 0 ? ` | Rencana Perbaikan: ${c.perbaikan.join('; ')}` : ''
+          }`
+      )
+      .join('\n')
     const listTemuanCeklist = (cek?.daftarTemuanTerbaru || [])
       .map(
         (c, i) =>
-          `  ${i + 1}. ${c.outlet} (AM: ${c.namaAm}, Tgl: ${c.tanggal}) [Status: ${c.nilaiTerburuk.toUpperCase()}] -> Temuan: ${c.temuan.join('; ') || '-'} | Perbaikan: ${c.perbaikan.join('; ') || '-'}`
+          `  ${i + 1}. Cabang ${c.outlet} (Oleh AM ${c.namaAm}, Tgl: ${c.tanggal}) [Status: ${c.nilaiTerburuk.toUpperCase()}] -> Temuan: ${c.temuan.join('; ') || '-'} | Perbaikan: ${c.perbaikan.join('; ') || '-'}`
       )
       .join('\n')
 
@@ -449,10 +463,14 @@ ${listMenuTersepiKemarin || '(Belum ada data menu tersepi kemarin)'}
 ${listTelatKemarin || '(Tidak ada kru terlambat kemarin)'}
 - Daftar Kru Izin / Cuti Kemarin (H-1):
 ${listCutiKemarin || '(Tidak ada kru yang izin/cuti kemarin)'}
-- Pengajuan Kasbon Kru (App HR): ${kb?.totalPendingCount ?? 0} pengajuan pending (${formatRupiah(kb?.totalPendingNominal ?? 0)}) | ${kb?.totalAktifCount ?? 0} kasbon aktif berjalan (Sisa Piutang: ${formatRupiah(kb?.totalSisaPiutang ?? 0)})
-${listKasbonPending ? `  Rincian Kasbon Pending:\n${listKasbonPending}` : ''}
-- Kepatuhan Ceklist Harian & Sidak Area Manager (App Manager): ${cek?.totalSudahDicekKemarin ?? t.totalOutletAktif}/${cek?.totalOutletWajib ?? t.totalOutletAktif} cabang disidak kemarin (${cek?.totalPerluPerhatianKemarin ?? 0} cabang ada temuan perhatian/buruk, ${cek?.totalBelumDitinjauRm ?? 0} belum ditinjau RM)
-${listTemuanCeklist ? `  Rincian Temuan Sidak AM:\n${listTemuanCeklist}` : '  (Seluruh aspek kebersihan, rasa, stok, seragam & peralatan baik)'}
+- Status Kasbon Kru (App HR — BEDAKAN TEGAS ANTARA PENGAJUAN BARU vs PINJAMAN BERJALAN):
+  * [A] Pengajuan Kasbon Baru (Status PENDING — Menunggu Persetujuan HR/Manajemen, Belum Cair): ${kb?.totalPendingCount ?? 0} staf dengan total pengajuan ${formatRupiah(kb?.totalPendingNominal ?? 0)}
+  * [B] Pinjaman Kasbon Berjalan (Status ACTIVE — Sudah Cair & Sedang Dicicil Potong Gaji): ${kb?.totalAktifCount ?? 0} staf dengan total sisa saldo piutang belum lunas ${formatRupiah(kb?.totalSisaPiutang ?? 0)}
+${listKasbonPending ? `  * Rincian Pengajuan Baru yang Menunggu Approval:\n${listKasbonPending}` : ''}
+- Laporan Kunjungan / Sidak Harian Area Manager (App Manager — CATATAN PENTING ANTI-MULTITAFSIR: Total ${cek?.totalOutletWajib ?? t.totalOutletAktif} cabang adalah total seluruh jaringan Suka Shawarma lintas wilayah; kunjungan AM bersifat bergilir/rolling per wilayah binaan, BUKAN 1 orang AM wajib mengunjungi seluruh ${cek?.totalOutletWajib ?? t.totalOutletAktif} cabang dalam sehari):
+  * Cabang yang Dikunjungi & Diinput Laporan Sidak Kemarin: ${cek?.totalSudahDicekKemarin ?? 0} cabang dikunjungi (dari total ${cek?.totalOutletWajib ?? t.totalOutletAktif} cabang jaringan; ${cek?. daftarBelumDicekKemarin?.length ?? 0} cabang lainnya belum ada jadwal/input kunjungan AM kemarin)
+  * Cabang dengan Catatan Perlu Perhatian/Perbaikan Kemarin: ${cek?.totalPerluPerhatianKemarin ?? 0} cabang (${cek?.totalBelumDitinjauRm ?? 0} laporan menunggu tinjauan Regional Manager)
+${listKunjunganKemarin ? `  * Rincian Cabang yang Dikunjungi AM Kemarin:\n${listKunjunganKemarin}` : listTemuanCeklist ? `  * Rincian Temuan Sidak AM Terbaru:\n${listTemuanCeklist}` : '  * (Seluruh aspek kebersihan, rasa, stok, seragam & peralatan cabang yang disidak berstatus Baik)'}
 ${teksTrenH2}
 
 3. AUDIT VOID POS & SHIFT KEMARIN (OPERASIONAL H-1):

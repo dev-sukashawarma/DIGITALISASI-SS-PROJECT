@@ -299,6 +299,7 @@ export interface CeklistHarianTelemetri {
   totalPerluPerhatianKemarin: number
   totalBelumDitinjauRm: number
   daftarTemuanTerbaru: CeklistTemuanItem[]
+  daftarKunjunganKemarin?: CeklistTemuanItem[]
   daftarBelumDicekKemarin: string[]
 }
 
@@ -2165,6 +2166,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     let totalPerluPerhatianKemarin = 0
     let totalBelumDitinjauRm = 0
     const daftarTemuanTerbaru: CeklistTemuanItem[] = []
+    const daftarKunjunganKemarin: CeklistTemuanItem[] = []
 
     for (const row of rawCeklist) {
       const oId = String(row.outlet_id || '')
@@ -2199,20 +2201,25 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         : []
       const gabungTemuan = temuanArr.length > 0 ? temuanArr : catatanBuruk
 
-      if (tglLap === tglKemarinStr && (nilaiTerburuk !== 'baik' || gabungTemuan.length > 0)) {
-        totalPerluPerhatianKemarin++
+      const itemKunjungan: CeklistTemuanItem = {
+        outlet: outNama,
+        namaAm: row.nama_am || 'Area Manager',
+        tanggal: tglLap,
+        nilaiTerburuk,
+        temuan: gabungTemuan.slice(0, 3),
+        perbaikan: perbaikanArr.slice(0, 2),
+        sudahDitinjauRm,
+      }
+
+      if (tglLap === tglKemarinStr) {
+        daftarKunjunganKemarin.push(itemKunjungan)
+        if (nilaiTerburuk !== 'baik' || gabungTemuan.length > 0) {
+          totalPerluPerhatianKemarin++
+        }
       }
 
       if (nilaiTerburuk !== 'baik' || gabungTemuan.length > 0) {
-        daftarTemuanTerbaru.push({
-          outlet: outNama,
-          namaAm: row.nama_am || 'Area Manager',
-          tanggal: tglLap,
-          nilaiTerburuk,
-          temuan: gabungTemuan.slice(0, 3),
-          perbaikan: perbaikanArr.slice(0, 2),
-          sudahDitinjauRm,
-        })
+        daftarTemuanTerbaru.push(itemKunjungan)
       }
     }
 
@@ -2227,6 +2234,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       totalPerluPerhatianKemarin,
       totalBelumDitinjauRm,
       daftarTemuanTerbaru: daftarTemuanTerbaru.slice(0, 6),
+      daftarKunjunganKemarin,
       daftarBelumDicekKemarin,
     }
 

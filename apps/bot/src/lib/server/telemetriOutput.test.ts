@@ -417,9 +417,9 @@ describe('Bot CEO Cross-App Integrated Output Verification', () => {
     expect(resEvaluasi).toContain('-5% vs H-2')
 
     // Ceklist Sidak AM & Kasbon HR
-    expect(resEvaluasi).toContain('17/18 Cabang Dicek')
+    expect(resEvaluasi).toContain('17 Cabang Disidak')
     expect(resEvaluasi).toContain('Exhaust fan dapur agak berdebu')
-    expect(resEvaluasi).toContain('2 pengajuan pending')
+    expect(resEvaluasi).toContain('2 pengajuan baru menunggu persetujuan HR')
     expect(resEvaluasi).toContain('1.500.000')
 
     // Structured Division Suggestions untuk One-Click Dispatch

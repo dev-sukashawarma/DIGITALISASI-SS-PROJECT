@@ -253,8 +253,8 @@ function bangunActionItems(
       id: 'mgr-sidak-temuan',
       level: temuan0?.nilaiTerburuk === 'buruk' ? 'critical' : 'warning',
       divisi: 'OPERASIONAL',
-      judul: `Temuan Sidak AM di ${temuan0?.outlet || 'Cabang'} (${ceklist.totalSudahDicekKemarin}/${ceklist.totalOutletWajib} Cabang Dicek)`,
-      deskripsi: `${temuan0 ? `AM ${temuan0.namaAm}: ${temuan0.temuan[0] || `Status ${temuan0.nilaiTerburuk}`}.` : `${ceklist.totalPerluPerhatianKemarin} cabang butuh tindakan perbaikan.`}`,
+      judul: `Catatan Sidak AM di ${temuan0?.outlet || 'Cabang'} (${ceklist.totalSudahDicekKemarin} Cabang Disidak dari ${ceklist.totalOutletWajib} Jaringan)`,
+      deskripsi: `${temuan0 ? `Oleh AM ${temuan0.namaAm}: ${temuan0.temuan[0] || `Status ${temuan0.nilaiTerburuk}`}.` : `${ceklist.totalPerluPerhatianKemarin} cabang butuh tindakan perbaikan.`}`,
       perintahTindakLanjut: 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi beserta rekomendasi taktisnya.',
     })
   }
@@ -266,8 +266,8 @@ function bangunActionItems(
       id: 'hrd-kasbon-pending',
       level: 'warning',
       divisi: 'HRD',
-      judul: `${kasbonPending} Pengajuan Kasbon Kru Menunggu Persetujuan (${formatRupiah(t.kasbonHrd?.totalPendingNominal ?? 0)})`,
-      deskripsi: `Total kasbon aktif berjalan: ${t.kasbonHrd?.totalAktifCount ?? 0} kru (sisa piutang ${formatRupiah(t.kasbonHrd?.totalSisaPiutang ?? 0)}).`,
+      judul: `${kasbonPending} Pengajuan Kasbon Baru Menunggu Approval HR (${formatRupiah(t.kasbonHrd?.totalPendingNominal ?? 0)})`,
+      deskripsi: `Belum cair (menunggu persetujuan). Selain itu terdapat ${t.kasbonHrd?.totalAktifCount ?? 0} kru dengan pinjaman kasbon berjalan yang sedang dicicil (sisa piutang ${formatRupiah(t.kasbonHrd?.totalSisaPiutang ?? 0)}).`,
       perintahTindakLanjut: 'Siapa saja kru outlet yang mengajukan kasbon atau izin/cuti terbaru?',
     })
   }
@@ -449,7 +449,7 @@ function bangunTeksTelegram(
     isKemarin
       ? `• <b>Rekap Tutup Shift:</b> <code>${t.statusBuka?.shiftKemarinClosedCount ?? 0} Cabang Closed Shift</code>`
       : `• <b>Status Shift Kasir:</b> <code>${t.statusBuka?.totalBuka ?? 0} Buka / ${t.statusBuka?.totalBelumBuka ?? 0} Belum Buka</code>`,
-    `• <b>Sidak & Ceklist AM:</b> <code>${sudahCekCount}/${wajibCekCount} Cabang Dicek</code>${isKemarin ? ` (${ceklist?.totalPerluPerhatianKemarin ?? 0} catatan temuan)` : ''}`,
+    `• <b>Kunjungan Sidak AM:</b> <code>${sudahCekCount} Cabang Dikunjungi</code> dari ${wajibCekCount} jaringan${isKemarin ? ` (${ceklist?.totalPerluPerhatianKemarin ?? 0} catatan perhatian)` : ''}`,
     `• <b>Audit Void POS:</b> <code>${voidCount} Transaksi</code> (<code>${formatRupiah(voidRp)}</code>)`,
     isKemarin
       ? `• <b>Loss Prevention Waste:</b> Kemarin <code>${formatRupiah(wasteKemarinRp)}</code>${badgeTrenWaste} | 30H: <code>${formatRupiah(wasteRp)}</code> (${t.waste?.totalLaporan30Hari ?? 0} lap)`
@@ -459,7 +459,7 @@ function bangunTeksTelegram(
     `• <b>Kehadiran Kru Cabang:</b> <code>${hadirTotal} Clock-in</code> (<b>${hadirOnTime}%</b> On-Time)`,
     `• <b>Terlambat / Izin:</b> <code>${hadirTelat} Terlambat</code>, <code>${hadirCuti} Izin/Cuti</code>`,
     ...(t.kasbonHrd && (t.kasbonHrd.totalPendingCount > 0 || t.kasbonHrd.totalAktifCount > 0)
-      ? [`• <b>Kasbon Kru (HR):</b> <code>${t.kasbonHrd.totalPendingCount} Pending</code> (${formatRupiah(t.kasbonHrd.totalPendingNominal)}) | <code>${t.kasbonHrd.totalAktifCount} Aktif</code>`]
+      ? [`• <b>Kasbon Kru (HR):</b> <code>${t.kasbonHrd.totalPendingCount} Pengajuan Baru (Pending Approval)</code> (${formatRupiah(t.kasbonHrd.totalPendingNominal)}) | <code>${t.kasbonHrd.totalAktifCount} Pinjaman Berjalan (Dicicil)</code> (Sisa: ${formatRupiah(t.kasbonHrd.totalSisaPiutang)})`]
       : []),
     ``,
     `💰 <b>4. TREASURY & FINANCE (${labelPeriode})</b>`,

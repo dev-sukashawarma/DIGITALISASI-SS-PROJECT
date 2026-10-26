@@ -52,7 +52,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
   if (cleanNik) {
     const { data: conflictNik } = await admin
       .from('outlet_staff')
-      .select('id, name, username, outlets(name)')
+      .select('id, name, username, outlets!outlet_id(name)')
       .eq('nik', cleanNik)
       .maybeSingle()
     if (conflictNik) {
@@ -65,7 +65,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
   if (cleanNip) {
     const { data: conflictNip } = await admin
       .from('outlet_staff')
-      .select('id, name, username, outlets(name)')
+      .select('id, name, username, outlets!outlet_id(name)')
       .eq('nip', cleanNip)
       .maybeSingle()
     if (conflictNip) {
@@ -220,7 +220,7 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
     if (cleanNik) {
       const { data: conflictNik } = await admin
         .from('outlet_staff')
-        .select('id, name, username, outlets(name)')
+        .select('id, name, username, outlets!outlet_id(name)')
         .eq('nik', cleanNik)
         .neq('id', staff_id)
         .maybeSingle()
@@ -235,7 +235,7 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
     if (cleanNip) {
       const { data: conflictNip } = await admin
         .from('outlet_staff')
-        .select('id, name, username, outlets(name)')
+        .select('id, name, username, outlets!outlet_id(name)')
         .eq('nip', cleanNip)
         .neq('id', staff_id)
         .maybeSingle()

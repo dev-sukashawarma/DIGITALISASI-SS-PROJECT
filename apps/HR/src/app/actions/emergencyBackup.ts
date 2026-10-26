@@ -183,12 +183,13 @@ export async function createEmergencyAssignment(
     // 1. Validasi staf
     const { data: staff, error: staffErr } = await admin
       .from('outlet_staff')
-      .select('id, name, role, sub_role, outlet_id, status, outlets(name)')
+      .select('id, name, role, sub_role, outlet_id, status, outlets!outlet_id(name)')
       .eq('id', staff_id)
       .single()
 
     if (staffErr || !staff) {
-      return { ok: false, error: 'Karyawan tidak ditemukan' }
+      console.error('[createEmergencyAssignment] staff validation error:', staffErr)
+      return { ok: false, error: staffErr ? `Gagal memvalidasi karyawan: ${staffErr.message}` : 'Karyawan tidak ditemukan' }
     }
 
     const crewValidation = validateEmergencyCrewEligibility(staff)

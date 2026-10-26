@@ -553,7 +553,7 @@ const ROLE_PER_BOT_SLUG: Record<'manager' | 'finance' | 'hrd' | 'stokis' | 'revi
   manager: ['area_manager', 'regional_manager', 'korlap', 'owner', 'admin', 'developer'],
   finance: ['admin_finance', 'owner', 'admin', 'developer'],
   hrd: ['admin_hr', 'owner', 'admin', 'developer'],
-  stokis: ['purchasing', 'staff_pusat', 'owner', 'admin', 'developer'],
+  stokis: ['kitchen', 'purchasing', 'staff_pusat', 'owner', 'admin', 'developer'],
   review: ['owner', 'admin', 'developer'],
 }
 

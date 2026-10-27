@@ -11,7 +11,11 @@ import type { Outlet, StaffFormValues, Role } from '@/lib/types'
 import { generateTempPassword } from '@/lib/generatePassword'
 import { formatRupiah } from '@/lib/format'
 
-const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'area_manager']
+const ROLES: Role[] = [
+  'admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen',
+  'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance',
+  'area_manager', 'purchasing', 'developer', 'driver', 'korlap', 'marcom'
+]
 
 const getStaffFormSchema = (isEditing: boolean) => z.object({
   name: z.string().min(1, 'Nama Lengkap wajib diisi'),
@@ -19,7 +23,11 @@ const getStaffFormSchema = (isEditing: boolean) => z.object({
     ? z.string().optional().or(z.literal('')) 
     : z.string().min(1, 'Username wajib diisi').regex(/^[a-z0-9_]*$/, 'Username hanya boleh huruf kecil, angka, dan underscore'),
   password: isEditing ? z.string().optional() : z.string().min(1, 'Password Sementara wajib diisi'),
-  role: z.enum(['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'area_manager']),
+  role: z.enum([
+    'admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen',
+    'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance',
+    'area_manager', 'purchasing', 'developer', 'driver', 'korlap', 'marcom'
+  ]),
   outlet_id: z.string().min(1, 'Outlet Home wajib diisi'),
   outlet_ids: z.array(z.string()).default([]),
   is_bonus_eligible: z.boolean().default(true).optional(),

@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
+import { bisaLihatSemuaSj } from '@/lib/peran'
 
 interface SuratJalan {
   id: string
@@ -36,7 +37,7 @@ async function fetchSuratJalan(
   let outletEq: string | null = null
   let outletIn: string[] | null = null
 
-  const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
+  const isGlobalPusat = bisaLihatSemuaSj(outletStaff?.role)
 
   if (!isGlobalPusat && outletStaff) {
     if (outletStaff.role === 'leader') {

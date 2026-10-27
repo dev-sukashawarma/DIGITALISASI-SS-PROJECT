@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from '@suka/auth'
 import { SignatureCanvas } from './SignatureCanvas'
 import { CheckCircle2, PenTool, Send, Clock, User, Truck } from 'lucide-react'
 import { toast } from 'sonner'
+import { pilihanSupirInternal } from '@/lib/pilihanSupir'
 
 interface Signature {
   signed_by: string
@@ -37,7 +38,8 @@ export function SignatureFlow({
   const [signing, setSigning] = useState(false)
   const [sending, setSending] = useState(false)
   const [kitchenStaff, setKitchenStaff] = useState<string[]>([])
-  const [allStaff, setAllStaff] = useState<string[]>([])
+  // Supir internal: semua staf aktif, akun driver di atas (lib/pilihanSupir).
+  const [supirInternal, setSupirInternal] = useState<string[]>([])
   const [driverType, setDriverType] = useState<'internal' | 'external'>('internal')
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export function SignatureFlow({
 
       if (data) {
         setKitchenStaff(data.filter((d) => d.role === 'kitchen').map((d) => d.name))
-        setAllStaff(data.map((d) => d.name))
+        setSupirInternal(pilihanSupirInternal(data))
       }
     }
     fetchStaff()
@@ -328,7 +330,7 @@ export function SignatureFlow({
                       <option value="" disabled>
                         -- Pilih Nama Supir Internal --
                       </option>
-                      {allStaff.map((name) => (
+                      {supirInternal.map((name) => (
                         <option key={name} value={name}>
                           {name}
                         </option>

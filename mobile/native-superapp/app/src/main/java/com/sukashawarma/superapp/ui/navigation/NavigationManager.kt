@@ -23,6 +23,7 @@ class NavigationManager(private val authRepository: AuthRepository) {
                 Screen.Enroll, Screen.FaceDebug -> staff.role in Roles.ENROLLMENT
                 Screen.AttendanceSettings -> staff.role in Roles.ATTENDANCE_SETTINGS
                 Screen.Inventory, Screen.Fulfillment -> staff.role in Roles.STUB_MODULES
+                Screen.Pengantaran -> staff.role in Roles.PENGANTARAN
             }
             if (!allowed) {
                 return false // Navigation Gated

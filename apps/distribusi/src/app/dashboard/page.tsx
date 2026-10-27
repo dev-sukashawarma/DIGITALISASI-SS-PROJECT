@@ -42,7 +42,9 @@ import {
 } from 'lucide-react'
 import { CustomDateFilter, CustomDateRange, formatRangeLabel } from '@/components/distribusi/CustomDateFilter'
 import { useQueryClient } from '@tanstack/react-query'
+import { bisaBuatSj, bisaLacakDriver, bisaLihatSemuaSj, isDriver } from '@/lib/peran'
 import { toast } from 'sonner'
+import { KartuDriverDashboard } from '@/components/pelacakan/KartuDriverDashboard'
 
 type DateRange = 'all' | 'today' | '7days' | '30days' | 'custom'
 type StatusTab = 'all' | 'draft' | 'dikirim' | 'belum_verif' | 'selisih' | 'selesai'
@@ -91,7 +93,10 @@ export default function DashboardPage() {
   }
 
   const queryClient = useQueryClient()
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
+  // Tampilan pusat (semua outlet). Driver ikut melihat, tapi tanpa aksi pusat.
+  const isPusat = bisaLihatSemuaSj(outletStaff?.role)
+  const canCreateSJ = bisaBuatSj(outletStaff?.role)
+  const driver = isDriver(outletStaff?.role)
   const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner', 'developer'].includes(outletStaff?.role || '')
 
   // Cancel Modal State
@@ -526,7 +531,7 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {isPusat ? (
+              {driver ? null : canCreateSJ ? (
                 <button
                   onClick={() => router.push('/distribusi/surat-jalan/new')}
                   className="px-5 py-3 bg-white hover:bg-amber-50 text-suka-brown font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
@@ -544,6 +549,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+
+        {bisaLacakDriver(outletStaff?.role) && <KartuDriverDashboard />}
 
         {/* 5-Column Executive Logistics HUD */}
         <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">

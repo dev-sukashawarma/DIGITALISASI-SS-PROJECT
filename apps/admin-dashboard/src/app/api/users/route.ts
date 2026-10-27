@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       'crew', 'kitchen', 'kiosk', 'leader', 
       'regional_manager', 'area_manager',
       'admin', 'admin_hr', 'admin_finance', 'purchasing', 
-      'owner', 'mitra', 'developer', 'marcom'
+      'owner', 'mitra', 'developer', 'marcom', 'driver', 'staff_pusat'
     ]
     if (!allowedRoles.includes(role)) {
       return NextResponse.json({ error: 'Role yang dipilih tidak valid' }, { status: 400 })

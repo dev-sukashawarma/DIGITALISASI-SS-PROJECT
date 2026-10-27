@@ -9,5 +9,6 @@ object DashboardMenu {
         if (role in Roles.ATTENDANCE_SETTINGS) add("Setting Absensi")
         if (role in Roles.ENROLLMENT) add("Kalibrasi Wajah")
         if (role in Roles.ATTENDANCE) add("Absensi")
+        if (role in Roles.PENGANTARAN) add("Pengantaran")
     }
 }

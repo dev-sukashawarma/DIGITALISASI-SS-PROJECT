@@ -27,6 +27,18 @@ class DashboardMenuTest {
     }
 
     @Test
+    fun driverAbsensiDanPengantaran() {
+        assertEquals(listOf("Absensi", "Pengantaran"), DashboardMenu.menuFor("driver"))
+    }
+
+    @Test
+    fun crewTanpaPengantaran() {
+        assertFalse(DashboardMenu.menuFor("crew").contains("Pengantaran"))
+        assertFalse(DashboardMenu.menuFor("kitchen").contains("Pengantaran"))
+        assertFalse(DashboardMenu.menuFor("admin").contains("Pengantaran"))
+    }
+
+    @Test
     fun roleLainTanpaMenu() {
         assertEquals(emptyList<String>(), DashboardMenu.menuFor("mitra"))
         assertEquals(emptyList<String>(), DashboardMenu.menuFor("staff_pusat"))

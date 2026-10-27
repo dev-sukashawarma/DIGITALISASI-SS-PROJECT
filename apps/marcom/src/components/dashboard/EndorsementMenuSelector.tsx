@@ -38,6 +38,26 @@ export default function EndorsementMenuSelector({
     }
   }, [posMenuItems])
 
+  // Pastikan HPP di selectedItems selalu menggunakan HPP akurat dari menuList Supabase
+  useEffect(() => {
+    if (!menuList || menuList.length === 0 || !selectedItems || selectedItems.length === 0) return
+    let needsUpdate = false
+    const synced = selectedItems.map((item) => {
+      const match = menuList.find(
+        (m) => m.id === item.menuItemId || m.name.toLowerCase() === item.name.toLowerCase()
+      )
+      if (match?.hpp !== undefined && match.hpp > 0 && item.hpp !== match.hpp) {
+        needsUpdate = true
+        return { ...item, hpp: match.hpp }
+      }
+      return item
+    })
+    if (needsUpdate) {
+      onChange(synced)
+      triggerSummary(synced)
+    }
+  }, [menuList, selectedItems.length])
+
   // Auto-fetch if initially empty
   useEffect(() => {
     if (!posMenuItems || posMenuItems.length === 0) {
@@ -91,7 +111,7 @@ export default function EndorsementMenuSelector({
           name: menu.name,
           quantity: 1,
           unitPrice: menu.price,
-          hpp: Math.round(menu.price * 0.45), // estimasi awal HPP ~45%
+          hpp: menu.hpp ?? Math.round(menu.price * 0.45),
         },
       ]
     }
@@ -122,12 +142,12 @@ export default function EndorsementMenuSelector({
   const triggerSummary = (items: SelectedMenuItem[]) => {
     if (!onSummaryCalculated) return
     const summaryText = items.map((i) => `${i.quantity}x ${i.name}`).join(', ')
-    const totalEstimatedHpp = items.reduce((sum, i) => sum + (i.hpp || Math.round(i.unitPrice * 0.45)) * i.quantity, 0)
+    const totalEstimatedHpp = items.reduce((sum, i) => sum + (i.hpp ?? Math.round(i.unitPrice * 0.45)) * i.quantity, 0)
     onSummaryCalculated(summaryText, totalEstimatedHpp)
   }
 
   const totalRetail = selectedItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0)
-  const totalHpp = selectedItems.reduce((sum, i) => sum + (i.hpp || Math.round(i.unitPrice * 0.45)) * i.quantity, 0)
+  const totalHpp = selectedItems.reduce((sum, i) => sum + (i.hpp ?? Math.round(i.unitPrice * 0.45)) * i.quantity, 0)
 
   return (
     <div className="space-y-3 bg-[#FAF8F5] p-3.5 rounded-2xl border border-[#EFE8DE]">
@@ -171,7 +191,12 @@ export default function EndorsementMenuSelector({
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-stone-800 truncate">{item.name}</div>
                 <div className="text-[11px] text-stone-500 font-mono">
-                  Rp {item.unitPrice.toLocaleString('id-ID')}
+                  <span className="text-stone-500">Harga: Rp {item.unitPrice.toLocaleString('id-ID')}</span>
+                  {item.hpp !== undefined && item.hpp > 0 && (
+                    <span className="text-[#D9480F] font-semibold bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200/70 ml-2">
+                      HPP: Rp {item.hpp.toLocaleString('id-ID')}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -210,6 +235,17 @@ export default function EndorsementMenuSelector({
             <span className="text-stone-500 font-medium">Total Harga Jual (Rp 0 di POS):</span>
             <span className="font-bold font-mono text-stone-800">
               Rp {totalRetail.toLocaleString('id-ID')}
+            </span>
+          </div>
+          <div className="pt-1.5 border-t border-[#EFE8DE] flex items-center justify-between text-xs px-1 font-bold">
+            <span className="text-stone-700 flex items-center gap-1.5">
+              <span>Total HPP SS (Supabase):</span>
+              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                Otomatis
+              </span>
+            </span>
+            <span className="font-mono text-[#D9480F] text-sm">
+              Rp {totalHpp.toLocaleString('id-ID')}
             </span>
           </div>
         </div>
@@ -268,7 +304,12 @@ export default function EndorsementMenuSelector({
                     {menu.name}
                   </span>
                   <span className="text-[10px] text-stone-400">
-                    {menu.categoryName} • Rp {menu.price.toLocaleString('id-ID')}
+                    <span>{menu.categoryName} • Rp {menu.price.toLocaleString('id-ID')}</span>
+                    {menu.hpp !== undefined && menu.hpp > 0 && (
+                      <span className="text-[#D9480F] font-semibold bg-orange-50 px-1 py-0.2 rounded border border-orange-200/60 ml-1">
+                        HPP: Rp {menu.hpp.toLocaleString('id-ID')}
+                      </span>
+                    )}
                   </span>
                 </div>
 

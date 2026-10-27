@@ -145,7 +145,17 @@ export async function createEndorsement(
 
     const outletId = BigInt(outletIdStr)
     const scheduleDate = new Date(scheduleDateStr)
-    const hppMenu = parseFloat(hppMenuStr.replace(/[^0-9.]/g, '')) || 0
+    let calculatedHpp = parseFloat(hppMenuStr.replace(/[^0-9.]/g, '')) || 0
+    if (menuItems && menuItems.length > 0) {
+      const itemsHppTotal = menuItems.reduce(
+        (sum: number, it: any) => sum + (Number(it.hpp) || 0) * (Number(it.quantity) || 1),
+        0
+      )
+      if (itemsHppTotal > 0 || calculatedHpp === 0) {
+        calculatedHpp = itemsHppTotal
+      }
+    }
+    const hppMenu = calculatedHpp
     const shippingCost = parseFloat(shippingCostStr.replace(/[^0-9.]/g, '')) || 0
     const initialViews = initialViewsStr ? parseInt(initialViewsStr, 10) : null
     const finalViews = finalViewsStr ? parseInt(finalViewsStr, 10) : null
@@ -362,7 +372,17 @@ export async function updateEndorsement(
     const outletId = BigInt(outletIdStr)
     const scheduleDate = new Date(scheduleDateStr)
     const rateCard = parseFloat(rateCardStr.replace(/[^0-9.]/g, '')) || 0
-    const hppMenu = parseFloat(hppMenuStr.replace(/[^0-9.]/g, '')) || 0
+    let calculatedHpp = parseFloat(hppMenuStr.replace(/[^0-9.]/g, '')) || 0
+    if (menuItems && menuItems.length > 0) {
+      const itemsHppTotal = menuItems.reduce(
+        (sum: number, it: any) => sum + (Number(it.hpp) || 0) * (Number(it.quantity) || 1),
+        0
+      )
+      if (itemsHppTotal > 0 || calculatedHpp === 0) {
+        calculatedHpp = itemsHppTotal
+      }
+    }
+    const hppMenu = calculatedHpp
     const shippingCost = parseFloat(shippingCostStr.replace(/[^0-9.]/g, '')) || 0
     const initialViews = initialViewsStr ? parseInt(initialViewsStr, 10) : null
     const finalViews = finalViewsStr ? parseInt(finalViewsStr, 10) : null

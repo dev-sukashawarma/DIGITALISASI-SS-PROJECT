@@ -346,6 +346,7 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
           expense_date: expenseDate,
           period_month: periodMonth,
           payment_source: expense.paymentSource || 'transfer_pusat',
+          receipt_url: expense.receiptUrl || null,
           type: 'expense',
           created_by: MARCOM_CREW_STAFF_ID,
         },

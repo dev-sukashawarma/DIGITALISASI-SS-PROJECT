@@ -8,6 +8,8 @@ export interface ScrapedMetrics {
   shares?: number
   saves?: number
   error?: string
+  warning?: string
+  isEstimatedViews?: boolean
 }
 
 /**
@@ -42,7 +44,18 @@ export function normalizePostUrl(rawUrl: string): string {
       }
     }
 
+    // Special clean handling for Instagram URLs
+    if (lowerHost.includes('instagram.com')) {
+      const igMatch = parsed.pathname.match(/\/(reel|p|tv|share\/reel|share\/p)\/([a-zA-Z0-9_-]+)/i)
+      if (igMatch) {
+        const type = igMatch[1].replace('share/', '')
+        return `https://www.instagram.com/${type}/${igMatch[2]}/`
+      }
+    }
+
     const trackingParams = [
+      'srtk',
+      'stkn',
       'utm_source',
       'utm_medium',
       'utm_campaign',
@@ -321,11 +334,23 @@ async function scrapeYouTube(url: string): Promise<ScrapedMetrics> {
  */
 async function scrapeInstagram(url: string): Promise<ScrapedMetrics> {
   try {
+    let cleanUrl = url
+    try {
+      const parsed = new URL(url)
+      const match = parsed.pathname.match(/\/(reel|p|tv|share\/reel|share\/p)\/([a-zA-Z0-9_-]+)/i)
+      if (match) {
+        const type = match[1].replace('share/', '')
+        cleanUrl = `https://www.instagram.com/${type}/${match[2]}/`
+      }
+    } catch {
+      // ignore
+    }
+
     let title: string | undefined = undefined
 
     // 1. Try public oEmbed
     try {
-      const oembedUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}`
+      const oembedUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(cleanUrl)}`
       const oembedRes = await fetch(oembedUrl, {
         headers: {
           'User-Agent':
@@ -333,15 +358,18 @@ async function scrapeInstagram(url: string): Promise<ScrapedMetrics> {
         },
       })
       if (oembedRes.ok) {
-        const data = await oembedRes.json()
-        title = data.title
+        const text = await oembedRes.text()
+        if (text.startsWith('{')) {
+          const data = JSON.parse(text)
+          if (data.title) title = data.title
+        }
       }
     } catch {
       // Ignore oembed error
     }
 
     // 2. Fetch with social crawler headers
-    const pageRes = await fetch(url, {
+    const pageRes = await fetch(cleanUrl, {
       headers: {
         'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -352,8 +380,18 @@ async function scrapeInstagram(url: string): Promise<ScrapedMetrics> {
     if (pageRes.ok) {
       const html = await pageRes.text()
 
+      // Look for og:title / twitter:title / caption
+      if (!title) {
+        const ogTitle = html.match(/<meta\s+(?:property|name)=["'](?:og|twitter):title["']\s+content=["']([^"']+)["']/i)
+        if (ogTitle) title = ogTitle[1]
+      }
+      if (!title) {
+        const captionMatch = html.match(/"caption":\s*\{[^}]*"text":\s*"([^"]+)"/)
+        if (captionMatch) title = captionMatch[1].slice(0, 150)
+      }
+
       // Look for og:description (often contains "X likes, Y comments")
-      const ogDesc = html.match(/<meta\s+(?:property|name)=["']og:description["']\s+content=["']([^"']+)["']/i)
+      const ogDesc = html.match(/<meta\s+(?:property|name)=["'](?:og|twitter):description["']\s+content=["']([^"']+)["']/i)
       let likes = 0
       let comments = 0
 
@@ -366,23 +404,53 @@ async function scrapeInstagram(url: string): Promise<ScrapedMetrics> {
         if (commentsMatch) comments = parseInt(commentsMatch[1].replace(/[,.]/g, ''), 10) || 0
       }
 
+      // Look for like_count or edge_media_preview_like in embedded scripts
+      if (likes === 0) {
+        const likeMatch =
+          html.match(/"like_count":\s*(\d+)/) ||
+          html.match(/"edge_media_preview_like":\s*\{\s*"count":\s*(\d+)/)
+        if (likeMatch) likes = parseInt(likeMatch[1], 10) || 0
+      }
+
+      // Look for comment_count or edge_media_to_comment in embedded scripts
+      if (comments === 0) {
+        const commentMatch =
+          html.match(/"comment_count":\s*(\d+)/) ||
+          html.match(/"edge_media_to_comment":\s*\{\s*"count":\s*(\d+)/)
+        if (commentMatch) comments = parseInt(commentMatch[1], 10) || 0
+      }
+
       // Look for play_count or video_view_count in embedded scripts
       const viewMatch =
         html.match(/"video_view_count":\s*(\d+)/) ||
         html.match(/"play_count":\s*(\d+)/) ||
-        html.match(/"view_count":\s*(\d+)/)
+        html.match(/"view_count":\s*(\d+)/) ||
+        html.match(/"ig_play_count":\s*(\d+)/) ||
+        html.match(/"fb_play_count":\s*(\d+)/)
       const views = viewMatch ? parseInt(viewMatch[1], 10) : 0
 
-      if (views > 0 || likes > 0 || title) {
+      const countsDisabled = html.includes('"like_and_view_counts_disabled":true')
+
+      if (views > 0 || likes > 0 || comments > 0 || title) {
+        const finalViews = views > 0 ? views : (likes > 0 ? likes * 15 : 0)
+        const isEstimatedViews = views === 0 && likes > 0
+        let warning: string | undefined = undefined
+
+        if (countsDisabled) {
+          warning = `⚠️ Akun KOL menyembunyikan tayangan di Instagram. Like (${likes}) & Komentar (${comments}) berhasil ditarik.${isEstimatedViews ? ' Views diestimasi ~' + finalViews.toLocaleString('id-ID') + ' (silakan sesuaikan jika ada data insight).' : ''}`
+        }
+
         return {
           success: true,
           platform: 'IG_REELS',
           title,
-          views: views > 0 ? views : likes * 15,
+          views: finalViews,
           likes,
           comments,
           shares: 0,
           saves: 0,
+          warning,
+          isEstimatedViews,
         }
       }
     }
@@ -396,7 +464,7 @@ async function scrapeInstagram(url: string): Promise<ScrapedMetrics> {
       comments: 0,
       shares: 0,
       saves: 0,
-      error: 'Instagram memerlukan verifikasi login untuk postingan ini. Silakan input metrik secara manual.',
+      error: 'Instagram memerlukan verifikasi login untuk postingan ini atau postingan bersifat privat. Silakan input metrik secara manual.',
     }
   } catch (err: any) {
     return {

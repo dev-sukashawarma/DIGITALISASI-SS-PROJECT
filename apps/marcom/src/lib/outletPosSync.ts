@@ -184,7 +184,7 @@ export function rencanakanSinkronOutlet(
         region: sb.region || match.region,
         address: sb.address || match.address,
         phone: sb.phone || match.phone,
-        isActive: mode === 'penuh' ? posAktif : match.isActive && posAktif,
+        isActive: posAktif,
       }
       if (!sama(data, match)) plan.updates.push({ id: match.id, data })
       continue

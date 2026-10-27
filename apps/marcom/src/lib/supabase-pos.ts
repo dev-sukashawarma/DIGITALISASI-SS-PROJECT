@@ -28,18 +28,25 @@ export type PosMenuItem = {
   price: number
   categoryId?: string
   categoryName?: string
+  hpp?: number
+  isPackage?: boolean
 }
 
 export async function fetchPosMenuItems(): Promise<PosMenuItem[]> {
   try {
     const supabase = getPosSupabase()
-    const [{ data: categories }, { data: items, error }] = await Promise.all([
+    const [{ data: categories }, { data: items, error }, { data: recipes }, { data: packages }] = await Promise.all([
       supabase.from('categories').select('id, name'),
       supabase
         .from('menu_items')
-        .select('id, name, price, category_id, is_available')
+        .select('id, name, price, category_id, is_available, hpp_override, is_package')
         .eq('is_available', true)
-        .order('name', { ascending: true })
+        .order('name', { ascending: true }),
+      supabase
+        .from('resep')
+        .select('menu_item_ref, buffer_amount, resep_item(qty_per_porsi, bahan_baku:bahan_baku_id(bahan_baku_sku(harga_beli, qty_isi, is_default, is_active), bahan_baku_harga(harga_beli_display, kemasan_qty)))')
+        .eq('scope', 'global'),
+      supabase.from('menu_packages').select('package_id, menu_item_id, quantity')
     ])
 
     if (error || !items) {
@@ -47,15 +54,75 @@ export async function fetchPosMenuItems(): Promise<PosMenuItem[]> {
       return []
     }
 
+    // 1. Hitung HPP dari resep (BOM)
+    const recipeHppMap: Record<string, number> = {}
+    for (const r of (recipes || [])) {
+      let total = 0
+      for (const item of (r.resep_item || [])) {
+        const rawBb = (item as any).bahan_baku
+        if (!rawBb) continue
+        const bb: any = Array.isArray(rawBb) ? rawBb[0] : rawBb
+        if (!bb) continue
+        const skus = Array.isArray(bb.bahan_baku_sku) ? bb.bahan_baku_sku.filter((s: any) => s.is_active) : []
+        let harga = 0, qty = 0
+        if (skus.length > 0) {
+          const def = skus.find((s: any) => s.is_default) || skus[0]
+          harga = Number(def.harga_beli) || 0
+          qty = Number(def.qty_isi) || 0
+        } else {
+          const h = Array.isArray(bb.bahan_baku_harga) ? bb.bahan_baku_harga[0] : bb.bahan_baku_harga
+          harga = Number(h?.harga_beli_display) || 0
+          qty = Number(h?.kemasan_qty) || 0
+        }
+        if (harga > 0 && qty > 0) {
+          total += (harga / qty) * Number(item.qty_per_porsi || 0)
+        }
+      }
+      recipeHppMap[r.menu_item_ref] = Math.round(total + Number(r.buffer_amount || 0))
+    }
+
+    // 2. Map HPP single item (prioritas: hpp_override > recipeHppMap)
+    const singleHppMap: Record<string, number> = {}
+    for (const it of items) {
+      if (it.hpp_override != null && Number(it.hpp_override) > 0) {
+        singleHppMap[it.id] = Math.round(Number(it.hpp_override))
+      } else if (recipeHppMap[it.id] != null && recipeHppMap[it.id] > 0) {
+        singleHppMap[it.id] = recipeHppMap[it.id]
+      }
+    }
+
+    // 3. Map HPP paket combo (jumlah dari komponen paket)
+    const pkgMap: Record<string, Array<{ menu_item_id: string; quantity: number }>> = {}
+    for (const p of (packages || [])) {
+      if (!pkgMap[p.package_id]) pkgMap[p.package_id] = []
+      pkgMap[p.package_id].push(p)
+    }
+
     const catMap = new Map((categories || []).map((c: any) => [c.id, c.name]))
 
-    return items.map((it: any) => ({
-      id: it.id,
-      name: it.name,
-      price: Number(it.price) || 0,
-      categoryId: it.category_id || undefined,
-      categoryName: catMap.get(it.category_id) || 'Menu Lainnya',
-    }))
+    return items.map((it: any) => {
+      let hpp = singleHppMap[it.id]
+      if (hpp == null && it.is_package && pkgMap[it.id]) {
+        let pkgTotal = 0
+        for (const comp of pkgMap[it.id]) {
+          const compHpp = singleHppMap[comp.menu_item_id] || 0
+          pkgTotal += compHpp * Number(comp.quantity || 1)
+        }
+        if (pkgTotal > 0) hpp = Math.round(pkgTotal)
+      }
+
+      const finalHpp = hpp ?? Math.round((Number(it.price) || 0) * 0.45)
+
+      return {
+        id: it.id,
+        name: it.name,
+        price: Number(it.price) || 0,
+        categoryId: it.category_id || undefined,
+        categoryName: catMap.get(it.category_id) || 'Menu Lainnya',
+        hpp: finalHpp,
+        isPackage: !!it.is_package,
+      }
+    })
   } catch (err) {
     console.error('fetchPosMenuItems failed:', err)
     return []

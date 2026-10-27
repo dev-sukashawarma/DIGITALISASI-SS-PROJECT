@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getPosSupabase } from '@/lib/supabase-pos'
 import {
   syncManualExpenseOpex,
   syncEndorsementOpex,
@@ -516,3 +517,64 @@ export async function updateOpexItem(
   }
 }
 
+/**
+ * Mengunggah foto bukti / nota pengeluaran ke storage Supabase
+ */
+export async function uploadOpexReceipt(formData: FormData): Promise<{ url?: string; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { error: 'Unauthorized: Harap login terlebih dahulu' }
+  }
+
+  const file = formData.get('file') as File | null
+  if (!file || !(file instanceof File) || file.size === 0) {
+    return { error: 'File foto bukti nota tidak ditemukan atau kosong' }
+  }
+
+  // Maksimal 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    return { error: 'Ukuran foto maksimal 10MB' }
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'pdf']
+  if (!allowedExtensions.includes(ext)) {
+    return { error: 'Format file tidak didukung. Harap upload gambar (JPG, PNG, WEBP, HEIC) atau PDF.' }
+  }
+
+  try {
+    const supabase = getPosSupabase()
+    const fileName = `opex-nota-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    let contentType = file.type
+    if (!contentType) {
+      if (ext === 'pdf') contentType = 'application/pdf'
+      else if (ext === 'png') contentType = 'image/png'
+      else if (ext === 'webp') contentType = 'image/webp'
+      else if (ext === 'heic') contentType = 'image/heic'
+      else contentType = 'image/jpeg'
+    }
+
+    const { error: uploadError } = await supabase.storage
+      .from('opex-invoices')
+      .upload(fileName, buffer, { contentType, upsert: true })
+
+    if (uploadError) {
+      console.error('[uploadOpexReceipt] Upload error:', uploadError)
+      return { error: `Gagal upload foto nota: ${uploadError.message}` }
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('opex-invoices').getPublicUrl(fileName)
+
+    return { url: publicUrl }
+  } catch (err: any) {
+    console.error('[uploadOpexReceipt] Error:', err)
+    return { error: err?.message || 'Gagal mengunggah foto bukti' }
+  }
+ 
+}

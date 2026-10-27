@@ -36,7 +36,7 @@ import type { OpexSummary } from '@/lib/opex-constants'
 interface BudgetMatrixViewProps {
   initialData: MonthlyBudgetMatrix
   initialOpexSummary: OpexSummary
-  outlets: Array<{ id: string; name: string; type?: string }>
+  outlets: Array<{ id: string; name: string; type?: string; isActive?: boolean }>
   userRole: string
   initialTab?: 'matrix' | 'opex'
 }

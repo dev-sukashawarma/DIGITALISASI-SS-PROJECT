@@ -23,6 +23,9 @@ import {
   ArrowUpDown,
   RotateCw,
   UtensilsCrossed,
+  Camera,
+  Loader2,
+  UploadCloud,
 } from 'lucide-react'
 import {
   getOpexData,
@@ -30,7 +33,9 @@ import {
   updateMarcomExpense,
   updateOpexItem,
   deleteMarcomExpense,
+  uploadOpexReceipt,
 } from '@/app/actions/opex'
+import { compressReceiptImage } from '@/lib/compress-image'
 import {
   type OpexSummary,
   type OpexItem,
@@ -72,6 +77,33 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
   const [formPaymentSource, setFormPaymentSource] = useState<string>('transfer_pusat')
   const [formReceiptUrl, setFormReceiptUrl] = useState<string>('')
   const [formError, setFormError] = useState<string>('')
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const [showManualUrlInput, setShowManualUrlInput] = useState(false)
+
+  const handleReceiptFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingPhoto(true)
+    setFormError('')
+
+    try {
+      const data = new FormData()
+      const compressedFile = await compressReceiptImage(file)
+      data.append('file', compressedFile)
+      const res = await uploadOpexReceipt(data)
+      if (res?.error) {
+        setFormError(res.error)
+      } else if (res?.url) {
+        setFormReceiptUrl(res.url)
+      }
+    } catch (err: any) {
+      setFormError(err?.message || 'Gagal mengunggah foto nota')
+    } finally {
+      setIsUploadingPhoto(false)
+      e.target.value = ''
+    }
+  }
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -112,6 +144,8 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
     setFormDescription('')
     setFormPaymentSource('transfer_pusat')
     setFormReceiptUrl('')
+    setIsUploadingPhoto(false)
+    setShowManualUrlInput(false)
     setFormError('')
     setIsModalOpen(true)
   }
@@ -125,6 +159,8 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
     setFormDescription(item.description)
     setFormPaymentSource(item.paymentSource)
     setFormReceiptUrl(item.receiptUrl || '')
+    setIsUploadingPhoto(false)
+    setShowManualUrlInput(!!item.receiptUrl && !item.receiptUrl.includes('supabase.co'))
     setFormError('')
     setIsModalOpen(true)
   }
@@ -596,7 +632,11 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                           rel="noreferrer"
                           className="inline-flex items-center gap-0.5 text-[#D9480F] hover:underline ml-1.5"
                         >
-                          [Nota <ExternalLink className="w-2.5 h-2.5 inline" />]
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#D9480F] bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-200/80 hover:bg-orange-100 transition-colors">
+                            <Camera className="w-2.5 h-2.5 shrink-0" />
+                            <span>Foto Nota</span>
+                            <ExternalLink className="w-2 h-2 shrink-0" />
+                          </span>
                         </a>
                       )}
                     </td>
@@ -758,7 +798,8 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                     >
                       <option value="GLOBAL">Kantor Pusat / Pengeluaran Global</option>
                       {outlets
-                        .filter((o) => o.isActive !== false)
+                        .filter((o) => o.isActive !== false || o.id === formOutletId)
+                        .sort((a, b) => a.name.localeCompare(b.name, 'id'))
                         .map((o) => (
                           <option key={o.id} value={o.id}>
                             {o.name}
@@ -882,19 +923,125 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                 />
               </div>
 
-              {/* URL Nota / Bukti Struk */}
+              {/* Foto Bukti / Nota Struk */}
               {(!editingItem || editingItem.source === 'MANUAL' || editingItem.source === 'ADS') && (
-                <div>
-                  <label className="block font-semibold text-stone-700 mb-1">
-                    Link Bukti / Nota (Opsional)
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://drive.google.com/... atau link foto bukti struk"
-                    value={formReceiptUrl}
-                    onChange={(e) => setFormReceiptUrl(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
-                  />
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-semibold text-stone-700">
+                      Foto Bukti / Nota Struk
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualUrlInput(!showManualUrlInput)}
+                      className="text-[11px] text-stone-400 hover:text-[#D9480F] transition-colors underline cursor-pointer"
+                    >
+                      {showManualUrlInput ? 'Sembunyikan Link Manual' : 'Input Link Manual'}
+                    </button>
+                  </div>
+
+                  {formReceiptUrl ? (
+                    <div className="p-3 border border-[#EFE8DE] bg-[#FAF8F5] rounded-xl flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {formReceiptUrl.toLowerCase().includes('.pdf') ? (
+                          <div className="w-12 h-12 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                            <FileText className="w-6 h-6" />
+                          </div>
+                        ) : (
+                          <img
+                            src={formReceiptUrl}
+                            alt="Bukti Nota"
+                            className="w-12 h-12 rounded-lg object-cover border border-[#EFE8DE] bg-white shrink-0"
+                            onError={(e) => {
+                              (e.currentTarget as any).style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3" /> Bukti Terlampir
+                          </span>
+                          <div>
+                            <a
+                              href={formReceiptUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold mt-0.5 truncate max-w-[200px]"
+                            >
+                              Lihat Foto Bukti <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <label className="px-2.5 py-1.5 bg-white border border-[#EFE8DE] hover:bg-stone-50 text-stone-700 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-2xs">
+                          Ganti
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            disabled={isUploadingPhoto}
+                            onChange={handleReceiptFileChange}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setFormReceiptUrl('')}
+                          className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="Hapus Bukti"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label
+                      className={`relative border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+                        isUploadingPhoto
+                          ? 'border-[#D9480F] bg-orange-50/40 cursor-wait'
+                          : 'border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FAF8F5]'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        disabled={isUploadingPhoto}
+                        onChange={handleReceiptFileChange}
+                      />
+                      {isUploadingPhoto ? (
+                        <div className="flex flex-col items-center gap-1.5 py-2">
+                          <Loader2 className="w-6 h-6 text-[#D9480F] animate-spin" />
+                          <p className="text-xs font-bold text-stone-700">Mengompresi & mengunggah foto bukti...</p>
+                          <p className="text-[11px] text-stone-400">Menyimpan ke cloud storage...</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 py-1">
+                          <div className="w-10 h-10 rounded-full bg-orange-100/70 flex items-center justify-center text-[#D9480F] mb-1">
+                            <Camera className="w-5 h-5" />
+                          </div>
+                          <p className="text-xs font-bold text-stone-800">
+                            Ambil Foto atau Upload File Bukti Nota
+                          </p>
+                          <p className="text-[11px] text-stone-400">
+                            Format JPG, PNG, WEBP, atau PDF (maks. 10MB)
+                          </p>
+                        </div>
+                      )}
+                    </label>
+                  )}
+
+                  {showManualUrlInput && (
+                    <div className="mt-2 animate-in fade-in duration-150">
+                      <input
+                        type="url"
+                        placeholder="https://drive.google.com/... atau link foto bukti"
+                        value={formReceiptUrl}
+                        onChange={(e) => setFormReceiptUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F] text-xs"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 

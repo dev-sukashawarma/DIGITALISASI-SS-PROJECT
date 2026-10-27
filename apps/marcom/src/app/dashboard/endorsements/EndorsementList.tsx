@@ -502,8 +502,8 @@ export default function EndorsementList({
   // Menu & HPP preset states for modals
   const [createType, setCreateType] = useState<'VISIT' | 'DELIVERY' | 'AGENCY'>('VISIT')
   const [createShippingCost, setCreateShippingCost] = useState<string>('0')
-  const [createMenuName, setCreateMenuName] = useState('Ayam jumbo dan Sapi sedang')
-  const [createHpp, setCreateHpp] = useState(38000)
+  const [createMenuName, setCreateMenuName] = useState('')
+  const [createHpp, setCreateHpp] = useState(0)
   const [createRateCard, setCreateRateCard] = useState<string>('0')
   const [createMenuItems, setCreateMenuItems] = useState<SelectedMenuItem[]>([])
   const [isNewKol, setIsNewKol] = useState(false)
@@ -727,7 +727,7 @@ export default function EndorsementList({
   // Auto-fetch state inside modal
   const [endorsementUrl, setEndorsementUrl] = useState('')
   const [isFetchingEndorsementMetric, setIsFetchingEndorsementMetric] = useState(false)
-  const [fetchEndorsementNotice, setFetchEndorsementNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [fetchEndorsementNotice, setFetchEndorsementNotice] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null)
 
   // Keyboard UX: Dismiss open modal on Escape key press (Nielsen H3: User Control & Freedom)
   useEffect(() => {
@@ -1373,7 +1373,7 @@ export default function EndorsementList({
         }
 
         setFetchEndorsementNotice({
-          type: 'success',
+          type: (res.data as any).warning ? 'warning' : 'success',
           message: `✅ Metrik ditarik: ${(res.data.views || 0).toLocaleString('id-ID')} views, ${(res.data.likes || 0).toLocaleString('id-ID')} likes!`,
         })
       } else {
@@ -1458,6 +1458,9 @@ export default function EndorsementList({
               setNewKolPhone('')
               setNewKolSocials([{ id: '1', platform: 'INSTAGRAM', handle: '' }])
               setCreateVideoLinks([])
+              setCreateMenuName('')
+              setCreateHpp(0)
+              setCreateMenuItems([])
               setIsCreateOpen(true)
             }}
             className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all duration-150 hover:shadow-md cursor-pointer"
@@ -3110,13 +3113,15 @@ export default function EndorsementList({
                     className={`mt-2 p-2.5 rounded-xl text-xs flex items-center gap-2 border ${
                       fetchEndorsementNotice.type === 'success'
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        : 'bg-amber-50 border-amber-200 text-amber-800'
+                        : fetchEndorsementNotice.type === 'warning'
+                        ? 'bg-amber-50 border-amber-200 text-amber-800'
+                        : 'bg-red-50 border-red-200 text-red-800'
                     }`}
                   >
                     {fetchEndorsementNotice.type === 'success' ? (
                       <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
                     ) : (
-                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                      <AlertCircle className={`w-4 h-4 shrink-0 ${fetchEndorsementNotice.type === 'warning' ? 'text-amber-600' : 'text-red-600'}`} />
                     )}
                     <span>{fetchEndorsementNotice.message}</span>
                   </div>
@@ -3812,6 +3817,11 @@ export default function EndorsementList({
                 {/* Kolom Kanan: Menu Jatah POS & Ringkasan HPP */}
                 <div className="lg:col-span-5 space-y-3.5">
                   {/* Menu POS Integration Selector */}
+                  <input
+                    type="hidden"
+                    name="menuItems"
+                    value={JSON.stringify(createMenuItems)}
+                  />
                   <EndorsementMenuSelector
                     posMenuItems={posMenuItems}
                     selectedItems={createMenuItems}
@@ -3836,16 +3846,23 @@ export default function EndorsementList({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                        Nominal HPP SS (Rp)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-semibold text-stone-600">
+                          Nominal HPP SS (Rp)
+                        </label>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md">
+                          Otomatis POS
+                        </span>
+                      </div>
                       <input
                         name="hppMenu"
                         type="number"
                         min="0"
                         value={createHpp}
-                        onChange={(e) => setCreateHpp(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-mono"
+                        readOnly
+                        placeholder="0"
+                        title="Dihitung otomatis dari resep / HPP menu POS Supabase"
+                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-stone-50 text-stone-700 cursor-not-allowed focus:outline-none font-mono font-bold"
                       />
                     </div>
                   </div>
@@ -4241,6 +4258,11 @@ export default function EndorsementList({
                   )}
 
                   {/* Menu POS Integration Selector */}
+                  <input
+                    type="hidden"
+                    name="menuItems"
+                    value={JSON.stringify(editMenuItems)}
+                  />
                   <EndorsementMenuSelector
                     posMenuItems={posMenuItems}
                     selectedItems={editMenuItems}
@@ -4265,16 +4287,23 @@ export default function EndorsementList({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                        Nominal HPP SS (Rp)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-semibold text-stone-600">
+                          Nominal HPP SS (Rp)
+                        </label>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-md">
+                          Otomatis POS
+                        </span>
+                      </div>
                       <input
                         name="hppMenu"
                         type="number"
                         min="0"
                         value={editHpp}
-                        onChange={(e) => setEditHpp(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-mono"
+                        readOnly
+                        placeholder="0"
+                        title="Dihitung otomatis dari resep / HPP menu POS Supabase"
+                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-stone-50 text-stone-700 cursor-not-allowed focus:outline-none font-mono font-bold"
                       />
                     </div>
                   </div>

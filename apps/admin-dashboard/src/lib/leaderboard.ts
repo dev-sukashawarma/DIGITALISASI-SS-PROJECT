@@ -22,9 +22,13 @@ export function getPerformanceTier(avgDailyQty: number): PerformanceTier {
   return 'OPTIMIS'
 }
 
+function rowGrossOmzet(r: SalesSummaryRow): number {
+  return (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+}
+
 function omzetPerOutlet(rows: SalesSummaryRow[]) {
   const m = new Map<string, number>()
-  for (const r of rows) m.set(r.outlet_id, (m.get(r.outlet_id) ?? 0) + r.omzet)
+  for (const r of rows) m.set(r.outlet_id, (m.get(r.outlet_id) ?? 0) + rowGrossOmzet(r))
   return m
 }
 
@@ -38,7 +42,7 @@ export function buildLeaderboard(
   const agg = new Map<string, { name: string; omzet: number; orders: number; qty: number }>()
   for (const r of current) {
     const cur = agg.get(r.outlet_id) ?? { name: r.outlet_name, omzet: 0, orders: 0, qty: 0 }
-    cur.omzet += r.omzet
+    cur.omzet += rowGrossOmzet(r)
     cur.orders += r.jumlah_order_completed
     cur.qty += Number(r.total_qty || 0)
     agg.set(r.outlet_id, cur)

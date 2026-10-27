@@ -39,6 +39,17 @@ export function diffDays(from: string, to: string): number {
 }
 
 export function previousRange(range: { from: string; to: string }): { from: string; to: string } {
+  // Jika rentang adalah 1 bulan kalender penuh (mis. preset 'last_month' 1–30 Sep),
+  // pembandingnya wajib 1 bulan kalender penuh sebelumnya (1–31 Agu), bukan 30 hari mundur.
+  const m = /^(\d{4})-(\d{2})-01$/.exec(range.from)
+  if (m) {
+    const year = Number(m[1])
+    const month = Number(m[2])
+    const full = monthRange(year, month)
+    if (range.to === full.to) {
+      return month === 1 ? monthRange(year - 1, 12) : monthRange(year, month - 1)
+    }
+  }
   const days = diffDays(range.from, range.to)
   return { from: addDays(range.from, -days), to: addDays(range.from, -1) }
 }

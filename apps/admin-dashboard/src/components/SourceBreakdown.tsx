@@ -99,7 +99,7 @@ export function SourceBreakdown({
 
   let sources: SalesSource[] = []
   if (isSSOnline) {
-    sources = ['tiktok_shop', 'shopee_shop']
+    sources = ['tiktok_shop', 'shopee_shop', 'online']
   } else if (outletId && outletId !== 'all') {
     // 'app' WAJIB ada di sini. Cabang "semua outlet" memakai Object.keys(LABELS)
     // sehingga kanal baru ikut sendiri, tapi daftar per-outlet ini ditulis
@@ -109,28 +109,34 @@ export function SourceBreakdown({
     sources = Object.keys(LABELS) as SalesSource[]
   }
 
-  // Aggregate sales by source
-  const bySource = new Map<SalesSource, { omzet: number; orders: number }>()
+  // Aggregate sales by source (basis Omzet Kotor agar total kanal = Kartu 1 & Tab Laba Rugi)
+  const bySource = new Map<SalesSource, { omzet: number; orders: number; qty: number }>()
   let totalOmzet = 0
 
   for (const r of rows) {
     if (!sources.includes(r.sales_source)) continue
-    const cur = bySource.get(r.sales_source) ?? { omzet: 0, orders: 0 }
-    cur.omzet += r.omzet
-    cur.orders += r.jumlah_order_completed
+    const grossOmzet =
+      r.sales_source === 'endors'
+        ? 0
+        : (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+    const cur = bySource.get(r.sales_source) ?? { omzet: 0, orders: 0, qty: 0 }
+    cur.omzet += grossOmzet
+    cur.orders += Number(r.jumlah_order_completed) || 0
+    cur.qty += Number(r.total_qty) || 0
     bySource.set(r.sales_source, cur)
-    totalOmzet += r.omzet
+    totalOmzet += grossOmzet
   }
   
   // Map and sort sources by revenue volume
   const data = sources.map(s => {
-    const val = bySource.get(s) ?? { omzet: 0, orders: 0 }
+    const val = bySource.get(s) ?? { omzet: 0, orders: 0, qty: 0 }
     const percentage = totalOmzet > 0 ? pct(val.omzet, totalOmzet) : 0
     return {
       source: s,
       label: LABELS[s],
       revenue: val.omzet,
       orders: val.orders,
+      qty: val.qty,
       percentage,
       color: BRAND_COLORS[s],
       icon: ICONS[s]
@@ -142,13 +148,14 @@ export function SourceBreakdown({
       <div>
         <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Kontribusi Saluran Penjualan</h3>
         <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">
-          {isSSOnline ? 'Sumber transaksi penjualan marketplace SS Online' : 'Sumber transaksi pemesanan menu makanan'}
+          {isSSOnline ? 'Sumber transaksi penjualan marketplace SS Online (omzet kotor)' : 'Sumber transaksi pemesanan menu makanan (omzet kotor)'}
         </p>
       </div>
 
       <div className="space-y-4">
         {data.map((item) => {
           const Icon = item.icon
+          const endorsPorsi = item.qty > 0 ? item.qty : item.orders
           
           return (
             <div key={item.source} className="space-y-1.5 group">
@@ -165,8 +172,8 @@ export function SourceBreakdown({
                 <div className="flex items-center gap-2">
                   <span className="text-suka-gray-500 font-medium">
                     {item.source === 'endors' ? (
-                      item.orders > 0 ? (
-                        <span className="font-bold text-suka-ink">{item.orders} porsi</span>
+                      endorsPorsi > 0 ? (
+                        <span className="font-bold text-suka-ink">{endorsPorsi} porsi</span>
                       ) : (
                         '0 porsi'
                       )

@@ -14,6 +14,13 @@ import { resolveCallerScope } from '@/lib/server/callerScope'
 import { bumpDayGenerations, daysGeneration } from '@/lib/server/dayGenerations'
 import { ambilRiwayatHpp, ambilVersiRiwayatHpp, buatPenerapRiwayat } from '@/lib/hpp/riwayatHpp'
 import { clearOpexLabaRugiMemo } from '@/lib/server/opexLabaRugi'
+import { clearMitraInvestasiServerMemo } from '@/lib/server/mitraInvestasiServer'
+import {
+  normalizeRpcHourlyRow,
+  normalizeRpcMenuRow,
+  reconcilePosKpiRowsWithSettlements,
+  type PlatformSettlementLite,
+} from '@/lib/ownerDashboardAlign'
 import {
   DAY_FETCH_CONCURRENCY,
   codeFingerprint,
@@ -128,7 +135,12 @@ async function fetchEcommerceOwnerData(
   toEnd: Date,
   sourceFilter: SalesSource = 'all'
 ) {
-  if (sourceFilter === 'pos' || sourceFilter === 'endors') {
+  if (
+    sourceFilter !== 'all' &&
+    sourceFilter !== 'online' &&
+    sourceFilter !== 'tiktok_shop' &&
+    sourceFilter !== 'shopee_shop'
+  ) {
     return {
       kpiRows: [],
       hourlyRows: [],
@@ -155,7 +167,7 @@ async function fetchEcommerceOwnerData(
   // memakai ulang satu instance untuk beberapa `.range()` rapuh.
   const buildEcommerceQuery = () => supabase
     .from('ecommerce_sales')
-    .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(id, name, hpp_override, channel_hpp))')
+    .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))))')
     .gte('order_date', fromIso)
     .lte('order_date', toIso)
     .order('order_date', { ascending: true })
@@ -210,11 +222,8 @@ async function fetchEcommerceOwnerData(
       salesSource = 'shopee_shop' as SalesSource
     }
 
-    if (sourceFilter !== 'all') {
-      const sf = sourceFilter.toLowerCase()
-      if (sf === 'pos') continue
-      if (sf.includes('tiktok') && salesSource !== 'tiktok_shop') continue
-      if (sf.includes('shopee') && salesSource !== 'shopee_shop') continue
+    if (sourceFilter !== 'all' && salesSource !== sourceFilter) {
+      continue
     }
 
     const kpiKey = `ss-online|${salesSource}|${dateStr}`
@@ -235,11 +244,12 @@ async function fetchEcommerceOwnerData(
     kpiMap.set(kpiKey, existingKpi)
 
     const curHour = hourMap.get(hour) || { sales_hour: hour, omzet: 0, jumlah_order_completed: 0 }
-    curHour.omzet += omzetNet
+    curHour.omzet += omzetKotor
     curHour.jumlah_order_completed += 1
     hourMap.set(hour, curHour)
 
     let orderQty = 0
+    const pHppHari = penerapHpp.untuk(dateStr)
     for (const item of (saleRecord.ecommerce_sale_items || [])) {
       const menuName = item.menu_items?.name || 'Unknown Menu'
       const cleanName = cleanItemName(menuName) || menuName
@@ -252,7 +262,7 @@ async function fetchEcommerceOwnerData(
       curMenu.revenue += revenue
       menuMap.set(cleanName, curMenu)
 
-      const mi = item.menu_items ? penerapHpp.untuk(dateStr).terapkan(item.menu_items) : item.menu_items
+      const mi = item.menu_items ? pHppHari.terapkan(item.menu_items) : item.menu_items
       let itemHpp = 0
       if (mi) {
         let channelHppVal: number | null = null
@@ -265,7 +275,8 @@ async function fetchEcommerceOwnerData(
           itemHpp = Number(mi.hpp_override)
         } else if (mi.is_package && Array.isArray(mi.package_items)) {
           itemHpp = mi.package_items.reduce((sum: number, pkg: any) => {
-            const compHpp = Number(pkg.component?.hpp_override || 0)
+            const comp = pkg.component ? pHppHari.terapkan(pkg.component) : pkg.component
+            const compHpp = Number(comp?.hpp_override || 0)
             const pQty = Number(pkg.quantity || 1)
             return sum + compHpp * pQty
           }, 0)
@@ -317,6 +328,7 @@ export async function revalidateOwnerDashboardCache(range?: { from: string; to: 
   hppVersionMemo = null
   hppRiwayatMemo = null
   clearOpexLabaRugiMemo()
+  clearMitraInvestasiServerMemo()
   revalidatePath('/dashboard/owner')
   revalidatePath('/dashboard/mitra')
 }
@@ -368,15 +380,23 @@ function sumByKey<T>(rows: T[], key: (r: T) => string | number, fields: string[]
 function mergeSummaryResult(a: any, b: any) {
   if (!a) return b
   if (!b) return a
+  const hourlyCombined = [
+    ...(a.hourly_rows ?? []).map(normalizeRpcHourlyRow),
+    ...(b.hourly_rows ?? []).map(normalizeRpcHourlyRow),
+  ]
+  const menuCombined = [
+    ...(a.menu_rows ?? []).map(normalizeRpcMenuRow),
+    ...(b.menu_rows ?? []).map(normalizeRpcMenuRow),
+  ]
   return {
     kpi_rows: [...(a.kpi_rows ?? []), ...(b.kpi_rows ?? [])],
     hourly_rows: sumByKey(
-      [...(a.hourly_rows ?? []), ...(b.hourly_rows ?? [])],
+      hourlyCombined,
       (r: any) => r.sales_hour,
       ['omzet', 'order_count']
     ).sort((x: any, y: any) => x.sales_hour - y.sales_hour),
     menu_rows: sumByKey(
-      [...(a.menu_rows ?? []), ...(b.menu_rows ?? [])],
+      menuCombined,
       (r: any) => r.menu_name,
       ['qty', 'revenue']
     ),
@@ -465,6 +485,55 @@ async function fetchOwnerDashboardSummaryRaw(
     ecommerceData: ecommerceDataResponse,
     fetchedAt: new Date().toISOString(),
   }
+}
+
+/**
+ * Tarik data settlement platform resmi untuk rentang tanggal yang dipilih
+ * (di luar cache harian POS yang beku 1 jam, karena settlement CSV sering
+ * diunggah H+1 s/d H+5 setelah transaksi kasir berlangsung).
+ * Menegakkan batas `outletId` / `allowedOutletIds` dari callerScope.
+ */
+async function fetchPlatformSettlementsRange(
+  fromDate: string,
+  toDate: string,
+  outletId: string | null,
+  allowedOutletIds: string[] | 'all',
+): Promise<PlatformSettlementLite[]> {
+  if (outletId === 'ss-online') return []
+  if (allowedOutletIds !== 'all' && allowedOutletIds.length === 0) return []
+
+  const PAGE_SIZE = 1000
+  const rows: PlatformSettlementLite[] = []
+  let offset = 0
+
+  try {
+    while (true) {
+      let q = db
+        .from('platform_settlements')
+        .select('outlet_id, platform, tanggal, commission, promo_merchant')
+        .gte('tanggal', fromDate)
+        .lte('tanggal', toDate)
+        .order('tanggal', { ascending: true })
+        .order('id', { ascending: true })
+
+      if (outletId && outletId !== 'all') {
+        q = q.eq('outlet_id', outletId)
+      } else if (allowedOutletIds !== 'all') {
+        q = q.in('outlet_id', allowedOutletIds)
+      }
+
+      const { data, error } = await q.range(offset, offset + PAGE_SIZE - 1)
+      if (error) throw error
+      const page = (data ?? []) as PlatformSettlementLite[]
+      rows.push(...page)
+      if (page.length < PAGE_SIZE) break
+      offset += PAGE_SIZE
+    }
+  } catch (err) {
+    console.error('[owner-dashboard] gagal membaca platform_settlements:', err)
+  }
+
+  return rows
 }
 
 // Cache disimpan permanen (tahan redeploy): kunci ikut sidik jari kode
@@ -558,7 +627,7 @@ export async function getOwnerDashboardDataFast(
       const runRaw = () => fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source)
       const promise = unstable_cache(
         runRaw,
-        ['owner-dashboard-chunk-v8', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, chunkGen],
+        ['owner-dashboard-chunk-v9', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, chunkGen],
         {
           revalidate: 3600,
           tags: ['owner-dashboard', ...chunk.dates.map(ownerDashboardDayTag)],
@@ -597,9 +666,10 @@ export async function getOwnerDashboardDataFast(
       return promise
     }
 
-    const [pastPayloads, livePayload] = await Promise.all([
+    const [pastPayloads, livePayload, settlementRows] = await Promise.all([
       mapWithConcurrency(chunks, Math.max(DAY_FETCH_CONCURRENCY, 10), fetchChunk),
       includesToday ? fetchToday() : Promise.resolve(null),
+      fetchPlatformSettlementsRange(filter.from, filter.to, outletId, allowedOutletIds),
     ])
     const payload = mergeSummaryPayloads([...pastPayloads, livePayload], livePayload?.fetchedAt)
 
@@ -618,36 +688,39 @@ export async function getOwnerDashboardDataFast(
 
     const nameById = new Map(outlets.map((o) => [o.id, o.name]))
 
-    const posKpiRows: SalesSummaryRow[] = (result?.kpi_rows ?? []).map((r: any) => ({
+    const rawPosKpiRows: SalesSummaryRow[] = (result?.kpi_rows ?? []).map((r: any) => ({
       outlet_id:              r.outlet_id,
       outlet_name:            nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
       sales_source:           r.sales_source as SalesSource,
       sales_date:             r.sales_date,
-      omzet:                  Number(r.omzet),
-      jumlah_order_completed: Number(r.order_count),
-      jumlah_order_all:       Number(r.order_count),
-      total_deductions:       Number(r.total_deductions),
+      omzet:                  Number(r.omzet) || 0,
+      jumlah_order_completed: Number(r.order_count) || 0,
+      jumlah_order_all:       Number(r.order_count) || 0,
+      total_deductions:       Number(r.total_deductions) || 0,
       total_qty:              Number(r.total_qty || 0),
     }))
+    const posKpiRows = reconcilePosKpiRowsWithSettlements(rawPosKpiRows, settlementRows)
 
     const hourMap = new Map<number, SalesHourlyRow>()
     for (let i = 0; i < 24; i++) {
       hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
     }
-    for (const h of result?.hourly_rows ?? []) {
+    for (const rawH of result?.hourly_rows ?? []) {
+      const h = normalizeRpcHourlyRow(rawH)
       hourMap.set(h.sales_hour, {
         sales_hour:             h.sales_hour,
-        omzet:                  Number(h.omzet),
-        jumlah_order_completed: Number(h.order_count),
+        omzet:                  h.omzet,
+        jumlah_order_completed: h.order_count,
       })
     }
 
     const menuMap = new Map<string, { name: string; qty: number; revenue: number }>()
-    for (const r of result?.menu_rows ?? []) {
+    for (const rawR of result?.menu_rows ?? []) {
+      const r = normalizeRpcMenuRow(rawR)
       const clean = cleanItemName(r.menu_name) || 'Unknown Menu'
       const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
-      cur.qty += Number(r.qty || 0)
-      cur.revenue += Number(r.revenue || 0)
+      cur.qty += r.qty
+      cur.revenue += r.revenue
       menuMap.set(clean, cur)
     }
 

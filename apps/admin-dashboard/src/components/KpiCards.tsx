@@ -1,7 +1,7 @@
 // @ts-nocheck
 import type { SalesSummaryRow } from '@/lib/types'
 import type { AggregatedMenuSales } from '@/app/actions/menuSales'
-import { aov, deltaPct } from '@/lib/format'
+import { aov, deltaPct, rupiah } from '@/lib/format'
 import CountUp from 'react-countup'
 import { TrendingUp, DollarSign, UtensilsCrossed, Boxes, Receipt } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -18,12 +18,15 @@ interface KpiCardsProps {
   prevOpex?: number
   curCogsOpex?: number
   prevCogsOpex?: number
-  /** Nilai waste disetujui — mengurangi laba bersih, sama seperti Laba Rugi. */
+  /** Nilai waste disetujui — masuk ke Beban Pokok (HPP) & mengurangi Laba Bersih, 1:1 dengan Tab Laba Rugi. */
   curWaste?: number
   prevWaste?: number
-  /** Margin pasokan bahan mitra — menambah laba bersih, sama seperti Laba Rugi Global. */
+  /** Margin pasokan bahan mitra — menambah laba bersih pada cakupan Global, sama seperti Tab Laba Rugi. */
   curMarginMitra?: number
   prevMarginMitra?: number
+  /** Management fee pusat (3% sblm BEP / 0% stlh BEP dari omzet kotor) saat melihat 1 outlet Mitra, 1:1 dengan Tab Laba Rugi. */
+  curMgmtFee?: number
+  prevMgmtFee?: number
   /** OPEX dihitung dengan rumus Laba Rugi / Buku Kas (termasuk gaji & bonus HR). */
   opexAcuanLabaRugi?: boolean
   /** false = periode pembanding memakai rumus lain → ▲▼% OPEX & Laba disembunyikan. */
@@ -47,6 +50,8 @@ export function KpiCards({
   prevWaste = 0,
   curMarginMitra = 0,
   prevMarginMitra = 0,
+  curMgmtFee = 0,
+  prevMgmtFee = 0,
   opexAcuanLabaRugi = false,
   pembandingLabaSepadan = true,
   cogsBreakdown,
@@ -57,33 +62,62 @@ export function KpiCards({
   const prevCogs = propPrevCogs ?? 0
   const prevOpex = propPrevOpex ?? 0
 
-  const totalCurCogsOpex = curCogsOpex || (curCogs + curOpex)
-  const totalPrevCogsOpex = prevCogsOpex || (prevCogs + prevOpex)
+  // 1:1 dengan Tab Laba Rugi (ProfitView.tsx): Kartu 2 = Beban Pokok (HPP + Waste)
+  const curBebanPokok = curCogs + curWaste
+  const prevBebanPokok = prevCogs + prevWaste
 
-  // Current values
-  // Note: r.omzet in DB (sales_hourly_scoped) is SUM(total_amount), which is actually Net Revenue
-  const netRevenue = rows.reduce((s, r) => s + r.omzet, 0)
-  const totalDeductions = rows.reduce((s, r) => s + (Number((r as any).total_deductions) || 0), 0)
-  // To get Gross Revenue (Omzet Kotor), we add the deductions back to the Net Revenue
-  const grossRevenue = netRevenue + totalDeductions
-  const completed = rows.reduce((s, r) => s + r.jumlah_order_completed, 0)
-  const currentAov = aov(netRevenue, completed)
-  const totalPcs = (menuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
+  const hasExplicitCurSplit =
+    propCurCogs !== undefined || propCurOpex !== undefined || cogsBreakdown !== undefined
+  const hasExplicitPrevSplit =
+    propPrevCogs !== undefined || propPrevOpex !== undefined
+
+  const totalCurCogsOpex = hasExplicitCurSplit
+    ? curCogs + curOpex
+    : (curCogsOpex || (curCogs + curOpex))
+  const totalPrevCogsOpex = hasExplicitPrevSplit
+    ? prevCogs + prevOpex
+    : (prevCogsOpex || (prevCogs + prevOpex))
+
+  // Current values — 1:1 dengan Tab Laba Rugi (sudah direkonsiliasi platform_settlements):
+  // - grossRevenue = r.omzet + r.total_deductions
+  // - totalAdminFee = r.total_deductions (promo/diskon) + r.platform_fee (komisi Grab/TikTok Go)
+  // - netMasuk = grossRevenue - totalAdminFee
+  const rawNetRevenue = rows.reduce((s, r) => s + (Number(r.omzet) || 0), 0)
+  const totalDeductions = rows.reduce((s, r) => s + (Number(r.total_deductions) || 0), 0)
+  const totalPlatformFee = rows.reduce((s, r) => s + (Number(r.platform_fee) || 0), 0)
+  const totalAdminFee = totalDeductions + totalPlatformFee
+  const grossRevenue = rawNetRevenue + totalDeductions
+  const netMasuk = grossRevenue - totalAdminFee
+  const completed = rows.reduce((s, r) => s + (Number(r.jumlah_order_completed) || 0), 0)
+  const currentAov = aov(grossRevenue, completed)
+
+  const kpiTotalPcs = rows.reduce((s, r) => s + (Number(r.total_qty) || 0), 0)
+  const hasTotalQtyField = rows.some((r) => r.total_qty !== undefined && r.total_qty !== null)
+  const menuTotalPcs = (menuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
+  const totalPcs = hasTotalQtyField ? kpiTotalPcs : menuTotalPcs
 
   // Previous values
-  const prevNetRevenue = prevRows.reduce((s, r) => s + r.omzet, 0)
-  const prevTotalDeductions = prevRows.reduce((s, r) => s + (Number((r as any).total_deductions) || 0), 0)
-  const prevGrossRevenue = prevNetRevenue + prevTotalDeductions
-  const prevCompleted = prevRows.reduce((s, r) => s + r.jumlah_order_completed, 0)
-  const prevAov = aov(prevNetRevenue, prevCompleted)
-  const prevTotalPcs = (prevMenuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
+  const prevRawNetRevenue = prevRows.reduce((s, r) => s + (Number(r.omzet) || 0), 0)
+  const prevTotalDeductions = prevRows.reduce((s, r) => s + (Number(r.total_deductions) || 0), 0)
+  const prevTotalPlatformFee = prevRows.reduce((s, r) => s + (Number(r.platform_fee) || 0), 0)
+  const prevTotalAdminFee = prevTotalDeductions + prevTotalPlatformFee
+  const prevGrossRevenue = prevRawNetRevenue + prevTotalDeductions
+  const prevNetMasuk = prevGrossRevenue - prevTotalAdminFee
+  const prevCompleted = prevRows.reduce((s, r) => s + (Number(r.jumlah_order_completed) || 0), 0)
+  const prevAov = aov(prevGrossRevenue, prevCompleted)
 
-  // Deltas: Laba Bersih (Net) = Omzet Kotor - Potongan - (COGS + OPEX)
-  const netProfit = (grossRevenue - totalDeductions) - totalCurCogsOpex - curWaste + curMarginMitra
-  const prevNetProfit = (prevGrossRevenue - prevTotalDeductions) - totalPrevCogsOpex - prevWaste + prevMarginMitra
+  const prevKpiTotalPcs = prevRows.reduce((s, r) => s + (Number(r.total_qty) || 0), 0)
+  const prevHasTotalQtyField = prevRows.some((r) => r.total_qty !== undefined && r.total_qty !== null)
+  const prevMenuTotalPcs = (prevMenuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
+  const prevTotalPcs = prevHasTotalQtyField ? prevKpiTotalPcs : prevMenuTotalPcs
+
+  // Laba Bersih (Net) 1:1 dengan Tab Laba Rugi:
+  // Net Masuk - (HPP + Waste + OPEX) + Margin Bahan Mitra (global) - Management Fee Pusat (single Mitra)
+  const netProfit = netMasuk - totalCurCogsOpex - curWaste + curMarginMitra - curMgmtFee
+  const prevNetProfit = prevNetMasuk - totalPrevCogsOpex - prevWaste + prevMarginMitra - prevMgmtFee
 
   const dGross = deltaPct(grossRevenue, prevGrossRevenue)
-  const dCogs = prevCogs > 0 ? deltaPct(curCogs, prevCogs) : null
+  const dCogs = prevBebanPokok > 0 ? deltaPct(curBebanPokok, prevBebanPokok) : null
   const dOpex = pembandingLabaSepadan && prevOpex > 0 ? deltaPct(curOpex, prevOpex) : null
   const dPcs = prevTotalPcs > 0 ? deltaPct(totalPcs, prevTotalPcs) : (totalPcs > 0 && prevTotalPcs === 0 ? 100 : null)
   const dCompleted = deltaPct(completed, prevCompleted)
@@ -101,19 +135,25 @@ export function KpiCards({
       delta: dGross,
       icon: TrendingUp,
       color: '#f29744', // Suka Orange
-      subtext: 'Pemasukan kotor sebelum potongan',
+      subtext:
+        totalAdminFee > 0
+          ? `Net Masuk ${rupiah(netMasuk)} · Potongan -${rupiah(totalAdminFee)}`
+          : 'Pemasukan kotor sebelum potongan',
     },
-    // 2. Total COGS (HPP)
+    // 2. Beban Pokok (HPP + Waste) — 1:1 dengan Tab Laba Rugi
     {
       id: 'cogs',
-      label: 'Total COGS (HPP)',
-      value: curCogs,
+      label: 'Beban Pokok (HPP)',
+      value: curBebanPokok,
       isString: false,
       isRupiah: true,
       delta: dCogs,
       icon: Boxes,
       color: '#f97316', // Orange / Amber
-      subtext: 'HPP bahan baku resep',
+      subtext:
+        curWaste > 0
+          ? `HPP ${rupiah(curCogs)} · Waste ${rupiah(curWaste)}`
+          : 'Modal bahan resep & waste',
     },
     // 3. Beban Operasional (OPEX)
     {
@@ -150,9 +190,9 @@ export function KpiCards({
       delta: dAov,
       icon: DollarSign,
       color: '#0284c7', // Sky Blue
-      subtext: 'Rata-rata nilai per belanja',
+      subtext: 'Rata-rata omzet kotor per order',
     },
-    // 6. Net (Laba Bersih: Omzet Kotor - (COGS+OPEX))
+    // 6. Net (Laba Bersih — 1:1 dengan Tab Laba Rugi)
     {
       id: 'net',
       label: 'Laba Bersih (Net)',
@@ -162,7 +202,13 @@ export function KpiCards({
       delta: dNet,
       icon: TrendingUp,
       color: netProfit >= 0 ? '#0a7d2c' : '#ef4444',
-      subtext: opexAcuanLabaRugi ? (curMarginMitra > 0 ? 'Sama dengan Laba Rugi Global (termasuk waste & margin bahan mitra)' : 'Omzet kotor - potongan - (COGS+OPEX) - waste') : 'Omzet kotor - potongan - (COGS+OPEX)',
+      subtext: opexAcuanLabaRugi
+        ? curMarginMitra > 0
+          ? `Sama dengan Laba Rugi (+Margin Mitra ${rupiah(curMarginMitra)})`
+          : curMgmtFee > 0
+            ? `Sama dengan Laba Rugi (-Fee Pusat ${rupiah(curMgmtFee)})`
+            : 'Sama dengan Laba Rugi (Net Masuk - HPP - Waste - OPEX)'
+        : 'Net Masuk - (HPP + Waste + OPEX)',
     },
   ]
 

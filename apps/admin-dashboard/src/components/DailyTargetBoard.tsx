@@ -102,7 +102,12 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
     setTimeout(() => setModalOpen(false), 1000)
   }
 
-  const isMoreThanOneDay = filter && filter.from !== filter.to;
+  const isMoreThanOneDay = Boolean(filter && filter.from !== filter.to);
+  const todayJakarta = useMemo(
+    () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()),
+    []
+  );
+  const isToday = !isMoreThanOneDay && (!filter?.from || filter.from === todayJakarta);
 
   const withTarget = useMemo(() => {
     let baseRows = rows;
@@ -118,7 +123,11 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
       if (!isMoreThanOneDay && kpiRows) {
         const outletKpiRows = kpiRows.filter(k => k.outlet_id === r.outlet_id);
         if (outletKpiRows.length > 0) {
-          currentOmzet = outletKpiRows.reduce((sum, k) => sum + k.omzet, 0);
+          // Basis Omzet Kotor — konsisten dengan historical_daily_targets, multi-day RPC, dan Kartu 1
+          currentOmzet = outletKpiRows.reduce(
+            (sum, k) => sum + (Number(k.omzet) || 0) + (Number(k.total_deductions) || 0),
+            0
+          );
         } else if (filter) {
           currentOmzet = 0;
         }
@@ -164,10 +173,17 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
             <Target className="w-4 h-4 text-suka-orange" />
-            <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Target Penjualan {isMoreThanOneDay ? 'Harian' : 'Hari Ini'}</h3>
-            {withTarget.length > 0 && !isMoreThanOneDay && (
+            <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">
+              Target Penjualan {isToday ? 'Hari Ini' : 'Harian'}
+            </h3>
+            {withTarget.length > 0 && isToday && (
               <span className="flex items-center gap-1 text-[9px] font-bold text-suka-green bg-suka-green/10 px-2 py-0.5 rounded-full uppercase">
                 <Radio className="w-2.5 h-2.5" /> Live
+              </span>
+            )}
+            {withTarget.length > 0 && !isMoreThanOneDay && !isToday && filter?.from && (
+              <span className="text-[10px] font-bold text-suka-gray-500 bg-suka-gray-100 px-2 py-0.5 rounded-full">
+                {new Date(filter.from + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             )}
             {isMoreThanOneDay && filter?.outletId === 'all' && (

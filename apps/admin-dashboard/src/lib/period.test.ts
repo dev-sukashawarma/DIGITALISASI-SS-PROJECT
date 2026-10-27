@@ -72,4 +72,19 @@ describe('helper rentang lain', () => {
       to: '2026-08-31',
     })
   })
+
+  it('previousRange memakai bulan kalender penuh sebelumnya untuk 1 bulan penuh', () => {
+    expect(previousRange({ from: '2026-09-01', to: '2026-09-30' })).toEqual({
+      from: '2026-08-01',
+      to: '2026-08-31',
+    })
+    expect(previousRange({ from: '2026-03-01', to: '2026-03-31' })).toEqual({
+      from: '2026-02-01',
+      to: '2026-02-28',
+    })
+    expect(previousRange({ from: '2026-01-01', to: '2026-01-31' })).toEqual({
+      from: '2025-12-01',
+      to: '2025-12-31',
+    })
+  })
 })

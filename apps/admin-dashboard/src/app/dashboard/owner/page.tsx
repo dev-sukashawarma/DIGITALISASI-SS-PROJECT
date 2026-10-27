@@ -8,6 +8,9 @@ import DashboardLoadError from './DashboardLoadError'
 import type { SalesSource, PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { hitungOpexLabaRugi, hitungWastePeriode } from '@/lib/server/opexLabaRugi'
+import { ambilInvestasiMitraServer } from '@/lib/server/mitraInvestasiServer'
+import { computeSingleMitraManagementFee } from '@/lib/ownerDashboardAlign'
+import { createServiceClient } from '@/lib/supabase/server'
 import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import { resolveCallerScope } from '@/lib/server/callerScope'
 
@@ -62,7 +65,15 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   }
 
   // 3. Prepare Outlets (Exclude Test Outlets)
-  const outlets = (rawOutlets ?? []).filter(o => !isTestOutlet(o))
+  const serviceSupabase = createServiceClient()
+  const allOutletsRaw = isReadOnly
+    ? (await serviceSupabase
+        .from('outlets')
+        .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
+        .neq('id', TEST_OUTLET_ID)
+        .order('name')).data ?? rawOutlets
+    : rawOutlets
+  const outlets = (allOutletsRaw ?? []).filter(o => !isTestOutlet(o))
   const allOutletsWithSS = [
     { id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any,
     ...outlets
@@ -73,26 +84,21 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
 
   // OPEX & waste mengacu ke Laba Rugi / Buku Kas (OPEX): angka RPC ringkasan
   // tidak memuat gaji & bonus HR. Dihitung di luar cache harian RPC karena gaji
-  // bulan berjalan diprorata per hari. Hanya dipakai bila artinya memang sama
-  // dengan Laba Rugi; di luar itu angka RPC (dan teks lama) tetap dipakai:
-  //  - peran keuangan saja (mitra tidak boleh memuat data gaji),
-  //  - tanpa filter kanal (OPEX tidak bisa dipecah per kanal penjualan),
-  //  - rentang paling lama BATAS_HARI_ACUAN hari (jumlah kueri naik per bulan),
-  //  - semua outlet atau satu outlet sungguhan.
+  // bulan berjalan diprorata per hari. Dipakai untuk peran keuangan maupun mitra
+  // yang terkunci pada 1 outlet miliknya (hanya total angka agregat yang dikirim).
   const pakaiAcuan =
-    !isReadOnly &&
     filter.source === 'all' &&
     filter.outletId !== 'ss-online' &&
     filter.outletId !== 'PUSAT' &&
     diffDays(filter.from, filter.to) <= BATAS_HARI_ACUAN &&
-    hasKeuanganRole
+    (hasKeuanganRole || Boolean(isReadOnly && lockedOutletId && filter.outletId === lockedOutletId))
 
   const acuanLabaRugi = async (f: PeriodFilterValue) => {
     if (!pakaiAcuan) return null
     try {
       const [opex, waste] = await Promise.all([
         hitungOpexLabaRugi(f, outlets, { skipRoleCheck: true }),
-        hitungWastePeriode(supabase, f),
+        hitungWastePeriode(serviceSupabase, f),
       ])
       return { opex: opex.total, waste }
     } catch (err) {
@@ -101,11 +107,16 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     }
   }
 
+  const butuhMitraFee =
+    filter.outletId !== 'all' &&
+    filter.outletId !== 'ss-online' &&
+    filter.outletId !== 'PUSAT'
+
   // 4. Run Fast Aggregations in parallel (semua agregasi di PostgreSQL via RPC)
   // allSettled: kegagalan satu periode tidak boleh menjatuhkan seluruh halaman
   // jadi error 500 seperti sebelumnya. Acuan Laba Rugi ikut berjalan bersamaan
   // (tidak pernah melempar) supaya tidak menambah waktu tunggu.
-  const [curRes, prevRes, curAcuan, prevAcuan] = await Promise.all([
+  const [curRes, prevRes, curAcuan, prevAcuan, mitraInvestments] = await Promise.all([
     getOwnerDashboardDataFast(filter, scopedOutlets, callerScope).then(
       value => ({ status: 'fulfilled' as const, value }),
       reason => ({ status: 'rejected' as const, reason }),
@@ -116,6 +127,12 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     ),
     acuanLabaRugi(filter),
     acuanLabaRugi(prevFilter),
+    butuhMitraFee
+      ? ambilInvestasiMitraServer().catch((err) => {
+          console.error('[owner-dashboard] gagal memuat investasi mitra untuk fee 3%:', err)
+          return {}
+        })
+      : Promise.resolve({}),
   ])
   if (curRes.status === 'rejected') {
     console.error('[owner-dashboard] gagal memuat periode utama:', curRes.reason)
@@ -144,6 +161,28 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const akuiMargin = Boolean(curAcuan) && filter.outletId === 'all'
   const curMarginMitra = akuiMargin ? Number((curData as any).totalMitraMarkup || 0) : 0
   const prevMarginMitra = akuiMargin ? Number((prevData as any).totalMitraMarkup || 0) : 0
+
+  // Beban Management Fee 3% saat memfilter 1 outlet kemitraan — identik dengan Laba Rugi.
+  const curMgmtFee = butuhMitraFee
+    ? computeSingleMitraManagementFee({
+        outletId: filter.outletId,
+        periodFrom: filter.from,
+        periodTo: filter.to,
+        kpiRows: curData.kpiRows,
+        outlets,
+        investments: mitraInvestments,
+      })
+    : 0
+  const prevMgmtFee = butuhMitraFee
+    ? computeSingleMitraManagementFee({
+        outletId: prevFilter.outletId,
+        periodFrom: prevFilter.from,
+        periodTo: prevFilter.to,
+        kpiRows: prevData.kpiRows,
+        outlets,
+        investments: mitraInvestments,
+      })
+    : 0
 
   const buyOneGetOne = curData.buyOneGetOne || { transactions: 0, giftUnits: 0 }
   // menu_rows sudah include dalam respons RPC masing-masing periode
@@ -177,6 +216,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       prevWaste={prevWaste}
       curMarginMitra={curMarginMitra}
       prevMarginMitra={prevMarginMitra}
+      curMgmtFee={curMgmtFee}
+      prevMgmtFee={prevMgmtFee}
       opexAcuanLabaRugi={Boolean(curAcuan)}
       pembandingLabaSepadan={pembandingSepadan}
       cogsBreakdown={{ cogs: curData.totalCogs, opex: curOpex }}

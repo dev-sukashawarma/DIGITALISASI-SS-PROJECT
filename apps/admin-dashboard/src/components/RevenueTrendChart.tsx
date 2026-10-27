@@ -16,22 +16,27 @@ export function RevenueTrendChart({
   let data: any[] = []
 
   if (isHourly) {
-    // rows are SalesHourlyRow (filter jam 13.00 - 23.00)
+    // Tampilkan jam operasional standar 13:00–23:00, ditambah jam dini hari/pagi (00:00–12:00) jika ada transaksi
     data = rows
-      .filter((r) => r.sales_hour >= 13 && r.sales_hour <= 23)
+      .filter((r) => {
+        const h = Number(r.sales_hour)
+        const v = Number(r.omzet) || 0
+        return (h >= 13 && h <= 23) || v > 0
+      })
       .map((r) => {
-        const hourStr = r.sales_hour.toString().padStart(2, '0') + ':00'
+        const hourStr = Number(r.sales_hour).toString().padStart(2, '0') + ':00'
         return {
           date: hourStr,
           fullDate: `Jam ${hourStr}`,
-          omzet: r.omzet
+          omzet: Number(r.omzet) || 0
         }
       })
   } else {
-    // rows are SalesSummaryRow
+    // rows are SalesSummaryRow — gunakan Omzet Kotor agar selaras dengan Kartu 1 & Tab Laba Rugi
     const byDate = new Map<string, number>()
     for (const r of rows) {
-      byDate.set(r.sales_date, (byDate.get(r.sales_date) ?? 0) + r.omzet)
+      const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+      byDate.set(r.sales_date, (byDate.get(r.sales_date) ?? 0) + gross)
     }
     
     data = [...byDate.entries()]

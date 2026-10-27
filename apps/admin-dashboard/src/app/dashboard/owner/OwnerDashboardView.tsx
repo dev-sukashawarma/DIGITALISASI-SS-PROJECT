@@ -62,6 +62,8 @@ interface OwnerDashboardViewProps {
   prevWaste?: number
   curMarginMitra?: number
   prevMarginMitra?: number
+  curMgmtFee?: number
+  prevMgmtFee?: number
   opexAcuanLabaRugi?: boolean
   pembandingLabaSepadan?: boolean
   cogsBreakdown?: { cogs: number; opex: number }
@@ -104,6 +106,8 @@ export default function OwnerDashboardView({
   prevWaste,
   curMarginMitra,
   prevMarginMitra,
+  curMgmtFee,
+  prevMgmtFee,
   opexAcuanLabaRugi,
   pembandingLabaSepadan,
   cogsBreakdown,
@@ -216,6 +220,8 @@ export default function OwnerDashboardView({
             prevWaste={prevWaste}
             curMarginMitra={curMarginMitra}
             prevMarginMitra={prevMarginMitra}
+            curMgmtFee={curMgmtFee}
+            prevMgmtFee={prevMgmtFee}
             opexAcuanLabaRugi={opexAcuanLabaRugi}
             pembandingLabaSepadan={pembandingLabaSepadan}
             cogsBreakdown={cogsBreakdown}
@@ -226,8 +232,8 @@ export default function OwnerDashboardView({
             <DailyTargetBoard filter={filter} kpiRows={curKpiRows || []} />
           )}
 
-          {/* Leaderboard Kinerja Outlet (Full Width di atas saat filter 30 hari) */}
-          {is30Days && !isReadOnly && filter.outletId !== 'ss-online' && (
+          {/* Leaderboard Kinerja Outlet (Full Width di atas saat filter 30 hari & semua outlet) */}
+          {is30Days && !isReadOnly && filter.outletId === 'all' && (
             <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} />
           )}
 
@@ -244,8 +250,8 @@ export default function OwnerDashboardView({
             </div>
           </div>
 
-          {/* Leaderboard Kinerja Outlet (posisi default bawah saat bukan filter 30 hari) */}
-          {!is30Days && !isReadOnly && filter.outletId !== 'ss-online' && (
+          {/* Leaderboard Kinerja Outlet (posisi default bawah saat bukan filter 30 hari & semua outlet) */}
+          {!is30Days && !isReadOnly && filter.outletId === 'all' && (
             <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} />
           )}
         </div>

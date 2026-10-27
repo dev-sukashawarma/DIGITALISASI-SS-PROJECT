@@ -42,7 +42,7 @@ export function pct(part: number, total: number): number {
 }
 export function deltaPct(current: number, previous: number): number | null {
   if (previous === 0) return null
-  return Math.round(((current - previous) / previous) * 1000) / 10
+  return Math.round(((current - previous) / Math.abs(previous)) * 1000) / 10
 }
 export function normalizeMenuName(name: string): string {
   return name.toLowerCase().trim().replace(/\s+/g, ' ')

@@ -20,6 +20,8 @@ class PengantaranViewModelTest {
         var mulaiGagal: String? = null
         var mulaiDipanggil: List<String>? = null
         var hasilTiba = HasilTiba(30.0, "berjalan")
+        var tibaGagal: String? = null
+        var aktifGagalSekali = false
         var selesaiDipanggil = 0
 
         override suspend fun sjSiap() = siap
@@ -30,13 +32,22 @@ class PengantaranViewModelTest {
             return "p1" to Pengaturan()
         }
         override suspend fun ubahUrutan(perjalananId: String, stopIds: List<String>) {}
-        override suspend fun tandaiTiba(stopId: String, lat: Double, lng: Double, akurasiM: Float?) = hasilTiba
+        override suspend fun tandaiTiba(stopId: String, lat: Double, lng: Double, akurasiM: Float?): HasilTiba {
+            tibaGagal?.let { throw RuntimeException(it) }
+            return hasilTiba
+        }
         override suspend fun kirimLokasi(titik: List<Titik>) = HasilKirim("berjalan", Pengaturan(), titik.size)
         override suspend fun selesaikan(perjalananId: String): RingkasanPerjalanan {
             selesaiDipanggil++
             return RingkasanPerjalanan(12.3, 3600)
         }
-        override suspend fun perjalananAktif() = aktif
+        override suspend fun perjalananAktif(): PerjalananUi? {
+            if (aktifGagalSekali) {
+                aktifGagalSekali = false
+                throw java.io.IOException("sinyal putus")
+            }
+            return aktif
+        }
     }
 
     private class ServicePalsu : KendaliService {
@@ -144,5 +155,41 @@ class PengantaranViewModelTest {
         assertFalse(v.state.value.konfirmasiSelesai)
         assertEquals(LayarPengantaran.Ringkasan, v.state.value.layar)
         assertEquals(12.3, v.state.value.ringkasan!!.totalKm!!, 0.001)
+    }
+
+    @Test
+    fun galatTibaMemuatUlangLayar() = runTest {
+        val api = ApiPalsu().apply { aktif = PerjalananUi("p1", "2026-10-27T02:40:00Z", Pengaturan(), listOf(stop("1", 1), stop("2", 2))) }
+        val v = vm(api)
+        v.muat()
+        // Outlet sudah memverifikasi stop 1 di server; driver menekan Tiba.
+        api.aktif = api.aktif!!.copy(stops = listOf(stop("1", 1, "tiba"), stop("2", 2)))
+        api.tibaGagal = "Surat jalan ini sudah tiba (verifikasi outlet)"
+        v.tiba("1")
+        assertEquals("tiba", v.state.value.perjalanan!!.stops.first { it.id == "1" }.status)
+        assertTrue(v.state.value.pesan!!.contains("verifikasi outlet"))
+    }
+
+    @Test
+    fun berangkatSuksesTapiMuatGagalTetapMasukPerjalanan() = runTest {
+        val api = ApiPalsu()
+        val svc = ServicePalsu()
+        val v = vm(api, svc)
+        v.muat(); v.pilih("a"); v.lanjutUrutan()
+        api.aktifGagalSekali = true
+        v.berangkat()
+        assertEquals(LayarPengantaran.DalamPerjalanan, v.state.value.layar)
+        assertEquals(1, svc.mulai)
+    }
+}
+
+class PemulihanPengantaranTest {
+    @Test
+    fun driverDenganPerjalananBerjalanDibukaOtomatis() = runTest {
+        val berjalan = PerjalananUi("p1", "2026-10-27T02:40:00Z", Pengaturan(), emptyList())
+        assertTrue(PemulihanPengantaran.perluDibuka("driver") { berjalan })
+        assertFalse(PemulihanPengantaran.perluDibuka("driver") { null })
+        assertFalse(PemulihanPengantaran.perluDibuka("kitchen") { berjalan })
+        assertFalse(PemulihanPengantaran.perluDibuka("driver") { throw java.io.IOException("offline") })
     }
 }

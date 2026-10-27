@@ -115,6 +115,13 @@ class PengantaranViewModel(
             _state.update { it.copy(layar = LayarPengantaran.DalamPerjalanan, perjalanan = aktif, dipilih = emptySet()) }
             service.mulai(aktif.pengaturan, aktif.tibaCount(), aktif.stops.size)
         } catch (e: Exception) {
+            // Perjalanan mungkin sudah tercipta di server (mis. hanya pemuatan ulang yang gagal).
+            val sudahBerjalan = runCatching { api.perjalananAktif() }.getOrNull()
+            if (sudahBerjalan != null) {
+                _state.update { it.copy(layar = LayarPengantaran.DalamPerjalanan, perjalanan = sudahBerjalan, dipilih = emptySet(), pesan = null) }
+                service.mulai(sudahBerjalan.pengaturan, sudahBerjalan.tibaCount(), sudahBerjalan.stops.size)
+                return
+            }
             // Daftar dimuat ulang: SJ yang sudah dibawa orang lain hilang dari urutan.
             val siap = runCatching { api.sjSiap() }.getOrDefault(_state.value.sjSiap)
             _state.update {
@@ -130,7 +137,25 @@ class PengantaranViewModel(
         }
     }
 
-    suspend fun tiba(stopId: String) = aman {
+    /** Setelah galat aksi perjalanan: tampilkan keadaan server terbaru (bisa sudah tertutup). */
+    private suspend fun segarkanSetelahGalat() {
+        if (_state.value.pesan == null) return
+        val aktif = runCatching { api.perjalananAktif() }.getOrElse { return }
+        if (aktif != null) {
+            _state.update { it.copy(perjalanan = aktif) }
+            service.perbarui(aktif.tibaCount(), aktif.stops.size)
+        } else {
+            service.hentikan()
+            _state.update { it.copy(layar = LayarPengantaran.Ringkasan, perjalanan = null, konfirmasiSelesai = false) }
+        }
+    }
+
+    suspend fun tiba(stopId: String) {
+        tibaInti(stopId)
+        segarkanSetelahGalat()
+    }
+
+    private suspend fun tibaInti(stopId: String) = aman {
         val pos = lokasi.posisi() ?: throw IllegalStateException("Lokasi belum didapat. Pastikan GPS menyala.")
         val hasil = api.tandaiTiba(stopId, pos.lat, pos.lng, pos.akurasiM)
         if (hasil.statusPerjalanan != "berjalan") {
@@ -144,7 +169,12 @@ class PengantaranViewModel(
     }
 
     /** Ubah urutan stop yang masih menunggu (indeks di daftar menunggu). */
-    suspend fun pindahBerjalan(dari: Int, ke: Int) = aman {
+    suspend fun pindahBerjalan(dari: Int, ke: Int) {
+        pindahBerjalanInti(dari, ke)
+        segarkanSetelahGalat()
+    }
+
+    private suspend fun pindahBerjalanInti(dari: Int, ke: Int) = aman {
         val p = _state.value.perjalanan ?: return@aman
         val menunggu = p.stops.filter { it.status == "menunggu" }.toMutableList()
         if (dari !in menunggu.indices || ke !in menunggu.indices) return@aman
@@ -160,10 +190,27 @@ class PengantaranViewModel(
 
     fun batalSelesaikan() = _state.update { it.copy(konfirmasiSelesai = false) }
 
-    suspend fun selesaikan() = aman {
+    suspend fun selesaikan() {
+        selesaikanInti()
+        segarkanSetelahGalat()
+    }
+
+    private suspend fun selesaikanInti() = aman {
         val p = _state.value.perjalanan ?: return@aman
         val r = api.selesaikan(p.id)
         service.hentikan()
         _state.update { it.copy(layar = LayarPengantaran.Ringkasan, perjalanan = null, ringkasan = r, konfirmasiSelesai = false) }
+    }
+}
+
+/**
+ * Saat app dibuka (termasuk setelah proses dimatikan), driver yang masih punya
+ * perjalanan berjalan langsung diarahkan ke layar Pengantaran agar service
+ * lokasi menyala lagi. Galat jaringan = tidak memaksa (driver bisa buka manual).
+ */
+object PemulihanPengantaran {
+    suspend fun perluDibuka(role: String?, perjalananAktif: suspend () -> PerjalananUi?): Boolean {
+        if (role !in com.sukashawarma.superapp.data.Roles.PENGANTARAN) return false
+        return runCatching { perjalananAktif() }.getOrNull() != null
     }
 }

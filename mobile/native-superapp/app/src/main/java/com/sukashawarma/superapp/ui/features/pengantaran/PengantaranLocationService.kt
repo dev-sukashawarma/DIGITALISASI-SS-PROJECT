@@ -62,7 +62,14 @@ class PengantaranLocationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        // Tanpa intent = restart sistem di latar belakang. Android 14+ melarang
+        // FGS lokasi dimulai dari latar tanpa izin lokasi latar; pemulihan
+        // diserahkan ke app saat dibuka (PemulihanPengantaran).
+        if (intent == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        when (intent.action) {
             AKSI_HENTIKAN -> {
                 berhenti()
                 return START_NOT_STICKY
@@ -71,22 +78,24 @@ class PengantaranLocationService : Service() {
                 tiba = intent.getIntExtra(EXTRA_TIBA, tiba)
                 total = intent.getIntExtra(EXTRA_TOTAL, total)
                 tampilkanNotifikasi()
-                return START_STICKY
+                return START_NOT_STICKY
             }
         }
         filter.pengaturan = Pengaturan(
-            intervalDetik = intent?.getIntExtra(EXTRA_INTERVAL, 30) ?: 30,
-            jarakMinM = intent?.getIntExtra(EXTRA_JARAK, 100) ?: 100,
+            intervalDetik = intent.getIntExtra(EXTRA_INTERVAL, 30),
+            jarakMinM = intent.getIntExtra(EXTRA_JARAK, 100),
         )
-        tiba = intent?.getIntExtra(EXTRA_TIBA, 0) ?: 0
-        total = intent?.getIntExtra(EXTRA_TOTAL, 0) ?: 0
-        tampilkanNotifikasi()
+        tiba = intent.getIntExtra(EXTRA_TIBA, 0)
+        total = intent.getIntExtra(EXTRA_TOTAL, 0)
+        if (!tampilkanNotifikasi()) return START_NOT_STICKY
         mulaiLokasi()
         _status.value = _status.value.copy(aktif = true, menunggu = antrean.jumlah())
-        return START_STICKY
+        kirim() // sisa antrean dari perjalanan/proses sebelumnya
+        return START_NOT_STICKY
     }
 
-    private fun tampilkanNotifikasi() {
+    /** false bila sistem menolak foreground service (mis. izin dicabut) — service dihentikan. */
+    private fun tampilkanNotifikasi(): Boolean {
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(NotificationChannel(KANAL, "Pengantaran", NotificationManager.IMPORTANCE_LOW))
@@ -101,10 +110,17 @@ class PengantaranLocationService : Service() {
             .setOngoing(true)
             .setContentIntent(buka)
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(ID_NOTIF, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-        } else {
-            startForeground(ID_NOTIF, notif)
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(ID_NOTIF, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            } else {
+                startForeground(ID_NOTIF, notif)
+            }
+            true
+        } catch (e: Exception) {
+            _status.value = _status.value.copy(aktif = false)
+            stopSelf()
+            false
         }
     }
 

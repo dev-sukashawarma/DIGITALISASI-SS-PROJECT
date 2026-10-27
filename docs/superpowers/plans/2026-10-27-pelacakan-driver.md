@@ -184,7 +184,6 @@ git commit -m "feat(db): skema pelacakan driver + tutup update SJ oleh driver"
   - `kesegaranLokasi(diterimaAt: string, now: Date): { detik: number; nada: 'ok'|'peringatan'|'buruk'; teks: string }` (ambang Global Constraints; teks `"diperbarui 20 dtk lalu"` / `"… 5 mnt lalu"`).
   - `kalimatOutlet(s: StatusAntarSj): string | null` — `dilacak=false` → `null`; menunggu → `"Sedang diantar oleh Adam · berangkat 09:40 · 2 outlet lagi sebelum outletmu"` (0 → `"outletmu berikutnya"`); tiba → `"Tiba 10:12"` (+ `" (dicatat dari verifikasi)"` untuk sumber outlet); tidak_ditandai/dibatalkan → `null`.
   - `usePerjalananAktif()` → `{ perjalanan: (PerjalananRow & { stops: StopRow[]; driver_name: string; terkini: LokasiTerkiniRow|null })[], loading }` dengan `useRealtimeInvalidate` channel `distribusi-pelacakan` untuk `driver_lokasi_terkini` + `driver_perjalanan` + `driver_perjalanan_stop`; `useRiwayatPerjalanan(tanggal: string)`; `useJejakPerjalanan(perjalananId: string|null)`; `useStatusAntarSj(sjId: string|null)` (refetchInterval 60 000).
-  - Catatan: `driver_perjalanan` & `driver_perjalanan_stop` perlu ditambahkan ke publikasi realtime di Task 1 jika hook ini berlangganan — **tambahkan ke migration Task 1** (bukan jejak).
 
 - [ ] **Step 1: Tes** `statusStop.test.ts` untuk setiap cabang di atas, termasuk jarak NULL (Review Focus 5), 499 m vs 501 m, kesegaran 119/120/600/601 dtk, `outlet_sebelum` 0 dan 2.
 - [ ] **Step 2: Jalankan** — FAIL.

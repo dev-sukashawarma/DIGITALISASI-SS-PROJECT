@@ -38,6 +38,7 @@ import { Skeleton } from '@suka/design-system'
 import { downloadSuratJalanExcel } from '@/utils/generateSuratJalanExcel'
 import { toast } from 'sonner'
 import { CustomDateFilter, CustomDateRange } from './CustomDateFilter'
+import { bisaBuatSj, bisaLihatSemuaSj } from '@/lib/peran'
 
 function FormattedDate({ iso, showTime }: { iso: string | null | undefined; showTime?: boolean }) {
   const dateText = useFormattedDate(iso, {
@@ -99,8 +100,8 @@ export function SuratJalanList() {
   useDistribusiRealtime()
   const { data = [], loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter, customRange)
 
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(outletStaff?.role || '')
-  const canCreateSJ = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
+  const isPusat = bisaLihatSemuaSj(outletStaff?.role)
+  const canCreateSJ = bisaBuatSj(outletStaff?.role)
   const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner', 'developer'].includes(outletStaff?.role || '')
 
   // Discrepancy & Selisih count

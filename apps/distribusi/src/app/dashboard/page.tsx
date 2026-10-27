@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { CustomDateFilter, CustomDateRange, formatRangeLabel } from '@/components/distribusi/CustomDateFilter'
 import { useQueryClient } from '@tanstack/react-query'
+import { bisaBuatSj, bisaLihatSemuaSj, isDriver } from '@/lib/peran'
 import { toast } from 'sonner'
 
 type DateRange = 'all' | 'today' | '7days' | '30days' | 'custom'
@@ -91,7 +92,10 @@ export default function DashboardPage() {
   }
 
   const queryClient = useQueryClient()
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(outletStaff?.role || '')
+  // Tampilan pusat (semua outlet). Driver ikut melihat, tapi tanpa aksi pusat.
+  const isPusat = bisaLihatSemuaSj(outletStaff?.role)
+  const canCreateSJ = bisaBuatSj(outletStaff?.role)
+  const driver = isDriver(outletStaff?.role)
   const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner', 'developer'].includes(outletStaff?.role || '')
 
   // Cancel Modal State
@@ -526,7 +530,7 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {isPusat ? (
+              {driver ? null : canCreateSJ ? (
                 <button
                   onClick={() => router.push('/distribusi/surat-jalan/new')}
                   className="px-5 py-3 bg-white hover:bg-amber-50 text-suka-brown font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"

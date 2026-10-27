@@ -37,7 +37,8 @@ export function SignatureFlow({
   const [signing, setSigning] = useState(false)
   const [sending, setSending] = useState(false)
   const [kitchenStaff, setKitchenStaff] = useState<string[]>([])
-  const [allStaff, setAllStaff] = useState<string[]>([])
+  // Supir internal = akun ber-role driver (bukan semua staf).
+  const [driverStaff, setDriverStaff] = useState<string[]>([])
   const [driverType, setDriverType] = useState<'internal' | 'external'>('internal')
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export function SignatureFlow({
 
       if (data) {
         setKitchenStaff(data.filter((d) => d.role === 'kitchen').map((d) => d.name))
-        setAllStaff(data.map((d) => d.name))
+        setDriverStaff(data.filter((d) => d.role === 'driver').map((d) => d.name))
       }
     }
     fetchStaff()
@@ -73,6 +74,13 @@ export function SignatureFlow({
       }
     }
   }, [signatures, hasAdmin, hasSupir])
+
+  // Hanya satu driver aktif → nama supir internal terisi otomatis.
+  useEffect(() => {
+    if (role === 'Supir' && driverType === 'internal' && !signedBy && driverStaff.length === 1) {
+      setSignedBy(driverStaff[0])
+    }
+  }, [role, driverType, signedBy, driverStaff])
 
   const handleSign = async (imgToUse?: string) => {
     const finalImg = imgToUse || signatureImage
@@ -328,7 +336,7 @@ export function SignatureFlow({
                       <option value="" disabled>
                         -- Pilih Nama Supir Internal --
                       </option>
-                      {allStaff.map((name) => (
+                      {driverStaff.map((name) => (
                         <option key={name} value={name}>
                           {name}
                         </option>

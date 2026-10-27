@@ -37,6 +37,7 @@ import {
 } from 'lucide-react'
 
 import { toast } from 'sonner'
+import { bisaLihatSemuaSj, isDriver } from '@/lib/peran'
 
 interface SaldoVendor {
   bahan_baku_id: string
@@ -262,9 +263,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
   }
 
   useEffect(() => {
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(
-      outletStaff?.role || ''
-    )
+    const isPusat = bisaLihatSemuaSj(outletStaff?.role)
     const isSentOrCompleted = data ? ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status) : false
     const hideQR = !isPusat || !isSentOrCompleted
 
@@ -324,9 +323,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   const handleDownloadPDF = async () => {
     if (!data) return
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(
-      outletStaff?.role || ''
-    )
+    const isPusat = bisaLihatSemuaSj(outletStaff?.role)
     const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
     const hideQR = !isPusat || !isSentOrCompleted
 
@@ -359,9 +356,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   const handlePrintDotMatrix = async (copies = 1) => {
     if (!data) return
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(
-      outletStaff?.role || ''
-    )
+    const isPusat = bisaLihatSemuaSj(outletStaff?.role)
     const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
     const hideQR = !isPusat || !isSentOrCompleted
     try {
@@ -599,7 +594,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </button>
           )}
 
-          {!isPusatSender && (data.status === 'dikirim' || data.status === 'dikirim_lengkap') && (
+          {!isPusatSender && !isDriver(outletStaff?.role) && (data.status === 'dikirim' || data.status === 'dikirim_lengkap') && (
             <button
               onClick={() => router.push(`/distribusi/terima/${id}`)}
               className="px-4 py-2 bg-gradient-to-r from-suka-orange to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md shadow-suka-orange/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"

@@ -5,6 +5,7 @@ import { useAuth } from '@suka/auth'
 import { getCrossAppUrl } from '@/lib/navigation'
 
 import { LayoutDashboard, FilePlus2, History, QrCode, Truck } from 'lucide-react'
+import { isDriver as cekDriver, isPusatSender } from '@/lib/peran'
 
 interface BottomNavProps {
   activeTab: 'dashboard' | 'terima' | 'riwayat' | 'surat-jalan' | 'pengiriman' | 'scan' | 'none'
@@ -16,8 +17,8 @@ export function BottomNav({ activeTab }: BottomNavProps) {
 
   if (loading || !outletStaff) return null
 
-  const isDriver = outletStaff.role === 'driver'
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'purchasing', 'developer', 'driver'].includes(outletStaff.role)
+  const isDriver = cekDriver(outletStaff.role)
+  const isPusat = isPusatSender(outletStaff.role) || isDriver
 
   const handleNavigate = (path: string) => {
     const resolvedUrl = getCrossAppUrl(path)

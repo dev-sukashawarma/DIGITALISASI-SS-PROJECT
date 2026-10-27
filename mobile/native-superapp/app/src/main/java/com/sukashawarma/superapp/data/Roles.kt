@@ -11,8 +11,11 @@ object Roles {
     /** Boleh absen wajah 1:1 di HP pribadi. */
     val ATTENDANCE = setOf(
         "crew", "kasir", "kitchen", "spv", "leader", "korlap",
-        "area_manager", "regional_manager", "admin_hr", "admin", "owner"
+        "area_manager", "regional_manager", "admin_hr", "admin", "owner", "driver"
     )
+
+    /** Pengantaran surat jalan + pelacakan GPS selama perjalanan. */
+    val PENGANTARAN = setOf("driver")
 
     /** Boleh mendaftarkan/re-enroll wajah crew: leader, admin, area_manager, regional_manager, admin_hr, owner, spv, korlap */
     val ENROLLMENT = setOf(

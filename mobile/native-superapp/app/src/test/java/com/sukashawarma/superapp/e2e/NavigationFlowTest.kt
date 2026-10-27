@@ -35,6 +35,15 @@ class NavigationFlowTest {
         })
     }
 
+    @Test
+    fun testPengantaran_HanyaDriver() {
+        loginUser()
+        val driver = Staff("4", "Adam Driver", "driver", "outlet_1")
+        assertTrue(navManager.navigateTo(Screen.Pengantaran, driver))
+        assertFalse(navManager.navigateTo(Screen.Pengantaran, defaultKitchen))
+        assertFalse(navManager.navigateTo(Screen.Pengantaran, defaultAdmin))
+    }
+
     // --- TIER 1: Feature Coverage (5 tests) ---
 
     @Test

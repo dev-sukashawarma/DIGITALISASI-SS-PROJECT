@@ -105,6 +105,7 @@ fun MainShell(
                         "Enrollment" -> Screen.Enroll
                         "Setting Absensi" -> Screen.AttendanceSettings
                         "Kalibrasi Wajah" -> Screen.FaceDebug
+                        "Pengantaran" -> Screen.Pengantaran
                         else -> null
                     }
                     if (target != null && navigationManager.navigateTo(target, currentStaff)) {
@@ -150,6 +151,9 @@ fun MainShell(
                     currentStaff = currentStaff,
                     onBack = { navController.popBackStack() }
                 )
+            }
+            composable(Screen.Pengantaran.route) {
+                com.sukashawarma.superapp.ui.features.pengantaran.PengantaranScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.FaceDebug.route) {
                 com.sukashawarma.superapp.ui.features.facedebug.FaceDebugScreen(onBackClick = { navController.popBackStack() })

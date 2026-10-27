@@ -44,3 +44,49 @@ export const MARCOM_EXPENSE_CATEGORIES: Record<string, string> = {
   HPP_MENU: 'HPP Menu (Complimentary KOL)',
   LAINNYA: 'Pengeluaran Marcom Lainnya',
 }
+
+
+/**
+ * Mengurai string receipt_url (bisa URL tunggal, JSON array string, atau pemisah koma/newline)
+ * menjadi array URL string yang bersih.
+ */
+export function parseReceiptUrls(raw?: string | null): string[] {
+  if (!raw || typeof raw !== 'string') return []
+  const trimmed = raw.trim()
+  if (!trimmed) return []
+
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+          .map((u) => u.trim())
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  if (trimmed.includes('\n')) {
+    return trimmed.split('\n').map((u) => u.trim()).filter(Boolean)
+  }
+  if (trimmed.includes(',')) {
+    return trimmed.split(',').map((u) => u.trim()).filter(Boolean)
+  }
+
+  return [trimmed]
+}
+
+/**
+ * Menyimpan array URL ke bentuk string.
+ * Jika kosong: null
+ * Jika 1 URL: simpan sebagai string URL langsung (kompatibel penuh dengan sistem lama)
+ * Jika > 1 URL: simpan sebagai JSON string array: ["url1", "url2"]
+ */
+export function serializeReceiptUrls(urls: string[]): string | null {
+  const cleaned = urls.map((u) => u?.trim()).filter((u): u is string => !!u)
+  if (cleaned.length === 0) return null
+  if (cleaned.length === 1) return cleaned[0]
+  return JSON.stringify(cleaned)
+}

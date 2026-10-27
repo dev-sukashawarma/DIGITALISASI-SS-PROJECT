@@ -2027,7 +2027,19 @@ export default function InputPengeluaranPage() {
                             className="inline-flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-2.5 py-1 rounded-lg text-[10px] border border-emerald-200 transition-colors cursor-pointer shadow-2xs"
                           >
                             <Eye size={12} />
-                            <span>Lihat Nota</span>
+                            <span>
+                              {(() => {
+                                if (tx.receipt_url?.startsWith('[')) {
+                                  try {
+                                    const parsed = JSON.parse(tx.receipt_url)
+                                    if (Array.isArray(parsed) && parsed.length > 1) {
+                                      return `${parsed.length} Nota`
+                                    }
+                                  } catch {}
+                                }
+                                return 'Lihat Nota'
+                              })()}
+                            </span>
                           </button>
                         ) : (
                           <span className="text-[10px] text-gray-400 italic">-</span>
@@ -2095,12 +2107,30 @@ export default function InputPengeluaranPage() {
                 <X size={18} />
               </button>
             </div>
-            <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 rounded-xl p-3 my-4 min-h-0">
-              <img
-                src={previewReceiptUrl}
-                alt="Bukti Nota"
-                className="max-h-[60vh] object-contain rounded-lg shadow-xs"
-              />
+            <div className="flex-1 overflow-auto bg-gray-50 rounded-xl p-3 my-4 min-h-0 space-y-4">
+              {(() => {
+                let urls = [previewReceiptUrl]
+                if (previewReceiptUrl.startsWith('[')) {
+                  try {
+                    const parsed = JSON.parse(previewReceiptUrl)
+                    if (Array.isArray(parsed) && parsed.length > 0) urls = parsed
+                  } catch {}
+                }
+                return urls.map((url, idx) => (
+                  <div key={idx} className="flex flex-col items-center justify-center">
+                    {urls.length > 1 && (
+                      <span className="text-xs font-bold text-gray-600 mb-1.5 self-start">
+                        Nota #${idx + 1}
+                      </span>
+                    )}
+                    <img
+                      src={url}
+                      alt={`Bukti Nota ${idx + 1}`}
+                      className="max-h-[55vh] object-contain rounded-lg shadow-xs"
+                    />
+                  </div>
+                ))
+              })()}
             </div>
             <div className="flex justify-end pt-2 border-t border-gray-100 shrink-0">
               <button

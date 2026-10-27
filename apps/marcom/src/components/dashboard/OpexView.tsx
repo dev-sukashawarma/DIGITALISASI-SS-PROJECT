@@ -26,6 +26,7 @@ import {
   Camera,
   Loader2,
   UploadCloud,
+  X,
 } from 'lucide-react'
 import {
   getOpexData,
@@ -40,6 +41,8 @@ import {
   type OpexSummary,
   type OpexItem,
   MARCOM_EXPENSE_CATEGORIES,
+  parseReceiptUrls,
+  serializeReceiptUrls,
 } from '@/lib/opex-constants'
 
 interface OpexViewProps {
@@ -75,34 +78,64 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
   const [formAmount, setFormAmount] = useState<string>('')
   const [formDescription, setFormDescription] = useState<string>('')
   const [formPaymentSource, setFormPaymentSource] = useState<string>('transfer_pusat')
-  const [formReceiptUrl, setFormReceiptUrl] = useState<string>('')
+  const [formReceiptUrls, setFormReceiptUrls] = useState<string[]>([])
+  const [manualUrlInput, setManualUrlInput] = useState<string>('')
   const [formError, setFormError] = useState<string>('')
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const [uploadProgressText, setUploadProgressText] = useState('')
   const [showManualUrlInput, setShowManualUrlInput] = useState(false)
+  const [previewReceiptsModal, setPreviewReceiptsModal] = useState<{ title: string; urls: string[] } | null>(null)
 
   const handleReceiptFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
 
     setIsUploadingPhoto(true)
     setFormError('')
+    setUploadProgressText(
+      files.length > 1
+        ? `Mengompresi & mengunggah ${files.length} nota...`
+        : 'Mengompresi & mengunggah foto nota...'
+    )
 
     try {
-      const data = new FormData()
-      const compressedFile = await compressReceiptImage(file)
-      data.append('file', compressedFile)
-      const res = await uploadOpexReceipt(data)
-      if (res?.error) {
-        setFormError(res.error)
-      } else if (res?.url) {
-        setFormReceiptUrl(res.url)
+      const newUrls: string[] = []
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        if (files.length > 1) {
+          setUploadProgressText(`Mengunggah nota ${i + 1} dari ${files.length}...`)
+        }
+        const compressedFile = await compressReceiptImage(file)
+        const data = new FormData()
+        data.append('file', compressedFile)
+        const res = await uploadOpexReceipt(data)
+        if (res?.error) {
+          setFormError(res.error)
+        } else if (res?.url) {
+          newUrls.push(res.url)
+        }
+      }
+      if (newUrls.length > 0) {
+        setFormReceiptUrls((prev) => [...prev, ...newUrls])
       }
     } catch (err: any) {
       setFormError(err?.message || 'Gagal mengunggah foto nota')
     } finally {
       setIsUploadingPhoto(false)
+      setUploadProgressText('')
       e.target.value = ''
     }
+  }
+
+  const handleAddManualUrl = () => {
+    const trimmed = manualUrlInput.trim()
+    if (!trimmed) return
+    setFormReceiptUrls((prev) => [...prev, trimmed])
+    setManualUrlInput('')
+  }
+
+  const handleRemoveReceipt = (idxToRemove: number) => {
+    setFormReceiptUrls((prev) => prev.filter((_, idx) => idx !== idxToRemove))
   }
 
   const formatRupiah = (val: number) => {
@@ -143,8 +176,10 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
     setFormAmount('')
     setFormDescription('')
     setFormPaymentSource('transfer_pusat')
-    setFormReceiptUrl('')
+    setFormReceiptUrls([])
+    setManualUrlInput('')
     setIsUploadingPhoto(false)
+    setUploadProgressText('')
     setShowManualUrlInput(false)
     setFormError('')
     setIsModalOpen(true)
@@ -158,9 +193,12 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
     setFormAmount(item.amount.toString())
     setFormDescription(item.description)
     setFormPaymentSource(item.paymentSource)
-    setFormReceiptUrl(item.receiptUrl || '')
+    const urls = parseReceiptUrls(item.receiptUrl)
+    setFormReceiptUrls(urls)
+    setManualUrlInput('')
     setIsUploadingPhoto(false)
-    setShowManualUrlInput(!!item.receiptUrl && !item.receiptUrl.includes('supabase.co'))
+    setUploadProgressText('')
+    setShowManualUrlInput(urls.some((u: string) => !u.includes('supabase.co')))
     setFormError('')
     setIsModalOpen(true)
   }
@@ -168,6 +206,8 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
   const handleSaveExpense = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError('')
+
+    const serializedReceiptUrl = serializeReceiptUrls(formReceiptUrls)
 
     const formData = new FormData()
     if (editingItem) {
@@ -181,7 +221,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
       formData.append('amount', formAmount)
       formData.append('description', formDescription)
       formData.append('paymentSource', formPaymentSource)
-      if (formReceiptUrl) formData.append('receiptUrl', formReceiptUrl)
+      if (serializedReceiptUrl) formData.append('receiptUrl', serializedReceiptUrl)
     } else {
       formData.append('expenseDate', formDate)
       formData.append('outletId', formOutletId)
@@ -189,7 +229,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
       formData.append('amount', formAmount)
       formData.append('description', formDescription)
       formData.append('paymentSource', formPaymentSource)
-      if (formReceiptUrl) formData.append('receiptUrl', formReceiptUrl)
+      if (serializedReceiptUrl) formData.append('receiptUrl', serializedReceiptUrl)
     }
 
     startTransition(async () => {
@@ -623,22 +663,42 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                     </td>
 
                     {/* Keterangan */}
-                    <td className="py-3 px-3.5 max-w-xs truncate text-stone-800" title={item.description}>
-                      {item.description}
-                      {item.receiptUrl && (
-                        <a
-                          href={item.receiptUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-0.5 text-[#D9480F] hover:underline ml-1.5"
-                        >
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#D9480F] bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-200/80 hover:bg-orange-100 transition-colors">
-                            <Camera className="w-2.5 h-2.5 shrink-0" />
-                            <span>Foto Nota</span>
-                            <ExternalLink className="w-2 h-2 shrink-0" />
-                          </span>
-                        </a>
-                      )}
+                    <td className="py-3 px-3.5 max-w-xs text-stone-800" title={item.description}>
+                      <span className="truncate inline-block max-w-[200px] align-middle">{item.description}</span>
+                      {item.receiptUrl && (() => {
+                        const urls = parseReceiptUrls(item.receiptUrl)
+                        if (urls.length === 0) return null
+                        if (urls.length === 1) {
+                          return (
+                            <a
+                              href={urls[0]}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-0.5 text-[#D9480F] hover:underline ml-1.5 align-middle"
+                            >
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#D9480F] bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-200/80 hover:bg-orange-100 transition-colors">
+                                <Camera className="w-2.5 h-2.5 shrink-0" />
+                                <span>Foto Nota</span>
+                                <ExternalLink className="w-2 h-2 shrink-0" />
+                              </span>
+                            </a>
+                          )
+                        }
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewReceiptsModal({ title: item.description, urls })}
+                            className="inline-flex items-center gap-0.5 text-[#D9480F] hover:underline ml-1.5 align-middle cursor-pointer"
+                            title="Klik untuk melihat semua foto nota"
+                          >
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#D9480F] bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/80 hover:bg-orange-100 transition-colors">
+                              <Camera className="w-2.5 h-2.5 shrink-0" />
+                              <span>{urls.length} Foto Nota</span>
+                              <ExternalLink className="w-2 h-2 shrink-0" />
+                            </span>
+                          </button>
+                        )
+                      })()}
                     </td>
 
                     {/* Metode Pembayaran */}
@@ -925,76 +985,106 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
 
               {/* Foto Bukti / Nota Struk */}
               {(!editingItem || editingItem.source === 'MANUAL' || editingItem.source === 'ADS') && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block font-semibold text-stone-700">
-                      Foto Bukti / Nota Struk
+                      Foto Bukti / Nota Struk {formReceiptUrls.length > 0 && `(${formReceiptUrls.length} Nota)`}
                     </label>
                     <button
                       type="button"
                       onClick={() => setShowManualUrlInput(!showManualUrlInput)}
                       className="text-[11px] text-stone-400 hover:text-[#D9480F] transition-colors underline cursor-pointer"
                     >
-                      {showManualUrlInput ? 'Sembunyikan Link Manual' : 'Input Link Manual'}
+                      {showManualUrlInput ? 'Sembunyikan Link Manual' : '+ Input Link Manual'}
                     </button>
                   </div>
 
-                  {formReceiptUrl ? (
-                    <div className="p-3 border border-[#EFE8DE] bg-[#FAF8F5] rounded-xl flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {formReceiptUrl.toLowerCase().includes('.pdf') ? (
-                          <div className="w-12 h-12 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
-                            <FileText className="w-6 h-6" />
-                          </div>
-                        ) : (
-                          <img
-                            src={formReceiptUrl}
-                            alt="Bukti Nota"
-                            className="w-12 h-12 rounded-lg object-cover border border-[#EFE8DE] bg-white shrink-0"
-                            onError={(e) => {
-                              (e.currentTarget as any).style.display = 'none';
-                            }}
-                          />
-                        )}
-                        <div className="min-w-0">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3" /> Bukti Terlampir
-                          </span>
-                          <div>
-                            <a
-                              href={formReceiptUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[11px] text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold mt-0.5 truncate max-w-[200px]"
+                  {/* Daftar Nota yang Sudah Terlampir */}
+                  {formReceiptUrls.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                        {formReceiptUrls.map((url, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2.5 border border-[#EFE8DE] bg-[#FAF8F5] rounded-xl flex items-center justify-between gap-2.5 shadow-2xs"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {url.toLowerCase().includes('.pdf') ? (
+                                <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                                  <FileText className="w-5 h-5" />
+                                </div>
+                              ) : (
+                                <img
+                                  src={url}
+                                  alt={`Nota ${idx + 1}`}
+                                  className="w-10 h-10 rounded-lg object-cover border border-[#EFE8DE] bg-white shrink-0"
+                                  onError={(e) => {
+                                    (e.currentTarget as any).style.display = 'none'
+                                  }}
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-200">
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> Nota #${idx + 1}
+                                </span>
+                                <div>
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[11px] text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold mt-0.5 truncate max-w-[130px]"
+                                  >
+                                    Lihat Bukti <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveReceipt(idx)}
+                              className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                              title={`Hapus Nota #${idx + 1}`}
                             >
-                              Lihat Foto Bukti <ExternalLink className="w-3 h-3 shrink-0" />
-                            </a>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        </div>
+                        ))}
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <label className="px-2.5 py-1.5 bg-white border border-[#EFE8DE] hover:bg-stone-50 text-stone-700 rounded-lg text-xs font-semibold cursor-pointer transition-colors shadow-2xs">
-                          Ganti
-                          <input
-                            type="file"
-                            accept="image/*,application/pdf"
-                            className="hidden"
-                            disabled={isUploadingPhoto}
-                            onChange={handleReceiptFileChange}
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setFormReceiptUrl('')}
-                          className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="Hapus Bukti"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      {/* Tombol Tambah Nota Lainnya */}
+                      <label
+                        className={`w-full py-2.5 px-3 border border-dashed rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                          isUploadingPhoto
+                            ? 'border-[#D9480F] bg-orange-50/40 cursor-wait text-[#D9480F]'
+                            : 'border-orange-300 bg-orange-50/30 hover:bg-orange-50 text-[#D9480F] font-semibold text-xs'
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          disabled={isUploadingPhoto}
+                          onChange={handleReceiptFileChange}
+                        />
+                        {isUploadingPhoto ? (
+                          <div className="flex items-center gap-2 text-xs font-semibold">
+                            <Loader2 className="w-4 h-4 animate-spin text-[#D9480F]" />
+                            <span>{uploadProgressText || 'Mengunggah nota...'}</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Tambah Nota Lainnya (Bisa pilih multiple)</span>
+                          </>
+                        )}
+                      </label>
                     </div>
-                  ) : (
+                  )}
+
+                  {/* Dropzone Utama bila belum ada nota sama sekali */}
+                  {formReceiptUrls.length === 0 && (
                     <label
                       className={`relative border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                         isUploadingPhoto
@@ -1004,6 +1094,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                     >
                       <input
                         type="file"
+                        multiple
                         accept="image/*,application/pdf"
                         className="hidden"
                         disabled={isUploadingPhoto}
@@ -1012,7 +1103,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                       {isUploadingPhoto ? (
                         <div className="flex flex-col items-center gap-1.5 py-2">
                           <Loader2 className="w-6 h-6 text-[#D9480F] animate-spin" />
-                          <p className="text-xs font-bold text-stone-700">Mengompresi & mengunggah foto bukti...</p>
+                          <p className="text-xs font-bold text-stone-700">{uploadProgressText || 'Mengompresi & mengunggah foto bukti...'}</p>
                           <p className="text-[11px] text-stone-400">Menyimpan ke cloud storage...</p>
                         </div>
                       ) : (
@@ -1021,25 +1112,43 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                             <Camera className="w-5 h-5" />
                           </div>
                           <p className="text-xs font-bold text-stone-800">
-                            Ambil Foto atau Upload File Bukti Nota
+                            Upload Bukti Nota (Bisa pilih lebih dari 1 file)
                           </p>
                           <p className="text-[11px] text-stone-400">
-                            Format JPG, PNG, WEBP, atau PDF (maks. 10MB)
+                            Format JPG, PNG, WEBP, atau PDF (otomatis dikompres)
                           </p>
                         </div>
                       )}
                     </label>
                   )}
 
+                  {/* Form Input Manual URL */}
                   {showManualUrlInput && (
-                    <div className="mt-2 animate-in fade-in duration-150">
-                      <input
-                        type="url"
-                        placeholder="https://drive.google.com/... atau link foto bukti"
-                        value={formReceiptUrl}
-                        onChange={(e) => setFormReceiptUrl(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F] text-xs"
-                      />
+                    <div className="p-3 border border-[#EFE8DE] bg-[#FAF8F5] rounded-xl space-y-2 animate-in fade-in duration-150">
+                      <p className="text-[11px] font-semibold text-stone-600">Tambah Tautan Nota Manual (Google Drive / Link Cloud):</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          placeholder="https://drive.google.com/... atau link nota"
+                          value={manualUrlInput}
+                          onChange={(e) => setManualUrlInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleAddManualUrl()
+                            }
+                          }}
+                          className="flex-1 px-3 py-1.5 border border-[#EFE8DE] rounded-lg bg-white focus:outline-none focus:border-[#D9480F] text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddManualUrl}
+                          disabled={!manualUrlInput.trim()}
+                          className="px-3 py-1.5 bg-[#D9480F] hover:bg-[#B83808] disabled:opacity-50 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                        >
+                          Tambah
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1062,6 +1171,76 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Preview Semua Bukti Nota */}
+      {previewReceiptsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col p-5 sm:p-6 shadow-xl border border-stone-200 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3 shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-[#D9480F]" />
+                  Bukti Nota Struk (${previewReceiptsModal.urls.length} Nota)
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">
+                  {previewReceiptsModal.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewReceiptsModal(null)}
+                className="p-1 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-600 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 my-3 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {previewReceiptsModal.urls.map((url, idx) => (
+                  <div key={idx} className="border border-stone-200 rounded-xl overflow-hidden bg-stone-50 flex flex-col">
+                    <div className="p-2 bg-white border-b border-stone-100 flex items-center justify-between text-xs font-bold text-stone-700">
+                      <span>Nota #${idx + 1}</span>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold text-[11px]"
+                      >
+                        Buka Tab Baru <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <div className="p-2 flex items-center justify-center min-h-[160px] max-h-[260px] overflow-hidden">
+                      {url.toLowerCase().includes('.pdf') ? (
+                        <div className="flex flex-col items-center gap-2 py-6 text-stone-600">
+                          <FileText className="w-10 h-10 text-red-500" />
+                          <span className="text-xs font-semibold">Dokumen PDF</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={url}
+                          alt={`Nota ${idx + 1}`}
+                          className="max-h-[240px] w-full object-contain rounded-lg"
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-stone-100 shrink-0">
+              <button
+                type="button"
+                onClick={() => setPreviewReceiptsModal(null)}
+                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
   Plus,
@@ -43,6 +43,10 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useOutlets } from '@/hooks/useOutlets'
+import { useMitraInvestments } from '@/hooks/useMitraInvestments'
+import { mitraOutletIds } from '@/lib/outletOwnership'
+import { barisPayrollDariHr, gantiPayrollDenganHr, gajiRutinBulananKartu, adaDataHr } from '@/lib/opexDariHr'
+import { kartuClosingUntuk } from '@/lib/closing/targetKartuClosing'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
@@ -54,7 +58,6 @@ import { isExcludedOutlet } from '@/lib/outletFilters'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 import { BUKU_KAS_PARAMS } from '@/lib/bukuKasLink'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
-import { kartuClosingUntuk } from '@/lib/closing/targetKartuClosing'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -125,6 +128,9 @@ export default function BukuKasPage() {
   const paramFrom = searchParams.get(BUKU_KAS_PARAMS.from)
   const paramTo = searchParams.get(BUKU_KAS_PARAMS.to)
   const paramOutlet = searchParams.get(BUKU_KAS_PARAMS.outlet)
+  // Dari tautan "Lihat detail" kartu rincian OPEX Laba Rugi.
+  const paramSource = searchParams.get(BUKU_KAS_PARAMS.source)
+  const paramCategory = searchParams.get(BUKU_KAS_PARAMS.category)
 
   type PresetType = 'yesterday' | 'today' | 'last_7_days' | 'this_month' | 'last_month' | 'custom'
   const [activePreset, setActivePreset] = useState<PresetType>(() => {
@@ -174,7 +180,7 @@ export default function BukuKasPage() {
   const [editingTx, setEditingTx] = useState<any | null>(null)
 
   // Table filters & sorting
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => paramCategory || 'all')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -189,9 +195,24 @@ export default function BukuKasPage() {
   }
 
   const isPusat = target === 'PUSAT'
-  const isAllOutlets = target === 'ALL_OUTLETS'
+  // Kelompok outlet: Internal + Mitra = "Semua Outlet (Khusus Cabang)".
+  // Aturan mitra sama dengan Laba Rugi (lib/outletOwnership.ts).
+  // 'INTERNAL_PUSAT' = outlet internal + kantor pusat, cakupan yang sama dengan
+  // tab Laba Rugi Internal.
+  const sertakanPusat = target === 'INTERNAL_PUSAT'
+  const isGroupTarget = target === 'INTERNAL_OUTLETS' || target === 'MITRA_OUTLETS' || sertakanPusat
+  const isAllOutlets = target === 'ALL_OUTLETS' || isGroupTarget
+  const { investments: mitraInvestments } = useMitraInvestments()
+  const mitraIds = useMemo(() => mitraOutletIds(outlets as any, mitraInvestments), [outlets, mitraInvestments])
+  const inTargetGroup = useCallback((outletId: string | null | undefined) => {
+    if (!isGroupTarget) return true
+    const isMitra = !!outletId && mitraIds.has(outletId)
+    return target === 'MITRA_OUTLETS' ? isMitra : !isMitra
+  }, [isGroupTarget, target, mitraIds])
 
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'monthly' | 'petty_cash'>('all')
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'monthly' | 'petty_cash'>(
+    () => (paramSource === 'monthly' || paramSource === 'petty_cash' ? paramSource : 'all'),
+  )
 
   const filter = useMemo(() => ({
     from: startDate,
@@ -205,9 +226,15 @@ export default function BukuKasPage() {
   const hrPayrollFilter = useMemo(() => ({
     from: startDate,
     to: endDate,
-    outletId: target
-  }), [startDate, endDate, target])
-  const { data: hrPayroll } = useHRPayroll(hrPayrollFilter)
+    outletId: isGroupTarget ? 'ALL_OUTLETS' : target
+  }), [startDate, endDate, target, isGroupTarget])
+  const { data: hrPayrollData } = useHRPayroll(hrPayrollFilter)
+  // Ringkasan HR belum bisa dipecah Internal/Mitra; untuk dua pilihan itu kartu
+  // gaji & bonus memakai baris mesin Laba Rugi per outlet (lihat prorataBreakdown).
+  const hrPayroll = isGroupTarget ? undefined : hrPayrollData
+  // Gaji staf kantor pusat, hanya diambil untuk pilihan Internal + Kantor Pusat.
+  const hrPusatFilter = useMemo(() => ({ from: startDate, to: endDate, outletId: 'PUSAT' }), [startDate, endDate])
+  const { data: hrPusatData } = useHRPayroll(hrPusatFilter, sertakanPusat)
 
   // Prorata & Realtime OPEX Engine (Single Source of Truth selevel Tab Laba Rugi)
   const prorataFilter = useMemo(() => ({
@@ -220,7 +247,7 @@ export default function BukuKasPage() {
     rows: prorataExpenseRows,
     isProrated: isProratedOpex,
     monthInfo: prorataMonthInfo,
-    categoryBreakdown: prorataBreakdown,
+    categoryBreakdown: prorataBreakdownSemua,
     loading: prorataLoading,
   } = useProratedOpex({
     filter: prorataFilter,
@@ -228,6 +255,36 @@ export default function BukuKasPage() {
     outlets,
     enabled: true,
   })
+
+  const prorataBreakdown = useMemo(() => {
+    if (!isGroupTarget) return prorataBreakdownSemua
+    const info = calculateDateRangeProrata(startDate, endDate)
+    // Sumber yang sama dengan Laba Rugi: baris HR per outlet (jumlahnya = kartu
+    // "Semua Outlet"), dengan angka mesin prorata sebagai cadangan bila HR kosong.
+    const barisGrup = gantiPayrollDenganHr(prorataExpenseRows, barisPayrollDariHr({ hr: hrPayrollData, from: startDate, to: endDate }))
+    const jumlah = (...kategori: string[]) => barisGrup
+      .filter(r => r.scope === 'outlet' && kategori.includes(r.category) && inTargetGroup(r.outlet_id))
+      .reduce((s, r) => s + r.amount, 0)
+    const pos = (nominalProrata: number) => ({
+      nominalProrata,
+      nominalBulanan: info.isProrated && info.ratio > 0 ? Math.round(nominalProrata / info.ratio) : nominalProrata,
+      source: 'laba_rugi',
+    })
+    // Internal + Kantor Pusat: gaji rutin staf kantor ikut, dengan rumus kartu
+    // "Kantor Pusat (OPEX Pusat)" yang sama.
+    let gajiPusat = 0
+    if (sertakanPusat && adaDataHr(hrPusatData)) {
+      const bulanan = gajiRutinBulananKartu(hrPusatData, true)
+      gajiPusat = info.isProrated ? Math.round(bulanan * info.ratio) : bulanan
+    }
+    return {
+      ...prorataBreakdownSemua,
+      gaji_crew_outlet: pos(jumlah('gaji_crew_outlet') + gajiPusat),
+      bonus_crew: pos(jumlah('bonus_crew')),
+      bonus_area_manager: pos(jumlah('bonus_area_manager')),
+      bonus_regional_manager: pos(jumlah('bonus_regional_manager')),
+    }
+  }, [isGroupTarget, prorataBreakdownSemua, prorataExpenseRows, hrPayrollData, hrPusatData, sertakanPusat, inTargetGroup, startDate, endDate])
 
   // Manual refresh handler
   const handleRefresh = async () => {
@@ -280,19 +337,66 @@ export default function BukuKasPage() {
     }
   }, [supabase, queryClient])
 
+  // Sewa outlet = biaya TETAP (validasi Finance 14 Okt 2026): pada bulan berjalan
+  // dibebankan per hari, sama dengan Laba Rugi. Angka per outlet diambil dari
+  // mesin prorata yang sama (baris `prorata-sewa-<outlet>`), supaya kedua halaman
+  // tidak bisa berbeda. Bulan yang sudah lewat tidak tersentuh (map kosong).
+  const sewaProrata = useMemo(() => {
+    const m = new Map<string, number>()
+    if (!isProratedOpex) return m
+    prorataExpenseRows.forEach(r => {
+      if (String(r.id).startsWith('prorata-sewa-') && r.outlet_id) m.set(r.outlet_id, r.amount)
+    })
+    return m
+  }, [isProratedOpex, prorataExpenseRows])
+
   // Pure OPEX Expense Rows
   const allTransactions = useMemo(() => {
     let list: any[] = []
 
+    const adalahSewa = (c?: string | null) => { const k = (c || '').toLowerCase(); return k === 'sewa' || k === 'sewa_outlet' }
+    // Total sewa riil per outlet, untuk membagi angka prorata bila barisnya lebih dari satu.
+    const sewaRiil = new Map<string, number>()
     expenseRows.forEach(r => {
-      if (target === 'PUSAT' && r.scope === 'outlet') return
-      if (target === 'ALL_OUTLETS' && r.scope === 'pusat') return
-      if (target !== 'all' && target !== 'PUSAT' && target !== 'ALL_OUTLETS' && (r.scope === 'pusat' || r.outlet_id !== target)) return
-      
+      if (r.outlet_id && adalahSewa(r.category) && sewaProrata.has(r.outlet_id)) {
+        sewaRiil.set(r.outlet_id, (sewaRiil.get(r.outlet_id) ?? 0) + r.amount)
+      }
+    })
+    const lolosTarget = (r: { scope?: string; outlet_id?: string | null }) => {
+      if (target === 'PUSAT' && r.scope === 'outlet') return false
+      if (isAllOutlets && r.scope === 'pusat' && !sertakanPusat) return false
+      if (isGroupTarget && r.scope !== 'pusat' && !inTargetGroup(r.outlet_id)) return false
+      if (target !== 'all' && target !== 'PUSAT' && !isAllOutlets && (r.scope === 'pusat' || r.outlet_id !== target)) return false
+      return true
+    }
+    // Outlet tanpa input sewa bulan ini: mesin memakai nominal bulan lalu. Baris
+    // estimasinya ditampilkan juga di sini (tanpa tombol edit/hapus).
+    prorataExpenseRows.forEach(r => {
+      if (!String(r.id).startsWith('prorata-sewa-') || !r.outlet_id || !isProratedOpex) return
+      if ((sewaRiil.get(r.outlet_id) ?? 0) > 0 || !lolosTarget(r)) return
+      list.push({
+        id: r.id, date: r.expense_date, category: 'sewa_outlet', outlet_name: r.outlet_name ?? '-', outlet_id: r.outlet_id,
+        recipient_name: '-', division: '-', description: `${r.description} · estimasi dari nominal bulan lalu`,
+        amount: r.amount, type: 'expense', receipt_url: null, isTopup: false,
+        raw_description: r.description, raw_category: 'sewa_outlet', scope: r.scope, source: 'monthly', isLembur: false,
+        sintetis: true,
+      })
+    })
+
+    expenseRows.forEach(r => {
+      if (!lolosTarget(r)) return
+
       const isLembur = isLemburExpense(r.category, r.description)
       const effectiveCategory = isLembur ? 'lembur' : r.category
 
+      // Sewa bulan berjalan: tampilkan porsi yang sudah berjalan, simpan nominal aslinya.
+      const totalSewa = r.outlet_id && adalahSewa(r.category) ? (sewaRiil.get(r.outlet_id) ?? 0) : 0
+      const sewaBerjalan = totalSewa > 0
+        ? Math.round((sewaProrata.get(r.outlet_id as string) ?? 0) * (r.amount / totalSewa))
+        : null
+
       list.push({
+        ...(sewaBerjalan !== null ? { amount_asli: r.amount, description_asli: r.description } : {}),
         id: r.id,
         date: r.expense_date,
         category: effectiveCategory,
@@ -300,8 +404,10 @@ export default function BukuKasPage() {
         outlet_id: r.outlet_id,
         recipient_name: r.recipient_name ?? '-',
         division: r.division ?? (r.scope === 'pusat' ? 'General' : '-'),
-        description: r.description,
-        amount: r.amount,
+        description: sewaBerjalan !== null
+          ? `${r.description || 'Sewa outlet'} · dibebankan per hari (sebulan ${rupiah(r.amount)})`
+          : r.description,
+        amount: sewaBerjalan !== null ? sewaBerjalan : r.amount,
         type: 'expense',
         receipt_url: r.receipt_url || null,
         isTopup: false,
@@ -316,7 +422,7 @@ export default function BukuKasPage() {
     // Sort descending by date
     list.sort((a, b) => b.date.localeCompare(a.date))
     return list
-  }, [expenseRows, target])
+  }, [expenseRows, prorataExpenseRows, isProratedOpex, sewaProrata, target, isAllOutlets, isGroupTarget, sertakanPusat, inTargetGroup])
 
   // Summary OPEX calculation
   const summary = useMemo(() => {
@@ -666,12 +772,25 @@ export default function BukuKasPage() {
     return outlets.filter(o => !isExcludedOutlet(o))
   }, [outlets])
 
-  const selectOptions = useMemo(() => [
-    { label: 'Semua Unit (Cabang & Pusat)', value: 'all' },
-    { label: 'Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
-    ...(isAdmin ? [{ label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' }] : []),
-    ...validOutlets.map(o => ({ label: o.name, value: o.id }))
-  ], [isAdmin, validOutlets])
+  const selectOptions = useMemo(() => {
+    const outletMitra = validOutlets.filter(o => mitraIds.has(o.id))
+    const outletInternal = validOutlets.filter(o => !mitraIds.has(o.id))
+    // `groupLabel` menggambar garis pemisah berteks tepat di atas pilihan itu.
+    const berkelompok = (daftar: typeof validOutlets, judul: string) =>
+      daftar.map((o, i) => ({ label: o.name, value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
+    return [
+      { label: 'Semua Unit (Pusat & Outlet)', value: 'all' },
+      { label: 'Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
+      { label: 'Outlet Internal', value: 'INTERNAL_OUTLETS', indent: true },
+      { label: 'Outlet Mitra', value: 'MITRA_OUTLETS', indent: true },
+      ...(isAdmin ? [
+        { label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' },
+        { label: 'Internal + Kantor Pusat', value: 'INTERNAL_PUSAT' },
+      ] : []),
+      ...berkelompok(outletMitra, 'Mitra'),
+      ...berkelompok(outletInternal, 'Internal'),
+    ]
+  }, [isAdmin, validOutlets, mitraIds])
 
   const loading = expensesLoading
 
@@ -1148,7 +1267,6 @@ export default function BukuKasPage() {
         </div>
       )}
 
-      {/* SUMMARY STATS (PURE OPEX - DYNAMIC CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, LEMBUR KAS, OPERATIONAL, TOTAL) */}
       {(kartuClosing || closingKartu.catatan) && (
         <div className={`mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${kartuClosing ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
           {kartuClosing
@@ -1156,6 +1274,8 @@ export default function BukuKasPage() {
             : closingKartu.catatan}
         </div>
       )}
+
+      {/* SUMMARY STATS (PURE OPEX - DYNAMIC CARDS: ROUTINE SALARY, CREW BONUS, AM/RM BONUS, LEMBUR KAS, OPERATIONAL, TOTAL) */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${isPusat && displayCrewBonus === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3.5 sm:gap-4.5`}>
         {/* 1. Gaji & Payroll (Rutin) */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
@@ -1917,10 +2037,10 @@ export default function BukuKasPage() {
                         -{rupiah(tx.amount)}
                       </td>
                       <td className="px-3 py-3.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <div className={`flex items-center justify-center gap-1.5 ${tx.sintetis ? 'invisible' : ''}`}>
                           <button
                             type="button"
-                            onClick={() => setEditingTx(tx)}
+                            onClick={() => setEditingTx(tx.amount_asli != null ? { ...tx, amount: tx.amount_asli, description: tx.description_asli } : tx)}
                             title="Edit Transaksi OPEX"
                             className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer"
                           >

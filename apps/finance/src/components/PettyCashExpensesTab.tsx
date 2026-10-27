@@ -217,7 +217,13 @@ export default function PettyCashExpensesTab() {
       case 'bb':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-            Bahan Baku
+            Bahan Baku Lainnya
+          </span>
+        )
+      case 'gas':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-orange-50 text-orange-800 border border-orange-200">
+            Gas
           </span>
         )
       case 'operasional':

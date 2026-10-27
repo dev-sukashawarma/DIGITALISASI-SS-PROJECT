@@ -48,3 +48,9 @@ export async function requireRole(
 
   return { userId, role: staff.role }
 }
+
+/**
+ * Peran yang diberi menu keuangan di apps/finance (Buku Kas, EOM, Rekap Bulanan).
+ * `developer` otomatis lolos requireRole.
+ */
+export const PERAN_KEUANGAN = ['admin_finance', 'admin', 'owner']

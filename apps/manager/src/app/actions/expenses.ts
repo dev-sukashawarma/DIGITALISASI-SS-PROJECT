@@ -104,7 +104,7 @@ export async function getExpensesAction(filter: FilterPengeluaran) {
         .not('category', 'in', sensitiveCategoriesStr)
         .in('category', [
           'bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities',
-          'transport', 'pln', 'pdam', 'internet', 'lembur', 'endorsement'
+          'transport', 'pln', 'pdam', 'gas', 'internet', 'lembur', 'endorsement'
         ])
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)

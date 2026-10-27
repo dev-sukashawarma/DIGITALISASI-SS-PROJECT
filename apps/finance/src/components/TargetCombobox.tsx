@@ -7,6 +7,10 @@ export interface TargetOption {
   value: string
   label: string
   icon?: React.ReactNode
+  /** Tampilkan menjorok ke dalam (sub-pilihan dari pilihan di atasnya). */
+  indent?: boolean
+  /** Garis pemisah dengan teks di tengah, digambar tepat di atas pilihan ini. */
+  groupLabel?: string
 }
 
 interface TargetComboboxProps {
@@ -15,7 +19,8 @@ interface TargetComboboxProps {
   onChange: (val: string) => void
   placeholder?: string
   className?: string
-  icon?: React.ReactNode | null
+  /** Lewatkan `null` untuk tampil tanpa ikon (padding kiri ikut menyesuaikan). */
+  icon?: React.ReactNode
 }
 
 export function TargetCombobox({
@@ -39,6 +44,8 @@ export function TargetCombobox({
 
   const selectedOption = options.find((o) => o.value === value)
   const selectedLabel = selectedOption?.label ?? placeholder
+  const leadingIcon = selectedOption?.icon ?? icon
+  const hasIcon = leadingIcon != null
 
   useEffect(() => {
     if (!open) return
@@ -66,18 +73,16 @@ export function TargetCombobox({
     }
   }, [open])
 
-  const currentIcon = selectedOption?.icon !== undefined ? selectedOption.icon : icon
-
   return (
     <div ref={rootRef} className={`relative w-full sm:w-auto ${className}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full sm:w-auto flex items-center gap-2 ${currentIcon ? 'pl-9' : 'pl-3.5'} pr-8 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[180px]`}
+        className={`w-full sm:w-auto flex items-center gap-2 ${hasIcon ? 'pl-9' : 'pl-3'} pr-8 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[180px]`}
       >
-        {currentIcon && (
+        {hasIcon && (
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50">
-            {currentIcon}
+            {leadingIcon}
           </span>
         )}
         <span className="truncate text-left flex-1">{selectedLabel}</span>
@@ -104,6 +109,14 @@ export function TargetCombobox({
               const isActive = o.value === value
               return (
                 <li key={o.value}>
+                  {/* Pemisah kelompok hanya saat tidak sedang mencari, supaya hasil cari tetap rapat. */}
+                  {o.groupLabel && !query.trim() && (
+                    <div className="flex items-center gap-2 px-3 pt-2.5 pb-1" role="separator" aria-label={o.groupLabel}>
+                      <span className="h-px flex-1 bg-suka-gray-200" />
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-suka-brown/50">{o.groupLabel}</span>
+                      <span className="h-px flex-1 bg-suka-gray-200" />
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -111,7 +124,7 @@ export function TargetCombobox({
                       setOpen(false)
                       setQuery('')
                     }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left transition-colors ${
+                    className={`w-full flex items-center justify-between gap-2 ${o.indent ? 'pl-7 pr-3' : 'px-3'} py-2 text-xs font-bold text-left transition-colors ${
                       isActive ? 'bg-suka-orange/10 text-suka-orange' : 'text-suka-brown hover:bg-suka-cream/60'
                     }`}
                   >

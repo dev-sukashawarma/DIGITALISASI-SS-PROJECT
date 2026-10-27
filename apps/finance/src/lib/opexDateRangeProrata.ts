@@ -1,5 +1,5 @@
 /**
- * Modul Prorata OPEX & Payroll Dinamis untuk Keuangan SukaShawarma.
+ * Modul Prorata OPEX & Payroll Dinamis untuk Keuangan SukaShawarma (Admin Dashboard).
  * 
  * Mengonversi beban gaji bulanan (Payroll HR) menjadi beban akrual harian
  * proporsional sesuai dengan filter rentang waktu (misal: Hari Ini = 1/30 bln,
@@ -175,3 +175,4 @@ export function getPeriodsInRange(from?: string, to?: string): RangePeriodInfo[]
 
   return periods
 }
+

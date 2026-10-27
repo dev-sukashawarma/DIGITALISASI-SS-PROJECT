@@ -309,6 +309,7 @@ export async function updateSingleExpenseAction(input: {
         const { data: updatedPetty, error: updatePettyErr } = await supabase
           .from('petty_cash_expenses')
           .update({
+            category: (!isPusat && input.category) ? input.category : currentPetty.category,
             amount: input.amount,
             description: input.description,
             expense_date: input.expenseDate,

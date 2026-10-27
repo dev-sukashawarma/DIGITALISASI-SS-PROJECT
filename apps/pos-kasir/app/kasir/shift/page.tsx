@@ -101,7 +101,8 @@ function formatTime(value?: string | null): string {
 
 const CATEGORY_LABEL: Record<string, string> = {
   pengeluaran_outlet: 'Outlet',
-  bahan_baku: 'Bahan Baku',
+  bahan_baku: 'Bahan Baku Lainnya',
+  gas: 'Gas',
   transport: 'Transport',
   pln: 'Listrik',
   pdam: 'Air',
@@ -793,7 +794,8 @@ export default function CashierShiftPage() {
                       className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-medium"
                     >
                       <option value="pengeluaran_outlet">Outlet (Plastik, ATK, Kebersihan)</option>
-                      <option value="bahan_baku">Bahan Baku (Es Batu, Sayur)</option>
+                      <option value="bahan_baku">Bahan Baku Lainnya (Es Batu, Sayur)</option>
+                      <option value="gas">Gas (Elpiji / Isi Ulang Gas)</option>
                       <option value="transport">Transport (Ongkir, Bensin, Lalamove)</option>
                       <option value="pln">Listrik</option>
                       <option value="pdam">Air</option>

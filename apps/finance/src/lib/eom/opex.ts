@@ -120,7 +120,7 @@ export const CLUSTER_CONFIG: Record<OpexClusterKey, { label: string; desc: strin
   },
   utilitas_sewa: {
     label: 'Tempat & Utilitas',
-    desc: 'Sewa outlet, listrik (PLN), air (PDAM), dan internet/wifi',
+    desc: 'Sewa outlet, listrik (PLN), air (PDAM), gas, dan internet/wifi',
     color: '#0a7d2c',
   },
   marketing: {
@@ -156,6 +156,7 @@ export function getCategoryCluster(category: string): OpexClusterKey {
     case 'sewa_outlet':
     case 'pln':
     case 'pdam':
+    case 'gas':
     case 'internet':
     case 'utilitas':
       return 'utilitas_sewa'

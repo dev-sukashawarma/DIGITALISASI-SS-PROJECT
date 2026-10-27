@@ -1,15 +1,19 @@
 'use server'
 
-import { requireRole } from '@/lib/authz'
+import { createClient } from '@supabase/supabase-js'
+import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
-import { getServiceSupabase } from '@/lib/supabase-service'
 import { deserializeVoucherFromRow, serializeVoucherToDescription } from '@/lib/officeVoucher'
 import { ambilPengeluaranMentah } from '@/lib/pengeluaran/ambilPengeluaran'
 import { adalahJointExpenseDisembunyikan, PESAN_JOINT_EXPENSE_DITOLAK } from '@/lib/pengeluaran/jointExpense'
 
+function getServiceSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return createClient(url, key)
+}
+
 export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
-  // Server Action = endpoint POST publik; ini melewati RPC upsert_expense
-  // (satu-satunya gerbang tulis menurut desain) pakai service-role client.
   const { role } = await requireRole(['admin_finance', 'admin', 'owner'])
   const supabase = getServiceSupabase()
 
@@ -20,8 +24,6 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
       throw new Error(PESAN_JOINT_EXPENSE_DITOLAK)
     }
     const isPusat = ['pengeluaran_global', 'gaji_staff_kantor'].includes(it.category) && !it.outletId
-    // Scope Pusat (company-wide) owner-only, sesuai aturan RPC upsert_expense
-    // yang dilewati di sini (CLAUDE.md § Pengeluaran Outlet vs Pusat).
     if (isPusat && role !== 'owner' && role !== 'developer') {
       throw new Error('Forbidden: pengeluaran scope Pusat hanya boleh diisi owner')
     }
@@ -39,8 +41,6 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
       }
     }
 
-    // Insert directly using service role to bypass RLS and trigger issues
-    // We explicitly set payment_source = 'transfer_pusat' to avoid the cash_drawer open shift trigger
     const { error } = await supabase.from('expenses').upsert({
       outlet_id: outletId,
       category: it.category,
@@ -60,6 +60,7 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
 
 export async function uploadExpenseInvoiceAction(formData: FormData) {
   try {
+    await requireRole(PERAN_KEUANGAN)
     const file = formData.get('file') as File | null
     if (!file || file.size === 0) {
       return { success: false, error: 'File tidak ditemukan' }
@@ -110,6 +111,7 @@ export async function createSingleExpenseAction(input: {
   receipt_url?: string | null
 }) {
   try {
+    await requireRole(PERAN_KEUANGAN)
     if (adalahJointExpenseDisembunyikan({ category: input.category, expense_date: input.expenseDate })) {
       return { success: false, error: PESAN_JOINT_EXPENSE_DITOLAK }
     }
@@ -148,7 +150,6 @@ export async function createSingleExpenseAction(input: {
       ? `[Kategori: ${input.category}] ${input.description}`
       : input.description
 
-    // Validate if created_by exists in outlet_staff before referencing it, to prevent foreign key constraint violation
     let validStaffId: string | null = null
     if (input.created_by) {
       const { data: staff } = await supabase
@@ -192,6 +193,7 @@ export async function createSingleExpenseAction(input: {
 
 export async function getExpensesAction(filter: { from: string; to: string; outletId: string; source?: string }) {
   try {
+    await requireRole(PERAN_KEUANGAN)
     const r = await ambilPengeluaranMentah(getServiceSupabase(), filter)
     return { success: true, expenses: r.expenses, pettyCashExpenses: r.pettyCashExpenses }
   } catch (err: any) {
@@ -206,6 +208,7 @@ export async function getExpensesAction(filter: { from: string; to: string; outl
 }
 
 export async function deleteTransactionAction(params: { id: string; isTopup?: boolean }) {
+  await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
 
   if (params.isTopup || params.id.startsWith('topup-')) {
@@ -218,13 +221,11 @@ export async function deleteTransactionAction(params: { id: string; isTopup?: bo
     return { success: true }
   }
 
-  // Delete from expenses first
   const { error: err1 } = await supabase
     .from('expenses')
     .delete()
     .eq('id', params.id)
 
-  // Also attempt delete from petty_cash_expenses if needed
   const { error: err2 } = await supabase
     .from('petty_cash_expenses')
     .delete()
@@ -250,6 +251,7 @@ export async function updateSingleExpenseAction(input: {
   division?: string | null
 }) {
   try {
+    await requireRole(PERAN_KEUANGAN)
     if (adalahJointExpenseDisembunyikan({ category: input.category, expense_date: input.expenseDate })) {
       return { success: false, error: PESAN_JOINT_EXPENSE_DITOLAK }
     }
@@ -285,7 +287,6 @@ export async function updateSingleExpenseAction(input: {
     const isPusat = !input.outletId || input.outletId === 'PUSAT'
     const actualOutletId = isPusat ? null : input.outletId
 
-    // Find current record
     const { data: currentExpense, error: fetchErr } = await supabase
       .from('expenses')
       .select('*')
@@ -298,7 +299,6 @@ export async function updateSingleExpenseAction(input: {
     }
 
     if (!currentExpense) {
-      // Fallback check petty_cash_expenses
       const { data: currentPetty } = await supabase
         .from('petty_cash_expenses')
         .select('*')
@@ -309,6 +309,7 @@ export async function updateSingleExpenseAction(input: {
         const { data: updatedPetty, error: updatePettyErr } = await supabase
           .from('petty_cash_expenses')
           .update({
+            category: (!isPusat && input.category) ? input.category : currentPetty.category,
             amount: input.amount,
             description: input.description,
             expense_date: input.expenseDate,
@@ -328,7 +329,6 @@ export async function updateSingleExpenseAction(input: {
     let dbCategory = input.category
     let dbDescription = input.description
 
-    // If existing record is an OFFICE_VCR, preserve its structure
     if (currentExpense.description && currentExpense.description.includes('[OFFICE_VCR]')) {
       const v = deserializeVoucherFromRow(currentExpense)
       if (v) {
@@ -350,7 +350,6 @@ export async function updateSingleExpenseAction(input: {
       }
     } else {
       if (isPusat) {
-        // Enforce DB constraint: pusat must be 'pengeluaran_global' or 'gaji_staff_kantor'
         if (input.category === 'gaji_staff_kantor') {
           dbCategory = 'gaji_staff_kantor'
         } else {
@@ -397,4 +396,3 @@ export async function updateSingleExpenseAction(input: {
     return { success: false, error: err?.message || 'Gagal memperbarui transaksi' }
   }
 }
-

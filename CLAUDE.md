@@ -3513,6 +3513,16 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 
 ---
 
-**Last updated:** 2026-10-26  
+## Session 2026-10-27: Sinkronisasi Penuh Kategori `gas` & Pengunci Paritas CI Buku Kas (OPEX) (`finance`, `admin-dashboard`, `manager`, `pos-kasir`)
+
+- **Akar masalah:** Penambahan kategori `gas` & rename `Bahan Baku Lainnya` pada 17 Okt (`f34ed77a5`, `a4b5d833c`, `7a7bed83d`) serta pembaruan filter grup `Outlet Internal`/`Mitra` & sewa prorata harian hanya masuk ke `apps/admin-dashboard`, belum tersalin ke `apps/finance`, `apps/manager`, dan `apps/pos-kasir` sehingga 190 baris petty cash berkategori `'gas'` tidak terambil di `apps/finance` dan `apps/manager`.
+- **Perbaikan lintas-app:**
+  1. Disinkronkan penuh 17 berkas inti OPEX + halaman `Buku Kas (OPEX)` antara `apps/admin-dashboard` dan `apps/finance` (termasuk kategori `gas`, allowlist `ambilPengeluaran.ts`, `ringkasanPayrollHr.ts`, `opexDariHr.ts`, `outletOwnership.ts`, `bukuKasLink.ts`, guard `requireRole(PERAN_KEUANGAN)`, dan update `category` saat edit baris `petty_cash_expenses`).
+  2. Ditambahkan kategori `gas` & label `Bahan Baku Lainnya` ke `apps/manager` (`expenseCategories.ts` & `actions/expenses.ts`) serta dropdown kasir web `apps/pos-kasir/app/kasir/shift/page.tsx`.
+  3. **Pengunci permanen CI:** Dibuat `apps/finance/src/lib/pengeluaran/opex.parity.test.ts` yang otomatis menggagalkan test/CI bila ke depan ada perubahan di Buku Kas OPEX pada satu app tanpa menyamakan app lainnya.
+
+---
+
+**Last updated:** 2026-10-27  
 **Owner:** Dev Suka Shawarma
 

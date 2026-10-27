@@ -162,7 +162,6 @@ export function ExpenseFormModal({
     try {
       let receiptUrl: string | null = existingReceiptUrl
 
-      // Upload invoice image/document if selected
       if (selectedFile) {
         setSubmitMessage('Mengupload bukti invoice...')
         const formData = new FormData()

@@ -1374,7 +1374,7 @@ export default function EndorsementList({
 
         setFetchEndorsementNotice({
           type: (res.data as any).warning ? 'warning' : 'success',
-          message: `✅ Metrik ditarik: ${(res.data.views || 0).toLocaleString('id-ID')} views, ${(res.data.likes || 0).toLocaleString('id-ID')} likes!`,
+          message: (res.data as any).warning || `✅ Metrik ditarik: ${(res.data.views || 0).toLocaleString('id-ID')} views, ${(res.data.likes || 0).toLocaleString('id-ID')} likes!`,
         })
       } else {
         setFetchEndorsementNotice({

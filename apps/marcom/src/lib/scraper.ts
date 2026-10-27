@@ -211,7 +211,13 @@ async function scrapeTikTok(url: string): Promise<ScrapedMetrics> {
       }
     }
 
-    // Tier 2: Check oEmbed if video exists to return title or meaningful status
+    // Tier 2: Check SSSTik backup scraper (recovers likes, comments, shares and detects unavailable videos)
+    const ssstikResult = await scrapeSsstikBackup(targetUrl)
+    if (ssstikResult) {
+      return ssstikResult
+    }
+
+    // Tier 3: Check oEmbed if video exists to return title or meaningful status
     return await fallbackTikTokOEmbed(targetUrl)
   } catch (err: any) {
     return {
@@ -222,17 +228,133 @@ async function scrapeTikTok(url: string): Promise<ScrapedMetrics> {
   }
 }
 
+/**
+ * Backup scraper for TikTok via SSSTik
+ */
+async function scrapeSsstikBackup(targetUrl: string): Promise<ScrapedMetrics | null> {
+  try {
+    const homeRes = await fetch('https://ssstik.io/en', {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      },
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!homeRes.ok) return null
+
+    const homeHtml = await homeRes.text()
+    const ttMatch = homeHtml.match(/s_tt\s*=\s*["']([^"']+)["']/)
+    const tt = ttMatch ? ttMatch[1] : null
+
+    const form = new URLSearchParams()
+    form.append('id', targetUrl)
+    form.append('locale', 'en')
+    form.append('tt', tt || '')
+
+    const res = await fetch('https://ssstik.io/abc?url=dl', {
+      method: 'POST',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'HX-Request': 'true',
+        'HX-Trigger': '_gcaptcha_pt',
+        'HX-Target': 'target',
+        'HX-Current-URL': 'https://ssstik.io/en',
+        'Referer': 'https://ssstik.io/en',
+      },
+      body: form.toString(),
+      signal: AbortSignal.timeout(8000),
+    })
+
+    if (!res.ok) return null
+
+    const html = await res.text()
+
+    // Detect if video is unavailable / private / removed
+    if (
+      html.includes('video is currently unavailable') ||
+      html.includes('private or not reachable') ||
+      html.includes('removed by user') ||
+      html.includes('Error code: 3111')
+    ) {
+      return {
+        success: false,
+        platform: 'TIKTOK',
+        error: 'Video TikTok tidak tersedia (video disetel privat, di-archive, atau telah dihapus oleh pemilik akun di TikTok).',
+      }
+    }
+
+    // Extract title & author
+    const h2Match = html.match(/<h2>([\s\S]*?)<\/h2>/i)
+    const descMatch = html.match(/<p class="maintext">([\s\S]*?)<\/p>/i)
+    const title = descMatch ? descMatch[1].trim() : (h2Match ? h2Match[1].trim() : undefined)
+
+    // Extract metrics from trending-actions
+    const actionMatch = html.match(/<div id="trending-actions"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/)
+    let likes = 0
+    let comments = 0
+    let shares = 0
+
+    if (actionMatch) {
+      const numbers = [...actionMatch[0].matchAll(/>\s*([0-9.,KMBkmb]+)\s*</g)].map((m) => m[1])
+      if (numbers.length >= 1) likes = parseMetricNumberString(numbers[0])
+      if (numbers.length >= 2) comments = parseMetricNumberString(numbers[1])
+      if (numbers.length >= 3) shares = parseMetricNumberString(numbers[2])
+    }
+
+    if (likes > 0 || comments > 0) {
+      const estViews = likes * 15
+      return {
+        success: true,
+        platform: 'TIKTOK',
+        title,
+        views: estViews,
+        likes,
+        comments,
+        shares,
+        saves: 0,
+        isEstimatedViews: true,
+        warning: `⚡ Metrik ditarik lewat jalur cadangan: Likes (${likes.toLocaleString('id-ID')}) & Komentar (${comments.toLocaleString('id-ID')}). Views diestimasi ~${estViews.toLocaleString('id-ID')}.`,
+      }
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+function parseMetricNumberString(str: string): number {
+  if (!str) return 0
+  const clean = str.trim().toUpperCase()
+  if (clean.endsWith('K')) {
+    return Math.round(parseFloat(clean.replace('K', '').replace(/,/g, '.')) * 1000) || 0
+  }
+  if (clean.endsWith('M')) {
+    return Math.round(parseFloat(clean.replace('M', '').replace(/,/g, '.')) * 1000000) || 0
+  }
+  if (clean.endsWith('B')) {
+    return Math.round(parseFloat(clean.replace('B', '').replace(/,/g, '.')) * 1000000000) || 0
+  }
+  return parseInt(clean.replace(/[^0-9]/g, ''), 10) || 0
+}
+
 async function fallbackTikTokOEmbed(url: string): Promise<ScrapedMetrics> {
   try {
     const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
     const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const data = await res.json()
-      return {
-        success: false,
-        platform: 'TIKTOK',
-        title: data.title,
-        error: 'Video ditemukan, namun metrik tayangan dibatasi oleh TikTok. Silakan input manual.',
+      // TikTok oEmbed returns HTTP 200 with placeholder iframe for deleted/private videos,
+      // but only truly accessible videos return author_name or title.
+      if (data && (data.title || data.author_name)) {
+        return {
+          success: false,
+          platform: 'TIKTOK',
+          title: data.title || undefined,
+          error: 'Video TikTok ditemukan, namun data metrik tayangan dibatasi. Silakan input manual.',
+        }
       }
     }
   } catch {
@@ -242,7 +364,7 @@ async function fallbackTikTokOEmbed(url: string): Promise<ScrapedMetrics> {
   return {
     success: false,
     platform: 'TIKTOK',
-    error: 'Video TikTok privat, dihapus, atau link tidak valid.',
+    error: 'Video TikTok tidak ditemukan atau tidak tersedia (video privat, telah dihapus oleh pemilik akun, atau tautan kadaluarsa).',
   }
 }
 

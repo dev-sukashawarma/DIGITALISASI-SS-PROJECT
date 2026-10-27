@@ -2,11 +2,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { tanggalRekapUntuk, hitungRekap, teksRekap, type DataRekap } from './rekap'
 
 describe('tanggalRekapUntuk', () => {
-  it('sebelum 05:00 WIB → H-2', () => {
-    expect(tanggalRekapUntuk(new Date('2026-10-02T21:59:00Z'))).toBe('2026-10-01') // Sab 04:59 WIB 3 Okt
+  it('sebelum 03:00 WIB → H-2', () => {
+    expect(tanggalRekapUntuk(new Date('2026-10-02T19:59:00Z'))).toBe('2026-10-01') // Sab 02:59 WIB 3 Okt
   })
-  it('mulai 05:00 WIB → H-1', () => {
-    expect(tanggalRekapUntuk(new Date('2026-10-02T22:00:00Z'))).toBe('2026-10-02') // Sab 05:00 WIB 3 Okt
+  it('mulai 03:00 WIB → H-1', () => {
+    expect(tanggalRekapUntuk(new Date('2026-10-02T20:00:00Z'))).toBe('2026-10-02') // Sab 03:00 WIB 3 Okt
+  })
+  it('saat cron 04:00 WIB → H-1', () => {
+    expect(tanggalRekapUntuk(new Date('2026-10-02T21:00:00Z'))).toBe('2026-10-02') // Sab 04:00 WIB 3 Okt
   })
 })
 

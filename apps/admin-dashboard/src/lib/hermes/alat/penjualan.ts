@@ -66,7 +66,7 @@ export const ALAT_PENJUALAN: DefinisiAlat[] = [
   {
     nama: 'laporan_pagi_ceo',
     domain: 'penjualan',
-    deskripsi: 'Laporan pagi CEO siap kirim (teks) + datanya. Tanggal default = kemarin (sebelum 05:00 WIB = lusa). Kirim field "teks" apa adanya.',
+    deskripsi: 'Laporan pagi CEO siap kirim (teks) + datanya. Tanggal default = kemarin (sebelum 03:00 WIB = lusa). Kirim field "teks" apa adanya.',
     skema: z.object({ tanggal: TGL.optional() }).strict(),
     contoh: {},
     jalankan: async (ctx, a: { tanggal?: string }) => {

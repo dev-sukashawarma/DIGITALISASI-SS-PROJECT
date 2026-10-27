@@ -1401,7 +1401,11 @@ def _buat_pesan_laporan_raw(
             pass
         return format_watchdog(data_sistem, konfig)
     elif jenis in ["sales-kemarin", "pagi"]:
-        arg = {"tanggal": tanggal} if tanggal else {}
+        target_tgl = tanggal
+        if not target_tgl:
+            wib_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7)))
+            target_tgl = (wib_now - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        arg = {"tanggal": target_tgl}
         try:
             data = panggil_mcp_raw(mcp_url, mcp_key, "laporan_pagi_ceo", arg)
         except Exception as e:

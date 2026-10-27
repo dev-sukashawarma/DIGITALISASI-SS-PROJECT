@@ -16,9 +16,9 @@ export interface DataRekap {
   menuTeratas: { nama: string; qty: number }[]
 }
 
-const JAM_REKAP_SIAP = 5
+const JAM_REKAP_SIAP = 3
 
-/** Data "kemarin" dianggap cukup lengkap mulai 05:00 WIB; sebelum itu rekap yang tampil = hari sebelumnya. */
+/** Data "kemarin" dianggap cukup lengkap mulai 03:00 WIB; sebelum itu rekap yang tampil = hari sebelumnya. */
 export function tanggalRekapUntuk(sekarang: Date): string {
   const hariIni = jakartaDate(sekarang)
   return addDaysStr(hariIni, jamWibAngka(sekarang) < JAM_REKAP_SIAP ? -2 : -1)

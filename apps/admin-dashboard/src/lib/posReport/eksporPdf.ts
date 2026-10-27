@@ -147,7 +147,7 @@ export function susunPdfLaporan(
   const kartu = [
     { label: 'GROSS REVENUE', nilai: t.gross, ket: 'Omzet kotor sebelum diskon & potongan', warna: WARNA.gross },
     { label: 'TOTAL COGS', nilai: t.cogs, ket: `${persen(rasio(t.cogs, t.gross))} dari Gross Revenue (HPP resep)`, warna: WARNA.cogs },
-    { label: 'POTONGAN MERCHANT', nilai: t.potongan, ket: `${persen(rasio(t.potongan, t.gross))} dari Gross · Subsidi platform ${rupiah(t.subsidi)}`, warna: WARNA.potongan },
+    { label: 'POTONGAN MERCHANT', nilai: t.potongan, ket: `${persen(rasio(t.potongan, t.gross))} dari Gross · diskon & promo merchant`, warna: WARNA.potongan },
     { label: 'GROSS PROFIT', nilai: t.gp, ket: `Margin ${persen(rasio(t.gp, t.gross))} · Gross - (COGS + Potongan)`, warna: WARNA.gp },
   ]
   const yK = 37
@@ -361,7 +361,7 @@ export function susunPdfLaporan(
   // ── Keterangan ─────────────────────────────────────────────────────────────
   const catatan = [
     'Gross Revenue = nilai kotor pesanan selesai sebelum diskon & potongan (sama dengan kartu di layar Rangkuman Penjualan).',
-    'Potongan Merchant = diskon offline + promo Food Apps yang ditanggung merchant. Subsidi platform bukan beban outlet.',
+    'Potongan Merchant = diskon offline + promo Food Apps yang ditanggung merchant.',
     'COGS = HPP resep yang berlaku pada tanggal pesanan x qty (outlet mitra +10%). Gross Profit = Gross Revenue - (COGS + Potongan).',
     'Rincian per item membagi omzet & potongan setiap pesanan secara proporsional ke item di dalamnya.',
   ]

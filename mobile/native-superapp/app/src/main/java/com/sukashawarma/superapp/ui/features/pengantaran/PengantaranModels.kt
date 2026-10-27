@@ -78,3 +78,21 @@ fun jarakMeter(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
         Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLng / 2).let { it * it }
     return 2 * r * Math.asin(Math.sqrt(h))
 }
+
+/** ISO-8601 dari Postgres ("2026-10-27T02:40:00.123+00:00" / "...Z") → "HH:mm" WIB. */
+fun jamWib(iso: String): String {
+    val utama = iso.substring(0, 19)
+    val ekor = iso.substring(19).dropWhile { it == '.' || it.isDigit() }
+    val zona = when {
+        ekor.isEmpty() || ekor == "Z" -> "UTC"
+        else -> "GMT$ekor"
+    }
+    val masuk = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply { timeZone = TimeZone.getTimeZone(zona) }
+    val keluar = SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = TimeZone.getTimeZone("Asia/Jakarta") }
+    return keluar.format(masuk.parse(utama)!!)
+}
+
+/** Sama dengan formatJarak di web distribusi: "35 m" / "4,2 km". */
+fun formatJarak(meter: Double): String =
+    if (meter < 1000) "${Math.round(meter)} m"
+    else String.format(Locale.US, "%.1f km", meter / 1000).replace('.', ',')

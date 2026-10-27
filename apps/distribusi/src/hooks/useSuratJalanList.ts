@@ -36,7 +36,7 @@ async function fetchSuratJalan(
   let outletEq: string | null = null
   let outletIn: string[] | null = null
 
-  const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
+  const isGlobalPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(outletStaff?.role || '')
 
   if (!isGlobalPusat && outletStaff) {
     if (outletStaff.role === 'leader') {

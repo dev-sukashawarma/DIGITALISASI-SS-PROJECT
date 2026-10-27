@@ -61,7 +61,7 @@ export default function GlobalUsersPage() {
 
   const roles: Role[] = [
     'admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'leader', 'crew', 'kiosk', 
-    'kitchen', 'mitra', 'staff_pusat', 'admin_finance', 'area_manager', 'purchasing', 'developer'
+    'kitchen', 'mitra', 'staff_pusat', 'admin_finance', 'area_manager', 'purchasing', 'developer', 'driver', 'korlap', 'marcom'
   ]
 
   if (loading) {

@@ -67,6 +67,7 @@ const ROLE_GROUPS: { title: string; roles: { value: string; label: string; hint:
       { value: 'admin_hr', label: 'Admin HR', hint: 'Karyawan & absensi' },
       { value: 'admin_finance', label: 'Admin Finance', hint: 'Keuangan' },
       { value: 'purchasing', label: 'Purchasing', hint: 'Pembelian & PO' },
+      { value: 'driver', label: 'Driver', hint: 'Pengantaran & distribusi logistik' },
       { value: 'staff_pusat', label: 'Staff Pusat', hint: 'Staf kantor pusat' },
     ],
   },

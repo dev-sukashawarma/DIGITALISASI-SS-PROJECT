@@ -262,7 +262,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
   }
 
   useEffect(() => {
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(
       outletStaff?.role || ''
     )
     const isSentOrCompleted = data ? ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status) : false
@@ -324,7 +324,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   const handleDownloadPDF = async () => {
     if (!data) return
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(
       outletStaff?.role || ''
     )
     const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
@@ -359,7 +359,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   const handlePrintDotMatrix = async (copies = 1) => {
     if (!data) return
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(
       outletStaff?.role || ''
     )
     const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)

@@ -99,7 +99,8 @@ export function SuratJalanList() {
   useDistribusiRealtime()
   const { data = [], loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter, customRange)
 
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
+  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(outletStaff?.role || '')
+  const canCreateSJ = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
   const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner', 'developer'].includes(outletStaff?.role || '')
 
   // Discrepancy & Selisih count
@@ -440,7 +441,7 @@ export function SuratJalanList() {
         {/* Top Actions */}
         <div className="flex items-center gap-2">
           {outletStaff?.role === 'kitchen' && <PrinterStatus />}
-          {isPusat && (
+          {canCreateSJ && (
             <Link
               href="/distribusi/surat-jalan/new"
               className="px-3.5 sm:px-4 py-2 bg-gradient-to-r from-suka-orange to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-black text-xs transition-all shadow-md shadow-suka-orange/20 uppercase tracking-wider active:scale-95 flex items-center gap-1.5 cursor-pointer"

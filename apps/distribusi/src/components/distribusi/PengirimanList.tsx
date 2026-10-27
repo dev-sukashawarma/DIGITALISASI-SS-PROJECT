@@ -31,7 +31,7 @@ export function PengirimanList() {
     )
   }
 
-  if (outletStaff?.role !== 'leader' && outletStaff?.role !== 'kitchen' && outletStaff?.role !== 'developer') {
+  if (outletStaff?.role !== 'leader' && outletStaff?.role !== 'kitchen' && outletStaff?.role !== 'developer' && outletStaff?.role !== 'driver') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#fff8f1] text-center px-6">
         <span className="text-4xl mb-3">⚠️</span>

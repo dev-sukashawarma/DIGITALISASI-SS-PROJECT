@@ -47,6 +47,7 @@ Pemetaan istilah SOP → role sistem:
 | 8 | `kiosk` | Device POS/antrian | 1 outlet (terikat device) | Mesin (bukan manusia) |
 | 9 | `mitra` | Partner/investor outlet | 1 outlet (home outlet), read-only | Manusia (eksternal) |
 | 10 | `staff_pusat` | Staf kantor pusat (non-IT) | 1 outlet (absensi saja) | Manusia (pusat) |
+| 11 | `driver` | Supir / Kurir Logistik | Semua outlet (distribusi pengiriman & absensi) | Manusia (lapangan / pengiriman) |
 
 > **Catatan `spv`:** satu role tunggal, **berada di atas Leader Outlet** dan **mengawasi seluruh 19 outlet**. Memakai `accessible_outlet_ids()` untuk RLS.
 
@@ -68,6 +69,7 @@ Pemetaan istilah SOP → role sistem:
 | **kiosk** | ✅ (kiosk mode) | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **mitra** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (outlet sendiri) |
 | **staff_pusat** | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **driver** | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ |
 
 > **Catatan:** Role `kasir` sudah dihapus (migration `20260626102000`) — semua user kasir dimigrate ke role `crew`. Role `kepala_outlet` sudah direname ke `leader` (migration `20260620000000`).
 

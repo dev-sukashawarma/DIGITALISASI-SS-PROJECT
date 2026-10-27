@@ -91,7 +91,7 @@ export default function DashboardPage() {
   }
 
   const queryClient = useQueryClient()
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
+  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer', 'driver'].includes(outletStaff?.role || '')
   const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner', 'developer'].includes(outletStaff?.role || '')
 
   // Cancel Modal State

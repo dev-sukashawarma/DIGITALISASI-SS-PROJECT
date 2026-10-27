@@ -3523,6 +3523,26 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 
 ---
 
+## Session 2026-10-27: Pelacakan Driver Distribusi (DB + apps/distribusi + native superapp)
+
+**Status:** DB **LIVE**: 4 migration applied & terstempel (`20261027130000` rename WIP akses driver, `140000` skema, `141000` RPC, `142000` sinkron/jadwal). Uji `supabase/verifikasi/pelacakan_driver/t1–t3` LULUS dengan kontrol negatif; pemantau `pemantau.sql`. Kode di branch `feat/pelacakan-driver`, **belum merge/push**. ⚠️ Perlu **redeploy `distribusi`** + **rilis APK superapp 1.1 (versionCode 2)** ke HP driver. Uji login web & uji lapangan HP driver **belum dijalankan**.
+
+**Spec/plan:** `docs/superpowers/specs/2026-10-27-pelacakan-driver-design.md`, `docs/superpowers/plans/2026-10-27-pelacakan-driver.md`.
+
+- **Model:** perjalanan (1 driver, banyak SJ ke banyak outlet) → stop per SJ. Kitchen tetap yang menandai SJ `dikirim` (stok gudang tidak tersentuh); driver memilih SJ lalu Berangkat. "Tiba" hanya mencatat jam, koordinat, dan jarak ke outlet; tidak menolak, tidak mengubah status SJ/stok. Verifikasi outlet otomatis menandai stop "tiba (verifikasi outlet)". Tutup otomatis tiap 15 mnt bila lewat `batas_tutup_wib` (21:00) atau berangkat kemarin. Titik rute dihapus setelah 60 hari (cron 03:40 WIB). Pengaturan di `global_settings.driver_tracking`.
+- **Akses:** tulis hanya lewat RPC `driver_*` (SECURITY DEFINER, cek role driver aktif); baca pusat via `is_pelacak_driver()` (kitchen/admin/purchasing/owner/developer); outlet hanya lewat `status_antar_sj()` tanpa koordinat.
+- **Pengetatan ikut rilis:** `accessible_outlet_ids()` live sudah memuat driver (diterapkan manual sebelum sesi ini), sehingga driver bisa UPDATE semua `surat_jalan`. Tiga policy UPDATE SJ/SJ-item kini `AND NOT is_driver_aktif()` (kontrol negatif: policy lama → driver update 1 baris).
+- **Web:** `src/lib/peran.ts` satu sumber role distribusi; halaman `/distribusi/driver` (Leaflet), baris status di detail SJ & Terima outlet, kartu dashboard. Driver = tampilan semua SJ read-only.
+- **Native:** menu Pengantaran (role `driver`), foreground service lokasi + antrean berkas `filesDir/pengantaran_antrean.jsonl`, panduan izin/baterai/Autostart. Manifest kini mendeklarasikan izin lokasi (sebelumnya tidak ada, padahal absensi memintanya).
+
+### ⚠️ Gotcha
+- Gudang Pusat (`d23e11b3-…`) **tanpa koordinat** → usulan urutan dihitung dari posisi HP saat Berangkat.
+- Driver Adam terdaftar ber-`outlet_id` BNR.
+- Tabel lokasi lama `staff_live_locations`/`staff_location_trails` **sudah tidak ada**; `apps/monitoring` LiveLocationBoard membaca tabel hilang (belum diperbaiki).
+- **Checkout utama dipakai sesi lain bersamaan:** `pnpm install` dari proses lain berjalan pada detik yang sama dengan `yarn install` sesi ini (15:03–15:04) → `node_modules` kini bergaya pnpm (`.ignored_*`). Jangan jalankan install paralel; yarn.lock tidak berubah.
+
+---
+
 **Last updated:** 2026-10-27  
 **Owner:** Dev Suka Shawarma
 

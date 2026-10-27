@@ -71,6 +71,8 @@ Pemetaan istilah SOP → role sistem:
 | **staff_pusat** | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **driver** | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ |
 
+> **Driver (2026-10-27):** di app distribusi web driver melihat semua SJ **read-only** (tanpa buat SJ, validasi, atau verifikasi penerimaan outlet). Pengantaran & pelacakan GPS lewat menu **Pengantaran** di app native superapp; posisi hanya direkam selama perjalanan berjalan. Peta pelacakan (`/distribusi/driver`) hanya untuk kitchen, admin, purchasing, owner, developer. Spec: `docs/superpowers/specs/2026-10-27-pelacakan-driver-design.md`.
+
 > **Catatan:** Role `kasir` sudah dihapus (migration `20260626102000`) — semua user kasir dimigrate ke role `crew`. Role `kepala_outlet` sudah direname ke `leader` (migration `20260620000000`).
 
 Matriks ini adalah satu-satunya sumber untuk konstanta `ROLE_APP_ACCESS` dan guard middleware tiap app.

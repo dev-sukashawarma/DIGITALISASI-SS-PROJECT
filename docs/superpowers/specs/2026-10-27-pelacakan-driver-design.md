@@ -54,8 +54,11 @@ auto-verifikasi malam tidak disentuh.
   mendeklarasikan `ACCESS_FINE_LOCATION`** (bug laten absensi juga), tidak ada
   service, tidak ada penyimpanan lokal (Room/DataStore), belum pernah memanggil RPC.
 - Perubahan driver yang belum di-commit di working tree memasukkan `driver` ke
-  `isPusat` di 4 tempat → driver bisa "Validasi & tutup" SJ (`handleVerifyPusat`).
-  Diganti dengan `isDriver` tersendiri (§7.4).
+  `isPusat` di 4 tempat. **Koreksi saat implementasi:** "Validasi & tutup"
+  (`handleVerifyPusat`) memakai `isPusatSender` yang tidak memuat driver, jadi
+  aman. Celah nyatanya: tombol "Verifikasi Sekarang" milik outlet dan
+  "Buat Surat Jalan" di dashboard tampil untuk driver. Keduanya ditutup lewat
+  `src/lib/peran.ts` (§7.4).
 
 ## 4. Konsep
 

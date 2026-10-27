@@ -8,6 +8,7 @@ import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { useDistribusiRealtime } from '@/hooks/useDistribusiRealtime'
 import { BottomNav } from './BottomNav'
 import { ArrowLeft, QrCode, Calendar, Truck, Inbox, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { BarisPelacakanSj } from '@/components/pelacakan/BarisPelacakanSj'
 
 function FormattedDate({ iso }: { iso: string | null | undefined }) {
   const text = useFormattedDate(iso, {
@@ -127,6 +128,7 @@ export function TerimaList() {
                       <Calendar size={12} className="text-suka-orange" />
                       <span><FormattedDate iso={sj.created_at} /></span>
                     </div>
+                    <BarisPelacakanSj sjId={sj.id} statusSj={sj.status} tampilan="outlet" />
                   </div>
 
                   <div className="pt-4 mt-2">

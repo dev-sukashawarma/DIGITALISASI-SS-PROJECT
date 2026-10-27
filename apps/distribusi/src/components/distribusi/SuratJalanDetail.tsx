@@ -38,6 +38,8 @@ import {
 
 import { toast } from 'sonner'
 import { bisaLihatSemuaSj, isDriver } from '@/lib/peran'
+import { BarisPelacakanSj } from '@/components/pelacakan/BarisPelacakanSj'
+import { bisaLacakDriver } from '@/lib/peran'
 
 interface SaldoVendor {
   bahan_baku_id: string
@@ -613,6 +615,12 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
           {/* 1. Document Hero & Shipment Route Card */}
           <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-brown/10 p-6 shadow-sm space-y-5">
+            <BarisPelacakanSj
+              sjId={id}
+              statusSj={data.status}
+              tampilan={bisaLacakDriver(outletStaff?.role) || isDriver(outletStaff?.role) ? 'pusat' : 'outlet'}
+              tautPeta={bisaLacakDriver(outletStaff?.role)}
+            />
             {/* Header info */}
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-suka-brown/10 pb-4">
               <div>

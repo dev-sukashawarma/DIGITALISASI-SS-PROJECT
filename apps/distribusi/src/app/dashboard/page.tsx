@@ -42,8 +42,9 @@ import {
 } from 'lucide-react'
 import { CustomDateFilter, CustomDateRange, formatRangeLabel } from '@/components/distribusi/CustomDateFilter'
 import { useQueryClient } from '@tanstack/react-query'
-import { bisaBuatSj, bisaLihatSemuaSj, isDriver } from '@/lib/peran'
+import { bisaBuatSj, bisaLacakDriver, bisaLihatSemuaSj, isDriver } from '@/lib/peran'
 import { toast } from 'sonner'
+import { KartuDriverDashboard } from '@/components/pelacakan/KartuDriverDashboard'
 
 type DateRange = 'all' | 'today' | '7days' | '30days' | 'custom'
 type StatusTab = 'all' | 'draft' | 'dikirim' | 'belum_verif' | 'selisih' | 'selesai'
@@ -548,6 +549,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+
+        {bisaLacakDriver(outletStaff?.role) && <KartuDriverDashboard />}
 
         {/* 5-Column Executive Logistics HUD */}
         <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">

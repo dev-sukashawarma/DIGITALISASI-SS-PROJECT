@@ -47,12 +47,14 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
     // 1. Sinkronisasi Fee Rate Card
     // ==========================================
     const rateCard = Number(endorsement.rateCard) || 0
-    const expenseDate = toDateString(endorsement.paymentDate || endorsement.scheduleDate)
+    // Tanggal pengeluaran endorsement dicatat sesuai tanggal jadwal kunjungan (scheduleDate)
+    const expenseDate = toDateString(endorsement.scheduleDate)
     const isAfterCutoff = expenseDate >= OPEX_CUTOFF_DATE
-    const isRateCardPaid = endorsement.paymentStatus === 'PAID' && rateCard > 0 && isAfterCutoff
+    // Sinkronisasi Rate Card baik yang sudah PAID maupun UNPAID/PENDING (akrual beban OPEX)
+    const isRateCardValid = rateCard > 0 && isAfterCutoff && endorsement.paymentStatus !== 'BARTER'
 
-    if (isRateCardPaid) {
-      const expenseDate = toDateString(endorsement.paymentDate || endorsement.scheduleDate)
+    if (isRateCardValid) {
+      const expenseDate = toDateString(endorsement.scheduleDate)
       const periodMonth = toPeriodMonth(expenseDate)
       const category = 'endorsement'
       const description = `[MARCOM: Endorsement - ${kolName}] Fee Rate Card (Outlet: ${outletName})`
@@ -84,7 +86,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
         })
       }
     } else if (endorsement.rateCardExpenseId) {
-      // Jika status berubah kembali ke UNPAID atau rateCard 0, hapus dari OPEX
+      // Jika status berubah menjadi BARTER atau rateCard 0, hapus dari OPEX
       const { error: delErr } = await supabase.from('expenses').delete().eq('id', endorsement.rateCardExpenseId).select('id')
       if (delErr) {
         console.error(`[syncEndorsementOpex] Error deleting rateCard expense ${endorsement.rateCardExpenseId}:`, delErr)

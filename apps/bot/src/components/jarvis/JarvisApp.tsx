@@ -180,41 +180,83 @@ export default function JarvisApp({
   // Floating Chatbox States for Full Screen (Mode Muka Doang)
   const [floatingChatTerbuka, setFloatingChatTerbuka] = useState(true)
   const [floatingPos, setFloatingPos] = useState<{ x: number; y: number }>({ x: 24, y: 76 })
-  const [isDraggingFloating, setIsDraggingFloating] = useState(false)
+  const floatingPosRef = useRef<{ x: number; y: number }>({ x: 24, y: 76 })
+  const isDraggingFloatingRef = useRef(false)
   const floatingCardRef = useRef<HTMLDivElement>(null)
   const floatingChatBottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    floatingPosRef.current = floatingPos
+  }, [floatingPos])
 
   const handlePointerDownFloating = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return
     if ((e.target as HTMLElement).closest('button, a, input, textarea')) return
 
-    const startX = e.clientX
-    const startY = e.clientY
-    const initialPos = { ...floatingPos }
+    e.preventDefault()
+    isDraggingFloatingRef.current = true
+
+    const card = floatingCardRef.current
+    if (card) {
+      card.style.transition = 'none'
+      card.style.willChange = 'transform'
+    }
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'grabbing'
+
+    const startClientX = e.clientX
+    const startClientY = e.clientY
+    const startPosX = floatingPosRef.current.x
+    const startPosY = floatingPosRef.current.y
+    let latestX = startPosX
+    let latestY = startPosY
+    let rafId: number | null = null
 
     const onPointerMove = (moveEvt: PointerEvent) => {
-      const deltaX = moveEvt.clientX - startX
-      const deltaY = moveEvt.clientY - startY
-      const cardWidth = floatingCardRef.current?.offsetWidth || 400
-      const cardHeight = floatingCardRef.current?.offsetHeight || 460
-      const maxX = Math.max(12, window.innerWidth - cardWidth - 16)
-      const maxY = Math.max(12, window.innerHeight - cardHeight - 16)
+      if (!isDraggingFloatingRef.current) return
 
-      setFloatingPos({
-        x: Math.min(Math.max(12, initialPos.x + deltaX), maxX),
-        y: Math.min(Math.max(12, initialPos.y + deltaY), maxY),
-      })
+      const deltaX = moveEvt.clientX - startClientX
+      const deltaY = moveEvt.clientY - startClientY
+
+      const cardWidth = card?.offsetWidth || 420
+      const cardHeight = card?.offsetHeight || 480
+      const maxX = Math.max(12, window.innerWidth - cardWidth - 12)
+      const maxY = Math.max(12, window.innerHeight - cardHeight - 12)
+
+      latestX = Math.min(Math.max(12, startPosX + deltaX), maxX)
+      latestY = Math.min(Math.max(12, startPosY + deltaY), maxY)
+
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          if (card) {
+            card.style.transform = `translate3d(${latestX}px, ${latestY}px, 0)`
+          }
+          rafId = null
+        })
+      }
     }
 
     const onPointerUp = () => {
-      setIsDraggingFloating(false)
+      isDraggingFloatingRef.current = false
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+        rafId = null
+      }
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+
+      if (card) {
+        card.style.willChange = 'auto'
+      }
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+
+      floatingPosRef.current = { x: latestX, y: latestY }
+      setFloatingPos({ x: latestX, y: latestY })
     }
 
-    setIsDraggingFloating(true)
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointermove', onPointerMove, { passive: true })
+    window.addEventListener('pointerup', onPointerUp, { once: true })
   }
 
   // Handler untuk membuka Chatbox Khusus Percakapan langsung di dalam Box Tactical Anomaly
@@ -1229,14 +1271,9 @@ export default function JarvisApp({
                   <div
                     ref={floatingCardRef}
                     style={{
-                      left: `${floatingPos.x}px`,
-                      top: `${floatingPos.y}px`,
+                      transform: `translate3d(${floatingPos.x}px, ${floatingPos.y}px, 0)`,
                     }}
-                    className={`fixed z-40 w-[360px] sm:w-[420px] md:w-[460px] max-w-[94vw] h-[55vh] max-h-[520px] min-h-[300px] rounded-2xl bg-zinc-950/90 border ${
-                      isDraggingFloating
-                        ? 'border-cyan-300 shadow-[0_0_40px_rgba(6,182,212,0.45)]'
-                        : 'border-cyan-400/40 shadow-[0_0_30px_rgba(6,182,212,0.25)]'
-                    } backdrop-blur-xl flex flex-col overflow-hidden animate-in fade-in duration-200 select-none`}
+                    className="fixed top-0 left-0 z-40 w-[360px] sm:w-[420px] md:w-[460px] max-w-[94vw] h-[55vh] max-h-[520px] min-h-[300px] rounded-2xl bg-zinc-950/90 border border-cyan-400/40 shadow-[0_0_30px_rgba(6,182,212,0.25)] backdrop-blur-xl flex flex-col overflow-hidden select-none"
                   >
                     {/* Reticles di 4 Sudut Card */}
                     <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
@@ -1247,6 +1284,7 @@ export default function JarvisApp({
                     {/* Draggable Header */}
                     <div
                       onPointerDown={handlePointerDownFloating}
+                      style={{ touchAction: 'none' }}
                       className="flex items-center justify-between px-3 py-2 bg-cyan-950/75 border-b border-cyan-500/25 cursor-grab active:cursor-grabbing select-none text-xs font-mono-hud shrink-0"
                       title="Klik dan tahan untuk menggeser (drag) chatbox kemana saja"
                     >

@@ -178,7 +178,7 @@ export default function JarvisApp({
   const [modeMukaDoang, setModeMukaDoang] = useState(false)
 
   // Floating Chatbox States for Full Screen (Mode Muka Doang)
-  const [floatingChatTerbuka, setFloatingChatTerbuka] = useState(true)
+  const [floatingChatTerbuka, setFloatingChatTerbuka] = useState(false)
   const [floatingPos, setFloatingPos] = useState<{ x: number; y: number }>({ x: 24, y: 76 })
   const floatingPosRef = useRef<{ x: number; y: number }>({ x: 24, y: 76 })
   const isDraggingFloatingRef = useRef(false)
@@ -1183,7 +1183,11 @@ export default function JarvisApp({
                   type="button"
                   onClick={() => {
                     mainkanSuaraHud('engage')
-                    setModeMukaDoang(!modeMukaDoang)
+                    const next = !modeMukaDoang
+                    setModeMukaDoang(next)
+                    if (next) {
+                      setFloatingChatTerbuka(false)
+                    }
                   }}
                   aria-label={modeMukaDoang ? 'Kembalikan Dashboard Lengkap' : 'Aktifkan Mode Full Screen'}
                   className={`px-2.5 py-1 min-h-[32px] rounded-lg font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
@@ -1216,7 +1220,11 @@ export default function JarvisApp({
                   isMukaDoang={modeMukaDoang}
                   onToggleMukaDoang={() => {
                     mainkanSuaraHud('engage')
-                    setModeMukaDoang((prev) => !prev)
+                    setModeMukaDoang((prev) => {
+                      const next = !prev
+                      if (next) setFloatingChatTerbuka(false)
+                      return next
+                    })
                   }}
                   voiceLoopAktif={voiceLoopAktif}
                   spektrumSuara={spektrumSuara}
@@ -1227,8 +1235,12 @@ export default function JarvisApp({
                   onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
                   onBukaChatLengkap={() => {
                     mainkanSuaraHud('chirp')
-                    setRadarAnomaliTerbuka(true)
-                    setTacticalTab('chat')
+                    if (modeMukaDoang) {
+                      setFloatingChatTerbuka(true)
+                    } else {
+                      setRadarAnomaliTerbuka(true)
+                      setTacticalTab('chat')
+                    }
                   }}
                 />
               ) : (
@@ -1245,7 +1257,11 @@ export default function JarvisApp({
                   isMukaDoang={modeMukaDoang}
                   onToggleMukaDoang={() => {
                     mainkanSuaraHud('engage')
-                    setModeMukaDoang((prev) => !prev)
+                    setModeMukaDoang((prev) => {
+                      const next = !prev
+                      if (next) setFloatingChatTerbuka(false)
+                      return next
+                    })
                   }}
                   voiceLoopAktif={voiceLoopAktif}
                   spektrumSuara={spektrumSuara}
@@ -1256,8 +1272,12 @@ export default function JarvisApp({
                   onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
                   onBukaChatLengkap={() => {
                     mainkanSuaraHud('chirp')
-                    setRadarAnomaliTerbuka(true)
-                    setTacticalTab('chat')
+                    if (modeMukaDoang) {
+                      setFloatingChatTerbuka(true)
+                    } else {
+                      setRadarAnomaliTerbuka(true)
+                      setTacticalTab('chat')
+                    }
                   }}
                 />
               )}
@@ -1474,8 +1494,8 @@ export default function JarvisApp({
                       <span>CONTINUOUS CHAT // ACTIVE</span>
                     </div>
                   </div>
-                ) : (
-                  /* Minimized Floating Pill when closed */
+                ) : riwayatHologram.length > 0 ? (
+                  /* Minimized Floating Pill when closed and there is chat history */
                   <button
                     type="button"
                     onClick={() => {
@@ -1487,13 +1507,11 @@ export default function JarvisApp({
                   >
                     <MessageSquare className="w-4 h-4 text-cyan-300" />
                     <span>CHATBOX</span>
-                    {riwayatHologram.length > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/30 text-cyan-300 text-[10px] font-mono-hud font-bold border border-cyan-400/40">
-                        {riwayatHologram.length}
-                      </span>
-                    )}
+                    <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/30 text-cyan-300 text-[10px] font-mono-hud font-bold border border-cyan-400/40">
+                      {riwayatHologram.length}
+                    </span>
                   </button>
-                )}
+                ) : null}
               </>
             ) : !radarAnomaliTerbuka ? (
               /* Standby Collapsed Status Bar */

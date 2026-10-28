@@ -116,6 +116,11 @@ export interface WasteTelemetri {
   estKerugianKemarinRp?: number
   rincianKemarin?: WasteLaporanItem[]
   rekapOutletKemarin?: WasteOutletRekap[]
+  laporan7HariCount?: number
+  estKerugian7HariRp?: number
+  topBahan7Hari?: WasteItemTelemetri[]
+  topOutlet7Hari?: WasteOutletTelemetri[]
+  rekapOutlet7Hari?: WasteOutletRekap[]
 }
 
 export interface VoidOrderTelemetri {
@@ -859,6 +864,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const tglKemarinStr = wibKemarin.toISOString().slice(0, 10)
     const wibH2 = new Date(wib.getTime() - 2 * 24 * 60 * 60 * 1000)
     const tglH2Str = wibH2.toISOString().slice(0, 10)
+    const wib7 = new Date(wib.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const tgl7Str = wib7.toISOString().slice(0, 10)
 
     const startH2 = `${tglH2Str}T00:00:00+07:00`
     const endH2 = `${tglKemarinStr}T00:00:00+07:00`
@@ -1567,12 +1574,16 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     let laporanKemarinCount = 0
     let estKerugianKemarinExact = 0
     let estKerugianH2Exact = 0
+    let laporan7HariCount = 0
+    let estKerugian7HariExact = 0
     const bahanMap: Record<string, { nama: string; satuan: string; totalQty: number; frekuensi: number; reasons: Record<string, number>; estKerugianExact: number }> = {}
     const outletWasteMap: Record<string, { nama: string; frekuensi: number; totalQty: number; estKerugianExact: number }> = {}
     const rincianHariIni: WasteLaporanItem[] = []
     const rincianKemarin: WasteLaporanItem[] = []
     const outletHariIniMap: Record<string, { outlet: string; totalLaporan: number; totalQty: number; estKerugianExact: number; items: string[] }> = {}
     const outletKemarinMap: Record<string, { outlet: string; totalLaporan: number; totalQty: number; estKerugianExact: number; items: string[] }> = {}
+    const outlet7HariMap: Record<string, { outlet: string; totalLaporan: number; totalQty: number; estKerugianExact: number; items: string[] }> = {}
+    const bahan7HariMap: Record<string, { nama: string; satuan: string; totalQty: number; frekuensi: number; reasons: Record<string, number>; estKerugianExact: number }> = {}
 
     for (const r of wasteRows) {
       const bNama = r.bahan_baku?.nama || 'Bahan Baku'
@@ -1595,6 +1606,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         estKerugianRp: estLoss,
         waktu: r.created_at ? new Date(Date.parse(r.created_at) + 7 * 3600000).toISOString().slice(11, 16) : undefined,
       }
+      const reas = itemLaporan.reason
 
       if (r.created_at) {
         const wibWasteDate = new Date(Date.parse(r.created_at) + 7 * 3600000).toISOString().slice(0, 10)
@@ -1623,6 +1635,28 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         } else if (wibWasteDate === tglH2Str) {
           estKerugianH2Exact += exactLoss
         }
+
+        if (wibWasteDate >= tgl7Str) {
+          laporan7HariCount++
+          estKerugian7HariExact += exactLoss
+          if (!outlet7HariMap[outNama]) {
+            outlet7HariMap[outNama] = { outlet: outNama, totalLaporan: 0, totalQty: 0, estKerugianExact: 0, items: [] }
+          }
+          outlet7HariMap[outNama].totalLaporan++
+          outlet7HariMap[outNama].totalQty += qty
+          outlet7HariMap[outNama].estKerugianExact += exactLoss
+          if (outlet7HariMap[outNama].items.length < 4) {
+            outlet7HariMap[outNama].items.push(`${bNama} ${itemLaporan.qty} ${sat}`)
+          }
+
+          if (!bahan7HariMap[bNama]) {
+            bahan7HariMap[bNama] = { nama: bNama, satuan: sat, totalQty: 0, frekuensi: 0, reasons: {}, estKerugianExact: 0 }
+          }
+          bahan7HariMap[bNama].totalQty += qty
+          bahan7HariMap[bNama].frekuensi++
+          bahan7HariMap[bNama].estKerugianExact += exactLoss
+          bahan7HariMap[bNama].reasons[reas] = (bahan7HariMap[bNama].reasons[reas] || 0) + 1
+        }
       }
 
       if (!bahanMap[bNama]) {
@@ -1631,7 +1665,6 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       bahanMap[bNama].totalQty += qty
       bahanMap[bNama].frekuensi += 1
       bahanMap[bNama].estKerugianExact += exactLoss
-      const reas = (r.reason || 'Lainnya').trim()
       bahanMap[bNama].reasons[reas] = (bahanMap[bNama].reasons[reas] || 0) + 1
 
       if (!outletWasteMap[outNama]) {
@@ -1674,6 +1707,43 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         estKerugianRp: Math.round(o.estKerugianExact),
       }))
 
+    const topBahan7Hari = Object.values(bahan7HariMap)
+      .sort((a, b) => b.estKerugianExact - a.estKerugianExact || b.totalQty - a.totalQty)
+      .slice(0, 5)
+      .map((b) => {
+        const sortedReasons = Object.entries(b.reasons).sort((x, y) => y[1] - x[1])
+        const nonGeneric = sortedReasons.filter(([k]) => !/^(lainnya|-)$/i.test(k.trim()))
+        const topReason = (nonGeneric[0] || sortedReasons[0])?.[0] || '-'
+        return {
+          nama: b.nama,
+          satuan: b.satuan,
+          totalQty: Math.round(b.totalQty * 100) / 100,
+          frekuensi: b.frekuensi,
+          alasanDominan: topReason,
+          estKerugianRp: Math.round(b.estKerugianExact),
+        }
+      })
+
+    const topOutlet7Hari = Object.values(outlet7HariMap)
+      .sort((a, b) => b.estKerugianExact - a.estKerugianExact || b.totalLaporan - a.totalLaporan)
+      .slice(0, 5)
+      .map((o) => ({
+        nama: o.outlet,
+        frekuensi: o.totalLaporan,
+        totalQty: Math.round(o.totalQty * 10) / 10,
+        estKerugianRp: Math.round(o.estKerugianExact),
+      }))
+
+    const rekapOutlet7Hari = Object.values(outlet7HariMap)
+      .map((o) => ({
+        outlet: o.outlet,
+        totalLaporan: o.totalLaporan,
+        totalQty: Math.round(o.totalQty * 100) / 100,
+        estKerugianRp: Math.round(o.estKerugianExact),
+        items: o.items,
+      }))
+      .sort((a, b) => b.estKerugianRp - a.estKerugianRp)
+
     const waste: WasteTelemetri = {
       totalLaporan30Hari: wasteRows.length,
       totalEstKerugianRp,
@@ -1703,6 +1773,11 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           items: o.items,
         }))
         .sort((a, b) => b.estKerugianRp - a.estKerugianRp),
+      laporan7HariCount,
+      estKerugian7HariRp: Math.round(estKerugian7HariExact),
+      topBahan7Hari,
+      topOutlet7Hari,
+      rekapOutlet7Hari,
     }
 
     // ─────────────────────────────────────────────────────────── Void & Pembatalan Transaksi POS (Hari Ini & Kemarin)

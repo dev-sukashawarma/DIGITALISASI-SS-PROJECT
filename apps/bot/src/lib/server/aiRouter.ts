@@ -4,6 +4,7 @@
  */
 import { buatPengurai } from '@/lib/hermes'
 import { TelemetriHariIni, formatRupiah } from './telemetriNyata'
+import { deteksiPermintaanTanggal, ambilDataDinamisRentang } from './queryDinamis'
 
 export interface PesanRiwayat {
   role: 'user' | 'assistant'
@@ -170,6 +171,32 @@ export async function* tanyaAiRouter(o: {
       .map(
         (r, i) =>
           `  ${i + 1}. ${r.outlet}: ${r.bahan} ${r.qty} ${r.satuan} (${r.reason}) — Est. Rugi ${formatRupiah(r.estKerugianRp)} [${r.status}]`
+      )
+      .join('\n')
+
+    const listWaste7HariBahan = (w?.topBahan7Hari || [])
+      .map(
+        (b, i) =>
+          `  ${i + 1}. ${b.nama}: ${b.totalQty} ${b.satuan} (${b.frekuensi}x dilaporkan) — Est. Rugi: ${formatRupiah(
+            b.estKerugianRp
+          )} | Alasan: ${b.alasanDominan}`
+      )
+      .join('\n')
+
+    const listWaste7HariOutlet = (w?.topOutlet7Hari || [])
+      .map(
+        (out, i) =>
+          `  ${i + 1}. ${out.nama}: ${out.frekuensi} laporan (${out.totalQty} unit${
+            out.estKerugianRp ? `, Est. Rugi: ${formatRupiah(out.estKerugianRp)}` : ''
+          })`
+      )
+      .join('\n')
+
+    const listWaste7HariPerOutlet = (w?.rekapOutlet7Hari || [])
+      .slice(0, 10)
+      .map(
+        (o, i) =>
+          `  ${i + 1}. ${o.outlet}: ${o.totalLaporan} laporan (${Math.round(o.totalQty * 100) / 100} unit, Est. Rugi: ${formatRupiah(o.estKerugianRp)}) [Item: ${o.items.slice(0, 4).join(', ')}]`
       )
       .join('\n')
 
@@ -523,8 +550,18 @@ ${listWasteHariIniPerOutlet || '  (Belum ada laporan waste per cabang hari ini)'
 ${listWasteHariIniDetail || '  (Belum ada rincian waste hari ini)'}
 
 ======================================================================
-DATA WASTE 30 HARI, STOK, DISTRIBUSI, KEUANGAN, & GOOGLE REVIEW
+DATA WASTE 7 HARI & 30 HARI, STOK, DISTRIBUSI, KEUANGAN, & GOOGLE REVIEW
 ======================================================================
+DATA REKAPITULASI LOSS & WASTE 7 HARI TERAKHIR (MINGGUAN / H-7 S.D. H-1):
+- Total Laporan Waste 7 Hari: ${w?.laporan7HariCount || 0} laporan
+- Total Akumulasi Estimasi Kerugian 7 Hari: ${formatRupiah(w?.estKerugian7HariRp || 0)}
+- Top Cabang Penyumbang Waste 7 Hari Terakhir:
+${listWaste7HariOutlet || '  (Tidak ada catatan waste cabang 7 hari)'}
+- Top Bahan Paling Banyak Terbuang 7 Hari Terakhir:
+${listWaste7HariBahan || '  (Tidak ada data waste bahan 7 hari)'}
+- Rekapitulasi Waste Per Cabang 7 Hari Terakhir:
+${listWaste7HariPerOutlet || '  (Tidak ada data per cabang)'}
+
 DATA WASTE & REJECT BAHAN BAKU (AUDIT LOSS PREVENTION 30 HARI TERAKHIR):
 - Total Laporan Waste Tercatat (30H): ${w?.totalLaporan30Hari || 0} laporan
 - Total Akumulasi Kerugian Estimasi (30H): ${formatRupiah(w?.totalEstKerugianRp || 0)}
@@ -540,6 +577,21 @@ ${teksDistribusi}
 ${teksFinance}
 ${teksReview}
 `.trim()
+  }
+
+  // Deteksi query rentang tanggal fleksibel (misal: 10 hari kebelakang, 7 hari, tanggal 15 Oktober, dll)
+  const infoTanggal = deteksiPermintaanTanggal(o.pesan, o.riwayat)
+  let teksDataDinamis = ''
+  if (infoTanggal) {
+    try {
+      teksDataDinamis = await ambilDataDinamisRentang(infoTanggal)
+    } catch (err) {
+      console.warn('[aiRouter] Gagal mengambil data dinamis rentang:', err)
+    }
+  }
+
+  if (teksDataDinamis) {
+    konteksData = `${konteksData}\n\n${teksDataDinamis}`
   }
 
   const profilClean = o.profil.trim().toLowerCase()
@@ -585,7 +637,9 @@ PANDUAN KOMUNIKASI & PERILAKU:
      * Jangan mencampuradukkan angka kemarin dengan hari ini.
 4. PERTANYAAN KHUSUS OPERASIONAL MANAJER:
    - Pertanyaan waste / reject / barang rusak / sampah bahan / kerugian bahan:
-     * Bedakan dengan tegas antara WASTE KEMARIN (H-1) dan WASTE HARI INI / 30 HARI.
+     * Bedakan dengan tegas antara WASTE KEMARIN (H-1), WASTE 7 HARI TERAKHIR (MINGGUAN), DATA QUERY DINAMIS, dan WASTE 30 HARI.
+     * Jika pengguna menanyakan waste 7 hari kebelakang / seminggu terakhir, sajikan data dari DATA REKAPITULASI LOSS & WASTE 7 HARI TERAKHIR (total laporan, kerugian, top cabang dan bahan).
+     * Jika pengguna menanyakan periode spesifik (misalnya 10 hari kebelakang, tanggal tertentu, atau rentang tanggal), gunakan DATA HASIL QUERY DINAMIS SESUAI PERMINTAAN TANGGAL.
      * Jika pengguna menanyakan waste kemarin (misalnya "ada laporan waste kemarin", "data waste kemarin", "waste 22 Oktober", "apakah ada waste kemarin", dsb):
        Sajikan secara presisi total laporan kemarin (jumlah laporan dan total estimasi kerugian), rincian cabang yang melaporkan waste beserta nominal dan itemnya dari REKAPITULASI & RINCIAN WASTE KEMARIN di atas. DILARANG menyatakan data waste kemarin tidak ada jika ada data tercatat di atas.
      * Jika pengguna menanyakan waste hari ini, sajikan data live waste hari ini.
@@ -644,6 +698,12 @@ PANDUAN KOMUNIKASI & PERILAKU:
    - Jadikan **H-1 (Evaluasi Full Closing Kemarin)** sebagai **ACUAN DEFAULT UTAMA** saat Bos bertanya secara umum tanpa menyebut kata 'hari ini' (misalnya tanya "gimana omzet?", "berapa OPEX?", "siapa yang telat?", "gimana laporan daily?", "menu apa yang paling laris?"). Setelah menyebutkan data H-1 Kemarin secara lengkap, Anda boleh menambahkan 1 kalimat singkat progres Live Hari Ini sebagai perbandingan jika shift hari ini sudah berjalan.
    - Jika pengguna secara spesifik menanyakan 'hari ini' / 'live' / 'sekarang', barulah fokuskan jawaban utama pada DATA PANTAUAN LIVE HARI INI.
    - Jangan pernah mencampuradukkan angka kemarin dengan angka hari ini tanpa memberi label waktu yang jelas.
+   - PERTANYAAN TANGGAL SPESIFIK / RENTANG HARI (CONTOH: 7 HARI, 10 HARI KEBELAKANG, TANGGAL TERTENTU):
+     * Jika Bos menanyakan periode spesifik (seperti "10 hari kebelakang", "7 hari terakhir", "seminggu", "tanggal 15 Oktober", "rentang tanggal X sampai Y"):
+       - Cek bagian DATA HASIL QUERY DINAMIS SESUAI PERMINTAAN TANGGAL PENGGUNA atau DATA REKAPITULASI 7 HARI TERAKHIR di bawah.
+       - WAJIB gunakan angka dan rincian yang tertera di sana untuk menjawab secara presisi, faktual, dan lengkap.
+       - DILARANG menyatakan data tanggal/periode tersebut tidak tersedia jika di bagian tersebut datanya sudah disajikan.
+       - Awali dengan kalimat percakapan lisan menyebutkan periode yang ditanyakan (contoh: "Siap, Sir. Untuk data 10 hari kebelakang, total kerugian waste tercatat sebesar Rp...").
 4. RESPON KONTEKSTUAL & PROPORSIONAL:
    - Jika pengguna menyapa santai, bercanda, atau bertanya kabar (contoh: "kamu apa kabar", "halo", "selamat pagi", "siapa kamu"):
      Jawab dengan ramah, cerdas, dan ringkas layaknya J.A.R.V.I.S. (contoh: "Kabar baik, Sir. Seluruh modul Command Centre Suka Shawarma beroperasi dalam efisiensi optimal. Ada arahan operasional atau data cabang yang ingin Anda tinjau?").
@@ -654,7 +714,7 @@ PANDUAN KOMUNIKASI & PERILAKU:
      Pahami istilah sehari-hari seperti "yang ga masuk siapa", "siapa yang absen", "siapa yang tidak hadir", "siapa yang cuti/izin", "siapa yang telat", "bagaimana presensi kru" sebagai pertanyaan DATA PRESENSI & SDM (HRD), BUKAN order cabang.
      Sebutkan nama kru yang sedang izin/cuti beserta status/alasannya, serta kru yang datang terlambat.
    - PERTANYAAN WASTE / REJECT / KERUGIAN BAHAN:
-     Pahami pertanyaan seputar waste, sampah bahan, reject, atau barang basi/rusak (baik kemarin H-1, hari ini, atau akumulasi 30 hari) menggunakan data REKAPITULASI & RINCIAN WASTE di bawah. Jika menanyakan kemarin, laporkan secara presisi total laporan, total estimasi kerugian, dan cabang serta bahan yang dilaporkan kemarin.
+     Pahami pertanyaan seputar waste, sampah bahan, reject, atau barang basi/rusak (baik kemarin H-1, 7 hari terakhir / seminggu, 10 hari kebelakang, tanggal tertentu, hari ini, atau akumulasi 30 hari) menggunakan data REKAPITULASI & RINCIAN WASTE atau DATA HASIL QUERY DINAMIS di bawah. Jika menanyakan 7 hari / seminggu, gunakan data 7 HARI TERAKHIR. Jika menanyakan rentang hari lain atau tanggal spesifik (misal: 10 hari kebelakang, tanggal 15 Oktober), gunakan DATA HASIL QUERY DINAMIS. Laporkan secara presisi total laporan, total estimasi kerugian, dan cabang serta bahan yang dilaporkan.
    - Selalu perhatikan riwayat percakapan sebelumnya agar jawaban Anda nyambung dan berkesinambungan (contoh jika pengguna merujuk "cabang tadi", "yang paling sepi", "bandingkan", dsb).
 
 ======================================================================

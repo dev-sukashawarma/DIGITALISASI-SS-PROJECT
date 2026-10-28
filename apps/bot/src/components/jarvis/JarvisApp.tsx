@@ -10,6 +10,7 @@ import type { MejaKantor } from '@/kantor/keadaan'
 import type { Profil } from '@/lib/peran'
 import { keluar } from '@/lib/keluar'
 import ArcReactor, { type StatusArcReactor } from '@/components/jarvis/ArcReactor'
+import HologramHead3D from '@/components/jarvis/HologramHead3D'
 import AgentNodeCard from '@/components/jarvis/AgentNodeCard'
 import JarvisChatDrawer, { FormatIsiHologram } from '@/components/jarvis/JarvisChatDrawer'
 import DailyBriefingModal from '@/components/jarvis/DailyBriefingModal'
@@ -32,6 +33,8 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
+  Bot,
+  Cpu,
   Send,
   Home,
   LogOut,
@@ -145,7 +148,7 @@ export default function JarvisApp({
   const [sedangBicara, setSedangBicara] = useState(false)
   const [voiceLoopAktif, setVoiceLoopAktif] = useState(false)
   const [wakeWordNyala, setWakeWordNyala] = useState(false)
-  const [spektrumSuara, setSpektrumSuara] = useState<number[]>([0.2, 0.35, 0.22, 0.45, 0.3, 0.45, 0.22, 0.35, 0.2])
+  const [spektrumSuara, setSpektrumSuara] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0])
   const [transkripLive, setTranskripLive] = useState('')
 
   // Unified Jarvis Conversation State (Center Hologram + Chat Drawer Sync)
@@ -158,6 +161,7 @@ export default function JarvisApp({
   const [modeWaktuKotak, setModeWaktuKotak] = useState<'kemarin' | 'hari_ini'>('kemarin')
 
   // Modal / Drawer States
+  const [modeAvatar, setModeAvatar] = useState<'hologram' | 'reactor'>('hologram')
   const [tampilDailyBriefing, setTampilDailyBriefing] = useState(false)
   const [tampilChatDrawer, setTampilChatDrawer] = useState(false)
   const [pesanAwalDrawer, setPesanAwalDrawer] = useState<string | null>(null)
@@ -352,7 +356,6 @@ export default function JarvisApp({
         const narasi =
           pilihMode === 'kemarin' ? dailyData.narasiSuaraKemarin : dailyData.narasiSuaraHariIni
         if (narasi) {
-          setSedangBicara(true)
           bicaraJarvis(
             narasi,
             () => {
@@ -361,7 +364,10 @@ export default function JarvisApp({
                 setTimeout(() => mulaiSesiDengar(true), 350)
               }
             },
-            { gunakanTeksPenuh: true }
+            {
+              gunakanTeksPenuh: true,
+              onMulai: () => setSedangBicara(true),
+            }
           )
         }
       }
@@ -454,14 +460,16 @@ export default function JarvisApp({
         )
         mainkanSuaraHud('blip')
         if (dariVoice || autoVoiceReply) {
-          setSedangBicara(true)
           bicaraJarvis(
             pesanOk,
             () => {
               setSedangBicara(false)
               if (voiceLoopRef.current) setTimeout(() => mulaiSesiDengar(true), 350)
             },
-            { gunakanTeksPenuh: true }
+            {
+              gunakanTeksPenuh: true,
+              onMulai: () => setSedangBicara(true),
+            }
           )
         }
       } catch (e) {
@@ -552,17 +560,22 @@ export default function JarvisApp({
       setSedangMemproses(false)
 
       if ((dariVoice || autoVoiceReply || voiceLoopRef.current) && terkumpul.trim()) {
-        setSedangBicara(true)
-        bicaraJarvis(terkumpul, () => {
-          setSedangBicara(false)
-          if (voiceLoopRef.current) {
-            setTimeout(() => {
-              if (voiceLoopRef.current) {
-                mulaiSesiDengar(true)
-              }
-            }, 350)
+        bicaraJarvis(
+          terkumpul,
+          () => {
+            setSedangBicara(false)
+            if (voiceLoopRef.current) {
+              setTimeout(() => {
+                if (voiceLoopRef.current) {
+                  mulaiSesiDengar(true)
+                }
+              }, 350)
+            }
+          },
+          {
+            onMulai: () => setSedangBicara(true),
           }
-        })
+        )
       }
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return
@@ -743,10 +756,10 @@ export default function JarvisApp({
                     info?.gender === 'Wanita'
                       ? 'Siap Bos, modul suara saya sekarang aktif mendampingi Anda.'
                       : 'Siap Sir, sistem suara saya sudah aktif dan siap berdiskusi.'
-                  setSedangBicara(true)
                   bicaraJarvis(sapaanTes, () => setSedangBicara(false), {
                     gunakanTeksPenuh: true,
                     voiceId: idBaru,
+                    onMulai: () => setSedangBicara(true),
                   })
                 }}
                 className="px-2 py-1.5 rounded-lg bg-cyan-950/80 border border-cyan-400/50 text-cyan-200 font-mono-hud text-xs font-semibold focus:outline-none focus:border-cyan-300 cursor-pointer hover:bg-cyan-900/70 transition-colors"
@@ -917,29 +930,92 @@ export default function JarvisApp({
 
           {/* Center Stage (6 Cols / 50%): THE HERO COMMAND CORE (Majestic Arc Reactor + Hologram Stage) */}
           <div className="order-first lg:order-none w-full lg:col-span-6 flex flex-col justify-between items-center h-full min-h-0 relative px-1 py-0.5">
-            {/* Top / Center: The Majestic Arc Reactor */}
+            {/* Top / Center: The Majestic Hologram / Arc Reactor Avatar */}
             <div className="shrink-0 flex flex-col items-center justify-center relative w-full">
-              <ArcReactor
-                status={statusCore}
-                compact={false}
-                voiceLoopAktif={voiceLoopAktif}
-                spektrumSuara={spektrumSuara}
-                transkripLive={transkripLive}
-                anomaliItems={dailyData?.actionItems?.filter((a) => a.level === 'critical' || a.level === 'warning')}
-                onClickCore={handleToggleVoiceLoop}
-                onPilihAnomali={(item) =>
-                  void eksekusiPerintahJarvis(
-                    item.perintahTindakLanjut ||
-                      `Jelaskan anomali ${item.judul} dan berikan rekomendasi penanganan taktis.`,
-                    false
-                  )
-                }
-                onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
-                onBukaChatLengkap={() => {
-                  setPesanAwalDrawer(null)
-                  setTampilChatDrawer(true)
-                }}
-              />
+              {/* Avatar Mode Switcher: 3D Hologram Robot Head vs Arc Reactor */}
+              <div className="flex items-center justify-center mb-0.5 z-20">
+                <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-md shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      mainkanSuaraHud('chirp')
+                      setModeAvatar('hologram')
+                    }}
+                    className={`px-2.5 py-0.5 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      modeAvatar === 'hologram'
+                        ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'text-zinc-400 hover:text-cyan-200 border border-transparent'
+                    }`}
+                    title="Wajah Robot Hologram 3D (Bisa Muter & Bicara)"
+                  >
+                    <Bot className="w-3 h-3 text-cyan-300" />
+                    <span>3D HOLOGRAM HEAD</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      mainkanSuaraHud('chirp')
+                      setModeAvatar('reactor')
+                    }}
+                    className={`px-2.5 py-0.5 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      modeAvatar === 'reactor'
+                        ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                        : 'text-zinc-400 hover:text-cyan-200 border border-transparent'
+                    }`}
+                    title="Arc Reactor Core Asli Iron Man"
+                  >
+                    <Cpu className="w-3 h-3 text-cyan-300" />
+                    <span>ARC REACTOR</span>
+                  </button>
+                </div>
+              </div>
+
+              {modeAvatar === 'hologram' ? (
+                <HologramHead3D
+                  status={statusCore}
+                  compact={false}
+                  voiceLoopAktif={voiceLoopAktif}
+                  spektrumSuara={spektrumSuara}
+                  transkripLive={transkripLive}
+                  anomaliItems={dailyData?.actionItems?.filter((a) => a.level === 'critical' || a.level === 'warning')}
+                  onClickCore={handleToggleVoiceLoop}
+                  onPilihAnomali={(item) =>
+                    void eksekusiPerintahJarvis(
+                      item.perintahTindakLanjut ||
+                        `Jelaskan anomali ${item.judul} dan berikan rekomendasi penanganan taktis.`,
+                      false
+                    )
+                  }
+                  onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
+                  onBukaChatLengkap={() => {
+                    setPesanAwalDrawer(null)
+                    setTampilChatDrawer(true)
+                  }}
+                />
+              ) : (
+                <ArcReactor
+                  status={statusCore}
+                  compact={false}
+                  voiceLoopAktif={voiceLoopAktif}
+                  spektrumSuara={spektrumSuara}
+                  transkripLive={transkripLive}
+                  anomaliItems={dailyData?.actionItems?.filter((a) => a.level === 'critical' || a.level === 'warning')}
+                  onClickCore={handleToggleVoiceLoop}
+                  onPilihAnomali={(item) =>
+                    void eksekusiPerintahJarvis(
+                      item.perintahTindakLanjut ||
+                        `Jelaskan anomali ${item.judul} dan berikan rekomendasi penanganan taktis.`,
+                      false
+                    )
+                  }
+                  onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
+                  onBukaChatLengkap={() => {
+                    setPesanAwalDrawer(null)
+                    setTampilChatDrawer(true)
+                  }}
+                />
+              )}
             </div>
 
             {/* Middle: Floating Holographic Transmission Feed OR Standby Aura */}
@@ -970,8 +1046,9 @@ export default function JarvisApp({
                               hentiBicaraJarvis()
                               setSedangBicara(false)
                             } else {
-                              setSedangBicara(true)
-                              bicaraJarvis(jawabanHologram, () => setSedangBicara(false))
+                              bicaraJarvis(jawabanHologram, () => setSedangBicara(false), {
+                                onMulai: () => setSedangBicara(true),
+                              })
                             }
                           }}
                           className="px-2 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 flex items-center gap-1 text-[11px] cursor-pointer"

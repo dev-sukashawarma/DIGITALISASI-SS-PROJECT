@@ -22,7 +22,7 @@ let sedangBicaraFlag = false
 let animFrameId: number | null = null
 let listenerSpektrum: ((bands: number[]) => void) | null = null
 
-const DEFAULT_BANDS = [0.15, 0.25, 0.18, 0.35, 0.22, 0.35, 0.18, 0.25, 0.15]
+const DEFAULT_BANDS = [0, 0, 0, 0, 0, 0, 0, 0, 0]
 const STORAGE_KEY_VOICE = 'jarvis_voice_id'
 
 export interface PilihanSuaraHud {
@@ -793,7 +793,7 @@ function mulaiLoopSpektrum() {
       analyserAktif.getByteFrequencyData(freqData)
       analyserAktif.getByteTimeDomainData(timeData)
 
-      // Hitung energi amplitudo waktu nyata (time-domain RMS) agar suara pelan di mic tetap menggerakkan grafik dengan jelas
+      // Hitung energi amplitudo waktu nyata (time-domain RMS)
       let sumDev = 0
       let peakDev = 0
       for (let i = 0; i < timeData.length; i++) {
@@ -801,33 +801,43 @@ function mulaiLoopSpektrum() {
         sumDev += dev * dev
         if (dev > peakDev) peakDev = dev
       }
-      const rmsBoost = Math.min(1, Math.sqrt(sumDev / timeData.length) * 6.5 + peakDev * 1.8)
+      const rms = Math.sqrt(sumDev / timeData.length)
+      const rmsBoost = Math.min(1, rms * 6.5 + peakDev * 1.8)
 
       // 9 band frekuensi vokal manusia (bin 1..18 pada FFT 512 mencakup ~93Hz s/d ~1700Hz)
-      // Disusun simetris (center-weighted) agar bar tengah paling tinggi saat bicara
       const bobotTengah = [0.55, 0.72, 0.88, 1.0, 1.08, 1.0, 0.88, 0.72, 0.55]
       const binIndex = [8, 6, 4, 2, 1, 3, 5, 7, 9]
       const t = Date.now() / 90
 
+      // JIKA SEDANG BICARA (TTS playback): ketika suara jeda / hening (rms < 0.015), nol-kan spektrum!
+      // Mulut dan equalizer HANYA bergerak saat ada suara audio nyata keluar dari speaker.
+      const isVoiceSilent = sedangBicaraFlag && rms < 0.018 && peakDev < 0.035
+
       const bands: number[] = []
       for (let i = 0; i < 9; i++) {
+        if (isVoiceSilent) {
+          bands.push(0)
+          continue
+        }
         const bIdx = binIndex[i]
         const fVal = (freqData[bIdx] || 0) / 255
-        // Gelombang hidup halus saat mic aktif menunggu suara + lonjakan drastis saat ada suara
-        const idleBreath = 0.16 + Math.abs(Math.sin(t + i * 0.65)) * 0.1
+        // Idle breath hanya saat mic mendengarkan, BUKAN saat TTS bicara
+        const idleBreath = sedangMendengar ? 0.12 + Math.abs(Math.sin(t + i * 0.65)) * 0.08 : 0
         const voiceEnergy = Math.max(fVal * 1.15, rmsBoost * bobotTengah[i])
         const nilai = Math.max(idleBreath, Math.min(1, voiceEnergy))
         bands.push(nilai)
       }
       listenerSpektrum?.(bands)
-    } else {
-      // Simulasi organik saat memakai fallback speechSynthesis
+    } else if (sedangBicaraFlag) {
+      // Simulasi ritmik saat memakai fallback speechSynthesis browser
       const t = Date.now() / 110
-      const bands = DEFAULT_BANDS.map((_, idx) => {
+      const bands = [0.2, 0.35, 0.25, 0.5, 0.35, 0.5, 0.25, 0.35, 0.2].map((base, idx) => {
         const wave = Math.abs(Math.sin(t + idx * 0.7) * Math.cos(t * 0.6 - idx * 0.4))
-        return Math.max(0.18, Math.min(0.95, 0.22 + wave * 0.75))
+        return Math.max(0.08, Math.min(0.85, base * 0.6 + wave * 0.4))
       })
       listenerSpektrum?.(bands)
+    } else {
+      listenerSpektrum?.(DEFAULT_BANDS)
     }
     animFrameId = requestAnimationFrame(tick)
   }
@@ -835,7 +845,11 @@ function mulaiLoopSpektrum() {
   animFrameId = requestAnimationFrame(tick)
 }
 
-function bicaraFallbackBrowser(teksBersih: string, onSelesai?: () => void) {
+function bicaraFallbackBrowser(
+  teksBersih: string,
+  onSelesai?: () => void,
+  onMulai?: () => void
+) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     sedangBicaraFlag = false
     listenerSpektrum?.(DEFAULT_BANDS)
@@ -858,18 +872,32 @@ function bicaraFallbackBrowser(teksBersih: string, onSelesai?: () => void) {
       utterance.voice = suaraId
     }
 
-    sedangBicaraFlag = true
-    mulaiLoopSpektrum()
-
+    let selesaiDipanggil = false
     const akhiri = () => {
+      if (selesaiDipanggil) return
+      selesaiDipanggil = true
       sedangBicaraFlag = false
       if (animFrameId) cancelAnimationFrame(animFrameId)
       listenerSpektrum?.(DEFAULT_BANDS)
       onSelesai?.()
     }
 
+    utterance.onstart = () => {
+      sedangBicaraFlag = true
+      onMulai?.()
+      mulaiLoopSpektrum()
+    }
+
     utterance.onend = akhiri
     utterance.onerror = akhiri
+
+    // Watchdog pengaman speechSynthesis agar tidak stuck
+    const estimasiKata = Math.max(1, teksBersih.split(/\s+/).length)
+    const timeoutMax = Math.min(60000, estimasiKata * 800 + 4000)
+    setTimeout(() => {
+      if (sedangBicaraFlag) akhiri()
+    }, timeoutMax)
+
     window.speechSynthesis.speak(utterance)
   } catch {
     sedangBicaraFlag = false
@@ -880,12 +908,12 @@ function bicaraFallbackBrowser(teksBersih: string, onSelesai?: () => void) {
 
 /**
  * Membacakan respons J.A.R.V.I.S. menggunakan Neural TTS Pria Indonesia (/api/voice/tts - id-ID-ArdiNeural)
- * disertai efek akustik HUD & analisis spektrum frekuensi real-time untuk Arc Reactor.
+ * disertai efek akustik HUD & analisis spektrum frekuensi real-time untuk Arc Reactor & Hologram Head 3D.
  */
 export function bicaraJarvis(
   teks: string,
   onSelesai?: () => void,
-  opsi?: { gunakanTeksPenuh?: boolean; voiceId?: string }
+  opsi?: { gunakanTeksPenuh?: boolean; voiceId?: string; onMulai?: () => void }
 ) {
   if (typeof window === 'undefined') {
     onSelesai?.()
@@ -903,7 +931,6 @@ export function bicaraJarvis(
   const voicePilihan = opsi?.voiceId || ambilSuaraJarvisAktif()
   const ctxAwal = getVoiceAudioContext()
 
-  sedangBicaraFlag = true
   const controller = new AbortController()
   ttsAbortController = controller
 
@@ -925,7 +952,7 @@ export function bicaraJarvis(
 
       const ctx = ctxAwal || getVoiceAudioContext()
       if (!ctx) {
-        bicaraFallbackBrowser(teksUcapan, onSelesai)
+        bicaraFallbackBrowser(teksUcapan, onSelesai, opsi?.onMulai)
         return
       }
 
@@ -948,7 +975,7 @@ export function bicaraJarvis(
 
       const analyser = ctx.createAnalyser()
       analyser.fftSize = 512
-      analyser.smoothingTimeConstant = 0.7
+      analyser.smoothingTimeConstant = 0.6
 
       source.connect(presenceFilter)
       presenceFilter.connect(analyser)
@@ -956,10 +983,16 @@ export function bicaraJarvis(
 
       activeSourceNode = source
       activeAnalyser = analyser
+
+      // Audio resmi mulai berbunyi di speaker sekarang!
       sedangBicaraFlag = true
+      opsi?.onMulai?.()
       mulaiLoopSpektrum()
 
-      source.onended = () => {
+      let selesaiDipanggil = false
+      const panggilSelesai = () => {
+        if (selesaiDipanggil) return
+        selesaiDipanggil = true
         if (activeSourceNode === source) {
           activeSourceNode = null
           activeAnalyser = null
@@ -970,11 +1003,21 @@ export function bicaraJarvis(
         }
       }
 
+      source.onended = panggilSelesai
+
+      // Watchdog pengaman durasi audio buffer agar tidak macet
+      const durasiMs = Math.ceil((audioBuffer.duration || 3) * 1000) + 1200
+      setTimeout(() => {
+        if (activeSourceNode === source) {
+          panggilSelesai()
+        }
+      }, durasiMs)
+
       source.start(0)
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return
       // Fallback mulus ke Web Speech API browser jika jaringan/server TTS terkendala
-      bicaraFallbackBrowser(teksUcapan, onSelesai)
+      bicaraFallbackBrowser(teksUcapan, onSelesai, opsi?.onMulai)
     }
   })()
 }

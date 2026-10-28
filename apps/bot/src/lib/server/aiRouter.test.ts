@@ -203,4 +203,50 @@ describe('aiRouter', () => {
     expect(systemPrompt).toContain('MITRA CIBUBUR: 2 laporan')
   })
 
+  it('menyertakan rekapitulasi waste 7 hari terakhir dalam prompt sistem', async () => {
+    process.env.AI_BASE_URL = 'http://test-ai:20128/v1'
+    process.env.AI_API_KEY = 'test-key'
+    process.env.AI_MODEL = 'test-model'
+
+    let requestBody: any = null
+    const chunks = ['data: {"choices":[{"delta":{"content":"Siap Sir."}}]}\n\n', 'data: [DONE]\n\n']
+    const encoder = new TextEncoder()
+    const readableStream = new ReadableStream({
+      start(controller) {
+        for (const c of chunks) controller.enqueue(encoder.encode(c))
+        controller.close()
+      },
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init: any) => {
+      requestBody = JSON.parse(init?.body as string)
+      return { ok: true, status: 200, body: readableStream } as any
+    })
+
+    const telemetriDenganWaste7Hari = {
+      ...mockTelemetri,
+      waste: {
+        totalLaporan30Hari: 120,
+        totalEstKerugianRp: 4500000,
+        topBahan: [{ nama: 'Sayur', satuan: 'kg', totalQty: 30, frekuensi: 20, alasanDominan: 'Basi', estKerugianRp: 500000 }],
+        topOutlet: [{ nama: 'JAGAKARSA', frekuensi: 15, totalQty: 25 }],
+        laporanHariIniCount: 0,
+        laporanKemarinCount: 5,
+        laporan7HariCount: 42,
+        estKerugian7HariRp: 1250000,
+        topBahan7Hari: [{ nama: 'Sayur (lettuce)', satuan: 'kg', totalQty: 18, frekuensi: 12, alasanDominan: 'Basi', estKerugianRp: 450000 }],
+        topOutlet7Hari: [{ nama: 'SUKA SHAWARMA JAGAKARSA', frekuensi: 8, totalQty: 10, estKerugianRp: 250000 }],
+        rekapOutlet7Hari: [{ outlet: 'SUKA SHAWARMA JAGAKARSA', totalLaporan: 8, totalQty: 10, estKerugianRp: 250000, items: ['Sayur'] }],
+      },
+    }
+
+    const iter = tanyaAiRouter({ pesan: 'waste tertinggi 7 hari kebelakang', profil: 'ceo', telemetri: telemetriDenganWaste7Hari })
+    for await (const _ of iter) {}
+
+    expect(requestBody).not.toBeNull()
+    const systemPrompt = requestBody.messages[0].content
+    expect(systemPrompt).toContain('DATA REKAPITULASI LOSS & WASTE 7 HARI TERAKHIR')
+    expect(systemPrompt).toContain('Total Laporan Waste 7 Hari: 42 laporan')
+    expect(systemPrompt).toContain('SUKA SHAWARMA JAGAKARSA')
+  })
 })

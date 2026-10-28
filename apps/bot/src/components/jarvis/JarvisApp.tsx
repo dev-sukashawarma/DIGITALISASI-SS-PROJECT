@@ -48,7 +48,6 @@ import {
   FileBarChart2,
   MessageSquare,
   X,
-  Printer,
   CheckCircle2,
   Activity,
   Zap,
@@ -1352,32 +1351,6 @@ export default function JarvisApp({
                           </button>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            mainkanSuaraHud('engage')
-                            if (typeof window === 'undefined') return
-                            const win = window.open('', '_blank', 'width=920,height=800')
-                            if (!win) return
-                            const escaped = (jawabanHologram || riwayatHologram.map(r => `${r.peran.toUpperCase()}: ${r.teks}`).join('\n\n'))
-                              .replace(/&/g, '&amp;')
-                              .replace(/</g, '&lt;')
-                              .replace(/>/g, '&gt;')
-                              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                              .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-                              .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-                              .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-                            win.document.open()
-                            win.document.write(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"/><title>Laporan Chat J.A.R.V.I.S. - Suka Shawarma</title><style>body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;margin:28px;line-height:1.5;white-space:pre-wrap;}h1{font-size:18px;border-bottom:2px solid #0284c7;padding-bottom:6px;margin-bottom:8px;}h3{font-size:14px;color:#0369a1;margin:14px 0 4px 0;}h4{font-size:13px;color:#0f172a;margin:10px 0 2px 0;}</style></head><body>${escaped}<script>window.onload=()=>{setTimeout(()=>window.print(),250);};</script></body></html>`)
-                            win.document.close()
-                          }}
-                          className="px-1.5 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-500/30 text-cyan-300 flex items-center gap-1 text-[10px] cursor-pointer"
-                          title="Simpan PDF Laporan"
-                        >
-                          <Printer className="w-3 h-3" />
-                          <span className="hidden sm:inline">PDF</span>
-                        </button>
-
                         {riwayatHologram.length > 0 && (
                           <button
                             type="button"
@@ -1674,34 +1647,6 @@ export default function JarvisApp({
                             <span>SPEAK</span>
                           </>
                         )}
-                      </button>
-                    )}
-
-                    {tacticalTab === 'chat' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          mainkanSuaraHud('engage')
-                          if (typeof window === 'undefined') return
-                          const win = window.open('', '_blank', 'width=920,height=800')
-                          if (!win) return
-                          const escaped = jawabanHologram
-                            .replace(/&/g, '&amp;')
-                            .replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;')
-                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-                            .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-                            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-                          win.document.open()
-                          win.document.write(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"/><title>Laporan Evaluasi J.A.R.V.I.S. - Suka Shawarma</title><style>body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;margin:28px;line-height:1.5;white-space:pre-wrap;}h1{font-size:18px;border-bottom:2px solid #0284c7;padding-bottom:6px;margin-bottom:8px;}h3{font-size:14px;color:#0369a1;margin:14px 0 4px 0;}h4{font-size:13px;color:#0f172a;margin:10px 0 2px 0;}</style></head><body>${escaped}<script>window.onload=()=>{setTimeout(()=>window.print(),250);};</script></body></html>`)
-                          win.document.close()
-                        }}
-                        className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-500/30 text-cyan-300 flex items-center gap-1 text-[11px] cursor-pointer"
-                        title="Cetak / Simpan PDF Laporan"
-                      >
-                        <Printer className="w-3 h-3" />
-                        <span className="hidden sm:inline">PDF</span>
                       </button>
                     )}
 

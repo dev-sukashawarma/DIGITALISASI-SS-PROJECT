@@ -41,6 +41,16 @@ const mockTelemetri: TelemetriHariIni = {
       telatMenit: 74,
     },
   ],
+  statusBuka: {
+    totalBuka: 26,
+    totalBelumBuka: 2,
+    daftarBuka: [
+      { outlet: 'SUKA SHAWARMA CIMANGGU', jamBuka: '10:00', status: 'open' },
+    ],
+    daftarBelumBuka: ['SUKA SHAWARMA MARGONDA', 'SUKA SHAWARMA BOGOR BARAT'],
+    shiftKemarinClosedCount: 28,
+    shiftKemarinTotalCount: 28,
+  },
 }
 
 describe('aiRouter', () => {
@@ -134,6 +144,9 @@ describe('aiRouter', () => {
     expect(messages[0].role).toBe('system')
     expect(messages[0].content).toContain('Muhamad Andrian Hermawan')
     expect(messages[0].content).toContain('Mohamad Raka')
+    expect(messages[0].content).toContain('SUKA SHAWARMA MARGONDA')
+    expect(messages[0].content).toContain('SUKA SHAWARMA BOGOR BARAT')
+    expect(messages[0].content).toContain('Cabang Belum Buka Shift')
     expect(messages[1]).toEqual({ role: 'user', content: 'halo kemarin omzet berapa?' })
     expect(messages[2]).toEqual({ role: 'assistant', content: 'Kemarin omzet Rp 3.000.000, Sir.' })
     expect(messages[3]).toEqual({ role: 'user', content: 'yang ga masuk hari ini siapa?' })

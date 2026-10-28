@@ -413,7 +413,8 @@ export async function POST(req: NextRequest) {
         const v = telemetri.voidOrder
         const voidSummary = v ? `${v.totalVoidHariIni} order (${formatRupiah(v.totalNilaiVoidHariIni)})` : '0 void'
         const sb = telemetri.statusBuka
-        const bukaSummary = sb ? `${sb.totalBuka} buka, ${sb.totalBelumBuka} belum buka` : ''
+        const belumBukaList = sb?.daftarBelumBuka?.length ? ` (Belum buka: ${sb.daftarBelumBuka.join(', ')})` : ''
+        const bukaSummary = sb ? `${sb.totalBuka} buka, ${sb.totalBelumBuka} belum buka${belumBukaList}` : ''
 
         ringkasanTelemetri = `\n[Data Telemetri Live Database Suka Shawarma]:\n- Omzet Hari Ini: ${formatRupiah(
           telemetri.omzetTotal

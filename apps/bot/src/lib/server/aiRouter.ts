@@ -212,6 +212,9 @@ export async function* tanyaAiRouter(o: {
     const listBuka = (sbk?.daftarBuka || [])
       .map((b) => `- ${b.outlet}: buka shift jam ${b.jamBuka} WIB [status: ${b.status}]`)
       .join('\n')
+    const listBelumBuka = (sbk?.daftarBelumBuka || [])
+      .map((nama) => `- ${nama} (Belum buka shift kasir / belum aktif bertransaksi hari ini)`)
+      .join('\n')
 
     const k = t.ringkasanKemarin
     const listKemarinTransaksi = (k?.outletsAktifTransaksi || []).map(formatBarisOutlet).join('\n')
@@ -536,7 +539,10 @@ ${listNol || '(Semua cabang sudah ada transaksi)'}
 - Top Menu Terlaris Live Hari Ini:
 ${listMenu || '(Belum ada data porsi hari ini)'}
 - Status Shift Kasir Hari Ini: ${sbk?.totalBuka || 0} cabang sudah buka / ${sbk?.totalBelumBuka || 0} belum buka
-${listBuka || '(Belum ada shift kasir yang tercatat hari ini)'}
+  * Cabang Sudah Buka Shift:
+${listBuka || '  (Belum ada shift kasir yang tercatat hari ini)'}
+  * Cabang Belum Buka Shift:
+${listBelumBuka || '  (Seluruh cabang sudah buka shift)'}
 - Audit Void POS Live Hari Ini: ${v?.totalVoidHariIni || 0} transaksi (${formatRupiah(v?.totalNilaiVoidHariIni || 0)})
 ${listVoid || '(Nol void hari ini)'}
 - Presensi Kru Live Hari Ini: ${t.kehadiranTotal} clock-in (${t.persenOnTime}% On-Time, ${t.kehadiranTelat} telat)
@@ -647,7 +653,7 @@ PANDUAN KOMUNIKASI & PERILAKU:
    - Pertanyaan void / pembatalan order / transaksi di-cancel POS:
      Sajikan total frekuensi void hari ini, total estimasi nominal rupiah yang dibatalkan, dan rincian cabang yang mencatat pembatalan order hari ini. Jika 0, tegaskan bahwa transaksi hari ini bersih tanpa ada void.
    - Pertanyaan jam buka / cabang belum buka / cabang sudah buka / telat buka:
-     Sajikan daftar cabang yang sudah buka shift kasir beserta jam bukanya, dan sebutkan jika ada cabang yang belum buka.
+     Sajikan ringkasan berapa cabang yang sudah buka dan belum buka. WAJIB sebutkan nama-nama cabang yang belum buka dari data Cabang Belum Buka Shift di bawah. DILARANG menyatakan nama cabang belum buka tidak tercantum di data jika daftarnya tersedia.
    - Pertanyaan presensi / SDM / telat / izin (KHUSUS KRU OUTLET CABANG):
      * HANYA evaluasi dan tampilkan data presensi KRU OUTLET / CABANG OPERASIONAL.
      * JANGAN PERNAH menampilkan staf Kantor Pusat / Office / HQ (karena staf kantor pusat adalah urusan HRD, bukan manajer cabang/area).
@@ -711,6 +717,11 @@ PANDUAN KOMUNIKASI & PERILAKU:
      JANGAN langsung menumpahkan laporan angka penjualan panjang jika tidak diminta.
    - Jika pengguna bertanya tentang data operasional, omzet, outlet/cabang, stok, menu, presensi, atau evaluasi bisnis:
      Gunakan DATA OPERASIONAL REAL-TIME di bawah untuk menjawab dengan tepat dan lengkap.
+   - PERTANYAAN STATUS BUKA CABANG / SHIFT / TELAT BUKA:
+     Pahami istilah sehari-hari seperti "udah pada buka belum", "cabang mana yang belum buka", "siapa yang belum buka", "status buka outlet", "cabang sudah buka semua belum":
+     * Jawab dengan jelas berapa cabang yang sudah buka dan berapa yang belum buka.
+     * WAJIB SEBUTKAN NAMA-NAMA CABANG YANG BELUM BUKA (dari daftar Cabang Belum Buka Shift di data live hari ini). DILARANG menyatakan nama cabang belum buka tidak tercantum di data jika daftarnya tersedia.
+     * Jika seluruh cabang sudah buka, tegaskan bahwa 100% cabang operasional telah membuka shift dan aktif.
    - PERTANYAAN PRESENSI / SDM:
      Pahami istilah sehari-hari seperti "yang ga masuk siapa", "siapa yang absen", "siapa yang tidak hadir", "siapa yang cuti/izin", "siapa yang telat", "bagaimana presensi kru" sebagai pertanyaan DATA PRESENSI & SDM (HRD), BUKAN order cabang.
      Sebutkan nama kru yang sedang izin/cuti beserta status/alasannya, serta kru yang datang terlambat.

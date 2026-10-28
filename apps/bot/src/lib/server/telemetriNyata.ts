@@ -1404,8 +1404,10 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     )
     const validOutletIds = new Set<string>(rawOutlets.map((o: any) => String(o.id)))
     const outletTypeMap = new Map<string, string>()
+    const outletNameMap = new Map<string, string>()
     for (const o of rawOutlets) {
-      outletTypeMap.set(o.id, o.type || 'internal')
+      outletTypeMap.set(String(o.id), o.type || 'internal')
+      outletNameMap.set(String(o.id), o.name)
     }
 
     const isOutletCabang = (a: any) => {
@@ -1820,7 +1822,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const shiftRows = ((resShifts?.data || []) as any[]).filter(isOutletCabang)
     const openedMap = new Map<string, { outlet: string; jamBuka: string; status: string }>()
     for (const s of shiftRows) {
-      if (s.outlet_id && !openedMap.has(s.outlet_id)) {
+      const sId = s.outlet_id ? String(s.outlet_id) : ''
+      if (sId && !openedMap.has(sId)) {
         const startWib = s.start_time
           ? new Date(s.start_time).toLocaleTimeString('id-ID', {
               timeZone: 'Asia/Jakarta',
@@ -1828,17 +1831,29 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
               minute: '2-digit',
             })
           : '-'
-        openedMap.set(s.outlet_id, {
-          outlet: s.outlets?.name || 'Cabang',
+        openedMap.set(sId, {
+          outlet: outletNameMap.get(sId) || s.outlets?.name || 'Cabang',
           jamBuka: startWib,
           status: s.status || 'open',
         })
       }
     }
 
+    // Cabang yang sudah memiliki transaksi penjualan hari ini otomatis terhitung buka/aktif
+    for (const out of ringkasanHariIni.outletsAktifTransaksi) {
+      const outId = out.id ? String(out.id) : ''
+      if (outId && !openedMap.has(outId)) {
+        openedMap.set(outId, {
+          outlet: out.nama,
+          jamBuka: '-',
+          status: 'transaksi_aktif',
+        })
+      }
+    }
+
     const daftarBuka = Array.from(openedMap.values())
     const daftarBelumBuka = rawOutlets
-      .filter((o: any) => !openedMap.has(o.id))
+      .filter((o: any) => !openedMap.has(String(o.id)))
       .map((o: any) => o.name)
 
     const rawShiftsKemarin = ((resShiftsKemarin?.data || []) as any[]).filter(isOutletCabang)

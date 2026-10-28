@@ -478,8 +478,9 @@ export async function POST(req: NextRequest) {
           ? `Hari ini: ${v.totalVoidHariIni} order (${formatRupiah(v.totalNilaiVoidHariIni)}), Kemarin: ${v.totalVoidKemarin || 0} order (${formatRupiah(v.totalNilaiVoidKemarin || 0)})`
           : "0 void"
         const sb = telemetri.statusBuka
+        const belumBukaList = sb?.daftarBelumBuka?.length ? ` (Belum buka: ${sb.daftarBelumBuka.join(', ')})` : ''
         const bukaSummary = sb
-          ? `${sb.totalBuka} cabang buka live, ${sb.totalBelumBuka} belum buka (Kemarin: ${sb.shiftKemarinClosedCount} closed shift)`
+          ? `${sb.totalBuka} cabang buka live, ${sb.totalBelumBuka} belum buka${belumBukaList} (Kemarin: ${sb.shiftKemarinClosedCount} closed shift)`
           : ""
 
         const fin = telemetri.finance

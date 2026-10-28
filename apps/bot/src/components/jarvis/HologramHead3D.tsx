@@ -620,58 +620,20 @@ export default function HologramHead3D({
         }
       }
 
-      // --- LAYER 0: HOLOGRAPHIC PEDESTAL / BASE EMITTER (Proyektor Bawah) ---
-      const baseRingY = 1.75
+      // --- LAYER 1: PARTIKEL KUANTUM MELAYANG (Confined to Head Aura) ---
       ctx.save()
-      ctx.strokeStyle = colors.primary
-      ctx.lineWidth = 1.2
-      ctx.globalAlpha = 0.35
-
-      // Gambar elips proyektor dasar berputar
-      const baseAngle = clock * 0.4
-      const nBaseTicks = 16
-      for (let i = 0; i < nBaseTicks; i++) {
-        const ang = (i / nBaseTicks) * Math.PI * 2 + baseAngle
-        const bx1 = Math.sin(ang) * 1.5
-        const bz1 = Math.cos(ang) * 1.5
-        const pBase1 = project(rotate3D([bx1, baseRingY, bz1]))
-        const bx2 = Math.sin(ang) * 1.35
-        const bz2 = Math.cos(ang) * 1.35
-        const pBase2 = project(rotate3D([bx2, baseRingY, bz2]))
-        ctx.beginPath()
-        ctx.moveTo(pBase1.x, pBase1.y)
-        ctx.lineTo(pBase2.x, pBase2.y)
-        ctx.stroke()
-      }
-
-      // Sinar kerucut cahaya vertikal dari dasar ke leher
-      const pNeck = project(rotate3D([0, 1.3, 0]))
-      const gradBeam = ctx.createLinearGradient(centerX, centerY + 80, centerX, pNeck.y)
-      gradBeam.addColorStop(0, 'transparent')
-      gradBeam.addColorStop(1, `${colors.primary}18`)
-      ctx.fillStyle = gradBeam
-      ctx.beginPath()
-      ctx.moveTo(centerX - 90, centerY + 100)
-      ctx.lineTo(pNeck.x, pNeck.y)
-      ctx.lineTo(centerX + 90, centerY + 100)
-      ctx.closePath()
-      ctx.fill()
-      ctx.restore()
-
-      // --- LAYER 1: PARTIKEL KUANTUM MELAYANG ---
-      ctx.save()
-      const spreadX = isMukaDoang || w > 700 ? 6.5 : 3.5
+      const spreadX = isMukaDoang || w > 700 ? 3.8 : 2.6
       particles.forEach((part) => {
         part.y += part.vy
-        if (part.y < -2.4) {
-          part.y = 2.4
+        if (part.y < -2.2) {
+          part.y = 2.2
           part.x = (Math.random() - 0.5) * spreadX
-          part.z = (Math.random() - 0.5) * 3.5
+          part.z = (Math.random() - 0.5) * 2.8
         }
         const p3 = rotate3D([part.x, part.y, part.z])
         const proj = project(p3)
         if (proj.depth > 0) {
-          const pAlpha = Math.max(0.1, Math.min(0.8, (1 - proj.depth / 6) * part.alpha))
+          const pAlpha = Math.max(0.1, Math.min(0.7, (1 - proj.depth / 6) * part.alpha))
           ctx.fillStyle = colors.primary
           ctx.globalAlpha = pAlpha
           ctx.beginPath()
@@ -679,50 +641,6 @@ export default function HologramHead3D({
           ctx.fill()
         }
       })
-      ctx.restore()
-
-      // --- LAYER 2: ORBITAL HUD GIMBAL RINGS (Cincin Data Hologram 3D) ---
-      ctx.save()
-      const nRingSegments = 36
-      const ringRadius = 1.65
-      const ringTilt = 0.22
-      const ringSpin = clock * 0.35
-
-      ctx.lineWidth = 1.0
-      ctx.strokeStyle = colors.primary
-      ctx.globalAlpha = 0.35
-
-      ctx.beginPath()
-      for (let i = 0; i <= nRingSegments; i++) {
-        const ang = (i / nRingSegments) * Math.PI * 2 + ringSpin
-        const rx = Math.cos(ang) * ringRadius
-        const rz = Math.sin(ang) * ringRadius
-        const ry = Math.sin(ang) * ringTilt * ringRadius - 0.2
-        const pProj = project(rotate3D([rx, ry, rz]))
-        if (i === 0) {
-          ctx.moveTo(pProj.x, pProj.y)
-        } else {
-          ctx.lineTo(pProj.x, pProj.y)
-        }
-      }
-      ctx.stroke()
-
-      // Tanda Derajat & Tick Pada Cincin Orbit
-      for (let i = 0; i < 12; i++) {
-        const ang = (i / 12) * Math.PI * 2 + ringSpin
-        const rx1 = Math.cos(ang) * ringRadius
-        const rz1 = Math.sin(ang) * ringRadius
-        const ry1 = Math.sin(ang) * ringTilt * ringRadius - 0.2
-        const rx2 = Math.cos(ang) * (ringRadius + 0.12)
-        const rz2 = Math.sin(ang) * (ringRadius + 0.12)
-        const ry2 = ry1
-        const pt1 = project(rotate3D([rx1, ry1, rz1]))
-        const pt2 = project(rotate3D([rx2, ry2, rz2]))
-        ctx.beginPath()
-        ctx.moveTo(pt1.x, pt1.y)
-        ctx.lineTo(pt2.x, pt2.y)
-        ctx.stroke()
-      }
       ctx.restore()
 
       // --- LAYER 3: OTAK NEURAL 3D (CORTEX DENGAN SINAPSIS BERKEDIP & IMPULS BERGERAK) ---
@@ -991,24 +909,22 @@ export default function HologramHead3D({
         ctx.restore()
       }
 
-      // --- LAYER 6.5: HOLOGRAPHIC SCAN BEAM SWEEP ---
+      // --- LAYER 7: RADIAL EDGE FEATHERING (Eliminasi 100% kliping/frame kotak pada canvas) ---
       ctx.save()
-      const scanPeriod = (clock * 0.4) % 1.0
-      const scanY = h * scanPeriod
-      const scanGrad = ctx.createLinearGradient(0, scanY - 14, 0, scanY + 14)
-      scanGrad.addColorStop(0, 'transparent')
-      scanGrad.addColorStop(0.5, `${colors.primary}33`)
-      scanGrad.addColorStop(1, 'transparent')
-      ctx.fillStyle = scanGrad
-      ctx.fillRect(0, scanY - 14, w, 28)
-
-      ctx.strokeStyle = colors.primary
-      ctx.lineWidth = 1.0
-      ctx.globalAlpha = 0.45
-      ctx.beginPath()
-      ctx.moveTo(w * 0.1, scanY)
-      ctx.lineTo(w * 0.9, scanY)
-      ctx.stroke()
+      ctx.globalCompositeOperation = 'destination-in'
+      const fadeGrad = ctx.createRadialGradient(
+        centerX,
+        centerY,
+        Math.min(w, h) * 0.38,
+        centerX,
+        centerY,
+        Math.min(w, h) * 0.49
+      )
+      fadeGrad.addColorStop(0, 'rgba(0, 0, 0, 1)')
+      fadeGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.95)')
+      fadeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+      ctx.fillStyle = fadeGrad
+      ctx.fillRect(0, 0, w, h)
       ctx.restore()
 
       // Clean canvas finish: 3D Hologram renders flawlessly without text or frame obstructions

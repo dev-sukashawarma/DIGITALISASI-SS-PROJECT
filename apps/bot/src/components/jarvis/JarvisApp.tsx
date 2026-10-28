@@ -1030,7 +1030,7 @@ export default function JarvisApp({
             className={`flex-1 min-w-0 w-full flex flex-col ${
               modeMukaDoang
                 ? 'justify-center'
-                : !radarAnomaliTerbuka && riwayatHologram.length === 0
+                : !radarAnomaliTerbuka
                   ? 'justify-between'
                   : 'justify-start'
             } items-center h-full min-h-0 relative px-1 py-0.5 gap-2`}
@@ -1038,11 +1038,9 @@ export default function JarvisApp({
             {/* Top / Center: The Majestic Hologram / Arc Reactor Avatar */}
             <div
               className={`flex flex-col items-center justify-center relative w-full ${
-                modeMukaDoang
+                modeMukaDoang || !radarAnomaliTerbuka
                   ? 'flex-1 h-full min-h-0'
-                  : !radarAnomaliTerbuka && riwayatHologram.length === 0
-                    ? 'flex-1 h-full min-h-0'
-                    : 'shrink-0'
+                  : 'shrink-0'
               }`}
             >
               {/* Avatar Mode Switcher: 3D Hologram Robot Head vs Arc Reactor & Muka Doang Mode Toggle */}
@@ -1116,7 +1114,7 @@ export default function JarvisApp({
                   sizeMode={
                     modeMukaDoang
                       ? 'muka-doang'
-                      : !radarAnomaliTerbuka && riwayatHologram.length === 0
+                      : !radarAnomaliTerbuka
                         ? 'large'
                         : 'normal'
                   }
@@ -1145,7 +1143,7 @@ export default function JarvisApp({
                   sizeMode={
                     modeMukaDoang
                       ? 'muka-doang'
-                      : !radarAnomaliTerbuka && riwayatHologram.length === 0
+                      : !radarAnomaliTerbuka
                         ? 'large'
                         : 'normal'
                   }
@@ -1258,7 +1256,7 @@ export default function JarvisApp({
                   mainkanSuaraHud('chirp')
                   setRadarAnomaliTerbuka(true)
                 }}
-                className="w-full shrink-0 rounded-xl bg-zinc-950/85 border border-cyan-500/35 hover:border-cyan-400 backdrop-blur-xl shadow-[0_0_20px_rgba(6,182,212,0.15)] p-2 sm:px-3 sm:py-2 flex items-center justify-between gap-2.5 cursor-pointer transition-all group my-0.5 select-none"
+                className="w-full shrink-0 mt-auto rounded-xl bg-zinc-950/85 border border-cyan-500/35 hover:border-cyan-400 backdrop-blur-xl shadow-[0_0_20px_rgba(6,182,212,0.15)] p-2 sm:px-3 sm:py-2 flex items-center justify-between gap-2.5 cursor-pointer transition-all group my-0.5 select-none"
                 title="Klik untuk membuka rincian Tactical Anomaly Radar atau Chatbox"
               >
                 <div className="flex items-center gap-2 min-w-0">

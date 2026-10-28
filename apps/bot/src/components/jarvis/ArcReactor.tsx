@@ -111,12 +111,12 @@ export default function ArcReactor({
 
   const containerSizeClass =
     effectiveSizeMode === 'muka-doang'
-      ? 'w-full h-full max-w-[min(94vw,66vh)] max-h-[66vh] min-h-[300px] aspect-square'
+      ? 'w-full h-full max-w-[min(96vw,74vh)] max-h-[74vh] min-h-[360px] aspect-square'
       : effectiveSizeMode === 'large'
-        ? 'w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] md:w-[400px] md:h-[400px] lg:w-[460px] lg:h-[460px] xl:w-[500px] xl:h-[500px] max-w-[min(100%,50vh)] max-h-[50vh] aspect-square'
+        ? 'w-[320px] h-[320px] sm:w-[380px] sm:h-[380px] md:w-[440px] md:h-[440px] lg:w-[500px] lg:h-[500px] xl:w-[560px] xl:h-[560px] max-w-[min(100%,56vh)] max-h-[56vh] aspect-square'
         : effectiveSizeMode === 'compact'
-          ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh] aspect-square'
-          : 'w-[190px] h-[190px] sm:w-[220px] sm:h-[220px] md:w-[250px] md:h-[250px] lg:w-[270px] lg:h-[270px] xl:w-[290px] xl:h-[290px] max-w-[min(100%,30vh)] max-h-[30vh] aspect-square'
+          ? 'w-[150px] h-[150px] sm:w-[175px] sm:h-[175px] lg:w-[195px] lg:h-[195px] max-w-[min(100%,24vh)] max-h-[24vh] aspect-square'
+          : 'w-[230px] h-[230px] sm:w-[270px] sm:h-[270px] md:w-[300px] md:h-[300px] lg:w-[340px] lg:h-[340px] xl:w-[370px] xl:h-[370px] max-w-[min(100%,36vh)] max-h-[36vh] aspect-square'
 
   return (
     <div className={`relative flex flex-col items-center justify-center select-none py-0.5 w-full transition-all duration-300 ${isMukaDoang ? 'h-full flex-1' : ''}`}>
@@ -128,7 +128,7 @@ export default function ArcReactor({
           onToggleMukaDoang?.()
         }}
         className={`relative flex items-center justify-center transition-all duration-300 ${containerSizeClass}`}
-        title="Klik ganda untuk Mode Muka Doang // Klik untuk bicara"
+        title="Klik ganda untuk Full Screen // Klik untuk bicara"
       >
         {/* Ambient Plasma Glow (Electric Cyan Core) */}
         <div

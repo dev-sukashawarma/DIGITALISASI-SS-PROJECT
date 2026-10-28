@@ -1050,27 +1050,27 @@ export default function JarvisApp({
                   </button>
                 </div>
 
-                {/* Mode Muka Doang / Focus Avatar Toggle */}
+                {/* Mode Full Screen / Focus Avatar Toggle */}
                 <button
                   type="button"
                   onClick={() => {
                     mainkanSuaraHud('engage')
                     setModeMukaDoang(!modeMukaDoang)
                   }}
-                  aria-label={modeMukaDoang ? 'Kembalikan Dashboard Lengkap' : 'Aktifkan Mode Muka Doang'}
+                  aria-label={modeMukaDoang ? 'Kembalikan Dashboard Lengkap' : 'Aktifkan Mode Full Screen'}
                   className={`px-2.5 py-1 min-h-[32px] rounded-lg font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
                     modeMukaDoang
                       ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_16px_rgba(6,182,212,0.6)] animate-pulse'
                       : 'bg-zinc-950/85 text-zinc-400 hover:text-cyan-200 border border-cyan-500/30'
                   }`}
-                  title={modeMukaDoang ? 'Kembalikan Dashboard Lengkap (ESC)' : 'Mode Muka Doang (Fokus Penuh Avatar Besar)'}
+                  title={modeMukaDoang ? 'Kembalikan Dashboard Lengkap (ESC)' : 'Mode Full Screen (Fokus Penuh Avatar Besar)'}
                 >
                   {modeMukaDoang ? (
                     <Minimize2 className="w-3.5 h-3.5 text-cyan-300" />
                   ) : (
                     <Maximize2 className="w-3.5 h-3.5 text-cyan-300" />
                   )}
-                  <span>{modeMukaDoang ? 'EXIT MUKA' : 'MUKA DOANG'}</span>
+                  <span>{modeMukaDoang ? 'EXIT FULL SCREEN' : 'FULL SCREEN'}</span>
                 </button>
               </div>
 

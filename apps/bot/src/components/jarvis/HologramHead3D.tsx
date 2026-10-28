@@ -432,23 +432,49 @@ export default function HologramHead3D({
     }
   }, [status])
 
-  // Handler interaksi mouse move pada container
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (isDragging) {
-      const dx = e.clientX - lastMousePos.current.x
-      const dy = e.clientY - lastMousePos.current.y
-      rotTarget.current.yaw += dx * 0.012
-      rotTarget.current.pitch += dy * 0.012
-      // Batasi pitch agar tidak jungkir balik
-      rotTarget.current.pitch = Math.max(-0.65, Math.min(0.65, rotTarget.current.pitch))
-      lastMousePos.current = { x: e.clientX, y: e.clientY }
-    } else {
-      // Parallax halus mengikuti cursor
-      const rect = e.currentTarget.getBoundingClientRect()
-      const nx = (e.clientX - rect.left) / rect.width - 0.5
-      const ny = (e.clientY - rect.top) / rect.height - 0.5
-      rotTarget.current.yaw = nx * 0.75
-      rotTarget.current.pitch = ny * 0.45
+  // Global Parallax Motion Tracking & Dragging (Menjangkau seluruh layar & deadspace)
+  useEffect(() => {
+    const handleGlobalPointerMove = (e: PointerEvent) => {
+      if (isDragging) {
+        const dx = e.clientX - lastMousePos.current.x
+        const dy = e.clientY - lastMousePos.current.y
+        rotTarget.current.yaw += dx * 0.012
+        rotTarget.current.pitch += dy * 0.012
+        rotTarget.current.pitch = Math.max(-0.65, Math.min(0.65, rotTarget.current.pitch))
+        lastMousePos.current = { x: e.clientX, y: e.clientY }
+      } else {
+        // Hitung posisi kursor relatif terhadap tengah canvas avatar
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const centerX = rect.left + rect.width / 2
+        const centerY = rect.top + rect.height / 2
+
+        const dx = e.clientX - centerX
+        const dy = e.clientY - centerY
+
+        // Normalisasi terhadap viewport window: kepala 3D menoleh ke mana pun kursor pergi
+        const vw = typeof window !== 'undefined' ? window.innerWidth * 0.5 : 960
+        const vh = typeof window !== 'undefined' ? window.innerHeight * 0.5 : 540
+
+        const nx = dx / Math.max(300, vw)
+        const ny = dy / Math.max(200, vh)
+
+        // Jangkauan yaw luas (±50°) dan pitch (±35°)
+        rotTarget.current.yaw = Math.max(-0.90, Math.min(0.90, nx * 0.90))
+        rotTarget.current.pitch = Math.max(-0.60, Math.min(0.60, ny * 0.55))
+      }
+    }
+
+    const handleGlobalPointerUp = () => {
+      setIsDragging(false)
+    }
+
+    window.addEventListener('pointermove', handleGlobalPointerMove, { passive: true })
+    window.addEventListener('pointerup', handleGlobalPointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handleGlobalPointerMove)
+      window.removeEventListener('pointerup', handleGlobalPointerUp)
     }
   }, [isDragging])
 
@@ -601,10 +627,10 @@ export default function HologramHead3D({
       // Proyeksi Perspektif
       const cameraDist = 4.2
       const fov = isMukaDoang
-        ? Math.min(w, h) * 1.42
+        ? Math.min(w, h) * 1.58
         : compact
-          ? Math.min(w, h) * 0.95
-          : Math.min(w, h) * 1.18
+          ? Math.min(w, h) * 1.05
+          : Math.min(w, h) * 1.38
       const centerX = w / 2
       const centerY = h / 2 - (isMukaDoang ? 14 : compact ? 0 : 8)
 
@@ -934,7 +960,7 @@ export default function HologramHead3D({
 
     animId = requestAnimationFrame(render)
     return () => cancelAnimationFrame(animId)
-  }, [compact, getColors, isDragging])
+  }, [compact, getColors, isDragging, isMukaDoang])
 
   const colors = getColors()
 
@@ -947,12 +973,12 @@ export default function HologramHead3D({
 
   const containerSizeClass =
     effectiveSizeMode === 'muka-doang'
-      ? 'w-full h-full max-w-[min(94vw,66vh)] max-h-[66vh] min-h-[300px] aspect-square'
+      ? 'w-full h-full max-w-[min(96vw,74vh)] max-h-[74vh] min-h-[360px] aspect-square'
       : effectiveSizeMode === 'large'
-        ? 'w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] md:w-[400px] md:h-[400px] lg:w-[460px] lg:h-[460px] xl:w-[500px] xl:h-[500px] max-w-[min(100%,50vh)] max-h-[50vh] aspect-square'
+        ? 'w-[320px] h-[320px] sm:w-[380px] sm:h-[380px] md:w-[440px] md:h-[440px] lg:w-[500px] lg:h-[500px] xl:w-[560px] xl:h-[560px] max-w-[min(100%,56vh)] max-h-[56vh] aspect-square'
         : effectiveSizeMode === 'compact'
-          ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,22vh)] max-h-[22vh] aspect-square'
-          : 'w-[190px] h-[190px] sm:w-[220px] sm:h-[220px] md:w-[250px] md:h-[250px] lg:w-[270px] lg:h-[270px] xl:w-[290px] xl:h-[290px] max-w-[min(100%,30vh)] max-h-[30vh] aspect-square'
+          ? 'w-[150px] h-[150px] sm:w-[175px] sm:h-[175px] lg:w-[195px] lg:h-[195px] max-w-[min(100%,24vh)] max-h-[24vh] aspect-square'
+          : 'w-[230px] h-[230px] sm:w-[270px] sm:h-[270px] md:w-[300px] md:h-[300px] lg:w-[340px] lg:h-[340px] xl:w-[370px] xl:h-[370px] max-w-[min(100%,36vh)] max-h-[36vh] aspect-square'
 
   return (
     <div
@@ -963,7 +989,6 @@ export default function HologramHead3D({
     >
       {/* 3D Canvas Reticle Box */}
       <div
-        onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onTouchStart={handleTouchStart}
@@ -975,7 +1000,7 @@ export default function HologramHead3D({
           onToggleMukaDoang?.()
         }}
         className={`relative flex items-center justify-center transition-all duration-300 ${containerSizeClass} cursor-grab active:cursor-grabbing group`}
-        title="Klik / Double-klik untuk Mode Muka Doang // Geser / Drag untuk putar kepala 3D"
+        title="Klik ganda untuk Full Screen // Geser / Drag untuk putar kepala 3D"
       >
         {/* Ambient Halo Glow */}
         <div

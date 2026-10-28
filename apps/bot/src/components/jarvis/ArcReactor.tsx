@@ -111,15 +111,15 @@ export default function ArcReactor({
 
   const containerSizeClass =
     effectiveSizeMode === 'muka-doang'
-      ? 'w-[320px] h-[320px] sm:w-[440px] sm:h-[440px] md:w-[520px] md:h-[520px] lg:w-[600px] lg:h-[600px] xl:w-[660px] xl:h-[660px] max-w-[min(100%,72vh)] max-h-[72vh]'
+      ? 'w-full h-full max-w-[min(94vw,84vh)] max-h-[84vh] min-h-[480px] aspect-square'
       : effectiveSizeMode === 'large'
-        ? 'w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] md:w-[400px] md:h-[400px] lg:w-[450px] lg:h-[450px] xl:w-[490px] xl:h-[490px] max-w-[min(100%,52vh)] max-h-[52vh]'
+        ? 'w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] md:w-[480px] md:h-[480px] lg:w-[560px] lg:h-[560px] xl:w-[620px] xl:h-[620px] max-w-[min(100%,60vh)] max-h-[60vh] aspect-square'
         : effectiveSizeMode === 'compact'
-          ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh]'
-          : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[250px] md:h-[250px] lg:w-[265px] lg:h-[265px] xl:w-[280px] xl:h-[280px] max-w-[min(100%,30vh)] max-h-[30vh]'
+          ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh] aspect-square'
+          : 'w-[220px] h-[220px] sm:w-[250px] sm:h-[250px] md:w-[280px] md:h-[280px] lg:w-[320px] lg:h-[320px] xl:w-[340px] xl:h-[340px] max-w-[min(100%,35vh)] max-h-[35vh] aspect-square'
 
   return (
-    <div className="relative flex flex-col items-center justify-center select-none py-0.5 w-full transition-all duration-300">
+    <div className={`relative flex flex-col items-center justify-center select-none py-0.5 w-full transition-all duration-300 ${isMukaDoang ? 'h-full flex-1' : ''}`}>
       {/* Target Reticle Container */}
       <div
         onDoubleClick={(e) => {
@@ -127,7 +127,7 @@ export default function ArcReactor({
           mainkanSuaraHud('chirp')
           onToggleMukaDoang?.()
         }}
-        className={`relative flex items-center justify-center aspect-square transition-all duration-300 ${containerSizeClass}`}
+        className={`relative flex items-center justify-center transition-all duration-300 ${containerSizeClass}`}
         title="Klik ganda untuk Mode Muka Doang // Klik untuk bicara"
       >
         {/* Corner Reticles with Sci-Fi HUD Coordinates */}
@@ -472,7 +472,7 @@ export default function ArcReactor({
         )}
 
         {/* Primary Controls Under Core (Clean, Non-Redundant) */}
-        {tampilkanTombolBawah && (
+        {tampilkanTombolBawah && !isMukaDoang && (
           <div className="flex items-center justify-center gap-2 mt-0.5">
             <button
               type="button"

@@ -991,9 +991,17 @@ export default function JarvisApp({
           )}
 
           {/* Center Stage: THE HERO COMMAND CORE (Majestic Arc Reactor / 3D Hologram Robot Head) */}
-          <div className="flex-1 min-w-0 w-full flex flex-col justify-between items-center h-full min-h-0 relative px-1 py-0.5">
+          <div
+            className={`flex-1 min-w-0 w-full flex flex-col ${
+              modeMukaDoang ? 'justify-center' : 'justify-between'
+            } items-center h-full min-h-0 relative px-1 py-0.5`}
+          >
             {/* Top / Center: The Majestic Hologram / Arc Reactor Avatar */}
-            <div className="shrink-0 flex flex-col items-center justify-center relative w-full">
+            <div
+              className={`flex flex-col items-center justify-center relative w-full ${
+                modeMukaDoang ? 'flex-1 h-full min-h-0' : 'shrink-0'
+              }`}
+            >
               {/* Avatar Mode Switcher: 3D Hologram Robot Head vs Arc Reactor vs Muka Doang */}
               <div className="flex items-center justify-center mb-0.5 z-20">
                 <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-md shadow-sm gap-0.5">
@@ -1130,22 +1138,19 @@ export default function JarvisApp({
 
             {/* Middle: Floating Holographic Transmission Feed OR Standby Aura OR Anomaly Radar */}
             {modeMukaDoang ? (
-              /* Floating Banner in Mode Muka Doang */
-              <div className="z-20 mt-1 mb-1 flex flex-col items-center gap-1 animate-in fade-in duration-200">
+              /* Floating Sleek Exit Banner in Mode Muka Doang */
+              <div className="z-20 my-1 flex flex-col items-center gap-0.5 animate-in fade-in duration-200 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     mainkanSuaraHud('chirp')
                     setModeMukaDoang(false)
                   }}
-                  className="px-4 py-1.5 rounded-full bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/60 text-cyan-200 hover:text-white font-hud text-[11px] tracking-widest uppercase font-bold flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all cursor-pointer"
+                  className="px-4 py-1 rounded-full bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/60 text-cyan-200 hover:text-white font-hud text-[10px] sm:text-[11px] tracking-widest uppercase font-bold flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all cursor-pointer"
                 >
                   <Minimize2 className="w-3.5 h-3.5 text-cyan-300" />
-                  <span>KEMBALI KE RADAR // EXIT MUKA DOANG</span>
+                  <span>KEMBALI KE RADAR // EXIT MUKA DOANG (ESC)</span>
                 </button>
-                <span className="font-mono-hud text-[10px] text-zinc-400">
-                  Bicara langsung atau ketik instruksi di bawah &bull; Esc untuk kembali
-                </span>
               </div>
             ) : riwayatHologram.length > 0 ? (
               <div className="w-full flex-1 min-h-0 rounded-2xl bg-zinc-950/85 border border-cyan-400/35 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.18)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">

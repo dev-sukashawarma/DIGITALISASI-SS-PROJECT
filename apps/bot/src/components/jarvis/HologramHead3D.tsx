@@ -612,9 +612,13 @@ export default function HologramHead3D({
 
       // Proyeksi Perspektif
       const cameraDist = 4.2
-      const fov = compact ? Math.min(w, h) * 0.95 : Math.min(w, h) * 1.15
+      const fov = isMukaDoang
+        ? Math.min(w, h) * 1.42
+        : compact
+          ? Math.min(w, h) * 0.95
+          : Math.min(w, h) * 1.18
       const centerX = w / 2
-      const centerY = h / 2 - (compact ? 0 : 8)
+      const centerY = h / 2 - (isMukaDoang ? 14 : compact ? 0 : 8)
 
       const project = (p3: Vec3) => {
         const [x, y, z] = p3
@@ -668,12 +672,13 @@ export default function HologramHead3D({
 
       // --- LAYER 1: PARTIKEL KUANTUM MELAYANG ---
       ctx.save()
+      const spreadX = isMukaDoang || w > 700 ? 6.5 : 3.5
       particles.forEach((part) => {
         part.y += part.vy
-        if (part.y < -2.2) {
-          part.y = 2.2
-          part.x = (Math.random() - 0.5) * 3.5
-          part.z = (Math.random() - 0.5) * 3.0
+        if (part.y < -2.4) {
+          part.y = 2.4
+          part.x = (Math.random() - 0.5) * spreadX
+          part.z = (Math.random() - 0.5) * 3.5
         }
         const p3 = rotate3D([part.x, part.y, part.z])
         const proj = project(p3)
@@ -1022,6 +1027,7 @@ export default function HologramHead3D({
       if (!compact) {
         ctx.save()
         ctx.fillStyle = colors.primary
+        ctx.strokeStyle = colors.primary
         ctx.font = '10px "Share Tech Mono", monospace'
         ctx.globalAlpha = 0.7
 
@@ -1051,6 +1057,84 @@ export default function HologramHead3D({
           w - 16,
           54
         )
+
+        // JIKA LAYAR LEBAR ATAU MODE MUKA DOANG: Isi deadspace kiri dan kanan dengan HUD Telemetri Mark 85
+        if (isMukaDoang || w > 640) {
+          // 1. SISI KIRI: Pitch / Attitude Ladder & Telemetri Taktis
+          const leftX = Math.max(28, w * 0.08)
+          const midY = centerY
+          ctx.textAlign = 'left'
+          ctx.lineWidth = 1.0
+
+          const pitchDegrees = totalPitch * (180 / Math.PI)
+          const stepPx = Math.min(h * 0.12, 60)
+          const ladderSteps = [-2, -1, 0, 1, 2]
+
+          ladderSteps.forEach((st) => {
+            const yPos = midY + st * stepPx - pitchDegrees * 1.5
+            if (yPos > 70 && yPos < h - 60) {
+              const degVal = -st * 15
+              const isCenter = st === 0
+              ctx.globalAlpha = isCenter ? 0.65 : 0.35
+              ctx.beginPath()
+              ctx.moveTo(leftX, yPos)
+              ctx.lineTo(leftX + (isCenter ? 36 : 22), yPos)
+              ctx.stroke()
+
+              ctx.font = '9px "Share Tech Mono", monospace'
+              ctx.fillText(`${degVal > 0 ? '+' : ''}${degVal}°`, leftX + (isCenter ? 42 : 28), yPos + 3)
+            }
+          })
+
+          // Blok Telemetri Taktis Kiri
+          ctx.globalAlpha = 0.5
+          ctx.font = '9px "Share Tech Mono", monospace'
+          const blockY = Math.max(h * 0.65, midY + 90)
+          ctx.fillText(`SYS.CORE : MK-85.7`, leftX, blockY)
+          ctx.fillText(`NEURAL.SYNC : 99.8%`, leftX, blockY + 14)
+          ctx.fillText(`BUFFER : LOW-LATENCY`, leftX, blockY + 28)
+          ctx.fillText(`BANDWIDTH : 100 G/S`, leftX, blockY + 42)
+
+          // 2. SISI KANAN: Real-time Audio EQ Visualizer & Target Coordinates
+          const rightX = Math.min(w - 28, w * 0.92)
+          ctx.textAlign = 'right'
+
+          const nBars = 10
+          const barWidth = 4
+          const barGap = 3
+          const eqStartY = midY - (nBars * (barWidth + barGap)) / 2
+
+          for (let bi = 0; bi < nBars; bi++) {
+            const rawVal = bandsLive[bi % (bandsLive.length || 1)] || (isDemo ? Math.sin(clock * 10 + bi) * 0.4 + 0.5 : 0.08)
+            const bLen = Math.max(6, rawVal * 75)
+            const yPos = eqStartY + bi * (barWidth + barGap)
+
+            ctx.globalAlpha = 0.25 + rawVal * 0.65
+            ctx.fillStyle = colors.primary
+            ctx.fillRect(rightX - bLen, yPos, bLen, barWidth)
+          }
+
+          // Blok Telemetri Taktis Kanan
+          ctx.globalAlpha = 0.5
+          ctx.font = '9px "Share Tech Mono", monospace'
+          const rightBlockY = Math.max(h * 0.65, midY + 90)
+          ctx.fillText(`AUDIO.FREQ : 24.0 kHz`, rightX, rightBlockY)
+          ctx.fillText(`DSP LATENCY : 12 ms`, rightX, rightBlockY + 14)
+          ctx.fillText(`PROTOCOL : LIVE_STREAM`, rightX, rightBlockY + 28)
+          ctx.fillText(`LOCK : TARGET_READY`, rightX, rightBlockY + 42)
+
+          // 3. Grid Dasar Horizon (Perspective Grid Floor di bawah)
+          ctx.globalAlpha = 0.12
+          ctx.lineWidth = 0.8
+          const gridBaseY = h - 25
+          for (let g = 0; g < 4; g++) {
+            const gy = gridBaseY - g * 12
+            ctx.beginPath()
+            ctx.moveTo(w * 0.05, gy)
+            ctx.lineTo(w * 0.95, gy)
+            ctx.stroke()
+          }
+        }
         ctx.restore()
       }
 
@@ -1073,17 +1157,19 @@ export default function HologramHead3D({
 
   const containerSizeClass =
     effectiveSizeMode === 'muka-doang'
-      ? 'w-[320px] h-[320px] sm:w-[440px] sm:h-[440px] md:w-[520px] md:h-[520px] lg:w-[600px] lg:h-[600px] xl:w-[660px] xl:h-[660px] max-w-[min(100%,72vh)] max-h-[72vh]'
+      ? 'w-full h-full max-w-[98vw] max-h-[84vh] min-h-[480px]'
       : effectiveSizeMode === 'large'
-        ? 'w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] md:w-[400px] md:h-[400px] lg:w-[450px] lg:h-[450px] xl:w-[490px] xl:h-[490px] max-w-[min(100%,52vh)] max-h-[52vh]'
+        ? 'w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] md:w-[480px] md:h-[480px] lg:w-[560px] lg:h-[560px] xl:w-[620px] xl:h-[620px] max-w-[min(100%,60vh)] max-h-[60vh] aspect-square'
         : effectiveSizeMode === 'compact'
-          ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,22vh)] max-h-[22vh]'
-          : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[250px] md:h-[250px] lg:w-[265px] lg:h-[265px] xl:w-[285px] xl:h-[285px] max-w-[min(100%,30vh)] max-h-[30vh]'
+          ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,22vh)] max-h-[22vh] aspect-square'
+          : 'w-[220px] h-[220px] sm:w-[250px] sm:h-[250px] md:w-[280px] md:h-[280px] lg:w-[320px] lg:h-[320px] xl:w-[340px] xl:h-[340px] max-w-[min(100%,35vh)] max-h-[35vh] aspect-square'
 
   return (
     <div
       ref={containerRef}
-      className="relative flex flex-col items-center justify-center select-none py-1 w-full transition-all duration-300"
+      className={`relative flex flex-col items-center justify-center select-none py-1 w-full transition-all duration-300 ${
+        isMukaDoang ? 'h-full flex-1' : ''
+      }`}
     >
       {/* 3D Canvas Reticle Box */}
       <div
@@ -1098,7 +1184,7 @@ export default function HologramHead3D({
           mainkanSuaraHud('chirp')
           onToggleMukaDoang?.()
         }}
-        className={`relative flex items-center justify-center aspect-square transition-all duration-300 ${containerSizeClass} cursor-grab active:cursor-grabbing group`}
+        className={`relative flex items-center justify-center transition-all duration-300 ${containerSizeClass} cursor-grab active:cursor-grabbing group`}
         title="Klik / Double-klik untuk Mode Muka Doang // Geser / Drag untuk putar kepala 3D"
       >
         {/* Sudut Reticle Sci-Fi HUD */}
@@ -1258,7 +1344,7 @@ export default function HologramHead3D({
         )}
 
         {/* Tombol Tindakan Cepat */}
-        {tampilkanTombolBawah && (
+        {tampilkanTombolBawah && !isMukaDoang && (
           <div className="flex items-center justify-center gap-2 mt-1.5">
             <button
               type="button"

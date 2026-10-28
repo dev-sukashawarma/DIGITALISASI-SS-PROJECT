@@ -1324,19 +1324,6 @@ export default function JarvisApp({
                     <FileBarChart2 className="w-3 h-3 text-cyan-300" />
                     <span className="hidden sm:inline">BRIEFING</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void eksekusiPerintahJarvis('Dispatch semua instruksi rekomendasi ke divisi Telegram', false)
-                    }}
-                    className="px-2 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 text-[10px] font-hud flex items-center gap-1 cursor-pointer"
-                    title="Dispatch Rekomendasi ke Bot Telegram Divisi"
-                  >
-                    <Send className="w-3 h-3 text-cyan-300" />
-                    <span className="hidden sm:inline">DISPATCH</span>
-                  </button>
                 </div>
               </div>
             ) : (

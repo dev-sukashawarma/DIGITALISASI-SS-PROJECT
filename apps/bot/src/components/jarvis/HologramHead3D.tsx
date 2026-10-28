@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { mainkanSuaraHud } from '@/lib/audioHud'
-import { Mic, Volume2, Radio, FileBarChart2, RefreshCw, Sparkles, Maximize2, Minimize2 } from 'lucide-react'
+import { Mic, Volume2, Radio, FileBarChart2 } from 'lucide-react'
 import type { StatusArcReactor, AnomaliItem } from '@/components/jarvis/ArcReactor'
 
 interface HologramHead3DProps {
@@ -344,7 +344,7 @@ export default function HologramHead3D({
 
   // Status internal untuk interaksi drag & mouse tracking
   const [isDragging, setIsDragging] = useState(false)
-  const [demoSpeaking, setDemoSpeaking] = useState(false)
+  const [demoSpeaking] = useState(false)
   const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   // Variabel sudut rotasi (Pitch, Yaw, Roll)
@@ -477,18 +477,6 @@ export default function HologramHead3D({
       rotTarget.current.pitch = Math.max(-0.65, Math.min(0.65, rotTarget.current.pitch))
       lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
     }
-  }
-
-  const handleResetOrientation = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    rotTarget.current = { pitch: 0.05, yaw: 0 }
-    mainkanSuaraHud('chirp')
-  }
-
-  const handleToggleDemoTalk = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setDemoSpeaking((prev) => !prev)
-    mainkanSuaraHud('engage')
   }
 
   // Loop Render Utama Canvas 60 FPS
@@ -1023,121 +1011,7 @@ export default function HologramHead3D({
       ctx.stroke()
       ctx.restore()
 
-      // --- LAYER 7: HUD RETICLES & TECHNICAL DATA OVERLAY ---
-      if (!compact) {
-        ctx.save()
-        ctx.fillStyle = colors.primary
-        ctx.strokeStyle = colors.primary
-        ctx.font = '10px "Share Tech Mono", monospace'
-        ctx.globalAlpha = 0.7
-
-        // Status Readout Samping
-        ctx.fillText(`NEURAL // 3D-HOLOGRAM`, 16, 26)
-        ctx.fillText(`YAW: ${(totalYaw * (180 / Math.PI)).toFixed(1)}°`, 16, 40)
-        ctx.fillText(`PITCH: ${(totalPitch * (180 / Math.PI)).toFixed(1)}°`, 16, 54)
-
-        const statusText =
-          curStatus === 'listening'
-            ? 'LISTENING // MIC ACTIVE'
-            : curStatus === 'processing'
-              ? 'THINKING // NEURAL CORTEX'
-              : curStatus === 'speaking'
-                ? adaAudioLive
-                  ? 'SPEAKING // VOCAL HARMONICS'
-                  : 'AUDIO ACTIVE // SILENT'
-                : curStatus === 'warning'
-                  ? 'ANOMALY DETECTED'
-                  : 'JARVIS CORE ONLINE'
-
-        ctx.textAlign = 'right'
-        ctx.fillText(statusText, w - 16, 26)
-        ctx.fillText(`FPS: 60 // RETINA-OK`, w - 16, 40)
-        ctx.fillText(
-          `GAIN: ${Math.round(Math.max(0, avgLive) * 100)}%`,
-          w - 16,
-          54
-        )
-
-        // JIKA LAYAR LEBAR ATAU MODE MUKA DOANG: Isi deadspace kiri dan kanan dengan HUD Telemetri Mark 85
-        if (isMukaDoang || w > 640) {
-          // 1. SISI KIRI: Pitch / Attitude Ladder & Telemetri Taktis
-          const leftX = Math.max(28, w * 0.08)
-          const midY = centerY
-          ctx.textAlign = 'left'
-          ctx.lineWidth = 1.0
-
-          const pitchDegrees = totalPitch * (180 / Math.PI)
-          const stepPx = Math.min(h * 0.12, 60)
-          const ladderSteps = [-2, -1, 0, 1, 2]
-
-          ladderSteps.forEach((st) => {
-            const yPos = midY + st * stepPx - pitchDegrees * 1.5
-            if (yPos > 70 && yPos < h - 60) {
-              const degVal = -st * 15
-              const isCenter = st === 0
-              ctx.globalAlpha = isCenter ? 0.65 : 0.35
-              ctx.beginPath()
-              ctx.moveTo(leftX, yPos)
-              ctx.lineTo(leftX + (isCenter ? 36 : 22), yPos)
-              ctx.stroke()
-
-              ctx.font = '9px "Share Tech Mono", monospace'
-              ctx.fillText(`${degVal > 0 ? '+' : ''}${degVal}°`, leftX + (isCenter ? 42 : 28), yPos + 3)
-            }
-          })
-
-          // Blok Telemetri Taktis Kiri
-          ctx.globalAlpha = 0.5
-          ctx.font = '9px "Share Tech Mono", monospace'
-          const blockY = Math.max(h * 0.65, midY + 90)
-          ctx.fillText(`SYS.CORE : MK-85.7`, leftX, blockY)
-          ctx.fillText(`NEURAL.SYNC : 99.8%`, leftX, blockY + 14)
-          ctx.fillText(`BUFFER : LOW-LATENCY`, leftX, blockY + 28)
-          ctx.fillText(`BANDWIDTH : 100 G/S`, leftX, blockY + 42)
-
-          // 2. SISI KANAN: Real-time Audio EQ Visualizer & Target Coordinates
-          const rightX = Math.min(w - 28, w * 0.92)
-          ctx.textAlign = 'right'
-
-          const nBars = 10
-          const barWidth = 4
-          const barGap = 3
-          const eqStartY = midY - (nBars * (barWidth + barGap)) / 2
-
-          for (let bi = 0; bi < nBars; bi++) {
-            const rawVal = bandsLive[bi % (bandsLive.length || 1)] || (isDemo ? Math.sin(clock * 10 + bi) * 0.4 + 0.5 : 0.08)
-            const bLen = Math.max(6, rawVal * 75)
-            const yPos = eqStartY + bi * (barWidth + barGap)
-
-            ctx.globalAlpha = 0.25 + rawVal * 0.65
-            ctx.fillStyle = colors.primary
-            ctx.fillRect(rightX - bLen, yPos, bLen, barWidth)
-          }
-
-          // Blok Telemetri Taktis Kanan
-          ctx.globalAlpha = 0.5
-          ctx.font = '9px "Share Tech Mono", monospace'
-          const rightBlockY = Math.max(h * 0.65, midY + 90)
-          ctx.fillText(`AUDIO.FREQ : 24.0 kHz`, rightX, rightBlockY)
-          ctx.fillText(`DSP LATENCY : 12 ms`, rightX, rightBlockY + 14)
-          ctx.fillText(`PROTOCOL : LIVE_STREAM`, rightX, rightBlockY + 28)
-          ctx.fillText(`LOCK : TARGET_READY`, rightX, rightBlockY + 42)
-
-          // 3. Grid Dasar Horizon (Perspective Grid Floor di bawah)
-          ctx.globalAlpha = 0.12
-          ctx.lineWidth = 0.8
-          const gridBaseY = h - 25
-          for (let g = 0; g < 4; g++) {
-            const gy = gridBaseY - g * 12
-            ctx.beginPath()
-            ctx.moveTo(w * 0.05, gy)
-            ctx.lineTo(w * 0.95, gy)
-            ctx.stroke()
-          }
-        }
-        ctx.restore()
-      }
-
+      // Clean canvas finish: 3D Hologram renders flawlessly without text or frame obstructions
       ctx.restore()
       animId = requestAnimationFrame(render)
     }
@@ -1187,57 +1061,6 @@ export default function HologramHead3D({
         className={`relative flex items-center justify-center transition-all duration-300 ${containerSizeClass} cursor-grab active:cursor-grabbing group`}
         title="Klik / Double-klik untuk Mode Muka Doang // Geser / Drag untuk putar kepala 3D"
       >
-        {/* Sudut Reticle Sci-Fi HUD */}
-        {!compact && (
-          <>
-            {/* Tombol Mode Muka Doang di Pojok Kiri Atas */}
-            {onToggleMukaDoang && (
-              <div className="absolute top-2 left-2 z-20 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    mainkanSuaraHud('chirp')
-                    onToggleMukaDoang()
-                  }}
-                  className={`px-2 py-1 rounded border text-[10px] flex items-center gap-1.5 cursor-pointer transition-all shadow-md font-mono-hud backdrop-blur-md ${
-                    isMukaDoang
-                      ? 'bg-cyan-600 border-cyan-300 text-white shadow-[0_0_15px_rgba(6,182,212,0.6)] animate-pulse'
-                      : 'bg-zinc-950/85 hover:bg-cyan-950 border-cyan-400/50 text-cyan-300 hover:text-white'
-                  }`}
-                  title={isMukaDoang ? 'Kembali ke Tampilan Normal (Tampilkan Radar)' : 'Mode Muka Doang (Wajah Robot Penuh)'}
-                >
-                  {isMukaDoang ? <Minimize2 className="w-3 h-3 text-cyan-200" /> : <Maximize2 className="w-3 h-3 text-cyan-300" />}
-                  <span className="font-hud text-[9px] uppercase tracking-wider font-bold">
-                    {isMukaDoang ? 'EXIT MUKA' : 'MUKA DOANG'}
-                  </span>
-                </button>
-              </div>
-            )}
-
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-400/70 p-1 flex flex-col justify-start pointer-events-none">
-              <span className="font-mono-hud text-[8px] text-cyan-300 font-bold leading-none">
-                HOLOGRAM // 3D
-              </span>
-            </div>
-            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-cyan-400/70 p-1 flex flex-col items-end justify-start pointer-events-none">
-              <span className="font-mono-hud text-[8px] text-cyan-300 font-bold leading-none">
-                ROBOT-FACE
-              </span>
-            </div>
-            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyan-400/70 p-1 flex flex-col justify-end pointer-events-none">
-              <span className="font-mono-hud text-[8px] text-cyan-300 font-bold leading-none">
-                CORTEX-V8
-              </span>
-            </div>
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyan-400/70 p-1 flex flex-col items-end justify-end pointer-events-none">
-              <span className="font-mono-hud text-[8px] text-cyan-300 font-bold leading-none">
-                SHAWARMA
-              </span>
-            </div>
-          </>
-        )}
-
         {/* Ambient Halo Glow */}
         <div
           className="absolute inset-[15%] rounded-full blur-3xl opacity-35 transition-all duration-500 pointer-events-none"
@@ -1250,36 +1073,6 @@ export default function HologramHead3D({
           className="w-full h-full z-10 block pointer-events-auto"
           style={{ touchAction: 'none' }}
         />
-
-        {/* Tombol Mini Reset Rotasi & Demo Talk (Floating di pojok atas kanvas) */}
-        {!compact && (
-          <div className="absolute top-2 right-2 z-20 flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
-            <button
-              type="button"
-              onClick={handleResetOrientation}
-              className="p-1 rounded bg-zinc-950/80 hover:bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
-              title="Reset Sudut Kepala 3D"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span className="font-mono-hud text-[9px]">RESET 3D</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleToggleDemoTalk}
-              className={`p-1 rounded border text-[10px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm ${
-                demoSpeaking
-                  ? 'bg-cyan-600 border-cyan-300 text-white'
-                  : 'bg-zinc-950/80 hover:bg-cyan-950 border-cyan-400/40 text-cyan-300'
-              }`}
-              title="Uji Animasi Ngomong & Otak Bergerak"
-            >
-              <Sparkles className="w-3 h-3" />
-              <span className="font-mono-hud text-[9px]">
-                {demoSpeaking ? 'TEST ON' : 'TEST TALK'}
-              </span>
-            </button>
-          </div>
-        )}
 
         {/* Tombol Interaktif Click-To-Speak Overlay di Tengah Dasar */}
         <button

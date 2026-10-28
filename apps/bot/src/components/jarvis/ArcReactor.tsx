@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { mainkanSuaraHud } from '@/lib/audioHud'
-import { Cpu, Mic, Volume2, Radio, FileBarChart2, Maximize2, Minimize2 } from 'lucide-react'
+import { Cpu, Mic, Volume2, Radio, FileBarChart2 } from 'lucide-react'
 
 export type StatusArcReactor = 'optimal' | 'listening' | 'processing' | 'speaking' | 'warning'
 
@@ -130,56 +130,6 @@ export default function ArcReactor({
         className={`relative flex items-center justify-center transition-all duration-300 ${containerSizeClass}`}
         title="Klik ganda untuk Mode Muka Doang // Klik untuk bicara"
       >
-        {/* Corner Reticles with Sci-Fi HUD Coordinates */}
-        {!compact && (
-          <>
-            {/* Tombol Mode Muka Doang di Pojok Kiri Atas */}
-            {onToggleMukaDoang && (
-              <div className="absolute top-2 left-2 z-20 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    mainkanSuaraHud('chirp')
-                    onToggleMukaDoang()
-                  }}
-                  className={`px-2 py-1 rounded border text-[10px] flex items-center gap-1.5 cursor-pointer transition-all shadow-md font-mono-hud backdrop-blur-md ${
-                    isMukaDoang
-                      ? 'bg-cyan-600 border-cyan-300 text-white shadow-[0_0_15px_rgba(6,182,212,0.6)] animate-pulse'
-                      : 'bg-zinc-950/85 hover:bg-cyan-950 border-cyan-400/50 text-cyan-300 hover:text-white'
-                  }`}
-                  title={isMukaDoang ? 'Kembali ke Tampilan Normal (Tampilkan Radar)' : 'Mode Muka Doang (Fokus Penuh)'}
-                >
-                  {isMukaDoang ? <Minimize2 className="w-3 h-3 text-cyan-200" /> : <Maximize2 className="w-3 h-3 text-cyan-300" />}
-                  <span className="font-hud text-[9px] uppercase tracking-wider font-bold">
-                    {isMukaDoang ? 'EXIT MUKA' : 'MUKA DOANG'}
-                  </span>
-                </button>
-              </div>
-            )}
-            <div className={`absolute top-0 left-0 w-7 h-7 sm:w-8 sm:h-8 border-t-2 border-l-2 pointer-events-none p-1 flex flex-col justify-start transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
-              <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
-                {voiceLoopAktif ? 'VOICE // LOOP' : 'SYS // CORE-01'}
-              </span>
-            </div>
-            <div className={`absolute top-0 right-0 w-7 h-7 sm:w-8 sm:h-8 border-t-2 border-r-2 pointer-events-none p-1 flex flex-col items-end justify-start transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
-              <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
-                ALL-DIV ACCESS
-              </span>
-            </div>
-            <div className={`absolute bottom-0 left-0 w-7 h-7 sm:w-8 sm:h-8 border-b-2 border-l-2 pointer-events-none p-1 flex flex-col justify-end transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
-              <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
-                NEURAL // ID
-              </span>
-            </div>
-            <div className={`absolute bottom-0 right-0 w-7 h-7 sm:w-8 sm:h-8 border-b-2 border-r-2 pointer-events-none p-1 flex flex-col items-end justify-end transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
-              <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
-                MK-VIII
-              </span>
-            </div>
-          </>
-        )}
-
         {/* Ambient Plasma Glow (Electric Cyan Core) */}
         <div
           className="absolute inset-[12%] rounded-full blur-2xl opacity-45 transition-all duration-300 pointer-events-none animate-hud-pulse bg-cyan-400/40"

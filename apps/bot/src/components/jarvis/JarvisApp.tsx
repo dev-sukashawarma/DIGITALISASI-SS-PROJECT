@@ -12,7 +12,7 @@ import { keluar } from '@/lib/keluar'
 import ArcReactor, { type StatusArcReactor, type AnomaliItem } from '@/components/jarvis/ArcReactor'
 import HologramHead3D from '@/components/jarvis/HologramHead3D'
 import AgentNodeCard from '@/components/jarvis/AgentNodeCard'
-import JarvisChatDrawer, { FormatIsiHologram } from '@/components/jarvis/JarvisChatDrawer'
+import { FormatIsiHologram } from '@/components/jarvis/JarvisChatDrawer'
 import DailyBriefingModal from '@/components/jarvis/DailyBriefingModal'
 import TelemetryTicker from '@/components/jarvis/TelemetryTicker'
 import type { DailyReportPayload } from '@/app/api/jarvis/daily-report/route'
@@ -167,24 +167,23 @@ export default function JarvisApp({
   // Modal / Drawer States
   const [modeAvatar, setModeAvatar] = useState<'hologram' | 'reactor'>('hologram')
   const [tampilDailyBriefing, setTampilDailyBriefing] = useState(false)
-  const [tampilChatDrawer, setTampilChatDrawer] = useState(false)
-  const [pesanAwalDrawer, setPesanAwalDrawer] = useState<string | null>(null)
-
-  // Tactical Panel Visibility & Layout States (Radar Anomaly dibuka secara default agar layar utama penuh informatif & seimbang)
+  // Tactical Panel Visibility & Layout States
+  // Box Tactical Anomaly sekarang mengintegrasikan Tab Radar Anomali & Tab Chatbox Conversation langsung
   const [radarAnomaliTerbuka, setRadarAnomaliTerbuka] = useState(true)
-  const [feedDitutup, setFeedDitutup] = useState(false)
+  const [tacticalTab, setTacticalTab] = useState<'radar' | 'chat'>('radar')
   const [leftWingMinimized, setLeftWingMinimized] = useState(false)
   const [rightWingMinimized, setRightWingMinimized] = useState(false)
   const [modeMukaDoang, setModeMukaDoang] = useState(false)
 
-  // Handler untuk membuka Chatbox Khusus Percakapan saat opsi/tindak lanjut anomali diklik
+  // Handler untuk membuka Chatbox Khusus Percakapan langsung di dalam Box Tactical Anomaly
   const handleTindakLanjutAnomaly = (item: AnomaliItem) => {
     const prompt =
       item.perintahTindakLanjut ||
       `Investigasi anomali [${item.divisi}] ${item.judul} dan berikan rekomendasi penanganan taktis.`
     mainkanSuaraHud('engage')
-    setPesanAwalDrawer(prompt)
-    setTampilChatDrawer(true)
+    setRadarAnomaliTerbuka(true)
+    setTacticalTab('chat')
+    void eksekusiPerintahJarvis(prompt, false)
   }
 
   const voiceLoopRef = useRef(false)
@@ -410,7 +409,8 @@ export default function JarvisApp({
     if (!isi) return
 
     const lower = isi.toLowerCase()
-    setFeedDitutup(false)
+    setRadarAnomaliTerbuka(true)
+    setTacticalTab('chat')
     const waktuSekarang = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
     // 1. Pintasan Perintah Suara/Teks: Stop / Diam / Matikan Suara
@@ -852,20 +852,20 @@ export default function JarvisApp({
               type="button"
               onClick={() => {
                 mainkanSuaraHud('chirp')
-                setPesanAwalDrawer(null)
-                setTampilChatDrawer(true)
+                setRadarAnomaliTerbuka(true)
+                setTacticalTab('chat')
               }}
               className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border font-mono-hud text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                tampilChatDrawer || percakapanIdAktif
-                  ? 'bg-cyan-900/70 border-cyan-400 text-cyan-100 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                tacticalTab === 'chat' && radarAnomaliTerbuka
+                  ? 'bg-cyan-900/80 border-cyan-400 text-cyan-100 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
                   : 'bg-zinc-900/80 border-cyan-500/40 text-cyan-300 hover:border-cyan-400'
               }`}
-              title="Buka Chatbox Khusus Percakapan & Log Transmisi"
-              aria-label="Buka Chatbox Khusus Percakapan"
+              title="Buka Chatbox Percakapan di Box Tactical Anomaly"
+              aria-label="Buka Chatbox Percakapan"
             >
               <MessageSquare className="w-3.5 h-3.5 text-cyan-300" />
               <span className="hidden sm:inline font-hud font-bold text-[11px] tracking-wider">CHATBOX</span>
-              {percakapanIdAktif && (
+              {riwayatHologram.length > 0 && (
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
               )}
             </button>
@@ -1133,8 +1133,9 @@ export default function JarvisApp({
                   onPilihAnomali={(item) => handleTindakLanjutAnomaly(item)}
                   onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
                   onBukaChatLengkap={() => {
-                    setPesanAwalDrawer(null)
-                    setTampilChatDrawer(true)
+                    mainkanSuaraHud('chirp')
+                    setRadarAnomaliTerbuka(true)
+                    setTacticalTab('chat')
                   }}
                 />
               ) : (
@@ -1161,8 +1162,9 @@ export default function JarvisApp({
                   onPilihAnomali={(item) => handleTindakLanjutAnomaly(item)}
                   onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
                   onBukaChatLengkap={() => {
-                    setPesanAwalDrawer(null)
-                    setTampilChatDrawer(true)
+                    mainkanSuaraHud('chirp')
+                    setRadarAnomaliTerbuka(true)
+                    setTacticalTab('chat')
                   }}
                 />
               )}
@@ -1249,224 +1251,15 @@ export default function JarvisApp({
                   </div>
                 </div>
               )
-            ) : riwayatHologram.length > 0 && !feedDitutup ? (
-              <div className="w-full flex-1 min-h-0 rounded-2xl bg-zinc-950/85 border border-cyan-400/35 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.18)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
-                {/* Hologram Reticles */}
-                <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
-                <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-cyan-400 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-cyan-400 pointer-events-none" />
-                <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400 pointer-events-none" />
-
-                {/* Feed Header */}
-                <div className="flex items-center justify-between px-3 py-1.5 bg-cyan-950/60 border-b border-cyan-500/20 font-mono-hud text-xs shrink-0">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-                    <span className="font-hud text-xs text-cyan-200 font-bold uppercase tracking-wider">
-                      HOLOGRAPHIC TRANSMISSION FEED
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {jawabanHologram && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (sedangBicara) {
-                              hentiBicaraJarvis()
-                              setSedangBicara(false)
-                            } else {
-                              bicaraJarvis(jawabanHologram, () => setSedangBicara(false), {
-                                onMulai: () => setSedangBicara(true),
-                              })
-                            }
-                          }}
-                          className="px-2 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 flex items-center gap-1 text-[11px] cursor-pointer"
-                        >
-                          {sedangBicara ? (
-                            <>
-                              <VolumeX className="w-3 h-3 text-red-400" />
-                              <span className="text-red-300 font-bold">STOP</span>
-                            </>
-                          ) : (
-                            <>
-                              <Volume2 className="w-3 h-3 text-cyan-300" />
-                              <span>SPEAK</span>
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void eksekusiPerintahJarvis('Dispatch semua instruksi rekomendasi ke divisi Telegram', false)}
-                          className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 flex items-center gap-1 text-[11px] cursor-pointer"
-                          title="Dispatch Rekomendasi ke Bot Telegram Divisi"
-                        >
-                          <Send className="w-3 h-3 text-cyan-300" />
-                          <span>DISPATCH</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            mainkanSuaraHud('engage')
-                            if (typeof window === 'undefined') return
-                            const win = window.open('', '_blank', 'width=920,height=800')
-                            if (!win) return
-                            const escaped = jawabanHologram
-                              .replace(/&/g, '&amp;')
-                              .replace(/</g, '&lt;')
-                              .replace(/>/g, '&gt;')
-                              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                              .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-                              .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-                              .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-                            win.document.open()
-                            win.document.write(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"/><title>Laporan Evaluasi J.A.R.V.I.S. - Suka Shawarma</title><style>body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;margin:28px;line-height:1.5;white-space:pre-wrap;}h1{font-size:18px;border-bottom:2px solid #0284c7;padding-bottom:6px;margin-bottom:8px;}h3{font-size:14px;color:#0369a1;margin:14px 0 4px 0;}h4{font-size:13px;color:#0f172a;margin:10px 0 2px 0;}</style></head><body>${escaped}<script>window.onload=()=>{setTimeout(()=>window.print(),250);};</script></body></html>`)
-                            win.document.close()
-                          }}
-                          className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-500/30 text-cyan-300 flex items-center gap-1 text-[11px] cursor-pointer"
-                          title="Cetak / Simpan PDF Laporan"
-                        >
-                          <Printer className="w-3 h-3" />
-                          <span className="hidden sm:inline">PDF</span>
-                        </button>
-                      </>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        mainkanSuaraHud('chirp')
-                        setPesanAwalDrawer(null)
-                        setTampilChatDrawer(true)
-                      }}
-                      className="px-2.5 py-1 rounded-md bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-200 flex items-center gap-1.5 text-xs font-hud font-bold cursor-pointer transition-colors shadow-[0_0_10px_rgba(6,182,212,0.2)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                      title="Buka Chatbox Khusus & Log Transmisi"
-                      aria-label="Buka Chatbox Khusus"
-                    >
-                      <MessageSquare className="size-3.5 text-cyan-300" />
-                      <span className="hidden sm:inline">CHATBOX KHUSUS</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hentiBicaraJarvis()
-                        setSedangBicara(false)
-                        setFeedDitutup(true)
-                      }}
-                      className="p-1.5 rounded-md text-zinc-400 hover:text-cyan-300 hover:bg-cyan-950/40 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                      title="Tutup Tampilan Chat (Percakapan tetap tersimpan & bisa dibuka kembali)"
-                      aria-label="Tutup Tampilan Chat"
-                    >
-                      <X className="size-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hentiBicaraJarvis()
-                        setSedangBicara(false)
-                        setJawabanHologram('')
-                        setRiwayatHologram([])
-                        setFeedDitutup(false)
-                        setDivisiSorot(null)
-                      }}
-                      className="p-1.5 rounded-md text-zinc-500 hover:text-red-300 hover:bg-red-950/30 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
-                      title="Bersihkan / Reset Riwayat Percakapan Layar"
-                      aria-label="Bersihkan Riwayat"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Conversation Stream */}
-                <div className="p-3 overflow-y-auto flex-1 min-h-0 space-y-3">
-                  {riwayatHologram.map((item) => (
-                    <div key={item.id} className="space-y-1.5 animate-in fade-in duration-200">
-                      {item.peran === 'user' ? (
-                        <div className="flex items-start justify-end gap-2">
-                          <div className="max-w-[85%] rounded-xl px-3 py-1.5 bg-cyan-950/70 border border-cyan-400/40 text-cyan-100 font-mono-hud text-xs shadow-[0_0_12px_rgba(6,182,212,0.15)]">
-                            <div className="flex items-center justify-between gap-3 text-[10px] text-cyan-400/80 mb-0.5 border-b border-cyan-500/20 pb-0.5">
-                              <span className="font-bold tracking-wider">COMMAND // ANDA</span>
-                              <span>{item.waktu}</span>
-                            </div>
-                            <p className="leading-relaxed">&ldquo;{item.teks}&rdquo;</p>
-                          </div>
-                        </div>
-                      ) : item.isDispatch ? (
-                        <div className="rounded-xl border border-emerald-500/50 bg-emerald-950/35 p-3 shadow-[0_0_24px_rgba(16,185,129,0.22)] font-mono-hud backdrop-blur-md">
-                          <div className="flex items-center justify-between pb-1.5 border-b border-emerald-500/30 mb-2">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                              <span className="font-hud text-xs font-bold text-emerald-200 tracking-wider">
-                                ENCRYPTED TELEGRAM DISPATCH // VERIFIED
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-emerald-300 font-semibold">{item.waktu}</span>
-                          </div>
-                          <p className="text-xs text-zinc-100 leading-relaxed mb-2.5">
-                            {item.teks}
-                          </p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-2 text-[10px]">
-                            {['CEO & Owner', 'Finance & Treasury', 'Gudang & Ops', 'HRD & Personalia', 'SukaReview & CS'].map((div, dIdx) => (
-                              <div key={dIdx} className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border border-emerald-500/30 text-emerald-200">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-                                <span className="truncate">{div}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-emerald-500/25">
-                            <button
-                              type="button"
-                              onClick={() => void eksekusiPerintahJarvis('Tampilkan rincian isi instruksi rekomendasi yang baru saja dikirim ke Telegram divisi.', false)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-900/60 hover:bg-emerald-800/80 border border-emerald-400/50 text-emerald-100 text-xs transition-all cursor-pointer flex items-center gap-1"
-                            >
-                              <span>📋 Rincian Instruksi</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void eksekusiPerintahJarvis('Tampilkan progres omzet berjalan dan cabang yang sudah buka hari ini.', false)}
-                              className="px-2.5 py-1 rounded-lg bg-cyan-950/70 hover:bg-cyan-900/80 border border-cyan-400/40 text-cyan-200 text-xs transition-all cursor-pointer flex items-center gap-1"
-                            >
-                              <span>📊 Pantau Progres Cabang</span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-xl p-3 bg-zinc-950/70 border border-cyan-500/25 text-zinc-100 font-mono-hud text-xs shadow-md">
-                          <div className="flex items-center justify-between text-[10px] text-cyan-400/70 border-b border-cyan-500/20 pb-1 mb-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                              <span className="font-hud font-bold tracking-wider text-cyan-300">J.A.R.V.I.S. INTELLIGENCE</span>
-                            </div>
-                            <span>{item.waktu}</span>
-                          </div>
-                          <FormatIsiHologram isi={item.teks} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {sedangMemproses && (
-                    <div className="flex items-center gap-2 text-cyan-300 font-mono-hud text-xs py-2 px-3 rounded-lg bg-cyan-950/50 border border-cyan-500/30 animate-pulse">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                      <span>J.A.R.V.I.S. SEDANG MENGANALISIS TELEMETRI DATABASE...</span>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
             ) : !radarAnomaliTerbuka ? (
-              /* Standby Collapsed Status Bar (Tactical Anomaly Radar default collapsed per boss request) */
+              /* Standby Collapsed Status Bar */
               <div
                 onClick={() => {
                   mainkanSuaraHud('chirp')
                   setRadarAnomaliTerbuka(true)
                 }}
                 className="w-full shrink-0 rounded-xl bg-zinc-950/85 border border-cyan-500/35 hover:border-cyan-400 backdrop-blur-xl shadow-[0_0_20px_rgba(6,182,212,0.15)] p-2 sm:px-3 sm:py-2 flex items-center justify-between gap-2.5 cursor-pointer transition-all group my-0.5 select-none"
-                title="Klik untuk membuka rincian Tactical Anomaly Radar"
+                title="Klik untuk membuka rincian Tactical Anomaly Radar atau Chatbox"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${adaAnomaliKritis ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
@@ -1476,29 +1269,51 @@ export default function JarvisApp({
                       : 'HERMES NEURAL OPERATIONS MATRIX // OPTIMAL'}
                   </span>
                   <span className="hidden sm:inline font-mono-hud text-[10px] text-zinc-400 truncate">
-                    &bull; Klik untuk membuka rincian issue &amp; tindak lanjut
+                    &bull; Klik untuk membuka radar isu atau chatbox
                   </span>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="px-2.5 py-1 rounded-lg bg-cyan-950 group-hover:bg-cyan-900 border border-cyan-400/40 text-cyan-300 font-hud text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors">
-                    <span>BUKA RADAR</span>
-                    <ChevronUp className="w-3 h-3 text-cyan-300 group-hover:-translate-y-0.5 transition-transform" />
-                  </span>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
                       mainkanSuaraHud('chirp')
-                      setPesanAwalDrawer(null)
-                      setTampilChatDrawer(true)
+                      setRadarAnomaliTerbuka(true)
+                      setTacticalTab('radar')
                     }}
-                    className="px-2 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/40 text-cyan-200 text-[10px] font-hud flex items-center gap-1 cursor-pointer transition-colors shadow-[0_0_10px_rgba(6,182,212,0.2)]"
-                    title="Buka Chatbox Khusus Percakapan"
+                    className={`px-2.5 py-1 rounded-lg border font-hud text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors ${
+                      tacticalTab === 'radar'
+                        ? 'bg-cyan-900/90 border-cyan-400 text-cyan-100 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+                        : 'bg-cyan-950 hover:bg-cyan-900 border-cyan-400/40 text-cyan-300'
+                    }`}
+                  >
+                    <span>BUKA RADAR</span>
+                    <ChevronUp className="w-3 h-3 text-cyan-300" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      mainkanSuaraHud('chirp')
+                      setRadarAnomaliTerbuka(true)
+                      setTacticalTab('chat')
+                    }}
+                    className={`px-2.5 py-1 rounded-lg border font-hud text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors shadow-[0_0_10px_rgba(6,182,212,0.2)] ${
+                      tacticalTab === 'chat'
+                        ? 'bg-cyan-900/90 border-cyan-400 text-cyan-100 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+                        : 'bg-cyan-950 hover:bg-cyan-900 border-cyan-400/40 text-cyan-200'
+                    }`}
+                    title="Buka Chatbox Percakapan di Box Ini"
                   >
                     <MessageSquare className="w-3 h-3 text-cyan-300" />
-                    <span className="hidden sm:inline">CHATBOX</span>
+                    <span>CHATBOX</span>
+                    {riwayatHologram.length > 0 && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    )}
                   </button>
+
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1511,6 +1326,7 @@ export default function JarvisApp({
                     <FileBarChart2 className="w-3 h-3 text-cyan-300" />
                     <span className="hidden sm:inline">BRIEFING</span>
                   </button>
+
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1526,7 +1342,7 @@ export default function JarvisApp({
                 </div>
               </div>
             ) : (
-              /* Expanded Standby: Hermes Tactical Anomaly & Operations Matrix Deck */
+              /* UNIFIED TACTICAL DECK: ANOMALY RADAR + INTEGRATED CHATBOX (IN-BOX) */
               <div className="w-full flex-1 min-h-[160px] rounded-2xl bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.12)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
                 {/* Hologram Reticles */}
                 <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
@@ -1534,73 +1350,142 @@ export default function JarvisApp({
                 <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-cyan-400 pointer-events-none" />
                 <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400 pointer-events-none" />
 
-                {/* Deck Header with Minimize Button */}
-                <div className="flex items-center justify-between px-3 py-1.5 bg-cyan-950/60 border-b border-cyan-500/20 font-mono-hud text-xs shrink-0">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${adaAnomaliKritis ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                    <span className="font-hud text-xs text-cyan-200 font-bold uppercase tracking-wider truncate">
-                      {adaAnomaliKritis
-                        ? `TACTICAL ANOMALY RADAR // ${dailyData?.actionItems?.length || 0} ISSUES LOGGED`
-                        : 'HERMES NEURAL OPERATIONS MATRIX'}
-                    </span>
+                {/* Deck Header with Dual Tabs: Radar Anomali vs Chatbox Conversation */}
+                <div className="flex items-center justify-between px-2.5 sm:px-3 py-1.5 bg-cyan-950/60 border-b border-cyan-500/20 font-mono-hud text-xs shrink-0">
+                  {/* Left Tabs */}
+                  <div className="flex items-center gap-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mainkanSuaraHud('chirp')
+                        setTacticalTab('radar')
+                      }}
+                      className={`px-2.5 py-1 rounded-lg font-hud text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
+                        tacticalTab === 'radar'
+                          ? 'bg-cyan-900/80 border border-cyan-400 text-cyan-100 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                          : 'text-zinc-400 hover:text-cyan-300 hover:bg-zinc-900/60 border border-transparent'
+                      }`}
+                      title="Lihat Daftar Isu Tactical Anomaly Radar"
+                    >
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${adaAnomaliKritis ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+                      <span className="truncate">
+                        RADAR ANOMALI // {dailyData?.actionItems?.length || 0} ISSUES
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mainkanSuaraHud('chirp')
+                        setTacticalTab('chat')
+                      }}
+                      className={`px-2.5 py-1 rounded-lg font-hud text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
+                        tacticalTab === 'chat'
+                          ? 'bg-cyan-900/80 border border-cyan-400 text-cyan-100 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                          : 'text-zinc-400 hover:text-cyan-300 hover:bg-zinc-900/60 border border-transparent'
+                      }`}
+                      title="Buka Chatbox Percakapan di Box Ini"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>CHATBOX CONVERSATION</span>
+                      {riwayatHologram.length > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/25 text-cyan-200 text-[10px] font-mono-hud font-bold border border-cyan-400/40">
+                          {riwayatHologram.length}
+                        </span>
+                      )}
+                    </button>
                   </div>
 
+                  {/* Right Header Actions */}
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {riwayatHologram.length > 0 && feedDitutup && (
+                    {tacticalTab === 'chat' && jawabanHologram && (
                       <button
                         type="button"
                         onClick={() => {
-                          mainkanSuaraHud('chirp')
-                          setFeedDitutup(false)
+                          if (sedangBicara) {
+                            hentiBicaraJarvis()
+                            setSedangBicara(false)
+                          } else {
+                            bicaraJarvis(jawabanHologram, () => setSedangBicara(false), {
+                              onMulai: () => setSedangBicara(true),
+                            })
+                          }
                         }}
-                        aria-label="Buka Kembali Chat di Layar"
-                        className="px-2 py-0.5 rounded bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-200 text-[11px] font-mono-hud flex items-center gap-1 shadow-[0_0_10px_rgba(6,182,212,0.2)] animate-pulse cursor-pointer"
-                        title="Buka Kembali Chat Terakhir di Layar"
+                        className="px-2 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 flex items-center gap-1 text-[11px] cursor-pointer"
+                        title={sedangBicara ? 'Hentikan Suara' : 'Dengarkan Jawaban'}
                       >
-                        <MessageSquare className="w-3 h-3 text-cyan-300" />
-                        <span>CHAT ({riwayatHologram.length})</span>
+                        {sedangBicara ? (
+                          <>
+                            <VolumeX className="w-3 h-3 text-red-400" />
+                            <span className="text-red-300 font-bold">STOP</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3 h-3 text-cyan-300" />
+                            <span>SPEAK</span>
+                          </>
+                        )}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        mainkanSuaraHud('chirp')
-                        setPesanAwalDrawer(null)
-                        setTampilChatDrawer(true)
-                      }}
-                      aria-label="Buka Chatbox Khusus Percakapan"
-                      className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/40 text-cyan-200 text-[11px] font-hud flex items-center gap-1 cursor-pointer transition-colors shadow-[0_0_10px_rgba(6,182,212,0.2)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                      title="Buka Chatbox Khusus Percakapan & Log Transmisi"
-                    >
-                      <MessageSquare className="w-3 h-3 text-cyan-300" />
-                      <span>CHATBOX</span>
-                      {percakapanIdAktif && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        mainkanSuaraHud('chirp')
-                        setRadarAnomaliTerbuka(false)
-                      }}
-                      aria-label="Minimize Radar Anomali"
-                      className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-[11px] font-hud flex items-center gap-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                      title="Tutup / Minimize Radar Anomali (Wajah Robot Membesar)"
-                    >
-                      <ChevronDown className="w-3 h-3 text-cyan-300" />
-                      <span>MINIMIZE</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => bukaModalDailyBriefing(true)}
-                      aria-label="Buka Laporan Daily Komprehensif"
-                      className="px-2 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 text-[11px] flex items-center gap-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                      title="Buka Laporan Daily Komprehensif"
-                    >
-                      <FileBarChart2 className="w-3 h-3 text-cyan-300" />
-                      <span>BRIEFING</span>
-                    </button>
+
+                    {tacticalTab === 'chat' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          mainkanSuaraHud('engage')
+                          if (typeof window === 'undefined') return
+                          const win = window.open('', '_blank', 'width=920,height=800')
+                          if (!win) return
+                          const escaped = jawabanHologram
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                            .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+                            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                          win.document.open()
+                          win.document.write(`<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"/><title>Laporan Evaluasi J.A.R.V.I.S. - Suka Shawarma</title><style>body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;margin:28px;line-height:1.5;white-space:pre-wrap;}h1{font-size:18px;border-bottom:2px solid #0284c7;padding-bottom:6px;margin-bottom:8px;}h3{font-size:14px;color:#0369a1;margin:14px 0 4px 0;}h4{font-size:13px;color:#0f172a;margin:10px 0 2px 0;}</style></head><body>${escaped}<script>window.onload=()=>{setTimeout(()=>window.print(),250);};</script></body></html>`)
+                          win.document.close()
+                        }}
+                        className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-500/30 text-cyan-300 flex items-center gap-1 text-[11px] cursor-pointer"
+                        title="Cetak / Simpan PDF Laporan"
+                      >
+                        <Printer className="w-3 h-3" />
+                        <span className="hidden sm:inline">PDF</span>
+                      </button>
+                    )}
+
+                    {tacticalTab === 'chat' && riwayatHologram.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hentiBicaraJarvis()
+                          setSedangBicara(false)
+                          setJawabanHologram('')
+                          setRiwayatHologram([])
+                          setDivisiSorot(null)
+                        }}
+                        className="p-1 rounded text-zinc-500 hover:text-red-300 hover:bg-red-950/30 cursor-pointer transition-colors"
+                        title="Bersihkan Percakapan Chatbox"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+
+                    {tacticalTab === 'radar' && (
+                      <button
+                        type="button"
+                        onClick={() => bukaModalDailyBriefing(true)}
+                        aria-label="Buka Laporan Daily Komprehensif"
+                        className="px-2 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 text-[11px] flex items-center gap-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                        title="Buka Laporan Daily Komprehensif"
+                      >
+                        <FileBarChart2 className="w-3 h-3 text-cyan-300" />
+                        <span>BRIEFING</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => void eksekusiPerintahJarvis('Dispatch semua instruksi rekomendasi ke divisi Telegram', false)}
@@ -1611,76 +1496,178 @@ export default function JarvisApp({
                       <Send className="w-3 h-3 text-cyan-300" />
                       <span>DISPATCH</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mainkanSuaraHud('chirp')
+                        setRadarAnomaliTerbuka(false)
+                      }}
+                      aria-label="Minimize Box"
+                      className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-[11px] font-hud flex items-center gap-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                      title="Tutup / Minimize Box (Wajah Robot Membesar)"
+                    >
+                      <ChevronDown className="w-3 h-3 text-cyan-300" />
+                      <span>MINIMIZE</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Content Stream: Anomaly Cards or Divisional Heartbeat */}
-                <div className="p-2 sm:p-2.5 overflow-y-auto flex-1 min-h-0 space-y-2 no-scrollbar">
-                  {dailyData?.actionItems && dailyData.actionItems.length > 0 ? (
-                    dailyData.actionItems.map((item, idx) => {
-                      const isCritical = item.level === 'critical'
-                      return (
-                        <div
-                          key={item.id || idx}
-                          className={`p-2 sm:p-2.5 rounded-xl border backdrop-blur-md transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-                            isCritical
-                              ? 'bg-red-950/30 border-red-500/40 hover:border-red-400/70 hover:bg-red-950/45'
-                              : 'bg-amber-950/25 border-amber-500/35 hover:border-amber-400/60 hover:bg-amber-950/35'
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-mono-hud font-bold tracking-wider uppercase shrink-0 ${
-                                  isCritical
-                                    ? 'bg-red-500/20 text-red-300 border border-red-500/40'
-                                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                                }`}
-                              >
-                                {item.divisi}
-                              </span>
-                              <span className="font-mono-hud text-xs font-semibold text-zinc-100 truncate">
-                                {item.judul}
-                              </span>
-                            </div>
-                            {item.deskripsi && (
-                              <p className="text-[11px] font-mono-hud text-zinc-400 line-clamp-1">
-                                {item.deskripsi}
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleTindakLanjutAnomaly(item)}
-                            className={`px-2.5 py-1 rounded-lg border font-hud text-[10px] tracking-wider uppercase font-bold shrink-0 transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                {/* Content Stream: Tab RADAR vs Tab CHATBOX */}
+                {tacticalTab === 'radar' ? (
+                  /* TAB 1: RADAR ANOMALI CARDS */
+                  <div className="p-2 sm:p-2.5 overflow-y-auto flex-1 min-h-0 space-y-2 no-scrollbar">
+                    {dailyData?.actionItems && dailyData.actionItems.length > 0 ? (
+                      dailyData.actionItems.map((item, idx) => {
+                        const isCritical = item.level === 'critical'
+                        return (
+                          <div
+                            key={item.id || idx}
+                            className={`p-2 sm:p-2.5 rounded-xl border backdrop-blur-md transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
                               isCritical
-                                ? 'bg-red-900/70 hover:bg-red-800 border-red-400/50 text-red-100 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
-                                : 'bg-amber-900/70 hover:bg-amber-800 border-amber-400/50 text-amber-100 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
+                                ? 'bg-red-950/30 border-red-500/40 hover:border-red-400/70 hover:bg-red-950/45'
+                                : 'bg-amber-950/25 border-amber-500/35 hover:border-amber-400/60 hover:bg-amber-950/35'
                             }`}
-                            title="Buka Chatbox Khusus & Tindak Lanjut Anomali Ini"
                           >
-                            <MessageSquare className="w-3 h-3" />
-                            <span>TINDAK LANJUT</span>
-                            <span className="text-[9px] font-mono-hud">&gt;&gt;</span>
-                          </button>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono-hud font-bold tracking-wider uppercase shrink-0 ${
+                                    isCritical
+                                      ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  }`}
+                                >
+                                  {item.divisi}
+                                </span>
+                                <span className="font-mono-hud text-xs font-semibold text-zinc-100 truncate">
+                                  {item.judul}
+                                </span>
+                              </div>
+                              {item.deskripsi && (
+                                <p className="text-[11px] font-mono-hud text-zinc-400 line-clamp-1">
+                                  {item.deskripsi}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleTindakLanjutAnomaly(item)}
+                              className={`px-2.5 py-1 rounded-lg border font-hud text-[10px] tracking-wider uppercase font-bold shrink-0 transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                isCritical
+                                  ? 'bg-red-900/70 hover:bg-red-800 border-red-400/50 text-red-100 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
+                                  : 'bg-amber-900/70 hover:bg-amber-800 border-amber-400/50 text-amber-100 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
+                              }`}
+                              title="Buka Chatbox & Investigasi Anomali Ini"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span>TINDAK LANJUT</span>
+                              <span className="text-[9px] font-mono-hud">&gt;&gt;</span>
+                            </button>
+                          </div>
+                        )
+                      })
+                    ) : (
+                      /* Divisional Heartbeat Matrix when no anomalies */
+                      <div className="h-full flex flex-col items-center justify-center py-4 text-center space-y-2.5 font-mono-hud">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.15)]">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="font-hud tracking-wider uppercase font-bold text-xs">
+                            HERMES NEURAL LINKED &bull; 4 DIVISI AKTIF
+                          </span>
                         </div>
-                      )
-                    })
-                  ) : (
-                    /* Divisional Heartbeat Matrix when no anomalies */
-                    <div className="h-full flex flex-col items-center justify-center py-4 text-center space-y-2.5 font-mono-hud">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.15)]">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="font-hud tracking-wider uppercase font-bold text-xs">
-                          HERMES NEURAL LINKED &bull; 4 DIVISI AKTIF
-                        </span>
+                        <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                          Semua telemetri divisi berjalan optimal. Bicara langsung atau pilih direktif cepat di bawah.
+                        </p>
                       </div>
-                      <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                        Semua telemetri divisi berjalan optimal. Bicara langsung atau pilih direktif cepat di bawah.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                ) : (
+                  /* TAB 2: CHATBOX CONVERSATION STREAM */
+                  <div className="p-3 overflow-y-auto flex-1 min-h-0 space-y-3 no-scrollbar">
+                    {riwayatHologram.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center py-6 text-center space-y-3 font-mono-hud">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.15)]">
+                          <MessageSquare className="w-4 h-4 text-cyan-400 animate-pulse" />
+                          <span className="font-hud tracking-wider uppercase font-bold text-xs">
+                            CHATBOX CONVERSATION // READY
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+                          Belum ada pesan aktif di chatbox ini. Klik <strong className="text-cyan-300">TINDAK LANJUT</strong> pada salah satu issue di tab Radar Anomali, atau gunakan bar input di bawah untuk bertanya langsung.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            mainkanSuaraHud('chirp')
+                            setTacticalTab('radar')
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-200 text-xs font-hud font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                          <span>LIHAT RADAR ANOMALI ({dailyData?.actionItems?.length || 0})</span>
+                        </button>
+                      </div>
+                    ) : (
+                      riwayatHologram.map((item) => (
+                        <div key={item.id} className="space-y-1.5 animate-in fade-in duration-200">
+                          {item.peran === 'user' ? (
+                            <div className="flex items-start justify-end gap-2">
+                              <div className="max-w-[85%] rounded-xl px-3 py-1.5 bg-cyan-950/70 border border-cyan-400/40 text-cyan-100 font-mono-hud text-xs shadow-[0_0_12px_rgba(6,182,212,0.15)]">
+                                <div className="flex items-center justify-between gap-3 text-[10px] text-cyan-400/80 mb-0.5 border-b border-cyan-500/20 pb-0.5">
+                                  <span className="font-bold tracking-wider">COMMAND // ANDA</span>
+                                  <span>{item.waktu}</span>
+                                </div>
+                                <p className="leading-relaxed">&ldquo;{item.teks}&rdquo;</p>
+                              </div>
+                            </div>
+                          ) : item.isDispatch ? (
+                            <div className="rounded-xl border border-emerald-500/50 bg-emerald-950/35 p-3 shadow-[0_0_24px_rgba(16,185,129,0.22)] font-mono-hud backdrop-blur-md">
+                              <div className="flex items-center justify-between pb-1.5 border-b border-emerald-500/30 mb-2">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                                  <span className="font-hud text-xs font-bold text-emerald-200 tracking-wider">
+                                    ENCRYPTED TELEGRAM DISPATCH // VERIFIED
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-emerald-300 font-semibold">{item.waktu}</span>
+                              </div>
+                              <p className="text-xs text-zinc-100 leading-relaxed mb-2.5">
+                                {item.teks}
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-2 text-[10px]">
+                                {['CEO & Owner', 'Finance & Treasury', 'Gudang & Ops', 'HRD & Personalia', 'SukaReview & CS'].map((div, dIdx) => (
+                                  <div key={dIdx} className="flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border border-emerald-500/30 text-emerald-200">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                                    <span className="truncate">{div}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="rounded-xl p-3 bg-zinc-950/70 border border-cyan-500/25 text-zinc-100 font-mono-hud text-xs shadow-md">
+                              <div className="flex items-center justify-between text-[10px] text-cyan-400/70 border-b border-cyan-500/20 pb-1 mb-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                                  <span className="font-hud font-bold tracking-wider text-cyan-300">J.A.R.V.I.S. INTELLIGENCE</span>
+                                </div>
+                                <span>{item.waktu}</span>
+                              </div>
+                              <FormatIsiHologram isi={item.teks} />
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                    {sedangMemproses && (
+                      <div className="flex items-center gap-2 text-cyan-300 font-mono-hud text-xs py-2 px-3 rounded-lg bg-cyan-950/50 border border-cyan-500/30 animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                        <span>J.A.R.V.I.S. SEDANG MENGANALISIS TELEMETRI DATABASE...</span>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
 
                 {/* Footer Telemetry Strip */}
                 <div className="px-3 py-1 bg-black/60 border-t border-cyan-500/20 flex items-center justify-between text-[10px] font-mono-hud text-cyan-400/70 shrink-0">
@@ -1842,16 +1829,20 @@ export default function JarvisApp({
               type="button"
               onClick={() => {
                 mainkanSuaraHud('chirp')
-                setPesanAwalDrawer(null)
-                setTampilChatDrawer(true)
+                setRadarAnomaliTerbuka(true)
+                setTacticalTab('chat')
               }}
-              aria-label="Buka Chatbox Khusus Percakapan"
-              className="px-3 py-1 min-h-[34px] rounded-lg bg-cyan-950/80 hover:bg-cyan-900/90 text-cyan-200 border border-cyan-400/50 font-mono-hud text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 shadow-[0_0_10px_rgba(6,182,212,0.18)]"
-              title="Buka Chatbox Khusus Percakapan"
+              aria-label="Buka Chatbox Percakapan"
+              className={`px-3 py-1 min-h-[34px] rounded-lg border font-mono-hud text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                tacticalTab === 'chat' && radarAnomaliTerbuka
+                  ? 'bg-cyan-900/90 border-cyan-400 text-cyan-100 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                  : 'bg-cyan-950/80 hover:bg-cyan-900/90 text-cyan-200 border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.18)]'
+              }`}
+              title="Buka Chatbox Percakapan di Box Tactical Anomaly"
             >
               <MessageSquare className="size-3 text-cyan-300 shrink-0" />
               <span>Chatbox</span>
-              {percakapanIdAktif && (
+              {riwayatHologram.length > 0 && (
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
               )}
             </button>
@@ -1964,21 +1955,6 @@ export default function JarvisApp({
           onTutup={() => setTampilDailyBriefing(false)}
           onTanyaJarvis={(perintah) => void eksekusiPerintahJarvis(perintah, false)}
           onStatusBicaraChange={(bicara) => setSedangBicara(bicara)}
-        />
-      )}
-
-      {/* SIDE CHAT DRAWER */}
-      {tampilChatDrawer && (
-        <JarvisChatDrawer
-          profil="ceo"
-          pesanAwal={pesanAwalDrawer}
-          percakapanIdAwal={pesanAwalDrawer ? null : percakapanIdAktif}
-          onPercakapanIdChange={(idBaru) => setPercakapanIdAktif(idBaru)}
-          onTutup={() => {
-            mainkanSuaraHud('chirp')
-            setTampilChatDrawer(false)
-            setPesanAwalDrawer(null)
-          }}
         />
       )}
     </div>

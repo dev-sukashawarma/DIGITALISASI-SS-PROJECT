@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { mainkanSuaraHud } from '@/lib/audioHud'
-import { Mic, Volume2, Radio, FileBarChart2, RefreshCw, Sparkles } from 'lucide-react'
+import { Mic, Volume2, Radio, FileBarChart2, RefreshCw, Sparkles, Maximize2, Minimize2 } from 'lucide-react'
 import type { StatusArcReactor, AnomaliItem } from '@/components/jarvis/ArcReactor'
 
 interface HologramHead3DProps {
@@ -18,6 +18,9 @@ interface HologramHead3DProps {
   onBukaDailyBriefing?: () => void
   onBukaChatLengkap?: () => void
   tampilkanTombolBawah?: boolean
+  sizeMode?: 'compact' | 'normal' | 'large' | 'muka-doang'
+  isMukaDoang?: boolean
+  onToggleMukaDoang?: () => void
 }
 
 const DEFAULT_SPEKTRUM = [0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -332,6 +335,9 @@ export default function HologramHead3D({
   onClickCore,
   onBukaDailyBriefing,
   tampilkanTombolBawah = true,
+  sizeMode,
+  isMukaDoang = false,
+  onToggleMukaDoang,
 }: HologramHead3DProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -1063,9 +1069,16 @@ export default function HologramHead3D({
     onClickCore?.()
   }
 
-  const containerSizeClass = compact
-    ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,22vh)] max-h-[22vh]'
-    : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[250px] md:h-[250px] lg:w-[265px] lg:h-[265px] xl:w-[285px] xl:h-[285px] max-w-[min(100%,30vh)] max-h-[30vh]'
+  const effectiveSizeMode = sizeMode || (isMukaDoang ? 'muka-doang' : compact ? 'compact' : 'large')
+
+  const containerSizeClass =
+    effectiveSizeMode === 'muka-doang'
+      ? 'w-[320px] h-[320px] sm:w-[440px] sm:h-[440px] md:w-[520px] md:h-[520px] lg:w-[600px] lg:h-[600px] xl:w-[660px] xl:h-[660px] max-w-[min(100%,72vh)] max-h-[72vh]'
+      : effectiveSizeMode === 'large'
+        ? 'w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] md:w-[400px] md:h-[400px] lg:w-[450px] lg:h-[450px] xl:w-[490px] xl:h-[490px] max-w-[min(100%,52vh)] max-h-[52vh]'
+        : effectiveSizeMode === 'compact'
+          ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,22vh)] max-h-[22vh]'
+          : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[250px] md:h-[250px] lg:w-[265px] lg:h-[265px] xl:w-[285px] xl:h-[285px] max-w-[min(100%,30vh)] max-h-[30vh]'
 
   return (
     <div
@@ -1080,12 +1093,42 @@ export default function HologramHead3D({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleMouseUp}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          mainkanSuaraHud('chirp')
+          onToggleMukaDoang?.()
+        }}
         className={`relative flex items-center justify-center aspect-square transition-all duration-300 ${containerSizeClass} cursor-grab active:cursor-grabbing group`}
-        title="Klik untuk bicara // Geser / Drag untuk putar kepala 3D"
+        title="Klik / Double-klik untuk Mode Muka Doang // Geser / Drag untuk putar kepala 3D"
       >
         {/* Sudut Reticle Sci-Fi HUD */}
         {!compact && (
           <>
+            {/* Tombol Mode Muka Doang di Pojok Kiri Atas */}
+            {onToggleMukaDoang && (
+              <div className="absolute top-2 left-2 z-20 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    mainkanSuaraHud('chirp')
+                    onToggleMukaDoang()
+                  }}
+                  className={`px-2 py-1 rounded border text-[10px] flex items-center gap-1.5 cursor-pointer transition-all shadow-md font-mono-hud backdrop-blur-md ${
+                    isMukaDoang
+                      ? 'bg-cyan-600 border-cyan-300 text-white shadow-[0_0_15px_rgba(6,182,212,0.6)] animate-pulse'
+                      : 'bg-zinc-950/85 hover:bg-cyan-950 border-cyan-400/50 text-cyan-300 hover:text-white'
+                  }`}
+                  title={isMukaDoang ? 'Kembali ke Tampilan Normal (Tampilkan Radar)' : 'Mode Muka Doang (Wajah Robot Penuh)'}
+                >
+                  {isMukaDoang ? <Minimize2 className="w-3 h-3 text-cyan-200" /> : <Maximize2 className="w-3 h-3 text-cyan-300" />}
+                  <span className="font-hud text-[9px] uppercase tracking-wider font-bold">
+                    {isMukaDoang ? 'EXIT MUKA' : 'MUKA DOANG'}
+                  </span>
+                </button>
+              </div>
+            )}
+
             <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-400/70 p-1 flex flex-col justify-start pointer-events-none">
               <span className="font-mono-hud text-[8px] text-cyan-300 font-bold leading-none">
                 HOLOGRAM // 3D

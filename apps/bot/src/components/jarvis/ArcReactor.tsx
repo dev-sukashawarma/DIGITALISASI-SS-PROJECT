@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { mainkanSuaraHud } from '@/lib/audioHud'
-import { Cpu, Mic, Volume2, Radio, FileBarChart2 } from 'lucide-react'
+import { Cpu, Mic, Volume2, Radio, FileBarChart2, Maximize2, Minimize2 } from 'lucide-react'
 
 export type StatusArcReactor = 'optimal' | 'listening' | 'processing' | 'speaking' | 'warning'
 
@@ -27,6 +27,9 @@ interface ArcReactorProps {
   onBukaDailyBriefing?: () => void
   onBukaChatLengkap?: () => void
   tampilkanTombolBawah?: boolean
+  sizeMode?: 'compact' | 'normal' | 'large' | 'muka-doang'
+  isMukaDoang?: boolean
+  onToggleMukaDoang?: () => void
 }
 
 const DEFAULT_SPEKTRUM = [0.2, 0.35, 0.22, 0.45, 0.3, 0.45, 0.22, 0.35, 0.2]
@@ -43,6 +46,9 @@ export default function ArcReactor({
   onPilihAnomali: _onPilihAnomali,
   onBukaDailyBriefing,
   tampilkanTombolBawah = false,
+  sizeMode,
+  isMukaDoang = false,
+  onToggleMukaDoang,
 }: ArcReactorProps) {
   const [hovered, setHovered] = useState(false)
 
@@ -101,17 +107,56 @@ export default function ArcReactor({
         ? 1.03
         : 1
 
-  const containerSizeClass = compact
-    ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh]'
-    : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[250px] md:h-[250px] lg:w-[265px] lg:h-[265px] xl:w-[280px] xl:h-[280px] max-w-[min(100%,30vh)] max-h-[30vh]'
+  const effectiveSizeMode = sizeMode || (isMukaDoang ? 'muka-doang' : compact ? 'compact' : 'large')
+
+  const containerSizeClass =
+    effectiveSizeMode === 'muka-doang'
+      ? 'w-[320px] h-[320px] sm:w-[440px] sm:h-[440px] md:w-[520px] md:h-[520px] lg:w-[600px] lg:h-[600px] xl:w-[660px] xl:h-[660px] max-w-[min(100%,72vh)] max-h-[72vh]'
+      : effectiveSizeMode === 'large'
+        ? 'w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] md:w-[400px] md:h-[400px] lg:w-[450px] lg:h-[450px] xl:w-[490px] xl:h-[490px] max-w-[min(100%,52vh)] max-h-[52vh]'
+        : effectiveSizeMode === 'compact'
+          ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh]'
+          : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[250px] md:h-[250px] lg:w-[265px] lg:h-[265px] xl:w-[280px] xl:h-[280px] max-w-[min(100%,30vh)] max-h-[30vh]'
 
   return (
     <div className="relative flex flex-col items-center justify-center select-none py-0.5 w-full transition-all duration-300">
       {/* Target Reticle Container */}
-      <div className={`relative flex items-center justify-center aspect-square transition-all duration-300 ${containerSizeClass}`}>
+      <div
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          mainkanSuaraHud('chirp')
+          onToggleMukaDoang?.()
+        }}
+        className={`relative flex items-center justify-center aspect-square transition-all duration-300 ${containerSizeClass}`}
+        title="Klik ganda untuk Mode Muka Doang // Klik untuk bicara"
+      >
         {/* Corner Reticles with Sci-Fi HUD Coordinates */}
         {!compact && (
           <>
+            {/* Tombol Mode Muka Doang di Pojok Kiri Atas */}
+            {onToggleMukaDoang && (
+              <div className="absolute top-2 left-2 z-20 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    mainkanSuaraHud('chirp')
+                    onToggleMukaDoang()
+                  }}
+                  className={`px-2 py-1 rounded border text-[10px] flex items-center gap-1.5 cursor-pointer transition-all shadow-md font-mono-hud backdrop-blur-md ${
+                    isMukaDoang
+                      ? 'bg-cyan-600 border-cyan-300 text-white shadow-[0_0_15px_rgba(6,182,212,0.6)] animate-pulse'
+                      : 'bg-zinc-950/85 hover:bg-cyan-950 border-cyan-400/50 text-cyan-300 hover:text-white'
+                  }`}
+                  title={isMukaDoang ? 'Kembali ke Tampilan Normal (Tampilkan Radar)' : 'Mode Muka Doang (Fokus Penuh)'}
+                >
+                  {isMukaDoang ? <Minimize2 className="w-3 h-3 text-cyan-200" /> : <Maximize2 className="w-3 h-3 text-cyan-300" />}
+                  <span className="font-hud text-[9px] uppercase tracking-wider font-bold">
+                    {isMukaDoang ? 'EXIT MUKA' : 'MUKA DOANG'}
+                  </span>
+                </button>
+              </div>
+            )}
             <div className={`absolute top-0 left-0 w-7 h-7 sm:w-8 sm:h-8 border-t-2 border-l-2 pointer-events-none p-1 flex flex-col justify-start transition-colors duration-300 ${status === 'warning' ? 'border-amber-400/80 text-amber-300' : 'border-cyan-400/70 text-cyan-400/80'}`}>
               <span className="font-mono-hud text-[7px] sm:text-[8px] font-semibold tracking-wider leading-none">
                 {voiceLoopAktif ? 'VOICE // LOOP' : 'SYS // CORE-01'}

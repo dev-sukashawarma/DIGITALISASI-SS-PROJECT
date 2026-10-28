@@ -56,6 +56,10 @@ import {
   DollarSign,
   Trash2,
   Users,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react'
 
 const POLL_STATUS_MS = 12_000
@@ -166,6 +170,12 @@ export default function JarvisApp({
   const [tampilChatDrawer, setTampilChatDrawer] = useState(false)
   const [pesanAwalDrawer, setPesanAwalDrawer] = useState<string | null>(null)
 
+  // Tactical Panel Visibility & Layout States (Sesuai masukan boss: anomali collapsed saat awal & semua bisa diminimize / muka doang)
+  const [radarAnomaliTerbuka, setRadarAnomaliTerbuka] = useState(false)
+  const [leftWingMinimized, setLeftWingMinimized] = useState(false)
+  const [rightWingMinimized, setRightWingMinimized] = useState(false)
+  const [modeMukaDoang, setModeMukaDoang] = useState(false)
+
   const voiceLoopRef = useRef(false)
   const chatAbortRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
@@ -194,6 +204,14 @@ export default function JarvisApp({
           inputRef.current?.focus()
         }
       } else if (e.key === 'Escape') {
+        if (modeMukaDoang) {
+          setModeMukaDoang(false)
+          return
+        }
+        if (radarAnomaliTerbuka) {
+          setRadarAnomaliTerbuka(false)
+          return
+        }
         if (document.activeElement === inputRef.current) {
           inputRef.current?.blur()
         }
@@ -869,72 +887,116 @@ export default function JarvisApp({
       </header>
 
       {/* MAIN COMMAND INTERFACE (Opsi A: Center Stage Iron Man Layout) */}
-      <main className="relative z-20 flex-1 min-h-0 w-full px-3 sm:px-4 lg:px-5 py-2 flex flex-col justify-between overflow-hidden">
-        {/* TACTICAL 3-COLUMN HUD GRID: Left = 3 Cols (Ops & HRD), Center = 6 Cols (Arc Reactor + Hologram Stage), Right = 3 Cols (Sales & Finance) */}
-        <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-3.5 items-stretch">
+      <main className="relative z-20 flex-1 min-h-0 w-full px-2 sm:px-3 lg:px-4 py-1.5 flex flex-col justify-between overflow-hidden">
+        {/* TACTICAL 3-COLUMN HUD GRID: Left = Ops & HRD, Center = Hero Command Core, Right = Sales & Finance */}
+        <div className="flex-1 min-h-0 w-full flex flex-col lg:flex-row gap-2.5 lg:gap-3 items-stretch overflow-hidden">
           
-          {/* Left Wing (3 Cols / 25%): OPERASIONAL & KRU (DIV-03 Ops & DIV-04 HRD) */}
-          <div className="w-full lg:col-span-3 flex flex-col gap-2 h-full min-h-0">
-            {/* Radar Header */}
-            <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.15)] shrink-0">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-                <span className="font-hud text-xs tracking-widest uppercase text-cyan-300 font-bold truncate">
-                  RADAR OPERASIONAL &amp; KRU
+          {/* Left Wing (OPERASIONAL & KRU: DIV-03 Ops & DIV-04 HRD) */}
+          {!modeMukaDoang && (
+            leftWingMinimized ? (
+              /* Left Wing Minimized Strip */
+              <div
+                onClick={() => {
+                  mainkanSuaraHud('chirp')
+                  setLeftWingMinimized(false)
+                }}
+                className="hidden lg:flex flex-col items-center justify-between py-3 px-1.5 rounded-xl bg-zinc-950/85 border border-cyan-500/30 hover:border-cyan-400 cursor-pointer transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] group shrink-0 w-11 h-full select-none"
+                title="Klik untuk membuka Radar Operasional & Kru"
+              >
+                <div className="flex flex-col items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <ChevronRight className="w-3.5 h-3.5 text-cyan-300 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+                <span className="font-hud text-[10px] tracking-widest text-cyan-300 font-bold uppercase [writing-mode:vertical-rl] rotate-180 py-2">
+                  RADAR OPS &amp; KRU
                 </span>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="px-1 py-0.5 rounded text-[8px] font-mono-hud font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/30">
+                    OPS
+                  </span>
+                  <span className="px-1 py-0.5 rounded text-[8px] font-mono-hud font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                    HRD
+                  </span>
+                </div>
               </div>
-              <span className="font-mono-hud text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 font-semibold shrink-0">
-                OPS &bull; HRD
-              </span>
-            </div>
+            ) : (
+              /* Left Wing Expanded Full Cards */
+              <div className="w-full lg:w-[28%] lg:max-w-[340px] xl:max-w-[370px] shrink-0 flex flex-col gap-2 h-full min-h-0">
+                {/* Radar Header */}
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.15)] shrink-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                    <span className="font-hud text-xs tracking-widest uppercase text-cyan-300 font-bold truncate">
+                      RADAR OPERASIONAL &amp; KRU
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="font-mono-hud text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/30 text-cyan-300 font-semibold">
+                      OPS &bull; HRD
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mainkanSuaraHud('chirp')
+                        setLeftWingMinimized(true)
+                      }}
+                      className="p-1 rounded hover:bg-cyan-950/80 text-zinc-400 hover:text-cyan-200 border border-transparent hover:border-cyan-500/30 transition-colors cursor-pointer hidden lg:flex items-center justify-center"
+                      title="Minimize Radar Operasional & Kru"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
 
-            {/* Stacked Cards Container */}
-            <div className="flex flex-col gap-2.5 flex-1 min-h-0 overflow-y-auto pr-0.5 no-scrollbar">
-              <AgentNodeCard
-                profilFallback="gudang"
-                meja={getMejaByProfil('gudang')}
-                telemetri={dailyData?.telemetri}
-                modeWaktu={modeWaktuKotak}
-                terpilih={divisiSorot === 'gudang'}
-                className="flex-1 min-h-0 h-full"
-                onPilih={(_p, q) =>
-                  void eksekusiPerintahJarvis(
-                    q ||
-                      (modeWaktuKotak === 'kemarin'
-                        ? 'Analisis laporan waste bahan baku tertinggi, rekap tutup shift kemarin, dan void kasir kemarin.'
-                        : 'Analisis laporan waste bahan baku tertinggi, status buka cabang, dan void kasir hari ini.'),
-                    false
-                  )
-                }
-              />
+                {/* Stacked Cards Container */}
+                <div className="flex flex-col gap-2.5 flex-1 min-h-0 overflow-y-auto pr-0.5 no-scrollbar">
+                  <AgentNodeCard
+                    profilFallback="gudang"
+                    meja={getMejaByProfil('gudang')}
+                    telemetri={dailyData?.telemetri}
+                    modeWaktu={modeWaktuKotak}
+                    terpilih={divisiSorot === 'gudang'}
+                    className="flex-1 min-h-0 h-full"
+                    onPilih={(_p, q) =>
+                      void eksekusiPerintahJarvis(
+                        q ||
+                          (modeWaktuKotak === 'kemarin'
+                            ? 'Analisis laporan waste bahan baku tertinggi, rekap tutup shift kemarin, dan void kasir kemarin.'
+                            : 'Analisis laporan waste bahan baku tertinggi, status buka cabang, dan void kasir hari ini.'),
+                        false
+                      )
+                    }
+                  />
 
-              <AgentNodeCard
-                profilFallback="hrd"
-                meja={getMejaByProfil('hrd')}
-                telemetri={dailyData?.telemetri}
-                modeWaktu={modeWaktuKotak}
-                terpilih={divisiSorot === 'hrd'}
-                className="flex-1 min-h-0 h-full"
-                onPilih={(_p, q) =>
-                  void eksekusiPerintahJarvis(
-                    q ||
-                      (modeWaktuKotak === 'kemarin'
-                        ? 'Siapa saja kru outlet yang terlambat atau izin kemarin, dan bagaimana rating Google Review?'
-                        : 'Siapa saja kru outlet yang terlambat atau izin hari ini, dan bagaimana rating Google Review?'),
-                    false
-                  )
-                }
-              />
-            </div>
-          </div>
+                  <AgentNodeCard
+                    profilFallback="hrd"
+                    meja={getMejaByProfil('hrd')}
+                    telemetri={dailyData?.telemetri}
+                    modeWaktu={modeWaktuKotak}
+                    terpilih={divisiSorot === 'hrd'}
+                    className="flex-1 min-h-0 h-full"
+                    onPilih={(_p, q) =>
+                      void eksekusiPerintahJarvis(
+                        q ||
+                          (modeWaktuKotak === 'kemarin'
+                            ? 'Siapa saja kru outlet yang terlambat atau izin kemarin, dan bagaimana rating Google Review?'
+                            : 'Siapa saja kru outlet yang terlambat atau izin hari ini, dan bagaimana rating Google Review?'),
+                        false
+                      )
+                    }
+                  />
+                </div>
+              </div>
+            )
+          )}
 
-          {/* Center Stage (6 Cols / 50%): THE HERO COMMAND CORE (Majestic Arc Reactor + Hologram Stage) */}
-          <div className="order-first lg:order-none w-full lg:col-span-6 flex flex-col justify-between items-center h-full min-h-0 relative px-1 py-0.5">
+          {/* Center Stage: THE HERO COMMAND CORE (Majestic Arc Reactor / 3D Hologram Robot Head) */}
+          <div className="flex-1 min-w-0 w-full flex flex-col justify-between items-center h-full min-h-0 relative px-1 py-0.5">
             {/* Top / Center: The Majestic Hologram / Arc Reactor Avatar */}
             <div className="shrink-0 flex flex-col items-center justify-center relative w-full">
-              {/* Avatar Mode Switcher: 3D Hologram Robot Head vs Arc Reactor */}
+              {/* Avatar Mode Switcher: 3D Hologram Robot Head vs Arc Reactor vs Muka Doang */}
               <div className="flex items-center justify-center mb-0.5 z-20">
-                <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-md shadow-sm">
+                <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-md shadow-sm gap-0.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -968,6 +1030,30 @@ export default function JarvisApp({
                     <Cpu className="w-3 h-3 text-cyan-300" />
                     <span>ARC REACTOR</span>
                   </button>
+
+                  <div className="w-px h-3.5 bg-cyan-500/30 mx-0.5" />
+
+                  {/* Mode Muka Doang / Focus Avatar Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      mainkanSuaraHud('engage')
+                      setModeMukaDoang(!modeMukaDoang)
+                    }}
+                    className={`px-2.5 py-0.5 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      modeMukaDoang
+                        ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_16px_rgba(6,182,212,0.6)] animate-pulse'
+                        : 'text-zinc-400 hover:text-cyan-200 border border-transparent'
+                    }`}
+                    title={modeMukaDoang ? 'Kembalikan Dashboard Lengkap' : 'Mode Muka Doang (Fokus Penuh Avatar Besar)'}
+                  >
+                    {modeMukaDoang ? (
+                      <Minimize2 className="w-3 h-3 text-cyan-300" />
+                    ) : (
+                      <Maximize2 className="w-3 h-3 text-cyan-300" />
+                    )}
+                    <span>{modeMukaDoang ? 'EXIT MUKA' : 'MUKA DOANG'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -975,6 +1061,18 @@ export default function JarvisApp({
                 <HologramHead3D
                   status={statusCore}
                   compact={false}
+                  sizeMode={
+                    modeMukaDoang
+                      ? 'muka-doang'
+                      : !radarAnomaliTerbuka && riwayatHologram.length === 0
+                        ? 'large'
+                        : 'normal'
+                  }
+                  isMukaDoang={modeMukaDoang}
+                  onToggleMukaDoang={() => {
+                    mainkanSuaraHud('engage')
+                    setModeMukaDoang((prev) => !prev)
+                  }}
                   voiceLoopAktif={voiceLoopAktif}
                   spektrumSuara={spektrumSuara}
                   transkripLive={transkripLive}
@@ -997,6 +1095,18 @@ export default function JarvisApp({
                 <ArcReactor
                   status={statusCore}
                   compact={false}
+                  sizeMode={
+                    modeMukaDoang
+                      ? 'muka-doang'
+                      : !radarAnomaliTerbuka && riwayatHologram.length === 0
+                        ? 'large'
+                        : 'normal'
+                  }
+                  isMukaDoang={modeMukaDoang}
+                  onToggleMukaDoang={() => {
+                    mainkanSuaraHud('engage')
+                    setModeMukaDoang((prev) => !prev)
+                  }}
                   voiceLoopAktif={voiceLoopAktif}
                   spektrumSuara={spektrumSuara}
                   transkripLive={transkripLive}
@@ -1018,8 +1128,26 @@ export default function JarvisApp({
               )}
             </div>
 
-            {/* Middle: Floating Holographic Transmission Feed OR Standby Aura */}
-            {riwayatHologram.length > 0 ? (
+            {/* Middle: Floating Holographic Transmission Feed OR Standby Aura OR Anomaly Radar */}
+            {modeMukaDoang ? (
+              /* Floating Banner in Mode Muka Doang */
+              <div className="z-20 mt-1 mb-1 flex flex-col items-center gap-1 animate-in fade-in duration-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    mainkanSuaraHud('chirp')
+                    setModeMukaDoang(false)
+                  }}
+                  className="px-4 py-1.5 rounded-full bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/60 text-cyan-200 hover:text-white font-hud text-[11px] tracking-widest uppercase font-bold flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all cursor-pointer"
+                >
+                  <Minimize2 className="w-3.5 h-3.5 text-cyan-300" />
+                  <span>KEMBALI KE RADAR // EXIT MUKA DOANG</span>
+                </button>
+                <span className="font-mono-hud text-[10px] text-zinc-400">
+                  Bicara langsung atau ketik instruksi di bawah &bull; Esc untuk kembali
+                </span>
+              </div>
+            ) : riwayatHologram.length > 0 ? (
               <div className="w-full flex-1 min-h-0 rounded-2xl bg-zinc-950/85 border border-cyan-400/35 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.18)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
                 {/* Hologram Reticles */}
                 <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
@@ -1129,7 +1257,7 @@ export default function JarvisApp({
                         setDivisiSorot(null)
                       }}
                       className="p-1.5 rounded-md text-zinc-400 hover:text-red-300 hover:bg-red-950/30 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
-                      title="Bersihkan Layar"
+                      title="Bersihkan Layar (Kembali ke Wajah Besar)"
                       aria-label="Bersihkan Layar"
                     >
                       <X className="size-4" />
@@ -1213,16 +1341,69 @@ export default function JarvisApp({
                   <div ref={messagesEndRef} />
                 </div>
               </div>
+            ) : !radarAnomaliTerbuka ? (
+              /* Standby Collapsed Status Bar (Tactical Anomaly Radar default collapsed per boss request) */
+              <div
+                onClick={() => {
+                  mainkanSuaraHud('chirp')
+                  setRadarAnomaliTerbuka(true)
+                }}
+                className="w-full shrink-0 rounded-xl bg-zinc-950/85 border border-cyan-500/35 hover:border-cyan-400 backdrop-blur-xl shadow-[0_0_20px_rgba(6,182,212,0.15)] p-2 sm:px-3 sm:py-2 flex items-center justify-between gap-2.5 cursor-pointer transition-all group my-0.5 select-none"
+                title="Klik untuk membuka rincian Tactical Anomaly Radar"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${adaAnomaliKritis ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
+                  <span className="font-hud text-xs text-cyan-200 font-bold uppercase tracking-wider truncate">
+                    {adaAnomaliKritis
+                      ? `TACTICAL ANOMALY RADAR // ${dailyData?.actionItems?.length || 0} ISSUES LOGGED`
+                      : 'HERMES NEURAL OPERATIONS MATRIX // OPTIMAL'}
+                  </span>
+                  <span className="hidden sm:inline font-mono-hud text-[10px] text-zinc-400 truncate">
+                    &bull; Klik untuk membuka rincian issue &amp; tindak lanjut
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="px-2.5 py-1 rounded-lg bg-cyan-950 group-hover:bg-cyan-900 border border-cyan-400/40 text-cyan-300 font-hud text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors">
+                    <span>BUKA RADAR</span>
+                    <ChevronUp className="w-3 h-3 text-cyan-300 group-hover:-translate-y-0.5 transition-transform" />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      bukaModalDailyBriefing(true)
+                    }}
+                    className="px-2 py-1 rounded-lg bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 text-[10px] font-hud flex items-center gap-1 cursor-pointer transition-colors"
+                    title="Buka Laporan Daily Komprehensif"
+                  >
+                    <FileBarChart2 className="w-3 h-3 text-cyan-300" />
+                    <span className="hidden sm:inline">BRIEFING</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void eksekusiPerintahJarvis('Dispatch semua instruksi rekomendasi ke divisi Telegram', false)
+                    }}
+                    className="px-2 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 text-[10px] font-hud flex items-center gap-1 cursor-pointer"
+                    title="Dispatch Rekomendasi ke Bot Telegram Divisi"
+                  >
+                    <Send className="w-3 h-3 text-cyan-300" />
+                    <span className="hidden sm:inline">DISPATCH</span>
+                  </button>
+                </div>
+              </div>
             ) : (
-              /* Standby: Hermes Tactical Anomaly & Operations Matrix Deck */
-              <div className="w-full flex-1 min-h-0 rounded-2xl bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.12)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
+              /* Expanded Standby: Hermes Tactical Anomaly & Operations Matrix Deck */
+              <div className="w-full flex-1 min-h-[200px] max-h-[46vh] rounded-2xl bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.12)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
                 {/* Hologram Reticles */}
                 <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
                 <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-cyan-400 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-cyan-400 pointer-events-none" />
                 <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400 pointer-events-none" />
 
-                {/* Deck Header */}
+                {/* Deck Header with Minimize Button */}
                 <div className="flex items-center justify-between px-3 py-1.5 bg-cyan-950/60 border-b border-cyan-500/20 font-mono-hud text-xs shrink-0">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${adaAnomaliKritis ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
@@ -1234,6 +1415,18 @@ export default function JarvisApp({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mainkanSuaraHud('chirp')
+                        setRadarAnomaliTerbuka(false)
+                      }}
+                      className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-[11px] font-hud flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Tutup / Minimize Radar Anomali (Wajah Robot Membesar)"
+                    >
+                      <ChevronDown className="w-3 h-3 text-cyan-300" />
+                      <span>MINIMIZE</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => bukaModalDailyBriefing(true)}
@@ -1340,90 +1533,135 @@ export default function JarvisApp({
             )}
           </div>
 
-          {/* Right Wing (3 Cols / 25%): SALES & TREASURY (DIV-01 Sales & DIV-02 Finance) */}
-          <div className="w-full lg:col-span-3 flex flex-col gap-2 h-full min-h-0">
-            {/* Radar Header with Time Switch */}
-            <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.15)] shrink-0">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-                <span className="font-hud text-xs tracking-widest uppercase text-cyan-300 font-bold truncate">
-                  RADAR SALES &amp; FINANCE
+          {/* Right Wing (SALES & TREASURY: DIV-01 Sales & DIV-02 Finance) */}
+          {!modeMukaDoang && (
+            rightWingMinimized ? (
+              /* Right Wing Minimized Strip */
+              <div
+                onClick={() => {
+                  mainkanSuaraHud('chirp')
+                  setRightWingMinimized(false)
+                }}
+                className="hidden lg:flex flex-col items-center justify-between py-3 px-1.5 rounded-xl bg-zinc-950/85 border border-cyan-500/30 hover:border-cyan-400 cursor-pointer transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)] group shrink-0 w-11 h-full select-none"
+                title="Klik untuk membuka Radar Sales & Finance"
+              >
+                <div className="flex flex-col items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <ChevronLeft className="w-3.5 h-3.5 text-cyan-300 group-hover:-translate-x-0.5 transition-transform" />
+                </div>
+                <span className="font-hud text-[10px] tracking-widest text-cyan-300 font-bold uppercase [writing-mode:vertical-rl] rotate-180 py-2">
+                  RADAR SALES &amp; FIN
                 </span>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="px-1 py-0.5 rounded text-[8px] font-mono-hud font-bold bg-cyan-950 text-cyan-300 border border-cyan-500/30">
+                    POS
+                  </span>
+                  <span className="px-1 py-0.5 rounded text-[8px] font-mono-hud font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                    FIN
+                  </span>
+                </div>
               </div>
+            ) : (
+              /* Right Wing Expanded Full Cards */
+              <div className="w-full lg:w-[28%] lg:max-w-[340px] xl:max-w-[370px] shrink-0 flex flex-col gap-2 h-full min-h-0">
+                {/* Radar Header with Time Switch */}
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-cyan-500/35 shadow-[0_0_15px_rgba(6,182,212,0.15)] shrink-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                    <span className="font-hud text-xs tracking-widest uppercase text-cyan-300 font-bold truncate">
+                      RADAR SALES &amp; FINANCE
+                    </span>
+                  </div>
 
-              <div className="flex items-center gap-1 bg-black/80 p-0.5 rounded-lg border border-cyan-500/25 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    mainkanSuaraHud('chirp')
-                    setModeWaktuKotak('kemarin')
-                  }}
-                  className={`px-2 py-0.5 rounded font-mono-hud text-[11px] font-bold uppercase transition-all cursor-pointer ${
-                    modeWaktuKotak === 'kemarin'
-                      ? 'bg-cyan-600/85 text-white border border-cyan-300/60 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
-                      : 'text-zinc-400 hover:text-cyan-200'
-                  }`}
-                  title="Tampilkan data evaluasi closing kemarin"
-                >
-                  H-1
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    mainkanSuaraHud('chirp')
-                    setModeWaktuKotak('hari_ini')
-                  }}
-                  className={`px-2 py-0.5 rounded font-mono-hud text-[11px] font-bold uppercase transition-all cursor-pointer ${
-                    modeWaktuKotak === 'hari_ini'
-                      ? 'bg-emerald-600/85 text-white border border-emerald-300/60 shadow-[0_0_10px_rgba(16,185,129,0.4)]'
-                      : 'text-zinc-400 hover:text-emerald-200'
-                  }`}
-                  title="Tampilkan data live berjalan hari ini"
-                >
-                  LIVE
-                </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 bg-black/80 p-0.5 rounded-lg border border-cyan-500/25">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          mainkanSuaraHud('chirp')
+                          setModeWaktuKotak('kemarin')
+                        }}
+                        className={`px-2 py-0.5 rounded font-mono-hud text-[11px] font-bold uppercase transition-all cursor-pointer ${
+                          modeWaktuKotak === 'kemarin'
+                            ? 'bg-cyan-600/85 text-white border border-cyan-300/60 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
+                            : 'text-zinc-400 hover:text-cyan-200'
+                        }`}
+                        title="Tampilkan data evaluasi closing kemarin"
+                      >
+                        H-1
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          mainkanSuaraHud('chirp')
+                          setModeWaktuKotak('hari_ini')
+                        }}
+                        className={`px-2 py-0.5 rounded font-mono-hud text-[11px] font-bold uppercase transition-all cursor-pointer ${
+                          modeWaktuKotak === 'hari_ini'
+                            ? 'bg-emerald-600/85 text-white border border-emerald-300/60 shadow-[0_0_10px_rgba(16,185,129,0.4)]'
+                            : 'text-zinc-400 hover:text-emerald-200'
+                        }`}
+                        title="Tampilkan data live berjalan hari ini"
+                      >
+                        LIVE
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mainkanSuaraHud('chirp')
+                        setRightWingMinimized(true)
+                      }}
+                      className="p-1 rounded hover:bg-cyan-950/80 text-zinc-400 hover:text-cyan-200 border border-transparent hover:border-cyan-500/30 transition-colors cursor-pointer hidden lg:flex items-center justify-center"
+                      title="Minimize Radar Sales & Finance"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stacked Cards Container */}
+                <div className="flex flex-col gap-2.5 flex-1 min-h-0 overflow-y-auto pr-0.5 no-scrollbar">
+                  <AgentNodeCard
+                    profilFallback="ceo"
+                    meja={getMejaByProfil('ceo')}
+                    telemetri={dailyData?.telemetri}
+                    modeWaktu={modeWaktuKotak}
+                    terpilih={divisiSorot === 'ceo'}
+                    className="flex-1 min-h-0 h-full"
+                    onPilih={(_p, q) =>
+                      void eksekusiPerintahJarvis(
+                        q ||
+                          (modeWaktuKotak === 'kemarin'
+                            ? 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi lengkap dengan analisis performa dan rekomendasi taktis.'
+                            : 'Tampilkan peringkat omzet seluruh cabang live hari ini beserta menu terlaris.'),
+                        false
+                      )
+                    }
+                  />
+
+                  <AgentNodeCard
+                    profilFallback="finance"
+                    meja={getMejaByProfil('finance')}
+                    telemetri={dailyData?.telemetri}
+                    modeWaktu={modeWaktuKotak}
+                    terpilih={divisiSorot === 'finance'}
+                    className="flex-1 min-h-0 h-full"
+                    onPilih={(_p, q) =>
+                      void eksekusiPerintahJarvis(
+                        q ||
+                          (modeWaktuKotak === 'kemarin'
+                            ? 'Rincikan pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier.'
+                            : 'Rincikan pengeluaran OPEX hari ini, setoran kas, dan utang PO supplier.'),
+                        false
+                      )
+                    }
+                  />
+                </div>
               </div>
-            </div>
-
-            {/* Stacked Cards Container */}
-            <div className="flex flex-col gap-2.5 flex-1 min-h-0 overflow-y-auto pr-0.5 no-scrollbar">
-              <AgentNodeCard
-                profilFallback="ceo"
-                meja={getMejaByProfil('ceo')}
-                telemetri={dailyData?.telemetri}
-                modeWaktu={modeWaktuKotak}
-                terpilih={divisiSorot === 'ceo'}
-                className="flex-1 min-h-0 h-full"
-                onPilih={(_p, q) =>
-                  void eksekusiPerintahJarvis(
-                    q ||
-                      (modeWaktuKotak === 'kemarin'
-                        ? 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi lengkap dengan analisis performa dan rekomendasi taktis.'
-                        : 'Tampilkan peringkat omzet seluruh cabang live hari ini beserta menu terlaris.'),
-                    false
-                  )
-                }
-              />
-
-              <AgentNodeCard
-                profilFallback="finance"
-                meja={getMejaByProfil('finance')}
-                telemetri={dailyData?.telemetri}
-                modeWaktu={modeWaktuKotak}
-                terpilih={divisiSorot === 'finance'}
-                className="flex-1 min-h-0 h-full"
-                onPilih={(_p, q) =>
-                  void eksekusiPerintahJarvis(
-                    q ||
-                      (modeWaktuKotak === 'kemarin'
-                        ? 'Rincikan pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier.'
-                        : 'Rincikan pengeluaran OPEX hari ini, setoran kas, dan utang PO supplier.'),
-                    false
-                  )
-                }
-              />
-            </div>
-          </div>
+            )
+          )}
         </div>
 
         {/* BOTTOM COMMAND CONSOLE DOCK (Centered, Balanced Cockpit Foundation) */}

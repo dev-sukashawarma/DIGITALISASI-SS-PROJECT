@@ -10,7 +10,9 @@ export interface OpsiSuaraJarvis {
 }
 
 export const GEMINI_TTS_MODELS = [
+  'gemini-3.1-flash-tts-preview',
   'gemini-2.5-flash-preview-tts',
+  'gemini-2.5-pro-preview-tts',
   'gemini-3.8-flash-lite-tts',
   'gemini-3.8-flash-tts',
 ] as const

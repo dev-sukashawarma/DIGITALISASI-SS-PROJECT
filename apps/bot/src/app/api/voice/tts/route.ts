@@ -411,23 +411,27 @@ export async function POST(req: Request) {
     console.warn('[jarvis-tts] Gagal melakukan sintesis neural TTS:', (err as Error)?.message)
   }
 
-  // 3. Fallback andal: Google Speech Cloud Engine (Cepat, jernih & selalu tersedia)
-  try {
-    const googleMp3Buffer = await synthesizeGoogleTts(teksSuara)
-    return new NextResponse(new Uint8Array(googleMp3Buffer), {
-      status: 200,
-      headers: {
-        'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'no-store',
-        'X-Jarvis-Engine': 'google-cloud-tts',
-        'X-Jarvis-Voice': opsiSuara.id,
-      },
-    })
-  } catch (errGoogle) {
-    console.warn('[jarvis-tts] Google Cloud TTS gagal, beralih ke fallback browser:', (errGoogle as Error)?.message)
-    return NextResponse.json(
-      { galat: 'Neural TTS tidak tersedia sementara, gunakan fallback browser.' },
-      { status: 502 }
-    )
+  // 3. Fallback Google Cloud TTS: HANYA untuk karakter Wanita (karena audio Google TTS adalah suara wanita)
+  // Untuk karakter Pria (Brian, Florian, Andrew, William, Remy, Ardi), jangan gunakan Google TTS agar tidak terdengar seperti wanita.
+  if (opsiSuara.gender === 'Wanita') {
+    try {
+      const googleMp3Buffer = await synthesizeGoogleTts(teksSuara)
+      return new NextResponse(new Uint8Array(googleMp3Buffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Cache-Control': 'no-store',
+          'X-Jarvis-Engine': 'google-cloud-tts',
+          'X-Jarvis-Voice': opsiSuara.id,
+        },
+      })
+    } catch (errGoogle) {
+      console.warn('[jarvis-tts] Google Cloud TTS gagal, beralih ke fallback browser:', (errGoogle as Error)?.message)
+    }
   }
+
+  return NextResponse.json(
+    { galat: 'Neural TTS pria dialihkan ke browser engine untuk menjaga karakter vokal pria.' },
+    { status: 502 }
+  )
 }

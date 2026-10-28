@@ -83,7 +83,7 @@ export const PILIHAN_SUARA_JARVIS: PilihanSuaraHud[] = [
   },
   {
     id: 'gadis',
-    label: 'GADIS / ZEPHYR (Wanita Indonesia)',
+    label: 'GADIS / LEDA (Wanita Indonesia)',
     deskripsi: 'Wanita Indonesia Jernih & Santun',
     gender: 'Wanita',
   },
@@ -879,7 +879,7 @@ export const PROFIL_AKUSTIK_JARVIS: Record<string, ProfilSuaraAkustik> = {
     filterQ: 1.0,
     browserPitch: 0.86,
     browserRate: 1.00,
-    keywords: ['andrew', 'mark', 'ryan', 'ardi', 'male', 'pria'],
+    keywords: ['andrew', 'ryan', 'mark', 'david', 'ardi', 'male', 'pria'],
   },
   william: {
     id: 'william',
@@ -901,7 +901,7 @@ export const PROFIL_AKUSTIK_JARVIS: Record<string, ProfilSuaraAkustik> = {
     filterQ: 1.4,
     browserPitch: 0.60,
     browserRate: 0.90,
-    keywords: ['florian', 'conrad', 'stefan', 'david', 'ardi', 'male'],
+    keywords: ['florian', 'conrad', 'stefan', 'david', 'mark', 'ardi', 'male'],
   },
   remy: {
     id: 'remy',
@@ -912,7 +912,7 @@ export const PROFIL_AKUSTIK_JARVIS: Record<string, ProfilSuaraAkustik> = {
     filterQ: 1.2,
     browserPitch: 1.08,
     browserRate: 1.14,
-    keywords: ['remy', 'paul', 'henri', 'ardi', 'male'],
+    keywords: ['remy', 'paul', 'henri', 'david', 'ardi', 'male'],
   },
   ava: {
     id: 'ava',
@@ -923,7 +923,7 @@ export const PROFIL_AKUSTIK_JARVIS: Record<string, ProfilSuaraAkustik> = {
     filterQ: 1.0,
     browserPitch: 1.18,
     browserRate: 1.08,
-    keywords: ['ava', 'gadis', 'samantha', 'zira', 'kore', 'female', 'wanita'],
+    keywords: ['ava', 'gadis', 'samantha', 'zira', 'kore', 'female', 'wanita', 'indonesia'],
   },
   emma: {
     id: 'emma',
@@ -934,7 +934,7 @@ export const PROFIL_AKUSTIK_JARVIS: Record<string, ProfilSuaraAkustik> = {
     filterQ: 0.9,
     browserPitch: 1.30,
     browserRate: 1.00,
-    keywords: ['emma', 'jenny', 'gadis', 'zira', 'aoede', 'female', 'wanita'],
+    keywords: ['emma', 'jenny', 'gadis', 'zira', 'aoede', 'female', 'wanita', 'indonesia'],
   },
   ardi: {
     id: 'ardi',
@@ -945,7 +945,7 @@ export const PROFIL_AKUSTIK_JARVIS: Record<string, ProfilSuaraAkustik> = {
     filterQ: 1.0,
     browserPitch: 0.92,
     browserRate: 1.04,
-    keywords: ['ardi', 'indonesia male', 'id-id male', 'pria', 'id'],
+    keywords: ['ardi', 'indonesia male', 'pria', 'male', 'david', 'mark'],
   },
   gadis: {
     id: 'gadis',
@@ -956,7 +956,7 @@ export const PROFIL_AKUSTIK_JARVIS: Record<string, ProfilSuaraAkustik> = {
     filterQ: 1.0,
     browserPitch: 1.22,
     browserRate: 1.05,
-    keywords: ['gadis', 'indonesia female', 'id-id female', 'wanita', 'female'],
+    keywords: ['gadis', 'indonesia female', 'wanita', 'female', 'zira', 'indonesia'],
   },
 }
 
@@ -985,52 +985,69 @@ function bicaraFallbackBrowser(
     const voices = window.speechSynthesis.getVoices()
     let suaraTerpilih: SpeechSynthesisVoice | undefined
 
-    // 1. Cari berdasarkan preferensi keyword nama karakter
+    const isFemaleVoice = (v: SpeechSynthesisVoice) => {
+      const n = v.name.toLowerCase()
+      return (
+        n.includes('female') ||
+        n.includes('wanita') ||
+        n.includes('gadis') ||
+        n.includes('zira') ||
+        n.includes('samantha') ||
+        n.includes('google bahasa indonesia')
+      )
+    }
+
+    const isMaleVoice = (v: SpeechSynthesisVoice) => {
+      const n = v.name.toLowerCase()
+      return (
+        n.includes('male') ||
+        n.includes('pria') ||
+        n.includes('ardi') ||
+        n.includes('david') ||
+        n.includes('mark') ||
+        n.includes('george') ||
+        n.includes('brian') ||
+        n.includes('andrew') ||
+        n.includes('william') ||
+        n.includes('florian') ||
+        n.includes('remy')
+      )
+    }
+
+    // 1. Cari berdasarkan preferensi keyword nama karakter yang ketat terhadap gender
     for (const kw of profil.keywords) {
-      suaraTerpilih = voices.find((v) => v.name.toLowerCase().includes(kw))
+      suaraTerpilih = voices.find((v) => {
+        const n = v.name.toLowerCase()
+        if (!n.includes(kw)) return false
+        if (profil.gender === 'Pria' && isFemaleVoice(v)) return false
+        if (profil.gender === 'Wanita' && isMaleVoice(v)) return false
+        return true
+      })
       if (suaraTerpilih) break
     }
 
-    // 2. Jika belum ketemu dan karakternya Wanita, prioritaskan suara wanita / Gadis
+    // 2. Jika belum ketemu dan karakternya Wanita, prioritaskan suara wanita
     if (!suaraTerpilih && profil.gender === 'Wanita') {
       suaraTerpilih =
-        voices.find(
-          (v) =>
-            v.lang.startsWith('id') &&
-            (v.name.toLowerCase().includes('gadis') ||
-              v.name.toLowerCase().includes('female') ||
-              v.name.toLowerCase().includes('wanita'))
-        ) ||
-        voices.find(
-          (v) =>
-            v.name.toLowerCase().includes('female') ||
-            v.name.toLowerCase().includes('zira') ||
-            v.name.toLowerCase().includes('samantha')
-        ) ||
+        voices.find((v) => v.lang.startsWith('id') && isFemaleVoice(v)) ||
+        voices.find((v) => isFemaleVoice(v)) ||
         voices.find((v) => v.lang.startsWith('id'))
     }
 
-    // 3. Jika belum ketemu dan karakternya Pria, prioritaskan suara pria / Ardi
+    // 3. Jika belum ketemu dan karakternya Pria, prioritaskan suara pria (JANGAN PERNAH ambil suara wanita)
     if (!suaraTerpilih && profil.gender === 'Pria') {
       suaraTerpilih =
-        voices.find(
-          (v) =>
-            v.lang.startsWith('id') &&
-            (v.name.toLowerCase().includes('ardi') ||
-              v.name.toLowerCase().includes('male') ||
-              v.name.toLowerCase().includes('pria'))
-        ) ||
-        voices.find(
-          (v) =>
-            v.name.toLowerCase().includes('male') ||
-            v.name.toLowerCase().includes('david') ||
-            v.name.toLowerCase().includes('george')
-        ) ||
-        voices.find((v) => v.lang.startsWith('id'))
+        voices.find((v) => v.lang.startsWith('id') && isMaleVoice(v)) ||
+        voices.find((v) => isMaleVoice(v)) ||
+        voices.find((v) => !isFemaleVoice(v) && (v.name.includes('David') || v.name.includes('Mark') || v.lang.startsWith('en')))
     }
 
+    // 4. Jika tetap tidak ada suara pria sama sekali di OS, gunakan suara yang ada tapi paksa pitch sangat rendah (bariton bass)
     if (!suaraTerpilih) {
-      suaraTerpilih = voices.find((v) => v.lang.startsWith('id')) || voices[0]
+      suaraTerpilih = voices[0]
+      if (profil.gender === 'Pria' && suaraTerpilih && isFemaleVoice(suaraTerpilih)) {
+        utterance.pitch = Math.min(0.50, profil.browserPitch)
+      }
     }
 
     if (suaraTerpilih) {

@@ -195,18 +195,37 @@ export async function POST(req: NextRequest) {
         .eq('telegram_user_id', fromId)
         .maybeSingle()
 
-      if (existingLink && existingLink.outlet_staff) {
-        const staff = existingLink.outlet_staff as unknown as { name?: string; role?: string; status?: string }
-        const roleLabel = staff.role === 'developer'
+      let whitelistUser: { nama_pengguna?: string } | null = null
+      if (!existingLink?.outlet_staff) {
+        try {
+          const { data } = await admin
+            .from('bot_telegram_whitelist')
+            .select('nama_pengguna')
+            .eq('bot_slug', 'ceo')
+            .eq('telegram_user_id', fromId)
+            .eq('is_active', true)
+            .maybeSingle()
+          whitelistUser = data
+        } catch {
+          // Abaikan jika query gagal
+        }
+      }
+
+      if ((existingLink && existingLink.outlet_staff) || whitelistUser) {
+        const staff = existingLink?.outlet_staff as unknown as { name?: string; role?: string; status?: string } | null
+        const staffName = staff?.name || whitelistUser?.nama_pengguna || fromFirstName
+        const roleLabel = staff?.role === 'developer'
           ? 'Developer'
-          : staff.role === 'admin'
+          : staff?.role === 'admin'
           ? 'Administrator'
-          : 'Owner / Executive'
+          : staff?.role === 'owner'
+          ? 'Owner / Executive'
+          : 'Eksekutif Terotorisasi'
         await kirimPesanTelegram(
           chatId,
           `⚡ <b>J.A.R.V.I.S. // COMMAND CENTRE</b>\n` +
           `━━━━━━━━━━━━━━━━━━━━━\n` +
-          `👋 <b>Salam Hormat, ${staff.name}!</b> (<code>${roleLabel}</code>)\n\n` +
+          `👋 <b>Salam Hormat, ${staffName}!</b> (<code>${roleLabel}</code>)\n\n` +
           `Satelit telemetri online dan terhubung langsung ke database live Suka Shawarma.\n\n` +
           `<blockquote>💡 Ketik /help untuk daftar komando pintasan eksekutif, atau langsung berikan instruksi bisnis Anda, Sir.</blockquote>`,
           'https://agents.sukashawarma.com',

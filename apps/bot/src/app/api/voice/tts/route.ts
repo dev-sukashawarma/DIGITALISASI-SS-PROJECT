@@ -296,6 +296,10 @@ async function synthesizeGeminiNativeWav(
       }
 
       const rawAudio = Buffer.from(inlineData.data, 'base64')
+      if (rawAudio.length < 100) {
+        galatTerakhir = `${model}: audio buffer terlalu kecil / kosong (${rawAudio.length} bytes).`
+        continue
+      }
       const mime = String(inlineData.mimeType || '').toLowerCase()
       const matchRate = mime.match(/rate=(\d+)/)
       const sampleRate = matchRate ? Number(matchRate[1]) || 24000 : 24000
@@ -313,6 +317,42 @@ async function synthesizeGeminiNativeWav(
   }
 
   throw new Error(galatTerakhir)
+}
+
+
+/**
+ * Sintesis suara bahasa Indonesia menggunakan Google TTS engine
+ * (100% andal & responsif tanpa batas harian sebagai pelapis tangguh Gemini).
+ */
+async function synthesizeGoogleTts(teks: string): Promise<Buffer> {
+  const sentences = teks.match(/[^.!?]+[.!?]+/g) || [teks]
+  const chunks: string[] = []
+  let cur = ''
+  for (const s of sentences) {
+    if ((cur + ' ' + s).length > 180) {
+      if (cur) chunks.push(cur.trim())
+      cur = s
+    } else {
+      cur += ' ' + s
+    }
+  }
+  if (cur.trim()) chunks.push(cur.trim())
+
+  const buffers = await Promise.all(
+    chunks.map(async (chunk) => {
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=id&client=tw-ob&q=${encodeURIComponent(chunk)}`
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        signal: AbortSignal.timeout(7000),
+      })
+      if (!res.ok) throw new Error(`Google TTS HTTP ${res.status}`)
+      return Buffer.from(await res.arrayBuffer())
+    })
+  )
+
+  const combined = Buffer.concat(buffers)
+  if (combined.length === 0) throw new Error('Audio Google TTS kosong')
+  return combined
 }
 
 export async function POST(req: Request) {
@@ -369,6 +409,22 @@ export async function POST(req: Request) {
     })
   } catch (err) {
     console.warn('[jarvis-tts] Gagal melakukan sintesis neural TTS:', (err as Error)?.message)
+  }
+
+  // 3. Fallback andal: Google Speech Cloud Engine (Cepat, jernih & selalu tersedia)
+  try {
+    const googleMp3Buffer = await synthesizeGoogleTts(teksSuara)
+    return new NextResponse(new Uint8Array(googleMp3Buffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'audio/mpeg',
+        'Cache-Control': 'no-store',
+        'X-Jarvis-Engine': 'google-cloud-tts',
+        'X-Jarvis-Voice': opsiSuara.id,
+      },
+    })
+  } catch (errGoogle) {
+    console.warn('[jarvis-tts] Google Cloud TTS gagal, beralih ke fallback browser:', (errGoogle as Error)?.message)
     return NextResponse.json(
       { galat: 'Neural TTS tidak tersedia sementara, gunakan fallback browser.' },
       { status: 502 }

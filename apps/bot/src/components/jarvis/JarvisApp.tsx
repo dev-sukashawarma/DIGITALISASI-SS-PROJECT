@@ -871,11 +871,19 @@ export default function JarvisApp({
                   setVoiceIdAktif(idBaru)
                   setSuaraJarvisAktif(idBaru)
                   mainkanSuaraHud('chirp')
-                  const info = PILIHAN_SUARA_JARVIS.find((v) => v.id === idBaru)
+                  const sapaanPribadi: Record<string, string> = {
+                    brian: 'Sistem Jarvis online, Sir. Brian siap berdiskusi dan menganalisis operasional.',
+                    andrew: 'Selamat datang kembali, Sir. Andrew siap mendampingi eksekusi bisnis Anda.',
+                    william: 'At your service, Sir. William siap menyajikan data dan menjalankan instruksi.',
+                    florian: 'Komando taktis aktif. Florian siap menerima instruksi operasi Anda, Sir.',
+                    remy: 'Analisis data siap. Remy siap membedah metrik dan performa cabang.',
+                    ava: 'Halo Bos! Modul Friday aktif. Ada yang bisa saya bantu hari ini?',
+                    emma: 'Hai Bos! Emma di sini, senang bisa mendampingi Anda. Mari mulai diskusinya.',
+                    ardi: 'Siap, Bapak. Ardi siap membantu pelaporan dan koordinasi harian.',
+                    gadis: 'Halo Bapak, salam hangat dari Gadis. Semua laporan cabang siap ditinjau.',
+                  }
                   const sapaanTes =
-                    info?.gender === 'Wanita'
-                      ? 'Siap Bos, modul suara saya sekarang aktif mendampingi Anda.'
-                      : 'Siap Sir, sistem suara saya sudah aktif dan siap berdiskusi.'
+                    sapaanPribadi[idBaru] || 'Sistem suara aktif dan siap berdiskusi.'
                   bicaraJarvis(sapaanTes, () => setSedangBicara(false), {
                     gunakanTeksPenuh: true,
                     voiceId: idBaru,

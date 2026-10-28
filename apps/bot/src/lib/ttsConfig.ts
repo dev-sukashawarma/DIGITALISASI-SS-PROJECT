@@ -10,9 +10,9 @@ export interface OpsiSuaraJarvis {
 }
 
 export const GEMINI_TTS_MODELS = [
-  'gemini-3.8-flash-tts',
-  'gemini-3.8-flash-lite-tts',
   'gemini-2.5-flash-preview-tts',
+  'gemini-3.8-flash-lite-tts',
+  'gemini-3.8-flash-tts',
 ] as const
 
 export const DAFTAR_SUARA_JARVIS: OpsiSuaraJarvis[] = [
@@ -62,7 +62,7 @@ export const DAFTAR_SUARA_JARVIS: OpsiSuaraJarvis[] = [
     deskripsi: 'Suara AI Pria Halus & Tenang (Gemini Iapetus / Remy HD)',
     gender: 'Pria',
     voiceName: 'fr-FR-RemyMultilingualNeural',
-    geminiVoice: 'Iapetus',
+    geminiVoice: 'Zephyr',
     pitch: '-1Hz',
     rate: '+4%',
   },

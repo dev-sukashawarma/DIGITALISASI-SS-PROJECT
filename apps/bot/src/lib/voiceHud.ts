@@ -845,10 +845,126 @@ function mulaiLoopSpektrum() {
   animFrameId = requestAnimationFrame(tick)
 }
 
+
+export interface ProfilSuaraAkustik {
+  id: string
+  gender: 'Pria' | 'Wanita'
+  playbackRate: number
+  filterFreq: number
+  filterGain: number
+  filterQ: number
+  browserPitch: number
+  browserRate: number
+  keywords: string[]
+}
+
+export const PROFIL_AKUSTIK_JARVIS: Record<string, ProfilSuaraAkustik> = {
+  brian: {
+    id: 'brian',
+    gender: 'Pria',
+    playbackRate: 1.02,
+    filterFreq: 2500,
+    filterGain: 2.2,
+    filterQ: 1.1,
+    browserPitch: 0.96,
+    browserRate: 1.08,
+    keywords: ['brian', 'david', 'guy', 'george', 'ardi', 'male', 'pria'],
+  },
+  andrew: {
+    id: 'andrew',
+    gender: 'Pria',
+    playbackRate: 0.95,
+    filterFreq: 1100,
+    filterGain: 2.6,
+    filterQ: 1.0,
+    browserPitch: 0.86,
+    browserRate: 1.00,
+    keywords: ['andrew', 'mark', 'ryan', 'ardi', 'male', 'pria'],
+  },
+  william: {
+    id: 'william',
+    gender: 'Pria',
+    playbackRate: 0.90,
+    filterFreq: 750,
+    filterGain: 3.0,
+    filterQ: 1.2,
+    browserPitch: 0.76,
+    browserRate: 0.94,
+    keywords: ['william', 'george', 'oliver', 'david', 'ardi', 'male'],
+  },
+  florian: {
+    id: 'florian',
+    gender: 'Pria',
+    playbackRate: 0.82,
+    filterFreq: 400,
+    filterGain: 4.0,
+    filterQ: 1.4,
+    browserPitch: 0.60,
+    browserRate: 0.90,
+    keywords: ['florian', 'conrad', 'stefan', 'david', 'ardi', 'male'],
+  },
+  remy: {
+    id: 'remy',
+    gender: 'Pria',
+    playbackRate: 1.08,
+    filterFreq: 3000,
+    filterGain: 2.4,
+    filterQ: 1.2,
+    browserPitch: 1.08,
+    browserRate: 1.14,
+    keywords: ['remy', 'paul', 'henri', 'ardi', 'male'],
+  },
+  ava: {
+    id: 'ava',
+    gender: 'Wanita',
+    playbackRate: 1.12,
+    filterFreq: 3200,
+    filterGain: 2.5,
+    filterQ: 1.0,
+    browserPitch: 1.18,
+    browserRate: 1.08,
+    keywords: ['ava', 'gadis', 'samantha', 'zira', 'kore', 'female', 'wanita'],
+  },
+  emma: {
+    id: 'emma',
+    gender: 'Wanita',
+    playbackRate: 1.18,
+    filterFreq: 2600,
+    filterGain: 2.0,
+    filterQ: 0.9,
+    browserPitch: 1.30,
+    browserRate: 1.00,
+    keywords: ['emma', 'jenny', 'gadis', 'zira', 'aoede', 'female', 'wanita'],
+  },
+  ardi: {
+    id: 'ardi',
+    gender: 'Pria',
+    playbackRate: 0.98,
+    filterFreq: 1400,
+    filterGain: 2.0,
+    filterQ: 1.0,
+    browserPitch: 0.92,
+    browserRate: 1.04,
+    keywords: ['ardi', 'indonesia male', 'id-id male', 'pria', 'id'],
+  },
+  gadis: {
+    id: 'gadis',
+    gender: 'Wanita',
+    playbackRate: 1.15,
+    filterFreq: 2400,
+    filterGain: 2.5,
+    filterQ: 1.0,
+    browserPitch: 1.22,
+    browserRate: 1.05,
+    keywords: ['gadis', 'indonesia female', 'id-id female', 'wanita', 'female'],
+  },
+}
+
 function bicaraFallbackBrowser(
   teksBersih: string,
   onSelesai?: () => void,
-  onMulai?: () => void
+  onMulai?: () => void,
+  voiceId?: string
 ) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     sedangBicaraFlag = false
@@ -860,16 +976,68 @@ function bicaraFallbackBrowser(
   try {
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(teksBersih)
-    utterance.lang = 'id-ID'
-    utterance.rate = 1.06
-    utterance.pitch = 0.92
+    const targetId = (voiceId || ambilSuaraJarvisAktif() || 'brian').toLowerCase()
+    const profil = PROFIL_AKUSTIK_JARVIS[targetId] || PROFIL_AKUSTIK_JARVIS.brian
+
+    utterance.pitch = profil.browserPitch
+    utterance.rate = profil.browserRate
 
     const voices = window.speechSynthesis.getVoices()
-    const suaraId =
-      voices.find((v) => v.lang.startsWith('id') && v.name.toLowerCase().includes('ardi')) ||
-      voices.find((v) => v.lang.startsWith('id') || v.name.toLowerCase().includes('indonesia'))
-    if (suaraId) {
-      utterance.voice = suaraId
+    let suaraTerpilih: SpeechSynthesisVoice | undefined
+
+    // 1. Cari berdasarkan preferensi keyword nama karakter
+    for (const kw of profil.keywords) {
+      suaraTerpilih = voices.find((v) => v.name.toLowerCase().includes(kw))
+      if (suaraTerpilih) break
+    }
+
+    // 2. Jika belum ketemu dan karakternya Wanita, prioritaskan suara wanita / Gadis
+    if (!suaraTerpilih && profil.gender === 'Wanita') {
+      suaraTerpilih =
+        voices.find(
+          (v) =>
+            v.lang.startsWith('id') &&
+            (v.name.toLowerCase().includes('gadis') ||
+              v.name.toLowerCase().includes('female') ||
+              v.name.toLowerCase().includes('wanita'))
+        ) ||
+        voices.find(
+          (v) =>
+            v.name.toLowerCase().includes('female') ||
+            v.name.toLowerCase().includes('zira') ||
+            v.name.toLowerCase().includes('samantha')
+        ) ||
+        voices.find((v) => v.lang.startsWith('id'))
+    }
+
+    // 3. Jika belum ketemu dan karakternya Pria, prioritaskan suara pria / Ardi
+    if (!suaraTerpilih && profil.gender === 'Pria') {
+      suaraTerpilih =
+        voices.find(
+          (v) =>
+            v.lang.startsWith('id') &&
+            (v.name.toLowerCase().includes('ardi') ||
+              v.name.toLowerCase().includes('male') ||
+              v.name.toLowerCase().includes('pria'))
+        ) ||
+        voices.find(
+          (v) =>
+            v.name.toLowerCase().includes('male') ||
+            v.name.toLowerCase().includes('david') ||
+            v.name.toLowerCase().includes('george')
+        ) ||
+        voices.find((v) => v.lang.startsWith('id'))
+    }
+
+    if (!suaraTerpilih) {
+      suaraTerpilih = voices.find((v) => v.lang.startsWith('id')) || voices[0]
+    }
+
+    if (suaraTerpilih) {
+      utterance.voice = suaraTerpilih
+      utterance.lang = suaraTerpilih.lang || 'id-ID'
+    } else {
+      utterance.lang = 'id-ID'
     }
 
     let selesaiDipanggil = false
@@ -952,7 +1120,7 @@ export function bicaraJarvis(
 
       const ctx = ctxAwal || getVoiceAudioContext()
       if (!ctx) {
-        bicaraFallbackBrowser(teksUcapan, onSelesai, opsi?.onMulai)
+        bicaraFallbackBrowser(teksUcapan, onSelesai, opsi?.onMulai, voicePilihan)
         return
       }
 
@@ -963,15 +1131,18 @@ export function bicaraJarvis(
       const audioBuffer = await ctx.decodeAudioData(arrayBuf.slice(0))
       if (controller.signal.aborted) return
 
+      const profil = PROFIL_AKUSTIK_JARVIS[voicePilihan.toLowerCase()] || PROFIL_AKUSTIK_JARVIS.brian
+
       const source = ctx.createBufferSource()
       source.buffer = audioBuffer
+      source.playbackRate.value = profil.playbackRate
 
-      // Filter akustik halus ala helm/HUD J.A.R.V.I.S. (sedikit presence boost di 2.5kHz)
+      // Filter akustik ala helm HUD J.A.R.V.I.S. yang disesuaikan spesifik tiap karakter
       const presenceFilter = ctx.createBiquadFilter()
       presenceFilter.type = 'peaking'
-      presenceFilter.frequency.value = 2500
-      presenceFilter.Q.value = 1.1
-      presenceFilter.gain.value = 2.5
+      presenceFilter.frequency.value = profil.filterFreq
+      presenceFilter.Q.value = profil.filterQ
+      presenceFilter.gain.value = profil.filterGain
 
       const analyser = ctx.createAnalyser()
       analyser.fftSize = 512
@@ -1017,7 +1188,7 @@ export function bicaraJarvis(
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return
       // Fallback mulus ke Web Speech API browser jika jaringan/server TTS terkendala
-      bicaraFallbackBrowser(teksUcapan, onSelesai, opsi?.onMulai)
+      bicaraFallbackBrowser(teksUcapan, onSelesai, opsi?.onMulai, voicePilihan)
     }
   })()
 }

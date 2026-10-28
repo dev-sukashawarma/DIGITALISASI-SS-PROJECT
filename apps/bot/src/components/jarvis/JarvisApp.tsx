@@ -1835,27 +1835,84 @@ export default function JarvisApp({
                   /* TAB 2: CHATBOX CONVERSATION STREAM */
                   <div className="p-3 overflow-y-auto flex-1 min-h-0 space-y-3 no-scrollbar">
                     {riwayatHologram.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center py-6 text-center space-y-3 font-mono-hud">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.15)]">
+                      <div className="h-full flex flex-col items-center justify-center py-4 px-2 text-center space-y-3 font-mono-hud animate-in fade-in duration-200">
+                        {/* Title Badge */}
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/70 border border-cyan-400/40 text-cyan-200 shadow-[0_0_18px_rgba(6,182,212,0.2)]">
                           <MessageSquare className="w-4 h-4 text-cyan-400 animate-pulse" />
-                          <span className="font-hud tracking-wider uppercase font-bold text-xs">
-                            CHATBOX CONVERSATION // READY
+                          <span className="font-hud tracking-wider uppercase font-bold text-xs text-glow-cyan">
+                            J.A.R.V.I.S. INTERACTIVE CHAT &amp; DIRECTIVE CORE
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
-                          Belum ada pesan aktif di chatbox ini. Klik <strong className="text-cyan-300">TINDAK LANJUT</strong> pada salah satu issue di tab Radar Anomali, atau gunakan bar input di bawah untuk bertanya langsung.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            mainkanSuaraHud('chirp')
-                            setTacticalTab('radar')
-                          }}
-                          className="px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-200 text-xs font-hud font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                        >
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                          <span>LIHAT RADAR ANOMALI ({dailyData?.actionItems?.length || 0})</span>
-                        </button>
+
+                        {/* Clear Bilingual / Tactical Instructions */}
+                        <div className="max-w-lg space-y-1">
+                          <p className="text-xs text-zinc-100 font-semibold leading-relaxed">
+                            Pusat dialog dua arah, analisis operasional, &amp; konsultasi bisnis Suka Shawarma.
+                          </p>
+                          <p className="text-[11px] text-zinc-400 leading-relaxed">
+                            Anda bisa <strong className="text-cyan-300">chat &amp; bertanya apa saja</strong> (penjualan, keuangan, HRD, stok, closing shift) atau <strong className="text-cyan-300">menindaklanjuti isu anomali</strong> dari tab Radar.
+                          </p>
+                        </div>
+
+                        {/* Quick Conversation Starter Chips */}
+                        <div className="w-full max-w-lg pt-1">
+                          <div className="text-[10px] text-cyan-400/80 font-bold uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5">
+                            <Sparkles className="w-3 h-3 text-cyan-400" />
+                            <span>Contoh Topik Percakapan Cepat:</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-left">
+                            {[
+                              {
+                                label: 'Evaluasi Closing Kemarin',
+                                desc: 'Rekap performa omzet & profit H-1',
+                                prompt: 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi lengkap dengan analisis performa dan rekomendasi taktis.',
+                              },
+                              {
+                                label: 'Keuangan & Kas Fisik',
+                                desc: 'OPEX, kasir closing, & selisih kas',
+                                prompt: 'Rincikan pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier.',
+                              },
+                              {
+                                label: 'Operasional & Waste',
+                                desc: 'Bahan baku kritis & void kasir',
+                                prompt: 'Analisis laporan waste bahan baku tertinggi dan cek transaksi void kasir kemarin.',
+                              },
+                              {
+                                label: 'HRD & Google Review',
+                                desc: 'Presensi kru outlet & rating CS',
+                                prompt: 'Siapa saja kru outlet yang terlambat atau izin kemarin, dan bagaimana rating Google Review?',
+                              },
+                            ].map((topic, tIdx) => (
+                              <button
+                                key={tIdx}
+                                type="button"
+                                onClick={() => void eksekusiPerintahJarvis(topic.prompt, false)}
+                                className="p-2 rounded-xl bg-zinc-900/80 hover:bg-cyan-950/70 border border-cyan-500/25 hover:border-cyan-400 transition-all text-left group cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+                              >
+                                <div className="text-[11px] font-bold text-cyan-200 group-hover:text-cyan-100 flex items-center justify-between">
+                                  <span>{topic.label}</span>
+                                  <span className="text-[10px] text-cyan-400 group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+                                </div>
+                                <div className="text-[10px] text-zinc-400 line-clamp-1">{topic.desc}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons: Switch to Radar */}
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              mainkanSuaraHud('chirp')
+                              setTacticalTab('radar')
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-200 text-xs font-hud font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5 text-cyan-300" />
+                            <span>LIHAT RADAR ANOMALI ({dailyData?.actionItems?.length || 0} ISSUES)</span>
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       riwayatHologram.map((item) => (

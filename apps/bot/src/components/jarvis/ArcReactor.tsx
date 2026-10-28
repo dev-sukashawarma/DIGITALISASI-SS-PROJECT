@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { mainkanSuaraHud } from '@/lib/audioHud'
-import { Cpu, Mic, Volume2, Radio, FileBarChart2 } from 'lucide-react'
+import { Cpu, Mic, Volume2 } from 'lucide-react'
 
 export type StatusArcReactor = 'optimal' | 'listening' | 'processing' | 'speaking' | 'warning'
 
@@ -44,8 +44,8 @@ export default function ArcReactor({
   anomaliItems: _anomaliItems,
   onClickCore,
   onPilihAnomali: _onPilihAnomali,
-  onBukaDailyBriefing,
-  tampilkanTombolBawah = false,
+  onBukaDailyBriefing: _onBukaDailyBriefing,
+  tampilkanTombolBawah: _tampilkanTombolBawah = false,
   sizeMode,
   isMukaDoang = false,
   onToggleMukaDoang,
@@ -111,12 +111,12 @@ export default function ArcReactor({
 
   const containerSizeClass =
     effectiveSizeMode === 'muka-doang'
-      ? 'w-full h-full max-w-[min(94vw,84vh)] max-h-[84vh] min-h-[480px] aspect-square'
+      ? 'w-full h-full max-w-[min(92vw,58vh)] max-h-[58vh] min-h-[260px] aspect-square'
       : effectiveSizeMode === 'large'
-        ? 'w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] md:w-[480px] md:h-[480px] lg:w-[560px] lg:h-[560px] xl:w-[620px] xl:h-[620px] max-w-[min(100%,60vh)] max-h-[60vh] aspect-square'
+        ? 'w-[260px] h-[260px] sm:w-[320px] sm:h-[320px] md:w-[380px] md:h-[380px] lg:w-[440px] lg:h-[440px] xl:w-[480px] xl:h-[480px] max-w-[min(100%,48vh)] max-h-[48vh] aspect-square'
         : effectiveSizeMode === 'compact'
           ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,21vh)] max-h-[21vh] aspect-square'
-          : 'w-[220px] h-[220px] sm:w-[250px] sm:h-[250px] md:w-[280px] md:h-[280px] lg:w-[320px] lg:h-[320px] xl:w-[340px] xl:h-[340px] max-w-[min(100%,35vh)] max-h-[35vh] aspect-square'
+          : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[260px] md:h-[260px] lg:w-[290px] lg:h-[290px] xl:w-[320px] xl:h-[320px] max-w-[min(100%,32vh)] max-h-[32vh] aspect-square'
 
   return (
     <div className={`relative flex flex-col items-center justify-center select-none py-0.5 w-full transition-all duration-300 ${isMukaDoang ? 'h-full flex-1' : ''}`}>
@@ -418,38 +418,6 @@ export default function ArcReactor({
             <span className="font-hud text-[10px] sm:text-xs uppercase tracking-widest text-cyan-100 font-bold truncate">
               {labelStatus}
             </span>
-          </div>
-        )}
-
-        {/* Primary Controls Under Core (Clean, Non-Redundant) */}
-        {tampilkanTombolBawah && !isMukaDoang && (
-          <div className="flex items-center justify-center gap-2 mt-0.5">
-            <button
-              type="button"
-              onClick={handleKlik}
-              className={`px-3 py-1.5 rounded-lg border font-hud text-[10px] sm:text-xs tracking-wider uppercase font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                voiceLoopAktif || status === 'listening'
-                  ? 'bg-emerald-600/90 border-emerald-300 text-white shadow-[0_0_18px_rgba(16,185,129,0.45)]'
-                  : 'bg-cyan-950/80 hover:bg-cyan-900/90 border-cyan-400/50 text-cyan-200'
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5 animate-pulse" />
-              <span>{voiceLoopAktif ? 'VOICE LOOP: ON' : 'VOICE-TO-VOICE'}</span>
-            </button>
-
-            {onBukaDailyBriefing && (
-              <button
-                type="button"
-                onClick={() => {
-                  mainkanSuaraHud('engage')
-                  onBukaDailyBriefing()
-                }}
-                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:from-cyan-500 hover:to-blue-500 border border-cyan-300/60 text-white font-hud text-[10px] sm:text-xs tracking-wider uppercase font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center gap-1.5 cursor-pointer"
-              >
-                <FileBarChart2 className="w-3.5 h-3.5" />
-                <span>LAPORAN DAILY</span>
-              </button>
-            )}
           </div>
         )}
       </div>

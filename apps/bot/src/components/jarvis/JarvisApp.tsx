@@ -1002,8 +1002,8 @@ export default function JarvisApp({
                 modeMukaDoang ? 'flex-1 h-full min-h-0' : 'shrink-0'
               }`}
             >
-              {/* Avatar Mode Switcher: 3D Hologram Robot Head vs Arc Reactor vs Muka Doang */}
-              <div className="flex items-center justify-center mb-0.5 z-20">
+              {/* Avatar Mode Switcher: 3D Hologram Robot Head vs Arc Reactor & Muka Doang Mode Toggle */}
+              <div className="flex items-center justify-center mb-1 z-20 gap-2">
                 <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-md shadow-sm gap-0.5">
                   <button
                     type="button"
@@ -1011,15 +1011,15 @@ export default function JarvisApp({
                       mainkanSuaraHud('chirp')
                       setModeAvatar('hologram')
                     }}
-                    className={`px-2.5 py-0.5 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`px-2.5 py-1 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                       modeAvatar === 'hologram'
                         ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'text-zinc-400 hover:text-cyan-200 border border-transparent'
                     }`}
                     title="Wajah Robot Hologram 3D (Bisa Muter & Bicara)"
                   >
-                    <Bot className="w-3 h-3 text-cyan-300" />
-                    <span>3D HOLOGRAM HEAD</span>
+                    <Bot className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>3D HEAD</span>
                   </button>
 
                   <button
@@ -1028,41 +1028,39 @@ export default function JarvisApp({
                       mainkanSuaraHud('chirp')
                       setModeAvatar('reactor')
                     }}
-                    className={`px-2.5 py-0.5 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`px-2.5 py-1 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                       modeAvatar === 'reactor'
                         ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'text-zinc-400 hover:text-cyan-200 border border-transparent'
                     }`}
                     title="Arc Reactor Core Asli Iron Man"
                   >
-                    <Cpu className="w-3 h-3 text-cyan-300" />
+                    <Cpu className="w-3.5 h-3.5 text-cyan-300" />
                     <span>ARC REACTOR</span>
                   </button>
-
-                  <div className="w-px h-3.5 bg-cyan-500/30 mx-0.5" />
-
-                  {/* Mode Muka Doang / Focus Avatar Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      mainkanSuaraHud('engage')
-                      setModeMukaDoang(!modeMukaDoang)
-                    }}
-                    className={`px-2.5 py-0.5 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      modeMukaDoang
-                        ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_16px_rgba(6,182,212,0.6)] animate-pulse'
-                        : 'text-zinc-400 hover:text-cyan-200 border border-transparent'
-                    }`}
-                    title={modeMukaDoang ? 'Kembalikan Dashboard Lengkap' : 'Mode Muka Doang (Fokus Penuh Avatar Besar)'}
-                  >
-                    {modeMukaDoang ? (
-                      <Minimize2 className="w-3 h-3 text-cyan-300" />
-                    ) : (
-                      <Maximize2 className="w-3 h-3 text-cyan-300" />
-                    )}
-                    <span>{modeMukaDoang ? 'EXIT MUKA' : 'MUKA DOANG'}</span>
-                  </button>
                 </div>
+
+                {/* Mode Muka Doang / Focus Avatar Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    mainkanSuaraHud('engage')
+                    setModeMukaDoang(!modeMukaDoang)
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md ${
+                    modeMukaDoang
+                      ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_16px_rgba(6,182,212,0.6)] animate-pulse'
+                      : 'bg-zinc-950/85 text-zinc-400 hover:text-cyan-200 border border-cyan-500/30'
+                  }`}
+                  title={modeMukaDoang ? 'Kembalikan Dashboard Lengkap (ESC)' : 'Mode Muka Doang (Fokus Penuh Avatar Besar)'}
+                >
+                  {modeMukaDoang ? (
+                    <Minimize2 className="w-3.5 h-3.5 text-cyan-300" />
+                  ) : (
+                    <Maximize2 className="w-3.5 h-3.5 text-cyan-300" />
+                  )}
+                  <span>{modeMukaDoang ? 'EXIT MUKA' : 'MUKA DOANG'}</span>
+                </button>
               </div>
 
               {modeAvatar === 'hologram' ? (
@@ -1138,20 +1136,85 @@ export default function JarvisApp({
 
             {/* Middle: Floating Holographic Transmission Feed OR Standby Aura OR Anomaly Radar */}
             {modeMukaDoang ? (
-              /* Floating Sleek Exit Banner in Mode Muka Doang */
-              <div className="z-20 my-1 flex flex-col items-center gap-0.5 animate-in fade-in duration-200 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    mainkanSuaraHud('chirp')
-                    setModeMukaDoang(false)
-                  }}
-                  className="px-4 py-1 rounded-full bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/60 text-cyan-200 hover:text-white font-hud text-[10px] sm:text-[11px] tracking-widest uppercase font-bold flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all cursor-pointer"
-                >
-                  <Minimize2 className="w-3.5 h-3.5 text-cyan-300" />
-                  <span>KEMBALI KE RADAR // EXIT MUKA DOANG (ESC)</span>
-                </button>
-              </div>
+              /* Floating Glass Subtitle / HUD Transcript when there is active chat/response in Muka Doang */
+              (riwayatHologram.length > 0 || sedangMemproses) && (
+                <div className="absolute bottom-1 z-30 w-full max-w-2xl px-2 animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-auto">
+                  <div className="rounded-2xl bg-zinc-950/90 backdrop-blur-xl border border-cyan-400/40 p-3 shadow-[0_0_25px_rgba(6,182,212,0.25)] flex flex-col max-h-[30vh]">
+                    <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-cyan-500/25 text-[10px] font-mono-hud text-cyan-300 shrink-0">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping shrink-0" />
+                        <span className="font-hud font-bold uppercase tracking-wider text-cyan-200 truncate">
+                          HOLOGRAPHIC TRANSCRIPT // LIVE
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {jawabanHologram && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (sedangBicara) {
+                                hentiBicaraJarvis()
+                                setSedangBicara(false)
+                              } else {
+                                bicaraJarvis(jawabanHologram, () => setSedangBicara(false), {
+                                  onMulai: () => setSedangBicara(true),
+                                })
+                              }
+                            }}
+                            className="px-2 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 flex items-center gap-1 text-[10px] cursor-pointer"
+                          >
+                            {sedangBicara ? (
+                              <>
+                                <VolumeX className="w-2.5 h-2.5 text-red-400" />
+                                <span className="text-red-300 font-bold">STOP</span>
+                              </>
+                            ) : (
+                              <>
+                                <Volume2 className="w-2.5 h-2.5 text-cyan-300" />
+                                <span>SPEAK</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            hentiBicaraJarvis()
+                            setSedangBicara(false)
+                            setJawabanHologram('')
+                            setRiwayatHologram([])
+                            setDivisiSorot(null)
+                          }}
+                          className="p-1 rounded text-zinc-400 hover:text-red-300 hover:bg-red-950/30 cursor-pointer transition-colors"
+                          title="Tutup Subtitle (Kembali ke Wajah Penuh)"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="overflow-y-auto min-h-0 text-xs text-zinc-100 font-mono-hud space-y-2 pr-1">
+                      {riwayatHologram.slice(-2).map((item) => (
+                        <div key={item.id} className="space-y-1">
+                          {item.peran === 'user' ? (
+                            <div className="text-[11px] text-cyan-300 font-semibold border-l-2 border-cyan-400 pl-2">
+                              &ldquo;{item.teks}&rdquo;
+                            </div>
+                          ) : (
+                            <FormatIsiHologram isi={item.teks} />
+                          )}
+                        </div>
+                      ))}
+                      {sedangMemproses && (
+                        <div className="flex items-center gap-2 text-cyan-300 font-mono-hud text-xs py-1 animate-pulse">
+                          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                          <span>J.A.R.V.I.S. SEDANG MENGANALISIS TELEMETRI DATABASE...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
             ) : riwayatHologram.length > 0 ? (
               <div className="w-full flex-1 min-h-0 rounded-2xl bg-zinc-950/85 border border-cyan-400/35 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.18)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
                 {/* Hologram Reticles */}
@@ -1670,7 +1733,7 @@ export default function JarvisApp({
         </div>
 
         {/* BOTTOM COMMAND CONSOLE DOCK (Centered, Balanced Cockpit Foundation) */}
-        <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-1.5 shrink-0 pt-2 pb-0.5">
+        <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-1.5 shrink-0 pt-1 pb-1 z-30">
           {/* Quick Directive Chips (Strict No-Emoji HUD Standard) */}
           <div className="w-full flex items-center justify-center flex-wrap gap-1.5 py-0.5">
             <button

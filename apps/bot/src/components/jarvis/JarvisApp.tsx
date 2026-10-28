@@ -1737,17 +1737,6 @@ export default function JarvisApp({
 
                     <button
                       type="button"
-                      onClick={() => void eksekusiPerintahJarvis('Dispatch semua instruksi rekomendasi ke divisi Telegram', false)}
-                      aria-label="Dispatch Rekomendasi ke Bot Telegram Divisi"
-                      className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 flex items-center gap-1 text-[11px] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                      title="Dispatch Rekomendasi ke Bot Telegram Divisi"
-                    >
-                      <Send className="w-3 h-3 text-cyan-300" />
-                      <span>DISPATCH</span>
-                    </button>
-
-                    <button
-                      type="button"
                       onClick={() => {
                         mainkanSuaraHud('chirp')
                         setRadarAnomaliTerbuka(false)

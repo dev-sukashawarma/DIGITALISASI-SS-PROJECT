@@ -439,7 +439,7 @@ export default function HologramHead3D({
         const dx = e.clientX - lastMousePos.current.x
         const dy = e.clientY - lastMousePos.current.y
         rotTarget.current.yaw += dx * 0.012
-        rotTarget.current.pitch += dy * 0.012
+        rotTarget.current.pitch -= dy * 0.012
         rotTarget.current.pitch = Math.max(-0.65, Math.min(0.65, rotTarget.current.pitch))
         lastMousePos.current = { x: e.clientX, y: e.clientY }
       } else {
@@ -460,9 +460,9 @@ export default function HologramHead3D({
         const nx = dx / Math.max(300, vw)
         const ny = dy / Math.max(200, vh)
 
-        // Jangkauan yaw luas (±50°) dan pitch (±35°)
+        // Jangkauan yaw luas (±50°) dan pitch (±35°) - Natural direct tracking (tidak invert)
         rotTarget.current.yaw = Math.max(-0.90, Math.min(0.90, nx * 0.90))
-        rotTarget.current.pitch = Math.max(-0.60, Math.min(0.60, ny * 0.55))
+        rotTarget.current.pitch = Math.max(-0.60, Math.min(0.60, -ny * 0.55))
       }
     }
 
@@ -499,7 +499,7 @@ export default function HologramHead3D({
       const dx = e.touches[0].clientX - lastMousePos.current.x
       const dy = e.touches[0].clientY - lastMousePos.current.y
       rotTarget.current.yaw += dx * 0.015
-      rotTarget.current.pitch += dy * 0.015
+      rotTarget.current.pitch -= dy * 0.015
       rotTarget.current.pitch = Math.max(-0.65, Math.min(0.65, rotTarget.current.pitch))
       lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
     }

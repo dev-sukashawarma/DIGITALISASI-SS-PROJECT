@@ -1031,12 +1031,12 @@ export default function HologramHead3D({
 
   const containerSizeClass =
     effectiveSizeMode === 'muka-doang'
-      ? 'w-full h-full max-w-[min(92vw,58vh)] max-h-[58vh] min-h-[260px] aspect-square'
+      ? 'w-full h-full max-w-[min(94vw,66vh)] max-h-[66vh] min-h-[300px] aspect-square'
       : effectiveSizeMode === 'large'
-        ? 'w-[260px] h-[260px] sm:w-[320px] sm:h-[320px] md:w-[380px] md:h-[380px] lg:w-[440px] lg:h-[440px] xl:w-[480px] xl:h-[480px] max-w-[min(100%,48vh)] max-h-[48vh] aspect-square'
+        ? 'w-[280px] h-[280px] sm:w-[340px] sm:h-[340px] md:w-[400px] md:h-[400px] lg:w-[460px] lg:h-[460px] xl:w-[500px] xl:h-[500px] max-w-[min(100%,50vh)] max-h-[50vh] aspect-square'
         : effectiveSizeMode === 'compact'
           ? 'w-[140px] h-[140px] sm:w-[165px] sm:h-[165px] lg:w-[185px] lg:h-[185px] max-w-[min(100%,22vh)] max-h-[22vh] aspect-square'
-          : 'w-[200px] h-[200px] sm:w-[230px] sm:h-[230px] md:w-[260px] md:h-[260px] lg:w-[290px] lg:h-[290px] xl:w-[320px] xl:h-[320px] max-w-[min(100%,32vh)] max-h-[32vh] aspect-square'
+          : 'w-[190px] h-[190px] sm:w-[220px] sm:h-[220px] md:w-[250px] md:h-[250px] lg:w-[270px] lg:h-[270px] xl:w-[290px] xl:h-[290px] max-w-[min(100%,30vh)] max-h-[30vh] aspect-square'
 
   return (
     <div
@@ -1078,6 +1078,13 @@ export default function HologramHead3D({
         <button
           type="button"
           onClick={handleKlikCore}
+          aria-label={
+            status === 'listening'
+              ? 'Sedang mendengarkan. Klik untuk berhenti'
+              : status === 'speaking'
+                ? 'Sedang berbicara. Klik untuk berhenti'
+                : 'Mulai input suara Jarvis'
+          }
           className="absolute bottom-2 z-20 px-3 py-1 rounded-full bg-zinc-950/90 hover:bg-cyan-950 border border-cyan-400/60 text-cyan-200 hover:text-white font-hud text-[10px] tracking-wider uppercase font-bold flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all cursor-pointer group-hover:scale-105"
         >
           {status === 'listening' ? (

@@ -170,8 +170,8 @@ export default function JarvisApp({
   const [tampilChatDrawer, setTampilChatDrawer] = useState(false)
   const [pesanAwalDrawer, setPesanAwalDrawer] = useState<string | null>(null)
 
-  // Tactical Panel Visibility & Layout States (Sesuai masukan boss: anomali collapsed saat awal & semua bisa diminimize / muka doang)
-  const [radarAnomaliTerbuka, setRadarAnomaliTerbuka] = useState(false)
+  // Tactical Panel Visibility & Layout States (Radar Anomaly dibuka secara default agar layar utama penuh informatif & seimbang)
+  const [radarAnomaliTerbuka, setRadarAnomaliTerbuka] = useState(true)
   const [leftWingMinimized, setLeftWingMinimized] = useState(false)
   const [rightWingMinimized, setRightWingMinimized] = useState(false)
   const [modeMukaDoang, setModeMukaDoang] = useState(false)
@@ -993,13 +993,21 @@ export default function JarvisApp({
           {/* Center Stage: THE HERO COMMAND CORE (Majestic Arc Reactor / 3D Hologram Robot Head) */}
           <div
             className={`flex-1 min-w-0 w-full flex flex-col ${
-              modeMukaDoang ? 'justify-center' : 'justify-between'
-            } items-center h-full min-h-0 relative px-1 py-0.5`}
+              modeMukaDoang
+                ? 'justify-center'
+                : !radarAnomaliTerbuka && riwayatHologram.length === 0
+                  ? 'justify-between'
+                  : 'justify-start'
+            } items-center h-full min-h-0 relative px-1 py-0.5 gap-2`}
           >
             {/* Top / Center: The Majestic Hologram / Arc Reactor Avatar */}
             <div
               className={`flex flex-col items-center justify-center relative w-full ${
-                modeMukaDoang ? 'flex-1 h-full min-h-0' : 'shrink-0'
+                modeMukaDoang
+                  ? 'flex-1 h-full min-h-0'
+                  : !radarAnomaliTerbuka && riwayatHologram.length === 0
+                    ? 'flex-1 h-full min-h-0'
+                    : 'shrink-0'
               }`}
             >
               {/* Avatar Mode Switcher: 3D Hologram Robot Head vs Arc Reactor & Muka Doang Mode Toggle */}
@@ -1011,7 +1019,8 @@ export default function JarvisApp({
                       mainkanSuaraHud('chirp')
                       setModeAvatar('hologram')
                     }}
-                    className={`px-2.5 py-1 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    aria-label="Pilih Avatar Hologram 3D"
+                    className={`px-2.5 py-1 min-h-[32px] rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
                       modeAvatar === 'hologram'
                         ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'text-zinc-400 hover:text-cyan-200 border border-transparent'
@@ -1028,7 +1037,8 @@ export default function JarvisApp({
                       mainkanSuaraHud('chirp')
                       setModeAvatar('reactor')
                     }}
-                    className={`px-2.5 py-1 rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    aria-label="Pilih Avatar Arc Reactor"
+                    className={`px-2.5 py-1 min-h-[32px] rounded-md font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
                       modeAvatar === 'reactor'
                         ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
                         : 'text-zinc-400 hover:text-cyan-200 border border-transparent'
@@ -1047,7 +1057,8 @@ export default function JarvisApp({
                     mainkanSuaraHud('engage')
                     setModeMukaDoang(!modeMukaDoang)
                   }}
-                  className={`px-2.5 py-1 rounded-lg font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md ${
+                  aria-label={modeMukaDoang ? 'Kembalikan Dashboard Lengkap' : 'Aktifkan Mode Muka Doang'}
+                  className={`px-2.5 py-1 min-h-[32px] rounded-lg font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
                     modeMukaDoang
                       ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_16px_rgba(6,182,212,0.6)] animate-pulse'
                       : 'bg-zinc-950/85 text-zinc-400 hover:text-cyan-200 border border-cyan-500/30'
@@ -1464,7 +1475,7 @@ export default function JarvisApp({
               </div>
             ) : (
               /* Expanded Standby: Hermes Tactical Anomaly & Operations Matrix Deck */
-              <div className="w-full flex-1 min-h-[200px] max-h-[46vh] rounded-2xl bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.12)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
+              <div className="w-full flex-1 min-h-[160px] rounded-2xl bg-zinc-950/85 border border-cyan-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.12)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
                 {/* Hologram Reticles */}
                 <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
                 <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-cyan-400 pointer-events-none" />
@@ -1489,7 +1500,8 @@ export default function JarvisApp({
                         mainkanSuaraHud('chirp')
                         setRadarAnomaliTerbuka(false)
                       }}
-                      className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-[11px] font-hud flex items-center gap-1 cursor-pointer transition-colors"
+                      aria-label="Minimize Radar Anomali"
+                      className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-cyan-950 border border-cyan-400/40 text-cyan-300 text-[11px] font-hud flex items-center gap-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                       title="Tutup / Minimize Radar Anomali (Wajah Robot Membesar)"
                     >
                       <ChevronDown className="w-3 h-3 text-cyan-300" />
@@ -1498,7 +1510,8 @@ export default function JarvisApp({
                     <button
                       type="button"
                       onClick={() => bukaModalDailyBriefing(true)}
-                      className="px-2 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                      aria-label="Buka Laporan Daily Komprehensif"
+                      className="px-2 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 text-[11px] flex items-center gap-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                       title="Buka Laporan Daily Komprehensif"
                     >
                       <FileBarChart2 className="w-3 h-3 text-cyan-300" />
@@ -1507,7 +1520,8 @@ export default function JarvisApp({
                     <button
                       type="button"
                       onClick={() => void eksekusiPerintahJarvis('Dispatch semua instruksi rekomendasi ke divisi Telegram', false)}
-                      className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 flex items-center gap-1 text-[11px] cursor-pointer"
+                      aria-label="Dispatch Rekomendasi ke Bot Telegram Divisi"
+                      className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 flex items-center gap-1 text-[11px] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
                       title="Dispatch Rekomendasi ke Bot Telegram Divisi"
                     >
                       <Send className="w-3 h-3 text-cyan-300" />
@@ -1739,7 +1753,8 @@ export default function JarvisApp({
             <button
               type="button"
               onClick={() => bukaModalDailyBriefing(true)}
-              className="px-2.5 py-1 min-h-[30px] rounded-lg bg-cyan-600/40 hover:bg-cyan-600/70 text-cyan-100 border border-cyan-400/60 font-mono-hud text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
+              aria-label="Buka Daily Briefing Modal"
+              className="px-3 py-1 min-h-[34px] rounded-lg bg-cyan-600/40 hover:bg-cyan-600/70 text-cyan-100 border border-cyan-400/60 font-mono-hud text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
             >
               <Zap className="size-3 text-cyan-300 shrink-0" />
               <span>Daily Briefing</span>
@@ -1758,7 +1773,8 @@ export default function JarvisApp({
                   key={idx}
                   type="button"
                   onClick={() => void eksekusiPerintahJarvis(chip.pesan, false)}
-                  className="px-2.5 py-1 min-h-[30px] rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-200 border border-cyan-500/30 hover:border-cyan-400 font-mono-hud text-[11px] sm:text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                  aria-label={`Jalankan perintah cepat: ${chip.label}`}
+                  className="px-3 py-1 min-h-[34px] rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-200 border border-cyan-500/30 hover:border-cyan-400 font-mono-hud text-[11px] sm:text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                 >
                   <ChipIcon className="size-3 text-cyan-400/80 shrink-0" />
                   <span>{chip.label}</span>
@@ -1781,19 +1797,25 @@ export default function JarvisApp({
               type="text"
               value={inputPerintah}
               onChange={(e) => setInputPerintah(e.target.value)}
+              aria-label="Ketik instruksi atau pertanyaan untuk J.A.R.V.I.S."
               placeholder={
                 sedangMendengar
                   ? '🎙️ Mendengarkan Anda... (otomatis terkirim)'
                   : "Ketik instruksi/pertanyaan atau tekan '/'..."
               }
-              className="w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/45 py-1.5 focus:outline-none"
+              className="w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/65 py-1.5 focus:outline-none"
             />
 
             {voiceDidukung && (
               <button
                 type="button"
                 onClick={handleToggleVoiceLoop}
-                className={`p-1.5 sm:px-3 py-1.5 rounded-xl border transition-all cursor-pointer mr-1 flex items-center gap-1.5 shrink-0 ${
+                aria-label={
+                  sedangMendengar || voiceLoopAktif
+                    ? 'Hentikan atau kirim input suara'
+                    : 'Mulai input suara Voice-to-Voice'
+                }
+                className={`p-1.5 sm:px-3 py-1.5 min-h-[34px] rounded-xl border transition-all cursor-pointer mr-1 flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                   sedangMendengar || voiceLoopAktif
                     ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]'
                     : 'bg-cyan-950/60 border-cyan-500/35 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900/60'
@@ -1818,7 +1840,8 @@ export default function JarvisApp({
             <button
               type="submit"
               disabled={sedangMemproses || !inputPerintah.trim()}
-              className="px-3 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-hud text-xs tracking-wider font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-1.5 shrink-0 cursor-pointer"
+              aria-label="Kirim instruksi ke J.A.R.V.I.S."
+              className="px-3 sm:px-4 py-1.5 min-h-[34px] rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-hud text-xs tracking-wider font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-1.5 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             >
               <Send className="w-3.5 h-3.5" />
               <span>KIRIM</span>

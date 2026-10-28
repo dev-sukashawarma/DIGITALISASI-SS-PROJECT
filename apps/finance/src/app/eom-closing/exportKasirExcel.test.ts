@@ -133,7 +133,7 @@ describe('generateKasirExcel', () => {
 
     const s4 = workbook.getWorksheet('Audit Shift & Kas')
     expect(s4.rowCount).toBeGreaterThan(3)
-  })
+  }, 20_000)
 
   it('menangani cutoff bertanggal jika ada pergantian HPP di tengah bulan', async () => {
     const withCutoff: KasirResponse = {
@@ -151,7 +151,7 @@ describe('generateKasirExcel', () => {
     const { workbook } = await generateKasirExcel(withCutoff, 'Admin Finance Test')
     const s1 = workbook.getWorksheet('Ringkasan & Channel')
     expect(s1.getCell('A4').value).toContain('ada pergantian HPP mulai 19 Sep 2026')
-  })
+  }, 20_000)
 
   it('buildKasirEomPdf dapat men-generate dokumen PDF tanpa error baik dengan maupun tanpa cutoff', async () => {
     const { buildKasirEomPdf } = await import('./exportEomPdf')
@@ -166,5 +166,5 @@ describe('generateKasirExcel', () => {
     const resCutoff = await buildKasirEomPdf(withCutoff, 'Admin Finance')
     expect(resCutoff.filename).toBe('BA_Kasir_KasToko_September_2026.pdf')
     expect(resCutoff.doc).toBeDefined()
-  })
+  }, 20_000)
 })

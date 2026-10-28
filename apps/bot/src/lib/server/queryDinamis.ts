@@ -6,7 +6,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { formatRupiah } from './telemetriNyata'
 
-export type TopikQueryDinamis = 'waste' | 'penjualan' | 'opex' | 'semua'
+export type TopikQueryDinamis = 'waste' | 'penjualan' | 'opex' | 'presensi' | 'semua'
 
 export interface PermintaanTanggalDinamis {
   jenis: 'rentang_hari' | 'tanggal_spesifik' | 'rentang_tanggal'
@@ -84,11 +84,13 @@ export function deteksiTopik(
   const isWaste = /waste|reject|rusak|basi|robek|kerugian\s*bahan|sampah\s*bahan|dibuang|buang/i.test(p)
   const isPenjualan = /penjualan|omzet|omset|sales|revenue|laba|margin|hpp|transaksi|struk|order|terlaris|tersepi|menu/i.test(p)
   const isOpex = /opex|pengeluaran|biaya|kas\s*kecil|petty\s*cash|kasir|setoran/i.test(p)
+  const isPresensi = /presensi|absensi|kehadiran|clock-in|clockin|telat|terlambat|cuti|izin|sakit|mangkir|kru|staff|staf/i.test(p)
 
-  if (isWaste && !isPenjualan && !isOpex) return 'waste'
-  if (isPenjualan && !isWaste && !isOpex) return 'penjualan'
-  if (isOpex && !isWaste && !isPenjualan) return 'opex'
-  if (Number(isWaste) + Number(isPenjualan) + Number(isOpex) > 1) return 'semua'
+  if (isWaste && !isPenjualan && !isOpex && !isPresensi) return 'waste'
+  if (isPenjualan && !isWaste && !isOpex && !isPresensi) return 'penjualan'
+  if (isOpex && !isWaste && !isPenjualan && !isPresensi) return 'opex'
+  if (isPresensi && !isWaste && !isPenjualan && !isOpex) return 'presensi'
+  if (Number(isWaste) + Number(isPenjualan) + Number(isOpex) + Number(isPresensi) > 1) return 'semua'
 
   // Jika tidak eksplisit di pesan saat ini, cek konteks percakapan sebelumnya
   if (riwayat && riwayat.length > 0) {
@@ -96,9 +98,11 @@ export function deteksiTopik(
     const rWaste = /waste|reject|rusak|basi/i.test(riwayatTeks)
     const rPenjualan = /omzet|omset|penjualan|sales|revenue/i.test(riwayatTeks)
     const rOpex = /opex|pengeluaran|biaya/i.test(riwayatTeks)
-    if (rWaste && !rPenjualan && !rOpex) return 'waste'
-    if (rPenjualan && !rWaste && !rOpex) return 'penjualan'
-    if (rOpex && !rWaste && !rPenjualan) return 'opex'
+    const rPresensi = /presensi|absensi|kehadiran|telat|cuti/i.test(riwayatTeks)
+    if (rWaste && !rPenjualan && !rOpex && !rPresensi) return 'waste'
+    if (rPenjualan && !rWaste && !rOpex && !rPresensi) return 'penjualan'
+    if (rOpex && !rWaste && !rPenjualan && !rPresensi) return 'opex'
+    if (rPresensi && !rWaste && !rPenjualan && !rOpex) return 'presensi'
   }
 
   return 'semua'
@@ -545,6 +549,74 @@ ${topExp}
       }
     } catch (err) {
       console.error('[queryDinamis] Gagal memproses expenses:', err)
+    }
+  }
+
+  // 4. DATA PRESENSI & SDM KRU
+  if (req.topik === 'presensi' || req.topik === 'semua') {
+    try {
+      const [resAtt, resLate, resLeave] = await Promise.all([
+        sb
+          .from('attendance')
+          .select('id, outlet_staff_id, status, type, outlet_id, outlets(name)')
+          .eq('type', 'in')
+          .gte('created_at', req.startDateIso)
+          .lte('created_at', req.endDateIso)
+          .limit(2000),
+        sb
+          .from('attendance')
+          .select('id, outlet_staff_id, status, telat_menit, type, outlet_id, outlets(name)')
+          .eq('type', 'in')
+          .neq('status', 'telat_toleransi')
+          .gte('created_at', req.startDateIso)
+          .lte('created_at', req.endDateIso)
+          .gt('telat_menit', 0)
+          .order('telat_menit', { ascending: false })
+          .limit(100),
+        sb
+          .from('leave_requests')
+          .select('id, leave_type, status, reason, outlet_staff:staff_id(name, role, outlet_id)')
+          .lte('start_date', req.tglAkhirStr)
+          .gte('end_date', req.tglAwalStr)
+          .in('status', ['approved', 'pending'])
+          .limit(50),
+      ])
+
+      const totalClockIn = (resAtt.data || []).length
+      const lateRows = resLate.data || []
+
+      const lateStaffIds = Array.from(new Set(lateRows.map((a: any) => a.outlet_staff_id).filter(Boolean)))
+      const staffMap: Record<string, string> = {}
+      if (lateStaffIds.length > 0) {
+        const { data: staffList } = await sb.from('outlet_staff').select('id, name').in('id', lateStaffIds)
+        for (const s of staffList || []) {
+          staffMap[s.id] = s.name
+        }
+      }
+
+      const listLate = lateRows.slice(0, 15).map((l: any, i: number) => {
+        const staffName = staffMap[l.outlet_staff_id] || 'Kru'
+        const outName = (l.outlets as any)?.name || 'Cabang'
+        return `  ${i + 1}. ${staffName} (${outName}): telat ${l.telat_menit} menit`
+      }).join('\n')
+
+      const listCuti = (resLeave.data || []).map((c: any, i: number) => {
+        const sName = (c.outlet_staff as any)?.name || 'Kru'
+        const sRole = (c.outlet_staff as any)?.role || 'Staf'
+        return `  ${i + 1}. ${sName} (${sRole}): ${c.leave_type} [status: ${c.status}] - Alasan: ${c.reason || '-'}`
+      }).join('\n')
+
+      sections.push(`
+👥 DATA PRESENSI & SDM KRU CABANG (${req.labelPeriode}):
+- Total Clock-in Kehadiran: ${totalClockIn} presensi
+- Total Kru Terlambat: ${lateRows.length} kru
+- Kru dengan Keterlambatan Masuk:
+${listLate || '  (Seluruh kru hadir tepat waktu, tidak ada keterlambatan)'}
+- Kru Izin / Cuti Terdata:
+${listCuti || '  (Tidak ada permohonan izin/cuti pada periode ini)'}
+`.trim())
+    } catch (err) {
+      console.error('[queryDinamis] Gagal memproses presensi:', err)
     }
   }
 

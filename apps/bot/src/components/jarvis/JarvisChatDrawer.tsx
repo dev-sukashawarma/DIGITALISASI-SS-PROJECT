@@ -31,9 +31,9 @@ type Pesan = { id: string | number; peran: 'user' | 'bot'; isi: string }
 
 const LABEL_AGENT_BAWAAN: Record<string, { nama: string; badge: string; deskripsi: string }> = {
   ceo: {
-    nama: 'J.A.R.V.I.S. // UNIFIED MASTER CORE',
-    badge: 'ALL-DIVISION EXECUTIVE INTELLIGENCE',
-    deskripsi: 'Pusat komando terpadu Suka Shawarma (Sales, Finance, Gudang/Waste, HRD, & SukaReview)',
+    nama: 'J.A.R.V.I.S. // CHATBOX KHUSUS PERCAKAPAN',
+    badge: 'DEDICATED CONVERSATION & TELEMETRY STREAM',
+    deskripsi: 'Pusat percakapan khusus dan interaktif J.A.R.V.I.S. dengan memori persisten dan arsip transmisi',
   },
   gudang: {
     nama: 'JARVIS // SUBSYSTEM GUDANG',
@@ -408,7 +408,15 @@ export default function JarvisChatDrawer({
 
   const muatDaftar = async () => {
     const r = await fetch(`/api/percakapan?profil=${profil}`, { cache: 'no-store' })
-    if (r.ok) setDaftar((await r.json()).percakapan)
+    if (r.ok) {
+      const data = (await r.json()) as { percakapan?: Percakapan[] }
+      const list = data.percakapan || []
+      setDaftar(list)
+      // Jika belum ada percakapan aktif dan tidak sedang mengirim pesan awal, muat percakapan paling baru otomatis
+      if (!aktif && !percakapanIdAwal && !pesanAwal && list.length > 0) {
+        void buka(list[0].id)
+      }
+    }
   }
 
   useEffect(() => {

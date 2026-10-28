@@ -9,7 +9,7 @@ import {
 import type { MejaKantor } from '@/kantor/keadaan'
 import type { Profil } from '@/lib/peran'
 import { keluar } from '@/lib/keluar'
-import ArcReactor, { type StatusArcReactor } from '@/components/jarvis/ArcReactor'
+import ArcReactor, { type StatusArcReactor, type AnomaliItem } from '@/components/jarvis/ArcReactor'
 import HologramHead3D from '@/components/jarvis/HologramHead3D'
 import AgentNodeCard from '@/components/jarvis/AgentNodeCard'
 import JarvisChatDrawer, { FormatIsiHologram } from '@/components/jarvis/JarvisChatDrawer'
@@ -172,9 +172,20 @@ export default function JarvisApp({
 
   // Tactical Panel Visibility & Layout States (Radar Anomaly dibuka secara default agar layar utama penuh informatif & seimbang)
   const [radarAnomaliTerbuka, setRadarAnomaliTerbuka] = useState(true)
+  const [feedDitutup, setFeedDitutup] = useState(false)
   const [leftWingMinimized, setLeftWingMinimized] = useState(false)
   const [rightWingMinimized, setRightWingMinimized] = useState(false)
   const [modeMukaDoang, setModeMukaDoang] = useState(false)
+
+  // Handler untuk membuka Chatbox Khusus Percakapan saat opsi/tindak lanjut anomali diklik
+  const handleTindakLanjutAnomaly = (item: AnomaliItem) => {
+    const prompt =
+      item.perintahTindakLanjut ||
+      `Investigasi anomali [${item.divisi}] ${item.judul} dan berikan rekomendasi penanganan taktis.`
+    mainkanSuaraHud('engage')
+    setPesanAwalDrawer(prompt)
+    setTampilChatDrawer(true)
+  }
 
   const voiceLoopRef = useRef(false)
   const chatAbortRef = useRef<AbortController | null>(null)
@@ -399,6 +410,7 @@ export default function JarvisApp({
     if (!isi) return
 
     const lower = isi.toLowerCase()
+    setFeedDitutup(false)
     const waktuSekarang = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
     // 1. Pintasan Perintah Suara/Teks: Stop / Diam / Matikan Suara
@@ -835,6 +847,29 @@ export default function JarvisApp({
               <span className="text-[10px]">{suaraNyala ? 'SFX: ON' : 'SFX: OFF'}</span>
             </button>
 
+            {/* Dedicated Chatbox Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                mainkanSuaraHud('chirp')
+                setPesanAwalDrawer(null)
+                setTampilChatDrawer(true)
+              }}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border font-mono-hud text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                tampilChatDrawer || percakapanIdAktif
+                  ? 'bg-cyan-900/70 border-cyan-400 text-cyan-100 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                  : 'bg-zinc-900/80 border-cyan-500/40 text-cyan-300 hover:border-cyan-400'
+              }`}
+              title="Buka Chatbox Khusus Percakapan & Log Transmisi"
+              aria-label="Buka Chatbox Khusus Percakapan"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-cyan-300" />
+              <span className="hidden sm:inline font-hud font-bold text-[11px] tracking-wider">CHATBOX</span>
+              {percakapanIdAktif && (
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              )}
+            </button>
+
             {/* Full Screen Toggle */}
             <button
               type="button"
@@ -1095,13 +1130,7 @@ export default function JarvisApp({
                   transkripLive={transkripLive}
                   anomaliItems={dailyData?.actionItems?.filter((a) => a.level === 'critical' || a.level === 'warning')}
                   onClickCore={handleToggleVoiceLoop}
-                  onPilihAnomali={(item) =>
-                    void eksekusiPerintahJarvis(
-                      item.perintahTindakLanjut ||
-                        `Jelaskan anomali ${item.judul} dan berikan rekomendasi penanganan taktis.`,
-                      false
-                    )
-                  }
+                  onPilihAnomali={(item) => handleTindakLanjutAnomaly(item)}
                   onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
                   onBukaChatLengkap={() => {
                     setPesanAwalDrawer(null)
@@ -1129,13 +1158,7 @@ export default function JarvisApp({
                   transkripLive={transkripLive}
                   anomaliItems={dailyData?.actionItems?.filter((a) => a.level === 'critical' || a.level === 'warning')}
                   onClickCore={handleToggleVoiceLoop}
-                  onPilihAnomali={(item) =>
-                    void eksekusiPerintahJarvis(
-                      item.perintahTindakLanjut ||
-                        `Jelaskan anomali ${item.judul} dan berikan rekomendasi penanganan taktis.`,
-                      false
-                    )
-                  }
+                  onPilihAnomali={(item) => handleTindakLanjutAnomaly(item)}
                   onBukaDailyBriefing={() => bukaModalDailyBriefing(true)}
                   onBukaChatLengkap={() => {
                     setPesanAwalDrawer(null)
@@ -1226,7 +1249,7 @@ export default function JarvisApp({
                   </div>
                 </div>
               )
-            ) : riwayatHologram.length > 0 ? (
+            ) : riwayatHologram.length > 0 && !feedDitutup ? (
               <div className="w-full flex-1 min-h-0 rounded-2xl bg-zinc-950/85 border border-cyan-400/35 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.18)] flex flex-col overflow-hidden my-0.5 animate-in fade-in duration-200 relative">
                 {/* Hologram Reticles */}
                 <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
@@ -1318,12 +1341,26 @@ export default function JarvisApp({
                         setPesanAwalDrawer(null)
                         setTampilChatDrawer(true)
                       }}
-                      className="px-2.5 py-1 rounded-md bg-zinc-900 hover:bg-cyan-950 border border-cyan-500/30 text-cyan-300 flex items-center gap-1.5 text-xs font-mono-hud cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                      title="Buka Layar Penuh"
-                      aria-label="Buka Layar Penuh"
+                      className="px-2.5 py-1 rounded-md bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-200 flex items-center gap-1.5 text-xs font-hud font-bold cursor-pointer transition-colors shadow-[0_0_10px_rgba(6,182,212,0.2)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                      title="Buka Chatbox Khusus & Log Transmisi"
+                      aria-label="Buka Chatbox Khusus"
                     >
-                      <MessageSquare className="size-3.5" />
-                      <span className="hidden sm:inline">FULL</span>
+                      <MessageSquare className="size-3.5 text-cyan-300" />
+                      <span className="hidden sm:inline">CHATBOX KHUSUS</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hentiBicaraJarvis()
+                        setSedangBicara(false)
+                        setFeedDitutup(true)
+                      }}
+                      className="p-1.5 rounded-md text-zinc-400 hover:text-cyan-300 hover:bg-cyan-950/40 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                      title="Tutup Tampilan Chat (Percakapan tetap tersimpan & bisa dibuka kembali)"
+                      aria-label="Tutup Tampilan Chat"
+                    >
+                      <X className="size-4" />
                     </button>
 
                     <button
@@ -1333,13 +1370,14 @@ export default function JarvisApp({
                         setSedangBicara(false)
                         setJawabanHologram('')
                         setRiwayatHologram([])
+                        setFeedDitutup(false)
                         setDivisiSorot(null)
                       }}
-                      className="p-1.5 rounded-md text-zinc-400 hover:text-red-300 hover:bg-red-950/30 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
-                      title="Bersihkan Layar (Kembali ke Wajah Besar)"
-                      aria-label="Bersihkan Layar"
+                      className="p-1.5 rounded-md text-zinc-500 hover:text-red-300 hover:bg-red-950/30 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
+                      title="Bersihkan / Reset Riwayat Percakapan Layar"
+                      aria-label="Bersihkan Riwayat"
                     >
-                      <X className="size-4" />
+                      <Trash2 className="size-3.5" />
                     </button>
                   </div>
                 </div>
@@ -1451,6 +1489,20 @@ export default function JarvisApp({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
+                      mainkanSuaraHud('chirp')
+                      setPesanAwalDrawer(null)
+                      setTampilChatDrawer(true)
+                    }}
+                    className="px-2 py-1 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/40 text-cyan-200 text-[10px] font-hud flex items-center gap-1 cursor-pointer transition-colors shadow-[0_0_10px_rgba(6,182,212,0.2)]"
+                    title="Buka Chatbox Khusus Percakapan"
+                  >
+                    <MessageSquare className="w-3 h-3 text-cyan-300" />
+                    <span className="hidden sm:inline">CHATBOX</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
                       bukaModalDailyBriefing(true)
                     }}
                     className="px-2 py-1 rounded-lg bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-400/30 text-cyan-200 text-[10px] font-hud flex items-center gap-1 cursor-pointer transition-colors"
@@ -1494,6 +1546,38 @@ export default function JarvisApp({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {riwayatHologram.length > 0 && feedDitutup && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          mainkanSuaraHud('chirp')
+                          setFeedDitutup(false)
+                        }}
+                        aria-label="Buka Kembali Chat di Layar"
+                        className="px-2 py-0.5 rounded bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/50 text-cyan-200 text-[11px] font-mono-hud flex items-center gap-1 shadow-[0_0_10px_rgba(6,182,212,0.2)] animate-pulse cursor-pointer"
+                        title="Buka Kembali Chat Terakhir di Layar"
+                      >
+                        <MessageSquare className="w-3 h-3 text-cyan-300" />
+                        <span>CHAT ({riwayatHologram.length})</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        mainkanSuaraHud('chirp')
+                        setPesanAwalDrawer(null)
+                        setTampilChatDrawer(true)
+                      }}
+                      aria-label="Buka Chatbox Khusus Percakapan"
+                      className="px-2 py-0.5 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-400/40 text-cyan-200 text-[11px] font-hud flex items-center gap-1 cursor-pointer transition-colors shadow-[0_0_10px_rgba(6,182,212,0.2)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                      title="Buka Chatbox Khusus Percakapan & Log Transmisi"
+                    >
+                      <MessageSquare className="w-3 h-3 text-cyan-300" />
+                      <span>CHATBOX</span>
+                      {percakapanIdAktif && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -1567,20 +1651,15 @@ export default function JarvisApp({
                           </div>
                           <button
                             type="button"
-                            onClick={() => {
-                              mainkanSuaraHud('chirp')
-                              void eksekusiPerintahJarvis(
-                                item.perintahTindakLanjut ||
-                                  `Investigasi anomali [${item.divisi}] ${item.judul} dan berikan rekomendasi penanganan taktis.`,
-                                false
-                              )
-                            }}
-                            className={`px-2.5 py-1 rounded-lg border font-hud text-[10px] tracking-wider uppercase font-bold shrink-0 transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                            onClick={() => handleTindakLanjutAnomaly(item)}
+                            className={`px-2.5 py-1 rounded-lg border font-hud text-[10px] tracking-wider uppercase font-bold shrink-0 transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                               isCritical
                                 ? 'bg-red-900/70 hover:bg-red-800 border-red-400/50 text-red-100 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
                                 : 'bg-amber-900/70 hover:bg-amber-800 border-amber-400/50 text-amber-100 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
                             }`}
+                            title="Buka Chatbox Khusus & Tindak Lanjut Anomali Ini"
                           >
+                            <MessageSquare className="w-3 h-3" />
                             <span>TINDAK LANJUT</span>
                             <span className="text-[9px] font-mono-hud">&gt;&gt;</span>
                           </button>
@@ -1759,6 +1838,23 @@ export default function JarvisApp({
               <Zap className="size-3 text-cyan-300 shrink-0" />
               <span>Daily Briefing</span>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                mainkanSuaraHud('chirp')
+                setPesanAwalDrawer(null)
+                setTampilChatDrawer(true)
+              }}
+              aria-label="Buka Chatbox Khusus Percakapan"
+              className="px-3 py-1 min-h-[34px] rounded-lg bg-cyan-950/80 hover:bg-cyan-900/90 text-cyan-200 border border-cyan-400/50 font-mono-hud text-[11px] sm:text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 shadow-[0_0_10px_rgba(6,182,212,0.18)]"
+              title="Buka Chatbox Khusus Percakapan"
+            >
+              <MessageSquare className="size-3 text-cyan-300 shrink-0" />
+              <span>Chatbox</span>
+              {percakapanIdAktif && (
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              )}
+            </button>
             {[
               { icon: Calendar, label: 'Evaluasi Kemarin', pesan: 'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi (penjualan, finance, HRD, waste, stok, distribusi, dan review) lengkap dengan rekomendasi dan saran taktis dari agent.' },
               { icon: DollarSign, label: 'OPEX & Kas', pesan: 'Berapa total pengeluaran OPEX kemarin, kas fisik tutup shift kemarin, selisih kasir, dan utang PO supplier?' },
@@ -1876,7 +1972,7 @@ export default function JarvisApp({
         <JarvisChatDrawer
           profil="ceo"
           pesanAwal={pesanAwalDrawer}
-          percakapanIdAwal={percakapanIdAktif}
+          percakapanIdAwal={pesanAwalDrawer ? null : percakapanIdAktif}
           onPercakapanIdChange={(idBaru) => setPercakapanIdAktif(idBaru)}
           onTutup={() => {
             mainkanSuaraHud('chirp')

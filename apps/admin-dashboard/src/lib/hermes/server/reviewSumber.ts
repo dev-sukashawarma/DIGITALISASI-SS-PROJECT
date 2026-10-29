@@ -16,8 +16,18 @@ const DEFAULT_SUKAREVIEW_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdm5tYWVsc2FtdHJldWV0Y3BhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjE4Mzc0MywiZXhwIjoyMTA3NzU5NzQzfQ.epXlCRJsHC32myEDQfJ0hacWqii3IWW3vTa4H-gnlS4'
 
 function dapatkanClientSukaReview(svcDefault: SupabaseClient): SupabaseClient {
-  const url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
-  const key = process.env.SUKAREVIEW_SERVICE_ROLE_KEY || process.env.SUKAREVIEW_SUPABASE_ANON_KEY || DEFAULT_SUKAREVIEW_KEY
+  let url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
+  let key =
+    process.env.SUKAREVIEW_SERVICE_ROLE_KEY ||
+    process.env.SUKAREVIEW_SUPABASE_ANON_KEY ||
+    DEFAULT_SUKAREVIEW_KEY
+
+  // Tangkis jika environment variable masih membawa project lama yang dibekukan Supabase
+  if (url.includes('ajvzmicqtwgrcknovubf')) {
+    url = DEFAULT_SUKAREVIEW_URL
+    key = DEFAULT_SUKAREVIEW_KEY
+  }
+
   if (url && key) {
     return createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -120,41 +130,65 @@ export function buatKonteksReview(svc: SupabaseClient, sekarang: Date): KonteksR
 
     reviews: async (filter?: FilterReview): Promise<ReviewBaris[]> => {
       try {
+        const limit = Math.min(Math.max(filter?.limit ?? 50, 1), 100)
+
+        // Prioritas 1: Schema PantauReview (business_locations, review_text, author_name, review_created_at)
         let q = client
+          .from('reviews')
+          .select('id, google_review_id, location_id, author_name, rating, review_text, sentiment, urgency, review_created_at, business_locations:location_id(name)')
+          .order('review_created_at', { ascending: false })
+
+        if (filter?.outletId) q = q.eq('location_id', filter.outletId)
+        if (filter?.minRating !== undefined) q = q.gte('rating', filter.minRating)
+        if (filter?.maxRating !== undefined) q = q.lte('rating', filter.maxRating)
+        if (filter?.sentimen) q = q.eq('sentiment', filter.sentimen)
+        q = q.limit(limit)
+
+        const { data, error } = await q
+        if (!error && data && data.length > 0) {
+          return (data as any[]).map((r): ReviewBaris => ({
+            id: r.id,
+            googleReviewId: r.google_review_id,
+            outletId: r.location_id,
+            outletNama: r.business_locations?.name ?? 'Cabang Suka Shawarma',
+            reviewer: r.author_name ?? 'Google User',
+            rating: Number(r.rating) || 0,
+            komentar: r.review_text ?? null,
+            sentimen: r.sentiment ?? null,
+            ringkasanAi: null,
+            urgensi: r.urgency ?? null,
+            kategori: [],
+            googleCreatedAt: r.review_created_at,
+          }))
+        }
+
+        // Prioritas 2: Schema SukaReview lama (outlets, comment, reviewer_name, google_created_at)
+        let qFallback = client
           .from('reviews')
           .select('id, google_review_id, outlet_id, reviewer_name, rating, comment, sentiment, ai_summary, urgency, google_created_at, outlets(name), review_categories(category)')
           .order('google_created_at', { ascending: false })
 
-        if (filter?.outletId) q = q.eq('outlet_id', filter.outletId)
-        if (filter?.minRating !== undefined) q = q.gte('rating', filter.minRating)
-        if (filter?.maxRating !== undefined) q = q.lte('rating', filter.maxRating)
-        if (filter?.sentimen) q = q.eq('sentiment', filter.sentimen)
+        if (filter?.outletId) qFallback = qFallback.eq('outlet_id', filter.outletId)
+        if (filter?.minRating !== undefined) qFallback = qFallback.gte('rating', filter.minRating)
+        if (filter?.maxRating !== undefined) qFallback = qFallback.lte('rating', filter.maxRating)
+        if (filter?.sentimen) qFallback = qFallback.eq('sentiment', filter.sentimen)
+        qFallback = qFallback.limit(limit)
 
-        const limit = Math.min(Math.max(filter?.limit ?? 50, 1), 100)
-        q = q.limit(limit)
-
-        let { data, error } = await q
-        if (error) {
-          // Jika relasi foreign key belum siap di cache (PGRST200), fallback query tanpa join
-          if (error.code === 'PGRST200') {
-            const fallbackRes = await client
-              .from('reviews')
-              .select('id, rating, comment, reviewer_name, created_at, sentiment, ai_summary, urgency')
-              .order('created_at', { ascending: false })
-              .limit(limit)
-            if (!fallbackRes.error && fallbackRes.data) {
-              data = fallbackRes.data as any
-              error = null
-            }
-          }
+        let resFallback = await qFallback
+        if (resFallback.error && resFallback.error.code === 'PGRST200') {
+          resFallback = await client
+            .from('reviews')
+            .select('id, rating, comment, reviewer_name, created_at, sentiment, ai_summary, urgency')
+            .order('created_at', { ascending: false })
+            .limit(limit)
         }
 
-        if (error) {
-          console.warn('[hermes-review] reviews query warn:', error.message)
+        if (resFallback.error) {
+          console.warn('[hermes-review] reviews query warn:', resFallback.error.message)
           return []
         }
 
-        return ((data ?? []) as any[]).map((r): ReviewBaris => {
+        return ((resFallback.data ?? []) as any[]).map((r): ReviewBaris => {
           const kategoriArr: string[] = Array.isArray(r.review_categories)
             ? r.review_categories.map((c: any) => c.category).filter(Boolean)
             : []

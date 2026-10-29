@@ -421,9 +421,8 @@ ${listSj || '  (Tidak ada riwayat pengiriman)'}
     const r = t.review
     let teksReview = ''
     if (r) {
-      const listTopRating = (r.topCabangRating || [])
-        .slice(0, 5)
-        .map((c) => `  * ${c.outlet}: ${c.rating}⭐ (${c.totalUlasan} ulasan)`)
+      const listSemuaCabang = (r.topCabangRating || [])
+        .map((c, idx) => `  ${idx + 1}. ${c.outlet}: ${c.rating}⭐ (${c.totalUlasan} ulasan)`)
         .join('\n')
 
       const listNegatif = (r.ulasanNegatifTerbaru || [])
@@ -433,9 +432,10 @@ ${listSj || '  (Tidak ada riwayat pengiriman)'}
       teksReview = `
 DATA ULASAN GOOGLE REVIEWS & KEPUASAN PELANGGAN (SUKAREVIEW):
 - Total Ulasan Terpantau: ${r.totalUlasan} ulasan
-- Rating Rata-rata Konsolidasi: ${r.ratingRataRata}⭐
-- Peringkat Rating Tertinggi Cabang:
-${listTopRating || '  (Belum ada data cabang)'}
+- Total Cabang Terpantau: ${(r.topCabangRating || []).length} cabang
+- Rating Rata-rata Konsolidasi Jaringan: ${r.ratingRataRata}⭐
+- Rekap Rating Seluruh Cabang (Google Maps):
+${listSemuaCabang || '  (Belum ada data cabang)'}
 - Ulasan Kritis / Negatif Terbaru:
 ${listNegatif || '(Tidak ada ulasan negatif terbaru - kepuasan pelanggan terjaga)'}
 `

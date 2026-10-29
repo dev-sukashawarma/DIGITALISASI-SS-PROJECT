@@ -967,6 +967,15 @@ export function buatJawabanDev(
           'Ketik `/outlet [nama]` untuk cek performa cabang spesifik atau hubungi supervisor cabang terkait.',
         ]
       }
+      if (p.includes('semua') || p.includes('seluruh')) {
+        const allOutList = rv.topCabangRating.map((o, idx) => `${idx + 1}. **${o.outlet}**: ${o.rating}⭐ (${o.totalUlasan} ulasan)`).join('\n') || '- Belum ada data rating cabang.'
+        return [
+          `${salamAwal} Berikut rating Google Review seluruh outlet Suka Shawarma (${rv.topCabangRating.length} cabang):\n\n`,
+          `> **RATING KONSOLIDASI JARINGAN**: Rata-rata **${rv.ratingRataRata}⭐** dari total **${rv.totalUlasan} ulasan** Google Maps.\n\n`,
+          `### 📍 Rating Seluruh Cabang:\n${allOutList}\n\n`,
+          'Ketik `/outlet [nama]` untuk rincian ulasan cabang spesifik.',
+        ]
+      }
       const topOutList = rv.topCabangRating.slice(0, 5).map((o, idx) => `${idx + 1}. **${o.outlet}**: ${o.rating}⭐ (${o.totalUlasan} ulasan)`).join('\n') || '- Belum ada data rating cabang.'
       const negSummary = rv.ulasanNegatifTerbaru.length > 0
         ? rv.ulasanNegatifTerbaru.slice(0, 3).map((u, idx) => `${idx + 1}. **${u.outlet}** (${u.rating}⭐ — ${u.reviewer}): _"${u.komentar}"_`).join('\n')

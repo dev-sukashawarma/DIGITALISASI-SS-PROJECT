@@ -426,8 +426,15 @@ const DEFAULT_SUKAREVIEW_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdm5tYWVsc2FtdHJldWV0Y3BhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjE4Mzc0MywiZXhwIjoyMTA3NzU5NzQzfQ.epXlCRJsHC32myEDQfJ0hacWqii3IWW3vTa4H-gnlS4'
 
 function getSukaReviewClient() {
-  const url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
-  const key = process.env.SUKAREVIEW_SERVICE_ROLE_KEY || process.env.SUKAREVIEW_SUPABASE_ANON_KEY || DEFAULT_SUKAREVIEW_KEY
+  let url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
+  let key = process.env.SUKAREVIEW_SERVICE_ROLE_KEY || process.env.SUKAREVIEW_SUPABASE_ANON_KEY || DEFAULT_SUKAREVIEW_KEY
+
+  // Tangkis URL project lama jika masih tersisa di env var Coolify container
+  if (url.includes('ajvzmicqtwgrcknovubf')) {
+    url = DEFAULT_SUKAREVIEW_URL
+    key = DEFAULT_SUKAREVIEW_KEY
+  }
+
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
@@ -1255,23 +1262,40 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         }),
       getSukaReviewClient()
         .from('reviews')
-        .select('id, rating, comment, reviewer_name, google_created_at, sentiment, urgency, outlets(name)')
-        .order('google_created_at', { ascending: false })
+        .select('id, rating, review_text, author_name, review_created_at, sentiment, urgency, location_id, business_locations:location_id(name)')
+        .order('review_created_at', { ascending: false })
         .limit(40)
         .then(async (r: any) => {
+          if (!r.error && r.data && r.data.length > 0) {
+            return {
+              data: r.data.map((item: any) => ({
+                id: item.id,
+                rating: item.rating,
+                comment: item.review_text || '',
+                reviewer_name: item.author_name || 'Pelanggan',
+                google_created_at: item.review_created_at,
+                sentiment: item.sentiment,
+                urgency: item.urgency,
+                outlets: {
+                  name: item.business_locations?.name || 'Cabang',
+                },
+              })),
+            }
+          }
+
+          // Fallback ke schema lama (outlets & comment)
+          const rFallback = await getSukaReviewClient()
+            .from('reviews')
+            .select('id, rating, comment, reviewer_name, google_created_at, sentiment, urgency, outlets(name)')
+            .order('google_created_at', { ascending: false })
+            .limit(40)
+
+          if (!rFallback.error && rFallback.data) return rFallback
+
           if (r.error) {
             console.warn('[telemetriNyata] warn SukaReview reviews:', r.error.message)
-            if (r.error.code === 'PGRST200') {
-              const rFallback = await getSukaReviewClient()
-                .from('reviews')
-                .select('id, rating, comment, reviewer_name, created_at, sentiment, urgency')
-                .order('created_at', { ascending: false })
-                .limit(40)
-              if (!rFallback.error && rFallback.data) return rFallback
-            }
-            return { data: [] }
           }
-          return r
+          return { data: [] }
         }, (err: any) => {
           console.warn('[telemetriNyata] reject SukaReview reviews:', err)
           return { data: [] }
@@ -2308,7 +2332,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           ? outletBerulasan.reduce((acc, o) => acc + (Number(o.current_rating) || 0), 0) / outletBerulasan.length
           : reviewData.reduce((acc: number, r: any) => acc + (Number(r.rating) || 0), 0) / (reviewData.length || 1)
 
-      const topCabangRating = outletBerulasan
+      const topCabangRating = reviewOutletsData
         .map((o: any) => ({
           outlet: o.name || 'Cabang',
           rating: Number(o.current_rating) || 0,

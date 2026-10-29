@@ -13,7 +13,7 @@ import type {
 
 const DEFAULT_SUKAREVIEW_URL = 'https://scvnmaelsamtreuetcpa.supabase.co'
 const DEFAULT_SUKAREVIEW_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdm5tYWVsc2FtdHJldWV0Y3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxODM3NDMsImV4cCI6MjEwNzc1OTc0M30.xLa-pfleHDBWk-MzFwB6o-84c3Mn9jNWrL1btSbHkOs'
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdm5tYWVsc2FtdHJldWV0Y3BhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjE4Mzc0MywiZXhwIjoyMTA3NzU5NzQzfQ.epXlCRJsHC32myEDQfJ0hacWqii3IWW3vTa4H-gnlS4'
 
 function dapatkanClientSukaReview(svcDefault: SupabaseClient): SupabaseClient {
   const url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
@@ -38,49 +38,80 @@ export function buatKonteksReview(svc: SupabaseClient, sekarang: Date): KonteksR
     outlets: () =>
       (cacheOutlets ??= (async () => {
         try {
+          // Prioritas 1: Ambil dari business_locations (data live Google Business Profile dari PantauReview)
+          const { data: bizData, error: bizError } = await client
+            .from('business_locations')
+            .select('id, name, slug, city, rating_average, review_count, is_active')
+            .order('name', { ascending: true })
+
+          if (!bizError && bizData && bizData.length > 0) {
+            return (bizData as any[]).map((r): OutletRatingBaris => {
+              const totalUlasan = Number(r.review_count) || 0
+              const ratingRataRata = totalUlasan > 0 ? (Number(r.rating_average) || 0) : 0
+              return {
+                id: r.id,
+                nama: r.name ?? 'Cabang',
+                slug: r.slug ?? '',
+                kota: r.city ?? null,
+                ratingRataRata,
+                totalUlasan,
+                statusOperasional:
+                  ratingRataRata >= 4.5
+                    ? 'good'
+                    : ratingRataRata >= 4.0
+                      ? 'watch'
+                      : ratingRataRata >= 3.5
+                        ? 'attention'
+                        : 'critical',
+                isActive: Boolean(r.is_active ?? true),
+              }
+            })
+          }
+
+          // Prioritas 2: Ambil dari tabel outlets SukaReview
           const { data, error } = await client
             .from('outlets')
             .select('id, name, slug, city, current_rating, total_reviews, status, is_active')
             .order('name', { ascending: true })
 
-          if (error) {
-            console.warn('[hermes-review] outlets query warn:', error.message)
-            // Fallback ke Supabase pusat jika tabel outlets belum tersedia di database review
-            const { data: centralData, error: centralError } = await svc
-              .from('outlets')
-              .select('id, name, slug, region, is_active')
-              .order('name', { ascending: true })
-
-            if (!centralError && centralData && centralData.length > 0) {
-              return (centralData as any[]).map((r): OutletRatingBaris => ({
+          if (!error && data && data.length > 0) {
+            return ((data ?? []) as any[]).map((r): OutletRatingBaris => {
+              const totalUlasan = Number(r.total_reviews) || 0
+              const ratingRataRata = totalUlasan > 0 ? (Number(r.current_rating) || 0) : 0
+              return {
                 id: r.id,
                 nama: r.name ?? 'Cabang',
                 slug: r.slug ?? '',
-                kota: r.region ?? null,
-                ratingRataRata: 0,
-                totalUlasan: 0,
-                statusOperasional: 'good',
+                kota: r.city ?? null,
+                ratingRataRata,
+                totalUlasan,
+                statusOperasional: r.status ?? 'good',
                 isActive: Boolean(r.is_active ?? true),
-              }))
-            }
-            return []
+              }
+            })
           }
 
-          return ((data ?? []) as any[]).map((r): OutletRatingBaris => {
-            const totalUlasan = Number(r.total_reviews) || 0
-            // Jika total_reviews 0, rating riil adalah 0 (belum ada ulasan), bukan default 5.0 di DB
-            const ratingRataRata = totalUlasan > 0 ? (Number(r.current_rating) || 0) : 0
-            return {
+          // Prioritas 3: Fallback ke Supabase pusat jika di database review belum ada data cabang
+          console.warn('[hermes-review] fallback ke Supabase pusat untuk outlets')
+          const { data: centralData, error: centralError } = await svc
+            .from('outlets')
+            .select('id, name, slug, region, is_active')
+            .order('name', { ascending: true })
+
+          if (!centralError && centralData && centralData.length > 0) {
+            return (centralData as any[]).map((r): OutletRatingBaris => ({
               id: r.id,
               nama: r.name ?? 'Cabang',
               slug: r.slug ?? '',
-              kota: r.city ?? null,
-              ratingRataRata,
-              totalUlasan,
-              statusOperasional: r.status ?? 'good',
+              kota: r.region ?? null,
+              ratingRataRata: 0,
+              totalUlasan: 0,
+              statusOperasional: 'good',
               isActive: Boolean(r.is_active ?? true),
-            }
-          })
+            }))
+          }
+
+          return []
         } catch (e) {
           console.warn('[hermes-review] gagal ambil outlets:', e)
           return []

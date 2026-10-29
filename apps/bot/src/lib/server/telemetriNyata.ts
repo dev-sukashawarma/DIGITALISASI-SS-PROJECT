@@ -423,7 +423,7 @@ function getSupabaseAdmin() {
 
 const DEFAULT_SUKAREVIEW_URL = 'https://scvnmaelsamtreuetcpa.supabase.co'
 const DEFAULT_SUKAREVIEW_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdm5tYWVsc2FtdHJldWV0Y3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxODM3NDMsImV4cCI6MjEwNzc1OTc0M30.xLa-pfleHDBWk-MzFwB6o-84c3Mn9jNWrL1btSbHkOs'
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdm5tYWVsc2FtdHJldWV0Y3BhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjE4Mzc0MywiZXhwIjoyMTA3NzU5NzQzfQ.epXlCRJsHC32myEDQfJ0hacWqii3IWW3vTa4H-gnlS4'
 
 function getSukaReviewClient() {
   const url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
@@ -1291,31 +1291,48 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           return { data: [] }
         }),
       getSukaReviewClient()
-        .from('outlets')
-        .select('id, name, slug, current_rating, total_reviews, is_active')
+        .from('business_locations')
+        .select('id, name, slug, rating_average, review_count, is_active')
         .eq('is_active', true)
         .order('name')
         .then(async (r: any) => {
-          if (r.error) {
-            console.warn('[telemetriNyata] warn SukaReview outlets:', r.error.message)
-            // Fallback ke Supabase pusat jika outlets di DB review belum tersedia
-            const central = await sb
-              .from('outlets')
-              .select('id, name, slug, is_active')
-              .eq('is_active', true)
-              .order('name')
-            if (!central.error && central.data) {
-              return {
-                data: central.data.map((o: any) => ({
-                  ...o,
-                  current_rating: 0,
-                  total_reviews: 0,
-                }))
-              }
+          if (!r.error && r.data && r.data.length > 0) {
+            return {
+              data: r.data.map((b: any) => ({
+                id: b.id,
+                name: b.name,
+                slug: b.slug,
+                current_rating: Number(b.rating_average) || 0,
+                total_reviews: Number(b.review_count) || 0,
+                is_active: Boolean(b.is_active),
+              })),
             }
-            return { data: [] }
           }
-          return r
+          // Prioritas 2: outlets
+          const outletsRes = await getSukaReviewClient()
+            .from('outlets')
+            .select('id, name, slug, current_rating, total_reviews, is_active')
+            .eq('is_active', true)
+            .order('name')
+          if (!outletsRes.error && outletsRes.data && outletsRes.data.length > 0) {
+            return outletsRes
+          }
+          // Prioritas 3: Fallback ke Supabase pusat
+          const central = await sb
+            .from('outlets')
+            .select('id, name, slug, is_active')
+            .eq('is_active', true)
+            .order('name')
+          if (!central.error && central.data) {
+            return {
+              data: central.data.map((o: any) => ({
+                ...o,
+                current_rating: 0,
+                total_reviews: 0,
+              })),
+            }
+          }
+          return { data: [] }
         }, (err: any) => {
           console.warn('[telemetriNyata] reject SukaReview outlets:', err)
           return { data: [] }

@@ -72,19 +72,13 @@ export default function FounderStory() {
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-[#FE7108] mb-3">
               FOUNDER &amp; OUR BEGINNING
             </p>
-            <h2 className="font-heading text-[1.75rem] font-bold leading-[1.15] tracking-tight text-[#111111] mb-4"
+            <h2 className="font-heading text-[1.35rem] sm:text-[1.5rem] font-bold leading-[1.25] tracking-tight text-[#111111] mb-4"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              <span style={{ textDecoration: "underline", textDecorationColor: "#FE7108", textUnderlineOffset: "4px" }}>Akbar Alatas</span>{" "}
-              memulai perjalanan Suka Shawarma dari satu outlet sederhana
+              <span style={{ textDecoration: "underline", textDecorationColor: "#FE7108", textUnderlineOffset: "4px" }}>Bermula dari satu outlet sederhana</span>{" "}
+              yang resmi dibuka pada 12 Mei 2024 dengan satu misi besar: menghadirkan kelezatan shawarma autentik yang berkualitas, modern, dan dapat dinikmati oleh siapa saja.
             </h2>
             <div className="space-y-3 text-[#111111]/70 leading-relaxed text-sm">
-              <p>
-                Bermula dari satu outlet sederhana yang resmi dibuka pada{" "}
-                <strong className="text-[#111111]">12 Mei 2024</strong> dengan satu
-                misi besar: menghadirkan kelezatan shawarma autentik yang berkualitas,
-                modern, dan dapat dinikmati oleh siapa saja.
-              </p>
               <p>
                 Berbekal komitmen pada konsistensi rasa dan kualitas bahan baku
                 pilihan, langkah kecil yang dimulai sejak hari itu perlahan
@@ -181,20 +175,14 @@ export default function FounderStory() {
               FOUNDER &amp; OUR BEGINNING
             </p>
             <h2
-              className="font-heading text-4xl md:text-5xl font-bold
-                         leading-[1.1] tracking-tight text-[#111111] mb-6"
+              className="font-heading text-2xl md:text-3xl lg:text-[2.2rem] font-bold
+                         leading-[1.25] tracking-tight text-[#111111] mb-6"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              <span style={{ textDecoration: "underline", textDecorationColor: "#FE7108", textUnderlineOffset: "4px" }}>Akbar Alatas</span>{" "}
-              memulai perjalanan Suka Shawarma dari satu outlet sederhana
+              <span style={{ textDecoration: "underline", textDecorationColor: "#FE7108", textUnderlineOffset: "4px" }}>Bermula dari satu outlet sederhana</span>{" "}
+              yang resmi dibuka pada 12 Mei 2024 dengan satu misi besar: menghadirkan kelezatan shawarma autentik yang berkualitas, modern, dan dapat dinikmati oleh siapa saja.
             </h2>
             <div className="space-y-4 text-[#111111]/70 leading-relaxed text-base">
-              <p>
-                Bermula dari satu outlet sederhana yang resmi dibuka pada{" "}
-                <strong className="text-[#111111]">12 Mei 2024</strong> dengan satu
-                misi besar: menghadirkan kelezatan shawarma autentik yang berkualitas,
-                modern, dan dapat dinikmati oleh siapa saja.
-              </p>
               <p>
                 Berbekal komitmen pada konsistensi rasa dan kualitas bahan baku
                 pilihan, langkah kecil yang dimulai sejak hari itu perlahan

@@ -80,19 +80,22 @@ export default function FounderStory() {
             </h2>
             <div className="space-y-3 text-[#111111]/70 leading-relaxed text-sm">
               <p>
-                Pada <strong className="text-[#111111]">12 Mei 2024</strong>,{" "}
-                <strong className="text-[#111111]">Akbar Alatas</strong> mendirikan Suka Shawarma
-                dengan visi menghadirkan shawarma berkualitas yang autentik, modern, dan
-                terjangkau untuk semua kalangan.
+                Bermula dari satu outlet sederhana yang resmi dibuka pada{" "}
+                <strong className="text-[#111111]">12 Mei 2024</strong> dengan satu
+                misi besar: menghadirkan kelezatan shawarma autentik yang berkualitas,
+                modern, dan dapat dinikmati oleh siapa saja.
               </p>
               <p>
-                Saat ini kami telah mengembangkan lebih dari <strong className="text-[#111111]">20 outlet</strong> dan membuka program kemitraan dengan keuntungan yang menarik bagi para mitra.
+                Berbekal komitmen pada konsistensi rasa dan kualitas bahan baku
+                pilihan, langkah kecil yang dimulai sejak hari itu perlahan
+                bertransformasi. Kini, jaringan kami telah berkembang menjadi
+                puluhan outlet di seluruh Jabodetabek dan membuka peluang kemitraan
+                bagi siapa saja yang ingin tumbuh bersama.
               </p>
               <p>
-                Berbekal komitmen terhadap kualitas bahan baku, cita rasa yang konsisten,
-                serta pelayanan yang ramah, Suka Shawarma terus berkembang hingga memiliki
-                puluhan outlet di seluruh Jabodetabek, tanpa meninggalkan nilai-nilai
-                yang menjadi fondasi sejak hari pertama.
+                Meski terus melangkah maju, fondasi dan nilai utama yang kami pegang
+                sejak hari pertama tidak pernah berubah—menghadirkan yang terbaik
+                di setiap gigitan.
               </p>
             </div>
           </motion.div>
@@ -187,19 +190,22 @@ export default function FounderStory() {
             </h2>
             <div className="space-y-4 text-[#111111]/70 leading-relaxed text-base">
               <p>
-                Pada <strong className="text-[#111111]">12 Mei 2024</strong>,{" "}
-                <strong className="text-[#111111]">Akbar Alatas</strong>{" "}
-                mendirikan Suka Shawarma dengan visi menghadirkan shawarma berkualitas
-                yang autentik, modern, dan terjangkau untuk semua kalangan.
+                Bermula dari satu outlet sederhana yang resmi dibuka pada{" "}
+                <strong className="text-[#111111]">12 Mei 2024</strong> dengan satu
+                misi besar: menghadirkan kelezatan shawarma autentik yang berkualitas,
+                modern, dan dapat dinikmati oleh siapa saja.
               </p>
               <p>
-                Saat ini kami telah mengembangkan lebih dari <strong className="text-[#111111]">20 outlet</strong> dan membuka program kemitraan dengan keuntungan yang menarik bagi para mitra.
+                Berbekal komitmen pada konsistensi rasa dan kualitas bahan baku
+                pilihan, langkah kecil yang dimulai sejak hari itu perlahan
+                bertransformasi. Kini, jaringan kami telah berkembang menjadi
+                puluhan outlet di seluruh Jabodetabek dan membuka peluang kemitraan
+                bagi siapa saja yang ingin tumbuh bersama.
               </p>
               <p>
-                Berbekal komitmen terhadap kualitas bahan baku, cita rasa yang konsisten,
-                serta pelayanan yang ramah, Suka Shawarma terus berkembang hingga memiliki
-                puluhan outlet di seluruh Jabodetabek, tanpa meninggalkan nilai-nilai
-                yang menjadi fondasi sejak hari pertama.
+                Meski terus melangkah maju, fondasi dan nilai utama yang kami pegang
+                sejak hari pertama tidak pernah berubah—menghadirkan yang terbaik
+                di setiap gigitan.
               </p>
             </div>
           </motion.div>

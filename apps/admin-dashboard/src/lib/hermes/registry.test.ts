@@ -179,6 +179,7 @@ describe('registry alat Hermes', () => {
     if (r.ok) {
       expect(r.data.status).toBe('ok')
       expect(r.data.database).toBe('terhubung')
+      expect(r.data.modul_aktif).toContain('review')
     }
   })
   it('review_ranking_outlet mengembalikan ranking rating cabang Google Maps', async () => {

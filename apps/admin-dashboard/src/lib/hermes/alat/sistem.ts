@@ -22,6 +22,7 @@ export const ALAT_SISTEM: DefinisiAlat[] = [
           'finance',
           'stok',
           'marcom',
+          'review',
         ],
         pesan: dbInfo.status === 'terhubung'
           ? 'Sistem operasional dan database Supabase beroperasi normal.'

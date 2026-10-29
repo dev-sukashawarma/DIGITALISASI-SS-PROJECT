@@ -24,7 +24,7 @@ export default function MenuCard({ item, index = 0 }: MenuCardProps) {
                  transition-all duration-300 transform-gpu z-[50] relative"
     >
       {/* Image — 4:3 (Layer 2) */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-[#FAF7F2] z-[20]">
+      <div className="relative aspect-square overflow-hidden bg-[#FAF7F2] z-[20]">
         <img
           src={item.image}
           alt={item.name}

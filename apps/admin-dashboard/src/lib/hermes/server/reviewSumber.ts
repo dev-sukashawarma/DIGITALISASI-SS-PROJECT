@@ -174,7 +174,7 @@ export function buatKonteksReview(svc: SupabaseClient, sekarang: Date): KonteksR
         if (filter?.sentimen) qFallback = qFallback.eq('sentiment', filter.sentimen)
         qFallback = qFallback.limit(limit)
 
-        let resFallback = await qFallback
+        let resFallback: any = await qFallback
         if (resFallback.error && resFallback.error.code === 'PGRST200') {
           resFallback = await client
             .from('reviews')

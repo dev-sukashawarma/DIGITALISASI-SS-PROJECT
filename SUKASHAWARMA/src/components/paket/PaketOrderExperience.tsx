@@ -7,13 +7,13 @@ import { menuItems, CATEGORY_LABELS, CATEGORY_ORDER, type MenuCategory, type Men
 declare const gtag: (...args: unknown[]) => void;
 
 const WA_NUMBER = "6282299325621";
-const MIN_PCS = 50;
+const MIN_PCS = 30;
 const DRINK_CATEGORY: MenuCategory = "minuman";
 const DISCOUNT_RATE = 0.15;
 
 // Grid halaman utama hanya menu shawarma — minuman dipilih di keranjang saat Paket B
 const GRID_CATEGORIES: MenuCategory[] = CATEGORY_ORDER.filter(
-  (c) => c !== "best-seller" && c !== DRINK_CATEGORY
+  (c) => c !== "best-seller" && c !== DRINK_CATEGORY && c !== "shawarmie"
 );
 const drinkItems = menuItems.filter((i) => i.category === DRINK_CATEGORY);
 
@@ -276,7 +276,7 @@ export default function PaketOrderExperience() {
               Susun Pesanan Kamu
             </h2>
             <p className="text-[#111111]/60 max-w-lg mx-auto mb-4">
-              Atur jumlah menu sesuka hati mu. Min order 50pcs akan dapat diskon 15%
+              Atur jumlah menu sesuka hati mu. Min order 30pcs akan dapat diskon 15%
             </p>
             <p className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-[#111111]/45">
               <span><span className="font-semibold text-[#111111]/70">Paket A</span> tanpa minuman</span>
@@ -301,7 +301,7 @@ export default function PaketOrderExperience() {
                         key={item.id}
                         className="flex flex-col bg-white rounded-2xl overflow-hidden shadow-layered-sm border border-black/[0.05]"
                       >
-                        <div className="relative aspect-[4/3] overflow-hidden bg-[#FAF7F2]">
+                        <div className="relative aspect-square overflow-hidden bg-[#FAF7F2]">
                           <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                           {item.isBestSeller && (
                             <div className="absolute top-2.5 left-2.5 bg-[#FFC500] text-[#111111] text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full">

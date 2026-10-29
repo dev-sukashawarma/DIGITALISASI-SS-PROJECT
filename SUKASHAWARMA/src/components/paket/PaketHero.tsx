@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { motion, useInView } from "motion/react";
 
 const BADGES = [
-  { label: "Min. 50 Pcs" },
+  { label: "Min. 30 Pcs" },
   { label: "Diskon 15%" },
   { label: "Bebas Pilih Menu" },
   { label: "DP 50%" },
@@ -47,7 +47,7 @@ export default function PaketHero() {
           style={{ fontSize: "clamp(0.95rem, 1.5vw, 1.05rem)" }}
         >
           Lengkapi momen acaramu menjadi lebih seru dengan SUKA Shawarma!
-          Bebas pilih menu dan nikmatin keuntungan disc 15% dengan minimal order 50pcs Shawarma
+          Bebas pilih menu dan nikmatin keuntungan disc 15% dengan minimal order 30pcs Shawarma
         </motion.p>
 
         <motion.div

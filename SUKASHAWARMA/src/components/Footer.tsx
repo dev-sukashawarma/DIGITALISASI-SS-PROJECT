@@ -6,7 +6,6 @@ const footerLinks = {
     { label: "Original Shawarma Sapi", href: "/menu" },
     { label: "Original Shawarma Mix", href: "/menu" },
     { label: "Suka Suka", href: "/menu" },
-    { label: "Shawarmie", href: "/menu" },
     { label: "Minuman", href: "/menu" },
   ],
   Lokasi: [

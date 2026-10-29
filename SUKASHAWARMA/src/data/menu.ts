@@ -36,7 +36,6 @@ export const CATEGORY_ORDER: MenuCategory[] = [
   "original-shawarma-sapi",
   "original-shawarma-mix",
   "suka-suka",
-  "shawarmie",
   "minuman",
 ];
 
@@ -48,7 +47,7 @@ export const menuItems: MenuItem[] = [
     category: "original-shawarma-ayam",
     description: "Shawarma ayam ukuran besar — lebih banyak lebih puas",
     price: 29000,
-    image: "/menus/SS_ORI_AYAM.png",
+    image: "/menus/SS_ORI_AYAM_01.jpg",
     isBestSeller: true,
   },
   {
@@ -57,7 +56,7 @@ export const menuItems: MenuItem[] = [
     category: "original-shawarma-ayam",
     description: "Shawarma ayam ukuran sedang dengan bumbu rempah khas SUKA",
     price: 24000,
-    image: "/menus/ORI AYAM.png",
+    image: "/menus/SS_ORI_AYAM_01.jpg",
   },
   {
     id: "ori-ayam-jumbo",
@@ -65,7 +64,7 @@ export const menuItems: MenuItem[] = [
     category: "original-shawarma-ayam",
     description: "Shawarma ayam ukuran jumbo untuk porsi ekstra",
     price: 34000,
-    image: "/menus/ORI AYAM.png",
+    image: "/menus/SS_ORI_AYAM_01.jpg",
   },
 
   // ─── ORIGINAL SHAWARMA SAPI ──────────────────────────────────────────────
@@ -75,7 +74,7 @@ export const menuItems: MenuItem[] = [
     category: "original-shawarma-sapi",
     description: "Shawarma daging sapi pilihan ukuran besar",
     price: 32000,
-    image: "/menus/ORI SAPI.png",
+    image: "/menus/SS_ORI_SAPI_01.jpg",
     isBestSeller: true,
   },
   {
@@ -84,7 +83,7 @@ export const menuItems: MenuItem[] = [
     category: "original-shawarma-sapi",
     description: "Shawarma daging sapi pilihan ukuran jumbo",
     price: 42000,
-    image: "/menus/ORI SAPI.png",
+    image: "/menus/SS_ORI_SAPI_01.jpg",
   },
   {
     id: "ori-sapi-sedang",
@@ -92,7 +91,7 @@ export const menuItems: MenuItem[] = [
     category: "original-shawarma-sapi",
     description: "Shawarma daging sapi pilihan ukuran sedang",
     price: 27000,
-    image: "/menus/ORI SAPI.png",
+    image: "/menus/SS_ORI_SAPI_01.jpg",
   },
 
   // ─── ORIGINAL SHAWARMA MIX ───────────────────────────────────────────────
@@ -102,7 +101,7 @@ export const menuItems: MenuItem[] = [
     category: "original-shawarma-mix",
     description: "Perpaduan ayam dan sapi dalam satu wrap ukuran besar",
     price: 37000,
-    image: "/menus/ORI SHAWARMA MIX.png",
+    image: "/menus/SS_ORI_MIX_01.jpg",
   },
   {
     id: "ori-mix-jumbo",
@@ -110,7 +109,7 @@ export const menuItems: MenuItem[] = [
     category: "original-shawarma-mix",
     description: "Perpaduan ayam dan sapi dalam satu wrap ukuran jumbo",
     price: 47000,
-    image: "/menus/ORI SHAWARMA MIX.png",
+    image: "/menus/SS_ORI_MIX_01.jpg",
   },
 
   // ─── SUKA SUKA ───────────────────────────────────────────────────────────
@@ -120,7 +119,7 @@ export const menuItems: MenuItem[] = [
     category: "suka-suka",
     description: "Shawarma ayam spesial dengan saus SUKA signature",
     price: 29000,
-    image: "/menus/SS_SUKA_CHICKEN.png",
+    image: "/menus/SS_SUKA_CHICKEN_01.jpg",
     isBestSeller: true,
   },
   {
@@ -129,7 +128,7 @@ export const menuItems: MenuItem[] = [
     category: "suka-suka",
     description: "Shawarma sapi spesial dengan saus SUKA signature",
     price: 32000,
-    image: "/menus/SS_SUKA_BEEF.png",
+    image: "/menus/SS_SUKA_BEEF_01.jpg",
   },
   {
     id: "suka-fried-chicken",
@@ -137,7 +136,7 @@ export const menuItems: MenuItem[] = [
     category: "suka-suka",
     description: "Shawarma ayam goreng crispy dengan saus SUKA signature",
     price: 30000,
-    image: "/menus/SS_SUKA_FRIED_CHICKEN.png",
+    image: "/menus/SS_SUKA_FRIED_CHICKEN_01.jpg",
   },
   {
     id: "suka-samyang",
@@ -145,25 +144,7 @@ export const menuItems: MenuItem[] = [
     category: "suka-suka",
     description: "Shawarma pedas level Samyang — buat yang suka tantangan",
     price: 30000,
-    image: "/menus/SS_SUKA_SAMYANG.png",
-  },
-
-  // ─── SHAWARMIE ───────────────────────────────────────────────────────────
-  {
-    id: "shawarmie-ayam",
-    name: "Shawarmie Ayam",
-    category: "shawarmie",
-    description: "Shawarma ayam disajikan dengan mie — perpaduan unik",
-    price: 24000,
-    image: "/menus/SS_SHAWARMIE_AYAM.png",
-  },
-  {
-    id: "shawarmie-sapi",
-    name: "Shawarmie Sapi",
-    category: "shawarmie",
-    description: "Shawarma sapi disajikan dengan mie — perpaduan unik",
-    price: 27000,
-    image: "/menus/SS_SHAWARMIE_SAPI.png",
+    image: "/menus/SS_SUKA_SAMYANG_01.jpg",
   },
 
   // ─── MINUMAN ─────────────────────────────────────────────────────────────

@@ -9,19 +9,19 @@ const bestSellers = [
     id: "ori-ayam-besar",
     name: "ORIGINAL AYAM BESAR",
     description: "Shawarma ayam ukuran besar, lebih banyak lebih puas",
-    image: "/menus/SS_ORI_AYAM.png",
+    image: "/menus/SS_ORI_AYAM_01.jpg",
   },
   {
     id: "ori-sapi-besar",
     name: "ORIGINAL SAPI BESAR",
     description: "Shawarma daging sapi pilihan ukuran besar",
-    image: "/menus/ORI SAPI.png",
+    image: "/menus/SS_ORI_SAPI_01.jpg",
   },
   {
     id: "suka-chicken",
     name: "SUKA CHICKEN",
     description: "Shawarma ayam spesial dengan saus SUKA signature",
-    image: "/menus/SS_SUKA_CHICKEN.png",
+    image: "/menus/SS_SUKA_CHICKEN_01.jpg",
   },
 ];
 
@@ -61,7 +61,7 @@ export default function BestSeller() {
               className="group flex flex-col transform-gpu"
             >
               {/* Foto (Layer 2) & Badge (Layer 3) */}
-              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] mb-5 shadow-layered-md group-hover:shadow-layered-lg transition-all duration-300 transform-gpu z-[20]">
+              <div className="relative rounded-2xl overflow-hidden aspect-square mb-5 shadow-layered-md group-hover:shadow-layered-lg transition-all duration-300 transform-gpu z-[20]">
                 <img
                   src={item.image}
                   alt={item.name}

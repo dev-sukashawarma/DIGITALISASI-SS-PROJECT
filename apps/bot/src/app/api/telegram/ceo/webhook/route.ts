@@ -27,6 +27,9 @@ interface TelegramUpdate {
   }
 }
 
+// Map memori untuk mereset sesi percakapan Telegram pengguna saat /new atau /reset
+const sesiEpochMap = new Map<string, number>()
+
 export async function POST(req: NextRequest) {
   // Verifikasi opsional secret token jika dikonfigurasi di webhook
   const secretHeader = req.headers.get('x-telegram-bot-api-secret-token')
@@ -342,8 +345,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    // ─────────────────────────────────────────────────────────── Command /new
-    if (text === '/new' || text.startsWith('/new ')) {
+    // ─────────────────────────────────────────────────────────── Command /new & /reset
+    if (text === '/new' || text.startsWith('/new ') || text === '/reset' || text.startsWith('/reset ')) {
+      sesiEpochMap.set(fromId, Date.now())
       await kirimPesanTelegram(
         chatId,
         `🔄 <b>SESI PERCAKAPAN BARU DIMULAI</b>\n` +
@@ -489,8 +493,11 @@ export async function POST(req: NextRequest) {
           : ""
 
         const rev = telemetri.review
+        const listTopRev = rev?.topCabangRating
+          ? rev.topCabangRating.map((c, i) => `${i + 1}. ${c.outlet}: ${c.rating}⭐ (${c.totalUlasan} ulasan)`).join('\n  ')
+          : ''
         const revSummary = rev
-          ? `Rating rata-rata: ${rev.ratingRataRata}⭐ (${rev.totalUlasan} ulasan)`
+          ? `Rating rata-rata konsolidasi: ${rev.ratingRataRata}⭐ (${rev.totalUlasan} ulasan Google Maps dari ${rev.topCabangRating?.length || 0} cabang). Rekap seluruh cabang:\n  ${listTopRev}`
           : ""
 
         const dist = telemetri.distribusi
@@ -521,11 +528,13 @@ export async function POST(req: NextRequest) {
       // Coba Hermes dengan batas waktu 12 detik agar webhook tidak timeout
       if (baseUrl && kunci) {
         try {
+          const epoch = sesiEpochMap.get(fromId)
+          const sesiId = epoch ? `telegram-ceo-${fromId}-${epoch}` : `telegram-ceo-${fromId}`
           for await (const chunk of tanyaHermes({
             baseUrl,
             kunci,
             profil: "ceo",
-            sesiId: `telegram-ceo-${fromId}`,
+            sesiId,
             pesan: promptUser,
             signal: AbortSignal.timeout(12_000),
           })) {

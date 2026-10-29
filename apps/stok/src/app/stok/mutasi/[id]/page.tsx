@@ -1,13 +1,18 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, use, useMemo } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { useAuth } from '@suka/auth';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { useMutasiDetail, useMutasiActions } from '@/hooks/useMutasi';
+import { useStokBalance } from '@/hooks/useStokBalance';
 import { canApproveMutasi } from '@/lib/stok/approver';
-import { convertToDistribusiUnit } from '@/lib/format/compositeUnit';
+import { 
+  convertToDistribusiUnit, 
+  convertToBaseUnit, 
+  convertGramToBesar 
+} from '@/lib/format/compositeUnit';
 import { BottomNav } from '@/components/common/BottomNav';
 import type { MutasiStatus } from '@/lib/types/mutasi';
 import { 
@@ -68,6 +73,9 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
   
   const { data, loading, refresh } = useMutasiDetail(mutasiId);
   const { approve, kirim, terima } = useMutasiActions();
+
+  // Stock balance of outlet asal (untuk validasi pengiriman)
+  const { balances: outletAsalBalances } = useStokBalance(data?.outlet_asal_id);
   
   // Action states
   const [busy, setBusy] = useState(false);
@@ -83,9 +91,45 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
   const [kurirProvider, setKurirProvider] = useState('');
   const [kurirResi, setKurirResi] = useState('');
   const [kurirOngkos, setKurirOngkos] = useState('');
+  const [qtyDikirimInput, setQtyDikirimInput] = useState<Record<string, number | string>>({});
   
   // Terima form (diisi oleh Kru / Leader di Outlet Tujuan)
   const [kondisi, setKondisi] = useState<Record<string, 'baik' | 'rusak' | 'hilang_qty'>>({});
+
+  // Helper stok tersedia di outlet asal dalam satuan distribusi
+  const getStokTersediaDist = (b: any, bal: any) => {
+    if (!bal || !b) return { qtyDist: 0, label: '0' };
+    const saldoRaw = bal.saldo ?? 0;
+    const saldoBesar = bal.saldo_is_gram ? convertGramToBesar(saldoRaw, b) : saldoRaw;
+    const rawDist = convertToDistribusiUnit(saldoBesar, b);
+    const qtyDist = Math.max(0, Math.round(rawDist * 100) / 100);
+    const distUnit = b.satuan_distribusi || b.satuan || '';
+    return {
+      qtyDist,
+      label: `${qtyDist} ${distUnit}`
+    };
+  };
+
+  const getItemQtyDikirimDist = (item: any) => {
+    if (qtyDikirimInput[item.id] !== undefined) {
+      return qtyDikirimInput[item.id];
+    }
+    const b = item.bahan_baku;
+    const rawDist = b ? convertToDistribusiUnit(item.qty_diajukan, b) : item.qty_diajukan;
+    return Math.round(rawDist * 100) / 100;
+  };
+
+  const hasExceedingStock = useMemo(() => {
+    if (!data?.items || !outletAsalBalances.length) return false;
+    return data.items.some((it: any) => {
+      const b = it.bahan_baku;
+      const bal = outletAsalBalances.find((x: any) => x.bahan_baku_id === it.bahan_baku_id);
+      if (!bal) return false;
+      const stok = getStokTersediaDist(b, bal);
+      const val = getItemQtyDikirimDist(it);
+      return Number(val) > stok.qtyDist;
+    });
+  }, [data?.items, outletAsalBalances, qtyDikirimInput]);
 
   if (loading || !outletStaff) {
     return (
@@ -165,20 +209,51 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
       setErrorMsg('Nama kurir atau pengantar harus diisi');
       return;
     }
+
+    // Validasi kuantitas item yang akan dikirim
+    const itemsPayload: { item_id: string; qty_dikirim: number }[] = [];
+    for (const it of (data.items || [])) {
+      const b = it.bahan_baku;
+      const distUnit = b?.satuan_distribusi || b?.satuan || '';
+      const val = getItemQtyDikirimDist(it);
+      const numDist = Number(val);
+      
+      if (isNaN(numDist) || numDist < 0) {
+        setErrorMsg(`Jumlah kirim untuk ${b?.nama || 'bahan'} harus berupa angka valid (minimal 0)`);
+        return;
+      }
+
+      const bal = outletAsalBalances.find((x: any) => x.bahan_baku_id === it.bahan_baku_id);
+      if (bal) {
+        const stok = getStokTersediaDist(b, bal);
+        if (numDist > stok.qtyDist) {
+          setErrorMsg(`Jumlah kirim ${b?.nama || 'bahan'} (${numDist} ${distUnit}) melebihi stok yang tersedia di outlet asal (${stok.label})`);
+          return;
+        }
+      }
+
+      const baseQty = b ? convertToBaseUnit(numDist, b) : numDist;
+      itemsPayload.push({
+        item_id: it.id,
+        qty_dikirim: Math.round(baseQty * 10000) / 10000
+      });
+    }
+
+    const totalQty = itemsPayload.reduce((acc, it) => acc + (it.qty_dikirim || 0), 0);
+    if (totalQty <= 0) {
+      setErrorMsg('Minimal satu item harus memiliki jumlah kirim lebih dari 0');
+      return;
+    }
+
     setBusy(true); 
     setErrorMsg(null);
     try {
-      const itemsDikirim = data.items?.map((it: any) => ({
-        item_id: it.id,
-        qty_dikirim: it.qty_diajukan
-      })) || [];
-      
       await kirim(data.id, { 
         provider: kurirDisetujui || kurirProvider.trim(),
         resi: kurirResi.trim() || undefined,
         ongkos: kurirDisetujui ? data.kurir_info?.ongkos : (kurirOngkos ? parseInt(kurirOngkos, 10) : undefined),
         pengirim_nama: (pengirimNama.trim() || outletStaff.name || '').trim()
-      }, itemsDikirim);
+      }, itemsPayload);
 
       setSuccessMsg('Mutasi berhasil dikonfirmasi pengirimannya');
       refresh();
@@ -447,7 +522,7 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
             <div className="bg-white rounded-2xl p-5 border border-blue-200 shadow-xs space-y-4">
               <div className="border-b border-blue-100 pb-2">
                 <h2 className="font-extrabold text-blue-900 text-xs uppercase tracking-wider">Form Pengiriman (Outlet Asal)</h2>
-                <p className="text-[11px] text-blue-700/80 mt-0.5">Kru / Leader outlet asal wajib mengisi data pengiriman fisik barang.</p>
+                <p className="text-[11px] text-blue-700/80 mt-0.5">Kru / Leader outlet asal wajib memeriksa stok fisik dan mengisi data pengiriman.</p>
               </div>
               
               <div className="space-y-3">
@@ -511,11 +586,108 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                 </div>
                 )}
+
+                {/* Daftar Item yang Dikirim & Cek Stok Outlet Asal */}
+                <div className="border-t border-blue-100 pt-3 space-y-3">
+                  <div>
+                    <h3 className="text-xs font-extrabold text-blue-900 uppercase tracking-wider">
+                      Item Bahan Baku yang Dikirim Fisik
+                    </h3>
+                    <p className="text-[11px] text-suka-brown/60 mt-0.5">
+                      Periksa ketersediaan stok outlet dan sesuaikan jumlah kirim jika stok fisik atau saldo sistem berbeda dari pengajuan awal.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {data.items?.map((item: any) => {
+                      const b = item.bahan_baku;
+                      const distUnit = b?.satuan_distribusi || b?.satuan || '';
+                      const rawQtyDiajukanDist = b ? convertToDistribusiUnit(item.qty_diajukan, b) : item.qty_diajukan;
+                      const qtyDiajukanDist = Math.round(rawQtyDiajukanDist * 100) / 100;
+
+                      const bal = outletAsalBalances.find((x: any) => x.bahan_baku_id === item.bahan_baku_id);
+                      const stokTersedia = getStokTersediaDist(b, bal);
+                      const currentVal = getItemQtyDikirimDist(item);
+                      const numVal = Number(currentVal);
+                      const isExceeding = bal && !isNaN(numVal) && numVal > stokTersedia.qtyDist;
+
+                      return (
+                        <div 
+                          key={item.id} 
+                          className={`p-3 rounded-xl border transition-all ${
+                            isExceeding ? 'bg-red-50/80 border-red-300' : 'bg-suka-cream/30 border-suka-brown/10'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-bold text-xs text-[#1e1b15]">{b?.nama}</h4>
+                              <p className="text-[10px] text-suka-brown/70 mt-0.5">
+                                Diajukan: <span className="font-extrabold text-suka-brown">{qtyDiajukanDist} {distUnit}</span>
+                                {bal && (
+                                  <> · Stok Asal: <span className={`font-extrabold ${isExceeding ? 'text-red-600' : 'text-green-700'}`}>{stokTersedia.label}</span></>
+                                )}
+                              </p>
+                            </div>
+                            {isExceeding && (
+                              <span className="text-[10px] bg-red-100 text-red-700 font-extrabold px-2 py-0.5 rounded-md">
+                                Melebihi Stok
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <input
+                                type="number"
+                                step="any"
+                                min="0"
+                                value={currentVal}
+                                onChange={(e) => setQtyDikirimInput(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                placeholder="0"
+                                className={`w-full bg-white border rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-2 ${
+                                  isExceeding ? 'border-red-400 focus:ring-red-400 text-red-700' : 'border-suka-brown/20 focus:ring-suka-orange'
+                                }`}
+                              />
+                              <span className="absolute right-3 top-2 text-xs font-bold text-suka-brown/50 pointer-events-none">
+                                {distUnit}
+                              </span>
+                            </div>
+                            {isExceeding && (
+                              <button
+                                type="button"
+                                onClick={() => setQtyDikirimInput(prev => ({ ...prev, [item.id]: stokTersedia.qtyDist }))}
+                                className="px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-xl text-[10px] font-extrabold shrink-0 transition-colors cursor-pointer"
+                              >
+                                Pakai Max ({stokTersedia.qtyDist})
+                              </button>
+                            )}
+                          </div>
+
+                          {isExceeding && (
+                            <p className="text-[10px] text-red-600 font-bold mt-1.5 leading-snug">
+                              Jumlah kirim ({numVal} {distUnit}) melebihi stok yang ada di outlet ({stokTersedia.label}). Harap sesuaikan jumlah atau lakukan penyesuaian stok terlebih dahulu.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
               </div>
+
+              {hasExceedingStock && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <p>
+                    Terdapat item dengan jumlah kirim yang melebihi stok tersedia di outlet asal. Sesuaikan jumlah kirim atau update stok fisik terlebih dahulu sebelum konfirmasi.
+                  </p>
+                </div>
+              )}
 
               <button 
                 onClick={handleKirim}
-                disabled={busy || (!kurirDisetujui && !kurirProvider.trim())}
+                disabled={busy || (!kurirDisetujui && !kurirProvider.trim()) || hasExceedingStock}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs disabled:opacity-50 mt-2 cursor-pointer active:scale-95"
               >
                 {busy ? 'Mengirim Data...' : 'Konfirmasi Pengiriman & Potong Stok Asal'}

@@ -156,19 +156,32 @@ export function useMutasiActions() {
     namaKurir: string,
     ongkir: number
   ) => {
-    return await ajukanMutasi(outletAsalId, outletTujuanId, catatan, items, namaKurir, ongkir)
+    const res = await ajukanMutasi(outletAsalId, outletTujuanId, catatan, items, namaKurir, ongkir)
+    if (!res.success) {
+      throw new Error(res.error || 'Gagal mengajukan mutasi')
+    }
+    return res.data!
   }
 
   const approve = async (mutasiId: string, isApproved: boolean, catatanPenolakan?: string) => {
-    await approveMutasi(mutasiId, isApproved, catatanPenolakan)
+    const res = await approveMutasi(mutasiId, isApproved, catatanPenolakan)
+    if (!res.success) {
+      throw new Error(res.error || 'Gagal memproses persetujuan mutasi')
+    }
   }
 
   const kirim = async (mutasiId: string, kurirInfo: any, itemsDikirim: { item_id: string, qty_dikirim: number }[]) => {
-    await kirimMutasi(mutasiId, kurirInfo, itemsDikirim)
+    const res = await kirimMutasi(mutasiId, kurirInfo, itemsDikirim)
+    if (!res.success) {
+      throw new Error(res.error || 'Gagal mengirim mutasi')
+    }
   }
 
   const terima = async (mutasiId: string, itemsDiterima: { item_id: string, qty_diterima: number, kondisi_diterima: string, foto_bukti_terima?: string }[]) => {
-    await terimaMutasi(mutasiId, itemsDiterima)
+    const res = await terimaMutasi(mutasiId, itemsDiterima)
+    if (!res.success) {
+      throw new Error(res.error || 'Gagal menerima mutasi')
+    }
   }
 
   return { ajukan, approve, kirim, terima }

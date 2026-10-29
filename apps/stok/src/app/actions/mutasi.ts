@@ -5,6 +5,36 @@ import type { MutasiAntarOutlet } from '@/lib/types/mutasi'
 import type { PendingMutasiItem } from '@/lib/stok/mutasiBadge'
 import { canApproveMutasi } from '@/lib/stok/approver'
 
+export type MutasiActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string }
+
+function formatMutasiError(rawMsg: string): string {
+  if (!rawMsg) return 'Terjadi kesalahan sistem'
+  if (rawMsg.includes('Stok tidak cukup')) {
+    return rawMsg
+  }
+  if (rawMsg.includes('Not authorized to send')) {
+    return 'Anda tidak memiliki hak otorisasi untuk mengirim mutasi dari outlet asal ini.'
+  }
+  if (rawMsg.includes('Not authorized to receive')) {
+    return 'Anda tidak memiliki hak otorisasi untuk menerima mutasi ini.'
+  }
+  if (rawMsg.includes('Not authorized to create')) {
+    return 'Anda tidak memiliki hak otorisasi untuk membuat mutasi untuk outlet ini.'
+  }
+  if (rawMsg.includes('Not authorized to approve')) {
+    return 'Hanya Admin Kitchen yang berhak menyetujui atau menolak mutasi.'
+  }
+  if (rawMsg.includes('Invalid status for sending')) {
+    return 'Status mutasi tidak valid untuk pengiriman (mungkin sudah dikirim atau dibatalkan).'
+  }
+  if (rawMsg.includes('Invalid status for receiving')) {
+    return 'Status mutasi tidak valid untuk penerimaan (belum dikirim atau sudah selesai).'
+  }
+  return rawMsg
+}
+
 // ---------------------------------------------------------------------------
 // Authenticated client — respects RLS and sets auth.uid()
 // ---------------------------------------------------------------------------
@@ -165,24 +195,28 @@ export async function ajukanMutasi(
   items: { bahan_baku_id: string, qty_diajukan: number }[],
   namaKurir: string,
   ongkir: number
-): Promise<string> {
-  const supabase = await getAuthClient()
+): Promise<MutasiActionResult<string>> {
+  try {
+    const supabase = await getAuthClient()
 
-  // Wajib sejak migrasi 20300254001600; ditinjau Admin Kitchen saat persetujuan.
-  if (!namaKurir?.trim()) throw new Error('Nama kurir wajib diisi')
-  if (!Number.isFinite(ongkir) || ongkir < 0) throw new Error('Ongkir wajib diisi (boleh 0)')
+    // Wajib sejak migrasi 20300254001600; ditinjau Admin Kitchen saat persetujuan.
+    if (!namaKurir?.trim()) return { success: false, error: 'Nama kurir wajib diisi' }
+    if (!Number.isFinite(ongkir) || ongkir < 0) return { success: false, error: 'Ongkir wajib diisi (boleh 0)' }
 
-  const { data, error } = await supabase.rpc('ajukan_mutasi', {
-    p_outlet_asal_id: outletAsalId,
-    p_outlet_tujuan_id: outletTujuanId,
-    p_catatan: catatan,
-    p_items: items,
-    p_nama_kurir: namaKurir.trim(),
-    p_ongkir: Math.round(ongkir)
-  })
-  
-  if (error) throw new Error(error.message)
-  return data as string
+    const { data, error } = await supabase.rpc('ajukan_mutasi', {
+      p_outlet_asal_id: outletAsalId,
+      p_outlet_tujuan_id: outletTujuanId,
+      p_catatan: catatan,
+      p_items: items,
+      p_nama_kurir: namaKurir.trim(),
+      p_ongkir: Math.round(ongkir)
+    })
+    
+    if (error) return { success: false, error: formatMutasiError(error.message) }
+    return { success: true, data: data as string }
+  } catch (err: any) {
+    return { success: false, error: formatMutasiError(err?.message || 'Gagal mengajukan mutasi') }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -192,35 +226,40 @@ export async function approveMutasi(
   mutasiId: string,
   isApproved: boolean,
   catatanPenolakan?: string
-): Promise<void> {
-  const supabase = await getAuthClient()
+): Promise<MutasiActionResult<void>> {
+  try {
+    const supabase = await getAuthClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    throw new Error('Sesi login tidak valid. Silakan login kembali.')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Sesi login tidak valid. Silakan login kembali.' }
+    }
+
+    const { data: staff, error: staffError } = await supabase
+      .from('outlet_staff')
+      .select('role, status')
+      .eq('id', user.id)
+      .single()
+
+    if (staffError || !staff || staff.status !== 'active' || !canApproveMutasi(staff.role)) {
+      return { success: false, error: 'Hanya Admin Kitchen yang berhak menyetujui atau menolak mutasi' }
+    }
+
+    if (!isApproved && (!catatanPenolakan || !catatanPenolakan.trim())) {
+      return { success: false, error: 'Alasan penolakan mutasi wajib diisi' }
+    }
+
+    const { error } = await supabase.rpc('approve_mutasi', {
+      p_mutasi_id: mutasiId,
+      p_is_approved: isApproved,
+      p_catatan_penolakan: catatanPenolakan?.trim() || null
+    })
+
+    if (error) return { success: false, error: formatMutasiError(error.message) }
+    return { success: true, data: undefined }
+  } catch (err: any) {
+    return { success: false, error: formatMutasiError(err?.message || 'Gagal memproses persetujuan mutasi') }
   }
-
-  const { data: staff, error: staffError } = await supabase
-    .from('outlet_staff')
-    .select('role, status')
-    .eq('id', user.id)
-    .single()
-
-  if (staffError || !staff || staff.status !== 'active' || !canApproveMutasi(staff.role)) {
-    throw new Error('Hanya Admin Kitchen yang berhak menyetujui atau menolak mutasi')
-  }
-
-  if (!isApproved && (!catatanPenolakan || !catatanPenolakan.trim())) {
-    throw new Error('Alasan penolakan mutasi wajib diisi')
-  }
-
-  const { error } = await supabase.rpc('approve_mutasi', {
-    p_mutasi_id: mutasiId,
-    p_is_approved: isApproved,
-    p_catatan_penolakan: catatanPenolakan?.trim() || null
-  })
-
-  if (error) throw new Error(error.message)
 }
 
 // ---------------------------------------------------------------------------
@@ -230,16 +269,21 @@ export async function kirimMutasi(
   mutasiId: string,
   kurirInfo: any,
   itemsDikirim: { item_id: string, qty_dikirim: number }[]
-): Promise<void> {
-  const supabase = await getAuthClient()
-  
-  const { error } = await supabase.rpc('kirim_mutasi', {
-    p_mutasi_id: mutasiId,
-    p_kurir_info: kurirInfo,
-    p_items_dikirim: itemsDikirim
-  })
-  
-  if (error) throw new Error(error.message)
+): Promise<MutasiActionResult<void>> {
+  try {
+    const supabase = await getAuthClient()
+    
+    const { error } = await supabase.rpc('kirim_mutasi', {
+      p_mutasi_id: mutasiId,
+      p_kurir_info: kurirInfo,
+      p_items_dikirim: itemsDikirim
+    })
+    
+    if (error) return { success: false, error: formatMutasiError(error.message) }
+    return { success: true, data: undefined }
+  } catch (err: any) {
+    return { success: false, error: formatMutasiError(err?.message || 'Gagal mengirim mutasi') }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -248,13 +292,18 @@ export async function kirimMutasi(
 export async function terimaMutasi(
   mutasiId: string,
   itemsDiterima: { item_id: string, qty_diterima: number, kondisi_diterima: string, foto_bukti_terima?: string }[]
-): Promise<void> {
-  const supabase = await getAuthClient()
-  
-  const { error } = await supabase.rpc('terima_mutasi', {
-    p_mutasi_id: mutasiId,
-    p_items_diterima: itemsDiterima
-  })
-  
-  if (error) throw new Error(error.message)
+): Promise<MutasiActionResult<void>> {
+  try {
+    const supabase = await getAuthClient()
+    
+    const { error } = await supabase.rpc('terima_mutasi', {
+      p_mutasi_id: mutasiId,
+      p_items_diterima: itemsDiterima
+    })
+    
+    if (error) return { success: false, error: formatMutasiError(error.message) }
+    return { success: true, data: undefined }
+  } catch (err: any) {
+    return { success: false, error: formatMutasiError(err?.message || 'Gagal menerima mutasi') }
+  }
 }

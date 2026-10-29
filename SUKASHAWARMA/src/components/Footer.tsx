@@ -33,7 +33,7 @@ const contactInfo = {
   website: { label: "sukashawarma.com", href: "https://sukashawarma.com" },
   alamat:
     "Jalan Bukit Nirwana Raya No. 3, Desa/Kelurahan Mulya Harja, Kec. Bogor Selatan, Kota Bogor, Provinsi Jawa Barat 16135",
-  email: "ptsukashawarma@gmail.com",
+  email: "email@sukashawarma.com",
   telepon: "0818-0454-1031",
 };
 

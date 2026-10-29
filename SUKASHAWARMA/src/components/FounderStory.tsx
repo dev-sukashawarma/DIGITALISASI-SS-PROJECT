@@ -86,8 +86,13 @@ export default function FounderStory() {
                 terjangkau untuk semua kalangan.
               </p>
               <p>
-                Berbekal komitmen terhadap kualitas bahan baku dan cita rasa yang konsisten,
-                Suka Shawarma terus berkembang hingga puluhan outlet di Jabodetabek.
+                Saat ini kami telah mengembangkan lebih dari <strong className="text-[#111111]">20 outlet</strong> dan membuka program kemitraan dengan keuntungan yang menarik bagi para mitra.
+              </p>
+              <p>
+                Berbekal komitmen terhadap kualitas bahan baku, cita rasa yang konsisten,
+                serta pelayanan yang ramah, Suka Shawarma terus berkembang hingga memiliki
+                puluhan outlet di seluruh Jabodetabek, tanpa meninggalkan nilai-nilai
+                yang menjadi fondasi sejak hari pertama.
               </p>
             </div>
           </motion.div>

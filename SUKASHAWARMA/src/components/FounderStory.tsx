@@ -44,7 +44,7 @@ export default function FounderStory() {
   return (
     <section
       id="about"
-      className="relative bg-[#FAF7F2] pt-20 pb-16 lg:pt-24 lg:pb-0 overflow-hidden"
+      className="relative bg-[#FAF7F2] pt-20 pb-20 lg:pt-24 lg:pb-28 overflow-hidden"
       style={{
         borderTopLeftRadius: "clamp(32px, 6vw, 112px)",
         borderTopRightRadius: "clamp(32px, 6vw, 112px)",
@@ -169,7 +169,7 @@ export default function FounderStory() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col justify-center pt-12"
+            className="flex flex-col justify-center"
           >
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-[#FE7108] mb-4">
               FOUNDER &amp; OUR BEGINNING

@@ -298,10 +298,7 @@ export default function OutletMap({ outlets }: { outlets: Outlet[] }) {
 
     (async () => {
       const L = (await import("leaflet")).default;
-      await import("leaflet/dist/leaflet.css");
       await import("leaflet.markercluster");
-      await import("leaflet.markercluster/dist/MarkerCluster.css");
-      await import("leaflet.markercluster/dist/MarkerCluster.Default.css");
 
       if (!mapRef.current || leafletMap.current) return;
 

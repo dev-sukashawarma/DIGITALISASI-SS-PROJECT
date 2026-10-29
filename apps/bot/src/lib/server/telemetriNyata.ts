@@ -421,8 +421,9 @@ function getSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
-const DEFAULT_SUKAREVIEW_URL = 'https://ajvzmicqtwgrcknovubf.supabase.co'
-const DEFAULT_SUKAREVIEW_KEY = 'sb_publishable_6WuTWf-ucDNha96WITsBwA_YLqfMNd4'
+const DEFAULT_SUKAREVIEW_URL = 'https://scvnmaelsamtreuetcpa.supabase.co'
+const DEFAULT_SUKAREVIEW_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdm5tYWVsc2FtdHJldWV0Y3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxODM3NDMsImV4cCI6MjEwNzc1OTc0M30.xLa-pfleHDBWk-MzFwB6o-84c3Mn9jNWrL1btSbHkOs'
 
 function getSukaReviewClient() {
   const url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
@@ -1257,8 +1258,19 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .select('id, rating, comment, reviewer_name, google_created_at, sentiment, urgency, outlets(name)')
         .order('google_created_at', { ascending: false })
         .limit(40)
-        .then((r: any) => {
-          if (r.error) console.warn('[telemetriNyata] warn SukaReview reviews:', r.error.message)
+        .then(async (r: any) => {
+          if (r.error) {
+            console.warn('[telemetriNyata] warn SukaReview reviews:', r.error.message)
+            if (r.error.code === 'PGRST200') {
+              const rFallback = await getSukaReviewClient()
+                .from('reviews')
+                .select('id, rating, comment, reviewer_name, created_at, sentiment, urgency')
+                .order('created_at', { ascending: false })
+                .limit(40)
+              if (!rFallback.error && rFallback.data) return rFallback
+            }
+            return { data: [] }
+          }
           return r
         }, (err: any) => {
           console.warn('[telemetriNyata] reject SukaReview reviews:', err)
@@ -1283,8 +1295,26 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .select('id, name, slug, current_rating, total_reviews, is_active')
         .eq('is_active', true)
         .order('name')
-        .then((r: any) => {
-          if (r.error) console.warn('[telemetriNyata] warn SukaReview outlets:', r.error.message)
+        .then(async (r: any) => {
+          if (r.error) {
+            console.warn('[telemetriNyata] warn SukaReview outlets:', r.error.message)
+            // Fallback ke Supabase pusat jika outlets di DB review belum tersedia
+            const central = await sb
+              .from('outlets')
+              .select('id, name, slug, is_active')
+              .eq('is_active', true)
+              .order('name')
+            if (!central.error && central.data) {
+              return {
+                data: central.data.map((o: any) => ({
+                  ...o,
+                  current_rating: 0,
+                  total_reviews: 0,
+                }))
+              }
+            }
+            return { data: [] }
+          }
           return r
         }, (err: any) => {
           console.warn('[telemetriNyata] reject SukaReview outlets:', err)

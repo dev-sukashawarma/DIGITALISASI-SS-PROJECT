@@ -11,8 +11,9 @@ import type {
   ReviewBaris,
 } from '../review/tipe'
 
-const DEFAULT_SUKAREVIEW_URL = 'https://ajvzmicqtwgrcknovubf.supabase.co'
-const DEFAULT_SUKAREVIEW_KEY = 'sb_publishable_6WuTWf-ucDNha96WITsBwA_YLqfMNd4'
+const DEFAULT_SUKAREVIEW_URL = 'https://scvnmaelsamtreuetcpa.supabase.co'
+const DEFAULT_SUKAREVIEW_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdm5tYWVsc2FtdHJldWV0Y3BhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxODM3NDMsImV4cCI6MjEwNzc1OTc0M30.xLa-pfleHDBWk-MzFwB6o-84c3Mn9jNWrL1btSbHkOs'
 
 function dapatkanClientSukaReview(svcDefault: SupabaseClient): SupabaseClient {
   const url = process.env.SUKAREVIEW_SUPABASE_URL || DEFAULT_SUKAREVIEW_URL
@@ -44,6 +45,24 @@ export function buatKonteksReview(svc: SupabaseClient, sekarang: Date): KonteksR
 
           if (error) {
             console.warn('[hermes-review] outlets query warn:', error.message)
+            // Fallback ke Supabase pusat jika tabel outlets belum tersedia di database review
+            const { data: centralData, error: centralError } = await svc
+              .from('outlets')
+              .select('id, name, slug, region, is_active')
+              .order('name', { ascending: true })
+
+            if (!centralError && centralData && centralData.length > 0) {
+              return (centralData as any[]).map((r): OutletRatingBaris => ({
+                id: r.id,
+                nama: r.name ?? 'Cabang',
+                slug: r.slug ?? '',
+                kota: r.region ?? null,
+                ratingRataRata: 0,
+                totalUlasan: 0,
+                statusOperasional: 'good',
+                isActive: Boolean(r.is_active ?? true),
+              }))
+            }
             return []
           }
 
@@ -83,7 +102,22 @@ export function buatKonteksReview(svc: SupabaseClient, sekarang: Date): KonteksR
         const limit = Math.min(Math.max(filter?.limit ?? 50, 1), 100)
         q = q.limit(limit)
 
-        const { data, error } = await q
+        let { data, error } = await q
+        if (error) {
+          // Jika relasi foreign key belum siap di cache (PGRST200), fallback query tanpa join
+          if (error.code === 'PGRST200') {
+            const fallbackRes = await client
+              .from('reviews')
+              .select('id, rating, comment, reviewer_name, created_at, sentiment, ai_summary, urgency')
+              .order('created_at', { ascending: false })
+              .limit(limit)
+            if (!fallbackRes.error && fallbackRes.data) {
+              data = fallbackRes.data as any
+              error = null
+            }
+          }
+        }
+
         if (error) {
           console.warn('[hermes-review] reviews query warn:', error.message)
           return []
@@ -106,7 +140,7 @@ export function buatKonteksReview(svc: SupabaseClient, sekarang: Date): KonteksR
             ringkasanAi: r.ai_summary ?? null,
             urgensi: r.urgency ?? null,
             kategori: kategoriArr,
-            googleCreatedAt: r.google_created_at,
+            googleCreatedAt: r.google_created_at || r.created_at,
           }
         })
       } catch (e) {

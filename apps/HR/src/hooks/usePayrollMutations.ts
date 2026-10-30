@@ -161,6 +161,100 @@ async function fetchMonthlySalesBonuses(
   return bonusMap
 }
 
+function buildPayrollRecordRow({
+  staff,
+  month,
+  year,
+  attendanceDaysMap,
+  lateMinutesMap,
+  salesBonusMap,
+  kasbonMap,
+}: {
+  staff: any
+  month: number
+  year: number
+  attendanceDaysMap: Map<string, number>
+  lateMinutesMap: Map<string, number>
+  salesBonusMap: Map<string, { bonus: number; note: string }>
+  kasbonMap: Map<string, number>
+}) {
+  const fin = Array.isArray(staff.staff_financials)
+    ? staff.staff_financials[0]
+    : staff.staff_financials
+
+  const isOjt = isOjtStaff(staff)
+  const attendanceDays = attendanceDaysMap.get(staff.id) || 0
+
+  let basicSalary = Number(fin?.basic_salary) || 0
+  if (isOjt) {
+    // Prorata OJT: Rp 2.000.000 / 26 * jumlah hadir
+    const baseRate = basicSalary > 0 ? basicSalary : OJT_MONTHLY_BASE_SALARY
+    basicSalary = calculateOjtBasicSalary(attendanceDays, baseRate, OJT_STANDARD_WORKING_DAYS)
+  }
+  const allowanceMeal = Number(fin?.allowance_meal) || Number(fin?.allowance_presence) || 0
+  const allowanceTransport = Number(fin?.allowance_transport) || 0
+  const allowanceCommunication = Number(fin?.allowance_communication) || 0
+  const allowancePosition = Number(fin?.allowance_position) || 0
+  const staffSalesBonus = Number(fin?.sales_bonus) || 0
+  const payrollAllocations = normalizePayrollAllocations(fin?.payroll_allocations)
+  const allocationError = payrollAllocationError(payrollAllocations)
+  if (allocationError) throw new Error(`${staff.name}: ${allocationError}`)
+
+  const lateMinutes = dendaTelatBerlaku(staff) ? (lateMinutesMap.get(staff.id) || 0) : 0
+  const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
+  const kasbonActive = kasbonMap.get(staff.id) || 0
+  const kasbonDeduction = kasbonActive > 0 ? kasbonActive : (Number(fin?.deduction_kasbon) || 0)
+  const bpjsDeduction = Number(fin?.deduction_bpjs) || 0
+
+  const totalDeductions = lateDeduction + kasbonDeduction + bpjsDeduction
+  const deductionNotes: string[] = []
+  if (kasbonDeduction > 0) {
+    deductionNotes.push(`Kasbon: Rp ${kasbonDeduction.toLocaleString('id-ID')}`)
+  }
+  if (bpjsDeduction > 0) {
+    deductionNotes.push(`BPJS: Rp ${bpjsDeduction.toLocaleString('id-ID')}`)
+  }
+  if (lateMinutes > 0) {
+    deductionNotes.push(`Telat (${lateMinutes} mnt x Rp 1.000): Rp ${lateDeduction.toLocaleString('id-ID')}`)
+  }
+
+  const autoBonusInfo = salesBonusMap.get(staff.id)
+  const autoBonusAmount = autoBonusInfo?.bonus || 0
+  const finalSalesBonus = autoBonusAmount > 0 ? autoBonusAmount : staffSalesBonus
+  const bonusNote = autoBonusInfo?.note || (staffSalesBonus > 0 ? `Sales Bonus: Rp ${staffSalesBonus.toLocaleString('id-ID')}` : null)
+
+  const totalEarnings =
+    basicSalary +
+    allowanceMeal +
+    allowanceTransport +
+    allowanceCommunication +
+    allowancePosition +
+    finalSalesBonus
+  const totalSalary = Math.max(0, totalEarnings - totalDeductions)
+
+  return {
+    staff_id: staff.id,
+    period_month: month,
+    period_year: year,
+    basic_salary: basicSalary,
+    allowance_meal: allowanceMeal,
+    allowance_transport: allowanceTransport,
+    allowance_communication: allowanceCommunication,
+    sales_bonus: finalSalesBonus,
+    deduction_kasbon: kasbonDeduction,
+    deduction_bpjs: bpjsDeduction,
+    allowance_position: allowancePosition,
+    allowance_presence: allowanceMeal,
+    bonus: finalSalesBonus,
+    bonus_note: bonusNote,
+    deductions: totalDeductions,
+    deduction_note: deductionNotes.join(' | ') || null,
+    total_salary: totalSalary,
+    payroll_allocations: fin?.payroll_allocations ? payrollAllocations : DEFAULT_PAYROLL_ALLOCATION,
+    status: 'draft' as PayrollStatus,
+  }
+}
+
 export function usePayrollMutations() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -751,9 +845,9 @@ export function usePayrollMutations() {
   })
 
   /**
-   * Sync basic_salary (dan tunjangan) dari staff_financials ke payroll_records draft.
-   * - Jika forceAll = false (default): hanya update slip yang basic_salary = 0
-   * - Jika forceAll = true: update semua slip draft dengan data terkini dari DB karyawan
+   * Sync basic_salary (dan tunjangan) dari staff_financials ke payroll_records draft,
+   * membersihkan slip staf nonaktif yang 0 rupiah, dan OTOMATIS mendeteksi serta menambahkan
+   * staf aktif baru yang belum memiliki slip sama sekali pada periode ini.
    */
   const syncSalaryFromDatabase = useMutation({
     mutationFn: async ({
@@ -801,111 +895,221 @@ export function usePayrollMutations() {
 
       const { data: slips, error: slipsErr } = await query
       if (slipsErr) throw slipsErr
-      if (!slips || slips.length === 0) {
-        return { updatedCount: 0, skippedCount: 0 }
-      }
 
-      // 2. Fetch rekap absensi untuk staf OJT
-      const { attendanceDaysMap } = await fetchMonthlyAttendanceRekap(supabase, month, year)
+      // 2. Fetch rekap absensi untuk staf OJT & denda keterlambatan
+      const { lateMinutesMap, attendanceDaysMap } = await fetchMonthlyAttendanceRekap(supabase, month, year)
+      const salesBonusMap = await fetchMonthlySalesBonuses(supabase, month, year)
 
-      // 3. Fetch data gaji terbaru dari staff_financials
-      const staffIds = slips.map((s: any) => s.staff_id)
-      const { data: financials, error: finErr } = await supabase
-        .from('staff_financials')
-        .select('staff_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, deduction_bpjs, payroll_allocations')
-        .in('staff_id', staffIds)
+      const { data: kasbons } = await supabase
+        .from('cash_advances')
+        .select('staff_id, remaining, amount, installment_months')
+        .eq('status', 'active')
+        .eq('status_hr', 'approved')
 
-      if (finErr) throw finErr
-
-      const finMap = new Map<string, any>()
-      financials?.forEach((f: any) => finMap.set(f.staff_id, f))
+      const kasbonMap = new Map<string, number>()
+      kasbons?.forEach((k: any) => {
+        const prev = kasbonMap.get(k.staff_id) || 0
+        const rem = Number(k.remaining) || 0
+        const amt = Number(k.amount) || rem
+        const months = Number(k.installment_months) || 1
+        const monthlyInstallment = months > 1 ? Math.min(rem, Math.ceil(amt / months)) : rem
+        kasbonMap.set(k.staff_id, prev + monthlyInstallment)
+      })
 
       let updatedCount = 0
       let skippedCount = 0
       const inactiveSlipIdsToDelete: string[] = []
 
-      for (const slip of slips) {
-        const staffObj = Array.isArray(slip.outlet_staff) ? slip.outlet_staff[0] : slip.outlet_staff
-        const isInactive = staffObj?.status === 'inactive' || staffObj?.is_active === false
-        const isOjt = isOjtStaff(staffObj as any)
+      // 3. Update slip draft yang sudah ada
+      if (slips && slips.length > 0) {
+        const staffIds = slips.map((s: any) => s.staff_id)
+        const { data: financials, error: finErr } = await supabase
+          .from('staff_financials')
+          .select('staff_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_position, allowance_presence, deduction_bpjs, payroll_allocations')
+          .in('staff_id', staffIds)
 
-        const fin = finMap.get(slip.staff_id)
-        let basicSalary = Number(fin?.basic_salary) || 0
+        if (finErr) throw finErr
 
-        // Jika staf di DB berstatus nonaktif dan tidak memiliki gaji aktif / settlement (basic_salary === 0),
-        // bersihkan slip draft-nya agar tidak menjadi slip hantu di payroll aktif
-        if (isInactive && basicSalary === 0) {
-          inactiveSlipIdsToDelete.push(slip.id)
-          continue
+        const finMap = new Map<string, any>()
+        financials?.forEach((f: any) => finMap.set(f.staff_id, f))
+
+        for (const slip of slips) {
+          const staffObj = Array.isArray(slip.outlet_staff) ? slip.outlet_staff[0] : slip.outlet_staff
+          const isInactive = staffObj?.status === 'inactive' || staffObj?.is_active === false
+          const isOjt = isOjtStaff(staffObj as any)
+
+          const fin = finMap.get(slip.staff_id)
+          let basicSalary = Number(fin?.basic_salary) || 0
+
+          // Jika staf di DB berstatus nonaktif dan tidak memiliki gaji aktif / settlement (basic_salary === 0),
+          // bersihkan slip draft-nya agar tidak menjadi slip hantu di payroll aktif
+          if (isInactive && basicSalary === 0) {
+            inactiveSlipIdsToDelete.push(slip.id)
+            continue
+          }
+
+          if (!fin && !isOjt) {
+            skippedCount++
+            continue
+          }
+          if (isOjt) {
+            const attendanceDays = attendanceDaysMap.get(slip.staff_id) || 0
+            const baseRate = basicSalary > 0 ? basicSalary : OJT_MONTHLY_BASE_SALARY
+            basicSalary = calculateOjtBasicSalary(attendanceDays, baseRate, OJT_STANDARD_WORKING_DAYS)
+          } else if (!forceAll && basicSalary === 0) {
+            // Data di staff_financials juga 0, tidak bisa sync
+            skippedCount++
+            continue
+          }
+
+          const allowanceMeal =
+            fin?.allowance_meal !== undefined && fin?.allowance_meal !== null
+              ? Number(fin.allowance_meal)
+              : Number(fin?.allowance_presence) || 0
+          const allowanceTransport = Number(fin?.allowance_transport) || 0
+          const allowanceCommunication = Number(fin?.allowance_communication) || 0
+          const allowancePosition = Number(fin?.allowance_position) || 0
+
+          // Pertahankan bonus & potongan yang sudah ada, hanya update komponen gaji pokok
+          const currentBonus = Number(slip.bonus) || 0
+          const currentDeductions = Number(slip.deductions) || 0
+
+          const totalEarnings =
+            basicSalary +
+            allowanceMeal +
+            allowanceTransport +
+            allowanceCommunication +
+            allowancePosition +
+            currentBonus
+          const totalSalary = Math.max(0, totalEarnings - currentDeductions)
+          const payrollAllocations = normalizePayrollAllocations(fin?.payroll_allocations)
+          const allocationError = payrollAllocationError(payrollAllocations)
+          if (allocationError) throw new Error(`${staffObj?.name || 'Karyawan'}: ${allocationError}`)
+
+          const { error: updateErr } = await supabase
+            .from('payroll_records')
+            .update({
+              basic_salary: basicSalary,
+              allowance_meal: allowanceMeal,
+              allowance_transport: allowanceTransport,
+              allowance_communication: allowanceCommunication,
+              allowance_position: allowancePosition,
+              allowance_presence: allowanceMeal,
+              payroll_allocations: payrollAllocations,
+              total_salary: totalSalary,
+            })
+            .eq('id', slip.id)
+
+          if (!updateErr) updatedCount++
+          else skippedCount++
         }
 
-        if (!fin && !isOjt) {
-          skippedCount++
-          continue
+        if (inactiveSlipIdsToDelete.length > 0) {
+          const { error: delErr } = await supabase
+            .from('payroll_records')
+            .delete()
+            .in('id', inactiveSlipIdsToDelete)
+          if (delErr) {
+            console.error('Gagal membersihkan slip draft staf nonaktif:', delErr)
+          }
         }
-        if (isOjt) {
-          const attendanceDays = attendanceDaysMap.get(slip.staff_id) || 0
-          const baseRate = basicSalary > 0 ? basicSalary : OJT_MONTHLY_BASE_SALARY
-          basicSalary = calculateOjtBasicSalary(attendanceDays, baseRate, OJT_STANDARD_WORKING_DAYS)
-        } else if (!forceAll && basicSalary === 0) {
-          // Data di staff_financials juga 0, tidak bisa sync
-          skippedCount++
-          continue
-        }
-
-        const allowanceMeal =
-          fin?.allowance_meal !== undefined && fin?.allowance_meal !== null
-            ? Number(fin.allowance_meal)
-            : Number(fin?.allowance_presence) || 0
-        const allowanceTransport = Number(fin?.allowance_transport) || 0
-        const allowanceCommunication = Number(fin?.allowance_communication) || 0
-        const allowancePosition = Number(fin?.allowance_position) || 0
-
-        // Pertahankan bonus & potongan yang sudah ada, hanya update komponen gaji pokok
-        const currentBonus = Number(slip.bonus) || 0
-        const currentDeductions = Number(slip.deductions) || 0
-
-        const totalEarnings =
-          basicSalary +
-          allowanceMeal +
-          allowanceTransport +
-          allowanceCommunication +
-          allowancePosition +
-          currentBonus
-        const totalSalary = Math.max(0, totalEarnings - currentDeductions)
-        const payrollAllocations = normalizePayrollAllocations(fin?.payroll_allocations)
-        const allocationError = payrollAllocationError(payrollAllocations)
-        if (allocationError) throw new Error(`${staffObj?.name || 'Karyawan'}: ${allocationError}`)
-
-        const { error: updateErr } = await supabase
-          .from('payroll_records')
-          .update({
-            basic_salary: basicSalary,
-            allowance_meal: allowanceMeal,
-            allowance_transport: allowanceTransport,
-            allowance_communication: allowanceCommunication,
-            allowance_position: allowancePosition,
-            allowance_presence: allowanceMeal,
-            payroll_allocations: payrollAllocations,
-            total_salary: totalSalary,
-          })
-          .eq('id', slip.id)
-
-        if (!updateErr) updatedCount++
-        else skippedCount++
       }
 
-      if (inactiveSlipIdsToDelete.length > 0) {
-        const { error: delErr } = await supabase
+      // 4. Deteksi dan tambahkan staf aktif yang belum memiliki slip di periode ini
+      let createdCount = 0
+      const { data: allStaff, error: allStaffErr } = await supabase
+        .from('outlet_staff')
+        .select(`
+          id,
+          name,
+          role,
+          sub_role,
+          onboarding_stage,
+          contract_type,
+          username,
+          status,
+          is_active,
+          account_category,
+          outlet_id,
+          resign_date,
+          staff_financials(
+            basic_salary,
+            allowance_meal,
+            allowance_transport,
+            allowance_communication,
+            sales_bonus,
+            deduction_kasbon,
+            deduction_bpjs,
+            allowance_position,
+            allowance_presence,
+            payroll_allocations
+          )
+        `)
+        .neq('role', 'kiosk')
+
+      if (!allStaffErr && allStaff) {
+        // Ambil semua staff_id yang sudah memiliki slip di bulan/tahun ini (baik draft maupun finalized)
+        const { data: allExistingSlips } = await supabase
           .from('payroll_records')
-          .delete()
-          .in('id', inactiveSlipIdsToDelete)
-        if (delErr) {
-          console.error('Gagal membersihkan slip draft staf nonaktif:', delErr)
+          .select('staff_id')
+          .eq('period_month', month)
+          .eq('period_year', year)
+
+        const existingSlipStaffIds = new Set((allExistingSlips || []).map((s: any) => s.staff_id))
+
+        const missingStaff = allStaff.filter((s: any) => {
+          if (isTestOrDevStaff(s)) return false
+          if (s.onboarding_stage === 'training_7_days') return false
+
+          const isActive = s.status === 'active' || s.is_active === true
+          if (isActive) return !existingSlipStaffIds.has(s.id)
+
+          if (s.resign_date) {
+            const rDate = new Date(s.resign_date)
+            const rMonth = rDate.getMonth() + 1
+            const rYear = rDate.getFullYear()
+            if (rMonth === month && rYear === year) {
+              const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
+              if ((Number(fin?.basic_salary) || 0) > 0) {
+                return !existingSlipStaffIds.has(s.id)
+              }
+            }
+          }
+
+          return false
+        })
+
+        if (missingStaff.length > 0) {
+          const newRows = missingStaff.map((s: any) =>
+            buildPayrollRecordRow({
+              staff: s,
+              month,
+              year,
+              attendanceDaysMap,
+              lateMinutesMap,
+              salesBonusMap,
+              kasbonMap,
+            })
+          )
+
+          const { error: insertErr } = await supabase
+            .from('payroll_records')
+            .insert(newRows)
+
+          if (insertErr) {
+            console.error('Gagal menambahkan slip staf baru saat sync:', insertErr)
+          } else {
+            createdCount = newRows.length
+          }
         }
       }
 
-      return { updatedCount, skippedCount, cleanedCount: inactiveSlipIdsToDelete.length }
+      return {
+        updatedCount,
+        createdCount,
+        skippedCount,
+        cleanedCount: inactiveSlipIdsToDelete.length,
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll'] })

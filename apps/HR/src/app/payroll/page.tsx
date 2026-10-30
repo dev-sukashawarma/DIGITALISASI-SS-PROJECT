@@ -63,6 +63,7 @@ export default function PayrollPage() {
   const [month, setMonth] = useState(initialMonth)
   const [year, setYear] = useState(initialYear)
   const [selectedOutlet, setSelectedOutlet] = useState('')
+  const [selectedCompany, setSelectedCompany] = useState('')
   const [editingSlip, setEditingSlip] = useState<PayrollRecord | null>(null)
   const [showBulkWAModal, setShowBulkWAModal] = useState(false)
 
@@ -74,6 +75,7 @@ export default function PayrollPage() {
     setMonth(prevMonth)
     setYear(prevYear)
     setSelectedOutlet('')
+    setSelectedCompany('')
   }
 
   const monthOptions = useMemo(
@@ -282,24 +284,22 @@ export default function PayrollPage() {
   }
 
   const handleSyncSalary = (forceAll: boolean = true) => {
-    const msg = `Sync SEMUA gaji pokok & tunjangan dari Database Karyawan ke seluruh slip draft ${MONTHS[month - 1]} ${year}? (Bonus, lembur, dan kasbon yang sudah dihitung akan tetap dipertahankan)`
+    const msg = `Sync SEMUA gaji pokok & tunjangan dari Database Karyawan ke seluruh slip draft ${MONTHS[month - 1]} ${year}? (Staf baru yang belum punya slip akan otomatis ditambahkan, dan bonus/lembur yang ada tetap dipertahankan)`
     if (!confirm(msg)) return
 
     payrollMutations.syncSalaryFromDatabase.mutate(
       { month, year, forceAll },
       {
-        onSuccess: ({ updatedCount, skippedCount, cleanedCount }: any) => {
-          if (updatedCount === 0 && (!cleanedCount || cleanedCount === 0)) {
-            toast.info(`Tidak ada slip yang perlu diupdate${skippedCount > 0 ? ` (${skippedCount} tidak ditemukan di Database Karyawan)` : ''}`)
+        onSuccess: ({ updatedCount, createdCount, skippedCount, cleanedCount }: any) => {
+          if (updatedCount === 0 && (!createdCount || createdCount === 0) && (!cleanedCount || cleanedCount === 0)) {
+            toast.info(`Tidak ada perubahan data${skippedCount > 0 ? ` (${skippedCount} data karyawan belum terisi di Database)` : ''}`)
           } else {
-            let msg = `Berhasil update gaji pokok ${updatedCount} slip`
-            if (cleanedCount && cleanedCount > 0) {
-              msg += ` (${cleanedCount} slip staf nonaktif dibersihkan)`
-            }
-            if (skippedCount > 0) {
-              msg += ` (${skippedCount} dilewati)`
-            }
-            toast.success(msg)
+            const parts: string[] = []
+            if (updatedCount > 0) parts.push(`${updatedCount} slip diupdate`)
+            if (createdCount && createdCount > 0) parts.push(`${createdCount} staf baru ditambahkan`)
+            if (cleanedCount && cleanedCount > 0) parts.push(`${cleanedCount} slip nonaktif dibersihkan`)
+            if (skippedCount > 0) parts.push(`${skippedCount} dilewati`)
+            toast.success(`Berhasil sync database: ${parts.join(', ')}`)
           }
         },
         onError: (e: any) => toast.error(e.message || 'Gagal sync gaji dari database'),
@@ -713,8 +713,21 @@ export default function PayrollPage() {
           {payrollData.length > 0 && (
             <section className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-suka-gray-100">
-                <h2 className="text-sm font-black text-suka-brown">Rekap Beban Gaji per PT</h2>
-                <p className="text-xs text-suka-gray-500 mt-1">Pembagian THP mengikuti persentase pada profil karyawan. Slip dan transfer karyawan tetap utuh.</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-black text-suka-brown">Rekap Beban Gaji per PT</h2>
+                    <p className="text-xs text-suka-gray-500 mt-1">Pembagian THP mengikuti persentase pada profil karyawan. Klik baris PT untuk memfilter tabel di bawah.</p>
+                  </div>
+                  {selectedCompany && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCompany('')}
+                      className="text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
+                    >
+                      Reset Filter PT
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -722,13 +735,30 @@ export default function PayrollPage() {
                     <tr><th className="text-left px-5 py-3">Badan Usaha</th><th className="text-right px-5 py-3">Karyawan</th><th className="text-right px-5 py-3">Beban THP</th></tr>
                   </thead>
                   <tbody>
-                    {companyPayrollTotals.map(([companyKey, totals]) => (
-                      <tr key={companyKey} className="border-t border-suka-gray-100">
-                        <td className="px-5 py-3 font-bold text-suka-ink">{totals.companyName}</td>
-                        <td className="px-5 py-3 text-right">{totals.staffCount} orang</td>
-                        <td className="px-5 py-3 text-right font-mono font-black">{formatRupiah(totals.amount)}</td>
-                      </tr>
-                    ))}
+                    {companyPayrollTotals.map(([companyKey, totals]) => {
+                      const isSelected = selectedCompany.toLowerCase() === totals.companyName.toLowerCase()
+                      return (
+                        <tr
+                          key={companyKey}
+                          onClick={() => setSelectedCompany(isSelected ? '' : totals.companyName)}
+                          className={`border-t border-suka-gray-100 cursor-pointer transition-colors ${
+                            isSelected ? 'bg-amber-100/70 font-bold' : 'hover:bg-amber-50/40'
+                          }`}
+                          title={`Klik untuk memfilter karyawan ${totals.companyName}`}
+                        >
+                          <td className="px-5 py-3 font-bold text-suka-ink flex items-center gap-2">
+                            <span>{totals.companyName}</span>
+                            {isSelected && (
+                              <span className="text-[10px] bg-amber-700 text-white font-semibold px-2 py-0.5 rounded-full">
+                                Filter Aktif
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-right">{totals.staffCount} orang</td>
+                          <td className="px-5 py-3 text-right font-mono font-black">{formatRupiah(totals.amount)}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                   <tfoot className="bg-suka-cream/30 font-black">
                     <tr>
@@ -791,6 +821,8 @@ export default function PayrollPage() {
               periodYear={year}
               selectedOutlet={selectedOutlet}
               onResetOutlet={() => setSelectedOutlet('')}
+              selectedCompany={selectedCompany}
+              onSelectCompany={setSelectedCompany}
               onGenerate={handleGenerate}
               onSelectPreviousPeriod={handleSelectPreviousPeriod}
               previousPeriodLabel={prevPeriodLabel}

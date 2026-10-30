@@ -19,11 +19,12 @@ import {
 } from 'lucide-react'
 import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
+import { Select } from '@/components/ui/Select'
 import { SalarySlipModal } from './SalarySlipModal'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import { isRendyOrDeveloperStaff } from '@/lib/staffFilters'
 import { isOjtStaff } from '@/lib/ojtPayrollValidation'
-import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations, splitPayrollAmount } from '@/lib/payrollAllocation'
+import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations, splitPayrollAmount, PAYROLL_COMPANIES } from '@/lib/payrollAllocation'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -128,6 +129,8 @@ export interface PayrollTableProps {
   periodYear?: number
   selectedOutlet?: string
   onResetOutlet?: () => void
+  selectedCompany?: string
+  onSelectCompany?: (company: string) => void
   onGenerate?: () => void
   onSelectPreviousPeriod?: () => void
   previousPeriodLabel?: string
@@ -144,6 +147,8 @@ export function PayrollTable({
   periodYear,
   selectedOutlet,
   onResetOutlet,
+  selectedCompany: propsSelectedCompany,
+  onSelectCompany,
   onGenerate,
   onSelectPreviousPeriod,
   previousPeriodLabel,
@@ -152,8 +157,33 @@ export function PayrollTable({
 }: PayrollTableProps) {
   const [selectedSlip, setSelectedSlip] = useState<PayrollRecord | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [internalCompany, setInternalCompany] = useState('')
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+
+  const activeCompany = propsSelectedCompany !== undefined ? propsSelectedCompany : internalCompany
+  const setActiveCompany = onSelectCompany || setInternalCompany
+
+  const companyOptions = useMemo(() => {
+    const set = new Set<string>(PAYROLL_COMPANIES)
+    rows.forEach((r) => {
+      const allocs = normalizePayrollAllocations(r.payroll_allocations || DEFAULT_PAYROLL_ALLOCATION)
+      allocs.forEach((a) => {
+        if (a.company_name.trim() && a.percentage > 0) {
+          set.add(a.company_name.trim())
+        }
+      })
+    })
+
+    return [
+      { label: 'Semua Alokasi PT', value: '' },
+      ...Array.from(set).map((name) => ({
+        label: name,
+        value: name,
+        icon: <Building2 size={14} className="text-amber-800" />,
+      })),
+    ]
+  }, [rows])
 
   // Pre-calculate breakdown & searchable values
   const processedRows = useMemo(() => {
@@ -168,6 +198,8 @@ export function PayrollTable({
       const staffName = r.outlet_staff?.name || 'Staff'
       const roleName = r.outlet_staff?.role?.replace('_', ' ') || ''
 
+      const allocations = normalizePayrollAllocations(r.payroll_allocations || DEFAULT_PAYROLL_ALLOCATION)
+
       return {
         record: r,
         b,
@@ -176,6 +208,7 @@ export function PayrollTable({
         outletName,
         staffName,
         roleName,
+        allocations,
       }
     })
   }, [rows])
@@ -184,14 +217,29 @@ export function PayrollTable({
   const filteredAndSortedRows = useMemo(() => {
     let list = processedRows
 
-    // 1. Filter Nama / Jabatan / Outlet
+    // 1. Filter Nama / Jabatan / Outlet / PT
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim()
       list = list.filter(
         (item) =>
           item.staffName.toLowerCase().includes(q) ||
           item.roleName.toLowerCase().includes(q) ||
-          item.outletName.toLowerCase().includes(q)
+          item.outletName.toLowerCase().includes(q) ||
+          item.allocations.some((a) => a.company_name.toLowerCase().includes(q))
+      )
+    }
+
+    // 2. Filter Alokasi PT
+    if (activeCompany) {
+      const targetCompany = activeCompany.toLowerCase().trim()
+      list = list.filter((item) =>
+        item.allocations.some(
+          (a) =>
+            (a.company_name.toLowerCase().trim() === targetCompany ||
+              a.company_name.toLowerCase().includes(targetCompany) ||
+              targetCompany.includes(a.company_name.toLowerCase().trim())) &&
+            a.percentage > 0
+        )
       )
     }
 
@@ -248,7 +296,7 @@ export function PayrollTable({
     }
 
     return list
-  }, [processedRows, searchQuery, sortField, sortDirection])
+  }, [processedRows, searchQuery, activeCompany, sortField, sortDirection])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -272,44 +320,70 @@ export function PayrollTable({
   return (
     <>
       {/* ── Search & Filter Controls Toolbar ── */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 bg-white rounded-2xl border border-suka-gray-200 shadow-2xs mb-4">
-        {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <Search
-            size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 pointer-events-none"
-          />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari nama staf, jabatan, atau outlet..."
-            className="w-full pl-10 pr-9 py-2 text-xs sm:text-sm rounded-xl border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20 outline-none text-suka-ink transition-all placeholder:text-suka-gray-400 font-medium bg-stone-50/50 focus:bg-white"
-          />
-          {searchQuery && (
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-3.5 bg-white rounded-2xl border border-suka-gray-200 shadow-2xs mb-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 max-w-2xl">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search
+              size={16}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari nama staf, jabatan, outlet, atau PT..."
+              className="w-full pl-10 pr-9 py-2 text-xs sm:text-sm rounded-xl border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20 outline-none text-suka-ink transition-all placeholder:text-suka-gray-400 font-medium bg-stone-50/50 focus:bg-white"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-0.5 rounded-full transition-colors cursor-pointer"
+                title="Hapus pencarian"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Filter Alokasi PT */}
+          <div className="w-full sm:w-60 shrink-0">
+            <Select
+              options={companyOptions}
+              value={activeCompany}
+              onChange={(val) => setActiveCompany(val)}
+              placeholder="Semua Alokasi PT"
+              className="w-full"
+            />
+          </div>
+
+          {activeCompany && (
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-0.5 rounded-full transition-colors cursor-pointer"
-              title="Hapus pencarian"
+              onClick={() => setActiveCompany('')}
+              className="px-2.5 py-2 text-xs font-semibold text-stone-500 hover:text-suka-brown bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl transition-colors cursor-pointer shrink-0"
+              title="Reset Filter PT"
             >
-              <X size={14} />
+              Reset PT
             </button>
           )}
         </div>
 
         {/* Counter & Reset Sorting */}
-        <div className="flex items-center gap-2 self-end sm:self-center">
-          {sortField && (
+        <div className="flex items-center gap-2 self-end lg:self-center">
+          {(sortField || activeCompany || searchQuery) && (
             <button
               type="button"
               onClick={() => {
                 setSortField(null)
                 setSortDirection('asc')
+                setActiveCompany('')
+                setSearchQuery('')
               }}
               className="text-xs font-semibold text-stone-500 hover:text-suka-brown px-3 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 transition-colors cursor-pointer"
             >
-              Reset Urutan
+              Reset Filter
             </button>
           )}
           <span className="text-xs font-semibold text-stone-600 px-3.5 py-1.5 rounded-xl bg-stone-50 border border-stone-200">

@@ -566,6 +566,32 @@ export function OpexCardDetailModals({
 
             {/* Content */}
             <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
+              {/* Banner Status Operasional Khusus (Outlet Buka / Tutup di Tengah Bulan) */}
+              {hrPayroll?.outletOperationalInfo?.isPartial && (
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/90 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-3 shadow-2xs">
+                  <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700 shrink-0 mt-0.5 border border-amber-200">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-extrabold text-amber-950 text-xs sm:text-sm">
+                        Status Operasional Khusus: Outlet Buka / Tutup di Tengah Bulan
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200/70 text-amber-900 border border-amber-300">
+                        {hrPayroll.outletOperationalInfo.activeDays} Hari Aktif ({hrPayroll.outletOperationalInfo.operationalCalendarDays}/{hrPayroll.outletOperationalInfo.totalMonthDays} Kalender)
+                      </span>
+                    </div>
+                    <p className="mt-1 text-amber-800 text-[11px] leading-relaxed">
+                      {hrPayroll.outletOperationalInfo.note}
+                    </p>
+                    <p className="mt-1 text-[11px] text-amber-700/90 font-medium">
+                      • Beban gaji kru toko dihitung proporsional kehadiran riil (standar 26 hari kerja ritel F&B).<br />
+                      • Alokasi manajer (AM/RM/SC) dialokasikan proporsional hari kalender operasional toko ({hrPayroll.outletOperationalInfo.operationalCalendarDays}/{hrPayroll.outletOperationalInfo.totalMonthDays} hari).
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Stat Highlight Cards (Executive Layout: Gaji Rutin Hero + Status Operasional) */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 {/* Hero Metric: Gaji Rutin (Bulan Penuh vs Prorata) */}
@@ -899,6 +925,11 @@ export function OpexCardDetailModals({
                                                 </span>
                                               )}
                                             </div>
+                                            {Boolean(s.splitNote || s.partialNote) && (
+                                              <span className="text-[9px] text-amber-800 font-semibold truncate block mt-0.5">
+                                                ⚡ {s.splitNote || s.partialNote}
+                                              </span>
+                                            )}
                                           </div>
                                           <div className="text-right shrink-0">
                                             <span className="font-bold text-indigo-950 font-mono">
@@ -1202,6 +1233,11 @@ export function OpexCardDetailModals({
                                                 </span>
                                               )}
                                             </div>
+                                            {Boolean(s.splitNote || s.partialNote) && (
+                                              <span className="text-[9px] text-amber-800 font-semibold truncate block mt-0.5">
+                                                ⚡ {s.splitNote || s.partialNote}
+                                              </span>
+                                            )}
                                           </div>
                                           <div className="text-right shrink-0">
                                             <span className="font-bold text-amber-950 font-mono">
@@ -1287,6 +1323,11 @@ export function OpexCardDetailModals({
                                                   </span>
                                                 )}
                                               </div>
+                                              {Boolean(mgr.partialNote) && (
+                                                <span className="text-[9px] text-amber-800 font-semibold truncate block mt-0.5">
+                                                  ⚡ {mgr.partialNote}
+                                                </span>
+                                              )}
                                             </div>
                                             <div className="text-right shrink-0">
                                               <span className="font-bold text-amber-950 font-mono">

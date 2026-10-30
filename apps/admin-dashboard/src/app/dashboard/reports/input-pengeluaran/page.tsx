@@ -479,6 +479,41 @@ export default function InputPengeluaranPage() {
 
   const hasHrPayroll = Boolean(hrPayroll && hrPayroll.totalStaff > 0 && hrPayroll.totalSalary > 0)
 
+  // Smart Prorata untuk outlet yang buka atau tutup di pertengahan bulan
+  const effectiveProrataInfo = useMemo(() => {
+    if (hasHrPayroll && hrPayroll?.outletOperationalInfo?.isPartial) {
+      const op = hrPayroll.outletOperationalInfo
+      const opStart = op.firstDate || `${startDate.slice(0, 7)}-01`
+      const opEnd = op.lastDate || endDate
+      const overlapStart = startDate > opStart ? startDate : opStart
+      const overlapEnd = endDate < opEnd ? endDate : opEnd
+
+      if (overlapStart > overlapEnd) {
+        return {
+          ...prorataInfo,
+          isProrated: true,
+          ratio: 0,
+          overlapDays: 0,
+          totalDays: op.operationalCalendarDays || 1,
+          label: 'Belum Beroperasi (0 Hari)'
+        }
+      }
+      const overlapDays = Math.max(0, Math.round((new Date(overlapEnd).getTime() - new Date(overlapStart).getTime()) / (1000 * 60 * 60 * 24)) + 1)
+      const totalOpDays = op.operationalCalendarDays || 1
+      const ratio = Math.min(1, Math.max(0, overlapDays / totalOpDays))
+      const isProrated = ratio < 1 || prorataInfo.isProrated
+      return {
+        ...prorataInfo,
+        isProrated,
+        ratio,
+        overlapDays,
+        totalDays: totalOpDays,
+        label: `Prorata ${overlapDays} Hari (${overlapDays}/${totalOpDays} Hari Ops)`
+      }
+    }
+    return prorataInfo
+  }, [hasHrPayroll, hrPayroll, startDate, endDate, prorataInfo])
+
   // Realtime & Exact Crew Bonus from HR Payroll (get_daily_outlet_bonus_detail) / Prorata fallback
   const displayCrewBonus = useMemo(() => {
     if (kartuClosing) return kartuClosing.bonusKru
@@ -522,6 +557,13 @@ export default function InputPengeluaranPage() {
       const staffRoutine = Math.max(0, staffGapok + staffTunj - staffPot)
       const mgrAlloc = isPusat ? 0 : Math.round(hrPayroll.managerAllocation || 0)
       const monthlyRoutine = staffRoutine + mgrAlloc
+
+      if (hrPayroll.outletOperationalInfo?.isPartial) {
+        return effectiveProrataInfo.isProrated
+          ? Math.round(monthlyRoutine * effectiveProrataInfo.ratio)
+          : monthlyRoutine
+      }
+
       return prorataInfo.isProrated ? Math.round(monthlyRoutine * prorataInfo.ratio) : monthlyRoutine
     }
     if (isPusat) return summary.salary
@@ -529,7 +571,7 @@ export default function InputPengeluaranPage() {
       return prorataBreakdown.gaji_crew_outlet.nominalProrata
     }
     return summary.salary
-  }, [kartuClosing, isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo, summary.salary])
+  }, [kartuClosing, isPusat, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo, effectiveProrataInfo, summary.salary])
 
   // Total Beban Gaji (Rutin + Bonus)
   const displaySalary = useMemo(() => {
@@ -1308,13 +1350,13 @@ export default function InputPengeluaranPage() {
                     {hrPayroll.finalizedCount} Final · {hrPayroll.draftCount} Draft
                   </span>
                 )}
-                {hasHrPayroll && prorataInfo.isProrated && (
+                {hasHrPayroll && effectiveProrataInfo.isProrated && (
                   <span
                     className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
-                    title={`Prorata ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari periode payroll (${(prorataInfo.ratio * 100).toFixed(1)}%)`}
+                    title={`Prorata ${effectiveProrataInfo.overlapDays} hari dari total ${effectiveProrataInfo.totalDays} hari periode payroll (${(effectiveProrataInfo.ratio * 100).toFixed(1)}%)`}
                   >
                     <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
-                    <span>{prorataInfo.label}</span>
+                    <span>{effectiveProrataInfo.label}</span>
                   </span>
                 )}
               </div>
@@ -2270,8 +2312,8 @@ export default function InputPengeluaranPage() {
           hasHrPayroll: hasHrPayrollModal,
           hrPayroll: hrPayrollModal,
           cashSalary: summary.salary,
-          isProrated: (hasHrPayrollModal && prorataInfo.isProrated) || isProratedOpex,
-          prorataInfo,
+          isProrated: (hasHrPayrollModal && effectiveProrataInfo.isProrated) || isProratedOpex,
+          prorataInfo: effectiveProrataInfo,
           baselineRoutine: baselineRoutineSalary,
           baselineCrewBonus,
           baselineManagerBonus,
@@ -2292,8 +2334,8 @@ export default function InputPengeluaranPage() {
           displayManagerBonus,
           displayLembur,
           totalNonSalary: nonSalaryTampil,
-          isProrated: (hasHrPayrollModal && prorataInfo.isProrated) || isProratedOpex,
-          prorataInfo
+          isProrated: (hasHrPayrollModal && effectiveProrataInfo.isProrated) || isProratedOpex,
+          prorataInfo: effectiveProrataInfo
         }}
       />
     </div>

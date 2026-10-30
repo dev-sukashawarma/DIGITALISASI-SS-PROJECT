@@ -35,6 +35,10 @@ export interface ManagerAllocationDetail {
   coachedOutletsCount: number
   totalPcs?: number
   status: 'draft' | 'finalized'
+  partialRatio?: number
+  partialDays?: number
+  partialTotalDays?: number
+  partialNote?: string
 }
 
 export interface StaffBonusDetail {
@@ -80,6 +84,22 @@ export interface StaffPayrollDetail {
   fullDeductions?: number
   allocatedOutletNames?: string[]
   allocatedOutletIds?: string[]
+  attendanceDays?: number
+  totalWorkDays?: number
+  attendanceRatio?: number
+  partialNote?: string
+  splitNote?: string
+}
+
+export interface OutletOperationalInfo {
+  isPartial: boolean
+  activeDays: number
+  totalMonthDays: number
+  operationalCalendarDays?: number
+  calendarRatio?: number
+  firstDate?: string
+  lastDate?: string
+  note?: string
 }
 
 export interface HRPayrollOutletSummary {
@@ -138,6 +158,14 @@ export interface HRPayrollSummary {
   managerDetailsByOutlet?: Record<string, ManagerAllocationDetail[]>
   managerBonusDetails?: StaffBonusDetail[]
   staffDetails?: StaffPayrollDetail[]
+  outletOperationalInfo?: OutletOperationalInfo
+}
+
+function formatTanggalIndo(dateStr?: string | null): string {
+  if (!dateStr) return ''
+  const [y, m, d] = dateStr.split('-')
+  const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+  return `${Number(d)} ${bulan[Number(m) - 1] || ''} ${y}`
 }
 
 function formatBackupDatesSummary(dates: string[]): string {
@@ -245,9 +273,11 @@ export async function hitungRingkasanPayrollHr(filter: {
 
     // 1. Build outlet mapping and operational retail outlet set
     const outletNameMap = new Map<string, string>()
+    const outletMetaMap = new Map<string, any>()
     const operationalOutletIds: string[] = []
     ;(outletData || []).forEach((o: any) => {
       outletNameMap.set(o.id, o.name)
+      outletMetaMap.set(o.id, o)
       if (isExcludedOutlet(o)) return
       if (o.slug === 'sawangan-depok-internal') return
       const isOperational = (o.is_active === true || o.is_active !== false) && (o.status === 'active' || !o.status)
@@ -394,6 +424,8 @@ export async function hitungRingkasanPayrollHr(filter: {
                 .gte('ts_server', `${attFrom}T00:00:00+07:00`)
                 .lte('ts_server', `${attTo}T23:59:59+07:00`)
                 .in('type', ['in', 'masuk'])
+                .order('ts_server', { ascending: true })
+                .limit(10000)
             : Promise.resolve({ data: [] }),
           attFrom <= attTo
             ? supabase
@@ -402,6 +434,8 @@ export async function hitungRingkasanPayrollHr(filter: {
                 .gte('date', attFrom)
                 .lte('date', attTo)
                 .eq('status', 'hadir')
+                .order('date', { ascending: true })
+                .limit(10000)
             : Promise.resolve({ data: [] }),
           ...dailyBonusPromises
         ])
@@ -485,6 +519,111 @@ export async function hitungRingkasanPayrollHr(filter: {
         console.warn('Fallback bonus RPC error:', err)
       }
     }
+
+    // Deteksi tanggal aktif operasional per outlet (buka lambat / tutup cepat di tengah bulan)
+    const outletOperationalMap = new Map<string, OutletOperationalInfo>()
+    const outletActiveDatesMap = new Map<string, Set<string>>()
+
+    allDailyBonusRows.forEach((d: any) => {
+      if (d.outlet_id && d.bonus_date && (Number(d.total_pcs) > 0 || Number(d.pool_amount) > 0)) {
+        if (!outletActiveDatesMap.has(d.outlet_id)) outletActiveDatesMap.set(d.outlet_id, new Set())
+        outletActiveDatesMap.get(d.outlet_id)!.add(d.bonus_date)
+      }
+    })
+
+    staffOutletAttendanceDates.forEach((datesSet, key) => {
+      const parts = key.split('_')
+      const oid = parts[1]
+      if (oid) {
+        if (!outletActiveDatesMap.has(oid)) outletActiveDatesMap.set(oid, new Set())
+        datesSet.forEach(d => outletActiveDatesMap.get(oid)!.add(d))
+      }
+    })
+
+    const primaryPeriod = periods[0] || { month: 10, year: 2026 }
+    const periodMonthStart = `${primaryPeriod.year}-${String(primaryPeriod.month).padStart(2, '0')}-01`
+    const totalMonthDays = new Date(primaryPeriod.year, primaryPeriod.month, 0).getDate()
+    const periodMonthEnd = `${primaryPeriod.year}-${String(primaryPeriod.month).padStart(2, '0')}-${String(totalMonthDays).padStart(2, '0')}`
+
+    const allCandidateOutlets = new Set<string>([...operationalOutletIds, ...(outletData || []).map((o: any) => o.id)])
+    allCandidateOutlets.forEach(oid => {
+      const dates = Array.from(outletActiveDatesMap.get(oid) || []).sort()
+      const meta = outletMetaMap.get(oid)
+      const isInactive = meta?.is_active === false || meta?.status === 'inactive'
+      const createdStr = meta?.created_at ? String(meta.created_at).slice(0, 10) : ''
+
+      if (dates.length === 0) {
+        if (isInactive) {
+          outletOperationalMap.set(oid, {
+            isPartial: true,
+            activeDays: 0,
+            totalMonthDays,
+            operationalCalendarDays: 0,
+            calendarRatio: 0,
+            firstDate: periodMonthStart,
+            lastDate: periodMonthStart,
+            note: 'Outlet nonaktif (tidak ada aktivitas operasional di bulan ini)'
+          })
+        } else {
+          outletOperationalMap.set(oid, {
+            isPartial: false,
+            activeDays: 0,
+            totalMonthDays,
+            operationalCalendarDays: totalMonthDays,
+            calendarRatio: 1,
+            firstDate: periodMonthStart,
+            lastDate: periodMonthEnd
+          })
+        }
+        return
+      }
+
+      const firstDate = dates[0]
+      const lastDate = dates[dates.length - 1]
+
+      // Toko buka di tengah bulan jika aktivitas pertama >= tgl 4 atau dibuat di bulan ini
+      const isLateStart = firstDate > periodMonthStart && (firstDate >= `${primaryPeriod.year}-${String(primaryPeriod.month).padStart(2, '0')}-04` || createdStr >= periodMonthStart)
+      // Toko tutup di tengah bulan jika outlet inactive dan aktivitas terakhir < akhir bulan
+      const isEarlyEnd = isInactive && lastDate < periodMonthEnd
+
+      if (isLateStart || isEarlyEnd) {
+        const opStart = isLateStart ? firstDate : periodMonthStart
+        const opEnd = isEarlyEnd ? lastDate : periodMonthEnd
+        const diffMs = new Date(opEnd).getTime() - new Date(opStart).getTime()
+        const opCalendarDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1)
+        const calendarRatio = Math.min(1, Math.max(0, opCalendarDays / totalMonthDays))
+
+        let note = ''
+        if (isLateStart && isEarlyEnd) {
+          note = `Outlet beroperasi parsial ${formatTanggalIndo(opStart)} s/d ${formatTanggalIndo(opEnd)} (${dates.length} hari kerja aktif, ${opCalendarDays} hari kalender)`
+        } else if (isLateStart) {
+          note = `Outlet mulai beroperasi pada ${formatTanggalIndo(opStart)} (${dates.length} hari kerja aktif, ${opCalendarDays} hari kalender)`
+        } else {
+          note = `Outlet nonaktif sejak ${formatTanggalIndo(opEnd)} (${dates.length} hari kerja aktif, ${opCalendarDays} hari kalender)`
+        }
+
+        outletOperationalMap.set(oid, {
+          isPartial: true,
+          activeDays: dates.length,
+          totalMonthDays,
+          operationalCalendarDays: opCalendarDays,
+          calendarRatio,
+          firstDate: opStart,
+          lastDate: opEnd,
+          note
+        })
+      } else {
+        outletOperationalMap.set(oid, {
+          isPartial: false,
+          activeDays: dates.length,
+          totalMonthDays,
+          operationalCalendarDays: totalMonthDays,
+          calendarRatio: 1,
+          firstDate: periodMonthStart,
+          lastDate: periodMonthEnd
+        })
+      }
+    })
 
     // Fallback: If no payroll slips have been generated for the requested period(s) (e.g. running current month),
     // build draft rows from active staff master data (outlet_staff + staff_financials) and MTD crew bonus RPC.
@@ -722,9 +861,25 @@ export async function hitungRingkasanPayrollHr(filter: {
       const dedSplit = distributeEqualSplit(bDeductions, targets)
 
       targets.forEach(tId => {
-        const g = gSplit.get(tId) || 0
-        const a = aSplit.get(tId) || 0
-        const ded = dedSplit.get(tId) || 0
+        let g = gSplit.get(tId) || 0
+        let a = aSplit.get(tId) || 0
+        let ded = dedSplit.get(tId) || 0
+
+        const opInfo = outletOperationalMap.get(tId)
+        let partialRatio: number | undefined
+        let partialDays: number | undefined
+        let partialTotalDays: number | undefined
+        let partialNote: string | undefined
+
+        if (opInfo?.isPartial && opInfo.calendarRatio !== undefined) {
+          partialRatio = opInfo.calendarRatio
+          partialDays = opInfo.operationalCalendarDays
+          partialTotalDays = opInfo.totalMonthDays
+          g = Math.round(g * partialRatio)
+          a = Math.round(a * partialRatio)
+          ded = Math.round(ded * partialRatio)
+          partialNote = `Alokasi parsial operasional toko: ${partialDays}/${partialTotalDays} hari (${Math.round(partialRatio * 100)}%)`
+        }
 
         let bon = bonSplit.get(tId) || 0
         let managerPcs = 0
@@ -779,7 +934,11 @@ export async function hitungRingkasanPayrollHr(filter: {
           allocatedDeductions: ded,
           coachedOutletsCount: targets.length,
           totalPcs: managerPcs,
-          status: m.status === 'finalized' ? 'finalized' : 'draft'
+          status: m.status === 'finalized' ? 'finalized' : 'draft',
+          partialRatio,
+          partialDays,
+          partialTotalDays,
+          partialNote
         })
       })
     })
@@ -822,10 +981,69 @@ export async function hitungRingkasanPayrollHr(filter: {
       const isBackup = contractType === 'daily' || subRole === 'crew_backup'
 
       const targets = isPusat ? ['PUSAT'] : getCrewBackupTargets(r.staff_id, staffOutletId, isBackup)
+      const attMap = staffAllOutletsAttendance.get(r.staff_id)
+      const hasMultiOutletAtt = !isPusat && attMap && attMap.size > 1
 
-      if (targets.length <= 1) {
+      if (hasMultiOutletAtt) {
+        // Fair Split untuk kru mutasi/tugas multi-cabang berbasis hari hadir riil (standar 26 hari kerja)
+        attMap.forEach((dateSet, attOid) => {
+          const attCount = dateSet.size
+          const cRatio = Math.min(1, attCount / 26)
+          const g = Math.round(bSalary * cRatio)
+          const a = Math.round(bAllowances * cRatio)
+          const ded = Math.round(bDeductions * cRatio)
+          const routinePortion = g + a - ded
+          const bonusPortion = (attOid === staffOutletId) ? bBonus : 0
+          const totPortion = routinePortion + bonusPortion
+
+          const outletName = outletNameMap.get(attOid) || 'Outlet'
+          let group = outletGroups.get(attOid)
+          if (!group) {
+            group = {
+              outletId: attOid,
+              outletName,
+              staffCount: 0,
+              crewSalary: 0,
+              managerAllocation: 0,
+              managerRoutineAllocation: 0,
+              managerBonusAllocation: 0,
+              totalSalary: 0,
+              basicSalary: 0,
+              bonus: 0,
+              draftCount: 0,
+              finalizedCount: 0
+            }
+            outletGroups.set(attOid, group)
+          }
+          group.staffCount++
+          group.crewSalary += totPortion
+          group.totalSalary += totPortion
+          group.basicSalary += g
+          group.bonus += bonusPortion
+          if (r.status === 'finalized') {
+            group.finalizedCount++
+          } else {
+            group.draftCount++
+          }
+        })
+      } else if (targets.length <= 1) {
         const groupKey = isPusat ? 'PUSAT' : (targets[0] || staffOutletId || 'PUSAT')
         const outletName = isPusat ? 'Kantor Pusat' : (outletNameMap.get(groupKey) || 'Outlet')
+        const opInfo = outletOperationalMap.get(groupKey)
+
+        let g = bSalary
+        let a = bAllowances
+        let ded = bDeductions
+        let finalTotSalary = totSalary
+
+        if (!isPusat && opInfo?.isPartial) {
+          const attCount = staffOutletAttendanceDates.get(`${r.staff_id}_${groupKey}`)?.size || opInfo.operationalCalendarDays
+          const cRatio = Math.min(1, attCount / 26)
+          g = Math.round(bSalary * cRatio)
+          a = Math.round(bAllowances * cRatio)
+          ded = Math.round(bDeductions * cRatio)
+          finalTotSalary = g + a - ded + bBonus
+        }
 
         let group = outletGroups.get(groupKey)
         if (!group) {
@@ -846,9 +1064,9 @@ export async function hitungRingkasanPayrollHr(filter: {
           outletGroups.set(groupKey, group)
         }
         group.staffCount++
-        group.crewSalary += totSalary
-        group.totalSalary += totSalary
-        group.basicSalary += bSalary
+        group.crewSalary += finalTotSalary
+        group.totalSalary += finalTotSalary
+        group.basicSalary += g
         group.bonus += bBonus
         if (r.status === 'finalized') {
           group.finalizedCount++
@@ -962,6 +1180,11 @@ export async function hitungRingkasanPayrollHr(filter: {
         fullRoutine: number
         targets: string[]
         status: 'draft' | 'finalized'
+        attendanceDays?: number
+        totalWorkDays?: number
+        attendanceRatio?: number
+        partialNote?: string
+        splitNote?: string
       }
 
       const outletCrewItems: ProcessedCrewDetail[] = []
@@ -983,8 +1206,12 @@ export async function hitungRingkasanPayrollHr(filter: {
         const targets = getCrewBackupTargets(r.staff_id, staffOutletId, isBackup)
         const isHome = staffOutletId === target
         const isAssigned = targets.includes(target)
+        const attDatesAtTarget = staffOutletAttendanceDates.get(`${r.staff_id}_${target}`)
+        const attCountAtTarget = attDatesAtTarget ? attDatesAtTarget.size : 0
+        const hasAttendanceAtTarget = attCountAtTarget > 0
 
-        if (!isHome && !isAssigned) return
+        // Masukkan kru jika merupakan outlet asal, cabang backup, ATAU memiliki kehadiran riil di outlet ini
+        if (!isHome && !isAssigned && !hasAttendanceAtTarget) return
 
         const bSalary = Number(r.basic_salary || 0)
         const bAllowances =
@@ -996,15 +1223,36 @@ export async function hitungRingkasanPayrollHr(filter: {
         const bDeductions = Number(r.deductions || 0)
         const fullRoutine = bSalary + bAllowances - bDeductions
 
-        const isSplit = isBackup && targets.length > 1
+        const allAttMap = staffAllOutletsAttendance.get(r.staff_id)
+        const hasOtherOutlets = allAttMap ? allAttMap.size > 1 : false
+        const opInfo = outletOperationalMap.get(target)
 
-        let allocatedBasic = bSalary
-        let allocatedAllowances = bAllowances
-        let allocatedDeductions = bDeductions
-        let allocatedRoutine = fullRoutine
+        let crewRatio = 1
+        let splitNote: string | undefined
+        let partialNote: string | undefined
+
+        if (hasOtherOutlets && attCountAtTarget > 0) {
+          crewRatio = Math.min(1, attCountAtTarget / 26)
+          const otherDescs = Array.from(allAttMap!.entries())
+            .filter(([oid]) => oid !== target)
+            .map(([oid, dSet]) => `${outletNameMap.get(oid) || 'Cabang Lain'} (${dSet.size} hr)`)
+            .join(', ')
+          splitNote = `${attCountAtTarget}/26 hari di outlet ini · Mutasi/tugas lain di: ${otherDescs}`
+        } else if (opInfo?.isPartial) {
+          const effectiveDays = attCountAtTarget > 0 ? attCountAtTarget : opInfo.operationalCalendarDays
+          crewRatio = Math.min(1, effectiveDays / 26)
+          partialNote = `${effectiveDays}/26 hari kerja · Proposional operasional toko (${opInfo.operationalCalendarDays} hari kalender)`
+        }
+
+        const isSplit = isBackup && targets.length > 1 && !hasAttendanceAtTarget
+
+        let allocatedBasic = Math.round(bSalary * crewRatio)
+        let allocatedAllowances = Math.round(bAllowances * crewRatio)
+        let allocatedDeductions = Math.round(bDeductions * crewRatio)
+        let allocatedRoutine = allocatedBasic + allocatedAllowances - allocatedDeductions
         const dailyEntry = dailyCrewBonusMap.get(r.staff_id)
         const bonusAtTarget = dailyEntry ? dailyEntry.bonus : (dailyCrewBonusMap.size > 0 ? 0 : ((staffOutletId === target) ? bBonus : 0))
-        let allocatedTotal = fullRoutine + bonusAtTarget
+        let allocatedTotal = allocatedRoutine + bonusAtTarget
 
         if (isSplit) {
           const gSplit = distributeEqualSplit(bSalary, targets)
@@ -1043,7 +1291,12 @@ export async function hitungRingkasanPayrollHr(filter: {
           fullDeductions: bDeductions,
           fullRoutine,
           targets,
-          status: r.status === 'finalized' ? 'finalized' : 'draft'
+          status: r.status === 'finalized' ? 'finalized' : 'draft',
+          attendanceDays: attCountAtTarget,
+          totalWorkDays: 26,
+          attendanceRatio: crewRatio,
+          partialNote,
+          splitNote
         })
       })
 
@@ -1330,7 +1583,12 @@ export async function hitungRingkasanPayrollHr(filter: {
             fullBasicSalary: item.fullBasic,
             fullAllowances: item.fullAllowances,
             fullDeductions: item.fullDeductions,
-            allocatedOutletNames: item.targets.map(id => outletNameMap.get(id) || 'Cabang')
+            allocatedOutletNames: item.targets.map(id => outletNameMap.get(id) || 'Cabang'),
+            attendanceDays: item.attendanceDays,
+            totalWorkDays: item.totalWorkDays,
+            attendanceRatio: item.attendanceRatio,
+            partialNote: item.partialNote,
+            splitNote: item.splitNote
           })),
           ...combinedCrewBonusList
             .filter(c => !outletCrewItems.some(i => i.staffId === c.staffId))
@@ -1377,14 +1635,21 @@ export async function hitungRingkasanPayrollHr(filter: {
               status: mgr.status,
               isManagerAllocation: true,
               allocatedAmount: mgr.allocatedAmount,
-              allocationNote: mgr.role === 'area_manager'
+              allocationNote: mgr.partialNote
+                ? `${mgr.role === 'area_manager' ? 'Alokasi AM' : mgr.role === 'regional_manager' ? 'Alokasi RM' : 'Alokasi SC'} (1/${mgr.coachedOutletsCount} cbg) · ${mgr.partialNote}`
+                : mgr.role === 'area_manager'
                 ? `Alokasi 1/${mgr.coachedOutletsCount} cabang (AM)`
                 : mgr.role === 'regional_manager'
                 ? `Alokasi 1/${mgr.coachedOutletsCount} cabang (RM)`
-                : `Alokasi 1/${mgr.coachedOutletsCount} cabang (Stock Controller)`
+                : `Alokasi 1/${mgr.coachedOutletsCount} cabang (Stock Controller)`,
+              partialNote: mgr.partialNote,
+              partialRatio: mgr.partialRatio,
+              partialDays: mgr.partialDays,
+              partialTotalDays: mgr.partialTotalDays
             }
           })
-        ]
+        ],
+        outletOperationalInfo: outletOperationalMap.get(target)
       }
     }
 
@@ -1812,22 +2077,38 @@ export async function hitungRingkasanPayrollHr(filter: {
           const staffRaw: any = r.outlet_staff
           const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
           const staffOutletId = r.outlet_id || staffInfo?.outlet_id
-          const bSalary = Number(r.basic_salary || 0)
-          const bAllowances =
+          let bSalary = Number(r.basic_salary || 0)
+          let bAllowances =
             Number(r.allowance_meal || r.allowance_presence || 0) +
             Number(r.allowance_transport || 0) +
             Number(r.allowance_communication || 0) +
             Number(r.allowance_position || 0)
           const bBonus = Number(r.bonus || 0)
-          const bDeductions = Number(r.deductions || 0)
-          const tot = Number(r.total_salary || 0)
+          let bDeductions = Number(r.deductions || 0)
+          let tot = Number(r.total_salary || 0)
           const isPusat = !staffOutletId || staffOutletId === 'ffffffff-ffff-ffff-ffff-ffffffffffff'
           const contractType = staffInfo?.contract_type || (r as any).contract_type || null
           const subRole = staffInfo?.sub_role || (r as any).sub_role || null
           const isBackup = contractType === 'daily' || subRole === 'crew_backup'
           const targets = isPusat ? ['PUSAT'] : getCrewBackupTargets(r.staff_id, staffOutletId, isBackup)
           const isSplit = isBackup && targets.length > 1
-          const fullRoutine = bSalary + bAllowances - bDeductions
+          let fullRoutine = bSalary + bAllowances - bDeductions
+
+          const attCount = staffOutletAttendanceDates.get(`${r.staff_id}_${staffOutletId}`)?.size || 0
+          const opInfo = outletOperationalMap.get(staffOutletId)
+          let partialNote: string | undefined
+          let cRatio = 1
+
+          if (!isPusat && opInfo?.isPartial) {
+            const effectiveDays = attCount > 0 ? attCount : opInfo.operationalCalendarDays
+            cRatio = Math.min(1, effectiveDays / 26)
+            bSalary = Math.round(bSalary * cRatio)
+            bAllowances = Math.round(bAllowances * cRatio)
+            bDeductions = Math.round(bDeductions * cRatio)
+            fullRoutine = bSalary + bAllowances - bDeductions
+            tot = fullRoutine + bBonus
+            partialNote = `${effectiveDays}/26 hari kerja · Proposional operasional toko (${opInfo.operationalCalendarDays} hari kalender)`
+          }
 
           return {
             staffId: r.staff_id,
@@ -1855,7 +2136,11 @@ export async function hitungRingkasanPayrollHr(filter: {
             allocatedOutletNames: targets.map(id => outletNameMap.get(id) || 'Cabang'),
             // Id outlet tempat kru backup ini bertugas — dipakai lib/opexDariHr.ts untuk
             // membagi gajinya per outlet persis seperti tampilan satu outlet.
-            allocatedOutletIds: targets
+            allocatedOutletIds: targets,
+            attendanceDays: attCount,
+            totalWorkDays: 26,
+            attendanceRatio: cRatio,
+            partialNote
           }
         }),
         ...(target !== 'PUSAT' ? managerRows.map(m => {
@@ -1889,7 +2174,8 @@ export async function hitungRingkasanPayrollHr(filter: {
             allocatedAmount: tot
           }
         }) : [])
-      ]
+      ],
+      outletOperationalInfo: isSingleOutlet ? outletOperationalMap.get(target) : undefined
     }
   } catch (err: any) {
     console.error('Failed to get HR payroll summary:', err)

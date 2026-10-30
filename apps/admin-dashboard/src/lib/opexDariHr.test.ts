@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bagiPersis, barisPayrollDariHr, gajiRutinBulananKartu, gantiPayrollDenganHr } from './opexDariHr'
+import { bagiPersis, barisPayrollDariHr, gajiRutinBulananKartu, gantiPayrollDenganHr, ringkasanHrKelompok } from './opexDariHr'
 
 const hr = (o: Record<string, unknown> = {}) => ({
   totalSalary: 10, totalStaff: 3, basicSalary: 9_000_000, allowances: 1_000_000, bonus: 0, deductions: 100_000,
@@ -98,5 +98,59 @@ describe('gantiPayrollDenganHr', () => {
   it('tanpa baris HR, daftar tidak berubah', () => {
     const rows = [baris({})]
     expect(gantiPayrollDenganHr(rows, null)).toBe(rows)
+  })
+})
+
+describe('ringkasanHrKelompok', () => {
+  const mgr = (staffId: string, role: string, pokok: number, tunj: number, pot: number, bonus: number, pcs: number) => ({
+    staffId, staffName: staffId, role, totalSalary: 0, allocatedAmount: pokok + tunj - pot + bonus,
+    routineAmount: pokok + tunj - pot, bonusAmount: bonus, allocatedBasicSalary: pokok, allocatedAllowances: tunj,
+    allocatedDeductions: pot, coachedOutletsCount: 1, totalPcs: pcs, status: 'draft',
+  })
+  const semua = () => hr({
+    staffDetails: [
+      { staffId: '1', outletId: 'a', outletName: 'EMPANG', basicSalary: 3_000_000, allowances: 500_000, deductions: 100_000, routineSalary: 3_400_000, status: 'draft' },
+      { staffId: '2', outletId: 'b', outletName: 'MITRA SENTUL', basicSalary: 2_000_000, allowances: 300_000, deductions: 0, routineSalary: 2_300_000, status: 'draft' },
+    ],
+    crewBonusByOutlet: { a: 200, b: 101 },
+    crewBonusDetailsByOutlet: {
+      a: [{ staffId: '1', staffName: '1', bonus: 200, totalPcs: 2, status: 'draft' }],
+      b: [{ staffId: '2', staffName: '2', bonus: 101, totalPcs: 1, status: 'draft' }],
+    },
+    managerDetailsByOutlet: {
+      a: [mgr('rm', 'regional_manager', 261_000, 50_000, 0, 100, 2), mgr('am1', 'area_manager', 900_000, 100_000, 0, 100, 2)],
+      b: [mgr('rm', 'regional_manager', 261_000, 50_000, 0, 50, 1)],
+    },
+  })
+
+  it('Internal dan Mitra saling melengkapi: gaji, bonus, dan alokasi manajer cocok dengan total', () => {
+    const h = semua()
+    const internal = ringkasanHrKelompok(h, id => id === 'a')!
+    const mitra = ringkasanHrKelompok(h, id => id === 'b')!
+    expect(internal.crewBasicSalary).toBe(3_000_000)
+    expect(mitra.crewBasicSalary).toBe(2_000_000)
+    expect(internal.crewBonus).toBe(200)
+    expect(mitra.crewBonus).toBe(101)
+    // RM menanggung dua outlet (a dan b), AM hanya outlet a
+    expect(internal.managerDetails!.map(m => m.staffId).sort()).toEqual(['am1', 'rm'])
+    expect(mitra.managerDetails!.map(m => m.staffId)).toEqual(['rm'])
+    // rincian per cabang hanya memuat outlet dalam kelompok
+    expect(Object.keys(internal.managerDetailsByOutlet!)).toEqual(['a'])
+    expect(Object.keys(mitra.managerDetailsByOutlet!)).toEqual(['b'])
+    expect(internal.managerBonusAllocation).toBe(200)
+    expect(mitra.managerBonusAllocation).toBe(50)
+    expect(internal.managerAllocation! + mitra.managerAllocation!).toBe(261_000 * 2 + 50_000 * 2 + 1_000_000)
+  })
+
+  it('"Internal + Kantor Pusat" menambahkan staf pusat sebagai kru', () => {
+    const pusat = hr({ basicSalary: 4_000_000, allowances: 200_000, deductions: 0, staffDetails: [{ staffId: 'p', outletId: 'PUSAT', routineSalary: 4_200_000 }] })
+    const r = ringkasanHrKelompok(semua(), id => id === 'a', pusat)!
+    expect(r.crewBasicSalary).toBe(7_000_000)
+    expect(r.crewCount).toBe(2)
+    expect(r.totalSalary).toBe(r.basicSalary + r.allowances + r.bonus - r.deductions)
+  })
+
+  it('tanpa data HR mengembalikan null', () => {
+    expect(ringkasanHrKelompok(null, () => true)).toBeNull()
   })
 })

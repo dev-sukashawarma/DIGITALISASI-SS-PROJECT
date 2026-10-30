@@ -12,7 +12,7 @@
  */
 
 import type { ExpenseRow } from '@/lib/expenseRow'
-import type { HRPayrollSummary } from '@/lib/server/ringkasanPayrollHr'
+import type { HRPayrollSummary, ManagerAllocationDetail, StaffBonusDetail, StaffPayrollDetail } from '@/lib/server/ringkasanPayrollHr'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
 import { distributeEqualSplit } from '@/lib/opexProrata'
 
@@ -172,4 +172,188 @@ export function gantiPayrollDenganHr(rows: ExpenseRow[], barisHr: ExpenseRow[] |
   const kategori = KATEGORI_PAYROLL_OUTLET as readonly string[]
   const sisa = rows.filter(r => !(r.scope === 'outlet' && kategori.includes(r.category) && String(r.id).startsWith('prorata-')))
   return [...sisa, ...barisHr]
+}
+
+
+/**
+ * Potong ringkasan HR tampilan "Semua Outlet" menjadi satu kelompok outlet
+ * (Internal atau Mitra), lengkap dengan rincian kru dan manajer untuk modal Gaji.
+ * Angkanya memakai pembagian per outlet yang sama dengan `barisPayrollDariHr`,
+ * sehingga jumlahnya cocok dengan kartu Gaji & bonus pada pilihan yang sama.
+ *
+ * `pusat` (opsional) = ringkasan HR target 'PUSAT'; dipakai pada pilihan
+ * "Internal + Kantor Pusat" untuk menambahkan staf kantor pusat sebagai kru.
+ */
+export function ringkasanHrKelompok(
+  hr: HRPayrollSummary | null | undefined,
+  dalamKelompok: (outletId: string) => boolean,
+  pusat?: HRPayrollSummary | null,
+): HRPayrollSummary | null {
+  if (!adaDataHr(hr)) return null
+  const bukanPusat = (id?: string | null): id is string => Boolean(id) && id !== 'PUSAT'
+
+  // 1. Kru: gaji rutin per outlet (kru backup lintas outlet dibagi rata, sama seperti barisPayrollDariHr).
+  const kru: StaffPayrollDetail[] = []
+  let gapok = 0
+  let tunjangan = 0
+  let potongan = 0
+  for (const s of hr.staffDetails ?? []) {
+    if (s.isManagerAllocation || !bukanPusat(s.outletId)) continue
+    const penuhPokok = Number(s.fullBasicSalary ?? s.basicSalary) || 0
+    const penuhTunj = Number(s.fullAllowances ?? s.allowances) || 0
+    const penuhPot = Number(s.fullDeductions ?? s.deductions) || 0
+    const tujuan = (s.allocatedOutletIds ?? []).filter(bukanPusat)
+    if (s.isBackupAllocation && tujuan.length > 1) {
+      const dalam = tujuan.filter(dalamKelompok)
+      if (dalam.length === 0) continue
+      const pokok = distributeEqualSplit(penuhPokok, tujuan)
+      const tunj = distributeEqualSplit(penuhTunj, tujuan)
+      const pot = distributeEqualSplit(penuhPot, tujuan)
+      const sp = dalam.reduce((t, id) => t + (pokok.get(id) || 0), 0)
+      const st = dalam.reduce((t, id) => t + (tunj.get(id) || 0), 0)
+      const sd = dalam.reduce((t, id) => t + (pot.get(id) || 0), 0)
+      gapok += sp; tunjangan += st; potongan += sd
+      kru.push({ ...s, basicSalary: sp, allowances: st, deductions: sd, routineSalary: sp + st - sd })
+      continue
+    }
+    if (!dalamKelompok(s.outletId)) continue
+    gapok += penuhPokok; tunjangan += penuhTunj; potongan += penuhPot
+    kru.push({ ...s, routineSalary: penuhPokok + penuhTunj - penuhPot })
+  }
+
+  // Staf kantor pusat (hanya untuk "Internal + Kantor Pusat").
+  if (adaDataHr(pusat)) {
+    gapok += Number(pusat.basicSalary) || 0
+    tunjangan += Number(pusat.allowances) || 0
+    potongan += Number(pusat.deductions) || 0
+    kru.push(...(pusat.staffDetails ?? []).filter(s => !s.isManagerAllocation))
+  }
+
+  // 2. Bonus kru per outlet dalam kelompok.
+  const bonusPerOutlet = hr.crewBonusByOutlet ?? {}
+  let crewBonus = 0
+  let crewBonusDetails: StaffBonusDetail[] = []
+  if (Object.keys(bonusPerOutlet).length > 0) {
+    crewBonus = Object.entries(bonusPerOutlet)
+      .filter(([id]) => dalamKelompok(id))
+      .reduce((t, [, b]) => t + (Number(b) || 0), 0)
+    const peta = new Map<string, StaffBonusDetail>()
+    for (const [id, daftar] of Object.entries(hr.crewBonusDetailsByOutlet ?? {})) {
+      if (!dalamKelompok(id)) continue
+      for (const d of daftar) {
+        const ada = peta.get(d.staffId)
+        if (!ada) { peta.set(d.staffId, { ...d, backupDates: [...(d.backupDates ?? [])] }); continue }
+        ada.bonus += d.bonus
+        ada.totalPcs = (ada.totalPcs ?? 0) + (d.totalPcs ?? 0)
+        ada.backupDates = Array.from(new Set([...(ada.backupDates ?? []), ...(d.backupDates ?? [])])).sort()
+      }
+    }
+    crewBonusDetails = [...peta.values()].sort((a, b) => b.bonus - a.bonus)
+  } else {
+    // Cadangan (bonus dari slip, tanpa data harian): ikut outlet asal kru.
+    const idKru = new Set(kru.map(s => s.staffId))
+    crewBonusDetails = (hr.crewBonusDetails ?? []).filter(c => idKru.has(c.staffId))
+    crewBonus = crewBonusDetails.reduce((t, c) => t + (Number(c.bonus) || 0), 0)
+  }
+
+  // 3. Manajer (AM/RM/SC): jumlahkan alokasi di outlet dalam kelompok.
+  const manajer = new Map<string, ManagerAllocationDetail>()
+  const outletManajer = new Map<string, Set<string>>()
+  let mgrPokok = 0
+  let mgrTunj = 0
+  let mgrPot = 0
+  for (const [id, daftar] of Object.entries(hr.managerDetailsByOutlet ?? {})) {
+    if (!dalamKelompok(id)) continue
+    for (const d of daftar) {
+      const set = outletManajer.get(d.staffId) ?? new Set<string>()
+      set.add(id)
+      outletManajer.set(d.staffId, set)
+      mgrPokok += d.allocatedBasicSalary ?? 0
+      mgrTunj += d.allocatedAllowances ?? 0
+      mgrPot += d.allocatedDeductions ?? 0
+      const ada = manajer.get(d.staffId)
+      if (!ada) { manajer.set(d.staffId, { ...d, coachedOutletsCount: set.size }); continue }
+      ada.allocatedAmount += d.allocatedAmount
+      ada.routineAmount = (ada.routineAmount ?? 0) + (d.routineAmount ?? 0)
+      ada.bonusAmount = (ada.bonusAmount ?? 0) + (d.bonusAmount ?? 0)
+      ada.allocatedBasicSalary = (ada.allocatedBasicSalary ?? 0) + (d.allocatedBasicSalary ?? 0)
+      ada.allocatedAllowances = (ada.allocatedAllowances ?? 0) + (d.allocatedAllowances ?? 0)
+      ada.allocatedDeductions = (ada.allocatedDeductions ?? 0) + (d.allocatedDeductions ?? 0)
+      ada.totalPcs = (ada.totalPcs ?? 0) + (d.totalPcs ?? 0)
+      ada.coachedOutletsCount = set.size
+    }
+  }
+  const managerDetails = [...manajer.values()]
+  const mgrRutin = mgrPokok + mgrTunj - mgrPot
+  const mgrBonus = managerDetails.reduce((t, m) => t + (m.bonusAmount ?? 0), 0)
+  const managerBonusDetails: StaffBonusDetail[] = managerDetails
+    .filter(m => (m.bonusAmount ?? 0) > 0 || m.role === 'area_manager' || m.role === 'regional_manager')
+    .map(m => ({
+      staffId: m.staffId,
+      staffName: m.staffName,
+      role: m.role,
+      outletName: m.role === 'regional_manager' ? 'Rp 50 / pcs (Wilayah Regional)' : 'Rp 50 / pcs (Cabang Binaan)',
+      bonus: m.bonusAmount ?? 0,
+      totalPcs: m.totalPcs ?? Math.round((m.bonusAmount ?? 0) / 50),
+      status: m.status,
+    }))
+
+  // 4. Komposisi kru & status.
+  let reguler = 0, backup = 0, trainee = 0, ojt = 0
+  for (const s of kru) {
+    if (s.contractType === 'daily' || s.subRole === 'crew_backup') backup++
+    else if (s.contractType === 'probation' || s.subRole === 'crew_trainee') trainee++
+    else if (s.contractType === 'intern' || s.onboardingStage === 'ojt') ojt++
+    else reguler++
+  }
+  const finalKru = kru.filter(s => s.status === 'finalized').length
+  const finalMgr = managerDetails.filter(m => m.status === 'finalized').length
+  const jumlahFinal = finalKru + finalMgr
+  const jumlahDraft = kru.length + managerDetails.length - jumlahFinal
+  const status: HRPayrollSummary['status'] =
+    kru.length + managerDetails.length === 0 ? 'empty'
+      : jumlahFinal > 0 && jumlahDraft === 0 ? 'finalized'
+      : jumlahDraft > 0 && jumlahFinal === 0 ? 'draft'
+      : 'partial'
+
+  const basicSalary = gapok + mgrPokok
+  const allowances = tunjangan + mgrTunj
+  const deductions = potongan + mgrPot
+  const bonus = crewBonus + mgrBonus
+
+  return {
+    totalSalary: basicSalary + allowances + bonus - deductions,
+    totalStaff: kru.length + managerDetails.length,
+    basicSalary,
+    allowances,
+    bonus,
+    deductions,
+    draftCount: jumlahDraft,
+    draftAmount: 0,
+    finalizedCount: jumlahFinal,
+    finalizedAmount: 0,
+    status,
+    outlets: (hr.outlets ?? []).filter(o => bukanPusat(o.outletId) && dalamKelompok(o.outletId)),
+    crewCount: kru.length,
+    crewRegularCount: reguler,
+    crewBackupCount: backup,
+    crewTraineeCount: trainee,
+    crewOjtCount: ojt,
+    crewBasicSalary: gapok,
+    crewAllowances: tunjangan,
+    crewDeductions: potongan,
+    crewBonus,
+    managerAllocation: mgrRutin,
+    managerRoutineAllocation: mgrRutin,
+    managerBonusAllocation: mgrBonus,
+    managerBasicSalaryAllocation: mgrPokok,
+    managerAllowancesAllocation: mgrTunj,
+    managerDeductionsAllocation: mgrPot,
+    managerDetails,
+    managerDetailsByOutlet: Object.fromEntries(Object.entries(hr.managerDetailsByOutlet ?? {}).filter(([id]) => dalamKelompok(id))),
+    crewBonusDetails,
+    managerBonusDetails,
+    bonusDetails: [...crewBonusDetails, ...managerBonusDetails].sort((a, b) => b.bonus - a.bonus),
+    staffDetails: kru,
+  }
 }

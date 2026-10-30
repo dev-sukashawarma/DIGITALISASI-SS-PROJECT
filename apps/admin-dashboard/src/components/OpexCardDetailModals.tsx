@@ -136,6 +136,37 @@ export function OpexCardDetailModals({
 }: OpexCardDetailModalsProps) {
   const [operationalTab, setOperationalTab] = useState<'category' | 'outlet'>('category')
   const [lemburTab, setLemburTab] = useState<'outlet' | 'transactions'>('outlet')
+  // Urutan daftar kru di rincian gaji: default nilai gaji tertinggi dulu.
+  const [crewSort, setCrewSort] = useState<{ key: 'nilai' | 'nama'; dir: 'asc' | 'desc' }>({ key: 'nilai', dir: 'desc' })
+  const urutkanKru = <T extends { staffName?: string; routineSalary?: number }>(daftar: T[]): T[] => {
+    const arah = crewSort.dir === 'asc' ? 1 : -1
+    const nama = (a: T, b: T) => (a.staffName || '').localeCompare(b.staffName || '', 'id')
+    return [...daftar].sort((a, b) => {
+      if (crewSort.key === 'nama') return arah * nama(a, b)
+      const selisih = (a.routineSalary || 0) - (b.routineSalary || 0)
+      return selisih !== 0 ? arah * selisih : nama(a, b)
+    })
+  }
+  const crewSortBar = (
+    <div className="flex items-center gap-1.5 text-[10px]">
+      <span className="font-semibold text-gray-500">Urutkan:</span>
+      {([['nilai', 'Nilai Gaji'], ['nama', 'Nama']] as const).map(([key, label]) => {
+        const aktif = crewSort.key === key
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setCrewSort(prev => prev.key === key
+              ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+              : { key, dir: key === 'nama' ? 'asc' : 'desc' })}
+            className={`px-2 py-0.5 rounded-md border font-bold transition-colors ${aktif ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-slate-200 hover:bg-slate-50'}`}
+          >
+            {label}{aktif ? (crewSort.dir === 'asc' ? ' \u25B2' : ' \u25BC') : ''}
+          </button>
+        )
+      })}
+    </div>
+  )
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -279,6 +310,28 @@ export function OpexCardDetailModals({
   // Calculate row-level manager bonus and pcs sold strictly aligned with the active date filter
   const calculatedManagerRows = (() => {
     if (managerBonusList.length === 0) return []
+
+    // Bila jumlah bonus per manajer dari HR sudah sama dengan total kartu, pakai angka
+    // per orang apa adanya (RM = pcs seluruh cabang x Rp 50, AM = pcs cabang binaan x Rp 50).
+    // Pembagian 50/50 di bawah hanya cadangan (mis. angka closing yang dipatok), karena
+    // baru benar jika total pcs AM sama dengan total pcs RM.
+    const totalBaseManagerBonus = managerBonusList.reduce((s, m) => s + (Number(m.bonus) || 0), 0)
+    if (totalBaseManagerBonus > 0 && Math.abs(totalBaseManagerBonus - managerBonusAmount) <= 1) {
+      const rankExact = (role: string = '') => {
+        const r = role.toLowerCase()
+        if (r === 'regional_manager' || r === 'rm') return 1
+        if (r === 'area_manager' || r === 'am') return 2
+        if (r === 'stock_controller' || r === 'sc') return 3
+        return 4
+      }
+      return managerBonusList
+        .map((mgr) => ({
+          ...mgr,
+          staffBonus: Number(mgr.bonus) || 0,
+          staffPcs: mgr.totalPcs || (mgr.bonus > 0 ? Math.round(mgr.bonus / 50) : 0),
+        }))
+        .sort((a, b) => rankExact(a.role) - rankExact(b.role) || b.staffBonus - a.staffBonus)
+    }
 
     const rmList = managerBonusList.filter(m => m.role === 'regional_manager')
     const amList = managerBonusList.filter(m => m.role !== 'regional_manager')
@@ -628,7 +681,7 @@ export function OpexCardDetailModals({
                     const totalProrata = crewRoutineProrata + mgrAllocProrata
 
                     const allStaff = hrPayroll?.staffDetails || []
-                    const crewList = allStaff.filter(s => !s.isManagerAllocation)
+                    const crewList = urutkanKru(allStaff.filter(s => !s.isManagerAllocation))
                     const crewCount = crewList.length > 0 ? crewList.length : (hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0)
                     const rawManagerList = (hrPayroll?.managerDetails && hrPayroll.managerDetails.length > 0)
                       ? hrPayroll.managerDetails
@@ -756,6 +809,7 @@ export function OpexCardDetailModals({
                                   </div>
                                 </div>
 
+                                {crewSortBar}
                                 {/* Daftar Personel Kru Fix 1 Bulan */}
                                 <div className="space-y-1.5 max-h-[260px] overflow-y-auto scrollbar-thin pr-0.5">
                                   {crewList.length > 0 ? (
@@ -937,12 +991,45 @@ export function OpexCardDetailModals({
                                             <div className="bg-purple-50/90 px-2.5 py-1 rounded-lg border border-purple-100/90 flex items-center justify-between text-[11px]">
                                               <span className="text-purple-900 font-medium flex items-center gap-1.5">
                                                 <Building2 size={11} className="text-purple-600 shrink-0" />
-                                                <span>Beban Cabang Ini <span className="text-[10px] text-purple-700 font-normal">({1}/{mgr.coachedOutletsCount || 21} Cbg)</span>:</span>
+                                                {(hrPayroll?.outlets?.length ?? 0) > 1 ? (<span>Total Beban Semua Cabang <span className="text-[10px] text-purple-700 font-normal">({mgr.coachedOutletsCount || 0} Cbg)</span>:</span>) : (<span>Beban Cabang Ini <span className="text-[10px] text-purple-700 font-normal">({1}/{mgr.coachedOutletsCount || 21} Cbg)</span>:</span>)}
                                               </span>
                                               <span className="font-black text-purple-800 font-mono">
                                                 +{rupiah(mgrAllocRoutine)} <span className="text-[9px] text-purple-600 font-medium">/ bln</span>
                                               </span>
                                             </div>
+
+                                            {(hrPayroll?.outlets?.length ?? 0) > 1 && hrPayroll?.managerDetailsByOutlet && (() => {
+                                              const namaOutlet = new Map((hrPayroll.outlets ?? []).map(o => [o.outletId, o.outletName]))
+                                              const perCabang = Object.entries(hrPayroll.managerDetailsByOutlet ?? {})
+                                                .flatMap(([oid, daftar]) => {
+                                                  const d = daftar.find(x => x.staffId === mgr.staffId)
+                                                  return d
+                                                    ? [{ oid, nama: namaOutlet.get(oid) || 'Outlet', jumlah: d.routineAmount ?? (d.allocatedAmount - (d.bonusAmount || 0)) }]
+                                                    : []
+                                                })
+                                                .sort((a, b) => b.jumlah - a.jumlah || a.nama.localeCompare(b.nama, 'id'))
+                                              if (perCabang.length === 0) return null
+                                              const totalPerCabang = perCabang.reduce((s, b) => s + b.jumlah, 0)
+                                              return (
+                                                <details className="rounded-lg border border-purple-100 bg-white/70 px-2.5 py-1 text-[11px]">
+                                                  <summary className="cursor-pointer select-none font-semibold text-purple-800">
+                                                    Sumbangan tiap cabang untuk gaji {mgr.staffName.split(' ')[0]} ({perCabang.length} Cbg)
+                                                  </summary>
+                                                  <div className="mt-1.5 space-y-0.5 max-h-[160px] overflow-y-auto scrollbar-thin pr-0.5">
+                                                    {perCabang.map(b => (
+                                                      <div key={b.oid} className="flex items-center justify-between gap-2 text-gray-700">
+                                                        <span className="truncate">{b.nama}</span>
+                                                        <span className="font-mono font-bold text-purple-800 shrink-0">{rupiah(b.jumlah)}</span>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  <div className="mt-1 pt-1 border-t border-purple-100 flex items-center justify-between font-black text-purple-900">
+                                                    <span>Total</span>
+                                                    <span className="font-mono">{rupiah(totalPerCabang)}</span>
+                                                  </div>
+                                                </details>
+                                              )
+                                            })()}
                                           </div>
                                         )
                                       })
@@ -1054,6 +1141,7 @@ export function OpexCardDetailModals({
                                   </div>
                                 </div>
 
+                                {crewSortBar}
                                 {/* Daftar Personel Kru Prorata */}
                                 <div className="space-y-1.5 max-h-[260px] overflow-y-auto scrollbar-thin pr-0.5">
                                   {crewList.length > 0 ? (

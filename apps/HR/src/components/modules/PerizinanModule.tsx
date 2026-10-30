@@ -50,7 +50,7 @@ type KasbonStatusFilter = 'all' | CashAdvanceStatus
 
 const leaveTabs: { key: LeaveStatusFilter; label: string }[] = [
   { key: 'all', label: 'Semua Status' },
-  { key: 'pending', label: 'Menunggu Persetujuan' },
+  { key: 'pending', label: 'Menunggu Persetujuan HR' },
   { key: 'approved', label: 'Disetujui' },
   { key: 'rejected', label: 'Ditolak' },
 ]

@@ -411,7 +411,10 @@ export async function toggleStaffBonusEligibility(staffId: string, isBonusEligib
   }
 }
 
-export async function deleteStaffSync(staffId: string): Promise<{
+export async function deleteStaffSync(
+  staffId: string,
+  options?: { resignDate?: string; inactiveReason?: string }
+): Promise<{
   ok: boolean
   archived?: boolean
   message: string
@@ -456,8 +459,8 @@ export async function deleteStaffSync(staffId: string): Promise<{
         .update({
           status: 'inactive',
           is_active: false,
-          inactive_reason: 'Diarsipkan oleh HR (memiliki riwayat operasional shift/absensi)',
-          resign_date: staff.resign_date || today,
+          inactive_reason: options?.inactiveReason || 'Diarsipkan oleh HR (memiliki riwayat operasional shift/absensi)',
+          resign_date: options?.resignDate || staff.resign_date || today,
         })
         .eq('id', staffId)
 
@@ -625,6 +628,267 @@ export async function hardDeleteStaffSync(staffId: string): Promise<{
       ok: false,
       message: err.message || 'Gagal melakukan hard delete karyawan',
       error: err.message || 'Gagal melakukan hard delete karyawan',
+    }
+  }
+}
+
+export interface SettlementCalculationPreview {
+  staffId: string
+  staffName: string
+  role: string
+  outletName: string
+  resignDate: string
+  periodMonth: number
+  periodYear: number
+  daysPresent: number
+  lateMinutes: number
+  basicSalaryBase: number
+  basicSalaryProrated: number
+  allowanceMealBase: number
+  allowanceMealProrated: number
+  allowancePosition: number
+  salesBonusEstimated: number
+  lateDeduction: number
+  subtotalHak: number
+  totalKasbonRemaining: number
+  kasbonDeduction: number
+  takeHomePay: number
+  kasbonDeficit: number
+}
+
+export async function getStaffSettlementPreview(
+  staffId: string,
+  resignDate: string
+): Promise<{ ok: boolean; data?: SettlementCalculationPreview; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
+    if (!staffId) return { ok: false, error: 'ID staf tidak valid' }
+
+    const admin = getAdminSupabase()
+    const { data: staff, error: staffErr } = await admin
+      .from('outlet_staff')
+      .select('id, name, role, outlet_id, outlets!outlet_id(name), staff_financials(*)')
+      .eq('id', staffId)
+      .single()
+
+    if (staffErr || !staff) {
+      return { ok: false, error: 'Data karyawan tidak ditemukan' }
+    }
+
+    const d = new Date(resignDate || new Date().toISOString().split('T')[0])
+    const month = d.getMonth() + 1
+    const year = d.getFullYear()
+    const startDay = `${year}-${String(month).padStart(2, '0')}-01`
+    const endDay = resignDate || `${year}-${String(month).padStart(2, '0')}-31`
+
+    // Attendance
+    const { data: att } = await admin
+      .from('attendance')
+      .select('id, created_at, telat_menit')
+      .eq('outlet_staff_id', staffId)
+      .gte('created_at', `${startDay}T00:00:00`)
+      .lte('created_at', `${endDay}T23:59:59`)
+
+    const daySet = new Set<string>()
+    let totalLateMinutes = 0
+    att?.forEach((a: any) => {
+      if (a.created_at) daySet.add(a.created_at.slice(0, 10))
+      if (a.telat_menit) totalLateMinutes += Number(a.telat_menit) || 0
+    })
+
+    const daysPresent = daySet.size
+
+    // Kasbon remaining
+    const { data: kasbons } = await admin
+      .from('cash_advances')
+      .select('id, remaining, status, status_hr')
+      .eq('staff_id', staffId)
+      .eq('status', 'active')
+      .eq('status_hr', 'approved')
+
+    const totalKasbonRemaining = kasbons?.reduce((acc: number, k: any) => acc + (Number(k.remaining) || 0), 0) || 0
+
+    // Financials
+    const fin = Array.isArray(staff.staff_financials) ? staff.staff_financials[0] : staff.staff_financials
+    const basicSalaryBase = Number(fin?.basic_salary) || 0
+    const allowanceMealBase = Number(fin?.allowance_meal) || Number(fin?.allowance_presence) || 0
+    const allowancePosition = Number(fin?.allowance_position) || 0
+
+    // Prorata (26 working days standard)
+    const basicSalaryProrated = Math.round((basicSalaryBase / 26) * daysPresent)
+    const allowanceMealProrated = Math.round((allowanceMealBase / 26) * daysPresent)
+    const lateDeduction = totalLateMinutes * 1000
+
+    // Sales bonus estimation from crew bonus RPC if available
+    let salesBonusEstimated = 0
+    try {
+      if (staff.outlet_id) {
+        const { data: bList } = await admin.rpc('get_monthly_crew_bonus', {
+          p_month: month,
+          p_year: year,
+          p_outlet_id: staff.outlet_id,
+        })
+        const found = bList?.find((b: any) => b.crew_id === staffId)
+        if (found) salesBonusEstimated = Number(found.total_bonus) || 0
+      }
+    } catch {
+      salesBonusEstimated = 0
+    }
+
+    const subtotalHak = basicSalaryProrated + allowanceMealProrated + allowancePosition + salesBonusEstimated - lateDeduction
+    const kasbonDeduction = Math.min(Math.max(0, subtotalHak), totalKasbonRemaining)
+    const takeHomePay = Math.max(0, subtotalHak - kasbonDeduction)
+    const kasbonDeficit = totalKasbonRemaining - kasbonDeduction
+
+    return {
+      ok: true,
+      data: {
+        staffId,
+        staffName: staff.name,
+        role: staff.role,
+        outletName: (staff as any).outlets?.name || 'Pusat',
+        resignDate,
+        periodMonth: month,
+        periodYear: year,
+        daysPresent,
+        lateMinutes: totalLateMinutes,
+        basicSalaryBase,
+        basicSalaryProrated,
+        allowanceMealBase,
+        allowanceMealProrated,
+        allowancePosition,
+        salesBonusEstimated,
+        lateDeduction,
+        subtotalHak,
+        totalKasbonRemaining,
+        kasbonDeduction,
+        takeHomePay,
+        kasbonDeficit,
+      },
+    }
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Gagal memuat kalkulasi settlement' }
+  }
+}
+
+export async function deactivateStaffWithSettlementAction(params: {
+  staffId: string
+  resignDate: string
+  inactiveReason: string
+  createDraftSlip?: boolean
+  settlementDraft?: {
+    basicSalary: number
+    allowanceMeal: number
+    allowancePosition?: number
+    salesBonus: number
+    deductionLate: number
+    deductionKasbon: number
+    totalSalary: number
+    periodMonth: number
+    periodYear: number
+  }
+}): Promise<{ ok: boolean; message: string; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
+    if (!params.staffId) return { ok: false, message: 'ID staf tidak valid', error: 'ID staf tidak valid' }
+
+    const admin = getAdminSupabase()
+    const { data: staff, error: staffErr } = await admin
+      .from('outlet_staff')
+      .select('id, name, status, outlet_id, resign_date')
+      .eq('id', params.staffId)
+      .single()
+
+    if (staffErr || !staff) {
+      return { ok: false, message: 'Data karyawan tidak ditemukan', error: 'Data karyawan tidak ditemukan' }
+    }
+
+    // 1. Update outlet_staff
+    const { error: updErr } = await admin
+      .from('outlet_staff')
+      .update({
+        status: 'inactive',
+        is_active: false,
+        inactive_reason: params.inactiveReason.trim(),
+        resign_date: params.resignDate || new Date().toISOString().split('T')[0],
+      })
+      .eq('id', params.staffId)
+
+    if (updErr) return { ok: false, message: updErr.message, error: updErr.message }
+
+    // 2. Unassign from outlets
+    await admin.from('staff_outlets').delete().eq('staff_id', params.staffId)
+
+    // 3. Revoke / ban auth user
+    const { error: delErr } = await admin.auth.admin.deleteUser(params.staffId)
+    if (delErr) {
+      await admin.auth.admin.updateUserById(params.staffId, {
+        ban_duration: '876000h',
+        user_metadata: { deactivated: true },
+      })
+    }
+
+    // 4. Upsert draft slip in payroll_records if requested
+    if (params.createDraftSlip && params.settlementDraft) {
+      const draft = params.settlementDraft
+      const totalDeductions = (draft.deductionLate || 0) + (draft.deductionKasbon || 0)
+      const deductionNotes = [
+        draft.deductionLate > 0 ? `Denda Telat: Rp ${draft.deductionLate.toLocaleString('id-ID')}` : null,
+        draft.deductionKasbon > 0 ? `Pelunasan Kasbon (Exit Settlement): Rp ${draft.deductionKasbon.toLocaleString('id-ID')}` : null,
+      ].filter(Boolean).join(' | ')
+
+      const bonusNote = draft.salesBonus > 0 ? `Bonus Penjualan Berjalan: Rp ${draft.salesBonus.toLocaleString('id-ID')}` : null
+
+      const { data: existingSlip } = await admin
+        .from('payroll_records')
+        .select('id, status')
+        .eq('staff_id', params.staffId)
+        .eq('period_month', draft.periodMonth)
+        .eq('period_year', draft.periodYear)
+        .maybeSingle()
+
+      if (!existingSlip || existingSlip.status === 'draft') {
+        const payload: any = {
+          staff_id: params.staffId,
+          period_month: draft.periodMonth,
+          period_year: draft.periodYear,
+          basic_salary: draft.basicSalary,
+          allowance_position: draft.allowancePosition || 0,
+          allowance_presence: draft.allowanceMeal,
+          allowance_meal: draft.allowanceMeal,
+          allowance_transport: 0,
+          allowance_communication: 0,
+          bonus: draft.salesBonus,
+          bonus_note: bonusNote || null,
+          deductions: totalDeductions,
+          deduction_note: deductionNotes || null,
+          total_salary: draft.totalSalary,
+          sales_bonus: draft.salesBonus,
+          deduction_kasbon: draft.deductionKasbon,
+          deduction_bpjs: 0,
+          outlet_id: staff.outlet_id || null,
+          status: 'draft',
+          payment_status: 'unpaid',
+          updated_at: new Date().toISOString(),
+        }
+
+        if (existingSlip?.id) {
+          await admin.from('payroll_records').update(payload).eq('id', existingSlip.id)
+        } else {
+          await admin.from('payroll_records').insert(payload)
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      message: `Karyawan "${staff.name}" berhasil dinonaktifkan. Alasan: ${params.inactiveReason}.`,
+    }
+  } catch (err: any) {
+    return {
+      ok: false,
+      message: err.message || 'Gagal menonaktifkan karyawan',
+      error: err.message || 'Gagal menonaktifkan karyawan',
     }
   }
 }

@@ -11,6 +11,7 @@ import { useStaffMutations } from '@/hooks/useStaffMutations'
 import { useOutlets } from '@/hooks/useOutlets'
 import { StaffFilters } from '@/components/modules/StaffFilters'
 import { StaffTable } from '@/components/modules/StaffTable'
+import { DeactivateStaffModal } from '@/components/modules/DeactivateStaffModal'
 import { StaffForm } from '@/components/modules/StaffForm'
 import { ResetPasswordDialog } from '@/components/modules/ResetPasswordDialog'
 import { BulkImportStaffModal } from '@/components/modules/BulkImportStaffModal'
@@ -37,6 +38,7 @@ export default function StaffPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null)
   const [resetPwStaff, setResetPwStaff] = useState<StaffRow | null>(null)
+  const [deactivatingStaff, setDeactivatingStaff] = useState<StaffRow | null>(null)
 
   const { data: staffList = [], isLoading } = useStaff()
   const { data: outlets = [] } = useOutlets()
@@ -117,6 +119,10 @@ export default function StaffPage() {
   }
 
   const handleToggleStatus = (s: StaffRow, next: StaffStatus) => {
+    if (next === 'inactive') {
+      setDeactivatingStaff(s)
+      return
+    }
     setStatus.mutate(
       { staff_id: s.id, status: next },
       {

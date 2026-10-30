@@ -892,3 +892,122 @@ export async function deactivateStaffWithSettlementAction(params: {
     }
   }
 }
+
+export interface StaffMutationRecord {
+  id: string
+  staff_id: string
+  origin_outlet_id: string | null
+  target_outlet_id: string
+  effective_date: string
+  reason: string
+  notes: string | null
+  created_at: string
+  origin_outlet?: { name: string } | null
+  target_outlet?: { name: string } | null
+}
+
+export async function mutateStaffOutletAction(params: {
+  staffId: string
+  targetOutletId: string
+  effectiveDate: string
+  reason: string
+  notes?: string
+}): Promise<{ ok: boolean; message: string; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
+    if (!params.staffId || !params.targetOutletId) {
+      return { ok: false, message: 'Data staf atau outlet tujuan tidak valid', error: 'Data tidak valid' }
+    }
+
+    const admin = getAdminSupabase()
+
+    // 1. Fetch current staff
+    const { data: staff, error: staffErr } = await admin
+      .from('outlet_staff')
+      .select('id, name, role, sub_role, outlet_id, outlets!outlet_id(name)')
+      .eq('id', params.staffId)
+      .single()
+
+    if (staffErr || !staff) {
+      return { ok: false, message: 'Data karyawan tidak ditemukan', error: 'Data karyawan tidak ditemukan' }
+    }
+
+    const originOutletId = staff.outlet_id
+    if (originOutletId === params.targetOutletId) {
+      return { ok: false, message: 'Outlet tujuan sama dengan outlet asal saat ini', error: 'Outlet tujuan sama' }
+    }
+
+    // 2. Insert into staff_outlet_mutations
+    try {
+      await admin.from('staff_outlet_mutations').insert({
+        staff_id: params.staffId,
+        origin_outlet_id: originOutletId || null,
+        target_outlet_id: params.targetOutletId,
+        effective_date: params.effectiveDate || new Date().toISOString().split('T')[0],
+        reason: params.reason.trim(),
+        notes: params.notes?.trim() || null,
+      })
+    } catch (logErr: any) {
+      console.warn('Catatan: staff_outlet_mutations belum ada atau error:', logErr?.message)
+    }
+
+    // 3. Update outlet_staff.outlet_id
+    const { error: updErr } = await admin
+      .from('outlet_staff')
+      .update({
+        outlet_id: params.targetOutletId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', params.staffId)
+
+    if (updErr) {
+      return { ok: false, message: updErr.message, error: updErr.message }
+    }
+
+    // 4. Update staff_outlets for non-multi outlet roles
+    const isMultiOutlet = staff.role === 'leader' || staff.role === 'area_manager' || (staff.role === 'crew' && staff.sub_role === 'crew_backup')
+    if (!isMultiOutlet) {
+      await admin.from('staff_outlets').delete().eq('staff_id', params.staffId)
+      await admin.from('staff_outlets').insert({
+        staff_id: params.staffId,
+        outlet_id: params.targetOutletId,
+      })
+    }
+
+    return {
+      ok: true,
+      message: `Karyawan "${staff.name}" berhasil dimutasi ke outlet baru efektif per ${params.effectiveDate}.`,
+    }
+  } catch (err: any) {
+    return { ok: false, message: err.message || 'Gagal melakukan mutasi', error: err.message || 'Gagal melakukan mutasi' }
+  }
+}
+
+export async function getStaffMutationHistory(
+  staffId: string
+): Promise<{ ok: boolean; data: any[]; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
+    if (!staffId) return { ok: false, data: [], error: 'ID staf tidak valid' }
+
+    const admin = getAdminSupabase()
+    const { data, error } = await admin
+      .from('staff_outlet_mutations')
+      .select(`
+        id, staff_id, origin_outlet_id, target_outlet_id, effective_date, reason, notes, created_at,
+        origin_outlet:outlets!origin_outlet_id(name),
+        target_outlet:outlets!target_outlet_id(name)
+      `)
+      .eq('staff_id', staffId)
+      .order('effective_date', { ascending: false })
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      return { ok: true, data: [] }
+    }
+
+    return { ok: true, data: data || [] }
+  } catch {
+    return { ok: true, data: [] }
+  }
+}

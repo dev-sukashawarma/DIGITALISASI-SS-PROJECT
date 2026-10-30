@@ -12,6 +12,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { StaffFilters } from '@/components/modules/StaffFilters'
 import { StaffTable } from '@/components/modules/StaffTable'
 import { DeactivateStaffModal } from '@/components/modules/DeactivateStaffModal'
+import { MutateOutletModal } from '@/components/modules/MutateOutletModal'
 import { StaffForm } from '@/components/modules/StaffForm'
 import { ResetPasswordDialog } from '@/components/modules/ResetPasswordDialog'
 import { BulkImportStaffModal } from '@/components/modules/BulkImportStaffModal'
@@ -39,6 +40,7 @@ export default function StaffPage() {
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null)
   const [resetPwStaff, setResetPwStaff] = useState<StaffRow | null>(null)
   const [deactivatingStaff, setDeactivatingStaff] = useState<StaffRow | null>(null)
+  const [mutatingStaff, setMutatingStaff] = useState<StaffRow | null>(null)
 
   const { data: staffList = [], isLoading } = useStaff()
   const { data: outlets = [] } = useOutlets()
@@ -278,6 +280,7 @@ export default function StaffPage() {
           sortBy={filter.sortBy}
           sortOrder={filter.sortOrder}
           onSort={handleSort}
+          onMutateOutlet={(s) => setMutatingStaff(s)}
           onEdit={(s) => {
             setEditingStaff(s)
             setFormOpen(true)
@@ -379,6 +382,20 @@ export default function StaffPage() {
             const sName = deactivatingStaff.name
             setDeactivatingStaff(null)
             toast.success(`Karyawan ${sName} berhasil dinonaktifkan & settlement tersimpan.`)
+          }}
+        />
+      )}
+
+      {/* Mutasi Cabang Outlet Modal */}
+      {mutatingStaff && (
+        <MutateOutletModal
+          staff={mutatingStaff}
+          outlets={outlets}
+          onClose={() => setMutatingStaff(null)}
+          onSuccess={(msg) => {
+            setMutatingStaff(null)
+            toast.success(msg)
+            queryClient.invalidateQueries({ queryKey: ['staff'] })
           }}
         />
       )}

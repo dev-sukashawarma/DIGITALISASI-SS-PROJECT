@@ -16,6 +16,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  ArrowLeftRight,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -136,6 +137,7 @@ export function StaffTable({
   rows,
   outlets = [],
   onEdit,
+  onMutateOutlet,
   onResetPassword,
   onToggleStatus,
   onToggleBonus,
@@ -148,6 +150,7 @@ export function StaffTable({
   rows: StaffRow[]
   outlets?: Outlet[]
   onEdit: (s: StaffRow) => void
+  onMutateOutlet?: (s: StaffRow) => void
   onResetPassword: (s: StaffRow) => void
   onToggleStatus: (s: StaffRow, next: StaffStatus) => void
   onToggleBonus?: (s: StaffRow) => void
@@ -476,6 +479,16 @@ export function StaffTable({
                       >
                         <Eye size={16} />
                       </button>
+                      {onMutateOutlet && (
+                        <button
+                          type="button"
+                          onClick={() => onMutateOutlet(s)}
+                          className="rounded-lg p-2 text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                          title="Mutasi / Pindah Cabang Outlet"
+                        >
+                          <ArrowLeftRight size={16} />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEdit(s)}
                         className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
@@ -826,6 +839,20 @@ export function StaffTable({
               >
                 Tutup
               </Button>
+              {onMutateOutlet && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const st = selectedStaff
+                    setSelectedStaff(null)
+                    onMutateOutlet(st)
+                  }}
+                  variant="outline"
+                  className="rounded-xl font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                >
+                  Mutasi Cabang
+                </Button>
+              )}
               <Button
                 onClick={() => {
                   onEdit(selectedStaff)

@@ -131,6 +131,7 @@ export default function PromoEditor({
   mounted,
   now,
   hideTicket = false,
+  takenOutlets = {},
 }: {
   promo: OutletPromo
   /** Menu pemicu (hanya promo per menu). */
@@ -144,6 +145,8 @@ export default function PromoEditor({
   now: number
   /** Modal per menu menampilkan tiket di kolom kiri, bukan di atas form. */
   hideTicket?: boolean
+  /** Outlet yang sudah dipakai promo lain untuk menu yang sama (id → nama promo). */
+  takenOutlets?: Record<string, string>
 }) {
   const isGlobal = promo.scope === 'global'
   const isBxgy = promo.discount_type === 'buy_one_get_one'
@@ -223,8 +226,12 @@ export default function PromoEditor({
         />
       </Section>
 
-      <Section icon={<Store className="h-4 w-4" />} title="Outlet">
-        <OutletScopePicker outlets={outlets} selectedIds={outletIds} onChange={ids => onChange('outlet_ids', ids)} />
+      <Section
+        icon={<Store className="h-4 w-4" />}
+        title="Outlet"
+        hint={isGlobal ? 'Outlet lain bisa punya promo semua menu yang berbeda — tambah promo baru di daftar.' : 'Outlet lain bisa punya promo berbeda untuk menu ini — tambah varian di kolom kiri.'}
+      >
+        <OutletScopePicker outlets={outlets} selectedIds={outletIds} onChange={ids => onChange('outlet_ids', ids)} takenBy={takenOutlets} />
       </Section>
 
       {isGlobal && !isBxgy && (

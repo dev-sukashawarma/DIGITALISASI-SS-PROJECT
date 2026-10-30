@@ -3544,6 +3544,54 @@ Sesuai instruksi owner, beban Join Expense September dikeluarkan sepenuhnya dari
 
 ---
 
-**Last updated:** 2026-10-27  
+---
+
+## Session 2026-10-30: Promo POS Berbeda per Outlet (apps/admin-dashboard)
+
+**Status:** Kode di branch `claude/promo-per-outlet-q9lniu`. ⚠️ Perlu **redeploy
+`admin-dashboard`**. Migration `20261030100000_outlet_promos_satu_baris_per_outlet.sql`
+(index unik parsial, pengaman saja) **ditulis, belum di-apply** — nol duplikat saat dicek.
+**Nol perubahan di `pos-kasir`, POS native, maupun fungsi DB** — kasir sudah membaca
+promo per outletnya sendiri sejak awal; yang menghalangi hanya halaman admin.
+
+### Yang dibuka
+1. **Promo semua menu & promo per menu boleh berdampingan.** Dulu menyalakan promo
+   semua menu memaksa SEMUA promo per menu di SEMUA outlet mati (`PromoView.tsx`).
+   Kasir mendahulukan promo semua menu di outlet yang memilikinya kecuali menunya
+   dikecualikan — admin kini diberi tahu promo per menu mana yang "tertutup" di
+   outlet mana, bukan dipaksa.
+2. **Promo semua menu berbeda antar outlet** — daftar promo, tombol "Tambah promo
+   untuk outlet lain".
+3. **Menu yang sama dengan promo berbeda antar outlet** — "varian" di modal menu.
+
+### Model
+Baris DB tetap satu per (outlet, scope, menu). **Promo logis = (scope, menu,
+KONFIGURASI)** — `groupPromoRows` memecah baris terpilih berdasarkan
+`promoConfigSignature` (`lib/promoOutlets.ts`). `reward_menu_item_id` dan
+`quota_pool_id` SENGAJA tak masuk sidik jari: hadiah ditukar per outlet oleh server,
+pool adalah turunan. Identitas di layar = `group_id` (bukan kolom DB).
+**Satu outlet hanya boleh ikut satu promo per kunci** — ditolak di klien dan server
+(`findPromoOutletOverlaps`), pemilih outlet mengunci outlet milik promo lain.
+
+### Gotcha
+- Pelepasan baris (`is_assigned=false`) dihitung dari **gabungan** outlet semua promo
+  yang berbagi kunci — per promo akan melepas outlet milik promo saudaranya.
+- Pool kuota BxGy global = per promo logis; pool yang sudah diklaim promo lain dalam
+  satu simpanan tidak dipakai ulang (kasus admin memecah satu promo lama jadi dua).
+- Sinkron Order Online: tiap promo logis mengambil satu baris `promos` OO (yang
+  `outlet_ids`-nya sama persis didahulukan); sisa baris OO pada kunci yang ada di
+  payload dihapus. `name` OO kini memakai `promo_name`.
+- Baris global lama yang **dilepas** menyimpan 7 konfigurasi berbeda — tidak tampil
+  (hanya baris terpilih yang dipecah); kunci yang semua barisnya dilepas tetap tampil
+  satu, seperti sebelumnya.
+- Kalkulator harga web POS (`promo-calculator.ts`) memperlakukan promo global BxGy
+  sebagai diskon 0,01% (pre-existing, tak disentuh).
+
+### 📝 Next
+- Redeploy `admin-dashboard`; smoke test: outlet A diskon 10% semua menu + outlet B
+  Beli 1 Gratis 1 semua menu + menu X promo di B saja → cek kasir tiap outlet.
+- Apply migration index unik bila disetujui owner.
+
+**Last updated:** 2026-10-30  
 **Owner:** Dev Suka Shawarma
 

@@ -12,7 +12,7 @@ export default async function AdminPromoPage() {
     getAll: () => cookieStore.getAll(),
     setAll: () => {},
   })
-  
+
   let orderOnline: any = null
   try {
     orderOnline = createOrderOnlineAdminClient()
@@ -24,10 +24,10 @@ export default async function AdminPromoPage() {
   const [menuRes, outletsRes, ooPromosRes] = await Promise.all([
     supabase.from('menu_items').select('id, name, price, image_url, outlet_id, is_package').eq('is_available', true).order('sort_order'),
     supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
-    orderOnline 
+    orderOnline
       ? (async () => {
           try {
-            const res = await orderOnline.from('promos').select('applies_to, item_ids')
+            const res = await orderOnline.from('promos').select('applies_to, item_ids, outlet_ids')
             return res
           } catch (e) {
             return { data: [] }
@@ -35,11 +35,11 @@ export default async function AdminPromoPage() {
         })()
       : Promise.resolve({ data: [] })
   ])
-  
+
   const initialMenuItems = menuRes.data || []
   const initialOutlets = outletsRes.data || []
   const ooPromos = ooPromosRes.data || []
-  
+
   let initialPromos: any[] = []
   if (initialOutlets.length > 0) {
     const outletIds = initialOutlets.map(outlet => outlet.id)
@@ -48,25 +48,29 @@ export default async function AdminPromoPage() {
       .select('*')
       .in('outlet_id', outletIds)
 
-    // Satu promo yang dilihat admin = kumpulan baris per outlet. Sebelumnya
-    // halaman ini hanya membaca baris outlet pertama karena promo selalu
-    // diterapkan ke semua cabang; sekarang promo bisa dibatasi ke sebagian
-    // outlet, jadi promo yang tidak menyentuh outlet pertama pun harus terbaca.
-    initialPromos = groupPromoRows(promoRes.data || [], outletIds).map(group => {
+    // Satu promo yang dilihat admin = kumpulan baris per outlet yang
+    // konfigurasinya identik. Baris dengan konfigurasi berbeda pada scope +
+    // menu yang sama tampil sebagai promo terpisah dengan outletnya sendiri.
+    initialPromos = groupPromoRows(promoRes.data || [], outletIds).map((group, index) => {
       const p: any = group.representative
 
-      // Determine if it exists in Order Online
+      // Sudah tersinkron ke Order Online? Promo Order Online menyimpan daftar
+      // outletnya; kalau kolom itu kosong (data lama) dianggap mencakup semua.
       let isSynced = false
       if (ooPromos && ooPromos.length > 0) {
         isSynced = ooPromos.some((oop: any) => {
-          if (p.scope === 'global' && oop.applies_to === 'all') return true
-          if (p.scope === 'item' && oop.applies_to === 'item' && oop.item_ids?.includes(p.menu_item_id)) return true
-          return false
+          const sameKey =
+            (p.scope === 'global' && oop.applies_to === 'all') ||
+            (p.scope === 'item' && oop.applies_to === 'item' && oop.item_ids?.includes(p.menu_item_id))
+          if (!sameKey) return false
+          if (!Array.isArray(oop.outlet_ids) || oop.outlet_ids.length === 0) return true
+          return group.outletIds.some(id => oop.outlet_ids.includes(id))
         })
       }
 
       return {
         ...p,
+        group_id: `${group.key}#${index}`,
         outlet_ids: group.outletIds,
         current_usage: group.currentUsage,
         discount_value: p.discount_value === 0.01 ? 0 : p.discount_value,
@@ -76,10 +80,10 @@ export default async function AdminPromoPage() {
   }
 
   return (
-    <PromoView 
-      initialMenuItems={initialMenuItems} 
-      initialOutlets={initialOutlets} 
-      initialPromos={initialPromos} 
+    <PromoView
+      initialMenuItems={initialMenuItems}
+      initialOutlets={initialOutlets}
+      initialPromos={initialPromos}
     />
   )
 }

@@ -17,6 +17,12 @@ export type Outlet = {
 export type OutletPromo = {
   id?: string
   outlet_id?: string
+  /**
+   * Identitas promo logis di layar (bukan kolom DB). Beberapa promo bisa
+   * berbagi scope + menu yang sama selama daftar outletnya tidak beririsan —
+   * mis. outlet A diskon 10% semua menu, outlet B Beli 1 Gratis 1 semua menu.
+   */
+  group_id: string
   scope: 'global' | 'item'
   menu_item_id: string | null
   discount_type: 'percentage' | 'nominal' | 'buy_one_get_one'

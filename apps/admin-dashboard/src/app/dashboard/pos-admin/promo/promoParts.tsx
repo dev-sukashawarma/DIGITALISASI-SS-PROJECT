@@ -217,17 +217,26 @@ export function RewardMenuPicker({
 /**
  * Pemilih outlet untuk satu promo. Sebagian besar promo berlaku di semua cabang,
  * jadi daftar outlet baru muncul saat admin memilih "Outlet tertentu".
+ *
+ * `takenBy` = outlet yang sudah dipakai promo LAIN untuk menu yang sama
+ * (satu outlet hanya bisa ikut satu promo per menu). Outlet itu tampil
+ * terkunci dengan nama promo pemakainya, dan "Semua outlet" berarti semua
+ * outlet yang masih tersedia.
  */
 export function OutletScopePicker({
   outlets,
   selectedIds,
   onChange,
+  takenBy = {},
 }: {
   outlets: Outlet[]
   selectedIds: string[]
   onChange: (ids: string[]) => void
+  takenBy?: Record<string, string>
 }) {
-  const allIds = outlets.map(o => o.id)
+  const totalIds = outlets.map(o => o.id)
+  const allIds = totalIds.filter(id => !takenBy[id])
+  const takenCount = totalIds.length - allIds.length
   const isAll = allIds.length > 0 && allIds.every(id => selectedIds.includes(id))
   const [mode, setMode] = useState<'all' | 'some'>(isAll ? 'all' : 'some')
   const [query, setQuery] = useState('')
@@ -235,6 +244,7 @@ export function OutletScopePicker({
   const visible = keyword ? outlets.filter(o => o.name.toLowerCase().includes(keyword)) : outlets
 
   const toggle = (id: string) => {
+    if (takenBy[id]) return
     const next = selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]
     // Urutan disamakan dengan daftar outlet supaya hasil simpan stabil.
     onChange(allIds.filter(x => next.includes(x)))
@@ -250,7 +260,7 @@ export function OutletScopePicker({
     <div className="space-y-3">
       <div role="radiogroup" aria-label="Cakupan outlet" className="grid grid-cols-2 gap-2">
         {([
-          ['all', 'Semua outlet', `${allIds.length} outlet aktif`],
+          ['all', takenCount > 0 ? 'Semua outlet tersedia' : 'Semua outlet', takenCount > 0 ? `${allIds.length} dari ${totalIds.length} outlet (${takenCount} dipakai promo lain)` : `${allIds.length} outlet aktif`],
           ['some', 'Outlet tertentu', mode === 'some' ? `${selectedIds.length} dipilih` : 'Pilih sendiri'],
         ] as const).map(([value, label, hint]) => {
           const active = mode === value
@@ -303,24 +313,35 @@ export function OutletScopePicker({
             ) : (
               visible.map(o => {
                 const active = selectedIds.includes(o.id)
+                const taken = takenBy[o.id]
                 return (
                   <button
                     key={o.id}
                     type="button"
                     role="checkbox"
                     aria-checked={active}
+                    aria-disabled={!!taken}
+                    disabled={!!taken}
+                    title={taken ? `Sudah dipakai: ${taken}` : undefined}
                     onClick={() => toggle(o.id)}
-                    className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${active ? 'bg-suka-orange/5' : 'hover:bg-slate-50'}`}
+                    className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                      taken ? 'cursor-not-allowed opacity-60' : active ? 'cursor-pointer bg-suka-orange/5' : 'cursor-pointer hover:bg-slate-50'
+                    }`}
                   >
                     <CheckMark checked={active} />
-                    <span className={`truncate text-sm font-semibold ${active ? 'text-slate-900' : 'text-slate-500'}`}>{o.name}</span>
+                    <span className="min-w-0">
+                      <span className={`block truncate text-sm font-semibold ${active ? 'text-slate-900' : 'text-slate-500'}`}>{o.name}</span>
+                      {taken && <span className="block truncate text-[11px] font-medium text-amber-700">Dipakai: {taken}</span>}
+                    </span>
                   </button>
                 )
               })
             )}
           </div>
           <p className={`text-xs font-semibold ${selectedIds.length === 0 ? 'text-rose-600' : 'text-slate-500'}`}>
-            {selectedIds.length === 0 ? 'Pilih minimal satu outlet agar promo bisa disimpan.' : `${selectedIds.length} dari ${allIds.length} outlet terpilih.`}
+            {selectedIds.length === 0
+              ? 'Pilih minimal satu outlet agar promo bisa disimpan.'
+              : `${selectedIds.length} dari ${allIds.length} outlet${takenCount > 0 ? ' tersedia' : ''} terpilih.`}
           </p>
         </div>
       )}

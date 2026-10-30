@@ -3587,10 +3587,26 @@ pool adalah turunan. Identitas di layar = `group_id` (bukan kolom DB).
 - Kalkulator harga web POS (`promo-calculator.ts`) memperlakukan promo global BxGy
   sebagai diskon 0,01% (pre-existing, tak disentuh).
 
+### Riwayat promo (tab "Riwayat", sesi yang sama)
+Daftar promo **sedang aktif** dan **sudah tidak aktif** + tanggal & jam (WIB) mulai/berhenti,
+outlet, pelaku, jumlah transaksi pemakai. Migration `20261030110000_riwayat_promo_pos`
+**applied & terstempel**: tabel `outlet_promo_riwayat` (log per baris outlet: dibuat/
+dinyalakan/dimatikan/diubah/dilepas/dihapus + salinan konfigurasi, `diubah_oleh` NULL =
+sistem, mis. auto-mati kuota habis), trigger `trg_riwayat_promo_ubah`/`_tambah_hapus`,
+RPC `riwayat_pemakaian_promo()` (daftar waktu dari `promo_redemptions`, gerbang role
+admin/owner/developer/marcom; crew ditolak — diverifikasi). Logika murni
+`lib/promoRiwayat.ts` (`susunRiwayatPromo`, 10 tes): log → periode aktif per baris →
+digabung per promo; mengubah promo aktif menutup periode lama.
+- ⚠️ `current_usage` SENGAJA tak memicu log (bertambah tiap order) — diuji: tetap 0 baris baru.
+- Jam pasti hanya sejak 30 Okt 2026. Baris lama dapat kejadian `awal` (= `created_at`);
+  periode sebelumnya **≈ perkiraan** dari pemakaian pertama–terakhir. Uji pada data asli:
+  294/294 pemakaian terbagi tepat sekali.
+
 ### 📝 Next
 - Redeploy `admin-dashboard`; smoke test: outlet A diskon 10% semua menu + outlet B
-  Beli 1 Gratis 1 semua menu + menu X promo di B saja → cek kasir tiap outlet.
-- Apply migration index unik bila disetujui owner.
+  Beli 1 Gratis 1 semua menu + menu X promo di B saja → cek kasir tiap outlet, lalu
+  cek tab Riwayat mencatat nyala/mati dengan jam yang benar.
+- Apply migration index unik `20261030100000` bila disetujui owner (riwayat tidak bergantung padanya).
 
 **Last updated:** 2026-10-30  
 **Owner:** Dev Suka Shawarma

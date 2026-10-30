@@ -1,4 +1,5 @@
 import type { PromoDaySchedule } from '@/lib/promoSchedule'
+import type { PemakaianMap, RiwayatRow } from '@/lib/promoRiwayat'
 
 export type MenuItem = {
   id: string
@@ -51,3 +52,13 @@ export type OutletPromo = {
 }
 
 export type PromoField = keyof OutletPromo
+
+/** Data tab Riwayat, dimuat server di page.tsx. */
+export type RiwayatData = {
+  rows: RiwayatRow[]
+  pemakaian: PemakaianMap
+  menuNames: Record<string, string>
+  outletNames: Record<string, string>
+  staffNames: Record<string, string>
+  error: string | null
+}

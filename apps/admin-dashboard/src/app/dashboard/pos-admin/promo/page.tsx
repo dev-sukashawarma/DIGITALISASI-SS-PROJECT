@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import { groupPromoRows } from '@/lib/promoOutlets'
 import PromoView from './PromoView'
+import type { PemakaianMap, RiwayatRow } from '@/lib/promoRiwayat'
+import type { RiwayatData } from './promoTypes'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,11 +81,66 @@ export default async function AdminPromoPage() {
     })
   }
 
+  const riwayat = await muatRiwayatPromo(supabase)
+
   return (
     <PromoView
       initialMenuItems={initialMenuItems}
       initialOutlets={initialOutlets}
       initialPromos={initialPromos}
+      riwayat={riwayat}
     />
   )
+}
+
+/**
+ * Data tab Riwayat: log perubahan promo (berhalaman — PostgREST memotong di
+ * 1.000 baris), waktu pemakaian tiap promo, dan nama outlet/menu/staf yang
+ * dirujuk. Nama diambil TANPA saringan aktif/tersedia karena riwayat juga
+ * memuat outlet yang sudah tutup dan menu yang sudah dimatikan.
+ */
+async function muatRiwayatPromo(supabase: any): Promise<RiwayatData> {
+  const HALAMAN = 1000
+  const rows: RiwayatRow[] = []
+  try {
+    for (let dari = 0; ; dari += HALAMAN) {
+      const { data, error } = await supabase
+        .from('outlet_promo_riwayat')
+        .select('promo_row_id, outlet_id, scope, menu_item_id, aksi, is_active, is_assigned, konfigurasi, diubah_pada, diubah_oleh')
+        .order('id', { ascending: true })
+        .range(dari, dari + HALAMAN - 1)
+      if (error) throw error
+      rows.push(...(data || []))
+      if (!data || data.length < HALAMAN) break
+    }
+
+    const { data: pakaiRows, error: pakaiError } = await supabase.rpc('riwayat_pemakaian_promo')
+    if (pakaiError) throw pakaiError
+    const pemakaian: PemakaianMap = {}
+    for (const r of pakaiRows || []) pemakaian[r.promo_id] = r.waktu || []
+
+    const unik = (list: (string | null | undefined)[]) => [...new Set(list.filter(Boolean) as string[])]
+    const menuIds = unik(rows.flatMap(r => [r.menu_item_id, r.konfigurasi?.reward_menu_item_id]))
+    const outletIds = unik(rows.map(r => r.outlet_id))
+    const staffIds = unik(rows.map(r => r.diubah_oleh))
+
+    const [menuRes, outletRes, staffRes] = await Promise.all([
+      menuIds.length ? supabase.from('menu_items').select('id, name').in('id', menuIds) : Promise.resolve({ data: [] }),
+      outletIds.length ? supabase.from('outlets').select('id, name').in('id', outletIds) : Promise.resolve({ data: [] }),
+      staffIds.length ? supabase.from('outlet_staff').select('id, name').in('id', staffIds) : Promise.resolve({ data: [] }),
+    ])
+    const peta = (data: { id: string; name: string }[] | null) => Object.fromEntries((data || []).map(d => [d.id, d.name]))
+
+    return {
+      rows,
+      pemakaian,
+      menuNames: peta(menuRes.data),
+      outletNames: peta(outletRes.data),
+      staffNames: peta(staffRes.data),
+      error: null,
+    }
+  } catch (err: any) {
+    console.error('Gagal memuat riwayat promo:', err)
+    return { rows: [], pemakaian: {}, menuNames: {}, outletNames: {}, staffNames: {}, error: err?.message || 'tidak diketahui' }
+  }
 }

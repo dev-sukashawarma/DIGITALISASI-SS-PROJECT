@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Globe2, Info, LayoutGrid, Loader2, Plus, Search, Trash2, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Globe2, History, Info, LayoutGrid, Loader2, Plus, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/controls'
 import { WIB_LABEL } from '@/lib/timezone'
@@ -11,23 +12,27 @@ import { findPromoOutletOverlaps, promoOutletKey, resolvePromoOutletIds } from '
 import { legacyRewardMenuId } from '@/lib/promoReward'
 import { savePromosAction } from './actions'
 import PromoEditor, { PromoTicket } from './PromoEditor'
+import PromoRiwayat from './PromoRiwayat'
 import { MenuThumb, OutletScopeBadge, StatusBadge, promoRule, rupiah } from './promoParts'
-import type { MenuItem, Outlet, OutletPromo, PromoField } from './promoTypes'
+import type { MenuItem, Outlet, OutletPromo, PromoField, RiwayatData } from './promoTypes'
 
 interface PromoViewProps {
   initialMenuItems: MenuItem[]
   initialOutlets: Outlet[]
   initialPromos: OutletPromo[]
+  /** Data tab Riwayat; ikut diperbarui lewat router.refresh() setelah Simpan. */
+  riwayat: RiwayatData
 }
 
-type Tab = 'menu' | 'global'
+type Tab = 'menu' | 'global' | 'riwayat'
 type Filter = 'all' | 'active' | 'inactive'
 
 /** Id promo rancangan yang belum masuk state (dibuat saat form pertama kali diubah). */
 const DRAFT_GLOBAL_ID = 'draft_global'
 const draftItemId = (menuId: string) => `draft_item_${menuId}`
 
-export default function PromoView({ initialMenuItems, initialOutlets, initialPromos }: PromoViewProps) {
+export default function PromoView({ initialMenuItems, initialOutlets, initialPromos, riwayat }: PromoViewProps) {
+  const router = useRouter()
   const [menuItems] = useState<MenuItem[]>(initialMenuItems)
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [promos, setPromos] = useState<OutletPromo[]>(initialPromos)
@@ -236,6 +241,9 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
 
       setSavedSnapshot(JSON.stringify(promos))
       toast.success('Pengaturan promo tersimpan.')
+      // Muat ulang data server agar tab Riwayat memuat perubahan barusan.
+      // State form tidak ikut tertimpa (useState hanya membaca props awal).
+      router.refresh()
     } catch (err: any) {
       console.error(err)
       toast.error(err.message || 'Gagal menyimpan promo')
@@ -308,6 +316,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           {([
             ['menu', 'Promo per menu', <LayoutGrid key="i" className="h-4 w-4" />, `${activeItemPromos.length} aktif`],
             ['global', 'Promo semua menu', <Globe2 key="i" className="h-4 w-4" />, `${activeGlobalPromos.length} aktif`],
+            ['riwayat', 'Riwayat', <History key="i" className="h-4 w-4" />, 'Aktif & selesai'],
           ] as const).map(([value, label, icon, meta]) => {
             const active = tab === value
             return (
@@ -329,7 +338,19 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           })}
         </div>
 
-        {tab === 'menu' ? (
+        {tab === 'riwayat' ? (
+          mounted && (
+            <PromoRiwayat
+              rows={riwayat.rows}
+              pemakaian={riwayat.pemakaian}
+              menuNames={riwayat.menuNames}
+              outletNames={riwayat.outletNames}
+              staffNames={riwayat.staffNames}
+              now={now}
+              error={riwayat.error}
+            />
+          )
+        ) : tab === 'menu' ? (
           <section aria-label="Promo per menu" className="space-y-4">
             {activeGlobalPromos.length > 0 && (
               <div className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">

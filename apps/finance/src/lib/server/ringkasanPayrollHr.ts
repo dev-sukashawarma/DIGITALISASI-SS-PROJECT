@@ -32,6 +32,10 @@ export interface ManagerAllocationDetail {
   allocatedBasicSalary?: number
   allocatedAllowances?: number
   allocatedDeductions?: number
+  fullAllocatedBasicSalary?: number
+  fullAllocatedAllowances?: number
+  fullAllocatedDeductions?: number
+  fullAllocatedRoutine?: number
   coachedOutletsCount: number
   totalPcs?: number
   status: 'draft' | 'finalized'
@@ -116,6 +120,10 @@ export interface HRPayrollOutletSummary {
   managerRoutineAllocation?: number
   managerBonusAllocation?: number
   bonus?: number
+  isPartial?: boolean
+  operationalFirstDate?: string
+  operationalLastDate?: string
+  operationalCalendarDays?: number
 }
 
 export interface HRPayrollSummary {
@@ -141,6 +149,12 @@ export interface HRPayrollSummary {
   crewAllowances?: number
   crewBonus?: number
   crewDeductions?: number
+  fullCrewBasicSalary?: number
+  fullCrewAllowances?: number
+  fullCrewDeductions?: number
+  fullCrewRoutineSalary?: number
+  fullManagerAllocation?: number
+  fullTotalRoutineSalary?: number
   managerAllocation?: number
   managerRoutineAllocation?: number
   managerBonusAllocation?: number
@@ -376,9 +390,9 @@ export async function hitungRingkasanPayrollHr(filter: {
       try {
         const periodMonthStart = `${p.year}-${String(p.month).padStart(2, '0')}-01`
         const periodMonthEnd = new Date(p.year, p.month, 0).toISOString().slice(0, 10)
-        // Strictly clamp attendance query bounds to the active filter range
-        const attFrom = filter.from > periodMonthStart ? filter.from : periodMonthStart
-        const attTo = filter.to < periodMonthEnd ? filter.to : periodMonthEnd
+        // Query absensi sebulan penuh dari periode ini agar siklus buka/tutup toko dan mutasi terdeteksi akurat tanpa distorsi filter rentang tanggal
+        const attFrom = periodMonthStart
+        const attTo = periodMonthEnd
 
         const dailyBonusPromises: any[] = []
         if (target === 'PUSAT') {
@@ -581,8 +595,11 @@ export async function hitungRingkasanPayrollHr(filter: {
       const firstDate = dates[0]
       const lastDate = dates[dates.length - 1]
 
-      // Toko buka di tengah bulan jika aktivitas pertama >= tgl 4 atau dibuat di bulan ini
-      const isLateStart = firstDate > periodMonthStart && (firstDate >= `${primaryPeriod.year}-${String(primaryPeriod.month).padStart(2, '0')}-04` || createdStr >= periodMonthStart)
+      // Toko buka di tengah bulan jika:
+      // 1. Outlet baru dibuat di bulan ini dan mulai aktif setelah tgl 1 (misal Pondok Aren, Ciledug)
+      // 2. ATAU aktivitas operasional pertama >= tanggal 7 bulan berjalan (toko yang baru buka operasional seperti Paledang tgl 26)
+      const isNewlyCreated = Boolean(createdStr && createdStr >= periodMonthStart)
+      const isLateStart = firstDate > periodMonthStart && (isNewlyCreated || firstDate >= `${primaryPeriod.year}-${String(primaryPeriod.month).padStart(2, '0')}-07`)
       // Toko tutup di tengah bulan jika outlet inactive dan aktivitas terakhir < akhir bulan
       const isEarlyEnd = isInactive && lastDate < periodMonthEnd
 
@@ -861,9 +878,14 @@ export async function hitungRingkasanPayrollHr(filter: {
       const dedSplit = distributeEqualSplit(bDeductions, targets)
 
       targets.forEach(tId => {
-        let g = gSplit.get(tId) || 0
-        let a = aSplit.get(tId) || 0
-        let ded = dedSplit.get(tId) || 0
+        const fullG = gSplit.get(tId) || 0
+        const fullA = aSplit.get(tId) || 0
+        const fullDed = dedSplit.get(tId) || 0
+        const fullRoutine = fullG + fullA - fullDed
+
+        let g = fullG
+        let a = fullA
+        let ded = fullDed
 
         const opInfo = outletOperationalMap.get(tId)
         let partialRatio: number | undefined
@@ -908,16 +930,36 @@ export async function hitungRingkasanPayrollHr(filter: {
         const tot = g + a + bon - ded
         const routineTot = g + a - ded
 
-        let alloc = outletManagerAllocations.get(tId)
+        let alloc = outletManagerAllocations.get(tId) as (typeof outletManagerAllocations extends Map<string, infer V> ? V : never) & {
+          fullBasicSalary?: number
+          fullAllowances?: number
+          fullDeductions?: number
+          fullRoutineSalary?: number
+        }
         if (!alloc) {
-          alloc = { basicSalary: 0, allowances: 0, bonus: 0, deductions: 0, totalSalary: 0, details: [] }
-          outletManagerAllocations.set(tId, alloc)
+          alloc = {
+            basicSalary: 0,
+            allowances: 0,
+            bonus: 0,
+            deductions: 0,
+            totalSalary: 0,
+            fullBasicSalary: 0,
+            fullAllowances: 0,
+            fullDeductions: 0,
+            fullRoutineSalary: 0,
+            details: []
+          }
+          outletManagerAllocations.set(tId, alloc as any)
         }
         alloc.basicSalary += g
         alloc.allowances += a
         alloc.bonus += bon
         alloc.deductions += ded
         alloc.totalSalary += tot
+        alloc.fullBasicSalary = (alloc.fullBasicSalary || 0) + fullG
+        alloc.fullAllowances = (alloc.fullAllowances || 0) + fullA
+        alloc.fullDeductions = (alloc.fullDeductions || 0) + fullDed
+        alloc.fullRoutineSalary = (alloc.fullRoutineSalary || 0) + fullRoutine
         alloc.details.push({
           staffId: m.staff_id,
           staffName: name,
@@ -932,6 +974,10 @@ export async function hitungRingkasanPayrollHr(filter: {
           allocatedBasicSalary: g,
           allocatedAllowances: a,
           allocatedDeductions: ded,
+          fullAllocatedBasicSalary: fullG,
+          fullAllocatedAllowances: fullA,
+          fullAllocatedDeductions: fullDed,
+          fullAllocatedRoutine: fullRoutine,
           coachedOutletsCount: targets.length,
           totalPcs: managerPcs,
           status: m.status === 'finalized' ? 'finalized' : 'draft',
@@ -1324,6 +1370,9 @@ export async function hitungRingkasanPayrollHr(filter: {
       let crewAllowances = 0
       let crewBonus = 0
       let crewDeductions = 0
+      let fullCrewBasicSalary = 0
+      let fullCrewAllowances = 0
+      let fullCrewDeductions = 0
       let finalizedCount = 0
       let draftCount = 0
       let crewRegularCount = 0
@@ -1338,6 +1387,10 @@ export async function hitungRingkasanPayrollHr(filter: {
         crewBonus += item.allocatedBonus
         crewDeductions += item.allocatedDeductions
 
+        fullCrewBasicSalary += item.fullBasic
+        fullCrewAllowances += item.fullAllowances
+        fullCrewDeductions += item.fullDeductions
+
         if (item.isBackup) crewBackupCount++
         else if (item.isTrainee) crewTraineeCount++
         else if (item.isOjt) crewOjtCount++
@@ -1346,6 +1399,10 @@ export async function hitungRingkasanPayrollHr(filter: {
         if (item.status === 'finalized') finalizedCount++
         else draftCount++
       })
+
+      const fullCrewRoutineSalary = Math.max(0, fullCrewBasicSalary + fullCrewAllowances - fullCrewDeductions)
+      const fullManagerAllocation = (mgrAlloc as any).fullRoutineSalary ?? managerRoutineAllocation
+      const fullTotalRoutineSalary = fullCrewRoutineSalary + fullManagerAllocation
 
       const managerRoutineAllocation = mgrAlloc.basicSalary + mgrAlloc.allowances - mgrAlloc.deductions
       const managerBonusAllocation = mgrAlloc.bonus
@@ -1549,6 +1606,12 @@ export async function hitungRingkasanPayrollHr(filter: {
         crewAllowances,
         crewBonus: finalCrewBonus,
         crewDeductions,
+        fullCrewBasicSalary,
+        fullCrewAllowances,
+        fullCrewDeductions,
+        fullCrewRoutineSalary,
+        fullManagerAllocation,
+        fullTotalRoutineSalary,
         managerAllocation: managerRoutineAllocation,
         managerRoutineAllocation,
         managerBonusAllocation,
@@ -1756,16 +1819,23 @@ export async function hitungRingkasanPayrollHr(filter: {
       })
     }
 
-    const outletsSummary: HRPayrollOutletSummary[] = Array.from(relevantGroups.values()).map(g => ({
-      ...g,
-      status: (g.finalizedCount > 0 && g.draftCount === 0
-        ? 'finalized'
-        : g.draftCount > 0 && g.finalizedCount === 0
-        ? 'draft'
-        : g.draftCount > 0 && g.finalizedCount > 0
-        ? 'partial'
-        : 'empty') as 'draft' | 'finalized' | 'partial' | 'empty'
-    })).sort((a, b) => b.totalSalary - a.totalSalary)
+    const outletsSummary: HRPayrollOutletSummary[] = Array.from(relevantGroups.values()).map(g => {
+      const op = outletOperationalMap.get(g.outletId)
+      return {
+        ...g,
+        isPartial: op?.isPartial,
+        operationalFirstDate: op?.firstDate,
+        operationalLastDate: op?.lastDate,
+        operationalCalendarDays: op?.operationalCalendarDays,
+        status: (g.finalizedCount > 0 && g.draftCount === 0
+          ? 'finalized'
+          : g.draftCount > 0 && g.finalizedCount === 0
+          ? 'draft'
+          : g.draftCount > 0 && g.finalizedCount > 0
+          ? 'partial'
+          : 'empty') as 'draft' | 'finalized' | 'partial' | 'empty'
+      }
+    }).sort((a, b) => b.totalSalary - a.totalSalary)
 
     let status: 'draft' | 'finalized' | 'partial' | 'empty' = 'empty'
     if (totalStaff > 0) {
@@ -2062,6 +2132,12 @@ export async function hitungRingkasanPayrollHr(filter: {
       crewBasicSalary: crewBasicSum,
       crewAllowances: crewAllowSum,
       crewDeductions: crewDedSum,
+      fullCrewBasicSalary: crewBasicSum,
+      fullCrewAllowances: crewAllowSum,
+      fullCrewDeductions: crewDedSum,
+      fullCrewRoutineSalary: Math.max(0, crewBasicSum + crewAllowSum - crewDedSum),
+      fullManagerAllocation: mgrRoutineAlloc,
+      fullTotalRoutineSalary: Math.max(0, crewBasicSum + crewAllowSum - crewDedSum) + mgrRoutineAlloc,
       managerAllocation: mgrRoutineAlloc,
       managerRoutineAllocation: mgrRoutineAlloc,
       managerBasicSalaryAllocation: mgrBasicAlloc,
@@ -2077,14 +2153,20 @@ export async function hitungRingkasanPayrollHr(filter: {
           const staffRaw: any = r.outlet_staff
           const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
           const staffOutletId = r.outlet_id || staffInfo?.outlet_id
-          let bSalary = Number(r.basic_salary || 0)
-          let bAllowances =
+          const rawBasic = Number(r.basic_salary || 0)
+          const rawAllowances =
             Number(r.allowance_meal || r.allowance_presence || 0) +
             Number(r.allowance_transport || 0) +
             Number(r.allowance_communication || 0) +
             Number(r.allowance_position || 0)
-          const bBonus = Number(r.bonus || 0)
-          let bDeductions = Number(r.deductions || 0)
+          const rawBonus = Number(r.bonus || 0)
+          const rawDeductions = Number(r.deductions || 0)
+          const rawRoutine = rawBasic + rawAllowances - rawDeductions
+
+          let bSalary = rawBasic
+          let bAllowances = rawAllowances
+          let bDeductions = rawDeductions
+          let bBonus = rawBonus
           let tot = Number(r.total_salary || 0)
           const isPusat = !staffOutletId || staffOutletId === 'ffffffff-ffff-ffff-ffff-ffffffffffff'
           const contractType = staffInfo?.contract_type || (r as any).contract_type || null
@@ -2129,10 +2211,10 @@ export async function hitungRingkasanPayrollHr(filter: {
             isManagerAllocation: false,
             isBackupAllocation: isSplit,
             backupOutletsCount: targets.length,
-            fullRoutineSalary: fullRoutine,
-            fullBasicSalary: bSalary,
-            fullAllowances: bAllowances,
-            fullDeductions: bDeductions,
+            fullRoutineSalary: rawRoutine,
+            fullBasicSalary: rawBasic,
+            fullAllowances: rawAllowances,
+            fullDeductions: rawDeductions,
             allocatedOutletNames: targets.map(id => outletNameMap.get(id) || 'Cabang'),
             // Id outlet tempat kru backup ini bertugas — dipakai lib/opexDariHr.ts untuk
             // membagi gajinya per outlet persis seperti tampilan satu outlet.

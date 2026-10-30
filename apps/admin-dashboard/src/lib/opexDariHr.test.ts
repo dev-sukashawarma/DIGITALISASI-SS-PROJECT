@@ -52,6 +52,26 @@ describe('barisPayrollDariHr', () => {
     expect(rows.filter(r => r.category === 'bonus_area_manager').map(r => r.outlet_id)).toEqual(['a'])
   })
 
+  it('outlet parsial: beban Rp 0 di Laba Rugi jika filter sebelum tanggal buka outlet', () => {
+    const h = hr({
+      outlets: [
+        { outletId: 'a', outletName: 'EMPANG', staffCount: 1, totalSalary: 0, draftCount: 0, finalizedCount: 0, status: 'draft', isPartial: false },
+        {
+          outletId: 'paledang', outletName: 'PALEDANG', staffCount: 1, totalSalary: 0, draftCount: 0, finalizedCount: 0, status: 'draft',
+          isPartial: true, operationalFirstDate: '2026-10-26', operationalLastDate: '2026-10-31', operationalCalendarDays: 6
+        },
+      ],
+      staffDetails: [
+        { staffId: '1', outletId: 'a', outletName: 'EMPANG', routineSalary: 5_000_000 },
+        { staffId: '2', outletId: 'paledang', outletName: 'PALEDANG', routineSalary: 1_000_000 },
+      ]
+    })
+    // Filter rentang 1 s/d 15 Okt (sebelum Paledang buka tgl 26)
+    const rows = barisPayrollDariHr({ hr: h, from: '2026-10-01', to: '2026-10-15' })!
+    const rowPaledang = rows.find(r => r.outlet_id === 'paledang' && r.category === 'gaji_crew_outlet')
+    expect(rowPaledang).toBeUndefined() // Tidak ada beban gaji untuk Paledang sebelum toko buka
+  })
+
   it('kru backup dibagi rata ke outlet tempatnya bertugas, bukan menumpuk di outlet asal', () => {
     const h = hr({
       basicSalary: 2_000_000, allowances: 390_000, deductions: 77_000,

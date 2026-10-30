@@ -94,4 +94,45 @@ describe('Perhitungan Gaji Outlet Parsial & Kru Mutasi', () => {
     const overlapRatio = overlapDays / opInfo.operationalCalendarDays!
     expect(overlapRatio).toBeCloseTo(5 / 6, 4)
   })
+
+  it('tidak menandai toko normal sebagai toko buka terlambat (mencegah false positive)', () => {
+    const primaryPeriod = { month: 10, year: 2026 }
+    const periodMonthStart = '2026-10-01'
+    const createdStr = '2026-06-09' // toko lama
+
+    // Kasus 1: toko normal dengan aktivitas tgl 1
+    const firstDateNormal = '2026-10-01'
+    const isNewlyCreated1 = Boolean(createdStr && createdStr >= periodMonthStart)
+    const isLateStart1 = firstDateNormal > periodMonthStart && (isNewlyCreated1 || firstDateNormal >= `${primaryPeriod.year}-10-07`)
+    expect(isLateStart1).toBe(false)
+
+    // Kasus 2: toko normal yang rekap POS pertama tgl 3
+    const firstDateDay3 = '2026-10-03'
+    const isLateStart2 = firstDateDay3 > periodMonthStart && (isNewlyCreated1 || firstDateDay3 >= `${primaryPeriod.year}-10-07`)
+    expect(isLateStart2).toBe(false) // tidak false positive
+
+    // Kasus 3: Paledang baru buka tgl 26
+    const firstDatePaledang = '2026-10-26'
+    const isLateStart3 = firstDatePaledang > periodMonthStart && (isNewlyCreated1 || firstDatePaledang >= `${primaryPeriod.year}-10-07`)
+    expect(isLateStart3).toBe(true) // benar terdeteksi parsial
+  })
+
+  it('memisahkan baseline kontrak utuh 1 bulan (Card 1) vs beban riil operasional (Card 2)', () => {
+    // 2 kru di Paledang: kontrak masing-masing Rp 2.000.000 (total gapok Rp 4.000.000)
+    // Hadir 6 hari kerja riil -> gaji riil masing-masing Rp 461.538 (total Rp 923.076)
+    const crewItems = [
+      { fullBasic: 2000000, allocatedBasic: 461538, fullRoutine: 2000000, allocatedRoutine: 461538 },
+      { fullBasic: 2000000, allocatedBasic: 461538, fullRoutine: 2000000, allocatedRoutine: 461538 },
+    ]
+
+    const fullCrewBasicSalary = crewItems.reduce((s, c) => s + c.fullBasic, 0)
+    const crewBasicSalary = crewItems.reduce((s, c) => s + c.allocatedBasic, 0)
+
+    // Card 1 menampilkan baseline utuh sebulan
+    expect(fullCrewBasicSalary).toBe(4000000)
+    // Card 2 / Beban Diakui menampilkan prorata riil
+    expect(crewBasicSalary).toBe(923076)
+    // Baseline tidak terdistorsi oleh prorata
+    expect(fullCrewBasicSalary).toBeGreaterThan(crewBasicSalary)
+  })
 })

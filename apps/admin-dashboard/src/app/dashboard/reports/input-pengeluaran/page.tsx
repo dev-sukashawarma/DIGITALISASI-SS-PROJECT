@@ -501,14 +501,16 @@ export default function InputPengeluaranPage() {
       const overlapDays = Math.max(0, Math.round((new Date(overlapEnd).getTime() - new Date(overlapStart).getTime()) / (1000 * 60 * 60 * 24)) + 1)
       const totalOpDays = op.operationalCalendarDays || 1
       const ratio = Math.min(1, Math.max(0, overlapDays / totalOpDays))
-      const isProrated = ratio < 1 || prorataInfo.isProrated
+      const isProrated = ratio < 1
       return {
         ...prorataInfo,
         isProrated,
         ratio,
         overlapDays,
         totalDays: totalOpDays,
-        label: `Prorata ${overlapDays} Hari (${overlapDays}/${totalOpDays} Hari Ops)`
+        label: isProrated
+          ? `Prorata ${overlapDays} Hari (${overlapDays}/${totalOpDays} Hari Ops)`
+          : `Operasional Penuh (${totalOpDays} Hari)`
       }
     }
     return prorataInfo

@@ -113,9 +113,45 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
     if (!o.outletId || o.outletId === 'PUSAT') return
     tambah(rutinBulanan, o.outletId, Number(o.managerRoutineAllocation ?? o.managerAllocation) || 0)
   })
+  // Penyesuaian pintar untuk outlet parsial (buka/tutup di tengah bulan):
+  // Jika rentang filter tidak overlap dengan masa operasional toko, beban = Rp 0.
+  // Jika overlap parsial, gunakan rasio hari overlap terhadap total hari operasional toko.
+  const partialRatios = new Map<string, number>()
+  ringkasanOutlet.forEach(o => {
+    if (!o.outletId || o.outletId === 'PUSAT') return
+    if (o.isPartial) {
+      const opStart = o.operationalFirstDate || `${from.slice(0, 7)}-01`
+      const opEnd = o.operationalLastDate || to
+      const overlapStart = from > opStart ? from : opStart
+      const overlapEnd = to < opEnd ? to : opEnd
+      if (overlapStart > overlapEnd) {
+        partialRatios.set(o.outletId, 0)
+      } else {
+        const overlapDays = Math.max(0, Math.round((new Date(overlapEnd).getTime() - new Date(overlapStart).getTime()) / (1000 * 60 * 60 * 24)) + 1)
+        const totalOpDays = o.operationalCalendarDays || 1
+        partialRatios.set(o.outletId, Math.min(1, Math.max(0, overlapDays / totalOpDays)))
+      }
+    }
+  })
+
+  // Hitung bobot rutin efektif per outlet sesuai rentang filter
+  const bobotRutinEfektif = new Map<string, number>()
+
+  for (const [id, baseAmt] of rutinBulanan) {
+    if (baseAmt <= 0) continue
+    if (partialRatios.has(id)) {
+      const pRatio = partialRatios.get(id)!
+      if (pRatio > 0) {
+        bobotRutinEfektif.set(id, Math.round(baseAmt * pRatio))
+      }
+    } else {
+      bobotRutinEfektif.set(id, baseAmt)
+    }
+  }
+
   const bulananKartu = gajiRutinBulananKartu(hr, false)
   const totalRutin = info.isProrated ? Math.round(bulananKartu * info.ratio) : bulananKartu
-  const rutin = bagiPersis(totalRutin, rutinBulanan)
+  const rutin = bagiPersis(totalRutin, bobotRutinEfektif)
 
   // 2. Bonus kru per outlet (rincian HR hanya membawa nama outlet).
   const bonusKruMentah = new Map<string, number>()

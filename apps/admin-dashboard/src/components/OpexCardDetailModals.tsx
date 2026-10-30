@@ -182,6 +182,45 @@ export function OpexCardDetailModals({
 
   const { displaySalary, displayRoutineSalary, displayBonus, displayCrewBonus, displayManagerBonus, hasHrPayroll, hrPayroll, isProrated, prorataInfo } = salaryData
   const ratio = isProrated && prorataInfo?.ratio ? prorataInfo.ratio : 1
+  // Sumbangan tiap cabang untuk gaji rutin seorang manajer (dibagi rata ke cabang binaan).
+  // `faktor` = 1 untuk baseline sebulan, atau rasio hari untuk beban prorata periode ini.
+  const renderSumbanganCabang = (mgr: { staffId: string; staffName?: string }, faktor: number) => {
+    if ((hrPayroll?.outlets?.length ?? 0) <= 1 || !hrPayroll?.managerDetailsByOutlet) return null
+    const namaOutlet = new Map((hrPayroll.outlets ?? []).map(o => [o.outletId, o.outletName]))
+    const dasar = Object.entries(hrPayroll.managerDetailsByOutlet).flatMap(([oid, daftar]) => {
+      const entri = daftar.filter(x => x.staffId === mgr.staffId)
+      // Rentang multi-bulan: satu entri per slip bulanan, jumlahkan semuanya.
+      return entri.length > 0
+        ? [{ oid, nama: namaOutlet.get(oid) || 'Outlet', mentah: entri.reduce((s, d) => s + (d.routineAmount ?? (d.allocatedAmount - (d.bonusAmount || 0))), 0) }]
+        : []
+    })
+    if (dasar.length === 0) return null
+    const target = Math.round(dasar.reduce((s, b) => s + b.mentah, 0) * faktor)
+    const perCabang = dasar
+      .map(b => ({ oid: b.oid, nama: b.nama, jumlah: Math.round(b.mentah * faktor) }))
+      .sort((a, b) => b.jumlah - a.jumlah || a.nama.localeCompare(b.nama, 'id'))
+    // Sisa pembulatan ke cabang terbesar agar jumlahnya persis sama dengan angka kartu manajer.
+    perCabang[0].jumlah += target - perCabang.reduce((s, b) => s + b.jumlah, 0)
+    return (
+      <details className="rounded-lg border border-purple-100 bg-white/70 px-2.5 py-1 text-[11px]">
+        <summary className="cursor-pointer select-none font-semibold text-purple-800">
+          Sumbangan tiap cabang untuk gaji {(mgr.staffName || '').split(' ')[0]} ({perCabang.length} Cbg){faktor !== 1 ? ' · prorata' : ''}
+        </summary>
+        <div className="mt-1.5 space-y-0.5 max-h-[160px] overflow-y-auto scrollbar-thin pr-0.5">
+          {perCabang.map(b => (
+            <div key={b.oid} className="flex items-center justify-between gap-2 text-gray-700">
+              <span className="truncate">{b.nama}</span>
+              <span className="font-mono font-bold text-purple-800 shrink-0">{rupiah(b.jumlah)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-1 pt-1 border-t border-purple-100 flex items-center justify-between font-black text-purple-900">
+          <span>Total</span>
+          <span className="font-mono">{rupiah(target)}</span>
+        </div>
+      </details>
+    )
+  }
   const bonusAmount = displayBonus ?? (hrPayroll ? Math.round(hrPayroll.bonus * ratio) : 0)
   const crewBonusAmount = displayCrewBonus ?? (hrPayroll ? Math.round((hrPayroll.crewBonus ?? 0) * ratio) : 0)
   const managerBonusAmount = displayManagerBonus ?? (hrPayroll ? Math.round((hrPayroll.managerBonusAllocation ?? 0) * ratio) : 0)
@@ -654,9 +693,9 @@ export function OpexCardDetailModals({
                   </div>
 
                   <div className="pt-2 mt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-gray-500">
-                    <span>Total THP (+Bonus):</span>
+                    <span>Total Gaji Rutin (tanpa bonus):</span>
                     <strong className="text-gray-900 font-black">
-                      {rupiah(isProrated && prorataInfo ? Math.round((hrPayroll?.totalSalary ?? routineSalary) * ratio) : (hrPayroll?.totalSalary ?? routineSalary))}
+                      {rupiah(routineSalary)}
                     </strong>
                   </div>
                 </div>
@@ -998,38 +1037,7 @@ export function OpexCardDetailModals({
                                               </span>
                                             </div>
 
-                                            {(hrPayroll?.outlets?.length ?? 0) > 1 && hrPayroll?.managerDetailsByOutlet && (() => {
-                                              const namaOutlet = new Map((hrPayroll.outlets ?? []).map(o => [o.outletId, o.outletName]))
-                                              const perCabang = Object.entries(hrPayroll.managerDetailsByOutlet ?? {})
-                                                .flatMap(([oid, daftar]) => {
-                                                  const d = daftar.find(x => x.staffId === mgr.staffId)
-                                                  return d
-                                                    ? [{ oid, nama: namaOutlet.get(oid) || 'Outlet', jumlah: d.routineAmount ?? (d.allocatedAmount - (d.bonusAmount || 0)) }]
-                                                    : []
-                                                })
-                                                .sort((a, b) => b.jumlah - a.jumlah || a.nama.localeCompare(b.nama, 'id'))
-                                              if (perCabang.length === 0) return null
-                                              const totalPerCabang = perCabang.reduce((s, b) => s + b.jumlah, 0)
-                                              return (
-                                                <details className="rounded-lg border border-purple-100 bg-white/70 px-2.5 py-1 text-[11px]">
-                                                  <summary className="cursor-pointer select-none font-semibold text-purple-800">
-                                                    Sumbangan tiap cabang untuk gaji {mgr.staffName.split(' ')[0]} ({perCabang.length} Cbg)
-                                                  </summary>
-                                                  <div className="mt-1.5 space-y-0.5 max-h-[160px] overflow-y-auto scrollbar-thin pr-0.5">
-                                                    {perCabang.map(b => (
-                                                      <div key={b.oid} className="flex items-center justify-between gap-2 text-gray-700">
-                                                        <span className="truncate">{b.nama}</span>
-                                                        <span className="font-mono font-bold text-purple-800 shrink-0">{rupiah(b.jumlah)}</span>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                  <div className="mt-1 pt-1 border-t border-purple-100 flex items-center justify-between font-black text-purple-900">
-                                                    <span>Total</span>
-                                                    <span className="font-mono">{rupiah(totalPerCabang)}</span>
-                                                  </div>
-                                                </details>
-                                              )
-                                            })()}
+                                            {renderSumbanganCabang(mgr, 1)}
                                           </div>
                                         )
                                       })
@@ -1256,7 +1264,7 @@ export function OpexCardDetailModals({
                                         const mgrAllocGapok = mgr.allocatedBasicSalary ?? (mgr.basicSalary ? Math.round(mgr.basicSalary / (mgr.coachedOutletsCount || 21)) : 0)
                                         const mgrAllocTunj = mgr.allocatedAllowances ?? Math.max(0, mgrRoutine - mgrAllocGapok)
                                         return (
-                                          <div key={mgr.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-2 rounded-lg border border-amber-200/80 text-xs gap-2">
+                                          <div key={mgr.staffId} className="bg-amber-50/40 px-2.5 py-2 rounded-lg border border-amber-200/80 text-xs space-y-1.5"><div className="flex items-center justify-between gap-2">
                                             <div className="flex flex-col min-w-0">
                                               <span className="font-bold text-gray-900 truncate">{mgr.staffName}</span>
                                               <div className="flex items-center gap-1 mt-0.5 flex-wrap">
@@ -1295,6 +1303,8 @@ export function OpexCardDetailModals({
                                                 )}
                                               </span>
                                             </div>
+                                          </div>
+                                            {renderSumbanganCabang(mgr, ratio)}
                                           </div>
                                         )
                                       })
@@ -1414,7 +1424,7 @@ export function OpexCardDetailModals({
                                   <div>{item.outletName}</div>
                                   {(item.managerAllocation ?? 0) > 0 && (
                                     <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
-                                      Kru: {rupiah(Math.round(((item.crewSalary ?? (item.totalSalary - (item.managerAllocation ?? 0))) - (item.bonus ?? 0)) * ratio))} · AM/RM/SC: +{rupiah(Math.round((item.managerRoutineAllocation ?? item.managerAllocation ?? 0) * ratio))}
+                                      Kru: {rupiah(Math.round((outletRoutine1Bln - (item.managerRoutineAllocation ?? item.managerAllocation ?? 0)) * ratio))} · AM/RM/SC: +{rupiah(Math.round((item.managerRoutineAllocation ?? item.managerAllocation ?? 0) * ratio))}
                                     </div>
                                   )}
                                 </td>

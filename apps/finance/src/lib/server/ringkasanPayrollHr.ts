@@ -132,6 +132,10 @@ export interface HRPayrollSummary {
   crewBonusDetails?: StaffBonusDetail[]
   /** Bonus kru per outlet tempat bonus itu DIPEROLEH (outletId → rupiah). Jumlahnya = crewBonus. */
   crewBonusByOutlet?: Record<string, number>
+  /** Rincian bonus kru per outlet (outletId → penerima). Dipakai untuk memotong tampilan per kelompok (Internal/Mitra). Hanya tampilan multi-outlet. */
+  crewBonusDetailsByOutlet?: Record<string, StaffBonusDetail[]>
+  /** Alokasi AM/RM/SC per outlet (outletId → manajer). Dipakai untuk memotong tampilan per kelompok. Hanya tampilan multi-outlet. */
+  managerDetailsByOutlet?: Record<string, ManagerAllocationDetail[]>
   managerBonusDetails?: StaffBonusDetail[]
   staffDetails?: StaffPayrollDetail[]
 }
@@ -214,7 +218,7 @@ export async function hitungRingkasanPayrollHr(filter: {
           .select('id, period_month, period_year, outlet_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, username, outlet_id, role, account_category, email, contract_type, sub_role, onboarding_stage)')
           .in('period_year', years)
           .in('period_month', months),
-        supabase.from('outlets').select('id, name, slug, is_active, status'),
+        supabase.from('outlets').select('id, name, slug, type, is_active, status'),
         supabase
           .from('staff_outlets')
           .select('staff_id, outlet_id, outlet_staff!inner(id, role, is_active)')
@@ -251,6 +255,32 @@ export async function hitungRingkasanPayrollHr(filter: {
         operationalOutletIds.push(o.id)
       }
     })
+
+    // 1b. Outlet yang sudah nonaktif tetapi masih punya order selesai dalam rentang
+    // (mis. outlet tutup di tengah bulan) tetap menanggung alokasi gaji manajer dan
+    // bonus pcs-nya. Aturannya sama dengan mesin prorata (prorataAuxiliary.ts:
+    // `hadActivityInPeriod`) dan fungsi SQL bonus (outlet dengan completed orders).
+    const idAktifSaatIni = new Set(operationalOutletIds)
+    const kandidatHistoris = (outletData || []).filter((o: any) =>
+      !idAktifSaatIni.has(o.id) &&
+      !isExcludedOutlet(o) &&
+      o.slug !== 'sawangan-depok-internal' &&
+      (!o.type || o.type === 'internal' || o.type === 'mitra')
+    )
+    if (kandidatHistoris.length > 0 && filter.from <= filter.to) {
+      const cekAktivitas = await Promise.all(kandidatHistoris.map(async (o: any) => {
+        const { data } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('outlet_id', o.id)
+          .eq('status', 'completed')
+          .gte('created_at', `${filter.from}T00:00:00+07:00`)
+          .lte('created_at', `${filter.to}T23:59:59+07:00`)
+          .limit(1)
+        return (data && data.length > 0) ? (o.id as string) : null
+      }))
+      cekAktivitas.forEach(id => { if (id) operationalOutletIds.push(id) })
+    }
 
     // 2. Build staff assignment mapping (staff_id -> outlet_id[]) from staff_outlets
     const staffAssignmentsMap = new Map<string, string[]>()
@@ -1385,6 +1415,11 @@ export async function hitungRingkasanPayrollHr(filter: {
     let finalizedCount = 0
     let finalizedAmount = 0
     let totalStaff = 0
+    // Komponen gaji KRU saja (tanpa manajer), supaya kartu/modal bisa memisahkan kru
+    // dari alokasi manajer — sama seperti tampilan satu outlet.
+    let crewBasicSum = 0
+    let crewAllowSum = 0
+    let crewDedSum = 0
 
     // Filter crew rows matching target
     const targetCrewRows = crewRows.filter(r => {
@@ -1411,6 +1446,13 @@ export async function hitungRingkasanPayrollHr(filter: {
       bonus += b
       crewBonus += b
       deductions += Number(r.deductions || 0)
+      crewBasicSum += Number(r.basic_salary || 0)
+      crewAllowSum +=
+        Number(r.allowance_meal || r.allowance_presence || 0) +
+        Number(r.allowance_transport || 0) +
+        Number(r.allowance_communication || 0) +
+        Number(r.allowance_position || 0)
+      crewDedSum += Number(r.deductions || 0)
       totalStaff++
 
       if (r.status === 'finalized') {
@@ -1641,6 +1683,73 @@ export async function hitungRingkasanPayrollHr(filter: {
 
     const bonusDetails = [...crewBonusDetails, ...managerBonusDetails].sort((a, b) => b.bonus - a.bonus)
 
+    // Alokasi manajer (AM/RM/SC) yang benar-benar dibebankan ke outlet, dijumlah lintas outlet.
+    // Tanpa ini tampilan multi-outlet tidak punya angka alokasi manajer: modal Gaji menaruh
+    // gaji manajer di kotak "Kru" dan menampilkan slip utuh (termasuk bonus) sebagai beban cabang.
+    let mgrBasicAlloc = 0
+    let mgrAllowAlloc = 0
+    let mgrDedAlloc = 0
+    const manajerAgregat = new Map<string, ManagerAllocationDetail>()
+    const manajerOutlet = new Map<string, Set<string>>()
+    if (target !== 'PUSAT') {
+      for (const [oid, alloc] of outletManagerAllocations.entries()) {
+        mgrBasicAlloc += alloc.basicSalary
+        mgrAllowAlloc += alloc.allowances
+        mgrDedAlloc += alloc.deductions
+        alloc.details.forEach(d => {
+          const sebelumnya = manajerAgregat.get(d.staffId)
+          const outletSet = manajerOutlet.get(d.staffId) ?? new Set<string>()
+          outletSet.add(oid)
+          manajerOutlet.set(d.staffId, outletSet)
+          if (!sebelumnya) {
+            manajerAgregat.set(d.staffId, { ...d, coachedOutletsCount: outletSet.size })
+            return
+          }
+          sebelumnya.allocatedAmount += d.allocatedAmount
+          sebelumnya.routineAmount = (sebelumnya.routineAmount ?? 0) + (d.routineAmount ?? 0)
+          sebelumnya.bonusAmount = (sebelumnya.bonusAmount ?? 0) + (d.bonusAmount ?? 0)
+          sebelumnya.allocatedBasicSalary = (sebelumnya.allocatedBasicSalary ?? 0) + (d.allocatedBasicSalary ?? 0)
+          sebelumnya.allocatedAllowances = (sebelumnya.allocatedAllowances ?? 0) + (d.allocatedAllowances ?? 0)
+          sebelumnya.allocatedDeductions = (sebelumnya.allocatedDeductions ?? 0) + (d.allocatedDeductions ?? 0)
+          sebelumnya.totalPcs = (sebelumnya.totalPcs ?? 0) + (d.totalPcs ?? 0)
+          sebelumnya.coachedOutletsCount = outletSet.size
+        })
+      }
+    }
+    const mgrRoutineAlloc = mgrBasicAlloc + mgrAllowAlloc - mgrDedAlloc
+
+    // Rincian per outlet agar tampilan bisa dipotong per kelompok (Internal / Mitra).
+    const managerDetailsByOutlet: Record<string, ManagerAllocationDetail[]> = {}
+    if (target !== 'PUSAT') {
+      for (const [oid, alloc] of outletManagerAllocations.entries()) {
+        if (alloc.details.length > 0) managerDetailsByOutlet[oid] = alloc.details
+      }
+    }
+    const crewBonusDetailsByOutlet: Record<string, StaffBonusDetail[]> = {}
+    dailyCrewBonusMap.forEach(entry => {
+      if (!entry.outletId) return
+      const info = staffInfoMap.get(entry.staffId)
+      const subRole = entry.subRole || info?.sub_role || null
+      const contractType = info?.contract_type || null
+      const dates = Array.from(entry.dates).sort()
+      const baris = targetCrewRows.find(r => r.staff_id === entry.staffId)
+      ;(crewBonusDetailsByOutlet[entry.outletId] ??= []).push({
+        staffId: entry.staffId,
+        staffName: entry.staffName,
+        role: entry.role,
+        subRole,
+        contractType,
+        isBackup: subRole === 'crew_backup' || contractType === 'daily',
+        backupDates: dates,
+        backupDatesFormatted: formatBackupDatesSummary(dates),
+        backupNote: '',
+        outletName: outletNameMap.get(entry.outletId) || entry.outletName || 'Cabang',
+        bonus: entry.bonus,
+        totalPcs: entry.totalPcs,
+        status: baris?.status === 'finalized' ? 'finalized' : 'draft'
+      })
+    })
+
     let multiCrewRegularCount = 0
     let multiCrewBackupCount = 0
     let multiCrewTraineeCount = 0
@@ -1685,6 +1794,17 @@ export async function hitungRingkasanPayrollHr(filter: {
       outlets: outletsSummary,
       crewBonusDetails,
       crewBonusByOutlet,
+      crewBasicSalary: crewBasicSum,
+      crewAllowances: crewAllowSum,
+      crewDeductions: crewDedSum,
+      managerAllocation: mgrRoutineAlloc,
+      managerRoutineAllocation: mgrRoutineAlloc,
+      managerBasicSalaryAllocation: mgrBasicAlloc,
+      managerAllowancesAllocation: mgrAllowAlloc,
+      managerDeductionsAllocation: mgrDedAlloc,
+      managerDetails: Array.from(manajerAgregat.values()),
+      managerDetailsByOutlet,
+      crewBonusDetailsByOutlet,
       managerBonusDetails,
       bonusDetails,
       staffDetails: [

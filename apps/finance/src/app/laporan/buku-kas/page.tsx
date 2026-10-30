@@ -45,7 +45,7 @@ import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { mitraOutletIds } from '@/lib/outletOwnership'
-import { barisPayrollDariHr, gantiPayrollDenganHr, gajiRutinBulananKartu, adaDataHr } from '@/lib/opexDariHr'
+import { barisPayrollDariHr, gantiPayrollDenganHr, gajiRutinBulananKartu, adaDataHr, ringkasanHrKelompok } from '@/lib/opexDariHr'
 import { kartuClosingUntuk } from '@/lib/closing/targetKartuClosing'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
@@ -235,6 +235,13 @@ export default function BukuKasPage() {
   // Gaji staf kantor pusat, hanya diambil untuk pilihan Internal + Kantor Pusat.
   const hrPusatFilter = useMemo(() => ({ from: startDate, to: endDate, outletId: 'PUSAT' }), [startDate, endDate])
   const { data: hrPusatData } = useHRPayroll(hrPusatFilter, sertakanPusat)
+  // Rincian gaji & bonus untuk modal pada pilihan kelompok (Internal / Mitra / Internal + Pusat):
+  // ringkasan HR 'Semua Outlet' dipotong per outlet kelompok, memakai pembagian yang sama dengan kartu.
+  const hrPayrollModal = useMemo(() => {
+    if (!isGroupTarget) return hrPayroll
+    return ringkasanHrKelompok(hrPayrollData, id => inTargetGroup(id), sertakanPusat ? hrPusatData : null) ?? undefined
+  }, [isGroupTarget, hrPayroll, hrPayrollData, hrPusatData, sertakanPusat, inTargetGroup])
+  const hasHrPayrollModal = Boolean(hrPayrollModal && hrPayrollModal.totalStaff > 0 && hrPayrollModal.totalSalary > 0)
 
   // Prorata & Realtime OPEX Engine (Single Source of Truth selevel Tab Laba Rugi)
   const prorataFilter = useMemo(() => ({
@@ -2260,10 +2267,10 @@ export default function BukuKasPage() {
           displayBonus,
           displayCrewBonus,
           displayManagerBonus,
-          hasHrPayroll,
-          hrPayroll,
+          hasHrPayroll: hasHrPayrollModal,
+          hrPayroll: hrPayrollModal,
           cashSalary: summary.salary,
-          isProrated: (hasHrPayroll && prorataInfo.isProrated) || isProratedOpex,
+          isProrated: (hasHrPayrollModal && prorataInfo.isProrated) || isProratedOpex,
           prorataInfo,
           baselineRoutine: baselineRoutineSalary,
           baselineCrewBonus,
@@ -2285,7 +2292,7 @@ export default function BukuKasPage() {
           displayManagerBonus,
           displayLembur,
           totalNonSalary: nonSalaryTampil,
-          isProrated: (hasHrPayroll && prorataInfo.isProrated) || isProratedOpex,
+          isProrated: (hasHrPayrollModal && prorataInfo.isProrated) || isProratedOpex,
           prorataInfo
         }}
       />

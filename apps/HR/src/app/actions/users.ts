@@ -5,6 +5,17 @@ import { requireRole } from '@/lib/authz'
 import type { StaffFormValues } from '@/lib/types'
 import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations, payrollAllocationError } from '@/lib/payrollAllocation'
 
+
+async function getActorInfo(admin: any, userId?: string) {
+  if (!userId) return { id: null, name: 'HR Admin' }
+  try {
+    const { data } = await admin.from('outlet_staff').select('id, name').eq('id', userId).maybeSingle()
+    return { id: userId, name: data?.name || 'HR Admin' }
+  } catch {
+    return { id: userId, name: 'HR Admin' }
+  }
+}
+
 function getAdminSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,7 +24,7 @@ function getAdminSupabase() {
 
 export async function createStaffSync(values: StaffFormValues): Promise<{ ok: boolean; staff_id?: string; error?: string }> {
   try {
-    await requireRole(['admin', 'owner', 'admin_hr'])
+    const authUser = await requireRole(['admin', 'owner', 'admin_hr'])
 
     const admin = getAdminSupabase()
   
@@ -180,6 +191,35 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     }
   }
 
+    // Log creation
+    try {
+      const actor = await getActorInfo(admin, authUser?.userId)
+      let outletName = 'Kantor Pusat'
+      if (finalOutletId && finalOutletId !== KANTOR_PUSAT_ID) {
+        const { data: oData } = await admin.from('outlets').select('name').eq('id', finalOutletId).maybeSingle()
+        if (oData?.name) outletName = oData.name
+      }
+      await admin.from('staff_activity_logs').insert({
+        staff_id: staffId,
+        action_type: 'CREATED',
+        title: 'Pendaftaran Karyawan Baru',
+        description: `Karyawan baru "${name}" didaftarkan sebagai ${String(role).toUpperCase().replace(/_/g, ' ')} di cabang ${outletName}.`,
+        actor_id: actor.id,
+        actor_name: actor.name,
+        metadata: {
+          role,
+          sub_role,
+          outlet_id: finalOutletId,
+          outlet_name: outletName,
+          join_date,
+          onboarding_stage,
+          basic_salary: basic_salary || 0,
+        },
+      })
+    } catch (logErr: any) {
+      console.warn('Gagal mencatat log pembuatan staf:', logErr?.message)
+    }
+
     return { ok: true, staff_id: staffId }
   } catch (err: any) {
     return { ok: false, error: err.message || 'Terjadi kesalahan sistem saat membuat staf' }
@@ -188,7 +228,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
 
 export async function updateStaffSync(vars: { staff_id: string } & Partial<StaffFormValues>): Promise<{ ok: boolean; staff_id?: string; error?: string }> {
   try {
-    await requireRole(['admin', 'owner', 'admin_hr'])
+    const authUser = await requireRole(['admin', 'owner', 'admin_hr'])
 
     const admin = getAdminSupabase()
     const { staff_id, ...values } = vars
@@ -384,6 +424,20 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
         const rows = finalOutletIds.map((oid: string) => ({ staff_id, outlet_id: oid }))
         await admin.from('staff_outlets').insert(rows)
       }
+    }
+
+    try {
+      const actor = await getActorInfo(admin, authUser?.userId)
+      await admin.from('staff_activity_logs').insert({
+        staff_id,
+        action_type: 'UPDATED_PROFILE',
+        title: 'Pembaruan Data Karyawan',
+        description: `Profil atau kompensasi karyawan diperbarui oleh ${actor.name}.`,
+        actor_id: actor.id,
+        actor_name: actor.name,
+      })
+    } catch (logErr: any) {
+      console.warn('Gagal mencatat log update:', logErr?.message)
     }
 
     return { ok: true, staff_id }
@@ -789,7 +843,7 @@ export async function deactivateStaffWithSettlementAction(params: {
   }
 }): Promise<{ ok: boolean; message: string; error?: string }> {
   try {
-    await requireRole(['admin', 'owner', 'admin_hr'])
+    const authUser = await requireRole(['admin', 'owner', 'admin_hr'])
     if (!params.staffId) return { ok: false, message: 'ID staf tidak valid', error: 'ID staf tidak valid' }
 
     const admin = getAdminSupabase()
@@ -880,6 +934,26 @@ export async function deactivateStaffWithSettlementAction(params: {
       }
     }
 
+    try {
+      const actor = await getActorInfo(admin, authUser?.userId)
+      await admin.from('staff_activity_logs').insert({
+        staff_id: params.staffId,
+        action_type: 'DEACTIVATED',
+        title: 'Penonaktifan & Resign Karyawan',
+        description: `Karyawan dinonaktifkan per tanggal ${params.resignDate}. Alasan: ${params.inactiveReason}.`,
+        actor_id: actor.id,
+        actor_name: actor.name,
+        metadata: {
+          resign_date: params.resignDate,
+          inactive_reason: params.inactiveReason,
+          create_draft_slip: params.createDraftSlip,
+          settlement_draft: params.settlementDraft,
+        },
+      })
+    } catch (logErr: any) {
+      console.warn('Gagal mencatat log deactive:', logErr?.message)
+    }
+
     return {
       ok: true,
       message: `Karyawan "${staff.name}" berhasil dinonaktifkan. Alasan: ${params.inactiveReason}.`,
@@ -914,7 +988,7 @@ export async function mutateStaffOutletAction(params: {
   notes?: string
 }): Promise<{ ok: boolean; message: string; error?: string }> {
   try {
-    await requireRole(['admin', 'owner', 'admin_hr'])
+    const authUser = await requireRole(['admin', 'owner', 'admin_hr'])
     if (!params.staffId || !params.targetOutletId) {
       return { ok: false, message: 'Data staf atau outlet tujuan tidak valid', error: 'Data tidak valid' }
     }
@@ -974,6 +1048,30 @@ export async function mutateStaffOutletAction(params: {
       })
     }
 
+    try {
+      const actor = await getActorInfo(admin, authUser?.userId)
+      const { data: targetO } = await admin.from('outlets').select('name').eq('id', params.targetOutletId).maybeSingle()
+      const originName = (staff.outlets as any)?.name || 'Kantor Pusat'
+      const targetName = targetO?.name || 'Outlet Baru'
+      await admin.from('staff_activity_logs').insert({
+        staff_id: params.staffId,
+        action_type: 'MUTATED_OUTLET',
+        title: 'Mutasi Cabang Penugasan',
+        description: `Dimutasi dari ${originName} ke ${targetName} efektif per ${params.effectiveDate}. Alasan: ${params.reason}.`,
+        actor_id: actor.id,
+        actor_name: actor.name,
+        metadata: {
+          origin_outlet_id: originOutletId,
+          target_outlet_id: params.targetOutletId,
+          effective_date: params.effectiveDate,
+          reason: params.reason,
+          notes: params.notes,
+        },
+      })
+    } catch (logErr: any) {
+      console.warn('Gagal mencatat log mutasi di activity logs:', logErr?.message)
+    }
+
     return {
       ok: true,
       message: `Karyawan "${staff.name}" berhasil dimutasi ke outlet baru efektif per ${params.effectiveDate}.`,
@@ -1007,6 +1105,43 @@ export async function getStaffMutationHistory(
     }
 
     return { ok: true, data: data || [] }
+  } catch {
+    return { ok: true, data: [] }
+  }
+}
+
+
+export interface StaffActivityLogRecord {
+  id: string
+  staff_id: string
+  action_type: string
+  title: string
+  description: string
+  actor_id: string | null
+  actor_name: string | null
+  metadata: any
+  created_at: string
+}
+
+export async function getStaffActivityLogs(
+  staffId: string
+): Promise<{ ok: boolean; data: StaffActivityLogRecord[]; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
+    if (!staffId) return { ok: false, data: [], error: 'ID staf tidak valid' }
+
+    const admin = getAdminSupabase()
+    const { data, error } = await admin
+      .from('staff_activity_logs')
+      .select('*')
+      .eq('staff_id', staffId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      return { ok: true, data: [] }
+    }
+
+    return { ok: true, data: (data as StaffActivityLogRecord[]) || [] }
   } catch {
     return { ok: true, data: [] }
   }

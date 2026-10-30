@@ -18,6 +18,7 @@ import {
   Sparkles,
   CheckCircle2,
   AlertTriangle,
+  Info,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -196,11 +197,32 @@ export default function PayrollPage() {
     }
   }, [filteredPayrollData])
 
-  const companyPayrollTotals = useMemo(() => {
+  const companyPayrollSummary = useMemo(() => {
     const totals = new Map<string, { companyName: string; amount: number; staffCount: number }>()
+    let zeroThpCount = 0
+    const zeroThpStaffNames = new Set<string>()
+    const splitStaffNames = new Set<string>()
+    const paidStaffIds = new Set<string>()
+
     filteredPayrollData.forEach((record) => {
+      const b = getPayrollBreakdown(record)
+      const thp = b.takeHomePay
+      const staffName = record.outlet_staff?.name || 'Karyawan'
       const allocations = normalizePayrollAllocations(record.payroll_allocations || DEFAULT_PAYROLL_ALLOCATION)
-      splitPayrollAmount(getPayrollBreakdown(record).takeHomePay, allocations).forEach((item) => {
+      const activeAllocations = allocations.filter((a) => a.percentage > 0)
+
+      if (activeAllocations.length > 1) {
+        splitStaffNames.add(staffName)
+      }
+
+      if (thp === 0) {
+        zeroThpCount++
+        zeroThpStaffNames.add(staffName)
+      } else {
+        paidStaffIds.add(record.staff_id || record.id)
+      }
+
+      splitPayrollAmount(thp, allocations).forEach((item) => {
         const companyKey = item.company_name.toLocaleLowerCase('id-ID')
         const current = totals.get(companyKey) || { companyName: item.company_name, amount: 0, staffCount: 0 }
         current.amount += item.amount
@@ -208,8 +230,23 @@ export default function PayrollPage() {
         totals.set(companyKey, current)
       })
     })
-    return [...totals.entries()].sort((a, b) => b[1].amount - a[1].amount)
+
+    const list = [...totals.entries()].sort((a, b) => b[1].amount - a[1].amount)
+    const sumPtStaffCount = list.reduce((acc, [, item]) => acc + item.staffCount, 0)
+
+    return {
+      companyPayrollTotals: list,
+      zeroThpCount,
+      zeroThpStaffNames: Array.from(zeroThpStaffNames),
+      splitStaffCount: splitStaffNames.size,
+      splitStaffNames: Array.from(splitStaffNames),
+      paidStaffCount: paidStaffIds.size,
+      totalStaffCount: filteredPayrollData.length,
+      sumPtStaffCount,
+    }
   }, [filteredPayrollData])
+
+  const companyPayrollTotals = companyPayrollSummary.companyPayrollTotals
 
   const hasSlips = payrollData.length > 0
   const isAllFinalized = hasSlips && payrollData.every((r) => r.status === 'finalized')
@@ -679,10 +716,48 @@ export default function PayrollPage() {
                     ))}
                   </tbody>
                   <tfoot className="bg-suka-cream/30 font-black">
-                    <tr><td className="px-5 py-3">Total</td><td className="px-5 py-3 text-right">{summaryTotals.staffCount} orang</td><td className="px-5 py-3 text-right font-mono">{formatRupiah(summaryTotals.totalKeseluruhan)}</td></tr>
+                    <tr>
+                      <td className="px-5 py-3">Total</td>
+                      <td className="px-5 py-3 text-right">
+                        <div>{summaryTotals.staffCount} orang</div>
+                        {companyPayrollSummary.zeroThpCount > 0 && (
+                          <div className="text-[11px] font-normal text-suka-gray-500">
+                            ({companyPayrollSummary.paidStaffCount} bergaji, {companyPayrollSummary.zeroThpCount} nihil)
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono">{formatRupiah(summaryTotals.totalKeseluruhan)}</td>
+                    </tr>
                   </tfoot>
                 </table>
               </div>
+
+              {(companyPayrollSummary.splitStaffCount > 0 || companyPayrollSummary.zeroThpCount > 0) && (
+                <div className="px-5 py-3.5 bg-amber-50/70 border-t border-amber-200/60 text-xs text-amber-900 flex items-start gap-2.5">
+                  <Info size={16} className="text-amber-700 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-amber-900">Catatan Rekap ({summaryTotals.staffCount} Karyawan):</p>
+                    <ul className="list-disc list-inside space-y-1 text-amber-800 text-[11px]">
+                      {companyPayrollSummary.splitStaffCount > 0 && (
+                        <li>
+                          <strong>{companyPayrollSummary.splitStaffCount} staf</strong> beban gajinya dibagi (split cost) ke lebih dari 1 PT{' '}
+                          <span className="text-amber-700 font-medium">({companyPayrollSummary.splitStaffNames.join(', ')})</span>, sehingga tercatat di masing-masing PT penanggung.
+                        </li>
+                      )}
+                      {companyPayrollSummary.zeroThpCount > 0 && (
+                        <li>
+                          <strong>{companyPayrollSummary.zeroThpCount} staf</strong> memiliki THP Rp 0 (belum terisi / nihil){' '}
+                          <span className="text-amber-700 font-medium">
+                            ({companyPayrollSummary.zeroThpStaffNames.length <= 4
+                              ? companyPayrollSummary.zeroThpStaffNames.join(', ')
+                              : `${companyPayrollSummary.zeroThpStaffNames.slice(0, 3).join(', ')}, dkk (+${companyPayrollSummary.zeroThpStaffNames.length - 3})`})
+                          </span>, sehingga tidak masuk beban PT mana pun di bulan ini.
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </section>
           )}
 

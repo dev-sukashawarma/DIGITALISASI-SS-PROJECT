@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Avatar, Button } from '@suka/design-system'
 import {
   Edit,
@@ -23,8 +23,12 @@ import {
   Users,
   Building2,
   ShieldX,
+  History,
+  UserPlus,
+  PowerOff,
 } from 'lucide-react'
 import { StatusToggle } from './StatusToggle'
+import { getStaffActivityLogs, type StaffActivityLogRecord } from '@/app/actions/users'
 import type { StaffRow, StaffStatus, StaffSortKey, SortOrder, AccountCategory, Outlet } from '@/lib/types'
 import { ACCOUNT_CATEGORY_LABELS } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
@@ -161,6 +165,29 @@ export function StaffTable({
   onSort?: (key: StaffSortKey) => void
 }) {
   const [selectedStaff, setSelectedStaff] = useState<StaffRow | null>(null)
+  const [activityLogs, setActivityLogs] = useState<StaffActivityLogRecord[]>([])
+  const [loadingLogs, setLoadingLogs] = useState<boolean>(false)
+
+  useEffect(() => {
+    if (!selectedStaff?.id) {
+      setActivityLogs([])
+      return
+    }
+    let active = true
+    setLoadingLogs(true)
+    getStaffActivityLogs(selectedStaff.id)
+      .then((res) => {
+        if (active && res.ok) {
+          setActivityLogs(res.data || [])
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingLogs(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [selectedStaff?.id])
 
   const outletMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -826,6 +853,76 @@ export function StaffTable({
                   </div>
                 ) : (
                   <span className="text-xs text-suka-gray-500 italic">Data gaji belum diatur.</span>
+                )}
+              </div>
+              {/* Section 5: Riwayat & Log Aktivitas Karyawan */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between text-suka-brown font-bold text-sm border-b border-suka-gray-100 pb-1.5">
+                  <div className="flex items-center gap-2">
+                    <History size={16} className="text-suka-orange" />
+                    <span>Riwayat &amp; Log Aktivitas Karyawan</span>
+                  </div>
+                  <span className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-mono">
+                    {activityLogs.length} Aktivitas
+                  </span>
+                </div>
+
+                {loadingLogs ? (
+                  <div className="text-xs text-stone-400 py-3 text-center italic">Memuat riwayat aktivitas...</div>
+                ) : activityLogs.length === 0 ? (
+                  <div className="text-xs text-stone-400 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                    Belum ada riwayat aktivitas tercatat untuk karyawan ini.
+                  </div>
+                ) : (
+                  <div className="relative pl-4 space-y-3 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-stone-200">
+                    {activityLogs.map((log) => {
+                      const isCreated = log.action_type === 'CREATED'
+                      const isMutated = log.action_type === 'MUTATED_OUTLET'
+                      const isDeactivated = log.action_type === 'DEACTIVATED'
+
+                      const dotColor = isCreated
+                        ? 'bg-emerald-500'
+                        : isMutated
+                        ? 'bg-indigo-500'
+                        : isDeactivated
+                        ? 'bg-rose-500'
+                        : 'bg-amber-500'
+
+                      return (
+                        <div key={log.id} className="relative group text-xs">
+                          <span
+                            className={`absolute -left-4 top-1.5 w-3 h-3 rounded-full border-2 border-white shadow-xs ${dotColor}`}
+                          />
+                          <div className="bg-stone-50 group-hover:bg-amber-50/40 transition-colors p-3 rounded-xl border border-stone-200 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-extrabold text-suka-ink text-xs flex items-center gap-1.5">
+                                {isCreated && <UserPlus size={13} className="text-emerald-600 shrink-0" />}
+                                {isMutated && <ArrowLeftRight size={13} className="text-indigo-600 shrink-0" />}
+                                {isDeactivated && <PowerOff size={13} className="text-rose-600 shrink-0" />}
+                                {!isCreated && !isMutated && !isDeactivated && <Clock size={13} className="text-amber-600 shrink-0" />}
+                                {log.title}
+                              </span>
+                              <span className="text-[10px] text-stone-400 font-mono whitespace-nowrap">
+                                {new Date(log.created_at).toLocaleDateString('id-ID', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-stone-700 text-[11px] leading-relaxed">
+                              {log.description}
+                            </p>
+                            {log.actor_name && (
+                              <div className="text-[10px] text-stone-400 pt-0.5">
+                                Oleh: <span className="font-semibold text-stone-600">{log.actor_name}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
             </div>

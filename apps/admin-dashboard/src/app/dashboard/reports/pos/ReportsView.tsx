@@ -798,7 +798,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
                   {formatRupiah(analytics.realGrossProfit ?? analytics.grossProfit)}
                 </p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
-                  Laba kotor riil kas setelah HPP & Admin Fee (Masuk Bank - Total COGS)
+                  Laba kotor setelah HPP & Admin Fee
                 </p>
                 <div className="mt-3 flex items-center justify-between gap-2 flex-wrap text-[11px] text-white/80 font-medium">
                   {analytics.grossRevenue > 0 && (

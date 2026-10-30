@@ -1146,3 +1146,80 @@ export async function getStaffActivityLogs(
     return { ok: true, data: [] }
   }
 }
+
+
+export interface GlobalStaffActivityLog {
+  id: string
+  staff_id: string
+  action_type: string
+  title: string
+  description: string
+  actor_id: string | null
+  actor_name: string | null
+  metadata: any
+  created_at: string
+  staff?: {
+    id: string
+    name: string
+    role: string
+    username: string | null
+    outlet_id: string | null
+    outlets?: { name: string } | null
+  } | null
+}
+
+export async function getAllStaffActivityLogs(params?: {
+  actionType?: string
+  outletId?: string
+  search?: string
+  limit?: number
+}): Promise<{ ok: boolean; data: GlobalStaffActivityLog[]; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
+    const admin = getAdminSupabase()
+
+    let query = admin
+      .from('staff_activity_logs')
+      .select(`
+        id, staff_id, action_type, title, description, actor_id, actor_name, metadata, created_at,
+        staff:outlet_staff!staff_id(id, name, role, username, outlet_id, outlets!outlet_id(name))
+      `)
+      .order('created_at', { ascending: false })
+      .limit(params?.limit || 250)
+
+    if (params?.actionType && params.actionType !== 'all') {
+      query = query.eq('action_type', params.actionType)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      return { ok: false, data: [], error: error.message }
+    }
+
+    let results = (data as unknown as GlobalStaffActivityLog[]) || []
+
+    if (params?.outletId && params.outletId !== 'all') {
+      results = results.filter((r) => {
+        const staffOutlet = r.staff?.outlet_id
+        const metaOutlet = r.metadata?.outlet_id || r.metadata?.target_outlet_id
+        return staffOutlet === params.outletId || metaOutlet === params.outletId
+      })
+    }
+
+    if (params?.search && params.search.trim()) {
+      const q = params.search.trim().toLowerCase()
+      results = results.filter((r) => {
+        const staffName = r.staff?.name?.toLowerCase() || ''
+        const desc = r.description?.toLowerCase() || ''
+        const title = r.title?.toLowerCase() || ''
+        const actor = r.actor_name?.toLowerCase() || ''
+        return staffName.includes(q) || desc.includes(q) || title.includes(q) || actor.includes(q)
+      })
+    }
+
+    return { ok: true, data: results }
+  } catch (err: any) {
+    return { ok: false, data: [], error: err.message || 'Gagal memuat log aktivitas' }
+  }
+}

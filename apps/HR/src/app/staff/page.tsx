@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { UserPlus, Download, Upload } from 'lucide-react'
+import { UserPlus, Download, Upload, History, Users } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useStaff } from '@/hooks/useStaff'
@@ -11,6 +11,7 @@ import { useStaffMutations } from '@/hooks/useStaffMutations'
 import { useOutlets } from '@/hooks/useOutlets'
 import { StaffFilters } from '@/components/modules/StaffFilters'
 import { StaffTable } from '@/components/modules/StaffTable'
+import { StaffAuditLogView } from '@/components/modules/StaffAuditLogView'
 import { DeactivateStaffModal } from '@/components/modules/DeactivateStaffModal'
 import { MutateOutletModal } from '@/components/modules/MutateOutletModal'
 import { StaffForm } from '@/components/modules/StaffForm'
@@ -35,6 +36,7 @@ export default function StaffPage() {
     sortOrder: 'asc',
   })
 
+  const [activeTab, setActiveTab] = useState<'database' | 'audit_logs'>('database')
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null)
@@ -260,7 +262,49 @@ export default function StaffPage() {
         </div>
       </PageHeader>
 
-      {/* Filter Bar */}
+      {/* Main Tabs Switcher */}
+      <div className="flex items-center gap-2 border-b border-suka-gray-200 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('database')}
+          className={`flex items-center gap-2 px-5 py-2.5 font-extrabold text-sm rounded-xl transition-all cursor-pointer ${
+            activeTab === 'database'
+              ? 'bg-suka-brown text-white shadow-md'
+              : 'bg-white text-suka-brown border border-suka-gray-200 hover:bg-suka-cream'
+          }`}
+        >
+          <Users size={16} className={activeTab === 'database' ? 'text-suka-orange' : 'text-suka-gray-400'} />
+          <span>Daftar Karyawan</span>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeTab === 'database'
+                ? 'bg-white/20 text-white'
+                : 'bg-stone-100 text-stone-600'
+            }`}
+          >
+            {staffList.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('audit_logs')}
+          className={`flex items-center gap-2 px-5 py-2.5 font-extrabold text-sm rounded-xl transition-all cursor-pointer ${
+            activeTab === 'audit_logs'
+              ? 'bg-suka-brown text-white shadow-md'
+              : 'bg-white text-suka-brown border border-suka-gray-200 hover:bg-suka-cream'
+          }`}
+        >
+          <History size={16} className={activeTab === 'audit_logs' ? 'text-suka-orange' : 'text-suka-gray-400'} />
+          <span>Log &amp; Riwayat Keseluruhan</span>
+        </button>
+      </div>
+
+      {activeTab === 'audit_logs' ? (
+        <StaffAuditLogView outlets={outlets} />
+      ) : (
+        <>
+          {/* Filter Bar */}
       <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
         <StaffFilters value={filter} onChange={setFilter} outlets={outlets} />
         <span className="text-xs text-suka-gray-500 font-medium">
@@ -291,6 +335,8 @@ export default function StaffPage() {
           onDelete={handleDelete}
           onHardDelete={handleHardDelete}
         />
+      )}
+        </>
       )}
 
       {/* Form Modal for Create & Edit */}

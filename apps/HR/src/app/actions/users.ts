@@ -525,6 +525,9 @@ export async function deleteStaffSync(
       // Unassign from all outlets
       await admin.from('staff_outlets').delete().eq('staff_id', staffId)
 
+      // Bersihkan slip gaji draft yang belum final agar tidak tertinggal di payroll aktif
+      await admin.from('payroll_records').delete().eq('staff_id', staffId).eq('status', 'draft')
+
       // Remove or revoke login credentials from auth.users
       // supabase-js mengembalikan { error }, tidak melempar — cek hasilnya, bukan try/catch saja.
       const { error: delErr } = await admin.auth.admin.deleteUser(staffId)
@@ -932,6 +935,9 @@ export async function deactivateStaffWithSettlementAction(params: {
           await admin.from('payroll_records').insert(payload)
         }
       }
+    } else {
+      // Jika HR memilih tidak membuat slip draft, bersihkan draft yang ada agar tidak tertinggal
+      await admin.from('payroll_records').delete().eq('staff_id', params.staffId).eq('status', 'draft')
     }
 
     try {
@@ -1172,6 +1178,8 @@ export async function getAllStaffActivityLogs(params?: {
   actionType?: string
   outletId?: string
   search?: string
+  dateFrom?: string
+  dateTo?: string
   limit?: number
 }): Promise<{ ok: boolean; data: GlobalStaffActivityLog[]; error?: string }> {
   try {
@@ -1185,10 +1193,18 @@ export async function getAllStaffActivityLogs(params?: {
         staff:outlet_staff!staff_id(id, name, role, username, outlet_id, outlets!outlet_id(name))
       `)
       .order('created_at', { ascending: false })
-      .limit(params?.limit || 250)
+      .limit(params?.limit || 1000)
 
     if (params?.actionType && params.actionType !== 'all') {
       query = query.eq('action_type', params.actionType)
+    }
+
+    if (params?.dateFrom) {
+      query = query.gte('created_at', `${params.dateFrom}T00:00:00+07:00`)
+    }
+
+    if (params?.dateTo) {
+      query = query.lte('created_at', `${params.dateTo}T23:59:59+07:00`)
     }
 
     const { data, error } = await query

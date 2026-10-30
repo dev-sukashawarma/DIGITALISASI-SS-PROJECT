@@ -210,13 +210,16 @@ export function usePayrollMutations() {
         const isActive = s.status === 'active' || s.is_active === true
         if (isActive) return true
 
-        // Karyawan non-aktif tapi keluar di bulan berjalan (tetap dibayarkan)
+        // Karyawan non-aktif tapi keluar di bulan berjalan (tetap dibayarkan jika memiliki gaji/settlement)
         if (s.resign_date) {
           const rDate = new Date(s.resign_date)
           const rMonth = rDate.getMonth() + 1
           const rYear = rDate.getFullYear()
           if (rMonth === month && rYear === year) {
-            return true
+            const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
+            if ((Number(fin?.basic_salary) || 0) > 0) {
+              return true
+            }
           }
         }
 
@@ -780,6 +783,9 @@ export function usePayrollMutations() {
           bonus_note,
           outlet_staff:staff_id(
             id,
+            name,
+            status,
+            is_active,
             onboarding_stage,
             sub_role,
             contract_type
@@ -816,18 +822,27 @@ export function usePayrollMutations() {
 
       let updatedCount = 0
       let skippedCount = 0
+      const inactiveSlipIdsToDelete: string[] = []
 
       for (const slip of slips) {
         const staffObj = Array.isArray(slip.outlet_staff) ? slip.outlet_staff[0] : slip.outlet_staff
+        const isInactive = staffObj?.status === 'inactive' || staffObj?.is_active === false
         const isOjt = isOjtStaff(staffObj as any)
 
         const fin = finMap.get(slip.staff_id)
+        let basicSalary = Number(fin?.basic_salary) || 0
+
+        // Jika staf di DB berstatus nonaktif dan tidak memiliki gaji aktif / settlement (basic_salary === 0),
+        // bersihkan slip draft-nya agar tidak menjadi slip hantu di payroll aktif
+        if (isInactive && basicSalary === 0) {
+          inactiveSlipIdsToDelete.push(slip.id)
+          continue
+        }
+
         if (!fin && !isOjt) {
           skippedCount++
           continue
         }
-
-        let basicSalary = Number(fin?.basic_salary) || 0
         if (isOjt) {
           const attendanceDays = attendanceDaysMap.get(slip.staff_id) || 0
           const baseRate = basicSalary > 0 ? basicSalary : OJT_MONTHLY_BASE_SALARY
@@ -880,12 +895,37 @@ export function usePayrollMutations() {
         else skippedCount++
       }
 
-      return { updatedCount, skippedCount }
+      if (inactiveSlipIdsToDelete.length > 0) {
+        const { error: delErr } = await supabase
+          .from('payroll_records')
+          .delete()
+          .in('id', inactiveSlipIdsToDelete)
+        if (delErr) {
+          console.error('Gagal membersihkan slip draft staf nonaktif:', delErr)
+        }
+      }
+
+      return { updatedCount, skippedCount, cleanedCount: inactiveSlipIdsToDelete.length }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll'] })
     },
   })
 
-  return { generate, syncAttendanceDeductions, syncSalaryFromDatabase, updateSlip, finalizeAll, finalizeSlip }
+  const deleteSlip = useMutation({
+    mutationFn: async (slipId: string) => {
+      const { error } = await supabase
+        .from('payroll_records')
+        .delete()
+        .eq('id', slipId)
+        .eq('status', 'draft')
+      if (error) throw error
+      return slipId
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll'] })
+    },
+  })
+
+  return { generate, syncAttendanceDeductions, syncSalaryFromDatabase, updateSlip, finalizeAll, finalizeSlip, deleteSlip }
 }

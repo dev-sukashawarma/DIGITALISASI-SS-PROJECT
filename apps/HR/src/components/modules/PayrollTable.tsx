@@ -15,6 +15,7 @@ import {
   Sparkles,
   Calendar,
   Building2,
+  Trash2,
 } from 'lucide-react'
 import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
@@ -122,6 +123,7 @@ export interface PayrollTableProps {
   rows: PayrollRecord[]
   onEdit: (slip: PayrollRecord) => void
   onFinalizeSlip?: (id: string) => void
+  onDeleteSlip?: (slip: PayrollRecord) => void
   periodMonth?: number
   periodYear?: number
   selectedOutlet?: string
@@ -137,6 +139,7 @@ export function PayrollTable({
   rows,
   onEdit,
   onFinalizeSlip,
+  onDeleteSlip,
   periodMonth,
   periodYear,
   selectedOutlet,
@@ -565,6 +568,15 @@ export function PayrollTable({
                               >
                                 <CheckCircle2 size={13} />
                                 <span>Final</span>
+                              </button>
+                            )}
+                            {onDeleteSlip && (
+                              <button
+                                onClick={() => onDeleteSlip(r)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 shadow-2xs hover:bg-rose-100 transition-all cursor-pointer"
+                                title="Hapus Slip Draft Ini"
+                              >
+                                <Trash2 size={13} />
                               </button>
                             )}
                           </>

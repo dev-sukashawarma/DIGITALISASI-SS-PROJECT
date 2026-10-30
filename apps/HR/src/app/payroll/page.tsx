@@ -288,13 +288,18 @@ export default function PayrollPage() {
     payrollMutations.syncSalaryFromDatabase.mutate(
       { month, year, forceAll },
       {
-        onSuccess: ({ updatedCount, skippedCount }) => {
-          if (updatedCount === 0) {
+        onSuccess: ({ updatedCount, skippedCount, cleanedCount }: any) => {
+          if (updatedCount === 0 && (!cleanedCount || cleanedCount === 0)) {
             toast.info(`Tidak ada slip yang perlu diupdate${skippedCount > 0 ? ` (${skippedCount} tidak ditemukan di Database Karyawan)` : ''}`)
           } else {
-            toast.success(
-              `Berhasil update gaji pokok ${updatedCount} slip${skippedCount > 0 ? ` (${skippedCount} dilewati)` : ''}`
-            )
+            let msg = `Berhasil update gaji pokok ${updatedCount} slip`
+            if (cleanedCount && cleanedCount > 0) {
+              msg += ` (${cleanedCount} slip staf nonaktif dibersihkan)`
+            }
+            if (skippedCount > 0) {
+              msg += ` (${skippedCount} dilewati)`
+            }
+            toast.success(msg)
           }
         },
         onError: (e: any) => toast.error(e.message || 'Gagal sync gaji dari database'),
@@ -373,6 +378,16 @@ export default function PayrollPage() {
         setEditingSlip(null)
       },
       onError: (e: any) => toast.error(e.message || 'Gagal memperbarui slip'),
+    })
+  }
+
+  const handleDeleteSlip = (slip: PayrollRecord) => {
+    const staffName = slip.outlet_staff?.name || 'karyawan ini'
+    if (!confirm(`Hapus slip gaji draft untuk "${staffName}"?`)) return
+
+    payrollMutations.deleteSlip.mutate(slip.id, {
+      onSuccess: () => toast.success(`Slip draft untuk ${staffName} berhasil dihapus.`),
+      onError: (e: any) => toast.error(e.message || 'Gagal menghapus slip draft'),
     })
   }
 
@@ -771,6 +786,7 @@ export default function PayrollPage() {
               rows={filteredPayrollData}
               onEdit={setEditingSlip}
               onFinalizeSlip={handleFinalizeSlip}
+              onDeleteSlip={handleDeleteSlip}
               periodMonth={month}
               periodYear={year}
               selectedOutlet={selectedOutlet}

@@ -10,6 +10,8 @@ import {
   Search,
   Building2,
   RefreshCw,
+  Calendar,
+  X,
 } from 'lucide-react'
 import { Avatar, Button, Spinner } from '@suka/design-system'
 import type { Outlet } from '@/lib/types'
@@ -17,6 +19,9 @@ import {
   getAllStaffActivityLogs,
   type GlobalStaffActivityLog,
 } from '@/app/actions/users'
+import { DatePicker } from '@/components/ui/DatePicker'
+import { Pagination, clampPage } from '@/components/ui/Pagination'
+import { todayWib } from '@/lib/dateIso'
 
 interface StaffAuditLogViewProps {
   outlets: Outlet[]
@@ -30,12 +35,92 @@ const ACTION_TYPE_OPTIONS = [
   { value: 'UPDATED_PROFILE', label: '🟡 Pembaruan Profil & Gaji' },
 ]
 
+type TimePreset = 'all' | 'today' | 'this_month' | 'last_month' | 'this_year' | 'custom'
+
+const TIME_PRESET_OPTIONS: { value: TimePreset; label: string }[] = [
+  { value: 'all', label: 'Semua Waktu' },
+  { value: 'today', label: 'Hari Ini' },
+  { value: 'this_month', label: 'Bulan Ini' },
+  { value: 'last_month', label: 'Bulan Lalu' },
+  { value: 'this_year', label: 'Tahun Ini' },
+  { value: 'custom', label: 'Kustom Tanggal' },
+]
+
 export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
   const [logs, setLogs] = useState<GlobalStaffActivityLog[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  // Filters
   const [actionType, setActionType] = useState('all')
   const [selectedOutlet, setSelectedOutlet] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Time Filters
+  const [timePreset, setTimePreset] = useState<TimePreset>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
+  const handleTimePresetChange = (preset: TimePreset) => {
+    setTimePreset(preset)
+    if (preset === 'all') {
+      setDateFrom('')
+      setDateTo('')
+      return
+    }
+
+    const todayStr = todayWib()
+    const [y, m] = todayStr.split('-').map(Number)
+
+    if (preset === 'today') {
+      setDateFrom(todayStr)
+      setDateTo(todayStr)
+    } else if (preset === 'this_month') {
+      const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+      const mm = String(m).padStart(2, '0')
+      setDateFrom(`${y}-${mm}-01`)
+      setDateTo(`${y}-${mm}-${String(lastDay).padStart(2, '0')}`)
+    } else if (preset === 'last_month') {
+      const prevDate = new Date(Date.UTC(y, m - 2, 1))
+      const py = prevDate.getUTCFullYear()
+      const pm = prevDate.getUTCMonth() + 1
+      const lastDay = new Date(Date.UTC(py, pm, 0)).getUTCDate()
+      const pmm = String(pm).padStart(2, '0')
+      setDateFrom(`${py}-${pmm}-01`)
+      setDateTo(`${py}-${pmm}-${String(lastDay).padStart(2, '0')}`)
+    } else if (preset === 'this_year') {
+      setDateFrom(`${y}-01-01`)
+      setDateTo(`${y}-12-31`)
+    } else if (preset === 'custom') {
+      if (!dateFrom) setDateFrom(`${y}-${String(m).padStart(2, '0')}-01`)
+      if (!dateTo) setDateTo(todayStr)
+    }
+  }
+
+  const handleResetTimeFilter = () => {
+    setTimePreset('all')
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  const handleSetDateFrom = (d: string) => {
+    setDateFrom(d)
+    if (dateTo && dateTo < d) {
+      setDateTo(d)
+    }
+    setTimePreset('custom')
+  }
+
+  const handleSetDateTo = (d: string) => {
+    setDateTo(d)
+    if (dateFrom && dateFrom > d) {
+      setDateFrom(d)
+    }
+    setTimePreset('custom')
+  }
 
   const fetchLogs = async () => {
     setIsLoading(true)
@@ -44,7 +129,9 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
         actionType: actionType !== 'all' ? actionType : undefined,
         outletId: selectedOutlet !== 'all' ? selectedOutlet : undefined,
         search: searchQuery.trim() || undefined,
-        limit: 300,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        limit: 1000,
       })
       if (res.ok) {
         setLogs(res.data)
@@ -58,7 +145,12 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
 
   useEffect(() => {
     fetchLogs()
-  }, [actionType, selectedOutlet])
+  }, [actionType, selectedOutlet, dateFrom, dateTo])
+
+  // Reset pagination on filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [actionType, selectedOutlet, searchQuery, dateFrom, dateTo, pageSize])
 
   // Hitung KPI
   const stats = useMemo(() => {
@@ -77,7 +169,7 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
     return { total: logs.length, created, mutated, deactivated, updated }
   }, [logs])
 
-  // Filter pencarian client-side tambahan jika cepat
+  // Filter pencarian client-side tambahan
   const filteredLogs = useMemo(() => {
     if (!searchQuery.trim()) return logs
     const q = searchQuery.toLowerCase().trim()
@@ -89,6 +181,13 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
       return name.includes(q) || desc.includes(q) || title.includes(q) || actor.includes(q)
     })
   }, [logs, searchQuery])
+
+  // Pagination slicing
+  const paginatedLogs = useMemo(() => {
+    const validPage = clampPage(currentPage, filteredLogs.length, pageSize)
+    const start = (validPage - 1) * pageSize
+    return filteredLogs.slice(start, start + pageSize)
+  }, [filteredLogs, currentPage, pageSize])
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -136,67 +235,123 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
       </div>
 
       {/* Filter & Control Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-          {/* Search Bar */}
-          <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama staf, admin, catatan..."
-              className="w-full pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border border-suka-gray-200 bg-stone-50/50 focus:bg-white focus:border-suka-orange focus:ring-1 focus:ring-suka-orange outline-none transition-all"
-            />
-          </div>
+      <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+            {/* Search Bar */}
+            <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari nama staf, admin, catatan..."
+                className="w-full pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border border-suka-gray-200 bg-stone-50/50 focus:bg-white focus:border-suka-orange focus:ring-1 focus:ring-suka-orange outline-none transition-all"
+              />
+            </div>
 
-          {/* Filter Jenis Aktivitas */}
-          <div className="flex items-center gap-1.5">
-            <select
-              value={actionType}
-              onChange={(e) => setActionType(e.target.value)}
-              className="text-xs font-bold rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-suka-brown outline-none focus:border-suka-orange cursor-pointer"
-            >
-              {ACTION_TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filter Cabang Outlet */}
-          <div className="flex items-center gap-1.5">
-            <select
-              value={selectedOutlet}
-              onChange={(e) => setSelectedOutlet(e.target.value)}
-              className="text-xs font-bold rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-suka-brown outline-none focus:border-suka-orange cursor-pointer max-w-[200px]"
-            >
-              <option value="all">Semua Outlet Cabang</option>
-              {outlets
-                .filter((o) => o.is_active !== false)
-                .map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
+            {/* Filter Jenis Aktivitas */}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={actionType}
+                onChange={(e) => setActionType(e.target.value)}
+                className="text-xs font-bold rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-suka-brown outline-none focus:border-suka-orange cursor-pointer"
+              >
+                {ACTION_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
                   </option>
                 ))}
-            </select>
+              </select>
+            </div>
+
+            {/* Filter Cabang Outlet */}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={selectedOutlet}
+                onChange={(e) => setSelectedOutlet(e.target.value)}
+                className="text-xs font-bold rounded-xl border border-suka-gray-200 bg-white px-3 py-2 text-suka-brown outline-none focus:border-suka-orange cursor-pointer max-w-[200px]"
+              >
+                <option value="all">Semua Outlet Cabang</option>
+                {outlets
+                  .filter((o) => o.is_active !== false)
+                  .map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Filter Waktu Preset */}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={timePreset}
+                onChange={(e) => handleTimePresetChange(e.target.value as TimePreset)}
+                className={`text-xs font-bold rounded-xl border px-3 py-2 outline-none cursor-pointer transition-colors ${
+                  timePreset !== 'all'
+                    ? 'border-suka-orange bg-amber-50/60 text-suka-brown font-extrabold'
+                    : 'border-suka-gray-200 bg-white text-suka-brown focus:border-suka-orange'
+                }`}
+              >
+                {TIME_PRESET_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Refresh Button */}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={fetchLogs}
+              disabled={isLoading}
+              className="rounded-xl border border-suka-gray-200 gap-1.5 text-xs font-bold cursor-pointer"
+            >
+              <RefreshCw size={13} className={isLoading ? 'animate-spin text-suka-orange' : ''} />
+              <span>Segarkan</span>
+            </Button>
           </div>
         </div>
 
-        {/* Refresh Button */}
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={fetchLogs}
-            disabled={isLoading}
-            className="rounded-xl border border-suka-gray-200 gap-1.5 text-xs font-bold cursor-pointer"
-          >
-            <RefreshCw size={13} className={isLoading ? 'animate-spin text-suka-orange' : ''} />
-            <span>Segarkan</span>
-          </Button>
-        </div>
+        {/* Date Pickers Row (visible when timePreset !== 'all') */}
+        {timePreset !== 'all' && (
+          <div className="flex items-center gap-2 pt-2.5 border-t border-suka-gray-100 flex-wrap animate-in fade-in duration-150">
+            <span className="text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider mr-1 flex items-center gap-1">
+              <Calendar size={13} className="text-suka-orange" />
+              Rentang Tanggal:
+            </span>
+            <DatePicker
+              label="Dari"
+              value={dateFrom}
+              onChange={handleSetDateFrom}
+              rangeFrom={dateFrom}
+              rangeTo={dateTo}
+            />
+            <span className="text-xs text-suka-gray-400 font-bold">-</span>
+            <DatePicker
+              label="Sampai"
+              value={dateTo}
+              onChange={handleSetDateTo}
+              rangeFrom={dateFrom}
+              rangeTo={dateTo}
+              align="right"
+            />
+            <button
+              type="button"
+              onClick={handleResetTimeFilter}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-suka-gray-600 hover:text-red-600 bg-suka-gray-100 hover:bg-red-50 border border-suka-gray-200 hover:border-red-200 transition-colors cursor-pointer ml-1"
+              title="Reset Filter Tanggal"
+            >
+              <X size={12} />
+              <span>Reset Waktu</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Log Table */}
@@ -208,9 +363,24 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
               Rekam Jejak Log Personalia Keseluruhan
             </h3>
           </div>
-          <span className="text-xs text-suka-gray-500 font-semibold">
-            Menampilkan <strong>{filteredLogs.length}</strong> catatan
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-suka-gray-500 font-semibold">
+              Total <strong>{filteredLogs.length}</strong> catatan
+            </span>
+            <div className="flex items-center gap-1.5 text-xs text-stone-500">
+              <span>Baris:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="text-xs font-bold rounded-lg border border-suka-gray-200 bg-white px-2 py-1 text-suka-brown outline-none cursor-pointer"
+              >
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {isLoading ? (
@@ -222,7 +392,7 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
             <History size={36} className="mx-auto text-stone-300" />
             <p className="text-sm font-bold text-stone-600">Tidak ada riwayat aktivitas yang cocok</p>
             <p className="text-xs text-stone-400">
-              Coba ganti kata kunci pencarian atau sesuaikan filter jenis aktivitas.
+              Coba ganti kata kunci pencarian atau sesuaikan filter jenis aktivitas / rentang tanggal.
             </p>
           </div>
         ) : (
@@ -239,7 +409,7 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
-                {filteredLogs.map((log) => {
+                {paginatedLogs.map((log) => {
                   const isCreated = log.action_type === 'CREATED'
                   const isMutated = log.action_type === 'MUTATED_OUTLET'
                   const isDeactivated = log.action_type === 'DEACTIVATED'
@@ -342,6 +512,18 @@ export function StaffAuditLogView({ outlets }: StaffAuditLogViewProps) {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Footer */}
+        {filteredLogs.length > 0 && (
+          <div className="px-5 py-3.5 border-t border-suka-gray-100 bg-stone-50/60">
+            <Pagination
+              page={currentPage}
+              pageSize={pageSize}
+              total={filteredLogs.length}
+              onPageChange={setCurrentPage}
+            />
           </div>
         )}
       </div>

@@ -20,7 +20,7 @@ export interface KartuClosing {
 }
 
 const CATATAN_SEBAGIAN = 'Closing OPEX September 2026 hanya berlaku untuk rentang 1–30 September; rentang ini memakai data apa adanya.'
-const CATATAN_TAK_DIDUKUNG = 'Closing OPEX September 2026 tampil saat memilih Kantor Pusat atau satu outlet internal (di admin-dashboard juga Outlet Internal dan Internal + Kantor Pusat).'
+const CATATAN_TAK_DIDUKUNG = 'Closing OPEX September 2026 tampil saat memilih Kantor Pusat atau satu outlet internal (di admin-dashboard juga Outlet Internal dan Kantor Pusat + Outlet Internal).'
 
 export function viewKartuDariTarget(target: string): ViewKartuClosing | null {
   if (target === 'PUSAT') return { jenis: 'pusat' }

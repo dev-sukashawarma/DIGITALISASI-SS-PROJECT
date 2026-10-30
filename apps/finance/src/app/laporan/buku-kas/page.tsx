@@ -792,7 +792,7 @@ export default function BukuKasPage() {
       { label: 'Outlet Mitra', value: 'MITRA_OUTLETS', indent: true },
       ...(isAdmin ? [
         { label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' },
-        { label: 'Internal + Kantor Pusat', value: 'INTERNAL_PUSAT' },
+        { label: 'Kantor Pusat + Outlet Internal', value: 'INTERNAL_PUSAT' },
       ] : []),
       ...berkelompok(outletMitra, 'Mitra'),
       ...berkelompok(outletInternal, 'Internal'),

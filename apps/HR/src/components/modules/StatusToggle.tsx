@@ -13,8 +13,9 @@ export function StatusToggle({
   const active = status === 'active'
   return (
     <button
+      type="button"
       onClick={() => onToggle(active ? 'inactive' : 'active')}
-      className={`rounded-lg p-2 ${active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+      className={`rounded-lg p-2 transition-colors cursor-pointer ${active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
       title={active ? 'Nonaktifkan Staf' : 'Aktifkan Staf'}
     >
       <Power size={16} />

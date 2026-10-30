@@ -370,6 +370,19 @@ export default function StaffPage() {
         </div>
       )}
 
+      {/* Deactivate & Exit Settlement Modal */}
+      {deactivatingStaff && (
+        <DeactivateStaffModal
+          staff={deactivatingStaff}
+          onClose={() => setDeactivatingStaff(null)}
+          onSuccess={() => {
+            const sName = deactivatingStaff.name
+            setDeactivatingStaff(null)
+            toast.success(`Karyawan ${sName} berhasil dinonaktifkan & settlement tersimpan.`)
+          }}
+        />
+      )}
+
       {/* Reset Password Modal */}
       {resetPwStaff && (
         <ResetPasswordDialog

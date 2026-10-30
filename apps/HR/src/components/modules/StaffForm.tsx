@@ -1162,7 +1162,7 @@ export function StaffForm({
                 </div>
                 {allocationPreview.length > 0 ? (
                   <div className="mt-2 space-y-1.5">
-                    {allocationPreview.map((item) => (
+                    {allocationPreview.map((item: any) => (
                       <div key={item.company_name} className="flex justify-between gap-3 text-sm">
                         <span className="text-suka-gray-700">{item.company_name} ({item.percentage}%)</span>
                         <span className="font-bold tabular-nums text-suka-brown">{formatRupiah(item.amount)}</span>

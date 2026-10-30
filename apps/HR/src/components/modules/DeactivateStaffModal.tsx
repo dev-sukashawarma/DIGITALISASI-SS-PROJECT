@@ -3,15 +3,10 @@
 import { useState, useEffect } from 'react'
 import {
   UserMinus,
-  Calendar,
   AlertTriangle,
   Receipt,
-  CheckCircle2,
   Clock,
-  Banknote,
-  DollarSign,
   AlertCircle,
-  HelpCircle,
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'

@@ -99,7 +99,8 @@ export interface OutletOperationalInfo {
   isPartial: boolean
   activeDays: number
   totalMonthDays: number
-  operationalCalendarDays?: number
+  /** Selalu diisi oleh setiap titik yang mengisi outletOperationalMap. */
+  operationalCalendarDays: number
   calendarRatio?: number
   firstDate?: string
   lastDate?: string
@@ -1400,11 +1401,16 @@ export async function hitungRingkasanPayrollHr(filter: {
         else draftCount++
       })
 
+      // Dideklarasikan SEBELUM dipakai sebagai cadangan di bawah: outlet tanpa
+      // alokasi manajer memakai objek bawaan tanpa fullRoutineSalary, sehingga
+      // `??` mengevaluasi variabel ini. Kalau dideklarasikan sesudahnya, JS
+      // melempar ReferenceError (temporal dead zone) dan ringkasan payroll gagal.
+      const managerRoutineAllocation = mgrAlloc.basicSalary + mgrAlloc.allowances - mgrAlloc.deductions
+
       const fullCrewRoutineSalary = Math.max(0, fullCrewBasicSalary + fullCrewAllowances - fullCrewDeductions)
       const fullManagerAllocation = (mgrAlloc as any).fullRoutineSalary ?? managerRoutineAllocation
       const fullTotalRoutineSalary = fullCrewRoutineSalary + fullManagerAllocation
 
-      const managerRoutineAllocation = mgrAlloc.basicSalary + mgrAlloc.allowances - mgrAlloc.deductions
       const managerBonusAllocation = mgrAlloc.bonus
       const totalSalary = crewSalary + mgrAlloc.totalSalary
       const basicSalary = crewBasicSalary

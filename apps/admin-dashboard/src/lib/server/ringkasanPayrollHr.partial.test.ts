@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { OutletOperationalInfo, StaffPayrollDetail, ManagerAllocationDetail } from './ringkasanPayrollHr'
+import type { OutletOperationalInfo } from './ringkasanPayrollHr'
 
 describe('Perhitungan Gaji Outlet Parsial & Kru Mutasi', () => {
   it('menghitung rasio kehadiran kru retail F&B proporsional 26 hari kerja', () => {

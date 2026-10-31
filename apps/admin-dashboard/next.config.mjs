@@ -9,6 +9,9 @@ const nextConfig = {
   outputFileTracingRoot: workspaceRoot,
   turbopack: {
     root: workspaceRoot,
+    resolveAlias: {
+      exceljs: 'exceljs/dist/exceljs.min.js',
+    },
   },
   // JANGAN tambahkan `output: 'standalone'`. Deploy cPanel di sini mem-boot lewat
   // `server.cjs` custom (next({ dev:false, dir })), bukan `.next/standalone/server.js`.

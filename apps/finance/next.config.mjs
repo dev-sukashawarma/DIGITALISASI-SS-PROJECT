@@ -9,6 +9,9 @@ const nextConfig = {
   outputFileTracingRoot: workspaceRoot,
   turbopack: {
     root: workspaceRoot,
+    resolveAlias: {
+      exceljs: 'exceljs/dist/exceljs.min.js',
+    },
   },
   transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/realtime'],
   typescript: {

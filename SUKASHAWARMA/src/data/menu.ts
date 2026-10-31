@@ -146,6 +146,15 @@ export const menuItems: MenuItem[] = [
     price: 32000,
     image: "/menus/SS_SUKA_SAMYANG_01.jpg",
   },
+  {
+    id: "suka-sausage",
+    name: "Suka Sausage",
+    category: "suka-suka",
+    description: "Shawarma sosis lezat dengan saus SUKA signature",
+    price: 25000,
+    image: "/menus/SS_SUKA_BEEF_01.jpg",
+  },
+
 
   // ─── MINUMAN ─────────────────────────────────────────────────────────────
   {

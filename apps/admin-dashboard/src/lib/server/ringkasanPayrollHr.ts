@@ -61,6 +61,16 @@ export interface StaffBonusDetail {
   status: 'draft' | 'finalized'
 }
 
+export interface CrewOutletBreakdown {
+  outletId: string
+  outletName: string
+  attendanceDays: number
+  basicSalary: number
+  allowances: number
+  deductions: number
+  routineSalary: number
+}
+
 export interface StaffPayrollDetail {
   staffId: string
   staffName: string
@@ -88,6 +98,7 @@ export interface StaffPayrollDetail {
   fullDeductions?: number
   allocatedOutletNames?: string[]
   allocatedOutletIds?: string[]
+  outletBreakdowns?: CrewOutletBreakdown[]
   attendanceDays?: number
   totalWorkDays?: number
   attendanceRatio?: number
@@ -204,6 +215,55 @@ function formatBackupDatesSummary(dates: string[]): string {
   return res.join('; ')
 }
 
+function toJakartaDateStr(ts?: string | null): string {
+  if (!ts) return ''
+  const s = String(ts).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return s.slice(0, 10)
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+}
+
+async function fetchAllAttendanceRows(supabase: any, attFrom: string, attTo: string): Promise<any[]> {
+  const all: any[] = []
+  const pageSize = 1000
+  for (let offset = 0; offset < 50000; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('id, outlet_staff_id, outlet_id, ts_server')
+      .gte('ts_server', `${attFrom}T00:00:00+07:00`)
+      .lte('ts_server', `${attTo}T23:59:59+07:00`)
+      .in('type', ['in', 'masuk'])
+      .order('ts_server', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1)
+    if (error || !data || data.length === 0) break
+    all.push(...data)
+    if (data.length < pageSize) break
+  }
+  return all
+}
+
+async function fetchAllAttendanceLogs(supabase: any, attFrom: string, attTo: string): Promise<any[]> {
+  const all: any[] = []
+  const pageSize = 1000
+  for (let offset = 0; offset < 50000; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('attendance_logs')
+      .select('id, staff_id, outlet_id, date')
+      .gte('date', attFrom)
+      .lte('date', attTo)
+      .eq('status', 'hadir')
+      .order('date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1)
+    if (error || !data || data.length === 0) break
+    all.push(...data)
+    if (data.length < pageSize) break
+  }
+  return all
+}
+
 export async function hitungRingkasanPayrollHr(filter: {
   from: string
   to: string
@@ -261,7 +321,7 @@ export async function hitungRingkasanPayrollHr(filter: {
           .select('id, period_month, period_year, outlet_id, basic_salary, allowance_meal, allowance_transport, allowance_communication, allowance_presence, allowance_position, bonus, deductions, total_salary, status, staff_id, outlet_staff:staff_id(id, name, username, outlet_id, role, account_category, email, contract_type, sub_role, onboarding_stage)')
           .in('period_year', years)
           .in('period_month', months),
-        supabase.from('outlets').select('id, name, slug, type, is_active, status'),
+        supabase.from('outlets').select('id, name, slug, type, is_active, status, created_at'),
         supabase
           .from('staff_outlets')
           .select('staff_id, outlet_id, outlet_staff!inner(id, role, is_active)')
@@ -390,7 +450,8 @@ export async function hitungRingkasanPayrollHr(filter: {
     for (const p of periods) {
       try {
         const periodMonthStart = `${p.year}-${String(p.month).padStart(2, '0')}-01`
-        const periodMonthEnd = new Date(p.year, p.month, 0).toISOString().slice(0, 10)
+        const lastDayInPeriod = new Date(p.year, p.month, 0).getDate()
+        const periodMonthEnd = `${p.year}-${String(p.month).padStart(2, '0')}-${String(lastDayInPeriod).padStart(2, '0')}`
         // Query absensi sebulan penuh dari periode ini agar siklus buka/tutup toko dan mutasi terdeteksi akurat tanpa distorsi filter rentang tanggal
         const attFrom = periodMonthStart
         const attTo = periodMonthEnd
@@ -407,7 +468,13 @@ export async function hitungRingkasanPayrollHr(filter: {
             })
           )
         } else {
-          operationalOutletIds.forEach(oid => {
+          const bonusTargetOutletIds = new Set<string>(operationalOutletIds)
+          ;(outletData || []).forEach((o: any) => {
+            if (o?.type === 'gudang' && o?.is_active === true && o?.status === 'active') {
+              bonusTargetOutletIds.add(o.id)
+            }
+          })
+          bonusTargetOutletIds.forEach(oid => {
             dailyBonusPromises.push(
               supabase.rpc('get_daily_outlet_bonus_detail', {
                 p_month: p.month,
@@ -418,7 +485,7 @@ export async function hitungRingkasanPayrollHr(filter: {
           })
         }
 
-        const [crewRes, amRes, rmRes, attRes, logsRes, ...dailyResList] = await Promise.all([
+        const [crewRes, amRes, rmRes, attRows, logRows, ...dailyResList] = await Promise.all([
           supabase.rpc('get_monthly_crew_bonus', {
             p_month: p.month,
             p_year: p.year,
@@ -432,26 +499,8 @@ export async function hitungRingkasanPayrollHr(filter: {
             p_month: p.month,
             p_year: p.year
           }),
-          attFrom <= attTo
-            ? supabase
-                .from('attendance')
-                .select('outlet_staff_id, outlet_id, ts_server')
-                .gte('ts_server', `${attFrom}T00:00:00+07:00`)
-                .lte('ts_server', `${attTo}T23:59:59+07:00`)
-                .in('type', ['in', 'masuk'])
-                .order('ts_server', { ascending: true })
-                .limit(10000)
-            : Promise.resolve({ data: [] }),
-          attFrom <= attTo
-            ? supabase
-                .from('attendance_logs')
-                .select('staff_id, outlet_id, date')
-                .gte('date', attFrom)
-                .lte('date', attTo)
-                .eq('status', 'hadir')
-                .order('date', { ascending: true })
-                .limit(10000)
-            : Promise.resolve({ data: [] }),
+          attFrom <= attTo ? fetchAllAttendanceRows(supabase, attFrom, attTo) : Promise.resolve([]),
+          attFrom <= attTo ? fetchAllAttendanceLogs(supabase, attFrom, attTo) : Promise.resolve([]),
           ...dailyBonusPromises
         ])
 
@@ -481,10 +530,10 @@ export async function hitungRingkasanPayrollHr(filter: {
           })
         }
 
-        if (attRes.data && Array.isArray(attRes.data)) {
-          attRes.data.forEach((a: any) => {
-            const date = a.ts_server ? String(a.ts_server).slice(0, 10) : ''
-            if (!date || !a.outlet_staff_id) return
+        if (Array.isArray(attRows)) {
+          attRows.forEach((a: any) => {
+            const date = toJakartaDateStr(a.ts_server)
+            if (!date || date < attFrom || date > attTo || !a.outlet_staff_id) return
             const k = `${a.outlet_staff_id}_${a.outlet_id}`
             if (!staffOutletAttendanceDates.has(k)) staffOutletAttendanceDates.set(k, new Set())
             staffOutletAttendanceDates.get(k)!.add(date)
@@ -496,10 +545,10 @@ export async function hitungRingkasanPayrollHr(filter: {
           })
         }
 
-        if (logsRes.data && Array.isArray(logsRes.data)) {
-          logsRes.data.forEach((l: any) => {
-            const date = l.date ? String(l.date).slice(0, 10) : ''
-            if (!date || !l.staff_id) return
+        if (Array.isArray(logRows)) {
+          logRows.forEach((l: any) => {
+            const date = toJakartaDateStr(l.date)
+            if (!date || date < attFrom || date > attTo || !l.staff_id) return
             const k = `${l.staff_id}_${l.outlet_id}`
             if (!staffOutletAttendanceDates.has(k)) staffOutletAttendanceDates.set(k, new Set())
             staffOutletAttendanceDates.get(k)!.add(date)
@@ -565,7 +614,7 @@ export async function hitungRingkasanPayrollHr(filter: {
       const dates = Array.from(outletActiveDatesMap.get(oid) || []).sort()
       const meta = outletMetaMap.get(oid)
       const isInactive = meta?.is_active === false || meta?.status === 'inactive'
-      const createdStr = meta?.created_at ? String(meta.created_at).slice(0, 10) : ''
+      const createdStr = toJakartaDateStr(meta?.created_at)
 
       if (dates.length === 0) {
         if (isInactive) {
@@ -990,7 +1039,382 @@ export async function hitungRingkasanPayrollHr(filter: {
       })
     })
 
-    // 4. Group data per outlet for breakdown list
+    // 4. Canonical per-crew allocation (dipakai bersama oleh outletGroups, tampilan 1 outlet,
+    //    Semua Outlet, dan Semua Unit agar angka Buku Kas, Laba Rugi, dan Ringkasan Bisnis identik Rp 0 selisih)
+    const ALLOWED_STORE_ROLES = new Set(['crew', 'leader', 'kasir', 'kitchen', 'driver'])
+    const isNonRetailBucket = (oid?: string | null): boolean => {
+      if (!oid || oid === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || oid === 'PUSAT') return true
+      const m = outletMetaMap.get(oid)
+      if (!m) return false
+      if (m.slug === 'sawangan-depok-internal') return true
+      if (m.type === 'office' || m.type === 'test' || m.type === 'system' || m.type === 'marketplace' || m.type === 'online') return true
+      return isExcludedOutlet(m) && m.type !== 'gudang'
+    }
+
+    interface CanonicalCrewShare {
+      outletId: string
+      outletName: string
+      basic: number
+      allowances: number
+      deductions: number
+      routine: number
+      slipBonus: number
+      attendanceDays: number
+      totalWorkDays: number
+      ratio: number
+      isSplitBackup: boolean
+      partialNote?: string
+      splitNote?: string
+    }
+
+    interface CanonicalCrewRow {
+      rawRow: any
+      staffId: string
+      staffName: string
+      role: string
+      staffOutletId?: string
+      isPusat: boolean
+      contractType: string | null
+      subRole: string | null
+      onboardingStage: string | null
+      isBackup: boolean
+      isTrainee: boolean
+      isOjt: boolean
+      isRegular: boolean
+      rawBasic: number
+      rawAllowances: number
+      rawDeductions: number
+      rawRoutine: number
+      rawBonus: number
+      rawTotal: number
+      status: 'draft' | 'finalized'
+      targets: string[]
+      hasMultiOutletAtt: boolean
+      denom: number
+      shares: CanonicalCrewShare[]
+    }
+
+    const processedCrewRows: CanonicalCrewRow[] = crewRows.map(r => {
+      const rawBasic = Number(r.basic_salary || 0)
+      const rawAllowances =
+        Number(r.allowance_meal || r.allowance_presence || 0) +
+        Number(r.allowance_transport || 0) +
+        Number(r.allowance_communication || 0) +
+        Number(r.allowance_position || 0)
+      const rawBonus = Number(r.bonus || 0)
+      const rawDeductions = Number(r.deductions || 0)
+      const rawRoutine = rawBasic + rawAllowances - rawDeductions
+      const rawTotal = Number(r.total_salary || 0)
+
+      const staffRaw: any = r.outlet_staff
+      const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
+      const staffId: string = r.staff_id
+      const staffName: string = staffInfo?.name || 'Staff'
+      const role: string = staffInfo?.role || 'crew'
+      const staffOutletId: string | undefined = r.outlet_id || staffInfo?.outlet_id || undefined
+      const isPusat = !staffOutletId || staffOutletId === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || !ALLOWED_STORE_ROLES.has(role)
+
+      const contractType = staffInfo?.contract_type || (r as any).contract_type || null
+      const subRole = staffInfo?.sub_role || (r as any).sub_role || null
+      const onboardingStage = staffInfo?.onboarding_stage || (r as any).onboarding_stage || null
+      const isBackup = contractType === 'daily' || subRole === 'crew_backup'
+      const isTrainee = contractType === 'probation' || subRole === 'crew_trainee'
+      const isOjt = contractType === 'intern' || onboardingStage === 'ojt'
+      const isRegular = !isBackup && !isTrainee && !isOjt
+      const status: 'draft' | 'finalized' = r.status === 'finalized' ? 'finalized' : 'draft'
+      // Slip HR karyawan baru / trainee tengah bulan yang gapoknya sudah diprorata HR (< Rp 1,8 jt)
+      const isAlreadyProratedSlip = rawBasic > 0 && rawBasic < 1_800_000
+
+      if (isPusat) {
+        return {
+          rawRow: r,
+          staffId,
+          staffName,
+          role,
+          staffOutletId: 'PUSAT',
+          isPusat: true,
+          contractType,
+          subRole,
+          onboardingStage,
+          isBackup,
+          isTrainee,
+          isOjt,
+          isRegular,
+          rawBasic,
+          rawAllowances,
+          rawDeductions,
+          rawRoutine,
+          rawBonus,
+          rawTotal,
+          status,
+          targets: ['PUSAT'],
+          hasMultiOutletAtt: false,
+          denom: 26,
+          shares: [{
+            outletId: 'PUSAT',
+            outletName: 'Kantor Pusat',
+            basic: rawBasic,
+            allowances: rawAllowances,
+            deductions: rawDeductions,
+            routine: rawRoutine,
+            slipBonus: rawBonus,
+            attendanceDays: 0,
+            totalWorkDays: 26,
+            ratio: 1,
+            isSplitBackup: false
+          }]
+        }
+      }
+
+      const rawTargets = getCrewBackupTargets(staffId, staffOutletId, isBackup).filter(oid => !isNonRetailBucket(oid))
+      const targets = rawTargets.length > 0 ? rawTargets : (staffOutletId && !isNonRetailBucket(staffOutletId) ? [staffOutletId] : [])
+      const rawAttMap = staffAllOutletsAttendance.get(staffId)
+      const retailAttEntries = rawAttMap
+        ? Array.from(rawAttMap.entries()).filter(([oid, dSet]) => !isNonRetailBucket(oid) && dSet.size > 0)
+        : []
+      const hasMultiOutletAtt = Boolean(rawAttMap && rawAttMap.size > 1 && retailAttEntries.length > 0)
+
+      if (hasMultiOutletAtt && rawAttMap) {
+        const totalAttDays = Array.from(rawAttMap.values()).reduce((s, dSet) => s + dSet.size, 0)
+        const denom = isAlreadyProratedSlip ? Math.max(1, totalAttDays) : Math.max(26, totalAttDays)
+        const retailAttDays = retailAttEntries.reduce((s, [, dSet]) => s + dSet.size, 0)
+
+        const shares: CanonicalCrewShare[] = retailAttEntries.map(([attOid, dSet]) => {
+          const attCount = dSet.size
+          const cRatio = Math.min(1, attCount / denom)
+          const g = Math.round(rawBasic * cRatio)
+          const a = Math.round(rawAllowances * cRatio)
+          const ded = Math.round(rawDeductions * cRatio)
+          const otherDescs = Array.from(rawAttMap.entries())
+            .filter(([oid]) => oid !== attOid)
+            .map(([oid, ds]) => {
+              const nm = oid === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ? 'Kantor Pusat' : (outletNameMap.get(oid) || 'Cabang Lain')
+              return `${nm} (${ds.size} hr)`
+            })
+            .join(', ')
+          return {
+            outletId: attOid,
+            outletName: outletNameMap.get(attOid) || 'Outlet',
+            basic: g,
+            allowances: a,
+            deductions: ded,
+            routine: g + a - ded,
+            slipBonus: 0,
+            attendanceDays: attCount,
+            totalWorkDays: denom,
+            ratio: cRatio,
+            isSplitBackup: false,
+            splitNote: `${attCount}/${denom} hari di outlet ini · Mutasi/tugas lain di: ${otherDescs}`
+          }
+        })
+
+        // Jika seluruh hari pembagi berada di outlet ritel (mis. 26/26, 27/27, atau slip prorata 13/13),
+        // sesuaikan sisa pembulatan ±1 rupiah ke cabang dengan hari hadir terbanyak agar total = 100% slip.
+        if (retailAttDays === denom && shares.length > 0) {
+          let maxIdx = 0
+          for (let i = 1; i < shares.length; i++) {
+            if (shares[i].attendanceDays > shares[maxIdx].attendanceDays) maxIdx = i
+          }
+          shares[maxIdx].basic += rawBasic - shares.reduce((s, x) => s + x.basic, 0)
+          shares[maxIdx].allowances += rawAllowances - shares.reduce((s, x) => s + x.allowances, 0)
+          shares[maxIdx].deductions += rawDeductions - shares.reduce((s, x) => s + x.deductions, 0)
+          shares[maxIdx].routine = shares[maxIdx].basic + shares[maxIdx].allowances - shares[maxIdx].deductions
+        }
+
+        if (rawBonus > 0 && shares.length > 0) {
+          const homeShare = shares.find(sh => sh.outletId === staffOutletId) || shares[0]
+          homeShare.slipBonus = rawBonus
+        }
+
+        return {
+          rawRow: r,
+          staffId,
+          staffName,
+          role,
+          staffOutletId,
+          isPusat: false,
+          contractType,
+          subRole,
+          onboardingStage,
+          isBackup,
+          isTrainee,
+          isOjt,
+          isRegular,
+          rawBasic,
+          rawAllowances,
+          rawDeductions,
+          rawRoutine,
+          rawBonus,
+          rawTotal,
+          status,
+          targets: shares.map(sh => sh.outletId),
+          hasMultiOutletAtt: true,
+          denom,
+          shares
+        }
+      }
+
+      if (isBackup && targets.length > 1 && retailAttEntries.length === 0) {
+        const gSplit = distributeEqualSplit(rawBasic, targets)
+        const aSplit = distributeEqualSplit(rawAllowances, targets)
+        const dedSplit = distributeEqualSplit(rawDeductions, targets)
+        const shares: CanonicalCrewShare[] = targets.map(tId => {
+          const g = gSplit.get(tId) || 0
+          const a = aSplit.get(tId) || 0
+          const ded = dedSplit.get(tId) || 0
+          return {
+            outletId: tId,
+            outletName: outletNameMap.get(tId) || 'Outlet',
+            basic: g,
+            allowances: a,
+            deductions: ded,
+            routine: g + a - ded,
+            slipBonus: tId === staffOutletId ? rawBonus : 0,
+            attendanceDays: 0,
+            totalWorkDays: 26,
+            ratio: 1 / targets.length,
+            isSplitBackup: true
+          }
+        })
+        if (rawBonus > 0 && !shares.some(sh => sh.slipBonus > 0) && shares.length > 0) {
+          shares[0].slipBonus = rawBonus
+        }
+        return {
+          rawRow: r,
+          staffId,
+          staffName,
+          role,
+          staffOutletId,
+          isPusat: false,
+          contractType,
+          subRole,
+          onboardingStage,
+          isBackup,
+          isTrainee,
+          isOjt,
+          isRegular,
+          rawBasic,
+          rawAllowances,
+          rawDeductions,
+          rawRoutine,
+          rawBonus,
+          rawTotal,
+          status,
+          targets,
+          hasMultiOutletAtt: false,
+          denom: 26,
+          shares
+        }
+      }
+
+      const singleOid = retailAttEntries[0]?.[0] || targets[0] || staffOutletId || 'PUSAT'
+      if (singleOid === 'PUSAT' || isNonRetailBucket(singleOid)) {
+        return {
+          rawRow: r,
+          staffId,
+          staffName,
+          role,
+          staffOutletId: 'PUSAT',
+          isPusat: true,
+          contractType,
+          subRole,
+          onboardingStage,
+          isBackup,
+          isTrainee,
+          isOjt,
+          isRegular,
+          rawBasic,
+          rawAllowances,
+          rawDeductions,
+          rawRoutine,
+          rawBonus,
+          rawTotal,
+          status,
+          targets: ['PUSAT'],
+          hasMultiOutletAtt: false,
+          denom: 26,
+          shares: [{
+            outletId: 'PUSAT',
+            outletName: 'Kantor Pusat',
+            basic: rawBasic,
+            allowances: rawAllowances,
+            deductions: rawDeductions,
+            routine: rawRoutine,
+            slipBonus: rawBonus,
+            attendanceDays: 0,
+            totalWorkDays: 26,
+            ratio: 1,
+            isSplitBackup: false
+          }]
+        }
+      }
+
+      const attCount = staffOutletAttendanceDates.get(`${staffId}_${singleOid}`)?.size || 0
+      const opInfo = outletOperationalMap.get(singleOid)
+      let cRatio = 1
+      let partialNote: string | undefined
+
+      if (opInfo?.isPartial) {
+        if ((opInfo.operationalCalendarDays ?? 1) <= 0 && attCount === 0) {
+          cRatio = 0
+          partialNote = 'Outlet nonaktif (0 hari kerja)'
+        } else if (isAlreadyProratedSlip) {
+          cRatio = 1
+          const effDays = attCount > 0 ? attCount : (opInfo.operationalCalendarDays || 0)
+          partialNote = `${effDays}/26 hari kerja · Slip HR sudah proporsional hari masuk`
+        } else {
+          const effectiveDays = attCount > 0 ? attCount : (opInfo.operationalCalendarDays || 0)
+          cRatio = Math.min(1, effectiveDays / 26)
+          partialNote = `${effectiveDays}/26 hari kerja · Proporsional operasional toko (${opInfo.operationalCalendarDays} hari kalender)`
+        }
+      }
+
+      const g = Math.round(rawBasic * cRatio)
+      const a = Math.round(rawAllowances * cRatio)
+      const ded = Math.round(rawDeductions * cRatio)
+
+      return {
+        rawRow: r,
+        staffId,
+        staffName,
+        role,
+        staffOutletId: singleOid,
+        isPusat: false,
+        contractType,
+        subRole,
+        onboardingStage,
+        isBackup,
+        isTrainee,
+        isOjt,
+        isRegular,
+        rawBasic,
+        rawAllowances,
+        rawDeductions,
+        rawRoutine,
+        rawBonus,
+        rawTotal,
+        status,
+        targets: [singleOid],
+        hasMultiOutletAtt: false,
+        denom: 26,
+        shares: [{
+          outletId: singleOid,
+          outletName: outletNameMap.get(singleOid) || 'Outlet',
+          basic: g,
+          allowances: a,
+          deductions: ded,
+          routine: g + a - ded,
+          slipBonus: rawBonus,
+          attendanceDays: attCount,
+          totalWorkDays: 26,
+          ratio: cRatio,
+          isSplitBackup: false,
+          partialNote
+        }]
+      }
+    })
+
+    // 4b. Group data per outlet for breakdown list
     const outletGroups = new Map<string, {
       outletId: string
       outletName: string
@@ -1006,97 +1430,14 @@ export async function hitungRingkasanPayrollHr(filter: {
       finalizedCount: number
     }>()
 
-    // Aggregate crew rows into outletGroups
-    crewRows.forEach(r => {
-      const bSalary = Number(r.basic_salary || 0)
-      const bAllowances =
-        Number(r.allowance_meal || r.allowance_presence || 0) +
-        Number(r.allowance_transport || 0) +
-        Number(r.allowance_communication || 0) +
-        Number(r.allowance_position || 0)
-      const bBonus = Number(r.bonus || 0)
-      const bDeductions = Number(r.deductions || 0)
-      const totSalary = Number(r.total_salary || 0)
-
-      const staffRaw: any = r.outlet_staff
-      const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
-      const staffOutletId = r.outlet_id || staffInfo?.outlet_id
-      const isPusat = !staffOutletId || staffOutletId === 'ffffffff-ffff-ffff-ffff-ffffffffffff'
-
-      const contractType = staffInfo?.contract_type || (r as any).contract_type || null
-      const subRole = staffInfo?.sub_role || (r as any).sub_role || null
-      const isBackup = contractType === 'daily' || subRole === 'crew_backup'
-
-      const targets = isPusat ? ['PUSAT'] : getCrewBackupTargets(r.staff_id, staffOutletId, isBackup)
-      const attMap = staffAllOutletsAttendance.get(r.staff_id)
-      const hasMultiOutletAtt = !isPusat && attMap && attMap.size > 1
-
-      if (hasMultiOutletAtt) {
-        // Fair Split untuk kru mutasi/tugas multi-cabang berbasis hari hadir riil (standar 26 hari kerja)
-        attMap.forEach((dateSet, attOid) => {
-          const attCount = dateSet.size
-          const cRatio = Math.min(1, attCount / 26)
-          const g = Math.round(bSalary * cRatio)
-          const a = Math.round(bAllowances * cRatio)
-          const ded = Math.round(bDeductions * cRatio)
-          const routinePortion = g + a - ded
-          const bonusPortion = (attOid === staffOutletId) ? bBonus : 0
-          const totPortion = routinePortion + bonusPortion
-
-          const outletName = outletNameMap.get(attOid) || 'Outlet'
-          let group = outletGroups.get(attOid)
-          if (!group) {
-            group = {
-              outletId: attOid,
-              outletName,
-              staffCount: 0,
-              crewSalary: 0,
-              managerAllocation: 0,
-              managerRoutineAllocation: 0,
-              managerBonusAllocation: 0,
-              totalSalary: 0,
-              basicSalary: 0,
-              bonus: 0,
-              draftCount: 0,
-              finalizedCount: 0
-            }
-            outletGroups.set(attOid, group)
-          }
-          group.staffCount++
-          group.crewSalary += totPortion
-          group.totalSalary += totPortion
-          group.basicSalary += g
-          group.bonus += bonusPortion
-          if (r.status === 'finalized') {
-            group.finalizedCount++
-          } else {
-            group.draftCount++
-          }
-        })
-      } else if (targets.length <= 1) {
-        const groupKey = isPusat ? 'PUSAT' : (targets[0] || staffOutletId || 'PUSAT')
-        const outletName = isPusat ? 'Kantor Pusat' : (outletNameMap.get(groupKey) || 'Outlet')
-        const opInfo = outletOperationalMap.get(groupKey)
-
-        let g = bSalary
-        let a = bAllowances
-        let ded = bDeductions
-        let finalTotSalary = totSalary
-
-        if (!isPusat && opInfo?.isPartial) {
-          const attCount = staffOutletAttendanceDates.get(`${r.staff_id}_${groupKey}`)?.size || opInfo.operationalCalendarDays
-          const cRatio = Math.min(1, attCount / 26)
-          g = Math.round(bSalary * cRatio)
-          a = Math.round(bAllowances * cRatio)
-          ded = Math.round(bDeductions * cRatio)
-          finalTotSalary = g + a - ded + bBonus
-        }
-
-        let group = outletGroups.get(groupKey)
+    processedCrewRows.forEach(pc => {
+      pc.shares.forEach(sh => {
+        const totPortion = sh.routine + sh.slipBonus
+        let group = outletGroups.get(sh.outletId)
         if (!group) {
           group = {
-            outletId: groupKey,
-            outletName,
+            outletId: sh.outletId,
+            outletName: sh.outletName,
             staffCount: 0,
             crewSalary: 0,
             managerAllocation: 0,
@@ -1108,63 +1449,19 @@ export async function hitungRingkasanPayrollHr(filter: {
             draftCount: 0,
             finalizedCount: 0
           }
-          outletGroups.set(groupKey, group)
+          outletGroups.set(sh.outletId, group)
         }
         group.staffCount++
-        group.crewSalary += finalTotSalary
-        group.totalSalary += finalTotSalary
-        group.basicSalary += g
-        group.bonus += bBonus
-        if (r.status === 'finalized') {
+        group.crewSalary += totPortion
+        group.totalSalary += totPortion
+        group.basicSalary += sh.basic
+        group.bonus += sh.slipBonus
+        if (pc.status === 'finalized') {
           group.finalizedCount++
         } else {
           group.draftCount++
         }
-      } else {
-        // Backup crew assigned to multiple outlets: split routine components equally
-        const gSplit = distributeEqualSplit(bSalary, targets)
-        const aSplit = distributeEqualSplit(bAllowances, targets)
-        const dedSplit = distributeEqualSplit(bDeductions, targets)
-
-        targets.forEach(tId => {
-          const g = gSplit.get(tId) || 0
-          const a = aSplit.get(tId) || 0
-          const ded = dedSplit.get(tId) || 0
-          const routinePortion = g + a - ded
-          const bonusPortion = (tId === staffOutletId) ? bBonus : 0
-          const totPortion = routinePortion + bonusPortion
-
-          const outletName = outletNameMap.get(tId) || 'Outlet'
-          let group = outletGroups.get(tId)
-          if (!group) {
-            group = {
-              outletId: tId,
-              outletName,
-              staffCount: 0,
-              crewSalary: 0,
-              managerAllocation: 0,
-              managerRoutineAllocation: 0,
-              managerBonusAllocation: 0,
-              totalSalary: 0,
-              basicSalary: 0,
-              bonus: 0,
-              draftCount: 0,
-              finalizedCount: 0
-            }
-            outletGroups.set(tId, group)
-          }
-          group.staffCount++
-          group.crewSalary += totPortion
-          group.totalSalary += totPortion
-          group.basicSalary += g
-          group.bonus += bonusPortion
-          if (r.status === 'finalized') {
-            group.finalizedCount++
-          } else {
-            group.draftCount++
-          }
-        })
-      }
+      })
     })
 
     // Merge allocated manager shares into outletGroups for operational outlets

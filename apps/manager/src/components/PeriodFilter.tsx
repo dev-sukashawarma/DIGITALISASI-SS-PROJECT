@@ -123,9 +123,6 @@ export function PeriodFilter({
     const p7d = presetRange('7d')
     if (value.from === p7d.from && value.to === p7d.to) return '7d'
 
-    const p30d = presetRange('30d')
-    if (value.from === p30d.from && value.to === p30d.to) return '30d'
-
     const pThisMonth = presetRange('this_month')
     if (value.from === pThisMonth.from && value.to === pThisMonth.to) return 'this_month'
 
@@ -137,10 +134,10 @@ export function PeriodFilter({
   return (
     <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center w-full justify-end">
       <div className="bg-white p-1.5 rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 flex items-stretch gap-1 text-xs font-bold w-full sm:w-auto flex-wrap sm:flex-nowrap">
-        {(['today', 'kemarin', '7d', '30d', 'this_month'] as const).map((pOrKemarin) => {
+        {(['today', 'kemarin', '7d', 'this_month'] as const).map((pOrKemarin) => {
           const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
           const isActive = currentPreset === p
-          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : p === '30d' ? '30 Hari' : 'Bulan ini'
+          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : 'Bulan ini'
           return (
             <button
               key={p}

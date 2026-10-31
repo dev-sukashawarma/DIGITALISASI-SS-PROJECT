@@ -23,6 +23,7 @@ export function isExcludedOutlet(
 
   return (
     s === TEST_OUTLET_ID ||
+    s === 'ss-online' ||
     s.includes('tes') ||
     s.includes('test') ||
     s.includes('trial') ||
@@ -34,6 +35,7 @@ export function isExcludedOutlet(
     s.includes('backup') ||
     s.includes('tiktok') ||
     s.includes('titko') ||
-    s.includes('kantor pusat')
+    s.includes('kantor pusat') ||
+    s.includes('ss online')
   )
 }

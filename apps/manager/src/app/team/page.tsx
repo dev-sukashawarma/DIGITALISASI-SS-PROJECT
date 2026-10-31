@@ -228,8 +228,8 @@ export default function MonitoringPage() {
     const p7d = presetRange('7d')
     if (periodFilter.from === p7d.from && periodFilter.to === p7d.to) return '7d'
 
-    const p30d = presetRange('30d')
-    if (periodFilter.from === p30d.from && periodFilter.to === p30d.to) return '30d'
+    const pThisMonth = presetRange('this_month')
+    if (periodFilter.from === pThisMonth.from && periodFilter.to === pThisMonth.to) return 'this_month'
 
     return null
   }
@@ -673,7 +673,7 @@ export default function MonitoringPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       
       {/* Header & Tabs */}
       <div className="flex flex-col gap-4">
@@ -715,9 +715,9 @@ export default function MonitoringPage() {
           <div className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 relative z-30">
             {/* Sleek Modern Date Presets */}
             <div className="bg-slate-100/90 p-1 rounded-xl border border-slate-200/60 flex flex-wrap sm:flex-nowrap items-center gap-1 text-xs font-bold">
-              {(['yesterday', 'today', '7d', '30d'] as const).map((p) => {
+              {(['today', 'yesterday', '7d', 'this_month'] as const).map((p) => {
                 const isActive = currentPreset === p
-                const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : '30 Hari'
+                const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : 'Bulan ini'
                 return (
                   <button
                     key={p}

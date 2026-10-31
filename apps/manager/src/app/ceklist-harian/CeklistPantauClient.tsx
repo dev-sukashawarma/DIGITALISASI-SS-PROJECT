@@ -77,7 +77,7 @@ export default function CeklistPantauClient({ staffId, role }: Props) {
   }
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
+    <div className="space-y-4 w-full">
       <div className="rounded-2xl bg-white border border-suka-brown/10 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <button type="button" onClick={() => geser(-1)} aria-label="Hari sebelumnya"
@@ -225,7 +225,7 @@ function DetailLaporan({ laporan: l, namaOutlet, bolehMeninjau, onTutup, onDiset
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div className="w-full space-y-4">
       <div className="flex items-center gap-3">
         <button type="button" onClick={onTutup} aria-label="Kembali"
           className="w-9 h-9 rounded-full bg-white border border-suka-brown/15 flex items-center justify-center cursor-pointer hover:bg-suka-gray-50">

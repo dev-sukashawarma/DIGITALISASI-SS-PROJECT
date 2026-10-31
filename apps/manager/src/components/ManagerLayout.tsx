@@ -151,6 +151,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                     <Link
                       key={href}
                       href={targetHref}
+                      prefetch={true}
                       className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                         active
                           ? 'bg-suka-orange text-white shadow-xs'
@@ -241,7 +242,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
 
         {/* Scrollable Main */}
         <main className="flex-1 overflow-y-auto w-full">
-          <div className={`${pathname.startsWith('/resep') ? 'w-full' : 'max-w-7xl mx-auto'} p-3 sm:p-6 lg:p-8 pb-28 md:pb-8`}>
+          <div className="w-full p-3 sm:p-6 lg:p-8 pb-28 md:pb-8">
             {children}
           </div>
         </main>
@@ -261,6 +262,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                 <Link
                   key={href}
                   href={href}
+                  prefetch={true}
                   className="relative flex-1 flex flex-col items-center justify-center gap-1 min-w-0 px-0.5"
                 >
                   <span
@@ -369,6 +371,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                           <Link
                             key={href}
                             href={targetHref}
+                            prefetch={true}
                             onClick={() => setIsMenuSheetOpen(false)}
                             className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold text-xs sm:text-sm transition-all active:scale-95 ${
                               active

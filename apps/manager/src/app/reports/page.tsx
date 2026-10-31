@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import ReportsClient from './ReportsClient';
 import { TEST_OUTLET_ID } from '@/lib/outletFilters';
 import { cleanItemName } from '@/lib/order-item-name';
+import { getMenuItemsData, getRiwayatHppData } from '@/lib/menuCache';
 import {
   buildFoodAppsSettlementPromoMap,
   computeOrderDeduction,
@@ -200,20 +201,13 @@ export default async function ReportsPage({
     qOutlets = qOutlets.eq('id', staff.outlet_id);
   }
 
-  const [posOrdersData, ecommerceSalesData, settlementsData, { data: outletsData }, { data: menuItemsData }, { data: riwayatHppData }] = await Promise.all([
+  const [posOrdersData, ecommerceSalesData, settlementsData, { data: outletsData }, menuItemsData, riwayatHppData] = await Promise.all([
     permittedOutletId === 'ss-online' ? Promise.resolve([]) : fetchAllPages(buildOrdersQuery),
     shouldIncludeEcommerce ? fetchAllPages(buildEcommerceQuery) : Promise.resolve([]),
     fetchAllPages(buildSettlementsQuery),
     qOutlets,
-    supabaseAdmin
-      .from('menu_items')
-      .select(
-        'id, name, hpp_override, channel_hpp, is_package, package_items:menu_package_items!menu_package_items_package_menu_id_fkey(quantity, component:menu_items!menu_package_items_component_menu_id_fkey(id, name, hpp_override, channel_hpp))'
-      ),
-    supabaseAdmin
-      .from('menu_hpp_riwayat')
-      .select('menu_id, berlaku_mulai, hpp_override, channel_hpp')
-      .order('berlaku_mulai', { ascending: true }),
+    getMenuItemsData(supabaseAdmin),
+    getRiwayatHppData(supabaseAdmin),
   ]);
 
   const outletTypeMap = new Map<string, string>();

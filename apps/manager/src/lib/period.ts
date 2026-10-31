@@ -15,7 +15,7 @@ export function presetRange(preset: Preset, now = new Date()): { from: string; t
     return { from: yesterday, to: yesterday }
   }
   
-  if (preset === 'this_month') {
+  if (preset === 'this_month' || preset === 'month') {
     return { from: todayStr.slice(0, 8) + '01', to: todayStr }
   }
   

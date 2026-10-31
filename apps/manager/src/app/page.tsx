@@ -12,8 +12,10 @@ import { cookies, headers } from 'next/headers';
 import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth';
 import { createClient } from '@supabase/supabase-js';
 import { presetRange, previousRange, type Preset } from '../lib/period';
-import { TEST_OUTLET_ID, isTestOutlet } from '@/lib/outletFilters';
-import { computeOrderGross, mapEcommerceSaleToOrder } from '../lib/posReportKpi';
+import { TEST_OUTLET_ID, isTestOutlet, isExcludedOutlet } from '@/lib/outletFilters';
+import { computeOrderGross, computeOrderDeduction, buildFoodAppsSettlementPromoMap, mapEcommerceSaleToOrder } from '../lib/posReportKpi';
+import { cleanItemName } from '../lib/order-item-name';
+import { getMenuItemsData } from '../lib/menuCache';
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -106,6 +108,7 @@ const getAMName = (
 
   return 'Lainnya';
 };
+
 
 export default async function DashboardOverview(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const searchParams = await props.searchParams;
@@ -216,11 +219,15 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     'id'
   );
 
-  const buildOrdersQuery = (startDate: string, endDate: string) =>
+  const buildOrdersQuery = (startDate: string, endDate: string, includeFullItems: boolean = true) =>
     applyOutletFilter(
       supabaseAdmin
         .from('orders')
-        .select('id, outlet_id, status, total_amount, discount_amount, promo_subsidy, channel, sales_source, created_at, order_items(quantity, subtotal, unit_price)')
+        .select(
+          includeFullItems
+            ? 'id, outlet_id, status, total_amount, discount_amount, promo_subsidy, channel, sales_source, created_at, order_items(id, menu_item_id, menu_item_name, quantity, subtotal, unit_price)'
+            : 'id, outlet_id, status, total_amount, discount_amount, promo_subsidy, channel, sales_source, created_at, order_items(quantity)'
+        )
         .gte('created_at', `${startDate}T00:00:00+07:00`)
         .lte('created_at', `${endDate}T23:59:59.999+07:00`)
         .in('status', ['completed', 'settled'])
@@ -282,6 +289,18 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     'outlet_id'
   );
 
+  const buildSettlementsQuery = () =>
+    applyOutletFilter(
+      supabaseAdmin
+        .from('platform_settlements')
+        .select('id, outlet_id, platform, tanggal, omzet_kotor, promo_merchant, commission')
+        .gte('tanggal', mainStartDate)
+        .lte('tanggal', mainEndDate)
+        .order('tanggal', { ascending: true })
+        .order('id', { ascending: true }),
+      'outlet_id'
+    );
+
   const [
     rawPosOrdersToday,
     rawPosOrdersYesterday,
@@ -291,17 +310,21 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     { data: attendanceToday },
     { data: staffOutlets },
     wasteApprovedData,
-    { count: pendingWasteCount }
+    { count: pendingWasteCount },
+    menuItemsData,
+    settlementsToday
   ] = await Promise.all([
-    shouldFetchPosOrders ? fetchAllPages(() => buildOrdersQuery(mainStartDate, mainEndDate)) : Promise.resolve([]),
-    shouldFetchPosOrders ? fetchAllPages(() => buildOrdersQuery(prevStartDate, prevEndDate)) : Promise.resolve([]),
+    shouldFetchPosOrders ? fetchAllPages(() => buildOrdersQuery(mainStartDate, mainEndDate, true)) : Promise.resolve([]),
+    shouldFetchPosOrders ? fetchAllPages(() => buildOrdersQuery(prevStartDate, prevEndDate, false)) : Promise.resolve([]),
     includeEcommerce ? fetchAllPages(() => buildEcommerceQuery(mainStartDate, mainEndDate)) : Promise.resolve([]),
     includeEcommerce ? fetchAllPages(() => buildEcommerceQuery(prevStartDate, prevEndDate)) : Promise.resolve([]),
     qOutlets,
     qAttendance,
     qStaffOutlets,
     fetchAllPages(buildWasteApprovedQuery),
-    qWastePending
+    qWastePending,
+    getMenuItemsData(supabaseAdmin),
+    fetchAllPages(buildSettlementsQuery)
   ]);
 
   const outlets = (rawOutlets || []).filter((o: any) => !isTestOutlet(o));
@@ -541,7 +564,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   const isPositive = percentageChange >= 0;
   const absChange = Math.abs(percentageChange).toFixed(1);
 
-  const allOutlets = (outlets || []).sort((a, b) => {
+  const allOutlets = (outlets || []).filter(o => !isExcludedOutlet(o)).sort((a, b) => {
     const isAMitra = a.name.toUpperCase().startsWith('MITRA');
     const isBMitra = b.name.toUpperCase().startsWith('MITRA');
     if (isAMitra && !isBMitra) return 1;
@@ -572,10 +595,118 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     }
   });
 
+  const outletTypeMap = new Map<string, string>();
+  for (const o of rawOutlets || []) {
+    if (o?.id) outletTypeMap.set(o.id, String(o.type || 'internal').toLowerCase());
+  }
+
+  const menuById = new Map<string, any>();
+  const menuByName = new Map<string, any>();
+  for (const m of menuItemsData || []) {
+    if (m?.id) menuById.set(m.id, m);
+    if (m?.name) {
+      const lower = m.name.trim().toLowerCase();
+      menuByName.set(lower, m);
+      menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m);
+    }
+  }
+
+  const getItemHpp = (
+    item: any,
+    outletType?: string,
+    channel?: string | null
+  ): number => {
+    let itemObj = (item.menu_item_id && menuById.get(item.menu_item_id)) || null;
+    if (!itemObj && item.menu_item_name) {
+      const rawClean = cleanItemName(item.menu_item_name);
+      const rawLower = rawClean.trim().toLowerCase();
+      const candidates = [
+        rawClean,
+        rawLower,
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').trim(),
+        rawLower.replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+        rawLower.replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+        rawLower.replace(/\s+shawarma\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s+shawarma\s*$/i, '').trim(),
+      ];
+      for (const c of candidates) {
+        if (menuByName.has(c)) {
+          itemObj = menuByName.get(c);
+          break;
+        }
+      }
+    }
+    if (!itemObj) return 0;
+
+    const normCh = channel ? channel.toLowerCase() : null;
+    let baseHpp = 0;
+    let channelHppVal: number | null = null;
+    if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
+      channelHppVal = itemObj.channel_hpp[normCh] ?? null;
+    }
+    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+      baseHpp = Number(channelHppVal);
+    } else if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
+      baseHpp = Number(itemObj.hpp_override);
+    } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
+      baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
+        const compHpp = Number(pkg.component?.hpp_override) || 0;
+        const qty = Number(pkg.quantity) || 1;
+        return sum + compHpp * qty;
+      }, 0);
+    }
+
+    if (outletType === 'mitra' && baseHpp > 0) {
+      return Math.round(baseHpp * 1.1);
+    }
+    return baseHpp;
+  };
+
+  const foodAppsSettlementPromoMap = buildFoodAppsSettlementPromoMap(ordersToday, settlementsToday || []);
+  const kpiOpts = {
+    getSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    getGofoodSettlementPromo: (order: any) => foodAppsSettlementPromoMap.get(order.id ?? order),
+    gofoodSettlementMap: foodAppsSettlementPromoMap,
+  };
+
   const outletOmzetMap = new Map<string, number>();
+  const outletAdminFeeMap = new Map<string, number>();
+  const outletHppMap = new Map<string, number>();
+
   (ordersToday || []).forEach(o => {
-    const current = outletOmzetMap.get(o.outlet_id) || 0;
-    outletOmzetMap.set(o.outlet_id, current + getOrderGrossRevenue(o));
+    const gross = getOrderGrossRevenue(o);
+    const deduction = computeOrderDeduction(o, kpiOpts);
+
+    const currentOmzet = outletOmzetMap.get(o.outlet_id) || 0;
+    outletOmzetMap.set(o.outlet_id, currentOmzet + gross);
+
+    const currentFee = outletAdminFeeMap.get(o.outlet_id) || 0;
+    outletAdminFeeMap.set(o.outlet_id, currentFee + deduction);
+
+    const outType = outletTypeMap.get(o.outlet_id);
+    let orderHpp = 0;
+    if (Array.isArray(o.order_items)) {
+      o.order_items.forEach((oi: any) => {
+        const qty = Number(oi.quantity) || 1;
+        const unitHpp = getItemHpp(oi, outType, o.channel);
+        orderHpp += unitHpp * qty;
+      });
+    }
+    const currentHpp = outletHppMap.get(o.outlet_id) || 0;
+    outletHppMap.set(o.outlet_id, currentHpp + orderHpp);
+  });
+
+  // Tambahkan komisi platform dari platform_settlements agar 1:1 persis sama dengan Card Merah (Admin Fee) di Admin Dashboard
+  (settlementsToday || []).forEach((s: any) => {
+    if (s?.outlet_id && s?.commission) {
+      const comm = Number(s.commission) || 0;
+      if (comm > 0) {
+        const curFee = outletAdminFeeMap.get(s.outlet_id) || 0;
+        outletAdminFeeMap.set(s.outlet_id, curFee + comm);
+      }
+    }
   });
 
   const amMap = new Map<string, string>();
@@ -589,23 +720,39 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     });
   }
 
-  const activeOutlets = (outlets || []).filter(o => o.is_active);
+  const activeOutlets = (outlets || []).filter(o => o.is_active && !isExcludedOutlet(o));
 
-  const outletRankingBase = activeOutlets.map(outlet => ({
-    id: outlet.id,
-    name: outlet.name,
-    amName: getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name, outlet.region),
-    omzet: outletOmzetMap.get(outlet.id) || 0
-  }));
+  const userRole = (staff?.role || '').toLowerCase();
+  const canViewFinancialDetails = !staff || ['regional_manager', 'developer', 'owner', 'admin'].includes(userRole);
+
+  const outletRankingBase = activeOutlets.map(outlet => {
+    const omzet = outletOmzetMap.get(outlet.id) || 0;
+    const adminFee = Math.round(outletAdminFeeMap.get(outlet.id) || 0);
+    const hpp = Math.round(outletHppMap.get(outlet.id) || 0);
+    const net = Math.max(0, omzet - adminFee);
+
+    return {
+      id: outlet.id,
+      name: outlet.name,
+      amName: getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name, outlet.region),
+      omzet,
+      ...(canViewFinancialDetails ? { adminFee, hpp, net } : {})
+    };
+  }).filter(outlet => outlet.omzet > 0);
 
   const outletRanking = [
     ...outletRankingBase,
-    ...(includeEcommerce
+    ...(includeEcommerce && !isExcludedOutlet('ss-online') && (outletOmzetMap.get('ss-online') || 0) > 0
       ? [{
           id: 'ss-online',
           name: 'SS ONLINE',
           amName: 'Marketplace',
-          omzet: outletOmzetMap.get('ss-online') || 0
+          omzet: outletOmzetMap.get('ss-online') || 0,
+          ...(canViewFinancialDetails ? {
+            adminFee: Math.round(outletAdminFeeMap.get('ss-online') || 0),
+            hpp: Math.round(outletHppMap.get('ss-online') || 0),
+            net: Math.max(0, (outletOmzetMap.get('ss-online') || 0) - Math.round(outletAdminFeeMap.get('ss-online') || 0))
+          } : {})
         }]
       : [])
   ].sort((a, b) => b.omzet - a.omzet);
@@ -623,7 +770,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+    <div className="space-y-6 w-full pb-10">
       
       {/* 🌟 Header Section & Segmented Filter Control */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10">
@@ -641,10 +788,10 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
 
         {/* Segmented Filter Control */}
         <div className="flex items-center gap-0.5 sm:gap-1 bg-suka-brown/[0.04] rounded-2xl p-1 border border-suka-brown/10 shrink-0">
-          <Link href="?period=today" className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'today' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Hari Ini</Link>
-          <Link href="?period=yesterday" className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'yesterday' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Kemarin</Link>
-          <Link href="?period=week" className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'week' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>7 Hari</Link>
-          <Link href="?period=month" className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'month' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>30 Hari</Link>
+          <Link href="?period=today" prefetch={true} className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'today' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Hari Ini</Link>
+          <Link href="?period=yesterday" prefetch={true} className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'yesterday' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Kemarin</Link>
+          <Link href="?period=week" prefetch={true} className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'week' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>7 Hari</Link>
+          <Link href="?period=this_month" prefetch={true} className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${(period === 'this_month' || period === 'month') ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Bulan Ini</Link>
           <CustomDateFilter />
         </div>
       </div>
@@ -800,10 +947,14 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
               Ranking Outlet (Berdasarkan Gross Revenue)
             </h3>
             <span className="text-xs font-bold text-suka-gray-400">
-              {outletRanking.length} Outlet Terdaftar
+              {outletRanking.length} Outlet Beromzet
             </span>
           </div>
-          <RankingList outletRanking={outletRanking} maxOmzet={maxOmzet} />
+          <RankingList
+            outletRanking={outletRanking}
+            maxOmzet={maxOmzet}
+            showFinancialDetails={canViewFinancialDetails}
+          />
         </div>
 
         {/* Live Outlet Status Feed */}

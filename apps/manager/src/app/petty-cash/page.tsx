@@ -435,7 +435,7 @@ function PettyCashContent() {
   })
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-500 font-sans">
+    <div className="w-full space-y-6 sm:space-y-8 animate-in fade-in duration-500 font-sans">
       
       {/* Sleek Page Header (Minimalist) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -103,6 +103,8 @@ interface OpexCardDetailModalsProps {
     baselineRoutine?: number
     baselineCrewBonus?: number
     baselineManagerBonus?: number
+    startDate?: string
+    endDate?: string
   }
   lemburData?: LemburData
   operationalData: {
@@ -730,29 +732,50 @@ export function OpexCardDetailModals({
               {/* Rincian Beban Gaji Rutin: Card 1 (Fix Bulanan) & Card 2 (Prorata Periode Ini) */}
               {hasHrPayroll && hrPayroll && (() => {
                     // 1. Angka Baseline 1 Bulan Penuh (Fix)
+                    // Pada tampilan 1 outlet parsial, Card 1 menampilkan komitmen kontrak 1 bulan utuh.
+                    // Pada tampilan outlet reguler / konsolidasi multi-cabang, Card 1 menampilkan baseline rutin bulanan yang diakui
+                    // agar konsisten 100% dengan Hero Baseline 1 Bulan Penuh dan penjumlahan baris staf di dalamnya.
                     const isPartialOutlet = Boolean(hrPayroll.outletOperationalInfo?.isPartial)
-                    const crewGapok1Bln = Math.round(hrPayroll.fullCrewBasicSalary ?? hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)
-                    const crewTunj1Bln = Math.round(hrPayroll.fullCrewAllowances ?? hrPayroll.crewAllowances ?? hrPayroll.allowances)
-                    const crewPot1Bln = Math.round(hrPayroll.fullCrewDeductions ?? hrPayroll.crewDeductions ?? hrPayroll.deductions)
-                    const crewRoutine1Bln = hrPayroll.fullCrewRoutineSalary ?? Math.max(0, crewGapok1Bln + crewTunj1Bln - crewPot1Bln)
-                    const mgrAlloc1Bln = Math.round(hrPayroll.fullManagerAllocation ?? hrPayroll.managerAllocation ?? 0)
-                    const totalFix1Bln = hrPayroll.fullTotalRoutineSalary ?? (crewRoutine1Bln + mgrAlloc1Bln)
+                    const crewGapok1Bln = isPartialOutlet
+                      ? Math.round(hrPayroll.fullCrewBasicSalary ?? hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary)
+                      : Math.round(isPusat ? hrPayroll.basicSalary : (hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary))
+                    const crewTunj1Bln = isPartialOutlet
+                      ? Math.round(hrPayroll.fullCrewAllowances ?? hrPayroll.crewAllowances ?? hrPayroll.allowances)
+                      : Math.round(isPusat ? hrPayroll.allowances : (hrPayroll.crewAllowances ?? hrPayroll.allowances))
+                    const crewPot1Bln = isPartialOutlet
+                      ? Math.round(hrPayroll.fullCrewDeductions ?? hrPayroll.crewDeductions ?? hrPayroll.deductions)
+                      : Math.round(isPusat ? hrPayroll.deductions : (hrPayroll.crewDeductions ?? hrPayroll.deductions))
+                    const crewRoutine1Bln = isPartialOutlet
+                      ? (hrPayroll.fullCrewRoutineSalary ?? Math.max(0, crewGapok1Bln + crewTunj1Bln - crewPot1Bln))
+                      : Math.max(0, crewGapok1Bln + crewTunj1Bln - crewPot1Bln)
+                    const mgrAlloc1Bln = isPusat
+                      ? 0
+                      : (isPartialOutlet
+                          ? Math.round(hrPayroll.fullManagerAllocation ?? hrPayroll.managerAllocation ?? 0)
+                          : Math.round(hrPayroll.managerAllocation ?? 0))
+                    const totalFix1Bln = isPartialOutlet
+                      ? (hrPayroll.fullTotalRoutineSalary ?? (crewRoutine1Bln + mgrAlloc1Bln))
+                      : (crewRoutine1Bln + mgrAlloc1Bln)
 
-                    // 2. Angka Prorata Sesuai Filter
-                    const crewGapokProrata = isPartialOutlet
-                      ? Math.round((hrPayroll.crewBasicSalary ?? crewGapok1Bln) * ratio)
-                      : Math.round(crewGapok1Bln * ratio)
-                    const crewTunjProrata = isPartialOutlet
-                      ? Math.round((hrPayroll.crewAllowances ?? crewTunj1Bln) * ratio)
-                      : Math.round(crewTunj1Bln * ratio)
-                    const crewPotProrata = isPartialOutlet
-                      ? Math.round((hrPayroll.crewDeductions ?? crewPot1Bln) * ratio)
-                      : Math.round(crewPot1Bln * ratio)
+                    // 2. Angka Prorata Sesuai Filter (selalu dihitung dari beban bulanan yang diakui agar selisih Rp 0 dengan kartu Buku Kas & Laba Rugi)
+                    const recCrewGapok = Math.round(isPusat ? hrPayroll.basicSalary : (hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary))
+                    const recCrewTunj = Math.round(isPusat ? hrPayroll.allowances : (hrPayroll.crewAllowances ?? hrPayroll.allowances))
+                    const recCrewPot = Math.round(isPusat ? hrPayroll.deductions : (hrPayroll.crewDeductions ?? hrPayroll.deductions))
+                    const recCrewRoutine = Math.max(0, recCrewGapok + recCrewTunj - recCrewPot)
+                    const recMgrAlloc = isPusat ? 0 : Math.round(hrPayroll.managerAllocation ?? 0)
+                    const recTotal = recCrewRoutine + recMgrAlloc
+                    const effRatio = recTotal > 0 ? (routineSalary / recTotal) : ratio
+
+                    let crewGapokProrata = Math.round(recCrewGapok * effRatio)
+                    const crewTunjProrata = Math.round(recCrewTunj * effRatio)
+                    const crewPotProrata = Math.round(recCrewPot * effRatio)
+                    const mgrAllocProrata = isPusat ? 0 : Math.round(recMgrAlloc * effRatio)
+                    const rawTotalProrata = Math.max(0, crewGapokProrata + crewTunjProrata - crewPotProrata) + mgrAllocProrata
+                    if (routineSalary >= 0 && rawTotalProrata !== routineSalary && (recCrewGapok > 0 || crewGapokProrata > 0)) {
+                      crewGapokProrata = Math.max(0, crewGapokProrata + (routineSalary - rawTotalProrata))
+                    }
                     const crewRoutineProrata = Math.max(0, crewGapokProrata + crewTunjProrata - crewPotProrata)
-                    const mgrAllocProrata = isPartialOutlet
-                      ? Math.round((hrPayroll.managerAllocation ?? mgrAlloc1Bln) * ratio)
-                      : Math.round(mgrAlloc1Bln * ratio)
-                    const totalProrata = crewRoutineProrata + mgrAllocProrata
+                    const totalProrata = isPusat ? crewRoutineProrata : (crewRoutineProrata + mgrAllocProrata)
 
                     const allStaff = hrPayroll?.staffDetails || []
                     const crewList = urutkanKru(allStaff.filter(s => !s.isManagerAllocation))
@@ -776,11 +799,13 @@ export function OpexCardDetailModals({
                     })
 
                     const mgrGapok1Bln = Math.round(
-                      managerList.reduce((sum, m) => sum + (m.fullAllocatedBasicSalary ?? m.allocatedBasicSalary ?? (m.basicSalary ? Math.round(m.basicSalary / (m.coachedOutletsCount || 21)) : 0)), 0)
+                      managerList.reduce((sum, m) => sum + ((isPartialOutlet ? m.fullAllocatedBasicSalary : undefined) ?? m.allocatedBasicSalary ?? (m.basicSalary ? Math.round(m.basicSalary / (m.coachedOutletsCount || 21)) : 0)), 0)
                     )
                     const mgrTunj1Bln = Math.round(
-                      managerList.reduce((sum, m) => sum + (m.fullAllocatedAllowances ?? m.allocatedAllowances ?? Math.max(0, (m.routineAmount ?? m.allocatedAmount) - (m.allocatedBasicSalary ?? 0))), 0)
+                      managerList.reduce((sum, m) => sum + ((isPartialOutlet ? m.fullAllocatedAllowances : undefined) ?? m.allocatedAllowances ?? Math.max(0, (m.routineAmount ?? m.allocatedAmount) - (m.allocatedBasicSalary ?? 0))), 0)
                     )
+                    const recMgrGapok = Math.round(hrPayroll.managerBasicSalaryAllocation ?? mgrGapok1Bln)
+                    const recMgrTunj = Math.round(hrPayroll.managerAllowancesAllocation ?? mgrTunj1Bln)
                     const mgrFullGapokSum = Math.round(managerList.reduce((sum, m) => sum + (m.basicSalary || 0), 0))
                     const mgrFullTunjSum = Math.round(managerList.reduce((sum, m) => sum + (m.allowances || 0), 0))
                     const mgrFullPotSum = Math.round(managerList.reduce((sum, m) => sum + (m.deductions || 0), 0))
@@ -949,6 +974,10 @@ export function OpexCardDetailModals({
                                             ) : isBackupSplit && s.fullRoutineSalary ? (
                                               <span className="text-[9px] text-purple-700 block font-medium">
                                                 (dari {rupiah(s.fullRoutineSalary)})
+                                              </span>
+                                            ) : !isPartialOutlet && s.fullRoutineSalary && s.routineSalary !== s.fullRoutineSalary ? (
+                                              <span className="text-[9px] text-amber-700 block font-medium">
+                                                (dari kontrak {rupiah(s.fullRoutineSalary)})
                                               </span>
                                             ) : (s.allowances > 0 || s.deductions > 0) ? (
                                               <span className="text-[9px] text-gray-400 block font-normal">
@@ -1204,8 +1233,8 @@ export function OpexCardDetailModals({
                                   {crewList.length > 0 ? (
                                     crewList.map((s) => {
                                       const isBackupSplit = Boolean(s.isBackupAllocation && (s.backupOutletsCount ?? 1) > 1)
-                                      const sRoutineProrata = Math.round(s.routineSalary * ratio)
-                                      const sGapokProrata = Math.round(s.basicSalary * ratio)
+                                      const sRoutineProrata = Math.round(s.routineSalary * effRatio)
+                                      const sGapokProrata = Math.round(s.basicSalary * effRatio)
                                       return (
                                         <div key={s.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-2 rounded-lg border border-amber-200/80 text-xs gap-2">
                                           <div className="flex flex-col min-w-0">
@@ -1299,13 +1328,13 @@ export function OpexCardDetailModals({
                                     <div className="bg-amber-50/40 p-2 rounded-lg border border-amber-200/80 text-center">
                                       <span className="text-[9px] uppercase font-bold text-gray-600 block">1. Gapok Prorata</span>
                                       <span className="text-xs font-bold text-gray-900 mt-0.5 block font-mono">
-                                        +{rupiah(Math.round((isPartialOutlet ? (hrPayroll.managerBasicSalaryAllocation ?? mgrGapok1Bln) : mgrGapok1Bln) * ratio))}
+                                        +{rupiah(Math.round(recMgrGapok * effRatio))}
                                       </span>
                                     </div>
                                     <div className="bg-amber-50/40 p-2 rounded-lg border border-purple-200/80 text-center">
                                       <span className="text-[9px] uppercase font-bold text-purple-800 block">2. Tunjangan Prorata</span>
                                       <span className="text-xs font-bold text-purple-700 mt-0.5 block font-mono">
-                                        +{rupiah(Math.round((isPartialOutlet ? (hrPayroll.managerAllowancesAllocation ?? mgrTunj1Bln) : mgrTunj1Bln) * ratio))}
+                                        +{rupiah(Math.round(recMgrTunj * effRatio))}
                                       </span>
                                     </div>
                                   </div>
@@ -1314,7 +1343,7 @@ export function OpexCardDetailModals({
                                     {managerList.length > 0 ? (
                                       managerList.map((mgr) => {
                                         const mgrRoutine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
-                                        const mgrAlloc = Math.round(mgrRoutine * ratio)
+                                        const mgrAlloc = Math.round(mgrRoutine * effRatio)
                                         const mgrAllocGapok = mgr.allocatedBasicSalary ?? (mgr.basicSalary ? Math.round(mgr.basicSalary / (mgr.coachedOutletsCount || 21)) : 0)
                                         const mgrAllocTunj = mgr.allocatedAllowances ?? Math.max(0, mgrRoutine - mgrAllocGapok)
                                         return (
@@ -1354,7 +1383,7 @@ export function OpexCardDetailModals({
                                               <span className="text-[9px] text-gray-500 block font-normal">
                                                 {isProrated ? (
                                                   <>
-                                                    Gapok {rupiah(Math.round(mgrAllocGapok * ratio))}{mgrAllocTunj > 0 ? ` + Tunj ${rupiah(Math.round(mgrAllocTunj * ratio))}` : ''}
+                                                    Gapok {rupiah(Math.round(mgrAllocGapok * effRatio))}{mgrAllocTunj > 0 ? ` + Tunj ${rupiah(Math.round(mgrAllocTunj * effRatio))}` : ''}
                                                     <span className="text-gray-400 ml-1">(1 bln: +{rupiah(mgrRoutine)})</span>
                                                   </>
                                                 ) : (
@@ -1363,7 +1392,7 @@ export function OpexCardDetailModals({
                                               </span>
                                             </div>
                                           </div>
-                                            {renderSumbanganCabang(mgr, ratio)}
+                                            {renderSumbanganCabang(mgr, effRatio)}
                                           </div>
                                         )
                                       })
@@ -1473,57 +1502,109 @@ export function OpexCardDetailModals({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {(hrPayroll?.outlets || []).map((item) => {
-                            const outletRoutine1Bln = Math.max(0, item.totalSalary - (item.bonus || 0))
-                            const outletRoutineProrata = Math.round(outletRoutine1Bln * ratio)
-                            const pct = routineSalary > 0 ? (outletRoutineProrata / routineSalary) * 100 : 0
-                            return (
-                              <tr key={item.outletId} className="hover:bg-indigo-50/30 transition-colors">
-                                <td className="px-3.5 py-2.5 font-bold text-gray-800">
-                                  <div>{item.outletName}</div>
-                                  {(item.managerAllocation ?? 0) > 0 && (
-                                    <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
-                                      Kru: {rupiah(Math.round((outletRoutine1Bln - (item.managerRoutineAllocation ?? item.managerAllocation ?? 0)) * ratio))} · AM/RM/SC: +{rupiah(Math.round((item.managerRoutineAllocation ?? item.managerAllocation ?? 0) * ratio))}
+                          {(() => {
+                            const fStart = salaryData.startDate
+                            const fEnd = salaryData.endDate
+                            const computedRows = (hrPayroll?.outlets || []).map((item) => {
+                              const outletRoutine1Bln = Math.max(0, item.totalSalary - (item.bonus || 0))
+                              let itemRatio = ratio
+                              if (item.outletId !== 'PUSAT' && item.isPartial && fStart && fEnd) {
+                                if ((item.operationalCalendarDays ?? 1) <= 0) {
+                                  itemRatio = 0
+                                } else {
+                                  const opStart = item.operationalFirstDate || `${fStart.slice(0, 7)}-01`
+                                  const opEnd = item.operationalLastDate || fEnd
+                                  const overlapStart = fStart > opStart ? fStart : opStart
+                                  const overlapEnd = fEnd < opEnd ? fEnd : opEnd
+                                  if (overlapStart > overlapEnd) {
+                                    itemRatio = 0
+                                  } else {
+                                    const overlapDays = Math.max(0, Math.round((new Date(overlapEnd).getTime() - new Date(overlapStart).getTime()) / (1000 * 60 * 60 * 24)) + 1)
+                                    const totalOpDays = item.operationalCalendarDays || 1
+                                    itemRatio = Math.min(1, Math.max(0, overlapDays / totalOpDays))
+                                  }
+                                }
+                              }
+                              const outletRoutineProrata = Math.round(outletRoutine1Bln * itemRatio)
+                              const mgrRoutine1Bln = item.managerRoutineAllocation ?? item.managerAllocation ?? 0
+                              const mgrRoutineProrata = Math.round(mgrRoutine1Bln * itemRatio)
+                              return {
+                                item,
+                                outletRoutine1Bln,
+                                outletRoutineProrata,
+                                mgrRoutineProrata,
+                              }
+                            })
+
+                            const sumProrata = computedRows.reduce((s, r) => s + r.outletRoutineProrata, 0)
+                            if (computedRows.length > 0 && routineSalary >= 0 && sumProrata !== routineSalary) {
+                              let maxIdx = 0
+                              for (let i = 1; i < computedRows.length; i++) {
+                                if (computedRows[i].outletRoutineProrata > computedRows[maxIdx].outletRoutineProrata) maxIdx = i
+                              }
+                              if (computedRows[maxIdx].outletRoutineProrata > 0 || routineSalary > 0) {
+                                computedRows[maxIdx].outletRoutineProrata = Math.max(0, computedRows[maxIdx].outletRoutineProrata + (routineSalary - sumProrata))
+                              }
+                            }
+
+                            return computedRows.map(({ item, outletRoutine1Bln, outletRoutineProrata, mgrRoutineProrata }) => {
+                              const pct = routineSalary > 0 ? (outletRoutineProrata / routineSalary) * 100 : 0
+                              const crewRoutineProrataRow = Math.max(0, outletRoutineProrata - mgrRoutineProrata)
+                              return (
+                                <tr key={item.outletId} className="hover:bg-indigo-50/30 transition-colors">
+                                  <td className="px-3.5 py-2.5 font-bold text-gray-800">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span>{item.outletName}</span>
+                                      {item.isPartial && (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                          Parsial ({item.operationalCalendarDays ?? 0} hr)
+                                        </span>
+                                      )}
                                     </div>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
-                                  {item.staffCount}
-                                </td>
-                                <td className="px-3 py-2.5 text-center">
-                                  {item.status === 'finalized' ? (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                      Final
-                                    </span>
-                                  ) : item.status === 'draft' ? (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                      Draft
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                      {item.finalizedCount}F / {item.draftCount}D
-                                    </span>
-                                  )}
-                                </td>
-                                {isProrated && (
-                                  <td className="px-3.5 py-2.5 text-right font-black text-blue-950 bg-blue-50/40 whitespace-nowrap border-x border-blue-100">
-                                    {rupiah(outletRoutine1Bln)}
+                                    {(item.managerAllocation ?? 0) > 0 && (
+                                      <div className="text-[10px] text-indigo-600 font-medium mt-0.5">
+                                        Kru: {rupiah(crewRoutineProrataRow)} · AM/RM/SC: +{rupiah(mgrRoutineProrata)}
+                                      </div>
+                                    )}
                                   </td>
-                                )}
-                                <td className="px-3.5 py-2.5 text-right font-extrabold text-indigo-900 whitespace-nowrap">
-                                  <div>{rupiah(outletRoutineProrata)}</div>
-                                  {!isProrated && item.basicSalary && item.basicSalary !== outletRoutine1Bln && (
-                                    <div className="text-[10px] font-normal text-gray-400">
-                                      Gapok: {rupiah(item.basicSalary)}
-                                    </div>
+                                  <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
+                                    {item.staffCount}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center">
+                                    {item.status === 'finalized' ? (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        Final
+                                      </span>
+                                    ) : item.status === 'draft' ? (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                        Draft
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        {item.finalizedCount}F / {item.draftCount}D
+                                      </span>
+                                    )}
+                                  </td>
+                                  {isProrated && (
+                                    <td className="px-3.5 py-2.5 text-right font-black text-blue-950 bg-blue-50/40 whitespace-nowrap border-x border-blue-100">
+                                      {rupiah(outletRoutine1Bln)}
+                                    </td>
                                   )}
-                                </td>
-                                <td className="px-3 py-2.5 text-right text-[11px] font-semibold text-gray-500 whitespace-nowrap">
-                                  {pct.toFixed(1)}%
-                                </td>
-                              </tr>
-                            )
-                          })}
+                                  <td className="px-3.5 py-2.5 text-right font-extrabold text-indigo-900 whitespace-nowrap">
+                                    <div>{rupiah(outletRoutineProrata)}</div>
+                                    {!isProrated && item.basicSalary && item.basicSalary !== outletRoutine1Bln && (
+                                      <div className="text-[10px] font-normal text-gray-400">
+                                        Gapok: {rupiah(item.basicSalary)}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right text-[11px] font-semibold text-gray-500 whitespace-nowrap">
+                                    {pct.toFixed(1)}%
+                                  </td>
+                                </tr>
+                              )
+                            })
+                          })()}
                         </tbody>
                         <tfoot className="bg-gray-50 border-t-2 border-gray-200 text-xs font-bold">
                           <tr>

@@ -86,17 +86,27 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
     if (!idDariNama.has(n.trim().toLowerCase())) idDariNama.set(n.trim().toLowerCase(), id)
   }
   ringkasanOutlet.forEach(o => catat(o.outletId, o.outletName))
-  ;(hr.staffDetails ?? []).forEach(s => catat(s.outletId, s.outletName))
+  ;(hr.staffDetails ?? []).forEach(s => {
+    catat(s.outletId, s.outletName)
+    ;(s.outletBreakdowns ?? []).forEach(b => catat(b.outletId, b.outletName))
+  })
 
   // 1. Gaji rutin bulanan per outlet = rutin kru + alokasi rutin manajer.
   const rutinBulanan = new Map<string, number>()
   const tambah = (m: Map<string, number>, id: string, v: number) => m.set(id, (m.get(id) ?? 0) + v)
   ;(hr.staffDetails ?? []).forEach(s => {
-    if (s.isManagerAllocation || !s.outletId || s.outletId === 'PUSAT') return
-    // Kru backup yang bertugas di beberapa outlet: gajinya dibagi rata per
-    // komponen, dengan fungsi yang SAMA dengan tampilan satu outlet di Buku Kas
-    // (hrPayroll.ts). Tanpa ini seluruh gajinya menumpuk di outlet asal, sehingga
-    // angka per outlet — dan pembagian Internal/Mitra — tidak cocok dengan Buku Kas.
+    if (s.isManagerAllocation) return
+    // Rincian kanonis per cabang (mencakup kru mutasi lintas cabang, kru outlet parsial, & backup 1/N).
+    if (s.outletBreakdowns && s.outletBreakdowns.length > 0) {
+      for (const b of s.outletBreakdowns) {
+        if (b.outletId && b.outletId !== 'PUSAT') {
+          tambah(rutinBulanan, b.outletId, Number(b.routineSalary) || 0)
+        }
+      }
+      return
+    }
+    if (!s.outletId || s.outletId === 'PUSAT') return
+    // Cadangan untuk data tanpa outletBreakdowns: kru backup lintas outlet dibagi rata per komponen.
     const tujuan = (s.allocatedOutletIds ?? []).filter(id => id && id !== 'PUSAT')
     if (s.isBackupAllocation && tujuan.length > 1) {
       const pokok = distributeEqualSplit(Number(s.fullBasicSalary ?? s.basicSalary) || 0, tujuan)
@@ -114,12 +124,16 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
     tambah(rutinBulanan, o.outletId, Number(o.managerRoutineAllocation ?? o.managerAllocation) || 0)
   })
   // Penyesuaian pintar untuk outlet parsial (buka/tutup di tengah bulan):
-  // Jika rentang filter tidak overlap dengan masa operasional toko, beban = Rp 0.
+  // Jika rentang filter tidak overlap dengan masa operasional toko (atau toko 0 hari aktif), beban = Rp 0.
   // Jika overlap parsial, gunakan rasio hari overlap terhadap total hari operasional toko.
   const partialRatios = new Map<string, number>()
   ringkasanOutlet.forEach(o => {
     if (!o.outletId || o.outletId === 'PUSAT') return
     if (o.isPartial) {
+      if ((o.operationalCalendarDays ?? 1) <= 0) {
+        partialRatios.set(o.outletId, 0)
+        return
+      }
       const opStart = o.operationalFirstDate || `${from.slice(0, 7)}-01`
       const opEnd = o.operationalLastDate || to
       const overlapStart = from > opStart ? from : opStart
@@ -134,24 +148,30 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
     }
   })
 
-  // Hitung bobot rutin efektif per outlet sesuai rentang filter
-  const bobotRutinEfektif = new Map<string, number>()
+  // Jika `hr` memuat staf Kantor Pusat (target 'all'), keluarkan rutin staf pusat agar baris murni cabang.
+  const pusatRutinDalamHr = (hr.staffDetails ?? [])
+    .filter(s => !s.isManagerAllocation && s.outletId === 'PUSAT')
+    .reduce((sum, s) => sum + (Number(s.routineSalary) || 0), 0)
+  const bulananKartuCabang = Math.max(0, gajiRutinBulananKartu(hr, false) - pusatRutinDalamHr)
 
-  for (const [id, baseAmt] of rutinBulanan) {
-    if (baseAmt <= 0) continue
-    if (partialRatios.has(id)) {
-      const pRatio = partialRatios.get(id)!
-      if (pRatio > 0) {
-        bobotRutinEfektif.set(id, Math.round(baseAmt * pRatio))
-      }
-    } else {
-      bobotRutinEfektif.set(id, baseAmt)
+  let rutin: Map<string, number>
+  if (partialRatios.size > 0) {
+    // Tetapkan baseline bulanan tiap outlet lebih dulu agar saat outlet parsial bernilai Rp 0
+    // pada sub-rentang tanggal, gajinya TIDAK melimpah ke outlet reguler lain, dan angka per outlet
+    // sama persis dengan kartu Buku Kas tampilan 1 outlet (selisih Rp 0).
+    const bulananPerOutlet = bagiPersis(bulananKartuCabang, rutinBulanan)
+    rutin = new Map<string, number>()
+    for (const [id, monthlyAmt] of bulananPerOutlet) {
+      if (monthlyAmt <= 0) continue
+      const amt = partialRatios.has(id)
+        ? Math.round(monthlyAmt * partialRatios.get(id)!)
+        : (info.isProrated ? Math.round(monthlyAmt * info.ratio) : monthlyAmt)
+      if (amt > 0) rutin.set(id, amt)
     }
+  } else {
+    const totalRutin = info.isProrated ? Math.round(bulananKartuCabang * info.ratio) : bulananKartuCabang
+    rutin = bagiPersis(totalRutin, rutinBulanan)
   }
-
-  const bulananKartu = gajiRutinBulananKartu(hr, false)
-  const totalRutin = info.isProrated ? Math.round(bulananKartu * info.ratio) : bulananKartu
-  const rutin = bagiPersis(totalRutin, bobotRutinEfektif)
 
   // 2. Bonus kru per outlet (rincian HR hanya membawa nama outlet).
   const bonusKruMentah = new Map<string, number>()
@@ -228,16 +248,46 @@ export function ringkasanHrKelompok(
   if (!adaDataHr(hr)) return null
   const bukanPusat = (id?: string | null): id is string => Boolean(id) && id !== 'PUSAT'
 
-  // 1. Kru: gaji rutin per outlet (kru backup lintas outlet dibagi rata, sama seperti barisPayrollDariHr).
+  // 1. Kru: gaji rutin per outlet (mendukung kru mutasi lintas cabang via outletBreakdowns,
+  //    kru outlet parsial, serta kru backup 1/N, persis sama dengan barisPayrollDariHr).
   const kru: StaffPayrollDetail[] = []
   let gapok = 0
   let tunjangan = 0
   let potongan = 0
+  let fullGapok = 0
+  let fullTunj = 0
+  let fullPot = 0
   for (const s of hr.staffDetails ?? []) {
-    if (s.isManagerAllocation || !bukanPusat(s.outletId)) continue
+    if (s.isManagerAllocation) continue
     const penuhPokok = Number(s.fullBasicSalary ?? s.basicSalary) || 0
     const penuhTunj = Number(s.fullAllowances ?? s.allowances) || 0
     const penuhPot = Number(s.fullDeductions ?? s.deductions) || 0
+
+    if (s.outletBreakdowns && s.outletBreakdowns.length > 0) {
+      const matching = s.outletBreakdowns.filter(b => bukanPusat(b.outletId) && dalamKelompok(b.outletId))
+      if (matching.length === 0) continue
+      const sp = matching.reduce((t, b) => t + (Number(b.basicSalary) || 0), 0)
+      const st = matching.reduce((t, b) => t + (Number(b.allowances) || 0), 0)
+      const sd = matching.reduce((t, b) => t + (Number(b.deductions) || 0), 0)
+      const sr = matching.reduce((t, b) => t + (Number(b.routineSalary) || 0), 0)
+      const attDays = matching.reduce((t, b) => t + (Number(b.attendanceDays) || 0), 0)
+      gapok += sp; tunjangan += st; potongan += sd
+      fullGapok += penuhPokok; fullTunj += penuhTunj; fullPot += penuhPot
+      kru.push({
+        ...s,
+        outletId: matching.length === 1 ? matching[0].outletId : s.outletId,
+        outletName: matching.map(m => m.outletName).join(' + '),
+        basicSalary: sp,
+        allowances: st,
+        deductions: sd,
+        routineSalary: sr,
+        attendanceDays: attDays,
+        outletBreakdowns: matching,
+      })
+      continue
+    }
+
+    if (!bukanPusat(s.outletId)) continue
     const tujuan = (s.allocatedOutletIds ?? []).filter(bukanPusat)
     if (s.isBackupAllocation && tujuan.length > 1) {
       const dalam = tujuan.filter(dalamKelompok)
@@ -249,19 +299,31 @@ export function ringkasanHrKelompok(
       const st = dalam.reduce((t, id) => t + (tunj.get(id) || 0), 0)
       const sd = dalam.reduce((t, id) => t + (pot.get(id) || 0), 0)
       gapok += sp; tunjangan += st; potongan += sd
+      fullGapok += sp; fullTunj += st; fullPot += sd
       kru.push({ ...s, basicSalary: sp, allowances: st, deductions: sd, routineSalary: sp + st - sd })
       continue
     }
     if (!dalamKelompok(s.outletId)) continue
-    gapok += penuhPokok; tunjangan += penuhTunj; potongan += penuhPot
-    kru.push({ ...s, routineSalary: penuhPokok + penuhTunj - penuhPot })
+    const akuiPokok = Number(s.basicSalary) || 0
+    const akuiTunj = Number(s.allowances) || 0
+    const akuiPot = Number(s.deductions) || 0
+    const akuiRutin = s.routineSalary !== undefined ? (Number(s.routineSalary) || 0) : (akuiPokok + akuiTunj - akuiPot)
+    gapok += akuiPokok; tunjangan += akuiTunj; potongan += akuiPot
+    fullGapok += penuhPokok; fullTunj += penuhTunj; fullPot += penuhPot
+    kru.push({ ...s, basicSalary: akuiPokok, allowances: akuiTunj, deductions: akuiPot, routineSalary: akuiRutin })
   }
 
   // Staf kantor pusat (hanya untuk "Internal + Kantor Pusat").
   if (adaDataHr(pusat)) {
-    gapok += Number(pusat.basicSalary) || 0
-    tunjangan += Number(pusat.allowances) || 0
-    potongan += Number(pusat.deductions) || 0
+    const pGapok = Number(pusat.basicSalary) || 0
+    const pTunj = Number(pusat.allowances) || 0
+    const pPot = Number(pusat.deductions) || 0
+    gapok += pGapok
+    tunjangan += pTunj
+    potongan += pPot
+    fullGapok += pGapok
+    fullTunj += pTunj
+    fullPot += pPot
     kru.push(...(pusat.staffDetails ?? []).filter(s => !s.isManagerAllocation))
   }
 
@@ -298,23 +360,46 @@ export function ringkasanHrKelompok(
   let mgrPokok = 0
   let mgrTunj = 0
   let mgrPot = 0
+  let fullMgrRutin = 0
   for (const [id, daftar] of Object.entries(hr.managerDetailsByOutlet ?? {})) {
     if (!dalamKelompok(id)) continue
     for (const d of daftar) {
       const set = outletManajer.get(d.staffId) ?? new Set<string>()
       set.add(id)
       outletManajer.set(d.staffId, set)
-      mgrPokok += d.allocatedBasicSalary ?? 0
-      mgrTunj += d.allocatedAllowances ?? 0
-      mgrPot += d.allocatedDeductions ?? 0
+      const dPokok = d.allocatedBasicSalary ?? 0
+      const dTunj = d.allocatedAllowances ?? 0
+      const dPot = d.allocatedDeductions ?? 0
+      const dFullBasic = d.fullAllocatedBasicSalary ?? dPokok
+      const dFullAllow = d.fullAllocatedAllowances ?? dTunj
+      const dFullDed = d.fullAllocatedDeductions ?? dPot
+      const dFullRoutine = d.fullAllocatedRoutine ?? (dFullBasic + dFullAllow - dFullDed)
+      mgrPokok += dPokok
+      mgrTunj += dTunj
+      mgrPot += dPot
+      fullMgrRutin += dFullRoutine
       const ada = manajer.get(d.staffId)
-      if (!ada) { manajer.set(d.staffId, { ...d, coachedOutletsCount: set.size }); continue }
+      if (!ada) {
+        manajer.set(d.staffId, {
+          ...d,
+          fullAllocatedBasicSalary: dFullBasic,
+          fullAllocatedAllowances: dFullAllow,
+          fullAllocatedDeductions: dFullDed,
+          fullAllocatedRoutine: dFullRoutine,
+          coachedOutletsCount: set.size,
+        })
+        continue
+      }
       ada.allocatedAmount += d.allocatedAmount
       ada.routineAmount = (ada.routineAmount ?? 0) + (d.routineAmount ?? 0)
       ada.bonusAmount = (ada.bonusAmount ?? 0) + (d.bonusAmount ?? 0)
-      ada.allocatedBasicSalary = (ada.allocatedBasicSalary ?? 0) + (d.allocatedBasicSalary ?? 0)
-      ada.allocatedAllowances = (ada.allocatedAllowances ?? 0) + (d.allocatedAllowances ?? 0)
-      ada.allocatedDeductions = (ada.allocatedDeductions ?? 0) + (d.allocatedDeductions ?? 0)
+      ada.allocatedBasicSalary = (ada.allocatedBasicSalary ?? 0) + dPokok
+      ada.allocatedAllowances = (ada.allocatedAllowances ?? 0) + dTunj
+      ada.allocatedDeductions = (ada.allocatedDeductions ?? 0) + dPot
+      ada.fullAllocatedBasicSalary = (ada.fullAllocatedBasicSalary ?? 0) + dFullBasic
+      ada.fullAllocatedAllowances = (ada.fullAllocatedAllowances ?? 0) + dFullAllow
+      ada.fullAllocatedDeductions = (ada.fullAllocatedDeductions ?? 0) + dFullDed
+      ada.fullAllocatedRoutine = (ada.fullAllocatedRoutine ?? 0) + dFullRoutine
       ada.totalPcs = (ada.totalPcs ?? 0) + (d.totalPcs ?? 0)
       ada.coachedOutletsCount = set.size
     }
@@ -378,6 +463,12 @@ export function ringkasanHrKelompok(
     crewBasicSalary: gapok,
     crewAllowances: tunjangan,
     crewDeductions: potongan,
+    fullCrewBasicSalary: fullGapok,
+    fullCrewAllowances: fullTunj,
+    fullCrewDeductions: fullPot,
+    fullCrewRoutineSalary: Math.max(0, fullGapok + fullTunj - fullPot),
+    fullManagerAllocation: fullMgrRutin > 0 ? fullMgrRutin : mgrRutin,
+    fullTotalRoutineSalary: Math.max(0, fullGapok + fullTunj - fullPot) + (fullMgrRutin > 0 ? fullMgrRutin : mgrRutin),
     crewBonus,
     managerAllocation: mgrRutin,
     managerRoutineAllocation: mgrRutin,

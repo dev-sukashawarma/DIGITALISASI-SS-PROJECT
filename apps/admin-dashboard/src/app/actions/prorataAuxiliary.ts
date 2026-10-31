@@ -90,6 +90,7 @@ export async function getProrataAuxiliaryDataAction({
         id,
         name,
         username,
+        email,
         outlet_id,
         role,
         sub_role,
@@ -220,6 +221,8 @@ export async function getProrataAuxiliaryDataAction({
   // di bawah (role kantor, atau kru non-manajer yang berpangkalan di Kantor Pusat).
   const isStafKantor = (s: any, effectiveOutletId: string | null | undefined): boolean => {
     if (!s || isTestOrDevStaff(s)) return false
+    const isStockController = (s.name || '').toLowerCase().includes('abyansah') || s.role === 'stock_controller'
+    if (isStockController) return false
     if (!ALLOWED_ROLES.includes(s.role)) return true
     const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
     return !isManager && (!effectiveOutletId || effectiveOutletId === KANTOR_PUSAT_ID)

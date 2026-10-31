@@ -103,7 +103,7 @@ Seluruh pemicu otomatis Bot CEO terdaftar di database `public.bot_trigger_catalo
 | 16 | `tg_ceo_review_kritis` | Eskalasi Ulasan Negatif Google Maps | App SukaReview | Trigger Real-Time `rating <= 2 / spike` | `owner`, `admin` |
 | 17 | `tg_ceo_pos_unclosed_shift` | Shift Kasir Belum Ditutup Lewat Jam Buka | App POS Kasir | Cron Malam 23:45 WIB | `owner`, `admin` |
 | 18 | `tg_ceo_pos_cash_ratio_anomaly` | Anomali Rasio Uang Tunai Closing (≥ 85% Cash) | App POS Kasir | Trigger Real-Time `shifts -> closed` | `owner`, `admin` |
-| 19 | `tg_ceo_marcom_voucher_abuse` | Lonjakan Pemotongan Diskon / Potensi Voucher Abuse | App POS & Marcom | Trigger Real-Time `orders -> discount_amount` | `owner`, `admin` |
+| 19 | `tg_ceo_marcom_voucher_abuse` | Anomali Diskon Manual / Monitoring Volume Promo (Promo-Aware) | App POS & Marcom | Trigger Real-Time `orders -> discount_amount` (Mengecek `outlet_promos`) | `owner`, `admin` |
 | 20 | `tg_ceo_retail_store_rejection_surge` | Lonjakan Penolakan Pesanan Retail Online oleh Kru | App Retail Gateway | Trigger Real-Time `orders -> cancelled (app)` | `owner`, `admin` |
 | 21 | `tg_ceo_distribusi_inbound_rejected` | Penolakan Kiriman Central Kitchen di Cabang | App Distribusi / Retur | Trigger Real-Time `retur_stok -> inbound_sj` | `owner`, `admin` |
 | 22 | `tg_ceo_distribusi_sj_unconfirmed_night` | Surat Jalan CK Menggantung (> 3.5 Jam / Closing) | App Distribusi | Cron Cek Berkala 17:00 - 23:00 WIB | `owner`, `admin` |

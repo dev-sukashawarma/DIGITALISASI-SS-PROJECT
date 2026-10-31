@@ -45,7 +45,14 @@ import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { mitraOutletIds } from '@/lib/outletOwnership'
-import { barisPayrollDariHr, gantiPayrollDenganHr, gajiRutinBulananKartu, adaDataHr, ringkasanHrKelompok } from '@/lib/opexDariHr'
+import {
+  barisPayrollDariHr,
+  gantiPayrollDenganHr,
+  gajiRutinBulananKartu,
+  adaDataHr,
+  ringkasanHrKelompok,
+  hitungGajiRutinPeriodeDariHr,
+} from '@/lib/opexDariHr'
 import { kartuClosingUntuk } from '@/lib/closing/targetKartuClosing'
 import { useRole } from '@/components/layout/RoleContext'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
@@ -277,12 +284,10 @@ export default function InputPengeluaranPage() {
       nominalBulanan: info.isProrated && info.ratio > 0 ? Math.round(nominalProrata / info.ratio) : nominalProrata,
       source: 'laba_rugi',
     })
-    // Internal + Kantor Pusat: gaji rutin staf kantor ikut, dengan rumus kartu
-    // "Kantor Pusat (OPEX Pusat)" yang sama.
+    // Internal + Kantor Pusat: gaji rutin staf kantor ikut, dengan rumus per-periode yang sama dengan Laba Rugi.
     let gajiPusat = 0
     if (sertakanPusat && adaDataHr(hrPusatData)) {
-      const bulanan = gajiRutinBulananKartu(hrPusatData, true)
-      gajiPusat = info.isProrated ? Math.round(bulanan * info.ratio) : bulanan
+      gajiPusat = hitungGajiRutinPeriodeDariHr({ hr: hrPusatData, from: startDate, to: endDate, target: 'PUSAT' })
     }
     return {
       ...prorataBreakdownSemua,
@@ -479,9 +484,10 @@ export default function InputPengeluaranPage() {
 
   const hasHrPayroll = Boolean(hrPayroll && hrPayroll.totalStaff > 0 && hrPayroll.totalSalary > 0)
 
-  // Smart Prorata untuk outlet yang buka atau tutup di pertengahan bulan
+  // Smart Prorata untuk outlet yang buka atau tutup di pertengahan bulan (rentang satu bulan)
   const effectiveProrataInfo = useMemo(() => {
-    if (hasHrPayroll && hrPayroll?.outletOperationalInfo?.isPartial) {
+    const isMultiPeriodHr = Boolean(hrPayroll?.periodBreakdown && hrPayroll.periodBreakdown.length > 1)
+    if (!isMultiPeriodHr && hasHrPayroll && hrPayroll?.outletOperationalInfo?.isPartial) {
       const op = hrPayroll.outletOperationalInfo
       if ((op.operationalCalendarDays ?? 1) <= 0) {
         return {
@@ -559,46 +565,11 @@ export default function InputPengeluaranPage() {
     return displayCrewBonus + displayManagerBonus
   }, [isPusat, displayCrewBonus, displayManagerBonus])
 
-  const barisHrCabang = useMemo(() => {
-    if (!hasHrPayroll || !hrPayroll || isPusat) return null
-    if (target !== 'ALL_OUTLETS' && target !== 'all') return null
-    return barisPayrollDariHr({ hr: hrPayroll, from: startDate, to: endDate })
-  }, [hasHrPayroll, hrPayroll, isPusat, target, startDate, endDate])
-
   // Realtime & Prorata Routine Salary (Gaji Pokok + Tunjangan Aktif + Alokasi Rutin Manajer)
   const displayRoutineSalary = useMemo(() => {
     if (kartuClosing) return kartuClosing.gajiRutin
     if (hasHrPayroll && hrPayroll) {
-      if (target === 'ALL_OUTLETS' && barisHrCabang) {
-        return barisHrCabang
-          .filter(r => r.category === 'gaji_crew_outlet')
-          .reduce((s, r) => s + r.amount, 0)
-      }
-      if (target === 'all' && barisHrCabang) {
-        const pusatBulanan = (hrPayroll.staffDetails ?? [])
-          .filter(s => !s.isManagerAllocation && s.outletId === 'PUSAT')
-          .reduce((s, r) => s + (Number(r.routineSalary) || 0), 0)
-        const pusatProrata = prorataInfo.isProrated ? Math.round(pusatBulanan * prorataInfo.ratio) : pusatBulanan
-        const cabangProrata = barisHrCabang
-          .filter(r => r.category === 'gaji_crew_outlet')
-          .reduce((s, r) => s + r.amount, 0)
-        return pusatProrata + cabangProrata
-      }
-
-      const staffGapok = Math.round(isPusat ? hrPayroll.basicSalary : (hrPayroll.crewBasicSalary ?? hrPayroll.basicSalary))
-      const staffTunj = Math.round(isPusat ? hrPayroll.allowances : (hrPayroll.crewAllowances ?? hrPayroll.allowances))
-      const staffPot = Math.round(isPusat ? hrPayroll.deductions : (hrPayroll.crewDeductions ?? hrPayroll.deductions))
-      const staffRoutine = Math.max(0, staffGapok + staffTunj - staffPot)
-      const mgrAlloc = isPusat ? 0 : Math.round(hrPayroll.managerAllocation || 0)
-      const monthlyRoutine = staffRoutine + mgrAlloc
-
-      if (hrPayroll.outletOperationalInfo?.isPartial) {
-        return effectiveProrataInfo.isProrated
-          ? Math.round(monthlyRoutine * effectiveProrataInfo.ratio)
-          : monthlyRoutine
-      }
-
-      return prorataInfo.isProrated ? Math.round(monthlyRoutine * prorataInfo.ratio) : monthlyRoutine
+      return hitungGajiRutinPeriodeDariHr({ hr: hrPayroll, from: startDate, to: endDate, target })
     }
     if (isPusat) return summary.salary
     if (prorataBreakdown?.gaji_crew_outlet?.source === 'laba_rugi') {
@@ -608,18 +579,12 @@ export default function InputPengeluaranPage() {
       return prorataBreakdown.gaji_crew_outlet.nominalProrata
     }
     return summary.salary
-  }, [kartuClosing, isPusat, target, barisHrCabang, prorataBreakdown, hasHrPayroll, hrPayroll, prorataInfo, effectiveProrataInfo, summary.salary])
+  }, [kartuClosing, isPusat, target, startDate, endDate, prorataBreakdown, hasHrPayroll, hrPayroll, summary.salary])
 
   // Total Beban Gaji (Rutin + Bonus)
   const displaySalary = useMemo(() => {
     return displayRoutineSalary + displayBonus
   }, [displayRoutineSalary, displayBonus])
-
-  const displayBasicSalary = useMemo(() => {
-    if (!hasHrPayroll || !hrPayroll?.basicSalary) return 0
-    if (!prorataInfo.isProrated) return hrPayroll.basicSalary
-    return Math.round(hrPayroll.basicSalary * prorataInfo.ratio)
-  }, [hasHrPayroll, hrPayroll, prorataInfo])
 
   // Baselines sebulan penuh (1 bln) untuk pembanding kartu dan modal rincian
   const baselineRoutineSalary = useMemo(() => {
@@ -629,6 +594,17 @@ export default function InputPengeluaranPage() {
     if (isPusat) return summary.salary
     return prorataBreakdown?.gaji_crew_outlet?.nominalBulanan || summary.salary
   }, [isPusat, prorataBreakdown, hasHrPayrollModal, hrPayrollModal, summary.salary])
+
+  const displayBasicSalary = useMemo(() => {
+    if (!hasHrPayroll || !hrPayroll?.basicSalary) return 0
+    if (hrPayroll.periodBreakdown && hrPayroll.periodBreakdown.length > 1) {
+      return baselineRoutineSalary > 0
+        ? Math.round(hrPayroll.basicSalary * (displayRoutineSalary / baselineRoutineSalary))
+        : hrPayroll.basicSalary
+    }
+    if (!effectiveProrataInfo.isProrated) return hrPayroll.basicSalary
+    return Math.round(hrPayroll.basicSalary * effectiveProrataInfo.ratio)
+  }, [hasHrPayroll, hrPayroll, effectiveProrataInfo, baselineRoutineSalary, displayRoutineSalary])
 
   const baselineCrewBonus = useMemo(() => {
     if (isPusat) return hrPayroll?.crewBonus || 0
@@ -1427,13 +1403,13 @@ export default function InputPengeluaranPage() {
                       )}
                     </>
                   )}
-                  {prorataInfo.isProrated && (
+                  {effectiveProrataInfo.isProrated && (
                     <span className="text-[10px] text-amber-700 font-bold ml-1.5" title="Nilai acuan gaji rutin sebulan penuh sebelum prorata">
                       • Baseline 1 bln: {rupiah(baselineRoutineSalary)}
                     </span>
                   )}
                   {Boolean(displayBasicSalary > 0) && (
-                    <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={prorataInfo.isProrated ? "Gaji Pokok Prorata" : "Total Gaji Pokok Murni"}>
+                    <span className="text-[10px] text-indigo-600 font-bold ml-1.5" title={effectiveProrataInfo.isProrated ? "Gaji Pokok Prorata" : "Total Gaji Pokok Murni"}>
                       • Gapok: {rupiah(displayBasicSalary)}
                     </span>
                   )}
@@ -1441,7 +1417,7 @@ export default function InputPengeluaranPage() {
               ) : (
                 <span>
                   Beban gaji rutin crew & kantor
-                  {baselineRoutineSalary > 0 && prorataInfo.isProrated && (
+                  {baselineRoutineSalary > 0 && effectiveProrataInfo.isProrated && (
                     <span className="text-[10px] text-amber-700 font-bold ml-1.5">
                       • Baseline 1 bln: {rupiah(baselineRoutineSalary)}
                     </span>
@@ -1461,8 +1437,8 @@ export default function InputPengeluaranPage() {
               <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
             </button>
             <span className="text-[10px] text-gray-400 font-medium">
-              {hasHrPayroll && prorataInfo.isProrated
-                ? `Prorata ${prorataInfo.overlapDays} Hari`
+              {hasHrPayroll && effectiveProrataInfo.isProrated
+                ? `Prorata ${effectiveProrataInfo.overlapDays} Hari`
                 : (isPusat ? `${hrPayroll?.totalStaff || 23} Staf Kantor` : 'Breakdown Staf')}
             </span>
           </div>

@@ -12,7 +12,14 @@
  */
 
 import type { ExpenseRow } from '@/lib/expenseRow'
-import type { HRPayrollSummary, ManagerAllocationDetail, StaffBonusDetail, StaffPayrollDetail } from '@/lib/server/ringkasanPayrollHr'
+import type {
+  HRPayrollOutletSummary,
+  HRPayrollPeriodEntry,
+  HRPayrollSummary,
+  ManagerAllocationDetail,
+  StaffBonusDetail,
+  StaffPayrollDetail,
+} from '@/lib/server/ringkasanPayrollHr'
 import { calculateDateRangeProrata } from '@/lib/opexDateRangeProrata'
 import { distributeEqualSplit } from '@/lib/opexProrata'
 
@@ -33,12 +40,16 @@ export function adaDataHr(hr: HRPayrollSummary | null | undefined): hr is HRPayr
 /**
  * Gaji rutin sebulan seperti di kartu "Gaji (Rutin)" Buku Kas:
  * gaji pokok + tunjangan − potongan (+ alokasi rutin manajer untuk outlet).
+ * Untuk Kantor Pusat (`isPusat`), insentif/bonus slip bulanan staf kantor ikut di sini
+ * karena kartu "Bonus Kru" khusus penjualan POS ritel (sama dengan `susunBarisGajiKantor`
+ * di Laba Rugi dan `targetKartuClosing`).
  */
 export function gajiRutinBulananKartu(hr: HRPayrollSummary, isPusat: boolean): number {
   const gapok = Math.round(isPusat ? hr.basicSalary : (hr.crewBasicSalary ?? hr.basicSalary))
   const tunjangan = Math.round(isPusat ? hr.allowances : (hr.crewAllowances ?? hr.allowances))
+  const bonusPusat = isPusat ? Math.round(hr.bonus || 0) : 0
   const potongan = Math.round(isPusat ? hr.deductions : (hr.crewDeductions ?? hr.deductions))
-  const rutinStaf = Math.max(0, gapok + tunjangan - potongan)
+  const rutinStaf = Math.max(0, gapok + tunjangan + bonusPusat - potongan)
   const alokasiManajer = isPusat ? 0 : Math.round(hr.managerAllocation || 0)
   return Math.max(0, rutinStaf + alokasiManajer)
 }
@@ -60,22 +71,49 @@ export function bagiPersis(total: number, bobot: Map<string, number>): Map<strin
   return hasil
 }
 
-export interface BarisPayrollHrInput {
-  /** Ringkasan HR untuk target 'ALL_OUTLETS' pada rentang yang sama. */
-  hr: HRPayrollSummary | null | undefined
-  from: string
-  to: string
+export interface InfoOperasionalParsial {
+  isPartial?: boolean
+  operationalFirstDate?: string
+  operationalLastDate?: string
+  operationalCalendarDays?: number
 }
 
 /**
- * Baris gaji rutin, bonus kru, dan bonus AM/RM per outlet. `null` bila HR
- * belum punya slip untuk rentang ini — pemanggil lalu memakai angka mesin
- * prorata, sama seperti kartu Buku Kas.
+ * Rasio overlap rentang `[from, to]` terhadap hari operasional outlet dalam satu bulan kalender.
+ * Outlet normal (`!isPartial`) memakai `defaultRatio`; outlet parsial memakai `overlapDays / operationalCalendarDays`.
  */
-export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): ExpenseRow[] | null {
-  if (!adaDataHr(hr)) return null
+export function hitungRasioOverlapOutlet(
+  op: InfoOperasionalParsial | null | undefined,
+  from: string,
+  to: string,
+  defaultRatio: number,
+): number {
+  if (!op?.isPartial) return defaultRatio
+  if ((op.operationalCalendarDays ?? 1) <= 0) return 0
+  const opStart = op.operationalFirstDate || `${from.slice(0, 7)}-01`
+  const opEnd = op.operationalLastDate || to
+  const overlapStart = from > opStart ? from : opStart
+  const overlapEnd = to < opEnd ? to : opEnd
+  if (overlapStart > overlapEnd) return 0
+  const overlapDays = Math.max(
+    0,
+    Math.round((new Date(overlapEnd).getTime() - new Date(overlapStart).getTime()) / (1000 * 60 * 60 * 24)) + 1,
+  )
+  const totalOpDays = op.operationalCalendarDays || 1
+  return Math.min(1, Math.max(0, overlapDays / totalOpDays))
+}
+
+export interface RincianRutinOutletPeriode {
+  rutin1Bln: number
+  rutinPeriode: number
+  mgr1Bln: number
+  mgrPeriode: number
+  itemRatio: number
+}
+
+function hitungPetaRutinCabangSatuPeriode(hr: HRPayrollSummary, from: string, to: string) {
   const info = calculateDateRangeProrata(from, to)
-  const periodMonth = from.slice(0, 7) + '-01'
+  const defaultRatio = info.isProrated ? info.ratio : 1
   const ringkasanOutlet = hr.outlets ?? []
 
   const nama = new Map<string, string>()
@@ -123,43 +161,27 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
     if (!o.outletId || o.outletId === 'PUSAT') return
     tambah(rutinBulanan, o.outletId, Number(o.managerRoutineAllocation ?? o.managerAllocation) || 0)
   })
-  // Penyesuaian pintar untuk outlet parsial (buka/tutup di tengah bulan):
-  // Jika rentang filter tidak overlap dengan masa operasional toko (atau toko 0 hari aktif), beban = Rp 0.
-  // Jika overlap parsial, gunakan rasio hari overlap terhadap total hari operasional toko.
+
   const partialRatios = new Map<string, number>()
   ringkasanOutlet.forEach(o => {
     if (!o.outletId || o.outletId === 'PUSAT') return
     if (o.isPartial) {
-      if ((o.operationalCalendarDays ?? 1) <= 0) {
-        partialRatios.set(o.outletId, 0)
-        return
-      }
-      const opStart = o.operationalFirstDate || `${from.slice(0, 7)}-01`
-      const opEnd = o.operationalLastDate || to
-      const overlapStart = from > opStart ? from : opStart
-      const overlapEnd = to < opEnd ? to : opEnd
-      if (overlapStart > overlapEnd) {
-        partialRatios.set(o.outletId, 0)
-      } else {
-        const overlapDays = Math.max(0, Math.round((new Date(overlapEnd).getTime() - new Date(overlapStart).getTime()) / (1000 * 60 * 60 * 24)) + 1)
-        const totalOpDays = o.operationalCalendarDays || 1
-        partialRatios.set(o.outletId, Math.min(1, Math.max(0, overlapDays / totalOpDays)))
-      }
+      partialRatios.set(o.outletId, hitungRasioOverlapOutlet(o, from, to, defaultRatio))
     }
   })
 
-  // Jika `hr` memuat staf Kantor Pusat (target 'all'), keluarkan rutin staf pusat agar baris murni cabang.
+  // Jika `hr` memuat staf Kantor Pusat (target 'all' / 'INTERNAL_PUSAT'), keluarkan rutin staf pusat agar baris murni cabang.
   const pusatRutinDalamHr = (hr.staffDetails ?? [])
     .filter(s => !s.isManagerAllocation && s.outletId === 'PUSAT')
     .reduce((sum, s) => sum + (Number(s.routineSalary) || 0), 0)
   const bulananKartuCabang = Math.max(0, gajiRutinBulananKartu(hr, false) - pusatRutinDalamHr)
+  const bulananPerOutlet = bagiPersis(bulananKartuCabang, rutinBulanan)
 
   let rutin: Map<string, number>
   if (partialRatios.size > 0) {
     // Tetapkan baseline bulanan tiap outlet lebih dulu agar saat outlet parsial bernilai Rp 0
     // pada sub-rentang tanggal, gajinya TIDAK melimpah ke outlet reguler lain, dan angka per outlet
     // sama persis dengan kartu Buku Kas tampilan 1 outlet (selisih Rp 0).
-    const bulananPerOutlet = bagiPersis(bulananKartuCabang, rutinBulanan)
     rutin = new Map<string, number>()
     for (const [id, monthlyAmt] of bulananPerOutlet) {
       if (monthlyAmt <= 0) continue
@@ -172,6 +194,36 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
     const totalRutin = info.isProrated ? Math.round(bulananKartuCabang * info.ratio) : bulananKartuCabang
     rutin = bagiPersis(totalRutin, rutinBulanan)
   }
+
+  return {
+    info,
+    defaultRatio,
+    ringkasanOutlet,
+    nama,
+    idDariNama,
+    tambah,
+    partialRatios,
+    pusatRutinDalamHr,
+    bulananPerOutlet,
+    rutin,
+  }
+}
+
+export interface BarisPayrollHrInput {
+  /** Ringkasan HR untuk target 'ALL_OUTLETS' pada rentang yang sama. */
+  hr: HRPayrollSummary | null | undefined
+  from: string
+  to: string
+}
+
+function barisPayrollSatuPeriode(
+  hr: HRPayrollSummary,
+  from: string,
+  to: string,
+  idMid?: string,
+): ExpenseRow[] {
+  const { info, ringkasanOutlet, nama, idDariNama, tambah, rutin } = hitungPetaRutinCabangSatuPeriode(hr, from, to)
+  const periodMonth = from.slice(0, 7) + '-01'
 
   // 2. Bonus kru per outlet (rincian HR hanya membawa nama outlet).
   const bonusKruMentah = new Map<string, number>()
@@ -202,8 +254,9 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
     for (const [id, amount] of peta) {
       if (!amount) continue
       const takDikenal = id === '__tak_dikenal__'
+      const rowId = idMid ? `hr-${awalan}-${idMid}-${id}` : `hr-${awalan}-${id}`
       rows.push({
-        id: `hr-${awalan}-${id}`,
+        id: rowId,
         outlet_id: takDikenal ? null : id,
         outlet_name: takDikenal ? 'Outlet Tidak Dikenal' : (nama.get(id) ?? 'Outlet'),
         category: kategori,
@@ -220,6 +273,209 @@ export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): Expen
   dorong(bonusKru, 'bonus_crew', 'bonus-kru', 'Bonus Kru (HR · realtime penjualan)')
   dorong(bonusMgr, 'bonus_area_manager', 'bonus-am-rm', 'Bonus AM & RM (HR · realtime penjualan)')
   return rows
+}
+
+/**
+ * Baris gaji rutin, bonus kru, dan bonus AM/RM per outlet. `null` bila HR
+ * belum punya slip untuk rentang ini — pemanggil lalu memakai angka mesin
+ * prorata, sama seperti kartu Buku Kas.
+ *
+ * Untuk rentang lintas bulan (`hr.periodBreakdown.length > 1`), dihitung per bulan
+ * kalender agar `expense_date` dan `period_month` tiap bulan akurat di grafik tren
+ * Laba Rugi serta konsisten dengan penjumlahan bulan tunggal.
+ */
+export function barisPayrollDariHr({ hr, from, to }: BarisPayrollHrInput): ExpenseRow[] | null {
+  if (!adaDataHr(hr)) return null
+  if (hr.periodBreakdown && hr.periodBreakdown.length > 1) {
+    const semua: ExpenseRow[] = []
+    for (const entry of hr.periodBreakdown) {
+      if (!adaDataHr(entry.summary)) continue
+      const ym = `${entry.year}-${String(entry.month).padStart(2, '0')}`
+      semua.push(...barisPayrollSatuPeriode(entry.summary, entry.from, entry.to, ym))
+    }
+    return semua
+  }
+  return barisPayrollSatuPeriode(hr, from, to)
+}
+
+/**
+ * Rincian gaji rutin per outlet (termasuk `'PUSAT'` bila ada) untuk satu atau multi-periode.
+ * Dipakai oleh modal Gaji (Section 2 & tabel per cabang) agar rasio outlet parsial,
+ * cabang tutup, lintas bulan, dan Kantor Pusat identik dengan kartu Buku Kas & Laba Rugi.
+ */
+export function hitungRutinPerOutletPeriode(
+  hr: HRPayrollSummary | null | undefined,
+  from: string,
+  to: string,
+): Map<string, RincianRutinOutletPeriode> {
+  const hasil = new Map<string, RincianRutinOutletPeriode>()
+  if (!adaDataHr(hr)) return hasil
+
+  const hitungSatu = (sHr: HRPayrollSummary, sFrom: string, sTo: string) => {
+    const p = hitungPetaRutinCabangSatuPeriode(sHr, sFrom, sTo)
+    const map = new Map<string, RincianRutinOutletPeriode>()
+    const semuaId = new Set<string>([
+      ...p.bulananPerOutlet.keys(),
+      ...(sHr.outlets ?? []).filter(o => o.outletId && o.outletId !== 'PUSAT').map(o => o.outletId),
+    ])
+    const outletLookup = new Map((sHr.outlets ?? []).map(o => [o.outletId, o]))
+    for (const id of semuaId) {
+      const o = outletLookup.get(id)
+      const rutin1Bln = p.bulananPerOutlet.get(id) ?? Math.max(0, (o?.totalSalary ?? 0) - (o?.bonus ?? 0))
+      const rutinPeriode = p.rutin.get(id) ?? 0
+      const itemRatio = p.partialRatios.has(id)
+        ? p.partialRatios.get(id)!
+        : (rutin1Bln > 0 ? rutinPeriode / rutin1Bln : p.defaultRatio)
+      const mgr1Bln = Number(o?.managerRoutineAllocation ?? o?.managerAllocation) || 0
+      const mgrPeriode = Math.round(mgr1Bln * itemRatio)
+      map.set(id, { rutin1Bln, rutinPeriode, mgr1Bln, mgrPeriode, itemRatio })
+    }
+    const adaPusat = p.pusatRutinDalamHr > 0 || (sHr.outlets ?? []).some(o => o.outletId === 'PUSAT')
+    if (adaPusat) {
+      const pusatOut = outletLookup.get('PUSAT')
+      const pusatTotalStaf = (sHr.staffDetails ?? [])
+        .filter(s => !s.isManagerAllocation && s.outletId === 'PUSAT')
+        .reduce((sum, s) => sum + (Number(s.routineSalary) || 0) + (Number(s.bonus) || 0), 0)
+      const rutin1Bln = pusatTotalStaf > 0
+        ? pusatTotalStaf
+        : Math.max(0, pusatOut?.totalSalary ?? 0)
+      const rutinPeriode = p.info.isProrated ? Math.round(rutin1Bln * p.info.ratio) : rutin1Bln
+      map.set('PUSAT', {
+        rutin1Bln,
+        rutinPeriode,
+        mgr1Bln: 0,
+        mgrPeriode: 0,
+        itemRatio: p.defaultRatio,
+      })
+    }
+    return map
+  }
+
+  if (hr.periodBreakdown && hr.periodBreakdown.length > 1) {
+    // Baseline 1 bln dari ringkasan referensi top-level; beban periode dijumlahkan per bulan kalender.
+    const refFrom = `${to.slice(0, 7)}-01`
+    const baseMap = hitungSatu(hr, refFrom, to)
+    const akumPeriode = new Map<string, { rutinPeriode: number; mgrPeriode: number }>()
+    for (const entry of hr.periodBreakdown) {
+      if (!adaDataHr(entry.summary)) continue
+      const subMap = hitungSatu(entry.summary, entry.from, entry.to)
+      for (const [id, v] of subMap) {
+        const prev = akumPeriode.get(id) ?? { rutinPeriode: 0, mgrPeriode: 0 }
+        prev.rutinPeriode += v.rutinPeriode
+        prev.mgrPeriode += v.mgrPeriode
+        akumPeriode.set(id, prev)
+        if (!baseMap.has(id)) {
+          baseMap.set(id, { rutin1Bln: v.rutin1Bln, rutinPeriode: 0, mgr1Bln: v.mgr1Bln, mgrPeriode: 0, itemRatio: 0 })
+        }
+      }
+    }
+    for (const [id, base] of baseMap) {
+      const ak = akumPeriode.get(id) ?? { rutinPeriode: 0, mgrPeriode: 0 }
+      const itemRatio = base.rutin1Bln > 0 ? ak.rutinPeriode / base.rutin1Bln : 0
+      hasil.set(id, {
+        rutin1Bln: base.rutin1Bln,
+        rutinPeriode: ak.rutinPeriode,
+        mgr1Bln: base.mgr1Bln,
+        mgrPeriode: ak.mgrPeriode,
+        itemRatio,
+      })
+    }
+    return hasil
+  }
+
+  return hitungSatu(hr, from, to)
+}
+
+/**
+ * Hitung total gaji rutin yang diakui pada rentang `[from, to]` untuk kartu Buku Kas
+ * (`target`: `'ALL_OUTLETS'`, `'PUSAT'`, `'all'`, atau UUID 1 outlet), mendukung rentang
+ * satu bulan maupun lintas bulan (`periodBreakdown`) dengan selisih Rp 0 terhadap Laba Rugi.
+ */
+export function hitungGajiRutinPeriodeDariHr(params: {
+  hr: HRPayrollSummary | null | undefined
+  from: string
+  to: string
+  target: string
+}): number {
+  const { hr, from, to, target } = params
+  if (!adaDataHr(hr)) return 0
+
+  if (target === 'ALL_OUTLETS') {
+    const baris = barisPayrollDariHr({ hr, from, to }) ?? []
+    return baris.filter(r => r.category === 'gaji_crew_outlet').reduce((s, r) => s + r.amount, 0)
+  }
+
+  if (target === 'PUSAT') {
+    if (hr.periodBreakdown && hr.periodBreakdown.length > 1) {
+      let total = 0
+      for (const entry of hr.periodBreakdown) {
+        if (!adaDataHr(entry.summary)) continue
+        const info = calculateDateRangeProrata(entry.from, entry.to)
+        const bulanan = gajiRutinBulananKartu(entry.summary, true)
+        total += info.isProrated ? Math.round(bulanan * info.ratio) : bulanan
+      }
+      return total
+    }
+    const info = calculateDateRangeProrata(from, to)
+    const bulanan = gajiRutinBulananKartu(hr, true)
+    return info.isProrated ? Math.round(bulanan * info.ratio) : bulanan
+  }
+
+  if (target === 'all') {
+    const barisCabang = barisPayrollDariHr({ hr, from, to }) ?? []
+    const cabangPeriode = barisCabang.filter(r => r.category === 'gaji_crew_outlet').reduce((s, r) => s + r.amount, 0)
+    let pusatPeriode = 0
+    if (hr.periodBreakdown && hr.periodBreakdown.length > 1) {
+      for (const entry of hr.periodBreakdown) {
+        if (!adaDataHr(entry.summary)) continue
+        const info = calculateDateRangeProrata(entry.from, entry.to)
+        const pusatBulanan = (entry.summary.staffDetails ?? [])
+          .filter(s => !s.isManagerAllocation && s.outletId === 'PUSAT')
+          .reduce((s, r) => s + (Number(r.routineSalary) || 0) + (Number(r.bonus) || 0), 0)
+        pusatPeriode += info.isProrated ? Math.round(pusatBulanan * info.ratio) : pusatBulanan
+      }
+    } else {
+      const info = calculateDateRangeProrata(from, to)
+      const pusatBulanan = (hr.staffDetails ?? [])
+        .filter(s => !s.isManagerAllocation && s.outletId === 'PUSAT')
+        .reduce((s, r) => s + (Number(r.routineSalary) || 0) + (Number(r.bonus) || 0), 0)
+      pusatPeriode = info.isProrated ? Math.round(pusatBulanan * info.ratio) : pusatBulanan
+    }
+    return cabangPeriode + pusatPeriode
+  }
+
+  // Tampilan 1 outlet tunggal
+  const hitungSatuOutlet = (sHr: HRPayrollSummary, sFrom: string, sTo: string) => {
+    if (!adaDataHr(sHr)) return 0
+    const info = calculateDateRangeProrata(sFrom, sTo)
+    const bulanan = gajiRutinBulananKartu(sHr, false)
+    const defaultRatio = info.isProrated ? info.ratio : 1
+    const op = sHr.outletOperationalInfo
+    if (op?.isPartial) {
+      const r = hitungRasioOverlapOutlet(
+        {
+          isPartial: op.isPartial,
+          operationalFirstDate: op.firstDate,
+          operationalLastDate: op.lastDate,
+          operationalCalendarDays: op.operationalCalendarDays,
+        },
+        sFrom,
+        sTo,
+        defaultRatio,
+      )
+      return r < 1 ? Math.round(bulanan * r) : bulanan
+    }
+    return info.isProrated ? Math.round(bulanan * info.ratio) : bulanan
+  }
+
+  if (hr.periodBreakdown && hr.periodBreakdown.length > 1) {
+    let total = 0
+    for (const entry of hr.periodBreakdown) {
+      total += hitungSatuOutlet(entry.summary, entry.from, entry.to)
+    }
+    return total
+  }
+  return hitungSatuOutlet(hr, from, to)
 }
 
 /** Ganti baris gaji/bonus outlet buatan mesin prorata dengan baris HR. */
@@ -314,9 +570,11 @@ export function ringkasanHrKelompok(
   }
 
   // Staf kantor pusat (hanya untuk "Internal + Kantor Pusat").
+  // Insentif/bonus slip bulanan staf kantor ikut sebagai tunjangan/rutin pusat
+  // agar selaras dengan `susunBarisGajiKantor` di Laba Rugi (kartu Bonus Kru khusus POS ritel).
   if (adaDataHr(pusat)) {
     const pGapok = Number(pusat.basicSalary) || 0
-    const pTunj = Number(pusat.allowances) || 0
+    const pTunj = (Number(pusat.allowances) || 0) + (Number(pusat.bonus) || 0)
     const pPot = Number(pusat.deductions) || 0
     gapok += pGapok
     tunjangan += pTunj
@@ -324,7 +582,24 @@ export function ringkasanHrKelompok(
     fullGapok += pGapok
     fullTunj += pTunj
     fullPot += pPot
-    kru.push(...(pusat.staffDetails ?? []).filter(s => !s.isManagerAllocation))
+    kru.push(
+      ...(pusat.staffDetails ?? [])
+        .filter(s => !s.isManagerAllocation)
+        .map(s => {
+          const sBonus = Number(s.bonus) || 0
+          if (sBonus <= 0) return s
+          const sAllow = (Number(s.allowances) || 0) + sBonus
+          const sRoutine = (Number(s.routineSalary) || 0) + sBonus
+          return {
+            ...s,
+            allowances: sAllow,
+            bonus: 0,
+            routineSalary: sRoutine,
+            fullAllowances: (Number(s.fullAllowances ?? s.allowances) || 0) + sBonus,
+            fullRoutineSalary: (Number(s.fullRoutineSalary ?? s.routineSalary) || 0) + sBonus,
+          }
+        }),
+    )
   }
 
   // 2. Bonus kru per outlet dalam kelompok.
@@ -442,6 +717,51 @@ export function ringkasanHrKelompok(
   const deductions = potongan + mgrPot
   const bonus = crewBonus + mgrBonus
 
+  const outletsKelompok: HRPayrollOutletSummary[] = (hr.outlets ?? []).filter(
+    o => bukanPusat(o.outletId) && dalamKelompok(o.outletId),
+  )
+  if (adaDataHr(pusat)) {
+    const pGapok = Number(pusat.basicSalary) || 0
+    const pTunj = (Number(pusat.allowances) || 0) + (Number(pusat.bonus) || 0)
+    const pPot = Number(pusat.deductions) || 0
+    const pRutin = Math.max(0, pGapok + pTunj - pPot)
+    const pusatKruCount = (pusat.staffDetails ?? []).filter(s => !s.isManagerAllocation).length || pusat.totalStaff
+    outletsKelompok.push({
+      outletId: 'PUSAT',
+      outletName: 'Kantor Pusat',
+      totalSalary: pRutin,
+      crewSalary: pRutin,
+      basicSalary: pGapok,
+      bonus: 0,
+      managerAllocation: 0,
+      managerRoutineAllocation: 0,
+      managerBonusAllocation: 0,
+      staffCount: pusatKruCount,
+      draftCount: pusat.draftCount,
+      finalizedCount: pusat.finalizedCount,
+      status: pusat.status,
+    })
+    outletsKelompok.sort((a, b) => b.totalSalary - a.totalSalary)
+  }
+
+  let periodBreakdown: HRPayrollPeriodEntry[] | undefined
+  if (hr.periodBreakdown && hr.periodBreakdown.length > 1) {
+    periodBreakdown = []
+    for (const entry of hr.periodBreakdown) {
+      const pEntry = pusat?.periodBreakdown?.find(pe => pe.year === entry.year && pe.month === entry.month)
+      const subSummary = ringkasanHrKelompok(entry.summary, dalamKelompok, pEntry?.summary ?? null)
+      if (subSummary) {
+        periodBreakdown.push({
+          year: entry.year,
+          month: entry.month,
+          from: entry.from,
+          to: entry.to,
+          summary: subSummary,
+        })
+      }
+    }
+  }
+
   return {
     totalSalary: basicSalary + allowances + bonus - deductions,
     totalStaff: kru.length + managerDetails.length,
@@ -454,7 +774,7 @@ export function ringkasanHrKelompok(
     finalizedCount: jumlahFinal,
     finalizedAmount: 0,
     status,
-    outlets: (hr.outlets ?? []).filter(o => bukanPusat(o.outletId) && dalamKelompok(o.outletId)),
+    outlets: outletsKelompok,
     crewCount: kru.length,
     crewRegularCount: reguler,
     crewBackupCount: backup,
@@ -482,5 +802,6 @@ export function ringkasanHrKelompok(
     managerBonusDetails,
     bonusDetails: [...crewBonusDetails, ...managerBonusDetails].sort((a, b) => b.bonus - a.bonus),
     staffDetails: kru,
+    periodBreakdown,
   }
 }

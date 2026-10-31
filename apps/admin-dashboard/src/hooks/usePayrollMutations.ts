@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PayrollStatus } from '@/lib/types'
 import { LATE_FEE_PER_MINUTE, dendaTelatBerlaku } from '@/lib/payrollBreakdown'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 /**
  * Fetch total late minutes for all staff in a specific month & year from attendance & attendance_logs
@@ -80,14 +81,23 @@ async function fetchMonthlySalesBonuses(
       supabase.rpc('get_monthly_rm_bonus', { p_month: month, p_year: year }),
     ])
 
-    // 1. Crew & Leader Bonuses
+    // 1. Crew & Leader Bonuses (jumlahkan lintas cabang untuk kru backup / mutasi)
     if (crewRes.data && Array.isArray(crewRes.data)) {
+      const crewNotesMap = new Map<string, string[]>()
       crewRes.data.forEach((c: any) => {
         const amount = Number(c.total_bonus) || 0
-        if (amount > 0) {
+        if (amount > 0 && c.crew_id) {
+          const prev = bonusMap.get(c.crew_id)
+          const totalBonus = (prev?.bonus || 0) + amount
+          const partNote = `${c.outlet_name || 'Cabang'}: Rp ${amount.toLocaleString('id-ID')} (${c.total_pcs_outlet} pcs / ${c.active_crew_count} kru)`
+          const list = crewNotesMap.get(c.crew_id) ?? []
+          list.push(partNote)
+          crewNotesMap.set(c.crew_id, list)
           bonusMap.set(c.crew_id, {
-            bonus: amount,
-            note: `Sales Bonus: Rp ${amount.toLocaleString('id-ID')} (Pool: ${c.total_pcs_outlet} pcs / ${c.active_crew_count} kru)`,
+            bonus: totalBonus,
+            note: list.length === 1
+              ? `Sales Bonus: Rp ${totalBonus.toLocaleString('id-ID')} (Pool: ${c.total_pcs_outlet} pcs / ${c.active_crew_count} kru)`
+              : `Sales Bonus: Rp ${totalBonus.toLocaleString('id-ID')} (${list.join(' + ')})`,
           })
         }
       })
@@ -132,11 +142,14 @@ export function usePayrollMutations() {
   const generate = useMutation({
     mutationFn: async ({ month, year }: { month: number; year: number }) => {
       /* 1. Fetch all active staff with their financials */
-      const { data: staff, error: staffErr } = await supabase
+      const { data: rawStaff, error: staffErr } = await supabase
         .from('outlet_staff')
         .select(`
           id,
           name,
+          username,
+          email,
+          account_category,
           role,
           status,
           outlet_id,
@@ -154,9 +167,12 @@ export function usePayrollMutations() {
         `)
         .eq('status', 'active')
         .neq('role', 'kiosk')
+        .neq('role', 'mitra')
+        .neq('role', 'owner')
 
       if (staffErr) throw staffErr
-      if (!staff || staff.length === 0) throw new Error('Tidak ada staf aktif ditemukan.')
+      const staff = (rawStaff ?? []).filter((s: any) => !isTestOrDevStaff(s))
+      if (staff.length === 0) throw new Error('Tidak ada staf aktif ditemukan.')
 
       /* 2. Fetch Automatic Attendance Late Minutes */
       const lateMinutesMap = await fetchMonthlyLateMinutes(supabase, month, year)

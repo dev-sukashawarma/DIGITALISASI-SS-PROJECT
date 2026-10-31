@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 export type PayrollPaymentStatus = 'unpaid' | 'pending' | 'paid'
 
@@ -40,7 +41,7 @@ export function usePayrollSlips(month: number, year: number, initialData?: Payro
           `id, staff_id, period_month, period_year, total_salary, status,
            payment_status, paid_at, cash_transaction_id,
            outlet_staff:staff_id(
-             name, role,
+             id, name, username, email, account_category, role,
              staff_financials(bank_name, bank_account_number, bank_account_name)
            )`
         )
@@ -49,7 +50,7 @@ export function usePayrollSlips(month: number, year: number, initialData?: Payro
         .eq('status', 'finalized')
         .order('payment_status', { ascending: true })
       if (error) throw error
-      return (data as unknown as PayrollSlip[]) ?? []
+      return ((data as unknown as PayrollSlip[]) ?? []).filter(s => !isTestOrDevStaff(s.outlet_staff as any))
     },
     enabled: !!month && !!year,
   })

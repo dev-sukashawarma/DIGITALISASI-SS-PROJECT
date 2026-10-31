@@ -1,5 +1,6 @@
 'use server'
 
+import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 import { isExcludedOutlet } from '@/lib/outletFilters'
@@ -48,6 +49,8 @@ export async function getProrataAuxiliaryDataAction({
   from: string
   to: string
 }): Promise<ProrataAuxiliaryData> {
+  // Memuat slip gaji & gaji master per orang — hanya untuk peran keuangan.
+  await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
 
   const overlap = calculateMonthOverlap(from, to)
@@ -189,6 +192,11 @@ export async function getProrataAuxiliaryDataAction({
 
   const crewBonusRecords: CrewBonusRecord[] = bonusResults.flat()
   const bonusOutletIds = new Set(crewBonusRecords.map(c => c.outlet_id))
+  const payrollOutletIds = new Set(
+    ((payrollRes.data ?? []) as any[])
+      .map(r => (r.outlet_id || r.outlet_staff?.outlet_id) as string | undefined)
+      .filter((id): id is string => Boolean(id && id !== KANTOR_PUSAT_ID)),
+  )
 
   const operationalOutletIds: string[] = ((opOutletsRes.data ?? []) as any[])
     .filter(o => {
@@ -196,7 +204,7 @@ export async function getProrataAuxiliaryDataAction({
       // Sawangan internal digantikan oleh Mitra Sawangan DTC agar tidak double-counting
       if (o.slug === 'sawangan-depok-internal') return false
       const isActive = o.is_active === true && o.status === 'active'
-      const hadActivityInPeriod = bonusOutletIds.has(o.id)
+      const hadActivityInPeriod = bonusOutletIds.has(o.id) || payrollOutletIds.has(o.id)
       return isActive || hadActivityInPeriod
     })
     .map(o => o.id)

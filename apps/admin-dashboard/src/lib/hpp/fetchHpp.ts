@@ -191,7 +191,11 @@ const PAGE_SIZE = 1000;
 const MENU_HPP_SELECT =
   "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))";
 
-export async function fetchHppRows(supabase: any, filter: PeriodFilterValue): Promise<HppRow[]> {
+export async function fetchHppRows(
+  supabase: any,
+  filter: PeriodFilterValue,
+  options?: { respectMitraCutoff?: boolean },
+): Promise<HppRow[]> {
   const fromDateStr = filter.from.slice(0, 10);
   const toDateStr = filter.to.slice(0, 10);
   const ordersGte = `${fromDateStr}T00:00:00+07:00`;
@@ -201,13 +205,17 @@ export async function fetchHppRows(supabase: any, filter: PeriodFilterValue): Pr
   const [outletsRes, menuItemsRes, mitraInvRes, riwayatRows] = await Promise.all([
     supabase.from("outlets").select("id, type, name, slug").neq("id", TEST_OUTLET_ID),
     supabase.from("menu_items").select(MENU_HPP_SELECT),
-    supabase.from("mitra_investments").select("outlet_id"),
+    supabase.from("mitra_investments").select("outlet_id, tanggal_mulai"),
     ambilRiwayatHpp(supabase),
   ]);
 
   const mitraIdsSet = new Set<string>();
+  const mitraCutoffMap = new Map<string, string>();
   mitraInvRes.data?.forEach((m: any) => {
-    if (m.outlet_id) mitraIdsSet.add(m.outlet_id);
+    if (m.outlet_id) {
+      mitraIdsSet.add(m.outlet_id);
+      if (m.tanggal_mulai) mitraCutoffMap.set(m.outlet_id, m.tanggal_mulai);
+    }
   });
 
   const outletTypeMap = new Map<string, string>();
@@ -286,6 +294,11 @@ export async function fetchHppRows(supabase: any, filter: PeriodFilterValue): Pr
 
   allOrders.forEach((o: any) => {
     if (isTestOutlet(o.outlet_id)) return;
+    const orderWibDate = tanggalWib(o.created_at);
+    if (options?.respectMitraCutoff) {
+      const cutoff = mitraCutoffMap.get(o.outlet_id);
+      if (cutoff && orderWibDate < cutoff) return;
+    }
     const outletType = outletTypeMap.get(o.outlet_id);
     const orderChannel = o.channel || o.sales_source;
     const channelGroup = getOrderHppChannelGroup(
@@ -295,7 +308,7 @@ export async function fetchHppRows(supabase: any, filter: PeriodFilterValue): Pr
       o.is_endorse,
     );
 
-    const pHpp = penerapHpp.untuk(tanggalWib(o.created_at));
+    const pHpp = penerapHpp.untuk(orderWibDate);
     o.order_items?.forEach((item: any) => {
       const { hpp, baseHpp, markup } = getItemHpp(
         item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null,

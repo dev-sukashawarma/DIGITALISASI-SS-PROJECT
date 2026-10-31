@@ -139,6 +139,14 @@ export interface HRPayrollOutletSummary {
   operationalCalendarDays?: number
 }
 
+export interface HRPayrollPeriodEntry {
+  year: number
+  month: number
+  from: string
+  to: string
+  summary: HRPayrollSummary
+}
+
 export interface HRPayrollSummary {
   totalSalary: number
   totalStaff: number
@@ -186,6 +194,8 @@ export interface HRPayrollSummary {
   managerBonusDetails?: StaffBonusDetail[]
   staffDetails?: StaffPayrollDetail[]
   outletOperationalInfo?: OutletOperationalInfo
+  /** Rincian per bulan kalender saat rentang tanggal melintasi > 1 bulan. */
+  periodBreakdown?: HRPayrollPeriodEntry[]
 }
 
 function formatTanggalIndo(dateStr?: string | null): string {
@@ -265,13 +275,237 @@ async function fetchAllAttendanceLogs(supabase: any, attFrom: string, attTo: str
   return all
 }
 
-export async function hitungRingkasanPayrollHr(filter: {
-  from: string
-  to: string
-  outletId: string
-}): Promise<HRPayrollSummary> {
+async function runInBatches<T>(factories: (() => Promise<T>)[], batchSize = 6): Promise<T[]> {
+  const results: T[] = []
+  for (let i = 0; i < factories.length; i += batchSize) {
+    const chunk = factories.slice(i, i + batchSize)
+    const chunkRes = await Promise.all(chunk.map(fn => fn()))
+    results.push(...chunkRes)
+  }
+  return results
+}
+
+function emptyHrSummary(): HRPayrollSummary {
+  return {
+    totalSalary: 0,
+    totalStaff: 0,
+    basicSalary: 0,
+    allowances: 0,
+    bonus: 0,
+    deductions: 0,
+    draftCount: 0,
+    draftAmount: 0,
+    finalizedCount: 0,
+    finalizedAmount: 0,
+    status: 'empty',
+    outlets: [],
+    crewCount: 0,
+    crewRegularCount: 0,
+    crewBackupCount: 0,
+    crewTraineeCount: 0,
+    crewOjtCount: 0
+  }
+}
+
+const HR_SUMMARY_CACHE_TTL_MS = 10_000
+const hrSummaryMemo = new Map<string, { expiresAt: number; promise: Promise<HRPayrollSummary> }>()
+
+function gabungDaftarBonus(lists: (StaffBonusDetail[] | undefined)[]): StaffBonusDetail[] {
+  const map = new Map<string, StaffBonusDetail>()
+  for (const list of lists) {
+    for (const item of list ?? []) {
+      const existing = map.get(item.staffId)
+      if (!existing) {
+        map.set(item.staffId, {
+          ...item,
+          backupDates: item.backupDates ? [...item.backupDates] : undefined
+        })
+        continue
+      }
+      existing.bonus += item.bonus
+      existing.totalPcs = (existing.totalPcs || 0) + (item.totalPcs || 0)
+      if (item.backupDates && item.backupDates.length > 0) {
+        const mergedDates = Array.from(new Set([...(existing.backupDates || []), ...item.backupDates])).sort()
+        existing.backupDates = mergedDates
+        existing.backupDatesFormatted = formatBackupDatesSummary(mergedDates)
+        if (existing.isBackup && mergedDates.length > 0) {
+          existing.backupNote = `Tanggal backup: ${existing.backupDatesFormatted} (${mergedDates.length} hari)`
+        }
+      }
+      if (item.status === 'draft') existing.status = 'draft'
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.bonus - a.bonus)
+}
+
+function gabungRingkasanMultiPeriode(
+  entries: HRPayrollPeriodEntry[],
+  target: string
+): HRPayrollSummary {
+  const nonEmpty = entries.filter(e => e.summary.status !== 'empty' && e.summary.totalStaff > 0)
+  if (nonEmpty.length === 0) {
+    return {
+      ...(entries[entries.length - 1]?.summary ?? emptyHrSummary()),
+      periodBreakdown: entries
+    }
+  }
+
+  // Gunakan periode aktif terakhir sebagai baseline acuan 1 bulan penuh (agar kartu "Baseline 1 bln"
+  // dan daftar kru tidak membengkak 2x lipat atau memicu duplikasi key={staffId}), sementara seluruh
+  // perhitungan aktual lintas bulan membaca `periodBreakdown` secara eksak per bulan kalender.
+  const base = nonEmpty[nonEmpty.length - 1].summary
+
+  const crewBonus = entries.reduce((s, e) => s + (e.summary.crewBonus || 0), 0)
+  const managerBonusAllocation = entries.reduce((s, e) => s + (e.summary.managerBonusAllocation || 0), 0)
+  const bonus = target === 'PUSAT' ? crewBonus : (crewBonus + managerBonusAllocation)
+
+  const crewBonusByOutlet: Record<string, number> = {}
+  const crewBonusListsByOutlet = new Map<string, StaffBonusDetail[][]>()
+  const mgrBonusByOutlet = new Map<string, number>()
+
+  for (const e of entries) {
+    for (const [oid, amt] of Object.entries(e.summary.crewBonusByOutlet ?? {})) {
+      crewBonusByOutlet[oid] = (crewBonusByOutlet[oid] || 0) + (Number(amt) || 0)
+    }
+    for (const [oid, list] of Object.entries(e.summary.crewBonusDetailsByOutlet ?? {})) {
+      if (!crewBonusListsByOutlet.has(oid)) crewBonusListsByOutlet.set(oid, [])
+      crewBonusListsByOutlet.get(oid)!.push(list)
+    }
+    for (const o of e.summary.outlets ?? []) {
+      if (o.outletId && o.managerBonusAllocation) {
+        mgrBonusByOutlet.set(o.outletId, (mgrBonusByOutlet.get(o.outletId) || 0) + o.managerBonusAllocation)
+      }
+    }
+  }
+
+  const crewBonusDetails = gabungDaftarBonus(entries.map(e => e.summary.crewBonusDetails))
+  const getPriority = (role: string = '') => {
+    const r = role.toLowerCase()
+    if (r === 'regional_manager' || r === 'rm') return 1
+    if (r === 'area_manager' || r === 'am') return 2
+    if (r === 'stock_controller' || r === 'sc') return 3
+    return 4
+  }
+  const managerBonusDetails = gabungDaftarBonus(entries.map(e => e.summary.managerBonusDetails)).sort((a, b) => {
+    const diff = getPriority(a.role) - getPriority(b.role)
+    return diff !== 0 ? diff : b.bonus - a.bonus
+  })
+  const bonusDetails = [...crewBonusDetails, ...managerBonusDetails].sort((a, b) => b.bonus - a.bonus)
+
+  const crewBonusDetailsByOutlet: Record<string, StaffBonusDetail[]> = {}
+  for (const [oid, lists] of crewBonusListsByOutlet.entries()) {
+    crewBonusDetailsByOutlet[oid] = gabungDaftarBonus(lists)
+  }
+
+  // Gabungkan daftar outlet: pertahankan baseline rutin 1 bulan dari `base`, dan sertakan juga
+  // outlet yang hanya aktif di bulan awal rentang (misal tutup di bulan pertama) agar tabel cabang utuh.
+  const mergedOutletsMap = new Map<string, HRPayrollOutletSummary>()
+  for (const o of base.outlets ?? []) {
+    const routine1Bln = Math.max(0, o.totalSalary - (o.bonus || 0))
+    const cBon = o.outletId === 'PUSAT' ? 0 : (crewBonusByOutlet[o.outletId] || 0)
+    const mBon = o.outletId === 'PUSAT' ? 0 : (mgrBonusByOutlet.get(o.outletId) || 0)
+    const totBon = cBon + mBon
+    const crewRoutine1Bln = Math.max(0, routine1Bln - (o.managerRoutineAllocation ?? o.managerAllocation ?? 0))
+    mergedOutletsMap.set(o.outletId, {
+      ...o,
+      crewSalary: crewRoutine1Bln + cBon,
+      managerBonusAllocation: mBon,
+      bonus: totBon,
+      totalSalary: routine1Bln + totBon
+    })
+  }
+  for (const e of entries) {
+    for (const o of e.summary.outlets ?? []) {
+      if (mergedOutletsMap.has(o.outletId)) continue
+      const cBon = o.outletId === 'PUSAT' ? 0 : (crewBonusByOutlet[o.outletId] || 0)
+      const mBon = o.outletId === 'PUSAT' ? 0 : (mgrBonusByOutlet.get(o.outletId) || 0)
+      const totBon = cBon + mBon
+      const prevRoutine = Math.max(0, o.totalSalary - (o.bonus || 0))
+      if (prevRoutine <= 0 && totBon <= 0) continue
+      mergedOutletsMap.set(o.outletId, {
+        ...o,
+        basicSalary: 0,
+        crewSalary: cBon,
+        managerAllocation: 0,
+        managerRoutineAllocation: 0,
+        managerBonusAllocation: mBon,
+        bonus: totBon,
+        totalSalary: totBon
+      })
+    }
+  }
+
+  const baseRoutine = Math.max(0, base.basicSalary + base.allowances - base.deductions)
+  const baseCrewRoutine = Math.max(
+    0,
+    (base.crewBasicSalary ?? base.basicSalary) + (base.crewAllowances ?? base.allowances) - (base.crewDeductions ?? base.deductions)
+  )
+
+  return {
+    ...base,
+    bonus,
+    crewBonus,
+    managerBonusAllocation,
+    crewSalary: baseCrewRoutine + crewBonus,
+    totalSalary: Math.max(1, baseRoutine + bonus),
+    outlets: Array.from(mergedOutletsMap.values()).sort((a, b) => b.totalSalary - a.totalSalary),
+    crewBonusDetails,
+    crewBonusByOutlet,
+    crewBonusDetailsByOutlet,
+    managerBonusDetails,
+    bonusDetails,
+    periodBreakdown: entries
+  }
+}
+
+export async function hitungRingkasanPayrollHr(
+  filter: {
+    from: string
+    to: string
+    outletId: string
+  },
+  customSupabase?: any,
+): Promise<HRPayrollSummary> {
+  const isTestEnv = Boolean(customSupabase || process.env.VITEST || process.env.NODE_ENV === 'test')
+  const cacheKey = `${filter.from}|${filter.to}|${filter.outletId}`
+  if (!isTestEnv) {
+    const now = Date.now()
+    const cached = hrSummaryMemo.get(cacheKey)
+    if (cached && cached.expiresAt > now) {
+      return cached.promise
+    }
+    if (hrSummaryMemo.size > 100) {
+      for (const [k, v] of hrSummaryMemo.entries()) {
+        if (v.expiresAt <= now) hrSummaryMemo.delete(k)
+      }
+    }
+  }
+
+  const computePromise = hitungRingkasanPayrollHrInti(filter, customSupabase)
+  if (!isTestEnv) {
+    hrSummaryMemo.set(cacheKey, {
+      expiresAt: Date.now() + HR_SUMMARY_CACHE_TTL_MS,
+      promise: computePromise
+    })
+    computePromise.catch(() => {
+      if (hrSummaryMemo.get(cacheKey)?.promise === computePromise) {
+        hrSummaryMemo.delete(cacheKey)
+      }
+    })
+  }
+  return computePromise
+}
+
+async function hitungRingkasanPayrollHrInti(
+  filter: {
+    from: string
+    to: string
+    outletId: string
+  },
+  customSupabase?: any,
+): Promise<HRPayrollSummary> {
   try {
-    const supabase = getServiceSupabase()
+    const supabase = customSupabase ?? getServiceSupabase()
 
     // Determine months and years in range
     const [startY, startM] = filter.from.split('-').map(Number)
@@ -290,25 +524,7 @@ export async function hitungRingkasanPayrollHr(filter: {
     }
 
     if (periods.length === 0) {
-      return {
-        totalSalary: 0,
-        totalStaff: 0,
-        basicSalary: 0,
-        allowances: 0,
-        bonus: 0,
-        deductions: 0,
-        draftCount: 0,
-        draftAmount: 0,
-        finalizedCount: 0,
-        finalizedAmount: 0,
-        status: 'empty',
-        outlets: [],
-        crewCount: 0,
-        crewRegularCount: 0,
-        crewBackupCount: 0,
-        crewTraineeCount: 0,
-        crewOjtCount: 0
-      }
+      return emptyHrSummary()
     }
 
     const years = [...new Set(periods.map(p => p.year))]
@@ -334,20 +550,138 @@ export async function hitungRingkasanPayrollHr(filter: {
       throw payrollError
     }
 
-    const rows = payrollData || []
-    // Filter matching exact period objects (month & year) and exclude test/bot/mitra accounts
-    let matchingPeriodRows: any[] = rows.filter(r => {
-      const inPeriod = periods.some(p => p.month === r.period_month && p.year === r.period_year)
-      if (!inPeriod) return false
+    const validPayrollRows = (payrollData || []).filter((r: any) => {
       const staffRaw: any = r.outlet_staff
       const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
       return !isTestOrDevStaff(staffInfo)
     })
 
-    const target = filter.outletId
+    const jakartaToday = toJakartaDateStr(new Date().toISOString())
+    const currentMonthFirstDay = `${jakartaToday.slice(0, 7)}-01`
+
+    // Pre-fetch master staf aktif sekali saja bila ada periode >= Sep 2026 s/d bulan berjalan yang belum punya slip HR
+    const needsActiveStaffFallback = periods.some(p => {
+      const pFirstDay = `${p.year}-${String(p.month).padStart(2, '0')}-01`
+      if (pFirstDay < '2026-09-01' || pFirstDay > currentMonthFirstDay) return false
+      return !validPayrollRows.some((r: any) => r.period_month === p.month && r.period_year === p.year)
+    })
+
+    let activeStaffList: any[] | null = null
+    if (needsActiveStaffFallback) {
+      const { data: activeStaffData } = await supabase
+        .from('outlet_staff')
+        .select(`
+          id,
+          name,
+          username,
+          outlet_id,
+          role,
+          status,
+          account_category,
+          email,
+          contract_type,
+          sub_role,
+          onboarding_stage,
+          staff_financials(
+            basic_salary,
+            allowance_position,
+            allowance_presence,
+            allowance_meal,
+            allowance_transport,
+            allowance_communication,
+            sales_bonus,
+            deduction_kasbon,
+            deduction_bpjs
+          )
+        `)
+        .eq('status', 'active')
+        .not('role', 'in', '("kiosk","mitra","owner")')
+      activeStaffList = (activeStaffData || []).filter((s: any) => !isTestOrDevStaff(s))
+    }
+
+    const periodEntries: HRPayrollPeriodEntry[] = []
+    for (const p of periods) {
+      const mm = String(p.month).padStart(2, '0')
+      const totalDays = new Date(p.year, p.month, 0).getDate()
+      const pStart = `${p.year}-${mm}-01`
+      const pEnd = `${p.year}-${mm}-${String(totalDays).padStart(2, '0')}`
+      const subFrom = filter.from > pStart ? filter.from : pStart
+      const subTo = filter.to < pEnd ? filter.to : pEnd
+
+      const summary = await hitungSatuPeriodePayrollHr({
+        supabase,
+        period: p,
+        subFrom,
+        subTo,
+        target: filter.outletId,
+        outletData: outletData || [],
+        assignmentData: assignmentData || [],
+        validPayrollRows,
+        activeStaffList,
+        jakartaToday,
+      })
+
+      periodEntries.push({
+        year: p.year,
+        month: p.month,
+        from: subFrom,
+        to: subTo,
+        summary,
+      })
+    }
+
+    if (periodEntries.length === 1) {
+      return periodEntries[0].summary
+    }
+
+    return gabungRingkasanMultiPeriode(periodEntries, filter.outletId)
+  } catch (err: any) {
+    console.error('Failed to get HR payroll summary:', err)
+    return emptyHrSummary()
+  }
+}
+
+async function hitungSatuPeriodePayrollHr(params: {
+  supabase: any
+  period: { month: number; year: number }
+  subFrom: string
+  subTo: string
+  target: string
+  outletData: any[]
+  assignmentData: any[]
+  validPayrollRows: any[]
+  activeStaffList: any[] | null
+  jakartaToday: string
+}): Promise<HRPayrollSummary> {
+  try {
+    const {
+      supabase,
+      period: primaryPeriod,
+      subFrom,
+      subTo,
+      target,
+      outletData,
+      assignmentData,
+      validPayrollRows,
+      activeStaffList,
+      jakartaToday,
+    } = params
+
+    const periodYm = `${primaryPeriod.year}-${String(primaryPeriod.month).padStart(2, '0')}`
+    const periodMonthStart = `${periodYm}-01`
+    const totalMonthDays = new Date(primaryPeriod.year, primaryPeriod.month, 0).getDate()
+    const periodMonthEnd = `${periodYm}-${String(totalMonthDays).padStart(2, '0')}`
+    const currentYm = jakartaToday.slice(0, 7)
+    const currentMonthFirstDay = `${currentYm}-01`
+    const isRunningIncompleteMonth = periodYm === currentYm && jakartaToday < periodMonthEnd
+
+    let matchingPeriodRows: any[] = validPayrollRows.filter(
+      (r: any) => r.period_month === primaryPeriod.month && r.period_year === primaryPeriod.year
+    )
+
     const isSingleOutlet = target !== 'all' && target !== 'PUSAT' && target !== 'ALL_OUTLETS'
 
-    // 1. Build outlet mapping and operational retail outlet set
+    // 1. Build outlet mapping and operational retail outlet set for this calendar month
     const outletNameMap = new Map<string, string>()
     const outletMetaMap = new Map<string, any>()
     const operationalOutletIds: string[] = []
@@ -356,16 +690,18 @@ export async function hitungRingkasanPayrollHr(filter: {
       outletMetaMap.set(o.id, o)
       if (isExcludedOutlet(o)) return
       if (o.slug === 'sawangan-depok-internal') return
+      const createdStr = toJakartaDateStr(o.created_at)
+      // Outlet yang baru dibuat setelah akhir bulan periode ini tidak dianggap aktif di bulan sebelumnya,
+      // kecuali terbukti punya transaksi selesai pada cekAktivitas di bawah.
+      if (createdStr && createdStr > periodMonthEnd) return
       const isOperational = (o.is_active === true || o.is_active !== false) && (o.status === 'active' || !o.status)
       if (isOperational) {
         operationalOutletIds.push(o.id)
       }
     })
 
-    // 1b. Outlet yang sudah nonaktif tetapi masih punya order selesai dalam rentang
-    // (mis. outlet tutup di tengah bulan) tetap menanggung alokasi gaji manajer dan
-    // bonus pcs-nya. Aturannya sama dengan mesin prorata (prorataAuxiliary.ts:
-    // `hadActivityInPeriod`) dan fungsi SQL bonus (outlet dengan completed orders).
+    // 1b. Outlet nonaktif (atau dibuat belakangan) yang punya order selesai dalam BULAN KALENDER ini
+    // tetap menanggung alokasi gaji manajer 1/N agar baseline bulanan tidak bergeser saat filter sub-rentang tanggal berubah.
     const idAktifSaatIni = new Set(operationalOutletIds)
     const kandidatHistoris = (outletData || []).filter((o: any) =>
       !idAktifSaatIni.has(o.id) &&
@@ -373,18 +709,21 @@ export async function hitungRingkasanPayrollHr(filter: {
       o.slug !== 'sawangan-depok-internal' &&
       (!o.type || o.type === 'internal' || o.type === 'mitra')
     )
-    if (kandidatHistoris.length > 0 && filter.from <= filter.to) {
-      const cekAktivitas = await Promise.all(kandidatHistoris.map(async (o: any) => {
-        const { data } = await supabase
-          .from('orders')
-          .select('id')
-          .eq('outlet_id', o.id)
-          .eq('status', 'completed')
-          .gte('created_at', `${filter.from}T00:00:00+07:00`)
-          .lte('created_at', `${filter.to}T23:59:59+07:00`)
-          .limit(1)
-        return (data && data.length > 0) ? (o.id as string) : null
-      }))
+    if (kandidatHistoris.length > 0 && periodMonthStart <= periodMonthEnd) {
+      const cekAktivitas = await runInBatches(
+        kandidatHistoris.map((o: any) => async () => {
+          const { data } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('outlet_id', o.id)
+            .eq('status', 'completed')
+            .gte('created_at', `${periodMonthStart}T00:00:00+07:00`)
+            .lte('created_at', `${periodMonthEnd}T23:59:59+07:00`)
+            .limit(1)
+          return (data && data.length > 0) ? (o.id as string) : null
+        }),
+        6
+      )
       cekAktivitas.forEach(id => { if (id) operationalOutletIds.push(id) })
     }
 
@@ -400,7 +739,7 @@ export async function hitungRingkasanPayrollHr(filter: {
 
     // Staff info lookup map
     const staffInfoMap = new Map<string, any>()
-    ;(payrollData || []).forEach((r: any) => {
+    ;(validPayrollRows || []).forEach((r: any) => {
       const s = Array.isArray(r.outlet_staff) ? r.outlet_staff[0] : r.outlet_staff
       if (s?.id && !staffInfoMap.has(s.id)) staffInfoMap.set(s.id, s)
     })
@@ -434,7 +773,7 @@ export async function hitungRingkasanPayrollHr(filter: {
       return Array.from(set)
     }
 
-    // Query MTD bonus and pcs for each period (Crew, AM, and RM) + daily bonus detail
+    // Query MTD bonus and pcs for this calendar month + daily bonus detail (batched to prevent 57014 statement timeouts)
     const bonusMap = new Map<string, number>()
     const pcsMap = new Map<string, number>()
     const allCrewBonusRpcRows: any[] = []
@@ -449,142 +788,137 @@ export async function hitungRingkasanPayrollHr(filter: {
     // Map: staff_id -> Map<outlet_id, Set<string>>
     const staffAllOutletsAttendance = new Map<string, Map<string, Set<string>>>()
 
-    for (const p of periods) {
-      try {
-        const periodMonthStart = `${p.year}-${String(p.month).padStart(2, '0')}-01`
-        const lastDayInPeriod = new Date(p.year, p.month, 0).getDate()
-        const periodMonthEnd = `${p.year}-${String(p.month).padStart(2, '0')}-${String(lastDayInPeriod).padStart(2, '0')}`
-        // Query absensi sebulan penuh dari periode ini agar siklus buka/tutup toko dan mutasi terdeteksi akurat tanpa distorsi filter rentang tanggal
-        const attFrom = periodMonthStart
-        const attTo = periodMonthEnd
+    try {
+      const p = primaryPeriod
+      const attFrom = periodMonthStart
+      const attTo = periodMonthEnd
 
-        const dailyBonusPromises: any[] = []
-        if (target === 'PUSAT') {
-          // Kantor Pusat tidak memiliki pool penjualan toko
-        } else if (isSingleOutlet) {
-          dailyBonusPromises.push(
+      const dailyBonusFactories: (() => Promise<any>)[] = []
+      if (target === 'PUSAT') {
+        // Kantor Pusat tidak memiliki pool penjualan toko
+      } else if (isSingleOutlet) {
+        dailyBonusFactories.push(() =>
+          supabase.rpc('get_daily_outlet_bonus_detail', {
+            p_month: p.month,
+            p_year: p.year,
+            p_outlet_id: target
+          })
+        )
+      } else {
+        const bonusTargetOutletIds = new Set<string>(operationalOutletIds)
+        ;(outletData || []).forEach((o: any) => {
+          if (o?.type === 'gudang' && o?.is_active === true && o?.status === 'active') {
+            bonusTargetOutletIds.add(o.id)
+          }
+        })
+        bonusTargetOutletIds.forEach(oid => {
+          dailyBonusFactories.push(() =>
             supabase.rpc('get_daily_outlet_bonus_detail', {
               p_month: p.month,
               p_year: p.year,
-              p_outlet_id: target
+              p_outlet_id: oid
             })
           )
-        } else {
-          const bonusTargetOutletIds = new Set<string>(operationalOutletIds)
-          ;(outletData || []).forEach((o: any) => {
-            if (o?.type === 'gudang' && o?.is_active === true && o?.status === 'active') {
-              bonusTargetOutletIds.add(o.id)
-            }
-          })
-          bonusTargetOutletIds.forEach(oid => {
-            dailyBonusPromises.push(
-              supabase.rpc('get_daily_outlet_bonus_detail', {
-                p_month: p.month,
-                p_year: p.year,
-                p_outlet_id: oid
-              })
-            )
-          })
+        })
+      }
+
+      const [crewRes, amRes, rmRes, attRows, logRows, dailyResList] = await Promise.all([
+        supabase.rpc('get_monthly_crew_bonus', {
+          p_month: p.month,
+          p_year: p.year,
+          p_outlet_id: null
+        }),
+        supabase.rpc('get_monthly_am_bonus', {
+          p_month: p.month,
+          p_year: p.year
+        }),
+        supabase.rpc('get_monthly_rm_bonus', {
+          p_month: p.month,
+          p_year: p.year
+        }),
+        attFrom <= attTo ? fetchAllAttendanceRows(supabase, attFrom, attTo) : Promise.resolve([]),
+        attFrom <= attTo ? fetchAllAttendanceLogs(supabase, attFrom, attTo) : Promise.resolve([]),
+        runInBatches(dailyBonusFactories, 6)
+      ])
+
+      dailyResList.forEach((dRes: any) => {
+        if (dRes && !dRes.error && Array.isArray(dRes.data)) {
+          dailyBonusRpcSucceeded = true
+          allDailyBonusRows.push(...dRes.data)
         }
+      })
 
-        const [crewRes, amRes, rmRes, attRows, logRows, ...dailyResList] = await Promise.all([
-          supabase.rpc('get_monthly_crew_bonus', {
-            p_month: p.month,
-            p_year: p.year,
-            p_outlet_id: null
-          }),
-          supabase.rpc('get_monthly_am_bonus', {
-            p_month: p.month,
-            p_year: p.year
-          }),
-          supabase.rpc('get_monthly_rm_bonus', {
-            p_month: p.month,
-            p_year: p.year
-          }),
-          attFrom <= attTo ? fetchAllAttendanceRows(supabase, attFrom, attTo) : Promise.resolve([]),
-          attFrom <= attTo ? fetchAllAttendanceLogs(supabase, attFrom, attTo) : Promise.resolve([]),
-          ...dailyBonusPromises
-        ])
-
-        dailyResList.forEach((dRes: any) => {
-          if (dRes && !dRes.error && Array.isArray(dRes.data)) {
-            dailyBonusRpcSucceeded = true
-            allDailyBonusRows.push(...dRes.data)
+      if (crewRes.data && Array.isArray(crewRes.data)) {
+        allCrewBonusRpcRows.push(...crewRes.data)
+        crewRes.data.forEach((b: any) => {
+          if (b.crew_id && b.outlet_id) {
+            const k = `${b.crew_id}_${b.outlet_id}`
+            const prev = crewOutletBonusMap.get(k) || { bonus: 0, pcs: 0, attendanceDays: 0 }
+            crewOutletBonusMap.set(k, {
+              bonus: prev.bonus + (Number(b.total_bonus) || 0),
+              pcs: prev.pcs + (Number(b.total_pcs_outlet) || 0),
+              attendanceDays: prev.attendanceDays + (Number(b.attendance_days) || 0)
+            })
+          }
+          if (b.crew_id) {
+            const prev = bonusMap.get(b.crew_id) || 0
+            bonusMap.set(b.crew_id, prev + (Number(b.total_bonus) || 0))
+            pcsMap.set(b.crew_id, (pcsMap.get(b.crew_id) || 0) + (Number(b.total_pcs_outlet) || 0))
           }
         })
-
-        if (crewRes.data && Array.isArray(crewRes.data)) {
-          allCrewBonusRpcRows.push(...crewRes.data)
-          crewRes.data.forEach((b: any) => {
-            if (b.crew_id && b.outlet_id) {
-              const k = `${b.crew_id}_${b.outlet_id}`
-              const prev = crewOutletBonusMap.get(k) || { bonus: 0, pcs: 0, attendanceDays: 0 }
-              crewOutletBonusMap.set(k, {
-                bonus: prev.bonus + (Number(b.total_bonus) || 0),
-                pcs: prev.pcs + (Number(b.total_pcs_outlet) || 0),
-                attendanceDays: prev.attendanceDays + (Number(b.attendance_days) || 0)
-              })
-            }
-            if (b.crew_id) {
-              const prev = bonusMap.get(b.crew_id) || 0
-              bonusMap.set(b.crew_id, prev + (Number(b.total_bonus) || 0))
-              pcsMap.set(b.crew_id, (pcsMap.get(b.crew_id) || 0) + (Number(b.total_pcs_outlet) || 0))
-            }
-          })
-        }
-
-        if (Array.isArray(attRows)) {
-          attRows.forEach((a: any) => {
-            const date = toJakartaDateStr(a.ts_server)
-            if (!date || date < attFrom || date > attTo || !a.outlet_staff_id) return
-            const k = `${a.outlet_staff_id}_${a.outlet_id}`
-            if (!staffOutletAttendanceDates.has(k)) staffOutletAttendanceDates.set(k, new Set())
-            staffOutletAttendanceDates.get(k)!.add(date)
-
-            if (!staffAllOutletsAttendance.has(a.outlet_staff_id)) staffAllOutletsAttendance.set(a.outlet_staff_id, new Map())
-            const m = staffAllOutletsAttendance.get(a.outlet_staff_id)!
-            if (!m.has(a.outlet_id)) m.set(a.outlet_id, new Set())
-            m.get(a.outlet_id)!.add(date)
-          })
-        }
-
-        if (Array.isArray(logRows)) {
-          logRows.forEach((l: any) => {
-            const date = toJakartaDateStr(l.date)
-            if (!date || date < attFrom || date > attTo || !l.staff_id) return
-            const k = `${l.staff_id}_${l.outlet_id}`
-            if (!staffOutletAttendanceDates.has(k)) staffOutletAttendanceDates.set(k, new Set())
-            staffOutletAttendanceDates.get(k)!.add(date)
-
-            if (!staffAllOutletsAttendance.has(l.staff_id)) staffAllOutletsAttendance.set(l.staff_id, new Map())
-            const m = staffAllOutletsAttendance.get(l.staff_id)!
-            if (!m.has(l.outlet_id)) m.set(l.outlet_id, new Set())
-            m.get(l.outlet_id)!.add(date)
-          })
-        }
-
-        if (amRes.data && Array.isArray(amRes.data)) {
-          amRes.data.forEach((b: any) => {
-            if (b.staff_id) {
-              const prev = bonusMap.get(b.staff_id) || 0
-              bonusMap.set(b.staff_id, prev + (Number(b.total_bonus) || 0))
-              pcsMap.set(b.staff_id, (pcsMap.get(b.staff_id) || 0) + (Number(b.total_pcs) || 0))
-            }
-          })
-        }
-
-        if (rmRes.data && Array.isArray(rmRes.data)) {
-          rmRes.data.forEach((b: any) => {
-            if (b.staff_id) {
-              const prev = bonusMap.get(b.staff_id) || 0
-              bonusMap.set(b.staff_id, prev + (Number(b.total_bonus) || 0))
-              pcsMap.set(b.staff_id, (pcsMap.get(b.staff_id) || 0) + (Number(b.total_pcs_global) || 0))
-            }
-          })
-        }
-      } catch (err) {
-        console.warn('Fallback bonus RPC error:', err)
       }
+
+      if (Array.isArray(attRows)) {
+        attRows.forEach((a: any) => {
+          const date = toJakartaDateStr(a.ts_server)
+          if (!date || date < attFrom || date > attTo || !a.outlet_staff_id) return
+          const k = `${a.outlet_staff_id}_${a.outlet_id}`
+          if (!staffOutletAttendanceDates.has(k)) staffOutletAttendanceDates.set(k, new Set())
+          staffOutletAttendanceDates.get(k)!.add(date)
+
+          if (!staffAllOutletsAttendance.has(a.outlet_staff_id)) staffAllOutletsAttendance.set(a.outlet_staff_id, new Map())
+          const m = staffAllOutletsAttendance.get(a.outlet_staff_id)!
+          if (!m.has(a.outlet_id)) m.set(a.outlet_id, new Set())
+          m.get(a.outlet_id)!.add(date)
+        })
+      }
+
+      if (Array.isArray(logRows)) {
+        logRows.forEach((l: any) => {
+          const date = toJakartaDateStr(l.date)
+          if (!date || date < attFrom || date > attTo || !l.staff_id) return
+          const k = `${l.staff_id}_${l.outlet_id}`
+          if (!staffOutletAttendanceDates.has(k)) staffOutletAttendanceDates.set(k, new Set())
+          staffOutletAttendanceDates.get(k)!.add(date)
+
+          if (!staffAllOutletsAttendance.has(l.staff_id)) staffAllOutletsAttendance.set(l.staff_id, new Map())
+          const m = staffAllOutletsAttendance.get(l.staff_id)!
+          if (!m.has(l.outlet_id)) m.set(l.outlet_id, new Set())
+          m.get(l.outlet_id)!.add(date)
+        })
+      }
+
+      if (amRes.data && Array.isArray(amRes.data)) {
+        amRes.data.forEach((b: any) => {
+          if (b.staff_id) {
+            const prev = bonusMap.get(b.staff_id) || 0
+            bonusMap.set(b.staff_id, prev + (Number(b.total_bonus) || 0))
+            pcsMap.set(b.staff_id, (pcsMap.get(b.staff_id) || 0) + (Number(b.total_pcs) || 0))
+          }
+        })
+      }
+
+      if (rmRes.data && Array.isArray(rmRes.data)) {
+        rmRes.data.forEach((b: any) => {
+          if (b.staff_id) {
+            const prev = bonusMap.get(b.staff_id) || 0
+            bonusMap.set(b.staff_id, prev + (Number(b.total_bonus) || 0))
+            pcsMap.set(b.staff_id, (pcsMap.get(b.staff_id) || 0) + (Number(b.total_pcs_global) || 0))
+          }
+        })
+      }
+    } catch (err) {
+      console.warn('Fallback bonus RPC error:', err)
     }
 
     // Deteksi tanggal aktif operasional per outlet (buka lambat / tutup cepat di tengah bulan)
@@ -607,20 +941,16 @@ export async function hitungRingkasanPayrollHr(filter: {
       }
     })
 
-    const primaryPeriod = periods[0] || { month: 10, year: 2026 }
-    const periodMonthStart = `${primaryPeriod.year}-${String(primaryPeriod.month).padStart(2, '0')}-01`
-    const totalMonthDays = new Date(primaryPeriod.year, primaryPeriod.month, 0).getDate()
-    const periodMonthEnd = `${primaryPeriod.year}-${String(primaryPeriod.month).padStart(2, '0')}-${String(totalMonthDays).padStart(2, '0')}`
-
     const allCandidateOutlets = new Set<string>([...operationalOutletIds, ...(outletData || []).map((o: any) => o.id)])
     allCandidateOutlets.forEach(oid => {
       const dates = Array.from(outletActiveDatesMap.get(oid) || []).sort()
       const meta = outletMetaMap.get(oid)
       const isInactive = meta?.is_active === false || meta?.status === 'inactive'
       const createdStr = toJakartaDateStr(meta?.created_at)
+      const createdAfterPeriod = Boolean(createdStr && createdStr > periodMonthEnd)
 
       if (dates.length === 0) {
-        if (isInactive) {
+        if (isInactive || createdAfterPeriod) {
           outletOperationalMap.set(oid, {
             isPartial: true,
             activeDays: 0,
@@ -629,7 +959,9 @@ export async function hitungRingkasanPayrollHr(filter: {
             calendarRatio: 0,
             firstDate: periodMonthStart,
             lastDate: periodMonthStart,
-            note: 'Outlet nonaktif (tidak ada aktivitas operasional di bulan ini)'
+            note: createdAfterPeriod
+              ? 'Outlet belum beroperasi pada bulan ini'
+              : 'Outlet nonaktif (tidak ada aktivitas operasional di bulan ini)'
           })
         } else {
           outletOperationalMap.set(oid, {
@@ -695,88 +1027,74 @@ export async function hitungRingkasanPayrollHr(filter: {
       }
     })
 
-    // Fallback: If no payroll slips have been generated for the requested period(s) (e.g. running current month),
-    // build draft rows from active staff master data (outlet_staff + staff_financials) and MTD crew bonus RPC.
-    if (matchingPeriodRows.length === 0 && periods.length > 0) {
-      const { data: activeStaffData } = await supabase
-        .from('outlet_staff')
-        .select(`
-          id,
-          name,
-          username,
-          outlet_id,
-          role,
-          status,
-          account_category,
-          email,
-          contract_type,
-          sub_role,
-          onboarding_stage,
-          staff_financials(
-            basic_salary,
-            allowance_position,
-            allowance_presence,
-            allowance_meal,
-            allowance_transport,
-            allowance_communication,
-            sales_bonus,
-            deduction_kasbon,
-            deduction_bpjs
-          )
-        `)
-        .eq('status', 'active')
-        .not('role', 'in', '("kiosk","mitra","owner")')
-
-      const activeStaffList = (activeStaffData || []).filter(s => !isTestOrDevStaff(s))
-      const targetPeriod = periods[0]
-
-      matchingPeriodRows = activeStaffList.map(s => {
-        const finRaw = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
-        const bSalary = Number(finRaw?.basic_salary || 0)
-        const aMeal = Number(finRaw?.allowance_meal || 0)
-        const aTransport = Number(finRaw?.allowance_transport || 0)
-        const aComm = Number(finRaw?.allowance_communication || 0)
-        const aPres = Number(finRaw?.allowance_presence || 0)
-        const aPos = Number(finRaw?.allowance_position || 0)
-        const deductions = Number(finRaw?.deduction_kasbon || 0) + Number(finRaw?.deduction_bpjs || 0)
-        const isCrewRole = ['crew', 'leader', 'kasir', 'kitchen', 'driver'].includes(s.role)
-        const crewOutletBonus = isCrewRole && s.outlet_id ? crewOutletBonusMap.get(`${s.id}_${s.outlet_id}`) : null
-        const rpcBonus = crewOutletBonus ? crewOutletBonus.bonus : (bonusMap.get(s.id) || 0)
-        const bBonus = rpcBonus > 0 ? rpcBonus : (isCrewRole ? 0 : Number(finRaw?.sales_bonus || 0))
-        const totalPcs = crewOutletBonus ? crewOutletBonus.pcs : (pcsMap.get(s.id) || (bBonus > 0 ? (s.role === 'area_manager' || s.role === 'regional_manager' ? Math.round(bBonus / 50) : Math.round(bBonus / 100)) : 0))
-        const total = bSalary + aMeal + aTransport + aComm + aPres + aPos + bBonus - deductions
-
-        return {
-          id: `draft-${s.id}`,
-          period_month: targetPeriod.month,
-          period_year: targetPeriod.year,
-          outlet_id: s.outlet_id,
-          basic_salary: bSalary,
-          allowance_meal: aMeal,
-          allowance_transport: aTransport,
-          allowance_communication: aComm,
-          allowance_presence: aPres,
-          allowance_position: aPos,
-          bonus: bBonus,
-          total_pcs: totalPcs,
-          deductions,
-          total_salary: total,
-          status: 'draft' as const,
-          staff_id: s.id,
-          outlet_staff: {
-            id: s.id,
-            name: s.name,
-            username: s.username,
-            outlet_id: s.outlet_id,
-            role: s.role,
-            account_category: s.account_category,
-            email: s.email,
-            contract_type: s.contract_type,
-            sub_role: s.sub_role,
-            onboarding_stage: s.onboarding_stage
+    // Fallback bulan berjalan: hanya aktif untuk periode >= Sep 2026 s/d bulan berjalan saat slip HR belum digenerate
+    if (
+      matchingPeriodRows.length === 0 &&
+      activeStaffList &&
+      periodMonthStart >= '2026-09-01' &&
+      periodMonthStart <= currentMonthFirstDay
+    ) {
+      matchingPeriodRows = activeStaffList
+        .filter((s: any) => {
+          // Jangan bebankan staf yang berpangkalan di outlet yang baru dibuat setelah akhir periode ini
+          if (s.outlet_id) {
+            const oMeta = outletMetaMap.get(s.outlet_id)
+            const cStr = toJakartaDateStr(oMeta?.created_at)
+            if (cStr && cStr > periodMonthEnd && !operationalOutletIds.includes(s.outlet_id)) {
+              return false
+            }
           }
-        }
-      })
+          return true
+        })
+        .map((s: any) => {
+          const finRaw = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
+          const bSalary = Number(finRaw?.basic_salary || 0)
+          const aMeal = Number(finRaw?.allowance_meal || 0)
+          const aTransport = Number(finRaw?.allowance_transport || 0)
+          const aComm = Number(finRaw?.allowance_communication || 0)
+          const aPres = Number(finRaw?.allowance_presence || 0)
+          const aPos = Number(finRaw?.allowance_position || 0)
+          // Kolom allowance_meal dan allowance_presence merupakan kolom cerminan (mirrored) di DB HR; ambil salah satu agar tidak double-count
+          const effMealOrPres = aMeal || aPres
+          const deductions = Number(finRaw?.deduction_kasbon || 0) + Number(finRaw?.deduction_bpjs || 0)
+          const isCrewRole = ['crew', 'leader', 'kasir', 'kitchen', 'driver'].includes(s.role)
+          const crewOutletBonus = isCrewRole && s.outlet_id ? crewOutletBonusMap.get(`${s.id}_${s.outlet_id}`) : null
+          const rpcBonus = crewOutletBonus ? crewOutletBonus.bonus : (bonusMap.get(s.id) || 0)
+          const bBonus = rpcBonus > 0 ? rpcBonus : (isCrewRole ? 0 : Number(finRaw?.sales_bonus || 0))
+          const totalPcs = crewOutletBonus ? crewOutletBonus.pcs : (pcsMap.get(s.id) || (bBonus > 0 ? (s.role === 'area_manager' || s.role === 'regional_manager' ? Math.round(bBonus / 50) : Math.round(bBonus / 100)) : 0))
+          const total = Math.max(0, bSalary + effMealOrPres + aTransport + aComm + aPos + bBonus - deductions)
+
+          return {
+            id: `draft-${s.id}`,
+            period_month: primaryPeriod.month,
+            period_year: primaryPeriod.year,
+            outlet_id: s.outlet_id,
+            basic_salary: bSalary,
+            allowance_meal: aMeal,
+            allowance_transport: aTransport,
+            allowance_communication: aComm,
+            allowance_presence: aPres,
+            allowance_position: aPos,
+            bonus: bBonus,
+            total_pcs: totalPcs,
+            deductions,
+            total_salary: total,
+            status: 'draft' as const,
+            staff_id: s.id,
+            outlet_staff: {
+              id: s.id,
+              name: s.name,
+              username: s.username,
+              outlet_id: s.outlet_id,
+              role: s.role,
+              account_category: s.account_category,
+              email: s.email,
+              contract_type: s.contract_type,
+              sub_role: s.sub_role,
+              onboarding_stage: s.onboarding_stage
+            }
+          }
+        })
     }
 
     // Populate active staff into staffInfoMap if available
@@ -785,7 +1103,7 @@ export async function hitungRingkasanPayrollHr(filter: {
       if (s?.id && !staffInfoMap.has(s.id)) staffInfoMap.set(s.id, s)
     })
 
-    // Aggregate daily bonus detail strictly within [filter.from, filter.to]
+    // Aggregate daily bonus detail strictly within [subFrom, subTo]
     interface DailyCrewBonusAccumulator {
       staffId: string
       staffName: string
@@ -805,7 +1123,7 @@ export async function hitungRingkasanPayrollHr(filter: {
 
     allDailyBonusRows.forEach((d: any) => {
       if (!d.bonus_date) return
-      if (d.bonus_date < filter.from || d.bonus_date > filter.to) return
+      if (d.bonus_date < subFrom || d.bonus_date > subTo) return
       if (isSingleOutlet && d.outlet_id !== target) return
 
       const totalPcs = Number(d.total_pcs) || 0
@@ -958,7 +1276,7 @@ export async function hitungRingkasanPayrollHr(filter: {
 
         let bon = bonSplit.get(tId) || 0
         let managerPcs = 0
-        if (outletDailyPcsMap.size > 0 || isSingleOutlet) {
+        if (dailyBonusRpcSucceeded || outletDailyPcsMap.size > 0 || isSingleOutlet) {
           // Porsi di outletDailyPcsMap sudah total SELURUH rentang tanggal, sedangkan
           // manajer punya satu slip per bulan. Tanpa penjaga ini, rentang dua bulan
           // memberi bonus "porsi seluruh rentang x 50" ke tiap slip = dua kali lipat.
@@ -1125,8 +1443,10 @@ export async function hitungRingkasanPayrollHr(filter: {
       const isOjt = contractType === 'intern' || onboardingStage === 'ojt'
       const isRegular = !isBackup && !isTrainee && !isOjt
       const status: 'draft' | 'finalized' = r.status === 'finalized' ? 'finalized' : 'draft'
-      // Slip HR karyawan baru / trainee tengah bulan yang gapoknya sudah diprorata HR (< Rp 1,8 jt)
-      const isAlreadyProratedSlip = rawBasic > 0 && rawBasic < 1_800_000
+      // Slip HR karyawan baru / trainee tengah bulan yang gapoknya sudah diprorata HR (< Rp 1,8 jt).
+      // Baris draft sintetis bulan berjalan (`draft-*`) dikecualikan agar staf OJT/part-time tetap diprorata wajar di outlet parsial.
+      const isHrSlipRow = !String(r.id || '').startsWith('draft-')
+      const isAlreadyProratedSlip = isHrSlipRow && rawBasic > 0 && rawBasic < 1_800_000
 
       if (isPusat) {
         return {
@@ -1179,7 +1499,11 @@ export async function hitungRingkasanPayrollHr(filter: {
 
       if (hasMultiOutletAtt && rawAttMap) {
         const totalAttDays = Array.from(rawAttMap.values()).reduce((s, dSet) => s + dSet.size, 0)
-        const denom = isAlreadyProratedSlip ? Math.max(1, totalAttDays) : Math.max(26, totalAttDays)
+        // Di bulan berjalan yang belum selesai, pembagi menggunakan total hari hadir aktual agar tidak terjadi
+        // double-proration saat dikalikan lagi dengan rasio kalender berjalan (hari_berjalan / hari_bulan).
+        const denom = (isAlreadyProratedSlip || isRunningIncompleteMonth)
+          ? Math.max(1, totalAttDays)
+          : Math.max(26, totalAttDays)
         const retailAttDays = retailAttEntries.reduce((s, [, dSet]) => s + dSet.size, 0)
 
         const shares: CanonicalCrewShare[] = retailAttEntries.map(([attOid, dSet]) => {
@@ -1310,6 +1634,77 @@ export async function hitungRingkasanPayrollHr(filter: {
         }
       }
 
+      // Di bulan berjalan yang belum selesai: bila kru backup multi-cabang baru tercatat absen sedikit hari di 1 cabang,
+      // bebankan porsi hari hadir riil ke cabang tersebut dan bagi rata sisa kapasitas standby ke seluruh cabang binaan
+      // agar tidak menumpuk 100% beban bulanan ke satu cabang hanya karena 1 hari kunjungan backup.
+      if (isBackup && targets.length > 1 && retailAttEntries.length === 1 && isRunningIncompleteMonth) {
+        const [earnedOid, earnedSet] = retailAttEntries[0]
+        const attCount = earnedSet.size
+        const elapsedMonthDays = Math.max(1, Number(jakartaToday.slice(8, 10)) || 1)
+        const expectedWorkDays = Math.max(attCount, Math.max(1, Math.round((elapsedMonthDays * 26) / Math.max(1, totalMonthDays))))
+        if (attCount < expectedWorkDays) {
+          const earnedRatio = attCount / expectedWorkDays
+          const earnedG = Math.round(rawBasic * earnedRatio)
+          const earnedA = Math.round(rawAllowances * earnedRatio)
+          const earnedDed = Math.round(rawDeductions * earnedRatio)
+
+          const allSplitTargets = targets.includes(earnedOid) ? targets : [earnedOid, ...targets]
+          const gSplit = distributeEqualSplit(rawBasic - earnedG, allSplitTargets)
+          const aSplit = distributeEqualSplit(rawAllowances - earnedA, allSplitTargets)
+          const dedSplit = distributeEqualSplit(rawDeductions - earnedDed, allSplitTargets)
+
+          const shares: CanonicalCrewShare[] = allSplitTargets.map(tId => {
+            const isEarned = tId === earnedOid
+            const g = (gSplit.get(tId) || 0) + (isEarned ? earnedG : 0)
+            const a = (aSplit.get(tId) || 0) + (isEarned ? earnedA : 0)
+            const ded = (dedSplit.get(tId) || 0) + (isEarned ? earnedDed : 0)
+            const shRatio = rawBasic > 0 ? g / rawBasic : (1 / allSplitTargets.length)
+            return {
+              outletId: tId,
+              outletName: outletNameMap.get(tId) || 'Outlet',
+              basic: g,
+              allowances: a,
+              deductions: ded,
+              routine: g + a - ded,
+              slipBonus: tId === earnedOid ? rawBonus : 0,
+              attendanceDays: isEarned ? attCount : 0,
+              totalWorkDays: expectedWorkDays,
+              ratio: shRatio,
+              isSplitBackup: true,
+              splitNote: isEarned
+                ? `${attCount} hr backup di cabang ini + bagi rata standby (${allSplitTargets.length} cbg)`
+                : `Alokasi standby kru backup (${allSplitTargets.length} cbg)`
+            }
+          })
+          return {
+            rawRow: r,
+            staffId,
+            staffName,
+            role,
+            staffOutletId,
+            isPusat: false,
+            contractType,
+            subRole,
+            onboardingStage,
+            isBackup,
+            isTrainee,
+            isOjt,
+            isRegular,
+            rawBasic,
+            rawAllowances,
+            rawDeductions,
+            rawRoutine,
+            rawBonus,
+            rawTotal,
+            status,
+            targets: allSplitTargets,
+            hasMultiOutletAtt: true,
+            denom: expectedWorkDays,
+            shares
+          }
+        }
+      }
+
       const singleOid = retailAttEntries[0]?.[0] || targets[0] || staffOutletId || 'PUSAT'
       if (singleOid === 'PUSAT' || isNonRetailBucket(singleOid)) {
         return {
@@ -1366,7 +1761,14 @@ export async function hitungRingkasanPayrollHr(filter: {
           const effDays = attCount > 0 ? attCount : (opInfo.operationalCalendarDays || 0)
           partialNote = `${effDays}/26 hari kerja · Slip HR sudah proporsional hari masuk`
         } else {
-          const effectiveDays = attCount > 0 ? attCount : (opInfo.operationalCalendarDays || 0)
+          const metaSingle = outletMetaMap.get(singleOid)
+          const isInactiveSingle = metaSingle?.is_active === false || metaSingle?.status === 'inactive'
+          const projectedOpWorkDays = (isRunningIncompleteMonth && !isInactiveSingle)
+            ? Math.max(attCount, Math.round(((opInfo.operationalCalendarDays || 0) * 26) / Math.max(1, totalMonthDays)))
+            : 0
+          const effectiveDays = projectedOpWorkDays > 0
+            ? projectedOpWorkDays
+            : (attCount > 0 ? attCount : (opInfo.operationalCalendarDays || 0))
           cRatio = Math.min(1, effectiveDays / 26)
           partialNote = `${effectiveDays}/26 hari kerja · Proporsional operasional toko (${opInfo.operationalCalendarDays} hari kalender)`
         }
@@ -2269,7 +2671,7 @@ export async function hitungRingkasanPayrollHr(filter: {
         })
         .sort((a, b) => b.bonus - a.bonus)
 
-      if (target !== 'PUSAT' && outletDailyPcsMap.size > 0) {
+      if (target !== 'PUSAT' && (dailyBonusRpcSucceeded || outletDailyPcsMap.size > 0)) {
         managerBonusAllocation = Array.from(outletManagerAllocations.values()).reduce((sum, a) => sum + a.bonus, 0)
       }
       crewBonus = crewBonusDetails.reduce((sum, c) => sum + c.bonus, 0)
@@ -2352,7 +2754,7 @@ export async function hitungRingkasanPayrollHr(filter: {
 
     const managerBonusDetails = target !== 'PUSAT' ? managerRows
       // Satu baris per manajer: bonus porsi dihitung per rentang, bukan per slip bulanan.
-      .filter((m, i, arr) => outletDailyPcsMap.size === 0 || arr.findIndex(x => x.staff_id === m.staff_id) === i)
+      .filter((m, i, arr) => (!dailyBonusRpcSucceeded && outletDailyPcsMap.size === 0) || arr.findIndex(x => x.staff_id === m.staff_id) === i)
       .filter(m => {
         const staffRaw: any = m.outlet_staff
         const staffInfo = Array.isArray(staffRaw) ? staffRaw[0] : staffRaw
@@ -2367,7 +2769,7 @@ export async function hitungRingkasanPayrollHr(filter: {
 
         let mBonus = 0
         let totalPcs = 0
-        if (outletDailyPcsMap.size > 0) {
+        if (dailyBonusRpcSucceeded || outletDailyPcsMap.size > 0) {
           for (const alloc of outletManagerAllocations.values()) {
             const found = alloc.details.find(d => d.staffId === m.staff_id)
             if (found) {

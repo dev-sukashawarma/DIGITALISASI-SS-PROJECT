@@ -20,7 +20,8 @@ import {
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { HRPayrollSummary } from '@/lib/server/ringkasanPayrollHr'
-import type { ProrataInfo } from '@/lib/opexProrata'
+import { distributeEqualSplit, type ProrataInfo } from '@/lib/opexProrata'
+import { hitungRutinPerOutletPeriode } from '@/lib/opexDariHr'
 
 function formatBackupDates(dates: string[]): string {
   if (!dates || dates.length === 0) return ''
@@ -183,30 +184,40 @@ export function OpexCardDetailModals({
   if (!type) return null
 
   const { displaySalary, displayRoutineSalary, displayBonus, displayCrewBonus, displayManagerBonus, hasHrPayroll, hrPayroll, isProrated, prorataInfo } = salaryData
-  const ratio = isProrated && prorataInfo?.ratio ? prorataInfo.ratio : 1
+  const ratio = isProrated && prorataInfo?.ratio !== undefined ? prorataInfo.ratio : 1
+  const perOutletRutinMap = ((hrPayroll?.outlets?.length ?? 0) > 1 && salaryData.startDate && salaryData.endDate)
+    ? hitungRutinPerOutletPeriode(hrPayroll, salaryData.startDate, salaryData.endDate)
+    : null
   // Sumbangan tiap cabang untuk gaji rutin seorang manajer (dibagi rata ke cabang binaan).
-  // `faktor` = 1 untuk baseline sebulan, atau rasio hari untuk beban prorata periode ini.
-  const renderSumbanganCabang = (mgr: { staffId: string; staffName?: string }, faktor: number) => {
+  // `faktor` = 1 untuk baseline sebulan, atau rasio hari (per cabang bila ada outlet parsial) untuk beban periode ini.
+  const renderSumbanganCabang = (mgr: { staffId: string; staffName?: string }, faktor: number, isPeriode = false) => {
     if ((hrPayroll?.outlets?.length ?? 0) <= 1 || !hrPayroll?.managerDetailsByOutlet) return null
     const namaOutlet = new Map((hrPayroll.outlets ?? []).map(o => [o.outletId, o.outletName]))
     const dasar = Object.entries(hrPayroll.managerDetailsByOutlet).flatMap(([oid, daftar]) => {
       const entri = daftar.filter(x => x.staffId === mgr.staffId)
-      // Rentang multi-bulan: satu entri per slip bulanan, jumlahkan semuanya.
       return entri.length > 0
         ? [{ oid, nama: namaOutlet.get(oid) || 'Outlet', mentah: entri.reduce((s, d) => s + (d.routineAmount ?? (d.allocatedAmount - (d.bonusAmount || 0))), 0) }]
         : []
     })
     if (dasar.length === 0) return null
-    const target = Math.round(dasar.reduce((s, b) => s + b.mentah, 0) * faktor)
+    const pakePerOutlet = isPeriode && perOutletRutinMap !== null
     const perCabang = dasar
-      .map(b => ({ oid: b.oid, nama: b.nama, jumlah: Math.round(b.mentah * faktor) }))
+      .map(b => {
+        const fCabang = pakePerOutlet ? (perOutletRutinMap!.get(b.oid)?.itemRatio ?? faktor) : faktor
+        return { oid: b.oid, nama: b.nama, jumlah: Math.round(b.mentah * fCabang) }
+      })
       .sort((a, b) => b.jumlah - a.jumlah || a.nama.localeCompare(b.nama, 'id'))
-    // Sisa pembulatan ke cabang terbesar agar jumlahnya persis sama dengan angka kartu manajer.
-    perCabang[0].jumlah += target - perCabang.reduce((s, b) => s + b.jumlah, 0)
+    const target = pakePerOutlet
+      ? perCabang.reduce((s, b) => s + b.jumlah, 0)
+      : Math.round(dasar.reduce((s, b) => s + b.mentah, 0) * faktor)
+    if (!pakePerOutlet && perCabang.length > 0) {
+      // Sisa pembulatan ke cabang terbesar agar jumlahnya persis sama dengan angka kartu manajer.
+      perCabang[0].jumlah += target - perCabang.reduce((s, b) => s + b.jumlah, 0)
+    }
     return (
       <details className="rounded-lg border border-purple-100 bg-white/70 px-2.5 py-1 text-[11px]">
         <summary className="cursor-pointer select-none font-semibold text-purple-800">
-          Sumbangan tiap cabang untuk gaji {(mgr.staffName || '').split(' ')[0]} ({perCabang.length} Cbg){faktor !== 1 ? ' · prorata' : ''}
+          Sumbangan tiap cabang untuk gaji {(mgr.staffName || '').split(' ')[0]} ({perCabang.length} Cbg){(isPeriode && (isProrated || faktor !== 1)) ? ' · prorata' : ''}
         </summary>
         <div className="mt-1.5 space-y-0.5 max-h-[160px] overflow-y-auto scrollbar-thin pr-0.5">
           {perCabang.map(b => (
@@ -464,8 +475,11 @@ export function OpexCardDetailModals({
     })
   })()
 
+  const rmRowForPcs = calculatedManagerRows.find(r => r.role === 'regional_manager' || r.role === 'rm')
   const totalManagerPcs = calculatedManagerRows.length > 0
-    ? (managerBonusAmount > 0 ? Math.round(managerBonusAmount / 100) : 0)
+    ? (rmRowForPcs
+      ? rmRowForPcs.staffPcs
+      : calculatedManagerRows.reduce((s, r) => s + r.staffPcs, 0))
     : 0
 
   // Crew categorization helper (Reguler, Backup, Trainee, OJT)
@@ -766,17 +780,6 @@ export function OpexCardDetailModals({
                     const recTotal = recCrewRoutine + recMgrAlloc
                     const effRatio = recTotal > 0 ? (routineSalary / recTotal) : ratio
 
-                    let crewGapokProrata = Math.round(recCrewGapok * effRatio)
-                    const crewTunjProrata = Math.round(recCrewTunj * effRatio)
-                    const crewPotProrata = Math.round(recCrewPot * effRatio)
-                    const mgrAllocProrata = isPusat ? 0 : Math.round(recMgrAlloc * effRatio)
-                    const rawTotalProrata = Math.max(0, crewGapokProrata + crewTunjProrata - crewPotProrata) + mgrAllocProrata
-                    if (routineSalary >= 0 && rawTotalProrata !== routineSalary && (recCrewGapok > 0 || crewGapokProrata > 0)) {
-                      crewGapokProrata = Math.max(0, crewGapokProrata + (routineSalary - rawTotalProrata))
-                    }
-                    const crewRoutineProrata = Math.max(0, crewGapokProrata + crewTunjProrata - crewPotProrata)
-                    const totalProrata = isPusat ? crewRoutineProrata : (crewRoutineProrata + mgrAllocProrata)
-
                     const allStaff = hrPayroll?.staffDetails || []
                     const crewList = urutkanKru(allStaff.filter(s => !s.isManagerAllocation))
                     const crewCount = crewList.length > 0 ? crewList.length : (hrPayroll?.crewCount ?? hrPayroll?.totalStaff ?? 0)
@@ -806,6 +809,141 @@ export function OpexCardDetailModals({
                     )
                     const recMgrGapok = Math.round(hrPayroll.managerBasicSalaryAllocation ?? mgrGapok1Bln)
                     const recMgrTunj = Math.round(hrPayroll.managerAllowancesAllocation ?? mgrTunj1Bln)
+
+                    // Helper rasio per cabang untuk tampilan konsolidasi multi-cabang (agar outlet tutup/parsial tidak terdistorsi effRatio tunggal)
+                    const outletIdsInScope = new Set((hrPayroll.outlets ?? []).map(o => o.outletId))
+                    const faktorCabang = (oid?: string | null) => {
+                      if (!perOutletRutinMap || !oid) return effRatio
+                      return perOutletRutinMap.get(oid)?.itemRatio ?? effRatio
+                    }
+                    const hitungKruPeriode = (s: typeof crewList[number]) => {
+                      if (!perOutletRutinMap) {
+                        return {
+                          routine: Math.round(s.routineSalary * effRatio),
+                          gapok: Math.round(s.basicSalary * effRatio),
+                          tunj: Math.round(s.allowances * effRatio),
+                          pot: Math.round(s.deductions * effRatio),
+                        }
+                      }
+                      if (s.outletBreakdowns && s.outletBreakdowns.length > 0) {
+                        let routine = 0, gapok = 0, tunj = 0, pot = 0
+                        for (const b of s.outletBreakdowns) {
+                          const f = faktorCabang(b.outletId)
+                          routine += Math.round((Number(b.routineSalary) || 0) * f)
+                          gapok += Math.round((Number(b.basicSalary) || 0) * f)
+                          tunj += Math.round((Number(b.allowances) || 0) * f)
+                          pot += Math.round((Number(b.deductions) || 0) * f)
+                        }
+                        return { routine, gapok, tunj, pot }
+                      }
+                      const tujuanAll = (s.allocatedOutletIds ?? []).filter(id => id && id !== 'PUSAT')
+                      if (s.isBackupAllocation && tujuanAll.length > 1) {
+                        const pSplit = distributeEqualSplit(Number(s.fullBasicSalary ?? s.basicSalary) || 0, tujuanAll)
+                        const tSplit = distributeEqualSplit(Number(s.fullAllowances ?? s.allowances) || 0, tujuanAll)
+                        const dSplit = distributeEqualSplit(Number(s.fullDeductions ?? s.deductions) || 0, tujuanAll)
+                        const tujuanAktif = outletIdsInScope.size > 0 ? tujuanAll.filter(id => outletIdsInScope.has(id)) : tujuanAll
+                        let routine = 0, gapok = 0, tunj = 0, pot = 0
+                        for (const id of tujuanAktif) {
+                          const f = faktorCabang(id)
+                          const gShare = pSplit.get(id) || 0
+                          const tShare = tSplit.get(id) || 0
+                          const dShare = dSplit.get(id) || 0
+                          gapok += Math.round(gShare * f)
+                          tunj += Math.round(tShare * f)
+                          pot += Math.round(dShare * f)
+                          routine += Math.round((gShare + tShare - dShare) * f)
+                        }
+                        return { routine, gapok, tunj, pot }
+                      }
+                      const f = faktorCabang(s.outletId)
+                      return {
+                        routine: Math.round(s.routineSalary * f),
+                        gapok: Math.round(s.basicSalary * f),
+                        tunj: Math.round(s.allowances * f),
+                        pot: Math.round(s.deductions * f),
+                      }
+                    }
+                    const hitungManajerPeriode = (mgr: any) => {
+                      const mgrRoutine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
+                      const mgrAllocGapok = mgr.allocatedBasicSalary ?? (mgr.basicSalary ? Math.round(mgr.basicSalary / (mgr.coachedOutletsCount || 21)) : 0)
+                      const mgrAllocTunj = mgr.allocatedAllowances ?? Math.max(0, mgrRoutine - mgrAllocGapok)
+                      if (!perOutletRutinMap || !hrPayroll.managerDetailsByOutlet) {
+                        return {
+                          routine: Math.round(mgrRoutine * effRatio),
+                          gapok: Math.round(mgrAllocGapok * effRatio),
+                          tunj: Math.round(mgrAllocTunj * effRatio),
+                        }
+                      }
+                      let routine = 0, gapok = 0, tunj = 0, matched = false
+                      for (const [oid, daftar] of Object.entries(hrPayroll.managerDetailsByOutlet)) {
+                        const entri = daftar.filter(x => x.staffId === mgr.staffId)
+                        if (entri.length === 0) continue
+                        matched = true
+                        const f = faktorCabang(oid)
+                        const eRoutine = entri.reduce((acc, d) => acc + (d.routineAmount ?? (d.allocatedAmount - (d.bonusAmount || 0))), 0)
+                        const eGapok = entri.reduce((acc, d) => acc + (d.allocatedBasicSalary ?? 0), 0)
+                        const eTunj = entri.reduce((acc, d) => acc + (d.allocatedAllowances ?? 0), 0)
+                        routine += Math.round(eRoutine * f)
+                        gapok += Math.round(eGapok * f)
+                        tunj += Math.round(eTunj * f)
+                      }
+                      if (!matched) {
+                        return {
+                          routine: Math.round(mgrRoutine * effRatio),
+                          gapok: Math.round(mgrAllocGapok * effRatio),
+                          tunj: Math.round(mgrAllocTunj * effRatio),
+                        }
+                      }
+                      return { routine, gapok, tunj }
+                    }
+
+                    let crewGapokProrata: number
+                    let crewTunjProrata: number
+                    let crewPotProrata: number
+                    let mgrAllocProrata: number
+                    let mgrGapokProrataBox: number
+                    let mgrTunjProrataBox: number
+                    if (perOutletRutinMap && !isPusat) {
+                      const kruTotals = crewList.reduce(
+                        (acc, s) => {
+                          const p = hitungKruPeriode(s)
+                          acc.gapok += p.gapok
+                          acc.tunj += p.tunj
+                          acc.pot += p.pot
+                          return acc
+                        },
+                        { gapok: 0, tunj: 0, pot: 0 },
+                      )
+                      const mgrTotals = managerList.reduce(
+                        (acc, m) => {
+                          const p = hitungManajerPeriode(m)
+                          acc.routine += p.routine
+                          acc.gapok += p.gapok
+                          acc.tunj += p.tunj
+                          return acc
+                        },
+                        { routine: 0, gapok: 0, tunj: 0 },
+                      )
+                      crewGapokProrata = kruTotals.gapok
+                      crewTunjProrata = kruTotals.tunj
+                      crewPotProrata = kruTotals.pot
+                      mgrAllocProrata = mgrTotals.routine
+                      mgrGapokProrataBox = mgrTotals.gapok
+                      mgrTunjProrataBox = mgrTotals.tunj
+                    } else {
+                      crewGapokProrata = Math.round(recCrewGapok * effRatio)
+                      crewTunjProrata = Math.round(recCrewTunj * effRatio)
+                      crewPotProrata = Math.round(recCrewPot * effRatio)
+                      mgrAllocProrata = isPusat ? 0 : Math.round(recMgrAlloc * effRatio)
+                      mgrGapokProrataBox = Math.round(recMgrGapok * effRatio)
+                      mgrTunjProrataBox = Math.round(recMgrTunj * effRatio)
+                    }
+                    const rawTotalProrata = Math.max(0, crewGapokProrata + crewTunjProrata - crewPotProrata) + mgrAllocProrata
+                    if (routineSalary >= 0 && rawTotalProrata !== routineSalary && (recCrewGapok > 0 || crewGapokProrata > 0)) {
+                      crewGapokProrata = Math.max(0, crewGapokProrata + (routineSalary - rawTotalProrata))
+                    }
+                    const crewRoutineProrata = Math.max(0, crewGapokProrata + crewTunjProrata - crewPotProrata)
+                    const totalProrata = isPusat ? crewRoutineProrata : (crewRoutineProrata + mgrAllocProrata)
                     const mgrFullGapokSum = Math.round(managerList.reduce((sum, m) => sum + (m.basicSalary || 0), 0))
                     const mgrFullTunjSum = Math.round(managerList.reduce((sum, m) => sum + (m.allowances || 0), 0))
                     const mgrFullPotSum = Math.round(managerList.reduce((sum, m) => sum + (m.deductions || 0), 0))
@@ -1233,8 +1371,9 @@ export function OpexCardDetailModals({
                                   {crewList.length > 0 ? (
                                     crewList.map((s) => {
                                       const isBackupSplit = Boolean(s.isBackupAllocation && (s.backupOutletsCount ?? 1) > 1)
-                                      const sRoutineProrata = Math.round(s.routineSalary * effRatio)
-                                      const sGapokProrata = Math.round(s.basicSalary * effRatio)
+                                      const sPeriode = hitungKruPeriode(s)
+                                      const sRoutineProrata = sPeriode.routine
+                                      const sGapokProrata = sPeriode.gapok
                                       return (
                                         <div key={s.staffId} className="flex items-center justify-between bg-amber-50/40 px-2.5 py-2 rounded-lg border border-amber-200/80 text-xs gap-2">
                                           <div className="flex flex-col min-w-0">
@@ -1328,13 +1467,13 @@ export function OpexCardDetailModals({
                                     <div className="bg-amber-50/40 p-2 rounded-lg border border-amber-200/80 text-center">
                                       <span className="text-[9px] uppercase font-bold text-gray-600 block">1. Gapok Prorata</span>
                                       <span className="text-xs font-bold text-gray-900 mt-0.5 block font-mono">
-                                        +{rupiah(Math.round(recMgrGapok * effRatio))}
+                                        +{rupiah(mgrGapokProrataBox)}
                                       </span>
                                     </div>
                                     <div className="bg-amber-50/40 p-2 rounded-lg border border-purple-200/80 text-center">
                                       <span className="text-[9px] uppercase font-bold text-purple-800 block">2. Tunjangan Prorata</span>
                                       <span className="text-xs font-bold text-purple-700 mt-0.5 block font-mono">
-                                        +{rupiah(Math.round(recMgrTunj * effRatio))}
+                                        +{rupiah(mgrTunjProrataBox)}
                                       </span>
                                     </div>
                                   </div>
@@ -1343,7 +1482,8 @@ export function OpexCardDetailModals({
                                     {managerList.length > 0 ? (
                                       managerList.map((mgr) => {
                                         const mgrRoutine = mgr.routineAmount ?? (mgr.allocatedAmount - (mgr.bonusAmount || 0))
-                                        const mgrAlloc = Math.round(mgrRoutine * effRatio)
+                                        const mPeriode = hitungManajerPeriode(mgr)
+                                        const mgrAlloc = mPeriode.routine
                                         const mgrAllocGapok = mgr.allocatedBasicSalary ?? (mgr.basicSalary ? Math.round(mgr.basicSalary / (mgr.coachedOutletsCount || 21)) : 0)
                                         const mgrAllocTunj = mgr.allocatedAllowances ?? Math.max(0, mgrRoutine - mgrAllocGapok)
                                         return (
@@ -1383,7 +1523,7 @@ export function OpexCardDetailModals({
                                               <span className="text-[9px] text-gray-500 block font-normal">
                                                 {isProrated ? (
                                                   <>
-                                                    Gapok {rupiah(Math.round(mgrAllocGapok * effRatio))}{mgrAllocTunj > 0 ? ` + Tunj ${rupiah(Math.round(mgrAllocTunj * effRatio))}` : ''}
+                                                    Gapok {rupiah(mPeriode.gapok)}{mPeriode.tunj > 0 ? ` + Tunj ${rupiah(mPeriode.tunj)}` : ''}
                                                     <span className="text-gray-400 ml-1">(1 bln: +{rupiah(mgrRoutine)})</span>
                                                   </>
                                                 ) : (
@@ -1392,7 +1532,7 @@ export function OpexCardDetailModals({
                                               </span>
                                             </div>
                                           </div>
-                                            {renderSumbanganCabang(mgr, effRatio)}
+                                            {renderSumbanganCabang(mgr, effRatio, true)}
                                           </div>
                                         )
                                       })
@@ -1506,6 +1646,15 @@ export function OpexCardDetailModals({
                             const fStart = salaryData.startDate
                             const fEnd = salaryData.endDate
                             const computedRows = (hrPayroll?.outlets || []).map((item) => {
+                              const rInfo = perOutletRutinMap?.get(item.outletId)
+                              if (rInfo) {
+                                return {
+                                  item,
+                                  outletRoutine1Bln: rInfo.rutin1Bln,
+                                  outletRoutineProrata: rInfo.rutinPeriode,
+                                  mgrRoutineProrata: rInfo.mgrPeriode,
+                                }
+                              }
                               const outletRoutine1Bln = Math.max(0, item.totalSalary - (item.bonus || 0))
                               let itemRatio = ratio
                               if (item.outletId !== 'PUSAT' && item.isPartial && fStart && fEnd) {
@@ -1537,13 +1686,15 @@ export function OpexCardDetailModals({
                             })
 
                             const sumProrata = computedRows.reduce((s, r) => s + r.outletRoutineProrata, 0)
-                            if (computedRows.length > 0 && routineSalary >= 0 && sumProrata !== routineSalary) {
+                            const selisihBulat = routineSalary - sumProrata
+                            const batasBulat = Math.max(50, computedRows.length * 10)
+                            if (computedRows.length > 0 && routineSalary >= 0 && selisihBulat !== 0 && Math.abs(selisihBulat) <= batasBulat) {
                               let maxIdx = 0
                               for (let i = 1; i < computedRows.length; i++) {
                                 if (computedRows[i].outletRoutineProrata > computedRows[maxIdx].outletRoutineProrata) maxIdx = i
                               }
                               if (computedRows[maxIdx].outletRoutineProrata > 0 || routineSalary > 0) {
-                                computedRows[maxIdx].outletRoutineProrata = Math.max(0, computedRows[maxIdx].outletRoutineProrata + (routineSalary - sumProrata))
+                                computedRows[maxIdx].outletRoutineProrata = Math.max(0, computedRows[maxIdx].outletRoutineProrata + selisihBulat)
                               }
                             }
 

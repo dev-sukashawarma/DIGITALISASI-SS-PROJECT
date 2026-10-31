@@ -121,8 +121,13 @@ export async function getProrataAuxiliaryDataAction({
       account_category,
       staff_financials(
         basic_salary,
+        allowance_meal,
+        allowance_transport,
+        allowance_communication,
         allowance_position,
-        allowance_presence
+        allowance_presence,
+        deduction_kasbon,
+        deduction_bpjs
       )
     `)
     .eq('status', 'active')
@@ -241,11 +246,22 @@ export async function getProrataAuxiliaryDataAction({
     .filter(s => isStafKantor(s, s.outlet_id))
     .reduce((sum, s) => {
       const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
-      return sum + (Number(fin?.basic_salary) || 0) + (Number(fin?.allowance_position) || 0) + (Number(fin?.allowance_presence) || 0)
+      const bSalary = Number(fin?.basic_salary) || 0
+      const aMealOrPres = Number(fin?.allowance_meal || fin?.allowance_presence) || 0
+      const aTransport = Number(fin?.allowance_transport) || 0
+      const aComm = Number(fin?.allowance_communication) || 0
+      const aPos = Number(fin?.allowance_position) || 0
+      const ded = (Number(fin?.deduction_kasbon) || 0) + (Number(fin?.deduction_bpjs) || 0)
+      return sum + Math.max(0, bSalary + aMealOrPres + aTransport + aComm + aPos - ded)
     }, 0)
 
   const crewBonusRecords: CrewBonusRecord[] = bonusResults.flat()
   const bonusOutletIds = new Set(crewBonusRecords.map(c => c.outlet_id))
+  const payrollOutletIds = new Set(
+    ((payrollRes.data ?? []) as any[])
+      .map(r => (r.outlet_id || r.outlet_staff?.outlet_id) as string | undefined)
+      .filter((id): id is string => Boolean(id && id !== KANTOR_PUSAT_ID)),
+  )
 
   const operationalOutletIds: string[] = ((opOutletsRes.data ?? []) as any[])
     .filter(o => {
@@ -253,7 +269,7 @@ export async function getProrataAuxiliaryDataAction({
       // Sawangan internal digantikan oleh Mitra Sawangan DTC agar tidak double-counting
       if (o.slug === 'sawangan-depok-internal') return false
       const isActive = o.is_active === true && o.status === 'active'
-      const hadActivityInPeriod = bonusOutletIds.has(o.id)
+      const hadActivityInPeriod = bonusOutletIds.has(o.id) || payrollOutletIds.has(o.id)
       return isActive || hadActivityInPeriod
     })
     .map(o => o.id)

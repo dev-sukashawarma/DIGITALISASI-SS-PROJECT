@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { bagiPersis, barisPayrollDariHr, gajiRutinBulananKartu, gantiPayrollDenganHr, ringkasanHrKelompok } from './opexDariHr'
+import {
+  bagiPersis,
+  barisPayrollDariHr,
+  gajiRutinBulananKartu,
+  gantiPayrollDenganHr,
+  hitungGajiRutinPeriodeDariHr,
+  hitungRutinPerOutletPeriode,
+  ringkasanHrKelompok,
+} from './opexDariHr'
 
 const hr = (o: Record<string, unknown> = {}) => ({
   totalSalary: 10, totalStaff: 3, basicSalary: 9_000_000, allowances: 1_000_000, bonus: 0, deductions: 100_000,
@@ -251,5 +259,147 @@ describe('ringkasanHrKelompok', () => {
 
   it('tanpa data HR mengembalikan null', () => {
     expect(ringkasanHrKelompok(null, () => true)).toBeNull()
+  })
+
+  it('INTERNAL_PUSAT menambahkan baris outlet PUSAT sendiri (tidak menumpuk ke cabang ritel terbesar)', () => {
+    const hCabang = hr({
+      basicSalary: 5_000_000, allowances: 0, deductions: 0,
+      crewBasicSalary: 5_000_000, crewAllowances: 0, crewDeductions: 0, managerAllocation: 0,
+      outlets: [
+        { outletId: 'a', outletName: 'EMPANG', staffCount: 2, totalSalary: 5_000_000, bonus: 0, draftCount: 2, finalizedCount: 0, status: 'draft' },
+      ],
+      staffDetails: [
+        { staffId: '1', outletId: 'a', outletName: 'EMPANG', basicSalary: 5_000_000, allowances: 0, deductions: 0, routineSalary: 5_000_000 },
+      ],
+    })
+    const hPusat = hr({
+      totalStaff: 23,
+      totalSalary: 69_622_692,
+      basicSalary: 60_000_000,
+      allowances: 10_000_000,
+      deductions: 377_308,
+      bonus: 0,
+      outlets: [],
+      staffDetails: [
+        { staffId: 'hq-1', outletId: 'PUSAT', outletName: 'Kantor Pusat', basicSalary: 60_000_000, allowances: 10_000_000, deductions: 377_308, routineSalary: 69_622_692 },
+      ],
+    })
+    const grup = ringkasanHrKelompok(hCabang, id => id === 'a', hPusat)!
+    const pusatRow = grup.outlets?.find(o => o.outletId === 'PUSAT')
+    const empangRow = grup.outlets?.find(o => o.outletId === 'a')
+    expect(pusatRow).toBeDefined()
+    expect(pusatRow?.outletName).toBe('Kantor Pusat')
+    expect(pusatRow?.totalSalary).toBe(69_622_692)
+    expect(empangRow?.totalSalary).toBe(5_000_000)
+
+    const peta = hitungRutinPerOutletPeriode(grup, '2026-10-01', '2026-10-31')
+    expect(peta.get('PUSAT')?.rutinPeriode).toBe(69_622_692)
+    expect(peta.get('a')?.rutinPeriode).toBe(5_000_000)
+  })
+})
+
+describe('lintas bulan (periodBreakdown) & perbatasan 1 November', () => {
+  it('barisPayrollDariHr & hitungGajiRutinPeriodeDariHr memecah tepat per bulan kalender dengan expense_date masing-masing', () => {
+    const oktSummary = hr({
+      totalSalary: 6_000_000,
+      basicSalary: 6_000_000, allowances: 0, deductions: 0,
+      crewBasicSalary: 6_000_000, crewAllowances: 0, crewDeductions: 0, managerAllocation: 0,
+      crewBonus: 120_000, managerBonusAllocation: 60_000,
+      outlets: [
+        { outletId: 'a', outletName: 'EMPANG', staffCount: 2, totalSalary: 5_000_000, bonus: 0, draftCount: 0, finalizedCount: 2, status: 'finalized', isPartial: false, managerBonusAllocation: 50_000 },
+        {
+          outletId: 'paledang', outletName: 'PALEDANG', staffCount: 2, totalSalary: 1_000_000, bonus: 0, draftCount: 2, finalizedCount: 0, status: 'draft',
+          isPartial: true, operationalFirstDate: '2026-10-26', operationalLastDate: '2026-10-31', operationalCalendarDays: 6, managerBonusAllocation: 10_000,
+        },
+      ],
+      staffDetails: [
+        { staffId: '1', outletId: 'a', outletName: 'EMPANG', basicSalary: 5_000_000, allowances: 0, deductions: 0, routineSalary: 5_000_000 },
+        { staffId: '2', outletId: 'paledang', outletName: 'PALEDANG', basicSalary: 1_000_000, allowances: 0, deductions: 0, routineSalary: 1_000_000 },
+      ],
+      crewBonusByOutlet: { a: 100_000, paledang: 20_000 },
+    })
+
+    const novSummary = hr({
+      totalSalary: 9_000_000,
+      basicSalary: 9_000_000, allowances: 0, deductions: 0,
+      crewBasicSalary: 9_000_000, crewAllowances: 0, crewDeductions: 0, managerAllocation: 0,
+      crewBonus: 30_000, managerBonusAllocation: 15_000,
+      outlets: [
+        { outletId: 'a', outletName: 'EMPANG', staffCount: 2, totalSalary: 5_000_000, bonus: 0, draftCount: 2, finalizedCount: 0, status: 'draft', isPartial: false, managerBonusAllocation: 10_000 },
+        { outletId: 'paledang', outletName: 'PALEDANG', staffCount: 2, totalSalary: 4_000_000, bonus: 0, draftCount: 2, finalizedCount: 0, status: 'draft', isPartial: false, managerBonusAllocation: 5_000 },
+      ],
+      staffDetails: [
+        { staffId: '1', outletId: 'a', outletName: 'EMPANG', basicSalary: 5_000_000, allowances: 0, deductions: 0, routineSalary: 5_000_000 },
+        { staffId: '2', outletId: 'paledang', outletName: 'PALEDANG', basicSalary: 4_000_000, allowances: 0, deductions: 0, routineSalary: 4_000_000 },
+      ],
+      crewBonusByOutlet: { a: 20_000, paledang: 10_000 },
+    })
+
+    // Simulasi preset "7 Hari" pada 1 November 2026: 2026-10-26 s/d 2026-11-01
+    const gabungan = {
+      ...novSummary,
+      crewBonus: 150_000,
+      managerBonusAllocation: 75_000,
+      bonus: 225_000,
+      periodBreakdown: [
+        { year: 2026, month: 10, from: '2026-10-26', to: '2026-10-31', summary: oktSummary },
+        { year: 2026, month: 11, from: '2026-11-01', to: '2026-11-01', summary: novSummary },
+      ],
+    } as any
+
+    const rows = barisPayrollDariHr({ hr: gabungan, from: '2026-10-26', to: '2026-11-01' })!
+    const expectedOktEmpang = Math.round(5_000_000 * 6 / 31)
+    const expectedOktPaledang = 1_000_000 // 26-31 Okt = 6/6 hari operasional (100% porsi Okt, BUKAN Rp 0!)
+    const expectedNov = Math.round(9_000_000 * 1 / 30)
+    const totalGajiRows = jumlah(rows, 'gaji_crew_outlet')
+
+    expect(totalGajiRows).toBe(expectedOktEmpang + expectedOktPaledang + expectedNov)
+    expect(hitungGajiRutinPeriodeDariHr({ hr: gabungan, from: '2026-10-26', to: '2026-11-01', target: 'ALL_OUTLETS' })).toBe(totalGajiRows)
+
+    // expense_date tiap sub-periode berada di bulan masing-masing agar grafik Laba Rugi bulanan tidak meleset
+    expect(rows.some(r => r.period_month === '2026-10-01' && r.expense_date === '2026-10-31')).toBe(true)
+    expect(rows.some(r => r.period_month === '2026-11-01' && r.expense_date === '2026-11-01')).toBe(true)
+    // ID baris unik lintas bulan
+    const ids = rows.map(r => r.id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('hitungRutinPerOutletPeriode memberi rasio 0 untuk cabang tutup (Ciseeng) dan rasio penuh untuk cabang baru (Paledang) di akhir bulan', () => {
+    const h = hr({
+      basicSalary: 7_000_000, allowances: 0, deductions: 0,
+      crewBasicSalary: 7_000_000, crewAllowances: 0, crewDeductions: 0, managerAllocation: 0,
+      outlets: [
+        { outletId: 'empang', outletName: 'EMPANG', staffCount: 2, totalSalary: 5_000_000, bonus: 0, draftCount: 0, finalizedCount: 2, status: 'finalized', isPartial: false },
+        { outletId: 'ciseeng', outletName: 'CISEENG', staffCount: 1, totalSalary: 1_000_000, bonus: 0, draftCount: 0, finalizedCount: 1, status: 'finalized', isPartial: true, operationalFirstDate: '2026-10-01', operationalLastDate: '2026-10-11', operationalCalendarDays: 11 },
+        { outletId: 'paledang', outletName: 'PALEDANG', staffCount: 1, totalSalary: 1_000_000, bonus: 0, draftCount: 1, finalizedCount: 0, status: 'draft', isPartial: true, operationalFirstDate: '2026-10-26', operationalLastDate: '2026-10-31', operationalCalendarDays: 6 },
+      ],
+      staffDetails: [
+        { staffId: '1', outletId: 'empang', outletName: 'EMPANG', routineSalary: 5_000_000 },
+        { staffId: '2', outletId: 'ciseeng', outletName: 'CISEENG', routineSalary: 1_000_000 },
+        { staffId: '3', outletId: 'paledang', outletName: 'PALEDANG', routineSalary: 1_000_000 },
+      ],
+    })
+    const peta = hitungRutinPerOutletPeriode(h, '2026-10-20', '2026-10-31')
+    expect(peta.get('ciseeng')?.itemRatio).toBe(0)
+    expect(peta.get('ciseeng')?.rutinPeriode).toBe(0)
+    expect(peta.get('paledang')?.itemRatio).toBe(1)
+    expect(peta.get('paledang')?.rutinPeriode).toBe(1_000_000)
+    expect(peta.get('empang')?.rutinPeriode).toBe(Math.round(5_000_000 * 12 / 31))
+  })
+
+  it('bonus slip bulanan staf Kantor Pusat (PUSAT) masuk ke gaji rutin pusat agar selisih Rp 0 dengan susunBarisGajiKantor Laba Rugi', () => {
+    const hPusatSep = hr({
+      totalStaff: 12,
+      basicSalary: 60_000_000,
+      allowances: 12_355_768,
+      bonus: 1_400_000,
+      deductions: 0,
+      totalSalary: 73_755_768,
+      staffDetails: [
+        { staffId: 'hq-1', outletId: 'PUSAT', outletName: 'Kantor Pusat', basicSalary: 60_000_000, allowances: 12_355_768, bonus: 1_400_000, deductions: 0, routineSalary: 72_355_768, totalSalary: 73_755_768 },
+      ],
+    })
+    expect(gajiRutinBulananKartu(hPusatSep, true)).toBe(73_755_768)
+    expect(hitungGajiRutinPeriodeDariHr({ hr: hPusatSep, from: '2026-09-25', to: '2026-09-30', target: 'PUSAT' })).toBe(Math.round(73_755_768 * 6 / 30))
   })
 })

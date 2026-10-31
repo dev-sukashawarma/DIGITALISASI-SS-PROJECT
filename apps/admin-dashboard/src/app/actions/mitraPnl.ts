@@ -384,12 +384,16 @@ async function hitungPnlMitra(
       .select('id, name, slug, type, is_active, status')
       .in('type', ['internal', 'mitra']),
     // HPP berbasis riwayat harga bahan baku & resep dinamis (Single Source of Truth)
-    fetchHppRows(supabase, {
-      from: filter.from,
-      to: filter.to,
-      outletId: selectedOutletId,
-      source: 'all',
-    }).catch(err => {
+    fetchHppRows(
+      supabase,
+      {
+        from: filter.from,
+        to: filter.to,
+        outletId: selectedOutletId,
+        source: 'all',
+      },
+      { respectMitraCutoff: true },
+    ).catch(err => {
       console.warn('Gagal memuat fetchHppRows di mitraPnl:', err)
       return [] as HppRow[]
     }),
@@ -561,10 +565,12 @@ async function hitungPnlMitra(
     }
   }
 
-  // 4b. HPP dari fetchHppRows (Single Source of Truth)
+  // 4b. HPP dari fetchHppRows (Single Source of Truth, sudah dipotong tanggal_mulai kemitraan)
   if (hppRows.length > 0) {
     for (const r of hppRows) {
       if (!targetOutletIds.includes(r.outlet_id)) continue
+      const cutoff = outletCutoffMap.get(r.outlet_id)
+      if (cutoff && filter.to < cutoff) continue
 
       const outletHpp = Number(r.hpp) || 0
       const outletChannels = r.channels || { outlet: 0, food_apps: 0, tiktok_go: 0, website: 0 }

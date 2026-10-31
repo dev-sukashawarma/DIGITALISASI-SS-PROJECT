@@ -65,6 +65,21 @@ describe('access matrix', () => {
     expect(hasAppAccess('driver', 'finance')).toBe(false)
     expect(accessibleApps('driver')).toEqual(['absensi', 'distribusi'])
   })
+
+  it('user khusus: adminkitchen selalu mendapat absensi, ading selalu mendapat stok', () => {
+    expect(hasAppAccess('kitchen', 'absensi', 'adminkitchen')).toBe(true)
+    expect(accessibleApps('kitchen', 'adminkitchen')).toContain('absensi')
+
+    expect(hasAppAccess('crew', 'stok', 'ading')).toBe(true)
+    expect(hasAppAccess('crew', 'stok', 'ading@ss.com')).toBe(true)
+    expect(accessibleApps('crew', 'ading')).toContain('stok')
+    expect(accessibleApps('crew', 'ading@ss.com')).toContain('stok')
+
+    // Bahkan bila di lokasi Kantor Pusat (yang normalnya crew dibatasi ke absensi saja)
+    const kantorPusat = { outlet_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', outlets: { name: 'KANTOR PUSAT' } }
+    expect(hasAppAccess('crew', 'stok', 'ading', kantorPusat)).toBe(true)
+    expect(accessibleApps('crew', 'ading', kantorPusat)).toContain('stok')
+  })
 })
 
 describe('Kantor Pusat: staf pusat & crew dibatasi', () => {

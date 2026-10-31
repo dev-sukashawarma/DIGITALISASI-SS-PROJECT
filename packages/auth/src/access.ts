@@ -53,20 +53,27 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
  * tetap memakai matriks role biasa.
  */
 export function hasAppAccess(role: Role, app: AppName, username?: string | null, lokasi?: LokasiStaff): boolean {
+  const normUser = username?.trim().toLowerCase()
+  if ((normUser === 'ading' || normUser === 'ading@ss.com') && app === 'stok') {
+    return true
+  }
   const terbatas = appTerbatasKantorPusat(role, lokasi)
   if (terbatas) return terbatas.includes(app)
-  if (username === 'adminkitchen' && app === 'absensi') {
+  if (normUser === 'adminkitchen' && app === 'absensi') {
     return true
   }
   return ROLE_APP_ACCESS[role]?.includes(app) ?? false
 }
 
 export function accessibleApps(role: Role, username?: string | null, lokasi?: LokasiStaff): AppName[] {
+  const normUser = username?.trim().toLowerCase()
   const terbatas = appTerbatasKantorPusat(role, lokasi)
-  if (terbatas) return [...terbatas]
-  const apps = [...(ROLE_APP_ACCESS[role] ?? [])]
-  if (username === 'adminkitchen' && !apps.includes('absensi')) {
+  const apps = terbatas ? [...terbatas] : [...(ROLE_APP_ACCESS[role] ?? [])]
+  if (normUser === 'adminkitchen' && !apps.includes('absensi')) {
     apps.push('absensi')
+  }
+  if ((normUser === 'ading' || normUser === 'ading@ss.com') && !apps.includes('stok')) {
+    apps.push('stok')
   }
   return apps
 }

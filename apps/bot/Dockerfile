@@ -13,7 +13,7 @@ COPY packages/design-system/package.json packages/design-system/package.json
 COPY apps/bot/package.json apps/bot/package.json
 
 RUN --mount=type=cache,id=suka-bot-yarn-v1,sharing=locked,target=/usr/local/share/.cache/yarn/v6 \
-    corepack enable && yarn install --frozen-lockfile --network-timeout 600000
+    corepack enable && (yarn install --frozen-lockfile --network-timeout 600000 || (yarn cache clean --all && yarn install --frozen-lockfile --network-timeout 600000))
 
 # Only these shared packages are imported by Bot.
 COPY packages/auth packages/auth

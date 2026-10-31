@@ -10,6 +10,9 @@ on:
       - 'packages/design-system/**'
       - 'packages/realtime/**'
       - 'packages/offline-queue/**'
+      - 'packages/hr-rumus/**'
+      - 'package.json'
+      - 'yarn.lock'
       - '.github/workflows/deploy-admin-coolify.yml'
   workflow_dispatch:
 

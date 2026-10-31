@@ -62,3 +62,47 @@ describe('getItemHpp — markup mitra', () => {
     expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos')).toBe(Math.round(18310 * 1.1))
   })
 })
+
+
+import { buildMenuMaps, buildPenerapHpp } from './compute'
+import { MENU_SELECT } from './laporan'
+
+describe('buildMenuMaps & MENU_SELECT — proteksi duplikat yatim menu_items', () => {
+  it('MENU_SELECT memuat is_available, outlet_id, categories(name)', () => {
+    expect(MENU_SELECT).toContain('is_available')
+    expect(MENU_SELECT).toContain('outlet_id')
+    expect(MENU_SELECT).toMatch(/categories\s*\(\s*name\s*\)/)
+  })
+
+  it('buildMenuMaps & buildPenerapHpp tidak menimpa menu aktif dengan yatim nonaktif yang muncul belakangan', () => {
+    const activeItem = {
+      id: 'act-1',
+      name: 'Original Ayam Besar',
+      hpp_override: 18310,
+      channel_hpp: { ss_online: 14022 },
+      is_package: false,
+      is_available: true,
+      outlet_id: null,
+      categories: { name: 'Shawarma' },
+    }
+    const orphanAfter = {
+      id: 'orp-2',
+      name: 'Original Ayam Besar',
+      hpp_override: 11000,
+      channel_hpp: {},
+      is_package: false,
+      is_available: false,
+      outlet_id: null,
+      categories: null,
+    }
+
+    const { menuItemByNameMap } = buildMenuMaps([activeItem, orphanAfter])
+    expect(menuItemByNameMap.get('Original Ayam Besar')?.id).toBe('act-1')
+    expect(menuItemByNameMap.get('original ayam besar')?.id).toBe('act-1')
+    expect(getItemHpp(null, 'outlet', 'Original Ayam Besar', menuItemByNameMap, 'pos')).toBe(18310)
+
+    const pHpp = buildPenerapHpp([activeItem, orphanAfter], []).untuk('2026-10-31')
+    expect(pHpp.byName.get('Original Ayam Besar')?.id).toBe('act-1')
+    expect(pHpp.byName.get('original ayam besar')?.id).toBe('act-1')
+  })
+})

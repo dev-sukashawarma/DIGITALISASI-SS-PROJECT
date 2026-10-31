@@ -188,8 +188,8 @@ const PAGE_SIZE = 1000;
 
 // Kolom HPP yang dipakai getItemHpp. Ditarik SEKALI dari `menu_items` (50 baris)
 // lalu dipetakan per id, bukan ikut di-join ke tiap order_item.
-const MENU_HPP_SELECT =
-  "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))";
+export const MENU_HPP_SELECT =
+  "id, name, hpp_override, channel_hpp, is_package, is_available, outlet_id, categories(name), package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))";
 
 export async function fetchHppRows(
   supabase: any,

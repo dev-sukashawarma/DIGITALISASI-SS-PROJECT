@@ -151,6 +151,19 @@ function timpa<T>(menu: T, indeks: IndeksRiwayatHpp, tgl: string): T {
   return salinan as T
 }
 
+export function menuPrioritas(m: any): number {
+  const cat = (
+    (Array.isArray(m?.categories) ? m.categories[0]?.name : m?.categories?.name) ||
+    m?.category_name ||
+    ''
+  ).toLowerCase()
+  const isVoucher = cat.includes('voucher pamulang') ? 0 : 1
+  const isGlobal = !m?.outlet_id ? 1 : 0
+  const isActive = m?.is_available !== false ? 1 : 0
+  const hasCategory = cat.length > 0 ? 1 : 0
+  return isVoucher * 1000 + isGlobal * 100 + isActive * 10 + hasCategory
+}
+
 /**
  * `menus` = daftar menu yang sudah diambil halaman (boleh kosong).
  * `kunciNama` = normalisasi nama yang dipakai halaman untuk peta nama-nya.
@@ -172,14 +185,7 @@ export function buatPenerapRiwayat(
       const byId = new Map<string, any>()
       const byName = new Map<string, any>()
 
-      // Prioritaskan menu aktif & global agar duplikat voucher/outlet lokal tidak menimpa menu utama
-      const menuPrioritas = (m: any) => {
-        const cat = (m?.categories?.name || m?.category_name || '').toLowerCase()
-        const isVoucher = cat.includes('voucher pamulang') ? 0 : 1
-        const isGlobal = !m?.outlet_id ? 1 : 0
-        const isActive = m?.is_available !== false ? 1 : 0
-        return isVoucher * 100 + isGlobal * 10 + isActive
-      }
+      // Prioritaskan menu aktif, berkategori & global agar duplikat yatim/voucher/outlet lokal tidak menimpa menu utama
       const sortedMenus = [...menus].sort((a, b) => menuPrioritas(b) - menuPrioritas(a))
 
       for (const m of sortedMenus) {

@@ -93,16 +93,16 @@ export async function fetchHPPMenuList(): Promise<HPPMenuItem[]> {
   // 2. Ambil seluruh menu items dan kategorinya
   const { data: menuData } = await supabase
     .from('menu_items')
-    .select('id, name, price, category_id, categories(name)')
+    .select('id, name, price, is_available, category_id, categories(name)')
 
-  const menuMap = new Map<string, { id: string; name: string; price: number; categoryName: string }>()
+  const menuMap = new Map<string, { id: string; name: string; price: number; isAvailable: boolean; categoryName: string }>()
   for (const m of (menuData || [])) {
     const cat = Array.isArray(m.categories) ? m.categories[0]?.name : (m.categories as any)?.name
     menuMap.set(m.id, {
       id: m.id,
       name: m.name,
       price: Number(m.price) || 0,
-      categoryName: cat || 'Umum'
+      categoryName: cat || 'Umum', isAvailable: m.is_available !== false
     })
   }
 
@@ -124,7 +124,7 @@ export async function fetchHPPMenuList(): Promise<HPPMenuItem[]> {
   const result: HPPMenuItem[] = []
 
   for (const r of resepData) {
-    const menu = r.menu_item_ref ? menuMap.get(r.menu_item_ref) : null
+    if ((r.nama || '').toLowerCase().includes('voucher pamulang')) continue; const menu = r.menu_item_ref ? menuMap.get(r.menu_item_ref) : null; if (r.menu_item_ref && (!menu || !menu.isAvailable)) continue;
     const menuNama = menu?.name || r.nama
     const hargaJual = menu?.price || 0
     const kategoriNama = menu?.categoryName || 'Menu Lain'

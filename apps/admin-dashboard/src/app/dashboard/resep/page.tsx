@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import ResepTabView from './ResepTabView'
-import { getMenuCategoryGroup, getSizeRank } from './categoryHelper'
+import { getMenuCategoryGroup, getSizeRank, filterDuplicateOrphanMenus } from './categoryHelper'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +29,7 @@ export default async function ResepPage() {
       .order('name'),
   ])
 
-  const menuItems = menuRes.data || []
+  const menuItems = filterDuplicateOrphanMenus(menuRes.data || [])
   const recipes = recipesRes.data || []
   const channels = channelsRes.data || []
 

@@ -25,7 +25,7 @@ import {
   isGoFoodOrder,
   isTikTokGoOrder,
 } from '@/lib/posReportKpi'
-import { buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
+import { buatPenerapRiwayat, menuPrioritas, tanggalWib } from '@/lib/hpp/riwayatHpp'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
 import { matchesReceiptFilter, type ReceiptFilter } from './receiptReprint'
 
@@ -246,9 +246,15 @@ export function buildPenerapHpp(menuItems: any[], riwayatHpp: any[]) {
 export function buildMenuMaps(menuItems: any[]) {
   const byName = new Map<string, any>()
   const byId = new Map<string, any>()
-  menuItems.forEach(mi => {
-    if (mi.name) byName.set(cleanItemName(mi.name), mi)
-    if (mi.id) byId.set(mi.id, mi)
+  const sorted = [...(menuItems || [])].sort((a, b) => menuPrioritas(b) - menuPrioritas(a))
+  sorted.forEach(mi => {
+    if (mi?.id) byId.set(mi.id, mi)
+    if (mi?.name) {
+      const kAsli = cleanItemName(mi.name)
+      const kLower = kAsli.trim().toLowerCase()
+      if (!byName.has(kAsli)) byName.set(kAsli, mi)
+      if (!byName.has(kLower)) byName.set(kLower, mi)
+    }
   })
   return { menuItemByNameMap: byName, menuItemByIdMap: byId }
 }

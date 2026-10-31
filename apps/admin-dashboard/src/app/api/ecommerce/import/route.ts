@@ -30,8 +30,8 @@ export async function POST(request: Request) {
     const gudangId = gudang?.id
 
     // get menus to map SKUs or names
-    const { data: menus } = await supabase.from('menu_items').select('id, name')
-    const menuMap = new Map(menus?.map(m => [m.name.toLowerCase(), m.id]))
+    const { data: menus } = await supabase.from('menu_items').select('id, name, is_available')
+    const menuMap = new Map([...(menus || [])].sort((a, b) => (a.is_available !== false ? 1 : 0) - (b.is_available !== false ? 1 : 0)).map(m => [m.name.toLowerCase(), m.id]))
 
     // Helper: normalize date to ISO - frontend sends ISO strings, but handle edge cases
     const sanitizeDate = (dateVal: any): string => {

@@ -231,3 +231,31 @@ export function getMenuCategoryGroup(menu: {
     borderAccent: 'border-l-gray-400',
   }
 }
+
+
+/**
+ * Menyaring baris menu yatim nonaktif (mis. eks-Voucher Pamulang 10% yang
+ * memiliki is_available === false dan tanpa kategori) apabila sudah ada
+ * menu utama dengan nama ternormalisasi yang sama.
+ */
+export function filterDuplicateOrphanMenus<T extends Record<string, any>>(menuItems: T[]): T[] {
+  const hasCanonicalByName = new Set<string>()
+  for (const m of menuItems || []) {
+    const key = (m?.name || '').trim().toLowerCase()
+    if (!key) continue
+    const catName = Array.isArray(m?.categories) ? m.categories[0]?.name : m?.categories?.name
+    const isOrphanInactive = m?.is_available === false && !catName
+    if (!isOrphanInactive) {
+      hasCanonicalByName.add(key)
+    }
+  }
+  return (menuItems || []).filter((m) => {
+    const key = (m?.name || '').trim().toLowerCase()
+    const catName = Array.isArray(m?.categories) ? m.categories[0]?.name : m?.categories?.name
+    const isOrphanInactive = m?.is_available === false && !catName
+    if (isOrphanInactive && hasCanonicalByName.has(key)) {
+      return false
+    }
+    return true
+  })
+}

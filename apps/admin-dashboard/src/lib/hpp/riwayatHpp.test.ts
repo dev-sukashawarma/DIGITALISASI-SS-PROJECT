@@ -135,4 +135,29 @@ describe('buatPenerapRiwayat', () => {
     expect(res2.id).toBe('g1')
     expect(res2.hpp_override).toBe(18746)
   })
+
+  it('memprioritaskan menu aktif berkategori di atas duplikat yatim nonaktif (is_available: false, categories: null)', () => {
+    const activeShawarma = {
+      id: 'active-1',
+      name: 'Original Sapi Sedang',
+      hpp_override: 14525.5,
+      outlet_id: null,
+      is_available: true,
+      categories: { name: 'Shawarma' },
+    }
+    const inactiveOrphan = {
+      id: 'orphan-2',
+      name: 'Original Sapi Sedang',
+      hpp_override: 0,
+      outlet_id: null,
+      is_available: false,
+      categories: null,
+    }
+    const pAfter = buatPenerapRiwayat([activeShawarma, inactiveOrphan], [], (n) => n.trim())
+    expect(pAfter.untuk('2026-10-31').byName.get('original sapi sedang')?.id).toBe('active-1')
+    expect(pAfter.untuk('2026-10-31').byName.get('Original Sapi Sedang')?.id).toBe('active-1')
+
+    const pBefore = buatPenerapRiwayat([inactiveOrphan, activeShawarma], [], (n) => n.trim())
+    expect(pBefore.untuk('2026-10-31').byName.get('original sapi sedang')?.id).toBe('active-1')
+  })
 })

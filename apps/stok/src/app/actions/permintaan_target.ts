@@ -59,7 +59,7 @@ export async function fetchActiveResep(outletId: string): Promise<ResepMenu[]> {
 
   const { data: menuData } = await supabase
     .from('menu_items')
-    .select('id, name, price, image_url')
+    .select('id, name, price, image_url').eq('is_available', true)
     
   if (menuData) {
     const menuMap = new Map(menuData.map(m => [m.id, { name: m.name, price: m.price, image_url: m.image_url }]))

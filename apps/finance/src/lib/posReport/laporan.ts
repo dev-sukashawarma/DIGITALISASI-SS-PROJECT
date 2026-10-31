@@ -41,7 +41,7 @@ export type PosReportRequest = {
 }
 
 const SHIFT_SELECT = 'id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance'
-const MENU_SELECT = 'id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))'
+export const MENU_SELECT = 'id, name, hpp_override, channel_hpp, is_package, is_available, outlet_id, categories(name), package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))'
 
 // Master menu (±90 baris) dipakai setiap interaksi (ketik cari, ganti halaman);
 // memo singkat agar tidak ditarik ulang tiap kali. 60 detik = perubahan HPP

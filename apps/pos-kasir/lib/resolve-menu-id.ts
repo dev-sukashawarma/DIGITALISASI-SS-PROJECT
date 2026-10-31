@@ -21,10 +21,10 @@ import { cleanItemName } from './order-item-name'
  * dari metadata checkout ("Nama|ID|..|PARENT|..|NOTE|..").
  */
 export function buildMenuNameIndex(
-  menuRows: { id: string; name: string | null }[] | null | undefined
+  menuRows: { id: string; name: string | null; is_available?: boolean | null }[] | null | undefined
 ): Map<string, string> {
   const index = new Map<string, string>()
-  for (const row of menuRows ?? []) {
+  for (const row of [...(menuRows ?? [])].sort((a, b) => (b?.is_available !== false ? 1 : 0) - (a?.is_available !== false ? 1 : 0))) {
     if (!row?.name) continue
     const key = cleanItemName(row.name).trim().toLowerCase()
     // Baris pertama menang -- deterministik kalau kelak ada nama kembar.

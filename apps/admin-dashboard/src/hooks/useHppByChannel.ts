@@ -113,7 +113,7 @@ export function useHppByChannel(from: string, to: string) {
       const { data: menuItemsData } = await supabase
         .from("menu_items")
         .select(
-          "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))",
+          "id, name, hpp_override, channel_hpp, is_package, is_available, outlet_id, categories(name), package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))",
         );
 
       const riwayatRows = await ambilRiwayatHpp(supabase);

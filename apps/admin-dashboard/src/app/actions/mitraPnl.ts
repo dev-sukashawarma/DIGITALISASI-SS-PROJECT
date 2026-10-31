@@ -680,10 +680,10 @@ async function hitungPnlMitra(
     // Owner. Dipakai HANYA saat lookup id gagal.
     const { data: menuList } = await supabase
       .from('menu_items')
-      .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))')
+      .select('id, name, hpp_override, channel_hpp, is_package, is_available, outlet_id, categories(name), package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))')
     const menuByName = new Map<string, any>()
     for (const m of menuList ?? []) {
-      if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
+      if (m?.name && (m.is_available !== false || !menuByName.has(cleanItemName(m.name).trim().toLowerCase()))) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
     }
     const penerapHpp = buatPenerapRiwayat(menuList ?? [], await ambilRiwayatHpp(supabase), (n: string) => n)
     const hppByName = (rawName?: string | null, channel?: string | null, tgl?: string): number => {

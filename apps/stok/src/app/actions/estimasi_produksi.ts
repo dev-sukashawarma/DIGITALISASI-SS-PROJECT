@@ -77,7 +77,7 @@ export async function fetchEstimasiRecipes(outletId: string): Promise<EstimasiRe
   const result: EstimasiRecipe[] = []
 
   for (const row of resepData) {
-    const menuName = row.nama;
+    if ((row.nama || '').toLowerCase().includes('voucher pamulang')) continue; const menuName = row.nama;
     
     // Konversi bahan
     const ingredients: EstimasiIngredient[] = []

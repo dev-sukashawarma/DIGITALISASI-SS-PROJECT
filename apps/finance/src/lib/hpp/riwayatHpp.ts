@@ -45,8 +45,27 @@ const FORMAT_WIB = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 })
 
+const WIB_OFFSET_MS = 7 * 3600 * 1000
+const YEAR_2000_MS = 946_684_800_000
+const tanggalWibCache = new Map<string, string>()
+
 export function tanggalWib(waktu: string | Date): string {
-  return FORMAT_WIB.format(typeof waktu === 'string' ? new Date(waktu) : waktu)
+  if (typeof waktu === 'string') {
+    const hit = tanggalWibCache.get(waktu)
+    if (hit !== undefined) return hit
+    const ms = Date.parse(waktu)
+    const res = ms >= YEAR_2000_MS
+      ? new Date(ms + WIB_OFFSET_MS).toISOString().slice(0, 10)
+      : FORMAT_WIB.format(new Date(waktu))
+    if (tanggalWibCache.size > 25_000) tanggalWibCache.clear()
+    tanggalWibCache.set(waktu, res)
+    return res
+  }
+  const ms = waktu.getTime()
+  if (ms >= YEAR_2000_MS) {
+    return new Date(ms + WIB_OFFSET_MS).toISOString().slice(0, 10)
+  }
+  return FORMAT_WIB.format(waktu)
 }
 
 /** Semua baris riwayat. Gagal = lempar error — jangan diam-diam memakai angka hari ini. */
@@ -132,6 +151,19 @@ function timpa<T>(menu: T, indeks: IndeksRiwayatHpp, tgl: string): T {
   return salinan as T
 }
 
+export function menuPrioritas(m: any): number {
+  const cat = (
+    (Array.isArray(m?.categories) ? m.categories[0]?.name : m?.categories?.name) ||
+    m?.category_name ||
+    ''
+  ).toLowerCase()
+  const isVoucher = cat.includes('voucher pamulang') ? 0 : 1
+  const isGlobal = !m?.outlet_id ? 1 : 0
+  const isActive = m?.is_available !== false ? 1 : 0
+  const hasCategory = cat.length > 0 ? 1 : 0
+  return isVoucher * 1000 + isGlobal * 100 + isActive * 10 + hasCategory
+}
+
 /**
  * `menus` = daftar menu yang sudah diambil halaman (boleh kosong).
  * `kunciNama` = normalisasi nama yang dipakai halaman untuk peta nama-nya.
@@ -153,14 +185,7 @@ export function buatPenerapRiwayat(
       const byId = new Map<string, any>()
       const byName = new Map<string, any>()
 
-      // Prioritaskan menu aktif & global agar duplikat voucher/outlet lokal tidak menimpa menu utama
-      const menuPrioritas = (m: any) => {
-        const cat = (m?.categories?.name || m?.category_name || '').toLowerCase()
-        const isVoucher = cat.includes('voucher pamulang') ? 0 : 1
-        const isGlobal = !m?.outlet_id ? 1 : 0
-        const isActive = m?.is_available !== false ? 1 : 0
-        return isVoucher * 100 + isGlobal * 10 + isActive
-      }
+      // Prioritaskan menu aktif, berkategori & global agar duplikat yatim/voucher/outlet lokal tidak menimpa menu utama
       const sortedMenus = [...menus].sort((a, b) => menuPrioritas(b) - menuPrioritas(a))
 
       for (const m of sortedMenus) {
@@ -173,13 +198,19 @@ export function buatPenerapRiwayat(
           if (!byName.has(kLower)) byName.set(kLower, t)
         }
       }
+      const terapkanMemo = new WeakMap<object, any>()
       const penerap: PenerapHpp = {
         byId,
         byName,
         terapkan<T>(menu: T): T {
           const m = menu as any
-          if (m && typeof m.id === 'string' && asliById.get(m.id) === m) return byId.get(m.id)
-          return timpa(menu, indeks, tgl)
+          if (!m || typeof m !== 'object') return menu
+          if (typeof m.id === 'string' && asliById.get(m.id) === m) return byId.get(m.id)
+          let cached = terapkanMemo.get(m)
+          if (cached !== undefined) return cached
+          cached = timpa(menu, indeks, tgl)
+          terapkanMemo.set(m, cached)
+          return cached
         },
       }
       cache.set(tgl, penerap)

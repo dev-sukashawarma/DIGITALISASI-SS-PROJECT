@@ -203,7 +203,7 @@ export async function createEndorsement(
     })
 
     // Sinkronisasi otomatis ke Supabase POS untuk visit outlet fisik
-    if (type === 'VISIT') {
+    if (type === 'VISIT' || type === 'TIKTOKGO' || type === 'TIKTOK_GO' || type === 'AGENCY') {
       try {
         const outlet = await prisma.outlet.findUnique({ where: { id: outletId } })
         const kol = await prisma.kol.findUnique({ where: { id: kolId } })
@@ -426,7 +426,7 @@ export async function updateEndorsement(
     // Sinkronisasi update ke Supabase POS
     try {
       const supabase = getPosSupabase()
-      if (type === 'VISIT') {
+      if (type === 'VISIT' || type === 'TIKTOKGO' || type === 'TIKTOK_GO' || type === 'AGENCY') {
         const outlet = await prisma.outlet.findUnique({ where: { id: outletId } })
         const kol = await prisma.kol.findUnique({ where: { id: kolId } })
         if (outlet?.posOutletId) {

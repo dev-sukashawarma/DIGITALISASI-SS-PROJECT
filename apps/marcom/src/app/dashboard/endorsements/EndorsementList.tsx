@@ -427,7 +427,7 @@ export default function EndorsementList({
   const [outletFilter, setOutletFilter] = useState('')
   const [visitFilter, setVisitFilter] = useState('')
   const [postFilter, setPostFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'VISIT' | 'DELIVERY' | 'AGENCY'>('ALL')
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'VISIT' | 'DELIVERY' | 'AGENCY' | 'TIKTOKGO'>('ALL')
 
   // Date filter states for operations tab
   const [datePreset, setDatePreset] = useState<
@@ -500,7 +500,7 @@ export default function EndorsementList({
   const [isPending, startTransition] = useTransition()
 
   // Menu & HPP preset states for modals
-  const [createType, setCreateType] = useState<'VISIT' | 'DELIVERY' | 'AGENCY'>('VISIT')
+  const [createType, setCreateType] = useState<'VISIT' | 'DELIVERY' | 'AGENCY' | 'TIKTOKGO'>('VISIT')
   const [createShippingCost, setCreateShippingCost] = useState<string>('0')
   const [createMenuName, setCreateMenuName] = useState('')
   const [createHpp, setCreateHpp] = useState(0)
@@ -539,7 +539,7 @@ export default function EndorsementList({
     )
   }
 
-  const [editType, setEditType] = useState<'VISIT' | 'DELIVERY' | 'AGENCY'>('VISIT')
+  const [editType, setEditType] = useState<'VISIT' | 'DELIVERY' | 'AGENCY' | 'TIKTOKGO'>('VISIT')
   const [editShippingCost, setEditShippingCost] = useState<string>('0')
   const [editMenuName, setEditMenuName] = useState('')
   const [editHpp, setEditHpp] = useState(0)
@@ -783,7 +783,12 @@ export default function EndorsementList({
       const matchesOutlet = outletFilter ? item.outletId === outletFilter : true
       const matchesVisit = visitFilter ? item.visitStatus === visitFilter : true
       const matchesPost = postFilter ? item.postStatus === postFilter : true
-      const matchesType = typeFilter === 'ALL' ? true : (item.type || 'VISIT') === typeFilter
+      const matchesType =
+        typeFilter === 'ALL'
+          ? true
+          : typeFilter === 'TIKTOKGO'
+          ? (item.type || '').toUpperCase().includes('TIKTOK')
+          : (item.type || 'VISIT') === typeFilter
 
       // Date filtering
       let matchesDate = true
@@ -1716,6 +1721,7 @@ export default function EndorsementList({
                   <option value="ALL">Semua Tipe Endorse</option>
                   <option value="VISIT">KOL Reguler (Visit Outlet)</option>
                   <option value="AGENCY">Agency HDA GO</option>
+                        <option value="TIKTOKGO">TiktokGO</option>
                   <option value="DELIVERY">SS Online (Ekspedisi)</option>
                 </select>
               </div>
@@ -1934,6 +1940,12 @@ export default function EndorsementList({
                                 <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
                                   <Building2 className="w-2.5 h-2.5 text-purple-600" />
                                   Agency HDA
+                                </span>
+                              )}
+                              {(item.type === 'TIKTOKGO' || item.type === 'TIKTOK_GO') && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+                                  <TikTokIcon className="w-2.5 h-2.5" />
+                                  TiktokGO
                                 </span>
                               )}
                             </div>
@@ -3593,6 +3605,7 @@ export default function EndorsementList({
                       >
                         <option value="VISIT">Visit Outlet Fisik</option>
                         <option value="AGENCY">Agency HDA GO</option>
+                        <option value="TIKTOKGO">TiktokGO</option>
                         <option value="DELIVERY">SS Online (Paket Ekspedisi)</option>
                       </select>
                     </div>
@@ -3961,6 +3974,7 @@ export default function EndorsementList({
                       >
                         <option value="VISIT">Visit Outlet Fisik</option>
                         <option value="AGENCY">Agency HDA GO</option>
+                        <option value="TIKTOKGO">TiktokGO</option>
                         <option value="DELIVERY">SS Online (Paket Ekspedisi)</option>
                       </select>
                     </div>

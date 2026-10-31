@@ -23,6 +23,7 @@ import {
   Building2,
   X,
 } from 'lucide-react'
+import { TikTokIcon } from '@/components/icons/SocialIcons'
 import { updatePaymentStatus, updateDraftStatus, batchUpdatePayments } from '@/app/actions/endorsements'
 import { SerializedEndorsement, getLocalDateString, MONTH_NAMES } from './EndorsementList'
 
@@ -835,6 +836,12 @@ export default function EndorsementFinanceView({
                             <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
                               <Building2 className="w-2.5 h-2.5" />
                               Agency HDA
+                            </span>
+                          )}
+                          {(item.type === 'TIKTOKGO' || item.type === 'TIKTOK_GO') && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                              <TikTokIcon className="w-2.5 h-2.5" />
+                              TiktokGO
                             </span>
                           )}
                         </div>

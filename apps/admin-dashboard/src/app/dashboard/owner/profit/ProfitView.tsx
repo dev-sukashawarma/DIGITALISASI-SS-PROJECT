@@ -521,49 +521,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const adaAntarKantong = managementFeeReceived > 0 || mitraHppMarginReceived > 0 || managementFeeExpense > 0
   const duaSisiDiLayarSama = managementFeeReceived > 0 && managementFeeExpense > 0
 
-  // managementFeeExpense sudah dipotong di netRevenue (blok antar-kantong).
-  const labaBersih = labaKotor - pengeluaranOutlet - totalWaste
-  
-  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
-  const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
-  const costBase = actualGrossRevenue > 0 ? actualGrossRevenue : (netRevenue > 0 ? netRevenue : 0)
-  const displayMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
-
-  // Informasi pembagian hasil (50:50) ketika memfilter satu outlet kemitraan yang sudah BEP
-  const selectedMitraFeeInfo = !isAllOutlets && (scope === 'mitra' || mitraIds.has(filter.outletId))
-    ? managementFeeData.perOutletFee.get(filter.outletId)
-    : undefined
-  const isSelectedOutletBep = Boolean(selectedMitraFeeInfo?.isBep)
-  const selectedMitraSharePct = selectedMitraFeeInfo?.profitSharingPct ?? (isSelectedOutletBep ? 50 : 100)
-  const selectedPusatSharePct = Math.max(0, 100 - selectedMitraSharePct)
-  const jatahBagiHasilMitra = displayLaba > 0 ? Math.round((displayLaba * selectedMitraSharePct) / 100) : 0
-  const jatahBagiHasilPusat = displayLaba > 0 ? Math.round(displayLaba) - jatahBagiHasilMitra : 0
-
-  // Struktur Biaya vs Omzet:
-  // Seluruh biaya dihitung proporsinya terhadap Omzet Kotor (actualGrossRevenue),
-  // konsisten dengan judul card dan margin per outlet di leaderboard.
-  const costHpp = scope === 'all' ? Math.max(0, totalHpp - mitraHppMarginReceived) : totalHpp
-  const costOpex = pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)
-  const costFee = totalDeductions + (scope === 'mitra' || (!isAllOutlets && mitraIds.has(filter.outletId)) ? managementFeeExpense : 0)
-  const costWaste = totalWaste
-  const totalBiaya = costHpp + costOpex + costFee + costWaste
-
-  // Cost proportions (dalam persen terhadap Omzet Kotor)
-  const pctHpp = costBase > 0 ? (costHpp / costBase) * 100 : 0
-  const pctOpex = costBase > 0 ? (costOpex / costBase) * 100 : 0
-  const pctFee = costBase > 0 ? (costFee / costBase) * 100 : 0
-  const pctWaste = costBase > 0 ? (costWaste / costBase) * 100 : 0
-  const pctTotalBiaya = costBase > 0 ? (totalBiaya / costBase) * 100 : 0
-  const pctSisaMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
-
-  // Skala visual bar agar proporsional dan tidak meluber saat beban > 100% (saat rugi)
-  const barScale = pctTotalBiaya > 100 ? (100 / pctTotalBiaya) : 1
-  const barHpp = pctHpp * barScale
-  const barOpex = pctOpex * barScale
-  const barFee = pctFee * barScale
-  const barWaste = pctWaste * barScale
-
-  // Outlets breakdown
+  // Outlets breakdown (dihitung lebih dulu agar potongan bagi hasil 50% outlet BEP
+  // di tabel dan di kartu Laba Bersih atas selalu sinkron 100%).
   const outletBreakdown = useMemo(() => {
     const map = new Map<string, { name: string; omzet: number; deductions: number; expense: number; hpp: number; waste: number }>()
 
@@ -619,9 +578,15 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const mgmtFee = isOutletMitraScope ? (feeInfo?.fee ?? 0) : 0
         const mgmtFeePct = isOutletMitraScope ? (feeInfo?.pct ?? 0) : 0
         const isBep = Boolean(feeInfo?.isBep)
-        const net = labaKotor - val.expense - val.waste - mgmtFee
+        const profitSharingPct = feeInfo?.profitSharingPct ?? (isBep ? 50 : 100)
+        const netBeforeShare = labaKotor - val.expense - val.waste - mgmtFee
+        // Jika outlet kemitraan sudah BEP (50:50), laba bersih untuk mitra dibagi 2 (50%).
+        const applyBepShare = isOutletMitraScope && isBep && profitSharingPct < 100 && netBeforeShare > 0
+        const mitraNetShare = applyBepShare ? Math.round((netBeforeShare * profitSharingPct) / 100) : netBeforeShare
+        const bepShareDeduction = applyBepShare ? (netBeforeShare - mitraNetShare) : 0
+        const net = mitraNetShare
         const margin = grossRev > 0 ? (net / grossRev) * 100 : 0
-        const totalCost = val.deductions + val.hpp + val.waste + val.expense + mgmtFee
+        const totalCost = val.deductions + val.hpp + val.waste + val.expense + mgmtFee + bepShareDeduction
         return { 
           id, 
           name: val.name, 
@@ -635,6 +600,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           mgmtFee,
           mgmtFeePct,
           isBep,
+          profitSharingPct,
+          netBeforeShare,
+          bepShareDeduction,
           isMitra: isOutletMitraScope,
           labaKotor, 
           net, 
@@ -650,6 +618,64 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       })
   }, [salesRows, expenseRows, hppRows, wasteRows, outlets, sortBy, managementFeeData, mitraIds, scope])
 
+  // Informasi pembagian hasil (50:50) ketika memfilter satu outlet kemitraan yang sudah BEP
+  const selectedMitraFeeInfo = !isAllOutlets && (scope === 'mitra' || mitraIds.has(filter.outletId))
+    ? managementFeeData.perOutletFee.get(filter.outletId)
+    : undefined
+  const isSelectedOutletBep = Boolean(selectedMitraFeeInfo?.isBep)
+  const selectedMitraSharePct = selectedMitraFeeInfo?.profitSharingPct ?? (isSelectedOutletBep ? 50 : 100)
+  const selectedPusatSharePct = Math.max(0, 100 - selectedMitraSharePct)
+
+  // managementFeeExpense sudah dipotong di netRevenue (blok antar-kantong).
+  const labaBersihSebelumBagiHasil = labaKotor - pengeluaranOutlet - totalWaste
+  const totalBepShareDeduction = useMemo(
+    () => outletBreakdown.reduce((sum, r) => sum + (r.bepShareDeduction || 0), 0),
+    [outletBreakdown],
+  )
+  const bepProfitShareExpense = scope === 'mitra'
+    ? (isAllOutlets
+        ? totalBepShareDeduction
+        : (isSelectedOutletBep && labaBersihSebelumBagiHasil > 0
+            ? labaBersihSebelumBagiHasil - Math.round((labaBersihSebelumBagiHasil * selectedMitraSharePct) / 100)
+            : 0))
+    : (!isAllOutlets && isSelectedOutletBep && labaBersihSebelumBagiHasil > 0
+        ? labaBersihSebelumBagiHasil - Math.round((labaBersihSebelumBagiHasil * selectedMitraSharePct) / 100)
+        : 0)
+
+  const labaBersih = labaBersihSebelumBagiHasil - bepProfitShareExpense
+  
+  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
+  const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
+  const costBase = actualGrossRevenue > 0 ? actualGrossRevenue : (netRevenue > 0 ? netRevenue : 0)
+  const displayMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
+
+  const jatahBagiHasilMitra = labaBersihSebelumBagiHasil > 0 ? Math.round((labaBersihSebelumBagiHasil * selectedMitraSharePct) / 100) : 0
+  const jatahBagiHasilPusat = labaBersihSebelumBagiHasil > 0 ? Math.round(labaBersihSebelumBagiHasil) - jatahBagiHasilMitra : 0
+
+  // Struktur Biaya vs Omzet:
+  // Seluruh biaya dihitung proporsinya terhadap Omzet Kotor (actualGrossRevenue),
+  // konsisten dengan judul card dan margin per outlet di leaderboard.
+  const costHpp = scope === 'all' ? Math.max(0, totalHpp - mitraHppMarginReceived) : totalHpp
+  const costOpex = pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)
+  const costFee = totalDeductions + (scope === 'mitra' || (!isAllOutlets && mitraIds.has(filter.outletId)) ? managementFeeExpense + bepProfitShareExpense : 0)
+  const costWaste = totalWaste
+  const totalBiaya = costHpp + costOpex + costFee + costWaste
+
+  // Cost proportions (dalam persen terhadap Omzet Kotor)
+  const pctHpp = costBase > 0 ? (costHpp / costBase) * 100 : 0
+  const pctOpex = costBase > 0 ? (costOpex / costBase) * 100 : 0
+  const pctFee = costBase > 0 ? (costFee / costBase) * 100 : 0
+  const pctWaste = costBase > 0 ? (costWaste / costBase) * 100 : 0
+  const pctTotalBiaya = costBase > 0 ? (totalBiaya / costBase) * 100 : 0
+  const pctSisaMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
+
+  // Skala visual bar agar proporsional dan tidak meluber saat beban > 100% (saat rugi)
+  const barScale = pctTotalBiaya > 100 ? (100 / pctTotalBiaya) : 1
+  const barHpp = pctHpp * barScale
+  const barOpex = pctOpex * barScale
+  const barFee = pctFee * barScale
+  const barWaste = pctWaste * barScale
+
   const filteredOutlets = useMemo(() => {
     if (!outletSearch.trim()) return outletBreakdown
     return outletBreakdown.filter(o => o.name.toLowerCase().includes(outletSearch.toLowerCase()))
@@ -663,8 +689,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       waste: acc.waste + row.waste,
       expense: acc.expense + row.expense,
       mgmtFee: acc.mgmtFee + row.mgmtFee,
+      bepShareDeduction: acc.bepShareDeduction + (row.bepShareDeduction || 0),
       net: acc.net + row.net,
-    }), { omzet: 0, deductions: 0, hpp: 0, waste: 0, expense: 0, mgmtFee: 0, net: 0 })
+    }), { omzet: 0, deductions: 0, hpp: 0, waste: 0, expense: 0, mgmtFee: 0, bepShareDeduction: 0, net: 0 })
   }, [filteredOutlets])
 
   const filteredAvgMargin = filteredTotals.omzet > 0 ? (filteredTotals.net / filteredTotals.omzet) * 100 : 0
@@ -942,12 +969,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     managementFeeIncome: managementFeeReceived,
     mitraHppMarginIncome: mitraHppMarginReceived,
     managementFeeExpense: managementFeeExpense,
+    bepProfitShareExpense: bepProfitShareExpense,
     grossRevenueBreakdown,
     deductionsBreakdown,
   }), [
     actualGrossSales, totalDeductions, totalHpp, totalWaste,
     totalJointExpense, pengeluaranOutletBulananMurni, pengeluaranOutletBulanan, pengeluaranLembur, pengeluaranOutletPettyCashMurni, pengeluaranPusat, includeCentral,
-    opexMonthlyBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense,
+    opexMonthlyBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense, bepProfitShareExpense,
     grossRevenueBreakdown, deductionsBreakdown,
   ])
 
@@ -1241,16 +1269,21 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       BEP · Bagi Hasil {selectedMitraSharePct}:{selectedPusatSharePct}
                     </span>
                   )}
+                  {isAllOutlets && bepProfitShareExpense > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300" title="Outlet yang sudah BEP otomatis dipotong bagi hasil 50:50 ke pusat">
+                      BEP 50:50: -{rupiah(bepProfitShareExpense)}
+                    </span>
+                  )}
                 </div>
-                {isSelectedOutletBep && displayLaba > 0 && (
+                {isSelectedOutletBep && labaBersihSebelumBagiHasil > 0 && (
                   <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] bg-white/80 border border-suka-orange/20 rounded-xl p-2">
                     <div>
-                      <span className="text-[10px] text-suka-gray-500 font-semibold block">Jatah Mitra ({selectedMitraSharePct}%)</span>
-                      <span className="font-extrabold text-amber-800">{rupiah(jatahBagiHasilMitra)}</span>
+                      <span className="text-[10px] text-suka-gray-500 font-semibold block">Laba 100% Outlet</span>
+                      <span className="font-extrabold text-suka-brown">{rupiah(labaBersihSebelumBagiHasil)}</span>
                     </div>
                     <div className="border-l border-suka-gray-200 pl-2">
                       <span className="text-[10px] text-suka-gray-500 font-semibold block">Jatah Pusat ({selectedPusatSharePct}%)</span>
-                      <span className="font-extrabold text-emerald-700">{rupiah(jatahBagiHasilPusat)}</span>
+                      <span className="font-extrabold text-rose-600">-{rupiah(jatahBagiHasilPusat)}</span>
                     </div>
                   </div>
                 )}
@@ -1569,6 +1602,19 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                         <span className="font-bold">-{rupiah(pengeluaranPusat)}</span>
                       </div>
                     )}
+                    {bepProfitShareExpense > 0 && (
+                      <div className="flex justify-between items-center text-rose-600 pt-2 border-t border-dashed border-suka-gray-200">
+                        <div>
+                          <span className="font-semibold block">Bagi Hasil ke Kantor Pusat (50% Outlet BEP)</span>
+                          <span className="text-[11px] text-suka-gray-500">
+                            {isSelectedOutletBep
+                              ? `Potongan ${selectedPusatSharePct}% dari laba operasional outlet (${rupiah(labaBersihSebelumBagiHasil)})`
+                              : 'Potongan 50% laba bersih dari outlet kemitraan yang sudah Balik Modal (BEP)'}
+                          </span>
+                        </div>
+                        <span className="font-bold">-{rupiah(bepProfitShareExpense)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1589,7 +1635,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     </div>
                     <p className="text-xs text-suka-gray-500 mt-1">
                       {isSelectedOutletBep
-                        ? `Total laba bersih operasional outlet (100%) sebelum dibagi ${selectedMitraSharePct}:${selectedPusatSharePct}`
+                        ? `Hak laba bersih mitra (${selectedMitraSharePct}%) dengan skema bagi hasil ${selectedMitraSharePct}:${selectedPusatSharePct} dari laba operasional ${rupiah(labaBersihSebelumBagiHasil)}`
                         : 'Keuntungan bersih riil setelah dikurangi seluruh beban dan biaya'}
                     </p>
                     {duaSisiDiLayarSama && (
@@ -1617,10 +1663,10 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                         <span className="w-2 h-2 rounded-full bg-indigo-500"></span> 4. Distribusi Bagi Hasil ({selectedMitraSharePct}:{selectedPusatSharePct} · Sudah BEP)
                       </div>
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        Status Balik Modal (BEP) · Bagi Hasil {selectedMitraSharePct}% : {selectedPusatSharePct}%
+                        Status Balik Modal (BEP) · Laba 100%: {rupiah(labaBersihSebelumBagiHasil)}
                       </span>
                     </div>
-                    {displayLaba > 0 ? (
+                    {labaBersihSebelumBagiHasil > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex justify-between items-center gap-2">
                           <div>
@@ -1853,7 +1899,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                             <td className="py-3.5 px-4 text-right">
                               {row.isMitra ? (
                                 row.isBep ? (
-                                  <span className="text-[11px] font-semibold text-emerald-600" title="Sudah Balik Modal (BEP) - Bebas Fee 0%">
+                                  <span className="text-[11px] font-semibold text-emerald-600" title="Sudah Balik Modal (BEP) - Bebas Management Fee 0%">
                                     0% (BEP)
                                   </span>
                                 ) : row.mgmtFee > 0 ? (
@@ -1870,7 +1916,16 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                               )}
                             </td>
                             <td className={`py-3.5 px-4 text-right font-black ${isProfit ? 'text-emerald-700' : 'text-rose-600'}`}>
-                              {rupiah(row.net)}
+                              {row.isBep && row.bepShareDeduction > 0 ? (
+                                <div className="flex flex-col items-end">
+                                  <span>{rupiah(row.net)}</span>
+                                  <span className="text-[10px] font-semibold text-amber-700">
+                                    50:50 dr {rupiah(row.netBeforeShare)}
+                                  </span>
+                                </div>
+                              ) : (
+                                rupiah(row.net)
+                              )}
                             </td>
                             <td className="py-3.5 px-4 text-center">
                               <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-bold rounded-lg border ${marginBadge}`}>
@@ -1884,7 +1939,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   </tbody>
                   {filteredOutlets.length > 0 && (() => {
                     const showCentralReconciliation = includeCentral && !outletSearch.trim()
-                    const netMitraIncomePusat = managementFeeReceived - managementFeeExpense + mitraHppMarginReceived
+                    const netMitraIncomePusat = managementFeeReceived - managementFeeExpense + mitraHppMarginReceived + (scope === 'all' ? totalBepShareDeduction : 0)
                     const hasCentralRows = showCentralReconciliation && (pengeluaranPusat > 0 || netMitraIncomePusat !== 0 || Boolean(penyesuaianLabaKotor))
                     const totalOpexWithCentral = pengeluaranOutlet + (includeCentral ? pengeluaranPusat : 0)
 

@@ -56,6 +56,8 @@ export interface WaterfallInput {
   mitraHppMarginIncome?: number
   /** Potongan management fee pusat (khusus scope mitra). */
   managementFeeExpense?: number
+  /** Potongan bagi hasil ke pusat untuk outlet mitra yang sudah BEP (misal 50% laba bersih). */
+  bepProfitShareExpense?: number
   /** Rincian omzet kotor per channel penjualan. */
   grossRevenueBreakdown?: WaterfallDetail[]
   /** Rincian potongan merchant per channel penjualan. */
@@ -72,6 +74,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     managementFeeIncome = 0,
     mitraHppMarginIncome = 0,
     managementFeeExpense = 0,
+    bepProfitShareExpense = 0,
     grossRevenueBreakdown,
     deductionsBreakdown,
   } = input
@@ -90,7 +93,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
   const netRevenue = grossRevenue - deductions + managementFeeIncome + mitraHppMarginIncome - managementFeeExpense
   const labaKotor = netRevenue - hpp
   const opex = opexMonthly + jointExpense + opexLembur + opexPettyCash + (includeCentral ? centralExpense : 0)
-  const labaBersih = labaKotor - waste - opex
+  const labaBersih = labaKotor - waste - opex - bepProfitShareExpense
 
   const steps: WaterfallStep[] = [
     {
@@ -210,6 +213,17 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       amount: -centralExpense,
       kind: 'deduction',
       pctOfGross: pct(-centralExpense),
+    })
+  }
+
+  if (bepProfitShareExpense > 0) {
+    steps.push({
+      key: 'bagi_hasil_bep_pusat',
+      label: 'Bagi Hasil 50:50 ke Pusat (Outlet BEP)',
+      hint: 'Potongan bagi hasil 50:50 untuk kantor pusat dari outlet kemitraan yang sudah Balik Modal (BEP)',
+      amount: -bepProfitShareExpense,
+      kind: 'deduction',
+      pctOfGross: pct(-bepProfitShareExpense),
     })
   }
 

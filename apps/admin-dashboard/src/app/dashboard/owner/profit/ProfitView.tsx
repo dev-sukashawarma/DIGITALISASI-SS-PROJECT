@@ -1882,47 +1882,135 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       })
                     )}
                   </tbody>
-                  {filteredOutlets.length > 0 && (
-                    <tfoot className="bg-suka-cream/30 font-bold border-t-2 border-suka-brown/20 text-xs text-suka-brown">
-                      <tr className="whitespace-nowrap">
-                        <td colSpan={2} className="py-3.5 px-4 text-left font-black uppercase tracking-wider text-suka-ink">
-                          TOTAL ({filteredOutlets.length} OUTLET)
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-black text-suka-brown">
-                          {rupiah(filteredTotals.omzet)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
-                          {filteredTotals.deductions > 0 ? `-${rupiah(filteredTotals.deductions)}` : rupiah(0)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
-                          {filteredTotals.hpp > 0 ? `-${rupiah(filteredTotals.hpp)}` : rupiah(0)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
-                          {filteredTotals.waste > 0 ? `-${rupiah(filteredTotals.waste)}` : rupiah(0)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
-                          {filteredTotals.expense > 0 ? `-${rupiah(filteredTotals.expense)}` : rupiah(0)}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
-                          {filteredTotals.mgmtFee > 0 ? `-${rupiah(filteredTotals.mgmtFee)}` : '-'}
-                        </td>
-                        <td className={`py-3.5 px-4 text-right font-black ${filteredTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                          {rupiah(filteredTotals.net)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className={`inline-flex items-center px-2 py-0.5 text-xs font-bold rounded-lg border ${
-                            filteredAvgMargin >= 20 
-                              ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
-                              : filteredAvgMargin >= 5 
-                              ? 'text-amber-800 bg-amber-50 border-amber-200' 
-                              : 'text-rose-800 bg-rose-50 border-rose-200'
-                          }`}>
-                            {filteredAvgMargin.toFixed(1)}%
-                          </span>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  )}
+                  {filteredOutlets.length > 0 && (() => {
+                    const showCentralReconciliation = includeCentral && !outletSearch.trim()
+                    const netMitraIncomePusat = managementFeeReceived - managementFeeExpense + mitraHppMarginReceived
+                    const hasCentralRows = showCentralReconciliation && (pengeluaranPusat > 0 || netMitraIncomePusat !== 0 || Boolean(penyesuaianLabaKotor))
+                    const totalOpexWithCentral = pengeluaranOutlet + (includeCentral ? pengeluaranPusat : 0)
+
+                    return (
+                      <tfoot className="bg-suka-cream/30 font-bold border-t-2 border-suka-brown/20 text-xs text-suka-brown">
+                        <tr className="whitespace-nowrap">
+                          <td colSpan={2} className="py-3.5 px-4 text-left font-black uppercase tracking-wider text-suka-ink">
+                            {hasCentralRows ? `SUBTOTAL (${filteredOutlets.length} OUTLET)` : `TOTAL (${filteredOutlets.length} OUTLET)`}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-black text-suka-brown">
+                            {rupiah(filteredTotals.omzet)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.deductions > 0 ? `-${rupiah(filteredTotals.deductions)}` : rupiah(0)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.hpp > 0 ? `-${rupiah(filteredTotals.hpp)}` : rupiah(0)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.waste > 0 ? `-${rupiah(filteredTotals.waste)}` : rupiah(0)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.expense > 0 ? `-${rupiah(filteredTotals.expense)}` : rupiah(0)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                            {filteredTotals.mgmtFee > 0 ? `-${rupiah(filteredTotals.mgmtFee)}` : '-'}
+                          </td>
+                          <td className={`py-3.5 px-4 text-right font-black ${filteredTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                            {rupiah(filteredTotals.net)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 text-xs font-bold rounded-lg border ${
+                              filteredAvgMargin >= 20 
+                                ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+                                : filteredAvgMargin >= 5 
+                                ? 'text-amber-800 bg-amber-50 border-amber-200' 
+                                : 'text-rose-800 bg-rose-50 border-rose-200'
+                            }`}>
+                              {filteredAvgMargin.toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+
+                        {hasCentralRows && netMitraIncomePusat !== 0 && (
+                          <tr className="whitespace-nowrap border-t border-suka-brown/10 bg-blue-50/40 text-suka-ink">
+                            <td colSpan={2} className="py-2.5 px-4 text-left font-bold text-blue-900">
+                              <div>+ Pendapatan Pusat dari Kemitraan</div>
+                              <div className="text-[10px] font-medium text-blue-700">
+                                {managementFeeReceived > 0 && `Fee Mitra 3%: +${rupiah(managementFeeReceived)}`}
+                                {managementFeeReceived > 0 && mitraHppMarginReceived > 0 && ' · '}
+                                {mitraHppMarginReceived > 0 && `Margin Bahan 10%: +${rupiah(mitraHppMarginReceived)}`}
+                                {managementFeeExpense > 0 && ` · Beban Fee Mitra: -${rupiah(managementFeeExpense)}`}
+                              </div>
+                            </td>
+                            <td colSpan={6} className="py-2.5 px-4 text-right text-[11px] font-semibold text-blue-700">
+                              Antar-Kantong (Pusat &harr; Mitra)
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-black text-emerald-700">
+                              +{rupiah(netMitraIncomePusat)}
+                            </td>
+                            <td className="py-2.5 px-4 text-center text-suka-gray-400">-</td>
+                          </tr>
+                        )}
+
+                        {hasCentralRows && pengeluaranPusat > 0 && (
+                          <tr className="whitespace-nowrap border-t border-suka-brown/10 bg-rose-50/40 text-suka-ink">
+                            <td colSpan={2} className="py-2.5 px-4 text-left font-bold text-rose-900">
+                              <div>- Beban Operasional Kantor Pusat (HQ)</div>
+                              <div className="text-[10px] font-medium text-rose-700">
+                                Biaya manajemen & operasional kantor pusat
+                              </div>
+                            </td>
+                            <td colSpan={4} className="py-2.5 px-4 text-right text-suka-gray-400">-</td>
+                            <td className="py-2.5 px-4 text-right font-bold text-rose-600">
+                              -{rupiah(pengeluaranPusat)}
+                            </td>
+                            <td className="py-2.5 px-4 text-right text-suka-gray-400">-</td>
+                            <td className="py-2.5 px-4 text-right font-black text-rose-600">
+                              -{rupiah(pengeluaranPusat)}
+                            </td>
+                            <td className="py-2.5 px-4 text-center text-suka-gray-400">-</td>
+                          </tr>
+                        )}
+
+                        {hasCentralRows && (
+                          <tr className="whitespace-nowrap border-t-2 border-suka-brown/25 bg-suka-cream/70">
+                            <td colSpan={2} className="py-3.5 px-4 text-left font-black uppercase tracking-wider text-suka-brown">
+                              TOTAL LABA BERSIH {scope === 'internal' ? 'INTERNAL' : 'GLOBAL'} (OUTLET + PUSAT)
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-black text-suka-brown">
+                              {rupiah(actualGrossRevenue)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                              {totalDeductions > 0 ? `-${rupiah(totalDeductions)}` : rupiah(0)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                              {totalHpp > 0 ? `-${rupiah(totalHpp)}` : rupiah(0)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                              {totalWaste > 0 ? `-${rupiah(totalWaste)}` : rupiah(0)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-rose-600 font-bold">
+                              {totalOpexWithCentral > 0 ? `-${rupiah(totalOpexWithCentral)}` : rupiah(0)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-blue-700 font-bold">
+                              {netMitraIncomePusat > 0 ? `+${rupiah(netMitraIncomePusat)}` : '-'}
+                            </td>
+                            <td className={`py-3.5 px-4 text-right font-black text-sm ${displayLaba >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                              {displayLaba < 0 ? `-${rupiah(Math.abs(displayLaba))}` : rupiah(displayLaba)}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-bold rounded-lg border ${
+                                displayMargin >= 20 
+                                  ? 'text-emerald-800 bg-emerald-50 border-emerald-200' 
+                                  : displayMargin >= 5 
+                                  ? 'text-amber-800 bg-amber-50 border-amber-200' 
+                                  : 'text-rose-800 bg-rose-50 border-rose-200'
+                              }`}>
+                                {displayMargin.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        )}
+                      </tfoot>
+                    )
+                  })()}
                 </table>
               </div>
 

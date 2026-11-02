@@ -139,10 +139,14 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
     }
   }
 
+  const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff';
+
   const handleAutoCalculate = () => {
     if (!selectedOutletId) return;
+    const isCileungsi = selectedOutletId === MITRA_CILEUNGSI_OUTLET_ID;
+    const formulaLabel = isCileungsi ? '+10% dari HPP Pusat (khusus Cileungsi)' : 'HPP Murni + 10% (tanpa OPEX)';
     
-    if (!confirm('Hitung otomatis semua HPP Mitra menjadi +10% dari HPP Pusat? Angka akan berubah di tabel dan bisa Anda edit manual sebelum di-Simpan.')) return;
+    if (!confirm(`Hitung otomatis semua HPP Mitra menjadi ${formulaLabel}? Angka akan berubah di tabel dan bisa Anda edit manual sebelum di-Simpan.`)) return;
 
     setOutletPrices(prev => {
       const newPrices = { ...prev };
@@ -152,7 +156,7 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
         const baseHpp = row.hppOverride !== null ? row.hppOverride : row.hpp;
         
         if (baseHpp !== null && baseHpp > 0) {
-          const autoHpp = Math.round(baseHpp * 1.10);
+          const autoHpp = isCileungsi ? Math.round(baseHpp * 1.10) : Math.round(baseHpp);
           
           const existing = newPrices[row.id] || {
             menu_item_id: row.id,
@@ -169,7 +173,7 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
       return newPrices;
     });
     
-    toast.success('HPP berhasil dihitung (+10%). Silakan periksa tabel dan klik Simpan!');
+    toast.success(`HPP berhasil dihitung (${formulaLabel}). Silakan periksa tabel dan klik Simpan!`);
   };
 
   const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
@@ -194,10 +198,10 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
             onClick={handleAutoCalculate}
             disabled={isSaving || isLoadingPrices}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl font-bold text-sm hover:bg-amber-100 transition-all disabled:opacity-50"
-            title="Isi otomatis semua kotak HPP dengan +10% dari HPP Pusat"
+            title="Isi otomatis semua kotak HPP sesuai rumus Mitra aktif"
           >
             <Calculator className="w-4 h-4" />
-            Auto (+10%)
+            {selectedOutletId === MITRA_CILEUNGSI_OUTLET_ID ? 'Auto (+10%)' : 'Auto HPP Mitra'}
           </button>
           <button
             onClick={handleSave}

@@ -20,6 +20,10 @@ const KUNCI_SS_ONLINE = [
   'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584',
 ] as const
 
+const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
+const hitungHppMitraUi = (baseHpp: number, outletId?: string | null) =>
+  outletId === MITRA_CILEUNGSI_OUTLET_ID ? Math.round(baseHpp * 1.1) : Math.round(baseHpp)
+
 interface HppMenuItem {
   id: string
   name: string
@@ -310,8 +314,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
       if (channelKey === 'ss_online') {
         toast.success(val === null ? `HPP SS Online "${row.name}" direset${labelTanggal}` : `HPP SS Online "${row.name}" diset ke ${rupiah(val)}${labelTanggal}`)
       } else {
-        // Auto update Mitra HPP (+10%)
-        const mitraVal = val === null ? null : Math.round(val * 1.1)
+        // Auto update Mitra HPP (HPP Murni + 10% tanpa OPEX; khusus Cileungsi tetap +10% dari HPP Pusat)
         const payload = outlets.map(o => {
           const existing = allOutletPrices.find(p => p.menu_item_id === row.id && p.outlet_id === o.id)
           return {
@@ -319,14 +322,14 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
             outlet_id: o.id,
             is_available: existing ? existing.is_available : true,
             price: existing ? existing.price : null,
-            hpp_override: mitraVal
+            hpp_override: val === null ? null : hitungHppMitraUi(val, o.id)
           }
         })
 
         const { error: mitraError } = await supabase.from('menu_outlet_prices').upsert(payload, { onConflict: 'menu_item_id,outlet_id' })
         if (mitraError) console.error("Gagal auto-update HPP Mitra", mitraError)
 
-        toast.success(val === null ? `HPP Pusat untuk "${row.name}" direset ke BOM${labelTanggal}` : `HPP Pusat "${row.name}" diset ke ${rupiah(val)}, HPP Mitra otomatis disesuaikan (+10%)${labelTanggal}`)
+        toast.success(val === null ? `HPP Pusat untuk "${row.name}" direset ke BOM${labelTanggal}` : `HPP Pusat "${row.name}" diset ke ${rupiah(val)}, HPP Mitra otomatis disesuaikan${labelTanggal}`)
       }
 
       setEditingPusatId(null)
@@ -378,28 +381,27 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
     }
   }
 
-  // Auto +10% in Drawer
+  // Auto HPP Mitra in Drawer (takeout OPEX; khusus Cileungsi +10% HPP Pusat)
   const handleAutoCalculateDrawer = (baseHpp: number | null) => {
     if (!baseHpp || baseHpp <= 0) return toast.error('HPP Pusat belum tersedia')
-    if (!confirm('Auto-isi semua HPP Mitra di bawah menjadi +10% dari HPP Pusat?')) return
+    if (!confirm('Auto-isi semua HPP Mitra sesuai rumus aktif (HPP Murni + 10% tanpa OPEX; khusus Cileungsi +10% HPP Pusat)?')) return
 
-    const autoHpp = Math.round(baseHpp * 1.10)
     setLocalOutletPrices(prev => {
       const next = { ...prev }
       Object.keys(next).forEach(oId => {
-        next[oId] = { ...next[oId], hpp_override: autoHpp }
+        next[oId] = { ...next[oId], hpp_override: hitungHppMitraUi(baseHpp, oId) }
       })
       return next
     })
-    toast.success('HPP Mitra dihitung (+10%). Silakan periksa dan Simpan.')
+    toast.success('HPP Mitra berhasil dihitung otomatis. Silakan periksa dan Simpan.')
   }
 
   const selectedMenu = items.find(i => i.id === selectedMenuId)
   const activeBOM = selectedMenu ? (selectedMenu.hppOverride !== null ? selectedMenu.hppOverride : selectedMenu.hpp) : null
 
-  // Bulk Auto +10% Semua Menu
+  // Bulk Auto HPP Semua Menu
   const handleBulkAutoCalculate = async () => {
-    if (!confirm('PENTING: Ini akan menghitung dan menimpa HPP semua Mitra menjadi +10% dari HPP Pusat untuk SEMUA MENU yang sudah memiliki HPP. Lanjutkan?')) return;
+    if (!confirm('PENTING: Ini akan menghitung dan menimpa HPP semua Mitra (HPP Murni + 10% tanpa OPEX; khusus Cileungsi +10% HPP Pusat) untuk SEMUA MENU yang sudah memiliki HPP. Lanjutkan?')) return;
     
     setIsSaving(true)
     try {
@@ -412,9 +414,8 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
       items.forEach(menu => {
         const effHpp = menu.hppOverride !== null ? menu.hppOverride : menu.hpp
         if (effHpp !== null && effHpp > 0) {
-          const autoHpp = Math.round(effHpp * 1.10)
-          
           outlets.forEach(o => {
+            const autoHpp = hitungHppMitraUi(effHpp, o.id)
             // Cek apakah sudah ada config sebelumnya
             const existing = allOutletPrices.find(p => p.menu_item_id === menu.id && p.outlet_id === o.id)
             
@@ -440,7 +441,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
           if (error) throw error
         }
         
-        toast.success(`Berhasil! ${payload.length} harga mitra telah diupdate menjadi +10%.`)
+        toast.success(`Berhasil! ${payload.length} harga mitra telah diupdate otomatis.`)
         
         // Refresh local state by fetching again
         const { data: priceData } = await supabase.from('menu_outlet_prices').select('*')
@@ -550,7 +551,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl text-sm font-bold border border-amber-200 transition-colors disabled:opacity-50"
           >
             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
-            Auto Set 10% Semua Mitra
+            Auto Set HPP Semua Mitra
           </button>
           <div className="text-sm font-bold text-gray-500 border-l pl-4">
             Total: <span className="text-gray-900">{filteredItems.length} Menu</span>
@@ -861,7 +862,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                       <td className="py-4 text-right align-middle">
                         <div className="flex flex-col">
                           {channelRows.map((ch, cIdx) => {
-                            const mitraHpp = ch.hppPusat !== null ? Math.round(ch.hppPusat * 1.1) : null;
+                            const mitraHpp = ch.hppPusat !== null ? Math.round(ch.hppPusat) : null;
                             return (
                               <div key={`hpp-mtr-${cIdx}`} className={`${rowClasses} justify-end px-5`}>
                                 <span className="font-bold text-blue-600">
@@ -898,7 +899,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                       <td className="py-4 text-right">
                         <div className="flex flex-col">
                           {channelRows.map((ch, cIdx) => {
-                            const mitraHpp = ch.hppPusat !== null ? Math.round(ch.hppPusat * 1.1) : null;
+                            const mitraHpp = ch.hppPusat !== null ? Math.round(ch.hppPusat) : null;
                             const profitMitra = mitraHpp !== null ? ch.price - mitraHpp : null;
                             return (
                               <div key={`pft-mtr-${cIdx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
@@ -992,7 +993,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                     <div className="w-px h-8 bg-gray-200"></div>
                     <div>
                       <div className="text-[10px] text-blue-500 uppercase font-bold">HPP Rekomendasi Mitra</div>
-                      <div className="font-extrabold text-blue-600">{activeBOM !== null ? rupiah(Math.round(activeBOM * 1.10)) : '-'}</div>
+                      <div className="font-extrabold text-blue-600">{activeBOM !== null ? rupiah(Math.round(activeBOM)) : '-'}</div>
                     </div>
                   </div>
                 </div>
@@ -1116,7 +1117,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                       onClick={() => handleAutoCalculateDrawer(activeBOM)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-[11px] font-bold border border-amber-200 transition-colors"
                     >
-                      <Calculator className="w-3.5 h-3.5" /> Auto (+10% BOM)
+                      <Calculator className="w-3.5 h-3.5" /> Auto HPP Mitra
                     </button>
                   </div>
                   

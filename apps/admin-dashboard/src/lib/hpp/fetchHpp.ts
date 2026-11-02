@@ -102,16 +102,28 @@ export function getOrderHppChannelGroup(
   return "outlet";
 }
 
+export const MITRA_OPEX_TAKEOUT_START = "2026-10-01";
+export const MITRA_DRINK_OPEX_DB_START = "2026-11-02";
+export const MITRA_CILEUNGSI_OUTLET_ID = "62a56103-2085-4dd5-9d25-a3c0cffc88ff";
+
+const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
+  "08a57f8f-f212-4205-a3eb-fb88066ae1b8", // Ice Tea
+  "c543b78e-3341-44e0-b3ef-53349e71e3d3", // Orange Juice
+  "c8427af3-0a41-48dd-9a08-6b93cd913ec6", // Aqua
+]);
+
 export function getItemHpp(
   menuItem: any,
   outletType?: string,
   fallbackName?: string,
   menuItemByNameMap?: Map<string, any>,
   channel?: string | null,
+  outletId?: string | null,
+  orderDate?: string | null,
 ): { hpp: number; baseHpp: number; markup: number } {
   let itemObj = menuItem;
 
-  const extractBase = (obj: any): number => {
+  const extractLeafBase = (obj: any): number => {
     if (!obj) return 0;
     const normCh = channel ? channel.toLowerCase() : null;
     let channelHppVal: number | null = null;
@@ -125,17 +137,24 @@ export function getItemHpp(
 
     if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
       return Number(channelHppVal);
-    } else if (
+    }
+    if (
       obj.hpp_override !== null &&
       obj.hpp_override !== undefined &&
       Number(obj.hpp_override) > 0
     ) {
       return Number(obj.hpp_override);
-    } else if (obj.is_package && Array.isArray(obj.package_items)) {
+    }
+    return 0;
+  };
+
+  const extractBase = (obj: any): number => {
+    if (!obj) return 0;
+    const leaf = extractLeafBase(obj);
+    if (leaf > 0) return leaf;
+    if (obj.is_package && Array.isArray(obj.package_items)) {
       return obj.package_items.reduce((sum: number, pkg: any) => {
-        const compHpp = pkg.component
-          ? getItemHpp(pkg.component, undefined, undefined, undefined, channel).baseHpp
-          : (pkg.component?.hpp_override || 0);
+        const compHpp = pkg.component ? extractBase(pkg.component) : 0;
         const qty = pkg.quantity || 1;
         return sum + compHpp * qty;
       }, 0);
@@ -175,11 +194,48 @@ export function getItemHpp(
   }
 
   if (outletType === "mitra" && baseHpp > 0) {
-    // Outlet mitra ditagih base + 10%. Marginnya adalah SELISIHNYA (= 10% base),
-    // bukan 10% dari angka yang sudah dikali 1,1 — itu 11% base, dan Rp-nya
-    // tak pernah ditagihkan ke siapa pun.
-    const hpp = Math.round(baseHpp * 1.1);
-    return { hpp, baseHpp, markup: hpp - baseHpp };
+    const effDate = orderDate ? orderDate.slice(0, 10) : tanggalWib(new Date().toISOString());
+    if (effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID) {
+      // Periode < 1 Okt 2026 atau MITRA CILEUNGSI: tetap base (HPP+OPEX) + 10%.
+      const hpp = Math.round(baseHpp * 1.1);
+      return { hpp, baseHpp, markup: hpp - baseHpp };
+    }
+
+    // Mulai 1 Okt 2026 untuk mitra selain Cileungsi: OPEX 10% di-takeout,
+    // sehingga mitra ditagih HPP Murni + 10% dan margin pasokan pusat tetap 10% HPP Murni.
+    const extractMitraTakeout = (obj: any): { mitraRaw: number; murniRaw: number } => {
+      if (!obj) return { mitraRaw: 0, murniRaw: 0 };
+      const leaf = extractLeafBase(obj);
+      if (leaf > 0) {
+        const isPureDrink =
+          effDate < MITRA_DRINK_OPEX_DB_START &&
+          Boolean(obj.id && PURE_DRINK_IDS_BEFORE_NOV2.has(obj.id));
+        if (isPureDrink) {
+          return { mitraRaw: leaf * 1.1, murniRaw: leaf };
+        }
+        return { mitraRaw: leaf, murniRaw: leaf / 1.1 };
+      }
+      if (obj.is_package && Array.isArray(obj.package_items)) {
+        return obj.package_items.reduce(
+          (acc: { mitraRaw: number; murniRaw: number }, pkg: any) => {
+            const sub = pkg.component ? extractMitraTakeout(pkg.component) : { mitraRaw: 0, murniRaw: 0 };
+            const qty = pkg.quantity || 1;
+            return {
+              mitraRaw: acc.mitraRaw + sub.mitraRaw * qty,
+              murniRaw: acc.murniRaw + sub.murniRaw * qty,
+            };
+          },
+          { mitraRaw: 0, murniRaw: 0 },
+        );
+      }
+      return { mitraRaw: 0, murniRaw: 0 };
+    };
+
+    const { mitraRaw, murniRaw } = extractMitraTakeout(itemObj);
+    const hpp = Math.round(mitraRaw);
+    const modalMurni = Math.round(murniRaw * 100) / 100;
+    const markup = Math.round((hpp - modalMurni) * 100) / 100;
+    return { hpp, baseHpp: modalMurni, markup };
   }
   return { hpp: baseHpp, baseHpp, markup: 0 };
 }
@@ -316,6 +372,8 @@ export async function fetchHppRows(
         item.menu_item_name,
         pHpp.byName,
         orderChannel,
+        o.outlet_id,
+        orderWibDate,
       );
       const qty = item.quantity || 1;
       const current = hppMap.get(o.outlet_id) || {

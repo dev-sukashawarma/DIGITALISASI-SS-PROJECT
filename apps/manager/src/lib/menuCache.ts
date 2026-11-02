@@ -26,13 +26,25 @@ export async function getRiwayatHppData(supabaseAdmin: any): Promise<any[]> {
   if (riwayatHppCache && riwayatHppCache.expiresAt > now) {
     return riwayatHppCache.data;
   }
-  const { data, error } = await supabaseAdmin
-    .from('menu_hpp_riwayat')
-    .select('menu_item_id, kunci, nilai, berlaku_mulai')
-    .order('id', { ascending: true });
-  const items = data || [];
-  if (!error && items.length > 0) {
-    riwayatHppCache = { data: items, expiresAt: now + CACHE_TTL_MS };
+  const UKURAN = 1000;
+  const semua: any[] = [];
+  let gagal = false;
+  for (let dari = 0; ; dari += UKURAN) {
+    const { data, error } = await supabaseAdmin
+      .from('menu_hpp_riwayat')
+      .select('menu_item_id, kunci, nilai, berlaku_mulai')
+      .order('id', { ascending: true })
+      .range(dari, dari + UKURAN - 1);
+    if (error) {
+      gagal = true;
+      break;
+    }
+    const halaman = data || [];
+    semua.push(...halaman);
+    if (halaman.length < UKURAN) break;
   }
-  return items;
+  if (!gagal && semua.length > 0) {
+    riwayatHppCache = { data: semua, expiresAt: now + CACHE_TTL_MS };
+  }
+  return semua;
 }

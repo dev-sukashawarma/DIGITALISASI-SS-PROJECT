@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { getItemHpp } from './compute'
+import { getItemHpp, buildMenuMaps, buildPenerapHpp, MITRA_CILEUNGSI_OUTLET_ID } from './compute'
 import { adalahKanalSsOnline } from '@/lib/hpp/kanalSsOnline'
+import { MENU_SELECT } from './laporan'
 
 const TIKTOK_SHOP_ID = 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5'
 const SHOPEE_ID = 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
@@ -50,22 +51,53 @@ describe('getItemHpp — pemilihan HPP SS Online', () => {
   })
 })
 
-describe('getItemHpp — markup mitra', () => {
-  it('paket tanpa HPP sendiri di outlet mitra dikali 1,1 SEKALI (bukan 1,21)', () => {
+describe('getItemHpp — markup mitra & takeout OPEX mulai Okt 2026', () => {
+  it('sebelum 1 Okt 2026: paket tanpa HPP sendiri di outlet mitra dikali 1,1 SEKALI (bukan 1,21)', () => {
     const komp = { id: 'k', hpp_override: 10000, channel_hpp: null, is_package: false }
     const paket = { id: 'p', hpp_override: null, channel_hpp: null, is_package: true,
       package_items: [{ quantity: 2, component: komp }] }
-    expect(getItemHpp(paket, 'mitra', undefined, undefined, 'pos')).toBe(22000)
+    expect(getItemHpp(paket, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-lain', '2026-09-20')).toBe(22000)
   })
 
-  it('menu satuan di outlet mitra dikali 1,1', () => {
-    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos')).toBe(Math.round(18310 * 1.1))
+  it('sebelum 1 Okt 2026: menu satuan di outlet mitra dikali 1,1', () => {
+    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-lain', '2026-09-20')).toBe(Math.round(18310 * 1.1))
+  })
+
+  it('mulai 1 Okt 2026: mitra non-Cileungsi takeout OPEX, sedangkan MITRA CILEUNGSI tetap x1,1 tanpa bentrok cache', () => {
+    // Panggil pada objek referensi yang sama untuk menguji isolasi memoKey
+    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-jatiasih', '2026-10-15')).toBe(18310)
+    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, MITRA_CILEUNGSI_OUTLET_ID, '2026-10-15')).toBe(Math.round(18310 * 1.1))
+    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-jatiasih', '2026-11-02')).toBe(18310)
+    expect(getItemHpp(ayamBesar, 'mitra', undefined, undefined, 'pos', undefined, undefined, MITRA_CILEUNGSI_OUTLET_ID, '2026-11-02')).toBe(Math.round(18310 * 1.1))
+  })
+
+  it('transisi minuman murni Aqua dalam paket sebelum vs mulai 2 Nov 2026', () => {
+    const ayamSedang = { id: 'ayam-sdg', hpp_override: 13275, channel_hpp: null, is_package: false }
+    const aquaOct = { id: 'c8427af3-0a41-48dd-9a08-6b93cd913ec6', hpp_override: 1700, channel_hpp: null, is_package: false }
+    const paketOct = {
+      id: 'pkg-ayam-aqua',
+      hpp_override: null,
+      channel_hpp: null,
+      is_package: true,
+      package_items: [
+        { quantity: 1, component: ayamSedang },
+        { quantity: 1, component: aquaOct },
+      ],
+    }
+    expect(getItemHpp(paketOct, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-lain', '2026-10-20')).toBe(Math.round(13275 + 1700 * 1.1))
+
+    const aquaNov = { ...aquaOct, hpp_override: 1870 }
+    const paketNov = {
+      ...paketOct,
+      package_items: [
+        { quantity: 1, component: { ...ayamSedang, hpp_override: 13961 } },
+        { quantity: 1, component: aquaNov },
+      ],
+    }
+    expect(getItemHpp(paketNov, 'mitra', undefined, undefined, 'pos', undefined, undefined, 'mitra-lain', '2026-11-02')).toBe(13961 + 1870)
+    expect(getItemHpp(paketNov, 'mitra', undefined, undefined, 'pos', undefined, undefined, MITRA_CILEUNGSI_OUTLET_ID, '2026-11-02')).toBe(Math.round((13961 + 1870) * 1.1))
   })
 })
-
-
-import { buildMenuMaps, buildPenerapHpp } from './compute'
-import { MENU_SELECT } from './laporan'
 
 describe('buildMenuMaps & MENU_SELECT — proteksi duplikat yatim menu_items', () => {
   it('MENU_SELECT memuat is_available, outlet_id, categories(name)', () => {

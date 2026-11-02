@@ -158,7 +158,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   // Margin pasokan bahan mitra: Laba Rugi Global mengakuinya sebagai pendapatan
   // pusat (HPP mitra di kartu COGS sudah ber-markup 10%). Hanya saat semua
   // outlet digabung — di situ kedua kantongnya sama-sama ada di layar.
-  const akuiMargin = Boolean(curAcuan) && filter.outletId === 'all'
+  const akuiMargin = hasKeuanganRole && filter.outletId === 'all'
   const curMarginMitra = akuiMargin ? Number((curData as any).totalMitraMarkup || 0) : 0
   const prevMarginMitra = akuiMargin ? Number((prevData as any).totalMitraMarkup || 0) : 0
 

@@ -215,36 +215,71 @@ export default async function ReportsPage({
     if (o.id) outletTypeMap.set(o.id, String(o.type || 'internal').toLowerCase());
   }
 
-  const riwayatByMenu = new Map<string, any[]>();
+  type TitikRiwayat = { tgl: string; nilai: number | null };
+  const indeksRiwayat = new Map<string, Map<string, TitikRiwayat[]>>();
   for (const r of riwayatHppData || []) {
-    if (!r?.menu_id || !r?.berlaku_mulai) continue;
-    const list = riwayatByMenu.get(r.menu_id);
-    if (list) list.push(r);
-    else riwayatByMenu.set(r.menu_id, [r]);
+    if (!r?.menu_item_id || !r?.kunci || !r?.berlaku_mulai) continue;
+    let perKunci = indeksRiwayat.get(r.menu_item_id);
+    if (!perKunci) {
+      perKunci = new Map();
+      indeksRiwayat.set(r.menu_item_id, perKunci);
+    }
+    let titik = perKunci.get(r.kunci);
+    if (!titik) {
+      titik = [];
+      perKunci.set(r.kunci, titik);
+    }
+    titik.push({
+      tgl: String(r.berlaku_mulai).slice(0, 10),
+      nilai: r.nilai === null || r.nilai === undefined ? null : Number(r.nilai),
+    });
   }
-  for (const list of riwayatByMenu.values()) {
-    list.sort((a: any, b: any) => (a.berlaku_mulai < b.berlaku_mulai ? -1 : a.berlaku_mulai > b.berlaku_mulai ? 1 : 0));
+  for (const perKunci of indeksRiwayat.values()) {
+    for (const titik of perKunci.values()) {
+      titik.sort((a, b) => a.tgl.localeCompare(b.tgl));
+    }
   }
+
+  const menuPrioritas = (m: any): number => {
+    const cat = (
+      (Array.isArray(m?.categories) ? m.categories[0]?.name : m?.categories?.name) ||
+      m?.category_name ||
+      ''
+    ).toLowerCase();
+    const isVoucher = cat.includes('voucher pamulang') ? 0 : 1;
+    const isGlobal = !m?.outlet_id ? 1 : 0;
+    const isActive = m?.is_available !== false ? 1 : 0;
+    const hasCategory = cat.length > 0 ? 1 : 0;
+    return isVoucher * 1000 + isGlobal * 100 + isActive * 10 + hasCategory;
+  };
+  const sortedMenuItems = [...(menuItemsData || [])].sort((a, b) => menuPrioritas(b) - menuPrioritas(a));
 
   const cachePenerapTanggal = new Map<string, { byId: Map<string, any>; byName: Map<string, any> }>();
   const getPenerapUntukTanggal = (tgl: string) => {
     const cached = cachePenerapTanggal.get(tgl);
     if (cached) return cached;
-    const pilihBaris = (menuId?: string) => {
-      if (!menuId) return undefined;
-      const list = riwayatByMenu.get(menuId);
-      if (!list || list.length === 0) return undefined;
-      let kandidat: any = undefined;
-      for (const b of list) {
-        if (b.berlaku_mulai <= tgl) kandidat = b;
-        else break;
+    const nilaiPada = (menuId?: string) => {
+      if (!menuId) return null;
+      const perKunci = indeksRiwayat.get(menuId);
+      if (!perKunci) return null;
+      let hpp_override: number | null = null;
+      const channel_hpp: Record<string, number> = {};
+      for (const [kunci, titik] of perKunci) {
+        let nilai: number | null | undefined;
+        for (const t of titik) {
+          if (t.tgl <= tgl) nilai = t.nilai;
+          else break;
+        }
+        if (nilai === undefined) continue;
+        if (kunci === 'hpp_override') hpp_override = nilai;
+        else if (nilai !== null) channel_hpp[kunci] = nilai;
       }
-      return kandidat ?? list[0];
+      return { hpp_override, channel_hpp };
     };
     const timpa = (m: any): any => {
       if (!m || typeof m !== 'object') return m;
-      const r = pilihBaris(m.id);
-      const next: any = r ? { ...m, hpp_override: r.hpp_override, channel_hpp: r.channel_hpp ?? {} } : { ...m };
+      const v = typeof m.id === 'string' ? nilaiPada(m.id) : null;
+      const next: any = v ? { ...m, hpp_override: v.hpp_override, channel_hpp: v.channel_hpp } : { ...m };
       if (Array.isArray(m.package_items)) {
         next.package_items = m.package_items.map((pi: any) =>
           pi?.component ? { ...pi, component: timpa(pi.component) } : pi
@@ -254,15 +289,40 @@ export default async function ReportsPage({
     };
     const byId = new Map<string, any>();
     const byName = new Map<string, any>();
-    for (const m of menuItemsData || []) {
+    for (const m of sortedMenuItems) {
       const t = timpa(m);
       if (m?.id) byId.set(m.id, t);
-      if (m?.name) byName.set(cleanItemName(m.name), t);
+      if (m?.name) {
+        const kAsli = cleanItemName(m.name);
+        const kLower = kAsli.trim().toLowerCase();
+        if (!byName.has(kAsli)) byName.set(kAsli, t);
+        if (!byName.has(kLower)) byName.set(kLower, t);
+      }
     }
     const res = { byId, byName };
     cachePenerapTanggal.set(tgl, res);
     return res;
   };
+
+  const KANAL_SS_ONLINE = new Set<string>([
+    'ss_online',
+    'ss-online',
+    'shopee_shop',
+    'tiktok_shop',
+    'f3305089-b9e4-4b92-95da-14bf6e7fb6d5',
+    'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584',
+  ]);
+  const adalahKanalSsOnline = (ch: string | null | undefined) =>
+    Boolean(ch && KANAL_SS_ONLINE.has(ch.trim().toLowerCase()));
+
+  const MITRA_OPEX_TAKEOUT_START = '2026-10-01';
+  const MITRA_DRINK_OPEX_DB_START = '2026-11-02';
+  const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff';
+  const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
+    '08a57f8f-f212-4205-a3eb-fb88066ae1b8',
+    'c543b78e-3341-44e0-b3ef-53349e71e3d3',
+    'c8427af3-0a41-48dd-9a08-6b93cd913ec6',
+  ]);
 
   const hitungHppItem = (
     menuItem: any,
@@ -271,34 +331,131 @@ export default async function ReportsPage({
     byName?: Map<string, any>,
     channel?: string | null,
     menuItemId?: string | null,
-    byId?: Map<string, any>
+    byId?: Map<string, any>,
+    outletId?: string | null,
+    orderDate?: string | null
   ): number => {
     let itemObj = menuItem;
     if (!itemObj && menuItemId && byId?.has(menuItemId)) itemObj = byId.get(menuItemId);
-    if ((!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) && fallbackName && byName) {
-      const cleanKey = cleanItemName(fallbackName);
-      if (byName.has(cleanKey)) itemObj = byName.get(cleanKey);
+    if (!itemObj && fallbackName && byName) {
+      const rawClean = cleanItemName(fallbackName);
+      const rawLower = rawClean.trim().toLowerCase();
+      const candidates = [
+        rawClean,
+        rawLower,
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').trim(),
+        rawLower.replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+        rawLower.replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+        rawLower.replace(/\s+shawarma\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s+shawarma\s*$/i, '').trim(),
+      ];
+      for (const key of candidates) {
+        if (byName.has(key)) {
+          itemObj = byName.get(key);
+          break;
+        }
+      }
     }
     if (!itemObj) return 0;
-    const normCh = channel ? channel.toLowerCase() : null;
+    const normCh = channel ? channel.trim().toLowerCase() : null;
     const isMitra = outletType === 'mitra';
-    let baseHpp = 0;
-    let channelHppVal: number | null = null;
-    if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
-      channelHppVal = itemObj.channel_hpp[normCh] ?? null;
+
+    const extractLeafBase = (obj: any): number => {
+      if (!obj) return 0;
+      let channelHppVal: number | null = null;
+      if (obj.channel_hpp && typeof obj.channel_hpp === 'object' && normCh) {
+        if (adalahKanalSsOnline(normCh)) {
+          channelHppVal =
+            obj.channel_hpp.ss_online ??
+            obj.channel_hpp.tiktok_shop ??
+            obj.channel_hpp.shopee_shop ??
+            obj.channel_hpp[normCh] ??
+            null;
+        } else {
+          channelHppVal = obj.channel_hpp[normCh] ?? null;
+        }
+      }
+      if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+        return Number(channelHppVal);
+      }
+      if (obj.hpp_override !== null && obj.hpp_override !== undefined && Number(obj.hpp_override) > 0) {
+        return Number(obj.hpp_override);
+      }
+      return 0;
+    };
+
+    const extractBase = (obj: any): number => {
+      if (!obj) return 0;
+      const leaf = extractLeafBase(obj);
+      if (leaf > 0) return leaf;
+      if (obj.is_package && Array.isArray(obj.package_items)) {
+        return obj.package_items.reduce((sum: number, pkg: any) => {
+          const compHpp = pkg.component ? extractBase(pkg.component) : 0;
+          const qty = pkg.quantity || 1;
+          return sum + compHpp * qty;
+        }, 0);
+      }
+      return 0;
+    };
+
+    let resolvedObj = itemObj;
+    let baseHpp = extractBase(resolvedObj);
+    if (baseHpp === 0 && fallbackName && byName) {
+      const rawClean = cleanItemName(fallbackName);
+      const rawLower = rawClean.trim().toLowerCase();
+      const candidates = [
+        rawClean,
+        rawLower,
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').trim(),
+        rawLower.replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
+        rawLower.replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
+        rawLower.replace(/\s+shawarma\s*$/i, '').trim(),
+        rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s+shawarma\s*$/i, '').trim(),
+      ];
+      for (const key of candidates) {
+        if (byName.has(key)) {
+          const candObj = byName.get(key);
+          const candHpp = extractBase(candObj);
+          if (candHpp > 0) {
+            resolvedObj = candObj;
+            baseHpp = candHpp;
+            break;
+          }
+        }
+      }
     }
-    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-      baseHpp = Number(channelHppVal);
-    } else if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
-      baseHpp = Number(itemObj.hpp_override);
-    } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
-      baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
-        const compHpp = pkg.component ? hitungHppItem(pkg.component, undefined, undefined, undefined, channel) : 0;
-        const qty = pkg.quantity || 1;
-        return sum + compHpp * qty;
-      }, 0);
+
+    if (!isMitra || baseHpp <= 0) return baseHpp;
+
+    const effDate = orderDate ? orderDate.slice(0, 10) : toDateStr;
+    if (effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID) {
+      return Math.round(baseHpp * 1.1);
     }
-    return isMitra && baseHpp > 0 ? Math.round(baseHpp * 1.1) : baseHpp;
+
+    const extractMitraRaw = (obj: any): number => {
+      if (!obj) return 0;
+      const leaf = extractLeafBase(obj);
+      if (leaf > 0) {
+        const isPureDrink =
+          effDate < MITRA_DRINK_OPEX_DB_START &&
+          Boolean(obj.id && PURE_DRINK_IDS_BEFORE_NOV2.has(obj.id));
+        return isPureDrink ? leaf * 1.1 : leaf;
+      }
+      if (obj.is_package && Array.isArray(obj.package_items)) {
+        return obj.package_items.reduce((sum: number, pkg: any) => {
+          const compRaw = pkg.component ? extractMitraRaw(pkg.component) : 0;
+          const qty = pkg.quantity || 1;
+          return sum + compRaw * qty;
+        }, 0);
+      }
+      return 0;
+    };
+
+    return Math.round(extractMitraRaw(resolvedObj));
   };
 
   const ecommerceOrders = (ecommerceSalesData || []).map(mapEcommerceSaleToOrder);
@@ -372,7 +529,7 @@ export default async function ReportsPage({
         const sub = Number(oi.subtotal) || 0;
 
         const menuItem = (oi.menu_item_id ? penerap.byId.get(oi.menu_item_id) : null) || penerap.byName.get(name);
-        const unitHpp = hitungHppItem(menuItem, outType, name, penerap.byName, ordChannel, oi.menu_item_id, penerap.byId);
+        const unitHpp = hitungHppItem(menuItem, outType, name, penerap.byName, ordChannel, oi.menu_item_id, penerap.byId, outletId, tglWib);
         totalHPP += unitHpp * qty;
 
         if (!itemMap[name]) itemMap[name] = { name, qty: 0, revenue: 0 };

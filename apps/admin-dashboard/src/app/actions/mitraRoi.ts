@@ -253,8 +253,8 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
         return [] as any[]
       }),
       (mitraOutletIds.length === 1
-        ? fetchHppRows(supabase, { from, to, outletId: mitraOutletIds[0], source: 'all' })
-        : Promise.all(mitraOutletIds.map(oid => fetchHppRows(supabase, { from, to, outletId: oid, source: 'all' }))).then(res => res.flat())
+        ? fetchHppRows(supabase, { from, to, outletId: mitraOutletIds[0], source: 'all' }, { respectMitraCutoff: true })
+        : Promise.all(mitraOutletIds.map(oid => fetchHppRows(supabase, { from, to, outletId: oid, source: 'all' }, { respectMitraCutoff: true }))).then(res => res.flat())
       ).catch(err => {
         console.warn('Gagal memuat fetchHppRows di mitraRoi:', err)
         return []

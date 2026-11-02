@@ -273,7 +273,7 @@ export function computeExportReport(params: {
     if (items.length > 0) {
       items.forEach((oi, idx) => {
         const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(cleanItemName(oi.menu_item_name))
-        const hpp = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, orderChannel, oi.menu_item_id, pHpp.byId)
+        const hpp = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, orderChannel, oi.menu_item_id, pHpp.byId, o.outlet_id, tgl)
         const qty = Number(oi.quantity) || 0
         catatItem(cleanItemName(oi.menu_item_name), qty, shares[idx] * orderGross, shares[idx] * orderPotongan, hpp * qty)
       })

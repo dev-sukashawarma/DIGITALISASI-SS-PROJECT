@@ -538,7 +538,7 @@ async function fetchPlatformSettlementsRange(
 
 // Cache disimpan permanen (tahan redeploy): kunci ikut sidik jari kode
 // pengambil data, supaya perubahan kode otomatis membuat cache lama tak terpakai.
-const OWNER_CACHE_FINGERPRINT = codeFingerprint(fetchOwnerDashboardSummaryRaw, fetchEcommerceOwnerData)
+const OWNER_CACHE_FINGERPRINT = `${codeFingerprint(fetchOwnerDashboardSummaryRaw, fetchEcommerceOwnerData)}-v2`
 
 // ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC + Smart Cache ────────────
 export async function getOwnerDashboardDataFast(
@@ -627,7 +627,7 @@ export async function getOwnerDashboardDataFast(
       const runRaw = () => fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source)
       const promise = unstable_cache(
         runRaw,
-        ['owner-dashboard-chunk-v9', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, chunkGen],
+        ['owner-dashboard-chunk-v10', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, chunkGen],
         {
           revalidate: 3600,
           tags: ['owner-dashboard', ...chunk.dates.map(ownerDashboardDayTag)],

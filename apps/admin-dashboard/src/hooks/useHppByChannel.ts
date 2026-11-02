@@ -3,8 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase";
 import { cleanItemName } from "@/lib/order-item-name";
-import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp";
-import { adalahKanalSsOnline } from "@/lib/hpp/kanalSsOnline";
+import { ambilRiwayatHpp, ambilVersiRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp";
+import { getItemHpp } from "@/lib/hpp/fetchHpp";
 import { resolveSalesSource } from "@/lib/resolveSalesSource";
 import { TEST_OUTLET_ID } from "@/lib/outletFilters";
 
@@ -14,95 +14,23 @@ export interface HppByChannelRow {
   hpp: number;
 }
 
-function getItemHpp(
-  menuItem: any,
-  outletType?: string,
-  fallbackName?: string,
-  menuItemByNameMap?: Map<string, any>,
-  channel?: string | null,
-): number {
-  let itemObj = menuItem;
-
-  const extractBase = (obj: any): number => {
-    if (!obj) return 0;
-    const normCh = channel ? channel.toLowerCase() : null;
-    let channelHppVal: number | null = null;
-    if (obj.channel_hpp && typeof obj.channel_hpp === 'object' && normCh) {
-      if (adalahKanalSsOnline(normCh)) {
-        channelHppVal = obj.channel_hpp.ss_online ?? obj.channel_hpp.tiktok_shop ?? obj.channel_hpp.shopee_shop ?? obj.channel_hpp[normCh] ?? null;
-      } else {
-        channelHppVal = obj.channel_hpp[normCh] ?? null;
-      }
-    }
-
-    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-      return Number(channelHppVal);
-    } else if (
-      obj.hpp_override !== null &&
-      obj.hpp_override !== undefined &&
-      Number(obj.hpp_override) > 0
-    ) {
-      return Number(obj.hpp_override);
-    } else if (obj.is_package && Array.isArray(obj.package_items)) {
-      return obj.package_items.reduce((sum: number, pkg: any) => {
-        const compHpp = pkg.component?.hpp_override || 0;
-        const qty = pkg.quantity || 1;
-        return sum + compHpp * qty;
-      }, 0);
-    }
-    return 0;
-  };
-
-  let baseHpp = extractBase(itemObj);
-
-  if (baseHpp === 0 && fallbackName && menuItemByNameMap) {
-    const rawClean = cleanItemName(fallbackName);
-    const rawLower = rawClean.trim().toLowerCase();
-    const candidates = [
-      rawClean,
-      rawLower,
-      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').trim(),
-      rawLower.replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
-      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*\((1x|2x|3x|4x)\)\s*$/i, '').trim(),
-      rawLower.replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
-      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s*-\s*(large|barbar)\s*$/i, '').trim(),
-      rawLower.replace(/\s+shawarma\s*$/i, '').trim(),
-      rawLower.replace(/^(suka\s+shawarma|suka)\s+/i, '').replace(/\s+shawarma\s*$/i, '').trim(),
-    ];
-
-    for (const key of candidates) {
-      if (menuItemByNameMap.has(key)) {
-        const candObj = menuItemByNameMap.get(key);
-        const candBase = extractBase(candObj);
-        if (candBase > 0) {
-          itemObj = candObj;
-          baseHpp = candBase;
-          break;
-        }
-      }
-    }
-  }
-
-  if (outletType === "mitra" && baseHpp > 0) {
-    return Math.round(baseHpp * 1.1);
-  }
-  return baseHpp;
-}
-
 export function useHppByChannel(from: string, to: string) {
   const supabase = createClient();
-  const query = useQuery<HppByChannelRow[]>({
-    queryKey: ["hpp-by-channel-calculated", from, to],
-    staleTime: 2 * 60_000,
+  const versiQuery = useQuery({
+    queryKey: ["hpp-riwayat-versi"],
+    staleTime: 60_000,
     enabled: Boolean(from && to),
-    queryFn: async () => {
-      const start = new Date(from);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(to);
-      end.setHours(23, 59, 59, 999);
+    queryFn: () => ambilVersiRiwayatHpp(supabase),
+  });
+  const versiHpp = versiQuery.data;
 
-      const ordersGte = start.toISOString();
-      const ordersLte = end.toISOString();
+  const query = useQuery<HppByChannelRow[]>({
+    queryKey: ["hpp-by-channel-calculated-v2", from, to, versiHpp ?? ""],
+    staleTime: 2 * 60_000,
+    enabled: Boolean(from && to && versiHpp),
+    queryFn: async () => {
+      const ordersGte = `${from}T00:00:00.000+07:00`;
+      const ordersLte = `${to}T23:59:59.999+07:00`;
 
       const { data: outlets } = await supabase
         .from("outlets")
@@ -182,14 +110,17 @@ export function useHppByChannel(from: string, to: string) {
         const source = resolveSalesSource(o.channel, o.sales_source, o.is_endorse);
         const orderChannel = o.channel || o.sales_source;
 
-        const pHpp = penerapHpp.untuk(tanggalWib(o.created_at));
+        const orderWibDate = tanggalWib(o.created_at);
+        const pHpp = penerapHpp.untuk(orderWibDate);
         o.order_items?.forEach((item: any) => {
-          const hpp = getItemHpp(
+          const { hpp } = getItemHpp(
             pHpp.terapkan(item.menu_items),
             outletType,
             item.menu_item_name,
             pHpp.byName,
             orderChannel,
+            o.outlet_id,
+            orderWibDate,
           );
           const qty = item.quantity || 1;
           const key = keyFn(o.outlet_id, source);
@@ -206,15 +137,18 @@ export function useHppByChannel(from: string, to: string) {
         const source =
           resolved === "tiktok_shop" || resolved === "shopee_shop" ? resolved : "online";
 
-        const pHpp = penerapHpp.untuk(tanggalWib(saleRecord.order_date));
+        const ecWibDate = tanggalWib(saleRecord.order_date);
+        const pHpp = penerapHpp.untuk(ecWibDate);
         saleRecord.ecommerce_sale_items?.forEach((item: any) => {
           const fallbackName = item.menu_items?.name || "Unknown";
-          const hpp = getItemHpp(
+          const { hpp } = getItemHpp(
             pHpp.terapkan(item.menu_items),
             outletType,
             fallbackName,
             pHpp.byName,
             saleRecord.channel_id,
+            outletId,
+            ecWibDate,
           );
           const qty = item.quantity || 1;
           const key = keyFn(outletId, source);
@@ -232,9 +166,15 @@ export function useHppByChannel(from: string, to: string) {
       return rows;
     },
   });
+  const versiBelumSiap = !versiHpp && !versiQuery.error;
+  const aktif = Boolean(from && to);
   return {
     rows: query.data ?? [],
-    loading: query.isLoading,
-    error: query.error ? (query.error as Error).message : null,
+    loading: aktif && (versiQuery.isLoading || query.isLoading || versiBelumSiap),
+    error: versiQuery.error
+      ? (versiQuery.error as Error).message
+      : query.error
+        ? (query.error as Error).message
+        : null,
   };
 }

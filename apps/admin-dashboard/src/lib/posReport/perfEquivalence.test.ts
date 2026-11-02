@@ -214,7 +214,7 @@ function referencePipeline(smallData: ReturnType<typeof generateDataset>, select
     const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
     return sum + o.order_items.reduce((itemSum: number, item: any) => {
       const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(parseItemName(item.menu_item_name).name)
-      const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, orderChannel, item.menu_item_id, pHpp.byId)
+      const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, orderChannel, item.menu_item_id, pHpp.byId, o.outlet_id, tanggalWib(o.created_at))
       return itemSum + (hpp * item.quantity)
     }, 0)
   }, 0)

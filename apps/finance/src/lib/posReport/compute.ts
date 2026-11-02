@@ -91,6 +91,15 @@ export interface OrderRow {
 
 const itemHppMemo = new WeakMap<object, Map<string, number>>()
 
+export const MITRA_OPEX_TAKEOUT_START = '2026-10-01'
+export const MITRA_DRINK_OPEX_DB_START = '2026-11-02'
+export const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
+const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
+  '08a57f8f-f212-4205-a3eb-fb88066ae1b8', // Ice Tea
+  'c543b78e-3341-44e0-b3ef-53349e71e3d3', // Orange Juice
+  'c8427af3-0a41-48dd-9a08-6b93cd913ec6', // Aqua
+])
+
 export function getItemHpp(
   menuItem: any,
   outletType?: string,
@@ -98,7 +107,9 @@ export function getItemHpp(
   menuItemByNameMap?: Map<string, any>,
   channel?: string | null,
   menuItemId?: string | null,
-  menuItemByIdMap?: Map<string, any>
+  menuItemByIdMap?: Map<string, any>,
+  outletId?: string | null,
+  orderDate?: string | null
 ): number {
   let itemObj = menuItem
   if (!itemObj && menuItemId && menuItemByIdMap?.has(menuItemId)) {
@@ -129,40 +140,57 @@ export function getItemHpp(
 
   const normCh = channel ? channel.toLowerCase() : null
   const isMitra = outletType === 'mitra'
-  const memoKey = `${isMitra ? 1 : 0}|${normCh || ''}|${itemObj.hpp_override ?? ''}`
+  const effDate = orderDate ? orderDate.slice(0, 10) : tanggalWib(new Date().toISOString())
+  const isLegacyMitra =
+    !isMitra ? false : effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID
+  const mitraMode = !isMitra ? 0 : isLegacyMitra ? 1 : effDate < MITRA_DRINK_OPEX_DB_START ? 2 : 3
+  const memoKey = `${mitraMode}|${normCh || ''}|${itemObj.hpp_override ?? ''}|${itemObj.hpp_override ? '' : (fallbackName || '')}`
   let objMap = itemHppMemo.get(itemObj)
   if (objMap) {
     const hit = objMap.get(memoKey)
     if (hit !== undefined) return hit
   }
 
-  let baseHpp = 0
-  let channelHppVal: number | null = null
-
-  if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
-    // Hanya marketplace (Shopee toko, TikTok Shop). ShopeeFood & TikTok GO
-    // memakai hpp_override — lihat lib/hpp/kanalSsOnline.ts.
-    if (adalahKanalSsOnline(normCh)) {
-      channelHppVal = itemObj.channel_hpp.ss_online ?? itemObj.channel_hpp.tiktok_shop ?? itemObj.channel_hpp.shopee_shop ?? itemObj.channel_hpp[normCh] ?? null
-    } else {
-      channelHppVal = itemObj.channel_hpp[normCh] ?? null
+  const extractLeafBase = (obj: any): number => {
+    if (!obj) return 0
+    let chVal: number | null = null
+    if (obj.channel_hpp && typeof obj.channel_hpp === 'object' && normCh) {
+      // Hanya marketplace (Shopee toko, TikTok Shop). ShopeeFood & TikTok GO
+      // memakai hpp_override — lihat lib/hpp/kanalSsOnline.ts.
+      if (adalahKanalSsOnline(normCh)) {
+        chVal = obj.channel_hpp.ss_online ?? obj.channel_hpp.tiktok_shop ?? obj.channel_hpp.shopee_shop ?? obj.channel_hpp[normCh] ?? null
+      } else {
+        chVal = obj.channel_hpp[normCh] ?? null
+      }
     }
+    if (chVal !== null && chVal !== undefined && Number(chVal) > 0) {
+      return Number(chVal)
+    }
+    if (obj.hpp_override !== null && obj.hpp_override !== undefined && Number(obj.hpp_override) > 0) {
+      return Number(obj.hpp_override)
+    }
+    return 0
   }
 
-  if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-    baseHpp = Number(channelHppVal)
-  } else if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
-    baseHpp = Number(itemObj.hpp_override)
-  } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
-    baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
-      // Komponen dihitung TANPA markup mitra; markup 1,1 dipasang sekali di
-      // bawah pada total paket. Dulu komponen sudah ×1,1 lalu totalnya ×1,1
-      // lagi → paket mitra kena 1,21.
-      const compHpp = pkg.component ? getItemHpp(pkg.component, undefined, undefined, undefined, channel) : 0
-      const qty = pkg.quantity || 1
-      return sum + (compHpp * qty)
-    }, 0)
+  const extractBase = (obj: any): number => {
+    if (!obj) return 0
+    const leaf = extractLeafBase(obj)
+    if (leaf > 0) return leaf
+    if (obj.is_package && Array.isArray(obj.package_items)) {
+      return obj.package_items.reduce((sum: number, pkg: any) => {
+        // Komponen dihitung TANPA markup mitra; markup 1,1 dipasang sekali di
+        // bawah pada total paket. Dulu komponen sudah ×1,1 lalu totalnya ×1,1
+        // lagi → paket mitra kena 1,21.
+        const compHpp = pkg.component ? extractBase(pkg.component) : 0
+        const qty = pkg.quantity || 1
+        return sum + (compHpp * qty)
+      }, 0)
+    }
+    return 0
   }
+
+  let resolvedObj = itemObj
+  let baseHpp = extractBase(resolvedObj)
 
   // Jika itemObj menghasilkan baseHpp 0 (mis. menu lama dengan hpp null & channel_hpp {}), coba fallbackName
   if (baseHpp === 0 && fallbackName && menuItemByNameMap) {
@@ -182,15 +210,43 @@ export function getItemHpp(
     for (const key of candidates) {
       if (menuItemByNameMap.has(key)) {
         const candObj = menuItemByNameMap.get(key)
-        const candHpp = getItemHpp(candObj, undefined, undefined, undefined, channel)
+        const candHpp = extractBase(candObj)
         if (candHpp > 0) {
+          resolvedObj = candObj
           baseHpp = candHpp
           break
         }
       }
     }
   }
-  const finalHpp = isMitra && baseHpp > 0 ? Math.round(baseHpp * 1.10) : baseHpp
+
+  let finalHpp = baseHpp
+  if (isMitra && baseHpp > 0) {
+    if (isLegacyMitra) {
+      finalHpp = Math.round(baseHpp * 1.10)
+    } else {
+      const extractMitraRaw = (obj: any): number => {
+        if (!obj) return 0
+        const leaf = extractLeafBase(obj)
+        if (leaf > 0) {
+          const isPureDrink =
+            effDate < MITRA_DRINK_OPEX_DB_START &&
+            Boolean(obj.id && PURE_DRINK_IDS_BEFORE_NOV2.has(obj.id))
+          return isPureDrink ? leaf * 1.10 : leaf
+        }
+        if (obj.is_package && Array.isArray(obj.package_items)) {
+          return obj.package_items.reduce((sum: number, pkg: any) => {
+            const compRaw = pkg.component ? extractMitraRaw(pkg.component) : 0
+            const qty = pkg.quantity || 1
+            return sum + (compRaw * qty)
+          }, 0)
+        }
+        return 0
+      }
+      finalHpp = Math.round(extractMitraRaw(resolvedObj))
+    }
+  }
+
   if (!objMap) {
     objMap = new Map<string, number>()
     itemHppMemo.set(itemObj, objMap)
@@ -447,7 +503,8 @@ export function computeAnalytics({
     if (items.length > 0) {
       const outletType = outletTypeMap.get(o.outlet_id)
       const orderChannel = o.channel || o.sales_source
-      const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
+      const orderTglWib = tanggalWib(o.created_at)
+      const pHpp = penerapHpp.untuk(orderTglWib)
       const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
       const pdfShares = computeItemShares(items)
       let hasBogo = false
@@ -462,7 +519,7 @@ export function computeAnalytics({
 
         const key = cleanItemName(oi.menu_item_name)
         const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(key)
-        const hpp = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, orderChannel, oi.menu_item_id, pHpp.byId)
+        const hpp = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, orderChannel, oi.menu_item_id, pHpp.byId, o.outlet_id, orderTglWib)
         orderHpp += hpp * oi.quantity
 
         let im = itemMap[key]
@@ -753,7 +810,8 @@ export function computeItemBreakdown(
 
     // Jika ada diskon/pajak di tingkat pesanan, distribusikan secara proporsional ke tiap item
     const ratio = orderSubtotal > 0 ? (order.total_amount / orderSubtotal) : 1
-    const pHpp = penerapHpp.untuk(tanggalWib(order.created_at))
+    const orderTglWib = tanggalWib(order.created_at)
+    const pHpp = penerapHpp.untuk(orderTglWib)
 
     const srcKey = resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse).key
     let groupLabel = 'OFFLINE'
@@ -772,7 +830,7 @@ export function computeItemBreakdown(
       const cleanName = cleanItemName(item.menu_item_name)
       const key = `${cleanName}-${groupLabel}`
       const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(cleanName)
-      const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, orderChannel, item.menu_item_id, pHpp.byId)
+      const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, orderChannel, item.menu_item_id, pHpp.byId, order.outlet_id, orderTglWib)
 
       let existing = map.get(key)
       if (!existing) {

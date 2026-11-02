@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildOutletFinancialCalculations, type OutletExportItem, type ExportContext } from './profitExportService'
+import { buildOutletFinancialCalculations, getChannelGroup, type OutletExportItem, type ExportContext } from './profitExportService'
 
 describe('buildOutletFinancialCalculations', () => {
   it('correctly calculates totalAdminFee including Food Apps deductions and TikTok Go commission', () => {
@@ -221,3 +221,13 @@ describe('buildOutletFinancialCalculations', () => {
   })
 })
 
+describe('getChannelGroup', () => {
+  it('memetakan tiktok_shop dan shopee_shop ke website, sedangkan tiktok_go ke tiktok_go', () => {
+    expect(getChannelGroup('tiktok_shop')).toBe('website')
+    expect(getChannelGroup('tiktok_seller')).toBe('website')
+    expect(getChannelGroup('shopee_shop')).toBe('website')
+    expect(getChannelGroup('tiktokgo')).toBe('tiktok_go')
+    expect(getChannelGroup('tiktok')).toBe('tiktok_go')
+    expect(getChannelGroup('pos')).toBe('outlet')
+  })
+})

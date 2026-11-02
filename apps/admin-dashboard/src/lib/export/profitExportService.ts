@@ -47,7 +47,7 @@ export function getChannelGroup(salesSource: string): 'outlet' | 'food_apps' | '
   if (['tiktok', 'tiktok_go', 'tiktokgo'].includes(s)) {
     return 'tiktok_go'
   }
-  if (['website', 'online', 'web', 'website ss', 'ss-online', 'ss_online', 'shopee', 'shopee_shop', 'shopee_seller', 'shopeeseller', 'shopee seller'].includes(s)) {
+  if (['website', 'online', 'web', 'website ss', 'ss-online', 'ss_online', 'shopee', 'shopee_shop', 'shopee_seller', 'shopeeseller', 'shopee seller', 'tiktok_shop', 'tiktok_seller', 'tiktokseller', 'tiktok seller'].includes(s)) {
     return 'website'
   }
   return 'outlet' // Default POS / Offline

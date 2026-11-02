@@ -1,4 +1,4 @@
-import { buildChannelBreakdown, buildCashRows, buildOutletBreakdown, itemFlags, splitByCutoff, MITRA_SUFFIX } from './kasir'
+import { buildChannelBreakdown, buildCashRows, buildOutletBreakdown, itemFlags, splitByCutoff, MITRA_SUFFIX, MITRA_CILEUNGSI_SUFFIX } from './kasir'
 import { buildPenerapHpp, computeAnalytics, buildMenuMaps } from '@/lib/posReport/compute'
 import { computeCategoryReport } from '@/lib/posReport/kategori'
 
@@ -219,5 +219,25 @@ describe('findCutoff', () => {
     const res = findCutoff(dummyRiwayat, '2026-09-01', '2026-09-30')
     expect(res.cutoff).toBe('2026-09-15')
     expect(res.perubahan).toEqual([['2026-09-15', 6]])
+  })
+})
+
+describe('buildChannelBreakdown Oktober 2026+ (takeout OPEX vs Cileungsi)', () => {
+  it('memisahkan baris Mitra reguler (tanpa x1,1) dari Mitra Cileungsi (tetap x1,1)', () => {
+    const CILEUNGSI = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
+    const outs = [
+      ...outlets,
+      { id: CILEUNGSI, name: 'MITRA CILEUNGSI', type: 'mitra' },
+    ]
+    const octOrders = [
+      order({ outlet: 'o2', at: '2026-10-15T05:00:00Z', channel: 'pos', sales_source: 'pos_kasir', total: 25000, items: [[AYAM, 'Original Ayam Jumbo', 1, 25000]] }),
+      order({ outlet: CILEUNGSI, at: '2026-10-15T06:00:00Z', channel: 'pos', sales_source: 'pos_kasir', total: 25000, items: [[AYAM, 'Original Ayam Jumbo', 1, 25000]] }),
+    ]
+    const ch = buildChannelBreakdown(octOrders, outs, penerap, null)
+    const pos = ch.find((c) => c.key === 'pos_kasir')!
+    const reguler = pos.items.find((i) => i.name === `Original Ayam Jumbo${MITRA_SUFFIX}`)!
+    const cileungsi = pos.items.find((i) => i.name === `Original Ayam Jumbo${MITRA_CILEUNGSI_SUFFIX}`)!
+    expect(reguler.hppA).toBe(13900)
+    expect(cileungsi.hppA).toBe(Math.round(13900 * 1.1))
   })
 })

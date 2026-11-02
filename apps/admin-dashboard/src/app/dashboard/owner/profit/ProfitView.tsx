@@ -173,7 +173,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.refetchQueries({ queryKey: ['sales-daily'] }),
         queryClient.refetchQueries({ queryKey: ['expenses'] }),
         queryClient.refetchQueries({ queryKey: ['hpp-client-calculated'] }),
-        queryClient.refetchQueries({ queryKey: ['hpp-client-calculated-v2'] }),
+        queryClient.refetchQueries({ queryKey: ['hpp-client-calculated-v3'] }),
         queryClient.refetchQueries({ queryKey: ['waste'] }),
         queryClient.refetchQueries({ queryKey: ['prorata-auxiliary-data'] }),
         queryClient.refetchQueries({ queryKey: ['hr_payroll_summary'] }),
@@ -200,7 +200,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
         queryClient.invalidateQueries({ queryKey: ['expenses'] })
         queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
-        queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated-v2'] })
+        queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated-v3'] })
         queryClient.invalidateQueries({ queryKey: ['waste'] })
         queryClient.invalidateQueries({ queryKey: ['prorata-auxiliary-data'] })
         queryClient.invalidateQueries({ queryKey: ['hr_payroll_summary'] })

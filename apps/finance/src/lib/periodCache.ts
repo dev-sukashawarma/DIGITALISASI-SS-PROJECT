@@ -32,7 +32,7 @@ export function periodCacheOptions(filter: Pick<PeriodFilterValue, 'to'>) {
     : { staleTime: OPEN_STALE, gcTime: 5 * 60_000 }
 }
 
-const VERSION = 'v14'
+const VERSION = 'v15'
 const PREFIX = `rq-period:${VERSION}:`
 const MAX_BYTES = 1_500_000 // jauh di bawah kuota localStorage ~5 MB
 

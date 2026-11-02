@@ -117,7 +117,7 @@ export function computeCategoryReport(
         }
 
         const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(cleanItemName(oi.menu_item_name))
-        const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, o.channel || o.sales_source, oi.menu_item_id, pHpp.byId)
+        const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, o.channel || o.sales_source, oi.menu_item_id, pHpp.byId, o.outlet_id, tanggalWib(o.created_at))
         const itemHpp = hppPerUnit * oi.quantity
         const itemWeight = itemShares[idx]
         const itemRevenue = itemWeight * orderGross

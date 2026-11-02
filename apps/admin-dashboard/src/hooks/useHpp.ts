@@ -22,7 +22,7 @@ export function useHpp(filter: PeriodFilterValue) {
   const versiHpp = versiQuery.data;
 
   const queryKey = [
-    "hpp-client-calculated-v2",
+    "hpp-client-calculated-v3",
     filter.from,
     filter.to,
     filter.outletId,

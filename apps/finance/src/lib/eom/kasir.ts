@@ -15,7 +15,9 @@ import { tanggalWib } from '@/lib/hpp/riwayatHpp'
 
 type Penerap = { untuk(tgl: string): any }
 
-export const MITRA_SUFFIX = ' · Mitra (HPP x1,1)'
+export const MITRA_SUFFIX = ' · Mitra'
+export const MITRA_CILEUNGSI_SUFFIX = ' · Mitra Cileungsi (HPP x1,1)'
+const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
 type OutletLite = { id: string; name: string; type?: string | null }
 
 export interface EomItem {
@@ -118,7 +120,8 @@ export function buildChannelBreakdown(
     const items = new Map<string, EomItem>()
     const parts: [OrderRow[], string][] = [
       [g.orders.filter((o) => !mitraIds.has(o.outlet_id)), ''],
-      [g.orders.filter((o) => mitraIds.has(o.outlet_id)), MITRA_SUFFIX],
+      [g.orders.filter((o) => mitraIds.has(o.outlet_id) && o.outlet_id !== MITRA_CILEUNGSI_OUTLET_ID), MITRA_SUFFIX],
+      [g.orders.filter((o) => mitraIds.has(o.outlet_id) && o.outlet_id === MITRA_CILEUNGSI_OUTLET_ID), MITRA_CILEUNGSI_SUFFIX],
     ]
     for (const [partOrders, suffix] of parts) {
       if (partOrders.length === 0) continue

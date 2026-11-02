@@ -631,9 +631,17 @@ async function hitungPnlMitra(
     // HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga,
     // supaya komponen tidak ter-markup lebih dulu lalu ter-markup lagi di
     // lapisan paket (dulu paket kena 1,21 alih-alih 1,10).
-    function getItemHppBase(menuItem: any, channel?: string | null): number {
+    const MITRA_OPEX_TAKEOUT_START = '2026-10-01'
+    const MITRA_DRINK_OPEX_DB_START = '2026-11-02'
+    const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
+    const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
+      '08a57f8f-f212-4205-a3eb-fb88066ae1b8',
+      'c543b78e-3341-44e0-b3ef-53349e71e3d3',
+      'c8427af3-0a41-48dd-9a08-6b93cd913ec6',
+    ])
+
+    function getItemHppLeafBase(menuItem: any, channel?: string | null): number {
       if (!menuItem) return 0
-      let baseHpp = 0
       const normCh = channel ? channel.toLowerCase() : null
       let channelHppVal: number | null = null
 
@@ -646,24 +654,63 @@ async function hitungPnlMitra(
       }
 
       if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-        baseHpp = Number(channelHppVal)
-      } else if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
-        baseHpp = Number(menuItem.hpp_override)
-      } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
-        baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
+        return Number(channelHppVal)
+      }
+      if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
+        return Number(menuItem.hpp_override)
+      }
+      return 0
+    }
+
+    function getItemHppBase(menuItem: any, channel?: string | null): number {
+      if (!menuItem) return 0
+      const leaf = getItemHppLeafBase(menuItem, channel)
+      if (leaf > 0) return leaf
+      if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
+        return menuItem.package_items.reduce((sum: number, pkg: any) => {
           const compHpp = pkg.component ? getItemHppBase(pkg.component, channel) : 0
           const qty = Number(pkg.quantity) || 1
           return sum + (compHpp * qty)
         }, 0)
       }
-      return baseHpp
+      return 0
     }
 
-    // Markup mitra 10% diterapkan SEKALI, di lapisan terluar.
-    function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
+    function getItemMitraTakeoutRaw(menuItem: any, channel: string | null | undefined, effDate: string): number {
+      if (!menuItem) return 0
+      const leaf = getItemHppLeafBase(menuItem, channel)
+      if (leaf > 0) {
+        const isPureDrink =
+          effDate < MITRA_DRINK_OPEX_DB_START &&
+          Boolean(menuItem.id && PURE_DRINK_IDS_BEFORE_NOV2.has(menuItem.id))
+        return isPureDrink ? leaf * 1.10 : leaf
+      }
+      if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
+        return menuItem.package_items.reduce((sum: number, pkg: any) => {
+          const compRaw = pkg.component ? getItemMitraTakeoutRaw(pkg.component, channel, effDate) : 0
+          const qty = Number(pkg.quantity) || 1
+          return sum + (compRaw * qty)
+        }, 0)
+      }
+      return 0
+    }
+
+    // Markup mitra: < 1 Okt 2026 atau MITRA CILEUNGSI tetap ×1,10 dari HPP+OPEX;
+    // mulai 1 Okt 2026 untuk mitra lain memakai HPP Murni + 10% (takeout OPEX).
+    function getItemHpp(
+      menuItem: any,
+      outletType: string = 'mitra',
+      channel?: string | null,
+      outletId?: string | null,
+      orderDate?: string | null,
+    ): number {
       const baseHpp = getItemHppBase(menuItem, channel)
       if (outletType === 'mitra' && baseHpp > 0) {
-        return Math.round(baseHpp * 1.10)
+        const effDate = orderDate ? orderDate.slice(0, 10) : tanggalWib(new Date().toISOString())
+        if (effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID) {
+          return Math.round(baseHpp * 1.10)
+        }
+        return Math.round(getItemMitraTakeoutRaw(menuItem, channel, effDate))
       }
       return Math.round(baseHpp)
     }
@@ -686,10 +733,10 @@ async function hitungPnlMitra(
       if (m?.name && (m.is_available !== false || !menuByName.has(cleanItemName(m.name).trim().toLowerCase()))) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
     }
     const penerapHpp = buatPenerapRiwayat(menuList ?? [], await ambilRiwayatHpp(supabase), (n: string) => n)
-    const hppByName = (rawName?: string | null, channel?: string | null, tgl?: string): number => {
+    const hppByName = (rawName?: string | null, channel?: string | null, tgl?: string, outletId?: string | null): number => {
       if (!rawName) return 0
       const m = menuByName.get(cleanItemName(rawName).trim().toLowerCase())
-      return m ? getItemHpp(tgl ? penerapHpp.untuk(tgl).terapkan(m) : m, 'mitra', channel) : 0
+      return m ? getItemHpp(tgl ? penerapHpp.untuk(tgl).terapkan(m) : m, 'mitra', channel, outletId, tgl) : 0
     }
 
     for (const ord of allOrders) {
@@ -705,8 +752,8 @@ async function hitungPnlMitra(
       if (Array.isArray(ord.order_items)) {
         for (const item of ord.order_items) {
           const qty = Number(item.quantity) || 1
-          const hpp = getItemHpp(penerapHpp.untuk(tglOrder).terapkan(item.menu_items), 'mitra', ord.channel)
-            || hppByName(item.menu_item_name, ord.channel, tglOrder)
+          const hpp = getItemHpp(penerapHpp.untuk(tglOrder).terapkan(item.menu_items), 'mitra', ord.channel, ord.outlet_id, tglOrder)
+            || hppByName(item.menu_item_name, ord.channel, tglOrder, ord.outlet_id)
           orderCogs += (hpp * qty)
         }
       }

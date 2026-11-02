@@ -14,6 +14,18 @@ import { getPeriodsInRange } from './opexDateRangeProrata'
 /** Outlet dummy "Kantor Pusat" — biaya atas id ini adalah biaya pusat, bukan beban outlet. */
 const KANTOR_PUSAT_OUTLET_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
+const OUTLET_OPEX_NOL_OKTOBER_2026 = new Set<string>([
+  '48b980da-5a42-4a9b-a952-86ab5db6666a', // MITRA PONDOK AREN
+  '550e8400-e29b-41d4-a716-446655440003', // MITRA PALEDANG
+])
+const adalahOutletOpexNolOktober2026 = (outletId?: string | null, firstDay?: string | null): boolean =>
+  Boolean(outletId && OUTLET_OPEX_NOL_OKTOBER_2026.has(outletId) && (firstDay || '').slice(0, 7) === '2026-10')
+const adalahOpexCabangNolOktober2026 = (r?: { outlet_id?: string | null; expense_date?: string | null; period_month?: string | null } | null): boolean => {
+  if (!r?.outlet_id || !OUTLET_OPEX_NOL_OKTOBER_2026.has(r.outlet_id)) return false
+  const tgl = (r.expense_date || r.period_month || '').slice(0, 10)
+  return tgl >= '2026-10-01' && tgl <= '2026-10-31'
+}
+
 export const PRORATED_CATEGORIES = [
   'gaji_crew_outlet',
   'sewa_outlet',
@@ -296,7 +308,7 @@ function computeManagerAllocationsForPeriod(
 export function calculateProratedExpenses(input: CalculateProrataInput): ProratedExpenseResult {
   const {
     filter,
-    rawExpenses,
+    rawExpenses: rawExpensesInput,
     payrollRecords = [],
     staffFinancials = [],
     lastMonthExpenses = [],
@@ -304,6 +316,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     now = new Date(),
     outlets = [],
   } = input
+  const rawExpenses = (rawExpensesInput || []).filter(r => !adalahOpexCabangNolOktober2026(r))
 
   const cur = getJakartaCurrentMonthInfo(now)
   const monthInfo = calculateMonthOverlap(filter.from, filter.to, now)
@@ -547,6 +560,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
 
     for (const outletId of targetOutletIds) {
       if (inactiveOutletIds.has(outletId)) continue
+      if (adalahOutletOpexNolOktober2026(outletId, monthInfo.firstDay)) continue
       // Kantor Pusat ikut diakrual (internet/sewa kantor), tetapi hasilnya tetap
       // biaya PUSAT. Dulu keluar sebagai beban "outlet" sehingga biaya pusat
       // bulan berjalan pindah kantong ke OPEX outlet.
@@ -966,6 +980,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       ) {
         continue
       }
+      if (adalahOutletOpexNolOktober2026(outletId, p.firstDay)) continue
       const outletName = outletNameMap.get(outletId) ?? 'Outlet'
 
       // 1. Gaji Crew Outlet

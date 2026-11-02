@@ -3,7 +3,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { fetchAllPages } from '@/lib/fetchAllPages'
-import { adalahJointExpenseDisembunyikan, adalahHppKolMarcomDisembunyikan } from '@/lib/pengeluaran/jointExpense'
+import { adalahJointExpenseDisembunyikan, adalahHppKolMarcomDisembunyikan, adalahOpexCabangNolOktober2026 } from '@/lib/pengeluaran/jointExpense'
 import { getMitraClosingMonth } from './mitraPnlClosingData'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import { barisPayrollDariHr, gantiPayrollDenganHr, PAYROLL_HR_DASHBOARD_MITRA_SEJAK } from '@/lib/opexDariHr'
@@ -377,6 +377,7 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
     const monthlyRows = (monthlyRowsMentah || [])
     .filter((m: any) => !adalahJointExpenseDisembunyikan(m))
     .filter((m: any) => !adalahHppKolMarcomDisembunyikan(m))
+    .filter((m: any) => !adalahOpexCabangNolOktober2026(m))
     const simpanKasKecil = buatSaringanKasKecil(monthlyRows || [])
     const rawExpenses = [
       ...(monthlyRows || []).map((m: any) => ({
@@ -391,7 +392,7 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
         scope: 'outlet' as const,
         source: 'monthly' as const
       })),
-      ...(pettyRows || []).filter(simpanKasKecil).map((p: any) => ({
+      ...(pettyRows || []).filter((p: any) => !adalahOpexCabangNolOktober2026(p)).filter(simpanKasKecil).map((p: any) => ({
         id: p.id,
         outlet_id: p.outlet_id,
         outlet_name: 'Outlet',

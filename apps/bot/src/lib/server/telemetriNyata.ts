@@ -1762,6 +1762,16 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     }
 
     const TEST_OUTLET_ID = 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a'
+    const OUTLET_OPEX_NOL_OKTOBER_2026 = new Set<string>([
+      '48b980da-5a42-4a9b-a952-86ab5db6666a', // MITRA PONDOK AREN
+      '550e8400-e29b-41d4-a716-446655440003', // MITRA PALEDANG
+    ])
+    const adalahOpexCabangNolOktober2026 = (r: any, fallbackTgl = '') => {
+      const oId = String(r?.outlet_id || '')
+      if (!OUTLET_OPEX_NOL_OKTOBER_2026.has(oId)) return false
+      const tgl = String(r?.expense_date || fallbackTgl || '').slice(0, 10)
+      return tgl >= '2026-10-01' && tgl <= '2026-10-31'
+    }
     const TEST_OUTLET_ID_ALT = '04f58143-8da8-49af-b87f-50435f064137'
     const GUDANG_PUSAT_ID = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90'
 
@@ -2090,7 +2100,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const gabungPengeluaranHarian = (pettyRows: any[], expRows: any[], defaultTgl: string): FinanceItemPengeluaran[] =>
       [
         ...pettyRows
-          .filter(isBukanOutletTest)
+          .filter((r: any) => isBukanOutletTest(r) && !adalahOpexCabangNolOktober2026(r, defaultTgl))
           .map((r: any) => ({
             id: r.id,
             nominal: Number(r.amount) || 0,
@@ -2104,7 +2114,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           .filter(
             (r: any) =>
               isBukanOutletTest(r) &&
-              !(r.category === 'joint_expense' && String(r.expense_date || defaultTgl) >= '2026-10-01')
+              !(r.category === 'joint_expense' && String(r.expense_date || defaultTgl) >= '2026-10-01') &&
+              !adalahOpexCabangNolOktober2026(r, defaultTgl)
           )
           .map((r: any) => ({
             id: r.id,
@@ -2144,7 +2155,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       .filter(
         (r: any) =>
           isBukanOutletTest(r) &&
-          !(r.category === 'joint_expense' && String(r.expense_date || tglStr) >= '2026-10-01')
+          !(r.category === 'joint_expense' && String(r.expense_date || tglStr) >= '2026-10-01') &&
+          !adalahOpexCabangNolOktober2026(r, tglStr)
       )
       .map((r: any) => ({
         id: r.id,

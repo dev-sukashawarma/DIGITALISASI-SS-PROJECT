@@ -295,4 +295,94 @@ describe('Perhitungan Gaji Outlet Parsial & Kru Mutasi', () => {
     // Bonus dijumlahkan akurat lintas bulan (10.000 Sep + 20.000 Okt)
     expect(res.crewBonus).toBe(30_000)
   })
+
+  it('menolkan OPEX gaji & bonus Pondok Aren dan Paledang khusus Oktober 2026 tanpa melimpahkan beban manajer ke cabang lain, serta kembali normal di November 2026', async () => {
+    const PONDOK_AREN = '48b980da-5a42-4a9b-a952-86ab5db6666a'
+    const PALEDANG = '550e8400-e29b-41d4-a716-446655440003'
+    const CISEENG = '0ddba13b-fa0e-4bc7-819b-57fe1ec7bf9b'
+
+    const sb = buatSupabaseMock({
+      outlets: [
+        { id: CISEENG, name: 'MITRA CISEENG', slug: 'mitra-ciseeng', type: 'mitra', is_active: true, status: 'active', created_at: '2026-01-01T00:00:00Z' },
+        { id: PONDOK_AREN, name: 'MITRA PONDOK AREN', slug: 'mitra-pondok-aren', type: 'mitra', is_active: true, status: 'active', created_at: '2026-10-01T00:00:00Z' },
+        { id: PALEDANG, name: 'MITRA PALEDANG', slug: 'paledang-bogor', type: 'mitra', is_active: true, status: 'active', created_at: '2026-10-01T00:00:00Z' },
+      ],
+      payrollByMonth: {
+        '2026-10': [
+          {
+            id: 'rm-oct', period_month: 10, period_year: 2026, outlet_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+            basic_salary: 3_000_000, allowance_meal: 0, allowance_presence: 0, bonus: 0, deductions: 0, total_salary: 3_000_000, status: 'finalized',
+            staff_id: 's-rm', outlet_staff: { id: 's-rm', name: 'RM Indra', role: 'regional_manager', outlet_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff' },
+          },
+          {
+            id: 'crew-cis-oct', period_month: 10, period_year: 2026, outlet_id: CISEENG,
+            basic_salary: 2_600_000, allowance_meal: 0, allowance_presence: 0, bonus: 0, deductions: 0, total_salary: 2_600_000, status: 'finalized',
+            staff_id: 's-cis', outlet_staff: { id: 's-cis', name: 'Kru Ciseeng', role: 'crew', outlet_id: CISEENG },
+          },
+          {
+            id: 'crew-pa-oct', period_month: 10, period_year: 2026, outlet_id: PONDOK_AREN,
+            basic_salary: 2_600_000, allowance_meal: 0, allowance_presence: 0, bonus: 0, deductions: 0, total_salary: 2_600_000, status: 'finalized',
+            staff_id: 's-pa', outlet_staff: { id: 's-pa', name: 'Kru Pondok Aren', role: 'crew', outlet_id: PONDOK_AREN },
+          },
+          {
+            id: 'crew-pal-oct', period_month: 10, period_year: 2026, outlet_id: PALEDANG,
+            basic_salary: 2_600_000, allowance_meal: 0, allowance_presence: 0, bonus: 0, deductions: 0, total_salary: 2_600_000, status: 'finalized',
+            staff_id: 's-pal', outlet_staff: { id: 's-pal', name: 'Kru Paledang', role: 'crew', outlet_id: PALEDANG },
+          },
+        ],
+        '2026-11': [
+          {
+            id: 'rm-nov', period_month: 11, period_year: 2026, outlet_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+            basic_salary: 3_000_000, allowance_meal: 0, allowance_presence: 0, bonus: 0, deductions: 0, total_salary: 3_000_000, status: 'finalized',
+            staff_id: 's-rm', outlet_staff: { id: 's-rm', name: 'RM Indra', role: 'regional_manager', outlet_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff' },
+          },
+          {
+            id: 'crew-pa-nov', period_month: 11, period_year: 2026, outlet_id: PONDOK_AREN,
+            basic_salary: 2_600_000, allowance_meal: 0, allowance_presence: 0, bonus: 0, deductions: 0, total_salary: 2_600_000, status: 'finalized',
+            staff_id: 's-pa', outlet_staff: { id: 's-pa', name: 'Kru Pondok Aren', role: 'crew', outlet_id: PONDOK_AREN },
+          },
+        ],
+      },
+      orders: [
+        { outlet_id: CISEENG, status: 'completed', created_at: '2026-10-01T10:00:00+07:00' },
+        { outlet_id: PONDOK_AREN, status: 'completed', created_at: '2026-10-01T10:00:00+07:00' },
+        { outlet_id: PALEDANG, status: 'completed', created_at: '2026-10-01T10:00:00+07:00' },
+        { outlet_id: CISEENG, status: 'completed', created_at: '2026-11-01T10:00:00+07:00' },
+        { outlet_id: PONDOK_AREN, status: 'completed', created_at: '2026-11-01T10:00:00+07:00' },
+        { outlet_id: PALEDANG, status: 'completed', created_at: '2026-11-01T10:00:00+07:00' },
+      ],
+      dailyBonusByMonthOutlet: {
+        [`2026-10-${PONDOK_AREN}`]: [
+          { bonus_date: '2026-10-15', outlet_id: PONDOK_AREN, outlet_name: 'MITRA PONDOK AREN', total_pcs: 100, pool_amount: 10_000, crew_count: 1, bonus_per_crew: 10_000, crew_list: [{ crew_id: 's-pa', crew_name: 'Kru Pondok Aren', role: 'crew' }] },
+        ],
+        [`2026-10-${PALEDANG}`]: [
+          { bonus_date: '2026-10-28', outlet_id: PALEDANG, outlet_name: 'MITRA PALEDANG', total_pcs: 100, pool_amount: 10_000, crew_count: 1, bonus_per_crew: 10_000, crew_list: [{ crew_id: 's-pal', crew_name: 'Kru Paledang', role: 'crew' }] },
+        ],
+      },
+    })
+
+    // 1. Oktober 2026: Pondok Aren & Paledang = Rp 0
+    const paOct = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: PONDOK_AREN }, sb)
+    const palOct = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: PALEDANG }, sb)
+    expect(paOct.totalSalary).toBe(0)
+    expect(paOct.crewBonus).toBe(0)
+    expect(paOct.managerAllocation).toBe(0)
+    expect(palOct.totalSalary).toBe(0)
+    expect(palOct.crewBonus).toBe(0)
+    expect(palOct.managerAllocation).toBe(0)
+
+    // 2. Oktober 2026: Ciseeng tetap hanya mendapat 1/3 dari RM (Rp 1.000.000), TIDAK melimpah jadi Rp 3.000.000!
+    const cisOct = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: CISEENG }, sb)
+    expect(cisOct.managerRoutineAllocation).toBe(1_000_000)
+    expect(cisOct.totalSalary).toBe(3_600_000)
+
+    const allOct = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: 'ALL_OUTLETS' }, sb)
+    expect(allOct.totalSalary).toBe(3_600_000)
+    expect(allOct.managerRoutineAllocation).toBe(1_000_000)
+
+    // 3. November 2026: Pondok Aren kembali dihitung normal (Kru Rp 2.600.000 + RM 1/3 Rp 1.000.000 = Rp 3.600.000)
+    const paNov = await hitungRingkasanPayrollHr({ from: '2026-11-01', to: '2026-11-30', outletId: PONDOK_AREN }, sb)
+    expect(paNov.managerRoutineAllocation).toBe(1_000_000)
+    expect(paNov.totalSalary).toBe(3_600_000)
+  })
 })

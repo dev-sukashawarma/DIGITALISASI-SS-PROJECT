@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
-import { adalahJointExpenseDisembunyikan, adalahHppKolMarcomDisembunyikan } from '@/lib/pengeluaran/jointExpense'
+import { adalahJointExpenseDisembunyikan, adalahHppKolMarcomDisembunyikan, adalahOpexCabangNolOktober2026 } from '@/lib/pengeluaran/jointExpense'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 
 export type OutletBreakdownDetails = {
@@ -80,6 +80,7 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
   const expenseRows = expenseRowsMentah
     .filter((r: any) => !adalahJointExpenseDisembunyikan(r))
     .filter((r: any) => !adalahHppKolMarcomDisembunyikan(r))
+    .filter((r: any) => !adalahOpexCabangNolOktober2026(r))
 
   const processExpense = (row: any, mapCat: (c: string) => string) => {
     if (isTestOutlet(row.outlet_id) || !row.outlet_id) return
@@ -95,6 +96,7 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
 
   expenseRows.forEach(r => processExpense(r, c => c || 'Lainnya'))
   pettyCashRows
+    .filter((r: any) => !adalahOpexCabangNolOktober2026(r))
     .filter(simpanKasKecil)
     .forEach(r => processExpense(r, c => {
       if (c === 'bb') return 'bahan_baku'

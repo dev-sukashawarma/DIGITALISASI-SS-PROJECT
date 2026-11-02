@@ -14,6 +14,15 @@ export interface FilterPengeluaran {
 }
 
 const KANTOR_PUSAT_UUID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+const OUTLET_OPEX_NOL_OKTOBER_2026 = new Set<string>([
+  '48b980da-5a42-4a9b-a952-86ab5db6666a', // MITRA PONDOK AREN
+  '550e8400-e29b-41d4-a716-446655440003', // MITRA PALEDANG
+])
+const adalahOpexCabangNolOktober2026 = (row: any): boolean => {
+  if (!row?.outlet_id || !OUTLET_OPEX_NOL_OKTOBER_2026.has(row.outlet_id)) return false
+  const tgl = String(row.expense_date || row.period_month || '').slice(0, 10)
+  return tgl >= '2026-10-01' && tgl <= '2026-10-31'
+}
 
 export async function getExpensesAction(filter: FilterPengeluaran) {
   try {
@@ -153,8 +162,8 @@ export async function getExpensesAction(filter: FilterPengeluaran) {
 
     return {
       success: true,
-      expenses,
-      pettyCashExpenses,
+      expenses: (expenses ?? []).filter((e: any) => !adalahOpexCabangNolOktober2026(e)),
+      pettyCashExpenses: (pettyCashExpenses ?? []).filter((p: any) => !adalahOpexCabangNolOktober2026(p)),
     }
   } catch (err: any) {
     console.error('Error in getExpensesAction (manager):', err)

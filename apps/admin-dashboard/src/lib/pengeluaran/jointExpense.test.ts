@@ -53,3 +53,32 @@ describe('adalahHppKolMarcomDisembunyikan', () => {
     expect(adalahHppKolMarcomDisembunyikan(null)).toBe(false)
   })
 })
+
+import { adalahOutletOpexNolOktober2026, adalahOpexCabangNolOktober2026 } from './jointExpense'
+
+describe('Kebijakan Oktober 2026: OPEX Pondok Aren & Paledang = Rp 0', () => {
+  const PONDOK_AREN = '48b980da-5a42-4a9b-a952-86ab5db6666a'
+  const PALEDANG = '550e8400-e29b-41d4-a716-446655440003'
+  const CISEENG = '0ddba13b-fa0e-4bc7-819b-57fe1ec7bf9b'
+
+  it('Pondok Aren dan Paledang pada Oktober 2026 bernilai true (dinolkan)', () => {
+    expect(adalahOutletOpexNolOktober2026(PONDOK_AREN, '2026-10-01')).toBe(true)
+    expect(adalahOutletOpexNolOktober2026(PALEDANG, '2026-10-31')).toBe(true)
+    expect(adalahOutletOpexNolOktober2026(PONDOK_AREN, { year: 2026, month: 10 })).toBe(true)
+    expect(adalahOpexCabangNolOktober2026({ outlet_id: PONDOK_AREN, expense_date: '2026-10-15' })).toBe(true)
+    expect(adalahOpexCabangNolOktober2026({ outlet_id: PALEDANG, expense_date: '2026-10-28' })).toBe(true)
+  })
+
+  it('Bulan selain Oktober 2026 (September & November) tetap dihitung normal (false)', () => {
+    expect(adalahOutletOpexNolOktober2026(PONDOK_AREN, '2026-09-30')).toBe(false)
+    expect(adalahOutletOpexNolOktober2026(PONDOK_AREN, '2026-11-01')).toBe(false)
+    expect(adalahOutletOpexNolOktober2026(PALEDANG, { year: 2026, month: 11 })).toBe(false)
+    expect(adalahOpexCabangNolOktober2026({ outlet_id: PALEDANG, expense_date: '2026-11-02' })).toBe(false)
+  })
+
+  it('Cabang lain pada Oktober 2026 tetap dihitung normal (false)', () => {
+    expect(adalahOutletOpexNolOktober2026(CISEENG, '2026-10-15')).toBe(false)
+    expect(adalahOpexCabangNolOktober2026({ outlet_id: CISEENG, expense_date: '2026-10-15' })).toBe(false)
+    expect(adalahOpexCabangNolOktober2026(null)).toBe(false)
+  })
+})

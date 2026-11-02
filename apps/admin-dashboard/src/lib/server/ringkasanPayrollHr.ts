@@ -1419,7 +1419,7 @@ async function hitungSatuPeriodePayrollHr(params: {
       shares: CanonicalCrewShare[]
     }
 
-    const processedCrewRows: CanonicalCrewRow[] = crewRows.map(r => {
+    const processedCrewRows: CanonicalCrewRow[] = crewRows.map((r): CanonicalCrewRow => {
       const rawBasic = Number(r.basic_salary || 0)
       const rawAllowances =
         Number(r.allowance_meal || r.allowance_presence || 0) +
@@ -1822,7 +1822,7 @@ async function hitungSatuPeriodePayrollHr(params: {
         }]
       }
     })
-      .map(pc => {
+      .map((pc): CanonicalCrewRow | null => {
         if (pc.isPusat) return pc
         const hasWaivedShare = pc.shares.some(sh => adalahOutletOpexNolOktober2026(sh.outletId, primaryPeriod))
         if (!hasWaivedShare) return pc

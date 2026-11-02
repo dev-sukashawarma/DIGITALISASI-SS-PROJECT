@@ -9,7 +9,7 @@ import {
   Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
   Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles, Globe, Tag, Smartphone,
-  BookOpen
+  BookOpen, Eye, EyeOff
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
@@ -207,6 +207,7 @@ interface FormState {
   channel_prices: Record<string, string>
   category_id: string
   is_available: boolean
+  is_hidden_pos: boolean
   is_available_online: boolean
   is_published_order_online: boolean
   tampil_di_app: boolean
@@ -229,7 +230,7 @@ const SLUG_APLIKASI = 'aplikasi'
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', strike_price: '', campaign_price: '', is_campaign_active: false, base_price: '',
   channel_prices: {},
-  category_id: '', is_available: true, is_available_online: true, is_published_order_online: false, tampil_di_app: false, available_online_channels: null, image_url: null,
+  category_id: '', is_available: true, is_hidden_pos: false, is_available_online: true, is_published_order_online: false, tampil_di_app: false, available_online_channels: null, image_url: null,
   is_package: false, package_items: [], outlet_ids: null
 }
 
@@ -637,6 +638,7 @@ export default function MenuView({
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
       is_available: item.is_available, 
+      is_hidden_pos: posVisibility[item.id] ?? !!item.is_hidden_pos,
       is_available_online: item.is_available_online ?? true,
       is_published_order_online: item.is_published_order_online ?? false,
       tampil_di_app: item.tampil_di_app ?? false,
@@ -678,6 +680,7 @@ export default function MenuView({
       channel_prices: formattedChannelPrices,
       category_id: item.category_id ?? '',
       is_available: item.is_available, 
+      is_hidden_pos: posVisibility[item.id] ?? !!item.is_hidden_pos,
       is_available_online: item.is_available_online ?? true,
       is_published_order_online: false,
       // Salinan tidak ikut terbit di aplikasi: menu duplikat biasanya masih
@@ -907,7 +910,7 @@ export default function MenuView({
       campaign_price: form.campaign_price ? parseFloat(form.campaign_price) : null,
       is_campaign_active: form.is_campaign_active,
       category_id: form.category_id || null,
-      is_available: form.is_available, is_available_online: form.is_available_online, is_published_order_online: form.is_published_order_online, tampil_di_app: form.tampil_di_app, available_online_channels: form.available_online_channels, image_url: imgUrl,
+      is_available: form.is_available, is_hidden_pos: form.is_hidden_pos, is_available_online: form.is_available_online, is_published_order_online: form.is_published_order_online, tampil_di_app: form.tampil_di_app, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
       package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : [],
@@ -918,6 +921,7 @@ export default function MenuView({
 
     try {
       await saveMenuItem(payload as any)
+      if (form.id) setPosVisibility(current => ({ ...current, [form.id!]: form.is_hidden_pos }))
       closeForm()
       router.refresh()
     } catch (err: any) {
@@ -1417,6 +1421,33 @@ export default function MenuView({
                         </div>
                         <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.is_available ? 'bg-emerald-500' : 'bg-slate-300'}`}>
                           <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.is_available ? 'left-6' : 'left-1'}`} />
+                        </div>
+                      </div>
+
+                      {/* Toggle: Sembunyikan dari POS (Hide tanpa Hapus) */}
+                      <div
+                        onClick={() => setForm({ ...form, is_hidden_pos: !form.is_hidden_pos })}
+                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
+                          ${form.is_hidden_pos
+                            ? 'border-slate-300 bg-slate-100/70 hover:bg-slate-200/60'
+                            : 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50/60'}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
+                            ${form.is_hidden_pos ? 'bg-slate-200 text-slate-700' : 'bg-emerald-100 text-emerald-600'}`}>
+                            {form.is_hidden_pos ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-xs sm:text-sm font-bold truncate ${form.is_hidden_pos ? 'text-slate-900' : 'text-emerald-900'}`}>
+                              {form.is_hidden_pos ? 'Disembunyikan dari POS (Hidden)' : 'Tampil di POS Kasir & Kiosk'}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium truncate">
+                              {form.is_hidden_pos ? 'Menu otomatis ter-hide di POS tanpa menghapus riwayat' : 'Menu muncul di katalog POS Kasir & Kiosk'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${!form.is_hidden_pos ? 'bg-emerald-500' : 'bg-slate-400'}`}>
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${!form.is_hidden_pos ? 'left-6' : 'left-1'}`} />
                         </div>
                       </div>
 
@@ -2739,8 +2770,9 @@ export default function MenuView({
                         aria-pressed={!!posVisibility[item.id]}
                         aria-label={`${posVisibility[item.id] ? 'Tampilkan' : 'Sembunyikan'} ${item.name} di POS`}
                         title="Berlaku di seluruh outlet yang memiliki menu ini; tidak mengubah stok atau tayangan pelanggan"
-                        className={`text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors disabled:opacity-50 ${posVisibility[item.id] ? 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}>
-                        {posVisibilitySaving.includes(item.id) ? 'Menyimpan...' : posVisibility[item.id] ? 'Disembunyikan' : 'Tidak disembunyikan'}
+                        className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors cursor-pointer disabled:opacity-50 ${posVisibility[item.id] ? 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}>
+                        {posVisibility[item.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        {posVisibilitySaving.includes(item.id) ? 'Menyimpan...' : posVisibility[item.id] ? 'Disembunyikan' : 'Tampil di POS'}
                       </button>
                       {/\(online\)/i.test(item.name) && !posVisibility[item.id] && <p className="text-[10px] text-slate-500 mt-1">Varian Online tidak tampil di Offline</p>}
                     </td>
@@ -2793,6 +2825,19 @@ export default function MenuView({
                           title="Duplikasi">
                           <Copy className="w-3.5 h-3.5" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => togglePosVisibility(item)}
+                          disabled={posVisibilitySaving.includes(item.id)}
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50 ${
+                            posVisibility[item.id]
+                              ? 'bg-slate-200 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700'
+                              : 'bg-slate-50 hover:bg-slate-200 text-slate-500 hover:text-slate-800'
+                          }`}
+                          title={posVisibility[item.id] ? 'Tampilkan kembali di POS' : 'Hide dari POS (Tanpa Hapus)'}
+                        >
+                          {posVisibility[item.id] ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                        </button>
                         <button onClick={() => deleteItem(item)}
                           className="w-8 h-8 bg-gray-50 hover:bg-red-50 text-gray-300 hover:text-red-500
                             rounded-xl flex items-center justify-center transition-all"
@@ -2820,6 +2865,12 @@ export default function MenuView({
                                 className="fixed z-[100] w-52 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.15)] border border-gray-100 p-2 text-left origin-top-right animate-in fade-in zoom-in-95 duration-100"
                                 style={{ top: dropdownPos.top, right: dropdownPos.right }}
                               >
+                                <button onClick={() => { togglePosVisibility(item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between transition-colors border-b border-gray-100 mb-1">
+                                  <span className="flex items-center gap-2 font-bold text-slate-700">
+                                    {posVisibility[item.id] ? <Eye className="w-3.5 h-3.5 text-emerald-600" /> : <EyeOff className="w-3.5 h-3.5 text-slate-500" />}
+                                    {posVisibility[item.id] ? 'Tampilkan di POS' : 'Hide dari POS'}
+                                  </span>
+                                </button>
                                 <button onClick={() => { toggleSetting('upsell', item); setOpenDropdownId(null) }} className="w-full text-left px-3 py-2.5 hover:bg-gray-50 rounded-lg text-[13px] flex items-center justify-between transition-colors">
                                   <span className={upsells.includes(item.id) ? 'font-bold text-amber-600' : 'font-medium text-gray-700'}>Menu Ekstra</span>
                                   {upsells.includes(item.id) && <Check className="w-3.5 h-3.5 text-amber-600" />}

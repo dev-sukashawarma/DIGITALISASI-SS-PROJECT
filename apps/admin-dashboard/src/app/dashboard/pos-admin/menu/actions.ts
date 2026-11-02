@@ -152,6 +152,7 @@ export async function saveMenuItem(form: Partial<MenuItem> & {
     category_id: form.category_id || null,
     image_url: form.image_url,
     is_available: form.is_available,
+    is_hidden_pos: form.is_hidden_pos ?? false,
     is_available_online: form.is_available_online ?? true,
     available_online_channels: form.available_online_channels ?? null,
     sort_order: form.sort_order || 0,

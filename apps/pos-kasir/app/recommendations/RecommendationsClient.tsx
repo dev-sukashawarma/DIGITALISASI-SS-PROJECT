@@ -58,6 +58,7 @@ export default function RecommendationsClient({ settings }: { settings: Recommen
 
       // Filter recommendations availability based on outlet setting
       const finalRecs = recs.filter(m => {
+        if (m.is_hidden_pos) return false
         const isGlobal = m.outlet_id === null
         if (isGlobal && unavIds.includes(m.id)) return false
         return true
@@ -79,6 +80,7 @@ export default function RecommendationsClient({ settings }: { settings: Recommen
           .eq('is_available', true)
 
         const filteredUpsells = (uItems || []).filter(u => {
+          if (u.is_hidden_pos) return false
           if (u.outlet_id === null && unavIds.includes(u.id)) return false
           return true
         })

@@ -209,6 +209,7 @@ export default function OrderManualPage() {
           Promise.all([
             supabase.from('menu_items')
               .select('*, categories(id,name,sort_order), package_items:menu_packages!package_id(id, menu_item_id, or_menu_item_id, quantity)')
+              .eq('is_hidden_pos', false)
               .order('sort_order'),
             supabase.from('categories').select('*').order('sort_order'),
             supabase.from('kiosk_settings').select('key, value, outlet_id')
@@ -232,6 +233,7 @@ export default function OrderManualPage() {
 
         const fetchedItemsRaw = menuRes.data ?? []
         const fetchedItems = fetchedItemsRaw.filter((item: any) => {
+          if (item.is_hidden_pos) return false
           if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
             return item.available_outlets.includes(outletId)
           }
@@ -289,6 +291,7 @@ export default function OrderManualPage() {
 
         // Save to Dexie in background
         const now = Date.now()
+        db.menu_items.clear().catch(console.error)
         db.menu_items.bulkPut(fetchedItems.map((it: any) => ({
           ...it,
           synced_at: now
@@ -326,7 +329,7 @@ export default function OrderManualPage() {
 
     async function fetchMenu() {
       try {
-        const cachedItems = await db.menu_items.toArray()
+        const cachedItems = (await db.menu_items.toArray()).filter((it: any) => !it.is_hidden_pos)
         if (cachedItems && cachedItems.length > 0) {
           const cachedCategories = await db.categories.toArray()
           const cachedUnav = await db.kiosk_settings.get('unavailable_menu_ids')
@@ -426,6 +429,7 @@ export default function OrderManualPage() {
     const activeChannelSlug = channel ? channel.toLowerCase().replace(/\s+/g, '') : ''
 
     return items.filter((it) => {
+      if (it.is_hidden_pos) return false
       if (activeCat !== 'all' && it.category_id !== activeCat) return false
       if (deferredSearch.trim() && !it.name.toLowerCase().includes(deferredSearch.trim().toLowerCase())) return false
 
@@ -472,7 +476,7 @@ export default function OrderManualPage() {
   }, [items, unavailableIds, autoUnavailableIds, forceAvailableIds, activeCat, deferredSearch, channel, mode])
 
   const upsellItems = useMemo(() => {
-    return items.filter(it => upsellIds.includes(it.id) && it.is_available !== false).map(it => {
+    return items.filter(it => !it.is_hidden_pos && upsellIds.includes(it.id) && it.is_available !== false).map(it => {
       let price = it.price;
       let strike_price = (it.strike_price != null && it.strike_price > price) ? it.strike_price : null;
 

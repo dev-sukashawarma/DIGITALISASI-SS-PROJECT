@@ -86,6 +86,7 @@ export default async function KasirMenuServerPage() {
   let filteredItems = (m as any) ?? [];
   if (m) {
     filteredItems = m.filter((item: any) => {
+      if (item.is_hidden_pos) return false;
       if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
         return item.available_outlets.includes(outletId);
       }

@@ -21,7 +21,8 @@ export async function GET(request: Request) {
   // All menu items (for availability, category, sort order, hydration).
   const { data: menuRows, error: menuErr } = await supabase
     .from('menu_items')
-    .select('id, category_id, name, description, price, image_url, is_available, sort_order, outlet_id, categories(*)')
+    .select('id, category_id, name, description, price, image_url, is_available, is_hidden_pos, sort_order, outlet_id, categories(*)')
+    .eq('is_hidden_pos', false)
     .order('sort_order')
 
   if (menuErr || !menuRows) {

@@ -33,6 +33,7 @@ export default function KioskMenuClient({ initialData }: { initialData: KioskIni
         (payload) => {
           if (!outletId) return
           const updatedItem = payload.new as MenuItemType
+          if (updatedItem.is_hidden_pos) { setMenuItems(prev => prev.filter(item => item.id !== updatedItem.id)); return; }
           setMenuItems(prev => prev.map(item => item.id === updatedItem.id ? { ...item, ...updatedItem } : item))
         }
       )

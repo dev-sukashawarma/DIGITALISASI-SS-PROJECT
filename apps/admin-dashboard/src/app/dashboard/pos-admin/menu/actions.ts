@@ -50,6 +50,16 @@ export async function toggleMenuAvailability(id: string, currentStatus: boolean)
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
+/** Mengatur tampilan POS tanpa mengubah stok atau publikasi kanal pelanggan. */
+export async function setMenuHiddenPos(id: string, hidden: boolean) {
+  const supabase = await getSupabase()
+  const { data, error } = await supabase.from('menu_items').update({ is_hidden_pos: hidden }).eq('id', id).select('id,is_hidden_pos')
+  if (error) throw new Error(error.message)
+  if (!data?.length) throw new Error(PESAN_TANPA_IZIN)
+  revalidatePath('/dashboard/pos-admin/menu')
+  return data[0].is_hidden_pos as boolean
+}
+
 /**
  * Hasil hapus/nonaktifkan dikembalikan sebagai objek, BUKAN dilempar: pesan
  * error server action disensor Next.js di produksi, jadi pengguna tak akan
@@ -61,14 +71,15 @@ export type HasilUbahMenu =
 
 /** Berapa kali menu terjual & berapa paket LAIN yang memakainya sebagai isi. */
 async function pemakaianMenu(supabase: any, id: string): Promise<PemakaianMenu> {
-  const [terjual, isi, pilihan] = await Promise.all([
+  const [terjual, terjualEcom, isi, pilihan] = await Promise.all([
     supabase.from('order_items').select('id', { count: 'exact', head: true }).eq('menu_item_id', id),
+    supabase.from('ecommerce_sale_items').select('id', { count: 'exact', head: true }).eq('menu_id', id),
     supabase.from('menu_packages').select('id', { count: 'exact', head: true }).eq('menu_item_id', id).neq('package_id', id),
     supabase.from('menu_packages').select('id', { count: 'exact', head: true }).eq('or_menu_item_id', id).neq('package_id', id),
   ])
-  const galat = terjual.error || isi.error || pilihan.error
+  const galat = terjual.error || terjualEcom.error || isi.error || pilihan.error
   if (galat) throw new Error(`Gagal memeriksa pemakaian menu: ${galat.message}`)
-  return { terjual: terjual.count ?? 0, jadiIsiPaket: (isi.count ?? 0) + (pilihan.count ?? 0) }
+  return { terjual: (terjual.count ?? 0) + (terjualEcom.count ?? 0), jadiIsiPaket: (isi.count ?? 0) + (pilihan.count ?? 0) }
 }
 
 async function hapusGambar(supabase: any, imageUrl: string | null) {
@@ -108,7 +119,7 @@ export async function nonaktifkanMenu(id: string): Promise<HasilUbahMenu> {
   const supabase = await getSupabase()
   const { data, error } = await supabase
     .from('menu_items')
-    .update({ is_available: false, is_available_online: false, tampil_di_app: false })
+    .update({ is_available: false, is_available_online: false, tampil_di_app: false, is_hidden_pos: true })
     .eq('id', id)
     .select('*')
   if (error) return { ok: false, alasan: `Gagal menonaktifkan: ${error.message}`, bisaNonaktif: false }

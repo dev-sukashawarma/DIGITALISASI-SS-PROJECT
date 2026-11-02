@@ -70,6 +70,7 @@ export default async function KioskHomePage() {
   let rawItems = (itemsData as MenuItem[]) ?? []
   if (itemsData && itemsData.length > 0) {
     rawItems = (itemsData as any[]).filter((item: any) => {
+      if (item.is_hidden_pos) return false;
       if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
         return item.available_outlets.includes(outletId);
       }

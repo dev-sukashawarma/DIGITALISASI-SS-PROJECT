@@ -27,6 +27,7 @@ export function createMenuCacheServices(manager: CacheManager = defaultCacheMana
           let query = supabase
             .from('menu_items')
             .select('*, categories(id,name,sort_order)')
+            .eq('is_hidden_pos', false)
             .order('sort_order');
 
           if (outletId) {

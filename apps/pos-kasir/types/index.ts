@@ -51,6 +51,7 @@ export interface MenuItem {
   channel_prices?: Record<string, number> | null
   image_url: string | null
   is_available: boolean
+  is_hidden_pos?: boolean
   is_available_online?: boolean
   available_online_channels?: string[] | null
   campaign_price?: number | null

@@ -23,7 +23,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     supabase.from('kiosk_settings').select('key, value, outlet_id').or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`).in('key', ['upsell_ids', 'unavailable_menu_ids']),
   ])
 
-  if (!mainItem) {
+  if (!mainItem || mainItem.is_hidden_pos) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 px-4">
         <p className="text-gray-500 font-medium">Produk tidak ditemukan</p>
@@ -76,6 +76,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       .eq('is_available', true)
 
     upsellItems = (uItems ?? []).filter(u => {
+      if (u.is_hidden_pos) return false
       if (u.id === id) return false
       if (u.outlet_id === null && unavIds.includes(u.id)) return false
       return true

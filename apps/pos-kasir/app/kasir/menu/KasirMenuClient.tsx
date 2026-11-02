@@ -84,6 +84,7 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     let filteredItems = m ?? [];
     if (m) {
       filteredItems = m.filter((item: any) => {
+        if (item.is_hidden_pos) return false;
         if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
           return item.available_outlets.includes(outletId);
         }
@@ -99,6 +100,7 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
     setTimeout(async () => {
       try {
         if (filteredItems.length > 0) {
+          await db.menu_items.clear()
           await db.menu_items.bulkPut(filteredItems.map((it: any) => ({ ...it, synced_at: now })))
         }
         if (c) {
@@ -127,7 +129,7 @@ async function fetchMenuData(outletId: string): Promise<MenuQueryData> {
   } catch (err) {
     console.warn('Network error fetching Kasir Menu, falling back to Dexie:', err)
     
-    const cachedItems = await db.menu_items.toArray()
+    const cachedItems = (await db.menu_items.toArray()).filter((it: any) => !it.is_hidden_pos)
     const cachedCategories = await db.categories.toArray()
     const cachedUnav = await db.kiosk_settings.get('unavailable_menu_ids')
     const cachedAuto = await db.kiosk_settings.get('auto_unavailable_menu_ids')

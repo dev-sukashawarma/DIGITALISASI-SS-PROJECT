@@ -63,6 +63,7 @@ export interface MenuItem {
   hpp_override?: number | null
   image_url: string | null
   is_available: boolean
+  is_hidden_pos?: boolean
   is_available_online: boolean
   is_published_order_online?: boolean
   /**

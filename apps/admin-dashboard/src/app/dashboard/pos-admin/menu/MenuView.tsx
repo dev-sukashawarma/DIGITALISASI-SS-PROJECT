@@ -17,7 +17,7 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, nonaktifkanMenu, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync, toggleTampilDiApp, quickCreateBahanBaku } from './actions'
+import { saveMenuItem, toggleMenuAvailability, setMenuHiddenPos, deleteMenuItem, nonaktifkanMenu, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync, toggleTampilDiApp, quickCreateBahanBaku } from './actions'
 import { computeResepHpp, type HppBahan } from '@/lib/hpp'
 import { getChannel } from '@/lib/channels'
 import { getPromoStatus } from '@/lib/promoSchedule'
@@ -297,6 +297,8 @@ export default function MenuView({
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [preview, setPreview]     = useState<string | null>(null)
   const [deletingAll, setDeletingAll]   = useState(false)
+  const [posVisibility, setPosVisibility] = useState<Record<string, boolean>>(() => Object.fromEntries(initialItems.map(item => [item.id, !!item.is_hidden_pos])))
+  const [posVisibilitySaving, setPosVisibilitySaving] = useState<string[]>([])
   const [upsells, setUpsells] = useState<string[]>(initialUpsells || [])
   const [bestsellers, setBestsellers] = useState<string[]>(initialBestsellers || [])
   const [recommendations, setRecommendations] = useState<string[]>(initialRecommendations || [])
@@ -304,6 +306,7 @@ export default function MenuView({
   const [dropdownPos, setDropdownPos] = useState<{ top: number, right: number } | null>(null)
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all')
   const [activeChannelFilter, setActiveChannelFilter] = useState<string>('')
+  const [posVisibilityFilter, setPosVisibilityFilter] = useState<'visible' | 'hidden' | 'all'>('visible')
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false)
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [outletSearch, setOutletSearch] = useState('')
@@ -311,6 +314,22 @@ export default function MenuView({
   const [promoNow, setPromoNow] = useState(() => Date.now())
   const fileRef = useRef<HTMLInputElement>(null)
   const channelDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setPosVisibility(Object.fromEntries(initialItems.map(item => [item.id, !!item.is_hidden_pos])))
+  }, [initialItems])
+
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase.channel('admin-menu-pos-visibility')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'menu_items' }, (payload) => {
+        const row = payload.new as { id?: string; is_hidden_pos?: boolean }
+        if (row.id && typeof row.is_hidden_pos === 'boolean') {
+          setPosVisibility(previous => ({ ...previous, [row.id!]: row.is_hidden_pos! }))
+        }
+      }).subscribe((status) => { if (status === 'SUBSCRIBED') router.refresh() })
+    return () => { supabase.removeChannel(channel) }
+  }, [router])
 
   // Resep (BOM) & Live HPP State
   const [recipeItems, setRecipeItems] = useState<RecipeRow[]>([])
@@ -402,7 +421,7 @@ export default function MenuView({
       if (!channelKey || channelKey === 'all') return true
       
       if (channelKey === 'pos_kasir') {
-        if (item.is_available === false) return false
+        if (item.is_available === false || item.is_hidden_pos === true) return false
         const chs = item.available_online_channels
         if (chs && Array.isArray(chs) && chs.length > 0) {
           return chs.some(c => c.toLowerCase().replace(/\s+/g, '') === 'pos_kasir')
@@ -502,6 +521,8 @@ export default function MenuView({
 
   const sortedItems = useMemo(() => {
     let sortableItems = [...initialItems];
+    if (posVisibilityFilter === 'visible') sortableItems = sortableItems.filter(item => !posVisibility[item.id]);
+    else if (posVisibilityFilter === 'hidden') sortableItems = sortableItems.filter(item => !!posVisibility[item.id]);
 
     if (activeCategoryFilter !== 'all') {
       sortableItems = sortableItems.filter(item => item.category_id === activeCategoryFilter);
@@ -562,8 +583,9 @@ export default function MenuView({
         return 0;
       });
     }
+            if (sortConfig === null) { sortableItems.sort((a, b) => Number(!!posVisibility[a.id] || !a.is_available) - Number(!!posVisibility[b.id] || !b.is_available)); }
     return sortableItems;
-  }, [initialItems, sortConfig, activeChannelFilter, activeCategoryFilter, deferredSearch, isItemInChannel]);
+  }, [initialItems, sortConfig, activeChannelFilter, activeCategoryFilter, deferredSearch, isItemInChannel, posVisibility, posVisibilityFilter]);
 
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -916,6 +938,19 @@ export default function MenuView({
     await toggleMenuAvailability(item.id, item.is_available)
   }
 
+  async function togglePosVisibility(item: MenuItem) {
+    const nextHidden = !posVisibility[item.id]
+    setPosVisibilitySaving(current => [...current, item.id])
+    try {
+      const saved = await setMenuHiddenPos(item.id, nextHidden)
+      setPosVisibility(current => ({ ...current, [item.id]: saved }))
+    } catch (err: any) {
+      await showAlert(err?.message || 'Gagal mengubah tampilan POS.', 'Gagal menyimpan')
+    } finally {
+      setPosVisibilitySaving(current => current.filter(id => id !== item.id))
+    }
+  }
+
   async function togglePublished(item: MenuItem) {
     try { await toggleMenuPublished(item.id, item.is_published_order_online === true) }
     catch (err: any) { setError(err?.message || 'Sinkronisasi gagal') }
@@ -936,7 +971,8 @@ export default function MenuView({
       const nonaktifkan = await showConfirm(hasil.alasan, 'Menu tidak bisa dihapus', 'Nonaktifkan')
       if (!nonaktifkan) return
       const h2 = await nonaktifkanMenu(item.id)
-      await showAlert(h2.ok ? `"${item.name}" dinonaktifkan. Riwayat penjualan & HPP-nya tetap tersimpan.` : h2.alasan,
+      if (h2.ok) { setPosVisibility(current => ({ ...current, [item.id]: true })); router.refresh(); }
+      await showAlert(h2.ok ? `"${item.name}" dinonaktifkan & disembunyikan dari POS. Riwayat penjualan & HPP-nya tetap tersimpan.` : h2.alasan,
         h2.ok ? 'Berhasil' : 'Gagal menonaktifkan')
     } catch (err: any) {
       await showAlert(err?.message || 'Terjadi kesalahan saat menghapus menu.', 'Gagal')
@@ -993,6 +1029,7 @@ export default function MenuView({
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Manajemen Menu</h1>
           <p className="text-gray-400 text-sm mt-0.5">{sortedItems.length} menu ditampilkan ({initialItems.length} total)</p>
+          <p className="text-gray-500 text-xs mt-1">Tampilan POS menyembunyikan menu di kasir untuk semua outlet terkait, tanpa mengubah stok atau kanal pelanggan.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Input */}
@@ -1058,6 +1095,17 @@ export default function MenuView({
       <div className="flex flex-col gap-3">
         {/* Channel Filter Dropdown (custom, non-native) */}
         <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200">
+            <button type="button" onClick={() => setPosVisibilityFilter('visible')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${posVisibilityFilter === 'visible' ? 'bg-gray-900 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'}`}>
+              Tampil di POS ({initialItems.filter(i => !posVisibility[i.id]).length})
+            </button>
+            <button type="button" onClick={() => setPosVisibilityFilter('hidden')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${posVisibilityFilter === 'hidden' ? 'bg-gray-900 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'}`}>
+              Disembunyikan ({initialItems.filter(i => !!posVisibility[i.id]).length})
+            </button>
+            <button type="button" onClick={() => setPosVisibilityFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${posVisibilityFilter === 'all' ? 'bg-gray-900 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'}`}>
+              Semua ({initialItems.length})
+            </button>
+          </div>
           <span className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2">Filter Channel:</span>
 
           <div className="relative" ref={channelDropdownRef}>
@@ -2431,6 +2479,7 @@ export default function MenuView({
             setSearchVal('')
             setActiveCategoryFilter('all')
             setActiveChannelFilter('')
+            setPosVisibilityFilter('visible')
           }}
         />
       ) : (
@@ -2466,6 +2515,7 @@ export default function MenuView({
                       {getSortIcon('price')}
                     </div>
                   </th>
+                  <th className="text-center py-3.5 px-4 font-semibold text-gray-500">Tampilan POS</th>
                   <th className="text-center py-3.5 px-4 font-semibold text-gray-500">Order Online</th>
                   <th className="text-center py-3.5 px-4 font-semibold text-gray-500">Aplikasi</th>
                   <th className="text-center py-3.5 px-4 font-semibold text-gray-500 cursor-pointer group" onClick={() => requestSort('status')}>
@@ -2682,6 +2732,17 @@ export default function MenuView({
                           </div>
                         );
                       })()}
+                    </td>
+
+                    <td className="py-3.5 px-4 text-center">
+                      <button type="button" onClick={() => togglePosVisibility(item)} disabled={posVisibilitySaving.includes(item.id)}
+                        aria-pressed={!!posVisibility[item.id]}
+                        aria-label={`${posVisibility[item.id] ? 'Tampilkan' : 'Sembunyikan'} ${item.name} di POS`}
+                        title="Berlaku di seluruh outlet yang memiliki menu ini; tidak mengubah stok atau tayangan pelanggan"
+                        className={`text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors disabled:opacity-50 ${posVisibility[item.id] ? 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}>
+                        {posVisibilitySaving.includes(item.id) ? 'Menyimpan...' : posVisibility[item.id] ? 'Disembunyikan' : 'Tidak disembunyikan'}
+                      </button>
+                      {/\(online\)/i.test(item.name) && !posVisibility[item.id] && <p className="text-[10px] text-slate-500 mt-1">Varian Online tidak tampil di Offline</p>}
                     </td>
 
                     {/* Order-Online publish status */}

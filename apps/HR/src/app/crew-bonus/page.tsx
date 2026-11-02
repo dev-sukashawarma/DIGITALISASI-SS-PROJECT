@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useOutlets } from '@/hooks/useOutlets'
 import {
   useMonthlyBonusSummary,
@@ -24,9 +24,14 @@ import {
   DollarSign,
   PackageCheck,
   Calendar,
+  FileSpreadsheet,
+  ChevronDown,
+  Download,
 } from 'lucide-react'
 import { DailyOutletBonusView } from '@/components/modules/DailyOutletBonusView'
 import { CrewDailyBonusModal } from '@/components/modules/CrewDailyBonusModal'
+import { toast } from 'sonner'
+import { exportBonusExcel } from '@/lib/exportBonusExcel'
 
 const MONTH_OPTIONS = [
   { label: 'Januari', value: '1' },
@@ -91,6 +96,20 @@ export default function CrewBonusPage() {
     subRole?: string
   } | null>(null)
 
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setExportMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   // Queries
   const { data: summary, isLoading: loadingSummary } = useMonthlyBonusSummary({ month, year })
   const {
@@ -115,6 +134,13 @@ export default function CrewBonusPage() {
     isError: isRMError,
     error: rmError,
   } = useMonthlyRMBonus({ month, year })
+
+  // Master all-crew query (used when full report is exported even if an outlet is currently filtered)
+  const { data: allCrewMaster = [] } = useMonthlyCrewBonus({
+    month,
+    year,
+    outletId: null,
+  })
 
   const outletOptions = useMemo(() => {
     return [
@@ -186,6 +212,79 @@ export default function CrewBonusPage() {
     [filteredRM]
   )
 
+  const selectedOutletLabel =
+    outletOptions.find((o) => o.value === selectedOutletId)?.label || 'Semua Outlet'
+  const selectedRoleLabel =
+    CREW_ROLE_OPTIONS.find((r) => r.value === crewRoleFilter)?.label || 'Semua Posisi'
+  const selectedAttendanceLabel =
+    CREW_ATTENDANCE_OPTIONS.find((a) => a.value === crewAttendanceFilter)?.label || 'Semua Kehadiran'
+
+  const handleExport = async (scope: 'all' | 'current') => {
+    setExportMenuOpen(false)
+
+    if (scope === 'current' && activeTab === 'daily_outlet') {
+      toast.info('Silakan gunakan tombol "Export Excel" pada panel Rincian Harian Outlet di bawah.')
+      return
+    }
+
+    const currentRowsCount =
+      activeTab === 'crew'
+        ? filteredCrew.length
+        : activeTab === 'am'
+        ? filteredAM.length
+        : filteredRM.length
+
+    if (scope === 'current' && currentRowsCount === 0) {
+      toast.warning('Tidak ada data pada tabel untuk diekspor.')
+      return
+    }
+
+    if (
+      scope === 'all' &&
+      !summary &&
+      crewBonuses.length === 0 &&
+      amBonuses.length === 0 &&
+      rmBonuses.length === 0
+    ) {
+      toast.warning('Belum ada data bonus untuk periode ini.')
+      return
+    }
+
+    setIsExporting(true)
+    toast.info('Menyiapkan file Excel...')
+
+    try {
+      const mode = scope === 'all' ? 'all' : (activeTab as 'crew' | 'am' | 'rm')
+      const targetCrew = scope === 'all' ? (selectedOutletId ? allCrewMaster : crewBonuses) : filteredCrew
+      const targetAM = scope === 'all' ? amBonuses : filteredAM
+      const targetRM = scope === 'all' ? rmBonuses : filteredRM
+
+      const filename = await exportBonusExcel({
+        mode,
+        month,
+        year,
+        monthLabel: selectedMonthLabel,
+        summary,
+        crewData: targetCrew,
+        amData: targetAM,
+        rmData: targetRM,
+        filters: {
+          outletLabel: selectedOutletLabel,
+          roleLabel: selectedRoleLabel,
+          attendanceLabel: selectedAttendanceLabel,
+          searchQuery: searchQuery.trim() || undefined,
+        },
+      })
+
+      toast.success(`Berhasil mengunduh "${filename}"!`)
+    } catch (err) {
+      console.error('Export Excel error:', err)
+      toast.error('Gagal mengekspor file Excel. Silakan coba lagi.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const isLoading =
     loadingOutlets ||
     loadingSummary ||
@@ -225,6 +324,101 @@ export default function CrewBonusPage() {
             className="w-full sm:w-[110px]"
             placeholder="Tahun..."
           />
+
+          {/* Export XLS Dropdown */}
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              type="button"
+              onClick={() => setExportMenuOpen((prev) => !prev)}
+              disabled={isExporting || isLoading}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Ekspor laporan bonus ke Excel (.xlsx / .xls)"
+            >
+              {isExporting ? (
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+              )}
+              <span>Export XLS</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform duration-200 text-emerald-200 ${
+                  exportMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {exportMenuOpen && (
+              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl border border-suka-gray-200 shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="px-3.5 py-2 border-b border-suka-gray-100">
+                  <p className="text-[10px] font-bold text-suka-gray-400 uppercase tracking-wider">
+                    Format Excel (.xlsx)
+                  </p>
+                  <p className="text-xs font-bold text-suka-brown">Pilih Cakupan Laporan</p>
+                </div>
+
+                <div className="p-1 space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handleExport('all')}
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-orange-50/70 transition-colors flex items-start gap-3 group cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-orange-100/70 text-suka-orange flex items-center justify-center shrink-0 border border-orange-200 group-hover:bg-suka-orange group-hover:text-white transition-colors">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-suka-ink group-hover:text-suka-orange transition-colors">
+                          Laporan Lengkap (Semua Posisi)
+                        </span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-orange-100 text-suka-orange">
+                          Multi-Sheet
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-suka-gray-500 leading-tight block mt-0.5">
+                        4 Sheet: Ringkasan Eksekutif, Crew &amp; Leader, AM, dan RM
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExport('current')}
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50/70 transition-colors flex items-start gap-3 group cursor-pointer border-t border-suka-gray-50"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100/70 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                      <Download className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-suka-ink group-hover:text-emerald-700 transition-colors">
+                          {activeTab === 'crew'
+                            ? `Tab Aktif: Crew & Leader (${filteredCrew.length} Staf)`
+                            : activeTab === 'am'
+                            ? `Tab Aktif: Area Manager (${filteredAM.length} Staf)`
+                            : activeTab === 'rm'
+                            ? `Tab Aktif: Regional Manager (${filteredRM.length} Staf)`
+                            : 'Tab Aktif: Rincian Harian Outlet'}
+                        </span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                          Tampilan Ini
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-suka-gray-500 leading-tight block mt-0.5">
+                        {activeTab === 'daily_outlet'
+                          ? 'Gunakan tombol export di panel harian di bawah'
+                          : 'Sesuai filter outlet, posisi, kehadiran, & pencarian aktif'}
+                      </span>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="px-3.5 py-1.5 border-t border-suka-gray-100 text-[10px] text-suka-gray-400 flex items-center justify-between">
+                  <span>File kompatibel Excel, Sheets, &amp; Calc</span>
+                  <span className="font-mono">.xlsx</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </PageHeader>
 

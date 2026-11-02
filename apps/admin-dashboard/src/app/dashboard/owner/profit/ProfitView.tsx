@@ -312,7 +312,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const managementFeeData = useMemo(() => {
     let totalMitraFee = 0
     let grossMitraBelumBep = 0
-    const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean }>()
+    const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean; profitSharingPct: number }>()
 
     const allMitraOids = new Set([...Object.keys(mitraInvestments), ...Array.from(mitraIds)])
     for (const oid of allMitraOids) {
@@ -336,7 +336,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       if (policy.managementFeePct > 0) {
         grossMitraBelumBep += gross
       }
-      perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: bepInfo.isBep })
+      perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: bepInfo.isBep, profitSharingPct: policy.profitSharingPct })
       totalMitraFee += fee
     }
 
@@ -528,6 +528,16 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
   const costBase = actualGrossRevenue > 0 ? actualGrossRevenue : (netRevenue > 0 ? netRevenue : 0)
   const displayMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
+
+  // Informasi pembagian hasil (50:50) ketika memfilter satu outlet kemitraan yang sudah BEP
+  const selectedMitraFeeInfo = !isAllOutlets && (scope === 'mitra' || mitraIds.has(filter.outletId))
+    ? managementFeeData.perOutletFee.get(filter.outletId)
+    : undefined
+  const isSelectedOutletBep = Boolean(selectedMitraFeeInfo?.isBep)
+  const selectedMitraSharePct = selectedMitraFeeInfo?.profitSharingPct ?? (isSelectedOutletBep ? 50 : 100)
+  const selectedPusatSharePct = Math.max(0, 100 - selectedMitraSharePct)
+  const jatahBagiHasilMitra = displayLaba > 0 ? Math.round((displayLaba * selectedMitraSharePct) / 100) : 0
+  const jatahBagiHasilPusat = displayLaba > 0 ? Math.round(displayLaba) - jatahBagiHasilMitra : 0
 
   // Struktur Biaya vs Omzet:
   // Seluruh biaya dihitung proporsinya terhadap Omzet Kotor (actualGrossRevenue),
@@ -1226,6 +1236,26 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   }`}>
                     Margin: {displayMargin.toFixed(1)}%
                   </span>
+                  {isSelectedOutletBep && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                      BEP · Bagi Hasil {selectedMitraSharePct}:{selectedPusatSharePct}
+                    </span>
+                  )}
+                </div>
+                {isSelectedOutletBep && displayLaba > 0 && (
+                  <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] bg-white/80 border border-suka-orange/20 rounded-xl p-2">
+                    <div>
+                      <span className="text-[10px] text-suka-gray-500 font-semibold block">Jatah Mitra ({selectedMitraSharePct}%)</span>
+                      <span className="font-extrabold text-amber-800">{rupiah(jatahBagiHasilMitra)}</span>
+                    </div>
+                    <div className="border-l border-suka-gray-200 pl-2">
+                      <span className="text-[10px] text-suka-gray-500 font-semibold block">Jatah Pusat ({selectedPusatSharePct}%)</span>
+                      <span className="font-extrabold text-emerald-700">{rupiah(jatahBagiHasilPusat)}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="hidden"><span>
+                  </span>
                 </div>
                 <div className="mt-2.5 pt-2 border-t border-suka-gray-100 flex items-center justify-between">
                   <span className="text-[10px] font-semibold text-suka-gray-400">
@@ -1557,7 +1587,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                         {displayMargin.toFixed(1)}% Margin
                       </span>
                     </div>
-                    <p className="text-xs text-suka-gray-500 mt-1">Keuntungan bersih riil setelah dikurangi seluruh beban dan biaya</p>
+                    <p className="text-xs text-suka-gray-500 mt-1">
+                      {isSelectedOutletBep
+                        ? `Total laba bersih operasional outlet (100%) sebelum dibagi ${selectedMitraSharePct}:${selectedPusatSharePct}`
+                        : 'Keuntungan bersih riil setelah dikurangi seluruh beban dan biaya'}
+                    </p>
                     {duaSisiDiLayarSama && (
                       <p className="text-[11px] text-suka-brown/70 mt-1.5 leading-snug max-w-xl">
                         <span className="font-bold">Laba Rugi Global = Laba Internal + Laba Mitra.</span>{' '}
@@ -1571,6 +1605,47 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <div className="text-right">
                     <span className={`text-2xl sm:text-3xl font-black tracking-tight ${displayLaba >= 0 ? 'text-suka-brown' : 'text-rose-600'}`}>
                       {displayLaba < 0 ? '-' : ''}{rupiah(Math.abs(displayLaba))}
+                    </span>
+                  </div>
+                </div>
+
+                {/* BLOCK 4: DISTRIBUSI BAGI HASIL (KHUSUS FILTER OUTLET BEP) */}
+                {isSelectedOutletBep && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-suka-gray-400 uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span> 4. Distribusi Bagi Hasil ({selectedMitraSharePct}:{selectedPusatSharePct} · Sudah BEP)
+                      </div>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Status Balik Modal (BEP) · Bagi Hasil {selectedMitraSharePct}% : {selectedPusatSharePct}%
+                      </span>
+                    </div>
+                    {displayLaba > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex justify-between items-center gap-2">
+                          <div>
+                            <span className="text-xs font-bold text-amber-950 block">Jatah Bagi Hasil Mitra ({selectedMitraSharePct}%)</span>
+                            <span className="text-[11px] text-amber-800/80">Hak bersih mitra dari laba outlet</span>
+                          </div>
+                          <span className="text-lg font-black text-amber-800 shrink-0">{rupiah(jatahBagiHasilMitra)}</span>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex justify-between items-center gap-2">
+                          <div>
+                            <span className="text-xs font-bold text-emerald-950 block">Jatah Bagi Hasil Pusat ({selectedPusatSharePct}%)</span>
+                            <span className="text-[11px] text-emerald-800/80">Porsi bagi hasil kantor pusat (SS)</span>
+                          </div>
+                          <span className="text-lg font-black text-emerald-700 shrink-0">{rupiah(jatahBagiHasilPusat)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-2xl bg-suka-gray-50 border border-suka-gray-200 text-xs text-suka-gray-500">
+                        Outlet belum menghasilkan laba bersih positif pada periode ini, sehingga tidak ada alokasi bagi hasil ({selectedMitraSharePct}:{selectedPusatSharePct}).
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="hidden"><div><span>
                     </span>
                   </div>
                 </div>

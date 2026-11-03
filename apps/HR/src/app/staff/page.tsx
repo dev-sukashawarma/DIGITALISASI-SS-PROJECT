@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { UserPlus, Download, Upload, History, Users } from 'lucide-react'
+import { UserPlus, Download, Upload, History, Users, Briefcase } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useStaff } from '@/hooks/useStaff'
@@ -14,6 +14,7 @@ import { StaffTable } from '@/components/modules/StaffTable'
 import { StaffAuditLogView } from '@/components/modules/StaffAuditLogView'
 import { DeactivateStaffModal } from '@/components/modules/DeactivateStaffModal'
 import { MutateOutletModal } from '@/components/modules/MutateOutletModal'
+import { AMOutletRotationModal } from '@/components/modules/AMOutletRotationModal'
 import { StaffForm } from '@/components/modules/StaffForm'
 import { ResetPasswordDialog } from '@/components/modules/ResetPasswordDialog'
 import { BulkImportStaffModal } from '@/components/modules/BulkImportStaffModal'
@@ -43,6 +44,8 @@ export default function StaffPage() {
   const [resetPwStaff, setResetPwStaff] = useState<StaffRow | null>(null)
   const [deactivatingStaff, setDeactivatingStaff] = useState<StaffRow | null>(null)
   const [mutatingStaff, setMutatingStaff] = useState<StaffRow | null>(null)
+  const [amRotationOpen, setAmRotationOpen] = useState(false)
+  const [selectedAmForRotation, setSelectedAmForRotation] = useState<string | null>(null)
 
   const { data: staffList = [], isLoading } = useStaff()
   const { data: outlets = [] } = useOutlets()
@@ -232,7 +235,18 @@ export default function StaffPage() {
         title="Database Karyawan &amp; Personalia"
         description="Kelola seluruh berkas identitas, jabatan, outlet, dan hak akses staf Suka Shawarma."
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setSelectedAmForRotation(null)
+              setAmRotationOpen(true)
+            }}
+            className="rounded-xl border border-indigo-200 bg-indigo-50/70 text-indigo-800 hover:bg-indigo-100 gap-1.5 font-bold"
+          >
+            <Briefcase size={15} className="text-indigo-600" /> Rotasi Binaan AM
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -324,7 +338,14 @@ export default function StaffPage() {
           sortBy={filter.sortBy}
           sortOrder={filter.sortOrder}
           onSort={handleSort}
-          onMutateOutlet={(s) => setMutatingStaff(s)}
+          onMutateOutlet={(s) => {
+            if (s.role === 'area_manager') {
+              setSelectedAmForRotation(s.id)
+              setAmRotationOpen(true)
+            } else {
+              setMutatingStaff(s)
+            }
+          }}
           onEdit={(s) => {
             setEditingStaff(s)
             setFormOpen(true)
@@ -442,6 +463,27 @@ export default function StaffPage() {
             setMutatingStaff(null)
             toast.success(msg)
             queryClient.invalidateQueries({ queryKey: ['staff'] })
+          }}
+        />
+      )}
+
+      {/* Rotasi Outlet Binaan Area Manager Modal */}
+      {amRotationOpen && (
+        <AMOutletRotationModal
+          staffList={staffList}
+          outlets={outlets}
+          initialSelectedAmId={selectedAmForRotation}
+          onClose={() => {
+            setAmRotationOpen(false)
+            setSelectedAmForRotation(null)
+          }}
+          onSuccess={(msg) => {
+            setAmRotationOpen(false)
+            setSelectedAmForRotation(null)
+            toast.success(msg)
+            queryClient.invalidateQueries({ queryKey: ['staff'] })
+            queryClient.invalidateQueries({ queryKey: ['monthly_am_bonus'] })
+            queryClient.invalidateQueries({ queryKey: ['monthly_bonus_summary'] })
           }}
         />
       )}

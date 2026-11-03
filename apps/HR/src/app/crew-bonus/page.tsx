@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useOutlets } from '@/hooks/useOutlets'
+import { useStaff } from '@/hooks/useStaff'
 import {
   useMonthlyBonusSummary,
   useMonthlyCrewBonus,
@@ -27,9 +29,11 @@ import {
   FileSpreadsheet,
   ChevronDown,
   Download,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { DailyOutletBonusView } from '@/components/modules/DailyOutletBonusView'
 import { CrewDailyBonusModal } from '@/components/modules/CrewDailyBonusModal'
+import { AMOutletRotationModal } from '@/components/modules/AMOutletRotationModal'
 import { toast } from 'sonner'
 import { exportBonusExcel } from '@/lib/exportBonusExcel'
 
@@ -80,7 +84,10 @@ const formatNumber = (num: number) => {
 type ActiveTab = 'crew' | 'daily_outlet' | 'am' | 'rm'
 
 export default function CrewBonusPage() {
+  const queryClient = useQueryClient()
   const { data: outlets = [], isLoading: loadingOutlets } = useOutlets()
+  const { data: staffList = [] } = useStaff()
+  const [amRotationOpen, setAmRotationOpen] = useState(false)
 
   const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1)
   const [year, setYear] = useState<number>(() => new Date().getFullYear())
@@ -639,6 +646,16 @@ export default function CrewBonusPage() {
         {/* Filter & Search Toolbar (Only for Crew, AM, RM - Daily Outlet has its own toolbar) */}
         {activeTab !== 'daily_outlet' && (
           <div className="flex flex-wrap items-stretch sm:items-center gap-2">
+            {activeTab === 'am' && (
+              <button
+                type="button"
+                onClick={() => setAmRotationOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Rotasi Outlet Binaan AM</span>
+              </button>
+            )}
             {activeTab === 'crew' && (
               <>
                 <Select
@@ -1039,6 +1056,22 @@ export default function CrewBonusPage() {
         role={modalCrew?.role || 'crew'}
         subRole={modalCrew?.subRole}
       />
+
+      {/* ── AM Outlet Rotation Modal ── */}
+      {amRotationOpen && (
+        <AMOutletRotationModal
+          staffList={staffList}
+          outlets={outlets}
+          onClose={() => setAmRotationOpen(false)}
+          onSuccess={(msg) => {
+            setAmRotationOpen(false)
+            toast.success(msg)
+            queryClient.invalidateQueries({ queryKey: ['staff'] })
+            queryClient.invalidateQueries({ queryKey: ['monthly_am_bonus'] })
+            queryClient.invalidateQueries({ queryKey: ['monthly_bonus_summary'] })
+          }}
+        />
+      )}
     </div>
   )
 }

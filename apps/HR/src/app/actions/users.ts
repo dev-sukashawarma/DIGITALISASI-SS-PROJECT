@@ -412,6 +412,78 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
       targetRole === 'area_manager' ||
       (targetRole === 'crew' && targetSubRole === 'crew_backup')
 
+    // Sync AM outlet assignments & enforce exclusive 1 AM per outlet when updating an Area Manager
+    if (targetRole === 'area_manager' && Array.isArray(outlet_ids)) {
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+      const prevDateObj = new Date(`${todayStr}T00:00:00Z`)
+      prevDateObj.setUTCDate(prevDateObj.getUTCDate() - 1)
+      const prevDayStr = prevDateObj.toISOString().slice(0, 10)
+
+      const desiredOutlets = Array.from(new Set(outlet_ids.filter((id) => id && id !== KANTOR_PUSAT_ID)))
+
+      // Fetch current active assignments for this AM
+      const { data: currAmAssigns } = await admin
+        .from('am_outlet_assignments')
+        .select('id, outlet_id, effective_from')
+        .eq('staff_id', staff_id)
+        .is('effective_to', null)
+
+      const currOutletSet = new Set((currAmAssigns || []).map((a: any) => a.outlet_id))
+      const desiredSet = new Set(desiredOutlets)
+
+      // 1. Outlets removed from this AM
+      for (const a of currAmAssigns || []) {
+        if (!desiredSet.has(a.outlet_id)) {
+          if (a.effective_from >= todayStr) {
+            await admin.from('am_outlet_assignments').delete().eq('id', a.id)
+          } else {
+            await admin
+              .from('am_outlet_assignments')
+              .update({ effective_to: prevDayStr, updated_at: new Date().toISOString() })
+              .eq('id', a.id)
+          }
+        }
+      }
+
+      // 2. Outlets added to this AM (enforce exclusive 1 AM per outlet)
+      for (const oid of desiredOutlets) {
+        if (!currOutletSet.has(oid)) {
+          // Check if another AM currently holds this outlet
+          const { data: existingHolder } = await admin
+            .from('am_outlet_assignments')
+            .select('id, staff_id, effective_from')
+            .eq('outlet_id', oid)
+            .is('effective_to', null)
+            .maybeSingle()
+
+          if (existingHolder && existingHolder.staff_id !== staff_id) {
+            if (existingHolder.effective_from >= todayStr) {
+              await admin.from('am_outlet_assignments').delete().eq('id', existingHolder.id)
+            } else {
+              await admin
+                .from('am_outlet_assignments')
+                .update({ effective_to: prevDayStr, updated_at: new Date().toISOString() })
+                .eq('id', existingHolder.id)
+            }
+            // Remove from the previous AM's staff_outlets so it stays exclusive
+            await admin
+              .from('staff_outlets')
+              .delete()
+              .eq('staff_id', existingHolder.staff_id)
+              .eq('outlet_id', oid)
+          }
+
+          await admin.from('am_outlet_assignments').insert({
+            staff_id,
+            outlet_id: oid,
+            effective_from: todayStr,
+            effective_to: null,
+            reason: 'Pembaruan Profil Area Manager',
+          })
+        }
+      }
+    }
+
     // Always delete existing staff_outlets on update to avoid stale multi-outlet entries
     await admin.from('staff_outlets').delete().eq('staff_id', staff_id)
 
@@ -1237,5 +1309,296 @@ export async function getAllStaffActivityLogs(params?: {
     return { ok: true, data: results }
   } catch (err: any) {
     return { ok: false, data: [], error: err.message || 'Gagal memuat log aktivitas' }
+  }
+}
+
+export interface AMOutletAssignmentRecord {
+  id: string
+  staff_id: string
+  outlet_id: string
+  effective_from: string
+  effective_to: string | null
+  reason: string | null
+  notes: string | null
+  created_at: string
+  staff?: { id: string; name: string } | null
+  outlet?: { id: string; name: string; is_active: boolean; type?: string | null } | null
+}
+
+export interface AMOutletRotationRecord {
+  id: string
+  outlet_id: string
+  from_staff_id: string | null
+  to_staff_id: string | null
+  effective_date: string
+  reason: string
+  notes: string | null
+  actor_id: string | null
+  actor_name: string | null
+  created_at: string
+  outlet?: { id: string; name: string } | null
+  from_staff?: { id: string; name: string } | null
+  to_staff?: { id: string; name: string } | null
+}
+
+export async function getAMOutletDataAction(): Promise<{
+  ok: boolean
+  activeAssignments: AMOutletAssignmentRecord[]
+  historyAssignments: AMOutletAssignmentRecord[]
+  rotations: AMOutletRotationRecord[]
+  error?: string
+}> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
+    const admin = getAdminSupabase()
+
+    const [activeRes, historyRes, rotRes] = await Promise.all([
+      admin
+        .from('am_outlet_assignments')
+        .select(`
+          id, staff_id, outlet_id, effective_from, effective_to, reason, notes, created_at,
+          staff:outlet_staff!staff_id(id, name),
+          outlet:outlets!outlet_id(id, name, is_active, type)
+        `)
+        .is('effective_to', null)
+        .order('effective_from', { ascending: false }),
+      admin
+        .from('am_outlet_assignments')
+        .select(`
+          id, staff_id, outlet_id, effective_from, effective_to, reason, notes, created_at,
+          staff:outlet_staff!staff_id(id, name),
+          outlet:outlets!outlet_id(id, name, is_active, type)
+        `)
+        .order('effective_from', { ascending: false })
+        .limit(200),
+      admin
+        .from('am_outlet_rotations')
+        .select(`
+          id, outlet_id, from_staff_id, to_staff_id, effective_date, reason, notes, actor_id, actor_name, created_at,
+          outlet:outlets!outlet_id(id, name),
+          from_staff:outlet_staff!from_staff_id(id, name),
+          to_staff:outlet_staff!to_staff_id(id, name)
+        `)
+        .order('effective_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(200),
+    ])
+
+    return {
+      ok: true,
+      activeAssignments: (activeRes.data as unknown as AMOutletAssignmentRecord[]) || [],
+      historyAssignments: (historyRes.data as unknown as AMOutletAssignmentRecord[]) || [],
+      rotations: (rotRes.data as unknown as AMOutletRotationRecord[]) || [],
+    }
+  } catch (err: any) {
+    return {
+      ok: false,
+      activeAssignments: [],
+      historyAssignments: [],
+      rotations: [],
+      error: err.message || 'Gagal memuat data penugasan outlet binaan AM',
+    }
+  }
+}
+
+export async function rotateAMOutletsAction(params: {
+  outletIds: string[]
+  toStaffId: string | null // null = Lepas dari binaan AM
+  effectiveDate: string
+  reason: string
+  notes?: string
+}): Promise<{ ok: boolean; message: string; error?: string }> {
+  try {
+    const authUser = await requireRole(['admin', 'owner', 'admin_hr'])
+    const cleanOutletIds = Array.from(new Set((params.outletIds || []).filter(Boolean)))
+    if (cleanOutletIds.length === 0) {
+      return { ok: false, message: 'Pilih minimal 1 outlet untuk dirotasi', error: 'Tidak ada outlet yang dipilih' }
+    }
+    if (!params.effectiveDate) {
+      return { ok: false, message: 'Tanggal efektif wajib diisi', error: 'Tanggal efektif wajib diisi' }
+    }
+    if (!params.reason?.trim()) {
+      return { ok: false, message: 'Alasan pergeseran wajib diisi', error: 'Alasan wajib diisi' }
+    }
+
+    const admin = getAdminSupabase()
+    const actor = await getActorInfo(admin, authUser?.userId)
+    const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+
+    // Hitung H-1 dari effectiveDate untuk menutup assignment AM sebelumnya
+    const prevDateObj = new Date(`${params.effectiveDate}T00:00:00Z`)
+    prevDateObj.setUTCDate(prevDateObj.getUTCDate() - 1)
+    const prevDayStr = prevDateObj.toISOString().slice(0, 10)
+
+    // Fetch info nama AM tujuan & nama outlet
+    let targetAmName = 'Tanpa AM (Dilepas)'
+    if (params.toStaffId) {
+      const { data: targetAm } = await admin
+        .from('outlet_staff')
+        .select('id, name, role')
+        .eq('id', params.toStaffId)
+        .maybeSingle()
+      if (!targetAm || targetAm.role !== 'area_manager') {
+        return { ok: false, message: 'Area Manager tujuan tidak valid', error: 'AM tujuan tidak valid' }
+      }
+      targetAmName = targetAm.name
+    }
+
+    const { data: outletRows } = await admin
+      .from('outlets')
+      .select('id, name')
+      .in('id', cleanOutletIds)
+    const outletNameMap = new Map<string, string>()
+    outletRows?.forEach((o: any) => outletNameMap.set(o.id, o.name))
+
+    const movedNames: string[] = []
+    const affectedOldAmIds = new Set<string>()
+
+    for (const outletId of cleanOutletIds) {
+      const outletName = outletNameMap.get(outletId) || 'Outlet'
+
+      // Cek assignment aktif saat ini untuk outlet ini
+      const { data: currAssign } = await admin
+        .from('am_outlet_assignments')
+        .select('id, staff_id, effective_from, outlet_staff!staff_id(name)')
+        .eq('outlet_id', outletId)
+        .is('effective_to', null)
+        .maybeSingle()
+
+      const fromStaffId = currAssign?.staff_id || null
+      const fromStaffName = (currAssign as any)?.outlet_staff?.name || 'Belum Ada AM'
+
+      // Jika AM asal sama dengan AM tujuan, lewati
+      if (fromStaffId === params.toStaffId) {
+        continue
+      }
+
+      // 1. Tutup atau hapus assignment aktif sebelumnya
+      if (currAssign) {
+        affectedOldAmIds.add(currAssign.staff_id)
+        if (currAssign.effective_from >= params.effectiveDate) {
+          // Jika periode baru dimulai pada/setelah effective_from lama, koreksi langsung baris tersebut
+          await admin.from('am_outlet_assignments').delete().eq('id', currAssign.id)
+        } else {
+          // Tutup pada H-1 dari effectiveDate
+          await admin
+            .from('am_outlet_assignments')
+            .update({
+              effective_to: prevDayStr,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', currAssign.id)
+        }
+      }
+
+      // Hapus juga semua baris dari AM manapun di staff_outlets untuk outlet ini (hanya dari staff ber-role area_manager)
+      if (fromStaffId) {
+        await admin
+          .from('staff_outlets')
+          .delete()
+          .eq('staff_id', fromStaffId)
+          .eq('outlet_id', outletId)
+      }
+
+      // 2. Buat assignment baru jika ada toStaffId
+      if (params.toStaffId) {
+        await admin.from('am_outlet_assignments').insert({
+          staff_id: params.toStaffId,
+          outlet_id: outletId,
+          effective_from: params.effectiveDate,
+          effective_to: null,
+          reason: params.reason.trim(),
+          notes: params.notes?.trim() || null,
+          created_by: actor.id,
+        })
+
+        // Pastikan masuk ke staff_outlets AM tujuan
+        await admin
+          .from('staff_outlets')
+          .upsert(
+            [
+              { staff_id: params.toStaffId, outlet_id: outletId },
+              { staff_id: params.toStaffId, outlet_id: KANTOR_PUSAT_ID },
+            ],
+            { onConflict: 'staff_id,outlet_id' }
+          )
+      }
+
+      // 3. Catat di am_outlet_rotations
+      await admin.from('am_outlet_rotations').insert({
+        outlet_id: outletId,
+        from_staff_id: fromStaffId,
+        to_staff_id: params.toStaffId,
+        effective_date: params.effectiveDate,
+        reason: params.reason.trim(),
+        notes: params.notes?.trim() || null,
+        actor_id: actor.id,
+        actor_name: actor.name,
+      })
+
+      // 4. Catat di staff_activity_logs untuk AM asal & AM tujuan
+      if (fromStaffId) {
+        await admin.from('staff_activity_logs').insert({
+          staff_id: fromStaffId,
+          action_type: 'MUTATED_OUTLET',
+          title: 'Pergeseran Outlet Binaan (Keluar)',
+          description: `Outlet binaan "${outletName}" dialihkan dari ${fromStaffName} ke ${targetAmName} efektif per ${params.effectiveDate}. Alasan: ${params.reason.trim()}.`,
+          actor_id: actor.id,
+          actor_name: actor.name,
+          metadata: {
+            rotation_type: 'AM_OUTLET_OUT',
+            outlet_id: outletId,
+            outlet_name: outletName,
+            from_staff_id: fromStaffId,
+            to_staff_id: params.toStaffId,
+            effective_date: params.effectiveDate,
+            reason: params.reason.trim(),
+            notes: params.notes?.trim() || null,
+          },
+        })
+      }
+
+      if (params.toStaffId) {
+        await admin.from('staff_activity_logs').insert({
+          staff_id: params.toStaffId,
+          action_type: 'MUTATED_OUTLET',
+          title: 'Penambahan Outlet Binaan (Masuk)',
+          description: `Menerima binaan outlet "${outletName}" (sebelumnya: ${fromStaffName}) efektif per ${params.effectiveDate}. Alasan: ${params.reason.trim()}.`,
+          actor_id: actor.id,
+          actor_name: actor.name,
+          metadata: {
+            rotation_type: 'AM_OUTLET_IN',
+            outlet_id: outletId,
+            outlet_name: outletName,
+            from_staff_id: fromStaffId,
+            to_staff_id: params.toStaffId,
+            effective_date: params.effectiveDate,
+            reason: params.reason.trim(),
+            notes: params.notes?.trim() || null,
+          },
+        })
+      }
+
+      movedNames.push(outletName)
+    }
+
+    if (movedNames.length === 0) {
+      return {
+        ok: false,
+        message: 'Outlet yang dipilih sudah berada di bawah Area Manager tujuan tersebut.',
+        error: 'Tidak ada perubahan binaan',
+      }
+    }
+
+    return {
+      ok: true,
+      message: `Berhasil merotasi ${movedNames.length} outlet (${movedNames.join(', ')}) ke ${targetAmName} efektif per ${params.effectiveDate}.`,
+    }
+  } catch (err: any) {
+    return {
+      ok: false,
+      message: err.message || 'Gagal memproses rotasi outlet binaan AM',
+      error: err.message || 'Gagal memproses rotasi outlet binaan AM',
+    }
   }
 }

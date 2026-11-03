@@ -538,6 +538,7 @@ export function usePayrollMutations() {
           .from('payroll_records')
           .update({
             basic_salary: basicSalary,
+            sales_bonus: autoBonusAmount,
             bonus: totalBonus,
             bonus_note: bonusNotes.join(' | ') || null,
             deductions: totalDeductions,

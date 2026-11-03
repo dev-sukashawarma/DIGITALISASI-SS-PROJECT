@@ -511,7 +511,11 @@ export function StaffTable({
                           type="button"
                           onClick={() => onMutateOutlet(s)}
                           className="rounded-lg p-2 text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
-                          title="Mutasi / Pindah Cabang Outlet"
+                          title={
+                            s.role === 'area_manager'
+                              ? 'Rotasi / Pergeseran Outlet Binaan AM'
+                              : 'Mutasi / Pindah Cabang Outlet'
+                          }
                         >
                           <ArrowLeftRight size={16} />
                         </button>

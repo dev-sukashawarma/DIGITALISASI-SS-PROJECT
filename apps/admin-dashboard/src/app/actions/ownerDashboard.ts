@@ -3,7 +3,7 @@
 
 import { cookies } from 'next/headers'
 import { unstable_cache, updateTag, revalidatePath } from 'next/cache'
-import { db } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/lib/types'
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
@@ -494,6 +494,7 @@ async function fetchOwnerDashboardSummaryRaw(
  * Menegakkan batas `outletId` / `allowedOutletIds` dari callerScope.
  */
 async function fetchPlatformSettlementsRange(
+  fallbackSupabase: any,
   fromDate: string,
   toDate: string,
   outletId: string | null,
@@ -507,8 +508,14 @@ async function fetchPlatformSettlementsRange(
   let offset = 0
 
   try {
+    let client: any
+    try {
+      client = createServiceClient()
+    } catch {
+      client = fallbackSupabase
+    }
     while (true) {
-      let q = db
+      let q = client
         .from('platform_settlements')
         .select('outlet_id, platform, tanggal, commission, promo_merchant')
         .gte('tanggal', fromDate)
@@ -669,7 +676,7 @@ export async function getOwnerDashboardDataFast(
     const [pastPayloads, livePayload, settlementRows] = await Promise.all([
       mapWithConcurrency(chunks, Math.max(DAY_FETCH_CONCURRENCY, 10), fetchChunk),
       includesToday ? fetchToday() : Promise.resolve(null),
-      fetchPlatformSettlementsRange(filter.from, filter.to, outletId, allowedOutletIds),
+      fetchPlatformSettlementsRange(supabase, filter.from, filter.to, outletId, allowedOutletIds),
     ])
     const payload = mergeSummaryPayloads([...pastPayloads, livePayload], livePayload?.fetchedAt)
 

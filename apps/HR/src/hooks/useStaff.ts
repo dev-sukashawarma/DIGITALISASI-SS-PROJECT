@@ -29,6 +29,13 @@ export function useStaff(options?: { includeAllCategories?: boolean }) {
           queryClient.invalidateQueries({ queryKey: ['staff'] })
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'staff_outlets' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['staff'] })
+        }
+      )
       .subscribe()
 
     return () => {

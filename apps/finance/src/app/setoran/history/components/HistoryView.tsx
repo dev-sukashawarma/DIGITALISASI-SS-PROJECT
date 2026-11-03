@@ -575,6 +575,7 @@ export function HistoryView() {
                     <th className="py-3 px-3">Outlet Asal</th>
                     <th className="py-3 px-3">Catatan</th>
                     <th className="py-3 px-3 text-right">Nominal</th>
+                    <th className="py-3 px-3 text-center">Bukti</th>
                     <th className="py-3 px-3 text-center">Status</th>
                     <th className="py-3 px-3 text-right">Action</th>
                   </tr>
@@ -587,6 +588,21 @@ export function HistoryView() {
                       <td className="py-3.5 px-3 text-suka-gray-700">{t.outlet?.name ?? '—'}</td>
                       <td className="py-3.5 px-3 text-suka-gray-500 max-w-xs truncate">{t.note || t.description || '—'}</td>
                       <td className="py-3.5 px-3 text-right font-bold text-emerald-600 whitespace-nowrap">+{rupiah(t.amount)}</td>
+                      <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                        {t.proof_url ? (
+                          <a
+                            href={t.proof_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors shadow-xs"
+                            title="Buka bukti transfer"
+                          >
+                            <Receipt size={13} /> Bukti
+                          </a>
+                        ) : (
+                          <span className="text-xs text-suka-gray-400">—</span>
+                        )}
+                      </td>
                       <td className="py-3.5 px-3 text-center whitespace-nowrap"><TxStatusBadge status={t.status} /></td>
                       <td className="py-3.5 px-3 text-right whitespace-nowrap">
                         <button

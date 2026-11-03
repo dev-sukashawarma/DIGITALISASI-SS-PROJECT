@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner, CurrencyInput } from '@suka/design-system'
-import { Banknote, Landmark, Pencil, Trash2, X } from 'lucide-react'
+import { Banknote, Landmark, Pencil, Trash2, X, Receipt } from 'lucide-react'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
 import { useOutlets, useCashDeposit, useUpdateCashDepositMethod, useDeleteCashDeposit } from '@/hooks/useCashDeposit'
 import { useExpectedCash } from '@/hooks/useExpectedCash'
@@ -349,6 +349,7 @@ export function SetoranView({
                   <th className="py-2 px-3">Metode &amp; Akun</th>
                   <th className="py-2 px-3">Outlet Asal</th>
                   <th className="py-2 px-3 text-right">Nominal</th>
+                  <th className="py-2 px-3 text-center">Bukti</th>
                   <th className="py-2 px-3">Status</th>
                   <th className="py-2 px-3 text-right">Action</th>
                 </tr>
@@ -373,6 +374,21 @@ export function SetoranView({
                     </td>
                     <td className="py-3 px-3 text-suka-gray-500 font-medium">{t.outlet?.name ?? '—'}</td>
                     <td className="py-3 px-3 text-right font-bold text-emerald-600">+{rupiah(t.amount)}</td>
+                    <td className="py-3 px-3 text-center">
+                      {t.proof_url ? (
+                        <a
+                          href={t.proof_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors shadow-xs"
+                          title="Buka bukti transfer"
+                        >
+                          <Receipt size={13} /> Bukti
+                        </a>
+                      ) : (
+                        <span className="text-xs text-suka-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="py-3 px-3"><TxStatusBadge status={t.status} /></td>
                     <td className="py-3 px-3 text-right">
                       <button

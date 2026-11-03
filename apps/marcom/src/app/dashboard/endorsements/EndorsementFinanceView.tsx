@@ -329,6 +329,7 @@ export default function EndorsementFinanceView({
       'Data Rekening Bank',
       'Status Pembayaran',
       'Tanggal Transfer (TF)',
+      'Bukti Pembayaran',
       'Catatan Pembayaran',
     ]
 
@@ -336,6 +337,7 @@ export default function EndorsementFinanceView({
       const bankInfo = (item.bankAccountCustom || item.kol.bankAccount || '').replace(/,/g, ' ')
       const menu = (item.menuGiven || '-').replace(/,/g, ' ')
       const notes = (item.paymentNotes || '-').replace(/,/g, ' ')
+      const proofUrl = (item.paymentReceiptUrl || '-').replace(/,/g, ' ')
 
       return [
         idx + 1,
@@ -351,6 +353,7 @@ export default function EndorsementFinanceView({
         bankInfo,
         item.paymentStatus,
         item.paymentDate || '-',
+        proofUrl,
         notes,
       ].join(',')
     })
@@ -928,6 +931,19 @@ export default function EndorsementFinanceView({
                           </div>
                         ) : (
                           <span className="text-stone-400 text-[11px] italic">Belum ada rekening</span>
+                        )}
+                        {item.paymentReceiptUrl && (
+                          <div className="mt-1">
+                            <a
+                              href={item.paymentReceiptUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                              title="Lihat Bukti Transfer"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 shrink-0" /> Bukti Transfer
+                            </a>
+                          </div>
                         )}
                         {item.paymentNotes && (
                           <div className="text-[10px] text-amber-700 mt-1 italic">

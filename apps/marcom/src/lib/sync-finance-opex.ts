@@ -71,6 +71,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           payment_source: 'transfer_pusat',
           type: 'expense',
           created_by: MARCOM_CREW_STAFF_ID,
+          receipt_url: endorsement.paymentReceiptUrl || null,
         },
         { onConflict: 'id' }
       ).select('id')
@@ -124,6 +125,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           payment_source: 'transfer_pusat',
           type: 'expense',
           created_by: MARCOM_CREW_STAFF_ID,
+          receipt_url: endorsement.paymentReceiptUrl || null,
         },
         { onConflict: 'id' }
       ).select('id')
@@ -184,6 +186,7 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
           payment_source: 'transfer_pusat',
           type: 'expense',
           created_by: MARCOM_CREW_STAFF_ID,
+          receipt_url: endorsement.paymentReceiptUrl || null,
         },
         { onConflict: 'id' }
       ).select('id')
@@ -242,6 +245,7 @@ export async function syncAdOpex(adId: bigint | number | string) {
           payment_source: 'transfer_pusat',
           type: 'expense',
           created_by: MARCOM_CREW_STAFF_ID,
+          receipt_url: ad.adUrl || null,
         },
         { onConflict: 'id' }
       ).select('id')

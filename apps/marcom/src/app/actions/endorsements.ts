@@ -46,6 +46,7 @@ export async function createEndorsement(
   const paymentStatus = paymentStatusFromForm || (rateCard === 0 ? 'BARTER' : 'UNPAID')
   const paymentDateStr = formData.get('paymentDate') as string
   const paymentNotes = (formData.get('paymentNotes') as string)?.trim() || (formData.get('notes') as string)?.trim() || null
+  const paymentReceiptUrl = (formData.get('paymentReceiptUrl') as string)?.trim() || null
   const bankAccountCustom = (formData.get('bankAccountCustom') as string)?.trim() || null
   const type = (formData.get('type') as string) || 'VISIT'
   const shippingAddress = (formData.get('shippingAddress') as string)?.trim() || null
@@ -191,6 +192,7 @@ export async function createEndorsement(
         paymentStatus,
         paymentDate,
         paymentNotes,
+        paymentReceiptUrl,
         bankAccountCustom,
         type,
         shippingAddress,
@@ -330,6 +332,7 @@ export async function updateEndorsement(
   const paymentStatus = (formData.get('paymentStatus') as string) || 'UNPAID'
   const paymentDateStr = formData.get('paymentDate') as string
   const paymentNotes = (formData.get('paymentNotes') as string)?.trim() || null
+  const paymentReceiptUrl = (formData.get('paymentReceiptUrl') as string)?.trim() || null
   const bankAccountCustom = (formData.get('bankAccountCustom') as string)?.trim() || null
   const type = (formData.get('type') as string) || 'VISIT'
   const shippingAddress = (formData.get('shippingAddress') as string)?.trim() || null
@@ -412,6 +415,7 @@ export async function updateEndorsement(
         paymentStatus,
         paymentDate,
         paymentNotes,
+        paymentReceiptUrl,
         bankAccountCustom,
         type,
         shippingAddress,
@@ -587,7 +591,8 @@ export async function updatePaymentStatus(
   paymentStatus: string,
   paymentDateStr?: string | null,
   paymentNotes?: string | null,
-  bankAccountCustom?: string | null
+  bankAccountCustom?: string | null,
+  paymentReceiptUrl?: string | null
 ): Promise<ActionState> {
   const user = await getCurrentUser()
   if (!user) {
@@ -604,6 +609,7 @@ export async function updatePaymentStatus(
         paymentStatus,
         paymentDate,
         ...(paymentNotes !== undefined ? { paymentNotes } : {}),
+        ...(paymentReceiptUrl !== undefined ? { paymentReceiptUrl } : {}),
         ...(bankAccountCustom !== undefined ? { bankAccountCustom } : {}),
       },
     })
@@ -1056,5 +1062,78 @@ export async function resolveVideoEmbedInfo(
 
 export async function getPosMenuItemsAction(): Promise<PosMenuItem[]> {
   return await fetchPosMenuItems()
+}
+
+/**
+ * Mengunggah foto/file bukti transfer atau pembayaran endorsement ke Supabase Storage
+ */
+export async function uploadEndorsementPaymentProof(
+  formData: FormData
+): Promise<{ url?: string; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { error: 'Unauthorized: Harap login terlebih dahulu' }
+  }
+
+  const file = formData.get('file') as File | null
+  if (!file || !(file instanceof File) || file.size === 0) {
+    return { error: 'File bukti pembayaran tidak ditemukan atau kosong' }
+  }
+
+  // Maksimal 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    return { error: 'Ukuran file maksimal 10MB' }
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'pdf']
+  if (!allowedExtensions.includes(ext)) {
+    return { error: 'Format file tidak didukung. Harap upload gambar (JPG, PNG, WEBP, HEIC) atau PDF.' }
+  }
+
+  try {
+    const supabase = getPosSupabase()
+    const fileName = `endorsement-proof-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    let contentType = file.type
+    if (!contentType) {
+      if (ext === 'pdf') contentType = 'application/pdf'
+      else if (ext === 'png') contentType = 'image/png'
+      else if (ext === 'webp') contentType = 'image/webp'
+      else if (ext === 'heic') contentType = 'image/heic'
+      else contentType = 'image/jpeg'
+    }
+
+    let targetBucket = 'payment_proofs'
+    let { error: uploadError } = await supabase.storage
+      .from(targetBucket)
+      .upload(fileName, buffer, { contentType, upsert: true })
+
+    if (uploadError) {
+      console.warn(`[uploadEndorsementPaymentProof] Gagal ke ${targetBucket}, coba ke opex-invoices:`, uploadError)
+      targetBucket = 'opex-invoices'
+      const fallbackResult = await supabase.storage
+        .from(targetBucket)
+        .upload(fileName, buffer, { contentType, upsert: true })
+      uploadError = fallbackResult.error
+    }
+
+    if (uploadError) {
+      console.error('[uploadEndorsementPaymentProof] Upload error:', uploadError)
+      return { error: `Gagal upload bukti pembayaran: ${uploadError.message}` }
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(targetBucket).getPublicUrl(fileName)
+
+    return { url: publicUrl }
+  } catch (err: any) {
+    console.error('[uploadEndorsementPaymentProof] Error:', err)
+    return { error: err?.message || 'Gagal mengunggah bukti pembayaran' }
+  }
 }
 

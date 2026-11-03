@@ -35,6 +35,10 @@ import {
   UserPlus,
   ArrowLeft,
   Clock,
+  UploadCloud,
+  FileText,
+  Camera,
+  Loader2,
 } from 'lucide-react'
 import {
   createEndorsement,
@@ -42,6 +46,7 @@ import {
   updateEndorsementStatus,
   deleteEndorsement,
   updateVideoMetrics,
+  uploadEndorsementPaymentProof,
 } from '@/app/actions/endorsements'
 import {
   autoFetchVideoMetrics,
@@ -50,6 +55,7 @@ import {
 } from '@/app/actions/sync'
 import EndorsementFinanceView from './EndorsementFinanceView'
 import ImportExcelModal from '@/components/dashboard/ImportExcelModal'
+import { compressReceiptImage } from '@/lib/compress-image'
 import VideoPreviewModal from './VideoPreviewModal'
 import Pagination from '@/components/dashboard/Pagination'
 import {
@@ -123,6 +129,7 @@ export interface SerializedEndorsement {
   paymentStatus?: string
   paymentDate?: string | null
   paymentNotes?: string | null
+  paymentReceiptUrl?: string | null
   bankAccountCustom?: string | null
   createdAt: string
   posts?: SerializedEndorsementPost[]
@@ -546,6 +553,85 @@ export default function EndorsementList({
   const [editRateCard, setEditRateCard] = useState<string>('0')
   const [editMenuItems, setEditMenuItems] = useState<SelectedMenuItem[]>([])
 
+  // Bukti pembayaran states
+  const [editPaymentReceiptUrl, setEditPaymentReceiptUrl] = useState('')
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false)
+  const [uploadReceiptProgress, setUploadReceiptProgress] = useState('')
+  const [showManualReceiptUrl, setShowManualReceiptUrl] = useState(false)
+
+  const [createPaymentReceiptUrl, setCreatePaymentReceiptUrl] = useState('')
+  const [isUploadingCreateReceipt, setIsUploadingCreateReceipt] = useState(false)
+  const [uploadCreateReceiptProgress, setUploadCreateReceiptProgress] = useState('')
+  const [showManualCreateReceiptUrl, setShowManualCreateReceiptUrl] = useState(false)
+  const [editReceiptStats, setEditReceiptStats] = useState<string | null>(null)
+  const [createReceiptStats, setCreateReceiptStats] = useState<string | null>(null)
+
+  const handleUploadPaymentProof = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    mode: 'edit' | 'create'
+  ) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const originalKb = Math.round(file.size / 1024)
+    if (mode === 'edit') {
+      setIsUploadingReceipt(true)
+      setUploadReceiptProgress(`Mengompresi gambar (${originalKb} KB)...`)
+    } else {
+      setIsUploadingCreateReceipt(true)
+      setUploadCreateReceiptProgress(`Mengompresi gambar (${originalKb} KB)...`)
+    }
+
+    try {
+      const compressedFile = await compressReceiptImage(file)
+      const compressedKb = Math.round(compressedFile.size / 1024)
+      const savedPct = file.size > compressedFile.size
+        ? Math.round((1 - compressedFile.size / file.size) * 100)
+        : 0
+
+      const uploadMsg = compressedFile.size < file.size
+        ? `Mengunggah (${originalKb} KB ➔ ${compressedKb} KB, hemat ${savedPct}%)...`
+        : `Mengunggah (${compressedKb} KB)...`
+
+      if (mode === 'edit') {
+        setUploadReceiptProgress(uploadMsg)
+      } else {
+        setUploadCreateReceiptProgress(uploadMsg)
+      }
+
+      const data = new FormData()
+      data.append('file', compressedFile)
+      const res = await uploadEndorsementPaymentProof(data)
+
+      if (res?.error) {
+        setErrorMessage(res.error)
+      } else if (res?.url) {
+        const statLabel = compressedFile.size < file.size
+          ? `WebP ${compressedKb} KB (- ${savedPct}%)`
+          : `${compressedKb} KB`
+
+        if (mode === 'edit') {
+          setEditPaymentReceiptUrl(res.url)
+          setEditReceiptStats(statLabel)
+        } else {
+          setCreatePaymentReceiptUrl(res.url)
+          setCreateReceiptStats(statLabel)
+        }
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Gagal mengunggah bukti pembayaran')
+    } finally {
+      if (mode === 'edit') {
+        setIsUploadingReceipt(false)
+        setUploadReceiptProgress('')
+      } else {
+        setIsUploadingCreateReceipt(false)
+        setUploadCreateReceiptProgress('')
+      }
+      e.target.value = ''
+    }
+  }
+
   // Multi-platform video links states
   const [createVideoLinks, setCreateVideoLinks] = useState<VideoPostEntry[]>([])
   const [editVideoLinks, setEditVideoLinks] = useState<VideoPostEntry[]>([])
@@ -655,6 +741,9 @@ export default function EndorsementList({
     setEditHpp(item.hppMenu || 0)
     setEditRateCard(item.rateCard.toString())
     setEditMenuItems(item.menuItems ? (item.menuItems as any) : [])
+    setEditPaymentReceiptUrl(item.paymentReceiptUrl || '')
+    setEditReceiptStats(null)
+    setShowManualReceiptUrl(false)
 
     if (item.posts && item.posts.length > 0) {
       setEditVideoLinks(
@@ -1466,6 +1555,9 @@ export default function EndorsementList({
               setCreateMenuName('')
               setCreateHpp(0)
               setCreateMenuItems([])
+              setCreatePaymentReceiptUrl('')
+              setCreateReceiptStats(null)
+              setShowManualCreateReceiptUrl(false)
               setIsCreateOpen(true)
             }}
             className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all duration-150 hover:shadow-md cursor-pointer"
@@ -1998,6 +2090,20 @@ export default function EndorsementList({
                                   <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 border border-stone-200">
                                     Belum Bayar
                                   </span>
+                                )}
+                                {item.paymentReceiptUrl && (
+                                  <div className="mt-0.5">
+                                    <a
+                                      href={item.paymentReceiptUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#D9480F] hover:underline"
+                                      title="Lihat Bukti Transfer"
+                                    >
+                                      <ExternalLink className="w-2.5 h-2.5 shrink-0" /> Bukti Bayar
+                                    </a>
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -3788,6 +3894,119 @@ export default function EndorsementList({
                     </div>
                   </div>
 
+                  {/* Upload Bukti Pembayaran in Create */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                        Upload Bukti Pembayaran (Opsional)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowManualCreateReceiptUrl(!showManualCreateReceiptUrl)}
+                        className="text-[10px] text-stone-400 hover:text-[#D9480F] transition-colors underline cursor-pointer"
+                      >
+                        {showManualCreateReceiptUrl ? 'Tutup URL' : '+ Link URL'}
+                      </button>
+                    </div>
+
+                    <input
+                      type="hidden"
+                      name="paymentReceiptUrl"
+                      value={createPaymentReceiptUrl}
+                    />
+
+                    {showManualCreateReceiptUrl && (
+                      <div className="mb-2">
+                        <input
+                          type="url"
+                          placeholder="https://... (URL file/bukti transfer)"
+                          value={createPaymentReceiptUrl}
+                          onChange={(e) => setCreatePaymentReceiptUrl(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none bg-white"
+                        />
+                      </div>
+                    )}
+
+                    {createPaymentReceiptUrl ? (
+                      <div className="p-2.5 border border-[#EFE8DE] bg-white rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {createPaymentReceiptUrl.toLowerCase().includes('.pdf') ? (
+                            <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <img
+                              src={createPaymentReceiptUrl}
+                              alt="Bukti Transfer"
+                              className="w-8 h-8 rounded-lg object-cover border border-[#EFE8DE] bg-white shrink-0"
+                              onError={(e) => {
+                                (e.currentTarget as any).style.display = 'none'
+                              }}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              <CheckCircle2 className="w-2.5 h-2.5" /> Bukti Terkompresi {createReceiptStats ? `(${createReceiptStats})` : ''}
+                            </span>
+                            <div>
+                              <a
+                                href={createPaymentReceiptUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold truncate max-w-[140px]"
+                              >
+                                Lihat Bukti <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setCreatePaymentReceiptUrl('')}
+                            className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Hapus Bukti"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label
+                        className={`w-full py-2 px-3 border border-dashed rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                          isUploadingCreateReceipt
+                            ? 'border-[#D9480F] bg-orange-50/40 cursor-wait text-[#D9480F]'
+                            : 'border-orange-300 bg-orange-50/30 hover:bg-orange-50 text-[#D9480F] font-semibold text-xs'
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          disabled={isUploadingCreateReceipt}
+                          onChange={(e) => handleUploadPaymentProof(e, 'create')}
+                        />
+                        {isUploadingCreateReceipt ? (
+                          <div className="flex items-center gap-1.5 text-xs font-semibold">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D9480F]" />
+                            <span>{uploadCreateReceiptProgress || 'Mengompresi & mengunggah bukti...'}</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center py-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <UploadCloud className="w-3.5 h-3.5 text-[#D9480F]" />
+                              <span>Upload Bukti Pembayaran (Opsional)</span>
+                            </div>
+                            <span className="text-[10px] text-stone-400 font-normal">
+                              Otomatis dikompresi WebP (JPG, PNG, PDF)
+                            </span>
+                          </div>
+                        )}
+                      </label>
+                    )}
+                  </div>
+
                   {/* Catatan Kunjungan / Briefing untuk Kasir & Tim */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
@@ -4246,15 +4465,141 @@ export default function EndorsementList({
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider mb-1">
-                          Catatan Pembayaran
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+                            Upload Bukti Pembayaran
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowManualReceiptUrl(!showManualReceiptUrl)}
+                            className="text-[10px] text-stone-400 hover:text-[#D9480F] transition-colors underline cursor-pointer"
+                          >
+                            {showManualReceiptUrl ? 'Tutup URL' : '+ Link URL'}
+                          </button>
+                        </div>
+
+                        {/* Hidden input for form submission */}
                         <input
+                          type="hidden"
+                          name="paymentReceiptUrl"
+                          value={editPaymentReceiptUrl}
+                        />
+                        <input
+                          type="hidden"
                           name="paymentNotes"
                           defaultValue={editingEndorsement.paymentNotes || ''}
-                          placeholder="e.g. Lunas via Mandiri / DP 100"
-                          className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none bg-white"
                         />
+
+                        {showManualReceiptUrl && (
+                          <div className="mb-2">
+                            <input
+                              type="url"
+                              placeholder="https://... (URL file/bukti transfer)"
+                              value={editPaymentReceiptUrl}
+                              onChange={(e) => setEditPaymentReceiptUrl(e.target.value)}
+                              className="w-full px-3 py-1.5 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none bg-white"
+                            />
+                          </div>
+                        )}
+
+                        {editPaymentReceiptUrl ? (
+                          <div className="p-2 border border-[#EFE8DE] bg-white rounded-xl flex items-center justify-between gap-2 shadow-2xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {editPaymentReceiptUrl.toLowerCase().includes('.pdf') ? (
+                                <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                                  <FileText className="w-4 h-4" />
+                                </div>
+                              ) : (
+                                <img
+                                  src={editPaymentReceiptUrl}
+                                  alt="Bukti Transfer"
+                                  className="w-8 h-8 rounded-lg object-cover border border-[#EFE8DE] bg-white shrink-0"
+                                  onError={(e) => {
+                                    (e.currentTarget as any).style.display = 'none'
+                                  }}
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> Bukti Terkompresi {editReceiptStats ? `(${editReceiptStats})` : ''}
+                                </span>
+                                <div>
+                                  <a
+                                    href={editPaymentReceiptUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[11px] text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold truncate max-w-[140px]"
+                                  >
+                                    Lihat Bukti <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <label
+                                className={`p-1.5 text-stone-500 hover:text-[#D9480F] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer ${
+                                  isUploadingReceipt ? 'opacity-50 pointer-events-none' : ''
+                                }`}
+                                title="Ganti Bukti Transfer"
+                              >
+                                <input
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  className="hidden"
+                                  disabled={isUploadingReceipt}
+                                  onChange={(e) => handleUploadPaymentProof(e, 'edit')}
+                                />
+                                <RefreshCw className="w-3.5 h-3.5" />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setEditPaymentReceiptUrl('')}
+                                className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                title="Hapus Bukti"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label
+                            className={`w-full py-2 px-3 border border-dashed rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                              isUploadingReceipt
+                                ? 'border-[#D9480F] bg-orange-50/40 cursor-wait text-[#D9480F]'
+                                : 'border-orange-300 bg-orange-50/30 hover:bg-orange-50 text-[#D9480F] font-semibold text-xs'
+                            }`}
+                          >
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              className="hidden"
+                              disabled={isUploadingReceipt}
+                              onChange={(e) => handleUploadPaymentProof(e, 'edit')}
+                            />
+                            {isUploadingReceipt ? (
+                              <div className="flex items-center gap-1.5 text-xs font-semibold">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D9480F]" />
+                                <span>{uploadReceiptProgress || 'Mengompresi & mengunggah bukti...'}</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center py-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  <UploadCloud className="w-3.5 h-3.5 text-[#D9480F]" />
+                                  <span>Upload Bukti Pembayaran</span>
+                                </div>
+                                <span className="text-[10px] text-stone-400 font-normal">
+                                  Otomatis dikompresi WebP (JPG, PNG, PDF)
+                                </span>
+                              </div>
+                            )}
+                          </label>
+                        )}
+                        {editingEndorsement.paymentNotes && (
+                          <p className="text-[10px] text-stone-400 mt-1 truncate" title={editingEndorsement.paymentNotes}>
+                            Catatan: {editingEndorsement.paymentNotes}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

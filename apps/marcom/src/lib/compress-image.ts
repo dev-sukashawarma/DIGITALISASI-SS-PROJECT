@@ -33,12 +33,14 @@ export async function compressReceiptImage(file: File): Promise<File> {
         const targetBitmap = resized ?? source
         const blob = await bitmapToWebpBlob(targetBitmap, width, height)
 
-        if (blob && blob.size < file.size) {
-          const baseName = file.name.replace(/\.[^.]+$/, '') || 'nota'
-          return new File([blob], `${baseName}.webp`, {
-            type: 'image/webp',
-            lastModified: Date.now(),
-          })
+        if (blob) {
+          const baseName = file.name.replace(/\.[^.]+$/, '') || 'bukti'
+          if (blob.size < file.size || width < (source?.width ?? MAX_DIMENSION)) {
+            return new File([blob], `${baseName}.webp`, {
+              type: 'image/webp',
+              lastModified: Date.now(),
+            })
+          }
         }
       } finally {
         source?.close()
@@ -119,17 +121,17 @@ function fallbackCanvasCompress(file: File): Promise<File> {
 
         canvas.toBlob(
           (blob) => {
-            if (!blob || blob.size >= file.size) {
+            const baseName = file.name.replace(/\.[^.]+$/, '') || 'bukti'
+            if (blob && (blob.size < file.size || width < img.width)) {
+              resolve(
+                new File([blob], `${baseName}.webp`, {
+                  type: 'image/webp',
+                  lastModified: Date.now(),
+                })
+              )
+            } else {
               resolve(file)
-              return
             }
-            const baseName = file.name.replace(/\.[^.]+$/, '') || 'nota'
-            resolve(
-              new File([blob], `${baseName}.webp`, {
-                type: 'image/webp',
-                lastModified: Date.now(),
-              })
-            )
           },
           'image/webp',
           WEBP_QUALITY

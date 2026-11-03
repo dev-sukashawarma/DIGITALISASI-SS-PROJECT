@@ -154,6 +154,7 @@ const COLUMNS: Array<[string, string, string]> = [
   ['endorsements', 'payment_status', `TEXT NOT NULL DEFAULT 'UNPAID'`],
   ['endorsements', 'payment_date', 'DATE'],
   ['endorsements', 'payment_notes', 'TEXT'],
+  ['endorsements', 'payment_receipt_url', 'TEXT'],
   ['endorsements', 'bank_account_custom', 'TEXT'],
   ['endorsements', 'type', `TEXT NOT NULL DEFAULT 'VISIT'`],
   ['endorsements', 'shipping_address', 'TEXT'],

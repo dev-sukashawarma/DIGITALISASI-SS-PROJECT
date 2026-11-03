@@ -86,6 +86,7 @@ model Endorsement {
   paymentStatus     String   @default("UNPAID") @map("payment_status") // UNPAID, PAID, BARTER, DOWN_PAYMENT
   paymentDate       DateTime? @map("payment_date") @db.Date
   paymentNotes      String?  @map("payment_notes")
+  paymentReceiptUrl String?  @map("payment_receipt_url")
   bankAccountCustom String?  @map("bank_account_custom")
 
   // SS Online (Delivery / Ekspedisi)

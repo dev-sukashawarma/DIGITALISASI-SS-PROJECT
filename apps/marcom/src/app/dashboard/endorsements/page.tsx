@@ -124,6 +124,7 @@ export default async function EndorsementsPage() {
       paymentStatus: item.paymentStatus || 'UNPAID',
       paymentDate: item.paymentDate ? item.paymentDate.toISOString().split('T')[0] : null,
       paymentNotes: item.paymentNotes || null,
+      paymentReceiptUrl: item.paymentReceiptUrl || null,
       bankAccountCustom: item.bankAccountCustom || null,
       createdAt: item.createdAt.toISOString(),
       posts: (item.posts || []).map((p: any) => ({

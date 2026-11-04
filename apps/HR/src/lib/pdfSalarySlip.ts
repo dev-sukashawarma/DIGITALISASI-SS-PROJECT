@@ -397,7 +397,19 @@ export async function generateSalarySlipPdf(
 
   // ── 5. Signatures Section ──
   const cardBottom = finalY + cardHeight
-  const signY = Math.max(cardBottom + 6, 134)
+  let afterNoteY = cardBottom
+  if (b.salesBonus > 0 || (Number(slip.bonus) || 0) > 0) {
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(5.8)
+    doc.setTextColor(146, 64, 14)
+    doc.text(
+      '* Catatan: Bonus penjualan/reward diberikan setelah gaji pokok (ditransfer terpisah ke rekening terdaftar).',
+      10,
+      cardBottom + 3.5
+    )
+    afterNoteY = cardBottom + 4
+  }
+  const signY = Math.max(afterNoteY + 5, 134)
   const hrdCenterX = 116.5
 
   doc.setTextColor(70, 70, 70)

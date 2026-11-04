@@ -54,6 +54,7 @@ export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
     `\n*Total Potongan: -${rupiah(b.totalDeductions)}*\n\n` +
     `----------------------------\n` +
     `💰 *TAKE HOME PAY: ${rupiah(b.takeHomePay)}*\n` +
+    (b.salesBonus > 0 ? `ℹ️ _Catatan: Bonus penjualan/reward diberikan setelah gaji pokok (ditransfer terpisah ke rekening)._\n` : '') +
     `============================\n` +
     `_Dokumen ini digenerate otomatis oleh Sistem HR Suka Shawarma pada ${generatedTime} WIB._\n` +
     `_Terima kasih atas kerja keras dan dedikasi Anda!_`
@@ -82,6 +83,7 @@ export function buildSalarySlipCoverNote(slip: PayrollRecord): string {
     `Slip Gaji resmi periode *${periodText}* telah diterbitkan oleh HR Suka Shawarma.\n\n` +
     `📍 Penempatan: *${outletName}* (${roleName})\n` +
     `💰 *Take Home Pay (Gaji Bersih): ${rupiah(b.takeHomePay)}*\n` +
+    (b.salesBonus > 0 ? `ℹ️ _Catatan: Bonus penjualan/reward diberikan setelah gaji pokok (ditransfer terpisah)._\n` : '') +
     `🏦 Transfer ke: *${bankInfo}*\n\n` +
     `📄 Rincian lengkap penerimaan, tunjangan, dan potongan tercantum pada dokumen PDF terlampir di bawah ini.\n\n` +
     `_Terima kasih atas kerja keras dan dedikasinya bulan ini! 🙏_`

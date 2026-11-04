@@ -270,6 +270,15 @@ export function SalarySlipModal({ slip, onClose, isKasbonManual }: SalarySlipMod
               {formatRupiah(b.takeHomePay)}
             </span>
           </div>
+
+          {b.salesBonus > 0 && (
+            <div className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-2 shadow-2xs">
+              <Sparkles size={14} className="text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                <strong>Catatan Pembayaran:</strong> Bonus penjualan / reward diberikan setelah gaji pokok (telah ditransfer terpisah ke rekening bank).
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

@@ -88,13 +88,13 @@ const getAMName = (
   if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('SENTUL') || name.includes('PAJAJARAN')) {
     return 'Muchtar';
   }
-  if (name.includes('SUKMAJAYA') || name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('CIRENDEU') || name.includes('JAGAKARSA') || name.includes('PAMULANG')) {
+  if (name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('CIRENDEU') || name.includes('PAMULANG')) {
     return 'Chairul Rizky';
   }
-  if (name.includes('KALISARI') || name.includes('CIBUBUR') || name.includes('CILENGSI') || name.includes('CILEUNGSI')) {
+  if (name.includes('CIBUBUR') || name.includes('CILENGSI') || name.includes('CILEUNGSI') || name.includes('SUKMAJAYA') || name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWARINGIN')) {
     return 'Tri Rizky';
   }
-  if (name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWARINGIN')) {
+  if (name.includes('JAGAKARSA') || name.includes('KALISARI') || name.includes('PONDOK AREN') || name.includes('CILEDUG') || name.includes('CILEUDUG') || name.includes('KARAWACI')) {
     return 'Mulyadi';
   }
 

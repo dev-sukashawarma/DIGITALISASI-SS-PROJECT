@@ -4,8 +4,8 @@ export default function KemitraanTicker() {
     "100% Profit Untuk Mitra Sampai BEP",
     "Lanjut 50:50 Setelah Balik Modal",
     "0% Royalty & Potongan Omzet",
-    "BEP ~6 Bulan",
-    "ROI Hingga 456%",
+    "BEP ~5 Bulan",
+    "ROI Hingga 650%",
     "100% Auto-Pilot",
     "Halal MUI Certified",
   ];

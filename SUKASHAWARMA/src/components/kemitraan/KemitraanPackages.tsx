@@ -6,26 +6,25 @@ export default function KemitraanPackages() {
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="text-center mb-12">
           <p className="text-xs font-semibold tracking-[0.22em] uppercase text-[#FE7108] mb-3">
-            Pilih Paket Anda
+            Paket Kemitraan
           </p>
           <h2 className="font-bold text-3xl md:text-5xl tracking-tight text-[#111111] mb-4"
               style={{ fontFamily: "var(--font-heading)" }}>
             Investasi Transparan, Proyeksi Jelas
           </h2>
           <p className="text-[#111111]/60 max-w-xl mx-auto">
-            Pilih paket sesuai kondisi lokasi — semua sudah termasuk setup outlet, training staf,
+            Satu paket untuk semua mitra, sudah termasuk setup outlet, training staf,
             branding, dan dukungan operasional penuh.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-8">
-          {/* Paket Standard */}
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-black/[0.06]
-                          shadow-[0_4px_24px_rgba(0,0,0,0.08)]">
+        <div className="max-w-md mx-auto mb-4">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border-2 border-[#6E1A10]
+                          shadow-[0_4px_24px_rgba(110,26,16,0.12)]">
             <p className="text-xs font-semibold tracking-widest uppercase text-[#FE7108] mb-1">
-              Paket Standard
+              Paket Kemitraan
             </p>
-            <p className="text-sm text-[#111111]/50 mb-4">SS Sediakan Lokasi</p>
+            <p className="text-sm text-[#111111]/50 mb-4">Dengan Lokasi Maupun Tanpa Lokasi</p>
             <p className="font-bold text-2xl sm:text-3xl text-[#111111] mb-6"
                style={{ fontFamily: "var(--font-heading)" }}>
               Rp 150.000.000
@@ -37,7 +36,7 @@ export default function KemitraanPackages() {
               </li>
               <li className="flex justify-between">
                 <span>RSF – Stok Bahan Baku</span>
-                <span className="font-semibold text-[#111111]">Rp 50 Jt</span>
+                <span className="font-semibold text-[#111111]">Rp 70 Jt</span>
               </li>
               <li className="flex justify-between">
                 <span>Equipment + POS</span>
@@ -45,57 +44,18 @@ export default function KemitraanPackages() {
               </li>
               <li className="flex justify-between">
                 <span>Renovasi & Dekorasi</span>
-                <span className="font-semibold text-[#111111]">Rp 25 Jt</span>
-              </li>
-              <li className="flex justify-between">
-                <span>Sewa Lokasi Tahun 1</span>
-                <span className="font-semibold text-[#111111]">Rp 25 Jt (Included)</span>
-              </li>
-              <li className="flex justify-between border-t border-black/[0.06] pt-2.5 mt-2.5">
-                <span>Sewa Bulanan (Tahun 2+)</span>
-                <span className="font-semibold text-[#111111]">~Rp 2.500.000 / Bln</span>
+                <span className="font-semibold text-[#111111]">Rp 30 Jt</span>
               </li>
             </ul>
           </div>
+        </div>
 
-          {/* Paket Own Location */}
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border-2 border-[#6E1A10]
-                          shadow-[0_4px_24px_rgba(110,26,16,0.12)]">
-            <p className="text-xs font-semibold tracking-widest uppercase text-[#FE7108] mb-1">
-              Paket Own Location
-            </p>
-            <p className="text-sm text-[#111111]/50 mb-4">Mitra Punya Lokasi</p>
-            <p className="font-bold text-2xl sm:text-3xl text-[#111111] mb-6"
-               style={{ fontFamily: "var(--font-heading)" }}>
-              Rp 125.000.000
-            </p>
-            <ul className="space-y-2.5 text-sm text-[#111111]/70">
-              <li className="flex justify-between">
-                <span>License Fee</span>
-                <span className="font-semibold text-[#111111]">Rp 25 Jt</span>
-              </li>
-              <li className="flex justify-between">
-                <span>RSF – Stok Bahan Baku</span>
-                <span className="font-semibold text-[#111111]">Rp 50 Jt</span>
-              </li>
-              <li className="flex justify-between">
-                <span>Equipment + POS</span>
-                <span className="font-semibold text-[#111111]">Rp 25 Jt</span>
-              </li>
-              <li className="flex justify-between">
-                <span>Renovasi & Dekorasi</span>
-                <span className="font-semibold text-[#111111]">Rp 25 Jt</span>
-              </li>
-              <li className="flex justify-between">
-                <span>Sewa Lokasi Tahun 1</span>
-                <span className="font-semibold text-[#111111]">Tidak Berlaku</span>
-              </li>
-              <li className="flex justify-between border-t border-black/[0.06] pt-2.5 mt-2.5">
-                <span>Sewa Bulanan</span>
-                <span className="font-semibold text-emerald-600">Rp 0 – Gratis Selamanya</span>
-              </li>
-            </ul>
-          </div>
+        <div className="max-w-md mx-auto bg-white rounded-xl p-5 mb-8 text-sm text-[#111111]/70 leading-relaxed
+                        border border-black/[0.06]">
+          <p className="font-semibold text-[#111111] mb-1">Belum punya lokasi?</p>
+          Tim SS bantu carikan dan survei lokasi. Estimasi sewa lokasi sekitar{" "}
+          <span className="font-semibold text-[#111111]">Rp 30–40 Jt / tahun</span>, dibayar langsung
+          ke pemilik tempat dan di luar investasi Rp 150 Jt.
         </div>
 
         <div className="max-w-4xl mx-auto bg-[#111111]/[0.04] rounded-xl p-5 mb-8 text-sm text-[#111111]/65 leading-relaxed">
@@ -104,16 +64,7 @@ export default function KemitraanPackages() {
           Terlibat Dalam Operasional Apapun.
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-4xl mx-auto mb-5">
-          <a href="https://wa.me/6285283524708"
-             target="_blank" rel="noopener noreferrer"
-             onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
-             className="flex-1 inline-flex items-center justify-center px-6 py-3.5 rounded-full
-                        min-h-[48px]
-                        bg-[#6E1A10] text-white font-semibold text-sm
-                        hover:bg-[#5a1509] transition-colors duration-200 text-center">
-            AMBIL PAKET STANDARD — Rp 150 Jt
-          </a>
+        <div className="flex justify-center max-w-md mx-auto mb-5">
           <a href="https://wa.me/6285283524708"
              target="_blank" rel="noopener noreferrer"
              onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
@@ -121,7 +72,7 @@ export default function KemitraanPackages() {
                         min-h-[48px]
                         bg-[#FE7108] text-white font-semibold text-sm
                         hover:bg-[#E86300] transition-colors duration-200 text-center">
-            AMBIL PAKET OWN LOCATION — Rp 125 Jt
+            AMBIL PAKET — Rp 150 Jt
           </a>
         </div>
 

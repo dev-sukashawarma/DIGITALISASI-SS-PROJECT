@@ -38,8 +38,8 @@ const IconPhone = () => (
 const badges = [
   { Icon: IconStore,      text: "20+ Outlet Aktif" },
   { Icon: IconZap,        text: "100% Profit Sampai BEP" },
-  { Icon: IconTrendingUp, text: "ROI hingga 456%" },
-  { Icon: IconClock,      text: "BEP ~6 Bulan" },
+  { Icon: IconTrendingUp, text: "ROI hingga 650%" },
+  { Icon: IconClock,      text: "BEP ~5 Bulan" },
 ];
 
 export default function KemitraanCTA() {

@@ -37,7 +37,7 @@ export default function KemitraanSimulation() {
             className="space-y-6"
           >
             <p className="text-lg text-[#111111]/70 leading-relaxed mb-8">
-              Struk di samping ini simulasi satu outlet paket Own Location — kamu sudah punya lokasi, tim kami yang setup dan jalanin sisanya.
+              Struk di samping ini simulasi satu outlet Paket Kemitraan — tim kami yang setup dan jalanin sisanya.
             </p>
             
             <div className="space-y-4">
@@ -75,18 +75,18 @@ export default function KemitraanSimulation() {
             {/* Header Struk */}
             <div className="bg-[#6E1A10] text-white p-6 text-center">
               <h3 className="font-bold text-xl mb-1">SUKA SHAWARMA</h3>
-              <p className="text-sm opacity-90">Struk Simulasi — Paket Own Location</p>
+              <p className="text-sm opacity-90">Struk Simulasi — Paket Kemitraan</p>
             </div>
             
             {/* Content Struk */}
             <div className="p-6 space-y-4">
               {[
-                { label: "Modal Investasi", value: "Rp 125.000.000" },
-                { label: "Estimasi Omzet / Bulan", value: "Rp 75.000.000" },
+                { label: "Modal Investasi", value: "Rp 150.000.000" },
+                { label: "Estimasi Omzet / Bulan", value: "Rp 100.000.000" },
                 { label: "Margin Profit Bersih", value: "30%" },
-                { label: "Estimasi BEP", value: "~6 Bulan" },
-                { label: "Bagi Hasil / Bulan (Fase 2)", value: "Rp 11,4 Jt" },
-                { label: "Estimasi ROI 5 Tahun*", value: "~456%" }
+                { label: "Estimasi BEP", value: "~5 Bulan" },
+                { label: "Bagi Hasil / Bulan (Fase 2)", value: "Rp 15 Jt" },
+                { label: "Estimasi ROI 5 Tahun*", value: "~650%" }
               ].map((item, index) => (
                 <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
                   <span className="text-[#111111]/70 text-sm">{item.label}</span>

@@ -79,33 +79,9 @@ function PremiumSlider({ id, min, max, step, value, onChange, formatLabel, ariaL
   );
 }
 
-function ModalSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const options = [125_000_000, 150_000_000];
-  const idx = value === 125_000_000 ? 0 : 1;
-  const pct = idx === 0 ? 0 : 100;
-  return (
-    <div className="relative w-full">
-      <div className="flex justify-between mb-3">
-        {options.map((opt, i) => (
-          <button key={opt} onClick={() => onChange(opt)}
-            className={`text-xs font-semibold px-3 py-1 rounded-full transition-all duration-200 ${idx === i ? "bg-[#6E1A10] text-white" : "bg-black/[0.06] text-[#111111]/45 hover:bg-black/10"}`}>
-            Rp {opt === 125_000_000 ? "125" : "150"} Juta
-          </button>
-        ))}
-      </div>
-      <div className="relative h-2 rounded-full bg-black/[0.07]">
-        <div className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#6E1A10] to-[#FE7108] transition-all duration-300" style={{ width: `${pct}%` }} />
-        <motion.div animate={{ left: `${pct}%` }} transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-white border-2 border-[#6E1A10] shadow-[0_2px_8px_rgba(110,26,16,0.25)]" />
-        <input type="range" min={0} max={1} step={1} value={idx}
-          onChange={(e) => onChange(options[Number(e.target.value)])}
-          aria-label="Modal Investasi" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-      </div>
-    </div>
-  );
-}
-
 // ─── Calculations ─────────────────────────────────────────────────────────────
+
+const MODAL_INVESTASI = 150_000_000;
 
 function calculate(modal: number, omzet: number, margin: number) {
   const monthlyProfit = omzet * (margin / 100);
@@ -128,12 +104,10 @@ function fmtOmzet(n: number) { return `Rp ${(n / 1_000_000).toFixed(0)} Juta`; }
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function KemitraanCalculator() {
-  const [modal, setModal] = useState(125_000_000);
-  const [omzet, setOmzet] = useState(75_000_000);
+  const [omzet, setOmzet] = useState(100_000_000);
   const [margin, setMargin] = useState(30);
 
-  const { bepMonths, monthlyShare, roi } = calculate(modal, omzet, margin);
-  const handleModalChange = useCallback((v: number) => setModal(v), []);
+  const { bepMonths, monthlyShare, roi } = calculate(MODAL_INVESTASI, omzet, margin);
   const handleOmzetChange = useCallback((v: number) => setOmzet(v), []);
   const handleMarginChange = useCallback((v: number) => setMargin(v), []);
 
@@ -164,8 +138,8 @@ export default function KemitraanCalculator() {
         {/* ── Static overview cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
           {[
-            { Icon: IconWallet,   label: "Modal Investasi",        value: "Rp 125–150 Juta" },
-            { Icon: IconMapPin,   label: "Estimasi Omzet / Bulan", value: "Rp 75 Juta" },
+            { Icon: IconWallet,   label: "Modal Investasi",        value: "Rp 150 Juta" },
+            { Icon: IconMapPin,   label: "Estimasi Omzet / Bulan", value: "Rp 100 Juta" },
             { Icon: IconBarChart, label: "Margin Profit Bersih",   value: "30% rata-rata" },
             { Icon: IconSplit,    label: "Model Bagi Hasil",        value: "100% → 50:50" },
           ].map(({ Icon, label, value }) => (
@@ -191,20 +165,6 @@ export default function KemitraanCalculator() {
           <motion.div initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }} transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             className="bg-white rounded-3xl p-8 shadow-[0_4px_32px_rgba(0,0,0,0.07)] border border-black/[0.05] space-y-8">
-
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <label className="flex items-center gap-2 text-sm font-semibold text-[#111111]">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#6E1A10]/[0.07] text-[#6E1A10]"><IconWallet /></span>
-                  Modal Investasi
-                </label>
-                <span className="text-sm font-bold text-[#6E1A10] bg-[#6E1A10]/[0.07] px-3 py-1 rounded-full">
-                  Rp {modal === 125_000_000 ? "125" : "150"} Juta
-                </span>
-              </div>
-              <ModalSlider value={modal} onChange={handleModalChange} />
-              <p className="text-[11px] text-[#111111]/35 mt-2">Rp 125 Jt (Own Location) atau Rp 150 Jt (Standard)</p>
-            </div>
 
             <div>
               <div className="flex items-center justify-between mb-4">

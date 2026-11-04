@@ -40,8 +40,8 @@ const IconRocket = () => (
 const STATS = [
   { value: "20+", label: "Outlet Aktif", sub: "Jabodetabek" },
   { value: "100%", label: "Profit Mitra", sub: "Sampai BEP" },
-  { value: "~6 bln", label: "Balik Modal", sub: "Rata-rata" },
-  { value: "456%", label: "ROI", sub: "Dalam 5 Tahun" },
+  { value: "~5 bln", label: "Balik Modal", sub: "Rata-rata" },
+  { value: "650%", label: "ROI", sub: "Dalam 5 Tahun" },
 ];
 
 const TRUST_BADGES = [

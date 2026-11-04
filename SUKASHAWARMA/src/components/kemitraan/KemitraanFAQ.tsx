@@ -11,7 +11,7 @@ const faqs = [
   },
   {
     q: "Bagaimana mekanisme bagi hasil 50:50-nya?",
-    a: "Sistem kami berjalan dalam 2 fase: Fase 1 — dari bulan pertama hingga BEP tercapai (~6 bulan), 100% net profit menjadi hak mitra untuk mempercepat balik modal. Fase 2 — setelah BEP, net profit dibagi 50:50 antara mitra dan SukaShawarma setiap bulan. Sama sekali tidak ada potongan omzet atau royalty fee.",
+    a: "Sistem kami berjalan dalam 2 fase: Fase 1 — dari bulan pertama hingga BEP tercapai (~5 bulan), 100% net profit menjadi hak mitra untuk mempercepat balik modal. Fase 2 — setelah BEP, net profit dibagi 50:50 antara mitra dan SukaShawarma setiap bulan. Sama sekali tidak ada potongan omzet atau royalty fee.",
   },
   {
     q: "Apakah ada royalty fee atau biaya tahunan?",
@@ -22,8 +22,8 @@ const faqs = [
     a: "Rata-rata 4–8 minggu dari penandatanganan MoU hingga grand opening, tergantung kesiapan lokasi dan proses perizinan di daerah setempat.",
   },
   {
-    q: "Apa perbedaan Paket Standard vs Paket Own Location?",
-    a: "Paket Standard (Rp 150 Jt): SS menyediakan lokasi, sudah termasuk sewa tahun 1. Setelah tahun pertama, ada sewa bulanan ~Rp 2.500.000. Paket Own Location (Rp 125 Jt): Cocok jika kamu sudah punya lokasi sendiri — tidak ada biaya sewa tambahan. Keduanya menggunakan sistem BEP-First (100% net profit mitra s/d BEP, lalu 50:50).",
+    q: "Berapa total investasinya, dan apakah sudah termasuk sewa lokasi?",
+    a: "Total investasi satu paket Rp 150 Jt, baik kamu sudah punya lokasi maupun belum: License Fee Rp 25 Jt, RSF (stok bahan baku) Rp 70 Jt, Equipment + POS Rp 25 Jt, dan Renovasi & Dekorasi Rp 30 Jt. Sewa lokasi tidak termasuk. Kalau belum punya lokasi, tim SS bantu carikan dan survei; estimasi sewa sekitar Rp 30–40 Jt per tahun, dibayar langsung ke pemilik tempat. Sistem bagi hasilnya BEP-First (100% net profit mitra s/d BEP, lalu 50:50).",
   },
   {
     q: "Apakah mitra bisa memilih lokasi outletnya sendiri?",

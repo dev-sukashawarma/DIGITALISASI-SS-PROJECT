@@ -88,9 +88,9 @@ export default function KemitraanROI() {
           {/* Output */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
             {[
-              { value: "~6 Bln",     label: "Estimasi BEP",      sub: "(100% profit fase 1)" },
-              { value: "Rp 11,4 Jt", label: "Bagi Hasil / Bulan", sub: "(50:50 post-BEP)" },
-              { value: "456%",       label: "ROI dalam 5 Tahun",  sub: "" },
+              { value: "~5 Bln",   label: "Estimasi BEP",      sub: "(100% profit fase 1)" },
+              { value: "Rp 15 Jt", label: "Bagi Hasil / Bulan", sub: "(50:50 post-BEP)" },
+              { value: "650%",     label: "ROI dalam 5 Tahun",  sub: "" },
             ].map((item) => (
               <div key={item.label} className="bg-[#6E1A10] rounded-2xl p-6 text-center">
                 <p className="font-bold text-white mb-1 leading-none" style={{ fontSize: "clamp(1.6rem, 3vw, 2rem)" }}>

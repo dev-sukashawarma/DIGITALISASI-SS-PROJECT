@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
+import { canApproveWaste as checkCanApproveWaste } from '@/lib/stok/navAccess'
 import { usePendingWasteCount } from '@/hooks/useWaste'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { OutletSwitcher } from '@/components/common/OutletSwitcher'
@@ -15,13 +16,7 @@ export default function WasteLayout({ children }: { children: React.ReactNode })
   const { outletStaff } = useAuth()
   const role = outletStaff?.role
 
-  const canApproveWaste = [
-    'area_manager',
-    'regional_manager',
-    'admin',
-    'kitchen',
-    'developer',
-  ].includes(role ?? '')
+  const canApproveWaste = checkCanApproveWaste(role)
 
   // Head count, kunci bersama dengan sidebar & bottom nav (bukan tarik
   // seluruh laporan pending hanya untuk dihitung).

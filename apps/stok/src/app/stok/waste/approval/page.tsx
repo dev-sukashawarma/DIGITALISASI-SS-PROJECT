@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { approveWasteReport, rejectWasteReport } from '@/app/actions/waste'
+import { canApproveWaste as checkCanApproveWaste } from '@/lib/stok/navAccess'
 import { toast } from 'sonner'
 import { useStokBalance } from '@/hooks/useStokBalance'
 import { useWasteApprovalList } from '@/hooks/useWaste'
@@ -21,14 +22,7 @@ export default function WasteApprovalPage() {
   const outletId = outletStaff?.outlet_id
   const role = outletStaff?.role
 
-  const canApproveWaste = [
-    'area_manager',
-    'regional_manager',
-    'admin',
-    'owner',
-    'kitchen',
-    'developer',
-  ].includes(role ?? '')
+  const canApproveWaste = checkCanApproveWaste(role)
 
   // If regular staff, redirect to history
   React.useEffect(() => {

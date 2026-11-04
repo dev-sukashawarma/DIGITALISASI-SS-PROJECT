@@ -39,6 +39,13 @@ export type WasteReportData = {
 }
 
 const WASTE_APPROVER_ROLES = ['area_manager', 'regional_manager', 'admin', 'owner', 'kitchen', 'developer'] as const
+const WASTE_VIEWER_ROLES = [
+  ...WASTE_APPROVER_ROLES,
+  'purchasing',
+  'admin_finance',
+  'spv',
+  'leader',
+] as const
 
 /**
  * Cek role approver waste saja (tanpa scope outlet).
@@ -324,7 +331,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
     throw new Error('Unauthorized: Akun staf tidak aktif atau tidak ditemukan')
   }
 
-  const isApprover = (WASTE_APPROVER_ROLES as readonly string[]).includes(staff.role)
+  const isMultiOutletViewer = (WASTE_VIEWER_ROLES as readonly string[]).includes(staff.role)
   const allowedOutletIds = await getAccessibleOutletIds(authedClient)
   allowedOutletIds.delete(TEST_OUTLET_ID)
 
@@ -341,7 +348,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
   let summaryOutletEq: string | null = null
   let summaryOutletIn: string[] | null = null
 
-  if (!isApprover) {
+  if (!isMultiOutletViewer) {
     // Regular staff: strictly scoped to staff.outlet_id
     if (!staff.outlet_id) {
       throw new Error('Staff belum ditugaskan ke outlet mana pun')
@@ -438,7 +445,7 @@ export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promi
         .select(
           '*, bahan_baku(nama, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan), outlets(name), reported_by_staff:outlet_staff!reported_by(name), approved_by_staff:outlet_staff!approved_by(name)'
         )
-      if (!isApprover) {
+      if (!isMultiOutletViewer) {
         pageQ = pageQ.eq('outlet_id', staff.outlet_id!)
       } else if (filters.outletId) {
         pageQ = pageQ.eq('outlet_id', filters.outletId)

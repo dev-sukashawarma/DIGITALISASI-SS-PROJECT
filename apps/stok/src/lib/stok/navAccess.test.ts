@@ -19,6 +19,16 @@ describe('navAccess — tab dashboard monitoring', () => {
     expect(canApproveWaste('leader')).toBe(false)
   })
 
+  it('purchasing melihat daftar waste (read-only), tapi tidak menjadi penyetuju', () => {
+    expect(canViewWasteList('purchasing')).toBe(true)
+    expect(canApproveWaste('purchasing')).toBe(false)
+  })
+
+  it('owner melihat dan bisa approve waste', () => {
+    expect(canViewWasteList('owner')).toBe(true)
+    expect(canApproveWaste('owner')).toBe(true)
+  })
+
   it('Jurnal & Rekonsiliasi tertutup untuk crew, leader, dan area_manager', () => {
     for (const r of ['crew', 'leader', 'area_manager']) expect(canViewJurnalMutasi(r)).toBe(false)
     for (const r of ['kitchen', 'admin', 'owner', 'spv', 'regional_manager']) expect(canViewJurnalMutasi(r)).toBe(true)
@@ -32,7 +42,7 @@ describe('navAccess — tab dashboard monitoring', () => {
   })
 
   it('role kosong ditolak semua', () => {
-    for (const fn of [canApproveWaste, canReceivePO, canViewBudgetOutlet, canViewVendorPrices]) {
+    for (const fn of [canApproveWaste, canReceivePO, canViewBudgetOutlet, canViewVendorPrices, canViewWasteList]) {
       expect(fn(undefined)).toBe(false)
       expect(fn(null)).toBe(false)
     }

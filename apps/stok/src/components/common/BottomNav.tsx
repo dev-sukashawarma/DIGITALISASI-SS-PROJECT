@@ -7,6 +7,7 @@ import { useAuth } from '@suka/auth'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useMutasiBadge } from '@/hooks/useMutasi'
 import { canViewPermintaanQueue } from '@/lib/stok/approver'
+import { canApproveWaste as checkCanApproveWaste } from '@/lib/stok/navAccess'
 import { usePendingWasteCount } from '@/hooks/useWaste'
 import { useInboundPoBadge } from '@/hooks/useInboundPoBadge'
 import {
@@ -41,7 +42,7 @@ export function BottomNav() {
   // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
   // diakses oleh staff gudang, admin, dan purchasing.
   const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing', 'developer'].includes(role ?? '')
-  const canApproveWaste = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'].includes(role ?? '')
+  const canApproveWaste = checkCanApproveWaste(role)
 
   // 1. Pending Approvals
   const { permintaan } = useApprovalList(isApprover)
@@ -122,11 +123,11 @@ export function BottomNav() {
       badge: pendingMutasiCount,
     },
     {
-      href: '/stok/waste/approval',
+      href: canApproveWaste ? '/stok/waste/approval' : '/stok/waste/history',
       icon: Trash2,
-      label: 'Waste',
-      desc: 'Persetujuan & riwayat bahan terbuang',
-      badge: pendingWasteCount,
+      label: canApproveWaste ? 'Waste' : 'Riwayat Waste',
+      desc: canApproveWaste ? 'Persetujuan & riwayat bahan terbuang' : 'Histori laporan bahan terbuang',
+      badge: canApproveWaste ? pendingWasteCount : 0,
     },
   ]
 

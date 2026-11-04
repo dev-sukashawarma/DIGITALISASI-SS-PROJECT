@@ -17,16 +17,16 @@ const PENERIMA_PO = ['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance',
 const PEMBACA_HARGA_VENDOR = [
   'kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'area_manager', 'developer',
 ] as const
-const PENYETUJU_WASTE = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'] as const
+const PENYETUJU_WASTE = ['area_manager', 'regional_manager', 'admin', 'owner', 'kitchen', 'developer'] as const
 const PEMBACA_PENJUALAN = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer', 'purchasing'] as const
 
 export const canReceivePO = (role: Role) => has(PENERIMA_PO, role)
 export const canViewVendorPrices = (role: Role) => has(PEMBACA_HARGA_VENDOR, role)
 export const canApproveWaste = (role: Role) => has(PENYETUJU_WASTE, role)
-// Tab waste di dashboard: penyetuju melihat antrean approval; leader melihat
-// daftar (Riwayat Waste, di-scope ke outlet binaannya) tanpa bisa approve —
+// Tab waste di dashboard: penyetuju melihat antrean approval; leader & purchasing melihat
+// daftar (Riwayat Waste, di-scope ke outlet binaannya / outlet yang diizinkan) tanpa bisa approve —
 // approve/reject ditolak di server (requireApproverIdentity, actions/waste.ts).
-export const canViewWasteList = (role: Role) => canApproveWaste(role) || role === 'leader'
+export const canViewWasteList = (role: Role) => canApproveWaste(role) || role === 'leader' || role === 'purchasing' || role === 'admin_finance'
 export const canViewSales = (role: Role) => has(PEMBACA_PENJUALAN, role)
 // Jurnal & Rekonsiliasi memuat valuasi & harga beli — manajemen pusat saja.
 // Leader, area_manager, dan crew SENGAJA tidak termasuk (keputusan owner

@@ -2,6 +2,8 @@
 
 **Tanggal:** 2026-11-05 · **Status:** Disepakati lewat grilling, belum dikerjakan · **App:** `apps/finance` (+ DB)
 
+> **⚠️ Diperbarui 2026-11-05 (final, dikonfirmasi finance):** struktur 2 grup (Kas Setoran Outlet / Kas Office) di bawah **digantikan 3 rekening** — **Rekening Utama** (Bank 0955193763 saja; omzet transfer → transfer ke Bahan Baku Bank), **Rekening Bahan Baku** (Bank 0955353124 + Tunai; omzet tunai, setor pecahan 50rb/100rb ke Bank-nya; bayar bahan baku & payroll), **Rekening Petty Cash** (Bank 0955381004 + Tunai; receh setoran & Income Lainnya; pencairan petty cash). Grup DB: `utama` | `bahan_baku` | `petty_cash` (migration `20261105106000`). Keputusan lain (K3–K10) tetap berlaku dengan nama rekening baru.
+
 ## Latar (kondisi DB per 5 Nov 2026)
 
 - Kas pusat hanya 2 lokasi: `SUKA PROFIT BERKAH` (bank BCA 48523399425, saldo sistem Rp 602,5 jt, 992 transaksi) dan `Kas Setoran` (tunai, saldo sistem Rp 110,9 jt).

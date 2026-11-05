@@ -196,7 +196,7 @@ export function SetoranView({
       <SectionCard title="Catat Setoran Baru">
         {locations.length === 0 ? (
           <p className="py-4 text-center text-amber-600">
-            Belum ada rekening atau lokasi kas. Buat dulu di <Link href="/lokasi" className="underline">Rekening &amp; Kas</Link>.
+            Belum ada rekening atau lokasi kas. Buat dulu lewat <Link href="/mutasi" className="underline">Rekening &amp; Mutasi → Kelola rekening</Link>.
           </p>
         ) : (
           <div className="space-y-6">

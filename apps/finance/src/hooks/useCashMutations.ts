@@ -94,6 +94,8 @@ export function useCashMutations() {
       bank_name?: string | null
       account_no?: string | null
       holder_name?: string | null
+      /** Kelompok kas pusat; rekening tanpa kelompok tidak dipakai Setoran/Petty Cash/Mutasi. */
+      grup?: 'utama' | 'bahan_baku' | 'petty_cash' | null
     }) => {
       const { error } = await supabase.from('cash_location').insert({
         label: v.label,
@@ -101,6 +103,7 @@ export function useCashMutations() {
         bank_name: v.bank_name ?? null,
         account_no: v.account_no ?? null,
         holder_name: v.holder_name ?? null,
+        ...(v.grup ? { grup: v.grup, scope: 'pusat' } : {}),
       })
       if (error) throw error
     },

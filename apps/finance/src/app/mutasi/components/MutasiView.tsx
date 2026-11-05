@@ -3,12 +3,14 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Spinner } from '@suka/design-system'
-import { FileSpreadsheet, FileText, Wallet, ArrowDownLeft, ArrowUpRight, Landmark, Paperclip } from 'lucide-react'
+import { FileSpreadsheet, FileText, Wallet, ArrowDownLeft, ArrowUpRight, Landmark, Paperclip, Settings2 } from 'lucide-react'
 import { useCashOverview } from '@/hooks/useCashData'
 import { useMutasiRekening } from '@/hooks/useMutasiRekening'
 import { rupiah, tanggalWaktu } from '@/lib/format'
 import { StatCard, SectionCard } from '@/components/ui'
-import { GRUP_LABEL } from '@/lib/kas/grupKas'
+import { GRUP_LABEL, URUTAN_GRUP } from '@/lib/kas/grupKas'
+import { useFinanceRole } from '@/hooks/useFinanceRole'
+import { KelolaRekeningModal } from './KelolaRekeningModal'
 import { eksporMutasiExcel, eksporMutasiPdf } from '@/lib/kas/eksporMutasi'
 import { JENIS_LABEL, catatanTambahan, totalBaris, type JenisMutasi } from '@/lib/kas/mutasiRekening'
 
@@ -31,9 +33,17 @@ function hariIniWib(): string {
 }
 
 export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
-  const { locations, isLoading: memuatRekening } = useCashOverview()
+  const { locations } = useCashOverview()
+  const { isChecker } = useFinanceRole()
+  const [kelolaTerbuka, setKelolaTerbuka] = useState(false)
+  // Kartu: rekening pusat aktif, urut Utama -> Bahan Baku -> Petty Cash, bank dulu.
   const rekeningPusat = useMemo(
-    () => locations.filter(l => l.grup).sort((a, b) => Number(b.is_active) - Number(a.is_active)),
+    () =>
+      locations
+        .filter(l => l.grup && l.is_active)
+        .sort((a, b) =>
+          URUTAN_GRUP.indexOf(a.grup!) - URUTAN_GRUP.indexOf(b.grup!) || (a.kind === 'bank' ? -1 : 1) - (b.kind === 'bank' ? -1 : 1),
+        ),
     [locations],
   )
 
@@ -79,10 +89,18 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Kas & Treasury</p>
-          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Mutasi Rekening</h1>
+          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Rekening &amp; Mutasi</h1>
           <p className="text-suka-ink/60 mt-2 font-medium">Uang masuk & keluar per rekening, untuk dicocokkan dengan rekening koran.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {isChecker && (
+            <button
+              onClick={() => setKelolaTerbuka(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-suka-gray-200 bg-white px-4 py-2 text-sm font-bold text-suka-ink hover:border-suka-orange"
+            >
+              <Settings2 size={16} /> Kelola rekening
+            </button>
+          )}
           <button
             onClick={() => ekspor('xlsx')}
             disabled={!data || mengekspor !== null}
@@ -100,18 +118,28 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <label className="text-sm font-semibold text-suka-gray-600">
-          Rekening
-          <select className={inputCls} value={rekeningId} onChange={e => setRekening(e.target.value)} disabled={memuatRekening}>
-            {rekeningPusat.map(l => (
-              <option key={l.id} value={l.id}>
-                {l.grup ? `${GRUP_LABEL[l.grup]} · ` : ''}{l.kind === 'bank' ? 'Bank' : 'Tunai'}{l.account_no ? ` ${l.account_no}` : ''}
-                {l.is_active ? '' : ' (nonaktif)'}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {rekeningPusat.map(l => {
+          const aktif = l.id === rekeningId
+          return (
+            <button
+              key={l.id}
+              onClick={() => { setRekening(l.id); setJenis('semua') }}
+              className={`rounded-2xl border p-4 text-left transition-all ${
+                aktif ? 'border-suka-orange bg-orange-50/60 shadow-sm' : 'border-suka-gray-200 bg-white hover:border-suka-orange/60'
+              }`}
+            >
+              <p className="text-[11px] font-bold uppercase tracking-wider text-suka-orange">{GRUP_LABEL[l.grup!]}</p>
+              <p className="mt-0.5 text-sm font-semibold text-suka-ink">
+                {l.kind === 'bank' ? 'Bank' : 'Tunai'}{l.account_no ? ` · ${l.account_no}` : ''}
+              </p>
+              <p className={`mt-2 text-lg font-bold ${l.saldo < 0 ? 'text-red-600' : 'text-suka-ink'}`}>{rupiah(l.saldo)}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:max-w-md">
         <label className="text-sm font-semibold text-suka-gray-600">
           Dari
           <input type="date" className={inputCls} value={dari} max={sampai} onChange={e => setDari(e.target.value)} />
@@ -217,6 +245,8 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
           </div>
         )}
       </SectionCard>
+
+      {kelolaTerbuka && <KelolaRekeningModal locations={locations} onClose={() => setKelolaTerbuka(false)} />}
     </div>
   )
 }

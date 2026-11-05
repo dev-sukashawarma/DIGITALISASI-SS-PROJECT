@@ -3628,7 +3628,7 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 
 ## Session 2026-11-05 (lanjutan): Tiga Rekening — Utama, Bahan Baku, Petty Cash
 
-**Status:** Kode di branch `feat/kas-tiga-rekening` (dari `feat/kas-setoran-office`), finance 250/250 test, type-check 0, build sukses. ⚠️ Migration `20261105106000_kas_tiga_rekening` **DITULIS, BELUM di-apply** (ditolak pengaman otomatis "Production Deploy", menunggu izin owner). `20261105104000` (Codex) di-rename → `20261105107000_validasi_pencairan_petty_cash` dan dipindah ke grup `petty_cash`; terapkan **sesudah** 106000.
+**Status:** Kode di branch `feat/kas-tiga-rekening` (dari `feat/kas-setoran-office`), finance 250/250 test, type-check 0, build sukses. Migration `20261105106000_kas_tiga_rekening` **LIVE** (applied atas izin owner, terstempel, uji t6 LULUS dengan kontrol). ⚠️ Perlu **redeploy `finance` + `admin-dashboard` dari branch ini** — jangan deploy `feat/kas-setoran-office` lagi (pilihan setorannya mencari grup lama yang sudah tidak ada). `20261105104000` (Codex) di-rename → `20261105107000_validasi_pencairan_petty_cash` dan dipindah ke grup `petty_cash`; terapkan **sesudah** 106000.
 
 - **Keputusan owner:** grup `setoran_outlet`/`office` diganti 3 rekening, masing-masing sisi Bank & Cash:
   - **Rekening Utama** (`utama`): Bank 0955193763 — omzet transfer outlet → ditransfer ke Bahan Baku Bank. Sisi Cash **tidak dibuat**.

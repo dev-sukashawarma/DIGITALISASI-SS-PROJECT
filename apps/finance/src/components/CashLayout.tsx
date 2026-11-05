@@ -68,6 +68,7 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
       { href: '/lokasi', label: 'Rekening & Kas', icon: Landmark },
       { href: '/setoran', label: 'Setoran Tunai', icon: Banknote, aliases: ['/setoran/history'] },
       { href: '/transaksi', label: 'Transaksi Manual', icon: ArrowLeftRight },
+      { href: '/income-lainnya', label: 'Income Lainnya', icon: Coins },
     ],
   },
   {

@@ -15,6 +15,7 @@ import { Spinner, EmptyState } from '@suka/design-system'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
 import { useOutlets } from '@/hooks/useOutlets'
 import { summarizeBalances } from '@/lib/cashSummary'
+import { ringkasGrup, lokasiGrup, GRUP_LABEL, type GrupKas } from '@/lib/kas/grupKas'
 import { isTestOutlet, isExcludedOutlet } from '@/lib/outletFilters'
 import { tanggal, rupiah } from '@/lib/format'
 import { TxStatusBadge } from '@/components/ui'
@@ -48,6 +49,8 @@ export default function DashboardClient() {
   const { data: outletList = [] } = useOutlets()
 
   const summary = summarizeBalances(locations)
+  const grup = ringkasGrup(locations)
+  const rekSetoran = lokasiGrup(locations, 'setoran_outlet', 'bank')[0]
 
   // Filter pusat vs outlet (hilangkan outlet test & outlet nonaktif)
   const pusatLocations = useMemo(() => {
@@ -164,7 +167,7 @@ export default function DashboardClient() {
 
   // Setoran masuk (direction: 'in') yang difilter oleh Periode Tanggal & Cabang
   const depositStats = useMemo(() => {
-    let list = txs.filter((t) => t.direction === 'in')
+    let list = txs.filter((t) => t.direction === 'in' && t.source_type === 'cash_deposit')
 
     if (customStartDate) {
       list = list.filter((t) => (t.occurred_at || '').slice(0, 10) >= customStartDate)
@@ -194,8 +197,8 @@ export default function DashboardClient() {
 
   // Total mutasi masuk tercatat sepanjang waktu (all-time in)
   const allTimeStats = useMemo(() => {
-    const bankList = txs.filter((t) => t.direction === 'in' && t.cash_location?.kind === 'bank')
-    const cashList = txs.filter((t) => t.direction === 'in' && t.cash_location?.kind === 'cash')
+    const bankList = txs.filter((t) => t.direction === 'in' && t.source_type === 'cash_deposit' && t.cash_location?.kind === 'bank')
+    const cashList = txs.filter((t) => t.direction === 'in' && t.source_type === 'cash_deposit' && t.cash_location?.kind === 'cash')
     return {
       bankTotal: bankList.reduce((sum, t) => sum + (t.amount || 0), 0),
       bankCount: bankList.length,
@@ -215,12 +218,12 @@ export default function DashboardClient() {
   const isShowingDeposit = metricMode === 'deposit' || (isFiltered && metricMode !== 'balance')
 
   const bankCardValue = isShowingDeposit 
-    ? (isFiltered ? depositStats.bankTotal : (allTimeStats.bankTotal > 0 ? allTimeStats.bankTotal : summary.totalBank))
-    : summary.totalBank
+    ? (isFiltered ? depositStats.bankTotal : allTimeStats.bankTotal)
+    : grup.setoran_outlet.bank
 
   const cashCardValue = isShowingDeposit 
-    ? (isFiltered ? depositStats.cashTotal : (allTimeStats.cashTotal > 0 ? allTimeStats.cashTotal : summary.totalCashPusat))
-    : summary.totalCashPusat
+    ? (isFiltered ? depositStats.cashTotal : allTimeStats.cashTotal)
+    : grup.setoran_outlet.tunai
 
   const filteredOutlets = useMemo(() => {
     let list = outletLocations
@@ -259,7 +262,7 @@ export default function DashboardClient() {
               Ringkasan Kas &amp; Setoran
             </h1>
             <p className="text-white/75 text-xs mt-0.5 line-clamp-1">
-              Konsolidasi uang penjualan yang telah disetor ke rekening bank (BCA) dan disetor cash ke kantor pusat
+              Konsolidasi uang penjualan yang telah disetor ke Rekening Setoran dan disetor cash ke kantor pusat
             </p>
           </div>
 
@@ -361,7 +364,7 @@ export default function DashboardClient() {
                   className="w-full pl-7 pr-7 py-1.5 text-xs font-semibold rounded-xl bg-suka-gray-50 border border-suka-brown/10 focus:outline-none focus:border-suka-primary/40 focus:bg-white transition-all appearance-none cursor-pointer truncate"
                 >
                   <option value="all">Semua Cabang &amp; Pusat</option>
-                  <option value="pusat_only">Hanya Kantor Pusat (BCA &amp; Kas Setoran)</option>
+                  <option value="pusat_only">Hanya Kantor Pusat (Kas Setoran &amp; Kas Office)</option>
                   <optgroup label="Daftar Cabang Outlet">
                     {outletList.map((o) => (
                       <option key={o.id} value={o.name}>
@@ -483,26 +486,26 @@ export default function DashboardClient() {
                 isFiltered ? (
                   <span>
                     {depositStats.bankCount > 0 
-                      ? `✓ ${depositStats.bankCount} transaksi disetor ke BCA pada periode ini`
-                      : `Belum ada setoran masuk ke BCA pada periode ${periodLabel.toLowerCase()}`}
+                      ? `✓ ${depositStats.bankCount} transaksi disetor ke rekening pada periode ini`
+                      : `Belum ada setoran masuk ke rekening pada periode ${periodLabel.toLowerCase()}`}
                   </span>
                 ) : (
-                  <span>{allTimeStats.bankCount} transaksi masuk tercatat di rekening BCA</span>
+                  <span>{allTimeStats.bankCount} transaksi masuk tercatat di rekening setoran</span>
                 )
               ) : (
-                <span>BCA 48523399425 · PT SUKA PROFIT BERKAH</span>
+                <span>{rekSetoran ? `${rekSetoran.label} · ${rekSetoran.holder_name ?? ''}` : 'Rekening setoran belum diatur'}</span>
               )}
             </div>
 
             <div className="mt-3 pt-2.5 border-t border-suka-brown/5 flex items-center justify-between text-[11px] text-suka-gray-400">
               <span>
                 {isShowingDeposit ? (
-                  <>Saldo BCA saat ini: <b className="text-suka-ink font-semibold">{rupiah(summary.totalBank)}</b></>
+                  <>Saldo Rekening Setoran: <b className="text-suka-ink font-semibold">{rupiah(grup.setoran_outlet.bank)}</b></>
                 ) : (
                   <>Setoran masuk ({periodLabel}): <b className="text-suka-ink font-semibold">{rupiah(depositStats.bankTotal)}</b></>
                 )}
               </span>
-              <span className="font-semibold text-blue-600">BCA Pusat</span>
+              <span className="font-semibold text-blue-600">Kas Setoran Outlet</span>
             </div>
           </div>
 
@@ -552,7 +555,7 @@ export default function DashboardClient() {
             <div className="mt-3 pt-2.5 border-t border-suka-brown/5 flex items-center justify-between text-[11px] text-suka-gray-400">
               <span>
                 {isShowingDeposit ? (
-                  <>Saldo fisik pusat saat ini: <b className="text-suka-ink font-semibold">{rupiah(summary.totalCashPusat)}</b></>
+                  <>Saldo Kas Setoran Tunai: <b className="text-suka-ink font-semibold">{rupiah(grup.setoran_outlet.tunai)}</b></>
                 ) : (
                   <>Setoran tunai ({periodLabel}): <b className="text-suka-ink font-semibold">{rupiah(depositStats.cashTotal)}</b></>
                 )}
@@ -695,8 +698,14 @@ export default function DashboardClient() {
                     </span>
                   </div>
 
-                  <div className="space-y-1.5">
-                    {pusatLocations.map((p) => (
+                  <div className="space-y-3">
+                    {(['setoran_outlet', 'office'] as GrupKas[]).map((g) => (
+                      <div key={g} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-suka-gray-500">
+                          <span>{GRUP_LABEL[g]}</span>
+                          <span className="tabular-nums text-suka-brown">{rupiah(grup[g].total)}</span>
+                        </div>
+                        {lokasiGrup(pusatLocations, g).map((p) => (
                       <div 
                         key={p.id}
                         className="flex items-center justify-between p-2.5 rounded-xl bg-suka-cream/60 border border-suka-brown/5"
@@ -717,6 +726,8 @@ export default function DashboardClient() {
                         <span className="font-bold text-xs sm:text-sm text-suka-brown shrink-0 tabular-nums">
                           {rupiah(p.saldo)}
                         </span>
+                      </div>
+                        ))}
                       </div>
                     ))}
                   </div>

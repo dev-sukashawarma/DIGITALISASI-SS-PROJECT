@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { getPosSupabase } from '@/lib/supabase-pos'
 import crypto from 'crypto'
+import { MARCOM_EXPENSE_CATEGORIES, isSumberDanaRab } from '@/lib/opex-constants'
 
 function toDateString(d: Date | string | null | undefined): string {
   if (!d) return new Date().toISOString().split('T')[0]
@@ -279,6 +280,24 @@ export async function syncAdOpex(adId: bigint | number | string) {
 }
 
 /**
+ * Hapus catatan Biaya Ditanggung RAB (informasi) untuk pengeluaran manual Marcom.
+ */
+export async function deleteBiayaRab(marcomExpenseId: bigint | number | string) {
+  try {
+    const supabase = getPosSupabase()
+    const { error } = await supabase
+      .from('biaya_rab_outlet')
+      .delete()
+      .eq('marcom_expense_id', Number(marcomExpenseId))
+    if (error) {
+      console.error(`[deleteBiayaRab] Error deleting biaya_rab_outlet ${marcomExpenseId}:`, error)
+    }
+  } catch (err) {
+    console.error(`[deleteBiayaRab] Exception:`, err)
+  }
+}
+
+/**
  * Hapus catatan OPEX berdasarkan ID expense di Supabase
  */
 export async function deleteOpexByExpenseId(expenseId: string | null | undefined) {
@@ -313,6 +332,42 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
     const amount = Number(expense.amount) || 0
     const expenseDate = toDateString(expense.expenseDate)
     const isAfterCutoff = expenseDate >= OPEX_CUTOFF_DATE
+
+    // Dana RAB: catatan informasi saja -> tabel terpisah `biaya_rab_outlet`,
+    // dan WAJIB keluar dari `expenses` (OPEX/laba) bila sebelumnya pernah masuk.
+    if (isSumberDanaRab(expense.paymentSource)) {
+      const { error: rabErr } = await supabase.from('biaya_rab_outlet').upsert(
+        {
+          marcom_expense_id: Number(expense.id),
+          outlet_id: posOutletId,
+          outlet_nama: outletName,
+          kategori: expense.category,
+          kategori_label: MARCOM_EXPENSE_CATEGORIES[expense.category] || expense.category,
+          jumlah: amount,
+          keterangan: expense.description,
+          tanggal: expenseDate,
+          receipt_url: expense.receiptUrl || null,
+          diperbarui_at: new Date().toISOString(),
+        },
+        { onConflict: 'marcom_expense_id' }
+      )
+      if (rabErr) {
+        console.error(`[syncManualExpenseOpex] Error upserting biaya_rab_outlet #${id}:`, rabErr)
+        return { success: false, error: `Gagal mencatat biaya RAB: ${rabErr.message}` }
+      }
+      if (expense.expenseId) {
+        const { error: delErr } = await supabase.from('expenses').delete().eq('id', expense.expenseId).select('id')
+        if (delErr) {
+          console.error(`[syncManualExpenseOpex] Error mengeluarkan expense ${expense.expenseId} dari OPEX:`, delErr)
+          return { success: false, error: `Gagal mengeluarkan catatan dari OPEX: ${delErr.message}` }
+        }
+        await prisma.marcomExpense.update({ where: { id }, data: { expenseId: null } })
+      }
+      return { success: true }
+    }
+
+    // Bukan RAB: pastikan tidak tersisa di tabel RAB (mis. diedit dari RAB ke sumber lain).
+    await deleteBiayaRab(id)
 
     if (amount > 0 && isAfterCutoff) {
       const periodMonth = toPeriodMonth(expenseDate)

@@ -149,7 +149,7 @@ export const DAFTAR_ALAT_MARCOM: AlatDefinisi[] = [
   {
     name: 'marcom_pengeluaran',
     description:
-      'Biaya operasional marcom (OPEX Marketing): total, rincian per kategori (CETAK_BRANDING, PRODUKSI_KONTEN, SOFTWARE_TOOLS, EVENT_AKTIVASI, OPERASIONAL_TRANSPORT, LAINNYA), per outlet, per sumber dana, dan daftar transaksinya.',
+      'Biaya operasional marcom (OPEX Marketing): total, rincian per kategori (CETAK_BRANDING, PRODUKSI_KONTEN, SOFTWARE_TOOLS, EVENT_AKTIVASI, OPERASIONAL_TRANSPORT, LAINNYA), per outlet, per sumber dana, dan daftar transaksinya. Biaya ber-sumber dana "rab" (ditanggung RAB pembukaan outlet) TIDAK masuk total; dilaporkan terpisah di ditanggung_rab sebagai informasi.',
     inputSchema: {
       type: 'object',
       properties: {

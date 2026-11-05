@@ -41,6 +41,9 @@ import {
   type OpexSummary,
   type OpexItem,
   MARCOM_EXPENSE_CATEGORIES,
+  SUMBER_DANA_RAB,
+  isSumberDanaRab,
+  labelSumberDana,
   parseReceiptUrls,
   serializeReceiptUrls,
 } from '@/lib/opex-constants'
@@ -299,7 +302,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
       `"${item.categoryLabel}"`,
       `"${item.outletName}"`,
       `"${item.description.replace(/"/g, '""')}"`,
-      `"${item.paymentSource === 'cogs_internal' ? 'Bahan Baku (Non-Tunai)' : item.paymentSource}"`,
+      `"${isSumberDanaRab(item.paymentSource) ? 'Dana RAB (informasi, tidak dihitung)' : item.paymentSource === 'cogs_internal' ? 'Bahan Baku (Non-Tunai)' : item.paymentSource}"`,
       item.amount,
     ])
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
@@ -496,6 +499,14 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
             {formatRupiah(summary.totalManual)}
           </div>
           <p className="text-[11px] text-stone-500 mt-1">Cetak, tools, transport, event</p>
+          {summary.totalRab > 0 && (
+            <p
+              className="text-[11px] text-sky-800 bg-sky-50 border border-sky-200/80 rounded-md px-1.5 py-0.5 mt-1.5"
+              title="Biaya yang ditanggung Dana RAB pembukaan outlet. Hanya informasi: tidak masuk Total OPEX maupun pemakaian budget."
+            >
+              Ditanggung RAB: <b className="font-mono">{formatRupiah(summary.totalRab)}</b> (tidak dihitung)
+            </p>
+          )}
         </div>
 
         {/* Sisa Budget */}
@@ -651,6 +662,14 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                           {item.category === 'HPP_MENU' ? 'HPP KOL' : item.source}
                         </span>
                         <span className="text-stone-800 font-semibold">{item.categoryLabel}</span>
+                        {isSumberDanaRab(item.paymentSource) && (
+                          <span
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-sky-50 text-sky-700 border-sky-200"
+                            title="Ditanggung Dana RAB pembukaan outlet. Hanya informasi, tidak masuk total OPEX."
+                          >
+                            RAB · tidak dihitung
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -707,13 +726,22 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                         <span className="text-[11px] font-semibold text-rose-800 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md">
                           Bahan Baku / Non-Tunai
                         </span>
+                      ) : isSumberDanaRab(item.paymentSource) ? (
+                        <span className="text-[11px] font-semibold text-sky-800 bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-md">
+                          {labelSumberDana(item.paymentSource)}
+                        </span>
                       ) : (
                         <span className="capitalize">{item.paymentSource.replace('_', ' ')}</span>
                       )}
                     </td>
 
                     {/* Nominal */}
-                    <td className="py-3 px-3.5 whitespace-nowrap text-right font-mono font-bold text-stone-900">
+                    <td
+                      className={`py-3 px-3.5 whitespace-nowrap text-right font-mono font-bold ${
+                        isSumberDanaRab(item.paymentSource) ? 'text-stone-400 line-through decoration-stone-300' : 'text-stone-900'
+                      }`}
+                      title={isSumberDanaRab(item.paymentSource) ? 'Ditanggung RAB: tidak masuk total OPEX' : undefined}
+                    >
                       {formatRupiah(item.amount)}
                     </td>
 
@@ -922,7 +950,14 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                       <option value="transfer_pusat">Transfer Kantor Pusat</option>
                       <option value="petty_cash">Kas Operasional / Petty Cash</option>
                       <option value="reimburse">Reimburse Karyawan</option>
+                      <option value={SUMBER_DANA_RAB}>{labelSumberDana(SUMBER_DANA_RAB)}</option>
                     </select>
+                  )}
+                  {isSumberDanaRab(formPaymentSource) && (!editingItem || editingItem.source === 'MANUAL') && (
+                    <p className="mt-1 text-[11px] text-sky-800 bg-sky-50 border border-sky-200/80 rounded-lg px-2 py-1">
+                      Sudah ditanggung RAB pembukaan outlet: dicatat sebagai <b>informasi saja</b>, tidak masuk
+                      OPEX, budget, maupun laba.
+                    </p>
                   )}
                 </div>
               </div>

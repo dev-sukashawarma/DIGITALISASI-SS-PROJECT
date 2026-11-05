@@ -343,6 +343,7 @@ export const mockPengeluaran: PengeluaranData[] = [
   { id: 'exp-2', outlet_nama: 'Pusat (Brand)', kategori: 'PRODUKSI_KONTEN', jumlah: 1200000, keterangan: 'Sewa lighting', tanggal: '2026-10-05', sumber_dana: 'reimburse', ada_kuitansi: false },
   { id: 'exp-3', outlet_nama: 'SS Karanganyar', kategori: 'CETAK_BRANDING', jumlah: 300000, keterangan: 'Stiker', tanggal: '2026-10-07', sumber_dana: 'petty_cash', ada_kuitansi: true },
   { id: 'exp-4', outlet_nama: 'SS Solo Baru', kategori: 'EVENT_AKTIVASI', jumlah: 900000, keterangan: 'Bazar September', tanggal: '2026-09-20', sumber_dana: 'transfer_pusat', ada_kuitansi: true },
+  { id: 'exp-5', outlet_nama: 'SS Solo Baru', kategori: 'CETAK_BRANDING', jumlah: 2500000, keterangan: 'Banner opening outlet', tanggal: '2026-10-04', sumber_dana: 'rab', ada_kuitansi: true },
 ]
 
 export const mockIklan: IklanData[] = [

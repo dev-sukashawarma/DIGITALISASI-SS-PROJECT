@@ -50,6 +50,16 @@ describe('marcom_pengeluaran', () => {
     const hasil = await hitungPengeluaran(buatKonteksMarcomPalsu(), { kategori: 'cetak_branding' })
     expect(hasil.ringkasan.total).toBe(800000)
   })
+
+  it('Dana RAB tidak masuk total, dilaporkan terpisah sebagai informasi', async () => {
+    const hasil = await hitungPengeluaran(buatKonteksMarcomPalsu())
+    expect(hasil.ringkasan.total).toBe(2000000)
+    expect(hasil.daftar.some((p) => p.sumber_dana === 'rab')).toBe(false)
+    expect(hasil.ringkasan.per_sumber_dana.some((g) => g.nama === 'rab')).toBe(false)
+    expect(hasil.ditanggung_rab.total).toBe(2500000)
+    expect(hasil.ditanggung_rab.jumlah_transaksi).toBe(1)
+    expect(hasil.ditanggung_rab.daftar[0].keterangan).toBe('Banner opening outlet')
+  })
 })
 
 describe('marcom_iklan', () => {

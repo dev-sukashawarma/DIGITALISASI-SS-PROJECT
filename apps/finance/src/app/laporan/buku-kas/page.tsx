@@ -58,6 +58,7 @@ import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
 import { OpexCardDetailModals, type OpexModalType } from '@/components/OpexCardDetailModals'
+import { BiayaRabPanel } from '@/components/BiayaRabPanel'
 import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META, isSalaryCategory, isLemburExpense, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
@@ -2306,7 +2307,11 @@ export default function BukuKasPage() {
         />
       )}
 
+      {/* Biaya Ditanggung RAB: informasi saja, tidak masuk perhitungan apa pun */}
+      <BiayaRabPanel from={startDate} to={endDate} target={target} mitraIds={mitraIds} />
+
       {/* MODAL RINCIAN DETAIL OPEX */}
+
       <OpexCardDetailModals
         type={activeDetailModal}
         onClose={() => setActiveDetailModal(null)}

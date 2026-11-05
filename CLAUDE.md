@@ -3624,6 +3624,17 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - **Simulasi pemindahan terverifikasi ulang:** 74 setoran Rp 39.076.900 dan 16 pencairan Rp 6.900.000. Skrip memverifikasi ID, relasi topup, status rekening, dan total saldo sebelum COMMIT. Pemindahan mengurangi saldo Rekening Office Rp 6.900.000 sebelum penyesuaian saldo awal hasil rekonsiliasi Finance.
 - Payroll & pelunasan PO sengaja tidak diberi penjaga grup (spec diam).
 
+## Session 2026-11-05: Biaya Ditanggung RAB — informasi saja (marcom + finance + admin-dashboard)
+
+**Status:** DB **LIVE**: `20261105120000_biaya_rab_outlet` applied & terstempel; uji `supabase/verifikasi/biaya_rab/t1_rls.sql` LULUS (admin_finance baca 1, mitra 0, INSERT mitra ditolak). ⚠️ Perlu **redeploy `marcom`, `finance`, `admin-dashboard`**. Belum diuji lewat browser.
+
+- **Keputusan owner (grilling):** biaya awal outlet baru (promosi opening dll.) yang sudah dibiayai **RAB pembukaan outlet** dicatat di form OPEX Marcom dengan **Sumber Dana = "Dana RAB (Pembukaan Outlet)"** (`payment_source='rab'`), Alokasi = outlet barunya. **Hanya informasi**: tidak masuk OPEX, budget Marcom, laba outlet/perusahaan/mitra. Tanpa plafon. Hanya pengeluaran manual (Endorsement/Ads tak punya sumber dana).
+- **Catatan RAB TIDAK pernah masuk `expenses`.** `syncManualExpenseOpex` menulis ke tabel terpisah `biaya_rab_outlet` (PK `marcom_expense_id`) dan menghapus baris `expenses`-nya bila catatan diedit menjadi RAB; edit sebaliknya menghapus baris RAB lalu sinkron OPEX biasa. Hapus pengeluaran menghapus keduanya. Gagal sinkron kini dilaporkan ke form (dulu diabaikan).
+- **Mitra tidak boleh tahu sama sekali** → RLS: SELECT hanya owner/admin/admin_finance/developer aktif; anon/authenticated tanpa hak tulis; tulis hanya service_role Marcom. Panel tidak dipasang di Laba Rugi Mitra (`scope='mitra'`) maupun dashboard mitra.
+- Tampil di: OPEX Marcom (badge "RAB · tidak dihitung", nominal dicoret, `totalRab` terpisah dari `totalOpex`/sisa budget), panel `BiayaRabPanel` di Buku Kas finance & admin + Profit admin. Bot Hermes marcom (`marcom_pengeluaran`) mengeluarkan RAB dari total → blok `ditanggung_rab`.
+- `lib/biayaRab.ts` & `components/BiayaRabPanel.tsx` masuk daftar file identik test paritas Buku Kas (finance ↔ admin).
+- ⚠️ **Jangan pernah menjumlahkan `biaya_rab_outlet` ke laporan apa pun.** Konektor `mcp__supabase__execute_sql` menolak DDL ini (REVOKE/DROP); dijalankan lewat konektor 5f2e798c.
+
 **Last updated:** 2026-11-05  
 **Owner:** Dev Suka Shawarma
 

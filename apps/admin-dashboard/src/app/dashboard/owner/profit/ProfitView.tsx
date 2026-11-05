@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
+import { BiayaRabPanel } from '@/components/BiayaRabPanel'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -2086,13 +2087,17 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
         </div>
       )}
+
+      {/* Biaya Ditanggung RAB: catatan informasi, TIDAK masuk laba mana pun.
+          Sengaja tidak tampil di Laba Rugi Mitra (keputusan owner 2026-11-05). */}
+      {scope !== 'mitra' && (
+        <BiayaRabPanel
+          from={filter.from}
+          to={filter.to}
+          target={filter.outletId !== 'all' ? filter.outletId : scope === 'internal' ? 'INTERNAL_PUSAT' : 'all'}
+          mitraIds={mitraIds}
+        />
+      )}
     </div>
   )
 }
-
-
-
-
-
-
-

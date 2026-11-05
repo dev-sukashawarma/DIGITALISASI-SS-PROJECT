@@ -188,7 +188,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
     setIsModalOpen(true)
   }
 
-  const handleApprove = async (method: DisbursementMethod, cashLocationId?: string, proofFile?: File | null, approvedAmount?: number, approvalNote?: string) => {
+  const handleApprove = async (method: DisbursementMethod, cashLocationId: string, proofFile?: File | null, approvedAmount?: number, approvalNote?: string) => {
     if (!selectedRequest) return
     try {
       await processTopup.mutateAsync({ 

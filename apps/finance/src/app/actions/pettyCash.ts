@@ -30,9 +30,13 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
     const approvedAmount = approvedAmountStr ? Number(approvedAmountStr) : null
     const approvalNote = formData.get('approvalNote') as string | null
 
-    // Server Action = endpoint POST publik; RPC finance_process_petty_cash
-    // (SECURITY DEFINER) tidak cek role sama sekali, jadi gerbang wajib di sini.
+    // Server Action dapat dipanggil langsung, termasuk sebelum unggah bukti.
     await requireRole(FINANCE_STAFF_ROLES)
+
+    if (action === 'approve') {
+      if (!cashLocationId) throw new Error('Pilih sumber dana Kas Office')
+      if (method !== 'transfer' && method !== 'tunai') throw new Error('Metode pencairan tidak valid')
+    }
 
     const supabase = await getSupabaseClient()
 

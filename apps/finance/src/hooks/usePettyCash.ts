@@ -171,6 +171,8 @@ export function useProcessPettyCashFinance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
+      queryClient.invalidateQueries({ queryKey: ['cash_balance'] })
+      queryClient.invalidateQueries({ queryKey: ['cash_transaction'] })
     }
   })
 }

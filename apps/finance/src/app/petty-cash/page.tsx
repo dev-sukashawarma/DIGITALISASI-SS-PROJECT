@@ -43,7 +43,7 @@ export default async function FinancePettyCashPage() {
             Pencairan Petty Cash
           </h1>
           <p className="text-suka-ink/60 mt-2 font-medium">
-            Review pengajuan dana dari cabang-cabang dan proses pencairan via Transfer Bank atau Kas Pusat.
+            Tinjau pengajuan outlet dan cairkan dana melalui Rekening Office atau Kas Office Tunai.
           </p>
         </div>
       </div>

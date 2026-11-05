@@ -13,7 +13,7 @@ interface FinanceApprovalModalProps {
   request: PettyCashTopup
   onApprove: (
     method: DisbursementMethod,
-    cashLocationId?: string,
+    cashLocationId: string,
     proofFile?: File | null,
     approvedAmount?: number,
     approvalNote?: string
@@ -44,6 +44,8 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   // Reset state when request changes
   useEffect(() => {
     if (isOpen) {
+      setMethod('transfer')
+      setCashLocationId('')
       setApprovedAmount(request.amount)
       setApprovalNote('')
       setProofFile(null)
@@ -51,7 +53,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
       setProofFileName(null)
       setIsDropdownOpen(false)
     }
-  }, [isOpen, request.amount])
+  }, [isOpen, request.id, request.amount])
 
   // Handle click outside dropdown
   useEffect(() => {
@@ -68,18 +70,16 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
     }
   }, [isDropdownOpen])
   
-  const { locations } = useCashOverview()
+  const { locations, isLoading: isCashLoading, error: cashError } = useCashOverview()
 
   // Top-up petty cash outlet hanya boleh keluar dari Kas Office (DB juga menolak selain itu).
   const availableLocations = lokasiGrup(locations, 'office', method === 'transfer' ? 'bank' : 'cash')
 
-  useEffect(() => {
-    if (availableLocations.length > 0 && (!cashLocationId || !availableLocations.some(l => l.id === cashLocationId))) {
-      setCashLocationId(availableLocations[0].id)
-    }
-  }, [availableLocations, method, cashLocationId])
-
-  const selectedLocation = availableLocations.find(loc => loc.id === cashLocationId)
+  const selectedLocation = availableLocations.find(loc => loc.id === cashLocationId) ?? availableLocations[0]
+  const amountIsValid = Number.isFinite(approvedAmount) && approvedAmount > 0 && approvedAmount <= request.amount
+  const hasEnoughBalance = selectedLocation && selectedLocation.saldo >= approvedAmount
+  const canApprove = !isCashLoading && !cashError && amountIsValid && hasEnoughBalance
+    && (approvedAmount === request.amount || approvalNote.trim().length > 0)
 
   if (!isOpen) return null
 
@@ -109,26 +109,13 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   }
 
   const handleAction = async (type: 'approve' | 'reject') => {
-    if (type === 'approve') {
-      if (approvedAmount !== request.amount && !approvalNote.trim()) {
-        alert('Harap isi catatan/keterangan Finance karena nominal yang disetujui berbeda dengan yang diajukan.')
-        return
-      }
-      
-      if (cashLocationId) {
-        const selectedLoc = availableLocations.find(l => l.id === cashLocationId)
-        if (selectedLoc && selectedLoc.saldo < approvedAmount) {
-          alert(`Saldo tidak mencukupi! Saldo saat ini: Rp ${selectedLoc.saldo.toLocaleString('id-ID')}, dibutuhkan: Rp ${approvedAmount.toLocaleString('id-ID')}`)
-          return
-        }
-      }
-    }
+    if (isLoading || (type === 'approve' && !canApprove)) return
 
     setIsLoading(true)
     setActionType(type)
     try {
-      if (type === 'approve') {
-        await onApprove(method, cashLocationId || undefined, proofFile, approvedAmount, approvalNote)
+      if (type === 'approve' && selectedLocation) {
+        await onApprove(method, selectedLocation.id, method === 'transfer' ? proofFile : null, approvedAmount, approvalNote)
       } else {
         await onReject()
       }
@@ -157,7 +144,8 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
             </div>
           </div>
           <button 
-            onClick={onClose} 
+            onClick={onClose}
+            disabled={isLoading}
             className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -198,14 +186,17 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
                 </div>
                 <input
                   type="number"
-                  min="0"
+                  min="1"
+                  max={request.amount}
                   value={approvedAmount || ''}
                   onChange={(e) => setApprovedAmount(Number(e.target.value) || 0)}
                   className="w-full pl-12 pr-4 py-3 bg-white border-2 border-amber-300 focus:border-amber-500 rounded-xl font-bold text-2xl text-slate-900 focus:outline-none focus:ring-4 focus:ring-amber-500/10 transition-all"
                 />
               </div>
-              <p className="text-xs text-slate-500 mt-2">
-                Ubah nominal ini jika Finance hanya menyetujui sebagian dana.
+              <p className={amountIsValid ? 'text-xs text-slate-500 mt-2' : 'text-xs text-red-600 mt-2'}>
+                {amountIsValid
+                  ? 'Ubah nominal ini jika Finance hanya menyetujui sebagian dana.'
+                  : 'Isi nominal lebih dari Rp 0 dan maksimal sebesar pengajuan.'}
               </p>
             </div>
             
@@ -326,7 +317,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
                     className="accent-amber-500 w-4 h-4 cursor-pointer"
                   />
                 </div>
-                <span className="text-xs text-slate-500">Uang kas fisik dari Kas Pusat</span>
+                <span className="text-xs text-slate-500">Uang fisik dari Kas Office Tunai</span>
               </label>
             </div>
           </div>
@@ -340,16 +331,20 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                disabled={isCashLoading || !!cashError || !selectedLocation}
+                aria-expanded={isDropdownOpen}
                 className={`w-full px-4 py-3 bg-white border rounded-xl text-sm font-medium text-left flex items-center justify-between transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/20 ${
                   isDropdownOpen ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-sm' : 'border-slate-300 hover:border-slate-400 shadow-sm'
                 }`}
               >
-                {selectedLocation ? (
+                {selectedLocation && !isCashLoading && !cashError ? (
                   <span className="text-slate-800 font-bold block truncate">
                     {selectedLocation.label} <span className="text-slate-500 font-medium ml-1">(Saldo: Rp {selectedLocation.saldo.toLocaleString('id-ID')})</span>
                   </span>
                 ) : (
-                  <span className="text-slate-400">-- Pilih Sumber Dana Kas/Bank --</span>
+                  <span className="text-slate-500">
+                    {isCashLoading ? 'Memuat saldo Kas Office…' : cashError ? 'Gagal memuat Kas Office' : 'Tidak ada sumber Kas Office aktif'}
+                  </span>
                 )}
                 <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -368,18 +363,18 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
                           setIsDropdownOpen(false)
                         }}
                         className={`w-full text-left px-4 py-3 flex items-center justify-between transition-colors hover:bg-amber-50 ${
-                          cashLocationId === loc.id ? 'bg-amber-50/50' : ''
+                          selectedLocation?.id === loc.id ? 'bg-amber-50/50' : ''
                         }`}
                       >
                         <div className="flex flex-col pr-4">
-                          <span className={`text-sm font-bold ${cashLocationId === loc.id ? 'text-amber-700' : 'text-slate-800'}`}>
+                          <span className={`text-sm font-bold ${selectedLocation?.id === loc.id ? 'text-amber-700' : 'text-slate-800'}`}>
                             {loc.label}
                           </span>
                           <span className="text-slate-500 mt-0.5 text-xs font-medium">
                             Saldo: Rp {loc.saldo.toLocaleString('id-ID')}
                           </span>
                         </div>
-                        {cashLocationId === loc.id && (
+                        {selectedLocation?.id === loc.id && (
                           <Check className="w-5 h-5 text-amber-600 shrink-0" />
                         )}
                       </button>
@@ -388,6 +383,9 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
                 </div>
               )}
             </div>
+            {!isCashLoading && !cashError && selectedLocation && amountIsValid && !hasEnoughBalance && (
+              <p role="status" className="mt-2 text-sm text-red-600">Saldo Kas Office tidak mencukupi untuk nominal yang disetujui.</p>
+            )}
           </div>
 
           {/* Photo File Upload Input (FOR TRANSFER BUKTI) */}
@@ -457,7 +455,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
           <button 
             type="button"
             onClick={() => handleAction('reject')}
-            disabled={isLoading && actionType !== 'reject'}
+            disabled={isLoading}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 cursor-pointer"
           >
             <XCircle className="w-4 h-4" />
@@ -466,7 +464,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
           <button 
             type="button"
             onClick={() => handleAction('approve')}
-            disabled={isLoading && actionType !== 'approve'}
+            disabled={isLoading || !canApprove}
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <CheckCircle2 className="w-4 h-4" />

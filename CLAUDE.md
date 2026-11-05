@@ -3620,7 +3620,8 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - **Income Lainnya** (`record_income_lainnya`/`batal_income_lainnya`, tabel `income_lainnya`): hanya ke Kas Office, bukti wajib, batal = void (tak pernah DELETE). **Pendapatan pusat saja** → baris "Pendapatan Lain-lain" di Laba Perusahaan admin-dashboard (+waterfall +ekspor), tidak masuk laba outlet/mitra.
 - **Penjaga DB:** `record_cash_deposit` hanya ke grup `setoran_outlet`; `finance_process_petty_cash(_custom)` hanya dari grup `office`.
 - ⚠️ Pencatat uang baru memakai `kas_pencatat_ok()` (admin_finance/admin/owner aktif). **Jangan pakai `is_finance()`** untuk uang — memuat spv/leader/area_manager/purchasing.
-- 🔴 **Temuan, belum diperbaiki:** `finance_process_petty_cash(_custom)` tanpa cek peran dan EXECUTE untuk PUBLIC+anon (pre-existing).
+- **Validasi pencairan lanjutan** (`20261105104000`, uji produksi dengan ROLLBACK lulus, belum applied): RPC hanya untuk Finance aktif, sumber Kas Office wajib sesuai metode, dan saldo dikunci saat pencairan. Approval dari Admin Dashboard diarahkan ke modal Finance. Terapkan migration saat merilis kedua app.
+- **Simulasi pemindahan terverifikasi ulang:** 74 setoran Rp 39.076.900 dan 16 pencairan Rp 6.900.000. Skrip memverifikasi ID, relasi topup, status rekening, dan total saldo sebelum COMMIT. Pemindahan mengurangi saldo Rekening Office Rp 6.900.000 sebelum penyesuaian saldo awal hasil rekonsiliasi Finance.
 - Payroll & pelunasan PO sengaja tidak diberi penjaga grup (spec diam).
 
 **Last updated:** 2026-11-05  

@@ -71,26 +71,26 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
     }
   }, [supabase, router])
 
-  async function handleProcess(id: string, action: 'approve' | 'reject') {
-    const confirmed = await showConfirm(`Anda yakin ingin ${action === 'approve' ? 'MENYETUJUI & MENCAIRKAN' : 'MENOLAK'} pengajuan ini?`);
+  async function handleReject(id: string) {
+    const confirmed = await showConfirm('Anda yakin ingin menolak pengajuan ini?')
     if (!confirmed) return
     
     setIsSubmitting(id)
     try {
-      const result = await processFinancePettyCash(id, action, 'transfer')
+      const result = await processFinancePettyCash(id, 'reject')
       if (!result.success) throw new Error(result.error)
       
       setRequests(reqs => reqs.map(r => {
         if (r.id === id) {
           return {
             ...r,
-            status: action === 'approve' ? 'approved_by_finance' : 'rejected',
+            status: 'rejected',
           }
         }
         return r
       }))
       
-      toast.success(`Pengajuan berhasil ${action === 'approve' ? 'disetujui & dicairkan' : 'ditolak'}`)
+      toast.success('Pengajuan berhasil ditolak')
       router.refresh()
     } catch (err: any) {
       console.error(err)
@@ -128,6 +128,9 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
 
   const pendingFinanceRequests = requests.filter(r => r.status === 'forwarded_to_finance' || r.status === 'approved_by_finance')
   const historyRequests = requests.filter(r => r.status !== 'forwarded_to_finance' && r.status !== 'approved_by_finance')
+  const financeUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? 'http://localhost:3020'
+    : process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'
 
   return (
     <div className="max-w-6xl mx-auto pb-12 animate-fade-in space-y-8">
@@ -136,7 +139,7 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
           <ArrowDownToLine className="w-7 h-7 text-blue-600" />
           Persetujuan & Pencairan Finance (Data Real)
         </h1>
-        <p className="text-gray-500 mt-1 text-sm">Kelola pencairan dana Petty Cash outlet dari Area Manager ke Rekening Outlet / Cash Pusat.</p>
+        <p className="text-gray-500 mt-1 text-sm">Pencairan dana Petty Cash outlet diproses dari Kas Office melalui dashboard Finance.</p>
       </div>
 
       {/* Action Needed Section */}
@@ -203,16 +206,15 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
                     <div className="flex flex-col gap-2 w-full md:w-auto">
                       {req.status === 'forwarded_to_finance' && (
                         <>
-                          <button
-                            onClick={() => handleProcess(req.id, 'approve')}
-                            disabled={isSubmitting !== null}
-                            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 shadow-sm"
+                          <a
+                            href={`${financeUrl}/petty-cash`}
+                            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-sm"
                           >
-                            {isSubmitting === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                            Acc & Transfer
-                          </button>
+                            <CheckCircle2 className="w-4 h-4" />
+                            Cairkan di Finance
+                          </a>
                           <button
-                            onClick={() => handleProcess(req.id, 'reject')}
+                            onClick={() => handleReject(req.id)}
                             disabled={isSubmitting !== null}
                             className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl font-bold text-xs transition-colors disabled:opacity-50"
                           >

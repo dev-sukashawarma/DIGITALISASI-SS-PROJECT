@@ -25,6 +25,8 @@ export interface OpexSummary {
   totalAds: number
   totalManual: number
   totalHppMenu: number
+  /** Biaya ditanggung Dana RAB: informasi saja, TIDAK termasuk totalOpex. */
+  totalRab: number
   totalBudget: number
   remainingBudget: number
   items: OpexItem[]
@@ -43,6 +45,31 @@ export const MARCOM_EXPENSE_CATEGORIES: Record<string, string> = {
   OPERASIONAL_TRANSPORT: 'Transport & Operasional Lapangan',
   HPP_MENU: 'HPP Menu (Complimentary KOL)',
   LAINNYA: 'Pengeluaran Marcom Lainnya',
+}
+
+/**
+ * Sumber dana "Dana RAB" = biaya yang sudah ditanggung RAB (Rencana Anggaran
+ * Biaya) pembukaan outlet baru. Keputusan owner 2026-11-05: HANYA INFORMASI.
+ * Tidak masuk total OPEX Marcom, pagu budget, maupun tabel `expenses` Finance
+ * (disinkron ke tabel terpisah `biaya_rab_outlet`).
+ */
+export const SUMBER_DANA_RAB = 'rab'
+
+export const SUMBER_DANA_LABELS: Record<string, string> = {
+  transfer_pusat: 'Transfer Kantor Pusat',
+  petty_cash: 'Kas Operasional / Petty Cash',
+  reimburse: 'Reimburse Karyawan',
+  [SUMBER_DANA_RAB]: 'Dana RAB (Pembukaan Outlet)',
+  cogs_internal: 'Bahan Baku / Non-Tunai',
+}
+
+export function isSumberDanaRab(paymentSource: string | null | undefined): boolean {
+  return paymentSource === SUMBER_DANA_RAB
+}
+
+export function labelSumberDana(paymentSource: string | null | undefined): string {
+  if (!paymentSource) return SUMBER_DANA_LABELS.transfer_pusat
+  return SUMBER_DANA_LABELS[paymentSource] || paymentSource.replace(/_/g, ' ')
 }
 
 

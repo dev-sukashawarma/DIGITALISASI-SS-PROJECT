@@ -33,6 +33,8 @@ const IDENTICAL_FILES = [
   'components/ExpenseFormModal.tsx',
   'components/TargetCombobox.tsx',
   'utils/opexPdfGenerator.ts',
+  'lib/biayaRab.ts',
+  'components/BiayaRabPanel.tsx',
 ] as const
 
 function extractPettyCashAllowlist(source: string, fileLabel: string): string[] {

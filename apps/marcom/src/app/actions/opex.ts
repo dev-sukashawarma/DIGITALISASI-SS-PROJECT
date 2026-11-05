@@ -9,6 +9,7 @@ import {
   syncEndorsementOpex,
   syncAdOpex,
   deleteOpexByExpenseId,
+  deleteBiayaRab,
 } from '@/lib/sync-finance-opex'
 
 import {
@@ -17,6 +18,7 @@ import {
   type OpexSummary,
   type ActionState,
   MARCOM_EXPENSE_CATEGORIES,
+  isSumberDanaRab,
 } from '@/lib/opex-constants'
 
 
@@ -105,6 +107,7 @@ export async function getOpexData(
   let totalAds = 0
   let totalManual = 0
   let totalHppMenu = 0
+  let totalRab = 0
 
   // Proses Endorsement
   for (const e of endorsements) {
@@ -210,7 +213,9 @@ export async function getOpexData(
   // Proses Manual Marcom Expenses
   for (const m of manualExpenses) {
     const amount = Number(m.amount) || 0
-    totalManual += amount
+    // Dana RAB = informasi saja: tampil di daftar, tidak masuk total maupun pagu budget.
+    if (isSumberDanaRab(m.paymentSource)) totalRab += amount
+    else totalManual += amount
     const dateStr = m.expenseDate.toISOString().split('T')[0]
     const outletName = m.outlet?.name || 'Kantor Pusat / Global'
     const categoryLabel = MARCOM_EXPENSE_CATEGORIES[m.category] || m.category
@@ -248,6 +253,7 @@ export async function getOpexData(
     totalAds,
     totalManual,
     totalHppMenu,
+    totalRab,
     totalBudget,
     remainingBudget,
     items,
@@ -301,8 +307,12 @@ export async function createMarcomExpense(
       },
     })
 
-    // Sinkronisasi otomatis ke Supabase Finance OPEX
-    await syncManualExpenseOpex(created.id)
+    // Sinkronisasi otomatis ke Supabase Finance OPEX (atau tabel RAB bila Dana RAB)
+    const sync = await syncManualExpenseOpex(created.id)
+    if (!sync.success) {
+      revalidatePath('/dashboard/budget')
+      return { error: `Pengeluaran tersimpan di Marcom, tetapi sinkron ke Finance gagal (${sync.error}). Buka catatannya lalu simpan ulang.` }
+    }
 
     revalidatePath('/dashboard/budget')
     return { success: true }
@@ -364,8 +374,12 @@ export async function updateMarcomExpense(
       },
     })
 
-    // Sinkronisasi ulang ke Supabase Finance OPEX
-    await syncManualExpenseOpex(id)
+    // Sinkronisasi ulang ke Supabase Finance OPEX (atau tabel RAB bila Dana RAB)
+    const sync = await syncManualExpenseOpex(id)
+    if (!sync.success) {
+      revalidatePath('/dashboard/budget')
+      return { error: `Perubahan tersimpan di Marcom, tetapi sinkron ke Finance gagal (${sync.error}). Coba simpan ulang.` }
+    }
 
     revalidatePath('/dashboard/budget')
     return { success: true }
@@ -396,6 +410,8 @@ export async function deleteMarcomExpense(idStr: string): Promise<ActionState> {
     if (existing.expenseId) {
       await deleteOpexByExpenseId(existing.expenseId)
     }
+    // Hapus juga catatan Biaya Ditanggung RAB (bila ada)
+    await deleteBiayaRab(id)
 
     // Hapus di database Marcom
     await prisma.marcomExpense.delete({
@@ -460,7 +476,11 @@ export async function updateOpexItem(
           receiptUrl,
         },
       })
-      await syncManualExpenseOpex(id)
+      const sync = await syncManualExpenseOpex(id)
+      if (!sync.success) {
+        revalidatePath('/dashboard/budget')
+        return { error: `Perubahan tersimpan di Marcom, tetapi sinkron ke Finance gagal (${sync.error}). Coba simpan ulang.` }
+      }
     } else if (source === 'ENDORSEMENT') {
       const id = BigInt(sourceId)
       if (category === 'HPP_MENU') {

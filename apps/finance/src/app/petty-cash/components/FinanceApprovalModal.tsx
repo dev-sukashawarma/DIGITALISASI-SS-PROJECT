@@ -5,6 +5,7 @@ import { Wallet, X, Store, CreditCard, Building2, User, AlertCircle, CheckCircle
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 import { relativeTime, tanggalWaktu } from '@/lib/format'
 import { useCashOverview } from '@/hooks/useCashData'
+import { lokasiGrup } from '@/lib/kas/grupKas'
 
 interface FinanceApprovalModalProps {
   isOpen: boolean
@@ -69,29 +70,8 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   
   const { locations } = useCashOverview()
 
-  const HARDCODED_LOCATIONS = [
-    {
-      id: '0c116d5f-f147-4eff-9bc2-ce9d549e2869',
-      label: 'SUKA PROFIT BERKAH (BCA) - 48523399425',
-      kind: 'bank',
-      saldo: 10471000
-    },
-    {
-      id: 'a64f9484-70e9-4bf7-b62d-2643835a1874',
-      label: 'Kas Setoran (Kas Fisik)',
-      kind: 'cash',
-      saldo: 10000000
-    }
-  ]
-
-  const activeLocations = locations && locations.length > 0 ? locations : HARDCODED_LOCATIONS
-
-  // Filter available locations for transfer/tunai
-  const filtered = activeLocations.filter(loc => 
-    (method === 'transfer' && loc.kind === 'bank') || 
-    (method === 'tunai' && loc.kind === 'cash')
-  )
-  const availableLocations = filtered.length > 0 ? filtered : activeLocations
+  // Top-up petty cash outlet hanya boleh keluar dari Kas Office (DB juga menolak selain itu).
+  const availableLocations = lokasiGrup(locations, 'office', method === 'transfer' ? 'bank' : 'cash')
 
   useEffect(() => {
     if (availableLocations.length > 0 && (!cashLocationId || !availableLocations.some(l => l.id === cashLocationId))) {
@@ -354,7 +334,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
           {/* Custom Cash Location Selector */}
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-2">
-              Sumber Akun Kas / Bank Pusat ({method === 'transfer' ? 'Rekening Bank' : 'Kas Fisik'})
+              Sumber Kas Office ({method === 'transfer' ? 'Rekening Office' : 'Kas Office Tunai'})
             </label>
             <div className="relative" ref={dropdownRef}>
               <button

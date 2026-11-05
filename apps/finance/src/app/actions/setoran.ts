@@ -32,7 +32,7 @@ export async function updateCashDepositMethodAction(input: {
 
   const { data: loc, error: locErr } = await supabase
     .from('cash_location')
-    .select('id, label, kind, scope, is_active')
+    .select('id, label, kind, scope, is_active, grup')
     .eq('id', input.newLocationId)
     .maybeSingle()
 
@@ -42,6 +42,9 @@ export async function updateCashDepositMethodAction(input: {
   }
   if (loc.scope !== 'pusat') {
     throw new Error('Setoran harus ke rekening/kas pusat')
+  }
+  if (loc.grup !== 'setoran_outlet') {
+    throw new Error('Setoran harus ke Kas Setoran Outlet')
   }
 
   const newCategory = loc.kind === 'bank' ? 'Setoran Bank' : 'Setoran Tunai'

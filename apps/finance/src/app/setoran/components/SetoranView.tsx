@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button, Spinner, CurrencyInput } from '@suka/design-system'
 import { Banknote, Landmark, Pencil, Trash2, X, Receipt } from 'lucide-react'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
+import { lokasiGrup } from '@/lib/kas/grupKas'
 import { useOutlets, useCashDeposit, useUpdateCashDepositMethod, useDeleteCashDeposit } from '@/hooks/useCashDeposit'
 import { useExpectedCash } from '@/hooks/useExpectedCash'
 import { rupiah, tanggalWaktu } from '@/lib/format'
@@ -50,14 +51,10 @@ export function SetoranView({
   // Setoran hanya boleh masuk ke rekening/kas PUSAT (bukan kas kecil outlet);
   // record_cash_deposit menolak lokasi lain. Transfer -> bank pusat, langsung -> kas pusat.
   const targetKind = depositMethod === 'transfer' ? 'bank' : 'cash'
-  const destinationOptions = locations.filter(
-    (l) => l.scope === 'pusat' && l.is_active !== false && l.kind === targetKind
-  )
+  const destinationOptions = lokasiGrup(locations, 'setoran_outlet', targetKind)
 
   const editTargetKind = editMethod === 'transfer' ? 'bank' : 'cash'
-  const editDestinationOptions = locations.filter(
-    (l) => l.scope === 'pusat' && l.is_active !== false && l.kind === editTargetKind
-  )
+  const editDestinationOptions = lokasiGrup(locations, 'setoran_outlet', editTargetKind)
 
   useEffect(() => {
     setLocation(destinationOptions[0]?.id ?? '')
@@ -87,7 +84,7 @@ export function SetoranView({
   const handleSelectEditMethod = (method: DepositMethod) => {
     setEditMethod(method)
     const kind = method === 'transfer' ? 'bank' : 'cash'
-    const opts = locations.filter((l) => l.scope === 'pusat' && l.is_active !== false && l.kind === kind)
+    const opts = lokasiGrup(locations, 'setoran_outlet', kind)
     if (editingTx && editingTx.cash_location?.kind === kind) {
       setEditLocation(editingTx.cash_location_id)
     } else {

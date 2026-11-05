@@ -1,6 +1,7 @@
 -- Pindahkan transaksi 1–5 Nov 2026 dari rekening lama BCA 48523399425 ke kas baru.
 -- Keputusan owner (grilling 5 Nov): mulai bersih 1 Nov 2026.
---   cash_deposit (74, Rp 39.076.900)   → Rekening Setoran 0955193763
+--   cash_deposit (76, Rp 40.358.900)   → Rekening Setoran 0955193763
+--   (2 baris dobel Cicurug 13:50:08 sudah di-void 5 Nov, tetap tinggal di rekening lama)
 --   petty_cash_topup (16, Rp 6.900.000) → Rekening Office 0955381004
 -- Pola per baris: status → void (trigger membalik saldo lama), pindah lokasi, status semula
 -- (trigger menambah saldo baru). Nominal & tanggal tak berubah.
@@ -33,13 +34,13 @@ BEGIN
                 OR (source_type = 'petty_cash_topup' AND status = 'paid' AND direction = 'out'))),
          md5(string_agg(id::text, ',' ORDER BY id))
     INTO n_dep, s_dep, n_top, s_top, n_lain, sidik
-    FROM cash_transaction WHERE cash_location_id = c_lama AND occurred_at >= c_mulai;
+    FROM cash_transaction WHERE cash_location_id = c_lama AND occurred_at >= c_mulai AND status <> 'void';
   RAISE NOTICE 'target: setoran % (Rp %), topup % (Rp %), lain %', n_dep, s_dep, n_top, s_top, n_lain;
   IF n_lain <> 0 THEN RAISE EXCEPTION 'Ada % baris jenis/status lain — berhenti', n_lain; END IF;
-  IF n_dep <> 74 OR s_dep <> 39076900 OR n_top <> 16 OR s_top <> 6900000 THEN
-    RAISE EXCEPTION 'Angka berubah sejak disetujui owner (74/39.076.900, 16/6.900.000) — berhenti';
+  IF n_dep <> 76 OR s_dep <> 40358900 OR n_top <> 16 OR s_top <> 6900000 THEN
+    RAISE EXCEPTION 'Angka berubah sejak disetujui owner (76/40.358.900, 16/6.900.000) — berhenti';
   END IF;
-  IF sidik IS DISTINCT FROM '3eee3a5df2269ca95ca492f689809ea4' THEN
+  IF sidik IS DISTINCT FROM '9d29e12c109deb2180b99bd71e978049' THEN
     RAISE EXCEPTION 'Daftar ID transaksi berubah sejak pemeriksaan — berhenti';
   END IF;
 
@@ -48,7 +49,7 @@ BEGIN
   CREATE TEMP TABLE _pindah ON COMMIT DROP AS
     SELECT id, status AS status_awal, source_type, source_id,
            CASE source_type WHEN 'cash_deposit' THEN c_setoran ELSE c_office END AS tujuan
-      FROM cash_transaction WHERE cash_location_id = c_lama AND occurred_at >= c_mulai;
+      FROM cash_transaction WHERE cash_location_id = c_lama AND occurred_at >= c_mulai AND status <> 'void';
 
   UPDATE cash_transaction t SET status = 'void' FROM _pindah p WHERE t.id = p.id;
   UPDATE cash_transaction t SET cash_location_id = p.tujuan, status = p.status_awal FROM _pindah p WHERE t.id = p.id;
@@ -58,11 +59,11 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> n_top THEN RAISE EXCEPTION 'Sumber dana hanya diperbarui pada % dari % pengajuan', n, n_top; END IF;
 
-  SELECT count(*) INTO n FROM cash_transaction WHERE cash_location_id = c_lama AND occurred_at >= c_mulai;
+  SELECT count(*) INTO n FROM cash_transaction WHERE cash_location_id = c_lama AND occurred_at >= c_mulai AND status <> 'void';
   IF n <> 0 THEN RAISE EXCEPTION 'Masih % baris November di rekening lama', n; END IF;
   SELECT count(*), sum(amount) INTO n, s FROM cash_transaction t JOIN _pindah p ON p.id = t.id
    WHERE t.cash_location_id = c_setoran AND t.source_type = 'cash_deposit' AND t.status = 'reconciled';
-  IF n <> 74 OR s <> 39076900 THEN RAISE EXCEPTION 'Setoran pindah % / %', n, s; END IF;
+  IF n <> 76 OR s <> 40358900 THEN RAISE EXCEPTION 'Setoran pindah % / %', n, s; END IF;
   SELECT count(*), sum(amount) INTO n, s FROM cash_transaction t JOIN _pindah p ON p.id = t.id
    WHERE t.cash_location_id = c_office AND t.source_type = 'petty_cash_topup' AND t.status = 'paid';
   IF n <> 16 OR s <> 6900000 THEN RAISE EXCEPTION 'Topup pindah % / %', n, s; END IF;

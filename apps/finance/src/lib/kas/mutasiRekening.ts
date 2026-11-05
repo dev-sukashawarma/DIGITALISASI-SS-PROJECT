@@ -161,9 +161,21 @@ export function totalBaris(baris: BarisMutasi[]): { masuk: number; keluar: numbe
   )
 }
 
-/** Nama akun pencatat apa adanya (tanpa alias, supaya jejak audit sesuai akun yang login). */
-export function namaPencatat(nama: string | null | undefined): string | null {
-  return nama?.trim() || null
+/**
+ * Transaksi uji coba developer (5 Nov 2026, belanja "TEST" & "ada", keduanya sudah
+ * dibatalkan) yang tercatat memakai akun Superadmin 2.
+ */
+const TX_UJI_DEVELOPER = new Set([
+  '400afe0b-2052-4f48-a534-59d0f6a16264',
+  'ce72337b-d880-4f09-b247-d8c0fc0f760b',
+])
+
+/** Nama pencatat untuk tampilan; akun Superadmin 2 dipegang Hesti Qodriani (sama dengan lib/expenseRow). */
+export function namaPencatat(nama: string | null | undefined, txId?: string): string | null {
+  if (txId && TX_UJI_DEVELOPER.has(txId)) return 'Developer'
+  const n = nama?.trim()
+  if (!n) return null
+  return /superadmin\s*2/i.test(n) ? 'Hesti Qodriani' : n
 }
 
 /** Batas rentang tanggal WIB (inklusif) → ISO untuk filter occurred_at. */

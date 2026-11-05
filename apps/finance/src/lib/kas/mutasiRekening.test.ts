@@ -74,8 +74,9 @@ describe('keterangan', () => {
 })
 
 describe('namaPencatat', () => {
-  it('menampilkan nama akun apa adanya', () => {
-    expect(namaPencatat('Superadmin 2')).toBe('Superadmin 2')
+  it('Superadmin 2 ditampilkan sebagai Hesti Qodriani, uji coba developer sebagai Developer', () => {
+    expect(namaPencatat('Superadmin 2')).toBe('Hesti Qodriani')
+    expect(namaPencatat('Superadmin 2', 'ce72337b-d880-4f09-b247-d8c0fc0f760b')).toBe('Developer')
     expect(namaPencatat(' Putri ')).toBe('Putri')
     expect(namaPencatat(null)).toBeNull()
   })

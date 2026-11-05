@@ -75,7 +75,7 @@ export function useMutasiRekening(locationId: string, dari: string, sampai: stri
         proof_url: r.proof_url,
         outlet_name: satu(r.outlet)?.name ?? topup.get(r.source_id)?.outlet ?? null,
         alasan: topup.get(r.source_id)?.alasan ?? null,
-        dicatat_oleh: namaPencatat(satu(r.pencatat)?.name),
+        dicatat_oleh: namaPencatat(satu(r.pencatat)?.name, r.id),
       }))
       return susunMutasi(saldoAwal, txs)
     },

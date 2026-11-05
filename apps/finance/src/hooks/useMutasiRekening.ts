@@ -13,6 +13,10 @@ export function useMutasiRekening(locationId: string, dari: string, sampai: stri
   return useQuery({
     queryKey: ['mutasi_rekening', locationId, dari, sampai],
     enabled: Boolean(locationId && dari && sampai && dari <= sampai),
+    // Pengeluaran Buku Kas / setoran dicatat di halaman lain: selalu ambil ulang saat dibuka.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { mulai, akhirEksklusif } = batasRentangWib(dari, sampai)
 

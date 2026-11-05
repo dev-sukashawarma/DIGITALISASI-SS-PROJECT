@@ -347,7 +347,25 @@ export async function fetchProfitExportData({
   const labaKotor = netRevenue - totalHpp
   const marginKotor = actualGrossSales > 0 ? (labaKotor / actualGrossSales) * 100 : 0
   const labaBersih = labaKotor - pengeluaranOutlet - totalWaste
-  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
+  // Income Lainnya Kas Office: pendapatan pusat, tidak ikut scope mitra.
+  let pendapatanLain = 0
+  if (scope !== 'mitra') {
+    for (let start = 0; ; start += 1000) {
+      const { data, error } = await supabase
+        .from('income_lainnya')
+        .select('id, amount')
+        .eq('status', 'aktif')
+        .gte('occurred_at', `${from}T00:00:00+07:00`)
+        .lte('occurred_at', `${to}T23:59:59.999+07:00`)
+        .order('id')
+        .range(start, start + 999)
+      if (error) throw error
+      const rows = data ?? []
+      pendapatanLain += rows.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0)
+      if (rows.length < 1000) break
+    }
+  }
+  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat, pendapatanLain).labaPerusahaan
   const displayLaba = labaPerusahaan
   const costBase = actualGrossSales > 0 ? actualGrossSales : (netRevenue > 0 ? netRevenue : 0)
   const displayMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
@@ -364,6 +382,7 @@ export async function fetchProfitExportData({
     pengeluaranOutlet,
     totalWaste,
     pengeluaranPusat,
+    pendapatanLain,
     managementFeeReceived,
     mitraHppMarginReceived,
     managementFeeExpense,

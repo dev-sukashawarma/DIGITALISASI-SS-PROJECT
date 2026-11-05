@@ -50,6 +50,8 @@ export interface WaterfallInput {
   includeCentral: boolean
   /** Rincian per kategori untuk baris beban bulanan outlet. */
   opexMonthlyBreakdown?: WaterfallDetail[]
+  /** Income Lainnya Kas Office (pendapatan pusat); hanya ikut bila includeCentral. */
+  pendapatanLain?: number
   /** Pendapatan management fee dari mitra (khusus scope internal). */
   managementFeeIncome?: number
   /** Pendapatan margin pasokan bahan baku mitra (10% HPP dasar) untuk pusat/holding. */
@@ -72,6 +74,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     opexLembur = 0,
     opexMonthlyBreakdown,
     managementFeeIncome = 0,
+    pendapatanLain = 0,
     mitraHppMarginIncome = 0,
     managementFeeExpense = 0,
     bepProfitShareExpense = 0,
@@ -93,7 +96,8 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
   const netRevenue = grossRevenue - deductions + managementFeeIncome + mitraHppMarginIncome - managementFeeExpense
   const labaKotor = netRevenue - hpp
   const opex = opexMonthly + jointExpense + opexLembur + opexPettyCash + (includeCentral ? centralExpense : 0)
-  const labaBersih = labaKotor - waste - opex - bepProfitShareExpense
+  const pendapatanLainEfektif = includeCentral ? pendapatanLain : 0
+  const labaBersih = labaKotor - waste - opex - bepProfitShareExpense + pendapatanLainEfektif
 
   const steps: WaterfallStep[] = [
     {
@@ -213,6 +217,17 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       amount: -centralExpense,
       kind: 'deduction',
       pctOfGross: pct(-centralExpense),
+    })
+  }
+
+  if (pendapatanLainEfektif > 0) {
+    steps.push({
+      key: 'pendapatan_lain',
+      label: 'Pendapatan Lain-lain',
+      hint: 'Income Lainnya Kas Office (penjualan barang bekas), pendapatan pusat',
+      amount: pendapatanLainEfektif,
+      kind: 'deduction',
+      pctOfGross: pct(pendapatanLainEfektif),
     })
   }
 

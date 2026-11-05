@@ -56,6 +56,7 @@ import { createThrottledRefresher } from '@/lib/realtimeThrottle'
 import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
 import { getSourceLabel } from '@/lib/channels'
 import { useTikTokSettlement } from '@/hooks/useTikTokSettlement'
+import { usePendapatanLain } from '@/hooks/usePendapatanLain'
 
 // Urutan & isi tombol preset disamakan dengan Buku Kas (OPEX).
 const PRESET_SAMA_DENGAN_BUKU_KAS: Preset[] = ['yesterday', 'today', '7d', 'this_month', 'last_month']
@@ -484,6 +485,10 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     () => expenseRows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
     [expenseRows]
   )
+  // Income Lainnya (Kas Office) = pendapatan pusat: hanya di Laba Perusahaan semua outlet, bukan laba outlet/mitra.
+  const tampilPendapatanLain = isAllOutlets && scope !== 'mitra'
+  const { data: pendapatanLainData = 0 } = usePendapatanLain(filter, tampilPendapatanLain)
+  const pendapatanLain = tampilPendapatanLain ? pendapatanLainData : 0
     
   const totalHppLive = useMemo(
     () => hppRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.hpp, 0), 
@@ -644,7 +649,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
   const labaBersih = labaBersihSebelumBagiHasil - bepProfitShareExpense
   
-  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
+  const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat, pendapatanLain).labaPerusahaan
   const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
   const costBase = actualGrossRevenue > 0 ? actualGrossRevenue : (netRevenue > 0 ? netRevenue : 0)
   const displayMargin = costBase > 0 ? (displayLaba / costBase) * 100 : 0
@@ -965,6 +970,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     opexPettyCash: pengeluaranOutletPettyCashMurni,
     centralExpense: pengeluaranPusat,
     includeCentral,
+    pendapatanLain,
     opexMonthlyBreakdown,
     managementFeeIncome: managementFeeReceived,
     mitraHppMarginIncome: mitraHppMarginReceived,
@@ -976,7 +982,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     actualGrossSales, totalDeductions, totalHpp, totalWaste,
     totalJointExpense, pengeluaranOutletBulananMurni, pengeluaranOutletBulanan, pengeluaranLembur, pengeluaranOutletPettyCashMurni, pengeluaranPusat, includeCentral,
     opexMonthlyBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense, bepProfitShareExpense,
-    grossRevenueBreakdown, deductionsBreakdown,
+    grossRevenueBreakdown, deductionsBreakdown, pendapatanLain,
   ])
 
   return (
@@ -1600,6 +1606,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <div className="flex justify-between items-center text-rose-600">
                         <span className="font-medium">Beban Operasional Kantor Pusat (Manajemen)</span>
                         <span className="font-bold">-{rupiah(pengeluaranPusat)}</span>
+                      </div>
+                    )}
+                    {pendapatanLain > 0 && (
+                      <div className="flex justify-between items-center text-emerald-700">
+                        <span className="font-medium">Pendapatan Lain-lain (Income Lainnya Kas Office)</span>
+                        <span className="font-bold">+{rupiah(pendapatanLain)}</span>
                       </div>
                     )}
                     {bepProfitShareExpense > 0 && (

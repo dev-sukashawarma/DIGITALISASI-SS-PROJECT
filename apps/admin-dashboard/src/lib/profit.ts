@@ -37,7 +37,11 @@ export function computeOutletProfit(grossRevenue: number, deductions: number, hp
   }
 }
 
-/** Laba Perusahaan = Σ Laba Outlet − Σ Pengeluaran Pusat. (Waste sudah terpotong di level outlet.) */
-export function computeCompanyProfit(sumLabaOutlet: number, pengeluaranPusat: number) {
-  return { labaPerusahaan: sumLabaOutlet - pengeluaranPusat }
+/**
+ * Laba Perusahaan = Σ Laba Outlet − Σ Pengeluaran Pusat + Pendapatan Lain-lain pusat
+ * (Income Lainnya: penjualan barang bekas ke Kas Office). Waste sudah terpotong di level outlet.
+ * Pendapatan Lain-lain TIDAK pernah masuk laba outlet / bagi hasil mitra.
+ */
+export function computeCompanyProfit(sumLabaOutlet: number, pengeluaranPusat: number, pendapatanLain = 0) {
+  return { labaPerusahaan: sumLabaOutlet - pengeluaranPusat + pendapatanLain }
 }

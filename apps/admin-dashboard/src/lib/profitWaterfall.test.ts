@@ -14,6 +14,16 @@ const INPUT = {
 }
 
 describe('buildProfitWaterfall', () => {
+  it('Pendapatan Lain-lain menambah laba bersih perusahaan, sama dengan computeCompanyProfit', () => {
+    const { labaBersih } = computeProfit(
+      INPUT.grossRevenue, INPUT.deductions, INPUT.hpp, INPUT.opexMonthly + INPUT.opexPettyCash, INPUT.waste,
+    )
+    const { labaPerusahaan } = computeCompanyProfit(labaBersih, INPUT.centralExpense, 150_000)
+    const steps = buildProfitWaterfall({ ...INPUT, pendapatanLain: 150_000 })
+    expect(steps.find((s) => s.key === 'pendapatan_lain')?.amount).toBe(150_000)
+    expect(steps.find((s) => s.kind === 'total')?.amount).toBe(labaPerusahaan)
+  })
+
   it('mendarat persis di laba bersih versi computeProfit + computeCompanyProfit', () => {
     const { labaBersih } = computeProfit(
       INPUT.grossRevenue,

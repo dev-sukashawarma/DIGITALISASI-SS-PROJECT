@@ -91,6 +91,8 @@ export interface ConsolidatedSummaryData {
   adaAntarKantong: boolean
   includeCentral: boolean
   totalJointExpense?: number
+  /** Income Lainnya Kas Office (pendapatan pusat). */
+  pendapatanLain?: number
 }
 
 export interface ExportContext {
@@ -817,6 +819,9 @@ export async function generateConsolidatedPdfBlob(
   if (summary.includeCentral) {
     execRows.push(['Beban Kantor Pusat (Pengeluaran Global & Operasional HQ)', { content: `-${rupiah(summary.pengeluaranPusat)}`, styles: { halign: 'right' } }])
   }
+  if (summary.includeCentral && (summary.pendapatanLain ?? 0) > 0) {
+    execRows.push(['Pendapatan Lain-lain (Income Lainnya Kas Office)', { content: `+${rupiah(summary.pendapatanLain ?? 0)}`, styles: { halign: 'right', textColor: [4, 120, 87] } }])
+  }
   const totalBebanKonsolidasi = summary.pengeluaranOutlet + summary.totalWaste + (summary.includeCentral ? summary.pengeluaranPusat : 0)
   execRows.push([
     { content: 'TOTAL BEBAN OPERASIONAL & KERUGIAN', styles: { fontStyle: 'bold' } },
@@ -1098,6 +1103,9 @@ export function generateConsolidatedCsvString(
     rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'TOTAL BEBAN OPERASIONAL OUTLET', summary.pengeluaranOutlet])
     if (summary.pengeluaranPusat > 0) {
       rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'BEBAN OPERASIONAL KANTOR PUSAT (MANAJEMEN)', summary.pengeluaranPusat])
+    }
+    if ((summary.pendapatanLain ?? 0) > 0) {
+      rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'PENDAPATAN LAIN-LAIN', 'INCOME LAINNYA KAS OFFICE', summary.pendapatanLain ?? 0])
     }
     rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI LABA BERSIH', 'LABA BERSIH AKHIR PERUSAHAAN (NET PROFIT)', summary.displayLaba])
   }

@@ -577,7 +577,7 @@ export default function DashboardClient() {
                 </p>
               </div>
               <Link 
-                href="/transaksi" 
+                href="/mutasi" 
                 className="text-xs font-bold text-suka-primary hover:text-suka-primary/80 flex items-center gap-1 transition-colors px-2.5 py-1 rounded-full hover:bg-suka-orange/5"
               >
                 <span>Lihat Semua</span>

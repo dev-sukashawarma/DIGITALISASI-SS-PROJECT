@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import {
   LayoutDashboard,
-  ArrowLeftRight,
   Landmark,
   Wallet,
   Banknote,
@@ -66,9 +65,8 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: '/', label: 'Dashboard Kas', icon: LayoutDashboard },
-      { href: '/mutasi', label: 'Rekening & Mutasi', icon: ScrollText, aliases: ['/lokasi'] },
+      { href: '/mutasi', label: 'Rekening & Mutasi', icon: ScrollText, aliases: ['/lokasi', '/transaksi'] },
       { href: '/setoran', label: 'Setoran Tunai', icon: Banknote, aliases: ['/setoran/history'] },
-      { href: '/transaksi', label: 'Transaksi Manual', icon: ArrowLeftRight },
       { href: '/income-lainnya', label: 'Income Lainnya', icon: Coins },
     ],
   },

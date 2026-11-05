@@ -90,3 +90,12 @@ describe('batasRentangWib', () => {
     })
   })
 })
+
+describe('keterangan transfer', () => {
+  it('memakai kategori lalu catatan', () => {
+    expect(keteranganTransaksi({
+      id: 'x', occurred_at: '2026-11-05T00:00:00Z', direction: 'out', amount: 1, status: 'reconciled',
+      source_type: 'transfer', category: 'Transfer ke Rekening Bahan Baku 0955353124', note: 'mingguan',
+    })).toBe('Transfer ke Rekening Bahan Baku 0955353124 · mingguan')
+  })
+})

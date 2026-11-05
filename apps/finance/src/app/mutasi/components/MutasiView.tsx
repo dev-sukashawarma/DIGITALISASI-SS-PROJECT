@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Spinner } from '@suka/design-system'
-import { FileSpreadsheet, FileText, Wallet, ArrowDownLeft, ArrowUpRight, Landmark, Paperclip, Settings2 } from 'lucide-react'
+import { FileSpreadsheet, FileText, Wallet, ArrowDownLeft, ArrowUpRight, Landmark, Paperclip, Settings2, ArrowLeftRight } from 'lucide-react'
 import { useCashOverview } from '@/hooks/useCashData'
 import { useMutasiRekening } from '@/hooks/useMutasiRekening'
 import { rupiah, tanggalWaktu } from '@/lib/format'
@@ -11,6 +11,7 @@ import { StatCard, SectionCard } from '@/components/ui'
 import { GRUP_LABEL, URUTAN_GRUP } from '@/lib/kas/grupKas'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { KelolaRekeningModal } from './KelolaRekeningModal'
+import { TransferModal } from './TransferModal'
 import { eksporMutasiExcel, eksporMutasiPdf } from '@/lib/kas/eksporMutasi'
 import { JENIS_LABEL, catatanTambahan, totalBaris, type JenisMutasi } from '@/lib/kas/mutasiRekening'
 
@@ -36,6 +37,7 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
   const { locations } = useCashOverview()
   const { isChecker } = useFinanceRole()
   const [kelolaTerbuka, setKelolaTerbuka] = useState(false)
+  const [transferTerbuka, setTransferTerbuka] = useState(false)
   // Kartu: rekening pusat aktif, urut Utama -> Bahan Baku -> Petty Cash, bank dulu.
   const rekeningPusat = useMemo(
     () =>
@@ -93,6 +95,14 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
           <p className="text-suka-ink/60 mt-2 font-medium">Uang masuk & keluar per rekening, untuk dicocokkan dengan rekening koran.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isChecker && (
+            <button
+              onClick={() => setTransferTerbuka(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-suka-orange px-4 py-2 text-sm font-bold text-white hover:bg-suka-orange/90"
+            >
+              <ArrowLeftRight size={16} /> Transfer
+            </button>
+          )}
           {isChecker && (
             <button
               onClick={() => setKelolaTerbuka(true)}
@@ -247,6 +257,7 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
       </SectionCard>
 
       {kelolaTerbuka && <KelolaRekeningModal locations={locations} onClose={() => setKelolaTerbuka(false)} />}
+      {transferTerbuka && <TransferModal rekening={rekeningPusat} dariAwal={rekeningId} onClose={() => setTransferTerbuka(false)} />}
     </div>
   )
 }

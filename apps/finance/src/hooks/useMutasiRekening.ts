@@ -61,6 +61,9 @@ export function useMutasiRekening(locationId: string, dari: string, sampai: stri
         }
       }
       const satu = (v: any) => (Array.isArray(v) ? v[0] : v)
+      // Setor ke Bank & Transfer menyimpan path storage, bukan URL.
+      const urlBukti = (p: string | null) =>
+        !p ? null : /^https?:\/\//.test(p) ? p : supabase.storage.from('finance-proofs').getPublicUrl(p).data.publicUrl
 
       const txs: TxMutasi[] = rows.map(r => ({
         id: r.id,
@@ -72,7 +75,7 @@ export function useMutasiRekening(locationId: string, dari: string, sampai: stri
         category: r.category,
         note: r.note,
         sales_date: r.sales_date,
-        proof_url: r.proof_url,
+        proof_url: urlBukti(r.proof_url),
         outlet_name: satu(r.outlet)?.name ?? topup.get(r.source_id)?.outlet ?? null,
         alasan: topup.get(r.source_id)?.alasan ?? null,
         dicatat_oleh: namaPencatat(satu(r.pencatat)?.name, r.id),

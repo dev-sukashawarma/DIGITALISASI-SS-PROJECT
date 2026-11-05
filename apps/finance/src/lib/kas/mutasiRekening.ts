@@ -104,6 +104,8 @@ export function keteranganTransaksi(tx: TxMutasi): string {
     }
     case 'manual':
       return tx.category?.trim() || bersih(tx.note) || 'Transaksi manual'
+    case 'transfer':
+      return [tx.category?.trim() || 'Transfer', bersih(tx.note)].filter(Boolean).join(' · ')
     default:
       return bersih(tx.note) || tx.category?.trim() || '-'
   }

@@ -14,6 +14,6 @@ export function hitungSetorBank(i: { saldoTunai: number; diambil: number; keBank
   if (!(i.keBank > 0)) galat = 'Nominal ke bank harus lebih dari 0'
   else if (i.keBank % KELIPATAN_SETOR_BANK !== 0) galat = 'Nominal ke bank harus kelipatan Rp 50.000'
   else if (i.keBank > i.diambil) galat = 'Nominal ke bank tidak boleh melebihi uang yang diambil'
-  else if (i.diambil > i.saldoTunai) galat = 'Uang yang diambil melebihi saldo Kas Setoran Tunai'
+  else if (i.diambil > i.saldoTunai) galat = 'Uang yang diambil melebihi saldo Rekening Bahan Baku Tunai'
   return { receh, galat }
 }

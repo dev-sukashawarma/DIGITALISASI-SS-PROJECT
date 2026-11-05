@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 
-/** Setor ke Bank: Kas Setoran Tunai → Rekening Setoran, receh → Kas Office Tunai (RPC record_setor_bank). */
+/** Setor ke Bank: Rekening Bahan Baku Tunai → Rekening Bahan Baku (bank), receh → Rekening Petty Cash Tunai (RPC record_setor_bank). */
 export function useSetorBank() {
   const supabase = useMemo(() => createClient(), [])
   const qc = useQueryClient()

@@ -10,8 +10,8 @@ import { rupiah } from '@/lib/format'
 
 /**
  * Setor ke Bank (gabungan lintas outlet). Finance mengisi uang yang diambil dari
- * Kas Setoran Tunai dan nominal yang disetor ke rekening (kelipatan Rp 50.000);
- * sisanya otomatis jadi receh di Kas Office Tunai.
+ * Rekening Bahan Baku Tunai dan nominal yang disetor ke Rekening Bahan Baku (kelipatan Rp 50.000);
+ * sisanya otomatis jadi receh di Rekening Petty Cash Tunai.
  */
 export function SetorBankModal({
   open,
@@ -48,7 +48,7 @@ export function SetorBankModal({
       { diambil, keBank, proofFile, note },
       {
         onSuccess: () => {
-          toast.success(`Disetor ${rupiah(keBank)} ke rekening, receh ${rupiah(receh)} ke Kas Office Tunai`)
+          toast.success(`Disetor ${rupiah(keBank)} ke Rekening Bahan Baku, receh ${rupiah(receh)} ke Rekening Petty Cash Tunai`)
           onClose()
         },
         onError: (e) => toast.error((e as Error).message),
@@ -67,12 +67,12 @@ export function SetorBankModal({
         </div>
 
         <p className="text-sm text-suka-gray-500">
-          Saldo Kas Setoran Tunai: <b className="text-suka-ink">{rupiah(saldoTunai)}</b>
+          Saldo Rekening Bahan Baku Tunai: <b className="text-suka-ink">{rupiah(saldoTunai)}</b>
         </p>
 
         <div className="text-sm font-semibold text-suka-gray-600">
           <CurrencyInput
-            label="Uang diambil dari Kas Setoran Tunai"
+            label="Uang diambil dari Rekening Bahan Baku Tunai"
             value={diambil || ''}
             onChange={(v) => setDiambil(Number(v) || 0)}
             className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange"
@@ -81,7 +81,7 @@ export function SetorBankModal({
 
         <div className="text-sm font-semibold text-suka-gray-600">
           <CurrencyInput
-            label="Disetor ke bank (kelipatan Rp 50.000)"
+            label="Disetor ke Rekening Bahan Baku (kelipatan Rp 50.000)"
             value={keBank || ''}
             onChange={(v) => setKeBank(Number(v) || 0)}
             className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange"
@@ -89,7 +89,7 @@ export function SetorBankModal({
         </div>
 
         <div className="rounded-xl bg-suka-cream/70 px-3 py-2 text-sm">
-          Receh ke Kas Office Tunai: <b className="text-suka-brown">{rupiah(receh)}</b>
+          Receh ke Rekening Petty Cash Tunai: <b className="text-suka-brown">{rupiah(receh)}</b>
         </div>
 
         <label className="block text-sm font-semibold text-suka-gray-600">

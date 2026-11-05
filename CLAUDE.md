@@ -3626,6 +3626,17 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - **Rekening lama ditutup di DB** (`20261105105000`, applied+terstempel, uji t5 LULUS): trigger `trg_cash_00_tolak_lokasi_nonaktif` menolak INSERT / pemindahan baris ke lokasi kas nonaktif dari jalur apa pun; baris lama tetap bisa di-void/dipindah keluar. Pemicunya jalur **"Setoran Gabungan AM Binaan … di-approve Kak Hesti"** yang menulis langsung ke rekening lama — teksnya **tidak ada di repo/git**, penulisnya di luar kode (24 baris sejak 4 Nov, Rp 11.946.000; 2 pasang dobel Cicurug: pasangan 13:50:08 di-VOID 5 Nov atas konfirmasi owner, Rp 1.282.000). Jalur itu kini akan gagal dengan pesan "sudah nonaktif". Pilihan Gaji/Supplier/Transaksi Manual/leader di finance menyaring lokasi nonaktif.
 - Skrip pemindahan November diperbarui ke **76 setoran Rp 40.358.900 + 16 pencairan Rp 6.900.000** (baris void tetap di rekening lama); uji coba ROLLBACK lulus. ⚠️ Sesudah pindah Rekening Office jadi **−Rp 5.882.448,02** — finance wajib memastikan saldo awal Rp 1.617.551,98 belum memotong 16 pencairan itu sebelum COMMIT.
 
+## Session 2026-11-05 (lanjutan): Tiga Rekening — Utama, Bahan Baku, Petty Cash
+
+**Status:** Kode di branch `feat/kas-tiga-rekening` (dari `feat/kas-setoran-office`), finance 250/250 test, type-check 0, build sukses. ⚠️ Migration `20261105106000_kas_tiga_rekening` **DITULIS, BELUM di-apply** (ditolak pengaman otomatis "Production Deploy", menunggu izin owner). `20261105104000` (Codex) di-rename → `20261105107000_validasi_pencairan_petty_cash` dan dipindah ke grup `petty_cash`; terapkan **sesudah** 106000.
+
+- **Keputusan owner:** grup `setoran_outlet`/`office` diganti 3 rekening, masing-masing sisi Bank & Cash:
+  - **Rekening Utama** (`utama`): Bank 0955193763 — omzet transfer outlet → ditransfer ke Bahan Baku Bank. Sisi Cash **tidak dibuat**.
+  - **Rekening Bahan Baku** (`bahan_baku`): Bank **0955353124** (baru, UUID `b0955353-1240-4c0e-9a11-5e70a0000004`) + Tunai (`a64f9484…`, dulu Kas Setoran Tunai) — omzet tunai; bayar bahan baku & payroll.
+  - **Rekening Petty Cash** (`petty_cash`): Bank 0955381004 + Tunai (dulu Kas Office) — receh setoran & Income Lainnya; pencairan petty cash outlet.
+- **Setor ke Bank** kini Bahan Baku Tunai → Bahan Baku Bank (kelipatan Rp 50.000), receh → Petty Cash Tunai. Setoran outlet: transfer → Utama, tunai → Bahan Baku Tunai (`kas_tujuan_setoran_ok`). Pilihan sumber Gaji & Supplier di finance = Rekening Bahan Baku Bank (UI saja, belum ada penjaga DB).
+- Uji baru `supabase/verifikasi/kas_office/t6_tiga_rekening.sql`; t1–t4 & skrip November disesuaikan. RED t6 sudah dijalankan (pemetaan 0 dari 5).
+
 **Last updated:** 2026-11-05  
 **Owner:** Dev Suka Shawarma
 

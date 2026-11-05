@@ -23,7 +23,7 @@ export interface CashLocation {
   opening_date: string
   created_at: string
   /** Kelompok kas pusat; NULL untuk kas kecil outlet & lokasi lama. */
-  grup?: 'setoran_outlet' | 'office' | null
+  grup?: 'utama' | 'bahan_baku' | 'petty_cash' | null
 }
 
 export interface CashBalance {

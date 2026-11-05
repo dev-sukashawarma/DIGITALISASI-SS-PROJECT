@@ -40,11 +40,11 @@ BEGIN
     RAISE EXCEPTION 'Metode pencairan tidak valid';
   END IF;
   PERFORM 1 FROM public.cash_location
-  WHERE id = p_cash_location_id AND is_active AND grup = 'office' AND scope = 'pusat'
+  WHERE id = p_cash_location_id AND is_active AND grup = 'petty_cash' AND scope = 'pusat'
     AND kind = CASE p_method WHEN 'transfer' THEN 'bank' ELSE 'cash' END
   FOR SHARE;
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Pilih sumber Kas Office aktif sesuai metode pencairan di dashboard Finance';
+    RAISE EXCEPTION 'Pilih sumber Rekening Petty Cash aktif sesuai metode pencairan di dashboard Finance';
   END IF;
 
   v_amount := COALESCE(p_final_amount, v_topup.amount);
@@ -55,7 +55,7 @@ BEGIN
   SELECT saldo INTO v_saldo FROM public.cash_balance
   WHERE cash_location_id = p_cash_location_id FOR UPDATE;
   IF v_amount > COALESCE(v_saldo, 0) THEN
-    RAISE EXCEPTION 'Saldo Kas Office tidak mencukupi';
+    RAISE EXCEPTION 'Saldo Rekening Petty Cash tidak mencukupi';
   END IF;
 
   UPDATE public.petty_cash_topups

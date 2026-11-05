@@ -15,7 +15,7 @@ import { Spinner, EmptyState } from '@suka/design-system'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
 import { useOutlets } from '@/hooks/useOutlets'
 import { summarizeBalances } from '@/lib/cashSummary'
-import { ringkasGrup, lokasiGrup, GRUP_LABEL, type GrupKas } from '@/lib/kas/grupKas'
+import { ringkasGrup, lokasiGrup, GRUP_LABEL, URUTAN_GRUP, type GrupKas } from '@/lib/kas/grupKas'
 import { isTestOutlet, isExcludedOutlet } from '@/lib/outletFilters'
 import { tanggal, rupiah } from '@/lib/format'
 import { TxStatusBadge } from '@/components/ui'
@@ -50,7 +50,7 @@ export default function DashboardClient() {
 
   const summary = summarizeBalances(locations)
   const grup = ringkasGrup(locations)
-  const rekSetoran = lokasiGrup(locations, 'setoran_outlet', 'bank')[0]
+  const rekSetoran = lokasiGrup(locations, 'utama', 'bank')[0]
 
   // Filter pusat vs outlet (hilangkan outlet test & outlet nonaktif)
   const pusatLocations = useMemo(() => {
@@ -219,11 +219,11 @@ export default function DashboardClient() {
 
   const bankCardValue = isShowingDeposit 
     ? (isFiltered ? depositStats.bankTotal : allTimeStats.bankTotal)
-    : grup.setoran_outlet.bank
+    : grup.utama.bank
 
   const cashCardValue = isShowingDeposit 
     ? (isFiltered ? depositStats.cashTotal : allTimeStats.cashTotal)
-    : grup.setoran_outlet.tunai
+    : grup.bahan_baku.tunai
 
   const filteredOutlets = useMemo(() => {
     let list = outletLocations
@@ -364,7 +364,7 @@ export default function DashboardClient() {
                   className="w-full pl-7 pr-7 py-1.5 text-xs font-semibold rounded-xl bg-suka-gray-50 border border-suka-brown/10 focus:outline-none focus:border-suka-primary/40 focus:bg-white transition-all appearance-none cursor-pointer truncate"
                 >
                   <option value="all">Semua Cabang &amp; Pusat</option>
-                  <option value="pusat_only">Hanya Kantor Pusat (Kas Setoran &amp; Kas Office)</option>
+                  <option value="pusat_only">Hanya Kantor Pusat (3 rekening)</option>
                   <optgroup label="Daftar Cabang Outlet">
                     {outletList.map((o) => (
                       <option key={o.id} value={o.name}>
@@ -500,12 +500,12 @@ export default function DashboardClient() {
             <div className="mt-3 pt-2.5 border-t border-suka-brown/5 flex items-center justify-between text-[11px] text-suka-gray-400">
               <span>
                 {isShowingDeposit ? (
-                  <>Saldo Rekening Setoran: <b className="text-suka-ink font-semibold">{rupiah(grup.setoran_outlet.bank)}</b></>
+                  <>Saldo Rekening Utama: <b className="text-suka-ink font-semibold">{rupiah(grup.utama.bank)}</b></>
                 ) : (
                   <>Setoran masuk ({periodLabel}): <b className="text-suka-ink font-semibold">{rupiah(depositStats.bankTotal)}</b></>
                 )}
               </span>
-              <span className="font-semibold text-blue-600">Kas Setoran Outlet</span>
+              <span className="font-semibold text-blue-600">Rekening Utama</span>
             </div>
           </div>
 
@@ -548,14 +548,14 @@ export default function DashboardClient() {
                   <span>{allTimeStats.cashCount} transaksi tunai tercatat di kas fisik pusat</span>
                 )
               ) : (
-                <span>Kas Setoran Tunai / Brankas Kantor Pusat</span>
+                <span>Rekening Bahan Baku Tunai / Brankas Kantor Pusat</span>
               )}
             </div>
 
             <div className="mt-3 pt-2.5 border-t border-suka-brown/5 flex items-center justify-between text-[11px] text-suka-gray-400">
               <span>
                 {isShowingDeposit ? (
-                  <>Saldo Kas Setoran Tunai: <b className="text-suka-ink font-semibold">{rupiah(grup.setoran_outlet.tunai)}</b></>
+                  <>Saldo Rekening Bahan Baku Tunai: <b className="text-suka-ink font-semibold">{rupiah(grup.bahan_baku.tunai)}</b></>
                 ) : (
                   <>Setoran tunai ({periodLabel}): <b className="text-suka-ink font-semibold">{rupiah(depositStats.cashTotal)}</b></>
                 )}
@@ -699,7 +699,7 @@ export default function DashboardClient() {
                   </div>
 
                   <div className="space-y-3">
-                    {(['setoran_outlet', 'office'] as GrupKas[]).map((g) => (
+                    {URUTAN_GRUP.map((g: GrupKas) => (
                       <div key={g} className="space-y-1.5">
                         <div className="flex items-center justify-between text-[11px] font-bold text-suka-gray-500">
                           <span>{GRUP_LABEL[g]}</span>

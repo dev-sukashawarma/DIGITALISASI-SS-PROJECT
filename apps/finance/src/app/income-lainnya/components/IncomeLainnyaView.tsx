@@ -21,7 +21,7 @@ export function IncomeLainnyaView() {
   const supabase = useMemo(() => createClient(), [])
   const { locations } = useCashOverview()
   const { data: outlets = [] } = useOutlets()
-  const kasOffice = lokasiGrup(locations, 'office')
+  const kasOffice = lokasiGrup(locations, 'petty_cash')
 
   const hariIni = hariIniWib()
   const [from, setFrom] = useState(`${hariIni.slice(0, 7)}-01`)
@@ -43,7 +43,7 @@ export function IncomeLainnyaView() {
   const lokasiDipilih = lokasi || kasOffice[0]?.id || ''
   const galat =
     validasiIncome({ kategori, keterangan, pembeli, amount, adaBukti: !!proofFile }) ??
-    (lokasiDipilih ? null : 'Belum ada lokasi Kas Office aktif')
+    (lokasiDipilih ? null : 'Belum ada Rekening Petty Cash aktif')
 
   const simpan = () => {
     if (galat || !proofFile) return
@@ -84,10 +84,10 @@ export function IncomeLainnyaView() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Kas Office</p>
+        <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Rekening Petty Cash</p>
         <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Income Lainnya</h1>
         <p className="text-suka-ink/60 mt-2 font-medium">
-          Penjualan minyak jelantah, kardus, kompan, dan equipment bekas. Masuk Kas Office sebagai pendapatan pusat.
+          Penjualan minyak jelantah, kardus, kompan, dan equipment bekas. Masuk Rekening Petty Cash sebagai pendapatan pusat.
         </p>
       </div>
 

@@ -26,13 +26,13 @@ function showModal(locations: Array<Pick<LocationWithBalance, 'id' | 'label' | '
 
 it('mewajibkan sumber Office sesuai metode dan mengirim lokasi yang ditampilkan', async () => {
   const { onApprove } = showModal([
-    { id: 'setoran', label: 'Rekening Setoran', grup: 'setoran_outlet', kind: 'bank', is_active: true, saldo: 1_000_000 },
-    { id: 'bank', label: 'Rekening Office', grup: 'office', kind: 'bank', is_active: true, saldo: 90_000 },
-    { id: 'tunai', label: 'Kas Office Tunai', grup: 'office', kind: 'cash', is_active: true, saldo: 100_000 },
+    { id: 'setoran', label: 'Rekening Utama', grup: 'utama', kind: 'bank', is_active: true, saldo: 1_000_000 },
+    { id: 'bank', label: 'Rekening Petty Cash', grup: 'petty_cash', kind: 'bank', is_active: true, saldo: 90_000 },
+    { id: 'tunai', label: 'Rekening Petty Cash Tunai', grup: 'petty_cash', kind: 'cash', is_active: true, saldo: 100_000 },
   ])
   const cairkan = screen.getByRole('button', { name: 'Acc & Cairkan' })
   expect(cairkan).toBeDisabled()
-  expect(screen.getByText(/Saldo Kas Office tidak mencukupi/)).toBeVisible()
+  expect(screen.getByText(/Saldo Rekening Petty Cash tidak mencukupi/)).toBeVisible()
 
   fireEvent.click(screen.getByRole('radio', { name: /Beri Tunai/ }))
   expect(cairkan).toBeEnabled()
@@ -42,7 +42,7 @@ it('mewajibkan sumber Office sesuai metode dan mengirim lokasi yang ditampilkan'
 
 it('memblokir pencairan tanpa lokasi Office aktif dan tetap mengizinkan penolakan', async () => {
   const { onApprove, onReject } = showModal([
-    { id: 'lama', label: 'Rekening lama', grup: 'office', kind: 'bank', is_active: false, saldo: 1_000_000 },
+    { id: 'lama', label: 'Rekening lama', grup: 'petty_cash', kind: 'bank', is_active: false, saldo: 1_000_000 },
   ])
   const cairkan = screen.getByRole('button', { name: 'Acc & Cairkan' })
   expect(cairkan).toBeDisabled()

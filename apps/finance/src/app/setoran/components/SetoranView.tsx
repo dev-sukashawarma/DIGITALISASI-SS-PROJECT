@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Button, Spinner, CurrencyInput } from '@suka/design-system'
 import { Banknote, Landmark, Pencil, Trash2, X, Receipt } from 'lucide-react'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
-import { lokasiGrup, ringkasGrup } from '@/lib/kas/grupKas'
+import { lokasiTujuanSetoran, ringkasGrup } from '@/lib/kas/grupKas'
 import { SetorBankModal } from './SetorBankModal'
 import { useOutlets, useCashDeposit, useUpdateCashDepositMethod, useDeleteCashDeposit } from '@/hooks/useCashDeposit'
 import { useExpectedCash } from '@/hooks/useExpectedCash'
@@ -52,10 +52,10 @@ export function SetoranView({
   // Setoran hanya boleh masuk ke rekening/kas PUSAT (bukan kas kecil outlet);
   // record_cash_deposit menolak lokasi lain. Transfer -> bank pusat, langsung -> kas pusat.
   const targetKind = depositMethod === 'transfer' ? 'bank' : 'cash'
-  const destinationOptions = lokasiGrup(locations, 'setoran_outlet', targetKind)
+  const destinationOptions = lokasiTujuanSetoran(locations, targetKind)
 
   const editTargetKind = editMethod === 'transfer' ? 'bank' : 'cash'
-  const editDestinationOptions = lokasiGrup(locations, 'setoran_outlet', editTargetKind)
+  const editDestinationOptions = lokasiTujuanSetoran(locations, editTargetKind)
 
   useEffect(() => {
     setLocation(destinationOptions[0]?.id ?? '')
@@ -65,7 +65,7 @@ export function SetoranView({
   const selectedLocation = locations.find((l) => l.id === location)
   const { data: expectedCash = 0, isLoading: isLoadingExpected } = useExpectedCash(outletId || null, salesDate)
 
-  const kasSetoran = ringkasGrup(locations).setoran_outlet
+  const grupKas = ringkasGrup(locations)
   const deposits = txs.filter((t) => t.source_type === 'cash_deposit')
 
   const openActionModal = (tx: CashTransaction) => {
@@ -85,7 +85,7 @@ export function SetoranView({
   const handleSelectEditMethod = (method: DepositMethod) => {
     setEditMethod(method)
     const kind = method === 'transfer' ? 'bank' : 'cash'
-    const opts = lokasiGrup(locations, 'setoran_outlet', kind)
+    const opts = lokasiTujuanSetoran(locations, kind)
     if (editingTx && editingTx.cash_location?.kind === kind) {
       setEditLocation(editingTx.cash_location_id)
     } else {
@@ -183,15 +183,15 @@ export function SetoranView({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="Rekening Setoran" value={rupiah(kasSetoran.bank)} icon={<Landmark size={22} />} tone="blue" hint="Kas Setoran Outlet · transfer" />
-        <StatCard label="Kas Setoran Tunai" value={rupiah(kasSetoran.tunai)} icon={<Banknote size={22} />} tone="orange" hint="Kas Setoran Outlet · tunai, belum disetor ke bank" />
+        <StatCard label="Rekening Utama" value={rupiah(grupKas.utama.bank)} icon={<Landmark size={22} />} tone="blue" hint="Setoran transfer outlet" />
+        <StatCard label="Rekening Bahan Baku Tunai" value={rupiah(grupKas.bahan_baku.tunai)} icon={<Banknote size={22} />} tone="orange" hint="Setoran tunai outlet, belum disetor ke bank" />
       </div>
       <div className="flex justify-end">
-        <Button onClick={() => setShowSetorBank(true)} disabled={kasSetoran.tunai <= 0}>
+        <Button onClick={() => setShowSetorBank(true)} disabled={grupKas.bahan_baku.tunai <= 0}>
           Setor ke Bank
         </Button>
       </div>
-      <SetorBankModal open={showSetorBank} onClose={() => setShowSetorBank(false)} saldoTunai={kasSetoran.tunai} />
+      <SetorBankModal open={showSetorBank} onClose={() => setShowSetorBank(false)} saldoTunai={grupKas.bahan_baku.tunai} />
 
       <SectionCard title="Catat Setoran Baru">
         {locations.length === 0 ? (

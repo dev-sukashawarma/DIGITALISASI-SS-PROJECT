@@ -43,8 +43,10 @@ export async function updateCashDepositMethodAction(input: {
   if (loc.scope !== 'pusat') {
     throw new Error('Setoran harus ke rekening/kas pusat')
   }
-  if (loc.grup !== 'setoran_outlet') {
-    throw new Error('Setoran harus ke Kas Setoran Outlet')
+  // Sama dengan DB (kas_tujuan_setoran_ok): transfer → Rekening Utama, tunai → Rekening Bahan Baku Tunai.
+  const tujuanSah = (loc.kind === 'bank' && loc.grup === 'utama') || (loc.kind === 'cash' && loc.grup === 'bahan_baku')
+  if (!tujuanSah) {
+    throw new Error('Setoran transfer harus ke Rekening Utama, setoran tunai ke Rekening Bahan Baku Tunai')
   }
 
   const newCategory = loc.kind === 'bank' ? 'Setoran Bank' : 'Setoran Tunai'

@@ -139,7 +139,7 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
           <ArrowDownToLine className="w-7 h-7 text-blue-600" />
           Persetujuan & Pencairan Finance (Data Real)
         </h1>
-        <p className="text-gray-500 mt-1 text-sm">Pencairan dana Petty Cash outlet diproses dari Kas Office melalui dashboard Finance.</p>
+        <p className="text-gray-500 mt-1 text-sm">Pencairan dana Petty Cash outlet diproses dari Rekening Petty Cash melalui dashboard Finance.</p>
       </div>
 
       {/* Action Needed Section */}

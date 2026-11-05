@@ -1,4 +1,4 @@
--- Uji Task 4: penjaga grup di record_cash_deposit & finance_process_petty_cash(_custom).
+-- Uji Task 4 (+ 20261105107000; jalankan sesudah 106000 & 107000 diterapkan): penjaga grup di record_cash_deposit & finance_process_petty_cash(_custom).
 -- Berakhir ROLLBACK. Penanda keberhasilan: 'KONTROL: T4 ...'.
 -- Fixture topup: baris forwarded_to_finance yang ada (dikembalikan oleh ROLLBACK).
 BEGIN;
@@ -24,22 +24,22 @@ BEGIN
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c_fin, 'role', 'authenticated')::text, true);
 
   BEGIN PERFORM record_cash_deposit(c_office_cash, 10000, c_outlet); RAISE EXCEPTION 'T4a LOLOS';
-  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Kas Setoran Outlet%' THEN RAISE; END IF; END;
+  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Rekening Utama%' THEN RAISE; END IF; END;
   PERFORM record_cash_deposit(c_setoran, 10000, c_outlet);  -- T4b: harus lolos
 
   BEGIN PERFORM finance_process_petty_cash(c_topup, 'approve', 'transfer', c_setoran); RAISE EXCEPTION 'T4c LOLOS';
-  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Kas Office%' THEN RAISE; END IF; END;
+  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Petty Cash%' THEN RAISE; END IF; END;
   BEGIN PERFORM finance_process_petty_cash_custom(c_topup, 'approve', 'transfer', c_setoran); RAISE EXCEPTION 'T4d LOLOS';
-  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Kas Office%' THEN RAISE; END IF; END;
+  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Petty Cash%' THEN RAISE; END IF; END;
   BEGIN PERFORM finance_process_petty_cash(c_topup, 'approve'); RAISE EXCEPTION 'T4: sumber kosong lolos';
-  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Kas Office%' THEN RAISE; END IF; END;
+  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Petty Cash%' THEN RAISE; END IF; END;
   BEGIN PERFORM finance_process_petty_cash_custom(c_topup, 'approve', 'transfer', c_office_cash); RAISE EXCEPTION 'T4: jenis kas salah lolos';
-  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Kas Office%' THEN RAISE; END IF; END;
+  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Petty Cash%' THEN RAISE; END IF; END;
 
   INSERT INTO cash_balance (cash_location_id, saldo) VALUES (c_office_bank, 0)
   ON CONFLICT (cash_location_id) DO UPDATE SET saldo = 0;
   BEGIN PERFORM finance_process_petty_cash_custom(c_topup, 'approve', 'transfer', c_office_bank); RAISE EXCEPTION 'T4: saldo kurang lolos';
-  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Saldo Kas Office tidak mencukupi%' THEN RAISE; END IF; END;
+  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Saldo Rekening Petty Cash tidak mencukupi%' THEN RAISE; END IF; END;
 
   UPDATE cash_balance SET saldo = v_amount WHERE cash_location_id = c_office_bank;
   PERFORM finance_process_petty_cash_custom(c_topup, 'approve', 'transfer', c_office_bank);

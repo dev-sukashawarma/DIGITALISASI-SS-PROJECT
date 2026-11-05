@@ -17,7 +17,7 @@ BEGIN
   IF o1 <> o0 + 150000 THEN RAISE EXCEPTION 'T3a: saldo office +%', o1 - o0; END IF;
 
   BEGIN PERFORM record_income_lainnya(now(), 'kardus_bekas', NULL, 'X', NULL, 1000, c_bank, 'b'); RAISE EXCEPTION 'T3b LOLOS';
-  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Kas Office%' THEN RAISE; END IF; END;
+  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Rekening Petty Cash%' THEN RAISE; END IF; END;
   BEGIN PERFORM record_income_lainnya(now(), 'lainnya', ' ', 'X', NULL, 1000, c_office, 'b'); RAISE EXCEPTION 'T3c LOLOS';
   EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Keterangan%' THEN RAISE; END IF; END;
   BEGIN PERFORM record_income_lainnya(now(), 'kardus_bekas', NULL, 'X', NULL, 1000, c_office, ''); RAISE EXCEPTION 'T3d LOLOS';

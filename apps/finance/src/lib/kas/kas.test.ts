@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lokasiGrup, ringkasGrup, GRUP_LABEL } from './grupKas'
+import { lokasiGrup, ringkasGrup, GRUP_LABEL, lokasiTujuanSetoran } from './grupKas'
 import { hitungSetorBank } from './setorBank'
 import { INCOME_KATEGORI, validasiIncome } from './incomeLainnya'
 import type { LocationWithBalance } from '../types'
@@ -11,26 +11,32 @@ const loc = (p: Partial<LocationWithBalance>): LocationWithBalance => ({
 })
 
 const LOKASI = [
-  loc({ id: 'rs', kind: 'bank', grup: 'setoran_outlet', saldo: 1000 }),
-  loc({ id: 'ts', kind: 'cash', grup: 'setoran_outlet', saldo: 200 }),
-  loc({ id: 'ro', kind: 'bank', grup: 'office', saldo: 30 }),
-  loc({ id: 'to', kind: 'cash', grup: 'office', saldo: 4 }),
+  loc({ id: 'ut', kind: 'bank', grup: 'utama', saldo: 1000 }),
+  loc({ id: 'bb', kind: 'bank', grup: 'bahan_baku', saldo: 500 }),
+  loc({ id: 'bt', kind: 'cash', grup: 'bahan_baku', saldo: 200 }),
+  loc({ id: 'pb', kind: 'bank', grup: 'petty_cash', saldo: 30 }),
+  loc({ id: 'pt', kind: 'cash', grup: 'petty_cash', saldo: 4 }),
   loc({ id: 'lama', kind: 'bank', grup: null, is_active: false, saldo: 999999 }),
   loc({ id: 'kecil', kind: 'cash', grup: null, saldo: 77 }),
 ]
 
 describe('grupKas', () => {
-  it('label grup', () => {
-    expect(GRUP_LABEL).toEqual({ setoran_outlet: 'Kas Setoran Outlet', office: 'Kas Office' })
+  it('label tiga rekening', () => {
+    expect(GRUP_LABEL).toEqual({ utama: 'Rekening Utama', bahan_baku: 'Rekening Bahan Baku', petty_cash: 'Rekening Petty Cash' })
   })
   it('lokasiGrup hanya lokasi aktif ber-grup & kind', () => {
-    expect(lokasiGrup(LOKASI, 'office', 'cash').map((l) => l.id)).toEqual(['to'])
-    expect(lokasiGrup(LOKASI, 'setoran_outlet').map((l) => l.id)).toEqual(['rs', 'ts'])
+    expect(lokasiGrup(LOKASI, 'petty_cash', 'cash').map((l) => l.id)).toEqual(['pt'])
+    expect(lokasiGrup(LOKASI, 'bahan_baku').map((l) => l.id)).toEqual(['bb', 'bt'])
+  })
+  it('setoran transfer ke Utama, tunai ke Bahan Baku Tunai', () => {
+    expect(lokasiTujuanSetoran(LOKASI, 'bank').map((l) => l.id)).toEqual(['ut'])
+    expect(lokasiTujuanSetoran(LOKASI, 'cash').map((l) => l.id)).toEqual(['bt'])
   })
   it('ringkasGrup abaikan nonaktif & tanpa grup', () => {
     expect(ringkasGrup(LOKASI)).toEqual({
-      setoran_outlet: { bank: 1000, tunai: 200, total: 1200 },
-      office: { bank: 30, tunai: 4, total: 34 },
+      utama: { bank: 1000, tunai: 0, total: 1000 },
+      bahan_baku: { bank: 500, tunai: 200, total: 700 },
+      petty_cash: { bank: 30, tunai: 4, total: 34 },
     })
   })
 })
@@ -46,7 +52,7 @@ describe('hitungSetorBank', () => {
   })
   it('tolak diambil > saldo', () => {
     expect(hitungSetorBank({ saldoTunai: 100_000, diambil: 150_000, keBank: 100_000 }).galat)
-      .toBe('Uang yang diambil melebihi saldo Kas Setoran Tunai')
+      .toBe('Uang yang diambil melebihi saldo Rekening Bahan Baku Tunai')
   })
   it('tolak ke bank > diambil', () => {
     expect(hitungSetorBank({ saldoTunai: 500_000, diambil: 50_000, keBank: 100_000 }).galat)

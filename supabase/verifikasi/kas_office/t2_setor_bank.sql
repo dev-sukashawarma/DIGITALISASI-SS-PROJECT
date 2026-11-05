@@ -6,7 +6,7 @@ DECLARE
   c_fin    uuid := '7fa90a19-3951-426f-b088-30cc536cffad';  -- admin_finance aktif
   c_leader uuid := 'eb278581-f4db-466d-a76a-6e730beb6eac';  -- leader aktif
   c_tunai  uuid := 'a64f9484-70e9-4bf7-b62d-2643835a1874';
-  c_bank   uuid := 'b0955193-7630-4c0e-9a11-5e70a0000001';
+  c_bank   uuid := 'b0955353-1240-4c0e-9a11-5e70a0000004';  -- Rekening Bahan Baku (bank)
   c_office uuid := 'b0000000-0ff1-4c0e-9a11-5e70a0000003';
   s0 numeric; b0 numeric; o0 numeric; s1 numeric; b1 numeric; o1 numeric; v uuid; n int;
 BEGIN

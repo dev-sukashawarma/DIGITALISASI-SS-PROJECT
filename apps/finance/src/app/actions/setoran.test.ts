@@ -27,16 +27,24 @@ describe('updateCashDepositMethodAction', () => {
     rows.cash_transaction = { id: 't1', cash_location_id: 'lama', status: 'reconciled', source_type: 'cash_deposit' }
   })
 
-  it('menolak pindah setoran ke lokasi Kas Office', async () => {
-    rows.cash_location = { id: 'ko', label: 'Kas Office Tunai', kind: 'cash', scope: 'pusat', is_active: true, grup: 'office' }
-    await expect(updateCashDepositMethodAction({ id: 't1', newLocationId: 'ko' }))
-      .rejects.toThrow('Setoran harus ke Kas Setoran Outlet')
+  it('menolak pindah setoran ke Rekening Petty Cash', async () => {
+    rows.cash_location = { id: 'pc', label: 'Rekening Petty Cash Tunai', kind: 'cash', scope: 'pusat', is_active: true, grup: 'petty_cash' }
+    await expect(updateCashDepositMethodAction({ id: 't1', newLocationId: 'pc' }))
+      .rejects.toThrow('Setoran transfer harus ke Rekening Utama, setoran tunai ke Rekening Bahan Baku Tunai')
     expect(updates).toHaveLength(0)
   })
 
-  it('mengizinkan pindah ke lokasi Kas Setoran Outlet', async () => {
-    rows.cash_location = { id: 'rs', label: 'Rekening Setoran', kind: 'bank', scope: 'pusat', is_active: true, grup: 'setoran_outlet' }
-    await expect(updateCashDepositMethodAction({ id: 't1', newLocationId: 'rs' }))
-      .resolves.toEqual({ success: true, locationLabel: 'Rekening Setoran' })
+  it('menolak setoran transfer ke Rekening Bahan Baku Bank', async () => {
+    rows.cash_location = { id: 'bb', label: 'Rekening Bahan Baku', kind: 'bank', scope: 'pusat', is_active: true, grup: 'bahan_baku' }
+    await expect(updateCashDepositMethodAction({ id: 't1', newLocationId: 'bb' })).rejects.toThrow('Rekening Utama')
+  })
+
+  it('mengizinkan transfer ke Rekening Utama dan tunai ke Bahan Baku Tunai', async () => {
+    rows.cash_location = { id: 'ut', label: 'Rekening Utama', kind: 'bank', scope: 'pusat', is_active: true, grup: 'utama' }
+    await expect(updateCashDepositMethodAction({ id: 't1', newLocationId: 'ut' }))
+      .resolves.toEqual({ success: true, locationLabel: 'Rekening Utama' })
+    rows.cash_location = { id: 'bt', label: 'Rekening Bahan Baku Tunai', kind: 'cash', scope: 'pusat', is_active: true, grup: 'bahan_baku' }
+    await expect(updateCashDepositMethodAction({ id: 't1', newLocationId: 'bt' }))
+      .resolves.toEqual({ success: true, locationLabel: 'Rekening Bahan Baku Tunai' })
   })
 })

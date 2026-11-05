@@ -4,10 +4,10 @@ BEGIN;
 DO $$
 DECLARE n int; ok boolean;
 BEGIN
-  SELECT count(*) INTO n FROM cash_location WHERE is_active AND grup = 'setoran_outlet';
-  IF n <> 2 THEN RAISE EXCEPTION 'T1a: lokasi aktif setoran_outlet = %, harus 2', n; END IF;
-  SELECT count(*) INTO n FROM cash_location WHERE is_active AND grup = 'office';
-  IF n <> 2 THEN RAISE EXCEPTION 'T1b: lokasi aktif office = %, harus 2', n; END IF;
+  SELECT count(*) INTO n FROM cash_location WHERE is_active AND grup IN ('utama','bahan_baku');
+  IF n <> 3 THEN RAISE EXCEPTION 'T1a: lokasi aktif utama+bahan_baku = %, harus 3', n; END IF;
+  SELECT count(*) INTO n FROM cash_location WHERE is_active AND grup = 'petty_cash';
+  IF n <> 2 THEN RAISE EXCEPTION 'T1b: lokasi aktif petty_cash = %, harus 2', n; END IF;
 
   SELECT is_active INTO ok FROM cash_location WHERE id = '0c116d5f-f147-4eff-9bc2-ce9d549e2869';
   IF ok THEN RAISE EXCEPTION 'T1c: rekening lama masih aktif'; END IF;

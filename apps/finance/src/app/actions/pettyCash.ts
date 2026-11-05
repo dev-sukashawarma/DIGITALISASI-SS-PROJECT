@@ -34,7 +34,7 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
     await requireRole(FINANCE_STAFF_ROLES)
 
     if (action === 'approve') {
-      if (!cashLocationId) throw new Error('Pilih sumber dana Kas Office')
+      if (!cashLocationId) throw new Error('Pilih sumber dana Rekening Petty Cash')
       if (method !== 'transfer' && method !== 'tunai') throw new Error('Metode pencairan tidak valid')
     }
 

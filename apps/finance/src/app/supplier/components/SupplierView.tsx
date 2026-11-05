@@ -1,5 +1,6 @@
 'use client'
 
+import { lokasiGrup } from '@/lib/kas/grupKas'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
@@ -28,7 +29,8 @@ export function SupplierView({
   initialPos?: PurchaseOrder[];
 }) {
   const { locations } = useCashOverview(initialLocations, initialBalances)
-  const bankLocations = locations.filter((l) => l.kind === 'bank' && l.is_active !== false)
+  // Bahan baku & payroll dibayar dari Rekening Bahan Baku (bank).
+  const bankLocations = lokasiGrup(locations, 'bahan_baku', 'bank')
   const { data: pos = [], isLoading } = usePayablePos(initialPos)
   const settle = useSettlePo()
   const { isFinance } = useFinanceRole()

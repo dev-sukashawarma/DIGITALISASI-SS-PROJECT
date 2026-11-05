@@ -72,8 +72,8 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
   
   const { locations, isLoading: isCashLoading, error: cashError } = useCashOverview()
 
-  // Top-up petty cash outlet hanya boleh keluar dari Kas Office (DB juga menolak selain itu).
-  const availableLocations = lokasiGrup(locations, 'office', method === 'transfer' ? 'bank' : 'cash')
+  // Top-up petty cash outlet hanya boleh keluar dari Rekening Petty Cash (DB juga menolak selain itu).
+  const availableLocations = lokasiGrup(locations, 'petty_cash', method === 'transfer' ? 'bank' : 'cash')
 
   const selectedLocation = availableLocations.find(loc => loc.id === cashLocationId) ?? availableLocations[0]
   const amountIsValid = Number.isFinite(approvedAmount) && approvedAmount > 0 && approvedAmount <= request.amount
@@ -317,7 +317,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
                     className="accent-amber-500 w-4 h-4 cursor-pointer"
                   />
                 </div>
-                <span className="text-xs text-slate-500">Uang fisik dari Kas Office Tunai</span>
+                <span className="text-xs text-slate-500">Uang fisik dari Rekening Petty Cash Tunai</span>
               </label>
             </div>
           </div>
@@ -325,7 +325,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
           {/* Custom Cash Location Selector */}
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-2">
-              Sumber Kas Office ({method === 'transfer' ? 'Rekening Office' : 'Kas Office Tunai'})
+              Sumber Rekening Petty Cash ({method === 'transfer' ? 'Bank' : 'Tunai'})
             </label>
             <div className="relative" ref={dropdownRef}>
               <button
@@ -343,7 +343,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
                   </span>
                 ) : (
                   <span className="text-slate-500">
-                    {isCashLoading ? 'Memuat saldo Kas Office…' : cashError ? 'Gagal memuat Kas Office' : 'Tidak ada sumber Kas Office aktif'}
+                    {isCashLoading ? 'Memuat saldo Rekening Petty Cash…' : cashError ? 'Gagal memuat Rekening Petty Cash' : 'Tidak ada Rekening Petty Cash aktif'}
                   </span>
                 )}
                 <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -384,7 +384,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
               )}
             </div>
             {!isCashLoading && !cashError && selectedLocation && amountIsValid && !hasEnoughBalance && (
-              <p role="status" className="mt-2 text-sm text-red-600">Saldo Kas Office tidak mencukupi untuk nominal yang disetujui.</p>
+              <p role="status" className="mt-2 text-sm text-red-600">Saldo Rekening Petty Cash tidak mencukupi untuk nominal yang disetujui.</p>
             )}
           </div>
 

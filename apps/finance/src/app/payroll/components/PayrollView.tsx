@@ -1,5 +1,6 @@
 'use client'
 
+import { lokasiGrup } from '@/lib/kas/grupKas'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
@@ -37,7 +38,8 @@ export function PayrollView({
   const [location, setLocation] = useState('')
 
   const { locations } = useCashOverview(initialLocations, initialBalances)
-  const bankLocations = locations.filter((l) => l.kind === 'bank' && l.is_active !== false)
+  // Bahan baku & payroll dibayar dari Rekening Bahan Baku (bank).
+  const bankLocations = lokasiGrup(locations, 'bahan_baku', 'bank')
   
   // Only use initial data if month and year match what was loaded initially
   const isInitialPeriod = month === currentMonth && year === currentYear

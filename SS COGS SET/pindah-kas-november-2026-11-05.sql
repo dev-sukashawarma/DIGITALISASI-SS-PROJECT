@@ -1,8 +1,8 @@
 -- Pindahkan transaksi 1–5 Nov 2026 dari rekening lama BCA 48523399425 ke kas baru.
 -- Keputusan owner (grilling 5 Nov): mulai bersih 1 Nov 2026.
---   cash_deposit (76, Rp 40.358.900)   → Rekening Setoran 0955193763
+--   cash_deposit (76, Rp 40.358.900)   → Rekening Utama 0955193763
 --   (2 baris dobel Cicurug 13:50:08 sudah di-void 5 Nov, tetap tinggal di rekening lama)
---   petty_cash_topup (16, Rp 6.900.000) → Rekening Office 0955381004
+--   petty_cash_topup (16, Rp 6.900.000) → Rekening Petty Cash 0955381004
 -- Pola per baris: status → void (trigger membalik saldo lama), pindah lokasi, status semula
 -- (trigger menambah saldo baru). Nominal & tanggal tak berubah.
 -- Default: simulasi dan rollback. Untuk eksekusi, ubah c_simulasi ke false dan ROLLBACK ke COMMIT.
@@ -21,8 +21,8 @@ DECLARE
   total0 numeric; total1 numeric; n int; s numeric; sidik text;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM cash_location WHERE id = c_lama AND NOT is_active)
-     OR NOT EXISTS (SELECT 1 FROM cash_location WHERE id = c_setoran AND is_active AND grup = 'setoran_outlet' AND kind = 'bank')
-     OR NOT EXISTS (SELECT 1 FROM cash_location WHERE id = c_office AND is_active AND grup = 'office' AND kind = 'bank') THEN
+     OR NOT EXISTS (SELECT 1 FROM cash_location WHERE id = c_setoran AND is_active AND grup = 'utama' AND kind = 'bank')
+     OR NOT EXISTS (SELECT 1 FROM cash_location WHERE id = c_office AND is_active AND grup = 'petty_cash' AND kind = 'bank') THEN
     RAISE EXCEPTION 'Status atau grup rekening berubah — berhenti';
   END IF;
   SELECT count(*) FILTER (WHERE source_type = 'cash_deposit' AND status = 'reconciled'),

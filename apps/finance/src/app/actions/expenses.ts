@@ -109,6 +109,8 @@ export async function createSingleExpenseAction(input: {
   type: string
   created_by?: string | null
   receipt_url?: string | null
+  /** Rekening Petty Cash pusat yang membayar; saldo dipotong otomatis oleh DB. */
+  cashLocationId?: string | null
 }) {
   try {
     await requireRole(PERAN_KEUANGAN)
@@ -172,7 +174,8 @@ export async function createSingleExpenseAction(input: {
         expense_date: input.expenseDate,
         period_month: input.periodMonth,
         type: input.type,
-        payment_source: input.outletId ? 'petty_cash' : 'transfer_pusat',
+        payment_source: input.outletId || input.cashLocationId ? 'petty_cash' : 'transfer_pusat',
+        cash_location_id: input.cashLocationId || null,
         created_by: validStaffId,
         receipt_url: input.receipt_url || null
       })
@@ -249,6 +252,8 @@ export async function updateSingleExpenseAction(input: {
   receipt_url?: string | null
   recipient_name?: string | null
   division?: string | null
+  /** undefined = tidak diubah; null = lepas dari rekening pusat. */
+  cashLocationId?: string | null
 }) {
   try {
     await requireRole(PERAN_KEUANGAN)
@@ -378,6 +383,14 @@ export async function updateSingleExpenseAction(input: {
       updatePayload.receipt_url = input.receipt_url
     }
 
+    if (input.cashLocationId !== undefined) {
+      updatePayload.cash_location_id = input.cashLocationId || null
+    }
+    const rekeningPembayar = input.cashLocationId !== undefined ? input.cashLocationId : currentExpense.cash_location_id
+    if (rekeningPembayar) {
+      updatePayload.payment_source = 'petty_cash'
+    }
+
     const { data, error: updateErr } = await supabase
       .from('expenses')
       .update(updatePayload)
@@ -395,4 +408,29 @@ export async function updateSingleExpenseAction(input: {
     console.error('Exception in updateSingleExpenseAction:', err)
     return { success: false, error: err?.message || 'Gagal memperbarui transaksi' }
   }
+}
+
+/** Rekening pusat yang boleh membayar belanja pusat (grup petty_cash, aktif). */
+export async function daftarRekeningPembayarAction(): Promise<{ id: string; label: string; kind: string }[]> {
+  await requireRole(PERAN_KEUANGAN)
+  const { data, error } = await getServiceSupabase()
+    .from('cash_location')
+    .select('id, label, kind')
+    .eq('grup', 'petty_cash')
+    .eq('is_active', true)
+    .order('kind')
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+/** Rekening pembayar yang tersimpan di satu baris pengeluaran (untuk mode edit). */
+export async function ambilRekeningPembayarAction(expenseId: string): Promise<string | null> {
+  await requireRole(PERAN_KEUANGAN)
+  const { data, error } = await getServiceSupabase()
+    .from('expenses')
+    .select('cash_location_id')
+    .eq('id', expenseId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return (data?.cash_location_id as string | null) ?? null
 }

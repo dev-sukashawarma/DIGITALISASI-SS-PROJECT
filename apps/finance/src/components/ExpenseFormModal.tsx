@@ -11,7 +11,13 @@ import {
 import type { Outlet } from '@/lib/types'
 import { Upload, X, FileText, Loader2, Eye } from 'lucide-react'
 import { useOutlets } from '@/hooks/useOutlets'
-import { createSingleExpenseAction, updateSingleExpenseAction, uploadExpenseInvoiceAction } from '@/app/actions/expenses'
+import {
+  createSingleExpenseAction,
+  updateSingleExpenseAction,
+  uploadExpenseInvoiceAction,
+  daftarRekeningPembayarAction,
+  ambilRekeningPembayarAction
+} from '@/app/actions/expenses'
 
 const inputCls =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange bg-white'
@@ -46,6 +52,14 @@ export function ExpenseFormModal({
   const [expenseDate, setExpenseDate] = useState(today)
   const [recipientName, setRecipientName] = useState('')
   const [division, setDivision] = useState('')
+
+  // Rekening pusat yang membayar ('' = tidak memotong saldo rekening pusat).
+  const [rekeningList, setRekeningList] = useState<{ id: string; label: string; kind: string }[]>([])
+  const [cashLocationId, setCashLocationId] = useState('')
+  // Mode edit: nilai tersimpan baru dikirim setelah terbaca, supaya tak terhapus tanpa sengaja.
+  const [rekeningSiap, setRekeningSiap] = useState(false)
+  const bisaPilihRekening =
+    !(isEdit && initialData?.source === 'petty_cash') && (initialData?.type ?? 'expense') === 'expense'
 
   // File upload state for invoice / receipt proof
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -92,6 +106,22 @@ export function ExpenseFormModal({
       setSelectedFile(null)
     }
   }, [initialData, isOpen, today])
+
+  useEffect(() => {
+    if (isOpen === false || !bisaPilihRekening) return
+    let batal = false
+    setCashLocationId('')
+    setRekeningSiap(!isEdit)
+    daftarRekeningPembayarAction()
+      .then(list => { if (!batal) setRekeningList(list) })
+      .catch(() => { if (!batal) setRekeningList([]) })
+    if (isEdit && initialData?.id) {
+      ambilRekeningPembayarAction(initialData.id)
+        .then(id => { if (!batal) { setCashLocationId(id ?? ''); setRekeningSiap(true) } })
+        .catch(() => { /* biarkan rekeningSiap=false: nilai lama tidak disentuh */ })
+    }
+    return () => { batal = true }
+  }, [isOpen, isEdit, initialData?.id, bisaPilihRekening])
 
   if (isOpen === false) return null
 
@@ -195,7 +225,8 @@ export function ExpenseFormModal({
           periodMonth: periodMonth,
           receipt_url: receiptUrl,
           recipient_name: recipientName.trim() || null,
-          division: division.trim() || null
+          division: division.trim() || null,
+          cashLocationId: bisaPilihRekening && rekeningSiap ? (cashLocationId || null) : undefined
         })
 
         if (!res.success) {
@@ -218,7 +249,8 @@ export function ExpenseFormModal({
           periodMonth: periodMonth,
           type: 'expense',
           created_by: userId,
-          receipt_url: receiptUrl
+          receipt_url: receiptUrl,
+          cashLocationId: bisaPilihRekening ? (cashLocationId || null) : null
         })
 
         if (!res.success) {
@@ -359,6 +391,30 @@ export function ExpenseFormModal({
               onChange={(e) => setExpenseDate(e.target.value)}
             />
           </label>
+
+          {bisaPilihRekening && (
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-suka-ink">
+                Dibayar dari Rekening Pusat <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
+              </span>
+              <select
+                className={inputCls}
+                value={cashLocationId}
+                disabled={isEdit && !rekeningSiap}
+                onChange={(e) => setCashLocationId(e.target.value)}
+              >
+                <option value="">— Tidak memotong saldo rekening pusat —</option>
+                {rekeningList.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label} ({r.kind === 'bank' ? 'Bank' : 'Tunai'})
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-[11px] text-suka-gray-400">
+                Pilih bila belanja ini dibayar dari Rekening Petty Cash. Saldo rekening berkurang otomatis, dan ikut menyesuaikan saat diedit atau dihapus.
+              </span>
+            </label>
+          )}
 
           {/* Opsi Input Gambar Bukti Invoice */}
           <div className="space-y-1.5">

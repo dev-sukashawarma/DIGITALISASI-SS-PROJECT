@@ -54,10 +54,12 @@ export function ExpenseFormModal({
   const [division, setDivision] = useState('')
 
   // Rekening pusat yang membayar ('' = tidak memotong saldo rekening pusat).
-  const [rekeningList, setRekeningList] = useState<{ id: string; label: string; kind: string }[]>([])
+  const [rekeningList, setRekeningList] = useState<{ id: string; label: string; kind: string; saldo: number }[]>([])
   const [cashLocationId, setCashLocationId] = useState('')
   // Mode edit: nilai tersimpan baru dikirim setelah terbaca, supaya tak terhapus tanpa sengaja.
   const [rekeningSiap, setRekeningSiap] = useState(false)
+  // Rekening tersimpan saat modal edit dibuka: potongan lamanya sudah termasuk di saldo.
+  const [rekeningAwal, setRekeningAwal] = useState('')
   const bisaPilihRekening =
     !(isEdit && initialData?.source === 'petty_cash') && (initialData?.type ?? 'expense') === 'expense'
 
@@ -111,19 +113,29 @@ export function ExpenseFormModal({
     if (isOpen === false || !bisaPilihRekening) return
     let batal = false
     setCashLocationId('')
+    setRekeningAwal('')
     setRekeningSiap(!isEdit)
     daftarRekeningPembayarAction()
       .then(list => { if (!batal) setRekeningList(list) })
       .catch(() => { if (!batal) setRekeningList([]) })
     if (isEdit && initialData?.id) {
       ambilRekeningPembayarAction(initialData.id)
-        .then(id => { if (!batal) { setCashLocationId(id ?? ''); setRekeningSiap(true) } })
+        .then(id => { if (!batal) { setCashLocationId(id ?? ''); setRekeningAwal(id ?? ''); setRekeningSiap(true) } })
         .catch(() => { /* biarkan rekeningSiap=false: nilai lama tidak disentuh */ })
     }
     return () => { batal = true }
   }, [isOpen, isEdit, initialData?.id, bisaPilihRekening])
 
   if (isOpen === false) return null
+
+  const formatRp = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
+  const rekeningTerpilih = rekeningList.find(r => r.id === cashLocationId)
+  // Saldo sebelum pengeluaran ini: kalau rekeningnya sama dengan yang tersimpan,
+  // potongan lama dikembalikan dulu supaya tidak terhitung dua kali.
+  const saldoSebelum = rekeningTerpilih
+    ? rekeningTerpilih.saldo + (isEdit && rekeningAwal === rekeningTerpilih.id ? Number(initialData?.amount || 0) : 0)
+    : 0
+  const sisaSaldo = saldoSebelum - (Number(amount) || 0)
 
   const handleCategoryChange = (newCat: ExpenseCategory) => {
     setCategory(newCat)
@@ -406,10 +418,16 @@ export function ExpenseFormModal({
                 <option value="">— Tidak memotong saldo rekening pusat —</option>
                 {rekeningList.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.label} ({r.kind === 'bank' ? 'Bank' : 'Tunai'})
+                    {r.label} ({r.kind === 'bank' ? 'Bank' : 'Tunai'}) · Saldo {formatRp(r.saldo)}
                   </option>
                 ))}
               </select>
+              {rekeningTerpilih && (
+                <span className={`mt-1.5 block rounded-lg px-2.5 py-1.5 text-xs font-semibold ${sisaSaldo < 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                  Saldo saat ini {formatRp(saldoSebelum)} → sisa setelah disimpan {formatRp(sisaSaldo)}
+                  {sisaSaldo < 0 && ' (saldo di sistem akan minus, cek saldo awal rekening)'}
+                </span>
+              )}
               <span className="mt-1 block text-[11px] text-suka-gray-400">
                 Pilih bila belanja ini dibayar dari Rekening Petty Cash. Saldo rekening berkurang otomatis, dan ikut menyesuaikan saat diedit atau dihapus.
               </span>

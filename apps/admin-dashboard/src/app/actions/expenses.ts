@@ -411,16 +411,19 @@ export async function updateSingleExpenseAction(input: {
 }
 
 /** Rekening pusat yang boleh membayar belanja pusat (grup petty_cash, aktif). */
-export async function daftarRekeningPembayarAction(): Promise<{ id: string; label: string; kind: string }[]> {
+export async function daftarRekeningPembayarAction(): Promise<{ id: string; label: string; kind: string; saldo: number }[]> {
   await requireRole(PERAN_KEUANGAN)
   const { data, error } = await getServiceSupabase()
     .from('cash_location')
-    .select('id, label, kind')
+    .select('id, label, kind, cash_balance(saldo)')
     .eq('grup', 'petty_cash')
     .eq('is_active', true)
     .order('kind')
   if (error) throw new Error(error.message)
-  return data ?? []
+  return (data ?? []).map((r: any) => {
+    const bal = Array.isArray(r.cash_balance) ? r.cash_balance[0] : r.cash_balance
+    return { id: r.id, label: r.label, kind: r.kind, saldo: Number(bal?.saldo ?? 0) }
+  })
 }
 
 /** Rekening pembayar yang tersimpan di satu baris pengeluaran (untuk mode edit). */

@@ -3608,6 +3608,21 @@ digabung per promo; mengubah promo aktif menutup periode lama.
   cek tab Riwayat mencatat nyala/mati dengan jam yang benar.
 - Apply migration index unik `20261030100000` bila disetujui owner (riwayat tidak bergantung padanya).
 
-**Last updated:** 2026-10-30  
+## Session 2026-11-05: Kas Setoran Outlet & Kas Office + Income Lainnya (DB + finance + admin-dashboard)
+
+**Status:** DB **LIVE** — 4 migration applied & terstempel (`20261105100000` grup kas & tabel, `101000` RPC setor bank, `102000` RPC income lainnya, `103000` penjaga grup); uji `supabase/verifikasi/kas_office/t1–t4` LULUS dengan kontrol. Kode di branch `feat/kas-setoran-office`. ⚠️ **Perlu redeploy `finance` + `admin-dashboard`.** ⚠️ Pemindahan transaksi 1–5 Nov (`SS COGS SET/pindah-kas-november-2026-11-05.sql`) baru uji coba ROLLBACK — jalankan setelah deploy + OK owner.
+
+**Spec/plan:** `docs/superpowers/specs/2026-11-05-finance-kas-setoran-office-design.md`, `docs/superpowers/plans/2026-11-05-finance-kas-setoran-office.md`
+
+- **Grup kas** = kolom `cash_location.grup` (`setoran_outlet` | `office`), satu-satunya penanda. Aktif: Rekening Setoran 0955193763 + Kas Setoran Tunai (`a64f9484…`) = Kas Setoran Outlet; Rekening Office 0955381004 + Kas Office Tunai = Kas Office. UUID baru tetap: `b0955193-7630-4c0e-9a11-5e70a0000001`, `b0955381-0040-4c0e-9a11-5e70a0000002`, `b0000000-0ff1-4c0e-9a11-5e70a0000003`.
+- **Rekening lama BCA 48523399425 (`0c116d5f…`) nonaktif** sejak 5 Nov; saldo sistemnya (Rp 602,5 jt) tak lagi ikut total. Mulai bersih 1 Nov 2026 — saldo awal & rekonsiliasi **manual oleh finance**. Kas Setoran Tunai (Rp 110,9 jt sistem) juga tidak disentuh.
+- **Setor ke Bank** (`record_setor_bank`): tunai digabung lintas outlet → rekening setoran (kelipatan Rp 50.000), receh otomatis ke Kas Office Tunai; kunci `cash_balance` FOR UPDATE.
+- **Income Lainnya** (`record_income_lainnya`/`batal_income_lainnya`, tabel `income_lainnya`): hanya ke Kas Office, bukti wajib, batal = void (tak pernah DELETE). **Pendapatan pusat saja** → baris "Pendapatan Lain-lain" di Laba Perusahaan admin-dashboard (+waterfall +ekspor), tidak masuk laba outlet/mitra.
+- **Penjaga DB:** `record_cash_deposit` hanya ke grup `setoran_outlet`; `finance_process_petty_cash(_custom)` hanya dari grup `office`.
+- ⚠️ Pencatat uang baru memakai `kas_pencatat_ok()` (admin_finance/admin/owner aktif). **Jangan pakai `is_finance()`** untuk uang — memuat spv/leader/area_manager/purchasing.
+- 🔴 **Temuan, belum diperbaiki:** `finance_process_petty_cash(_custom)` tanpa cek peran dan EXECUTE untuk PUBLIC+anon (pre-existing).
+- Payroll & pelunasan PO sengaja tidak diberi penjaga grup (spec diam).
+
+**Last updated:** 2026-11-05  
 **Owner:** Dev Suka Shawarma
 

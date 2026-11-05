@@ -128,7 +128,7 @@ export function ExpenseFormModal({
 
   if (isOpen === false) return null
 
-  const formatRp = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
+  const formatRp = (n: number) => (n < 0 ? '-Rp ' : 'Rp ') + Math.abs(Math.round(n)).toLocaleString('id-ID')
   const rekeningTerpilih = rekeningList.find(r => r.id === cashLocationId)
   // Saldo sebelum pengeluaran ini: kalau rekeningnya sama dengan yang tersimpan,
   // potongan lama dikembalikan dulu supaya tidak terhitung dua kali.
@@ -407,7 +407,7 @@ export function ExpenseFormModal({
           {bisaPilihRekening && (
             <label className="text-sm">
               <span className="mb-1 block font-medium text-suka-ink">
-                Dibayar dari Rekening Pusat <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
+                Dibayar dari <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
               </span>
               <select
                 className={inputCls}
@@ -415,22 +415,18 @@ export function ExpenseFormModal({
                 disabled={isEdit && !rekeningSiap}
                 onChange={(e) => setCashLocationId(e.target.value)}
               >
-                <option value="">— Tidak memotong saldo rekening pusat —</option>
+                <option value="">— Tidak dari rekening pusat —</option>
                 {rekeningList.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.label} ({r.kind === 'bank' ? 'Bank' : 'Tunai'}) · Saldo {formatRp(r.saldo)}
+                    Petty Cash {r.kind === 'bank' ? 'Bank' : 'Tunai'} · {formatRp(r.saldo)}
                   </option>
                 ))}
               </select>
               {rekeningTerpilih && (
-                <span className={`mt-1.5 block rounded-lg px-2.5 py-1.5 text-xs font-semibold ${sisaSaldo < 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                  Saldo saat ini {formatRp(saldoSebelum)} → sisa setelah disimpan {formatRp(sisaSaldo)}
-                  {sisaSaldo < 0 && ' (saldo di sistem akan minus, cek saldo awal rekening)'}
+                <span className={`mt-1.5 block text-xs font-semibold ${sisaSaldo < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                  Sisa saldo: {formatRp(sisaSaldo)}{sisaSaldo < 0 && ' (minus)'}
                 </span>
               )}
-              <span className="mt-1 block text-[11px] text-suka-gray-400">
-                Pilih bila belanja ini dibayar dari Rekening Petty Cash. Saldo rekening berkurang otomatis, dan ikut menyesuaikan saat diedit atau dihapus.
-              </span>
             </label>
           )}
 

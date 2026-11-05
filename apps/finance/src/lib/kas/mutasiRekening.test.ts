@@ -1,4 +1,7 @@
-import { susunMutasi, keteranganTransaksi, batasRentangWib, type TxMutasi } from './mutasiRekening'
+import {
+  susunMutasi, keteranganTransaksi, catatanTambahan, jenisTransaksi, totalBaris, namaPencatat, batasRentangWib,
+  type TxMutasi,
+} from './mutasiRekening'
 
 const tx = (p: Partial<TxMutasi>): TxMutasi => ({
   id: p.id ?? 'x',
@@ -10,6 +13,8 @@ const tx = (p: Partial<TxMutasi>): TxMutasi => ({
   category: p.category ?? null,
   note: p.note ?? null,
   outlet_name: p.outlet_name ?? null,
+  sales_date: p.sales_date ?? null,
+  alasan: p.alasan ?? null,
 })
 
 describe('susunMutasi', () => {
@@ -28,21 +33,51 @@ describe('susunMutasi', () => {
   it('tanpa transaksi saldo akhir = saldo awal', () => {
     expect(susunMutasi(717551.98, []).ringkasan.saldoAkhir).toBe(717551.98)
   })
+
+  it('mengisi jenis dan pihak', () => {
+    const { baris } = susunMutasi(0, [tx({ source_type: 'petty_cash_topup', outlet_name: 'BEJI', direction: 'out', amount: 1 })])
+    expect(baris[0].jenis).toBe('pencairan_pc')
+    expect(baris[0].pihak).toBe('BEJI')
+    expect(susunMutasi(0, [tx({})]).baris[0].pihak).toBe('-')
+  })
 })
 
-describe('keteranganTransaksi', () => {
-  it('setoran outlet membedakan transfer dan tunai', () => {
-    expect(keteranganTransaksi(tx({ source_type: 'cash_deposit', category: 'Setoran Bank', outlet_name: 'BEJI' }))).toBe('Setoran transfer · BEJI')
-    expect(keteranganTransaksi(tx({ source_type: 'cash_deposit', category: 'Setoran Tunai', outlet_name: 'BEJI' }))).toBe('Setoran tunai · BEJI')
+describe('totalBaris', () => {
+  it('menjumlah hanya baris yang dihitung', () => {
+    const { baris } = susunMutasi(0, [
+      tx({ id: 'a', direction: 'in', amount: 100 }),
+      tx({ id: 'b', direction: 'out', amount: 40 }),
+      tx({ id: 'c', direction: 'out', amount: 999, status: 'void' }),
+    ])
+    expect(totalBaris(baris)).toEqual({ masuk: 100, keluar: 40 })
+  })
+})
+
+describe('keterangan', () => {
+  it('setoran: transfer/tunai + tanggal penjualan', () => {
+    expect(keteranganTransaksi(tx({ source_type: 'cash_deposit', category: 'Setoran Bank' }))).toBe('Transfer')
+    expect(keteranganTransaksi(tx({ source_type: 'cash_deposit', category: 'Setoran Tunai', sales_date: '2026-11-03' }))).toBe('Tunai · penjualan 2026-11-03')
+  })
+  it('pencairan petty cash: metode + alasan pengajuan', () => {
+    expect(keteranganTransaksi(tx({ source_type: 'petty_cash_topup', note: 'Pencairan Petty Cash Outlet (transfer)', alasan: 'beli gas' }))).toBe('Transfer · beli gas')
+    expect(keteranganTransaksi(tx({ source_type: 'petty_cash_topup', note: 'Pencairan Petty Cash Outlet (tunai)' }))).toBe('Tunai')
   })
   it('belanja pusat membuang awalan [Kategori: ...]', () => {
-    expect(keteranganTransaksi(tx({ source_type: 'expense_pusat', category: 'Belanja pusat', note: '[Kategori: transport] Bensin' }))).toBe('Belanja pusat · Bensin')
+    expect(keteranganTransaksi(tx({ source_type: 'expense_pusat', category: 'Belanja pusat', note: '[Kategori: transport] Bensin' }))).toBe('Bensin')
   })
-  it('manual memakai kategori lalu catatan', () => {
-    expect(keteranganTransaksi(tx({ source_type: 'manual', category: 'Koreksi Saldo', note: 'Kalisari' }))).toBe('Koreksi Saldo · Kalisari')
+  it('manual: kategori, catatan panjang terpisah', () => {
+    const t = tx({ source_type: 'manual', category: 'Koreksi Saldo', note: 'Kalisari 500rb' })
+    expect(keteranganTransaksi(t)).toBe('Koreksi Saldo')
+    expect(catatanTambahan(t)).toBe('Kalisari 500rb')
+    expect(jenisTransaksi(t)).toBe('penyesuaian')
   })
-  it('pencairan petty cash menyebut outlet', () => {
-    expect(keteranganTransaksi(tx({ source_type: 'petty_cash_topup', note: 'Pencairan Petty Cash Outlet (transfer)', outlet_name: 'MITRA KALISARI' }))).toBe('Pencairan petty cash · MITRA KALISARI')
+})
+
+describe('namaPencatat', () => {
+  it('Superadmin 2 ditampilkan sebagai Hesti Qodriani', () => {
+    expect(namaPencatat('Superadmin 2')).toBe('Hesti Qodriani')
+    expect(namaPencatat('Putri')).toBe('Putri')
+    expect(namaPencatat(null)).toBeNull()
   })
 })
 

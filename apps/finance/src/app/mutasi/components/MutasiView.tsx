@@ -3,13 +3,25 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Spinner } from '@suka/design-system'
-import { FileSpreadsheet, FileText, Wallet, ArrowDownLeft, ArrowUpRight, Landmark } from 'lucide-react'
+import { FileSpreadsheet, FileText, Wallet, ArrowDownLeft, ArrowUpRight, Landmark, Paperclip } from 'lucide-react'
 import { useCashOverview } from '@/hooks/useCashData'
 import { useMutasiRekening } from '@/hooks/useMutasiRekening'
 import { rupiah, tanggalWaktu } from '@/lib/format'
 import { StatCard, SectionCard } from '@/components/ui'
 import { GRUP_LABEL } from '@/lib/kas/grupKas'
 import { eksporMutasiExcel, eksporMutasiPdf } from '@/lib/kas/eksporMutasi'
+import { JENIS_LABEL, catatanTambahan, totalBaris, type JenisMutasi } from '@/lib/kas/mutasiRekening'
+
+const WARNA_JENIS: Record<JenisMutasi, string> = {
+  setoran: 'bg-blue-50 text-blue-700',
+  pencairan_pc: 'bg-orange-50 text-suka-orange',
+  belanja_pusat: 'bg-red-50 text-red-700',
+  setor_bank: 'bg-indigo-50 text-indigo-700',
+  income_lain: 'bg-emerald-50 text-emerald-700',
+  penyesuaian: 'bg-suka-gray-100 text-suka-gray-600',
+  transfer: 'bg-purple-50 text-purple-700',
+  lainnya: 'bg-suka-gray-100 text-suka-gray-600',
+}
 
 const inputCls =
   'mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange bg-white'
@@ -30,22 +42,31 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
   const [dari, setDari] = useState(`${hariIni.slice(0, 7)}-01`)
   const [sampai, setSampai] = useState(hariIni)
   const [mengekspor, setMengekspor] = useState<'xlsx' | 'pdf' | null>(null)
+  const [jenis, setJenis] = useState<JenisMutasi | 'semua'>('semua')
 
   const rekeningId = rekening || rekeningPusat[0]?.id || ''
   const lokasi = rekeningPusat.find(l => l.id === rekeningId)
   const { data, isLoading, error } = useMutasiRekening(rekeningId, dari, sampai)
-  const baris = data?.baris ?? []
+  const semuaBaris = data?.baris ?? []
   const ringkasan = data?.ringkasan
+  const jumlahPerJenis = useMemo(() => {
+    const m = new Map<JenisMutasi, number>()
+    for (const b of semuaBaris) m.set(b.jenis, (m.get(b.jenis) ?? 0) + 1)
+    return m
+  }, [semuaBaris])
+  const disaring = jenis !== 'semua'
+  const baris = disaring ? semuaBaris.filter(b => b.jenis === jenis) : semuaBaris
+  const totalSaringan = totalBaris(baris)
 
   const namaRekening = lokasi ? `${lokasi.label} (${lokasi.kind === 'bank' ? 'Bank' : 'Tunai'})` : ''
 
-  async function ekspor(jenis: 'xlsx' | 'pdf') {
+  async function ekspor(format: 'xlsx' | 'pdf') {
     if (!data || !lokasi) return
-    setMengekspor(jenis)
+    setMengekspor(format)
     try {
-      const info = { rekening: namaRekening, dari, sampai }
-      if (jenis === 'xlsx') await eksporMutasiExcel(info, data.baris, data.ringkasan)
-      else await eksporMutasiPdf(info, data.baris, data.ringkasan)
+      const info = { rekening: namaRekening, dari, sampai, jenis: disaring ? JENIS_LABEL[jenis as JenisMutasi] : null }
+      if (format === 'xlsx') await eksporMutasiExcel(info, baris, data.ringkasan)
+      else await eksporMutasiPdf(info, baris, data.ringkasan)
     } catch (e) {
       toast.error('Gagal mengekspor: ' + (e as Error).message)
     } finally {
@@ -109,6 +130,23 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
       </div>
 
       <SectionCard title={namaRekening || 'Mutasi'}>
+        {semuaBaris.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-4 pt-4 sm:px-6">
+            {(['semua', ...Object.keys(JENIS_LABEL)] as (JenisMutasi | 'semua')[])
+              .filter(j => j === 'semua' || jumlahPerJenis.has(j))
+              .map(j => (
+                <button
+                  key={j}
+                  onClick={() => setJenis(j)}
+                  className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${
+                    jenis === j ? 'border-suka-orange bg-suka-orange text-white' : 'border-suka-gray-200 bg-white text-suka-gray-600 hover:border-suka-orange'
+                  }`}
+                >
+                  {j === 'semua' ? 'Semua' : JENIS_LABEL[j]} ({j === 'semua' ? semuaBaris.length : jumlahPerJenis.get(j)})
+                </button>
+              ))}
+          </div>
+        )}
         {isLoading ? (
           <div className="flex justify-center py-8"><Spinner size={28} /></div>
         ) : error ? (
@@ -121,31 +159,60 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
               <thead>
                 <tr className="text-left text-suka-gray-500">
                   <th className="py-2 px-3">Tanggal</th>
+                  <th className="py-2 px-3">Jenis</th>
+                  <th className="py-2 px-3">Outlet / Pihak</th>
                   <th className="py-2 px-3">Keterangan</th>
+                  <th className="py-2 px-3">Dicatat oleh</th>
+                  <th className="py-2 px-3 text-center">Bukti</th>
                   <th className="py-2 px-3 text-right">Masuk</th>
                   <th className="py-2 px-3 text-right">Keluar</th>
-                  <th className="py-2 px-3 text-right">Saldo</th>
+                  {!disaring && <th className="py-2 px-3 text-right">Saldo</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
-                {baris.map(b => (
-                  <tr key={b.id} className={b.dihitung ? '' : 'opacity-50'}>
-                    <td className="py-2.5 px-3 whitespace-nowrap text-suka-gray-500">{tanggalWaktu(b.occurred_at)}</td>
-                    <td className={`py-2.5 px-3 text-suka-ink ${b.dihitung ? '' : 'line-through'}`}>
-                      {b.keterangan}
-                      {!b.dihitung && <span className="ml-2 rounded bg-suka-gray-100 px-1.5 py-0.5 text-[10px] font-bold no-underline">DIBATALKAN</span>}
-                      {b.proof_url && (
-                        <a href={b.proof_url} target="_blank" rel="noreferrer" className="ml-2 text-xs text-suka-orange hover:underline">bukti</a>
+                {baris.map(b => {
+                  const catatan = catatanTambahan(b)
+                  return (
+                    <tr key={b.id} className={b.dihitung ? '' : 'opacity-50'}>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-suka-gray-500">{tanggalWaktu(b.occurred_at)}</td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <span className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${WARNA_JENIS[b.jenis]}`}>{JENIS_LABEL[b.jenis]}</span>
+                      </td>
+                      <td className="py-2.5 px-3 text-suka-ink">{b.pihak}</td>
+                      <td className="py-2.5 px-3 text-suka-ink max-w-[360px]">
+                        <span className={b.dihitung ? '' : 'line-through'}>{b.keterangan}</span>
+                        {!b.dihitung && <span className="ml-2 rounded bg-suka-gray-100 px-1.5 py-0.5 text-[10px] font-bold">DIBATALKAN</span>}
+                        {catatan && <span className="block truncate text-xs text-suka-gray-400" title={catatan}>{catatan}</span>}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap text-suka-gray-500">{b.dicatat_oleh ?? '-'}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        {b.proof_url ? (
+                          <a href={b.proof_url} target="_blank" rel="noreferrer" title="Buka bukti"
+                            className="inline-flex rounded-lg p-1.5 text-suka-orange hover:bg-suka-orange/10">
+                            <Paperclip size={15} />
+                          </a>
+                        ) : <span className="text-suka-gray-300">-</span>}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-semibold text-emerald-600 whitespace-nowrap">{b.masuk ? rupiah(b.masuk) : ''}</td>
+                      <td className="py-2.5 px-3 text-right font-semibold text-red-600 whitespace-nowrap">{b.keluar ? rupiah(b.keluar) : ''}</td>
+                      {!disaring && (
+                        <td className={`py-2.5 px-3 text-right font-bold whitespace-nowrap ${b.saldo < 0 ? 'text-red-600' : 'text-suka-ink'}`}>
+                          {b.dihitung ? rupiah(b.saldo) : ''}
+                        </td>
                       )}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-semibold text-emerald-600">{b.masuk ? rupiah(b.masuk) : ''}</td>
-                    <td className="py-2.5 px-3 text-right font-semibold text-red-600">{b.keluar ? rupiah(b.keluar) : ''}</td>
-                    <td className={`py-2.5 px-3 text-right font-bold ${b.saldo < 0 ? 'text-red-600' : 'text-suka-ink'}`}>
-                      {b.dihitung ? rupiah(b.saldo) : ''}
-                    </td>
-                  </tr>
-                ))}
+                    </tr>
+                  )
+                })}
               </tbody>
+              {disaring && (
+                <tfoot>
+                  <tr className="border-t-2 border-suka-gray-200 font-bold">
+                    <td colSpan={6} className="py-2.5 px-3 text-suka-ink">Total {JENIS_LABEL[jenis as JenisMutasi]}</td>
+                    <td className="py-2.5 px-3 text-right text-emerald-600 whitespace-nowrap">{totalSaringan.masuk ? rupiah(totalSaringan.masuk) : ''}</td>
+                    <td className="py-2.5 px-3 text-right text-red-600 whitespace-nowrap">{totalSaringan.keluar ? rupiah(totalSaringan.keluar) : ''}</td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}

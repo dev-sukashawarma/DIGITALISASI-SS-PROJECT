@@ -16,10 +16,37 @@ export interface TxMutasi {
   sales_date?: string | null
   outlet_name?: string | null
   proof_url?: string | null
+  /** Nama akun yang mencatat. */
+  dicatat_oleh?: string | null
+  /** Alasan pengajuan (pencairan petty cash). */
+  alasan?: string | null
+}
+
+export type JenisMutasi =
+  | 'setoran'
+  | 'pencairan_pc'
+  | 'belanja_pusat'
+  | 'setor_bank'
+  | 'income_lain'
+  | 'penyesuaian'
+  | 'transfer'
+  | 'lainnya'
+
+export const JENIS_LABEL: Record<JenisMutasi, string> = {
+  setoran: 'Setoran',
+  pencairan_pc: 'Pencairan PC',
+  belanja_pusat: 'Belanja pusat',
+  setor_bank: 'Setor bank',
+  income_lain: 'Income lainnya',
+  penyesuaian: 'Penyesuaian',
+  transfer: 'Transfer',
+  lainnya: 'Lainnya',
 }
 
 export interface BarisMutasi extends TxMutasi {
+  jenis: JenisMutasi
   keterangan: string
+  pihak: string
   masuk: number
   keluar: number
   /** Saldo setelah baris ini; untuk baris yang tak menggerakkan saldo = saldo sebelumnya. */
@@ -46,36 +73,47 @@ export function nilaiBertanda(tx: Pick<TxMutasi, 'direction' | 'amount'>): numbe
   return tx.direction === 'in' ? n : -n
 }
 
-const LABEL_SUMBER: Record<string, string> = {
-  cash_deposit: 'Setoran outlet',
-  petty_cash_topup: 'Pencairan petty cash',
-  setor_bank: 'Setor ke bank',
-  income_lain: 'Income lainnya',
-  expense_pusat: 'Belanja pusat',
-  transfer: 'Transfer',
-  payroll: 'Payroll',
-  supplier_po: 'Pembayaran PO',
-  kasbon: 'Kasbon',
-  manual: 'Manual',
+export function jenisTransaksi(tx: Pick<TxMutasi, 'source_type'>): JenisMutasi {
+  switch (tx.source_type) {
+    case 'cash_deposit': return 'setoran'
+    case 'petty_cash_topup': return 'pencairan_pc'
+    case 'expense_pusat': return 'belanja_pusat'
+    case 'setor_bank': return 'setor_bank'
+    case 'income_lain': return 'income_lain'
+    case 'manual': return 'penyesuaian'
+    case 'transfer': return 'transfer'
+    default: return 'lainnya'
+  }
 }
 
-/** Keterangan singkat satu transaksi, seperti baris rekening koran. */
+function bersih(s: string | null | undefined): string {
+  return (s ?? '').replace(/^\[Kategori:[^\]]*\]\s*/, '').trim()
+}
+
+/** Keterangan ringkas (jenis & outlet punya kolom sendiri). */
 export function keteranganTransaksi(tx: TxMutasi): string {
-  const sumber = LABEL_SUMBER[tx.source_type] ?? tx.source_type
-  const outlet = tx.outlet_name?.trim()
-  const note = (tx.note ?? '').replace(/^\[Kategori:[^\]]*\]\s*/, '').trim()
   switch (tx.source_type) {
     case 'cash_deposit': {
-      const jenis = /bank|transfer/i.test(tx.category ?? '') ? 'transfer' : 'tunai'
-      return [`Setoran ${jenis}`, outlet].filter(Boolean).join(' · ')
+      const jenis = /bank|transfer/i.test(tx.category ?? '') ? 'Transfer' : 'Tunai'
+      return tx.sales_date ? `${jenis} · penjualan ${tx.sales_date}` : jenis
     }
-    case 'petty_cash_topup':
-      return [sumber, outlet].filter(Boolean).join(' · ')
+    case 'petty_cash_topup': {
+      const metode = /tunai/i.test(tx.note ?? '') ? 'Tunai' : 'Transfer'
+      const alasan = bersih(tx.alasan)
+      return alasan ? `${metode} · ${alasan}` : metode
+    }
     case 'manual':
-      return [tx.category?.trim() || 'Transaksi manual', note].filter(Boolean).join(' · ')
+      return tx.category?.trim() || bersih(tx.note) || 'Transaksi manual'
     default:
-      return [sumber, note || tx.category?.trim(), outlet].filter(Boolean).join(' · ')
+      return bersih(tx.note) || tx.category?.trim() || '-'
   }
+}
+
+/** Catatan panjang di bawah keterangan (hanya bila tidak sudah tercakup). */
+export function catatanTambahan(tx: TxMutasi): string {
+  if (tx.source_type !== 'manual') return ''
+  const note = bersih(tx.note)
+  return note && note !== tx.category?.trim() ? note : ''
 }
 
 /** Urutkan menaik lalu hitung saldo berjalan mulai dari saldoAwal. */
@@ -98,12 +136,35 @@ export function susunMutasi(saldoAwal: number, txs: TxMutasi[]): { baris: BarisM
       totalKeluar += keluar
       jumlah += 1
     }
-    return { ...tx, keterangan: keteranganTransaksi(tx), masuk, keluar, saldo, dihitung: ok }
+    return {
+      ...tx,
+      jenis: jenisTransaksi(tx),
+      keterangan: keteranganTransaksi(tx),
+      pihak: tx.outlet_name?.trim() || '-',
+      masuk,
+      keluar,
+      saldo,
+      dihitung: ok,
+    }
   })
   return {
     baris,
     ringkasan: { saldoAwal, totalMasuk, totalKeluar, saldoAkhir: saldo, jumlahTransaksi: jumlah },
   }
+}
+
+/** Total masuk/keluar baris yang dihitung (dipakai saat tabel disaring per jenis). */
+export function totalBaris(baris: BarisMutasi[]): { masuk: number; keluar: number } {
+  return baris.reduce(
+    (t, b) => (b.dihitung ? { masuk: t.masuk + b.masuk, keluar: t.keluar + b.keluar } : t),
+    { masuk: 0, keluar: 0 },
+  )
+}
+
+/** Nama akun lama yang kini dipegang orang lain (sama dengan lib/expenseRow). */
+export function namaPencatat(nama: string | null | undefined): string | null {
+  if (!nama) return null
+  return /superadmin\s*2/i.test(nama) ? 'Hesti Qodriani' : nama
 }
 
 /** Batas rentang tanggal WIB (inklusif) → ISO untuk filter occurred_at. */

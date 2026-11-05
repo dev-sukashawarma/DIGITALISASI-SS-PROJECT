@@ -79,7 +79,7 @@ export function TransaksiView({
               <select value={location} onChange={(e) => setLocation(e.target.value)}
                 className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange">
                 <option value="">— pilih —</option>
-                {locations.map((l) => <option key={l.id} value={l.id}>{l.label} ({l.kind === 'bank' ? 'Bank' : 'Tunai'})</option>)}
+                {locations.filter((l) => l.is_active !== false).map((l) => <option key={l.id} value={l.id}>{l.label} ({l.kind === 'bank' ? 'Bank' : 'Tunai'})</option>)}
               </select>
             </label>
             <label className="text-sm font-semibold text-suka-gray-600">

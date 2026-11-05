@@ -3623,6 +3623,8 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - **Validasi pencairan lanjutan** (`20261105104000`, uji produksi dengan ROLLBACK lulus, belum applied): RPC hanya untuk Finance aktif, sumber Kas Office wajib sesuai metode, dan saldo dikunci saat pencairan. Approval dari Admin Dashboard diarahkan ke modal Finance. Terapkan migration saat merilis kedua app.
 - **Simulasi pemindahan terverifikasi ulang:** 74 setoran Rp 39.076.900 dan 16 pencairan Rp 6.900.000. Skrip memverifikasi ID, relasi topup, status rekening, dan total saldo sebelum COMMIT. Pemindahan mengurangi saldo Rekening Office Rp 6.900.000 sebelum penyesuaian saldo awal hasil rekonsiliasi Finance.
 - Payroll & pelunasan PO sengaja tidak diberi penjaga grup (spec diam).
+- **Rekening lama ditutup di DB** (`20261105105000`, applied+terstempel, uji t5 LULUS): trigger `trg_cash_00_tolak_lokasi_nonaktif` menolak INSERT / pemindahan baris ke lokasi kas nonaktif dari jalur apa pun; baris lama tetap bisa di-void/dipindah keluar. Pemicunya jalur **"Setoran Gabungan AM Binaan … di-approve Kak Hesti"** yang menulis langsung ke rekening lama — teksnya **tidak ada di repo/git**, penulisnya di luar kode (24 baris sejak 4 Nov, Rp 11.946.000; 2 pasang dobel Cicurug 13:49/13:50 = kelebihan Rp 1.282.000, belum dibereskan). Jalur itu kini akan gagal dengan pesan "sudah nonaktif". Pilihan Gaji/Supplier/Transaksi Manual/leader di finance menyaring lokasi nonaktif.
+- ⚠️ Skrip pemindahan November **sengaja gagal** (angka 74→78 setoran); perlu diperbarui setelah dobel dibereskan dan setelah finance memastikan saldo awal Rekening Office (Rp 1.617.551,98) belum memotong 16 pencairan November.
 
 **Last updated:** 2026-11-05  
 **Owner:** Dev Suka Shawarma

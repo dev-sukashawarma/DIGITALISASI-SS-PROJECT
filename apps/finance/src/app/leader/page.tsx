@@ -58,7 +58,7 @@ export default function LeaderDashboardPage() {
   const pettyCashInfo = useMemo(() => {
     if (!locations) return { saldo: 0, plafon: 0 }
     // Filter for current outlet if possible, and kind 'cash'
-    let cashLocs = locations.filter(loc => loc.kind === 'cash')
+    let cashLocs = locations.filter(loc => loc.kind === 'cash' && loc.is_active !== false)
     if (myOutletId) {
       cashLocs = cashLocs.filter(loc => loc.outlet_id === myOutletId)
     }

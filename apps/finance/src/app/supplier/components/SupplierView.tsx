@@ -28,7 +28,7 @@ export function SupplierView({
   initialPos?: PurchaseOrder[];
 }) {
   const { locations } = useCashOverview(initialLocations, initialBalances)
-  const bankLocations = locations.filter((l) => l.kind === 'bank')
+  const bankLocations = locations.filter((l) => l.kind === 'bank' && l.is_active !== false)
   const { data: pos = [], isLoading } = usePayablePos(initialPos)
   const settle = useSettlePo()
   const { isFinance } = useFinanceRole()

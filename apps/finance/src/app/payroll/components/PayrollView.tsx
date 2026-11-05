@@ -37,7 +37,7 @@ export function PayrollView({
   const [location, setLocation] = useState('')
 
   const { locations } = useCashOverview(initialLocations, initialBalances)
-  const bankLocations = locations.filter((l) => l.kind === 'bank')
+  const bankLocations = locations.filter((l) => l.kind === 'bank' && l.is_active !== false)
   
   // Only use initial data if month and year match what was loaded initially
   const isInitialPeriod = month === currentMonth && year === currentYear

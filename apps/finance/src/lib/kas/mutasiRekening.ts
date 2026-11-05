@@ -161,10 +161,9 @@ export function totalBaris(baris: BarisMutasi[]): { masuk: number; keluar: numbe
   )
 }
 
-/** Nama akun lama yang kini dipegang orang lain (sama dengan lib/expenseRow). */
+/** Nama akun pencatat apa adanya (tanpa alias, supaya jejak audit sesuai akun yang login). */
 export function namaPencatat(nama: string | null | undefined): string | null {
-  if (!nama) return null
-  return /superadmin\s*2/i.test(nama) ? 'Hesti Qodriani' : nama
+  return nama?.trim() || null
 }
 
 /** Batas rentang tanggal WIB (inklusif) → ISO untuk filter occurred_at. */

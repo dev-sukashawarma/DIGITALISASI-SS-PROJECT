@@ -74,9 +74,9 @@ describe('keterangan', () => {
 })
 
 describe('namaPencatat', () => {
-  it('Superadmin 2 ditampilkan sebagai Hesti Qodriani', () => {
-    expect(namaPencatat('Superadmin 2')).toBe('Hesti Qodriani')
-    expect(namaPencatat('Putri')).toBe('Putri')
+  it('menampilkan nama akun apa adanya', () => {
+    expect(namaPencatat('Superadmin 2')).toBe('Superadmin 2')
+    expect(namaPencatat(' Putri ')).toBe('Putri')
     expect(namaPencatat(null)).toBeNull()
   })
 })

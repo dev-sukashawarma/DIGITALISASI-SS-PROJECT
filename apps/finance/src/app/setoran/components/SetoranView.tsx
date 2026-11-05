@@ -6,12 +6,12 @@ import { toast } from 'sonner'
 import { Button, Spinner, CurrencyInput } from '@suka/design-system'
 import { Banknote, Landmark, Pencil, Trash2, X, Receipt } from 'lucide-react'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
-import { lokasiGrup } from '@/lib/kas/grupKas'
+import { lokasiGrup, ringkasGrup } from '@/lib/kas/grupKas'
+import { SetorBankModal } from './SetorBankModal'
 import { useOutlets, useCashDeposit, useUpdateCashDepositMethod, useDeleteCashDeposit } from '@/hooks/useCashDeposit'
 import { useExpectedCash } from '@/hooks/useExpectedCash'
 import { rupiah, tanggalWaktu } from '@/lib/format'
 import { StatCard, SectionCard, TxStatusBadge } from '@/components/ui'
-import { summarizeBalances } from '@/lib/cashSummary'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import type { CashLocation, CashBalance, CashTransaction } from '@/lib/types'
 
@@ -41,6 +41,7 @@ export function SetoranView({
   const [proofFile, setProofFile] = useState<File | null>(null)
   const [salesDate, setSalesDate] = useState(() => new Date().toISOString().split('T')[0])
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showSetorBank, setShowSetorBank] = useState(false)
 
   // State untuk modal Action (Edit Metode Setoran / Hapus Transaksi)
   const [editingTx, setEditingTx] = useState<CashTransaction | null>(null)
@@ -64,7 +65,7 @@ export function SetoranView({
   const selectedLocation = locations.find((l) => l.id === location)
   const { data: expectedCash = 0, isLoading: isLoadingExpected } = useExpectedCash(outletId || null, salesDate)
 
-  const summary = summarizeBalances(locations)
+  const kasSetoran = ringkasGrup(locations).setoran_outlet
   const deposits = txs.filter((t) => t.source_type === 'cash_deposit')
 
   const openActionModal = (tx: CashTransaction) => {
@@ -182,9 +183,15 @@ export function SetoranView({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="Total Rekening Bank" value={rupiah(summary.totalBank)} icon={<Landmark size={22} />} tone="blue" hint="Saldo rekening bank aktif" />
-        <StatCard label="Total Kas Fisik Kantor" value={rupiah(summary.totalCash)} icon={<Banknote size={22} />} tone="orange" hint="Saldo kas fisik tunai" />
+        <StatCard label="Rekening Setoran" value={rupiah(kasSetoran.bank)} icon={<Landmark size={22} />} tone="blue" hint="Kas Setoran Outlet · transfer" />
+        <StatCard label="Kas Setoran Tunai" value={rupiah(kasSetoran.tunai)} icon={<Banknote size={22} />} tone="orange" hint="Kas Setoran Outlet · tunai, belum disetor ke bank" />
       </div>
+      <div className="flex justify-end">
+        <Button onClick={() => setShowSetorBank(true)} disabled={kasSetoran.tunai <= 0}>
+          Setor ke Bank
+        </Button>
+      </div>
+      <SetorBankModal open={showSetorBank} onClose={() => setShowSetorBank(false)} saldoTunai={kasSetoran.tunai} />
 
       <SectionCard title="Catat Setoran Baru">
         {locations.length === 0 ? (

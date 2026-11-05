@@ -35,6 +35,7 @@ import {
   ArrowLeft,
   Tags,
   type LucideIcon,
+  ScrollText,
 } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
@@ -66,6 +67,7 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/', label: 'Dashboard Kas', icon: LayoutDashboard },
       { href: '/lokasi', label: 'Rekening & Kas', icon: Landmark },
+      { href: '/mutasi', label: 'Mutasi Rekening', icon: ScrollText },
       { href: '/setoran', label: 'Setoran Tunai', icon: Banknote, aliases: ['/setoran/history'] },
       { href: '/transaksi', label: 'Transaksi Manual', icon: ArrowLeftRight },
       { href: '/income-lainnya', label: 'Income Lainnya', icon: Coins },

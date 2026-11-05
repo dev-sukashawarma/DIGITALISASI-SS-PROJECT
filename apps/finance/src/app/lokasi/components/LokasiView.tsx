@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Plus, Edit2 } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Edit2, ScrollText } from 'lucide-react'
 import { useCashOverview } from '@/hooks/useCashData'
 import { useCashMutations } from '@/hooks/useCashMutations'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
@@ -185,7 +186,18 @@ export function LokasiView({
                     <td className="py-3 text-suka-gray-500">
                       {l.kind === 'bank' ? `${l.bank_name ?? '-'} · ${l.account_no ?? '-'}` : (l.holder_name ?? '-')}
                     </td>
-                    <td className={`py-3 text-right font-bold ${l.saldo < 0 ? 'text-red-600' : 'text-suka-ink'}`}>{rupiah(l.saldo)}</td>
+                    <td className={`py-3 text-right font-bold ${l.saldo < 0 ? 'text-red-600' : 'text-suka-ink'}`}>
+                      {rupiah(l.saldo)}
+                      {l.grup && (
+                        <Link
+                          href={`/mutasi?rekening=${l.id}`}
+                          className="ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-suka-orange hover:bg-suka-orange/10"
+                          title="Lihat mutasi rekening"
+                        >
+                          <ScrollText size={14} /> Mutasi
+                        </Link>
+                      )}
+                    </td>
                     {isChecker && (
                       <td className="py-3 text-right">
                         <button

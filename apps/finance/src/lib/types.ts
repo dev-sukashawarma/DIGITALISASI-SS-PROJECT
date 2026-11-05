@@ -4,6 +4,7 @@ export type CashDirection = 'in' | 'out'
 export type CashSourceType =
   | 'payroll' | 'supplier_po' | 'expense_pusat' | 'kasbon'
   | 'cash_deposit' | 'manual' | 'transfer' | 'petty_cash_topup'
+  | 'setor_bank' | 'income_lain'
 export type CashTxStatus =
   | 'draft' | 'pending_approval' | 'approved'
   | 'paid' | 'reconciled' | 'rejected' | 'void'
@@ -21,6 +22,8 @@ export interface CashLocation {
   opening_balance: number
   opening_date: string
   created_at: string
+  /** Kelompok kas pusat; NULL untuk kas kecil outlet & lokasi lama. */
+  grup?: 'setoran_outlet' | 'office' | null
 }
 
 export interface CashBalance {

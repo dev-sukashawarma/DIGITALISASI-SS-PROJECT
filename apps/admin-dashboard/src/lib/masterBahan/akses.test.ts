@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bolehUbahData, bolehUbahHarga } from './akses'
+import { bolehTambahBahan, bolehUbahData, bolehUbahHarga } from './akses'
 
 describe('akses master bahan (cermin _peran_master)', () => {
   it('data: hanya ADMIN & OWNER', () => {
@@ -7,6 +7,14 @@ describe('akses master bahan (cermin _peran_master)', () => {
     expect(bolehUbahData('OWNER')).toBe(true)
     for (const r of ['PURCHASING', 'ADMIN_HR', 'MITRA', 'LEADER', 'AREA_MANAGER', '', null, undefined]) {
       expect(bolehUbahData(r)).toBe(false)
+    }
+  })
+  it('tambah bahan baru: ADMIN, OWNER, PURCHASING', () => {
+    expect(bolehTambahBahan('ADMIN')).toBe(true)
+    expect(bolehTambahBahan('OWNER')).toBe(true)
+    expect(bolehTambahBahan('PURCHASING')).toBe(true)
+    for (const r of ['ADMIN_HR', 'MITRA', 'LEADER', 'AREA_MANAGER', 'MARCOM', 'purchasing', '', null, undefined]) {
+      expect(bolehTambahBahan(r)).toBe(false)
     }
   })
   it('harga: ADMIN, OWNER, PURCHASING', () => {

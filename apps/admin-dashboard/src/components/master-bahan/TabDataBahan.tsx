@@ -7,7 +7,7 @@ import { useDaftarBahan } from '@/hooks/masterBahan/useDaftarBahan'
 import { useStatusHarga } from '@/hooks/masterBahan/useStatusHarga'
 import { useJumlahBatasOutlet } from '@/hooks/masterBahan/useJumlahBatasOutlet'
 import { filterAndSortBahanBaku, type SortOption } from '@/lib/bahanBaku'
-import { bolehUbahData } from '@/lib/masterBahan/akses'
+import { bolehTambahBahan, bolehUbahData } from '@/lib/masterBahan/akses'
 import {
   KELOMPOK_KATEGORI, kategoriResmi, kelompokKategori, labelKategori, ringkasSatuan, ringkasSatuanKirim, ringkasSatuanOpname,
   type KunciKelompok,
@@ -37,6 +37,7 @@ type Saringan = 'aktif' | 'belum_harga' | 'tanpa_opname' | 'nonaktif'
 export function TabDataBahan() {
   const { role } = useRole()
   const bolehData = bolehUbahData(role)
+  const bolehTambah = bolehTambahBahan(role)
   const { data: rows = [], isLoading, error } = useDaftarBahan()
   const { data: status = [] } = useStatusHarga()
   const batas = useJumlahBatasOutlet()
@@ -106,7 +107,7 @@ export function TabDataBahan() {
             { id: 'nonaktif', label: 'Nonaktif', jumlah: jumlah.nonaktif },
           ]}
         />
-        {bolehData && (
+        {bolehTambah && (
           <button onClick={() => setTambahBuka(true)}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-suka-orange px-3.5 text-sm font-bold text-white shadow-sm hover:brightness-95">
             <Plus size={16} /> Tambah Bahan

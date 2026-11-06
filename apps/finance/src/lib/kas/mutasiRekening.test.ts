@@ -99,3 +99,14 @@ describe('keterangan transfer', () => {
     })).toBe('Transfer ke Rekening Bahan Baku 0955353124 · mingguan')
   })
 })
+
+describe('top up', () => {
+  it('jenis top_up dengan keterangan sumber dana', () => {
+    const t = {
+      id: 'x', occurred_at: '2026-11-06T00:00:00Z', direction: 'in' as const, amount: 1, status: 'reconciled',
+      source_type: 'top_up', category: 'Top up dari Owner', note: 'modal awal',
+    }
+    expect(jenisTransaksi(t)).toBe('top_up')
+    expect(keteranganTransaksi(t)).toBe('Top up dari Owner · modal awal')
+  })
+})

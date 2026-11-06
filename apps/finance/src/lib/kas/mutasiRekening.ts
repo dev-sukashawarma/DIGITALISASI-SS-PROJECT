@@ -30,6 +30,7 @@ export type JenisMutasi =
   | 'income_lain'
   | 'penyesuaian'
   | 'transfer'
+  | 'top_up'
   | 'lainnya'
 
 export const JENIS_LABEL: Record<JenisMutasi, string> = {
@@ -40,6 +41,7 @@ export const JENIS_LABEL: Record<JenisMutasi, string> = {
   income_lain: 'Income lainnya',
   penyesuaian: 'Penyesuaian',
   transfer: 'Transfer',
+  top_up: 'Top up',
   lainnya: 'Lainnya',
 }
 
@@ -82,6 +84,7 @@ export function jenisTransaksi(tx: Pick<TxMutasi, 'source_type'>): JenisMutasi {
     case 'income_lain': return 'income_lain'
     case 'manual': return 'penyesuaian'
     case 'transfer': return 'transfer'
+    case 'top_up': return 'top_up'
     default: return 'lainnya'
   }
 }
@@ -105,7 +108,8 @@ export function keteranganTransaksi(tx: TxMutasi): string {
     case 'manual':
       return tx.category?.trim() || bersih(tx.note) || 'Transaksi manual'
     case 'transfer':
-      return [tx.category?.trim() || 'Transfer', bersih(tx.note)].filter(Boolean).join(' · ')
+    case 'top_up':
+      return [tx.category?.trim() || JENIS_LABEL[jenisTransaksi(tx)], bersih(tx.note)].filter(Boolean).join(' · ')
     default:
       return bersih(tx.note) || tx.category?.trim() || '-'
   }

@@ -45,15 +45,49 @@ export function usePettyCashRequests(status?: string, initialData?: PettyCashTop
 }
 
 /**
+ * Petty cash yang menunggu admin finance di Hub Approval: menunggu Acc
+ * (forwarded_to_finance) dan menunggu diserahkan ke AM (approved_by_finance).
+ * Select & join sama dengan usePettyCashRequests agar baris yang tak terlihat
+ * RLS outlet-nya tidak muncul, persis seperti badge-nya.
+ */
+export function usePettyCashMenunggu(enabled = true) {
+  const supabase = useMemo(() => createClient(), [])
+
+  return useQuery<PettyCashTopup[]>({
+    queryKey: ['petty_cash_topups', 'hub'],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('petty_cash_topups')
+        .select(`
+          *,
+          outlet_staff!petty_cash_topups_created_by_fkey(name),
+          outlets!petty_cash_topups_outlet_id_fkey!inner(name, region)
+        `)
+        .in('status', ['forwarded_to_finance', 'approved_by_finance'])
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data as any[]).map(row => ({
+        ...row,
+        reason: row.description,
+        outlet_staff: row.outlet_staff ? { name: row.outlet_staff.name } : null,
+        outlet: row.outlets ? { id: row.outlet_id, name: row.outlets.name } : null
+      })) as PettyCashTopup[]
+    },
+  })
+}
+
+/**
  * Jumlah pengajuan per status untuk badge — query count-only (HEAD), tanpa
  * menarik baris & join. Key berawalan ['petty_cash_topups'] supaya ikut
  * di-invalidate realtime dan mutasi yang sama dengan daftar lengkapnya.
  */
-export function usePettyCashCount(status: string) {
+export function usePettyCashCount(status: string, enabled = true) {
   const supabase = useMemo(() => createClient(), [])
 
   return useQuery<number>({
     queryKey: ['petty_cash_topups', 'count', status],
+    enabled,
     queryFn: async () => {
       // Inner join outlets dipertahankan agar hitungan sama dengan daftar
       // (baris yang outlet-nya tak terlihat oleh RLS tidak ikut dihitung).

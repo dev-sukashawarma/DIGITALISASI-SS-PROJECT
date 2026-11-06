@@ -16,15 +16,16 @@ export type PendingPo = {
 }
 
 /** PO menunggu approval finance (status = menunggu_approval_finance). */
-export function usePendingPos() {
+export function usePendingPos(enabled = true) {
   const supabase = useMemo(() => createClient(), [])
   return useQuery<PendingPo[]>({
     queryKey: ['po-pending-approval'],
+    enabled,
     staleTime: 30_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('purchase_order')
-        .select('id, nomor_po, supplier_nama, tanggal_po, purchase_order_item(subtotal)')
+        .select('id, nomor_po, supplier_nama, tanggal_po, updated_at, purchase_order_item(subtotal)')
         .eq('status', 'menunggu_approval_finance')
         .order('tanggal_po', { ascending: true })
       if (error) throw error
@@ -33,6 +34,7 @@ export function usePendingPos() {
         nomor_po: p.nomor_po,
         supplier_nama: p.supplier_nama,
         tanggal_po: p.tanggal_po,
+        updated_at: p.updated_at ?? undefined,
         total: (p.purchase_order_item ?? []).reduce((a: number, i: any) => a + Number(i.subtotal ?? 0), 0),
       }))
     },
@@ -44,10 +46,11 @@ export function usePendingPos() {
  * Key berawalan ['po-pending-approval'] supaya ikut di-invalidate realtime
  * dan approve/reject.
  */
-export function usePendingPoCount() {
+export function usePendingPoCount(enabled = true) {
   const supabase = useMemo(() => createClient(), [])
   return useQuery<number>({
     queryKey: ['po-pending-approval', 'count'],
+    enabled,
     staleTime: 30_000,
     queryFn: async () => {
       const { count, error } = await supabase

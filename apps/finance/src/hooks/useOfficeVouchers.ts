@@ -16,13 +16,14 @@ import {
 } from '@/app/actions/officeVoucherActions'
 import { toast } from 'sonner'
 
-export function useOfficeVouchers(filterMonth?: string) {
+export function useOfficeVouchers(filterMonth?: string, options: { enabled?: boolean } = {}) {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
   // 1. Fetch vouchers (via Server Action with service role)
   const query = useQuery<OfficeVoucher[]>({
     queryKey: ['office_vouchers', filterMonth],
+    enabled: options.enabled ?? true,
     staleTime: 10_000,
     queryFn: async () => {
       return await getOfficeVouchersAction(filterMonth)

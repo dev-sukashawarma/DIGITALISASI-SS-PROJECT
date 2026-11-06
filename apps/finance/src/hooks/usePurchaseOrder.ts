@@ -245,25 +245,6 @@ export function useUpdatePOStatus() {
   })
 }
 
-export function useUpdatePOPayment() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, paid_at, payment_status, paid_amount }: { id: string; paid_at: string | null; payment_status: string; paid_amount: number | null }) => {
-      const { error } = await supabase
-        .from('purchase_order')
-        .update({ paid_at, payment_status, paid_amount })
-        .eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ['purchase-orders'] })
-      qc.invalidateQueries({ queryKey: ['purchase-order', vars.id] })
-      toast.success('Status pembayaran PO diperbarui')
-    },
-    onError: (e: any) => toast.error(e.message),
-  })
-}
-
 export function useUploadInvoice() {
   const qc = useQueryClient()
   return useMutation({

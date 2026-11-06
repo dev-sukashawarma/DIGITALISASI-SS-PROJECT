@@ -16,6 +16,8 @@ export function useFinanceRole() {
   const isPurchasing = role === 'owner' || role === 'admin' || role === 'purchasing' || role === 'purchase' || isDeveloper
   const canManagePO = isPurchasing || role === 'admin_finance' || role === 'kitchen' || isDeveloper
   const canApprovePO = role === 'owner' || role === 'admin' || role === 'admin_finance' || isDeveloper
+  /** Boleh mengajukan pembayaran vendor (RPC ajukan_bayar_po). Yang menyetujui: isChecker. */
+  const canAjukanBayarPO = role === 'purchasing' || role === 'admin_finance' || role === 'admin' || role === 'owner' || isDeveloper
   const canVerifyPOReceipt = role === 'owner' || role === 'admin' || role === 'admin_finance' || role === 'kitchen' || isDeveloper
 
   return { 
@@ -28,5 +30,6 @@ export function useFinanceRole() {
     canManagePO,
     canApprovePO,
     canVerifyPOReceipt,
+    canAjukanBayarPO,
   }
 }

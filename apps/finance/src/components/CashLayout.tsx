@@ -77,7 +77,7 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/petty-cash', label: 'Pencairan Petty Cash', icon: Coins },
       { href: '/pengeluaran/kantor', label: 'Pengajuan Dana Kantor', icon: Building2 },
-      { href: '/supplier', label: 'Pelunasan Supplier', icon: Truck },
+      { href: '/supplier', label: 'Pembayaran Vendor', icon: Truck },
       { href: '/payroll', label: 'Pencairan Gaji', icon: Wallet },
       { href: '/laporan/buku-kas', label: 'Buku Kas (OPEX)', icon: Receipt, aliases: ['/pengeluaran'] },
     ],

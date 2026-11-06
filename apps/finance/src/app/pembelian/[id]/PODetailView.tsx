@@ -4,7 +4,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, FileText, Printer, ShieldAlert } from 'lucide-react'
-import { usePODetail, useUpdatePOStatus, useUploadInvoice, getInvoiceUrl, getSignedInvoiceUrl, useUpdatePOPayment, type POStatus, type POWithItems } from '@/hooks/usePurchaseOrder'
+import { usePODetail, useUpdatePOStatus, useUploadInvoice, getInvoiceUrl, getSignedInvoiceUrl, type POStatus, type POWithItems } from '@/hooks/usePurchaseOrder'
+import { useAjukanBayarPo } from '@/hooks/useSupplierSettlement'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
@@ -59,31 +60,17 @@ const NEXT_STATUS_LABEL: Partial<Record<POStatus, string>> = {
 
 export default function PODetailView({ id, initialData }: { id: string, initialData: POWithItems }) {
   const router = useRouter()
-  const { canVerifyPOReceipt, canManagePO } = useFinanceRole()
+  const { canVerifyPOReceipt, canManagePO, canAjukanBayarPO, isChecker } = useFinanceRole()
   const { data: po, isLoading, error } = usePODetail(id, initialData)
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
-  const updatePayment = useUpdatePOPayment()
+  const ajukanBayarPo = useAjukanBayarPo()
   const fileRef = useRef<HTMLInputElement>(null)
   const [invoiceUrls, setInvoiceUrls] = useState<string[]>([])
   const [showVerifikasi, setShowVerifikasi] = useState(false)
   const [showFinalisasi, setShowFinalisasi] = useState(false)
   const [showBatalModal, setShowBatalModal] = useState(false)
   
-  // Payment states
-  const [isEditingPayment, setIsEditingPayment] = useState(false)
-  const [paymentStatus, setPaymentStatus] = useState<string>('unpaid')
-  const [paidAt, setPaidAt] = useState<string>('')
-  const [paidAmount, setPaidAmount] = useState<number | ''>('')
-
-  useEffect(() => {
-    if (po) {
-      setPaymentStatus(po.payment_status || 'unpaid')
-      setPaidAt(po.paid_at ? po.paid_at.split('T')[0] : '')
-      setPaidAmount(po.paid_amount ?? '')
-    }
-  }, [po])
-
   useEffect(() => {
     if (!po?.invoice_urls?.length) {
       setInvoiceUrls([])
@@ -102,6 +89,16 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   )
 
   const totalPesan = po.items.reduce((s, it) => s + it.qty_pesan * it.harga_pesan, 0)
+  const bisaDiajukan = (po.status === 'sebagian_diterima' || po.status === 'diterima_lengkap') && (po.payment_status ?? 'unpaid') === 'unpaid'
+  const ajukanBayar = () => {
+    const catatan = window.prompt(`Ajukan pembayaran ${po.nomor_po} ke admin finance.
+Catatan (opsional):`, '')
+    if (catatan === null) return
+    ajukanBayarPo.mutate({ poId: po.id, catatan }, {
+      onSuccess: () => toast.success('Pembayaran diajukan, menunggu approval admin finance'),
+      onError: (e: unknown) => toast.error((e as Error).message),
+    })
+  }
   const totalTerima = po.items.reduce((s, it) =>
     s + (it.qty_terima ?? 0) * (it.harga_terima ?? it.harga_pesan), 0)
   const selisih = totalTerima - totalPesan
@@ -408,101 +405,53 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
 
       {/* Payment Info */}
       <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-5 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold text-suka-brown text-sm uppercase tracking-wider flex items-center gap-2">
             <FileText className="w-4 h-4 text-suka-orange" />
             Informasi Pembayaran
           </h2>
-          {!isEditingPayment ? (
+          {bisaDiajukan && canAjukanBayarPO && (
             <button
-              onClick={() => setIsEditingPayment(true)}
-              className="flex items-center gap-1.5 text-xs font-bold text-suka-orange hover:text-suka-brown bg-suka-orange/10 px-3.5 py-1.5 rounded-xl border border-suka-orange/20 transition-all active:scale-95 cursor-pointer"
+              onClick={ajukanBayar}
+              disabled={ajukanBayarPo.isPending}
+              className="flex items-center gap-1.5 text-xs font-bold text-white bg-suka-orange hover:bg-suka-orange/90 px-3.5 py-1.5 rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50"
             >
-              <span>Edit Pembayaran</span>
+              {ajukanBayarPo.isPending ? 'Mengajukan…' : 'Ajukan Pembayaran'}
             </button>
-          ) : null}
+          )}
+          {po.payment_status === 'pending' && isChecker && (
+            <a href="/supplier" className="text-xs font-bold text-suka-orange hover:underline">Setujui di Pembayaran Vendor →</a>
+          )}
         </div>
-        
-        {!isEditingPayment ? (
-          <div className="flex flex-wrap items-center gap-6 text-sm">
-            <div>
-              <span className="text-suka-brown/60 font-semibold block text-xs">Status Pembayaran</span>
-              <span className={`font-bold mt-1 inline-block px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider border ${PAY_BADGE[po.payment_status ?? 'unpaid']?.cls ?? PAY_BADGE.unpaid.cls}`}>
-                {PAY_BADGE[po.payment_status ?? 'unpaid']?.label ?? PAY_BADGE.unpaid.label}
-              </span>
-            </div>
-            <div>
-              <span className="text-suka-brown/60 font-semibold block text-xs">Tanggal Pembayaran</span>
-              <span className="font-bold text-suka-brown mt-1 block">
-                {po.paid_at ? new Date(po.paid_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
-              </span>
-            </div>
-            <div>
-              <span className="text-suka-brown/60 font-semibold block text-xs">Nominal Pembayaran</span>
-              <span className="font-bold text-suka-brown mt-1 block">
-                {po.paid_amount ? rupiah(po.paid_amount) : '—'}
-              </span>
-            </div>
+        <div className="flex flex-wrap items-center gap-6 text-sm">
+          <div>
+            <span className="text-suka-brown/60 font-semibold block text-xs">Status Pembayaran</span>
+            <span className={`font-bold mt-1 inline-block px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider border ${PAY_BADGE[po.payment_status ?? 'unpaid']?.cls ?? PAY_BADGE.unpaid.cls}`}>
+              {PAY_BADGE[po.payment_status ?? 'unpaid']?.label ?? PAY_BADGE.unpaid.label}
+            </span>
           </div>
-        ) : (
-          <div className="space-y-4 pt-2 border-t border-suka-brown/5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-suka-brown mb-1.5">Status Pembayaran</label>
-                <select
-                  value={paymentStatus}
-                  onChange={e => setPaymentStatus(e.target.value)}
-                  className="w-full bg-white border border-suka-brown/20 rounded-xl px-3 py-2 text-sm font-medium text-suka-brown focus:outline-none focus:border-suka-orange transition-colors"
-                >
-                  <option value="unpaid">Unpaid</option>
-                  <option value="paid">Lunas</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-suka-brown mb-1.5">Tanggal Pembayaran</label>
-                <input
-                  type="date"
-                  value={paidAt}
-                  onChange={e => setPaidAt(e.target.value)}
-                  className="w-full bg-white border border-suka-brown/20 rounded-xl px-3 py-2 text-sm font-medium text-suka-brown focus:outline-none focus:border-suka-orange transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-suka-brown mb-1.5">Nominal Pembayaran</label>
-                <input
-                  type="number"
-                  value={paidAmount}
-                  onChange={e => setPaidAmount(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full bg-white border border-suka-brown/20 rounded-xl px-3 py-2 text-sm font-medium text-suka-brown focus:outline-none focus:border-suka-orange transition-colors"
-                  placeholder="Rp 0"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={async () => {
-                  await updatePayment.mutateAsync({ id: po.id, paid_at: paidAt || null, payment_status: paymentStatus, paid_amount: paidAmount === '' ? null : paidAmount })
-                  setIsEditingPayment(false)
-                }}
-                disabled={updatePayment.isPending}
-                className="px-4 py-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-xl text-xs font-bold hover:opacity-95 transition-all disabled:opacity-50"
-              >
-                {updatePayment.isPending ? 'Menyimpan...' : 'Simpan Pembayaran'}
-              </button>
-              <button
-                onClick={() => {
-                  setIsEditingPayment(false)
-                  setPaymentStatus(po.payment_status || 'unpaid')
-                  setPaidAt(po.paid_at ? po.paid_at.split('T')[0] : '')
-                  setPaidAmount(po.paid_amount ?? '')
-                }}
-                className="px-4 py-2 border border-suka-brown/20 text-suka-brown/70 rounded-xl text-xs font-bold hover:bg-suka-cream transition-colors"
-              >
-                Batal
-              </button>
-            </div>
+          <div>
+            <span className="text-suka-brown/60 font-semibold block text-xs">Tanggal Pembayaran</span>
+            <span className="font-bold text-suka-brown mt-1 block">
+              {po.paid_at ? new Date(po.paid_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
+            </span>
           </div>
-        )}
+          <div>
+            <span className="text-suka-brown/60 font-semibold block text-xs">Nominal Pembayaran</span>
+            <span className="font-bold text-suka-brown mt-1 block">
+              {po.paid_amount ? rupiah(po.paid_amount) : '—'}
+            </span>
+          </div>
+        </div>
+        <p className="text-xs text-suka-brown/60">
+          {po.payment_status === 'pending'
+            ? 'Menunggu admin finance mentransfer dari Rekening Bahan Baku Bank dan menyetujui dengan bukti transfer.'
+            : po.payment_status === 'paid'
+              ? 'Pembayaran tercatat di mutasi Rekening Bahan Baku Bank.'
+              : bisaDiajukan
+                ? 'Ajukan pembayaran ke admin finance. Saldo rekening baru terpotong setelah disetujui.'
+                : 'Pembayaran bisa diajukan setelah barang diterima.'}
+        </p>
       </div>
 
       {/* Verifikasi info */}

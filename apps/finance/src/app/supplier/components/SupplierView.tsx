@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Banknote, Clock, CheckCircle2, X } from 'lucide-react'
+import { Banknote, Clock, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCashOverview } from '@/hooks/useCashData'
 import {

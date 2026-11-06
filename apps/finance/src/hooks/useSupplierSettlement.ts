@@ -34,10 +34,11 @@ export interface TxBayarPo {
 }
 
 /** PO yang sudah diterima + tagihannya (dari view definer po_payable_spv). */
-export function usePayablePos() {
+export function usePayablePos(enabled = true) {
   const supabase = useMemo(() => createClient(), [])
   return useQuery<PayablePo[]>({
     queryKey: ['po_payable'],
+    enabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('po_payable_spv')
@@ -49,11 +50,29 @@ export function usePayablePos() {
   })
 }
 
+/** Jumlah pembayaran vendor menunggu approval (filter sama dengan daftar di hub). */
+export function useBayarVendorPendingCount(enabled = true) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery<number>({
+    queryKey: ['po_payable', 'count', 'pending'],
+    enabled,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('po_payable_spv')
+        .select('id', { count: 'exact', head: true })
+        .eq('payment_status', 'pending')
+      if (error) throw error
+      return count ?? 0
+    },
+  })
+}
+
 /** Transaksi pembayaran PO per PO (yang terbaru), untuk nama pengaju, catatan, dan bukti. */
-export function useTxBayarPo() {
+export function useTxBayarPo(enabled = true) {
   const supabase = useMemo(() => createClient(), [])
   return useQuery<Record<string, TxBayarPo>>({
     queryKey: ['po_payable', 'tx'],
+    enabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cash_transaction')

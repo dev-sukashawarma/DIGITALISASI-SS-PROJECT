@@ -4,11 +4,11 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Banknote, Clock, CheckCircle2, X } from 'lucide-react'
+import { Banknote, Clock, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCashOverview } from '@/hooks/useCashData'
 import {
-  usePayablePos, useTxBayarPo, useAjukanBayarPo, useSetujuiBayarPo, useTolakBayarPo,
+  usePayablePos, useTxBayarPo, useAjukanBayarPo,
   type PayablePo,
 } from '@/hooks/useSupplierSettlement'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
@@ -37,9 +37,7 @@ export function SupplierView() {
   const { data: txs = {} } = useTxBayarPo()
   const { isChecker, canAjukanBayarPO } = useFinanceRole()
   const ajukan = useAjukanBayarPo()
-  const tolak = useTolakBayarPo()
   const [tab, setTab] = useState<Tab>('pending')
-  const [setujuiPo, setSetujuiPo] = useState<PayablePo | null>(null)
   const [bukti, setBukti] = useState<{ url: string; judul: string } | null>(null)
 
   const per = (s: Tab) => pos.filter((p) => p.payment_status === s)
@@ -51,15 +49,6 @@ export function SupplierView() {
     if (catatan === null) return
     ajukan.mutate({ poId: p.id, catatan }, {
       onSuccess: () => toast.success(`${p.nomor_po} diajukan, menunggu approval admin finance`),
-      onError: (e) => toast.error((e as Error).message),
-    })
-  }
-
-  const tolakPo = (p: PayablePo) => {
-    const alasan = window.prompt(`Alasan menolak pembayaran ${p.nomor_po}?`)
-    if (!alasan?.trim()) return
-    tolak.mutate({ poId: p.id, alasan }, {
-      onSuccess: () => toast.success(`Pengajuan ${p.nomor_po} ditolak, PO kembali belum dibayar`),
       onError: (e) => toast.error((e as Error).message),
     })
   }
@@ -158,10 +147,7 @@ export function SupplierView() {
                           <Button onClick={() => ajukanPo(p)} disabled={ajukan.isPending} className="px-3 py-1 text-xs">Ajukan</Button>
                         )}
                         {tab === 'pending' && isChecker && (
-                          <>
-                            <Button onClick={() => setSetujuiPo(p)} className="px-3 py-1 text-xs">Setujui</Button>
-                            <button onClick={() => tolakPo(p)} disabled={tolak.isPending} className="text-xs font-semibold text-red-600 hover:underline">Tolak</button>
-                          </>
+                          <Link href="/approval" className="text-xs font-semibold text-suka-orange hover:underline">Putuskan di Hub Approval</Link>
                         )}
                       </td>
                     </tr>
@@ -172,64 +158,7 @@ export function SupplierView() {
           </div>
         )}
       </SectionCard>
-
-      {setujuiPo && (
-        <SetujuiModal po={setujuiPo} rekeningLabel={rekening?.label ?? 'Rekening Bahan Baku Bank'} saldo={rekening?.saldo ?? 0}
-          onClose={() => setSetujuiPo(null)} />
-      )}
       {bukti && <BuktiModal url={bukti.url} judul={bukti.judul} onClose={() => setBukti(null)} />}
-    </div>
-  )
-}
-
-function SetujuiModal({ po, rekeningLabel, saldo, onClose }: {
-  po: PayablePo; rekeningLabel: string; saldo: number; onClose: () => void
-}) {
-  const setujui = useSetujuiBayarPo()
-  const [proofFile, setProofFile] = useState<File | null>(null)
-  const [catatan, setCatatan] = useState('')
-  const sisa = saldo - po.total
-
-  const simpan = () => {
-    if (!proofFile) return
-    setujui.mutate({ poId: po.id, proofFile, catatan }, {
-      onSuccess: () => { toast.success(`${po.nomor_po} lunas, ${rupiah(po.total)} terpotong dari ${rekeningLabel}`); onClose() },
-      onError: (e) => toast.error((e as Error).message),
-    })
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-2xl text-suka-brown">Setujui Pembayaran</h2>
-          <button type="button" onClick={onClose} aria-label="Tutup" className="text-suka-gray-400 hover:text-suka-ink"><X size={20} /></button>
-        </div>
-        <div className="rounded-xl bg-suka-cream/70 px-3 py-2 text-sm text-suka-ink space-y-0.5">
-          <div><b>{po.nomor_po}</b> · {po.supplier_nama}</div>
-          <div>Dibayar dari {rekeningLabel}: <b>{rupiah(po.total)}</b></div>
-          <div className={sisa < 0 ? 'text-red-600 font-semibold' : 'text-emerald-700'}>
-            Sisa saldo: {rupiah(sisa)}{sisa < 0 && ' (minus)'}
-          </div>
-        </div>
-        <label className="block text-sm font-semibold text-suka-gray-600">
-          Bukti transfer (wajib)
-          <input type="file" accept="image/*,application/pdf" onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-            className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm" />
-        </label>
-        <label className="block text-sm font-semibold text-suka-gray-600">
-          Catatan (opsional)
-          <input value={catatan} onChange={(e) => setCatatan(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange" />
-        </label>
-        {!proofFile && <p className="text-sm font-medium text-red-600">Bukti transfer wajib dilampirkan</p>}
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Batal</Button>
-          <Button onClick={simpan} disabled={!proofFile || setujui.isPending}>
-            {setujui.isPending ? 'Menyimpan…' : 'Setujui & Tandai Lunas'}
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }

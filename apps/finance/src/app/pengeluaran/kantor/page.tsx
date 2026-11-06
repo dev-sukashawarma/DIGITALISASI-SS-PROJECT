@@ -18,7 +18,7 @@ import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
 import { OFFICE_DIVISIONS, VOUCHER_STATUS_META, type OfficeVoucher } from '@/lib/officeVoucher'
 import { CreateVoucherModal } from '@/components/CreateVoucherModal'
 import { SettleVoucherModal } from '@/components/SettleVoucherModal'
-import { VerifyVoucherModal } from '@/components/VerifyVoucherModal'
+import Link from 'next/link'
 import { generateVoucherPDF } from '@/utils/voucherPdfGenerator'
 
 export default function OfficeExpensesPage() {
@@ -30,7 +30,6 @@ export default function OfficeExpensesPage() {
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [settlingVoucher, setSettlingVoucher] = useState<OfficeVoucher | null>(null)
-  const [verifyingVoucher, setVerifyingVoucher] = useState<OfficeVoucher | null>(null)
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null)
 
   const {
@@ -39,11 +38,7 @@ export default function OfficeExpensesPage() {
     createVoucher,
     isCreating,
     settleVoucher,
-    isSettling,
-    verifyVoucher,
-    isVerifying,
-    rejectVoucher,
-    isRejecting
+    isSettling
   } = useOfficeVouchers(selectedMonth)
 
   // Filtered vouchers
@@ -430,15 +425,14 @@ export default function OfficeExpensesPage() {
 
                           {/* Verifikasi Finance */}
                           {v.status === 'waiting_verification' && (
-                            <button
-                              type="button"
-                              onClick={() => setVerifyingVoucher(v)}
-                              title="Verifikasi & Approve OPEX"
-                              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] transition-colors cursor-pointer shadow-xs"
+                            <Link
+                              href="/approval"
+                              title="Verifikasi dilakukan di Hub Approval"
+                              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] transition-colors shadow-xs"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>Verifikasi</span>
-                            </button>
+                              <span>Putuskan di Hub Approval</span>
+                            </Link>
                           )}
                         </div>
                       </td>
@@ -469,19 +463,6 @@ export default function OfficeExpensesPage() {
           await settleVoucher(data)
         }}
         isSubmitting={isSettling}
-      />
-
-      <VerifyVoucherModal
-        voucher={verifyingVoucher}
-        isOpen={Boolean(verifyingVoucher)}
-        onClose={() => setVerifyingVoucher(null)}
-        onVerify={async (data) => {
-          await verifyVoucher(data)
-        }}
-        onReject={async (data) => {
-          await rejectVoucher(data)
-        }}
-        isProcessing={isVerifying || isRejecting}
       />
 
       {/* Preview Receipt Modal */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { usePendingPos, useApprovePo, useRejectPo } from '@/hooks/usePoApproval'
+import { usePendingPos } from '@/hooks/usePoApproval'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { rupiah, tanggalWaktu } from '@/lib/format'
 import { PageHeader, StatCard } from '@/components/ui'
@@ -11,8 +11,6 @@ import Link from 'next/link'
 export default function PoApprovalPage() {
   const { canApprovePO } = useFinanceRole()
   const { data: pos = [], isLoading } = usePendingPos()
-  const approve = useApprovePo()
-  const reject = useRejectPo()
 
   const totalNilaiApproval = pos.reduce((acc, p) => acc + (p.total || 0), 0)
 
@@ -100,23 +98,12 @@ export default function PoApprovalPage() {
 
                 <div className="flex items-center gap-2">
                   {canApprovePO && (
-                    <>
-                      <button
-                        onClick={() => approve.mutate(p.id)}
-                        disabled={approve.isPending || reject.isPending}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs transition-all shadow-2xs disabled:opacity-40 cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Setujui</span>
-                      </button>
-                      <button
-                        onClick={() => reject.mutate({ poId: p.id })}
-                        disabled={approve.isPending || reject.isPending}
-                        className="px-3.5 py-2 rounded-xl border border-suka-brown/15 hover:border-rose-300 hover:bg-rose-50 text-suka-ink/60 hover:text-rose-600 font-semibold text-xs transition-all disabled:opacity-40 cursor-pointer"
-                      >
-                        Tolak
-                      </button>
-                    </>
+                    <Link
+                      href="/approval"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-suka-brown hover:bg-suka-ink text-white font-bold text-xs transition-all shadow-2xs"
+                    >
+                      Putuskan di Hub Approval
+                    </Link>
                   )}
                   <Link
                     href={`/pembelian/${p.id}`}

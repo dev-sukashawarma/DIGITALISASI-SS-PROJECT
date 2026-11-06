@@ -3659,6 +3659,19 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - Lingkup baru `tambah` di `_peran_master` (admin/owner/purchasing/developer). `simpan_bahan_baku` memakai `tambah` hanya saat `p_id IS NULL`; mengubah bahan, nonaktifkan/aktifkan/hapus, dan SKU tetap lingkup `data` (admin/owner/developer). Alasan: ubah satuan/nonaktifkan bisa merusak saldo stok, membuat bahan baru tidak.
 - Layar: `bolehTambahBahan()` (`lib/masterBahan/akses.ts`) hanya mengatur tombol Tambah Bahan; panel detail tetap read-only untuk purchasing. Finance tetap memakai tautan menu "Master Bahan Baku" ke admin-dashboard (keputusan: tidak membuat form kedua di finance).
 
+## Session 2026-11-06: Hub Approval Finance (apps/finance + admin-dashboard)
+
+**Status:** Kode di branch `feat/hub-approval-finance`. Nol migration. finance 305/305 test, type-check & build (`--webpack`) finance + admin-dashboard lolos. ⚠️ **Belum diuji di browser dengan akun admin finance**, perlu redeploy **`finance` + `admin-dashboard` bersamaan** (tautan admin menunjuk `/approval`).
+
+**Spec/plan:** `docs/superpowers/specs/2026-11-06-finance-hub-approval-design.md`, `docs/superpowers/plans/2026-11-06-finance-hub-approval.md`
+
+- **`/approval` (menu "Hub Approval", grup Kas)** = satu-satunya tempat admin finance/admin/owner/developer memutuskan: pencairan petty cash, serahkan petty cash ke AM, approval PO, bayar vendor, verifikasi dana kantor. Paling lama menunggu di atas, >24 jam merah, tolak wajib alasan. Gaji tetap di Pencairan Gaji. Purchasing tidak mendapat hub.
+- Tombol keputusan di Pencairan Petty Cash, Approval PO, Pembayaran Vendor, Pengajuan Dana Kantor, dan petty cash admin-dashboard diganti tautan "Putuskan di Hub Approval". `apps/admin-dashboard/.../pos-admin/petty-cash/actions.ts` dihapus (dulu menolak petty cash tanpa alasan).
+- Model murni `src/lib/approval/hub.ts`; data `src/hooks/useHubApproval.ts` (`useHubApprovalCount` = badge, filter sama dengan daftar; sumber galat ditandai `!`, tak dihitung 0).
+- Alasan tolak petty cash kini tersimpan di `description` (`[Ditolak Finance: …]`, `lib/approval/deskripsiPettyCash.ts`); RPC `finance_process_petty_cash_custom` sudah menulis `p_description` saat reject.
+- Verifikasi/tolak voucher dana kantor hanya mengubah baris `type='office_waiting_verification'` — dulu tab basi bisa menimpa voucher yang sudah diverifikasi/ditolak.
+- ⚠️ Gotcha worktree: junction `node_modules` membuat Turbopack menolak build (`points out of the filesystem root`) — pakai `next build --webpack`; `packages/*/node_modules` juga perlu ditautkan (jose).
+
 **Last updated:** 2026-11-06  
 **Owner:** Dev Suka Shawarma
 

@@ -11,6 +11,9 @@ import { type ExpenseCategory } from '@/lib/expenseCategories'
 import { getServiceSupabase } from '@/lib/supabase-service'
 import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 
+const TIPE_MENUNGGU_VERIFIKASI = 'office_waiting_verification'
+const PESAN_SUDAH_DIPROSES = 'Voucher sudah diproses atau tidak lagi menunggu verifikasi. Muat ulang daftar.'
+
 export async function getOfficeVouchersAction(filterMonth?: string): Promise<OfficeVoucher[]> {
   await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
@@ -173,7 +176,7 @@ export async function verifyOfficeVoucherAction(input: {
     notes: v.notes
   })
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('expenses')
     .update({
       amount: finalAmount,
@@ -181,9 +184,15 @@ export async function verifyOfficeVoucherAction(input: {
       type: 'office_settled'
     })
     .eq('id', v.id)
+    // Hanya voucher yang masih menunggu verifikasi; cegah menimpa keputusan dari tab lain.
+    .eq('type', TIPE_MENUNGGU_VERIFIKASI)
+    .select('id')
 
   if (error) {
     throw new Error(error.message)
+  }
+  if (!data || data.length === 0) {
+    throw new Error(PESAN_SUDAH_DIPROSES)
   }
 
   return { success: true }
@@ -207,16 +216,22 @@ export async function rejectOfficeVoucherAction(input: {
     notes: `Ditolak: ${input.reason}`
   })
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('expenses')
     .update({
       description: newDesc,
       type: 'office_rejected'
     })
     .eq('id', v.id)
+    // Hanya voucher yang masih menunggu verifikasi; cegah menimpa keputusan dari tab lain.
+    .eq('type', TIPE_MENUNGGU_VERIFIKASI)
+    .select('id')
 
   if (error) {
     throw new Error(error.message)
+  }
+  if (!data || data.length === 0) {
+    throw new Error(PESAN_SUDAH_DIPROSES)
   }
 
   return { success: true }

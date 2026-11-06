@@ -65,7 +65,6 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
     icon: Landmark,
     defaultOpen: true,
     items: [
-      { href: '/approval', label: 'Hub Approval', icon: Inbox },
       { href: '/', label: 'Dashboard Kas', icon: LayoutDashboard },
       { href: '/mutasi', label: 'Rekening & Mutasi', icon: ScrollText, aliases: ['/lokasi', '/transaksi'] },
       { href: '/setoran', label: 'Setoran Tunai', icon: Banknote, aliases: ['/setoran/history'] },
@@ -77,6 +76,7 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
     icon: Wallet,
     defaultOpen: true,
     items: [
+      { href: '/approval', label: 'Hub Approval', icon: Inbox },
       { href: '/petty-cash', label: 'Pencairan Petty Cash', icon: Coins },
       { href: '/laporan/petty-cash', label: 'Petty Cash (Khusus)', icon: Wallet },
       { href: '/pengeluaran/kantor', label: 'Pengajuan Dana Kantor', icon: Building2 },

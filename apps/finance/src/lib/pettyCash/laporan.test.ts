@@ -63,3 +63,28 @@ describe('laporan petty cash', () => {
     expect(saring(rows, { ...dasar, cari: 'bahan baku' })).toHaveLength(1)
   })
 })
+
+import { statusSaldo, urutkanSaldo, type SaldoOutlet } from './laporan'
+
+describe('saldo petty cash per outlet', () => {
+  const s = (nama: string, saldo: number | null): SaldoOutlet => ({ outletId: nama, nama, saldo, shiftAktif: true, dihitungPada: null })
+
+  it('status: habis, menipis di bawah 150 rb, galat bila gagal dibaca', () => {
+    expect(statusSaldo(s('a', 0))).toBe('habis')
+    expect(statusSaldo(s('a', 149_999))).toBe('menipis')
+    expect(statusSaldo(s('a', 150_000))).toBe('aman')
+    expect(statusSaldo(s('a', null))).toBe('galat')
+  })
+
+  it('urutan: galat, habis, menipis, lalu saldo terkecil', () => {
+    const r = urutkanSaldo([s('aman2', 500_000), s('tipis', 90_000), s('aman1', 200_000), s('nol', 0), s('err', null)])
+    expect(r.map((x) => x.nama)).toEqual(['err', 'nol', 'tipis', 'aman1', 'aman2'])
+  })
+
+  it('urut nama dan nominal; gagal dibaca di akhir untuk nominal', () => {
+    const rows = [s('Beji', 300_000), s('Akasia', 100_000), s('Cimanggu', null), s('Depok', 500_000)]
+    expect(urutkanSaldo(rows, 'nama').map((x) => x.nama)).toEqual(['Akasia', 'Beji', 'Cimanggu', 'Depok'])
+    expect(urutkanSaldo(rows, 'nominal_besar').map((x) => x.nama)).toEqual(['Depok', 'Beji', 'Akasia', 'Cimanggu'])
+    expect(urutkanSaldo(rows, 'nominal_kecil').map((x) => x.nama)).toEqual(['Akasia', 'Beji', 'Depok', 'Cimanggu'])
+  })
+})

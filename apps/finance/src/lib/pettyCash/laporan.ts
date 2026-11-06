@@ -162,3 +162,47 @@ export function saring(rows: PettyCashTransaction[], s: Saringan): PettyCashTran
     return true
   })
 }
+
+/* ── Saldo petty cash terkini per outlet ─────────────────────── */
+
+/** Ambang "menipis", sama dengan peringatan di dashboard leader. */
+export const BATAS_SALDO_MENIPIS = 150_000
+
+export interface SaldoOutlet {
+  outletId: string
+  nama: string
+  /** null = gagal dibaca. */
+  saldo: number | null
+  shiftAktif: boolean
+  dihitungPada: string | null
+}
+
+export type StatusSaldo = 'habis' | 'menipis' | 'aman' | 'galat'
+
+export function statusSaldo(s: SaldoOutlet): StatusSaldo {
+  if (s.saldo == null) return 'galat'
+  if (s.saldo <= 0) return 'habis'
+  if (s.saldo < BATAS_SALDO_MENIPIS) return 'menipis'
+  return 'aman'
+}
+
+const URUT_STATUS: Record<StatusSaldo, number> = { galat: 0, habis: 1, menipis: 2, aman: 3 }
+
+export type UrutanSaldo = 'perhatian' | 'nama' | 'nominal_besar' | 'nominal_kecil'
+
+/**
+ * perhatian: galat, habis, menipis dulu lalu saldo terkecil.
+ * nominal: saldo gagal dibaca selalu di akhir. Nama A–Z sebagai pemecah seri.
+ */
+export function urutkanSaldo(rows: SaldoOutlet[], urutan: UrutanSaldo = 'perhatian'): SaldoOutlet[] {
+  const nama = (a: SaldoOutlet, b: SaldoOutlet) => a.nama.localeCompare(b.nama, 'id')
+  const galatAkhir = (a: SaldoOutlet, b: SaldoOutlet) => Number(a.saldo == null) - Number(b.saldo == null)
+  const banding: Record<UrutanSaldo, (a: SaldoOutlet, b: SaldoOutlet) => number> = {
+    perhatian: (a, b) =>
+      URUT_STATUS[statusSaldo(a)] - URUT_STATUS[statusSaldo(b)] || (a.saldo ?? 0) - (b.saldo ?? 0) || nama(a, b),
+    nama,
+    nominal_besar: (a, b) => galatAkhir(a, b) || (b.saldo ?? 0) - (a.saldo ?? 0) || nama(a, b),
+    nominal_kecil: (a, b) => galatAkhir(a, b) || (a.saldo ?? 0) - (b.saldo ?? 0) || nama(a, b),
+  }
+  return [...rows].sort(banding[urutan])
+}

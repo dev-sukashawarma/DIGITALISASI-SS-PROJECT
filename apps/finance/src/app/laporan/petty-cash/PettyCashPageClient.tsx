@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PettyCashReportView, type PettyCashTransaction, type DailyPettyCashSummary } from '@/components/owner/PettyCashReportView'
 import type { PeriodFilterValue, Outlet } from '@/lib/types'
+import type { SaldoOutlet } from '@/lib/pettyCash/laporan'
 import { Printer, Wallet } from 'lucide-react'
 
 interface PettyCashPageClientProps {
@@ -14,6 +15,7 @@ interface PettyCashPageClientProps {
   lockedOutletId: string | null
   pettyCashTransactions: PettyCashTransaction[]
   dailySummaries?: DailyPettyCashSummary[]
+  saldoOutlet?: SaldoOutlet[]
 }
 
 export default function PettyCashPageClient({
@@ -22,6 +24,7 @@ export default function PettyCashPageClient({
   lockedOutletId,
   pettyCashTransactions,
   dailySummaries = [],
+  saldoOutlet = [],
 }: PettyCashPageClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -92,6 +95,7 @@ export default function PettyCashPageClient({
           outlets={outlets}
           transactions={pettyCashTransactions}
           dailySummaries={dailySummaries}
+          saldoOutlet={saldoOutlet}
           selectedOutletId={filter.outletId}
           onOutletChange={handleOutletSelect}
           dateFrom={filter.from}

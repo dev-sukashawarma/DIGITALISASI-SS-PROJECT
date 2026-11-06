@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { presetRange } from '@/lib/period'
 import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import { getPettyCashData } from '@/lib/server/pettyCashReport'
+import { ambilSaldoPettyCash } from '@/lib/server/saldoPettyCash'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import PettyCashPageClient from './PettyCashPageClient'
 import type { SalesSource, PeriodFilterValue, Outlet } from '@/lib/types'
@@ -40,7 +41,12 @@ export default async function LaporanPettyCashPage({ searchParams }: { searchPar
     .order('name')
 
   const list = (outlets ?? []) as Outlet[]
-  const { transactions, dailySummaries } = await getPettyCashData(filter, list)
+  // Saldo terkini: outlet operasional aktif saja (internal & mitra, tanpa SS Backup).
+  const outletKas = list.filter((o) => o.is_active && (o.type === 'internal' || o.type === 'mitra') && o.slug !== 'ss-backup')
+  const [{ transactions, dailySummaries }, saldoOutlet] = await Promise.all([
+    getPettyCashData(filter, list),
+    ambilSaldoPettyCash(outletKas),
+  ])
 
   return (
     <PettyCashPageClient
@@ -49,6 +55,7 @@ export default async function LaporanPettyCashPage({ searchParams }: { searchPar
       lockedOutletId={null}
       pettyCashTransactions={transactions}
       dailySummaries={dailySummaries}
+      saldoOutlet={saldoOutlet}
     />
   )
 }

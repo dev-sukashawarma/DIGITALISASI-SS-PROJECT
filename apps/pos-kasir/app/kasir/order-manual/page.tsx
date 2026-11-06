@@ -1015,10 +1015,10 @@ export default function OrderManualPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900 leading-tight">
-            {mode === 'walkin' ? 'Order Offline — Pesanan Baru' : mode === 'endorse' ? 'Order Endorse' : mode === 'website' ? 'Order Website — Backup Mandiri' : 'Input Food Apps'}
+            {mode === 'walkin' ? 'Order Offline — Pesanan Baru' : mode === 'endorse' ? 'Order Endorse' : mode === 'website' ? 'Pre-Order WA' : 'Input Food Apps'}
           </h1>
           <p className="text-sm text-gray-500 leading-tight">
-            {mode === 'walkin' ? 'Catat pesanan pelanggan secara offline / langsung' : mode === 'endorse' ? 'Catat pesanan endorse dengan harga Rp 0' : mode === 'website' ? 'Input cadangan pesanan via Website / WA' : 'Input pesanan dari aplikasi makanan'}
+            {mode === 'walkin' ? 'Catat pesanan pelanggan secara offline / langsung' : mode === 'endorse' ? 'Catat pesanan endorse dengan harga Rp 0' : mode === 'website' ? 'Pesanan via WhatsApp / telepon — dihitung Offline' : 'Input pesanan dari aplikasi makanan'}
           </p>
         </div>
       </div>
@@ -1042,7 +1042,7 @@ export default function OrderManualPage() {
             onClick={() => handleSwitchMode('website')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'website' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            <Globe className="w-4 h-4 text-blue-500" /> Order Website
+            <Globe className="w-4 h-4 text-blue-500" /> Pre-Order WA
           </button>
           <button
             onClick={() => handleSwitchMode('endorse')}
@@ -1058,13 +1058,13 @@ export default function OrderManualPage() {
             <div className="text-sm text-blue-900 pr-6 leading-relaxed font-medium">
               {mode === 'website' ? (
                 <>
-                  <b>Panduan Order Website (Backup):</b> Tab ini khusus dipakai jika pelanggan memesan lewat <b>WhatsApp (WA)</b> atau saat <b>Website Order Online sedang ada kendala/gangguan</b>. Kasir dapat menginput pesanan manual, mengisi <b>Waktu Jam Ambil</b>, dan memilih pembayaran (<b>QRIS</b> atau <b>Virtual Account / VA</b>).
+                  <b>Panduan Pre-Order WA:</b> Tab ini untuk pelanggan yang memesan lewat <b>WhatsApp / telepon</b>. Isi <b>Waktu Jam Ambil</b> dan pilih pembayaran sesuai yang diterima outlet (<b>QRIS</b>, <b>Debit</b>, atau <b>Tunai</b>). Omzetnya dihitung sebagai <b>Offline</b>. <br/><b>Jangan</b> menginput ulang pesanan dari <b>website</b> — pesanan website sudah masuk otomatis ke papan pesanan; menginputnya lagi membuat omzet dan stok terhitung dua kali.
                 </>
               ) : (
                 <>
                   <b>Order Offline</b> digunakan untuk pelanggan yang datang langsung atau memesan offline di kasir toko tanpa perantara aplikasi. <br/>
                   <b>Food Apps</b> digunakan untuk mencatat pesanan yang masuk dari aplikasi pihak ketiga seperti GrabFood, GoFood, dll. <br/>
-                  <b>Order Website</b> digunakan sebagai cadangan jika pemesanan via WA/Website pelanggan berkendala. <br/>
+                  <b>Pre-Order WA</b> digunakan untuk pesanan lewat WhatsApp / telepon (dihitung Offline). Pesanan website masuk otomatis, jangan diinput ulang. <br/>
                   <b>Endorse</b> digunakan untuk mencatat pesanan endorsement atau gratis (Rp 0). Stok menu tetap berkurang normal.
                 </>
               )}
@@ -2003,43 +2003,29 @@ function CartPanel(props: {
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
               {mode === 'website' ? '2. Metode Pembayaran' : '3. Metode Pembayaran'}
             </label>
-            {mode === 'website' ? (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setPayment('qris')}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-                >
-                  <QrCode className="w-4 h-4" /> QRIS
-                </button>
-                <button
-                  onClick={() => setPayment('va')}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-bold text-sm transition-all active:scale-95 ${payment === 'va' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-                >
-                  <CreditCard className="w-4 h-4 text-purple-600" /> Virtual Account (VA)
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setPayment('qris')}
-                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-                >
-                  <QrCode className="w-4 h-4" /> QRIS
-                </button>
-                <button
-                  onClick={() => setPayment('card')}
-                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'card' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-                >
-                  <CreditCard className="w-4 h-4" /> Debit
-                </button>
-                <button
-                  onClick={() => setPayment('cash')}
-                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
-                >
-                  <Banknote className="w-4 h-4" /> Tunai
-                </button>
-              </div>
-            )}
+            {/* Semua mode memakai QRIS / Debit / Tunai. Pre-Order WA dulu QRIS + VA,
+                padahal outlet tidak bisa menerima VA (VA = pembayaran website via
+                Xendit) dan pelanggan WA yang bayar tunai terpaksa dicatat QRIS. */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setPayment('qris')}
+                className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'qris' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+              >
+                <QrCode className="w-4 h-4" /> QRIS
+              </button>
+              <button
+                onClick={() => setPayment('card')}
+                className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'card' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+              >
+                <CreditCard className="w-4 h-4" /> Debit
+              </button>
+              <button
+                onClick={() => setPayment('cash')}
+                className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 font-bold text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 ${payment === 'cash' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+              >
+                <Banknote className="w-4 h-4" /> Tunai
+              </button>
+            </div>
           </div>
           
           {/* Input tunai + kembalian */}

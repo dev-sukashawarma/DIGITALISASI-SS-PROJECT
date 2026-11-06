@@ -344,6 +344,7 @@ export default function AdminOrdersPage() {
               options={[
                 { value: 'all', label: 'Semua Channel' },
                 { value: 'offline', label: 'Offline / Dine-in' },
+                { value: 'preorder_wa', label: 'Pre-Order WA (Offline)' },
                 ...CHANNELS.map(c => ({ value: c.id, label: c.label }))
               ]}
             />

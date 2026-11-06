@@ -20,7 +20,15 @@ const FILTER_IDS: Record<string, string[]> = {
   tiktok: ['tiktokgo', 'tiktok', 'tiktok_go'],
   website: ['website', 'online'],
   online: ['website', 'online'],
+  preorder_wa: ['preorder_wa'],
 }
+
+/**
+ * Pesanan WA/telepon "[Jam Ambil: ...]" yang diinput kasir. Sejak 1 Okt 2026
+ * ditandai `channel='preorder_wa'` oleh trigger DB (migration 20261106160000)
+ * dan dihitung sebagai Offline — uangnya masuk QRIS outlet, bukan Xendit.
+ */
+export const PREORDER_WA_CHANNEL = 'preorder_wa'
 
 export const FOOD_APP_IDS = ['gofood', 'grabfood', 'shopeefood', 'tiktokgo', 'tiktok', 'tiktok_go']
 
@@ -44,7 +52,9 @@ export function applyChannelFilter<T extends {
 
   // Offline / POS walk-in: tanpa tag channel DAN bukan pesanan online.
   if (filter === 'offline') {
-    return query.is('channel', null).not('sales_source', 'in', `(${ONLINE_IDS.join(',')})`)
+    return query
+      .or(`channel.is.null,channel.eq.${PREORDER_WA_CHANNEL}`)
+      .not('sales_source', 'in', `(${ONLINE_IDS.join(',')})`)
   }
 
   const ids = filter === 'food_apps' ? FOOD_APP_IDS : idsFor(filter)
@@ -63,7 +73,7 @@ export function matchesChannelFilter(
   const salesSource = order.sales_source ?? null
 
   if (filter === 'offline') {
-    return !channel && !ONLINE_IDS.includes(salesSource ?? '')
+    return (!channel || channel === PREORDER_WA_CHANNEL) && !ONLINE_IDS.includes(salesSource ?? '')
   }
 
   const ids = filter === 'food_apps' ? FOOD_APP_IDS : idsFor(filter)

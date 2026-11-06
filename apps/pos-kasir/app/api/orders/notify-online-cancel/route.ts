@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requirePosCaller, staffCanTouchOutlet } from '@/lib/posApiGate'
 
 // Dipanggil dari app/kasir saat kasir membatalkan order (cancelOrder)
 // yang sumbernya online (source = 'online').
@@ -16,6 +17,12 @@ import { createServiceClient } from '@/lib/supabase/server'
 // dari notifyUrl (ganti akhiran nama fungsinya), dengan opsi override lewat
 // ORDER_SYSTEM_CANCEL_URL kalau suatu saat mau dikonfigurasi terpisah.
 export async function POST(request: Request) {
+  // Wajib staf POS (lib/posApiGate.ts). Dulu tanpa login: siapa pun yang tahu
+  // id order bisa menyelesaikan/membatalkan pesanan di website, lalu
+  // sync-active ikut menulis status itu balik ke POS.
+  const caller = await requirePosCaller(request)
+  if (caller instanceof NextResponse) return caller
+
   let body: { order_id: string }
   try {
     body = await request.json()
@@ -31,12 +38,21 @@ export async function POST(request: Request) {
   const supabaseService = createServiceClient()
   const { data: order } = await supabaseService
     .from('orders')
-    .select('id, source, external_order_id')
+    .select('id, source, external_order_id, status, outlet_id')
     .eq('id', order_id)
-    .single()
+    .maybeSingle()
 
   if (!order || order.source !== 'online' || !order.external_order_id) {
     return NextResponse.json({ success: true, skipped: true })
+  }
+
+  // Hanya teruskan status yang SUDAH tercatat di POS — endpoint ini bukan
+  // jalan pintas untuk mengubah status order di website.
+  if (!['cancelled'].includes(order.status)) {
+    return NextResponse.json({ success: true, skipped: true, reason: 'status_pos_belum_sesuai' })
+  }
+  if (caller.via === 'staff' && !(await staffCanTouchOutlet(request, caller.outletId, order.outlet_id))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const doneUrl = process.env.ORDER_SYSTEM_NOTIFY_URL

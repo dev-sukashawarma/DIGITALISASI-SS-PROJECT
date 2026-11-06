@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createClient as createOrderClient } from '@supabase/supabase-js'
+import { pullOnlineOrder } from '@/lib/pullOnlineOrder'
 
 // Menarik pesanan online yang sudah dibayar ke POS Kasir dari sisi SERVER.
 //
@@ -61,21 +62,17 @@ export async function GET(request: Request) {
   const pulledSet = new Set((alreadyPulled ?? []).map((r) => r.external_order_id))
   const missing = ids.filter((id) => !pulledSet.has(id))
 
-  const origin = new URL(request.url).origin
   let pulled = 0
 
+  // Dipanggil langsung (bukan HTTP ke /api/orders/pull-online): route itu kini
+  // wajib login staf, dan cron tidak punya sesi.
   for (const externalId of missing) {
     try {
-      const res = await fetch(`${origin}/api/orders/pull-online`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ external_order_id: externalId }),
-      })
-      if (res.ok) {
+      const res = await pullOnlineOrder(externalId)
+      if (res.status === 200) {
         pulled += 1
       } else {
-        const detail = await res.json().catch(() => ({} as any))
-        console.warn(`pull-online-orders: gagal tarik ${externalId}`, detail.error)
+        console.warn(`pull-online-orders: gagal tarik ${externalId}`, res.body.error)
       }
     } catch (err) {
       console.warn(`pull-online-orders: error saat tarik ${externalId}`, err)

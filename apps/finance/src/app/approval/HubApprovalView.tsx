@@ -22,6 +22,7 @@ import { VerifyVoucherModal } from '@/components/VerifyVoucherModal'
 import { AlasanTolakModal } from '@/components/approval/AlasanTolakModal'
 import { SetujuiBayarVendorModal } from '@/components/approval/SetujuiBayarVendorModal'
 import { BarisHub } from './BarisHub'
+import { RiwayatApprovalPanel } from './RiwayatApprovalPanel'
 
 type Saringan = 'semua' | HubJenis
 
@@ -36,6 +37,7 @@ export function HubApprovalView() {
   const { isChecker } = useFinanceRole()
   const { items, galat, isLoading, perJenis } = useHubApproval(isChecker)
   const [saringan, setSaringan] = useState<Saringan>('semua')
+  const [tab, setTab] = useState<'menunggu' | 'riwayat'>('menunggu')
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -179,39 +181,60 @@ export function HubApprovalView() {
         description="Semua pengajuan yang menunggu keputusan admin finance. Paling lama menunggu di atas."
       />
 
-      <div className="flex flex-wrap gap-2">
-        {chip('semua', 'Semua', items.length)}
-        {URUTAN_JENIS.map((j) => chip(j, JENIS_LABEL[j], galat.includes(j) ? null : perJenis[j]))}
+      <div className="flex gap-1 border-b border-suka-brown/10">
+        {(['menunggu', 'riwayat'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
+              tab === t ? 'border-suka-orange text-suka-brown' : 'border-transparent text-suka-gray-500 hover:text-suka-ink'
+            }`}
+          >
+            {t === 'menunggu' ? `Menunggu (${items.length})` : 'Riwayat'}
+          </button>
+        ))}
       </div>
 
-      {galat.length > 0 && (
-        <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-          <span>Gagal memuat: {galat.map((j) => JENIS_LABEL[j]).join(', ')}. Bagian lain tetap tampil; muat ulang halaman untuk mencoba lagi.</span>
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-2xl border border-suka-brown/10 bg-white">
-        {isLoading && items.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-suka-gray-500">
-            <Loader2 size={18} className="animate-spin text-suka-orange" /> Memuat pengajuan…
+      {tab === 'riwayat' ? (
+        <RiwayatApprovalPanel enabled={isChecker} />
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {chip('semua', 'Semua', items.length)}
+            {URUTAN_JENIS.map((j) => chip(j, JENIS_LABEL[j], galat.includes(j) ? null : perJenis[j]))}
           </div>
-        ) : tampil.length === 0 ? (
-          <p className="py-16 text-center text-sm font-medium text-suka-gray-500">Tidak ada pengajuan yang menunggu</p>
-        ) : (
-          <>
-            <div className="flex justify-between border-b border-suka-brown/5 bg-suka-cream/40 px-4 py-2 text-xs font-semibold text-suka-gray-600">
-              <span>{tampil.length} pengajuan</span>
-              <span>Total {rupiah(totalNominal)}</span>
+
+          {galat.length > 0 && (
+            <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>Gagal memuat: {galat.map((j) => JENIS_LABEL[j]).join(', ')}. Bagian lain tetap tampil; muat ulang halaman untuk mencoba lagi.</span>
             </div>
-            <ul>
-              {tampil.map((i) => (
-                <BarisHub key={i.key} item={i} now={now} bolehPutuskan={isChecker} onSetujui={setujui} onTolak={setTolakItem} />
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
+          )}
+
+          <div className="overflow-hidden rounded-2xl border border-suka-brown/10 bg-white">
+            {isLoading && items.length === 0 ? (
+              <div className="flex items-center justify-center gap-2 py-16 text-sm text-suka-gray-500">
+                <Loader2 size={18} className="animate-spin text-suka-orange" /> Memuat pengajuan…
+              </div>
+            ) : tampil.length === 0 ? (
+              <p className="py-16 text-center text-sm font-medium text-suka-gray-500">Tidak ada pengajuan yang menunggu</p>
+            ) : (
+              <>
+                <div className="flex justify-between border-b border-suka-brown/5 bg-suka-cream/40 px-4 py-2 text-xs font-semibold text-suka-gray-600">
+                  <span>{tampil.length} pengajuan</span>
+                  <span>Total {rupiah(totalNominal)}</span>
+                </div>
+                <ul>
+                  {tampil.map((i) => (
+                    <BarisHub key={i.key} item={i} now={now} bolehPutuskan={isChecker} onSetujui={setujui} onTolak={setTolakItem} />
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {pettyAcc && (
         <FinanceApprovalModal

@@ -23,14 +23,14 @@ export function useFinanceRealtime() {
     // queryKey di bawah — batasi maks. sekali per menit.
     resubscribeMinIntervalMs: 60_000,
     subs: [
-      { table: 'cash_transaction', queryKeys: [['cash_transaction'], ['cash_balance'], ['expected_cash'], ['po_payable']] },
+      { table: 'cash_transaction', queryKeys: [['cash_transaction'], ['cash_balance'], ['expected_cash'], ['po_payable'], ['approval_log']] },
       { table: 'cash_balance', queryKeys: [['cash_balance']] },
       { table: 'cash_location', queryKeys: [['cash_location']] },
-      { table: 'petty_cash_topups', queryKeys: [['petty_cash_topups'], ['petty_cash_expenses_detail']] },
+      { table: 'petty_cash_topups', queryKeys: [['petty_cash_topups'], ['petty_cash_expenses_detail'], ['approval_log']] },
       { table: 'petty_cash_expenses', queryKeys: [['petty_cash_expenses_detail'], ['petty_cash_real_balances']] },
       { table: 'payroll_records', queryKeys: [['payroll_slips']] },
-      { table: 'expenses', queryKeys: [['expenses'], ['office_vouchers']] },
-      { table: 'purchase_order', queryKeys: [['po_payable'], ['po-pending-approval']] },
+      { table: 'expenses', queryKeys: [['expenses'], ['office_vouchers'], ['approval_log']] },
+      { table: 'purchase_order', queryKeys: [['po_payable'], ['po-pending-approval'], ['approval_log']] },
     ],
   })
 }

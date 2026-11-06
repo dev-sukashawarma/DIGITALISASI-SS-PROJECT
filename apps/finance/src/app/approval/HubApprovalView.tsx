@@ -234,6 +234,7 @@ export function HubApprovalView() {
           rekeningLabel={rekeningBahanBaku?.label ?? 'Rekening Bahan Baku Bank'}
           saldo={rekeningBahanBaku?.saldo ?? 0}
           onClose={() => setVendorAcc(null)}
+          onGagal={segarkan}
         />
       )}
 

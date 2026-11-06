@@ -8,8 +8,10 @@ import { useSetujuiBayarPo, type PayablePo } from '@/hooks/useSupplierSettlement
 import { rupiah } from '@/lib/format'
 
 /** Setujui pembayaran vendor: bukti wajib, saldo Rekening Bahan Baku Bank terpotong. */
-export function SetujuiBayarVendorModal({ po, rekeningLabel, saldo, onClose }: {
+export function SetujuiBayarVendorModal({ po, rekeningLabel, saldo, onClose, onGagal }: {
   po: PayablePo; rekeningLabel: string; saldo: number; onClose: () => void
+  /** Dipanggil saat RPC menolak (mis. sudah diputuskan di tab lain) agar daftar disegarkan. */
+  onGagal?: () => void
 }) {
   const setujui = useSetujuiBayarPo()
   const [proofFile, setProofFile] = useState<File | null>(null)
@@ -20,7 +22,7 @@ export function SetujuiBayarVendorModal({ po, rekeningLabel, saldo, onClose }: {
     if (!proofFile) return
     setujui.mutate({ poId: po.id, proofFile, catatan }, {
       onSuccess: () => { toast.success(`${po.nomor_po} lunas, ${rupiah(po.total)} terpotong dari ${rekeningLabel}`); onClose() },
-      onError: (e) => toast.error((e as Error).message),
+      onError: (e) => { toast.error((e as Error).message); onGagal?.() },
     })
   }
 

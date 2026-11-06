@@ -78,6 +78,7 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: '/petty-cash', label: 'Pencairan Petty Cash', icon: Coins },
+      { href: '/laporan/petty-cash', label: 'Petty Cash (Khusus)', icon: Wallet },
       { href: '/pengeluaran/kantor', label: 'Pengajuan Dana Kantor', icon: Building2 },
       { href: '/supplier', label: 'Pembayaran Vendor', icon: Truck },
       { href: '/payroll', label: 'Pencairan Gaji', icon: Wallet },

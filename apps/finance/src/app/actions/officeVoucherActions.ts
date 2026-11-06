@@ -14,6 +14,35 @@ import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 const TIPE_MENUNGGU_VERIFIKASI = 'office_waiting_verification'
 const PESAN_SUDAH_DIPROSES = 'Voucher sudah diproses atau tidak lagi menunggu verifikasi. Muat ulang daftar.'
 
+/**
+ * Catat keputusan dana kantor ke riwayat Hub Approval. Jalur ini memakai service
+ * role sehingga trigger tak tahu pelakunya; pelaku diambil dari sesi terverifikasi.
+ * Tahan galat: kegagalan mencatat tidak membatalkan keputusan.
+ */
+async function catatRiwayatVoucher(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  v: OfficeVoucher,
+  keputusan: 'setuju' | 'tolak',
+  pelaku: string,
+  nominal: number,
+  alasan: string | null
+) {
+  const sekarang = new Date().toISOString()
+  const { error } = await supabase.from('approval_log').insert({
+    jenis: 'dana_kantor',
+    keputusan,
+    sumber_id: v.id,
+    judul: `${v.division} · ${v.recipientName}`,
+    keterangan: v.voucherNumber,
+    nominal,
+    alasan,
+    pelaku,
+    waktu: sekarang,
+    waktu_urut: sekarang,
+  })
+  if (error) console.error('Gagal mencatat riwayat voucher:', error.message)
+}
+
 export async function getOfficeVouchersAction(filterMonth?: string): Promise<OfficeVoucher[]> {
   await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
@@ -155,7 +184,7 @@ export async function verifyOfficeVoucherAction(input: {
   approvedAmount?: number
   verifiedBy?: string | null
 }) {
-  await requireRole(PERAN_KEUANGAN)
+  const { userId } = await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
   const v = input.voucher
   const finalAmount = input.approvedAmount !== undefined ? input.approvedAmount : (v.realizedAmount || v.advanceAmount)
@@ -195,6 +224,8 @@ export async function verifyOfficeVoucherAction(input: {
     throw new Error(PESAN_SUDAH_DIPROSES)
   }
 
+  await catatRiwayatVoucher(supabase, v, 'setuju', userId, finalAmount, null)
+
   return { success: true }
 }
 
@@ -202,7 +233,7 @@ export async function rejectOfficeVoucherAction(input: {
   voucher: OfficeVoucher
   reason: string
 }) {
-  await requireRole(PERAN_KEUANGAN)
+  const { userId } = await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
   const v = input.voucher
   const newDesc = serializeVoucherToDescription({
@@ -233,6 +264,8 @@ export async function rejectOfficeVoucherAction(input: {
   if (!data || data.length === 0) {
     throw new Error(PESAN_SUDAH_DIPROSES)
   }
+
+  await catatRiwayatVoucher(supabase, v, 'tolak', userId, v.realizedAmount ?? v.advanceAmount, input.reason.trim() || null)
 
   return { success: true }
 }

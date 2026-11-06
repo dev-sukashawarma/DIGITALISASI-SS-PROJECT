@@ -1,14 +1,19 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
 
-vi.mock('@/lib/authz', () => ({ requireRole: vi.fn(async () => undefined), PERAN_KEUANGAN: [] }))
+vi.mock('@/lib/authz', () => ({ requireRole: vi.fn(async () => ({ userId: 'u1', role: 'admin_finance' })), PERAN_KEUANGAN: [] }))
 
 // Tiru tabel expenses: baris hanya ter-update bila semua filter .eq cocok.
 const db: { row: Record<string, unknown> } = { row: {} }
 const filterTerakhir: Record<string, unknown>[] = []
+const logDitulis: Record<string, unknown>[] = []
 vi.mock('@/lib/supabase-service', () => ({
   getServiceSupabase: () => ({
-    from: () => ({
+    from: (tabel: string) => ({
+      insert: async (baris: Record<string, unknown>) => {
+        if (tabel === 'approval_log') logDitulis.push(baris)
+        return { error: null }
+      },
       update: (nilai: Record<string, unknown>) => {
         const filter: Record<string, unknown> = {}
         const rantai = {
@@ -57,6 +62,7 @@ const voucher: OfficeVoucher = {
 describe('voucher dana kantor yang sudah diputuskan', () => {
   beforeEach(() => {
     filterTerakhir.length = 0
+    logDitulis.length = 0
   })
 
   it('menolak voucher yang sudah diverifikasi ditolak, tidak menimpa status', async () => {
@@ -75,5 +81,30 @@ describe('voucher dana kantor yang sudah diputuskan', () => {
     db.row = { id: 'v1', type: 'office_waiting_verification' }
     await expect(verifyOfficeVoucherAction({ voucher })).resolves.toEqual({ success: true })
     expect(db.row.type).toBe('office_settled')
+  })
+})
+
+describe('riwayat keputusan dana kantor', () => {
+  beforeEach(() => {
+    logDitulis.length = 0
+  })
+
+  it('verifikasi mencatat riwayat setuju dengan pelaku dari sesi', async () => {
+    db.row = { id: 'v1', type: 'office_waiting_verification' }
+    await verifyOfficeVoucherAction({ voucher })
+    expect(logDitulis).toHaveLength(1)
+    expect(logDitulis[0]).toMatchObject({ jenis: 'dana_kantor', keputusan: 'setuju', sumber_id: 'v1', nominal: 750000, pelaku: 'u1' })
+  })
+
+  it('tolak mencatat riwayat beserta alasannya', async () => {
+    db.row = { id: 'v1', type: 'office_waiting_verification' }
+    await rejectOfficeVoucherAction({ voucher, reason: 'nota buram' })
+    expect(logDitulis[0]).toMatchObject({ jenis: 'dana_kantor', keputusan: 'tolak', alasan: 'nota buram', pelaku: 'u1' })
+  })
+
+  it('aksi dari tab basi tidak mencatat riwayat', async () => {
+    db.row = { id: 'v1', type: 'office_settled' }
+    await expect(rejectOfficeVoucherAction({ voucher, reason: 'x' })).rejects.toThrow()
+    expect(logDitulis).toHaveLength(0)
   })
 })

@@ -48,7 +48,7 @@ export function RiwayatApprovalPanel({ enabled }: { enabled: boolean }) {
   }
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="space-y-5">
       {/* Ringkasan sekaligus saringan keputusan */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Saring menurut keputusan">
         {SARINGAN_KEPUTUSAN.map(({ nilai, label }) => {

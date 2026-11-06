@@ -26,6 +26,7 @@ export function useSetorBank() {
       qc.invalidateQueries({ queryKey: ['cash_transaction'] })
       qc.invalidateQueries({ queryKey: ['cash_balance'] })
       qc.invalidateQueries({ queryKey: ['cash_location'] })
+      qc.invalidateQueries({ queryKey: ['mutasi_rekening'] })
     },
   })
 }

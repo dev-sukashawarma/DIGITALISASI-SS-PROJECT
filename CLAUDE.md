@@ -3671,6 +3671,10 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - Alasan tolak petty cash kini tersimpan di `description` (`[Ditolak Finance: …]`, `lib/approval/deskripsiPettyCash.ts`); RPC `finance_process_petty_cash_custom` sudah menulis `p_description` saat reject.
 - Verifikasi/tolak voucher dana kantor hanya mengubah baris `type='office_waiting_verification'` — dulu tab basi bisa menimpa voucher yang sudah diverifikasi/ditolak.
 - ⚠️ Gotcha worktree: junction `node_modules` membuat Turbopack menolak build (`points out of the filesystem root`) — pakai `next build --webpack`; `packages/*/node_modules` juga perlu ditautkan (jose).
+- **Riwayat keputusan** (tab "Riwayat" di Hub): tabel `approval_log` (migration `20261106184802` + `20261106185240`, applied & terstempel, uji `supabase/verifikasi/riwayat_approval/t1_trigger.sql` lulus). Diisi trigger tahan galat di `petty_cash_topups` (acc/tolak/serah AM), `purchase_order` (approval PO), `cash_transaction` supplier_po (bayar vendor); dana kantor ditulis `officeVoucherActions` (service role → pelaku dari sesi). Baca: `kas_pencatat_ok()` + developer; klien tak bisa menulis.
+  - 980 keputusan lama diisi dari data yang ada (`dari_data_lama`); jam acc/tolak petty cash lama **tidak tercatat** (`waktu` NULL), tolak PO lama tak pernah tersimpan.
+  - ⚠️ Nama pelaku wajib dari kolom `approval_log.pelaku_nama` (diisi trigger BEFORE INSERT) — join ke `outlet_staff` tertahan RLS: admin finance cuma bisa membaca 21 dari 979 nama.
+  - Error tsc `SetoranView.tsx` (`formatOutletOrigin` tak terpakai) berasal dari commit `b0ab5e51e` sesi lain, bukan fitur ini.
 
 **Last updated:** 2026-11-06  
 **Owner:** Dev Suka Shawarma

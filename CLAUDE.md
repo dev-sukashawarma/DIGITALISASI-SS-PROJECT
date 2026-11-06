@@ -3652,6 +3652,13 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - `lib/biayaRab.ts` & `components/BiayaRabPanel.tsx` masuk daftar file identik test paritas Buku Kas (finance ↔ admin).
 - ⚠️ **Jangan pernah menjumlahkan `biaya_rab_outlet` ke laporan apa pun.** Konektor `mcp__supabase__execute_sql` menolak DDL ini (REVOKE/DROP); dijalankan lewat konektor 5f2e798c.
 
-**Last updated:** 2026-11-05  
+## Session 2026-11-06: Purchasing boleh menambah bahan baku (DB + admin-dashboard)
+
+**Status:** DB **LIVE**: `20261106130000_purchasing_boleh_tambah_bahan_baku` applied & terstempel; uji `supabase/verifikasi/master_bahan/t12_purchasing_tambah.sql` LULUS (RED sebelum migration: purchasing ditolak). ⚠️ Perlu **redeploy `admin-dashboard`** agar tombol "Tambah Bahan" muncul untuk purchasing.
+
+- Lingkup baru `tambah` di `_peran_master` (admin/owner/purchasing/developer). `simpan_bahan_baku` memakai `tambah` hanya saat `p_id IS NULL`; mengubah bahan, nonaktifkan/aktifkan/hapus, dan SKU tetap lingkup `data` (admin/owner/developer). Alasan: ubah satuan/nonaktifkan bisa merusak saldo stok, membuat bahan baru tidak.
+- Layar: `bolehTambahBahan()` (`lib/masterBahan/akses.ts`) hanya mengatur tombol Tambah Bahan; panel detail tetap read-only untuk purchasing. Finance tetap memakai tautan menu "Master Bahan Baku" ke admin-dashboard (keputusan: tidak membuat form kedua di finance).
+
+**Last updated:** 2026-11-06  
 **Owner:** Dev Suka Shawarma
 

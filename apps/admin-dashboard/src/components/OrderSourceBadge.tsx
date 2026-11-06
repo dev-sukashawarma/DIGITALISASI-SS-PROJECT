@@ -21,7 +21,21 @@ export default function OrderSourceBadge({
   const isMd = size === 'md'
   const iconBox = isMd ? 'w-4 h-4' : 'w-3.5 h-3.5'
 
-  return (
+  // Penanda Pre-Order WA: pesanan WA/telepon "[Jam Ambil]". Dihitung sebagai
+  // Offline/POS Kasir (badge utama), pill ini hanya menandainya.
+  const isPreorderWa = (channel || '').trim().toLowerCase() === 'preorder_wa'
+  const preorderPill = isPreorderWa ? (
+    <span
+      className={`inline-flex items-center font-bold uppercase tracking-wider rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 ${
+        isMd ? 'text-xs px-2 py-1' : 'text-[10px] px-1.5 py-0.5'
+      }`}
+      title="Pesanan WhatsApp/telepon, dihitung sebagai Offline"
+    >
+      Pre-Order WA
+    </span>
+  ) : null
+
+  const badge = (
     <span
       className={`inline-flex items-center gap-1.5 font-bold uppercase tracking-wider rounded-md ${
         isMd ? 'text-xs px-2.5 py-1' : 'text-[10px] px-2 py-0.5'
@@ -50,6 +64,14 @@ export default function OrderSourceBadge({
         </span>
       )}
       {src.label}
+    </span>
+  )
+
+  if (!preorderPill) return badge
+  return (
+    <span className="inline-flex items-center gap-1 flex-wrap">
+      {badge}
+      {preorderPill}
     </span>
   )
 }

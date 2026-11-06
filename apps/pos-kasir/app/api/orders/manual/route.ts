@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Metode pembayaran tidak valid' }, { status: 400 })
   }
   if (body.payment_method === 'va' && body.channel !== 'website') {
-    return NextResponse.json({ error: 'Virtual Account hanya tersedia untuk Order Website' }, { status: 400 })
+    return NextResponse.json({ error: 'Virtual Account hanya tersedia untuk Pre-Order WA' }, { status: 400 })
   }
   if (!Array.isArray(body.items) || body.items.length === 0) {
     return NextResponse.json({ error: 'Pesanan kosong, pilih minimal 1 menu' }, { status: 400 })
@@ -279,6 +279,9 @@ export async function POST(request: Request) {
   // ── Buat order langsung status 'preparing' (Diproses) ───────────────────
   const customerName = (body.customer_name ?? '').trim()
   const recordedDiscount = globalDiscount + itemDiscountTotal
+  // Catatan: channel 'website' dari tab Pre-Order WA (nama berisi "[Jam Ambil:")
+  // diubah trigger DB trg_zz_order_tandai_preorder_wa menjadi channel
+  // 'preorder_wa' + sales_source 'pos' (dihitung Offline), mulai 1 Okt 2026.
   // 'tiktokgo' (id lokal) & 'website' (mode backup order website/WA) tidak ada di
   // CHECK constraint sales_source — dipetakan ke nilai kanoniknya dulu. Tanpa ini
   // order website backup jatuh ke 'pos' dan hilang dari filter/laporan Website Online.

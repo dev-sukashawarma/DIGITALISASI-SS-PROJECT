@@ -7,6 +7,7 @@ const websiteBackup = { channel: 'website', sales_source: 'online' } // input ma
 const walkIn        = { channel: null, sales_source: 'pos' }
 const gofood        = { channel: 'gofood', sales_source: 'gofood' }
 const tiktok        = { channel: 'tiktokgo', sales_source: 'tiktok' }
+const preorderWa    = { channel: 'preorder_wa', sales_source: 'pos' }  // pesanan WA "[Jam Ambil]"
 
 describe('matchesChannelFilter', () => {
   it('"all" melewatkan semua', () => {
@@ -26,6 +27,15 @@ describe('matchesChannelFilter', () => {
     expect(matchesChannelFilter(walkIn, 'offline')).toBe(true)
     expect(matchesChannelFilter(websiteOnline, 'offline')).toBe(false)
     expect(matchesChannelFilter(gofood, 'offline')).toBe(false)
+  })
+
+  it('Pre-Order WA termasuk Offline, bukan Website', () => {
+    expect(matchesChannelFilter(preorderWa, 'offline')).toBe(true)
+    expect(matchesChannelFilter(preorderWa, 'preorder_wa')).toBe(true)
+    expect(matchesChannelFilter(preorderWa, 'website')).toBe(false)
+    expect(matchesChannelFilter(preorderWa, 'food_apps')).toBe(false)
+    expect(matchesChannelFilter(walkIn, 'preorder_wa')).toBe(false)
+    expect(isFoodAppOrder(preorderWa)).toBe(false)
   })
 
   it('food apps cocok lewat kolom mana pun, termasuk alias tiktok', () => {

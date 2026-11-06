@@ -7,7 +7,6 @@ import {
   Flame,
   AlertTriangle,
   HelpCircle,
-  Info,
   CheckCircle2,
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
@@ -18,8 +17,8 @@ interface WasteReasonBreakdownProps {
   rows: ReasonAgg[]
   total: number
   /**
-   * Berapa insiden yang alasannya di luar 5 opsi dropdown (catatan bebas atau
-   * literal 'Waste' dari ManualEntryForm) dan sudah dilipat ke "Lainnya".
+   * @deprecated Tidak lagi dipakai sejak 'Lainnya' dihapus dari form native.
+   * Disimpan agar tidak ada breaking change pada pemanggil yang masih meneruskan prop ini.
    */
   freeTextCount?: number
 }
@@ -73,7 +72,6 @@ function getReasonConfig(reason: string) {
 export function WasteReasonBreakdown({
   rows,
   total,
-  freeTextCount = 0,
 }: WasteReasonBreakdownProps) {
   const claimableRow = rows.find((r) => r.reason === CLAIMABLE_REASON)
   const claimableTotal = claimableRow ? claimableRow.nilai : 0
@@ -132,7 +130,6 @@ export function WasteReasonBreakdown({
                 const share = total > 0 ? (r.nilai / total) * 100 : 0
                 const cfg = getReasonConfig(r.reason)
                 const Icon = cfg.icon
-                const showFreeTextNote = r.reason === 'Lainnya' && freeTextCount > 0
 
                 return (
                   <div key={r.reason} className="group">
@@ -168,15 +165,6 @@ export function WasteReasonBreakdown({
                         style={{ width: `${Math.max(2, Math.min(share, 100))}%` }}
                       />
                     </div>
-
-                    {showFreeTextNote && (
-                      <div className="mt-2 p-2 rounded-xl bg-suka-gray-50 border border-suka-gray-200/60 flex items-center gap-1.5 text-[10px] text-suka-gray-500 font-medium">
-                        <Info className="w-3.5 h-3.5 text-suka-gray-400 shrink-0" />
-                        <span>
-                          Termasuk <strong>{freeTextCount} insiden</strong> dengan catatan bebas dari form entri manual yang dikelompokkan ke &quot;Lainnya&quot;.
-                        </span>
-                      </div>
-                    )}
                   </div>
                 )
               })}

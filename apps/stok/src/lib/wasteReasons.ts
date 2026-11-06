@@ -19,7 +19,6 @@ export const WASTE_REASONS = [
   'Jatuh / Tumpah',
   'Gosong / Rusak Masak',
   'Kualitas Buruk (dari supplier)',
-  'Lainnya',
 ] as const
 
 export type WasteReason = (typeof WASTE_REASONS)[number]

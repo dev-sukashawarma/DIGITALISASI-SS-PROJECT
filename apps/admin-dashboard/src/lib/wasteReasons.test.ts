@@ -7,14 +7,17 @@ import {
 } from './wasteReasons'
 
 describe('CANONICAL_WASTE_REASONS', () => {
-  it('berisi persis 5 opsi dropdown WasteModal.tsx', () => {
+  it('berisi persis 4 opsi dropdown WasteModal.tsx (Lainnya sudah dihapus dari form)', () => {
     expect(CANONICAL_WASTE_REASONS).toEqual([
       'Basi / Expired',
       'Jatuh / Tumpah',
       'Gosong / Rusak Masak',
       'Kualitas Buruk (dari supplier)',
-      'Lainnya',
     ])
+  })
+
+  it('tidak lagi mengandung Lainnya', () => {
+    expect(CANONICAL_WASTE_REASONS).not.toContain('Lainnya')
   })
 
   it('CLAIMABLE_REASON adalah salah satu nilai kanonik', () => {
@@ -29,24 +32,26 @@ describe('normalizeReason', () => {
     }
   })
 
-  it('melipat literal fallback ManualEntryForm ("Waste") ke Lainnya', () => {
-    expect(normalizeReason('Waste')).toBe('Lainnya')
+  it('mengembalikan null untuk literal fallback ManualEntryForm ("Waste")', () => {
+    expect(normalizeReason('Waste')).toBeNull()
   })
 
-  it('melipat catatan bebas yang diketik crew ke Lainnya', () => {
-    expect(normalizeReason('Basi dan berubah warna')).toBe('Lainnya')
-    expect(normalizeReason('Rusak')).toBe('Lainnya')
+  it('mengembalikan null untuk catatan bebas yang diketik crew', () => {
+    expect(normalizeReason('Basi dan berubah warna')).toBeNull()
+    expect(normalizeReason('Rusak')).toBeNull()
   })
 
-  it('melipat string kosong ke Lainnya, bukan membiarkan bar tanpa label', () => {
-    expect(normalizeReason('')).toBe('Lainnya')
+  it('mengembalikan null untuk "Lainnya" historis (sudah dihapus dari form)', () => {
+    expect(normalizeReason('Lainnya')).toBeNull()
+  })
+
+  it('mengembalikan null untuk string kosong', () => {
+    expect(normalizeReason('')).toBeNull()
   })
 
   it('peka huruf besar-kecil: varian beda kapitalisasi bukan nilai kanonik', () => {
-    // Data nyata memakai kapitalisasi persis dropdown; varian lain berarti
-    // penulis lain, jadi memang harus jatuh ke Lainnya.
-    expect(normalizeReason('lainnya')).toBe('Lainnya')
-    expect(normalizeReason('BASI / EXPIRED')).toBe('Lainnya')
+    expect(normalizeReason('lainnya')).toBeNull()
+    expect(normalizeReason('BASI / EXPIRED')).toBeNull()
   })
 })
 
@@ -58,15 +63,15 @@ describe('countFreeTextIncidents', () => {
       countFreeTextIncidents([
         row('Waste', 5),
         row('Rusak', 1),
-        row('Lainnya', 9),
+        row('Lainnya', 9),       // 'Lainnya' sekarang non-kanonik
         row('Basi / Expired', 3),
       ])
-    ).toBe(6)
+    ).toBe(15) // 5 + 1 + 9 = 15 (semua non-kanonik kecuali 'Basi / Expired')
   })
 
   it('mengembalikan 0 kalau semua reason kanonik', () => {
     expect(
-      countFreeTextIncidents([row('Lainnya', 4), row('Jatuh / Tumpah', 2)])
+      countFreeTextIncidents([row('Jatuh / Tumpah', 4), row('Gosong / Rusak Masak', 2)])
     ).toBe(0)
   })
 

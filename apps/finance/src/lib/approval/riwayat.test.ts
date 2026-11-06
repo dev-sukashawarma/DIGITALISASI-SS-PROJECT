@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { labelRiwayat, teksWaktuRiwayat, type RiwayatApproval } from './riwayat'
+import { kelompokkanPerHari, labelRiwayat, namaPelakuRiwayat, teksWaktuRiwayat, type RiwayatApproval } from './riwayat'
 
 function baris(over: Partial<RiwayatApproval> = {}): RiwayatApproval {
   return {
@@ -37,5 +37,38 @@ describe('teksWaktuRiwayat', () => {
   })
   it('jam tercatat ditampilkan dalam WIB', () => {
     expect(teksWaktuRiwayat('2026-11-06T03:00:00Z')).toContain('10.00')
+  })
+})
+
+describe('kelompokkanPerHari', () => {
+  const now = new Date('2026-11-06T12:00:00Z') // 19.00 WIB, Jumat 6 Nov 2026
+  it('mengelompokkan per tanggal WIB dengan label Hari ini / Kemarin / tanggal', () => {
+    const grup = kelompokkanPerHari(
+      [
+        baris({ id: 'a', waktu: '2026-11-06T09:00:00Z', nominal: 100 }),
+        baris({ id: 'b', waktu: '2026-11-05T18:30:00Z', nominal: 50 }), // 01.30 WIB 6 Nov
+        baris({ id: 'c', waktu: '2026-11-05T03:00:00Z', nominal: 20 }),
+        baris({ id: 'd', waktu: '2026-11-03T03:00:00Z', nominal: 5 }),
+      ],
+      now,
+    )
+    expect(grup.map((g) => g.label)).toEqual(['Hari ini', 'Kemarin', 'Selasa, 3 Nov 2026'])
+    expect(grup[0].baris.map((r) => r.id)).toEqual(['a', 'b'])
+    expect(grup[0].total).toBe(150)
+  })
+  it('keputusan tanpa jam dikumpulkan dalam satu grup data lama', () => {
+    const grup = kelompokkanPerHari([baris({ id: 'x', waktu: null }), baris({ id: 'y', waktu: null })], now)
+    expect(grup).toHaveLength(1)
+    expect(grup[0].kunci).toBe('tanpa-jam')
+    expect(grup[0].baris).toHaveLength(2)
+  })
+})
+
+describe('namaPelakuRiwayat', () => {
+  it('akun Superadmin 2 tampil sebagai Hesti Qodriani', () => {
+    expect(namaPelakuRiwayat('Superadmin 2')).toBe('Hesti Qodriani')
+  })
+  it('pelaku tak dikenal jadi null', () => {
+    expect(namaPelakuRiwayat(null)).toBeNull()
   })
 })

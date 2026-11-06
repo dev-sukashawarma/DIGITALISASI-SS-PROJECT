@@ -41,6 +41,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useHubApprovalCount } from '@/hooks/useHubApproval'
+import { teksBadgeHub } from '@/lib/approval/hub'
 import { usePendingPrCount } from '@/hooks/usePurchaseRequest'
 
 type NavItem = {
@@ -217,7 +218,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   // Hub Approval khusus checker finance (owner/admin/admin_finance/developer).
   const role = (outletStaff?.role as string) ?? ''
   const bolehHub = ['owner', 'admin', 'admin_finance', 'developer'].includes(role)
-  const { total: hubPendingCount } = useHubApprovalCount(bolehHub)
+  const { total: hubPendingCount, adaGalat: hubAdaGalat } = useHubApprovalCount(bolehHub)
   const { data: prPendingCount = 0 } = usePendingPrCount()
   
   const prevPendingRef = useRef(0)
@@ -228,7 +229,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
       : hubPendingCount
     const appTitle = isPurchasingRole ? 'Suka Purchasing' : 'Suka Finance'
     if (totalPending > 0) {
-      document.title = `(${totalPending}) ${appTitle}`
+      document.title = `(${totalPending}${!isPurchasingRole && hubAdaGalat ? '!' : ''}) ${appTitle}`
     } else {
       document.title = appTitle
     }
@@ -239,7 +240,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
     }
     // Update ref for next comparison
     prevPendingRef.current = totalPending
-  }, [isPurchasingRole, prPendingCount, hubPendingCount])
+  }, [isPurchasingRole, prPendingCount, hubPendingCount, hubAdaGalat])
 
   const baseNavGroups: NavGroup[] = isPurchasingRole
     ? buildPurchasingNavGroups(resolvedAdminUrl)
@@ -336,6 +337,12 @@ export function CashLayout({ children }: { children: ReactNode }) {
     if (href === '/approval') return hubPendingCount
     if (href === '/pembelian/permintaan') return prPendingCount
     return undefined
+  }
+
+  /** Teks badge per item; Hub Approval ditandai "!" bila ada sumber yang gagal dibaca. */
+  const teksBadge = (href: string, jumlah: number | undefined): string | null => {
+    if (href === '/approval') return teksBadgeHub(hubPendingCount, hubAdaGalat)
+    return jumlah !== undefined && jumlah > 0 ? String(jumlah) : null
   }
 
   if (pathname?.startsWith('/leader') || pathname?.startsWith('/area-manager')) {
@@ -491,7 +498,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
                                 }`}
                               />
                               <span className="flex-1 truncate">{label}</span>
-                              {badgeCount !== undefined && badgeCount > 0 && (
+                              {teksBadge(href, badgeCount) && (
                                 <span
                                   className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold transition-colors ${
                                     active
@@ -499,7 +506,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
                                       : 'bg-red-500 text-white shadow-sm'
                                   }`}
                                 >
-                                  {badgeCount}
+                                  {teksBadge(href, badgeCount)}
                                 </span>
                               )}
                             </Link>
@@ -621,9 +628,9 @@ export function CashLayout({ children }: { children: ReactNode }) {
                 )}
                 <div className={`p-1 transition-all relative ${active ? 'text-suka-orange' : ''}`}>
                   <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                  {badgeCount !== undefined && badgeCount > 0 && (
+                  {teksBadge(href, badgeCount) && (
                     <span className="absolute -top-1 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-white px-1 text-[9px] font-black">
-                      {badgeCount}
+                      {teksBadge(href, badgeCount)}
                     </span>
                   )}
                 </div>
@@ -724,9 +731,9 @@ export function CashLayout({ children }: { children: ReactNode }) {
                                 active ? 'bg-suka-orange text-white' : 'bg-white text-suka-brown hover:bg-suka-orange/10'
                               }`}>
                                 <Icon size={24} />
-                                {badgeCount !== undefined && badgeCount > 0 && (
+                                {teksBadge(href, badgeCount) && (
                                   <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 text-white px-1 text-[10px] font-black shadow-sm">
-                                    {badgeCount}
+                                    {teksBadge(href, badgeCount)}
                                   </span>
                                 )}
                               </div>

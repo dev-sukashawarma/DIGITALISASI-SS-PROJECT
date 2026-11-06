@@ -12,6 +12,7 @@ import {
   hitungPerJenis,
   isLama,
   gabungSumber,
+  teksBadgeHub,
   type HubItem,
 } from './hub'
 
@@ -192,5 +193,18 @@ describe('gabungSumber', () => {
   })
   it('isLoading bila salah satu sumber loading', () => {
     expect(gabungSumber([{ jenis: ['po'], items: [], isLoading: true, error: null }]).isLoading).toBe(true)
+  })
+})
+
+describe('teksBadgeHub', () => {
+  it('angka biasa bila semua sumber terbaca', () => {
+    expect(teksBadgeHub(3, false)).toBe('3')
+  })
+  it('nol tanpa galat tidak menampilkan badge', () => {
+    expect(teksBadgeHub(0, false)).toBeNull()
+  })
+  it('sumber galat ditandai, tidak diam-diam dihitung nol', () => {
+    expect(teksBadgeHub(3, true)).toBe('3!')
+    expect(teksBadgeHub(0, true)).toBe('!')
   })
 })

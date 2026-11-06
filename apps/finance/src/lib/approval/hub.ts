@@ -140,3 +140,9 @@ export function gabungSumber(sumber: SumberHasil[]): { items: HubItem[]; galat: 
   }
   return { items: urutkanHub(items), galat, isLoading: sumber.some((s) => s.isLoading) }
 }
+
+/** Teks badge menu Hub Approval: sumber yang gagal dibaca ditandai "!", tidak dihitung nol diam-diam. */
+export function teksBadgeHub(total: number, adaGalat: boolean): string | null {
+  if (adaGalat) return total > 0 ? `${total}!` : '!'
+  return total > 0 ? String(total) : null
+}

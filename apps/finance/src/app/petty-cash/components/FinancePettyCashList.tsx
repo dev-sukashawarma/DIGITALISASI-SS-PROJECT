@@ -1,13 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
-import { Wallet, Clock, History, Filter, Store, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download, Search, FileSpreadsheet, FileText } from 'lucide-react'
-import { FinanceApprovalModal } from './FinanceApprovalModal'
-import { usePettyCashRequests, useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
+import { Wallet, Clock, History, Filter, Store, CheckCircle2, XCircle, ArrowRight, Loader2, Camera, X, Download, Search, FileSpreadsheet, FileText } from 'lucide-react'
+import Link from 'next/link'
+import { usePettyCashRequests } from '@/hooks/usePettyCash'
 import { tanggalWaktu } from '@/lib/format'
-import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
+import type { PettyCashTopup } from '@/lib/types'
 import { exportPettyCashCSV, exportPettyCashPDF } from '@/lib/exportPettyCash'
 
 const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID')}`
@@ -97,15 +95,10 @@ function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; on
 }
 
 export function FinancePettyCashList({ initialRequests }: { initialRequests?: PettyCashTopup[] }) {
-  const router = useRouter()
   const { data: allRequests, isLoading } = usePettyCashRequests(undefined, initialRequests)
-  const processTopup = useProcessPettyCashFinance()
-  const forwardTopup = useForwardPettyCashFinance()
   
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
   const [reviewFilter, setReviewFilter] = useState<'all' | 'waiting_am' | 'unprocessed' | 'ready_handover'>('all')
-  const [selectedRequest, setSelectedRequest] = useState<PettyCashTopup | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -183,56 +176,6 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
   const requests = paginatedRequests
 
-  const handleOpenModal = (req: PettyCashTopup) => {
-    setSelectedRequest(req)
-    setIsModalOpen(true)
-  }
-
-  const handleApprove = async (method: DisbursementMethod, cashLocationId: string, proofFile?: File | null, approvedAmount?: number, approvalNote?: string) => {
-    if (!selectedRequest) return
-    try {
-      await processTopup.mutateAsync({ 
-        id: selectedRequest.id, 
-        action: 'approve',
-        method,
-        cashLocationId,
-        proofFile,
-        approvedAmount,
-        approvalNote
-      })
-      toast.success('Pencairan Petty Cash berhasil diproses!')
-      setIsModalOpen(false)
-      router.refresh()
-    } catch (err: any) {
-      console.error('Error approving topup:', err)
-      toast.error(err.message || 'Gagal memproses pencairan')
-    }
-  }
-
-  const handleReject = async () => {
-    if (!selectedRequest) return
-    try {
-      await processTopup.mutateAsync({ id: selectedRequest.id, action: 'reject' })
-      toast.success('Pengajuan Petty Cash ditolak.')
-      setIsModalOpen(false)
-      router.refresh()
-    } catch (err: any) {
-      console.error('Error rejecting topup:', err)
-      toast.error(err.message || 'Gagal menolak pengajuan')
-    }
-  }
-
-  const handleForwardToAreaManager = async (req: PettyCashTopup) => {
-    if (confirm('Konfirmasi penyerahan dana dari Finance ke Area Manager?')) {
-      try {
-        await forwardTopup.mutateAsync({ id: req.id })
-        toast.success('Dana berhasil diserahkan ke Area Manager!')
-        router.refresh()
-      } catch (err: any) {
-        toast.error(err.message || 'Gagal meneruskan dana')
-      }
-    }
-  }
 
   if (isLoading) {
     return (
@@ -530,23 +473,14 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                       </div>
                     </td>
                     <td className="py-4 px-5 text-right whitespace-nowrap">
-                      {req.status === 'forwarded_to_finance' && activeTab === 'review' && (
-                        <button
-                          onClick={() => handleOpenModal(req)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white rounded-lg font-medium text-[13px] transition-all shadow-sm active:scale-95 cursor-pointer"
+                      {(req.status === 'forwarded_to_finance' || req.status === 'approved_by_finance') && activeTab === 'review' && (
+                        <Link
+                          href="/approval"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white rounded-lg font-medium text-[13px] transition-all shadow-sm"
                         >
-                          <Wallet className="w-3.5 h-3.5" />
-                          Proses / Acc
-                        </button>
-                      )}
-                      {req.status === 'approved_by_finance' && activeTab === 'review' && (
-                        <button
-                          onClick={() => handleForwardToAreaManager(req)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-[13px] transition-all shadow-sm active:scale-95 cursor-pointer"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          Serahkan AM
-                        </button>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                          Putuskan di Hub Approval
+                        </Link>
                       )}
                     </td>
                   </tr>
@@ -606,16 +540,6 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         </div>
       )}
       </div>
-
-      {selectedRequest && (
-        <FinanceApprovalModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          request={selectedRequest}
-          onApprove={handleApprove}
-          onReject={handleReject}
-        />
-      )}
 
       <ProofImageLightbox
         imageUrl={selectedProofUrl}

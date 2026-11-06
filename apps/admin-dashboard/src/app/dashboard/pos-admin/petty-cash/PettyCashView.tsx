@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, XCircle, AlertTriangle, Loader2, ArrowDownToLine, Clock, User, Store, Building2, Send } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, ArrowDownToLine, Clock, User, Store, Building2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
-import { useDialogStore } from '@/lib/dialogStore'
 import { toast } from 'sonner'
-import { processFinancePettyCash, forwardFinanceFunds } from './actions'
 
 interface TopupRequest {
   id: string
@@ -38,10 +36,8 @@ interface PettyCashViewProps {
 
 export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
   const router = useRouter()
-  const { showConfirm } = useDialogStore()
   const supabase = createClient()
   const [requests, setRequests] = useState<TopupRequest[]>(initialRequests)
-  const [isSubmitting, setIsSubmitting] = useState<string | null>(null)
 
   useEffect(() => {
     setRequests(initialRequests)
@@ -71,60 +67,6 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
     }
   }, [supabase, router])
 
-  async function handleReject(id: string) {
-    const confirmed = await showConfirm('Anda yakin ingin menolak pengajuan ini?')
-    if (!confirmed) return
-    
-    setIsSubmitting(id)
-    try {
-      const result = await processFinancePettyCash(id, 'reject')
-      if (!result.success) throw new Error(result.error)
-      
-      setRequests(reqs => reqs.map(r => {
-        if (r.id === id) {
-          return {
-            ...r,
-            status: 'rejected',
-          }
-        }
-        return r
-      }))
-      
-      toast.success('Pengajuan berhasil ditolak')
-      router.refresh()
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || `Gagal memproses pengajuan`)
-    } finally {
-      setIsSubmitting(null)
-    }
-  }
-
-  async function handleForwardToAreaManager(id: string) {
-    const confirmed = await showConfirm('Konfirmasi penyerahan dana dari Finance ke Area Manager?');
-    if (!confirmed) return
-    
-    setIsSubmitting(id)
-    try {
-      const result = await forwardFinanceFunds(id)
-      if (!result.success) throw new Error(result.error)
-      
-      setRequests(reqs => reqs.map(r => {
-        if (r.id === id) {
-          return { ...r, status: 'forwarded_by_finance' }
-        }
-        return r
-      }))
-      
-      toast.success('Dana berhasil diserahkan ke Area Manager!')
-      router.refresh()
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || 'Gagal meneruskan dana')
-    } finally {
-      setIsSubmitting(null)
-    }
-  }
 
   const pendingFinanceRequests = requests.filter(r => r.status === 'forwarded_to_finance' || r.status === 'approved_by_finance')
   const historyRequests = requests.filter(r => r.status !== 'forwarded_to_finance' && r.status !== 'approved_by_finance')
@@ -204,35 +146,13 @@ export default function PettyCashView({ initialRequests }: PettyCashViewProps) {
                     <div className="h-10 w-px bg-gray-200 mx-2 hidden md:block"></div>
 
                     <div className="flex flex-col gap-2 w-full md:w-auto">
-                      {req.status === 'forwarded_to_finance' && (
-                        <>
-                          <a
-                            href={`${financeUrl}/petty-cash`}
-                            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-sm"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            Cairkan di Finance
-                          </a>
-                          <button
-                            onClick={() => handleReject(req.id)}
-                            disabled={isSubmitting !== null}
-                            className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl font-bold text-xs transition-colors disabled:opacity-50"
-                          >
-                            <XCircle className="w-4 h-4" /> Tolak
-                          </button>
-                        </>
-                      )}
-
-                      {req.status === 'approved_by_finance' && (
-                        <button
-                          onClick={() => handleForwardToAreaManager(req.id)}
-                          disabled={isSubmitting !== null}
-                          className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-colors disabled:opacity-50 shadow-sm"
-                        >
-                          {isSubmitting === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                          Serahkan ke AM
-                        </button>
-                      )}
+                      <a
+                        href={`${financeUrl}/approval`}
+                        className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-sm"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Putuskan di Hub Approval
+                      </a>
                     </div>
                   </div>
                 </div>

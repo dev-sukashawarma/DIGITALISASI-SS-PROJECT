@@ -8,7 +8,7 @@ import { Banknote, Clock, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCashOverview } from '@/hooks/useCashData'
 import {
-  usePayablePos, useTxBayarPo, useAjukanBayarPo, useTolakBayarPo,
+  usePayablePos, useTxBayarPo, useAjukanBayarPo,
   type PayablePo,
 } from '@/hooks/useSupplierSettlement'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
@@ -16,7 +16,6 @@ import { lokasiGrup } from '@/lib/kas/grupKas'
 import { rupiah, tanggal, tanggalWaktu } from '@/lib/format'
 import { StatCard, SectionCard } from '@/components/ui'
 import { BuktiModal } from '@/app/mutasi/components/BuktiModal'
-import { SetujuiBayarVendorModal } from '@/components/approval/SetujuiBayarVendorModal'
 
 type Tab = 'pending' | 'unpaid' | 'paid'
 
@@ -38,9 +37,7 @@ export function SupplierView() {
   const { data: txs = {} } = useTxBayarPo()
   const { isChecker, canAjukanBayarPO } = useFinanceRole()
   const ajukan = useAjukanBayarPo()
-  const tolak = useTolakBayarPo()
   const [tab, setTab] = useState<Tab>('pending')
-  const [setujuiPo, setSetujuiPo] = useState<PayablePo | null>(null)
   const [bukti, setBukti] = useState<{ url: string; judul: string } | null>(null)
 
   const per = (s: Tab) => pos.filter((p) => p.payment_status === s)
@@ -52,15 +49,6 @@ export function SupplierView() {
     if (catatan === null) return
     ajukan.mutate({ poId: p.id, catatan }, {
       onSuccess: () => toast.success(`${p.nomor_po} diajukan, menunggu approval admin finance`),
-      onError: (e) => toast.error((e as Error).message),
-    })
-  }
-
-  const tolakPo = (p: PayablePo) => {
-    const alasan = window.prompt(`Alasan menolak pembayaran ${p.nomor_po}?`)
-    if (!alasan?.trim()) return
-    tolak.mutate({ poId: p.id, alasan }, {
-      onSuccess: () => toast.success(`Pengajuan ${p.nomor_po} ditolak, PO kembali belum dibayar`),
       onError: (e) => toast.error((e as Error).message),
     })
   }
@@ -159,10 +147,7 @@ export function SupplierView() {
                           <Button onClick={() => ajukanPo(p)} disabled={ajukan.isPending} className="px-3 py-1 text-xs">Ajukan</Button>
                         )}
                         {tab === 'pending' && isChecker && (
-                          <>
-                            <Button onClick={() => setSetujuiPo(p)} className="px-3 py-1 text-xs">Setujui</Button>
-                            <button onClick={() => tolakPo(p)} disabled={tolak.isPending} className="text-xs font-semibold text-red-600 hover:underline">Tolak</button>
-                          </>
+                          <Link href="/approval" className="text-xs font-semibold text-suka-orange hover:underline">Putuskan di Hub Approval</Link>
                         )}
                       </td>
                     </tr>
@@ -173,11 +158,6 @@ export function SupplierView() {
           </div>
         )}
       </SectionCard>
-
-      {setujuiPo && (
-        <SetujuiBayarVendorModal po={setujuiPo} rekeningLabel={rekening?.label ?? 'Rekening Bahan Baku Bank'} saldo={rekening?.saldo ?? 0}
-          onClose={() => setSetujuiPo(null)} />
-      )}
       {bukti && <BuktiModal url={bukti.url} judul={bukti.judul} onClose={() => setBukti(null)} />}
     </div>
   )

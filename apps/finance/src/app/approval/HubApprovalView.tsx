@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Inbox, Loader2, AlertTriangle } from 'lucide-react'
+import { Inbox } from 'lucide-react'
 import { PageHeader } from '@/components/ui'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { useHubApproval } from '@/hooks/useHubApproval'
@@ -13,18 +13,15 @@ import { useTolakBayarPo, type PayablePo } from '@/hooks/useSupplierSettlement'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
 import { useCashOverview } from '@/hooks/useCashData'
 import { lokasiGrup } from '@/lib/kas/grupKas'
-import { rupiah } from '@/lib/format'
-import { JENIS_LABEL, URUTAN_JENIS, type HubItem, type HubJenis } from '@/lib/approval/hub'
+import { JENIS_LABEL, type HubItem } from '@/lib/approval/hub'
 import type { DisbursementMethod, PettyCashTopup } from '@/lib/types'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
 import { FinanceApprovalModal } from '@/app/petty-cash/components/FinanceApprovalModal'
 import { VerifyVoucherModal } from '@/components/VerifyVoucherModal'
 import { AlasanTolakModal } from '@/components/approval/AlasanTolakModal'
 import { SetujuiBayarVendorModal } from '@/components/approval/SetujuiBayarVendorModal'
-import { BarisHub } from './BarisHub'
+import { MenungguPanel } from './MenungguPanel'
 import { RiwayatApprovalPanel } from './RiwayatApprovalPanel'
-
-type Saringan = 'semua' | HubJenis
 
 const PREFIX_HUB = [['petty_cash_topups'], ['po-pending-approval'], ['po_payable'], ['office_vouchers']]
 
@@ -36,7 +33,6 @@ export function HubApprovalView() {
   const qc = useQueryClient()
   const { isChecker } = useFinanceRole()
   const { items, galat, isLoading, perJenis } = useHubApproval(isChecker)
-  const [saringan, setSaringan] = useState<Saringan>('semua')
   const [tab, setTab] = useState<'menunggu' | 'riwayat'>('menunggu')
   const [now, setNow] = useState(() => new Date())
 
@@ -61,11 +57,6 @@ export function HubApprovalView() {
   const [tolakItem, setTolakItem] = useState<HubItem | null>(null)
   const [tolakPending, setTolakPending] = useState(false)
 
-  const tampil = useMemo(
-    () => (saringan === 'semua' ? items : items.filter((i) => i.jenis === saringan)),
-    [items, saringan],
-  )
-  const totalNominal = useMemo(() => tampil.reduce((a, i) => a + i.nominal, 0), [tampil])
 
   /** Pengajuan yang sudah diputuskan di tab lain: segarkan agar barisnya hilang. */
   const segarkan = () => PREFIX_HUB.forEach((queryKey) => qc.invalidateQueries({ queryKey }))
@@ -160,19 +151,6 @@ export function HubApprovalView() {
     )
   }
 
-  const chip = (key: Saringan, label: string, jumlah: number | null) => (
-    <button
-      key={key}
-      type="button"
-      onClick={() => setSaringan(key)}
-      className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-        saringan === key ? 'border-suka-brown bg-suka-brown text-white' : 'border-suka-brown/15 bg-white text-suka-ink hover:border-suka-brown/40'
-      }`}
-    >
-      {label} {jumlah === null ? <span className="text-red-500">!</span> : jumlah}
-    </button>
-  )
-
   return (
     <div className="space-y-5 pb-12 font-sans">
       <PageHeader
@@ -199,41 +177,16 @@ export function HubApprovalView() {
       {tab === 'riwayat' ? (
         <RiwayatApprovalPanel enabled={isChecker} />
       ) : (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {chip('semua', 'Semua', items.length)}
-            {URUTAN_JENIS.map((j) => chip(j, JENIS_LABEL[j], galat.includes(j) ? null : perJenis[j]))}
-          </div>
-
-          {galat.length > 0 && (
-            <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-              <span>Gagal memuat: {galat.map((j) => JENIS_LABEL[j]).join(', ')}. Bagian lain tetap tampil; muat ulang halaman untuk mencoba lagi.</span>
-            </div>
-          )}
-
-          <div className="overflow-hidden rounded-2xl border border-suka-brown/10 bg-white">
-            {isLoading && items.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm text-suka-gray-500">
-                <Loader2 size={18} className="animate-spin text-suka-orange" /> Memuat pengajuan…
-              </div>
-            ) : tampil.length === 0 ? (
-              <p className="py-16 text-center text-sm font-medium text-suka-gray-500">Tidak ada pengajuan yang menunggu</p>
-            ) : (
-              <>
-                <div className="flex justify-between border-b border-suka-brown/5 bg-suka-cream/40 px-4 py-2 text-xs font-semibold text-suka-gray-600">
-                  <span>{tampil.length} pengajuan</span>
-                  <span>Total {rupiah(totalNominal)}</span>
-                </div>
-                <ul>
-                  {tampil.map((i) => (
-                    <BarisHub key={i.key} item={i} now={now} bolehPutuskan={isChecker} onSetujui={setujui} onTolak={setTolakItem} />
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        </>
+        <MenungguPanel
+          items={items}
+          galat={galat}
+          isLoading={isLoading}
+          perJenis={perJenis}
+          now={now}
+          bolehPutuskan={isChecker}
+          onSetujui={setujui}
+          onTolak={setTolakItem}
+        />
       )}
 
       {pettyAcc && (

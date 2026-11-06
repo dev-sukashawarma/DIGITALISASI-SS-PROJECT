@@ -146,3 +146,17 @@ export function teksBadgeHub(total: number, adaGalat: boolean): string | null {
   if (adaGalat) return total > 0 ? `${total}!` : '!'
   return total > 0 ? String(total) : null
 }
+
+/** Pisahkan pekerjaan yang sudah menunggu lebih dari ambang dari yang baru masuk (urutan dipertahankan). */
+export function pisahMenurutUmur(items: HubItem[], now: Date, ambangJam: number = AMBANG_LAMA_JAM): { lama: HubItem[]; baru: HubItem[] } {
+  const lama: HubItem[] = []
+  const baru: HubItem[] = []
+  for (const i of items) (isLama(i.menungguSejak, now, ambangJam) ? lama : baru).push(i)
+  return { lama, baru }
+}
+
+export function totalPerJenis(items: HubItem[]): Record<HubJenis, number> {
+  const hasil = Object.fromEntries(URUTAN_JENIS.map((j) => [j, 0])) as Record<HubJenis, number>
+  for (const i of items) hasil[i.jenis] += Number(i.nominal) || 0
+  return hasil
+}

@@ -13,6 +13,8 @@ import {
   isLama,
   gabungSumber,
   teksBadgeHub,
+  pisahMenurutUmur,
+  totalPerJenis,
   type HubItem,
 } from './hub'
 
@@ -206,5 +208,26 @@ describe('teksBadgeHub', () => {
   it('sumber galat ditandai, tidak diam-diam dihitung nol', () => {
     expect(teksBadgeHub(3, true)).toBe('3!')
     expect(teksBadgeHub(0, true)).toBe('!')
+  })
+})
+
+describe('pisahMenurutUmur', () => {
+  it('memisahkan yang lewat 24 jam dari yang baru masuk, urutan tetap', () => {
+    const now = new Date('2026-11-06T12:00:00Z')
+    const { lama, baru } = pisahMenurutUmur(
+      [item('po', 'a', '2026-11-04T08:00:00Z'), item('petty_cash', 'b', '2026-11-05T10:00:00Z'), item('po', 'c', '2026-11-06T08:00:00Z')],
+      now,
+    )
+    expect(lama.map((i) => i.id)).toEqual(['a', 'b'])
+    expect(baru.map((i) => i.id)).toEqual(['c'])
+  })
+})
+
+describe('totalPerJenis', () => {
+  it('menjumlah nominal per jenis, semua kunci ada', () => {
+    const t = '2026-11-05T08:00:00Z'
+    const a = { ...item('po', 'a', t), nominal: 1000 } as HubItem
+    const b = { ...item('po', 'b', t), nominal: 500 } as HubItem
+    expect(totalPerJenis([a, b])).toEqual({ petty_cash: 0, serah_am: 0, po: 1500, bayar_vendor: 0, dana_kantor: 0 })
   })
 })

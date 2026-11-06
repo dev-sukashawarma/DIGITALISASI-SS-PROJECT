@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
 import { requireRole } from '@/lib/authz'
 import { DisbursementMethod } from '@/lib/types'
+import { deskripsiPettyCash } from '@/lib/approval/deskripsiPettyCash'
 
 // Role yang benar-benar boleh memproses tahap Finance (approve/reject/forward
 // dana). `leader`/`area_manager` punya akses app `finance` (ROLE_APP_ACCESS)
@@ -95,19 +96,14 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
     // 1. Panggil RPC khusus yang bisa menangani adjustment amount & description
     // RPC ini dijamin sukses tanpa terhadang RLS UPDATE karena SECURITY DEFINER.
     
-    let newDescription = topup.description
-    if (action === 'approve') {
-      const finalAmount = approvedAmount ?? topup.amount
-      if (approvalNote && approvalNote.trim()) {
-        if (approvedAmount && approvedAmount !== topup.amount) {
-          newDescription = `${topup.description}\n\n[Catatan Finance (Acc Rp ${finalAmount.toLocaleString('id-ID')} dari Diajukan Rp ${topup.amount.toLocaleString('id-ID')}): ${approvalNote.trim()}]`
-        } else {
-          newDescription = `${topup.description}\n\n[Catatan Finance: ${approvalNote.trim()}]`
-        }
-      } else if (approvedAmount && approvedAmount !== topup.amount) {
-        newDescription = `${topup.description}\n\n[Catatan Finance: Nominal disetujui Rp ${finalAmount.toLocaleString('id-ID')} dari diajukan Rp ${topup.amount.toLocaleString('id-ID')}]`
-      }
-    }
+    // Approve: catatan/nominal disesuaikan. Reject: alasan tolak ikut tersimpan.
+    const newDescription = deskripsiPettyCash({
+      deskripsiAwal: topup.description,
+      action,
+      nominalDiajukan: topup.amount,
+      nominalDisetujui: approvedAmount ?? undefined,
+      catatan: approvalNote,
+    })
 
     const { error: rpcError } = await supabase.rpc('finance_process_petty_cash_custom', {
       p_topup_id: id,

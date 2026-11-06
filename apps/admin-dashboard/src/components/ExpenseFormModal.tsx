@@ -10,6 +10,12 @@ import {
 } from '@/lib/expenseCategories'
 import type { Outlet } from '@/lib/types'
 import { Upload, X, FileText, Loader2, Eye } from 'lucide-react'
+
+const GRUP_PEMBAYAR_LABEL: Record<'utama' | 'bahan_baku' | 'petty_cash', string> = {
+  utama: 'Rekening Utama',
+  bahan_baku: 'Rekening Bahan Baku',
+  petty_cash: 'Rekening Petty Cash',
+}
 import { useOutlets } from '@/hooks/useOutlets'
 import {
   createSingleExpenseAction,
@@ -54,7 +60,7 @@ export function ExpenseFormModal({
   const [division, setDivision] = useState('')
 
   // Rekening pusat yang membayar ('' = tidak memotong saldo rekening pusat).
-  const [rekeningList, setRekeningList] = useState<{ id: string; label: string; kind: string; saldo: number }[]>([])
+  const [rekeningList, setRekeningList] = useState<{ id: string; label: string; kind: string; grup: string; saldo: number }[]>([])
   const [cashLocationId, setCashLocationId] = useState('')
   // Mode edit: nilai tersimpan baru dikirim setelah terbaca, supaya tak terhapus tanpa sengaja.
   const [rekeningSiap, setRekeningSiap] = useState(false)
@@ -416,11 +422,19 @@ export function ExpenseFormModal({
                 onChange={(e) => setCashLocationId(e.target.value)}
               >
                 <option value="">— Tidak dari rekening pusat —</option>
-                {rekeningList.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    Petty Cash {r.kind === 'bank' ? 'Bank' : 'Tunai'} · {formatRp(r.saldo)}
-                  </option>
-                ))}
+                {(['utama', 'bahan_baku', 'petty_cash'] as const).map((g) => {
+                  const daftarGrup = rekeningList.filter((r) => r.grup === g)
+                  if (daftarGrup.length === 0) return null
+                  return (
+                    <optgroup key={g} label={GRUP_PEMBAYAR_LABEL[g]}>
+                      {daftarGrup.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.label} · {formatRp(r.saldo)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )
+                })}
               </select>
               {rekeningTerpilih && (
                 <span className={`mt-1.5 block text-xs font-semibold ${sisaSaldo < 0 ? 'text-red-600' : 'text-emerald-700'}`}>

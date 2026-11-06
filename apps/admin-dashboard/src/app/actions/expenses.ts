@@ -410,20 +410,25 @@ export async function updateSingleExpenseAction(input: {
   }
 }
 
-/** Rekening pusat yang boleh membayar belanja pusat (grup petty_cash, aktif). */
-export async function daftarRekeningPembayarAction(): Promise<{ id: string; label: string; kind: string; saldo: number }[]> {
+const URUTAN_GRUP_PEMBAYAR = ['utama', 'bahan_baku', 'petty_cash']
+
+/** Rekening pusat aktif yang boleh membayar pengeluaran (semua grup; rekening lama tanpa grup tidak). */
+export async function daftarRekeningPembayarAction(): Promise<{ id: string; label: string; kind: string; grup: string; saldo: number }[]> {
   await requireRole(PERAN_KEUANGAN)
   const { data, error } = await getServiceSupabase()
     .from('cash_location')
-    .select('id, label, kind, cash_balance(saldo)')
-    .eq('grup', 'petty_cash')
+    .select('id, label, kind, grup, cash_balance(saldo)')
+    .not('grup', 'is', null)
     .eq('is_active', true)
-    .order('kind')
   if (error) throw new Error(error.message)
-  return (data ?? []).map((r: any) => {
-    const bal = Array.isArray(r.cash_balance) ? r.cash_balance[0] : r.cash_balance
-    return { id: r.id, label: r.label, kind: r.kind, saldo: Number(bal?.saldo ?? 0) }
-  })
+  return (data ?? [])
+    .map((r: any) => {
+      const bal = Array.isArray(r.cash_balance) ? r.cash_balance[0] : r.cash_balance
+      return { id: r.id, label: r.label, kind: r.kind, grup: r.grup, saldo: Number(bal?.saldo ?? 0) }
+    })
+    .sort((x, y) =>
+      URUTAN_GRUP_PEMBAYAR.indexOf(x.grup) - URUTAN_GRUP_PEMBAYAR.indexOf(y.grup) || x.kind.localeCompare(y.kind),
+    )
 }
 
 /** Rekening pembayar yang tersimpan di satu baris pengeluaran (untuk mode edit). */

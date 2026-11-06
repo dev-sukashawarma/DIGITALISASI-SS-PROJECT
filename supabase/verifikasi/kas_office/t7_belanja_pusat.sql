@@ -63,8 +63,7 @@ BEGIN
   IF n <> 0 THEN RAISE EXCEPTION 'T7g: muncul % transaksi', n; END IF;
 
   -- (h) penolakan
-  BEGIN UPDATE expenses SET cash_location_id = c_bb WHERE id = v_id2; RAISE EXCEPTION 'T7h1 LOLOS';
-  EXCEPTION WHEN check_violation THEN IF SQLERRM NOT LIKE '%Rekening Petty Cash%' THEN RAISE; END IF; END;
+  -- T7h1: sejak 20261106120000 Rekening Bahan Baku juga boleh membayar (lihat t10).
   BEGIN UPDATE expenses SET cash_location_id = c_old WHERE id = v_id2; RAISE EXCEPTION 'T7h2 LOLOS';
   EXCEPTION WHEN check_violation THEN IF SQLERRM NOT LIKE '%nonaktif%' THEN RAISE; END IF; END;
   BEGIN UPDATE expenses SET cash_location_id = c_pc, type = 'office_advance' WHERE id = v_id2; RAISE EXCEPTION 'T7h3 LOLOS';

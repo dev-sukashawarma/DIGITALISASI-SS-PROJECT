@@ -35,12 +35,12 @@ import {
   Tags,
   type LucideIcon,
   ScrollText,
+  Inbox,
 } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { usePettyCashCount } from '@/hooks/usePettyCash'
-import { usePendingPoCount } from '@/hooks/usePoApproval'
+import { useHubApprovalCount } from '@/hooks/useHubApproval'
 import { usePendingPrCount } from '@/hooks/usePurchaseRequest'
 
 type NavItem = {
@@ -64,6 +64,7 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
     icon: Landmark,
     defaultOpen: true,
     items: [
+      { href: '/approval', label: 'Hub Approval', icon: Inbox },
       { href: '/', label: 'Dashboard Kas', icon: LayoutDashboard },
       { href: '/mutasi', label: 'Rekening & Mutasi', icon: ScrollText, aliases: ['/lokasi', '/transaksi'] },
       { href: '/setoran', label: 'Setoran Tunai', icon: Banknote, aliases: ['/setoran/history'] },
@@ -213,8 +214,10 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const isDeveloper = outletStaff?.role?.toLowerCase() === 'developer'
 
   // Badge cukup jumlah → query count-only, bukan daftar lengkap + join.
-  const { data: pettyPendingCount = 0 } = usePettyCashCount('forwarded_to_finance')
-  const { data: poPendingCount = 0 } = usePendingPoCount()
+  // Hub Approval khusus checker finance (owner/admin/admin_finance/developer).
+  const role = (outletStaff?.role as string) ?? ''
+  const bolehHub = ['owner', 'admin', 'admin_finance', 'developer'].includes(role)
+  const { total: hubPendingCount } = useHubApprovalCount(bolehHub)
   const { data: prPendingCount = 0 } = usePendingPrCount()
   
   const prevPendingRef = useRef(0)
@@ -222,7 +225,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const totalPending = isPurchasingRole
       ? prPendingCount
-      : pettyPendingCount + poPendingCount
+      : hubPendingCount
     const appTitle = isPurchasingRole ? 'Suka Purchasing' : 'Suka Finance'
     if (totalPending > 0) {
       document.title = `(${totalPending}) ${appTitle}`
@@ -236,7 +239,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
     }
     // Update ref for next comparison
     prevPendingRef.current = totalPending
-  }, [isPurchasingRole, prPendingCount, pettyPendingCount, poPendingCount])
+  }, [isPurchasingRole, prPendingCount, hubPendingCount])
 
   const baseNavGroups: NavGroup[] = isPurchasingRole
     ? buildPurchasingNavGroups(resolvedAdminUrl)
@@ -245,6 +248,9 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const visibleNavGroups = baseNavGroups.map(g => ({
     ...g,
     items: g.items.filter(item => {
+      if (item.href === '/approval' && !bolehHub) {
+        return false
+      }
       if (item.href === '/eom-closing' && !isDeveloper) {
         return false
       }
@@ -265,7 +271,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
       ]
     : [
         { href: '/', label: 'Beranda', icon: LayoutDashboard },
-        { href: '/petty-cash', label: 'Petty Cash', icon: Coins },
+        { href: '/approval', label: 'Approval', icon: Inbox },
         { href: '/setoran', label: 'Setoran', icon: Banknote },
         { href: '/laporan/buku-kas', label: 'Buku Kas', icon: Receipt },
       ]
@@ -327,8 +333,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   }
 
   const getItemBadge = (href: string): number | undefined => {
-    if (href === '/petty-cash') return pettyPendingCount
-    if (href === '/po-approval') return poPendingCount
+    if (href === '/approval') return hubPendingCount
     if (href === '/pembelian/permintaan') return prPendingCount
     return undefined
   }

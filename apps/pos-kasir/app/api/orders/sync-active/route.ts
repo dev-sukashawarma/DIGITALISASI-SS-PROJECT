@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createClient as createOrderClient } from '@supabase/supabase-js'
+import { requirePosCaller } from '@/lib/posApiGate'
+import { mapRemoteStatus } from '@/lib/onlineOrderRules'
 
 // Endpoint ini menarik status terbaru dari Order System untuk pesanan online
 // yang masih "nyangkut" (preparing/ready) di POS Kasir.
-export async function POST() {
+// Wajib staf POS / rahasia internal (lib/posApiGate.ts) — route ini menulis
+// status order lintas outlet dengan service role.
+export async function POST(request: Request) {
+  const caller = await requirePosCaller(request)
+  if (caller instanceof NextResponse) return caller
+
   try {
     const posDb = createServiceClient()
 
@@ -13,6 +20,7 @@ export async function POST() {
       .from('orders')
       .select('id, external_order_id, status')
       .eq('source', 'online')
+      .not('external_order_id', 'is', null)
       .in('status', ['pending', 'preparing', 'ready'])
 
     if (localErr) {
@@ -59,9 +67,8 @@ export async function POST() {
       const remote = remoteOrders.find(r => r.id === local.external_order_id)
       if (remote) {
         // Jika di remote sudah done/ready/cancelled tapi di lokal masih preparing/ready
-        if (remote.status === 'done' || remote.status === 'ready' || remote.status === 'cancelled') {
-          const mappedStatus = (remote.status === 'done' || remote.status === 'ready') ? 'completed' : 'cancelled'
-          
+        const mappedStatus = mapRemoteStatus(remote.status)
+        if (mappedStatus) {
           if (local.status !== mappedStatus) {
             console.log(`sync-active: Update pesanan ${local.external_order_id} -> ${mappedStatus}`)
             const { error: updateErr } = await posDb

@@ -48,10 +48,8 @@ BEGIN
     RAISE EXCEPTION 'T6c: setor bank salah tunai % bank % receh %', bb1 - bb0, bk1 - bk0, pc1 - pc0;
   END IF;
 
-  -- (d) income lainnya hanya ke Petty Cash
-  PERFORM record_income_lainnya(now(), 'kardus_bekas', NULL, 'X', NULL, 1000, c_pc_bank, 'b');
-  BEGIN PERFORM record_income_lainnya(now(), 'kardus_bekas', NULL, 'X', NULL, 1000, c_bb_cash, 'b'); RAISE EXCEPTION 'T6d LOLOS';
-  EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE '%Rekening Petty Cash%' THEN RAISE; END IF; END;
+  -- (d) income lainnya: sejak 20261106110000 boleh ke rekening pusat mana pun (lihat t9)
+  PERFORM record_income_lainnya(now(), 'kardus_bekas', NULL, 'X', NULL, 1000, c_bb_cash, 'b');
 
   -- (e) pencairan petty cash: dari Bahan Baku ditolak
   SELECT id INTO c_topup FROM petty_cash_topups WHERE status = 'forwarded_to_finance' LIMIT 1;

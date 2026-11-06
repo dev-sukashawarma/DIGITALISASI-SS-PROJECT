@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { useCashOverview } from '@/hooks/useCashData'
 import { useOutlets } from '@/hooks/useCashDeposit'
 import { useBatalIncome, useCatatIncome, useIncomeLainnya } from '@/hooks/useIncomeLainnya'
-import { lokasiGrup } from '@/lib/kas/grupKas'
+import { GRUP_LABEL, URUTAN_GRUP, lokasiGrup } from '@/lib/kas/grupKas'
 import { INCOME_KATEGORI, labelKategoriIncome, validasiIncome, type IncomeKategori } from '@/lib/kas/incomeLainnya'
 import { rupiah, tanggal, tanggalWaktu } from '@/lib/format'
 
@@ -21,7 +21,9 @@ export function IncomeLainnyaView() {
   const supabase = useMemo(() => createClient(), [])
   const { locations } = useCashOverview()
   const { data: outlets = [] } = useOutlets()
-  const kasOffice = lokasiGrup(locations, 'petty_cash')
+  // Semua rekening pusat aktif; bawaan tetap Rekening Petty Cash.
+  const rekeningPusat = URUTAN_GRUP.flatMap((g) => lokasiGrup(locations, g))
+  const bawaan = lokasiGrup(locations, 'petty_cash')[0] ?? rekeningPusat[0]
 
   const hariIni = hariIniWib()
   const [from, setFrom] = useState(`${hariIni.slice(0, 7)}-01`)
@@ -40,10 +42,10 @@ export function IncomeLainnyaView() {
   const [lokasi, setLokasi] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
 
-  const lokasiDipilih = lokasi || kasOffice[0]?.id || ''
+  const lokasiDipilih = lokasi || bawaan?.id || ''
   const galat =
     validasiIncome({ kategori, keterangan, pembeli, amount, adaBukti: !!proofFile }) ??
-    (lokasiDipilih ? null : 'Belum ada Rekening Petty Cash aktif')
+    (lokasiDipilih ? null : 'Belum ada rekening pusat aktif')
 
   const simpan = () => {
     if (galat || !proofFile) return
@@ -84,10 +86,10 @@ export function IncomeLainnyaView() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Rekening Petty Cash</p>
+        <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Kas Pusat</p>
         <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Income Lainnya</h1>
         <p className="text-suka-ink/60 mt-2 font-medium">
-          Penjualan minyak jelantah, kardus, kompan, dan equipment bekas. Masuk Rekening Petty Cash sebagai pendapatan pusat.
+          Penjualan minyak jelantah, kardus, kompan, dan equipment bekas. Masuk ke rekening pusat yang dipilih sebagai pendapatan pusat.
         </p>
       </div>
 
@@ -109,7 +111,17 @@ export function IncomeLainnyaView() {
           </div>
           <label className="text-sm font-semibold text-suka-gray-600">Masuk ke
             <select value={lokasiDipilih} onChange={(e) => setLokasi(e.target.value)} className={input}>
-              {kasOffice.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+              {URUTAN_GRUP.map((g) => {
+                const daftarGrup = lokasiGrup(locations, g)
+                if (daftarGrup.length === 0) return null
+                return (
+                  <optgroup key={g} label={GRUP_LABEL[g]}>
+                    {daftarGrup.map((l) => (
+                      <option key={l.id} value={l.id}>{l.label} · saldo {rupiah(Number(l.saldo) || 0)}</option>
+                    ))}
+                  </optgroup>
+                )
+              })}
             </select>
           </label>
           <label className="text-sm font-semibold text-suka-gray-600">Asal outlet (opsional, keterangan saja)

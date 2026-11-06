@@ -13,6 +13,7 @@ import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { KelolaRekeningModal } from './KelolaRekeningModal'
 import { TransferModal } from './TransferModal'
 import { TopUpModal } from './TopUpModal'
+import { BuktiModal } from './BuktiModal'
 import { useTopUpSaldo } from '@/hooks/useTopUpSaldo'
 import { eksporMutasiExcel, eksporMutasiPdf } from '@/lib/kas/eksporMutasi'
 import { JENIS_LABEL, catatanTambahan, totalBaris, type JenisMutasi } from '@/lib/kas/mutasiRekening'
@@ -42,6 +43,7 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
   const [kelolaTerbuka, setKelolaTerbuka] = useState(false)
   const [transferTerbuka, setTransferTerbuka] = useState(false)
   const [topUpTerbuka, setTopUpTerbuka] = useState(false)
+  const [bukti, setBukti] = useState<{ url: string; judul: string } | null>(null)
   const { batal: batalTopUp } = useTopUpSaldo()
   function batalkanTopUp(id: string) {
     const alasan = window.prompt('Alasan membatalkan top up ini:')?.trim()
@@ -252,10 +254,12 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
                       <td className="py-2.5 px-3 whitespace-nowrap text-suka-gray-500">{b.dicatat_oleh ?? '-'}</td>
                       <td className="py-2.5 px-3 text-center">
                         {b.proof_url ? (
-                          <a href={b.proof_url} target="_blank" rel="noreferrer" title="Buka bukti"
+                          <button
+                            onClick={() => setBukti({ url: b.proof_url!, judul: `${JENIS_LABEL[b.jenis]} · ${b.keterangan}` })}
+                            title="Lihat bukti"
                             className="inline-flex rounded-lg p-1.5 text-suka-orange hover:bg-suka-orange/10">
                             <Paperclip size={15} />
-                          </a>
+                          </button>
                         ) : <span className="text-suka-gray-300">-</span>}
                       </td>
                       <td className="py-2.5 px-3 text-right font-semibold text-emerald-600 whitespace-nowrap">{b.masuk ? rupiah(b.masuk) : ''}</td>
@@ -285,6 +289,7 @@ export function MutasiView({ rekeningAwal }: { rekeningAwal: string }) {
 
       {kelolaTerbuka && <KelolaRekeningModal locations={locations} onClose={() => setKelolaTerbuka(false)} />}
       {transferTerbuka && <TransferModal rekening={rekeningPusat} dariAwal={rekeningId} onClose={() => setTransferTerbuka(false)} />}
+      {bukti && <BuktiModal url={bukti.url} judul={bukti.judul} onClose={() => setBukti(null)} />}
       {topUpTerbuka && <TopUpModal rekening={rekeningPusat} rekeningAwal={rekeningId} onClose={() => setTopUpTerbuka(false)} />}
     </div>
   )

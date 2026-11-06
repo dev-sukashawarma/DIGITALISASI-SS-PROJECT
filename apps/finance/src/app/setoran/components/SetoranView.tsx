@@ -10,12 +10,26 @@ import { lokasiTujuanSetoran, ringkasGrup } from '@/lib/kas/grupKas'
 import { SetorBankModal } from './SetorBankModal'
 import { useOutlets, useCashDeposit, useUpdateCashDepositMethod, useDeleteCashDeposit } from '@/hooks/useCashDeposit'
 import { useExpectedCash } from '@/hooks/useExpectedCash'
-import { rupiah, tanggalWaktu } from '@/lib/format'
+import { rupiah, tanggalWaktu, tanggal } from '@/lib/format'
 import { StatCard, SectionCard, TxStatusBadge } from '@/components/ui'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import type { CashLocation, CashBalance, CashTransaction } from '@/lib/types'
 
 type DepositMethod = 'transfer' | 'langsung'
+
+function formatOutletOrigin(tx: CashTransaction) {
+  if (tx.outlet?.name) return tx.outlet.name
+  if (tx.note) {
+    if (tx.note.includes('Total')) {
+      return tx.note.split(' Total ')[0].replace(/^Setoran\s+/, '')
+    }
+    if (tx.note.includes(' ke ')) {
+      return tx.note.split(' ke ')[0].replace(/^Setoran\s+/, '')
+    }
+    return tx.note.slice(0, 45)
+  }
+  return '—'
+}
 
 export function SetoranView({
   initialLocations,
@@ -376,7 +390,47 @@ export function SetoranView({
                         {t.cash_location?.label ?? '—'}
                       </p>
                     </td>
-                    <td className="py-3 px-3 text-suka-gray-500 font-medium">{t.outlet?.name ?? '—'}</td>
+                    <td className="py-3 px-3 text-suka-gray-600 font-medium">
+                      {t.outlet?.name ? (
+                        <div>
+                          <p className="font-bold text-suka-ink text-xs">{t.outlet.name}</p>
+                          {t.sales_date && (
+                            <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+                              Omzet: {tanggal(t.sales_date)}
+                            </p>
+                          )}
+                        </div>
+                      ) : t.note ? (
+                        <div className="max-w-[320px]">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-suka-ink text-xs">
+                              {t.note.includes('Total')
+                                ? t.note.split(' Total ')[0].replace(/^Setoran\s+/, '')
+                                : t.note.split(' ke ')[0].replace(/^Setoran\s+/, '')}
+                            </span>
+                            {t.note.includes('Bulking') ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                Omzet: Multi-Tanggal
+                              </span>
+                            ) : t.sales_date ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                Omzet: {tanggal(t.sales_date)}
+                              </span>
+                            ) : null}
+                          </div>
+                          {t.note.includes('[') && t.note.includes(']') && (
+                            <p
+                              className="text-[11px] text-suka-gray-500 mt-1 line-clamp-2 leading-tight"
+                              title={t.note.split('[')[1].split(']')[0]}
+                            >
+                              {t.note.split('[')[1].split(']')[0]}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="py-3 px-3 text-right font-bold text-emerald-600">+{rupiah(t.amount)}</td>
                     <td className="py-3 px-3 text-center">
                       {t.proof_url ? (

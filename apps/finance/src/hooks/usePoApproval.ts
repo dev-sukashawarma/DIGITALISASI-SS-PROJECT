@@ -11,6 +11,8 @@ export type PendingPo = {
   supplier_nama: string
   tanggal_po: string
   total: number
+  /** Waktu terakhir PO berubah (≈ saat diajukan ke finance). */
+  updated_at?: string
 }
 
 /** PO menunggu approval finance (status = menunggu_approval_finance). */

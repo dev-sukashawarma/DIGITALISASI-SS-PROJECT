@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceSupabase } from '@/lib/supabase-service'
+import { requireRole } from '@/lib/authz'
 import { isExcludedOutlet, isTestOutlet } from '@/lib/outletFilters'
 import type { OutletCashData } from '@/app/eom-closing/exportKasirPdf'
 import type {
@@ -27,6 +28,7 @@ const CATEGORY_LABEL_MAP: Record<string, string> = {
 
 export async function GET(req: NextRequest) {
   try {
+    await requireRole(['admin_finance', 'owner', 'admin'])
     const { searchParams } = new URL(req.url)
     const month = parseInt(searchParams.get('month') || '9', 10)
     const year = parseInt(searchParams.get('year') || '2026', 10)

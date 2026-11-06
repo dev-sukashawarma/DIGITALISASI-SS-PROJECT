@@ -9,8 +9,10 @@ import {
 } from '@/lib/officeVoucher'
 import { type ExpenseCategory } from '@/lib/expenseCategories'
 import { getServiceSupabase } from '@/lib/supabase-service'
+import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 
 export async function getOfficeVouchersAction(filterMonth?: string): Promise<OfficeVoucher[]> {
+  await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
 
   let q = supabase
@@ -53,6 +55,7 @@ export async function createOfficeVoucherAction(input: {
   paymentSource?: string
   userId?: string | null
 }): Promise<OfficeVoucher | null> {
+  await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
 
   const voucherNumber = generateVoucherNumber()
@@ -109,6 +112,7 @@ export async function settleOfficeVoucherAction(input: {
   receiptUrl?: string | null
   notes?: string
 }) {
+  await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
   const v = input.voucher
   const refund = Math.max(0, v.advanceAmount - input.realizedAmount)
@@ -148,6 +152,7 @@ export async function verifyOfficeVoucherAction(input: {
   approvedAmount?: number
   verifiedBy?: string | null
 }) {
+  await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
   const v = input.voucher
   const finalAmount = input.approvedAmount !== undefined ? input.approvedAmount : (v.realizedAmount || v.advanceAmount)
@@ -188,6 +193,7 @@ export async function rejectOfficeVoucherAction(input: {
   voucher: OfficeVoucher
   reason: string
 }) {
+  await requireRole(PERAN_KEUANGAN)
   const supabase = getServiceSupabase()
   const v = input.voucher
   const newDesc = serializeVoucherToDescription({

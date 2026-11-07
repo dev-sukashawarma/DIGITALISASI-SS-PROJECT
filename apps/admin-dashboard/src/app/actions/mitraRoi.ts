@@ -1,5 +1,6 @@
 'use server'
 
+import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { fetchAllPages } from '@/lib/fetchAllPages'
@@ -11,6 +12,8 @@ import { hitungRingkasanPayrollHr } from '@/lib/server/ringkasanPayrollHr'
 import { batasiOutletMitra } from '@/lib/authz'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchHppRows } from '@/lib/hpp/fetchHpp'
+import { ambilVersiRiwayatHpp } from '@/lib/hpp/riwayatHpp'
+import { codeFingerprint } from '@/lib/ownerDashboardCache'
 import { calculateProratedExpenses } from '@/lib/opexProrata'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
 
@@ -252,9 +255,13 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
         console.warn('Gagal memuat platform_settlements di mitraRoi:', err)
         return [] as any[]
       }),
-      (mitraOutletIds.length === 1
-        ? fetchHppRows(supabase, { from, to, outletId: mitraOutletIds[0], source: 'all' }, { respectMitraCutoff: true })
-        : Promise.all(mitraOutletIds.map(oid => fetchHppRows(supabase, { from, to, outletId: oid, source: 'all' }, { respectMitraCutoff: true }))).then(res => res.flat())
+      // Satu pengambilan untuk semua outlet mitra. Dulu dipanggil sekali per outlet:
+      // data master menu & riwayat HPP ikut diambil ulang N kali, dan Oktober untuk
+      // 17 outlet butuh 17–21 detik (diukur 6 Nov 2026).
+      fetchHppRows(
+        supabase,
+        { from, to, outletId: 'all', source: 'all' },
+        { respectMitraCutoff: true, outletIds: mitraOutletIds },
       ).catch(err => {
         console.warn('Gagal memuat fetchHppRows di mitraRoi:', err)
         return []
@@ -485,7 +492,28 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
     return acc
   }
 
-  const monthlyAgg = await Promise.all(months.map(m => aggregateMonth(m.from, m.to, m.key)))
+  // Bulan yang sudah lewat jarang berubah, tetapi dulu dihitung ulang penuh di setiap
+  // muat halaman, ganti filter, dan refresh realtime. Hasilnya kini disimpan 1 jam per
+  // (bulan, daftar outlet, versi riwayat HPP, versi kode). Bulan berjalan tetap dihitung
+  // langsung. Data bulan lalu yang dikoreksi belakangan (settlement, biaya) muncul paling
+  // lambat setelah 1 jam — sama dengan Ringkasan Bisnis.
+  const curMonthKeyCache = todayWib().slice(0, 7)
+  const sudahLewat = months.some(m => m.key < curMonthKeyCache)
+  const hppVersion = sudahLewat ? await ambilVersiRiwayatHpp(supabase).catch(() => null) : null
+  const kunciOutlet = [...mitraOutletIds].sort().join(',')
+  const monthlyAgg = await Promise.all(months.map(m => {
+    const hitung = () => aggregateMonth(m.from, m.to, m.key)
+    if (m.key >= curMonthKeyCache || !hppVersion) return hitung()
+    return unstable_cache(
+      hitung,
+      ['mitra-roi-bulan-v1', MITRA_ROI_FINGERPRINT, m.key, m.from, m.to, kunciOutlet, hppVersion],
+      { revalidate: 3600, tags: ['mitra-roi'] }
+    )().catch((err: any) => {
+      // Di luar runtime Next (mis. test) cache tidak tersedia: hitung langsung.
+      if (err && String(err.message || err).includes('incrementalCache')) return hitung()
+      throw err
+    })
+  }))
 
   for (const oid of mitraOutletIds) {
     const inv = invMap[oid]
@@ -617,3 +645,13 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
   return resultMap
 }
 
+// Versi kode pengambil & penghitung data ROI. Mengubah salah satunya otomatis
+// membuat cache bulan lama tidak terpakai (pola sama dengan Ringkasan Bisnis).
+const MITRA_ROI_FINGERPRINT = codeFingerprint(
+  getMitraRealtimeBepBreakdown,
+  fetchHppRows,
+  calculateProratedExpenses,
+  hitungRingkasanPayrollHr,
+  barisPayrollDariHr,
+  gantiPayrollDenganHr,
+)

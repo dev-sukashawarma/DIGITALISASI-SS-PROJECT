@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
 import CountUp from 'react-countup'
 import { 
   TrendingUp, 
@@ -60,8 +60,6 @@ export function MitraDashboardView({
   trendKpiRows = [],
   currentFilter,
   topMenus: _topMenus = [],
-  initialTransfers: _initialTransfers = [],
-  initialStaff: _initialStaff = [],
   initialRoiStats = { 
     roi: 0, 
     bepPercentage: 0, 
@@ -69,6 +67,7 @@ export function MitraDashboardView({
     systemProfitMitra: 0, 
     historisProfitMitra: 0 
   },
+  roiOutletKey,
   lastUpdated,
 }: any) {
   const router = useRouter()
@@ -76,6 +75,16 @@ export function MitraDashboardView({
   const { selectedOutletId, setSelectedOutletId } = useMitraOutlet()
   
   const allowedOutletIds = (outlets || []).map((o: any) => o.id)
+  // Kunci stabil: prop `outlets` adalah array baru tiap navigasi, jadi memakainya
+  // langsung sebagai dependensi membuat ROI & P&L diambil ulang tanpa perlu.
+  const allowedKey = allowedOutletIds.join(',')
+  // Outlet yang dipakai SSR menghitung initialRoiStats (dikirim page.tsx dari daftar
+  // outlet yang SAMA dengan yang dipakai server — bukan diturunkan ulang di sini).
+  const ssrRoiOutlet: string = roiOutletKey ?? (allowedOutletIds.length === 1 ? allowedOutletIds[0] : 'all')
+  // Angka SSR hanya boleh dipakai bila perhitungannya berhasil (bukan nol pengganti
+  // galat) dan untuk outlet yang sedang dipilih.
+  const ssrRoiBerlaku = initialRoiStats?.ok !== false && (selectedOutletId || 'all') === ssrRoiOutlet
+  const roiDariSsrBelumDipakai = useRef(true)
 
   const [isBiodataOpen, setIsBiodataOpen] = useState(false)
   const [pnlData, setPnlData] = useState<ComprehensiveMitraPnl | null>(null)
@@ -126,7 +135,10 @@ export function MitraDashboardView({
 
   // Sinkronisasi bila initialRoiStats berubah dari server
   useEffect(() => {
-    if (initialRoiStats) {
+    // Server selalu menghitung ROI untuk ssrRoiOutlet. Kalau browser sedang menampilkan
+    // outlet lain, menyalin angka ini akan menimpa ROI outlet itu dengan angka
+    // "semua outlet" setiap kali filter tanggal diganti.
+    if (initialRoiStats && ssrRoiBerlaku) {
       setRoiStats(prev => ({
         ...prev,
         roi: initialRoiStats.roi ?? prev.roi,
@@ -141,7 +153,8 @@ export function MitraDashboardView({
     initialRoiStats?.bepPercentage, 
     initialRoiStats?.totalProfitKumulatif, 
     initialRoiStats?.systemProfitMitra, 
-    initialRoiStats?.historisProfitMitra
+    initialRoiStats?.historisProfitMitra,
+    ssrRoiBerlaku
   ])
 
   // Reset navigasi filter bila currentFilter props dari server sudah berubah atau transition selesai
@@ -177,6 +190,12 @@ export function MitraDashboardView({
     let active = true
     async function loadStats() {
       if (allowedOutletIds.length === 0) return
+      // Mount pertama: angka sudah datang dari SSR untuk outlet yang sama — jangan
+      // ambil ulang. Ganti outlet atau refresh realtime tetap memicu pengambilan.
+      if (roiDariSsrBelumDipakai.current) {
+        roiDariSsrBelumDipakai.current = false
+        if (refreshCount === 0 && ssrRoiBerlaku) return
+      }
       try {
         const stats = await getMitraRoiStats(selectedOutletId || 'all', allowedOutletIds)
         if (active) {
@@ -196,7 +215,7 @@ export function MitraDashboardView({
     }
     loadStats()
     return () => { active = false }
-  }, [selectedOutletId, outlets, refreshCount])
+  }, [selectedOutletId, allowedKey, refreshCount])
 
   // Load Dynamic Comprehensive P&L
   useEffect(() => {
@@ -221,7 +240,7 @@ export function MitraDashboardView({
     }
     loadPnl()
     return () => { active = false }
-  }, [selectedOutletId, currentFilter, outlets, refreshCount])
+  }, [selectedOutletId, currentFilter, allowedKey, refreshCount])
 
   // Hitung Nilai Investasi
   const currentInvestasi = selectedOutletId && selectedOutletId !== 'all' 

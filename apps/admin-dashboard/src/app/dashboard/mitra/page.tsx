@@ -139,24 +139,31 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   }
 
   let trendFilter = { ...curFilter }
-  if (curFilter.from === curFilter.to && curFilter.from) {
+  const trendSamaDenganCur = !(curFilter.from === curFilter.to && curFilter.from)
+  if (!trendSamaDenganCur) {
     const [year, month] = curFilter.from.split('-').map(Number)
     const mRange = monthRange(year, month)
     trendFilter = { ...curFilter, from: mRange.from, to: mRange.to }
   }
 
+  // Outlet yang dipakai menghitung ROI di server. Dikirim ke view supaya angka
+  // ini hanya dipakai bila outlet terpilih di browser sama persis.
+  const roiOutletKey = outletIds.length === 1 ? outletIds[0] : 'all'
+
   // Fetch current data, previous data, trend data, top menus, and ROI stats in parallel
-  const [curData, prevData, trendData, topMenus, initialRoiData] = await Promise.all([
+  const [curData, prevData, trendDataTerpisah, topMenus, initialRoiData] = await Promise.all([
     getOwnerDashboardData(curFilter, outlets),
     getOwnerDashboardData(prevFilter, outlets),
-    getOwnerDashboardData(trendFilter, outlets),
+    // Rentang lebih dari 1 hari: tren = periode utama, tak perlu diambil dua kali.
+    trendSamaDenganCur ? null : getOwnerDashboardData(trendFilter, outlets),
     // 'all' = seluruh outlet yang boleh diakses mitra ini (view menu_sales_scoped
     // sudah dibatasi accessible_outlet_ids()). Dulu terkunci ke outletIds[0],
     // jadi mitra multi-outlet selalu melihat menu outlet pertama saja.
     // Pergantian outlet di dropdown ditangani ulang di sisi klien.
     getAggregatedMenuSales({ ...curFilter, outletId: 'all' }),
     outletIds.length > 0 
-      ? getMitraRoiStats(outletIds.length === 1 ? outletIds[0] : 'all', outletIds).catch(() => ({ 
+      ? getMitraRoiStats(roiOutletKey, outletIds).then(r => ({ ...r, ok: true })).catch(() => ({ 
+          ok: false,
           roi: 0, 
           bepPercentage: 0,
           totalProfitKumulatif: 0,
@@ -174,58 +181,10 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
         })
   ])
   
-  // 5. Fetch Recent Orders for Mitra
-  let recentOrders: any[] = []
-  if (outletIds.length > 0) {
-    const { data: ords } = await db
-      .from('orders')
-      // `receipt_number` hanya ada di pos_sales; tabel orders memakai order_number.
-      // Kolom yang salah membuat query gagal (42703) dan daftar orderan selalu kosong.
-      .select('id, created_at, customer_name, total_amount, status, sales_source, order_number, outlet_id, channel, is_endorse')
-      .in('outlet_id', outletIds)
-      .order('created_at', { ascending: false })
-      .limit(10)
-    if (ords) recentOrders = ords
-  }
+  const trendData = trendDataTerpisah ?? curData
 
-  // 6. Fetch Transfers
-  let transfers: any[] = []
-  if (outletIds.length > 0) {
-    const { data: tf } = await db
-      .from('mitra_transfers')
-      .select('*')
-      .in('outlet_id', outletIds)
-      .order('bulan', { ascending: false })
-    if (tf) transfers = tf
-  }
-
-  // 7. Fetch Staff (Crew & Leader)
-  let staffList: any[] = []
-  if (outletIds.length > 0) {
-    const { data: st } = await db
-      .from('outlet_staff')
-      .select('id, name, role, status, outlet_id')
-      .in('outlet_id', outletIds)
-      .in('role', ['crew', 'leader'])
-    if (st) {
-      const hiddenExactNames = ['staff_new', 'aang', 'kasir paledang', 'test cicurug']
-      staffList = st.filter(s => {
-        const nameLower = (s.name || '').trim().toLowerCase()
-        if (nameLower.includes('devai') || nameLower.includes('dev_ai') || nameLower.includes('dev ai')) return false
-        if (hiddenExactNames.includes(nameLower)) return false
-        return true
-      })
-    }
-  }
-
-  // 8. Fetch Saran / Suggestions
-  let suggestionsList: any[] = []
-  const { data: sg } = await db
-    .from('mitra_suggestions')
-    .select('*')
-    .eq('user_id', profile.user_id || userId)
-    .order('created_at', { ascending: false })
-  if (sg) suggestionsList = sg
+  // Order terbaru, transfer, staff, dan saran dulu diambil di sini tetapi tidak
+  // pernah dirender MitraDashboardView — dihapus agar tiap load tak menunggu 4 query.
 
   // Akun mitra hanya menerima baris outletnya sendiri (dibatasi di database). Di mode
   // pratinjau pemanggilnya admin, jadi barisnya mencakup semua outlet — dipersempit di
@@ -245,11 +204,8 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
       hourlyRows={curData.hourlyRows}
       currentFilter={curFilter}
       topMenus={topMenus}
-      recentOrders={recentOrders}
-      initialTransfers={transfers}
-      initialStaff={staffList}
-      initialSuggestions={suggestionsList}
       initialRoiStats={initialRoiData}
+      roiOutletKey={roiOutletKey}
       lastUpdated={curData.fetchedAt}
       isCached={curData.isCached}
     />

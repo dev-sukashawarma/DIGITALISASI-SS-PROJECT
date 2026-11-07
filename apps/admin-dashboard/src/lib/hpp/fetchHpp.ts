@@ -250,8 +250,19 @@ export const MENU_HPP_SELECT =
 export async function fetchHppRows(
   supabase: any,
   filter: PeriodFilterValue,
-  options?: { respectMitraCutoff?: boolean },
+  options?: {
+    respectMitraCutoff?: boolean;
+    /**
+     * Batasi order ke daftar outlet ini dalam SATU pengambilan (tanpa ecommerce).
+     * Hasil per outlet identik dengan memanggil fungsi ini sekali per outlet —
+     * agregasinya memang per `outlet_id` — tetapi data master (menu, outlet,
+     * riwayat HPP) cukup diambil sekali, bukan sekali per outlet.
+     */
+    outletIds?: string[];
+  },
 ): Promise<HppRow[]> {
+  const outletIdsTerbatas = options?.outletIds;
+  if (outletIdsTerbatas && outletIdsTerbatas.length === 0) return [];
   const fromDateStr = filter.from.slice(0, 10);
   const toDateStr = filter.to.slice(0, 10);
   const ordersGte = `${fromDateStr}T00:00:00+07:00`;
@@ -312,12 +323,14 @@ export async function fetchHppRows(
       .lte("created_at", ordersLte)
       .order("id", { ascending: true });
 
-    if (filter.outletId !== "all") b = b.eq("outlet_id", filter.outletId);
+    if (outletIdsTerbatas) b = b.in("outlet_id", outletIdsTerbatas);
+    else if (filter.outletId !== "all") b = b.eq("outlet_id", filter.outletId);
     return b.range(from, to);
   };
 
   const wantsEcommerce =
-    filter.outletId === "all" || filter.outletId === "ss-online";
+    !outletIdsTerbatas &&
+    (filter.outletId === "all" || filter.outletId === "ss-online");
 
   const buildEcommercePage = (from: number, to: number, withCount: boolean) =>
     supabase

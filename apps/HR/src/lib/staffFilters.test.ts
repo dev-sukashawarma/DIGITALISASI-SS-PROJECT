@@ -20,6 +20,8 @@ describe('staffFilters - isTestOrDevStaff', () => {
     expect(isTestOrDevStaff({ name: 'Kiosk Outlet', role: 'kiosk', account_category: 'employee' })).toBe(true)
     expect(isTestOrDevStaff({ name: 'Mitra Franchise', role: 'mitra', account_category: 'employee' })).toBe(true)
     expect(isTestOrDevStaff({ name: 'Owner Toko', role: 'owner', account_category: 'employee' })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Bookieman', role: 'admin', account_category: 'employee' })).toBe(true)
+    expect(isTestOrDevStaff({ name: 'Super Admin', role: 'superadmin', account_category: 'employee' })).toBe(true)
   })
 
   it('shows developer role as a regular employee', () => {
@@ -65,6 +67,8 @@ describe('staffFilters - isTestOrDevStaff', () => {
       outlets: { name: 'SUKA SHAWARMA BNR' },
     }
     expect(isTestOrDevStaff(validStaff)).toBe(false)
+    expect(isTestOrDevStaff({ name: 'Budi HR', username: 'budi_hr', role: 'admin_hr', account_category: 'employee' })).toBe(false)
+    expect(isTestOrDevStaff({ name: 'Siti Finance', username: 'siti_fin', role: 'admin_finance', account_category: 'employee' })).toBe(false)
   })
 })
 

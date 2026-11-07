@@ -51,7 +51,7 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
 
   // 1. Role checks (non-operational employee roles)
   const role = (s.role || '').toLowerCase()
-  if (role === 'kiosk' || role === 'mitra' || role === 'owner') {
+  if (role === 'kiosk' || role === 'mitra' || role === 'owner' || role === 'admin' || role === 'superadmin') {
     return true
   }
 

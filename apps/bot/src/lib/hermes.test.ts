@@ -1,4 +1,4 @@
-import { urlChat, kunciProfil, buatPengurai, tanyaHermes, GalatHermes } from './hermes'
+import { urlChat, kunciProfil, buatPengurai, tanyaHermes, GalatHermes, apakahHermesSehat, catatHermesGagal, catatHermesSukses, resetHermesCircuitBreaker } from './hermes'
 
 const delta = (t: string) => `data: ${JSON.stringify({ choices: [{ delta: { content: t } }] })}\n\n`
 
@@ -63,5 +63,16 @@ describe('hermes', () => {
     const fetchFn = vi.fn(async () => { throw new TypeError('fetch failed') })
     const g = tanyaHermes({ baseUrl: 'http://h', kunci: 'k', profil: 'ceo', sesiId: 's', pesan: 'p', fetchFn: fetchFn as any })
     await expect(g.next()).rejects.toMatchObject({ alasan: 'jaringan' })
+  })
+  it('circuit breaker: catatHermesGagal membuka circuit, catatHermesSukses menutup circuit', () => {
+    resetHermesCircuitBreaker()
+    expect(apakahHermesSehat('ceo')).toBe(true)
+
+    catatHermesGagal('ceo')
+    expect(apakahHermesSehat('ceo')).toBe(false)
+    expect(apakahHermesSehat('finance')).toBe(true)
+
+    catatHermesSukses('ceo')
+    expect(apakahHermesSehat('ceo')).toBe(true)
   })
 })

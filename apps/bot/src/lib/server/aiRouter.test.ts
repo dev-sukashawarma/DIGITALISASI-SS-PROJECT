@@ -66,13 +66,13 @@ describe('aiRouter', () => {
   })
 
   it('memetakan profil Hermes ke model combo 9Router yang sesuai', () => {
-    expect(kandidatModel9Router('ceo')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
-    expect(kandidatModel9Router('manager')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
-    expect(kandidatModel9Router('gudang')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS'])
-    expect(kandidatModel9Router('stokis')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS'])
-    expect(kandidatModel9Router('marcom')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'ANALYTIC-SOSMED-COMBO'])
-    expect(kandidatModel9Router('hrd')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash'])
-    expect(kandidatModel9Router('finance')).toEqual(['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS'])
+    expect(kandidatModel9Router('ceo')).toEqual(['CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo'])
+    expect(kandidatModel9Router('manager')).toEqual(['MANAGER_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
+    expect(kandidatModel9Router('gudang')).toEqual(['STOKIS_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
+    expect(kandidatModel9Router('stokis')).toEqual(['STOKIS_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
+    expect(kandidatModel9Router('marcom')).toEqual(['ANALYTIC-SOSMED-COMBO', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
+    expect(kandidatModel9Router('hrd')).toEqual(['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS'])
+    expect(kandidatModel9Router('finance')).toEqual(['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS'])
   })
 
   it('melempar error jika AI_BASE_URL atau AI_API_KEY kosong', async () => {

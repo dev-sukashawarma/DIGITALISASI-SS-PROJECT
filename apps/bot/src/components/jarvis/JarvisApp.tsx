@@ -1450,7 +1450,14 @@ export default function JarvisApp({
                                   </div>
                                   <span>{item.waktu}</span>
                                 </div>
-                                <FormatIsiHologram isi={item.teks} />
+                                {item.teks ? (
+                                  <FormatIsiHologram isi={item.teks} />
+                                ) : (
+                                  <div className="flex items-center gap-2 text-cyan-400 font-mono-hud text-xs py-1">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                                    <span className="animate-pulse">MEMPROSES INSTRUKSI & MENGANALISIS DATA...</span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1901,7 +1908,14 @@ export default function JarvisApp({
                                 </div>
                                 <span>{item.waktu}</span>
                               </div>
-                              <FormatIsiHologram isi={item.teks} />
+                              {item.teks ? (
+                                <FormatIsiHologram isi={item.teks} />
+                              ) : (
+                                <div className="flex items-center gap-2 text-cyan-400 font-mono-hud text-xs py-1">
+                                  <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                                  <span className="animate-pulse">MEMPROSES INSTRUKSI & MENGANALISIS DATA...</span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

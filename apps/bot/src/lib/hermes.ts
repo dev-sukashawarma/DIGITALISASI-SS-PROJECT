@@ -67,12 +67,48 @@ export function buatPengurai() {
   return st
 }
 
+export const HERMES_INTERACTIVE_TIMEOUT_MS = 4_000
+
+interface HermesCircuitBreakerState {
+  terakhirGagal: number
+  terbukaSampai: number
+}
+
+const circuitBreakers = new Map<string, HermesCircuitBreakerState>()
+const CIRCUIT_COOLDOWN_MS = 60_000 // 60 detik cooldown jika Hermes gagal/timeout
+
+export function apakahHermesSehat(profil: Profil): boolean {
+  const cb = circuitBreakers.get(profil)
+  if (!cb) return true
+  if (Date.now() < cb.terbukaSampai) {
+    return false
+  }
+  return true
+}
+
+export function catatHermesGagal(profil: Profil): void {
+  const now = Date.now()
+  circuitBreakers.set(profil, {
+    terakhirGagal: now,
+    terbukaSampai: now + CIRCUIT_COOLDOWN_MS,
+  })
+}
+
+export function catatHermesSukses(profil: Profil): void {
+  circuitBreakers.delete(profil)
+}
+
+export function resetHermesCircuitBreaker(): void {
+  circuitBreakers.clear()
+}
+
 export async function* tanyaHermes(o: {
   baseUrl: string; kunci: string; profil: Profil; sesiId: string; pesan: string
-  signal?: AbortSignal; fetchFn?: typeof fetch
+  signal?: AbortSignal; fetchFn?: typeof fetch; timeoutMs?: number
 }): AsyncGenerator<string> {
   const f = o.fetchFn ?? fetch
-  const batasWaktu = AbortSignal.timeout(BATAS.timeoutMs)
+  const durasiTimeout = o.timeoutMs ?? BATAS.timeoutMs
+  const batasWaktu = AbortSignal.timeout(durasiTimeout)
   const signal = o.signal ? AbortSignal.any([o.signal, batasWaktu]) : batasWaktu
   let res: Response
   try {

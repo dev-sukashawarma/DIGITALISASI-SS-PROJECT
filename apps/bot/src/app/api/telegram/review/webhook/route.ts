@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { kirimAksiChatTelegram, kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
-import { tanyaHermes, kunciProfil } from '@/lib/hermes'
+import { tanyaHermes, kunciProfil, apakahHermesSehat, catatHermesGagal, catatHermesSukses, HERMES_INTERACTIVE_TIMEOUT_MS } from '@/lib/hermes'
 import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
 import { tanyaAiRouter } from '@/lib/server/aiRouter'
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
@@ -369,8 +369,8 @@ export async function POST(req: NextRequest) {
       const promptUser = `[Konteks SukaReview: Nama: ${userName}, Role: ${userRole}]\nPertanyaan: ${queryTeks}`
 
       let jawabanAi = ''
-      // Coba Hermes dengan batas waktu 12 detik agar webhook tidak timeout
-      if (baseUrl && kunci) {
+      // Coba Hermes jika sirkuit sehat dengan batas waktu cepat 4 detik
+      if (baseUrl && kunci && apakahHermesSehat('review')) {
         try {
           for await (const chunk of tanyaHermes({
             baseUrl,
@@ -378,12 +378,16 @@ export async function POST(req: NextRequest) {
             profil: 'review',
             sesiId: `telegram-review-${fromId}`,
             pesan: promptUser,
-            signal: AbortSignal.timeout(12_000),
+            timeoutMs: HERMES_INTERACTIVE_TIMEOUT_MS,
           })) {
             jawabanAi += chunk
           }
+          if (jawabanAi.trim()) {
+            catatHermesSukses('review')
+          }
         } catch (err) {
           console.warn('[review-webhook] Hermes gagal atau timeout, beralih ke AI Router:', err)
+          catatHermesGagal('review')
         }
       }
 

@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server'
 import { ambilSesi } from '@/lib/server/sesi'
 import { validasiPesan, BATAS, GALAT_STANDAR } from '@/lib/batas'
-import { tanyaHermes, kunciProfil, GalatHermes } from '@/lib/hermes'
+import {
+  tanyaHermes,
+  kunciProfil,
+  GalatHermes,
+  apakahHermesSehat,
+  catatHermesGagal,
+  catatHermesSukses,
+  HERMES_INTERACTIVE_TIMEOUT_MS,
+} from '@/lib/hermes'
 import { periksaProfilChat } from '@/lib/server/izinChat'
 import {
   hitungPesanSejamTerakhir, buatPercakapan, ambilPercakapan, pangkasPercakapan, simpanPesan, sentuhPercakapan,
@@ -76,9 +84,17 @@ export async function POST(req: Request) {
       let jawaban = ''
       try {
         let suksesHermes = false
-        if (baseUrl && kunci) {
+        if (baseUrl && kunci && apakahHermesSehat(pc.profil)) {
           try {
-            for await (const t of tanyaHermes({ baseUrl, kunci, profil: pc.profil, sesiId: pc.hermes_session_id, pesan: v.pesan, signal: req.signal })) {
+            for await (const t of tanyaHermes({
+              baseUrl,
+              kunci,
+              profil: pc.profil,
+              sesiId: pc.hermes_session_id,
+              pesan: v.pesan,
+              signal: req.signal,
+              timeoutMs: HERMES_INTERACTIVE_TIMEOUT_MS,
+            })) {
               jawaban += t
               c.enqueue(enc.encode(t))
             }
@@ -93,16 +109,23 @@ export async function POST(req: Request) {
 
               if (!kendalaHermes) {
                 suksesHermes = true
+                catatHermesSukses(pc.profil)
               } else {
                 console.warn('[bot] Hermes menghasilkan kendala provider/tool saat streaming:', textLower)
+                catatHermesGagal(pc.profil)
               }
             }
           } catch (hermesErr) {
             console.warn('[bot] Hermes gagal atau timeout, beralih ke fallback AI Router / telemetri:', hermesErr)
+            catatHermesGagal(pc.profil)
           }
+        } else if (baseUrl && kunci && !apakahHermesSehat(pc.profil)) {
+          console.warn(`[bot] Hermes ${pc.profil} dalam cooldown circuit breaker, langsung gunakan AI Router.`)
         }
 
-        if (!suksesHermes && !jawaban.trim()) {
+        if (!suksesHermes || !jawaban.trim()) {
+          // Reset jawaban bila sebelumnya ada kendala Hermes agar tidak tercampur
+          if (!suksesHermes) jawaban = ''
           const telemetri = await ambilTelemetriNyata()
 
           // Gunakan AI Router (9Router) dengan fallback konfigurasi default jika env server belum diset

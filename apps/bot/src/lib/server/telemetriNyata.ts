@@ -408,7 +408,8 @@ export interface TelemetriHariIni {
 
 let cachedTelemetri: { data: TelemetriHariIni; timestamp: number } | null = null
 let inFlightPromise: Promise<TelemetriHariIni | null> | null = null
-const TELEMETRI_CACHE_TTL_MS = 30_000
+const TELEMETRI_CACHE_TTL_MS = 60_000
+const TELEMETRI_STALE_TTL_MS = 300_000
 
 export function resetTelemetriCache(): void {
   cachedTelemetri = null
@@ -979,8 +980,28 @@ async function fetchAllRows(
 
 export async function ambilTelemetriNyata(forceRefresh = false): Promise<TelemetriHariIni | null> {
   const now = Date.now()
-  if (!forceRefresh && cachedTelemetri && now - cachedTelemetri.timestamp < TELEMETRI_CACHE_TTL_MS) {
-    return cachedTelemetri.data
+  if (!forceRefresh && cachedTelemetri) {
+    const age = now - cachedTelemetri.timestamp
+    if (age < TELEMETRI_CACHE_TTL_MS) {
+      return cachedTelemetri.data
+    }
+    if (age < TELEMETRI_STALE_TTL_MS) {
+      if (!inFlightPromise) {
+        inFlightPromise = muatTelemetriNyataInternal()
+          .then((data) => {
+            if (data) cachedTelemetri = { data, timestamp: Date.now() }
+            return data
+          })
+          .catch((err) => {
+            console.error('[telemetriNyata] Background revalidation gagal:', err)
+            return null
+          })
+          .finally(() => {
+            inFlightPromise = null
+          })
+      }
+      return cachedTelemetri.data
+    }
   }
   if (!forceRefresh && inFlightPromise) {
     return inFlightPromise
@@ -1090,7 +1111,6 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           .gte('orders.created_at', startToday)
           .lt('orders.created_at', endToday)
           .in('orders.status', ['completed', 'settled'])
-          .order('id', { ascending: true })
       ).catch((err) => {
         console.error('[telemetriNyata] gagal fetch order_items hari ini:', err)
         return []
@@ -1101,7 +1121,6 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           .gte('orders.created_at', startKemarin)
           .lt('orders.created_at', endKemarin)
           .in('orders.status', ['completed', 'settled'])
-          .order('id', { ascending: true })
       ).catch((err) => {
         console.error('[telemetriNyata] gagal fetch order_items kemarin:', err)
         return []

@@ -16,36 +16,38 @@ export const DEFAULT_HERMES_COMBO_MODEL = 'hermes-combo'
 /**
  * Model utama & fallback 9Router berkeandalan tinggi (diuji < 2.5 detik dengan konteks telemetri penuh).
  */
-export const MODEL_FALLBACK_STABIL = ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash']
+export const MODEL_FALLBACK_STABIL = ['cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'ag/gemini-3.8-flash-high']
 
 /**
  * Mengembalikan kandidat model 9Router yang sesuai dengan profil agen Hermes.
- * Urutan pertama mengutamakan model berlatensi rendah & stabil (`ag/gemini-3.8-flash-high`, `cx/gpt-6-luna`, `cx/gpt-6-sol`, `ag/gemini-3.8-flash`)
- * agar tidak terkena hang/timeout pada combo `CEO_SS` atau `hermes-combo` (deprecated 410).
+ * Profil CEO mengutamakan combo `CEO_SS` (Claude Sonnet) dengan fallback cepat `cx/gpt-6-luna`, `cx/gpt-6-sol`, `cx/gpt-5.6-luna`, `MANAGER_SS`.
  */
 export function kandidatModel9Router(profil: string, envModel?: string): string[] {
   const override = envModel?.trim()
-  if (override && override !== DEFAULT_HERMES_COMBO_MODEL && override !== 'CEO_SS') {
+  if (override && override !== DEFAULT_HERMES_COMBO_MODEL) {
+    if (profil.trim().toLowerCase() === 'ceo' && override === 'CEO_SS') {
+      return ['CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo']
+    }
     return Array.from(new Set([override, ...MODEL_FALLBACK_STABIL]))
   }
   switch (profil.trim().toLowerCase()) {
     case 'ceo':
-      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS']
+      return ['CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo']
     case 'manager':
-      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'MANAGER_SS']
+      return ['MANAGER_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna']
     case 'gudang':
     case 'stokis':
-      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'STOKIS_SS']
+      return ['STOKIS_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna']
     case 'marcom':
     case 'review':
     case 'sukareview':
-      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'ag/gemini-3.8-flash', 'ANALYTIC-SOSMED-COMBO']
+      return ['ANALYTIC-SOSMED-COMBO', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna']
     case 'hrd':
-      return [...MODEL_FALLBACK_STABIL]
+      return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS']
     case 'finance':
-      return ['ag/gemini-3.8-flash-high', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'ag/gemini-3.8-flash', 'MANAGER_SS']
+      return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS']
     default:
-      return [...MODEL_FALLBACK_STABIL]
+      return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS']
   }
 }
 
@@ -822,7 +824,7 @@ ${konteksData}
   let statusTerakhir = 500
   for (const modelKandidat of daftarModel) {
     if (o.signal?.aborted) break
-    const batasWaktuPerModel = AbortSignal.timeout(10_000)
+    const batasWaktuPerModel = AbortSignal.timeout(6_000)
     const signalPerModel = o.signal ? AbortSignal.any([o.signal, batasWaktuPerModel]) : batasWaktuPerModel
     try {
       const percobaan = await fetch(`${base}/chat/completions`, {
@@ -837,6 +839,8 @@ ${konteksData}
           stream: true,
           messages,
           temperature: 0.2,
+          reasoning_effort: 'low',
+          max_tokens: 2048,
         }),
         signal: signalPerModel,
       })

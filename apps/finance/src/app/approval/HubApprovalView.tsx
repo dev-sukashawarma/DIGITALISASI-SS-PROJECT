@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/ui'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { useHubApproval } from '@/hooks/useHubApproval'
 import { useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
-import { useApprovePo, useRejectPo } from '@/hooks/usePoApproval'
+import { useRejectPo, type PendingPo } from '@/hooks/usePoApproval'
 import { useTolakBayarPo, type PayablePo } from '@/hooks/useSupplierSettlement'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
 import { useCashOverview } from '@/hooks/useCashData'
@@ -20,6 +20,7 @@ import { FinanceApprovalModal } from '@/app/petty-cash/components/FinanceApprova
 import { VerifyVoucherModal } from '@/components/VerifyVoucherModal'
 import { AlasanTolakModal } from '@/components/approval/AlasanTolakModal'
 import { SetujuiBayarVendorModal } from '@/components/approval/SetujuiBayarVendorModal'
+import { SetujuiPoModal } from '@/components/approval/SetujuiPoModal'
 import { MenungguPanel } from './MenungguPanel'
 import { RiwayatApprovalPanel } from './RiwayatApprovalPanel'
 
@@ -46,17 +47,16 @@ export function HubApprovalView() {
 
   const processTopup = useProcessPettyCashFinance()
   const forwardTopup = useForwardPettyCashFinance()
-  const approvePo = useApprovePo()
   const rejectPo = useRejectPo()
   const tolakBayar = useTolakBayarPo()
   const { verifyVoucher, rejectVoucher, isVerifying, isRejecting } = useOfficeVouchers(undefined, { enabled: isChecker })
 
   const [pettyAcc, setPettyAcc] = useState<PettyCashTopup | null>(null)
+  const [poAcc, setPoAcc] = useState<PendingPo | null>(null)
   const [vendorAcc, setVendorAcc] = useState<PayablePo | null>(null)
   const [voucherAcc, setVoucherAcc] = useState<OfficeVoucher | null>(null)
   const [tolakItem, setTolakItem] = useState<HubItem | null>(null)
   const [tolakPending, setTolakPending] = useState(false)
-
 
   /** Pengajuan yang sudah diputuskan di tab lain: segarkan agar barisnya hilang. */
   const segarkan = () => PREFIX_HUB.forEach((queryKey) => qc.invalidateQueries({ queryKey }))
@@ -77,8 +77,7 @@ export function HubApprovalView() {
         }
         return
       case 'po':
-        // Toast sukses/galat sudah dari useApprovePo.
-        approvePo.mutate(i.data.id, { onError: segarkan })
+        setPoAcc(i.data)
         return
       case 'bayar_vendor':
         setVendorAcc(i.data)
@@ -204,11 +203,28 @@ export function HubApprovalView() {
         />
       )}
 
+      {poAcc && (
+        <SetujuiPoModal
+          isOpen
+          po={poAcc}
+          onClose={() => setPoAcc(null)}
+          onGagal={segarkan}
+        />
+      )}
+
       {vendorAcc && (
         <SetujuiBayarVendorModal
           po={vendorAcc}
-          rekeningLabel={rekeningBahanBaku?.label ?? 'Rekening Bahan Baku Bank'}
-          saldo={rekeningBahanBaku?.saldo ?? 0}
+          rekeningLabel={
+            locations.find((l) => l.id === vendorAcc.cash_location_id)?.label ??
+            rekeningBahanBaku?.label ??
+            'Rekening Bahan Baku Bank'
+          }
+          saldo={
+            locations.find((l) => l.id === vendorAcc.cash_location_id)?.saldo ??
+            rekeningBahanBaku?.saldo ??
+            0
+          }
           onClose={() => setVendorAcc(null)}
           onGagal={segarkan}
         />

@@ -17,7 +17,7 @@ import type { CashLocation, CashBalance, CashTransaction } from '@/lib/types'
 
 type DepositMethod = 'transfer' | 'langsung'
 
-function formatOutletOrigin(tx: CashTransaction) {
+export function formatOutletOrigin(tx: CashTransaction) {
   if (tx.outlet?.name) return tx.outlet.name
   if (tx.note) {
     if (tx.note.includes('Total')) {

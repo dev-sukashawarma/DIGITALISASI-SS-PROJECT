@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, FileText, Printer, ShieldAlert } from 'lucide-react'
 import { usePODetail, useUpdatePOStatus, useUploadInvoice, getInvoiceUrl, getSignedInvoiceUrl, type POStatus, type POWithItems } from '@/hooks/usePurchaseOrder'
 import { useAjukanBayarPo } from '@/hooks/useSupplierSettlement'
+import { useCashOverview } from '@/hooks/useCashData'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
@@ -61,6 +62,8 @@ const NEXT_STATUS_LABEL: Partial<Record<POStatus, string>> = {
 export default function PODetailView({ id, initialData }: { id: string, initialData: POWithItems }) {
   const router = useRouter()
   const { canVerifyPOReceipt, canManagePO, canAjukanBayarPO, isChecker } = useFinanceRole()
+  const { locations } = useCashOverview()
+  const rekeningPo = locations.find((l) => l.id === po?.cash_location_id)
   const { data: po, isLoading, error } = usePODetail(id, initialData)
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
@@ -424,6 +427,12 @@ Catatan (opsional):`, '')
           )}
         </div>
         <div className="flex flex-wrap items-center gap-6 text-sm">
+          {rekeningPo && (
+            <div>
+              <span className="text-suka-brown/60 font-semibold block text-xs">Rekening Sumber Dana</span>
+              <span className="font-bold text-suka-brown mt-1 block">{rekeningPo.label}</span>
+            </div>
+          )}
           <div>
             <span className="text-suka-brown/60 font-semibold block text-xs">Status Pembayaran</span>
             <span className={`font-bold mt-1 inline-block px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider border ${PAY_BADGE[po.payment_status ?? 'unpaid']?.cls ?? PAY_BADGE.unpaid.cls}`}>
@@ -445,9 +454,9 @@ Catatan (opsional):`, '')
         </div>
         <p className="text-xs text-suka-brown/60">
           {po.payment_status === 'pending'
-            ? 'Menunggu admin finance mentransfer dari Rekening Bahan Baku Bank dan menyetujui dengan bukti transfer.'
+            ? `Menunggu admin finance mentransfer dari ${rekeningPo?.label ?? 'Rekening Bahan Baku Bank'} dan menyetujui dengan bukti transfer.`
             : po.payment_status === 'paid'
-              ? 'Pembayaran tercatat di mutasi Rekening Bahan Baku Bank.'
+              ? `Pembayaran tercatat di mutasi ${rekeningPo?.label ?? 'Rekening Bahan Baku Bank'}.`
               : bisaDiajukan
                 ? 'Ajukan pembayaran ke admin finance. Saldo rekening baru terpotong setelah disetujui.'
                 : 'Pembayaran bisa diajukan setelah barang diterima.'}

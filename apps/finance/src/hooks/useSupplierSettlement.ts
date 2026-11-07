@@ -16,6 +16,7 @@ export interface PayablePo {
   payment_status: PoPaymentStatus
   paid_at: string | null
   cash_transaction_id: string | null
+  cash_location_id?: string | null
   total: number
 }
 

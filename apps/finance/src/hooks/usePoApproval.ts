@@ -13,6 +13,7 @@ export type PendingPo = {
   total: number
   /** Waktu terakhir PO berubah (≈ saat diajukan ke finance). */
   updated_at?: string
+  cash_location_id?: string | null
 }
 
 /** PO menunggu approval finance (status = menunggu_approval_finance). */
@@ -25,7 +26,7 @@ export function usePendingPos(enabled = true) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('purchase_order')
-        .select('id, nomor_po, supplier_nama, tanggal_po, updated_at, purchase_order_item(subtotal)')
+        .select('id, nomor_po, supplier_nama, tanggal_po, updated_at, cash_location_id, purchase_order_item(subtotal)')
         .eq('status', 'menunggu_approval_finance')
         .order('tanggal_po', { ascending: true })
       if (error) throw error
@@ -35,6 +36,7 @@ export function usePendingPos(enabled = true) {
         supplier_nama: p.supplier_nama,
         tanggal_po: p.tanggal_po,
         updated_at: p.updated_at ?? undefined,
+        cash_location_id: p.cash_location_id ?? null,
         total: (p.purchase_order_item ?? []).reduce((a: number, i: any) => a + Number(i.subtotal ?? 0), 0),
       }))
     },
@@ -67,12 +69,21 @@ export function useApprovePo() {
   const supabase = useMemo(() => createClient(), [])
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (poId: string) => {
-      const { error } = await supabase.rpc('approve_po_finance', { p_po_id: poId })
+    mutationFn: async (v: { poId: string; cashLocationId?: string | null } | string) => {
+      const poId = typeof v === 'string' ? v : v.poId
+      const cashLocationId = typeof v === 'string' ? null : v.cashLocationId ?? null
+      const { error } = await supabase.rpc('approve_po_finance', {
+        p_po_id: poId,
+        p_cash_location_id: cashLocationId,
+      })
       if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['po-pending-approval'] })
+      qc.invalidateQueries({ queryKey: ['purchase_order'] })
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] })
+      qc.invalidateQueries({ queryKey: ['purchase-order'] })
+      qc.invalidateQueries({ queryKey: ['po_payable'] })
       toast.success('PO disetujui')
     },
     onError: (e: any) => toast.error(e.message ?? 'Gagal approve'),

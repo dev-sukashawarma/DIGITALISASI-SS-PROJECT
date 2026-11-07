@@ -31,7 +31,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   owner: ['inventori', 'stok', 'HR', 'marcom'],
   spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard', 'finance', 'manager'],
   regional_manager: ['manager', 'absensi', 'inventori', 'stok', 'distribusi', 'pos-kasir'],
-  kitchen: ['stok', 'distribusi'],
+  kitchen: ['absensi', 'stok', 'distribusi'],
   leader: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'admin-dashboard', 'finance'],
   crew: ['absensi', 'pos-kasir', 'stok', 'distribusi'],
   kiosk: ['pos-kasir'],
@@ -54,7 +54,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
  */
 export function hasAppAccess(role: Role, app: AppName, username?: string | null, lokasi?: LokasiStaff): boolean {
   const normUser = username?.trim().toLowerCase()
-  if ((normUser === 'ading' || normUser === 'ading@ss.com') && app === 'stok') {
+  if ((normUser === 'ading' || normUser === 'ading@ss.com') && (app === 'stok' || app === 'absensi')) {
     return true
   }
   const terbatas = appTerbatasKantorPusat(role, lokasi)
@@ -72,8 +72,9 @@ export function accessibleApps(role: Role, username?: string | null, lokasi?: Lo
   if (normUser === 'adminkitchen' && !apps.includes('absensi')) {
     apps.push('absensi')
   }
-  if ((normUser === 'ading' || normUser === 'ading@ss.com') && !apps.includes('stok')) {
-    apps.push('stok')
+  if (normUser === 'ading' || normUser === 'ading@ss.com') {
+    if (!apps.includes('stok')) apps.push('stok')
+    if (!apps.includes('absensi')) apps.push('absensi')
   }
   return apps
 }

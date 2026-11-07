@@ -63,7 +63,7 @@ Pemetaan istilah SOP → role sistem:
 | **admin_hr** | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ (HR saja) |
 | **owner** | ❌ | ❌ | ❌ | ❌ | ✅ (read-only) | ✅ (read-only) |
 | **spv** | ❌ | ✅ semua outlet | ✅ semua outlet | ✅ | ❌ | ❌ |
-| **kitchen** | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| **kitchen** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **leader** | ✅ | ✅ (outlet binaan) | ✅ (outlet binaan) | ✅ | ❌ | ❌ |
 | **crew** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **kiosk** | ✅ (kiosk mode) | ❌ | ❌ | ❌ | ❌ | ❌ |

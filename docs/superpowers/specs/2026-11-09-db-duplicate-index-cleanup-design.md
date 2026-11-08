@@ -34,7 +34,7 @@ Tindak lanjut tahap kedua dari laporan audit `pg_stat_statements` dan `pg_stat_u
    Keenam index di atas telah diverifikasi di katalog `pg_index` dan `pg_constraint` memiliki `indisunique = false`, `indisprimary = false`, `indisreplident = false`, `indisclustered = false`, dan `constraint_def IS NULL`.
 
 2. **Perapatan ulang (`REINDEX`) 1 index bengkak tanpa mengubah definisinya:**
-   - `public.idx_ledger_outlet_bahan_created` pada `public.ledger_stok` dirapatkan agar ukurannya turun dari **156 MB** menjadi **< 60 MB** (estimasi ~25–35 MB).
+   - `public.idx_ledger_outlet_bahan_created` pada `public.ledger_stok` (1.858.458 baris pasca-`ANALYZE`) dirapatkan agar kepadatan fisiknya turun dari **156 MB (~87,8 byte/baris)** menjadi **< 65 byte/baris** (~88 MB / ~49,8 byte/baris rapat normal untuk 2 UUID + `timestamptz` tanpa deduplikasi).
 
 3. **Pembaruan statistik planner (`ANALYZE`)** pada `public.orders`, `public.order_items`, dan `public.ledger_stok`.
 
@@ -99,7 +99,7 @@ Skrip verifikasi wajib gagal (**RED**) sebelum perubahan diterapkan dan lulus (*
    - Seluruh index penopang Foreign Key (`idx_ledger_bahan`, `idx_ledger_stok_ref_order_id`, `idx_ledger_ref_retur`, `ledger_ref_terima_vendor`, `idx_ledger_stok_ref_waste_id`, `idx_ledger_stok_ref_opname_id`, `idx_ledger_stok_ref_shipment_id`, `idx_ledger_stok_ref_transfer_id`, `idx_ledger_ref_po`, `idx_order_items_menu_item_id`, `idx_order_items_order_id`) tetap ada dan `indisvalid = true`.
    - Keempat index standalone non-kembar (`idx_orders_source_created`, `orders_channel_idx`, `orders_source_idx`, `idx_order_items_is_promo_reward`) tetap ada dan `indisvalid = true`.
    - Tidak ada satu pun index berstatus `indisvalid = false` (termasuk sisa `_ccnew` / `_ccold`) pada tabel `orders`, `order_items`, maupun `ledger_stok`.
-4. **Ukuran `idx_ledger_outlet_bahan_created` menyusut signifikan:** index tetap ada, `indisvalid = true`, dan `pg_relation_size('public.idx_ledger_outlet_bahan_created') < 62914560` (`< 60 MB`, turun dari `156 MB`).
+4. **Kepadatan `idx_ledger_outlet_bahan_created` menyusut signifikan:** index tetap ada, `indisvalid = true`, dan rasio fisik `pg_relation_size / reltuples < 65` byte/baris (turun dari `~87,8 byte/baris` / 156 MB menjadi `~49,8 byte/baris` / 88 MB).
 5. **Verifikasi rencana eksekusi (`EXPLAIN FORMAT JSON`):**
    - Kueri pola `fetchItemDetail` (`SELECT ... FROM public.ledger_stok WHERE outlet_id = ... AND bahan_baku_id = ... ORDER BY created_at DESC LIMIT 50`) tetap menggunakan `idx_ledger_outlet_bahan_created`.
    - Kueri agregasi `order_items` per `order_id` (`SELECT order_id, menu_item_id, quantity FROM public.order_items WHERE order_id = ...`) tetap menggunakan index scan (`idx_order_items_order_id_cover` / `idx_order_items_order_id_full` / `idx_order_items_order_id`), bukan `Seq Scan`.

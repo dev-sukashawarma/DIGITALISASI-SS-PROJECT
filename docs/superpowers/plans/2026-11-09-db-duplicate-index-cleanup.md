@@ -45,7 +45,7 @@
   - Index `public.idx_ledger_outlet_bahan_created` yang telah dirapatkan (`< 60 MB`, `indisvalid = true`).
   - Stempel versi `20300254011700` pada `supabase_migrations.schema_migrations`.
 
-- [ ] **Step 1: Tulis skrip verifikasi TDD (`t2_index_cleanup.sql`)**
+- [x] **Step 1: Tulis skrip verifikasi TDD (`t2_index_cleanup.sql`)**
 
 Buat berkas `supabase/verifikasi/keamanan_dan_performa/t2_index_cleanup.sql` dengan isi lengkap berikut:
 
@@ -227,7 +227,7 @@ END $$;
 ROLLBACK;
 ```
 
-- [ ] **Step 2: Jalankan `t2_index_cleanup.sql` sebelum migrasi untuk membuktikan kegagalan (RED)**
+- [x] **Step 2: Jalankan `t2_index_cleanup.sql` sebelum migrasi untuk membuktikan kegagalan (RED)**
 
 Run:
 ```powershell
@@ -235,7 +235,7 @@ supabase db query --linked -f supabase/verifikasi/keamanan_dan_performa/t2_index
 ```
 Expected: FAIL (exit code non-zero) dengan pesan `ERROR: P0001: index duplikat masih ada: public.idx_orders_outlet_status_created`.
 
-- [ ] **Step 3: Tulis berkas migrasi (`20300254011700_rapikan_index_duplikat_orders_dan_reindex_ledger.sql`)**
+- [x] **Step 3: Tulis berkas migrasi (`20300254011700_rapikan_index_duplikat_orders_dan_reindex_ledger.sql`)**
 
 Buat berkas `supabase/migrations/20300254011700_rapikan_index_duplikat_orders_dan_reindex_ledger.sql` dengan isi lengkap berikut:
 
@@ -288,7 +288,7 @@ ANALYZE public.order_items;
 ANALYZE public.ledger_stok;
 ```
 
-- [ ] **Step 4: Terapkan perubahan ke database produksi secara non-blocking & stempel `schema_migrations`**
+- [x] **Step 4: Terapkan perubahan ke database produksi secara non-blocking & stempel `schema_migrations`**
 
 Jalankan satu per satu menggunakan `CONCURRENTLY` terlebih dahulu:
 ```powershell
@@ -319,7 +319,7 @@ supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (v
 ```
 Expected: Seluruh perintah keluar dengan exit code `0`.
 
-- [ ] **Step 5: Jalankan verifikasi TDD (`t2_index_cleanup.sql`) dan regresi Paket 1 untuk membuktikan kelulusan (GREEN)**
+- [x] **Step 5: Jalankan verifikasi TDD (`t2_index_cleanup.sql`) dan regresi Paket 1 untuk membuktikan kelulusan (GREEN)**
 
 Run:
 ```powershell
@@ -330,7 +330,7 @@ supabase db query --linked "SELECT pg_size_pretty(pg_relation_size('public.idx_l
 ```
 Expected: Ketiga skrip verifikasi keluar dengan exit code `0` (tanpa `EXCEPTION`), dan `ukuran_baru` berada di kisaran ~25–35 MB (`< 60 MB`).
 
-- [ ] **Step 6: Perbarui `CLAUDE.md` dan commit perubahan**
+- [x] **Step 6: Perbarui `CLAUDE.md` dan commit perubahan**
 
 Tambahkan ringkasan sesi `## Session 2026-11-09: Perapihan Index Kembar orders/order_items & Reindex ledger_stok (DB)` sebelum baris `**Last updated:**` di bagian akhir `CLAUDE.md` yang mencatat:
 - Status migrasi `20300254011700_rapikan_index_duplikat_orders_dan_reindex_ledger` applied & terstempel + hasil `t2_index_cleanup.sql`.

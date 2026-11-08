@@ -3687,6 +3687,16 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - **Retensi `pg_cron`:** Histori selesai `cron.job_run_details` > 7 hari dibersihkan (388.567 → 77.757 baris) dan dijadwalkan harian lewat `cron-job-run-details-retensi-7-hari` (`45 20 * * *` / 03:45 WIB).
 - **Catatan tindak lanjut terpisah:** Sisa 12 panggilan ke view `ledger_transaksi_ringkas` di `pg_stat_statements` berasal dari luar monorepo web (kemungkinan APK native lama; web sudah memakai `ledger_transaksi_page`), dan audit penghapusan index duplikat `ledger_stok`/`orders` dapat dilakukan di sesi terpisah.
 
+## Session 2026-11-09: Perapihan Index Kembar `orders` / `order_items` & Reindex `ledger_stok` (DB)
+
+**Status:** ✅ DB **LIVE** — migration `20300254011700_rapikan_index_duplikat_orders_dan_reindex_ledger` applied via `CONCURRENTLY` & terstempel; uji `supabase/verifikasi/keamanan_dan_performa/t2_index_cleanup.sql`, `t1_rls_resep_cron.sql`, & `t1_pemakaian_resep_harian.sql` LULUS. Nol app perlu redeploy.
+
+**Spec/plan:** `docs/superpowers/specs/2026-11-09-db-duplicate-index-cleanup-design.md`, `docs/superpowers/plans/2026-11-09-db-duplicate-index-cleanup.md`
+
+- **Hapus 6 index non-unik kembar (−64,3 MiB):** `idx_orders_outlet_status_created` (dicakup `idx_orders_outlet_status_created_covering`), `idx_orders_status_created` (dicakup `idx_orders_status_created_covering`), `idx_orders_outlet_created` (dicakup `idx_orders_outlet_created_at`), `idx_orders_completed_composite` (dicakup `idx_orders_completed_outlet_created`), `idx_order_items_order_menu` & `idx_order_items_order_menu_qty` (prefiks ketat `idx_order_items_order_id_cover` / `idx_order_items_order_id_full`). Mengurangi beban tulis setiap `create_order_with_items` & void tanpa menghilangkan satu pun jalur index.
+- **`REINDEX INDEX CONCURRENTLY idx_ledger_outlet_bahan_created` (−67,5 MiB / −43,3%):** Menyusut dari 156 MB (`87,83 byte/baris`) menjadi 88 MB (`49,78 byte/baris` rapat atas 1.858.458 baris `ledger_stok`); tetap dipertahankan karena dipakai `fetchItemDetail` Monitoring (`apps/stok` & `apps/admin-dashboard`). Total ruang & cache RAM dihemat **~131,8 MiB**.
+- **Pengaman anti-misconfiguration:** Seluruh index `UNIQUE`/`PRIMARY KEY`, penopang Foreign Key, 4 index standalone non-kembar (`idx_orders_source_created`, `orders_channel_idx`, `orders_source_idx`, `idx_order_items_is_promo_reward`), serta view `ledger_transaksi_ringkas` (kompatibilitas tablet APK lama) tetap utuh & terverifikasi `indisvalid = true`.
+
 **Last updated:** 2026-11-09  
 **Owner:** Dev Suka Shawarma
 

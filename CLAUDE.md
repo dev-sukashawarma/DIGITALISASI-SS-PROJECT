@@ -3676,6 +3676,17 @@ digabung per promo; mengubah promo aktif menutup periode lama.
   - ⚠️ Nama pelaku wajib dari kolom `approval_log.pelaku_nama` (diisi trigger BEFORE INSERT) — join ke `outlet_staff` tertahan RLS: admin finance cuma bisa membaca 21 dari 979 nama.
   - Error tsc `SetoranView.tsx` (`formatOutletOrigin` tak terpakai) berasal dari commit `b0ab5e51e` sesi lain, bukan fitur ini.
 
-**Last updated:** 2026-11-06  
+## Session 2026-11-08: Penguncian RLS `hermes_bot_registry`, Optimasi `pemakaian_resep_harian`, & Retensi `pg_cron` (DB)
+
+**Status:** ✅ DB **LIVE** — migration `20300254011600_kunci_rls_optimasi_resep_retensi_cron` applied & terstempel; uji `supabase/verifikasi/keamanan_dan_performa/t1_rls_resep_cron.sql` & regresi `supabase/verifikasi/pemakaian_resep/t1_pemakaian_resep_harian.sql` LULUS. Nol app perlu redeploy.
+
+**Spec/plan:** `docs/superpowers/specs/2026-11-08-db-rls-resep-cron-optimization-design.md`, `docs/superpowers/plans/2026-11-08-db-rls-resep-cron-optimization.md`
+
+- **Keamanan RLS:** `public.hermes_bot_registry` dikunci kembali (`ENABLE ROW LEVEL SECURITY`, `REVOKE ALL FROM PUBLIC, anon, authenticated`, `GRANT ALL TO service_role`, kolom `bot_token` disinkronkan ke migrasi). Tabel sisa debug `public._temp_sql_output` & `public._temp_timings` dihapus. ⚠️ Disarankan merotasi `bot_token` Bot CEO via `@BotFather` karena sebelumnya sempat terbuka ke `anon`.
+- **Optimasi `pemakaian_resep_harian(uuid, date)`:** CTE `order_milik_hari_ini` yang memicu `Hash Right Anti Join` (`Bitmap Heap Scan` ~124 rb baris / 9.031 blok, 5.893,8 ms dingin) diganti dua scan berindeks `loops=1` (`idx_ledger_stok_outlet_created_at` + `idx_ledger_stok_ref_order_id` via `= ANY(ARRAY(...))`). Tetap `SECURITY INVOKER`, selisih angka 0, waktu eksekusi turun ke 87,9 ms dingin / 12,5 ms hangat (87 blok disk read dingin / 1.711 blok hit hangat).
+- **Retensi `pg_cron`:** Histori selesai `cron.job_run_details` > 7 hari dibersihkan (388.567 → 77.757 baris) dan dijadwalkan harian lewat `cron-job-run-details-retensi-7-hari` (`45 20 * * *` / 03:45 WIB).
+- **Catatan tindak lanjut terpisah:** Sisa 12 panggilan ke view `ledger_transaksi_ringkas` di `pg_stat_statements` berasal dari luar monorepo web (kemungkinan APK native lama; web sudah memakai `ledger_transaksi_page`), dan audit penghapusan index duplikat `ledger_stok`/`orders` dapat dilakukan di sesi terpisah.
+
+**Last updated:** 2026-11-09  
 **Owner:** Dev Suka Shawarma
 

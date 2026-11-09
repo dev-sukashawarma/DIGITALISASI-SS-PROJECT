@@ -12,7 +12,6 @@ import { useRejectPo, type PendingPo } from '@/hooks/usePoApproval'
 import { useTolakBayarPo, type PayablePo } from '@/hooks/useSupplierSettlement'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
 import { useCashOverview } from '@/hooks/useCashData'
-import { lokasiGrup } from '@/lib/kas/grupKas'
 import { JENIS_LABEL, type HubItem } from '@/lib/approval/hub'
 import type { DisbursementMethod, PettyCashTopup } from '@/lib/types'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
@@ -43,7 +42,6 @@ export function HubApprovalView() {
   }, [])
 
   const { locations } = useCashOverview()
-  const rekeningBahanBaku = lokasiGrup(locations, 'bahan_baku', 'bank')[0]
 
   const processTopup = useProcessPettyCashFinance()
   const forwardTopup = useForwardPettyCashFinance()
@@ -215,16 +213,7 @@ export function HubApprovalView() {
       {vendorAcc && (
         <SetujuiBayarVendorModal
           po={vendorAcc}
-          rekeningLabel={
-            locations.find((l) => l.id === vendorAcc.cash_location_id)?.label ??
-            rekeningBahanBaku?.label ??
-            'Rekening Bahan Baku Bank'
-          }
-          saldo={
-            locations.find((l) => l.id === vendorAcc.cash_location_id)?.saldo ??
-            rekeningBahanBaku?.saldo ??
-            0
-          }
+          locations={locations}
           onClose={() => setVendorAcc(null)}
           onGagal={segarkan}
         />

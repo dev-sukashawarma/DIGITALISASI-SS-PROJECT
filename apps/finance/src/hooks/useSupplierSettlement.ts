@@ -124,12 +124,15 @@ export function useAjukanBayarPo() {
   })
 }
 
-/** Admin finance menyetujui setelah transfer; bukti wajib (RPC setujui_bayar_po). Saldo terpotong. */
+/**
+ * Admin finance menyetujui setelah transfer; bukti wajib (RPC setujui_bayar_po). Saldo rekening
+ * terpilih terpotong. cashLocationId kosong = rekening pengajuan.
+ */
 export function useSetujuiBayarPo() {
   const supabase = useMemo(() => createClient(), [])
   const segarkan = useSegarkan()
   return useMutation({
-    mutationFn: async (v: { poId: string; proofFile: File; catatan?: string }) => {
+    mutationFn: async (v: { poId: string; proofFile: File; catatan?: string; cashLocationId?: string | null }) => {
       const path = `bayar-po/${Date.now()}-${v.proofFile.name.replace(/[^\w.\-]/g, '_')}`
       const { error: upErr } = await supabase.storage.from('finance-proofs').upload(path, v.proofFile)
       if (upErr) throw upErr
@@ -137,6 +140,7 @@ export function useSetujuiBayarPo() {
         p_po_id: v.poId,
         p_proof_url: path,
         p_catatan: v.catatan?.trim() || null,
+        p_cash_location_id: v.cashLocationId || null,
       })
       if (error) throw error
       return data as string

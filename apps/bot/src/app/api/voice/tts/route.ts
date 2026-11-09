@@ -247,6 +247,66 @@ function wrapPcm16ToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1):
 }
 
 /**
+ * Sintesis suara menggunakan ElevenLabs Flash v2.5 / Turbo v2.5
+ * dengan optimasi latensi streaming ultra-cepat (~280-350ms roundtrip).
+ */
+async function synthesizeElevenLabsMp3(
+  teks: string,
+  voiceId: string,
+  apiKey: string
+): Promise<{ mp3Buffer: Buffer; modelUsed: string }> {
+  const models = ['eleven_flash_v2_5', 'eleven_turbo_v2_5', 'eleven_multilingual_v2']
+  let lastErr = 'Tidak ada model ElevenLabs yang merespons'
+
+  for (const model of models) {
+    try {
+      const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(
+        voiceId
+      )}?optimize_streaming_latency=3&output_format=mp3_44100_128`
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey,
+          Accept: 'audio/mpeg',
+        },
+        body: JSON.stringify({
+          text: teks,
+          model_id: model,
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.8,
+            style: 0.0,
+            use_speaker_boost: true,
+          },
+        }),
+        signal: AbortSignal.timeout(8000),
+      })
+
+      if (!res.ok) {
+        const errTxt = await res.text().catch(() => '')
+        lastErr = `${model} HTTP ${res.status}: ${errTxt.slice(0, 140)}`
+        continue
+      }
+
+      const arrayBuf = await res.arrayBuffer()
+      const buf = Buffer.from(arrayBuf)
+      if (buf.length < 100) {
+        lastErr = `${model}: audio buffer ElevenLabs terlalu kecil (${buf.length} bytes)`
+        continue
+      }
+
+      return { mp3Buffer: buf, modelUsed: model }
+    } catch (err) {
+      lastErr = `${model}: ${(err as Error)?.message || 'koneksi timeout'}`
+    }
+  }
+
+  throw new Error(lastErr)
+}
+
+/**
  * Sintesis suara menggunakan Google Gemini Native Audio TTS terbaru
  * (cascade: `gemini-3.8-flash-tts` -> `gemini-3.8-flash-lite-tts` -> `gemini-2.5-flash-preview-tts`).
  */
@@ -375,9 +435,31 @@ export async function POST(req: Request) {
   }
 
   const opsiSuara = cariKonfigurasiSuara(voiceId)
+  const elevenLabsKey = (process.env.ELEVENLABS_API_KEY || '').trim()
+  const customVoiceId = (process.env.ELEVENLABS_VOICE_ID || '').trim()
+  const elevenVoiceId = customVoiceId || opsiSuara.elevenLabsVoiceId || 'R2tdno8o9nwUiDvfnMIJ'
+
+  // 1. Prioritaskan ElevenLabs Flash v2.5 / Turbo (Latensi Super Cepat ~300ms + Studio Quality)
+  if (elevenLabsKey) {
+    try {
+      const { mp3Buffer, modelUsed } = await synthesizeElevenLabsMp3(teksSuara, elevenVoiceId, elevenLabsKey)
+      return new NextResponse(new Uint8Array(mp3Buffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Cache-Control': 'no-store',
+          'X-Jarvis-Engine': `elevenlabs (${modelUsed})`,
+          'X-Jarvis-Voice': elevenVoiceId,
+        },
+      })
+    } catch (err) {
+      console.warn('[jarvis-tts] ElevenLabs gagal, beralih ke engine berikutnya:', (err as Error)?.message)
+    }
+  }
+
   const geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim()
 
-  // 1. Prioritaskan Google Gemini Native Audio TTS terbaru jika GEMINI_API_KEY / GOOGLE_API_KEY tersedia
+  // 2. Prioritaskan Google Gemini Native Audio TTS terbaru jika GEMINI_API_KEY / GOOGLE_API_KEY tersedia
   if (geminiKey) {
     try {
       const { wavBuffer, modelUsed } = await synthesizeGeminiNativeWav(teksSuara, opsiSuara, geminiKey)

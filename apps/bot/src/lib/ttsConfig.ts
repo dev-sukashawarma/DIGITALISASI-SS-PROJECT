@@ -5,6 +5,7 @@ export interface OpsiSuaraJarvis {
   gender: 'Pria' | 'Wanita'
   voiceName: string
   geminiVoice: string
+  elevenLabsVoiceId?: string
   pitch: string
   rate: string
 }
@@ -20,91 +21,100 @@ export const GEMINI_TTS_MODELS = [
 export const DAFTAR_SUARA_JARVIS: OpsiSuaraJarvis[] = [
   {
     id: 'brian',
-    label: 'BRIAN / PUCK HD (Jarvis Conversational)',
-    deskripsi: 'Suara AI Pria Bariton Luwes & Natural (Gemini Puck / Brian HD)',
+    label: 'BRIAN / ALIF HD (Jarvis Conversational)',
+    deskripsi: 'Suara AI Pria Bariton Luwes & Natural (ElevenLabs Alif / Brian HD)',
     gender: 'Pria',
     voiceName: 'en-US-BrianMultilingualNeural',
     geminiVoice: 'Puck',
+    elevenLabsVoiceId: 'R2tdno8o9nwUiDvfnMIJ', // Alif - Premium & Professional
     pitch: '-2Hz',
     rate: '+3%',
   },
   {
     id: 'andrew',
-    label: 'ANDREW / CHARON HD (Warm Executive)',
-    deskripsi: 'Suara AI Pria Hangat, Santai & Mengalir (Gemini Charon / Andrew HD)',
+    label: 'ANDREW / JANU HD (Warm Executive)',
+    deskripsi: 'Suara AI Pria Hangat, Santai & Mengalir (ElevenLabs Janu / Andrew HD)',
     gender: 'Pria',
     voiceName: 'en-US-AndrewMultilingualNeural',
     geminiVoice: 'Charon',
+    elevenLabsVoiceId: 'TIXYCOMzK2Vw9OZovSLs', // Janu – Calm Narrator
     pitch: '-1Hz',
     rate: '+4%',
   },
   {
     id: 'william',
-    label: 'WILLIAM / ORUS HD (Aksen Jarvis Klasik)',
-    deskripsi: 'Suara AI Pria Elegan ala Butler J.A.R.V.I.S. (Gemini Orus / William HD)',
+    label: 'WILLIAM / DANIEL HD (Aksen Jarvis Klasik)',
+    deskripsi: 'Suara AI Pria Elegan ala Butler J.A.R.V.I.S. (ElevenLabs Daniel / William HD)',
     gender: 'Pria',
     voiceName: 'en-AU-WilliamMultilingualNeural',
     geminiVoice: 'Orus',
+    elevenLabsVoiceId: 'onwK4e9ZLuTAKqWW03F9', // Daniel - Classic British Butler
     pitch: '-2Hz',
     rate: '+4%',
   },
   {
     id: 'florian',
-    label: 'FLORIAN / FENRIR HD (Deep Commander)',
-    deskripsi: 'Suara AI Pria Berat & Berwibawa (Gemini Fenrir / Florian HD)',
+    label: 'FLORIAN / AKBAR HD (Deep Commander)',
+    deskripsi: 'Suara AI Pria Berat & Berwibawa (ElevenLabs Akbar / Florian HD)',
     gender: 'Pria',
     voiceName: 'de-DE-FlorianMultilingualNeural',
     geminiVoice: 'Fenrir',
+    elevenLabsVoiceId: 'JHVv68mDAV9BgIEbto2A', // PAK AKBAR ALATAS
     pitch: '-2Hz',
     rate: '+4%',
   },
   {
     id: 'remy',
-    label: 'REMY / IAPETUS HD (Smooth Analyst)',
-    deskripsi: 'Suara AI Pria Halus & Tenang (Gemini Iapetus / Remy HD)',
+    label: 'REMY / JEFRI HD (Smooth Analyst)',
+    deskripsi: 'Suara AI Pria Halus & Tenang (ElevenLabs Jefri / Remy HD)',
     gender: 'Pria',
     voiceName: 'fr-FR-RemyMultilingualNeural',
     geminiVoice: 'Zephyr',
+    elevenLabsVoiceId: '1ijzBXcD3AIVH8RGMcQd', // Jefri - Soft Explanatory
     pitch: '-1Hz',
     rate: '+4%',
   },
   {
     id: 'ava',
-    label: 'F.R.I.D.A.Y. / KORE HD (Wanita AI)',
-    deskripsi: 'Suara AI Wanita Luwes & Ekspresif (Gemini Kore / Ava HD)',
+    label: 'F.R.I.D.A.Y. / VELORA HD (Wanita AI)',
+    deskripsi: 'Suara AI Wanita Luwes & Ekspresif (ElevenLabs Velora / Ava HD)',
     gender: 'Wanita',
     voiceName: 'en-US-AvaMultilingualNeural',
     geminiVoice: 'Kore',
+    elevenLabsVoiceId: 'TrU3igk19A4aIUi2GAA2', // Rara — Velora
     pitch: '+0Hz',
     rate: '+4%',
   },
   {
     id: 'emma',
-    label: 'EMMA / AOEDE HD (Wanita Hangat)',
-    deskripsi: 'Suara AI Wanita Lembut & Natural (Gemini Aoede / Emma HD)',
+    label: 'EMMA / RENATA HD (Wanita Hangat)',
+    deskripsi: 'Suara AI Wanita Lembut & Natural (ElevenLabs Renata / Emma HD)',
     gender: 'Wanita',
     voiceName: 'en-US-EmmaMultilingualNeural',
     geminiVoice: 'Aoede',
+    elevenLabsVoiceId: 'tkD44aBEYVXxC4GxZoBV', // Rara — Renata
     pitch: '+0Hz',
     rate: '+4%',
   },
   {
     id: 'ardi',
-    label: 'ARDI / ENCELADUS (Pria Indonesia)',
+    label: 'ARDI / ALIF (Pria Indonesia)',
     deskripsi: 'Suara Pria Indonesia Formal & Tegas',
     gender: 'Pria',
     voiceName: 'id-ID-ArdiNeural',
     geminiVoice: 'Enceladus',
+    elevenLabsVoiceId: 'R2tdno8o9nwUiDvfnMIJ', // Alif - Premium & Professional
     pitch: '-2Hz',
     rate: '+4%',
   },
   {
     id: 'gadis',
-    label: 'GADIS / ZEPHYR (Wanita Indonesia)',
+    label: 'GADIS / ANJANI (Wanita Indonesia)',
     deskripsi: 'Suara Wanita Indonesia Jernih & Ramah',
     gender: 'Wanita',
     voiceName: 'id-ID-GadisNeural',
     geminiVoice: 'Zephyr',
+    elevenLabsVoiceId: '52LXmmR0nGnIcDs1TL3f', // Rara — Anjani
     pitch: '+0Hz',
     rate: '+5%',
   },

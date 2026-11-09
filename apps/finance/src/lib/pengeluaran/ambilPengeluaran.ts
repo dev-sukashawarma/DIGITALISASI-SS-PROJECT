@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { isPusatExpenseRow } from '@/lib/expenseRow'
 import { adalahJointExpenseDisembunyikan, adalahHppKolMarcomDisembunyikan, adalahOpexCabangNolOktober2026 } from './jointExpense'
 
 export interface FilterPengeluaran {
@@ -32,7 +33,7 @@ export async function ambilPengeluaranMentah(
 
     if (filter.outletId && filter.outletId !== 'all') {
       if (filter.outletId === 'PUSAT') {
-        q = q.or('outlet_id.is.null,outlet_id.eq.ffffffff-ffff-ffff-ffff-ffffffffffff')
+        q = q.or('outlet_id.is.null,outlet_id.in.(ffffffff-ffff-ffff-ffff-ffffffffffff,d23e11b3-23f1-4f9a-b428-cc73e1aa9b90,d23e11b3-23f1-4f9a-b428-cc73e1aa9b91)')
       } else {
         q = q.eq('outlet_id', filter.outletId)
       }
@@ -60,7 +61,7 @@ export async function ambilPengeluaranMentah(
 
     if (filter.outletId && filter.outletId !== 'all') {
       if (filter.outletId === 'PUSAT') {
-        q = q.eq('outlet_id', '00000000-0000-0000-0000-000000000000')
+        q = q.in('outlet_id', ['ffffffff-ffff-ffff-ffff-ffffffffffff', 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90', 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b91'])
       } else {
         q = q.eq('outlet_id', filter.outletId)
       }
@@ -83,7 +84,7 @@ export async function ambilPengeluaranMentah(
   }
 
   const fetchPettyCash = async () => {
-    if (filter.source === 'monthly' || filter.outletId === 'PUSAT') return []
+    if (filter.source === 'monthly') return []
     const all: any[] = []
     for (let offset = 0; ; offset += PAGE_SIZE) {
       const { data, error } = await buildPettyCashQuery().range(offset, offset + PAGE_SIZE - 1)
@@ -106,9 +107,11 @@ export async function ambilPengeluaranMentah(
       .filter((e: any) => !adalahJointExpenseDisembunyikan(e))
       .filter((e: any) => !adalahHppKolMarcomDisembunyikan(e))
       .filter((e: any) => !adalahOpexCabangNolOktober2026(e))
+      .filter((e: any) => filter.outletId !== 'PUSAT' || isPusatExpenseRow(e))
       .filter((e: any) => !e.outlet_id || (!isTestOutlet(e.outlet_id) && e.outlet_id !== TEST_OUTLET_ID)),
     pettyCashExpenses: (allPettyCash ?? [])
       .filter((p: any) => !adalahOpexCabangNolOktober2026(p))
+      .filter((p: any) => filter.outletId !== 'PUSAT' || isPusatExpenseRow(p))
       .filter((p: any) => !p.outlet_id || (!isTestOutlet(p.outlet_id) && p.outlet_id !== TEST_OUTLET_ID)),
   }
 }

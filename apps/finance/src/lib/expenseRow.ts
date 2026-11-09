@@ -1,5 +1,10 @@
 import { type ExpenseCategory, type ExpenseScope } from '@/lib/expenseCategories'
 
+const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+const GUDANG_PUSAT_ID = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90'
+const GUDANG_SS_ONLINE_ID = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b91'
+const GUDANG_SS_ONLINE_PUSAT_SEJAK = '2026-10-01'
+
 export interface ExpenseRow {
   id: string
   outlet_id: string | null
@@ -17,6 +22,30 @@ export interface ExpenseRow {
   division?: string | null
   raw_description?: string | null
   raw_category?: string | null
+}
+
+/**
+ * Cek apakah satu baris `expenses` termasuk beban Kantor Pusat / Gudang Pusat (`scope: 'pusat'`).
+ * Khusus `GUDANG SS ONLINE`, periode < Oktober 2026 tetap ber-scope `'outlet'` agar rekonsiliasi
+ * closing September 2026 (`terapkanClosingOpex` -> kolom `SS ONLINE`) tidak berubah; mulai
+ * Oktober 2026 ke atas beban Gudang SS Online masuk ke OPEX Pusat (`PUSAT`), bukan cabang ritel.
+ */
+export function isPusatExpenseRow(row: any): boolean {
+  if (!row) return false
+  const oid = row.outlet_id
+  if (!oid || oid === KANTOR_PUSAT_ID || oid === GUDANG_PUSAT_ID) return true
+
+  const outletNameLower = String(row.outlets?.name ?? row.outlet_name ?? '').toLowerCase()
+  if (outletNameLower.includes('kantor pusat') || outletNameLower.includes('gudang pusat')) {
+    return true
+  }
+
+  if (oid === GUDANG_SS_ONLINE_ID || outletNameLower.includes('gudang ss online')) {
+    const tgl = String(row.expense_date || row.period_month || '').slice(0, 10)
+    return tgl >= GUDANG_SS_ONLINE_PUSAT_SEJAK
+  }
+
+  return false
 }
 
 /** Satu baris `expenses` → ExpenseRow (dipakai halaman Pengeluaran, Rekap Bulanan, EOM). */
@@ -65,11 +94,7 @@ export function mapExpenseRow(row: any): ExpenseRow {
     recipientName = 'Putri Lestari Hambali'
   }
 
-  const isPusat = !row.outlet_id || 
-    row.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ||
-    row.outlets?.name?.toLowerCase().includes('kantor pusat') ||
-    (row.category === 'pengeluaran_global' && !row.outlet_id) ||
-    (row.category === 'gaji_staff_kantor' && !row.outlet_id)
+  const isPusat = isPusatExpenseRow(row)
 
   return {
     id: row.id,

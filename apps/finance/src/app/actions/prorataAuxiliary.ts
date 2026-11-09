@@ -274,7 +274,7 @@ export async function getProrataAuxiliaryDataAction({
       if (!ALLOWED_ROLES.includes(s.role)) return false
       const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
       const effectiveOutletId = r.outlet_id || s.outlet_id
-      if (!isManager && (!effectiveOutletId || effectiveOutletId === KANTOR_PUSAT_ID)) return false
+      if (!isManager && (!effectiveOutletId || effectiveOutletId === KANTOR_PUSAT_ID || isExcludedOutlet(effectiveOutletId))) return false
       return true
     })
     .forEach(r => {
@@ -335,7 +335,7 @@ export async function getProrataAuxiliaryDataAction({
       if (isTestOrDevStaff(s)) return false
       if (!ALLOWED_ROLES.includes(s.role)) return false
       const isManager = s.role === 'area_manager' || s.role === 'regional_manager'
-      if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID)) return false
+      if (!isManager && (!s.outlet_id || s.outlet_id === KANTOR_PUSAT_ID || isExcludedOutlet(s.outlet_id))) return false
       return true
     })
     .forEach(s => {

@@ -806,11 +806,6 @@ async function hitungSatuPeriodePayrollHr(params: {
         )
       } else {
         const bonusTargetOutletIds = new Set<string>(operationalOutletIds)
-        ;(outletData || []).forEach((o: any) => {
-          if (o?.type === 'gudang' && o?.is_active === true && o?.status === 'active') {
-            bonusTargetOutletIds.add(o.id)
-          }
-        })
         bonusTargetOutletIds.forEach(oid => {
           dailyBonusFactories.push(() =>
             supabase.rpc('get_daily_outlet_bonus_detail', {
@@ -1366,10 +1361,10 @@ async function hitungSatuPeriodePayrollHr(params: {
     const isNonRetailBucket = (oid?: string | null): boolean => {
       if (!oid || oid === 'ffffffff-ffff-ffff-ffff-ffffffffffff' || oid === 'PUSAT') return true
       const m = outletMetaMap.get(oid)
-      if (!m) return false
+      if (!m) return isExcludedOutlet(oid)
       if (m.slug === 'sawangan-depok-internal') return true
-      if (m.type === 'office' || m.type === 'test' || m.type === 'system' || m.type === 'marketplace' || m.type === 'online') return true
-      return isExcludedOutlet(m) && m.type !== 'gudang'
+      if (m.type === 'office' || m.type === 'gudang' || m.type === 'test' || m.type === 'system' || m.type === 'marketplace' || m.type === 'online') return true
+      return isExcludedOutlet(m)
     }
 
     interface CanonicalCrewShare {

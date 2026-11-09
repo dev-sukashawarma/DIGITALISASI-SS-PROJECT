@@ -1207,3 +1207,75 @@ describe('opexProrata - kebijakan Oktober 2026 Paledang & Pondok Aren (hanya non
     expect(resPondokArenNoSales.rows.find(r => r.category === 'bonus_regional_manager')).toBeUndefined()
   })
 })
+
+describe('Klasifikasi Gudang SS Online & Gudang Pusat (Non-Cabang Ritel)', () => {
+  const GUDANG_ONLINE = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b91'
+  const GUDANG_PUSAT = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90'
+
+  it('mapExpenseRow menandai Gudang Pusat (HQ) dan Gudang SS Online (>= Okt 2026) sebagai scope pusat, namun menjaga Sep 2026 tetap outlet untuk closing SS Online', async () => {
+    const { mapExpenseRow } = await import('./expenseRow')
+    const { isExcludedOutlet } = await import('./outletFilters')
+
+    expect(isExcludedOutlet(GUDANG_ONLINE)).toBe(true)
+    expect(isExcludedOutlet(GUDANG_PUSAT)).toBe(true)
+
+    const octGudangOnline = mapExpenseRow({
+      id: 'exp-oct-gudang',
+      outlet_id: GUDANG_ONLINE,
+      outlets: { name: 'GUDANG SS ONLINE' },
+      category: 'internet',
+      amount: 263_625,
+      description: 'Indihome SS Online - Dapur',
+      expense_date: '2026-10-20',
+      period_month: '2026-10-01',
+    })
+    expect(octGudangOnline.scope).toBe('pusat')
+    expect(octGudangOnline.outlet_name).toBe('Kantor Pusat')
+
+    const sepGudangOnline = mapExpenseRow({
+      id: 'exp-sep-gudang',
+      outlet_id: GUDANG_ONLINE,
+      outlets: { name: 'GUDANG SS ONLINE' },
+      category: 'internet',
+      amount: 260_850,
+      description: 'Indihome SS Dapur',
+      expense_date: '2026-09-19',
+      period_month: '2026-09-01',
+    })
+    expect(sepGudangOnline.scope).toBe('outlet')
+
+    const sepGudangPusat = mapExpenseRow({
+      id: 'exp-sep-hq',
+      outlet_id: GUDANG_PUSAT,
+      outlets: { name: 'GUDANG PUSAT (HQ)' },
+      category: 'endorsement',
+      amount: 300_000,
+      description: 'Endorsement HQ',
+      expense_date: '2026-09-05',
+      period_month: '2026-09-01',
+    })
+    expect(sepGudangPusat.scope).toBe('pusat')
+    expect(sepGudangPusat.outlet_name).toBe('Kantor Pusat')
+  })
+
+  it('calculateProratedExpenses mengecualikan UUID Gudang SS Online dari targetOutletIds meskipun dipassing lewat payrollRecords/crewBonusRecords tanpa daftar outlets lengkap', () => {
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-10-01', to: '2026-10-31', outletId: 'all', source: 'all' },
+      now: new Date('2026-11-05T10:00:00Z'),
+      outlets: [{ id: 'outlet-empang', name: 'SUKA SHAWARMA EMPANG', is_active: true, type: 'internal' }],
+      rawExpenses: [],
+      payrollRecords: [
+        { outlet_id: 'outlet-empang', total_salary: 3_000_000, period_month: 10, period_year: 2026 },
+        { outlet_id: GUDANG_ONLINE, total_salary: 4_530_000, period_month: 10, period_year: 2026 },
+      ],
+      crewBonusRecords: [
+        { outlet_id: 'outlet-empang', total_bonus: 100_000, total_pcs_outlet: 1_000, period_month: 10, period_year: 2026 },
+        { outlet_id: GUDANG_ONLINE, total_bonus: 300, total_pcs_outlet: 3, period_month: 10, period_year: 2026 },
+      ],
+    })
+
+    expect(res.rows.some(r => r.outlet_id === GUDANG_ONLINE)).toBe(false)
+    expect(res.categoryBreakdown.gaji_crew_outlet.nominalProrata).toBe(3_000_000)
+    expect(res.categoryBreakdown.bonus_crew.nominalProrata).toBe(100_000)
+  })
+})

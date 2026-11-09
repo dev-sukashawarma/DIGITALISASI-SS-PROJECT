@@ -387,4 +387,67 @@ describe('Perhitungan Gaji Outlet Parsial & Kru Mutasi', () => {
     expect(paNov.managerRoutineAllocation).toBe(1_000_000)
     expect(paNov.totalSalary).toBe(3_600_000)
   })
+
+  it('mengelompokkan kru Gudang SS Online (type: gudang) ke PUSAT agar tidak bocor ke Semua Outlet (ALL_OUTLETS), namun tetap mengalokasikan RM ke cabang ritel', async () => {
+    const GUDANG_ONLINE = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b91'
+    const EMPANG = '550e8400-e29b-41d4-a716-446655440005'
+
+    const sb = buatSupabaseMock({
+      outlets: [
+        { id: EMPANG, name: 'SUKA SHAWARMA EMPANG', slug: 'empang', type: 'internal', is_active: true, status: 'active', created_at: '2026-01-01T00:00:00Z' },
+        { id: GUDANG_ONLINE, name: 'GUDANG SS ONLINE', slug: 'gudang-ss-online', type: 'gudang', is_active: true, status: 'active', created_at: '2026-01-01T00:00:00Z' },
+      ],
+      payrollByMonth: {
+        '2026-10': [
+          {
+            id: 'slip-emp', period_month: 10, period_year: 2026, outlet_id: EMPANG,
+            basic_salary: 2_600_000, allowance_meal: 390_000, allowance_presence: 390_000, bonus: 0, deductions: 0, total_salary: 2_990_000, status: 'finalized',
+            staff_id: 's-emp', outlet_staff: { id: 's-emp', name: 'Kru Empang', role: 'crew', outlet_id: EMPANG },
+          },
+          {
+            id: 'slip-gilang', period_month: 10, period_year: 2026, outlet_id: null,
+            basic_salary: 2_000_000, allowance_meal: 390_000, allowance_presence: 390_000, bonus: 300, deductions: 0, total_salary: 2_390_300, status: 'finalized',
+            staff_id: 's-gilang', outlet_staff: { id: 's-gilang', name: 'Gilang Gumala Putra', role: 'crew', outlet_id: GUDANG_ONLINE },
+          },
+          {
+            id: 'slip-isman', period_month: 10, period_year: 2026, outlet_id: null,
+            basic_salary: 2_000_000, allowance_meal: 140_000, allowance_presence: 140_000, bonus: 0, deductions: 0, total_salary: 2_140_000, status: 'draft',
+            staff_id: 's-isman', outlet_staff: { id: 's-isman', name: 'Ismansyah', role: 'crew', outlet_id: GUDANG_ONLINE },
+          },
+          {
+            id: 'slip-rm', period_month: 10, period_year: 2026, outlet_id: null,
+            basic_salary: 5_000_000, allowance_meal: 0, allowance_presence: 0, bonus: 0, deductions: 0, total_salary: 5_000_000, status: 'finalized',
+            staff_id: 's-rm', outlet_staff: { id: 's-rm', name: 'Indra Adam Sami', role: 'regional_manager', outlet_id: GUDANG_ONLINE },
+          },
+        ],
+      },
+      orders: [
+        { outlet_id: EMPANG, status: 'completed', created_at: '2026-10-05T10:00:00+07:00' },
+        { outlet_id: GUDANG_ONLINE, status: 'completed', created_at: '2026-10-05T10:00:00+07:00' },
+      ],
+      attendance: [
+        { outlet_staff_id: 's-emp', outlet_id: EMPANG, type: 'in', ts_server: '2026-10-05T08:00:00+07:00' },
+        { outlet_staff_id: 's-gilang', outlet_id: GUDANG_ONLINE, type: 'in', ts_server: '2026-10-05T08:00:00+07:00' },
+        { outlet_staff_id: 's-isman', outlet_id: GUDANG_ONLINE, type: 'in', ts_server: '2026-10-05T08:00:00+07:00' },
+      ],
+      dailyBonusByMonthOutlet: {
+        [`2026-10-${EMPANG}`]: [
+          { bonus_date: '2026-10-05', outlet_id: EMPANG, outlet_name: 'SUKA SHAWARMA EMPANG', total_pcs: 100, pool_amount: 10_000, crew_count: 1, bonus_per_crew: 10_000, crew_list: [{ crew_id: 's-emp', crew_name: 'Kru Empang', role: 'crew' }] },
+        ],
+        [`2026-10-${GUDANG_ONLINE}`]: [
+          { bonus_date: '2026-10-05', outlet_id: GUDANG_ONLINE, outlet_name: 'GUDANG SS ONLINE', total_pcs: 3, pool_amount: 300, crew_count: 1, bonus_per_crew: 300, crew_list: [{ crew_id: 's-gilang', crew_name: 'Gilang Gumala Putra', role: 'crew' }] },
+        ],
+      },
+    })
+
+    const allOutlets = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: 'ALL_OUTLETS' }, sb)
+    const empangOnly = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: EMPANG }, sb)
+    const pusatOnly = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: 'PUSAT' }, sb)
+
+    expect(allOutlets.basicSalary + allOutlets.allowances - allOutlets.deductions).toBe(7_990_000)
+    expect(empangOnly.basicSalary + empangOnly.allowances - empangOnly.deductions + (empangOnly.managerRoutineAllocation ?? 0)).toBe(7_990_000)
+    expect(allOutlets.crewBonus).toBe(10_000)
+    expect(allOutlets.managerBonusAllocation).toBe(5_000)
+    expect(pusatOnly.basicSalary + pusatOnly.allowances - pusatOnly.deductions).toBe(4_530_000)
+  })
 })

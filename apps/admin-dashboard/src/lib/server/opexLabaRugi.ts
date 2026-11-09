@@ -24,7 +24,7 @@ import { getProrataAuxiliaryDataAction } from '@/app/actions/prorataAuxiliary'
 import { isLemburExpense } from '@/lib/expenseCategories'
 import { isTestOutlet } from '@/lib/outletFilters'
 import { jakartaDate } from '@/lib/ownerDashboardCache'
-import type { ExpenseRow } from '@/lib/expenseRow'
+import { isPusatExpenseRow, type ExpenseRow } from '@/lib/expenseRow'
 
 export interface OpexLabaRugi {
   /** Beban outlet: buku kas bulanan + lembur + kas kecil. */
@@ -130,13 +130,13 @@ export async function susunBarisOpexLabaRugi(
   const filteredExpenses = semuaOutlet
     ? mentahAll.expenses
     : f.outletId === 'PUSAT'
-      ? mentahAll.expenses.filter((e: any) => !e.outlet_id || e.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff')
+      ? mentahAll.expenses.filter((e: any) => isPusatExpenseRow(e))
       : mentahAll.expenses.filter((e: any) => e.outlet_id === f.outletId)
 
   const filteredPettyCash = semuaOutlet
     ? mentahAll.pettyCashExpenses
     : f.outletId === 'PUSAT'
-      ? []
+      ? mentahAll.pettyCashExpenses.filter((p: any) => isPusatExpenseRow(p))
       : mentahAll.pettyCashExpenses.filter((p: any) => p.outlet_id === f.outletId)
 
   const hasil = calculateProratedExpenses({

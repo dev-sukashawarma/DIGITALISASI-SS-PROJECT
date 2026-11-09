@@ -10,6 +10,7 @@ import { rupiah } from '@/lib/format'
 import { DialogAlasan } from './DialogAlasan'
 import { SeksiIdentitas } from './SeksiIdentitas'
 import { SeksiSatuan } from './SeksiSatuan'
+import { SeksiVendor } from './SeksiVendor'
 import { SeksiFotoSku } from './SeksiFotoSku'
 
 type Aksi = 'nonaktifkan' | 'aktifkan' | 'hapus'
@@ -60,6 +61,7 @@ export function PanelBahan({
 
         <SeksiIdentitas bahan={bahan} bolehData={bolehData} jumlahBatasOutlet={jumlahBatasOutlet} />
         <SeksiSatuan bahan={bahan} bolehData={bolehData} />
+        <SeksiVendor bahan={bahan} />
         <SeksiFotoSku bahan={bahan} bolehData={bolehData} />
 
         {bolehData && (

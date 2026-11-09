@@ -205,11 +205,62 @@ function encodeWav16kBase64(chunks: Float32Array[], sampleRateAsli: number): str
  * Meringkas jawaban panjang/markdown menjadi 2-4 kalimat bahasa lisan/percakapan natural yang enak didengar
  * saat diucapkan J.A.R.V.I.S. (tidak terdengar kaku seperti membaca judul atau bullet-point laporan).
  */
+/**
+ * Mengekstrak kalimat pertama/pembuka yang utuh dari teks streaming agar TTS
+ * bisa mulai disintesis dan diputar tanpa menunggu seluruh jawaban selesai di-generate.
+ */
+export function ekstrakKalimatAwalStreaming(ringkasan: string): string | null {
+  if (!ringkasan || ringkasan.length < 15) return null
+
+  // Cari semua penanda akhir kalimat (. ! ?)
+  const regex = /[.!?]+(?:\s+|$)/g
+  let match: RegExpExecArray | null
+  const posisi: number[] = []
+
+  while ((match = regex.exec(ringkasan)) !== null) {
+    posisi.push(match.index + match[0].trimEnd().length)
+  }
+
+  if (posisi.length === 0) {
+    // Jika kalimat sangat panjang tanpa titik (>= 140 karakter), cari koma terdekat
+    if (ringkasan.length >= 140) {
+      const idxKoma = ringkasan.lastIndexOf(', ', 120)
+      if (idxKoma >= 30) {
+        return ringkasan.slice(0, idxKoma + 1).trim()
+      }
+    }
+    return null
+  }
+
+  // Cek posisi pertama
+  const p1 = posisi[0]
+  if (p1 >= 28) {
+    return ringkasan.slice(0, p1).trim()
+  }
+
+  // Jika posisi pertama terlalu pendek (misal: "Siap Sir!"), ambil sampai posisi kedua jika ada
+  if (posisi.length >= 2) {
+    const p2 = posisi[1]
+    return ringkasan.slice(0, p2).trim()
+  }
+
+  return null
+}
+
 export function ringkasUntukSuara(teks: string): string {
   if (!teks) return ''
 
-  const matchSuara = teks.match(/<suara>([\s\S]*?)<\/suara>/i)
-  const sumberTeks = matchSuara ? matchSuara[1] : teks
+  let sumberTeks = teks
+  const matchSuaraPenuh = teks.match(/<suara>([\s\S]*?)<\/suara>/i)
+  if (matchSuaraPenuh) {
+    sumberTeks = matchSuaraPenuh[1]
+  } else {
+    const matchSuaraBuka = teks.match(/<suara>([\s\S]*)/i)
+    if (matchSuaraBuka) {
+      sumberTeks = matchSuaraBuka[1]
+    }
+  }
+  sumberTeks = sumberTeks.replace(/<\/?suara>/gi, '')
 
   const barisBersih = sumberTeks
     .split('\n')
@@ -395,7 +446,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
 
   let teksWebSpeech = ''
   let sudahSelesai = false
-  const jedaAuto = options.autoKirimDelayMs ?? 1350
+  const jedaAuto = options.autoKirimDelayMs ?? 800
 
   // 1. Jalankan paralel Web Speech API (jika ada) untuk live teks instan
   let webSpeechTimer: ReturnType<typeof setTimeout> | null = null
@@ -434,7 +485,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
                 finalizeMicSessionFn?.(true)
               }
             },
-            adaFinal ? Math.min(850, jedaAuto) : jedaAuto
+            adaFinal ? Math.min(500, jedaAuto) : jedaAuto
           )
         }
       }
@@ -657,7 +708,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           const durasiBicara = waktuTerakhirBicara - waktuMulaiBicara
           const durasiHening = sekarang - waktuTerakhirBicara
           // Jika sudah bicara minimal 220ms lalu berhenti bicara selama ~1.35 detik -> kirim otomatis!
-          if (durasiBicara >= 220 && durasiHening >= jedaAuto) {
+          if (durasiBicara >= 200 && durasiHening >= jedaAuto) {
             void akhiriDanProses(true)
           }
         } else if (sekarang - waktuMulaiSesi > 25_000) {
@@ -1148,60 +1199,13 @@ export function bicaraJarvis(
       const audioBuffer = await ctx.decodeAudioData(arrayBuf.slice(0))
       if (controller.signal.aborted) return
 
-      const profil = PROFIL_AKUSTIK_JARVIS[voicePilihan.toLowerCase()] || PROFIL_AKUSTIK_JARVIS.brian
-
-      const source = ctx.createBufferSource()
-      source.buffer = audioBuffer
-      source.playbackRate.value = profil.playbackRate
-
-      // Filter akustik ala helm HUD J.A.R.V.I.S. yang disesuaikan spesifik tiap karakter
-      const presenceFilter = ctx.createBiquadFilter()
-      presenceFilter.type = 'peaking'
-      presenceFilter.frequency.value = profil.filterFreq
-      presenceFilter.Q.value = profil.filterQ
-      presenceFilter.gain.value = profil.filterGain
-
-      const analyser = ctx.createAnalyser()
-      analyser.fftSize = 512
-      analyser.smoothingTimeConstant = 0.6
-
-      source.connect(presenceFilter)
-      presenceFilter.connect(analyser)
-      analyser.connect(ctx.destination)
-
-      activeSourceNode = source
-      activeAnalyser = analyser
-
-      // Audio resmi mulai berbunyi di speaker sekarang!
-      sedangBicaraFlag = true
       opsi?.onMulai?.()
-      mulaiLoopSpektrum()
-
-      let selesaiDipanggil = false
-      const panggilSelesai = () => {
-        if (selesaiDipanggil) return
-        selesaiDipanggil = true
-        if (activeSourceNode === source) {
-          activeSourceNode = null
-          activeAnalyser = null
-          sedangBicaraFlag = false
-          if (animFrameId) cancelAnimationFrame(animFrameId)
-          listenerSpektrum?.(DEFAULT_BANDS)
-          onSelesai?.()
-        }
-      }
-
-      source.onended = panggilSelesai
-
-      // Watchdog pengaman durasi audio buffer agar tidak macet
-      const durasiMs = Math.ceil((audioBuffer.duration || 3) * 1000) + 1200
-      setTimeout(() => {
-        if (activeSourceNode === source) {
-          panggilSelesai()
-        }
-      }, durasiMs)
-
-      source.start(0)
+      mainkanAudioBufferJarvis(ctx, audioBuffer, voicePilihan, () => {
+        sedangBicaraFlag = false
+        if (animFrameId) cancelAnimationFrame(animFrameId)
+        listenerSpektrum?.(DEFAULT_BANDS)
+        onSelesai?.()
+      })
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return
       // Fallback mulus ke Web Speech API browser jika jaringan/server TTS terkendala
@@ -1210,7 +1214,326 @@ export function bicaraJarvis(
   })()
 }
 
+/**
+ * Memutar satu AudioBuffer melalui filter kehadiran akustik HUD Jarvis dan menyambungkannya
+ * ke analyser spektrum 9-band serta speaker.
+ */
+function mainkanAudioBufferJarvis(
+  ctx: AudioContext,
+  audioBuffer: AudioBuffer,
+  voiceId: string,
+  onSelesaiBuffer: () => void
+): AudioBufferSourceNode {
+  const profil = PROFIL_AKUSTIK_JARVIS[voiceId.toLowerCase()] || PROFIL_AKUSTIK_JARVIS.brian
+
+  const source = ctx.createBufferSource()
+  source.buffer = audioBuffer
+  source.playbackRate.value = profil.playbackRate
+
+  // Filter akustik ala helm HUD J.A.R.V.I.S. yang disesuaikan spesifik tiap karakter
+  const presenceFilter = ctx.createBiquadFilter()
+  presenceFilter.type = 'peaking'
+  presenceFilter.frequency.value = profil.filterFreq
+  presenceFilter.Q.value = profil.filterQ
+  presenceFilter.gain.value = profil.filterGain
+
+  const analyser = ctx.createAnalyser()
+  analyser.fftSize = 512
+  analyser.smoothingTimeConstant = 0.6
+
+  source.connect(presenceFilter)
+  presenceFilter.connect(analyser)
+  analyser.connect(ctx.destination)
+
+  activeSourceNode = source
+  activeAnalyser = analyser
+  sedangBicaraFlag = true
+  mulaiLoopSpektrum()
+
+  let selesaiDipanggil = false
+  const panggilSelesai = () => {
+    if (selesaiDipanggil) return
+    selesaiDipanggil = true
+    if (activeSourceNode === source) {
+      activeSourceNode = null
+      activeAnalyser = null
+    }
+    onSelesaiBuffer()
+  }
+
+  source.onended = panggilSelesai
+
+  // Watchdog pengaman durasi audio buffer agar tidak macet
+  const durasiMs = Math.ceil((audioBuffer.duration || 3) * 1000) + 1200
+  setTimeout(() => {
+    if (activeSourceNode === source && !selesaiDipanggil) {
+      panggilSelesai()
+    }
+  }, durasiMs)
+
+  source.start(0)
+  return source
+}
+
+export interface SesiBicaraStreamOptions {
+  onMulai?: () => void
+  onSelesai?: () => void
+  voiceId?: string
+}
+
+export interface SesiBicaraStream {
+  tambahTeksStream: (teksTerkumpul: string) => void
+  selesaikanStream: (teksLengkap: string) => void
+  batal: () => void
+}
+
+let sesiStreamAktif: SesiBicaraStream | null = null
+
+/**
+ * Early Sentence Streaming TTS:
+ * Memulai sintesis dan pemutaran audio kalimat pembuka/pertama sedini mungkin begitu
+ * model selesai menghasilkan kalimat 1, tanpa perlu menunggu seluruh paragraf/laporan selesai dibuat.
+ * Kalimat berikutnya disintesis di latar belakang dan dimainkan secara bersambung tanpa jeda hening.
+ */
+export function buatSesiBicaraStreamJarvis(
+  opsi?: SesiBicaraStreamOptions
+): SesiBicaraStream {
+  // Hentikan sesi bicara yang sebelumnya masih aktif
+  hentiBicaraJarvis()
+
+  const voicePilihan = opsi?.voiceId || ambilSuaraJarvisAktif()
+  const ctxAwal = getVoiceAudioContext()
+  if (ctxAwal && ctxAwal.state === 'suspended') {
+    void ctxAwal.resume().catch(() => {})
+  }
+
+  let dibatalkan = false
+  let bagian1Terkirim = false
+  let teksBagian1 = ''
+  let streamSelesai = false
+  let bagian2SelesaiDimasukkan = false
+  let sedangMemutar = false
+  let antreanAudio: AudioBuffer[] = []
+  let controller1: AbortController | null = new AbortController()
+  let controller2: AbortController | null = null
+  let watchdogTimeoutId: ReturnType<typeof setTimeout> | null = null
+
+  const putarAudioBerikutnya = () => {
+    if (dibatalkan) return
+
+    if (antreanAudio.length > 0) {
+      sedangMemutar = true
+      const buf = antreanAudio.shift()!
+      const ctx = ctxAwal || getVoiceAudioContext()
+      if (!ctx) {
+        selesaiTotal()
+        return
+      }
+      mainkanAudioBufferJarvis(ctx, buf, voicePilihan, () => {
+        sedangMemutar = false
+        putarAudioBerikutnya()
+      })
+      return
+    }
+
+    // Jika antrean kosong:
+    if (streamSelesai && bagian2SelesaiDimasukkan) {
+      selesaiTotal()
+    } else if (streamSelesai) {
+      // Stream LLM sudah selesai, kita menunggu buffer audio bagian 2 selesai disintesis.
+      // Beri batas waktu watchdog agar tidak stuck jika request bagian 2 gagal di jalan.
+      if (watchdogTimeoutId) clearTimeout(watchdogTimeoutId)
+      watchdogTimeoutId = setTimeout(() => {
+        if (!dibatalkan && !sedangMemutar) {
+          selesaiTotal()
+        }
+      }, 3000)
+    }
+  }
+
+  const selesaiTotal = () => {
+    if (dibatalkan) return
+    if (watchdogTimeoutId) clearTimeout(watchdogTimeoutId)
+    sedangBicaraFlag = false
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId)
+      animFrameId = null
+    }
+    activeSourceNode = null
+    activeAnalyser = null
+    listenerSpektrum?.(DEFAULT_BANDS)
+    if (sesiStreamAktif === sesi) {
+      sesiStreamAktif = null
+    }
+    opsi?.onSelesai?.()
+  }
+
+  const mintaTtsAudio = async (teksKirim: string, controller: AbortController): Promise<AudioBuffer | null> => {
+    const res = await fetch('/api/voice/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teks: teksKirim, voice: voicePilihan }),
+      signal: controller.signal,
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    const arrayBuf = await res.arrayBuffer()
+    if (controller.signal.aborted || dibatalkan) return null
+
+    const ctx = ctxAwal || getVoiceAudioContext()
+    if (!ctx) return null
+    if (ctx.state === 'suspended') {
+      await ctx.resume().catch(() => {})
+    }
+    return await ctx.decodeAudioData(arrayBuf.slice(0))
+  }
+
+  const kirimBagian1 = (kalimat: string) => {
+    if (bagian1Terkirim || dibatalkan) return
+    bagian1Terkirim = true
+    teksBagian1 = kalimat
+
+    void (async () => {
+      try {
+        const buf = await mintaTtsAudio(kalimat, controller1!)
+        if (dibatalkan || !buf) return
+
+        opsi?.onMulai?.()
+        antreanAudio.push(buf)
+        if (!sedangMemutar) {
+          putarAudioBerikutnya()
+        }
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError' || dibatalkan) return
+        // Jika TTS server gagal, fallback saat stream selesai
+      }
+    })()
+  }
+
+  const sesi: SesiBicaraStream = {
+    tambahTeksStream: (teksTerkumpul: string) => {
+      if (dibatalkan || bagian1Terkirim) return
+      const ringkasan = ringkasUntukSuara(teksTerkumpul)
+      const kalimatAwal = ekstrakKalimatAwalStreaming(ringkasan)
+      if (kalimatAwal) {
+        kirimBagian1(kalimatAwal)
+      }
+    },
+
+    selesaikanStream: (teksLengkap: string) => {
+      if (dibatalkan || streamSelesai) return
+      streamSelesai = true
+
+      const ringkasanPenuh = ringkasUntukSuara(teksLengkap)
+      if (!ringkasanPenuh.trim()) {
+        selesaiTotal()
+        return
+      }
+
+      // Kasus A: Bagian 1 belum sempat terkirim (respons pendek atau belum dapat tanda baca)
+      if (!bagian1Terkirim) {
+        bagian1Terkirim = true
+        teksBagian1 = ringkasanPenuh
+        bagian2SelesaiDimasukkan = true
+
+        void (async () => {
+          try {
+            const buf = await mintaTtsAudio(ringkasanPenuh, controller1!)
+            if (dibatalkan || !buf) return
+            opsi?.onMulai?.()
+            antreanAudio.push(buf)
+            if (!sedangMemutar) {
+              putarAudioBerikutnya()
+            }
+          } catch {
+            if (!dibatalkan) {
+              bicaraFallbackBrowser(ringkasanPenuh, opsi?.onSelesai, opsi?.onMulai, voicePilihan)
+            }
+          }
+        })()
+        return
+      }
+
+      // Kasus B: Bagian 1 sudah dikirim, cari sisa teks
+      let sisa = ''
+      const idx = ringkasanPenuh.indexOf(teksBagian1)
+      if (idx !== -1) {
+        sisa = ringkasanPenuh.slice(idx + teksBagian1.length).trim()
+      } else {
+        const idxTitik = ringkasanPenuh.indexOf('.')
+        if (idxTitik !== -1 && idxTitik < ringkasanPenuh.length - 10) {
+          sisa = ringkasanPenuh.slice(idxTitik + 1).trim()
+        }
+      }
+      sisa = sisa.replace(/^[.!?,;:\s-]+/, '').trim()
+
+      if (!sisa || sisa.length < 8) {
+        bagian2SelesaiDimasukkan = true
+        if (!sedangMemutar && antreanAudio.length === 0) {
+          selesaiTotal()
+        }
+        return
+      }
+
+      controller2 = new AbortController()
+      void (async () => {
+        try {
+          const buf = await mintaTtsAudio(sisa, controller2!)
+          if (dibatalkan || !buf) return
+          antreanAudio.push(buf)
+          bagian2SelesaiDimasukkan = true
+          if (!sedangMemutar) {
+            putarAudioBerikutnya()
+          }
+        } catch {
+          bagian2SelesaiDimasukkan = true
+          if (!sedangMemutar && antreanAudio.length === 0) {
+            selesaiTotal()
+          }
+        }
+      })()
+    },
+
+    batal: () => {
+      if (dibatalkan) return
+      dibatalkan = true
+      if (watchdogTimeoutId) clearTimeout(watchdogTimeoutId)
+      controller1?.abort()
+      controller2?.abort()
+      controller1 = null
+      controller2 = null
+      antreanAudio = []
+
+      if (activeSourceNode) {
+        try {
+          activeSourceNode.onended = null
+          activeSourceNode.stop()
+          activeSourceNode.disconnect()
+        } catch {}
+        activeSourceNode = null
+      }
+      activeAnalyser = null
+      sedangBicaraFlag = false
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId)
+        animFrameId = null
+      }
+      listenerSpektrum?.(DEFAULT_BANDS)
+      if (sesiStreamAktif === sesi) {
+        sesiStreamAktif = null
+      }
+    },
+  }
+
+  sesiStreamAktif = sesi
+  return sesi
+}
+
 export function hentiBicaraJarvis() {
+  if (sesiStreamAktif) {
+    sesiStreamAktif.batal()
+    sesiStreamAktif = null
+  }
   sedangBicaraFlag = false
   if (ttsAbortController) {
     ttsAbortController.abort()

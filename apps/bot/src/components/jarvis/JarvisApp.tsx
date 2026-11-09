@@ -22,6 +22,7 @@ import {
   apakahVoiceDidukung,
   bicaraJarvis,
   hentiBicaraJarvis,
+  buatSesiBicaraStreamJarvis,
   pasangListenerSpektrumSuara,
   mulaiWakeWordJarvis,
   hentiWakeWordJarvis,
@@ -661,6 +662,23 @@ export default function JarvisApp({
         setPercakapanIdAktif(idBaru)
       }
 
+      const butuhSuara = Boolean(dariVoice || autoVoiceReply || voiceLoopRef.current)
+      const sesiSuara = butuhSuara
+        ? buatSesiBicaraStreamJarvis({
+            onMulai: () => setSedangBicara(true),
+            onSelesai: () => {
+              setSedangBicara(false)
+              if (voiceLoopRef.current) {
+                setTimeout(() => {
+                  if (voiceLoopRef.current) {
+                    mulaiSesiDengar(true)
+                  }
+                }, 350)
+              }
+            },
+          })
+        : null
+
       const pembaca = r.body.getReader()
       const dekoder = new TextDecoder()
       let terkumpul = ''
@@ -674,12 +692,16 @@ export default function JarvisApp({
         setRiwayatHologram((prev) =>
           prev.map((msg) => (msg.id === idJarvis ? { ...msg, teks: terkumpul } : msg))
         )
+        // Kirim update ke sesi suara untuk trigger TTS kalimat pertama sedini mungkin!
+        sesiSuara?.tambahTeksStream(terkumpul)
       }
 
       mainkanSuaraHud('blip')
       setSedangMemproses(false)
 
-      if ((dariVoice || autoVoiceReply || voiceLoopRef.current) && terkumpul.trim()) {
+      if (sesiSuara && terkumpul.trim()) {
+        sesiSuara.selesaikanStream(terkumpul)
+      } else if (!sesiSuara && (dariVoice || autoVoiceReply || voiceLoopRef.current) && terkumpul.trim()) {
         bicaraJarvis(
           terkumpul,
           () => {
@@ -698,6 +720,7 @@ export default function JarvisApp({
         )
       }
     } catch (e) {
+      hentiBicaraJarvis()
       if ((e as Error)?.name === 'AbortError') return
       mainkanSuaraHud('alert')
       setSedangMemproses(false)

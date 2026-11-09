@@ -370,7 +370,8 @@ export function CashLayout({ children }: { children: ReactNode }) {
     pathname !== '/' &&
     !pathname.startsWith('/pembelian') &&
     pathname !== '/po-approval' &&
-    pathname !== '/laporan/pembelian'
+    pathname !== '/laporan/pembelian' &&
+    pathname !== '/supplier'
   ) {
     if (typeof window !== 'undefined') {
       window.location.href = '/pembelian/dashboard'

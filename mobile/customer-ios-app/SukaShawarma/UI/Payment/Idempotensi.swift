@@ -55,6 +55,9 @@ func pesanBayar(_ galat: GatewayError) -> String {
         "Batas waktu pembayaran sudah lewat. Tekan bayar lagi untuk memulai ulang."
     case .kode("keranjang_berubah", _):
         "Menu outlet berubah sejak kamu memilih. Kembali ke ringkasan untuk memperbaikinya."
+    // Kalimat gateway spesifik (kuota habis, kedaluwarsa, syarat tak terpenuhi).
+    case .kode("voucher_tidak_berlaku", let pesan):
+        pesan
     default:
         pesanGalat(galat)
     }

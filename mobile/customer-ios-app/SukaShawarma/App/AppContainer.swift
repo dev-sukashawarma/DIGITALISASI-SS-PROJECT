@@ -15,7 +15,11 @@ final class AppContainer {
     let bannerDilihatStore: BannerDilihatStore
     let orderAttemptStore: OrderAttemptStore
     let notificationStore: NotificationStore
+    let lokasiPelanggan: LokasiPelanggan
     let repository: Repository
+    /// Layar berlatar terang (Masuk) menyalakan ini agar ikon bilah status
+    /// gelap; selebihnya putih di atas kepala cokelat. Dibaca `SukaShawarmaApp`.
+    var ikonBilahStatusGelap = false
 
     /// Masih ada sesi yang layak dipakai? (Hanya kemudahan — gateway tetap penentu, lewat 401.)
     func sesiBerlaku() -> Bool {
@@ -31,10 +35,16 @@ final class AppContainer {
         self.sessionStore = sessionStore
         outletStore = OutletStore()
         cartStore = CartStore.persisten()
+        #if DEBUG
+        if SkenarioUji.aktif {
+            SkenarioUji.siapkanKeranjang(cartStore)
+        }
+        #endif
         splashStore = SplashStore()
         bannerDilihatStore = BannerDilihatStore()
         orderAttemptStore = OrderAttemptStore()
         notificationStore = NotificationStore()
+        lokasiPelanggan = LokasiPelanggan(nonaktif: Self.lokasiNonaktif)
         let gateway = GatewayClient(baseURL: config.gatewayBaseURL,
                                     token: { sessionStore.baca()?.token },
                                     session: Self.buatSesiJaringan())
@@ -47,6 +57,15 @@ final class AppContainer {
         if SkenarioUji.aktif { return SkenarioUji.siapkanSesi() }
         #endif
         return SessionStore()
+    }
+
+    /// Skenario uji UI: dialog izin lokasi sistem menutupi layar yang diuji.
+    private static var lokasiNonaktif: Bool {
+        #if DEBUG
+        return SkenarioUji.aktif
+        #else
+        return false
+        #endif
     }
 
     /// nil = URLSession bawaan GatewayClient (batas waktu 15 dtk).

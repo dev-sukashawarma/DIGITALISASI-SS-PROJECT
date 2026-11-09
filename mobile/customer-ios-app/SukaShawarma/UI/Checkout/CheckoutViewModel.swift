@@ -18,9 +18,21 @@ final class CheckoutViewModel {
     private(set) var alasan: String?
     private(set) var pesanPenolakan: String?
     private(set) var keranjangKosong = false
+    /// Voucher yang ikut divalidasi, dan jawaban gateway atasnya.
+    private(set) var voucher: PilihanVoucher?
+    private(set) var blokVoucher: VoucherCheckoutDto?
 
-    /// Boleh lanjut membayar hanya kalau gateway benar-benar meloloskannya.
-    var bolehLanjut: Bool { !memuat && galat == nil && total != nil && masalah.isEmpty && alasan == nil }
+    /// Boleh lanjut membayar hanya kalau gateway benar-benar meloloskannya —
+    /// termasuk voucher: terpasang tapi belum/tidak "berlaku" WAJIB mengunci.
+    var bolehLanjut: Bool {
+        !memuat && galat == nil && total != nil && masalah.isEmpty && alasan == nil
+            && alasanKunciVoucher(voucher, blokVoucher) == nil
+    }
+
+    /// Alasan kunci voucher yang boleh ditampilkan (nil bila Bayar terkunci sebab lain).
+    var alasanKunciVoucherTampil: String? {
+        tampilkanAlasanKunciVoucher(alasan: alasan, masalah: masalah) ? alasanKunciVoucher(voucher, blokVoucher) : nil
+    }
 
     @ObservationIgnored private let repository: Repository
     @ObservationIgnored private let cart: CartStore
@@ -49,6 +61,8 @@ final class CheckoutViewModel {
             masalah = []
             alasan = nil
             pesanPenolakan = nil
+            voucher = nil
+            blokVoucher = nil
             return
         }
 
@@ -62,19 +76,27 @@ final class CheckoutViewModel {
         alasan = nil
         pesanPenolakan = nil
 
-        let hasil = await repository.validasiCheckout(outletId: outletId, items: isi.flatMap { $0.kePayloadList() })
-        guard milikku == generasi else { return }
+        let pilihan = cart.voucher()
+        let hasil = await repository.validasiCheckout(outletId: outletId, items: isi.flatMap { $0.kePayloadList() },
+                                                      voucher: pilihan)
+        // Balasan basi dibuang: validasi yang lebih baru sudah jalan, ATAU
+        // voucher berubah sejak permintaan ini dikirim (pilih cepat -> lepas).
+        guard milikku == generasi, cart.voucher() == pilihan else { return }
 
         memuat = false
+        voucher = pilihan
         switch hasil {
         case .gagal(let g):
             galat = g
+            // Jawaban voucher lama bukan milik pilihan ini — jangan tersisa.
+            blokVoucher = nil
         case .sukses(let r) where r.ok:
             // Angka gateway yang ditampilkan — menghitung ulang berisiko
             // menampilkan total yang berbeda dari yang benar-benar ditagih.
             subtotal = r.subtotal.map(bulatkanRupiah)
             potongan = r.discountAmount.map(bulatkanRupiah)
             total = r.total.map(bulatkanRupiah)
+            blokVoucher = r.voucher
         case .sukses(let r):
             // HTTP 200 + `ok: false` = PENOLAKAN. Total dikosongkan supaya
             // tidak ada jalan menuju pembayaran dari keadaan ini.
@@ -84,7 +106,24 @@ final class CheckoutViewModel {
             masalah = r.masalah ?? []
             alasan = r.alasan
             pesanPenolakan = pesanUntukAlasan(r.alasan, pesanDariGateway: r.pesan)
+            blokVoucher = r.voucher
         }
+    }
+
+    func pasangVoucher(_ v: PilihanVoucher) async {
+        cart.pasangVoucher(v)
+        await validasi()
+    }
+
+    func lepasVoucher() async {
+        cart.lepasVoucher()
+        await validasi()
+    }
+
+    /// Kelayakan voucher untuk keranjang INI (outlet & isinya).
+    func daftarVoucher() async -> GatewayResult<[VoucherDto]> {
+        let items = cart.isi().flatMap { $0.kePayloadList() }
+        return await repository.vouchers(outletId: cart.outletId(), items: items.isEmpty ? nil : items)
     }
 
     /// Memulihkan SATU masalah lalu memvalidasi ulang. Keranjang tidak pernah

@@ -91,9 +91,11 @@ final class GatewayRute: URLProtocol, @unchecked Sendable {
     /// Balasan berurutan per jalur (dipakai habis dulu sebelum `rute`).
     nonisolated(unsafe) static var antrean: [String: [(Int, String)]] = [:]
     nonisolated(unsafe) static var bodyTerakhir: [String: Data] = [:]
+    /// Urutan permintaan yang masuk: "METODE /jalur".
+    nonisolated(unsafe) static var permintaan: [String] = []
 
     static func pasang(_ r: [String: (Int, String)], antrean a: [String: [(Int, String)]] = [:]) {
-        rute = r; antrean = a; bodyTerakhir = [:]
+        rute = r; antrean = a; bodyTerakhir = [:]; permintaan = []
     }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -101,6 +103,7 @@ final class GatewayRute: URLProtocol, @unchecked Sendable {
 
     override func startLoading() {
         let jalur = request.url?.path() ?? ""
+        Self.permintaan.append("\(request.httpMethod ?? "GET") \(jalur)")
         if let stream = request.httpBodyStream {
             stream.open()
             var data = Data(); var buf = [UInt8](repeating: 0, count: 4096)

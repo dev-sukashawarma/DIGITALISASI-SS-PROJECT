@@ -13,6 +13,7 @@ enum Rute: Hashable {
     case bayar
     case notifikasi
     case infoAkun
+    case voucher
     case sukses(orderId: String, nomor: Int?)
     case status(orderId: String)
 }

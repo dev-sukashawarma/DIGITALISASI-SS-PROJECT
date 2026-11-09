@@ -9,42 +9,62 @@ struct MenuCard: View {
     var body: some View {
         Button { onKlik(item) } label: {
             HStack(spacing: 14) {
-                GambarJarak(url: item.imageUrl, ikonCadangan: "fork.knife")
-                    .frame(width: 88, height: 88)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(alignment: .bottom) {
-                        if !item.isAvailable {
-                            Text("Habis").font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(.white)
-                                .frame(maxWidth: .infinity).padding(.vertical, 2)
-                                .background(Color.black.opacity(0.65))
-                                .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 14, bottomTrailingRadius: 14))
-                        }
+                ZStack(alignment: .bottom) {
+                    GambarJarak(url: item.imageUrl, ikonCadangan: "fork.knife")
+                        .frame(width: 88, height: 88)
+                        .clipShape(RoundedRectangle(cornerRadius: 15))
+                        .overlay(RoundedRectangle(cornerRadius: 15).stroke(Color.black.opacity(0.04), lineWidth: 1))
+
+                    if !item.isAvailable {
+                        Text("Habis")
+                            .font(SukaFont.jakarta(10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 3)
+                            .background(Color.black.opacity(0.7))
+                            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 15, bottomTrailingRadius: 15))
                     }
+                }
+                .frame(width: 88, height: 88)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(item.name).font(SukaFont.jakarta(15, weight: .bold)).foregroundStyle(Color.sukaInk)
-                        .lineLimit(2).multilineTextAlignment(.leading)
+                    Text(item.name)
+                        .font(SukaFont.jakarta(15, weight: .bold))
+                        .foregroundStyle(Color.sukaInk)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+
                     if let d = item.description, !d.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Text(d).font(SukaFont.jakarta(12)).foregroundStyle(Color.sukaMuted)
-                            .lineLimit(2).multilineTextAlignment(.leading)
+                        Text(d)
+                            .font(SukaFont.jakarta(12))
+                            .foregroundStyle(Color.sukaMuted)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
                     }
+
+                    Spacer(minLength: 2)
+
                     HStack {
-                        Text(rupiah(item.price)).font(SukaFont.lilita(16)).foregroundStyle(Color.sukaBrown)
+                        Text(rupiah(item.price))
+                            .font(SukaFont.lilita(16))
+                            .foregroundStyle(Color.sukaBrown)
                         Spacer()
                         if item.isAvailable {
-                            Image(systemName: "plus").font(.system(size: 17, weight: .bold)).foregroundStyle(Color.sukaInk)
-                                .frame(width: 34, height: 34)
-                                .background(Color.sukaOrange, in: Circle())
+                            Image(systemName: "plus")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(Color.sukaInk)
+                                .frame(width: 32, height: 32)
+                                .background(SukaGradien.oranyePrimer, in: Circle())
+                                .shadow(color: Color.sukaOrange.opacity(0.35), radius: 3, y: 1)
                                 .frame(width: 44, height: 44)
                         }
                     }
-                    .padding(.top, 2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(12)
-            .opacity(item.isAvailable ? 1 : 0.45)
-            .kartuSuka(sudut: 18, elevasi: 2, tepi: .sukaBorder.opacity(0.8))
+            .opacity(item.isAvailable ? 1 : 0.55)
+            .kartuElegan(sudut: 18, elevasi: 2, latar: .white)
         }
         .buttonStyle(.mentul(0.97))
         .disabled(!item.isAvailable)

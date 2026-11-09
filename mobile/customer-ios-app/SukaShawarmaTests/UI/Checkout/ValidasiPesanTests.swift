@@ -40,6 +40,9 @@ struct ValidasiPesanTests {
 
     @Test func alasanDiterjemahkan() {
         #expect(pesanUntukAlasan("outlet_tutup", pesanDariGateway: nil).contains("tutup"))
+        // Kalimat gateway (jam buka / tutup sementara) lebih spesifik — dipakai bila ada.
+        #expect(pesanUntukAlasan("outlet_tutup", pesanDariGateway: "Outlet belum buka. Buka pukul 14.00.")
+                == "Outlet belum buka. Buka pukul 14.00.")
         #expect(!pesanUntukAlasan("outlet_tidak_melayani", pesanDariGateway: nil).contains("_"))
     }
 

@@ -165,6 +165,78 @@ struct PaymentViewModelTests {
         #expect(vm.waktuHabis && !vm.gagalBayar && !vm.dibayar)
     }
 
+    /// Porting 19 Okt: QR basi tak boleh menahan layar di mode menunggu.
+    @Test func waktuHabisMembuangQr() async {
+        let (vm, _, _, bersih) = rakit(rute: ["/api/v1/orders/o1": status("menunggu_bayar")],
+                                       antrean: ["/api/v1/orders": [(200, order)]]); defer { bersih() }
+        await vm.bayar()
+        #expect(vm.qrString == "QR")
+        await tungguSampai { vm.waktuHabis }
+        #expect(vm.qrString == nil && vm.paymentUrl == nil && vm.urlBayarTersimpan == nil)
+    }
+
+    /// Porting 19 Okt: draft gagal → "Coba Bayar Lagi" WAJIB memakai id baru.
+    @Test func gagalBayarMenggantiIdDanMembuangQr() async {
+        let (vm, cart, percobaan, bersih) = rakit(antrean: [
+            "/api/v1/orders": [(200, order)],
+            "/api/v1/orders/o1": [status("gagal")],
+        ]); defer { bersih() }
+        await vm.bayar()
+        let idAwal = percobaan.clientOrderId()
+        await tungguSampai { vm.gagalBayar }
+        #expect(vm.gagalBayar && !vm.menungguKonfirmasi)
+        #expect(vm.qrString == nil)
+        #expect(percobaan.clientOrderId() != nil && percobaan.clientOrderId() != idAwal)
+        #expect(!cart.isi().isEmpty)  // keranjang tetap tersimpan
+    }
+
+    @Test func kadaluarsaMembuangSemuaTautanBayar() async {
+        let url = #"{"order_id":"o1","total_amount":50000,"expires_at":"2099-01-01T00:00:00Z","payment_url":"https://bayar.uji/x"}"#
+        let (vm, _, _, bersih) = rakit(antrean: [
+            "/api/v1/orders": [(200, url)],
+            "/api/v1/orders/o1": [status("kadaluarsa")],
+        ]); defer { bersih() }
+        await vm.bayar()
+        await tungguSampai { vm.kadaluarsa }
+        #expect(vm.kadaluarsa && vm.paymentUrl == nil && vm.urlBayarTersimpan == nil && vm.qrString == nil)
+    }
+
+    /// Porting 15 Okt: "Cek Status" memakai id tersimpan — tak pernah menagih ulang.
+    @Test func cekSekarangMemakaiIdTersimpan() async {
+        let (vm, _, percobaan, bersih) = rakit(antrean: [
+            "/api/v1/orders/o1": [status("dibayar", nomor: "7")],
+        ]); defer { bersih() }
+        percobaan.simpanClientOrderId("c1"); percobaan.simpanOrderId("o1")
+        await vm.cekSekarang()
+        #expect(vm.dibayar && vm.nomorPesanan == 7)
+        #expect(GatewayRute.bodyTerakhir["/api/v1/orders"] == nil)
+    }
+
+    /// Porting 19 Okt: "Batalkan Pembayaran" membatalkan draft di gateway.
+    @Test func batalkanPercobaanMembatalkanDraftDanMelupakannya() async {
+        let (vm, _, percobaan, bersih) = rakit(rute: [
+            "/api/v1/orders/o1": status("menunggu_bayar"),
+        ], antrean: ["/api/v1/orders": [(200, order)]]); defer { bersih() }
+        await vm.bayar()
+        #expect(vm.menungguKonfirmasi)
+        let tugas = vm.batalkanPercobaan()
+        await tugas?.value
+        #expect(GatewayRute.permintaan.contains("DELETE /api/v1/orders/o1"))
+        #expect(percobaan.clientOrderId() == nil && percobaan.orderId() == nil)
+        #expect(vm.orderId == nil && vm.qrString == nil && !vm.menungguKonfirmasi && vm.totalTagihan == 0)
+        // Penanyaan berhenti: tak ada GET status baru setelah pembatalan.
+        let sebelum = GatewayRute.permintaan.count
+        try? await Task.sleep(for: .milliseconds(120))
+        #expect(GatewayRute.permintaan.count == sebelum)
+        #expect(!vm.waktuHabis)
+    }
+
+    @Test func batalkanTanpaPesananTakMenghubungiGateway() {
+        let (vm, _, _, bersih) = rakit(antrean: [:]); defer { bersih() }
+        #expect(vm.batalkanPercobaan() == nil)
+        #expect(GatewayRute.permintaan.isEmpty)
+    }
+
     @Test func pesanBayarTakMenyuruhTekanLagiSaatDiproses() {
         #expect(pesanBayar(.kode(kode: "pesanan_sedang_diproses", pesan: "x")).contains("jangan tekan bayar lagi"))
         #expect(pesanBayar(.kode(kode: "lain", pesan: "Kalimat gateway")) == "Kalimat gateway")

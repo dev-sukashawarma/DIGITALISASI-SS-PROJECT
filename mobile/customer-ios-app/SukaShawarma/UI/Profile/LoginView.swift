@@ -2,11 +2,7 @@ import AuthenticationServices
 import SwiftUI
 
 /// Padanan `LoginScreen.kt`: masuk dengan Google, dan (khusus iOS) Apple.
-///
-/// Pedoman App Store 4.8: aplikasi yang menawarkan masuk Google WAJIB juga
-/// menawarkan Sign in with Apple dengan penonjolan setara — karena itu kedua
-/// tombol berukuran sama. Tombol "WhatsApp · segera hadir" di Android tidak
-/// disalin (tombol mati).
+/// Didesain ulang agar bersih, simpel, elegan, dan menenangkan mata.
 struct LoginView: View {
     @State var vm: LoginViewModel
     let googleClientID: String
@@ -14,95 +10,168 @@ struct LoginView: View {
     var onKembali: (() -> Void)?
 
     @Environment(\.webAuthenticationSession) private var sesiWeb
+    @Environment(AppContainer.self) private var container
+    @Environment(\.configApp) private var configApp
+    @Environment(\.openURL) private var bukaUrl
+    private let sudutTombol: CGFloat = 16
     @State private var nonceApple = ""
+    @State private var animasiMasuk = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Color.sukaCream.ignoresSafeArea()
+            Color.sukaCanvas.ignoresSafeArea()
+
             ScrollView {
                 VStack(spacing: 0) {
-                    IlustrasiSambutan().padding(.top, 24)
-                    Text("Selamat Datang!").font(SukaFont.lilita(30)).foregroundStyle(Color.sukaBrown)
-                        .accessibilityAddTraits(.isHeader)
-                    Text("Masuk untuk memesan tanpa antre dan memantau pesananmu.")
-                        .font(SukaFont.jakarta(14)).foregroundStyle(Color.sukaMuted)
-                        .multilineTextAlignment(.center).padding(.horizontal, 12).padding(.top, 8)
+                    Spacer().frame(height: 20)
 
-                    VStack(spacing: 12) {
+                    // Hero Ilustrasi Bersih & Berkelas
+                    HeroIlustrasiLogin()
+                        .scaleEffect(animasiMasuk ? 1.0 : 0.94)
+                        .opacity(animasiMasuk ? 1.0 : 0.0)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.78), value: animasiMasuk)
+
+                    // Judul & Subjudul Sambutan
+                    VStack(spacing: 8) {
+                        Text("Selamat Datang!")
+                            .font(SukaFont.lilita(32))
+                            .foregroundStyle(Color.sukaBrown)
+                            .accessibilityAddTraits(.isHeader)
+
+                        Text("Masuk untuk memesan tanpa antre dan memantau pesananmu secara langsung.")
+                            .font(SukaFont.jakarta(14))
+                            .foregroundStyle(Color.sukaMuted)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                            .padding(.horizontal, 16)
+                    }
+                    .padding(.top, 12)
+
+                    // Kartu Tombol Masuk yang Simpel & Rapi
+                    VStack(spacing: 14) {
                         tombolGoogle
                         tombolApple
+                        #if DEBUG
+                        tombolDemo
+                        #endif
                     }
-                    .padding(.top, 32)
+                    .padding(.top, 28)
                     .disabled(vm.memuat != nil)
 
-                    Text("Dengan masuk, kamu menyetujui Ketentuan Layanan & Kebijakan Privasi Suka Shawarma.")
-                        .font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
-                        .multilineTextAlignment(.center).padding(.horizontal, 8).padding(.top, 12)
+                    // Persetujuan: kedua dokumen bisa dibuka (halaman resmi
+                    // gateway bila admin belum mengisi tautannya).
+                    persetujuan
+                        .padding(.top, 14)
 
+                    // Kotak Galat jika ada
                     if let pesan = vm.pesanGalat {
-                        HStack(alignment: .top, spacing: 8) {
-                            Text(pesan).font(SukaFont.jakarta(13)).foregroundStyle(Color(hex: 0x991B1B))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .accessibilityIdentifier("pesan-galat-masuk")
-                            Button(action: vm.bersihkanGalat) {
-                                Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).foregroundStyle(Color(hex: 0x991B1B))
-                                    .frame(width: 32, height: 32)
-                            }
-                            .accessibilityLabel("Tutup pesan")
-                        }
-                        .padding(.leading, 14).padding(.vertical, 6).padding(.trailing, 4)
-                        .background(Color(hex: 0xFEE2E2), in: RoundedRectangle(cornerRadius: 14))
-                        .padding(.top, 12)
+                        KotakGalat(pesan: pesan, onTutup: vm.bersihkanGalat)
+                            .padding(.top, 16)
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     }
 
+                    // Keterangan Pembuatan Akun Otomatis
                     (Text("Belum punya akun? ").foregroundStyle(Color.sukaMuted)
                      + Text("Akun dibuat otomatis").foregroundStyle(Color.sukaOrangeTeks).bold()
                      + Text(" saat kamu masuk pertama kali.").foregroundStyle(Color.sukaMuted))
-                        .font(SukaFont.jakarta(12)).multilineTextAlignment(.center).padding(.top, 28)
+                        .font(SukaFont.jakarta(12))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                        .padding(.top, 26)
+                        .padding(.bottom, 24)
                 }
-                .padding(.horizontal, 24).padding(.bottom, 24)
+                .padding(.horizontal, 24)
             }
 
+            // Tombol Kembali melayang di kiri atas
             if let onKembali {
                 Button(action: onKembali) {
-                    Image(systemName: "chevron.left").font(.system(size: 16, weight: .bold)).foregroundStyle(Color.sukaBrown)
-                        .frame(width: 40, height: 40).background(Color.white, in: Circle()).frame(width: 48, height: 48)
+                    Image(systemName: "arrow.left")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Color.sukaBrown)
+                        .frame(width: 42, height: 42)
+                        .background(Color.white, in: Circle())
+                        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
                 }
-                .buttonStyle(.mentul())
+                .buttonStyle(.mentul(0.92))
                 .accessibilityLabel("Kembali")
-                .padding(.leading, 8)
+                .padding(.leading, 16)
+                .padding(.top, 8)
             }
         }
-        .latarBilahStatus()
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear {
+            container.ikonBilahStatusGelap = true
+            withAnimation { animasiMasuk = true }
+        }
+        .onDisappear { container.ikonBilahStatusGelap = false }
         .onChange(of: vm.berhasil) { _, ok in if ok { onBerhasil() } }
     }
 
-    // MARK: Google
+    // MARK: - Persetujuan
+
+    private var persetujuan: some View {
+        let base = container.config.gatewayBaseURL
+        return VStack(spacing: 2) {
+            Text("Dengan masuk, kamu menyetujui:")
+                .font(SukaFont.jakarta(11))
+                .foregroundStyle(Color.sukaMuted)
+            HStack(spacing: 0) {
+                tautanDokumen("Ketentuan Layanan", urlSyaratKetentuan(configApp.urlSyarat, baseURL: base))
+                Text("&").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
+                tautanDokumen("Kebijakan Privasi", urlKebijakanPrivasi(configApp.urlPrivasi, baseURL: base))
+            }
+        }
+        .multilineTextAlignment(.center)
+    }
+
+    private func tautanDokumen(_ judul: String, _ url: URL) -> some View {
+        Button { bukaUrl(url) } label: {
+            Text(judul)
+                .font(SukaFont.jakarta(11, weight: .bold))
+                .underline()
+                .foregroundStyle(Color.sukaBrown)
+                .padding(.horizontal, 4).padding(.vertical, 6)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isLink)
+    }
+
+    // MARK: - Google Button
 
     private var tombolGoogle: some View {
         Button { Task { await masukGoogle() } } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 if vm.memuat == .google {
                     ProgressView().tint(Color.sukaInk)
                     Text("Menghubungkan akun…")
+                        .font(SukaFont.jakarta(15, weight: .bold))
                 } else {
-                    Text("G").font(.system(size: 18, weight: .heavy, design: .rounded)).foregroundStyle(Color(hex: 0x4285F4))
-                        .frame(width: 28, height: 28).background(Color.white, in: Circle())
+                    ZStack {
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 28, height: 28)
+                            .shadow(color: .black.opacity(0.08), radius: 2)
+                        Text("G")
+                            .font(.system(size: 16, weight: .black, design: .rounded))
+                            .foregroundStyle(Color(hex: 0x4285F4))
+                    }
                     Text("Masuk dengan Google")
+                        .font(SukaFont.jakarta(15, weight: .bold))
                 }
             }
-            .font(SukaFont.jakarta(16, weight: .bold)).foregroundStyle(Color.sukaInk)
+            .foregroundStyle(Color.sukaInk)
             .frame(maxWidth: .infinity, minHeight: 52)
-            .background(Color.sukaOrange, in: Capsule())
+            .background(Color.sukaOrange, in: RoundedRectangle(cornerRadius: sudutTombol))
+            .shadow(color: Color.sukaOrange.opacity(0.35), radius: 8, x: 0, y: 3)
         }
-        .buttonStyle(.mentul())
+        .buttonStyle(.mentul(0.97))
         .accessibilityIdentifier("tombol-masuk-google")
     }
 
     private func masukGoogle() async {
         guard !googleClientID.isEmpty else {
-            // GOOGLE_IOS_CLIENT_ID di Base.xcconfig masih kosong (RANCANGAN.md §5 butir 1).
             vm.gagalSebelumGateway("Masuk dengan Google belum diaktifkan di versi iOS ini.")
             return
         }
@@ -116,9 +185,6 @@ struct LoginView: View {
                                                           preferredBrowserSession: .shared)
             let kode = try MasukGoogle.kodeDari(callback: callback, stateDiharapkan: state)
             let token = try await MasukGoogle.tukarKode(kode, clientID: googleClientID, pkce: pkce)
-            #if DEBUG
-            print("[MasukGoogle] klaim ID token:", klaimAmanIdToken(token))
-            #endif
             await vm.tukarGoogle(idToken: token)
         } catch let e as ASWebAuthenticationSessionError where e.code == .canceledLogin {
             vm.dibatalkan()
@@ -129,7 +195,7 @@ struct LoginView: View {
         }
     }
 
-    // MARK: Apple
+    // MARK: - Apple Button
 
     private var tombolApple: some View {
         SignInWithAppleButton(.signIn) { req in
@@ -154,31 +220,102 @@ struct LoginView: View {
         }
         .signInWithAppleButtonStyle(.black)
         .frame(height: 52)
-        .clipShape(Capsule())
-        .overlay { if vm.memuat == .apple { Capsule().fill(.black.opacity(0.6)); ProgressView().tint(.white) } }
+        .clipShape(RoundedRectangle(cornerRadius: sudutTombol))
+        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 3)
+        .overlay {
+            if vm.memuat == .apple {
+                RoundedRectangle(cornerRadius: sudutTombol).fill(.black.opacity(0.65))
+                ProgressView().tint(.white)
+            }
+        }
         .accessibilityIdentifier("tombol-masuk-apple")
     }
+
+    #if DEBUG
+    // MARK: - Demo Button (Untuk Pengujian & Simulator)
+
+    private var tombolDemo: some View {
+        Button {
+            vm.masukModeDemo()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "person.crop.circle.badge.checkmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.sukaOrange)
+                Text("Masuk Akun Pengujian (Demo)")
+                    .font(SukaFont.jakarta(14, weight: .bold))
+                    .foregroundStyle(Color.sukaInk)
+            }
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: sudutTombol))
+            .overlay(RoundedRectangle(cornerRadius: sudutTombol).stroke(Color.sukaOrange.opacity(0.4), lineWidth: 1.2))
+            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+        }
+        .buttonStyle(.mentul(0.97))
+        .accessibilityIdentifier("tombol-masuk-demo")
+    }
+    #endif
 }
 
-/// Ilustrasi sambutan: gambar maskot di atas lingkaran & titik dekoratif.
-private struct IlustrasiSambutan: View {
-    @State private var melayang = false
+/// Hero ilustrasi bersih: Maskot dengan aura radial lembut
+private struct HeroIlustrasiLogin: View {
+    @State private var bernapas = false
 
     var body: some View {
         ZStack {
-            Circle().fill(Color.sukaTint).frame(width: 190, height: 190).offset(y: 12)
-            Circle().stroke(Color.sukaOrange.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [4, 6]))
-                .frame(width: 214, height: 214).offset(y: 12)
-            Circle().fill(Color.sukaOrange).frame(width: 14, height: 14).offset(x: 88, y: 4)
-            Circle().fill(Color.sukaGreen.opacity(0.7)).frame(width: 10, height: 10).offset(x: -92, y: 26)
-            Circle().fill(Color.sukaBrown.opacity(0.35)).frame(width: 8, height: 8).offset(x: -48, y: -84)
-            Image("IlustrasiLogin").resizable().scaledToFit().frame(width: 200, height: 200)
-                .offset(y: melayang ? -6 : 4)
+            // Aura radial hangat lembut
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.sukaOrange.opacity(bernapas ? 0.22 : 0.12), Color.clear],
+                        center: .center,
+                        startRadius: 20,
+                        endRadius: 130
+                    )
+                )
+                .frame(width: 260, height: 260)
+                .scaleEffect(bernapas ? 1.08 : 0.95)
+                .animation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true), value: bernapas)
+
+            Image("IlustrasiLogin")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 210, height: 210)
         }
         .frame(height: 240)
         .accessibilityHidden(true)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { melayang = true }
+        .onAppear { bernapas = true }
+    }
+}
+
+/// Kotak galat berdesain modern
+private struct KotakGalat: View {
+    let pesan: String
+    let onTutup: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(Color(hex: 0xB91C1C))
+
+            Text(pesan)
+                .font(SukaFont.jakarta(12, weight: .medium))
+                .foregroundStyle(Color(hex: 0x991B1B))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("pesan-galat-masuk")
+
+            Button(action: onTutup) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color(hex: 0xB91C1C))
+                    .frame(width: 32, height: 32)
+            }
+            .accessibilityLabel("Tutup pesan")
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color(hex: 0xFEF2F2), in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: 0xFCA5A5), lineWidth: 0.8))
     }
 }

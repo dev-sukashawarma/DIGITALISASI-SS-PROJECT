@@ -29,17 +29,33 @@ func popupBolehTampil(popupId: String?, sudahDilihat: Set<String>) -> Bool {
     return !sudahDilihat.contains(popupId)
 }
 
-/// Kurasi "Menu Terlaris" di Beranda — logika yang di Android tertanam di
-/// `HomeScreen`, diangkat ke sini agar bisa diuji. Satu menu tersedia pertama
-/// yang namanya memuat tiap kata kunci; kalau tak ada yang cocok, dua menu
-/// tersedia pertama.
-func pilihMenuTerlaris(_ semua: [MenuItemDto], kataKunci: [String] = ["Ayam", "Sapi"]) -> [MenuItemDto] {
+/// Beranda menampilkan grid 2 kolom.
+let jumlahMenuTerlaris = 2
+
+/// Padanan `ui/home/MenuTerlaris.kt`. Urutan kurasi admin (`menu_terlaris_ids`
+/// dari /config) diikuti, melewati menu yang tidak ada di katalog outlet ini
+/// atau sedang habis -- yang di bawahnya otomatis naik. Kalau tak satu pun
+/// tersisa, aturan lama (kata kunci) dipakai supaya bagian ini tidak kosong.
+func pilihMenuTerlaris(_ semua: [MenuItemDto], kurasiIds: [String] = [],
+                       kataKunci: [String] = ["Ayam", "Sapi"]) -> [MenuItemDto] {
+    let tersedia = semua.filter(\.isAvailable)
+    var sudah = Set<String>()
+    let dariKurasi = kurasiIds.filter { sudah.insert($0).inserted }
+        .compactMap { id in tersedia.first(where: { $0.id == id }) }
+        .prefix(jumlahMenuTerlaris)
+    if !dariKurasi.isEmpty { return Array(dariKurasi) }
+
     var cocok: [MenuItemDto] = []
     for kata in kataKunci {
-        if let m = semua.first(where: { $0.isAvailable && $0.name.localizedCaseInsensitiveContains(kata) }),
-           !cocok.contains(m) {
+        if let m = tersedia.first(where: { $0.name.localizedCaseInsensitiveContains(kata) }), !cocok.contains(m) {
             cocok.append(m)
         }
     }
-    return cocok.isEmpty ? Array(semua.filter(\.isAvailable).prefix(2)) : Array(cocok.prefix(2))
+    return Array((cocok.isEmpty ? tersedia : cocok).prefix(jumlahMenuTerlaris))
+}
+
+/// Lencana "Terlaris" di detail menu: hanya untuk menu yang memang tampil di
+/// bagian Menu Terlaris Beranda (aturan yang SAMA), bukan untuk semua menu.
+func termasukMenuTerlaris(_ menuItemId: String, semua: [MenuItemDto], kurasiIds: [String] = []) -> Bool {
+    pilihMenuTerlaris(semua, kurasiIds: kurasiIds).contains { $0.id == menuItemId }
 }

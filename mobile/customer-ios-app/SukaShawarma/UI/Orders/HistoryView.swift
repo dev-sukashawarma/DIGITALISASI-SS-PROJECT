@@ -4,31 +4,24 @@ import SwiftUI
 struct HistoryView: View {
     @State var vm: HistoryViewModel
     let onBukaPesanan: (String) -> Void
+    var inisial = "?"
     let onBukaProfil: () -> Void
     let onMasuk: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 0) {
-                PageBrandHeader(judul: "Riwayat Pesanan", subjudul: "Pantau status & riwayat pesananmu") {
-                    AvatarProfil(aksi: onBukaProfil)
-                }
+            PageBrandHeader(judul: "Riwayat Pesanan", subjudul: "Pantau status & riwayat pesananmu") {
+                AvatarProfil(inisial: inisial, aksi: onBukaProfil)
+            } bawah: {
+                // Filter menyatu di dalam kepala cokelat — sama seperti kategori
+                // di tab Menu, bukan baris terpisah di latar krem.
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
                         ForEach(FilterRiwayat.allCases, id: \.self) { f in
-                            let pilih = vm.filter == f
-                            Button { vm.filter = f } label: {
-                                Text(f.label).font(SukaFont.jakarta(12, weight: pilih ? .bold : .medium))
-                                    .foregroundStyle(pilih ? Color.sukaBrown : Color.sukaInk)
-                                    .padding(.horizontal, 14).padding(.vertical, 7)
-                                    .background(pilih ? Color.sukaOrange : .white, in: Capsule())
-                                    .overlay(Capsule().stroke(pilih ? .clear : Color.sukaBorder, lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(pilih ? .isSelected : [])
+                            HeaderChip(label: f.label, dipilih: vm.filter == f) { vm.filter = f }
                         }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .padding(.horizontal, 16).padding(.vertical, 2)
                 }
                 .scrollIndicators(.hidden)
             }
@@ -54,7 +47,7 @@ struct HistoryView: View {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(vm.tampil) { p in
-                        let t = tampilanStatus(p.statusDapur)
+                        let t = p.tampilan
                         if t.berjalan {
                             KartuPesananAktif(pesanan: p, tampil: t) { onBukaPesanan(p.id) }
                         } else {
@@ -62,7 +55,7 @@ struct HistoryView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 96)
+                .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 96)
             }
             .refreshable { await vm.muat() }
         }
@@ -76,7 +69,7 @@ private struct KartuPesananAktif: View {
 
     var body: some View {
         Button(action: onKlik) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     HStack(spacing: 6) {
                         Circle().fill(Color.sukaOrange).frame(width: 8, height: 8)
@@ -86,19 +79,27 @@ private struct KartuPesananAktif: View {
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(Color.sukaTint, in: Capsule())
                     Spacer()
-                    Text(pesanan.posOrderNumber.map { "#\($0)" } ?? "#SS").font(SukaFont.lilita(22)).foregroundStyle(Color.sukaBrown)
+                    Text(pesanan.posOrderNumber.map { "#\($0)" } ?? "#SS")
+                        .font(SukaFont.lilita(24))
+                        .foregroundStyle(Color.sukaBrown)
                 }
+
                 if let outlet = pesanan.outletName {
-                    Label(outlet, systemImage: "storefront.fill").font(SukaFont.jakarta(13, weight: .medium)).foregroundStyle(Color.sukaInk)
+                    HStack(spacing: 6) {
+                        Image(systemName: "storefront.fill").font(.system(size: 13)).foregroundStyle(Color.sukaOrange)
+                        Text(outlet).font(SukaFont.jakarta(13, weight: .semibold)).foregroundStyle(Color.sukaInk)
+                    }
                 }
                 if let w = formatWaktuPendek(pesanan.createdAt) {
                     Text(w).font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
                 }
-                Rectangle().fill(Color(hex: 0xF5EADB)).frame(height: 1)
+
+                Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+
                 HStack {
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text("Total Pembayaran").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
-                        Text(rupiah(pesanan.totalAmount)).font(SukaFont.jakarta(15, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                        Text(rupiah(pesanan.totalAmount)).font(SukaFont.lilita(17)).foregroundStyle(Color.sukaBrown)
                     }
                     Spacer()
                     HStack(spacing: 4) {
@@ -106,12 +107,14 @@ private struct KartuPesananAktif: View {
                         Image(systemName: "arrow.right").font(.system(size: 11, weight: .bold))
                     }
                     .foregroundStyle(Color.sukaInk)
-                    .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(Color.sukaOrange, in: Capsule())
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(SukaGradien.oranyePrimer, in: Capsule())
+                    .shadow(color: Color.sukaOrange.opacity(0.35), radius: 4, y: 1)
                 }
             }
             .padding(16)
-            .kartuSuka(sudut: 20, elevasi: 3, tepi: .sukaOrange.opacity(0.5))
+            .kartuElegan(sudut: 20, elevasi: 3, latar: .white)
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.sukaOrange.opacity(0.35), lineWidth: 1.5))
         }
         .buttonStyle(.mentul(0.98))
     }
@@ -124,15 +127,22 @@ private struct KartuPesanan: View {
 
     private var warna: (latar: Color, teks: Color) {
         if tampil.selesai { return (Color(hex: 0xECFDF5), .sukaGreen) }
-        if tampil.dibatalkan { return (Color(hex: 0xFEF2F2), .sukaMerah) }
+        if tampil.dibatalkan || tampil.tidakDiproses { return (Color(hex: 0xFEF2F2), .sukaMerah) }
         return (Color(hex: 0xFFF4EB), .sukaOrangeTeks)
     }
 
     var body: some View {
         Button(action: onKlik) {
             HStack(spacing: 12) {
-                Image(systemName: "list.bullet.rectangle.portrait").font(.system(size: 18)).foregroundStyle(Color.sukaBrown)
-                    .frame(width: 44, height: 44).background(Color.sukaTint, in: RoundedRectangle(cornerRadius: 12))
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.sukaTint)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "list.bullet.rectangle.portrait")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color.sukaBrown)
+                }
+
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(pesanan.posOrderNumber.map { "Pesanan #\($0)" } ?? "Pesanan")
@@ -146,13 +156,13 @@ private struct KartuPesanan: View {
                     if let w = formatWaktuPendek(pesanan.createdAt) {
                         Text(w).font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
                     }
-                    Text(rupiah(pesanan.totalAmount)).font(SukaFont.jakarta(13, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                    Text(rupiah(pesanan.totalAmount)).font(SukaFont.lilita(15)).foregroundStyle(Color.sukaBrown)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.sukaMuted)
             }
             .padding(14)
-            .kartuSuka(sudut: 18, elevasi: 1)
+            .kartuElegan(sudut: 18, elevasi: 1, latar: .white)
         }
         .buttonStyle(.mentul(0.98))
     }

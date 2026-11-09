@@ -57,7 +57,13 @@ final class SessionStore: Sendable {
         guard SecItemCopyMatching(kueri as CFDictionary, &hasil) == errSecSuccess,
               let data = hasil as? Data
         else { return nil }
-        return try? JSONDecoder().decode(SessionData.self, from: data)
+        guard let sesi = try? JSONDecoder().decode(SessionData.self, from: data) else {
+            // Padanan pemulihan Android (15 Okt): data sesi rusak/tak terbaca
+            // dibuang, bukan dibiarkan — pelanggan cukup masuk ulang.
+            hapus()
+            return nil
+        }
+        return sesi
     }
 
     /// Apakah masih ada sesi yang layak dipakai. Lihat [sesiMasihBerlaku].

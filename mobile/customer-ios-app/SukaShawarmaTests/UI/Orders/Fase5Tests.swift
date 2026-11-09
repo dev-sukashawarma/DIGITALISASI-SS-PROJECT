@@ -13,6 +13,49 @@ struct StatusPesananTests {
         let t = tampilanStatus(nil)
         #expect(t.tahap == nil && t.judul.contains("pembayaran"))
     }
+    // Porting StatusPesananTest.kt (commit 0991adc7 & cd392b91).
+    @Test func draftKadaluarsaBukanMenungguPembayaran() {
+        let t = tampilanStatus(nil, statusDraft: "kadaluarsa")
+        #expect(t.judul == "Kedaluwarsa" && t.tidakDiproses && t.tahap == nil)
+        #expect(!t.dibatalkan) // tak ada uang diambil -> bukan jalur CS refund
+    }
+    @Test func draftGagalPembayaranGagal() {
+        let t = tampilanStatus(nil, statusDraft: "gagal")
+        #expect(t.judul == "Pembayaran gagal" && t.tidakDiproses && !t.dibatalkan)
+    }
+    @Test func draftMenungguBayarTetapMenunggu() {
+        let t = tampilanStatus(nil, statusDraft: "menunggu_bayar")
+        #expect(t.judul.contains("pembayaran") && !t.tidakDiproses)
+    }
+    @Test func statusDapurMenangAtasDraft() {
+        #expect(tampilanStatus("preparing", statusDraft: "dibayar").tahap == .dibuat)
+    }
+    @Test func berakhirUntukSelesaiBatalTakDiproses() {
+        #expect(tampilanStatus("completed").berakhir)
+        #expect(tampilanStatus("cancelled").berakhir)
+        #expect(tampilanStatus(nil, statusDraft: "kadaluarsa").berakhir)
+        #expect(!tampilanStatus("preparing").berakhir)
+        #expect(!tampilanStatus(nil, statusDraft: "menunggu_bayar").berakhir)
+    }
+    @Test func labelPembayaranHanyaLunasBilaDibayar() {
+        #expect(labelPembayaran(statusDapur: nil, statusDraft: "dibayar") == ("QRIS Lunas", true))
+        #expect(labelPembayaran(statusDapur: "preparing", statusDraft: "menunggu_bayar").lunas)
+        #expect(labelPembayaran(statusDapur: nil, statusDraft: "menunggu_bayar") == ("Belum dibayar", false))
+        #expect(labelPembayaran(statusDapur: nil, statusDraft: "kadaluarsa").teks == "Tidak ditagih")
+        #expect(labelPembayaran(statusDapur: nil, statusDraft: "gagal").teks == "Tidak ditagih")
+    }
+    @Test func filterBatalMemuatKedaluwarsa() {
+        let p = OrderDetailDto(id: "x", status: "kadaluarsa", totalAmount: 1, createdAt: "2026-09-25T00:00:00Z")
+        #expect(FilterRiwayat.batal.saring([p]).count == 1)
+        #expect(FilterRiwayat.berjalan.saring([p]).isEmpty)
+    }
+    /// Padanan uji baru `StatusPesananTest.kt` (19 Okt): cabang "pending" kembar
+    /// di Android membuat `pending` terbaca "Menunggu pembayaran".
+    @Test func pendingDipetakanKePesananDiterima() {
+        let t = tampilanStatus("pending")
+        #expect(t.judul == "Pesanan diterima")
+        #expect(t.tahap == .diterima)
+    }
     @Test func preparingSedangDibuat() { #expect(tampilanStatus("preparing").tahap == .dibuat) }
     @Test func readySiapDiambil() { #expect(tampilanStatus("ready").tahap == .siap) }
     @Test func completedSelesai() {

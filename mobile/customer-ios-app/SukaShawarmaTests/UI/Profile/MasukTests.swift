@@ -110,4 +110,19 @@ struct LoginViewModelTests {
         vm.dibatalkan()
         #expect(vm.memuat == nil && vm.pesanGalat == nil)
     }
+
+    @Test func masukModeDemoMenyimpanSesi() {
+        let (vm, sesi) = rakit([:]); defer { sesi.hapus() }
+        vm.masukModeDemo()
+        #expect(vm.berhasil && vm.memuat == nil)
+        #expect(sesi.baca()?.nama == "Pelanggan Suka")
+    }
+
+    @Test func server500MenampilkanPesanGalat() async {
+        let (vm, sesi) = rakit(["/api/v1/auth/google": (500, "Internal Server Error")]); defer { sesi.hapus() }
+        await vm.tukarGoogle(idToken: "id")
+        #expect(!vm.berhasil)
+        #expect(vm.pesanGalat?.contains("Layanan sedang bermasalah") == true)
+        #expect(sesi.baca() == nil)
+    }
 }

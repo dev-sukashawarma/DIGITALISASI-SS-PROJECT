@@ -56,9 +56,16 @@ struct OutletDto: Decodable, Sendable, Equatable, Identifiable {
     var lat: Double?
     var lng: Double?
     let isActive: Bool
+    // Field tahap 1 (2026-09-24). Opsional: gateway lama tak mengirimnya.
+    var bisaPesan: Bool?
+    var pesanStatus: String?
+    var pesanTerakhir: String?
     enum CodingKeys: String, CodingKey {
         case id, name, address, lat, lng
         case isActive = "is_active"
+        case bisaPesan = "bisa_pesan"
+        case pesanStatus = "pesan_status"
+        case pesanTerakhir = "pesan_terakhir"
     }
 }
 
@@ -153,6 +160,47 @@ struct SplashDto: Decodable, Sendable, Equatable {
     }
 }
 
+/// `GET /api/v1/config` — setelan Pengaturan Aplikasi di admin-dashboard.
+/// Semua field punya bawaan: gateway lama / field absen tak boleh menjatuhkan app.
+///
+/// `versiMinimumIos` = kolom `app_pengaturan.versi_minimum_ios` (diatur di admin
+/// Pengaturan Aplikasi). Absen (gateway lama) = nil = tidak pernah memaksa update. Android sengaja TIDAK
+/// dibaca di sini: nomor build kedua platform tidak sejajar.
+struct ConfigDto: Decodable, Sendable, Equatable {
+    var estimasiSiap: String = "15–20 menit"
+    var waCs: String?
+    var versiMinimumIos: Int?
+    var urlSyarat: String?
+    var urlPrivasi: String?
+    /// Kurasi Menu Terlaris dari admin, berurutan. Kosong = aturan cadangan.
+    var menuTerlarisIds: [String] = []
+
+    enum CodingKeys: String, CodingKey {
+        case estimasiSiap = "estimasi_siap"
+        case waCs = "wa_cs"
+        case versiMinimumIos = "versi_minimum_ios"
+        case urlSyarat = "url_syarat"
+        case urlPrivasi = "url_privasi"
+        case menuTerlarisIds = "menu_terlaris_ids"
+    }
+
+    init(estimasiSiap: String = "15–20 menit", waCs: String? = nil, versiMinimumIos: Int? = nil,
+         urlSyarat: String? = nil, urlPrivasi: String? = nil, menuTerlarisIds: [String] = []) {
+        self.estimasiSiap = estimasiSiap; self.waCs = waCs; self.versiMinimumIos = versiMinimumIos
+        self.urlSyarat = urlSyarat; self.urlPrivasi = urlPrivasi; self.menuTerlarisIds = menuTerlarisIds
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        estimasiSiap = try c.decodeIfPresent(String.self, forKey: .estimasiSiap) ?? "15–20 menit"
+        waCs = try c.decodeIfPresent(String.self, forKey: .waCs)
+        versiMinimumIos = try c.decodeIfPresent(Int.self, forKey: .versiMinimumIos)
+        urlSyarat = try c.decodeIfPresent(String.self, forKey: .urlSyarat)
+        urlPrivasi = try c.decodeIfPresent(String.self, forKey: .urlPrivasi)
+        menuTerlarisIds = (try? c.decodeIfPresent([String].self, forKey: .menuTerlarisIds)) ?? []
+    }
+}
+
 struct BannersResponse: Decodable, Sendable, Equatable {
     var carousel: [BannerDto] = []
     var popup: BannerDto?
@@ -170,7 +218,8 @@ struct BannersResponse: Decodable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey { case carousel, popup }
 }
 
-struct CartItemPayload: Encodable, Sendable, Equatable {
+/// `Codable` (bukan hanya Encodable): item gratis voucher datang dalam bentuk yang sama.
+struct CartItemPayload: Codable, Sendable, Equatable {
     let menuItemId: String
     let name: String
     let unitPrice: Double
@@ -186,9 +235,47 @@ struct CartItemPayload: Encodable, Sendable, Equatable {
 struct CheckoutValidateRequest: Encodable, Sendable {
     let outletId: String
     let items: [CartItemPayload]
+    /// Nil = tidak dikirim (tanpa voucher). `voucherId` dari daftar, `kodeVoucher` dari input manual.
+    var voucherId: String?
+    var kodeVoucher: String?
     enum CodingKeys: String, CodingKey {
         case items
         case outletId = "outlet_id"
+        case voucherId = "voucher_id"
+        case kodeVoucher = "kode_voucher"
+    }
+}
+
+/// Rincian voucher dari `checkout/validate` — hanya dikirim gateway bila
+/// permintaan menyertakan `voucher_id`/`kode_voucher`. `status`: `berlaku`,
+/// `belum`, atau lainnya (tidak berlaku).
+struct VoucherCheckoutDto: Decodable, Sendable, Equatable {
+    var id: String?
+    var nama: String?
+    let status: String
+    var alasan: String?
+    var potongan: Double = 0
+    var itemGratis: [CartItemPayload] = []
+
+    enum CodingKeys: String, CodingKey {
+        case id, nama, status, alasan, potongan
+        case itemGratis = "item_gratis"
+    }
+
+    init(id: String? = nil, nama: String? = nil, status: String, alasan: String? = nil,
+         potongan: Double = 0, itemGratis: [CartItemPayload] = []) {
+        self.id = id; self.nama = nama; self.status = status; self.alasan = alasan
+        self.potongan = potongan; self.itemGratis = itemGratis
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id)
+        nama = try c.decodeIfPresent(String.self, forKey: .nama)
+        status = try c.decode(String.self, forKey: .status)
+        alasan = try c.decodeIfPresent(String.self, forKey: .alasan)
+        potongan = try c.decodeIfPresent(Double.self, forKey: .potongan) ?? 0
+        itemGratis = try c.decodeIfPresent([CartItemPayload].self, forKey: .itemGratis) ?? []
     }
 }
 
@@ -216,6 +303,7 @@ struct CheckoutValidateResponse: Decodable, Sendable, Equatable {
     var alasan: String?
     var pesan: String?
     var masalah: [CartProblemDto]?
+    var voucher: VoucherCheckoutDto?
 }
 
 struct CreateOrderRequest: Encodable, Sendable {
@@ -223,12 +311,55 @@ struct CreateOrderRequest: Encodable, Sendable {
     let outletId: String
     let items: [CartItemPayload]
     var customerPhone: String?
+    var voucherId: String?
+    var kodeVoucher: String?
     enum CodingKeys: String, CodingKey {
         case items
         case clientOrderId = "client_order_id"
         case outletId = "outlet_id"
         case customerPhone = "customer_phone"
+        case voucherId = "voucher_id"
+        case kodeVoucher = "kode_voucher"
     }
+}
+
+/// Satu voucher dari `POST /api/v1/vouchers`, berikut kelayakan pakainya.
+struct VoucherDto: Decodable, Sendable, Equatable, Identifiable {
+    let id: String
+    let nama: String
+    var deskripsi: String?
+    let jenis: String
+    let kalimatSyarat: String
+    var selesai: String?
+    let status: String
+    var alasan: String?
+    /// Potongan kiri kartu ("Rp5rb", "20%"). Opsional: gateway lama tak mengirimnya.
+    var labelNilai: String?
+    var labelSub: String?
+
+    var bolehDipakai: Bool { status == "berlaku" }
+
+    enum CodingKeys: String, CodingKey {
+        case id, nama, deskripsi, jenis, selesai, status, alasan
+        case kalimatSyarat = "kalimat_syarat"
+        case labelNilai = "label_nilai"
+        case labelSub = "label_sub"
+    }
+}
+
+/// Tanpa `outletId`/`items` = semua voucher publik (halaman Voucher); dengan
+/// keduanya = kelayakan untuk keranjang ini (pemilih di checkout).
+struct VouchersRequest: Encodable, Sendable {
+    var outletId: String?
+    var items: [CartItemPayload]?
+    enum CodingKeys: String, CodingKey {
+        case items
+        case outletId = "outlet_id"
+    }
+}
+
+struct VouchersResponse: Decodable, Sendable {
+    let vouchers: [VoucherDto]
 }
 
 struct CreateOrderResponse: Decodable, Sendable, Equatable {

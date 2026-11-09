@@ -22,7 +22,9 @@ func labelTindakan(_ m: CartProblemDto) -> String {
 /// `alasan` menjelaskan kenapa SELURUH pesanan ditolak (bukan satu item).
 func pesanUntukAlasan(_ alasan: String?, pesanDariGateway: String?) -> String {
     switch alasan {
-    case "outlet_tutup": "Outlet sedang tutup, jadi pesanan belum bisa diproses."
+    // Gateway kini mengirim kalimat spesifik (jam tutup, tutup sementara +
+    // alasan) lewat `pesan`; kalimat generik hanya fallback gateway lama.
+    case "outlet_tutup": pesanDariGateway ?? "Outlet sedang tutup, jadi pesanan belum bisa diproses."
     case "outlet_tidak_melayani": "Outlet ini belum melayani pesanan lewat aplikasi."
     case "keranjang_berubah": "Ada yang berubah di menu outlet sejak kamu memilih."
     // Kalimat gateway lebih spesifik daripada tebakan apa pun di sini.

@@ -5,6 +5,7 @@ import SwiftUI
 /// untuk melompat.
 struct MenuView: View {
     @Bindable var vm: CatalogViewModel
+    var inisial = "?"
     let onGantiOutlet: () -> Void
     let onBukaProfil: () -> Void
     let onPilihItem: (MenuItemDto) -> Void
@@ -26,7 +27,7 @@ struct MenuView: View {
     var body: some View {
         VStack(spacing: 0) {
             if let outlet = vm.outlet {
-                MenuBrandHeader(namaOutlet: outlet.name, kueri: $vm.kueri,
+                MenuBrandHeader(namaOutlet: outlet.name, kueri: $vm.kueri, inisial: inisial,
                                 onGantiOutlet: onGantiOutlet, onBukaProfil: onBukaProfil) {
                     if tampilkanChip {
                         BarisChipKategori(nama: vm.kategori.map(\.nama), aktif: kategoriAktif) { i in
@@ -73,9 +74,14 @@ struct MenuView: View {
                             Text(k.nama).font(SukaFont.jakarta(16, weight: .bold)).foregroundStyle(Color.sukaInk)
                                 .accessibilityAddTraits(.isHeader)
                             Spacer()
-                            Text("\(k.items.count) pilihan").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
+                            Text("\(k.items.count) pilihan")
+                                .font(SukaFont.jakarta(11, weight: .medium))
+                                .foregroundStyle(Color.sukaMuted)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(Color.white, in: Capsule())
+                                .overlay(Capsule().stroke(Color.sukaBorderSubtle, lineWidth: 1))
                         }
-                        .padding(.horizontal, 18).padding(.top, 2)
+                        .padding(.horizontal, 18).padding(.top, 4)
                         .id("h:\(k.kunci)")
 
                         ForEach(k.items) { m in
@@ -104,17 +110,7 @@ private struct BarisChipKategori: View {
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     ForEach(Array(nama.enumerated()), id: \.offset) { i, n in
-                        let dipilih = i == aktif
-                        Button { onPilih(i) } label: {
-                            Text(n).font(SukaFont.jakarta(12, weight: dipilih ? .bold : .medium))
-                                .foregroundStyle(dipilih ? Color.sukaInk : Color.sukaCreamTeks)
-                                .padding(.horizontal, 14).padding(.vertical, 6)
-                                .background(dipilih ? Color.sukaOrange : Color.white.opacity(0.18), in: Capsule())
-                                .overlay(Capsule().stroke(dipilih ? Color.sukaOrange : Color.white.opacity(0.28), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(dipilih ? .isSelected : [])
-                        .id(i)
+                        HeaderChip(label: n, dipilih: i == aktif) { onPilih(i) }.id(i)
                     }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 2)
@@ -131,16 +127,21 @@ private struct SpandukKeranjangDikosongkan: View {
     let onTutup: () -> Void
 
     var body: some View {
-        HStack {
-            Text("Keranjang dikosongkan karena kamu berpindah outlet. Menu tiap outlet berbeda.")
-                .font(SukaFont.jakarta(12)).foregroundStyle(Color.sukaInk)
+        HStack(spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 15))
+                .foregroundStyle(Color.sukaOrange)
+            Text("Keranjang dikosongkan karena kamu berpindah outlet.")
+                .font(SukaFont.jakarta(12, weight: .medium)).foregroundStyle(Color.sukaInk)
             Spacer(minLength: 8)
             Button("Mengerti", action: onTutup)
-                .font(SukaFont.jakarta(13, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                .font(SukaFont.jakarta(12, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Color.white, in: Capsule())
         }
         .padding(12)
-        .background(Color.sukaTint, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.sukaBorder, lineWidth: 1))
+        .background(Color.sukaTint, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.sukaOrange.opacity(0.3), lineWidth: 1))
         .padding(.horizontal, 16).padding(.vertical, 6)
     }
 }

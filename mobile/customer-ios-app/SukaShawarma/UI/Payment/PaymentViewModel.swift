@@ -52,8 +52,14 @@ final class PaymentViewModel {
         self.cart = cart
         self.percobaan = percobaan
         self.jadwal = jadwal
-        totalTagihan = cart.subtotal()
+        totalTagihan = cart.voucher() != nil ? 0 : cart.subtotal()
     }
+
+    /// Angka pra-server yang aman ditampilkan sebelum gateway membalas.
+    /// `cart.subtotal()` tak tahu soal voucher — dengan voucher ia SELALU
+    /// terlalu besar, jadi disembunyikan (0 = blok total tak dirender) sampai
+    /// angka gateway datang. QRIS dan layar ini wajib menagih angka yang sama.
+    private func totalAwal() -> Int64 { cart.voucher() != nil ? 0 : cart.subtotal() }
 
     /// Titik masuk layar. Percobaan tertinggal DIPERIKSA dulu, tidak langsung
     /// dipantau; galat jaringan saat memeriksa TIDAK memulai pesanan baru.
@@ -64,6 +70,10 @@ final class PaymentViewModel {
         }
         memuat = true
         orderId = id
+        // Pesanan ini SUDAH ada di server (dilanjutkan, bukan dibuat): angka
+        // lokal (bisa pra-voucher) tidak boleh sempat terlihat. Diisi lagi dari
+        // balasan status pertama yang berhasil.
+        totalTagihan = 0
 
         switch await repository.statusPesanan(orderId: id) {
         case .gagal:
@@ -84,7 +94,7 @@ final class PaymentViewModel {
                 // Id lama sudah terpakai & akan ditolak 409 — buang, buat baru.
                 percobaan.selesai()
                 orderId = nil
-                totalTagihan = cart.subtotal()
+                totalTagihan = totalAwal()
                 await bayar()
             case .lanjutkan:
                 // QR yang SAMA ditampilkan lagi, bukan tagihan kedua. URL dari
@@ -114,10 +124,11 @@ final class PaymentViewModel {
         gagalBayar = false
         kadaluarsa = false
         waktuHabis = false
-        totalTagihan = cart.subtotal()
+        totalTagihan = totalAwal()
 
         switch await repository.buatPesanan(clientOrderId: clientOrderId, outletId: outletId,
-                                            items: isi.flatMap { $0.kePayloadList() }) {
+                                            items: isi.flatMap { $0.kePayloadList() },
+                                            voucher: cart.voucher()) {
         case .sukses(let r):
             percobaan.simpanOrderId(r.orderId)
             if let url = r.paymentUrl { percobaan.simpanPaymentUrl(url) }
@@ -137,10 +148,12 @@ final class PaymentViewModel {
         }
     }
 
-    /// "Cek Status Pembayaran": tanya SEKARANG, tanpa membuat pesanan lagi dan
-    /// tanpa menyalakan putaran penanyaan kedua (lihat RANCANGAN.md §8 Fase 4).
+    /// "Cek Status Pembayaran" (padanan `periksaStatusSekarang`): tanya SEKARANG,
+    /// tanpa membuat pesanan lagi dan tanpa menyalakan putaran penanyaan kedua
+    /// (lihat RANCANGAN.md §8 Fase 4). Id dari penyimpanan dipakai bila layar
+    /// belum sempat mengisinya — percobaan yang tersimpan tak boleh ditagih ulang.
     func cekSekarang() async {
-        guard let id = orderId else {
+        guard let id = orderId ?? percobaan.orderId() else {
             await bayar()
             return
         }
@@ -170,20 +183,28 @@ final class PaymentViewModel {
             guard let self, !Task.isCancelled else { return }
             self.menungguKonfirmasi = false
             self.waktuHabis = true
+            // QR basi tak boleh tetap tampil (dan menahan layar di mode menunggu).
+            self.buangTagihan()
         }
     }
 
     /// Mengembalikan true bila status sudah pasti (penanyaan boleh berhenti).
     @discardableResult
     private func terapkanStatus(_ d: OrderDetailDto) -> Bool {
+        // Angka nyata muncul begitu diketahui — termasuk saat status masih menunggu.
+        totalTagihan = bulatkanRupiah(d.totalAmount)
         switch d.status {
         case "dibayar":
             selesaiDibayar(nomor: d.posOrderNumber)
             return true
         case "gagal":
+            // Tagihan ini sudah mati di gateway: "Coba Bayar Lagi" WAJIB memakai
+            // id baru, kalau tidak gateway membalas duplikat untuk draft yang gagal.
             tugasTanya?.cancel()
+            percobaan.simpanClientOrderId(idPesananBaru())
             menungguKonfirmasi = false
             gagalBayar = true
+            buangTagihan()
             return true
         case "kadaluarsa":
             // Draft hangus: percobaan berikutnya WAJIB memakai id baru.
@@ -191,7 +212,7 @@ final class PaymentViewModel {
             percobaan.simpanClientOrderId(idPesananBaru())
             menungguKonfirmasi = false
             kadaluarsa = true
-            qrString = nil
+            buangTagihan()
             return true
         default:
             return false
@@ -205,6 +226,42 @@ final class PaymentViewModel {
         menungguKonfirmasi = false
         nomorPesanan = nomor
         dibayar = true
+    }
+
+    /// QR & URL bayar yang sudah tak berlaku. Dibiarkan, `qrString != nil`
+    /// menahan layar di mode menunggu meski keadaannya sudah akhir.
+    private func buangTagihan() {
+        qrString = nil
+        paymentUrl = nil
+        urlBayarTersimpan = nil
+    }
+
+    /// "Batalkan Pembayaran": hentikan penanyaan, lupakan percobaan, lalu minta
+    /// gateway membatalkan draftnya. Gateway HANYA membatalkan draft yang masih
+    /// `menunggu_bayar` — pesanan yang ternyata sudah lunas tetap aman.
+    /// Galat pembatalan diabaikan: draft yang tak terbatalkan hangus sendiri
+    /// saat batas bayarnya lewat. Task dikembalikan hanya untuk uji.
+    @discardableResult
+    func batalkanPercobaan() -> Task<Void, Never>? {
+        tugasTanya?.cancel()
+        tugasTanya = nil
+        let id = orderId ?? percobaan.orderId()
+        percobaan.selesai()
+        memuat = false
+        pesanGalat = nil
+        buangTagihan()
+        orderId = nil
+        expiresAt = nil
+        menungguKonfirmasi = false
+        dibayar = false
+        gagalBayar = false
+        kadaluarsa = false
+        waktuHabis = false
+        nomorPesanan = nil
+        totalTagihan = 0
+        guard let id else { return nil }
+        let repository = self.repository
+        return Task { _ = await repository.batalkanPesanan(orderId: id) }
     }
 
     /// Menandai bahwa URL otomatis sudah dibuka, agar tak dibuka berulang.

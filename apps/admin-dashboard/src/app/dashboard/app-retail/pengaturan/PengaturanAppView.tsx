@@ -17,6 +17,7 @@ type FormAngkaString = {
   estimasiSiap: string
   waCs: string
   versiMinimumAndroid: string
+  versiMinimumIos: string
   urlSyarat: string
   urlPrivasi: string
 }
@@ -35,6 +36,7 @@ export default function PengaturanAppView({ awal, log, staf, galat, sisipan }: {
     estimasiSiap: String(awal?.estimasi_siap ?? '15–20 menit'),
     waCs: String(awal?.wa_cs ?? ''),
     versiMinimumAndroid: String(awal?.versi_minimum_android ?? 1),
+    versiMinimumIos: String(awal?.versi_minimum_ios ?? 1),
     urlSyarat: String(awal?.url_syarat ?? ''),
     urlPrivasi: String(awal?.url_privasi ?? ''),
   })
@@ -52,7 +54,7 @@ export default function PengaturanAppView({ awal, log, staf, galat, sisipan }: {
       setPesan({ ok: false, teks: 'Pengaturan gagal dimuat — muat ulang halaman sebelum menyimpan.' })
       return
     }
-    if (f.menitPesanTerakhir.trim() === '' || f.menitTertahan.trim() === '' || f.versiMinimumAndroid.trim() === '') {
+    if (f.menitPesanTerakhir.trim() === '' || f.menitTertahan.trim() === '' || f.versiMinimumAndroid.trim() === '' || f.versiMinimumIos.trim() === '') {
       setPesan({ ok: false, teks: 'Kolom angka wajib diisi (tidak boleh kosong).' })
       return
     }
@@ -62,6 +64,7 @@ export default function PengaturanAppView({ awal, log, staf, galat, sisipan }: {
       estimasiSiap: f.estimasiSiap,
       waCs: f.waCs,
       versiMinimumAndroid: Number(f.versiMinimumAndroid),
+      versiMinimumIos: Number(f.versiMinimumIos),
       urlSyarat: f.urlSyarat,
       urlPrivasi: f.urlPrivasi,
     }
@@ -104,6 +107,8 @@ export default function PengaturanAppView({ awal, log, staf, galat, sisipan }: {
           <input className={kelas} value={f.waCs} placeholder="08…" onChange={(e) => setF({ ...f, waCs: e.target.value })} />)}
         {baris('Versi minimum Android (versionCode)', 'Aplikasi di bawah versi ini dipaksa update. Naikkan hanya setelah versi baru tersedia di Play Store.',
           <input type="number" className={kelas} value={f.versiMinimumAndroid} onChange={(e) => setF({ ...f, versiMinimumAndroid: e.target.value })} />)}
+        {baris('Versi minimum iOS (nomor build)', 'Aplikasi iPhone di bawah nomor build ini dipaksa update. Nomornya terpisah dari Android. Naikkan hanya setelah versi baru tersedia di App Store.',
+          <input type="number" className={kelas} value={f.versiMinimumIos} onChange={(e) => setF({ ...f, versiMinimumIos: e.target.value })} />)}
         {baris('Link Syarat & Ketentuan', 'Wajib https://', <input className={kelas} value={f.urlSyarat} onChange={(e) => setF({ ...f, urlSyarat: e.target.value })} />)}
         {baris('Link Kebijakan Privasi', 'Wajib https:// — diminta Play Store karena aplikasi memakai izin lokasi.',
           <input className={kelas} value={f.urlPrivasi} onChange={(e) => setF({ ...f, urlPrivasi: e.target.value })} />)}

@@ -9,7 +9,7 @@ let batasGambarSplashByte = 5 * 1024 * 1024
 /// pernah ke Supabase langsung, tidak ada service-role key di aplikasi ini.
 ///
 /// Menyisipkan `Authorization: Bearer <token>` untuk semua endpoint KECUALI
-/// `auth/google`, `catalog`, `outlets`, `banners`, dan `splash`.
+/// `auth/google`, `catalog`, `outlets`, `banners`, `splash`, dan `config`.
 final class GatewayClient: Sendable {
     private let baseURL: URL
     private let session: URLSession
@@ -54,6 +54,10 @@ final class GatewayClient: Sendable {
         await kirim("api/v1/splash")
     }
 
+    func config() async -> GatewayResult<ConfigDto> {
+        await kirim("api/v1/config")
+    }
+
     /// Mengunduh gambar splash. Nil untuk apa pun yang bukan gambar sungguhan:
     /// status gagal, tipe bukan `image/`, berkas kosong, atau melebihi
     /// [batasGambarSplashByte]. TANPA header otorisasi: token sesi tak boleh
@@ -79,12 +83,24 @@ final class GatewayClient: Sendable {
         await kirim("api/v1/checkout/validate", metode: "POST", body: request, otorisasi: true)
     }
 
+    /// Wajib sesi: daftar & kelayakan voucher bergantung pada riwayat pelanggan.
+    func vouchers(_ request: VouchersRequest) async -> GatewayResult<VouchersResponse> {
+        await kirim("api/v1/vouchers", metode: "POST", body: request, otorisasi: true)
+    }
+
     func createOrder(_ request: CreateOrderRequest) async -> GatewayResult<CreateOrderResponse> {
         await kirim("api/v1/orders", metode: "POST", body: request, otorisasi: true)
     }
 
     func orderDetail(orderId: String) async -> GatewayResult<OrderDetailDto> {
         await kirim("api/v1/orders/\(orderId)", otorisasi: true)
+    }
+
+    /// Membatalkan draft pesanan yang BELUM dibayar (tombol "Batalkan Pembayaran").
+    /// Gateway hanya mengubah draft berstatus `menunggu_bayar` milik pelanggan
+    /// ini; pesanan yang sudah lunas tidak tersentuh.
+    func cancelOrder(orderId: String) async -> GatewayResult<Void> {
+        await kirimTanpaIsi("api/v1/orders/\(orderId)", metode: "DELETE")
     }
 
     func ordersList() async -> GatewayResult<OrdersListResponse> {
@@ -115,6 +131,12 @@ final class GatewayClient: Sendable {
 
     func updateProfile(_ request: UpdateProfileRequest) async -> GatewayResult<ProfileResponse> {
         await kirim("api/v1/customer/profile", metode: "PATCH", body: request, otorisasi: true)
+    }
+
+    /// Menghapus akun pelanggan beserta data profil pribadinya (wajib App Store
+    /// & Google Play). Riwayat lunas dianonimkan gateway, bukan dihapus.
+    func deleteAccount() async -> GatewayResult<Void> {
+        await kirimTanpaIsi("api/v1/customer/profile", metode: "DELETE")
     }
 
     // MARK: Inti
@@ -163,7 +185,8 @@ final class GatewayClient: Sendable {
         }
     }
 
-    private func kirimTanpaIsi(_ jalur: String, metode: String, body: any Encodable) async -> GatewayResult<Void> {
+    private func kirimTanpaIsi(_ jalur: String, metode: String,
+                               body: (any Encodable)? = nil) async -> GatewayResult<Void> {
         do {
             let (data, http) = try await jalankan(
                 buatPermintaan(jalur, metode: metode, query: [:], body: body, otorisasi: true))

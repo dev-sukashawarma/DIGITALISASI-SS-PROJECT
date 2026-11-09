@@ -50,8 +50,8 @@ final class OrderStatusViewModel {
     func pantau() async {
         while !Task.isCancelled {
             await ambil()
-            let t = tampilanStatus(pesanan?.statusDapur)
-            if t.selesai || t.dibatalkan { return }
+            let t = pesanan?.tampilan ?? tampilanStatus(nil)
+            if t.berakhir { return }
             try? await Task.sleep(for: jeda)
         }
     }

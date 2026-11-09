@@ -4,6 +4,7 @@ import SwiftUI
 struct OrderStatusView: View {
     @State var vm: OrderStatusViewModel
     let onKembali: () -> Void
+    @Environment(\.configApp) private var config
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,7 +40,7 @@ struct OrderStatusView: View {
         if vm.memuat && vm.pesanan == nil {
             MemuatState()
         } else if let p = vm.pesanan {
-            konten(p, tampilanStatus(p.statusDapur))
+            konten(p, p.tampilan)
         } else if let g = vm.galat {
             ErrorState(galat: g) { Task { await vm.ambil() } }
         }
@@ -56,7 +57,7 @@ struct OrderStatusView: View {
 
     private func estimasi(_ t: TampilanStatus) -> String {
         switch t.tahap {
-        case .diterima: "Estimasi Siap: ~15-20 mnt"
+        case .diterima: "Estimasi Siap: ~\(config.estimasiSiap)"
         case .dibuat: "Estimasi Siap: ~5-10 mnt"
         case .siap: t.selesai ? "Selesai" : "Siap Diambil Sekarang!"
         case nil: "Menunggu"
@@ -69,19 +70,26 @@ struct OrderStatusView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         if t.berjalan {
-                            Text("LIVE DARI DAPUR 🔥").font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(.white)
-                                .padding(.horizontal, 8).padding(.vertical, 3).background(Color.sukaOrange, in: Capsule())
+                            HStack(spacing: 5) {
+                                Circle().fill(Color.white).frame(width: 6, height: 6)
+                                    .phaseAnimator([0.4, 1.0]) { v, a in v.opacity(a) } animation: { _ in .easeInOut(duration: 0.8) }
+                                Text("LIVE DARI DAPUR").font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(.white)
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 4)
+                            .background(SukaGradien.oranyePrimer, in: Capsule())
+                            .shadow(color: Color.sukaOrange.opacity(0.35), radius: 3, y: 1)
                         }
                         Spacer()
-                        if !t.dibatalkan && t.tahap != nil {
-                            Text(t.selesai ? "Selesai" : "Tepat Waktu").font(SukaFont.jakarta(11, weight: .bold))
-                                .foregroundStyle(Color.sukaGreen)
+                        if t.selesai {
+                            Text("Selesai").font(SukaFont.jakarta(11, weight: .bold)).foregroundStyle(Color.sukaGreen)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(Color.sukaGreen.opacity(0.12), in: Capsule())
                         }
                     }
-                    Text(judulBesar(t)).font(SukaFont.lilita(22)).foregroundStyle(t.dibatalkan ? Color.sukaMerah : Color.sukaBrown)
+                    Text(judulBesar(t)).font(SukaFont.lilita(24)).foregroundStyle(t.dibatalkan ? Color.sukaMerah : Color.sukaBrown)
                         .accessibilityIdentifier("judul-status")
                     Text(t.penjelasan).font(SukaFont.jakarta(13)).foregroundStyle(Color.sukaMuted)
-                    if !t.dibatalkan {
+                    if !t.dibatalkan && !t.tidakDiproses {
                         HStack {
                             Label(estimasi(t), systemImage: "clock").font(SukaFont.jakarta(12, weight: .bold)).foregroundStyle(Color.sukaBrown)
                             Spacer()
@@ -93,20 +101,26 @@ struct OrderStatusView: View {
                     }
                 }
                 .padding(18)
-                .kartuSuka(sudut: 22, elevasi: 3)
+                .kartuElegan(sudut: 22, elevasi: 3, latar: .white)
 
                 VStack(spacing: 6) {
-                    Text("NOMOR PESANAN KASIR").font(SukaFont.jakarta(11, weight: .bold)).tracking(0.8).foregroundStyle(Color.sukaMuted)
-                    Text(p.posOrderNumber.map { "#\($0)" } ?? "#-").font(SukaFont.lilita(44)).foregroundStyle(Color.sukaBrown)
+                    Text("NOMOR PESANAN KASIR").font(SukaFont.jakarta(11, weight: .bold)).tracking(1.0).foregroundStyle(Color.sukaMuted)
+                    Text(p.posOrderNumber.map { "#\($0)" } ?? "#-")
+                        .font(SukaFont.lilita(46))
+                        .foregroundStyle(Color.sukaBrown)
                     if let o = p.outletName {
-                        Label(o, systemImage: "storefront.fill").font(SukaFont.jakarta(13, weight: .medium)).foregroundStyle(Color.sukaInk)
+                        Label(o, systemImage: "storefront.fill").font(SukaFont.jakarta(13, weight: .semibold)).foregroundStyle(Color.sukaInk)
                     }
                 }
                 .padding(20).frame(maxWidth: .infinity)
-                .background(Color.sukaTint, in: RoundedRectangle(cornerRadius: 20))
-                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.sukaOrange, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])))
+                .background {
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(LinearGradient(colors: [Color(hex: "FFF8F2"), Color(hex: "FFF2E6")], startPoint: .topLeading, endPoint: .bottomTrailing))
+                }
+                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.sukaOrange.opacity(0.6), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])))
+                .shadow(color: Color.sukaOrange.opacity(0.08), radius: 6, y: 2)
 
-                if !t.dibatalkan {
+                if !t.dibatalkan && !t.tidakDiproses {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Tahapan Pesanan").font(SukaFont.jakarta(15, weight: .bold)).foregroundStyle(Color.sukaInk).padding(.bottom, 12)
                         LangkahWaktu(judul: "Pesanan Diterima", ket: "Kasir telah menerima & memvalidasi pesananmu",
@@ -117,22 +131,35 @@ struct OrderStatusView: View {
                                      tahap: .siap, sekarang: t, terakhir: true)
                     }
                     .padding(18)
-                    .kartuSuka(sudut: 20, elevasi: 2)
+                    .kartuElegan(sudut: 20, elevasi: 2, latar: .white)
                 }
 
                 HStack {
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text("Total Pembayaran").font(SukaFont.jakarta(12)).foregroundStyle(Color.sukaMuted)
-                        // Android selalu menulis "QRIS Lunas"; di sini hanya bila memang dibayar.
-                        Text(p.status == "dibayar" ? "QRIS Lunas" : "QRIS — belum lunas")
+                        let bayar = labelPembayaran(statusDapur: p.statusDapur, statusDraft: p.status)
+                        Text(bayar.teks)
                             .font(SukaFont.jakarta(12, weight: .bold))
-                            .foregroundStyle(p.status == "dibayar" ? Color.sukaGreen : Color.sukaMuted)
+                            .foregroundStyle(bayar.lunas ? Color.sukaGreen : Color.sukaMuted)
                     }
                     Spacer()
                     Text(rupiah(p.totalAmount)).font(SukaFont.lilita(22)).foregroundStyle(Color.sukaBrown)
                 }
                 .padding(16)
-                .kartuSuka(sudut: 18, elevasi: 1)
+                .kartuElegan(sudut: 18, elevasi: 1, latar: .white)
+
+                // Pesanan dibatalkan: jalur tanya pengembalian dana ke CS.
+                if t.dibatalkan, let tautan = tautanWa(config.waCs, teks:
+                    "Pesanan #\(p.posOrderNumber.map(String.init) ?? "-") dibatalkan, saya ingin menanyakan pengembalian dana.") {
+                    Link(destination: tautan) {
+                        Label("Hubungi CS", systemImage: "headphones")
+                            .font(SukaFont.jakarta(14, weight: .bold)).foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                            .background(Color.sukaGreen, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.mentul(0.98))
+                    .accessibilityIdentifier("tombol-hubungi-cs")
+                }
             }
             .padding(16)
         }

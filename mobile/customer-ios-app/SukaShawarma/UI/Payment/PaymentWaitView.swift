@@ -9,6 +9,7 @@ struct PaymentWaitView: View {
 
     @State private var halamanBayar: AlamatWeb?
     @State private var dibukaPada = Date()
+    @State private var tampilInfoQris = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,11 +31,15 @@ struct PaymentWaitView: View {
                         }
                         .buttonStyle(.mentul())
                         .accessibilityIdentifier("tombol-cek-status")
-                        // Android menyebutnya "Batalkan Pembayaran", padahal hanya kembali:
-                        // tagihan & QR tetap berlaku. Label disesuaikan dengan perilakunya.
-                        Button("Kembali ke Ringkasan", action: onKembaliKeRingkasan)
-                            .font(SukaFont.jakarta(13, weight: .bold)).foregroundStyle(Color.sukaMuted)
-                            .frame(minHeight: 40)
+                        // Benar-benar membatalkan draft di gateway (sejak 19 Okt,
+                        // sama dengan Android), lalu kembali ke ringkasan.
+                        Button("Batalkan Pembayaran") {
+                            vm.batalkanPercobaan()
+                            onKembaliKeRingkasan()
+                        }
+                        .font(SukaFont.jakarta(13, weight: .bold)).foregroundStyle(Color(hex: 0xD92D20))
+                        .frame(minHeight: 40)
+                        .accessibilityIdentifier("tombol-batalkan-pembayaran")
                     }
                 }
             }
@@ -54,9 +59,20 @@ struct PaymentWaitView: View {
             }
         }
         .sheet(item: $halamanBayar) { SafariView(url: $0.url).ignoresSafeArea() }
+        .alert("Informasi Pembayaran QRIS", isPresented: $tampilInfoQris) {
+            Button("Mengerti", role: .cancel) {}
+        } message: {
+            Text("Kode QRIS ini berlaku untuk satu transaksi pesanan Suka Shawarma dan dapat dipindai dari seluruh aplikasi mobile banking maupun e-wallet berstandar QRIS nasional.\n\nStatus pembayaran diperiksa secara otomatis setiap beberapa detik, atau tekan tombol 'Cek Status Pembayaran' setelah berhasil membayar.")
+        }
     }
 
-    private var tampilMenunggu: Bool { vm.memuat || vm.menungguKonfirmasi || vm.qrString != nil }
+    /// Keadaan akhir (gagal / kedaluwarsa / waktu habis / galat) MENANG atas
+    /// mode menunggu: QR yang masih tersisa tak boleh menyembunyikan kartu
+    /// statusnya, dan tombol "Cek Status" tak lagi relevan di sana.
+    private var keadaanAkhir: Bool { vm.gagalBayar || vm.kadaluarsa || vm.waktuHabis || vm.pesanGalat != nil }
+    private var tampilMenunggu: Bool {
+        (vm.memuat || vm.menungguKonfirmasi || vm.qrString != nil) && !keadaanAkhir
+    }
 
     private var kepala: some View {
         HStack {
@@ -72,18 +88,19 @@ struct PaymentWaitView: View {
                 Text("Order-Ahead & Ambil di Outlet").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
             }
             Spacer()
-            Color.clear.frame(width: 40, height: 40)
+            Button { tampilInfoQris = true } label: {
+                Image(systemName: "info.circle.fill").font(.system(size: 17, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                    .frame(width: 40, height: 40).background(Color.white, in: Circle())
+            }
+            .buttonStyle(.mentul())
+            .accessibilityLabel("Bantuan")
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .background(Color.sukaCream.shadow(.drop(color: .black.opacity(0.06), radius: 1, y: 1)))
     }
 
     @ViewBuilder private var isi: some View {
-        if tampilMenunggu {
-            kartuMenunggu
-            kartuVerifikasi
-            kartuPanduan
-        } else if vm.gagalBayar {
+        if vm.gagalBayar {
             KartuStatus(judul: "Pembayaran Tidak Berhasil",
                         keterangan: "Pembayaran ditolak atau dibatalkan. Keranjangmu masih tersimpan.",
                         labelUtama: "Coba Bayar Lagi", aksiUtama: { Task { await vm.bayar() } },
@@ -102,13 +119,18 @@ struct PaymentWaitView: View {
             KartuStatus(judul: "Terjadi Kendala", keterangan: pesan,
                         labelUtama: "Coba Lagi", aksiUtama: { Task { await vm.bayar() } },
                         labelKedua: "Kembali ke Ringkasan", aksiKedua: onKembaliKeRingkasan)
+        } else if tampilMenunggu {
+            kartuMenunggu
+            kartuVerifikasi
+            kartuPanduan
         } else {
             TombolUtama(label: "Mulai Pembayaran") { Task { await vm.bayar() } }
         }
     }
 
-    /// Batas bayar: dari `expires_at` gateway bila terbaca, kalau tidak 15 menit
-    /// sejak layar dibuka (Android selalu memakai yang kedua).
+    /// Batas bayar: dari `expires_at` gateway bila terbaca (dihitung ulang dari
+    /// jam tiap detik, bukan dikurangi satu-satu — tetap benar setelah aplikasi
+    /// ke latar), kalau tidak 15 menit sejak layar dibuka. Sama dengan Android.
     private var batasBayar: Date {
         if let e = vm.expiresAt, let ms = uraiWaktuIso(e) { return Date(timeIntervalSince1970: Double(ms) / 1000) }
         return dibukaPada.addingTimeInterval(15 * 60)
@@ -146,6 +168,11 @@ struct PaymentWaitView: View {
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("MERCHANT RESMI").font(SukaFont.jakarta(9, weight: .bold)).foregroundStyle(Color.sukaMuted)
                     Text("SUKA SHAWARMA INDONESIA").font(SukaFont.jakarta(12, weight: .bold)).foregroundStyle(Color.sukaInk)
+                    HStack(spacing: 3) {
+                        Image(systemName: "checkmark.seal.fill").font(.system(size: 10))
+                        Text("Merchant QRIS Terverifikasi").font(SukaFont.jakarta(10, weight: .bold))
+                    }
+                    .foregroundStyle(Color.sukaGreen)
                 }
             }
             .padding(.top, 4)
@@ -173,7 +200,7 @@ struct PaymentWaitView: View {
             }
         }
         .padding(18)
-        .kartuSuka(sudut: 22, elevasi: 3)
+        .kartuElegan(sudut: 22, elevasi: 3, latar: .white)
     }
 
     private var kartuVerifikasi: some View {

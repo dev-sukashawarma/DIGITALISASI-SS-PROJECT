@@ -1,13 +1,19 @@
 import SwiftUI
 
 /// Padanan `ItemDetailScreen.kt`: jumlah, topping, catatan, lalu tambah ke keranjang.
-///
-/// Tombol "Bagikan" di kepala Android tidak melakukan apa-apa (no-op), jadi
-/// sengaja TIDAK disalin — tombol mati terbaca sebagai aplikasi rusak.
+/// Tombol "Bagikan" di kepala membagikan teks menu lewat lembar bagikan sistem
+/// (padanan `Intent.ACTION_SEND` Android sejak 15 Okt).
 struct ItemDetailView: View {
     let item: MenuItemDto
     let toppingTersedia: [MenuItemDto]
     let cart: CartStore
+    /// Outlet tak bisa menerima pesanan (jam tutup / tutup sementara): menu
+    /// tetap bisa dilihat, hanya tombol tambah yang dikunci. Default true = perilaku lama.
+    var outletBolehPesan = true
+    var labelOutletTutup: String? = nil
+    /// Lencana "Terlaris" hanya untuk menu yang memang tampil di Menu Terlaris
+    /// Beranda (lihat `termasukMenuTerlaris`), bukan untuk semua menu.
+    var adalahTerlaris = false
     let onLihatKeranjang: () -> Void
     let onKembali: () -> Void
 
@@ -20,7 +26,18 @@ struct ItemDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PageBrandHeader(judul: "Detail Menu", subjudul: item.name, onKembali: onKembali)
+            PageBrandHeader(judul: "Detail Menu", subjudul: item.name, onKembali: onKembali) {
+                ShareLink(item: teksBagikanMenu(item), subject: Text(item.name)) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.sukaCreamTeks)
+                        .frame(width: 36, height: 36)
+                        .background(Color.white.opacity(0.15), in: Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Bagikan Menu")
+            }
             ScrollView {
                 VStack(spacing: 16) {
                     gambarUtama
@@ -41,12 +58,18 @@ struct ItemDetailView: View {
         GambarJarak(url: item.imageUrl, ikonCadangan: "fork.knife", ukuranIkon: 52)
             .frame(height: 230)
             .clipShape(RoundedRectangle(cornerRadius: 24))
-            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.sukaBorder.opacity(0.8), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.black.opacity(0.04), lineWidth: 1))
             .overlay(alignment: .topLeading) {
-                Text("🔥 Terlaris").font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(.white)
-                    .padding(.horizontal, 10).padding(.vertical, 4)
-                    .background(Color.sukaBrown, in: RoundedRectangle(cornerRadius: 10))
+                if adalahTerlaris {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill").font(.system(size: 11))
+                        Text("Terlaris").font(SukaFont.jakarta(10, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Color.sukaBrown.opacity(0.85), in: Capsule())
                     .padding(14)
+                }
             }
             .accessibilityLabel(item.name)
     }
@@ -58,7 +81,7 @@ struct ItemDetailView: View {
                 Text(d).font(SukaFont.jakarta(13)).foregroundStyle(Color.sukaMuted)
             }
             HStack {
-                Text(rupiah(item.price)).font(SukaFont.lilita(20)).foregroundStyle(Color.sukaBrown)
+                Text(rupiah(item.price)).font(SukaFont.lilita(22)).foregroundStyle(Color.sukaBrown)
                 Spacer()
                 stepper
             }
@@ -66,13 +89,13 @@ struct ItemDetailView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .kartuSuka(sudut: 20, elevasi: 2, tepi: .sukaBorder.opacity(0.7))
+        .kartuElegan(sudut: 20, elevasi: 1, latar: .white)
     }
 
     private var stepper: some View {
         HStack(spacing: 8) {
             Button { vm.ubahJumlah(-1) } label: {
-                Image(systemName: "minus").font(.system(size: 13, weight: .bold))
+                Image(systemName: "minus").font(.system(size: 12, weight: .bold))
                     .foregroundStyle(vm.jumlah > 1 ? Color.sukaInk : Color.sukaMuted.opacity(0.4))
                     .frame(width: 28, height: 28)
                     .background(vm.jumlah > 1 ? Color.white : .clear, in: Circle())
@@ -84,8 +107,8 @@ struct ItemDetailView: View {
                 .frame(minWidth: 24)
                 .contentTransition(.numericText())
             Button { vm.ubahJumlah(1) } label: {
-                Image(systemName: "plus").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.sukaInk)
-                    .frame(width: 28, height: 28).background(Color.sukaOrange, in: Circle())
+                Image(systemName: "plus").font(.system(size: 12, weight: .bold)).foregroundStyle(Color.sukaInk)
+                    .frame(width: 28, height: 28).background(SukaGradien.oranyePrimer, in: Circle())
             }
             .buttonStyle(.mentul(0.88))
             .disabled(vm.jumlah >= jumlahMaksPerItem)
@@ -93,7 +116,7 @@ struct ItemDetailView: View {
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
         .background(Color.sukaTint, in: Capsule())
-        .overlay(Capsule().stroke(Color.sukaBorder, lineWidth: 1))
+        .overlay(Capsule().stroke(Color.sukaBorderSubtle, lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Jumlah \(vm.jumlah)")
     }
@@ -108,18 +131,24 @@ struct ItemDetailView: View {
                 Spacer()
                 Text("Opsional").font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(Color.sukaBrown)
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Color.sukaTint, in: RoundedRectangle(cornerRadius: 8))
+                    .background(Color.sukaTint, in: Capsule())
             }
             ForEach(toppingTersedia) { t in
                 let dipilih = vm.toppingTerpilih.contains(t.id)
                 Button { vm.toggleTopping(t.id) } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(dipilih ? .white : .clear)
-                            .frame(width: 22, height: 22)
-                            .background(dipilih ? Color.sukaOrange : .clear, in: RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6)
-                                .stroke(dipilih ? Color.sukaOrange : Color.sukaMuted.opacity(0.5), lineWidth: 1.5))
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(dipilih ? Color.sukaOrange : Color.sukaMuted.opacity(0.4), lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+                            if dipilih {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(SukaGradien.oranyePrimer)
+                                    .frame(width: 22, height: 22)
+                                Image(systemName: "checkmark").font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(Color.sukaInk)
+                            }
+                        }
                         VStack(alignment: .leading, spacing: 0) {
                             Text(t.name).font(SukaFont.jakarta(13, weight: .bold)).foregroundStyle(Color.sukaInk)
                             if let d = t.description, !d.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -132,16 +161,16 @@ struct ItemDetailView: View {
                     }
                     .multilineTextAlignment(.leading)
                     .padding(.horizontal, 14).padding(.vertical, 12)
-                    .background(dipilih ? Color.sukaTint : .white, in: RoundedRectangle(cornerRadius: 14))
+                    .background(dipilih ? Color.sukaTint : Color.white, in: RoundedRectangle(cornerRadius: 14))
                     .overlay(RoundedRectangle(cornerRadius: 14)
-                        .stroke(dipilih ? Color.sukaOrange : Color.sukaBorder.opacity(0.8), lineWidth: 1.5))
+                        .stroke(dipilih ? Color.sukaOrange.opacity(0.6) : Color.black.opacity(0.06), lineWidth: 1))
                 }
                 .buttonStyle(.mentul(0.98))
                 .accessibilityAddTraits(dipilih ? .isSelected : [])
             }
         }
         .padding(18)
-        .kartuSuka(sudut: 20, elevasi: 2, tepi: .sukaBorder.opacity(0.7))
+        .kartuElegan(sudut: 20, elevasi: 1, latar: .white)
     }
 
     private var kartuCatatan: some View {
@@ -154,11 +183,11 @@ struct ItemDetailView: View {
                 .font(SukaFont.jakarta(13)).foregroundStyle(Color.sukaInk)
                 .padding(12)
                 .background(Color.sukaTint, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.sukaBorder, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.sukaBorderSubtle, lineWidth: 1))
             Text("\(vm.catatan.count)/\(panjangMaksCatatan) karakter").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
         }
         .padding(18)
-        .kartuSuka(sudut: 20, elevasi: 2, tepi: .sukaBorder.opacity(0.7))
+        .kartuElegan(sudut: 20, elevasi: 1, latar: .white)
     }
 
     private var bilahBawah: some View {
@@ -182,14 +211,15 @@ struct ItemDetailView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                Divider().overlay(Color.sukaBorder.opacity(0.5))
+                Divider().overlay(Color.black.opacity(0.06))
             }
+            if !outletBolehPesan { KeteranganOutletTutup(teks: labelOutletTutup) }
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(porsiKeranjang > 0 ? "Total Belanja (+Item ini)" : "Total Harga")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(porsiKeranjang > 0 ? "Total (+Item ini)" : "Total Harga")
                         .font(SukaFont.jakarta(11, weight: .medium)).foregroundStyle(Color.sukaMuted)
                     Text(rupiah(porsiKeranjang > 0 ? subtotalKeranjang + totalItem : totalItem))
-                        .font(SukaFont.lilita(19)).foregroundStyle(Color.sukaBrown)
+                        .font(SukaFont.lilita(21)).foregroundStyle(Color.sukaBrown)
                         .contentTransition(.numericText())
                     if porsiKeranjang > 0 {
                         Text("Item ini: +\(rupiah(totalItem))").font(SukaFont.jakarta(10, weight: .medium)).foregroundStyle(Color.sukaMuted)
@@ -197,13 +227,21 @@ struct ItemDetailView: View {
                 }
                 Spacer()
                 Button(action: tambah) {
-                    Text(item.isAvailable ? "+ Keranjang" : "Habis").font(SukaFont.jakarta(14, weight: .bold))
-                        .foregroundStyle(item.isAvailable ? Color.sukaInk : Color(white: 0.3))
+                    Text(!item.isAvailable ? "Habis" : !outletBolehPesan ? "Tutup" : "+ Keranjang")
+                        .font(SukaFont.jakarta(14, weight: .bold))
+                        .foregroundStyle(bolehTambah ? Color.sukaInk : Color(white: 0.35))
                         .padding(.horizontal, 24).padding(.vertical, 14)
-                        .background(item.isAvailable ? Color.sukaOrange : Color(white: 0.83), in: RoundedRectangle(cornerRadius: 20))
+                        .background {
+                            if bolehTambah {
+                                Capsule().fill(SukaGradien.oranyePrimer)
+                                    .shadow(color: Color.sukaOrange.opacity(0.35), radius: 6, y: 2)
+                            } else {
+                                Capsule().fill(Color(white: 0.88))
+                            }
+                        }
                 }
                 .buttonStyle(.mentul(0.94))
-                .disabled(!item.isAvailable)
+                .disabled(!bolehTambah)
                 .accessibilityIdentifier("tombol-tambah-keranjang")
             }
         }
@@ -212,14 +250,16 @@ struct ItemDetailView: View {
             UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
                 .fill(Color.white)
                 .overlay(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
-                    .stroke(Color.sukaBorder.opacity(0.6), lineWidth: 1))
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1))
                 .shadow(color: .black.opacity(0.10), radius: 14, y: -3)
                 .ignoresSafeArea(edges: .bottom)
         }
     }
 
+    private var bolehTambah: Bool { item.isAvailable && outletBolehPesan }
+
     private func tambah() {
-        guard item.isAvailable else { return }
+        guard bolehTambah else { return }
         let catatan = vm.catatan.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : vm.catatan
         cart.tambah(
             menuItemId: item.id,
@@ -234,4 +274,13 @@ struct ItemDetailView: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         onKembali()
     }
+}
+
+/// Teks yang dibagikan dari detail menu — sama persis dengan Android.
+func teksBagikanMenu(_ item: MenuItemDto) -> String {
+    var teks = "Cobain \(item.name) (\(rupiah(item.price))) di Suka Shawarma!"
+    if let d = item.description, !d.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        teks += "\n\(d)"
+    }
+    return teks
 }

@@ -24,9 +24,18 @@ struct CartLine: Codable, Sendable, Equatable {
     var toppings: [CartTopping] = []
 }
 
+/// Voucher yang dipasang ke keranjang. `id` dari daftar server, `kode` dari input manual.
+struct PilihanVoucher: Codable, Sendable, Equatable {
+    var id: String?
+    var kode: String?
+    let nama: String
+}
+
 private struct IsiKeranjang: Codable {
     var outletId: String?
     var baris: [CartLine] = []
+    /// Opsional: keranjang tersimpan dari versi lama (tanpa field ini) tetap terbaca.
+    var voucher: PilihanVoucher?
 }
 
 /// Cara keranjang bertahan lintas peluncuran. Dipisah agar bisa diuji.
@@ -72,11 +81,15 @@ final class CartStore {
     /// Berpindah outlet MENGOSONGKAN keranjang dan mengembalikan `true` bila
     /// itu terjadi. `menu_item_id` bersifat per-outlet — membawa isi keranjang
     /// outlet A ke outlet B pasti ditolak gateway tepat di titik bayar.
+    ///
+    /// Voucher SENGAJA TIDAK dilepas: server memvalidasi ulang `voucher_id`
+    /// terhadap outlet baru di setiap panggilan, jadi voucher yang tak lagi
+    /// berlaku ditolak di sana dengan alasan jelas, bukan hilang senyap.
     @discardableResult
     func pakaiOutlet(_ outletId: String) -> Bool {
         if keadaan.outletId == outletId { return false }
         let adaIsi = !keadaan.baris.isEmpty
-        keadaan = IsiKeranjang(outletId: outletId, baris: [])
+        keadaan = IsiKeranjang(outletId: outletId, baris: [], voucher: keadaan.voucher)
         tulis()
         return adaIsi
     }
@@ -154,8 +167,22 @@ final class CartStore {
 
     func isi() -> [CartLine] { keadaan.baris }
 
+    func voucher() -> PilihanVoucher? { keadaan.voucher }
+
+    func pasangVoucher(_ v: PilihanVoucher) {
+        keadaan.voucher = v
+        tulis()
+    }
+
+    func lepasVoucher() {
+        keadaan.voucher = nil
+        tulis()
+    }
+
+    /// Mengosongkan keranjang IKUT melepas voucher (pesanan sudah selesai dibayar).
     func kosongkan() {
         keadaan.baris = []
+        keadaan.voucher = nil
         tulis()
     }
 

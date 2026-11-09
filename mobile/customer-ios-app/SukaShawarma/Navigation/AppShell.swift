@@ -16,13 +16,30 @@ struct AppShell: View {
     @State private var tampilPilihOutlet = false
     @State private var catalog: CatalogViewModel?
     @State private var popupDilihat: Set<String> = []
+    /// `GET /config`. nil = belum/gagal dimuat -> bawaan dipakai, tak memaksa update.
+    @State private var config: ConfigDto?
+    @Environment(\.scenePhase) private var fase
 
     var body: some View {
         Group {
-            if let catalog {
+            if perluUpdate(versiTerpasang: versiBuildTerpasang(), config: config) {
+                LayarPerbaruiAplikasi()
+            } else if let catalog {
                 shell(catalog)
             } else {
                 Color.sukaCream.ignoresSafeArea()
+            }
+        }
+        .environment(\.configApp, config ?? ConfigDto())
+        // Diambil ulang tiap app kembali ke depan, bukan sekali saat start:
+        // perubahan di Pengaturan Aplikasi (WA CS, estimasi, versi minimum)
+        // harus sampai ke app yang dibiarkan terbuka. Status outlet (jam buka,
+        // tutup sementara) juga bergantung waktu. Sama dengan ON_RESUME Android.
+        .onChange(of: fase, initial: true) { _, baru in
+            guard baru == .active else { return }
+            Task {
+                if case .sukses(let c) = await container.repository.config() { config = c }
+                await catalog?.segarkanStatusOutlet()
             }
         }
         .task {
@@ -125,9 +142,11 @@ struct AppShell: View {
                      onBukaMenu: { tab = .menu },
                      onPilihItem: { jalur.append(.detail(menuItemId: $0.id)) },
                      onBukaNotifikasi: { jalur.append(.notifikasi) },
+                     onBukaVoucher: { jalur.append(.voucher) },
+                     inisial: inisialPelanggan(),
                      onKetukBanner: { bukaTujuan(catalog, $0) })
         case .menu:
-            MenuView(vm: catalog,
+            MenuView(vm: catalog, inisial: inisialPelanggan(),
                      onGantiOutlet: { tampilPilihOutlet = true },
                      onBukaProfil: { tab = .profil },
                      onPilihItem: { jalur.append(.detail(menuItemId: $0.id)) })
@@ -138,10 +157,13 @@ struct AppShell: View {
                         onMasuk: { jalur.append(.masuk(tujuan: .katalog)) })
         case .profil:
             ProfilTab(onBukaInfoAkun: { jalur.append(.infoAkun) },
+                      onBukaVoucher: { jalur.append(.voucher) },
                       onLihatRiwayat: { tab = .pesanan },
                       onMasuk: { jalur.append(.masuk(tujuan: .katalog)) },
                       namaOutlet: catalog.outlet?.name) {
                 container.sessionStore.hapus()
+                container.cartStore.kosongkan()
+                container.orderAttemptStore.selesai()
                 container.notificationStore.setUnreadCount(0)
                 // Android membawa ke layar Masuk; di iOS layar itu belum ada (Fase 3).
                 jalur = []
@@ -158,6 +180,8 @@ struct AppShell: View {
             if let item = catalog.semuaItem.first(where: { $0.id == id }) {
                 ItemDetailView(item: item, toppingTersedia: toppingUntuk(item, semua: catalog.semuaItem),
                                cart: container.cartStore,
+                               adalahTerlaris: termasukMenuTerlaris(item.id, semua: catalog.semuaItem,
+                                                                    kurasiIds: (config ?? ConfigDto()).menuTerlarisIds),
                                onLihatKeranjang: { jalur.append(.keranjang) },
                                onKembali: kembali)
             } else {
@@ -171,21 +195,28 @@ struct AppShell: View {
                 .toolbar(.hidden, for: .navigationBar)
             }
         case .keranjang:
-            CartView(cart: container.cartStore, onKembali: kembali) {
+            CartView(cart: container.cartStore, onKembali: kembali, onLanjutBayar: {
                 // Login diminta DI SINI, di titik bayar — bukan di pintu masuk.
                 // Pelanggan boleh menyusun keranjang tanpa akun; `checkout/validate`
                 // yang menuntut sesi.
                 jalur.append(container.sesiBerlaku() ? .checkout : .masuk(tujuan: .checkout))
-            }
+            }, namaOutlet: namaOutletKeranjang(),
+               outletBolehPesan: catalog.outlet?.bolehPesan != false,
+               labelOutletTutup: labelOutletTutup(catalog.outlet))
+            .task { await catalog.segarkanStatusOutlet() }
         case .checkout:
             CheckoutView(vm: CheckoutViewModel(repository: container.repository, cart: container.cartStore),
                          onKembali: kembali,
                          onBayar: { jalur.append(.bayar) },
+                         namaOutlet: namaOutletKeranjang(),
+                         outletBolehPesan: catalog.outlet?.bolehPesan != false,
+                         labelOutletTutup: labelOutletTutup(catalog.outlet),
                          onSesiHabis: {
                              container.sessionStore.hapus()
                              jalur.removeLast()
                              jalur.append(.masuk(tujuan: .checkout))
                          })
+            .task { await catalog.segarkanStatusOutlet() }
         case .masuk(let tujuan):
             LoginView(vm: LoginViewModel(repository: container.repository, sessionStore: container.sessionStore),
                       googleClientID: container.config.googleIOSClientID,
@@ -212,20 +243,52 @@ struct AppShell: View {
                             onLihatRiwayat: { jalur = []; tab = .pesanan })
         case .sukses(let id, let nomor):
             SuccessView(nomorPesanan: nomor, namaOutlet: catalog.outlet?.name,
-                        onLihatStatus: { jalur.append(.status(orderId: id)) },
+                        // Layar sukses DIGANTI status (Android: popUpTo SUKSES
+                        // inclusive) — kembali dari status tak membawa ke sukses lagi.
+                        onLihatStatus: { jalur = [.status(orderId: id)] },
                         onKembaliKeMenu: { jalur = []; tab = .beranda })
         case .status(let id):
             OrderStatusView(vm: OrderStatusViewModel(repository: container.repository, orderId: id), onKembali: kembali)
         case .infoAkun:
             InformasiAkunView(vm: InformasiAkunViewModel(repository: container.repository,
                                                          sessionStore: container.sessionStore),
-                              onKembali: kembali)
+                              onKembali: kembali,
+                              onAkunDihapus: {
+                                  // Sesi sudah dibuang ViewModel; sisa data pelanggan di HP ini
+                                  // ikut dibersihkan, lalu ke layar Masuk (sama dengan Android).
+                                  container.sessionStore.hapus()
+                                  container.cartStore.kosongkan()
+                                  container.orderAttemptStore.selesai()
+                                  container.notificationStore.setUnreadCount(0)
+                                  tab = .beranda
+                                  jalur = [.masuk(tujuan: .katalog)]
+                              })
         case .notifikasi:
             NotificationView(vm: NotificationViewModel(repository: container.repository, store: container.notificationStore),
                              onBukaStatusPesanan: { jalur.append(.status(orderId: $0)) },
                              onBukaMenu: { jalur = []; tab = .menu },
                              onKembali: kembali)
+        case .voucher:
+            VoucherView(vm: VoucherViewModel(muat: { await container.repository.vouchers() }, cart: container.cartStore),
+                        onKembali: kembali,
+                        // Voucher terpasang di keranjang -- kembali ke Menu supaya
+                        // checkout (yang memvalidasinya) sudah membawanya.
+                        onSetelahPakai: { jalur = []; tab = .menu },
+                        onMasuk: { jalur.append(.masuk(tujuan: .katalog)) })
         }
+    }
+
+    private func inisialPelanggan() -> String {
+        let s = container.sessionStore.baca()
+        return inisialNama(s?.nama, email: s?.email)
+    }
+
+    /// Nama outlet keranjang. Hanya dipakai bila outlet tersimpan memang outlet
+    /// keranjang -- lebih baik tidak menyebut nama daripada menyebut nama yang
+    /// salah di titik bayar.
+    private func namaOutletKeranjang() -> String? {
+        guard let id = container.cartStore.outletId(), container.outletStore.idTerpilih() == id else { return nil }
+        return container.outletStore.namaTerpilih()
     }
 }
 
@@ -234,6 +297,7 @@ struct AppShell: View {
 private struct ProfilTab: View {
     @Environment(AppContainer.self) private var container
     let onBukaInfoAkun: () -> Void
+    let onBukaVoucher: () -> Void
     let onLihatRiwayat: () -> Void
     let onMasuk: () -> Void
     let namaOutlet: String?
@@ -249,7 +313,7 @@ private struct ProfilTab: View {
                         container.notificationStore.simpanPreferensi(statusPesanan: pesanan, promo: promo)
                         Task { _ = await container.repository.simpanPreferensiNotifikasi(pesanan: pesanan, promo: promo) }
                     },
-                    onBukaInfoAkun: onBukaInfoAkun, onLihatRiwayat: onLihatRiwayat, onMasuk: onMasuk,
+                    onBukaInfoAkun: onBukaInfoAkun, onBukaVoucher: onBukaVoucher, onLihatRiwayat: onLihatRiwayat, onMasuk: onMasuk,
                     onKeluar: {
                         onKeluar()
                         sesi = nil

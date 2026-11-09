@@ -100,6 +100,17 @@ describe('keterangan transfer', () => {
   })
 })
 
+describe('refund dana', () => {
+  it('jenis refund_dana dengan keterangan tujuan', () => {
+    const t = {
+      id: 'x', occurred_at: '2026-11-09T00:00:00Z', direction: 'out' as const, amount: 1, status: 'reconciled',
+      source_type: 'refund_dana', category: 'Refund ke Owner', note: 'kembalikan modal',
+    }
+    expect(jenisTransaksi(t)).toBe('refund_dana')
+    expect(keteranganTransaksi(t)).toBe('Refund ke Owner · kembalikan modal')
+  })
+})
+
 describe('top up', () => {
   it('jenis top_up dengan keterangan sumber dana', () => {
     const t = {

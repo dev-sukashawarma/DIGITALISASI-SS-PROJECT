@@ -4,7 +4,7 @@ export type CashDirection = 'in' | 'out'
 export type CashSourceType =
   | 'payroll' | 'supplier_po' | 'expense_pusat' | 'kasbon'
   | 'cash_deposit' | 'manual' | 'transfer' | 'petty_cash_topup'
-  | 'setor_bank' | 'income_lain' | 'top_up'
+  | 'setor_bank' | 'income_lain' | 'top_up' | 'refund_dana'
 export type CashTxStatus =
   | 'draft' | 'pending_approval' | 'approved'
   | 'paid' | 'reconciled' | 'rejected' | 'void'

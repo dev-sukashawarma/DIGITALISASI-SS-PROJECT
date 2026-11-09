@@ -26,8 +26,10 @@ terulang.
    `.swift` di `customer-ios-app/SukaShawarma`, atau sebaliknya.
 5. **Pengecualian disengaja** — perubahan yang memang khas satu platform
    (izin Android 13, Credential Manager, Sign in with Apple, Keychain, dsb.):
-   tulis `[hanya-android]` atau `[hanya-ios]` **beserta alasannya** di pesan
-   commit atau judul/isi PR.
+   tulis **satu baris yang diawali** `[hanya-android]` atau `[hanya-ios]`
+   **lalu alasannya** di pesan commit atau isi PR, mis.
+   `[hanya-ios] Sign in with Apple tidak ada di Android`. Penanda yang hanya
+   disebut di tengah kalimat tidak dihitung.
 
 Berkas non-kode (ikon, Gradle, `project.yml`/`.xcodeproj`, aset toko, uji) tidak
 dihitung pengecek — itu memang khas platform.

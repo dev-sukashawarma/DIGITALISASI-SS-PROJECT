@@ -20,6 +20,18 @@ export const PENANDA_HANYA_ANDROID = '[hanya-android]';
 export const PENANDA_HANYA_IOS = '[hanya-ios]';
 
 /**
+ * Penanda hanya sah di AWAL baris dan diikuti alasan, mis.
+ * `[hanya-ios] Sign in with Apple tidak ada di Android`. Menyebut penanda di
+ * tengah kalimat (mis. saat menjelaskan aturan ini) TIDAK meloloskan.
+ */
+function adaPenanda(pesan, penanda) {
+  return pesan.split('\n').some((baris) => {
+    const b = baris.trim().toLowerCase();
+    return b.startsWith(penanda) && b.slice(penanda.length).trim().length > 0;
+  });
+}
+
+/**
  * @param {string[]} berkas path yang berubah
  * @param {string} pesan pesan commit + PR
  * @returns {{ ok: true, alasan: string } | { ok: false, alasan: string }}
@@ -27,13 +39,12 @@ export const PENANDA_HANYA_IOS = '[hanya-ios]';
 export function periksaParitas(berkas, pesan = '') {
   const android = berkas.filter((b) => ANDROID.test(b));
   const ios = berkas.filter((b) => IOS.test(b));
-  const p = pesan.toLowerCase();
 
   if (android.length === 0 && ios.length === 0) return { ok: true, alasan: 'Aplikasi pelanggan tidak berubah.' };
   if (android.length > 0 && ios.length > 0) return { ok: true, alasan: 'Android dan iOS sama-sama berubah.' };
 
   if (android.length > 0) {
-    if (p.includes(PENANDA_HANYA_ANDROID)) {
+    if (adaPenanda(pesan, PENANDA_HANYA_ANDROID)) {
       return { ok: true, alasan: `Hanya Android berubah, ditandai ${PENANDA_HANYA_ANDROID}.` };
     }
     return {
@@ -41,10 +52,10 @@ export function periksaParitas(berkas, pesan = '') {
       alasan:
         `Kode Android aplikasi pelanggan berubah (${android.length} berkas, mis. ${android[0]}) ` +
         `tanpa perubahan di mobile/customer-ios-app. Port perubahannya ke iOS di PR yang sama, ` +
-        `atau bila memang khusus Android tulis ${PENANDA_HANYA_ANDROID} beserta alasannya di pesan commit/PR.`,
+        `atau bila memang khusus Android tulis satu baris diawali ${PENANDA_HANYA_ANDROID} diikuti alasannya di pesan commit/PR.`,
     };
   }
-  if (p.includes(PENANDA_HANYA_IOS)) {
+  if (adaPenanda(pesan, PENANDA_HANYA_IOS)) {
     return { ok: true, alasan: `Hanya iOS berubah, ditandai ${PENANDA_HANYA_IOS}.` };
   }
   return {
@@ -52,7 +63,7 @@ export function periksaParitas(berkas, pesan = '') {
     alasan:
       `Kode iOS aplikasi pelanggan berubah (${ios.length} berkas, mis. ${ios[0]}) ` +
       `tanpa perubahan di mobile/customer-app. Port perubahannya ke Android di PR yang sama, ` +
-      `atau bila memang khusus iOS tulis ${PENANDA_HANYA_IOS} beserta alasannya di pesan commit/PR.`,
+      `atau bila memang khusus iOS tulis satu baris diawali ${PENANDA_HANYA_IOS} diikuti alasannya di pesan commit/PR.`,
   };
 }
 

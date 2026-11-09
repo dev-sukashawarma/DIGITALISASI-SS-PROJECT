@@ -25,9 +25,14 @@ test('hanya iOS -> gagal, menyebut Android', () => {
   assert.match(h.alasan, /customer-app/);
 });
 
-test('penanda pengecualian meloloskan, tak peka huruf besar', () => {
-  assert.equal(periksaParitas([KT], 'fix: izin notifikasi Android 13 [HANYA-ANDROID]').ok, true);
-  assert.equal(periksaParitas([SWIFT], 'fix: Sign in with Apple [hanya-ios]').ok, true);
+test('penanda di awal baris + alasan meloloskan, tak peka huruf besar', () => {
+  assert.equal(periksaParitas([KT], 'fix: izin notifikasi\n\n[HANYA-ANDROID] izin POST_NOTIFICATIONS khas Android 13').ok, true);
+  assert.equal(periksaParitas([SWIFT], '  [hanya-ios] Sign in with Apple tak ada di Android').ok, true);
+});
+
+test('penanda tanpa alasan atau di tengah kalimat tidak meloloskan', () => {
+  assert.equal(periksaParitas([SWIFT], '[hanya-ios]').ok, false);
+  assert.equal(periksaParitas([SWIFT], 'pengecualian [hanya-android]/[hanya-ios] + alasan').ok, false);
 });
 
 test('penanda platform yang salah tidak meloloskan', () => {

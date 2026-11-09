@@ -5,6 +5,7 @@ export type PengaturanApp = {
   estimasiSiap: string
   waCs: string | null
   versiMinimumAndroid: number
+  versiMinimumIos: number
   urlSyarat: string | null
   urlPrivasi: string | null
   /** Urutan kurasi admin untuk "Menu Terlaris" di Beranda. Kosong = APK pakai aturan lama. */
@@ -16,6 +17,7 @@ export const PENGATURAN_BAWAAN: PengaturanApp = {
   estimasiSiap: '15–20 menit',
   waCs: null,
   versiMinimumAndroid: 1,
+  versiMinimumIos: 1,
   urlSyarat: null,
   urlPrivasi: null,
   menuTerlarisIds: [],
@@ -35,6 +37,7 @@ export function petakanPengaturan(baris: unknown): PengaturanApp {
     estimasiSiap: teks(r.estimasi_siap) ?? PENGATURAN_BAWAAN.estimasiSiap,
     waCs: teks(r.wa_cs),
     versiMinimumAndroid: angka(r.versi_minimum_android, 1),
+    versiMinimumIos: angka(r.versi_minimum_ios, 1),
     urlSyarat: teks(r.url_syarat),
     urlPrivasi: teks(r.url_privasi),
     menuTerlarisIds: daftarId(r.menu_terlaris_ids),
@@ -53,7 +56,7 @@ export async function ambilPengaturan(): Promise<PengaturanApp> {
   try {
     const { data, error } = await createServiceClient()
       .from('app_pengaturan')
-      .select('menit_pesan_terakhir, estimasi_siap, wa_cs, versi_minimum_android, url_syarat, url_privasi, menu_terlaris_ids')
+      .select('menit_pesan_terakhir, estimasi_siap, wa_cs, versi_minimum_android, versi_minimum_ios, url_syarat, url_privasi, menu_terlaris_ids')
       .eq('id', 1)
       .maybeSingle()
     if (error) throw error

@@ -3,7 +3,7 @@ import { periksaPengaturan, normalisasiWa, type InputPengaturan } from './pengat
 
 const sah: InputPengaturan = {
   menitPesanTerakhir: 30, menitTertahan: 10, estimasiSiap: '15–20 menit',
-  waCs: '081234567890', versiMinimumAndroid: 1, urlSyarat: '', urlPrivasi: 'https://x.id/privasi',
+  waCs: '081234567890', versiMinimumAndroid: 1, versiMinimumIos: 1, urlSyarat: '', urlPrivasi: 'https://x.id/privasi',
 }
 describe('periksaPengaturan', () => {
   it('input sah -> null', () => expect(periksaPengaturan(sah)).toBeNull())
@@ -11,7 +11,9 @@ describe('periksaPengaturan', () => {
     expect(periksaPengaturan({ ...sah, menitPesanTerakhir: 181 })).toMatch(/0–180/)
     expect(periksaPengaturan({ ...sah, menitTertahan: 0 })).toMatch(/1–120/)
     expect(periksaPengaturan({ ...sah, estimasiSiap: '' })).toMatch(/Estimasi/)
-    expect(periksaPengaturan({ ...sah, versiMinimumAndroid: 0 })).toMatch(/Versi/)
+    expect(periksaPengaturan({ ...sah, versiMinimumAndroid: 0 })).toMatch(/Android/)
+    expect(periksaPengaturan({ ...sah, versiMinimumIos: 0 })).toMatch(/iOS/)
+    expect(periksaPengaturan({ ...sah, versiMinimumIos: 1.5 })).toMatch(/iOS/)
   })
   it('URL wajib https bila diisi', () => {
     expect(periksaPengaturan({ ...sah, urlSyarat: 'http://x.id' })).toMatch(/https/)

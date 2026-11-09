@@ -11,6 +11,7 @@ export async function GET() {
       estimasi_siap: p.estimasiSiap,
       wa_cs: p.waCs,
       versi_minimum_android: p.versiMinimumAndroid,
+      versi_minimum_ios: p.versiMinimumIos,
       url_syarat: p.urlSyarat,
       url_privasi: p.urlPrivasi,
       menu_terlaris_ids: p.menuTerlarisIds,

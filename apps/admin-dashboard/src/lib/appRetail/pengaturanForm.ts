@@ -4,6 +4,7 @@ export type InputPengaturan = {
   estimasiSiap: string
   waCs: string
   versiMinimumAndroid: number
+  versiMinimumIos: number
   urlSyarat: string
   urlPrivasi: string
 }
@@ -23,7 +24,8 @@ export function periksaPengaturan(i: InputPengaturan): string | null {
     return 'Batas tertahan harus 1–120 menit.'
   const est = i.estimasiSiap.trim()
   if (est.length < 1 || est.length > 40) return 'Estimasi waktu siap wajib diisi (maks 40 huruf).'
-  if (!Number.isInteger(i.versiMinimumAndroid) || i.versiMinimumAndroid < 1) return 'Versi minimum minimal 1.'
+  if (!Number.isInteger(i.versiMinimumAndroid) || i.versiMinimumAndroid < 1) return 'Versi minimum Android minimal 1.'
+  if (!Number.isInteger(i.versiMinimumIos) || i.versiMinimumIos < 1) return 'Versi minimum iOS minimal 1.'
   const wa = normalisasiWa(i.waCs)
   if (wa !== null && !/^62[0-9]{8,13}$/.test(wa)) return 'Nomor WhatsApp CS tidak sah.'
   for (const url of [i.urlSyarat, i.urlPrivasi]) {

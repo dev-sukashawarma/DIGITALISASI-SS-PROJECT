@@ -74,6 +74,9 @@ Grid: 18 outlet, 3 kolom, spacious cards (340px × 280px)
 - Push: `supabase db push` (hati-hati riwayat diverged — `migration repair` dulu)
 - Local: Gunakan Supabase local dev kalau tersedia
 
+### Aplikasi pelanggan: Android & iOS WAJIB berubah bersamaan
+Setiap perubahan perilaku `mobile/customer-app` (Kotlin) dikerjakan juga di `mobile/customer-ios-app` (SwiftUI) **di commit/PR yang sama**, termasuk uji padanannya. CI (`paritas-aplikasi-pelanggan`) menolak PR yang hanya menyentuh satu; pengecualian khas platform ditandai `[hanya-android]`/`[hanya-ios]` + alasan. Rilis: naikkan nomor build kedua aplikasi, lalu "Versi minimum Android/iOS" di Pengaturan Aplikasi. Detail: `mobile/PARITAS.md`.
+
 ### Build & Test
 - Type check: `yarn type-check` (root)
 - Build: `yarn build` (root) atau `cd apps/stok && yarn build`

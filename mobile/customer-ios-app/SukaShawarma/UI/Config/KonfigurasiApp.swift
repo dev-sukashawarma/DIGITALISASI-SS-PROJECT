@@ -3,7 +3,7 @@ import SwiftUI
 /// Padanan `ui/config/KonfigurasiApp.kt` + `TautanApp.kt`.
 
 /// Config gagal dimuat -> TIDAK memaksa update: pelanggan tak boleh terkunci
-/// karena jaringan. `versi_minimum_ios` absen (gateway belum mengirimnya) = sama.
+/// karena jaringan. `versi_minimum_ios` absen (gateway lama) = sama.
 func perluUpdate(versiTerpasang: Int, config: ConfigDto?) -> Bool {
     guard let minimum = config?.versiMinimumIos else { return false }
     return versiTerpasang < minimum

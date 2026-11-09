@@ -163,8 +163,8 @@ struct SplashDto: Decodable, Sendable, Equatable {
 /// `GET /api/v1/config` — setelan Pengaturan Aplikasi di admin-dashboard.
 /// Semua field punya bawaan: gateway lama / field absen tak boleh menjatuhkan app.
 ///
-/// `versiMinimumIos` BELUM dikirim gateway (baru ada `versi_minimum_android`).
-/// Selama absen = nil = tidak pernah memaksa update. Android sengaja TIDAK
+/// `versiMinimumIos` = kolom `app_pengaturan.versi_minimum_ios` (diatur di admin
+/// Pengaturan Aplikasi). Absen (gateway lama) = nil = tidak pernah memaksa update. Android sengaja TIDAK
 /// dibaca di sini: nomor build kedua platform tidak sejajar.
 struct ConfigDto: Decodable, Sendable, Equatable {
     var estimasiSiap: String = "15–20 menit"

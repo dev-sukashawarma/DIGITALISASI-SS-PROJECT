@@ -122,6 +122,7 @@ export async function simpanPengaturan(input: InputPengaturan) {
     estimasi_siap: input.estimasiSiap.trim(),
     wa_cs: normalisasiWa(input.waCs),
     versi_minimum_android: input.versiMinimumAndroid,
+    versi_minimum_ios: input.versiMinimumIos,
     url_syarat: input.urlSyarat.trim() || null,
     url_privasi: input.urlPrivasi.trim() || null,
     diubah_oleh: userId,

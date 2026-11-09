@@ -18,6 +18,8 @@ export interface PayablePo {
   cash_transaction_id: string | null
   cash_location_id?: string | null
   total: number
+  lunas_tanpa_kas_at?: string | null
+  lunas_tanpa_kas_alasan?: string | null
 }
 
 /** Transaksi kas pembayaran PO (pengajuan / lunas / ditolak). */
@@ -62,6 +64,23 @@ export function useBayarVendorPendingCount(enabled = true) {
         .from('po_payable_spv')
         .select('id', { count: 'exact', head: true })
         .eq('payment_status', 'pending')
+      if (error) throw error
+      return count ?? 0
+    },
+  })
+}
+
+/** Jumlah PO diterima yang belum diajukan pembayarannya (badge purchasing & info Hub). */
+export function useTagihanBelumDiajukanCount(enabled = true) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery<number>({
+    queryKey: ['po_payable', 'count', 'unpaid'],
+    enabled,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('po_payable_spv')
+        .select('id', { count: 'exact', head: true })
+        .eq('payment_status', 'unpaid')
       if (error) throw error
       return count ?? 0
     },
@@ -157,6 +176,26 @@ export function useTolakBayarPo() {
     mutationFn: async (v: { poId: string; alasan: string }) => {
       const { error } = await supabase.rpc('tolak_bayar_po', { p_po_id: v.poId, p_alasan: v.alasan })
       if (error) throw error
+    },
+    onSuccess: segarkan,
+  })
+}
+
+/**
+ * Finance menandai PO sebelum 1 Nov 2026 yang sudah dibayar di luar sistem sebagai lunas,
+ * tanpa transaksi kas (RPC tandai_po_lunas_tanpa_kas). Saldo rekening tidak bergerak.
+ */
+export function useTandaiPoLunasTanpaKas() {
+  const supabase = useMemo(() => createClient(), [])
+  const segarkan = useSegarkan()
+  return useMutation({
+    mutationFn: async (v: { poIds: string[]; alasan: string }) => {
+      const { data, error } = await supabase.rpc('tandai_po_lunas_tanpa_kas', {
+        p_po_ids: v.poIds,
+        p_alasan: v.alasan,
+      })
+      if (error) throw error
+      return Number(data) || 0
     },
     onSuccess: segarkan,
   })

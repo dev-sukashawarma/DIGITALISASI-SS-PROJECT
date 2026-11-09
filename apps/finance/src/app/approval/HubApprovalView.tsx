@@ -9,7 +9,8 @@ import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { useHubApproval } from '@/hooks/useHubApproval'
 import { useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
 import { useRejectPo, type PendingPo } from '@/hooks/usePoApproval'
-import { useTolakBayarPo, type PayablePo } from '@/hooks/useSupplierSettlement'
+import { useTolakBayarPo, useTagihanBelumDiajukanCount, type PayablePo } from '@/hooks/useSupplierSettlement'
+import Link from 'next/link'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
 import { useCashOverview } from '@/hooks/useCashData'
 import { JENIS_LABEL, type HubItem } from '@/lib/approval/hub'
@@ -33,6 +34,7 @@ export function HubApprovalView() {
   const qc = useQueryClient()
   const { isChecker } = useFinanceRole()
   const { items, galat, isLoading, perJenis } = useHubApproval(isChecker)
+  const { data: tagihanBelumDiajukan = 0 } = useTagihanBelumDiajukanCount(isChecker)
   const [tab, setTab] = useState<'menunggu' | 'riwayat'>('menunggu')
   const [now, setNow] = useState(() => new Date())
 
@@ -174,6 +176,13 @@ export function HubApprovalView() {
       {tab === 'riwayat' ? (
         <RiwayatApprovalPanel enabled={isChecker} />
       ) : (
+        <>
+        {tagihanBelumDiajukan > 0 && (
+          <p className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            <b>{tagihanBelumDiajukan} PO</b> sudah diterima tapi pembayarannya belum diajukan purchasing.{' '}
+            <Link href="/supplier" className="font-semibold underline">Lihat Pembayaran Vendor</Link>
+          </p>
+        )}
         <MenungguPanel
           items={items}
           galat={galat}
@@ -184,6 +193,7 @@ export function HubApprovalView() {
           onSetujui={setujui}
           onTolak={setTolakItem}
         />
+        </>
       )}
 
       {pettyAcc && (

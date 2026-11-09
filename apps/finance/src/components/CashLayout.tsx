@@ -43,6 +43,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useHubApprovalCount } from '@/hooks/useHubApproval'
 import { teksBadgeHub } from '@/lib/approval/hub'
 import { usePendingPrCount } from '@/hooks/usePurchaseRequest'
+import { useTagihanBelumDiajukanCount } from '@/hooks/useSupplierSettlement'
 
 type NavItem = {
   href: string
@@ -131,6 +132,7 @@ function buildPurchasingNavGroups(resolvedAdminUrl: string): NavGroup[] {
         { href: '/po-approval', label: 'Status Approval PO', icon: ClipboardCheck },
         { href: '/pembelian/penerimaan', label: 'Penerimaan Barang', icon: Package },
         { href: '/pembelian/invoice', label: 'Invoice & Tagihan', icon: Receipt },
+        { href: '/supplier', label: 'Tagihan Vendor', icon: Banknote },
       ],
     },
     {
@@ -221,12 +223,14 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const bolehHub = ['owner', 'admin', 'admin_finance', 'developer'].includes(role)
   const { total: hubPendingCount, adaGalat: hubAdaGalat } = useHubApprovalCount(bolehHub)
   const { data: prPendingCount = 0 } = usePendingPrCount()
+  // Purchasing: PO diterima yang belum diajukan pembayarannya (termasuk yang ditolak finance).
+  const { data: tagihanBelumDiajukan = 0 } = useTagihanBelumDiajukanCount(isPurchasingRole)
   
   const prevPendingRef = useRef(0)
 
   useEffect(() => {
     const totalPending = isPurchasingRole
-      ? prPendingCount
+      ? prPendingCount + tagihanBelumDiajukan
       : hubPendingCount
     const appTitle = isPurchasingRole ? 'Suka Purchasing' : 'Suka Finance'
     if (totalPending > 0) {
@@ -241,7 +245,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
     }
     // Update ref for next comparison
     prevPendingRef.current = totalPending
-  }, [isPurchasingRole, prPendingCount, hubPendingCount, hubAdaGalat])
+  }, [isPurchasingRole, prPendingCount, tagihanBelumDiajukan, hubPendingCount, hubAdaGalat])
 
   const baseNavGroups: NavGroup[] = isPurchasingRole
     ? buildPurchasingNavGroups(resolvedAdminUrl)
@@ -269,7 +273,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
         { href: '/pembelian/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/pembelian', label: 'Purchase Order', icon: ShoppingCart },
         { href: '/pembelian/penerimaan', label: 'Penerimaan', icon: Package },
-        { href: '/pembelian/invoice', label: 'Invoice', icon: Receipt },
+        { href: '/supplier', label: 'Tagihan', icon: Banknote },
       ]
     : [
         { href: '/', label: 'Beranda', icon: LayoutDashboard },
@@ -337,6 +341,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const getItemBadge = (href: string): number | undefined => {
     if (href === '/approval') return hubPendingCount
     if (href === '/pembelian/permintaan') return prPendingCount
+    if (href === '/supplier' && isPurchasingRole) return tagihanBelumDiajukan
     return undefined
   }
 

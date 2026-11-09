@@ -423,7 +423,7 @@ Catatan (opsional):`, '')
             </button>
           )}
           {po.payment_status === 'pending' && isChecker && (
-            <a href="/supplier" className="text-xs font-bold text-suka-orange hover:underline">Setujui di Pembayaran Vendor →</a>
+            <a href="/approval" className="text-xs font-bold text-suka-orange hover:underline">Putuskan di Hub Approval →</a>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-6 text-sm">

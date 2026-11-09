@@ -296,7 +296,7 @@ describe('Perhitungan Gaji Outlet Parsial & Kru Mutasi', () => {
     expect(res.crewBonus).toBe(30_000)
   })
 
-  it('menolkan OPEX gaji & bonus Pondok Aren dan Paledang khusus Oktober 2026 tanpa melimpahkan beban manajer ke cabang lain, serta kembali normal di November 2026', async () => {
+  it('tetap menghitung Gaji & Bonus HR Payroll untuk Pondok Aren dan Paledang pada Oktober 2026 (hanya pengeluaran non-HR yang dinolkan)', async () => {
     const PONDOK_AREN = '48b980da-5a42-4a9b-a952-86ab5db6666a'
     const PALEDANG = '550e8400-e29b-41d4-a716-446655440003'
     const CISEENG = '0ddba13b-fa0e-4bc7-819b-57fe1ec7bf9b'
@@ -361,26 +361,28 @@ describe('Perhitungan Gaji Outlet Parsial & Kru Mutasi', () => {
       },
     })
 
-    // 1. Oktober 2026: Pondok Aren & Paledang = Rp 0
+    // 1. Oktober 2026: Gaji & Bonus HR Pondok Aren (aktif 15–31 Okt = 17/31 hari) & Paledang (aktif 28–31 Okt = 4/31 hari) tetap muncul proporsional
     const paOct = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: PONDOK_AREN }, sb)
     const palOct = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: PALEDANG }, sb)
-    expect(paOct.totalSalary).toBe(0)
-    expect(paOct.crewBonus).toBe(0)
-    expect(paOct.managerAllocation).toBe(0)
-    expect(palOct.totalSalary).toBe(0)
-    expect(palOct.crewBonus).toBe(0)
-    expect(palOct.managerAllocation).toBe(0)
+    expect(paOct.crewBonus).toBe(10_000)
+    expect(paOct.managerRoutineAllocation).toBe(548_387) // round(1.000.000 * 17/31)
+    expect(paOct.managerBonusAllocation).toBe(5_000)
+    expect(paOct.totalSalary).toBe(2_263_387) // kru 17/26 * 2.600.000 (1.700.000) + 10.000 + 548.387 + 5.000
+    expect(palOct.crewBonus).toBe(10_000)
+    expect(palOct.managerRoutineAllocation).toBe(129_032) // round(1.000.000 * 4/31)
+    expect(palOct.managerBonusAllocation).toBe(5_000)
+    expect(palOct.totalSalary).toBe(544_032) // kru 4/26 * 2.600.000 (400.000) + 10.000 + 129.032 + 5.000
 
-    // 2. Oktober 2026: Ciseeng tetap hanya mendapat 1/3 dari RM (Rp 1.000.000), TIDAK melimpah jadi Rp 3.000.000!
+    // 2. Oktober 2026: Ciseeng tetap mendapat 1/3 dari RM (Rp 1.000.000) tanpa limpahan
     const cisOct = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: CISEENG }, sb)
     expect(cisOct.managerRoutineAllocation).toBe(1_000_000)
     expect(cisOct.totalSalary).toBe(3_600_000)
 
     const allOct = await hitungRingkasanPayrollHr({ from: '2026-10-01', to: '2026-10-31', outletId: 'ALL_OUTLETS' }, sb)
-    expect(allOct.totalSalary).toBe(3_600_000)
-    expect(allOct.managerRoutineAllocation).toBe(1_000_000)
+    expect(allOct.managerRoutineAllocation).toBe(1_677_419)
+    expect(allOct.totalSalary).toBe(6_407_419)
 
-    // 3. November 2026: Pondok Aren kembali dihitung normal (Kru Rp 2.600.000 + RM 1/3 Rp 1.000.000 = Rp 3.600.000)
+    // 3. November 2026: tetap normal
     const paNov = await hitungRingkasanPayrollHr({ from: '2026-11-01', to: '2026-11-30', outletId: PONDOK_AREN }, sb)
     expect(paNov.managerRoutineAllocation).toBe(1_000_000)
     expect(paNov.totalSalary).toBe(3_600_000)

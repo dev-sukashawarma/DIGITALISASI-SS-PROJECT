@@ -11,7 +11,6 @@ import { createClient } from '@supabase/supabase-js'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import { distributeEqualSplit } from '@/lib/opexProrata'
-import { adalahOutletOpexNolOktober2026 } from '@/lib/pengeluaran/jointExpense'
 
 function getServiceSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -850,9 +849,8 @@ async function hitungSatuPeriodePayrollHr(params: {
       })
 
       if (crewRes.data && Array.isArray(crewRes.data)) {
-        const validCrewBonusRows = crewRes.data.filter((b: any) => !adalahOutletOpexNolOktober2026(b?.outlet_id, primaryPeriod))
-        allCrewBonusRpcRows.push(...validCrewBonusRows)
-        validCrewBonusRows.forEach((b: any) => {
+        allCrewBonusRpcRows.push(...crewRes.data)
+        crewRes.data.forEach((b: any) => {
           if (b.crew_id && b.outlet_id) {
             const k = `${b.crew_id}_${b.outlet_id}`
             const prev = crewOutletBonusMap.get(k) || { bonus: 0, pcs: 0, attendanceDays: 0 }
@@ -1126,7 +1124,6 @@ async function hitungSatuPeriodePayrollHr(params: {
     allDailyBonusRows.forEach((d: any) => {
       if (!d.bonus_date) return
       if (d.bonus_date < subFrom || d.bonus_date > subTo) return
-      if (adalahOutletOpexNolOktober2026(d.outlet_id, primaryPeriod)) return
       if (isSingleOutlet && d.outlet_id !== target) return
 
       const totalPcs = Number(d.total_pcs) || 0
@@ -1252,7 +1249,6 @@ async function hitungSatuPeriodePayrollHr(params: {
       const dedSplit = distributeEqualSplit(bDeductions, targets)
 
       targets.forEach(tId => {
-        if (adalahOutletOpexNolOktober2026(tId, primaryPeriod)) return
         const fullG = gSplit.get(tId) || 0
         const fullA = aSplit.get(tId) || 0
         const fullDed = dedSplit.get(tId) || 0
@@ -1822,30 +1818,6 @@ async function hitungSatuPeriodePayrollHr(params: {
         }]
       }
     })
-      .map((pc): CanonicalCrewRow | null => {
-        if (pc.isPusat) return pc
-        const hasWaivedShare = pc.shares.some(sh => adalahOutletOpexNolOktober2026(sh.outletId, primaryPeriod))
-        if (!hasWaivedShare) return pc
-        const keptShares = pc.shares.filter(sh => !adalahOutletOpexNolOktober2026(sh.outletId, primaryPeriod))
-        if (keptShares.length === 0) return null
-        const newBasic = keptShares.reduce((s, x) => s + x.basic, 0)
-        const newAllow = keptShares.reduce((s, x) => s + x.allowances, 0)
-        const newDed = keptShares.reduce((s, x) => s + x.deductions, 0)
-        const newRoutine = newBasic + newAllow - newDed
-        const newBonus = keptShares.reduce((s, x) => s + x.slipBonus, 0)
-        return {
-          ...pc,
-          rawBasic: newBasic,
-          rawAllowances: newAllow,
-          rawDeductions: newDed,
-          rawRoutine: newRoutine,
-          rawBonus: newBonus,
-          rawTotal: newRoutine + newBonus,
-          targets: pc.targets.filter(tId => !adalahOutletOpexNolOktober2026(tId, primaryPeriod)),
-          shares: keptShares,
-        }
-      })
-      .filter((pc): pc is CanonicalCrewRow => pc !== null)
 
     // 4b. Group data per outlet for breakdown list
     const outletGroups = new Map<string, {

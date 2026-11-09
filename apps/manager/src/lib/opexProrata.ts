@@ -560,7 +560,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
 
     for (const outletId of targetOutletIds) {
       if (inactiveOutletIds.has(outletId)) continue
-      if (adalahOutletOpexNolOktober2026(outletId, monthInfo.firstDay)) continue
+      const isNonHrWaivedOct2026 = adalahOutletOpexNolOktober2026(outletId, monthInfo.firstDay)
       // Kantor Pusat ikut diakrual (internet/sewa kantor), tetapi hasilnya tetap
       // biaya PUSAT. Dulu keluar sebagai beban "outlet" sehingga biaya pusat
       // bulan berjalan pindah kantong ke OPEX outlet.
@@ -643,39 +643,41 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       }
 
       // --- B. BIAYA SEWA OUTLET ---
-      let sewaMonthly = currentMonthRealFixed.get(outletId)?.get('sewa_outlet') ?? 0
-      let oSewaSource: 'current_month_real' | 'last_month_rollover' | 'none' = 'none'
+      if (!isNonHrWaivedOct2026) {
+        let sewaMonthly = currentMonthRealFixed.get(outletId)?.get('sewa_outlet') ?? 0
+        let oSewaSource: 'current_month_real' | 'last_month_rollover' | 'none' = 'none'
 
-      if (sewaMonthly > 0) {
-        oSewaSource = 'current_month_real'
-      } else {
-        const lastMonthSewa = lastMonthExpenses
-          .filter(e => e.outlet_id === outletId && (e.category === 'sewa_outlet' || e.category === 'sewa'))
-          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
-        if (lastMonthSewa > 0) {
-          sewaMonthly = lastMonthSewa
-          oSewaSource = 'last_month_rollover'
+        if (sewaMonthly > 0) {
+          oSewaSource = 'current_month_real'
+        } else {
+          const lastMonthSewa = lastMonthExpenses
+            .filter(e => e.outlet_id === outletId && (e.category === 'sewa_outlet' || e.category === 'sewa'))
+            .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+          if (lastMonthSewa > 0) {
+            sewaMonthly = lastMonthSewa
+            oSewaSource = 'last_month_rollover'
+          }
         }
-      }
 
-      if (sewaMonthly > 0) {
-        const proratedSewa = Math.round(sewaMonthly * monthInfo.ratio)
-        totalSewaBulanan += sewaMonthly
-        totalSewaProrata += proratedSewa
-        sewaSource = oSewaSource
+        if (sewaMonthly > 0) {
+          const proratedSewa = Math.round(sewaMonthly * monthInfo.ratio)
+          totalSewaBulanan += sewaMonthly
+          totalSewaProrata += proratedSewa
+          sewaSource = oSewaSource
 
-        proratedRows.push({
-          id: `prorata-sewa-${outletId}`,
-          outlet_id: outletId,
-          outlet_name: outletName,
-          category: 'sewa_outlet',
-          scope: rowScope,
-          amount: proratedSewa,
-          description: `Prorata Sewa Outlet (${durationDesc})`,
-          expense_date: filter.to,
-          period_month: monthInfo.firstDay,
-          source: 'monthly',
-        })
+          proratedRows.push({
+            id: `prorata-sewa-${outletId}`,
+            outlet_id: outletId,
+            outlet_name: outletName,
+            category: 'sewa_outlet',
+            scope: rowScope,
+            amount: proratedSewa,
+            description: `Prorata Sewa Outlet (${durationDesc})`,
+            expense_date: filter.to,
+            period_month: monthInfo.firstDay,
+            source: 'monthly',
+          })
+        }
       }
 
       // --- C. INTERNET / WIFI ---
@@ -703,7 +705,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         if (effectiveCrewMtdBonus > 0) {
           crewBonusMonthly = Math.round((effectiveCrewMtdBonus / curDay) * monthInfo.totalDays)
           oCrewBonusSource = 'sales_pcs_mtd'
-        } else {
+        } else if (!isNonHrWaivedOct2026) {
           const lastMonthBonus = lastMonthExpenses
             .filter(e => e.outlet_id === outletId && (e.category === 'bonus_crew' || e.category === 'bonus_leader'))
             .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
@@ -757,7 +759,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         if (effectiveAmMtdBonus > 0) {
           amBonusMonthly = Math.round((effectiveAmMtdBonus / curDay) * monthInfo.totalDays)
           oAmBonusSource = 'sales_pcs_mtd'
-        } else {
+        } else if (!isNonHrWaivedOct2026) {
           const lastMonthAM = lastMonthExpenses
             .filter(e => e.outlet_id === outletId && (e.category === 'bonus_area_manager' || e.category === 'bonus_korlap'))
             .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
@@ -811,7 +813,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         if (effectiveRmMtdBonus > 0) {
           rmBonusMonthly = Math.round((effectiveRmMtdBonus / curDay) * monthInfo.totalDays)
           oRmBonusSource = 'sales_pcs_mtd'
-        } else {
+        } else if (!isNonHrWaivedOct2026) {
           const lastMonthRM = lastMonthExpenses
             .filter(e => e.outlet_id === outletId && (e.category === 'bonus_regional_manager' || e.category === 'bonus_korlap'))
             .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
@@ -980,7 +982,6 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
       ) {
         continue
       }
-      if (adalahOutletOpexNolOktober2026(outletId, p.firstDay)) continue
       const outletName = outletNameMap.get(outletId) ?? 'Outlet'
 
       // 1. Gaji Crew Outlet

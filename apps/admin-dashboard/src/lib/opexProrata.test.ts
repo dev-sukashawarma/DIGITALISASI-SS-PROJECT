@@ -1079,3 +1079,131 @@ describe('opexProrata - rentang menyeberang bulan lampau ke bulan berjalan', () 
     expect(r.categoryBreakdown.gaji_crew_outlet.nominalProrata).toBe(gaji.reduce((s, x) => s + x.amount, 0))
   })
 })
+
+describe('opexProrata - kebijakan Oktober 2026 Paledang & Pondok Aren (hanya non-HR dinolkan)', () => {
+  const PALEDANG = '550e8400-e29b-41d4-a716-446655440003'
+  const PONDOK_AREN = '48b980da-5a42-4a9b-a952-86ab5db6666a'
+
+  it('Mode 2 (bulan lampau): Gaji & Bonus HR tetap muncul, pengeluaran outlet non-HR tetap Rp 0', () => {
+    const novNow = new Date('2026-11-09T03:00:00Z')
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-10-01', to: '2026-10-31', outletId: PALEDANG, source: 'all' },
+      now: novNow,
+      outlets: [{ id: PALEDANG, name: 'MITRA PALEDANG', is_active: true, type: 'mitra' }],
+      rawExpenses: [
+        {
+          id: 'exp-net-pal',
+          outlet_id: PALEDANG,
+          outlet_name: 'MITRA PALEDANG',
+          category: 'internet',
+          scope: 'outlet',
+          amount: 350_000,
+          description: 'Internet Paledang Okt',
+          expense_date: '2026-10-27',
+          period_month: '2026-10-01',
+          source: 'monthly',
+        },
+        {
+          id: 'petty-gas-pal',
+          outlet_id: PALEDANG,
+          outlet_name: 'MITRA PALEDANG',
+          category: 'gas',
+          scope: 'outlet',
+          amount: 120_000,
+          description: 'Gas LPG Kas Kecil',
+          expense_date: '2026-10-28',
+          period_month: '2026-10-01',
+          source: 'petty_cash',
+        },
+      ],
+      payrollRecords: [
+        {
+          staff_id: 'kru-pal-1',
+          outlet_id: PALEDANG,
+          role: 'crew',
+          total_salary: 865_384,
+          bonus: 0,
+          period_month: 10,
+          period_year: 2026,
+        },
+      ],
+      crewBonusRecords: [
+        {
+          outlet_id: PALEDANG,
+          total_bonus: 34_700,
+          total_pcs_outlet: 347,
+          period_month: 10,
+          period_year: 2026,
+        },
+      ],
+    })
+
+    // Pengeluaran non-HR wajib terfilter (Rp 0)
+    expect(res.rows.find(r => r.id === 'exp-net-pal')).toBeUndefined()
+    expect(res.rows.find(r => r.id === 'petty-gas-pal')).toBeUndefined()
+
+    // Komponen Gaji & Bonus HR wajib tetap muncul
+    expect(res.rows.find(r => r.category === 'gaji_crew_outlet')?.amount).toBe(865_384)
+    expect(res.rows.find(r => r.category === 'bonus_crew')?.amount).toBe(34_700)
+    expect(res.rows.find(r => r.category === 'bonus_area_manager')?.amount).toBe(17_350)
+    expect(res.rows.find(r => r.category === 'bonus_regional_manager')?.amount).toBe(17_350)
+  })
+
+  it('Mode 1 (bulan berjalan): Gaji & Bonus HR muncul, tetapi rollover sewa_outlet & bonus bulan lalu tetap Rp 0', () => {
+    const octNow = new Date('2026-10-31T10:00:00Z')
+    const resPaledang = calculateProratedExpenses({
+      filter: { from: '2026-10-01', to: '2026-10-31', outletId: PALEDANG, source: 'all' },
+      now: octNow,
+      outlets: [{ id: PALEDANG, name: 'MITRA PALEDANG', is_active: true, type: 'mitra' }],
+      rawExpenses: [
+        {
+          id: 'exp-sewa-pal',
+          outlet_id: PALEDANG,
+          outlet_name: 'MITRA PALEDANG',
+          category: 'sewa_outlet',
+          scope: 'outlet',
+          amount: 4_000_000,
+          description: 'Sewa Paledang Okt',
+          expense_date: '2026-10-05',
+          period_month: '2026-10-01',
+          source: 'monthly',
+        },
+      ],
+      lastMonthExpenses: [
+        { outlet_id: PALEDANG, category: 'sewa_outlet', amount: 4_000_000 },
+      ],
+      payrollRecords: [
+        { outlet_id: PALEDANG, total_salary: 865_384, bonus: 0 },
+      ],
+      crewBonusRecords: [
+        { outlet_id: PALEDANG, total_bonus: 34_700, total_pcs_outlet: 347 },
+      ],
+    })
+
+    expect(resPaledang.rows.find(r => r.category === 'sewa_outlet')).toBeUndefined()
+    expect(resPaledang.rows.find(r => r.category === 'gaji_crew_outlet')?.amount).toBe(865_384)
+    expect(resPaledang.rows.find(r => r.category === 'bonus_crew')?.amount).toBe(34_700)
+    expect(resPaledang.rows.find(r => r.category === 'bonus_area_manager')?.amount).toBe(17_350)
+    expect(resPaledang.rows.find(r => r.category === 'bonus_regional_manager')?.amount).toBe(17_350)
+
+    // Bila belum ada penjualan sama sekali di Oktober, jangan fallback ke rollover bonus bulan lalu
+    const resPondokArenNoSales = calculateProratedExpenses({
+      filter: { from: '2026-10-01', to: '2026-10-10', outletId: PONDOK_AREN, source: 'all' },
+      now: new Date('2026-10-10T10:00:00Z'),
+      outlets: [{ id: PONDOK_AREN, name: 'MITRA PONDOK AREN', is_active: true, type: 'mitra' }],
+      rawExpenses: [],
+      crewBonusRecords: [],
+      lastMonthExpenses: [
+        { outlet_id: PONDOK_AREN, category: 'sewa_outlet', amount: 5_000_000 },
+        { outlet_id: PONDOK_AREN, category: 'bonus_crew', amount: 300_000 },
+        { outlet_id: PONDOK_AREN, category: 'bonus_area_manager', amount: 150_000 },
+        { outlet_id: PONDOK_AREN, category: 'bonus_regional_manager', amount: 150_000 },
+      ],
+    })
+
+    expect(resPondokArenNoSales.rows.find(r => r.category === 'sewa_outlet')).toBeUndefined()
+    expect(resPondokArenNoSales.rows.find(r => r.category === 'bonus_crew')).toBeUndefined()
+    expect(resPondokArenNoSales.rows.find(r => r.category === 'bonus_area_manager')).toBeUndefined()
+    expect(resPondokArenNoSales.rows.find(r => r.category === 'bonus_regional_manager')).toBeUndefined()
+  })
+})

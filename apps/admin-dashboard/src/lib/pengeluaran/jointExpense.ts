@@ -46,13 +46,14 @@ export function adalahHppKolMarcomDisembunyikan(
   return (row.expense_date ?? '').slice(0, 10) >= MARCOM_HPP_KOL_OPEX_BERHENTI_SEJAK
 }
 
-/* ── Kebijakan Manajemen Oktober 2026: OPEX Pondok Aren & Paledang = Rp 0 ─────
+/* ── Kebijakan Manajemen Oktober 2026: Pengeluaran Non-HR Pondok Aren & Paledang = Rp 0 ──
  *
- * Khusus periode Oktober 2026 (2026-10-01 s/d 2026-10-31), seluruh beban OPEX
+ * Khusus periode Oktober 2026 (2026-10-01 s/d 2026-10-31), pengeluaran operasional
+ * cabang non-HR (`expenses`, `petty_cash_expenses`, serta rollover sewa outlet)
  * untuk cabang MITRA PONDOK AREN dan MITRA PALEDANG dinolkan (dibebaskan/waived)
- * di seluruh laporan OPEX & Laba Rugi tanpa melimpahkan beban alokasi ke cabang
- * lain dan tanpa menghapus baris fisik di database (HR Payroll & Kas Kecil Kasir
- * POS tetap utuh).
+ * di seluruh laporan OPEX & Laba Rugi tanpa menghapus baris fisik di database.
+ * Komponen Gaji & Bonus dari mesin HR Payroll (Gaji Rutin Kru, Alokasi Pengawas
+ * AM/RM/SC, Bonus Kru, dan Bonus AM & RM) tetap dihitung normal.
  */
 export const OUTLET_OPEX_NOL_OKTOBER_2026 = new Set<string>([
   '48b980da-5a42-4a9b-a952-86ab5db6666a', // MITRA PONDOK AREN

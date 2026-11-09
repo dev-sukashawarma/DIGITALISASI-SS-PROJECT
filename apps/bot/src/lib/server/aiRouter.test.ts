@@ -66,7 +66,7 @@ describe('aiRouter', () => {
   })
 
   it('memetakan profil Hermes ke model combo 9Router yang sesuai', () => {
-    expect(kandidatModel9Router('ceo')).toEqual(['CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo'])
+    expect(kandidatModel9Router('ceo')).toEqual(['cc/claude-sonnet-5-5', 'cc/claude-sonnet-5', 'CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo'])
     expect(kandidatModel9Router('manager')).toEqual(['MANAGER_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
     expect(kandidatModel9Router('gudang')).toEqual(['STOKIS_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
     expect(kandidatModel9Router('stokis')).toEqual(['STOKIS_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])

@@ -25,14 +25,14 @@ export const MODEL_FALLBACK_STABIL = ['cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gp
 export function kandidatModel9Router(profil: string, envModel?: string): string[] {
   const override = envModel?.trim()
   if (override && override !== DEFAULT_HERMES_COMBO_MODEL) {
-    if (profil.trim().toLowerCase() === 'ceo' && override === 'CEO_SS') {
-      return ['CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo']
+    if (profil.trim().toLowerCase() === 'ceo' && (override === 'CEO_SS' || override === 'cc/claude-sonnet-5-5')) {
+      return ['cc/claude-sonnet-5-5', 'cc/claude-sonnet-5', 'CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo']
     }
     return Array.from(new Set([override, ...MODEL_FALLBACK_STABIL]))
   }
   switch (profil.trim().toLowerCase()) {
     case 'ceo':
-      return ['CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo']
+      return ['cc/claude-sonnet-5-5', 'cc/claude-sonnet-5', 'CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo']
     case 'manager':
       return ['MANAGER_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna']
     case 'gudang':
@@ -795,6 +795,9 @@ WAJIB FORMAT SEBAGAI LAPORAN EKSEKUTIF UTUH DARI SELURUH 6 PILAR APLIKASI & BERI
    4. 🥦 Rekomendasi Dapur & Loss Prevention (Inventori): Klaim kualitas supplier sayur/lettuce & SOP chiller/FIFO.
    5. 📦 Rekomendasi Rantai Pasok & Logistik (Stok & Distribusi): Restock darurat cabang kosong & investigasi selisih surat jalan.
    6. ⭐ Rekomendasi Customer Experience (SukaReview): Service recovery cepat untuk ulasan negatif & sidak QC rasa/kecepatan saji.
+- PRINSIP JAWABAN CEPAT & PADAT (ZERO FLUFF):
+  Awali jawaban langsung dengan inti/angka terpenting di kalimat pertama tanpa kalimat pembuka klise (contoh: "Total omzet hari ini mencapai Rp 42,5 juta dari 1.080 transaksi..."). Dilarang menggunakan kalimat basa-basi seperti "Berdasarkan pantauan sistem terkini..." atau "Terima kasih atas pertanyaannya...". Berikan jawaban yang tajam, ringkas, dan langsung dapat ditindaklanjuti oleh CEO.
+
 5. Format teks yang rapi dan elegan:
    - Gunakan tabel markdown jika diminta menampilkan perbandingan angka antar outlet.
    - Gunakan blok kutipan (>) HANYA jika ada temuan kritis, alert penting, atau arahan analitis strategis:
@@ -824,7 +827,7 @@ ${konteksData}
   let statusTerakhir = 500
   for (const modelKandidat of daftarModel) {
     if (o.signal?.aborted) break
-    const batasWaktuPerModel = AbortSignal.timeout(6_000)
+    const batasWaktuPerModel = AbortSignal.timeout(3_500)
     const signalPerModel = o.signal ? AbortSignal.any([o.signal, batasWaktuPerModel]) : batasWaktuPerModel
     try {
       const percobaan = await fetch(`${base}/chat/completions`, {

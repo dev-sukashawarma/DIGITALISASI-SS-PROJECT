@@ -35,8 +35,8 @@ export interface PilihanSuaraHud {
 export const PILIHAN_SUARA_JARVIS: PilihanSuaraHud[] = [
   {
     id: 'brian',
-    label: 'BRIAN / PUCK HD (Jarvis Conversational)',
-    deskripsi: 'Pria Bariton Luwes & Mengalir (Gemini Puck / Brian HD)',
+    label: 'ALIF HD (Jarvis Executive Indonesia)',
+    deskripsi: 'Pria Bariton Eksekutif Luwes & Natural (ElevenLabs Alif)',
     gender: 'Pria',
   },
   {

@@ -62,9 +62,9 @@ const NEXT_STATUS_LABEL: Partial<Record<POStatus, string>> = {
 export default function PODetailView({ id, initialData }: { id: string, initialData: POWithItems }) {
   const router = useRouter()
   const { canVerifyPOReceipt, canManagePO, canAjukanBayarPO, isChecker } = useFinanceRole()
+  const { data: po, isLoading, error } = usePODetail(id, initialData)
   const { locations } = useCashOverview()
   const rekeningPo = locations.find((l) => l.id === po?.cash_location_id)
-  const { data: po, isLoading, error } = usePODetail(id, initialData)
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
   const ajukanBayarPo = useAjukanBayarPo()

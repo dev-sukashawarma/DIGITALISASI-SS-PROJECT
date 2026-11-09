@@ -41,6 +41,8 @@ export type PratinjauGantiSatuan = {
   jumlah: Record<string, number>
   harga_master_lama: number | null
   harga_master_baru: number | null
+  /** Baris ledger bahan ini 15 menit terakhir — >0 berarti stok sedang bergerak (review I1). */
+  aktivitas_15_menit?: number
 }
 
 const positif = (n: number) => Number.isFinite(n) && n > 0

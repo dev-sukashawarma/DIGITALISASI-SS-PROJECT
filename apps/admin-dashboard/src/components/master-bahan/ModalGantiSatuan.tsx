@@ -182,6 +182,13 @@ export function ModalGantiSatuan({ bahan, onTutup }: { bahan: BahanBakuWithHarga
           </div>
         )}
 
+        {bisaLanjut && pratinjau && Number(pratinjau.aktivitas_15_menit ?? 0) > 0 && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            Stok bahan ini bergerak {Number(pratinjau.aktivitas_15_menit).toLocaleString('id-ID')} kali dalam 15 menit terakhir
+            (penjualan, kiriman, atau opname). Transaksi yang berjalan saat satuan diganti bisa tercatat dengan satuan lama.
+            Sebaiknya ganti satuan saat outlet tidak sedang beroperasi.
+          </div>
+        )}
         {bisaLanjut && pratinjau && (
           <div className="space-y-3">
             <div className="overflow-hidden rounded-xl border border-gray-200">

@@ -9,9 +9,13 @@
 ## Prasyarat
 - `admin-dashboard` dan `stok` sudah diredeploy dengan fitur Ganti Satuan.
 - Dijalankan oleh admin/owner/developer.
-- **Siang hari, di luar jam opname** (opname malam ±21:00–23:00). App crew menyimpan satuan
-  di memori sampai 60 detik (native) / 5 menit (web); crew yang membuka form tepat saat itu bisa
-  masih melihat kolom lama.
+- **Saat stok bahan tidak sedang bergerak**: di luar jam opname (±21:00–23:00) dan tidak ada
+  verifikasi surat jalan / penerimaan PO bahan ini yang sedang berjalan. Transaksi stok yang
+  berjalan bersamaan membaca satuan lama dan tercatat dengan angka satuan lama sesudah
+  konversi (tidak bisa dicegah database). Pratinjau menampilkan peringatan kuning bila bahan
+  bergerak dalam 15 menit terakhir — kalau muncul, tunggu dulu. Bawang putih bubuk tidak dipakai
+  resep, jadi penjualan tidak menggerakkannya. App crew mengambil ulang satuan paling lambat
+  60 detik (native & web).
 
 ## Langkah
 1. **Kabari outlet** (grup WA): "Mulai hari ini bawang putih bubuk dihitung dalam **gram**.
@@ -32,6 +36,12 @@
    SELECT o.name, sb.saldo FROM stok_balance sb JOIN outlets o ON o.id = sb.outlet_id
     WHERE sb.bahan_baku_id = '516dd4a9-65df-4e58-adf6-d0e1f15ad9b5' ORDER BY sb.saldo DESC;
    SELECT * FROM bahan_baku_ganti_satuan WHERE bahan_baku_id = '516dd4a9-65df-4e58-adf6-d0e1f15ad9b5';
+   -- Baris ledger yang tertulis sesudah ganti satuan: cek manual angkanya masuk akal (gram, bukan sachet)
+   SELECT l.created_at, o.name, l.tipe, l.qty, l.saldo_sebelum, l.saldo_sesudah
+     FROM ledger_stok l JOIN outlets o ON o.id = l.outlet_id
+     JOIN bahan_baku b ON b.id = l.bahan_baku_id
+    WHERE l.bahan_baku_id = '516dd4a9-65df-4e58-adf6-d0e1f15ad9b5' AND l.created_at >= b.satuan_diganti_at
+    ORDER BY l.created_at;
    ```
 
 ## Kalau keliru

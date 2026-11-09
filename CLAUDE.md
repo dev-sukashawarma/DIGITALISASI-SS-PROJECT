@@ -3678,7 +3678,7 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 
 ## Session 2026-11-09: Ganti Satuan bahan baku (DB + admin-dashboard + stok)
 
-**Status:** DB **LIVE** — 3 migration applied & terstempel (`20261109103055_ganti_satuan_skema`, `…103441_ganti_satuan_pratinjau`, `…104240_ganti_satuan_eksekusi`); uji `supabase/verifikasi/ganti_satuan/t1–t3` LULUS (t3 termasuk bolak-balik & uji kering BAWANG PUTIH BUBUK di ROLLBACK). Kode di branch `feat/ganti-satuan-bahan-baku`. ⚠️ Perlu **redeploy `admin-dashboard` + `stok`**. Tidak perlu rilis APK.
+**Status:** DB **LIVE** — 5 migration applied & terstempel (`20261109103055_ganti_satuan_skema`, `…103441_ganti_satuan_pratinjau`, `…104240_ganti_satuan_eksekusi`, `…110759_ganti_satuan_opname_skala_data`, `…111324_ganti_satuan_pratinjau_aktivitas`); uji `supabase/verifikasi/ganti_satuan/t1–t5` LULUS (t3 termasuk bolak-balik & uji kering BAWANG PUTIH BUBUK di ROLLBACK). Fungsi BELUM pernah dijalankan sungguhan pada bahan mana pun. Kode di branch `feat/ganti-satuan-bahan-baku`. ⚠️ Perlu **redeploy `admin-dashboard` + `stok`**. Tidak perlu rilis APK.
 
 **Spec/plan/runbook:** `docs/superpowers/specs/2026-11-09-ganti-satuan-bahan-baku-design.md`, `docs/superpowers/plans/2026-11-09-ganti-satuan-bahan-baku.md`, `docs/RUNBOOK-GANTI-SATUAN-BAWANG-PUTIH-BUBUK.md`.
 
@@ -3689,6 +3689,8 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - **App stok web:** draft opname localStorage kini ber-`savedAt`; isian bahan yang `satuan_diganti_at` sesudah draft dibuang + toast "hitung ulang".
 - **App opname native crew ada di repo terpisah** `SS SUPERAPP/SUPER-APPS-SS-MOBILE` (Rendy), bukan `mobile/native-superapp`. Tak diubah: draft HP terikat draft server (penghalang), metadata satuan cache 60 dtk. Jalankan Ganti Satuan siang hari.
 - `bahan_baku_sku` tidak dikonversi (0 baris, `qty_isi` tanpa satuan baku).
+- ⚠️ **Skala kolom opname dibaca dari data, bukan diandaikan** (review C1): form opname sejak 19 Agu menyimpan `qty_system` dalam gram walau saldo outlet skala besar — 259 dari 893 opname transisi live begitu. `qty_system` dicocokkan ke saldo ledger yang dirujuknya; aturan waktu hanya cadangan.
+- ⚠️ **Transaksi stok bersamaan tak bisa dicegah DB** (review I1): penulis yang sudah membaca faktor lama menulis angka skala lama sesudah konversi. Mitigasi: peringatan `aktivitas_15_menit` di pratinjau + runbook (jalankan saat bahan tidak bergerak).
 
 **Last updated:** 2026-11-09  
 **Owner:** Dev Suka Shawarma

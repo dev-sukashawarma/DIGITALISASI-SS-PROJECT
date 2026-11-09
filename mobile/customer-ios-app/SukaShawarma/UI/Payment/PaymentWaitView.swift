@@ -173,7 +173,7 @@ struct PaymentWaitView: View {
             }
         }
         .padding(18)
-        .kartuSuka(sudut: 22, elevasi: 3)
+        .kartuElegan(sudut: 22, elevasi: 3, latar: .white)
     }
 
     private var kartuVerifikasi: some View {

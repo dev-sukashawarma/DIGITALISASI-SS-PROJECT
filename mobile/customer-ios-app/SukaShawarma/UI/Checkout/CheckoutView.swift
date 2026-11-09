@@ -6,8 +6,15 @@ struct CheckoutView: View {
     @State var vm: CheckoutViewModel
     let onKembali: () -> Void
     let onBayar: () -> Void
+    var namaOutlet: String? = nil
+    /// Outlet tak bisa menerima pesanan sekarang. Default true = perilaku lama.
+    var outletBolehPesan = true
+    var labelOutletTutup: String? = nil
     /// Dipanggil saat gateway menjawab 401 — sesi habis, pelanggan harus masuk lagi.
     let onSesiHabis: () -> Void
+
+    @State private var tampilPemilihVoucher = false
+    @Environment(\.scenePhase) private var fase
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,15 +22,18 @@ struct CheckoutView: View {
             isi.frame(maxHeight: .infinity)
             if !vm.keranjangKosong && !vm.memuat && vm.galat == nil {
                 BilahBawah {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("Total Tagihan").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
-                            Text(vm.total.map(rupiah) ?? "-").font(SukaFont.lilita(19)).foregroundStyle(Color.sukaBrown)
+                    VStack(spacing: 8) {
+                        if !outletBolehPesan { KeteranganOutletTutup(teks: labelOutletTutup) }
+                        HStack {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text("Total Tagihan").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
+                                Text(vm.total.map(rupiah) ?? "-").font(SukaFont.lilita(19)).foregroundStyle(Color.sukaBrown)
+                            }
+                            Spacer()
+                            TombolAksi(label: !outletBolehPesan ? "Outlet Tutup" : vm.bolehLanjut ? "Bayar Sekarang" : "Periksa Pesanan",
+                                       ikonKiri: "lock.fill", aktif: vm.bolehLanjut && outletBolehPesan, aksi: onBayar)
+                                .accessibilityIdentifier("tombol-bayar")
                         }
-                        Spacer()
-                        TombolAksi(label: vm.bolehLanjut ? "Bayar Sekarang" : "Periksa Pesanan",
-                                   ikonKiri: "lock.fill", aktif: vm.bolehLanjut, aksi: onBayar)
-                            .accessibilityIdentifier("tombol-bayar")
                     }
                 }
             }
@@ -31,6 +41,18 @@ struct CheckoutView: View {
         .background(Color.sukaCream.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .task { await vm.validasi() }
+        // Pelanggan bisa pergi sebentar (cek saldo di aplikasi bank) lalu kembali
+        // dengan voucher yang sudah habis kuota/kedaluwarsa di server — validasi
+        // ulang supaya Bayar terkunci lagi bila memang tak berlaku.
+        .onChange(of: fase) { _, baru in
+            if baru == .active { Task { await vm.validasi() } }
+        }
+        .sheet(isPresented: $tampilPemilihVoucher) {
+            PemilihVoucherSheet(muatDaftar: vm.daftarVoucher) { pilihan in
+                tampilPemilihVoucher = false
+                Task { await vm.pasangVoucher(pilihan) }
+            }
+        }
     }
 
     @ViewBuilder private var isi: some View {
@@ -46,7 +68,7 @@ struct CheckoutView: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 14) {
-                    KartuPickup(judul: "PENGAMBILAN DI OUTLET", keterangan: "Pesanan disiapkan saat pembayaran terkonfirmasi")
+                    KartuPickup(judul: "PENGAMBILAN DI OUTLET", namaOutlet: namaOutlet, keterangan: "Pesanan disiapkan saat pembayaran terkonfirmasi")
 
                     if let pesan = vm.pesanPenolakan {
                         HStack(alignment: .top, spacing: 8) {
@@ -86,13 +108,13 @@ struct CheckoutView: View {
                 VStack(spacing: 3) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 0) {
-                            Text("\(b.jumlah)x \(b.nama)").font(SukaFont.jakarta(14, weight: .medium)).foregroundStyle(Color.sukaInk)
+                            Text("\(b.jumlah)x \(b.nama)").font(SukaFont.jakarta(14, weight: .semibold)).foregroundStyle(Color.sukaInk)
                             if let c = b.catatan, !c.isEmpty {
-                                Text("\"\(c)\"").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
+                                Text("\"\(c)\"").font(SukaFont.jakarta(11)).italic().foregroundStyle(Color.sukaMuted)
                             }
                         }
                         Spacer()
-                        Text(rupiah(b.hargaSatuan * Int64(b.jumlah))).font(SukaFont.jakarta(14, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                        Text(rupiah(b.hargaSatuan * Int64(b.jumlah))).font(SukaFont.lilita(15)).foregroundStyle(Color.sukaBrown)
                     }
                     ForEach(b.toppings, id: \.menuItemId) { t in
                         HStack(spacing: 5) {
@@ -107,9 +129,21 @@ struct CheckoutView: View {
                 }
                 .padding(.vertical, 3)
             }
+            // Item gratis dari voucher — tanpa ubah jumlah/hapus: pelanggan
+            // tidak "memesan" item ini, voucher yang memberikannya.
+            ForEach(Array((vm.blokVoucher?.itemGratis ?? []).enumerated()), id: \.offset) { _, g in
+                HStack {
+                    Text("\(g.quantity)x \(g.name)").font(SukaFont.jakarta(14, weight: .semibold)).foregroundStyle(Color.sukaInk)
+                    Spacer()
+                    Text("Gratis").font(SukaFont.jakarta(11, weight: .bold)).foregroundStyle(Color.sukaGreen)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Color.sukaGreen.opacity(0.12), in: Capsule())
+                }
+                .padding(.vertical, 3)
+            }
         }
         .padding(16)
-        .kartuSuka(sudut: 18, elevasi: 2, tepi: .sukaBorder.opacity(0.8))
+        .kartuElegan(sudut: 18, elevasi: 1, latar: .white)
     }
 
     /// Hanya QRIS yang didukung gateway saat ini — ditampilkan sebagai pilihan tunggal terpilih.
@@ -117,41 +151,87 @@ struct CheckoutView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Metode Pembayaran").font(SukaFont.jakarta(14, weight: .bold)).foregroundStyle(Color.sukaInk)
             HStack {
-                HStack(spacing: 10) {
-                    Image(systemName: "qrcode").font(.system(size: 17, weight: .bold)).foregroundStyle(Color.sukaInk)
-                        .frame(width: 34, height: 34).background(Color.sukaOrange, in: Circle())
-                    VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.sukaOrange.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "qrcode").font(.system(size: 17, weight: .bold)).foregroundStyle(Color.sukaOrange)
+                    }
+                    VStack(alignment: .leading, spacing: 1) {
                         Text("QRIS (Semua E-Wallet & Bank)").font(SukaFont.jakarta(13, weight: .bold)).foregroundStyle(Color.sukaInk)
                         Text("Verifikasi instan otomatis").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
                     }
                 }
                 Spacer()
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundStyle(Color.sukaOrange)
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 20)).foregroundStyle(Color.sukaOrange)
             }
             .padding(12)
             .background(Color.sukaTint, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.sukaOrange, lineWidth: 1.5))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.sukaOrange.opacity(0.6), lineWidth: 1.5))
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isSelected)
         }
         .padding(16)
-        .kartuSuka(sudut: 18, elevasi: 2, tepi: .sukaBorder.opacity(0.8))
+        .kartuElegan(sudut: 18, elevasi: 1, latar: .white)
     }
 
     private var kartuTotal: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Ringkasan Pembayaran").font(SukaFont.jakarta(14, weight: .bold)).foregroundStyle(Color.sukaInk)
+            barisVoucher
             if let s = vm.subtotal { BarisRingkasan(label: "Subtotal", nilai: rupiah(s)) }
             if let p = vm.potongan, p > 0 {
-                BarisRingkasan(label: "Potongan Promo", nilai: "- \(rupiah(p))", warnaLabel: .sukaGreen, warnaNilai: .sukaGreen)
+                BarisRingkasan(label: labelPotonganVoucher(vm.blokVoucher), nilai: "- \(rupiah(p))",
+                               warnaLabel: .sukaGreen, warnaNilai: .sukaGreen)
             }
             BarisRingkasan(label: "Biaya Layanan & Pengambilan", nilai: "GRATIS", warnaNilai: .sukaGreen)
-            Divider().overlay(Color.sukaBorder.opacity(0.5))
+            Divider().overlay(Color.black.opacity(0.06))
             if let t = vm.total { BarisRingkasan(label: "Total yang Dibayar", nilai: rupiah(t), warnaNilai: .sukaBrown, tebal: true) }
         }
         .padding(16)
-        .kartuSuka(sudut: 18, elevasi: 2, tepi: .sukaBorder.opacity(0.8))
+        .kartuElegan(sudut: 18, elevasi: 1, latar: .white)
         .padding(.bottom, 16)
+    }
+}
+
+extension CheckoutView {
+    /// Baris "Pakai voucher": belum ada voucher (ketuk untuk memilih), voucher
+    /// terpasang (nama + Lepas), atau terpasang tapi terkunci (+ alasan merah).
+    /// Voucher yang terkunci TIDAK dilepas otomatis — pelanggan yang memutuskan.
+    fileprivate var barisVoucher: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Image(systemName: "ticket.fill").font(.system(size: 14)).foregroundStyle(Color.sukaOrange)
+                // Nama dari gateway menang: kode manual disimpan mentah sampai gateway membalas nama aslinya.
+                Text(vm.blokVoucher?.nama ?? vm.voucher?.nama ?? "Pakai voucher hemat")
+                    .font(SukaFont.jakarta(14, weight: .bold)).foregroundStyle(Color.sukaInk)
+                Spacer()
+                if vm.voucher == nil {
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundStyle(Color.sukaMuted)
+                } else {
+                    Button("Lepas") { Task { await vm.lepasVoucher() } }
+                        .font(SukaFont.jakarta(12, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Color.sukaTint, in: Capsule())
+                        .frame(minWidth: 44, minHeight: 36)
+                        .accessibilityIdentifier("tombol-lepas-voucher")
+                }
+            }
+            .frame(minHeight: 36)
+            .contentShape(Rectangle())
+            .onTapGesture { if vm.voucher == nil { tampilPemilihVoucher = true } }
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(vm.voucher == nil ? .isButton : [])
+            .accessibilityIdentifier("baris-voucher")
+
+            if let alasan = vm.alasanKunciVoucherTampil {
+                Text(alasan).font(SukaFont.jakarta(12)).foregroundStyle(Color(hex: 0xDC2626))
+                    .padding(.leading, 22)
+                    .accessibilityIdentifier("alasan-kunci-voucher")
+            }
+        }
+        .padding(.bottom, 2)
     }
 }
 

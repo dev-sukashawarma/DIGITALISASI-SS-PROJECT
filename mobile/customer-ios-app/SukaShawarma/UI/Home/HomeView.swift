@@ -9,10 +9,14 @@ struct HomeView: View {
     let onBukaMenu: () -> Void
     let onPilihItem: (MenuItemDto) -> Void
     let onBukaNotifikasi: () -> Void
+    var onBukaVoucher: () -> Void = {}
+    var inisial = "?"
     /// Ketukan banner carousel. Popup promo ditangani shell (`AppShell`) agar
     /// latar gelapnya menutupi SELURUH layar termasuk bilah bawah, seperti
     /// `Dialog` di Android.
     let onKetukBanner: (TujuanBanner) -> Void
+
+    @Environment(\.configApp) private var config
 
     var body: some View {
         ZStack {
@@ -46,7 +50,9 @@ struct HomeView: View {
         ScrollView {
             LazyVStack(spacing: 8) {
                 if let outlet = vm.outlet {
-                    HomeBrandHeader(namaOutlet: outlet.name, buka: outlet.isActive, unreadCount: unreadCount,
+                    HomeBrandHeader(namaOutlet: outlet.name, buka: outlet.bolehPesan,
+                                    keteranganTutup: labelOutletTutup(outlet),
+                                    unreadCount: unreadCount, inisial: inisial,
                                     onGantiOutlet: onGantiOutlet, onBukaProfil: onBukaProfil,
                                     onBukaNotifikasi: onBukaNotifikasi)
                 }
@@ -59,7 +65,11 @@ struct HomeView: View {
                     .padding(.top, 12)
                 }
 
-                let terlaris = pilihMenuTerlaris(vm.semuaItem)
+                // Jalan masuk ke layar Voucher. Kartu tunggal, bukan carousel:
+                // cukup jadi pintu, isinya dibaca di layar Voucher.
+                KartuMasukVoucher(onKetuk: onBukaVoucher).padding(.horizontal, 16)
+
+                let terlaris = pilihMenuTerlaris(vm.semuaItem, kurasiIds: config.menuTerlarisIds)
                 if !terlaris.isEmpty {
                     BagianTerlaris(items: terlaris, onLihatSemua: onBukaMenu, onPilih: onPilihItem)
                 }
@@ -100,10 +110,7 @@ private struct BagianTerlaris: View {
 
             HStack(alignment: .top, spacing: 12) {
                 ForEach(Array(items.prefix(2).enumerated()), id: \.element.id) { i, item in
-                    // Rating & ulasan: angka kurasi statis, disalin dari Android apa adanya.
-                    KartuTerlaris(item: item, peringkat: i + 1,
-                                  rating: i == 0 ? "4.9" : "4.8", ulasan: i == 0 ? "480+" : "320+",
-                                  onKlik: onPilih)
+                    KartuTerlaris(item: item, peringkat: i + 1, onKlik: onPilih)
                         .frame(maxWidth: .infinity)
                 }
                 if items.count == 1 { Color.clear.frame(maxWidth: .infinity) }
@@ -116,8 +123,6 @@ private struct BagianTerlaris: View {
 private struct KartuTerlaris: View {
     let item: MenuItemDto
     let peringkat: Int
-    let rating: String
-    let ulasan: String
     let onKlik: (MenuItemDto) -> Void
 
     var body: some View {
@@ -134,10 +139,8 @@ private struct KartuTerlaris: View {
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 2) {
-                        Text("★ \(rating)").font(SukaFont.jakarta(11, weight: .bold)).foregroundStyle(Color.sukaOrangeTeks)
-                        Text("(\(ulasan))").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
-                    }
+                    // Rating sengaja tidak ditampilkan: aplikasi belum punya
+                    // ulasan pelanggan, dan angka karangan menyesatkan.
                     Text(item.name).font(SukaFont.jakarta(12, weight: .bold)).foregroundStyle(Color.sukaInk).lineLimit(1)
                     if let d = item.description {
                         Text(d).font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted).lineLimit(1)
@@ -156,6 +159,29 @@ private struct KartuTerlaris: View {
         }
         .buttonStyle(.mentul(0.97))
         .accessibilityLabel("Best seller \(peringkat): \(item.name), \(rupiah(item.price))")
+    }
+}
+
+/// Padanan kartu "Voucher untukmu" di `HomeScreen.kt`.
+private struct KartuMasukVoucher: View {
+    let onKetuk: () -> Void
+
+    var body: some View {
+        Button(action: onKetuk) {
+            HStack {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("🎟️ Voucher untukmu").font(SukaFont.jakarta(14, weight: .bold)).foregroundStyle(Color.sukaInk)
+                    Text("Lihat promo yang bisa kamu pakai").font(SukaFont.jakarta(12)).foregroundStyle(Color.sukaMuted)
+                }
+                Spacer()
+                Image(systemName: "arrow.right").font(.system(size: 15, weight: .bold)).foregroundStyle(Color.sukaOrange)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .background(Color.sukaTint, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.sukaOrange.opacity(0.35), lineWidth: 1))
+        }
+        .buttonStyle(.mentul(0.98))
+        .accessibilityIdentifier("kartu-voucher-beranda")
     }
 }
 

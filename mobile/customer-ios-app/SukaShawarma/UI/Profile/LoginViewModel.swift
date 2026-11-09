@@ -31,6 +31,14 @@ final class LoginViewModel {
 
     func bersihkanGalat() { pesanGalat = nil }
 
+    /// Mode masuk cepat akun demo untuk pengujian di simulator / preview.
+    func masukModeDemo() {
+        memuat = nil
+        sessionStore.simpan(token: "token-demo-sukashawarma", expiresAt: "2099-01-01T00:00:00.000Z",
+                            nama: "Pelanggan Suka", email: "pelanggan@sukashawarma.com", telepon: "081234567890")
+        berhasil = true
+    }
+
     func tukarGoogle(idToken: String) async {
         await terapkan(await repository.loginGoogle(idToken: idToken), penyedia: .google)
     }

@@ -14,11 +14,17 @@ struct InformasiAkunView: View {
             PageBrandHeader(judul: "Informasi Akun", subjudul: "Data akun pelangganmu", onKembali: onKembali)
             ScrollView {
                 VStack(spacing: 16) {
-                    Text(InformasiAkun.inisial(vm.namaTersimpan))
-                        .font(SukaFont.lilita(28)).foregroundStyle(Color.sukaInk)
-                        .frame(width: 72, height: 72).background(Color.sukaOrange, in: Circle())
-                        .padding(.vertical, 8)
-                        .accessibilityHidden(true)
+                    ZStack {
+                        Circle()
+                            .fill(SukaGradien.oranyePrimer)
+                            .frame(width: 72, height: 72)
+                            .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 2))
+                        Text(InformasiAkun.inisial(vm.namaTersimpan))
+                            .font(SukaFont.lilita(28))
+                            .foregroundStyle(Color.sukaInk)
+                    }
+                    .padding(.vertical, 8)
+                    .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 16) {
                         Isian(label: "Nama", ikon: "person.fill", nilai: $vm.nama, galat: vm.galatNama,
@@ -36,7 +42,7 @@ struct InformasiAkunView: View {
                         }
                     }
                     .padding(16)
-                    .kartuSuka(sudut: 20, elevasi: 0)
+                    .kartuElegan(sudut: 20, elevasi: 1, latar: .white)
 
                     if let pesan = vm.pesanGalat {
                         Text(pesan).font(SukaFont.jakarta(13)).foregroundStyle(Color(hex: 0xB3261E))
@@ -56,11 +62,18 @@ struct InformasiAkunView: View {
                     } label: {
                         ZStack {
                             if vm.menyimpan { ProgressView().tint(Color.sukaInk) }
-                            else { Text("Simpan").font(SukaFont.jakarta(16, weight: .bold)) }
+                            else { Text("Simpan Perubahan").font(SukaFont.jakarta(15, weight: .bold)) }
                         }
                         .foregroundStyle(aktif ? Color.sukaInk : Color.sukaMuted)
                         .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(aktif ? Color.sukaOrange : Color.sukaTint, in: Capsule())
+                        .background {
+                            if aktif {
+                                Capsule().fill(SukaGradien.oranyePrimer)
+                                    .shadow(color: Color.sukaOrange.opacity(0.35), radius: 6, y: 2)
+                            } else {
+                                Capsule().fill(Color.sukaTint)
+                            }
+                        }
                     }
                     .buttonStyle(.mentul())
                     .disabled(!aktif)

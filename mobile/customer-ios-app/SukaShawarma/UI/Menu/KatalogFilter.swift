@@ -64,3 +64,14 @@ func toppingUntuk(_ item: MenuItemDto, semua: [MenuItemDto]) -> [MenuItemDto] {
     if kategori(item, "Topping") || kategori(item, "Suka Drink") { return [] }
     return semua.filter { kategori($0, "Topping") && $0.isAvailable }
 }
+
+/// Mengambil status terbaru outlet yang sedang dipakai dari daftar outlet yang
+/// baru saja diambil ulang — `bisa_pesan`/`pesan_status` bergantung waktu (jam
+/// buka, tutup sementara), jadi salinan lama bisa basi hanya karena waktu berlalu.
+///
+/// Outlet lama yang tak lagi ada di daftar baru dipertahankan apa adanya — itu
+/// jalur `perluPilihOutlet` di `muat()`, bukan tanggung jawab penyegaran ringan ini.
+func perbaruiOutlet(_ lama: OutletDto?, daftar: [OutletDto]) -> OutletDto? {
+    guard let lama else { return nil }
+    return daftar.first { $0.id == lama.id } ?? lama
+}

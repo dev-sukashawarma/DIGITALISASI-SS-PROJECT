@@ -2,12 +2,18 @@ import SwiftUI
 
 /// Padanan `OutletPickerScreen.kt`. Tampil sebagai lembar layar penuh.
 ///
-/// Label jarak ("📍 850 m"), "Bogor & Sekitarnya", dan jam buka di kartu
-/// adalah teks statis di Android dan disalin apa adanya — belum dihitung dari data.
+/// Urutan & jarak dari lokasi pelanggan (bila diizinkan); tanpa izin daftar
+/// jatuh ke A-Z. Jam buka tidak ditampilkan di kartu — status "Buka/Tutup"
+/// datang dari gateway (`bisa_pesan`/`pesan_status`).
 struct OutletPickerView: View {
     @State var vm: OutletPickerViewModel
+    /// Outlet yang sedang dipakai pelanggan; hanya kartunya yang diberi centang.
+    var terpilihId: String?
     let onPilih: (OutletDto) -> Void
     let onTutup: () -> Void
+
+    @Environment(\.scenePhase) private var fase
+    @Environment(\.openURL) private var bukaUrl
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,7 +21,7 @@ struct OutletPickerView: View {
             VStack(spacing: 0) {
                 bannerLokasi
                 HStack {
-                    Text("OUTLET TERDEKAT").font(SukaFont.jakarta(11, weight: .bold)).tracking(0.5).foregroundStyle(Color.sukaBrown)
+                    Text(vm.posisi != nil ? "OUTLET TERDEKAT" : "SEMUA OUTLET").font(SukaFont.jakarta(11, weight: .bold)).tracking(0.5).foregroundStyle(Color.sukaBrown)
                     Spacer()
                     Text("\(vm.tampil.count) Outlet").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
                 }
@@ -27,6 +33,20 @@ struct OutletPickerView: View {
         .background(Color.sukaCream.ignoresSafeArea())
         .latarBilahStatus()
         .task { await vm.muat() }
+        .task { await vm.mulaiLokasi() }
+        .onChange(of: fase) { _, baru in
+            if baru == .active { Task { await vm.cekIzinUlang() } }
+        }
+    }
+
+    private func mintaLokasi() {
+        Task {
+            // Ditolak permanen: dialog sistem tak akan muncul lagi, satu-satunya
+            // jalan adalah halaman izin aplikasi di Pengaturan.
+            if await vm.mintaLokasi(), let url = URL(string: UIApplication.openSettingsURLString) {
+                bukaUrl(url)
+            }
+        }
     }
 
     private var kepala: some View {
@@ -47,9 +67,12 @@ struct OutletPickerView: View {
                     }
                 }
                 Spacer()
-                Image(systemName: "location.fill").font(.system(size: 15)).foregroundStyle(Color.sukaOrange)
-                    .frame(width: 40, height: 40).background(Color.white, in: Circle())
-                    .accessibilityHidden(true)
+                Button(action: mintaLokasi) {
+                    Image(systemName: "location.fill").font(.system(size: 15)).foregroundStyle(Color.sukaOrange)
+                        .frame(width: 40, height: 40).background(Color.white, in: Circle())
+                }
+                .buttonStyle(.mentul())
+                .accessibilityLabel("Gunakan lokasiku")
             }
             .padding(.horizontal, 16).padding(.top, 10)
 
@@ -78,20 +101,41 @@ struct OutletPickerView: View {
                     .frame(width: 32, height: 32).background(Color.sukaOrange.opacity(0.2), in: Circle())
                 VStack(alignment: .leading, spacing: 0) {
                     Text("LOKASIMU SAAT INI").font(SukaFont.jakarta(9, weight: .bold)).tracking(0.5).foregroundStyle(Color(hex: 0x8A4822))
-                    Text("Bogor & Sekitarnya").font(SukaFont.jakarta(12, weight: .bold)).foregroundStyle(Color.sukaInk)
+                    Text(teksStatusLokasi).font(SukaFont.jakarta(12, weight: .bold)).foregroundStyle(Color.sukaInk)
                 }
             }
             Spacer()
-            Text("Otomatis").font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(Color.sukaBrown)
-                .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.sukaOrange.opacity(0.3), lineWidth: 1))
+            Button(action: mintaLokasi) {
+                Text(labelTombolLokasi).font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.sukaOrange.opacity(0.3), lineWidth: 1))
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.mentul())
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(LinearGradient(colors: [Color(hex: 0xFFF1E5), Color(hex: 0xFFE8D6)], startPoint: .leading, endPoint: .trailing),
                     in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: 0xFCDDC2), lineWidth: 1))
         .padding(.horizontal, 16).padding(.vertical, 8)
+    }
+
+    private var teksStatusLokasi: String {
+        switch vm.statusLokasi {
+        case .mencari: "Mencari lokasimu…"
+        case .aktif: "Aktif • urut dari yang terdekat"
+        case .tanpaIzin: "Belum diizinkan"
+        case .tidakTersedia: "Tidak terdeteksi • nyalakan lokasi"
+        }
+    }
+
+    private var labelTombolLokasi: String {
+        switch vm.statusLokasi {
+        case .tanpaIzin: "Izinkan"
+        case .tidakTersedia: "Coba lagi"
+        default: "Perbarui"
+        }
     }
 
     @ViewBuilder private var daftar: some View {
@@ -106,19 +150,33 @@ struct OutletPickerView: View {
             EmptyState(judul: "Belum Ada Outlet", penjelasan: "Pemesanan lewat aplikasi belum dibuka di outlet mana pun.")
                 .frame(maxHeight: .infinity)
         } else {
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(vm.tampil) { o in KartuOutlet(outlet: o) { onPilih(o) } }
+            ScrollViewReader { proksi in
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(vm.tampil) { o in
+                            KartuOutlet(outlet: o, jarak: vm.posisi.flatMap { jarakOutlet(o, $0) },
+                                        terpilih: o.id == terpilihId) { onPilih(o) }
+                        }
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 8)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 8)
+                .scrollDismissesKeyboard(.immediately)
+                // Setelah lokasi masuk urutan berubah; kembali ke puncak supaya
+                // pelanggan melihat outlet terdekat, bukan tengah daftar.
+                .onChange(of: vm.posisi) { _, baru in
+                    if baru != nil, let pertama = vm.tampil.first { proksi.scrollTo(pertama.id, anchor: .top) }
+                }
             }
-            .scrollDismissesKeyboard(.immediately)
         }
     }
 }
 
 private struct KartuOutlet: View {
     let outlet: OutletDto
+    /// Jarak garis lurus, hanya kalau lokasi pelanggan DAN koordinat outlet
+    /// sama-sama diketahui — tak pernah ditebak.
+    let jarak: Double?
+    let terpilih: Bool
     let onPilih: () -> Void
 
     var body: some View {
@@ -129,23 +187,29 @@ private struct KartuOutlet: View {
                         Text(outlet.name).font(SukaFont.jakarta(15, weight: .bold)).foregroundStyle(Color.sukaInk).lineLimit(1)
                         HStack(spacing: 6) {
                             HStack(spacing: 4) {
-                                Circle().fill(outlet.isActive ? Color.sukaGreen : Color.sukaMuted).frame(width: 6, height: 6)
-                                Text(outlet.isActive ? "Buka • Siap 15–20 mnt" : "Belum Buka")
+                                Circle().fill(outlet.bolehPesan ? Color.sukaGreen : Color.sukaMuted).frame(width: 6, height: 6)
+                                Text(labelStatusOutlet(outlet))
                                     .font(SukaFont.jakarta(10, weight: .bold))
-                                    .foregroundStyle(outlet.isActive ? Color.sukaGreen : Color.sukaMuted)
+                                    .foregroundStyle(outlet.bolehPesan ? Color.sukaGreen : Color.sukaMuted)
+                                    .lineLimit(2).multilineTextAlignment(.leading)
                             }
                             .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(outlet.isActive ? Color(hex: 0xE8F8F0) : Color(hex: 0xF3F4F6), in: RoundedRectangle(cornerRadius: 8))
-                            Text("📍 850 m").font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(Color.sukaBrown)
-                                .padding(.horizontal, 6).padding(.vertical, 3)
-                                .background(Color(hex: 0xFFEBD8), in: RoundedRectangle(cornerRadius: 8))
+                            .background(outlet.bolehPesan ? Color(hex: 0xE8F8F0) : Color(hex: 0xF3F4F6), in: RoundedRectangle(cornerRadius: 8))
+                            if let jarak {
+                                Text("📍 \(labelJarak(jarak))").font(SukaFont.jakarta(10, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                                    .padding(.horizontal, 6).padding(.vertical, 3)
+                                    .background(Color(hex: 0xFFEBD8), in: RoundedRectangle(cornerRadius: 8))
+                            }
                         }
                     }
                     Spacer()
-                    Image(systemName: "checkmark").font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(outlet.isActive ? Color.sukaBrown : .clear)
-                        .frame(width: 24, height: 24)
-                        .background(outlet.isActive ? Color.sukaOrange : Color(hex: 0xE5E7EB), in: Circle())
+                    if terpilih {
+                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.sukaBrown)
+                            .frame(width: 24, height: 24)
+                            .background(Color.sukaOrange, in: Circle())
+                            .accessibilityLabel("Outlet saat ini")
+                    }
                 }
                 if let alamat = outlet.address, !alamat.trimmingCharacters(in: .whitespaces).isEmpty {
                     Text(alamat).font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted).lineLimit(2)
@@ -153,10 +217,7 @@ private struct KartuOutlet: View {
                 }
                 Rectangle().fill(Color(hex: 0xF5EADB)).frame(height: 1)
                 HStack {
-                    HStack(spacing: 4) {
-                        Image(systemName: "clock").font(.system(size: 11)).foregroundStyle(Color.sukaOrange)
-                        Text("Buka: 10.00 – 22.00 WIB").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
-                    }
+                    // Jam buka sengaja tidak ditulis di sini — status di atas dari gateway.
                     Spacer()
                     Text("Pilih Outlet →").font(SukaFont.jakarta(11, weight: .bold)).foregroundStyle(Color.sukaBrown)
                 }
@@ -165,6 +226,6 @@ private struct KartuOutlet: View {
             .kartuSuka(sudut: 20, elevasi: 2)
         }
         .buttonStyle(.mentul(0.98))
-        .accessibilityLabel("\(outlet.name), \(outlet.isActive ? "buka" : "belum buka")")
+        .accessibilityLabel("\(outlet.name), \(labelStatusOutlet(outlet))\(jarak.map { ", \(labelJarak($0))" } ?? "")\(terpilih ? ", outlet saat ini" : "")")
     }
 }

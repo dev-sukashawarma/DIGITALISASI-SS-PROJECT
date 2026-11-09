@@ -52,8 +52,14 @@ final class PaymentViewModel {
         self.cart = cart
         self.percobaan = percobaan
         self.jadwal = jadwal
-        totalTagihan = cart.subtotal()
+        totalTagihan = cart.voucher() != nil ? 0 : cart.subtotal()
     }
+
+    /// Angka pra-server yang aman ditampilkan sebelum gateway membalas.
+    /// `cart.subtotal()` tak tahu soal voucher — dengan voucher ia SELALU
+    /// terlalu besar, jadi disembunyikan (0 = blok total tak dirender) sampai
+    /// angka gateway datang. QRIS dan layar ini wajib menagih angka yang sama.
+    private func totalAwal() -> Int64 { cart.voucher() != nil ? 0 : cart.subtotal() }
 
     /// Titik masuk layar. Percobaan tertinggal DIPERIKSA dulu, tidak langsung
     /// dipantau; galat jaringan saat memeriksa TIDAK memulai pesanan baru.
@@ -64,6 +70,10 @@ final class PaymentViewModel {
         }
         memuat = true
         orderId = id
+        // Pesanan ini SUDAH ada di server (dilanjutkan, bukan dibuat): angka
+        // lokal (bisa pra-voucher) tidak boleh sempat terlihat. Diisi lagi dari
+        // balasan status pertama yang berhasil.
+        totalTagihan = 0
 
         switch await repository.statusPesanan(orderId: id) {
         case .gagal:
@@ -84,7 +94,7 @@ final class PaymentViewModel {
                 // Id lama sudah terpakai & akan ditolak 409 — buang, buat baru.
                 percobaan.selesai()
                 orderId = nil
-                totalTagihan = cart.subtotal()
+                totalTagihan = totalAwal()
                 await bayar()
             case .lanjutkan:
                 // QR yang SAMA ditampilkan lagi, bukan tagihan kedua. URL dari
@@ -114,10 +124,11 @@ final class PaymentViewModel {
         gagalBayar = false
         kadaluarsa = false
         waktuHabis = false
-        totalTagihan = cart.subtotal()
+        totalTagihan = totalAwal()
 
         switch await repository.buatPesanan(clientOrderId: clientOrderId, outletId: outletId,
-                                            items: isi.flatMap { $0.kePayloadList() }) {
+                                            items: isi.flatMap { $0.kePayloadList() },
+                                            voucher: cart.voucher()) {
         case .sukses(let r):
             percobaan.simpanOrderId(r.orderId)
             if let url = r.paymentUrl { percobaan.simpanPaymentUrl(url) }
@@ -176,6 +187,8 @@ final class PaymentViewModel {
     /// Mengembalikan true bila status sudah pasti (penanyaan boleh berhenti).
     @discardableResult
     private func terapkanStatus(_ d: OrderDetailDto) -> Bool {
+        // Angka nyata muncul begitu diketahui — termasuk saat status masih menunggu.
+        totalTagihan = bulatkanRupiah(d.totalAmount)
         switch d.status {
         case "dibayar":
             selesaiDibayar(nomor: d.posOrderNumber)

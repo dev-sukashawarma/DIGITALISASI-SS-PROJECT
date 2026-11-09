@@ -11,11 +11,19 @@
 	<!-- Hanya HTTPS standar (tanpa enkripsi sendiri): bebas dokumen ekspor. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Lokasi kasar, HANYA untuk mengurutkan outlet terdekat di Pilih Outlet.
+	     Tidak disimpan dan tidak dikirim ke gateway. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Lokasimu dipakai untuk mengurutkan outlet Suka Shawarma dari yang terdekat. Lokasi tidak disimpan dan tidak dikirim ke server.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<!-- Cokelat Suka, supaya peralihan ke splash aplikasi tidak berkedip putih. -->
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
+		<!-- Logo di tengah, sama dengan splash sistem Android (logo_suka di atas
+		     cokelat). Ukurannya sama dengan SplashMerekView agar peralihan mulus. -->
+		<key>UIImageName</key>
+		<string>LogoSplash</string>
 	</dict>
 	<key>UIAppFonts</key>
 	<array>

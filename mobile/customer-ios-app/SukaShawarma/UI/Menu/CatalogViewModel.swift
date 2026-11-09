@@ -13,7 +13,8 @@ final class CatalogViewModel {
     var kueri = "" { didSet { if kueri != oldValue { susunKategori() } } }
     private(set) var semuaItem: [MenuItemDto] = []
     private(set) var kategori: [KategoriMenu] = []
-    /// Ada >1 outlet, tak ada yang tersimpan — pelanggan harus memilih.
+    /// Ada >1 outlet, tak ada yang tersimpan, DAN outlet terdekat tak bisa
+    /// ditentukan (lokasi tak diizinkan / tak terdeteksi) — pelanggan memilih sendiri.
     private(set) var perluPilihOutlet = false
     /// Tidak ada satu pun outlet yang ikut serta di aplikasi.
     private(set) var tidakAdaOutlet = false
@@ -25,12 +26,14 @@ final class CatalogViewModel {
     @ObservationIgnored private let repository: Repository
     @ObservationIgnored private let outletStore: OutletStore
     @ObservationIgnored private let cart: CartStore
+    @ObservationIgnored private let lokasi: LokasiPelanggan?
     @ObservationIgnored private var tugasBanner: Task<Void, Never>?
 
-    init(repository: Repository, outletStore: OutletStore, cart: CartStore) {
+    init(repository: Repository, outletStore: OutletStore, cart: CartStore, lokasi: LokasiPelanggan? = nil) {
         self.repository = repository
         self.outletStore = outletStore
         self.cart = cart
+        self.lokasi = lokasi
     }
 
     func muat() async {
@@ -62,9 +65,10 @@ final class CatalogViewModel {
 
             // Outlet tersimpan yang sudah dicabut dari aplikasi tidak boleh tetap dipakai.
             let tersimpan = outletStore.idTerpilih()
-            guard let terpilih = outlets.first(where: { $0.id == tersimpan })
-                    ?? (outlets.count == 1 ? outlets[0] : nil)
-            else {
+            var pilihan = outlets.first(where: { $0.id == tersimpan }) ?? (outlets.count == 1 ? outlets[0] : nil)
+            // Belum ada pilihan: pakai outlet terdekat dari lokasi pelanggan.
+            if pilihan == nil { pilihan = await outletTerdekat(outlets) }
+            guard let terpilih = pilihan else {
                 memuat = false
                 perluPilihOutlet = true
                 return
@@ -89,6 +93,27 @@ final class CatalogViewModel {
     }
 
     func akuiKeranjangDikosongkan() { keranjangDikosongkan = false }
+
+    /// Outlet terdekat dari lokasi pelanggan; nil bila lokasi tak diizinkan /
+    /// tak terdeteksi atau tak satu pun outlet punya koordinat — tanpa tebakan.
+    private func outletTerdekat(_ outlets: [OutletDto]) async -> OutletDto? {
+        guard let lokasi else { return nil }
+        if lokasi.bisaDitanya { await lokasi.mintaIzin() }
+        guard case .ada(let posisi) = await lokasi.ambil() else { return nil }
+        return pilihOutletTerdekat(outlets, posisi: posisi)
+    }
+
+    /// `bisa_pesan`/`pesan_status` bergantung waktu (jam buka, tutup sementara),
+    /// jadi outlet yang sudah terpasang bisa basi hanya karena waktu berlalu —
+    /// pelanggan yang membuka app sebelum outlet buka lalu membiarkannya di
+    /// latar belakang akan tetap melihat "Tutup" walau jam buka sudah lewat.
+    ///
+    /// Sengaja ringan: hanya mengganti `outlet`, tanpa spinner, tanpa memuat
+    /// ulang katalog, tanpa menyentuh keranjang. Gagal jaringan = senyap.
+    func segarkanStatusOutlet() async {
+        guard outlet != nil, case .sukses(let daftar) = await repository.outlets() else { return }
+        outlet = perbaruiOutlet(outlet, daftar: daftar)
+    }
 
     /// Keranjang outlet lain pasti ditolak gateway saat checkout — lebih baik
     /// dikosongkan di sini, selagi pelanggan masih bisa memesan ulang.

@@ -21,9 +21,11 @@
 		15F19A2AD727932C5963DCB4 /* StatusPesanan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C88D1CE41408325849710BA /* StatusPesanan.swift */; };
 		16DE34CD49E5DF8A711C8134 /* plus_jakarta_sans_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A26E7C258051672EC7AF6EB4 /* plus_jakarta_sans_regular.ttf */; };
 		180375C14DF3DE52FCF63187 /* GatewayClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2737B1FCF1075427FF4D6ABD /* GatewayClientTests.swift */; };
+		1CA0F875DA1308B2AAB19B25 /* KonfigurasiAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD9551DC9F530E21A612581C /* KonfigurasiAppTests.swift */; };
 		1F806E74BD9B6F0900E4937E /* OrderAttemptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE545BA9CEEC34A21D3E09 /* OrderAttemptStore.swift */; };
 		2101008D91028C7F98206FFA /* SukaShawarmaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51EC5D98E14FF477E79BE04 /* SukaShawarmaApp.swift */; };
 		21179BEC0E682DEAE7ED6C03 /* SukaColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41C210E096DB62B843A619E /* SukaColors.swift */; };
+		22F22A93238D947ED09B09AC /* VoucherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D76D0B32AB9B2F09A37D847C /* VoucherTests.swift */; };
 		29D92C1689E24B6A46FE3B10 /* FloatingCartBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 473C432F59910526A14B0D31 /* FloatingCartBar.swift */; };
 		2E921A968E76DCAA8DEB2A29 /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834041CDC2347B6FD06E37A3 /* AppContainer.swift */; };
 		343BAAF49CAE98302EF12544 /* InformasiAkunViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49A58B8545EEAB14A113D633 /* InformasiAkunViewModel.swift */; };
@@ -32,6 +34,7 @@
 		3A6EC7235B8F449D1F52266B /* MasukGoogle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A7F1127C75972BD727F75D /* MasukGoogle.swift */; };
 		3B701E6186FEAFF3EEC51BF4 /* HomeHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FB876143F865DF5C41EC039 /* HomeHeader.swift */; };
 		437DDEE3B6CD577A6A0914F4 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED6EADAC5D485C71ACF34A7C /* SessionStore.swift */; };
+		43EB046F11B13E72DEA82004 /* KonfigurasiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A761A6293A5B70A669E20151 /* KonfigurasiApp.swift */; };
 		46E9336800627870CD185293 /* AppShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = F403852063F4E0ED603D456C /* AppShell.swift */; };
 		4C71D10C7B9B9593F0BEE9B6 /* PaymentWaitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1FD89D252D791791AB80726 /* PaymentWaitView.swift */; };
 		50283CDCD4A4C298E41CF468 /* CheckoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CCF9EAF990D362D346F8A82 /* CheckoutView.swift */; };
@@ -47,8 +50,11 @@
 		6C437734A79C496CCFDD9D86 /* plus_jakarta_sans_medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 55C040194148A7A01A888690 /* plus_jakarta_sans_medium.ttf */; };
 		6D9A5F3A1E6F9230BF69B121 /* NotificationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8975BB987FB732C092D0703D /* NotificationStore.swift */; };
 		6EC340DA43CD83C55088F6A4 /* Repository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAFD374BE924866EA4746D0 /* Repository.swift */; };
+		6F804D1AD3A96B702072509C /* VoucherCheckout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1F210E8542F9CF88D95BC3 /* VoucherCheckout.swift */; };
 		74FD44CFDC2106F2FD6D8BF4 /* OrderStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C82534A6F446F4F1561BF3E /* OrderStatusView.swift */; };
+		77E0E97D580E5A848DF788AC /* StatusOutletLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592D85654F492AA84B1D1450 /* StatusOutletLabel.swift */; };
 		7A363835C4BF82FBD671E01F /* InformasiAkunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7680AEE3E5A77F4B0595DF1D /* InformasiAkunView.swift */; };
+		7A9E190F1B411AE3C02FCB78 /* KartuVoucher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E8F773964353C29F3956F7 /* KartuVoucher.swift */; };
 		7B3F4BFBC543AC6436530142 /* PromoPopup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1EF80810C1444C20B41716 /* PromoPopup.swift */; };
 		7C4E1F99AC8B7AC0D112FC9C /* ColorContrastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2463025E9CD7715426701557 /* ColorContrastTests.swift */; };
 		7E60A889CCCC34DC7EEA4504 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5623F359BE91FE00ECF3F7EC /* HistoryView.swift */; };
@@ -59,6 +65,9 @@
 		87FC0F569724D39C3744D5EA /* lilita_one.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CB7D3CBEE5BA832121A4500D /* lilita_one.ttf */; };
 		882D4C4AD2E8C7D4BA45DB54 /* ItemDetailViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B81E95A412A69572AD8FB98 /* ItemDetailViewModelTests.swift */; };
 		913A5C7DE653E2D1BEE697A2 /* AksesibilitasUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A29770A0881E7132FDE7D9 /* AksesibilitasUITests.swift */; };
+		9465413C1C0C6EFE851C27A0 /* JarakOutletTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B115D2E87E0A7149663AC96 /* JarakOutletTests.swift */; };
+		94721108FB8B88A268B698AC /* TampilanKartuVoucherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7411BD16E0C0A01AF58B5E3A /* TampilanKartuVoucherTests.swift */; };
+		983499F38228BEBE7F64BCAE /* VoucherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A61B83885447DF1264863A9 /* VoucherView.swift */; };
 		993D1BC84C5A3069A6BB29E9 /* Dto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BF3E6B90B40AF914C3EFF5B /* Dto.swift */; };
 		9A8C670A0014F2E3833F3B26 /* SkenarioUji.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E34C87904ED6B8DAEC88A67 /* SkenarioUji.swift */; };
 		A10B4CE0616356623AD5F331 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11412829E2E7EB1C64DEA099 /* MenuView.swift */; };
@@ -68,17 +77,21 @@
 		AE964CD805F0EC1160ADD66F /* SplashStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0BF95A25047AB4AAC7F5B1F /* SplashStore.swift */; };
 		AFD68BE1ED75F9110C061F3A /* TujuanBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BC8FFA491E2BCEC4A46783B /* TujuanBanner.swift */; };
 		B0423954699393EA74D937A5 /* plus_jakarta_sans_bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AE1428D912429AB1B03AE310 /* plus_jakarta_sans_bold.ttf */; };
+		B2CC339C03176A2C109BDA92 /* TampilanKartuVoucher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5354E05D9BE93370B349EA20 /* TampilanKartuVoucher.swift */; };
 		B6F7F072B187CADBC1996A39 /* States.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70774CA932FBC095213471D3 /* States.swift */; };
 		B9552AD9B9D579CC43AD1574 /* KatalogFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F01853A595BA6D0D435E031E /* KatalogFilterTests.swift */; };
+		BAD8EC891335690CA568FF58 /* MenuTerlarisKurasiTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 688E9658E200B23B56318C36 /* MenuTerlarisKurasiTests.swift */; };
 		C18134962B1F44BEFC90BEB2 /* StoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 593AF2CC3031D4BAE9921A32 /* StoreTests.swift */; };
 		C1F125E7629AE30B0B5CC7AF /* ProfilFormTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C93160946DB0BAEB4A1D7E5E /* ProfilFormTests.swift */; };
 		C46EC9BED69CE5E048CDF38D /* NotificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25C18850EE1597197CA12C77 /* NotificationView.swift */; };
+		C59B066E37E83D8EC63B9753 /* LokasiPelanggan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A2F59162CB8F3492A03F0C /* LokasiPelanggan.swift */; };
 		C7EF05822B18566A89F4B426 /* KatalogFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3AC5A482BD31358135B78A1 /* KatalogFilter.swift */; };
 		C855C43253CD9CCF863FD419 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 66FAB25BE558FBDDB4359F2C /* Assets.xcassets */; };
 		CE198CEFAD336A1B00B32BAE /* OutletPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4BEE9802D22CDD81F36378A /* OutletPickerView.swift */; };
 		D0140A4A62A5C4A635B668B7 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3B6A09B297E785F0AD12F3E /* LoginViewModel.swift */; };
 		D021AC9C7D2198655D89FB26 /* Idempotensi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7308EBAB317DA67CDD47B12C /* Idempotensi.swift */; };
 		D152A6AC53B26948E926FF93 /* SukaGaya.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3203E413EB840A50B4542AF6 /* SukaGaya.swift */; };
+		D19E6347E8E4188C7275D50D /* InisialTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B9B65BFC662AC2DBBEFCD70 /* InisialTests.swift */; };
 		D23FB105A548546E8F7D77B2 /* CatalogViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DCA3B4B4208AB7ABF24ABD3 /* CatalogViewModelTests.swift */; };
 		D3ED2EC6C549E704898227C0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 67A275AC2B8931981BCF3792 /* PrivacyInfo.xcprivacy */; };
 		D62B82B00B3B8B09CB37790B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E0D8952AB0629CA3C293FF /* ProfileView.swift */; };
@@ -88,16 +101,20 @@
 		DA8620D56CF16EAF3CEF6BF2 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F256680E554249840F7DCDAD /* GatewayClient.swift */; };
 		DC241D125CC6776DFB952CD6 /* ProfilForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B8ACD799798AB51BB6A251B /* ProfilForm.swift */; };
 		E061D75442D4D7ED358458D8 /* SuccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 469D5213FBCEE8303FD48844 /* SuccessView.swift */; };
+		E09993B31699A7F68518803C /* PemilihVoucherSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 113B61EA87DE8DDE494AEB6F /* PemilihVoucherSheet.swift */; };
 		E972D1EE919BB31D56A47506 /* Rupiah.swift in Sources */ = {isa = PBXBuildFile; fileRef = 718233308C5637D95CF9525C /* Rupiah.swift */; };
 		E98180090E0551E598CAEF42 /* BannerCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2437B4F318BF4EDEB4F5E93A /* BannerCarousel.swift */; };
 		EA8B0742FD5E2302B527AC95 /* MasukTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90809C5D9C8826727B09F283 /* MasukTests.swift */; };
 		EE83EEC019585A4C1D04056F /* CheckoutViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A80EEA8EAD0B969CE9899D1 /* CheckoutViewModelTests.swift */; };
 		EFCC42EBC9B448E69DAF09A9 /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDCCF36D295111AD983E2FC /* SmokeTests.swift */; };
+		F09B697F2D8052C9D6A2B783 /* Inisial.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C67C1AB3BB66A058A6A6D1C /* Inisial.swift */; };
 		F3482E70DE7E4DF11349CA17 /* BerandaLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4956813E18FE24BA67E89D4 /* BerandaLogicTests.swift */; };
 		F48E74AC645DF48A53241B4F /* SukaBottomNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104777F9A4A6A98A778E739F /* SukaBottomNavBar.swift */; };
 		F7D4FC41AE5F73E61749ACCA /* PaymentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD7A0320AE5DEAF51739B1C3 /* PaymentViewModel.swift */; };
 		F88D9E5B96AD672CC4FECA68 /* Rute.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC9277AF33A802177326A834 /* Rute.swift */; };
 		F911BF146C4917F7CDDDA291 /* SplashTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A590D6B1BE22F0F2278E9A1B /* SplashTests.swift */; };
+		FAB1DCC207474EB253F67C05 /* JarakOutlet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 815C06A97D1662142C23C704 /* JarakOutlet.swift */; };
+		FB3810D83672CD2E9B0853F1 /* VoucherViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BB1632BAB5221CA47750E1 /* VoucherViewModel.swift */; };
 		FC514A435FC4ADF070F05577 /* RupiahTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE86A6C19102C4146379404D /* RupiahTests.swift */; };
 		FCD7DAD1D49CB143A74E1F6F /* Fase5Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F9F3DAD8BFCF3495F4A9C9 /* Fase5Tests.swift */; };
 		FECD3EC9E38C27E76E728ABC /* ValidasiPesanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CC5029A9C472FF58017883 /* ValidasiPesanTests.swift */; };
@@ -123,11 +140,16 @@
 /* Begin PBXFileReference section */
 		03A7F1127C75972BD727F75D /* MasukGoogle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasukGoogle.swift; sourceTree = "<group>"; };
 		0A57F62C73DE6BCA5F06FA24 /* CartStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartStoreTests.swift; sourceTree = "<group>"; };
+		0A61B83885447DF1264863A9 /* VoucherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoucherView.swift; sourceTree = "<group>"; };
 		0AA6DCCF817DC28DA4BD656E /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		0B115D2E87E0A7149663AC96 /* JarakOutletTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JarakOutletTests.swift; sourceTree = "<group>"; };
+		0C67C1AB3BB66A058A6A6D1C /* Inisial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Inisial.swift; sourceTree = "<group>"; };
 		104777F9A4A6A98A778E739F /* SukaBottomNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SukaBottomNavBar.swift; sourceTree = "<group>"; };
+		113B61EA87DE8DDE494AEB6F /* PemilihVoucherSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PemilihVoucherSheet.swift; sourceTree = "<group>"; };
 		11412829E2E7EB1C64DEA099 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
 		13563F92756598EA28FF311A /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		1689D1A9F49AABA66B256250 /* SukaShawarmaTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SukaShawarmaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		23A2F59162CB8F3492A03F0C /* LokasiPelanggan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LokasiPelanggan.swift; sourceTree = "<group>"; };
 		2437B4F318BF4EDEB4F5E93A /* BannerCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannerCarousel.swift; sourceTree = "<group>"; };
 		2463025E9CD7715426701557 /* ColorContrastTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorContrastTests.swift; sourceTree = "<group>"; };
 		2519044CF4A58042F0B2B6C9 /* SukaTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SukaTypography.swift; sourceTree = "<group>"; };
@@ -136,6 +158,7 @@
 		2B1A46B82D6A745662C8CEE3 /* BannerDilihatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannerDilihatStore.swift; sourceTree = "<group>"; };
 		2DCA3B4B4208AB7ABF24ABD3 /* CatalogViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogViewModelTests.swift; sourceTree = "<group>"; };
 		2DF68B05F10F15D3E4DF7C0C /* SukaShawarmaUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SukaShawarmaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		31BB1632BAB5221CA47750E1 /* VoucherViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoucherViewModel.swift; sourceTree = "<group>"; };
 		3203E413EB840A50B4542AF6 /* SukaGaya.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SukaGaya.swift; sourceTree = "<group>"; };
 		35CFCAB9C1C1001EDD8BA484 /* CartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartView.swift; sourceTree = "<group>"; };
 		3B8ACD799798AB51BB6A251B /* ProfilForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilForm.swift; sourceTree = "<group>"; };
@@ -151,11 +174,14 @@
 		49A58B8545EEAB14A113D633 /* InformasiAkunViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InformasiAkunViewModel.swift; sourceTree = "<group>"; };
 		4A80EEA8EAD0B969CE9899D1 /* CheckoutViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckoutViewModelTests.swift; sourceTree = "<group>"; };
 		4B81E95A412A69572AD8FB98 /* ItemDetailViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailViewModelTests.swift; sourceTree = "<group>"; };
+		4B9B65BFC662AC2DBBEFCD70 /* InisialTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InisialTests.swift; sourceTree = "<group>"; };
 		4CCF9EAF990D362D346F8A82 /* CheckoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckoutView.swift; sourceTree = "<group>"; };
 		4FB876143F865DF5C41EC039 /* HomeHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeader.swift; sourceTree = "<group>"; };
+		5354E05D9BE93370B349EA20 /* TampilanKartuVoucher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TampilanKartuVoucher.swift; sourceTree = "<group>"; };
 		55C040194148A7A01A888690 /* plus_jakarta_sans_medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = plus_jakarta_sans_medium.ttf; sourceTree = "<group>"; };
 		5623F359BE91FE00ECF3F7EC /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		568F0F0BF0515BF0D4567E40 /* SukaShawarma.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SukaShawarma.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		592D85654F492AA84B1D1450 /* StatusOutletLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusOutletLabel.swift; sourceTree = "<group>"; };
 		593AF2CC3031D4BAE9921A32 /* StoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreTests.swift; sourceTree = "<group>"; };
 		5E98D7744CAE45B5F25136F9 /* ValidasiPesan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidasiPesan.swift; sourceTree = "<group>"; };
 		5FDCCF36D295111AD983E2FC /* SmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTests.swift; sourceTree = "<group>"; };
@@ -164,6 +190,7 @@
 		662FD4C4E926E3989CE6201A /* PembayaranTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PembayaranTests.swift; sourceTree = "<group>"; };
 		66FAB25BE558FBDDB4359F2C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		67A275AC2B8931981BCF3792 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		688E9658E200B23B56318C36 /* MenuTerlarisKurasiTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuTerlarisKurasiTests.swift; sourceTree = "<group>"; };
 		692473E4F7E103364C4A248E /* CartStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartStore.swift; sourceTree = "<group>"; };
 		6BC8FFA491E2BCEC4A46783B /* TujuanBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TujuanBanner.swift; sourceTree = "<group>"; };
 		6BF3E6B90B40AF914C3EFF5B /* Dto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Dto.swift; sourceTree = "<group>"; };
@@ -171,14 +198,18 @@
 		70774CA932FBC095213471D3 /* States.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = States.swift; sourceTree = "<group>"; };
 		718233308C5637D95CF9525C /* Rupiah.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Rupiah.swift; sourceTree = "<group>"; };
 		7308EBAB317DA67CDD47B12C /* Idempotensi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Idempotensi.swift; sourceTree = "<group>"; };
+		73E8F773964353C29F3956F7 /* KartuVoucher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KartuVoucher.swift; sourceTree = "<group>"; };
+		7411BD16E0C0A01AF58B5E3A /* TampilanKartuVoucherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TampilanKartuVoucherTests.swift; sourceTree = "<group>"; };
 		7555596F9AC14196FD013234 /* CheckoutViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckoutViewModel.swift; sourceTree = "<group>"; };
 		7680AEE3E5A77F4B0595DF1D /* InformasiAkunView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InformasiAkunView.swift; sourceTree = "<group>"; };
 		7B1EF80810C1444C20B41716 /* PromoPopup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromoPopup.swift; sourceTree = "<group>"; };
 		7B5D776294BACDB9C3D36630 /* OutletStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutletStore.swift; sourceTree = "<group>"; };
 		80E0D8952AB0629CA3C293FF /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		815C06A97D1662142C23C704 /* JarakOutlet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JarakOutlet.swift; sourceTree = "<group>"; };
 		834041CDC2347B6FD06E37A3 /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		8975BB987FB732C092D0703D /* NotificationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationStore.swift; sourceTree = "<group>"; };
 		8C82534A6F446F4F1561BF3E /* OrderStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderStatusView.swift; sourceTree = "<group>"; };
+		8F1F210E8542F9CF88D95BC3 /* VoucherCheckout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoucherCheckout.swift; sourceTree = "<group>"; };
 		90809C5D9C8826727B09F283 /* MasukTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasukTests.swift; sourceTree = "<group>"; };
 		9250747B8ED26454220FB473 /* SplashAplikasiView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashAplikasiView.swift; sourceTree = "<group>"; };
 		94CC5029A9C472FF58017883 /* ValidasiPesanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidasiPesanTests.swift; sourceTree = "<group>"; };
@@ -189,6 +220,7 @@
 		A26E7C258051672EC7AF6EB4 /* plus_jakarta_sans_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = plus_jakarta_sans_regular.ttf; sourceTree = "<group>"; };
 		A4BEE9802D22CDD81F36378A /* OutletPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutletPickerView.swift; sourceTree = "<group>"; };
 		A590D6B1BE22F0F2278E9A1B /* SplashTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashTests.swift; sourceTree = "<group>"; };
+		A761A6293A5B70A669E20151 /* KonfigurasiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KonfigurasiApp.swift; sourceTree = "<group>"; };
 		AE1428D912429AB1B03AE310 /* plus_jakarta_sans_bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = plus_jakarta_sans_bold.ttf; sourceTree = "<group>"; };
 		B28ABC8B95A7D0011CDC589E /* OrderViewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrderViewModels.swift; sourceTree = "<group>"; };
 		B3B6A09B297E785F0AD12F3E /* LoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModel.swift; sourceTree = "<group>"; };
@@ -203,7 +235,9 @@
 		CB7D3CBEE5BA832121A4500D /* lilita_one.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = lilita_one.ttf; sourceTree = "<group>"; };
 		D62E7D2D842EE9F607181E21 /* DtoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DtoTests.swift; sourceTree = "<group>"; };
 		D65C4F3E72D37446DF08FDCD /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		D76D0B32AB9B2F09A37D847C /* VoucherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoucherTests.swift; sourceTree = "<group>"; };
 		DD7A0320AE5DEAF51739B1C3 /* PaymentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentViewModel.swift; sourceTree = "<group>"; };
+		DD9551DC9F530E21A612581C /* KonfigurasiAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KonfigurasiAppTests.swift; sourceTree = "<group>"; };
 		DEAFD374BE924866EA4746D0 /* Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repository.swift; sourceTree = "<group>"; };
 		E0DD69CA2231020512458666 /* ItemDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailView.swift; sourceTree = "<group>"; };
 		E1FD89D252D791791AB80726 /* PaymentWaitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentWaitView.swift; sourceTree = "<group>"; };
@@ -249,6 +283,14 @@
 				632EF074E0F3FD3B99A8C20F /* PerjalananPelangganUITests.swift */,
 			);
 			path = SukaShawarmaUITests;
+			sourceTree = "<group>";
+		};
+		0AB1AE297C7E8FE454882CBF /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				DD9551DC9F530E21A612581C /* KonfigurasiAppTests.swift */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 		12960C877EF842370BF40201 /* SukaShawarma */ = {
@@ -322,6 +364,17 @@
 			path = Payment;
 			sourceTree = "<group>";
 		};
+		2C895E44B5D6AE45EEEE0BF9 /* Voucher */ = {
+			isa = PBXGroup;
+			children = (
+				73E8F773964353C29F3956F7 /* KartuVoucher.swift */,
+				5354E05D9BE93370B349EA20 /* TampilanKartuVoucher.swift */,
+				0A61B83885447DF1264863A9 /* VoucherView.swift */,
+				31BB1632BAB5221CA47750E1 /* VoucherViewModel.swift */,
+			);
+			path = Voucher;
+			sourceTree = "<group>";
+		};
 		35A94EAD654D04B9C61D6FD6 = {
 			isa = PBXGroup;
 			children = (
@@ -336,6 +389,8 @@
 			isa = PBXGroup;
 			children = (
 				5B0B1FF22DEE6CC2EED5D771 /* Checkout */,
+				C7107D4AC469C9EF1AED254A /* Components */,
+				0AB1AE297C7E8FE454882CBF /* Config */,
 				E628EE34B32A5D38DE88DFBE /* Format */,
 				5E9B88B168F4C7B98BA318EF /* Home */,
 				F15753436C748BC98A80AE76 /* Menu */,
@@ -344,6 +399,7 @@
 				25CB875830BC3D3AFD000CAA /* Product */,
 				29D5BAA61099E3429E4C86BA /* Profile */,
 				9A23FE13FC4CDFA758B24F29 /* Theme */,
+				3999E329623D6235EEE3F9F0 /* Voucher */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -356,6 +412,15 @@
 				4565286F3F275ACCE16FE9D5 /* GatewayErrorTests.swift */,
 			);
 			path = API;
+			sourceTree = "<group>";
+		};
+		3999E329623D6235EEE3F9F0 /* Voucher */ = {
+			isa = PBXGroup;
+			children = (
+				7411BD16E0C0A01AF58B5E3A /* TampilanKartuVoucherTests.swift */,
+				D76D0B32AB9B2F09A37D847C /* VoucherTests.swift */,
+			);
+			path = Voucher;
 			sourceTree = "<group>";
 		};
 		3E738FB77194764312891D1F /* Data */ = {
@@ -399,8 +464,18 @@
 			isa = PBXGroup;
 			children = (
 				F4956813E18FE24BA67E89D4 /* BerandaLogicTests.swift */,
+				0B115D2E87E0A7149663AC96 /* JarakOutletTests.swift */,
+				688E9658E200B23B56318C36 /* MenuTerlarisKurasiTests.swift */,
 			);
 			path = Home;
+			sourceTree = "<group>";
+		};
+		700C87E865C62257DB113FDF /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A761A6293A5B70A669E20151 /* KonfigurasiApp.swift */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 		7226A37697AAD9B2F2E5CD63 /* Components */ = {
@@ -411,6 +486,7 @@
 				473C432F59910526A14B0D31 /* FloatingCartBar.swift */,
 				E2D8176B3449C76364A05BEF /* GambarMenu.swift */,
 				4FB876143F865DF5C41EC039 /* HomeHeader.swift */,
+				0C67C1AB3BB66A058A6A6D1C /* Inisial.swift */,
 				47B98E5E4441256301C253D2 /* KodeQris.swift */,
 				E968CD05C45D3B342E3B39C9 /* MenuCard.swift */,
 				7B1EF80810C1444C20B41716 /* PromoPopup.swift */,
@@ -427,7 +503,9 @@
 			children = (
 				4CCF9EAF990D362D346F8A82 /* CheckoutView.swift */,
 				7555596F9AC14196FD013234 /* CheckoutViewModel.swift */,
+				113B61EA87DE8DDE494AEB6F /* PemilihVoucherSheet.swift */,
 				5E98D7744CAE45B5F25136F9 /* ValidasiPesan.swift */,
+				8F1F210E8542F9CF88D95BC3 /* VoucherCheckout.swift */,
 			);
 			path = Checkout;
 			sourceTree = "<group>";
@@ -504,6 +582,7 @@
 				16E70AB6673A3CD3213DB0C1 /* Cart */,
 				7B4AB7BB7EA8F183082A5FD5 /* Checkout */,
 				7226A37697AAD9B2F2E5CD63 /* Components */,
+				700C87E865C62257DB113FDF /* Config */,
 				D8C651B757A7E6EAC0C0FB0B /* Format */,
 				BDC0661F4F9F2810C1CF9011 /* Home */,
 				8D8CEF8AA4D7EA166573366F /* Menu */,
@@ -513,6 +592,7 @@
 				AEBF5B445BEE55AD8265DF8A /* Product */,
 				92C079B31FBB68C2F4CB79F0 /* Profile */,
 				08FC2FAF7CC0B47607A34BB7 /* Theme */,
+				2C895E44B5D6AE45EEEE0BF9 /* Voucher */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -531,13 +611,24 @@
 			isa = PBXGroup;
 			children = (
 				13563F92756598EA28FF311A /* HomeView.swift */,
+				815C06A97D1662142C23C704 /* JarakOutlet.swift */,
+				23A2F59162CB8F3492A03F0C /* LokasiPelanggan.swift */,
 				EAC58DF915E9FC30A2DAA073 /* OutletClosedView.swift */,
 				A4BEE9802D22CDD81F36378A /* OutletPickerView.swift */,
 				F3C38A1208D72746351A4391 /* OutletPickerViewModel.swift */,
 				9250747B8ED26454220FB473 /* SplashAplikasiView.swift */,
+				592D85654F492AA84B1D1450 /* StatusOutletLabel.swift */,
 				6BC8FFA491E2BCEC4A46783B /* TujuanBanner.swift */,
 			);
 			path = Home;
+			sourceTree = "<group>";
+		};
+		C7107D4AC469C9EF1AED254A /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				4B9B65BFC662AC2DBBEFCD70 /* InisialTests.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 		CED552A46E0CEBF0A452DD53 /* Data */ = {
@@ -751,16 +842,22 @@
 				FCD7DAD1D49CB143A74E1F6F /* Fase5Tests.swift in Sources */,
 				180375C14DF3DE52FCF63187 /* GatewayClientTests.swift in Sources */,
 				031B04EAF22A1A105BE5ADE0 /* GatewayErrorTests.swift in Sources */,
+				D19E6347E8E4188C7275D50D /* InisialTests.swift in Sources */,
 				882D4C4AD2E8C7D4BA45DB54 /* ItemDetailViewModelTests.swift in Sources */,
+				9465413C1C0C6EFE851C27A0 /* JarakOutletTests.swift in Sources */,
 				B9552AD9B9D579CC43AD1574 /* KatalogFilterTests.swift in Sources */,
+				1CA0F875DA1308B2AAB19B25 /* KonfigurasiAppTests.swift in Sources */,
 				EA8B0742FD5E2302B527AC95 /* MasukTests.swift in Sources */,
+				BAD8EC891335690CA568FF58 /* MenuTerlarisKurasiTests.swift in Sources */,
 				344DC14AAD137FB13E5418CA /* PembayaranTests.swift in Sources */,
 				C1F125E7629AE30B0B5CC7AF /* ProfilFormTests.swift in Sources */,
 				FC514A435FC4ADF070F05577 /* RupiahTests.swift in Sources */,
 				EFCC42EBC9B448E69DAF09A9 /* SmokeTests.swift in Sources */,
 				F911BF146C4917F7CDDDA291 /* SplashTests.swift in Sources */,
 				C18134962B1F44BEFC90BEB2 /* StoreTests.swift in Sources */,
+				94721108FB8B88A268B698AC /* TampilanKartuVoucherTests.swift in Sources */,
 				FECD3EC9E38C27E76E728ABC /* ValidasiPesanTests.swift in Sources */,
+				22F22A93238D947ED09B09AC /* VoucherTests.swift in Sources */,
 				12FF36BBF3048006D008DCA5 /* WaktuIsoTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -791,12 +888,17 @@
 				D021AC9C7D2198655D89FB26 /* Idempotensi.swift in Sources */,
 				7A363835C4BF82FBD671E01F /* InformasiAkunView.swift in Sources */,
 				343BAAF49CAE98302EF12544 /* InformasiAkunViewModel.swift in Sources */,
+				F09B697F2D8052C9D6A2B783 /* Inisial.swift in Sources */,
 				589146C23078453ADB8DB267 /* ItemDetailView.swift in Sources */,
 				A66868B24816A10494659E57 /* ItemDetailViewModel.swift in Sources */,
+				FAB1DCC207474EB253F67C05 /* JarakOutlet.swift in Sources */,
+				7A9E190F1B411AE3C02FCB78 /* KartuVoucher.swift in Sources */,
 				C7EF05822B18566A89F4B426 /* KatalogFilter.swift in Sources */,
 				0757247AA98AABAF9E2571D4 /* KodeQris.swift in Sources */,
+				43EB046F11B13E72DEA82004 /* KonfigurasiApp.swift in Sources */,
 				6A153829E89482119F96FC99 /* LoginView.swift in Sources */,
 				D0140A4A62A5C4A635B668B7 /* LoginViewModel.swift in Sources */,
+				C59B066E37E83D8EC63B9753 /* LokasiPelanggan.swift in Sources */,
 				3A6EC7235B8F449D1F52266B /* MasukGoogle.swift in Sources */,
 				0720019F06056FF615A27737 /* MenuCard.swift in Sources */,
 				A10B4CE0616356623AD5F331 /* MenuView.swift in Sources */,
@@ -812,6 +914,7 @@
 				11DB903A1D92D69AD029A7BA /* OutletStore.swift in Sources */,
 				F7D4FC41AE5F73E61749ACCA /* PaymentViewModel.swift in Sources */,
 				4C71D10C7B9B9593F0BEE9B6 /* PaymentWaitView.swift in Sources */,
+				E09993B31699A7F68518803C /* PemilihVoucherSheet.swift in Sources */,
 				DC241D125CC6776DFB952CD6 /* ProfilForm.swift in Sources */,
 				D62B82B00B3B8B09CB37790B /* ProfileView.swift in Sources */,
 				7B3F4BFBC543AC6436530142 /* PromoPopup.swift in Sources */,
@@ -825,6 +928,7 @@
 				60750AB4C17624C7B2FA6B7F /* SplashAplikasiView.swift in Sources */,
 				AE964CD805F0EC1160ADD66F /* SplashStore.swift in Sources */,
 				B6F7F072B187CADBC1996A39 /* States.swift in Sources */,
+				77E0E97D580E5A848DF788AC /* StatusOutletLabel.swift in Sources */,
 				15F19A2AD727932C5963DCB4 /* StatusPesanan.swift in Sources */,
 				E061D75442D4D7ED358458D8 /* SuccessView.swift in Sources */,
 				F48E74AC645DF48A53241B4F /* SukaBottomNavBar.swift in Sources */,
@@ -832,8 +936,12 @@
 				D152A6AC53B26948E926FF93 /* SukaGaya.swift in Sources */,
 				2101008D91028C7F98206FFA /* SukaShawarmaApp.swift in Sources */,
 				A78B123E65807F689C9B3FD4 /* SukaTypography.swift in Sources */,
+				B2CC339C03176A2C109BDA92 /* TampilanKartuVoucher.swift in Sources */,
 				AFD68BE1ED75F9110C061F3A /* TujuanBanner.swift in Sources */,
 				6A420704E115BD727B0936F9 /* ValidasiPesan.swift in Sources */,
+				6F804D1AD3A96B702072509C /* VoucherCheckout.swift in Sources */,
+				983499F38228BEBE7F64BCAE /* VoucherView.swift in Sources */,
+				FB3810D83672CD2E9B0853F1 /* VoucherViewModel.swift in Sources */,
 				030F407AD8AA0DE74D7FEF41 /* WaktuIso.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

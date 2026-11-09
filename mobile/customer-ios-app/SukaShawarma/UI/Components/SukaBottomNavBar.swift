@@ -34,18 +34,18 @@ struct SukaBottomNavBar: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.bottom, 6)
         // Bilah tab dibatasi seperti UITabBar bawaan iOS; isi layar tetap
         // membesar penuh. Tanpa batas ini label terpotong jadi "Beran/da".
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
         .background {
-            UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22)
+            UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
                 .fill(Color.white)
-                .overlay(UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22)
-                    .stroke(Color.sukaBorder.opacity(0.6), lineWidth: 1))
-                .shadow(color: .black.opacity(0.08), radius: 10, y: -2)
+                .overlay(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24)
+                    .stroke(Color.black.opacity(0.04), lineWidth: 1))
+                .shadow(color: Color.black.opacity(0.06), radius: 14, y: -3)
                 .ignoresSafeArea(edges: .bottom)
         }
     }
@@ -58,23 +58,32 @@ private struct ItemNav: View {
 
     var body: some View {
         Button(action: aksi) {
-            VStack(spacing: 2) {
-                Image(systemName: tab.ikon)
-                    .font(.system(size: 19))
-                    .scaleEffect(aktif ? 1.1 : 1)
+            VStack(spacing: 3) {
+                ZStack {
+                    if aktif {
+                        Circle()
+                            .fill(Color.sukaOrange.opacity(0.16))
+                            .frame(width: 38, height: 38)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                    Image(systemName: tab.ikon)
+                        .font(.system(size: 18, weight: aktif ? .bold : .regular))
+                        .scaleEffect(aktif ? 1.1 : 1.0)
+                }
+                .frame(width: 38, height: 38)
+
                 Text(tab.label)
-                    .font(SukaFont.jakarta(11, weight: aktif ? .bold : .medium))
+                    .font(SukaFont.jakarta(10.5, weight: aktif ? .bold : .medium))
                     .lineLimit(1)
-                Circle()
+
+                Capsule()
                     .fill(Color.sukaOrange)
-                    .frame(width: 4, height: 4)
-                    .scaleEffect(aktif ? 1 : 0.4)
+                    .frame(width: aktif ? 12 : 0, height: 3)
                     .opacity(aktif ? 1 : 0)
             }
-            // SukaBrown di atas putih = 11,6:1 (lulus WCAG AA).
-            .foregroundStyle(aktif ? Color.sukaBrown : Color.sukaMuted)
-            .padding(.horizontal, 14).padding(.vertical, 4)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: aktif)
+            .foregroundStyle(aktif ? Color.sukaBrown : Color.sukaMuted.opacity(0.85))
+            .padding(.horizontal, 10)
+            .animation(.spring(response: 0.28, dampingFraction: 0.65), value: aktif)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tab.label)

@@ -32,6 +32,8 @@ final class Repository: Sendable {
 
     func splash() async -> GatewayResult<SplashDto> { await gateway.splash() }
 
+    func config() async -> GatewayResult<ConfigDto> { await gateway.config() }
+
     func unduhGambarSplash(url: String) async -> Data? { await gateway.unduhGambarSplash(url: url) }
 
     func katalog(outletId: String) async -> GatewayResult<[MenuItemDto]> {
@@ -40,16 +42,24 @@ final class Repository: Sendable {
 
     /// Validasi pra-bayar. PENTING: penolakan bisnis datang sebagai HTTP 200
     /// dengan `ok == false`. `.sukses` di sini BUKAN lampu hijau — periksa `ok`.
-    func validasiCheckout(outletId: String, items: [CartItemPayload]) async -> GatewayResult<CheckoutValidateResponse> {
-        await gateway.checkoutValidate(CheckoutValidateRequest(outletId: outletId, items: items))
+    func validasiCheckout(outletId: String, items: [CartItemPayload],
+                          voucher: PilihanVoucher? = nil) async -> GatewayResult<CheckoutValidateResponse> {
+        await gateway.checkoutValidate(CheckoutValidateRequest(outletId: outletId, items: items,
+                                                               voucherId: voucher?.id, kodeVoucher: voucher?.kode))
     }
 
     /// `clientOrderId` = kunci idempotensi. Pemanggil WAJIB memakai ulang id
     /// yang sama untuk percobaan ulang (lihat `Idempotensi.kt`, Fase 4).
     func buatPesanan(clientOrderId: String, outletId: String, items: [CartItemPayload],
-                     telepon: String? = nil) async -> GatewayResult<CreateOrderResponse> {
+                     telepon: String? = nil, voucher: PilihanVoucher? = nil) async -> GatewayResult<CreateOrderResponse> {
         await gateway.createOrder(CreateOrderRequest(clientOrderId: clientOrderId, outletId: outletId,
-                                                     items: items, customerPhone: telepon))
+                                                     items: items, customerPhone: telepon,
+                                                     voucherId: voucher?.id, kodeVoucher: voucher?.kode))
+    }
+
+    /// Daftar voucher yang berlaku (atau tidak, dengan alasan) untuk keranjang saat ini.
+    func vouchers(outletId: String? = nil, items: [CartItemPayload]? = nil) async -> GatewayResult<[VoucherDto]> {
+        await gateway.vouchers(VouchersRequest(outletId: outletId, items: items)).peta(\.vouchers)
     }
 
     func statusPesanan(orderId: String) async -> GatewayResult<OrderDetailDto> {

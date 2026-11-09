@@ -13,20 +13,42 @@ struct TampilanStatus: Equatable {
     let tahap: TahapPesanan?
     var selesai = false
     var dibatalkan = false
+    /// Pesanan tak pernah sampai ke dapur (batas bayar habis / pembayaran gagal).
+    /// Beda dengan `dibatalkan`: tak ada uang diambil, jadi tak ada
+    /// pengembalian dana yang perlu diurus (tanpa tombol CS refund).
+    var tidakDiproses = false
 
-    /// Sedang berjalan (bukan menunggu bayar, bukan selesai, bukan batal).
-    var berjalan: Bool { tahap != nil && !selesai && !dibatalkan }
+    /// Tidak akan berubah lagi — berhenti memantau statusnya.
+    var berakhir: Bool { selesai || dibatalkan || tidakDiproses }
+    /// Sedang berjalan (bukan menunggu bayar, bukan sudah berakhir).
+    var berjalan: Bool { tahap != nil && !berakhir }
 }
 
 /// Status dapur → tampilan pelanggan. Nilai sah diverifikasi ke constraint
 /// produksi `orders_status_check`: pending, preparing, ready, completed,
-/// cancelled. `status_dapur` nil = belum diteruskan ke kasir (belum dibayar).
+/// cancelled.
+///
+/// `status_dapur` nil = belum diteruskan ke kasir: pembayaran belum
+/// dikonfirmasi, ATAU pesanan tak pernah dibayar. Pembedanya `statusDraft`
+/// (`retail.order_drafts`: menunggu_bayar, dibayar, kadaluarsa, gagal) — tanpa
+/// itu pesanan yang batas bayarnya habis tampil "Menunggu pembayaran" selamanya.
 /// Status asing TIDAK boleh menghasilkan layar kosong.
-func tampilanStatus(_ statusDapur: String?) -> TampilanStatus {
+func tampilanStatus(_ statusDapur: String?, statusDraft: String? = nil) -> TampilanStatus {
     switch statusDapur {
     case nil:
-        TampilanStatus(judul: "Menunggu pembayaran",
-                       penjelasan: "Pesanan diteruskan ke dapur setelah pembayaran dikonfirmasi.", tahap: nil)
+        switch statusDraft {
+        case "kadaluarsa":
+            TampilanStatus(judul: "Kedaluwarsa",
+                           penjelasan: "Batas waktu pembayaran habis. Pesanan tidak diproses dan kamu tidak ditagih.",
+                           tahap: nil, tidakDiproses: true)
+        case "gagal":
+            TampilanStatus(judul: "Pembayaran gagal",
+                           penjelasan: "Pembayaran tidak berhasil. Pesanan tidak diproses dan kamu tidak ditagih.",
+                           tahap: nil, tidakDiproses: true)
+        default:
+            TampilanStatus(judul: "Menunggu pembayaran",
+                           penjelasan: "Pesanan diteruskan ke dapur setelah pembayaran dikonfirmasi.", tahap: nil)
+        }
     case "pending":
         TampilanStatus(judul: "Pesanan diterima", penjelasan: "Pesananmu sudah masuk ke kasir.", tahap: .diterima)
     case "preparing":
@@ -52,6 +74,19 @@ func tahapTercapai(_ sekarang: TahapPesanan?, _ tahap: TahapPesanan) -> Bool {
     return tahap <= sekarang
 }
 
+/// Label di bawah "Total Pembayaran". Pesanan yang sudah punya status dapur
+/// pasti sudah dibayar (baru terdorong ke kasir setelah pembayaran dikonfirmasi).
+func labelPembayaran(statusDapur: String?, statusDraft: String?) -> (teks: String, lunas: Bool) {
+    if statusDapur != nil || statusDraft == "dibayar" { return ("QRIS Lunas", true) }
+    if statusDraft == "kadaluarsa" || statusDraft == "gagal" { return ("Tidak ditagih", false) }
+    return ("Belum dibayar", false)
+}
+
+extension OrderDetailDto {
+    /// Tampilan pelanggan dari status dapur + status draft pembayaran.
+    var tampilan: TampilanStatus { tampilanStatus(statusDapur, statusDraft: status) }
+}
+
 /// Chip filter di layar Riwayat.
 enum FilterRiwayat: CaseIterable {
     case semua, berjalan, selesai, batal
@@ -68,9 +103,9 @@ enum FilterRiwayat: CaseIterable {
     func saring(_ pesanan: [OrderDetailDto]) -> [OrderDetailDto] {
         switch self {
         case .semua: pesanan
-        case .berjalan: pesanan.filter { tampilanStatus($0.statusDapur).berjalan }
-        case .selesai: pesanan.filter { tampilanStatus($0.statusDapur).selesai }
-        case .batal: pesanan.filter { tampilanStatus($0.statusDapur).dibatalkan }
+        case .berjalan: pesanan.filter { $0.tampilan.berjalan }
+        case .selesai: pesanan.filter { $0.tampilan.selesai }
+        case .batal: pesanan.filter { $0.tampilan.dibatalkan || $0.tampilan.tidakDiproses }
         }
     }
 }

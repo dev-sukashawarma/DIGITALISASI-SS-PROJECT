@@ -21,6 +21,24 @@ struct GatewayClientTests {
         #expect(req.url?.absoluteString == "https://gateway.uji/api/v1/catalog?outlet_id=o%201")
     }
 
+    @Test func configPublikTanpaToken() async {
+        ProtokolPalsu.pasang(status: 200, body: #"{"estimasi_siap":"15–20 menit","wa_cs":null}"#)
+        guard case .sukses = await klien(token: "rahasia").config() else { Issue.record("harus sukses"); return }
+        #expect(ProtokolPalsu.terakhir?.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(ProtokolPalsu.terakhir?.url?.path == "/api/v1/config")
+    }
+
+    @Test func statusOutletTerurai() async {
+        ProtokolPalsu.pasang(status: 200, body: #"""
+        {"outlets":[{"id":"o","name":"Empang","is_active":true,"bisa_pesan":false,
+          "pesan_status":"Outlet belum buka. Buka pukul 14.00.","pesan_terakhir":null,"open_hour":"14:00:00"}]}
+        """#)
+        guard case .sukses(let r) = await klien(token: nil).outlets() else { Issue.record("harus sukses"); return }
+        #expect(r.outlets.first?.bisaPesan == false)
+        #expect(r.outlets.first?.bolehPesan == false)
+        #expect(r.outlets.first?.pesanStatus == "Outlet belum buka. Buka pukul 14.00.")
+    }
+
     @Test func endpointBerotorisasiMembawaTokenBilaAda() async {
         ProtokolPalsu.pasang(status: 200, body: #"{"orders":[]}"#)
         _ = await klien(token: "rahasia").ordersList()

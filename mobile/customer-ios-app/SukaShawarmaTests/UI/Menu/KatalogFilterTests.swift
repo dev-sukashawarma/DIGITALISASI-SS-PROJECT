@@ -103,4 +103,20 @@ struct ToppingTests {
         #expect(toppingUntuk(semua[1], semua: semua).isEmpty)
         #expect(toppingUntuk(semua[3], semua: semua).isEmpty)
     }
+
+    // Porting 3 uji `perbaruiOutlet` (KatalogFilterTest.kt).
+    @Test func perbaruiOutletGantiVersiTerbaruBerdasarkanId() {
+        let lama = OutletDto(id: "o1", name: "O", isActive: true, bisaPesan: false, pesanStatus: "tutup_sementara")
+        let baru = OutletDto(id: "o1", name: "O", isActive: true, bisaPesan: true)
+        #expect(perbaruiOutlet(lama, daftar: [OutletDto(id: "o2", name: "O", isActive: true), baru]) == baru)
+    }
+
+    @Test func perbaruiOutletPertahankanLamaBilaIdHilang() {
+        let lama = OutletDto(id: "o1", name: "O", isActive: true, bisaPesan: true)
+        #expect(perbaruiOutlet(lama, daftar: [OutletDto(id: "o2", name: "O", isActive: true)]) == lama)
+    }
+
+    @Test func perbaruiOutletNilTanpaOutletTerpilih() {
+        #expect(perbaruiOutlet(nil, daftar: [OutletDto(id: "o1", name: "O", isActive: true)]) == nil)
+    }
 }

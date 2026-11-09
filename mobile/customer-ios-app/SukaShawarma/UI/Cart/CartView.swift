@@ -7,6 +7,11 @@ struct CartView: View {
     let cart: CartStore
     let onKembali: () -> Void
     let onLanjutBayar: () -> Void
+    var namaOutlet: String? = nil
+    /// Outlet tak bisa menerima pesanan sekarang: keranjang tetap bisa dilihat,
+    /// hanya "Lanjut Pembayaran" yang dikunci. Default true = perilaku lama.
+    var outletBolehPesan = true
+    var labelOutletTutup: String? = nil
 
     var body: some View {
         let baris = cart.isi()
@@ -21,7 +26,7 @@ struct CartView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        KartuPickup(judul: "PESANAN PICKUP (AMBIL SENDIRI)", keterangan: "Siap diambil di outlet tanpa antrean")
+                        KartuPickup(judul: "PESANAN PICKUP (AMBIL SENDIRI)", namaOutlet: namaOutlet, keterangan: "Siap diambil di outlet tanpa antrean")
                         ForEach(Array(baris.enumerated()), id: \.offset) { i, b in
                             BarisKeranjang(baris: b,
                                            onKurang: { cart.ubahJumlah(index: i, delta: -1) },
@@ -43,6 +48,8 @@ struct CartView: View {
                     .animation(.easeOut(duration: 0.2), value: baris)
                 }
                 BilahBawah {
+                    VStack(spacing: 8) {
+                    if !outletBolehPesan { KeteranganOutletTutup(teks: labelOutletTutup) }
                     HStack {
                         VStack(alignment: .leading, spacing: 0) {
                             Text("Total Pembayaran").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
@@ -50,8 +57,10 @@ struct CartView: View {
                                 .contentTransition(.numericText())
                         }
                         Spacer()
-                        TombolAksi(label: "Lanjut Pembayaran", ikonKanan: "arrow.right", aksi: onLanjutBayar)
+                        TombolAksi(label: "Lanjut Pembayaran", ikonKanan: "arrow.right",
+                                   aktif: outletBolehPesan, aksi: onLanjutBayar)
                             .accessibilityIdentifier("tombol-lanjut-bayar")
+                    }
                     }
                 }
             }

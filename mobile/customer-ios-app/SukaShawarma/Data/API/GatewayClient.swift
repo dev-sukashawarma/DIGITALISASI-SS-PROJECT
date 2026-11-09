@@ -9,7 +9,7 @@ let batasGambarSplashByte = 5 * 1024 * 1024
 /// pernah ke Supabase langsung, tidak ada service-role key di aplikasi ini.
 ///
 /// Menyisipkan `Authorization: Bearer <token>` untuk semua endpoint KECUALI
-/// `auth/google`, `catalog`, `outlets`, `banners`, dan `splash`.
+/// `auth/google`, `catalog`, `outlets`, `banners`, `splash`, dan `config`.
 final class GatewayClient: Sendable {
     private let baseURL: URL
     private let session: URLSession
@@ -54,6 +54,10 @@ final class GatewayClient: Sendable {
         await kirim("api/v1/splash")
     }
 
+    func config() async -> GatewayResult<ConfigDto> {
+        await kirim("api/v1/config")
+    }
+
     /// Mengunduh gambar splash. Nil untuk apa pun yang bukan gambar sungguhan:
     /// status gagal, tipe bukan `image/`, berkas kosong, atau melebihi
     /// [batasGambarSplashByte]. TANPA header otorisasi: token sesi tak boleh
@@ -77,6 +81,11 @@ final class GatewayClient: Sendable {
 
     func checkoutValidate(_ request: CheckoutValidateRequest) async -> GatewayResult<CheckoutValidateResponse> {
         await kirim("api/v1/checkout/validate", metode: "POST", body: request, otorisasi: true)
+    }
+
+    /// Wajib sesi: daftar & kelayakan voucher bergantung pada riwayat pelanggan.
+    func vouchers(_ request: VouchersRequest) async -> GatewayResult<VouchersResponse> {
+        await kirim("api/v1/vouchers", metode: "POST", body: request, otorisasi: true)
     }
 
     func createOrder(_ request: CreateOrderRequest) async -> GatewayResult<CreateOrderResponse> {

@@ -16,6 +16,7 @@ import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/com
 import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
 import { sembunyikanKolomBesar } from '@/lib/stok/satuanOpname';
+import { saringDraftBasi } from '@/lib/stok/draftOpnameLokal';
 import { checkPendingSuratJalanAction } from '@/app/actions/opname';
 
 /** Baris vendor untuk satu bahan multi-vendor, dari RPC `saldo_vendor_gudang`. */
@@ -163,10 +164,24 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     return {};
   });
 
+  // Waktu draft lokal disimpan, dibaca SEKALI saat form dibuka — sebelum auto-save di bawah
+  // menimpanya. null = tak ada draft lokal. Draft lama tanpa savedAt dianggap 0.
+  const [draftLokalSavedAt] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem(`opname_draft_${outletId}`);
+      if (!saved) return null;
+      const t = JSON.parse(saved).savedAt;
+      return typeof t === 'number' ? t : 0;
+    } catch {
+      return null;
+    }
+  });
+
   // Auto-save ke localStorage tiap kali input berubah
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(`opname_draft_${outletId}`, JSON.stringify({ inputs, targets, notes, vendor: subInputs }));
+      localStorage.setItem(`opname_draft_${outletId}`, JSON.stringify({ inputs, targets, notes, vendor: subInputs, savedAt: Date.now() }));
     }
   }, [inputs, targets, notes, subInputs, outletId]);
   const [busy, setBusy] = useState(false);
@@ -194,6 +209,23 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     setToast({ message, type });
     setTimeout(() => setToast(null), 4500);
   };
+
+  // Isian draft lokal untuk bahan yang satuannya diganti SESUDAH draft disimpan bermakna
+  // satuan lama — buang sekali begitu daftar bahan termuat, dan minta crew hitung ulang.
+  const [draftLokalDisaring, setDraftLokalDisaring] = useState(false);
+  useEffect(() => {
+    if (draftLokalDisaring || draftLokalSavedAt === null || bahanBaku.length === 0) return;
+    setDraftLokalDisaring(true);
+    const { draft, dibuang } = saringDraftBasi(
+      { savedAt: draftLokalSavedAt, inputs, targets, vendor: subInputs },
+      bahanBaku,
+    );
+    if (dibuang.length === 0) return;
+    setInputs(draft.inputs as typeof inputs);
+    setTargets(draft.targets as typeof targets);
+    setSubInputs(draft.vendor as typeof subInputs);
+    showToast(`⚠️ Satuan ${dibuang.join(', ')} baru diganti — hitung ulang bahan ini.`, 'warning');
+  }, [bahanBaku, draftLokalSavedAt, draftLokalDisaring]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Resume draft yang sudah tersimpan (via "Simpan Draft") saat form dibuka
   // ulang, supaya crew tidak harus mulai dari nol lagi.

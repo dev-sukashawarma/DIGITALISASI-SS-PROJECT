@@ -87,6 +87,30 @@ export function useTagihanBelumDiajukanCount(enabled = true) {
   })
 }
 
+/**
+ * Jumlah file invoice per PO yang sudah diterima (purchase_order.invoice_urls).
+ * Dipakai untuk mengunci Ajukan sampai invoice diunggah.
+ */
+export function useInvoicePerPo(enabled = true) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery<Record<string, string[]>>({
+    queryKey: ['po_payable', 'invoice'],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('purchase_order')
+        .select('id, invoice_urls')
+        .in('status', ['sebagian_diterima', 'diterima_lengkap'])
+      if (error) throw error
+      const hasil: Record<string, string[]> = {}
+      for (const r of (data ?? []) as { id: string; invoice_urls: string[] | null }[]) {
+        hasil[r.id] = r.invoice_urls ?? []
+      }
+      return hasil
+    },
+  })
+}
+
 /** Transaksi pembayaran PO per PO (yang terbaru), untuk nama pengaju, catatan, dan bukti. */
 export function useTxBayarPo(enabled = true) {
   const supabase = useMemo(() => createClient(), [])

@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
@@ -8,10 +9,11 @@ import { Banknote, Clock, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCashOverview } from '@/hooks/useCashData'
 import {
-  usePayablePos, useTxBayarPo, useAjukanBayarPo, useTandaiPoLunasTanpaKas,
+  usePayablePos, useTxBayarPo, useAjukanBayarPo, useTandaiPoLunasTanpaKas, useInvoicePerPo,
   type PayablePo,
 } from '@/hooks/useSupplierSettlement'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
+import { useUploadInvoice, getInvoiceUrl } from '@/hooks/usePurchaseOrder'
 import { lokasiGrup } from '@/lib/kas/grupKas'
 import { alasanDitolak, cocokPeriode, poSebelumKasBersih, type FilterPeriode } from '@/lib/kas/tagihanVendor'
 import { rupiah, tanggal, tanggalWaktu } from '@/lib/format'
@@ -44,6 +46,12 @@ export function SupplierView() {
   const rekening = lokasiGrup(locations, 'bahan_baku', 'bank')[0]
   const { data: pos = [], isLoading } = usePayablePos()
   const { data: txs = {} } = useTxBayarPo()
+  const { data: invoices = {} } = useInvoicePerPo()
+  const uploadInvoice = useUploadInvoice()
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [unggahUntuk, setUnggahUntuk] = useState<PayablePo | null>(null)
+  const adaInvoice = (id: string) => (invoices[id]?.length ?? 0) > 0
   const { isChecker, canAjukanBayarPO } = useFinanceRole()
   const ajukan = useAjukanBayarPo()
   const tandaiLunas = useTandaiPoLunasTanpaKas()
@@ -70,7 +78,28 @@ export function SupplierView() {
   const togglePilihSemua = () =>
     setPilih(terpilih.length === daftar.length ? new Set() : new Set(daftar.map((p) => p.id)))
 
-  const ajukanBanyak = async (target: PayablePo[]) => {
+  const pilihFileInvoice = (p: PayablePo) => {
+    setUnggahUntuk(p)
+    fileRef.current?.click()
+  }
+
+  const unggahInvoice = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !unggahUntuk) return
+    try {
+      await uploadInvoice.mutateAsync({ poId: unggahUntuk.id, file })
+      await qc.invalidateQueries({ queryKey: ['po_payable', 'invoice'] })
+    } finally {
+      setUnggahUntuk(null)
+    }
+  }
+
+  const ajukanBanyak = async (semua: PayablePo[]) => {
+    // Invoice wajib sebelum diajukan: finance butuh invoice saat menyetujui.
+    const target = semua.filter((p) => adaInvoice(p.id))
+    const tanpa = semua.length - target.length
+    if (tanpa > 0) toast.error(`${tanpa} PO dilewati karena invoice belum diunggah`)
     if (target.length === 0) return
     const judul = target.length === 1
       ? `Ajukan pembayaran ${target[0].nomor_po} (${rupiah(target[0].total)}) ke admin finance.`
@@ -122,7 +151,8 @@ export function SupplierView() {
           {isChecker ? 'Pembayaran Vendor' : 'Tagihan Vendor'}
         </h1>
         <p className="text-suka-ink/60 mt-2 font-medium">
-          PO yang barangnya sudah diterima masuk ke <b>Belum diajukan</b>. Purchasing mengajukan pembayarannya,
+          PO yang barangnya sudah diterima masuk ke <b>Belum diajukan</b>. Purchasing mengunggah invoice supplier
+          lalu mengajukan pembayarannya,
           lalu admin finance mentransfer dan menyetujui di Hub Approval dengan bukti transfer.
           Saldo rekening baru terpotong saat disetujui.
         </p>
@@ -212,6 +242,7 @@ export function SupplierView() {
                   <th className="py-2">Vendor</th>
                   <th className="py-2">Tanggal PO</th>
                   <th className="py-2 text-right">Total</th>
+                  <th className="py-2 pl-4">Invoice</th>
                   <th className="py-2 pl-4">{tab === 'paid' ? 'Dibayar' : tab === 'pending' ? 'Diajukan' : 'Keterangan'}</th>
                   <th className="py-2 pr-3 text-right">Aksi</th>
                 </tr>
@@ -234,6 +265,20 @@ export function SupplierView() {
                       <td className="py-3 text-suka-gray-500">{p.supplier_nama}</td>
                       <td className="py-3 text-suka-gray-500">{tanggal(p.tanggal_po)}</td>
                       <td className="py-3 text-right font-bold text-suka-ink">{rupiah(p.total)}</td>
+                      <td className="py-3 pl-4 text-xs whitespace-nowrap">
+                        {adaInvoice(p.id) ? (
+                          <a href={getInvoiceUrl(invoices[p.id][0])} target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 hover:underline">
+                            ✓ {invoices[p.id].length} file
+                          </a>
+                        ) : tab === 'unpaid' && canAjukanBayarPO ? (
+                          <button onClick={() => pilihFileInvoice(p)} disabled={uploadInvoice.isPending}
+                            className="font-semibold text-suka-orange hover:underline disabled:opacity-50">
+                            {uploadInvoice.isPending && unggahUntuk?.id === p.id ? 'Mengunggah…' : 'Unggah'}
+                          </button>
+                        ) : (
+                          <span className="text-suka-gray-400">—</span>
+                        )}
+                      </td>
                       <td className="py-3 pl-4 text-xs text-suka-gray-500">
                         {tab === 'unpaid' && (
                           alasanTolak ? (
@@ -265,7 +310,8 @@ export function SupplierView() {
                       </td>
                       <td className="py-3 pr-3 text-right whitespace-nowrap space-x-2">
                         {tab === 'unpaid' && canAjukanBayarPO && (
-                          <Button onClick={() => ajukanBanyak([p])} disabled={sibuk} className="px-3 py-1 text-xs">
+                          <Button onClick={() => ajukanBanyak([p])} disabled={sibuk || !adaInvoice(p.id)}
+                            title={adaInvoice(p.id) ? undefined : 'Unggah invoice dulu'} className="px-3 py-1 text-xs">
                             {alasanTolak ? 'Ajukan ulang' : 'Ajukan'}
                           </Button>
                         )}
@@ -281,6 +327,7 @@ export function SupplierView() {
           </div>
         )}
       </SectionCard>
+      <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={unggahInvoice} />
       {bukti && <BuktiModal url={bukti.url} judul={bukti.judul} onClose={() => setBukti(null)} />}
     </div>
   )

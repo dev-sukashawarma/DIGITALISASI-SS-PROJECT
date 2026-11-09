@@ -416,7 +416,8 @@ Catatan (opsional):`, '')
           {bisaDiajukan && canAjukanBayarPO && (
             <button
               onClick={ajukanBayar}
-              disabled={ajukanBayarPo.isPending}
+              disabled={ajukanBayarPo.isPending || !po.invoice_urls?.length}
+              title={po.invoice_urls?.length ? undefined : 'Unggah invoice dulu'}
               className="flex items-center gap-1.5 text-xs font-bold text-white bg-suka-orange hover:bg-suka-orange/90 px-3.5 py-1.5 rounded-xl transition-all active:scale-95 cursor-pointer disabled:opacity-50"
             >
               {ajukanBayarPo.isPending ? 'Mengajukan…' : 'Ajukan Pembayaran'}
@@ -458,7 +459,9 @@ Catatan (opsional):`, '')
             : po.payment_status === 'paid'
               ? `Pembayaran tercatat di mutasi ${rekeningPo?.label ?? 'Rekening Bahan Baku Bank'}.`
               : bisaDiajukan
-                ? 'Ajukan pembayaran ke admin finance. Saldo rekening baru terpotong setelah disetujui.'
+                ? po.invoice_urls?.length
+                  ? 'Ajukan pembayaran ke admin finance. Saldo rekening baru terpotong setelah disetujui.'
+                  : 'Unggah invoice supplier dulu, baru pembayaran bisa diajukan.'
                 : 'Pembayaran bisa diajukan setelah barang diterima.'}
         </p>
       </div>

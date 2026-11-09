@@ -44,6 +44,7 @@ import { useHubApprovalCount } from '@/hooks/useHubApproval'
 import { teksBadgeHub } from '@/lib/approval/hub'
 import { usePendingPrCount } from '@/hooks/usePurchaseRequest'
 import { useTagihanBelumDiajukanCount } from '@/hooks/useSupplierSettlement'
+import { TabRuteBar } from '@/components/purchasing/TabRuteBar'
 
 type NavItem = {
   href: string
@@ -119,30 +120,25 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
 ]
 
 function buildPurchasingNavGroups(resolvedAdminUrl: string): NavGroup[] {
+  // Satu menu per tahap alur kerja; halaman sealur digabung jadi tab (lib/purchasing/ringkas).
   return [
     {
-      title: 'OPERASIONAL PURCHASING',
+      title: 'PURCHASING',
       icon: ShoppingCart,
       defaultOpen: true,
       items: [
-        { href: '/pembelian/dashboard', label: 'Dashboard Purchasing', icon: LayoutDashboard },
-        { href: '/pembelian/perlu-dibeli', label: 'Perlu Dibeli (Usulan)', icon: BellRing },
-        { href: '/pembelian/permintaan', label: 'Permintaan Cabang (PR)', icon: ClipboardList },
-        { href: '/pembelian', label: 'Purchase Order (PO)', icon: ShoppingCart },
-        { href: '/po-approval', label: 'Status Approval PO', icon: ClipboardCheck },
-        { href: '/pembelian/penerimaan', label: 'Penerimaan Barang', icon: Package },
-        { href: '/pembelian/invoice', label: 'Invoice & Tagihan', icon: Receipt },
-        { href: '/supplier', label: 'Tagihan Vendor', icon: Banknote },
+        { href: '/pembelian/dashboard', label: 'Tugas Hari Ini', icon: LayoutDashboard },
+        { href: '/pembelian/perlu-dibeli', label: 'Kebutuhan', icon: ClipboardList, aliases: ['/pembelian/permintaan'] },
+        { href: '/pembelian', label: 'Purchase Order', icon: ShoppingCart, aliases: ['/po-approval', '/pembelian/penerimaan', '/pembelian/new'] },
+        { href: '/supplier', label: 'Tagihan', icon: Banknote, aliases: ['/pembelian/invoice'] },
+        { href: '/pembelian/laporan', label: 'Laporan', icon: BarChart3, aliases: ['/laporan/pembelian', '/pembelian/harga'] },
       ],
     },
     {
-      title: 'ANALISIS & MASTER DATA',
-      icon: BarChart3,
+      title: 'MASTER DATA',
+      icon: Tags,
       defaultOpen: true,
       items: [
-        { href: '/pembelian/harga', label: 'Fluktuasi Harga Bahan', icon: TrendingUp },
-        { href: '/pembelian/laporan', label: 'Laporan Realisasi PO', icon: FileText },
-        { href: '/laporan/pembelian', label: 'Tren Pembelian Bulanan', icon: BarChart3 },
         {
           href: `${resolvedAdminUrl}/dashboard/pembelian/supplier`,
           label: 'Master Supplier',
@@ -270,9 +266,9 @@ export function CashLayout({ children }: { children: ReactNode }) {
 
   const BOTTOM_NAV_ITEMS = isPurchasingRole
     ? [
-        { href: '/pembelian/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { href: '/pembelian', label: 'Purchase Order', icon: ShoppingCart },
-        { href: '/pembelian/penerimaan', label: 'Penerimaan', icon: Package },
+        { href: '/pembelian/dashboard', label: 'Tugas', icon: LayoutDashboard },
+        { href: '/pembelian/perlu-dibeli', label: 'Kebutuhan', icon: ClipboardList },
+        { href: '/pembelian', label: 'PO', icon: ShoppingCart },
         { href: '/supplier', label: 'Tagihan', icon: Banknote },
       ]
     : [
@@ -282,20 +278,21 @@ export function CashLayout({ children }: { children: ReactNode }) {
         { href: '/laporan/buku-kas', label: 'Buku Kas', icon: Receipt },
       ]
 
-  // Active path resolution
+  // Active path resolution (pakai menu milik role ini: alias purchasing berbeda dari finance)
+  const navLinks = isPurchasingRole ? visibleInternalLinks : ALL_LINKS
   let currentNavPath = '/'
   if (pathname === '/') {
     currentNavPath = '/'
   } else {
     // 1. Check exact match or exact alias match first
-    const exact = ALL_LINKS.find(
+    const exact = navLinks.find(
       l => l.href === pathname || l.aliases?.includes(pathname)
     )
     if (exact) {
       currentNavPath = exact.href
     } else {
       // 2. Otherwise find the most specific (longest) matching href for nested routes like /pembelian/[id]
-      const matching = ALL_LINKS
+      const matching = navLinks
         .filter(l => l.href !== '/' && pathname.startsWith(l.href))
         .sort((a, b) => b.href.length - a.href.length)
       currentNavPath = matching[0]?.href ?? '/'
@@ -311,8 +308,8 @@ export function CashLayout({ children }: { children: ReactNode }) {
   // State buka/tutup grup di sidebar
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {
-      'OPERASIONAL PURCHASING': true,
-      'ANALISIS & MASTER DATA': true,
+      'PURCHASING': true,
+      'MASTER DATA': true,
     }
     FINANCE_NAV_GROUPS.forEach(g => {
       initial[g.title] = Boolean(g.defaultOpen)
@@ -341,6 +338,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const getItemBadge = (href: string): number | undefined => {
     if (href === '/approval') return hubPendingCount
     if (href === '/pembelian/permintaan') return prPendingCount
+    if (href === '/pembelian/perlu-dibeli' && isPurchasingRole) return prPendingCount
     if (href === '/supplier' && isPurchasingRole) return tagihanBelumDiajukan
     return undefined
   }
@@ -608,6 +606,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
         {/* Scrollable Main */}
         <main className="flex-1 overflow-y-auto w-full scrollbar-hide">
           <div className="w-full max-w-full p-3.5 sm:p-4 lg:p-5 pb-24 md:pb-6">
+            <TabRuteBar pathname={pathname} />
             {children}
           </div>
         </main>

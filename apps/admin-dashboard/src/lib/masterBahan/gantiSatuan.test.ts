@@ -31,7 +31,12 @@ describe('kalimatJembatan', () => {
 
 describe('labelPenghalang', () => {
   it('memberi nama dokumen yang terbaca manusia', () => {
-    expect(labelPenghalang({ jenis: 'opname_draft', nomor: 'Opname 2026-11-08', outlet: 'BEJI' })).toBe('Draft opname · BEJI')
+    expect(labelPenghalang({ jenis: 'opname_draft', nomor: 'Opname 2026-08-20', outlet: 'JAGAKARSA' }))
+      .toBe('Draft opname 20 Agu 2026 · JAGAKARSA')
+    expect(labelPenghalang({ jenis: 'permintaan', nomor: 'Permintaan 08/11/2026', outlet: 'BEJI' }))
+      .toBe('Permintaan bahan 8 Nov 2026 · BEJI')
+    expect(labelPenghalang({ jenis: 'waste', nomor: 'Laporan waste 01/09/2026', outlet: null }))
+      .toBe('Laporan waste menunggu 1 Sep 2026')
     expect(labelPenghalang({ jenis: 'surat_jalan', nomor: 'SJ-001', outlet: 'EMPANG' })).toBe('Surat jalan SJ-001 · EMPANG')
     expect(labelPenghalang({ jenis: 'purchase_order', nomor: 'PO/XI/2026/001', outlet: null })).toBe('PO PO/XI/2026/001')
     expect(labelPenghalang({ jenis: 'substitusi', nomor: 'Pasangan substitusi waterfall', outlet: null }))

@@ -72,11 +72,25 @@ const NAMA_JENIS: Record<string, string> = {
   retur: 'Retur',
 }
 
+const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+
+/** Tanggal dari nomor buatan server ("Opname 2026-08-20" / "Permintaan 08/11/2026") → "20 Agu 2026". */
+function tanggalDariNomor(nomor: string): string | null {
+  const iso = nomor.match(/(\d{4})-(\d{2})-(\d{2})/)
+  const dmy = nomor.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+  const [t, b, h] = iso ? [iso[1], iso[2], iso[3]] : dmy ? [dmy[3], dmy[2], dmy[1]] : []
+  if (!t || !b || !h) return null
+  const bulan = BULAN[Number(b) - 1]
+  return bulan ? `${Number(h)} ${bulan} ${t}` : null
+}
+
 export function labelPenghalang(p: { jenis: string; nomor: string; outlet: string | null }): string {
   if (p.jenis === 'substitusi') return 'Dipakai sebagai pasangan substitusi (waterfall)'
   const nama = NAMA_JENIS[p.jenis] ?? p.jenis
-  // Nomor yang hanya mengulang nama jenis (mis. "Opname 2026-11-08") tidak ditampilkan dua kali.
-  const nomor = p.jenis === 'opname_draft' || p.jenis === 'permintaan' || p.jenis === 'terima_vendor'
-    || p.jenis === 'waste' || p.jenis === 'mutasi' ? '' : ` ${p.nomor}`
+  // Nomor buatan server untuk jenis ini hanya "<jenis> <tanggal>" — tampilkan tanggalnya saja.
+  const hanyaTanggal = p.jenis === 'opname_draft' || p.jenis === 'permintaan' || p.jenis === 'terima_vendor'
+    || p.jenis === 'waste'
+  const tanggal = hanyaTanggal ? tanggalDariNomor(p.nomor) : null
+  const nomor = hanyaTanggal ? (tanggal ? ` ${tanggal}` : '') : p.jenis === 'mutasi' ? '' : ` ${p.nomor}`
   return `${nama}${nomor}${p.outlet ? ` · ${p.outlet}` : ''}`
 }

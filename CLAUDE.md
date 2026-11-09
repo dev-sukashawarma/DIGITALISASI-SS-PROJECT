@@ -3676,6 +3676,20 @@ digabung per promo; mengubah promo aktif menutup periode lama.
   - ⚠️ Nama pelaku wajib dari kolom `approval_log.pelaku_nama` (diisi trigger BEFORE INSERT) — join ke `outlet_staff` tertahan RLS: admin finance cuma bisa membaca 21 dari 979 nama.
   - Error tsc `SetoranView.tsx` (`formatOutletOrigin` tak terpakai) berasal dari commit `b0ab5e51e` sesi lain, bukan fitur ini.
 
-**Last updated:** 2026-11-06  
+## Session 2026-11-09: Ganti Satuan bahan baku (DB + admin-dashboard + stok)
+
+**Status:** DB **LIVE** — 3 migration applied & terstempel (`20261109103055_ganti_satuan_skema`, `…103441_ganti_satuan_pratinjau`, `…104240_ganti_satuan_eksekusi`); uji `supabase/verifikasi/ganti_satuan/t1–t3` LULUS (t3 termasuk bolak-balik & uji kering BAWANG PUTIH BUBUK di ROLLBACK). Kode di branch `feat/ganti-satuan-bahan-baku`. ⚠️ Perlu **redeploy `admin-dashboard` + `stok`**. Tidak perlu rilis APK.
+
+**Spec/plan/runbook:** `docs/superpowers/specs/2026-11-09-ganti-satuan-bahan-baku-design.md`, `docs/superpowers/plans/2026-11-09-ganti-satuan-bahan-baku.md`, `docs/RUNBOOK-GANTI-SATUAN-BAWANG-PUTIH-BUBUK.md`.
+
+- **Pemicu:** BAWANG PUTIH BUBUK ganti vendor (sachet → kiloan). Keputusan owner: Kg/gram 1.000, 1 sachet = 6 gram, PO & distribusi Kg; **riwayat & dokumen lama ikut dikonversi** ke satuan baru (nilai rupiah tetap).
+- **Tombol Ganti Satuan** di seksi Satuan panel detail bahan (admin/owner/developer): pratinjau stok per lokasi + penghalang → konfirmasi ketik nama → `ganti_satuan_bahan`. Plus **seksi Vendor** di panel (tambah/nonaktifkan harga vendor).
+- **Skala baris ledger** ditentukan aturan `saldo_is_gram`: transisi = `opname_selisih` pertama sejak 2026-08-01 20:32 WIB per outlet; baris transisi dikonversi campuran (sebelum ×k_besar, sesudah ×k_kecil). Asersi relatif: saldo-beda & putus-rantai tak boleh bertambah.
+- **10 trigger efek samping** (`stok_balance` notifikasi/bot, `stok_waste_reports` sync ledger/validasi/approval/push, `terima_vendor_outlet` sync ledger) diberi `WHEN app.ganti_satuan <> 'on'`. ⚠️ Beberapa juga didefinisikan migration 2030 → replay dari nol membuang WHEN.
+- **App stok web:** draft opname localStorage kini ber-`savedAt`; isian bahan yang `satuan_diganti_at` sesudah draft dibuang + toast "hitung ulang".
+- **App opname native crew ada di repo terpisah** `SS SUPERAPP/SUPER-APPS-SS-MOBILE` (Rendy), bukan `mobile/native-superapp`. Tak diubah: draft HP terikat draft server (penghalang), metadata satuan cache 60 dtk. Jalankan Ganti Satuan siang hari.
+- `bahan_baku_sku` tidak dikonversi (0 baris, `qty_isi` tanpa satuan baku).
+
+**Last updated:** 2026-11-09  
 **Owner:** Dev Suka Shawarma
 

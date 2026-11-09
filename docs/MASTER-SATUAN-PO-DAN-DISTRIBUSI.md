@@ -252,12 +252,33 @@ angkanya akan menyalahkannya sebesar faktor konversi bahan.
 Per 9 September 2026: **56 dari 56 baris katalog selaras** dengan `satuan_po`,
 dan nol baris berharga tergeser satuannya.
 
+### Ganti Satuan bahan ber-riwayat stok (sejak 2026-11-09)
+
+Bahan yang sudah punya riwayat stok **tidak bisa** diubah satuannya lewat isian biasa
+(trigger `bahan_baku_tegakkan_faktor` & `simpan_bahan_baku` menolak). Jalurnya hanya tombol
+**Ganti Satuan** di panel detail Master Bahan Baku → RPC `pratinjau_ganti_satuan` lalu
+`ganti_satuan_bahan` (migration `20261109103055`, `…103441`, `…104240`).
+
+- Masukan: satuan baru (besar/tengah/kecil + isi), satuan PO, satuan distribusi, **jembatan**
+  (= satuan kecil baru per 1 satuan kecil lama), alasan.
+- `k_kecil = jembatan`; `k_besar = faktor_tampilan_lama × jembatan ÷ faktor_tampilan_baru`.
+- Dikonversi satu transaksi: saldo (skala per baris `saldo_is_gram`), riwayat ledger (skala per
+  baris menurut waktu transisi opname), opname, resep (`qty_per_porsi` × `k_kecil`), isi katalog
+  vendor, harga master (÷ `k_besar`), dan dokumen selesai (qty × `k_besar`, harga ÷ `k_besar`,
+  nilai rupiah tetap). `bahan_baku_sku` tidak disentuh.
+- Ditolak bila ada dokumen terbuka (draft opname, SJ draft/dikirim, PO belum selesai,
+  permintaan menunggu, terima vendor belum disahkan, waste PENDING, mutasi/retur berjalan) atau
+  bahan jadi pasangan substitusi waterfall dengan satuan kecil berganti.
+- Log: `bahan_baku_ganti_satuan`; `bahan_baku.satuan_diganti_at` dibaca app stok untuk membuang
+  isian draft opname lokal yang dibuat sebelum ganti satuan.
+
 ---
 
 ## 5. Riwayat Perubahan Dokumen (Changelog)
 
 | Tanggal | Versi | Pembaruan | Otorisasi |
 |---|:---:|---|:---:|
+| **09-11-2026** | **v1.5** | §4 ditambah "Ganti Satuan bahan ber-riwayat stok": tombol + RPC `ganti_satuan_bahan`, rumus `k_kecil`/`k_besar`, cakupan konversi, penghalang. Kasus pertama: BAWANG PUTIH BUBUK sachet → gram (runbook `docs/RUNBOOK-GANTI-SATUAN-BAWANG-PUTIH-BUBUK.md`). | Owner & Lead Dev |
 | **09-09-2026** | **v1.4** | §4 diselaraskan dengan keadaan kode: `faktor_po` kini **punya pembaca** (5 berkas tumpukan Katalog Harga Vendor) — klaim "nol call site" di v1.3 dicabut; peringatan dipersempit ke `usePurchaseOrder.ts` yang memang masih belum membacanya. Ditambahkan §"Aturan satuan di Katalog Harga Vendor" dan pelajaran dari cacat label kolom Isi yang nyaris menyebabkan salah 760×. Diverifikasi: DB cocok dokumen **52/52** untuk `satuan_po`/`satuan`/`satuan_distribusi`; katalog selaras **56/56** (migration `20260909140000` & `20260909150000`). | Owner & Lead Dev |
 | **08-09-2026** | **v1.3** | Ranjau `satuan_po` di §4 ditutup: kolom `bahan_baku.faktor_po` (migration `20260908230000`) mengisi konversi FOIL/MIE/PLASTIK BESAR + trigger auto-recalc. Kode belum membacanya — form PO masih tak boleh pakai `satuan_po` sebagai label sampai Tahap 3 selesai. | Lead Dev |
 | **08-09-2026** | **v1.2** | Koreksi §4: dua baris menyatakan implementasi yang **belum ada** (`usePurchaseOrder.ts` memakai `satuan_po`, `useOpname.ts` memakai unit distribusi) — keduanya nol referensi di kode. Ditambahkan status per baris, catatan `getDistribusiFactor()` yang diam-diam mengembalikan 1, catatan salinan inline di `VerifikasiForm.tsx`, dan peringatan ranjau `satuan_po` tanpa faktor untuk FOIL/MIE/PLASTIK BESAR. | Lead Dev |

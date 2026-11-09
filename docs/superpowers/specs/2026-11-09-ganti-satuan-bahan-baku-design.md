@@ -196,9 +196,12 @@ Draft opname bisa hidup di localStorage app stok web (Session 2026-08-13) dan mu
 native superapp. Kolom baru `bahan_baku.satuan_diganti_at` diisi prosedur. App stok
 (web, dan native bila menyimpan draft lokal — builder verifikasi) saat melanjutkan draft
 lokal **membuang isian bahan yang `satuan_diganti_at` > waktu draft dibuat** dan
-menampilkan pemberitahuan "Satuan X diganti, hitung ulang". Penjaga server di
-`finalize_opname`: tolak item bahan yang `satuan_diganti_at` > `opname.created_at`.
-⚠️ Perlu redeploy `stok` (+ rilis APK bila native terdampak).
+menampilkan pemberitahuan "Satuan X diganti, hitung ulang". Penjaga server tidak
+ditambahkan: draft opname di server sudah menjadi penghalang Ganti Satuan; yang tersisa hanya
+draft lokal web. App opname native (repo `SS SUPERAPP/SUPER-APPS-SS-MOBILE`) tidak perlu
+diubah: draft HP & antrean finalisasi offline-nya selalu terikat ke draft server, dan metadata
+satuan dibaca dari `monitoring_view_scoped` (cache memori 60 dtk).
+⚠️ Perlu redeploy `stok`. Tidak perlu rilis APK.
 
 ### 4.5 Tambahan kecil: bagian Vendor di panel detail bahan
 Owner menanyakan pilihan vendor di panel detail. Tambahkan seksi **Vendor** di

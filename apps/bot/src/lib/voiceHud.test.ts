@@ -4,6 +4,7 @@ import {
   PILIHAN_SUARA_JARVIS,
   ekstrakKalimatAwalStreaming,
   ekstrakAntreanKalimatSuara,
+  apakahPerangkatIos,
 } from './voiceHud'
 import { naturalisasiTeksSuara, cariKonfigurasiSuara } from './ttsConfig'
 
@@ -68,9 +69,10 @@ describe('voiceHud & naturalisasiTeksSuara', () => {
     expect(ekstrakKalimatAwalStreaming('Halo')).toBeNull()
   })
 
-  it('mendukung 5 pilihan karakter suara (Brian, Andrew, Ardi, Ava/Friday, Gadis)', () => {
+  it('mendukung pilihan karakter suara ElevenLabs Studio HD dengan fallback Indonesia konsisten', () => {
     expect(PILIHAN_SUARA_JARVIS.length).toBeGreaterThanOrEqual(5)
-    expect(cariKonfigurasiSuara('brian').voiceName).toBe('en-US-BrianMultilingualNeural')
+    expect(cariKonfigurasiSuara('brian').elevenLabsVoiceId).toBe('R2tdno8o9nwUiDvfnMIJ')
+    expect(cariKonfigurasiSuara('brian').voiceName).toBe('id-ID-ArdiNeural')
     expect(cariKonfigurasiSuara('ava').voiceName).toBe('en-US-AvaMultilingualNeural')
     expect(cariKonfigurasiSuara('ardi').voiceName).toBe('id-ID-ArdiNeural')
   })
@@ -96,5 +98,50 @@ describe('voiceHud & naturalisasiTeksSuara', () => {
     const antreanSelesai = ekstrakAntreanKalimatSuara(partial + ' aman terkendali.', true)
     expect(antreanSelesai.length).toBe(3)
     expect(antreanSelesai[2]).toContain('Sementara untuk stok bahan sedang aman terkendali')
+  })
+
+  it('apakahPerangkatIos mengenali Safari iPhone dan Chrome iPhone (CriOS) dengan akurat', () => {
+    const origNav = globalThis.navigator
+
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0.6478.108 Mobile/15E148 Safari/604.1',
+        platform: 'iPhone',
+        maxTouchPoints: 5,
+      },
+      configurable: true,
+    })
+    expect(apakahPerangkatIos()).toBe(true)
+
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0',
+        platform: 'Win32',
+        maxTouchPoints: 0,
+      },
+      configurable: true,
+    })
+    expect(apakahPerangkatIos()).toBe(false)
+
+    Object.defineProperty(globalThis, 'navigator', {
+      value: origNav,
+      configurable: true,
+    })
+  })
+
+  it('ekstrakAntreanKalimatSuara menjaga indeks kalimat tetap monoton saat abaikanBlokTagSuara aktif', () => {
+    const awal =
+      'Siap Bos, omzet cabang hari ini tembus Rp 42.000.000. Cabang Buah Batu memimpin di posisi puncak. Sementara stok'
+    const akhirDenganSuara =
+      awal + ' gudang aman terkendali. <suara>Ringkasan akhir yang muncul belakangan di mode teks.</suara>'
+
+    const q1 = ekstrakAntreanKalimatSuara(awal, false, true)
+    const q2 = ekstrakAntreanKalimatSuara(akhirDenganSuara, true, true)
+    expect(q1.length).toBe(2)
+    expect(q2.length).toBe(3)
+    expect(q2[0]).toBe(q1[0])
+    expect(q2[1]).toBe(q1[1])
+    expect(q2[2]).not.toContain('Ringkasan akhir')
   })
 })

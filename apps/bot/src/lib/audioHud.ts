@@ -3,6 +3,11 @@
 
 let audioCtx: AudioContext | null = null
 let suaraAktif = true
+let sedangVoiceBicara = false
+
+export function setSedangVoiceBicaraHud(aktif: boolean) {
+  sedangVoiceBicara = aktif
+}
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -12,8 +17,11 @@ function getAudioContext(): AudioContext | null {
       audioCtx = new AudioContextClass()
     }
   }
-  if (audioCtx && audioCtx.state === 'suspended') {
-    void audioCtx.resume()
+  if (audioCtx) {
+    const st = audioCtx.state as string
+    if (st === 'suspended' || st === 'interrupted') {
+      void audioCtx.resume().catch(() => {})
+    }
   }
   return audioCtx
 }
@@ -29,7 +37,8 @@ export function apakahSuaraHudAktif(): boolean {
 export type TipeSuaraHud = 'blip' | 'engage' | 'alert' | 'chirp' | 'process' | 'transmit'
 
 export function mainkanSuaraHud(tipe: TipeSuaraHud = 'blip') {
-  if (!suaraAktif) return
+  // Jangan tabrak pemutaran suara TTS dengan beep oscillator (mencegah glitch AudioSession di iPhone/iOS)
+  if (!suaraAktif || sedangVoiceBicara) return
   try {
     const ctx = getAudioContext()
     if (!ctx) return

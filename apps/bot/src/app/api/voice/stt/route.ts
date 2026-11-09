@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { buatPengurai } from '@/lib/hermes'
+import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 export const dynamic = 'force-dynamic'
 
-const MODEL_AUDIO_STT = ['ag/gemini-3.8-flash-high', 'ag/gemini-3.8-flash', 'CEO_SS', 'MANAGER_SS', 'hermes-combo']
+const MODEL_AUDIO_STT = ['ag/gemini-3.8-flash', 'ag/gemini-3.8-flash-low', 'ag/gemini-3.8-flash-high', 'CEO_SS', 'MANAGER_SS', 'hermes-combo']
 
 const PROMPT_TRANSKRIPSI = `Transkripsikan ucapan suara Bahasa Indonesia pada audio ini menjadi teks kalimat perintah/pertanyaan secara akurat.
 Konteks kosakata bisnis Suka Shawarma: Jarvis, laporan daily, daily briefing, omzet, penjualan, cabang, outlet, kemarin, hari ini, waste, bahan baku, void, kasir, OPEX, pengeluaran, utang PO, supplier, setoran kas, selisih, presensi, absen, kru telat, cuti, izin, Google Review, ulasan, kirim ke Telegram.
@@ -25,14 +26,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, galat: 'Data audio kosong atau terlalu pendek.' }, { status: 400 })
     }
 
-    const base = process.env.AI_BASE_URL?.replace(/\/+$/, '')
-    const key = process.env.AI_API_KEY
+    const cfg = await ambilKonfigurasiVoiceServer()
+    const base = cfg.aiBaseUrl
+    const key = cfg.aiApiKey
 
     if (!base || !key) {
       return NextResponse.json({ ok: false, galat: 'AI Router belum dikonfigurasi.' }, { status: 503 })
     }
 
     for (const model of MODEL_AUDIO_STT) {
+      const ctrl = new AbortController()
+      let timer: NodeJS.Timeout | null = setTimeout(() => ctrl.abort(), 14_000)
       try {
         const res = await fetch(`${base}/chat/completions`, {
           method: 'POST',
@@ -62,8 +66,13 @@ export async function POST(req: Request) {
               },
             ],
           }),
-          signal: AbortSignal.timeout(15_000),
+          signal: ctrl.signal,
         })
+
+        if (timer) {
+          clearTimeout(timer)
+          timer = null
+        }
 
         if (!res.ok || !res.body) continue
 
@@ -102,6 +111,7 @@ export async function POST(req: Request) {
           model,
         })
       } catch {
+        if (timer) clearTimeout(timer)
         // Coba kandidat model audio berikutnya
       }
     }

@@ -29,6 +29,8 @@ import {
   PILIHAN_SUARA_JARVIS,
   ambilSuaraJarvisAktif,
   setSuaraJarvisAktif,
+  siapkanAudioIos,
+  apakahPerangkatIos,
 } from '@/lib/voiceHud'
 import {
   Volume2,
@@ -342,8 +344,9 @@ export default function JarvisApp({
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [floatingChatTerbuka, sedangMendengar, sedangBicara, modeMukaDoang, radarAnomaliTerbuka])
 
-  // Inisialisasi Audio HUD & Web Speech Detection
+  // Inisialisasi Audio HUD, iOS Audio Unlocker, & Web Speech Detection
   useEffect(() => {
+    siapkanAudioIos()
     setSuaraNyala(apakahSuaraHudAktif())
     const infoVoice = apakahVoiceDidukung()
     setVoiceDidukung(Boolean(infoVoice.stt || infoVoice.tts))
@@ -696,11 +699,12 @@ export default function JarvisApp({
             onSelesai: () => {
               setSedangBicara(false)
               if (voiceLoopRef.current) {
+                const jedaTransisiMic = apakahPerangkatIos() ? 650 : 380
                 setTimeout(() => {
                   if (voiceLoopRef.current) {
                     mulaiSesiDengar(true)
                   }
-                }, 350)
+                }, jedaTransisiMic)
               }
             },
           })
@@ -761,6 +765,7 @@ export default function JarvisApp({
 
   // Klik Arc Reactor atau Tombol Voice-to-Voice Utama
   const handleToggleVoiceLoop = () => {
+    siapkanAudioIos()
     if (sedangBicara) {
       hentiBicaraJarvis()
       setSedangBicara(false)
@@ -924,7 +929,7 @@ export default function JarvisApp({
                   setSuaraJarvisAktif(idBaru)
                   mainkanSuaraHud('chirp')
                   const sapaanPribadi: Record<string, string> = {
-                    brian: 'Sistem Jarvis online, Sir. Brian siap berdiskusi dan menganalisis operasional.',
+                    brian: 'Siap Bos, sistem Jarvis aktif. Saya siap bantu pantau seluruh cabang hari ini.',
                     andrew: 'Selamat datang kembali, Sir. Andrew siap mendampingi eksekusi bisnis Anda.',
                     william: 'At your service, Sir. William siap menyajikan data dan menjalankan instruksi.',
                     florian: 'Komando taktis aktif. Florian siap menerima instruksi operasi Anda, Sir.',

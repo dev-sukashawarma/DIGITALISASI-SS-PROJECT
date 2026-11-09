@@ -2,6 +2,7 @@ import https from 'node:https'
 import crypto from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { ambilSesi } from '@/lib/server/sesi'
+import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 import {
   VOICE_DEFAULT,
   GEMINI_TTS_MODELS,
@@ -246,61 +247,85 @@ function wrapPcm16ToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1):
   return Buffer.concat([header, pcmBuffer])
 }
 
+function jedaSebentar(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 /**
  * Sintesis suara menggunakan ElevenLabs Flash v2.5 / Turbo v2.5
- * dengan optimasi latensi streaming ultra-cepat (~280-350ms roundtrip).
+ * dengan penguncian karakter vokal (previous_text + stability 0.60) serta auto-retry pada HTTP 429/5xx
+ * sehingga suara tidak pernah berubah karakter di tengah kalimat/paragraf.
  */
 async function synthesizeElevenLabsMp3(
   teks: string,
   voiceId: string,
-  apiKey: string
+  apiKey: string,
+  preferredModel = 'eleven_flash_v2_5',
+  teksSebelumnya?: string
 ): Promise<{ mp3Buffer: Buffer; modelUsed: string }> {
-  const models = ['eleven_flash_v2_5', 'eleven_turbo_v2_5', 'eleven_multilingual_v2']
+  const models = Array.from(new Set([preferredModel, 'eleven_flash_v2_5', 'eleven_turbo_v2_5']))
   let lastErr = 'Tidak ada model ElevenLabs yang merespons'
+  const konteksSebelumnya = (teksSebelumnya || '').trim().slice(-280)
 
   for (const model of models) {
-    try {
-      const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(
-        voiceId
-      )}?optimize_streaming_latency=3&output_format=mp3_44100_128`
+    for (let percobaan = 0; percobaan < 3; percobaan++) {
+      try {
+        const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(
+          voiceId
+        )}?optimize_streaming_latency=3&output_format=mp3_44100_128`
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': apiKey,
-          Accept: 'audio/mpeg',
-        },
-        body: JSON.stringify({
-          text: teks,
-          model_id: model,
-          ...(model.includes('v2_5') ? { language_code: 'id' } : {}),
-          voice_settings: {
-            stability: 0.38,
-            similarity_boost: 0.82,
-            style: 0.0,
-            use_speaker_boost: true,
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'xi-api-key': apiKey,
+            Accept: 'audio/mpeg',
           },
-        }),
-        signal: AbortSignal.timeout(8000),
-      })
+          body: JSON.stringify({
+            text: teks,
+            model_id: model,
+            ...(model.includes('v2_5') ? { language_code: 'id' } : {}),
+            ...(konteksSebelumnya ? { previous_text: konteksSebelumnya } : {}),
+            voice_settings: {
+              stability: 0.60,
+              similarity_boost: 0.86,
+              style: 0.0,
+              use_speaker_boost: true,
+            },
+          }),
+          signal: AbortSignal.timeout(12000),
+        })
 
-      if (!res.ok) {
-        const errTxt = await res.text().catch(() => '')
-        lastErr = `${model} HTTP ${res.status}: ${errTxt.slice(0, 140)}`
-        continue
+        if (!res.ok) {
+          const errTxt = await res.text().catch(() => '')
+          lastErr = `${model} HTTP ${res.status}: ${errTxt.slice(0, 140)}`
+          // Jika kena batas concurrency / rate-limit sesaat atau gangguan 5xx, tunggu sebentar & ulangi di suara yang SAMA!
+          if ((res.status === 429 || res.status === 408 || res.status >= 500) && percobaan < 2) {
+            await jedaSebentar(500 * (percobaan + 1))
+            continue
+          }
+          break
+        }
+
+        const arrayBuf = await res.arrayBuffer()
+        const buf = Buffer.from(arrayBuf)
+        if (buf.length < 100) {
+          lastErr = `${model}: audio buffer ElevenLabs terlalu kecil (${buf.length} bytes)`
+          if (percobaan < 2) {
+            await jedaSebentar(350)
+            continue
+          }
+          break
+        }
+
+        return { mp3Buffer: buf, modelUsed: model }
+      } catch (err) {
+        lastErr = `${model}: ${(err as Error)?.message || 'koneksi timeout'}`
+        if (percobaan < 2) {
+          await jedaSebentar(450 * (percobaan + 1))
+          continue
+        }
       }
-
-      const arrayBuf = await res.arrayBuffer()
-      const buf = Buffer.from(arrayBuf)
-      if (buf.length < 100) {
-        lastErr = `${model}: audio buffer ElevenLabs terlalu kecil (${buf.length} bytes)`
-        continue
-      }
-
-      return { mp3Buffer: buf, modelUsed: model }
-    } catch (err) {
-      lastErr = `${model}: ${(err as Error)?.message || 'koneksi timeout'}`
     }
   }
 
@@ -425,6 +450,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const teksMentah = typeof body?.teks === 'string' ? body.teks.trim() : ''
   const voiceId = typeof body?.voice === 'string' ? body.voice.trim() : undefined
+  const teksSebelumnya = typeof body?.teksSebelumnya === 'string' ? body.teksSebelumnya.trim() : ''
+  const kunciEngine = typeof body?.kunciEngine === 'string' ? body.kunciEngine.trim().toLowerCase() : ''
 
   if (!teksMentah) {
     return NextResponse.json({ galat: 'Teks kosong.' }, { status: 400 })
@@ -435,18 +462,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ galat: 'Teks tidak mengandung kalimat terucap.' }, { status: 400 })
   }
 
+  const voiceCfg = await ambilKonfigurasiVoiceServer()
   const opsiSuara = cariKonfigurasiSuara(voiceId)
-  const elevenLabsKey = (process.env.ELEVENLABS_API_KEY || '').trim()
-  const customVoiceId = (process.env.ELEVENLABS_VOICE_ID || '').trim()
+  const elevenLabsKey = voiceCfg.elevenlabsApiKey
+  const customVoiceId = voiceCfg.elevenlabsVoiceId
   const isDefaultAlif = !voiceId || voiceId.toLowerCase() === 'brian' || voiceId.toLowerCase() === 'ardi'
   const elevenVoiceId = isDefaultAlif
     ? customVoiceId || opsiSuara.elevenLabsVoiceId || 'R2tdno8o9nwUiDvfnMIJ'
     : opsiSuara.elevenLabsVoiceId || customVoiceId || 'R2tdno8o9nwUiDvfnMIJ'
 
-  // 1. Prioritaskan ElevenLabs Flash v2.5 / Turbo (Latensi Super Cepat ~300ms + Studio Quality)
-  if (elevenLabsKey) {
+  // 1. Prioritaskan ElevenLabs Flash v2.5 / Turbo (Latensi Super Cepat ~300ms + Studio Quality Konsisten)
+  if (elevenLabsKey && (!kunciEngine || kunciEngine === 'elevenlabs')) {
     try {
-      const { mp3Buffer, modelUsed } = await synthesizeElevenLabsMp3(teksSuara, elevenVoiceId, elevenLabsKey)
+      const { mp3Buffer, modelUsed } = await synthesizeElevenLabsMp3(
+        teksSuara,
+        elevenVoiceId,
+        elevenLabsKey,
+        voiceCfg.elevenlabsModel || 'eleven_flash_v2_5',
+        teksSebelumnya ? naturalisasiTeksSuara(teksSebelumnya) : undefined
+      )
       return new NextResponse(new Uint8Array(mp3Buffer), {
         status: 200,
         headers: {
@@ -457,14 +491,21 @@ export async function POST(req: Request) {
         },
       })
     } catch (err) {
-      console.warn('[jarvis-tts] ElevenLabs gagal, beralih ke engine berikutnya:', (err as Error)?.message)
+      console.warn('[jarvis-tts] ElevenLabs gagal:', (err as Error)?.message)
+      // Jika sesi bicara sudah dikunci ke ElevenLabs sejak kalimat ke-1, jangan lompat ke suara engine lain di tengah kalimat!
+      if (kunciEngine === 'elevenlabs') {
+        return NextResponse.json(
+          { galat: 'Menjaga konsistensi vokal ElevenLabs (sedang retry).' },
+          { status: 503 }
+        )
+      }
     }
   }
 
-  const geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim()
+  const geminiKey = voiceCfg.geminiApiKey
 
   // 2. Prioritaskan Google Gemini Native Audio TTS terbaru jika GEMINI_API_KEY / GOOGLE_API_KEY tersedia
-  if (geminiKey) {
+  if (geminiKey && (!kunciEngine || kunciEngine === 'gemini-native-tts')) {
     try {
       const { wavBuffer, modelUsed } = await synthesizeGeminiNativeWav(teksSuara, opsiSuara, geminiKey)
       return new NextResponse(new Uint8Array(wavBuffer), {

@@ -21,10 +21,10 @@ export const GEMINI_TTS_MODELS = [
 export const DAFTAR_SUARA_JARVIS: OpsiSuaraJarvis[] = [
   {
     id: 'brian',
-    label: 'BRIAN / ALIF HD (Jarvis Conversational)',
-    deskripsi: 'Suara AI Pria Bariton Luwes & Natural (ElevenLabs Alif / Brian HD)',
+    label: 'ALIF HD (Jarvis Conversational)',
+    deskripsi: 'Suara AI Pria Bariton Indonesia Luwes & Natural (ElevenLabs Alif HD)',
     gender: 'Pria',
-    voiceName: 'en-US-BrianMultilingualNeural',
+    voiceName: 'id-ID-ArdiNeural',
     geminiVoice: 'Puck',
     elevenLabsVoiceId: 'R2tdno8o9nwUiDvfnMIJ', // Alif - Premium & Professional
     pitch: '-2Hz',

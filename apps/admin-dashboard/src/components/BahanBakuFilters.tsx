@@ -2,7 +2,7 @@
 
 import { Search } from 'lucide-react'
 
-import type { SortOption } from '@/lib/bahanBaku'
+import type { SortOption } from '@suka/master-data'
 
 export function BahanBakuFilters({
   search, onSearch, sortBy, onSortBy

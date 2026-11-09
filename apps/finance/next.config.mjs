@@ -13,7 +13,7 @@ const nextConfig = {
       exceljs: 'exceljs/dist/exceljs.min.js',
     },
   },
-  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/realtime'],
+  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/master-data', '@suka/realtime'],
   typescript: {
     ignoreBuildErrors: true,
   },

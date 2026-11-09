@@ -16,6 +16,7 @@
     "@number-flow/react": "^0.6.2",
     "@suka/auth": "*",
     "@suka/design-system": "*",
+    "@suka/master-data": "*",
     "@suka/realtime": "*",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.38.0",

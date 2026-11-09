@@ -19,7 +19,7 @@ const nextConfig = {
   // berhenti menegakkan auth di produksi — semua route terproteksi balas 200 tanpa login —
   // dan `/` balas 500. Empat app lain (stok/absensi/distribusi/finance) tanpa `output`
   // dan semuanya sehat. Lihat ADR-008.
-  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/realtime', '@suka/hr-rumus'],
+  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/master-data', '@suka/realtime', '@suka/hr-rumus'],
   experimental: {
     optimizePackageImports: ['recharts', 'lucide-react', 'react-icons', 'date-fns'],
     serverActions: {

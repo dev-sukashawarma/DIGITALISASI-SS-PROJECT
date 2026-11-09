@@ -66,4 +66,11 @@ describe('paritas formatter dengan app Stok', () => {
     const stok = readFileSync(resolve(__dirname, '../../../../../stok/src/lib/format/compositeUnit.ts'), 'utf8')
     expect(buangKomentar(admin)).toBe(buangKomentar(stok))
   })
+
+  it('salinan di paket @suka/master-data identik dengan admin-dashboard', () => {
+    const buangKomentar = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').split('\n').map((l) => l.trim()).filter(Boolean).join('\n')
+    const admin = readFileSync(resolve(__dirname, '../../format/compositeUnit.ts'), 'utf8')
+    const paket = readFileSync(resolve(__dirname, '../../../../../../packages/master-data/src/lib/compositeUnit.ts'), 'utf8')
+    expect(buangKomentar(paket)).toBe(buangKomentar(admin))
+  })
 })

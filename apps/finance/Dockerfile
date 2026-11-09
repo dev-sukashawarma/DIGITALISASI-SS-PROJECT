@@ -10,6 +10,7 @@ COPY package.json yarn.lock .npmrc* tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
+COPY packages/master-data/package.json packages/master-data/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/finance/package.json apps/finance/package.json
 

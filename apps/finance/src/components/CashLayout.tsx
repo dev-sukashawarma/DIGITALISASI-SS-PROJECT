@@ -100,6 +100,8 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
       { href: '/pembelian/penerimaan', label: 'Penerimaan Barang', icon: Package },
       { href: '/pembelian/invoice', label: 'Invoice Pembelian', icon: Receipt },
       { href: '/pembelian/harga', label: 'Fluktuasi Harga', icon: TrendingUp },
+      { href: '/pembelian/bahan-baku', label: 'Master Bahan Baku', icon: Tags },
+      { href: '/pembelian/supplier', label: 'Master Supplier', icon: Truck },
       { href: '/pembelian/laporan', label: 'Laporan Realisasi PO', icon: FileText },
     ],
   },
@@ -119,7 +121,7 @@ const FINANCE_NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-function buildPurchasingNavGroups(resolvedAdminUrl: string): NavGroup[] {
+function buildPurchasingNavGroups(): NavGroup[] {
   // Satu menu per tahap alur kerja; halaman sealur digabung jadi tab (lib/purchasing/ringkas).
   return [
     {
@@ -139,18 +141,8 @@ function buildPurchasingNavGroups(resolvedAdminUrl: string): NavGroup[] {
       icon: Tags,
       defaultOpen: true,
       items: [
-        {
-          href: `${resolvedAdminUrl}/dashboard/pembelian/supplier`,
-          label: 'Master Supplier',
-          icon: Truck,
-          isExternal: true,
-        },
-        {
-          href: `${resolvedAdminUrl}/dashboard/bahan-baku`,
-          label: 'Master Bahan Baku',
-          icon: Tags,
-          isExternal: true,
-        },
+        { href: '/pembelian/bahan-baku', label: 'Master Bahan Baku', icon: Tags },
+        { href: '/pembelian/supplier', label: 'Master Supplier', icon: Truck },
       ],
     },
   ]
@@ -202,11 +194,6 @@ export function CashLayout({ children }: { children: ReactNode }) {
     resolvedPortalUrl = 'http://localhost:3010'
   }
 
-  const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
-  let resolvedAdminUrl = adminUrl
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    resolvedAdminUrl = 'http://localhost:3005'
-  }
 
   const isPurchasingRole = Boolean(
     outletStaff && ((outletStaff.role as string) === 'purchasing' || (outletStaff.role as string) === 'purchase')
@@ -244,7 +231,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   }, [isPurchasingRole, prPendingCount, tagihanBelumDiajukan, hubPendingCount, hubAdaGalat])
 
   const baseNavGroups: NavGroup[] = isPurchasingRole
-    ? buildPurchasingNavGroups(resolvedAdminUrl)
+    ? buildPurchasingNavGroups()
     : FINANCE_NAV_GROUPS
 
   const visibleNavGroups = baseNavGroups.map(g => ({

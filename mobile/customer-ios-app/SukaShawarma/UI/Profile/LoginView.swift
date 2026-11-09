@@ -11,6 +11,8 @@ struct LoginView: View {
 
     @Environment(\.webAuthenticationSession) private var sesiWeb
     @Environment(AppContainer.self) private var container
+    @Environment(\.configApp) private var configApp
+    @Environment(\.openURL) private var bukaUrl
     private let sudutTombol: CGFloat = 16
     @State private var nonceApple = ""
     @State private var animasiMasuk = false
@@ -56,13 +58,9 @@ struct LoginView: View {
                     .padding(.top, 28)
                     .disabled(vm.memuat != nil)
 
-                    // Ketentuan Privasi
-                    Text("Dengan masuk, kamu menyetujui Ketentuan Layanan & Kebijakan Privasi Suka Shawarma.")
-                        .font(SukaFont.jakarta(11))
-                        .foregroundStyle(Color.sukaMuted.opacity(0.85))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(3)
-                        .padding(.horizontal, 16)
+                    // Persetujuan: kedua dokumen bisa dibuka (halaman resmi
+                    // gateway bila admin belum mengisi tautannya).
+                    persetujuan
                         .padding(.top, 14)
 
                     // Kotak Galat jika ada
@@ -71,14 +69,6 @@ struct LoginView: View {
                             .padding(.top, 16)
                             .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     }
-
-                    // Pemisah
-                    PemisahAtau()
-                        .padding(.top, 26)
-
-                    // WhatsApp Pill (Segera Hadir)
-                    TombolWhatsAppSegera()
-                        .padding(.top, 14)
 
                     // Keterangan Pembuatan Akun Otomatis
                     (Text("Belum punya akun? ").foregroundStyle(Color.sukaMuted)
@@ -116,6 +106,36 @@ struct LoginView: View {
         }
         .onDisappear { container.ikonBilahStatusGelap = false }
         .onChange(of: vm.berhasil) { _, ok in if ok { onBerhasil() } }
+    }
+
+    // MARK: - Persetujuan
+
+    private var persetujuan: some View {
+        let base = container.config.gatewayBaseURL
+        return VStack(spacing: 2) {
+            Text("Dengan masuk, kamu menyetujui:")
+                .font(SukaFont.jakarta(11))
+                .foregroundStyle(Color.sukaMuted)
+            HStack(spacing: 0) {
+                tautanDokumen("Ketentuan Layanan", urlSyaratKetentuan(configApp.urlSyarat, baseURL: base))
+                Text("&").font(SukaFont.jakarta(11)).foregroundStyle(Color.sukaMuted)
+                tautanDokumen("Kebijakan Privasi", urlKebijakanPrivasi(configApp.urlPrivasi, baseURL: base))
+            }
+        }
+        .multilineTextAlignment(.center)
+    }
+
+    private func tautanDokumen(_ judul: String, _ url: URL) -> some View {
+        Button { bukaUrl(url) } label: {
+            Text(judul)
+                .font(SukaFont.jakarta(11, weight: .bold))
+                .underline()
+                .foregroundStyle(Color.sukaBrown)
+                .padding(.horizontal, 4).padding(.vertical, 6)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isLink)
     }
 
     // MARK: - Google Button
@@ -265,42 +285,6 @@ private struct HeroIlustrasiLogin: View {
         .frame(height: 240)
         .accessibilityHidden(true)
         .onAppear { bernapas = true }
-    }
-}
-
-/// WhatsApp Segera Hadir: Desain pill elegan dan bersih
-private struct TombolWhatsAppSegera: View {
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "phone.fill")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.sukaMuted)
-            Text("WhatsApp · segera hadir")
-                .font(SukaFont.jakarta(13, weight: .semibold))
-                .foregroundStyle(Color.sukaMuted)
-        }
-        .frame(maxWidth: .infinity, minHeight: 46)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.8)
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Belum tersedia")
-    }
-}
-
-/// Garis Pemisah "atau" yang halus
-private struct PemisahAtau: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
-            Text("atau")
-                .font(SukaFont.jakarta(12, weight: .medium))
-                .foregroundStyle(Color.sukaMuted.opacity(0.8))
-            Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
-        }
-        .accessibilityHidden(true)
     }
 }
 

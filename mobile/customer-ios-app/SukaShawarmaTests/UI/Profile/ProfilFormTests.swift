@@ -114,6 +114,22 @@ struct InformasiAkunViewModelTests {
         #expect(vm.namaTersimpan == "Nama Server")
     }
 
+    /// Porting 15 Okt: hapus akun. Sesi dibuang HANYA setelah gateway mengakui.
+    @Test func hapusAkunMembuangSesi() async {
+        let (vm, sesi) = rakit([(200, #"{"ok":true}"#)]); defer { sesi.hapus() }
+        await vm.hapusAkun()
+        #expect(GatewayRute.permintaan == ["DELETE \(jalur)"])
+        #expect(vm.akunDihapus && !vm.menghapus)
+        #expect(sesi.baca() == nil)
+    }
+
+    @Test func hapusAkunGagalSesiTetap() async {
+        let (vm, sesi) = rakit([(500, #"{"error":"Gagal menghapus akun"}"#)]); defer { sesi.hapus() }
+        await vm.hapusAkun()
+        #expect(!vm.akunDihapus && !vm.menghapus && vm.pesanGalat != nil)
+        #expect(sesi.baca()?.token == "t")
+    }
+
     @Test func galatGatewayDitampilkan() async {
         let (vm, sesi) = rakit([(400, #"{"error":"nomor_tidak_sah","pesan":"Nomor WhatsApp tidak sah."}"#)])
         defer { sesi.hapus() }

@@ -65,6 +65,30 @@ struct GatewayClientTests {
         #expect(ProtokolPalsu.terakhir?.httpMethod == "POST")
     }
 
+    /// Kontrak gateway 15 & 19 Okt: keduanya DELETE ber-otorisasi tanpa isi.
+    @Test func hapusAkunDeleteProfilDenganToken() async {
+        ProtokolPalsu.pasang(status: 200, body: #"{"ok":true}"#)
+        guard case .sukses = await klien(token: "rahasia").deleteAccount() else { Issue.record("harus sukses"); return }
+        let req = ProtokolPalsu.terakhir!
+        #expect(req.httpMethod == "DELETE")
+        #expect(req.url?.path == "/api/v1/customer/profile")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer rahasia")
+    }
+
+    @Test func batalkanPesananDeleteOrderDenganToken() async {
+        ProtokolPalsu.pasang(status: 200, body: #"{"ok":true}"#)
+        guard case .sukses = await klien(token: "rahasia").cancelOrder(orderId: "o1") else { Issue.record("harus sukses"); return }
+        let req = ProtokolPalsu.terakhir!
+        #expect(req.httpMethod == "DELETE")
+        #expect(req.url?.path == "/api/v1/orders/o1")
+        #expect(req.value(forHTTPHeaderField: "Authorization") == "Bearer rahasia")
+    }
+
+    @Test func hapusAkunGagalDipetakan() async {
+        ProtokolPalsu.pasang(status: 500, body: #"{"error":"Gagal menghapus akun"}"#)
+        guard case .gagal(.server(500)) = await klien(token: "t").deleteAccount() else { Issue.record("harus server"); return }
+    }
+
     @Test func gambarSplashHanyaHttpsGambarTanpaToken() async {
         let k = klien(token: "rahasia")
         #expect(await k.unduhGambarSplash(url: "http://x.id/a.jpg") == nil)

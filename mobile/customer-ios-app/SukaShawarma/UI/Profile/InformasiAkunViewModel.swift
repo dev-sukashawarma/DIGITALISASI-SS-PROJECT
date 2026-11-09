@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// Padanan `InformasiAkunViewModel.kt`: ubah Nama & No WhatsApp. Email terkunci
-/// (identitas akun Google untuk masuk).
+/// Padanan `InformasiAkunViewModel.kt`: ubah Nama & No WhatsApp, dan hapus
+/// akun. Email terkunci (identitas akun Google untuk masuk).
 @MainActor
 @Observable
 final class InformasiAkunViewModel {
@@ -15,6 +15,9 @@ final class InformasiAkunViewModel {
     private(set) var galatNama: String?
     private(set) var galatWhatsApp: String?
     private(set) var menyimpan = false
+    private(set) var menghapus = false
+    /// Akun sudah terhapus di gateway & sesi lokal dibuang — layar keluar.
+    private(set) var akunDihapus = false
     private(set) var pesanGalat: String?
     private(set) var tersimpan = false
 
@@ -56,7 +59,7 @@ final class InformasiAkunViewModel {
     }
 
     func simpan() async {
-        guard !menyimpan, adaPerubahan else { return }
+        guard !menyimpan, !menghapus, adaPerubahan else { return }
 
         let gNama = ProfilForm.galatNama(nama)
         let gWa = ProfilForm.galatWhatsApp(whatsApp)
@@ -81,6 +84,24 @@ final class InformasiAkunViewModel {
             terapkanDariServer(c, tandaiTersimpan: true)
         case .gagal(let g):
             menyimpan = false
+            pesanGalat = SukaShawarma.pesanGalat(g)
+        }
+    }
+
+    /// Menghapus akun permanen. Sesi dibuang HANYA setelah gateway mengakui;
+    /// kalau gagal, pelanggan tetap masuk dan melihat galatnya.
+    func hapusAkun() async {
+        guard !menghapus, !menyimpan else { return }
+        menghapus = true
+        pesanGalat = nil
+        tersimpan = false
+        switch await repository.hapusAkun() {
+        case .sukses:
+            sessionStore.hapus()
+            menghapus = false
+            akunDihapus = true
+        case .gagal(let g):
+            menghapus = false
             pesanGalat = SukaShawarma.pesanGalat(g)
         }
     }

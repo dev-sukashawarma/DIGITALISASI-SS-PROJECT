@@ -180,6 +180,8 @@ struct AppShell: View {
             if let item = catalog.semuaItem.first(where: { $0.id == id }) {
                 ItemDetailView(item: item, toppingTersedia: toppingUntuk(item, semua: catalog.semuaItem),
                                cart: container.cartStore,
+                               adalahTerlaris: termasukMenuTerlaris(item.id, semua: catalog.semuaItem,
+                                                                    kurasiIds: (config ?? ConfigDto()).menuTerlarisIds),
                                onLihatKeranjang: { jalur.append(.keranjang) },
                                onKembali: kembali)
             } else {
@@ -241,14 +243,26 @@ struct AppShell: View {
                             onLihatRiwayat: { jalur = []; tab = .pesanan })
         case .sukses(let id, let nomor):
             SuccessView(nomorPesanan: nomor, namaOutlet: catalog.outlet?.name,
-                        onLihatStatus: { jalur.append(.status(orderId: id)) },
+                        // Layar sukses DIGANTI status (Android: popUpTo SUKSES
+                        // inclusive) — kembali dari status tak membawa ke sukses lagi.
+                        onLihatStatus: { jalur = [.status(orderId: id)] },
                         onKembaliKeMenu: { jalur = []; tab = .beranda })
         case .status(let id):
             OrderStatusView(vm: OrderStatusViewModel(repository: container.repository, orderId: id), onKembali: kembali)
         case .infoAkun:
             InformasiAkunView(vm: InformasiAkunViewModel(repository: container.repository,
                                                          sessionStore: container.sessionStore),
-                              onKembali: kembali)
+                              onKembali: kembali,
+                              onAkunDihapus: {
+                                  // Sesi sudah dibuang ViewModel; sisa data pelanggan di HP ini
+                                  // ikut dibersihkan, lalu ke layar Masuk (sama dengan Android).
+                                  container.sessionStore.hapus()
+                                  container.cartStore.kosongkan()
+                                  container.orderAttemptStore.selesai()
+                                  container.notificationStore.setUnreadCount(0)
+                                  tab = .beranda
+                                  jalur = [.masuk(tujuan: .katalog)]
+                              })
         case .notifikasi:
             NotificationView(vm: NotificationViewModel(repository: container.repository, store: container.notificationStore),
                              onBukaStatusPesanan: { jalur.append(.status(orderId: $0)) },

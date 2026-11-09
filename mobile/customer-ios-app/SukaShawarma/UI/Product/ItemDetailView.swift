@@ -1,9 +1,8 @@
 import SwiftUI
 
 /// Padanan `ItemDetailScreen.kt`: jumlah, topping, catatan, lalu tambah ke keranjang.
-///
-/// Tombol "Bagikan" di kepala Android tidak melakukan apa-apa (no-op), jadi
-/// sengaja TIDAK disalin — tombol mati terbaca sebagai aplikasi rusak.
+/// Tombol "Bagikan" di kepala membagikan teks menu lewat lembar bagikan sistem
+/// (padanan `Intent.ACTION_SEND` Android sejak 15 Okt).
 struct ItemDetailView: View {
     let item: MenuItemDto
     let toppingTersedia: [MenuItemDto]
@@ -12,6 +11,9 @@ struct ItemDetailView: View {
     /// tetap bisa dilihat, hanya tombol tambah yang dikunci. Default true = perilaku lama.
     var outletBolehPesan = true
     var labelOutletTutup: String? = nil
+    /// Lencana "Terlaris" hanya untuk menu yang memang tampil di Menu Terlaris
+    /// Beranda (lihat `termasukMenuTerlaris`), bukan untuk semua menu.
+    var adalahTerlaris = false
     let onLihatKeranjang: () -> Void
     let onKembali: () -> Void
 
@@ -24,7 +26,18 @@ struct ItemDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PageBrandHeader(judul: "Detail Menu", subjudul: item.name, onKembali: onKembali)
+            PageBrandHeader(judul: "Detail Menu", subjudul: item.name, onKembali: onKembali) {
+                ShareLink(item: teksBagikanMenu(item), subject: Text(item.name)) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.sukaCreamTeks)
+                        .frame(width: 36, height: 36)
+                        .background(Color.white.opacity(0.15), in: Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Bagikan Menu")
+            }
             ScrollView {
                 VStack(spacing: 16) {
                     gambarUtama
@@ -47,14 +60,16 @@ struct ItemDetailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 24))
             .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.black.opacity(0.04), lineWidth: 1))
             .overlay(alignment: .topLeading) {
-                HStack(spacing: 4) {
-                    Image(systemName: "flame.fill").font(.system(size: 11))
-                    Text("Favorit").font(SukaFont.jakarta(10, weight: .bold))
+                if adalahTerlaris {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill").font(.system(size: 11))
+                        Text("Terlaris").font(SukaFont.jakarta(10, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Color.sukaBrown.opacity(0.85), in: Capsule())
+                    .padding(14)
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(Color.sukaBrown.opacity(0.85), in: Capsule())
-                .padding(14)
             }
             .accessibilityLabel(item.name)
     }
@@ -259,4 +274,13 @@ struct ItemDetailView: View {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         onKembali()
     }
+}
+
+/// Teks yang dibagikan dari detail menu — sama persis dengan Android.
+func teksBagikanMenu(_ item: MenuItemDto) -> String {
+    var teks = "Cobain \(item.name) (\(rupiah(item.price))) di Suka Shawarma!"
+    if let d = item.description, !d.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        teks += "\n\(d)"
+    }
+    return teks
 }

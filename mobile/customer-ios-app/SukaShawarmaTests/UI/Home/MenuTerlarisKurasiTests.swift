@@ -15,6 +15,14 @@ struct MenuTerlarisKurasiTests {
         pilihMenuTerlaris(semua ?? katalog, kurasiIds: kurasi).map(\.id)
     }
 
+    /// Lencana "Terlaris" di detail (15 Okt) mengikuti pilihan Beranda yang sama.
+    @Test func lencanaTerlarisHanyaUntukMenuTerpilih() {
+        #expect(termasukMenuTerlaris("sapi", semua: katalog, kurasiIds: ["sapi", "es"]))
+        #expect(!termasukMenuTerlaris("ayam", semua: katalog, kurasiIds: ["sapi", "es"]))
+        #expect(termasukMenuTerlaris("ayam", semua: katalog))
+        #expect(!termasukMenuTerlaris("kentang", semua: katalog, kurasiIds: ["kentang"]))
+    }
+
     @Test func urutanKurasiAdminDipakai() {
         #expect(ids(["sapi", "es", "ayam"]) == ["sapi", "es"])
     }

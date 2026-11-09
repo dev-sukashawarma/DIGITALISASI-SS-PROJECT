@@ -32,6 +32,19 @@ func tautanWeb(_ teks: String?) -> URL? {
     return url
 }
 
+/// Kebijakan Privasi: setelan admin bila terisi, kalau tidak halaman resmi
+/// `<gateway>/privasi`. Selalu ada — App Store & Play Store mewajibkannya.
+/// Beda kecil dengan Android (yang memakai teks admin apa adanya): setelan yang
+/// bukan tautan http(s) jatuh ke halaman resmi, bukan tombol yang gagal dibuka.
+func urlKebijakanPrivasi(_ urlPrivasi: String?, baseURL: URL) -> URL {
+    tautanWeb(urlPrivasi) ?? baseURL.appending(path: "privasi")
+}
+
+/// Syarat & Ketentuan: setelan admin bila terisi, kalau tidak `<gateway>/syarat`.
+func urlSyaratKetentuan(_ urlSyarat: String?, baseURL: URL) -> URL {
+    tautanWeb(urlSyarat) ?? baseURL.appending(path: "syarat")
+}
+
 /// Config yang sedang berlaku; bawaan dipakai sampai/bila gateway gagal.
 extension EnvironmentValues {
     @Entry var configApp = ConfigDto()

@@ -66,6 +66,12 @@ final class Repository: Sendable {
         await gateway.orderDetail(orderId: orderId)
     }
 
+    /// Fire-and-forget dari layar bayar; galat diabaikan (draft hangus sendiri
+    /// saat batas bayarnya lewat).
+    func batalkanPesanan(orderId: String) async -> GatewayResult<Void> {
+        await gateway.cancelOrder(orderId: orderId)
+    }
+
     func riwayat() async -> GatewayResult<[OrderDetailDto]> {
         await gateway.ordersList().peta(\.orders)
     }
@@ -94,4 +100,6 @@ final class Repository: Sendable {
     func simpanProfil(nama: String?, telepon: String?) async -> GatewayResult<CustomerDto> {
         await gateway.updateProfile(UpdateProfileRequest(name: nama, phone: telepon)).peta(\.customer)
     }
+
+    func hapusAkun() async -> GatewayResult<Void> { await gateway.deleteAccount() }
 }

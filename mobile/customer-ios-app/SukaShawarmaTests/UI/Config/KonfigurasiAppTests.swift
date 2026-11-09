@@ -39,6 +39,23 @@ struct KonfigurasiAppTests {
         #expect(tautanWa("6281234567890", teks: "Pesanan #12")?.absoluteString
                 == "https://wa.me/6281234567890?text=Pesanan%20%2312")
     }
+    /// Padanan `urlKebijakanPrivasi`/`urlSyaratKetentuan` (TautanApp.kt, 15 Okt).
+    @Test func privasiDanSyaratJatuhKeHalamanGateway() {
+        let base = URL(string: "https://retail.sukashawarma.com")!
+        #expect(urlKebijakanPrivasi(nil, baseURL: base).absoluteString == "https://retail.sukashawarma.com/privasi")
+        #expect(urlSyaratKetentuan("  ", baseURL: base).absoluteString == "https://retail.sukashawarma.com/syarat")
+        let garisMiring = URL(string: "https://gateway.uji/")!
+        #expect(urlKebijakanPrivasi(nil, baseURL: garisMiring).absoluteString == "https://gateway.uji/privasi")
+    }
+    @Test func privasiDanSyaratAdminDidahulukan() {
+        let base = URL(string: "https://retail.sukashawarma.com")!
+        #expect(urlKebijakanPrivasi(" https://sukashawarma.com/privasi ", baseURL: base).absoluteString
+                == "https://sukashawarma.com/privasi")
+        #expect(urlSyaratKetentuan("https://sukashawarma.com/syarat", baseURL: base).absoluteString
+                == "https://sukashawarma.com/syarat")
+        // Bukan tautan web → halaman resmi, bukan tombol yang gagal dibuka.
+        #expect(urlSyaratKetentuan("javascript:alert(1)", baseURL: base).path == "/syarat")
+    }
     @Test func tautanWebHanyaHttp() {
         #expect(tautanWeb("https://sukashawarma.com/syarat")?.host == "sukashawarma.com")
         #expect(tautanWeb("javascript:alert(1)") == nil)

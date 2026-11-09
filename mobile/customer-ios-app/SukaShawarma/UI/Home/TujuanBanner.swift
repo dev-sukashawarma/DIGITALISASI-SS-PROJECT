@@ -53,3 +53,9 @@ func pilihMenuTerlaris(_ semua: [MenuItemDto], kurasiIds: [String] = [],
     }
     return Array((cocok.isEmpty ? tersedia : cocok).prefix(jumlahMenuTerlaris))
 }
+
+/// Lencana "Terlaris" di detail menu: hanya untuk menu yang memang tampil di
+/// bagian Menu Terlaris Beranda (aturan yang SAMA), bukan untuk semua menu.
+func termasukMenuTerlaris(_ menuItemId: String, semua: [MenuItemDto], kurasiIds: [String] = []) -> Bool {
+    pilihMenuTerlaris(semua, kurasiIds: kurasiIds).contains { $0.id == menuItemId }
+}

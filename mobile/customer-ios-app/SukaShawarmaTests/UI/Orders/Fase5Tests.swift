@@ -49,6 +49,13 @@ struct StatusPesananTests {
         #expect(FilterRiwayat.batal.saring([p]).count == 1)
         #expect(FilterRiwayat.berjalan.saring([p]).isEmpty)
     }
+    /// Padanan uji baru `StatusPesananTest.kt` (19 Okt): cabang "pending" kembar
+    /// di Android membuat `pending` terbaca "Menunggu pembayaran".
+    @Test func pendingDipetakanKePesananDiterima() {
+        let t = tampilanStatus("pending")
+        #expect(t.judul == "Pesanan diterima")
+        #expect(t.tahap == .diterima)
+    }
     @Test func preparingSedangDibuat() { #expect(tampilanStatus("preparing").tahap == .dibuat) }
     @Test func readySiapDiambil() { #expect(tampilanStatus("ready").tahap == .siap) }
     @Test func completedSelesai() {

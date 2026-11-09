@@ -1,13 +1,17 @@
 import SwiftUI
 
-/// Padanan `InformasiAkunScreen.kt`: Nama, Email (terkunci), No WhatsApp.
+/// Padanan `InformasiAkunScreen.kt`: Nama, Email (terkunci), No WhatsApp, serta
+/// Penghapusan Akun (wajib App Store: akun yang dibuat di aplikasi harus bisa
+/// dihapus dari dalam aplikasi).
 /// Nama yang diubah di sini TIDAK ditimpa Google saat masuk berikutnya
 /// (gateway hanya mengisi nama yang masih kosong).
 struct InformasiAkunView: View {
     @State var vm: InformasiAkunViewModel
     let onKembali: () -> Void
+    var onAkunDihapus: () -> Void = {}
 
     @FocusState private var fokus: KolomAkun?
+    @State private var konfirmasiHapus = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,7 +59,7 @@ struct InformasiAkunView: View {
                             .accessibilityIdentifier("pesan-tersimpan")
                     }
 
-                    let aktif = vm.adaPerubahan && !vm.menyimpan
+                    let aktif = vm.adaPerubahan && !vm.menyimpan && !vm.menghapus
                     Button {
                         fokus = nil
                         Task { await vm.simpan() }
@@ -78,6 +82,8 @@ struct InformasiAkunView: View {
                     .buttonStyle(.mentul())
                     .disabled(!aktif)
                     .accessibilityIdentifier("tombol-simpan-profil")
+
+                    kartuHapusAkun
                 }
                 .padding(16)
             }
@@ -93,6 +99,48 @@ struct InformasiAkunView: View {
             }
         }
         .task { await vm.segarkan() }
+        .onChange(of: vm.akunDihapus) { _, dihapus in if dihapus { onAkunDihapus() } }
+        .alert("Hapus Akun Permanen?", isPresented: $konfirmasiHapus) {
+            Button("Batal", role: .cancel) {}
+            Button("Ya, Hapus Akun", role: .destructive) { Task { await vm.hapusAkun() } }
+        } message: {
+            Text("Seluruh data profil pribadi (nama, email, nomor WhatsApp, dan notifikasi) akan dihapus secara permanen dari Suka Shawarma. Tindakan ini tidak dapat dibatalkan.")
+        }
+    }
+
+    /// Bagian Penghapusan Akun (Google Play Data Safety & App Store 5.1.1(v)).
+    private var kartuHapusAkun: some View {
+        let merah = Color(hex: 0xDC2626)
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Penghapusan Akun & Data").font(SukaFont.jakarta(14, weight: .bold))
+                .foregroundStyle(Color(hex: 0x991B1B))
+            Text("Kamu dapat menghapus akun Suka Shawarma beserta seluruh data profil pribadimu secara permanen kapan saja.")
+                .font(SukaFont.jakarta(12)).foregroundStyle(Color.sukaMuted)
+            Button {
+                fokus = nil
+                konfirmasiHapus = true
+            } label: {
+                HStack(spacing: 6) {
+                    if vm.menghapus {
+                        ProgressView().tint(merah)
+                    } else {
+                        Image(systemName: "trash.fill").font(.system(size: 14, weight: .bold))
+                        Text("Hapus Akun Saya").font(SukaFont.jakarta(13, weight: .bold))
+                    }
+                }
+                .foregroundStyle(merah)
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .overlay(Capsule().stroke(Color(hex: 0xFCA5A5), lineWidth: 1))
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.mentul(0.98))
+            .disabled(vm.menghapus || vm.menyimpan)
+            .accessibilityIdentifier("tombol-hapus-akun")
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 20))
+        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color(hex: 0xFECACA), lineWidth: 1))
     }
 }
 

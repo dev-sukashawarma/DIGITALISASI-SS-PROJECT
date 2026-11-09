@@ -4,8 +4,9 @@ import SwiftUI
 ///
 /// Beda sengaja dengan Android (lihat RANCANGAN.md §8 Fase 5): statistik
 /// dihitung dari data nyata (Android membuang statistiknya karena angkanya
-/// karangan). Menu bantuan hanya tampil bila tautannya diisi di Pengaturan
-/// Aplikasi admin — sama dengan Android sejak 24 Sep.
+/// karangan). Bagian bantuan SELALU ada (sama dengan Android sejak 15 Okt):
+/// FAQ, Hubungi CS (bila nomor diisi admin), dan Kebijakan Privasi / Syarat &
+/// Ketentuan — jatuh ke halaman resmi gateway bila tautannya belum diisi.
 struct ProfileView: View {
     let sesi: SessionData?
     let jumlahSelesai: Int?
@@ -20,7 +21,9 @@ struct ProfileView: View {
 
     @Environment(\.configApp) private var config
     @Environment(\.openURL) private var bukaUrl
+    @Environment(AppContainer.self) private var container
     @State private var tampilPengaturan = false
+    @State private var tampilFaq = false
     @State private var konfirmasiKeluar = false
 
     var body: some View {
@@ -47,12 +50,12 @@ struct ProfileView: View {
                                  sub: "Preferensi status pesanan & promo") { tampilPengaturan = true }
                     }
 
-                    if !tautanBantuan.isEmpty {
-                        bagian("BANTUAN & INFORMASI") {
-                            ForEach(Array(tautanBantuan.enumerated()), id: \.offset) { i, t in
-                                if i > 0 { Divider().padding(.leading, 60) }
-                                ItemMenu(ikon: t.ikon, judul: t.judul, sub: t.sub) { bukaUrl(t.url) }
-                            }
+                    bagian("BANTUAN & INFORMASI") {
+                        ItemMenu(ikon: "questionmark.circle.fill", judul: "Pusat Bantuan & FAQ",
+                                 sub: "Pertanyaan seputar order & ambil pesanan") { tampilFaq = true }
+                        ForEach(Array(tautanBantuan.enumerated()), id: \.offset) { _, t in
+                            Divider().padding(.leading, 60)
+                            ItemMenu(ikon: t.ikon, judul: t.judul, sub: t.sub) { bukaUrl(t.url) }
                         }
                     }
 
@@ -81,6 +84,7 @@ struct ProfileView: View {
             let p = notificationStore.bacaPreferensi()
             PengaturanNotifikasiSheet(statusPesanan: p.statusPesanan, promo: p.promo, onSimpan: onSimpanPreferensi)
         }
+        .sheet(isPresented: $tampilFaq) { FaqBantuanSheet() }
         .confirmationDialog("Keluar dari akun?", isPresented: $konfirmasiKeluar, titleVisibility: .visible) {
             Button("Keluar", role: .destructive, action: onKeluar)
         } message: {
@@ -88,18 +92,18 @@ struct ProfileView: View {
         }
     }
 
-    /// Baris tautan hanya untuk setelan yang terisi — tombol mati terbaca rusak.
+    /// Hubungi CS hanya bila nomor diisi admin (tombol mati terbaca rusak);
+    /// Privasi & Syarat selalu ada, dengan halaman resmi gateway sebagai cadangan.
     private var tautanBantuan: [(ikon: String, judul: String, sub: String, url: URL)] {
         var hasil: [(ikon: String, judul: String, sub: String, url: URL)] = []
         if let wa = tautanWa(config.waCs, teks: "Halo CS Suka Shawarma") {
             hasil.append(("headphones", "Hubungi CS", "Chat lewat WhatsApp", wa))
         }
-        if let url = tautanWeb(config.urlPrivasi) {
-            hasil.append(("lock.shield.fill", "Kebijakan Privasi", "Keamanan data pelanggan Suka Shawarma", url))
-        }
-        if let url = tautanWeb(config.urlSyarat) {
-            hasil.append(("doc.text.fill", "Syarat & Ketentuan", "Ketentuan pemesanan & pengambilan", url))
-        }
+        let base = container.config.gatewayBaseURL
+        hasil.append(("lock.shield.fill", "Kebijakan Privasi", "Keamanan data pelanggan Suka Shawarma",
+                      urlKebijakanPrivasi(config.urlPrivasi, baseURL: base)))
+        hasil.append(("doc.text.fill", "Syarat & Ketentuan", "Ketentuan pemesanan & pengambilan",
+                      urlSyaratKetentuan(config.urlSyarat, baseURL: base)))
         return hasil
     }
 
@@ -187,6 +191,45 @@ struct ProfileView: View {
             Text(judul).font(SukaFont.jakarta(11, weight: .bold)).tracking(0.6).foregroundStyle(Color.sukaMuted).padding(.leading, 4)
             VStack(spacing: 0) { isi() }.kartuElegan(sudut: 18, elevasi: 1, latar: .white)
         }
+    }
+}
+
+/// Isi "Pusat Bantuan & FAQ" — teks sama dengan `FaqBantuanDialog` Android.
+let faqBantuan: [(tanya: String, jawab: String)] = [
+    ("1. Bagaimana cara mengambil pesanan?",
+     "Pilih outlet terdekat, pesan & bayar dengan QRIS, lalu tunjukkan Nomor Antrean di layar Status Pesanan kepada kasir saat status berubah menjadi Siap Diambil."),
+    ("2. Berapa lama batas waktu pembayaran QRIS?",
+     "Kode QRIS berlaku selama 15 menit sejak pesanan dibuat. Setelah membayar, status akan terverifikasi otomatis tanpa perlu kirim bukti transfer."),
+    ("3. Bisakah saya mengubah atau menghapus akun?",
+     "Buka menu Informasi Akun untuk mengubah Nama/No WhatsApp atau menghapus akun beserta data pribadimu secara permanen."),
+]
+
+/// Padanan `FaqBantuanDialog` (AlertDialog Android). Lembar, bukan `.alert`:
+/// alert iOS tak bisa memuat judul-jawaban berformat yang bisa digulir.
+private struct FaqBantuanSheet: View {
+    @Environment(\.dismiss) private var tutup
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Pusat Bantuan & FAQ").font(SukaFont.jakarta(18, weight: .bold)).foregroundStyle(Color.sukaBrown)
+                .accessibilityAddTraits(.isHeader)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(Array(faqBantuan.enumerated()), id: \.offset) { _, f in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(f.tanya).font(SukaFont.jakarta(13, weight: .bold)).foregroundStyle(Color.sukaInk)
+                            Text(f.jawab).font(SukaFont.jakarta(12)).foregroundStyle(Color.sukaMuted)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+            TombolUtama(label: "Mengerti") { tutup() }
+        }
+        .padding(24)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .background(Color.white.ignoresSafeArea())
     }
 }
 

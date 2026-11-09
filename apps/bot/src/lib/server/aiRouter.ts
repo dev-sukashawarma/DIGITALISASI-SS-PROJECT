@@ -22,17 +22,78 @@ export const MODEL_FALLBACK_STABIL = ['cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gp
  * Mengembalikan kandidat model 9Router yang sesuai dengan profil agen Hermes.
  * Profil CEO mengutamakan combo `CEO_SS` (Claude Sonnet) dengan fallback cepat `cx/gpt-6-luna`, `cx/gpt-6-sol`, `cx/gpt-5.6-luna`, `MANAGER_SS`.
  */
-export function kandidatModel9Router(profil: string, envModel?: string): string[] {
+/**
+ * Mendeteksi apakah pertanyaan pengguna memerlukan analisis mendalam multi-dimensi (Deep Lane - Claude Sonnet)
+ * atau cukup jawaban cepat/taktis (Fast Lane - Claude Haiku).
+ */
+export function apakahButuhAnalisisMendalam(pesan: string): boolean {
+  if (!pesan) return false
+  const lower = pesan.toLowerCase()
+  return (
+    lower.includes('evaluasi') ||
+    lower.includes('analisis mendalam') ||
+    lower.includes('analisa mendalam') ||
+    lower.includes('laporan komprehensif') ||
+    lower.includes('laporan lengkap') ||
+    lower.includes('multi-app') ||
+    lower.includes('semua app') ||
+    lower.includes('seluruh aplikasi') ||
+    lower.includes('rekomendasi strategis') ||
+    lower.includes('rekomendasi dan saran') ||
+    lower.includes('deep analysis') ||
+    lower.startsWith('/deep') ||
+    lower.startsWith('/sonnet') ||
+    lower.includes('audit lengkap') ||
+    lower.includes('bandingkan seluruh')
+  )
+}
+
+/**
+ * Mengembalikan kandidat model 9Router yang sesuai dengan profil agen Hermes.
+ * Mendukung Smart Dual-Engine:
+ * - Fast Lane (Claude Haiku): Pertanyaan harian, interaksi cepat, dan suara (TTFT ~1s).
+ * - Deep Lane (Claude Sonnet): Evaluasi komprehensif, multi-app scorecard, rekomendasi strategis.
+ */
+export function kandidatModel9Router(profil: string, envModel?: string, butuhDeep = false): string[] {
   const override = envModel?.trim()
-  if (override && override !== DEFAULT_HERMES_COMBO_MODEL) {
-    if (profil.trim().toLowerCase() === 'ceo' && (override === 'CEO_SS' || override === 'cc/claude-sonnet-5-5')) {
-      return ['cc/claude-sonnet-5-5', 'cc/claude-sonnet-5', 'CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo']
-    }
+  const isAutoOrSonnet =
+    !override ||
+    override === 'auto' ||
+    override === DEFAULT_HERMES_COMBO_MODEL ||
+    override === 'CEO_SS' ||
+    override === 'cc/claude-sonnet-5-5' ||
+    override === 'cc/claude-haiku-4-5-20251001'
+
+  if (!isAutoOrSonnet && override) {
     return Array.from(new Set([override, ...MODEL_FALLBACK_STABIL]))
   }
+
   switch (profil.trim().toLowerCase()) {
     case 'ceo':
-      return ['cc/claude-sonnet-5-5', 'cc/claude-sonnet-5', 'CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo']
+      if (butuhDeep) {
+        return [
+          'cc/claude-sonnet-5-5',
+          'cc/claude-sonnet-5',
+          'CEO_SS',
+          'cc/claude-haiku-4-5-20251001',
+          'cx/gpt-5.6-luna',
+          'cx/gpt-6-luna',
+          'cx/gpt-6-sol',
+          'MANAGER_SS',
+          'hermes-combo',
+        ]
+      }
+      return [
+        'cc/claude-haiku-4-5-20251001',
+        'cc/claude-sonnet-5-5',
+        'cc/claude-sonnet-5',
+        'CEO_SS',
+        'cx/gpt-5.6-luna',
+        'cx/gpt-6-luna',
+        'cx/gpt-6-sol',
+        'MANAGER_SS',
+        'hermes-combo',
+      ]
     case 'manager':
       return ['MANAGER_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna']
     case 'gudang':
@@ -43,7 +104,6 @@ export function kandidatModel9Router(profil: string, envModel?: string): string[
     case 'sukareview':
       return ['ANALYTIC-SOSMED-COMBO', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna']
     case 'hrd':
-      return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS']
     case 'finance':
       return ['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS']
     default:
@@ -60,7 +120,9 @@ export async function* tanyaAiRouter(o: {
 }): AsyncGenerator<string> {
   const base = process.env.AI_BASE_URL?.replace(/\/+$/, '')
   const key = process.env.AI_API_KEY
-  const daftarModel = kandidatModel9Router(o.profil, process.env.AI_MODEL)
+  const butuhDeep = apakahButuhAnalisisMendalam(o.pesan)
+  const daftarModel = kandidatModel9Router(o.profil, process.env.AI_MODEL, butuhDeep)
+  const pesanKirim = o.pesan.replace(/^\/(?:deep|sonnet)\s*/i, '').trim() || o.pesan
 
   if (!base || !key) {
     throw new Error('AI Router belum dikonfigurasi (AI_BASE_URL atau AI_API_KEY kosong)')
@@ -820,7 +882,7 @@ ${konteksData}
   const messages = [
     { role: 'system', content: promptSistem },
     ...riwayatFiltered,
-    { role: 'user', content: o.pesan },
+    { role: 'user', content: pesanKirim },
   ]
 
   let res: Response | null = null
@@ -841,9 +903,9 @@ ${konteksData}
           model: modelKandidat,
           stream: true,
           messages,
-          temperature: 0.2,
+          temperature: butuhDeep ? 0.2 : 0.1,
           reasoning_effort: 'low',
-          max_tokens: 2048,
+          max_tokens: butuhDeep ? 3072 : 512,
         }),
         signal: signalPerModel,
       })

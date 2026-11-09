@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { tanyaAiRouter, kandidatModel9Router } from './aiRouter'
+import { tanyaAiRouter, kandidatModel9Router, apakahButuhAnalisisMendalam } from './aiRouter'
 import type { TelemetriHariIni } from './telemetriNyata'
 
 const mockTelemetri: TelemetriHariIni = {
@@ -66,13 +66,22 @@ describe('aiRouter', () => {
   })
 
   it('memetakan profil Hermes ke model combo 9Router yang sesuai', () => {
-    expect(kandidatModel9Router('ceo')).toEqual(['cc/claude-sonnet-5-5', 'cc/claude-sonnet-5', 'CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo'])
+    expect(kandidatModel9Router('ceo')).toEqual(['cc/claude-haiku-4-5-20251001', 'cc/claude-sonnet-5-5', 'cc/claude-sonnet-5', 'CEO_SS', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo'])
+    expect(kandidatModel9Router('ceo', undefined, true)).toEqual(['cc/claude-sonnet-5-5', 'cc/claude-sonnet-5', 'CEO_SS', 'cc/claude-haiku-4-5-20251001', 'cx/gpt-5.6-luna', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'MANAGER_SS', 'hermes-combo'])
     expect(kandidatModel9Router('manager')).toEqual(['MANAGER_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
     expect(kandidatModel9Router('gudang')).toEqual(['STOKIS_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
     expect(kandidatModel9Router('stokis')).toEqual(['STOKIS_SS', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
     expect(kandidatModel9Router('marcom')).toEqual(['ANALYTIC-SOSMED-COMBO', 'cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna'])
     expect(kandidatModel9Router('hrd')).toEqual(['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS'])
     expect(kandidatModel9Router('finance')).toEqual(['cx/gpt-6-luna', 'cx/gpt-6-sol', 'cx/gpt-5.6-luna', 'MANAGER_SS'])
+  })
+
+  it('mendeteksi kebutuhan analisis mendalam (Deep Lane vs Fast Lane)', () => {
+    expect(apakahButuhAnalisisMendalam('Berapa omzet hari ini?')).toBe(false)
+    expect(apakahButuhAnalisisMendalam('Halo Jarvis')).toBe(false)
+    expect(apakahButuhAnalisisMendalam('Buat laporan evaluasi kemarin')).toBe(true)
+    expect(apakahButuhAnalisisMendalam('/deep analisis cabang tebet')).toBe(true)
+    expect(apakahButuhAnalisisMendalam('/sonnet berikan rekomendasi')).toBe(true)
   })
 
   it('melempar error jika AI_BASE_URL atau AI_API_KEY kosong', async () => {

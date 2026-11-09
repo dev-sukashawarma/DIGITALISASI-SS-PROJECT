@@ -263,6 +263,10 @@ Urutan di dalam fungsi (satu transaksi):
 ---
 
 ## Catatan eksekusi
-- Native superapp **tidak** punya form opname (dicek: hanya test e2e menyebut opname) → di luar cakupan.
+- App opname crew native ada di repo terpisah `SS SUPERAPP/SUPER-APPS-SS-MOBILE` (bukan `mobile/native-superapp`).
+  Tidak perlu diubah: metadata satuan dibaca dari `monitoring_view_scoped` (cache memori 60 dtk), draft HP
+  (`DraftOpnameLokalStore`) dan antrean finalisasi offline (`PendingOpnameFinalizeEntity`) selalu terikat ke draft
+  opname server — yang menjadi penghalang Ganti Satuan. Sisa risiko: jendela cache 60 dtk (native) / 5 mnt (web
+  `useBahanBaku` staleTime) → runbook: jalankan Ganti Satuan siang hari, di luar jam opname.
 - Trigger yang diberi `WHEN` juga didefinisikan ulang oleh beberapa migration bertimestamp 2030; replay dari nol akan membuang `WHEN`. Produksi aman (sudah terstempel). Catat di CLAUDE.md.
 - Menjalankan ganti satuan BAWANG sungguhan **bukan** bagian plan ini — dilakukan owner/admin lewat tombol setelah deploy, mengikuti runbook.

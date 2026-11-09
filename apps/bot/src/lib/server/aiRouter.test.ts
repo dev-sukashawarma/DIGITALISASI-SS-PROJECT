@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { tanyaAiRouter, kandidatModel9Router, apakahButuhAnalisisMendalam } from './aiRouter'
+import { tanyaAiRouter, kandidatModel9Router, apakahButuhAnalisisMendalam, apakahPesanHanyaSapaan } from './aiRouter'
 import type { TelemetriHariIni } from './telemetriNyata'
 
 const mockTelemetri: TelemetriHariIni = {
@@ -82,6 +82,16 @@ describe('aiRouter', () => {
     expect(apakahButuhAnalisisMendalam('Buat laporan evaluasi kemarin')).toBe(true)
     expect(apakahButuhAnalisisMendalam('/deep analisis cabang tebet')).toBe(true)
     expect(apakahButuhAnalisisMendalam('/sonnet berikan rekomendasi')).toBe(true)
+  })
+
+  it('mendeteksi pesan sapaan/kehadiran ringan untuk optimasi latensi', () => {
+    expect(apakahPesanHanyaSapaan('halo apa kabar')).toBe(true)
+    expect(apakahPesanHanyaSapaan('Halo Jarvis!')).toBe(true)
+    expect(apakahPesanHanyaSapaan('selamat pagi')).toBe(true)
+    expect(apakahPesanHanyaSapaan('ping')).toBe(true)
+    expect(apakahPesanHanyaSapaan('halo apa kabar, berapa omzet hari ini?')).toBe(false)
+    expect(apakahPesanHanyaSapaan('tampilkan semua outlet')).toBe(false)
+    expect(apakahPesanHanyaSapaan('ada laporan waste kemarin?')).toBe(false)
   })
 
   it('melempar error jika AI_BASE_URL atau AI_API_KEY kosong', async () => {

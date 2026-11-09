@@ -49,6 +49,47 @@ export function apakahButuhAnalisisMendalam(pesan: string): boolean {
 }
 
 /**
+ * Mendeteksi apakah pesan pengguna hanya berupa sapaan/kehadiran ringan (chit-chat/greeting).
+ * Jika ya, kita gunakan ringkasan eksekutif cepat agar respons AI instan (< 1 detik).
+ */
+export function apakahPesanHanyaSapaan(pesan: string): boolean {
+  if (!pesan) return false
+  const p = pesan.trim().toLowerCase().replace(/[?!.,]/g, '')
+  const kataSapaan = [
+    'halo',
+    'halo apa kabar',
+    'apa kabar',
+    'hai',
+    'hi',
+    'hey',
+    'hei',
+    'halo jarvis',
+    'hai jarvis',
+    'tes',
+    'test',
+    'ping',
+    'selamat pagi',
+    'selamat siang',
+    'selamat sore',
+    'selamat malam',
+    'pagi',
+    'siang',
+    'sore',
+    'malam',
+    'kamu siapa',
+    'siapa kamu',
+    'siapa anda',
+    'bisa apa',
+    'apa yang bisa kamu lakukan',
+    'terima kasih',
+    'makasih',
+    'thanks',
+    'thank you',
+  ]
+  return kataSapaan.includes(p) || /^(halo|hai|hey|hei)\s*(jarvis)?$/i.test(p)
+}
+
+/**
  * Mengembalikan kandidat model 9Router yang sesuai dengan profil agen Hermes.
  * Mendukung Smart Dual-Engine:
  * - Fast Lane (Claude Haiku): Pertanyaan harian, interaksi cepat, dan suara (TTFT ~1s).
@@ -132,7 +173,16 @@ export async function* tanyaAiRouter(o: {
 
   // Bangun data operasional real-time Suka Shawarma sebagai referensi knowledge base
   let konteksData = 'Data operasional real-time saat ini tidak tersedia.'
-  if (t) {
+  const adalahSapaan = apakahPesanHanyaSapaan(o.pesan)
+
+  if (adalahSapaan) {
+    konteksData = `
+Status Jaringan Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):
+- Total Outlet Aktif: ${t?.totalOutletAktif || 22} cabang
+- Total Omzet Berjalan Hari Ini: ${t ? formatRupiah(t.omzetTotal) : 'Rp 0'} (${t?.totalOrder || 0} struk)
+- INSTRUKSI KHUSUS SAPAAN: Pengguna memberikan salam/sapaan ringan. Jawablah secara hangat, bersahabat, percaya diri, dan profesional selayaknya J.A.R.V.I.S. (Executive AI Assistant). Sapa "Sir", laporkan status kesiapan sistem dan ringkasan singkat kondisi operasional jika relevan, lalu tanyakan apa yang dapat Anda bantu atau pantau hari ini. DILARANG menampilkan daftar tabel panjang jika hanya disapa.
+`.trim()
+  } else if (t) {
     const formatBarisOutlet = (out: any, i: number) => {
       const aov = out.orderCount > 0 ? Math.round(out.omzet / out.orderCount) : 0
       const net = out.omzetBersih !== undefined ? ` | Net: ${formatRupiah(out.omzetBersih)}` : ''
@@ -887,10 +937,21 @@ ${konteksData}
 
   let res: Response | null = null
   let statusTerakhir = 500
+  let controllerTerpilih: AbortController | null = null
+
   for (const modelKandidat of daftarModel) {
     if (o.signal?.aborted) break
-    const batasWaktuPerModel = AbortSignal.timeout(3_500)
-    const signalPerModel = o.signal ? AbortSignal.any([o.signal, batasWaktuPerModel]) : batasWaktuPerModel
+
+    const perModelController = new AbortController()
+    let timerKoneksi: NodeJS.Timeout | null = setTimeout(() => {
+      perModelController.abort(new Error(`Timeout koneksi model ${modelKandidat}`))
+    }, 12_000)
+
+    const onParentAbort = () => perModelController.abort(o.signal?.reason)
+    if (o.signal) {
+      o.signal.addEventListener('abort', onParentAbort, { once: true })
+    }
+
     try {
       const percobaan = await fetch(`${base}/chat/completions`, {
         method: 'POST',
@@ -907,17 +968,35 @@ ${konteksData}
           reasoning_effort: 'low',
           max_tokens: butuhDeep ? 3072 : 512,
         }),
-        signal: signalPerModel,
+        signal: perModelController.signal,
       })
+
       statusTerakhir = percobaan.status
       if (percobaan.ok && percobaan.body) {
+        if (timerKoneksi) {
+          clearTimeout(timerKoneksi)
+          timerKoneksi = null
+        }
         res = percobaan
+        controllerTerpilih = perModelController
         break
       } else {
+        if (timerKoneksi) {
+          clearTimeout(timerKoneksi)
+          timerKoneksi = null
+        }
         console.warn(`[aiRouter] Model ${modelKandidat} gagal (HTTP ${percobaan.status}), mencoba model berikutnya...`)
       }
     } catch (netErr) {
+      if (timerKoneksi) {
+        clearTimeout(timerKoneksi)
+        timerKoneksi = null
+      }
       console.warn(`[aiRouter] Fetch/timeout pada model ${modelKandidat}, mencoba model berikutnya:`, netErr)
+    } finally {
+      if (controllerTerpilih !== perModelController && o.signal) {
+        o.signal.removeEventListener('abort', onParentAbort)
+      }
     }
   }
 

@@ -2,6 +2,11 @@
 import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import type { DataSatuan } from '@/lib/masterBahan/isianSatuan'
+import type { PratinjauGantiSatuan } from '@/lib/masterBahan/gantiSatuan'
+
+/** Satuan baru untuk RPC ganti satuan: set satuan + label PO & distribusi. */
+export type SatuanGantiBaru = DataSatuan & { satuan_po: string | null; satuan_distribusi: string | null }
 
 export type DataBahan = Partial<{
   nama: string
@@ -128,8 +133,27 @@ export function useMutasiMasterBahan() {
     onSuccess: segarkan,
   })
 
+  /** Read-only: hitung faktor, penghalang, dan saldo sesudah tanpa mengubah apa pun. */
+  const pratinjauGantiSatuan = useMutation({
+    mutationFn: (v: { bahanId: string; baru: SatuanGantiBaru; jembatan: number }) =>
+      rpc<PratinjauGantiSatuan>('pratinjau_ganti_satuan', {
+        p_bahan: v.bahanId, p_baru: v.baru, p_jembatan: v.jembatan,
+      }),
+  })
+
+  const gantiSatuan = useMutation({
+    mutationFn: (v: { bahanId: string; baru: SatuanGantiBaru; jembatan: number; alasan: string }) =>
+      rpc<string>('ganti_satuan_bahan', {
+        p_bahan: v.bahanId, p_baru: v.baru, p_jembatan: v.jembatan, p_alasan: v.alasan,
+      }),
+    onSuccess: () => {
+      segarkan()
+      qc.invalidateQueries({ queryKey: ['bahan_baku'] })
+    },
+  })
+
   return {
     simpanBahan, nonaktifkan, aktifkan, hapus, simpanSku, setDefaultSku, hapusSku, unggahFoto,
-    simpanHargaVendor, nonaktifkanHargaVendor,
+    simpanHargaVendor, nonaktifkanHargaVendor, pratinjauGantiSatuan, gantiSatuan,
   }
 }

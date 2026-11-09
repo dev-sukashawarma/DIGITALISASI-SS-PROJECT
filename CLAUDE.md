@@ -3702,7 +3702,7 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 
 ## Session 2026-11-09: Ganti Satuan bahan baku (DB + admin-dashboard + stok)
 
-**Status:** DB **LIVE** — 5 migration applied & terstempel (`20261109103055_ganti_satuan_skema`, `…103441_ganti_satuan_pratinjau`, `…104240_ganti_satuan_eksekusi`, `…110759_ganti_satuan_opname_skala_data`, `…111324_ganti_satuan_pratinjau_aktivitas`); uji `supabase/verifikasi/ganti_satuan/t1–t5` LULUS (t3 termasuk bolak-balik & uji kering BAWANG PUTIH BUBUK di ROLLBACK). Fungsi BELUM pernah dijalankan sungguhan pada bahan mana pun. Kode di-merge ke `main` lokal (belum di-push). ⚠️ Perlu **redeploy `admin-dashboard` + `stok`**. Tidak perlu rilis APK.
+**Status:** DB **LIVE** — 6 migration applied & terstempel (`20261109135822_ganti_satuan_purchasing_dan_pengubah`, `20261109103055_ganti_satuan_skema`, `…103441_ganti_satuan_pratinjau`, `…104240_ganti_satuan_eksekusi`, `…110759_ganti_satuan_opname_skala_data`, `…111324_ganti_satuan_pratinjau_aktivitas`); uji `supabase/verifikasi/ganti_satuan/t1–t6` LULUS (t3 termasuk bolak-balik & uji kering BAWANG PUTIH BUBUK di ROLLBACK). Fungsi BELUM pernah dijalankan sungguhan pada bahan mana pun. Kode di-merge ke `main` lokal (belum di-push). ⚠️ Perlu **redeploy `admin-dashboard` + `stok`**. Tidak perlu rilis APK.
 
 **Spec/plan/runbook:** `docs/superpowers/specs/2026-11-09-ganti-satuan-bahan-baku-design.md`, `docs/superpowers/plans/2026-11-09-ganti-satuan-bahan-baku.md`, `docs/RUNBOOK-GANTI-SATUAN-BAWANG-PUTIH-BUBUK.md`.
 
@@ -3715,6 +3715,8 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - `bahan_baku_sku` tidak dikonversi (0 baris, `qty_isi` tanpa satuan baku).
 - ⚠️ **Skala kolom opname dibaca dari data, bukan diandaikan** (review C1): form opname sejak 19 Agu menyimpan `qty_system` dalam gram walau saldo outlet skala besar — 259 dari 893 opname transisi live begitu. `qty_system` dicocokkan ke saldo ledger yang dirujuknya; aturan waktu hanya cadangan.
 - ⚠️ **Transaksi stok bersamaan tak bisa dicegah DB** (review I1): penulis yang sudah membaca faktor lama menulis angka skala lama sesudah konversi. Mitigasi: peringatan `aktivitas_15_menit` di pratinjau + runbook (jalankan saat bahan tidak bergerak).
+- **Purchasing boleh Ganti Satuan** (owner, 9 Nov): lingkup baru `_peran_master('satuan')` = admin/owner/purchasing/developer, dipakai `pratinjau_ganti_satuan` & `ganti_satuan_bahan` (migration `20261109135822`); lingkup `data` tetap admin/owner/developer. Tabel Data Bahan punya kolom **Diubah oleh** dari RPC `pengubah_terakhir_bahan()` (perubahan terakhir data/harga master/harga vendor + nama; SECURITY DEFINER karena nama staf tertahan RLS; admin/owner/purchasing/developer). Uji t6.
+- 4 draft opname basi bawang (Jagakarsa 20 Agu, Sawangan 28 Agu, Cirendeu 2 Sep, Paledang 25 Sep) ditolak 9 Nov agar Ganti Satuan tak terhalang.
 
 **Last updated:** 2026-11-09  
 **Owner:** Dev Suka Shawarma

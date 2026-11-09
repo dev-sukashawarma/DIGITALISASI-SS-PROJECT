@@ -14,6 +14,11 @@ export function bolehTambahBahan(role: string | null | undefined): boolean {
   return role === 'ADMIN' || role === 'OWNER' || role === 'PURCHASING'
 }
 
+/** Ganti Satuan bahan ber-riwayat stok — lingkup 'satuan' di _peran_master (migration 20261109135822). */
+export function bolehGantiSatuan(role: string | null | undefined): boolean {
+  return role === 'ADMIN' || role === 'OWNER' || role === 'PURCHASING'
+}
+
 export function bolehUbahHarga(role: string | null | undefined): boolean {
   return role === 'ADMIN' || role === 'OWNER' || role === 'PURCHASING'
 }

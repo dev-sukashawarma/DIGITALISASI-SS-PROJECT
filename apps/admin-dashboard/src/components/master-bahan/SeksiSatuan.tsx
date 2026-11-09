@@ -7,6 +7,8 @@ import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
 import { pilihanSatuanBeli } from '@/lib/masterBahan/satuanBeli'
 import { DialogAlasan } from './DialogAlasan'
 import { ModalGantiSatuan } from './ModalGantiSatuan'
+import { useRole } from '@/components/layout/RoleContext'
+import { bolehGantiSatuan } from '@/lib/masterBahan/akses'
 import { IsianSatuanFields, keDataSatuan, nilaiSatuanDari, satuanInvalid, type NilaiSatuan } from './IsianSatuanFields'
 
 export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; bolehData: boolean }) {
@@ -18,6 +20,9 @@ export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; b
   const [minta, setMinta] = useState(false)
   const [galat, setGalat] = useState<GalatRpc | null>(null)
   const [ganti, setGanti] = useState(false)
+  const { role } = useRole()
+  // Ganti Satuan juga boleh purchasing (lingkup 'satuan'), walau edit data biasa tidak.
+  const bolehGanti = bolehGantiSatuan(role)
   const pilihan = pilihanSatuanBeli(bahan).map((p) => p.label)
   // Label 'kg' tambahan (aturan kg→gram) hanya sah untuk DISTRIBUSI; trigger Tahap 1
   // menolaknya sebagai satuan PO kecuali Kg memang salah satu tingkat.
@@ -56,7 +61,7 @@ export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; b
         <p className="text-xs text-amber-800">
           Bahan yang sudah punya riwayat stok diganti satuannya lewat tombol Ganti Satuan (stok, riwayat, dan dokumen ikut dikonversi).
         </p>
-        {bolehData && (
+        {bolehGanti && (
           <button onClick={() => setGanti(true)}
             className="rounded-xl border border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100">
             Ganti Satuan

@@ -6,6 +6,8 @@ import { useRole } from '@/components/layout/RoleContext'
 import { useDaftarBahan } from '@/hooks/masterBahan/useDaftarBahan'
 import { useStatusHarga } from '@/hooks/masterBahan/useStatusHarga'
 import { useJumlahBatasOutlet } from '@/hooks/masterBahan/useJumlahBatasOutlet'
+import { usePengubahTerakhir } from '@/hooks/masterBahan/usePengubahTerakhir'
+import { labelPengubah } from '@/lib/masterBahan/pengubah'
 import { filterAndSortBahanBaku, type SortOption } from '@/lib/bahanBaku'
 import { bolehTambahBahan, bolehUbahData } from '@/lib/masterBahan/akses'
 import {
@@ -41,6 +43,7 @@ export function TabDataBahan() {
   const { data: rows = [], isLoading, error } = useDaftarBahan()
   const { data: status = [] } = useStatusHarga()
   const batas = useJumlahBatasOutlet()
+  const pengubah = usePengubahTerakhir()
   const [cari, setCari] = useState('')
   const [urut, setUrut] = useState<SortOption>('nama-asc')
   const [saringan, setSaringan] = useState<Saringan>('aktif')
@@ -129,8 +132,8 @@ export function TabDataBahan() {
         <div className="ml-auto"><InfoJumlah tampil={tampil.length} total={dasar.length} satuan="bahan" /></div>
       </div>
 
-      <Tabel lebarMin={1080}>
-        <LebarKolom lebar={['24%', '20%', '14%', '14%', '12%', '13%', '2.75rem']} />
+      <Tabel lebarMin={1240}>
+        <LebarKolom lebar={['21%', '17%', '12%', '12%', '11%', '11%', '14%', '2.75rem']} />
         <KepalaTabel>
           <Th>Bahan</Th>
           <Th>Satuan</Th>
@@ -138,12 +141,13 @@ export function TabDataBahan() {
           <Th>Satuan opname</Th>
           <Th>Peruntukan</Th>
           <Th rata="kanan">Harga master</Th>
+          <Th>Diubah oleh</Th>
           <Th><span className="sr-only">Buka detail</span></Th>
         </KepalaTabel>
         <tbody>
           {grup.map((g) => (
             <Fragment key={g.kunci}>
-              <BarisGrup kolom={7} label={g.label} jumlah={g.baris.length} />
+              <BarisGrup kolom={8} label={g.label} jumlah={g.baris.length} />
               {g.baris.map((r) => {
                 const p = PERUNTUKAN[r.peruntukan]
                 const hargaBelumPasti = belumPasti.has(r.id)
@@ -194,6 +198,17 @@ export function TabDataBahan() {
                         </span>
                       ) : <Kosong />}
                     </Td>
+                    <Td>
+                      {(() => {
+                        const l = labelPengubah(pengubah.get(r.id))
+                        return l ? (
+                          <div className="min-w-0" title={`${l.nama} · ${l.waktu}`}>
+                            <p className="truncate text-stone-800">{l.nama}</p>
+                            <p className="truncate text-xs text-stone-500">{l.waktu}</p>
+                          </div>
+                        ) : <Kosong />
+                      })()}
+                    </Td>
                     <Td rata="kanan">
                       <button
                         onClick={(e) => { e.stopPropagation(); setDipilihId(r.id) }}
@@ -208,7 +223,7 @@ export function TabDataBahan() {
               })}
             </Fragment>
           ))}
-          {tampil.length === 0 && <BarisKosong kolom={7} pesan="Tidak ada bahan yang cocok dengan saringan ini." />}
+          {tampil.length === 0 && <BarisKosong kolom={8} pesan="Tidak ada bahan yang cocok dengan saringan ini." />}
         </tbody>
       </Tabel>
 

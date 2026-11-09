@@ -6,6 +6,7 @@ import { useMutasiMasterBahan, type DataBahan } from '@/hooks/masterBahan/useMut
 import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
 import { pilihanSatuanBeli } from '@/lib/masterBahan/satuanBeli'
 import { DialogAlasan } from './DialogAlasan'
+import { ModalGantiSatuan } from './ModalGantiSatuan'
 import { IsianSatuanFields, keDataSatuan, nilaiSatuanDari, satuanInvalid, type NilaiSatuan } from './IsianSatuanFields'
 
 export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; bolehData: boolean }) {
@@ -16,6 +17,7 @@ export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; b
   const [satuanDist, setSatuanDist] = useState(bahan.satuan_distribusi ?? '')
   const [minta, setMinta] = useState(false)
   const [galat, setGalat] = useState<GalatRpc | null>(null)
+  const [ganti, setGanti] = useState(false)
   const pilihan = pilihanSatuanBeli(bahan).map((p) => p.label)
   // Label 'kg' tambahan (aturan kg→gram) hanya sah untuk DISTRIBUSI; trigger Tahap 1
   // menolaknya sebagai satuan PO kecuali Kg memang salah satu tingkat.
@@ -50,9 +52,17 @@ export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; b
     <section className="space-y-3">
       <h3 className="text-sm font-bold text-suka-brown">Satuan</h3>
       <IsianSatuanFields nilai={nilai} onUbah={setNilai} nonaktif={!bolehData} />
-      <p className="text-xs text-amber-700">
-        Bahan yang sudah punya riwayat stok belum bisa berganti isi satuan dari sini (fitur Ganti Satuan menyusul); sistem akan menolak.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 p-3">
+        <p className="text-xs text-amber-800">
+          Bahan yang sudah punya riwayat stok diganti satuannya lewat tombol Ganti Satuan (stok, riwayat, dan dokumen ikut dikonversi).
+        </p>
+        {bolehData && (
+          <button onClick={() => setGanti(true)}
+            className="rounded-xl border border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100">
+            Ganti Satuan
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs font-semibold text-gray-600">Satuan PO
           <select value={satuanPo} onChange={(e) => setSatuanPo(e.target.value)} disabled={!bolehData} className={kelas}>
@@ -77,6 +87,7 @@ export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; b
         <DialogAlasan judul="Simpan perubahan satuan" wajib={false} galat={galat} memproses={simpanBahan.isPending}
           onBatal={() => { setMinta(false); setGalat(null) }} onKirim={simpan} />
       )}
+      {ganti && <ModalGantiSatuan bahan={bahan} onTutup={() => setGanti(false)} />}
     </section>
   )
 }

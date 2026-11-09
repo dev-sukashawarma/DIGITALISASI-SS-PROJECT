@@ -16,6 +16,7 @@ import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/com
 import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
 import { sembunyikanKolomBesar } from '@/lib/stok/satuanOpname';
+import { saringDraftBasi } from '@/lib/stok/draftOpnameLokal';
 import { checkPendingSuratJalanAction } from '@/app/actions/opname';
 
 /** Baris vendor untuk satu bahan multi-vendor, dari RPC `saldo_vendor_gudang`. */
@@ -86,7 +87,8 @@ function formatSystemQty(b: BahanBaku, totalSmallestQty: number) {
 export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {
   const isKitchen = role === 'kitchen' || role === 'purchasing' || role === 'developer';
   const router = useRouter();
-  const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
+  // Segar: satuan bahan bisa diganti (Ganti Satuan) — form opname tak boleh memakai daftar basi.
+  const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku({ segar: true });
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
   const { createOrReuseDraft, fetchTodayDraft, upsertItems, finalize } = useOpnameActions();
 
@@ -163,12 +165,31 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     return {};
   });
 
+  // Waktu draft lokal mulai diisi (dibuatAt) dan batas ganti satuan yang sudah disaring
+  // (batasAt), dibaca SEKALI saat form dibuka lalu ikut disimpan di setiap auto-save.
+  // Draft lama tanpa dibuatAt memakai savedAt-nya, atau 0. Tanpa draft: sekarang.
+  const [draftLokalMeta, setDraftLokalMeta] = useState<{ dibuatAt: number; batasAt?: number }>(() => {
+    const sekarang = Date.now();
+    if (typeof window === 'undefined') return { dibuatAt: sekarang };
+    try {
+      const saved = localStorage.getItem(`opname_draft_${outletId}`);
+      if (!saved) return { dibuatAt: sekarang };
+      const d = JSON.parse(saved);
+      const dibuatAt = typeof d.dibuatAt === 'number' ? d.dibuatAt : typeof d.savedAt === 'number' ? d.savedAt : 0;
+      return typeof d.batasAt === 'number' ? { dibuatAt, batasAt: d.batasAt } : { dibuatAt };
+    } catch {
+      return { dibuatAt: sekarang };
+    }
+  });
+
   // Auto-save ke localStorage tiap kali input berubah
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(`opname_draft_${outletId}`, JSON.stringify({ inputs, targets, notes, vendor: subInputs }));
+      localStorage.setItem(`opname_draft_${outletId}`, JSON.stringify({
+        inputs, targets, notes, vendor: subInputs, savedAt: Date.now(), ...draftLokalMeta,
+      }));
     }
-  }, [inputs, targets, notes, subInputs, outletId]);
+  }, [inputs, targets, notes, subInputs, outletId, draftLokalMeta]);
   const [busy, setBusy] = useState(false);
   const [showUnfilledModal, setShowUnfilledModal] = useState(false);
   /**
@@ -194,6 +215,28 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     setToast({ message, type });
     setTimeout(() => setToast(null), 4500);
   };
+
+  // Isian draft untuk bahan yang satuannya diganti SESUDAH draft mulai diisi bermakna satuan
+  // lama — buang dan minta crew hitung ulang. Dijalankan ulang setiap kali daftar bahan (yang
+  // di-refetch berkala, lihat useBahanBaku({ segar })) membawa satuan_diganti_at baru, sehingga
+  // tab yang tetap terbuka melewati ganti satuan ikut tertangani; batasAt mencegah isian yang
+  // sudah diketik ulang terbuang lagi.
+  const tandaGantiSatuan = bahanBaku.map((b) => `${b.id}:${b.satuan_diganti_at ?? ''}`).join('|');
+  useEffect(() => {
+    if (bahanBaku.length === 0) return;
+    const { draft, dibuang } = saringDraftBasi(
+      { ...draftLokalMeta, inputs, targets, vendor: subInputs },
+      bahanBaku,
+    );
+    if (draft.batasAt !== draftLokalMeta.batasAt) {
+      setDraftLokalMeta({ dibuatAt: draftLokalMeta.dibuatAt, batasAt: draft.batasAt });
+    }
+    if (dibuang.length === 0) return;
+    setInputs(draft.inputs as typeof inputs);
+    setTargets(draft.targets as typeof targets);
+    setSubInputs(draft.vendor as typeof subInputs);
+    showToast(`⚠️ Satuan ${dibuang.join(', ')} baru diganti — hitung ulang bahan ini.`, 'warning');
+  }, [tandaGantiSatuan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Resume draft yang sudah tersimpan (via "Simpan Draft") saat form dibuka
   // ulang, supaya crew tidak harus mulai dari nol lagi.

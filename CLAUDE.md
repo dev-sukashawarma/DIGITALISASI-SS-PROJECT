@@ -3697,6 +3697,22 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - **`REINDEX INDEX CONCURRENTLY idx_ledger_outlet_bahan_created` (−67,5 MiB / −43,3%):** Menyusut dari 156 MB (`87,83 byte/baris`) menjadi 88 MB (`49,78 byte/baris` rapat atas 1.858.458 baris `ledger_stok`); tetap dipertahankan karena dipakai `fetchItemDetail` Monitoring (`apps/stok` & `apps/admin-dashboard`). Total ruang & cache RAM dihemat **~131,8 MiB**.
 - **Pengaman anti-misconfiguration:** Seluruh index `UNIQUE`/`PRIMARY KEY`, penopang Foreign Key, 4 index standalone non-kembar (`idx_orders_source_created`, `orders_channel_idx`, `orders_source_idx`, `idx_order_items_is_promo_reward`), serta view `ledger_transaksi_ringkas` (kompatibilitas tablet APK lama) tetap utuh & terverifikasi `indisvalid = true`.
 
+## Session 2026-11-09: Ganti Satuan bahan baku (DB + admin-dashboard + stok)
+
+**Status:** DB **LIVE** — 5 migration applied & terstempel (`20261109103055_ganti_satuan_skema`, `…103441_ganti_satuan_pratinjau`, `…104240_ganti_satuan_eksekusi`, `…110759_ganti_satuan_opname_skala_data`, `…111324_ganti_satuan_pratinjau_aktivitas`); uji `supabase/verifikasi/ganti_satuan/t1–t5` LULUS (t3 termasuk bolak-balik & uji kering BAWANG PUTIH BUBUK di ROLLBACK). Fungsi BELUM pernah dijalankan sungguhan pada bahan mana pun. Kode di-merge ke `main` lokal (belum di-push). ⚠️ Perlu **redeploy `admin-dashboard` + `stok`**. Tidak perlu rilis APK.
+
+**Spec/plan/runbook:** `docs/superpowers/specs/2026-11-09-ganti-satuan-bahan-baku-design.md`, `docs/superpowers/plans/2026-11-09-ganti-satuan-bahan-baku.md`, `docs/RUNBOOK-GANTI-SATUAN-BAWANG-PUTIH-BUBUK.md`.
+
+- **Pemicu:** BAWANG PUTIH BUBUK ganti vendor (sachet → kiloan). Keputusan owner: Kg/gram 1.000, 1 sachet = 6 gram, PO & distribusi Kg; **riwayat & dokumen lama ikut dikonversi** ke satuan baru (nilai rupiah tetap).
+- **Tombol Ganti Satuan** di seksi Satuan panel detail bahan (admin/owner/developer): pratinjau stok per lokasi + penghalang → konfirmasi ketik nama → `ganti_satuan_bahan`. Plus **seksi Vendor** di panel (tambah/nonaktifkan harga vendor).
+- **Skala baris ledger** ditentukan aturan `saldo_is_gram`: transisi = `opname_selisih` pertama sejak 2026-08-01 20:32 WIB per outlet; baris transisi dikonversi campuran (sebelum ×k_besar, sesudah ×k_kecil). Asersi relatif: saldo-beda & putus-rantai tak boleh bertambah.
+- **10 trigger efek samping** (`stok_balance` notifikasi/bot, `stok_waste_reports` sync ledger/validasi/approval/push, `terima_vendor_outlet` sync ledger) diberi `WHEN app.ganti_satuan <> 'on'`. ⚠️ Beberapa juga didefinisikan migration 2030 → replay dari nol membuang WHEN.
+- **App stok web:** draft opname localStorage kini ber-`savedAt`; isian bahan yang `satuan_diganti_at` sesudah draft dibuang + toast "hitung ulang".
+- **App opname native crew ada di repo terpisah** `SS SUPERAPP/SUPER-APPS-SS-MOBILE` (Rendy), bukan `mobile/native-superapp`. Tak diubah: draft HP terikat draft server (penghalang), metadata satuan cache 60 dtk. Jalankan Ganti Satuan siang hari.
+- `bahan_baku_sku` tidak dikonversi (0 baris, `qty_isi` tanpa satuan baku).
+- ⚠️ **Skala kolom opname dibaca dari data, bukan diandaikan** (review C1): form opname sejak 19 Agu menyimpan `qty_system` dalam gram walau saldo outlet skala besar — 259 dari 893 opname transisi live begitu. `qty_system` dicocokkan ke saldo ledger yang dirujuknya; aturan waktu hanya cadangan.
+- ⚠️ **Transaksi stok bersamaan tak bisa dicegah DB** (review I1): penulis yang sudah membaca faktor lama menulis angka skala lama sesudah konversi. Mitigasi: peringatan `aktivitas_15_menit` di pratinjau + runbook (jalankan saat bahan tidak bergerak).
+
 **Last updated:** 2026-11-09  
 **Owner:** Dev Suka Shawarma
 

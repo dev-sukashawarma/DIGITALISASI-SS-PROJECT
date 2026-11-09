@@ -21,6 +21,8 @@ export interface BahanBaku {
   /** true = boleh dicatat terima langsung dari vendor di outlet (drop-ship). */
   drop_ship?: boolean
   is_refundable?: boolean
+  /** Kapan satuan terakhir diganti (Ganti Satuan master bahan); draft lokal sebelum itu basi. */
+  satuan_diganti_at?: string | null
 }
 export interface Opname {
   id: string; outlet_id: string; tanggal: string; tipe: OpnameTipe

@@ -1107,20 +1107,18 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       }),
       fetchAllRows(sb, 'order_items', (q) =>
         q
-          .select('id, menu_item_id, quantity, menu_item_name, subtotal, orders!inner(created_at, status, outlet_id, channel, sales_source)')
-          .gte('orders.created_at', startToday)
-          .lt('orders.created_at', endToday)
-          .in('orders.status', ['completed', 'settled'])
+          .select('id, order_id, menu_item_id, quantity, menu_item_name, subtotal, channel, created_at')
+          .gte('created_at', startToday)
+          .lt('created_at', endToday)
       ).catch((err) => {
         console.error('[telemetriNyata] gagal fetch order_items hari ini:', err)
         return []
       }),
       fetchAllRows(sb, 'order_items', (q) =>
         q
-          .select('id, menu_item_id, quantity, menu_item_name, subtotal, orders!inner(created_at, status, outlet_id, channel, sales_source)')
-          .gte('orders.created_at', startKemarin)
-          .lt('orders.created_at', endKemarin)
-          .in('orders.status', ['completed', 'settled'])
+          .select('id, order_id, menu_item_id, quantity, menu_item_name, subtotal, channel, created_at')
+          .gte('created_at', startKemarin)
+          .lt('created_at', endKemarin)
       ).catch((err) => {
         console.error('[telemetriNyata] gagal fetch order_items kemarin:', err)
         return []
@@ -1671,8 +1669,26 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     const penerapHppHariIni = bangunPenerapHppTanggal(masterMenus, masterRiwayatHpp, tglStr)
     const penerapHppKemarin = bangunPenerapHppTanggal(masterMenus, masterRiwayatHpp, tglKemarinStr)
 
-    terapkanItemDanHppKeRingkasan(ringkasanHariIni, items as any[], validOutletIds, outletTypeMap, penerapHppHariIni)
-    terapkanItemDanHppKeRingkasan(ringkasanKemarin, itemsKemarin as any[], validOutletIds, outletTypeMap, penerapHppKemarin)
+    const orderHariIniMap = new Map(ordersHariIni.map((o: any) => [o.id, o]))
+    const itemsTervalidasi = (items || [])
+      .map((it: any) => {
+        const o = orderHariIniMap.get(it.order_id)
+        if (!o) return null
+        return { ...it, orders: o }
+      })
+      .filter(Boolean)
+
+    const orderKemarinMap = new Map(ordersKemarin.map((o: any) => [o.id, o]))
+    const itemsKemarinTervalidasi = (itemsKemarin || [])
+      .map((it: any) => {
+        const o = orderKemarinMap.get(it.order_id)
+        if (!o) return null
+        return { ...it, orders: o }
+      })
+      .filter(Boolean)
+
+    terapkanItemDanHppKeRingkasan(ringkasanHariIni, itemsTervalidasi as any[], validOutletIds, outletTypeMap, penerapHppHariIni)
+    terapkanItemDanHppKeRingkasan(ringkasanKemarin, itemsKemarinTervalidasi as any[], validOutletIds, outletTypeMap, penerapHppKemarin)
     const sortedMenu = ringkasanHariIni.topMenu || []
     const sortedMenuKemarin = ringkasanKemarin.topMenu || []
 

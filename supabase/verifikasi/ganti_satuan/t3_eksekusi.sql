@@ -84,6 +84,7 @@ BEGIN
   IF abs((SELECT saldo FROM stok_balance WHERE outlet_id = v_o1 AND bahan_baku_id = v_b) + 5) > 1e-9
      OR abs((SELECT saldo FROM stok_balance WHERE outlet_id = v_o2 AND bahan_baku_id = v_b) - 0.5) > 1e-9
      OR abs((SELECT qty FROM ledger_stok WHERE id = v_l_tr) - 798) > 1e-9
+     OR abs((SELECT qty_system FROM opname_item WHERE opname_id = v_op) - 2) > 1e-9
      OR abs((SELECT harga_beli FROM bahan_baku_harga WHERE bahan_baku_id = v_b) - 400000) > 0.01 THEN
     RAISE EXCEPTION 'GAGAL (b): bolak-balik tidak kembali';
   END IF;

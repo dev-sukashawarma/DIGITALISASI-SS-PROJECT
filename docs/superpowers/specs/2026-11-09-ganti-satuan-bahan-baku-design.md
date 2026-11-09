@@ -126,7 +126,11 @@ sungguhan), jangan dari tebakan di atas.
      perubahan satuan ukur. Pastikan trigger INSERT ledger tak terpicu (UPDATE saja) dan
      cek trigger UPDATE yang ada di `ledger_stok`.
 5. **`opname_item`** (semua opname bahan ini, finalized): `qty_fisik`, `qty_system`
-   × faktor sesuai skala opname itu (sama dengan skala ledger outlet pada tanggal opname);
+   × faktor sesuai skala **kolom itu sendiri**, dibaca dari data (koreksi review 2026-11-09:
+   form sejak 19 Agu menyimpan `qty_system` dalam gram walau saldo outlet skala besar — data
+   live: 259 dari 893 opname transisi). `qty_system` dibandingkan dengan saldo ledger yang
+   dirujuknya; `qty_fisik` dengan `saldo_sesudah` baris `opname_selisih`-nya; aturan waktu
+   hanya cadangan (migration `20261109110759`);
    `selisih` kolom generated — ikut sendiri. `catatan` tidak disentuh.
 6. **`opname_item_vendor.qty_besar`**, **`stok_vendor_gudang_mutasi.qty`** × `k_besar`
    (keduanya berskala satuan besar — verifikasi).

@@ -8,7 +8,15 @@
  */
 
 export type DraftOpnameLokal = {
+  /** Waktu draft PERTAMA dibuat; dipertahankan antar-autosave (isian tertua berasal dari sini). */
+  dibuatAt?: number
+  /** Waktu autosave terakhir — hanya cadangan untuk draft lama tanpa dibuatAt. */
   savedAt?: number
+  /**
+   * satuan_diganti_at terbaru yang SUDAH disaring. Ganti satuan pada/sebelum waktu ini sudah
+   * ditangani, jadi isian yang diketik ulang sesudahnya tidak dibuang lagi.
+   */
+  batasAt?: number
   inputs?: Record<string, unknown>
   targets?: Record<string, unknown>
   vendor?: Record<string, unknown>
@@ -20,15 +28,24 @@ export type BahanSatuanDiganti = { id: string; nama: string; satuan_diganti_at?:
 export function saringDraftBasi<T extends DraftOpnameLokal>(
   draft: T,
   bahan: BahanSatuanDiganti[],
-): { draft: T; dibuang: string[] } {
-  const disimpan = typeof draft.savedAt === 'number' && Number.isFinite(draft.savedAt) ? draft.savedAt : 0
+): { draft: T & { batasAt?: number }; dibuang: string[] } {
+  // Tab bisa tetap terbuka melewati ganti satuan: autosave memperbarui savedAt padahal isian
+  // lama masih bermakna satuan lama. Yang menentukan adalah kapan draft mulai diisi.
+  const angka = (n: unknown): number | null => (typeof n === 'number' && Number.isFinite(n) ? n : null)
+  const disimpan = angka(draft.dibuatAt) ?? angka(draft.savedAt) ?? 0
+  const batas = angka(draft.batasAt) ?? Number.NEGATIVE_INFINITY
   const basi = new Map<string, string>()
+  let batasBaru = batas
   for (const b of bahan) {
     if (!b.satuan_diganti_at) continue
     const t = Date.parse(b.satuan_diganti_at)
-    if (Number.isFinite(t) && t >= disimpan) basi.set(b.id, b.nama)
+    if (!Number.isFinite(t)) continue
+    if (t > batasBaru) batasBaru = t
+    if (t >= disimpan && t > batas) basi.set(b.id, b.nama)
   }
-  if (basi.size === 0) return { draft, dibuang: [] }
+  const denganBatas = (d: T): T & { batasAt?: number } =>
+    Number.isFinite(batasBaru) && batasBaru !== batas ? { ...d, batasAt: batasBaru } : d
+  if (basi.size === 0) return { draft: denganBatas(draft), dibuang: [] }
 
   const dibuang = new Set<string>()
   const saring = (rec: Record<string, unknown> | undefined) => {
@@ -43,5 +60,5 @@ export function saringDraftBasi<T extends DraftOpnameLokal>(
   }
 
   const baru = { ...draft, inputs: saring(draft.inputs), targets: saring(draft.targets), vendor: saring(draft.vendor) }
-  return { draft: baru, dibuang: [...dibuang] }
+  return { draft: denganBatas(baru), dibuang: [...dibuang] }
 }

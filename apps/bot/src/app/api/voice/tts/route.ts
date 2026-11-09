@@ -274,9 +274,10 @@ async function synthesizeElevenLabsMp3(
         body: JSON.stringify({
           text: teks,
           model_id: model,
+          ...(model.includes('v2_5') ? { language_code: 'id' } : {}),
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.8,
+            stability: 0.38,
+            similarity_boost: 0.82,
             style: 0.0,
             use_speaker_boost: true,
           },
@@ -437,7 +438,10 @@ export async function POST(req: Request) {
   const opsiSuara = cariKonfigurasiSuara(voiceId)
   const elevenLabsKey = (process.env.ELEVENLABS_API_KEY || '').trim()
   const customVoiceId = (process.env.ELEVENLABS_VOICE_ID || '').trim()
-  const elevenVoiceId = customVoiceId || opsiSuara.elevenLabsVoiceId || 'R2tdno8o9nwUiDvfnMIJ'
+  const isDefaultAlif = !voiceId || voiceId.toLowerCase() === 'brian' || voiceId.toLowerCase() === 'ardi'
+  const elevenVoiceId = isDefaultAlif
+    ? customVoiceId || opsiSuara.elevenLabsVoiceId || 'R2tdno8o9nwUiDvfnMIJ'
+    : opsiSuara.elevenLabsVoiceId || customVoiceId || 'R2tdno8o9nwUiDvfnMIJ'
 
   // 1. Prioritaskan ElevenLabs Flash v2.5 / Turbo (Latensi Super Cepat ~300ms + Studio Quality)
   if (elevenLabsKey) {

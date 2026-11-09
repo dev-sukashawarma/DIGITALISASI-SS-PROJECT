@@ -141,7 +141,7 @@ export function naturalisasiTeksSuara(teks: string): string {
 
   // 1. Jika ada blok khusus <suara>...</suara>, prioritaskan isi percakapan di dalamnya
   const matchSuara = teks.match(/<suara>([\s\S]*?)<\/suara>/i)
-  const sumberTeks = matchSuara ? matchSuara[1] : teks
+  const sumberTeks = (matchSuara ? matchSuara[1] : teks).replace(/<\/?suara>/gi, '')
 
   // 2. Bersihkan baris tabel, garis pemisah, dan judul-judul laporan yang kaku
   const baris = sumberTeks
@@ -153,7 +153,6 @@ export function naturalisasiTeksSuara(teks: string): string {
       if (/^[-━═*]{3,}$/.test(b)) return false
       if (/^\[!(NOTE|WARNING|IMPORTANT|TIP|CAUTION)\]/i.test(b)) return false
       if (b.startsWith('📍') && b.includes('_Sumber:')) return false
-      // Buang baris yang hanya berupa judul bab/dokumen kaku (misal: ### Laporan Penjualan Hari Ini)
       if (/^#{1,6}\s+/.test(b)) return false
       if (/^(?:\*\*|__)?(?:LAPORAN|RINGKASAN|EVALUASI|REKAPITULASI|DATA OPERASIONAL|RINCIAN|DAFTAR)\b[^:.\n]*[*_]*:?$/i.test(b)) {
         return false
@@ -170,34 +169,43 @@ export function naturalisasiTeksSuara(teks: string): string {
         .replace(/__/g, '')
         .trim()
 
-      // Ubah pola kaku "Label: Nilai" di awal kalimat menjadi alur bicara natural ("Untuk Label tercatat Nilai")
+      // Hanya ubah label metrik kaku spesifik tanpa merusak kalimat percakapan biasa yang memakai titik dua
       line = line
-        .replace(/^Total Omzet(?:\s+Jaringan)?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'Total omzet $1 ada di angka ')
+        .replace(/^Total Omzet(?:\s+Jaringan)?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'Total omzet $1 ada di ')
         .replace(/^Total Penjualan(?:\s+Jaringan)?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'Total penjualan $1 mencapai ')
         .replace(/^Total(?:\s+Akumulasi)?\s+(?:Order|Transaksi)\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'dengan total transaksi $1 sebanyak ')
-        .replace(/^Rata-rata\s+(?:Order|Struk)(?:\s*\(AOV\))?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'dan rata-rata nilai struk ')
-        .replace(/^TEMUAN PENTING\s*:\s*/i, 'Sebagai catatan penting, ')
+        .replace(/^Rata-rata\s+(?:Order|Struk)(?:\s*\(AOV\))?\s*(Hari Ini|Kemarin)?\s*:\s*/i, 'dan rata-rata struk ')
+        .replace(/^TEMUAN PENTING\s*:\s*/i, 'Catatan penting, ')
         .replace(/^PERINGATAN(?:\s+MIKROFON)?\s*:\s*/i, 'Perhatian, ')
-        .replace(/^([A-Za-z0-9\s/()-]{3,32})\s*:\s+/i, '$1 tercatat ')
 
       return line
     })
 
-  // Gabungkan maksimal 3-4 kalimat pertama agar obrolan terasa mengalir dan tidak bertele-tele
-  let s = baris.slice(0, 4).join('. ')
+  // Gabungkan maksimal 5 baris pertama secara natural tanpa menumpuk tanda baca ganda (misal "?. ")
+  let out = ''
+  for (const line of baris.slice(0, 5)) {
+    if (!line) continue
+    if (!out) {
+      out = line
+    } else if (/[.!?,;:]$/.test(out)) {
+      out += ' ' + line
+    } else {
+      out += '. ' + line
+    }
+  }
 
-  s = s
+  out = out
     .replace(/\.\s*\./g, '.')
-    // Ubah Rp X.XXX.XXX.XXX menjadi pengucapan lisan natural ("42,5 juta rupiah")
+    // Ubah Rp X.XXX.XXX.XXX menjadi pengucapan lisan natural ("42,5 juta rupiah", "9,85 juta rupiah")
     .replace(/Rp\s?(\d{1,3}(?:\.\d{3})+)/gi, (_m, angkaStr: string) => {
       const n = Number(angkaStr.replace(/\./g, ''))
       if (isNaN(n) || n === 0) return 'nol rupiah'
       if (n >= 1_000_000_000) {
-        const val = (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '').replace('.', ',')
+        const val = (n / 1_000_000_000).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1').replace('.', ',')
         return `${val} miliar rupiah`
       }
       if (n >= 1_000_000) {
-        const val = (n / 1_000_000).toFixed(1).replace(/\.0$/, '').replace('.', ',')
+        const val = (n / 1_000_000).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1').replace('.', ',')
         return `${val} juta rupiah`
       }
       if (n >= 1_000) {
@@ -206,18 +214,16 @@ export function naturalisasiTeksSuara(teks: string): string {
       }
       return `${n} rupiah`
     })
-    // PENTING: Hilangkan titik ribuan pada angka non-Rupiah (misal 1.080 struk -> 1080 struk) agar tidak dibaca "satu titik nol delapan nol"
+    .replace(/(\d+(?:[.,]\d+)?)\s*%/g, '$1 persen')
+    // Hilangkan titik ribuan pada angka non-Rupiah (misal 1.080 struk -> 1080 struk)
     .replace(/\b(\d{1,3})\.(\d{3})(?!\d)/g, '$1$2')
-    // Ubah angka di dalam kurung seperti (1080 struk) menjadi ", sebanyak 1080 struk," agar tidak terdengar kaku
-    .replace(/\(\s*(\d+\s*(?:struk|order|transaksi|cabang|outlet|PO|laporan|kru|ulasan)[^)]*)\)/gi, ', yaitu $1, ')
-    // Sederhanakan pengulangan nama brand "SUKA SHAWARMA " pada penyebutan cabang agar enak didengar
+    .replace(/\(\s*(\d+\s*(?:struk|order|transaksi|cabang|outlet|PO|laporan|kru|ulasan)[^)]*)\)/gi, ', sekitar $1, ')
     .replace(/\bSUKA SHAWARMA\s+/gi, 'Cabang ')
     .replace(/\bCabang\s+Cabang\s+/gi, 'Cabang ')
-    // Naturalisasi kata-kata tulisan kaku menjadi bahasa lisan
-    .replace(/\bBerikut adalah\b/gi, 'Ini untuk')
+    .replace(/\bBerikut adalah\b/gi, 'Ini')
     .replace(/\bBerikut rincian\b/gi, 'Ini rincian')
     .replace(/\bTidak terdapat\b/gi, 'Belum ada')
-    .replace(/\bTercatat sebesar\b/gi, 'ada di angka')
+    .replace(/\bTercatat sebesar\b/gi, 'ada di')
     .replace(/J\.A\.R\.V\.I\.S\.?/gi, 'Jarvis')
     .replace(/F\.R\.I\.D\.A\.Y\.?/gi, 'Friday')
     .replace(/\bAOV\b/g, 'rata-rata struk')
@@ -225,24 +231,24 @@ export function naturalisasiTeksSuara(teks: string): string {
     .replace(/\bOPEX\b/gi, 'biaya operasional')
     .replace(/\bPOS\b/g, 'kasir')
     .replace(/\bHQ\b/g, 'Kantor Pusat')
+    .replace(/\bQRIS\b/gi, 'kris')
     .replace(/\bWIB\b/g, '')
-    // Bersihkan simbol markdown & emoji
-    .replace(/[#*_`~>|[\]()]/g, ' ')
+    .replace(/[#*_`~>|\[\]()]/g, ' ')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ' ')
-    .replace(/\s+,/g, ',')
+    .replace(/\s+([,.!?])/g, '$1')
     .replace(/,\s*,/g, ',')
     .replace(/\s+/g, ' ')
     .trim()
 
-  if (s.length > 380) {
-    const potong = s.slice(0, 380)
+  if (out.length > 550) {
+    const potong = out.slice(0, 550)
     const titikTerakhir = Math.max(potong.lastIndexOf('. '), potong.lastIndexOf('! '), potong.lastIndexOf('? '))
-    if (titikTerakhir > 110) {
-      s = potong.slice(0, titikTerakhir + 1)
+    if (titikTerakhir > 120) {
+      out = potong.slice(0, titikTerakhir + 1)
     } else {
-      s = potong + '.'
+      out = potong + '.'
     }
   }
 
-  return s
+  return out
 }

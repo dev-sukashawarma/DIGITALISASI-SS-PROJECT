@@ -3,6 +3,7 @@ import {
   ringkasUntukSuara,
   PILIHAN_SUARA_JARVIS,
   ekstrakKalimatAwalStreaming,
+  ekstrakAntreanKalimatSuara,
 } from './voiceHud'
 import { naturalisasiTeksSuara, cariKonfigurasiSuara } from './ttsConfig'
 
@@ -72,5 +73,28 @@ describe('voiceHud & naturalisasiTeksSuara', () => {
     expect(cariKonfigurasiSuara('brian').voiceName).toBe('en-US-BrianMultilingualNeural')
     expect(cariKonfigurasiSuara('ava').voiceName).toBe('en-US-AvaMultilingualNeural')
     expect(cariKonfigurasiSuara('ardi').voiceName).toBe('id-ID-ArdiNeural')
+  })
+
+  it('tidak menyisipkan kata kaku "tercatat" pada kalimat percakapan bertitik dua & membaca desimal juta/persen dengan natural', () => {
+    const teks = 'Catatan kecil hari ini: cabang Condet naik 12,5% mencapai Rp 9.850.000, Sir!'
+    const hasil = naturalisasiTeksSuara(teks)
+    expect(hasil).not.toContain('tercatat')
+    expect(hasil).toContain('9,85 juta rupiah')
+    expect(hasil).toContain('12,5 persen')
+    expect(hasil).not.toContain('!.')
+  })
+
+  it('ekstrakAntreanKalimatSuara menggabungkan sapaan pendek & memecah kalimat berikutnya secara paralel tanpa salah potong Rp. atau J.A.R.V.I.S.', () => {
+    const partial =
+      'Kabar baik, Sir. Sore ini J.A.R.V.I.S. memantau omzet berjalan Rp. 9.850.000 dari 22 cabang. Seluruh kru shift sore juga hadir tepat waktu di lapangan. Sementara untuk stok bahan sedang'
+    const antreanSaatStream = ekstrakAntreanKalimatSuara(partial, false)
+    expect(antreanSaatStream.length).toBe(2)
+    expect(antreanSaatStream[0]).toContain('Kabar baik, Sir')
+    expect(antreanSaatStream[0]).toContain('9,85 juta rupiah')
+    expect(antreanSaatStream[1]).toContain('Seluruh kru shift sore juga hadir tepat waktu')
+
+    const antreanSelesai = ekstrakAntreanKalimatSuara(partial + ' aman terkendali.', true)
+    expect(antreanSelesai.length).toBe(3)
+    expect(antreanSelesai[2]).toContain('Sementara untuk stok bahan sedang aman terkendali')
   })
 })

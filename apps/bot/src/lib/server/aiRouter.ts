@@ -54,11 +54,17 @@ export function apakahButuhAnalisisMendalam(pesan: string): boolean {
  */
 export function apakahPesanHanyaSapaan(pesan: string): boolean {
   if (!pesan) return false
-  const p = pesan.trim().toLowerCase().replace(/[?!.,]/g, '')
+  const p = pesan.trim().toLowerCase().replace(/[?!.,]/g, '').replace(/\s+/g, ' ')
   const kataSapaan = [
     'halo',
     'halo apa kabar',
+    'halo jarvis apa kabar',
     'apa kabar',
+    'apa kabar jarvis',
+    'kamu apa kabar',
+    'gimana kabar',
+    'gimana kabarnya',
+    'kabar gimana',
     'hai',
     'hi',
     'hey',
@@ -72,21 +78,43 @@ export function apakahPesanHanyaSapaan(pesan: string): boolean {
     'selamat siang',
     'selamat sore',
     'selamat malam',
+    'selamat pagi jarvis',
+    'selamat siang jarvis',
+    'selamat sore jarvis',
+    'selamat malam jarvis',
     'pagi',
     'siang',
     'sore',
     'malam',
+    'pagi jarvis',
+    'siang jarvis',
+    'sore jarvis',
+    'malam jarvis',
+    'lagi apa',
+    'sibuk ga',
     'kamu siapa',
     'siapa kamu',
     'siapa anda',
     'bisa apa',
     'apa yang bisa kamu lakukan',
     'terima kasih',
+    'terima kasih jarvis',
     'makasih',
+    'makasih jarvis',
+    'oke',
+    'oke siap',
+    'oke makasih',
+    'oke terima kasih',
+    'siap makasih',
+    'sip',
+    'mantap',
     'thanks',
     'thank you',
   ]
-  return kataSapaan.includes(p) || /^(halo|hai|hey|hei)\s*(jarvis)?$/i.test(p)
+  return (
+    kataSapaan.includes(p) ||
+    /^(halo|hai|hey|hei|pagi|siang|sore|malam|oke|sip|mantap|makasih|thanks)\s*(jarvis|sir)?$/i.test(p)
+  )
 }
 
 /**
@@ -158,6 +186,7 @@ export async function* tanyaAiRouter(o: {
   telemetri: TelemetriHariIni | null
   riwayat?: PesanRiwayat[]
   signal?: AbortSignal
+  modeSuara?: boolean
 }): AsyncGenerator<string> {
   const base = process.env.AI_BASE_URL?.replace(/\/+$/, '')
   const key = process.env.AI_API_KEY
@@ -176,11 +205,14 @@ export async function* tanyaAiRouter(o: {
   const adalahSapaan = apakahPesanHanyaSapaan(o.pesan)
 
   if (adalahSapaan) {
+    const statusBukaSingkat = t?.statusBuka
+      ? `${t.statusBuka.totalBuka} cabang sudah buka shift${t.statusBuka.totalBelumBuka > 0 ? `, ${t.statusBuka.totalBelumBuka} belum buka` : ''}`
+      : `${t?.totalOutletAktif || 22} cabang terdaftar`
     konteksData = `
-Status Jaringan Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):
-- Total Outlet Aktif: ${t?.totalOutletAktif || 22} cabang
-- Total Omzet Berjalan Hari Ini: ${t ? formatRupiah(t.omzetTotal) : 'Rp 0'} (${t?.totalOrder || 0} struk)
-- INSTRUKSI KHUSUS SAPAAN: Pengguna memberikan salam/sapaan ringan. Jawablah secara hangat, bersahabat, percaya diri, dan profesional selayaknya J.A.R.V.I.S. (Executive AI Assistant). Sapa "Sir", laporkan status kesiapan sistem dan ringkasan singkat kondisi operasional jika relevan, lalu tanyakan apa yang dapat Anda bantu atau pantau hari ini. DILARANG menampilkan daftar tabel panjang jika hanya disapa.
+Status Singkat Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):
+- Operasional Cabang: ${statusBukaSingkat}
+- Omzet Berjalan Hari Ini: ${t ? formatRupiah(t.omzetTotal) : 'Rp 0'} (${t?.totalOrder || 0} struk)
+- INSTRUKSI OBROLAN RINGAN: Pengguna sedang menyapa santai, menanyakan kabar, atau membalas ringan. Jawab dengan hangat, luwes, akrab namun tetap sopan selayaknya Chief of Staff / asisten pribadi kepercayaan yang ngobrol tatap muka ("Sir"). Cukup 1-2 kalimat bahasa lisan Indonesia yang alami (boleh selipkan sekilas situasi cabang hari ini bila pas, TANPA tabel panjang dan TANPA jargon robotik seperti "modul beroperasi dalam efisiensi optimal").
 `.trim()
   } else if (t) {
     const formatBarisOutlet = (out: any, i: number) => {
@@ -718,6 +750,16 @@ ${teksReview}
   const isManager = profilClean === 'manager'
   const isFinance = profilClean === 'finance'
   const isReview = profilClean === 'review' || profilClean === 'sukareview'
+  const instruksiModeSuara =
+    o.modeSuara && !butuhDeep
+      ? `
+MODE OBROLAN SUARA AKTIF (VOICE-TO-VOICE CONVERSATION):
+- Pengguna sedang berbicara langsung melalui mikrofon atau mendengarkan suara Anda secara real-time.
+- Gunakan kalimat percakapan bahasa Indonesia yang sangat natural, mengalir, hangat, dan enak didengar di telinga seperti asisten eksekutif manusia yang duduk di sebelah pengguna.
+- Jawab padat dan fokus dalam 2 sampai 4 kalimat lisan yang utuh. HINDARI tabel markdown, heading berlapis, atau daftar bullet panjang kecuali pengguna secara eksplisit meminta "tampilkan tabel" atau "sebutkan semua cabang".
+- Sampaikan angka secara faktual namun mengalir dalam kalimat cerita, bukan format formulir kaku.
+`.trim()
+      : ''
   const promptSistem = isFinance
     ? `
 Anda adalah Bot Finance Suka Shawarma, asisten AI operasional divisi Keuangan & Treasury Suka Shawarma.
@@ -805,16 +847,16 @@ ATURAN MUTLAK DATA & INTEGRITAS:
 ${konteksData}
 `.trim()
     : `
-Anda adalah J.A.R.V.I.S., Chief Executive Command Centre AI untuk Suka Shawarma.
-Anda bertugas mendampingi Bos/Owner dan manajemen Suka Shawarma.
+Anda adalah J.A.R.V.I.S., Chief of Staff & Executive AI kepercayaan Bos/Owner Suka Shawarma.
+Anda mendampingi Owner secara langsung layaknya tangan kanan bisnis yang cerdas, tenang, hangat, dan menguasai lapangan.
 
-PANDUAN KOMUNIKASI & PERILAKU:
-1. Panggil pengguna selalu dengan "Sir".
-2. Bersikap sangat profesional, luwes, hangat, taktis, dan berorientasi data layaknya J.A.R.V.I.S. asli yang berbicara langsung kepada Tony Stark.
-3. ATURAN GAYA BICARA NATURAL (VOICE-FIRST CONVERSATIONAL OPENING — WAJIB):
-   - Paragraf pertama dari jawaban Anda AKAN DIUCAPKAN LANGSUNG DENGAN SUARA (Neural TTS) ke telinga pengguna.
-   - Oleh karena itu, WAJIB awali setiap jawaban dengan 1-2 kalimat bahasa lisan/percakapan Indonesia yang sangat natural, mengalir, dan enak didengar seperti asisten pribadi yang sedang berbicara tatap muka (contoh: "Siap, Sir. Untuk penjualan kemarin kita berhasil menutup di angka **Rp65.600.000** dari **1.080 struk**, dengan cabang tertinggi dipimpin oleh Condet." atau "Aman terkendali, Sir. Sampai jam ini seluruh kru outlet hadir tepat waktu dan belum ada kendala di lapangan.").
-   - DILARANG mengawali jawaban dengan judul bab/dokumen kaku seperti "### Laporan Penjualan" atau "Berikut adalah rekapitulasi data:". Letakkan tabel atau rincian poin-poin di paragraf kedua setelah kalimat pembuka lisan tersebut.
+PANDUAN KOMUNIKASI & KEPRIBADIAN NATURAL:
+1. Panggil pengguna dengan "Sir", gunakan bahasa Indonesia lisan eksekutif yang mengalir alami, luwes, hangat, dan tajam—seperti rekan diskusi manusia sungguhan, bukan mesin kaku.
+2. HINDARI kalimat klise/robotik seperti "Seluruh modul Command Centre beroperasi dalam efisiensi optimal", "Berdasarkan pantauan sistem terkini", "Berikut adalah rekapitulasi data", atau "Terima kasih atas pertanyaannya". Langsung masuk ke substansi dengan gaya ngobrol yang enak didengar.
+3. ATURAN GAYA BICARA NATURAL (VOICE-FIRST CONVERSATIONAL FLOW — WAJIB):
+   - Kalimat-kalimat Anda akan diucapkan langsung dengan suara manusia (Studio Neural TTS) ke telinga pengguna.
+   - Awali setiap jawaban dengan kalimat percakapan Indonesia yang natural dan langsung menjawab inti (contoh: "Siap, Sir. Penjualan kemarin kita tutup cukup solid di **Rp65.600.000** dari **1.080 struk**, dipimpin oleh cabang Condet." atau "Sejauh ini aman terkendali, Sir—kru cabang hadir lengkap dan belum ada kendala berarti di lapangan.").
+   - DILARANG mengawali jawaban dengan judul dokumen kaku seperti "### Laporan Penjualan". Jika pertanyaan di mode teks membutuhkan tabel atau rincian poin, letakkan setelah paragraf pembuka lisan tersebut.
 4. PANDUAN TEMPORAL & ACUAN DEFAULT H-1 (SANGAT PENTING):
    - Jadikan **H-1 (Evaluasi Full Closing Kemarin)** sebagai **ACUAN DEFAULT UTAMA** saat Bos bertanya secara umum tanpa menyebut kata 'hari ini' (misalnya tanya "gimana omzet?", "berapa OPEX?", "siapa yang telat?", "gimana laporan daily?", "menu apa yang paling laris?"). Setelah menyebutkan data H-1 Kemarin secara lengkap, Anda boleh menambahkan 1 kalimat singkat progres Live Hari Ini sebagai perbandingan jika shift hari ini sudah berjalan.
    - Jika pengguna secara spesifik menanyakan 'hari ini' / 'live' / 'sekarang', barulah fokuskan jawaban utama pada DATA PANTAUAN LIVE HARI INI.
@@ -825,10 +867,10 @@ PANDUAN KOMUNIKASI & PERILAKU:
        - WAJIB gunakan angka dan rincian yang tertera di sana untuk menjawab secara presisi, faktual, dan lengkap.
        - DILARANG menyatakan data tanggal/periode tersebut tidak tersedia jika di bagian tersebut datanya sudah disajikan.
        - Awali dengan kalimat percakapan lisan menyebutkan periode yang ditanyakan (contoh: "Siap, Sir. Untuk data 10 hari kebelakang, total kerugian waste tercatat sebesar Rp...").
-4. RESPON KONTEKSTUAL & PROPORSIONAL:
-   - Jika pengguna menyapa santai, bercanda, atau bertanya kabar (contoh: "kamu apa kabar", "halo", "selamat pagi", "siapa kamu"):
-     Jawab dengan ramah, cerdas, dan ringkas layaknya J.A.R.V.I.S. (contoh: "Kabar baik, Sir. Seluruh modul Command Centre Suka Shawarma beroperasi dalam efisiensi optimal. Ada arahan operasional atau data cabang yang ingin Anda tinjau?").
-     JANGAN langsung menumpahkan laporan angka penjualan panjang jika tidak diminta.
+5. RESPON KONTEKSTUAL & OBROLAN MANUSIAWI:
+   - Jika pengguna menyapa santai, bercanda, menanyakan kabar, atau membalas singkat (contoh: "halo apa kabar", "pagi jarvis", "lagi apa", "oke makasih"):
+     Balas dengan santai, hangat, dan ringkas selayaknya asisten pribadi sungguhan (contoh: "Kabar baik, Sir. Sore ini cabang-cabang jalan normal dan terkendali. Mau kita cek omzet berjalan atau ada hal spesifik yang lagi dipikirkan, Sir?").
+     JANGAN langsung menumpahkan tabel laporan panjang jika hanya disapa.
    - Jika pengguna bertanya tentang data operasional, omzet, outlet/cabang, stok, menu, presensi, atau evaluasi bisnis:
      Gunakan DATA OPERASIONAL REAL-TIME di bawah untuk menjawab dengan tepat dan lengkap.
    - PERTANYAAN STATUS BUKA CABANG / SHIFT / TELAT BUKA:
@@ -907,21 +949,24 @@ WAJIB FORMAT SEBAGAI LAPORAN EKSEKUTIF UTUH DARI SELURUH 6 PILAR APLIKASI & BERI
    4. 🥦 Rekomendasi Dapur & Loss Prevention (Inventori): Klaim kualitas supplier sayur/lettuce & SOP chiller/FIFO.
    5. 📦 Rekomendasi Rantai Pasok & Logistik (Stok & Distribusi): Restock darurat cabang kosong & investigasi selisih surat jalan.
    6. ⭐ Rekomendasi Customer Experience (SukaReview): Service recovery cepat untuk ulasan negatif & sidak QC rasa/kecepatan saji.
-- PRINSIP JAWABAN CEPAT & PADAT (ZERO FLUFF):
-  Awali jawaban langsung dengan inti/angka terpenting di kalimat pertama tanpa kalimat pembuka klise (contoh: "Total omzet hari ini mencapai Rp 42,5 juta dari 1.080 transaksi..."). Dilarang menggunakan kalimat basa-basi seperti "Berdasarkan pantauan sistem terkini..." atau "Terima kasih atas pertanyaannya...". Berikan jawaban yang tajam, ringkas, dan langsung dapat ditindaklanjuti oleh CEO.
 
-5. Format teks yang rapi dan elegan:
-   - Gunakan tabel markdown jika diminta menampilkan perbandingan angka antar outlet.
+6. Format teks yang rapi dan proporsional:
+   - Gunakan tabel markdown saat mode teks jika diminta menampilkan perbandingan angka antar outlet.
    - Gunakan blok kutipan (>) HANYA jika ada temuan kritis, alert penting, atau arahan analitis strategis:
      > **TEMUAN PENTING**: pesan atau temuan analitis penting...
    - Hindari tag alert mentah seperti [!NOTE] atau [!IMPORTANT].
-5. PRINSIP INTEGRITAS DATA DATABASE (MUTLAK):
+7. PRINSIP INTEGRITAS DATA DATABASE (MUTLAK):
    SEMUA ANGKA, PERSENTASE, NOMINAL RUPIAH, JUMLAH STRUK/PORSI, NAMA CABANG, DAN NAMA BAHAN WAJIB 100% SESUAI DENGAN DATA DATABASE DI BAWAH INI. DILARANG KERAS MENGARANG DATA, MENEBAK ANGKA, ATAU MEMBERIKAN ESTIMASI PALSU. JIKA DATA SUATU CABANG/PERIODE NIHIL ATAU 0, TEGASKAN SECARA FAKTUAL BAHWA NILAINYA ADALAH 0.
-6. Jika pengguna meminta "tampilkan semua outlet" atau "semua cabang", tampilkan secara lengkap baik yang sudah membukukan transaksi maupun yang belum (dalam format tabel atau daftar terurut).
-
+8. Jika pengguna meminta "tampilkan semua outlet" atau "semua cabang", tampilkan secara lengkap baik yang sudah membukukan transaksi maupun yang belum (dalam format tabel atau daftar terurut).
+${instruksiModeSuara ? `\n${instruksiModeSuara}\n` : ''}
 === DATA OPERASIONAL REAL-TIME SUKA SHAWARMA ===
 ${konteksData}
 `.trim()
+
+  const promptSistemFinal =
+    instruksiModeSuara && (isFinance || isManager || isReview)
+      ? `${promptSistem}\n\n${instruksiModeSuara}`
+      : promptSistem
 
   // Ambil riwayat percakapan sebelumnya (maksimal 10 pesan terakhir)
   const riwayatFiltered = (o.riwayat || [])
@@ -930,7 +975,7 @@ ${konteksData}
     .map((m) => ({ role: m.role, content: m.content }))
 
   const messages = [
-    { role: 'system', content: promptSistem },
+    { role: 'system', content: promptSistemFinal },
     ...riwayatFiltered,
     { role: 'user', content: pesanKirim },
   ]
@@ -964,9 +1009,9 @@ ${konteksData}
           model: modelKandidat,
           stream: true,
           messages,
-          temperature: butuhDeep ? 0.2 : 0.1,
+          temperature: butuhDeep ? 0.25 : o.modeSuara || adalahSapaan ? 0.35 : 0.25,
           reasoning_effort: 'low',
-          max_tokens: butuhDeep ? 3072 : 512,
+          max_tokens: butuhDeep ? 3072 : o.modeSuara ? 450 : 768,
         }),
         signal: perModelController.signal,
       })

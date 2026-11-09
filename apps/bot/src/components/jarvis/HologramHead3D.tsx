@@ -1015,7 +1015,7 @@ export default function HologramHead3D({
           style={{ touchAction: 'none' }}
         />
 
-        {/* Tombol Interaktif Click-To-Speak Overlay di Tengah Dasar */}
+        {/* Tombol Interaktif Voice-to-Voice Utama di Tengah Dasar */}
         <button
           type="button"
           onClick={handleKlikCore}
@@ -1023,27 +1023,50 @@ export default function HologramHead3D({
             status === 'listening'
               ? 'Sedang mendengarkan. Klik untuk berhenti'
               : status === 'speaking'
-                ? 'Sedang berbicara. Klik untuk berhenti'
-                : 'Mulai input suara Jarvis'
+                ? 'Sedang berbicara. Klik untuk memotong dan langsung bicara'
+                : 'Mulai ngobrol Voice-to-Voice dengan Jarvis'
           }
-          className="absolute bottom-2 z-20 px-3 py-1 rounded-full bg-zinc-950/90 hover:bg-cyan-950 border border-cyan-400/60 text-cyan-200 hover:text-white font-hud text-[10px] tracking-wider uppercase font-bold flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all cursor-pointer group-hover:scale-105"
+          className={`absolute bottom-3 z-20 ${
+            isMukaDoang
+              ? 'px-5 py-2.5 text-xs sm:text-sm gap-2 shadow-[0_0_28px_rgba(6,182,212,0.5)]'
+              : 'px-3 py-1 text-[10px] gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+          } rounded-full ${
+            status === 'listening'
+              ? 'bg-emerald-950/95 border-2 border-emerald-400 text-emerald-100 shadow-[0_0_30px_rgba(16,185,129,0.6)]'
+              : status === 'speaking'
+                ? 'bg-cyan-950/95 border-2 border-cyan-300 text-cyan-100'
+                : 'bg-zinc-950/90 hover:bg-cyan-950/95 border border-cyan-400/70 text-cyan-100 hover:text-white'
+          } font-hud tracking-wider uppercase font-bold flex items-center transition-all cursor-pointer group-hover:scale-105`}
         >
           {status === 'listening' ? (
             <>
-              <Mic className="w-3 h-3 text-emerald-400 animate-bounce" />
-              <span className="text-emerald-300">LISTENING...</span>
+              <Mic className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-emerald-400 animate-bounce`} />
+              <span className="text-emerald-200">
+                {isMukaDoang ? 'MENDENGARKAN... SILAKAN BICARA' : 'LISTENING...'}
+              </span>
             </>
           ) : status === 'speaking' ? (
             <>
-              <Volume2 className={`w-3 h-3 text-cyan-300 ${adaAudioNyata ? 'animate-pulse' : ''}`} />
-              <span className="text-cyan-200">
-                {adaAudioNyata ? 'SPEAKING (KLIK STOP)' : 'AUDIO ACTIVE (KLIK STOP)'}
+              <Volume2 className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-cyan-300 ${adaAudioNyata ? 'animate-pulse' : ''}`} />
+              <span className="text-cyan-100">
+                {isMukaDoang
+                  ? 'JARVIS BICARA (KLIK UNTUK POTONG)'
+                  : adaAudioNyata
+                    ? 'SPEAKING (KLIK STOP)'
+                    : 'AUDIO ACTIVE (KLIK STOP)'}
+              </span>
+            </>
+          ) : status === 'processing' ? (
+            <>
+              <Mic className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-sky-300 animate-pulse`} />
+              <span className="text-sky-200">
+                {isMukaDoang ? 'MEMPROSES JAWABAN...' : 'THINKING...'}
               </span>
             </>
           ) : (
             <>
-              <Mic className="w-3 h-3 text-cyan-300" />
-              <span>KLIK BICARA</span>
+              <Mic className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-cyan-300`} />
+              <span>{isMukaDoang ? 'MULAI VOICE-TO-VOICE (KLIK / SPASI)' : 'KLIK BICARA'}</span>
             </>
           )}
         </button>

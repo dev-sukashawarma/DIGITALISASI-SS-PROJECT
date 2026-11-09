@@ -171,11 +171,12 @@ export default function JarvisApp({
   const [tampilDailyBriefing, setTampilDailyBriefing] = useState(false)
   // Tactical Panel Visibility & Layout States
   // Box Tactical Anomaly sekarang mengintegrasikan Tab Radar Anomali & Tab Chatbox Conversation langsung
-  const [radarAnomaliTerbuka, setRadarAnomaliTerbuka] = useState(true)
+  const [radarAnomaliTerbuka, setRadarAnomaliTerbuka] = useState(false)
   const [tacticalTab, setTacticalTab] = useState<'radar' | 'chat'>('radar')
   const [leftWingMinimized, setLeftWingMinimized] = useState(false)
   const [rightWingMinimized, setRightWingMinimized] = useState(false)
-  const [modeMukaDoang, setModeMukaDoang] = useState(false)
+  // Default langsung Full Screen Avatar agar interaksi Voice-to-Voice menjadi prioritas utama
+  const [modeMukaDoang, setModeMukaDoang] = useState(true)
 
   // Floating Chatbox States for Full Screen (Mode Muka Doang)
   const [floatingChatTerbuka, setFloatingChatTerbuka] = useState(false)
@@ -289,26 +290,46 @@ export default function JarvisApp({
     }
   }, [riwayatHologram, sedangMemproses, modeMukaDoang, floatingChatTerbuka])
 
-  // Global Keyboard Shortcuts ('/' or 'Ctrl+K' focuses input bar, 'Escape' clears/unfocuses)
+  const toggleVoiceShortcutRef = useRef<() => void>(() => {})
+
+  // Global Keyboard Shortcuts ('Space' toggles Voice-to-Voice, '/' or 'Ctrl+K' focuses input, 'Escape' stops voice/closes overlay)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const isInteractive =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT' ||
+        target?.tagName === 'BUTTON' ||
+        target?.tagName === 'A' ||
+        target?.isContentEditable
+
+      if (e.code === 'Space' && !isInteractive && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        toggleVoiceShortcutRef.current()
+        return
+      }
+
       if (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
-        const target = e.target as HTMLElement | null
-        const isInput =
-          target?.tagName === 'INPUT' ||
-          target?.tagName === 'TEXTAREA' ||
-          target?.tagName === 'SELECT' ||
-          target?.isContentEditable
-        if (!isInput) {
+        if (!isInteractive) {
           e.preventDefault()
           inputRef.current?.focus()
         }
       } else if (e.key === 'Escape') {
-        if (modeMukaDoang) {
-          setModeMukaDoang(false)
+        if (floatingChatTerbuka) {
+          setFloatingChatTerbuka(false)
           return
         }
-        if (radarAnomaliTerbuka) {
+        if (sedangMendengar || sedangBicara || voiceLoopRef.current) {
+          hentiMendengar(false)
+          hentiBicaraJarvis()
+          setSedangMendengar(false)
+          setSedangBicara(false)
+          setVoiceLoopAktif(false)
+          setTranskripLive('')
+          return
+        }
+        if (!modeMukaDoang && radarAnomaliTerbuka) {
           setRadarAnomaliTerbuka(false)
           return
         }
@@ -319,7 +340,7 @@ export default function JarvisApp({
     }
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [])
+  }, [floatingChatTerbuka, sedangMendengar, sedangBicara, modeMukaDoang, radarAnomaliTerbuka])
 
   // Inisialisasi Audio HUD & Web Speech Detection
   useEffect(() => {
@@ -499,9 +520,13 @@ export default function JarvisApp({
     if (!isi) return
 
     const lower = isi.toLowerCase()
-    setRadarAnomaliTerbuka(true)
-    setTacticalTab('chat')
-    setFloatingChatTerbuka(true)
+    if (!modeMukaDoang) {
+      setRadarAnomaliTerbuka(true)
+      setTacticalTab('chat')
+    } else if (!dariVoice) {
+      // Hanya buka jendela teks otomatis bila pengguna mengetik/klik chip teks; saat Voice-to-Voice biarkan layar penuh bersih!
+      setFloatingChatTerbuka(true)
+    }
     const waktuSekarang = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
     // 1. Pintasan Perintah Suara/Teks: Stop / Diam / Matikan Suara
@@ -640,6 +665,8 @@ export default function JarvisApp({
     const controller = new AbortController()
     chatAbortRef.current = controller
 
+    const butuhSuara = Boolean(dariVoice || autoVoiceReply || voiceLoopRef.current)
+
     try {
       const r = await fetch('/api/chat', {
         method: 'POST',
@@ -648,6 +675,7 @@ export default function JarvisApp({
           pesan: isi,
           profil: 'ceo',
           percakapanId: percakapanIdAktif ?? undefined,
+          modeSuara: Boolean(dariVoice || voiceLoopRef.current),
         }),
         signal: controller.signal,
       })
@@ -662,7 +690,6 @@ export default function JarvisApp({
         setPercakapanIdAktif(idBaru)
       }
 
-      const butuhSuara = Boolean(dariVoice || autoVoiceReply || voiceLoopRef.current)
       const sesiSuara = butuhSuara
         ? buatSesiBicaraStreamJarvis({
             onMulai: () => setSedangBicara(true),
@@ -761,6 +788,8 @@ export default function JarvisApp({
       mulaiSesiDengar(false)
     }
   }
+
+  toggleVoiceShortcutRef.current = handleToggleVoiceLoop
 
   // Toggle Wake Word ("Halo Jarvis")
   const handleToggleWakeWord = () => {
@@ -1208,7 +1237,7 @@ export default function JarvisApp({
                   </button>
                 </div>
 
-                {/* Mode Full Screen / Focus Avatar Toggle */}
+                {/* Mode Full Screen Voice vs Dashboard Lengkap Toggle */}
                 <button
                   type="button"
                   onClick={() => {
@@ -1219,20 +1248,20 @@ export default function JarvisApp({
                       setFloatingChatTerbuka(false)
                     }
                   }}
-                  aria-label={modeMukaDoang ? 'Kembalikan Dashboard Lengkap' : 'Aktifkan Mode Full Screen'}
+                  aria-label={modeMukaDoang ? 'Buka Dashboard Lengkap 4 Divisi' : 'Kembali ke Mode Full Screen Voice'}
                   className={`px-2.5 py-1 min-h-[32px] rounded-lg font-hud text-[10px] uppercase tracking-wider font-bold transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 ${
                     modeMukaDoang
-                      ? 'bg-cyan-500/35 text-white border border-cyan-300 shadow-[0_0_16px_rgba(6,182,212,0.6)] animate-pulse'
-                      : 'bg-zinc-950/85 text-zinc-400 hover:text-cyan-200 border border-cyan-500/30'
+                      ? 'bg-zinc-950/85 text-cyan-200 hover:text-white border border-cyan-400/50 hover:border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
+                      : 'bg-cyan-500/25 text-cyan-100 border border-cyan-400/70 shadow-[0_0_14px_rgba(6,182,212,0.35)]'
                   }`}
-                  title={modeMukaDoang ? 'Kembalikan Dashboard Lengkap (ESC)' : 'Mode Full Screen (Fokus Penuh Avatar Besar)'}
+                  title={modeMukaDoang ? 'Buka Panel Dashboard Lengkap 4 Divisi' : 'Fokus Penuh Full Screen Voice-to-Voice'}
                 >
                   {modeMukaDoang ? (
                     <Minimize2 className="w-3.5 h-3.5 text-cyan-300" />
                   ) : (
                     <Maximize2 className="w-3.5 h-3.5 text-cyan-300" />
                   )}
-                  <span>{modeMukaDoang ? 'EXIT FULL SCREEN' : 'FULL SCREEN'}</span>
+                  <span>{modeMukaDoang ? 'BUKA DASHBOARD' : 'FULL SCREEN VOICE'}</span>
                 </button>
               </div>
 
@@ -1505,24 +1534,50 @@ export default function JarvisApp({
                       <span>CONTINUOUS CHAT // ACTIVE</span>
                     </div>
                   </div>
-                ) : riwayatHologram.length > 0 ? (
-                  /* Minimized Floating Pill when closed and there is chat history */
-                  <button
-                    type="button"
-                    onClick={() => {
-                      mainkanSuaraHud('chirp')
-                      setFloatingChatTerbuka(true)
-                    }}
-                    className="fixed left-4 top-20 z-40 px-3 py-2 rounded-xl bg-zinc-950/90 border border-cyan-400/60 text-cyan-200 font-hud text-xs font-bold shadow-[0_0_20px_rgba(6,182,212,0.35)] backdrop-blur-md flex items-center gap-2 hover:bg-cyan-900/60 hover:text-white transition-all cursor-pointer animate-in fade-in"
-                    title="Buka Floating Chatbox"
-                  >
-                    <MessageSquare className="w-4 h-4 text-cyan-300" />
-                    <span>CHATBOX</span>
-                    <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/30 text-cyan-300 text-[10px] font-mono-hud font-bold border border-cyan-400/40">
-                      {riwayatHologram.length}
-                    </span>
-                  </button>
-                ) : null}
+                ) : (
+                  <>
+                    {/* Subtitle / Live Voice Caption Ringkas di bawah Avatar (tidak menutupi layar, klik untuk buka transkrip penuh) */}
+                    {(jawabanHologram || sedangMemproses) && (
+                      <div
+                        onClick={() => {
+                          mainkanSuaraHud('chirp')
+                          setFloatingChatTerbuka(true)
+                        }}
+                        className="w-full max-w-2xl mx-auto px-4 py-2 rounded-2xl bg-zinc-950/80 hover:bg-zinc-900/90 border border-cyan-500/30 hover:border-cyan-400/60 backdrop-blur-md text-center cursor-pointer transition-all shadow-[0_0_20px_rgba(6,182,212,0.15)] shrink-0"
+                        title="Klik untuk membuka riwayat transkrip lengkap"
+                      >
+                        {sedangMemproses && !jawabanHologram ? (
+                          <span className="font-mono-hud text-xs text-cyan-300 animate-pulse">
+                            J.A.R.V.I.S. sedang menyusun jawaban...
+                          </span>
+                        ) : (
+                          <p className="font-mono-hud text-xs sm:text-sm text-cyan-50/95 line-clamp-2 leading-relaxed">
+                            {jawabanHologram.replace(/[#*_>`|]/g, '').trim()}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Minimized Floating Pill in Top-Left when chat history exists */}
+                    {riwayatHologram.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          mainkanSuaraHud('chirp')
+                          setFloatingChatTerbuka(true)
+                        }}
+                        className="fixed left-4 top-16 z-40 px-3 py-1.5 rounded-xl bg-zinc-950/85 border border-cyan-400/50 text-cyan-200 font-hud text-[11px] font-bold shadow-[0_0_20px_rgba(6,182,212,0.3)] backdrop-blur-md flex items-center gap-2 hover:bg-cyan-900/60 hover:text-white transition-all cursor-pointer animate-in fade-in"
+                        title="Buka Transkrip Percakapan"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-cyan-300" />
+                        <span>TRANSKRIP</span>
+                        <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/30 text-cyan-300 text-[10px] font-mono-hud font-bold border border-cyan-400/40">
+                          {riwayatHologram.length}
+                        </span>
+                      </button>
+                    )}
+                  </>
+                )}
               </>
             ) : !radarAnomaliTerbuka ? (
               /* Standby Collapsed Status Bar */
@@ -2097,9 +2152,10 @@ export default function JarvisApp({
           )}
         </div>
 
-        {/* BOTTOM COMMAND CONSOLE DOCK (Centered, Balanced Cockpit Foundation) */}
-        <div className="w-full max-w-4xl mx-auto flex flex-col items-center gap-1.5 shrink-0 pt-1 pb-1 z-30">
-          {/* Quick Directive Chips (Strict No-Emoji HUD Standard) */}
+        {/* BOTTOM COMMAND CONSOLE DOCK (Voice-First in Full Screen, Full Chips in Dashboard Mode) */}
+        <div className={`w-full ${modeMukaDoang ? 'max-w-3xl' : 'max-w-4xl'} mx-auto flex flex-col items-center gap-1.5 shrink-0 pt-1 pb-1 z-30`}>
+          {/* Quick Directive Chips — Hanya tampil di mode Dashboard Lengkap agar mode Full Screen fokus murni ke Voice-to-Voice */}
+          {!modeMukaDoang && (
           <div className="w-full flex items-center justify-center flex-wrap gap-1.5 py-0.5">
             <button
               type="button"
@@ -2158,15 +2214,55 @@ export default function JarvisApp({
               )
             })}
           </div>
+          )}
 
-          {/* Centered Command Bar */}
+          {/* Centered Command Bar (Voice-to-Voice Prioritized) */}
           <form
             onSubmit={handleSubmitForm}
-            className="w-full relative flex items-center rounded-2xl bg-zinc-950/90 border border-cyan-400/50 shadow-[0_0_24px_rgba(6,182,212,0.2)] backdrop-blur-xl focus-within:border-cyan-300 focus-within:shadow-[0_0_32px_rgba(6,182,212,0.35)] transition-all p-1.5"
+            className="w-full relative flex items-center rounded-2xl bg-zinc-950/90 border border-cyan-400/50 shadow-[0_0_24px_rgba(6,182,212,0.2)] backdrop-blur-xl focus-within:border-cyan-300 focus-within:shadow-[0_0_32px_rgba(6,182,212,0.35)] transition-all p-1.5 gap-1.5"
           >
-            <div className="pl-3 pr-2 text-cyan-400 flex items-center">
-              <Sparkles className="w-4 h-4 animate-spin text-cyan-300" />
-            </div>
+            {voiceDidukung ? (
+              <button
+                type="button"
+                onClick={handleToggleVoiceLoop}
+                aria-label={
+                  sedangMendengar || voiceLoopAktif
+                    ? 'Hentikan atau kirim input suara'
+                    : 'Mulai ngobrol Voice-to-Voice dengan Jarvis'
+                }
+                className={`px-3.5 sm:px-4 py-2 min-h-[38px] rounded-xl border transition-all cursor-pointer flex items-center gap-2 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${
+                  sedangMendengar
+                    ? 'bg-emerald-600 border-emerald-300 text-white animate-pulse shadow-[0_0_20px_rgba(16,185,129,0.65)]'
+                    : voiceLoopAktif
+                      ? 'bg-emerald-950/95 border-emerald-400 text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.4)]'
+                      : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 border-cyan-300/70 text-white shadow-[0_0_18px_rgba(6,182,212,0.45)]'
+                }`}
+                title={
+                  sedangMendengar || voiceLoopAktif
+                    ? 'Klik untuk kirim/hentikan sesi suara'
+                    : 'Klik atau tekan Spasi untuk mulai ngobrol Voice-to-Voice'
+                }
+              >
+                {sedangMendengar ? (
+                  <Mic className="w-4 h-4 text-white animate-bounce" />
+                ) : voiceLoopAktif ? (
+                  <MicOff className="w-4 h-4 text-emerald-300" />
+                ) : (
+                  <Mic className="w-4 h-4 text-white" />
+                )}
+                <span className="font-hud text-xs tracking-wider font-bold">
+                  {sedangMendengar
+                    ? 'MENDENGARKAN...'
+                    : voiceLoopAktif
+                      ? 'VOICE LOOP: ON'
+                      : 'VOICE-TO-VOICE'}
+                </span>
+              </button>
+            ) : (
+              <div className="pl-3 pr-1 text-cyan-400 flex items-center">
+                <Sparkles className="w-4 h-4 animate-spin text-cyan-300" />
+              </div>
+            )}
 
             <input
               ref={inputRef}
@@ -2176,52 +2272,25 @@ export default function JarvisApp({
               aria-label="Ketik instruksi atau pertanyaan untuk J.A.R.V.I.S."
               placeholder={
                 sedangMendengar
-                  ? '🎙️ Mendengarkan Anda... (otomatis terkirim)'
-                  : "Ketik instruksi/pertanyaan atau tekan '/'..."
+                  ? '🎙️ Silakan bicara langsung ke J.A.R.V.I.S. (otomatis terkirim)...'
+                  : voiceLoopAktif
+                    ? 'Mode obrolan suara aktif — atau ketik pesan tambahan di sini...'
+                    : "Tekan Spasi / klik Voice-to-Voice untuk bicara, atau ketik di sini..."
               }
-              className="w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/65 py-1.5 focus:outline-none"
+              className="w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/60 px-2 py-1.5 focus:outline-none"
             />
 
-            {voiceDidukung && (
+            {inputPerintah.trim() && (
               <button
-                type="button"
-                onClick={handleToggleVoiceLoop}
-                aria-label={
-                  sedangMendengar || voiceLoopAktif
-                    ? 'Hentikan atau kirim input suara'
-                    : 'Mulai input suara Voice-to-Voice'
-                }
-                className={`p-1.5 sm:px-3 py-1.5 min-h-[34px] rounded-xl border transition-all cursor-pointer mr-1 flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                  sedangMendengar || voiceLoopAktif
-                    ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]'
-                    : 'bg-cyan-950/60 border-cyan-500/35 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-900/60'
-                }`}
-                title={
-                  sedangMendengar || voiceLoopAktif
-                    ? 'Hentikan / Kirim Suara Sekarang'
-                    : 'Mulai Ngobrol Voice-to-Voice dengan Jarvis'
-                }
+                type="submit"
+                disabled={sedangMemproses}
+                aria-label="Kirim instruksi teks ke J.A.R.V.I.S."
+                className="px-3.5 py-2 min-h-[38px] rounded-xl bg-cyan-800/90 hover:bg-cyan-700 border border-cyan-400/60 disabled:opacity-50 text-white font-hud text-xs tracking-wider font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
               >
-                {sedangMendengar || voiceLoopAktif ? (
-                  <MicOff className="w-3.5 h-3.5 text-emerald-300" />
-                ) : (
-                  <Mic className="w-3.5 h-3.5" />
-                )}
-                <span className="hidden sm:inline text-xs font-mono-hud font-bold">
-                  {sedangMendengar ? 'LISTENING' : voiceLoopAktif ? 'LOOP: ON' : 'VOICE'}
-                </span>
+                <Send className="w-3.5 h-3.5" />
+                <span>KIRIM</span>
               </button>
             )}
-
-            <button
-              type="submit"
-              disabled={sedangMemproses || !inputPerintah.trim()}
-              aria-label="Kirim instruksi ke J.A.R.V.I.S."
-              className="px-3 sm:px-4 py-1.5 min-h-[34px] rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white font-hud text-xs tracking-wider font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-1.5 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>KIRIM</span>
-            </button>
           </form>
         </div>
       </main>

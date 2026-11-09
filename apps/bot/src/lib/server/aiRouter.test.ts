@@ -88,6 +88,8 @@ describe('aiRouter', () => {
     expect(apakahPesanHanyaSapaan('halo apa kabar')).toBe(true)
     expect(apakahPesanHanyaSapaan('Halo Jarvis!')).toBe(true)
     expect(apakahPesanHanyaSapaan('selamat pagi')).toBe(true)
+    expect(apakahPesanHanyaSapaan('gimana kabarnya?')).toBe(true)
+    expect(apakahPesanHanyaSapaan('oke makasih')).toBe(true)
     expect(apakahPesanHanyaSapaan('ping')).toBe(true)
     expect(apakahPesanHanyaSapaan('halo apa kabar, berapa omzet hari ini?')).toBe(false)
     expect(apakahPesanHanyaSapaan('tampilkan semua outlet')).toBe(false)
@@ -280,5 +282,39 @@ describe('aiRouter', () => {
     expect(systemPrompt).toContain('DATA REKAPITULASI LOSS & WASTE 7 HARI TERAKHIR')
     expect(systemPrompt).toContain('Total Laporan Waste 7 Hari: 42 laporan')
     expect(systemPrompt).toContain('SUKA SHAWARMA JAGAKARSA')
+  })
+
+  it('mengaktifkan panduan obrolan lisan ringkas saat modeSuara bernilai true', async () => {
+    process.env.AI_BASE_URL = 'http://test-ai:20128/v1'
+    process.env.AI_API_KEY = 'test-key'
+    process.env.AI_MODEL = 'test-model'
+
+    let requestBody: any = null
+    const chunks = ['data: {"choices":[{"delta":{"content":"Aman, Sir."}}]}\n\n', 'data: [DONE]\n\n']
+    const encoder = new TextEncoder()
+    const readableStream = new ReadableStream({
+      start(controller) {
+        for (const c of chunks) controller.enqueue(encoder.encode(c))
+        controller.close()
+      },
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init: any) => {
+      requestBody = JSON.parse(init?.body as string)
+      return { ok: true, status: 200, body: readableStream } as any
+    })
+
+    const iter = tanyaAiRouter({
+      pesan: 'gimana omzet hari ini?',
+      profil: 'ceo',
+      telemetri: mockTelemetri,
+      modeSuara: true,
+    })
+    for await (const _ of iter) {}
+
+    expect(requestBody).not.toBeNull()
+    expect(requestBody.max_tokens).toBe(450)
+    expect(requestBody.temperature).toBe(0.35)
+    expect(requestBody.messages[0].content).toContain('MODE OBROLAN SUARA AKTIF')
   })
 })

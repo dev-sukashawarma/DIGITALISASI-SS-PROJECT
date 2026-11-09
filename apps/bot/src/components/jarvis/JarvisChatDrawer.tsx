@@ -8,6 +8,7 @@ import {
   hentiMendengar,
   apakahVoiceDidukung,
   bicaraJarvis,
+  buatSesiBicaraStreamJarvis,
   hentiBicaraJarvis,
 } from '@/lib/voiceHud'
 import {
@@ -485,11 +486,19 @@ export default function JarvisChatDrawer({
     const controller = new AbortController()
     abortRef.current = controller
 
+    const butuhSuara = Boolean(dariVoice || autoSuara)
+    let sesiSuara: ReturnType<typeof buatSesiBicaraStreamJarvis> | null = null
+
     try {
       const r = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pesan: isi, profil, percakapanId: aktif ?? undefined }),
+        body: JSON.stringify({
+          pesan: isi,
+          profil,
+          percakapanId: aktif ?? undefined,
+          modeSuara: Boolean(dariVoice),
+        }),
         signal: controller.signal,
       })
       if (!r.ok || !r.body) {
@@ -501,6 +510,13 @@ export default function JarvisChatDrawer({
         setAktif(id)
         onPercakapanIdChange?.(id)
       }
+
+      sesiSuara = butuhSuara
+        ? buatSesiBicaraStreamJarvis({
+            onMulai: () => setSedangBicara(botMsgId),
+            onSelesai: () => setSedangBicara(null),
+          })
+        : null
 
       const pembaca = r.body.getReader()
       const dek = new TextDecoder()
@@ -516,15 +532,19 @@ export default function JarvisChatDrawer({
           s[s.length - 1] = { ...s[s.length - 1], isi: s[s.length - 1].isi + t }
           return s
         })
+        sesiSuara?.tambahTeksStream(jawabanLengkap)
       }
       mainkanSuaraHud('blip')
       void muatDaftar()
 
-      if ((dariVoice || autoSuara) && jawabanLengkap.trim()) {
+      if (sesiSuara && jawabanLengkap.trim()) {
+        sesiSuara.selesaikanStream(jawabanLengkap)
+      } else if (butuhSuara && jawabanLengkap.trim()) {
         setSedangBicara(botMsgId)
         bicaraJarvis(jawabanLengkap, () => setSedangBicara(null))
       }
     } catch (e) {
+      sesiSuara?.batal()
       if ((e as Error).name === 'AbortError') return
       mainkanSuaraHud('alert')
       setPesan((p) => {

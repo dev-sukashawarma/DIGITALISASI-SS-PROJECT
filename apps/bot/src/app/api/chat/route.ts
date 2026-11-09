@@ -32,6 +32,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const v = validasiPesan(body?.pesan)
   if (!v.ok) return galat(400, v.galat)
+  const modeSuara = Boolean(body?.modeSuara)
   const idDiminta = typeof body?.percakapanId === 'string' && UUID.test(body.percakapanId) ? body.percakapanId : null
 
   let percakapan = idDiminta ? await ambilPercakapan(supabase, idDiminta) : null
@@ -140,6 +141,7 @@ export async function POST(req: Request) {
                 telemetri,
                 riwayat: riwayatPesan,
                 signal: req.signal,
+                modeSuara,
               })) {
                 jawaban += t
                 c.enqueue(enc.encode(t))

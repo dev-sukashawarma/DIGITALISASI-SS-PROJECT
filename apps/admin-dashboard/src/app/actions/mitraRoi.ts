@@ -16,6 +16,11 @@ import { ambilVersiRiwayatHpp } from '@/lib/hpp/riwayatHpp'
 import { codeFingerprint } from '@/lib/ownerDashboardCache'
 import { calculateProratedExpenses } from '@/lib/opexProrata'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
+import {
+  normalizeSettlementPlatform,
+  reconcileRowPromoWithSettlement,
+  splitDateRangeChunks,
+} from '@/lib/ownerDashboardAlign'
 
 /** 2026-08-01 00:00 WIB — awal data bagi hasil yang dihitung sistem. */
 const SYSTEM_START_MONTH = '2026-08'
@@ -232,15 +237,24 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
     const mMonth = Number(mStr)
 
     const [salesDailyRows, settlementsRes, hppRows, wasteRes, pettyRows, monthlyRowsMentah, payrollRes] = await Promise.all([
-      fetchAllPages<any>(() => supabase
-        .from('sales_daily_scoped')
-        .select('outlet_id, sales_source, sales_date, omzet, total_deductions')
-        .in('outlet_id', mitraOutletIds)
-        .neq('outlet_id', TEST_OUTLET_ID)
-        .gte('sales_date', from)
-        .lte('sales_date', to)
-        .order('sales_date', { ascending: true })
-      ).catch(err => {
+      (async () => {
+        const allRows: any[] = []
+        for (const chunk of splitDateRangeChunks(from, to, 10)) {
+          const chunkRows = await fetchAllPages<any>(() => supabase
+            .from('sales_daily_scoped')
+            .select('outlet_id, sales_source, sales_date, omzet, total_deductions')
+            .in('outlet_id', mitraOutletIds)
+            .neq('outlet_id', TEST_OUTLET_ID)
+            .gte('sales_date', chunk.from)
+            .lte('sales_date', chunk.to)
+            .order('sales_date', { ascending: true })
+            .order('outlet_id', { ascending: true })
+            .order('sales_source', { ascending: true })
+          )
+          allRows.push(...chunkRows)
+        }
+        return allRows
+      })().catch(err => {
         console.warn('Gagal memuat sales_daily_scoped di mitraRoi:', err)
         return [] as any[]
       }),
@@ -331,20 +345,11 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
         .eq('period_year', mYear)
     ])
 
-    // 1. Rekonsiliasi Omzet & Potongan (termasuk Komisi Platform Settlement)
-    const normalizePlatform = (src: string) => {
-      const s = (src || '').toLowerCase()
-      if (s.includes('gofood') || s.includes('gojek')) return 'gofood'
-      if (s.includes('grab')) return 'grabfood'
-      if (s.includes('shopee')) return 'shopeefood'
-      if (s.includes('tiktok')) return 'tiktokgo'
-      return s
-    }
-
+    // 1. Rekonsiliasi Omzet & Potongan (termasuk Komisi Platform Settlement & Promo Merchant)
     const stlCommissionMap = new Map<string, number>()
     const stlPromoMap = new Map<string, number>()
     for (const s of (settlementsRes || [])) {
-      const plat = normalizePlatform(s.platform)
+      const plat = normalizeSettlementPlatform(s.platform)
       const key = `${s.outlet_id}__${plat}__${s.tanggal}`
       stlCommissionMap.set(key, (stlCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
       if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
@@ -355,19 +360,21 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
     for (const row of (salesDailyRows || [])) {
       const cutoff = invMap[row.outlet_id]?.tanggal_mulai
       if (cutoff && row.sales_date < cutoff) continue
-      let totalDed = Number(row.total_deductions) || 0
-      const plat = normalizePlatform(row.sales_source)
+      const plat = normalizeSettlementPlatform(row.sales_source)
       const key = `${row.outlet_id}__${plat}__${row.sales_date}`
       const platformFee = stlCommissionMap.get(key) || 0
+      const reconciled = reconcileRowPromoWithSettlement(
+        plat,
+        key,
+        Number(row.omzet) || 0,
+        Number(row.total_deductions) || 0,
+        stlPromoMap,
+      )
 
-      if (stlPromoMap.has(key) && (plat === 'gofood' || plat === 'shopeefood')) {
-        totalDed = stlPromoMap.get(key) || 0
-      }
-
-      const gross = (Number(row.omzet) || 0) + (Number(row.total_deductions) || 0)
+      const gross = reconciled.omzet + reconciled.total_deductions
       const a = bump(row.outlet_id)
       a.grossRevenue += gross
-      a.totalDeductions += (totalDed + platformFee)
+      a.totalDeductions += (reconciled.total_deductions + platformFee)
     }
 
     // 2. HPP Bahan Baku dari fetchHppRows
@@ -649,6 +656,7 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
 // membuat cache bulan lama tidak terpakai (pola sama dengan Ringkasan Bisnis).
 const MITRA_ROI_FINGERPRINT = codeFingerprint(
   getMitraRealtimeBepBreakdown,
+  reconcileRowPromoWithSettlement,
   fetchHppRows,
   calculateProratedExpenses,
   hitungRingkasanPayrollHr,

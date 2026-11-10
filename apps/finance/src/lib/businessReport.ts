@@ -48,7 +48,7 @@ const EMPTY_METRICS: ChannelMetrics = { revenue: 0, gp: 0, pcs: 0 }
  */
 export function buildBusinessReportRows(
   outlets: { id: string; name: string }[],
-  salesRows: { outlet_id: string; sales_source: string; omzet: number }[],
+  salesRows: { outlet_id: string; sales_source: string; omzet: number; platform_fee?: number }[],
   hppByChannelRows: { outlet_id: string; sales_source: string; hpp: number }[],
   pcsRows: { outlet_id: string; sales_source: string; pcs: number }[],
   expenseRows: { outlet_id: string | null; category: string; scope: string; amount: number }[],
@@ -68,7 +68,7 @@ export function buildBusinessReportRows(
 
   salesRows.forEach((r) => {
     const cur = ensure(r.outlet_id, 'Outlet Tidak Dikenal')
-    cur.accums[groupChannel(r.sales_source)].revenue += r.omzet
+    cur.accums[groupChannel(r.sales_source)].revenue += r.omzet - (Number(r.platform_fee) || 0)
   })
 
   hppByChannelRows.forEach((r) => {

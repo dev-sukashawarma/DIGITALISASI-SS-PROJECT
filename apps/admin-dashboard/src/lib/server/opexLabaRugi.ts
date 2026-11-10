@@ -48,6 +48,7 @@ type RawOpexRangeBundle = {
 const opexRangeRawMemo = new Map<string, { expiresAt: number; promise: Promise<RawOpexRangeBundle> }>()
 const opexResultMemo = new Map<string, { expiresAt: number; value: OpexLabaRugi }>()
 const wasteRangeMemo = new Map<string, { expiresAt: number; promise: Promise<any[]> }>()
+const pendapatanLainRangeMemo = new Map<string, { expiresAt: number; promise: Promise<number> }>()
 
 function pruneMap<K, V extends { expiresAt: number }>(map: Map<K, V>, maxEntries: number) {
   const now = Date.now()
@@ -65,6 +66,7 @@ export function clearOpexLabaRugiMemo() {
   opexRangeRawMemo.clear()
   opexResultMemo.clear()
   wasteRangeMemo.clear()
+  pendapatanLainRangeMemo.clear()
 }
 
 /** Jumlahkan baris OPEX dengan aturan kartu Laba Rugi. Murni, bisa diuji. */
@@ -241,4 +243,55 @@ export async function hitungWastePeriode(
     total += Number(r.nilai_waste) || 0
   }
   return total
+}
+
+/**
+ * Pendapatan Lain-lain pusat (income_lainnya aktif dalam rentang tanggal WIB, inklusif),
+ * identik 1:1 dengan `usePendapatanLain.ts` pada Tab Laba Rugi Global (`ProfitView.tsx`).
+ * Hanya dihitung pada cakupan semua outlet (`outletId === 'all'`), tidak pernah masuk laba 1 outlet / Mitra.
+ */
+export async function hitungPendapatanLainPeriode(
+  supabase: any,
+  filter: { from: string; to: string; outletId: string },
+): Promise<number> {
+  const semuaOutlet = !filter.outletId || filter.outletId === 'all'
+  if (!semuaOutlet) return 0
+
+  const key = `${filter.from}|${filter.to}`
+  const now = Date.now()
+  let hit = pendapatanLainRangeMemo.get(key)
+  if (!hit || hit.expiresAt <= now) {
+    const today = jakartaDate(new Date())
+    const ttl = filter.to >= today ? OPEX_LIVE_TTL_MS : OPEX_PAST_TTL_MS
+    const promise = (async () => {
+      let total = 0
+      const PAGE = 1000
+      for (let start = 0; ; start += PAGE) {
+        const { data, error } = await supabase
+          .from('income_lainnya')
+          .select('id, amount')
+          .eq('status', 'aktif')
+          .gte('occurred_at', `${filter.from}T00:00:00+07:00`)
+          .lte('occurred_at', `${filter.to}T23:59:59.999+07:00`)
+          .order('id')
+          .range(start, start + PAGE - 1)
+        if (error) throw error
+        const rows = data ?? []
+        total += rows.reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0)
+        if (rows.length < PAGE) break
+      }
+      return total
+    })()
+    hit = { expiresAt: now + ttl, promise }
+    pendapatanLainRangeMemo.set(key, hit)
+    promise.catch(() => {
+      if (pendapatanLainRangeMemo.get(key)?.promise === promise) pendapatanLainRangeMemo.delete(key)
+    })
+    pruneMap(pendapatanLainRangeMemo, MAX_OPEX_MEMO_ENTRIES)
+  } else {
+    pendapatanLainRangeMemo.delete(key)
+    pendapatanLainRangeMemo.set(key, hit)
+  }
+
+  return hit.promise
 }

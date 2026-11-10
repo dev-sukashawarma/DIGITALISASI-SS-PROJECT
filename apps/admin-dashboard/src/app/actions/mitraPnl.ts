@@ -25,6 +25,11 @@ import {
 } from '@/lib/opexProrata'
 import { monthRange } from '@/lib/period'
 import { isTestOrDevStaff, KANTOR_PUSAT_ID } from '@/lib/staffFilters'
+import {
+  normalizeSettlementPlatform,
+  reconcileRowPromoWithSettlement,
+  splitDateRangeChunks,
+} from '@/lib/ownerDashboardAlign'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -352,19 +357,25 @@ async function hitungPnlMitra(
           .lte('expense_date', prevMonthRange.to)
       : Promise.resolve({ data: [] as any[] }),
     // Ringkasan penjualan harian per outlet x sumber dari view DB `sales_daily_scoped`
-    // Menjadi Single Source of Truth untuk Omzet Kotor & Potongan agar 100%
-    // sinkron dengan Tab Laba Rugi (ProfitView / useSalesDaily), termasuk hasil audit admin.
-    fetchAllPages<any>(() => supabase
-      .from('sales_daily_scoped')
-      .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
-      .in('outlet_id', targetOutletIds)
-      .neq('outlet_id', TEST_OUTLET_ID)
-      .gte('sales_date', filter.from)
-      .lte('sales_date', filter.to)
-      .order('sales_date', { ascending: true })
-      .order('outlet_id', { ascending: true })
-      .order('sales_source', { ascending: true })
-    ).then(rows => ({ data: rows })).catch(err => {
+    // Dipecah per <= 10 hari agar rentang 1 bulan tidak menyentuh statement_timeout PostgreSQL.
+    (async () => {
+      const allRows: any[] = []
+      for (const chunk of splitDateRangeChunks(filter.from, filter.to, 10)) {
+        const chunkRows = await fetchAllPages<any>(() => supabase
+          .from('sales_daily_scoped')
+          .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
+          .in('outlet_id', targetOutletIds)
+          .neq('outlet_id', TEST_OUTLET_ID)
+          .gte('sales_date', chunk.from)
+          .lte('sales_date', chunk.to)
+          .order('sales_date', { ascending: true })
+          .order('outlet_id', { ascending: true })
+          .order('sales_source', { ascending: true })
+        )
+        allRows.push(...chunkRows)
+      }
+      return { data: allRows }
+    })().catch(err => {
       console.warn('Gagal memuat sales_daily_scoped di mitraPnl:', err)
       return { data: [] as any[] }
     }),
@@ -490,21 +501,13 @@ async function hitungPnlMitra(
   const outletFinancialsMap = new Map<string, { gross: number; deductions: number; cogs: number }>()
 
   // 4a. Prioritaskan sales_daily_scoped untuk Omzet Kotor & Potongan
-  // Diselaraskan 100% (Rp 0 selisih) dengan Tab Laba Rugi / useSalesDaily,
-  // termasuk komisi platform (platform fee) dari platform_settlements dan audit promo merchant.
-  const normalizePlatform = (src: string) => {
-    const s = (src || '').toLowerCase()
-    if (s.includes('gofood') || s.includes('gojek')) return 'gofood'
-    if (s.includes('grab')) return 'grabfood'
-    if (s.includes('shopee')) return 'shopeefood'
-    if (s.includes('tiktok')) return 'tiktokgo'
-    return s
-  }
-
+  // Diselaraskan 100% (Rp 0 selisih) dengan Tab Laba Rugi / useSalesDaily & Rangkuman Penjualan,
+  // termasuk komisi platform (platform fee) dari platform_settlements dan audit promo merchant
+  // untuk GoFood, ShopeeFood, GrabFood, serta TikTok Go.
   const settlementCommissionMap = new Map<string, number>()
   const settlementPromoMap = new Map<string, number>()
   for (const s of (settlements || [])) {
-    const plat = normalizePlatform(s.platform)
+    const plat = normalizeSettlementPlatform(s.platform)
     const key = `${s.outlet_id}__${plat}__${s.tanggal}`
     settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
     if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
@@ -515,21 +518,20 @@ async function hitungPnlMitra(
   const hasSalesDaily = Array.isArray(salesDailyRows) && salesDailyRows.length > 0
   if (hasSalesDaily) {
     for (const row of salesDailyRows) {
-      let totalDed = Number(row.total_deductions) || 0
-      const plat = normalizePlatform(row.sales_source)
+      const plat = normalizeSettlementPlatform(row.sales_source)
       const key = `${row.outlet_id}__${plat}__${row.sales_date}`
       const platformFee = settlementCommissionMap.get(key) || 0
-
-      // Rekonsiliasi audit promo merchant dari settlement (GoFood & ShopeeFood):
-      // Jika settlement resmi diupload, promo merchant dari settlement menjadi Single Source of Truth
-      if (settlementPromoMap.has(key) && (plat === 'gofood' || plat === 'shopeefood')) {
-        totalDed = settlementPromoMap.get(key) || 0
-      }
+      const reconciled = reconcileRowPromoWithSettlement(
+        plat,
+        key,
+        Number(row.omzet) || 0,
+        Number(row.total_deductions) || 0,
+        settlementPromoMap,
+      )
 
       // Total potongan = promo merchant + komisi platform (platform fee)
-      const rowDeductions = totalDed + platformFee
-      const rawGross = (Number(row.omzet) || 0) + (Number(row.total_deductions) || 0)
-      const gross = rawGross
+      const rowDeductions = reconciled.total_deductions + platformFee
+      const gross = reconciled.omzet + reconciled.total_deductions
       const count = Number(row.jumlah_order_completed) || 0
       const src = plat
 

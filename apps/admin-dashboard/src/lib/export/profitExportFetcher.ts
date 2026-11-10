@@ -5,7 +5,12 @@ import { mapExpenseRow } from '@/lib/expenseRow'
 import { buatSaringanKasKecil } from '@/lib/kasKecilTeraudit'
 import { fetchHppRows } from '@/hooks/useHpp'
 import { getAllPlatformSettlementSummaries } from '@/app/actions/platformSettlement'
-import { reconcileSalesRowsWithSettlements } from './settlementReconciliation'
+import { fetchAllPagesParallel } from '@/lib/queryPaging'
+import {
+  normalizeSettlementPlatform,
+  reconcileRowPromoWithSettlement,
+  splitDateRangeChunks,
+} from '@/lib/ownerDashboardAlign'
 import { calculateProratedExpenses, getJakartaCurrentMonthInfo } from '@/lib/opexProrata'
 import { susunBarisGajiKantor, gabungGajiKantor } from '@/lib/gajiKantorPusat'
 import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
@@ -49,45 +54,40 @@ export async function fetchProfitExportData({
 }): Promise<ProfitExportDataResult> {
   const supabase = createClient()
 
-  // 1. Ambil Penjualan (sales_daily_scoped) dengan paginasi
+  // 1. Ambil Penjualan (sales_daily_scoped) dengan paginasi per potongan <= 10 hari
+  // agar rentang 1 bulan tidak pernah menyentuh statement_timeout PostgreSQL.
   onProgress?.('Mengambil data omzet penjualan...')
   const PAGE_SIZE = 1000
   const rawSalesData: any[] = []
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from('sales_daily_scoped')
-      .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
-      .neq('outlet_id', TEST_OUTLET_ID)
-      .gte('sales_date', from)
-      .lte('sales_date', to)
-      .order('sales_date', { ascending: true })
-      .order('outlet_id', { ascending: true })
-      .order('sales_source', { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1)
+  for (const chunk of splitDateRangeChunks(from, to, 10)) {
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('sales_daily_scoped')
+        .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
+        .neq('outlet_id', TEST_OUTLET_ID)
+        .gte('sales_date', chunk.from)
+        .lte('sales_date', chunk.to)
+        .order('sales_date', { ascending: true })
+        .order('outlet_id', { ascending: true })
+        .order('sales_source', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1)
 
-    if (error) throw error
-    const page = data ?? []
-    rawSalesData.push(...page)
-    if (page.length < PAGE_SIZE) break
+      if (error) throw error
+      const page = data ?? []
+      rawSalesData.push(...page)
+      if (page.length < PAGE_SIZE) break
+    }
   }
 
-  const normalizePlatform = (src: string) => {
-    const s = (src || '').toLowerCase()
-    if (s.includes('gofood') || s.includes('gojek')) return 'gofood'
-    if (s.includes('grab')) return 'grabfood'
-    if (s.includes('shopee')) return 'shopeefood'
-    if (s.includes('tiktok')) return 'tiktokgo'
-    return s
-  }
-
-  // Tarik komisi resmi platform dari platform_settlements
-  const settlementMap = new Map<string, number>()
+  // Tarik komisi & promo_merchant resmi platform dari platform_settlements (1:1 dengan useSalesDaily.ts)
+  const settlementCommissionMap = new Map<string, number>()
+  const settlementPromoMap = new Map<string, number>()
   try {
     let offset = 0
     while (true) {
       const { data: stlPage, error: stlErr } = await supabase
         .from('platform_settlements')
-        .select('outlet_id, platform, tanggal, commission')
+        .select('outlet_id, platform, tanggal, commission, promo_merchant')
         .gte('tanggal', from)
         .lte('tanggal', to)
         .order('tanggal', { ascending: true })
@@ -96,9 +96,12 @@ export async function fetchProfitExportData({
       if (stlErr) throw stlErr
       const page = stlPage ?? []
       for (const s of page) {
-        const plat = normalizePlatform(s.platform)
+        const plat = normalizeSettlementPlatform(s.platform)
         const key = `${s.outlet_id}__${plat}__${s.tanggal}`
-        settlementMap.set(key, (settlementMap.get(key) || 0) + (Number(s.commission) || 0))
+        settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
+        if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
+          settlementPromoMap.set(key, (settlementPromoMap.get(key) || 0) + Math.max(0, Number(s.promo_merchant) || 0))
+        }
       }
       if (page.length < 1000) break
       offset += 1000
@@ -107,25 +110,100 @@ export async function fetchProfitExportData({
     console.error('Error fetching settlements in profitExportFetcher:', err)
   }
 
-  const salesRows = rawSalesData
+  const posSalesRows = rawSalesData
     .filter((r: any) => !isTestOutlet(r.outlet_id))
     .map((r: any) => {
-      const plat = normalizePlatform(r.sales_source)
+      const plat = normalizeSettlementPlatform(r.sales_source)
       const key = `${r.outlet_id}__${plat}__${r.sales_date}`
-      const platformFee = settlementMap.get(key) || 0
+      const platformFee = settlementCommissionMap.get(key) || 0
+      const reconciled = reconcileRowPromoWithSettlement(
+        plat,
+        key,
+        Number(r.omzet || 0),
+        Number(r.total_deductions) || 0,
+        settlementPromoMap,
+      )
 
       return {
         outlet_id: r.outlet_id,
         outlet_name: '',
         sales_source: r.sales_source,
         sales_date: r.sales_date,
-        omzet: Number(r.omzet || 0),
+        omzet: reconciled.omzet,
         jumlah_order_completed: Number(r.jumlah_order_completed || 0),
         jumlah_order_all: Number(r.jumlah_order_completed || 0),
-        total_deductions: Number(r.total_deductions) || 0,
+        total_deductions: reconciled.total_deductions,
         platform_fee: platformFee,
       }
     })
+
+  // Tarik penjualan Ecommerce (Shopee, TikTok Shop, Web SS Online) identik 1:1 dengan useSalesDaily.ts
+  const allEcommerceRows: any[] = []
+  if (scope !== 'mitra') {
+    const fromIso = new Date(`${from}T00:00:00+07:00`).toISOString()
+    const toIso = new Date(`${to}T23:59:59.999+07:00`).toISOString()
+    let ecommerceSalesList: any[] = []
+    try {
+      ecommerceSalesList = await fetchAllPagesParallel<any>(
+        (pFrom, pTo, withCount) =>
+          supabase
+            .from('ecommerce_sales')
+            .select(
+              'id, channel_id, order_date, total_amount, raw_data',
+              withCount ? { count: 'exact' } : undefined,
+            )
+            .gte('order_date', fromIso)
+            .lte('order_date', toIso)
+            .order('order_date', { ascending: true })
+            .order('id', { ascending: true })
+            .range(pFrom, pTo),
+        1000,
+      )
+    } catch (ecommerceError) {
+      console.error('profitExportFetcher ecommerce error:', ecommerceError)
+    }
+
+    const ecommerceSummaryMap = new Map<string, any>()
+    for (const saleRecord of ecommerceSalesList) {
+      const raw = saleRecord.raw_data || {}
+      const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+      const omzetKotor = Number(saleRecord.total_amount) || 0
+      const omzetNet = Math.max(0, omzetKotor - totalPotongan)
+
+      const d = new Date(saleRecord.order_date)
+      const dateStr = new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+      const chNorm = (saleRecord.channel_id || '').toLowerCase()
+      let salesSource = 'online'
+      if (chNorm.includes('tiktok') || chNorm === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5') {
+        salesSource = 'tiktok_shop'
+      } else if (chNorm.includes('shopee') || chNorm === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584') {
+        salesSource = 'shopee_shop'
+      }
+
+      const key = `ss-online__${salesSource}__${dateStr}`
+      const existing = ecommerceSummaryMap.get(key) || {
+        outlet_id: 'ss-online',
+        outlet_name: 'SS ONLINE',
+        sales_source: salesSource,
+        sales_date: dateStr,
+        omzet: 0,
+        jumlah_order_completed: 0,
+        jumlah_order_all: 0,
+        total_deductions: 0,
+        platform_fee: 0,
+      }
+      existing.omzet += omzetNet
+      existing.jumlah_order_completed += 1
+      existing.jumlah_order_all += 1
+      existing.total_deductions = (existing.total_deductions || 0) + totalPotongan
+      ecommerceSummaryMap.set(key, existing)
+    }
+
+    allEcommerceRows.push(...Array.from(ecommerceSummaryMap.values()))
+  }
+
+  const salesRows = [...posSalesRows, ...allEcommerceRows]
 
   // 2. Ambil Pengeluaran (expenses & petty cash)
   onProgress?.('Mengambil data beban operasional...')
@@ -250,8 +328,8 @@ export async function fetchProfitExportData({
   const tiktokSettlements = settlementRes.success && settlementRes.data ? settlementRes.data.tiktokSummaries : {}
   const platformSettlements = settlementRes.success && settlementRes.data ? settlementRes.data.byOutletPlatform : {}
 
-  // Selaraskan salesRows dengan settlement platform (GoFood & ShopeeFood Single Source of Truth)
-  const reconciledSalesRows = reconcileSalesRowsWithSettlements(salesRows, platformSettlements)
+  // Baris penjualan sudah direkonsiliasi per (outlet_id, platform, tanggal) di atas (1:1 dengan useSalesDaily.ts)
+  const reconciledSalesRows = salesRows
 
   // 6. Evaluasi Scope & Kemitraan
   onProgress?.('Menganalisis & menghitung angka laba rugi...')

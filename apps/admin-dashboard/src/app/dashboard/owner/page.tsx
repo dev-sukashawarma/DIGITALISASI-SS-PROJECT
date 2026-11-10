@@ -7,7 +7,11 @@ import OwnerDashboardView from './OwnerDashboardView'
 import DashboardLoadError from './DashboardLoadError'
 import type { SalesSource, PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
-import { hitungOpexLabaRugi, hitungWastePeriode } from '@/lib/server/opexLabaRugi'
+import {
+  hitungOpexLabaRugi,
+  hitungWastePeriode,
+  hitungPendapatanLainPeriode,
+} from '@/lib/server/opexLabaRugi'
 import { ambilInvestasiMitraServer } from '@/lib/server/mitraInvestasiServer'
 import { computeSingleMitraManagementFee } from '@/lib/ownerDashboardAlign'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -96,11 +100,13 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const acuanLabaRugi = async (f: PeriodFilterValue) => {
     if (!pakaiAcuan) return null
     try {
-      const [opex, waste] = await Promise.all([
+      const sertakanPendapatanLain = !isReadOnly && hasKeuanganRole && f.outletId === 'all'
+      const [opex, waste, pendapatanLain] = await Promise.all([
         hitungOpexLabaRugi(f, outlets, { skipRoleCheck: true }),
         hitungWastePeriode(serviceSupabase, f),
+        sertakanPendapatanLain ? hitungPendapatanLainPeriode(serviceSupabase, f) : Promise.resolve(0),
       ])
-      return { opex: opex.total, waste }
+      return { opex: opex.total, waste, pendapatanLain }
     } catch (err) {
       console.error('[owner-dashboard] OPEX acuan Laba Rugi gagal, memakai angka RPC:', err)
       return null
@@ -155,6 +161,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const prevOpex = curAcuan ? (prevAcuan?.opex ?? 0) : prevData.totalOpex
   const curWaste = curAcuan?.waste ?? 0
   const prevWaste = curAcuan ? (prevAcuan?.waste ?? 0) : 0
+  const curPendapatanLain = curAcuan?.pendapatanLain ?? 0
+  const prevPendapatanLain = curAcuan ? (prevAcuan?.pendapatanLain ?? 0) : 0
   // Margin pasokan bahan mitra: Laba Rugi Global mengakuinya sebagai pendapatan
   // pusat (HPP mitra di kartu COGS sudah ber-markup 10%). Hanya saat semua
   // outlet digabung — di situ kedua kantongnya sama-sama ada di layar.
@@ -216,6 +224,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       prevWaste={prevWaste}
       curMarginMitra={curMarginMitra}
       prevMarginMitra={prevMarginMitra}
+      curPendapatanLain={curPendapatanLain}
+      prevPendapatanLain={prevPendapatanLain}
       curMgmtFee={curMgmtFee}
       prevMgmtFee={prevMgmtFee}
       opexAcuanLabaRugi={Boolean(curAcuan)}

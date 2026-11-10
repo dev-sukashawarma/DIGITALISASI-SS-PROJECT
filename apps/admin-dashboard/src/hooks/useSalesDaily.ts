@@ -6,6 +6,11 @@ import type { SalesSummaryRow, PeriodFilterValue, SalesSource } from '@/lib/type
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPagesParallel } from '@/lib/queryPaging'
 import { periodCacheOptions, withPeriodCache } from '@/lib/periodCache'
+import {
+  normalizeSettlementPlatform,
+  reconcileRowPromoWithSettlement,
+  splitDateRangeChunks,
+} from '@/lib/ownerDashboardAlign'
 
 // Ringkasan harian per outlet × sumber langsung dari view DB `sales_daily_scoped`.
 // Sangat cepat karena dihitung langsung di database menggunakan covering & functional indexes.
@@ -23,13 +28,13 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       // Halaman Untung Rugi & Rekap Bulanan sempat melaporkan rugi palsu
       // karena ini. Selalu ambil sampai halaman terakhir.
       const PAGE_SIZE = 1000
-      const buildSalesQuery = () => {
+      const buildSalesQuery = (chunkFrom: string, chunkTo: string) => {
         let b = supabase
           .from('sales_daily_scoped')
           .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
           .neq('outlet_id', TEST_OUTLET_ID)
-          .gte('sales_date', filter.from)
-          .lte('sales_date', filter.to)
+          .gte('sales_date', chunkFrom)
+          .lte('sales_date', chunkTo)
           // Urutan HARUS unik. Grain view ini adalah (outlet_id, sales_source,
           // sales_date) -- mengurut hanya dengan (sales_date, outlet_id)
           // menyisakan sampai 6 baris kembar (satu per sales_source), dan batas
@@ -46,23 +51,18 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         return b
       }
 
-      // SENGAJA berurutan, bukan paralel. `sales_daily_scoped` adalah view
-      // beragregat: tiap halaman menjalankan ulang SELURUH agregasi (~2,4 detik
-      // untuk satu bulan), jadi biayanya CPU database, bukan waktu tunggu
-      // jaringan. Diukur pada data produksi Agustus 2026 (2.930 baris, 3
-      // halaman): berurutan 7,3 detik vs paralel 7,7 detik — paralel tidak
-      // membantu sama sekali, hanya menaruh tiga agregasi berat sekaligus di
-      // database yang dipakai bersama app lain. Percepatan sesungguhnya untuk
-      // view ini ada di sisi DB (RPC yang mengagregasi per outlet), bukan di
-      // pola pengambilan halaman. Bandingkan `orders` di useHpp, yang justru
-      // terikat jaringan sehingga paralel di sana memangkas 8,2 detik jadi 4,3.
+      // SENGAJA berurutan dalam potongan <= 10 hari agar view agregat `sales_daily_scoped`
+      // tidak pernah menyentuh `statement_timeout` 8 detik PostgreSQL pada rentang 1 bulan penuh
+      // (~3.100 baris di Oktober 2026), sekaligus tidak membebani CPU DB dengan kueri paralel.
       const salesData: any[] = []
-      for (let offset = 0; ; offset += PAGE_SIZE) {
-        const { data, error } = await buildSalesQuery().range(offset, offset + PAGE_SIZE - 1)
-        if (error) throw error
-        const page = data ?? []
-        salesData.push(...page)
-        if (page.length < PAGE_SIZE) break
+      for (const chunk of splitDateRangeChunks(filter.from, filter.to, 10)) {
+        for (let offset = 0; ; offset += PAGE_SIZE) {
+          const { data, error } = await buildSalesQuery(chunk.from, chunk.to).range(offset, offset + PAGE_SIZE - 1)
+          if (error) throw error
+          const page = data ?? []
+          salesData.push(...page)
+          if (page.length < PAGE_SIZE) break
+        }
       }
 
       // Tarik komisi platform dari platform_settlements untuk rentang tanggal yang dipilih
@@ -88,19 +88,10 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         console.error('useSalesDaily platform_settlements error:', settlementError)
       }
 
-      const normalizePlatform = (src: string) => {
-        const s = (src || '').toLowerCase()
-        if (s.includes('gofood') || s.includes('gojek')) return 'gofood'
-        if (s.includes('grab')) return 'grabfood'
-        if (s.includes('shopee')) return 'shopeefood'
-        if (s.includes('tiktok')) return 'tiktokgo'
-        return s
-      }
-
       const settlementCommissionMap = new Map<string, number>()
       const settlementPromoMap = new Map<string, number>()
       for (const s of settlementList) {
-        const plat = normalizePlatform(s.platform)
+        const plat = normalizeSettlementPlatform(s.platform)
         const key = `${s.outlet_id}__${plat}__${s.tanggal}`
         settlementCommissionMap.set(key, (settlementCommissionMap.get(key) || 0) + (Number(s.commission) || 0))
         if (s.promo_merchant !== null && s.promo_merchant !== undefined) {
@@ -117,40 +108,26 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       const posRows: SalesSummaryRow[] = salesData
         .filter((r: any) => !isTestOutlet(r.outlet_id))
         .map((r: any) => {
-          let totalDed = Number(r.total_deductions) || 0
-          const plat = normalizePlatform(r.sales_source)
+          const plat = normalizeSettlementPlatform(r.sales_source)
           const key = `${r.outlet_id}__${plat}__${r.sales_date}`
           const platformFee = settlementCommissionMap.get(key) || 0
-
-          // Rekonsiliasi audit promo merchant dari settlement (GoFood & ShopeeFood):
-          // Jika settlement resmi diupload, promo merchant dari settlement menjadi Single Source of Truth
-          // (mengoreksi salah input kasir di GoFood & selisih void/drift di ShopeeFood)
-          if (settlementPromoMap.has(key) && (plat === 'gofood' || plat === 'shopeefood')) {
-            const settlementPromo = settlementPromoMap.get(key) || 0
-            const rawGross = (Number(r.omzet) || 0) + totalDed
-            totalDed = settlementPromo
-            return {
-              outlet_id: r.outlet_id,
-              outlet_name: '',
-              sales_source: r.sales_source as SalesSource,
-              sales_date: r.sales_date,
-              omzet: Math.max(0, rawGross - totalDed),
-              jumlah_order_completed: Number(r.jumlah_order_completed || 0),
-              jumlah_order_all: Number(r.jumlah_order_completed || 0),
-              total_deductions: totalDed,
-              platform_fee: platformFee,
-            }
-          }
+          const reconciled = reconcileRowPromoWithSettlement(
+            plat,
+            key,
+            Number(r.omzet) || 0,
+            Number(r.total_deductions) || 0,
+            settlementPromoMap,
+          )
 
           return {
             outlet_id: r.outlet_id,
             outlet_name: '',
             sales_source: r.sales_source as SalesSource,
             sales_date: r.sales_date,
-            omzet: Number(r.omzet || 0),
+            omzet: reconciled.omzet,
             jumlah_order_completed: Number(r.jumlah_order_completed || 0),
             jumlah_order_all: Number(r.jumlah_order_completed || 0),
-            total_deductions: totalDed,
+            total_deductions: reconciled.total_deductions,
             platform_fee: platformFee,
           }
         })

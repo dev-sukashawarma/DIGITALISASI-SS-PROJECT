@@ -33,6 +33,84 @@ export function normalizeSettlementPlatform(src: string | null | undefined): str
   return s
 }
 
+/**
+ * Memecah rentang tanggal `YYYY-MM-DD` menjadi potongan berurutan maksimal `maxDays` hari
+ * (inklusif, tanpa tumpang tindih dan tanpa tanggal hilang) agar query view agregat
+ * `sales_daily_scoped` tidak pernah menyentuh `statement_timeout` PostgreSQL pada rentang 1 bulan.
+ */
+export function splitDateRangeChunks(
+  from: string,
+  to: string,
+  maxDays = 10,
+): { from: string; to: string }[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) {
+    return [{ from, to }]
+  }
+  const DAY_MS = 86_400_000
+  const startMs = Date.parse(`${from}T00:00:00Z`)
+  const endMs = Date.parse(`${to}T00:00:00Z`)
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return [{ from, to }]
+  }
+  const stepDays = Math.max(1, Math.floor(maxDays))
+  const chunks: { from: string; to: string }[] = []
+  for (let cur = startMs; cur <= endMs; ) {
+    const chunkEnd = Math.min(endMs, cur + (stepDays - 1) * DAY_MS)
+    chunks.push({
+      from: new Date(cur).toISOString().slice(0, 10),
+      to: new Date(chunkEnd).toISOString().slice(0, 10),
+    })
+    cur = chunkEnd + DAY_MS
+  }
+  return chunks
+}
+
+/**
+ * Menyelaraskan potongan promo merchant satu baris harian `sales_daily_scoped` dengan
+ * `platform_settlements` & aturan Rangkuman Penjualan (`posReportKpi.ts`):
+ * - GoFood, ShopeeFood, GrabFood: memakai `promo_merchant` dari settlement bila tersedia;
+ *   fallback ke `total_deductions` kasir bila settlement tanggal tersebut belum diunggah.
+ * - TikTok Go: voucher pada POS (`promo_subsidy`) adalah 100% subsidi platform TikTok
+ *   (bukan beban merchant), sehingga `total_deductions` memakai `promo_merchant` settlement
+ *   bila tersedia atau `0` bila belum ada settlement, sambil menjaga Omzet Kotor tetap utuh.
+ */
+export function reconcileRowPromoWithSettlement(
+  plat: string,
+  key: string,
+  omzet: number,
+  totalDed: number,
+  settlementPromoMap: Map<string, number>,
+): { omzet: number; total_deductions: number } {
+  const safeOmzet = Number(omzet) || 0
+  const safeDed = Number(totalDed) || 0
+
+  if (plat === 'tiktokgo') {
+    const settlementPromo = settlementPromoMap.has(key) ? (settlementPromoMap.get(key) || 0) : 0
+    const rawGross = safeOmzet + safeDed
+    return {
+      omzet: Math.max(0, rawGross - settlementPromo),
+      total_deductions: settlementPromo,
+    }
+  }
+
+  if (
+    settlementPromoMap.has(key) &&
+    (plat === 'gofood' || plat === 'shopeefood' || plat === 'grabfood')
+  ) {
+    const settlementPromo = settlementPromoMap.get(key) || 0
+    const rawGross = safeOmzet + safeDed
+    return {
+      omzet: Math.max(0, rawGross - settlementPromo),
+      total_deductions: settlementPromo,
+    }
+  }
+
+  return {
+    omzet: safeOmzet,
+    total_deductions: safeDed,
+  }
+}
+
 /** Normalisasi baris per jam dari RPC (tahan terhadap alias lama `hourly_omzet` maupun baru `omzet`). */
 export function normalizeRpcHourlyRow(h: any): { sales_hour: number; omzet: number; order_count: number } {
   return {
@@ -53,10 +131,11 @@ export function normalizeRpcMenuRow(r: any): { menu_name: string; qty: number; r
 
 /**
  * Rekonsiliasi baris KPI penjualan POS/Food Apps dengan `platform_settlements`,
- * identik 1:1 dengan `useSalesDaily.ts` pada halaman Laba Rugi (`ProfitView`):
+ * identik 1:1 dengan `useSalesDaily.ts` pada halaman Laba Rugi (`ProfitView`) dan
+ * Rangkuman Penjualan (`posReportKpi.ts`):
  * - `platform_fee` diisi dari `commission` settlement resmi.
- * - Untuk GoFood & ShopeeFood yang sudah ada settlement resmi, `total_deductions`
- *   diganti `promo_merchant` settlement sambil menjaga Omzet Kotor (`omzet + total_deductions`) utuh.
+ * - GoFood, ShopeeFood, GrabFood, dan TikTok Go diselaraskan ke `promo_merchant` settlement
+ *   (dengan TikTok Go default 0 untuk subsidi voucher platform) sambil menjaga Omzet Kotor utuh.
  */
 export function reconcilePosKpiRowsWithSettlements(
   posRows: SalesSummaryRow[],
@@ -81,29 +160,22 @@ export function reconcilePosKpiRowsWithSettlements(
   return posRows
     .filter((r) => !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name))
     .map((r) => {
-      let totalDed = Number(r.total_deductions) || 0
       const plat = normalizeSettlementPlatform(r.sales_source)
       const key = `${r.outlet_id}__${plat}__${r.sales_date}`
       const platformFee = settlementCommissionMap.get(key) || 0
-
-      if (settlementPromoMap.has(key) && (plat === 'gofood' || plat === 'shopeefood')) {
-        const settlementPromo = settlementPromoMap.get(key) || 0
-        const rawGross = (Number(r.omzet) || 0) + totalDed
-        totalDed = settlementPromo
-        return {
-          ...r,
-          sales_source: r.sales_source as SalesSource,
-          omzet: Math.max(0, rawGross - totalDed),
-          total_deductions: totalDed,
-          platform_fee: platformFee,
-        }
-      }
+      const reconciled = reconcileRowPromoWithSettlement(
+        plat,
+        key,
+        Number(r.omzet) || 0,
+        Number(r.total_deductions) || 0,
+        settlementPromoMap,
+      )
 
       return {
         ...r,
         sales_source: r.sales_source as SalesSource,
-        omzet: Number(r.omzet) || 0,
-        total_deductions: totalDed,
+        omzet: reconciled.omzet,
+        total_deductions: reconciled.total_deductions,
         platform_fee: platformFee,
       }
     })
@@ -164,4 +236,28 @@ export function computeSingleMitraManagementFee(params: {
   })
 
   return policy.managementFeePct > 0 ? Math.round((gross * policy.managementFeePct) / 100) : 0
+}
+
+/**
+ * Menghitung Laba Bersih (Net) di halaman Ringkasan Bisnis (`KpiCards.tsx`)
+ * sehingga identik 1:1 dengan `computeCompanyProfit` di halaman Laba Rugi Global
+ * maupun Laba Bersih 1 outlet (Internal / Mitra).
+ */
+export function computeOwnerNetProfit(params: {
+  netMasuk: number
+  totalCogsOpex: number
+  waste?: number
+  marginMitra?: number
+  pendapatanLain?: number
+  mgmtFee?: number
+}): number {
+  const {
+    netMasuk,
+    totalCogsOpex,
+    waste = 0,
+    marginMitra = 0,
+    pendapatanLain = 0,
+    mgmtFee = 0,
+  } = params
+  return netMasuk - totalCogsOpex - waste + marginMitra + pendapatanLain - mgmtFee
 }

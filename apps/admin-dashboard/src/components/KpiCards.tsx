@@ -2,6 +2,7 @@
 import type { SalesSummaryRow } from '@/lib/types'
 import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import { aov, deltaPct, rupiah } from '@/lib/format'
+import { computeOwnerNetProfit } from '@/lib/ownerDashboardAlign'
 import CountUp from 'react-countup'
 import { TrendingUp, DollarSign, UtensilsCrossed, Boxes, Receipt } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -24,6 +25,9 @@ interface KpiCardsProps {
   /** Margin pasokan bahan mitra — menambah laba bersih pada cakupan Global, sama seperti Tab Laba Rugi. */
   curMarginMitra?: number
   prevMarginMitra?: number
+  /** Pendapatan Lain-lain pusat (income_lainnya Kas Office) — menambah Laba Perusahaan pada cakupan Global, 1:1 dengan Tab Laba Rugi. */
+  curPendapatanLain?: number
+  prevPendapatanLain?: number
   /** Management fee pusat (3% sblm BEP / 0% stlh BEP dari omzet kotor) saat melihat 1 outlet Mitra, 1:1 dengan Tab Laba Rugi. */
   curMgmtFee?: number
   prevMgmtFee?: number
@@ -50,6 +54,8 @@ export function KpiCards({
   prevWaste = 0,
   curMarginMitra = 0,
   prevMarginMitra = 0,
+  curPendapatanLain = 0,
+  prevPendapatanLain = 0,
   curMgmtFee = 0,
   prevMgmtFee = 0,
   opexAcuanLabaRugi = false,
@@ -112,9 +118,23 @@ export function KpiCards({
   const prevTotalPcs = prevHasTotalQtyField ? prevKpiTotalPcs : prevMenuTotalPcs
 
   // Laba Bersih (Net) 1:1 dengan Tab Laba Rugi:
-  // Net Masuk - (HPP + Waste + OPEX) + Margin Bahan Mitra (global) - Management Fee Pusat (single Mitra)
-  const netProfit = netMasuk - totalCurCogsOpex - curWaste + curMarginMitra - curMgmtFee
-  const prevNetProfit = prevNetMasuk - totalPrevCogsOpex - prevWaste + prevMarginMitra - prevMgmtFee
+  // Net Masuk - (HPP + Waste + OPEX) + Margin Bahan Mitra (global) + Pendapatan Lain-lain (global) - Management Fee Pusat (single Mitra)
+  const netProfit = computeOwnerNetProfit({
+    netMasuk,
+    totalCogsOpex: totalCurCogsOpex,
+    waste: curWaste,
+    marginMitra: curMarginMitra,
+    pendapatanLain: curPendapatanLain,
+    mgmtFee: curMgmtFee,
+  })
+  const prevNetProfit = computeOwnerNetProfit({
+    netMasuk: prevNetMasuk,
+    totalCogsOpex: totalPrevCogsOpex,
+    waste: prevWaste,
+    marginMitra: prevMarginMitra,
+    pendapatanLain: prevPendapatanLain,
+    mgmtFee: prevMgmtFee,
+  })
 
   const dGross = deltaPct(grossRevenue, prevGrossRevenue)
   const dCogs = prevBebanPokok > 0 ? deltaPct(curBebanPokok, prevBebanPokok) : null

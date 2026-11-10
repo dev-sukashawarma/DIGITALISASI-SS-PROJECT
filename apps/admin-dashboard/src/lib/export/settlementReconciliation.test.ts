@@ -8,8 +8,6 @@ describe('reconcileSalesRowsWithSettlements', () => {
       { outlet_id: outletId, sales_source: 'gofood', sales_date: '2026-09-01', omzet: 100_000, total_deductions: 20_000 },
       { outlet_id: outletId, sales_source: 'gofood', sales_date: '2026-09-02', omzet: 200_000, total_deductions: 40_000 },
     ]
-    // Total cashier deductions = 60,000. Total gross = 120,000 + 240,000 = 360,000.
-    // Target settlement promo = 80,000.
     const settlementsMap = {
       [`${outletId}|gofood`]: { promoMerchant: 80_000, commission: 50_000, omzetKotor: 360_000 },
     }
@@ -29,7 +27,7 @@ describe('reconcileSalesRowsWithSettlements', () => {
       { outlet_id: cicurugId, sales_source: 'pos', sales_date: '2026-09-15', omzet: 68_002_000, total_deductions: 0 },
       { outlet_id: cicurugId, sales_source: 'gofood', sales_date: '2026-09-15', omzet: 2_536_975, total_deductions: 398_025 },
       { outlet_id: cicurugId, sales_source: 'shopeefood', sales_date: '2026-09-15', omzet: 30_453_762, total_deductions: 11_412_238 },
-      { outlet_id: cicurugId, sales_source: 'tiktok', sales_date: '2026-09-15', omzet: 18_916_000, total_deductions: 0 },
+      { outlet_id: cicurugId, sales_source: 'tiktok', sales_date: '2026-09-15', omzet: 18_816_000, total_deductions: 100_000 },
     ]
 
     const settlementsMap = {
@@ -53,8 +51,8 @@ describe('reconcileSalesRowsWithSettlements', () => {
 
     expect(posRow.total_deductions).toBe(0)
     expect(tiktokRow.total_deductions).toBe(0)
+    expect(tiktokRow.omzet).toBe(18_916_000)
 
-    // Total Potongan Merchant Food Apps = 478,935 + 11,400,238 = 11,879,173 (Card Biru)
     const foodAppsDeductions = gofoodRow.total_deductions + shopeeRow.total_deductions
     expect(foodAppsDeductions).toBe(11_879_173)
   })
@@ -74,12 +72,15 @@ describe('reconcileSalesRowsWithSettlements', () => {
     expect(reconciled[0].omzet + reconciled[0].total_deductions).toBe(9_764_694 + 5_111_306)
   })
 
-  it('does nothing when no settlement is present', () => {
+  it('does nothing when no settlement is present for Food Apps, and zeroes cashier voucher subsidy for TikTok Go', () => {
     const salesRows = [
       { outlet_id: 'outlet-1', sales_source: 'gofood', sales_date: '2026-09-01', omzet: 100_000, total_deductions: 20_000 },
+      { outlet_id: 'outlet-1', sales_source: 'tiktok', sales_date: '2026-09-01', omzet: 450_000, total_deductions: 50_000 },
     ]
     const reconciled = reconcileSalesRowsWithSettlements(salesRows, {})
     expect(reconciled[0].total_deductions).toBe(20_000)
     expect(reconciled[0].omzet).toBe(100_000)
+    expect(reconciled[1].total_deductions).toBe(0)
+    expect(reconciled[1].omzet).toBe(500_000)
   })
 })

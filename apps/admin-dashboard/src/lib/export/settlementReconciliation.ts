@@ -10,8 +10,10 @@ export interface SettlementPromoSummary {
  *
  * Aturan Bisnis:
  * 1. File rekonsiliasi platform settlement (`platform_settlements`) adalah Single Source of Truth.
- * 2. GoFood, ShopeeFood, dan GrabFood menggunakan promo_merchant dari settlement jika tersedia.
- * 3. Jika settlement untuk platform tersebut belum diunggah, fallback ke input kasir (sales_daily).
+ * 2. GoFood, ShopeeFood, dan GrabFood menggunakan promo_merchant dari settlement jika tersedia;
+ *    jika belum diunggah, fallback ke input kasir (sales_daily).
+ * 3. TikTok Go menggunakan promo_merchant dari settlement jika tersedia, atau 0 jika belum diunggah
+ *    karena voucher pada POS TikTok Go adalah 100% subsidi platform (bukan diskon merchant).
  * 4. Gross Revenue (omzet + total_deductions) DIJAGA TETAP KONSISTEN:
  *    Ketika total_deductions diselaraskan, omzet disesuaikan sehingga (omzet + total_deductions)
  *    selalu sama persis dengan Omzet Kotor sebelum rekonsiliasi.
@@ -39,12 +41,14 @@ export function reconcileSalesRowsWithSettlements(
     { plat: 'gofood', sources: ['gofood'] },
     { plat: 'shopeefood', sources: ['shopeefood'] },
     { plat: 'grabfood', sources: ['grabfood'] },
+    { plat: 'tiktokgo', sources: ['tiktok', 'tiktok_go', 'tiktokgo'] },
   ]
 
   for (const oid of outletIds) {
     for (const { plat, sources } of platformsToReconcile) {
       const st = getSettlement(`${oid}|${plat}`)
-      if (!st || st.promoMerchant === undefined || st.promoMerchant === null) continue
+      const hasStPromo = st !== undefined && st.promoMerchant !== undefined && st.promoMerchant !== null
+      if (!hasStPromo && plat !== 'tiktokgo') continue
 
       // Temukan baris sales_daily untuk outlet & platform ini
       const matchingRows = result.filter(
@@ -52,7 +56,7 @@ export function reconcileSalesRowsWithSettlements(
       )
       if (matchingRows.length === 0) continue
 
-      const targetPromo = Math.max(0, Number(st.promoMerchant) || 0)
+      const targetPromo = hasStPromo ? Math.max(0, Number(st!.promoMerchant) || 0) : 0
       const currentCashierPromo = matchingRows.reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0)
       const totalGross = matchingRows.reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
 

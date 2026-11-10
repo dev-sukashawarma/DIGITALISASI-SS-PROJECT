@@ -62,6 +62,8 @@ interface OwnerDashboardViewProps {
   prevWaste?: number
   curMarginMitra?: number
   prevMarginMitra?: number
+  curPendapatanLain?: number
+  prevPendapatanLain?: number
   curMgmtFee?: number
   prevMgmtFee?: number
   opexAcuanLabaRugi?: boolean
@@ -106,6 +108,8 @@ export default function OwnerDashboardView({
   prevWaste,
   curMarginMitra,
   prevMarginMitra,
+  curPendapatanLain,
+  prevPendapatanLain,
   curMgmtFee,
   prevMgmtFee,
   opexAcuanLabaRugi,
@@ -220,6 +224,8 @@ export default function OwnerDashboardView({
             prevWaste={prevWaste}
             curMarginMitra={curMarginMitra}
             prevMarginMitra={prevMarginMitra}
+            curPendapatanLain={curPendapatanLain}
+            prevPendapatanLain={prevPendapatanLain}
             curMgmtFee={curMgmtFee}
             prevMgmtFee={prevMgmtFee}
             opexAcuanLabaRugi={opexAcuanLabaRugi}

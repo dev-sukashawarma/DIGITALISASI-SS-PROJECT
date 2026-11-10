@@ -8,6 +8,13 @@ vi.mock('@/lib/server/telegram', () => ({
   supabaseAdmin: vi.fn(),
 }))
 
+vi.mock('@/lib/server/telegramVoice', () => ({
+  transkripsiVoiceTelegram: vi.fn().mockResolvedValue({
+    ok: true,
+    teks: 'Berapa omzet cabang hari ini?',
+  }),
+}))
+
 vi.mock('@/lib/server/aiRouter', () => ({
   tanyaAiRouter: vi.fn().mockImplementation(async function* () {
     yield 'Laporan Omzet Hari Ini: Rp 15.000.000 dari 150 order.'
@@ -284,6 +291,45 @@ describe('POST /api/telegram/ceo/webhook', () => {
     expect(res.status).toBe(200)
     expect(json.ok).toBe(true)
     expect(kirimAksiChatTelegram).toHaveBeenCalledWith('111111', 'typing', 'ceo')
+    expect(kirimPesanTelegram).toHaveBeenCalledWith(
+      '111111',
+      expect.stringContaining('15.000.000'),
+      undefined,
+      'ceo'
+    )
+  })
+
+  it('mentranskripsi dan membalas pesan suara (Voice Note) Telegram dari owner terdaftar', async () => {
+    vi.mocked(supabaseAdmin).mockReturnValue({
+      from: vi.fn().mockImplementation((table: string) => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: table === 'bot_telegram_links'
+            ? {
+                staff_id: 'staf-owner-1',
+                outlet_staff: { id: 'staf-owner-1', name: 'Pak Boss', role: 'owner', status: 'active' },
+              }
+            : null,
+          error: null,
+        }),
+      })),
+    } as any)
+
+    const req = buatRequest({
+      update_id: 7,
+      message: {
+        message_id: 16,
+        from: { id: 111111, first_name: 'Boss' },
+        chat: { id: 111111, type: 'private' },
+        voice: { file_id: 'voice-file-123', mime_type: 'audio/ogg', duration: 3 },
+      },
+    })
+
+    const res = await POST(req)
+    const json = await res.json()
+    expect(res.status).toBe(200)
+    expect(json.ok).toBe(true)
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '111111',
       expect.stringContaining('15.000.000'),

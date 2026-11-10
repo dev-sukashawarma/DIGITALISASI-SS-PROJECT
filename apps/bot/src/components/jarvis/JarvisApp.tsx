@@ -505,7 +505,7 @@ export default function JarvisApp({
           waktuBicaraTerakhirRef.current = Date.now()
           setSedangMendengar(false)
           setSedangMemproses(false)
-          setTranskripLive('')
+          setTranskripLive(`"${teksFinal}" — Menyiapkan jawaban...`)
           setInputPerintah('')
           void eksekusiPerintahJarvis(teksFinal, true)
         },
@@ -787,10 +787,15 @@ export default function JarvisApp({
       const dekoder = new TextDecoder()
       let terkumpul = ''
 
+      let chunkPertamaMasuk = false
       for (;;) {
         const { value, done } = await pembaca.read()
         if (done) break
         const potongan = dekoder.decode(value, { stream: true })
+        if (!chunkPertamaMasuk && potongan.trim()) {
+          chunkPertamaMasuk = true
+          setTranskripLive('')
+        }
         terkumpul += potongan
         setJawabanHologram(terkumpul)
         setRiwayatHologram((prev) =>
@@ -858,6 +863,11 @@ export default function JarvisApp({
       if (!apakahSedangMendengar()) {
         setSedangMendengar(false)
       }
+      return
+    }
+
+    // Jika sedang mengenali suara / menyusun jawaban (/api/chat berjalan), jangan timpa sesi agar jawaban yang sedang datang tidak terputus!
+    if (sedangMemproses) {
       return
     }
 

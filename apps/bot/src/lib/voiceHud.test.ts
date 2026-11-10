@@ -434,4 +434,24 @@ describe('voiceHud & naturalisasiTeksSuara', () => {
       configurable: true,
     })
   })
+
+  it('evaluasiFrameVad kebal terhadap lonjakan klik/pop awal mikrofon (rms 0.08 di frame 1) dan tetap peka mendengar ucapan normal', () => {
+    let t = 20_000
+    const st = buatStatusVadAwal(t)
+
+    // Frame 1: Lonjakan klik mouse / DC pop mikrofon saat baru dibuka (rms = 0.08)
+    expect(evaluasiFrameVad(st, 0.08, 0.2, t, 1100)).toBe('lanjut')
+
+    // 3 frame hening ruangan normal (~0.002 RMS) -> noiseFloorRms langsung turun cepat!
+    for (let i = 0; i < 3; i++) {
+      t += 45
+      expect(evaluasiFrameVad(st, 0.002, 0.005, t, 1100)).toBe('lanjut')
+    }
+
+    // Pengguna langsung bicara normal (~0.014 RMS — sebelumnya terbutakan oleh ambang 0.075!)
+    t += 45
+    expect(evaluasiFrameVad(st, 0.014, 0.035, t, 1100)).toBe('lanjut')
+    t += 45
+    expect(evaluasiFrameVad(st, 0.015, 0.038, t, 1100)).toBe('mulai_bicara')
+  })
 })

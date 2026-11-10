@@ -17,6 +17,7 @@ import {
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
 import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
 import { tanyaAiRouter } from '@/lib/server/aiRouter'
+import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 150
@@ -85,7 +86,8 @@ export async function POST(req: Request) {
       let jawaban = ''
       try {
         let suksesHermes = false
-        if (baseUrl && kunci && apakahHermesSehat(pc.profil)) {
+        // Pada modeSuara (Voice-to-Voice real-time), langsung gunakan jalur cepat AI Router + Telemetri agar tidak tertahan timeout Hermes 4 detik!
+        if (!modeSuara && baseUrl && kunci && apakahHermesSehat(pc.profil)) {
           try {
             for await (const t of tanyaHermes({
               baseUrl,
@@ -129,8 +131,11 @@ export async function POST(req: Request) {
           if (!suksesHermes) jawaban = ''
           const telemetri = await ambilTelemetriNyata()
 
-          // Gunakan AI Router (9Router) dengan fallback konfigurasi default jika env server belum diset
+          // Gunakan AI Router (9Router) dengan konfigurasi terpusat dari Supabase jarvis_voice_config / env
           let suksesAi = false
+          const voiceCfg = await ambilKonfigurasiVoiceServer().catch(() => null)
+          if (!process.env.AI_BASE_URL && voiceCfg?.aiBaseUrl) process.env.AI_BASE_URL = voiceCfg.aiBaseUrl
+          if (!process.env.AI_API_KEY && voiceCfg?.aiApiKey) process.env.AI_API_KEY = voiceCfg.aiApiKey
           if (!process.env.AI_BASE_URL) process.env.AI_BASE_URL = 'http://76.13.193.138:20128/v1'
           if (!process.env.AI_API_KEY) process.env.AI_API_KEY = 'sk-09f612c52578948f-zfpefg-d18a0fd3'
           if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {

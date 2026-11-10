@@ -834,15 +834,15 @@ export function evaluasiFrameVad(
 
   state.zeroRmsFrames = 0
 
-  // Frame pertama (45ms awal saat mikrofon baru terbuka) digunakan untuk mengunci baseline kebisingan ruangan
-  // (baik kamar hening ~0.0015 maupun kafe/mobil/AC ~0.015) agar kebisingan latar tidak langsung salah dikira suara bicara!
+  // Frame pertama (45ms awal saat mikrofon baru terbuka) mengunci baseline awal dengan batas atas aman (0.016)
+  // agar bunyi klik mouse / pop hardware saat membuka mic TIDAK PERNAH membutakan ambang deteksi suara!
   if (!state.noiseSudahTerkalibrasi) {
     state.noiseSudahTerkalibrasi = true
-    state.noiseFloorRms = Math.max(0.0012, Math.min(0.035, rms))
+    state.noiseFloorRms = Math.max(0.0012, Math.min(0.016, rms))
     return 'lanjut'
   }
 
-  const ambangMulai = Math.max(0.0042, state.noiseFloorRms * 2.15)
+  const ambangMulai = Math.max(0.0042, Math.min(0.038, state.noiseFloorRms * 2.15))
   const ambangMasihBicara = state.pernahBicara
     ? Math.max(0.0038, state.noiseFloorRms * 1.65, Math.min(0.025, state.peakSpeechRms * 0.26))
     : ambangMulai
@@ -866,8 +866,12 @@ export function evaluasiFrameVad(
       return 'lanjut'
     } else {
       state.speechFramesBerturut = 0
-      const clampedRms = Math.max(0.0012, Math.min(0.035, rms))
-      state.noiseFloorRms = state.noiseFloorRms * 0.92 + clampedRms * 0.08
+      const clampedRms = Math.max(0.0012, Math.min(0.018, rms))
+      // Minimum-Statistics: turun cepat (0.5/0.5) jika ruangan ternyata hening sesudah klik awal, naik perlahan (0.92/0.08) di ruang bising
+      state.noiseFloorRms =
+        clampedRms < state.noiseFloorRms
+          ? state.noiseFloorRms * 0.5 + clampedRms * 0.5
+          : state.noiseFloorRms * 0.92 + clampedRms * 0.08
       if (sekarang - state.waktuMulaiSesi > 18_000) {
         return 'timeout_hening'
       }
@@ -1043,6 +1047,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
   const sessionId = ++micSessionToken
   activeMicOptions = options
   let teksWebSpeech = ''
+  let adaFinalWebSpeech = false
   let sudahSelesai = false
   // Responsif begitu kalimat selesai (1.2 detik di iPhone, 1.1 detik di desktop)
   const jedaAuto = options.autoKirimDelayMs ?? (isIos ? 1200 : 1100)
@@ -1076,6 +1081,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         const hasil = gabungan.trim()
         if (hasil) {
           teksWebSpeech = hasil
+          if (adaFinal) adaFinalWebSpeech = true
           options.onHasil(hasil, adaFinal)
 
           if (webSpeechTimer) clearTimeout(webSpeechTimer)
@@ -1257,8 +1263,8 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           return
         }
 
-        // Prioritas 1: Jika Web Speech API sudah menangkap teks kalimat secara utuh
-        if (teksWebSpeech.trim().length >= 2) {
+        // Prioritas 1: Jika Web Speech API sudah menghasilkan transkrip FINAL utuh (0ms latensi di Chrome desktop)
+        if (adaFinalWebSpeech && teksWebSpeech.trim().length >= 3) {
           const finalTeks = teksWebSpeech.trim()
           options.onHasil(finalTeks, true)
           options.onFinalOtomatis?.(finalTeks)
@@ -1292,7 +1298,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           options.onHasil('⏳ Mengenali suara Anda...', false)
           const sttCtrl = new AbortController()
           sttAbortController = sttCtrl
-          const sttTimeout = setTimeout(() => sttCtrl.abort(), 11_500)
+          const sttTimeout = setTimeout(() => sttCtrl.abort(), 18_000)
           try {
             const res = await fetch('/api/voice/stt', {
               method: 'POST',
@@ -1320,6 +1326,15 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
               sttAbortController = null
             }
           }
+        }
+
+        // Fallback: bila server STT gagal/timeout tetapi WebSpeech sempat menangkap kata interim yang valid
+        if (teksWebSpeech.trim().length >= 2) {
+          const finalCadangan = teksWebSpeech.trim()
+          options.onHasil(finalCadangan, true)
+          options.onFinalOtomatis?.(finalCadangan)
+          options.onSelesai?.()
+          return
         }
 
         options.onHasil('', true)

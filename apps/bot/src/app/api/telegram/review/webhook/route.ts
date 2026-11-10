@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { kirimAksiChatTelegram, kirimPesanTelegram, supabaseAdmin } from '@/lib/server/telegram'
+import { transkripsiVoiceTelegram } from '@/lib/server/telegramVoice'
 import { tanyaHermes, kunciProfil, apakahHermesSehat, catatHermesGagal, catatHermesSukses, HERMES_INTERACTIVE_TIMEOUT_MS } from '@/lib/hermes'
 import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
 import { tanyaAiRouter } from '@/lib/server/aiRouter'
@@ -24,6 +25,17 @@ interface TelegramUpdate {
       type: string
     }
     text?: string
+    caption?: string
+    voice?: {
+      file_id: string
+      mime_type?: string
+      duration?: number
+    }
+    audio?: {
+      file_id: string
+      mime_type?: string
+      duration?: number
+    }
   }
 }
 
@@ -43,15 +55,36 @@ export async function POST(req: NextRequest) {
   }
 
   const msg = update.message
-  if (!msg || !msg.text || !msg.from) {
+  const voiceFileId = msg?.voice?.file_id || msg?.audio?.file_id
+  const rawText = msg?.text || msg?.caption
+  if (!msg || !msg.from || (!rawText && !voiceFileId)) {
     return NextResponse.json({ ok: true, ignored: true })
   }
 
-  const text = msg.text.trim()
   const fromId = String(msg.from.id)
   const chatId = String(msg.chat.id)
   const fromUsername = msg.from.username ?? ''
   const fromFirstName = msg.from.first_name ?? 'Rekan'
+
+  let text = (rawText || '').trim()
+  if (!text && voiceFileId) {
+    await kirimAksiChatTelegram(chatId, 'typing', 'review')
+    const hasilStt = await transkripsiVoiceTelegram(
+      voiceFileId,
+      'review',
+      msg.voice?.mime_type || msg.audio?.mime_type
+    )
+    if (!hasilStt.ok || hasilStt.teks.length < 2) {
+      await kirimPesanTelegram(
+        chatId,
+        '🎙️ Maaf, pesan suara belum terdengar jelas. Silakan ucapkan kembali sedikit lebih dekat ke mikrofon atau ketik instruksi Anda.',
+        undefined,
+        'review'
+      )
+      return NextResponse.json({ ok: true, voice_empty: true })
+    }
+    text = hasilStt.teks
+  }
 
   try {
     // ─────────────────────────────────────────────────────────── Command /start

@@ -215,9 +215,13 @@ Status Singkat Suka Shawarma (${t?.tanggalWIB || 'Hari Ini'}):
 - INSTRUKSI OBROLAN RINGAN: Pengguna sedang menyapa santai, menanyakan kabar, atau membalas ringan. Jawab dengan hangat, luwes, akrab namun tetap sopan selayaknya Chief of Staff / asisten pribadi kepercayaan yang ngobrol tatap muka ("Sir"). Cukup 1-2 kalimat bahasa lisan Indonesia yang alami (boleh selipkan sekilas situasi cabang hari ini bila pas, TANPA tabel panjang dan TANPA jargon robotik seperti "modul beroperasi dalam efisiensi optimal").
 `.trim()
   } else if (t) {
+    const ringkasSuaraCepat = Boolean(o.modeSuara && !butuhDeep)
     const formatBarisOutlet = (out: any, i: number) => {
       const aov = out.orderCount > 0 ? Math.round(out.omzet / out.orderCount) : 0
       const net = out.omzetBersih !== undefined ? ` | Net: ${formatRupiah(out.omzetBersih)}` : ''
+      if (ringkasSuaraCepat) {
+        return `${i + 1}. ${out.nama} [${out.type}]: Kotor ${formatRupiah(out.omzet)}${net} (${out.orderCount} struk, AOV ${formatRupiah(aov)})`
+      }
       const pot = out.potongan ? ` | Potongan: ${formatRupiah(out.potongan)}` : ''
       const hpp = out.totalHpp !== undefined ? ` | HPP: ${formatRupiah(out.totalHpp)} | Laba Kotor: ${formatRupiah(out.labaKotor || 0)}` : ''
       const porsi = out.totalPorsi !== undefined ? `, ${out.totalPorsi} porsi` : ''
@@ -625,6 +629,37 @@ PERBANDINGAN TREN DAY-OVER-DAY (H-1 KEMARIN VS H-2 TANGGAL ${tr.tanggalH2Iso}):
 `
       : ''
 
+    if (ringkasSuaraCepat) {
+      const pLower = o.pesan.toLowerCase()
+      const butuhRincianWaste = /waste|reject|rusak|basi|terbuang|sampah/i.test(pLower)
+      const butuhRincianStok = /stok|bahan|habis|kosong|kritis|kulit|daging|ayam|kentang|sayur|lettuce|gas|saus|gudang|distribusi|surat\s*jalan|kiriman/i.test(pLower)
+      const butuhRincianFinance = /opex|pengeluaran|biaya|kas|setoran|rekap|bank|selisih|utang|po\b|supplier|finance|keuangan|kasbon/i.test(pLower)
+      const butuhRincianReview = /review|ulasan|rating|bintang|komplain|keluhan|pelanggan/i.test(pLower)
+      const butuhRincianSdm = /presensi|absen|hadir|telat|terlambat|cuti|izin|kru|staf|staff|hrd|sidak|am\b/i.test(pLower)
+
+      konteksData = [
+        `=== DATA KEMARIN / H-1 (${k?.tanggalLabel || 'Kemarin'}) ===`,
+        `- Penjualan Jaringan Kemarin: Kotor ${formatRupiah(k?.omzetTotal || 0)} | Net ${formatRupiah(k?.omzetBersihTotal ?? k?.omzetTotal ?? 0)} | Potongan ${formatRupiah(k?.potonganTotal || 0)} | Laba Kotor ${formatRupiah(k?.labaKotorTotal || 0)} (${k?.totalOrder || 0} struk, ${k?.totalPorsi || 0} porsi, AOV ${formatRupiah(k?.aov || 0)})`,
+        `- Rincian Cabang Kemarin:\n${listKemarinTransaksi || '(Nihil)'}`,
+        listKemarinNol ? `- Cabang Tanpa Transaksi Kemarin:\n${listKemarinNol}` : '',
+        `- Top Menu Kemarin:\n${listMenuKemarin || '-'}`,
+        `- SDM Kemarin: ${t.hrdKemarin?.kehadiranTotal ?? 0} clock-in (${t.hrdKemarin?.persenOnTime ?? 100}% On-Time, ${t.hrdKemarin?.kehadiranTelat ?? 0} telat). Void Kemarin: ${v?.totalVoidKemarin ?? 0} (${formatRupiah(v?.totalNilaiVoidKemarin ?? 0)}). Waste Kemarin: ${w?.laporanKemarinCount ?? 0} laporan (${formatRupiah(w?.estKerugianKemarinRp ?? 0)}).`,
+        t.finance ? `- Ringkasan Keuangan: OPEX Kemarin ${formatRupiah(t.finance.pengeluaranKemarin?.totalNominal || 0)}, OPEX Hari Ini ${formatRupiah(t.finance.pengeluaranHariIni?.totalNominal || 0)}, Utang PO Belum Lunas ${formatRupiah(t.finance.utangPo?.totalUtang || 0)} (Overdue ${formatRupiah(t.finance.utangPo?.totalLewatJatuhTempo || 0)}), Kas Tutup Shift Kemarin ${formatRupiah(t.finance.setoranKas?.tutupShiftKemarin?.totalFisikKas || 0)}.` : '',
+        r ? `- Google Reviews: Rata-rata ${r.ratingRataRata} bintang dari ${r.totalUlasan} ulasan.` : '',
+        `\n=== DATA LIVE HARI INI (${t.tanggalWIB}) ===`,
+        `- Penjualan Live Hari Ini: ${formatRupiah(t.omzetTotal)} (${t.totalOrder} struk, AOV ${formatRupiah(t.aov)}). Shift Buka: ${sbk?.totalBuka || 0} buka / ${sbk?.totalBelumBuka || 0} belum buka.`,
+        sbk?.totalBelumBuka ? `- Cabang Belum Buka Shift Hari Ini:\n${listBelumBuka}` : '',
+        `- Rincian Cabang Live Hari Ini:\n${listTransaksi || '(Belum ada transaksi)'}`,
+        `- Presensi Hari Ini: ${t.kehadiranTotal} clock-in (${t.persenOnTime}% On-Time, ${t.kehadiranTelat} telat). Waste Hari Ini: ${w?.laporanHariIniCount ?? 0} laporan (${formatRupiah(w?.estKerugianHariIniRp ?? 0)}).`,
+        butuhRincianSdm ? `- Detail Telat Kemarin:\n${listTelatKemarin || 'Nihil'}\n- Detail Telat Hari Ini:\n${listTelat || 'Nihil'}\n- Detail Cuti/Izin:\n${listCuti || listCutiKemarin || 'Nihil'}` : '',
+        butuhRincianWaste ? `- Detail Waste Kemarin:\n${listWasteKemarinPerOutlet || 'Nihil'}\n- Waste 7H (${formatRupiah(w?.estKerugian7HariRp || 0)}):\n${listWaste7HariBahan || 'Nihil'}` : '',
+        butuhRincianStok ? `${teksStok}\n${teksDistribusi}` : '',
+        butuhRincianFinance ? teksFinance : '',
+        butuhRincianReview ? teksReview : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    } else {
     konteksData = `
 ======================================================================
 ACUAN UTAMA DEFAULT: EVALUASI FULL CLOSING KEMARIN / H-1 (${k?.tanggalLabel || 'Kemarin'})
@@ -729,10 +764,17 @@ ${teksDistribusi}
 ${teksFinance}
 ${teksReview}
 `.trim()
+    }
   }
 
-  // Deteksi query rentang tanggal fleksibel (misal: 10 hari kebelakang, 7 hari, tanggal 15 Oktober, dll)
-  const infoTanggal = deteksiPermintaanTanggal(o.pesan, o.riwayat)
+  // Deteksi query rentang tanggal fleksibel (misal: 10 hari kebelakang, 7 hari, tanggal 15 Oktober, dll).
+  // Jika pengguna hanya menanyakan "kemarin" / "hari ini" tanpa angka hari/tanggal spesifik dan telemetri H-1 sudah dimuat, lewati query ulang agar respons instan!
+  const tanyaKemarinSajaTanpaTanggal =
+    Boolean(t?.ringkasanKemarin) &&
+    !/\b(\d+|dua|tiga|empat|lima|enam|tujuh|sepuluh|seminggu|minggu|pekan|sebulan|bulan|kemarin\s+lusa|tanggal|tgl|jan|feb|mar|apr|mei|jun|jul|agu|agt|sep|okt|nov|des)\b/i.test(
+      o.pesan
+    )
+  const infoTanggal = tanyaKemarinSajaTanpaTanggal ? null : deteksiPermintaanTanggal(o.pesan, o.riwayat)
   let teksDataDinamis = ''
   if (infoTanggal) {
     try {
@@ -823,6 +865,21 @@ PANDUAN KOMUNIKASI & PERILAKU:
 6. PRINSIP INTEGRITAS DATA DATABASE (MUTLAK):
    SEMUA ANGKA, PERSENTASE, NOMINAL RUPIAH, JUMLAH STRUK/PORSI, NAMA CABANG, DAN NAMA BAHAN WAJIB 100% SESUAI DENGAN DATA DATABASE DI BAWAH INI. DILARANG KERAS MENGARANG DATA ATAU MENEBAK ANGKA. JIKA DATA NIHIL ATAU 0, TEGASKAN SECARA FAKTUAL BAHWA NILAINYA ADALAH 0.
 7. Jika pengguna meminta "tampilkan semua outlet" atau "semua cabang", tampilkan secara lengkap baik yang sudah membukukan transaksi maupun yang belum.
+
+=== DATA OPERASIONAL REAL-TIME SUKA SHAWARMA ===
+${konteksData}
+`.trim()
+    : o.modeSuara && !butuhDeep
+    ? `
+Anda adalah J.A.R.V.I.S., Chief of Staff & asisten eksekutif kepercayaan Bos/Owner Suka Shawarma yang sedang mengobrol suara langsung (real-time Voice-to-Voice).
+
+MODE OBROLAN SUARA AKTIF — ATURAN MUTLAK OBROLAN SUARA CEPAT & NATURAL:
+1. Panggil pengguna "Bos" atau "Sir" secara luwes dan hangat selayaknya tangan kanan manusia sungguhan yang duduk berhadapan langsung.
+2. JAWAB SINGKAT, PADAT, DAN MENGALIR DALAM 2 SAMPAI 4 KALIMAT LISAN SAJA.
+3. DILARANG KERAS membuat tabel Markdown (|...|), heading (# / ###), garis pemisah, atau daftar panjang 22 cabang satu per satu, karena jawaban Anda langsung diucapkan dengan suara ke telinga Bos!
+4. Jika Bos menanyakan omzet/data "seluruh cabang" atau "semua cabang", sebutkan total jaringan secara presisi (omzet kotor, bersih/net, dan jumlah struk), lalu sebutkan 3 cabang tertinggi serta cabang terendah secara lisan yang enak didengar, dan tanyakan singkat apakah Bos ingin rincian cabang tertentu dibacakan.
+5. Gunakan H-1 (Evaluasi Full Closing Kemarin) sebagai acuan default jika Bos tidak menyebut "hari ini"; gunakan data Live Hari Ini jika Bos menanyakan "hari ini" / "sekarang". Jangan pernah mencampuradukkan angka kemarin dan hari ini.
+6. PRINSIP INTEGRITAS DATA: Seluruh angka Rupiah, jumlah struk, dan nama cabang WAJIB 100% akurat sesuai data database di bawah. Dilarang mengarang angka.
 
 === DATA OPERASIONAL REAL-TIME SUKA SHAWARMA ===
 ${konteksData}
@@ -1010,8 +1067,8 @@ ${konteksData}
           stream: true,
           messages,
           temperature: butuhDeep ? 0.25 : o.modeSuara || adalahSapaan ? 0.35 : 0.25,
-          reasoning_effort: 'low',
-          max_tokens: butuhDeep ? 3072 : o.modeSuara ? 450 : 768,
+          ...(o.modeSuara && !butuhDeep ? {} : { reasoning_effort: 'low' }),
+          max_tokens: butuhDeep ? 3072 : o.modeSuara ? 320 : 768,
         }),
         signal: perModelController.signal,
       })

@@ -71,9 +71,52 @@ export interface ClosingLabaRugiMitra {
   data: Record<string, MitraMonthlyClosingOutlet>
 }
 
-/** Closing tab Laba Rugi Mitra untuk rentang tepat satu bulan closing. */
-export function closingLabaRugiMitraUntuk(from: string, to: string): ClosingLabaRugiMitra | null {
-  return BULAN_LABA_RUGI_MITRA.find(m => m.from === from && m.to === to) ?? null
+/** Closing tab Laba Rugi Mitra untuk rentang tepat satu bulan closing.
+ *  `outletId` selain 'all' membatasi data ke outlet itu (outlet di luar laporan = kosong). */
+export function closingLabaRugiMitraUntuk(from: string, to: string, outletId: string = 'all'): ClosingLabaRugiMitra | null {
+  const bulan = BULAN_LABA_RUGI_MITRA.find(m => m.from === from && m.to === to)
+  if (!bulan) return null
+  if (outletId === 'all') return bulan
+  const satu = bulan.data[outletId]
+  return { ...bulan, data: satu ? { [outletId]: satu } : {} }
+}
+
+/* Laba Rugi Internal per outlet: bulan yang angka per outlet internalnya (tabel
+ * dan filter satu outlet) mengikuti laporan closing. September tetap data asli. */
+const BULAN_LABA_KOTOR_PER_OUTLET: { label: string; from: string; to: string; outlets: Record<string, KomponenLabaKotor> }[] = [
+  {
+    label: LABA_KOTOR_INTERNAL_CLOSING_OKT_2026.label,
+    from: LABA_KOTOR_INTERNAL_CLOSING_OKT_2026.from,
+    to: LABA_KOTOR_INTERNAL_CLOSING_OKT_2026.to,
+    outlets: LABA_KOTOR_INTERNAL_CLOSING_OKT_2026.outlets,
+  },
+]
+
+/** Laba kotor per outlet internal versi closing; null bila bulan ini tidak dikunci per outlet. */
+export function labaKotorInternalPerOutletClosing(from: string, to: string): { label: string; outlets: Record<string, KomponenLabaKotor> } | null {
+  const b = BULAN_LABA_KOTOR_PER_OUTLET.find(m => m.from === from && m.to === to)
+  return b ? { label: b.label, outlets: b.outlets } : null
+}
+
+/** Penyesuaian satu outlet internal (filter satu outlet). Outlet di luar laporan ditargetkan nol. */
+export function penyesuaianLabaKotorOutletClosing(
+  from: string,
+  to: string,
+  outletId: string,
+  live: { omzet: number; potongan: number; hpp: number; waste: number },
+): PenyesuaianLabaKotor | null {
+  const p = labaKotorInternalPerOutletClosing(from, to)
+  if (!p) return null
+  const t = p.outlets[outletId] ?? { omzet: 0, potongan: 0, komisiTiktokKedua: 0, hpp: 0, waste: 0 }
+  return {
+    label: p.label,
+    pendapatanLain: null,
+    omzet: t.omzet - live.omzet,
+    potongan: t.potongan - live.potongan,
+    komisiTiktokKedua: t.komisiTiktokKedua,
+    hpp: t.hpp - live.hpp,
+    waste: t.waste - live.waste,
+  }
 }
 
 /** Total fee manajemen versi closing (seluruh outlet mitra). */

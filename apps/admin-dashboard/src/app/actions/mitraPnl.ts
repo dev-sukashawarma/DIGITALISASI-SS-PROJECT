@@ -1081,7 +1081,7 @@ async function hitungPnlMitra(
     }
   }
 
-  // 7b. Data closing bulanan (Agustus & September 2026).
+  // 7b. Data closing bulanan (Agustus, September & Oktober 2026).
   // Aturan kapan closing boleh menimpa hitungan live ada di isClosingBerlaku().
   const closingBulan = getMitraClosingMonth(filter.from, filter.to)
   const closingOf = (oid: string) => closingBulan?.data[oid]

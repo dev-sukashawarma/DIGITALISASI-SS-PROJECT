@@ -1,6 +1,8 @@
 // Audited Monthly Closing Data for Mitra Outlets
 // Generated from OPEX AGUSTUS FINAL BANGET.xlsx
 
+import { MITRA_CLOSING_DATA_OKTOBER_2026 } from './mitraPnlClosingDataOktober2026'
+
 export interface MitraMonthlyClosingOutlet {
   name: string
   pos: { revenue: number; cogs: number; deductions: number }
@@ -595,6 +597,7 @@ export interface MitraClosingMonth {
 const MITRA_CLOSING_MONTHS: MitraClosingMonth[] = [
   { label: 'Agustus 2026', from: '2026-08-01', to: '2026-08-31', terapkanPenuh: false, data: MITRA_CLOSING_DATA_AUGUST_2026 },
   { label: 'September 2026', from: '2026-09-01', to: '2026-09-30', terapkanPenuh: true, data: MITRA_CLOSING_DATA_SEPTEMBER_2026 },
+  { label: 'Oktober 2026', from: '2026-10-01', to: '2026-10-31', terapkanPenuh: true, data: MITRA_CLOSING_DATA_OKTOBER_2026 },
 ]
 
 /** Bulan closing untuk rentang tanggal — hanya cocok bila rentangnya tepat satu bulan penuh. */

@@ -442,10 +442,12 @@ async function synthesizeGoogleTts(teks: string): Promise<Buffer> {
 }
 
 export async function POST(req: Request) {
+  const tMulai = Date.now()
   const g = await ambilSesi()
   if (!g.ok) {
     return NextResponse.json({ galat: 'Tidak punya akses.' }, { status: g.status })
   }
+  const durAuth = Date.now() - tMulai
 
   const body = await req.json().catch(() => ({}))
   const teksMentah = typeof body?.teks === 'string' ? body.teks.trim() : ''
@@ -481,6 +483,7 @@ export async function POST(req: Request) {
         voiceCfg.elevenlabsModel || 'eleven_flash_v2_5',
         teksSebelumnya ? naturalisasiTeksSuara(teksSebelumnya) : undefined
       )
+      const durTotal = Date.now() - tMulai
       return new NextResponse(new Uint8Array(mp3Buffer), {
         status: 200,
         headers: {
@@ -488,6 +491,7 @@ export async function POST(req: Request) {
           'Cache-Control': 'no-store',
           'X-Jarvis-Engine': `elevenlabs (${modelUsed})`,
           'X-Jarvis-Voice': elevenVoiceId,
+          'Server-Timing': `auth;dur=${durAuth}, tts;dur=${Math.max(0, durTotal - durAuth)}, total;dur=${durTotal}`,
         },
       })
     } catch (err) {

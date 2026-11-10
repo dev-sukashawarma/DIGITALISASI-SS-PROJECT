@@ -361,7 +361,7 @@ export function apakahVoiceDidukung(): { stt: boolean; tts: boolean } {
 /**
  * Mengonversi array Float32 PCM ke format WAV 16kHz 16-bit Mono dalam bentuk Base64.
  */
-function encodeWav16kBase64(chunks: Float32Array[], sampleRateAsli: number): string {
+export function encodeWav16kBase64(chunks: Float32Array[], sampleRateAsli: number): string {
   let totalSamples = 0
   for (const c of chunks) totalSamples += c.length
   if (totalSamples === 0) return ''
@@ -373,13 +373,13 @@ function encodeWav16kBase64(chunks: Float32Array[], sampleRateAsli: number): str
     offset += c.length
   }
 
-  // Pangkas hening panjang di awal & akhir rekaman (sisakan bantalan 160ms) agar ukuran WAV & latensi STT jauh lebih cepat!
-  const padSamples = Math.floor(sampleRateAsli * 0.16)
+  // Pangkas hening panjang di awal & akhir rekaman (sisakan bantalan 180ms, selaras ambang bicara pelan 0.0022) agar WAV ramping tanpa memotong suara pelan iPhone!
+  const padSamples = Math.floor(sampleRateAsli * 0.18)
   let firstActive = -1
   let lastActive = -1
-  const stepScan = 16
+  const stepScan = 8
   for (let i = 0; i < totalSamples; i += stepScan) {
-    if (Math.abs(gabunganPenuh[i]) > 0.0045) {
+    if (Math.abs(gabunganPenuh[i]) > 0.0022) {
       if (firstActive < 0) firstActive = i
       lastActive = i
     }
@@ -735,13 +735,28 @@ export function ekstrakAntreanKalimatSuara(
   if (!gabungan.trim()) return []
 
   const kalimatMentah: string[] = []
-  const regexBatas = /[.!?]+(?=\s+)/g
+  // Pecah di batas kalimat (.!?) ATAU — khusus klausa pembuka pertama yang panjang (>= 52 karakter) —
+  // pecah lebih dini pada koma/titik-koma/titik-dua lisan agar ElevenLabs langsung mulai bicara ~1.5 detik lebih awal!
+  // Lookahead 4 karakter setelah tanda baca klausa menjaga sapaan ", Sir" / ", Bos" tetap utuh & 100% monoton antara streaming vs selesai.
+  const regexBatas = /([.!?]+)(?=\s+)|([,;:])(?=\s+(?!(?:Sir|Bos)\b)\S[\s\S]{3})/gi
   let lastIdx = 0
+  let sudahPunyaPembukaCukup = false
   let m: RegExpExecArray | null
   while ((m = regexBatas.exec(gabungan)) !== null) {
+    const isAkhirKalimat = Boolean(m[1])
     const endPos = m.index + m[0].length
+    if (!isAkhirKalimat) {
+      if (sudahPunyaPembukaCukup || endPos < 52) {
+        continue
+      }
+    }
     const potong = gabungan.slice(lastIdx, endPos).trim()
-    if (potong) kalimatMentah.push(potong)
+    if (potong) {
+      kalimatMentah.push(potong)
+      if (endPos >= 28) {
+        sudahPunyaPembukaCukup = true
+      }
+    }
     lastIdx = endPos
   }
 
@@ -753,7 +768,7 @@ export function ekstrakAntreanKalimatSuara(
   const hasil: string[] = []
   let bufferPendek = ''
   let totalKarakter = 0
-  const BATAS_MAKS_CHUNKS = 4
+  const BATAS_MAKS_CHUNKS = 5
   const BATAS_MAKS_KARAKTER = 520
 
   for (const km of kalimatMentah) {
@@ -1064,8 +1079,11 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
   const sessionId = ++micSessionToken
   activeMicOptions = options
   let teksWebSpeech = ''
+  let adaFinalWebSpeech = false
+  let resolveFlushWebSpeech: (() => void) | null = null
   let sudahDitutup = false
   let sudahSelesai = false
+  const vadState = buatStatusVadAwal(Date.now())
   // Responsif begitu kalimat selesai (0.95 detik di iPhone, 0.85 detik di desktop)
   const jedaAuto = options.autoKirimDelayMs ?? (isIos ? 950 : 850)
 
@@ -1079,6 +1097,19 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
       recognition.continuous = true
       recognition.interimResults = true
       recognition.maxAlternatives = 1
+
+      const jadwalkanKirimWebSpeech = (delayMs: number) => {
+        if (webSpeechTimer) clearTimeout(webSpeechTimer)
+        webSpeechTimer = setTimeout(() => {
+          if (sudahDitutup || !teksWebSpeech.trim()) return
+          // Jangan potong di tengah kalimat bila VAD mendeteksi pengguna masih bersuara aktif dalam 600ms terakhir!
+          if (vadState.pernahBicara && Date.now() - vadState.waktuTerakhirBicara < 600) {
+            jadwalkanKirimWebSpeech(380)
+            return
+          }
+          finalizeMicSessionFn?.(true)
+        }, delayMs)
+      }
 
       recognition.onstart = () => {
         if (!sedangMendengar) {
@@ -1098,21 +1129,27 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         const hasil = gabungan.trim()
         if (hasil) {
           teksWebSpeech = hasil
+          if (adaFinal) {
+            adaFinalWebSpeech = true
+            if (resolveFlushWebSpeech) {
+              const fn = resolveFlushWebSpeech
+              resolveFlushWebSpeech = null
+              fn()
+            }
+          }
           options.onHasil(hasil, adaFinal)
-
-          if (webSpeechTimer) clearTimeout(webSpeechTimer)
-          webSpeechTimer = setTimeout(
-            () => {
-              if (!sudahDitutup && teksWebSpeech.trim()) {
-                finalizeMicSessionFn?.(true)
-              }
-            },
-            adaFinal ? Math.min(750, jedaAuto) : jedaAuto
-          )
+          if (!sudahDitutup) {
+            jadwalkanKirimWebSpeech(adaFinal ? Math.min(750, jedaAuto) : jedaAuto)
+          }
         }
       }
 
       recognition.onerror = (event: any) => {
+        if (resolveFlushWebSpeech) {
+          const fn = resolveFlushWebSpeech
+          resolveFlushWebSpeech = null
+          fn()
+        }
         if (!punyaGetUserMedia && event.error !== 'no-speech' && event.error !== 'aborted') {
           sudahSelesai = true
           sedangMendengar = false
@@ -1123,6 +1160,11 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
       }
 
       recognition.onend = () => {
+        if (resolveFlushWebSpeech) {
+          const fn = resolveFlushWebSpeech
+          resolveFlushWebSpeech = null
+          fn()
+        }
         if (!punyaGetUserMedia && !sudahSelesai) {
           sudahSelesai = true
           sedangMendengar = false
@@ -1226,7 +1268,8 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           totalPcmSamplesTurn += chunk.length
         }
       }
-      const vadState = buatStatusVadAwal(Date.now())
+      // Reset awal waktu sesi VAD tepat saat stream mikrofon siap merekam
+      Object.assign(vadState, buatStatusVadAwal(Date.now()))
 
       // 2. Daftarkan finalizeMicSessionFn SEGERA sebelum await apa pun agar ketukan tombol KIRIM/BATAL selalu 100% responsif sejak milidetik ke-0!
       const akhiriDanProses = async (kirimSekarang: boolean) => {
@@ -1239,20 +1282,46 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
 
         if (kirimSekarang) {
           options.onBerhentiMerekam?.()
-          // Minta WebSpeech mem-flush kata terakhir dalam 80ms sebelum ditutup (hemat ~4 detik STT server di Chrome/Edge/Android!)
-          if (recognitionInstance && !teksWebSpeech.trim()) {
+          // Selalu minta WebSpeech mem-flush kata terakhir bila belum isFinal (maks 90ms, selesai instan begitu isFinal/onend tiba!)
+          if (recognitionInstance) {
             try {
+              const perluTungguFlush = !adaFinalWebSpeech
+              const janjiFlush = perluTungguFlush
+                ? new Promise<void>((resolve) => {
+                    const tFlush = setTimeout(() => {
+                      if (resolveFlushWebSpeech) resolveFlushWebSpeech = null
+                      resolve()
+                    }, 90)
+                    resolveFlushWebSpeech = () => {
+                      clearTimeout(tFlush)
+                      resolve()
+                    }
+                  })
+                : null
               recognitionInstance.stop()
-              await new Promise((r) => setTimeout(r, 80))
+              if (janjiFlush) await janjiFlush
             } catch {}
           }
         }
         sudahSelesai = true
 
-        // Hentikan MediaRecorder dengan aman dan tunggu flush blob terakhir (maks 600ms untuk finalisasi moov MP4 iOS)
-        if (recorder && recorder.state !== 'inactive') {
+        const durasiBicaraMs = vadState.pernahBicara
+          ? Math.max(0, vadState.waktuTerakhirBicara - vadState.waktuMulaiBicara)
+          : 0
+        const teksWsBersih = teksWebSpeech.trim()
+        const jumlahKataWs = teksWsBersih ? teksWsBersih.split(/\s+/).filter(Boolean).length : 0
+        const webSpeechUtuh =
+          teksWsBersih.length >= 2 &&
+          (adaFinalWebSpeech || durasiBicaraMs < 1800 || jumlahKataWs >= 3) &&
+          !(durasiBicaraMs > 2800 && jumlahKataWs <= 1)
+        const punyaPcmAktif = pcmFallbackChunks.length > 0 && hitungPeakPcm(pcmFallbackChunks) > 0.0022
+
+        // HANYA tunggu recorder.onstop (maks 550ms) jika AudioContext tersuspend di iOS (baik WebSpeech maupun PCM kosong)!
+        // Jika WebSpeech atau PCM 16kHz sudah siap di memori, langsung lompat (0ms) tanpa tertahan finalisasi MP4/WebM!
+        const butuhBlobMediaRecorder = kirimSekarang && !webSpeechUtuh && !punyaPcmAktif
+        if (butuhBlobMediaRecorder && recorder && recorder.state !== 'inactive') {
           await new Promise<void>((resolve) => {
-            const timeout = setTimeout(resolve, 600)
+            const timeout = setTimeout(resolve, 550)
             recorder!.onstop = () => {
               clearTimeout(timeout)
               resolve()
@@ -1287,11 +1356,10 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           return
         }
 
-        // Prioritas 1: Jika Web Speech API sudah menangkap kalimat ucapan (0ms latensi tanpa perlu bolak-balik /api/voice/stt!)
-        if (teksWebSpeech.trim().length >= 2) {
-          const finalTeks = teksWebSpeech.trim()
-          options.onHasil(finalTeks, true)
-          options.onFinalOtomatis?.(finalTeks)
+        // Prioritas 1: Jika Web Speech API sudah menangkap kalimat utuh (0ms latensi tanpa perlu bolak-balik /api/voice/stt!)
+        if (webSpeechUtuh) {
+          options.onHasil(teksWsBersih, true)
+          options.onFinalOtomatis?.(teksWsBersih)
           options.onSelesai?.()
           return
         }
@@ -1301,7 +1369,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         let audioPayloadB64 = ''
         let formatPayload = 'wav'
 
-        if (pcmFallbackChunks.length > 0 && hitungPeakPcm(pcmFallbackChunks) > 0.0025) {
+        if (punyaPcmAktif) {
           audioPayloadB64 = encodeWav16kBase64(pcmFallbackChunks, sampleRateAktif)
           formatPayload = 'wav'
         }
@@ -1600,7 +1668,7 @@ function mulaiLoopSpektrum() {
       listenerSpektrum?.(DEFAULT_BANDS)
       return
     }
-    const analyserAktif = activeAnalyser || micAnalyserNode
+    const analyserAktif = sedangBicaraFlag ? activeAnalyser : activeAnalyser || micAnalyserNode
     if (analyserAktif) {
       analyserAktif.getByteFrequencyData(freqData)
       analyserAktif.getByteTimeDomainData(timeData)

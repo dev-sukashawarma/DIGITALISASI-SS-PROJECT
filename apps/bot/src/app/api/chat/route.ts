@@ -12,11 +12,16 @@ import {
 } from '@/lib/hermes'
 import { periksaProfilChat } from '@/lib/server/izinChat'
 import {
-  hitungPesanSejamTerakhir, buatPercakapan, ambilPercakapan, pangkasPercakapan, simpanPesan, sentuhPercakapan,
+  hitungPesanSejamTerakhir,
+  buatPercakapan,
+  ambilPercakapan,
+  pangkasPercakapan,
+  simpanPesan,
+  sentuhPercakapan,
 } from '@/lib/server/percakapan'
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
 import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
-import { tanyaAiRouter } from '@/lib/server/aiRouter'
+import { tanyaAiRouter, apakahPesanHanyaSapaan } from '@/lib/server/aiRouter'
 import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 export const dynamic = 'force-dynamic'
@@ -26,18 +31,30 @@ const UUID = /^[0-9a-f-]{36}$/i
 const galat = (status: number, pesan: string) => NextResponse.json({ galat: pesan }, { status })
 
 export async function POST(req: Request) {
+  const tReqMulai = Date.now()
   const g = await ambilSesi()
   if (!g.ok) return galat(g.status, g.status === 401 ? 'Silakan login dulu.' : 'Anda tidak punya akses ke bot ini.')
+  const durAuth = Date.now() - tReqMulai
   const { supabase, role } = g.sesi
 
   const body = await req.json().catch(() => ({}))
   const v = validasiPesan(body?.pesan)
   if (!v.ok) return galat(400, v.galat)
   const modeSuara = Boolean(body?.modeSuara)
+  const adalahSapaan = apakahPesanHanyaSapaan(v.pesan)
   const idDiminta = typeof body?.percakapanId === 'string' && UUID.test(body.percakapanId) ? body.percakapanId : null
 
-  // Mulai pre-fetch telemetri paralel sejak awal saat modeSuara aktif agar hemat ~500-900ms waktu tunggu DB berurutan!
-  const promiseTelemetriAwal = modeSuara ? ambilTelemetriNyata().catch(() => null) : null
+  // Mulai pre-fetch konfigurasi & telemetri paralel sejak milidetik pertama!
+  // Khusus sapaan ringan ("Halo Jarvis apa kabar"), beri batas tunggu 60ms (ambil instan bila cache hangat, panaskan di latar belakang bila dingin).
+  const promiseVoiceCfg = ambilKonfigurasiVoiceServer().catch(() => null)
+  const promiseTelemetriAwal = adalahSapaan
+    ? Promise.race([
+        ambilTelemetriNyata().catch(() => null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 60)),
+      ])
+    : modeSuara
+    ? ambilTelemetriNyata().catch(() => null)
+    : null
 
   const [percakapanAwal, jumlahPesanSejam, hasilDbPesan] = await Promise.all([
     idDiminta ? ambilPercakapan(supabase, idDiminta) : Promise.resolve(null),
@@ -84,17 +101,33 @@ export async function POST(req: Request) {
     percakapan = { ...baru, profil }
     void pangkasPercakapan(supabase).catch(() => {})
   }
-  await simpanPesan(supabase, percakapan.id, 'user', v.pesan)
+
+  const pc = percakapan
+  // Jalankan penyimpanan pesan user secara paralel tanpa menahan pembukaan stream ke AI Router!
+  const promiseSimpanUser = Promise.resolve(simpanPesan(supabase, pc.id, 'user', v.pesan)).catch((e) =>
+    console.error('[bot] gagal simpan pesan user:', e)
+  )
 
   const baseUrl = process.env.HERMES_API_URL
-  const kunci = kunciProfil(percakapan.profil)
+  const kunci = kunciProfil(pc.profil)
   const mulai = Date.now()
+  const durPre = mulai - tReqMulai
   const enc = new TextEncoder()
-  const pc = percakapan
 
   const stream = new ReadableStream<Uint8Array>({
     async start(c) {
       let jawaban = ''
+      let modelTerpakai = ''
+      let ttftMs = -1
+      let streamDitutup = false
+      const tutupStreamSegera = () => {
+        if (streamDitutup) return
+        streamDitutup = true
+        try {
+          c.close()
+        } catch {}
+      }
+
       try {
         let suksesHermes = false
         // Pada modeSuara (Voice-to-Voice real-time), langsung gunakan jalur cepat AI Router + Telemetri agar tidak tertahan timeout Hermes 4 detik!
@@ -109,6 +142,7 @@ export async function POST(req: Request) {
               signal: req.signal,
               timeoutMs: HERMES_INTERACTIVE_TIMEOUT_MS,
             })) {
+              if (ttftMs < 0 && t) ttftMs = Date.now() - mulai
               jawaban += t
               c.enqueue(enc.encode(t))
             }
@@ -123,6 +157,7 @@ export async function POST(req: Request) {
 
               if (!kendalaHermes) {
                 suksesHermes = true
+                modelTerpakai = `hermes:${pc.profil}`
                 catatHermesSukses(pc.profil)
               } else {
                 console.warn('[bot] Hermes menghasilkan kendala provider/tool saat streaming:', textLower)
@@ -140,16 +175,24 @@ export async function POST(req: Request) {
         if (!suksesHermes || !jawaban.trim()) {
           // Reset jawaban bila sebelumnya ada kendala Hermes agar tidak tercampur
           if (!suksesHermes) jawaban = ''
-          const telemetri = promiseTelemetriAwal ? await promiseTelemetriAwal : await ambilTelemetriNyata()
+          const [telemetri, voiceCfg] = await Promise.all([
+            promiseTelemetriAwal
+              ? promiseTelemetriAwal
+              : adalahSapaan
+              ? Promise.race([
+                  ambilTelemetriNyata().catch(() => null),
+                  new Promise<null>((resolve) => setTimeout(() => resolve(null), 60)),
+                ])
+              : ambilTelemetriNyata(),
+            promiseVoiceCfg,
+          ])
 
           // Gunakan AI Router (9Router) dengan konfigurasi terpusat dari Supabase jarvis_voice_config / env
           let suksesAi = false
-          const voiceCfg = await ambilKonfigurasiVoiceServer().catch(() => null)
-          if (!process.env.AI_BASE_URL && voiceCfg?.aiBaseUrl) process.env.AI_BASE_URL = voiceCfg.aiBaseUrl
-          if (!process.env.AI_API_KEY && voiceCfg?.aiApiKey) process.env.AI_API_KEY = voiceCfg.aiApiKey
-          if (!process.env.AI_BASE_URL) process.env.AI_BASE_URL = 'http://76.13.193.138:20128/v1'
-          if (!process.env.AI_API_KEY) process.env.AI_API_KEY = 'sk-09f612c52578948f-zfpefg-d18a0fd3'
-          if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
+          const isTestEnv = process.env.NODE_ENV === 'test'
+          const aiBaseUrl = process.env.AI_BASE_URL || (!isTestEnv ? voiceCfg?.aiBaseUrl : undefined)
+          const aiApiKey = process.env.AI_API_KEY || (!isTestEnv ? voiceCfg?.aiApiKey : undefined)
+          if (aiBaseUrl && aiApiKey) {
             try {
               for await (const t of tanyaAiRouter({
                 pesan: v.pesan,
@@ -158,7 +201,13 @@ export async function POST(req: Request) {
                 riwayat: riwayatPesan,
                 signal: req.signal,
                 modeSuara,
+                baseUrl: aiBaseUrl,
+                apiKey: aiApiKey,
+                onModelTerpilih: (m) => {
+                  modelTerpakai = m
+                },
               })) {
+                if (ttftMs < 0 && t) ttftMs = Date.now() - mulai
                 jawaban += t
                 c.enqueue(enc.encode(t))
                 suksesAi = true
@@ -171,8 +220,10 @@ export async function POST(req: Request) {
           // Fallback ke generator telemetri terstruktur jika AI Router belum siap atau gagal
           if (!suksesAi || !jawaban.trim()) {
             console.warn('[bot] AI Router tidak menghasilkan respon, mengalirkan fallback telemetri terstruktur...')
+            modelTerpakai = 'dev-fallback'
             const devChunks = buatJawabanDev(v.pesan, pc.profil, telemetri)
             for (const chunk of devChunks) {
+              if (ttftMs < 0 && chunk) ttftMs = Date.now() - mulai
               jawaban += chunk
               c.enqueue(enc.encode(chunk))
               await new Promise((r) => setTimeout(r, 20))
@@ -180,7 +231,22 @@ export async function POST(req: Request) {
           }
         }
 
-        await simpanPesan(supabase, pc.id, 'bot', jawaban, { durasi_ms: Date.now() - mulai, status: 'ok' })
+        const durasiMs = Date.now() - mulai
+        // Tutup stream SEGERA agar klien langsung mengeksekusi kalimat terakhir TTS tanpa menunggu penulisan DB!
+        tutupStreamSegera()
+
+        void (async () => {
+          await promiseSimpanUser
+          await Promise.all([
+            simpanPesan(supabase, pc.id, 'bot', jawaban, {
+              durasi_ms: durasiMs,
+              ...(ttftMs >= 0 ? { ttft_ms: ttftMs } : {}),
+              ...(modelTerpakai ? { model: modelTerpakai } : {}),
+              status: 'ok',
+            }).catch((e2) => console.error('[bot] gagal simpan jawaban bot:', e2)),
+            sentuhPercakapan(supabase, pc.id).catch(() => {}),
+          ])
+        })()
         return
       } catch (e) {
         const alasan = e instanceof GalatHermes ? e.alasan : 'lain'
@@ -189,22 +255,40 @@ export async function POST(req: Request) {
         if (process.env.NODE_ENV === 'development' && (alasan === 'jaringan' || alasan === 'timeout')) {
           teksGalat = `[Local Dev] Tidak dapat terhubung ke Hermes di ${baseUrl}. Server Hermes aktif di produksi (agents.sukashawarma.com).`
         }
+        const durasiMs = Date.now() - mulai
         if (!req.signal.aborted) {
           const teks = jawaban ? `\n\n${teksGalat}` : teksGalat
           try {
             c.enqueue(enc.encode(teks))
           } catch {}
-          await simpanPesan(supabase, pc.id, 'bot', jawaban + teks, { durasi_ms: Date.now() - mulai, status: 'galat', alasan })
-            .catch((e2) => console.error('[bot] gagal simpan galat:', e2))
+          tutupStreamSegera()
+          void (async () => {
+            await promiseSimpanUser
+            await Promise.all([
+              simpanPesan(supabase, pc.id, 'bot', jawaban + teks, {
+                durasi_ms: durasiMs,
+                status: 'galat',
+                alasan,
+              }).catch((e2) => console.error('[bot] gagal simpan galat:', e2)),
+              sentuhPercakapan(supabase, pc.id).catch(() => {}),
+            ])
+          })()
+          return
         }
+        tutupStreamSegera()
+        void sentuhPercakapan(supabase, pc.id).catch(() => {})
       } finally {
-        await sentuhPercakapan(supabase, pc.id).catch(() => {})
-        c.close()
+        tutupStreamSegera()
       }
     },
   })
 
   return new Response(stream, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Percakapan-Id': pc.id },
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Percakapan-Id': pc.id,
+      'Server-Timing': `auth;dur=${durAuth}, pre;dur=${durPre}`,
+    },
   })
 }

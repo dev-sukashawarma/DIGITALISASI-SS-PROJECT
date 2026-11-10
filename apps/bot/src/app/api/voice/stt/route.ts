@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server'
 import { buatPengurai } from '@/lib/hermes'
+import { ambilSesi } from '@/lib/server/sesi'
 import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 export const dynamic = 'force-dynamic'
 
-const MODEL_AUDIO_STT = ['ag/gemini-3.8-flash-low', 'ag/gemini-3.8-flash', 'ag/gemini-3.8-flash-high', 'CEO_SS', 'MANAGER_SS', 'hermes-combo']
+const MODEL_AUDIO_STT = [
+  'ag/gemini-3.8-flash-low',
+  'ag/gemini-3.8-flash',
+  'ag/gemini-3.8-flash-high',
+  'CEO_SS',
+  'MANAGER_SS',
+  'hermes-combo',
+]
 
 const PROMPT_TRANSKRIPSI = `Transkripsikan ucapan Bahasa Indonesia ini secara persis tanpa tanda kutip dan tanpa komentar. Kosakata: Jarvis, Suka Shawarma, omzet, cabang, outlet, kemarin, hari ini, waste, bahan, void, kasir, OPEX, setoran, PO, presensi, telat, cuti, izin, review. Jika hening/tanpa ucapan jelas, balas: [HENING]`
 
@@ -19,6 +27,13 @@ function normalisasiFormatAudioStt(rawFormat?: string): string {
 }
 
 export async function POST(req: Request) {
+  const tMulai = Date.now()
+  const g = await ambilSesi()
+  if (!g.ok) {
+    return NextResponse.json({ ok: false, galat: 'Tidak punya akses.' }, { status: g.status })
+  }
+  const durAuth = Date.now() - tMulai
+
   try {
     const body = (await req.json().catch(() => ({}))) as {
       audioBase64?: string
@@ -42,7 +57,7 @@ export async function POST(req: Request) {
 
     for (const model of MODEL_AUDIO_STT) {
       const ctrl = new AbortController()
-      let timer: NodeJS.Timeout | null = setTimeout(() => ctrl.abort(), 14_000)
+      let timer: NodeJS.Timeout | null = setTimeout(() => ctrl.abort(), 10_000)
       try {
         const res = await fetch(`${base}/chat/completions`, {
           method: 'POST',
@@ -55,7 +70,7 @@ export async function POST(req: Request) {
             model,
             stream: true,
             temperature: 0.0,
-            max_tokens: 120,
+            max_tokens: 150,
             messages: [
               {
                 role: 'user',
@@ -102,6 +117,8 @@ export async function POST(req: Request) {
           pembaca.releaseLock()
         }
 
+        const memangHening = /\[HENING\]|\bHENING\b/i.test(hasilMentah)
+
         // Bersihkan artefak timestamp seperti "00:00" atau "[HENING]"
         const bersih = hasilMentah
           .replace(/\[HENING\]/gi, '')
@@ -111,11 +128,24 @@ export async function POST(req: Request) {
           .replace(/\s+/g, ' ')
           .trim()
 
-        return NextResponse.json({
-          ok: true,
-          teks: bersih,
-          model,
-        })
+        // Jika model mengembalikan output kosong TANPA penanda [HENING] (misal gangguan/thinking habis), lanjut coba model berikutnya!
+        if (!bersih && !memangHening) {
+          continue
+        }
+
+        const durTotal = Date.now() - tMulai
+        return NextResponse.json(
+          {
+            ok: true,
+            teks: bersih,
+            model,
+          },
+          {
+            headers: {
+              'Server-Timing': `auth;dur=${durAuth}, total;dur=${durTotal}`,
+            },
+          }
+        )
       } catch {
         if (timer) clearTimeout(timer)
         // Coba kandidat model audio berikutnya

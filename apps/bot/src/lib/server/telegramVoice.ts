@@ -135,6 +135,7 @@ export async function transkripsiVoiceTelegram(
           pembaca.releaseLock()
         }
 
+        const memangHening = /\[HENING\]|\bHENING\b/i.test(hasilMentah)
         const bersih = hasilMentah
           .replace(/\[HENING\]/gi, '')
           .replace(/\bHENING\b/g, '')
@@ -142,6 +143,10 @@ export async function transkripsiVoiceTelegram(
           .replace(/^["'“”]+|["'“”]+$/g, '')
           .replace(/\s+/g, ' ')
           .trim()
+
+        if (!bersih && !memangHening) {
+          continue
+        }
 
         return { ok: true, teks: bersih }
       } catch {

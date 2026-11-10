@@ -48,6 +48,7 @@ vi.mock('@/lib/server/telemetriNyata', async (importOriginal) => {
 })
 
 import { kirimPesanTelegram, kirimAksiChatTelegram, supabaseAdmin } from '@/lib/server/telegram'
+import { transkripsiVoiceTelegram } from '@/lib/server/telegramVoice'
 
 function buatRequest(body: unknown, headers: Record<string, string> = {}): NextRequest {
   return new NextRequest('https://agents.sukashawarma.com/api/telegram/ceo/webhook', {
@@ -333,6 +334,42 @@ describe('POST /api/telegram/ceo/webhook', () => {
     expect(kirimPesanTelegram).toHaveBeenCalledWith(
       '111111',
       expect.stringContaining('15.000.000'),
+      undefined,
+      'ceo'
+    )
+  })
+
+  it('menolak Voice Note dari pengguna tak berwenang SEBELUM memanggil transkripsiVoiceTelegram', async () => {
+    vi.mocked(supabaseAdmin).mockReturnValue({
+      from: vi.fn().mockImplementation((table: string) => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data:
+            table === 'bot_telegram_links'
+              ? { staff_id: 'staf-crew', outlet_staff: { role: 'crew', status: 'active' } }
+              : null,
+          error: null,
+        }),
+      })),
+    } as any)
+
+    const req = buatRequest({
+      update_id: 8,
+      message: {
+        message_id: 17,
+        from: { id: 999888, first_name: 'Stranger' },
+        chat: { id: 999888, type: 'private' },
+        voice: { file_id: 'voice-unauth-1', mime_type: 'audio/ogg', duration: 4 },
+      },
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(transkripsiVoiceTelegram).not.toHaveBeenCalled()
+    expect(kirimPesanTelegram).toHaveBeenCalledWith(
+      '999888',
+      expect.stringContaining('belum terhubung atau tidak memiliki wewenang eksekutif'),
       undefined,
       'ceo'
     )

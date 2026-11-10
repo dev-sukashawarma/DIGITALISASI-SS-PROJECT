@@ -276,6 +276,11 @@ export default function JarvisApp({
   }
 
   const voiceLoopRef = useRef(false)
+  const percakapanIdAktifRef = useRef<string | null>(null)
+  const sedangBicaraRef = useRef(false)
+  const sedangMemprosesRef = useRef(false)
+  const eksekusiPerintahRef = useRef<(teksMentah: string, dariVoice?: boolean) => Promise<void>>(async () => {})
+  const mulaiSesiDengarRef = useRef<(dariLoop?: boolean) => void>(() => {})
   const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const waktuBicaraTerakhirRef = useRef<number>(Date.now())
   const chatAbortRef = useRef<AbortController | null>(null)
@@ -285,6 +290,18 @@ export default function JarvisApp({
   useEffect(() => {
     voiceLoopRef.current = voiceLoopAktif
   }, [voiceLoopAktif])
+
+  useEffect(() => {
+    percakapanIdAktifRef.current = percakapanIdAktif
+  }, [percakapanIdAktif])
+
+  useEffect(() => {
+    sedangBicaraRef.current = sedangBicara
+  }, [sedangBicara])
+
+  useEffect(() => {
+    sedangMemprosesRef.current = sedangMemproses
+  }, [sedangMemproses])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -333,6 +350,7 @@ export default function JarvisApp({
           }
           voiceLoopRef.current = false
           setVoiceLoopAktif(false)
+          chatAbortRef.current?.abort()
           matikanSesiPanggilanKontinu()
           setSedangMendengar(false)
           setSedangBicara(false)
@@ -507,11 +525,13 @@ export default function JarvisApp({
           setSedangMemproses(false)
           setTranskripLive(`"${teksFinal}" — Menyiapkan jawaban...`)
           setInputPerintah('')
-          void eksekusiPerintahJarvis(teksFinal, true)
+          void eksekusiPerintahRef.current(teksFinal, true)
         },
         onSelesai: () => {
           setSedangMendengar(false)
           if (!adaFinalTerkirim) {
+            // Jika giliran dengar dijeda karena Jarvis mulai memproses/bicara (mis. buka briefing/chip), biarkan onSelesai bicara yang menjadwalkan lanjut dengar!
+            if (sedangBicaraRef.current || sedangMemprosesRef.current) return
             setSedangMemproses(false)
             setTranskripLive('')
             // CONTINUITY: Selama mode ngobrol aktif (maks idle hening 15 menit), JANGAN matikan listener!
@@ -520,8 +540,8 @@ export default function JarvisApp({
             if (voiceLoopRef.current && idleTanpaBicaraMs < 15 * 60 * 1000) {
               loopTimerRef.current = setTimeout(() => {
                 loopTimerRef.current = null
-                if (voiceLoopRef.current) {
-                  mulaiSesiDengar(true)
+                if (voiceLoopRef.current && !sedangBicaraRef.current && !sedangMemprosesRef.current) {
+                  mulaiSesiDengarRef.current(true)
                 }
               }, 70)
             } else if (voiceLoopRef.current) {
@@ -540,31 +560,34 @@ export default function JarvisApp({
         handleBatalSuara()
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [percakapanIdAktif, dailyData, autoVoiceReply, handleBatalSuara]
+    [handleBatalSuara]
   )
 
-  const jadwalkanLanjutDengar = useCallback(
-    (jedaMs = 300) => {
-      if (loopTimerRef.current) {
-        clearTimeout(loopTimerRef.current)
-        loopTimerRef.current = null
+  mulaiSesiDengarRef.current = mulaiSesiDengar
+
+  const jadwalkanLanjutDengar = useCallback((jedaMs = 300) => {
+    if (loopTimerRef.current) {
+      clearTimeout(loopTimerRef.current)
+      loopTimerRef.current = null
+    }
+    if (!voiceLoopRef.current) return
+    loopTimerRef.current = setTimeout(() => {
+      loopTimerRef.current = null
+      if (voiceLoopRef.current) {
+        mulaiSesiDengarRef.current(true)
       }
-      if (!voiceLoopRef.current) return
-      loopTimerRef.current = setTimeout(() => {
-        loopTimerRef.current = null
-        if (voiceLoopRef.current) {
-          mulaiSesiDengar(true)
-        }
-      }, jedaMs)
-    },
-    [mulaiSesiDengar]
-  )
+    }, jedaMs)
+  }, [])
 
   // Buka Daily Briefing Modal
   const bukaModalDailyBriefing = useCallback(
     (bacakanOtomatis = true, modePaksa?: 'hari_ini' | 'kemarin') => {
       mainkanSuaraHud('engage')
+      if (apakahSedangMendengar()) {
+        sedangBicaraRef.current = true
+        hentiMendengar(false)
+        setSedangMendengar(false)
+      }
       setTampilDailyBriefing(true)
       if (!dailyData) {
         void muatDailyTelemetry(true)
@@ -729,6 +752,11 @@ export default function JarvisApp({
 
     // 4. Tanya-Jawab Langsung ke Unified J.A.R.V.I.S.
     mainkanSuaraHud('transmit')
+    sedangMemprosesRef.current = true
+    if (!dariVoice && apakahSedangMendengar()) {
+      hentiMendengar(false)
+      setSedangMendengar(false)
+    }
     hentiBicaraJarvis()
     setSedangBicara(false)
     setSedangMemproses(true)
@@ -757,7 +785,7 @@ export default function JarvisApp({
         body: JSON.stringify({
           pesan: isi,
           profil: 'ceo',
-          percakapanId: percakapanIdAktif ?? undefined,
+          percakapanId: percakapanIdAktifRef.current ?? percakapanIdAktif ?? undefined,
           modeSuara: Boolean(dariVoice || voiceLoopRef.current),
         }),
         signal: controller.signal,
@@ -770,6 +798,7 @@ export default function JarvisApp({
 
       const idBaru = r.headers.get('X-Percakapan-Id')
       if (idBaru) {
+        percakapanIdAktifRef.current = idBaru
         setPercakapanIdAktif(idBaru)
       }
 
@@ -841,6 +870,8 @@ export default function JarvisApp({
     }
   }
 
+  eksekusiPerintahRef.current = eksekusiPerintahJarvis
+
   // Klik Arc Reactor / Kepala 3D / Tombol Utama:
   // - Ketukan pertama mengaktifkan Continuous Live Listener (stream mic tetap hangat antargiliran).
   // - Saat Jarvis bicara, ketukan langsung memotong (barge-in) & lanjut mendengar.
@@ -848,11 +879,15 @@ export default function JarvisApp({
   const handleToggleVoiceLoop = () => {
     siapkanAudioIos()
     if (sedangBicara) {
+      chatAbortRef.current?.abort()
       hentiBicaraJarvis()
+      sedangBicaraRef.current = false
+      sedangMemprosesRef.current = false
       setSedangBicara(false)
+      setSedangMemproses(false)
       aktifkanSesiPanggilanKontinu()
       setModeLoopSinkron(true)
-      mulaiSesiDengar(true)
+      mulaiSesiDengarRef.current(true)
       return
     }
 

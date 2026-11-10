@@ -187,10 +187,16 @@ export async function* tanyaAiRouter(o: {
   riwayat?: PesanRiwayat[]
   signal?: AbortSignal
   modeSuara?: boolean
+  baseUrl?: string
+  apiKey?: string
+  onModelTerpilih?: (model: string) => void
 }): AsyncGenerator<string> {
-  const base = process.env.AI_BASE_URL?.replace(/\/+$/, '')
-  const key = process.env.AI_API_KEY
-  const butuhDeep = apakahButuhAnalisisMendalam(o.pesan)
+  const base = (o.baseUrl || process.env.AI_BASE_URL)?.replace(/\/+$/, '')
+  const key = o.apiKey || process.env.AI_API_KEY
+  // Pada modeSuara (Voice-to-Voice), selalu utamakan Fast Lane ringkas kecuali pengguna meminta eksplisit /deep atau /sonnet!
+  const butuhDeep = o.modeSuara
+    ? /^\/(?:deep|sonnet)\b/i.test(o.pesan.trim())
+    : apakahButuhAnalisisMendalam(o.pesan)
   const daftarModel = kandidatModel9Router(o.profil, process.env.AI_MODEL, butuhDeep)
   const pesanKirim = o.pesan.replace(/^\/(?:deep|sonnet)\s*/i, '').trim() || o.pesan
 
@@ -776,10 +782,11 @@ ${teksReview}
 
   // Deteksi query rentang tanggal fleksibel (misal: 10 hari kebelakang, 7 hari, tanggal 15 Oktober, dll).
   // Jika pengguna hanya menanyakan "kemarin" / "hari ini" tanpa angka hari/tanggal spesifik dan telemetri H-1 sudah dimuat, lewati query ulang agar respons instan!
+  const teksCekTanggal = [o.pesan, ...(o.riwayat || []).slice(-2).map((m) => m.content || '')].join(' ')
   const tanyaKemarinSajaTanpaTanggal =
     Boolean(t?.ringkasanKemarin) &&
     !/\b(\d+|dua|tiga|empat|lima|enam|tujuh|sepuluh|seminggu|minggu|pekan|sebulan|bulan|kemarin\s+lusa|tanggal|tgl|jan|feb|mar|apr|mei|jun|jul|agu|agt|sep|okt|nov|des)\b/i.test(
-      o.pesan
+      teksCekTanggal
     )
   const infoTanggal = tanyaKemarinSajaTanpaTanggal ? null : deteksiPermintaanTanggal(o.pesan, o.riwayat)
   let teksDataDinamis = ''
@@ -1052,9 +1059,10 @@ ${konteksData}
     if (o.signal?.aborted) break
 
     const perModelController = new AbortController()
+    const batasKoneksiMs = o.modeSuara && !butuhDeep ? 6_500 : 12_000
     let timerKoneksi: NodeJS.Timeout | null = setTimeout(() => {
       perModelController.abort(new Error(`Timeout koneksi model ${modelKandidat}`))
-    }, 12_000)
+    }, batasKoneksiMs)
 
     const onParentAbort = () => perModelController.abort(o.signal?.reason)
     if (o.signal) {
@@ -1088,6 +1096,7 @@ ${konteksData}
         }
         res = percobaan
         controllerTerpilih = perModelController
+        o.onModelTerpilih?.(modelKandidat)
         break
       } else {
         if (timerKoneksi) {

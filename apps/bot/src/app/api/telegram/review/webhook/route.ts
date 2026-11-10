@@ -6,6 +6,7 @@ import { tanyaHermes, kunciProfil, apakahHermesSehat, catatHermesGagal, catatHer
 import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
 import { tanyaAiRouter } from '@/lib/server/aiRouter'
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
+import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,24 +68,6 @@ export async function POST(req: NextRequest) {
   const fromFirstName = msg.from.first_name ?? 'Rekan'
 
   let text = (rawText || '').trim()
-  if (!text && voiceFileId) {
-    await kirimAksiChatTelegram(chatId, 'typing', 'review')
-    const hasilStt = await transkripsiVoiceTelegram(
-      voiceFileId,
-      'review',
-      msg.voice?.mime_type || msg.audio?.mime_type
-    )
-    if (!hasilStt.ok || hasilStt.teks.length < 2) {
-      await kirimPesanTelegram(
-        chatId,
-        '🎙️ Maaf, pesan suara belum terdengar jelas. Silakan ucapkan kembali sedikit lebih dekat ke mikrofon atau ketik instruksi Anda.',
-        undefined,
-        'review'
-      )
-      return NextResponse.json({ ok: true, voice_empty: true })
-    }
-    text = hasilStt.teks
-  }
 
   try {
     // ─────────────────────────────────────────────────────────── Command /start
@@ -309,25 +292,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    // ─────────────────────────────────────────────────────────── Normalisasi Shortcut Slash Commands
-    let queryTeks = text.trim()
-    const cmdClean = queryTeks.toLowerCase().split(' ')[0]
-    if (cmdClean === '/rating' || cmdClean.startsWith('/rating@')) {
-      queryTeks = 'Bagaimana ranking dan rata-rata skor rating Google Reviews seluruh cabang Suka Shawarma saat ini?'
-    } else if (cmdClean === '/negatif' || cmdClean.startsWith('/negatif@')) {
-      queryTeks = 'Tampilkan daftar ulasan negatif bintang 1 dan 2 terbaru beserta isi keluhan dan cabang terkait yang butuh tindak lanjut.'
-    } else if (cmdClean === '/alert' || cmdClean.startsWith('/alert@')) {
-      queryTeks = 'Apakah ada alert operasional ulasan aktif saat ini seperti lonjakan review negatif atau rating outlet di bawah threshold?'
-    } else if (cmdClean === '/rekap' || cmdClean.startsWith('/rekap@')) {
-      queryTeks = 'Bagaimana ringkasan distribusi sentimen ulasan pelanggan dan kategori topik yang paling sering dikeluhkan?'
-    } else if (cmdClean.startsWith('/outlet')) {
-      const namaCabang = queryTeks.replace(/^\/outlet(@\w+)?\s*/i, '').trim()
-      queryTeks = namaCabang
-        ? `Bagaimana ringkasan performa ulasan dan rating pelanggan khusus untuk cabang ${namaCabang}?`
-        : 'Bagaimana ringkasan performa ulasan dan rating cabang-cabang utama Suka Shawarma?'
-    }
-
-    // ─────────────────────────────────────────────────────────── Autentikasi Pengguna & Whitelist
+    // ─────────────────────────────────────────────────────────── Autentikasi Pengguna & Whitelist (Otorisasi Terlebih Dahulu!)
     const admin = supabaseAdmin()
 
     const { data: linkInfo } = await admin
@@ -390,6 +355,44 @@ export async function POST(req: NextRequest) {
       userRole = 'pengguna_terotorisasi'
     }
 
+    // Transkripsi Voice Note HANYA setelah otorisasi pengguna lolos!
+    if (!text && voiceFileId) {
+      await kirimAksiChatTelegram(chatId, 'typing', 'review').catch(() => {})
+      const hasilStt = await transkripsiVoiceTelegram(
+        voiceFileId,
+        'review',
+        msg.voice?.mime_type || msg.audio?.mime_type
+      )
+      if (!hasilStt.ok || hasilStt.teks.length < 2) {
+        await kirimPesanTelegram(
+          chatId,
+          '🎙️ Maaf, pesan suara belum terdengar jelas. Silakan ucapkan kembali sedikit lebih dekat ke mikrofon atau ketik instruksi Anda.',
+          undefined,
+          'review'
+        )
+        return NextResponse.json({ ok: true, voice_empty: true })
+      }
+      text = hasilStt.teks
+    }
+
+    // ─────────────────────────────────────────────────────────── Normalisasi Shortcut Slash Commands
+    let queryTeks = text.trim()
+    const cmdClean = queryTeks.toLowerCase().split(' ')[0]
+    if (cmdClean === '/rating' || cmdClean.startsWith('/rating@')) {
+      queryTeks = 'Bagaimana ranking dan rata-rata skor rating Google Reviews seluruh cabang Suka Shawarma saat ini?'
+    } else if (cmdClean === '/negatif' || cmdClean.startsWith('/negatif@')) {
+      queryTeks = 'Tampilkan daftar ulasan negatif bintang 1 dan 2 terbaru beserta isi keluhan dan cabang terkait yang butuh tindak lanjut.'
+    } else if (cmdClean === '/alert' || cmdClean.startsWith('/alert@')) {
+      queryTeks = 'Apakah ada alert operasional ulasan aktif saat ini seperti lonjakan review negatif atau rating outlet di bawah threshold?'
+    } else if (cmdClean === '/rekap' || cmdClean.startsWith('/rekap@')) {
+      queryTeks = 'Bagaimana ringkasan distribusi sentimen ulasan pelanggan dan kategori topik yang paling sering dikeluhkan?'
+    } else if (cmdClean.startsWith('/outlet')) {
+      const namaCabang = queryTeks.replace(/^\/outlet(@\w+)?\s*/i, '').trim()
+      queryTeks = namaCabang
+        ? `Bagaimana ringkasan performa ulasan dan rating pelanggan khusus untuk cabang ${namaCabang}?`
+        : 'Bagaimana ringkasan performa ulasan dan rating cabang-cabang utama Suka Shawarma?'
+    }
+
     // Kirim indikasi typing segera dan pertahankan setiap 4 detik selama memproses
     await kirimAksiChatTelegram(chatId, 'typing', 'review').catch(() => {})
     const typingInterval = setInterval(() => {
@@ -442,15 +445,24 @@ export async function POST(req: NextRequest) {
       // Fallback ke 9Router AI Gateway jika Hermes tidak merespons
       if (!jawabanAi.trim()) {
         try {
+          const isTestEnv = process.env.NODE_ENV === 'test'
+          const voiceCfg = !isTestEnv ? await ambilKonfigurasiVoiceServer().catch(() => null) : null
+          const aiBaseUrl = process.env.AI_BASE_URL || voiceCfg?.aiBaseUrl
+          const aiApiKey = process.env.AI_API_KEY || voiceCfg?.aiApiKey
           const telemetri = await ambilTelemetriNyata().catch(() => null)
-          for await (const chunk of tanyaAiRouter({
-            pesan: promptUser,
-            profil: 'review',
-            telemetri,
-            signal: AbortSignal.timeout(12_000),
-          })) {
-            jawabanAi += chunk
+          if (aiBaseUrl && aiApiKey) {
+            for await (const chunk of tanyaAiRouter({
+              pesan: promptUser,
+              profil: 'review',
+              telemetri,
+              baseUrl: aiBaseUrl,
+              apiKey: aiApiKey,
+              signal: AbortSignal.timeout(12_000),
+            })) {
+              jawabanAi += chunk
+            }
           }
+
         } catch (errRouter) {
           console.warn('[review-webhook] AI Router gagal, beralih ke generator dev:', errRouter)
         }

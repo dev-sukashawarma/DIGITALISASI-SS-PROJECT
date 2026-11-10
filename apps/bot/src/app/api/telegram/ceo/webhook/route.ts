@@ -6,6 +6,7 @@ import { tanyaHermes, kunciProfil, apakahHermesSehat, catatHermesGagal, catatHer
 import { ambilTelemetriNyata, formatRupiah } from '@/lib/server/telemetriNyata'
 import { tanyaAiRouter } from '@/lib/server/aiRouter'
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
+import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,24 +71,6 @@ export async function POST(req: NextRequest) {
   const fromFirstName = msg.from.first_name ?? 'Sir'
 
   let text = (rawText || '').trim()
-  if (!text && voiceFileId) {
-    await kirimAksiChatTelegram(chatId, 'typing', 'ceo')
-    const hasilStt = await transkripsiVoiceTelegram(
-      voiceFileId,
-      'ceo',
-      msg.voice?.mime_type || msg.audio?.mime_type
-    )
-    if (!hasilStt.ok || hasilStt.teks.length < 2) {
-      await kirimPesanTelegram(
-        chatId,
-        '🎙️ Maaf, pesan suara belum terdengar jelas. Silakan ucapkan kembali sedikit lebih dekat ke mikrofon atau ketik instruksi Anda.',
-        undefined,
-        'ceo'
-      )
-      return NextResponse.json({ ok: true, voice_empty: true })
-    }
-    text = hasilStt.teks
-  }
 
   try {
     // ─────────────────────────────────────────────────────────── Command /start
@@ -393,32 +376,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    // ─────────────────────────────────────────────────────────── Normalisasi Shortcut Slash Commands
-    let queryTeks = text.trim()
-    const cmdClean = queryTeks.toLowerCase().split(' ')[0]
-    if (cmdClean === '/omzet' || cmdClean.startsWith('/omzet@')) {
-      queryTeks = 'Berapa omzet seluruh cabang hari ini dan peringkat penjualannya?'
-    } else if (
-      cmdClean === '/kemarin' ||
-      cmdClean.startsWith('/kemarin@') ||
-      cmdClean === '/evaluasi' ||
-      cmdClean.startsWith('/evaluasi@')
-    ) {
-      queryTeks =
-        'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi (penjualan, finance, HRD, waste, stok, distribusi, dan review) lengkap dengan rekomendasi dan saran taktis dari agent.'
-    } else if (cmdClean === '/buka' || cmdClean.startsWith('/buka@')) {
-      queryTeks = 'Cabang mana yang sudah buka dan mana yang belum ada transaksi hari ini?'
-    } else if (cmdClean === '/absensi' || cmdClean.startsWith('/absensi@') || cmdClean === '/absen' || cmdClean.startsWith('/absen@')) {
-      queryTeks = 'Bagaimana status kehadiran, keterlambatan, dan perizinan staf hari ini?'
-    } else if (cmdClean === '/stok' || cmdClean.startsWith('/stok@')) {
-      queryTeks = 'Bagaimana status stok gudang pusat dan katalog bahan baku hari ini?'
-    } else if (cmdClean === '/finance' || cmdClean.startsWith('/finance@')) {
-      queryTeks = 'Bagaimana ringkasan keuangan, kas operasional, dan rekonsiliasi hari ini?'
-    } else if (cmdClean === '/status' || cmdClean.startsWith('/status@')) {
-      queryTeks = 'Berikan status report menyeluruh sistem operasional dan ringkasan eksekutif hari ini.'
-    }
-
-    // ─────────────────────────────────────────────────────────── Tanya Jawab Hermes AI 2-Way
+    // ─────────────────────────────────────────────────────────── Tanya Jawab Hermes AI 2-Way (Otorisasi Terlebih Dahulu!)
     const admin = supabaseAdmin()
 
     // 1. Cek apakah staf terdaftar dengan role eksekutif (owner, admin, developer)
@@ -483,6 +441,51 @@ export async function POST(req: NextRequest) {
         userName = whitelistUser.nama_pengguna
         userRole = 'eksekutif_terotorisasi'
       }
+    }
+
+    // Transkripsi Voice Note HANYA setelah otorisasi pengguna lolos!
+    if (!text && voiceFileId) {
+      await kirimAksiChatTelegram(chatId, 'typing', 'ceo').catch(() => {})
+      const hasilStt = await transkripsiVoiceTelegram(
+        voiceFileId,
+        'ceo',
+        msg.voice?.mime_type || msg.audio?.mime_type
+      )
+      if (!hasilStt.ok || hasilStt.teks.length < 2) {
+        await kirimPesanTelegram(
+          chatId,
+          '🎙️ Maaf, pesan suara belum terdengar jelas. Silakan ucapkan kembali sedikit lebih dekat ke mikrofon atau ketik instruksi Anda.',
+          undefined,
+          'ceo'
+        )
+        return NextResponse.json({ ok: true, voice_empty: true })
+      }
+      text = hasilStt.teks
+    }
+
+    // ─────────────────────────────────────────────────────────── Normalisasi Shortcut Slash Commands
+    let queryTeks = text.trim()
+    const cmdClean = queryTeks.toLowerCase().split(' ')[0]
+    if (cmdClean === '/omzet' || cmdClean.startsWith('/omzet@')) {
+      queryTeks = 'Berapa omzet seluruh cabang hari ini dan peringkat penjualannya?'
+    } else if (
+      cmdClean === '/kemarin' ||
+      cmdClean.startsWith('/kemarin@') ||
+      cmdClean === '/evaluasi' ||
+      cmdClean.startsWith('/evaluasi@')
+    ) {
+      queryTeks =
+        'Buat laporan evaluasi komprehensif kemarin (H-1) dari semua aplikasi (penjualan, finance, HRD, waste, stok, distribusi, dan review) lengkap dengan rekomendasi dan saran taktis dari agent.'
+    } else if (cmdClean === '/buka' || cmdClean.startsWith('/buka@')) {
+      queryTeks = 'Cabang mana yang sudah buka dan mana yang belum ada transaksi hari ini?'
+    } else if (cmdClean === '/absensi' || cmdClean.startsWith('/absensi@') || cmdClean === '/absen' || cmdClean.startsWith('/absen@')) {
+      queryTeks = 'Bagaimana status kehadiran, keterlambatan, dan perizinan staf hari ini?'
+    } else if (cmdClean === '/stok' || cmdClean.startsWith('/stok@')) {
+      queryTeks = 'Bagaimana status stok gudang pusat dan katalog bahan baku hari ini?'
+    } else if (cmdClean === '/finance' || cmdClean.startsWith('/finance@')) {
+      queryTeks = 'Bagaimana ringkasan keuangan, kas operasional, dan rekonsiliasi hari ini?'
+    } else if (cmdClean === '/status' || cmdClean.startsWith('/status@')) {
+      queryTeks = 'Berikan status report menyeluruh sistem operasional dan ringkasan eksekutif hari ini.'
     }
 
     // Kirim indikasi typing segera dan pertahankan setiap 4 detik selama memproses
@@ -607,14 +610,18 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        if (!process.env.AI_BASE_URL) process.env.AI_BASE_URL = 'http://76.13.193.138:20128/v1'
-        if (!process.env.AI_API_KEY) process.env.AI_API_KEY = 'sk-09f612c52578948f-zfpefg-d18a0fd3'
-        if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
+        const isTestEnv = process.env.NODE_ENV === 'test'
+        const voiceCfg = !isTestEnv ? await ambilKonfigurasiVoiceServer().catch(() => null) : null
+        const aiBaseUrl = process.env.AI_BASE_URL || voiceCfg?.aiBaseUrl || (!isTestEnv ? 'http://76.13.193.138:20128/v1' : '')
+        const aiApiKey = process.env.AI_API_KEY || voiceCfg?.aiApiKey || (!isTestEnv ? 'sk-09f612c52578948f-zfpefg-d18a0fd3' : '')
+        if (aiBaseUrl && aiApiKey || isTestEnv) {
           try {
             for await (const chunk of tanyaAiRouter({
               pesan: promptUser,
               profil: 'ceo',
               telemetri,
+              baseUrl: aiBaseUrl || undefined,
+              apiKey: aiApiKey || undefined,
               signal: AbortSignal.timeout(18_000),
             })) {
               jawabanAi += chunk

@@ -6,6 +6,7 @@ import { tanyaHermes, kunciProfil, apakahHermesSehat, catatHermesGagal, catatHer
 import { ambilTelemetriNyata } from '@/lib/server/telemetriNyata'
 import { tanyaAiRouter } from '@/lib/server/aiRouter'
 import { buatJawabanDev } from '@/lib/server/devSimulasi'
+import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,24 +68,6 @@ export async function POST(req: NextRequest) {
   const fromFirstName = msg.from.first_name ?? 'Rekan Finance'
 
   let text = (rawText || '').trim()
-  if (!text && voiceFileId) {
-    await kirimAksiChatTelegram(chatId, 'typing', 'finance')
-    const hasilStt = await transkripsiVoiceTelegram(
-      voiceFileId,
-      'finance',
-      msg.voice?.mime_type || msg.audio?.mime_type
-    )
-    if (!hasilStt.ok || hasilStt.teks.length < 2) {
-      await kirimPesanTelegram(
-        chatId,
-        '🎙️ Maaf, pesan suara belum terdengar jelas. Silakan ucapkan kembali sedikit lebih dekat ke mikrofon atau ketik instruksi Anda.',
-        undefined,
-        'finance'
-      )
-      return NextResponse.json({ ok: true, voice_empty: true })
-    }
-    text = hasilStt.teks
-  }
 
   try {
     // ─────────────────────────────────────────────────────────── Command /start
@@ -310,20 +293,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    // ─────────────────────────────────────────────────────────── Normalisasi Shortcut Slash Commands
-    let queryTeks = text.trim()
-    const cmdClean = queryTeks.toLowerCase().split(' ')[0]
-    if (cmdClean === '/utang' || cmdClean.startsWith('/utang@')) {
-      queryTeks = 'Bagaimana ringkasan utang PO ke supplier dan tagihan yang sudah lewat jatuh tempo hari ini?'
-    } else if (cmdClean === '/pengeluaran' || cmdClean.startsWith('/pengeluaran@')) {
-      queryTeks = 'Berapa total pengeluaran bulan ini yang terbagi antara outlet dan pusat?'
-    } else if (cmdClean === '/setoran' || cmdClean.startsWith('/setoran@')) {
-      queryTeks = 'Bagaimana ringkasan pencatatan setoran kas outlet yang diinput admin Finance hari ini dan status rekonsiliasi kas cabang?'
-    } else if (cmdClean === '/selisih' || cmdClean.startsWith('/selisih@')) {
-      queryTeks = 'Bagaimana rekap selisih kasir dan shift yang belum ditutup kemarin?'
-    }
-
-    // ─────────────────────────────────────────────────────────── Tanya Jawab Hermes AI 2-Way
+    // ─────────────────────────────────────────────────────────── Tanya Jawab Hermes AI 2-Way (Otorisasi Terlebih Dahulu!)
     const admin = supabaseAdmin()
 
     // 1. Cek apakah staf terdaftar dengan role yang diizinkan (admin_finance, owner, admin, developer)
@@ -387,6 +357,39 @@ export async function POST(req: NextRequest) {
       userRole = 'pengguna_terotorisasi'
     }
 
+    // Transkripsi Voice Note HANYA setelah otorisasi pengguna lolos!
+    if (!text && voiceFileId) {
+      await kirimAksiChatTelegram(chatId, 'typing', 'finance').catch(() => {})
+      const hasilStt = await transkripsiVoiceTelegram(
+        voiceFileId,
+        'finance',
+        msg.voice?.mime_type || msg.audio?.mime_type
+      )
+      if (!hasilStt.ok || hasilStt.teks.length < 2) {
+        await kirimPesanTelegram(
+          chatId,
+          '🎙️ Maaf, pesan suara belum terdengar jelas. Silakan ucapkan kembali sedikit lebih dekat ke mikrofon atau ketik instruksi Anda.',
+          undefined,
+          'finance'
+        )
+        return NextResponse.json({ ok: true, voice_empty: true })
+      }
+      text = hasilStt.teks
+    }
+
+    // ─────────────────────────────────────────────────────────── Normalisasi Shortcut Slash Commands
+    let queryTeks = text.trim()
+    const cmdClean = queryTeks.toLowerCase().split(' ')[0]
+    if (cmdClean === '/utang' || cmdClean.startsWith('/utang@')) {
+      queryTeks = 'Bagaimana ringkasan utang PO ke supplier dan tagihan yang sudah lewat jatuh tempo hari ini?'
+    } else if (cmdClean === '/pengeluaran' || cmdClean.startsWith('/pengeluaran@')) {
+      queryTeks = 'Berapa total pengeluaran bulan ini yang terbagi antara outlet dan pusat?'
+    } else if (cmdClean === '/setoran' || cmdClean.startsWith('/setoran@')) {
+      queryTeks = 'Bagaimana ringkasan pencatatan setoran kas outlet yang diinput admin Finance hari ini dan status rekonsiliasi kas cabang?'
+    } else if (cmdClean === '/selisih' || cmdClean.startsWith('/selisih@')) {
+      queryTeks = 'Bagaimana rekap selisih kasir dan shift yang belum ditutup kemarin?'
+    }
+
     // Kirim indikasi typing segera dan pertahankan setiap 4 detik selama memproses
     await kirimAksiChatTelegram(chatId, 'typing', 'finance').catch(() => {})
     const typingInterval = setInterval(() => {
@@ -445,12 +448,18 @@ export async function POST(req: NextRequest) {
           console.warn('[telegram-finance-webhook] Gagal mengambil telemetri nyata:', teleErr)
         }
 
-        if (process.env.AI_BASE_URL && process.env.AI_API_KEY) {
+        const isTestEnv = process.env.NODE_ENV === 'test'
+        const voiceCfg = !isTestEnv ? await ambilKonfigurasiVoiceServer().catch(() => null) : null
+        const aiBaseUrl = process.env.AI_BASE_URL || voiceCfg?.aiBaseUrl
+        const aiApiKey = process.env.AI_API_KEY || voiceCfg?.aiApiKey
+        if (aiBaseUrl && aiApiKey) {
           try {
             for await (const chunk of tanyaAiRouter({
               pesan: promptUser,
               profil: 'finance',
               telemetri,
+              baseUrl: aiBaseUrl,
+              apiKey: aiApiKey,
               signal: AbortSignal.timeout(15_000),
             })) {
               jawabanAi += chunk

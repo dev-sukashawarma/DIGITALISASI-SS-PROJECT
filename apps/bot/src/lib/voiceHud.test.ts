@@ -13,6 +13,7 @@ import {
   aktifkanSesiPanggilanKontinu,
   matikanSesiPanggilanKontinu,
   apakahSesiPanggilanKontinuAktif,
+  encodeWav16kBase64,
 } from './voiceHud'
 import { naturalisasiTeksSuara, cariKonfigurasiSuara } from './ttsConfig'
 
@@ -453,5 +454,40 @@ describe('voiceHud & naturalisasiTeksSuara', () => {
     expect(evaluasiFrameVad(st, 0.014, 0.035, t, 1100)).toBe('lanjut')
     t += 45
     expect(evaluasiFrameVad(st, 0.015, 0.038, t, 1100)).toBe('mulai_bicara')
+  })
+
+  it('ekstrakAntreanKalimatSuara mengirim klausa pertama lebih dini pada kalimat panjang berkoma secara 100% monoton tanpa memotong sapaan Sir/Bos', () => {
+    const teksPenuh =
+      'Bos, kemarin yang paling kuat itu **Mitra Cileungsi** dengan omzet kotor 4,6 juta, diikuti Empang di angka 3,7 juta dan Pamulang 3,6 juta. Cileungsi bawa 85 struk dengan rata-rata transaksi 54 ribu per nota.'
+
+    // Pada karakter ke-90 (klausa pertama selesai + 4 huruf klausa berikutnya sudah masuk), chunk 0 langsung siap dikirim ke ElevenLabs!
+    const saatStreamDini = ekstrakAntreanKalimatSuara(teksPenuh.slice(0, 90), false)
+    expect(saatStreamDini.length).toBe(1)
+    expect(saatStreamDini[0]).toContain('Mitra Cileungsi')
+    expect(saatStreamDini[0]).toContain('4,6 juta')
+
+    // Begitu stream selesai, chunk 0 tetap 100% identik (monoton) sehingga antrean tidak mengulang kalimat!
+    const saatSelesai = ekstrakAntreanKalimatSuara(teksPenuh, true)
+    expect(saatSelesai.length).toBe(3)
+    expect(saatSelesai[0]).toBe(saatStreamDini[0])
+    expect(saatSelesai[1]).toContain('diikuti Empang')
+
+    // Pastikan ", Sir" pada kalimat panjang tidak dipotong sebelum kata "Sir"
+    const denganSapaanSir =
+      'Cabang paling rendah kemarin adalah **MITRA SENTUL**, Sir hanya Rp 772.000 dengan 16 struk. Jauh di bawah rata-rata.'
+    const qSir = ekstrakAntreanKalimatSuara(denganSapaanSir, true)
+    expect(qSir[0]).toContain('MITRA SENTUL, Sir')
+  })
+
+  it('encodeWav16kBase64 mempertahankan ucapan pelan iPhone (~0.003) setelah klik awal mikrofon', () => {
+    // 2 detik pada 16kHz: klik awal (sampel 0..50 = 0.02), lalu bicara pelan (sampel 1000..28000 = 0.003)
+    const buf = new Float32Array(32_000)
+    for (let i = 0; i < 50; i++) buf[i] = 0.02
+    for (let i = 1_000; i < 28_000; i++) buf[i] = i % 2 === 0 ? 0.003 : -0.003
+
+    const b64 = encodeWav16kBase64([buf], 16_000)
+    const raw = Buffer.from(b64, 'base64')
+    // Header WAV 44 byte + ~29.880 sampel x 2 byte (~59.800 byte) -> tidak terpotong di klik awal!
+    expect(raw.byteLength).toBeGreaterThan(50_000)
   })
 })

@@ -56,6 +56,8 @@ import {
   feeManajemenClosingMitra,
   penyesuaianLabaRugiMitraClosing,
   barisPenyesuaianOpexMitra,
+  labaKotorInternalPerOutletClosing,
+  penyesuaianLabaKotorOutletClosing,
 } from '@/lib/closing/closingBulanan'
 import { PRORATED_CATEGORIES, adalahSemiTetap } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
@@ -303,8 +305,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   }, [prorataRows, hrPayroll.data, effectiveFilter.from, effectiveFilter.to, effectiveFilter.outletId])
   // Closing Laba Rugi Mitra (Oktober 2026, semua outlet): angka per outlet mitra
   // mengikuti laporan closing. OPEX disamakan lewat baris penyesuaian per outlet.
-  const closingMitra = scope === 'mitra' && filter.outletId === 'all'
-    ? closingLabaRugiMitraUntuk(effectiveFilter.from, effectiveFilter.to)
+  const closingMitra = scope === 'mitra'
+    ? closingLabaRugiMitraUntuk(effectiveFilter.from, effectiveFilter.to, filter.outletId)
+    : null
+  // Closing per outlet internal (Oktober 2026): tabel per outlet & filter satu outlet.
+  const closingInternalPerOutlet = scope === 'internal'
+    ? labaKotorInternalPerOutletClosing(effectiveFilter.from, effectiveFilter.to)
     : null
   const expenseRows = useMemo(() => {
     const rows = hasilClosingOpex.rows
@@ -518,6 +524,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const liveLabaKotor = { omzet: actualGrossSalesLive, potongan: totalDeductionsLive, hpp: totalHppLive, waste: totalWasteLive }
   const penyesuaianLabaKotor = scope === 'internal' && isAllOutlets
     ? penyesuaianLabaKotorClosing(effectiveFilter.from, effectiveFilter.to, liveLabaKotor)
+    : scope === 'internal' && !mitraIds.has(filter.outletId)
+    ? penyesuaianLabaKotorOutletClosing(effectiveFilter.from, effectiveFilter.to, filter.outletId, liveLabaKotor)
     : closingMitra
     ? penyesuaianLabaRugiMitraClosing(closingMitra, liveLabaKotor)
     : null
@@ -610,6 +618,18 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           })
         }
       }
+    } else if (closingInternalPerOutlet) {
+      // Closing per outlet internal: omzet, potongan (termasuk komisi TikTok GO kedua),
+      // HPP, dan waste mengikuti laporan; OPEX internal sudah sama dengan data asli.
+      for (const [id, val] of map) {
+        if (mitraIds.has(id)) continue
+        const c = closingInternalPerOutlet.outlets[id]
+        val.omzet = c?.omzet ?? 0
+        val.deductions = c ? c.potongan + c.komisiTiktokKedua : 0
+        val.hpp = c?.hpp ?? 0
+        val.waste = c?.waste ?? 0
+        if (!c) (val as any).cogsChannels = undefined
+      }
     }
 
     return [...map.entries()]
@@ -668,14 +688,18 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         if (sortBy === 'omzet') return b.netRev - a.netRev
         return b.net - a.net
       })
-  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, sortBy, managementFeeData, mitraIds, scope, closingMitra])
+  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, sortBy, managementFeeData, mitraIds, scope, closingMitra, closingInternalPerOutlet])
 
   // Informasi pembagian hasil (50:50) ketika memfilter satu outlet kemitraan yang sudah BEP
   const selectedMitraFeeInfo = !isAllOutlets && (scope === 'mitra' || mitraIds.has(filter.outletId))
     ? managementFeeData.perOutletFee.get(filter.outletId)
     : undefined
-  const isSelectedOutletBep = Boolean(selectedMitraFeeInfo?.isBep)
-  const selectedMitraSharePct = selectedMitraFeeInfo?.profitSharingPct ?? (isSelectedOutletBep ? 50 : 100)
+  // Closing Laba Rugi Mitra satu outlet: persen bagi hasil mengikuti laporan closing.
+  const closingPctTerpilih = closingMitra && !isAllOutlets
+    ? (closingMitra.data[filter.outletId]?.totals.profitSharingPct ?? 100)
+    : null
+  const isSelectedOutletBep = closingPctTerpilih !== null ? closingPctTerpilih < 100 : Boolean(selectedMitraFeeInfo?.isBep)
+  const selectedMitraSharePct = closingPctTerpilih ?? selectedMitraFeeInfo?.profitSharingPct ?? (isSelectedOutletBep ? 50 : 100)
   const selectedPusatSharePct = Math.max(0, 100 - selectedMitraSharePct)
 
   // managementFeeExpense sudah dipotong di netRevenue (blok antar-kantong).

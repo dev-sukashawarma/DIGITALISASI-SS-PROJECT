@@ -8,6 +8,8 @@ import {
   feeManajemenClosingMitra,
   penyesuaianLabaRugiMitraClosing,
   barisPenyesuaianOpexMitra,
+  labaKotorInternalPerOutletClosing,
+  penyesuaianLabaKotorOutletClosing,
 } from './closingBulanan'
 import type { ExpenseRow } from '@/lib/expenseRow'
 import { MITRA_CLOSING_DATA_OKTOBER_2026 as M } from '@/app/actions/mitraPnlClosingDataOktober2026'
@@ -140,5 +142,28 @@ describe('closing tab Laba Rugi Mitra Oktober 2026', () => {
     expect(laba).toBeCloseTo(121_526_376.5, 1)
     expect(fee).toBeCloseTo(21_194_263.5, 1)
     expect(bagiHasilPusat).toBeCloseTo(6_819_548, 1)
+  })
+})
+
+describe('closing per outlet Oktober 2026', () => {
+  const CILEUNGSI = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
+  const EMPANG = '550e8400-e29b-41d4-a716-446655440002'
+
+  it('tab Mitra satu outlet: data dibatasi ke outlet itu, outlet di luar laporan kosong', () => {
+    const c = closingLabaRugiMitraUntuk('2026-10-01', '2026-10-31', CILEUNGSI)!
+    expect(Object.keys(c.data)).toEqual([CILEUNGSI])
+    expect(feeManajemenClosingMitra(c)).toBeCloseTo(5_785_971.21, 1)
+    expect(c.data[CILEUNGSI].totals.netProfit).toBeCloseTo(39_061_416.79, 1)
+    expect(Object.keys(closingLabaRugiMitraUntuk('2026-10-01', '2026-10-31', 'a85330a1-c150-4389-9a94-c23b66aaed7c')!.data)).toHaveLength(0)
+  })
+
+  it('tab Internal per outlet: hanya Oktober; outlet di luar laporan ditargetkan nol', () => {
+    expect(labaKotorInternalPerOutletClosing('2026-09-01', '2026-09-30')).toBeNull()
+    const live = { omzet: 10, potongan: 1, hpp: 5, waste: 0 }
+    const e = penyesuaianLabaKotorOutletClosing('2026-10-01', '2026-10-31', EMPANG, live)!
+    expect(live.omzet + e.omzet).toBe(L.outlets[EMPANG].omzet)
+    expect(e.komisiTiktokKedua).toBe(L.outlets[EMPANG].komisiTiktokKedua)
+    const lain = penyesuaianLabaKotorOutletClosing('2026-10-01', '2026-10-31', 'tak-dikenal', live)!
+    expect(live.omzet + lain.omzet).toBe(0)
   })
 })

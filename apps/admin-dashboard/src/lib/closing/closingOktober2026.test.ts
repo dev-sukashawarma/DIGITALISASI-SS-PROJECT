@@ -1,7 +1,15 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { LABA_KOTOR_INTERNAL_CLOSING_OKT_2026 as L, PENDAPATAN_MITRA_CLOSING_OKT_2026 as P, NET_PROFIT_INTERNAL_OKT_2026 } from './closingOktober2026'
-import { penyesuaianLabaKotorClosing, pendapatanMitraClosingUntuk } from './closingBulanan'
+import {
+  penyesuaianLabaKotorClosing,
+  pendapatanMitraClosingUntuk,
+  closingLabaRugiMitraUntuk,
+  feeManajemenClosingMitra,
+  penyesuaianLabaRugiMitraClosing,
+  barisPenyesuaianOpexMitra,
+} from './closingBulanan'
+import type { ExpenseRow } from '@/lib/expenseRow'
 import { MITRA_CLOSING_DATA_OKTOBER_2026 as M } from '@/app/actions/mitraPnlClosingDataOktober2026'
 import { getMitraClosing, getMitraClosingMonth, isClosingBerlaku } from '@/app/actions/mitraPnlClosingData'
 
@@ -87,5 +95,50 @@ describe('closing mitra Oktober 2026', () => {
       .toBe(M['550e8400-e29b-41d4-a716-446655440017'].totals.netProfit)
     // Outlet tanpa penjualan (mis. Karawaci) tidak menghalangi closing.
     expect(isClosingBerlaku(okt, [...Object.keys(M), 'a85330a1-c150-4389-9a94-c23b66aaed7c'], id => id !== 'a85330a1-c150-4389-9a94-c23b66aaed7c')).toBe(true)
+  })
+})
+
+describe('closing tab Laba Rugi Mitra Oktober 2026', () => {
+  const CIBINONG = '550e8400-e29b-41d4-a716-446655440014'
+  const PEKAYON = '550e8400-e29b-41d4-a716-446655440018'
+  const KARAWACI = 'a85330a1-c150-4389-9a94-c23b66aaed7c'
+  const baris = (outletId: string, amount: number): ExpenseRow => ({
+    id: `x-${outletId}-${amount}`, outlet_id: outletId, outlet_name: null, category: 'pengeluaran_outlet', scope: 'outlet',
+    amount, description: '', expense_date: '2026-10-15', period_month: '2026-10-01', source: 'monthly',
+  })
+
+  it('hanya Oktober penuh; September tetap data asli', () => {
+    expect(closingLabaRugiMitraUntuk('2026-10-01', '2026-10-31')?.label).toBe('Oktober 2026')
+    expect(closingLabaRugiMitraUntuk('2026-09-01', '2026-09-30')).toBeNull()
+    expect(closingLabaRugiMitraUntuk('2026-10-01', '2026-10-30')).toBeNull()
+  })
+
+  it('OPEX per outlet disamakan; outlet mitra di luar laporan ditargetkan nol', () => {
+    const c = closingLabaRugiMitraUntuk('2026-10-01', '2026-10-31')!
+    const live = [baris(CIBINONG, M[CIBINONG].totals.totalOpex + 1_834_000), baris(KARAWACI, 3_000_000)]
+    const adj = barisPenyesuaianOpexMitra(c, live, [CIBINONG, PEKAYON, KARAWACI])
+    const per = (id: string) => adj.filter(r => r.outlet_id === id).reduce((s, r) => s + r.amount, 0)
+    expect(per(CIBINONG)).toBeCloseTo(-1_834_000, 2)
+    expect(per(KARAWACI)).toBeCloseTo(-3_000_000, 2)
+    expect(per(PEKAYON)).toBeCloseTo(M[PEKAYON].totals.totalOpex, 2)
+    const totalOpex = [...live, ...adj].reduce((s, r) => s + r.amount, 0)
+    expect(totalOpex).toBeCloseTo(Object.values(M).reduce((s, o) => s + o.totals.totalOpex, 0), 2)
+  })
+
+  it('kartu Laba Bersih = total bagi hasil mitra laporan (121.526.376,5)', () => {
+    const c = closingLabaRugiMitraUntuk('2026-10-01', '2026-10-31')!
+    const live = { omzet: 1, potongan: 2, hpp: 3, waste: 4 }
+    const p = penyesuaianLabaRugiMitraClosing(c, live)
+    const omzet = live.omzet + p.omzet
+    const potongan = live.potongan + p.potongan
+    const hpp = live.hpp + p.hpp
+    const waste = live.waste + p.waste
+    const opex = Object.values(M).reduce((s, o) => s + o.totals.totalOpex, 0)
+    const fee = feeManajemenClosingMitra(c)
+    const bagiHasilPusat = Object.values(M).reduce((s, o) => s + (o.totals.netProfit - o.totals.mitraShare), 0)
+    const laba = omzet - potongan - fee - hpp - waste - opex - bagiHasilPusat
+    expect(laba).toBeCloseTo(121_526_376.5, 1)
+    expect(fee).toBeCloseTo(21_194_263.5, 1)
+    expect(bagiHasilPusat).toBeCloseTo(6_819_548, 1)
   })
 })

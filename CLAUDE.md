@@ -3728,7 +3728,7 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - `src/lib/closing/closingBulanan.ts` = satu pintu `penyesuaianLabaKotorClosing` / `pendapatanMitraClosingUntuk` untuk September & Oktober (dipakai `ProfitView`). Label baris penyesuaian kini mengikuti bulan.
 - **OPEX tidak perlu closing:** OPEX outlet internal, OPEX pusat (155.389.617), dan 11/13 mitra sudah sama dengan data live.
 - Closing Oktober **menolkan pendapatan lain-lain** (Income Lainnya 1.377.500) di Laba Rugi Internal, karena laporan tidak memuatnya.
-- Sama seperti September: tabel per-outlet & tab Laba Rugi Mitra tetap live; rentang yang menyentuh Oktober di dashboard mitra disajikan Oktober sebulan penuh.
+- Tabel per-outlet Laba Rugi Internal tetap live (sama seperti September). **Tab Laba Rugi Mitra Oktober ikut dikunci** (berbeda dari September yang tetap live): kartu & tabel per outlet = laporan (Laba Bersih 121.526.376,5); OPEX disamakan lewat baris "Penyesuaian closing Oktober 2026" per outlet (`barisPenyesuaianOpexMitra`). Rentang yang menyentuh Oktober di dashboard mitra disajikan Oktober sebulan penuh.
 - PreOrder WA (`channel='preorder_wa'`) tetap Offline + QRIS (keputusan 6 Nov); tidak ikut setoran tunai.
 
 **Last updated:** 2026-11-10  

@@ -218,7 +218,9 @@ export async function verifyOfficeVoucherAction(input: {
     .update({
       amount: finalAmount,
       description: newDesc,
-      type: 'office_settled',
+      // 'expense' = pengeluaran biasa: ikut Buku Kas (OPEX) & Laba Perusahaan sebagai biaya Pusat.
+      // Penanda [OFFICE_VCR] di description tetap menjaga voucher di daftar dana kantor.
+      type: 'expense',
       cash_location_id: input.cashLocationId
     })
     .eq('id', v.id)

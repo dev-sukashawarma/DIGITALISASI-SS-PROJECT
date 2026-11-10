@@ -27,7 +27,7 @@ BEGIN
   END;
 
   -- (b) persetujuan: office_settled + rekening -> satu transaksi kas keluar
-  UPDATE expenses SET type = 'office_settled', cash_location_id = v_rek WHERE id = v_id;
+  UPDATE expenses SET type = 'expense', cash_location_id = v_rek WHERE id = v_id;  -- persetujuan sejak 20261110140000
   SELECT count(*), max(category) INTO v_n, v_kat FROM cash_transaction
    WHERE source_type = 'expense_pusat' AND source_id = v_id AND status <> 'void'
      AND direction = 'out' AND amount = 495500;

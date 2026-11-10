@@ -59,6 +59,8 @@ const voucher: OfficeVoucher = {
   paymentSource: 'transfer_pusat',
 }
 
+const REK = 'rek-petty-bank'
+
 describe('voucher dana kantor yang sudah diputuskan', () => {
   beforeEach(() => {
     filterTerakhir.length = 0
@@ -73,13 +75,13 @@ describe('voucher dana kantor yang sudah diputuskan', () => {
 
   it('verifikasi ulang voucher yang sudah ditolak ditolak', async () => {
     db.row = { id: 'v1', type: 'office_rejected' }
-    await expect(verifyOfficeVoucherAction({ voucher })).rejects.toThrow('Voucher sudah diproses')
+    await expect(verifyOfficeVoucherAction({ voucher, cashLocationId: REK })).rejects.toThrow('Voucher sudah diproses')
     expect(db.row.type).toBe('office_rejected')
   })
 
   it('voucher yang menunggu verifikasi tetap bisa diverifikasi', async () => {
     db.row = { id: 'v1', type: 'office_waiting_verification' }
-    await expect(verifyOfficeVoucherAction({ voucher })).resolves.toEqual({ success: true })
+    await expect(verifyOfficeVoucherAction({ voucher, cashLocationId: REK })).resolves.toEqual({ success: true })
     expect(db.row.type).toBe('office_settled')
   })
 })
@@ -91,7 +93,7 @@ describe('riwayat keputusan dana kantor', () => {
 
   it('verifikasi mencatat riwayat setuju dengan pelaku dari sesi', async () => {
     db.row = { id: 'v1', type: 'office_waiting_verification' }
-    await verifyOfficeVoucherAction({ voucher })
+    await verifyOfficeVoucherAction({ voucher, cashLocationId: REK })
     expect(logDitulis).toHaveLength(1)
     expect(logDitulis[0]).toMatchObject({ jenis: 'dana_kantor', keputusan: 'setuju', sumber_id: 'v1', nominal: 750000, pelaku: 'u1' })
   })
@@ -106,5 +108,20 @@ describe('riwayat keputusan dana kantor', () => {
     db.row = { id: 'v1', type: 'office_settled' }
     await expect(rejectOfficeVoucherAction({ voucher, reason: 'x' })).rejects.toThrow()
     expect(logDitulis).toHaveLength(0)
+  })
+})
+
+describe('rekening pembayar voucher dana kantor', () => {
+  it('verifikasi menyimpan rekening pembayar agar saldo terpotong', async () => {
+    db.row = { id: 'v1', type: 'office_waiting_verification' }
+    await verifyOfficeVoucherAction({ voucher, cashLocationId: REK })
+    expect(db.row).toMatchObject({ type: 'office_settled', cash_location_id: REK, amount: 750000 })
+  })
+
+  it('verifikasi tanpa rekening ditolak dan voucher tidak berubah', async () => {
+    db.row = { id: 'v1', type: 'office_waiting_verification' }
+    await expect(verifyOfficeVoucherAction({ voucher, cashLocationId: '' })).rejects.toThrow('Pilih rekening')
+    expect(db.row.type).toBe('office_waiting_verification')
+    expect(db.row.cash_location_id).toBeUndefined()
   })
 })

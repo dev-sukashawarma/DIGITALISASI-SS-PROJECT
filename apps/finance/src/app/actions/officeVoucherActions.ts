@@ -183,11 +183,19 @@ export async function verifyOfficeVoucherAction(input: {
   voucher: OfficeVoucher
   approvedAmount?: number
   verifiedBy?: string | null
+  /** Rekening pusat yang membayar; saldonya dipotong sebesar nominal akhir (trigger expenses_sinkron_kas). */
+  cashLocationId: string
 }) {
   const { userId } = await requireRole(PERAN_KEUANGAN)
+  if (!input.cashLocationId) {
+    throw new Error('Pilih rekening pembayar terlebih dahulu.')
+  }
   const supabase = getServiceSupabase()
   const v = input.voucher
   const finalAmount = input.approvedAmount !== undefined ? input.approvedAmount : (v.realizedAmount || v.advanceAmount)
+  if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
+    throw new Error('Nominal akhir harus lebih dari 0.')
+  }
   const refund = Math.max(0, v.advanceAmount - finalAmount)
 
   const newDesc = serializeVoucherToDescription({
@@ -210,7 +218,8 @@ export async function verifyOfficeVoucherAction(input: {
     .update({
       amount: finalAmount,
       description: newDesc,
-      type: 'office_settled'
+      type: 'office_settled',
+      cash_location_id: input.cashLocationId
     })
     .eq('id', v.id)
     // Hanya voucher yang masih menunggu verifikasi; cegah menimpa keputusan dari tab lain.

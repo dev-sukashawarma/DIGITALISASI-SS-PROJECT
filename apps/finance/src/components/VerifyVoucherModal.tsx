@@ -1,14 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, CheckCircle2, XCircle, FileText, ExternalLink, ShieldCheck } from 'lucide-react'
 import { type OfficeVoucher } from '@/lib/officeVoucher'
+import { daftarRekeningPembayarAction } from '@/app/actions/expenses'
+
+type RekeningPembayar = { id: string; label: string; kind: string; grup: string; saldo: number }
+
+const GRUP_LABEL: Record<'utama' | 'bahan_baku' | 'petty_cash', string> = {
+  utama: 'Rekening Utama',
+  bahan_baku: 'Rekening Bahan Baku',
+  petty_cash: 'Rekening Petty Cash',
+}
+
+const formatRp = (n: number) => (n < 0 ? '-Rp ' : 'Rp ') + Math.abs(Math.round(n)).toLocaleString('id-ID')
 
 interface VerifyVoucherModalProps {
   voucher: OfficeVoucher | null
   isOpen: boolean
   onClose: () => void
-  onVerify: (data: { voucher: OfficeVoucher; approvedAmount?: number }) => Promise<void>
+  onVerify: (data: { voucher: OfficeVoucher; approvedAmount?: number; cashLocationId: string }) => Promise<void>
   onReject: (data: { voucher: OfficeVoucher; reason: string }) => Promise<void>
   isProcessing: boolean
 }
@@ -21,20 +32,47 @@ export function VerifyVoucherModal({
   onReject,
   isProcessing
 }: VerifyVoucherModalProps) {
-  const [approvedAmount, setApprovedAmount] = useState<number | ''>(voucher?.realizedAmount || voucher?.advanceAmount || '')
+  const [approvedAmount, setApprovedAmount] = useState<number | ''>('')
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [rekeningList, setRekeningList] = useState<RekeningPembayar[]>([])
+  const [rekeningGagal, setRekeningGagal] = useState(false)
+  const [cashLocationId, setCashLocationId] = useState('')
+
+  // Modal tetap ter-mount: isi ulang nilai tiap kali voucher yang dibuka berganti.
+  useEffect(() => {
+    if (!isOpen || !voucher) return
+    setApprovedAmount(voucher.realizedAmount || voucher.advanceAmount || '')
+    setRejectReason('')
+    setShowRejectForm(false)
+    setCashLocationId('')
+    setRekeningGagal(false)
+    let batal = false
+    daftarRekeningPembayarAction()
+      .then((list) => { if (!batal) setRekeningList(list) })
+      .catch(() => { if (!batal) { setRekeningList([]); setRekeningGagal(true) } })
+    return () => { batal = true }
+  }, [isOpen, voucher])
 
   if (!isOpen || !voucher) return null
 
   const advance = voucher.advanceAmount || 0
   const real = voucher.realizedAmount || advance
   const refund = Math.max(0, advance - real)
+  const nominalAkhir = Number(approvedAmount) || real
+  const rekeningTerpilih = rekeningList.find((r) => r.id === cashLocationId)
+  const sisaSaldo = rekeningTerpilih ? rekeningTerpilih.saldo - nominalAkhir : 0
+  const bisaSetujui = Boolean(cashLocationId) && nominalAkhir > 0
 
   const handleApprove = async () => {
+    if (!cashLocationId) {
+      alert('Pilih rekening pembayar terlebih dahulu!')
+      return
+    }
     await onVerify({
       voucher,
-      approvedAmount: Number(approvedAmount) || real
+      approvedAmount: nominalAkhir,
+      cashLocationId
     })
     onClose()
   }
@@ -131,10 +169,46 @@ export function VerifyVoucherModal({
               type="number"
               min="1"
               value={approvedAmount}
+              placeholder={String(real)}
               onChange={(e) => setApprovedAmount(e.target.value === '' ? '' : Number(e.target.value))}
               className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 outline-none focus:border-amber-500"
             />
           </label>
+        </div>
+
+        {/* Rekening pembayar: saldonya dipotong sebesar nominal akhir saat disetujui */}
+        <div className="mb-4 bg-gray-50 border border-gray-200 rounded-xl p-3">
+          <label className="text-xs font-bold text-gray-700 block">
+            <span className="mb-1 block">Dibayar dari Rekening:</span>
+            <select
+              value={cashLocationId}
+              onChange={(e) => setCashLocationId(e.target.value)}
+              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-900 outline-none focus:border-amber-500"
+            >
+              <option value="">— Pilih rekening —</option>
+              {(['utama', 'bahan_baku', 'petty_cash'] as const).map((g) => {
+                const daftarGrup = rekeningList.filter((r) => r.grup === g)
+                if (daftarGrup.length === 0) return null
+                return (
+                  <optgroup key={g} label={GRUP_LABEL[g]}>
+                    {daftarGrup.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label} · {formatRp(r.saldo)}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
+            </select>
+          </label>
+          {rekeningGagal && (
+            <span className="mt-1.5 block text-xs font-semibold text-rose-600">Gagal memuat daftar rekening. Tutup lalu buka lagi.</span>
+          )}
+          {rekeningTerpilih && (
+            <span className={`mt-1.5 block text-xs font-semibold ${sisaSaldo < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+              Saldo {formatRp(rekeningTerpilih.saldo)} − {formatRp(nominalAkhir)} = sisa {formatRp(sisaSaldo)}{sisaSaldo < 0 && ' (minus)'}
+            </span>
+          )}
         </div>
 
         {/* Receipt Attachment Review */}
@@ -224,7 +298,7 @@ export function VerifyVoucherModal({
               <button
                 type="button"
                 onClick={handleApprove}
-                disabled={isProcessing}
+                disabled={isProcessing || !bisaSetujui}
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />

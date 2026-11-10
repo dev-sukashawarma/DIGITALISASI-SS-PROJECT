@@ -84,6 +84,7 @@ export function useOfficeVouchers(filterMonth?: string, options: { enabled?: boo
     mutationFn: async (input: {
       voucher: OfficeVoucher
       approvedAmount?: number
+      cashLocationId: string
     }) => {
       const { data: { session } } = await supabase.auth.getSession()
       const userEmail = session?.user?.email || 'Finance & Accounting'
@@ -91,13 +92,17 @@ export function useOfficeVouchers(filterMonth?: string, options: { enabled?: boo
       return await verifyOfficeVoucherAction({
         voucher: input.voucher,
         approvedAmount: input.approvedAmount,
-        verifiedBy: userEmail
+        verifiedBy: userEmail,
+        cashLocationId: input.cashLocationId
       })
     },
     onSuccess: () => {
       toast.success('Voucher berhasil diverifikasi & resmi tercatat ke OPEX Kantor!')
       queryClient.invalidateQueries({ queryKey: ['office_vouchers'] })
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['cash_balance'] })
+      queryClient.invalidateQueries({ queryKey: ['cash_transaction'] })
+      queryClient.invalidateQueries({ queryKey: ['mutasi_rekening'] })
     },
     onError: (err: any) => {
       toast.error('Gagal verifikasi voucher: ' + err.message)

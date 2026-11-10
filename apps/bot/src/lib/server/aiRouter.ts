@@ -635,22 +635,29 @@ PERBANDINGAN TREN DAY-OVER-DAY (H-1 KEMARIN VS H-2 TANGGAL ${tr.tanggalH2Iso}):
       const butuhRincianStok = /stok|bahan|habis|kosong|kritis|kulit|daging|ayam|kentang|sayur|lettuce|gas|saus|gudang|distribusi|surat\s*jalan|kiriman/i.test(pLower)
       const butuhRincianFinance = /opex|pengeluaran|biaya|kas|setoran|rekap|bank|selisih|utang|po\b|supplier|finance|keuangan|kasbon/i.test(pLower)
       const butuhRincianReview = /review|ulasan|rating|bintang|komplain|keluhan|pelanggan/i.test(pLower)
-      const butuhRincianSdm = /presensi|absen|hadir|telat|terlambat|cuti|izin|kru|staf|staff|hrd|sidak|am\b/i.test(pLower)
+      const butuhRincianSdm = /presensi|absen|hadir|masuk|libur|sakit|alpha|mangkir|telat|terlambat|cuti|izin|kru|staf|staff|hrd|sidak|am\b/i.test(pLower)
+      const fokusHariIniSaja = /\b(hari\s*ini|sekarang|live|siang\s*ini|pagi\s*ini|sore\s*ini|malam\s*ini)\b/i.test(pLower) && !/\bkemarin\b/i.test(pLower)
+      const listKemarinRingkasAtauPenuh = fokusHariIniSaja
+        ? (k?.outletsAktifTransaksi || []).slice(0, 5).map(formatBarisOutlet).join('\n')
+        : listKemarinTransaksi
+      const listHariIniRingkasAtauPenuh = fokusHariIniSaja
+        ? listTransaksi
+        : t.outletsAktifTransaksi.slice(0, 6).map(formatBarisOutlet).join('\n')
 
       konteksData = [
         `=== DATA KEMARIN / H-1 (${k?.tanggalLabel || 'Kemarin'}) ===`,
-        `- Penjualan Jaringan Kemarin: Kotor ${formatRupiah(k?.omzetTotal || 0)} | Net ${formatRupiah(k?.omzetBersihTotal ?? k?.omzetTotal ?? 0)} | Potongan ${formatRupiah(k?.potonganTotal || 0)} | Laba Kotor ${formatRupiah(k?.labaKotorTotal || 0)} (${k?.totalOrder || 0} struk, ${k?.totalPorsi || 0} porsi, AOV ${formatRupiah(k?.aov || 0)})`,
-        `- Rincian Cabang Kemarin:\n${listKemarinTransaksi || '(Nihil)'}`,
-        listKemarinNol ? `- Cabang Tanpa Transaksi Kemarin:\n${listKemarinNol}` : '',
-        `- Top Menu Kemarin:\n${listMenuKemarin || '-'}`,
-        `- SDM Kemarin: ${t.hrdKemarin?.kehadiranTotal ?? 0} clock-in (${t.hrdKemarin?.persenOnTime ?? 100}% On-Time, ${t.hrdKemarin?.kehadiranTelat ?? 0} telat). Void Kemarin: ${v?.totalVoidKemarin ?? 0} (${formatRupiah(v?.totalNilaiVoidKemarin ?? 0)}). Waste Kemarin: ${w?.laporanKemarinCount ?? 0} laporan (${formatRupiah(w?.estKerugianKemarinRp ?? 0)}).`,
-        t.finance ? `- Ringkasan Keuangan: OPEX Kemarin ${formatRupiah(t.finance.pengeluaranKemarin?.totalNominal || 0)}, OPEX Hari Ini ${formatRupiah(t.finance.pengeluaranHariIni?.totalNominal || 0)}, Utang PO Belum Lunas ${formatRupiah(t.finance.utangPo?.totalUtang || 0)} (Overdue ${formatRupiah(t.finance.utangPo?.totalLewatJatuhTempo || 0)}), Kas Tutup Shift Kemarin ${formatRupiah(t.finance.setoranKas?.tutupShiftKemarin?.totalFisikKas || 0)}.` : '',
-        r ? `- Google Reviews: Rata-rata ${r.ratingRataRata} bintang dari ${r.totalUlasan} ulasan.` : '',
+        `- Penjualan Jaringan Kemarin: Kotor ${formatRupiah(k?.omzetTotal || 0)} | Net ${formatRupiah(k?.omzetBersihTotal ?? k?.omzetTotal ?? 0)} | Laba Kotor ${formatRupiah(k?.labaKotorTotal || 0)} (${k?.totalOrder || 0} struk, ${k?.totalPorsi || 0} porsi, AOV ${formatRupiah(k?.aov || 0)})`,
+        `- Cabang Kemarin:\n${listKemarinRingkasAtauPenuh || '(Nihil)'}`,
+        listKemarinNol ? `- Tanpa Transaksi Kemarin: ${listKemarinNol}` : '',
+        `- Top Menu Kemarin:\n${(t.topMenuKemarin ?? t.ringkasanKemarin?.topMenu ?? []).slice(0, 5).map((m, i) => `${i + 1}. ${m.nama}: ${m.qty} porsi (${formatRupiah(m.omzet)})`).join('\n') || '-'}`,
+        `- SDM Kemarin: ${t.hrdKemarin?.kehadiranTotal ?? 0} clock-in (${t.hrdKemarin?.persenOnTime ?? 100}% On-Time, ${t.hrdKemarin?.kehadiranTelat ?? 0} telat). Void: ${v?.totalVoidKemarin ?? 0}. Waste: ${w?.laporanKemarinCount ?? 0} (${formatRupiah(w?.estKerugianKemarinRp ?? 0)}).`,
+        t.finance ? `- Keuangan: OPEX Kemarin ${formatRupiah(t.finance.pengeluaranKemarin?.totalNominal || 0)}, OPEX Hari Ini ${formatRupiah(t.finance.pengeluaranHariIni?.totalNominal || 0)}, Utang PO ${formatRupiah(t.finance.utangPo?.totalUtang || 0)} (Overdue ${formatRupiah(t.finance.utangPo?.totalLewatJatuhTempo || 0)}).` : '',
+        r ? `- Google Reviews: ${r.ratingRataRata} bintang (${r.totalUlasan} ulasan).` : '',
         `\n=== DATA LIVE HARI INI (${t.tanggalWIB}) ===`,
-        `- Penjualan Live Hari Ini: ${formatRupiah(t.omzetTotal)} (${t.totalOrder} struk, AOV ${formatRupiah(t.aov)}). Shift Buka: ${sbk?.totalBuka || 0} buka / ${sbk?.totalBelumBuka || 0} belum buka.`,
-        sbk?.totalBelumBuka ? `- Cabang Belum Buka Shift Hari Ini:\n${listBelumBuka}` : '',
-        `- Rincian Cabang Live Hari Ini:\n${listTransaksi || '(Belum ada transaksi)'}`,
-        `- Presensi Hari Ini: ${t.kehadiranTotal} clock-in (${t.persenOnTime}% On-Time, ${t.kehadiranTelat} telat). Waste Hari Ini: ${w?.laporanHariIniCount ?? 0} laporan (${formatRupiah(w?.estKerugianHariIniRp ?? 0)}).`,
+        `- Penjualan Hari Ini: ${formatRupiah(t.omzetTotal)} (${t.totalOrder} struk, AOV ${formatRupiah(t.aov)}). Shift: ${sbk?.totalBuka || 0} buka / ${sbk?.totalBelumBuka || 0} belum buka.`,
+        sbk?.totalBelumBuka ? `- Belum Buka Shift:\n${listBelumBuka}` : '',
+        `- Cabang Hari Ini:\n${listHariIniRingkasAtauPenuh || '(Belum ada transaksi)'}`,
+        `- Presensi Hari Ini: ${t.kehadiranTotal} clock-in (${t.persenOnTime}% On-Time, ${t.kehadiranTelat} telat). Waste: ${w?.laporanHariIniCount ?? 0} (${formatRupiah(w?.estKerugianHariIniRp ?? 0)}).`,
         butuhRincianSdm ? `- Detail Telat Kemarin:\n${listTelatKemarin || 'Nihil'}\n- Detail Telat Hari Ini:\n${listTelat || 'Nihil'}\n- Detail Cuti/Izin:\n${listCuti || listCutiKemarin || 'Nihil'}` : '',
         butuhRincianWaste ? `- Detail Waste Kemarin:\n${listWasteKemarinPerOutlet || 'Nihil'}\n- Waste 7H (${formatRupiah(w?.estKerugian7HariRp || 0)}):\n${listWaste7HariBahan || 'Nihil'}` : '',
         butuhRincianStok ? `${teksStok}\n${teksDistribusi}` : '',
@@ -1025,9 +1032,9 @@ ${konteksData}
       ? `${promptSistem}\n\n${instruksiModeSuara}`
       : promptSistem
 
-  // Ambil riwayat percakapan sebelumnya (maksimal 10 pesan terakhir)
+  // Ambil riwayat percakapan sebelumnya (maksimal 4 pesan pada modeSuara agar prefill cepat, 10 pada mode teks)
   const riwayatFiltered = (o.riwayat || [])
-    .slice(-10)
+    .slice(o.modeSuara && !butuhDeep ? -4 : -10)
     .filter((m) => m.content && m.content.trim())
     .map((m) => ({ role: m.role, content: m.content }))
 
@@ -1068,7 +1075,7 @@ ${konteksData}
           messages,
           temperature: butuhDeep ? 0.25 : o.modeSuara || adalahSapaan ? 0.35 : 0.25,
           ...(o.modeSuara && !butuhDeep ? {} : { reasoning_effort: 'low' }),
-          max_tokens: butuhDeep ? 3072 : o.modeSuara ? 320 : 768,
+          max_tokens: butuhDeep ? 3072 : o.modeSuara ? 220 : 768,
         }),
         signal: perModelController.signal,
       })

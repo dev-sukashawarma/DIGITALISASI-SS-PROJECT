@@ -36,7 +36,25 @@ export async function POST(req: Request) {
   const modeSuara = Boolean(body?.modeSuara)
   const idDiminta = typeof body?.percakapanId === 'string' && UUID.test(body.percakapanId) ? body.percakapanId : null
 
-  let percakapan = idDiminta ? await ambilPercakapan(supabase, idDiminta) : null
+  // Mulai pre-fetch telemetri paralel sejak awal saat modeSuara aktif agar hemat ~500-900ms waktu tunggu DB berurutan!
+  const promiseTelemetriAwal = modeSuara ? ambilTelemetriNyata().catch(() => null) : null
+
+  const [percakapanAwal, jumlahPesanSejam, hasilDbPesan] = await Promise.all([
+    idDiminta ? ambilPercakapan(supabase, idDiminta) : Promise.resolve(null),
+    hitungPesanSejamTerakhir(supabase),
+    idDiminta
+      ? Promise.resolve(
+          supabase
+            .from('bot_pesan')
+            .select('peran, isi')
+            .eq('percakapan_id', idDiminta)
+            .order('dibuat_at', { ascending: false })
+            .limit(modeSuara ? 4 : 10)
+        ).catch(() => ({ data: null }))
+      : Promise.resolve({ data: null }),
+  ])
+
+  let percakapan = percakapanAwal
   if (idDiminta && !percakapan) return galat(404, 'Percakapan tidak ditemukan.')
 
   const izin = periksaProfilChat(body?.profil, role, percakapan?.profil ?? null)
@@ -46,32 +64,25 @@ export async function POST(req: Request) {
   }
   const profil = izin.profil
 
-  if ((await hitungPesanSejamTerakhir(supabase)) >= BATAS.pesanPerJam) {
+  if (jumlahPesanSejam >= BATAS.pesanPerJam) {
     return galat(429, `Batas ${BATAS.pesanPerJam} pesan per jam tercapai. Coba lagi nanti.`)
   }
 
   let riwayatPesan: Array<{ role: 'user' | 'assistant'; content: string }> = []
-  if (percakapan && percakapan.id) {
-    const { data: dbPesan } = await supabase
-      .from('bot_pesan')
-      .select('peran, isi')
-      .eq('percakapan_id', percakapan.id)
-      .order('dibuat_at', { ascending: false })
-      .limit(10)
-
-    riwayatPesan = (dbPesan || [])
+  if (percakapan && percakapan.id && hasilDbPesan?.data) {
+    riwayatPesan = (hasilDbPesan.data || [])
       .reverse()
       .filter((r: any) => r.isi && r.isi.trim())
       .map((r: any) => ({
         role: (r.peran === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: r.isi,
+        content: modeSuara && r.isi.length > 380 ? r.isi.slice(0, 380) + '...' : r.isi,
       }))
   }
 
   if (!percakapan) {
     const baru = await buatPercakapan(supabase, profil, v.pesan)
     percakapan = { ...baru, profil }
-    await pangkasPercakapan(supabase)
+    void pangkasPercakapan(supabase).catch(() => {})
   }
   await simpanPesan(supabase, percakapan.id, 'user', v.pesan)
 
@@ -129,7 +140,7 @@ export async function POST(req: Request) {
         if (!suksesHermes || !jawaban.trim()) {
           // Reset jawaban bila sebelumnya ada kendala Hermes agar tidak tercampur
           if (!suksesHermes) jawaban = ''
-          const telemetri = await ambilTelemetriNyata()
+          const telemetri = promiseTelemetriAwal ? await promiseTelemetriAwal : await ambilTelemetriNyata()
 
           // Gunakan AI Router (9Router) dengan konfigurasi terpusat dari Supabase jarvis_voice_config / env
           let suksesAi = false

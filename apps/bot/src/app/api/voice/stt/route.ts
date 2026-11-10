@@ -4,13 +4,9 @@ import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 export const dynamic = 'force-dynamic'
 
-const MODEL_AUDIO_STT = ['ag/gemini-3.8-flash', 'ag/gemini-3.8-flash-low', 'ag/gemini-3.8-flash-high', 'CEO_SS', 'MANAGER_SS', 'hermes-combo']
+const MODEL_AUDIO_STT = ['ag/gemini-3.8-flash-low', 'ag/gemini-3.8-flash', 'ag/gemini-3.8-flash-high', 'CEO_SS', 'MANAGER_SS', 'hermes-combo']
 
-const PROMPT_TRANSKRIPSI = `Transkripsikan ucapan suara Bahasa Indonesia pada audio ini menjadi teks kalimat perintah/pertanyaan secara akurat.
-Konteks kosakata bisnis Suka Shawarma: Jarvis, laporan daily, daily briefing, omzet, penjualan, cabang, outlet, kemarin, hari ini, waste, bahan baku, void, kasir, OPEX, pengeluaran, utang PO, supplier, setoran kas, selisih, presensi, absen, kru telat, cuti, izin, Google Review, ulasan, kirim ke Telegram.
-ATURAN OUTPUT:
-1. Tuliskan HANYA kalimat hasil transkripsi suara pengguna tanpa tanda kutip, tanpa timestamp, dan tanpa komentar tambahan.
-2. Jika audio hanya berisi keheningan, napas, atau noise tanpa ucapan manusia yang jelas, balas tepat satu kata: [HENING]`
+const PROMPT_TRANSKRIPSI = `Transkripsikan ucapan Bahasa Indonesia ini secara persis tanpa tanda kutip dan tanpa komentar. Kosakata: Jarvis, Suka Shawarma, omzet, cabang, outlet, kemarin, hari ini, waste, bahan, void, kasir, OPEX, setoran, PO, presensi, telat, cuti, izin, review. Jika hening/tanpa ucapan jelas, balas: [HENING]`
 
 function normalisasiFormatAudioStt(rawFormat?: string): string {
   const f = (rawFormat || 'wav').trim().toLowerCase()
@@ -58,8 +54,8 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             model,
             stream: true,
-            temperature: 0.1,
-            reasoning_effort: 'low',
+            temperature: 0.0,
+            max_tokens: 120,
             messages: [
               {
                 role: 'user',

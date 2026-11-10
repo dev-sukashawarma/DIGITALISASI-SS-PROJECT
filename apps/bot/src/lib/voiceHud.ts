@@ -366,20 +366,37 @@ function encodeWav16kBase64(chunks: Float32Array[], sampleRateAsli: number): str
   for (const c of chunks) totalSamples += c.length
   if (totalSamples === 0) return ''
 
-  const gabungan = new Float32Array(totalSamples)
+  const gabunganPenuh = new Float32Array(totalSamples)
   let offset = 0
   for (const c of chunks) {
-    gabungan.set(c, offset)
+    gabunganPenuh.set(c, offset)
     offset += c.length
   }
 
+  // Pangkas hening panjang di awal & akhir rekaman (sisakan bantalan 160ms) agar ukuran WAV & latensi STT jauh lebih cepat!
+  const padSamples = Math.floor(sampleRateAsli * 0.16)
+  let firstActive = -1
+  let lastActive = -1
+  const stepScan = 16
+  for (let i = 0; i < totalSamples; i += stepScan) {
+    if (Math.abs(gabunganPenuh[i]) > 0.0045) {
+      if (firstActive < 0) firstActive = i
+      lastActive = i
+    }
+  }
+  const startIdx = firstActive >= 0 ? Math.max(0, firstActive - padSamples) : 0
+  const endIdx = lastActive >= 0 ? Math.min(totalSamples, lastActive + padSamples) : totalSamples
+  const gabungan =
+    endIdx > startIdx ? gabunganPenuh.subarray(startIdx, endIdx) : gabunganPenuh
+  const jumlahSampelAktif = gabungan.length
+
   const targetRate = 16000
   const rasio = sampleRateAsli / targetRate
-  const panjangTarget = Math.max(1, Math.floor(totalSamples / rasio))
+  const panjangTarget = Math.max(1, Math.floor(jumlahSampelAktif / rasio))
   const pcm16 = new Int16Array(panjangTarget)
 
   for (let i = 0; i < panjangTarget; i++) {
-    const idxAsli = Math.min(totalSamples - 1, Math.floor(i * rasio))
+    const idxAsli = Math.min(jumlahSampelAktif - 1, Math.floor(i * rasio))
     const s = Math.max(-1, Math.min(1, gabungan[idxAsli]))
     pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff
   }
@@ -1047,10 +1064,10 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
   const sessionId = ++micSessionToken
   activeMicOptions = options
   let teksWebSpeech = ''
-  let adaFinalWebSpeech = false
+  let sudahDitutup = false
   let sudahSelesai = false
-  // Responsif begitu kalimat selesai (1.2 detik di iPhone, 1.1 detik di desktop)
-  const jedaAuto = options.autoKirimDelayMs ?? (isIos ? 1200 : 1100)
+  // Responsif begitu kalimat selesai (0.95 detik di iPhone, 0.85 detik di desktop)
+  const jedaAuto = options.autoKirimDelayMs ?? (isIos ? 950 : 850)
 
   // 1. Jalankan paralel Web Speech API HANYA di non-iOS (atau jika getUserMedia tidak tersedia).
   // Di iPhone (Safari/Chrome iOS), menjalankan webkitSpeechRecognition bersamaan dengan getUserMedia memicu bentrok AVAudioSession yang memutus suara!
@@ -1081,17 +1098,16 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         const hasil = gabungan.trim()
         if (hasil) {
           teksWebSpeech = hasil
-          if (adaFinal) adaFinalWebSpeech = true
           options.onHasil(hasil, adaFinal)
 
           if (webSpeechTimer) clearTimeout(webSpeechTimer)
           webSpeechTimer = setTimeout(
             () => {
-              if (!sudahSelesai && teksWebSpeech.trim()) {
+              if (!sudahDitutup && teksWebSpeech.trim()) {
                 finalizeMicSessionFn?.(true)
               }
             },
-            adaFinal ? Math.min(1150, jedaAuto) : jedaAuto
+            adaFinal ? Math.min(750, jedaAuto) : jedaAuto
           )
         }
       }
@@ -1214,8 +1230,8 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
 
       // 2. Daftarkan finalizeMicSessionFn SEGERA sebelum await apa pun agar ketukan tombol KIRIM/BATAL selalu 100% responsif sejak milidetik ke-0!
       const akhiriDanProses = async (kirimSekarang: boolean) => {
-        if (sudahSelesai) return
-        sudahSelesai = true
+        if (sudahDitutup) return
+        sudahDitutup = true
         sedangMendengar = false
         finalizeMicSessionFn = null
         if (activeMicOptions === options) activeMicOptions = null
@@ -1223,7 +1239,15 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
 
         if (kirimSekarang) {
           options.onBerhentiMerekam?.()
+          // Minta WebSpeech mem-flush kata terakhir dalam 80ms sebelum ditutup (hemat ~4 detik STT server di Chrome/Edge/Android!)
+          if (recognitionInstance && !teksWebSpeech.trim()) {
+            try {
+              recognitionInstance.stop()
+              await new Promise((r) => setTimeout(r, 80))
+            } catch {}
+          }
         }
+        sudahSelesai = true
 
         // Hentikan MediaRecorder dengan aman dan tunggu flush blob terakhir (maks 600ms untuk finalisasi moov MP4 iOS)
         if (recorder && recorder.state !== 'inactive') {
@@ -1263,8 +1287,8 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           return
         }
 
-        // Prioritas 1: Jika Web Speech API sudah menghasilkan transkrip FINAL utuh (0ms latensi di Chrome desktop)
-        if (adaFinalWebSpeech && teksWebSpeech.trim().length >= 3) {
+        // Prioritas 1: Jika Web Speech API sudah menangkap kalimat ucapan (0ms latensi tanpa perlu bolak-balik /api/voice/stt!)
+        if (teksWebSpeech.trim().length >= 2) {
           const finalTeks = teksWebSpeech.trim()
           options.onHasil(finalTeks, true)
           options.onFinalOtomatis?.(finalTeks)

@@ -313,7 +313,7 @@ describe('aiRouter', () => {
     for await (const _ of iter) {}
 
     expect(requestBody).not.toBeNull()
-    expect(requestBody.max_tokens).toBe(320)
+    expect(requestBody.max_tokens).toBe(220)
     expect(requestBody.temperature).toBe(0.35)
     expect(requestBody.messages[0].content).toContain('MODE OBROLAN SUARA AKTIF')
     expect(requestBody.messages[0].content).toContain('DILARANG KERAS membuat tabel Markdown')

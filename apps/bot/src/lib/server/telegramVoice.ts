@@ -3,8 +3,8 @@ import { ambilTokenBotTelegram } from '@/lib/server/telegram'
 import { ambilKonfigurasiVoiceServer } from '@/lib/server/voiceConfig'
 
 const MODEL_AUDIO_STT_TELEGRAM = [
-  'ag/gemini-3.8-flash',
   'ag/gemini-3.8-flash-low',
+  'ag/gemini-3.8-flash',
   'ag/gemini-3.8-flash-high',
   'CEO_SS',
   'MANAGER_SS',

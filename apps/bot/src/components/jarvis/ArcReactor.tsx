@@ -398,13 +398,17 @@ export default function ArcReactor({
         </button>
       </div>
 
-      {/* Live Voice Transcript Bubble */}
+      {/* Live Voice Transcript Bubble (Clickable untuk kirim/toggle cepat di HP) */}
       {transkripLive && (
-        <div className="mt-1.5 px-3 py-1 rounded-xl bg-emerald-950/90 border border-emerald-400/60 text-emerald-100 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-in fade-in flex items-center justify-center gap-1.5">
+        <button
+          type="button"
+          onClick={handleKlik}
+          className="mt-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-950/90 hover:bg-emerald-900/90 active:scale-95 border border-emerald-400/60 text-emerald-100 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-in fade-in flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation transition-transform"
+        >
           <Mic className="size-3.5 text-emerald-400 shrink-0" />
           <span className="text-emerald-400 font-bold">INPUT SUARA:</span>
           <span>&ldquo;{transkripLive.replace(/^🎙️\s*/, '')}&rdquo;</span>
-        </div>
+        </button>
       )}
 
       {/* Tactical Telemetry & Contextual Diagnostic Ticker Under Core */}

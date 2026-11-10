@@ -19,6 +19,9 @@ import type { DailyReportPayload } from '@/app/api/jarvis/daily-report/route'
 import {
   mulaiMendengar,
   hentiMendengar,
+  apakahSedangMendengar,
+  aktifkanSesiPanggilanKontinu,
+  matikanSesiPanggilanKontinu,
   apakahVoiceDidukung,
   bicaraJarvis,
   hentiBicaraJarvis,
@@ -30,7 +33,6 @@ import {
   ambilSuaraJarvisAktif,
   setSuaraJarvisAktif,
   siapkanAudioIos,
-  apakahPerangkatIos,
 } from '@/lib/voiceHud'
 import {
   Volume2,
@@ -274,6 +276,8 @@ export default function JarvisApp({
   }
 
   const voiceLoopRef = useRef(false)
+  const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const waktuBicaraTerakhirRef = useRef<number>(Date.now())
   const chatAbortRef = useRef<AbortController | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -323,11 +327,16 @@ export default function JarvisApp({
           return
         }
         if (sedangMendengar || sedangBicara || voiceLoopRef.current) {
-          hentiMendengar(false)
-          hentiBicaraJarvis()
+          if (loopTimerRef.current) {
+            clearTimeout(loopTimerRef.current)
+            loopTimerRef.current = null
+          }
+          voiceLoopRef.current = false
+          setVoiceLoopAktif(false)
+          matikanSesiPanggilanKontinu()
           setSedangMendengar(false)
           setSedangBicara(false)
-          setVoiceLoopAktif(false)
+          setSedangMemproses(false)
           setTranskripLive('')
           return
         }
@@ -358,9 +367,12 @@ export default function JarvisApp({
     })
 
     return () => {
+      if (loopTimerRef.current) {
+        clearTimeout(loopTimerRef.current)
+        loopTimerRef.current = null
+      }
       pasangListenerSpektrumSuara(null)
-      hentiMendengar()
-      hentiBicaraJarvis()
+      matikanSesiPanggilanKontinu()
       hentiWakeWordJarvis()
     }
   }, [])
@@ -431,21 +443,56 @@ export default function JarvisApp({
     }
   }, [muatStatus, muatDailyTelemetry])
 
-  // Fungsi mulai mendengarkan suara (Auto-Turn Loop & Dual-Engine STT)
+  const setModeLoopSinkron = useCallback((aktif: boolean) => {
+    voiceLoopRef.current = aktif
+    setVoiceLoopAktif(aktif)
+    if (aktif) {
+      waktuBicaraTerakhirRef.current = Date.now()
+    }
+  }, [])
+
+  // Akhiri penuh sesi obrolan suara & matikan mikrofon hardware (tombol AKHIRI atau perintah "Udah dulu / Stop")
+  const handleBatalSuara = useCallback(() => {
+    if (loopTimerRef.current) {
+      clearTimeout(loopTimerRef.current)
+      loopTimerRef.current = null
+    }
+    voiceLoopRef.current = false
+    setVoiceLoopAktif(false)
+    chatAbortRef.current?.abort()
+    matikanSesiPanggilanKontinu()
+    setSedangMendengar(false)
+    setSedangBicara(false)
+    setSedangMemproses(false)
+    setTranskripLive('')
+    mainkanSuaraHud('chirp')
+  }, [])
+
+  // Fungsi mulai mendengarkan suara (Continuous Live Listener: cukup 1x tap di awal, terus mendengarkan antargiliran!)
   const mulaiSesiDengar = useCallback(
     (dariLoop = false) => {
+      if (loopTimerRef.current) {
+        clearTimeout(loopTimerRef.current)
+        loopTimerRef.current = null
+      }
       if (!dariLoop) {
         mainkanSuaraHud('engage')
       }
       hentiBicaraJarvis()
       setSedangBicara(false)
-      setTranskripLive('🎙️ Mendengarkan suara Anda...')
+      setTranskripLive(dariLoop ? '' : '🎙️ Mendengarkan suara Anda...')
 
       let adaFinalTerkirim = false
 
       const sukses = mulaiMendengar({
         onMulai: () => {
           setSedangMendengar(true)
+        },
+        onBerhentiMerekam: () => {
+          setSedangMendengar(false)
+          setSedangMemproses(true)
+          setTranskripLive('⏳ Mengenali ucapan Anda...')
+          mainkanSuaraHud('transmit')
         },
         onHasil: (teks) => {
           setTranskripLive(teks)
@@ -455,7 +502,9 @@ export default function JarvisApp({
         },
         onFinalOtomatis: (teksFinal) => {
           adaFinalTerkirim = true
+          waktuBicaraTerakhirRef.current = Date.now()
           setSedangMendengar(false)
+          setSedangMemproses(false)
           setTranskripLive('')
           setInputPerintah('')
           void eksekusiPerintahJarvis(teksFinal, true)
@@ -463,27 +512,53 @@ export default function JarvisApp({
         onSelesai: () => {
           setSedangMendengar(false)
           if (!adaFinalTerkirim) {
-            setVoiceLoopAktif(false)
+            setSedangMemproses(false)
             setTranskripLive('')
+            // CONTINUITY: Selama mode ngobrol aktif (maks idle hening 15 menit), JANGAN matikan listener!
+            // Langsung putar jendela dengar berikutnya secara mulus memakai stream mic yang sudah terbuka.
+            const idleTanpaBicaraMs = Date.now() - waktuBicaraTerakhirRef.current
+            if (voiceLoopRef.current && idleTanpaBicaraMs < 15 * 60 * 1000) {
+              loopTimerRef.current = setTimeout(() => {
+                loopTimerRef.current = null
+                if (voiceLoopRef.current) {
+                  mulaiSesiDengar(true)
+                }
+              }, 70)
+            } else if (voiceLoopRef.current) {
+              handleBatalSuara()
+            }
           }
         },
         onGalat: (pesan) => {
-          setSedangMendengar(false)
-          setVoiceLoopAktif(false)
-          setTranskripLive('')
+          handleBatalSuara()
           mainkanSuaraHud('alert')
           setJawabanHologram(`> **PERINGATAN MIKROFON**: ${pesan}`)
         },
       })
 
-      if (!sukses) {
-        setSedangMendengar(false)
-        setVoiceLoopAktif(false)
-        setTranskripLive('')
+      if (!sukses && !apakahSedangMendengar()) {
+        handleBatalSuara()
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [percakapanIdAktif, dailyData, autoVoiceReply]
+    [percakapanIdAktif, dailyData, autoVoiceReply, handleBatalSuara]
+  )
+
+  const jadwalkanLanjutDengar = useCallback(
+    (jedaMs = 300) => {
+      if (loopTimerRef.current) {
+        clearTimeout(loopTimerRef.current)
+        loopTimerRef.current = null
+      }
+      if (!voiceLoopRef.current) return
+      loopTimerRef.current = setTimeout(() => {
+        loopTimerRef.current = null
+        if (voiceLoopRef.current) {
+          mulaiSesiDengar(true)
+        }
+      }, jedaMs)
+    },
+    [mulaiSesiDengar]
   )
 
   // Buka Daily Briefing Modal
@@ -493,6 +568,7 @@ export default function JarvisApp({
       setTampilDailyBriefing(true)
       if (!dailyData) {
         void muatDailyTelemetry(true)
+        if (voiceLoopRef.current) jadwalkanLanjutDengar(400)
       } else if (bacakanOtomatis && (autoVoiceReply || voiceLoopRef.current)) {
         const pilihMode = modePaksa || dailyData.modeRekomendasi
         const narasi =
@@ -502,25 +578,28 @@ export default function JarvisApp({
             narasi,
             () => {
               setSedangBicara(false)
-              if (voiceLoopRef.current) {
-                setTimeout(() => mulaiSesiDengar(true), 350)
-              }
+              jadwalkanLanjutDengar(300)
             },
             {
               gunakanTeksPenuh: true,
               onMulai: () => setSedangBicara(true),
             }
           )
+        } else if (voiceLoopRef.current) {
+          jadwalkanLanjutDengar(300)
         }
       }
     },
-    [dailyData, autoVoiceReply, muatDailyTelemetry, mulaiSesiDengar]
+    [dailyData, autoVoiceReply, muatDailyTelemetry, jadwalkanLanjutDengar]
   )
 
   // Eksekusi perintah utama ke Unified J.A.R.V.I.S.
   const eksekusiPerintahJarvis = async (teksMentah: string, dariVoice = false) => {
     const isi = teksMentah.trim()
-    if (!isi) return
+    if (!isi) {
+      if (voiceLoopRef.current) jadwalkanLanjutDengar(150)
+      return
+    }
 
     const lower = isi.toLowerCase()
     if (!modeMukaDoang) {
@@ -532,20 +611,20 @@ export default function JarvisApp({
     }
     const waktuSekarang = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
-    // 1. Pintasan Perintah Suara/Teks: Stop / Diam / Matikan Suara
-    if (
+    // 1. Pintasan Perintah Suara/Teks: Stop / Udah Dulu / Matikan Suara (Mengakhiri sesi obrolan kontinu)
+    const jumlahKata = lower.split(/\s+/).filter(Boolean).length
+    const isPerintahTutupObrolan =
       lower === 'stop' ||
       lower === 'berhenti' ||
       lower === 'diam' ||
-      lower === 'matikan suara' ||
-      lower === 'standby'
-    ) {
-      hentiBicaraJarvis()
-      hentiMendengar()
-      setSedangBicara(false)
-      setSedangMendengar(false)
-      setVoiceLoopAktif(false)
-      mainkanSuaraHud('chirp')
+      lower === 'standby' ||
+      (jumlahKata <= 8 &&
+        /\b(matikan suara|matikan mic|matikan mikrofon|udah dulu|sudah dulu|cukup dulu|udah cukup|sudah cukup|cukup sekian|akhiri obrolan|selesai ngobrol|tutup obrolan)\b/.test(
+          lower
+        ))
+
+    if (isPerintahTutupObrolan) {
+      handleBatalSuara()
       return
     }
 
@@ -608,12 +687,12 @@ export default function JarvisApp({
           )
         )
         mainkanSuaraHud('blip')
-        if (dariVoice || autoVoiceReply) {
+        if (dariVoice || autoVoiceReply || voiceLoopRef.current) {
           bicaraJarvis(
             pesanOk,
             () => {
               setSedangBicara(false)
-              if (voiceLoopRef.current) setTimeout(() => mulaiSesiDengar(true), 350)
+              jadwalkanLanjutDengar(300)
             },
             {
               gunakanTeksPenuh: true,
@@ -628,6 +707,7 @@ export default function JarvisApp({
         setRiwayatHologram((prev) =>
           prev.map((msg) => (msg.id === idJarvis ? { ...msg, teks: errText } : msg))
         )
+        if (voiceLoopRef.current) jadwalkanLanjutDengar(500)
       } finally {
         setSedangMemproses(false)
       }
@@ -698,14 +778,7 @@ export default function JarvisApp({
             onMulai: () => setSedangBicara(true),
             onSelesai: () => {
               setSedangBicara(false)
-              if (voiceLoopRef.current) {
-                const jedaTransisiMic = apakahPerangkatIos() ? 650 : 380
-                setTimeout(() => {
-                  if (voiceLoopRef.current) {
-                    mulaiSesiDengar(true)
-                  }
-                }, jedaTransisiMic)
-              }
+              jadwalkanLanjutDengar(320)
             },
           })
         : null
@@ -737,18 +810,14 @@ export default function JarvisApp({
           terkumpul,
           () => {
             setSedangBicara(false)
-            if (voiceLoopRef.current) {
-              setTimeout(() => {
-                if (voiceLoopRef.current) {
-                  mulaiSesiDengar(true)
-                }
-              }, 350)
-            }
+            jadwalkanLanjutDengar(320)
           },
           {
             onMulai: () => setSedangBicara(true),
           }
         )
+      } else if (voiceLoopRef.current) {
+        jadwalkanLanjutDengar(320)
       }
     } catch (e) {
       hentiBicaraJarvis()
@@ -760,38 +829,41 @@ export default function JarvisApp({
       setRiwayatHologram((prev) =>
         prev.map((msg) => (msg.id === idJarvis ? { ...msg, teks: errText } : msg))
       )
+      // Tetap jaga kontinuitas listener meskipun sempat ada gangguan sinyal sesaat
+      if (voiceLoopRef.current) {
+        jadwalkanLanjutDengar(600)
+      }
     }
   }
 
-  // Klik Arc Reactor atau Tombol Voice-to-Voice Utama
+  // Klik Arc Reactor / Kepala 3D / Tombol Utama:
+  // - Ketukan pertama mengaktifkan Continuous Live Listener (stream mic tetap hangat antargiliran).
+  // - Saat Jarvis bicara, ketukan langsung memotong (barge-in) & lanjut mendengar.
+  // - Saat sedang mendengar, ketukan langsung mengirim kalimat saat ini TANPA mematikan mode kontinu!
   const handleToggleVoiceLoop = () => {
     siapkanAudioIos()
     if (sedangBicara) {
       hentiBicaraJarvis()
       setSedangBicara(false)
-      setVoiceLoopAktif(true)
-      mulaiSesiDengar(false)
+      aktifkanSesiPanggilanKontinu()
+      setModeLoopSinkron(true)
+      mulaiSesiDengar(true)
       return
     }
 
-    if (sedangMendengar) {
+    if (sedangMendengar || apakahSedangMendengar()) {
       mainkanSuaraHud('chirp')
+      waktuBicaraTerakhirRef.current = Date.now()
       hentiMendengar(true)
+      if (!apakahSedangMendengar()) {
+        setSedangMendengar(false)
+      }
       return
     }
 
-    if (voiceLoopAktif) {
-      hentiMendengar(false)
-      hentiBicaraJarvis()
-      setSedangMendengar(false)
-      setSedangBicara(false)
-      setVoiceLoopAktif(false)
-      setTranskripLive('')
-      mainkanSuaraHud('chirp')
-    } else {
-      setVoiceLoopAktif(true)
-      mulaiSesiDengar(false)
-    }
+    aktifkanSesiPanggilanKontinu()
+    setModeLoopSinkron(true)
+    mulaiSesiDengar(false)
   }
 
   toggleVoiceShortcutRef.current = handleToggleVoiceLoop
@@ -806,7 +878,8 @@ export default function JarvisApp({
       mainkanSuaraHud('engage')
       const ok = mulaiWakeWordJarvis((perintahLangsung) => {
         mainkanSuaraHud('engage')
-        setVoiceLoopAktif(true)
+        aktifkanSesiPanggilanKontinu()
+        setModeLoopSinkron(true)
         if (perintahLangsung && perintahLangsung.length > 2) {
           void eksekusiPerintahJarvis(perintahLangsung, true)
         } else {
@@ -838,12 +911,12 @@ export default function JarvisApp({
   const adaAnomaliKritis =
     dailyData?.actionItems?.some((a) => a.level === 'critical') ?? false
 
-  const statusCore: StatusArcReactor = sedangMendengar
-    ? 'listening'
+  const statusCore: StatusArcReactor = sedangBicara
+    ? 'speaking'
     : sedangMemproses
       ? 'processing'
-      : sedangBicara
-        ? 'speaking'
+      : sedangMendengar || voiceLoopAktif
+        ? 'listening'
         : adaAnomaliKritis
           ? 'warning'
           : 'optimal'
@@ -2231,42 +2304,65 @@ export default function JarvisApp({
                 type="button"
                 onClick={handleToggleVoiceLoop}
                 aria-label={
-                  sedangMendengar || voiceLoopAktif
-                    ? 'Hentikan atau kirim input suara'
-                    : 'Mulai ngobrol Voice-to-Voice dengan Jarvis'
-                }
-                className={`px-3.5 sm:px-4 py-2 min-h-[38px] rounded-xl border transition-all cursor-pointer flex items-center gap-2 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${
                   sedangMendengar
-                    ? 'bg-emerald-600 border-emerald-300 text-white animate-pulse shadow-[0_0_20px_rgba(16,185,129,0.65)]'
-                    : voiceLoopAktif
-                      ? 'bg-emerald-950/95 border-emerald-400 text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.4)]'
-                      : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 border-cyan-300/70 text-white shadow-[0_0_18px_rgba(6,182,212,0.45)]'
-                }`}
+                    ? 'Selesai bicara dan kirim suara sekarang'
+                    : sedangBicara
+                      ? 'Potong suara Jarvis dan mulai bicara'
+                      : voiceLoopAktif
+                        ? 'Matikan mode Voice Loop'
+                        : 'Mulai ngobrol Voice-to-Voice dengan Jarvis'
+                }
+                className={`px-3.5 sm:px-4 py-2 min-h-[42px] rounded-xl border transition-all cursor-pointer touch-manipulation active:scale-95 flex items-center justify-center gap-2 ${
+                  sedangMendengar && !inputPerintah
+                    ? 'flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-500 border-emerald-300 text-white shadow-[0_0_22px_rgba(16,185,129,0.7)]'
+                    : sedangBicara && !inputPerintah
+                      ? 'flex-1 sm:flex-initial bg-cyan-700 hover:bg-cyan-600 border-cyan-300 text-white shadow-[0_0_18px_rgba(6,182,212,0.5)]'
+                      : voiceLoopAktif
+                        ? 'shrink-0 bg-emerald-950/95 border-emerald-400 text-emerald-200 shadow-[0_0_16px_rgba(16,185,129,0.4)]'
+                        : 'shrink-0 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 border-cyan-300/70 text-white shadow-[0_0_18px_rgba(6,182,212,0.45)]'
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300`}
                 title={
-                  sedangMendengar || voiceLoopAktif
-                    ? 'Klik untuk kirim/hentikan sesi suara'
-                    : 'Klik atau tekan Spasi untuk mulai ngobrol Voice-to-Voice'
+                  sedangMendengar
+                    ? 'Ketuk untuk selesai bicara dan langsung kirim suara'
+                    : sedangBicara
+                      ? 'Ketuk untuk langsung memotong & bicara'
+                      : 'Ketuk atau tekan Spasi untuk mulai ngobrol Voice-to-Voice'
                 }
               >
                 {sedangMendengar ? (
-                  <Mic className="w-4 h-4 text-white animate-bounce" />
+                  <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                ) : sedangBicara ? (
+                  <Mic className="w-4 h-4 text-white shrink-0" />
                 ) : voiceLoopAktif ? (
-                  <MicOff className="w-4 h-4 text-emerald-300" />
+                  <MicOff className="w-4 h-4 text-emerald-300 shrink-0" />
                 ) : (
-                  <Mic className="w-4 h-4 text-white" />
+                  <Mic className="w-4 h-4 text-white shrink-0" />
                 )}
-                <span className="font-hud text-xs tracking-wider font-bold">
-                  {sedangMendengar
-                    ? 'MENDENGARKAN...'
-                    : voiceLoopAktif
-                      ? 'VOICE LOOP: ON'
-                      : 'VOICE-TO-VOICE'}
+                <span className="font-hud text-xs tracking-wider font-bold whitespace-nowrap">
+                  {sedangBicara
+                    ? 'POTONG & BICARA'
+                    : sedangMendengar || voiceLoopAktif
+                      ? 'LISTENER AKTIF (OTOMATIS)'
+                      : 'MULAI NGOBROL (1X TAP)'}
                 </span>
               </button>
             ) : (
               <div className="pl-3 pr-1 text-cyan-400 flex items-center">
                 <Sparkles className="w-4 h-4 animate-spin text-cyan-300" />
               </div>
+            )}
+
+            {(sedangMendengar || sedangBicara || sedangMemproses || voiceLoopAktif) && (
+              <button
+                type="button"
+                onClick={handleBatalSuara}
+                aria-label="Akhiri sesi ngobrol suara dan matikan mikrofon"
+                title="Akhiri Obrolan Suara & Matikan Mikrofon"
+                className="px-3.5 py-2 min-h-[42px] rounded-xl bg-rose-950/95 hover:bg-rose-900 active:scale-95 border border-rose-400/70 text-rose-100 font-hud text-xs tracking-wider font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer touch-manipulation transition-all shadow-[0_0_16px_rgba(244,63,94,0.3)]"
+              >
+                <X className="w-3.5 h-3.5 text-rose-300 shrink-0" />
+                <span>AKHIRI</span>
+              </button>
             )}
 
             <input
@@ -2276,13 +2372,13 @@ export default function JarvisApp({
               onChange={(e) => setInputPerintah(e.target.value)}
               aria-label="Ketik instruksi atau pertanyaan untuk J.A.R.V.I.S."
               placeholder={
-                sedangMendengar
-                  ? '🎙️ Silakan bicara langsung ke J.A.R.V.I.S. (otomatis terkirim)...'
-                  : voiceLoopAktif
-                    ? 'Mode obrolan suara aktif — atau ketik pesan tambahan di sini...'
-                    : "Tekan Spasi / klik Voice-to-Voice untuk bicara, atau ketik di sini..."
+                sedangMendengar || voiceLoopAktif
+                  ? '🟢 Listener aktif — langsung bicara saja tanpa pencet tombol...'
+                  : 'Ketuk MULAI NGOBROL 1x di kiri untuk ngobrol bebas, atau ketik di sini...'
               }
-              className="w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/60 px-2 py-1.5 focus:outline-none"
+              className={`${
+                (sedangMendengar || sedangBicara) && !inputPerintah ? 'hidden sm:block ' : ''
+              }w-full bg-transparent font-mono-hud text-xs sm:text-sm text-cyan-100 placeholder-cyan-400/60 px-2 py-1.5 focus:outline-none`}
             />
 
             {inputPerintah.trim() && (

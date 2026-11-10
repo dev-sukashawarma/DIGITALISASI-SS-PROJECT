@@ -12,6 +12,16 @@ ATURAN OUTPUT:
 1. Tuliskan HANYA kalimat hasil transkripsi suara pengguna tanpa tanda kutip, tanpa timestamp, dan tanpa komentar tambahan.
 2. Jika audio hanya berisi keheningan, napas, atau noise tanpa ucapan manusia yang jelas, balas tepat satu kata: [HENING]`
 
+function normalisasiFormatAudioStt(rawFormat?: string): string {
+  const f = (rawFormat || 'wav').trim().toLowerCase()
+  if (f.includes('mp4') || f.includes('m4a') || f.includes('x-m4a')) return 'mp4'
+  if (f.includes('aac')) return 'aac'
+  if (f.includes('webm')) return 'webm'
+  if (f.includes('ogg') || f.includes('opus')) return 'ogg'
+  if (f.includes('mp3') || f.includes('mpeg')) return 'mp3'
+  return 'wav'
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as {
@@ -20,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const audioBase64 = (body.audioBase64 || '').trim()
-    const format = (body.format || 'wav').trim().toLowerCase()
+    const format = normalisasiFormatAudioStt(body.format)
 
     if (!audioBase64 || audioBase64.length < 100) {
       return NextResponse.json({ ok: false, galat: 'Data audio kosong atau terlalu pendek.' }, { status: 400 })

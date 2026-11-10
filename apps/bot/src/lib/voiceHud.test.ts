@@ -1,10 +1,18 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   ringkasUntukSuara,
   PILIHAN_SUARA_JARVIS,
   ekstrakKalimatAwalStreaming,
   ekstrakAntreanKalimatSuara,
   apakahPerangkatIos,
+  buatStatusVadAwal,
+  evaluasiFrameVad,
+  mulaiMendengar,
+  hentiMendengar,
+  apakahSedangMendengar,
+  aktifkanSesiPanggilanKontinu,
+  matikanSesiPanggilanKontinu,
+  apakahSesiPanggilanKontinuAktif,
 } from './voiceHud'
 import { naturalisasiTeksSuara, cariKonfigurasiSuara } from './ttsConfig'
 
@@ -143,5 +151,287 @@ describe('voiceHud & naturalisasiTeksSuara', () => {
     expect(q2[0]).toBe(q1[0])
     expect(q2[1]).toBe(q1[1])
     expect(q2[2]).not.toContain('Ringkasan akhir')
+  })
+
+  it('evaluasiFrameVad peka terhadap suara pelan mikrofon iPhone (jarak tangan ~0.0065 RMS) dan otomatis kirim saat hening', () => {
+    let t = 10_000
+    const st = buatStatusVadAwal(t)
+
+    // Kalibrasi ruangan hening (~0.0016 RMS) selama 5 frame
+    for (let i = 0; i < 5; i++) {
+      t += 45
+      expect(evaluasiFrameVad(st, 0.0016, 0.004, t, 1200)).toBe('lanjut')
+    }
+
+    // Pengguna berbicara dengan jarak tangan di iPhone (~0.0068 RMS — di bawah ambang lama 0.012!)
+    t += 45
+    expect(evaluasiFrameVad(st, 0.0068, 0.019, t, 1200)).toBe('lanjut') // Frame ke-1
+    t += 45
+    expect(evaluasiFrameVad(st, 0.0072, 0.022, t, 1200)).toBe('mulai_bicara') // Frame ke-2 langsung terdeteksi!
+
+    // Lanjut bicara selama ~500ms
+    for (let i = 0; i < 10; i++) {
+      t += 45
+      expect(evaluasiFrameVad(st, 0.0075, 0.024, t, 1200)).toBe('lanjut')
+    }
+
+    // Pengguna selesai bicara -> hening selama 1250ms -> otomatis kirim!
+    let aksiAkhir = 'lanjut'
+    for (let i = 0; i < 30; i++) {
+      t += 45
+      aksiAkhir = evaluasiFrameVad(st, 0.0016, 0.003, t, 1200)
+      if (aksiAkhir === 'kirim_suara') break
+    }
+    expect(aksiAkhir).toBe('kirim_suara')
+  })
+
+  it('evaluasiFrameVad tetap otomatis berhenti & kirim di ruangan bising (kafe/AC/mobil ~0.015 RMS)', () => {
+    let t = 50_000
+    const st = buatStatusVadAwal(t)
+
+    // Kalibrasi noise ruangan ber-AC / kafe (~0.015 RMS) selama 20 frame (~900ms)
+    for (let i = 0; i < 20; i++) {
+      t += 45
+      expect(evaluasiFrameVad(st, 0.015, 0.03, t, 1200)).toBe('lanjut')
+    }
+    expect(st.pernahBicara).toBe(false)
+
+    // Pengguna bicara jelas di atas kebisingan latar (~0.055 RMS) selama 12 frame
+    let mulaiTerdeteksi = false
+    for (let i = 0; i < 12; i++) {
+      t += 45
+      const aksi = evaluasiFrameVad(st, 0.055, 0.14, t, 1200)
+      if (aksi === 'mulai_bicara') mulaiTerdeteksi = true
+    }
+    expect(mulaiTerdeteksi).toBe(true)
+
+    // Pengguna berhenti bicara -> audio turun kembali ke noise AC/kafe (~0.015 RMS, bukan 0!)
+    let terkirim = false
+    for (let i = 0; i < 32; i++) {
+      t += 45
+      const aksi = evaluasiFrameVad(st, 0.015, 0.03, t, 1200)
+      if (aksi === 'kirim_suara') {
+        terkirim = true
+        break
+      }
+    }
+    expect(terkirim).toBe(true)
+  })
+
+  it('evaluasiFrameVad menangani AudioContext suspended di iOS auto-loop (rms === 0 tepat nol) tanpa menggantung', () => {
+    const st = buatStatusVadAwal(1000)
+    let infoMuncul = false
+    let autoKirim = false
+
+    for (let i = 1; i <= 125; i++) {
+      const aksi = evaluasiFrameVad(st, 0, 0, 1000 + i * 45, 1200)
+      if (aksi === 'info_fallback_ios') infoMuncul = true
+      if (aksi === 'kirim_suara') {
+        autoKirim = true
+        break
+      }
+    }
+    expect(infoMuncul).toBe(true)
+    expect(autoKirim).toBe(true)
+  })
+
+  it('hentiMendengar selalu memanggil onSelesai meskipun getUserMedia atau AudioContext.resume menggantung di iOS', async () => {
+    const origWindow = (globalThis as any).window
+    const origNav = globalThis.navigator
+
+    const stopTrackSpy = vi.fn()
+    let resolveGum: ((s: any) => void) | null = null
+
+    ;(globalThis as any).window = {
+      AudioContext: class {
+        state = 'suspended'
+        sampleRate = 48000
+        // Simulasi bug iOS WebKit: ctx.resume() di luar user gesture menggantung selamanya!
+        resume() {
+          return new Promise<void>(() => {})
+        }
+        createBuffer() {
+          return {}
+        }
+        createBufferSource() {
+          return { connect() {}, start() {} }
+        }
+        createMediaStreamSource() {
+          return { connect() {}, disconnect() {} }
+        }
+        createAnalyser() {
+          return {
+            fftSize: 512,
+            getFloatTimeDomainData(buf: Float32Array) {
+              buf.fill(0)
+            },
+          }
+        }
+        createScriptProcessor() {
+          return { connect() {}, disconnect() {}, onaudioprocess: null }
+        }
+        createGain() {
+          return { gain: { value: 0 }, connect() {}, disconnect() {} }
+        }
+        destination = {}
+      },
+    }
+
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+        platform: 'iPhone',
+        maxTouchPoints: 5,
+        mediaDevices: {
+          getUserMedia: () =>
+            new Promise((resolve) => {
+              resolveGum = resolve
+            }),
+        },
+      },
+      configurable: true,
+    })
+
+    const onSelesai = vi.fn()
+    const onHasil = vi.fn()
+
+    // Skenario 1: User menekan tombol batal/kirim SAAT getUserMedia masih pending
+    const ok = mulaiMendengar({ onHasil, onSelesai })
+    expect(ok).toBe(true)
+    expect(apakahSedangMendengar()).toBe(true)
+
+    hentiMendengar(true)
+    expect(apakahSedangMendengar()).toBe(false)
+    expect(onSelesai).toHaveBeenCalledTimes(1)
+
+    // Ketika getUserMedia akhirnya selesai terlambat, track mikrofon harus langsung dimatikan
+    resolveGum!({ getTracks: () => [{ stop: stopTrackSpy }] })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(stopTrackSpy).toHaveBeenCalledTimes(1)
+
+    // Skenario 2: getUserMedia berhasil, namun ctx.resume() menggantung selamanya -> tidak boleh memblokir hentiMendengar!
+    const onSelesai2 = vi.fn()
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+        platform: 'iPhone',
+        maxTouchPoints: 5,
+        mediaDevices: {
+          getUserMedia: () =>
+            Promise.resolve({
+              getTracks: () => [{ stop: vi.fn() }],
+            }),
+        },
+      },
+      configurable: true,
+    })
+
+    mulaiMendengar({ onHasil: vi.fn(), onSelesai: onSelesai2 })
+    await new Promise((r) => setTimeout(r, 230)) // Lewati batas 180ms resumeAudioContextDenganBatasWaktu
+    hentiMendengar(false)
+    await new Promise((r) => setTimeout(r, 30))
+    expect(apakahSedangMendengar()).toBe(false)
+    expect(onSelesai2).toHaveBeenCalledTimes(1)
+
+    ;(globalThis as any).window = origWindow
+    Object.defineProperty(globalThis, 'navigator', {
+      value: origNav,
+      configurable: true,
+    })
+  })
+
+  it('aktifkanSesiPanggilanKontinu menjaga stream mikrofon tetap hidup antargiliran tanpa memanggil getUserMedia ulang di giliran ke-2+', async () => {
+    const origWindow = (globalThis as any).window
+    const origNav = globalThis.navigator
+
+    const stopTrackSpy = vi.fn()
+    const mockTrack = { readyState: 'live', enabled: true, stop: stopTrackSpy }
+    const getUserMediaSpy = vi.fn(() =>
+      Promise.resolve({
+        getAudioTracks: () => [mockTrack],
+        getTracks: () => [mockTrack],
+      })
+    )
+
+    ;(globalThis as any).window = {
+      AudioContext: class {
+        state = 'running'
+        sampleRate = 48000
+        resume() {
+          return Promise.resolve()
+        }
+        createBuffer() {
+          return {}
+        }
+        createBufferSource() {
+          return { connect() {}, start() {} }
+        }
+        createMediaStreamSource() {
+          return { connect() {}, disconnect() {} }
+        }
+        createAnalyser() {
+          return {
+            fftSize: 512,
+            getFloatTimeDomainData(buf: Float32Array) {
+              buf.fill(0.002)
+            },
+          }
+        }
+        createScriptProcessor() {
+          return { connect() {}, disconnect() {}, onaudioprocess: null }
+        }
+        createGain() {
+          return { gain: { value: 0 }, connect() {}, disconnect() {} }
+        }
+        destination = {}
+      },
+    }
+
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+        platform: 'iPhone',
+        maxTouchPoints: 5,
+        mediaDevices: {
+          getUserMedia: getUserMediaSpy,
+        },
+      },
+      configurable: true,
+    })
+
+    // 1x Tap di awal: aktifkan sesi panggilan kontinu & mulai giliran ke-1
+    aktifkanSesiPanggilanKontinu()
+    expect(apakahSesiPanggilanKontinuAktif()).toBe(true)
+
+    mulaiMendengar({ onHasil: vi.fn(), onSelesai: vi.fn() })
+    await new Promise((r) => setTimeout(r, 30))
+    expect(getUserMediaSpy).toHaveBeenCalledTimes(1)
+    expect(stopTrackSpy).not.toHaveBeenCalled()
+
+    // Giliran ke-1 selesai -> track mikrofon TIDAK dimatikan (hanya dibisukan sementara)
+    hentiMendengar(false)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(stopTrackSpy).not.toHaveBeenCalled()
+    expect(mockTrack.enabled).toBe(false)
+
+    // Giliran ke-2 (dipicu otomatis sesudah Jarvis menjawab, tanpa user gesture):
+    // Langsung pakai stream yang sama TANPA memanggil getUserMedia ke-2 kalinya!
+    mulaiMendengar({ onHasil: vi.fn(), onSelesai: vi.fn() })
+    await new Promise((r) => setTimeout(r, 30))
+    expect(getUserMediaSpy).toHaveBeenCalledTimes(1)
+    expect(mockTrack.enabled).toBe(true)
+    expect(stopTrackSpy).not.toHaveBeenCalled()
+
+    // Saat user menekan AKHIRI (matikanSesiPanggilanKontinu), barulah mikrofon hardware ditutup penuh
+    matikanSesiPanggilanKontinu()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(apakahSesiPanggilanKontinuAktif()).toBe(false)
+    expect(stopTrackSpy).toHaveBeenCalledTimes(1)
+
+    ;(globalThis as any).window = origWindow
+    Object.defineProperty(globalThis, 'navigator', {
+      value: origNav,
+      configurable: true,
+    })
   })
 })

@@ -17,6 +17,11 @@ let micSilentGainNode: GainNode | null = null
 let mediaRecorderInstance: MediaRecorder | null = null
 let vadIntervalId: ReturnType<typeof setInterval> | null = null
 let finalizeMicSessionFn: ((kirimSekarang: boolean) => void) | null = null
+let activeMicOptions: ListenerSuaraOptions | null = null
+let sttAbortController: AbortController | null = null
+let micSessionToken = 0
+let sesiKontinuAktif = false
+let activePcmSink: ((chunk: Float32Array) => void) | null = null
 
 let audioCtxVoice: AudioContext | null = null
 let activeSourceNode: AudioBufferSourceNode | null = null
@@ -35,13 +40,41 @@ let wakeLockSentinel: any = null
 const SILENT_WAV_DATA_URI =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
+function setMuteTrackMikrofon(mute: boolean) {
+  if (!micStream) return
+  try {
+    micStream.getTracks().forEach((t) => {
+      if ('enabled' in t) {
+        t.enabled = !mute
+      }
+    })
+  } catch {}
+}
+
+function apakahStreamMikrofonHidup(s: MediaStream | null): s is MediaStream {
+  if (!s) return false
+  try {
+    const tracks = typeof s.getAudioTracks === 'function' ? s.getAudioTracks() : s.getTracks()
+    return tracks.length > 0 && tracks.every((t) => !t.readyState || t.readyState === 'live')
+  } catch {
+    return false
+  }
+}
+
 function setBicaraAktifInternal(aktif: boolean) {
   sedangBicaraFlag = aktif
   setSedangVoiceBicaraHud(aktif)
   if (aktif) {
+    // Bisukan tangkapan track mic sementara Jarvis berbicara agar suara speaker tidak masuk ke rekaman sendiri
+    setMuteTrackMikrofon(true)
     void aktifWakeLockLayar()
-  } else if (!sedangMendengar) {
-    void lepasWakeLockLayar()
+  } else {
+    if (sesiKontinuAktif) {
+      setMuteTrackMikrofon(false)
+    }
+    if (!sedangMendengar && !sesiKontinuAktif) {
+      void lepasWakeLockLayar()
+    }
   }
 }
 
@@ -57,7 +90,7 @@ export function apakahPerangkatIos(): boolean {
   )
 }
 
-function setKategoriAudioIos(kategori: 'playback' | 'play-and-record') {
+function setKategoriAudioIos(kategori: 'playback' | 'play-and-record' | 'auto') {
   try {
     const navAny = navigator as any
     if (navAny?.audioSession && navAny.audioSession.type !== kategori) {
@@ -177,20 +210,24 @@ export function siapkanAudioIos() {
         }
       }
     }
-    window.addEventListener('touchstart', handlerInteraksi, { passive: true })
-    window.addEventListener('pointerdown', handlerInteraksi, { passive: true })
-    window.addEventListener('click', handlerInteraksi, { passive: true })
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && (sedangBicaraFlag || sedangMendengar)) {
-        void aktifWakeLockLayar()
-        if (audioCtxVoice) {
-          const st = audioCtxVoice.state as string
-          if (st === 'suspended' || st === 'interrupted') {
-            void audioCtxVoice.resume().catch(() => {})
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('touchstart', handlerInteraksi, { passive: true })
+      window.addEventListener('pointerdown', handlerInteraksi, { passive: true })
+      window.addEventListener('click', handlerInteraksi, { passive: true })
+    }
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && (sedangBicaraFlag || sedangMendengar)) {
+          void aktifWakeLockLayar()
+          if (audioCtxVoice) {
+            const st = audioCtxVoice.state as string
+            if (st === 'suspended' || st === 'interrupted') {
+              void audioCtxVoice.resume().catch(() => {})
+            }
           }
         }
-      }
-    })
+      })
+    }
   }
 }
 let animFrameId: number | null = null
@@ -383,6 +420,55 @@ function encodeWav16kBase64(chunks: Float32Array[], sampleRateAsli: number): str
     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
   }
   return typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(buffer).toString('base64')
+}
+
+function arrayBufferKeBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  if (bytes.byteLength === 0) return ''
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(buffer).toString('base64')
+}
+
+function hitungPeakPcm(chunks: Float32Array[]): number {
+  let maxPeak = 0
+  for (const c of chunks) {
+    for (let i = 0; i < c.length; i += 4) {
+      const abs = Math.abs(c[i])
+      if (abs > maxPeak) maxPeak = abs
+    }
+  }
+  return maxPeak
+}
+
+function normalisasiFormatMimeRekaman(mime: string, isIos: boolean): string {
+  const m = (mime || '').toLowerCase()
+  if (m.includes('mp4') || m.includes('m4a') || m.includes('x-m4a')) return 'mp4'
+  if (m.includes('aac')) return 'aac'
+  if (m.includes('webm')) return 'webm'
+  if (m.includes('ogg') || m.includes('opus')) return 'ogg'
+  if (m.includes('mp3') || m.includes('mpeg')) return 'mp3'
+  return isIos ? 'mp4' : 'webm'
+}
+
+/**
+ * Membangunkan AudioContext dengan batas waktu ketat (default 180ms) agar di iOS Safari / Chrome iOS (WKWebView)
+ * pemanggilan ctx.resume() di luar sentuhan langsung (auto-turn loop) TIDAK PERNAH menggantung selamanya.
+ */
+async function resumeAudioContextDenganBatasWaktu(
+  ctx: AudioContext | null,
+  batasMs = 180
+): Promise<void> {
+  if (!ctx) return
+  const st = ctx.state as string
+  if (st !== 'suspended' && st !== 'interrupted') return
+  await Promise.race([
+    ctx.resume().catch(() => {}),
+    new Promise<void>((resolve) => setTimeout(resolve, batasMs)),
+  ])
 }
 
 /**
@@ -680,6 +766,7 @@ export function ekstrakAntreanKalimatSuara(
 
 export interface ListenerSuaraOptions {
   onMulai?: () => void
+  onBerhentiMerekam?: () => void
   onHasil: (teks: string, isFinal: boolean) => void
   onFinalOtomatis?: (teksFinal: string) => void
   onSelesai?: () => void
@@ -687,7 +774,141 @@ export interface ListenerSuaraOptions {
   autoKirimDelayMs?: number
 }
 
-function bersihkanResourceMikrofon() {
+export interface StatusVadAdaptif {
+  noiseFloorRms: number
+  noiseSudahTerkalibrasi: boolean
+  peakSpeechRms: number
+  speechFramesBerturut: number
+  zeroRmsFrames: number
+  pernahBicara: boolean
+  waktuMulaiBicara: number
+  waktuTerakhirBicara: number
+  waktuMulaiSesi: number
+}
+
+export function buatStatusVadAwal(sekarang = Date.now()): StatusVadAdaptif {
+  return {
+    noiseFloorRms: 0.0025,
+    noiseSudahTerkalibrasi: false,
+    peakSpeechRms: 0,
+    speechFramesBerturut: 0,
+    zeroRmsFrames: 0,
+    pernahBicara: false,
+    waktuMulaiBicara: 0,
+    waktuTerakhirBicara: sekarang,
+    waktuMulaiSesi: sekarang,
+  }
+}
+
+export type AksiVad =
+  | 'lanjut'
+  | 'mulai_bicara'
+  | 'info_fallback_ios'
+  | 'kirim_suara'
+  | 'timeout_hening'
+
+/**
+ * Evaluasi per-frame (45ms) Voice Activity Detection (VAD) dengan Kalibrasi Kebisingan Ruangan Adaptif:
+ * 1. Peka terhadap mikrofon iPhone jarak tangan (echoCancellation/AGC ~0.0045-0.010 RMS).
+ * 2. Tahan terhadap ruangan ber-AC / kafe / mobil (mendeteksi turunnya suara dari puncak bicara ke noise floor ruangan).
+ * 3. Kebal terhadap AudioContext 'suspended' di auto-loop iOS (rms === 0 tepat nol -> fallback kirim MediaRecorder otomatis).
+ * 4. Bebas deadlock 1-frame mic pop (<120ms).
+ */
+export function evaluasiFrameVad(
+  state: StatusVadAdaptif,
+  rms: number,
+  peakSample: number,
+  sekarang: number,
+  jedaAutoMs: number
+): AksiVad {
+  if (rms === 0 && peakSample === 0) {
+    state.zeroRmsFrames += 1
+    if (state.zeroRmsFrames === 14) {
+      return 'info_fallback_ios'
+    }
+    if (state.zeroRmsFrames >= 120) {
+      return 'kirim_suara'
+    }
+    return 'lanjut'
+  }
+
+  state.zeroRmsFrames = 0
+
+  // Frame pertama (45ms awal saat mikrofon baru terbuka) digunakan untuk mengunci baseline kebisingan ruangan
+  // (baik kamar hening ~0.0015 maupun kafe/mobil/AC ~0.015) agar kebisingan latar tidak langsung salah dikira suara bicara!
+  if (!state.noiseSudahTerkalibrasi) {
+    state.noiseSudahTerkalibrasi = true
+    state.noiseFloorRms = Math.max(0.0012, Math.min(0.035, rms))
+    return 'lanjut'
+  }
+
+  const ambangMulai = Math.max(0.0042, state.noiseFloorRms * 2.15)
+  const ambangMasihBicara = state.pernahBicara
+    ? Math.max(0.0038, state.noiseFloorRms * 1.65, Math.min(0.025, state.peakSpeechRms * 0.26))
+    : ambangMulai
+
+  const melampauiAmbang =
+    rms > ambangMasihBicara ||
+    (!state.pernahBicara &&
+      peakSample > Math.max(0.018, state.noiseFloorRms * 4.5) &&
+      rms > Math.max(0.0036, state.noiseFloorRms * 1.75))
+
+  if (!state.pernahBicara) {
+    if (melampauiAmbang) {
+      state.speechFramesBerturut += 1
+      if (state.speechFramesBerturut >= 2) {
+        state.pernahBicara = true
+        state.waktuMulaiBicara = sekarang - 45
+        state.waktuTerakhirBicara = sekarang
+        state.peakSpeechRms = Math.max(state.peakSpeechRms, rms)
+        return 'mulai_bicara'
+      }
+      return 'lanjut'
+    } else {
+      state.speechFramesBerturut = 0
+      const clampedRms = Math.max(0.0012, Math.min(0.035, rms))
+      state.noiseFloorRms = state.noiseFloorRms * 0.92 + clampedRms * 0.08
+      if (sekarang - state.waktuMulaiSesi > 18_000) {
+        return 'timeout_hening'
+      }
+      return 'lanjut'
+    }
+  }
+
+  if (rms > ambangMasihBicara) {
+    state.waktuTerakhirBicara = sekarang
+    state.peakSpeechRms = Math.max(state.peakSpeechRms * 0.996, rms)
+    if (sekarang - state.waktuMulaiBicara >= 18_000) {
+      return 'kirim_suara'
+    }
+    return 'lanjut'
+  }
+
+  const clampedRms = Math.max(0.0012, Math.min(0.035, rms))
+  state.noiseFloorRms = state.noiseFloorRms * 0.96 + clampedRms * 0.04
+
+  const durasiBicara = state.waktuTerakhirBicara - state.waktuMulaiBicara
+  const durasiHening = sekarang - state.waktuTerakhirBicara
+
+  if (durasiBicara >= 120 && durasiHening >= jedaAutoMs) {
+    return 'kirim_suara'
+  }
+
+  if (durasiBicara < 120 && durasiHening >= 2200) {
+    state.pernahBicara = false
+    state.speechFramesBerturut = 0
+    state.peakSpeechRms = 0
+  }
+
+  if (sekarang - state.waktuMulaiSesi > 22_000) {
+    return state.pernahBicara ? 'kirim_suara' : 'timeout_hening'
+  }
+
+  return 'lanjut'
+}
+
+function bersihkanResourceMikrofon(pertahankanStreamHardware = false) {
+  activePcmSink = null
   if (vadIntervalId) {
     clearInterval(vadIntervalId)
     vadIntervalId = null
@@ -700,31 +921,33 @@ function bersihkanResourceMikrofon() {
     } catch {}
     mediaRecorderInstance = null
   }
-  if (micProcessorNode) {
-    try {
-      micProcessorNode.onaudioprocess = null
-      micProcessorNode.disconnect()
-    } catch {}
-    micProcessorNode = null
-  }
-  if (micSilentGainNode) {
-    try {
-      micSilentGainNode.disconnect()
-    } catch {}
-    micSilentGainNode = null
-  }
-  if (micSourceNode) {
-    try {
-      micSourceNode.disconnect()
-    } catch {}
-    micSourceNode = null
-  }
-  micAnalyserNode = null
-  if (micStream) {
-    try {
-      micStream.getTracks().forEach((t) => t.stop())
-    } catch {}
-    micStream = null
+  if (!pertahankanStreamHardware) {
+    if (micProcessorNode) {
+      try {
+        micProcessorNode.onaudioprocess = null
+        micProcessorNode.disconnect()
+      } catch {}
+      micProcessorNode = null
+    }
+    if (micSilentGainNode) {
+      try {
+        micSilentGainNode.disconnect()
+      } catch {}
+      micSilentGainNode = null
+    }
+    if (micSourceNode) {
+      try {
+        micSourceNode.disconnect()
+      } catch {}
+      micSourceNode = null
+    }
+    micAnalyserNode = null
+    if (micStream) {
+      try {
+        micStream.getTracks().forEach((t) => t.stop())
+      } catch {}
+      micStream = null
+    }
   }
   if (recognitionInstance) {
     try {
@@ -737,6 +960,34 @@ function bersihkanResourceMikrofon() {
   }
 }
 
+/**
+ * Mengaktifkan sesi panggilan suara kontinu (1x tap di awal):
+ * Menjaga stream mikrofon hardware, node WebAudio, dan Screen WakeLock tetap hidup antargiliran bicara
+ * sehingga giliran ke-2, ke-3, dst. di iPhone Safari / Chrome iOS berjalan instan 0ms tanpa perlu user-gesture baru!
+ */
+export function aktifkanSesiPanggilanKontinu() {
+  sesiKontinuAktif = true
+  siapkanAudioIos()
+  void aktifWakeLockLayar()
+}
+
+/**
+ * Mengakhiri sesi panggilan suara kontinu sepenuhnya dan melepas indikator mikrofon hardware OS.
+ */
+export function matikanSesiPanggilanKontinu() {
+  sesiKontinuAktif = false
+  hentiMendengar(false)
+  hentiBicaraJarvis()
+  bersihkanResourceMikrofon(false)
+  setKategoriAudioIos('playback')
+  setKategoriAudioIos('auto')
+  void lepasWakeLockLayar()
+}
+
+export function apakahSesiPanggilanKontinuAktif(): boolean {
+  return sesiKontinuAktif
+}
+
 export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
   if (typeof window === 'undefined') return false
 
@@ -745,17 +996,23 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
     hentiBicaraJarvis()
   }
 
-  // Jika sedang mendengar, hentikan dan proses hasil yang sudah terekam
-  if (sedangMendengar && finalizeMicSessionFn) {
-    finalizeMicSessionFn(true)
+  // Jika sedang mendengar, hentikan dan proses hasil yang sudah terekam (termasuk bila getUserMedia masih inisialisasi)
+  if (sedangMendengar) {
+    hentiMendengar(true)
     return false
   }
 
-  bersihkanResourceMikrofon()
+  if (sttAbortController) {
+    try {
+      sttAbortController.abort()
+    } catch {}
+    sttAbortController = null
+  }
+
+  bersihkanResourceMikrofon(sesiKontinuAktif)
 
   // PENTING: Bangunkan AudioContext & buka kunci elemen <audio> iOS tepat saat user menyentuh tombol!
   siapkanAudioIos()
-  setKategoriAudioIos('play-and-record')
   void aktifWakeLockLayar()
 
   const isIos = apakahPerangkatIos()
@@ -783,10 +1040,12 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
     } catch {}
   }
 
+  const sessionId = ++micSessionToken
+  activeMicOptions = options
   let teksWebSpeech = ''
   let sudahSelesai = false
-  // Toleransi jeda napas manusia (1.6 detik di iPhone agar tidak memotong kalimat saat berpikir, 1.35 detik di desktop)
-  const jedaAuto = options.autoKirimDelayMs ?? (isIos ? 1600 : 1350)
+  // Responsif begitu kalimat selesai (1.2 detik di iPhone, 1.1 detik di desktop)
+  const jedaAuto = options.autoKirimDelayMs ?? (isIos ? 1200 : 1100)
 
   // 1. Jalankan paralel Web Speech API HANYA di non-iOS (atau jika getUserMedia tidak tersedia).
   // Di iPhone (Safari/Chrome iOS), menjalankan webkitSpeechRecognition bersamaan dengan getUserMedia memicu bentrok AVAudioSession yang memutus suara!
@@ -835,6 +1094,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         if (!punyaGetUserMedia && event.error !== 'no-speech' && event.error !== 'aborted') {
           sudahSelesai = true
           sedangMendengar = false
+          if (activeMicOptions === options) activeMicOptions = null
           options.onGalat?.(`Gagal mengakses mikrofon: ${event.error}`)
           options.onSelesai?.()
         }
@@ -844,6 +1104,7 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         if (!punyaGetUserMedia && !sudahSelesai) {
           sudahSelesai = true
           sedangMendengar = false
+          if (activeMicOptions === options) activeMicOptions = null
           if (teksWebSpeech.trim()) {
             options.onHasil(teksWebSpeech.trim(), true)
             options.onFinalOtomatis?.(teksWebSpeech.trim())
@@ -869,68 +1130,45 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
 
   void (async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      })
+      let stream: MediaStream
+      if (apakahStreamMikrofonHidup(micStream)) {
+        // CONTINUOUS CALL REUSE: Gunakan langsung stream yang sudah terbuka di ketukan pertama (0ms, bebas blokir iOS setTimeout!)
+        stream = micStream
+        setMuteTrackMikrofon(false)
+        setKategoriAudioIos('play-and-record')
+      } else {
+        bersihkanResourceMikrofon(false)
+        setKategoriAudioIos('auto')
+        let timerIzinMic: ReturnType<typeof setTimeout> | null = null
+        stream = await Promise.race([
+          navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          }),
+          new Promise<never>((_, reject) => {
+            timerIzinMic = setTimeout(
+              () => reject(new Error('Waktu tunggu mikrofon habis. Silakan ketuk tombol sekali lagi.')),
+              8500
+            )
+          }),
+        ]).finally(() => {
+          if (timerIzinMic) clearTimeout(timerIzinMic)
+        })
 
-      if (sudahSelesai || !sedangMendengar) {
-        stream.getTracks().forEach((t) => t.stop())
-        return
-      }
-
-      micStream = stream
-      const ctx = getVoiceAudioContext()
-      if (!ctx) return
-      const stCtx = ctx.state as string
-      if (stCtx === 'suspended' || stCtx === 'interrupted') {
-        await ctx.resume().catch(() => {})
-      }
-
-      const source = ctx.createMediaStreamSource(stream)
-      const analyser = ctx.createAnalyser()
-      // fftSize 512 memberi resolusi ~93Hz per bin (frekuensi vokal manusia berada di bin 1..18)
-      analyser.fftSize = 512
-      analyser.minDecibels = -85
-      analyser.maxDecibels = -18
-      analyser.smoothingTimeConstant = 0.65
-
-      source.connect(analyser)
-      micSourceNode = source
-      micAnalyserNode = analyser
-
-      // Tangkap PCM kontinu tanpa celah (lossless) agar STT di iPhone Safari & Chrome iOS 100% utuh tanpa bergantung decodeAudioData MP4
-      const pcmFallbackChunks: Float32Array[] = []
-      let totalPcmSamples = 0
-      const maksSampelPcm = (ctx.sampleRate || 48000) * 28 // Maks ~28 detik per giliran bicara
-      try {
-        const processor = ctx.createScriptProcessor(4096, 1, 1)
-        const silentGain = ctx.createGain()
-        silentGain.gain.value = 0
-        processor.onaudioprocess = (ev) => {
-          if (sudahSelesai || !sedangMendengar) return
-          if (totalPcmSamples < maksSampelPcm) {
-            const ch = ev.inputBuffer.getChannelData(0)
-            const copy = new Float32Array(ch.length)
-            copy.set(ch)
-            pcmFallbackChunks.push(copy)
-            totalPcmSamples += copy.length
-          }
+        if (sudahSelesai || !sedangMendengar || sessionId !== micSessionToken) {
+          stream.getTracks().forEach((t) => t.stop())
+          return
         }
-        source.connect(processor)
-        processor.connect(silentGain)
-        silentGain.connect(ctx.destination)
-        micProcessorNode = processor
-        micSilentGainNode = silentGain
-      } catch {}
 
-      // Mulai animasi grafik spektrum suara mikrofon secara real-time!
-      mulaiLoopSpektrum()
+        setKategoriAudioIos('play-and-record')
+        micStream = stream
+      }
 
-      // Cadangan MediaRecorder (tanpa timeslice 150ms di iOS agar kontainer MP4 tidak rusak)
+      // 1. PRIORITAS UTAMA: Nyalakan MediaRecorder SEBELUM menyentuh AudioContext!
+      // Di iOS Safari / Chrome iOS, MediaRecorder bekerja langsung dari hardware stream bahkan saat AudioContext 'suspended'.
       const recordedBlobs: BlobPart[] = []
       let recorder: MediaRecorder | null = null
       if (typeof MediaRecorder !== 'undefined') {
@@ -956,28 +1194,45 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         } catch {}
       }
 
-      const timeDomainBuf = new Float32Array(analyser.fftSize)
-      let pernahBicara = false
-      let waktuTerakhirBicara = Date.now()
-      let waktuMulaiBicara = 0
-      const waktuMulaiSesi = Date.now()
+      const pcmFallbackChunks: Float32Array[] = []
+      let totalPcmSamplesTurn = 0
+      let sampleRateAktif = audioCtxVoice?.sampleRate || 44100
+      const maksSampelPcmTurn = sampleRateAktif * 28
+      activePcmSink = (chunk: Float32Array) => {
+        if (totalPcmSamplesTurn < maksSampelPcmTurn) {
+          pcmFallbackChunks.push(chunk)
+          totalPcmSamplesTurn += chunk.length
+        }
+      }
+      const vadState = buatStatusVadAwal(Date.now())
 
+      // 2. Daftarkan finalizeMicSessionFn SEGERA sebelum await apa pun agar ketukan tombol KIRIM/BATAL selalu 100% responsif sejak milidetik ke-0!
       const akhiriDanProses = async (kirimSekarang: boolean) => {
         if (sudahSelesai) return
         sudahSelesai = true
         sedangMendengar = false
         finalizeMicSessionFn = null
+        if (activeMicOptions === options) activeMicOptions = null
         if (webSpeechTimer) clearTimeout(webSpeechTimer)
 
-        // Hentikan MediaRecorder dengan aman dan tunggu blob terakhir
+        if (kirimSekarang) {
+          options.onBerhentiMerekam?.()
+        }
+
+        // Hentikan MediaRecorder dengan aman dan tunggu flush blob terakhir (maks 600ms untuk finalisasi moov MP4 iOS)
         if (recorder && recorder.state !== 'inactive') {
           await new Promise<void>((resolve) => {
-            const timeout = setTimeout(resolve, 250)
+            const timeout = setTimeout(resolve, 600)
             recorder!.onstop = () => {
               clearTimeout(timeout)
               resolve()
             }
             try {
+              if (recorder!.state === 'recording' && typeof recorder!.requestData === 'function') {
+                try {
+                  recorder!.requestData()
+                } catch {}
+              }
               recorder!.stop()
             } catch {
               clearTimeout(timeout)
@@ -986,12 +1241,21 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           })
         }
 
-        const sampleRate = ctx.sampleRate || 44100
-        bersihkanResourceMikrofon()
-        // Kembalikan sesi audio ke mode playback segera setelah mic ditutup agar speaker utama iPhone siap bersuara lantang!
-        setKategoriAudioIos('playback')
-        if (!sedangBicaraFlag) void lepasWakeLockLayar()
+        bersihkanResourceMikrofon(sesiKontinuAktif)
+        if (sesiKontinuAktif) {
+          // Saat gilir dengar selesai dalam sesi kontinu, bisukan sementara track mic selama memproses/menjawab
+          setMuteTrackMikrofon(true)
+        } else {
+          setKategoriAudioIos('playback')
+        }
+        if (!sedangBicaraFlag && !sesiKontinuAktif) void lepasWakeLockLayar()
         listenerSpektrum?.(DEFAULT_BANDS)
+
+        if (!kirimSekarang) {
+          options.onHasil('', true)
+          options.onSelesai?.()
+          return
+        }
 
         // Prioritas 1: Jika Web Speech API sudah menangkap teks kalimat secara utuh
         if (teksWebSpeech.trim().length >= 2) {
@@ -1002,46 +1266,58 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
           return
         }
 
-        // Prioritas 2: Kirim rekaman suara ke /api/voice/stt (prioritaskan PCM lossless langsung agar bebas gagal decode di iOS!)
-        if (kirimSekarang && (pernahBicara || pcmFallbackChunks.length > 0 || recordedBlobs.length > 0)) {
-          let wavB64 = ''
-          if (pcmFallbackChunks.length > 0) {
-            wavB64 = encodeWav16kBase64(pcmFallbackChunks, sampleRate)
-          }
+        // Prioritas 2: Siapkan payload audio untuk /api/voice/stt.
+        // Gunakan WAV 16kHz jika PCM memiliki sinyal nyata; jika AudioContext iOS tersuspend (PCM kosong/hening), kirim blob MP4/WebM langsung tanpa decodeAudioData!
+        let audioPayloadB64 = ''
+        let formatPayload = 'wav'
 
-          if (!wavB64 && recordedBlobs.length > 0) {
-            try {
-              const fullBlob = new Blob(recordedBlobs, {
-                type: recorder?.mimeType || (isIos ? 'audio/mp4' : 'audio/webm'),
-              })
-              const arrBuf = await fullBlob.arrayBuffer()
-              const decoded = await ctx.decodeAudioData(arrBuf.slice(0))
-              wavB64 = encodeWav16kBase64([decoded.getChannelData(0)], decoded.sampleRate)
-            } catch {}
-          }
+        if (pcmFallbackChunks.length > 0 && hitungPeakPcm(pcmFallbackChunks) > 0.0025) {
+          audioPayloadB64 = encodeWav16kBase64(pcmFallbackChunks, sampleRateAktif)
+          formatPayload = 'wav'
+        }
 
-          if (wavB64.length > 200) {
-            options.onHasil('⏳ Mengenali suara Anda...', false)
-            try {
-              const res = await fetch('/api/voice/stt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ audioBase64: wavB64, format: 'wav' }),
-              })
-              const data = (await res.json().catch(() => ({}))) as {
-                ok?: boolean
-                teks?: string
-                galat?: string
-              }
-              const teksStt = (data.teks || '').trim()
-              if (res.ok && data.ok && teksStt.length >= 2) {
-                options.onHasil(teksStt, true)
-                options.onFinalOtomatis?.(teksStt)
-                options.onSelesai?.()
-                return
-              }
-            } catch {
-              // Lanjut ke onSelesai
+        if (audioPayloadB64.length <= 200 && recordedBlobs.length > 0) {
+          try {
+            const mimeAsli = recorder?.mimeType || (isIos ? 'audio/mp4' : 'audio/webm')
+            const fullBlob = new Blob(recordedBlobs, { type: mimeAsli })
+            const arrBuf = await fullBlob.arrayBuffer()
+            if (arrBuf.byteLength > 150) {
+              audioPayloadB64 = arrayBufferKeBase64(arrBuf)
+              formatPayload = normalisasiFormatMimeRekaman(mimeAsli, isIos)
+            }
+          } catch {}
+        }
+
+        if (audioPayloadB64.length > 200) {
+          options.onHasil('⏳ Mengenali suara Anda...', false)
+          const sttCtrl = new AbortController()
+          sttAbortController = sttCtrl
+          const sttTimeout = setTimeout(() => sttCtrl.abort(), 11_500)
+          try {
+            const res = await fetch('/api/voice/stt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audioBase64: audioPayloadB64, format: formatPayload }),
+              signal: sttCtrl.signal,
+            })
+            const data = (await res.json().catch(() => ({}))) as {
+              ok?: boolean
+              teks?: string
+              galat?: string
+            }
+            const teksStt = (data.teks || '').trim()
+            if (res.ok && data.ok && teksStt.length >= 2) {
+              options.onHasil(teksStt, true)
+              options.onFinalOtomatis?.(teksStt)
+              options.onSelesai?.()
+              return
+            }
+          } catch {
+            // Lanjut ke onSelesai bila dibatalkan atau koneksi terputus
+          } finally {
+            clearTimeout(sttTimeout)
+            if (sttAbortController === sttCtrl) {
+              sttAbortController = null
             }
           }
         }
@@ -1054,48 +1330,99 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
         void akhiriDanProses(kirimSekarang)
       }
 
-      // Polling 45ms pada AnalyserNode untuk deteksi aktivitas suara (VAD) & tangkapan PCM cadangan
-      vadIntervalId = setInterval(() => {
-        if (sudahSelesai || !sedangMendengar || !micAnalyserNode) return
+      // 3. Hubungkan Web Audio AnalyserNode & PCM capture secara non-blocking (maks 180ms tunggu ctx.resume!)
+      const ctx = getVoiceAudioContext()
+      let timeDomainBuf = new Float32Array(512)
+      if (ctx) {
+        await resumeAudioContextDenganBatasWaktu(ctx, 180)
+        if (sudahSelesai || !sedangMendengar || sessionId !== micSessionToken) return
 
-        micAnalyserNode.getFloatTimeDomainData(timeDomainBuf)
-        let sumSq = 0
-        for (let i = 0; i < timeDomainBuf.length; i++) {
-          const s = timeDomainBuf[i]
-          sumSq += s * s
-        }
-        const rms = Math.sqrt(sumSq / timeDomainBuf.length)
+        sampleRateAktif = ctx.sampleRate || 44100
+        if (!micAnalyserNode || !micSourceNode) {
+          try {
+            const source = ctx.createMediaStreamSource(stream)
+            const analyser = ctx.createAnalyser()
+            analyser.fftSize = 512
+            analyser.minDecibels = -85
+            analyser.maxDecibels = -18
+            analyser.smoothingTimeConstant = 0.65
 
-        const sekarang = Date.now()
-        // Threshold sensitif untuk suara bicara di mikrofon laptop/HP
-        if (rms > 0.012) {
-          if (!pernahBicara) {
-            pernahBicara = true
-            waktuMulaiBicara = sekarang
-            if (!teksWebSpeech) {
-              options.onHasil('🎙️ Suara terdeteksi, silakan lanjut bicara...', false)
+            source.connect(analyser)
+            micSourceNode = source
+            micAnalyserNode = analyser
+
+            const processor = ctx.createScriptProcessor(4096, 1, 1)
+            const silentGain = ctx.createGain()
+            silentGain.gain.value = 0
+            processor.onaudioprocess = (ev) => {
+              if (!sedangMendengar || sedangBicaraFlag || !activePcmSink) return
+              const ch = ev.inputBuffer.getChannelData(0)
+              const copy = new Float32Array(ch.length)
+              copy.set(ch)
+              activePcmSink(copy)
             }
+            source.connect(processor)
+            processor.connect(silentGain)
+            silentGain.connect(ctx.destination)
+            micProcessorNode = processor
+            micSilentGainNode = silentGain
+          } catch {}
+        }
+        if (micAnalyserNode) {
+          timeDomainBuf = new Float32Array(micAnalyserNode.fftSize)
+        }
+      }
+
+      mulaiLoopSpektrum()
+
+      // 4. Polling 45ms Adaptive VAD (berjalan pasti meskipun AudioContext suspended sekalipun!)
+      vadIntervalId = setInterval(() => {
+        if (sudahSelesai || !sedangMendengar || sessionId !== micSessionToken) return
+
+        let rms = 0
+        let peakSample = 0
+        if (micAnalyserNode) {
+          if (ctx && ((ctx.state as string) === 'suspended' || (ctx.state as string) === 'interrupted')) {
+            void ctx.resume().catch(() => {})
           }
-          waktuTerakhirBicara = sekarang
-        } else if (pernahBicara) {
-          const durasiBicara = waktuTerakhirBicara - waktuMulaiBicara
-          const durasiHening = sekarang - waktuTerakhirBicara
-          // Jika sudah bicara minimal 220ms lalu berhenti bicara selama ~1.35 detik -> kirim otomatis!
-          if (durasiBicara >= 200 && durasiHening >= jedaAuto) {
-            void akhiriDanProses(true)
+          micAnalyserNode.getFloatTimeDomainData(timeDomainBuf)
+          let sumSq = 0
+          for (let i = 0; i < timeDomainBuf.length; i++) {
+            const s = timeDomainBuf[i]
+            const abs = Math.abs(s)
+            if (abs > peakSample) peakSample = abs
+            sumSq += s * s
           }
-        } else if (sekarang - waktuMulaiSesi > 25_000) {
+          rms = Math.sqrt(sumSq / timeDomainBuf.length)
+        }
+
+        const aksi = evaluasiFrameVad(vadState, rms, peakSample, Date.now(), jedaAuto)
+        if (aksi === 'mulai_bicara') {
+          if (!teksWebSpeech) {
+            options.onHasil('🎙️ Suara terdeteksi, silakan bicara...', false)
+          }
+        } else if (aksi === 'info_fallback_ios') {
+          if (!teksWebSpeech) {
+            options.onHasil('🎙️ Merekam suara — ketuk KIRIM setelah selesai bicara', false)
+          }
+        } else if (aksi === 'kirim_suara') {
+          void akhiriDanProses(true)
+        } else if (aksi === 'timeout_hening') {
           void akhiriDanProses(false)
         }
       }, 45)
     } catch (err) {
-      if (sudahSelesai) return
+      if (sudahSelesai || sessionId !== micSessionToken) return
       sudahSelesai = true
       sedangMendengar = false
-      bersihkanResourceMikrofon()
+      finalizeMicSessionFn = null
+      if (activeMicOptions === options) activeMicOptions = null
+      bersihkanResourceMikrofon(false)
+      sesiKontinuAktif = false
+      setKategoriAudioIos('playback')
       const msg =
         (err as Error)?.name === 'NotAllowedError'
-          ? 'Izin mikrofon diblokir oleh browser. Klik ikon gembok/pengaturan situs di sebelah kiri URL lalu izinkan Microphone (Allow).'
+          ? 'Izin mikrofon diblokir oleh browser. Ketuk ikon pengaturan situs di bilah alamat lalu izinkan Microphone (Allow).'
           : `Mikrofon tidak dapat diakses: ${(err as Error)?.message || 'Periksa perangkat mikrofon Anda.'}`
       options.onGalat?.(msg)
       options.onSelesai?.()
@@ -1106,15 +1433,36 @@ export function mulaiMendengar(options: ListenerSuaraOptions): boolean {
 }
 
 export function hentiMendengar(kirimJikaAdaSuara = false) {
+  if (!kirimJikaAdaSuara && sttAbortController) {
+    try {
+      sttAbortController.abort()
+    } catch {}
+    sttAbortController = null
+  }
+
   if (finalizeMicSessionFn) {
     const fn = finalizeMicSessionFn
     finalizeMicSessionFn = null
     fn(kirimJikaAdaSuara)
     return
   }
+
+  // Pengaman mutlak bila hentiMendengar dipanggil saat getUserMedia masih pending atau sesudah perekaman selesai:
+  // Pastikan token sesi diinvalidasi dan callback onSelesai SELALU terpanggil agar UI React tidak pernah terkunci!
+  micSessionToken += 1
   sedangMendengar = false
-  bersihkanResourceMikrofon()
+  bersihkanResourceMikrofon(sesiKontinuAktif)
+  if (!sesiKontinuAktif) {
+    setKategoriAudioIos('playback')
+  }
   listenerSpektrum?.(DEFAULT_BANDS)
+
+  if (activeMicOptions) {
+    const opt = activeMicOptions
+    activeMicOptions = null
+    opt.onHasil('', true)
+    opt.onSelesai?.()
+  }
 }
 
 export function apakahSedangMendengar(): boolean {
@@ -1203,7 +1551,8 @@ export function pasangListenerSpektrumSuara(cb: ((bands: number[]) => void) | nu
 }
 
 function mulaiLoopSpektrum() {
-  if (animFrameId) cancelAnimationFrame(animFrameId)
+  if (animFrameId && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(animFrameId)
+  if (typeof requestAnimationFrame !== 'function') return
   const freqData = new Uint8Array(64)
   const timeData = new Uint8Array(128)
 
@@ -1658,10 +2007,7 @@ export function bicaraJarvis(
         return
       }
 
-      const st = ctx.state as string
-      if (st === 'suspended' || st === 'interrupted') {
-        await ctx.resume().catch(() => {})
-      }
+      await resumeAudioContextDenganBatasWaktu(ctx, 180)
 
       try {
         const audioBuffer = await ctx.decodeAudioData(arrayBuf.slice(0))
@@ -1905,10 +2251,7 @@ export function buatSesiBicaraStreamJarvis(
           return
         }
 
-        const st = ctx.state as string
-        if (st === 'suspended' || st === 'interrupted') {
-          await ctx.resume().catch(() => {})
-        }
+        await resumeAudioContextDenganBatasWaktu(ctx, 180)
 
         try {
           const buf = await ctx.decodeAudioData(paket.rawBuf.slice(0))

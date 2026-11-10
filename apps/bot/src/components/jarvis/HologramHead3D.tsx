@@ -346,6 +346,8 @@ export default function HologramHead3D({
   const [isDragging, setIsDragging] = useState(false)
   const [demoSpeaking] = useState(false)
   const lastMousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null)
+  const wasDraggedRef = useRef(false)
 
   // Variabel sudut rotasi (Pitch, Yaw, Roll)
   const rotTarget = useRef<{ pitch: number; yaw: number }>({ pitch: 0.05, yaw: 0 })
@@ -479,30 +481,56 @@ export default function HologramHead3D({
   }, [isDragging])
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true)
+    if ((e.target as HTMLElement)?.closest('button')) return
+    wasDraggedRef.current = false
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY }
     lastMousePos.current = { x: e.clientX, y: e.clientY }
+    setIsDragging(true)
   }
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (pointerDownPosRef.current) {
+      const dist = Math.hypot(
+        e.clientX - pointerDownPosRef.current.x,
+        e.clientY - pointerDownPosRef.current.y
+      )
+      if (dist > 10) wasDraggedRef.current = true
+    }
+    pointerDownPosRef.current = null
     setIsDragging(false)
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement)?.closest('button')) return
     if (e.touches.length === 1) {
-      setIsDragging(true)
+      wasDraggedRef.current = false
+      pointerDownPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
       lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
     }
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (isDragging && e.touches.length === 1) {
-      const dx = e.touches[0].clientX - lastMousePos.current.x
-      const dy = e.touches[0].clientY - lastMousePos.current.y
-      rotTarget.current.yaw += dx * 0.015
-      rotTarget.current.pitch -= dy * 0.015
-      rotTarget.current.pitch = Math.max(-0.65, Math.min(0.65, rotTarget.current.pitch))
-      lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    if (e.touches.length === 1 && pointerDownPosRef.current) {
+      const totalDist = Math.hypot(
+        e.touches[0].clientX - pointerDownPosRef.current.x,
+        e.touches[0].clientY - pointerDownPosRef.current.y
+      )
+      if (totalDist > 8) {
+        wasDraggedRef.current = true
+        if (!isDragging) setIsDragging(true)
+        const dx = e.touches[0].clientX - lastMousePos.current.x
+        const dy = e.touches[0].clientY - lastMousePos.current.y
+        rotTarget.current.yaw += dx * 0.015
+        rotTarget.current.pitch -= dy * 0.015
+        rotTarget.current.pitch = Math.max(-0.65, Math.min(0.65, rotTarget.current.pitch))
+        lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      }
     }
+  }
+
+  const handleTouchEnd = () => {
+    pointerDownPosRef.current = null
+    setIsDragging(false)
   }
 
   // Loop Render Utama Canvas 60 FPS
@@ -969,6 +997,10 @@ export default function HologramHead3D({
     onClickCore?.()
   }
 
+  const sudahDeteksiSuara = Boolean(
+    transkripLive && !transkripLive.includes('Mendengarkan suara Anda')
+  )
+
   const effectiveSizeMode = sizeMode || (isMukaDoang ? 'muka-doang' : compact ? 'compact' : 'large')
 
   const containerSizeClass =
@@ -993,14 +1025,14 @@ export default function HologramHead3D({
         onMouseUp={handleMouseUp}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
-        onTouchEnd={handleMouseUp}
+        onTouchEnd={handleTouchEnd}
         onDoubleClick={(e) => {
           e.stopPropagation()
           mainkanSuaraHud('chirp')
           onToggleMukaDoang?.()
         }}
         className={`relative flex items-center justify-center transition-all duration-300 ${containerSizeClass} cursor-grab active:cursor-grabbing group`}
-        title="Klik ganda untuk Full Screen // Geser / Drag untuk putar kepala 3D"
+        title="Ketuk untuk Bicara / Kirim Suara // Geser untuk putar kepala 3D"
       >
         {/* Ambient Halo Glow */}
         <div
@@ -1008,41 +1040,55 @@ export default function HologramHead3D({
           style={{ backgroundColor: colors.primary }}
         />
 
-        {/* Canvas Render 3D */}
+        {/* Canvas Render 3D (Ketuk langsung pada kepala 3D juga memicu bicara/kirim suara) */}
         <canvas
           ref={canvasRef}
-          className="w-full h-full z-10 block pointer-events-auto"
+          onClick={() => {
+            if (!wasDraggedRef.current) {
+              handleKlikCore()
+            }
+          }}
+          className="w-full h-full z-10 block pointer-events-auto cursor-pointer"
           style={{ touchAction: 'none' }}
         />
 
         {/* Tombol Interaktif Voice-to-Voice Utama di Tengah Dasar */}
         <button
           type="button"
-          onClick={handleKlikCore}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            handleKlikCore()
+          }}
           aria-label={
             status === 'listening'
-              ? 'Sedang mendengarkan. Klik untuk berhenti'
+              ? 'Sedang mendengarkan. Ketuk untuk selesai dan kirim suara sekarang'
               : status === 'speaking'
-                ? 'Sedang berbicara. Klik untuk memotong dan langsung bicara'
+                ? 'Sedang berbicara. Ketuk untuk memotong dan langsung bicara'
                 : 'Mulai ngobrol Voice-to-Voice dengan Jarvis'
           }
           className={`absolute bottom-3 z-20 ${
             isMukaDoang
-              ? 'px-5 py-2.5 text-xs sm:text-sm gap-2 shadow-[0_0_28px_rgba(6,182,212,0.5)]'
-              : 'px-3 py-1 text-[10px] gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+              ? 'px-5 py-2.5 min-h-[42px] text-xs sm:text-sm gap-2 shadow-[0_0_28px_rgba(6,182,212,0.5)]'
+              : 'px-3 py-1.5 min-h-[34px] text-[10px] gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.4)]'
           } rounded-full ${
             status === 'listening'
-              ? 'bg-emerald-950/95 border-2 border-emerald-400 text-emerald-100 shadow-[0_0_30px_rgba(16,185,129,0.6)]'
+              ? 'bg-emerald-900/95 hover:bg-emerald-800 border-2 border-emerald-300 text-emerald-50 shadow-[0_0_32px_rgba(16,185,129,0.75)]'
               : status === 'speaking'
                 ? 'bg-cyan-950/95 border-2 border-cyan-300 text-cyan-100'
                 : 'bg-zinc-950/90 hover:bg-cyan-950/95 border border-cyan-400/70 text-cyan-100 hover:text-white'
-          } font-hud tracking-wider uppercase font-bold flex items-center transition-all cursor-pointer group-hover:scale-105`}
+          } font-hud tracking-wider uppercase font-bold flex items-center transition-all cursor-pointer touch-manipulation active:scale-95`}
         >
           {status === 'listening' ? (
             <>
-              <Mic className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-emerald-400 animate-bounce`} />
-              <span className="text-emerald-200">
-                {isMukaDoang ? 'MENDENGARKAN... SILAKAN BICARA' : 'LISTENING...'}
+              <Mic className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-emerald-300 animate-bounce shrink-0`} />
+              <span className="text-emerald-100">
+                {isMukaDoang
+                  ? sudahDeteksiSuara
+                    ? 'MENDENGARKAN... (OTOMATIS TERKIRIM)'
+                    : 'LISTENER AKTIF • LANGSUNG BICARA'
+                  : 'LISTENER AKTIF'}
               </span>
             </>
           ) : status === 'speaking' ? (
@@ -1050,10 +1096,10 @@ export default function HologramHead3D({
               <Volume2 className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-cyan-300 ${adaAudioNyata ? 'animate-pulse' : ''}`} />
               <span className="text-cyan-100">
                 {isMukaDoang
-                  ? 'JARVIS BICARA (KLIK UNTUK POTONG)'
+                  ? 'JARVIS BICARA (KETUK = POTONG)'
                   : adaAudioNyata
-                    ? 'SPEAKING (KLIK STOP)'
-                    : 'AUDIO ACTIVE (KLIK STOP)'}
+                    ? 'SPEAKING (KETUK POTONG)'
+                    : 'AUDIO ACTIVE (KETUK POTONG)'}
               </span>
             </>
           ) : status === 'processing' ? (
@@ -1065,46 +1111,52 @@ export default function HologramHead3D({
             </>
           ) : (
             <>
-              <Mic className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-cyan-300`} />
-              <span>{isMukaDoang ? 'MULAI VOICE-TO-VOICE (KLIK / SPASI)' : 'KLIK BICARA'}</span>
+              <Mic className={`${isMukaDoang ? 'w-4 h-4' : 'w-3 h-3'} text-cyan-300 animate-pulse`} />
+              <span>{isMukaDoang ? 'MULAI NGOBROL LANGSUNG (KETUK 1X)' : 'MULAI NGOBROL'}</span>
             </>
           )}
         </button>
       </div>
 
-      {/* Bubble Transkrip Suara Live */}
+      {/* Bubble Transkrip Suara Live (Juga bisa diketuk langsung untuk kirim suara di iPhone) */}
       {transkripLive && (
-        <div className="mt-1 px-3 py-1 rounded-xl bg-emerald-950/90 border border-emerald-400/60 text-emerald-100 font-mono-hud text-xs max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-in fade-in flex items-center justify-center gap-1.5 z-20">
+        <button
+          type="button"
+          onClick={handleKlikCore}
+          className="mt-1 px-3.5 py-1.5 rounded-xl bg-emerald-950/90 hover:bg-emerald-900/90 active:scale-95 border border-emerald-400/60 text-emerald-100 font-mono-hud text-xs max-w-[92vw] sm:max-w-md text-center shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-in fade-in flex items-center justify-center gap-1.5 z-20 cursor-pointer touch-manipulation transition-transform"
+        >
           <Mic className="size-3.5 text-emerald-400 shrink-0" />
-          <span className="text-emerald-400 font-bold">INPUT SUARA:</span>
-          <span>&ldquo;{transkripLive.replace(/^🎙️\s*/, '')}&rdquo;</span>
-        </div>
+          <span className="text-emerald-400 font-bold shrink-0">INPUT SUARA:</span>
+          <span className="truncate">&ldquo;{transkripLive.replace(/^🎙️\s*/, '')}&rdquo;</span>
+        </button>
       )}
 
       {/* Status Badge */}
       <div className="mt-1 flex flex-col items-center text-center w-full max-w-lg px-2 z-20">
         {!compact && (
-          <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-400/40 backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+          <button
+            type="button"
+            onClick={handleKlikCore}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/70 hover:bg-cyan-900/75 active:scale-95 border border-cyan-400/40 backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.2)] cursor-pointer touch-manipulation transition-transform"
+          >
             <span
               className="w-2 h-2 rounded-full animate-ping shrink-0"
               style={{ backgroundColor: status === 'warning' ? '#f59e0b' : colors.primary }}
             />
             <span className="font-hud text-[10px] sm:text-xs uppercase tracking-widest text-cyan-100 font-bold truncate">
               {status === 'listening'
-                ? 'LISTENING // SILAKAN BICARA'
+                ? 'MODE NGOBROL KONTINU // TANPA PERLU PENCET TOMBOL'
                 : status === 'processing'
                   ? 'SYNCHRONIZING LIVE DATA...'
                   : status === 'speaking'
                     ? adaAudioNyata
-                      ? 'J.A.R.V.I.S. MERESPON (KLIK POTONG)'
-                      : 'AUDIO ACTIVE (KLIK POTONG)'
-                    : status === 'warning'
-                      ? 'ANOMALY DETECTED // SIAGA'
-                      : voiceLoopAktif
-                        ? 'VOICE LOOP STANDBY // SIAP MENDENGAR'
-                        : 'J.A.R.V.I.S. 3D HOLOGRAM AVATAR READY'}
+                      ? 'J.A.R.V.I.S. MERESPON // SELESAI LANGSUNG DENGAR LAGI'
+                      : 'AUDIO ACTIVE // SELESAI LANGSUNG DENGAR LAGI'
+                    : voiceLoopAktif
+                      ? 'MODE NGOBROL KONTINU // SIAP MENDENGAR'
+                      : 'KETUK 1X TOMBOL DI ATAS UNTUK MULAI NGOBROL NON-STOP'}
             </span>
-          </div>
+          </button>
         )}
       </div>
     </div>

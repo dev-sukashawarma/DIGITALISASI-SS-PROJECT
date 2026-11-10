@@ -127,7 +127,7 @@ export function deserializeVoucherFromRow(row: any): OfficeVoucher | null {
       realizedAmount: parsed.rel !== undefined ? Number(parsed.rel) : Number(row.amount),
       refundAmount: Number(parsed.ref) || 0,
       reason: parsed.rsn || desc,
-      status: (parsed.st as VoucherStatus) || (row.type === 'office_settled' ? 'verified' : 'draft_advance'),
+      status: (parsed.st as VoucherStatus) || (row.type === 'office_settled' || row.type === 'expense' ? 'verified' : 'draft_advance'),
       receiptUrl: row.receipt_url || null,
       createdAt: row.created_at,
       createdBy: row.created_by || null,

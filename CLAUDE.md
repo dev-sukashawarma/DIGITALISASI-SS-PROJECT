@@ -3718,6 +3718,19 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - **Purchasing boleh Ganti Satuan** (owner, 9 Nov): lingkup baru `_peran_master('satuan')` = admin/owner/purchasing/developer, dipakai `pratinjau_ganti_satuan` & `ganti_satuan_bahan` (migration `20261109135822`); lingkup `data` tetap admin/owner/developer. Tabel Data Bahan punya kolom **Diubah oleh** dari RPC `pengubah_terakhir_bahan()` (perubahan terakhir data/harga master/harga vendor + nama; SECURITY DEFINER karena nama staf tertahan RLS; admin/owner/purchasing/developer). Uji t6.
 - 4 draft opname basi bawang (Jagakarsa 20 Agu, Sawangan 28 Agu, Cirendeu 2 Sep, Paledang 25 Sep) ditolak 9 Nov agar Ganti Satuan tak terhalang.
 
-**Last updated:** 2026-11-09  
+## Session 2026-11-10: Closing Laba Rugi Oktober 2026 (apps/admin-dashboard + DB)
+
+**Status:** Kode di branch `feat/closing-oktober-2026`. ⚠️ Perlu **redeploy `admin-dashboard`**. Data DB: subtotal item 8 order food apps Oktober dibetulkan (arsip + pembalik `SS COGS SET/perbaiki-subtotal-item-food-apps-oktober-2026-11-10.sql`).
+
+- **Sumber:** laporan final owner `bismillah fixed oktober SS LAP. LABA RUGI 2026 (1).xlsx`, sheet `OKTOBER 2026` (B75 dibetulkan menjadi `M55:Y55` di Google Sheet). Angka final: Net Profit Internal **2.561.619**, bagi hasil mitra **121.526.376,5**.
+- **Peta kolom:** SS KITCHEN = BNR, SS BCC = Cimanggu, SS KOTWIS = Cibubur, SS SAWANGAN = Mitra Sawangan DTC, SS CILEDUG = Mitra Cileudug.
+- **Data dibangkitkan** `scripts/closing/bangkitkan_closing_oktober2026.py` (memvalidasi ulang rumus baris 28/33/51/55): `src/lib/closing/closingOktober2026.ts` (laba kotor internal B–L + pendapatan pusat dari mitra M53:Y54) dan `src/app/actions/mitraPnlClosingDataOktober2026.ts` (laba rugi per outlet mitra, `terapkanPenuh`).
+- `src/lib/closing/closingBulanan.ts` = satu pintu `penyesuaianLabaKotorClosing` / `pendapatanMitraClosingUntuk` untuk September & Oktober (dipakai `ProfitView`). Label baris penyesuaian kini mengikuti bulan.
+- **OPEX tidak perlu closing:** OPEX outlet internal, OPEX pusat (155.389.617), dan 11/13 mitra sudah sama dengan data live.
+- Closing Oktober **menolkan pendapatan lain-lain** (Income Lainnya 1.377.500) di Laba Rugi Internal, karena laporan tidak memuatnya.
+- Sama seperti September: tabel per-outlet & tab Laba Rugi Mitra tetap live; rentang yang menyentuh Oktober di dashboard mitra disajikan Oktober sebulan penuh.
+- PreOrder WA (`channel='preorder_wa'`) tetap Offline + QRIS (keputusan 6 Nov); tidak ikut setoran tunai.
+
+**Last updated:** 2026-11-10  
 **Owner:** Dev Suka Shawarma
 

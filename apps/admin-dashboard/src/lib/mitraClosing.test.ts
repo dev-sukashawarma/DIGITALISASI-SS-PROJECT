@@ -21,7 +21,9 @@ describe('getMitraClosingMonth', () => {
     expect(getMitraClosingMonth('2026-09-01', '2026-09-15')).toBeUndefined()
     expect(getMitraClosingMonth('2026-09-02', '2026-09-30')).toBeUndefined()
     expect(getMitraClosingMonth('2026-08-01', '2026-09-30')).toBeUndefined()
-    expect(getMitraClosingMonth('2026-10-01', '2026-10-31')).toBeUndefined()
+    expect(getMitraClosingMonth('2026-10-01', '2026-10-31')?.label).toBe('Oktober 2026')
+    expect(getMitraClosingMonth('2026-10-01', '2026-10-30')).toBeUndefined()
+    expect(getMitraClosingMonth('2026-11-01', '2026-11-30')).toBeUndefined()
   })
 
   it('Agustus tetap berperilaku lama, September menggantikan penuh', () => {
@@ -113,8 +115,8 @@ describe('rencanaPeriodeClosing — September selalu disajikan sebulan penuh', (
     return r && { from: r.from, to: r.to, segmen: r.segmen.map(s => `${s.from}..${s.to}${s.closing ? '*' : ''}`) }
   }
 
-  it('rentang yang tidak menyentuh September: tidak ada rencana', () => {
-    expect(ringkas('2026-10-01', '2026-10-12')).toBeUndefined()
+  it('rentang yang tidak menyentuh bulan closing penuh: tidak ada rencana', () => {
+    expect(ringkas('2026-11-01', '2026-11-12')).toBeUndefined()
     expect(ringkas('2026-08-01', '2026-08-31')).toBeUndefined()
     expect(ringkas('2026-07-01', '2026-08-31')).toBeUndefined()
   })
@@ -127,9 +129,17 @@ describe('rencanaPeriodeClosing — September selalu disajikan sebulan penuh', (
     expect(ringkas('2026-09-01', '2026-09-29')).toEqual(penuh)
     expect(ringkas('2026-09-30', '2026-09-30')).toEqual(penuh)
   })
-  it('lintas September–Oktober: September penuh + hari Oktober apa adanya', () => {
+  it('lintas September–Oktober: keduanya bulan closing penuh', () => {
     expect(ringkas('2026-09-13', '2026-10-12')).toEqual({
-      from: '2026-09-01', to: '2026-10-12', segmen: ['2026-09-01..2026-09-30*', '2026-10-01..2026-10-12'],
+      from: '2026-09-01', to: '2026-10-31', segmen: ['2026-09-01..2026-09-30*', '2026-10-01..2026-10-31*'],
+    })
+  })
+  it('sebagian Oktober: dilebarkan jadi sebulan penuh', () => {
+    expect(ringkas('2026-10-05', '2026-10-20')).toEqual({ from: '2026-10-01', to: '2026-10-31', segmen: ['2026-10-01..2026-10-31*'] })
+  })
+  it('lintas Oktober–November: Oktober penuh + hari November apa adanya', () => {
+    expect(ringkas('2026-10-20', '2026-11-05')).toEqual({
+      from: '2026-10-01', to: '2026-11-05', segmen: ['2026-10-01..2026-10-31*', '2026-11-01..2026-11-05'],
     })
   })
   it('lintas Agustus–September: hari Agustus apa adanya + September penuh', () => {
@@ -140,7 +150,7 @@ describe('rencanaPeriodeClosing — September selalu disajikan sebulan penuh', (
   it('melingkupi September: tiga segmen, batas luar tidak berubah', () => {
     expect(ringkas('2026-08-01', '2026-10-31')).toEqual({
       from: '2026-08-01', to: '2026-10-31',
-      segmen: ['2026-08-01..2026-08-31', '2026-09-01..2026-09-30*', '2026-10-01..2026-10-31'],
+      segmen: ['2026-08-01..2026-08-31', '2026-09-01..2026-09-30*', '2026-10-01..2026-10-31*'],
     })
   })
   it('masukan kosong atau terbalik: tidak ada rencana', () => {

@@ -1,4 +1,4 @@
--- Uji aturan RAB otomatis Mitra Karawaci (migration 20261111170000).
+-- Uji aturan RAB otomatis Mitra Karawaci (migration 20261111170000; endorsement ikut RAB sejak 20261111180000).
 -- Selalu di-rollback lewat RAISE. Hasil yang diharapkan: 'LULUS: ...'.
 DO $$
 DECLARE
@@ -19,7 +19,7 @@ BEGIN
     SELECT category FROM expenses WHERE outlet_id = v_kwc AND type = 'expense' AND expense_date <= '2026-11-30'
     UNION ALL
     SELECT category FROM petty_cash_expenses WHERE outlet_id = v_kwc AND type = 'expense' AND deleted_at IS NULL AND expense_date <= '2026-11-30'
-  ) x WHERE lower(category) NOT IN ('gas','pln','pdam','internet','wifi','utilitas','utilities','sewa','sewa_outlet','endorsement');
+  ) x WHERE lower(category) NOT IN ('gas','pln','pdam','internet','wifi','utilitas','utilities','sewa','sewa_outlet');
   IF v_n <> 0 THEN v_gagal := v_gagal || ' a(' || v_n || ')'; END IF;
 
   -- (b) kas kecil baru Karawaci (approved) -> RAB, dan laba tidak berubah

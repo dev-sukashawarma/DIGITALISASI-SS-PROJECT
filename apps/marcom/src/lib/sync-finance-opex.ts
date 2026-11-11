@@ -355,7 +355,9 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
           expense_date: expenseDate,
           period_month: toPeriodMonth(expenseDate),
           payment_source: 'transfer_pusat',
-          cash_location_id: null,
+          // JANGAN menulis cash_location_id: rekening pembayar diatur finance di
+          // Buku Kas. Mengosongkannya membuat trigger kas membatalkan potongan
+          // rekening (insiden 11 Nov 2026: 8 pengeluaran opening Karawaci).
           receipt_url: expense.receiptUrl || null,
           created_by: MARCOM_CREW_STAFF_ID,
         },

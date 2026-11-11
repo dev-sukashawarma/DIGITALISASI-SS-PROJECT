@@ -800,6 +800,8 @@ petty as (
   where e.outlet_id = any(p_outlet_ids)
     and e.status = 'approved'
     and e.deleted_at is null
+    -- RAB (ditanggung dana investasi) tidak dihitung OPEX — lihat 20261111160000_kas_kecil_rab.
+    and e.type <> 'rab'
     and e.expense_date >= (p_from at time zone 'Asia/Jakarta')::date
   group by e.outlet_id
 ),
@@ -1223,6 +1225,8 @@ BEGIN
           AND pce.expense_date <= (p_to   AT TIME ZONE 'Asia/Jakarta')::date
           AND pce.status = 'approved'
           AND pce.deleted_at IS NULL
+          -- RAB (ditanggung dana investasi) tidak dihitung OPEX — lihat 20261111160000_kas_kecil_rab.
+          AND pce.type <> 'rab'
           AND (v_has_full_access OR pce.outlet_id IN (SELECT public.accessible_outlet_ids()))
           AND NOT (pce.outlet_id = ANY(v_test_outlet_ids))
           AND (p_outlet_id IS NULL OR pce.outlet_id = p_outlet_id)

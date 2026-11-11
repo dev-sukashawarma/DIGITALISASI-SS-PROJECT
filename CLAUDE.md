@@ -3868,6 +3868,7 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - Tabel `rab_outlet_otomatis` (data, bisa dipakai outlet baru). Trigger `trg_expenses_zz_rab_otomatis` & `trg_petty_cash_expenses_zz_rab_otomatis` — nama `zz_` WAJIB supaya jalan **sesudah** `trg_*_jaga_rab` (kalau tidak, crew tak bisa input kas kecil di POS). Bulan closing & `cash_drawer` tak pernah diubah otomatis.
 - **RAB kini boleh memakai rekening pusat** (CHECK `expenses_rab_outlet_check` & `expenses_cek_sumber_kas` dilonggarkan; form & action ikut): 13 baris Karawaci (Rp 2.328.337) dibayar dari rekening, saldonya tetap terpotong — `expenses_sinkron_kas` tak bergantung `type`.
 - Tim Marcom perlu mengubah Sumber Dana 8 catatan opening Karawaci jadi "Dana RAB" di app Marcom (budget Marcom); sisi finance sudah dijaga trigger.
+- ⚠️ Migration paralel `20261111161500_petty_cash_expense_finance_approval` (approval kas kecil, belum terstempel di DB) mendefinisikan ulang `get_mitra_roi` & `get_owner_dashboard_summary` penuh — berkasnya sudah diberi `type <> 'rab'` supaya `db push` tidak menghapus saringan RAB. Siapa pun yang menulis ulang kedua fungsi itu WAJIB mempertahankan `type <> 'rab'` (uji: `t2_kas_kecil.sql`).
 
 ---
 

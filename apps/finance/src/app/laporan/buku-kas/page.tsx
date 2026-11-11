@@ -260,29 +260,6 @@ export default function BukuKasPage() {
   }), [startDate, endDate])
   const mitraSales = useSalesDaily(salesFilterForFee, outlets as any, { enabled: needMitraSalesForFee })
 
-  const feeMonthBaselineRange = useMemo(() => {
-    const ym = endDate.slice(0, 7)
-    const first = `${ym}-01`
-    const [y, m] = ym.split('-').map(Number)
-    const lastDay = new Date(y, m, 0).getDate()
-    const fullEnd = `${ym}-${String(lastDay).padStart(2, '0')}`
-    const isCurrentMonth = ym === todayJakarta.slice(0, 7)
-    const to = isCurrentMonth ? todayJakarta : fullEnd
-    return { from: first, to, isMtd: isCurrentMonth }
-  }, [endDate, todayJakarta])
-  const needSeparateFeeBaseline =
-    needMitraSalesForFee &&
-    (startDate !== feeMonthBaselineRange.from || endDate !== feeMonthBaselineRange.to)
-  const mitraSalesMonthBaseline = useSalesDaily(
-    {
-      from: feeMonthBaselineRange.from,
-      to: feeMonthBaselineRange.to,
-      outletId: 'all',
-      source: 'all' as const,
-    },
-    outlets as any,
-    { enabled: needSeparateFeeBaseline },
-  )
   // Rincian gaji & bonus untuk modal pada pilihan kelompok (Internal / Mitra / Internal + Pusat):
   // ringkasan HR 'Semua Outlet' dipotong per outlet kelompok, memakai pembagian yang sama dengan kartu.
   const hrPayrollModal = useMemo(() => {
@@ -727,26 +704,6 @@ export default function BukuKasPage() {
       periodTo: endDate,
     })
   }, [needMitraSalesForFee, mitraSales.rows, outlets, mitraInvestments, startDate, endDate])
-
-  const baselineMonthManagementFee = useMemo(() => {
-    if (!needMitraSalesForFee) return 0
-    if (!needSeparateFeeBaseline) return managementFeeData?.totalFeeForHoOpex ?? 0
-    return computeMitraManagementFees({
-      salesRows: mitraSalesMonthBaseline.rows,
-      outlets: outlets as any,
-      investments: mitraInvestments,
-      periodFrom: feeMonthBaselineRange.from,
-      periodTo: feeMonthBaselineRange.to,
-    }).totalFeeForHoOpex
-  }, [
-    needMitraSalesForFee,
-    needSeparateFeeBaseline,
-    managementFeeData,
-    mitraSalesMonthBaseline.rows,
-    outlets,
-    mitraInvestments,
-    feeMonthBaselineRange,
-  ])
 
   const rawTotalCombinedOpex = displaySalary + displayLembur + nonSalaryTampil
 
@@ -1856,12 +1813,6 @@ export default function BukuKasPage() {
                   <span>OPEX Kotor</span>
                   <span className="tabular-nums line-through decoration-rose-200/80">{rupiah(rawTotalCombinedOpex)}</span>
                 </div>
-                {prorataInfo.isProrated && baselineMonthManagementFee > 0 && needSeparateFeeBaseline && (
-                  <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-amber-200/95 mt-0.5 leading-tight">
-                    <span>{feeMonthBaselineRange.isMtd ? 'Akumulasi MTD Bln Ini' : 'Baseline Fee 1 Bln'}</span>
-                    <span className="tabular-nums">-{rupiah(baselineMonthManagementFee)}</span>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -2496,8 +2447,6 @@ export default function BukuKasPage() {
                 grossMitraSales: managementFeeData?.grossMitraBelumBepHoOpex ?? 0,
                 jumlahOutletBelumBep: managementFeeData?.jumlahOutletBelumBep ?? 0,
                 loading: mitraSales.loading,
-                baselineMonthFee: baselineMonthManagementFee,
-                isMtdBaseline: feeMonthBaselineRange.isMtd,
                 outlets: managementFeeData?.activeHoFeeOutlets ?? [],
               }
             : undefined,

@@ -141,8 +141,6 @@ interface OpexCardDetailModalsProps {
       grossMitraSales?: number
       jumlahOutletBelumBep?: number
       loading?: boolean
-      baselineMonthFee?: number
-      isMtdBaseline?: boolean
       outlets: Array<{
         outletId: string
         outletName: string
@@ -3055,11 +3053,6 @@ export function OpexCardDetailModals({
                                 ) : (
                                   <span>
                                     Mengikuti 3% omzet kotor outlet mitra belum BEP pada tanggal filter (belum ada transaksi tercatat di tanggal ini)
-                                  </span>
-                                )}
-                                {totalOpexData.isProrated && (feeDed.baselineMonthFee ?? 0) > 0 && (
-                                  <span className="text-[11px] font-bold text-emerald-900 ml-1.5">
-                                    &bull; {feeDed.isMtdBaseline ? 'Akumulasi MTD Bln Ini' : 'Baseline 1 Bln'}: -{rupiah(feeDed.baselineMonthFee ?? 0)}
                                   </span>
                                 )}
                               </div>

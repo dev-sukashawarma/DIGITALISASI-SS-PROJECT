@@ -81,6 +81,7 @@ export function ExpenseFormModal({
         !initialData.outlet_id || 
         initialData.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ||
         initialData.scope === 'pusat' ||
+        initialData.outlet_name === 'Head Office' ||
         initialData.outlet_name === 'Kantor Pusat' ||
         initialData.outlet_name === 'Pusat'
 
@@ -149,7 +150,7 @@ export function ExpenseFormModal({
       const selectedOutlet = outletsList.find(o => o.id === outletId)
       if (selectedOutlet?.type === 'mitra') {
         setOutletId('PUSAT')
-        toast.info('Kategori kantor pusat otomatis dialihkan ke Pusat.')
+        toast.info('Kategori Head Office otomatis dialihkan ke Head Office.')
       }
     }
   }
@@ -202,7 +203,7 @@ export function ExpenseFormModal({
     const isOfficeCategory = category === 'gaji_staff_kantor' || category === 'pengeluaran_global' || description.toLowerCase().includes('gaji kantor')
     const selectedOutlet = outletsList.find(o => o.id === outletId)
     if (isOfficeCategory && selectedOutlet?.type === 'mitra') {
-      toast.error('Pengeluaran kantor pusat dilarang dialokasikan ke outlet mitra. Pilih Pusat atau outlet internal.')
+      toast.error('Pengeluaran Head Office dilarang dialokasikan ke outlet mitra. Pilih Head Office atau outlet internal.')
       return
     }
 
@@ -300,7 +301,7 @@ export function ExpenseFormModal({
               {isEdit ? 'Edit Pengeluaran (OPEX)' : 'Input Pengeluaran Baru (OPEX)'}
             </h3>
             <p className="text-xs text-suka-gray-500">
-              {isEdit ? 'Perbarui rincian transaksi beban operasional' : 'Catat transaksi pengeluaran operasional cabang / pusat'}
+              {isEdit ? 'Perbarui rincian transaksi beban operasional' : 'Catat transaksi pengeluaran operasional cabang / Head Office'}
             </p>
           </div>
           <button
@@ -314,13 +315,13 @@ export function ExpenseFormModal({
 
         <form onSubmit={submit} className="flex flex-col gap-4">
           <label className="text-sm">
-            <span className="mb-1 block font-medium text-suka-ink">Target / Outlet</span>
+            <span className="mb-1 block font-medium text-suka-ink">Filter / Unit</span>
             <select
               className={inputCls}
               value={outletId}
               onChange={(e) => setOutletId(e.target.value)}
             >
-              {isAdmin && <option value="PUSAT">🏢 Pusat (Company-wide)</option>}
+              {isAdmin && <option value="PUSAT">🏢 Head Office (Company-wide)</option>}
               {outletsList.map((o) => {
                 const isMitra = o.type === 'mitra'
                 const isOfficeCategory = category === 'gaji_staff_kantor' || category === 'pengeluaran_global'

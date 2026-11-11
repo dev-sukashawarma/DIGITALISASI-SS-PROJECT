@@ -38,6 +38,7 @@ import { motion } from 'framer-motion'
 import { isTestOutlet } from '@/lib/outletFilters'
 import { CATEGORY_META, isLemburExpense } from '@/lib/expenseCategories'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
+import { applyHoOpexManagementFeeOffset, computeMitraManagementFees } from '@/lib/managementFee'
 import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
 import { GrossSalesBreakdownModal } from '@/components/profit/GrossSalesBreakdownModal'
 import { CogsWasteBreakdownModal } from '@/components/profit/CogsWasteBreakdownModal'
@@ -62,7 +63,7 @@ import {
 import { PRORATED_CATEGORIES, adalahSemiTetap } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
 import { createThrottledRefresher } from '@/lib/realtimeThrottle'
-import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
+
 import { getSourceLabel } from '@/lib/channels'
 import { useTikTokSettlement } from '@/hooks/useTikTokSettlement'
 import { usePendapatanLain } from '@/hooks/usePendapatanLain'
@@ -326,49 +327,24 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const error = sales.error || expenses.error || hpp.error || waste.error
 
   const isAllOutlets = filter.outletId === 'all'
+  const includeCentral = isAllOutlets && scope !== 'mitra'
+  const pengeluaranPusatRaw = useMemo(
+    () => expenseRows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
+    [expenseRows],
+  )
 
-  // Perhitungan Management Fee Kemitraan (3% Gross Sales untuk outlet belum BEP per Sept 2026)
-  const managementFeeData = useMemo(() => {
-    let totalMitraFee = 0
-    let grossMitraBelumBep = 0
-    const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean; profitSharingPct: number }>()
-
-    const allMitraOids = new Set([...Object.keys(mitraInvestments), ...Array.from(mitraIds)])
-    for (const oid of allMitraOids) {
-      const inv = mitraInvestments[oid]
-      const outletSales = sales.rows.filter(
-        r => r.outlet_id === oid && 
-             !isTestOutlet(r.outlet_id) &&
-             isInScope('mitra', oid, mitraIds, (r as any).sales_date || (r as any).date, cutoffDates)
-      )
-      const gross = outletSales.reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
-
-      const bepInfo = calculateMitraBepStatus(inv, oid, effectiveFilter.from, inv?.isBep)
-      const policy = resolveMitraPolicy({
+  // Perhitungan Management Fee Kemitraan terpusat (< Nov 2026 di pendapatan pusat, >= Nov 2026 memotong OPEX Head Office)
+  const managementFeeData = useMemo(
+    () =>
+      computeMitraManagementFees({
+        salesRows: sales.rows,
+        outlets: allOutlets,
+        investments: mitraInvestments,
         periodFrom: effectiveFilter.from,
-        isBep: bepInfo.isBep,
-        legacyProfitSharingPct: inv?.persentase_bagi_hasil,
-        legacyManagementFee: inv?.management_fee,
-      })
-
-      const fee = policy.managementFeePct > 0 ? Math.round((gross * policy.managementFeePct) / 100) : 0
-      if (policy.managementFeePct > 0) {
-        grossMitraBelumBep += gross
-      }
-      perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: bepInfo.isBep, profitSharingPct: policy.profitSharingPct })
-      totalMitraFee += fee
-    }
-
-    let jumlahOutletBelumBep = 0
-    perOutletFee.forEach(v => { if (v.pct > 0) jumlahOutletBelumBep++ })
-
-    return {
-      totalMitraFee,
-      grossMitraBelumBep,
-      jumlahOutletBelumBep,
-      perOutletFee,
-    }
-  }, [mitraInvestments, sales.rows, effectiveFilter.from, mitraIds, cutoffDates])
+        periodTo: effectiveFilter.to,
+      }),
+    [sales.rows, allOutlets, mitraInvestments, effectiveFilter.from, effectiveFilter.to],
+  )
 
   // Omzet penjualan outlet (sebelum ditambahkan management fee)
   const actualGrossSalesLive = useMemo(
@@ -382,10 +358,23 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     ? pendapatanMitraClosingUntuk(effectiveFilter.from, effectiveFilter.to)
     : null
 
-  // Penerimaan Management Fee oleh Kantor Pusat (scope all & internal)
-  const managementFeeReceived = pendapatanMitraClosing ? pendapatanMitraClosing.feeManajemen : (scope === 'all' || scope === 'internal')
-    ? (isAllOutlets 
-        ? managementFeeData.totalMitraFee 
+  const hoFeeOffset = useMemo(
+    () =>
+      applyHoOpexManagementFeeOffset(
+        includeCentral ? pengeluaranPusatRaw : 0,
+        includeCentral && !pendapatanMitraClosing ? managementFeeData.totalFeeForHoOpex : 0,
+      ),
+    [includeCentral, pengeluaranPusatRaw, pendapatanMitraClosing, managementFeeData.totalFeeForHoOpex],
+  )
+  const pengeluaranPusat = includeCentral ? hoFeeOffset.netHoOpex : pengeluaranPusatRaw
+
+  // Penerimaan Management Fee oleh Head Office (scope all & internal):
+  // Sebelum Nov 2026 dicatat di pendapatan pusat; mulai Nov 2026 dialokasikan memotong OPEX Head Office (hanya surplus di atas OPEX HO yang tetap di sini).
+  const managementFeeReceived = pendapatanMitraClosing
+    ? pendapatanMitraClosing.feeManajemen
+    : (scope === 'all' || scope === 'internal')
+    ? (isAllOutlets
+        ? managementFeeData.totalFeeLegacyRevenue + hoFeeOffset.surplusToRevenue
         : (mitraIds.has(filter.outletId) ? (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0) : 0))
     : 0
   
@@ -501,10 +490,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   )
   const pengeluaranOutletBulananMurni = Math.max(0, pengeluaranOutletBulanan - totalJointExpense)
   const pengeluaranOutlet = pengeluaranOutletBulanan + pengeluaranLembur + pengeluaranOutletPettyCashMurni
-  const pengeluaranPusat = useMemo(
-    () => expenseRows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
-    [expenseRows]
-  )
   // Income Lainnya (Kas Office) = pendapatan pusat: hanya di Laba Perusahaan semua outlet, bukan laba outlet/mitra.
   const tampilPendapatanLain = isAllOutlets && scope !== 'mitra'
   const { data: pendapatanLainData = 0 } = usePendapatanLain(filter, tampilPendapatanLain)
@@ -733,7 +718,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   // konsisten dengan judul card dan margin per outlet di leaderboard.
   const costHpp = scope === 'all' ? Math.max(0, totalHpp - mitraHppMarginReceived) : totalHpp
   const costOpex = pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)
-  const costFee = totalDeductions + (scope === 'mitra' || (!isAllOutlets && mitraIds.has(filter.outletId)) ? managementFeeExpense + bepProfitShareExpense : 0)
+  const costFee =
+    totalDeductions +
+    (scope === 'mitra' || (!isAllOutlets && mitraIds.has(filter.outletId))
+      ? managementFeeExpense + bepProfitShareExpense
+      : (scope === 'all' && isAllOutlets ? hoFeeOffset.appliedDeduction : 0))
   const costWaste = totalWaste
   const totalBiaya = costHpp + costOpex + costFee + costWaste
 
@@ -782,11 +771,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false)
   const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [activeBreakdownModal, setActiveBreakdownModal] = useState<'sales' | 'cogs' | 'opex' | 'net' | null>(null)
-
-  // Biaya pusat hanya ikut pada tampilan gabungan seluruh outlet — sama persis
-  // dengan syarat yang dipakai `displayLaba`, supaya rincian mendarat di angka
-  // yang tertera di kartu.
-  const includeCentral = isAllOutlets && scope !== 'mitra'
   // Rincian per kategori untuk baris "Beban Bulanan Outlet" di modal. Sumbernya
   // baris yang PERSIS sama dengan yang membentuk `pengeluaranOutletBulananMurni`,
   // supaya jumlah rinciannya tak mungkin meleset dari angka induknya.
@@ -997,17 +981,19 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       })
     }
 
-    if (includeCentral && pengeluaranPusat > 0) {
+    if (includeCentral && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0)) {
       list.push({
         key: 'pusat',
-        label: 'Biaya Operasional Kantor Pusat',
+        label: hoFeeOffset.appliedDeduction > 0
+          ? `Biaya Operasional Head Office (setelah Potongan Fee Management 3% -${rupiah(hoFeeOffset.appliedDeduction)})`
+          : 'Biaya Operasional Head Office',
         amount: pengeluaranPusat,
         isProrated: false,
       })
     }
 
     return list.sort((a, b) => b.amount - a.amount)
-  }, [opexKategoriGabungan, totalJointExpense, pengeluaranLembur, includeCentral, pengeluaranPusat, isProrated])
+  }, [opexKategoriGabungan, totalJointExpense, pengeluaranLembur, includeCentral, pengeluaranPusat, hoFeeOffset.appliedDeduction, isProrated])
 
   const opexOutletList = useMemo(() => {
     const list = outletBreakdown.map(o => ({
@@ -1018,10 +1004,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       isMitra: o.isMitra,
     }))
 
-    if (includeCentral && pengeluaranPusat > 0) {
+    if (includeCentral && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0)) {
       list.push({
         id: 'pusat',
-        name: 'Kantor Pusat SS',
+        name: hoFeeOffset.appliedDeduction > 0
+          ? `Head Office (Bersih · Potongan Fee Management 3% -${rupiah(hoFeeOffset.appliedDeduction)})`
+          : 'Head Office',
         expense: pengeluaranPusat,
         gross: 0,
         isMitra: false,
@@ -1029,7 +1017,15 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     }
 
     return list.sort((a, b) => b.expense - a.expense)
-  }, [outletBreakdown, includeCentral, pengeluaranPusat])
+  }, [outletBreakdown, includeCentral, pengeluaranPusat, hoFeeOffset.appliedDeduction])
+
+  const centralExpenseBreakdown = useMemo(() => {
+    if (!includeCentral || hoFeeOffset.appliedDeduction <= 0) return undefined
+    return [
+      { label: 'Beban Operasional Head Office (Kotor)', amount: -pengeluaranPusatRaw },
+      { label: 'Potongan Fee Management 3%', amount: hoFeeOffset.appliedDeduction },
+    ]
+  }, [includeCentral, hoFeeOffset.appliedDeduction, pengeluaranPusatRaw])
 
   const waterfallInput = useMemo(() => ({
     grossRevenue: actualGrossSales,
@@ -1044,6 +1040,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     includeCentral,
     pendapatanLain,
     opexMonthlyBreakdown,
+    centralExpenseBreakdown,
     managementFeeIncome: managementFeeReceived,
     mitraHppMarginIncome: mitraHppMarginReceived,
     managementFeeExpense: managementFeeExpense,
@@ -1053,7 +1050,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   }), [
     actualGrossSales, totalDeductions, totalHpp, totalWaste,
     totalJointExpense, pengeluaranOutletBulananMurni, pengeluaranOutletBulanan, pengeluaranLembur, pengeluaranOutletPettyCashMurni, pengeluaranPusat, includeCentral,
-    opexMonthlyBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense, bepProfitShareExpense,
+    opexMonthlyBreakdown, centralExpenseBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense, bepProfitShareExpense,
     grossRevenueBreakdown, deductionsBreakdown, pendapatanLain,
   ])
 
@@ -1277,7 +1274,16 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
                   {/* Pecahan ditampilkan supaya angka outlet bisa dicocokkan langsung dengan
                       Buku Kas ("Outlet Internal" / "Semua Outlet"), yang tidak memuat kantor pusat. */}
-                  <span>{includeCentral ? `Outlet ${rupiah(pengeluaranOutlet)} · Pusat ${rupiah(pengeluaranPusat)}` : `Beban Outlet`}</span>
+                  <span>
+                    {includeCentral
+                      ? `Outlet ${rupiah(pengeluaranOutlet)} · HO ${rupiah(pengeluaranPusat)}`
+                      : `Beban Outlet`}
+                  </span>
+                  {includeCentral && hoFeeOffset.appliedDeduction > 0 && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Potongan Fee Management 3% -{rupiah(hoFeeOffset.appliedDeduction)}
+                    </span>
+                  )}
                   {isProrated && (
                     <span
                       className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
@@ -1427,6 +1433,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             opexLembur={pengeluaranLembur}
             opexPettyCash={pengeluaranOutletPettyCashMurni}
             centralExpense={pengeluaranPusat}
+            rawCentralExpense={pengeluaranPusatRaw}
+            centralFeeDeduction={hoFeeOffset.appliedDeduction}
             isAllOutlets={isAllOutlets}
             isProrated={isProrated}
             prorataInfo={prorataMonthInfo}
@@ -1486,6 +1494,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 pengeluaranOutlet,
                 totalWaste,
                 pengeluaranPusat,
+                pengeluaranPusatRaw,
+                potonganFeeManajemenPusat: hoFeeOffset.appliedDeduction,
                 managementFeeReceived,
                 mitraHppMarginReceived,
                 managementFeeExpense,
@@ -1584,7 +1594,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                           <span className="font-semibold block">Management Fee ke Kantor Pusat (3% Gross Mitra Belum BEP)</span>
                           <span className="text-[10px] text-rose-500 block font-normal">
                             {isAllOutlets 
-                              ? `Dipotong 3% hanya dari ${managementFeeData.jumlahOutletBelumBep} outlet belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Outlet sudah BEP bebas fee`
+                              ? scope === 'all' && hoFeeOffset.appliedDeduction > 0
+                                ? `Dipotong 3% dari ${managementFeeData.jumlahOutletBelumBep} outlet belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Sisi penerimaannya langsung mengurangi Beban Head Office di bawah (tanpa duplikasi)`
+                                : `Dipotong 3% hanya dari ${managementFeeData.jumlahOutletBelumBep} outlet belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Outlet sudah BEP bebas fee`
                               : `Dipotong 3% dari omzet kotor outlet`}
                           </span>
                         </div>
@@ -1674,10 +1686,17 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <span className="font-medium">Biaya Kas Kecil Operasional (Petty Cash)</span>
                       <span className="font-bold">-{rupiah(pengeluaranOutletPettyCashMurni)}</span>
                     </div>
-                    {isAllOutlets && pengeluaranPusat > 0 && (
-                      <div className="flex justify-between items-center text-rose-600">
-                        <span className="font-medium">Beban Operasional Kantor Pusat (Manajemen)</span>
-                        <span className="font-bold">-{rupiah(pengeluaranPusat)}</span>
+                    {includeCentral && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0) && (
+                      <div className="flex justify-between items-center text-rose-600 gap-2">
+                        <div>
+                          <span className="font-medium block">Beban Operasional Head Office (Manajemen)</span>
+                          {hoFeeOffset.appliedDeduction > 0 && (
+                            <span className="text-xs font-bold text-emerald-700 block mt-0.5">
+                              Kotor {rupiah(pengeluaranPusatRaw)} · Potongan Fee Management 3% -{rupiah(hoFeeOffset.appliedDeduction)}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-bold shrink-0">{pengeluaranPusat > 0 ? `-${rupiah(pengeluaranPusat)}` : rupiah(0)}</span>
                       </div>
                     )}
                     {pendapatanLain > 0 && (
@@ -2023,8 +2042,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   </tbody>
                   {filteredOutlets.length > 0 && (() => {
                     const showCentralReconciliation = includeCentral && !outletSearch.trim()
-                    const netMitraIncomePusat = managementFeeReceived - managementFeeExpense + mitraHppMarginReceived + (scope === 'all' ? totalBepShareDeduction : 0)
-                    const hasCentralRows = showCentralReconciliation && (pengeluaranPusat > 0 || netMitraIncomePusat !== 0 || Boolean(penyesuaianLabaKotor))
+                    const netMitraIncomePusat = managementFeeReceived + mitraHppMarginReceived + (scope === 'all' ? totalBepShareDeduction : 0)
+                    const hasCentralRows = showCentralReconciliation && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0 || netMitraIncomePusat !== 0 || Boolean(penyesuaianLabaKotor))
                     const totalOpexWithCentral = pengeluaranOutlet + (includeCentral ? pengeluaranPusat : 0)
 
                     return (
@@ -2070,16 +2089,16 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                         {hasCentralRows && netMitraIncomePusat !== 0 && (
                           <tr className="whitespace-nowrap border-t border-suka-brown/10 bg-blue-50/40 text-suka-ink">
                             <td colSpan={2} className="py-2.5 px-4 text-left font-bold text-blue-900">
-                              <div>+ Pendapatan Pusat dari Kemitraan</div>
+                              <div>+ Pendapatan Head Office dari Kemitraan</div>
                               <div className="text-[10px] font-medium text-blue-700">
                                 {managementFeeReceived > 0 && `Fee Mitra 3%: +${rupiah(managementFeeReceived)}`}
                                 {managementFeeReceived > 0 && mitraHppMarginReceived > 0 && ' · '}
                                 {mitraHppMarginReceived > 0 && `Margin Bahan 10%: +${rupiah(mitraHppMarginReceived)}`}
-                                {managementFeeExpense > 0 && ` · Beban Fee Mitra: -${rupiah(managementFeeExpense)}`}
+                                {scope === 'all' && totalBepShareDeduction > 0 && ` · Bagi Hasil BEP: +${rupiah(totalBepShareDeduction)}`}
                               </div>
                             </td>
                             <td colSpan={6} className="py-2.5 px-4 text-right text-[11px] font-semibold text-blue-700">
-                              Antar-Kantong (Pusat &harr; Mitra)
+                              Antar-Kantong (Head Office &harr; Mitra)
                             </td>
                             <td className="py-2.5 px-4 text-right font-black text-emerald-700">
                               +{rupiah(netMitraIncomePusat)}
@@ -2088,21 +2107,23 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                           </tr>
                         )}
 
-                        {hasCentralRows && pengeluaranPusat > 0 && (
+                        {hasCentralRows && (pengeluaranPusat > 0 || hoFeeOffset.appliedDeduction > 0) && (
                           <tr className="whitespace-nowrap border-t border-suka-brown/10 bg-rose-50/40 text-suka-ink">
                             <td colSpan={2} className="py-2.5 px-4 text-left font-bold text-rose-900">
-                              <div>- Beban Operasional Kantor Pusat (HQ)</div>
+                              <div>- Beban Operasional Head Office</div>
                               <div className="text-[10px] font-medium text-rose-700">
-                                Biaya manajemen & operasional kantor pusat
+                                {hoFeeOffset.appliedDeduction > 0
+                                  ? `Kotor ${rupiah(pengeluaranPusatRaw)} · Potongan Fee Management 3% -${rupiah(hoFeeOffset.appliedDeduction)}`
+                                  : 'Biaya manajemen & operasional Head Office'}
                               </div>
                             </td>
                             <td colSpan={4} className="py-2.5 px-4 text-right text-suka-gray-400">-</td>
                             <td className="py-2.5 px-4 text-right font-bold text-rose-600">
-                              -{rupiah(pengeluaranPusat)}
+                              {pengeluaranPusat > 0 ? `-${rupiah(pengeluaranPusat)}` : rupiah(0)}
                             </td>
                             <td className="py-2.5 px-4 text-right text-suka-gray-400">-</td>
                             <td className="py-2.5 px-4 text-right font-black text-rose-600">
-                              -{rupiah(pengeluaranPusat)}
+                              {pengeluaranPusat > 0 ? `-${rupiah(pengeluaranPusat)}` : rupiah(0)}
                             </td>
                             <td className="py-2.5 px-4 text-center text-suka-gray-400">-</td>
                           </tr>

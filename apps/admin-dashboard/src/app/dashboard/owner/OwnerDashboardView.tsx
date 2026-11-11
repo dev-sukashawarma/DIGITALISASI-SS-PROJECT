@@ -66,6 +66,7 @@ interface OwnerDashboardViewProps {
   prevPendapatanLain?: number
   curMgmtFee?: number
   prevMgmtFee?: number
+  curHoFeeDeduction?: number
   opexAcuanLabaRugi?: boolean
   pembandingLabaSepadan?: boolean
   cogsBreakdown?: { cogs: number; opex: number }
@@ -112,6 +113,7 @@ export default function OwnerDashboardView({
   prevPendapatanLain,
   curMgmtFee,
   prevMgmtFee,
+  curHoFeeDeduction,
   opexAcuanLabaRugi,
   pembandingLabaSepadan,
   cogsBreakdown,
@@ -228,6 +230,7 @@ export default function OwnerDashboardView({
             prevPendapatanLain={prevPendapatanLain}
             curMgmtFee={curMgmtFee}
             prevMgmtFee={prevMgmtFee}
+            curHoFeeDeduction={curHoFeeDeduction}
             opexAcuanLabaRugi={opexAcuanLabaRugi}
             pembandingLabaSepadan={pembandingLabaSepadan}
             cogsBreakdown={cogsBreakdown}

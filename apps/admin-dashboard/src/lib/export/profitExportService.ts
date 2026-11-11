@@ -83,6 +83,8 @@ export interface ConsolidatedSummaryData {
   pengeluaranOutlet: number
   totalWaste: number
   pengeluaranPusat: number
+  pengeluaranPusatRaw?: number
+  potonganFeeManajemenPusat?: number
   managementFeeReceived: number
   mitraHppMarginReceived: number
   managementFeeExpense: number
@@ -817,7 +819,15 @@ export async function generateConsolidatedPdfBlob(
     execRows.push(['Kerugian Bahan Rusak / Basi (Waste)', { content: `-${rupiah(summary.totalWaste)}`, styles: { halign: 'right', textColor: [225, 29, 72] } }])
   }
   if (summary.includeCentral) {
-    execRows.push(['Beban Kantor Pusat (Pengeluaran Global & Operasional HQ)', { content: `-${rupiah(summary.pengeluaranPusat)}`, styles: { halign: 'right' } }])
+    const potonganFeeHo = summary.potonganFeeManajemenPusat ?? 0
+    const rawHo = summary.pengeluaranPusatRaw ?? (summary.pengeluaranPusat + potonganFeeHo)
+    if (potonganFeeHo > 0) {
+      execRows.push(['Beban Head Office Kotor (Pengeluaran Operasional HO)', { content: `-${rupiah(rawHo)}`, styles: { halign: 'right' } }])
+      execRows.push(['Potongan Management Fee Mitra (3% Pengurang OPEX HO)', { content: `+${rupiah(potonganFeeHo)}`, styles: { halign: 'right', textColor: [5, 150, 105] } }])
+      execRows.push(['Beban Head Office Bersih (Net OPEX HO)', { content: summary.pengeluaranPusat > 0 ? `-${rupiah(summary.pengeluaranPusat)}` : 'Rp 0', styles: { halign: 'right', fontStyle: 'bold' } }])
+    } else {
+      execRows.push(['Beban Head Office (Pengeluaran Global & Operasional HO)', { content: `-${rupiah(summary.pengeluaranPusat)}`, styles: { halign: 'right' } }])
+    }
   }
   if (summary.includeCentral && (summary.pendapatanLain ?? 0) > 0) {
     execRows.push(['Pendapatan Lain-lain (Income Lainnya Kas Office)', { content: `+${rupiah(summary.pendapatanLain ?? 0)}`, styles: { halign: 'right', textColor: [4, 120, 87] } }])
@@ -1101,8 +1111,14 @@ export function generateConsolidatedCsvString(
     rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI HPP & WASTE', 'TOTAL MODAL BAHAN (HPP)', summary.totalHpp])
     rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI HPP & WASTE', 'KERUGIAN BAHAN RUSAK (WASTE)', summary.totalWaste])
     rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'TOTAL BEBAN OPERASIONAL OUTLET', summary.pengeluaranOutlet])
-    if (summary.pengeluaranPusat > 0) {
-      rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'BEBAN OPERASIONAL KANTOR PUSAT (MANAJEMEN)', summary.pengeluaranPusat])
+    if ((summary.potonganFeeManajemenPusat ?? 0) > 0) {
+      const potonganFeeHo = summary.potonganFeeManajemenPusat ?? 0
+      const rawHo = summary.pengeluaranPusatRaw ?? (summary.pengeluaranPusat + potonganFeeHo)
+      rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'BEBAN OPERASIONAL HEAD OFFICE (KOTOR)', rawHo])
+      rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'POTONGAN MANAGEMENT FEE MITRA 3% (PENGURANG OPEX HO)', -potonganFeeHo])
+      rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'BEBAN OPERASIONAL HEAD OFFICE (BERSIH)', summary.pengeluaranPusat])
+    } else if (summary.pengeluaranPusat > 0) {
+      rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'BEBAN OPERASIONAL HEAD OFFICE (MANAJEMEN)', summary.pengeluaranPusat])
     }
     if ((summary.pendapatanLain ?? 0) > 0) {
       rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'PENDAPATAN LAIN-LAIN', 'INCOME LAINNYA KAS OFFICE', summary.pendapatanLain ?? 0])

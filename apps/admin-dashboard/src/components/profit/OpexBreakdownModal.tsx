@@ -47,6 +47,8 @@ interface OpexBreakdownModalProps {
   opexPettyCash: number
   opexLembur?: number
   centralExpense: number
+  rawCentralExpense?: number
+  centralFeeDeduction?: number
   isAllOutlets: boolean
   isProrated: boolean
   prorataInfo?: { overlapDays: number; totalDays: number }
@@ -100,6 +102,8 @@ export function OpexBreakdownModal({
   opexPettyCash,
   opexLembur,
   centralExpense,
+  rawCentralExpense,
+  centralFeeDeduction = 0,
   isAllOutlets,
   isProrated,
   prorataInfo,
@@ -142,7 +146,7 @@ export function OpexBreakdownModal({
 
   if (!isOpen) return null
 
-  const hasCentral = isAllOutlets && centralExpense > 0
+  const hasCentral = isAllOutlets && (centralExpense > 0 || centralFeeDeduction > 0)
   const hasLembur = Boolean(opexLembur && opexLembur > 0)
 
   return (
@@ -236,14 +240,25 @@ export function OpexBreakdownModal({
               <LihatDetail href={cardHref?.kasKecil} onClick={onClose} />
             </div>
 
-            {/* Beban Kantor Pusat (jika ada) */}
+            {/* Beban Head Office (jika ada) */}
             {hasCentral && (
               <div className="min-w-0 bg-purple-50/50 p-3.5 sm:p-4 rounded-2xl border border-purple-200/70 shadow-2xs">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-purple-800 truncate">Beban Kantor Pusat</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-purple-800 truncate">Beban Head Office</p>
                 <h3 className="text-base sm:text-lg xl:text-xl font-black text-purple-900 tracking-tight mt-1 whitespace-nowrap tabular-nums">
                   {rupiah(centralExpense)}
                 </h3>
-                <p className="text-[11px] font-semibold text-purple-600 mt-0.5 truncate">Operasional Pusat SS</p>
+                {centralFeeDeduction > 0 ? (
+                  <div className="mt-1 space-y-0.5">
+                    <p className="text-xs font-extrabold text-emerald-700 truncate">
+                      Potongan Fee Management 3%: -{rupiah(centralFeeDeduction)}
+                    </p>
+                    <p className="text-[11px] font-semibold text-purple-700/80 truncate">
+                      Kotor: <span className="line-through">{rupiah(rawCentralExpense ?? (centralExpense + centralFeeDeduction))}</span>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] font-semibold text-purple-600 mt-0.5 truncate">Operasional Head Office</p>
+                )}
                 <LihatDetail href={cardHref?.pusat} onClick={onClose} />
               </div>
             )}

@@ -14,12 +14,13 @@ import {
 
 // Ringkasan harian per outlet × sumber langsung dari view DB `sales_daily_scoped`.
 // Sangat cepat karena dihitung langsung di database menggunakan covering & functional indexes.
-export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string; name: string }[]) {
+export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string; name: string }[], options?: { enabled?: boolean }) {
   const supabase = createClient()
   const queryKey = ['sales-daily', filter.from, filter.to, filter.outletId, filter.source] as const
   const query = useQuery<SalesSummaryRow[]>({
     queryKey: [...queryKey],
     ...periodCacheOptions(filter),
+    enabled: (options?.enabled ?? true) && Boolean(filter.from && filter.to),
     queryFn: withPeriodCache(queryKey, filter, async () => {
       // PostgREST memotong hasil di 1.000 baris tanpa error apa pun. Rentang
       // 30 hari menghasilkan ~2.000 baris (outlet × sumber × tanggal), jadi

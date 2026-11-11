@@ -31,6 +31,8 @@ interface KpiCardsProps {
   /** Management fee pusat (3% sblm BEP / 0% stlh BEP dari omzet kotor) saat melihat 1 outlet Mitra, 1:1 dengan Tab Laba Rugi. */
   curMgmtFee?: number
   prevMgmtFee?: number
+  /** Potongan Fee Manajemen 3% yang mengurangi OPEX Head Office pada cakupan Global. */
+  curHoFeeDeduction?: number
   /** OPEX dihitung dengan rumus Laba Rugi / Buku Kas (termasuk gaji & bonus HR). */
   opexAcuanLabaRugi?: boolean
   /** false = periode pembanding memakai rumus lain → ▲▼% OPEX & Laba disembunyikan. */
@@ -58,6 +60,7 @@ export function KpiCards({
   prevPendapatanLain = 0,
   curMgmtFee = 0,
   prevMgmtFee = 0,
+  curHoFeeDeduction = 0,
   opexAcuanLabaRugi = false,
   pembandingLabaSepadan = true,
   cogsBreakdown,
@@ -185,7 +188,11 @@ export function KpiCards({
       delta: dOpex,
       icon: Receipt,
       color: '#ef4444', // Rose / Red
-      subtext: opexAcuanLabaRugi ? 'Gaji, operasional & kas kecil — sama dengan Laba Rugi' : 'Biaya operasional & petty cash',
+      subtext: opexAcuanLabaRugi
+        ? curHoFeeDeduction > 0
+          ? `Potongan Fee Management 3% -${rupiah(curHoFeeDeduction)} · sama dengan Laba Rugi`
+          : 'Gaji, operasional & kas kecil — sama dengan Laba Rugi'
+        : 'Biaya operasional & petty cash',
     },
     // 4. Total Pcs Terjual + Jumlah Order (Combined)
     {
@@ -225,7 +232,7 @@ export function KpiCards({
       subtext: opexAcuanLabaRugi
         ? curMarginMitra > 0
           ? `Sama dengan Laba Rugi (+Margin Mitra ${rupiah(curMarginMitra)})`
-          : curMgmtFee > 0
+          : curMgmtFee > 0 && curHoFeeDeduction === 0
             ? `Sama dengan Laba Rugi (-Fee Pusat ${rupiah(curMgmtFee)})`
             : 'Sama dengan Laba Rugi (Net Masuk - HPP - Waste - OPEX)'
         : 'Net Masuk - (HPP + Waste + OPEX)',

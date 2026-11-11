@@ -1,15 +1,24 @@
 // apps/admin-dashboard/src/app/dashboard/owner/expenses/page.tsx
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useOutlets } from '@/hooks/useOutlets'
+import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { useWaste } from '@/hooks/useWaste'
+import { useSalesDaily } from '@/hooks/useSalesDaily'
+import {
+  MANAGEMENT_FEE_OPEX_DEDUCTION_CUTOFF,
+  applyHoOpexManagementFeeOffset,
+  computeMitraManagementFees,
+} from '@/lib/managementFee'
 import { useRole } from '@/components/layout/RoleContext'
 import { PageHeader, Section, StatTilesSkeleton } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
+import { mitraOutletIds } from '@/lib/outletOwnership'
+import { ringkasanHrKelompok } from '@/lib/opexDariHr'
 import CountUp from 'react-countup'
 import {
   Wallet,
@@ -26,7 +35,7 @@ import {
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { isExcludedOutlet } from '@/lib/outletFilters'
 import { withWasteSlice } from '@/lib/expenseBreakdown'
-import { pct } from '@/lib/format'
+import { pct, rupiah } from '@/lib/format'
 import dynamic from 'next/dynamic'
 
 const ExpenseDistributionChart = dynamic(
@@ -61,7 +70,7 @@ function StatKpiCard({
 }: {
   label: string
   value: React.ReactNode
-  sub?: string
+  sub?: React.ReactNode
   footer?: string
   icon: React.ElementType
   accent?: 'brown' | 'blue' | 'orange' | 'red'
@@ -99,7 +108,7 @@ function StatKpiCard({
           <div className="text-suka-brown font-extrabold text-2xl sm:text-3xl tracking-tight tabular-nums">
             {value}
           </div>
-          {sub && <p className="text-xs font-bold text-suka-gray-500 mt-2">{sub}</p>}
+          {sub && <div className="text-xs font-bold text-suka-gray-500 mt-2">{sub}</div>}
         </div>
       </div>
 
@@ -114,15 +123,28 @@ function StatKpiCard({
 
 export default function ExpensesPage() {
   const { data: outlets = [] } = useOutlets()
+  const { investments: mitraInvestments } = useMitraInvestments()
   const { role } = useRole()
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
 
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)) // YYYY-MM
-  const [target, setTarget] = useState<string>('all') // 'all' | 'ALL_OUTLETS' | 'PUSAT' | outletId
+  const [target, setTarget] = useState<string>('all') // 'all' | 'ALL_OUTLETS' | 'INTERNAL_OUTLETS' | 'MITRA_OUTLETS' | 'PUSAT' | 'INTERNAL_PUSAT' | outletId
 
   const isPusat = target === 'PUSAT'
-  const isAllOutlets = target === 'ALL_OUTLETS'
+  const sertakanPusat = target === 'INTERNAL_PUSAT'
+  const isGroupTarget = target === 'INTERNAL_OUTLETS' || target === 'MITRA_OUTLETS' || sertakanPusat
+  const isAllOutlets = target === 'ALL_OUTLETS' || isGroupTarget
   const periodMonth = firstOfMonth(month)
+
+  const mitraIds = useMemo(() => mitraOutletIds(outlets as any, mitraInvestments), [outlets, mitraInvestments])
+  const inTargetGroup = useCallback(
+    (outletId: string | null | undefined) => {
+      if (!isGroupTarget) return true
+      const isMitra = !!outletId && mitraIds.has(outletId)
+      return target === 'MITRA_OUTLETS' ? isMitra : !isMitra
+    },
+    [isGroupTarget, target, mitraIds]
+  )
 
   const filter = useMemo(
     () => ({
@@ -137,29 +159,95 @@ export default function ExpensesPage() {
   const { rows, loading, error } = useExpenses(filter)
   const { rows: wasteRows, loading: wasteLoading } = useWaste(filter)
 
+  const includesHeadOffice = target === 'PUSAT' || target === 'INTERNAL_PUSAT' || target === 'all'
+  const needMitraSalesForFee = includesHeadOffice && lastOfMonth(month) >= MANAGEMENT_FEE_OPEX_DEDUCTION_CUTOFF
+  const salesFilterForFee = useMemo(
+    () => ({
+      from: periodMonth,
+      to: lastOfMonth(month),
+      outletId: 'all',
+      source: 'all' as const,
+    }),
+    [periodMonth, month]
+  )
+  const mitraSales = useSalesDaily(salesFilterForFee, outlets as any, { enabled: needMitraSalesForFee })
+
   const hrPayrollFilter = useMemo(
     () => ({
       from: periodMonth,
       to: lastOfMonth(month),
-      outletId: target,
+      outletId: isGroupTarget ? 'ALL_OUTLETS' : target,
     }),
-    [periodMonth, month, target]
+    [periodMonth, month, target, isGroupTarget]
   )
-  const { data: hrPayroll } = useHRPayroll(hrPayrollFilter)
+  const { data: hrPayrollData } = useHRPayroll(hrPayrollFilter)
+  const hrPusatFilter = useMemo(
+    () => ({ from: periodMonth, to: lastOfMonth(month), outletId: 'PUSAT' }),
+    [periodMonth, month]
+  )
+  const { data: hrPusatData } = useHRPayroll(hrPusatFilter, sertakanPusat || target === 'all')
+  const hrPayroll = useMemo(() => {
+    if (!isGroupTarget) return hrPayrollData
+    return ringkasanHrKelompok(hrPayrollData, (id) => inTargetGroup(id), sertakanPusat ? hrPusatData : null) ?? undefined
+  }, [isGroupTarget, hrPayrollData, hrPusatData, sertakanPusat, inTargetGroup])
 
   const filteredRows = useMemo(() => {
     if (target === 'all') {
       return rows
-    } else if (target === 'ALL_OUTLETS') {
-      return rows.filter((r) => r.scope === 'outlet')
     } else if (target === 'PUSAT') {
       return rows.filter((r) => r.scope === 'pusat')
+    } else if (target === 'ALL_OUTLETS') {
+      return rows.filter((r) => r.scope === 'outlet')
+    } else if (isGroupTarget) {
+      return rows.filter((r) => {
+        if (r.scope === 'pusat') return sertakanPusat
+        return inTargetGroup(r.outlet_id)
+      })
     } else {
       return rows.filter((r) => r.scope === 'outlet' && r.outlet_id === target)
     }
-  }, [rows, target])
+  }, [rows, target, isGroupTarget, sertakanPusat, inTargetGroup])
+
+  const filteredWasteRows = useMemo(() => {
+    if (isPusat) return []
+    if (isGroupTarget) return wasteRows.filter((r) => inTargetGroup(r.outlet_id))
+    return wasteRows
+  }, [wasteRows, isPusat, isGroupTarget, inTargetGroup])
 
   const totalAmount = useMemo(() => filteredRows.reduce((s, r) => s + r.amount, 0), [filteredRows])
+  const rawHoAmount = useMemo(
+    () => filteredRows.filter((r) => r.scope === 'pusat').reduce((s, r) => s + r.amount, 0),
+    [filteredRows]
+  )
+  const managementFeeData = useMemo(() => {
+    if (!needMitraSalesForFee) return null
+    return computeMitraManagementFees({
+      salesRows: mitraSales.rows,
+      outlets: outlets as any,
+      investments: mitraInvestments,
+      periodFrom: periodMonth,
+      periodTo: lastOfMonth(month),
+    })
+  }, [needMitraSalesForFee, mitraSales.rows, outlets, mitraInvestments, periodMonth, month])
+  const hoFeeOffset = useMemo(
+    () => applyHoOpexManagementFeeOffset(includesHeadOffice ? rawHoAmount : 0, managementFeeData?.totalFeeForHoOpex ?? 0),
+    [includesHeadOffice, rawHoAmount, managementFeeData]
+  )
+  const hasHoSalaryInExpenses = useMemo(
+    () => filteredRows.some((r) => r.scope === 'pusat' && r.category === 'gaji_staff_kantor'),
+    [filteredRows]
+  )
+  const rawHoHrSalary = useMemo(() => {
+    if (!includesHeadOffice || hasHoSalaryInExpenses) return 0
+    if (isPusat) return hrPayroll?.totalSalary || 0
+    return hrPusatData?.totalSalary || 0
+  }, [includesHeadOffice, hasHoSalaryInExpenses, isPusat, hrPayroll, hrPusatData])
+  const hoHrFeeOffset = useMemo(
+    () => applyHoOpexManagementFeeOffset(rawHoHrSalary, hoFeeOffset.surplusToRevenue),
+    [rawHoHrSalary, hoFeeOffset.surplusToRevenue]
+  )
+  const displayHrSalary = Math.max(0, (hrPayroll?.totalSalary || 0) - hoHrFeeOffset.appliedDeduction)
+  const netTotalAmount = Math.max(0, totalAmount - hoFeeOffset.appliedDeduction)
   const amountBulanan = useMemo(
     () => filteredRows.filter((r) => r.source === 'monthly').reduce((s, r) => s + r.amount, 0),
     [filteredRows]
@@ -168,7 +256,7 @@ export default function ExpensesPage() {
     () => filteredRows.filter((r) => r.source === 'petty_cash').reduce((s, r) => s + r.amount, 0),
     [filteredRows]
   )
-  const totalWaste = useMemo(() => wasteRows.reduce((s, r) => s + r.nilai_waste, 0), [wasteRows])
+  const totalWaste = useMemo(() => filteredWasteRows.reduce((s, r) => s + r.nilai_waste, 0), [filteredWasteRows])
   const totalTransaksi = filteredRows.length
 
   const byCategory = useMemo(() => {
@@ -190,29 +278,47 @@ export default function ExpensesPage() {
     () => withWasteSlice(byCategory, totalWaste, includeWaste),
     [byCategory, totalWaste, includeWaste]
   )
-  const totalBeban = totalAmount + (includeWaste ? totalWaste : 0)
+  const rawTotalBeban = totalAmount + (includeWaste ? totalWaste : 0)
+  const totalBeban = netTotalAmount + (includeWaste ? totalWaste : 0)
 
   const topCategory = byCategoryAll.length > 0 ? byCategoryAll[0].name : '-'
 
   const validOutlets = useMemo(() => outlets.filter((o) => !isExcludedOutlet(o)), [outlets])
 
-  const selectOptions = useMemo(
-    () => [
-      { label: '🏢 Semua Unit (Pusat & Outlet)', value: 'all' },
-      { label: '🏪 Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
-      ...(isAdmin ? [{ label: '🏢 Kantor Pusat (OPEX Pusat)', value: 'PUSAT' }] : []),
-      ...validOutlets.map((o) => ({ label: o.name, value: o.id })),
-    ],
-    [isAdmin, validOutlets]
-  )
+  const selectOptions = useMemo(() => {
+    const outletMitra = validOutlets.filter((o) => mitraIds.has(o.id))
+    const outletInternal = validOutlets.filter((o) => !mitraIds.has(o.id))
+    const berkelompok = (daftar: typeof validOutlets, judul: string) =>
+      daftar.map((o, i) => ({ label: o.name, value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
+    return [
+      { label: 'Global (HO & Semua Outlet)', value: 'all' },
+      { label: 'Semua Outlet', value: 'ALL_OUTLETS' },
+      { label: 'Outlet Internal', value: 'INTERNAL_OUTLETS', indent: true },
+      { label: 'Outlet Mitra', value: 'MITRA_OUTLETS', indent: true },
+      ...(isAdmin
+        ? [
+            { label: 'Head Office', value: 'PUSAT' },
+            { label: 'Head Office + Outlet Internal', value: 'INTERNAL_PUSAT' },
+          ]
+        : []),
+      ...berkelompok(outletMitra, 'Mitra'),
+      ...berkelompok(outletInternal, 'Internal'),
+    ]
+  }, [isAdmin, validOutlets, mitraIds])
 
   const titleText =
     target === 'PUSAT'
-      ? 'Pengeluaran Pusat'
+      ? 'Pengeluaran Head Office'
+      : target === 'INTERNAL_PUSAT'
+      ? 'Head Office + Outlet Internal'
       : target === 'ALL_OUTLETS'
-      ? 'Pengeluaran Outlet (Khusus Cabang)'
+      ? 'Pengeluaran Semua Outlet'
+      : target === 'INTERNAL_OUTLETS'
+      ? 'Pengeluaran Outlet Internal'
+      : target === 'MITRA_OUTLETS'
+      ? 'Pengeluaran Outlet Mitra'
       : target === 'all'
-      ? 'Semua Unit (Pusat & Outlet)'
+      ? 'Global (HO & Semua Outlet)'
       : outlets.find((o) => o.id === target)?.name || 'Pengeluaran Outlet'
 
   return (
@@ -235,14 +341,18 @@ export default function ExpensesPage() {
             />
           </div>
 
-          {/* Target Combobox */}
-          <div className="w-64">
-            <TargetCombobox
-              options={selectOptions}
-              value={target}
-              onChange={setTarget}
-              placeholder="— Pilih target unit —"
-            />
+          {/* Filter Combobox */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-600 shrink-0">Filter:</span>
+            <div className="w-64">
+              <TargetCombobox
+                options={selectOptions}
+                value={target}
+                onChange={setTarget}
+                icon={null}
+                placeholder="— Pilih filter —"
+              />
+            </div>
           </div>
 
           {/* CTA Buku Kas */}
@@ -284,7 +394,20 @@ export default function ExpensesPage() {
                   <CountUp end={totalBeban} duration={1} separator="." />
                 </div>
               }
-              sub={`${totalTransaksi.toLocaleString('id-ID')} transaksi tercatat`}
+              sub={
+                hoFeeOffset.appliedDeduction > 0 ? (
+                  <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs sm:text-sm font-extrabold">
+                      <span>Potongan Fee Management 3%: -{rupiah(hoFeeOffset.appliedDeduction)}</span>
+                    </div>
+                    <div className="text-[11px] font-bold text-suka-gray-500">
+                      Kotor: <span className="line-through">{rupiah(rawTotalBeban)}</span> · {totalTransaksi.toLocaleString('id-ID')} transaksi
+                    </div>
+                  </div>
+                ) : (
+                  `${totalTransaksi.toLocaleString('id-ID')} transaksi tercatat`
+                )
+              }
               footer={titleText}
               icon={Wallet}
               accent="brown"
@@ -304,7 +427,7 @@ export default function ExpensesPage() {
               footer="Sewa, utilitas, langganan terpusat"
               icon={Building2}
               accent="blue"
-              tooltip="Beban operasional tetap atau terjadwal bulanan yang dibayarkan kantor pusat."
+              tooltip="Beban operasional tetap atau terjadwal bulanan yang dibayarkan Head Office."
             />
 
             {/* 3. Kas Kecil */}
@@ -351,7 +474,7 @@ export default function ExpensesPage() {
                 footer={`${byCategoryAll.length > 0 ? pct(byCategoryAll[0].value, totalBeban) : 0}% porsi beban`}
                 icon={Award}
                 accent="orange"
-                tooltip="Kategori pengeluaran dengan nominal terbesar pada unit pusat."
+                tooltip="Kategori pengeluaran dengan nominal terbesar pada Head Office."
               />
             )}
           </div>
@@ -391,10 +514,20 @@ export default function ExpensesPage() {
               <span className="text-[11px] font-bold text-suka-gray-400 uppercase tracking-wider block">
                 Total Estimasi Gaji
               </span>
-              <div className="flex items-baseline gap-1 text-suka-brown font-extrabold text-xl sm:text-2xl tabular-nums mt-0.5">
+              <div className="flex items-baseline justify-end gap-1 text-suka-brown font-extrabold text-xl sm:text-2xl tabular-nums mt-0.5">
                 <span className="text-sm font-bold text-suka-gray-400">Rp</span>
-                <CountUp end={hrPayroll?.totalSalary || 0} duration={1} separator="." />
+                <CountUp end={displayHrSalary} duration={1} separator="." />
               </div>
+              {hoHrFeeOffset.appliedDeduction > 0 && (
+                <div className="mt-1 space-y-0.5 text-right">
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold">
+                    <span>Potongan Fee Management 3%: -{rupiah(hoHrFeeOffset.appliedDeduction)}</span>
+                  </div>
+                  <div className="text-[11px] font-semibold text-suka-gray-500">
+                    Gaji Kotor: <span className="line-through">{rupiah(hrPayroll?.totalSalary || 0)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

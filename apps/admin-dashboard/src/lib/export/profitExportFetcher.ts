@@ -17,7 +17,7 @@ import { barisPayrollDariHr, gantiPayrollDenganHr } from '@/lib/opexDariHr'
 import { terapkanClosingOpex } from '@/lib/closing/terapkanClosingOpex'
 import { getHRPayrollSummaryAction } from '@/app/actions/hrPayroll'
 import { computeCompanyProfit } from '@/lib/profit'
-import { resolveMitraPolicy, calculateMitraBepStatus } from '@/lib/mitraPolicy'
+import { applyHoOpexManagementFeeOffset, computeMitraManagementFees } from '@/lib/managementFee'
 import { isInScope, mitraOutletIds, type ProfitScope } from '@/lib/outletOwnership'
 import { getMitraInvestmentsAction } from '@/app/actions/mitraInvestments'
 import { getProrataAuxiliaryDataAction } from '@/app/actions/prorataAuxiliary'
@@ -367,32 +367,15 @@ export async function fetchProfitExportData({
   )
 
   // Perhitungan Management Fee Kemitraan
-  let totalMitraFee = 0
-  const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean }>()
+  const managementFeeData = computeMitraManagementFees({
+    salesRows: reconciledSalesRows,
+    outlets: allOutlets,
+    investments: activeInvestments as Record<string, any>,
+    periodFrom: from,
+    periodTo: to,
+  })
 
-  const allMitraOids = new Set([...Object.keys(activeInvestments), ...Array.from(mitraIds)])
-  for (const oid of allMitraOids) {
-    const inv = (activeInvestments as Record<string, any>)[oid]
-    const outletSales = reconciledSalesRows.filter(
-      (r: any) =>
-        r.outlet_id === oid &&
-        !isTestOutlet(r.outlet_id) &&
-        isInScope('mitra', oid, mitraIds, r.sales_date, cutoffDates),
-    )
-    const gross = outletSales.reduce((sum: number, r: any) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
-
-    const bepInfo = calculateMitraBepStatus(inv, oid, from, inv?.isBep)
-    const policy = resolveMitraPolicy({
-      periodFrom: from,
-      isBep: bepInfo.isBep,
-      legacyProfitSharingPct: inv?.persentase_bagi_hasil,
-      legacyManagementFee: inv?.management_fee,
-    })
-
-    const fee = policy.managementFeePct > 0 ? Math.round((gross * policy.managementFeePct) / 100) : 0
-    perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: bepInfo.isBep })
-    totalMitraFee += fee
-  }
+  const perOutletFee = managementFeeData.perOutletFee
 
   // Margin Pasokan Bahan Baku Mitra
   const mitraHppTotals = hppRows
@@ -406,8 +389,8 @@ export async function fetchProfitExportData({
       { hpp: 0, base: 0, markup: 0 },
     )
 
-  const managementFeeReceived = (scope === 'all' || scope === 'internal') ? totalMitraFee : 0
-  const managementFeeExpense = (scope === 'mitra' || scope === 'all') ? totalMitraFee : 0
+  // managementFeeReceived dihitung setelah hoFeeOffset di bawah
+  const managementFeeExpense = (scope === 'mitra' || scope === 'all') ? managementFeeData.totalMitraFee : 0
   const mitraHppMarginReceived = (scope === 'all' || scope === 'internal') ? mitraHppTotals.markup : 0
 
   const actualGrossSales = scopedSalesRows.reduce((sum: number, r: any) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
@@ -417,7 +400,15 @@ export async function fetchProfitExportData({
   const totalJointExpense = scopedExpenseRows
     .filter((r: ExpenseRow) => r.scope === 'outlet' && !isTestOutlet(r.outlet_id) && ((r as any).category === 'joint_expense' || (r as any).category === 'joint_expanse'))
     .reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
-  const pengeluaranPusat = scopedExpenseRows.filter((r: ExpenseRow) => r.scope === 'pusat').reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
+  const pengeluaranPusatRaw = scopedExpenseRows.filter((r: ExpenseRow) => r.scope === 'pusat').reduce((sum: number, r: ExpenseRow) => sum + r.amount, 0)
+  const hoFeeOffset = applyHoOpexManagementFeeOffset(
+    scope !== 'mitra' ? pengeluaranPusatRaw : 0,
+    scope !== 'mitra' ? managementFeeData.totalFeeForHoOpex : 0,
+  )
+  const pengeluaranPusat = scope !== 'mitra' ? hoFeeOffset.netHoOpex : pengeluaranPusatRaw
+  const managementFeeReceived = (scope === 'all' || scope === 'internal')
+    ? managementFeeData.totalFeeLegacyRevenue + hoFeeOffset.surplusToRevenue
+    : 0
   const totalHpp = scopedHppRows.reduce((sum: number, r: any) => sum + r.hpp, 0)
   const totalWaste = scopedWasteRows.reduce((sum: number, r: any) => sum + r.nilai_waste, 0)
 
@@ -460,6 +451,8 @@ export async function fetchProfitExportData({
     pengeluaranOutlet,
     totalWaste,
     pengeluaranPusat,
+    pengeluaranPusatRaw,
+    potonganFeeManajemenPusat: hoFeeOffset.appliedDeduction,
     pendapatanLain,
     managementFeeReceived,
     mitraHppMarginReceived,

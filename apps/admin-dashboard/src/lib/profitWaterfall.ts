@@ -48,7 +48,8 @@ export interface WaterfallInput {
   opexLembur?: number
   /** Biaya kantor pusat hanya ikut pada tampilan gabungan seluruh outlet. */
   includeCentral: boolean
-  /** Rincian per kategori untuk baris beban bulanan outlet. */
+  /** Rincian pembentuk Beban Head Office (misal beban kotor + potongan Fee Manajemen 3%). */
+  centralExpenseBreakdown?: WaterfallDetail[]
   opexMonthlyBreakdown?: WaterfallDetail[]
   /** Income Lainnya Kas Office (pendapatan pusat); hanya ikut bila includeCentral. */
   pendapatanLain?: number
@@ -73,6 +74,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     jointExpense = 0,
     opexLembur = 0,
     opexMonthlyBreakdown,
+    centralExpenseBreakdown,
     managementFeeIncome = 0,
     pendapatanLain = 0,
     mitraHppMarginIncome = 0,
@@ -139,7 +141,9 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     ...(managementFeeExpense > 0 ? [{
       key: 'fee_manajemen_pusat',
       label: 'Beban Management Fee Mitra ke Pusat (3%)',
-      hint: 'Sisi beban dari fee yang sama — pada tampilan gabungan ia menghapus baris pendapatannya di atas',
+      hint: managementFeeIncome > 0
+        ? 'Sisi beban dari fee yang sama — pada tampilan gabungan ia menghapus baris pendapatannya di atas'
+        : 'Sisi beban unit kemitraan — sisi penerimaannya langsung mengurangi Beban Head Office di bawah (tanpa duplikasi)',
       amount: -managementFeeExpense,
       kind: 'deduction' as const,
       pctOfGross: pct(-managementFeeExpense),
@@ -212,11 +216,14 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
   if (includeCentral) {
     steps.push({
       key: 'biaya_pusat',
-      label: 'Beban Kantor Pusat',
-      hint: 'Biaya manajemen, tidak dibebankan ke satu outlet',
+      label: 'Beban Head Office',
+      hint: centralExpenseBreakdown?.length
+        ? 'Biaya manajemen bersih setelah dikurangi potongan Fee Manajemen Mitra 3%'
+        : 'Biaya manajemen, tidak dibebankan ke satu outlet',
       amount: -centralExpense,
       kind: 'deduction',
       pctOfGross: pct(-centralExpense),
+      breakdown: centralExpenseBreakdown?.length ? centralExpenseBreakdown : undefined,
     })
   }
 

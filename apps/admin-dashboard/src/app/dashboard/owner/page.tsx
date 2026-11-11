@@ -14,6 +14,11 @@ import {
 } from '@/lib/server/opexLabaRugi'
 import { ambilInvestasiMitraServer } from '@/lib/server/mitraInvestasiServer'
 import { computeSingleMitraManagementFee } from '@/lib/ownerDashboardAlign'
+import {
+  MANAGEMENT_FEE_OPEX_DEDUCTION_CUTOFF,
+  applyHoOpexManagementFeeOffset,
+  computeMitraManagementFees,
+} from '@/lib/managementFee'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import { resolveCallerScope } from '@/lib/server/callerScope'
@@ -27,14 +32,14 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
-    setAll: () => {}
+    setAll: () => {},
   })
-  
+
   const [sp, userId] = await Promise.all([
     searchParams,
     getVerifiedUserId(supabase),
   ])
-  
+
   // 1. Fetch User Profile, Outlets, Caller Scope & Financial Role Check in parallel
   const [
     { data: profile },
@@ -61,11 +66,11 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     from: sp.from || defaultRange.from,
     to: sp.to || defaultRange.to,
     outletId: lockedOutletId || sp.outletId || 'all',
-    source: (sp.source as SalesSource) || 'all'
+    source: (sp.source as SalesSource) || 'all',
   }
-  const prevFilter: PeriodFilterValue = { 
-    ...filter, 
-    ...previousRange({ from: filter.from, to: filter.to }) 
+  const prevFilter: PeriodFilterValue = {
+    ...filter,
+    ...previousRange({ from: filter.from, to: filter.to }),
   }
 
   // 3. Prepare Outlets (Exclude Test Outlets)
@@ -77,13 +82,13 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
         .neq('id', TEST_OUTLET_ID)
         .order('name')).data ?? rawOutlets
     : rawOutlets
-  const outlets = (allOutletsRaw ?? []).filter(o => !isTestOutlet(o))
+  const outlets = (allOutletsRaw ?? []).filter((o) => !isTestOutlet(o))
   const allOutletsWithSS = [
     { id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any,
-    ...outlets
+    ...outlets,
   ]
-  const scopedOutlets = lockedOutletId 
-    ? outlets.filter(o => o.id === lockedOutletId) 
+  const scopedOutlets = lockedOutletId
+    ? outlets.filter((o) => o.id === lockedOutletId)
     : allOutletsWithSS
 
   // OPEX & waste mengacu ke Laba Rugi / Buku Kas (OPEX): angka RPC ringkasan
@@ -106,17 +111,24 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
         hitungWastePeriode(serviceSupabase, f),
         sertakanPendapatanLain ? hitungPendapatanLainPeriode(serviceSupabase, f) : Promise.resolve(0),
       ])
-      return { opex: opex.total, waste, pendapatanLain }
+      return { opex: opex.total, opexPusat: opex.pusat, waste, pendapatanLain }
     } catch (err) {
       console.error('[owner-dashboard] OPEX acuan Laba Rugi gagal, memakai angka RPC:', err)
       return null
     }
   }
 
-  const butuhMitraFee =
+  const butuhMitraFeeSingle =
     filter.outletId !== 'all' &&
     filter.outletId !== 'ss-online' &&
     filter.outletId !== 'PUSAT'
+  const butuhMitraFeeGlobalHo =
+    pakaiAcuan &&
+    hasKeuanganRole &&
+    !isReadOnly &&
+    filter.outletId === 'all' &&
+    (filter.to >= MANAGEMENT_FEE_OPEX_DEDUCTION_CUTOFF || prevFilter.to >= MANAGEMENT_FEE_OPEX_DEDUCTION_CUTOFF)
+  const butuhMitraFee = butuhMitraFeeSingle || butuhMitraFeeGlobalHo
 
   // 4. Run Fast Aggregations in parallel (semua agregasi di PostgreSQL via RPC)
   // allSettled: kegagalan satu periode tidak boleh menjatuhkan seluruh halaman
@@ -124,12 +136,12 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   // (tidak pernah melempar) supaya tidak menambah waktu tunggu.
   const [curRes, prevRes, curAcuan, prevAcuan, mitraInvestments] = await Promise.all([
     getOwnerDashboardDataFast(filter, scopedOutlets, callerScope).then(
-      value => ({ status: 'fulfilled' as const, value }),
-      reason => ({ status: 'rejected' as const, reason }),
+      (value) => ({ status: 'fulfilled' as const, value }),
+      (reason) => ({ status: 'rejected' as const, reason }),
     ),
     getOwnerDashboardDataFast(prevFilter, scopedOutlets, callerScope).then(
-      value => ({ status: 'fulfilled' as const, value }),
-      reason => ({ status: 'rejected' as const, reason }),
+      (value) => ({ status: 'fulfilled' as const, value }),
+      (reason) => ({ status: 'rejected' as const, reason }),
     ),
     acuanLabaRugi(filter),
     acuanLabaRugi(prevFilter),
@@ -154,11 +166,42 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     ? prevRes.value
     : { kpiRows: [], menuRows: [], totalCogs: 0, totalOpex: 0, totalCogsOpex: 0 }
 
-  const curOpex = curAcuan ? curAcuan.opex : curData.totalOpex
+  const curHoFeeOffset =
+    butuhMitraFeeGlobalHo && curAcuan
+      ? applyHoOpexManagementFeeOffset(
+          curAcuan.opexPusat,
+          computeMitraManagementFees({
+            salesRows: curData.kpiRows,
+            outlets: allOutletsWithSS,
+            investments: mitraInvestments,
+            periodFrom: filter.from,
+            periodTo: filter.to,
+          }).totalFeeForHoOpex,
+        )
+      : null
+  const prevHoFeeOffset =
+    butuhMitraFeeGlobalHo && prevAcuan
+      ? applyHoOpexManagementFeeOffset(
+          prevAcuan.opexPusat,
+          computeMitraManagementFees({
+            salesRows: prevData.kpiRows,
+            outlets: allOutletsWithSS,
+            investments: mitraInvestments,
+            periodFrom: prevFilter.from,
+            periodTo: prevFilter.to,
+          }).totalFeeForHoOpex,
+        )
+      : null
+
+  const curOpex = curAcuan
+    ? Math.max(0, curAcuan.opex - (curHoFeeOffset?.appliedDeduction ?? 0))
+    : curData.totalOpex
   // Pembanding hanya sah bila kedua periode memakai rumus yang sama; kalau
   // tidak, ▲▼% OPEX dan Laba Bersih disembunyikan (bukan dihitung dari nol).
   const pembandingSepadan = curAcuan ? Boolean(prevAcuan) : true
-  const prevOpex = curAcuan ? (prevAcuan?.opex ?? 0) : prevData.totalOpex
+  const prevOpex = curAcuan
+    ? Math.max(0, (prevAcuan?.opex ?? 0) - (prevHoFeeOffset?.appliedDeduction ?? 0))
+    : prevData.totalOpex
   const curWaste = curAcuan?.waste ?? 0
   const prevWaste = curAcuan ? (prevAcuan?.waste ?? 0) : 0
   const curPendapatanLain = curAcuan?.pendapatanLain ?? 0
@@ -170,8 +213,11 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const curMarginMitra = akuiMargin ? Number((curData as any).totalMitraMarkup || 0) : 0
   const prevMarginMitra = akuiMargin ? Number((prevData as any).totalMitraMarkup || 0) : 0
 
-  // Beban Management Fee 3% saat memfilter 1 outlet kemitraan — identik dengan Laba Rugi.
-  const curMgmtFee = butuhMitraFee
+  // Beban Management Fee 3%:
+  // - Saat memfilter 1 outlet kemitraan: mengurangi Laba Bersih Mitra (-3%).
+  // - Saat Global (semua outlet): curOpex sudah dipotong Fee 3% untuk OPEX Head Office,
+  //   sehingga sisi beban unit kemitraan (-appliedDeduction) dipasangkan di sini agar Laba Bersih Global tetap 1:1 tanpa duplikasi.
+  const curMgmtFee = butuhMitraFeeSingle
     ? computeSingleMitraManagementFee({
         outletId: filter.outletId,
         periodFrom: filter.from,
@@ -180,8 +226,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
         outlets,
         investments: mitraInvestments,
       })
-    : 0
-  const prevMgmtFee = butuhMitraFee
+    : (curHoFeeOffset?.appliedDeduction ?? 0)
+  const prevMgmtFee = butuhMitraFeeSingle
     ? computeSingleMitraManagementFee({
         outletId: prevFilter.outletId,
         periodFrom: prevFilter.from,
@@ -190,11 +236,11 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
         outlets,
         investments: mitraInvestments,
       })
-    : 0
+    : (prevHoFeeOffset?.appliedDeduction ?? 0)
 
   const buyOneGetOne = curData.buyOneGetOne || { transactions: 0, giftUnits: 0 }
   // menu_rows sudah include dalam respons RPC masing-masing periode
-  const menuSales     = curData.menuRows
+  const menuSales = curData.menuRows
   const prevMenuSales = prevData.menuRows
 
   const daysCount = diffDays(filter.from, filter.to)
@@ -202,7 +248,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
 
   // 5. Send pre-computed data to Client View
   return (
-    <OwnerDashboardView 
+    <OwnerDashboardView
       filter={filter}
       outlets={scopedOutlets}
       lockedOutletId={lockedOutletId}
@@ -228,6 +274,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       prevPendapatanLain={prevPendapatanLain}
       curMgmtFee={curMgmtFee}
       prevMgmtFee={prevMgmtFee}
+      curHoFeeDeduction={curHoFeeOffset?.appliedDeduction ?? 0}
       opexAcuanLabaRugi={Boolean(curAcuan)}
       pembandingLabaSepadan={pembandingSepadan}
       cogsBreakdown={{ cogs: curData.totalCogs, opex: curOpex }}

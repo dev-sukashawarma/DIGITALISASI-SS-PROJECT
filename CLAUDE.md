@@ -3805,7 +3805,7 @@ Uji: admin-dashboard **1120 lulus**, finance 351 lulus, bot 303 lulus; type-chec
 ⚠️ **Asersi COGS sengaja DI LUAR transaksi.** Percobaan pertama memuat asersi COGS 3 bulan di dalam blok yang sama dan koneksinya terputus sebelum COMMIT (diperiksa: 0 baris tertulis, rollback bersih — `get_mitra_item_hpp` per baris atas ~84 rb order terlalu berat). Aman dipindah karena baris riwayat ber-`berlaku_mulai` 1 Nov **secara struktural tak bisa** menyentuh bulan sebelumnya, dan Asersi C (31 Okt tak bergeser) membuktikan batas itu di dalam transaksi.
 
 ### Hal di luar HPP yang ketemu & keputusan owner
-- **Gramasi di-HOLD** (owner: "untuk update gramasi kita hold dulu"). Excel beda dari resep DB: **FOIL** 33/36/40 cm vs DB 35/40/45 (Mix Jumbo 50); **MINYAK** Excel "1 porsi" semua ukuran (≈24,5 g, dari yield 653,913 porsi/kompan 16 kg — angka gram tak pernah ditulis di tab GRAMASI CREW) vs DB 25–40 g. Lettuce Ayam Besar (Excel 30 vs DB 65) & Mix Jumbo tertukar — keduanya **sudah diputuskan 21 Okt** bahwa DB benar, tapi **Excel belum dikoreksi** dan akan terus terbawa ke revisi berikutnya.
+- **Gramasi MINYAK & FOIL — SUDAH DIKERJAKAN**, lihat bagian terpisah di bawah. (Sempat di-hold di tengah sesi, lalu dilanjutkan.) Lettuce Ayam Besar (Excel 30 vs DB 65) & Mix Jumbo tertukar — keduanya **sudah diputuskan 21 Okt** bahwa DB benar, tapi **Excel belum dikoreksi** dan akan terus terbawa ke revisi berikutnya; sesi ini tidak menyentuhnya.
 - **Excel memakai YIELD, DB tidak** — ini akar kenapa panel HPP Dinamis selalu 13–33% di bawah `hpp_override`. Tab `dBASE VENDOR` punya kolom "ISI / YIELD EFEKTIF": AYAM 1 kg → 666,67 g (Rp 81/g) vs DB Rp 51,50/g; SAPI 2.000 g → 1.333,33 g (Rp 78,75 vs 52,50); KENTANG yield 96%. Juga beda: **TUM** Excel 29,4/g (ditulis "manual"; hitungan batch Excel sendiri 19,12) vs DB **100/g**; PLASTIK 240 vs 900; GARAM 1 bal 5.000 g vs DB 10.000 g. Menyatukannya = pekerjaan tersendiri, bukan bagian input HPP.
 - **Paket Bundling Aqua sudah benar** — 13 paket `+ AQUA` ada di DB, `is_package=true`, `hpp_override` kosong (ikut komponen), hasilnya cocok Excel.
 - 🔴 **Belum dikerjakan:** paket **"New sosis + Mix Jumbo"** berisi **"Original Mix Jumbo (Online)"** yang HPP-nya **0**, bukan Mix Jumbo offline (Excel: `SUKA SAUSAGE + MIX JUMBO (32)`). 37 porsi terjual 28 Okt–10 Nov, masih jalan → HPP kurang ±Rp 1.051.566. Menunggu owner cek apakah paket ini memang untuk kanal online.
@@ -3815,6 +3815,28 @@ Uji: admin-dashboard **1120 lulus**, finance 351 lulus, bot 303 lulus; type-chec
 WIP **"Head Office"** (penggantian istilah di 5 berkas OPEX admin-dashboard + `useSalesDaily.ts` + `managementFee.ts` baru) ada di working tree dan **belum disalin ke finance**, sehingga 4 test `opex.parity.test.ts` sedang merah. Tidak disentuh sesi ini dan **tidak ikut ter-commit**. Itu memang fungsi test tersebut — menahan sebelum ter-deploy.
 
 **UTANG REPLAY:** `get_mitra_item_hpp` & `get_owner_dashboard_summary` juga didefinisikan migration bertimestamp **2030** (`20300125000000`, `20300250000000`) yang terurut SETELAH berkas ini → replay dari nol menimpa balik. Produksi aman (sudah terstempel). Timestamp 2030 tak dipakai karena ditolak `migration-timestamp-lint`.
+
+### Lanjutan 11 Nov: gramasi MINYAK & FOIL 5M (migration `20261111120320`, applied & terstempel)
+
+**Aturan owner:** MINYAK — *"menu yang original 25 gram, suka suka 50 gr"*. Resep `Shawarma %` → **25 g**, resep `Suka %` → **50 g** (8 baris berubah: Mix Besar & ketiga Jumbo & 2 Best Seller TURUN 35/40→25; **Suka Beef & Suka Chicken NAIK 25→50**). Menu Online tak punya baris MINYAK. FOIL 5M ikut tab SIZE: **25→33, 28→36, 32→40 cm** (23 baris; menu Online ikut, Reguler/BOGO tak punya FOIL sejak `20261021120000`).
+
+**Ukuran dibaca dari bahan KULIT** pada resep yang sama, bukan dari nama resep — tahan terhadap rename menu.
+
+#### 🔑 Metode yang dipakai & kenapa bisa dipercaya
+Sama seperti yang membuktikan Extra Keju memang 2 lembar: resep yang memotong **lebih** dari kenyataan membuat opname menemukan fisik > sistem (selisih **positif**), dan sebaliknya. **Kontrolnya:** KULIT 25/28/32 dan PAPER WRAP (1 pcs/porsi, juga dikirim dari Gudang Pusat) bermedian selisih **tepat 0** → metode ini memang bisa membedakan resep yang pas, dan confounder "kiriman belum diverifikasi" ternyata kecil.
+
+Hati-hati menafsirkan bahan lain: **TUM** (median +1.315 g) & **lettuce** (+3.690) bias positif karena TUM **diproduksi di outlet** dan lettuce **drop-ship** — inflow-nya tak selalu masuk ledger, **bukan** tanda resep salah. **MAYONAISE** bias negatif (−1.146) karena ikut terpakai membuat TUM, pemakaian yang tak ada di resep menu mana pun.
+
+#### MINYAK — perubahan SEJALAN dengan data
+Oktober: dipotong sistem **1.738.351 g**, selisih opname **+503.743 g** (62% baris positif) → pemakaian **NYATA ≈ 23,3 g/porsi**. Resep lama 30,4 g/porsi (+30,8%); sesudah perubahan 27,6 (+18,7%). Membaik, belum nol — 25/50 adalah standar operasional pilihan owner, bukan hasil optimasi terhadap opname. (Usul 25 g seragam akan memberi +8%, tapi owner memilih per-kategori.)
+
+#### 🔴 FOIL — perubahan BERTENTANGAN dengan data, dan itu keputusan owner
+Selisih opname FOIL Oktober **NEGATIF −719.491 cm**: fisik lebih **rendah** dari sistem → lapangan memakai foil **LEBIH BANYAK** (**≈57,2 cm/porsi**) daripada resep lama (40,5), bukan lebih sedikit. Menurunkannya ke 36,1 memperlebar selisih (perkiraan **≈ −1,12 jt cm/bulan**). Owner diberi tahu angka ini beserta dua alternatif (biarkan & selidiki di outlet, atau naikkan mendekati pemakaian nyata) dan **tetap memilih mengikuti Excel**.
+
+**TERBUKA:** cari sebab pemakaian FOIL 41% di atas standar — cara potong crew, sisa ujung roll, atau roll rusak yang tak tercatat sebagai waste. Jangan tafsirkan selisih opname FOIL yang makin negatif sebagai bug baru; itu konsekuensi yang sudah diketahui dari keputusan ini.
+
+#### Dampak laporan: NOL
+`hpp_override` tidak disentuh, dan **`get_hpp_periode` terbukti nol pemakaian** di kode app (yang dipakai hanya `get_hpp_dinamis_*` di panel pembanding `apps/stok`). Jadi laba/COGS/bagi hasil **tidak bergeser**. Yang berubah hanya potongan stok untuk order berikutnya + HPP teoritis di panel HPP Dinamis. Berlaku **ke depan saja**; ledger historis tak dikoreksi (pola K1 2026-09-09).
 
 ---
 

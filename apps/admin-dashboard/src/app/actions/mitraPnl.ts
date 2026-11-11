@@ -637,6 +637,8 @@ async function hitungPnlMitra(
     const MITRA_OPEX_TAKEOUT_START = '2026-10-01'
     const MITRA_DRINK_OPEX_DB_START = '2026-11-02'
     const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff'
+    const MITRA_MARKUP_15_START = '2026-11-01'
+    const MITRA_MARKUP_15 = 1.15
     const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
       '08a57f8f-f212-4205-a3eb-fb88066ae1b8',
       'c543b78e-3341-44e0-b3ef-53349e71e3d3',
@@ -698,8 +700,13 @@ async function hitungPnlMitra(
       return 0
     }
 
-    // Markup mitra: < 1 Okt 2026 atau MITRA CILEUNGSI tetap ×1,10 dari HPP+OPEX;
-    // mulai 1 Okt 2026 untuk mitra lain memakai HPP Murni + 10% (takeout OPEX).
+    // Markup mitra:
+    //   < 1 Okt 2026 atau MITRA CILEUNGSI  -> ×1,10 dari HPP+OPEX
+    //   1 Okt - 31 Okt 2026 (mitra lain)   -> HPP Murni + 10% (takeout OPEX)
+    //   >= 1 Nov 2026 (SEMUA mitra)        -> (HPP+OPEX) × 1,15
+    // Sumber 15%: "HPP NOVEMBER.xlsx" tab OFFLINE sel P3 (MARKUP MITRA = 0,15
+    // "FIXED"), keputusan owner 11 Nov 2026. Harus sama dengan DB
+    // get_mitra_item_hpp (migration 20261111101413) dan lib/hpp/fetchHpp.ts.
     function getItemHpp(
       menuItem: any,
       outletType: string = 'mitra',
@@ -710,6 +717,10 @@ async function hitungPnlMitra(
       const baseHpp = getItemHppBase(menuItem, channel)
       if (outletType === 'mitra' && baseHpp > 0) {
         const effDate = orderDate ? orderDate.slice(0, 10) : tanggalWib(new Date().toISOString())
+        if (effDate >= MITRA_MARKUP_15_START) {
+          // Dicek PALING AWAL supaya Cileungsi ikut markup 15%.
+          return Math.round(baseHpp * MITRA_MARKUP_15)
+        }
         if (effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID) {
           return Math.round(baseHpp * 1.10)
         }

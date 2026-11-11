@@ -139,12 +139,14 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
     }
   }
 
-  const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff';
+  // Sejak 1 Nov 2026: seragam (HPP + OPEX) x 1,15 untuk semua outlet mitra,
+  // termasuk Cileungsi. Sumber: "HPP NOVEMBER.xlsx" tab OFFLINE sel P3,
+  // keputusan owner 11 Nov 2026. Sama dengan DB get_mitra_item_hpp.
+  const MITRA_MARKUP_15 = 1.15;
 
   const handleAutoCalculate = () => {
     if (!selectedOutletId) return;
-    const isCileungsi = selectedOutletId === MITRA_CILEUNGSI_OUTLET_ID;
-    const formulaLabel = isCileungsi ? '+10% dari HPP Pusat (khusus Cileungsi)' : 'HPP Murni + 10% (tanpa OPEX)';
+    const formulaLabel = 'HPP Pusat (HPP + OPEX) + 15%';
     
     if (!confirm(`Hitung otomatis semua HPP Mitra menjadi ${formulaLabel}? Angka akan berubah di tabel dan bisa Anda edit manual sebelum di-Simpan.`)) return;
 
@@ -156,7 +158,7 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
         const baseHpp = row.hppOverride !== null ? row.hppOverride : row.hpp;
         
         if (baseHpp !== null && baseHpp > 0) {
-          const autoHpp = isCileungsi ? Math.round(baseHpp * 1.10) : Math.round(baseHpp);
+          const autoHpp = Math.round(baseHpp * MITRA_MARKUP_15);
           
           const existing = newPrices[row.id] || {
             menu_item_id: row.id,

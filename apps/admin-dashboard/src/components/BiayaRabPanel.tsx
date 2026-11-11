@@ -37,6 +37,7 @@ export function BiayaRabPanel({
   rows: rowsProp,
   outletIds,
   judul = 'Ditanggung RAB (Dana Investasi)',
+  tampilkanKeterangan = true,
 }: {
   from: string
   to: string
@@ -45,6 +46,8 @@ export function BiayaRabPanel({
   rows?: BiayaRabRow[]
   outletIds?: string[]
   judul?: string
+  /** false = tanpa kalimat "Hanya informasi..." (dashboard mitra). */
+  tampilkanKeterangan?: boolean
 }) {
   const [rowsSendiri, setRowsSendiri] = useState<BiayaRabRow[]>([])
   const [loading, setLoading] = useState(!rowsProp)
@@ -110,11 +113,15 @@ export function BiayaRabPanel({
         </span>
         <span className="font-mono font-bold">{rupiah(ringkasan.total)}</span>
       </button>
-      <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-sky-800">
-        <Info size={12} className="mt-0.5 shrink-0" />
-        Hanya informasi. Pengeluaran ini sudah ditanggung dana investasi (RAB), <b>tidak dihitung</b> di OPEX,
-        laba outlet, laba perusahaan, maupun bagi hasil mitra.
-      </p>
+      {tampilkanKeterangan && (
+        <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-sky-800">
+          <Info size={12} className="mt-0.5 shrink-0" />
+          <span>
+            Hanya informasi. Pengeluaran ini sudah ditanggung dana investasi (RAB), <b>tidak dihitung</b> di OPEX,
+            laba outlet, laba perusahaan, maupun bagi hasil mitra.
+          </span>
+        </p>
+      )}
 
       {open && (
         <div className="mt-3 space-y-3">

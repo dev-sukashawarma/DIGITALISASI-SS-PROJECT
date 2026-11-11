@@ -592,7 +592,13 @@ export function MitraProfitLossSection({
 
       {!isLoading && outletRab.length > 0 && (
         <div className="mt-4">
-          <BiayaRabPanel from={rabDari} to={rabSampai} outletIds={outletRab} judul="Ditanggung RAB (dana investasi)" />
+          <BiayaRabPanel
+            from={rabDari}
+            to={rabSampai}
+            outletIds={outletRab}
+            judul="Ditanggung RAB (dana investasi)"
+            tampilkanKeterangan={false}
+          />
         </div>
       )}
 

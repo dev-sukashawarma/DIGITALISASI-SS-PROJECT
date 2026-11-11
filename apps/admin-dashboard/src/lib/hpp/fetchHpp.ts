@@ -105,6 +105,15 @@ export function getOrderHppChannelGroup(
 export const MITRA_OPEX_TAKEOUT_START = "2026-10-01";
 export const MITRA_DRINK_OPEX_DB_START = "2026-11-02";
 export const MITRA_CILEUNGSI_OUTLET_ID = "62a56103-2085-4dd5-9d25-a3c0cffc88ff";
+/**
+ * Mulai 1 Nov 2026 HPP mitra = (HPP + OPEX) x 1,15 untuk SEMUA outlet mitra,
+ * termasuk MITRA CILEUNGSI. Sumber: "HPP NOVEMBER.xlsx" tab OFFLINE sel P3
+ * (MARKUP MITRA = 0,15 "FIXED"); kolom I = kolom C x 1,15 dan kolom M
+ * (PROFIT HPP) = kolom I - kolom C. Keputusan owner 11 Nov 2026.
+ * Harus sama dengan DB get_mitra_item_hpp (migration 20261111101413).
+ */
+export const MITRA_MARKUP_15_START = "2026-11-01";
+export const MITRA_MARKUP_15 = 1.15;
 
 const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
   "08a57f8f-f212-4205-a3eb-fb88066ae1b8", // Ice Tea
@@ -195,6 +204,12 @@ export function getItemHpp(
 
   if (outletType === "mitra" && baseHpp > 0) {
     const effDate = orderDate ? orderDate.slice(0, 10) : tanggalWib(new Date().toISOString());
+    if (effDate >= MITRA_MARKUP_15_START) {
+      // Mulai 1 Nov 2026: seragam (HPP + OPEX) x 1,15, Cileungsi ikut.
+      // Dicek PALING AWAL supaya cabang Cileungsi di bawah tidak mendahuluinya.
+      const hpp = Math.round(baseHpp * MITRA_MARKUP_15);
+      return { hpp, baseHpp, markup: hpp - baseHpp };
+    }
     if (effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID) {
       // Periode < 1 Okt 2026 atau MITRA CILEUNGSI: tetap base (HPP+OPEX) + 10%.
       const hpp = Math.round(baseHpp * 1.1);

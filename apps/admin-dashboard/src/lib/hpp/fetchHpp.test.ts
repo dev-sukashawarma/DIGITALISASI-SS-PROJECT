@@ -42,11 +42,50 @@ describe('getItemHpp', () => {
     expect(res.markup).toBe(res.hpp - res.baseHpp)
   })
 
-  it('MITRA CILEUNGSI tetap memakai (HPP + OPEX) x 1,10 pada Okt & Nov 2026 ke depan', () => {
+  it('MITRA CILEUNGSI x1,10 sampai 31 Okt 2026, lalu ikut x1,15 mulai 1 Nov 2026', () => {
+    const sapiOkt = { ...globalSapiSedang, hpp_override: 15168 }
+    const okt = getItemHpp(sapiOkt, 'mitra', undefined, undefined, 'pos', MITRA_CILEUNGSI_OUTLET_ID, '2026-10-31')
+    expect(okt.baseHpp).toBe(15168)
+    expect(okt.hpp).toBe(Math.round(15168 * 1.1))
+    expect(okt.markup).toBe(okt.hpp - okt.baseHpp)
+
+    // Pengecualian Cileungsi berakhir 31 Okt 2026 (keputusan owner 11 Nov 2026).
     const sapiNov = { ...globalSapiSedang, hpp_override: 15168 }
-    const res = getItemHpp(sapiNov, 'mitra', undefined, undefined, 'pos', MITRA_CILEUNGSI_OUTLET_ID, '2026-11-02')
-    expect(res.baseHpp).toBe(15168)
-    expect(res.hpp).toBe(Math.round(15168 * 1.1))
+    const nov = getItemHpp(sapiNov, 'mitra', undefined, undefined, 'pos', MITRA_CILEUNGSI_OUTLET_ID, '2026-11-01')
+    expect(nov.baseHpp).toBe(15168)
+    expect(nov.hpp).toBe(Math.round(15168 * 1.15))
+    expect(nov.markup).toBe(nov.hpp - nov.baseHpp)
+  })
+
+  it('mulai 1 Nov 2026 markup mitra seragam (HPP + OPEX) x 1,15, paket ikut', () => {
+    const sapi = { ...globalSapiSedang, hpp_override: 15099.7 }
+    const satuan = getItemHpp(sapi, 'mitra', undefined, undefined, 'pos', 'mitra-lain', '2026-11-01')
+    expect(satuan.baseHpp).toBe(15099.7)
+    expect(satuan.hpp).toBe(Math.round(15099.7 * 1.15)) // 17365, cocok kolom I Excel (17364,655)
+    expect(satuan.markup).toBe(satuan.hpp - satuan.baseHpp)
+
+    const aqua = {
+      id: 'c8427af3-0a41-48dd-9a08-6b93cd913ec6',
+      name: 'Aqua',
+      hpp_override: 1500,
+      channel_hpp: {},
+      is_package: false,
+    }
+    const paket = {
+      id: 'pkg-sapi-aqua',
+      name: 'SAPI SEDANG + AQUA',
+      hpp_override: null,
+      channel_hpp: {},
+      is_package: true,
+      package_items: [
+        { quantity: 1, component: sapi },
+        { quantity: 1, component: aqua },
+      ],
+    }
+    const res = getItemHpp(paket, 'mitra', undefined, undefined, 'pos', 'mitra-lain', '2026-11-01')
+    // Excel "PAKET BUNDLING AQUA" HPP MITRA = 19.089,655 -> dibulatkan 19.090
+    expect(res.baseHpp).toBe(16599.7)
+    expect(res.hpp).toBe(Math.round(16599.7 * 1.15))
     expect(res.markup).toBe(res.hpp - res.baseHpp)
   })
 
@@ -81,13 +120,13 @@ describe('getItemHpp', () => {
     expect(comboOctRes.baseHpp).toBe(13205 + 1652)
     expect(Math.round((comboOctRes.baseHpp + comboOctRes.markup) * 100) / 100).toBe(comboOctRes.hpp)
 
-    // Mulai 2 Nov 2026: Ice Tea di DB (1845) sudah termasuk OPEX 10%
+    // Mulai 1 Nov 2026 aturan takeout OPEX tidak lagi dipakai: markup mitra
+    // seragam (HPP + OPEX) x 1,15, jadi Ice Tea 1845 -> round(1845 x 1,15).
     const iceTeaNov = { ...iceTeaOct, hpp_override: 1845 }
     const drinkNovRes = getItemHpp(iceTeaNov, 'mitra', undefined, undefined, 'pos', 'mitra-lain', '2026-11-02')
-    expect(drinkNovRes.hpp).toBe(1845)
-    expect(drinkNovRes.baseHpp).toBe(1677.27)
-    expect(drinkNovRes.markup).toBe(167.73)
-    expect(Math.round((drinkNovRes.baseHpp + drinkNovRes.markup) * 100) / 100).toBe(drinkNovRes.hpp)
+    expect(drinkNovRes.baseHpp).toBe(1845)
+    expect(drinkNovRes.hpp).toBe(Math.round(1845 * 1.15))
+    expect(drinkNovRes.markup).toBe(drinkNovRes.hpp - drinkNovRes.baseHpp)
   })
 
   it('fallback saat menuItem lama memiliki hpp_override null dan channel_hpp kosong {}', () => {

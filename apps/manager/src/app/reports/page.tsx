@@ -318,6 +318,11 @@ export default async function ReportsPage({
   const MITRA_OPEX_TAKEOUT_START = '2026-10-01';
   const MITRA_DRINK_OPEX_DB_START = '2026-11-02';
   const MITRA_CILEUNGSI_OUTLET_ID = '62a56103-2085-4dd5-9d25-a3c0cffc88ff';
+  // Sejak 1 Nov 2026: (HPP + OPEX) x 1,15 untuk SEMUA mitra, Cileungsi ikut.
+  // Sumber: "HPP NOVEMBER.xlsx" tab OFFLINE sel P3, keputusan owner 11 Nov 2026.
+  // Sama dengan DB get_mitra_item_hpp (migration 20261111101413).
+  const MITRA_MARKUP_15_START = '2026-11-01';
+  const MITRA_MARKUP_15 = 1.15;
   const PURE_DRINK_IDS_BEFORE_NOV2 = new Set<string>([
     '08a57f8f-f212-4205-a3eb-fb88066ae1b8',
     'c543b78e-3341-44e0-b3ef-53349e71e3d3',
@@ -432,6 +437,10 @@ export default async function ReportsPage({
     if (!isMitra || baseHpp <= 0) return baseHpp;
 
     const effDate = orderDate ? orderDate.slice(0, 10) : toDateStr;
+    // Dicek PALING AWAL supaya Cileungsi ikut markup 15%.
+    if (effDate >= MITRA_MARKUP_15_START) {
+      return Math.round(baseHpp * MITRA_MARKUP_15);
+    }
     if (effDate < MITRA_OPEX_TAKEOUT_START || outletId === MITRA_CILEUNGSI_OUTLET_ID) {
       return Math.round(baseHpp * 1.1);
     }

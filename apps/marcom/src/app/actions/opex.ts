@@ -289,6 +289,12 @@ export async function createMarcomExpense(
     return { error: 'Nominal pengeluaran harus lebih besar dari 0' }
   }
 
+  // Dana RAB dicatat ke Buku Kas sebagai pengeluaran outlet (tidak dihitung OPEX):
+  // wajib satu outlet, bukan Pusat/Global.
+  if (isSumberDanaRab(paymentSource) && (!outletIdStr || outletIdStr === 'GLOBAL')) {
+    return { error: 'Sumber dana "Dana RAB" wajib dialokasikan ke satu outlet, bukan Pusat/Global.' }
+  }
+
   try {
     const expenseDate = new Date(expenseDateStr)
     const outletId = outletIdStr && outletIdStr !== 'GLOBAL' && outletIdStr !== ''
@@ -352,6 +358,12 @@ export async function updateMarcomExpense(
   const rawAmount = parseFloat(amountStr.replace(/[^0-9.]/g, ''))
   if (isNaN(rawAmount) || rawAmount <= 0) {
     return { error: 'Nominal pengeluaran harus lebih besar dari 0' }
+  }
+
+  // Dana RAB dicatat ke Buku Kas sebagai pengeluaran outlet (tidak dihitung OPEX):
+  // wajib satu outlet, bukan Pusat/Global.
+  if (isSumberDanaRab(paymentSource) && (!outletIdStr || outletIdStr === 'GLOBAL')) {
+    return { error: 'Sumber dana "Dana RAB" wajib dialokasikan ke satu outlet, bukan Pusat/Global.' }
   }
 
   try {

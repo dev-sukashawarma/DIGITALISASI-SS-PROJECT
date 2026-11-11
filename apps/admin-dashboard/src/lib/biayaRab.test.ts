@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { cocokTargetRab, ringkasBiayaRab, type BiayaRabRow } from './biayaRab'
+import { barisRabDariExpense, barisRabDariKasKecil, cocokTargetRab, ringkasBiayaRab, type BiayaRabRow } from './biayaRab'
 
 const MITRA = 'm-1'
 const INTERNAL = 'i-1'
 const mitra = new Set([MITRA])
 
 const baris = (outlet_id: string | null, jumlah: number, nama = outlet_id ?? 'Kantor Pusat'): BiayaRabRow => ({
-  marcom_expense_id: Math.random(),
+  id: String(Math.random()),
   outlet_id,
   outlet_nama: nama,
-  kategori: 'CETAK_BRANDING',
-  kategori_label: 'Cetak',
+  kategori_label: 'Input Pengeluaran',
+  sumber: 'input',
   jumlah,
   keterangan: 'x',
   tanggal: '2026-11-05',
@@ -43,5 +43,27 @@ describe('ringkasBiayaRab', () => {
       [MITRA, 5000, 1],
       [INTERNAL, 3000, 2],
     ])
+  })
+})
+
+describe('barisRabDariExpense', () => {
+  it('memecah keterangan Marcom', () => {
+    const r = barisRabDariExpense({
+      id: 'e1', outlet_id: 'o1', amount: '2500000', expense_date: '2026-11-05', receipt_url: null,
+      description: '[MARCOM: Cetak & Branding] Banner opening (Alokasi: SS Cibubur)', outlets: { name: 'SS Cibubur' },
+    })
+    expect(r).toMatchObject({ sumber: 'marcom', kategori_label: 'Marcom · Cetak & Branding', keterangan: 'Banner opening', jumlah: 2500000, outlet_nama: 'SS Cibubur' })
+  })
+
+  it('baris dari form Input Pengeluaran', () => {
+    const r = barisRabDariExpense({ id: 'e2', outlet_id: 'o1', amount: 1000, expense_date: '2026-11-05', description: 'Renovasi dapur', outlets: { name: 'X' } })
+    expect(r).toMatchObject({ sumber: 'input', kategori_label: 'Input Pengeluaran', keterangan: 'Renovasi dapur' })
+  })
+})
+
+describe('barisRabDariKasKecil', () => {
+  it('menandai sumber kas kecil outlet', () => {
+    const r = barisRabDariKasKecil({ id: 'p1', outlet_id: 'o1', amount: '32000', expense_date: '2026-11-09', description: 'lalamove sayur', outlets: { name: 'MITRA KARAWACI' } })
+    expect(r).toMatchObject({ sumber: 'kas_kecil', kategori_label: 'Kas Kecil Outlet', jumlah: 32000, keterangan: 'lalamove sayur', outlet_nama: 'MITRA KARAWACI' })
   })
 })

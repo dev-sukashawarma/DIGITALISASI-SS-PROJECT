@@ -3840,6 +3840,30 @@ Selisih opname FOIL Oktober **NEGATIF −719.491 cm**: fisik lebih **rendah** da
 
 ---
 
+## Session 2026-11-11: Kategori OPEX "RAB" — ditanggung dana investasi (DB + admin-dashboard + finance + marcom)
+
+**Status:** DB **LIVE** — migration `20261111150000_kategori_opex_rab` applied (atas izin owner) & terstempel; katalog diverifikasi (2 CHECK valid, trigger aktif, SECURITY DEFINER, `biaya_rab_outlet` kosong). Uji `supabase/verifikasi/kategori_rab/t1_penjaga.sql`: RED sebelum migration (6/8 gagal), **LULUS 8/8** sesudahnya, nol baris uji tertinggal. Kode di branch `feat/kategori-opex-rab`, ⚠️ **belum di-commit/merge** — deploy admin-dashboard, finance, marcom terjadi otomatis saat merge ke `main`, lalu jalankan sinkron ulang Marcom.
+
+**Spec:** `docs/superpowers/specs/2026-11-11-kategori-opex-rab-design.md`
+
+- **Model:** `expenses.category = 'rab'` ⇔ `type = 'rab'`. Semua laporan laba sudah memfilter `type = 'expense'` (diverifikasi: owner summary, `get_mitra_roi`, ambilPengeluaran, mitraPnl/Roi, profitExport, prorataAuxiliary, manager, bot) → RAB **tidak pernah** mengurangi OPEX, laba, bagi hasil, ROI/BEP. `owner-dashboard/useExpenses` (tak di-deploy) diberi filter juga.
+- **Keputusan owner (grilling):** input dari form Input Pengeluaran + Marcom "Dana RAB"; **mitra BOLEH melihat** RAB outletnya (membatalkan aturan 5 Nov); wajib satu outlet; tidak memotong rekening; ubah ke/dari RAB dilarang untuk bulan closing.
+- **DB:** CHECK `expenses_rab_type_check` & `expenses_rab_outlet_check`, trigger `trg_expenses_jaga_rab` (peran keuangan + kunci closing), fungsi `batas_closing_opex()` = 2026-10-31. ⚠️ **Naikkan setiap closing bulan baru**, bersama `BATAS_CLOSING_RAB` di `lib/pengeluaran/rab.ts` (admin & finance).
+- **`biaya_rab_outlet` pensiun** (kosong saat dicek). Marcom kini menulis RAB ke `expenses` (`[MARCOM: …]` + `type='rab'`). Setelah deploy, jalankan sinkron ulang Marcom.
+- **Buku Kas:** baris RAB masuk daftar tampilan saja (`daftarTampil`), bukan `allTransactions` yang jadi dasar kartu/total; footer, Excel, CSV memisahkan RAB; PDF memberi catatan. `BiayaRabPanel` membaca `expenses type='rab'`, dipakai di Buku Kas, Profit, dan Laba Rugi Mitra.
+- `lib/pengeluaran/rab.ts` masuk daftar file identik di `opex.parity.test.ts`. `RAB_CATEGORIES` sengaja di luar `PENGELUARAN_CATEGORIES`/`OUTLET_CATEGORIES` (paritas manager tak terpengaruh).
+- Ikut diperbaiki: sinkron Marcom non-RAB dulu menelan galat upsert `expenses` dan tetap melapor sukses → kini galatnya dikembalikan ke form.
+
+### Lanjutan: kas kecil outlet boleh ditandai RAB (migration `20261111160000`, LIVE)
+Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawaci RAB → ditolak (versi pertama sengaja). **Keputusan owner: saldo kas kecil tetap berkurang (uang benar keluar laci), tidak dihitung OPEX/laba.**
+- ⚠️ **Kas kecil TIDAK punya pengaman `type` sebelumnya**: `get_owner_dashboard_summary` & `get_mitra_roi` menjumlah `petty_cash_expenses` tanpa saring kategori/tipe. Terbukti sebelum migration: kas kecil Rp 7 jt berkategori `rab` menaikkan OPEX ROI Mitra Cibinong 29.561.172 → 36.561.172. Kedua fungsi ditambal **tepat satu baris** (`type <> 'rab'`) lewat `pg_get_functiondef` + replace (SET `plan_cache_mode` terjaga, diverifikasi). Uji `t2_kas_kecil.sql` LULUS 5/5 (termasuk kontrol yang membuktikan uji bisa gagal).
+- DB: `petty_cash_expenses_type_check` kini `income|expense|rab`, CHECK `petty_cash_expenses_rab_type_check`, trigger `trg_petty_cash_expenses_jaga_rab` (fungsi sama `expenses_jaga_rab`).
+- App: `.neq('type','rab')` di mitraPnl, mitraRoi, bot telemetri (3) & queryDinamis. **Sengaja TIDAK disaring** (uang memang keluar): saldo kas kecil, tutup shift POS, laporan shift, kas keluar `ownerDashboard.ts`, EOM kasir, dashboard leader, `pettyCashReport`. Buku Kas/Profit/profitExport/manager otomatis lewat allowlist kategori.
+- Buku Kas Edit: kas kecil ↔ RAB lewat `updateSingleExpenseAction` (outlet tetap). `ambilBiayaRab` membaca kedua tabel; sumber `kas_kecil` ikut filter Sumber "Kasir POS".
+- ⚠️ Temuan: `petty_cash_expenses` kini punya kolom `status` (default `pending`, semua baris lama `approved`) — tampaknya pekerjaan paralel. Fungsi laba hanya menghitung `approved`; Buku Kas (`ambilPengeluaran`) belum menyaring status.
+
+---
+
 **Last updated:** 2026-11-11  
 **Owner:** Dev Suka Shawarma
 

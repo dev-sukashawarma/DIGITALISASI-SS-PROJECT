@@ -32,6 +32,8 @@ export function useExpenses(filter: PeriodFilterValue) {
       let q = supabase
         .from('expenses')
         .select('id, outlet_id, category, amount, description, expense_date, outlets(name)')
+        // Hanya pengeluaran: baris pemasukan & RAB (ditanggung dana investasi) bukan biaya.
+        .eq('type', 'expense')
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)
 

@@ -14,6 +14,7 @@ import {
   RefreshCw
 } from 'lucide-react'
 import { PeriodFilter } from '@/components/PeriodFilter'
+import { BiayaRabPanel } from '@/components/BiayaRabPanel'
 import type { ComprehensiveMitraPnl, OpexCategoryDetail } from '@/app/actions/mitraPnl'
 
 const formatRp = (num: number) => {
@@ -248,6 +249,14 @@ export function MitraProfitLossSection({
   const labelClosing = labelClosingInternal && (pnlData.bulanClosing?.length ?? 0) > 0
     ? `${labelClosingInternal} · ${pnlData.bulanClosing!.join(', ')}`
     : null
+
+  // Ditanggung RAB (dana investasi): informasi saja, tidak masuk laba/bagi hasil/ROI.
+  const outletRab: string[] =
+    currentFilter?.outletId && currentFilter.outletId !== 'all'
+      ? [currentFilter.outletId]
+      : outlets.map(o => o.id)
+  const rabDari = rentangTampil.from || '2000-01-01'
+  const rabSampai = rentangTampil.to || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
 
   const isDeficit = summary.netProfit <= 0
 
@@ -579,6 +588,12 @@ export function MitraProfitLossSection({
             </div>
           </div>
         </>
+      )}
+
+      {!isLoading && outletRab.length > 0 && (
+        <div className="mt-4">
+          <BiayaRabPanel from={rabDari} to={rabSampai} outletIds={outletRab} judul="Ditanggung RAB (dana investasi)" />
+        </div>
       )}
 
       {/* DRILLDOWN MODAL */}

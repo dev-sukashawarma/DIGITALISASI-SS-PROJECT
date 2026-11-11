@@ -32,7 +32,7 @@ import {
   ArrowDown
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { clearPeriodCache } from '@/lib/periodCache'
@@ -65,6 +65,8 @@ import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
 import { OpexCardDetailModals, type OpexModalType } from '@/components/OpexCardDetailModals'
 import { BiayaRabPanel } from '@/components/BiayaRabPanel'
+import { ambilBiayaRab, cocokTargetRab } from '@/lib/biayaRab'
+import { KATEGORI_RAB } from '@/lib/pengeluaran/rab'
 import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META, isSalaryCategory, isLemburExpense, PENGELUARAN_CATEGORIES } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
@@ -236,6 +238,15 @@ export default function BukuKasPage() {
   }), [startDate, endDate, target, isPusat, isAllOutlets, sourceFilter])
 
   const { rows: expenseRows = [], loading: expensesLoading, error: expensesError, refetch: refetchExpenses } = useExpenses(filter)
+
+  // RAB (ditanggung dana investasi): diambil terpisah & TIDAK PERNAH masuk
+  // allTransactions/summary. Kunci ber-awalan 'expenses' supaya ikut segar
+  // setiap kali daftar pengeluaran di-invalidate.
+  const { data: rabRows = [] } = useQuery({
+    queryKey: ['expenses', 'rab', startDate, endDate],
+    queryFn: () => ambilBiayaRab(createClient(), { from: startDate, to: endDate }),
+    staleTime: 60_000,
+  })
 
   const hrPayrollFilter = useMemo(() => ({
     from: startDate,
@@ -463,6 +474,43 @@ export default function BukuKasPage() {
     list.sort((a, b) => b.date.localeCompare(a.date))
     return list
   }, [expenseRows, prorataExpenseRows, isProratedOpex, sewaProrata, target, isAllOutlets, isGroupTarget, sertakanPusat, inTargetGroup])
+
+  // Baris RAB untuk daftar tampilan saja (badge "tidak dihitung"). Sengaja di luar
+  // allTransactions: semua total & kartu OPEX dihitung dari allTransactions.
+  // RAB sesuai filter Sumber: kas kecil outlet = 'petty_cash', sisanya 'monthly'.
+  const rabRowsSumber = useMemo(() => rabRows.filter(r => {
+    if (sourceFilter === 'petty_cash') return r.sumber === 'kas_kecil'
+    if (sourceFilter === 'monthly') return r.sumber !== 'kas_kecil'
+    return true
+  }), [rabRows, sourceFilter])
+
+  const rabTransactions = useMemo(() => {
+    return rabRowsSumber
+      .filter(r => cocokTargetRab(r.outlet_id, target, mitraIds))
+      .map(r => ({
+        id: r.id,
+        date: r.tanggal,
+        category: KATEGORI_RAB,
+        outlet_name: r.outlet_nama,
+        outlet_id: r.outlet_id,
+        recipient_name: r.sumber === 'marcom' ? 'Putri Lestari Hambali' : '-',
+        division: r.sumber === 'marcom' ? 'Marcom' : '-',
+        description: r.sumber === 'marcom' ? `[${r.kategori_label}] ${r.keterangan}` : r.keterangan,
+        amount: r.jumlah,
+        type: 'rab',
+        receipt_url: r.receipt_url,
+        isTopup: false,
+        raw_description: r.keterangan,
+        raw_category: KATEGORI_RAB,
+        scope: 'outlet',
+        source: r.sumber === 'kas_kecil' ? 'petty_cash' : 'monthly',
+        isLembur: false,
+        isRab: true,
+      }))
+  }, [rabRowsSumber, target, mitraIds])
+
+  // Daftar tabel = OPEX + RAB. Total tabel & ekspor tetap hanya OPEX.
+  const daftarTampil = useMemo(() => [...allTransactions, ...rabTransactions], [allTransactions, rabTransactions])
 
   // Summary OPEX calculation
   const summary = useMemo(() => {
@@ -794,7 +842,7 @@ export default function BukuKasPage() {
   const availableCategories = useMemo(() => {
     const catMap = new Map<string, { value: string; label: string; count: number }>()
 
-    allTransactions.forEach(tx => {
+    daftarTampil.forEach(tx => {
       const rawCat = tx.category || 'lainnya'
       const label = labelOf(rawCat)
       const existing = catMap.get(label)
@@ -811,7 +859,7 @@ export default function BukuKasPage() {
 
     const present = Array.from(catMap.values()).sort((a, b) => a.label.localeCompare(b.label))
 
-    const others = (PENGELUARAN_CATEGORIES as readonly string[])
+    const others = ([...PENGELUARAN_CATEGORIES, KATEGORI_RAB] as readonly string[])
       .filter(catKey => !catMap.has(labelOf(catKey)))
       .map(catKey => ({
         value: catKey,
@@ -821,11 +869,11 @@ export default function BukuKasPage() {
       .sort((a, b) => a.label.localeCompare(b.label))
 
     return { present, others }
-  }, [allTransactions])
+  }, [daftarTampil])
 
   // Filtered and sorted transactions based on selected category, search query, and sort settings
   const displayedTransactions = useMemo(() => {
-    const filtered = allTransactions.filter(tx => {
+    const filtered = daftarTampil.filter(tx => {
       const matchCat = matchesCategory(tx.category, selectedCategory)
       if (!matchCat) return false
 
@@ -874,24 +922,30 @@ export default function BukuKasPage() {
 
       return sortDirection === 'asc' ? comparison : -comparison
     })
-  }, [allTransactions, selectedCategory, searchQuery, sortField, sortDirection])
+  }, [daftarTampil, selectedCategory, searchQuery, sortField, sortDirection])
 
   // Total amount of currently displayed transactions in table
+  // RAB dipisah dari total: hanya informasi, tidak pernah mengurangi OPEX.
+  const displayedOpexTransactions = useMemo(() => displayedTransactions.filter(tx => !tx.isRab), [displayedTransactions])
+  const displayedRabTransactions = useMemo(() => displayedTransactions.filter(tx => tx.isRab), [displayedTransactions])
   const displayedTotalOpex = useMemo(() => {
-    return displayedTransactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0)
-  }, [displayedTransactions])
+    return displayedOpexTransactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0)
+  }, [displayedOpexTransactions])
+  const displayedTotalRab = useMemo(() => {
+    return displayedRabTransactions.reduce((acc, tx) => acc + Number(tx.amount || 0), 0)
+  }, [displayedRabTransactions])
 
   // Category counts and totals for quick badges
   const categoryFilterStats = useMemo(() => {
     const stats: Record<string, { count: number; total: number }> = {}
-    allTransactions.forEach(tx => {
+    daftarTampil.forEach(tx => {
       const k = tx.category || 'lainnya'
       if (!stats[k]) stats[k] = { count: 0, total: 0 }
       stats[k].count++
       stats[k].total += Number(tx.amount || 0)
     })
     return stats
-  }, [allTransactions])
+  }, [daftarTampil])
 
   const validOutlets = useMemo(() => {
     return outlets.filter(o => !isExcludedOutlet(o))
@@ -949,7 +1003,7 @@ export default function BukuKasPage() {
       })
 
       let curIdx = 6
-      displayedTransactions.forEach((r, idx) => {
+      displayedOpexTransactions.forEach((r, idx) => {
         const row = worksheet.getRow(curIdx)
         row.values = [
           idx + 1,
@@ -970,6 +1024,28 @@ export default function BukuKasPage() {
       totalRow.values = ['TOTAL', '', '', '', '', '', '', '', displayedTotalOpex]
       totalRow.font = { bold: true }
       totalRow.getCell(9).numFmt = 'Rp #,##0'
+
+      // RAB: bagian terpisah, tidak masuk TOTAL di atas.
+      if (displayedRabTransactions.length > 0) {
+        curIdx += 2
+        const judulRab = worksheet.getRow(curIdx)
+        judulRab.values = ['DITANGGUNG RAB (DANA INVESTASI) - TIDAK DIHITUNG OPEX']
+        judulRab.font = { bold: true }
+        curIdx++
+        displayedRabTransactions.forEach((r, idx) => {
+          const row = worksheet.getRow(curIdx)
+          row.values = [
+            idx + 1, r.date, r.outlet_name, 'RAB', r.recipient_name || '-', labelOf(r.category),
+            r.description || '-', r.receipt_url ? 'Ada Struk' : '-', r.amount,
+          ]
+          row.getCell(9).numFmt = 'Rp #,##0'
+          curIdx++
+        })
+        const totalRab = worksheet.getRow(curIdx)
+        totalRab.values = ['TOTAL RAB (TIDAK DIHITUNG)', '', '', '', '', '', '', '', displayedTotalRab]
+        totalRab.font = { bold: true }
+        totalRab.getCell(9).numFmt = 'Rp #,##0'
+      }
 
       worksheet.columns.forEach(col => { col.width = 16 })
       worksheet.getColumn(7).width = 30
@@ -993,7 +1069,7 @@ export default function BukuKasPage() {
 
     try {
       const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Sumber Biaya', 'Nama Pemohon', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
-      const rows = displayedTransactions.map((r, idx) => [
+      const rows = displayedOpexTransactions.map((r, idx) => [
         idx + 1,
         `"${r.date}"`,
         `"${(r.outlet_name || '').replace(/"/g, '""')}"`,
@@ -1017,10 +1093,29 @@ export default function BukuKasPage() {
         displayedTotalOpex
       ]
 
+      // RAB: bagian terpisah, tidak masuk TOTAL.
+      const rabRowsCsv = displayedRabTransactions.length === 0 ? [] : [
+        '',
+        '"DITANGGUNG RAB (DANA INVESTASI) - TIDAK DIHITUNG OPEX"',
+        ...displayedRabTransactions.map((r, idx) => [
+          idx + 1,
+          `"${r.date}"`,
+          `"${(r.outlet_name || '').replace(/"/g, '""')}"`,
+          '"RAB"',
+          `"${(r.recipient_name || '-').replace(/"/g, '""')}"`,
+          `"${labelOf(r.category).replace(/"/g, '""')}"`,
+          `"${(r.description || '-').replace(/"/g, '""')}"`,
+          `"${r.receipt_url ? 'Ada Struk' : '-'}"`,
+          r.amount
+        ].join(',')),
+        ['"TOTAL RAB (TIDAK DIHITUNG)"', '', '', '', '', '', '', '', displayedTotalRab].join(','),
+      ]
+
       const csvContent = '\uFEFF' + [
         headers.join(','),
         ...rows.map(e => e.join(',')),
-        summaryRow.join(',')
+        summaryRow.join(','),
+        ...rabRowsCsv
       ].join('\r\n')
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -1056,7 +1151,7 @@ export default function BukuKasPage() {
         startDate,
         endDate,
         targetLabel: `${targetLabel}${categorySuffix}`,
-        items: displayedTransactions.map(t => ({
+        items: displayedOpexTransactions.map(t => ({
           date: t.date,
           outlet_name: t.outlet_name,
           recipient_name: t.recipient_name,
@@ -1067,7 +1162,10 @@ export default function BukuKasPage() {
           amount: t.amount,
           receipt_url: t.receipt_url
         })),
-        totalAmount: displayedTotalOpex
+        totalAmount: displayedTotalOpex,
+        catatanRab: displayedRabTransactions.length > 0
+          ? { total: displayedTotalRab, jumlahTransaksi: displayedRabTransactions.length }
+          : undefined
       })
       toast.success('Laporan PDF OPEX berhasil diunduh!')
     } catch (e: any) {
@@ -2124,7 +2222,7 @@ export default function BukuKasPage() {
                 {displayedTransactions.map((tx) => {
                   const hasReceipt = Boolean(tx.receipt_url)
                   return (
-                    <tr key={tx.id} className="hover:bg-amber-50/30 transition-colors font-medium">
+                    <tr key={tx.id} className={`hover:bg-amber-50/30 transition-colors font-medium ${tx.isRab ? 'bg-sky-50/40' : ''}`}>
                       <td className="px-4 py-3.5 whitespace-nowrap text-gray-600 font-bold">
                         {tx.date}
                       </td>
@@ -2132,7 +2230,11 @@ export default function BukuKasPage() {
                         {tx.outlet_name}
                       </td>
                       <td className="px-3 py-3.5 text-center whitespace-nowrap">
-                        {tx.source === 'petty_cash' ? (
+                        {tx.isRab ? (
+                          <span className="px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 font-bold text-[10px] border border-sky-200" title="Ditanggung dana investasi (RAB): tidak dihitung OPEX">
+                            RAB · tidak dihitung
+                          </span>
+                        ) : tx.source === 'petty_cash' ? (
                           <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-200" title="Kas Kecil Laci Kasir POS">
                             Kasir POS
                           </span>
@@ -2191,8 +2293,11 @@ export default function BukuKasPage() {
                           <span className="text-[10px] text-gray-400 italic">-</span>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-right font-black whitespace-nowrap text-sm text-rose-600">
-                        -{rupiah(tx.amount)}
+                      <td
+                        className={`px-5 py-3.5 text-right whitespace-nowrap text-sm ${tx.isRab ? 'font-semibold text-gray-400' : 'font-black text-rose-600'}`}
+                        title={tx.isRab ? 'Ditanggung dana investasi (RAB): tidak mengurangi OPEX' : undefined}
+                      >
+                        {tx.isRab ? rupiah(tx.amount) : `-${rupiah(tx.amount)}`}
                       </td>
                       <td className="px-3 py-3.5 text-center whitespace-nowrap">
                         <div className={`flex items-center justify-center gap-1.5 ${tx.sintetis ? 'invisible' : ''}`}>
@@ -2222,13 +2327,24 @@ export default function BukuKasPage() {
                 <tfoot className="bg-gray-50/90 border-t-2 border-suka-gray-200 text-xs font-bold">
                   <tr>
                     <td colSpan={7} className="px-4 py-3.5 text-right uppercase tracking-wider text-gray-500 font-extrabold">
-                      Total Pengeluaran OPEX ({displayedTransactions.length} Transaksi{displayedTransactions.length !== allTransactions.length ? ' Terfilter' : ''}):
+                      Total Pengeluaran OPEX ({displayedOpexTransactions.length} Transaksi{displayedOpexTransactions.length !== allTransactions.length ? ' Terfilter' : ''}):
                     </td>
                     <td className="px-5 py-3.5 text-right font-black text-sm text-rose-600 whitespace-nowrap">
                       -{rupiah(displayedTotalOpex)}
                     </td>
                     <td className="px-3 py-3.5"></td>
                   </tr>
+                  {displayedRabTransactions.length > 0 && (
+                    <tr className="text-sky-700">
+                      <td colSpan={7} className="px-4 py-2.5 text-right uppercase tracking-wider font-extrabold">
+                        Ditanggung RAB, tidak dihitung ({displayedRabTransactions.length} Transaksi):
+                      </td>
+                      <td className="px-5 py-2.5 text-right font-bold text-sm text-gray-400 whitespace-nowrap">
+                        {rupiah(displayedTotalRab)}
+                      </td>
+                      <td className="px-3 py-2.5"></td>
+                    </tr>
+                  )}
                 </tfoot>
               )}
             </table>
@@ -2401,8 +2517,8 @@ export default function BukuKasPage() {
         />
       )}
 
-      {/* Biaya Ditanggung RAB: informasi saja, tidak masuk perhitungan apa pun */}
-      <BiayaRabPanel from={startDate} to={endDate} target={target} mitraIds={mitraIds} />
+      {/* Ditanggung RAB: informasi saja, tidak masuk perhitungan apa pun */}
+      <BiayaRabPanel from={startDate} to={endDate} target={target} mitraIds={mitraIds} rows={rabRowsSumber} />
 
       {/* MODAL RINCIAN DETAIL OPEX */}
 

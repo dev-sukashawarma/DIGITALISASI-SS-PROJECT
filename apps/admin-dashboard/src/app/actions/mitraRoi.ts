@@ -308,6 +308,8 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
         .select('id, amount, outlet_id, category, description, expense_date')
         .in('outlet_id', mitraOutletIds)
         .is('deleted_at', null)
+        // Kas kecil RAB (ditanggung dana investasi): uangnya keluar dari laci, tapi bukan OPEX.
+        .neq('type', 'rab')
         .gte('expense_date', from)
         .lte('expense_date', to)
         .order('id', { ascending: true })

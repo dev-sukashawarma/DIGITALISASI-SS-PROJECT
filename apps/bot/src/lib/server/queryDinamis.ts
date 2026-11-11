@@ -496,6 +496,8 @@ ${Object.keys(dateSales).length > 1 ? `- Rincian Penjualan Per Tanggal:\n${listT
           .gte('expense_date', req.tglAwalStr)
           .lte('expense_date', req.tglAkhirStr)
           .is('deleted_at', null)
+          // Kas kecil RAB (ditanggung dana investasi): uangnya keluar dari laci, tapi bukan OPEX.
+          .neq('type', 'rab')
           .order('amount', { ascending: false })
           .limit(500),
         sb

@@ -9,6 +9,7 @@ import {
   type ExpenseCategory
 } from '@/lib/expenseCategories'
 import type { Outlet } from '@/lib/types'
+import { adalahKategoriRab, cekAturanRab, KATEGORI_RAB } from '@/lib/pengeluaran/rab'
 import { Upload, X, FileText, Loader2, Eye } from 'lucide-react'
 
 const GRUP_PEMBAYAR_LABEL: Record<'utama' | 'bahan_baku' | 'petty_cash', string> = {
@@ -66,8 +67,10 @@ export function ExpenseFormModal({
   const [rekeningSiap, setRekeningSiap] = useState(false)
   // Rekening tersimpan saat modal edit dibuka: potongan lamanya sudah termasuk di saldo.
   const [rekeningAwal, setRekeningAwal] = useState('')
+  const isRab = adalahKategoriRab(category)
+  // RAB (ditanggung dana investasi) tidak pernah memotong rekening pusat.
   const bisaPilihRekening =
-    !(isEdit && initialData?.source === 'petty_cash') && (initialData?.type ?? 'expense') === 'expense'
+    !(isEdit && initialData?.source === 'petty_cash') && (initialData?.type ?? 'expense') === 'expense' && !isRab
 
   // File upload state for invoice / receipt proof
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -146,6 +149,11 @@ export function ExpenseFormModal({
 
   const handleCategoryChange = (newCat: ExpenseCategory) => {
     setCategory(newCat)
+    if (adalahKategoriRab(newCat)) {
+      setCashLocationId('')
+      if (outletId === 'PUSAT') toast.info('Pengeluaran RAB wajib dialokasikan ke satu outlet. Pilih outletnya.')
+      return
+    }
     if (newCat === 'gaji_staff_kantor' || newCat === 'pengeluaran_global') {
       const selectedOutlet = outletsList.find(o => o.id === outletId)
       if (selectedOutlet?.type === 'mitra') {
@@ -207,6 +215,19 @@ export function ExpenseFormModal({
       return
     }
 
+    if (isRab) {
+      const galat = cekAturanRab({
+        kategoriBaru: category,
+        outletId: outletId === 'PUSAT' ? null : outletId,
+        tanggalBaru: expenseDate,
+        ...(isEdit ? { tipeLama: initialData?.type ?? 'expense', tanggalLama: initialData?.date || initialData?.expense_date } : {}),
+      })
+      if (galat) {
+        toast.error(galat)
+        return
+      }
+    }
+
     setSubmitting(true)
     try {
       let receiptUrl: string | null = existingReceiptUrl
@@ -245,7 +266,7 @@ export function ExpenseFormModal({
           receipt_url: receiptUrl,
           recipient_name: recipientName.trim() || null,
           division: division.trim() || null,
-          cashLocationId: bisaPilihRekening && rekeningSiap ? (cashLocationId || null) : undefined
+          cashLocationId: isRab ? null : bisaPilihRekening && rekeningSiap ? (cashLocationId || null) : undefined
         })
 
         if (!res.success) {
@@ -253,7 +274,7 @@ export function ExpenseFormModal({
           return
         }
 
-        toast.success('Pengeluaran OPEX berhasil diperbarui')
+        toast.success(isRab ? 'Pengeluaran RAB berhasil diperbarui (tidak dihitung OPEX)' : 'Pengeluaran OPEX berhasil diperbarui')
       } else {
         const supabase = createClient()
         const { data: { session } } = await supabase.auth.getSession()
@@ -277,7 +298,7 @@ export function ExpenseFormModal({
           return
         }
 
-        toast.success('Pengeluaran OPEX berhasil ditambahkan')
+        toast.success(isRab ? 'Pengeluaran RAB tercatat (tidak dihitung OPEX)' : 'Pengeluaran OPEX berhasil ditambahkan')
       }
 
       if (previewUrl && previewUrl.startsWith('blob:')) {
@@ -321,7 +342,7 @@ export function ExpenseFormModal({
               value={outletId}
               onChange={(e) => setOutletId(e.target.value)}
             >
-              {isAdmin && <option value="PUSAT">🏢 Head Office (Company-wide)</option>}
+              {isAdmin && <option value="PUSAT" disabled={isRab}>🏢 Head Office (Company-wide){isRab ? ' — tidak untuk RAB' : ''}</option>}
               {outletsList.map((o) => {
                 const isMitra = o.type === 'mitra'
                 const isOfficeCategory = category === 'gaji_staff_kantor' || category === 'pengeluaran_global'
@@ -346,7 +367,16 @@ export function ExpenseFormModal({
                   {CATEGORY_META[c]?.label || c}
                 </option>
               ))}
+              <optgroup label="Tidak dihitung OPEX">
+                <option value={KATEGORI_RAB}>{CATEGORY_META[KATEGORI_RAB].label}</option>
+              </optgroup>
             </select>
+            {isRab && (
+              <span className="mt-1.5 block rounded-lg bg-sky-50 border border-sky-200 px-2.5 py-1.5 text-xs text-sky-800">
+                Sudah ditanggung dana investasi (RAB). Hanya dicatat untuk rekap: tidak mengurangi OPEX, laba outlet,
+                laba perusahaan, bagi hasil mitra, maupun saldo rekening. Wajib dialokasikan ke satu outlet.
+              </span>
+            )}
           </label>
 
           {/* Nama Pemohon & Divisi (Opsional) */}

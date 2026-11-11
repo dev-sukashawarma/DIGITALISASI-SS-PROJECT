@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { barisRabDariExpense, cocokTargetRab, ringkasBiayaRab, type BiayaRabRow } from './biayaRab'
+import { barisRabDariExpense, barisRabDariKasKecil, cocokTargetRab, ringkasBiayaRab, type BiayaRabRow } from './biayaRab'
 
 const MITRA = 'm-1'
 const INTERNAL = 'i-1'
@@ -58,5 +58,12 @@ describe('barisRabDariExpense', () => {
   it('baris dari form Input Pengeluaran', () => {
     const r = barisRabDariExpense({ id: 'e2', outlet_id: 'o1', amount: 1000, expense_date: '2026-11-05', description: 'Renovasi dapur', outlets: { name: 'X' } })
     expect(r).toMatchObject({ sumber: 'input', kategori_label: 'Input Pengeluaran', keterangan: 'Renovasi dapur' })
+  })
+})
+
+describe('barisRabDariKasKecil', () => {
+  it('menandai sumber kas kecil outlet', () => {
+    const r = barisRabDariKasKecil({ id: 'p1', outlet_id: 'o1', amount: '32000', expense_date: '2026-11-09', description: 'lalamove sayur', outlets: { name: 'MITRA KARAWACI' } })
+    expect(r).toMatchObject({ sumber: 'kas_kecil', kategori_label: 'Kas Kecil Outlet', jumlah: 32000, keterangan: 'lalamove sayur', outlet_nama: 'MITRA KARAWACI' })
   })
 })

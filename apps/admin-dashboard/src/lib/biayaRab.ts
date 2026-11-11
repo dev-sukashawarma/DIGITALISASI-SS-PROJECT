@@ -3,7 +3,8 @@
  *
  * HANYA INFORMASI. Angka di sini TIDAK BOLEH dijumlahkan ke OPEX, laba outlet,
  * laba perusahaan, maupun laporan mitra. Sumbernya baris `expenses` ber-type
- * 'rab' (dari form Input Pengeluaran dan dari Marcom "Dana RAB"); tabel lama
+ * 'rab' (dari form Input Pengeluaran dan dari Marcom "Dana RAB") serta kas kecil
+ * outlet `petty_cash_expenses` ber-type 'rab' (saldo kas kecil tetap berkurang); tabel lama
  * `biaya_rab_outlet` sudah pensiun (11 Nov 2026). Mitra boleh melihat RAB
  * outletnya sendiri (RLS `expenses_select_scoped`).
  *
@@ -18,7 +19,7 @@ export interface BiayaRabRow {
   outlet_id: string | null
   outlet_nama: string
   kategori_label: string
-  sumber: 'marcom' | 'input'
+  sumber: 'marcom' | 'input' | 'kas_kecil'
   jumlah: number
   keterangan: string
   tanggal: string
@@ -29,6 +30,21 @@ export interface RingkasanBiayaRab {
   total: number
   jumlahTransaksi: number
   perOutlet: Array<{ outletId: string | null; nama: string; total: number; jumlah: number }>
+}
+
+/** Satu baris mentah `petty_cash_expenses` (type 'rab') → BiayaRabRow. */
+export function barisRabDariKasKecil(row: any): BiayaRabRow {
+  return {
+    id: String(row.id),
+    outlet_id: row.outlet_id ?? null,
+    outlet_nama: row.outlets?.name ?? 'Outlet Tidak Dikenal',
+    kategori_label: 'Kas Kecil Outlet',
+    sumber: 'kas_kecil',
+    jumlah: Number(row.amount) || 0,
+    keterangan: row.description ?? '',
+    tanggal: row.expense_date,
+    receipt_url: row.receipt_url ?? null,
+  }
 }
 
 /** Satu baris mentah `expenses` (type 'rab') → BiayaRabRow. */
@@ -58,24 +74,32 @@ export async function ambilBiayaRab(
   rentang: { from: string; to: string; outletIds?: string[] }
 ): Promise<BiayaRabRow[]> {
   const PAGE = 1000
-  const semua: BiayaRabRow[] = []
-  for (let mulai = 0; ; mulai += PAGE) {
-    let q = supabase
-      .from('expenses')
-      .select('id, outlet_id, amount, description, expense_date, receipt_url, outlets(name)')
-      .eq('type', TIPE_RAB)
-      .neq('outlet_id', TEST_OUTLET_ID)
-      .gte('expense_date', rentang.from)
-      .lte('expense_date', rentang.to)
-      .order('expense_date', { ascending: false })
-      .order('id', { ascending: false })
-    if (rentang.outletIds && rentang.outletIds.length > 0) q = q.in('outlet_id', rentang.outletIds)
-    const { data, error } = await q.range(mulai, mulai + PAGE - 1)
-    if (error) throw new Error(error.message)
-    semua.push(...(data ?? []).map(barisRabDariExpense))
-    if (!data || data.length < PAGE) break
+  const ambilSemua = async (tabel: 'expenses' | 'petty_cash_expenses', ubah: (row: any) => BiayaRabRow) => {
+    const hasil: BiayaRabRow[] = []
+    for (let mulai = 0; ; mulai += PAGE) {
+      let q = supabase
+        .from(tabel)
+        .select('id, outlet_id, amount, description, expense_date, receipt_url, outlets(name)')
+        .eq('type', TIPE_RAB)
+        .neq('outlet_id', TEST_OUTLET_ID)
+        .gte('expense_date', rentang.from)
+        .lte('expense_date', rentang.to)
+        .order('expense_date', { ascending: false })
+        .order('id', { ascending: false })
+      if (tabel === 'petty_cash_expenses') q = q.is('deleted_at', null)
+      if (rentang.outletIds && rentang.outletIds.length > 0) q = q.in('outlet_id', rentang.outletIds)
+      const { data, error } = await q.range(mulai, mulai + PAGE - 1)
+      if (error) throw new Error(error.message)
+      hasil.push(...(data ?? []).map(ubah))
+      if (!data || data.length < PAGE) break
+    }
+    return hasil
   }
-  return semua
+  const [dariExpenses, dariKasKecil] = await Promise.all([
+    ambilSemua('expenses', barisRabDariExpense),
+    ambilSemua('petty_cash_expenses', barisRabDariKasKecil),
+  ])
+  return [...dariExpenses, ...dariKasKecil].sort((a, b) => b.tanggal.localeCompare(a.tanggal))
 }
 
 /**

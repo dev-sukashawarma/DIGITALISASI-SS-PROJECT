@@ -350,13 +350,28 @@ export async function updateSingleExpenseAction(input: {
         .maybeSingle()
 
       if (currentPetty) {
-        if (adalahKategoriRab(input.category)) {
-          return { success: false, error: 'Kas kecil outlet tidak bisa dijadikan RAB. Catat RAB lewat Input Pengeluaran.' }
+        // Kas kecil boleh ditandai RAB (ditanggung dana investasi): saldo kas kecil
+        // tetap berkurang, tetapi tidak dihitung OPEX/laba. Outletnya tetap outlet asal.
+        const pettyKeRab = adalahKategoriRab(input.category)
+        const pettyDariRab = currentPetty.type === TIPE_RAB
+        if (pettyKeRab || pettyDariRab) {
+          const galat = cekAturanRab({
+            kategoriBaru: input.category,
+            outletId: currentPetty.outlet_id,
+            tanggalBaru: input.expenseDate,
+            tipeLama: currentPetty.type ?? 'expense',
+            tanggalLama: currentPetty.expense_date,
+          })
+          if (galat) return { success: false, error: galat }
         }
+        const kategoriPetty = pettyKeRab
+          ? KATEGORI_RAB
+          : (!isPusat && input.category) ? input.category : currentPetty.category
         const { data: updatedPetty, error: updatePettyErr } = await supabase
           .from('petty_cash_expenses')
           .update({
-            category: (!isPusat && input.category) ? input.category : currentPetty.category,
+            category: kategoriPetty,
+            ...(pettyKeRab ? { type: TIPE_RAB } : pettyDariRab ? { type: 'expense' } : {}),
             amount: input.amount,
             description: input.description,
             expense_date: input.expenseDate,

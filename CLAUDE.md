@@ -3854,6 +3854,14 @@ Selisih opname FOIL Oktober **NEGATIF −719.491 cm**: fisik lebih **rendah** da
 - `lib/pengeluaran/rab.ts` masuk daftar file identik di `opex.parity.test.ts`. `RAB_CATEGORIES` sengaja di luar `PENGELUARAN_CATEGORIES`/`OUTLET_CATEGORIES` (paritas manager tak terpengaruh).
 - Ikut diperbaiki: sinkron Marcom non-RAB dulu menelan galat upsert `expenses` dan tetap melapor sukses → kini galatnya dikembalikan ke form.
 
+### Lanjutan: kas kecil outlet boleh ditandai RAB (migration `20261111160000`, LIVE)
+Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawaci RAB → ditolak (versi pertama sengaja). **Keputusan owner: saldo kas kecil tetap berkurang (uang benar keluar laci), tidak dihitung OPEX/laba.**
+- ⚠️ **Kas kecil TIDAK punya pengaman `type` sebelumnya**: `get_owner_dashboard_summary` & `get_mitra_roi` menjumlah `petty_cash_expenses` tanpa saring kategori/tipe. Terbukti sebelum migration: kas kecil Rp 7 jt berkategori `rab` menaikkan OPEX ROI Mitra Cibinong 29.561.172 → 36.561.172. Kedua fungsi ditambal **tepat satu baris** (`type <> 'rab'`) lewat `pg_get_functiondef` + replace (SET `plan_cache_mode` terjaga, diverifikasi). Uji `t2_kas_kecil.sql` LULUS 5/5 (termasuk kontrol yang membuktikan uji bisa gagal).
+- DB: `petty_cash_expenses_type_check` kini `income|expense|rab`, CHECK `petty_cash_expenses_rab_type_check`, trigger `trg_petty_cash_expenses_jaga_rab` (fungsi sama `expenses_jaga_rab`).
+- App: `.neq('type','rab')` di mitraPnl, mitraRoi, bot telemetri (3) & queryDinamis. **Sengaja TIDAK disaring** (uang memang keluar): saldo kas kecil, tutup shift POS, laporan shift, kas keluar `ownerDashboard.ts`, EOM kasir, dashboard leader, `pettyCashReport`. Buku Kas/Profit/profitExport/manager otomatis lewat allowlist kategori.
+- Buku Kas Edit: kas kecil ↔ RAB lewat `updateSingleExpenseAction` (outlet tetap). `ambilBiayaRab` membaca kedua tabel; sumber `kas_kecil` ikut filter Sumber "Kasir POS".
+- ⚠️ Temuan: `petty_cash_expenses` kini punya kolom `status` (default `pending`, semua baris lama `approved`) — tampaknya pekerjaan paralel. Fungsi laba hanya menghitung `approved`; Buku Kas (`ambilPengeluaran`) belum menyaring status.
+
 ---
 
 **Last updated:** 2026-11-11  

@@ -477,9 +477,15 @@ export default function BukuKasPage() {
 
   // Baris RAB untuk daftar tampilan saja (badge "tidak dihitung"). Sengaja di luar
   // allTransactions: semua total & kartu OPEX dihitung dari allTransactions.
+  // RAB sesuai filter Sumber: kas kecil outlet = 'petty_cash', sisanya 'monthly'.
+  const rabRowsSumber = useMemo(() => rabRows.filter(r => {
+    if (sourceFilter === 'petty_cash') return r.sumber === 'kas_kecil'
+    if (sourceFilter === 'monthly') return r.sumber !== 'kas_kecil'
+    return true
+  }), [rabRows, sourceFilter])
+
   const rabTransactions = useMemo(() => {
-    if (sourceFilter === 'petty_cash') return []
-    return rabRows
+    return rabRowsSumber
       .filter(r => cocokTargetRab(r.outlet_id, target, mitraIds))
       .map(r => ({
         id: r.id,
@@ -497,11 +503,11 @@ export default function BukuKasPage() {
         raw_description: r.keterangan,
         raw_category: KATEGORI_RAB,
         scope: 'outlet',
-        source: 'monthly',
+        source: r.sumber === 'kas_kecil' ? 'petty_cash' : 'monthly',
         isLembur: false,
         isRab: true,
       }))
-  }, [rabRows, target, mitraIds, sourceFilter])
+  }, [rabRowsSumber, target, mitraIds])
 
   // Daftar tabel = OPEX + RAB. Total tabel & ekspor tetap hanya OPEX.
   const daftarTampil = useMemo(() => [...allTransactions, ...rabTransactions], [allTransactions, rabTransactions])
@@ -2512,9 +2518,7 @@ export default function BukuKasPage() {
       )}
 
       {/* Ditanggung RAB: informasi saja, tidak masuk perhitungan apa pun */}
-      {sourceFilter !== 'petty_cash' && (
-        <BiayaRabPanel from={startDate} to={endDate} target={target} mitraIds={mitraIds} rows={rabRows} />
-      )}
+      <BiayaRabPanel from={startDate} to={endDate} target={target} mitraIds={mitraIds} rows={rabRowsSumber} />
 
       {/* MODAL RINCIAN DETAIL OPEX */}
 

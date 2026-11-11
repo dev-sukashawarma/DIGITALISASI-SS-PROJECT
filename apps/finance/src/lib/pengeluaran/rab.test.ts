@@ -17,10 +17,8 @@ describe('cekAturanRab', () => {
     expect(cekAturanRab({ kategoriBaru: 'rab', outletId: 'PUSAT', tanggalBaru: '2026-11-11' })).toMatch(/outlet/)
   })
 
-  it('RAB dengan rekening pusat: ditolak', () => {
-    expect(
-      cekAturanRab({ kategoriBaru: 'rab', outletId: OUTLET, cashLocationId: 'x', tanggalBaru: '2026-11-11' })
-    ).toMatch(/rekening/)
+  it('RAB boleh dibayar dari rekening pusat (rekening tetap terpotong)', () => {
+    expect(cekAturanRab({ kategoriBaru: 'rab', outletId: OUTLET, tanggalBaru: '2026-11-11' })).toBeNull()
   })
 
   it('ubah pengeluaran November menjadi RAB: boleh', () => {

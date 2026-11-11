@@ -1,7 +1,9 @@
 /**
  * Kategori OPEX "RAB": pengeluaran yang sudah ditanggung dana investasi
  * (RAB pembukaan outlet). HANYA INFORMASI: tidak pernah mengurangi OPEX,
- * laba outlet/perusahaan/mitra, ROI/BEP, maupun saldo rekening.
+ * laba outlet/perusahaan/mitra, maupun ROI/BEP. Kalau dibayar dari rekening
+ * pusat, rekening itu tetap terpotong (uangnya memang keluar) — sejak
+ * 20261111170000, keputusan owner kasus Mitra Karawaci.
  *
  * Disimpan di `expenses` dengan category = 'rab' DAN type = 'rab'. Semua laporan
  * laba memfilter type = 'expense', jadi baris RAB tidak ikut terhitung.
@@ -34,7 +36,6 @@ export function adalahBarisRab(row: { type?: string | null; category?: string | 
 export function cekAturanRab(input: {
   kategoriBaru: string
   outletId: string | null
-  cashLocationId?: string | null
   tanggalBaru: string
   /** Hanya untuk ubah data: tipe & tanggal yang tersimpan sekarang. */
   tipeLama?: string | null
@@ -47,9 +48,6 @@ export function cekAturanRab(input: {
   if (rabBaru) {
     if (!input.outletId || input.outletId === 'PUSAT') {
       return 'Pengeluaran RAB wajib dialokasikan ke satu outlet, bukan Head Office.'
-    }
-    if (input.cashLocationId) {
-      return 'Pengeluaran RAB tidak memotong rekening pusat. Kosongkan pilihan "Dibayar dari".'
     }
     if (sedangUbah && !rabLama && input.tipeLama !== 'expense') {
       return 'Hanya pengeluaran biasa yang bisa diubah menjadi RAB.'

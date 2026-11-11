@@ -129,7 +129,6 @@ export async function createSingleExpenseAction(input: {
       const galat = cekAturanRab({
         kategoriBaru: input.category,
         outletId: input.outletId,
-        cashLocationId: input.cashLocationId,
         tanggalBaru: input.expenseDate,
       })
       if (galat) return { success: false, error: galat }
@@ -148,8 +147,9 @@ export async function createSingleExpenseAction(input: {
           description: input.description,
           expense_date: input.expenseDate,
           period_month: input.periodMonth,
-          payment_source: 'transfer_pusat',
-          cash_location_id: null,
+          // Rekening pusat boleh membayar RAB: saldonya tetap terpotong (trigger DB).
+          payment_source: input.cashLocationId ? 'petty_cash' : 'transfer_pusat',
+          cash_location_id: input.cashLocationId || null,
           created_by: pencatatRab,
           receipt_url: input.receipt_url || null
         })
@@ -395,7 +395,6 @@ export async function updateSingleExpenseAction(input: {
       const galat = cekAturanRab({
         kategoriBaru: input.category,
         outletId: actualOutletId,
-        cashLocationId: input.cashLocationId !== undefined ? input.cashLocationId : currentExpense.cash_location_id,
         tanggalBaru: input.expenseDate,
         tipeLama: currentExpense.type ?? 'expense',
         tanggalLama: currentExpense.expense_date,
@@ -411,10 +410,12 @@ export async function updateSingleExpenseAction(input: {
         description: input.description,
         expense_date: input.expenseDate,
         period_month: input.periodMonth || `${input.expenseDate.slice(0, 7)}-01`,
-        payment_source: 'transfer_pusat',
-        cash_location_id: null,
       }
       if (input.receipt_url !== undefined) payloadRab.receipt_url = input.receipt_url
+      // undefined = rekening tidak diubah; null = lepas dari rekening pusat.
+      if (input.cashLocationId !== undefined) payloadRab.cash_location_id = input.cashLocationId || null
+      const rekeningRab = input.cashLocationId !== undefined ? input.cashLocationId : currentExpense.cash_location_id
+      payloadRab.payment_source = rekeningRab ? 'petty_cash' : 'transfer_pusat'
       const { data, error: rabErr } = await supabase
         .from('expenses')
         .update(payloadRab)

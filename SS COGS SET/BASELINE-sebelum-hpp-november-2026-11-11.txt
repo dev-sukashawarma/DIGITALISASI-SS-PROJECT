@@ -1,0 +1,16 @@
+BASELINE COGS sebelum perubahan HPP November 2026 (diukur 2026-11-11)
+Metode: SUM(hpp per tanggal order x qty) atas orders completed, outlet type internal+mitra,
+        tanpa ss-backup & tanpa outlet tes. cogs_mitra = get_mitra_item_hpp(menu, src, tgl, outlet).
+
+bulan    otype      cogs_internal_basis      cogs_mitra          porsi
+2026-08  internal        491.596.600,00     565.800.510,00       27.691
+2026-08  mitra           450.957.400,00     537.239.230,00       25.897
+2026-09  internal        458.003.317,00     538.611.602,00       27.888
+2026-09  mitra           419.608.765,00     522.279.061,00       25.964
+2026-10  internal        525.419.366,30     558.499.062,00       28.830
+2026-10  mitra           527.509.984,90     597.730.434,00       30.016
+2026-11  internal        134.070.694,70     142.857.985,00        7.493
+2026-11  mitra           167.918.558,40     191.711.904,00        9.601
+
+WAJIB NOL BERGESER sesudah perubahan: seluruh baris 2026-08, 2026-09, 2026-10.
+BOLEH bergeser: hanya 2026-11.

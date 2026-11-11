@@ -178,7 +178,25 @@ supabase migration repair  # Fix diverged riwayat
 
 ## Deployment — VPS + Docker (Coolify)
 
-**Status saat ini (per 2026-08-14).** Produksi sudah migrasi dari cPanel+LiteSpeed (section di bawah, disimpan sebagai riwayat) ke **VPS berbasis Docker, di-orchestrate oleh Coolify** (self-hosted PaaS — konfirmasi dari stack trace deploy: `App\Jobs\ApplicationDeploymentJob`, `App\Traits\ExecuteRemoteCommand`). **1 app = 1 Dockerfile** di `apps/<app>/Dockerfile`, multi-stage (`builder` → `runner`), tanpa `docker-compose.yml` di repo — Coolify memanggil `docker build` langsung dengan `--build-arg` per env var yang dikonfigurasi di panelnya.
+**Status saat ini (dikoreksi 2026-11-11).** Produksi berjalan di **VPS berbasis Docker, di-orchestrate oleh Coolify**. **1 app = 1 Dockerfile** di `apps/<app>/Dockerfile`, multi-stage (`builder` → `runner`), tanpa `docker-compose.yml` di repo.
+
+### ✅ Push ke `main` = deploy OTOMATIS (JANGAN tulis "perlu redeploy manual")
+Image **tidak lagi** di-build oleh Coolify. Sejak pipeline GitHub Actions dipakai, alurnya:
+
+1. **Pemicu:** `.github/workflows/deploy-<app>-coolify.yml`, `on: push: branches: [main]` — ada untuk **13 app** (absensi, admin, bot, distribusi, finance, hr, inventori, manager, marcom, portal, pos, stok, sukashawarma). Tersedia juga `workflow_dispatch` untuk manual.
+2. **Build di runner GitHub** (`docker/build-push-action`, cache `type=gha`), lalu **push ke GHCR**: `ghcr.io/dev-sukashawarma/digitalisasi-ss-project/<app>`, tag `latest` + `sha-<short>`.
+3. **Trigger Coolify lewat REST API** (`POST https://coolify.sukashawarma.tech/api/v1/deploy?uuid=<uuid-app>`, header `Authorization: Bearer $COOLIFY_API_TOKEN`) → Coolify **pull image** & restart container. Langkah ini `continue-on-error: true`, jadi workflow bisa "sukses" walau trigger-nya gagal — kalau app tak ikut berubah, cek langkah ini dulu.
+4. **Smoke test** otomatis: probe URL live sampai 8× (HTTP 200/302/307/401 = sehat).
+
+⚠️ **Tiap workflow punya path filter**, jadi yang ter-deploy hanya app yang berkasnya benar-benar berubah:
+`apps/<app>/**` + `packages/auth|design-system|realtime|offline-queue/**` (+ `hr-rumus` untuk admin) + `package.json` + `yarn.lock` + berkas workflow-nya sendiri.
+Konsekuensi: menyentuh `apps/finance` saja **tidak** men-deploy `manager`; sebaliknya menyentuh **`package.json`/`yarn.lock` root men-deploy SEMUA app**.
+
+⚠️ **`NEXT_PUBLIC_*` kini datang dari GitHub Secrets** (di-kirim sebagai `--build-arg` oleh workflow, dengan nilai fallback literal di dalam berkas workflow), **bukan** dari panel Coolify. Secret **server-only** tetap dari env runtime di panel Coolify. Jadi kalau mengganti nilai `NEXT_PUBLIC_*`, ubah di **GitHub Secrets** — mengubahnya di panel Coolify saja tidak berpengaruh pada bundle.
+
+`gh` CLI **tidak terpasang** di mesin dev ini, jadi status run tak bisa dicek dari terminal — buka tab Actions di GitHub.
+
+Yang **tetap manual** dan tidak ikut otomatis: **migration database**, **rilis APK native**, dan **menambah env var baru** di panel Coolify.
 
 ### Struktur Dockerfile (pola wajib, semua 9 app)
 1. **Stage `builder`** (`FROM node:24-bookworm-slim AS builder`) — copy manifest (`package.json` root + tiap `packages/*/package.json` + `apps/<app>/package.json`) dulu untuk cache layer, baru `yarn install --frozen-lockfile`, baru copy source penuh, baru `NEXT_TURBOPACK=0 yarn workspace <name> build`.
@@ -189,6 +207,8 @@ supabase migration repair  # Fix diverged riwayat
 
 ### ⚠️ Gotcha kritikal #2 — BuildKit cache mount korup di build konkuren
 `RUN --mount=type=cache,target=...` tanpa `id` eksplisit → default id = target path → **semua app berbagi satu cache** kalau dibuild bersamaan (umum di Coolify saat beberapa app di-redeploy berdekatan) → `EBUSY`/`ENOENT` saat extract tarball yarn. **Fix:** semua 9 Dockerfile pakai `--mount=type=cache,id=yarn-cache-v3,sharing=locked,target=/usr/local/share/.cache/yarn/v6` — `id` eksplisit + `sharing=locked` men-serialize akses antar build konkuren. Kalau muncul lagi (`v3` korup), naikkan ke `v4` dst — jangan cuma retry, cache yang sudah korup tak akan pulih sendiri.
+
+ℹ️ Gejalanya lahir di era build-di-Coolify (beberapa app di-build berdekatan di satu mesin). Sejak build pindah ke runner GitHub dengan `cache-from/to: type=gha`, gejala ini belum terlihat lagi — tapi `id` eksplisit + `sharing=locked` **tetap dipertahankan**, murah dan tak ada ruginya.
 
 ### ⚠️ Gotcha kritikal #3 — phantom dependency: lolos lokal, gagal di Docker
 Tiap `apps/*/Dockerfile` hanya `COPY` manifest app itu sendiri + `packages/*` — app lain TIDAK ikut. Kalau suatu file import package yang **tak dideklarasikan** di `package.json` app itu sendiri (cuma "kebetulan" ada di `node_modules` root karena workspace lain mendeklarasikannya, ter-hoist oleh yarn), build lokal (`yarn build` di root monorepo) **selalu lolos**, tapi Docker (`COPY` scoped) **gagal** `Module not found` — kasus nyata: `date-fns` (fixed 2026-08-12), `react-countup` di `apps/finance/src/app/pembelian/*` yang di-port dari `admin-dashboard` tanpa ikut nambah dependency-nya (fixed 2026-08-14, commit `4dd7bb5e`). **Cara diagnosis cepat:** `mv node_modules/<pkg> /tmp/` lalu `yarn build` lokal — kalau daftar file yang gagal sama persis dengan log Coolify, itu penyebabnya. Log Coolify sering meredact baris yang gagal, cuma tampilkan baris konteks — jangan asumsikan baris pertama yang terlihat itu penyebabnya.
@@ -214,8 +234,10 @@ Root punya workspace `"SUKASHAWARMA"` (astro-based, tak terkait app Next.js mana
 ### Setelah redeploy: "Server Action ... was not found on the server"
 **Bukan bug.** ID Server Action Next.js di-generate ulang tiap build; tab browser yang sudah kebuka SEBELUM redeploy masih pegang referensi ID lama. Fix: hard refresh / tutup-buka ulang tab, bukan investigasi kode.
 
-### Status app (redeploy pending vs live)
-Setiap sesi kerja yang mengubah kode app tertentu **WAJIB dicatat butuh redeploy** (lihat section Session di bawah tiap entry "⚠️ Perlu redeploy") — kode di `main` tidak otomatis live sampai Coolify di-trigger ulang untuk app tsb.
+### Status app (live setelah merge ke `main`)
+**Kode yang sudah masuk `main` akan live sendiri** lewat pipeline di atas — tidak perlu trigger manual.
+
+⚠️ Entri Session di bawah yang bertanda **"⚠️ Perlu redeploy"** adalah **warisan era lama** (saat Coolify yang mem-build dan harus di-trigger tangan). Jangan dibaca sebagai tunggakan, dan **jangan tulis penanda itu lagi di entri baru**. Yang masih layak dicatat sebagai tunggakan hanya: migration DB yang belum di-apply, rilis APK native, env var baru di panel Coolify, dan pekerjaan yang masih di branch (belum merge ke `main`).
 
 ---
 
@@ -3731,6 +3753,71 @@ digabung per promo; mengubah promo aktif menutup periode lama.
 - Tabel per-outlet Laba Rugi Internal tetap live (sama seperti September). **Tab Laba Rugi Mitra Oktober ikut dikunci** (berbeda dari September yang tetap live): kartu & tabel per outlet = laporan (Laba Bersih 121.526.376,5); OPEX disamakan lewat baris "Penyesuaian closing Oktober 2026" per outlet (`barisPenyesuaianOpexMitra`). Rentang yang menyentuh Oktober di dashboard mitra disajikan Oktober sebulan penuh.
 - PreOrder WA (`channel='preorder_wa'`) tetap Offline + QRIS (keputusan 6 Nov); tidak ikut setoran tunai.
 
-**Last updated:** 2026-11-10  
+---
+
+## Session 2026-11-11: HPP November berlaku 1 Nov + Markup Mitra 10% → 15% (DB + 4 app)
+
+**Status:** ✅ SELESAI & LIVE. DB: skrip HPP 1 Nov dijalankan + migration `20261111101413_mitra_markup_15_persen_november` applied & terstempel. Kode ter-merge ke `main` (`d7dee3b2f`) & ter-push → ke-4 app (admin-dashboard, finance, manager, bot) **deploy otomatis** lewat GitHub Actions.
+
+**Sumber:** `HPP NOVEMBER.xlsx` (tab OFFLINE). Arsip: `SS COGS SET/input-hpp-november-berlaku-1nov-2026-11-11.sql`, baseline `SS COGS SET/BASELINE-sebelum-hpp-november-2026-11-11.txt`.
+
+### 1. HPP internal: yang berubah cuma TANGGAL, bukan angkanya
+Kolom **HPP + OPEX** di file November **identik sampai desimal** dengan yang sudah live sejak 2 Nov (dari `⛔SS HPP OCT 2026 v2.2.xlsx`) — ke-18 menu cocok. Jadi pekerjaannya hanya **menggeser tanggal mulai 2 Nov → 1 Nov**, menambal satu hari. Dampak 1 Nov: internal +Rp 548.864, mitra (basis) +Rp 672.393. `channel_hpp` (SS Online) tak disentuh. Struktur file: **HPP murni (B) × 1,10 = HPP + OPEX (C)**.
+
+### 2. 🔴 Markup mitra 10% → **15%**, berlaku 1 Nov, Cileungsi IKUT
+Sel **P3** tab OFFLINE: `MARKUP MITRA (dari HPP + OPEX) = 0,15 FIXED`; kolom I = C × 1,15, kolom M (`PROFIT HPP`) = I − C. **Keputusan owner 11 Nov 2026**, termasuk dua hal yang ditanyakan eksplisit: berlaku **1 Nov** (bukan mundur ke 1 Okt) dan **MITRA CILEUNGSI ikut 15%** (pengecualian ×1,10 miliknya berakhir 31 Okt).
+
+| Periode | HPP mitra |
+|---|---|
+| sebelum 1 Okt 2026 | (HPP + OPEX) × 1,10 |
+| 1 Okt – 31 Okt 2026 | (HPP + OPEX) × 1,00 (Cileungsi tetap × 1,10) |
+| **mulai 1 Nov 2026** | **(HPP + OPEX) × 1,15** (semua mitra) |
+
+**Dampak:** COGS mitra 1–10 Nov 191.711.904 → **217.500.572** (+Rp 25.788.668, ±75 jt/bulan) → laba & bagi hasil mitra turun sebesar itu. **Markup pusat = round(base × 1,15) − base**, BUKAN base − base/1,1 (itu rumus cabang Oktober).
+
+### ⚠️ Gotcha: markup mitra ada di 5 tempat, konstanta DIDUPLIKASI di 9 berkas
+Tidak ada modul bersama. Kalau satu diubah sendirian, Dashboard Kemitraan / Rangkuman Penjualan / layar HPP / bot menampilkan angka **berbeda untuk order yang sama** — gejala identik bug kategori `gas` (Session 2026-10-27).
+
+- **DB:** `get_mitra_item_hpp` **dan** `get_owner_dashboard_summary` yang **menduplikasi markup inline** (2 CASE: `item_cogs` + `item_markup`), bukan memanggil fungsinya. `get_mitra_orders_summary` memanggil fungsi → ikut otomatis.
+- **admin-dashboard:** `lib/hpp/fetchHpp.ts`, `lib/posReport/compute.ts`, `app/actions/mitraPnl.ts`, `dashboard/resep/HppDashboardView.tsx`, `OutletPricingView.tsx`
+- **finance:** `lib/posReport/compute.ts` (**byte-identik** dengan admin — SALIN, jangan edit dua kali; dijaga `compute.parity.test.ts`), `lib/eom/kasir.ts` (hanya memisahkan grup + label)
+- **manager:** `app/page.tsx`, `app/reports/page.tsx`, `app/resep/*` · **bot:** `lib/server/telemetriNyata.ts`
+
+**Penjaga baru:** `apps/admin-dashboard/src/lib/hpp/markupMitra.parity.test.ts` (14 test) menggagalkan CI kalau salah satu berkas menyimpang. Kontrol negatifnya diuji (satu berkas sengaja dirusak → test gagal menyebut berkasnya).
+
+**Cabang tarif baru WAJIB dicek paling awal**, sebelum cabang Cileungsi — kalau tidak, Cileungsi tak akan ikut. Juga: `mitraMode` di `compute.ts` dapat nilai baru (4) supaya memo tidak tercampur antar-tarif.
+
+### ⚠️ `get_owner_dashboard_summary` DI-PATCH TERARAH, bukan disalin ulang
+Fungsi ~14 KB ini memuat `SET plan_cache_mode = force_custom_plan` + `SET search_path` yang **wajib** bertahan (tanpa yang pertama ia kena statement timeout 8 dtk — Session 2026-09-25/26). Menyalin 14 KB berisiko menjatuhkannya diam-diam, jadi migration membaca `pg_get_functiondef` lalu `regexp_replace` dengan penjaga: pola lama harus ketemu **tepat 1×** per CASE, hasil harus punya **tepat 2** kemunculan `1.15` + 2 cabang `2026-11-01` + cabang lama tetap 2, dan kedua `SET` masih ada. Idempoten (kalau sudah ada `1.15` → dilewati). Diverifikasi sesudah apply: `proconfig` tetap `{search_path, plan_cache_mode}`.
+
+### Verifikasi (angka cocok Excel sampai rupiah)
+| | hasil |
+|---|---|
+| COGS Agu/Sep/Okt internal & mitra | **nol bergeser**, cocok sampai sen dengan baseline |
+| Ayam Sedang mitra 1 Nov | **17.443** = Excel kolom I (17.443,085) |
+| Paket SAPI SEDANG + AQUA | **19.090** = Excel (19.089,655) |
+| Cileungsi 31 Okt → 1 Nov | 16.216 → **17.443** |
+
+Uji: admin-dashboard **1120 lulus**, finance 351 lulus, bot 303 lulus; type-check **0 error** di 4 app; build admin-dashboard sukses. (4 kegagalan `opex.parity.test.ts` di finance = **pre-existing**, dari WIP "Head Office" pihak lain yang belum disalin ke finance — bukan regresi sesi ini.)
+
+**Kontrol negatif sebelum menulis apa pun:** `ubah_hpp_menu` dipanggil lalu di-RAISE EXCEPTION sengaja → membuktikan RPC memang menulis (Ice Tea 1 Nov 4800 → 5280) DAN exception benar-benar membatalkannya (0 baris, kembali 4800).
+
+⚠️ **Asersi COGS sengaja DI LUAR transaksi.** Percobaan pertama memuat asersi COGS 3 bulan di dalam blok yang sama dan koneksinya terputus sebelum COMMIT (diperiksa: 0 baris tertulis, rollback bersih — `get_mitra_item_hpp` per baris atas ~84 rb order terlalu berat). Aman dipindah karena baris riwayat ber-`berlaku_mulai` 1 Nov **secara struktural tak bisa** menyentuh bulan sebelumnya, dan Asersi C (31 Okt tak bergeser) membuktikan batas itu di dalam transaksi.
+
+### Hal di luar HPP yang ketemu & keputusan owner
+- **Gramasi di-HOLD** (owner: "untuk update gramasi kita hold dulu"). Excel beda dari resep DB: **FOIL** 33/36/40 cm vs DB 35/40/45 (Mix Jumbo 50); **MINYAK** Excel "1 porsi" semua ukuran (≈24,5 g, dari yield 653,913 porsi/kompan 16 kg — angka gram tak pernah ditulis di tab GRAMASI CREW) vs DB 25–40 g. Lettuce Ayam Besar (Excel 30 vs DB 65) & Mix Jumbo tertukar — keduanya **sudah diputuskan 21 Okt** bahwa DB benar, tapi **Excel belum dikoreksi** dan akan terus terbawa ke revisi berikutnya.
+- **Excel memakai YIELD, DB tidak** — ini akar kenapa panel HPP Dinamis selalu 13–33% di bawah `hpp_override`. Tab `dBASE VENDOR` punya kolom "ISI / YIELD EFEKTIF": AYAM 1 kg → 666,67 g (Rp 81/g) vs DB Rp 51,50/g; SAPI 2.000 g → 1.333,33 g (Rp 78,75 vs 52,50); KENTANG yield 96%. Juga beda: **TUM** Excel 29,4/g (ditulis "manual"; hitungan batch Excel sendiri 19,12) vs DB **100/g**; PLASTIK 240 vs 900; GARAM 1 bal 5.000 g vs DB 10.000 g. Menyatukannya = pekerjaan tersendiri, bukan bagian input HPP.
+- **Paket Bundling Aqua sudah benar** — 13 paket `+ AQUA` ada di DB, `is_package=true`, `hpp_override` kosong (ikut komponen), hasilnya cocok Excel.
+- 🔴 **Belum dikerjakan:** paket **"New sosis + Mix Jumbo"** berisi **"Original Mix Jumbo (Online)"** yang HPP-nya **0**, bukan Mix Jumbo offline (Excel: `SUKA SAUSAGE + MIX JUMBO (32)`). 37 porsi terjual 28 Okt–10 Nov, masih jalan → HPP kurang ±Rp 1.051.566. Menunggu owner cek apakah paket ini memang untuk kanal online.
+- **Combo 5** masih `hpp_override` beku 40.600 padahal isinya cuma Ice Tea ×2 (10.560) — sudah tercatat sebagai "Combo 5 aneh". **Paket Berlima** Excel pakai Ice Tea ×5, DB Orange Juice ×5 (HPP sama, nol dampak rupiah).
+
+### Catatan untuk tim lain
+WIP **"Head Office"** (penggantian istilah di 5 berkas OPEX admin-dashboard + `useSalesDaily.ts` + `managementFee.ts` baru) ada di working tree dan **belum disalin ke finance**, sehingga 4 test `opex.parity.test.ts` sedang merah. Tidak disentuh sesi ini dan **tidak ikut ter-commit**. Itu memang fungsi test tersebut — menahan sebelum ter-deploy.
+
+**UTANG REPLAY:** `get_mitra_item_hpp` & `get_owner_dashboard_summary` juga didefinisikan migration bertimestamp **2030** (`20300125000000`, `20300250000000`) yang terurut SETELAH berkas ini → replay dari nol menimpa balik. Produksi aman (sudah terstempel). Timestamp 2030 tak dipakai karena ditolak `migration-timestamp-lint`.
+
+---
+
+**Last updated:** 2026-11-11  
 **Owner:** Dev Suka Shawarma
 

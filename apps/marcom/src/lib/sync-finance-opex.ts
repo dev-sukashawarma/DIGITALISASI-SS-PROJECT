@@ -280,7 +280,8 @@ export async function syncAdOpex(adId: bigint | number | string) {
 }
 
 /**
- * Hapus catatan Biaya Ditanggung RAB (informasi) untuk pengeluaran manual Marcom.
+ * Bersihkan sisa baris tabel lama `biaya_rab_outlet` (pensiun 11 Nov 2026).
+ * RAB kini disimpan di `expenses` (type 'rab') dan dihapus lewat deleteOpexByExpenseId.
  */
 export async function deleteBiayaRab(marcomExpenseId: bigint | number | string) {
   try {
@@ -333,36 +334,41 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
     const expenseDate = toDateString(expense.expenseDate)
     const isAfterCutoff = expenseDate >= OPEX_CUTOFF_DATE
 
-    // Dana RAB: catatan informasi saja -> tabel terpisah `biaya_rab_outlet`,
-    // dan WAJIB keluar dari `expenses` (OPEX/laba) bila sebelumnya pernah masuk.
+    // Dana RAB: ditanggung dana investasi -> `expenses` dengan category/type 'rab'.
+    // Semua laporan laba memfilter type = 'expense', jadi baris ini TIDAK PERNAH
+    // mengurangi OPEX, laba, bagi hasil mitra, maupun budget Marcom. Tabel lama
+    // `biaya_rab_outlet` sudah pensiun (11 Nov 2026); sisa barisnya dibersihkan.
     if (isSumberDanaRab(expense.paymentSource)) {
-      const { error: rabErr } = await supabase.from('biaya_rab_outlet').upsert(
+      if (!posOutletId) {
+        return { success: false, error: 'Dana RAB wajib dialokasikan ke satu outlet (bukan Pusat/Global).' }
+      }
+      const catLabelRab = MARCOM_EXPENSE_CATEGORIES[expense.category] || expense.category
+      const rabExpenseId = expense.expenseId || crypto.randomUUID()
+      const { error: rabErr } = await supabase.from('expenses').upsert(
         {
-          marcom_expense_id: Number(expense.id),
+          id: rabExpenseId,
           outlet_id: posOutletId,
-          outlet_nama: outletName,
-          kategori: expense.category,
-          kategori_label: MARCOM_EXPENSE_CATEGORIES[expense.category] || expense.category,
-          jumlah: amount,
-          keterangan: expense.description,
-          tanggal: expenseDate,
+          category: 'rab',
+          type: 'rab',
+          amount,
+          description: `[MARCOM: ${catLabelRab}] ${expense.description} (Alokasi: ${outletName})`,
+          expense_date: expenseDate,
+          period_month: toPeriodMonth(expenseDate),
+          payment_source: 'transfer_pusat',
+          cash_location_id: null,
           receipt_url: expense.receiptUrl || null,
-          diperbarui_at: new Date().toISOString(),
+          created_by: MARCOM_CREW_STAFF_ID,
         },
-        { onConflict: 'marcom_expense_id' }
+        { onConflict: 'id' }
       )
       if (rabErr) {
-        console.error(`[syncManualExpenseOpex] Error upserting biaya_rab_outlet #${id}:`, rabErr)
+        console.error(`[syncManualExpenseOpex] Error upserting RAB expense #${id}:`, rabErr)
         return { success: false, error: `Gagal mencatat biaya RAB: ${rabErr.message}` }
       }
-      if (expense.expenseId) {
-        const { error: delErr } = await supabase.from('expenses').delete().eq('id', expense.expenseId).select('id')
-        if (delErr) {
-          console.error(`[syncManualExpenseOpex] Error mengeluarkan expense ${expense.expenseId} dari OPEX:`, delErr)
-          return { success: false, error: `Gagal mengeluarkan catatan dari OPEX: ${delErr.message}` }
-        }
-        await prisma.marcomExpense.update({ where: { id }, data: { expenseId: null } })
+      if (!expense.expenseId) {
+        await prisma.marcomExpense.update({ where: { id }, data: { expenseId: rabExpenseId } })
       }
+      await deleteBiayaRab(id)
       return { success: true }
     }
 
@@ -414,6 +420,7 @@ export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | s
 
       if (upsertErr) {
         console.error(`[syncManualExpenseOpex] Error upserting expense for #${id}:`, upsertErr)
+        return { success: false, error: `Gagal mencatat ke OPEX: ${upsertErr.message}` }
       } else if (!expense.expenseId) {
         await prisma.marcomExpense.update({
           where: { id },

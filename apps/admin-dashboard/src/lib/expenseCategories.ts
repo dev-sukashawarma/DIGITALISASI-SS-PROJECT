@@ -1,5 +1,5 @@
 import { Wallet, Users, Award, UserCog, Clock, Megaphone, Star, Tag,
-  Droplets, Zap, Wifi, Home, Globe, Building2, type LucideIcon } from 'lucide-react'
+  Droplets, Zap, Wifi, Home, Globe, Building2, Landmark, type LucideIcon } from 'lucide-react'
 
 export const OUTLET_CATEGORIES = [
   'pengeluaran_outlet', 'gaji_crew_outlet', 'bonus_leader', 'bonus_area_manager',
@@ -10,8 +10,14 @@ export const OUTLET_CATEGORIES = [
 export const PUSAT_CATEGORIES = ['pengeluaran_global', 'gaji_staff_kantor'] as const
 export const INCOME_CATEGORIES = ['pemasukan_lain', 'modal_awal', 'setoran_owner'] as const
 export const PENGELUARAN_CATEGORIES = [...OUTLET_CATEGORIES, ...PUSAT_CATEGORIES] as const
+/**
+ * Ditanggung dana investasi (RAB pembukaan outlet): dicatat dengan type 'rab',
+ * TIDAK PERNAH dihitung OPEX/laba. Sengaja di luar PENGELUARAN_CATEGORIES
+ * supaya tidak pernah ikut daftar/perhitungan kategori OPEX. Lihat lib/pengeluaran/rab.ts.
+ */
+export const RAB_CATEGORIES = ['rab'] as const
 
-export const EXPENSE_CATEGORIES = [...OUTLET_CATEGORIES, ...PUSAT_CATEGORIES, ...INCOME_CATEGORIES] as const
+export const EXPENSE_CATEGORIES = [...OUTLET_CATEGORIES, ...PUSAT_CATEGORIES, ...INCOME_CATEGORIES, ...RAB_CATEGORIES] as const
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number]
 export type ExpenseScope = 'outlet' | 'pusat'
 export type TransactionType = 'income' | 'expense'
@@ -79,4 +85,5 @@ export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: stri
   lainnya:            { label: 'Lainnya',            color: '#4b5563', icon: Wallet },
   bonus_crew:         { label: 'Bonus Crew',         color: '#b45309', icon: Award },
   bonus_regional_manager: { label: 'Bonus Regional Manager', color: '#92400e', icon: UserCog },
+  rab:                { label: 'RAB (Ditanggung Investasi)', color: '#0369a1', icon: Landmark },
 }

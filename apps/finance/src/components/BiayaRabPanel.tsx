@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Info, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { rupiah } from '@/lib/format'
-import { cocokTargetRab, ringkasBiayaRab, type BiayaRabRow } from '@/lib/biayaRab'
+import { ambilBiayaRab, cocokTargetRab, ringkasBiayaRab, type BiayaRabRow } from '@/lib/biayaRab'
 
 /** receipt_url Marcom bisa URL tunggal atau JSON array string; ambil yang pertama. */
 function notaPertama(raw: string | null): string | null {
@@ -22,60 +22,57 @@ function notaPertama(raw: string | null): string | null {
 }
 
 /**
- * Panel "Biaya Ditanggung RAB" — HANYA INFORMASI.
+ * Kartu "Ditanggung RAB" — HANYA INFORMASI.
  * Angkanya sengaja tidak dikirim ke luar komponen ini, supaya tidak pernah
  * ikut terjumlah ke OPEX/laba. File ini identik di admin-dashboard & finance.
+ *
+ * `rows` diisi bila pemanggil sudah mengambil datanya (Buku Kas); kalau tidak,
+ * komponen mengambil sendiri lewat klien pengguna (tunduk RLS).
  */
 export function BiayaRabPanel({
   from,
   to,
   target = 'all',
   mitraIds,
+  rows: rowsProp,
+  outletIds,
+  judul = 'Ditanggung RAB (Dana Investasi)',
 }: {
   from: string
   to: string
   target?: string
   mitraIds?: ReadonlySet<string>
+  rows?: BiayaRabRow[]
+  outletIds?: string[]
+  judul?: string
 }) {
-  const [rows, setRows] = useState<BiayaRabRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rowsSendiri, setRowsSendiri] = useState<BiayaRabRow[]>([])
+  const [loading, setLoading] = useState(!rowsProp)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
+  const kunciOutlet = (outletIds ?? []).join(',')
 
   useEffect(() => {
+    if (rowsProp) return
     let batal = false
-    const supabase = createClient()
-    ;(async () => {
-      setLoading(true)
-      setError(null)
-      const PAGE = 1000
-      const semua: BiayaRabRow[] = []
-      for (let mulai = 0; ; mulai += PAGE) {
-        const { data, error: err } = await supabase
-          .from('biaya_rab_outlet')
-          .select('marcom_expense_id, outlet_id, outlet_nama, kategori, kategori_label, jumlah, keterangan, tanggal, receipt_url')
-          .gte('tanggal', from)
-          .lte('tanggal', to)
-          .order('tanggal', { ascending: false })
-          .order('marcom_expense_id', { ascending: false })
-          .range(mulai, mulai + PAGE - 1)
-        if (err) {
-          if (!batal) setError(err.message)
-          break
-        }
-        semua.push(...((data ?? []) as BiayaRabRow[]))
-        if (!data || data.length < PAGE) break
-      }
-      if (!batal) {
-        setRows(semua)
-        setLoading(false)
-      }
-    })()
+    setLoading(true)
+    setError(null)
+    ambilBiayaRab(createClient(), { from, to, outletIds: kunciOutlet ? kunciOutlet.split(',') : undefined })
+      .then((data) => {
+        if (!batal) setRowsSendiri(data)
+      })
+      .catch((err) => {
+        if (!batal) setError(err?.message || 'Gagal memuat')
+      })
+      .finally(() => {
+        if (!batal) setLoading(false)
+      })
     return () => {
       batal = true
     }
-  }, [from, to])
+  }, [from, to, rowsProp, kunciOutlet])
 
+  const rows = rowsProp ?? rowsSendiri
   const kosongSet = useMemo(() => new Set<string>(), [])
   const tersaring = useMemo(
     () => rows.filter((r) => cocokTargetRab(r.outlet_id, target, mitraIds ?? kosongSet)),
@@ -83,17 +80,17 @@ export function BiayaRabPanel({
   )
   const ringkasan = useMemo(() => ringkasBiayaRab(tersaring), [tersaring])
 
-  if (loading) {
+  if (loading && !rowsProp) {
     return (
       <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4 text-xs text-sky-800 flex items-center gap-2">
-        <Loader2 size={14} className="animate-spin" /> Memuat biaya ditanggung RAB...
+        <Loader2 size={14} className="animate-spin" /> Memuat pengeluaran ditanggung RAB...
       </div>
     )
   }
   if (error) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
-        Gagal memuat biaya ditanggung RAB: {error}
+        Gagal memuat pengeluaran ditanggung RAB: {error}
       </div>
     )
   }
@@ -108,15 +105,15 @@ export function BiayaRabPanel({
       >
         <span className="flex items-center gap-2 font-bold">
           {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Biaya Ditanggung RAB (Pembukaan Outlet)
+          {judul}
           <span className="font-normal text-sky-700">· {ringkasan.jumlahTransaksi} transaksi</span>
         </span>
         <span className="font-mono font-bold">{rupiah(ringkasan.total)}</span>
       </button>
       <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-sky-800">
         <Info size={12} className="mt-0.5 shrink-0" />
-        Hanya informasi. Biaya ini sudah dibiayai RAB, <b>tidak dihitung</b> di OPEX, laba outlet, maupun laba
-        perusahaan.
+        Hanya informasi. Pengeluaran ini sudah ditanggung dana investasi (RAB), <b>tidak dihitung</b> di OPEX,
+        laba outlet, laba perusahaan, maupun bagi hasil mitra.
       </p>
 
       {open && (
@@ -137,14 +134,14 @@ export function BiayaRabPanel({
                 <tr className="border-b border-sky-200">
                   <th className="py-1.5 pr-3">Tanggal</th>
                   <th className="py-1.5 pr-3">Outlet</th>
-                  <th className="py-1.5 pr-3">Kategori</th>
+                  <th className="py-1.5 pr-3">Sumber</th>
                   <th className="py-1.5 pr-3">Keterangan</th>
                   <th className="py-1.5 text-right">Nominal</th>
                 </tr>
               </thead>
               <tbody>
                 {tersaring.map((r) => (
-                  <tr key={r.marcom_expense_id} className="border-b border-sky-100 last:border-0">
+                  <tr key={r.id} className="border-b border-sky-100 last:border-0">
                     <td className="py-1.5 pr-3 font-mono whitespace-nowrap">{r.tanggal}</td>
                     <td className="py-1.5 pr-3 whitespace-nowrap">{r.outlet_nama}</td>
                     <td className="py-1.5 pr-3">{r.kategori_label}</td>

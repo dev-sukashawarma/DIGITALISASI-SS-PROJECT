@@ -49,9 +49,10 @@ export const MARCOM_EXPENSE_CATEGORIES: Record<string, string> = {
 
 /**
  * Sumber dana "Dana RAB" = biaya yang sudah ditanggung RAB (Rencana Anggaran
- * Biaya) pembukaan outlet baru. Keputusan owner 2026-11-05: HANYA INFORMASI.
- * Tidak masuk total OPEX Marcom, pagu budget, maupun tabel `expenses` Finance
- * (disinkron ke tabel terpisah `biaya_rab_outlet`).
+ * Biaya) pembukaan outlet baru. HANYA INFORMASI: tidak masuk total OPEX Marcom,
+ * pagu budget, maupun laba. Sejak 11 Nov 2026 disinkron ke `expenses` Finance
+ * dengan category/type 'rab' (laporan laba hanya membaca type 'expense'), wajib
+ * satu outlet, dan mitra boleh melihatnya.
  */
 export const SUMBER_DANA_RAB = 'rab'
 

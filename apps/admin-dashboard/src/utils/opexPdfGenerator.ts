@@ -21,10 +21,12 @@ export interface OpexPdfOptions {
   items: OpexPdfItem[]
   totalAmount: number
   filename?: string
+  /** Pengeluaran ditanggung RAB pada filter yang sama: dicetak sebagai catatan, TIDAK masuk total. */
+  catatanRab?: { total: number; jumlahTransaksi: number }
 }
 
 export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<void> {
-  const { startDate, endDate, targetLabel, items, totalAmount, filename } = options
+  const { startDate, endDate, targetLabel, items, totalAmount, filename, catatanRab } = options
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
@@ -190,8 +192,23 @@ export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<vo
 
   // 4. Signatures Section (Admin Hesti, Finance Nadya, Direktur F&A Alby)
   const pageHeight = doc.internal.pageSize.height
-  const finalY = (doc as any).lastAutoTable?.finalY || 100
+  let finalY = (doc as any).lastAutoTable?.finalY || 100
   const signatureBlockHeight = 44
+
+  if (catatanRab && catatanRab.jumlahTransaksi > 0) {
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(8)
+    doc.setTextColor(3, 105, 161)
+    doc.text(
+      `Catatan: ${catatanRab.jumlahTransaksi} pengeluaran senilai ${rupiah(catatanRab.total)} ditanggung RAB (dana investasi) dan tidak dihitung dalam total OPEX di atas.`,
+      18,
+      finalY + 6,
+      { maxWidth: 174 }
+    )
+    doc.setTextColor(0, 0, 0)
+    doc.setFont('helvetica', 'normal')
+    finalY += 8
+  }
 
   let signStartY = finalY + 8
   if (signStartY + signatureBlockHeight > pageHeight - 16) {

@@ -6,6 +6,7 @@ import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
 import { deserializeVoucherFromRow, serializeVoucherToDescription } from '@/lib/officeVoucher'
 import { ambilPengeluaranMentah } from '@/lib/pengeluaran/ambilPengeluaran'
 import { adalahJointExpenseDisembunyikan, PESAN_JOINT_EXPENSE_DITOLAK } from '@/lib/pengeluaran/jointExpense'
+import { adalahKategoriRab, cekAturanRab, KATEGORI_RAB, TIPE_RAB } from '@/lib/pengeluaran/rab'
 
 function getServiceSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -18,6 +19,9 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   const supabase = getServiceSupabase()
 
   for (const it of items) {
+    if (adalahKategoriRab(it.category)) {
+      throw new Error('Kategori RAB dicatat per transaksi lewat form Input Pengeluaran, bukan rekap bulanan.')
+    }
     // Joint expense Oktober 2026 ke atas tidak dihitung di laporan mana pun; kalau
     // tetap boleh disimpan, barisnya lenyap dari Buku Kas dan tak bisa diedit.
     if (adalahJointExpenseDisembunyikan({ category: it.category, expense_date: it.periodMonth })) {
@@ -119,6 +123,41 @@ export async function createSingleExpenseAction(input: {
     }
 
     const supabase = getServiceSupabase()
+
+    // RAB (ditanggung dana investasi): type 'rab', tidak pernah dihitung OPEX/laba.
+    if (adalahKategoriRab(input.category)) {
+      const galat = cekAturanRab({
+        kategoriBaru: input.category,
+        outletId: input.outletId,
+        cashLocationId: input.cashLocationId,
+        tanggalBaru: input.expenseDate,
+      })
+      if (galat) return { success: false, error: galat }
+      let pencatatRab: string | null = null
+      if (input.created_by) {
+        const { data: staff } = await supabase.from('outlet_staff').select('id').eq('id', input.created_by).maybeSingle()
+        pencatatRab = staff?.id ?? null
+      }
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert({
+          outlet_id: input.outletId,
+          category: KATEGORI_RAB,
+          type: TIPE_RAB,
+          amount: input.amount,
+          description: input.description,
+          expense_date: input.expenseDate,
+          period_month: input.periodMonth,
+          payment_source: 'transfer_pusat',
+          cash_location_id: null,
+          created_by: pencatatRab,
+          receipt_url: input.receipt_url || null
+        })
+        .select()
+        .single()
+      if (error) return { success: false, error: error.message }
+      return { success: true, data }
+    }
 
     if (input.outletId) {
       const { data: targetOutlet } = await supabase
@@ -311,6 +350,9 @@ export async function updateSingleExpenseAction(input: {
         .maybeSingle()
 
       if (currentPetty) {
+        if (adalahKategoriRab(input.category)) {
+          return { success: false, error: 'Kas kecil outlet tidak bisa dijadikan RAB. Catat RAB lewat Input Pengeluaran.' }
+        }
         const { data: updatedPetty, error: updatePettyErr } = await supabase
           .from('petty_cash_expenses')
           .update({
@@ -329,6 +371,43 @@ export async function updateSingleExpenseAction(input: {
       }
 
       return { success: false, error: 'Data transaksi tidak ditemukan' }
+    }
+
+    // Pindah dari/ke RAB: aturan sama dengan DB (trg_expenses_jaga_rab).
+    const keRab = adalahKategoriRab(input.category)
+    const dariRab = currentExpense.type === TIPE_RAB
+    if (keRab || dariRab) {
+      const galat = cekAturanRab({
+        kategoriBaru: input.category,
+        outletId: actualOutletId,
+        cashLocationId: input.cashLocationId !== undefined ? input.cashLocationId : currentExpense.cash_location_id,
+        tanggalBaru: input.expenseDate,
+        tipeLama: currentExpense.type ?? 'expense',
+        tanggalLama: currentExpense.expense_date,
+      })
+      if (galat) return { success: false, error: galat }
+    }
+    if (keRab) {
+      const payloadRab: Record<string, any> = {
+        outlet_id: actualOutletId,
+        category: KATEGORI_RAB,
+        type: TIPE_RAB,
+        amount: input.amount,
+        description: input.description,
+        expense_date: input.expenseDate,
+        period_month: input.periodMonth || `${input.expenseDate.slice(0, 7)}-01`,
+        payment_source: 'transfer_pusat',
+        cash_location_id: null,
+      }
+      if (input.receipt_url !== undefined) payloadRab.receipt_url = input.receipt_url
+      const { data, error: rabErr } = await supabase
+        .from('expenses')
+        .update(payloadRab)
+        .eq('id', input.id)
+        .select()
+        .single()
+      if (rabErr) return { success: false, error: rabErr.message }
+      return { success: true, data }
     }
 
     let dbCategory = input.category
@@ -377,6 +456,10 @@ export async function updateSingleExpenseAction(input: {
       expense_date: input.expenseDate,
       period_month: periodMonth,
       payment_source: actualOutletId ? 'petty_cash' : 'transfer_pusat'
+    }
+    // Keluar dari RAB: kembali menjadi pengeluaran biasa (dihitung OPEX).
+    if (dariRab) {
+      updatePayload.type = 'expense'
     }
 
     if (input.receipt_url !== undefined) {

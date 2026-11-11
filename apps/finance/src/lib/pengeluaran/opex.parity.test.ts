@@ -26,6 +26,7 @@ const IDENTICAL_FILES = [
   'lib/pengeluaran/ambilPengeluaran.ts',
   'lib/pengeluaran/susunBaris.ts',
   'lib/pengeluaran/jointExpense.ts',
+  'lib/pengeluaran/rab.ts',
   'lib/server/ringkasanPayrollHr.ts',
   'app/actions/expenses.ts',
   'app/actions/hrPayroll.ts',

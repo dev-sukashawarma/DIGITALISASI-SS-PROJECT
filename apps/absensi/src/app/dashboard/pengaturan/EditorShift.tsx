@@ -3,6 +3,7 @@
 import { Clock, Moon, Plus, Trash2 } from "lucide-react";
 import { MAX_SHIFT, namaShift } from "@/lib/attendance/shift";
 import { NAMA_SHIFT_MAKS, usulanShiftBaru, type ShiftDraft } from "@/lib/attendance/jadwalOutlet";
+import { TimePicker } from "@/components/TimePicker";
 
 const keMenit = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const lewatTengahMalam = (s: ShiftDraft) =>
@@ -79,27 +80,27 @@ export function EditorShift({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border-2 border-slate-200 p-3.5 bg-slate-50/70 focus-within:border-orange-500 focus-within:bg-white transition-all">
-            <label htmlFor="shift1-masuk" className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
+            <span className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Jam Masuk
-            </label>
-            <input
+            </span>
+            <TimePicker
               id="shift1-masuk"
-              type="time" required
+              label="Jam Masuk Shift 1 (WIB)"
               value={s1.jam_masuk}
-              onChange={(e) => ubah(0, { jam_masuk: e.target.value })}
-              className="w-full bg-transparent text-xl sm:text-2xl font-black text-slate-900 outline-none"
+              onChange={(val) => ubah(0, { jam_masuk: val })}
+              size="lg"
             />
           </div>
           <div className="rounded-2xl border-2 border-slate-200 p-3.5 bg-slate-50/70 focus-within:border-orange-500 focus-within:bg-white transition-all">
-            <label htmlFor="shift1-pulang" className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-rose-700 uppercase tracking-wider">
+            <span className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-rose-700 uppercase tracking-wider">
               <span className="h-2 w-2 rounded-full bg-rose-500" /> Jam Pulang
-            </label>
-            <input
+            </span>
+            <TimePicker
               id="shift1-pulang"
-              type="time" required
+              label="Jam Pulang Shift 1 (WIB)"
               value={s1.jam_keluar}
-              onChange={(e) => ubah(0, { jam_keluar: e.target.value })}
-              className="w-full bg-transparent text-xl sm:text-2xl font-black text-slate-900 outline-none"
+              onChange={(val) => ubah(0, { jam_keluar: val })}
+              size="lg"
             />
           </div>
         </div>
@@ -173,28 +174,28 @@ export function EditorShift({
               </button>
             </div>
             <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-              <label className="block rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                 <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Masuk
                 </span>
-                <input
-                  type="time" required
+                <TimePicker
+                  label={`Jam Masuk Shift ${i + 1} (WIB)`}
                   value={s.jam_masuk}
-                  onChange={(e) => ubah(i, { jam_masuk: e.target.value })}
-                  className="w-full bg-transparent text-lg font-black text-slate-900 outline-none"
+                  onChange={(val) => ubah(i, { jam_masuk: val })}
+                  size="md"
                 />
-              </label>
-              <label className="block rounded-xl border border-slate-200 bg-white px-3 py-2">
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                 <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-rose-700">
                   <span className="h-1.5 w-1.5 rounded-full bg-rose-500" /> Pulang
                 </span>
-                <input
-                  type="time" required
+                <TimePicker
+                  label={`Jam Pulang Shift ${i + 1} (WIB)`}
                   value={s.jam_keluar}
-                  onChange={(e) => ubah(i, { jam_keluar: e.target.value })}
-                  className="w-full bg-transparent text-lg font-black text-slate-900 outline-none"
+                  onChange={(val) => ubah(i, { jam_keluar: val })}
+                  size="md"
                 />
-              </label>
+              </div>
             </div>
             {lewatTengahMalam(s) && <CatatanTengahMalam />}
           </li>

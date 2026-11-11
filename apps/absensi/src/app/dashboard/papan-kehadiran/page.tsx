@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState, Spinner } from "@suka/design-system";
 import { LogIn, LogOut, Clock4, MoreHorizontal, Users, CalendarDays, Store, AlertTriangle } from "lucide-react";
@@ -308,15 +309,20 @@ export default function PapanKehadiranPage() {
       </div>
 
       {/* Image Preview Modal */}
-      {preview && (
-        <div onClick={() => setPreview(null)} className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/80 p-6 backdrop-blur-sm transition-all duration-300 animate-in fade-in zoom-in-95 cursor-zoom-out">
+      {preview && typeof document !== "undefined" && createPortal(
+        <div
+          data-no-swipe
+          onClick={() => setPreview(null)}
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-gray-900/80 p-6 backdrop-blur-sm transition-all duration-300 animate-in fade-in zoom-in-95 cursor-zoom-out"
+        >
           <div className="relative group max-w-full">
             <button onClick={() => setPreview(null)} className="absolute -top-4 -right-4 bg-white text-gray-900 rounded-full p-2 shadow-lg hover:scale-110 transition-transform">
               <LogOut size={16} className="rotate-180" />
             </button>
-            <img src={preview} alt="selfie preview" className="max-h-[85vh] max-w-full rounded-[2rem] shadow-2xl border-4 border-white/20" />
+            <img src={preview} alt="selfie preview" className="max-h-[85dvh] max-w-full rounded-[2rem] shadow-2xl border-4 border-white/20" />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

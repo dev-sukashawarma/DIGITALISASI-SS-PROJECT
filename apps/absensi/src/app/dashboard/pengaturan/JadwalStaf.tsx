@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Spinner } from "@suka/design-system";
 import { Clock, Moon, Pencil, Plus, RotateCw, Search, Trash2, UserRoundCog, Users, X } from "lucide-react";
 import { Select } from "@/components/Select";
+import { TimePicker } from "@/components/TimePicker";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
 import {
@@ -454,27 +455,27 @@ function ModalJadwal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-2xl border-2 border-slate-200 p-3.5 bg-slate-50/70 focus-within:border-orange-500 focus-within:bg-white transition-all">
-                <label htmlFor="jadwal-staf-masuk" className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
+                <span className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Jam Masuk
-                </label>
-                <input
+                </span>
+                <TimePicker
                   id="jadwal-staf-masuk"
-                  type="time" required
+                  label="Jam Masuk Aturan Staf (WIB)"
                   value={draf.jamMasuk}
-                  onChange={(e) => setDraf({ ...draf, jamMasuk: e.target.value })}
-                  className="w-full bg-transparent text-xl sm:text-2xl font-black text-slate-900 outline-none"
+                  onChange={(val) => setDraf({ ...draf, jamMasuk: val })}
+                  size="lg"
                 />
               </div>
               <div className="rounded-2xl border-2 border-slate-200 p-3.5 bg-slate-50/70 focus-within:border-orange-500 focus-within:bg-white transition-all">
-                <label htmlFor="jadwal-staf-pulang" className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-rose-700 uppercase tracking-wider">
+                <span className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-rose-700 uppercase tracking-wider">
                   <span className="h-2 w-2 rounded-full bg-rose-500" /> Jam Pulang
-                </label>
-                <input
+                </span>
+                <TimePicker
                   id="jadwal-staf-pulang"
-                  type="time" required
+                  label="Jam Pulang Aturan Staf (WIB)"
                   value={draf.jamKeluar}
-                  onChange={(e) => setDraf({ ...draf, jamKeluar: e.target.value })}
-                  className="w-full bg-transparent text-xl sm:text-2xl font-black text-slate-900 outline-none"
+                  onChange={(val) => setDraf({ ...draf, jamKeluar: val })}
+                  size="lg"
                 />
               </div>
             </div>

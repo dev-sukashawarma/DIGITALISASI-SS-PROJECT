@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Card, Spinner } from "@suka/design-system";
-import { Eye, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin, Store } from "lucide-react";
+import { Eye, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin, Store, X } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -484,19 +485,25 @@ export function AttendanceKioskPanel() {
       )}
 
       {/* Modal Popup Pilih Outlet Manual */}
-      {showOutletPickerModal && (
-        <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <Card className="w-full max-w-md bg-white p-6 rounded-3xl space-y-4 shadow-2xl border-2 border-suka-orange max-h-[85vh] overflow-y-auto">
+      {showOutletPickerModal && typeof document !== "undefined" && createPortal(
+        <div
+          data-no-swipe
+          onClick={(e) => { if (e.target === e.currentTarget) setShowOutletPickerModal(false); }}
+          className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+        >
+          <Card className="w-full max-w-md bg-white p-6 rounded-3xl space-y-4 shadow-2xl border-2 border-suka-orange max-h-[85dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
                 <Store className="text-suka-orange" size={20} />
                 <h3 className="text-base font-extrabold text-suka-ink">Pilih Lokasi Outlet</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setShowOutletPickerModal(false)}
+                aria-label="Tutup"
                 className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition-colors"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
 
@@ -530,8 +537,9 @@ export function AttendanceKioskPanel() {
                   >
                     <div className="min-w-0 pr-2">
                       <div className="flex items-center gap-2">
+                        <MapPin size={13} className="shrink-0 text-suka-orange" />
                         <span className="font-extrabold text-xs text-suka-ink truncate">
-                          📍 {out.name}
+                          {out.name}
                         </span>
                         {out.id === outletStaff.outlet_id && (
                           <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-bold shrink-0">Utama</span>
@@ -541,22 +549,23 @@ export function AttendanceKioskPanel() {
                         <div className="text-[11px] font-semibold mt-1 flex items-center gap-1 text-gray-500">
                           <span>Jarak: <span className={isClosest ? "text-emerald-600 font-extrabold" : "text-gray-600"}>{distText}</span></span>
                           {isClosest && (
-                            <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-full">📍 Terdekat</span>
+                            <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-full">Terdekat</span>
                           )}
                         </div>
                       )}
                     </div>
-                    <button className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow transition-colors ${
+                    <button type="button" className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow transition-colors ${
                       isSelected ? "bg-suka-brown text-white" : "bg-suka-orange text-white group-hover:bg-suka-brown"
                     }`}>
-                      {isSelected ? "Aktif" : "Pilih →"}
+                      {isSelected ? "Aktif" : "Pilih"}
                     </button>
                   </div>
                 );
               })}
             </div>
           </Card>
-        </div>
+        </div>,
+        document.body,
       )}
 
           {jadwalKhusus && !hasIn && (

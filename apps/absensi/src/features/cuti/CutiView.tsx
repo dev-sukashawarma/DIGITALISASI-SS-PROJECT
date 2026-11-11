@@ -5,21 +5,31 @@ import { useAuth } from "@suka/auth";
 import {
   CalendarDays, Clock, CheckCircle2, XCircle, Plus, Info,
   UploadCloud, FileImage, X, Activity, CheckSquare, Hourglass,
-  ChevronRight, AlertCircle, Minus, AlertTriangle
+  ChevronRight, ChevronDown, AlertCircle, Minus, AlertTriangle
 } from "lucide-react";
 import { useLeaveHistory, useLeaveBalance, useSubmitLeave, useBatalkanCuti, LeaveType } from "./api";
 import { TombolBatalkan } from "@/components/TombolBatalkan";
 import { useLeaveNotifications } from "./useLeaveNotifications";
 import { useToast } from "@/lib/feedback/toast";
 import { BottomSheet } from "@/components/BottomSheet";
+import { CalendarPanel } from "@/components/DatePicker";
 import {
   hitungRentang, pengajuanBentrok, cutiTerpakaiTahun, hariMenunggu, hariIniLokal, tambahHari, maksHari,
   formatHariTgl, formatHariTglTahun, formatNamaHari, formatBulan, tanggalKe, type RentangCuti,
 } from "./rentangCuti";
 
-const convertToWebP = (file: File): Promise<File> => {
+const MAKS_DIMENSI_GAMBAR = 1600;
+
+/**
+ * Kompres lampiran gambar secara aman untuk semua browser termasuk iOS Safari:
+ * 1. Batasi dimensi maks 1600px agar foto kamera iPhone beresolusi tinggi (48MP) tidak
+ *    menembus batas kanvas 16.7MP milik WebKit iOS.
+ * 2. Coba WebP dulu; bila browser (seperti Safari iOS lama) diam-diam jatuh ke image/png,
+ *    gunakan JPEG yang didukung penuh di semua versi iOS.
+ */
+const compressAttachmentImage = (file: File): Promise<File> => {
   return new Promise((resolve) => {
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith('image/') || file.type.includes('svg')) {
       resolve(file);
       return;
     }
@@ -27,25 +37,51 @@ const convertToWebP = (file: File): Promise<File> => {
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        const perluKecilkan = width > MAKS_DIMENSI_GAMBAR || height > MAKS_DIMENSI_GAMBAR;
+
+        if (width > MAKS_DIMENSI_GAMBAR) {
+          height = Math.round((height * MAKS_DIMENSI_GAMBAR) / width);
+          width = MAKS_DIMENSI_GAMBAR;
+        }
+        if (height > MAKS_DIMENSI_GAMBAR) {
+          width = Math.round((width * MAKS_DIMENSI_GAMBAR) / height);
+          height = MAKS_DIMENSI_GAMBAR;
+        }
+
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           resolve(file);
           return;
         }
-        ctx.drawImage(img, 0, 0);
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const newName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
-            const newFile = new File([blob], newName, {
-              type: 'image/webp',
-              lastModified: Date.now(),
-            });
-            resolve(newFile);
-          } else {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const baseName = file.name.replace(/\.[^/.]+$/, "") || "lampiran";
+        const bungkus = (blob: Blob | null, ext: string, mime: string) => {
+          if (!blob) {
             resolve(file);
+            return;
+          }
+          const hasil = new File([blob], `${baseName}.${ext}`, {
+            type: mime,
+            lastModified: Date.now(),
+          });
+          resolve(perluKecilkan || hasil.size < file.size ? hasil : file);
+        };
+
+        canvas.toBlob((webpBlob) => {
+          if (webpBlob && webpBlob.type === 'image/webp') {
+            bungkus(webpBlob, 'webp', 'image/webp');
+          } else {
+            canvas.toBlob((jpegBlob) => {
+              bungkus(jpegBlob, 'jpg', 'image/jpeg');
+            }, 'image/jpeg', 0.82);
           }
         }, 'image/webp', 0.8);
       };
@@ -197,7 +233,7 @@ export function CutiView() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
+            <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
               <CalendarDays size={24} strokeWidth={2.5} />
             </div>
             <div>
@@ -208,7 +244,7 @@ export function CutiView() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-suka-orange to-orange-500 hover:from-orange-600 hover:to-orange-500 text-white px-5 py-2.5 rounded-2xl text-sm font-bold transition-all shadow-xl shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5"
+          className="flex items-center justify-center gap-2 bg-suka-orange hover:bg-orange-600 text-white px-5 py-2.5 rounded-2xl text-sm font-bold transition-all shadow-lg shadow-orange-500/20 hover:-translate-y-0.5"
         >
           <Plus size={20} strokeWidth={2.5} />
           Ajukan Cuti
@@ -245,11 +281,9 @@ export function CutiView() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 rounded-3xl shadow-xl shadow-blue-500/20 relative overflow-hidden group text-white">
-          <div className="absolute -right-10 -top-10 w-32 h-32 bg-white/10 rounded-full blur-2xl transition-transform group-hover:scale-150" />
-          <div className="absolute right-0 bottom-0 w-24 h-24 bg-indigo-500/50 rounded-tl-full blur-xl" />
+        <div className="bg-blue-600 p-6 rounded-3xl shadow-xl shadow-blue-500/20 relative overflow-hidden group text-white">
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center mb-4 backdrop-blur-sm border border-white/10">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center mb-4 border border-white/15">
               <CheckSquare className="text-white" size={20} strokeWidth={2.5}/>
             </div>
             <p className="text-sm font-medium text-blue-100 mb-1">Sisa Kuota Tersedia</p>
@@ -275,7 +309,7 @@ export function CutiView() {
               type="submit"
               form="form-pengajuan-cuti"
               disabled={submitLeave.isPending || !!bentrok}
-              className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[15px] font-bold rounded-2xl transition-all shadow-lg shadow-blue-500/25"
+              className="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[15px] font-bold rounded-2xl transition-all shadow-lg shadow-blue-500/25"
             >
               {submitLeave.isPending ? "Mengirim..." : "Ajukan"}
             </button>
@@ -315,8 +349,8 @@ export function CutiView() {
                         onChange={async (e) => {
                           const selectedFile = e.target.files?.[0];
                           if (selectedFile) {
-                            const webpFile = await convertToWebP(selectedFile);
-                            setFile(webpFile);
+                            const compressedFile = await compressAttachmentImage(selectedFile);
+                            setFile(compressedFile);
                           } else {
                             setFile(null);
                           }
@@ -376,7 +410,7 @@ export function CutiView() {
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={4}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all resize-none"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base sm:text-sm font-medium text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all resize-none"
                   placeholder="Tuliskan alasan lengkap mengenai permohonan cuti/izin Anda..."
                 />
               </div>
@@ -522,54 +556,85 @@ function PilihJenis({ value, onPilih }: { value: LeaveType; onPilih: (v: LeaveTy
   );
 }
 
-/** Hari ini / Besok / Lusa sekali ketuk; opsi keempat membuka kalender bawaan browser
- *  dan menampilkan tanggal pilihan bila bukan salah satu dari tiga itu. */
+/** Hari ini / Besok / Lusa sekali ketuk; opsi keempat membuka kalender custom (bukan
+ *  native input[type="date"] yang gagal tampil pada iOS Safari/WebKit) dan menampilkan
+ *  tanggal pilihan bila bukan salah satu dari tiga itu. */
 function PilihMulai({ hariIni, mulai, onPilih }: { hariIni: string; mulai: string; onPilih: (iso: string) => void }) {
-  const kalender = useRef<HTMLInputElement>(null);
+  const [bukaKalender, setBukaKalender] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const cepat = [
     { label: "Hari ini", tgl: hariIni },
     { label: "Besok", tgl: tambahHari(hariIni, 1) },
     { label: "Lusa", tgl: tambahHari(hariIni, 2) },
   ];
   const lainnya = !cepat.some((c) => c.tgl === mulai);
-  const kelas = (aktif: boolean) =>
-    `flex-1 min-w-0 px-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-      aktif ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-100" : "text-slate-500 hover:text-slate-800"
-    }`;
+  const aktifLainnya = lainnya || bukaKalender;
+  const labelLainnya = lainnya
+    ? `${tanggalKe(mulai)} ${formatBulan(mulai)}`
+    : "Lainnya";
+  const warnaTombol = (aktif: boolean) =>
+    aktif ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-100" : "text-slate-500 hover:text-slate-800";
+
+  useEffect(() => {
+    if (!bukaKalender) return;
+    const id = requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [bukaKalender]);
 
   return (
-    <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl" role="radiogroup" aria-label="Tanggal mulai">
-      {cepat.map((c) => (
-        <button key={c.label} type="button" role="radio" aria-checked={mulai === c.tgl} onClick={() => onPilih(c.tgl)} className={kelas(mulai === c.tgl)}>
-          {c.label}
-        </button>
-      ))}
-      <div className="relative flex-[1.2] min-w-0 flex">
+    <div className="space-y-2.5">
+      <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl" role="radiogroup" aria-label="Tanggal mulai">
+        {cepat.map((c) => {
+          const aktif = !bukaKalender && mulai === c.tgl;
+          return (
+            <button
+              key={c.label}
+              type="button"
+              role="radio"
+              aria-checked={aktif}
+              onClick={() => {
+                setBukaKalender(false);
+                onPilih(c.tgl);
+              }}
+              className={`flex-1 min-w-0 px-1.5 py-2.5 rounded-xl text-[13px] sm:text-sm font-bold whitespace-nowrap transition-all ${warnaTombol(aktif)}`}
+            >
+              {c.label}
+            </button>
+          );
+        })}
         <button
           type="button"
           role="radio"
-          aria-checked={lainnya}
-          onClick={() => {
-            const el = kalender.current;
-            if (!el) return;
-            // showPicker belum ada di browser lama — fokus membuka picker di sebagian besar ponsel.
-            try { el.showPicker(); } catch { el.focus(); }
-          }}
-          className={`${kelas(lainnya)} flex items-center justify-center gap-1.5`}
+          aria-checked={aktifLainnya}
+          aria-expanded={bukaKalender}
+          onClick={() => setBukaKalender((v) => !v)}
+          className={`flex-[1.5] min-w-0 px-2.5 py-2.5 rounded-xl text-[13px] sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${warnaTombol(aktifLainnya)}`}
         >
-          <CalendarDays size={15} className="shrink-0" />
-          <span className="truncate">{lainnya ? formatHariTgl(mulai) : "Lainnya"}</span>
+          <CalendarDays size={14} className="shrink-0" />
+          <span className="truncate">{labelLainnya}</span>
+          <ChevronDown
+            size={13}
+            className={`shrink-0 opacity-70 transition-transform duration-200 ${bukaKalender ? "rotate-180" : ""}`}
+          />
         </button>
-        <input
-          ref={kalender}
-          type="date"
-          value={mulai}
-          onChange={(e) => e.target.value && onPilih(e.target.value)}
-          tabIndex={-1}
-          aria-hidden
-          className="absolute inset-0 w-full opacity-0 pointer-events-none"
-        />
       </div>
+
+      {bukaKalender && (
+        <div ref={panelRef} className="animate-in fade-in slide-in-from-top-1 duration-200">
+          <CalendarPanel
+            value={mulai}
+            today={hariIni}
+            accent="blue"
+            onChange={(iso) => {
+              onPilih(iso);
+              setBukaKalender(false);
+            }}
+            onClose={() => setBukaKalender(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -26,21 +26,34 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
 
   const selectedOption = options.find((o) => o.value === value)
 
-  // Close dropdown when clicking outside
+  // Close dropdown when tapping/clicking outside (pointerdown works reliably on iOS Safari)
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleOutside(event: PointerEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsOpen(false)
         setSearchQuery('')
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+        setSearchQuery('')
+      }
+    }
+    document.addEventListener('pointerdown', handleOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handleOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [])
 
   useEffect(() => {
     if (isOpen && searchable && inputRef.current) {
-      inputRef.current.focus()
+      // Fokus otomatis hanya di layar lebar agar keyboard iOS tidak langsung menutup daftar opsi
+      if (typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches) {
+        inputRef.current.focus()
+      }
     }
   }, [isOpen, searchable])
 
@@ -71,7 +84,7 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-suka-gray-200 rounded-lg shadow-lg flex flex-col max-h-60 overflow-hidden focus:outline-none">
+        <div data-no-swipe className="absolute z-50 mt-1 w-full bg-white border border-suka-gray-200 rounded-lg shadow-lg flex flex-col max-h-60 overflow-hidden focus:outline-none">
           {searchable && (
             <div className="p-2 border-b border-gray-100 bg-gray-50/50">
               <div className="relative">
@@ -82,7 +95,7 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
                   placeholder="Cari opsi..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-sm bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-suka-brown/30 focus:border-suka-brown/30 transition-all"
+                  className="w-full pl-8 pr-3 py-1.5 text-base sm:text-sm bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-suka-brown/30 focus:border-suka-brown/30 transition-all"
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>

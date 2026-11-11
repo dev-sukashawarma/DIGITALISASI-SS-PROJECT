@@ -127,7 +127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div className="flex h-dvh items-center justify-center bg-slate-50">
         <div className="w-8 h-8 border-4 border-suka-orange border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -137,7 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Tampilkan pesan error yang informatif alih-alih loading selamanya
   if (!outletStaff) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 p-4">
+      <div className="flex h-dvh items-center justify-center bg-slate-50 p-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center space-y-4">
           <div className="mx-auto w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center">
             <AlertTriangle size={32} className="text-amber-500" />
@@ -164,7 +164,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-dvh bg-slate-50 overflow-hidden">
       <LocationPresence 
         outletId={outletStaff?.outlet_id} 
         staffId={outletStaff?.id} 
@@ -244,7 +244,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-dvh overflow-hidden">
         {/* Mobile Header — tanpa hamburger, navigasi pindah ke bottom bar */}
         <header className="lg:hidden sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur border-b border-gray-200">
           <h2 className="text-base font-bold text-suka-brown flex items-center gap-2 truncate">

@@ -36,15 +36,17 @@ export function SwipeableContainer({ children, navItems }: SwipeableContainerPro
 
   useEffect(() => {
     if (containerRef.current) {
-      containerRef.current.style.transition = 'none'
-      containerRef.current.style.transform = 'translateX(0px)'
+      containerRef.current.style.transition = ''
+      containerRef.current.style.transform = ''
+      containerRef.current.style.willChange = ''
     }
     setPeekDirection(null)
   }, [pathname])
 
   const isValidSwipeStart = (e: any) => {
-    const target = e.target as HTMLElement
-    if (target.closest('.overflow-x-auto') || target.closest('[data-no-swipe]')) return false
+    const target = e.target as HTMLElement | null
+    if (!target || typeof target.closest !== 'function') return false
+    if (target.closest('.overflow-x-auto') || target.closest('[data-no-swipe]') || target.closest('[role="dialog"]')) return false
     return true
   }
 
@@ -57,6 +59,7 @@ export function SwipeableContainer({ children, navItems }: SwipeableContainerPro
       isIgnoringSwipe.current = false
       if (containerRef.current) {
         containerRef.current.style.transition = 'none'
+        containerRef.current.style.willChange = 'transform'
       }
     },
     onSwiping: (eventData) => {
@@ -89,6 +92,11 @@ export function SwipeableContainer({ children, navItems }: SwipeableContainerPro
         containerRef.current.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
         containerRef.current.style.transform = 'translateX(0px)'
         setTimeout(() => {
+          if (containerRef.current) {
+            containerRef.current.style.transition = ''
+            containerRef.current.style.transform = ''
+            containerRef.current.style.willChange = ''
+          }
           setPeekDirection(null)
         }, 250)
       }
@@ -133,7 +141,7 @@ export function SwipeableContainer({ children, navItems }: SwipeableContainerPro
 
       <div 
         ref={containerRef} 
-        className="flex-1 flex flex-col min-w-0 h-full w-full bg-slate-50 z-10 will-change-transform shadow-[0_0_30px_rgba(0,0,0,0.05)] lg:shadow-none lg:transform-none"
+        className="flex-1 flex flex-col min-w-0 h-full w-full bg-slate-50 z-10 shadow-[0_0_30px_rgba(0,0,0,0.05)] lg:shadow-none"
       >
         {children}
       </div>

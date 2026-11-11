@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState } from "@suka/design-system";
 import { LogIn, LogOut, ClipboardList, Download, Store, User, ChevronRight, X, Smartphone } from "lucide-react";
@@ -8,6 +9,7 @@ import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { PageHeader } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
+import { DatePicker } from "@/components/DatePicker";
 import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv";
 import { useRealtimeInvalidate } from "@suka/realtime";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
@@ -267,10 +269,23 @@ export default function RekapPage() {
               className="w-[140px]"
             />
             {period === "custom" && (
-              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm h-[40px]">
-                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="text-sm outline-none bg-transparent text-slate-700 font-medium" />
-                <span className="text-slate-400 font-medium">-</span>
-                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} min={customStart} className="text-sm outline-none bg-transparent text-slate-700 font-medium" />
+              <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                <DatePicker
+                  value={customStart}
+                  max={customEnd}
+                  label="Tanggal Mulai"
+                  onChange={(iso) => {
+                    setCustomStart(iso);
+                    if (iso > customEnd) setCustomEnd(iso);
+                  }}
+                />
+                <span className="text-slate-400 font-semibold text-xs">s/d</span>
+                <DatePicker
+                  value={customEnd}
+                  min={customStart}
+                  label="Tanggal Selesai"
+                  onChange={(iso) => setCustomEnd(iso)}
+                />
               </div>
             )}
             <button
@@ -468,9 +483,13 @@ export default function RekapPage() {
       </div>
 
       {/* Detail Slide-over / Modal */}
-      {selectedStaff && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm transition-all">
-          <div className="w-full max-w-md h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      {selectedStaff && typeof document !== "undefined" && createPortal(
+        <div
+          data-no-swipe
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedStaff(null); }}
+          className="fixed inset-0 z-[100] flex justify-end bg-slate-900/40 backdrop-blur-sm transition-all"
+        >
+          <div className="w-full max-w-md h-dvh bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-3">
                 {(selectedStaff.in_photo_url || selectedStaff.latest_photo_url) ? (
@@ -497,7 +516,7 @@ export default function RekapPage() {
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+            <div className="flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] space-y-4 bg-slate-50/50">
               {detailByDate.length === 0 ? (
                 <div className="text-center p-8 text-slate-500">Tidak ada riwayat detail.</div>
               ) : (
@@ -627,14 +646,20 @@ export default function RekapPage() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Fullscreen Photo Preview */}
-      {preview && (
-        <div onClick={() => setPreview(null)} className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 p-6 backdrop-blur-md transition-opacity">
-          <img src={preview} alt="selfie besar" className="max-h-[85vh] max-w-full rounded-3xl shadow-2xl border-2 border-white/20" />
-        </div>
+      {preview && typeof document !== "undefined" && createPortal(
+        <div
+          data-no-swipe
+          onClick={() => setPreview(null)}
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/90 p-6 backdrop-blur-md transition-opacity"
+        >
+          <img src={preview} alt="selfie besar" className="max-h-[85dvh] max-w-full rounded-3xl shadow-2xl border-2 border-white/20" />
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Spinner, EmptyState } from "@suka/design-system";
 import { ListChecks, Plus, Edit, Trash2, X as XIcon, Store } from "lucide-react";
@@ -333,19 +334,19 @@ export default function ChecklistManagementPage() {
       )}
 
       {/* Category Modal */}
-      {showCatModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 sm:p-6">
+      {showCatModal && typeof document !== "undefined" && createPortal(
+        <div data-no-swipe onClick={(e) => { if (e.target === e.currentTarget) setShowCatModal(false); }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 sm:p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-suka-ink">{editingCatId ? "Edit Kategori" : "Kategori Baru"}</h2>
-              <button onClick={() => setShowCatModal(false)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"><XIcon size={20} /></button>
+              <button type="button" onClick={() => setShowCatModal(false)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"><XIcon size={20} /></button>
             </div>
             <form onSubmit={handleSaveCategory} className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Nama Kategori</label>
                 <input
                   type="text" required value={catName} onChange={e => setCatName(e.target.value)} autoFocus
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base sm:text-sm outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20"
                   placeholder="Contoh: Keamanan & Akses"
                 />
               </div>
@@ -380,23 +381,24 @@ export default function ChecklistManagementPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Item Modal */}
-      {showItemModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 sm:p-6">
+      {showItemModal && typeof document !== "undefined" && createPortal(
+        <div data-no-swipe onClick={(e) => { if (e.target === e.currentTarget) setShowItemModal(false); }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 sm:p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-bold text-suka-ink">{editingItemId ? "Edit Tugas" : "Tugas Baru"}</h2>
-              <button onClick={() => setShowItemModal(false)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"><XIcon size={20} /></button>
+              <button type="button" onClick={() => setShowItemModal(false)} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"><XIcon size={20} /></button>
             </div>
             <form onSubmit={handleSaveItem} className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Nama Tugas</label>
                 <input
                   type="text" required value={itemName} onChange={e => setItemName(e.target.value)} autoFocus
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base sm:text-sm outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/20"
                   placeholder="Contoh: Cek tabung gas LPG"
                 />
               </div>
@@ -416,7 +418,8 @@ export default function ChecklistManagementPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

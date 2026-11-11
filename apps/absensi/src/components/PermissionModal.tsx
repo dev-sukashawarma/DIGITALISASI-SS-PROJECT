@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, MapPin, ShieldCheck, Lock, RefreshCw, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Spinner } from "@suka/design-system";
 
@@ -20,18 +21,22 @@ export function PermissionModal({
   errorMessage,
 }: Props) {
   const [activeTab, setActiveTab] = useState<"chrome" | "safari">("chrome");
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen || permissionState === "granted") return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || !isOpen || permissionState === "granted") return null;
 
   const isDenied = permissionState === "denied";
   const isRequesting = permissionState === "requesting";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-suka-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header Gradient */}
-        <div className="p-6 bg-gradient-to-br from-suka-orange via-orange-500 to-amber-500 text-white relative overflow-hidden shrink-0">
-          <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+  return createPortal(
+    <div data-no-swipe className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-suka-gray-200 overflow-hidden flex flex-col max-h-[90dvh]">
+        {/* Header Solid */}
+        <div className="p-6 bg-suka-orange text-white relative overflow-hidden shrink-0">
           <div className="relative z-10 flex items-center gap-3">
             <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shrink-0">
               {isDenied ? (
@@ -143,16 +148,16 @@ export function PermissionModal({
                   <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-[11px] space-y-2 text-gray-600">
                     {activeTab === "chrome" ? (
                       <ol className="list-decimal list-inside space-y-1.5 font-medium">
-                        <li>Klik ikon <b>Gembok 🔒</b> atau <b>Setelan ⚙️</b> di sebelah kiri bilah URL browser Anda.</li>
+                        <li>Klik ikon <b>Gembok</b> atau <b>Setelan</b> di sebelah kiri bilah URL browser Anda.</li>
                         <li>Pilih <b>Izin (Permissions)</b> atau <b>Setelan Situs</b>.</li>
-                        <li>Ubah izin <b>Kamera</b> dan <b>Lokasi</b> menjadi <b>"Izinkan" (Allow)</b>.</li>
+                        <li>Ubah izin <b>Kamera</b> dan <b>Lokasi</b> menjadi <b>&quot;Izinkan&quot; (Allow)</b>.</li>
                         <li>Kembali ke halaman ini lalu tekan tombol <b>Coba Lagi</b> di bawah.</li>
                       </ol>
                     ) : (
                       <ol className="list-decimal list-inside space-y-1.5 font-medium">
                         <li>Buka aplikasi <b>Pengaturan (Settings)</b> di iPhone/iPad Anda.</li>
                         <li>Gulir ke bawah dan pilih browser <b>Safari</b>.</li>
-                        <li>Buka menu <b>Kamera</b> & <b>Lokasi</b>, ubah ke <b>"Izinkan" (Allow)</b>.</li>
+                        <li>Buka menu <b>Kamera</b> & <b>Lokasi</b>, ubah ke <b>&quot;Izinkan&quot; (Allow)</b>.</li>
                         <li>Kembali ke browser dan tekan tombol <b>Coba Lagi</b> di bawah.</li>
                       </ol>
                     )}
@@ -171,7 +176,7 @@ export function PermissionModal({
             className={`w-full py-3 px-5 rounded-2xl font-extrabold text-sm text-white flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] ${
               isDenied
                 ? "bg-amber-600 hover:bg-amber-700 shadow-amber-500/25"
-                : "bg-gradient-to-r from-suka-orange to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-suka-orange/30"
+                : "bg-suka-orange hover:bg-orange-600 shadow-suka-orange/30"
             } ${isRequesting ? "opacity-75 cursor-not-allowed" : ""}`}
           >
             {isRequesting ? (
@@ -194,6 +199,7 @@ export function PermissionModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

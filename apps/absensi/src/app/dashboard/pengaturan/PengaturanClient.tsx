@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Button, Spinner } from "@suka/design-system";
 import { Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, Pencil, ShieldCheck, ShieldAlert, Sparkles, Clock, X } from "lucide-react";
 import { Select } from "@/components/Select";
+import { TimePicker } from "@/components/TimePicker";
 import { saveGlobalConfig, saveOutletException, deleteOutletException, deleteAllExceptions, type HasilAksi } from "./actions";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
@@ -262,26 +263,28 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
 
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border-2 border-slate-200 p-3.5 bg-slate-50/70 focus-within:border-orange-500 focus-within:bg-white transition-all">
-            <label className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
+            <span className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Jam Masuk
-            </label>
-            <input
-              type="time" name="jam_masuk" required
+            </span>
+            <TimePicker
+              name="jam_masuk"
+              label="Jam Masuk Pusat (WIB)"
               value={config.jam_masuk}
-              onChange={(e) => setConfig({ ...config, jam_masuk: e.target.value })}
-              className="w-full bg-transparent text-xl sm:text-2xl font-black text-slate-900 outline-none"
+              onChange={(val) => setConfig({ ...config, jam_masuk: val })}
+              size="lg"
             />
           </div>
 
           <div className="rounded-2xl border-2 border-slate-200 p-3.5 bg-slate-50/70 focus-within:border-orange-500 focus-within:bg-white transition-all">
-            <label className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-rose-700 uppercase tracking-wider">
+            <span className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-rose-700 uppercase tracking-wider">
               <span className="h-2 w-2 rounded-full bg-rose-500" /> Jam Pulang
-            </label>
-            <input
-              type="time" name="jam_keluar" required
+            </span>
+            <TimePicker
+              name="jam_keluar"
+              label="Jam Pulang Pusat (WIB)"
               value={config.jam_keluar}
-              onChange={(e) => setConfig({ ...config, jam_keluar: e.target.value })}
-              className="w-full bg-transparent text-xl sm:text-2xl font-black text-slate-900 outline-none"
+              onChange={(val) => setConfig({ ...config, jam_keluar: val })}
+              size="lg"
             />
           </div>
         </div>

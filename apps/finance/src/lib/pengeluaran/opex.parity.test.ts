@@ -133,7 +133,10 @@ describe('Paritas lintas-app Buku Kas (OPEX)', () => {
 
   it('Pilihan kategori petty cash di apps/pos-kasir semuanya terdaftar di allowlist Buku Kas (termasuk gas)', () => {
     const posShiftSrc = readNorm(resolve(POS_APP, 'kasir/shift/page.tsx'))
-    const optionValues = [...posShiftSrc.matchAll(/<option value="([^"]+)">/g)].map(m => m[1])
+    const optionsBlock = posShiftSrc.match(/const PETTY_CASH_CATEGORY_OPTIONS = \[([\s\S]*?)\] as const/)
+    const optionValues = optionsBlock
+      ? [...optionsBlock[1].matchAll(/value:\s*'([^']+)'/g)].map(m => m[1])
+      : [...posShiftSrc.matchAll(/<option value="([^"]+)">/g)].map(m => m[1])
     expect(optionValues).toContain('gas')
 
     const allowlist = new Set(

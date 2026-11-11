@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
           .select('id, outlet_id, category, amount, description, expense_date')
           .gte('expense_date', startDate)
           .lte('expense_date', endDate)
+          .eq('status', 'approved')
           .is('deleted_at', null)
           .order('id', { ascending: true }),
       'PettyCash'

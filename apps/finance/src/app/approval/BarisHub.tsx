@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { Building2, ClipboardCheck, Coins, ExternalLink, Send, Truck, type LucideIcon } from 'lucide-react'
+import { Building2, ClipboardCheck, Coins, ExternalLink, Receipt, Send, Truck, type LucideIcon } from 'lucide-react'
 import { rupiah, relativeTime, tanggalWaktu } from '@/lib/format'
 import { isLama, JENIS_LABEL, type HubItem, type HubJenis } from '@/lib/approval/hub'
 
 /** Ikon per jenis, sama dengan menu sidebar asalnya. */
 export const IKON_JENIS_HUB: Record<HubJenis, LucideIcon> = {
   petty_cash: Coins,
+  pengeluaran_petty_cash: Receipt,
   serah_am: Send,
   po: ClipboardCheck,
   bayar_vendor: Truck,
@@ -16,6 +17,7 @@ export const IKON_JENIS_HUB: Record<HubJenis, LucideIcon> = {
 
 const LABEL_SETUJUI: Record<HubJenis, string> = {
   petty_cash: 'Setujui',
+  pengeluaran_petty_cash: 'Setujui',
   serah_am: 'Serahkan ke AM',
   po: 'Setujui',
   bayar_vendor: 'Setujui',
@@ -70,7 +72,7 @@ export function BarisHub({
             </>
           )}
         </div>
-        <div className="mt-1 text-xs">
+        <div className="mt-1 flex items-center gap-2.5 text-xs">
           <span
             data-testid="umur-hub"
             title={tanggalWaktu(item.menungguSejak)}
@@ -78,6 +80,17 @@ export function BarisHub({
           >
             Masuk {relativeTime(item.menungguSejak).toLowerCase()}
           </span>
+          {item.jenis === 'pengeluaran_petty_cash' && item.data.receipt_url && (
+            <a
+              href={item.data.receipt_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-semibold text-suka-orange hover:underline"
+            >
+              Lihat struk
+              <ExternalLink size={11} />
+            </a>
+          )}
         </div>
       </div>
 

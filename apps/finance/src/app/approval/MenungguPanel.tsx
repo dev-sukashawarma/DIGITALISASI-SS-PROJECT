@@ -95,7 +95,7 @@ export function MenungguPanel({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" role="group" aria-label="Saring menurut jenis pengajuan">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7" role="group" aria-label="Saring menurut jenis pengajuan">
         {kartu('semua', 'Semua', items.length, totalSemua, false)}
         {URUTAN_JENIS.map((j) => kartu(j, JENIS_LABEL[j], perJenis[j], totalJenis[j], galat.includes(j)))}
       </div>

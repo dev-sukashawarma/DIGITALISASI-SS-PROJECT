@@ -27,7 +27,7 @@ export function useFinanceRealtime() {
       { table: 'cash_balance', queryKeys: [['cash_balance']] },
       { table: 'cash_location', queryKeys: [['cash_location']] },
       { table: 'petty_cash_topups', queryKeys: [['petty_cash_topups'], ['petty_cash_expenses_detail'], ['approval_log']] },
-      { table: 'petty_cash_expenses', queryKeys: [['petty_cash_expenses_detail'], ['petty_cash_real_balances']] },
+      { table: 'petty_cash_expenses', queryKeys: [['petty_cash_expenses_pending'], ['petty_cash_expenses_detail'], ['petty_cash_real_balances'], ['approval_log']] },
       { table: 'payroll_records', queryKeys: [['payroll_slips']] },
       { table: 'expenses', queryKeys: [['expenses'], ['office_vouchers'], ['approval_log']] },
       { table: 'purchase_order', queryKeys: [['po_payable'], ['po-pending-approval'], ['approval_log']] },

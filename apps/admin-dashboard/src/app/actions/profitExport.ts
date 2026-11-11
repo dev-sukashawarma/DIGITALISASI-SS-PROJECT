@@ -52,8 +52,9 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
     let b = supabase.from('petty_cash_expenses')
       .select('outlet_id, category, amount, expense_date')
       .neq('outlet_id', TEST_OUTLET_ID)
-      // Baris yang di-void lewat RPC void_petty_cash_expense TIDAK dihitung —
+      // Hanya baris yang sudah disetujui Finance dan belum di-void lewat RPC void_petty_cash_expense —
       // menyamakan perilaku dengan get_petty_cash_balance() di DB.
+      .eq('status', 'approved')
       .is('deleted_at', null)
       // Kategori petty cash yang dihitung sebagai biaya operasional outlet.
       // Enam kode di baris kedua adalah pilihan baru layar kasir (Transport,

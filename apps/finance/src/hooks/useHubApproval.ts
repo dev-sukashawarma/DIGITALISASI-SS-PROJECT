@@ -2,6 +2,10 @@
 
 import { useMemo } from 'react'
 import { usePettyCashMenunggu, usePettyCashCount } from '@/hooks/usePettyCash'
+import {
+  usePettyCashExpensesMenunggu,
+  usePettyCashExpensesPendingCount,
+} from '@/hooks/usePettyCashExpenseApproval'
 import { usePendingPos, usePendingPoCount } from '@/hooks/usePoApproval'
 import { usePayablePos, useTxBayarPo, useBayarVendorPendingCount } from '@/hooks/useSupplierSettlement'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
@@ -9,6 +13,7 @@ import {
   gabungSumber,
   hitungPerJenis,
   itemDariBayarVendor,
+  itemDariPengeluaranPettyCash,
   itemDariPettyCash,
   itemDariPo,
   itemDariVoucher,
@@ -20,7 +25,7 @@ function tanpaNull(items: (HubItem | null)[]): HubItem[] {
   return items.filter((i): i is HubItem => i !== null)
 }
 
-/** Semua pekerjaan yang menunggu admin finance, digabung dari lima sumber. */
+/** Semua pekerjaan yang menunggu admin finance, digabung dari seluruh sumber. */
 export function useHubApproval(enabled: boolean): {
   items: HubItem[]
   galat: HubJenis[]
@@ -28,6 +33,7 @@ export function useHubApproval(enabled: boolean): {
   perJenis: Record<HubJenis, number>
 } {
   const petty = usePettyCashMenunggu(enabled)
+  const pettyExp = usePettyCashExpensesMenunggu(enabled)
   const po = usePendingPos(enabled)
   const vendor = usePayablePos(enabled)
   const tx = useTxBayarPo(enabled)
@@ -40,6 +46,12 @@ export function useHubApproval(enabled: boolean): {
         items: tanpaNull((petty.data ?? []).map(itemDariPettyCash)),
         isLoading: petty.isLoading,
         error: petty.error,
+      },
+      {
+        jenis: ['pengeluaran_petty_cash'],
+        items: tanpaNull((pettyExp.data ?? []).map(itemDariPengeluaranPettyCash)),
+        isLoading: pettyExp.isLoading,
+        error: pettyExp.error,
       },
       { jenis: ['po'], items: (po.data ?? []).map(itemDariPo), isLoading: po.isLoading, error: po.error },
       {
@@ -58,6 +70,7 @@ export function useHubApproval(enabled: boolean): {
     return { ...hasil, perJenis: hitungPerJenis(hasil.items) }
   }, [
     petty.data, petty.isLoading, petty.error,
+    pettyExp.data, pettyExp.isLoading, pettyExp.error,
     po.data, po.isLoading, po.error,
     vendor.data, vendor.isLoading, vendor.error,
     tx.data, tx.isLoading, tx.error,
@@ -69,12 +82,21 @@ export function useHubApproval(enabled: boolean): {
 export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat: boolean } {
   const pettyAcc = usePettyCashCount('forwarded_to_finance', enabled)
   const pettySerah = usePettyCashCount('approved_by_finance', enabled)
+  const pettyExp = usePettyCashExpensesPendingCount(enabled)
   const po = usePendingPoCount(enabled)
   const vendor = useBayarVendorPendingCount(enabled)
   const voucher = useOfficeVouchers(undefined, { enabled })
 
   const danaKantor = voucher.vouchers.filter((v) => v.status === 'waiting_verification').length
-  const total = (pettyAcc.data ?? 0) + (pettySerah.data ?? 0) + (po.data ?? 0) + (vendor.data ?? 0) + danaKantor
-  const adaGalat = Boolean(pettyAcc.error || pettySerah.error || po.error || vendor.error || voucher.error)
+  const total =
+    (pettyAcc.data ?? 0) +
+    (pettySerah.data ?? 0) +
+    (pettyExp.data ?? 0) +
+    (po.data ?? 0) +
+    (vendor.data ?? 0) +
+    danaKantor
+  const adaGalat = Boolean(
+    pettyAcc.error || pettySerah.error || pettyExp.error || po.error || vendor.error || voucher.error,
+  )
   return { total, adaGalat }
 }

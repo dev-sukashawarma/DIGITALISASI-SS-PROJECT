@@ -156,6 +156,7 @@ export default async function LeaderDashboardPage() {
         .select('amount')
         .eq('outlet_id', primaryOutletId)
         .gte('created_at', shift.start_time)
+        .eq('status', 'approved')
         .is('deleted_at', null)
 
       const totalTopups = (topups || []).reduce((sum, t) => sum + Number(t.amount), 0)

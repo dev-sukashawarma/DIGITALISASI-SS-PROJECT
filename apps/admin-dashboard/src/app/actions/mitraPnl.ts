@@ -218,6 +218,7 @@ async function hitungPnlMitra(
       .select('id, amount, expense_date, category, description, outlet_id')
       .in('outlet_id', targetOutletIds)
       .neq('outlet_id', TEST_OUTLET_ID)
+      .eq('status', 'approved')
       .is('deleted_at', null)
       // Kas kecil RAB (ditanggung dana investasi): uangnya keluar dari laci, tapi bukan OPEX.
       .neq('type', 'rab')

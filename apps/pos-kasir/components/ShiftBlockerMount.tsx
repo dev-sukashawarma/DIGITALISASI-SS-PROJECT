@@ -69,7 +69,7 @@ export default function ShiftBlockerMount() {
       
       const { data: activeShift, error: shiftError } = await supabase
         .from('shifts')
-        .select('*')
+        .select('id, status')
         .eq('outlet_id', outletId)
         .eq('status', 'open')
         .maybeSingle()
@@ -127,6 +127,8 @@ export default function ShiftBlockerMount() {
             supabase.from('petty_cash_expenses')
               .select('amount')
               .eq('outlet_id', outletId)
+              .is('deleted_at', null)
+              .eq('status', 'approved')
               .gt('created_at', refTime)
           ])
           

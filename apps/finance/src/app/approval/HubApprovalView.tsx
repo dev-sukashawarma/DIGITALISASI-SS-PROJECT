@@ -8,6 +8,10 @@ import { PageHeader } from '@/components/ui'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { useHubApproval } from '@/hooks/useHubApproval'
 import { useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
+import {
+  useReviewPettyCashExpense,
+  type PendingPettyCashExpense,
+} from '@/hooks/usePettyCashExpenseApproval'
 import { useRejectPo, type PendingPo } from '@/hooks/usePoApproval'
 import { useTolakBayarPo, useTagihanBelumDiajukanCount, type PayablePo } from '@/hooks/useSupplierSettlement'
 import Link from 'next/link'
@@ -20,11 +24,18 @@ import { FinanceApprovalModal } from '@/app/petty-cash/components/FinanceApprova
 import { VerifyVoucherModal } from '@/components/VerifyVoucherModal'
 import { AlasanTolakModal } from '@/components/approval/AlasanTolakModal'
 import { SetujuiBayarVendorModal } from '@/components/approval/SetujuiBayarVendorModal'
+import { SetujuiPengeluaranPettyCashModal } from '@/components/approval/SetujuiPengeluaranPettyCashModal'
 import { SetujuiPoModal } from '@/components/approval/SetujuiPoModal'
 import { MenungguPanel } from './MenungguPanel'
 import { RiwayatApprovalPanel } from './RiwayatApprovalPanel'
 
-const PREFIX_HUB = [['petty_cash_topups'], ['po-pending-approval'], ['po_payable'], ['office_vouchers']]
+const PREFIX_HUB = [
+  ['petty_cash_topups'],
+  ['petty_cash_expenses_pending'],
+  ['po-pending-approval'],
+  ['po_payable'],
+  ['office_vouchers'],
+]
 
 function pesan(err: unknown, cadangan: string): string {
   return err instanceof Error && err.message ? err.message : cadangan
@@ -47,11 +58,13 @@ export function HubApprovalView() {
 
   const processTopup = useProcessPettyCashFinance()
   const forwardTopup = useForwardPettyCashFinance()
+  const reviewPettyExpense = useReviewPettyCashExpense()
   const rejectPo = useRejectPo()
   const tolakBayar = useTolakBayarPo()
   const { verifyVoucher, rejectVoucher, isVerifying, isRejecting } = useOfficeVouchers(undefined, { enabled: isChecker })
 
   const [pettyAcc, setPettyAcc] = useState<PettyCashTopup | null>(null)
+  const [pengeluaranPcAcc, setPengeluaranPcAcc] = useState<PendingPettyCashExpense | null>(null)
   const [poAcc, setPoAcc] = useState<PendingPo | null>(null)
   const [vendorAcc, setVendorAcc] = useState<PayablePo | null>(null)
   const [voucherAcc, setVoucherAcc] = useState<OfficeVoucher | null>(null)
@@ -65,6 +78,9 @@ export function HubApprovalView() {
     switch (i.jenis) {
       case 'petty_cash':
         setPettyAcc(i.data)
+        return
+      case 'pengeluaran_petty_cash':
+        setPengeluaranPcAcc(i.data)
         return
       case 'serah_am':
         if (!confirm('Konfirmasi penyerahan dana dari Finance ke Area Manager?')) return
@@ -97,6 +113,14 @@ export function HubApprovalView() {
         case 'petty_cash':
           await processTopup.mutateAsync({ id: i.data.id, action: 'reject', approvalNote: alasan })
           toast.success('Pengajuan Petty Cash ditolak.')
+          break
+        case 'pengeluaran_petty_cash':
+          await reviewPettyExpense.mutateAsync({
+            expenseId: i.data.id,
+            action: 'reject',
+            reason: alasan,
+          })
+          toast.success('Pengajuan pengeluaran petty cash ditolak.')
           break
         case 'po':
           await rejectPo.mutateAsync({ poId: i.data.id, alasan })
@@ -206,6 +230,21 @@ export function HubApprovalView() {
             const req = pettyAcc
             setPettyAcc(null)
             const baris = items.find((i) => i.jenis === 'petty_cash' && i.id === req.id)
+            if (baris) setTolakItem(baris)
+          }}
+        />
+      )}
+
+      {pengeluaranPcAcc && (
+        <SetujuiPengeluaranPettyCashModal
+          isOpen
+          expense={pengeluaranPcAcc}
+          onClose={() => setPengeluaranPcAcc(null)}
+          onGagal={segarkan}
+          onTolak={() => {
+            const exp = pengeluaranPcAcc
+            setPengeluaranPcAcc(null)
+            const baris = items.find((i) => i.jenis === 'pengeluaran_petty_cash' && i.id === exp.id)
             if (baris) setTolakItem(baris)
           }}
         />

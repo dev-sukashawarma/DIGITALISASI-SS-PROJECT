@@ -1,15 +1,25 @@
 import type { PettyCashTopup } from '@/lib/types'
+import type { PendingPettyCashExpense } from '@/hooks/usePettyCashExpenseApproval'
+import { labelKategoriPettyCash } from '@/hooks/usePettyCashExpenseApproval'
 import type { PendingPo } from '@/hooks/usePoApproval'
 import type { PayablePo, TxBayarPo } from '@/hooks/useSupplierSettlement'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
 
 /** Jenis pekerjaan yang menunggu admin finance di Hub Approval. */
-export type HubJenis = 'petty_cash' | 'serah_am' | 'po' | 'bayar_vendor' | 'dana_kantor'
+export type HubJenis = 'petty_cash' | 'pengeluaran_petty_cash' | 'serah_am' | 'po' | 'bayar_vendor' | 'dana_kantor'
 
-export const URUTAN_JENIS: HubJenis[] = ['petty_cash', 'serah_am', 'po', 'bayar_vendor', 'dana_kantor']
+export const URUTAN_JENIS: HubJenis[] = [
+  'petty_cash',
+  'pengeluaran_petty_cash',
+  'serah_am',
+  'po',
+  'bayar_vendor',
+  'dana_kantor',
+]
 
 export const JENIS_LABEL: Record<HubJenis, string> = {
   petty_cash: 'Petty cash',
+  pengeluaran_petty_cash: 'Pengeluaran PC',
   serah_am: 'Serahkan ke AM',
   po: 'Approval PO',
   bayar_vendor: 'Bayar vendor',
@@ -32,6 +42,7 @@ type Dasar = {
 export type HubItem = Dasar &
   (
     | { jenis: 'petty_cash' | 'serah_am'; data: PettyCashTopup }
+    | { jenis: 'pengeluaran_petty_cash'; data: PendingPettyCashExpense }
     | { jenis: 'po'; data: PendingPo }
     | { jenis: 'bayar_vendor'; data: PayablePo }
     | { jenis: 'dana_kantor'; data: OfficeVoucher }
@@ -60,6 +71,25 @@ export function itemDariPettyCash(t: PettyCashTopup): HubItem | null {
     menungguSejak: t.created_at,
     detailHref: null,
     data: t,
+  }
+}
+
+export function itemDariPengeluaranPettyCash(e: PendingPettyCashExpense): HubItem | null {
+  if (e.status !== 'pending') return null
+  return {
+    key: `pengeluaran_petty_cash:${e.id}`,
+    id: e.id,
+    jenis: 'pengeluaran_petty_cash',
+    judul: e.outlet_nama || '-',
+    keterangan: gabungKeterangan(
+      e.pengaju_nama,
+      labelKategoriPettyCash(e.category),
+      potong(e.description),
+    ),
+    nominal: Number(e.amount) || 0,
+    menungguSejak: e.created_at,
+    detailHref: null,
+    data: e,
   }
 }
 

@@ -109,6 +109,7 @@ export async function getExpensesAction(filter: FilterPengeluaran) {
         .neq('outlet_id', KANTOR_PUSAT_UUID)
         .neq('outlet_id', '00000000-0000-0000-0000-000000000000')
         .neq('outlet_id', TEST_OUTLET_ID)
+        .eq('status', 'approved')
         .is('deleted_at', null)
         .not('category', 'in', sensitiveCategoriesStr)
         .in('category', [

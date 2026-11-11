@@ -307,6 +307,7 @@ export async function getMitraRealtimeBepBreakdown(outletIdsDiminta: string[]): 
         .from('petty_cash_expenses')
         .select('id, amount, outlet_id, category, description, expense_date')
         .in('outlet_id', mitraOutletIds)
+        .eq('status', 'approved')
         .is('deleted_at', null)
         // Kas kecil RAB (ditanggung dana investasi): uangnya keluar dari laci, tapi bukan OPEX.
         .neq('type', 'rab')

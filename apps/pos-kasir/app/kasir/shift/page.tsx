@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock, X, Camera } from 'lucide-react'
+import { Wallet, LogIn, LogOut, Receipt, AlertTriangle, CheckCircle2, XCircle, Loader2, User, Clock, Banknote, ArrowDownToLine, Lock, X, Camera, ChevronDown, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
@@ -42,6 +42,10 @@ interface Expense {
   receipt_url?: string | null
   deleted_at?: string | null
   delete_reason?: string | null
+  status?: 'pending' | 'approved' | 'rejected'
+  approved_at?: string | null
+  approved_by?: string | null
+  rejection_reason?: string | null
 }
 
 interface PettyCashTopup {
@@ -74,6 +78,9 @@ interface PettyCashSnapshot {
   shift_id: string | null
   has_active_shift: boolean
   current_balance: number
+  available_balance?: number
+  pending_expenses_total?: number
+  pending_expenses_count?: number
   opening_balance: number | null
   pending_adjustment_id: string | null
   pending_note: string | null
@@ -98,6 +105,18 @@ function formatTime(value?: string | null): string {
   if (isNaN(d.getTime())) return ''
   return d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' })
 }
+
+const PETTY_CASH_CATEGORY_OPTIONS = [
+  { value: 'pengeluaran_outlet', label: 'Outlet (Plastik, ATK, Kebersihan)' },
+  { value: 'bahan_baku', label: 'Bahan Baku Lainnya (Es Batu, Sayur)' },
+  { value: 'gas', label: 'Gas (Elpiji / Isi Ulang Gas)' },
+  { value: 'transport', label: 'Transport (Ongkir, Bensin, Lalamove)' },
+  { value: 'pln', label: 'Listrik' },
+  { value: 'pdam', label: 'Air' },
+  { value: 'internet', label: 'Internet' },
+  { value: 'lembur', label: 'Overtime (Lembur)' },
+  { value: 'endorsement', label: 'Endorsement' },
+] as const
 
 const CATEGORY_LABEL: Record<string, string> = {
   pengeluaran_outlet: 'Outlet',
@@ -134,6 +153,8 @@ export default function CashierShiftPage() {
   const [topups, setTopups] = useState<PettyCashTopup[]>([])
   const [cashOrders, setCashOrders] = useState<CashOrder[]>([])
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0)
+  const [snapshotPendingTotal, setSnapshotPendingTotal] = useState<number | null>(null)
+  const [snapshotPendingCount, setSnapshotPendingCount] = useState<number | null>(null)
   const [adminAdjustmentNote, setAdminAdjustmentNote] = useState<string | null>(null)
   
   // Forms
@@ -142,9 +163,23 @@ export default function CashierShiftPage() {
   
   // Expense Form
   const [expCategory, setExpCategory] = useState<string>('pengeluaran_outlet')
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false)
+  const categoryDropdownRef = useRef<HTMLDivElement | null>(null)
   const [expAmount, setExpAmount] = useState<string>('')
   const [expDesc, setExpDesc] = useState<string>('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryDropdownOpen(false)
+      }
+    }
+    if (isCategoryDropdownOpen) {
+      document.addEventListener('mousedown', handleOutsideClick)
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [isCategoryDropdownOpen])
 
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -176,8 +211,27 @@ export default function CashierShiftPage() {
   }, [topups])
 
   const expensesTotal = useMemo(
-    () => expenses.filter(e => !e.deleted_at).reduce((s, e) => s + Number(e.amount), 0),
+    () => expenses
+      .filter(e => !e.deleted_at && (!e.status || e.status === 'approved'))
+      .reduce((s, e) => s + Number(e.amount), 0),
     [expenses],
+  )
+
+  const pendingExpensesTotal = useMemo(() => {
+    const localPending = expenses
+      .filter(e => !e.deleted_at && e.status === 'pending')
+      .reduce((s, e) => s + Number(e.amount), 0)
+    return snapshotPendingTotal !== null ? Math.max(localPending, snapshotPendingTotal) : localPending
+  }, [expenses, snapshotPendingTotal])
+
+  const pendingExpensesCount = useMemo(() => {
+    const localCount = expenses.filter(e => !e.deleted_at && e.status === 'pending').length
+    return snapshotPendingCount !== null ? Math.max(localCount, snapshotPendingCount) : localCount
+  }, [expenses, snapshotPendingCount])
+
+  const availablePettyCashBalance = useMemo(
+    () => Math.max(0, pettyCashBalance - pendingExpensesTotal),
+    [pettyCashBalance, pendingExpensesTotal],
   )
 
   const ledgerItems = useMemo<LedgerItem[]>(() => {
@@ -246,7 +300,7 @@ export default function CashierShiftPage() {
 
       const { data: shiftData, error: shiftError } = await supabase
         .from('shifts')
-        .select('*')
+        .select('id, status, starting_cash, starting_petty_cash, start_time, staff_id, end_time, closed_by, actual_ending_cash, expected_ending_cash, variance, admin_petty_cash_balance, admin_petty_cash_note, admin_petty_cash_updated_at')
         .eq('outlet_id', outletId)
         .eq('status', 'open')
         .maybeSingle()
@@ -259,6 +313,8 @@ export default function CashierShiftPage() {
       })
       const snapshot = snapshotError ? null : snapshotData as PettyCashSnapshot
       setAdminAdjustmentNote(snapshot?.last_adjustment_note || snapshot?.pending_note || null)
+      setSnapshotPendingTotal(snapshot ? Number(snapshot.pending_expenses_total) || 0 : null)
+      setSnapshotPendingCount(snapshot ? Number(snapshot.pending_expenses_count) || 0 : null)
 
       let snapExpenses: Expense[] = []
       let snapTopups: PettyCashTopup[] = []
@@ -296,8 +352,8 @@ export default function CashierShiftPage() {
           : new Date(0).toISOString()
 
         const [expRes, topRes, ordRes] = await Promise.all([
-          supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${prevCutoff},completed_at.gte.${prevCutoff},leader_forwarded_at.gte.${prevCutoff},approved_at.gte.${prevCutoff}`),
+          supabase.from('petty_cash_expenses').select('id, category, amount, description, expense_date, created_at, created_by, receipt_url, deleted_at, delete_reason, status, approved_at, approved_by, rejection_reason').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},status.eq.pending`),
+          supabase.from('petty_cash_topups').select('id, amount, description, status, created_at, created_by, approved_at, approved_by, leader_forwarded_at, completed_at, proof_of_transfer_url, disbursement_method').eq('outlet_id', outletId).or(`created_at.gte.${prevCutoff},completed_at.gte.${prevCutoff},leader_forwarded_at.gte.${prevCutoff},approved_at.gte.${prevCutoff}`),
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_status, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('created_at', shiftData.start_time)
         ])
 
@@ -323,7 +379,7 @@ export default function CashierShiftPage() {
           })
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
         const expensesTotal = snapExpenses
-          .filter(e => !e.deleted_at)
+          .filter(e => !e.deleted_at && (!e.status || e.status === 'approved'))
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
         const fallbackBalance = startPetty + topupsDuringShift - expensesTotal
@@ -369,6 +425,8 @@ export default function CashierShiftPage() {
               supabase.from('petty_cash_expenses')
                 .select('amount')
                 .eq('outlet_id', outletId)
+                .is('deleted_at', null)
+                .eq('status', 'approved')
                 .gt('created_at', refTime)
             ])
             
@@ -469,10 +527,18 @@ export default function CashierShiftPage() {
       if (isNaN(amount) || amount <= 0) throw new Error('Nominal pengeluaran tidak valid')
       if (!expDesc.trim()) throw new Error('Keterangan harus diisi')
       if (!receiptFile) throw new Error('Foto struk/bukti wajib dilampirkan')
-      
-      const today = new Date().toISOString().split('T')[0]
 
-      let receiptUrl = null
+      // Validasi sisa kuota belanja sebelum upload agar hemat bandwidth jika saldo/kuota kurang
+      if (amount > availablePettyCashBalance) {
+        if (pendingExpensesTotal > 0) {
+          throw new Error(
+            `Sisa kuota Petty Cash tidak mencukupi. Saldo saat ini ${formatRupiah(pettyCashBalance)}, tertahan pengajuan menunggu Finance ${formatRupiah(pendingExpensesTotal)}, sisa kuota: ${formatRupiah(availablePettyCashBalance)}.`
+          )
+        }
+        throw new Error(`Saldo Petty Cash tidak mencukupi. Sisa saldo: ${formatRupiah(pettyCashBalance)}`)
+      }
+
+      let receiptUrl: string | null = null
       if (receiptFile) {
         const compressedFile = await compressImageToWebP(receiptFile, 1200, 1200, 0.8)
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.webp`
@@ -483,53 +549,49 @@ export default function CashierShiftPage() {
         receiptUrl = publicUrlData.publicUrl
       }
 
-      // Validasi saldo di sisi klien
-      if (amount > pettyCashBalance) {
-        throw new Error(`Saldo Petty Cash tidak mencukupi. Sisa saldo: ${pettyCashBalance}`)
-      }
-
-      const { data: userData } = await supabase.auth.getUser()
-
-      // Gunakan direct insert daripada RPC untuk mendukung user multi-outlet (seperti Area Manager)
-      // yang outlet_staff.outlet_id nya null. RLS petty_cash_expenses_insert akan memvalidasi aksesnya.
-      const { error } = await supabase.from('petty_cash_expenses').insert({
-        outlet_id: outletId,
-        category: expCategory,
-        amount: amount,
-        description: expDesc.trim(),
-        receipt_url: receiptUrl,
-        payment_source: 'petty_cash',
-        expense_date: today,
-        created_by: userData.user?.id
+      const { error } = await supabase.rpc('add_petty_cash', {
+        p_category: expCategory,
+        p_amount: amount,
+        p_description: expDesc.trim(),
+        p_receipt_url: receiptUrl,
+        p_outlet_id: outletId,
       })
 
       if (error) {
         throw error
       }
 
-      setSuccessMsg('Pengeluaran berhasil dicatat')
+      setSuccessMsg('Pengeluaran berhasil diajukan dan menunggu approval Finance')
       setExpAmount('')
       setExpDesc('')
       setExpCategory('pengeluaran_outlet')
       setReceiptFile(null)
       await fetchCurrentState()
     } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal mencatat pengeluaran (mungkin saldo kurang)')
+      setErrorMsg(err.message || 'Gagal mengajukan pengeluaran (periksa sisa kuota Petty Cash)')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  async function handleVoidExpense(id: string) {
+  async function handleVoidExpense(id: string, status?: string) {
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
-    const reason = await showPrompt('Masukkan alasan pembatalan pengeluaran:', 'Pembatalan Pengeluaran')
+    const isPending = status === 'pending'
+    const reason = await showPrompt(
+      isPending ? 'Masukkan alasan pembatalan pengajuan pengeluaran:' : 'Masukkan alasan pembatalan pengeluaran:',
+      'Pembatalan Pengeluaran'
+    )
     if (reason === null) return // User cancelled
     if (!reason.trim()) {
       await showAlert('Alasan pembatalan harus diisi!', 'Peringatan')
       return
     }
 
-    const confirmed = await showConfirm('Anda yakin ingin membatalkan pengeluaran ini? Nominal akan dikembalikan ke saldo Petty Cash.')
+    const confirmed = await showConfirm(
+      isPending
+        ? 'Anda yakin ingin membatalkan pengajuan ini? Kuota belanja Petty Cash akan dipulihkan.'
+        : 'Anda yakin ingin membatalkan pengeluaran ini? Nominal akan dikembalikan ke saldo Petty Cash.'
+    )
     if (!confirmed) return
 
     setErrorMsg('')
@@ -539,7 +601,7 @@ export default function CashierShiftPage() {
       const { error } = await supabase.rpc('void_petty_cash_expense', { p_expense_id: id, p_reason: reason.trim() })
       if (error) throw error
 
-      setSuccessMsg('Pengeluaran berhasil dibatalkan.')
+      setSuccessMsg(isPending ? 'Pengajuan pengeluaran berhasil dibatalkan.' : 'Pengeluaran berhasil dibatalkan.')
       await fetchCurrentState()
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal membatalkan pengeluaran.')
@@ -643,6 +705,12 @@ export default function CashierShiftPage() {
         </div>
         {activeShift && (
           <div className="flex flex-col sm:flex-row items-center gap-3">
+            {pendingExpensesCount > 0 && (
+              <div className="flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2 rounded-lg text-xs font-bold">
+                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>{pendingExpensesCount} Pengajuan Menunggu Finance</span>
+              </div>
+            )}
             <Link
               href="/kasir/shift/close"
               className="flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 sm:py-2 rounded-lg font-bold text-sm transition-colors border border-red-200 w-full sm:w-auto"
@@ -758,7 +826,7 @@ export default function CashierShiftPage() {
               <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500 shrink-0">
                 <Banknote className="w-6 h-6" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Petty Cash</span>
                 </div>
@@ -766,8 +834,19 @@ export default function CashierShiftPage() {
                 <p className="text-gray-500 text-sm mt-1">
                   Awal Shift: {formatRupiah(activeShift.starting_petty_cash || 0)} &middot; Dana operasional
                 </p>
+                {pendingExpensesCount > 0 && (
+                  <div className="mt-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800">
+                      <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Menunggu Approval Finance: {formatRupiah(pendingExpensesTotal)} ({pendingExpensesCount})</span>
+                    </div>
+                    <p className="text-[11px] font-semibold text-amber-700">
+                      Sisa Kuota Belanja: {formatRupiah(availablePettyCashBalance)}
+                    </p>
+                  </div>
+                )}
                 {adminAdjustmentNote && (
-                  <p className="mt-1 text-xs font-semibold text-blue-600">
+                  <p className="mt-1.5 text-xs font-semibold text-blue-600">
                     Penyesuaian Admin: {adminAdjustmentNote}
                   </p>
                 )}
@@ -777,32 +856,56 @@ export default function CashierShiftPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
                 <div className="border-b border-gray-100 px-5 py-4 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <LogOut className="w-5 h-5 text-red-500" />
-                    <h3 className="font-bold text-gray-900">Catat Pengeluaran (Ambil dari Petty Cash)</h3>
+                    <h3 className="font-bold text-gray-900">Ajukan Pengeluaran (Ambil dari Petty Cash)</h3>
                   </div>
                 </div>
-                <form onSubmit={handleAddExpense} className="p-5 space-y-4 bg-gray-50/50">
-                  <div>
+                <form onSubmit={handleAddExpense} className="p-5 space-y-4 bg-gray-50/50 rounded-b-2xl">
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-800">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>
+                      Pengeluaran akan masuk antrean <b>Approval Finance</b>. Saldo Petty Cash baru terpotong setelah disetujui Finance, dan shift tidak dapat ditutup selama masih ada pengajuan menunggu.
+                    </span>
+                  </div>
+                  <div ref={categoryDropdownRef} className="relative">
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Kategori</label>
-                    <select
-                      value={expCategory}
-                      onChange={e => setExpCategory(e.target.value)}
+                    <button
+                      type="button"
                       disabled={isSubmitting}
-                      className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-medium"
+                      onClick={() => setIsCategoryDropdownOpen((prev) => !prev)}
+                      className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl hover:border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-medium text-gray-900 flex items-center justify-between gap-2 disabled:opacity-50 transition-colors"
                     >
-                      <option value="pengeluaran_outlet">Outlet (Plastik, ATK, Kebersihan)</option>
-                      <option value="bahan_baku">Bahan Baku Lainnya (Es Batu, Sayur)</option>
-                      <option value="gas">Gas (Elpiji / Isi Ulang Gas)</option>
-                      <option value="transport">Transport (Ongkir, Bensin, Lalamove)</option>
-                      <option value="pln">Listrik</option>
-                      <option value="pdam">Air</option>
-                      <option value="internet">Internet</option>
-                      <option value="lembur">Overtime (Lembur)</option>
-                      <option value="endorsement">Endorsement</option>
-                    </select>
+                      <span className="truncate">
+                        {PETTY_CASH_CATEGORY_OPTIONS.find((opt) => opt.value === expCategory)?.label ?? 'Pilih Kategori'}
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isCategoryDropdownOpen && (
+                      <div className="absolute z-30 mt-1.5 w-full bg-white border border-gray-200 rounded-xl shadow-lg py-1 max-h-64 overflow-y-auto">
+                        {PETTY_CASH_CATEGORY_OPTIONS.map((opt) => {
+                          const isSelected = opt.value === expCategory
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => {
+                                setExpCategory(opt.value)
+                                setIsCategoryDropdownOpen(false)
+                              }}
+                              className={`w-full px-3 py-2.5 text-left text-sm flex items-center justify-between gap-2 transition-colors ${
+                                isSelected ? 'bg-red-50 text-red-700 font-bold' : 'text-gray-700 hover:bg-gray-50 font-medium'
+                              }`}
+                            >
+                              <span className="truncate">{opt.label}</span>
+                              {isSelected && <Check className="w-4 h-4 text-red-600 shrink-0" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Keterangan / Nama Barang</label>
@@ -822,10 +925,16 @@ export default function CashierShiftPage() {
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Foto Bukti Struk (Wajib)</label>
                     <input type="file" required accept="image/*,application/pdf" capture="environment" onChange={e => setReceiptFile(e.target.files?.[0] || null)} disabled={isSubmitting} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 transition-colors" />
                   </div>
-                  <button type="submit" disabled={isSubmitting || pettyCashBalance <= 0} className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                    {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</> : 'Simpan Pengeluaran'}
+                  <button type="submit" disabled={isSubmitting || availablePettyCashBalance <= 0} className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengajukan...</> : 'Ajukan Pengeluaran'}
                   </button>
-                  {pettyCashBalance <= 0 && <p className="text-xs text-red-500 font-bold text-center mt-2">Saldo Petty Cash kosong, tidak bisa melakukan pengeluaran.</p>}
+                  {availablePettyCashBalance <= 0 && (
+                    <p className="text-xs text-red-500 font-bold text-center mt-2">
+                      {pettyCashBalance <= 0
+                        ? 'Saldo Petty Cash kosong, tidak bisa mengajukan pengeluaran.'
+                        : 'Seluruh sisa kuota Petty Cash sedang tertahan pengajuan yang menunggu approval Finance.'}
+                    </p>
+                  )}
                 </form>
               </div>
 
@@ -845,33 +954,69 @@ export default function CashierShiftPage() {
                     {ledgerItems.slice(0, visibleLedgerCount).map((item, idx) => {
                       if (item.type === 'expense') {
                         const exp = item.data as Expense
-                        const isVoided = !!exp.deleted_at;
+                        const isVoided = !!exp.deleted_at
+                        const expStatus = exp.status || 'approved'
+                        const isPending = !isVoided && expStatus === 'pending'
+                        const isRejected = !isVoided && expStatus === 'rejected'
+                        const isInactive = isVoided || isRejected
                         return (
-                          <div key={`exp-${exp.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${isVoided ? 'opacity-60 bg-gray-50/80' : ''}`}>
+                          <div key={`exp-${exp.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${isInactive ? 'opacity-65 bg-gray-50/80' : isPending ? 'bg-amber-50/30' : ''}`}>
                             <div className="flex items-start gap-3 min-w-0">
-                              <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${isVoided ? 'bg-gray-100 text-gray-400' : 'bg-red-50 text-red-400'}`}>
+                              <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${
+                                isInactive ? 'bg-gray-100 text-gray-400' : isPending ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'
+                              }`}>
                                 <Receipt className="w-5 h-5" />
                               </div>
                               <div className="min-w-0">
-                                <p className={`text-sm font-bold text-gray-900 truncate ${isVoided ? 'line-through text-gray-500' : ''}`}>{exp.description}</p>
+                                <p className={`text-sm font-bold text-gray-900 truncate ${isInactive ? 'line-through text-gray-500' : ''}`}>{exp.description}</p>
                                 <p className="text-[11px] font-semibold text-gray-400 uppercase mt-0.5">
-                                  Pengeluaran Petty Cash ({CATEGORY_LABEL[exp.category] ?? exp.category}) {isVoided && <span className="text-red-500 ml-1 font-bold">(DIBATALKAN)</span>}
+                                  Pengeluaran Petty Cash ({CATEGORY_LABEL[exp.category] ?? exp.category})
                                 </p>
-                                <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  {isVoided ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200">
+                                      <XCircle className="w-3 h-3 text-gray-500" />
+                                      Dibatalkan
+                                    </span>
+                                  ) : isPending ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                      <Clock className="w-3 h-3 text-amber-600" />
+                                      Menunggu Approval Finance
+                                    </span>
+                                  ) : isRejected ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
+                                      <XCircle className="w-3 h-3 text-red-500" />
+                                      Ditolak Finance
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      Disetujui Finance
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{exp.creator?.name ?? '—'}</span>
                                   <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(exp.created_at)}</span>
                                 </div>
                                 {isVoided && exp.delete_reason && (
                                   <p className="text-[10px] font-medium text-red-500 mt-1 italic">Alasan Batal: {exp.delete_reason}</p>
                                 )}
+                                {isRejected && exp.rejection_reason && (
+                                  <p className="text-[10px] font-medium text-red-600 mt-1">Alasan Ditolak: {exp.rejection_reason}</p>
+                                )}
                               </div>
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
-                              <span className={`text-sm font-black ${isVoided ? 'text-gray-400 line-through' : 'text-red-600'}`}>-{formatRupiah(exp.amount)}</span>
+                              <span className={`text-sm font-black ${
+                                isInactive ? 'text-gray-400 line-through' : isPending ? 'text-amber-600' : 'text-red-600'
+                              }`}>
+                                -{formatRupiah(exp.amount)}
+                              </span>
                               <div className="flex items-center gap-1.5">
                                 {exp.receipt_url && <button onClick={() => setSelectedReceiptUrl(exp.receipt_url || null)} className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md hover:bg-blue-100 transition-colors">Lihat Bukti</button>}
-                                {!isVoided && activeShift && (
-                                  <button onClick={() => handleVoidExpense(exp.id)} className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md hover:bg-red-100 transition-colors border border-red-100 shadow-sm">Batal</button>
+                                {!isVoided && !isRejected && activeShift && (
+                                  <button onClick={() => handleVoidExpense(exp.id, expStatus)} className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded-md hover:bg-red-100 transition-colors border border-red-100 shadow-sm">Batal</button>
                                 )}
                               </div>
                             </div>
@@ -880,16 +1025,16 @@ export default function CashierShiftPage() {
                       } else if (item.type === 'topup') {
                         const top = item.data as PettyCashTopup
                         const labelStatus: Record<string, string> = {
-                          pending: '⏳ Menunggu Review Leader',
-                          forwarded_to_area_manager: '⏳ Menunggu Review Area Manager',
-                          forwarded_to_finance: '⏳ Menunggu Pencairan Finance',
-                          approved_by_finance: `🟢 Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}`,
-                          forwarded_by_finance: '🟢 Dana dipegang Area Manager',
-                          forwarded_by_area_manager: '🟢 Dana dipegang Leader',
-                          rejected: '❌ Ditolak',
+                          pending: 'Menunggu Review Leader',
+                          forwarded_to_area_manager: 'Menunggu Review Area Manager',
+                          forwarded_to_finance: 'Menunggu Pencairan Finance',
+                          approved_by_finance: `Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}`,
+                          forwarded_by_finance: 'Dana dipegang Area Manager',
+                          forwarded_by_area_manager: 'Dana dipegang Leader',
+                          rejected: 'Ditolak',
                         }
                         const teksStatus = labelStatus[top.status]
-                          ?? `✅ Selesai${(top as any).disbursement_method ? ` - ${(top as any).disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`
+                          ?? `Selesai${(top as any).disbursement_method ? ` - ${(top as any).disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`
                         return (
                           <div key={`top-${top.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${top.status === 'rejected' ? 'opacity-50' : ''}`}>
                             <div className="flex items-start gap-3 min-w-0">

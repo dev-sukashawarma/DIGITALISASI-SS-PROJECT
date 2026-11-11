@@ -190,8 +190,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
       .from('petty_cash_expenses')
       .select('id, outlet_id, category, description, amount, receipt_url, created_at')
       .eq('outlet_id', shift.outlet_id)
-      // Daftar ini ikut dijumlahkan jadi total shift, jadi baris ter-void harus
-      // dibuang agar totalnya cocok dengan get_petty_cash_balance() di DB.
+      // Daftar ini ikut dijumlahkan jadi total shift, jadi hanya yang sudah disetujui & belum ter-void
+      // yang dihitung agar totalnya cocok dengan get_petty_cash_balance() di DB.
+      .eq('status', 'approved')
       .is('deleted_at', null)
       .gte('created_at', shift.start_time)
       .lte('created_at', endTimeIso)

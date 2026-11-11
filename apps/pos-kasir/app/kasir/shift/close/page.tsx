@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { LogOut, Calculator, AlertTriangle, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react'
+import { LogOut, Calculator, AlertTriangle, CheckCircle2, Loader2, ArrowLeft, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
@@ -41,6 +41,7 @@ interface Expense {
   receipt_url?: string | null
   deleted_at?: string | null
   delete_reason?: string | null
+  status?: 'pending' | 'approved' | 'rejected'
 }
 
 interface PettyCashTopup {
@@ -68,6 +69,8 @@ interface CashOrder {
 
 interface PettyCashSnapshot {
   current_balance: number
+  pending_expenses_total?: number
+  pending_expenses_count?: number
   last_adjustment_note: string | null
 }
 
@@ -85,6 +88,8 @@ export default function CloseShiftPage() {
   const [topups, setTopups] = useState<PettyCashTopup[]>([])
   const [cashOrders, setCashOrders] = useState<CashOrder[]>([])
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0)
+  const [snapshotPendingCount, setSnapshotPendingCount] = useState<number | null>(null)
+  const [snapshotPendingTotal, setSnapshotPendingTotal] = useState<number | null>(null)
   const [adminAdjustmentNote, setAdminAdjustmentNote] = useState<string | null>(null)
   
   // Forms
@@ -142,9 +147,23 @@ export default function CloseShiftPage() {
   }, [topups, activeShift])
 
   const expensesTotal = useMemo(
-    () => expenses.filter(e => !e.deleted_at).reduce((s, e) => s + Number(e.amount), 0),
+    () => expenses
+      .filter(e => !e.deleted_at && (!e.status || e.status === 'approved'))
+      .reduce((s, e) => s + Number(e.amount), 0),
     [expenses],
   )
+
+  const pendingExpenseCount = useMemo(() => {
+    const localCount = expenses.filter(e => !e.deleted_at && e.status === 'pending').length
+    return snapshotPendingCount !== null ? Math.max(localCount, snapshotPendingCount) : localCount
+  }, [expenses, snapshotPendingCount])
+
+  const pendingExpensesTotal = useMemo(() => {
+    const localTotal = expenses
+      .filter(e => !e.deleted_at && e.status === 'pending')
+      .reduce((s, e) => s + Number(e.amount), 0)
+    return snapshotPendingTotal !== null ? Math.max(localTotal, snapshotPendingTotal) : localTotal
+  }, [expenses, snapshotPendingTotal])
 
   const cashDiff = useMemo(() => {
     const v = parseFloat(actualEndingCash)
@@ -159,17 +178,41 @@ export default function CloseShiftPage() {
   useEffect(() => {
     if (outletId) {
       fetchCurrentState()
+
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null
+      const triggerRefresh = () => {
+        if (debounceTimer) clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => {
+          if (!document.hidden) fetchCurrentState(true)
+        }, 800)
+      }
+
+      const channelName = `close-shift-realtime-${outletId}`
+      const existing = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`)
+      if (existing) supabase.removeChannel(existing)
+
+      const channel = supabase
+        .channel(channelName)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
+        .subscribe()
+
+      return () => {
+        if (debounceTimer) clearTimeout(debounceTimer)
+        supabase.removeChannel(channel)
+      }
     }
   }, [outletId, supabase])
 
-  async function fetchCurrentState() {
+  async function fetchCurrentState(isSilent = false) {
     try {
-      setLoading(true)
+      if (!isSilent) setLoading(true)
       setErrorMsg('')
 
       const { data: shiftData, error: shiftError } = await supabase
         .from('shifts')
-        .select('*')
+        .select('id, status, starting_cash, starting_petty_cash, start_time, staff_id, end_time, closed_by, actual_ending_cash, expected_ending_cash, variance, admin_petty_cash_balance, admin_petty_cash_note, admin_petty_cash_updated_at')
         .eq('outlet_id', outletId)
         .eq('status', 'open')
         .maybeSingle()
@@ -184,8 +227,8 @@ export default function CloseShiftPage() {
 
       if (shiftData) {
         const [expRes, topRes, ordRes] = await Promise.all([
-          supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time},leader_forwarded_at.gte.${shiftData.start_time},approved_at.gte.${shiftData.start_time}`),
+          supabase.from('petty_cash_expenses').select('id, category, amount, description, expense_date, created_at, created_by, receipt_url, deleted_at, delete_reason, status').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},status.eq.pending`),
+          supabase.from('petty_cash_topups').select('id, amount, description, status, created_at, created_by, approved_at, approved_by, leader_forwarded_at, completed_at').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time},leader_forwarded_at.gte.${shiftData.start_time},approved_at.gte.${shiftData.start_time}`),
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('created_at', shiftData.start_time)
         ])
 
@@ -206,7 +249,7 @@ export default function CloseShiftPage() {
           })
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
         const expensesTotalLocal = snapExpenses
-          .filter(e => !e.deleted_at)
+          .filter(e => !e.deleted_at && (!e.status || e.status === 'approved'))
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
         const fallbackBalance = startPetty + topupsTotal - expensesTotalLocal
@@ -215,10 +258,14 @@ export default function CloseShiftPage() {
         })
         const snapshot = balanceError ? null : sharedSnapshot as PettyCashSnapshot
         calculatedBalance = snapshot ? Number(snapshot.current_balance) || 0 : fallbackBalance
+        setSnapshotPendingCount(snapshot ? Number(snapshot.pending_expenses_count) || 0 : null)
+        setSnapshotPendingTotal(snapshot ? Number(snapshot.pending_expenses_total) || 0 : null)
         setAdminAdjustmentNote(snapshot?.last_adjustment_note || null)
         setPettyCashBalance(calculatedBalance)
       } else {
         setPettyCashBalance(0)
+        setSnapshotPendingCount(0)
+        setSnapshotPendingTotal(0)
         setExpenses([])
         setTopups([])
         setCashOrders([])
@@ -263,6 +310,10 @@ export default function CloseShiftPage() {
     if (!activeShift) return
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
     if (!isClosingAllowed) { setErrorMsg('Penutupan shift hanya dapat dilakukan antara jam 22:00 hingga 06:00.'); return }
+    if (pendingExpenseCount > 0) {
+      setErrorMsg(`Tidak dapat menutup shift: masih ada ${pendingExpenseCount} pengajuan pengeluaran Petty Cash yang menunggu approval Finance.`)
+      return
+    }
     const confirmed = await showConfirm('Tutup shift sekarang? Setelah ditutup Anda tidak bisa melakukan transaksi tunai.')
     if (!confirmed) return
     setErrorMsg('')
@@ -277,13 +328,23 @@ export default function CloseShiftPage() {
       const userRes = await supabase.auth.getUser()
       const userId = userRes.data.user?.id
 
-      // Ambil ulang tepat sebelum tutup shift agar penyesuaian Admin yang baru
-      // masuk tidak membuat expected ending memakai snapshot lama.
+      // Ambil ulang tepat sebelum tutup shift agar penyesuaian Admin atau pengajuan baru
+      // tervalidasi mutakhir dari server.
       const { data: latestSnapshot, error: snapshotError } = await supabase.rpc('get_petty_cash_snapshot', {
         p_outlet_id: outletId,
       })
       if (snapshotError) throw snapshotError
-      const latestPettyCashBalance = Number((latestSnapshot as PettyCashSnapshot).current_balance) || 0
+      const snap = latestSnapshot as PettyCashSnapshot
+      const latestPendingCount = Number(snap.pending_expenses_count) || 0
+      const latestPendingTotal = Number(snap.pending_expenses_total) || 0
+      setSnapshotPendingCount(latestPendingCount)
+      setSnapshotPendingTotal(latestPendingTotal)
+
+      if (latestPendingCount > 0) {
+        throw new Error(`Tidak dapat menutup shift: masih ada ${latestPendingCount} pengajuan pengeluaran Petty Cash (${formatRupiah(latestPendingTotal)}) yang menunggu approval Finance.`)
+      }
+
+      const latestPettyCashBalance = Number(snap.current_balance) || 0
       setPettyCashBalance(latestPettyCashBalance)
 
       const res = await fetch('/api/kasir/close-shift', {
@@ -363,6 +424,29 @@ export default function CloseShiftPage() {
         </div>
       )}
 
+      {activeShift && pendingExpenseCount > 0 && (
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3.5 text-sm">
+          <div className="flex items-start gap-2.5">
+            <Clock className="w-5 h-5 mt-0.5 shrink-0 text-red-600" />
+            <div>
+              <p className="font-bold text-red-900">
+                Tutup Shift Dikunci: {pendingExpenseCount} Pengajuan Petty Cash Menunggu Approval Finance ({formatRupiah(pendingExpensesTotal)})
+              </p>
+              <p className="text-xs text-red-700 mt-0.5 leading-relaxed">
+                Hubungi Finance untuk menyetujui atau menolak pengajuan terlebih dahulu, atau batalkan pengajuan yang salah di halaman Petty Cash sebelum menutup shift.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/kasir/shift"
+            className="inline-flex items-center justify-center gap-1.5 shrink-0 bg-white hover:bg-red-100 text-red-700 border border-red-200 px-3.5 py-2 rounded-lg text-xs font-bold transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Lihat Pengajuan
+          </Link>
+        </div>
+      )}
+
       <div className="mb-6 flex items-center gap-4">
         <Link href="/kasir/shift" className="p-2 -ml-2 rounded-xl text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors shrink-0">
           <ArrowLeft className="w-6 h-6" />
@@ -428,11 +512,11 @@ export default function CloseShiftPage() {
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="text-gray-500 font-semibold">Rp</span>
                       </div>
-                      <input inputMode="numeric" required placeholder="Contoh: 850.000" value={actualEndingCash ? Number(actualEndingCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
+                      <input inputMode="numeric" required placeholder="Contoh: 850.000" value={actualEndingCash ? Number(actualEndingCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed || pendingExpenseCount > 0} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
                     </div>
                     {cashDiff !== null && (
-                      <p className={`text-xs font-bold mt-1.5 ${cashDiff === 0 ? 'text-emerald-600' : cashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                        {cashDiff === 0 ? '✓ Pas dengan sistem' : cashDiff > 0 ? `Lebih ${formatRupiah(cashDiff)} dari sistem` : `Kurang ${formatRupiah(Math.abs(cashDiff))} dari sistem`}
+                      <p className={`text-xs font-bold mt-1.5 inline-flex items-center gap-1 ${cashDiff === 0 ? 'text-emerald-600' : cashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                        {cashDiff === 0 ? <><CheckCircle2 className="w-3.5 h-3.5" /> Pas dengan sistem</> : cashDiff > 0 ? `Lebih ${formatRupiah(cashDiff)} dari sistem` : `Kurang ${formatRupiah(Math.abs(cashDiff))} dari sistem`}
                       </p>
                     )}
                   </div>
@@ -442,17 +526,17 @@ export default function CloseShiftPage() {
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="text-gray-500 font-semibold">Rp</span>
                       </div>
-                      <input inputMode="numeric" required placeholder="Contoh: 250.000" value={actualEndingPettyCash ? Number(actualEndingPettyCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingPettyCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
+                      <input inputMode="numeric" required placeholder="Contoh: 250.000" value={actualEndingPettyCash ? Number(actualEndingPettyCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingPettyCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed || pendingExpenseCount > 0} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
                     </div>
                     {pettyCashDiff !== null && (
-                      <p className={`text-xs font-bold mt-1.5 ${pettyCashDiff === 0 ? 'text-emerald-600' : pettyCashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                        {pettyCashDiff === 0 ? '✓ Pas dengan sistem' : pettyCashDiff > 0 ? `Lebih ${formatRupiah(pettyCashDiff)} dari sistem` : `Kurang ${formatRupiah(Math.abs(pettyCashDiff))} dari sistem`}
+                      <p className={`text-xs font-bold mt-1.5 inline-flex items-center gap-1 ${pettyCashDiff === 0 ? 'text-emerald-600' : pettyCashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                        {pettyCashDiff === 0 ? <><CheckCircle2 className="w-3.5 h-3.5" /> Pas dengan sistem</> : pettyCashDiff > 0 ? `Lebih ${formatRupiah(pettyCashDiff)} dari sistem` : `Kurang ${formatRupiah(Math.abs(pettyCashDiff))} dari sistem`}
                       </p>
                     )}
                   </div>
-                  <button type="submit" disabled={isSubmitting || !isClosingAllowed} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 mt-2 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button type="submit" disabled={isSubmitting || !isClosingAllowed || pendingExpenseCount > 0} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 mt-2 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
-                    Kunci & Tutup Shift
+                    {pendingExpenseCount > 0 ? 'Menunggu Approval Finance' : 'Kunci & Tutup Shift'}
                   </button>
                   <p className="text-[11px] text-gray-400 mt-1">Setelah shift ditutup, Anda akan diarahkan ke halaman Laporan.</p>
                 </form>

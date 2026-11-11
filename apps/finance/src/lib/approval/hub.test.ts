@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import type { PettyCashTopup } from '@/lib/types'
+import type { PendingPettyCashExpense } from '@/hooks/usePettyCashExpenseApproval'
 import type { PendingPo } from '@/hooks/usePoApproval'
 import type { PayablePo, TxBayarPo } from '@/hooks/useSupplierSettlement'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
 import {
   itemDariPettyCash,
+  itemDariPengeluaranPettyCash,
   itemDariPo,
   itemDariBayarVendor,
   itemDariVoucher,
@@ -99,6 +101,39 @@ describe('itemDariPettyCash', () => {
   })
 })
 
+describe('itemDariPengeluaranPettyCash', () => {
+  const expBase: PendingPettyCashExpense = {
+    id: 'exp-1',
+    outlet_id: 'o1',
+    category: 'gas',
+    amount: 45000,
+    description: 'Isi ulang gas elpiji 3kg',
+    expense_date: '2026-11-11',
+    receipt_url: 'https://example.com/struk.jpg',
+    created_at: '2026-11-11T04:00:00Z',
+    created_by: 'st1',
+    status: 'pending',
+    outlet_nama: 'Mitra Cibinong',
+    pengaju_nama: 'Budi',
+  }
+
+  it('pending masuk ke pengeluaran_petty_cash lengkap dengan kategori & pengaju', () => {
+    const i = itemDariPengeluaranPettyCash(expBase)!
+    expect(i.jenis).toBe('pengeluaran_petty_cash')
+    expect(i.judul).toBe('Mitra Cibinong')
+    expect(i.keterangan).toContain('Budi')
+    expect(i.keterangan).toContain('Gas')
+    expect(i.keterangan).toContain('Isi ulang gas elpiji 3kg')
+    expect(i.nominal).toBe(45000)
+    expect(i.key).toBe('pengeluaran_petty_cash:exp-1')
+  })
+
+  it('status selain pending tidak masuk hub', () => {
+    expect(itemDariPengeluaranPettyCash({ ...expBase, status: 'approved' })).toBeNull()
+    expect(itemDariPengeluaranPettyCash({ ...expBase, status: 'rejected' })).toBeNull()
+  })
+})
+
 describe('itemDariPo', () => {
   it('memakai updated_at sebagai menungguSejak dan tautan detail PO', () => {
     const i = itemDariPo(po)
@@ -165,10 +200,18 @@ describe('hitungPerJenis', () => {
       hitungPerJenis([
         item('petty_cash', '1', t),
         item('petty_cash', '2', t),
+        item('pengeluaran_petty_cash', '5', t),
         item('serah_am', '3', t),
         item('bayar_vendor', '4', t),
       ]),
-    ).toEqual({ petty_cash: 2, serah_am: 1, po: 0, bayar_vendor: 1, dana_kantor: 0 })
+    ).toEqual({
+      petty_cash: 2,
+      pengeluaran_petty_cash: 1,
+      serah_am: 1,
+      po: 0,
+      bayar_vendor: 1,
+      dana_kantor: 0,
+    })
   })
 })
 
@@ -228,6 +271,13 @@ describe('totalPerJenis', () => {
     const t = '2026-11-05T08:00:00Z'
     const a = { ...item('po', 'a', t), nominal: 1000 } as HubItem
     const b = { ...item('po', 'b', t), nominal: 500 } as HubItem
-    expect(totalPerJenis([a, b])).toEqual({ petty_cash: 0, serah_am: 0, po: 1500, bayar_vendor: 0, dana_kantor: 0 })
+    expect(totalPerJenis([a, b])).toEqual({
+      petty_cash: 0,
+      pengeluaran_petty_cash: 0,
+      serah_am: 0,
+      po: 1500,
+      bayar_vendor: 0,
+      dana_kantor: 0,
+    })
   })
 })

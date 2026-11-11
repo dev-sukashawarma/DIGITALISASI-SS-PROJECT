@@ -197,14 +197,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets, initial
     
     const expensesPromise = supabase
       .from('petty_cash_expenses')
-      .select('*')
+      .select('id, outlet_id, category, description, amount, receipt_url, created_at')
       .eq('outlet_id', shift.outlet_id)
+      .eq('status', 'approved')
       .is('deleted_at', null)
       .gte('created_at', shift.start_time)
       .lte('created_at', shift.end_time || new Date().toISOString())
-      // Daftar ini ikut dijumlahkan jadi total shift, jadi baris ter-void harus
-      // dibuang agar totalnya cocok dengan get_petty_cash_balance() di DB.
-      .is('deleted_at', null)
       .order('created_at', { ascending: true })
 
     const topupsPromise = supabase

@@ -49,6 +49,7 @@ export async function ambilPengeluaranMentah(
       .from('petty_cash_expenses')
       .select('id, outlet_id, category, amount, description, expense_date, receipt_url, type, outlets(name), created_by, outlet_staff:created_by(name)')
       .neq('outlet_id', TEST_OUTLET_ID)
+      .eq('status', 'approved')
       .is('deleted_at', null)
       .in('category', [
         'bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities',

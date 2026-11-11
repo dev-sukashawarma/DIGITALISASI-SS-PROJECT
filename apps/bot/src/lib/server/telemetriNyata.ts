@@ -1322,6 +1322,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .from('petty_cash_expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .eq('expense_date', tglStr)
+        .eq('status', 'approved')
         .is('deleted_at', null)
         // Kas kecil RAB (ditanggung dana investasi): uangnya keluar dari laci, tapi bukan OPEX.
         .neq('type', 'rab')
@@ -1352,6 +1353,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .from('petty_cash_expenses')
         .select('id, category, amount, description, expense_date, outlet_id, outlets(name)')
         .eq('expense_date', tglKemarinStr)
+        .eq('status', 'approved')
         .is('deleted_at', null)
         // Kas kecil RAB (ditanggung dana investasi): uangnya keluar dari laci, tapi bukan OPEX.
         .neq('type', 'rab')
@@ -1609,6 +1611,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .from('petty_cash_expenses')
         .select('id, amount, outlet_id, outlets(name)')
         .eq('expense_date', tglH2Str)
+        .eq('status', 'approved')
         .is('deleted_at', null)
         // Kas kecil RAB (ditanggung dana investasi): uangnya keluar dari laci, tapi bukan OPEX.
         .neq('type', 'rab')

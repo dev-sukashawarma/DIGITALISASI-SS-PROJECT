@@ -6,19 +6,24 @@ import {
   Clock,
   Flame,
   AlertTriangle,
+  Scissors,
+  PackageX,
+  UtensilsCrossed,
+  Ban,
   HelpCircle,
+  Info,
   CheckCircle2,
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { ReasonAgg } from '@/lib/wasteBreakdown'
-import { CLAIMABLE_REASON } from '@/lib/wasteReasons'
+import { CLAIMABLE_REASON, OTHER_MANUAL_REASON } from '@/lib/wasteReasons'
 
 interface WasteReasonBreakdownProps {
   rows: ReasonAgg[]
   total: number
   /**
-   * @deprecated Tidak lagi dipakai sejak 'Lainnya' dihapus dari form native.
-   * Disimpan agar tidak ada breaking change pada pemanggil yang masih meneruskan prop ini.
+   * Jumlah insiden yang tidak masuk ke 8 kategori SOP dan dikelompokkan
+   * ke bucket `Alasan Manual Lainnya` (mis. 'Tester' atau 'Lainnya' historis).
    */
   freeTextCount?: number
 }
@@ -28,43 +33,88 @@ function getReasonConfig(reason: string) {
     return {
       icon: ShieldAlert,
       barColor: 'bg-blue-500',
+      iconBgClass: 'bg-blue-500/15',
       badgeClass: 'bg-blue-50 text-blue-700 border-blue-200/80',
       badgeText: 'Bisa Diklaim ke Supplier',
       textColor: 'text-blue-900',
     }
   }
-  if (reason.toLowerCase().includes('basi') || reason.toLowerCase().includes('expired')) {
+  if (reason === 'Trimming / Bonggol' || reason.toLowerCase().includes('bonggol')) {
     return {
-      icon: Clock,
-      barColor: 'bg-amber-500',
-      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
-      badgeText: 'Kedaluwarsa / Mutu',
-      textColor: 'text-amber-950',
+      icon: Scissors,
+      barColor: 'bg-teal-500',
+      iconBgClass: 'bg-teal-500/15',
+      badgeClass: 'bg-teal-50 text-teal-700 border-teal-200/80',
+      badgeText: 'Potongan Prep / Sayur',
+      textColor: 'text-teal-950',
     }
   }
   if (reason.toLowerCase().includes('gosong') || reason.toLowerCase().includes('rusak masak')) {
     return {
       icon: Flame,
       barColor: 'bg-rose-500',
+      iconBgClass: 'bg-rose-500/15',
       badgeClass: 'bg-rose-50 text-rose-700 border-rose-200/80',
       badgeText: 'Operasional Dapur',
       textColor: 'text-rose-950',
+    }
+  }
+  if (reason.toLowerCase().includes('basi') || reason.toLowerCase().includes('expired')) {
+    return {
+      icon: Clock,
+      barColor: 'bg-amber-500',
+      iconBgClass: 'bg-amber-500/15',
+      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+      badgeText: 'Kedaluwarsa / Mutu',
+      textColor: 'text-amber-950',
+    }
+  }
+  if (reason === 'Rusak Fisik / Sobek' || reason.toLowerCase().includes('sobek')) {
+    return {
+      icon: PackageX,
+      barColor: 'bg-purple-500',
+      iconBgClass: 'bg-purple-500/15',
+      badgeClass: 'bg-purple-50 text-purple-700 border-purple-200/80',
+      badgeText: 'Kerusakan Fisik Bahan',
+      textColor: 'text-purple-950',
+    }
+  }
+  if (reason === 'Sisa Produksi / Adonan' || reason.toLowerCase().includes('adonan')) {
+    return {
+      icon: UtensilsCrossed,
+      barColor: 'bg-indigo-500',
+      iconBgClass: 'bg-indigo-500/15',
+      badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
+      badgeText: 'Sisa Olahan Harian',
+      textColor: 'text-indigo-950',
     }
   }
   if (reason.toLowerCase().includes('jatuh') || reason.toLowerCase().includes('tumpah')) {
     return {
       icon: AlertTriangle,
       barColor: 'bg-orange-500',
+      iconBgClass: 'bg-orange-500/15',
       badgeClass: 'bg-orange-50 text-orange-700 border-orange-200/80',
       badgeText: 'Human Error',
       textColor: 'text-orange-950',
     }
   }
+  if (reason === 'Pesanan Dibatalkan' || reason.toLowerCase().includes('batal')) {
+    return {
+      icon: Ban,
+      barColor: 'bg-pink-500',
+      iconBgClass: 'bg-pink-500/15',
+      badgeClass: 'bg-pink-50 text-pink-700 border-pink-200/80',
+      badgeText: 'Cancel Order',
+      textColor: 'text-pink-950',
+    }
+  }
   return {
     icon: HelpCircle,
     barColor: 'bg-slate-400',
+    iconBgClass: 'bg-slate-400/15',
     badgeClass: 'bg-slate-50 text-slate-700 border-slate-200/80',
-    badgeText: 'Lainnya / Manual',
+    badgeText: 'Manual / Historis',
     textColor: 'text-suka-ink',
   }
 }
@@ -72,6 +122,7 @@ function getReasonConfig(reason: string) {
 export function WasteReasonBreakdown({
   rows,
   total,
+  freeTextCount = 0,
 }: WasteReasonBreakdownProps) {
   const claimableRow = rows.find((r) => r.reason === CLAIMABLE_REASON)
   const claimableTotal = claimableRow ? claimableRow.nilai : 0
@@ -130,12 +181,13 @@ export function WasteReasonBreakdown({
                 const share = total > 0 ? (r.nilai / total) * 100 : 0
                 const cfg = getReasonConfig(r.reason)
                 const Icon = cfg.icon
+                const showManualNote = r.reason === OTHER_MANUAL_REASON && freeTextCount > 0
 
                 return (
                   <div key={r.reason} className="group">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className={`p-1.5 rounded-lg ${cfg.barColor}/15 ${cfg.textColor}`}>
+                        <div className={`p-1.5 rounded-lg ${cfg.iconBgClass} ${cfg.textColor}`}>
                           <Icon className="w-3.5 h-3.5" />
                         </div>
                         <span className={`text-xs font-bold ${cfg.textColor} truncate`}>
@@ -165,6 +217,15 @@ export function WasteReasonBreakdown({
                         style={{ width: `${Math.max(2, Math.min(share, 100))}%` }}
                       />
                     </div>
+
+                    {showManualNote && (
+                      <div className="mt-2 p-2 rounded-xl bg-suka-gray-50 border border-suka-gray-200/60 flex items-center gap-1.5 text-[10px] text-suka-gray-500 font-medium">
+                        <Info className="w-3.5 h-3.5 text-suka-gray-400 shrink-0" />
+                        <span>
+                          Mencakup <strong>{freeTextCount} insiden</strong> catatan manual di luar 8 kategori SOP atau data historis (cek Rincian Insiden untuk teks asli).
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -174,7 +235,7 @@ export function WasteReasonBreakdown({
       </div>
 
       <div className="px-6 py-3 border-t border-suka-gray-100 bg-suka-cream/20 text-[11px] text-suka-gray-400 flex items-center justify-between">
-        <span>Kategori standar SOP</span>
+        <span>8 kategori standar SOP</span>
         <span className="font-semibold text-suka-gray-500">{rows.length} kategori aktif</span>
       </div>
     </div>

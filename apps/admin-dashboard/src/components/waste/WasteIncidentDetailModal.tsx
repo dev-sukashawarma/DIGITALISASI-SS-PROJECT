@@ -4,7 +4,7 @@ import React, { useEffect } from 'react'
 import { X, ImageOff, CheckCircle2, AlertTriangle, ShieldAlert, Clock, User, CheckCheck } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import type { WasteIncidentRow } from '@/hooks/useWasteIncidents'
-import { CLAIMABLE_REASON } from '@/lib/wasteReasons'
+import { isClaimableReason } from '@/lib/wasteReasons'
 
 interface WasteIncidentDetailModalProps {
   isOpen: boolean
@@ -48,7 +48,7 @@ export function WasteIncidentDetailModal({ isOpen, onClose, row }: WasteIncident
   if (!isOpen || !row) return null
 
   const adaLedger = row.ledger_row_count > 0
-  const isClaimable = row.reason === CLAIMABLE_REASON
+  const isClaimable = isClaimableReason(row.reason)
 
   return (
     <div

@@ -15,9 +15,13 @@
 // daftar ini berubah, ubah keduanya.
 
 export const WASTE_REASONS = [
-  'Basi / Expired',
-  'Jatuh / Tumpah',
+  'Trimming / Bonggol',
   'Gosong / Rusak Masak',
+  'Basi / Expired',
+  'Rusak Fisik / Sobek',
+  'Sisa Produksi / Adonan',
+  'Jatuh / Tumpah',
+  'Pesanan Dibatalkan',
   'Kualitas Buruk (dari supplier)',
 ] as const
 

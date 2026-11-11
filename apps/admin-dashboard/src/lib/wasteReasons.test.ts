@@ -2,21 +2,24 @@ import { describe, it, expect } from 'vitest'
 import {
   CANONICAL_WASTE_REASONS,
   CLAIMABLE_REASON,
+  OTHER_MANUAL_REASON,
   normalizeReason,
+  isClaimableReason,
   countFreeTextIncidents,
 } from './wasteReasons'
 
 describe('CANONICAL_WASTE_REASONS', () => {
-  it('berisi persis 4 opsi dropdown WasteModal.tsx (Lainnya sudah dihapus dari form)', () => {
+  it('berisi 8 opsi kategori SOP standar tanpa Lainnya', () => {
     expect(CANONICAL_WASTE_REASONS).toEqual([
-      'Basi / Expired',
-      'Jatuh / Tumpah',
+      'Trimming / Bonggol',
       'Gosong / Rusak Masak',
+      'Basi / Expired',
+      'Rusak Fisik / Sobek',
+      'Sisa Produksi / Adonan',
+      'Jatuh / Tumpah',
+      'Pesanan Dibatalkan',
       'Kualitas Buruk (dari supplier)',
     ])
-  })
-
-  it('tidak lagi mengandung Lainnya', () => {
     expect(CANONICAL_WASTE_REASONS).not.toContain('Lainnya')
   })
 
@@ -26,52 +29,85 @@ describe('CANONICAL_WASTE_REASONS', () => {
 })
 
 describe('normalizeReason', () => {
-  it('membiarkan nilai kanonik apa adanya', () => {
+  it('membiarkan 8 nilai kanonik kembali apa adanya', () => {
     for (const r of CANONICAL_WASTE_REASONS) {
       expect(normalizeReason(r)).toBe(r)
     }
   })
 
-  it('mengembalikan null untuk literal fallback ManualEntryForm ("Waste")', () => {
-    expect(normalizeReason('Waste')).toBeNull()
+  it('mengelompokkan variasi bonggol/trimming sayur ke Trimming / Bonggol', () => {
+    expect(normalizeReason('Bonggol')).toBe('Trimming / Bonggol')
+    expect(normalizeReason('Bongol')).toBe('Trimming / Bonggol')
+    expect(normalizeReason('Bogol')).toBe('Trimming / Bonggol')
+    expect(normalizeReason('Bongkol sayur')).toBe('Trimming / Bonggol')
+    expect(normalizeReason('Batang sayur')).toBe('Trimming / Bonggol')
+    expect(normalizeReason('Bongol dan daun busuk')).toBe('Trimming / Bonggol')
   })
 
-  it('mengembalikan null untuk catatan bebas yang diketik crew', () => {
-    expect(normalizeReason('Basi dan berubah warna')).toBeNull()
-    expect(normalizeReason('Rusak')).toBeNull()
+  it('mengelompokkan variasi cacat supplier ke Kualitas Buruk (dari supplier)', () => {
+    expect(normalizeReason('Kualitas Buruk')).toBe(CLAIMABLE_REASON)
+    expect(normalizeReason('Kualitas Buruk (dari supplier)\nrusak dalam pack / patah')).toBe(
+      CLAIMABLE_REASON
+    )
+    expect(normalizeReason('Rusak dari suplayer')).toBe(CLAIMABLE_REASON)
+    expect(isClaimableReason('Kualitas Buruk')).toBe(true)
+    expect(isClaimableReason('Bonggol')).toBe(false)
   })
 
-  it('mengembalikan null untuk "Lainnya" historis (sudah dihapus dari form)', () => {
-    expect(normalizeReason('Lainnya')).toBeNull()
+  it('mengelompokkan sisa produksi & tepung bekas chicken ke Sisa Produksi / Adonan', () => {
+    expect(normalizeReason('Bekas chicken')).toBe('Sisa Produksi / Adonan')
+    expect(normalizeReason('Frdchiken')).toBe('Sisa Produksi / Adonan')
+    expect(normalizeReason('Sisa')).toBe('Sisa Produksi / Adonan')
   })
 
-  it('mengembalikan null untuk string kosong', () => {
-    expect(normalizeReason('')).toBeNull()
+  it('mengelompokkan kerusakan fisik bahan ke Rusak Fisik / Sobek', () => {
+    expect(normalizeReason('Rusak')).toBe('Rusak Fisik / Sobek')
+    expect(normalizeReason('Ruksak')).toBe('Rusak Fisik / Sobek')
+    expect(normalizeReason('Kering dan menempel jadi sobek')).toBe('Rusak Fisik / Sobek')
+    expect(normalizeReason('kulit retak')).toBe('Rusak Fisik / Sobek')
   })
 
-  it('peka huruf besar-kecil: varian beda kapitalisasi bukan nilai kanonik', () => {
-    expect(normalizeReason('lainnya')).toBeNull()
-    expect(normalizeReason('BASI / EXPIRED')).toBeNull()
+  it('mengelompokkan pembatalan order ke Pesanan Dibatalkan', () => {
+    expect(normalizeReason('Pesanan dibatalkan')).toBe('Pesanan Dibatalkan')
+    expect(normalizeReason('Cancel orderan online')).toBe('Pesanan Dibatalkan')
+  })
+
+  it('mengelompokkan variasi basi/layu/berbau ke Basi / Expired', () => {
+    expect(normalizeReason('Basi dan berubah warna')).toBe('Basi / Expired')
+    expect(normalizeReason('sudah berbau')).toBe('Basi / Expired')
+    expect(normalizeReason('BASI / EXPIRED')).toBe('Basi / Expired')
+  })
+
+  it('menampung teks di luar 8 kategori SOP dan data historis ke Alasan Manual Lainnya (tidak ada baris yang hilang)', () => {
+    expect(normalizeReason('Waste')).toBe(OTHER_MANUAL_REASON)
+    expect(normalizeReason('Lainnya')).toBe(OTHER_MANUAL_REASON)
+    expect(normalizeReason('lainnya')).toBe(OTHER_MANUAL_REASON)
+    expect(normalizeReason('Tester')).toBe(OTHER_MANUAL_REASON)
+    expect(normalizeReason('')).toBe(OTHER_MANUAL_REASON)
   })
 })
 
 describe('countFreeTextIncidents', () => {
   const row = (reason: string, jumlah_insiden: number) => ({ reason, jumlah_insiden })
 
-  it('menghitung insiden non-kanonik, bukan jumlah baris', () => {
+  it('menghitung insiden yang masuk ke Alasan Manual Lainnya', () => {
     expect(
       countFreeTextIncidents([
-        row('Waste', 5),
-        row('Rusak', 1),
-        row('Lainnya', 9),       // 'Lainnya' sekarang non-kanonik
+        row('Tester', 5),
+        row('Lainnya', 9),
+        row('Bonggol', 15), // dipetakan ke Trimming / Bonggol -> bukan manual liar
         row('Basi / Expired', 3),
       ])
-    ).toBe(15) // 5 + 1 + 9 = 15 (semua non-kanonik kecuali 'Basi / Expired')
+    ).toBe(14)
   })
 
-  it('mengembalikan 0 kalau semua reason kanonik', () => {
+  it('mengembalikan 0 kalau semua reason terpetakan ke 8 kategori SOP', () => {
     expect(
-      countFreeTextIncidents([row('Jatuh / Tumpah', 4), row('Gosong / Rusak Masak', 2)])
+      countFreeTextIncidents([
+        row('Bonggol', 15),
+        row('Gosong / Rusak Masak', 11),
+        row('Kualitas Buruk', 1),
+      ])
     ).toBe(0)
   })
 

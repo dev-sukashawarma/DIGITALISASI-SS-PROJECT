@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import { INCIDENTS_PER_PAGE, type WasteIncidentRow } from '@/hooks/useWasteIncidents'
-import { CLAIMABLE_REASON } from '@/lib/wasteReasons'
+import { isClaimableReason, normalizeReason } from '@/lib/wasteReasons'
 
 interface WasteIncidentTableProps {
   rows: WasteIncidentRow[]
@@ -62,7 +62,7 @@ export function WasteIncidentTable({
     if (filterType === 'with_photo') {
       result = result.filter((r) => Boolean(r.photo_url))
     } else if (filterType === 'claimable') {
-      result = result.filter((r) => r.reason === CLAIMABLE_REASON)
+      result = result.filter((r) => isClaimableReason(r.reason))
     }
 
     if (search.trim()) {
@@ -208,7 +208,25 @@ export function WasteIncidentTable({
                 </tr>
               ) : (
                 filteredRows.map((r) => {
-                  const isClaimable = r.reason === CLAIMABLE_REASON
+                  const isClaimable = isClaimableReason(r.reason)
+                  const norm = normalizeReason(r.reason)
+                  const badgeClass = isClaimable
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200/80'
+                    : norm === 'Trimming / Bonggol'
+                    ? 'bg-teal-50 text-teal-700 border border-teal-200/80'
+                    : norm === 'Gosong / Rusak Masak'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200/80'
+                    : norm === 'Basi / Expired'
+                    ? 'bg-amber-50 text-amber-800 border border-amber-200/80'
+                    : norm === 'Rusak Fisik / Sobek'
+                    ? 'bg-purple-50 text-purple-700 border border-purple-200/80'
+                    : norm === 'Sisa Produksi / Adonan'
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/80'
+                    : norm === 'Jatuh / Tumpah'
+                    ? 'bg-orange-50 text-orange-700 border border-orange-200/80'
+                    : norm === 'Pesanan Dibatalkan'
+                    ? 'bg-pink-50 text-pink-700 border border-pink-200/80'
+                    : 'bg-suka-cream text-suka-brown border border-suka-brown/10'
                   return (
                     <tr
                       key={r.id}
@@ -237,15 +255,7 @@ export function WasteIncidentTable({
                       <td className="py-3 px-4 sm:px-5">
                         <div className="inline-flex items-center gap-1.5">
                           <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                              isClaimable
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200/80'
-                                : r.reason.toLowerCase().includes('basi')
-                                ? 'bg-amber-50 text-amber-800 border border-amber-200/80'
-                                : r.reason.toLowerCase().includes('gosong')
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200/80'
-                                : 'bg-suka-cream text-suka-brown border border-suka-brown/10'
-                            }`}
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${badgeClass}`}
                           >
                             {r.reason}
                           </span>

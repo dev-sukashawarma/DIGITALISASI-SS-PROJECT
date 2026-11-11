@@ -65,18 +65,12 @@ export default function WastePage() {
   const totalBudget = useMemo(() => budgetLoss.rows.reduce((s, r) => s + r.budget_loss, 0), [budgetLoss.rows])
 
   const byOutlet = useMemo(() => aggregateByOutlet(summary.rows), [summary.rows])
-  // Alasan dinormalisasi HANYA untuk grafik agregat: 'Lainnya' sudah dihapus
-  // dari form native app, sehingga hanya 4 kategori kanonik yang ditampilkan.
-  // Row dengan reason non-kanonik (catatan bebas / 'Lainnya' historis) dibuang
-  // sebelum di-aggregate agar tidak muncul di chart. Tabel insiden & modal
-  // detail tetap memakai teks asli dari DB.
+  // Alasan dinormalisasi HANYA untuk grafik agregat: variasi ketikan dari SuperApp
+  // (mis. 'Bonggol', 'Kualitas Buruk') dipetakan ke 8 kategori SOP kanonik, dan
+  // sisanya masuk ke 'Alasan Manual Lainnya' agar total bar 100% klop dengan Total Kerugian.
+  // Tabel insiden & modal detail tetap memakai teks asli dari DB.
   const byReason = useMemo(
-    () =>
-      aggregateByReason(
-        summary.rows
-          .map((r) => ({ ...r, reason: normalizeReason(r.reason) }))
-          .filter((r): r is typeof r & { reason: string } => r.reason !== null)
-      ),
+    () => aggregateByReason(summary.rows.map((r) => ({ ...r, reason: normalizeReason(r.reason) }))),
     [summary.rows]
   )
   const freeTextCount = useMemo(() => countFreeTextIncidents(summary.rows), [summary.rows])

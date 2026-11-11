@@ -1,4 +1,4 @@
--- Uji penjaga kategori RAB di expenses (migration 20261111150000).
+-- Uji penjaga kategori RAB di expenses (migration 20261111150000, kasus (c) diubah oleh 20261111170000).
 -- Selalu berakhir dengan RAISE EXCEPTION -> seluruh perubahan di-rollback.
 -- Hasil yang diharapkan: pesan 'LULUS: ...'. Pesan lain = gagal.
 DO $$
@@ -33,13 +33,13 @@ BEGIN
   EXCEPTION WHEN check_violation THEN NULL;
   END;
 
-  -- (c) RAB memotong rekening -> ditolak
-  BEGIN
-    INSERT INTO expenses (outlet_id, category, type, amount, description, expense_date, payment_source, cash_location_id)
-    VALUES (v_outlet, 'rab', 'rab', 1000, 'uji c', DATE '2026-11-11', 'petty_cash', v_kas);
+  -- (c) RAB dibayar rekening pusat -> boleh (sejak 20261111170000), rekening tetap terpotong
+  INSERT INTO expenses (outlet_id, category, type, amount, description, expense_date, payment_source, cash_location_id)
+  VALUES (v_outlet, 'rab', 'rab', 1000, 'uji c', DATE '2026-11-11', 'petty_cash', v_kas)
+  RETURNING id INTO v_id;
+  IF NOT EXISTS (SELECT 1 FROM cash_transaction WHERE source_type = 'expense_pusat' AND source_id = v_id AND status = 'paid') THEN
     v_gagal := v_gagal || ' c';
-  EXCEPTION WHEN check_violation THEN NULL;
-  END;
+  END IF;
 
   -- (d) RAB sah -> masuk, OPEX type=expense tidak berubah
   INSERT INTO expenses (outlet_id, category, type, amount, description, expense_date, payment_source)

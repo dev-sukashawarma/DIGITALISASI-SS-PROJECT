@@ -3862,6 +3862,13 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - Buku Kas Edit: kas kecil ↔ RAB lewat `updateSingleExpenseAction` (outlet tetap). `ambilBiayaRab` membaca kedua tabel; sumber `kas_kecil` ikut filter Sumber "Kasir POS".
 - ⚠️ Temuan: `petty_cash_expenses` kini punya kolom `status` (default `pending`, semua baris lama `approved`) — tampaknya pekerjaan paralel. Fungsi laba hanya menghitung `approved`; Buku Kas (`ambilPengeluaran`) belum menyaring status.
 
+### Lanjutan: aturan RAB otomatis per outlet — Mitra Karawaci (migration `20261111170000`)
+**Status:** DB **LIVE** (applied atas izin owner, terstempel). 33 baris Karawaci dikonversi: `expenses` 14 baris Rp 2.185.458 + kas kecil 19 baris Rp 596.500; tersisa OPEX hanya endorsement 2, gas 2, PLN 2. 13 transaksi rekening Karawaci tetap aktif (saldo tak bergeser; +Rp 139.000 saat pengecekan = Top Up finance 15:39, bukan migration). Uji `t3_rab_otomatis.sql` RED → **LULUS 8/8**, `t1_penjaga.sql` (kasus c diperbarui) **LULUS 8/8**. Kode di branch `feat/rab-otomatis-karawaci`.
+- Keputusan owner: semua pengeluaran Mitra Karawaci (`a85330a1-…`) s.d. **30 Nov 2026** = RAB, **kecuali** gas, PLN, PDAM, internet, utilitas, sewa outlet, endorsement. Aturan **mutlak** (trigger tiap simpan, tahan sinkron Marcom). Gaji/bonus crew tetap OPEX. Kategori asal tidak disimpan. Baris "petty Cash Karawaci" Rp 300.000 (6 Nov) ikut RAB dulu — kemungkinan modal kas kecil, cek ke finance.
+- Tabel `rab_outlet_otomatis` (data, bisa dipakai outlet baru). Trigger `trg_expenses_zz_rab_otomatis` & `trg_petty_cash_expenses_zz_rab_otomatis` — nama `zz_` WAJIB supaya jalan **sesudah** `trg_*_jaga_rab` (kalau tidak, crew tak bisa input kas kecil di POS). Bulan closing & `cash_drawer` tak pernah diubah otomatis.
+- **RAB kini boleh memakai rekening pusat** (CHECK `expenses_rab_outlet_check` & `expenses_cek_sumber_kas` dilonggarkan; form & action ikut): 13 baris Karawaci (Rp 2.328.337) dibayar dari rekening, saldonya tetap terpotong — `expenses_sinkron_kas` tak bergantung `type`.
+- Tim Marcom perlu mengubah Sumber Dana 8 catatan opening Karawaci jadi "Dana RAB" di app Marcom (budget Marcom); sisi finance sudah dijaga trigger.
+
 ---
 
 **Last updated:** 2026-11-11  

@@ -73,3 +73,23 @@ dilarang). `owner-dashboard/useExpenses` (tak di-deploy) diberi filter juga.
 2. Deploy admin-dashboard, finance, marcom (otomatis saat merge ke `main`).
 3. Jalankan sinkron ulang Marcom (cron `sync-opex` / tombol sinkron) supaya RAB
    Marcom yang sempat masuk `biaya_rab_outlet` sebelum deploy pindah ke `expenses`.
+
+## Addendum 11 Nov 2026 — kas kecil & aturan otomatis per outlet
+
+**Kas kecil (migration `20261111160000`, LIVE):** `petty_cash_expenses` boleh
+`type = 'rab'`. Saldo kas kecil tetap berkurang (uangnya keluar dari laci);
+`get_owner_dashboard_summary`, `get_mitra_roi`, mitraPnl, mitraRoi, dan bot
+menyaring `type <> 'rab'`.
+
+**Aturan otomatis (migration `20261111170000`):** tabel `rab_outlet_otomatis`
+(outlet, periode, `kategori_kecuali`). Trigger `trg_*_zz_rab_otomatis` (BEFORE
+INSERT/UPDATE, sesudah penjaga peran) memaksa baris `type='expense'` yang cocok
+menjadi RAB — **mutlak**, termasuk sinkron ulang Marcom. Tidak menyentuh bulan
+closing, `cash_drawer`, pemasukan, atau voucher kantor.
+
+Kasus pertama — **Mitra Karawaci s.d. 30 Nov 2026**, kecuali gas, PLN, PDAM,
+internet, utilitas, sewa outlet, endorsement. Gaji/bonus crew (payroll HR) di
+luar aturan. Kategori asal tidak disimpan.
+
+**Perubahan keputusan #9:** RAB **boleh** dibayar dari rekening pusat; rekening
+tetap terpotong (uangnya memang keluar), hanya tidak dihitung OPEX/laba.

@@ -68,9 +68,9 @@ export function ExpenseFormModal({
   // Rekening tersimpan saat modal edit dibuka: potongan lamanya sudah termasuk di saldo.
   const [rekeningAwal, setRekeningAwal] = useState('')
   const isRab = adalahKategoriRab(category)
-  // RAB (ditanggung dana investasi) tidak pernah memotong rekening pusat.
+  // RAB boleh dibayar dari rekening pusat: rekening tetap terpotong, tidak dihitung OPEX.
   const bisaPilihRekening =
-    !(isEdit && initialData?.source === 'petty_cash') && (initialData?.type ?? 'expense') === 'expense' && !isRab
+    !(isEdit && initialData?.source === 'petty_cash') && ['expense', 'rab'].includes(initialData?.type ?? 'expense')
 
   // File upload state for invoice / receipt proof
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -150,7 +150,6 @@ export function ExpenseFormModal({
   const handleCategoryChange = (newCat: ExpenseCategory) => {
     setCategory(newCat)
     if (adalahKategoriRab(newCat)) {
-      setCashLocationId('')
       if (outletId === 'PUSAT') toast.info('Pengeluaran RAB wajib dialokasikan ke satu outlet. Pilih outletnya.')
       return
     }
@@ -266,7 +265,7 @@ export function ExpenseFormModal({
           receipt_url: receiptUrl,
           recipient_name: recipientName.trim() || null,
           division: division.trim() || null,
-          cashLocationId: isRab ? null : bisaPilihRekening && rekeningSiap ? (cashLocationId || null) : undefined
+          cashLocationId: bisaPilihRekening && rekeningSiap ? (cashLocationId || null) : undefined
         })
 
         if (!res.success) {
@@ -374,7 +373,8 @@ export function ExpenseFormModal({
             {isRab && (
               <span className="mt-1.5 block rounded-lg bg-sky-50 border border-sky-200 px-2.5 py-1.5 text-xs text-sky-800">
                 Sudah ditanggung dana investasi (RAB). Hanya dicatat untuk rekap: tidak mengurangi OPEX, laba outlet,
-                laba perusahaan, bagi hasil mitra, maupun saldo rekening. Wajib dialokasikan ke satu outlet.
+                laba perusahaan, maupun bagi hasil mitra. Wajib dialokasikan ke satu outlet. Kalau dibayar dari
+                rekening pusat, saldo rekening itu tetap terpotong.
               </span>
             )}
           </label>

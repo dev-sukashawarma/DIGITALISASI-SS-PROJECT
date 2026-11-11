@@ -23,6 +23,12 @@ import type { HRPayrollSummary } from '@/lib/server/ringkasanPayrollHr'
 import { distributeEqualSplit, type ProrataInfo } from '@/lib/opexProrata'
 import { hitungRutinPerOutletPeriode } from '@/lib/opexDariHr'
 
+function formatUnitName(name?: string | null): string {
+  if (!name) return '-'
+  if (name === 'Kantor Pusat' || name === 'Pusat') return 'Head Office'
+  return name
+}
+
 function formatBackupDates(dates: string[]): string {
   if (!dates || dates.length === 0) return ''
   const sorted = Array.from(new Set(dates)).sort()
@@ -116,6 +122,7 @@ interface OpexCardDetailModalsProps {
   }
   totalOpexData: {
     totalCombined: number
+    grossTotalCombined?: number
     displaySalary: number
     displayRoutineSalary?: number
     displayBonus?: number
@@ -125,6 +132,25 @@ interface OpexCardDetailModalsProps {
     totalNonSalary: number
     isProrated?: boolean
     prorataInfo?: ProrataInfo
+    managementFeeDeduction?: {
+      rawHoOpex: number
+      netHoOpex: number
+      availableFee: number
+      appliedDeduction: number
+      surplusToRevenue: number
+      grossMitraSales?: number
+      jumlahOutletBelumBep?: number
+      loading?: boolean
+      baselineMonthFee?: number
+      isMtdBaseline?: boolean
+      outlets: Array<{
+        outletId: string
+        outletName: string
+        grossForHoOpex: number
+        feeForHoOpex: number
+        pct: number
+      }>
+    }
   }
 }
 
@@ -245,13 +271,15 @@ export function OpexCardDetailModals({
       : (isProrated && ratio > 0 ? Math.round(routineSalary / ratio) : routineSalary))
   const { totalNonSalary, totalCount: opCount, categories, outlets } = operationalData
   const { totalCombined } = totalOpexData
+  const grossTotalBase = totalOpexData.grossTotalCombined ?? totalCombined
+  const feeDed = totalOpexData.managementFeeDeduction
 
-  const routineSalaryShare = totalCombined > 0 ? (routineSalary / totalCombined) * 100 : 0
-  const crewBonusShare = totalCombined > 0 ? (crewBonusAmount / totalCombined) * 100 : 0
-  const managerBonusShare = totalCombined > 0 ? (managerBonusAmount / totalCombined) * 100 : 0
+  const routineSalaryShare = grossTotalBase > 0 ? (routineSalary / grossTotalBase) * 100 : 0
+  const crewBonusShare = grossTotalBase > 0 ? (crewBonusAmount / grossTotalBase) * 100 : 0
+  const managerBonusShare = grossTotalBase > 0 ? (managerBonusAmount / grossTotalBase) * 100 : 0
   const lemburAmount = totalOpexData.displayLembur ?? lemburData?.totalLembur ?? 0
-  const lemburShare = totalCombined > 0 ? (lemburAmount / totalCombined) * 100 : 0
-  const opShare = totalCombined > 0 ? (totalNonSalary / totalCombined) * 100 : 0
+  const lemburShare = grossTotalBase > 0 ? (lemburAmount / grossTotalBase) * 100 : 0
+  const opShare = grossTotalBase > 0 ? (totalNonSalary / grossTotalBase) * 100 : 0
 
   const crewBonusList = (hrPayroll?.crewBonusDetails && hrPayroll.crewBonusDetails.length > 0)
     ? hrPayroll.crewBonusDetails
@@ -542,7 +570,7 @@ export function OpexCardDetailModals({
                 </div>
                 <div>
                   <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
-                    <span>{isPusat ? 'Rincian Gaji & Payroll Staf Kantor Pusat' : 'Rincian Gaji & Payroll (Rutin)'}</span>
+                    <span>{isPusat ? 'Rincian Gaji & Payroll Staf Head Office' : 'Rincian Gaji & Payroll (Rutin)'}</span>
                     {isProrated && prorataInfo && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
                         <Sparkles size={11} className="text-amber-600" />
@@ -563,10 +591,10 @@ export function OpexCardDetailModals({
                   <p className="text-xs text-gray-500 mt-0.5">
                     {isProrated && prorataInfo
                       ? (isPusat
-                          ? `Beban gaji rutin staf kantor proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari bulan ini`
+                          ? `Beban gaji rutin staf Head Office proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari bulan ini`
                           : `Beban gaji rutin proporsional ${prorataInfo.overlapDays} hari dari total ${prorataInfo.totalDays} hari bulan ini`)
                       : (isPusat
-                          ? 'Rincian beban gaji pokok dan tunjangan staf kantor pusat (tanpa beban alokasi pengawas toko)'
+                          ? 'Rincian beban gaji pokok dan tunjangan staf Head Office (tanpa beban alokasi pengawas toko)'
                           : 'Rincian beban gaji pokok, tunjangan, dan alokasi manajer (bonus omset dipisahkan)')}
                   </p>
                 </div>
@@ -650,7 +678,7 @@ export function OpexCardDetailModals({
                           {rupiah(baselineRoutineMonthly)}
                         </span>
                         <span className="text-[11px] text-blue-700/80 font-medium block mt-0.5">
-                          {isPusat ? 'Gaji Pokok & Tunjangan Staf Kantor Pusat' : 'Kru Store + Alokasi Manajer (AM/RM/SC)'}
+                          {isPusat ? 'Gaji Pokok & Tunjangan Staf Head Office' : 'Kru Store + Alokasi Manajer (AM/RM/SC)'}
                         </span>
                       </div>
                     </div>
@@ -661,7 +689,7 @@ export function OpexCardDetailModals({
                       </span>
                       <span className="text-[11px] text-indigo-600 font-medium block mt-0.5">
                         {hasHrPayroll
-                          ? (isPusat ? 'Total beban gaji rutin sebulan penuh staf kantor pusat' : 'Total beban gaji rutin sebulan penuh (Kru + Alokasi AM/RM/SC)')
+                          ? (isPusat ? 'Total beban gaji rutin sebulan penuh staf Head Office' : 'Total beban gaji rutin sebulan penuh (Kru + Alokasi AM/RM/SC)')
                           : 'Pencatatan Buku Kas'}
                       </span>
                     </div>
@@ -672,11 +700,11 @@ export function OpexCardDetailModals({
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 shadow-2xs flex flex-col justify-between">
                   <div>
                     <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-0.5">
-                      {isPusat ? 'Jumlah Staf Kantor & Status HR' : 'Jumlah Kru & Status HR'}
+                      {isPusat ? 'Jumlah Staf Head Office & Status HR' : 'Jumlah Kru & Status HR'}
                     </span>
                     <div className="flex items-baseline justify-between gap-1 mt-1">
                       <span className="text-xl font-black text-slate-800">
-                        {isPusat ? `${allStaff.length || hrPayroll?.totalStaff || 23} Staf Kantor` : `${totalCrewCount} Kru Store`}
+                        {isPusat ? `${allStaff.length || hrPayroll?.totalStaff || 23} Staf Head Office` : `${totalCrewCount} Kru Store`}
                       </span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
                         hrPayroll?.status === 'finalized'
@@ -984,14 +1012,14 @@ export function OpexCardDetailModals({
 
                           {/* 2 Kolom: Kru Toko vs Alokasi Manajer */}
                           <div className={`grid grid-cols-1 ${isPusat ? '' : 'lg:grid-cols-2'} gap-3.5`}>
-                            {/* Kolom Kiri: Kru Toko Cabang / Staf Kantor Pusat */}
+                            {/* Kolom Kiri: Kru Toko Cabang / Staf Head Office */}
                             <div className="bg-white p-3.5 rounded-xl border border-indigo-100 shadow-2xs flex flex-col justify-between space-y-3">
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                                   <div className="flex flex-col gap-1">
                                     <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
                                       <Users size={13} className="text-indigo-600" />
-                                      <span>{isPusat ? `Staf Kantor Pusat (${crewCount} Orang)` : `Kru Toko Cabang (${crewCount} Orang)`}</span>
+                                      <span>{isPusat ? `Staf Head Office (${crewCount} Orang)` : `Kru Toko Cabang (${crewCount} Orang)`}</span>
                                     </span>
                                     {!isPusat && (crewComposition.total > 0 || crewCount > 0) && (
                                       <div className="flex items-center gap-1 flex-wrap">
@@ -1062,7 +1090,7 @@ export function OpexCardDetailModals({
                                               )}
                                               {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
                                                 <span className="text-[9px] text-gray-400 truncate">
-                                                  ({s.outletName})
+                                                  ({formatUnitName(s.outletName)})
                                                 </span>
                                               )}
                                             </div>
@@ -1305,14 +1333,14 @@ export function OpexCardDetailModals({
 
                           {/* 2 Kolom: Kru Toko Prorata vs Alokasi Manajer Prorata */}
                           <div className={`grid grid-cols-1 ${isPusat ? '' : 'lg:grid-cols-2'} gap-3.5`}>
-                            {/* Kolom Kiri: Kru Toko Prorata / Staf Kantor Prorata */}
+                            {/* Kolom Kiri: Kru Toko Prorata / Staf Head Office Prorata */}
                             <div className="bg-white p-3.5 rounded-xl border border-amber-200 shadow-2xs flex flex-col justify-between space-y-3">
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between border-b border-amber-100 pb-2">
                                   <div className="flex flex-col gap-1">
                                     <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
                                       <Users size={13} className="text-amber-600" />
-                                      <span>{isPusat ? `Staf Kantor Prorata (${crewCount} Orang)` : `Kru Toko Prorata (${crewCount} Orang)`}</span>
+                                      <span>{isPusat ? `Staf Head Office Prorata (${crewCount} Orang)` : `Kru Toko Prorata (${crewCount} Orang)`}</span>
                                     </span>
                                     {!isPusat && (crewComposition.total > 0 || crewCount > 0) && (
                                       <div className="flex items-center gap-1 flex-wrap">
@@ -1386,7 +1414,7 @@ export function OpexCardDetailModals({
                                               )}
                                               {hrPayroll?.outlets && hrPayroll.outlets.length > 1 && s.outletName && (
                                                 <span className="text-[9px] text-gray-400 truncate">
-                                                  ({s.outletName})
+                                                  ({formatUnitName(s.outletName)})
                                                 </span>
                                               )}
                                             </div>
@@ -1705,7 +1733,7 @@ export function OpexCardDetailModals({
                                 <tr key={item.outletId} className="hover:bg-indigo-50/30 transition-colors">
                                   <td className="px-3.5 py-2.5 font-bold text-gray-800">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span>{item.outletName}</span>
+                                      <span>{formatUnitName(item.outletName)}</span>
                                       {item.isPartial && (
                                         <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200">
                                           Parsial ({item.operationalCalendarDays ?? 0} hr)
@@ -1970,7 +1998,7 @@ export function OpexCardDetailModals({
                                 </td>
                                 {crewBonusList.some(b => b.outletName) && (
                                   <td className="px-3.5 py-2.5 text-gray-600 font-medium">
-                                    {staff.outletName || '-'}
+                                    {formatUnitName(staff.outletName)}
                                   </td>
                                 )}
                                 <td className="px-3.5 py-2.5 text-center">
@@ -2367,7 +2395,7 @@ export function OpexCardDetailModals({
                           return (
                             <tr key={o.outletName} className="hover:bg-orange-50/30 transition-colors">
                               <td className="px-3.5 py-2.5 font-bold text-gray-800">
-                                {o.outletName}
+                                {formatUnitName(o.outletName)}
                               </td>
                               <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
                                 {o.count} nota
@@ -2426,7 +2454,7 @@ export function OpexCardDetailModals({
                               {it.date}
                             </td>
                             <td className="px-3 py-2.5 font-bold text-gray-800 whitespace-nowrap">
-                              {it.outletName}
+                              {formatUnitName(it.outletName)}
                             </td>
                             <td className="px-3.5 py-2.5 text-gray-700">
                               <div>{it.description}</div>
@@ -2494,10 +2522,10 @@ export function OpexCardDetailModals({
                 </div>
                 <div>
                   <h3 className="font-extrabold text-gray-900 text-sm sm:text-base flex items-center gap-2">
-                    Rincian Operasional Outlet & Pusat
+                    Rincian Operasional Outlet & Head Office
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Pengeluaran rutin cabang dan pusat di luar beban gaji (Listrik, Sewa, Wifi, dll.)
+                    Pengeluaran rutin cabang dan Head Office di luar beban gaji (Listrik, Sewa, Wifi, dll.)
                   </p>
                 </div>
               </div>
@@ -2650,7 +2678,7 @@ export function OpexCardDetailModals({
                               return (
                                 <tr key={item.outletName} className="hover:bg-amber-50/30 transition-colors">
                                   <td className="px-3.5 py-2.5 font-bold text-gray-800">
-                                    {item.outletName}
+                                    {formatUnitName(item.outletName)}
                                   </td>
                                   <td className="px-3 py-2.5 text-center font-semibold text-gray-600">
                                     {item.count}
@@ -2720,7 +2748,7 @@ export function OpexCardDetailModals({
                     Rincian Akumulasi Total OPEX
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Penjumlahan transparan dari Beban Gaji & Payroll + Operasional Outlet & Pusat
+                    Penjumlahan transparan dari Beban Gaji & Payroll + Operasional Outlet & Head Office
                   </p>
                 </div>
               </div>
@@ -2739,19 +2767,27 @@ export function OpexCardDetailModals({
               <div className="bg-rose-50 p-4 sm:p-5 rounded-2xl border border-rose-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <span className="text-xs font-bold text-rose-700 uppercase tracking-wider block">
-                    Total Beban OPEX (Gabungan)
+                    Total Beban OPEX Bersih
                   </span>
                   <span className="text-2xl sm:text-3xl font-black text-rose-900 mt-1 block tracking-tight">
                     {rupiah(totalCombined)}
                   </span>
                   <p className="text-xs text-rose-700 mt-1">
-                    Akumulasi beban gaji staf/crew ditambah seluruh biaya operasional berjalan.
+                    {feeDed && feeDed.appliedDeduction > 0
+                      ? `Beban OPEX Kotor ${rupiah(grossTotalBase)} dikurangi Potongan Fee Management 3% (${rupiah(feeDed.appliedDeduction)}).`
+                      : 'Akumulasi beban gaji staf/crew ditambah seluruh biaya operasional berjalan.'}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 self-start sm:self-center">
-                  <span className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-rose-200/70 text-rose-800 border border-rose-300/60">
-                    Gaji + Operasional
-                  </span>
+                <div className="flex flex-col items-start sm:items-end gap-1.5 self-start sm:self-center">
+                  {feeDed && feeDed.appliedDeduction > 0 ? (
+                    <span className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                      Potongan Fee Management 3%: -{rupiah(feeDed.appliedDeduction)}
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-rose-200/70 text-rose-800 border border-rose-300/60">
+                      Gaji + Operasional
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -2773,7 +2809,7 @@ export function OpexCardDetailModals({
                     <div
                       className="h-full bg-amber-500 transition-all duration-300"
                       style={{ width: `${crewBonusShare}%` }}
-                      title={`${isPusat ? 'Bonus Staf Kantor' : 'Bonus Kru Toko'}: ${crewBonusShare.toFixed(1)}%`}
+                      title={`${isPusat ? 'Bonus Staf Head Office' : 'Bonus Kru Toko'}: ${crewBonusShare.toFixed(1)}%`}
                     />
                   )}
                   {!isPusat && managerBonusAmount > 0 && (
@@ -2809,7 +2845,7 @@ export function OpexCardDetailModals({
                     <div className="flex items-center gap-1.5">
                       <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
                       <span className="font-semibold text-gray-700">
-                        {isPusat ? 'Bonus Kantor:' : 'Bonus Kru:'} <strong className="text-amber-700">{crewBonusShare.toFixed(1)}%</strong> ({rupiah(crewBonusAmount)})
+                        {isPusat ? 'Bonus Head Office:' : 'Bonus Kru:'} <strong className="text-amber-700">{crewBonusShare.toFixed(1)}%</strong> ({rupiah(crewBonusAmount)})
                       </span>
                     </div>
                   )}
@@ -2845,7 +2881,7 @@ export function OpexCardDetailModals({
                 </h4>
 
                 <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-                  {/* Item 1: Salary */}
+                  {/* Item: Salary */}
                   <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -2853,7 +2889,7 @@ export function OpexCardDetailModals({
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
-                          <span>{isPusat ? '1. Gaji & Payroll Staf Kantor' : '1. Gaji & Payroll (Rutin)'}</span>
+                          <span>{isPusat ? 'Gaji & Payroll Staf Head Office' : 'Gaji & Payroll (Rutin)'}</span>
                           {totalOpexData.isProrated && totalOpexData.prorataInfo && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
                               Prorata {totalOpexData.prorataInfo.overlapDays} Hari
@@ -2861,7 +2897,7 @@ export function OpexCardDetailModals({
                           )}
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
-                          {isPusat ? 'Gaji pokok dan tunjangan staf kantor pusat' : 'Gaji pokok, tunjangan rutin kru, dan alokasi rutin manajer di luar bonus omset'}
+                          {isPusat ? 'Gaji pokok dan tunjangan staf Head Office' : 'Gaji pokok, tunjangan rutin kru, dan alokasi rutin manajer di luar bonus omset'}
                         </div>
                       </div>
                     </div>
@@ -2875,7 +2911,7 @@ export function OpexCardDetailModals({
                     </div>
                   </div>
 
-                  {/* Item 2: Bonus Kru Toko / Staf Kantor */}
+                  {/* Item: Bonus Kru Toko / Staf Head Office */}
                   {(!isPusat || crewBonusAmount > 0) && (
                     <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                       <div className="flex items-start gap-3">
@@ -2884,10 +2920,10 @@ export function OpexCardDetailModals({
                         </div>
                         <div>
                           <div className="font-bold text-gray-900 text-xs sm:text-sm">
-                            {isPusat ? '2. Bonus / Insentif Staf Kantor' : '2. Bonus & Insentif Kru Toko'}
+                            {isPusat ? 'Bonus / Insentif Staf Head Office' : 'Bonus & Insentif Kru Toko'}
                           </div>
                           <div className="text-[11px] text-gray-500 mt-0.5">
-                            {isPusat ? 'Bonus dan insentif staf kantor pusat' : 'Bonus omset penjualan bulanan yang dicapai kru toko'}
+                            {isPusat ? 'Bonus dan insentif staf Head Office' : 'Bonus omset penjualan bulanan yang dicapai kru toko'}
                           </div>
                         </div>
                       </div>
@@ -2902,7 +2938,7 @@ export function OpexCardDetailModals({
                     </div>
                   )}
 
-                  {/* Item 3: Bonus Sales AM & RM */}
+                  {/* Item: Bonus Sales AM & RM */}
                   {!isPusat && (
                     <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                       <div className="flex items-start gap-3">
@@ -2911,7 +2947,7 @@ export function OpexCardDetailModals({
                         </div>
                         <div>
                           <div className="font-bold text-gray-900 text-xs sm:text-sm">
-                            3. Bonus Sales AM & RM
+                            Bonus Sales AM & RM
                           </div>
                           <div className="text-[11px] text-gray-500 mt-0.5">
                             Insentif penjualan produk: Area Manager (Rp 50/pcs) dan Regional Manager (Rp 50/pcs)
@@ -2929,7 +2965,7 @@ export function OpexCardDetailModals({
                     </div>
                   )}
 
-                  {/* Item 4: Lembur Kas Outlet */}
+                  {/* Item: Lembur Kas Outlet */}
                   {lemburAmount > 0 && (
                     <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                       <div className="flex items-start gap-3">
@@ -2938,7 +2974,7 @@ export function OpexCardDetailModals({
                         </div>
                         <div>
                           <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
-                            <span>4. Lemburan</span>
+                            <span>Lemburan</span>
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-200">
                               Kasir Cabang
                             </span>
@@ -2959,7 +2995,7 @@ export function OpexCardDetailModals({
                     </div>
                   )}
 
-                  {/* Item 5: Operational Non-Salary */}
+                  {/* Item: Operational Non-Salary */}
                   <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-gray-50/50 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -2967,7 +3003,7 @@ export function OpexCardDetailModals({
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-xs sm:text-sm">
-                          {lemburAmount > 0 ? '5. Operasional Outlet & Pusat' : '4. Operasional Outlet & Pusat'}
+                          Operasional Outlet & Head Office
                         </div>
                         <div className="text-[11px] text-gray-500 mt-0.5">
                           Beban operasional non-gaji murni ({opCount} transaksi: listrik, sewa cabang, wifi, fisik toko)
@@ -2984,11 +3020,98 @@ export function OpexCardDetailModals({
                     </div>
                   </div>
 
+                  {/* Potongan Fee Manajemen Mitra (3%) untuk OPEX Head Office */}
+                  {feeDed && (
+                    <>
+                      <div className="px-3.5 sm:px-4 py-2.5 bg-slate-50/80 flex items-center justify-between gap-3 text-xs font-bold text-slate-700">
+                        <span>Subtotal Beban OPEX Kotor:</span>
+                        <span className="font-extrabold text-slate-900">{rupiah(grossTotalBase)}</span>
+                      </div>
+                      <div className="p-3.5 sm:p-4 bg-emerald-50/60 flex flex-col gap-2.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200">
+                              <Building2 size={16} />
+                            </div>
+                            <div>
+                              <div className="font-extrabold text-emerald-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+                                <span>Potongan Fee Management 3%</span>
+                                {totalOpexData.isProrated && totalOpexData.prorataInfo && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                    Omzet {totalOpexData.prorataInfo.overlapDays} Hari
+                                  </span>
+                                )}
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-200/80 text-emerald-900 border border-emerald-300">
+                                  Pengurang OPEX Head Office
+                                </span>
+                              </div>
+                              <div className="text-xs text-emerald-800 mt-0.5 font-medium">
+                                {feeDed.loading && feeDed.availableFee === 0 ? (
+                                  <span>Memuat data omzet outlet mitra sesuai tanggal filter...</span>
+                                ) : feeDed.availableFee > 0 ? (
+                                  <span>
+                                    3% &times; Omzet Kotor Mitra {rupiah(feeDed.grossMitraSales ?? 0)} ({feeDed.outlets.length} outlet belum BEP) &bull; Mengurangi beban Head Office ({rupiah(feeDed.rawHoOpex)} &rarr; {rupiah(feeDed.netHoOpex)})
+                                  </span>
+                                ) : (
+                                  <span>
+                                    Mengikuti 3% omzet kotor outlet mitra belum BEP pada tanggal filter (belum ada transaksi tercatat di tanggal ini)
+                                  </span>
+                                )}
+                                {totalOpexData.isProrated && (feeDed.baselineMonthFee ?? 0) > 0 && (
+                                  <span className="text-[11px] font-bold text-emerald-900 ml-1.5">
+                                    &bull; {feeDed.isMtdBaseline ? 'Akumulasi MTD Bln Ini' : 'Baseline 1 Bln'}: -{rupiah(feeDed.baselineMonthFee ?? 0)}
+                                  </span>
+                                )}
+                              </div>
+                              {feeDed.surplusToRevenue > 0 && (
+                                <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 mt-1.5 font-semibold">
+                                  Beban Head Office dibatasi minimal Rp 0 (tidak memotong OPEX outlet). Sisa lebih fee {rupiah(feeDed.surplusToRevenue)} dari total {rupiah(feeDed.availableFee)} tetap dicatat sebagai pendapatan pusat di Laba Rugi.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-black text-emerald-700 text-base sm:text-lg">
+                              {feeDed.loading && feeDed.availableFee === 0 ? '...' : `-${rupiah(feeDed.appliedDeduction)}`}
+                            </div>
+                            <div className="text-[11px] text-emerald-700 font-bold">
+                              Pengurang Beban HO
+                            </div>
+                          </div>
+                        </div>
+
+                        {feeDed.outlets.length > 0 && (
+                          <details className="rounded-xl border border-emerald-200/80 bg-white/90 px-3 py-2 text-xs">
+                            <summary className="cursor-pointer select-none font-bold text-emerald-900 flex items-center justify-between">
+                              <span>Rincian Potongan Fee Management 3% per Outlet Mitra ({feeDed.outlets.length} Outlet)</span>
+                              <span className="text-[11px] text-emerald-700 font-semibold">Klik untuk lihat</span>
+                            </summary>
+                            <div className="mt-2 divide-y divide-emerald-100/80 max-h-44 overflow-y-auto pr-1">
+                              {feeDed.outlets.map((o) => (
+                                <div key={o.outletId} className="py-1.5 flex items-center justify-between gap-2 text-gray-700">
+                                  <div className="min-w-0">
+                                    <span className="font-semibold text-gray-900 block truncate">{o.outletName}</span>
+                                    <span className="text-[11px] text-gray-500">
+                                      {o.pct}% &times; Omzet Kotor {rupiah(o.grossForHoOpex)}
+                                    </span>
+                                  </div>
+                                  <span className="font-mono font-bold text-emerald-700 shrink-0">
+                                    -{rupiah(o.feeForHoOpex)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    </>
+                  )}
+
                   {/* Summary Result */}
                   <div className="p-3.5 sm:p-4 bg-gray-50 flex items-center justify-between gap-3 font-bold">
                     <div className="text-xs sm:text-sm text-gray-800 flex items-center gap-1.5">
                       <CheckCircle2 size={16} className="text-emerald-600" />
-                      <span>{lemburAmount > 0 ? 'Total OPEX Bersih (1 + 2 + 3 + 4 + 5):' : 'Total OPEX Bersih (1 + 2 + 3 + 4):'}</span>
+                      <span>Total OPEX Bersih:</span>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-black text-rose-700 text-base sm:text-lg">
@@ -3001,7 +3124,7 @@ export function OpexCardDetailModals({
 
               {/* Note */}
               <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-3 text-[11px] text-slate-600 leading-relaxed">
-                <strong>Catatan Transparansi:</strong> Total OPEX ini menggabungkan beban payroll HR dan seluruh pengeluaran kas operasional cabang maupun pusat untuk memberikan gambaran beban usaha riil periode terpilih. Tabel transaksi di bawah tetap fokus memuat data kas pengeluaran riil yang tercatat di sistem.
+                <strong>Catatan Transparansi:</strong> Total OPEX ini menggabungkan beban payroll HR dan seluruh pengeluaran kas operasional cabang maupun Head Office untuk memberikan gambaran beban usaha riil periode terpilih. Tabel transaksi di bawah tetap fokus memuat data kas pengeluaran riil yang tercatat di sistem.
               </div>
             </div>
 

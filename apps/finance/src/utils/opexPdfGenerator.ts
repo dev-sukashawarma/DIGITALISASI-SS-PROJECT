@@ -82,7 +82,7 @@ export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<vo
   doc.setFontSize(8)
   doc.text(`Periode: ${startDate} s/d ${endDate}`, 18, 33)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Outlet: ${cleanTarget}`, 18, 38.5)
+  doc.text(`Filter: ${cleanTarget}`, 18, 38.5)
 
   doc.text(`Total Transaksi: ${items.length} catatan`, 100, 33)
   const printDate = new Date().toLocaleDateString('id-ID', {
@@ -115,8 +115,10 @@ export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<vo
     const nameA = (a.outlet_name || '-').trim()
     const nameB = (b.outlet_name || '-').trim()
 
-    const isPusatA = nameA.toLowerCase().includes('kantor pusat') || nameA.toLowerCase() === 'pusat'
-    const isPusatB = nameB.toLowerCase().includes('kantor pusat') || nameB.toLowerCase() === 'pusat'
+    const lowerA = nameA.toLowerCase()
+    const lowerB = nameB.toLowerCase()
+    const isPusatA = lowerA.includes('head office') || lowerA.includes('kantor pusat') || lowerA === 'pusat'
+    const isPusatB = lowerB.includes('head office') || lowerB.includes('kantor pusat') || lowerB === 'pusat'
 
     if (isPusatA && !isPusatB) return -1
     if (!isPusatA && isPusatB) return 1

@@ -44,6 +44,12 @@ import { useHRPayroll } from '@/hooks/useHRPayroll'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
+import { useSalesDaily } from '@/hooks/useSalesDaily'
+import {
+  MANAGEMENT_FEE_OPEX_DEDUCTION_CUTOFF,
+  computeMitraManagementFees,
+  applyHoOpexManagementFeeOffset,
+} from '@/lib/managementFee'
 import { mitraOutletIds } from '@/lib/outletOwnership'
 import {
   barisPayrollDariHr,
@@ -242,7 +248,41 @@ export default function BukuKasPage() {
   const hrPayroll = isGroupTarget ? undefined : hrPayrollData
   // Gaji staf kantor pusat, hanya diambil untuk pilihan Internal + Kantor Pusat.
   const hrPusatFilter = useMemo(() => ({ from: startDate, to: endDate, outletId: 'PUSAT' }), [startDate, endDate])
-  const { data: hrPusatData } = useHRPayroll(hrPusatFilter, sertakanPusat)
+  const butuhHrPusat = sertakanPusat || target === 'all'
+  const { data: hrPusatData } = useHRPayroll(hrPusatFilter, butuhHrPusat)
+  const includesHeadOffice = (target === 'PUSAT' || target === 'INTERNAL_PUSAT' || target === 'all') && sourceFilter !== 'petty_cash'
+  const needMitraSalesForFee = includesHeadOffice && endDate >= MANAGEMENT_FEE_OPEX_DEDUCTION_CUTOFF
+  const salesFilterForFee = useMemo(() => ({
+    from: startDate,
+    to: endDate,
+    outletId: 'all',
+    source: 'all' as const,
+  }), [startDate, endDate])
+  const mitraSales = useSalesDaily(salesFilterForFee, outlets as any, { enabled: needMitraSalesForFee })
+
+  const feeMonthBaselineRange = useMemo(() => {
+    const ym = endDate.slice(0, 7)
+    const first = `${ym}-01`
+    const [y, m] = ym.split('-').map(Number)
+    const lastDay = new Date(y, m, 0).getDate()
+    const fullEnd = `${ym}-${String(lastDay).padStart(2, '0')}`
+    const isCurrentMonth = ym === todayJakarta.slice(0, 7)
+    const to = isCurrentMonth ? todayJakarta : fullEnd
+    return { from: first, to, isMtd: isCurrentMonth }
+  }, [endDate, todayJakarta])
+  const needSeparateFeeBaseline =
+    needMitraSalesForFee &&
+    (startDate !== feeMonthBaselineRange.from || endDate !== feeMonthBaselineRange.to)
+  const mitraSalesMonthBaseline = useSalesDaily(
+    {
+      from: feeMonthBaselineRange.from,
+      to: feeMonthBaselineRange.to,
+      outletId: 'all',
+      source: 'all' as const,
+    },
+    outlets as any,
+    { enabled: needSeparateFeeBaseline },
+  )
   // Rincian gaji & bonus untuk modal pada pilihan kelompok (Internal / Mitra / Internal + Pusat):
   // ringkasan HR 'Semua Outlet' dipotong per outlet kelompok, memakai pembagian yang sama dengan kartu.
   const hrPayrollModal = useMemo(() => {
@@ -306,6 +346,8 @@ export default function BukuKasPage() {
       clearPeriodCache()
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ['expenses'] }),
+        queryClient.refetchQueries({ queryKey: ['sales-daily'] }),
+        queryClient.refetchQueries({ queryKey: ['mitra-investments'] }),
         queryClient.refetchQueries({ queryKey: ['hr_payroll_summary'] }),
         queryClient.refetchQueries({ queryKey: ['prorata-auxiliary-data'] }),
         queryClient.refetchQueries({ queryKey: ['outlets'] }),
@@ -325,6 +367,8 @@ export default function BukuKasPage() {
     const refresher = createThrottledRefresher(() => {
       clearPeriodCache()
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
+      queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
       queryClient.invalidateQueries({ queryKey: ['hr_payroll_summary'] })
       queryClient.invalidateQueries({ queryKey: ['prorata-auxiliary-data'] })
       queryClient.invalidateQueries({ queryKey: ['outlets'] })
@@ -408,12 +452,18 @@ export default function BukuKasPage() {
         ? Math.round((sewaProrata.get(r.outlet_id as string) ?? 0) * (r.amount / totalSewa))
         : null
 
+      const rawOutletName = r.outlet_name ?? (r.scope === 'pusat' ? 'Head Office' : '-')
+      const displayOutletName =
+        r.scope === 'pusat' || rawOutletName === 'Kantor Pusat' || rawOutletName === 'Pusat'
+          ? 'Head Office'
+          : rawOutletName
+
       list.push({
         ...(sewaBerjalan !== null ? { amount_asli: r.amount, description_asli: r.description } : {}),
         id: r.id,
         date: r.expense_date,
         category: effectiveCategory,
-        outlet_name: r.outlet_name ?? (r.scope === 'pusat' ? 'Kantor Pusat' : '-'),
+        outlet_name: displayOutletName,
         outlet_id: r.outlet_id,
         recipient_name: r.recipient_name ?? '-',
         division: r.division ?? (r.scope === 'pusat' ? 'General' : '-'),
@@ -444,6 +494,9 @@ export default function BukuKasPage() {
     let lembur = 0
     let nonSalary = 0
     let pusat = 0
+    let pusatSalary = 0
+    let pusatLembur = 0
+    let pusatNonSalary = 0
     let outlet = 0
 
     allTransactions.forEach(t => {
@@ -456,8 +509,15 @@ export default function BukuKasPage() {
       } else {
         nonSalary += amt
       }
-      if (t.outlet_name === 'Kantor Pusat') {
+      if (t.scope === 'pusat' || t.outlet_name === 'Head Office' || t.outlet_name === 'Kantor Pusat') {
         pusat += amt
+        if (t.category === 'lembur' || t.isLembur) {
+          pusatLembur += amt
+        } else if (isSalaryCategory(t.category)) {
+          pusatSalary += amt
+        } else {
+          pusatNonSalary += amt
+        }
       } else {
         outlet += amt
       }
@@ -469,6 +529,9 @@ export default function BukuKasPage() {
       lembur,
       nonSalary,
       pusat,
+      pusatSalary,
+      pusatLembur,
+      pusatNonSalary,
       outlet,
       count: allTransactions.length
     }
@@ -654,7 +717,54 @@ export default function BukuKasPage() {
   }, [allTransactions])
 
   const displayLembur = kartuClosing ? kartuClosing.lembur : lemburData.totalLembur
-  const totalCombinedOpex = displaySalary + displayLembur + nonSalaryTampil
+  const managementFeeData = useMemo(() => {
+    if (!needMitraSalesForFee) return null
+    return computeMitraManagementFees({
+      salesRows: mitraSales.rows,
+      outlets: outlets as any,
+      investments: mitraInvestments,
+      periodFrom: startDate,
+      periodTo: endDate,
+    })
+  }, [needMitraSalesForFee, mitraSales.rows, outlets, mitraInvestments, startDate, endDate])
+
+  const baselineMonthManagementFee = useMemo(() => {
+    if (!needMitraSalesForFee) return 0
+    if (!needSeparateFeeBaseline) return managementFeeData?.totalFeeForHoOpex ?? 0
+    return computeMitraManagementFees({
+      salesRows: mitraSalesMonthBaseline.rows,
+      outlets: outlets as any,
+      investments: mitraInvestments,
+      periodFrom: feeMonthBaselineRange.from,
+      periodTo: feeMonthBaselineRange.to,
+    }).totalFeeForHoOpex
+  }, [
+    needMitraSalesForFee,
+    needSeparateFeeBaseline,
+    managementFeeData,
+    mitraSalesMonthBaseline.rows,
+    outlets,
+    mitraInvestments,
+    feeMonthBaselineRange,
+  ])
+
+  const rawTotalCombinedOpex = displaySalary + displayLembur + nonSalaryTampil
+
+  const rawHoOpexInView = useMemo(() => {
+    if (!includesHeadOffice || kartuClosing) return 0
+    if (isPusat) return rawTotalCombinedOpex
+    const hoSalary = adaDataHr(hrPusatData)
+      ? hitungGajiRutinPeriodeDariHr({ hr: hrPusatData, from: startDate, to: endDate, target: 'PUSAT' }) + (hrPusatData?.crewBonus || 0)
+      : summary.pusatSalary
+    return hoSalary + summary.pusatLembur + summary.pusatNonSalary
+  }, [includesHeadOffice, kartuClosing, isPusat, rawTotalCombinedOpex, hrPusatData, startDate, endDate, summary.pusatSalary, summary.pusatLembur, summary.pusatNonSalary])
+
+  const hoFeeOffset = useMemo(
+    () => applyHoOpexManagementFeeOffset(rawHoOpexInView, managementFeeData?.totalFeeForHoOpex ?? 0),
+    [rawHoOpexInView, managementFeeData],
+  )
+
+  const totalCombinedOpex = Math.max(0, rawTotalCombinedOpex - hoFeeOffset.appliedDeduction)
 
   // Operational breakdown for details modal (Category & Outlet)
   const operationalBreakdown = useMemo(() => {
@@ -837,13 +947,13 @@ export default function BukuKasPage() {
     const berkelompok = (daftar: typeof validOutlets, judul: string) =>
       daftar.map((o, i) => ({ label: o.name, value: o.id, ...(i === 0 ? { groupLabel: judul } : {}) }))
     return [
-      { label: 'Semua Unit (Pusat & Outlet)', value: 'all' },
-      { label: 'Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
+      { label: 'Global (HO & Semua Outlet)', value: 'all' },
+      { label: 'Semua Outlet', value: 'ALL_OUTLETS' },
       { label: 'Outlet Internal', value: 'INTERNAL_OUTLETS', indent: true },
       { label: 'Outlet Mitra', value: 'MITRA_OUTLETS', indent: true },
       ...(isAdmin ? [
-        { label: 'Kantor Pusat (OPEX Pusat)', value: 'PUSAT' },
-        { label: 'Kantor Pusat + Outlet Internal', value: 'INTERNAL_PUSAT' },
+        { label: 'Head Office', value: 'PUSAT' },
+        { label: 'Head Office + Outlet Internal', value: 'INTERNAL_PUSAT' },
       ] : []),
       ...berkelompok(outletMitra, 'Mitra'),
       ...berkelompok(outletInternal, 'Internal'),
@@ -982,7 +1092,7 @@ export default function BukuKasPage() {
     try {
       toast.info('Menyiapkan dokumen PDF OPEX...')
       const targetOption = selectOptions.find(o => o.value === target)
-      const targetLabel = targetOption ? targetOption.label : 'Semua Unit'
+      const targetLabel = targetOption ? targetOption.label : 'Global (HO & Semua Outlet)'
       const categorySuffix = selectedCategory !== 'all' ? ` - Kategori: ${labelOf(selectedCategory)}` : ''
 
       await generateOpexReportPDF({
@@ -1048,6 +1158,8 @@ export default function BukuKasPage() {
     try {
       await deleteTransactionAction({ id: deletingTx.id })
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
+      queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
       toast.success('Transaksi berhasil dihapus!')
       setDeletingTx(null)
     } catch (err: any) {
@@ -1061,7 +1173,7 @@ export default function BukuKasPage() {
     <div className="space-y-6">
       <PageHeader
         title="Buku Kas (OPEX)"
-        description="Pencatatan dan rincian beban operasional (Gaji, Operasional Cabang, dan Beban Kantor Pusat)."
+        description="Pencatatan dan rincian beban operasional (Gaji, Operasional Cabang, dan Beban Head Office)."
       >
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -1147,10 +1259,10 @@ export default function BukuKasPage() {
 
       {/* FILTER CONTROLS */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-suka-gray-200 shadow-xs flex flex-wrap items-center gap-3 sm:gap-4">
-        {/* Outlet Selector */}
+        {/* Filter Selector */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-gray-600 shrink-0">
-            Outlet:
+            Filter:
           </span>
           <div className="w-56 sm:w-64">
             <TargetCombobox
@@ -1342,7 +1454,7 @@ export default function BukuKasPage() {
               <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
                 <div className="flex items-center gap-1 shrink-0">
                   <Users size={14} className="shrink-0" />
-                  <span>{isPusat ? 'Gaji Rutin Pusat' : 'Gaji (Rutin)'}</span>
+                  <span>{isPusat ? 'Gaji Rutin Head Office' : 'Gaji (Rutin)'}</span>
                 </div>
                 {hrPayroll?.status === 'draft' && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
@@ -1382,7 +1494,7 @@ export default function BukuKasPage() {
               {hasHrPayroll ? (
                 <span>
                   {isPusat ? (
-                    `Gaji Rutin (${hrPayroll!.totalStaff} staf kantor pusat)`
+                    `Gaji Rutin (${hrPayroll!.totalStaff} staf Head Office)`
                   ) : (
                     <>
                       Gaji Rutin ({hrPayroll!.crewCount ?? hrPayroll!.totalStaff} kru{(() => {
@@ -1417,7 +1529,7 @@ export default function BukuKasPage() {
                 </span>
               ) : (
                 <span>
-                  Beban gaji rutin crew & kantor
+                  Beban gaji rutin crew & Head Office
                   {baselineRoutineSalary > 0 && effectiveProrataInfo.isProrated && (
                     <span className="text-[10px] text-amber-700 font-bold ml-1.5">
                       • Baseline 1 bln: {rupiah(baselineRoutineSalary)}
@@ -1440,7 +1552,7 @@ export default function BukuKasPage() {
             <span className="text-[10px] text-gray-400 font-medium">
               {hasHrPayroll && effectiveProrataInfo.isProrated
                 ? `Prorata ${effectiveProrataInfo.overlapDays} Hari`
-                : (isPusat ? `${hrPayroll?.totalStaff || 23} Staf Kantor` : 'Breakdown Staf')}
+                : (isPusat ? `${hrPayroll?.totalStaff || 23} Staf Head Office` : 'Breakdown Staf')}
             </span>
           </div>
         </div>
@@ -1453,7 +1565,7 @@ export default function BukuKasPage() {
                 <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5 flex-wrap min-w-0">
                   <div className="flex items-center gap-1 shrink-0">
                     <Award size={14} className="shrink-0" />
-                    <span>{isPusat ? 'Bonus Staf Kantor' : 'Bonus Kru'}</span>
+                    <span>{isPusat ? 'Bonus Staf Head Office' : 'Bonus Kru'}</span>
                   </div>
                   {!isPusat && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs">
@@ -1487,8 +1599,8 @@ export default function BukuKasPage() {
                 {isPusat ? (
                   <span>
                     {displayCrewBonus > 0
-                      ? `${hrPayroll?.crewBonusDetails?.length || 0} penerima • Insentif Staf Kantor`
-                      : 'Staf kantor tidak ada bonus omset toko'}
+                      ? `${hrPayroll?.crewBonusDetails?.length || 0} penerima • Insentif Staf Head Office`
+                      : 'Staf Head Office tidak ada bonus omset toko'}
                   </span>
                 ) : (
                   <span>
@@ -1633,13 +1745,13 @@ export default function BukuKasPage() {
           </div>
         </div>
 
-        {/* 5. Operasional Outlet & Pusat */}
+        {/* 5. Operasional Outlet & Head Office */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-xs hover:shadow-md hover:border-suka-gray-300 transition-all duration-200 flex flex-col justify-between min-w-0 min-h-[165px]">
           <div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1 truncate">
                 <Store size={14} className="shrink-0" />
-                <span className="truncate">Operasional Outlet & Pusat</span>
+                <span className="truncate">Operasional Outlet & Head Office</span>
               </div>
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-2xs">
                 <Store size={16} />
@@ -1727,6 +1839,31 @@ export default function BukuKasPage() {
               <span className="text-rose-300 mx-1">+</span>
               <span>Opex: {rupiah(nonSalaryTampil)}</span>
             </div>
+
+            {needMitraSalesForFee && !kartuClosing && (
+              <div className="mt-2 rounded-xl bg-white/18 border border-white/35 px-2.5 py-1.5 backdrop-blur-xs shadow-2xs">
+                <div className="flex items-center justify-between gap-2 text-xs sm:text-sm font-extrabold text-emerald-200 leading-tight">
+                  <span className="truncate">
+                    Potongan Fee Management 3%
+                  </span>
+                  <span className="tabular-nums shrink-0">
+                    {mitraSales.loading && hoFeeOffset.availableFee === 0
+                      ? '...'
+                      : `-${rupiah(hoFeeOffset.appliedDeduction)}`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-[11px] font-bold text-rose-100/95 mt-0.5 leading-tight">
+                  <span>OPEX Kotor</span>
+                  <span className="tabular-nums line-through decoration-rose-200/80">{rupiah(rawTotalCombinedOpex)}</span>
+                </div>
+                {prorataInfo.isProrated && baselineMonthManagementFee > 0 && needSeparateFeeBaseline && (
+                  <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-amber-200/95 mt-0.5 leading-tight">
+                    <span>{feeMonthBaselineRange.isMtd ? 'Akumulasi MTD Bln Ini' : 'Baseline Fee 1 Bln'}</span>
+                    <span className="tabular-nums">-{rupiah(baselineMonthManagementFee)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mt-3.5 pt-2.5 border-t border-white/20 flex items-center justify-between mt-auto relative z-10">
@@ -2278,6 +2415,8 @@ export default function BukuKasPage() {
           onSuccess={() => {
             setIsFormOpen(false)
             queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
+      queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
           }}
         />
       )}
@@ -2292,6 +2431,8 @@ export default function BukuKasPage() {
           onSuccess={() => {
             setEditingTx(null)
             queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
+      queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
           }}
         />
       )}
@@ -2303,6 +2444,8 @@ export default function BukuKasPage() {
           onSuccess={() => {
             setIsImportOpen(false)
             queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
+      queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
           }}
         />
       )}
@@ -2342,6 +2485,22 @@ export default function BukuKasPage() {
         }}
         totalOpexData={{
           totalCombined: totalCombinedOpex,
+          grossTotalCombined: rawTotalCombinedOpex,
+          managementFeeDeduction: needMitraSalesForFee && !kartuClosing
+            ? {
+                rawHoOpex: hoFeeOffset.rawHoOpex,
+                netHoOpex: hoFeeOffset.netHoOpex,
+                availableFee: hoFeeOffset.availableFee,
+                appliedDeduction: hoFeeOffset.appliedDeduction,
+                surplusToRevenue: hoFeeOffset.surplusToRevenue,
+                grossMitraSales: managementFeeData?.grossMitraBelumBepHoOpex ?? 0,
+                jumlahOutletBelumBep: managementFeeData?.jumlahOutletBelumBep ?? 0,
+                loading: mitraSales.loading,
+                baselineMonthFee: baselineMonthManagementFee,
+                isMtdBaseline: feeMonthBaselineRange.isMtd,
+                outlets: managementFeeData?.activeHoFeeOutlets ?? [],
+              }
+            : undefined,
           displaySalary,
           displayRoutineSalary,
           displayBonus,

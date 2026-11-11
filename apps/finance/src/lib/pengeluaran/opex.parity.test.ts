@@ -34,6 +34,8 @@ const IDENTICAL_FILES = [
   'components/TargetCombobox.tsx',
   'utils/opexPdfGenerator.ts',
   'lib/biayaRab.ts',
+  'lib/managementFee.ts',
+  'lib/mitraPolicy.ts',
   'components/BiayaRabPanel.tsx',
 ] as const
 

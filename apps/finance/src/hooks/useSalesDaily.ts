@@ -55,12 +55,14 @@ function normalizePlatform(src: string | null | undefined): string {
 
 export function useSalesDaily(
   filter: { from: string; to: string; outletId: string; source: string },
-  outlets?: { id: string; name: string }[]
+  outlets?: { id: string; name: string }[],
+  options?: { enabled?: boolean }
 ) {
   const supabase = createSupabaseBrowserClient()
   const query = useQuery<SalesSummaryRow[]>({
     queryKey: ['sales-daily', filter.from, filter.to, filter.outletId, filter.source],
     staleTime: 2 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(filter.from && filter.to),
     queryFn: async () => {
       const PAGE_SIZE = 1000
       const salesData: any[] = []

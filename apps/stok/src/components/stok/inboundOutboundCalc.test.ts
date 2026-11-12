@@ -498,5 +498,111 @@ describe('InboundOutbound Pricing & Satuan Kirim (Opsi A)', () => {
       expect(result.hargaPerDistUnit).toBe(51000);
       expect(result.totalNilai).toBe(1020000);
     });
+
+    it('FOIL 7,6M (OUT): 1.6667 Dus (30.400 cm = 40 roll) keluar ke Cimanggu -> tampil "40 roll", sisa "94,4 roll"', () => {
+      const item: InboundOutbound = {
+        id: 'out-foil76',
+        tipe: 'OUT',
+        sumber: 'kirim_outlet',
+        kategori: 'Kirim ke Outlet',
+        qty: 30400, // hasil normalisasi view inbound_outbound_feed (1.6666667 Dus * 18240 cm)
+        harga_satuan: 292869.23,
+        saldo_sesudah: 71744, // 3.9333333 Dus * 18240 cm = 94.4 roll
+        catatan: 'Kirim SJ ke outlet - FOIL 7,6M',
+        created_at: '2026-11-10T22:01:52+07:00',
+        created_by: null,
+        outlet_id: 'out-hq',
+        tujuan_outlet_nama: 'SUKA SHAWARMA CIMANGGU',
+        bahan_baku_id: 'bb-foil76',
+        bahan_baku: {
+          nama: 'FOIL 7,6M',
+          satuan: 'Dus',
+          satuan_tengah: 'Roll',
+          faktor_tengah: 24,
+          satuan_kecil: 'cm',
+          faktor_tampilan: 18240,
+          satuan_distribusi: 'roll',
+        },
+      };
+
+      const result = getDistribusiCalculation(item);
+      expect(result.qtyNumber).toBe(40);
+      expect(result.unitLabel).toBe('roll');
+      expect(result.displayText).toBe('40 roll');
+      expect(result.distFactor).toBe(24);
+      expect(Math.round(result.hargaPerDistUnit!)).toBe(12203);
+      expect(result.totalNilai).toBe(488115);
+      expect(result.saldoText).toBe('94,4 roll');
+    });
+
+    it('SAUS KEJU (IN): 12 Dus (72.000 gram) masuk vendor -> tampil "72 pouch"', () => {
+      const item: InboundOutbound = {
+        id: 'in-saus-keju',
+        tipe: 'IN',
+        sumber: 'vendor_po',
+        kategori: 'Pembelian Vendor',
+        qty: 72000, // 12 Dus * 6000 Gram
+        harga_satuan: 210000,
+        saldo_sesudah: 72000,
+        catatan: null,
+        created_at: '2026-11-10T15:31:48+07:00',
+        created_by: null,
+        outlet_id: 'out-hq',
+        bahan_baku_id: 'bb-saus-keju',
+        bahan_baku: {
+          nama: 'SAUS KEJU',
+          satuan: 'Dus',
+          satuan_tengah: 'Pouch',
+          faktor_tengah: 6,
+          satuan_kecil: 'Gram',
+          faktor_tampilan: 6000,
+          satuan_distribusi: 'pouch',
+        },
+      };
+
+      const result = getDistribusiCalculation(item);
+      expect(result.qtyNumber).toBe(72);
+      expect(result.unitLabel).toBe('pouch');
+      expect(result.displayText).toBe('72 pouch');
+      expect(result.distFactor).toBe(6);
+      expect(result.hargaPerDistUnit).toBe(35000);
+      expect(result.totalNilai).toBe(2520000);
+      expect(result.saldoText).toBe('72 pouch');
+    });
+
+    it('PAPER BOWL (OUT): 4 Pack (200 Pcs) keluar -> tampil "4 pack", sisa "68 pack"', () => {
+      const item: InboundOutbound = {
+        id: 'out-paper-bowl',
+        tipe: 'OUT',
+        sumber: 'kirim_outlet',
+        kategori: 'Kirim ke Outlet',
+        qty: 200, // 4 Pack * 50 Pcs
+        harga_satuan: 42500,
+        saldo_sesudah: 3400, // 68 Pack * 50 Pcs
+        catatan: null,
+        created_at: '2026-11-10T14:01:53+07:00',
+        created_by: null,
+        outlet_id: 'out-hq',
+        bahan_baku_id: 'bb-paper-bowl',
+        bahan_baku: {
+          nama: 'PAPER BOWL',
+          satuan: 'Pack',
+          satuan_tengah: null,
+          faktor_tengah: null,
+          satuan_kecil: 'Pcs',
+          faktor_tampilan: 50,
+          satuan_distribusi: 'pack',
+        },
+      };
+
+      const result = getDistribusiCalculation(item);
+      expect(result.qtyNumber).toBe(4);
+      expect(result.unitLabel).toBe('pack');
+      expect(result.displayText).toBe('4 pack');
+      expect(result.distFactor).toBe(1);
+      expect(result.hargaPerDistUnit).toBe(42500);
+      expect(result.totalNilai).toBe(170000);
+      expect(result.saldoText).toBe('68 pack');
+    });
   });
 });

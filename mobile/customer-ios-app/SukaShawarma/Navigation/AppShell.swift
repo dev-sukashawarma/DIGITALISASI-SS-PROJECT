@@ -180,10 +180,13 @@ struct AppShell: View {
             if let item = catalog.semuaItem.first(where: { $0.id == id }) {
                 ItemDetailView(item: item, toppingTersedia: toppingUntuk(item, semua: catalog.semuaItem),
                                cart: container.cartStore,
+                               outletBolehPesan: catalog.outlet?.bolehPesan != false,
+                               labelOutletTutup: labelOutletTutup(catalog.outlet),
                                adalahTerlaris: termasukMenuTerlaris(item.id, semua: catalog.semuaItem,
                                                                     kurasiIds: (config ?? ConfigDto()).menuTerlarisIds),
                                onLihatKeranjang: { jalur.append(.keranjang) },
                                onKembali: kembali)
+                .task { await catalog.segarkanStatusOutlet() }
             } else {
                 VStack(spacing: 0) {
                     PageBrandHeader(judul: "Detail Menu", onKembali: kembali)

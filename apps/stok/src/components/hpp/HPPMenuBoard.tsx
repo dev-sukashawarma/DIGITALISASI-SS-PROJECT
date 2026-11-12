@@ -19,7 +19,7 @@ import {
   SlidersHorizontal,
   Info
 } from 'lucide-react'
-import { Skeleton } from '@suka/design-system'
+import { Select, Skeleton } from '@suka/design-system'
 
 export function HPPMenuBoard() {
   const { data: menuList = [], isLoading, isRefetching, refetch, error } = useHPPMenuList()
@@ -210,7 +210,7 @@ export function HPPMenuBoard() {
         >
           <div className="flex items-center justify-between mb-1.5">
             <span className={`text-[10px] font-black uppercase tracking-wider ${statusFilter === 'optimal' ? 'text-emerald-100' : 'text-emerald-700'}`}>
-              🟢 Sehat (&lt;35%)
+              Sehat (&lt;35%)
             </span>
             <CheckCircle2 className={`w-4 h-4 ${statusFilter === 'optimal' ? 'text-white' : 'text-emerald-600'}`} />
           </div>
@@ -230,7 +230,7 @@ export function HPPMenuBoard() {
         >
           <div className="flex items-center justify-between mb-1.5">
             <span className={`text-[10px] font-black uppercase tracking-wider ${statusFilter === 'critical' ? 'text-red-100' : 'text-red-700'}`}>
-              🔴 Kritis (&gt;45%)
+              Kritis (&gt;45%)
             </span>
             <AlertTriangle className={`w-4 h-4 ${statusFilter === 'critical' ? 'text-white' : 'text-red-600'}`} />
           </div>
@@ -266,21 +266,23 @@ export function HPPMenuBoard() {
           {/* Action Buttons: Sort & Export */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Sort Selector */}
-            <div className="flex items-center gap-1.5 bg-suka-cream/40 border border-suka-brown/10 rounded-2xl px-3 py-2">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-suka-brown/50 shrink-0" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-transparent text-xs font-bold text-suka-brown outline-none cursor-pointer pr-1"
-              >
-                <option value="fc_desc">Food Cost Tertinggi (%)</option>
-                <option value="fc_asc">Food Cost Terendah (%)</option>
-                <option value="margin_asc">Margin Terendah (Rp)</option>
-                <option value="margin_desc">Margin Tertinggi (Rp)</option>
-                <option value="hpp_desc">HPP Termahal (Rp)</option>
-                <option value="name">Nama Menu (A-Z)</option>
-              </select>
-            </div>
+            <Select
+              value={sortBy}
+              onChange={(val) => setSortBy(val as any)}
+              aria-label="Urutkan Menu HPP"
+              leadingIcon={<SlidersHorizontal className="w-3.5 h-3.5" />}
+              searchPlaceholder="Cari urutan..."
+              className="min-w-[210px]"
+              triggerClassName="bg-suka-cream/40 border-suka-brown/10 rounded-2xl shadow-none"
+              options={[
+                { value: 'fc_desc', label: 'Food Cost Tertinggi (%)' },
+                { value: 'fc_asc', label: 'Food Cost Terendah (%)' },
+                { value: 'margin_asc', label: 'Margin Terendah (Rp)' },
+                { value: 'margin_desc', label: 'Margin Tertinggi (Rp)' },
+                { value: 'hpp_desc', label: 'HPP Termahal (Rp)' },
+                { value: 'name', label: 'Nama Menu (A-Z)' },
+              ]}
+            />
 
             {/* Refresh Button */}
             <button

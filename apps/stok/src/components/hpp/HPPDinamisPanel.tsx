@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Info, RefreshCw } from 'lucide-react'
+import { Select } from '@suka/design-system'
 import { useOutletScope } from '@/hooks/useOutletScope'
 import { useHPPDinamis } from '@/hooks/useHPPDinamis'
 import {
@@ -51,17 +52,20 @@ export function HPPDinamisPanel() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <Select
+            size="sm"
             aria-label="Pilih outlet"
-            className="rounded-lg border border-suka-brown/20 px-2 py-1.5 text-sm"
+            placeholder="Pilih outlet..."
+            searchPlaceholder="Cari outlet..."
             value={outletId ?? ''}
-            onChange={(e) => setOutletId(e.target.value || null)}
-          >
-            <option value="">Pilih outlet…</option>
-            {boundOutlets.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
-            ))}
-          </select>
+            onChange={(val) => setOutletId(val || null)}
+            className="min-w-[190px]"
+            triggerClassName="border-suka-brown/20 rounded-lg"
+            options={[
+              { value: '', label: 'Pilih outlet...' },
+              ...boundOutlets.map((o) => ({ value: o.id, label: o.name })),
+            ]}
+          />
           <input type="date" aria-label="Tanggal mulai" className="rounded-lg border border-suka-brown/20 px-2 py-1.5 text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
           <span className="text-xs text-suka-brown/50">s/d</span>
           <input type="date" aria-label="Tanggal akhir" className="rounded-lg border border-suka-brown/20 px-2 py-1.5 text-sm" value={to} onChange={(e) => setTo(e.target.value)} />

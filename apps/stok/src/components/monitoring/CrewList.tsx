@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { Skeleton, getBahanBakuSource } from '@suka/design-system';
+import { Select, Skeleton, getBahanBakuSource } from '@suka/design-system';
 import { decomposeTriUnitRaw } from '@/lib/format/compositeUnit';
 import { Search, X, MapPin } from 'lucide-react';
 
@@ -281,16 +281,17 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
           )}
         </div>
         
-        <div className="w-36 shrink-0">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="w-full px-3 py-2.5 bg-white border border-suka-brown/10 rounded-2xl text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange shadow-xs cursor-pointer"
-          >
-            <option value="name">Sort: Nama</option>
-            <option value="status">Sort: Status</option>
-          </select>
-        </div>
+        <Select
+          value={sortBy}
+          onChange={(val) => setSortBy(val as SortBy)}
+          aria-label="Urutkan Stok Crew"
+          className="w-36 shrink-0"
+          triggerClassName="border-suka-brown/10 rounded-2xl shadow-xs"
+          options={[
+            { value: 'name', label: 'Sort: Nama' },
+            { value: 'status', label: 'Sort: Status' },
+          ]}
+        />
       </div>
 
       {/* Items list grouped by category */}

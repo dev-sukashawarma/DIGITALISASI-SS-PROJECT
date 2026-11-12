@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, Button, Input } from '@suka/design-system'
+import { AlertTriangle, X } from 'lucide-react'
+import { Card, Button, Input, Select } from '@suka/design-system'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useLedgerActions } from '@/hooks/useLedger'
 import { useStokBalance } from '@/hooks/useStokBalance'
@@ -470,18 +471,21 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
 
       <div className="flex flex-col gap-2">
         <label className="text-xs font-bold text-[#544437]/75 uppercase tracking-wide">Pilih Bahan Baku</label>
-        <select
-          className="w-full border border-[#d9c2b2]/40 rounded-xl px-4 py-2.5 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] font-medium transition-all shadow-sm cursor-pointer"
+        <Select
           value={bahanBakuId}
-          onChange={e => {
-            const newId = e.target.value
+          onChange={(newId) => {
             setBahanBakuId(newId)
             setSelectedUnitType('besar')
           }}
-        >
-          <option value="">— Pilih bahan baku —</option>
-          {bahanBaku.map(b => <option key={b.id} value={b.id}>{b.nama} ({b.satuan})</option>)}
-        </select>
+          placeholder="Pilih bahan baku..."
+          searchPlaceholder="Cari bahan baku..."
+          aria-label="Pilih Bahan Baku"
+          triggerClassName="border-[#d9c2b2]/40 px-4 py-2.5 text-[#1e1b15] font-medium shadow-sm"
+          options={bahanBaku.map((b) => ({
+            value: b.id,
+            label: `${b.nama} (${b.satuan})`,
+          }))}
+        />
       </div>
 
       {bahanBakuId && selectedBahan && (
@@ -544,19 +548,23 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
               className="flex-1 px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
             />
             {selectedBahan && (
-              <select
+              <Select
                 value={selectedUnitType}
-                onChange={e => setSelectedUnitType(e.target.value as 'besar'|'tengah'|'kecil')}
-                className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] font-bold focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm cursor-pointer min-w-[80px]"
-              >
-                <option value="besar">{selectedBahan.satuan}</option>
-                {selectedBahan.satuan_tengah && selectedBahan.faktor_tengah ? (
-                  <option value="tengah">{selectedBahan.satuan_tengah}</option>
-                ) : null}
-                {selectedBahan.satuan_kecil && selectedBahan.faktor_tampilan ? (
-                  <option value="kecil">{selectedBahan.satuan_kecil}</option>
-                ) : null}
-              </select>
+                onChange={(val) => setSelectedUnitType(val as 'besar' | 'tengah' | 'kecil')}
+                aria-label="Pilih Satuan"
+                minMenuWidth={130}
+                className="min-w-[110px] shrink-0"
+                triggerClassName="px-4 py-2.5 border-[#d9c2b2]/40 text-[#1e1b15] shadow-sm"
+                options={[
+                  { value: 'besar', label: selectedBahan.satuan },
+                  ...(selectedBahan.satuan_tengah && selectedBahan.faktor_tengah
+                    ? [{ value: 'tengah', label: selectedBahan.satuan_tengah }]
+                    : []),
+                  ...(selectedBahan.satuan_kecil && selectedBahan.faktor_tampilan
+                    ? [{ value: 'kecil', label: selectedBahan.satuan_kecil }]
+                    : []),
+                ]}
+              />
             )}
           </div>
 
@@ -579,10 +587,13 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
                 <span className="text-right font-semibold">{formatSaldo(preview.sesudah)}</span>
               </div>
               {preview.lipat !== null && preview.lipat >= 10 && (
-                <p className="pt-1 leading-snug font-semibold">
-                  ⚠️ Jumlah ini {preview.lipat.toLocaleString('id-ID', { maximumFractionDigits: 0 })}× stok
-                  yang ada sekarang. Periksa lagi pilihan satuannya di sebelah kolom angka — sekarang
-                  terpilih <span className="underline">{preview.satuanTerpilih}</span>.
+                <p className="pt-1 leading-snug font-semibold flex items-start gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Jumlah ini {preview.lipat.toLocaleString('id-ID', { maximumFractionDigits: 0 })}× stok
+                    yang ada sekarang. Periksa lagi pilihan satuannya di sebelah kolom angka — sekarang
+                    terpilih <span className="underline">{preview.satuanTerpilih}</span>.
+                  </span>
                 </p>
               )}
             </div>
@@ -698,9 +709,12 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
                     {item.summaryText}
                   </p>
                   {(item.lipatStok ?? 0) >= 10 && (
-                    <p className="text-[11px] font-bold text-[#ba1a1a] leading-snug">
-                      ⚠️ {item.lipatStok!.toLocaleString('id-ID', { maximumFractionDigits: 0 })}× stok yang ada
-                      saat ditambahkan — periksa satuannya sebelum menyimpan.
+                    <p className="text-[11px] font-bold text-[#ba1a1a] leading-snug flex items-start gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>
+                        {item.lipatStok!.toLocaleString('id-ID', { maximumFractionDigits: 0 })}× stok yang ada
+                        saat ditambahkan — periksa satuannya sebelum menyimpan.
+                      </span>
                     </p>
                   )}
                 </div>
@@ -711,7 +725,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
                   className="shrink-0 text-gray-400 hover:text-[#ba1a1a] p-1 font-bold transition-colors cursor-pointer text-sm"
                   title="Hapus Item"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             ))}
@@ -724,16 +738,15 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
           {tipe === 'waste' ? 'Alasan Waste' : 'Keterangan'}
         </label>
         {tipe === 'waste' ? (
-          <select
+          <Select
             value={wasteReason}
-            onChange={e => setWasteReason(e.target.value)}
-            className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
-          >
-            <option value="" disabled>Pilih alasan...</option>
-            {WASTE_REASONS.map(r => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
+            onChange={(val) => setWasteReason(val)}
+            placeholder="Pilih alasan..."
+            searchPlaceholder="Cari alasan waste..."
+            aria-label="Alasan Waste"
+            triggerClassName="px-4 py-2.5 border-[#d9c2b2]/40 text-[#1e1b15] shadow-sm"
+            options={WASTE_REASONS.map((r) => ({ value: r, label: r }))}
+          />
         ) : (
           <Input
             placeholder={needsReason ? 'Alasan penyesuaian (wajib)' : 'Catatan tambahan'}

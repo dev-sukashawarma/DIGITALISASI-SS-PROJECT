@@ -28,6 +28,7 @@ import { exportReconciliationToCsv } from '@/lib/export/exportJurnalMutasi'
 import { exportReconciliationToPdf } from '@/lib/export/exportJurnalMutasiPdf'
 import { RekonsiliasiTable } from './RekonsiliasiTable'
 import { AuditNotesModal } from './AuditNotesModal'
+import { Select } from '@suka/design-system'
 
 interface JurnalMutasiDashboardProps {
   initialOutletId?: string | null
@@ -321,24 +322,29 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
         {/* Filter Controls: Pilih Outlet & Cut-off Periode */}
         <div className="pt-3 border-t border-suka-brown/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Dropdown Pemilih Outlet */}
-          <div className="flex items-center gap-2 bg-suka-cream/30 border border-suka-brown/20 rounded-2xl px-3.5 py-2 w-full md:w-auto">
-            <Store className="w-4 h-4 text-suka-orange shrink-0" />
-            <label className="text-xs font-black text-suka-brown/70 whitespace-nowrap">Cabang:</label>
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <span className="text-xs font-black text-suka-brown/70 whitespace-nowrap flex items-center gap-1.5">
+              <Store className="w-4 h-4 text-suka-orange shrink-0" />
+              Cabang:
+            </span>
             {outletsLoading && outlets.length === 0 ? (
               <span className="text-xs text-suka-brown/40">Memuat cabang...</span>
             ) : (
-              <select
+              <Select
                 value={currentOutletId}
-                onChange={(e) => handleSelectOutlet(e.target.value)}
-                className="bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer flex-1 md:w-56 truncate"
-              >
-                <option value="ALL">🏢 Semua Outlet (Konsolidasi)</option>
-                {outlets.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
+                onChange={handleSelectOutlet}
+                aria-label="Pilih Cabang"
+                searchPlaceholder="Cari cabang..."
+                className="flex-1 md:w-64"
+                triggerClassName="bg-suka-cream/30 border-suka-brown/20 rounded-2xl font-black shadow-none"
+                options={[
+                  { value: 'ALL', label: 'Semua Outlet (Konsolidasi)' },
+                  ...outlets.map((o) => ({
+                    value: o.id,
+                    label: o.name,
+                  })),
+                ]}
+              />
             )}
           </div>
 
@@ -383,17 +389,18 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
               ) : sessions.length === 0 ? (
                 <span className="text-xs font-bold text-red-600">Belum ada opname final</span>
               ) : (
-                <select
+                <Select
                   value={selectedOpnameId}
-                  onChange={(e) => setSelectedOpnameId(e.target.value)}
-                  className="px-3 py-2 bg-suka-cream/20 border border-suka-brown/20 rounded-xl text-xs font-bold text-suka-brown outline-none focus:border-suka-orange cursor-pointer"
-                >
-                  {sessions.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.tanggal} ({s.tipe}) • Oleh: {s.created_by_name || 'Staff'} ({s.status})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedOpnameId}
+                  aria-label="Pilih Sesi Opname"
+                  searchPlaceholder="Cari tanggal atau sesi opname..."
+                  className="min-w-[260px]"
+                  triggerClassName="bg-suka-cream/20 border-suka-brown/20 shadow-none"
+                  options={sessions.map((s) => ({
+                    value: s.id,
+                    label: `${s.tanggal} (${s.tipe}) - Oleh: ${s.created_by_name || 'Staff'} (${s.status})`,
+                  }))}
+                />
               )
             ) : (
               <div className="flex items-center gap-2 flex-wrap">

@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@suka/design-system'
 import { useOutletScope } from '@/hooks/useOutletScope'
 
 export interface OutletSwitcherProps {
@@ -28,19 +29,24 @@ export function OutletSwitcher({
     }
   }
 
+  const options = [
+    ...(allowAll ? [{ value: 'ALL', label: allLabel }] : []),
+    ...boundOutlets.map((outlet) => ({
+      value: outlet.id,
+      label: outlet.name,
+    })),
+  ]
+
   return (
-    <select
+    <Select
+      size="sm"
       aria-label="Outlet Binaan"
       value={currentId}
-      onChange={(e) => handleChange(e.target.value)}
-      className="px-3 py-1.5 bg-white border border-[#d9c2b2]/45 text-[#701604] rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#f29744]"
-    >
-      {allowAll && <option value="ALL">{allLabel}</option>}
-      {boundOutlets.map((outlet) => (
-        <option key={outlet.id} value={outlet.id}>
-          {outlet.name}
-        </option>
-      ))}
-    </select>
+      onChange={handleChange}
+      options={options}
+      searchPlaceholder="Cari outlet..."
+      className="min-w-[170px] max-w-[260px]"
+      triggerClassName="border-[#d9c2b2]/45 uppercase tracking-wider shadow-sm"
+    />
   )
 }

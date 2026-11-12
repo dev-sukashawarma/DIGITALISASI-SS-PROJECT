@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { Button, Input } from '@suka/design-system'
+import { Info } from 'lucide-react'
+import { Button, Input, Select } from '@suka/design-system'
 import { createClient } from '@/lib/supabase'
 import { submitWasteReport } from '@/app/actions/waste'
 import { toast } from 'sonner'
@@ -173,25 +174,27 @@ export function WasteModal({ outletId, bahanBaku, onClose, onSuccess }: Props) {
 
             {/* Live conversion info */}
             {qtyNum > 0 && selectedUnitType !== 'besar' && (
-              <p className="text-[11px] font-semibold text-[#006e24] bg-[#e8f5e9] px-2.5 py-1 rounded-lg border border-[#93f997]/40">
-                💡 Setara dengan <span className="font-bold">{round2(finalQtyBesar)} {bahanBaku.satuan}</span>
+              <p className="text-[11px] font-semibold text-[#006e24] bg-[#e8f5e9] px-2.5 py-1 rounded-lg border border-[#93f997]/40 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  Setara dengan <span className="font-bold">{round2(finalQtyBesar)} {bahanBaku.satuan}</span>
+                </span>
               </p>
             )}
           </div>
 
           <div>
             <label className="block text-xs font-bold text-[#544437] uppercase tracking-wide mb-1">Alasan Waste</label>
-            <select 
-              value={reason} 
-              onChange={e => setReason(e.target.value)}
-              className="w-full flex h-10 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-xs text-[#1e1b15] font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+            <Select
+              value={reason}
+              onChange={setReason}
+              placeholder="Pilih alasan..."
+              searchPlaceholder="Cari alasan waste..."
+              aria-label="Alasan Waste"
               required
-            >
-              <option value="" disabled>Pilih alasan...</option>
-              {WASTE_REASONS.map(r => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
+              triggerClassName="h-10 border-[#d9c2b2]/60 text-[#1e1b15] font-semibold"
+              options={WASTE_REASONS.map((r) => ({ value: r, label: r }))}
+            />
           </div>
 
           <div>

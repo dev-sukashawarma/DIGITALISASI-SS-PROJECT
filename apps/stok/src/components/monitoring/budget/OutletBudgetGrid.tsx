@@ -13,6 +13,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react'
 import type { OutletBudgetSummaryItem } from '@/types/budgetMonitoring'
+import { Select } from '@suka/design-system'
 
 interface Props {
   outlets: OutletBudgetSummaryItem[]
@@ -33,10 +34,10 @@ function formatRupiah(val: number): string {
 const REGIONS = ['Semua Region', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang']
 const STATUS_FILTERS = [
   { id: 'all', label: 'Semua Status' },
-  { id: 'over', label: '🔴 Over Limit' },
-  { id: 'warning', label: '🟡 Mendekati Limit' },
-  { id: 'safe', label: '🟢 Aman' },
-  { id: 'unconfigured', label: '⚪ Belum Diatur' },
+  { id: 'over', label: 'Over Limit' },
+  { id: 'warning', label: 'Mendekati Limit' },
+  { id: 'safe', label: 'Aman' },
+  { id: 'unconfigured', label: 'Belum Diatur' },
 ]
 
 export function OutletBudgetGrid({
@@ -107,18 +108,19 @@ export function OutletBudgetGrid({
           </div>
 
           {/* Sort Dropdown */}
-          <div className="flex items-center gap-2 shrink-0">
-            <ArrowUpDown className="w-3.5 h-3.5 text-suka-brown/50" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 bg-suka-cream/20 border border-suka-brown/15 rounded-xl text-xs font-bold text-suka-brown focus:outline-none focus:ring-2 focus:ring-suka-orange cursor-pointer"
-            >
-              <option value="percent_desc">Urut: % Pemakaian Tertinggi</option>
-              <option value="sisa_asc">Urut: Sisa Saldo Terkecil</option>
-              <option value="name_asc">Urut: Nama Outlet (A-Z)</option>
-            </select>
-          </div>
+          <Select
+            value={sortBy}
+            onChange={(val) => setSortBy(val as any)}
+            aria-label="Urutkan Outlet Budget"
+            leadingIcon={<ArrowUpDown className="w-3.5 h-3.5" />}
+            className="shrink-0 min-w-[225px]"
+            triggerClassName="bg-suka-cream/20 border-suka-brown/15 shadow-none"
+            options={[
+              { value: 'percent_desc', label: 'Urut: % Pemakaian Tertinggi' },
+              { value: 'sisa_asc', label: 'Urut: Sisa Saldo Terkecil' },
+              { value: 'name_asc', label: 'Urut: Nama Outlet (A-Z)' },
+            ]}
+          />
         </div>
 
         {/* Region and Status filter chips */}

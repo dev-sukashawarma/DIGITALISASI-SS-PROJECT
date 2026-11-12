@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
+import { Select } from '@suka/design-system'
 import { createClient } from '@/lib/supabase'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import {
@@ -84,18 +85,39 @@ export function KirimanVendorBoard() {
           </label>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <select className={pilih} value={filter.outlet ?? ''} onChange={(e) => ubah({ outlet: e.target.value || null })}>
-            <option value="">Semua outlet</option>
-            {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-          <select className={pilih} value={filter.bahan ?? ''} onChange={(e) => ubah({ bahan: e.target.value || null })}>
-            <option value="">Semua bahan</option>
-            {bahanBaku.map((b) => <option key={b.id} value={b.id}>{b.nama}</option>)}
-          </select>
-          <select className={pilih} value={filter.vendor ?? ''} onChange={(e) => ubah({ vendor: e.target.value || null })}>
-            <option value="">Semua vendor</option>
-            {opsiVendor.map(([id, nama]) => <option key={id} value={id}>{nama}</option>)}
-          </select>
+          <Select
+            value={filter.outlet ?? ''}
+            onChange={(val) => ubah({ outlet: val || null })}
+            aria-label="Filter Outlet Kiriman Vendor"
+            searchPlaceholder="Cari outlet..."
+            triggerClassName="border-[#d9c2b2]/40 text-[#1e1b15] font-medium py-2 shadow-none"
+            options={[
+              { value: '', label: 'Semua outlet' },
+              ...outlets.map((o) => ({ value: o.id, label: o.name })),
+            ]}
+          />
+          <Select
+            value={filter.bahan ?? ''}
+            onChange={(val) => ubah({ bahan: val || null })}
+            aria-label="Filter Bahan Kiriman Vendor"
+            searchPlaceholder="Cari bahan..."
+            triggerClassName="border-[#d9c2b2]/40 text-[#1e1b15] font-medium py-2 shadow-none"
+            options={[
+              { value: '', label: 'Semua bahan' },
+              ...bahanBaku.map((b) => ({ value: b.id, label: b.nama })),
+            ]}
+          />
+          <Select
+            value={filter.vendor ?? ''}
+            onChange={(val) => ubah({ vendor: val || null })}
+            aria-label="Filter Vendor Kiriman"
+            searchPlaceholder="Cari vendor..."
+            triggerClassName="border-[#d9c2b2]/40 text-[#1e1b15] font-medium py-2 shadow-none"
+            options={[
+              { value: '', label: 'Semua vendor' },
+              ...opsiVendor.map(([id, nama]) => ({ value: id, label: nama })),
+            ]}
+          />
         </div>
         <p className="text-[10px] font-semibold text-[#544437]/60">
           Data vendor tercatat mulai 12 September 2026. Rentang maksimal 93 hari.

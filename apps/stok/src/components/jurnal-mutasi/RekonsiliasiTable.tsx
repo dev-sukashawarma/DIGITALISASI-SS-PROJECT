@@ -21,6 +21,7 @@ import type { ReconciliationItem, ReconciliationPeriodInfo, MenuBomBreakdownItem
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
 import { nilaiToleransiSelisih } from '@/lib/stok/selisih'
 import { DrillDownTimeline } from './DrillDownTimeline'
+import { Select } from '@suka/design-system'
 
 interface RekonsiliasiTableProps {
   outletId: string
@@ -446,20 +447,21 @@ export function RekonsiliasiTable({
             )}
 
             {/* Sort Selector */}
-            <div className="flex items-center gap-1.5 bg-suka-cream/20 border border-suka-brown/15 rounded-2xl px-3 py-1 text-xs">
-              <ArrowUpDown className="w-3.5 h-3.5 text-suka-brown/50" />
-              <select
-                value={effectiveSortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-transparent text-suka-brown font-bold text-xs outline-none py-1 cursor-pointer"
-              >
-                {!isAll && <option value="selisih_rp_desc">Sort: Selisih Nominal Terbesar (Rp)</option>}
-                <option value="pakai_rp_desc">Sort: Pemakaian POS Tertinggi (Rp)</option>
-                <option value="masuk_rp_desc">Sort: Masuk (Inbound) Tertinggi (Rp)</option>
-                <option value="waste_rp_desc">Sort: Waste Tertinggi (Rp)</option>
-                <option value="nama_asc">Sort: Nama Bahan (A-Z)</option>
-              </select>
-            </div>
+            <Select
+              value={effectiveSortBy}
+              onChange={(val) => setSortBy(val as any)}
+              aria-label="Urutkan Rekonsiliasi"
+              leadingIcon={<ArrowUpDown className="w-3.5 h-3.5" />}
+              className="min-w-[240px]"
+              triggerClassName="bg-suka-cream/20 border-suka-brown/15 rounded-2xl shadow-none"
+              options={[
+                ...(!isAll ? [{ value: 'selisih_rp_desc', label: 'Sort: Selisih Nominal Terbesar (Rp)' }] : []),
+                { value: 'pakai_rp_desc', label: 'Sort: Pemakaian POS Tertinggi (Rp)' },
+                { value: 'masuk_rp_desc', label: 'Sort: Masuk (Inbound) Tertinggi (Rp)' },
+                { value: 'waste_rp_desc', label: 'Sort: Waste Tertinggi (Rp)' },
+                { value: 'nama_asc', label: 'Sort: Nama Bahan (A-Z)' },
+              ]}
+            />
           </div>
         </div>
 

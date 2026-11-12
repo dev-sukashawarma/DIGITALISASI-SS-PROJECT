@@ -17,7 +17,7 @@ import type { MonitoringItem } from '@/lib/types/monitoring';
 import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
-import { Skeleton } from '@suka/design-system';
+import { Select, Skeleton } from '@suka/design-system';
 import { RefreshCw, Search, X, Bell, CheckCircle2, Trash2, Store, RotateCcw } from 'lucide-react';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { usePendingWasteCount } from '@/hooks/useWaste';
@@ -549,32 +549,42 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Compact Outlet Dropdown */}
                 <div className="flex items-center gap-2 flex-1 max-w-md">
-                  <div className="relative w-full flex items-center bg-suka-cream/40 border border-suka-brown/15 rounded-2xl px-3 py-2 hover:border-suka-orange transition-colors">
-                    <Store className="w-4 h-4 text-suka-orange shrink-0 mr-2" />
-                    <select
-                      value={selectedOutletId || ''}
-                      onChange={(e) => setSelectedOutletId(e.target.value)}
-                      className="w-full bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer pr-2 font-sans"
-                    >
-                      {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang', 'Developer'].map((region) => {
+                  <Select
+                    value={selectedOutletId || ''}
+                    onChange={(val) => setSelectedOutletId(val)}
+                    aria-label="Pilih Outlet Monitoring"
+                    searchPlaceholder="Cari outlet atau region..."
+                    leadingIcon={<Store className="w-4 h-4 text-suka-orange" />}
+                    className="w-full"
+                    triggerClassName="bg-suka-cream/40 border-suka-brown/15 rounded-2xl font-black hover:border-suka-orange shadow-none"
+                    groups={['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang', 'Developer']
+                      .map((region) => {
                         const regionOutlets = outlets.byRegion[region] || [];
-                        if (regionOutlets.length === 0) return null;
-                        return (
-                          <optgroup key={region} label={`📍 ${region.toUpperCase()}`}>
-                            {regionOutlets.map((o) => {
-                              const cleanName = o.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
-                              const alertBadge = o.status === 'below' ? ` (🚨 ${o.kritisCount} Kritis)` : o.status === 'warning' ? ` (⚠️ ${o.menipisCount})` : '';
-                              return (
-                                <option key={o.outlet_id} value={o.outlet_id}>
-                                  {cleanName}{alertBadge}
-                                </option>
-                              );
-                            })}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                  </div>
+                        return {
+                          label: region.toUpperCase(),
+                          options: regionOutlets.map((o) => {
+                            const cleanName = o.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
+                            return {
+                              value: o.outlet_id,
+                              label: cleanName,
+                              badge:
+                                o.status === 'below'
+                                  ? `${o.kritisCount} Kritis`
+                                  : o.status === 'warning'
+                                  ? `${o.menipisCount} Menipis`
+                                  : undefined,
+                              badgeTone:
+                                o.status === 'below'
+                                  ? ('danger' as const)
+                                  : o.status === 'warning'
+                                  ? ('warning' as const)
+                                  : undefined,
+                            };
+                          }),
+                        };
+                      })
+                      .filter((g) => g.options.length > 0)}
+                  />
                 </div>
 
                 {/* Search Bar */}

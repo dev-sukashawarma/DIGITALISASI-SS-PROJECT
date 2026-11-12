@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2, Truck, UploadCloud, X } from 'lucide-react'
+import { Info, Loader2, Truck, UploadCloud, X } from 'lucide-react'
+import { Select } from '@suka/design-system'
 import { createClient } from '@/lib/supabase'
 import { useReturActions } from '@/hooks/useRetur'
 import { JenisLogistik, ReturStok } from '@/types/retur'
@@ -120,23 +121,21 @@ export function ModalSerahTerimaKurir({
             <label className="block mb-1 font-bold uppercase tracking-wider text-[11px] text-gray-600">
               Jenis Ekspedisi / Armada
             </label>
-            <select
+            <Select
               value={jenisLogistik}
-              onChange={(e) => setJenisLogistik(e.target.value as JenisLogistik)}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:border-amber-600 font-medium text-sm bg-white"
-            >
-              {LOGISTIK_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setJenisLogistik(val as JenisLogistik)}
+              aria-label="Jenis Ekspedisi / Armada"
+              searchPlaceholder="Cari ekspedisi..."
+              triggerClassName="border-gray-200 text-sm text-[#1e1b15]"
+              options={LOGISTIK_OPTIONS}
+            />
           </div>
 
           {is3PL && (
             <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-100 space-y-3">
-              <p className="text-[11px] text-blue-900 font-bold">
-                ℹ️ Pengiriman via kurir online pihak ketiga ({jenisLogistik.toUpperCase()})
+              <p className="text-[11px] text-blue-900 font-bold flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 shrink-0" />
+                <span>Pengiriman via kurir online pihak ketiga ({jenisLogistik.toUpperCase()})</span>
               </p>
               <div>
                 <label className="block mb-1 text-[11px] font-bold text-gray-700">

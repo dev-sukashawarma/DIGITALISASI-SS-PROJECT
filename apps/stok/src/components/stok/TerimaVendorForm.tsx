@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Input } from '@suka/design-system'
+import { Button, Input, Select } from '@suka/design-system'
 import { toast } from 'sonner'
 import { Leaf, Truck, Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
@@ -22,8 +22,6 @@ function hariIniWIB(): string {
   return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
 }
 
-const pilih =
-  'w-full flex h-11 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-sm text-[#1e1b15] font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]'
 const label = 'block text-[11px] font-bold text-[#544437] uppercase tracking-wide mb-1.5'
 
 type Props = { outletId: string }
@@ -161,22 +159,21 @@ export function TerimaVendorForm({ outletId }: Props) {
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           {daftarBahan.length > 1 ? (
-            <select
+            <Select
               value={bahanId}
-              onChange={(e) => {
-                setBahanId(e.target.value)
+              onChange={(val) => {
+                setBahanId(val)
                 setSupplierId('')
                 setTingkat('besar')
                 setQty('')
                 setKonfirmasi(false)
               }}
-              className={pilih}
-            >
-              <option value="">Pilih bahan…</option>
-              {daftarBahan.map((b) => (
-                <option key={b.id} value={b.id}>{b.nama}</option>
-              ))}
-            </select>
+              placeholder="Pilih bahan..."
+              searchPlaceholder="Cari bahan..."
+              aria-label="Pilih Bahan Drop Ship"
+              triggerClassName="h-11 border-[#d9c2b2]/60 text-sm text-[#1e1b15] font-semibold"
+              options={daftarBahan.map((b) => ({ value: b.id, label: b.nama }))}
+            />
           ) : (
             <p className="text-base font-extrabold text-[#1e1b15] leading-tight">{bahan?.nama ?? 'Memuat…'}</p>
           )}
@@ -187,12 +184,15 @@ export function TerimaVendorForm({ outletId }: Props) {
             </p>
           )}
           {vendors.length > 1 && (
-            <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={pilih}>
-              <option value="">Pilih vendor…</option>
-              {vendors.map((v) => (
-                <option key={v.supplier_id} value={v.supplier_id}>{v.supplier_nama}</option>
-              ))}
-            </select>
+            <Select
+              value={supplierId}
+              onChange={setSupplierId}
+              placeholder="Pilih vendor..."
+              searchPlaceholder="Cari vendor..."
+              aria-label="Pilih Vendor Drop Ship"
+              triggerClassName="h-11 border-[#d9c2b2]/60 text-sm text-[#1e1b15] font-semibold"
+              options={vendors.map((v) => ({ value: v.supplier_id, label: v.supplier_nama }))}
+            />
           )}
           {vendor && vendors.length === 1 && (
             <p className="text-xs text-[#544437] flex items-center gap-1.5">
@@ -242,15 +242,23 @@ export function TerimaVendorForm({ outletId }: Props) {
                   placeholder="Misal: 5"
                   className="flex-1 h-11 text-base font-bold"
                 />
-                <select
+                <Select
                   value={tingkat}
-                  onChange={(e) => setTingkat(e.target.value as Tingkat)}
-                  className="flex h-11 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-sm text-[#1e1b15] font-bold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-                >
-                  <option value="besar">{bahan.satuan}</option>
-                  {bahan.satuan_tengah && bahan.faktor_tengah ? <option value="tengah">{bahan.satuan_tengah}</option> : null}
-                  {bahan.satuan_kecil && bahan.faktor_tampilan ? <option value="kecil">{bahan.satuan_kecil}</option> : null}
-                </select>
+                  onChange={(val) => setTingkat(val as Tingkat)}
+                  aria-label="Pilih Satuan Terima"
+                  minMenuWidth={130}
+                  className="min-w-[110px] shrink-0"
+                  triggerClassName="h-11 border-[#d9c2b2]/60 text-sm text-[#1e1b15]"
+                  options={[
+                    { value: 'besar', label: bahan.satuan },
+                    ...(bahan.satuan_tengah && bahan.faktor_tengah
+                      ? [{ value: 'tengah', label: bahan.satuan_tengah }]
+                      : []),
+                    ...(bahan.satuan_kecil && bahan.faktor_tampilan
+                      ? [{ value: 'kecil', label: bahan.satuan_kecil }]
+                      : []),
+                  ]}
+                />
               </div>
               <p className="text-[10px] text-[#544437]/60 mt-1 font-medium">
                 Isi sesuai timbangan saat barang datang. Harga tidak perlu diisi — dikunci sistem dari katalog vendor.

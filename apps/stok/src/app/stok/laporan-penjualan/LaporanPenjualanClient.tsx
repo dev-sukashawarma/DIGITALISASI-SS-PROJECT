@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Select } from '@suka/design-system';
 import { refreshLaporanPenjualan } from '@/app/actions/laporanPenjualan';
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
@@ -316,33 +317,39 @@ export default function LaporanPenjualanClient({
               <span className="text-xs font-black text-[#544437] uppercase tracking-wider flex items-center gap-1 shrink-0">
                 <Store className="w-3.5 h-3.5 text-[#f29744]" /> Outlet:
               </span>
-              <select
+              <Select
                 value={outletFilter}
-                onChange={(e) => updateFilters('outlet_id', e.target.value)}
-                className="w-full sm:w-64 bg-[#faf2e9] border border-[#d9c2b2] text-[#1e1b15] text-xs font-bold rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#f29744] cursor-pointer font-sans"
-              >
-                <option value="all">🏢 Semua Outlet Aktif ({outlets.length})</option>
-                
-                {internalOutlets.length > 0 && (
-                  <optgroup label="🏢 OUTLET INTERNAL (PUSAT)">
-                    {internalOutlets.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.cleanName}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-
-                {mitraOutlets.length > 0 && (
-                  <optgroup label="🤝 OUTLET MITRA">
-                    {mitraOutlets.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.cleanName}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
+                onChange={(val) => updateFilters('outlet_id', val)}
+                aria-label="Filter Outlet Laporan Penjualan"
+                searchPlaceholder="Cari outlet..."
+                className="w-full sm:w-64"
+                triggerClassName="bg-[#faf2e9] border-[#d9c2b2] text-[#1e1b15]"
+                options={[{ value: 'all', label: `Semua Outlet Aktif (${outlets.length})` }]}
+                groups={[
+                  ...(internalOutlets.length > 0
+                    ? [
+                        {
+                          label: 'OUTLET INTERNAL (PUSAT)',
+                          options: internalOutlets.map((o) => ({
+                            value: o.id,
+                            label: o.cleanName,
+                          })),
+                        },
+                      ]
+                    : []),
+                  ...(mitraOutlets.length > 0
+                    ? [
+                        {
+                          label: 'OUTLET MITRA',
+                          options: mitraOutlets.map((o) => ({
+                            value: o.id,
+                            label: o.cleanName,
+                          })),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             </div>
           </div>
 

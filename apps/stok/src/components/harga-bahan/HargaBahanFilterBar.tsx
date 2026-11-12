@@ -1,5 +1,6 @@
 import React from 'react'
-import { Search, Filter, Calendar, Download, RefreshCw, X } from 'lucide-react'
+import { Search, Filter, Calendar, Download, RefreshCw, X, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { Select } from '@suka/design-system'
 
 interface HargaBahanFilterBarProps {
   search: string
@@ -56,41 +57,37 @@ export function HargaBahanFilterBar({
 
         {/* Filter Kategori Dropdown */}
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <select
-              value={selectedCategory}
-              onChange={(e) => onCategoryChange(e.target.value)}
-              aria-label="Filter Kategori"
-              className="appearance-none bg-suka-cream/40 border border-suka-brown/10 text-xs font-black text-suka-brown py-2.5 pl-3.5 pr-8 rounded-2xl focus:outline-none focus:border-suka-orange cursor-pointer"
-            >
-              <option value="all">Semua Kategori</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-            <Filter className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-suka-brown/40 pointer-events-none" />
-          </div>
+          <Select
+            value={selectedCategory}
+            onChange={onCategoryChange}
+            aria-label="Filter Kategori"
+            leadingIcon={<Filter className="w-3.5 h-3.5" />}
+            searchPlaceholder="Cari kategori..."
+            className="min-w-[165px]"
+            triggerClassName="bg-suka-cream/40 border-suka-brown/10 font-black rounded-2xl shadow-none"
+            options={[
+              { value: 'all', label: 'Semua Kategori' },
+              ...categories.map((cat) => ({ value: cat, label: cat })),
+            ]}
+          />
 
           {/* Filter Rentang Hari */}
-          <div className="relative">
-            <select
-              value={daysFilter === null ? 'all' : String(daysFilter)}
-              onChange={(e) => {
-                const val = e.target.value
-                onDaysFilterChange(val === 'all' ? null : Number(val))
-              }}
-              aria-label="Filter Rentang Waktu PO"
-              className="appearance-none bg-suka-cream/40 border border-suka-brown/10 text-xs font-black text-suka-brown py-2.5 pl-3.5 pr-8 rounded-2xl focus:outline-none focus:border-suka-orange cursor-pointer"
-            >
-              <option value="7">7 Hari Terakhir</option>
-              <option value="30">30 Hari Terakhir</option>
-              <option value="90">90 Hari Terakhir</option>
-              <option value="all">Semua Riwayat</option>
-            </select>
-            <Calendar className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-suka-brown/40 pointer-events-none" />
-          </div>
+          <Select
+            value={daysFilter === null ? 'all' : String(daysFilter)}
+            onChange={(val) => {
+              onDaysFilterChange(val === 'all' ? null : Number(val))
+            }}
+            aria-label="Filter Rentang Waktu PO"
+            leadingIcon={<Calendar className="w-3.5 h-3.5" />}
+            className="min-w-[160px]"
+            triggerClassName="bg-suka-cream/40 border-suka-brown/10 font-black rounded-2xl shadow-none"
+            options={[
+              { value: '7', label: '7 Hari Terakhir' },
+              { value: '30', label: '30 Hari Terakhir' },
+              { value: '90', label: '90 Hari Terakhir' },
+              { value: 'all', label: 'Semua Riwayat' },
+            ]}
+          />
 
           {/* Tombol Refresh */}
           <button
@@ -121,23 +118,25 @@ export function HargaBahanFilterBar({
           Status:
         </span>
         {[
-          { id: 'all', label: 'Semua Status' },
-          { id: 'naik', label: '🔺 Harga Naik' },
-          { id: 'turun', label: '🔻 Harga Turun' },
-          { id: 'stabil', label: '➖ Harga Tetap' }
+          { id: 'all', label: 'Semua Status', icon: null },
+          { id: 'naik', label: 'Harga Naik', icon: TrendingUp },
+          { id: 'turun', label: 'Harga Turun', icon: TrendingDown },
+          { id: 'stabil', label: 'Harga Tetap', icon: Minus }
         ].map((tab) => {
           const isActive = statusFilter === tab.id
+          const Icon = tab.icon
           return (
             <button
               key={tab.id}
               type="button"
               onClick={() => onStatusFilterChange(tab.id as any)}
-              className={`px-3 py-1 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
                 isActive
                   ? 'bg-suka-orange text-white shadow-2xs'
                   : 'bg-suka-cream/50 text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown'
               }`}
             >
+              {Icon && <Icon className="w-3.5 h-3.5 shrink-0" />}
               {tab.label}
             </button>
           )

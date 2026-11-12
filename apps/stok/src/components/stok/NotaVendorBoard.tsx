@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Input } from '@suka/design-system'
+import { Button, Input, Select } from '@suka/design-system'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import {
@@ -136,26 +136,29 @@ export function NotaVendorBoard({ bolehSahkan }: Props) {
   return (
     <div className="space-y-5">
       <div className="flex gap-2">
-        <select
+        <Select
           value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
-          className="flex-1 flex h-10 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-xs text-[#1e1b15] font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-        >
-          <option value="">Pilih vendor…</option>
-          {vendors.map((v) => (
-            <option key={v.id} value={v.id}>{v.nama}</option>
-          ))}
-        </select>
-        <select
+          onChange={setSupplierId}
+          placeholder="Pilih vendor..."
+          searchPlaceholder="Cari vendor..."
+          aria-label="Pilih Vendor Nota"
+          className="flex-1"
+          triggerClassName="h-10 border-[#d9c2b2]/60 text-[#1e1b15] font-semibold"
+          options={[
+            { value: '', label: 'Pilih vendor...' },
+            ...vendors.map((v) => ({ value: v.id, label: v.nama })),
+          ]}
+        />
+        <Select
           value={tanggal}
-          onChange={(e) => setTanggal(e.target.value)}
+          onChange={setTanggal}
           disabled={!tanggal}
-          className="flex h-10 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-xs text-[#1e1b15] font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-        >
-          {pilihanTanggal.map((t) => (
-            <option key={t} value={t}>Tagihan {t}</option>
-          ))}
-        </select>
+          aria-label="Pilih Tanggal Tagihan"
+          searchPlaceholder="Cari tanggal tagihan..."
+          className="min-w-[180px]"
+          triggerClassName="h-10 border-[#d9c2b2]/60 text-[#1e1b15] font-semibold"
+          options={pilihanTanggal.map((t) => ({ value: t, label: `Tagihan ${t}` }))}
+        />
       </div>
 
       {supplierId && tanggal && (

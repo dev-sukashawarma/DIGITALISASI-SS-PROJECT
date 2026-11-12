@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { AlertTriangle, X } from 'lucide-react';
+import { Select } from '@suka/design-system';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 
 interface TransferModalProps {
@@ -63,10 +65,10 @@ export function TransferModal({
           <h2 className="text-base font-bold text-[#701604] uppercase tracking-tight">Transfer Stok Bahan Baku</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-[#544437] hover:bg-[#faf2e9] text-base transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-[#544437] hover:bg-[#faf2e9] text-base transition-colors cursor-pointer"
             title="Tutup"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -81,25 +83,27 @@ export function TransferModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="block text-[10px] font-bold text-[#544437] uppercase tracking-wider">PILIH OUTLET ASAL (SUMBER)</label>
-            <select
+            <Select
               value={sourceOutletId}
-              onChange={(e) => {
-                setSourceOutletId(e.target.value);
+              onChange={(val) => {
+                setSourceOutletId(val);
                 setErrorMsg('');
               }}
-              className="w-full border border-[#d9c2b2]/45 rounded-xl p-2.5 text-sm bg-white text-[#1e1b15] focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] shadow-xs"
+              placeholder="Pilih Outlet Asal"
+              searchPlaceholder="Cari outlet asal..."
+              aria-label="Pilih Outlet Asal"
               required
-            >
-              <option value="">— Pilih Outlet Asal —</option>
-              {otherOutletsStock.map((o) => (
-                <option key={o.outlet_id} value={o.outlet_id}>
-                  {o.outlet_name.replace('SUKA SHAWARMA ', '')} (Tersedia: {o.qty} {item.satuan})
-                </option>
-              ))}
-            </select>
+              triggerClassName="border-[#d9c2b2]/45 text-[#1e1b15] shadow-xs"
+              options={otherOutletsStock.map((o) => ({
+                value: o.outlet_id,
+                label: o.outlet_name.replace('SUKA SHAWARMA ', ''),
+                badge: `Tersedia: ${o.qty} ${item.satuan}`,
+              }))}
+            />
             {otherOutletsStock.length === 0 && (
-              <p className="text-xs text-[#ba1a1a] font-semibold mt-1">
-                ⚠️ Tidak ada outlet lain yang memiliki stok bahan ini.
+              <p className="text-xs text-[#ba1a1a] font-semibold mt-1 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>Tidak ada outlet lain yang memiliki stok bahan ini.</span>
               </p>
             )}
           </div>
@@ -126,8 +130,9 @@ export function TransferModal({
           </div>
 
           {errorMsg && (
-            <p className="text-xs text-[#ba1a1a] bg-[#ffdad6]/40 p-2.5 rounded-xl border border-[#ba1a1a]/20 font-bold">
-              ⚠️ {errorMsg}
+            <p className="text-xs text-[#ba1a1a] bg-[#ffdad6]/40 p-2.5 rounded-xl border border-[#ba1a1a]/20 font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errorMsg}</span>
             </p>
           )}
 

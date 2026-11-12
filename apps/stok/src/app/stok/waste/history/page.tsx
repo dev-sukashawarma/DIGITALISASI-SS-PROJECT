@@ -12,6 +12,7 @@ import {
 } from '@/app/actions/waste'
 import { formatTriUnitSaldo } from '@/lib/format/compositeUnit'
 import { WastePhotoModal } from '@/components/waste/WastePhotoModal'
+import { Select } from '@suka/design-system'
 import {
   RotateCcw,
   Camera,
@@ -299,23 +300,23 @@ export default function WasteHistoryPage() {
               <label className="text-[10px] font-bold text-[#544437] uppercase tracking-wider block mb-1">
                 Pilih Outlet
               </label>
-              <div className="relative">
-                <select
-                  value={selectedOutlet}
-                  onChange={(e) => {
-                    setSelectedOutlet(e.target.value)
-                    setPage(1)
-                  }}
-                  className="w-full bg-[#faf2e9]/40 border border-[#d9c2b2]/60 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:ring-2 focus:ring-suka-orange focus:outline-none"
-                >
-                  <option value="">Semua Outlet Akses</option>
-                  {outlets.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name.replace('SUKA SHAWARMA ', '')}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                value={selectedOutlet}
+                onChange={(val) => {
+                  setSelectedOutlet(val)
+                  setPage(1)
+                }}
+                aria-label="Pilih Outlet"
+                searchPlaceholder="Cari outlet..."
+                triggerClassName="bg-[#faf2e9]/40 border-[#d9c2b2]/60 py-2"
+                options={[
+                  { value: '', label: 'Semua Outlet Akses' },
+                  ...outlets.map((o) => ({
+                    value: o.id,
+                    label: o.name.replace('SUKA SHAWARMA ', ''),
+                  })),
+                ]}
+              />
             </div>
           )}
 
@@ -338,23 +339,23 @@ export default function WasteHistoryPage() {
                 </button>
               )}
             </label>
-            <div className="relative">
-              <select
-                value={selectedBahanId}
-                onChange={(e) => {
-                  setSelectedBahanId(e.target.value)
-                  setPage(1)
-                }}
-                className="w-full bg-[#faf2e9]/40 border border-[#d9c2b2]/60 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:ring-2 focus:ring-suka-orange focus:outline-none"
-              >
-                <option value="ALL">Semua Bahan Baku</option>
-                {bahanBaku.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.nama}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              value={selectedBahanId}
+              onChange={(val) => {
+                setSelectedBahanId(val)
+                setPage(1)
+              }}
+              aria-label="Pilih Bahan Baku"
+              searchPlaceholder="Cari bahan baku..."
+              triggerClassName="bg-[#faf2e9]/40 border-[#d9c2b2]/60 py-2"
+              options={[
+                { value: 'ALL', label: 'Semua Bahan Baku' },
+                ...bahanBaku.map((b) => ({
+                  value: b.id,
+                  label: b.nama,
+                })),
+              ]}
+            />
           </div>
 
           <div>
@@ -377,19 +378,14 @@ export default function WasteHistoryPage() {
                 </button>
               )}
             </label>
-            <div className="relative">
-              <select
-                value={`${sortBy}_${sortOrder}`}
-                onChange={(e) => handleSortChange(e.target.value)}
-                className="w-full bg-[#faf2e9]/40 border border-[#d9c2b2]/60 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:ring-2 focus:ring-suka-orange focus:outline-none"
-              >
-                {sortOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              value={`${sortBy}_${sortOrder}`}
+              onChange={(val) => handleSortChange(val)}
+              aria-label="Urutkan Data"
+              searchPlaceholder="Cari urutan..."
+              triggerClassName="bg-[#faf2e9]/40 border-[#d9c2b2]/60 py-2"
+              options={sortOptions}
+            />
           </div>
         </div>
 

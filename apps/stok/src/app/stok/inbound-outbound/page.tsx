@@ -9,6 +9,7 @@ import { InboundOutboundList, getDistribusiCalculation } from '@/components/stok
 import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Select } from '@suka/design-system';
 import { 
   Loader2, 
   ArrowDownCircle, 
@@ -296,58 +297,46 @@ export default function InboundOutboundPage() {
               {/* Outlet & Bahan Baku Selectors */}
               <div className="flex flex-col sm:flex-row gap-2.5 flex-1">
                 {/* Outlet Filter */}
-                <div className="relative flex-1 min-w-[180px]">
-                  <Store className="w-4 h-4 text-suka-brown/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <select
-                    value={currentOutletId}
-                    onChange={(e) => handleOutletChange(e.target.value)}
-                    className="w-full pl-10 pr-8 py-2.5 bg-white border border-suka-brown/10 rounded-xl text-xs font-bold text-suka-brown focus:outline-none focus:ring-2 focus:ring-suka-orange shadow-xs cursor-pointer truncate"
-                  >
-                    <option value="ALL">🏢 Semua Outlet</option>
-                    {boundOutlets.map((outlet) => (
-                      <option key={outlet.id} value={outlet.id}>
-                        {outlet.name}
-                      </option>
-                    ))}
-                  </select>
-                  {currentOutletId !== 'ALL' && (
-                    <button
-                      type="button"
-                      onClick={() => handleOutletChange('ALL')}
-                      title="Reset ke Semua Outlet"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown p-0.5 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                <Select
+                  value={currentOutletId}
+                  onChange={handleOutletChange}
+                  leadingIcon={<Store className="w-4 h-4" />}
+                  clearable
+                  clearValue="ALL"
+                  clearTitle="Reset ke Semua Outlet"
+                  searchPlaceholder="Cari outlet..."
+                  aria-label="Filter Outlet"
+                  className="flex-1 min-w-[180px]"
+                  triggerClassName="border-suka-brown/10 shadow-xs"
+                  options={[
+                    { value: 'ALL', label: 'Semua Outlet' },
+                    ...boundOutlets.map((outlet) => ({
+                      value: outlet.id,
+                      label: outlet.name,
+                    })),
+                  ]}
+                />
 
                 {/* Bahan Baku Filter */}
-                <div className="relative flex-1 min-w-[200px]">
-                  <Package className="w-4 h-4 text-suka-brown/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <select
-                    value={selectedBahanId}
-                    onChange={(e) => handleBahanChange(e.target.value)}
-                    className="w-full pl-10 pr-8 py-2.5 bg-white border border-suka-brown/10 rounded-xl text-xs font-bold text-suka-brown focus:outline-none focus:ring-2 focus:ring-suka-orange shadow-xs cursor-pointer truncate"
-                  >
-                    <option value="ALL">📦 Semua Bahan Baku</option>
-                    {bahanBaku.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.nama} {b.satuan ? `(${b.satuan})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedBahanId !== 'ALL' && (
-                    <button
-                      type="button"
-                      onClick={() => handleBahanChange('ALL')}
-                      title="Reset filter bahan"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown p-0.5 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                <Select
+                  value={selectedBahanId}
+                  onChange={handleBahanChange}
+                  leadingIcon={<Package className="w-4 h-4" />}
+                  clearable
+                  clearValue="ALL"
+                  clearTitle="Reset filter bahan"
+                  searchPlaceholder="Cari bahan baku..."
+                  aria-label="Filter Bahan Baku"
+                  className="flex-1 min-w-[200px]"
+                  triggerClassName="border-suka-brown/10 shadow-xs"
+                  options={[
+                    { value: 'ALL', label: 'Semua Bahan Baku' },
+                    ...bahanBaku.map((b) => ({
+                      value: b.id,
+                      label: `${b.nama}${b.satuan ? ` (${b.satuan})` : ''}`,
+                    })),
+                  ]}
+                />
               </div>
 
               {/* Search Bar & Tipe Switcher */}
@@ -610,8 +599,9 @@ export default function InboundOutboundPage() {
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-xs font-bold text-red-700">
-              🚨 Error: {error}
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-xs font-bold text-red-700 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              <span>Error: {error}</span>
             </div>
           )}
 

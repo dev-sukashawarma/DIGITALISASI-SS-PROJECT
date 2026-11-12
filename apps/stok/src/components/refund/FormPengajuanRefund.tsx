@@ -13,6 +13,7 @@ import {
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useReturActions } from '@/hooks/useRetur'
 import { createClient } from '@/lib/supabase'
+import { Select } from '@suka/design-system'
 
 const ALASAN_OPTIONS = [
   'Basi / Bau Asam',
@@ -168,23 +169,23 @@ export function FormPengajuanRefund({ outletId }: { outletId: string }) {
           <label className="block mb-1.5 font-bold uppercase tracking-wider text-[11px] text-gray-600">
             Pilih Bahan Baku <span className="text-red-500">*</span>
           </label>
-          <select
+          <Select
             value={selectedBahanId}
-            onChange={(e) => {
-              setSelectedBahanId(e.target.value)
+            onChange={(val) => {
+              setSelectedBahanId(val)
               setQtyBesar('')
               setQtyKecil('')
             }}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:border-amber-600 font-bold text-sm bg-white"
+            placeholder="Pilih Bahan Core"
+            searchPlaceholder="Cari bahan baku..."
+            aria-label="Pilih Bahan Baku Retur"
             required
-          >
-            <option value="">-- Pilih Bahan Core --</option>
-            {refundableBahan.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.nama} ({b.satuan.toUpperCase()})
-              </option>
-            ))}
-          </select>
+            triggerClassName="border-gray-200 text-sm text-[#1e1b15]"
+            options={refundableBahan.map((b) => ({
+              value: b.id,
+              label: `${b.nama} (${b.satuan.toUpperCase()})`,
+            }))}
+          />
         </div>
 
         {/* Input Kuantitas Timbangan */}
@@ -242,17 +243,17 @@ export function FormPengajuanRefund({ outletId }: { outletId: string }) {
           <label className="block mb-1.5 font-bold uppercase tracking-wider text-[11px] text-gray-600">
             Kategori Kerusakan / Alasan <span className="text-red-500">*</span>
           </label>
-          <select
+          <Select
             value={alasan}
-            onChange={(e) => setAlasan(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:border-amber-600 font-medium text-xs bg-white"
-          >
-            {ALASAN_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setAlasan(val)}
+            aria-label="Kategori Kerusakan / Alasan"
+            searchPlaceholder="Cari alasan kerusakan..."
+            triggerClassName="border-gray-200 text-[#1e1b15]"
+            options={ALASAN_OPTIONS.map((opt) => ({
+              value: opt,
+              label: opt,
+            }))}
+          />
 
           {/* Muncul jika memilih opsi "Lainnya" */}
           {alasan === 'Lainnya' && (

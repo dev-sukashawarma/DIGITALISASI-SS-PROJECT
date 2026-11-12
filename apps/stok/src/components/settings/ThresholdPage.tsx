@@ -11,6 +11,7 @@ import {
 } from '@/lib/queries/threshold'
 import { ThresholdTable } from './ThresholdTable'
 import { useAuth } from '@suka/auth'
+import { Select } from '@suka/design-system'
 
 export function ThresholdPage() {
   const { outletStaff } = useAuth()
@@ -61,16 +62,18 @@ export function ThresholdPage() {
 
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-1">Pilih Outlet</label>
-        <select
+        <Select
           value={selectedOutletId}
-          onChange={e => setSelectedOutletId(e.target.value)}
-          className="w-72 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          <option value="">-- pilih outlet --</option>
-          {(outlets || []).map((o: any) => (
-            <option key={o.id} value={o.id}>{o.nama}</option>
-          ))}
-        </select>
+          onChange={setSelectedOutletId}
+          placeholder="Pilih outlet..."
+          searchPlaceholder="Cari outlet..."
+          aria-label="Pilih Outlet Threshold"
+          className="w-72"
+          options={[
+            { value: '', label: 'Pilih outlet...' },
+            ...(outlets || []).map((o: any) => ({ value: o.id, label: o.nama })),
+          ]}
+        />
       </div>
 
       {!selectedOutletId && (

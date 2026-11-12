@@ -1,5 +1,6 @@
 'use client'
 
+import { unggahDenganSesi } from '@suka/auth'
 import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
@@ -20,9 +21,8 @@ export function useTopUpSaldo() {
 
   const catat = useMutation({
     mutationFn: async (v: { rekening: string; nominal: number; sumber: string; proofFile: File; note?: string | null; tanggal?: string | null }) => {
-      const path = `top-up/${Date.now()}-${v.proofFile.name.replace(/[^\w.\-]/g, '_')}`
-      const { error: upErr } = await supabase.storage.from('finance-proofs').upload(path, v.proofFile)
-      if (upErr) throw upErr
+      // Foto dinormalkan (JPEG ringan, EXIF dibuang) + retry: lihat @suka/auth unggahDenganSesi.
+      const { path } = await unggahDenganSesi({ supabase, bucket: 'finance-proofs', folder: 'top-up', file: v.proofFile })
       const { data, error } = await supabase.rpc('record_top_up_saldo', {
         p_location: v.rekening,
         p_amount: v.nominal,
@@ -39,9 +39,8 @@ export function useTopUpSaldo() {
 
   const catatRefund = useMutation({
     mutationFn: async (v: { rekening: string; nominal: number; tujuan: string; proofFile: File; note?: string | null; tanggal?: string | null }) => {
-      const path = `refund-dana/${Date.now()}-${v.proofFile.name.replace(/[^\w.\-]/g, '_')}`
-      const { error: upErr } = await supabase.storage.from('finance-proofs').upload(path, v.proofFile)
-      if (upErr) throw upErr
+      // Foto dinormalkan (JPEG ringan, EXIF dibuang) + retry: lihat @suka/auth unggahDenganSesi.
+      const { path } = await unggahDenganSesi({ supabase, bucket: 'finance-proofs', folder: 'refund-dana', file: v.proofFile })
       const { data, error } = await supabase.rpc('record_refund_dana', {
         p_location: v.rekening,
         p_amount: v.nominal,

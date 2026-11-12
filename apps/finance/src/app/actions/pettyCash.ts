@@ -2,7 +2,8 @@
 
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { createSupabaseServerClient } from '@suka/auth'
+import { buatLinkUnggah, createSupabaseServerClient, type LinkUnggah, type PermintaanLink } from '@suka/auth'
+import { getServiceSupabase } from '@/lib/supabase-service'
 import { requireRole } from '@/lib/authz'
 import { DisbursementMethod } from '@/lib/types'
 import { deskripsiPettyCash } from '@/lib/approval/deskripsiPettyCash'
@@ -20,13 +21,35 @@ async function getSupabaseClient() {
   })
 }
 
+function adalahUrlBuktiPencairan(url: string): boolean {
+  const dasar = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/+$/, '')
+  if (!dasar) return false
+  return url.startsWith(`${dasar}/storage/v1/object/public/finance-proofs/`) && !url.includes('..')
+}
+
+/** Signed upload URL untuk bukti pencairan petty cash (file tidak lewat server aplikasi). */
+export async function mintaLinkUnggahBuktiPencairanAction(permintaan: PermintaanLink): Promise<LinkUnggah> {
+  try {
+    await requireRole(FINANCE_STAFF_ROLES)
+    return await buatLinkUnggah({
+      supabase: getServiceSupabase(),
+      bucket: 'finance-proofs',
+      folder: 'finance-proofs',
+      permintaan,
+    })
+  } catch (err: any) {
+    console.error('Exception in mintaLinkUnggahBuktiPencairanAction:', err)
+    return { ok: false, pesan: err?.message || 'Gagal menyiapkan unggahan bukti' }
+  }
+}
+
 export async function processPettyCashFinanceCustomAmount(formData: FormData) {
   try {
     const id = formData.get('id') as string
     const action = formData.get('action') as 'approve' | 'reject'
     const method = (formData.get('method') as DisbursementMethod) || 'transfer'
     const cashLocationId = formData.get('cashLocationId') as string | null
-    const proofFile = formData.get('proofFile') as File | null
+    const proofUrlMentah = (formData.get('proofUrl') as string | null)?.trim() || null
     const approvedAmountStr = formData.get('approvedAmount') as string | null
     const approvedAmount = approvedAmountStr ? Number(approvedAmountStr) : null
     const approvalNote = formData.get('approvalNote') as string | null
@@ -41,29 +64,12 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
 
     const supabase = await getSupabaseClient()
 
+    // Bukti diunggah browser langsung ke Storage (mintaLinkUnggahBuktiPencairanAction);
+    // di sini hanya URL-nya. Terima hanya URL publik bucket finance-proofs project ini.
     let proofOfTransferUrl: string | null = null
-    if (proofFile && proofFile.size > 0) {
-      const ext = proofFile.name.split('.').pop() || 'jpg'
-      const cleanName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`
-      const storagePath = `finance-proofs/${cleanName}`
-      
-      const buffer = await proofFile.arrayBuffer()
-      const { error: upErr } = await supabase.storage
-        .from('finance-proofs')
-        .upload(storagePath, buffer, {
-          contentType: proofFile.type
-        })
-        
-      if (upErr) {
-        console.warn('Failed to upload proof:', upErr)
-        throw new Error('Gagal mengupload bukti pencairan: ' + upErr.message)
-      }
-      
-      const { data: pubData } = supabase.storage
-        .from('finance-proofs')
-        .getPublicUrl(storagePath)
-        
-      proofOfTransferUrl = pubData.publicUrl
+    if (proofUrlMentah) {
+      if (!adalahUrlBuktiPencairan(proofUrlMentah)) throw new Error('Bukti pencairan tidak valid. Unggah ulang buktinya.')
+      proofOfTransferUrl = proofUrlMentah
     }
 
     const { data: topup, error: fetchError } = await supabase

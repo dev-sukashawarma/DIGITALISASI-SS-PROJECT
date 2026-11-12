@@ -1,5 +1,6 @@
 'use client'
 
+import { unggahDenganSesi } from '@suka/auth'
 import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
@@ -176,9 +177,8 @@ export function useSetujuiBayarPo() {
   const segarkan = useSegarkan()
   return useMutation({
     mutationFn: async (v: { poId: string; proofFile: File; catatan?: string; cashLocationId?: string | null }) => {
-      const path = `bayar-po/${Date.now()}-${v.proofFile.name.replace(/[^\w.\-]/g, '_')}`
-      const { error: upErr } = await supabase.storage.from('finance-proofs').upload(path, v.proofFile)
-      if (upErr) throw upErr
+      // Foto dinormalkan (JPEG ringan, EXIF dibuang) + retry: lihat @suka/auth unggahDenganSesi.
+      const { path } = await unggahDenganSesi({ supabase, bucket: 'finance-proofs', folder: 'bayar-po', file: v.proofFile })
       const { data, error } = await supabase.rpc('setujui_bayar_po', {
         p_po_id: v.poId,
         p_proof_url: path,

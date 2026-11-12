@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { buatLinkUnggah, type LinkUnggah, type PermintaanLink } from '@suka/auth'
 import { requireRole, PERAN_KEUANGAN } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
 import { deserializeVoucherFromRow, serializeVoucherToDescription } from '@/lib/officeVoucher'
@@ -62,44 +63,24 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   }
 }
 
-export async function uploadExpenseInvoiceAction(formData: FormData) {
+/**
+ * Signed upload URL untuk foto/PDF nota OPEX. File TIDAK lewat server aplikasi:
+ * browser mengunggah langsung ke Supabase Storage (`unggahLangsung` di @suka/auth),
+ * jadi tidak kena WAF Cloudflare maupun batas body Server Action 1 MB
+ * (insiden 12 Nov 2026: "An unexpected response was received from the server").
+ */
+export async function mintaLinkUnggahNotaOpexAction(permintaan: PermintaanLink): Promise<LinkUnggah> {
   try {
     await requireRole(PERAN_KEUANGAN)
-    const file = formData.get('file') as File | null
-    if (!file || file.size === 0) {
-      return { success: false, error: 'File tidak ditemukan' }
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      return { success: false, error: 'Ukuran file maksimal 10MB' }
-    }
-
-    const supabase = getServiceSupabase()
-    const ext = file.name.split('.').pop() || 'jpg'
-    const cleanName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`
-    const storagePath = `invoices/${cleanName}`
-
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const { error: uploadError } = await supabase.storage
-      .from('opex-invoices')
-      .upload(storagePath, buffer, {
-        contentType: file.type || 'image/jpeg',
-        upsert: true
-      })
-
-    if (uploadError) {
-      console.error('Failed to upload expense invoice:', uploadError)
-      return { success: false, error: 'Gagal mengupload invoice: ' + uploadError.message }
-    }
-
-    const { data: pubData } = supabase.storage
-      .from('opex-invoices')
-      .getPublicUrl(storagePath)
-
-    return { success: true, url: pubData.publicUrl }
+    return await buatLinkUnggah({
+      supabase: getServiceSupabase(),
+      bucket: 'opex-invoices',
+      folder: 'invoices',
+      permintaan,
+    })
   } catch (err: any) {
-    console.error('Exception in uploadExpenseInvoiceAction:', err)
-    return { success: false, error: err?.message || 'Gagal mengupload file' }
+    console.error('Exception in mintaLinkUnggahNotaOpexAction:', err)
+    return { ok: false, pesan: err?.message || 'Gagal menyiapkan unggahan bukti' }
   }
 }
 

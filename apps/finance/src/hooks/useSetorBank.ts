@@ -1,5 +1,6 @@
 'use client'
 
+import { unggahDenganSesi } from '@suka/auth'
 import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
@@ -10,9 +11,8 @@ export function useSetorBank() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (v: { diambil: number; keBank: number; proofFile: File; note?: string | null }) => {
-      const path = `setor-bank/${Date.now()}-${v.proofFile.name.replace(/[^\w.\-]/g, '_')}`
-      const { error: upErr } = await supabase.storage.from('finance-proofs').upload(path, v.proofFile)
-      if (upErr) throw upErr
+      // Foto dinormalkan (JPEG ringan, EXIF dibuang) + retry: lihat @suka/auth unggahDenganSesi.
+      const { path } = await unggahDenganSesi({ supabase, bucket: 'finance-proofs', folder: 'setor-bank', file: v.proofFile })
       const { data, error } = await supabase.rpc('record_setor_bank', {
         p_total_diambil: v.diambil,
         p_nominal_bank: v.keBank,

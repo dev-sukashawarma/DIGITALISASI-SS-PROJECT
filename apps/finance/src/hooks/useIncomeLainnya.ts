@@ -1,5 +1,6 @@
 'use client'
 
+import { unggahDenganSesi } from '@suka/auth'
 import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
@@ -66,9 +67,8 @@ export function useCatatIncome() {
       cashLocationId: string
       proofFile: File
     }) => {
-      const path = `income-lainnya/${Date.now()}-${v.proofFile.name.replace(/[^\w.\-]/g, '_')}`
-      const { error: upErr } = await supabase.storage.from('finance-proofs').upload(path, v.proofFile)
-      if (upErr) throw upErr
+      // Foto dinormalkan (JPEG ringan, EXIF dibuang) + retry: lihat @suka/auth unggahDenganSesi.
+      const { path } = await unggahDenganSesi({ supabase, bucket: 'finance-proofs', folder: 'income-lainnya', file: v.proofFile })
       const { data, error } = await supabase.rpc('record_income_lainnya', {
         p_occurred_at: `${v.tanggal}T12:00:00+07:00`,
         p_kategori: v.kategori,

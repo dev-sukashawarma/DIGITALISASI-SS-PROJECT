@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@suka/design-system'
 import { toast } from 'sonner'
+import { unggahLangsung, UKURAN_MENTAH_MAKS } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import { 
   PENGELUARAN_CATEGORIES, 
@@ -21,7 +22,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import {
   createSingleExpenseAction,
   updateSingleExpenseAction,
-  uploadExpenseInvoiceAction,
+  mintaLinkUnggahNotaOpexAction,
   daftarRekeningPembayarAction,
   ambilRekeningPembayarAction
 } from '@/app/actions/expenses'
@@ -166,8 +167,10 @@ export function ExpenseFormModal({
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Ukuran file maksimal 10MB')
+    // Foto dikompres otomatis sebelum diunggah (lihat @suka/auth unggahLangsung),
+    // jadi foto kamera HP berukuran besar tetap diterima.
+    if (file.size > UKURAN_MENTAH_MAKS) {
+      toast.error('Ukuran file maksimal 40MB')
       return
     }
 
@@ -233,17 +236,22 @@ export function ExpenseFormModal({
 
       if (selectedFile) {
         setSubmitMessage('Mengupload bukti invoice...')
-        const formData = new FormData()
-        formData.append('file', selectedFile)
-
-        const uploadRes = await uploadExpenseInvoiceAction(formData)
-        if (!uploadRes.success || !uploadRes.url) {
-          toast.error('Gagal mengupload bukti invoice: ' + (uploadRes.error || 'Terjadi kesalahan'))
+        // Unggah langsung ke Supabase Storage (tidak lewat server aplikasi):
+        // foto apa pun dinormalkan jadi JPEG ringan, dicoba ulang bila koneksi putus.
+        try {
+          const hasil = await unggahLangsung({
+            supabase: createClient(),
+            bucket: 'opex-invoices',
+            file: selectedFile,
+            mintaLink: mintaLinkUnggahNotaOpexAction,
+          })
+          receiptUrl = hasil.url
+        } catch (err: any) {
+          toast.error('Gagal mengupload bukti invoice: ' + (err?.message || 'Terjadi kesalahan'))
           setSubmitting(false)
           setSubmitMessage('')
           return
         }
-        receiptUrl = uploadRes.url
       } else if (!existingReceiptUrl) {
         receiptUrl = null
       }
@@ -500,7 +508,7 @@ export function ExpenseFormModal({
                 <div className="text-xs font-semibold text-suka-gray-700 group-hover:text-suka-orange">
                   Klik untuk upload foto invoice / nota
                 </div>
-                <p className="text-[11px] text-suka-gray-400">JPG, PNG, WEBP, atau PDF (maks. 10MB)</p>
+                <p className="text-[11px] text-suka-gray-400">Foto apa saja (JPG, PNG, WEBP, HEIC) atau PDF — dikompres otomatis</p>
               </div>
             ) : selectedFile ? (
               <div className="border border-suka-gray-200 rounded-xl p-3 bg-suka-gray-50 flex items-center justify-between gap-3">

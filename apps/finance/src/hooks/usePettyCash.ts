@@ -4,7 +4,12 @@ import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
-import { processPettyCashFinanceCustomAmount, forwardPettyCashFinance } from '@/app/actions/pettyCash'
+import { unggahLangsung } from '@suka/auth'
+import {
+  processPettyCashFinanceCustomAmount,
+  forwardPettyCashFinance,
+  mintaLinkUnggahBuktiPencairanAction,
+} from '@/app/actions/pettyCash'
 
 export function usePettyCashRequests(status?: string, initialData?: PettyCashTopup[], regionFilter?: string) {
   const supabase = useMemo(() => createClient(), [])
@@ -193,7 +198,17 @@ export function useProcessPettyCashFinance() {
       formData.append('action', action)
       formData.append('method', method)
       if (cashLocationId) formData.append('cashLocationId', cashLocationId)
-      if (proofFile) formData.append('proofFile', proofFile)
+      if (proofFile) {
+        // Bukti diunggah langsung ke Supabase Storage (tidak lewat server aplikasi),
+        // lalu hanya URL-nya yang dikirim ke action pencairan.
+        const bukti = await unggahLangsung({
+          supabase: createClient(),
+          bucket: 'finance-proofs',
+          file: proofFile,
+          mintaLink: mintaLinkUnggahBuktiPencairanAction,
+        })
+        formData.append('proofUrl', bukti.url)
+      }
       if (approvedAmount != null) formData.append('approvedAmount', approvedAmount.toString())
       if (approvalNote) formData.append('approvalNote', approvalNote)
 

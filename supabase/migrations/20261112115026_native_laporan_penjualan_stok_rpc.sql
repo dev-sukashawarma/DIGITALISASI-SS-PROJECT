@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migrasi 20300256000000: RPC agregasi Laporan Penjualan (modul Stok, app native)
+-- Migrasi 20261112115026: RPC agregasi Laporan Penjualan (modul Stok, app native)
 -- ============================================================================
 -- LATAR: layar Laporan Penjualan native menarik SELURUH baris `orders` beserta
 -- `order_items`-nya lalu menjumlahkannya di HP. Diukur 12 Nov 2026 untuk 1-10 Nov

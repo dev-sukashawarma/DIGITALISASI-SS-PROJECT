@@ -22,15 +22,15 @@ export interface OutletOwnershipInput {
 }
 
 /**
- * Apakah satu outlet dihitung sebagai outlet kemitraan. Tiga penanda, cukup
- * salah satu: `outlets.type = 'mitra'`, punya baris di `mitra_investments`,
- * atau namanya mengandung "mitra".
+ * Apakah satu outlet dihitung sebagai outlet kemitraan: `outlets.type = 'mitra'`,
+ * atau punya baris di `mitra_investments`. Nama outlet TIDAK lagi dipakai
+ * (sejak 2026-11-13): jenis outlet dipilih eksplisit di Wizard Pembukaan
+ * Outlet, sedangkan nama diketik bebas oleh admin.
  *
- * `type` WAJIB ikut dibaca. HPP outlet mitra dinaikkan 1,1x berdasarkan penanda
- * yang sama di `useHpp`; kalau aturan di sini lebih sempit, outlet mitra baru
- * yang dinamai tanpa kata "MITRA" dan belum punya baris investasi akan tetap
- * kena markup di HPP-nya tanpa pendapatan margin tandingannya pernah diakui —
- * markup itu berubah jadi biaya hantu, diam-diam.
+ * Penanda investasi dipertahankan karena banyak pemanggil mengirim daftar
+ * outlet tanpa kolom `type`; trigger DB `trg_mitra_investments_wajib_outlet_mitra`
+ * menjamin baris investasi hanya ada untuk outlet ber-type 'mitra', jadi kedua
+ * penanda selalu sepakat.
  */
 export function isMitraOutlet(
   outlet: OutletOwnershipInput | null | undefined,
@@ -38,8 +38,7 @@ export function isMitraOutlet(
 ): boolean {
   if (!outlet) return false
   if (outlet.type === 'mitra') return true
-  if (mitraInvestmentIds.has(outlet.id)) return true
-  return (outlet.name ?? '').toLowerCase().includes('mitra')
+  return mitraInvestmentIds.has(outlet.id)
 }
 
 /**

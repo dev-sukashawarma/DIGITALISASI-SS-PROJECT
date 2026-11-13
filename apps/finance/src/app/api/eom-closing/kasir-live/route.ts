@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
     >()
 
     operationalOutlets.forEach((o: any, idx: number) => {
-      const isMitra = o.type?.toLowerCase().includes('mitra') || o.name?.toUpperCase().includes('MITRA')
+      const isMitra = o.type?.toLowerCase() === 'mitra'
       const isOnline = o.type?.toLowerCase().includes('online') || o.name?.toUpperCase().includes('ONLINE')
       const outletType = isOnline ? 'Online' : isMitra ? 'Mitra' : 'Internal'
 

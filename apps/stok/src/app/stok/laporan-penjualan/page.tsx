@@ -77,14 +77,14 @@ export default async function LaporanPenjualanPage({
   // ini segar; bukan lagi seluruh order mentah di setiap buka halaman.
   const [{ days }, { data: outletsData }] = await Promise.all([
     from <= to ? loadDaySummaries(supabaseAdmin, from, to) : Promise.resolve({ days: [] }),
-    supabaseAdmin.from('outlets').select('id, name').order('name', { ascending: true })
+    supabaseAdmin.from('outlets').select('id, name, type').order('name', { ascending: true })
   ]);
 
   // Filter outlet valid (hanya outlet operasional fisik)
   const validOutlets = (outletsData || [])
     .filter(o => !isIgnoredOutletName(o.name))
     .map(o => {
-      const isMitra = o.name.toUpperCase().includes('MITRA');
+      const isMitra = o.type === 'mitra';
       const cleanName = o.name.replace('SUKA SHAWARMA ', '').trim();
       return {
         id: o.id,

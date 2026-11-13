@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Banknote } from 'lucide-react'
 import { formatRupiah } from '@/lib/format'
 import type { CashAdvanceStatus } from '@/lib/types'
 import type { CashAdvanceRow } from '@/hooks/useCashAdvances'
+import { bolehCatatCicilan, labelStatusKasbon, statusEfektifKasbon } from '@/lib/kasbon/statusKasbon'
 
 const statusConfig: Record<
   CashAdvanceStatus,
@@ -25,6 +26,11 @@ const statusConfig: Record<
     bg: 'bg-blue-50 border-blue-200',
     text: 'text-blue-700',
   },
+  menunggu_cair: {
+    label: 'Menunggu pencairan',
+    bg: 'bg-orange-50 border-orange-200',
+    text: 'text-orange-700',
+  },
   rejected: {
     label: 'Ditolak',
     bg: 'bg-red-50 border-red-200',
@@ -32,24 +38,13 @@ const statusConfig: Record<
   },
 }
 
-function getEffectiveStatus(row: CashAdvanceRow): CashAdvanceStatus {
-  const statusHr = row.status_hr
-  const statusDisbursed = row.status as string
-
-  if (statusHr === 'rejected' || statusDisbursed === 'rejected') return 'rejected'
-  if (statusHr === 'pending') return 'pending'
-  if (statusDisbursed === 'paid_off') return 'paid_off'
-  if (statusHr === 'approved') return 'active'
-  return statusDisbursed === 'active' ? 'pending' : 'pending'
-}
-
-function StatusBadge({ status }: { status: CashAdvanceStatus }) {
-  const cfg = statusConfig[status] ?? statusConfig.active
+function StatusBadge({ status, ditolakFinance = false }: { status: CashAdvanceStatus; ditolakFinance?: boolean }) {
+  const cfg = statusConfig[status] ?? statusConfig.pending
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${cfg.bg} ${cfg.text}`}
     >
-      {cfg.label}
+      {labelStatusKasbon(status, ditolakFinance)}
     </span>
   )
 }
@@ -67,7 +62,8 @@ function ExpandableRow({
 }) {
   const [expanded, setExpanded] = useState(false)
   const payments = row.cash_advance_payments ?? []
-  const effectiveStatus = getEffectiveStatus(row)
+  const effectiveStatus = statusEfektifKasbon(row)
+  const ditolakFinance = Boolean(row.ditolak_finance_at)
 
   return (
     <>
@@ -96,7 +92,14 @@ function ExpandableRow({
           {formatRupiah(row.remaining)}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-center">
-          <StatusBadge status={effectiveStatus} />
+          <StatusBadge status={effectiveStatus} ditolakFinance={ditolakFinance} />
+          {effectiveStatus === 'active' && (
+            <div className="mt-1 text-[10px] font-medium text-suka-gray-500">
+              {row.dicairkan_at
+                ? `Dicairkan ${new Date(row.dicairkan_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} · ${row.metode_cair === 'tunai' ? 'tunai' : 'transfer'}`
+                : 'Dicairkan sebelum alur finance'}
+            </div>
+          )}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500 font-mono">
           {row.created_at
@@ -127,7 +130,7 @@ function ExpandableRow({
                 </button>
               )}
             </div>
-          ) : effectiveStatus === 'active' ? (
+          ) : bolehCatatCicilan(effectiveStatus) ? (
             <button
               onClick={() => onAddPayment(row)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-suka-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-suka-brown shadow-2xs hover:border-suka-orange hover:text-suka-orange transition-all cursor-pointer"
@@ -135,6 +138,8 @@ function ExpandableRow({
               <Banknote className="h-3.5 w-3.5" />
               Bayar Cicilan
             </button>
+          ) : effectiveStatus === 'menunggu_cair' ? (
+            <span className="text-xs text-orange-600 font-medium">Menunggu finance</span>
           ) : effectiveStatus === 'paid_off' ? (
             <span className="text-xs text-suka-gray-400 font-medium">Lunas</span>
           ) : (

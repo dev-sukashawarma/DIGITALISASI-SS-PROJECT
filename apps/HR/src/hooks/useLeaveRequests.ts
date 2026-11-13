@@ -141,7 +141,16 @@ export function useLeaveRequests(params: LeaveListParams) {
 
 export interface PerizinanSummary {
   cuti: { pending: number; approved: number; rejected: number; total: number }
-  kasbon: { pending: number; active: number; total: number; active_amount: number; paid_amount: number }
+  kasbon: {
+    pending: number
+    active: number
+    total: number
+    active_amount: number
+    paid_amount: number
+    /** Disetujui HR, belum dicairkan finance (migration 20261113142000). */
+    menunggu_cair?: number
+    menunggu_cair_amount?: number
+  }
 }
 
 /** Angka kartu Cuti & Kasbon — dihitung di database (RPC hr_perizinan_ringkasan). */

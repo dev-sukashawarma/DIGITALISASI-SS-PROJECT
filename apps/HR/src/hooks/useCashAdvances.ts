@@ -53,7 +53,7 @@ export async function fetchCashAdvancesPage(
     let query = supabase
       .from('cash_advances')
       .select(`
-        id, staff_id, amount, amount_requested, remaining, installment_months, reason, status, status_hr, created_at, approved_at, rejection_note, approval_note,
+        id, staff_id, amount, amount_requested, remaining, installment_months, reason, status, status_hr, created_at, approved_at, rejection_note, approval_note, dicairkan_at, metode_cair, ditolak_finance_at,
         outlet_staff!cash_advances_staff_id_fkey!inner(
           name, role, username, account_category, outlet_id,
           outlets!outlet_staff_outlet_id_fkey(name)
@@ -70,6 +70,8 @@ export async function fetchCashAdvancesPage(
         query = query.eq('status_hr', 'pending').neq('status', 'paid_off')
       } else if (params.status === 'rejected') {
         query = query.eq('status_hr', 'rejected')
+      } else if (params.status === 'menunggu_cair') {
+        query = query.eq('status_hr', 'approved').eq('status', 'menunggu_cair')
       } else if (params.status === 'active') {
         query = query.eq('status_hr', 'approved').eq('status', 'active')
       } else if (params.status === 'paid_off') {

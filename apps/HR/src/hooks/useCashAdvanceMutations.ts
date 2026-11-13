@@ -31,10 +31,10 @@ export function useCashAdvanceMutations() {
         amount_requested: amount,
         remaining: amount,
         reason,
-        status: 'active' as CashAdvanceStatus,
+        // Disetujui HR = menunggu pencairan finance (DB juga memaksanya).
+        status: 'menunggu_cair' as CashAdvanceStatus,
         status_hr: 'approved',
         installment_months: installment_months || 1,
-        approved_at: new Date().toISOString(),
       })
 
       if (error) throw error
@@ -52,12 +52,16 @@ export function useCashAdvanceMutations() {
       amount,
       note,
       currentRemaining,
+      status,
     }: {
       cash_advance_id: string
       amount: number
       note: string | null
       currentRemaining: number
+      /** Status efektif kasbon; cicilan hanya untuk yang sudah dicairkan. */
+      status: CashAdvanceStatus
     }) => {
+      if (status !== 'active') throw new Error('Cicilan hanya untuk kasbon yang sudah dicairkan')
       const { error: payErr } = await supabase
         .from('cash_advance_payments')
         .insert({
@@ -101,7 +105,8 @@ export function useCashAdvanceMutations() {
 
       const updateData: Record<string, any> = {
         status_hr: 'approved',
-        status: 'active',
+        // Uang belum keluar: finance yang mencairkan lewat Hub Approval.
+        status: 'menunggu_cair',
         approved_at: new Date().toISOString(),
       }
 

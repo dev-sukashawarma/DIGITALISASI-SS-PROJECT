@@ -38,6 +38,7 @@ import { LeaveRequestTable } from '@/components/modules/LeaveRequestTable'
 import { LeaveRejectDialog } from '@/components/modules/LeaveRejectDialog'
 import { KasbonRejectDialog } from '@/components/modules/KasbonRejectDialog'
 import { KasbonApproveModal } from '@/components/modules/KasbonApproveModal'
+import { labelStatusKasbon, statusEfektifKasbon } from '@/lib/kasbon/statusKasbon'
 import { CashAdvanceTable } from '@/components/modules/CashAdvanceTable'
 import { CashAdvanceForm } from '@/components/modules/CashAdvanceForm'
 import { exportCsv } from '@/lib/exportCsv'
@@ -58,6 +59,7 @@ const leaveTabs: { key: LeaveStatusFilter; label: string }[] = [
 const kasbonTabs: { key: KasbonStatusFilter; label: string }[] = [
   { key: 'all', label: 'Semua Status' },
   { key: 'pending', label: 'Menunggu Persetujuan' },
+  { key: 'menunggu_cair', label: 'Menunggu Pencairan' },
   { key: 'active', label: 'Aktif / Berjalan' },
   { key: 'paid_off', label: 'Lunas' },
   { key: 'rejected', label: 'Ditolak' },
@@ -233,6 +235,8 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
   const activeKasbonCount = summary?.kasbon.active ?? 0
   const totalKasbonActiveAmount = Number(summary?.kasbon.active_amount ?? 0)
   const totalKasbonPaidAmount = Number(summary?.kasbon.paid_amount ?? 0)
+  const menungguCairCount = summary?.kasbon.menunggu_cair ?? 0
+  const menungguCairAmount = Number(summary?.kasbon.menunggu_cair_amount ?? 0)
   const [exporting, setExporting] = useState(false)
 
   // Leave Handlers
@@ -347,6 +351,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
         amount: Number(values.amount),
         note: values.note ?? null,
         currentRemaining: payingKasbon.remaining,
+        status: statusEfektifKasbon(payingKasbon),
       },
       {
         onSuccess: () => {
@@ -439,7 +444,7 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
       cabang: k.outlet_staff?.outlets?.name ?? '-',
       nominal: k.amount,
       sisa: k.remaining,
-      status: k.status,
+      status: labelStatusKasbon(statusEfektifKasbon(k), Boolean(k.ditolak_finance_at)),
       alasan: k.reason ?? '-',
       tanggal_pengajuan: k.created_at ? new Date(k.created_at).toLocaleDateString('id-ID') : '-',
     }))
@@ -793,6 +798,11 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
               <div>
                 <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Menunggu HR</p>
                 <p className="text-xl font-black text-amber-900 mt-0.5">{pendingKasbonCount} Staf</p>
+                {menungguCairCount > 0 && (
+                  <p className="text-[11px] font-semibold text-orange-700 mt-0.5">
+                    + {menungguCairCount} menunggu pencairan finance ({formatRupiah(menungguCairAmount)})
+                  </p>
+                )}
               </div>
             </div>
 

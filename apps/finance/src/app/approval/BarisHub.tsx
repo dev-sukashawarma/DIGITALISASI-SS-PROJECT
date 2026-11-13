@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Building2, ClipboardCheck, Coins, ExternalLink, Receipt, Send, Truck, type LucideIcon } from 'lucide-react'
+import { Building2, ClipboardCheck, Coins, ExternalLink, Receipt, Send, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { rupiah, relativeTime, tanggalWaktu } from '@/lib/format'
 import { isLama, JENIS_LABEL, type HubItem, type HubJenis } from '@/lib/approval/hub'
 
@@ -9,6 +9,7 @@ import { isLama, JENIS_LABEL, type HubItem, type HubJenis } from '@/lib/approval
 export const IKON_JENIS_HUB: Record<HubJenis, LucideIcon> = {
   petty_cash: Coins,
   pengeluaran_petty_cash: Receipt,
+  kasbon: Wallet,
   serah_am: Send,
   po: ClipboardCheck,
   bayar_vendor: Truck,
@@ -18,6 +19,7 @@ export const IKON_JENIS_HUB: Record<HubJenis, LucideIcon> = {
 const LABEL_SETUJUI: Record<HubJenis, string> = {
   petty_cash: 'Setujui',
   pengeluaran_petty_cash: 'Setujui',
+  kasbon: 'Cairkan',
   serah_am: 'Serahkan ke AM',
   po: 'Setujui',
   bayar_vendor: 'Setujui',

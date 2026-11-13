@@ -9,10 +9,12 @@ import {
 import { usePendingPos, usePendingPoCount } from '@/hooks/usePoApproval'
 import { usePayablePos, useTxBayarPo, useBayarVendorPendingCount } from '@/hooks/useSupplierSettlement'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
+import { useKasbonMenunggu, useKasbonMenungguCount } from '@/hooks/useKasbonPencairan'
 import {
   gabungSumber,
   hitungPerJenis,
   itemDariBayarVendor,
+  itemDariKasbon,
   itemDariPengeluaranPettyCash,
   itemDariPettyCash,
   itemDariPo,
@@ -34,6 +36,7 @@ export function useHubApproval(enabled: boolean): {
 } {
   const petty = usePettyCashMenunggu(enabled)
   const pettyExp = usePettyCashExpensesMenunggu(enabled)
+  const kasbon = useKasbonMenunggu(enabled)
   const po = usePendingPos(enabled)
   const vendor = usePayablePos(enabled)
   const tx = useTxBayarPo(enabled)
@@ -53,6 +56,12 @@ export function useHubApproval(enabled: boolean): {
         isLoading: pettyExp.isLoading,
         error: pettyExp.error,
       },
+      {
+        jenis: ['kasbon'],
+        items: (kasbon.data ?? []).map(itemDariKasbon),
+        isLoading: kasbon.isLoading,
+        error: kasbon.error,
+      },
       { jenis: ['po'], items: (po.data ?? []).map(itemDariPo), isLoading: po.isLoading, error: po.error },
       {
         jenis: ['bayar_vendor'],
@@ -71,6 +80,7 @@ export function useHubApproval(enabled: boolean): {
   }, [
     petty.data, petty.isLoading, petty.error,
     pettyExp.data, pettyExp.isLoading, pettyExp.error,
+    kasbon.data, kasbon.isLoading, kasbon.error,
     po.data, po.isLoading, po.error,
     vendor.data, vendor.isLoading, vendor.error,
     tx.data, tx.isLoading, tx.error,
@@ -83,6 +93,7 @@ export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat
   const pettyAcc = usePettyCashCount('forwarded_to_finance', enabled)
   const pettySerah = usePettyCashCount('approved_by_finance', enabled)
   const pettyExp = usePettyCashExpensesPendingCount(enabled)
+  const kasbon = useKasbonMenungguCount(enabled)
   const po = usePendingPoCount(enabled)
   const vendor = useBayarVendorPendingCount(enabled)
   const voucher = useOfficeVouchers(undefined, { enabled })
@@ -92,11 +103,12 @@ export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat
     (pettyAcc.data ?? 0) +
     (pettySerah.data ?? 0) +
     (pettyExp.data ?? 0) +
+    (kasbon.data ?? 0) +
     (po.data ?? 0) +
     (vendor.data ?? 0) +
     danaKantor
   const adaGalat = Boolean(
-    pettyAcc.error || pettySerah.error || pettyExp.error || po.error || vendor.error || voucher.error,
+    pettyAcc.error || pettySerah.error || pettyExp.error || kasbon.error || po.error || vendor.error || voucher.error,
   )
   return { total, adaGalat }
 }

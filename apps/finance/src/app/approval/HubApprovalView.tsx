@@ -16,6 +16,9 @@ import { useRejectPo, type PendingPo } from '@/hooks/usePoApproval'
 import { useTolakBayarPo, useTagihanBelumDiajukanCount, type PayablePo } from '@/hooks/useSupplierSettlement'
 import Link from 'next/link'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
+import { useCairkanKasbon, useTolakKasbon } from '@/hooks/useKasbonPencairan'
+import type { KasbonMenunggu } from '@/lib/approval/kasbon'
+import { CairkanKasbonModal } from '@/components/approval/CairkanKasbonModal'
 import { useCashOverview } from '@/hooks/useCashData'
 import { JENIS_LABEL, type HubItem } from '@/lib/approval/hub'
 import type { DisbursementMethod, PettyCashTopup } from '@/lib/types'
@@ -35,6 +38,7 @@ const PREFIX_HUB = [
   ['po-pending-approval'],
   ['po_payable'],
   ['office_vouchers'],
+  ['kasbon_menunggu'],
 ]
 
 function pesan(err: unknown, cadangan: string): string {
@@ -43,7 +47,7 @@ function pesan(err: unknown, cadangan: string): string {
 
 export function HubApprovalView() {
   const qc = useQueryClient()
-  const { isChecker } = useFinanceRole()
+  const { isChecker, userId } = useFinanceRole()
   const { items, galat, isLoading, perJenis } = useHubApproval(isChecker)
   const { data: tagihanBelumDiajukan = 0 } = useTagihanBelumDiajukanCount(isChecker)
   const [tab, setTab] = useState<'menunggu' | 'riwayat'>('menunggu')
@@ -61,10 +65,13 @@ export function HubApprovalView() {
   const reviewPettyExpense = useReviewPettyCashExpense()
   const rejectPo = useRejectPo()
   const tolakBayar = useTolakBayarPo()
+  const cairkanKasbon = useCairkanKasbon()
+  const tolakKasbon = useTolakKasbon()
   const { verifyVoucher, rejectVoucher, isVerifying, isRejecting } = useOfficeVouchers(undefined, { enabled: isChecker })
 
   const [pettyAcc, setPettyAcc] = useState<PettyCashTopup | null>(null)
   const [pengeluaranPcAcc, setPengeluaranPcAcc] = useState<PendingPettyCashExpense | null>(null)
+  const [kasbonAcc, setKasbonAcc] = useState<KasbonMenunggu | null>(null)
   const [poAcc, setPoAcc] = useState<PendingPo | null>(null)
   const [vendorAcc, setVendorAcc] = useState<PayablePo | null>(null)
   const [voucherAcc, setVoucherAcc] = useState<OfficeVoucher | null>(null)
@@ -81,6 +88,9 @@ export function HubApprovalView() {
         return
       case 'pengeluaran_petty_cash':
         setPengeluaranPcAcc(i.data)
+        return
+      case 'kasbon':
+        setKasbonAcc(i.data)
         return
       case 'serah_am':
         if (!confirm('Konfirmasi penyerahan dana dari Finance ke Area Manager?')) return
@@ -121,6 +131,10 @@ export function HubApprovalView() {
             reason: alasan,
           })
           toast.success('Pengajuan pengeluaran petty cash ditolak.')
+          break
+        case 'kasbon':
+          await tolakKasbon.mutateAsync({ id: i.data.id, alasan })
+          toast.success('Kasbon ditolak.')
           break
         case 'po':
           await rejectPo.mutateAsync({ poId: i.data.id, alasan })
@@ -246,6 +260,27 @@ export function HubApprovalView() {
             setPengeluaranPcAcc(null)
             const baris = items.find((i) => i.jenis === 'pengeluaran_petty_cash' && i.id === exp.id)
             if (baris) setTolakItem(baris)
+          }}
+        />
+      )}
+
+      {kasbonAcc && (
+        <CairkanKasbonModal
+          isOpen
+          kasbon={kasbonAcc}
+          locations={locations}
+          userId={userId}
+          isPending={cairkanKasbon.isPending}
+          onClose={() => setKasbonAcc(null)}
+          onCairkan={async (cashLocationId, proofFile) => {
+            try {
+              await cairkanKasbon.mutateAsync({ id: kasbonAcc.id, cashLocationId, proofFile })
+              toast.success(`Kasbon ${kasbonAcc.staff_nama ?? ''} berhasil dicairkan.`)
+              setKasbonAcc(null)
+            } catch (err) {
+              toast.error(pesan(err, 'Gagal mencairkan kasbon'))
+              segarkan()
+            }
           }}
         />
       )}

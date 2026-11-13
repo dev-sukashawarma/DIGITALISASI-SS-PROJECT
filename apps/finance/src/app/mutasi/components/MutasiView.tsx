@@ -28,6 +28,7 @@ const WARNA_JENIS: Record<JenisMutasi, string> = {
   transfer: 'bg-purple-50 text-purple-700',
   top_up: 'bg-teal-50 text-teal-700',
   refund_dana: 'bg-rose-50 text-rose-700',
+  kasbon: 'bg-amber-50 text-amber-700',
   lainnya: 'bg-suka-gray-100 text-suka-gray-600',
 }
 

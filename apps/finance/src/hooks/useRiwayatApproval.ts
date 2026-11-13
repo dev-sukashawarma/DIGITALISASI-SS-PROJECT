@@ -63,8 +63,13 @@ export function useRingkasanRiwayat(enabled: boolean, jenis: JenisRiwayat | null
         if (error) throw error
         return count ?? 0
       }
-      const [setuju, tolak, serah_am] = await Promise.all([hitung('setuju'), hitung('tolak'), hitung('serah_am')])
-      return { setuju, tolak, serah_am }
+      const [setuju, tolak, serah_am, batal_cair] = await Promise.all([
+        hitung('setuju'),
+        hitung('tolak'),
+        hitung('serah_am'),
+        hitung('batal_cair'),
+      ])
+      return { setuju, tolak, serah_am, batal_cair }
     },
   })
 }

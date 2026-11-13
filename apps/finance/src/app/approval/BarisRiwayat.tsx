@@ -1,6 +1,6 @@
 'use client'
 
-import { Building2, ClipboardCheck, Coins, Truck, type LucideIcon } from 'lucide-react'
+import { Building2, ClipboardCheck, Coins, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import {
   jamRiwayat,
@@ -14,6 +14,7 @@ import {
 /** Ikon jenis sama dengan menu sidebar asalnya. */
 export const IKON_JENIS: Record<JenisRiwayat, LucideIcon> = {
   petty_cash: Coins,
+  kasbon: Wallet,
   po: ClipboardCheck,
   bayar_vendor: Truck,
   dana_kantor: Building2,
@@ -24,9 +25,15 @@ export const WARNA_KEPUTUSAN: Record<KeputusanRiwayat, { titik: string; teks: st
   setuju: { titik: 'bg-emerald-500', teks: 'text-emerald-700' },
   serah_am: { titik: 'bg-sky-500', teks: 'text-sky-700' },
   tolak: { titik: 'bg-red-500', teks: 'text-red-700' },
+  batal_cair: { titik: 'bg-amber-500', teks: 'text-amber-700' },
 }
 
-export function BarisRiwayat({ r }: { r: RiwayatApproval }) {
+export function BarisRiwayat({ r, bisaBatal = false, onBatal }: {
+  r: RiwayatApproval
+  /** Pencairan kasbon yang masih boleh dibatalkan (aktif, belum dipotong). */
+  bisaBatal?: boolean
+  onBatal?: (r: RiwayatApproval) => void
+}) {
   const label = labelRiwayat(r)
   const warna = WARNA_KEPUTUSAN[r.keputusan]
   const Ikon = IKON_JENIS[r.jenis]
@@ -61,9 +68,18 @@ export function BarisRiwayat({ r }: { r: RiwayatApproval }) {
         </div>
         {r.alasan && (
           <p className="mt-1.5 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
-            <span className="font-semibold">Alasan ditolak: </span>
+            <span className="font-semibold">{r.keputusan === 'batal_cair' ? 'Alasan dibatalkan:' : 'Alasan ditolak:'} </span>
             <span>{r.alasan}</span>
           </p>
+        )}
+        {bisaBatal && onBatal && r.jenis === 'kasbon' && r.keputusan === 'setuju' && (
+          <button
+            type="button"
+            onClick={() => onBatal(r)}
+            className="mt-1.5 text-xs font-semibold text-amber-700 underline hover:text-amber-900"
+          >
+            Batalkan pencairan
+          </button>
         )}
       </div>
 

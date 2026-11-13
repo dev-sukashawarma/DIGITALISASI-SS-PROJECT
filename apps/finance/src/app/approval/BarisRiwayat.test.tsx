@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { BarisRiwayat } from './BarisRiwayat'
 import type { RiwayatApproval } from '@/lib/approval/riwayat'
 
@@ -37,5 +37,22 @@ describe('BarisRiwayat', () => {
   it('pelaku yang tidak tercatat ditulis apa adanya', () => {
     render(<BarisRiwayat r={{ ...dasar, pelaku_nama: null }} />)
     expect(screen.getByText('Pelaku tidak tercatat')).toBeInTheDocument()
+  })
+
+  it('pencairan kasbon yang masih bisa dibatalkan menampilkan tombol batal', () => {
+    const onBatal = vi.fn()
+    const r = { ...dasar, jenis: 'kasbon' as const, keputusan: 'setuju' as const, alasan: null }
+    const { rerender } = render(<BarisRiwayat r={r} bisaBatal onBatal={onBatal} />)
+    expect(screen.getByText('Dicairkan')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Batalkan pencairan' }))
+    expect(onBatal).toHaveBeenCalledWith(r)
+    rerender(<BarisRiwayat r={r} bisaBatal={false} onBatal={onBatal} />)
+    expect(screen.queryByRole('button', { name: 'Batalkan pencairan' })).toBeNull()
+  })
+
+  it('pembatalan pencairan menampilkan alasannya sebagai alasan batal', () => {
+    render(<BarisRiwayat r={{ ...dasar, jenis: 'kasbon', keputusan: 'batal_cair', alasan: 'salah rekening' }} />)
+    expect(screen.getByText('Pencairan dibatalkan')).toBeInTheDocument()
+    expect(screen.getByText('Alasan dibatalkan:')).toBeInTheDocument()
   })
 })

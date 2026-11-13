@@ -1,8 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { Loader2, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRiwayatApproval, useRingkasanRiwayat, RIWAYAT_PER_HALAMAN } from '@/hooks/useRiwayatApproval'
+import { useBatalCairKasbon, useStatusKasbon } from '@/hooks/useKasbonPencairan'
+import { bolehBatalCair } from '@/lib/approval/kasbon'
+import { AlasanTolakModal } from '@/components/approval/AlasanTolakModal'
 import { rupiah } from '@/lib/format'
 import {
   kelompokkanPerHari,
@@ -10,6 +14,7 @@ import {
   URUTAN_JENIS_RIWAYAT,
   type JenisRiwayat,
   type KeputusanRiwayat,
+  type RiwayatApproval,
 } from '@/lib/approval/riwayat'
 import { BarisRiwayat, IKON_JENIS, WARNA_KEPUTUSAN } from './BarisRiwayat'
 
@@ -18,6 +23,7 @@ const SARINGAN_KEPUTUSAN: { nilai: KeputusanRiwayat | null; label: string }[] = 
   { nilai: 'setuju', label: 'Disetujui' },
   { nilai: 'tolak', label: 'Ditolak' },
   { nilai: 'serah_am', label: 'Diserahkan ke AM' },
+  { nilai: 'batal_cair', label: 'Pencairan dibatalkan' },
 ]
 
 export function RiwayatApprovalPanel({ enabled }: { enabled: boolean }) {
@@ -36,7 +42,26 @@ export function RiwayatApprovalPanel({ enabled }: { enabled: boolean }) {
   const grup = useMemo(() => kelompokkanPerHari(data?.baris ?? [], now), [data, now])
   const total = data?.total ?? 0
   const jumlahHalaman = Math.max(1, Math.ceil(total / RIWAYAT_PER_HALAMAN))
-  const semua = ringkasan ? ringkasan.setuju + ringkasan.tolak + ringkasan.serah_am : null
+  const semua = ringkasan ? ringkasan.setuju + ringkasan.tolak + ringkasan.serah_am + ringkasan.batal_cair : null
+
+  // Pencairan kasbon yang masih bisa dibatalkan (aktif & belum dipotong); status dibaca terkini.
+  const idKasbonCair = useMemo(
+    () => (data?.baris ?? []).filter((r) => r.jenis === 'kasbon' && r.keputusan === 'setuju').map((r) => r.sumber_id),
+    [data],
+  )
+  const { data: statusKasbon } = useStatusKasbon(enabled ? idKasbonCair : [])
+  const batalCair = useBatalCairKasbon()
+  const [batalItem, setBatalItem] = useState<RiwayatApproval | null>(null)
+  const konfirmasiBatal = async (alasan: string) => {
+    if (!batalItem) return
+    try {
+      await batalCair.mutateAsync({ id: batalItem.sumber_id, alasan })
+      toast.success('Pencairan kasbon dibatalkan, kasbon kembali menunggu pencairan.')
+      setBatalItem(null)
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : 'Gagal membatalkan pencairan')
+    }
+  }
 
   const pilihJenis = (j: JenisRiwayat | null) => {
     setJenis(j)
@@ -50,7 +75,7 @@ export function RiwayatApprovalPanel({ enabled }: { enabled: boolean }) {
   return (
     <div className="space-y-5">
       {/* Ringkasan sekaligus saringan keputusan */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Saring menurut keputusan">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" role="group" aria-label="Saring menurut keputusan">
         {SARINGAN_KEPUTUSAN.map(({ nilai, label }) => {
           const aktif = keputusan === nilai
           const jumlah = nilai === null ? semua : ringkasan?.[nilai]
@@ -134,7 +159,12 @@ export function RiwayatApprovalPanel({ enabled }: { enabled: boolean }) {
                 />
                 <ul className="divide-y divide-suka-brown/5">
                   {g.baris.map((r) => (
-                    <BarisRiwayat key={r.id} r={r} />
+                    <BarisRiwayat
+                      key={r.id}
+                      r={r}
+                      bisaBatal={Boolean(statusKasbon?.[r.sumber_id] && bolehBatalCair(statusKasbon[r.sumber_id]))}
+                      onBatal={setBatalItem}
+                    />
                   ))}
                 </ul>
               </div>
@@ -168,6 +198,13 @@ export function RiwayatApprovalPanel({ enabled }: { enabled: boolean }) {
           </div>
         </nav>
       )}
+      <AlasanTolakModal
+        isOpen={Boolean(batalItem)}
+        judul="Batalkan pencairan kasbon"
+        onClose={() => setBatalItem(null)}
+        onKonfirmasi={konfirmasiBatal}
+        isPending={batalCair.isPending}
+      />
     </div>
   )
 }

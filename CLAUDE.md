@@ -3909,7 +3909,7 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 
 ## Session 2026-11-13: Wizard Penutupan Outlet (DB + admin-dashboard)
 
-**Status:** DB **LIVE**: 4 migration applied & terstempel (`20261113200000` fondasi + penjaga + backfill, `201000` checklist, `202000` RPC, `203000` perbaikan review: penugasan AM dihitung bila masih berlaku HARI INI, langkah `order` dibatasi sampai tanggal tutup). Uji `supabase/verifikasi/penutupan_outlet/t1–t4` LULUS dengan kontrol negatif; uji inti Wizard Pembukaan (t2–t4) tetap lulus. Kode di branch `feat/wizard-penutupan-outlet` (worktree `.worktrees/penutupan-outlet`), **belum merge/push**. Uji browser belum.
+**Status:** DB **LIVE**: 4 migration applied & terstempel (`20261113200000` fondasi + penjaga + backfill, `201000` checklist, `202000` RPC, `203000` perbaikan review: penugasan AM dihitung bila masih berlaku HARI INI, langkah `order` dibatasi sampai tanggal tutup). Uji `supabase/verifikasi/penutupan_outlet/t1–t4` LULUS dengan kontrol negatif; uji inti Wizard Pembukaan (t2–t4) tetap lulus. Kode **di-merge ke `main` lokal** (merge `8876ac612`), **belum di-push** — admin-dashboard ter-deploy otomatis saat push. Uji browser belum.
 
 **SOP/spec/plan:** `docs/SOP-PENUTUPAN-OUTLET.md`, `docs/superpowers/specs/2026-11-13-wizard-penutupan-outlet-design.md`, `docs/superpowers/plans/2026-11-13-wizard-penutupan-outlet.md`
 

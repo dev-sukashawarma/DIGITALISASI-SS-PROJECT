@@ -3909,7 +3909,7 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 
 ## Session 2026-11-13: Wizard Penutupan Outlet (DB + admin-dashboard)
 
-**Status:** DB **LIVE**: 3 migration applied & terstempel (`20261113200000` fondasi + penjaga + backfill, `201000` checklist, `202000` RPC). Uji `supabase/verifikasi/penutupan_outlet/t1–t3` LULUS dengan kontrol negatif; uji inti Wizard Pembukaan (t2–t4) tetap lulus. Kode di branch `feat/wizard-penutupan-outlet` (worktree `.worktrees/penutupan-outlet`), **belum merge/push**. Uji browser belum.
+**Status:** DB **LIVE**: 4 migration applied & terstempel (`20261113200000` fondasi + penjaga + backfill, `201000` checklist, `202000` RPC, `203000` perbaikan review: penugasan AM dihitung bila masih berlaku HARI INI, langkah `order` dibatasi sampai tanggal tutup). Uji `supabase/verifikasi/penutupan_outlet/t1–t4` LULUS dengan kontrol negatif; uji inti Wizard Pembukaan (t2–t4) tetap lulus. Kode di branch `feat/wizard-penutupan-outlet` (worktree `.worktrees/penutupan-outlet`), **belum merge/push**. Uji browser belum.
 
 **SOP/spec/plan:** `docs/SOP-PENUTUPAN-OUTLET.md`, `docs/superpowers/specs/2026-11-13-wizard-penutupan-outlet-design.md`, `docs/superpowers/plans/2026-11-13-wizard-penutupan-outlet.md`
 
@@ -3919,6 +3919,7 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - ⚠️ **Penjaga status dua arah** `trg_zz_outlets_jaga_penutupan`: outlet internal/mitra aktif↔nonaktif hanya lewat RPC (GUC `app.penutupan_outlet`); penulis lain **ditahan diam-diam** karena `saveGlobalConfig` absensi menulis `is_active` ke semua outlet. `outlets_catat_nonaktif` kini menghormati `nonaktif_at` dari RPC. Form edit/hapus admin & POS Admin menolak lewat `cekPerubahanOutlet`/`cekHapusOutlet`.
 - Backfill: Sawangan Internal, Sukmajaya, Ciseeng, Jatiasih distempel `alasan_tutup = '(ditutup sebelum wizard)'`. Papan langsung menemukan sisa: crew masih aktif (Sukmajaya 1, Ciseeng 2, Jatiasih 1), penugasan AM terbuka (Sukmajaya, Ciseeng), mutasi stok menggantung (Sukmajaya 4, Jatiasih 2, Sawangan 1).
 - ⚠️ `ledger_stamp_saldo` menolak `adjustment` yang membuat saldo minus (hanya `pemakaian`/`waste`/dst boleh) — penolan aman karena hasilnya selalu 0.
+- 🔴 **Belum diperbaiki — kunci kiosk absensi:** `apps/absensi` (pengaturan/actions.ts, api/outlet-config) memakai `outlets.is_active` sebagai kunci kiosk dan `AttendanceKioskPanel` membacanya. Untuk outlet internal/mitra tulisan itu kini **ditahan diam-diam** oleh penjaga → mengunci kiosk tidak berefek (sebelumnya malah menutup outlet di semua app). Perbaikan: pindahkan kunci kiosk ke kolom milik absensi.
 
 ---
 

@@ -3874,7 +3874,7 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 
 ## Session 2026-11-13: Kasbon — HR Menyetujui Nilai, Finance Mencairkan (DB + finance + HR + admin + absensi + bot)
 
-**Status:** Kode di branch `feat/kasbon-pencairan-finance`. 3 migration (`20261113140000_kasbon_cair_skema_penjaga`, `141000_kasbon_cair_rpc`, `142000_kasbon_cair_ringkasan_hr`) **diuji di transaksi ROLLBACK, BELUM di-apply** — wajib diterapkan (izin owner) **tepat sebelum merge**: kalau diterapkan duluan, persetujuan HR di app lama jadi `menunggu_cair` tanpa tombol cair dan tombol Bayar Cicilan HR error. Deploy app otomatis saat merge (finance, HR, admin-dashboard, absensi, bot).
+**Status:** Kode di branch `feat/kasbon-pencairan-finance`. 3 migration (`20261113140000_kasbon_cair_skema_penjaga`, `141000_kasbon_cair_rpc`, `142000_kasbon_cair_ringkasan_hr`) **applied & terstempel 13 Nov 2026 ±11.10 WIB** (izin owner), katalog diverifikasi; uji `t1–t3` lulus di DB live (ROLLBACK) + kontrol negatif ditolak trigger; pemantau Q1/Q3/Q4 = 0. Deploy app otomatis saat merge (finance, HR, admin-dashboard, absensi, bot). Kasbon Rp 400.000 yang disetujui HR 13 Nov 09.38 (sebelum migration) termasuk 5 kasbon lama yang dianggap sudah dicairkan.
 
 **Spec/plan:** `docs/superpowers/specs/2026-11-13-kasbon-pencairan-finance-design.md`, `docs/superpowers/plans/2026-11-13-kasbon-pencairan-finance.md`. Uji `supabase/verifikasi/kasbon_cair/t1–t3`, pemantau `pemantau.sql`.
 

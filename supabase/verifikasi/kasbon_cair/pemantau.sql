@@ -1,12 +1,13 @@
 -- Pemantau kasbon dicairkan finance (spec 2026-11-13-kasbon-pencairan-finance-design.md).
 -- Jalankan SATU kueri per giliran. Q1, Q3, Q4 harus 0 baris.
--- Ganti '2026-11-13' dengan tanggal migration 20261113140000 diterapkan bila berbeda.
+-- Batas = saat migration 20261113140000 diterapkan (13 Nov 2026 ±11.10 WIB). Kasbon yang
+-- disetujui sebelum itu (5 baris) dianggap sudah dicairkan sebelum alur finance.
 
 -- Q1: kasbon aktif yang lahir sesudah alur baru tapi tidak pernah dicairkan finance (harus 0).
 SELECT k.id, s.name, k.amount, k.status_hr, k.created_at
 FROM cash_advances k LEFT JOIN outlet_staff s ON s.id = k.staff_id
 WHERE k.status = 'active' AND k.status_hr = 'approved' AND k.dicairkan_at IS NULL
-  AND k.approved_at >= '2026-11-13'
+  AND k.approved_at >= '2026-11-13 11:15+07'
 ORDER BY k.approved_at;
 
 -- Q2: antrean pencairan (paling lama di atas); > 24 jam = perlu dikejar.
@@ -26,4 +27,4 @@ WHERE t.source_type = 'kasbon' AND t.status <> 'void'
 SELECT p.id, p.cash_advance_id, p.amount, k.status, k.status_hr
 FROM cash_advance_payments p JOIN cash_advances k ON k.id = p.cash_advance_id
 WHERE (k.status NOT IN ('active', 'paid_off') OR k.status_hr IS DISTINCT FROM 'approved')
-  AND p.created_at >= '2026-11-13';
+  AND p.created_at >= '2026-11-13 11:15+07';

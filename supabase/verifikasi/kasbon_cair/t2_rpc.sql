@@ -25,7 +25,7 @@ BEGIN
   -- Kasbon menunggu_cair, disetujui admin_hr.
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c_hr, 'role', 'authenticated')::text, true);
   INSERT INTO cash_advances (staff_id, amount, remaining, reason, status_hr) VALUES (c_crew, 500000, 500000, 'uji t2', 'approved') RETURNING id INTO v;
-  IF (SELECT status FROM cash_advances WHERE id = v) <> 'menunggu_cair' THEN RAISE EXCEPTION 'T2 fixture status'; END IF;
+  IF (SELECT status FROM cash_advances WHERE id = v) IS DISTINCT FROM 'menunggu_cair' THEN RAISE EXCEPTION 'T2 fixture status'; END IF;
 
   -- T2a: crew tidak boleh mencairkan
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c_crew, 'role', 'authenticated')::text, true);
@@ -46,7 +46,7 @@ BEGIN
   SELECT count(*) INTO n FROM cash_transaction WHERE source_type = 'kasbon';
   BEGIN PERFORM finance_cairkan_kasbon(v2, c_bank, 'b.jpg'); RAISE EXCEPTION 'T2b LOLOS';
   EXCEPTION WHEN check_violation THEN IF SQLERRM NOT LIKE '%tidak mencukupi%' THEN RAISE; END IF; END;
-  IF (SELECT count(*) FROM cash_transaction WHERE source_type = 'kasbon') <> n THEN RAISE EXCEPTION 'T2b transaksi lahir'; END IF;
+  IF (SELECT count(*) FROM cash_transaction WHERE source_type = 'kasbon') IS DISTINCT FROM n THEN RAISE EXCEPTION 'T2b transaksi lahir'; END IF;
 
   -- T2f: bukti kosong & rekening salah
   BEGIN PERFORM finance_cairkan_kasbon(v, c_bank, ' '); RAISE EXCEPTION 'T2f bukti LOLOS';
@@ -59,12 +59,12 @@ BEGIN
   UPDATE cash_advances SET amount = 750000 WHERE id = v;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c_fin, 'role', 'authenticated')::text, true);
   tx := finance_cairkan_kasbon(v, c_bank, 'kasbon/v-1-b.jpg');
-  IF (SELECT amount FROM cash_transaction WHERE id = tx) <> 750000 THEN RAISE EXCEPTION 'T2c nominal tx'; END IF;
+  IF (SELECT amount FROM cash_transaction WHERE id = tx) IS DISTINCT FROM 750000 THEN RAISE EXCEPTION 'T2c nominal tx'; END IF;
   SELECT saldo INTO s FROM cash_balance WHERE cash_location_id = c_bank;
-  IF s <> s0 - 750000 THEN RAISE EXCEPTION 'T2c saldo %', s0 - s; END IF;
+  IF s IS DISTINCT FROM s0 - 750000 THEN RAISE EXCEPTION 'T2c saldo %', s0 - s; END IF;
   SELECT * INTO r FROM cash_advances WHERE id = v;
-  IF r.status <> 'active' OR r.remaining <> 750000 OR r.metode_cair <> 'transfer'
-     OR r.dicairkan_oleh <> c_fin OR r.cash_transaction_id <> tx OR r.bukti_cair <> 'kasbon/v-1-b.jpg' THEN
+  IF r.status IS DISTINCT FROM 'active' OR r.remaining IS DISTINCT FROM 750000 OR r.metode_cair IS DISTINCT FROM 'transfer'
+     OR r.dicairkan_oleh IS DISTINCT FROM c_fin OR r.cash_transaction_id IS DISTINCT FROM tx OR r.bukti_cair IS DISTINCT FROM 'kasbon/v-1-b.jpg' THEN
     RAISE EXCEPTION 'T2c kasbon %', r;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM approval_log WHERE jenis = 'kasbon' AND keputusan = 'setuju' AND sumber_id = v
@@ -78,7 +78,7 @@ BEGIN
 
   -- T2e: penyetuju HR tidak boleh mencairkan sendiri
   INSERT INTO cash_advances (staff_id, amount, remaining, reason, status_hr) VALUES (c_crew, 1000, 1000, 'uji sama', 'approved') RETURNING id INTO v3;
-  IF (SELECT approved_by FROM cash_advances WHERE id = v3) <> c_fin THEN RAISE EXCEPTION 'T2e fixture'; END IF;
+  IF (SELECT approved_by FROM cash_advances WHERE id = v3) IS DISTINCT FROM c_fin THEN RAISE EXCEPTION 'T2e fixture'; END IF;
   BEGIN PERFORM finance_cairkan_kasbon(v3, c_bank, 'b.jpg'); RAISE EXCEPTION 'T2e LOLOS';
   EXCEPTION WHEN check_violation THEN IF SQLERRM NOT LIKE '%orang lain%' THEN RAISE; END IF; END;
 
@@ -86,11 +86,11 @@ BEGIN
   BEGIN PERFORM finance_batal_cair_kasbon(v, ' '); RAISE EXCEPTION 'T2g alasan LOLOS';
   EXCEPTION WHEN check_violation THEN IF SQLERRM NOT LIKE '%Alasan%' THEN RAISE; END IF; END;
   PERFORM finance_batal_cair_kasbon(v, 'salah rekening');
-  IF (SELECT status FROM cash_transaction WHERE id = tx) <> 'void' THEN RAISE EXCEPTION 'T2g void'; END IF;
+  IF (SELECT status FROM cash_transaction WHERE id = tx) IS DISTINCT FROM 'void' THEN RAISE EXCEPTION 'T2g void'; END IF;
   SELECT saldo INTO s FROM cash_balance WHERE cash_location_id = c_bank;
-  IF s <> s0 THEN RAISE EXCEPTION 'T2g saldo %', s0 - s; END IF;
+  IF s IS DISTINCT FROM s0 THEN RAISE EXCEPTION 'T2g saldo %', s0 - s; END IF;
   SELECT * INTO r FROM cash_advances WHERE id = v;
-  IF r.status <> 'menunggu_cair' OR r.dicairkan_at IS NOT NULL OR r.cash_transaction_id IS NOT NULL OR r.metode_cair IS NOT NULL THEN
+  IF r.status IS DISTINCT FROM 'menunggu_cair' OR r.dicairkan_at IS NOT NULL OR r.cash_transaction_id IS NOT NULL OR r.metode_cair IS NOT NULL THEN
     RAISE EXCEPTION 'T2g kasbon %', r;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM approval_log WHERE jenis = 'kasbon' AND keputusan = 'batal_cair' AND sumber_id = v
@@ -100,8 +100,8 @@ BEGIN
 
   -- T2h: cair ulang dari tunai; setelah ada cicilan, batal ditolak
   PERFORM finance_cairkan_kasbon(v, c_tun, 'kasbon/v-2-ttd.jpg');
-  IF (SELECT metode_cair FROM cash_advances WHERE id = v) <> 'tunai' THEN RAISE EXCEPTION 'T2h tunai'; END IF;
-  IF (SELECT count(*) FROM approval_log WHERE jenis = 'kasbon' AND keputusan = 'setuju' AND sumber_id = v) <> 1 THEN
+  IF (SELECT metode_cair FROM cash_advances WHERE id = v) IS DISTINCT FROM 'tunai' THEN RAISE EXCEPTION 'T2h tunai'; END IF;
+  IF (SELECT count(*) FROM approval_log WHERE jenis = 'kasbon' AND keputusan = 'setuju' AND sumber_id = v) IS DISTINCT FROM 1 THEN
     RAISE EXCEPTION 'T2h riwayat ganda';
   END IF;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c_hr, 'role', 'authenticated')::text, true);
@@ -115,8 +115,8 @@ BEGIN
   EXCEPTION WHEN check_violation THEN IF SQLERRM NOT LIKE '%Alasan%' THEN RAISE; END IF; END;
   PERFORM finance_tolak_kasbon(v2, 'terlalu besar');
   SELECT * INTO r FROM cash_advances WHERE id = v2;
-  IF r.status_hr <> 'rejected' OR r.rejection_note <> '[Ditolak Finance] terlalu besar'
-     OR r.ditolak_finance_oleh <> c_fin OR r.ditolak_finance_at IS NULL THEN
+  IF r.status_hr IS DISTINCT FROM 'rejected' OR r.rejection_note IS DISTINCT FROM '[Ditolak Finance] terlalu besar'
+     OR r.ditolak_finance_oleh IS DISTINCT FROM c_fin OR r.ditolak_finance_at IS NULL THEN
     RAISE EXCEPTION 'T2i kasbon %', r;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM approval_log WHERE jenis = 'kasbon' AND keputusan = 'tolak' AND sumber_id = v2

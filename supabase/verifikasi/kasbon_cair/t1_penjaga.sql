@@ -13,15 +13,15 @@ BEGIN
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c_crew, 'role', 'authenticated')::text, true);
   INSERT INTO cash_advances (staff_id, amount, remaining, reason) VALUES (c_crew, 500000, 500000, 'uji t1') RETURNING id INTO v;
   SELECT * INTO r FROM cash_advances WHERE id = v;
-  IF r.status <> 'active' OR r.status_hr <> 'pending' THEN RAISE EXCEPTION 'T1a % %', r.status, r.status_hr; END IF;
+  IF r.status IS DISTINCT FROM 'active' OR r.status_hr IS DISTINCT FROM 'pending' THEN RAISE EXCEPTION 'T1a % %', r.status, r.status_hr; END IF;
 
   -- T1b: HR setuju dengan status active -> dipaksa menunggu_cair
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c_hr, 'role', 'authenticated')::text, true);
   UPDATE cash_advances SET status_hr = 'approved', status = 'active', amount = 600000, remaining = 600000 WHERE id = v;
   SELECT * INTO r FROM cash_advances WHERE id = v;
-  IF r.status <> 'menunggu_cair' THEN RAISE EXCEPTION 'T1b status %', r.status; END IF;
+  IF r.status IS DISTINCT FROM 'menunggu_cair' THEN RAISE EXCEPTION 'T1b status %', r.status; END IF;
   IF r.approved_by IS DISTINCT FROM c_hr THEN RAISE EXCEPTION 'T1b approved_by %', r.approved_by; END IF;
-  IF r.amount <> 600000 OR r.remaining <> 600000 THEN RAISE EXCEPTION 'T1b nominal % %', r.amount, r.remaining; END IF;
+  IF r.amount IS DISTINCT FROM 600000 OR r.remaining IS DISTINCT FROM 600000 THEN RAISE EXCEPTION 'T1b nominal % %', r.amount, r.remaining; END IF;
 
   -- T1c: HR tidak bisa menulis active
   BEGIN UPDATE cash_advances SET status = 'active' WHERE id = v; RAISE EXCEPTION 'T1c LOLOS';
@@ -43,13 +43,13 @@ BEGIN
   -- T1f: HR boleh ubah amount saat menunggu_cair; remaining ikut
   UPDATE cash_advances SET amount = 750000 WHERE id = v;
   SELECT * INTO r FROM cash_advances WHERE id = v;
-  IF r.amount <> 750000 OR r.remaining <> 750000 THEN RAISE EXCEPTION 'T1f % %', r.amount, r.remaining; END IF;
+  IF r.amount IS DISTINCT FROM 750000 OR r.remaining IS DISTINCT FROM 750000 THEN RAISE EXCEPTION 'T1f % %', r.amount, r.remaining; END IF;
 
   -- T1g: dengan flag -> active; sesudahnya amount & tolak dikunci
   PERFORM set_config('app.kasbon_cair', 'on', true);
   UPDATE cash_advances SET status = 'active' WHERE id = v;
   PERFORM set_config('app.kasbon_cair', 'off', true);
-  IF (SELECT status FROM cash_advances WHERE id = v) <> 'active' THEN RAISE EXCEPTION 'T1g cair'; END IF;
+  IF (SELECT status FROM cash_advances WHERE id = v) IS DISTINCT FROM 'active' THEN RAISE EXCEPTION 'T1g cair'; END IF;
   BEGIN UPDATE cash_advances SET amount = 1 WHERE id = v; RAISE EXCEPTION 'T1g amount LOLOS';
   EXCEPTION WHEN check_violation THEN NULL; END;
   BEGIN UPDATE cash_advances SET status_hr = 'rejected' WHERE id = v; RAISE EXCEPTION 'T1g tolak LOLOS';

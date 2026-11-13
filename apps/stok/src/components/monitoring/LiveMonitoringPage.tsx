@@ -69,7 +69,7 @@ export function LiveMonitoringPage() {
   const { data, isLoading: isMonitoringLoading, refetch } = useSPVMonitoringData();
   const { data: outletsMaster, isLoading: isOutletsLoading } = useQuery({
     queryKey: ['monitoring', 'outletsList'],
-    queryFn: fetchOutletsList,
+    queryFn: () => fetchOutletsList(),
     // Master outlet jarang berubah — tak perlu ditarik ulang tiap menit.
     staleTime: 10 * 60_000,
   });

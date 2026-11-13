@@ -52,6 +52,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       .from('outlets')
       .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
       .neq('id', TEST_OUTLET_ID)
+      .neq('status', 'pending')
       .order('name'),
     resolveCallerScope().catch(() => undefined),
     requireRole(PERAN_KEUANGAN).then(() => true, () => false),
@@ -80,6 +81,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
         .from('outlets')
         .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
         .neq('id', TEST_OUTLET_ID)
+        .neq('status', 'pending')
         .order('name')).data ?? rawOutlets
     : rawOutlets
   const outlets = (allOutletsRaw ?? []).filter((o) => !isTestOutlet(o))

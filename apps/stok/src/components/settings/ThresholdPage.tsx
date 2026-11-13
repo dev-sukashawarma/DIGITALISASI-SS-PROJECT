@@ -22,8 +22,8 @@ export function ThresholdPage() {
   const [retryCount, setRetryCount] = useState(0)
 
   const { data: outlets } = useQuery({
-    queryKey: ['outlets-list'],
-    queryFn: fetchOutletsList,
+    queryKey: ['outlets-list', 'termasuk-persiapan'],
+    queryFn: () => fetchOutletsList({ termasukPersiapan: true }),
   })
 
   useEffect(() => {

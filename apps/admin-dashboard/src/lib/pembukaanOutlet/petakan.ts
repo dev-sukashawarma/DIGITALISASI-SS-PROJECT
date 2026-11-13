@@ -53,3 +53,17 @@ export function hitungMundur(tanggal: string | null, hariIni: string): string {
   if (selisih === 0) return 'Hari H'
   return `Lewat ${-selisih} hari`
 }
+
+function selisihHari(a: string, b: string): number {
+  return Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000)
+}
+
+/** Bawaan tanggal Go-Live: tanggal grand opening bila masih dalam toleransi, selain itu hari ini. */
+export function tanggalGoLiveBawaan(grandOpening: string | null, hariIni: string, toleransiHari = 7): string {
+  if (grandOpening && Math.abs(selisihHari(grandOpening, hariIni)) <= toleransiHari) return grandOpening
+  return hariIni
+}
+
+export function dalamToleransiGoLive(tanggal: string, hariIni: string, toleransiHari = 7): boolean {
+  return Math.abs(selisihHari(tanggal, hariIni)) <= toleransiHari
+}

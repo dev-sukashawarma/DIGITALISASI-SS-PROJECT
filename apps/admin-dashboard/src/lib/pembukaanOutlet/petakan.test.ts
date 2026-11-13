@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hitungMundur, petakanStatusPersiapan, ringkasLangkahWajib } from './petakan'
+import { hitungMundur, petakanStatusPersiapan, ringkasLangkahWajib, tanggalGoLiveBawaan } from './petakan'
 
 const mentah = {
   outlet_id: 'o1',
@@ -48,5 +48,16 @@ describe('hitungMundur', () => {
   })
   it('tanpa tanggal', () => {
     expect(hitungMundur(null, '2026-12-03')).toBe('Belum ditentukan')
+  })
+})
+
+describe('tanggalGoLiveBawaan', () => {
+  it('memakai tanggal grand opening bila masih dalam 7 hari', () => {
+    expect(tanggalGoLiveBawaan('2026-12-01', '2026-11-28')).toBe('2026-12-01')
+    expect(tanggalGoLiveBawaan('2026-12-01', '2026-12-05')).toBe('2026-12-01')
+  })
+  it('jatuh ke hari ini bila grand opening jauh atau kosong', () => {
+    expect(tanggalGoLiveBawaan('2026-12-20', '2026-12-01')).toBe('2026-12-01')
+    expect(tanggalGoLiveBawaan(null, '2026-12-01')).toBe('2026-12-01')
   })
 })

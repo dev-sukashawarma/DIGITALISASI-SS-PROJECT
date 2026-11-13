@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { bisaDitugaskan } from '@/lib/outletPenugasan'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { UserPlus, Download, Upload, History, Users, Briefcase } from 'lucide-react'
@@ -397,7 +398,7 @@ export default function StaffPage() {
                       onboarding_stage: editingStaff.onboarding_stage || 'regular',
                       training_start_date: editingStaff.training_start_date || '',
                       outlet_id: editingStaff.outlet_id || '',
-                      outlet_ids: (editingStaff.outlet_ids || []).filter((id) => id !== KANTOR_PUSAT_ID && outlets.some((o) => o.id === id && o.is_active !== false)),
+                      outlet_ids: (editingStaff.outlet_ids || []).filter((id) => id !== KANTOR_PUSAT_ID && outlets.some((o) => o.id === id && bisaDitugaskan(o))),
                       is_bonus_eligible: editingStaff.is_bonus_eligible !== false,
                       nip: editingStaff.nip || '',
                       contract_type: editingStaff.contract_type || 'contract',

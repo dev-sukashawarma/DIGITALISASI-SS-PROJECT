@@ -1,6 +1,7 @@
 'use client'
 
 import type { Outlet } from '@/lib/types'
+import { bisaDitugaskan } from '@/lib/outletPenugasan'
 
 export function OutletMultiSelect({
   outlets,
@@ -18,7 +19,7 @@ export function OutletMultiSelect({
     .filter((o) => {
       if (o.id === '00000000-0000-0000-0000-000000000000') return false
       if (o.id === 'ffffffff-ffff-ffff-ffff-ffffffffffff') return false
-      if (o.is_active === false) return false
+      if (!bisaDitugaskan(o)) return false
       const upper = o.name.toUpperCase()
       if (upper === 'SS BACKUP' || upper.includes('KANTOR PUSAT') || upper.includes('GUDANG')) return false
       if (o.name.toLowerCase().includes('tes') || o.name.toLowerCase().includes('test')) return false

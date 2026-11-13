@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { aktifDiMarcom } from './outletAktif'
 import type { MenuItem, Category, SalesChannel, Outlet, MenuPromo } from '@/types/menu'
 
 const DEFAULT_SUPABASE_URL = 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -164,7 +165,7 @@ export async function fetchPosOutlets(): Promise<PosOutlet[]> {
       region: (o.region as string) || null,
       address: (o.address as string) || null,
       phone: (o.phone as string) || null,
-      isActive: (o.is_active as boolean) ?? true,
+      isActive: aktifDiMarcom(o),
       bankName: (o.bank_name as string) || null,
       bankAccountNumber: (o.bank_account_number as string) || null,
       bankAccountName: (o.bank_account_name as string) || null,

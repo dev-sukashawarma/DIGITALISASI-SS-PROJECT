@@ -33,6 +33,7 @@ export interface Outlet {
   lng: number
   type: string
   is_active: boolean
+  status?: string | null
   region?: string | null
 }
 

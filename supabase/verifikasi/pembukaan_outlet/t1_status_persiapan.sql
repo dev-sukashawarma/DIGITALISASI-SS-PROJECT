@@ -68,7 +68,10 @@ BEGIN
   UPDATE public.outlet_staff SET status = 'active' WHERE id = v_crew;
 
   -- 5. Outlet aktif → siap_go_live false
+  -- Simulasikan Go-Live (penjaga trg_zz_outlets_jaga_persiapan butuh saklar ini).
+  PERFORM set_config('app.pembukaan_outlet', 'on', true);
   UPDATE public.outlets SET status = 'active' WHERE id = v_outlet;
+  PERFORM set_config('app.pembukaan_outlet', '', true);
   IF (public.status_persiapan_outlet(v_outlet)->>'siap_go_live')::boolean THEN
     RAISE EXCEPTION 'ASERSI GAGAL 5: outlet aktif dinyatakan siap go-live';
   END IF;
@@ -90,4 +93,5 @@ BEGIN
 
   RAISE NOTICE 't1: LULUS';
 END $$;
+SELECT 't1 lulus' AS hasil;
 ROLLBACK;

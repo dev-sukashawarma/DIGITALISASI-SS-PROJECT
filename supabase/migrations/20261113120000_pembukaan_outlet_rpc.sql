@@ -236,10 +236,13 @@ BEGIN
   GET DIAGNOSTICS v_seed = ROW_COUNT;
   PERFORM set_config('app.ganti_satuan', '', true);
 
+  -- Satu-satunya jalan keluar dari Persiapan (lihat trg_zz_outlets_jaga_persiapan).
+  PERFORM set_config('app.pembukaan_outlet', 'on', true);
   UPDATE public.outlets
   SET status = 'active', is_bom_enabled = true, go_live_at = now(), go_live_by = auth.uid(),
       tanggal_grand_opening = p_tanggal, updated_at = now()
   WHERE id = p_outlet_id;
+  PERFORM set_config('app.pembukaan_outlet', '', true);
 
   UPDATE public.mitra_investments SET tanggal_mulai = p_tanggal, updated_at = now()
   WHERE outlet_id = p_outlet_id;
@@ -309,9 +312,11 @@ BEGIN
     RETURN jsonb_build_object('aksi', 'dihapus', 'sisa', '[]'::jsonb);
   END IF;
 
+  PERFORM set_config('app.pembukaan_outlet', 'on', true);
   UPDATE public.outlets
   SET status = 'inactive', inactive_reason = 'Pembukaan dibatalkan: ' || btrim(p_alasan), updated_at = now()
   WHERE id = p_outlet_id;
+  PERFORM set_config('app.pembukaan_outlet', '', true);
   PERFORM public._pembukaan_outlet_log(p_outlet_id, o.name, 'dinonaktifkan', btrim(p_alasan),
     jsonb_build_object('sisa', v_sisa));
   RETURN jsonb_build_object('aksi', 'dinonaktifkan', 'sisa', v_sisa);

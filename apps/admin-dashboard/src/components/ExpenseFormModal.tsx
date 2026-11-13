@@ -46,7 +46,7 @@ export function ExpenseFormModal({
   onSuccess: () => void
 }) {
   const isEdit = Boolean(initialData)
-  const { data: fetchedOutlets = [] } = useOutlets()
+  const { data: fetchedOutlets = [] } = useOutlets(undefined, { termasukPersiapan: true })
   const outletsList = propOutlets && propOutlets.length > 0 ? propOutlets : fetchedOutlets
 
   const [submitting, setSubmitting] = useState(false)

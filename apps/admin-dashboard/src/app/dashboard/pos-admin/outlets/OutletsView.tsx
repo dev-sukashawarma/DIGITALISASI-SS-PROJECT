@@ -180,6 +180,14 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
         </div>
       </div>
 
+      {/* Form ini cadangan (keputusan owner 2026-11-13). Outlet yang dibuat dari sini
+          tidak tersinkron ke Order Online dan tidak melewati status Persiapan. */}
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+        Untuk membuka outlet baru, pakai{' '}
+        <a href="/dashboard/pembukaan-outlet/baru" className="font-bold underline">Wizard Pembukaan Outlet</a>.
+        Form di halaman ini hanya cadangan.
+      </p>
+
       {/* Modal Tambah Cabang */}
       {isModalOpen && (
         <div

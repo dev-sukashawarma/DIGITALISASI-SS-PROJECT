@@ -39,7 +39,7 @@ export function DetailOutletMonitoring({ outletId }: { outletId: string }) {
 
   const { data: outlets } = useQuery({
     queryKey: ['monitoring', 'outlets'],
-    queryFn: fetchOutletsList,
+    queryFn: () => fetchOutletsList(),
     // Master outlet jarang berubah — tak perlu ditarik ulang tiap menit.
     staleTime: 10 * 60_000,
   });

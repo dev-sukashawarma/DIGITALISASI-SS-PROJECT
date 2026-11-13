@@ -20,9 +20,8 @@ export function isExcludedOutlet(o: { id?: string; name?: string; type?: string 
 }
 
 export function isMitraOutlet(o: { id?: string; name?: string; type?: string }) {
-  const typeLower = (o.type || '').toLowerCase()
-  const nameUpper = (o.name || '').toUpperCase()
-  return typeLower === 'mitra' || nameUpper.includes('MITRA')
+  // Status mitra hanya dari jenis outlet, bukan nama (2026-11-13).
+  return (o.type || '').toLowerCase() === 'mitra'
 }
 
 export function OutletCombobox({

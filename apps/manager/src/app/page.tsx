@@ -16,6 +16,7 @@ import { TEST_OUTLET_ID, isTestOutlet, isExcludedOutlet } from '@/lib/outletFilt
 import { computeOrderGross, computeOrderDeduction, buildFoodAppsSettlementPromoMap, mapEcommerceSaleToOrder } from '../lib/posReportKpi';
 import { cleanItemName } from '../lib/order-item-name';
 import { getMenuItemsData, getRiwayatHppData } from '../lib/menuCache';
+import { isIgnoredAMStaffName, petaAmAktif, type BarisPenugasanAm } from '../lib/petaAm';
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -40,26 +41,6 @@ const formatWIBTime = (tsServerStr: string) => {
   }
 };
 
-/**
- * Mengabaikan nama akun staff AM dummy/uji saat membangun peta AM dari `staff_outlets`,
- * tetapi TIDAK menyembunyikan outlet yang belum memiliki AM (masuk grup "Mitra" / "Lainnya").
- */
-const isIgnoredAMStaffName = (name: string) => {
-  if (!name) return true;
-  const n = name.trim().toUpperCase();
-  return (
-    n.startsWith('AREA MANAGER') ||
-    n.includes('TEST') ||
-    n.includes('TES ') ||
-    n === 'TES' ||
-    n === 'ADMIN' ||
-    n === 'DEVELOPER' ||
-    n === 'LAINNYA' ||
-    n === 'LAIN-LAIN' ||
-    n === 'OTHER' ||
-    n === 'OTHERS'
-  );
-};
 
 const getAMName = (
   outletId: string,
@@ -80,30 +61,8 @@ const getAMName = (
     }
   }
 
-  const name = (outletName || '').toUpperCase();
-
-  if (name.includes('EMPANG') || name.includes('BCC') || name.includes('DRAMAGA') || name.includes('PALEDANG') || name.includes('CICURUG') || name.includes('CIMANGGU')) {
-    return 'Abu Bakar';
-  }
-  if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('SENTUL') || name.includes('PAJAJARAN')) {
-    return 'Muchtar';
-  }
-  if (name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('CIRENDEU') || name.includes('PAMULANG')) {
-    return 'Chairul Rizky';
-  }
-  if (name.includes('CIBUBUR') || name.includes('CILENGSI') || name.includes('CILEUNGSI') || name.includes('SUKMAJAYA') || name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWARINGIN')) {
-    return 'Tri Rizky';
-  }
-  if (name.includes('JAGAKARSA') || name.includes('KALISARI') || name.includes('PONDOK AREN') || name.includes('CILEDUG') || name.includes('CILEUDUG') || name.includes('KARAWACI')) {
-    return 'Mulyadi';
-  }
-
   if (outletRegion && !isIgnoredAMStaffName(outletRegion)) {
     return outletRegion.trim();
-  }
-
-  if (name.startsWith('MITRA')) {
-    return 'Mitra';
   }
 
   return 'Lainnya';
@@ -258,9 +217,9 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   );
 
   const qStaffOutlets = applyOutletFilter(
-    supabaseAdmin.from('staff_outlets')
-      .select('outlet_id, staff_id, outlet_staff(name, role, is_active)')
-      .order('staff_id'),
+    supabaseAdmin.from('am_outlet_assignments')
+      .select('outlet_id, effective_from, effective_to, outlet_staff!am_outlet_assignments_staff_id_fkey(name, role, status)')
+      .order('effective_from'),
     'outlet_id'
   );
 
@@ -901,16 +860,8 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     }
   });
 
-  const amMap = new Map<string, string>();
-  if (staffOutlets) {
-    staffOutlets.forEach((so: any) => {
-      if (so.outlet_staff && so.outlet_staff.role === 'area_manager' && so.outlet_staff.is_active !== false) {
-        const staffName = (so.outlet_staff.name || '').trim();
-        if (isIgnoredAMStaffName(staffName)) return;
-        amMap.set(so.outlet_id, staffName);
-      }
-    });
-  }
+  const hariIniWib = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const amMap = petaAmAktif((staffOutlets ?? []) as unknown as BarisPenugasanAm[], hariIniWib);
 
   const activeOutlets = (outlets || []).filter(o => o.is_active && !isExcludedOutlet(o));
 

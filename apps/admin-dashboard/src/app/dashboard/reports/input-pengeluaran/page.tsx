@@ -133,7 +133,8 @@ type SortDirection = 'asc' | 'desc'
 export default function InputPengeluaranPage() {
   const { role, outletId: userOutletId } = useRole()
   const isAdmin = role === 'ADMIN' || role === 'OWNER'
-  const { data: outlets = [] } = useOutlets()
+  // Biaya pembukaan (RAB) dicatat selama outlet masih Persiapan.
+  const { data: outlets = [] } = useOutlets(undefined, { termasukPersiapan: true })
   const queryClient = useQueryClient()
   const supabase = createClient()
 

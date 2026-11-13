@@ -116,6 +116,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/resep', label: 'Manajemen Resep', shortLabel: 'Resep', icon: BookOpen, roles: ['ADMIN'] },
       { href: '/dashboard/opname', label: 'Detail Opname Outlet', shortLabel: 'Opname', icon: ClipboardList, roles: ['ADMIN'] },
       { href: '/dashboard/outlets', label: 'Manajemen Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
+      { href: '/dashboard/pembukaan-outlet', label: 'Pembukaan Outlet', shortLabel: 'Buka Outlet', icon: Sparkles, roles: ['ADMIN'] },
     ],
   },
   {
@@ -138,6 +139,7 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['OWNER'],
     items: [
       { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['OWNER'] },
+      { href: '/dashboard/pembukaan-outlet', label: 'Pembukaan Outlet', shortLabel: 'Buka Outlet', icon: Sparkles, roles: ['OWNER'] },
     ],
   },
   {

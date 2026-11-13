@@ -15,9 +15,11 @@ describe('mitraOutletIds', () => {
     expect(ids.has('c')).toBe(true)
   })
 
-  it('menandai outlet yang namanya mengandung "mitra" walau tanpa baris investasi', () => {
+  it('TIDAK menandai outlet hanya karena namanya mengandung "mitra"', () => {
+    // Status mitra ditentukan jenis outlet (dipilih di wizard pembukaan),
+    // bukan nama yang diketik admin.
     const ids = mitraOutletIds(OUTLETS, {})
-    expect(ids.has('b')).toBe(true)
+    expect(ids.has('b')).toBe(false)
   })
 
   it('tidak menandai outlet pusat maupun SS ONLINE', () => {
@@ -26,9 +28,9 @@ describe('mitraOutletIds', () => {
     expect(ids.has('ss-online')).toBe(false)
   })
 
-  it('tidak peduli besar-kecil huruf pada nama', () => {
-    const ids = mitraOutletIds([{ id: 'x', name: 'Outlet Mitra Depok' }], {})
-    expect(ids.has('x')).toBe(true)
+  it('outlet internal bernama "Mitra ..." tetap internal', () => {
+    const ids = mitraOutletIds([{ id: 'x', name: 'Outlet Mitra Depok', type: 'internal' }], {})
+    expect(ids.has('x')).toBe(false)
   })
 
   it('menandai outlet ber-type "mitra" walau namanya tanpa kata "mitra" dan tanpa baris investasi', () => {
@@ -61,9 +63,9 @@ describe('mitraOutletIds', () => {
 describe('isMitraOutlet', () => {
   const invIds = new Set(['c'])
 
-  it('mengenali lewat baris investasi, nama, maupun type', () => {
+  it('mengenali lewat type atau baris investasi, bukan nama', () => {
     expect(isMitraOutlet({ id: 'c', name: 'SUKA SHAWARMA BNR' }, invIds)).toBe(true)
-    expect(isMitraOutlet({ id: 'b', name: 'MITRA CIBUBUR' }, invIds)).toBe(true)
+    expect(isMitraOutlet({ id: 'b', name: 'MITRA CIBUBUR' }, invIds)).toBe(false)
     expect(isMitraOutlet({ id: 'd', name: 'PAMULANG', type: 'mitra' }, invIds)).toBe(true)
   })
 

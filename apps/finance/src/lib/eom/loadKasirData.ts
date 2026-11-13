@@ -118,7 +118,7 @@ export async function loadKasirData(supabase: any, from: string, to: string) {
 
   const [menuRes, outletsRes, riwayat, shifts, deposits] = await Promise.all([
     supabase.from('menu_items').select(MENU_SELECT),
-    supabase.from('outlets').select('id, name, type, is_active').order('name'),
+    supabase.from('outlets').select('id, name, type, is_active').neq('status', 'pending').order('name'),
     ambilRiwayatHpp(supabase),
     fetchAllPages(
       () => supabase.from('shifts')

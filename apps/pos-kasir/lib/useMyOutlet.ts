@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { alasanOutletTerblokir } from './alasanOutletTerblokir'
 import { createClient } from '@/lib/supabase/client'
 import { db } from '@/lib/db'
 
@@ -33,7 +34,7 @@ async function fetchMyOutletFromNetwork(): Promise<MyOutletData> {
   }
 
   const { data: profile, error } = await supabase.from('outlet_staff')
-    .select('role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, region, is_active, inactive_reason)')
+    .select('role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, region, is_active, status, inactive_reason)')
     .eq('id', userId).single()
 
   // Error jaringan/DB (mis. offline) ' lempar supaya fallback cache dipakai.
@@ -52,9 +53,9 @@ async function fetchMyOutletFromNetwork(): Promise<MyOutletData> {
   if (profile.is_active === false) {
     isBlocked = true
     blockedReason = profile.inactive_reason || 'Akun Anda dinonaktifkan oleh Admin.'
-  } else if (profile.outlets && (profile.outlets as any).is_active === false) {
+  } else if (alasanOutletTerblokir(profile.outlets as any)) {
     isBlocked = true
-    blockedReason = (profile.outlets as any).inactive_reason || 'Cabang tempat Anda bertugas sedang dinonaktifkan oleh Admin.'
+    blockedReason = alasanOutletTerblokir(profile.outlets as any)!
   }
 
   let outletId = profile.outlet_id ?? null;

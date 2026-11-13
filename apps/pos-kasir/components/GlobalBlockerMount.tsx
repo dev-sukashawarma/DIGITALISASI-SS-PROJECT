@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { alasanOutletTerblokir } from '@/lib/alasanOutletTerblokir'
 import { createClient } from '@/lib/supabase/client'
 import BlockedOverlay, { type BlockType, type ChecklistProgress } from './BlockedOverlay'
 
@@ -119,7 +120,7 @@ export default function GlobalBlockerMount() {
       }
 
       const { data: profile } = await supabase.from('outlet_staff')
-        .select('id, name, email, role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
+        .select('id, name, email, role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, status, inactive_reason)')
         .eq('id', currentUid).single()
 
       if (profile && profile.role !== 'admin' && profile.role !== 'developer') {
@@ -140,10 +141,10 @@ export default function GlobalBlockerMount() {
           setIsBlocked(true)
           setBlockType('user')
           setBlockedReason(profile.inactive_reason || 'Akun Anda dinonaktifkan oleh Admin.')
-        } else if (profile.outlets && (profile.outlets as any).is_active === false) {
+        } else if (alasanOutletTerblokir(profile.outlets as any)) {
           setIsBlocked(true)
           setBlockType('outlet')
-          setBlockedReason((profile.outlets as any).inactive_reason || 'Cabang tempat Anda bertugas sedang dinonaktifkan oleh Admin.')
+          setBlockedReason(alasanOutletTerblokir(profile.outlets as any)!)
         } else if (['crew', 'leader'].includes(profile.role) && profile.outlet_id) {
           await checkKasirGate(profile.outlet_id)
         } else {

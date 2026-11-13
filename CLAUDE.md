@@ -3872,8 +3872,24 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - 🔴 **Insiden 11 Nov sore:** sinkron Dana RAB Marcom menulis `cash_location_id: null` → saat tim Marcom mengganti Sumber Dana, 8 potongan rekening opening Karawaci (Rp 1.096.600) ter-void di Rekening & Mutasi. Diperbaiki `10bb69b31` (kolom tak ditulis lagi) + dipulihkan di DB (rekening & `occurred_at` asli dari transaksi void terakhir). Pelajaran: **sinkron apa pun ke `expenses` tidak boleh menulis `cash_location_id`** — rekening diatur finance.
 - ⚠️ Migration paralel `20261111161500_petty_cash_expense_finance_approval` (approval kas kecil, belum terstempel di DB) mendefinisikan ulang `get_mitra_roi` & `get_owner_dashboard_summary` penuh — berkasnya sudah diberi `type <> 'rab'` supaya `db push` tidak menghapus saringan RAB. Siapa pun yang menulis ulang kedua fungsi itu WAJIB mempertahankan `type <> 'rab'` (uji: `t2_kas_kecil.sql`).
 
+## Session 2026-11-13: Wizard Pembukaan Outlet (DB + admin-dashboard + 7 app)
+
+**Status:** DB **LIVE**: 4 migration applied & terstempel (`20261113100000` status mitra dari type, `110000` fondasi, `120000` RPC, `130000` penjaga status). Uji `supabase/verifikasi/pembukaan_outlet/t0–t4` LULUS di produksi (ROLLBACK, kontrol negatif gagal); ringkasan owner Agu–Nov identik sampai sen. Kode di branch `feat/wizard-pembukaan-outlet` (worktree `.worktrees/pembukaan-outlet`), **belum merge/push**. Uji browser dilakukan owner sendiri.
+
+**Spec/plan:** `docs/superpowers/specs/2026-11-13-wizard-pembukaan-outlet-design.md`, `docs/superpowers/plans/2026-11-13-wizard-pembukaan-outlet.md`
+
+- **Alur:** menu **Pembukaan Outlet** (admin-dashboard) → wizard 4 langkah (Internal/Mitra → data & peta & jam & grand opening opsional → AM wajib + leader opsional → khusus mitra: investasi 100%/3%, akun baru/lama, masa RAB) → outlet `status='pending'` (**Persiapan**) → papan checklist → **Go-Live** (admin/developer, ketik nama) atau **Batalkan**.
+- **Langkah wajib:** data outlet, AM, ≥1 crew (HR), stok awal SJ diterima (Kitchen, H-1), opname pertama (hari H sebelum jualan), tanggal grand opening, mitra (investasi + akun). Peringatan: leader, masa RAB, absensi, target harian. Kas kecil TIDAK masuk checklist (pengajuan top up biasa). Tanpa notifikasi.
+- **Satu sumber checklist:** `status_persiapan_outlet(uuid)`; tulis hanya lewat RPC `buat_outlet_persiapan`, `go_live_outlet`, `batalkan_pembukaan_outlet`, `simpan_masa_rab_outlet`, `simpan_tanggal_grand_opening`, `tautkan_akun_mitra_outlet` (SECURITY DEFINER, cek role via `auth.uid()` → server action WAJIB pakai klien sesi, bukan service role). Riwayat di `outlet_pembukaan_log` (tanpa FK, bertahan setelah outlet dihapus).
+- **Go-Live:** seed `stok_balance` 0 untuk bahan `peruntukan IN (outlet, keduanya)` SEBELUM aktif + GUC `app.ganti_satuan` (nol alert bot), `is_bom_enabled`, `mitra_investments.tanggal_mulai = tanggal Go-Live`, Order Online ikut aktif.
+- ⚠️ **Status Persiapan dijaga DB** (`trg_zz_outlets_jaga_persiapan`): penulis lain `is_active`/`status` (absensi pengaturan, form cadangan POS Admin) ditahan DIAM-DIAM tetap pending; hanya RPC Go-Live/Batalkan (GUC `app.pembukaan_outlet`) yang lolos. Jenis Mitra tak bisa diganti selama ada data mitra.
+- ⚠️ **Batalkan** memeriksa SEMUA FK ke `outlets` (minus tabel konfigurasi) — DELETE outlets meng-CASCADE `orders`, `ledger_stok`, `surat_jalan`, `outlet_staff`… Ada data → nonaktif, bukan hapus.
+- **Visibilitas Persiapan:** laporan menyaring `status <> 'pending'` (BUKAN `= 'active'`, laporan lama butuh outlet tutup). Tetap muncul di: form SJ distribusi (label PERSIAPAN), opname/threshold stok, HR (staff/roster/kontrak, `bisaDitugaskan`), input pengeluaran/Buku Kas (`useOutlets(_, { termasukPersiapan: true })`), Marcom (`aktifDiMarcom`). POS memblokir dengan pesan "belum dibuka".
+- **Tahap 0:** dashboard manager membaca AM dari `am_outlet_assignments` (hardcode nama dibuang — **MITRA SUKMAJAYA belum punya penugasan AM di HR**); status mitra tidak lagi dari nama (TS 3 salinan + `get_owner_dashboard_summary`), penanda investasi dipertahankan + trigger `trg_mitra_investments_wajib_outlet_mitra`.
+- Form edit `/outlets`: + telepon/region/rekening/review korlap; Persiapan↔Aktif & ganti jenis setelah Go-Live ditolak (`lib/outlets/aturanEdit.ts`). Tombol Tambah Outlet → wizard. Form `/pos-admin/outlets` = cadangan.
+- Minor ditunda: link Target harian buntu sebelum Go-Live (RPC menyaring pending); Batalkan→nonaktif tak menutup penugasan AM/RAB; `components/OutletCombobox.tsx` admin masih aturan nama; replay dari nol kalah oleh berkas 2030.
+
 ---
 
-**Last updated:** 2026-11-11  
+**Last updated:** 2026-11-13  
 **Owner:** Dev Suka Shawarma
-

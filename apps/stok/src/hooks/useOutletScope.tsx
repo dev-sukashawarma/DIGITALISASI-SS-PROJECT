@@ -50,7 +50,8 @@ export function OutletScopeProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase
           .from('outlets')
           .select('id, name')
-          .eq('is_active', true)
+          // Outlet Persiapan ikut tampil: opname pertama dikerjakan sebelum Go-Live.
+          .in('status', ['active', 'pending'])
           .order('name')
         if (error) throw error
         return (data || []) as BoundOutlet[]

@@ -133,7 +133,8 @@ type SortDirection = 'asc' | 'desc'
 export default function BukuKasPage() {
   const { role, isChecker } = useFinanceRole()
   const isAdmin = isChecker
-  const { data: outlets = [] } = useOutlets()
+  // Biaya pembukaan (RAB) dicatat selama outlet masih Persiapan.
+  const { data: outlets = [] } = useOutlets(undefined, { termasukPersiapan: true })
   const queryClient = useQueryClient()
   const supabase = createClient()
 

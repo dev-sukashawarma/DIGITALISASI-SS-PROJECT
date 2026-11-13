@@ -93,8 +93,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   const { createOrReuseDraft, fetchTodayDraft, upsertItems, finalize } = useOpnameActions();
 
   const { data: outlets } = useQuery({
-    queryKey: ['monitoring', 'outlets'],
-    queryFn: fetchOutletsList,
+    queryKey: ['monitoring', 'outlets', 'termasuk-persiapan'],
+    queryFn: () => fetchOutletsList({ termasukPersiapan: true }),
     // Master outlet jarang berubah — tak perlu ditarik ulang tiap menit.
     staleTime: 10 * 60_000,
   });

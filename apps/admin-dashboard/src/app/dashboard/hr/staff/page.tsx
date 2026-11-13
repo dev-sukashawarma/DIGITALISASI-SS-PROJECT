@@ -21,7 +21,9 @@ export default async function StaffPage() {
     .order('name')
   
   if (outlets) {
-    queryClient.setQueryData(['outlets'], outlets)
+    // Kunci sama dengan useOutlets(undefined, { termasukPersiapan: true }) di StaffView:
+    // staf outlet berstatus Persiapan didaftarkan dari sini.
+    queryClient.setQueryData(['outlets', true], outlets)
   }
 
   // 2. Fetch Staff

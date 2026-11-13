@@ -18,7 +18,7 @@ const EMPTY_FILTER: StaffFilterValues = { search: '', outletId: '', role: '', st
 
 export default function StaffPage() {
   const { data: staff = [], isLoading } = useStaff()
-  const { data: outlets = [] } = useOutlets()
+  const { data: outlets = [] } = useOutlets(undefined, { termasukPersiapan: true })
   const { create, update, resetPassword, setStatus, toggleBonusEligibility, remove } = useStaffMutations()
 
   const [filter, setFilter] = useState<StaffFilterValues>(EMPTY_FILTER)

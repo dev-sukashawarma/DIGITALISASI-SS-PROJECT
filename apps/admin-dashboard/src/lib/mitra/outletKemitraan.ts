@@ -7,12 +7,16 @@
  *
  * Outlet bertipe mitra TANPA data apa pun hanya tampil selama masih aktif atau
  * masih Persiapan. Outlet mitra nonaktif yang kosong (mis. outlet uji) disembunyikan.
+ *
+ * Outlet yang sudah ditandai terhapus (`deleted_at`, mis. pembukaan yang
+ * dibatalkan) selalu disembunyikan, walau masih punya baris investasi/profil.
  */
 type OutletRingkas = {
   id: string
   type?: string | null
   is_active?: boolean | null
   status?: string | null
+  deleted_at?: string | null
 }
 
 export function idOutletKemitraan(input: {
@@ -32,5 +36,6 @@ export function idOutletKemitraan(input: {
     const masihJalan = o.is_active === true || o.status === 'pending'
     if (masihJalan) hasil.add(o.id)
   }
+  for (const o of input.outlets) if (o.deleted_at) hasil.delete(o.id)
   return Array.from(hasil)
 }

@@ -28,7 +28,7 @@ export default async function KelolaMitraPage({ searchParams }: { searchParams: 
       .order('created_at', { ascending: false }),
     supabase
       .from('outlets')
-      .select('id, name, type, is_active, status')
+      .select('id, name, type, is_active, status, deleted_at')
       .neq('id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
       .order('name', { ascending: true }),
     supabase

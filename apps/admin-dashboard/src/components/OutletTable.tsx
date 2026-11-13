@@ -13,9 +13,14 @@ import {
   SearchX,
   Building2,
   Users,
+  ClipboardCheck,
 } from 'lucide-react'
+import Link from 'next/link'
 import type { Outlet } from '@/lib/types'
 import { LABEL_TIPE_OUTLET, labelNonOutlet } from '@/lib/outletType'
+
+/** Papan checklist outlet Persiapan — satu-satunya jalan keluar dari status itu (Go-Live/Batalkan). */
+const papanPersiapan = (id: string) => `/dashboard/pembukaan-outlet/${id}`
 
 function hasValidCoordinates(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
@@ -181,10 +186,14 @@ export function OutletTable({
                     {/* Status */}
                     <td className="px-4 py-4 whitespace-nowrap">
                       {o.status === 'pending' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                        <Link
+                          href={papanPersiapan(o.id)}
+                          title="Buka papan persiapan"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
+                        >
                           <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          Pending
-                        </span>
+                          Persiapan
+                        </Link>
                       ) : o.is_active || o.status === 'active' ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                           <span className="relative flex h-2 w-2">
@@ -224,21 +233,22 @@ export function OutletTable({
                             <Pencil size={17} />
                           </button>
                         )}
-                        {onToggleActive && (
+                        {o.status === 'pending' && (
+                          <Link
+                            href={papanPersiapan(o.id)}
+                            title="Papan persiapan (Go-Live / Batalkan)"
+                            className="p-2 rounded-xl text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+                          >
+                            <ClipboardCheck size={17} />
+                          </Link>
+                        )}
+                        {onToggleActive && o.status !== 'pending' && (
                           <button
                             type="button"
-                            title={
-                              o.status === 'pending'
-                                ? 'Aktifkan Cabang'
-                                : o.is_active
-                                ? 'Nonaktifkan Outlet'
-                                : 'Aktifkan Outlet'
-                            }
+                            title={o.is_active ? 'Nonaktifkan Outlet' : 'Aktifkan Outlet'}
                             onClick={() => onToggleActive(o)}
                             className={`p-2 rounded-xl border border-transparent transition-colors ${
-                              o.status === 'pending'
-                                ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200'
-                                : o.is_active
+                              o.is_active
                                 ? 'text-suka-gray-500 hover:text-amber-700 hover:bg-amber-50 hover:border-amber-200'
                                 : 'text-suka-gray-500 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200'
                             }`}
@@ -246,7 +256,7 @@ export function OutletTable({
                             <Power size={17} />
                           </button>
                         )}
-                        {onDelete && (
+                        {onDelete && o.status !== 'pending' && (
                           <button
                             type="button"
                             title="Nonaktifkan & Hapus (Soft Delete)"
@@ -303,10 +313,13 @@ export function OutletTable({
                 {/* Status Pill */}
                 <div className="shrink-0">
                   {o.status === 'pending' ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                    <Link
+                      href={papanPersiapan(o.id)}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                    >
                       <Clock className="w-3 h-3 text-amber-600" />
-                      Pending
-                    </span>
+                      Persiapan
+                    </Link>
                   ) : o.is_active || o.status === 'active' ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -387,24 +400,31 @@ export function OutletTable({
                       Edit
                     </button>
                   )}
-                  {onToggleActive && (
+                  {o.status === 'pending' && (
+                    <Link
+                      href={papanPersiapan(o.id)}
+                      className="min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                    >
+                      <ClipboardCheck className="w-3.5 h-3.5" />
+                      Papan
+                    </Link>
+                  )}
+                  {onToggleActive && o.status !== 'pending' && (
                     <button
                       type="button"
-                      title={o.status === 'pending' ? 'Aktifkan Cabang' : o.is_active ? 'Nonaktifkan Cabang' : 'Aktifkan Cabang'}
+                      title={o.is_active ? 'Nonaktifkan Cabang' : 'Aktifkan Cabang'}
                       onClick={() => onToggleActive(o)}
                       className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors shadow-2xs ${
                         o.is_active
                           ? 'text-amber-800 bg-amber-50 hover:bg-amber-100/70 border-amber-200'
-                          : o.status === 'pending'
-                          ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
                           : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
                       }`}
                     >
                       <Power className="w-3.5 h-3.5" />
-                      {o.status === 'pending' ? 'Aktifkan' : o.is_active ? 'Nonaktif' : 'Aktifkan'}
+                      {o.is_active ? 'Nonaktif' : 'Aktifkan'}
                     </button>
                   )}
-                  {onDelete && (
+                  {onDelete && o.status !== 'pending' && (
                     <button
                       type="button"
                       title="Nonaktifkan & Hapus (Soft Delete)"

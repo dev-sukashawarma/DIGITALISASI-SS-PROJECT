@@ -5,6 +5,7 @@ import { Card, EmptyState, PageHeader } from '@/components/ui'
 import { ambilDaftarPersiapan } from './actions'
 import { hitungMundur, ringkasLangkahWajib } from '@/lib/pembukaanOutlet/petakan'
 import { hariIniWib } from '@/lib/pembukaanOutlet/konstanta'
+import { OutletTabs } from '@/components/outlet/OutletTabs'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,26 +18,30 @@ export default async function PembukaanOutletPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Pembukaan Outlet"
+        // Admin/developer: tab "Persiapan" di menu Outlet. Owner hanya punya
+        // halaman ini (tidak bisa membuka /dashboard/outlets), jadi tanpa tab.
+        title={bolehTulis ? 'Outlet' : 'Pembukaan Outlet'}
         description="Outlet yang sedang disiapkan. Kemajuan tiap langkah terbaca otomatis dari data."
-        icon={Sparkles}
+        icon={bolehTulis ? Store : Sparkles}
       >
         {bolehTulis && (
           <Link
             href="/dashboard/pembukaan-outlet/baru"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-suka-orange px-4 py-2.5 text-sm font-bold text-white hover:opacity-90"
           >
-            <Store className="h-4 w-4" /> Buka Outlet Baru
+            <Store className="h-4 w-4" /> Tambah Outlet
           </Link>
         )}
       </PageHeader>
+
+      {bolehTulis && <OutletTabs aktif="persiapan" jumlahPersiapan={daftar.length} />}
 
       {daftar.length === 0 ? (
         <Card>
           <EmptyState
             icon={Store}
             title="Tidak ada outlet yang sedang dipersiapkan."
-            description={bolehTulis ? 'Tekan "Buka Outlet Baru" untuk memulai.' : undefined}
+            description={bolehTulis ? 'Tekan "Tambah Outlet" untuk memulai.' : undefined}
           />
         </Card>
       ) : (

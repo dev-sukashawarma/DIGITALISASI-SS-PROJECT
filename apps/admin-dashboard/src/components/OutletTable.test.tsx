@@ -1,4 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
+
+// next/link di lingkungan uji memakai salinan React lain (useContext null);
+// cukup jangkar biasa untuk memeriksa tujuan tautan.
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>{children}</a>
+  ),
+}))
 import { render, screen, fireEvent } from '@testing-library/react'
 import { OutletTable } from './OutletTable'
 import type { Outlet } from '@/lib/types'
@@ -106,7 +114,7 @@ describe('OutletTable', () => {
     expect(onManageInvestment).toHaveBeenCalledWith(mockOutlets[1])
   })
 
-  it('merender badge Pending pada outlet dengan status pending', () => {
+  it('outlet Persiapan: badge menautkan ke papan, tanpa tombol aktifkan/hapus', () => {
     const outletsWithPending: Outlet[] = [
       ...mockOutlets,
       {
@@ -122,7 +130,15 @@ describe('OutletTable', () => {
         marquee_warning_threshold: 10,
       },
     ]
-    render(<OutletTable rows={outletsWithPending} />)
-    expect(screen.getAllByText('Pending').length).toBeGreaterThan(0)
+    const onToggleActive = vi.fn()
+    const onDelete = vi.fn()
+    render(<OutletTable rows={[outletsWithPending[2]]} onToggleActive={onToggleActive} onDelete={onDelete} />)
+    const badge = screen.getAllByText('Persiapan')
+    expect(badge.length).toBeGreaterThan(0)
+    expect(badge[0].closest('a')?.getAttribute('href')).toBe('/dashboard/pembukaan-outlet/out-3')
+    expect(screen.queryByTitle('Aktifkan Outlet')).toBeNull()
+    expect(screen.queryByText('Aktifkan')).toBeNull()
+    expect(screen.queryByText('Hapus')).toBeNull()
+    expect(screen.queryByTitle('Nonaktifkan & Hapus (Soft Delete)')).toBeNull()
   })
 })

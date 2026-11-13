@@ -5,6 +5,7 @@ import {
   NAV_GROUPS,
   accessibleGroups,
   accessibleItems,
+  isItemActive,
   labelForPath,
   primaryItems,
   type NavItem,
@@ -77,7 +78,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/pembelian/perlu-dibeli',
     '/dashboard/pembelian/permintaan',
     '/dashboard/pembelian/supplier',
-    '/dashboard/pembukaan-outlet',
     '/dashboard/petty-cash-balance',
     '/dashboard/platform-settlement',
     '/dashboard/pos-admin/categories',
@@ -305,6 +305,21 @@ describe('labelForPath — judul header', () => {
     expect(labelForPath('/dashboard/owner/profit')).toBe('Laba Rugi')
     expect(labelForPath('/dashboard/owner/profit/internal')).toBe('Laba Rugi Internal')
     expect(labelForPath('/dashboard/owner/profit/mitra')).toBe('Laba Rugi Mitra')
+  })
+})
+
+describe('menu Outlet bertab', () => {
+  it('menyala di tab Persiapan, papan, dan wizard pembukaan', () => {
+    expect(isItemActive('/dashboard/outlets', '/dashboard/outlets')).toBe(true)
+    expect(isItemActive('/dashboard/outlets', '/dashboard/pembukaan-outlet')).toBe(true)
+    expect(isItemActive('/dashboard/outlets', '/dashboard/pembukaan-outlet/baru')).toBe(true)
+    expect(isItemActive('/dashboard/outlets', '/dashboard/pembukaan-outlet/abc')).toBe(true)
+    expect(isItemActive('/dashboard/outlets', '/dashboard/pembukaan-outletx')).toBe(false)
+  })
+  it('ADMIN hanya punya satu pintu menu Outlet', () => {
+    const href = accessibleItems('ADMIN').map((i) => i.href)
+    expect(href).toContain('/dashboard/outlets')
+    expect(href).not.toContain('/dashboard/pembukaan-outlet')
   })
 })
 

@@ -115,8 +115,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['ADMIN'] },
       { href: '/dashboard/resep', label: 'Manajemen Resep', shortLabel: 'Resep', icon: BookOpen, roles: ['ADMIN'] },
       { href: '/dashboard/opname', label: 'Detail Opname Outlet', shortLabel: 'Opname', icon: ClipboardList, roles: ['ADMIN'] },
-      { href: '/dashboard/outlets', label: 'Manajemen Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
-      { href: '/dashboard/pembukaan-outlet', label: 'Pembukaan Outlet', shortLabel: 'Buka Outlet', icon: Sparkles, roles: ['ADMIN'] },
+      // Satu menu bertab: Semua Outlet (/outlets) + Persiapan (/pembukaan-outlet).
+      { href: '/dashboard/outlets', label: 'Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
     ],
   },
   {
@@ -290,6 +290,10 @@ export function isItemActive(href: string, pathname: string): boolean {
     href === '/dashboard/pembelian'
   ) {
     return pathname === href
+  }
+  // Menu "Outlet" juga menyala di tab Persiapan, papan, dan wizard pembukaan.
+  if (href === '/dashboard/outlets' && (pathname === '/dashboard/pembukaan-outlet' || pathname.startsWith('/dashboard/pembukaan-outlet/'))) {
+    return true
   }
   return pathname === href || pathname.startsWith(href + '/')
 }

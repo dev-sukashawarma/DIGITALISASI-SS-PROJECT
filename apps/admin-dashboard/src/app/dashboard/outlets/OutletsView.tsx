@@ -22,6 +22,7 @@ import { useOutletMutations } from '@/hooks/useOutletMutations'
 import { filterOutlets } from '@/lib/filterOutlets'
 import { MANAGED_OUTLETS_KEY, withPinned } from '@/lib/managedOutlets'
 import { OutletFilters } from '@/components/OutletFilters'
+import { OutletTabs } from '@/components/outlet/OutletTabs'
 import { OutletTable } from '@/components/OutletTable'
 import { OutletForm } from '@/components/OutletForm'
 import { DeleteOutletDialog } from '@/components/DeleteOutletDialog'
@@ -192,7 +193,7 @@ export default function OutletsPage() {
             <Store className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-suka-ink tracking-tight">Manajemen Outlet</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-suka-ink tracking-tight">Outlet</h1>
             <p className="text-xs sm:text-sm text-suka-gray-500">
               Kelola cabang, koordinat GPS presensi, dan jam operasional outlet
             </p>
@@ -208,6 +209,8 @@ export default function OutletsPage() {
           <Plus size={18} /> Tambah Outlet
         </Button>
       </div>
+
+      <OutletTabs aktif="semua" jumlahPersiapan={stats.pending} />
 
       {/* ── KPI Stat Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -232,7 +235,7 @@ export default function OutletsPage() {
             <span className="text-xs text-suka-gray-500 font-medium">cabang</span>
           </div>
           <p className="mt-1 text-[11px] text-suka-gray-500 truncate">
-            {stats.active} aktif • {stats.pending} pending
+            {stats.active} aktif • {stats.pending} persiapan
           </p>
         </button>
 
@@ -266,7 +269,7 @@ export default function OutletsPage() {
           </p>
         </button>
 
-        {/* Card 3: Outlet Pending */}
+        {/* Card 3: Outlet Persiapan */}
         <button
           type="button"
           onClick={() =>
@@ -282,7 +285,7 @@ export default function OutletsPage() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">Outlet Pending</span>
+            <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">Persiapan</span>
             <div className="w-8 h-8 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>

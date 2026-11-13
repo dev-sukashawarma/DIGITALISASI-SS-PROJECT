@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { revalidatePath } from 'next/cache'
 import { gabungHargaChannel } from '@/lib/appRetail/hargaAplikasi'
 import { periksaBanner, type InputBanner } from '@/lib/appRetail/bannerForm'
+import { cekTayangAplikasi } from '@/lib/outlets/aturanEdit'
 
 async function getSupabase() {
   const cookieStore = await cookies()
@@ -108,6 +109,13 @@ export async function simpanDetailMenuApp(input: {
  */
 export async function toggleOutletApp(id: string, sedangMenyala: boolean) {
   const supabase = await getSupabase()
+  // Outlet yang sudah ditutup tak boleh tayang lagi. DB menahannya diam-diam
+  // (trg_zz_outlets_jaga_penutupan); di sini ditolak dengan pesan jelas.
+  const { data: o, error: errO } = await supabase.from('outlets').select('status, type').eq('id', id).single()
+  if (errO) throw new Error(errO.message)
+  const ditolak = cekTayangAplikasi(o, !sedangMenyala)
+  if (ditolak) throw new Error(ditolak)
+
   const { data, error } = await supabase
     .from('outlets')
     .update({ app_enabled: !sedangMenyala })

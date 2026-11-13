@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/authz'
 import { createClient } from '@/lib/supabase/server'
 import { sinkronOutletKeOrderOnline } from '@/lib/outlets/orderOnlineSync'
 import { petakanStatusPenutupan } from '@/lib/penutupanOutlet/petakan'
+import { pisahkanHasil } from '@/lib/penutupanOutlet/pisahkanHasil'
 import type { HasilAksi, KunciManual, StatusPenutupan } from '@/lib/penutupanOutlet/types'
 
 // Semua tulis lewat RPC SECURITY DEFINER yang memeriksa role dari auth.uid(),
@@ -44,25 +45,34 @@ export async function ambilStatusPenutupan(outletId: string): Promise<StatusPenu
   return petakanStatusPenutupan(data as Record<string, unknown>)
 }
 
-/** Outlet yang ditutup tapi pembersihannya belum ditandai selesai. */
-export async function ambilDaftarPenutupan(): Promise<StatusPenutupan[]> {
+/**
+ * Outlet yang ditutup tapi pembersihannya belum ditandai selesai.
+ * Outlet yang sudah dihapus (deleted_at) tidak ikut — sama dengan halaman Outlet,
+ * supaya angka tab Penutupan di kedua halaman selalu sama.
+ * Satu outlet yang gagal dimuat dilaporkan di `gagal`, tidak mengosongkan daftar.
+ */
+export async function ambilDaftarPenutupan(): Promise<{ daftar: StatusPenutupan[]; gagal: string[] }> {
   await requireRole(PERAN_BACA)
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('outlets')
-    .select('id')
+    .select('id, name')
     .eq('status', 'inactive')
     .not('alasan_tutup', 'is', null)
     .is('penutupan_selesai_at', null)
+    .is('deleted_at', null)
     .order('nonaktif_at', { ascending: false })
   if (error) throw new Error(error.message)
-  return Promise.all(
-    (data ?? []).map(async o => {
+  const baris = data ?? []
+  const hasil = await Promise.allSettled(
+    baris.map(async o => {
       const { data: s, error: e } = await supabase.rpc('status_penutupan_outlet', { p_outlet_id: o.id })
       if (e) throw new Error(e.message)
       return petakanStatusPenutupan(s as Record<string, unknown>)
     }),
   )
+  const { ok, gagal } = pisahkanHasil(hasil, baris.map(o => o.name))
+  return { daftar: ok, gagal }
 }
 
 /** Angka untuk tab "Penutupan" (tanpa memanggil checklist per outlet). */
@@ -74,6 +84,7 @@ export async function hitungPenutupanTerbuka(): Promise<number> {
     .eq('status', 'inactive')
     .not('alasan_tutup', 'is', null)
     .is('penutupan_selesai_at', null)
+    .is('deleted_at', null)
   return count ?? 0
 }
 

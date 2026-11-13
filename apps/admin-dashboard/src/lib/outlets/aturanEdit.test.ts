@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { cekHapusOutlet, cekPerubahanOutlet } from './aturanEdit'
+import { cekHapusOutlet, cekPerubahanOutlet, cekTayangAplikasi } from './aturanEdit'
+
+describe('cekTayangAplikasi', () => {
+  it('outlet internal/mitra yang sudah tutup tidak bisa ditayangkan di aplikasi', () => {
+    expect(cekTayangAplikasi({ status: 'inactive', type: 'mitra' }, true)).toMatch(/sudah ditutup/)
+  })
+  it('mematikan selalu boleh; outlet aktif boleh dinyalakan', () => {
+    expect(cekTayangAplikasi({ status: 'inactive', type: 'mitra' }, false)).toBeNull()
+    expect(cekTayangAplikasi({ status: 'active', type: 'internal' }, true)).toBeNull()
+  })
+})
 
 describe('cekHapusOutlet', () => {
   it('outlet internal/mitra yang masih aktif harus ditutup dulu', () => {

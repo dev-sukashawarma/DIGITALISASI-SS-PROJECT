@@ -46,3 +46,18 @@ export function cekHapusOutlet(o: { status: string | null; type: string | null }
   }
   return null
 }
+
+/**
+ * Menayangkan outlet internal/mitra yang sudah ditutup di aplikasi pelanggan
+ * ditolak (DB juga menahannya: trg_zz_outlets_jaga_penutupan). Mematikan selalu boleh.
+ */
+export function cekTayangAplikasi(
+  o: { status: string | null; type: string | null },
+  nyalakan: boolean,
+): string | null {
+  const dijaga = o.type === 'internal' || o.type === 'mitra'
+  if (nyalakan && dijaga && o.status === 'inactive') {
+    return 'Outlet ini sudah ditutup, jadi tidak bisa ditayangkan di aplikasi. Buka kembali dulu lewat papan Penutupan.'
+  }
+  return null
+}

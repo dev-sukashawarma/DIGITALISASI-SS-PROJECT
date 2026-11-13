@@ -49,6 +49,9 @@ export function PapanPenutupan({
 
   const ringkas = ringkasPenutupan(status.langkah)
   const selesai = Boolean(status.penutupanSelesaiAt)
+  // Outlet yang nonaktif sebelum wizard ada (tanpa alasan_tutup): RPC centang,
+  // nolkan stok, dan tandai selesai pasti menolaknya, jadi tombolnya tak ditampilkan.
+  const lewatWizard = Boolean(status.alasanTutup)
   const langkahStok = status.langkah.find(l => l.kunci === 'stok')
 
   const jalankan = async (aksi: () => Promise<{ ok: boolean; pesan?: string; peringatan?: string }>, sukses: string) => {
@@ -104,6 +107,13 @@ export function PapanPenutupan({
         </div>
       </Card>
 
+      {!lewatWizard && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Outlet ini dinonaktifkan sebelum Wizard Penutupan ada, jadi belum punya catatan penutupan. Checklist di bawah
+          hanya untuk dibaca; yang bisa dilakukan di sini hanya membuka kembali outlet.
+        </div>
+      )}
+
       {selesai && (
         <div className="rounded-2xl border border-green-300 bg-green-50 p-4 text-sm font-semibold text-green-900">
           Penutupan outlet ini sudah ditandai selesai.
@@ -129,7 +139,7 @@ export function PapanPenutupan({
                 return (
                   <tr key={l.kunci} className="border-b border-suka-gray-100 last:border-0">
                     <td className="px-4 py-3">
-                      {l.manual && bolehCentang && !selesai ? (
+                      {l.manual && bolehCentang && lewatWizard && !selesai ? (
                         <input
                           type="checkbox"
                           aria-label={`Centang: ${l.label}`}
@@ -177,7 +187,7 @@ export function PapanPenutupan({
                           {l.dicentangAt ? ` · ${l.dicentangAt}` : ''}
                         </span>
                       )}
-                      {l.kunci === 'stok' && !l.selesai && bolehTulis && (
+                      {l.kunci === 'stok' && !l.selesai && bolehTulis && lewatWizard && (
                         <button
                           type="button"
                           onClick={() => setDialog('stok')}
@@ -200,7 +210,7 @@ export function PapanPenutupan({
           <Button variant="secondary" onClick={() => setDialog('buka')} disabled={proses}>
             Buka kembali outlet
           </Button>
-          {!selesai && (
+          {!selesai && lewatWizard && (
             <Button
               disabled={!status.siapSelesai || proses}
               onClick={() => jalankan(() => tandaiPenutupanSelesai(status.outletId), 'Penutupan ditandai selesai')}

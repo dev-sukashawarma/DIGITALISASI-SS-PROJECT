@@ -18,7 +18,7 @@ async function hitungPersiapan(): Promise<number> {
 export default async function PenutupanOutletPage() {
   const { role } = await requireRole(['admin', 'owner'])
   const bolehTulis = role === 'admin' || role === 'developer'
-  const [daftar, jumlahPersiapan] = await Promise.all([ambilDaftarPenutupan(), hitungPersiapan()])
+  const [{ daftar, gagal }, jumlahPersiapan] = await Promise.all([ambilDaftarPenutupan(), hitungPersiapan()])
 
   return (
     <div className="space-y-6">
@@ -31,10 +31,16 @@ export default async function PenutupanOutletPage() {
       />
 
       {bolehTulis && (
-        <OutletTabs aktif="penutupan" jumlahPersiapan={jumlahPersiapan} jumlahPenutupan={daftar.length} />
+        <OutletTabs aktif="penutupan" jumlahPersiapan={jumlahPersiapan} jumlahPenutupan={daftar.length + gagal.length} />
       )}
 
-      {daftar.length === 0 ? (
+      {gagal.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Checklist outlet berikut gagal dimuat, coba muat ulang halaman: <strong>{gagal.join(', ')}</strong>
+        </div>
+      )}
+
+      {daftar.length === 0 && gagal.length === 0 ? (
         <Card>
           <EmptyState
             icon={DoorClosed}

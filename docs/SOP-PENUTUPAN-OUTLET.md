@@ -61,10 +61,13 @@ Urutannya penting:
 4. [ ] **Crew** menyetor seluruh uang tunai (setoran terakhir) dan
        mengembalikan sisa kas kecil ke Finance.
 5. [ ] **AM** memastikan langkah 1–4 selesai, lalu memberi tahu Admin.
-6. [ ] **Admin** menonaktifkan outlet di halaman **Outlet**. Tanggal tutup
-       tercatat otomatis. Syaratnya, **HR sudah memindahkan atau menyesuaikan
-       semua crew**. Begitu outlet nonaktif, POS dan absensinya dikunci; crew
-       yang belum dipindah tidak bisa absen di mana pun.
+6. [ ] **Admin** menekan **Tutup Outlet** di halaman **Outlet** (Semua
+       Outlet). Isi tanggal terakhir jualan, alasan, dan ketik nama outlet.
+       Outlet langsung nonaktif, dan aplikasi pelanggan, Order Online, serta
+       promo outlet ikut dimatikan otomatis. Sebaiknya **HR sudah memindahkan
+       atau menyesuaikan semua crew** lebih dulu: begitu outlet nonaktif, POS
+       dan absensinya dikunci. Sesudahnya semua langkah di bawah dipantau di
+       tab **Outlet › Penutupan** (papan checklist yang dibaca dari data).
 7. [ ] **Admin** memastikan kanal pesanan otomatis (website/Order Online,
        GoFood, GrabFood) tidak lagi diarahkan ke outlet ini. Kalau masih,
        pesanan baru tetap masuk ke outlet yang sudah tutup (lihat kasus
@@ -99,24 +102,22 @@ Urutannya penting:
 - [ ] **Admin** memeriksa ulang: saldo stok 0, tidak ada surat jalan / order /
       pengajuan yang menggantung.
 
-## Yang belum didukung sistem (perlu dibangun)
+## Dukungan sistem
 
-Ditemukan dari penutupan **SAWANGAN (INTERNAL), 8 Nov 2026**:
+Celah yang ditemukan dari penutupan **SAWANGAN (INTERNAL), 8 Nov 2026**, dan
+statusnya setelah **Wizard Penutupan Outlet** (spec
+`docs/superpowers/specs/2026-11-13-wizard-penutupan-outlet-design.md`):
 
-| Celah | Kondisi sekarang |
+| Celah | Status |
 |---|---|
-| Outlet tutup masih muncul di aplikasi pelanggan | Sawangan masih `app_enabled = true` |
-| Tidak ada opname penutupan | Opname terakhir Sawangan 11 Sep; 43 bahan masih bersaldo |
-| Kanal pesanan otomatis tidak ikut berhenti | Website & GoFood masih mengirim pesanan ke Sawangan Internal sampai 8 Nov |
-| Menonaktifkan outlet tidak ikut mematikan aplikasi pelanggan | 3 outlet tutup masih tampil sampai dimatikan manual 13 Nov |
-| Aturan tampil "sampai akhir bulan" belum seragam | Sebagian layar menampilkan outlet tutup selamanya, sebagian langsung menyembunyikannya |
-| Tidak ada checklist penutupan di sistem | Belum ada padanan Wizard Pembukaan Outlet untuk penutupan |
-
-Usulan jangka panjang: **Wizard Penutupan Outlet**, kebalikan dari Wizard
-Pembukaan. Wizard ini menampilkan checklist di atas beserta statusnya yang
-dibaca langsung dari data (order pending, SJ menggantung, saldo stok, kas
-kecil, crew aktif), dan tombol Nonaktifkan baru terbuka setelah langkah wajib
-selesai.
+| Menonaktifkan outlet tidak ikut mematikan aplikasi pelanggan | ✅ Tutup Outlet mematikan aplikasi, Order Online, dan promo outlet |
+| Tidak ada checklist penutupan di sistem | ✅ Papan Penutupan (tab Outlet › Penutupan), dibaca dari data |
+| Sisa stok nyangkut di outlet tutup | ✅ Langkah "Sisa stok dikosongkan" + tombol **Nolkan sisa stok** |
+| Tanggal tutup tercatat salah | ✅ Tanggal terakhir jualan diisi saat tutup; bisa dikoreksi di papan |
+| Outlet tutup bisa hidup lagi tanpa sengaja (mis. dari pengaturan absensi) | ✅ Status outlet internal/mitra hanya berubah lewat Tutup Outlet / Buka kembali |
+| Kanal pesanan otomatis tidak ikut berhenti | ⚠️ Terlihat sebagai peringatan "Pesanan masuk sesudah tanggal tutup"; merchant ojol tetap dimatikan manual |
+| Tidak ada opname penutupan | ⏳ Belum dicek sistem — tetap langkah SOP Hari H |
+| Aturan tampil "sampai akhir bulan" belum seragam | ⏳ Proyek terpisah |
 
 ## Keputusan owner (13 Nov 2026)
 

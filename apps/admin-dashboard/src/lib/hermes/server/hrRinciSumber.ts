@@ -26,6 +26,7 @@ export function statusKasbon(statusHr: string | null | undefined, status: string
   if (status === 'paid_off') return 'lunas'
   if (hr === 'rejected') return 'ditolak'
   if (hr === 'pending') return 'menunggu'
+  if (hr === 'approved' && status === 'menunggu_cair') return 'menunggu_cair'
   if (hr === 'approved' && status === 'active') return 'aktif'
   return null
 }

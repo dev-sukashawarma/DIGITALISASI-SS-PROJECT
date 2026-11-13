@@ -185,6 +185,8 @@ export function usePayrollMutations() {
         .from('cash_advances')
         .select('staff_id, remaining, amount')
         .eq('status', 'active')
+        // Hanya kasbon yang disetujui HR DAN sudah dicairkan finance (status active).
+        .eq('status_hr', 'approved')
 
       const kasbonMap = new Map<string, number>()
       kasbons?.forEach((k: any) => {

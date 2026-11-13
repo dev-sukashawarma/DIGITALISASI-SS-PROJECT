@@ -8,7 +8,7 @@ export interface StafOutlet { id: string; nama: string }
 export interface CutiBaris { id: string; nama: string; outletId: string | null; jenis: string; mulai: string; selesai: string; hari: number; status: 'pending' | 'approved' | 'rejected' }
 export interface KasbonOutlet { outletId: string; menungguJumlah: number; menungguNominal: number; aktifJumlah: number; aktifSisa: number }
 export interface CeklistOutlet { outlet: OutletAbsensi; laporan: null | { id: string; diperbaruiPada: string | null; namaAm: string; nilai: 'baik' | 'perhatian' | 'buruk' | null; jumlahTemuan: number; ditinjau: boolean } }
-export type StatusKasbon = 'menunggu' | 'aktif' | 'lunas' | 'ditolak'
+export type StatusKasbon = 'menunggu' | 'menunggu_cair' | 'aktif' | 'lunas' | 'ditolak'
 export interface KasbonRinci { id: string; nama: string; outletId: string | null; nominal: number; sisa: number; cicilanBulan: number | null; status: StatusKasbon; tanggal: string }
 export interface GajiRinci { nama: string; outletId: string | null; gajiPokok: number; tunjangan: number; bonus: number; potongan: number; total: number; status: string }
 export interface KonteksHrRinci {

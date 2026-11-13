@@ -19,6 +19,7 @@ import { exportCsv } from '@/lib/exportCsv'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import type { PayrollRecord } from '@/lib/types'
 import type { CashAdvanceRow } from '@/hooks/useCashAdvances'
+import { statusEfektifKasbon } from '@/lib/kasbon/statusKasbon'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -157,6 +158,7 @@ export default function PayrollPage() {
         amount: Number(values.amount),
         note: values.note ?? null,
         currentRemaining: payingKasbon.remaining,
+        status: statusEfektifKasbon(payingKasbon),
       },
       {
         onSuccess: () => {

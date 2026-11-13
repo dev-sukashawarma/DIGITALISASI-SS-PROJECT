@@ -295,7 +295,7 @@ export interface PayrollRecord {
 }
 
 // ── Cash Advance ────────────────────────────────────────────
-export type CashAdvanceStatus = 'active' | 'paid_off' | 'pending' | 'rejected'
+export type CashAdvanceStatus = 'active' | 'paid_off' | 'pending' | 'rejected' | 'menunggu_cair'
 
 export interface CashAdvance {
   id: string
@@ -308,6 +308,12 @@ export interface CashAdvance {
   created_at: string
   outlet_staff?: { name: string }
   cash_advance_payments?: CashAdvancePayment[]
+  status_hr?: 'pending' | 'approved' | 'rejected' | null
+  /** Diisi RPC finance_cairkan_kasbon; NULL pada kasbon aktif = dicairkan sebelum alur finance. */
+  dicairkan_at?: string | null
+  metode_cair?: 'transfer' | 'tunai' | null
+  ditolak_finance_at?: string | null
+  rejection_note?: string | null
 }
 
 export interface CashAdvancePayment {

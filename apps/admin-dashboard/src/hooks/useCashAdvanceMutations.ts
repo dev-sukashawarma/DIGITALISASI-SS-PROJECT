@@ -23,7 +23,9 @@ export function useCashAdvanceMutations() {
         amount,
         remaining: amount,
         reason,
-        status: 'active' as CashAdvanceStatus,
+        // Dibuat oleh HR = disetujui; uang menunggu pencairan finance (DB juga memaksanya).
+        status_hr: 'approved',
+        status: 'menunggu_cair' as CashAdvanceStatus,
       });
 
       if (error) throw error;
@@ -39,12 +41,16 @@ export function useCashAdvanceMutations() {
       amount,
       note,
       currentRemaining,
+      status,
     }: {
       cash_advance_id: string;
       amount: number;
       note: string | null;
       currentRemaining: number;
+      /** Status efektif; cicilan hanya untuk kasbon yang sudah dicairkan. */
+      status: CashAdvanceStatus;
     }) => {
+      if (status !== 'active') throw new Error('Cicilan hanya untuk kasbon yang sudah dicairkan');
       /* 1. Insert payment record */
       const { error: payErr } = await supabase
         .from('cash_advance_payments')
@@ -85,7 +91,7 @@ export function useCashAdvanceMutations() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('cash_advances')
-        .update({ status: 'active' as CashAdvanceStatus })
+        .update({ status_hr: 'approved', status: 'menunggu_cair' as CashAdvanceStatus })
         .eq('id', id);
       if (error) throw error;
     },
@@ -98,7 +104,7 @@ export function useCashAdvanceMutations() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('cash_advances')
-        .update({ status: 'rejected' as CashAdvanceStatus })
+        .update({ status_hr: 'rejected' })
         .eq('id', id);
       if (error) throw error;
     },

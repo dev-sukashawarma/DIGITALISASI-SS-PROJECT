@@ -32,6 +32,7 @@ describe('statusKasbon = layar HR', () => {
     expect(statusKasbon('approved', 'active')).toBe('aktif')
     expect(statusKasbon('rejected', 'rejected')).toBe('ditolak')
     expect(statusKasbon('approved', 'pending')).toBeNull()
+    expect(statusKasbon('approved', 'menunggu_cair')).toBe('menunggu_cair')
   })
 })
 

@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Banknote } from 'lucide-react';
 import { rupiah } from '@/lib/format';
 import type { CashAdvanceStatus } from '@/lib/types';
 import type { CashAdvanceRow } from '@/hooks/useCashAdvances';
+import { bolehCatatCicilan, labelStatusKasbon, statusEfektifKasbon } from '@/lib/kasbon/statusKasbon';
 
 /* ------------------------------------------------------------------ */
 /*  Status badge                                                       */
@@ -29,6 +30,11 @@ const statusConfig: Record<
     bg: 'bg-blue-50 border-blue-200',
     text: 'text-blue-700',
   },
+  menunggu_cair: {
+    label: 'Menunggu pencairan',
+    bg: 'bg-orange-50 border-orange-200',
+    text: 'text-orange-700',
+  },
   rejected: {
     label: 'Ditolak',
     bg: 'bg-red-50 border-red-200',
@@ -36,13 +42,13 @@ const statusConfig: Record<
   },
 };
 
-function StatusBadge({ status }: { status: CashAdvanceStatus }) {
-  const cfg = statusConfig[status] ?? statusConfig.active;
+function StatusBadge({ status, ditolakFinance = false }: { status: CashAdvanceStatus; ditolakFinance?: boolean }) {
+  const cfg = statusConfig[status] ?? statusConfig.pending;
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cfg.bg} ${cfg.text}`}
     >
-      {cfg.label}
+      {labelStatusKasbon(status, ditolakFinance)}
     </span>
   );
 }
@@ -64,6 +70,7 @@ function ExpandableRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const payments = row.cash_advance_payments ?? [];
+  const status = statusEfektifKasbon(row);
 
   return (
     <>
@@ -91,7 +98,7 @@ function ExpandableRow({
           {rupiah(row.remaining)}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-center">
-          <StatusBadge status={row.status} />
+          <StatusBadge status={status} ditolakFinance={Boolean(row.ditolak_finance_at)} />
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-suka-gray-500">
           {row.created_at
@@ -102,7 +109,7 @@ function ExpandableRow({
             : '—'}
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-center">
-          {row.status === 'active' ? (
+          {bolehCatatCicilan(status) ? (
             <button
               onClick={() => onAddPayment(row)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-suka-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-suka-ink shadow-sm transition-all hover:border-suka-orange hover:text-suka-orange"
@@ -110,7 +117,7 @@ function ExpandableRow({
               <Banknote className="h-3.5 w-3.5" />
               Bayar Cicilan
             </button>
-          ) : row.status === 'pending' ? (
+          ) : status === 'pending' ? (
             <div className="flex justify-center gap-2">
               {onApprove && (
                 <button

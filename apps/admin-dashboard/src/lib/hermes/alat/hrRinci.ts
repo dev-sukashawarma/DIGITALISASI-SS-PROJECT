@@ -17,7 +17,7 @@ async function kasbonDaftar(ctx: KonteksHermes, a: { status?: StatusKasbon | 'se
   const semua = await ctx.hrRinci.kasbonDaftar()
   const baris = semua
     .filter((k) => k.outletId && nama.has(k.outletId))
-    .filter((k) => (!status ? k.status === 'menunggu' || k.status === 'aktif' : status === 'semua' || k.status === status))
+    .filter((k) => (!status ? k.status === 'menunggu' || k.status === 'menunggu_cair' || k.status === 'aktif' : status === 'semua' || k.status === status))
     .map((k) => ({ id: k.id, nama: k.nama, outlet: nama.get(k.outletId!)!, nominal: k.nominal, sisa: k.sisa, cicilan_bulan: k.cicilanBulan, status: k.status, tanggal: k.tanggal }))
     .sort((x, y) => y.tanggal.localeCompare(x.tanggal) || urut(x.nama, y.nama) || urut(x.id, y.id))
   const total = baris.reduce((t, k) => ({ jumlah: t.jumlah + 1, nominal: t.nominal + k.nominal, sisa: t.sisa + k.sisa }), { jumlah: 0, nominal: 0, sisa: 0 })
@@ -47,8 +47,8 @@ export const ALAT_HR_RINCI: DefinisiAlat[] = [
     nama: 'kasbon_daftar',
     domain: 'hr_rinci',
     sumber: SUMBER,
-    deskripsi: 'Daftar kasbon per orang (nama, outlet, nominal, sisa, cicilan, status, tanggal pengajuan). Default: menunggu + aktif. Status = layar Kasbon HR. Alasan pengajuan tidak ditampilkan.',
-    skema: z.object({ status: z.enum(['menunggu', 'aktif', 'lunas', 'ditolak', 'semua']).optional(), outlet: OUTLET.optional() }).strict(),
+    deskripsi: 'Daftar kasbon per orang (nama, outlet, nominal, sisa, cicilan, status, tanggal pengajuan). Default: menunggu + menunggu_cair (disetujui HR, belum dicairkan finance) + aktif. Status = layar Kasbon HR. Alasan pengajuan tidak ditampilkan.',
+    skema: z.object({ status: z.enum(['menunggu', 'menunggu_cair', 'aktif', 'lunas', 'ditolak', 'semua']).optional(), outlet: OUTLET.optional() }).strict(),
     contoh: {},
     jalankan: kasbonDaftar,
   },

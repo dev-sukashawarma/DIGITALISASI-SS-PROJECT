@@ -334,8 +334,14 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
                     </p>
                   </button>
 
-                  {/* Nonaktif (hanya jika sedang edit) */}
-                  {editingOutlet && (
+                  {/* Nonaktif (hanya jika sedang edit). Outlet internal/mitra ditutup lewat
+                      Outlet › Tutup Outlet supaya tanggal & alasan tutup tercatat. */}
+                  {editingOutlet && (editingOutlet.type === 'internal' || editingOutlet.type === 'mitra') && (
+                    <div className="p-3 rounded-xl border border-gray-200 bg-gray-50 text-[11px] leading-tight text-gray-600">
+                      Untuk menutup cabang ini, pakai menu <strong>Outlet › Tutup Outlet</strong>.
+                    </div>
+                  )}
+                  {editingOutlet && editingOutlet.type !== 'internal' && editingOutlet.type !== 'mitra' && (
                     <button
                       type="button"
                       onClick={() => {

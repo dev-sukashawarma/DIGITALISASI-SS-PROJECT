@@ -22,5 +22,27 @@ export function cekPerubahanOutlet(
   if (statusLama !== 'pending' && (lama.type ?? '') !== baru.type) {
     return 'Jenis outlet terkunci setelah Go-Live.'
   }
+  // Outlet internal/mitra: aktif↔nonaktif hanya lewat wizard penutupan (dijaga
+  // juga di DB oleh trg_zz_outlets_jaga_penutupan).
+  const dijaga = lama.type === 'internal' || lama.type === 'mitra'
+  if (dijaga && statusLama === 'active' && baru.status === 'inactive') {
+    return 'Untuk menonaktifkan outlet, pakai tombol Tutup Outlet (mencatat tanggal & alasan tutup).'
+  }
+  if (dijaga && statusLama === 'inactive' && baru.status === 'active') {
+    return 'Outlet yang sudah ditutup hanya bisa diaktifkan lewat Buka kembali di papan Penutupan.'
+  }
+  return null
+}
+
+/**
+ * Menghapus (soft delete) outlet internal/mitra yang masih aktif ditolak:
+ * outlet harus ditutup dulu lewat Tutup Outlet supaya tanggal & alasan tutup
+ * tercatat dan pembersihannya muncul di papan Penutupan.
+ */
+export function cekHapusOutlet(o: { status: string | null; type: string | null }): string | null {
+  const dijaga = o.type === 'internal' || o.type === 'mitra'
+  if (dijaga && (o.status ?? 'active') === 'active') {
+    return 'Outlet masih aktif. Tutup dulu lewat tombol Tutup Outlet sebelum menghapus.'
+  }
   return null
 }

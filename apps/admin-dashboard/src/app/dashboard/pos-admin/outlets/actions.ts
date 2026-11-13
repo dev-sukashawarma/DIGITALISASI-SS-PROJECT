@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@suka/auth'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { cekHapusOutlet, cekPerubahanOutlet } from '@/lib/outlets/aturanEdit'
 
 export async function upsertOutlet(outletData: any) {
   try {
@@ -21,6 +22,14 @@ export async function upsertOutlet(outletData: any) {
     }
 
     if (outletData.id) {
+      // Aturan yang sama dengan halaman Outlet: aktif↔nonaktif outlet internal/mitra
+      // hanya lewat Tutup Outlet / Buka kembali (DB juga menahannya diam-diam).
+      const { data: lama, error: errLama } = await supabase
+        .from('outlets').select('status, type').eq('id', outletData.id).single()
+      if (errLama) throw errLama
+      const ditolak = cekPerubahanOutlet(lama, { status, type: outletData.type ?? lama.type })
+      if (ditolak) return { success: false, error: ditolak }
+
       const { data, error } = await supabase
         .from('outlets')
         .update(payload)
@@ -55,6 +64,12 @@ export async function deleteOutlet(id: string) {
       getAll: () => cookieStore.getAll(),
       setAll: () => {},
     })
+
+    const { data: lama, error: errLama } = await supabase
+      .from('outlets').select('status, type').eq('id', id).single()
+    if (errLama) throw errLama
+    const ditolak = cekHapusOutlet(lama)
+    if (ditolak) return { success: false, error: ditolak }
 
     const now = new Date().toISOString()
     const { error } = await supabase

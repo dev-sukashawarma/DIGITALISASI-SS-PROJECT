@@ -98,20 +98,41 @@ describe('OutletTable', () => {
     fireEvent.click(editBtns[0])
     expect(onEdit).toHaveBeenCalledWith(mockOutlets[0])
 
-    // Trigger toggle active on first outlet
-    const toggleBtns = screen.getAllByTitle('Nonaktifkan Cabang')
-    fireEvent.click(toggleBtns[0])
+    // Outlet internal aktif: tombolnya Tutup Outlet (membuka wizard penutupan)
+    const tutupBtns = screen.getAllByTitle('Tutup Outlet')
+    fireEvent.click(tutupBtns[0])
     expect(onToggleActive).toHaveBeenCalledWith(mockOutlets[0])
 
-    // Trigger delete on first outlet
+    // Hapus hanya untuk outlet yang sudah ditutup (out-2 nonaktif)
     const deleteBtns = screen.getAllByTitle('Nonaktifkan & Hapus (Soft Delete)')
     fireEvent.click(deleteBtns[0])
-    expect(onDelete).toHaveBeenCalledWith(mockOutlets[0])
+    expect(onDelete).toHaveBeenCalledWith(mockOutlets[1])
 
     // Trigger manage investment on mitra outlet
     const investBtns = screen.getAllByTitle('Kelola Modal Mitra')
     fireEvent.click(investBtns[0])
     expect(onManageInvestment).toHaveBeenCalledWith(mockOutlets[1])
+  })
+
+  it('outlet internal/mitra nonaktif: tautan ke papan Penutupan, tanpa tombol Aktifkan', () => {
+    render(<OutletTable rows={[mockOutlets[1]]} onToggleActive={vi.fn()} onDelete={vi.fn()} />)
+    const tautan = screen.getAllByTitle('Papan Penutupan (buka kembali / bereskan)')
+    expect(tautan[0].closest('a')?.getAttribute('href')).toBe('/dashboard/penutupan-outlet/out-2')
+    expect(screen.queryByText('Aktifkan')).toBeNull()
+    expect(screen.queryByTitle('Aktifkan Outlet')).toBeNull()
+  })
+
+  it('outlet internal aktif tidak punya tombol Hapus', () => {
+    render(<OutletTable rows={[mockOutlets[0]]} onToggleActive={vi.fn()} onDelete={vi.fn()} />)
+    expect(screen.queryByTitle('Nonaktifkan & Hapus (Soft Delete)')).toBeNull()
+  })
+
+  it('lokasi Sistem (office) tetap memakai toggle biasa', () => {
+    const office: Outlet = { ...mockOutlets[0], id: 'out-9', name: 'Kantor', type: 'office' }
+    const onToggleActive = vi.fn()
+    render(<OutletTable rows={[office]} onToggleActive={onToggleActive} />)
+    fireEvent.click(screen.getAllByTitle('Nonaktifkan Outlet')[0])
+    expect(onToggleActive).toHaveBeenCalledWith(office)
   })
 
   it('outlet Persiapan: badge menautkan ke papan, tanpa tombol aktifkan/hapus', () => {

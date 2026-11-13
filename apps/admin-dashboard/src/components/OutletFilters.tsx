@@ -12,9 +12,9 @@ export function OutletFilters({
   filteredCount?: number
 }) {
   const set = (patch: Partial<OutletFilterValues>) => onChange({ ...value, ...patch })
-  const hasActiveFilters = Boolean(value.search || value.status || (value.type && value.type !== 'all'))
+  const hasActiveFilters = Boolean(value.search || value.status || value.type !== 'internal')
 
-  const resetFilters = () => onChange({ search: '', status: '', type: '' })
+  const resetFilters = () => onChange({ search: '', status: '', type: 'internal' })
 
   return (
     <div className="bg-white rounded-2xl border border-suka-gray-200/80 p-3.5 sm:p-4 shadow-xs space-y-3">
@@ -96,7 +96,11 @@ export function OutletFilters({
 
           {/* Type filter */}
           <div className="inline-flex rounded-xl bg-suka-gray-100 p-1 border border-suka-gray-200/60 text-xs font-semibold">
-            {[{ id: 'all', label: 'Semua Tipe' }, ...TIPE_OUTLET.map((t) => ({ id: t, label: LABEL_TIPE_OUTLET[t] }))].map((opt) => {
+            {[
+              ...TIPE_OUTLET.map((t) => ({ id: t as string, label: LABEL_TIPE_OUTLET[t] })),
+              { id: 'sistem', label: 'SISTEM' },
+              { id: 'all', label: 'Semua' },
+            ].map((opt) => {
               const aktif = (value.type || 'all') === opt.id
               return (
                 <button

@@ -8,14 +8,11 @@ import {
   Plus,
   X,
   Store,
-  CheckCircle2,
   Users,
-  AlertTriangle,
-  MapPinOff,
   Clock,
 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useManagedOutlets } from '@/hooks/useManagedOutlets'
 import { useOutletMutations } from '@/hooks/useOutletMutations'
@@ -28,7 +25,7 @@ import { OutletForm } from '@/components/OutletForm'
 import { DeleteOutletDialog } from '@/components/DeleteOutletDialog'
 import type { Outlet, OutletFilterValues, OutletFormValues } from '@/lib/types'
 
-const EMPTY_FILTER: OutletFilterValues = { search: '', status: '', type: 'all' }
+const EMPTY_FILTER: OutletFilterValues = { search: '', status: '', type: 'internal' }
 const NO_PIN: ReadonlySet<string> = new Set()
 
 function toFormValues(o: Outlet): OutletFormValues {
@@ -59,6 +56,50 @@ export default function OutletsPage() {
   const { create, update, softDelete, hardDelete, countRefs } = useOutletMutations()
   const supabase = useMemo(() => createClient(), [])
   const qc = useQueryClient()
+
+  // Tanggal penjualan pertama per outlet — cadangan "mulai operasi" untuk outlet
+  // yang belum punya tanggal grand opening / go-live.
+  const { data: tanggalPenjualan } = useQuery({
+    queryKey: ['outlet-tanggal-penjualan', outlets.map((o) => o.id).join(',')],
+    enabled: outlets.length > 0,
+    staleTime: 60 * 60 * 1000,
+    queryFn: async () => {
+      const hasil: { pertama: Record<string, string>; terakhir: Record<string, string> } = {
+        pertama: {},
+        terakhir: {},
+      }
+      // Penjualan terakhir hanya dicari untuk outlet nonaktif (penanda tanggal nonaktif).
+      await Promise.all(
+        outlets
+          .filter((o) => (o.type === 'internal' || o.type === 'mitra') && (o.status === 'inactive' || (!o.status && !o.is_active)))
+          .map(async (o) => {
+            const { data } = await supabase
+              .from('orders')
+              .select('created_at')
+              .eq('outlet_id', o.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (data?.created_at) hasil.terakhir[o.id] = data.created_at
+          })
+      )
+      await Promise.all(
+        outlets
+          .filter((o) => (o.type === 'internal' || o.type === 'mitra') && o.status !== 'pending')
+          .map(async (o) => {
+            const { data } = await supabase
+              .from('orders')
+              .select('created_at')
+              .eq('outlet_id', o.id)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle()
+            if (data?.created_at) hasil.pertama[o.id] = data.created_at
+          })
+      )
+      return hasil
+    },
+  })
 
   const [mounted, setMounted] = useState(false)
   const [filter, setFilterState] = useState<OutletFilterValues>(EMPTY_FILTER)
@@ -100,17 +141,28 @@ export default function OutletsPage() {
     [outlets, filter, pinned]
   )
 
+  // Lokasi Sistem (gudang, kantor, marketplace, sistem, tes) bukan outlet:
+  // dan outlet nonaktif tidak ikut hitungan kartu.
   const stats = useMemo(() => {
-    const total = outlets.length
-    const active = outlets.filter((o) => o.status === 'active' || (!o.status && o.is_active)).length
-    const pending = outlets.filter((o) => o.status === 'pending').length
-    const inactive = outlets.filter((o) => o.status === 'inactive' || (!o.status && !o.is_active)).length
-    const mitra = outlets.filter((o) => o.type === 'mitra').length
-    const missingCoords = outlets.filter(
-      (o) => !Number.isFinite(o.lat) || !Number.isFinite(o.lng) || (o.lat === 0 && o.lng === 0)
-    ).length
-
-    return { total, active, pending, inactive, mitra, missingCoords }
+    const nonaktif = (o: Outlet) => o.status === 'inactive' || (!o.status && !o.is_active)
+    const ops = outlets.filter((o) => (o.type === 'internal' || o.type === 'mitra') && !nonaktif(o))
+    const isActive = (o: Outlet) => o.status === 'active' || (!o.status && o.is_active)
+    const grup = (tipe: 'internal' | 'mitra') => {
+      const g = ops.filter((o) => o.type === tipe)
+      return {
+        total: g.length,
+        active: g.filter(isActive).length,
+        pending: g.filter((o) => o.status === 'pending').length,
+      }
+    }
+    return {
+      total: ops.length,
+      active: ops.filter(isActive).length,
+      pending: ops.filter((o) => o.status === 'pending').length,
+      internal: grup('internal'),
+      mitra: grup('mitra'),
+      sistem: outlets.filter((o) => o.type !== 'internal' && o.type !== 'mitra').length,
+    }
   }, [outlets])
 
   function handleCreate(values: OutletFormValues) {
@@ -212,173 +264,70 @@ export default function OutletsPage() {
 
       <OutletTabs aktif="semua" jumlahPersiapan={stats.pending} />
 
-      {/* ── KPI Stat Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        {/* Card 1: Total Outlet */}
-        <button
-          type="button"
-          onClick={() => setFilter((prev) => ({ ...prev, status: '', type: 'all' }))}
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            !filter.status && (!filter.type || filter.type === 'all')
-              ? 'bg-orange-50/60 border-suka-orange shadow-xs ring-2 ring-suka-orange/20'
-              : 'bg-white border-suka-gray-200/80 hover:border-suka-orange/50 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">Total Outlet</span>
-            <div className="w-8 h-8 rounded-xl bg-orange-100/70 text-suka-orange flex items-center justify-center">
-              <Store className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-suka-ink">{stats.total}</span>
-            <span className="text-xs text-suka-gray-500 font-medium">cabang</span>
-          </div>
-          <p className="mt-1 text-[11px] text-suka-gray-500 truncate">
-            {stats.active} aktif • {stats.pending} persiapan
-          </p>
-        </button>
-
-        {/* Card 2: Outlet Aktif */}
-        <button
-          type="button"
-          onClick={() =>
-            setFilter((prev) => ({
-              ...prev,
-              status: prev.status === 'active' ? '' : 'active',
-            }))
-          }
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            filter.status === 'active'
-              ? 'bg-emerald-50/60 border-emerald-500 shadow-xs ring-2 ring-emerald-500/20'
-              : 'bg-white border-suka-gray-200/80 hover:border-emerald-300 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">Outlet Aktif</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-100/70 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-emerald-700">{stats.active}</span>
-            <span className="text-xs text-emerald-600/80 font-medium">beroperasi</span>
-          </div>
-          <p className="mt-1 text-[11px] text-emerald-600 truncate font-medium">
-            Melayani pesanan & presensi
-          </p>
-        </button>
-
-        {/* Card 3: Outlet Persiapan */}
-        <button
-          type="button"
-          onClick={() =>
-            setFilter((prev) => ({
-              ...prev,
-              status: prev.status === 'pending' ? '' : 'pending',
-            }))
-          }
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            filter.status === 'pending'
-              ? 'bg-amber-50/70 border-amber-500 shadow-xs ring-2 ring-amber-500/20'
-              : 'bg-white border-suka-gray-200/80 hover:border-amber-300 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">Persiapan</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-amber-700">{stats.pending}</span>
-            <span className="text-xs text-amber-600 font-medium">persiapan</span>
-          </div>
-          <p className="mt-1 text-[11px] text-amber-700 truncate font-medium">
-            Dikecualikan dari produksi
-          </p>
-        </button>
-
-        {/* Card 4: Mitra SS */}
-        <button
-          type="button"
-          onClick={() =>
-            setFilter((prev) => ({
-              ...prev,
-              type: prev.type === 'mitra' ? 'all' : 'mitra',
-            }))
-          }
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            filter.type === 'mitra'
-              ? 'bg-cyan-50/60 border-cyan-500 shadow-xs ring-2 ring-cyan-500/20'
-              : 'bg-white border-suka-gray-200/80 hover:border-cyan-300 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">Mitra SS</span>
-            <div className="w-8 h-8 rounded-xl bg-cyan-100/70 text-cyan-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-cyan-800">{stats.mitra}</span>
-            <span className="text-xs text-cyan-600 font-medium">kemitraan</span>
-          </div>
-          <p className="mt-1 text-[11px] text-cyan-700 truncate font-medium">
-            Skema bagi hasil & investor
-          </p>
-        </button>
-
-        {/* Card 5: Titik Belum Disetel */}
-        <button
-          type="button"
-          onClick={() =>
-            setFilter((prev) => ({
-              ...prev,
-              status: prev.status === 'missing_coords' ? '' : 'missing_coords',
-            }))
-          }
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            filter.status === 'missing_coords'
-              ? 'bg-amber-50/70 border-amber-500 shadow-xs ring-2 ring-amber-500/20'
-              : 'bg-white border-suka-gray-200/80 hover:border-amber-300 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">Perlu Titik GPS</span>
-            <div
-              className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                stats.missingCoords > 0 ? 'bg-amber-100 text-amber-700' : 'bg-suka-gray-100 text-suka-gray-500'
-              }`}
-            >
-              {stats.missingCoords > 0 ? <AlertTriangle className="w-4 h-4" /> : <MapPinOff className="w-4 h-4" />}
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span
-              className={`text-2xl sm:text-3xl font-black ${
-                stats.missingCoords > 0 ? 'text-amber-700' : 'text-suka-ink'
-              }`}
-            >
-              {stats.missingCoords}
-            </span>
-            <span className="text-xs text-suka-gray-500 font-medium">outlet</span>
-          </div>
-          <p
-            className={`mt-1 text-[11px] truncate font-medium ${
-              stats.missingCoords > 0 ? 'text-amber-700 font-semibold' : 'text-emerald-600'
+      {/* ── KPI Stat Cards (hanya outlet internal & mitra; Sistem tidak dihitung) ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {[
+          {
+            key: 'all', label: 'Total Outlet', Icon: Store, value: stats.total, unit: 'cabang',
+            note: `${stats.active} aktif • ${stats.pending} persiapan`,
+            on: filter.type === 'all' && !filter.status,
+            go: () => setFilter((p) => ({ ...p, status: '', type: 'all' })),
+            ring: 'bg-orange-50/60 border-suka-orange ring-2 ring-suka-orange/20',
+            icon: 'bg-orange-100/70 text-suka-orange', num: 'text-suka-ink', noteCls: 'text-suka-gray-500',
+          },
+          {
+            key: 'internal', label: 'Outlet Internal', Icon: Store, value: stats.internal.total, unit: 'cabang',
+            note: `${stats.internal.active} aktif • ${stats.internal.pending} persiapan`,
+            on: filter.type === 'internal' && !filter.status,
+            go: () => setFilter((p) => ({ ...p, status: '', type: 'internal' })),
+            ring: 'bg-emerald-50/60 border-emerald-500 ring-2 ring-emerald-500/20',
+            icon: 'bg-emerald-100/70 text-emerald-600', num: 'text-emerald-700', noteCls: 'text-emerald-600',
+          },
+          {
+            key: 'mitra', label: 'Outlet Mitra', Icon: Users, value: stats.mitra.total, unit: 'kemitraan',
+            note: `${stats.mitra.active} aktif • ${stats.mitra.pending} persiapan`,
+            on: filter.type === 'mitra' && !filter.status,
+            go: () => setFilter((p) => ({ ...p, status: '', type: 'mitra' })),
+            ring: 'bg-cyan-50/60 border-cyan-500 ring-2 ring-cyan-500/20',
+            icon: 'bg-cyan-100/70 text-cyan-600', num: 'text-cyan-800', noteCls: 'text-cyan-700',
+          },
+          {
+            key: 'pending', label: 'Persiapan', Icon: Clock, value: stats.pending, unit: 'outlet',
+            note: 'Dikecualikan dari produksi',
+            on: filter.status === 'pending',
+            go: () => setFilter((p) => ({ ...p, type: 'all', status: p.status === 'pending' ? '' : 'pending' })),
+            ring: 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20',
+            icon: 'bg-amber-100/80 text-amber-700', num: 'text-amber-700', noteCls: 'text-amber-700',
+          },
+        ].map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            onClick={c.go}
+            className={`text-left p-4 rounded-2xl border transition-all ${
+              c.on ? c.ring : 'bg-white border-suka-gray-200/80 hover:border-suka-orange/50 hover:shadow-xs'
             }`}
           >
-            {stats.missingCoords > 0 ? 'Perlu koordinat untuk presensi' : 'Semua titik GPS sudah lengkap'}
-          </p>
-        </button>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">{c.label}</span>
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${c.icon}`}>
+                <c.Icon className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className={`text-2xl sm:text-3xl font-black ${c.num}`}>{c.value}</span>
+              <span className="text-xs text-suka-gray-500 font-medium">{c.unit}</span>
+            </div>
+            <p className={`mt-1 text-[11px] truncate font-medium ${c.noteCls}`}>{c.note}</p>
+          </button>
+        ))}
       </div>
 
       {/* ── Filters Bar ── */}
       <OutletFilters
         value={filter}
         onChange={setFilter}
-        totalCount={outlets.length}
+        totalCount={filter.type === 'sistem' ? stats.sistem : filter.type === 'all' ? outlets.length : stats.total}
         filteredCount={rows.length}
       />
 
@@ -392,6 +341,8 @@ export default function OutletsPage() {
         onToggleActive={handleToggleActive}
         onDelete={setDeleting}
         onResetFilter={() => setFilter(EMPTY_FILTER)}
+        penjualanPertama={tanggalPenjualan?.pertama}
+        penjualanTerakhir={tanggalPenjualan?.terakhir}
       />
 
       {/* ── Outlet Form Modal (Responsive Bottom Sheet on Mobile) ── */}

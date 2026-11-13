@@ -16,7 +16,10 @@ export function filterOutlets(rows: Outlet[], f: OutletFilterValues): Outlet[] {
       const hasCoords = Number.isFinite(r.lat) && Number.isFinite(r.lng) && !(r.lat === 0 && r.lng === 0)
       if (hasCoords) return false
     }
-    if (f.type && f.type !== 'all' && r.type !== f.type) {
+    if (f.type === 'sistem') {
+      // Sistem = semua lokasi non-outlet (gudang, kantor, marketplace, sistem, tes).
+      if (r.type === 'internal' || r.type === 'mitra') return false
+    } else if (f.type && f.type !== 'all' && r.type !== f.type) {
       return false
     }
     return true

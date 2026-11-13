@@ -11,6 +11,15 @@ type Props = {
   onPilih: (ke: ShiftKe) => void;
   /** Tanpa onBatal, modal benar-benar wajib (tak ada tombol tutup). */
   onBatal?: () => void;
+  /** Judul & keterangan khusus (mis. mode ganti shift setelah absen masuk). */
+  judul?: string;
+  deskripsi?: string;
+  /** Shift yang sedang aktif — ditandai di daftar (mode ganti shift). */
+  aktifKe?: ShiftKe | null;
+  /** Sedang menyimpan: semua pilihan dinonaktifkan. */
+  menyimpan?: boolean;
+  /** Pesan galat (mis. gagal menyimpan) ditampilkan di atas daftar. */
+  galat?: string | null;
 };
 
 function IkonShift({ jamMasuk }: { jamMasuk: string }) {
@@ -27,7 +36,7 @@ function IkonShift({ jamMasuk }: { jamMasuk: string }) {
  * Mobile-first: panel dari bawah selebar layar di HP, kartu di tengah pada layar lebar.
  * Dirender lewat portal ke <body> agar tak terpotong kontainer halaman yang overflow-hidden.
  */
-export function PilihShiftModal({ choices, staffName, onPilih, onBatal }: Props) {
+export function PilihShiftModal({ choices, staffName, onPilih, onBatal, judul, deskripsi, aktifKe, menyimpan, galat }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -58,24 +67,37 @@ export function PilihShiftModal({ choices, staffName, onPilih, onBatal }: Props)
             <p className="text-sm font-semibold text-gray-500 truncate">Halo, {staffName} 👋</p>
           )}
           <h2 id="pilih-shift-judul" className="mt-0.5 text-xl font-extrabold leading-tight text-suka-ink">
-            Pilih shift kamu hari ini
+            {judul ?? "Pilih shift kamu hari ini"}
           </h2>
           <p className="mt-1 text-sm leading-snug text-gray-500">
-            Jam telat dan jam pulang dihitung dari shift yang kamu pilih.
+            {deskripsi ?? "Jam telat dan jam pulang dihitung dari shift yang kamu pilih."}
           </p>
+          {galat && (
+            <p role="alert" className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
+              {galat}
+            </p>
+          )}
         </div>
 
         <div className="px-5 space-y-3">
-          {choices.map((c) => (
+          {choices.map((c) => {
+            const aktif = aktifKe === c.ke;
+            return (
             <button
               key={c.ke}
               type="button"
+              disabled={menyimpan}
               onClick={() => onPilih(c.ke)}
-              className={`w-full ${ringkas ? "min-h-[72px] py-2.5" : "min-h-[96px] py-3.5"} rounded-2xl border-2 border-gray-200 bg-white px-4 text-left transition-colors active:bg-orange-50 active:border-suka-orange hover:border-suka-orange focus:outline-none focus-visible:border-suka-orange focus-visible:ring-4 focus-visible:ring-suka-orange/20`}
+              className={`w-full ${ringkas ? "min-h-[72px] py-2.5" : "min-h-[96px] py-3.5"} rounded-2xl border-2 ${aktif ? "border-suka-orange bg-orange-50" : "border-gray-200 bg-white"} px-4 text-left transition-colors active:bg-orange-50 active:border-suka-orange hover:border-suka-orange focus:outline-none focus-visible:border-suka-orange focus-visible:ring-4 focus-visible:ring-suka-orange/20 disabled:opacity-60 disabled:pointer-events-none`}
             >
               <span className="flex items-center gap-2 text-suka-orange">
                 <IkonShift jamMasuk={c.jam_masuk} />
                 <span className="text-sm font-bold text-suka-brown truncate">{c.nama}</span>
+                {aktif && (
+                  <span className="ml-auto shrink-0 rounded-full bg-suka-orange px-2 py-0.5 text-[10px] font-bold text-white">
+                    Dipakai sekarang
+                  </span>
+                )}
               </span>
               <span className={`mt-1 block ${ringkas ? "text-2xl" : "text-3xl"} font-black leading-none tabular-nums tracking-tight text-suka-ink`}>
                 {c.jam_masuk}<span className="mx-1.5 text-gray-300">–</span>{c.jam_keluar}
@@ -86,7 +108,8 @@ export function PilihShiftModal({ choices, staffName, onPilih, onBatal }: Props)
                 </span>
               )}
             </button>
-          ))}
+            );
+          })}
         </div>
 
         {onBatal && (

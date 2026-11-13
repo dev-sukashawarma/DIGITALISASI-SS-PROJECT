@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Card, Spinner } from "@suka/design-system";
-import { Eye, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin, Store, X } from "lucide-react";
+import { Eye, CircleX, Clock, CheckCircle2, Camera, Lock, Timer, MapPin, Store, X, RefreshCw } from "lucide-react";
 import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
@@ -31,6 +31,7 @@ dayjs.locale("id");
 type AttendanceRecord = {
   id: string;
   type: string;
+  outlet_id?: string | null;
   ts_server: string;
   status: string;
   telat_menit?: number | null;
@@ -62,6 +63,11 @@ export function AttendanceKioskPanel() {
   // Outlet berpilihan shift: opsi shift outlet aktif & pilihan crew (dipilih saat halaman dibuka).
   const [opsiShift, setOpsiShift] = useState<ShiftOption[] | null>(null);
   const [shiftDipilih, setShiftDipilih] = useState<ShiftKe | null>(null);
+  // Ganti shift setelah absen masuk (salah pilih shift): modal, proses simpan, galat, & hasil.
+  const [gantiShiftBuka, setGantiShiftBuka] = useState(false);
+  const [gantiShiftBusy, setGantiShiftBusy] = useState(false);
+  const [gantiShiftGalat, setGantiShiftGalat] = useState<string | null>(null);
+  const [gantiShiftInfo, setGantiShiftInfo] = useState<string | null>(null);
   // Jadwal khusus staf di outlet aktif (aturan dari Pengaturan): jam sendiri, tanpa pilih shift.
   const [jadwalKhusus, setJadwalKhusus] = useState<JadwalStafAktif | null>(null);
   const [historyReady, setHistoryReady] = useState(false);
@@ -300,7 +306,7 @@ export function AttendanceKioskPanel() {
     setLoadingHistory(true);
     supabase
       .from("attendance")
-      .select("id, type, ts_server, status, telat_menit, shift_jam_masuk, shift_jam_keluar")
+      .select("id, type, outlet_id, ts_server, status, telat_menit, shift_jam_masuk, shift_jam_keluar")
       .eq("outlet_staff_id", outletStaff.id)
       .order("ts_server", { ascending: false })
       .limit(30)
@@ -330,6 +336,48 @@ export function AttendanceKioskPanel() {
   const shiftTerpilih = opsiShift?.find((o) => o.ke === shiftDipilih) ?? null;
   const jamMasukHariIni = todayIn?.shift_jam_masuk?.slice(0, 5) ?? shiftTerpilih?.jam_masuk ?? jamMasuk;
   const jamKeluarHariIni = todayIn?.shift_jam_keluar?.slice(0, 5) ?? jamKeluar;
+
+  // Ganti shift: hanya setelah absen masuk, sebelum absen pulang, di outlet berpilihan shift
+  // (opsiShift null untuk staf berjadwal khusus) dan di outlet tempat absen masuk tadi.
+  const shiftAktifKe = todayIn && opsiShift
+    ? opsiShift.find((o) =>
+        o.jam_masuk === todayIn.shift_jam_masuk?.slice(0, 5) && o.jam_keluar === todayIn.shift_jam_keluar?.slice(0, 5)
+      )?.ke ?? null
+    : null;
+  const bisaGantiShift = !!opsiShift && !!todayIn && hasIn && !hasOut && (!todayIn.outlet_id || todayIn.outlet_id === activeOutletId);
+
+  const ALASAN_GANTI_SHIFT: Record<string, string> = {
+    no_active_in: "Absen masuk aktif tidak ditemukan.",
+    already_clocked_out: "Kamu sudah absen pulang, shift tidak bisa diganti lagi.",
+    no_shift_choice: "Outlet ini tidak memakai pilihan shift.",
+    shift_invalid: "Shift yang dipilih tidak valid.",
+    batas_ganti_shift: "Batas ganti shift hari ini sudah tercapai. Hubungi admin bila masih salah.",
+    staff_inactive: "Akun tidak aktif.",
+  };
+
+  async function gantiShift(ke: ShiftKe) {
+    if (gantiShiftBusy) return;
+    setGantiShiftBusy(true);
+    setGantiShiftGalat(null);
+    const { data, error } = await supabase.rpc("ubah_shift_absen", { p_shift_ke: ke });
+    setGantiShiftBusy(false);
+    const res = data as { ok?: boolean; reason?: string; berubah?: boolean; status?: string; telat_menit?: number; shift_jam_masuk?: string; shift_jam_keluar?: string } | null;
+    if (error || !res?.ok) {
+      setGantiShiftGalat(ALASAN_GANTI_SHIFT[res?.reason ?? ""] ?? "Gagal mengganti shift. Periksa koneksi lalu coba lagi.");
+      triggerErrorFeedback();
+      return;
+    }
+    setGantiShiftBuka(false);
+    if (res.berubah === false) {
+      setGantiShiftInfo("Shift tidak berubah.");
+    } else {
+      const jam = `${res.shift_jam_masuk ?? ""}-${res.shift_jam_keluar ?? ""}`;
+      const telat = res.status === "tepat" ? "Tepat waktu" : `Telat ${res.telat_menit ?? 0} menit`;
+      setGantiShiftInfo(`Shift diganti ke ${jam}. ${telat}.`);
+      triggerSuccessFeedback();
+    }
+    loadRecords();
+  }
 
   function toMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
 
@@ -421,6 +469,19 @@ export function AttendanceKioskPanel() {
           choices={opsiShift}
           staffName={outletStaff.name}
           onPilih={setShiftDipilih}
+        />
+      )}
+
+      {gantiShiftBuka && bisaGantiShift && opsiShift && (
+        <PilihShiftModal
+          choices={opsiShift}
+          aktifKe={shiftAktifKe}
+          judul="Ganti shift hari ini"
+          deskripsi="Pilih shift yang benar. Status telat dihitung ulang dari jam absen masukmu tadi."
+          menyimpan={gantiShiftBusy}
+          galat={gantiShiftGalat}
+          onPilih={gantiShift}
+          onBatal={() => { if (!gantiShiftBusy) setGantiShiftBuka(false); }}
         />
       )}
 
@@ -938,7 +999,27 @@ export function AttendanceKioskPanel() {
               {dayjs().tz("Asia/Jakarta").format("dddd, D MMMM YYYY")}
             </p>
           </div>
+          {bisaGantiShift && todayIn && (
+            <button
+              type="button"
+              onClick={() => { setGantiShiftGalat(null); setGantiShiftInfo(null); setGantiShiftBuka(true); }}
+              className="ml-auto shrink-0 inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-suka-orange/40 bg-white px-3 text-xs font-bold text-suka-orange transition-colors hover:bg-orange-50 active:bg-orange-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-suka-orange/20"
+            >
+              <RefreshCw size={14} />
+              Ganti Shift
+            </button>
+          )}
         </div>
+        {bisaGantiShift && todayIn?.shift_jam_masuk && todayIn.shift_jam_keluar && (
+          <p className="mt-3 text-xs font-semibold text-gray-500">
+            Shift dipilih: <span className="font-extrabold text-suka-ink">{todayIn.shift_jam_masuk.slice(0, 5)} - {todayIn.shift_jam_keluar.slice(0, 5)}</span>. Salah pilih? Tekan Ganti Shift.
+          </p>
+        )}
+        {gantiShiftInfo && (
+          <p role="status" className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+            {gantiShiftInfo}
+          </p>
+        )}
       </Card>
 
       {/* Riwayat Absensi Terakhir */}

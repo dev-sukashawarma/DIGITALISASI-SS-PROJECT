@@ -24,6 +24,10 @@ export interface Outlet {
   open_hour?: string | null
   close_hour?: string | null
   deleted_at?: string | null
+  tanggal_grand_opening?: string | null
+  go_live_at?: string | null
+  updated_at?: string | null
+  nonaktif_at?: string | null
 }
 
 export interface OutletFormValues {

@@ -15,6 +15,7 @@ import {
   Users,
   ClipboardCheck,
 } from 'lucide-react'
+import { Fragment } from 'react'
 import Link from 'next/link'
 import type { Outlet } from '@/lib/types'
 import { LABEL_TIPE_OUTLET, labelNonOutlet } from '@/lib/outletType'
@@ -24,6 +25,30 @@ const papanPersiapan = (id: string) => `/dashboard/pembukaan-outlet/${id}`
 
 function hasValidCoordinates(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
+}
+
+const FMT_TANGGAL = new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta',
+})
+
+/** Tanggal mulai beroperasi: grand opening → go-live → penjualan pertama. */
+const nonaktif = (o: Outlet) => o.status === 'inactive' || (!o.status && !o.is_active)
+
+/** Tanggal outlet nonaktif: dicatat otomatis saat dinonaktifkan; cadangan = penjualan terakhir / data terakhir diubah. */
+function tanggalNonaktif(o: Outlet, terakhir?: Record<string, string>): string | null {
+  if (!nonaktif(o)) return null
+  const iso = o.nonaktif_at || terakhir?.[o.id] || o.updated_at
+  if (!iso) return null
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? null : FMT_TANGGAL.format(d)
+}
+
+function mulaiOperasi(o: Outlet, pertama?: Record<string, string>): string | null {
+  if (o.status === 'pending') return null
+  const iso = o.tanggal_grand_opening || o.go_live_at || pertama?.[o.id]
+  if (!iso) return null
+  const d = new Date(iso.length === 10 ? `${iso}T00:00:00+07:00` : iso)
+  return Number.isNaN(d.getTime()) ? null : FMT_TANGGAL.format(d)
 }
 
 function getTypeBadge(type?: string) {
@@ -56,6 +81,8 @@ export function OutletTable({
   onDelete,
   onManageInvestment,
   onResetFilter,
+  penjualanPertama,
+  penjualanTerakhir,
 }: {
   rows: Outlet[]
   onEdit?: (o: Outlet) => void
@@ -63,6 +90,10 @@ export function OutletTable({
   onDelete?: (o: Outlet) => void
   onManageInvestment?: (o: Outlet) => void
   onResetFilter?: () => void
+  /** outlet_id → tanggal penjualan pertama (ISO); dipakai bila belum ada tanggal grand opening / go-live. */
+  penjualanPertama?: Record<string, string>
+  /** outlet_id → tanggal penjualan terakhir (ISO); penanda kapan outlet nonaktif berhenti beroperasi. */
+  penjualanTerakhir?: Record<string, string>
 }) {
   if (rows.length === 0) {
     return (
@@ -87,6 +118,16 @@ export function OutletTable({
     )
   }
 
+  const sections = [
+    { key: 'internal', label: 'Outlet Internal', rows: rows.filter((o) => o.type === 'internal') },
+    { key: 'mitra', label: 'Outlet Mitra', rows: rows.filter((o) => o.type === 'mitra') },
+    { key: 'sistem', label: 'Sistem', rows: rows.filter((o) => o.type !== 'internal' && o.type !== 'mitra') },
+  ]
+    .filter((s) => s.rows.length > 0)
+    // Outlet nonaktif di bagian bawah tiap kelompok (urutan nama tetap terjaga).
+    .map((s) => ({ ...s, rows: [...s.rows.filter((o) => !nonaktif(o)), ...s.rows.filter(nonaktif)] }))
+  const showHeaders = sections.length > 1
+
   return (
     <div className="space-y-4">
       {/* ── Desktop Table View (>= md) ── */}
@@ -99,12 +140,23 @@ export function OutletTable({
                 <th className="px-4 py-3.5">Tipe</th>
                 <th className="px-4 py-3.5">Lokasi GPS</th>
                 <th className="px-4 py-3.5">Operasional</th>
+                <th className="px-4 py-3.5">Mulai Operasi</th>
                 <th className="px-4 py-3.5">Status</th>
                 <th className="px-5 py-3.5 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-suka-gray-100">
-              {rows.map((o) => {
+              {sections.map((sec) => (
+              <Fragment key={sec.key}>
+              {showHeaders && (
+                <tr className="bg-suka-gray-50/70">
+                  <td colSpan={7} className="px-5 py-2.5 text-[11px] font-black uppercase tracking-wider text-suka-ink">
+                    {sec.label}
+                    <span className="ml-2 font-semibold text-suka-gray-500">{sec.rows.length}</span>
+                  </td>
+                </tr>
+              )}
+              {sec.rows.map((o) => {
                 const typeBadge = getTypeBadge(o.type)
                 const hasCoords = hasValidCoordinates(o.lat, o.lng)
                 const mapsUrl = hasCoords ? `https://www.google.com/maps?q=${o.lat},${o.lng}` : null
@@ -117,9 +169,6 @@ export function OutletTable({
                     {/* Name, Slug, & Address */}
                     <td className="px-5 py-4">
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-suka-brown flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs">
-                          {o.name ? o.name.charAt(0).toUpperCase() : 'O'}
-                        </div>
                         <div className="space-y-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-suka-ink text-sm group-hover:text-suka-brown transition-colors">
@@ -180,6 +229,18 @@ export function OutletTable({
                         </div>
                       ) : (
                         <span className="text-xs text-suka-gray-400 font-mono">-</span>
+                      )}
+                    </td>
+
+                    {/* Mulai Operasi */}
+                    <td className="px-4 py-4 whitespace-nowrap text-xs font-medium text-suka-gray-600">
+                      {mulaiOperasi(o, penjualanPertama) ?? (
+                        <span className="text-suka-gray-400">{o.status === 'pending' ? 'Belum buka' : '-'}</span>
+                      )}
+                      {tanggalNonaktif(o, penjualanTerakhir) && (
+                        <div className="mt-0.5 text-[11px] font-semibold text-red-600" title="Tanggal outlet dinonaktifkan">
+                          Nonaktif: {tanggalNonaktif(o, penjualanTerakhir)}
+                        </div>
                       )}
                     </td>
 
@@ -271,6 +332,8 @@ export function OutletTable({
                   </tr>
                 )
               })}
+              </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
@@ -278,7 +341,15 @@ export function OutletTable({
 
       {/* ── Mobile Card View (< md) ── */}
       <div className="md:hidden space-y-3">
-        {rows.map((o) => {
+        {sections.map((sec) => (
+        <Fragment key={sec.key}>
+        {showHeaders && (
+          <h2 className="pt-2 text-[11px] font-black uppercase tracking-wider text-suka-ink">
+            {sec.label}
+            <span className="ml-2 font-semibold text-suka-gray-500">{sec.rows.length}</span>
+          </h2>
+        )}
+        {sec.rows.map((o) => {
           const typeBadge = getTypeBadge(o.type)
           const hasCoords = hasValidCoordinates(o.lat, o.lng)
           const mapsUrl = hasCoords ? `https://www.google.com/maps?q=${o.lat},${o.lng}` : null
@@ -291,9 +362,6 @@ export function OutletTable({
               {/* Card Header: Avatar, Name, Slug, and Status */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-suka-brown flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
-                    {o.name ? o.name.charAt(0).toUpperCase() : 'O'}
-                  </div>
                   <div className="min-w-0">
                     <h3 className="font-bold text-base text-suka-ink leading-snug truncate">
                       {o.name}
@@ -345,6 +413,20 @@ export function OutletTable({
                   <div className="flex items-center gap-2 text-suka-gray-400 italic">
                     <MapPin className="w-3.5 h-3.5 shrink-0" />
                     <span>Belum ada alamat</span>
+                  </div>
+                )}
+
+                {mulaiOperasi(o, penjualanPertama) && (
+                  <div className="flex items-center gap-2 text-suka-gray-500">
+                    <Clock className="w-3.5 h-3.5 text-suka-gray-400 shrink-0" />
+                    <span>Mulai operasi: {mulaiOperasi(o, penjualanPertama)}</span>
+                  </div>
+                )}
+
+                {tanggalNonaktif(o, penjualanTerakhir) && (
+                  <div className="flex items-center gap-2 text-red-600 font-semibold">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span>Nonaktif: {tanggalNonaktif(o, penjualanTerakhir)}</span>
                   </div>
                 )}
 
@@ -440,6 +522,8 @@ export function OutletTable({
             </div>
           )
         })}
+        </Fragment>
+        ))}
       </div>
     </div>
   )

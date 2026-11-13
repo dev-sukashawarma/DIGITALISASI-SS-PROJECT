@@ -100,6 +100,16 @@ export const CATEGORY_GROUPS: CategoryGroupMeta[] = [
     borderAccent: 'border-l-cyan-500',
   },
   {
+    id: 'chick_n_chips',
+    name: 'Chick n Chips',
+    shortName: 'Chick n Chips',
+    order: 75,
+    icon: '🍗',
+    color: 'from-yellow-500 to-orange-500',
+    badgeBg: 'bg-yellow-50 text-yellow-800 border-yellow-200',
+    borderAccent: 'border-l-yellow-500',
+  },
+  {
     id: 'tiktok',
     name: 'TikTok Series (TikTok Go)',
     shortName: 'TikTok Series',
@@ -120,6 +130,19 @@ export const CATEGORY_GROUPS: CategoryGroupMeta[] = [
     borderAccent: 'border-l-teal-500',
   },
 ]
+
+/** Kelompok cadangan untuk menu yang kategorinya belum punya kelompok sendiri. Chip-nya hanya
+ *  ditampilkan bila ada isinya, supaya menu baru tidak "hilang" dari filter kategori. */
+export const OTHER_CATEGORY_GROUP: CategoryGroupMeta = {
+  id: 'other',
+  name: 'Lainnya',
+  shortName: 'Lainnya',
+  order: 85,
+  icon: '🍴',
+  color: 'from-gray-500 to-slate-600',
+  badgeBg: 'bg-gray-50 text-gray-800 border-gray-200',
+  borderAccent: 'border-l-gray-400',
+}
 
 export function getMenuCategoryGroup(menu: {
   name: string
@@ -160,6 +183,11 @@ export function getMenuCategoryGroup(menu: {
     (channels.includes('tiktokgo') && !channels.includes('gofood') && !channels.includes('grabfood') && !channels.includes('pos_kasir'))
   ) {
     return CATEGORY_GROUPS.find((c) => c.id === 'tiktok')!
+  }
+
+  // 2a. Chick n Chips (menu sendiri, bukan shawarma)
+  if (catName.toLowerCase().includes('chick n chips') || nameLower.includes('chick n chips')) {
+    return CATEGORY_GROUPS.find((c) => c.id === 'chick_n_chips')!
   }
 
   // 2. Original Shawarma Sapi
@@ -206,7 +234,7 @@ export function getMenuCategoryGroup(menu: {
   }
 
   // 8. Topping & Add-ons
-  if (catName.toLowerCase().includes('topping') || nameLower.startsWith('extra ')) {
+  if (catName.toLowerCase().includes('topping') || catName.toLowerCase().replace(/[\s_]/g, '-').includes('add-on') || nameLower.startsWith('extra ') || nameLower.endsWith(' sauce')) {
     return CATEGORY_GROUPS.find((c) => c.id === 'topping')!
   }
 

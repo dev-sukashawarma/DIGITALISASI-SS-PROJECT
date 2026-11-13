@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { BookOpen, TrendingUp, Search, X, Layers } from 'lucide-react'
 import HppDashboardView from './HppDashboardView'
-import { CATEGORY_GROUPS } from './categoryHelper'
+import { CATEGORY_GROUPS, OTHER_CATEGORY_GROUP } from './categoryHelper'
 
 interface ResepTabViewProps {
   menuWithBOM: any[]
@@ -96,7 +96,7 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
               </span>
             </button>
 
-            {CATEGORY_GROUPS.map((cat) => {
+            {[...CATEGORY_GROUPS, ...((bomCategoryCountMap['other'] || 0) > 0 ? [OTHER_CATEGORY_GROUP] : [])].map((cat) => {
               const count = bomCategoryCountMap[cat.id] || 0
               const isSelected = bomCategory === cat.id
               const isTikTok = cat.id === 'tiktok'

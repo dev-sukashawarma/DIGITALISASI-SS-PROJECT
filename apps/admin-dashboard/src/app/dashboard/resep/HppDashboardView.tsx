@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@suka/auth'
 import { Store, Globe, Search, X, Check, Package, Sandwich, Edit2, Calculator, PanelRightClose, RefreshCw, Save, ArrowUpDown, ChevronUp, ChevronDown, Layers, Sparkles } from 'lucide-react'
 import type { Outlet, MenuOutletPrice } from '@/pos-types'
-import { CATEGORY_GROUPS, type CategoryGroupMeta, getSizeRank } from './categoryHelper'
+import { CATEGORY_GROUPS, OTHER_CATEGORY_GROUP, type CategoryGroupMeta, getSizeRank } from './categoryHelper'
 import { hariIniWib, batasAwalBerlaku } from '@/lib/hpp/batasBerlakuHpp'
 import { revalidateOwnerDashboardCache } from '@/app/actions/ownerDashboard'
 
@@ -490,7 +490,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
         </button>
 
         {/* 10 Category Groups */}
-        {CATEGORY_GROUPS.map((cat) => {
+        {[...CATEGORY_GROUPS, ...((categoryCountMap['other'] || 0) > 0 ? [OTHER_CATEGORY_GROUP] : [])].map((cat) => {
           const count = categoryCountMap[cat.id] || 0
           const isSelected = selectedCategory === cat.id
           const isTikTok = cat.id === 'tiktok'

@@ -233,7 +233,12 @@ export function OutletForm({
 
       <div className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Tipe</span>
-        {isEdit && !adalahTipeOutlet(initial?.type) ? (
+        {isEdit && initial?.status && initial.status !== 'pending' && adalahTipeOutlet(initial?.type) ? (
+          // Jenis outlet terkunci setelah Go-Live (laporan & markup HPP mitra).
+          <p className="rounded-xl border border-suka-gray-200 bg-suka-gray-50 px-3 py-2 text-suka-gray-500">
+            {LABEL_TIPE_OUTLET[initial.type as (typeof TIPE_OUTLET)[number]] ?? initial.type} · terkunci setelah Go-Live
+          </p>
+        ) : isEdit && !adalahTipeOutlet(initial?.type) ? (
           // Gudang/marketplace/tes dll. bukan outlet: tipenya yang mengeluarkan
           // mereka dari laporan, jadi tak bisa diganti dari sini.
           <p className="rounded-xl border border-suka-gray-200 bg-suka-gray-50 px-3 py-2 text-suka-gray-500">
@@ -262,6 +267,36 @@ export function OutletForm({
       <label className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Jam Tutup</span>
         <input type="time" className={inputCls} value={v.close_hour || '22:00'} onChange={(e) => set({ close_hour: e.target.value })} />
+      </label>
+
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">Telepon</span>
+        <input id="outlet-phone" className={inputCls} value={v.phone ?? ''} onChange={(e) => set({ phone: e.target.value })} />
+      </label>
+
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">Region</span>
+        <input id="outlet-region" className={inputCls} value={v.region ?? ''} onChange={(e) => set({ region: e.target.value })} />
+      </label>
+
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">Bank (kas kecil)</span>
+        <input id="outlet-bank-name" className={inputCls} value={v.bank_name ?? ''} onChange={(e) => set({ bank_name: e.target.value })} placeholder="BCA" />
+      </label>
+
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">No. rekening</span>
+        <input id="outlet-bank-number" inputMode="numeric" className={inputCls} value={v.bank_account_number ?? ''} onChange={(e) => set({ bank_account_number: e.target.value })} />
+      </label>
+
+      <label className="text-sm">
+        <span className="mb-1 block font-medium text-suka-ink">Atas nama rekening</span>
+        <input id="outlet-bank-holder" className={inputCls} value={v.bank_account_name ?? ''} onChange={(e) => set({ bank_account_name: e.target.value })} />
+      </label>
+
+      <label className="flex items-center gap-2 text-sm sm:col-span-1 self-end pb-2">
+        <input id="outlet-korlap-review" type="checkbox" checked={v.requires_korlap_review ?? true} onChange={(e) => set({ requires_korlap_review: e.target.checked })} />
+        <span className="font-medium text-suka-ink">Kas kecil perlu review korlap</span>
       </label>
 
       {/* Status Outlet (Custom UI - Dilarang Native Browser Controls) */}

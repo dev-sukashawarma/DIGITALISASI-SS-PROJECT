@@ -707,7 +707,7 @@ export function DownloadProfitDataModal({
                 <div className="max-h-48 overflow-y-auto space-y-1 pr-1 bg-white p-2 rounded-xl border border-suka-gray-200 divide-y divide-suka-gray-100">
                   {filteredOutletList.map(o => {
                     const isChecked = selectedOutletIds.includes(o.id)
-                    const isMitra = o.type === 'mitra' || o.name.toLowerCase().includes('mitra')
+                    const isMitra = o.type === 'mitra'
                     return (
                       <label
                         key={o.id}

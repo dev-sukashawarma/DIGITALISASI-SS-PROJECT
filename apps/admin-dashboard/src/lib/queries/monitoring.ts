@@ -434,13 +434,19 @@ export async function fetchWasteToday(): Promise<WasteTodaySummary> {
   return { count: entries.length, entries };
 }
 
-export async function fetchOutletsList() {
+/**
+ * Bawaan menyembunyikan outlet berstatus Persiapan (papan monitoring hanya untuk
+ * outlet yang sudah buka). `termasukPersiapan` dipakai pemilih opname/threshold,
+ * karena opname pertama outlet baru dikerjakan sebelum Go-Live.
+ */
+export async function fetchOutletsList(opsi: { termasukPersiapan?: boolean } = {}) {
   const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase
+  let q = supabase
     .from('outlets')
     .select('id, nama:name, slug, address, type')
-    .neq('id', TEST_OUTLET_ID)
-    .order('name');
+    .neq('id', TEST_OUTLET_ID);
+  if (opsi.termasukPersiapan !== true) q = q.neq('status', 'pending');
+  const { data, error } = await q.order('name');
 
   if (error) throw error;
   return data || [];

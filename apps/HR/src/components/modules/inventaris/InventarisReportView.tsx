@@ -35,7 +35,9 @@ const BASE_PATH = '/inventaris'
 export default function InventarisReportView({ outletId }: { outletId?: string }) {
   const { staffName } = useRole()
   const { data: outlets = [] } = useOutlets()
-  const outletOptions = useMemo<OutletOption[]>(() => outlets.map((o) => ({ id: o.id, name: o.name })), [outlets])
+  // Hanya outlet yang sudah buka: outlet Persiapan (is_active=false) dan outlet tutup
+  // tidak boleh tertandai "belum mengirim laporan".
+  const outletOptions = useMemo<OutletOption[]>(() => outlets.filter((o) => o.is_active !== false).map((o) => ({ id: o.id, name: o.name })), [outlets])
 
   return (
     <div className={`mx-auto w-full space-y-5 ${outletId ? 'max-w-[1600px]' : 'max-w-[1280px]'}`}>

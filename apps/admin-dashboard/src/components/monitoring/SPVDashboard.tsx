@@ -94,7 +94,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const wasteTodayQuery = useWasteToday();
   const { data: allOutlets = [] } = useQuery({
     queryKey: ['outlets_list_monitoring'],
-    queryFn: fetchOutletsList,
+    queryFn: () => fetchOutletsList(),
     staleTime: 60000,
   });
 

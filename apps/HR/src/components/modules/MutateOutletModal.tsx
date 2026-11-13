@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { bisaDitugaskan } from '@/lib/outletPenugasan'
 import {
   ArrowLeftRight,
   Building2,
@@ -54,7 +55,7 @@ export function MutateOutletModal({
 
   // Filter outlet tujuan: aktif dan bukan outlet asal
   const availableOutlets = outlets.filter(
-    (o) => o.is_active !== false && o.id !== originOutletId
+    (o) => bisaDitugaskan(o) && o.id !== originOutletId
   )
 
   useEffect(() => {

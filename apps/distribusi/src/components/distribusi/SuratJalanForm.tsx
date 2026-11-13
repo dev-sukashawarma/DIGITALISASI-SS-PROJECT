@@ -410,6 +410,7 @@ export function SuratJalanForm() {
                   {outlets.map((outlet) => (
                     <option key={outlet.id} value={outlet.id}>
                       {outlet.name.replace('SUKA SHAWARMA ', '').toUpperCase()}
+                      {outlet.status === 'pending' ? ' (PERSIAPAN)' : ''}
                     </option>
                   ))}
                 </select>

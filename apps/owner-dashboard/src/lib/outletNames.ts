@@ -23,6 +23,8 @@ export function fetchOutletNames(supabase: SupabaseClient): Promise<OutletName[]
       .from('outlets')
       .select('id,name')
       .neq('id', TEST_OUTLET_ID)
+      // Outlet berstatus Persiapan belum buka: jangan muncul di dashboard owner.
+      .neq('status', 'pending')
       .order('name')
     if (error) throw new Error(error.message)
     return (data ?? []) as OutletName[]

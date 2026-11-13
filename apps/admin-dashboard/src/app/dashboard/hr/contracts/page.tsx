@@ -15,7 +15,7 @@ export default function ContractsPage() {
   const [statusTab, setStatusTab] = useState<'all' | 'expiring_soon' | 'expired' | 'active'>('all')
 
   const { data: contracts = [], isLoading, updateContract } = useContracts(outletFilter)
-  const { data: outlets = [] } = useOutlets()
+  const { data: outlets = [] } = useOutlets(undefined, { termasukPersiapan: true })
 
   // Summary counts
   const summary = useMemo(() => {

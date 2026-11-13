@@ -34,7 +34,7 @@ function getWeekDates(offsetWeeks = 0): { start: string; end: string; dates: str
 
 export default function RosterPage() {
   const [weekOffset, setWeekOffset] = useState(0)
-  const { data: outlets = [] } = useOutlets()
+  const { data: outlets = [] } = useOutlets(undefined, { termasukPersiapan: true })
   const [selectedOutletId, setSelectedOutletId] = useState<string>('')
 
   // Set default outlet when loaded

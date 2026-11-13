@@ -15,7 +15,7 @@ import type { Outlet, OutletStatus } from './types'
 export const MANAGED_OUTLETS_KEY = ['outlets', 'manage'] as const
 
 export const OUTLET_COLUMNS =
-  'id, slug, name, address, lat, lng, type, is_active, status, marquee_warning_threshold, open_hour, close_hour, deleted_at'
+  'id, slug, name, address, lat, lng, type, is_active, status, marquee_warning_threshold, open_hour, close_hour, deleted_at, phone, region, bank_name, bank_account_number, bank_account_name, requires_korlap_review'
 
 export async function fetchManagedOutlets(supabase: SupabaseClient): Promise<Outlet[]> {
   const { data, error } = await supabase

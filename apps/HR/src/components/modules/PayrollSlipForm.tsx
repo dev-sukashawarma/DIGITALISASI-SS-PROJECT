@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { cekPotonganKasbonSlip } from '@/lib/kasbon/potonganSlip'
 import { isOjtStaff, calculateOjtBasicSalary } from '@/lib/ojtPayrollValidation'
 
 interface PayrollSlipFormProps {
@@ -88,6 +89,8 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
     count: number
     totalAmount: number
   } | null>(null)
+  // Disetujui HR tapi belum dicairkan finance: tidak boleh dipotong.
+  const [menungguCairInfo, setMenungguCairInfo] = useState<{ count: number; totalAmount: number } | null>(null)
 
   // Emergency Override Toggle for Master Data
   const [isOverrideEnabled, setIsOverrideEnabled] = useState(false)
@@ -241,12 +244,19 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
         const supabase = createClient()
         const { data: kasbons } = await supabase
           .from('cash_advances')
-          .select('id, amount, remaining, installment_months, status_hr')
+          .select('id, amount, remaining, installment_months, status, status_hr')
           .eq('staff_id', record.staff_id)
-          .eq('status', 'active')
+          .in('status', ['active', 'menunggu_cair'])
 
-        const approved = (kasbons || []).filter((k: any) => k.status_hr === 'approved')
+        // Hanya kasbon yang sudah dicairkan finance (status active) yang dipotong.
+        const approved = (kasbons || []).filter((k: any) => k.status_hr === 'approved' && k.status === 'active')
         const pending = (kasbons || []).filter((k: any) => k.status_hr === 'pending')
+        const menungguCair = (kasbons || []).filter((k: any) => k.status_hr === 'approved' && k.status === 'menunggu_cair')
+        setMenungguCairInfo(
+          menungguCair.length > 0
+            ? { count: menungguCair.length, totalAmount: menungguCair.reduce((a: number, k: any) => a + (Number(k.amount) || 0), 0) }
+            : null,
+        )
 
         if (pending.length > 0) {
           const totalPending = pending.reduce((acc: number, k: any) => acc + (Number(k.amount) || 0), 0)
@@ -322,6 +332,11 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
     Number(lateDeduction) +
     Number(otherDeduction)
   const takeHomePay = Math.max(0, totalEarnings - totalDeductions)
+  const galatPotonganKasbon = cekPotonganKasbonSlip(
+    Number(cashAdvanceDeduction) || 0,
+    liveKasbonInfo?.remaining ?? 0,
+    record.outlet_staff?.name ?? 'staf',
+  )
 
   const handleApplyLiveAttendance = () => {
     if (liveAttMinutes !== null) {
@@ -331,6 +346,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (galatPotonganKasbon) return
 
     const { bonus_note, deduction_note } = buildPayrollNotes({
       overtime: Number(overtime),
@@ -602,10 +618,20 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
                     value={cashAdvanceDeduction}
                     onChange={(e) => setCashAdvanceDeduction(Number(e.target.value))}
                     min={0}
+                    max={liveKasbonInfo?.remaining ?? 0}
                   />
                 </div>
               </div>
             </div>
+          )}
+
+          {galatPotonganKasbon && (
+            <p className="rounded-xl border border-red-300 bg-red-50 p-2.5 text-xs font-medium text-red-800">{galatPotonganKasbon}</p>
+          )}
+          {menungguCairInfo && (
+            <p className="rounded-xl border border-orange-200 bg-orange-50 p-2.5 text-xs text-orange-900">
+              <strong>{menungguCairInfo.count} kasbon menunggu pencairan ({formatRupiah(menungguCairInfo.totalAmount)})</strong> — belum dicairkan finance, jadi belum dipotong.
+            </p>
           )}
 
           {/* Pending Kasbon Alert (Hanya muncul jika ada pengajuan pending) */}
@@ -811,7 +837,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           </Button>
           <Button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || Boolean(galatPotonganKasbon)}
             className="rounded-xl font-bold bg-suka-orange hover:bg-suka-orange/90 text-white px-6 shadow-md cursor-pointer"
           >
             {submitting ? 'Menyimpan...' : 'Simpan Rincian Slip'}

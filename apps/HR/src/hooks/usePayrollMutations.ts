@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PayrollStatus, CashAdvanceStatus } from '@/lib/types'
+import { cekPotonganKasbonSlip, potonganKasbonSlip } from '@/lib/kasbon/potonganSlip'
 import { LATE_FEE_PER_MINUTE, dendaTelatBerlaku } from '@/lib/payrollBreakdown'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
 import { DEFAULT_PAYROLL_ALLOCATION, normalizePayrollAllocations, payrollAllocationError } from '@/lib/payrollAllocation'
@@ -255,6 +256,37 @@ function buildPayrollRecordRow({
     payroll_allocations: fin?.payroll_allocations ? payrollAllocations : DEFAULT_PAYROLL_ALLOCATION,
     status: 'draft' as PayrollStatus,
   }
+}
+
+
+/**
+ * Potongan kasbon di slip hanya boleh sebesar sisa kasbon yang sudah dicairkan finance
+ * (status 'active'). Kasbon manual di luar sistem ditolak — keputusan owner 13 Nov 2026.
+ */
+async function pastikanPotonganKasbonSah(
+  supabase: ReturnType<typeof createClient>,
+  slips: { staff_id: string; deduction_kasbon: number | null; deduction_note: string | null }[],
+): Promise<void> {
+  const diminta = new Map<string, number>()
+  for (const s of slips) {
+    const n = potonganKasbonSlip(s)
+    if (n > 0) diminta.set(s.staff_id, (diminta.get(s.staff_id) ?? 0) + n)
+  }
+  if (diminta.size === 0) return
+  const ids = [...diminta.keys()]
+  const [{ data: aktif, error: errAktif }, { data: staf, error: errStaf }] = await Promise.all([
+    supabase.from('cash_advances').select('staff_id, remaining').in('staff_id', ids).eq('status', 'active').eq('status_hr', 'approved'),
+    supabase.from('outlet_staff').select('id, name').in('id', ids),
+  ])
+  if (errAktif) throw errAktif
+  if (errStaf) throw errStaf
+  const sisa = new Map<string, number>()
+  for (const k of aktif ?? []) sisa.set(k.staff_id, (sisa.get(k.staff_id) ?? 0) + (Number(k.remaining) || 0))
+  const nama = new Map((staf ?? []).map((x) => [x.id, x.name as string]))
+  const galat = ids
+    .map((id) => cekPotonganKasbonSlip(diminta.get(id) ?? 0, sisa.get(id) ?? 0, nama.get(id) ?? 'staf'))
+    .filter((g): g is string => g !== null)
+  if (galat.length > 0) throw new Error(galat.join('\n'))
 }
 
 export function usePayrollMutations() {
@@ -646,13 +678,12 @@ export function usePayrollMutations() {
       const paymentDate = new Date().toISOString().split('T')[0]
       let settledKasbonCount = 0
 
+      // 2a. Potongan kasbon hanya dari kasbon yang sudah dicairkan finance (batal utuh bila ada yang tidak sah).
+      await pastikanPotonganKasbonSah(supabase, draftSlips)
+
       // 2. Process kasbon settlement for each draft slip
       for (const slip of draftSlips) {
-        let kasbonAmount = Number(slip.deduction_kasbon) || 0
-        if (kasbonAmount === 0 && slip.deduction_note) {
-          const m = slip.deduction_note.match(/kasbon[:\s]*rp?\s*([0-9.,]+)/i)
-          if (m) kasbonAmount = Number(m[1].replace(/[^0-9]/g, '')) || 0
-        }
+        const kasbonAmount = potonganKasbonSlip(slip)
 
         if (kasbonAmount > 0) {
           const { data: activeKasbons } = await supabase
@@ -695,32 +726,6 @@ export function usePayrollMutations() {
               remainingToDeduct -= deduct
               settledKasbonCount++
             }
-          } else {
-            // Manual kasbon on slip without existing cash_advances record: create completed record for audit
-            const { data: newAdv, error: createAdvErr } = await supabase
-              .from('cash_advances')
-              .insert({
-                staff_id: slip.staff_id,
-                amount: kasbonAmount,
-                remaining: 0,
-                reason: `Potongan Kasbon Payroll Periode ${month}/${year} (Otomatis via Slip)`,
-                status: 'paid_off',
-                status_hr: 'approved',
-                installment_months: 1,
-                approved_at: new Date().toISOString(),
-              })
-              .select('id')
-              .single()
-
-            if (!createAdvErr && newAdv?.id) {
-              await supabase.from('cash_advance_payments').insert({
-                cash_advance_id: newAdv.id,
-                amount: kasbonAmount,
-                payment_date: paymentDate,
-                note: `Pelunasan otomatis via Slip Payroll Periode ${month}/${year}`,
-              })
-              settledKasbonCount++
-            }
           }
         }
       }
@@ -760,12 +765,10 @@ export function usePayrollMutations() {
       if (!slip) throw new Error('Slip tidak ditemukan.')
       if (slip.status === 'finalized') throw new Error('Slip sudah berstatus final.')
 
+      await pastikanPotonganKasbonSah(supabase, [slip])
+
       const paymentDate = new Date().toISOString().split('T')[0]
-      let kasbonAmount = Number(slip.deduction_kasbon) || 0
-      if (kasbonAmount === 0 && slip.deduction_note) {
-        const m = slip.deduction_note.match(/kasbon[:\s]*rp?\s*([0-9.,]+)/i)
-        if (m) kasbonAmount = Number(m[1].replace(/[^0-9]/g, '')) || 0
-      }
+      const kasbonAmount = potonganKasbonSlip(slip)
 
       if (kasbonAmount > 0) {
         const { data: activeKasbons } = await supabase
@@ -804,30 +807,6 @@ export function usePayrollMutations() {
               .eq('id', adv.id)
 
             remainingToDeduct -= deduct
-          }
-        } else {
-          const { data: newAdv, error: createAdvErr } = await supabase
-            .from('cash_advances')
-            .insert({
-              staff_id: slip.staff_id,
-              amount: kasbonAmount,
-              remaining: 0,
-              reason: `Potongan Kasbon Payroll Periode ${slip.period_month}/${slip.period_year} (Otomatis via Slip)`,
-              status: 'paid_off',
-              status_hr: 'approved',
-              installment_months: 1,
-              approved_at: new Date().toISOString(),
-            })
-            .select('id')
-            .single()
-
-          if (!createAdvErr && newAdv?.id) {
-            await supabase.from('cash_advance_payments').insert({
-              cash_advance_id: newAdv.id,
-              amount: kasbonAmount,
-              payment_date: paymentDate,
-              note: `Pelunasan otomatis via Slip Payroll Periode ${slip.period_month}/${slip.period_year}`,
-            })
           }
         }
       }

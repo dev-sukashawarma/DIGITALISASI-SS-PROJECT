@@ -39,8 +39,8 @@ standar waktu: semua dikerjakan manual. Pelajaran mahal: 3 outlet mitra dibuat J
 | AM ditautkan | Admin | Wajib | `am_outlet_assignments` |
 | Crew terdaftar (≥1 aktif) | HR | Wajib | `outlet_staff` |
 | Leader ditautkan | Admin / HR | Peringatan | `staff_outlets` |
-| Stok awal: SJ dikirim **dan** diverifikasi | Kitchen | Wajib | `surat_jalan` ke outlet |
-| Opname pertama | Leader/crew | Wajib | `opname` finalized |
+| Stok awal: SJ dikirim **dan** diverifikasi | Kitchen | Peringatan (revisi owner 13 Nov) | `surat_jalan` ke outlet |
+| Opname pertama | Leader/crew | Peringatan (revisi owner 13 Nov) | `opname` finalized |
 | Tanggal grand opening | Admin | Wajib (boleh kosong saat outlet dibuat) | `outlets.tanggal_grand_opening` |
 | Mitra: investasi + akun login | Admin | Wajib (mitra) | `mitra_investments`, `mitra_profiles` |
 | Mitra: masa RAB | Admin | Peringatan | `rab_outlet_otomatis` |
@@ -49,6 +49,8 @@ standar waktu: semua dikerjakan manual. Pelajaran mahal: 3 outlet mitra dibuat J
 Revisi owner 13 Nov (sesudah rilis): langkah **Jadwal absensi & checklist harian** dan **Target harian** dibuang dari papan; keduanya diatur di halaman masing-masing setelah outlet buka.
 
 **Go-Live paksa** (revisi owner 13 Nov): admin & developer boleh Go-Live walau langkah wajib belum selesai, dengan **alasan wajib (min 10 karakter)**. Alasan + kunci langkah yang dilewati dicatat di `outlet_pembukaan_log` (aksi `go_live`, `detail.paksa = true`). Migration `20261113160000`.
+
+**Stok awal & opname pertama jadi Peringatan** (revisi owner 13 Nov, migration `20261113170000`): tetap tampil di papan, tapi tidak mengunci Go-Live. Langkah wajib kini: data outlet, AM, crew ≥1, tanggal grand opening, dan (mitra) investasi + akun.
 
 ## Yang wajib dicek saat perencanaan
 

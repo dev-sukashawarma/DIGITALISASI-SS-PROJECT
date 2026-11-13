@@ -47,7 +47,7 @@ BEGIN
   SELECT * INTO lg FROM public.outlet_pembukaan_log WHERE outlet_id = v_o AND aksi = 'go_live';
   IF lg.alasan IS DISTINCT FROM 'Grand opening besok, stok menyusul' THEN RAISE EXCEPTION 'ASERSI GAGAL c: alasan %', lg.alasan; END IF;
   IF NOT (lg.detail->>'paksa')::boolean THEN RAISE EXCEPTION 'ASERSI GAGAL c: log tanpa paksa'; END IF;
-  IF NOT (lg.detail->'langkah_dilewati') ? 'stok_awal' OR NOT (lg.detail->'langkah_dilewati') ? 'crew' THEN
+  IF NOT (lg.detail->'langkah_dilewati') ? 'crew' OR (lg.detail->'langkah_dilewati') ? 'stok_awal' THEN
     RAISE EXCEPTION 'ASERSI GAGAL c: langkah_dilewati %', lg.detail->'langkah_dilewati';
   END IF;
 

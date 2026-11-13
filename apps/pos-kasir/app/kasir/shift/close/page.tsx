@@ -311,7 +311,7 @@ export default function CloseShiftPage() {
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
     if (!isClosingAllowed) { setErrorMsg('Penutupan shift hanya dapat dilakukan antara jam 22:00 hingga 06:00.'); return }
     if (pendingExpenseCount > 0) {
-      setErrorMsg(`Tidak dapat menutup shift: masih ada ${pendingExpenseCount} pengajuan pengeluaran Petty Cash yang menunggu approval Finance.`)
+      setErrorMsg(`Tidak dapat menutup shift: masih ada ${pendingExpenseCount} pengajuan pengeluaran Petty Cash yang menunggu approval AM.`)
       return
     }
     const confirmed = await showConfirm('Tutup shift sekarang? Setelah ditutup Anda tidak bisa melakukan transaksi tunai.')
@@ -341,7 +341,7 @@ export default function CloseShiftPage() {
       setSnapshotPendingTotal(latestPendingTotal)
 
       if (latestPendingCount > 0) {
-        throw new Error(`Tidak dapat menutup shift: masih ada ${latestPendingCount} pengajuan pengeluaran Petty Cash (${formatRupiah(latestPendingTotal)}) yang menunggu approval Finance.`)
+        throw new Error(`Tidak dapat menutup shift: masih ada ${latestPendingCount} pengajuan pengeluaran Petty Cash (${formatRupiah(latestPendingTotal)}) yang menunggu approval AM.`)
       }
 
       const latestPettyCashBalance = Number(snap.current_balance) || 0
@@ -430,10 +430,10 @@ export default function CloseShiftPage() {
             <Clock className="w-5 h-5 mt-0.5 shrink-0 text-red-600" />
             <div>
               <p className="font-bold text-red-900">
-                Tutup Shift Dikunci: {pendingExpenseCount} Pengajuan Petty Cash Menunggu Approval Finance ({formatRupiah(pendingExpensesTotal)})
+                Tutup Shift Dikunci: {pendingExpenseCount} Pengajuan Petty Cash Menunggu Approval AM ({formatRupiah(pendingExpensesTotal)})
               </p>
               <p className="text-xs text-red-700 mt-0.5 leading-relaxed">
-                Hubungi Finance untuk menyetujui atau menolak pengajuan terlebih dahulu, atau batalkan pengajuan yang salah di halaman Petty Cash sebelum menutup shift.
+                Hubungi AM outlet Anda untuk menyetujui atau menolak pengajuan terlebih dahulu, atau batalkan pengajuan yang salah di halaman Petty Cash sebelum menutup shift.
               </p>
             </div>
           </div>
@@ -536,7 +536,7 @@ export default function CloseShiftPage() {
                   </div>
                   <button type="submit" disabled={isSubmitting || !isClosingAllowed || pendingExpenseCount > 0} className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3.5 mt-2 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
-                    {pendingExpenseCount > 0 ? 'Menunggu Approval Finance' : 'Kunci & Tutup Shift'}
+                    {pendingExpenseCount > 0 ? 'Menunggu Approval AM' : 'Kunci & Tutup Shift'}
                   </button>
                   <p className="text-[11px] text-gray-400 mt-1">Setelah shift ditutup, Anda akan diarahkan ke halaman Laporan.</p>
                 </form>

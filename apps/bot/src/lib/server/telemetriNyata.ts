@@ -357,6 +357,9 @@ export interface KasbonHrdTelemetri {
   totalPendingNominal: number
   totalAktifCount: number
   totalSisaPiutang: number
+  /** Disetujui HR, belum dicairkan finance (status menunggu_cair). */
+  totalMenungguCairCount: number
+  totalMenungguCairNominal: number
   daftarPendingTerbaru: KasbonItemTelemetri[]
 }
 
@@ -1638,7 +1641,7 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
         .select(
           'id, staff_id, amount, amount_requested, remaining, reason, status, status_hr, created_at, outlet_staff:outlet_staff!cash_advances_staff_id_fkey(name, role, outlet_id, outlets:outlets!outlet_staff_outlet_id_fkey(name))'
         )
-        .in('status', ['pending', 'active'])
+        .in('status', ['pending', 'active', 'menunggu_cair'])
         .order('created_at', { ascending: false })
         .limit(60)
         .then((r: any) => r, () => ({ data: [] })),
@@ -2652,6 +2655,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
     let totalPendingCount = 0
     let totalPendingNominal = 0
     let totalAktifCount = 0
+    let totalMenungguCairCount = 0
+    let totalMenungguCairNominal = 0
     let totalSisaPiutang = 0
     const daftarPendingTerbaru: KasbonItemTelemetri[] = []
 
@@ -2678,6 +2683,9 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
           status: 'pending',
           tanggal: kb.created_at ? String(kb.created_at).slice(0, 10) : tglStr,
         })
+      } else if (kb.status === 'menunggu_cair' && kb.status_hr === 'approved') {
+        totalMenungguCairCount++
+        totalMenungguCairNominal += nominal
       } else if (kb.status === 'active') {
         totalAktifCount++
         totalSisaPiutang += sisa
@@ -2689,6 +2697,8 @@ async function muatTelemetriNyataInternal(): Promise<TelemetriHariIni | null> {
       totalPendingNominal,
       totalAktifCount,
       totalSisaPiutang,
+      totalMenungguCairCount,
+      totalMenungguCairNominal,
       daftarPendingTerbaru: daftarPendingTerbaru.slice(0, 5),
     }
 

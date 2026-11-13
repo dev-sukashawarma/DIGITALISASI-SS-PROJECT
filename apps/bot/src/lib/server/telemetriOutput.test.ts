@@ -378,6 +378,8 @@ describe('Bot CEO Cross-App Integrated Output Verification', () => {
         totalPendingNominal: 1500000,
         totalAktifCount: 5,
         totalSisaPiutang: 4200000,
+        totalMenungguCairCount: 0,
+        totalMenungguCairNominal: 0,
         daftarPendingTerbaru: [
           {
             id: 'kb-1',

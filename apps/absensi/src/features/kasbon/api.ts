@@ -2,8 +2,9 @@ import { createClient } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type KasbonStatus = 'pending' | 'approved' | 'rejected' | 'not_required';
-// DB CHECK constraint on cash_advances.status only allows these two (disbursement lifecycle, NOT approval state)
-export type KasbonDisbursementStatus = 'active' | 'paid_off';
+// cash_advances.status = siklus uang (bukan persetujuan): menunggu_cair (disetujui HR, belum dicairkan finance) → active → paid_off.
+// Pengajuan baru berstatus 'active' karena default DB; yang membedakan adalah status_hr.
+export type KasbonDisbursementStatus = 'active' | 'paid_off' | 'menunggu_cair';
 
 export interface CashAdvance {
   id: string;
@@ -14,6 +15,8 @@ export interface CashAdvance {
   status_spv: KasbonStatus;
   status_hr: KasbonStatus; // real approval column
   status: KasbonDisbursementStatus; // disbursement/payoff state, not approval
+  dicairkan_at: string | null;
+  rejection_note: string | null;
   created_at: string;
 }
 

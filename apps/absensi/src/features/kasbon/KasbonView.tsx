@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useAuth } from "@suka/auth";
 import { Banknote, Clock, CheckCircle2, XCircle, Plus, Info } from "lucide-react";
 import { useKasbonHistory, useSubmitKasbon, useBatalkanKasbon } from "./api";
+import { tahapKasbon, type NadaKasbon } from "./tahapKasbon";
 import { TombolBatalkan } from "@/components/TombolBatalkan";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -17,10 +18,21 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 /** Garis warna di sisi kiri kartu riwayat — status terbaca sekilas tanpa membaca lencana. */
-const aksenStatus = (spv: string, hr: string) =>
-  hr === 'approved' ? 'border-l-emerald-500'
-  : hr === 'rejected' || spv === 'rejected' ? 'border-l-rose-500'
-  : 'border-l-amber-400';
+const AKSEN: Record<NadaKasbon, string> = {
+  menunggu: 'border-l-amber-400',
+  proses: 'border-l-orange-400',
+  sukses: 'border-l-emerald-500',
+  lunas: 'border-l-slate-400',
+  tolak: 'border-l-rose-500',
+};
+
+const LENCANA: Record<NadaKasbon, string> = {
+  menunggu: 'bg-amber-100 text-amber-700',
+  proses: 'bg-orange-100 text-orange-700',
+  sukses: 'bg-green-100 text-green-700',
+  lunas: 'bg-slate-100 text-slate-600',
+  tolak: 'bg-red-100 text-red-700',
+};
 
 export function KasbonView() {
   const { outletStaff } = useAuth();
@@ -99,14 +111,9 @@ export function KasbonView() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
   };
 
-  const getStatusBadge = (spv: string, hr: string) => {
-    if (hr === 'approved' && (spv === 'approved' || spv === 'not_required')) {
-      return <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1"><CheckCircle2 size={14}/> Disetujui</span>;
-    }
-    if (hr === 'rejected' || spv === 'rejected') {
-      return <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full flex items-center gap-1"><XCircle size={14}/> Ditolak</span>;
-    }
-    return <span className="px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full flex items-center gap-1"><Clock size={14}/> Menunggu Persetujuan</span>;
+  const getStatusBadge = (nada: NadaKasbon, label: string) => {
+    const Ikon = nada === 'tolak' ? XCircle : nada === 'sukses' || nada === 'lunas' ? CheckCircle2 : Clock;
+    return <span className={`px-2.5 py-1 ${LENCANA[nada]} text-xs font-semibold rounded-full flex items-center gap-1`}><Ikon size={14}/> {label}</span>;
   };
 
   return (
@@ -215,10 +222,12 @@ export function KasbonView() {
             <div className="p-8 text-center text-gray-500">Memuat data...</div>
           ) : history && history.length > 0 ? (
             <div className="bg-slate-50/70 p-3 sm:p-5 space-y-4">
-              {history.map((item) => (
+              {history.map((item) => {
+                const tahap = tahapKasbon(item);
+                return (
                 <article
                   key={item.id}
-                  className={`bg-white rounded-2xl border border-slate-200 border-l-4 ${aksenStatus(item.status_spv, item.status_hr)} shadow-sm p-4 sm:p-5`}
+                  className={`bg-white rounded-2xl border border-slate-200 border-l-4 ${AKSEN[tahap.nada]} shadow-sm p-4 sm:p-5`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3">
@@ -230,8 +239,13 @@ export function KasbonView() {
                           Diajukan {dayjs(item.created_at).tz('Asia/Jakarta').format('DD MMM YYYY')}
                         </p>
                       </div>
-                      <div className="shrink-0">{getStatusBadge(item.status_spv, item.status_hr)}</div>
+                      <div className="shrink-0">{getStatusBadge(tahap.nada, tahap.label)}</div>
                     </div>
+                    {tahap.catatan && (
+                      <p className={`mt-2 text-xs font-medium ${tahap.nada === 'tolak' ? 'text-red-600' : 'text-slate-500'}`}>
+                        {tahap.nada === 'tolak' ? `Alasan ditolak: ${tahap.catatan}` : tahap.catatan}
+                      </p>
+                    )}
                     <div className="mt-3">
                       <span className="inline-flex items-center bg-slate-100 text-slate-600 text-sm font-semibold px-3 py-1.5 rounded-xl">
                         Dicicil {item.installment_months} bulan
@@ -253,7 +267,8 @@ export function KasbonView() {
                     )}
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="p-12 text-center flex flex-col items-center justify-center">

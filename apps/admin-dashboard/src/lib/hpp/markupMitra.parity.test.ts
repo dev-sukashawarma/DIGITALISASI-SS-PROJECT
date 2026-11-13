@@ -82,6 +82,22 @@ describe('Paritas markup HPP mitra lintas app + DB', () => {
     }
   })
 
+  it('kolom HPP Mitra di tabel Resep & HPP memakai markup, bukan HPP pusat mentah', () => {
+    // Bug 13 Nov 2026: konstanta 1,15 ada di berkas, tapi kolom HPP/Profit Mitra
+    // menampilkan Math.round(hppPusat) -- sisa aturan Oktober x1,00.
+    for (const rel of [
+      'apps/admin-dashboard/src/app/dashboard/resep/HppDashboardView.tsx',
+      'apps/manager/src/app/resep/HppDashboardView.tsx',
+    ]) {
+      const src = baca(rel)
+      expect(
+        /mitraHpp\s*=\s*[^;]*Math\.round\(\s*ch\.hppPusat\s*\)/.test(src),
+        `${rel}: HPP Mitra di tabel masih = HPP pusat tanpa markup`,
+      ).toBe(false)
+      expect(src).toMatch(/mitraHpp\s*=\s*[^;]*hitungHppMitraUi\(\s*ch\.hppPusat\s*\)/)
+    }
+  })
+
   it('kedua salinan posReport/compute.ts tetap identik byte-per-byte', () => {
     const norm = (s: string) => s.replace(/\r\n/g, '\n').trimEnd()
     expect(norm(baca('apps/finance/src/lib/posReport/compute.ts'))).toBe(

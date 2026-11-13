@@ -869,7 +869,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                       <td className="py-4 text-right align-middle">
                         <div className="flex flex-col">
                           {channelRows.map((ch, cIdx) => {
-                            const mitraHpp = ch.hppPusat !== null ? Math.round(ch.hppPusat) : null;
+                            const mitraHpp = ch.hppPusat !== null ? hitungHppMitraUi(ch.hppPusat) : null;
                             return (
                               <div key={`hpp-mtr-${cIdx}`} className={`${rowClasses} justify-end px-5`}>
                                 <span className="font-bold text-blue-600">
@@ -906,7 +906,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                       <td className="py-4 text-right">
                         <div className="flex flex-col">
                           {channelRows.map((ch, cIdx) => {
-                            const mitraHpp = ch.hppPusat !== null ? Math.round(ch.hppPusat) : null;
+                            const mitraHpp = ch.hppPusat !== null ? hitungHppMitraUi(ch.hppPusat) : null;
                             const profitMitra = mitraHpp !== null ? ch.price - mitraHpp : null;
                             return (
                               <div key={`pft-mtr-${cIdx}`} className={`${rowClasses} justify-end gap-2 px-5`}>

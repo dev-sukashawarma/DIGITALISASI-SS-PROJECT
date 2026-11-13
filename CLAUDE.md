@@ -3872,8 +3872,23 @@ Pemicu: admin finance mencoba menjadikan kas kecil "lalamove sayur" Mitra Karawa
 - 🔴 **Insiden 11 Nov sore:** sinkron Dana RAB Marcom menulis `cash_location_id: null` → saat tim Marcom mengganti Sumber Dana, 8 potongan rekening opening Karawaci (Rp 1.096.600) ter-void di Rekening & Mutasi. Diperbaiki `10bb69b31` (kolom tak ditulis lagi) + dipulihkan di DB (rekening & `occurred_at` asli dari transaksi void terakhir). Pelajaran: **sinkron apa pun ke `expenses` tidak boleh menulis `cash_location_id`** — rekening diatur finance.
 - ⚠️ Migration paralel `20261111161500_petty_cash_expense_finance_approval` (approval kas kecil, belum terstempel di DB) mendefinisikan ulang `get_mitra_roi` & `get_owner_dashboard_summary` penuh — berkasnya sudah diberi `type <> 'rab'` supaya `db push` tidak menghapus saringan RAB. Siapa pun yang menulis ulang kedua fungsi itu WAJIB mempertahankan `type <> 'rab'` (uji: `t2_kas_kecil.sql`).
 
+## Session 2026-11-13: Kasbon — HR Menyetujui Nilai, Finance Mencairkan (DB + finance + HR + admin + absensi + bot)
+
+**Status:** Kode di branch `feat/kasbon-pencairan-finance`. 3 migration (`20261113140000_kasbon_cair_skema_penjaga`, `141000_kasbon_cair_rpc`, `142000_kasbon_cair_ringkasan_hr`) **diuji di transaksi ROLLBACK, BELUM di-apply** — wajib diterapkan (izin owner) **tepat sebelum merge**: kalau diterapkan duluan, persetujuan HR di app lama jadi `menunggu_cair` tanpa tombol cair dan tombol Bayar Cicilan HR error. Deploy app otomatis saat merge (finance, HR, admin-dashboard, absensi, bot).
+
+**Spec/plan:** `docs/superpowers/specs/2026-11-13-kasbon-pencairan-finance-design.md`, `docs/superpowers/plans/2026-11-13-kasbon-pencairan-finance.md`. Uji `supabase/verifikasi/kasbon_cair/t1–t3`, pemantau `pemantau.sql`.
+
+- **Alur:** crew ajukan → HR setuju NILAI (`status_hr='approved'`, `status='menunggu_cair'`, belum dipotong gaji) → finance cairkan di **Hub Approval** dari **Rekening Petty Cash Bank/Tunai** + bukti wajib (`status='active'`, mulai dipotong) atau tolak final. Sebelumnya kasbon tak pernah tercatat di rekening (0 baris `cash_transaction` kasbon untuk 54 kasbon disetujui).
+- **Keputusan owner (13 Nov):** hanya HR yang mengubah pengajuan, finance cair/tolak saja · kasbon manual di slip gaji DITUTUP (potongan slip ≤ sisa kasbon yang sudah cair; fallback finalisasi yang membuat kasbon `paid_off` dihapus) · finance bisa **batal pencairan** selama belum dicicil (transaksi di-void, kasbon kembali `menunggu_cair`) · **pencair ≠ penyetuju HR** (`approved_by` kini diisi trigger; kosong di 49 kasbon lama).
+- **DB:** CHECK `status` + `menunggu_cair`; trigger `trg_cash_advances_00_jaga_cair` memaksa `menunggu_cair` pada setiap persetujuan, menolak `menunggu_cair↔active` tanpa flag `app.kasbon_cair` (hanya RPC), mengunci nominal/cicilan setelah cair, melarang tolak setelah cair, menolak INSERT `paid_off` dari sesi user (impor service role tetap boleh). `trg_cash_advance_payments_jaga_cair` menolak cicilan sebelum cair. RPC `finance_kasbon_menunggu/cairkan/tolak/batal_cair_kasbon` (peran `kasbon_pencair_ok()` = `kas_pencatat_ok()` + developer; **jangan `is_finance()`**). `approval_log` jenis `kasbon`, keputusan `batal_cair`. Push crew saat cair/tolak finance.
+- **Tolak finance** = `status_hr='rejected'` + `ditolak_finance_at` + `rejection_note` berawalan `[Ditolak Finance] `.
+- **Data lama:** 5 kasbon aktif dianggap sudah dicairkan (`dicairkan_at` NULL → "Dicairkan sebelum alur finance"), tanpa transaksi mundur.
+- `apps/{HR,admin-dashboard}/src/lib/kasbon/statusKasbon.ts` **identik** — ubah keduanya bersamaan. admin-dashboard ikut dibetulkan: approve dulu tak menyentuh `status_hr`, reject melanggar CHECK, generate payroll memotong kasbon pending.
+- ⚠️ **Utang replay:** `trg_fn_crew_kasbon_status_push` (2030 `20300254010600`) dan `hr_kasbon_daftar` (2030 `20300254001100`) terurut sesudah migration ini.
+- Temuan tak diperbaiki: bot telemetri menghitung kasbon ditolak HR (status `active`) sebagai aktif.
+
 ---
 
-**Last updated:** 2026-11-11  
+**Last updated:** 2026-11-13  
 **Owner:** Dev Suka Shawarma
 

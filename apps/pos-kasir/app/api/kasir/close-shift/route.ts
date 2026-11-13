@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       .eq('status', 'open')
 
     if (error) {
-      const isBusinessRuleBlock = error.code === 'P0001' || (error.message || '').includes('menunggu approval Finance')
+      const isBusinessRuleBlock = error.code === 'P0001' || (error.message || '').includes('menunggu approval')
       if (isBusinessRuleBlock) {
         return NextResponse.json({ error: error.message }, { status: 400 })
       }

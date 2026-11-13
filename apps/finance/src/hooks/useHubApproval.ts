@@ -2,10 +2,6 @@
 
 import { useMemo } from 'react'
 import { usePettyCashMenunggu, usePettyCashCount } from '@/hooks/usePettyCash'
-import {
-  usePettyCashExpensesMenunggu,
-  usePettyCashExpensesPendingCount,
-} from '@/hooks/usePettyCashExpenseApproval'
 import { usePendingPos, usePendingPoCount } from '@/hooks/usePoApproval'
 import { usePayablePos, useTxBayarPo, useBayarVendorPendingCount } from '@/hooks/useSupplierSettlement'
 import { useOfficeVouchers } from '@/hooks/useOfficeVouchers'
@@ -15,7 +11,6 @@ import {
   hitungPerJenis,
   itemDariBayarVendor,
   itemDariKasbon,
-  itemDariPengeluaranPettyCash,
   itemDariPettyCash,
   itemDariPo,
   itemDariVoucher,
@@ -27,7 +22,11 @@ function tanpaNull(items: (HubItem | null)[]): HubItem[] {
   return items.filter((i): i is HubItem => i !== null)
 }
 
-/** Semua pekerjaan yang menunggu admin finance, digabung dari seluruh sumber. */
+/**
+ * Semua pekerjaan yang menunggu admin finance, digabung dari seluruh sumber.
+ * Pengeluaran petty cash POS TIDAK lagi di sini: sejak 13 Nov 2026 disetujui AM
+ * outlet binaan di app Manager (migrasi 20261113100000_petty_cash_expense_approval_am).
+ */
 export function useHubApproval(enabled: boolean): {
   items: HubItem[]
   galat: HubJenis[]
@@ -35,7 +34,6 @@ export function useHubApproval(enabled: boolean): {
   perJenis: Record<HubJenis, number>
 } {
   const petty = usePettyCashMenunggu(enabled)
-  const pettyExp = usePettyCashExpensesMenunggu(enabled)
   const kasbon = useKasbonMenunggu(enabled)
   const po = usePendingPos(enabled)
   const vendor = usePayablePos(enabled)
@@ -49,12 +47,6 @@ export function useHubApproval(enabled: boolean): {
         items: tanpaNull((petty.data ?? []).map(itemDariPettyCash)),
         isLoading: petty.isLoading,
         error: petty.error,
-      },
-      {
-        jenis: ['pengeluaran_petty_cash'],
-        items: tanpaNull((pettyExp.data ?? []).map(itemDariPengeluaranPettyCash)),
-        isLoading: pettyExp.isLoading,
-        error: pettyExp.error,
       },
       {
         jenis: ['kasbon'],
@@ -79,7 +71,6 @@ export function useHubApproval(enabled: boolean): {
     return { ...hasil, perJenis: hitungPerJenis(hasil.items) }
   }, [
     petty.data, petty.isLoading, petty.error,
-    pettyExp.data, pettyExp.isLoading, pettyExp.error,
     kasbon.data, kasbon.isLoading, kasbon.error,
     po.data, po.isLoading, po.error,
     vendor.data, vendor.isLoading, vendor.error,
@@ -92,7 +83,6 @@ export function useHubApproval(enabled: boolean): {
 export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat: boolean } {
   const pettyAcc = usePettyCashCount('forwarded_to_finance', enabled)
   const pettySerah = usePettyCashCount('approved_by_finance', enabled)
-  const pettyExp = usePettyCashExpensesPendingCount(enabled)
   const kasbon = useKasbonMenungguCount(enabled)
   const po = usePendingPoCount(enabled)
   const vendor = useBayarVendorPendingCount(enabled)
@@ -102,13 +92,12 @@ export function useHubApprovalCount(enabled: boolean): { total: number; adaGalat
   const total =
     (pettyAcc.data ?? 0) +
     (pettySerah.data ?? 0) +
-    (pettyExp.data ?? 0) +
     (kasbon.data ?? 0) +
     (po.data ?? 0) +
     (vendor.data ?? 0) +
     danaKantor
   const adaGalat = Boolean(
-    pettyAcc.error || pettySerah.error || pettyExp.error || kasbon.error || po.error || vendor.error || voucher.error,
+    pettyAcc.error || pettySerah.error || kasbon.error || po.error || vendor.error || voucher.error,
   )
   return { total, adaGalat }
 }

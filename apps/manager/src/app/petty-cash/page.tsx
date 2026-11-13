@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getAreaManagerPettyCashTopups } from './actions'
+import { PengeluaranKasirPanel, usePengeluaranMenunggu } from './PengeluaranKasirPanel'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@suka/auth'
@@ -248,7 +249,8 @@ function PettyCashContent() {
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
 
   // Status Filters
-  const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
+  const [activeTab, setActiveTab] = useState<'review' | 'pengeluaran' | 'history'>('review')
+  const pengeluaran = usePengeluaranMenunggu(globalOutletId)
   const [reviewFilter, setReviewFilter] = useState<'all' | 'unapproved' | 'ready_handover'>('all')
   const [historyFilter, setHistoryFilter] = useState<'all' | 'acc_finance' | 'forwarded_leader' | 'completed' | 'rejected'>('all')
 
@@ -459,6 +461,7 @@ function PettyCashContent() {
       <div className="bg-slate-100/70 p-1 rounded-lg inline-flex w-full sm:w-auto">
         {[
           { id: 'review', label: 'Butuh Review', count: allReview.length },
+          { id: 'pengeluaran', label: 'Pengeluaran Kasir', count: pengeluaran.items.length },
           { id: 'history', label: 'Riwayat', count: allHistory.length }
         ].map(tab => {
           const isActive = activeTab === tab.id
@@ -483,7 +486,17 @@ function PettyCashContent() {
         })}
       </div>
 
+      {activeTab === 'pengeluaran' && (
+        <PengeluaranKasirPanel
+          items={pengeluaran.items}
+          loading={pengeluaran.loading}
+          proses={pengeluaran.proses}
+          onLihatStruk={setSelectedProofUrl}
+        />
+      )}
+
       {/* Filters Area */}
+      {activeTab !== 'pengeluaran' && (<>
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200/60 pb-4">
         
         {/* Status Filters */}
@@ -718,6 +731,7 @@ function PettyCashContent() {
           </AnimatePresence>
         )}
       </div>
+      </>)}
 
       <ProofImageLightbox imageUrl={selectedProofUrl} onClose={() => setSelectedProofUrl(null)} />
     </div>

@@ -97,7 +97,10 @@ export function MenungguPanel({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7" role="group" aria-label="Saring menurut jenis pengajuan">
         {kartu('semua', 'Semua', items.length, totalSemua, false)}
-        {URUTAN_JENIS.map((j) => kartu(j, JENIS_LABEL[j], perJenis[j], totalJenis[j], galat.includes(j)))}
+        {/* Pengeluaran petty cash POS kini disetujui AM di app Manager (13 Nov 2026), bukan Finance. */}
+        {URUTAN_JENIS.filter((j) => j !== 'pengeluaran_petty_cash').map((j) =>
+          kartu(j, JENIS_LABEL[j], perJenis[j], totalJenis[j], galat.includes(j)),
+        )}
       </div>
 
       {galat.length > 0 && (

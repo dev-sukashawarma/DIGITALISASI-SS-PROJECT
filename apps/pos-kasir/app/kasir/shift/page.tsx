@@ -532,7 +532,7 @@ export default function CashierShiftPage() {
       if (amount > availablePettyCashBalance) {
         if (pendingExpensesTotal > 0) {
           throw new Error(
-            `Sisa kuota Petty Cash tidak mencukupi. Saldo saat ini ${formatRupiah(pettyCashBalance)}, tertahan pengajuan menunggu Finance ${formatRupiah(pendingExpensesTotal)}, sisa kuota: ${formatRupiah(availablePettyCashBalance)}.`
+            `Sisa kuota Petty Cash tidak mencukupi. Saldo saat ini ${formatRupiah(pettyCashBalance)}, tertahan pengajuan menunggu AM ${formatRupiah(pendingExpensesTotal)}, sisa kuota: ${formatRupiah(availablePettyCashBalance)}.`
           )
         }
         throw new Error(`Saldo Petty Cash tidak mencukupi. Sisa saldo: ${formatRupiah(pettyCashBalance)}`)
@@ -561,7 +561,7 @@ export default function CashierShiftPage() {
         throw error
       }
 
-      setSuccessMsg('Pengeluaran berhasil diajukan dan menunggu approval Finance')
+      setSuccessMsg('Pengeluaran berhasil diajukan dan menunggu approval AM')
       setExpAmount('')
       setExpDesc('')
       setExpCategory('pengeluaran_outlet')
@@ -708,7 +708,7 @@ export default function CashierShiftPage() {
             {pendingExpensesCount > 0 && (
               <div className="flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2 rounded-lg text-xs font-bold">
                 <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>{pendingExpensesCount} Pengajuan Menunggu Finance</span>
+                <span>{pendingExpensesCount} Pengajuan Menunggu AM</span>
               </div>
             )}
             <Link
@@ -838,7 +838,7 @@ export default function CashierShiftPage() {
                   <div className="mt-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 space-y-1">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800">
                       <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>Menunggu Approval Finance: {formatRupiah(pendingExpensesTotal)} ({pendingExpensesCount})</span>
+                      <span>Menunggu Approval AM: {formatRupiah(pendingExpensesTotal)} ({pendingExpensesCount})</span>
                     </div>
                     <p className="text-[11px] font-semibold text-amber-700">
                       Sisa Kuota Belanja: {formatRupiah(availablePettyCashBalance)}
@@ -867,7 +867,7 @@ export default function CashierShiftPage() {
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-800">
                     <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <span>
-                      Pengeluaran akan masuk antrean <b>Approval Finance</b>. Saldo Petty Cash baru terpotong setelah disetujui Finance, dan shift tidak dapat ditutup selama masih ada pengajuan menunggu.
+                      Pengeluaran akan masuk antrean <b>Approval AM</b>. Saldo Petty Cash baru terpotong setelah disetujui AM, dan shift tidak dapat ditutup selama masih ada pengajuan menunggu.
                     </span>
                   </div>
                   <div ref={categoryDropdownRef} className="relative">
@@ -932,7 +932,7 @@ export default function CashierShiftPage() {
                     <p className="text-xs text-red-500 font-bold text-center mt-2">
                       {pettyCashBalance <= 0
                         ? 'Saldo Petty Cash kosong, tidak bisa mengajukan pengeluaran.'
-                        : 'Seluruh sisa kuota Petty Cash sedang tertahan pengajuan yang menunggu approval Finance.'}
+                        : 'Seluruh sisa kuota Petty Cash sedang tertahan pengajuan yang menunggu approval AM.'}
                     </p>
                   )}
                 </form>
@@ -981,17 +981,17 @@ export default function CashierShiftPage() {
                                   ) : isPending ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                       <Clock className="w-3 h-3 text-amber-600" />
-                                      Menunggu Approval Finance
+                                      Menunggu Approval AM
                                     </span>
                                   ) : isRejected ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">
                                       <XCircle className="w-3 h-3 text-red-500" />
-                                      Ditolak Finance
+                                      Ditolak AM
                                     </span>
                                   ) : (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                      Disetujui Finance
+                                      Disetujui AM
                                     </span>
                                   )}
                                 </div>

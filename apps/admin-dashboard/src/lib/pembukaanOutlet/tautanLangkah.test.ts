@@ -3,7 +3,7 @@ import { tautanLangkah } from './tautanLangkah'
 
 const KUNCI_CHECKLIST = [
   'data_outlet', 'am', 'crew', 'stok_awal', 'opname_pertama', 'grand_opening',
-  'mitra', 'masa_rab', 'leader', 'absensi', 'target_harian',
+  'mitra', 'masa_rab', 'leader',
 ]
 
 describe('tautanLangkah', () => {
@@ -17,7 +17,6 @@ describe('tautanLangkah', () => {
 
   it('langkah di admin-dashboard memakai path internal', () => {
     expect(tautanLangkah('data_outlet', 'o1')).toEqual({ href: '/dashboard/outlets', eksternal: false })
-    expect(tautanLangkah('target_harian', 'o1')).toEqual({ href: '/dashboard/owner/targets', eksternal: false })
   })
 
   it('langkah di app lain memakai URL lengkap', () => {
@@ -29,5 +28,10 @@ describe('tautanLangkah', () => {
 
   it('kunci tak dikenal → null', () => {
     expect(tautanLangkah('tidak_ada', 'o1')).toBeNull()
+  })
+
+  it('jadwal absensi & target harian bukan langkah papan lagi (keputusan owner 13 Nov)', () => {
+    expect(tautanLangkah('absensi', 'o1')).toBeNull()
+    expect(tautanLangkah('target_harian', 'o1')).toBeNull()
   })
 })

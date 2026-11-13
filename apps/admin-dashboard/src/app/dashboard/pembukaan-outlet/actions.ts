@@ -149,6 +149,8 @@ export async function goLiveOutlet(
   outletId: string,
   konfirmasiNama: string,
   tanggal: string,
+  /** Diisi hanya untuk Go-Live paksa (langkah wajib belum selesai); RPC menolak bila < 10 karakter. */
+  alasanPaksa?: string,
 ): Promise<HasilAksi> {
   try {
     await requireRole(PERAN_TULIS)
@@ -157,6 +159,7 @@ export async function goLiveOutlet(
       p_outlet_id: outletId,
       p_konfirmasi_nama: konfirmasiNama,
       p_tanggal: tanggal,
+      p_alasan_paksa: alasanPaksa?.trim() || null,
     })
     if (error) return { ok: false, pesan: error.message }
 

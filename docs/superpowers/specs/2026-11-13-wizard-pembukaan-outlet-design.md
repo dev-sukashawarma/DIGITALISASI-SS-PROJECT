@@ -48,6 +48,8 @@ standar waktu: semua dikerjakan manual. Pelajaran mahal: 3 outlet mitra dibuat J
 
 Revisi owner 13 Nov (sesudah rilis): langkah **Jadwal absensi & checklist harian** dan **Target harian** dibuang dari papan; keduanya diatur di halaman masing-masing setelah outlet buka.
 
+**Go-Live paksa** (revisi owner 13 Nov): admin & developer boleh Go-Live walau langkah wajib belum selesai, dengan **alasan wajib (min 10 karakter)**. Alasan + kunci langkah yang dilewati dicatat di `outlet_pembukaan_log` (aksi `go_live`, `detail.paksa = true`). Migration `20261113160000`.
+
 ## Yang wajib dicek saat perencanaan
 
 - **Apakah outlet `pending` benar-benar tersembunyi** dari POS, dropdown outlet tiap app, laporan omzet/laba,

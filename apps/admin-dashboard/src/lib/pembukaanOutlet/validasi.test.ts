@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { namaKonfirmasiCocok, validasiInputWizard } from './validasi'
+import { alasanPaksaCukup, namaKonfirmasiCocok, validasiInputWizard } from './validasi'
 import type { InputWizard } from './types'
 
 const HARI_INI = '2026-11-13'
@@ -102,5 +102,15 @@ describe('namaKonfirmasiCocok', () => {
   it('nama berbeda ditolak', () => {
     expect(namaKonfirmasiCocok('MITRA BEKAS', 'MITRA BEKASI')).toBe(false)
     expect(namaKonfirmasiCocok('', 'MITRA BEKASI')).toBe(false)
+  })
+})
+
+describe('alasanPaksaCukup', () => {
+  it('minimal 10 karakter setelah spasi dipangkas', () => {
+    expect(alasanPaksaCukup('')).toBe(false)
+    expect(alasanPaksaCukup('   pendek   ')).toBe(false)
+    expect(alasanPaksaCukup('123456789')).toBe(false)
+    expect(alasanPaksaCukup('1234567890')).toBe(true)
+    expect(alasanPaksaCukup('  Grand opening besok  ')).toBe(true)
   })
 })

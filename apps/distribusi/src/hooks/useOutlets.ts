@@ -9,14 +9,17 @@ interface Outlet {
   id: string
   name: string
   address?: string
+  status?: string
 }
 
 async function fetchOutlets(): Promise<Outlet[]> {
   const supabase = createSupabaseBrowserClient()
   const { data, error } = await supabase
     .from('outlets')
-    .select('id, name, address')
-    .eq('is_active', true)
+    .select('id, name, address, status')
+    // Outlet berstatus Persiapan ikut tampil: stok awal outlet baru dikirim H-1
+    // sebelum Go-Live (Wizard Pembukaan Outlet).
+    .in('status', ['active', 'pending'])
     // Outlet uji developer dikecualikan (lihat @/lib/outletFilters). Daftar ini
     // adalah pemilih tujuan surat jalan: mengirim barang ke outlet tes menulis
     // baris ledger sungguhan dan mengurangi stok Gudang Pusat.
@@ -37,7 +40,7 @@ export function useOutlets() {
     setError(null)
 
     // Reference data: di-cache per-tab supaya tidak refetch tiap mount.
-    cachedFetch('outlets:active', fetchOutlets)
+    cachedFetch('outlets:aktif-dan-persiapan', fetchOutlets)
       .then((data) => {
         if (!active) return
         setOutlets(data)

@@ -15,6 +15,11 @@ export interface Outlet {
   status?: OutletStatus
   is_active: boolean
   region?: string | null
+  phone?: string | null
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_name?: string | null
+  requires_korlap_review?: boolean
   marquee_warning_threshold: number
   open_hour?: string | null
   close_hour?: string | null
@@ -33,6 +38,12 @@ export interface OutletFormValues {
   marquee_warning_threshold: number
   open_hour?: string
   close_hour?: string
+  phone?: string
+  region?: string
+  bank_name?: string
+  bank_account_number?: string
+  bank_account_name?: string
+  requires_korlap_review?: boolean
 }
 
 export interface OutletFilterValues {

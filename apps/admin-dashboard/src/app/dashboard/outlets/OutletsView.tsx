@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, useCallback, type SetStateAction } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -42,10 +43,17 @@ function toFormValues(o: Outlet): OutletFormValues {
     marquee_warning_threshold: o.marquee_warning_threshold,
     open_hour: o.open_hour ? o.open_hour.slice(0, 5) : '14:00',
     close_hour: o.close_hour ? o.close_hour.slice(0, 5) : '22:00',
+    phone: o.phone ?? '',
+    region: o.region ?? '',
+    bank_name: o.bank_name ?? '',
+    bank_account_number: o.bank_account_number ?? '',
+    bank_account_name: o.bank_account_name ?? '',
+    requires_korlap_review: o.requires_korlap_review ?? true,
   }
 }
 
 export default function OutletsPage() {
+  const router = useRouter()
   const { data: outlets = [], isLoading } = useManagedOutlets()
   const { create, update, softDelete, hardDelete, countRefs } = useOutletMutations()
   const supabase = useMemo(() => createClient(), [])
@@ -192,10 +200,9 @@ export default function OutletsPage() {
         </div>
 
         <Button
-          onClick={() => {
-            setEditing(null)
-            setShowForm((v) => !v)
-          }}
+          // Outlet baru selalu lewat Wizard Pembukaan Outlet (status Persiapan,
+          // checklist, Go-Live). Form di halaman ini hanya untuk mengubah outlet.
+          onClick={() => router.push('/dashboard/pembukaan-outlet/baru')}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-suka-orange hover:bg-orange-600 text-white font-bold px-4 py-2.5 shadow-sm shadow-orange-500/20 transition-all min-h-[44px]"
         >
           <Plus size={18} /> Tambah Outlet

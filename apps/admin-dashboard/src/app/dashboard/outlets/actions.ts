@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import type { OutletFormValues } from '@/lib/types'
 import { tipeOrderOnline } from '@/lib/outlets/orderOnlineSync'
+import { cekPerubahanOutlet } from '@/lib/outlets/aturanEdit'
+import { OUTLET_COLUMNS } from '@/lib/managedOutlets'
 
 async function getSupabase() {
   const cookieStore = await cookies()
@@ -86,6 +88,11 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
   const status = values.status || (values.is_active ? 'active' : 'inactive')
   const isActive = status === 'active'
 
+  const { data: lama, error: errLama } = await supabase.from('outlets').select('status, type').eq('id', id).single()
+  if (errLama) throw new Error(errLama.message)
+  const ditolak = cekPerubahanOutlet(lama, { status, type: values.type })
+  if (ditolak) throw new Error(ditolak)
+
   const payload: any = {
     name: values.name,
     slug: values.slug,
@@ -98,6 +105,12 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
     marquee_warning_threshold: values.marquee_warning_threshold,
     open_hour: values.open_hour || '14:00',
     close_hour: values.close_hour || '22:00',
+    ...(values.phone !== undefined && { phone: values.phone.trim() || null }),
+    ...(values.region !== undefined && { region: values.region.trim() || null }),
+    ...(values.bank_name !== undefined && { bank_name: values.bank_name.trim() || null }),
+    ...(values.bank_account_number !== undefined && { bank_account_number: values.bank_account_number.trim() || null }),
+    ...(values.bank_account_name !== undefined && { bank_account_name: values.bank_account_name.trim() || null }),
+    ...(values.requires_korlap_review !== undefined && { requires_korlap_review: values.requires_korlap_review }),
     updated_at: new Date().toISOString(),
   }
 
@@ -109,7 +122,7 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
     .from('outlets')
     .update(payload)
     .eq('id', id)
-    .select('id, slug, name, address, lat, lng, type, is_active, status, marquee_warning_threshold, open_hour, close_hour, deleted_at')
+    .select(OUTLET_COLUMNS)
     .single()
   if (primaryError) throw new Error(primaryError.message)
   

@@ -44,9 +44,9 @@ standar waktu: semua dikerjakan manual. Pelajaran mahal: 3 outlet mitra dibuat J
 | Tanggal grand opening | Admin | Wajib (boleh kosong saat outlet dibuat) | `outlets.tanggal_grand_opening` |
 | Mitra: investasi + akun login | Admin | Wajib (mitra) | `mitra_investments`, `mitra_profiles` |
 | Mitra: masa RAB | Admin | Peringatan | `rab_outlet_otomatis` |
-| Jadwal absensi & checklist harian | Leader | Peringatan (ada bawaan) | `outlet_attendance_config`, `checklist_*` |
 | ~~Budget kas kecil~~ | — | Tidak masuk checklist (revisi owner 13 Nov): pengajuan kas tetap lewat alur top up petty cash biasa | — |
-| Target harian | Owner | Peringatan | `daily_sales_targets` |
+
+Revisi owner 13 Nov (sesudah rilis): langkah **Jadwal absensi & checklist harian** dan **Target harian** dibuang dari papan; keduanya diatur di halaman masing-masing setelah outlet buka.
 
 ## Yang wajib dicek saat perencanaan
 

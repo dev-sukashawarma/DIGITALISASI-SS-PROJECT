@@ -207,6 +207,7 @@ describe('hitungPerJenis', () => {
     ).toEqual({
       petty_cash: 2,
       pengeluaran_petty_cash: 1,
+      kasbon: 0,
       serah_am: 1,
       po: 0,
       bayar_vendor: 1,
@@ -274,6 +275,7 @@ describe('totalPerJenis', () => {
     expect(totalPerJenis([a, b])).toEqual({
       petty_cash: 0,
       pengeluaran_petty_cash: 0,
+      kasbon: 0,
       serah_am: 0,
       po: 1500,
       bayar_vendor: 0,

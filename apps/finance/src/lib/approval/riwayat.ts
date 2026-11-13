@@ -1,8 +1,8 @@
 import { tanggalWaktu } from '@/lib/format'
 import { namaPencatat } from '@/lib/kas/mutasiRekening'
 
-export type JenisRiwayat = 'petty_cash' | 'po' | 'bayar_vendor' | 'dana_kantor'
-export type KeputusanRiwayat = 'setuju' | 'tolak' | 'serah_am'
+export type JenisRiwayat = 'petty_cash' | 'kasbon' | 'po' | 'bayar_vendor' | 'dana_kantor'
+export type KeputusanRiwayat = 'setuju' | 'tolak' | 'serah_am' | 'batal_cair'
 
 /** Satu baris riwayat keputusan (tabel approval_log + nama pelaku). */
 export interface RiwayatApproval {
@@ -21,10 +21,11 @@ export interface RiwayatApproval {
   pelaku_nama: string | null
 }
 
-export const URUTAN_JENIS_RIWAYAT: JenisRiwayat[] = ['petty_cash', 'po', 'bayar_vendor', 'dana_kantor']
+export const URUTAN_JENIS_RIWAYAT: JenisRiwayat[] = ['petty_cash', 'kasbon', 'po', 'bayar_vendor', 'dana_kantor']
 
 export const LABEL_JENIS_RIWAYAT: Record<JenisRiwayat, string> = {
   petty_cash: 'Petty cash',
+  kasbon: 'Kasbon',
   po: 'Approval PO',
   bayar_vendor: 'Bayar vendor',
   dana_kantor: 'Dana kantor',
@@ -36,9 +37,13 @@ export function labelRiwayat(r: Pick<RiwayatApproval, 'jenis' | 'keputusan'>): {
       ? 'Ditolak'
       : r.keputusan === 'serah_am'
         ? 'Diserahkan ke AM'
-        : r.jenis === 'dana_kantor'
-          ? 'Diverifikasi'
-          : 'Disetujui'
+        : r.keputusan === 'batal_cair'
+          ? 'Pencairan dibatalkan'
+          : r.jenis === 'dana_kantor'
+            ? 'Diverifikasi'
+            : r.jenis === 'kasbon'
+              ? 'Dicairkan'
+              : 'Disetujui'
   return { jenis: LABEL_JENIS_RIWAYAT[r.jenis], keputusan }
 }
 

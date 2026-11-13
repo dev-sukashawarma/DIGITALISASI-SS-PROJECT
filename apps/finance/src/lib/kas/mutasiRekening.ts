@@ -32,6 +32,7 @@ export type JenisMutasi =
   | 'transfer'
   | 'top_up'
   | 'refund_dana'
+  | 'kasbon'
   | 'lainnya'
 
 export const JENIS_LABEL: Record<JenisMutasi, string> = {
@@ -44,6 +45,7 @@ export const JENIS_LABEL: Record<JenisMutasi, string> = {
   transfer: 'Transfer',
   top_up: 'Top up',
   refund_dana: 'Refund dana',
+  kasbon: 'Kasbon',
   lainnya: 'Lainnya',
 }
 
@@ -88,6 +90,7 @@ export function jenisTransaksi(tx: Pick<TxMutasi, 'source_type'>): JenisMutasi {
     case 'transfer': return 'transfer'
     case 'top_up': return 'top_up'
     case 'refund_dana': return 'refund_dana'
+    case 'kasbon': return 'kasbon'
     default: return 'lainnya'
   }
 }

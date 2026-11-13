@@ -4,13 +4,22 @@ import { labelKategoriPettyCash } from '@/hooks/usePettyCashExpenseApproval'
 import type { PendingPo } from '@/hooks/usePoApproval'
 import type { PayablePo, TxBayarPo } from '@/hooks/useSupplierSettlement'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
+import type { KasbonMenunggu } from '@/lib/approval/kasbon'
 
 /** Jenis pekerjaan yang menunggu admin finance di Hub Approval. */
-export type HubJenis = 'petty_cash' | 'pengeluaran_petty_cash' | 'serah_am' | 'po' | 'bayar_vendor' | 'dana_kantor'
+export type HubJenis =
+  | 'petty_cash'
+  | 'pengeluaran_petty_cash'
+  | 'kasbon'
+  | 'serah_am'
+  | 'po'
+  | 'bayar_vendor'
+  | 'dana_kantor'
 
 export const URUTAN_JENIS: HubJenis[] = [
   'petty_cash',
   'pengeluaran_petty_cash',
+  'kasbon',
   'serah_am',
   'po',
   'bayar_vendor',
@@ -20,6 +29,7 @@ export const URUTAN_JENIS: HubJenis[] = [
 export const JENIS_LABEL: Record<HubJenis, string> = {
   petty_cash: 'Petty cash',
   pengeluaran_petty_cash: 'Pengeluaran PC',
+  kasbon: 'Kasbon',
   serah_am: 'Serahkan ke AM',
   po: 'Approval PO',
   bayar_vendor: 'Bayar vendor',
@@ -43,6 +53,7 @@ export type HubItem = Dasar &
   (
     | { jenis: 'petty_cash' | 'serah_am'; data: PettyCashTopup }
     | { jenis: 'pengeluaran_petty_cash'; data: PendingPettyCashExpense }
+    | { jenis: 'kasbon'; data: KasbonMenunggu }
     | { jenis: 'po'; data: PendingPo }
     | { jenis: 'bayar_vendor'; data: PayablePo }
     | { jenis: 'dana_kantor'; data: OfficeVoucher }
@@ -90,6 +101,21 @@ export function itemDariPengeluaranPettyCash(e: PendingPettyCashExpense): HubIte
     menungguSejak: e.created_at,
     detailHref: null,
     data: e,
+  }
+}
+
+export function itemDariKasbon(k: KasbonMenunggu): HubItem {
+  const cicilan = Number(k.installment_months) || 1
+  return {
+    key: `kasbon:${k.id}`,
+    id: k.id,
+    jenis: 'kasbon',
+    judul: k.staff_nama || '-',
+    keterangan: gabungKeterangan(k.outlet_nama, potong(k.reason), cicilan > 1 ? `${cicilan}x cicilan` : null),
+    nominal: Number(k.amount) || 0,
+    menungguSejak: k.approved_at ?? k.created_at,
+    detailHref: null,
+    data: k,
   }
 }
 

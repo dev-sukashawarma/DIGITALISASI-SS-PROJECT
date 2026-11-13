@@ -28,6 +28,10 @@ export interface Outlet {
   go_live_at?: string | null
   updated_at?: string | null
   nonaktif_at?: string | null
+  /** Terisi bila outlet ditutup lewat Tutup Outlet (atau backfill sebelum wizard). */
+  alasan_tutup?: string | null
+  penutupan_selesai_at?: string | null
+  created_at?: string | null
 }
 
 export interface OutletFormValues {

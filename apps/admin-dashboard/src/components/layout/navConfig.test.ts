@@ -126,6 +126,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/owner/waste',
     '/dashboard/panduan',
     '/dashboard/pembukaan-outlet',
+    '/dashboard/penutupan-outlet',
     '/dashboard/platform-settlement',
     '/dashboard/pos-admin/settings',
     '/dashboard/reports/crew-bonus',
@@ -315,6 +316,14 @@ describe('menu Outlet bertab', () => {
     expect(isItemActive('/dashboard/outlets', '/dashboard/pembukaan-outlet/baru')).toBe(true)
     expect(isItemActive('/dashboard/outlets', '/dashboard/pembukaan-outlet/abc')).toBe(true)
     expect(isItemActive('/dashboard/outlets', '/dashboard/pembukaan-outletx')).toBe(false)
+  })
+  it('menyala di tab Penutupan dan papan penutupan', () => {
+    expect(isItemActive('/dashboard/outlets', '/dashboard/penutupan-outlet')).toBe(true)
+    expect(isItemActive('/dashboard/outlets', '/dashboard/penutupan-outlet/abc')).toBe(true)
+    expect(isItemActive('/dashboard/outlets', '/dashboard/penutupan-outletx')).toBe(false)
+  })
+  it('ADMIN tidak punya entri terpisah untuk penutupan', () => {
+    expect(accessibleItems('ADMIN').map((i) => i.href)).not.toContain('/dashboard/penutupan-outlet')
   })
   it('ADMIN hanya punya satu pintu menu Outlet', () => {
     const href = accessibleItems('ADMIN').map((i) => i.href)

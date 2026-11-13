@@ -162,6 +162,7 @@ export default function OutletsPage() {
       internal: grup('internal'),
       mitra: grup('mitra'),
       sistem: outlets.filter((o) => o.type !== 'internal' && o.type !== 'mitra').length,
+      penutupan: outlets.filter((o) => nonaktif(o) && o.alasan_tutup && !o.penutupan_selesai_at).length,
     }
   }, [outlets])
 
@@ -262,7 +263,7 @@ export default function OutletsPage() {
         </Button>
       </div>
 
-      <OutletTabs aktif="semua" jumlahPersiapan={stats.pending} />
+      <OutletTabs aktif="semua" jumlahPersiapan={stats.pending} jumlahPenutupan={stats.penutupan} />
 
       {/* ── KPI Stat Cards (hanya outlet internal & mitra; Sistem tidak dihitung) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

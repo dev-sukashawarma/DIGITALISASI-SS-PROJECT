@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import type { OutletFormValues } from '@/lib/types'
+import { tipeOrderOnline } from '@/lib/outlets/orderOnlineSync'
 
 async function getSupabase() {
   const cookieStore = await cookies()
@@ -56,7 +57,7 @@ export async function createOutlet(values: OutletFormValues) {
         address: values.address || '-',
         lat: values.lat || null,
         lng: values.lng || null,
-        type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned', // match order online schema
+        type: tipeOrderOnline(values.type), // match order online schema
         is_active: isActive,
         open_hour: values.open_hour || '14:00',
         close_hour: values.close_hour || '22:00',
@@ -128,7 +129,7 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
             address: values.address || '-',
             lat: values.lat || null,
             lng: values.lng || null,
-            type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned',
+            type: tipeOrderOnline(values.type),
             is_active: isActive,
             open_hour: values.open_hour || '14:00',
             close_hour: values.close_hour || '22:00',
@@ -148,7 +149,7 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
           address: values.address || '-',
           lat: values.lat || null,
           lng: values.lng || null,
-          type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned',
+          type: tipeOrderOnline(values.type),
           is_active: isActive,
           open_hour: values.open_hour || '14:00',
           close_hour: values.close_hour || '22:00',

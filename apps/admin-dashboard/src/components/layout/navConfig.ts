@@ -24,7 +24,14 @@ export type NavItem = {
   children?: NavItem[]
 }
 /** Sebuah "pintu" navigasi — kelompok besar berlabel bahasa awam. */
-export type NavGroup = { title: string; icon: LucideIcon; items: NavItem[]; roles: Role[] }
+export type NavGroup = {
+  title: string
+  icon: LucideIcon
+  items: NavItem[]
+  roles: Role[]
+  /** Satu item saja: sidebar menampilkannya sebagai tautan langsung, tanpa dropdown. */
+  langsung?: boolean
+}
 
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -64,7 +71,6 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'], primary: ['ADMIN'] },
-      { href: '/dashboard/owner/petty-cash', label: 'Petty Cash (Khusus)', shortLabel: 'Petty Cash', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER'] },
       {
         href: '/dashboard/owner/profit',
@@ -80,6 +86,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // Sepasang: yang satu untuk MENCATAT, yang satu untuk MENGANALISIS.
       // Sengaja bertetangga supaya orang tak perlu menebak ada di pintu mana.
       { href: '/dashboard/reports/input-pengeluaran', label: 'Buku Kas (OPEX)', shortLabel: 'Buku Kas', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/petty-cash', label: 'Petty Cash (Khusus)', shortLabel: 'Petty Cash', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/expenses', label: 'Analisis Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       // Rincian dari satu irisan kategori di Analisis Pengeluaran — ditaruh
       // tepat di bawahnya supaya pendalamannya tak berpindah pintu.
@@ -107,14 +114,23 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Produk & Stok',
+    title: 'Manajemen Produk',
     icon: Package,
     roles: ['ADMIN'],
+    // "Monitoring Stok" (/dashboard/stok-monitoring) & "Detail Opname Outlet"
+    // (/dashboard/opname) dilepas dari nav atas permintaan owner — halamannya
+    // TETAP ADA dan masih bisa dibuka lewat URL.
     items: [
-      { href: '/dashboard/stok-monitoring', label: 'Monitoring Stok', shortLabel: 'Stok', icon: Activity, roles: ['ADMIN'] },
       { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['ADMIN'] },
       { href: '/dashboard/resep', label: 'Manajemen Resep', shortLabel: 'Resep', icon: BookOpen, roles: ['ADMIN'] },
-      { href: '/dashboard/opname', label: 'Detail Opname Outlet', shortLabel: 'Opname', icon: ClipboardList, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    title: 'Manajemen Outlet',
+    icon: Store,
+    roles: ['ADMIN'],
+    langsung: true,
+    items: [
       // Satu menu bertab: Semua Outlet (/outlets) + Persiapan (/pembukaan-outlet).
       { href: '/dashboard/outlets', label: 'Outlet', shortLabel: 'Outlet', icon: Store, roles: ['ADMIN'] },
     ],

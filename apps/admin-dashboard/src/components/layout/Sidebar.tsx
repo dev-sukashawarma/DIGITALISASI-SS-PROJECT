@@ -119,6 +119,25 @@ export const Sidebar = () => {
           const isOpen = openDoor === group.title
           const doorActive = group.items.some(itemOrChildActive)
 
+          if (group.langsung && group.items.length === 1) {
+            const { href } = group.items[0]
+            return (
+              <Link
+                key={group.title}
+                ref={doorActive ? activeItemRef : undefined}
+                href={href}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 mt-2 mb-1 rounded-xl transition-all active:scale-95 group ${
+                  doorActive ? 'bg-white/10' : 'hover:bg-white/5'
+                }`}
+              >
+                <DoorIcon size={16} className="text-suka-orange/70 group-hover:text-suka-orange transition-colors" />
+                <span className="text-xs font-bold uppercase tracking-wider text-suka-orange/80 group-hover:text-suka-orange transition-colors">
+                  {group.title}
+                </span>
+              </Link>
+            )
+          }
+
           return (
             <div key={group.title}>
                 <>

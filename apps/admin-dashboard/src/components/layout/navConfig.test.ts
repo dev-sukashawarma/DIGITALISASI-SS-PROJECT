@@ -58,7 +58,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/hr/roster',
     '/dashboard/hr/staff',
     '/dashboard/monitoring',
-    '/dashboard/opname',
     '/dashboard/outlets',
     '/dashboard/owner',
     '/dashboard/owner/closing-hub',
@@ -98,7 +97,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/sistem/bot-telegram',
     '/dashboard/sistem/hermes',
     '/dashboard/sistem/pengaturan-halaman',
-    '/dashboard/stok-monitoring',
     '/dashboard/system-health',
   ],
   OWNER: [
@@ -189,7 +187,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
 /** Jumlah pintu per role. Konsolidasi mengubah ADMIN (10 → 7); pintu App Retail
  *  lalu menaikkan ADMIN 7 → 8 dan OWNER 5 → 6. */
 const EXPECTED_GROUP_COUNT: Record<Role, number> = {
-  ADMIN: 8,
+  ADMIN: 9,
   OWNER: 6,
   ADMIN_HR: 1,
   PURCHASING: 1,
@@ -246,15 +244,16 @@ describe('navConfig — invarian', () => {
     expect(bocor).toEqual([])
   })
 
-  it('klaster beban berurutan sepintu: catat → analisis → dalami waste', () => {
+  it('klaster beban berurutan sepintu: catat → petty cash → analisis → dalami waste', () => {
     const door = NAV_GROUPS.find((g) =>
       g.items.some((i) => i.href === '/dashboard/reports/input-pengeluaran'),
     )
     const hrefs = door?.items.map((i) => i.href) ?? []
     const start = hrefs.indexOf('/dashboard/reports/input-pengeluaran')
     expect(start).toBeGreaterThanOrEqual(0)
-    expect(hrefs.slice(start, start + 3)).toEqual([
+    expect(hrefs.slice(start, start + 4)).toEqual([
       '/dashboard/reports/input-pengeluaran',
+      '/dashboard/owner/petty-cash',
       '/dashboard/owner/expenses',
       '/dashboard/owner/waste',
     ])
@@ -286,11 +285,12 @@ describe('navConfig — invarian', () => {
     expect(accessibleGroups(role)).toHaveLength(EXPECTED_GROUP_COUNT[role])
   })
 
-  it('ADMIN melihat delapan pintu dengan urutan yang ditentukan', () => {
+  it('ADMIN melihat sembilan pintu dengan urutan yang ditentukan', () => {
     expect(accessibleGroups('ADMIN').map((g) => g.title)).toEqual([
       'Laporan Internal',
       'Penjualan & Kinerja',
-      'Produk & Stok',
+      'Manajemen Produk',
+      'Manajemen Outlet',
       'Pembelian',
       'POS',
       'App Retail',

@@ -60,6 +60,7 @@ export function PapanPersiapan({
 
   const ringkas = ringkasLangkahWajib(status.langkah)
   const peringatanBelum = status.langkah.filter(l => !l.wajib && !l.selesai)
+  const wajibBelum = status.langkah.filter(l => l.wajib && !l.selesai)
   const persiapan = status.status === 'pending'
   const langkahMitra = status.langkah.find(l => l.kunci === 'mitra')
   const akunMitraBelum = langkahMitra && !langkahMitra.selesai && langkahMitra.info?.toLowerCase().includes('akun mitra')
@@ -301,8 +302,14 @@ export function PapanPersiapan({
           <Button variant="danger" onClick={() => setDialog('batal')} disabled={proses}>
             Batalkan pembukaan
           </Button>
-          <Button onClick={() => setDialog('golive')} disabled={!status.siapGoLive || proses}>
-            {status.siapGoLive ? 'Go-Live' : `Go-Live (${ringkas.total - ringkas.selesai} langkah wajib belum selesai)`}
+          {/* Langkah wajib belum selesai tetap boleh Go-Live, tapi lewat jalur paksa
+              (alasan wajib, dicatat di riwayat) — keputusan owner 13 Nov. */}
+          <Button
+            variant={status.siapGoLive ? 'primary' : 'secondary'}
+            onClick={() => setDialog('golive')}
+            disabled={proses}
+          >
+            {status.siapGoLive ? 'Go-Live' : `Go-Live paksa (${wajibBelum.length} langkah wajib belum selesai)`}
           </Button>
         </div>
       )}
@@ -314,6 +321,7 @@ export function PapanPersiapan({
           grandOpening={status.tanggalGrandOpening}
           hariIni={hariIni}
           peringatanBelumSelesai={peringatanBelum}
+          wajibBelumSelesai={wajibBelum}
           onTutup={() => setDialog(null)}
         />
       )}

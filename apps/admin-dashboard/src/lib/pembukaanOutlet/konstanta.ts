@@ -17,6 +17,9 @@ export const BAWAAN_MITRA = { persentaseBagiHasil: 100, managementFee: 3 } as co
 /** Go-Live boleh ditekan dengan tanggal maksimal sekian hari dari hari ini. */
 export const TOLERANSI_TANGGAL_GO_LIVE_HARI = 7
 
+/** Go-Live paksa (langkah wajib belum selesai) butuh alasan minimal sekian karakter — sama dengan RPC. */
+export const MIN_ALASAN_GO_LIVE_PAKSA = 10
+
 export function hariIniWib(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
 }

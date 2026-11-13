@@ -6,8 +6,8 @@ import { toast } from 'sonner'
 import { Button } from '@suka/design-system'
 import { DatePicker } from '@/components/ui/controls'
 import { batalkanPembukaan, goLiveOutlet } from '@/app/dashboard/pembukaan-outlet/actions'
-import { namaKonfirmasiCocok } from '@/lib/pembukaanOutlet/validasi'
-import { TOLERANSI_TANGGAL_GO_LIVE_HARI } from '@/lib/pembukaanOutlet/konstanta'
+import { alasanPaksaCukup, namaKonfirmasiCocok } from '@/lib/pembukaanOutlet/validasi'
+import { MIN_ALASAN_GO_LIVE_PAKSA, TOLERANSI_TANGGAL_GO_LIVE_HARI } from '@/lib/pembukaanOutlet/konstanta'
 import { dalamToleransiGoLive, tanggalGoLiveBawaan } from '@/lib/pembukaanOutlet/petakan'
 import type { LangkahPersiapan } from '@/lib/pembukaanOutlet/types'
 
@@ -37,6 +37,7 @@ export function DialogGoLive({
   grandOpening,
   hariIni,
   peringatanBelumSelesai,
+  wajibBelumSelesai,
   onTutup,
 }: {
   outletId: string
@@ -44,6 +45,8 @@ export function DialogGoLive({
   grandOpening: string | null
   hariIni: string
   peringatanBelumSelesai: LangkahPersiapan[]
+  /** Tidak kosong = Go-Live paksa: alasan wajib, dicatat di riwayat bersama langkah yang dilewati. */
+  wajibBelumSelesai: LangkahPersiapan[]
   onTutup: () => void
 }) {
   const router = useRouter()
@@ -52,11 +55,15 @@ export function DialogGoLive({
   const [proses, setProses] = useState(false)
   const tanggalOk = dalamToleransiGoLive(tanggal, hariIni, TOLERANSI_TANGGAL_GO_LIVE_HARI)
   const cocok = namaKonfirmasiCocok(ketik, nama)
+  const paksa = wajibBelumSelesai.length > 0
+  const [alasan, setAlasan] = useState('')
+  const alasanOk = !paksa || alasanPaksaCukup(alasan)
+  const mitraDilewati = wajibBelumSelesai.some(l => l.kunci === 'mitra')
 
   const kirim = async () => {
     setProses(true)
     try {
-      const h = await goLiveOutlet(outletId, ketik, tanggal)
+      const h = await goLiveOutlet(outletId, ketik, tanggal, paksa ? alasan : undefined)
       if (!h.ok) {
         toast.error(h.pesan)
         return
@@ -70,11 +77,25 @@ export function DialogGoLive({
   }
 
   return (
-    <Bingkai judul="Resmikan outlet (Go-Live)" onTutup={onTutup}>
+    <Bingkai judul={paksa ? 'Go-Live paksa' : 'Resmikan outlet (Go-Live)'} onTutup={onTutup}>
       <p className="text-sm text-suka-ink/80">
         Outlet langsung tampil di POS kasir dan laporan, potong stok menyala, dan masuk reminder WA AM.
         Tampil di aplikasi pelanggan tetap dinyalakan terpisah.
       </p>
+      {paksa && (
+        <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          <p className="font-semibold">{wajibBelumSelesai.length} langkah wajib belum selesai dan akan dilewati:</p>
+          <ul className="list-disc pl-5">
+            {wajibBelumSelesai.map(l => <li key={l.kunci}>{l.label}</li>)}
+          </ul>
+          <p>Langkah ini tetap perlu dibereskan setelah outlet buka. Alasan dan daftar ini dicatat di riwayat.</p>
+          {mitraDilewati && (
+            <p className="font-semibold">
+              Tanggal mulai perhitungan mitra belum terisi. Isi tanggal mulai saat menambahkan data investasi di Dashboard Kemitraan.
+            </p>
+          )}
+        </div>
+      )}
       {peringatanBelumSelesai.length > 0 && (
         <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
           <p className="font-semibold">{peringatanBelumSelesai.length} langkah peringatan belum selesai:</p>
@@ -90,6 +111,22 @@ export function DialogGoLive({
         </p>
         {!tanggalOk && <p className="mt-1 text-xs font-semibold text-red-600">Tanggal di luar batas {TOLERANSI_TANGGAL_GO_LIVE_HARI} hari.</p>}
       </div>
+      {paksa && (
+        <label className="block space-y-1.5">
+          <span className="text-sm font-semibold text-suka-ink">Alasan Go-Live paksa</span>
+          <textarea
+            id="golive-alasan"
+            className={kelasInput}
+            rows={3}
+            value={alasan}
+            onChange={e => setAlasan(e.target.value)}
+            placeholder="Contoh: grand opening hari ini, stok awal dikirim sore"
+          />
+          {!alasanOk && alasan.length > 0 && (
+            <span className="text-xs font-semibold text-red-600">Minimal {MIN_ALASAN_GO_LIVE_PAKSA} karakter.</span>
+          )}
+        </label>
+      )}
       <label className="block space-y-1.5">
         <span className="text-sm font-semibold text-suka-ink">
           Ketik <span className="font-mono">{nama}</span> untuk konfirmasi
@@ -98,7 +135,9 @@ export function DialogGoLive({
       </label>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onTutup} disabled={proses}>Batal</Button>
-        <Button onClick={kirim} disabled={!cocok || !tanggalOk || proses}>{proses ? 'Memproses…' : 'Go-Live'}</Button>
+        <Button onClick={kirim} disabled={!cocok || !tanggalOk || !alasanOk || proses}>
+          {proses ? 'Memproses…' : paksa ? 'Go-Live paksa' : 'Go-Live'}
+        </Button>
       </div>
     </Bingkai>
   )

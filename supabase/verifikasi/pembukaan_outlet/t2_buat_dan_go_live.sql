@@ -56,7 +56,8 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     v_err := SQLERRM;
     IF v_err LIKE 'ASERSI GAGAL%' THEN RAISE; END IF;
-    IF v_err NOT LIKE '%Stok awal%' THEN RAISE EXCEPTION 'ASERSI GAGAL b: pesan tak menyebut stok awal: %', v_err; END IF;
+    -- Sejak 20261113170000 stok awal & opname hanya peringatan; yang menahan di sini = crew.
+    IF v_err NOT LIKE '%Crew terdaftar%' THEN RAISE EXCEPTION 'ASERSI GAGAL b: pesan tak menyebut crew: %', v_err; END IF;
   END;
 
   -- (c) lengkapi → Go-Live berhasil, tanpa alert bot

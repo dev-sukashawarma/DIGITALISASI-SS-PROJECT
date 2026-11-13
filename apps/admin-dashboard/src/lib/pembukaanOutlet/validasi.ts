@@ -1,4 +1,5 @@
 import type { InputWizard } from './types'
+import { MIN_ALASAN_GO_LIVE_PAKSA } from './konstanta'
 
 export type KunciGalat = keyof InputWizard | 'mitra.akun'
 
@@ -39,6 +40,11 @@ export function validasiInputWizard(input: InputWizard, hariIni: string): HasilV
   }
 
   return Object.keys(galat).length === 0 ? { ok: true } : { ok: false, galat }
+}
+
+/** Cermin aturan go_live_outlet: alasan Go-Live paksa minimal 10 karakter setelah dipangkas. */
+export function alasanPaksaCukup(alasan: string): boolean {
+  return alasan.trim().length >= MIN_ALASAN_GO_LIVE_PAKSA
 }
 
 export function namaKonfirmasiCocok(ketik: string, nama: string): boolean {

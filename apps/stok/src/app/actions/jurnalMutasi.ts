@@ -66,7 +66,7 @@ async function requireManagementAuth(outletId?: string) {
   }
 
   if (!canViewJurnalMutasi(staff.role)) {
-    throw new Error('Forbidden: Laporan ini khusus untuk Manajemen Pusat (Owner, Admin, SPV, RM, Kitchen, Purchasing, Finance)')
+    throw new Error('Forbidden: Laporan ini khusus untuk Manajemen Pusat (Owner, Admin, SPV, RM, Kitchen, Purchasing, Finance, HR)')
   }
 
   if (outletId && outletId !== 'ALL') {
@@ -512,6 +512,7 @@ export async function fetchAccessibleOutlets(): Promise<{ id: string; name: stri
   const isPrivileged = [
     'admin',
     'admin_hr',
+    'hr',
     'owner',
     'spv',
     'kitchen',

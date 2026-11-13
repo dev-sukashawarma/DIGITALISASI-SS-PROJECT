@@ -10,6 +10,7 @@ import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
 import { getThresholdPersen, computeSelisihPersen, getMaterialType, isSelisihFlagged, THRESHOLD_BULK_PERSEN } from '@/lib/stok/selisih'
 import { isBahanOpname } from '@/lib/stok/opnameScope'
 import { ringkasWasteOpname, type WasteReportRow, type WasteOpnameRingkas } from '@/lib/stok/wasteOpname'
+import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
 
 const TIPE_LABEL: Record<string, string> = {
   harian: 'Harian 📅',
@@ -318,7 +319,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
             </div>
           )}
 
-          {canViewThresholdAndLoss && (
+          {canViewJurnalMutasi(role) && (
             <div className="pt-2 border-t border-[#d9c2b2]/10">
               <Link
                 href={`/stok/jurnal-mutasi?outletId=${opname.outlet_id}&opnameId=${opname.id}`}

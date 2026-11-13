@@ -41,7 +41,7 @@ export default function JurnalMutasiPage() {
             </div>
             <h2 className="text-lg font-black text-suka-brown">Akses Khusus Manajemen</h2>
             <p className="text-xs text-suka-brown/70 leading-relaxed">
-              Laporan Jurnal & Rekonsiliasi Pergerakan Bahan Baku memuat data valuasi finansial dan harga beli. Halaman ini hanya dapat diakses oleh Owner, Admin, SPV, Regional Manager, Kitchen, Purchasing, dan Finance.
+              Laporan Jurnal & Rekonsiliasi Pergerakan Bahan Baku memuat data valuasi finansial dan harga beli. Halaman ini hanya dapat diakses oleh Owner, Admin, SPV, Regional Manager, Kitchen, Purchasing, Finance, dan HR.
             </p>
           </div>
         </div>

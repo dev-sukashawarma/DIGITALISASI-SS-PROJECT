@@ -29,9 +29,9 @@ describe('navAccess — tab dashboard monitoring', () => {
     expect(canApproveWaste('owner')).toBe(true)
   })
 
-  it('Jurnal & Rekonsiliasi tertutup untuk crew, leader, dan area_manager', () => {
+  it('Jurnal & Rekonsiliasi tertutup untuk crew, leader, dan area_manager, terbuka untuk manajemen pusat & HR', () => {
     for (const r of ['crew', 'leader', 'area_manager']) expect(canViewJurnalMutasi(r)).toBe(false)
-    for (const r of ['kitchen', 'admin', 'owner', 'spv', 'regional_manager']) expect(canViewJurnalMutasi(r)).toBe(true)
+    for (const r of ['kitchen', 'admin', 'admin_hr', 'hr', 'owner', 'spv', 'regional_manager']) expect(canViewJurnalMutasi(r)).toBe(true)
   })
 
   it('kitchen melihat semua tab operasional', () => {

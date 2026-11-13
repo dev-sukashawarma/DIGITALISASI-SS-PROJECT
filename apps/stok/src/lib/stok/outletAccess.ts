@@ -59,7 +59,7 @@ export async function assertStaffCanAccessOutlet(serviceClient: any, staffId: st
   if (!staff || staff.status !== 'active') throw new Error('Staff tidak aktif atau tidak ditemukan')
 
   const isPrivileged = [
-    'admin', 'admin_hr', 'owner', 'spv', 'kitchen',
+    'admin', 'admin_hr', 'hr', 'owner', 'spv', 'kitchen',
     'admin_finance', 'finance', 'purchasing', 'developer', 'regional_manager'
   ].includes(staff.role)
 

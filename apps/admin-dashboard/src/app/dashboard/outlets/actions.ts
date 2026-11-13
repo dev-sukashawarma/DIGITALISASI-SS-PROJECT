@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
 import type { OutletFormValues } from '@/lib/types'
 import { tipeOrderOnline } from '@/lib/outlets/orderOnlineSync'
-import { cekPerubahanOutlet } from '@/lib/outlets/aturanEdit'
+import { cekHapusOutlet, cekPerubahanOutlet } from '@/lib/outlets/aturanEdit'
 import { OUTLET_COLUMNS } from '@/lib/managedOutlets'
 
 async function getSupabase() {
@@ -183,6 +183,11 @@ export async function softDeleteOutlet(id: string) {
   let orderOnline: any = null
   try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
+  const { data: lama, error: errLama } = await supabase.from('outlets').select('status, type').eq('id', id).single()
+  if (errLama) throw new Error(errLama.message)
+  const ditolak = cekHapusOutlet(lama)
+  if (ditolak) throw new Error(ditolak)
+
   const now = new Date().toISOString()
   const { error } = await supabase.from('outlets').update({
     status: 'inactive',

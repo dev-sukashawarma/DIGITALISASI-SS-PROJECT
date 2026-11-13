@@ -1,4 +1,5 @@
 import {
+  DoorClosed,
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
@@ -156,6 +157,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['OWNER'] },
       { href: '/dashboard/pembukaan-outlet', label: 'Pembukaan Outlet', shortLabel: 'Buka Outlet', icon: Sparkles, roles: ['OWNER'] },
+      { href: '/dashboard/penutupan-outlet', label: 'Penutupan Outlet', shortLabel: 'Tutup Outlet', icon: DoorClosed, roles: ['OWNER'] },
     ],
   },
   {
@@ -307,8 +309,13 @@ export function isItemActive(href: string, pathname: string): boolean {
   ) {
     return pathname === href
   }
-  // Menu "Outlet" juga menyala di tab Persiapan, papan, dan wizard pembukaan.
-  if (href === '/dashboard/outlets' && (pathname === '/dashboard/pembukaan-outlet' || pathname.startsWith('/dashboard/pembukaan-outlet/'))) {
+  // Menu "Outlet" juga menyala di tab Persiapan & Penutupan beserta papan/wizard-nya.
+  if (
+    href === '/dashboard/outlets' &&
+    ['/dashboard/pembukaan-outlet', '/dashboard/penutupan-outlet'].some(
+      (p) => pathname === p || pathname.startsWith(p + '/'),
+    )
+  ) {
     return true
   }
   return pathname === href || pathname.startsWith(href + '/')

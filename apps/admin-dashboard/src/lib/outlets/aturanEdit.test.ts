@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { cekPerubahanOutlet } from './aturanEdit'
+import { cekHapusOutlet, cekPerubahanOutlet } from './aturanEdit'
+
+describe('cekHapusOutlet', () => {
+  it('outlet internal/mitra yang masih aktif harus ditutup dulu', () => {
+    expect(cekHapusOutlet({ status: 'active', type: 'internal' })).toMatch(/Tutup Outlet/)
+    expect(cekHapusOutlet({ status: 'active', type: 'mitra' })).toMatch(/Tutup Outlet/)
+  })
+  it('outlet yang sudah ditutup, dan lokasi lain, boleh dihapus', () => {
+    expect(cekHapusOutlet({ status: 'inactive', type: 'internal' })).toBeNull()
+    expect(cekHapusOutlet({ status: 'active', type: 'office' })).toBeNull()
+  })
+})
 
 const lama = (status: string, type = 'mitra') => ({ status, type })
 
@@ -18,8 +29,18 @@ describe('cekPerubahanOutlet', () => {
     expect(cekPerubahanOutlet(lama('inactive', 'internal'), { status: 'inactive', type: 'mitra' })).toMatch(/Jenis/)
   })
   it('perubahan biasa lolos', () => {
-    expect(cekPerubahanOutlet(lama('active'), { status: 'inactive', type: 'mitra' })).toBeNull()
     expect(cekPerubahanOutlet(lama('pending', 'internal'), { status: 'pending', type: 'mitra' })).toBeNull()
     expect(cekPerubahanOutlet(lama('active'), { status: 'active', type: 'mitra' })).toBeNull()
+  })
+  it('Aktif → Nonaktif untuk internal/mitra harus lewat Tutup Outlet', () => {
+    expect(cekPerubahanOutlet(lama('active', 'mitra'), { status: 'inactive', type: 'mitra' })).toMatch(/Tutup Outlet/)
+    expect(cekPerubahanOutlet(lama('active', 'internal'), { status: 'inactive', type: 'internal' })).toMatch(/Tutup Outlet/)
+  })
+  it('Nonaktif → Aktif untuk internal/mitra harus lewat Buka kembali', () => {
+    expect(cekPerubahanOutlet(lama('inactive', 'internal'), { status: 'active', type: 'internal' })).toMatch(/Buka kembali/)
+  })
+  it('lokasi selain internal/mitra tetap bebas aktif/nonaktif', () => {
+    expect(cekPerubahanOutlet(lama('active', 'office'), { status: 'inactive', type: 'office' })).toBeNull()
+    expect(cekPerubahanOutlet(lama('inactive', 'gudang'), { status: 'active', type: 'gudang' })).toBeNull()
   })
 })

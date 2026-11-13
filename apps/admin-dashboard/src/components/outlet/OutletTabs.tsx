@@ -1,14 +1,23 @@
 import Link from 'next/link'
 
-export type TabOutlet = 'semua' | 'persiapan'
+export type TabOutlet = 'semua' | 'persiapan' | 'penutupan'
 
 /**
- * Tab menu "Outlet": Semua Outlet (/dashboard/outlets) dan Persiapan
- * (/dashboard/pembukaan-outlet). Dua alamat tetap dipertahankan supaya tautan
- * papan & wizard lama tidak putus; tab ini yang menyatukannya di layar.
+ * Tab menu "Outlet": Semua Outlet (/dashboard/outlets), Persiapan
+ * (/dashboard/pembukaan-outlet), dan Penutupan (/dashboard/penutupan-outlet).
+ * Alamat lama tetap dipertahankan supaya tautan papan & wizard tidak putus;
+ * tab ini yang menyatukannya di layar.
  * Hanya untuk admin/developer — owner tidak bisa membuka /dashboard/outlets.
  */
-export function OutletTabs({ aktif, jumlahPersiapan }: { aktif: TabOutlet; jumlahPersiapan?: number }) {
+export function OutletTabs({
+  aktif,
+  jumlahPersiapan,
+  jumlahPenutupan,
+}: {
+  aktif: TabOutlet
+  jumlahPersiapan?: number
+  jumlahPenutupan?: number
+}) {
   const tab = (id: TabOutlet, href: string, label: string, angka?: number) => {
     const terpilih = aktif === id
     return (
@@ -39,6 +48,7 @@ export function OutletTabs({ aktif, jumlahPersiapan }: { aktif: TabOutlet; jumla
     <nav aria-label="Bagian menu Outlet" className="flex gap-1 border-b border-suka-gray-200">
       {tab('semua', '/dashboard/outlets', 'Semua Outlet')}
       {tab('persiapan', '/dashboard/pembukaan-outlet', 'Persiapan', jumlahPersiapan)}
+      {tab('penutupan', '/dashboard/penutupan-outlet', 'Penutupan', jumlahPenutupan)}
     </nav>
   )
 }

@@ -3,6 +3,7 @@ import { Sparkles, Store, ChevronRight } from 'lucide-react'
 import { requireRole } from '@/lib/authz'
 import { Card, EmptyState, PageHeader } from '@/components/ui'
 import { ambilDaftarPersiapan } from './actions'
+import { hitungPenutupanTerbuka } from '../penutupan-outlet/actions'
 import { hitungMundur, ringkasLangkahWajib } from '@/lib/pembukaanOutlet/petakan'
 import { hariIniWib } from '@/lib/pembukaanOutlet/konstanta'
 import { OutletTabs } from '@/components/outlet/OutletTabs'
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic'
 export default async function PembukaanOutletPage() {
   const { role } = await requireRole(['admin', 'owner'])
   const bolehTulis = role === 'admin' || role === 'developer'
-  const daftar = await ambilDaftarPersiapan()
+  const [daftar, jumlahPenutupan] = await Promise.all([ambilDaftarPersiapan(), hitungPenutupanTerbuka()])
   const hariIni = hariIniWib()
 
   return (
@@ -34,7 +35,7 @@ export default async function PembukaanOutletPage() {
         )}
       </PageHeader>
 
-      {bolehTulis && <OutletTabs aktif="persiapan" jumlahPersiapan={daftar.length} />}
+      {bolehTulis && <OutletTabs aktif="persiapan" jumlahPersiapan={daftar.length} jumlahPenutupan={jumlahPenutupan} />}
 
       {daftar.length === 0 ? (
         <Card>

@@ -14,6 +14,7 @@ import {
   Building2,
   Users,
   ClipboardCheck,
+  DoorClosed,
 } from 'lucide-react'
 import { Fragment } from 'react'
 import Link from 'next/link'
@@ -22,6 +23,12 @@ import { LABEL_TIPE_OUTLET, labelNonOutlet } from '@/lib/outletType'
 
 /** Papan checklist outlet Persiapan — satu-satunya jalan keluar dari status itu (Go-Live/Batalkan). */
 const papanPersiapan = (id: string) => `/dashboard/pembukaan-outlet/${id}`
+
+/** Papan Penutupan — tempat outlet internal/mitra yang tutup dibereskan atau dibuka kembali. */
+const papanPenutupan = (id: string) => `/dashboard/penutupan-outlet/${id}`
+
+/** Outlet internal/mitra: aktif↔nonaktif hanya lewat Tutup Outlet / Buka kembali. */
+const lewatWizardPenutupan = (o: Outlet) => o.type === 'internal' || o.type === 'mitra'
 
 function hasValidCoordinates(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
@@ -303,7 +310,27 @@ export function OutletTable({
                             <ClipboardCheck size={17} />
                           </Link>
                         )}
-                        {onToggleActive && o.status !== 'pending' && (
+                        {onToggleActive && o.status !== 'pending' && lewatWizardPenutupan(o) && (
+                          nonaktif(o) ? (
+                            <Link
+                              href={papanPenutupan(o.id)}
+                              title="Papan Penutupan (buka kembali / bereskan)"
+                              className="p-2 rounded-xl text-suka-gray-600 hover:text-suka-ink hover:bg-suka-gray-100 border border-transparent hover:border-suka-gray-200 transition-colors"
+                            >
+                              <DoorClosed size={17} />
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Tutup Outlet"
+                              onClick={() => onToggleActive(o)}
+                              className="p-2 rounded-xl border border-transparent text-suka-gray-500 hover:text-red-700 hover:bg-red-50 hover:border-red-200 transition-colors"
+                            >
+                              <Power size={17} />
+                            </button>
+                          )
+                        )}
+                        {onToggleActive && o.status !== 'pending' && !lewatWizardPenutupan(o) && (
                           <button
                             type="button"
                             title={o.is_active ? 'Nonaktifkan Outlet' : 'Aktifkan Outlet'}
@@ -317,7 +344,7 @@ export function OutletTable({
                             <Power size={17} />
                           </button>
                         )}
-                        {onDelete && o.status !== 'pending' && (
+                        {onDelete && o.status !== 'pending' && !(lewatWizardPenutupan(o) && !nonaktif(o)) && (
                           <button
                             type="button"
                             title="Nonaktifkan & Hapus (Soft Delete)"
@@ -491,7 +518,29 @@ export function OutletTable({
                       Papan
                     </Link>
                   )}
-                  {onToggleActive && o.status !== 'pending' && (
+                  {onToggleActive && o.status !== 'pending' && lewatWizardPenutupan(o) && (
+                    nonaktif(o) ? (
+                      <Link
+                        href={papanPenutupan(o.id)}
+                        title="Papan Penutupan (buka kembali / bereskan)"
+                        className="min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold text-suka-gray-700 bg-suka-gray-50 hover:bg-suka-gray-100 border border-suka-gray-200 flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                      >
+                        <DoorClosed className="w-3.5 h-3.5" />
+                        Penutupan
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        title="Tutup Outlet"
+                        onClick={() => onToggleActive(o)}
+                        className="min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors shadow-2xs text-red-700 bg-red-50/50 hover:bg-red-50 border-red-200"
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                        Tutup
+                      </button>
+                    )
+                  )}
+                  {onToggleActive && o.status !== 'pending' && !lewatWizardPenutupan(o) && (
                     <button
                       type="button"
                       title={o.is_active ? 'Nonaktifkan Cabang' : 'Aktifkan Cabang'}
@@ -506,7 +555,7 @@ export function OutletTable({
                       {o.is_active ? 'Nonaktif' : 'Aktifkan'}
                     </button>
                   )}
-                  {onDelete && o.status !== 'pending' && (
+                  {onDelete && o.status !== 'pending' && !(lewatWizardPenutupan(o) && !nonaktif(o)) && (
                     <button
                       type="button"
                       title="Nonaktifkan & Hapus (Soft Delete)"

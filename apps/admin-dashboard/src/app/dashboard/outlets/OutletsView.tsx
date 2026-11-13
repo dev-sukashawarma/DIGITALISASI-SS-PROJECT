@@ -23,6 +23,7 @@ import { OutletTabs } from '@/components/outlet/OutletTabs'
 import { OutletTable } from '@/components/OutletTable'
 import { OutletForm } from '@/components/OutletForm'
 import { DeleteOutletDialog } from '@/components/DeleteOutletDialog'
+import { DialogTutupOutlet } from '@/components/penutupan-outlet/DialogTutupOutlet'
 import type { Outlet, OutletFilterValues, OutletFormValues } from '@/lib/types'
 
 const EMPTY_FILTER: OutletFilterValues = { search: '', status: '', type: 'internal' }
@@ -110,6 +111,7 @@ export default function OutletsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Outlet | null>(null)
   const [deleting, setDeleting] = useState<Outlet | null>(null)
+  const [menutup, setMenutup] = useState<Outlet | null>(null)
 
   const setFilter = useCallback((next: SetStateAction<OutletFilterValues>) => {
     setPinned(NO_PIN)
@@ -162,6 +164,7 @@ export default function OutletsPage() {
       internal: grup('internal'),
       mitra: grup('mitra'),
       sistem: outlets.filter((o) => o.type !== 'internal' && o.type !== 'mitra').length,
+      penutupan: outlets.filter((o) => nonaktif(o) && o.alasan_tutup && !o.penutupan_selesai_at).length,
     }
   }, [outlets])
 
@@ -192,7 +195,13 @@ export default function OutletsPage() {
   }
 
   function handleToggleActive(o: Outlet) {
-    // Nonaktif/Aktifkan hanya mengubah status — outlet tetap ada di daftar.
+    // Outlet internal/mitra ditutup lewat wizard (tanggal + alasan, papan Penutupan).
+    // Yang nonaktif tidak sampai ke sini: tabel menautkannya ke papan Penutupan.
+    if (o.type === 'internal' || o.type === 'mitra') {
+      setMenutup(o)
+      return
+    }
+    // Lokasi lain: Nonaktif/Aktifkan hanya mengubah status — tetap ada di daftar.
     // Menghapus (menyembunyikan) outlet hanya lewat tombol Hapus.
     pin(o.id)
     const aktifkan = !o.is_active
@@ -262,7 +271,7 @@ export default function OutletsPage() {
         </Button>
       </div>
 
-      <OutletTabs aktif="semua" jumlahPersiapan={stats.pending} />
+      <OutletTabs aktif="semua" jumlahPersiapan={stats.pending} jumlahPenutupan={stats.penutupan} />
 
       {/* ── KPI Stat Cards (hanya outlet internal & mitra; Sistem tidak dihitung) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -401,6 +410,13 @@ export default function OutletsPage() {
           </div>,
           document.body
         )}
+
+      {menutup && (
+        <DialogTutupOutlet
+          outlet={{ id: menutup.id, name: menutup.name, createdAt: menutup.created_at ?? new Date(0).toISOString() }}
+          onTutup={() => setMenutup(null)}
+        />
+      )}
 
       {/* ── Delete Confirmation Dialog ── */}
       {deleting && (

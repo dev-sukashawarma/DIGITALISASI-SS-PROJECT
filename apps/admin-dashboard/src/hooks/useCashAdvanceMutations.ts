@@ -89,11 +89,14 @@ export function useCashAdvanceMutations() {
 
   const approve = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('cash_advances')
         .update({ status_hr: 'approved', status: 'menunggu_cair' as CashAdvanceStatus })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status_hr', 'pending')
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Pengajuan kasbon ini sudah diproses. Muat ulang halaman.');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-advances'] });
@@ -102,11 +105,14 @@ export function useCashAdvanceMutations() {
 
   const reject = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('cash_advances')
         .update({ status_hr: 'rejected' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status_hr', 'pending')
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Pengajuan kasbon ini sudah diproses. Muat ulang halaman.');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-advances'] });

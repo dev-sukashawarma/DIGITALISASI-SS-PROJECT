@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import { cekPotonganKasbonSlip, potonganKasbonSlip } from '@/lib/kasbon/potonganSlip'
 import type { PayrollStatus } from '@/lib/types'
 import { LATE_FEE_PER_MINUTE, dendaTelatBerlaku } from '@/lib/payrollBreakdown'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
@@ -135,6 +136,37 @@ async function fetchMonthlySalesBonuses(
   return bonusMap
 }
 
+
+/**
+ * Potongan kasbon di slip hanya boleh sebesar sisa kasbon yang sudah dicairkan finance
+ * (status 'active'). Kasbon manual di luar sistem ditolak — keputusan owner 13 Nov 2026.
+ */
+async function pastikanPotonganKasbonSah(
+  supabase: ReturnType<typeof createClient>,
+  slips: { staff_id: string; deduction_kasbon: number | null; deduction_note: string | null }[],
+): Promise<void> {
+  const diminta = new Map<string, number>()
+  for (const s of slips) {
+    const n = potonganKasbonSlip(s)
+    if (n > 0) diminta.set(s.staff_id, (diminta.get(s.staff_id) ?? 0) + n)
+  }
+  if (diminta.size === 0) return
+  const ids = [...diminta.keys()]
+  const [{ data: aktif, error: errAktif }, { data: staf, error: errStaf }] = await Promise.all([
+    supabase.from('cash_advances').select('staff_id, remaining').in('staff_id', ids).eq('status', 'active').eq('status_hr', 'approved'),
+    supabase.from('outlet_staff').select('id, name').in('id', ids),
+  ])
+  if (errAktif) throw errAktif
+  if (errStaf) throw errStaf
+  const sisa = new Map<string, number>()
+  for (const k of aktif ?? []) sisa.set(k.staff_id, (sisa.get(k.staff_id) ?? 0) + (Number(k.remaining) || 0))
+  const nama = new Map((staf ?? []).map((x) => [x.id, x.name as string]))
+  const galat = ids
+    .map((id) => cekPotonganKasbonSlip(diminta.get(id) ?? 0, sisa.get(id) ?? 0, nama.get(id) ?? 'staf'))
+    .filter((g): g is string => g !== null)
+  if (galat.length > 0) throw new Error(galat.join('\n'))
+}
+
 export function usePayrollMutations() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -210,7 +242,8 @@ export function usePayrollMutations() {
         const lateMinutes = dendaTelatBerlaku(s) ? (lateMinutesMap.get(s.id) || 0) : 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
         const kasbonActive = kasbonMap.get(s.id) || 0
-        const kasbonDeduction = kasbonActive > 0 ? kasbonActive : (Number(fin?.deduction_kasbon) || 0)
+        // Hanya kasbon yang sudah dicairkan finance; nilai manual master tidak dipakai lagi.
+        const kasbonDeduction = kasbonActive
         const bpjsDeduction = Number(fin?.deduction_bpjs) || 0
 
         const totalDeductions = lateDeduction + kasbonDeduction + bpjsDeduction
@@ -442,6 +475,15 @@ export function usePayrollMutations() {
 
   const finalizeAll = useMutation({
     mutationFn: async ({ month, year }: { month: number; year: number }) => {
+      const { data: draftSlips, error: slipsErr } = await supabase
+        .from('payroll_records')
+        .select('staff_id, deduction_kasbon, deduction_note')
+        .eq('period_month', month)
+        .eq('period_year', year)
+        .eq('status', 'draft')
+      if (slipsErr) throw slipsErr
+      await pastikanPotonganKasbonSah(supabase, draftSlips ?? [])
+
       const { error } = await supabase
         .from('payroll_records')
         .update({ status: 'finalized' as PayrollStatus })

@@ -23,6 +23,7 @@ WHERE t.source_type = 'kasbon' AND t.status <> 'void'
   AND (k.id IS NULL OR k.status NOT IN ('active', 'paid_off') OR k.cash_transaction_id IS DISTINCT FROM t.id);
 
 -- Q4: cicilan pada kasbon yang belum dicairkan, sejak alur baru (harus 0).
-SELECT p.id, p.cash_advance_id, p.amount, k.status
+SELECT p.id, p.cash_advance_id, p.amount, k.status, k.status_hr
 FROM cash_advance_payments p JOIN cash_advances k ON k.id = p.cash_advance_id
-WHERE k.status <> 'active' AND k.status <> 'paid_off' AND p.created_at >= '2026-11-13';
+WHERE (k.status NOT IN ('active', 'paid_off') OR k.status_hr IS DISTINCT FROM 'approved')
+  AND p.created_at >= '2026-11-13';

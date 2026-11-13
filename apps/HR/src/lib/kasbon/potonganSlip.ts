@@ -1,4 +1,7 @@
-import { rupiah } from '../format'
+/** Format lokal agar berkas ini identik di HR & admin-dashboard (format app berbeda). */
+function rupiah(n: number): string {
+  return 'Rp ' + Math.round(n).toLocaleString('id-ID')
+}
 
 /** Potongan kasbon pada slip: kolom deduction_kasbon, atau angka "kasbon Rp …" di catatan potongan. */
 export function potonganKasbonSlip(slip: {

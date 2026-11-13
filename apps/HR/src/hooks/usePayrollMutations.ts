@@ -206,7 +206,7 @@ function buildPayrollRecordRow({
   const lateMinutes = dendaTelatBerlaku(staff) ? (lateMinutesMap.get(staff.id) || 0) : 0
   const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
   const kasbonActive = kasbonMap.get(staff.id) || 0
-  const kasbonDeduction = kasbonActive > 0 ? kasbonActive : (Number(fin?.deduction_kasbon) || 0)
+  const kasbonDeduction = kasbonActive // hanya kasbon yang sudah dicairkan finance; nilai manual master tak dipakai
   const bpjsDeduction = Number(fin?.deduction_bpjs) || 0
 
   const totalDeductions = lateDeduction + kasbonDeduction + bpjsDeduction
@@ -406,7 +406,7 @@ export function usePayrollMutations() {
         const lateMinutes = dendaTelatBerlaku(s) ? (lateMinutesMap.get(s.id) || 0) : 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
         const kasbonActive = kasbonMap.get(s.id) || 0
-        const kasbonDeduction = kasbonActive > 0 ? kasbonActive : (Number(fin?.deduction_kasbon) || 0)
+        const kasbonDeduction = kasbonActive // hanya kasbon yang sudah dicairkan finance; nilai manual master tak dipakai
         const bpjsDeduction = Number(fin?.deduction_bpjs) || 0
 
         const totalDeductions = lateDeduction + kasbonDeduction + bpjsDeduction
@@ -704,12 +704,13 @@ export function usePayrollMutations() {
               const deduct = Math.min(remainingToDeduct, advRemaining)
               const newRemaining = Math.max(0, advRemaining - deduct)
 
-              await supabase.from('cash_advance_payments').insert({
+              const { error: errBayar } = await supabase.from('cash_advance_payments').insert({
                 cash_advance_id: adv.id,
                 amount: deduct,
                 payment_date: paymentDate,
                 note: `Potong Slip Payroll Periode ${month}/${year}`,
               })
+              if (errBayar) throw errBayar
 
               const updatePayload: { remaining: number; status?: CashAdvanceStatus } = {
                 remaining: newRemaining,
@@ -718,10 +719,12 @@ export function usePayrollMutations() {
                 updatePayload.status = 'paid_off'
               }
 
-              await supabase
+              const { error: errUpd } = await supabase
                 .from('cash_advances')
                 .update(updatePayload)
                 .eq('id', adv.id)
+
+              if (errUpd) throw errUpd
 
               remainingToDeduct -= deduct
               settledKasbonCount++
@@ -789,22 +792,25 @@ export function usePayrollMutations() {
             const deduct = Math.min(remainingToDeduct, advRemaining)
             const newRemaining = Math.max(0, advRemaining - deduct)
 
-            await supabase.from('cash_advance_payments').insert({
+            const { error: errBayar } = await supabase.from('cash_advance_payments').insert({
               cash_advance_id: adv.id,
               amount: deduct,
               payment_date: paymentDate,
               note: `Potong Slip Payroll Periode ${slip.period_month}/${slip.period_year}`,
             })
+            if (errBayar) throw errBayar
 
             const updatePayload: { remaining: number; status?: CashAdvanceStatus } = {
               remaining: newRemaining,
             }
             if (newRemaining <= 0) updatePayload.status = 'paid_off'
 
-            await supabase
+            const { error: errUpd } = await supabase
               .from('cash_advances')
               .update(updatePayload)
               .eq('id', adv.id)
+
+            if (errUpd) throw errUpd
 
             remainingToDeduct -= deduct
           }

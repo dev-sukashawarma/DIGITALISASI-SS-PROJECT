@@ -40,43 +40,74 @@ SET search_path = public
 AS $$
 DECLARE
   v_flag boolean := coalesce(current_setting('app.kasbon_cair', true), '') = 'on';
+  v_uid  uuid    := auth.uid();
+  v_hr   boolean := v_uid IS NOT NULL AND public.is_hr_pusat();
 BEGIN
-  -- 1. Sesi user tidak boleh membuat kasbon disetujui yang langsung berjalan/lunas.
-  --    Impor massal (service role, auth.uid() NULL) tetap boleh memasukkan riwayat.
-  IF TG_OP = 'INSERT' AND auth.uid() IS NOT NULL
-     AND NEW.status_hr = 'approved' AND NEW.status IN ('active', 'paid_off') AND NOT v_flag THEN
-    -- dibiarkan: aturan 2 di bawah mengubah 'active' jadi menunggu_cair;
-    -- 'paid_off' (kasbon manual dari slip) ditolak.
-    IF NEW.status = 'paid_off' THEN
-      RAISE EXCEPTION 'Kasbon disetujui harus menunggu pencairan finance; kasbon lunas tidak bisa dibuat langsung'
+  IF TG_OP = 'INSERT' AND v_uid IS NOT NULL THEN
+    -- 0. Pengaju non-HR (crew lewat policy "insert own") selalu menunggu HR,
+    --    tanpa penyetuju. Policy itu hanya memeriksa staff_id = auth.uid().
+    IF NOT v_hr THEN
+      NEW.status_hr   := 'pending';
+      NEW.status      := 'active';
+      NEW.approved_by := NULL;
+      NEW.approved_at := NULL;
+    END IF;
+    -- 1. Sesi user tidak boleh membuat kasbon lunas langsung (kasbon manual
+    --    dari slip ditutup). Impor massal (service role, auth.uid() NULL) boleh.
+    IF NEW.status = 'paid_off' AND NOT v_flag THEN
+      RAISE EXCEPTION 'Kasbon lunas tidak bisa dibuat langsung; ajukan lalu cairkan lewat finance'
         USING ERRCODE = 'check_violation';
     END IF;
   END IF;
 
-  -- 2. Saat HR menyetujui: paksa menunggu_cair, catat penyetuju.
-  IF NEW.status_hr = 'approved'
-     AND (TG_OP = 'INSERT' OR OLD.status_hr IS DISTINCT FROM 'approved')
-     AND NEW.status IS DISTINCT FROM 'paid_off' THEN
-    NEW.status := 'menunggu_cair';
-    NEW.approved_by := coalesce(NEW.approved_by, auth.uid());
-    NEW.approved_at := coalesce(NEW.approved_at, now());
+  -- 2. Saat HR menyetujui: paksa menunggu_cair; penyetuju = pemanggil (tak bisa dipalsukan).
+  IF NEW.status_hr = 'approved' AND (TG_OP = 'INSERT' OR OLD.status_hr IS DISTINCT FROM 'approved') THEN
+    IF NEW.status IS DISTINCT FROM 'paid_off' OR v_uid IS NOT NULL THEN
+      NEW.status := 'menunggu_cair';
+    END IF;
+    IF v_uid IS NOT NULL THEN
+      NEW.approved_by := v_uid;
+      NEW.approved_at := now();
+    ELSE
+      NEW.approved_at := coalesce(NEW.approved_at, now());
+    END IF;
+  ELSIF TG_OP = 'UPDATE' AND v_uid IS NOT NULL THEN
+    -- Penyetuju tercatat tidak bisa diubah sesi user (aturan pencair ≠ penyetuju).
+    NEW.approved_by := OLD.approved_by;
+    NEW.approved_at := OLD.approved_at;
   END IF;
 
   IF TG_OP = 'UPDATE' THEN
+    -- 7. Tolak finance itu final.
+    IF OLD.ditolak_finance_at IS NOT NULL
+       AND (NEW.status_hr IS DISTINCT FROM OLD.status_hr OR NEW.ditolak_finance_at IS DISTINCT FROM OLD.ditolak_finance_at) THEN
+      RAISE EXCEPTION 'Kasbon sudah ditolak finance; ajukan kasbon baru'
+        USING ERRCODE = 'check_violation';
+    END IF;
+
+    -- 6. Setelah disetujui HR, persetujuan hanya bisa berubah jadi 'rejected' selama
+    --    belum dicairkan (mencegah kasbon cair dikembalikan ke pending lalu cair lagi).
+    IF OLD.status_hr = 'approved' AND NEW.status_hr IS DISTINCT FROM 'approved'
+       AND NOT (NEW.status_hr = 'rejected' AND OLD.status = 'menunggu_cair') THEN
+      RAISE EXCEPTION 'Kasbon yang sudah dicairkan tidak bisa ditolak atau dikembalikan'
+        USING ERRCODE = 'check_violation';
+    END IF;
+
     -- 3. Transisi siklus uang.
     -- (kasbon pending juga berstatus 'active' karena default; aturan 3 & 5
     --  hanya berlaku untuk kasbon yang sudah disetujui HR.)
-    IF OLD.status_hr = 'approved' AND OLD.status IS DISTINCT FROM NEW.status THEN
-      IF (OLD.status = 'menunggu_cair' AND NEW.status = 'active')
-         OR (OLD.status = 'active' AND NEW.status = 'menunggu_cair') THEN
-        IF NOT v_flag THEN
-          RAISE EXCEPTION 'Status pencairan kasbon hanya bisa diubah oleh tim finance lewat Hub Approval'
-            USING ERRCODE = 'check_violation';
-        END IF;
-      ELSIF OLD.status = 'menunggu_cair' AND NEW.status = 'paid_off' THEN
-        RAISE EXCEPTION 'Kasbon yang belum dicairkan tidak bisa dilunasi'
-          USING ERRCODE = 'check_violation';
-      END IF;
+    IF OLD.status_hr = 'approved' AND OLD.status IS DISTINCT FROM NEW.status
+       AND ((OLD.status = 'menunggu_cair' AND NEW.status = 'active')
+            OR (OLD.status = 'active' AND NEW.status = 'menunggu_cair'))
+       AND NOT v_flag THEN
+      RAISE EXCEPTION 'Status pencairan kasbon hanya bisa diubah oleh tim finance lewat Hub Approval'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    -- Lunas hanya dari kasbon yang sudah dicairkan.
+    IF NEW.status = 'paid_off' AND OLD.status IS DISTINCT FROM 'paid_off'
+       AND NOT (OLD.status_hr = 'approved' AND OLD.status = 'active') THEN
+      RAISE EXCEPTION 'Kasbon yang belum dicairkan tidak bisa dilunasi'
+        USING ERRCODE = 'check_violation';
     END IF;
 
     -- 5. Setelah cair, nominal & cicilan dikunci; sisa hanya boleh turun.
@@ -90,13 +121,6 @@ BEGIN
         RAISE EXCEPTION 'Sisa kasbon yang sudah dicairkan tidak bisa bertambah'
           USING ERRCODE = 'check_violation';
       END IF;
-    END IF;
-
-    -- 6. Kasbon yang sudah cair tidak bisa ditolak.
-    IF NEW.status_hr = 'rejected' AND OLD.status_hr = 'approved'
-       AND OLD.status IS DISTINCT FROM 'menunggu_cair' THEN
-      RAISE EXCEPTION 'Kasbon yang sudah dicairkan tidak bisa ditolak'
-        USING ERRCODE = 'check_violation';
     END IF;
   END IF;
 
@@ -124,9 +148,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM cash_advances WHERE id = NEW.cash_advance_id AND status = 'active'
-  ) THEN
+  -- FOR SHARE: berurutan dengan finance_batal_cair_kasbon (FOR UPDATE) agar cicilan
+  -- tak lolos tepat saat pencairan dibatalkan. Pending juga berstatus 'active'
+  -- (default), jadi status_hr wajib 'approved'.
+  PERFORM 1 FROM cash_advances
+   WHERE id = NEW.cash_advance_id AND status = 'active' AND status_hr = 'approved'
+   FOR SHARE;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Cicilan hanya untuk kasbon yang sudah dicairkan'
       USING ERRCODE = 'check_violation';
   END IF;

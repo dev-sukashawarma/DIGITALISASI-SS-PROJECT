@@ -4,6 +4,7 @@ import { getMitraComprehensivePnl } from '@/app/actions/mitraPnl'
 import { getMitraRealtimeBepBreakdown } from '@/app/actions/mitraRoi'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PeriodFilterValue } from '@/lib/types'
+import { idOutletKemitraan } from '@/lib/mitra/outletKemitraan'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export default async function KelolaMitraPage({ searchParams }: { searchParams: 
       .order('created_at', { ascending: false }),
     supabase
       .from('outlets')
-      .select('id, name, type, is_active')
+      .select('id, name, type, is_active, status')
       .neq('id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
       .order('name', { ascending: true }),
     supabase
@@ -56,17 +57,14 @@ export default async function KelolaMitraPage({ searchParams }: { searchParams: 
     role: s.role || 'staff'
   }))
 
-  // 7. Kumpulkan semua outlet_ids yang terafiliasi dengan kemitraan
-  const mitraOutletIdSet = new Set<string>()
-  ;(mitraProfiles || []).forEach((m: any) => {
-    (m.outlet_ids || []).forEach((id: string) => mitraOutletIdSet.add(id))
+  // 7. Outlet yang tampil sebagai kartu: punya data kemitraan, atau outlet mitra
+  //    yang masih aktif/Persiapan. Outlet mitra nonaktif tanpa data disembunyikan.
+  const mitraOutletIds = idOutletKemitraan({
+    outlets: allOutlets || [],
+    profiles: mitraProfiles || [],
+    investments: investments || [],
+    transfers: transfers || [],
   })
-  ;(investments || []).forEach((inv: any) => {
-    if (inv.outlet_id) mitraOutletIdSet.add(inv.outlet_id)
-  })
-  ;(allOutlets || []).filter(o => o.type === 'mitra').forEach(o => mitraOutletIdSet.add(o.id))
-
-  const mitraOutletIds = Array.from(mitraOutletIdSet)
 
   // 8. Filter Periode
   const defaultRange = presetRange('yesterday')

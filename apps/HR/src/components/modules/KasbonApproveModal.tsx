@@ -10,9 +10,16 @@ import type { CashAdvanceRow } from '@/hooks/useCashAdvances'
 interface KasbonApproveModalProps {
   target: CashAdvanceRow
   onClose: () => void
-  onSubmit: (params: { id: string; amount: number; approvalNote?: string }) => void
+  onSubmit: (params: {
+    id: string
+    amount: number
+    installmentMonths: number
+    approvalNote?: string
+  }) => void
   submitting: boolean
 }
+
+const TENOR_OPTIONS = [1, 2, 3, 4, 5, 6] as const
 
 const inputClass =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white text-suka-ink text-sm'
@@ -25,15 +32,22 @@ export function KasbonApproveModal({
   submitting,
 }: KasbonApproveModalProps) {
   const requestedAmount = Number(target.amount) || 0
+  const requestedMonths = Math.min(6, Math.max(1, Math.round(Number(target.installment_months) || 1)))
   const [approvedAmount, setApprovedAmount] = useState<number>(requestedAmount)
+  const [installmentMonths, setInstallmentMonths] = useState<number>(requestedMonths)
   const [approvalNote, setApprovalNote] = useState<string>('')
   const [touched, setTouched] = useState<boolean>(false)
 
-  const validation = validateKasbonApproval(requestedAmount, approvedAmount, approvalNote)
+  const validation = validateKasbonApproval(
+    requestedAmount,
+    approvedAmount,
+    approvalNote,
+    requestedMonths,
+    installmentMonths
+  )
   const staffName = target.outlet_staff?.name || 'Karyawan'
   const roleName = target.outlet_staff?.role?.replace('_', ' ') || 'Staff'
   const outletName = target.outlet_staff?.outlets?.name || 'Pusat'
-  const installmentMonths = target.installment_months || 1
 
   const reqDate = target.created_at
     ? new Date(target.created_at).toLocaleDateString('id-ID', {
@@ -51,12 +65,17 @@ export function KasbonApproveModal({
     onSubmit({
       id: target.id,
       amount: approvedAmount,
+      installmentMonths,
       approvalNote: approvalNote.trim() || undefined,
     })
   }
 
   const handleResetAmount = () => {
     setApprovedAmount(requestedAmount)
+  }
+
+  const handleResetTenor = () => {
+    setInstallmentMonths(requestedMonths)
   }
 
   return (
@@ -95,9 +114,9 @@ export function KasbonApproveModal({
               Outlet: <strong>{outletName}</strong>
             </span>
             <span>
-              Tenor:{' '}
+              Tenor Diajukan:{' '}
               <strong>
-                {installmentMonths} Bulan {installmentMonths === 1 ? '(Langsung lunas)' : `(${installmentMonths}x cicilan)`}
+                {requestedMonths} Bulan {requestedMonths === 1 ? '(Langsung lunas)' : `(${requestedMonths}x cicilan)`}
               </strong>
             </span>
           </div>
@@ -142,9 +161,42 @@ export function KasbonApproveModal({
               }}
               required
             />
-            {installmentMonths > 1 && approvedAmount > 0 && (
+          </div>
+
+          {/* Input Tenor Cicilan Disetujui */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className={labelClass}>Tenor Cicilan Disetujui (Bulan) *</label>
+              {validation.isTenorDifferent && (
+                <button
+                  type="button"
+                  onClick={handleResetTenor}
+                  className="inline-flex items-center gap-1 text-[11px] text-suka-orange hover:underline font-semibold cursor-pointer"
+                >
+                  <RotateCcw size={11} />
+                  Reset ke {requestedMonths} Bulan
+                </button>
+              )}
+            </div>
+            <select
+              className={inputClass}
+              value={installmentMonths}
+              onChange={(e) => {
+                setInstallmentMonths(Number(e.target.value))
+                setTouched(true)
+              }}
+            >
+              {TENOR_OPTIONS.map((months) => (
+                <option key={months} value={months}>
+                  {months === 1
+                    ? '1 Bulan (Langsung lunas di payroll berikutnya)'
+                    : `${months} Bulan (Cicil ${months}x)`}
+                </option>
+              ))}
+            </select>
+            {approvedAmount > 0 && (
               <p className="mt-1 text-[11px] text-stone-500 font-medium">
-                Estimasi cicilan baru:{' '}
+                Estimasi cicilan:{' '}
                 <span className="font-bold text-emerald-700 font-mono">
                   {formatRupiah(Math.ceil(approvedAmount / installmentMonths))}
                 </span>{' '}

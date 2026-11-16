@@ -6,6 +6,7 @@ export interface ApproveCashAdvancePayload {
   id: string
   amount?: number
   originalAmount?: number
+  installmentMonths?: number
   approvalNote?: string | null
 }
 
@@ -101,6 +102,7 @@ export function useCashAdvanceMutations() {
       const id = typeof payload === 'string' ? payload : payload.id
       const amount = typeof payload === 'string' ? undefined : payload.amount
       const originalAmount = typeof payload === 'string' ? undefined : payload.originalAmount
+      const installmentMonths = typeof payload === 'string' ? undefined : payload.installmentMonths
       const approvalNote = typeof payload === 'string' ? undefined : payload.approvalNote
 
       const updateData: Record<string, any> = {
@@ -116,6 +118,9 @@ export function useCashAdvanceMutations() {
       }
       if (originalAmount !== undefined) {
         updateData.amount_requested = originalAmount
+      }
+      if (installmentMonths !== undefined) {
+        updateData.installment_months = installmentMonths
       }
       if (approvalNote !== undefined) {
         updateData.approval_note = approvalNote

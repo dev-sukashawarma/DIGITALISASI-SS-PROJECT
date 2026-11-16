@@ -376,10 +376,12 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
   const handleConfirmApproveKasbon = ({
     id,
     amount,
+    installmentMonths,
     approvalNote,
   }: {
     id: string
     amount: number
+    installmentMonths: number
     approvalNote?: string
   }) => {
     if (!approveKasbonTarget) return
@@ -389,11 +391,12 @@ export function PerizinanModule({ initialTab = 'izin' }: PerizinanModuleProps) {
         id,
         amount,
         originalAmount: approveKasbonTarget.amount,
+        installmentMonths,
         approvalNote: approvalNote?.trim() || null,
       },
       {
         onSuccess: () => {
-          toast.success(`Kasbon untuk ${staffName} sebesar ${formatRupiah(amount)} berhasil disetujui`)
+          toast.success(`Kasbon untuk ${staffName} sebesar ${formatRupiah(amount)} (${installmentMonths} bulan) berhasil disetujui`)
           setApproveKasbonTarget(null)
         },
         onError: (e: any) => toast.error(e.message || 'Gagal menyetujui kasbon'),

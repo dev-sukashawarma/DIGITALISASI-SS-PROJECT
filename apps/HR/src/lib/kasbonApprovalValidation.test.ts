@@ -63,4 +63,22 @@ describe('validateKasbonApproval', () => {
     expect(resHigher.isAmountDifferent).toBe(true)
     expect(resHigher.error).toBeUndefined()
   })
+
+  it('harus memvalidasi tenor cicilan 1-6 bulan dan mendeteksi perubahan tenor', () => {
+    const resSame = validateKasbonApproval(500000, 500000, '', 2, 2)
+    expect(resSame.isValid).toBe(true)
+    expect(resSame.isTenorDifferent).toBe(false)
+
+    const resChanged = validateKasbonApproval(500000, 500000, '', 1, 3)
+    expect(resChanged.isValid).toBe(true)
+    expect(resChanged.isTenorDifferent).toBe(true)
+
+    const resInvalidLow = validateKasbonApproval(500000, 500000, '', 1, 0)
+    expect(resInvalidLow.isValid).toBe(false)
+    expect(resInvalidLow.error).toContain('1 sampai 6 bulan')
+
+    const resInvalidHigh = validateKasbonApproval(500000, 500000, '', 1, 7)
+    expect(resInvalidHigh.isValid).toBe(false)
+    expect(resInvalidHigh.error).toContain('1 sampai 6 bulan')
+  })
 })

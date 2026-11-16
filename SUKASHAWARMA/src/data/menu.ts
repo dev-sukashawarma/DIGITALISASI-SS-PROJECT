@@ -8,6 +8,7 @@ export type MenuCategory =
   | "original-shawarma-mix"
   | "suka-suka"
   | "shawarmie"
+  | "chick-and-chips"
   | "minuman";
 
 export interface MenuItem {
@@ -27,6 +28,7 @@ export const CATEGORY_LABELS: Record<MenuCategory, string> = {
   "original-shawarma-mix":  "Original Shawarma Mix",
   "suka-suka":              "Suka Suka",
   "shawarmie":              "Shawarmie",
+  "chick-and-chips":        "Chick and Chips",
   "minuman":                "Minuman",
 };
 
@@ -36,6 +38,7 @@ export const CATEGORY_ORDER: MenuCategory[] = [
   "original-shawarma-sapi",
   "original-shawarma-mix",
   "suka-suka",
+  "chick-and-chips",
   "minuman",
 ];
 
@@ -155,6 +158,16 @@ export const menuItems: MenuItem[] = [
     image: "/menus/SS_SUKA_BEEF_01.jpg",
   },
 
+
+  // ─── CHICK AND CHIPS ─────────────────────────────────────────────────────
+  {
+    id: "chick-n-chips",
+    name: "Chick n' Chips",
+    category: "chick-and-chips",
+    description: "Ayam goreng crispy dan kentang goreng renyah dengan saus spesial SUKA",
+    price: undefined,
+    image: "/menus/SS_CHICK_N_CHIPS_01.jpg",
+  },
 
   // ─── MINUMAN ─────────────────────────────────────────────────────────────
   {

@@ -1,7 +1,23 @@
 import { describe, it, expect } from 'vitest'
-import { sembunyikanKolomBesar } from './satuanOpname'
+import { sembunyikanKolomBesar, adaSatuanKecil } from './satuanOpname'
 
 const HAND_GLOVE = { nama: 'HAND GLOVE', satuan: 'Dus', satuan_tengah: 'Box', satuan_distribusi: 'box' }
+
+describe('adaSatuanKecil', () => {
+  it('true bila satuan_kecil terdefinisi dan berbeda dari satuan besar', () => {
+    expect(adaSatuanKecil({ satuan: 'Dus', satuan_kecil: 'Pcs' })).toBe(true)
+    expect(adaSatuanKecil({ satuan: 'Pack', satuan_kecil: 'Lembar' })).toBe(true)
+  })
+  it('false bila satuan_kecil sama dengan satuan besar (mis. Aqua Pcs/Pcs)', () => {
+    expect(adaSatuanKecil({ satuan: 'Pcs', satuan_kecil: 'Pcs' })).toBe(false)
+    expect(adaSatuanKecil({ satuan: 'pcs', satuan_kecil: 'PCS' })).toBe(false)
+  })
+  it('false bila satuan_kecil null atau kosong', () => {
+    expect(adaSatuanKecil({ satuan: 'Pcs', satuan_kecil: null })).toBe(false)
+    expect(adaSatuanKecil({ satuan: 'Pcs', satuan_kecil: '' })).toBe(false)
+  })
+})
+
 
 describe('sembunyikanKolomBesar', () => {
   it('outlet: disembunyikan bila dikirim per satuan tengah', () => {

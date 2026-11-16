@@ -15,7 +15,7 @@ import { totalSubVendor, singleVendorBesar, filterResumableInputs, type SubVendo
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
-import { sembunyikanKolomBesar } from '@/lib/stok/satuanOpname';
+import { sembunyikanKolomBesar, adaSatuanKecil } from '@/lib/stok/satuanOpname';
 import { saringDraftBasi } from '@/lib/stok/draftOpnameLokal';
 import { checkPendingSuratJalanAction } from '@/app/actions/opname';
 
@@ -57,9 +57,9 @@ function calculateTotalFisik(b: BahanBaku, input: { besar?: string; tengah?: str
   const unitBesarInKecil = b.faktor_tampilan || 1;
   const unitTengahInKecil = b.faktor_tengah ? unitBesarInKecil / b.faktor_tengah : 1;
 
-  if (b.satuan_tengah && b.satuan_kecil) {
+  if (b.satuan_tengah && adaSatuanKecil(b)) {
     return (besar * unitBesarInKecil) + (tengah * unitTengahInKecil) + kecil;
-  } else if (b.satuan_kecil) {
+  } else if (adaSatuanKecil(b)) {
     return (besar * unitBesarInKecil) + kecil;
   }
   return besar;
@@ -69,7 +69,7 @@ function formatRawInput(b: BahanBaku, input: { besar?: string; tengah?: string; 
   const parts = [];
   if (input.besar && Number(input.besar) > 0) parts.push(`${input.besar} ${b.satuan}`);
   if (b.satuan_tengah && input.tengah && Number(input.tengah) > 0) parts.push(`${input.tengah} ${b.satuan_tengah}`);
-  if (b.satuan_kecil && input.kecil && Number(input.kecil) > 0) parts.push(`${input.kecil} ${b.satuan_kecil}`);
+  if (adaSatuanKecil(b) && input.kecil && Number(input.kecil) > 0) parts.push(`${input.kecil} ${b.satuan_kecil}`);
   return parts.length > 0 ? parts.join(' + ') : `0 ${b.satuan}`;
 }
 
@@ -980,7 +980,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                   <p className="text-[10px] text-[#544437]/60 font-semibold mt-1">
                     Satuan: <span className="text-gray-700 font-bold">{tanpaBesar ? b.satuan_tengah : b.satuan}</span>
                     {b.satuan_tengah && !tanpaBesar && ` ➜ ${b.satuan_tengah}`}
-                    {b.satuan_kecil && ` ➜ ${b.satuan_kecil}`}
+                    {adaSatuanKecil(b) && ` ➜ ${b.satuan_kecil}`}
                   </p>
                 </div>
 
@@ -1058,7 +1058,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                             </>
                           )}
 
-                          {b.satuan_kecil && (
+                          {adaSatuanKecil(b) && (
                             <>
                               <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
                               <div className="flex flex-col items-center">
@@ -1124,7 +1124,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                     )}
 
                     {/* Input untuk Satuan Kecil */}
-                    {b.satuan_kecil && (
+                    {adaSatuanKecil(b) && (
                       <>
                         <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
                         <div className="flex flex-col items-center">
@@ -1186,7 +1186,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                     )}
 
                     {/* Target Satuan Kecil */}
-                    {b.satuan_kecil && (
+                    {adaSatuanKecil(b) && (
                       <>
                         <span className="text-[10px] font-bold text-[#0a7d2c]/30 mt-3">+</span>
                         <div className="flex flex-col items-center">

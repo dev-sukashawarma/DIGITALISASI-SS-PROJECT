@@ -25,3 +25,17 @@ export function sembunyikanKolomBesar(
   const distribusi = b.satuan_distribusi?.trim().toLowerCase()
   return !!tengah && tengah === distribusi
 }
+
+/**
+ * Bahan dianggap punya satuan kecil bila label satuan_kecil diisi dan
+ * TIDAK sama dengan satuan besar (mis. Pcs dan Pcs dianggap satu tingkat,
+ * bukan dua tingkat — mencegah form merender 2 kolom input identik yang
+ * dijumlahkan).
+ */
+export function adaSatuanKecil(b: { satuan?: string | null; satuan_kecil?: string | null }): boolean {
+  if (!b.satuan_kecil) return false
+  const besar = (b.satuan || '').trim().toLowerCase()
+  const kecil = b.satuan_kecil.trim().toLowerCase()
+  return kecil.length > 0 && kecil !== besar
+}
+

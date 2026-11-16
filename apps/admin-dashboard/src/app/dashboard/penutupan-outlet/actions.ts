@@ -16,7 +16,7 @@ const PERAN_TULIS = ['admin']
 const PERAN_BACA = ['admin', 'owner']
 const PERAN_CENTANG = ['admin', 'owner', 'admin_finance']
 
-const KOLOM_OUTLET = 'id, slug, name, address, lat, lng, type, is_active, open_hour, close_hour'
+const KOLOM_OUTLET = 'id, slug, name, address, lat, lng, phone, type, status, is_active, open_hour, close_hour'
 
 function pesanGalat(e: unknown): string {
   if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
@@ -29,12 +29,12 @@ function segarkan(outletId: string) {
   revalidatePath('/dashboard/outlets')
 }
 
-/** Order Online mengikuti status outlet di DB (is_active dibaca ulang). */
+/** Order Online mengikuti status outlet di DB (status & is_active dibaca ulang). */
 async function sinkronDariDb(outletId: string): Promise<void> {
   const supabase = await createClient()
   const { data, error } = await supabase.from('outlets').select(KOLOM_OUTLET).eq('id', outletId).single()
   if (error) throw new Error(error.message)
-  await sinkronOutletKeOrderOnline(data)
+  await sinkronOutletKeOrderOnline(data, { mode: 'status' })
 }
 
 export async function ambilStatusPenutupan(outletId: string): Promise<StatusPenutupan> {

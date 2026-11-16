@@ -122,33 +122,44 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
       return { ok: false, error: `Gagal menyimpan data staff: ${insertError.message}` };
     }
     
-    // 3. Create auth user in Order Online
-    if (orderOnline) {
+    // 3. Create auth user in Order Online (kecuali akun investor role === 'mitra',
+    // karena akun pengelola Form Order untuk cabang mitra sudah digenerate otomatis
+    // dengan format standar mitra<cabang>@ss.com saat outlet dibuat/diedit).
+    if (orderOnline && role !== 'mitra' && outlet_id) {
       try {
-        const { error: ooCreateError } = await orderOnline.auth.admin.createUser({
-          id: staffId,
-          email, 
-          password: password || '123456', 
-          email_confirm: true,
-          user_metadata: { role: 'outlet_staff', full_name: name, outlet_id },
-        });
-        
-        if (ooCreateError && !ooCreateError.message.includes('already exists')) {
-          throw new Error(`Order Online Auth Error: ${ooCreateError.message}`);
-        }
-        
-        // 4. Insert into Order Online admin_users
-        const { error: ooAdminError } = await orderOnline.from("admin_users").upsert({
-          id: staffId,
-          email,
-          full_name: name,
-          role: 'outlet_staff',
-          outlet_id,
-          is_active: true
-        });
-        
-        if (ooAdminError) {
-          throw new Error(`Order Online Admin Users Error: ${ooAdminError.message}`);
+        const { data: ooExistingEmail } = await orderOnline
+          .from("admin_users")
+          .select("id")
+          .ilike("email", email)
+          .maybeSingle();
+
+        if (!ooExistingEmail) {
+          const { error: ooCreateError } = await orderOnline.auth.admin.createUser({
+            id: staffId,
+            email, 
+            password: password || '123456', 
+            email_confirm: true,
+            user_metadata: { role: 'outlet_staff', full_name: name, outlet_id },
+          });
+          
+          const msg = (ooCreateError?.message || '').toLowerCase();
+          if (ooCreateError && !msg.includes('already') && !msg.includes('registered') && !msg.includes('exists')) {
+            throw new Error(`Order Online Auth Error: ${ooCreateError.message}`);
+          }
+          
+          // 4. Insert into Order Online admin_users
+          const { error: ooAdminError } = await orderOnline.from("admin_users").upsert({
+            id: staffId,
+            email,
+            full_name: name,
+            role: 'outlet_staff',
+            outlet_id,
+            is_active: true
+          });
+          
+          if (ooAdminError) {
+            throw new Error(`Order Online Admin Users Error: ${ooAdminError.message}`);
+          }
         }
       } catch (syncError: any) {
         // Rollback Digitalisasi

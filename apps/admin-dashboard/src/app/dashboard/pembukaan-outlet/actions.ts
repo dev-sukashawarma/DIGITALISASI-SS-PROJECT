@@ -4,7 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { requireRole } from '@/lib/authz'
 import { createClient } from '@/lib/supabase/server'
 import { createStaffSync } from '@/app/actions/users'
-import { hapusOutletDiOrderOnline, sinkronOutletKeOrderOnline } from '@/lib/outlets/orderOnlineSync'
+import {
+  hapusOutletDiOrderOnline,
+  nonaktifkanOutletDiOrderOnline,
+  sinkronOutletKeOrderOnline,
+  type HasilSinkronOrderOnline,
+  type OpsiSinkronOrderOnline,
+} from '@/lib/outlets/orderOnlineSync'
 import { hariIniWib } from '@/lib/pembukaanOutlet/konstanta'
 import { petakanStatusPersiapan } from '@/lib/pembukaanOutlet/petakan'
 import { validasiInputWizard } from '@/lib/pembukaanOutlet/validasi'
@@ -22,13 +28,16 @@ function pesanGalat(e: unknown): string {
   return 'Terjadi kesalahan'
 }
 
-const KOLOM_OUTLET = 'id, slug, name, address, lat, lng, type, is_active, open_hour, close_hour'
+const KOLOM_OUTLET = 'id, slug, name, address, lat, lng, phone, type, status, is_active, open_hour, close_hour'
 
-async function sinkronDariDb(outletId: string): Promise<void> {
+async function sinkronDariDb(
+  outletId: string,
+  opsi?: OpsiSinkronOrderOnline,
+): Promise<HasilSinkronOrderOnline> {
   const supabase = await createClient()
   const { data, error } = await supabase.from('outlets').select(KOLOM_OUTLET).eq('id', outletId).single()
   if (error) throw new Error(error.message)
-  await sinkronOutletKeOrderOnline(data)
+  return sinkronOutletKeOrderOnline(data, opsi)
 }
 
 async function buatAkunMitra(outletId: string, akun: Extract<AkunMitraInput, { mode: 'baru' }>, namaMitra: string) {
@@ -92,27 +101,38 @@ export async function buatOutletBaru(input: InputWizard): Promise<HasilAksi<{ ou
     if (error) return { ok: false, pesan: error.message }
     const id = outletId as string
 
-    // Order Online dulu, sebelum akun mitra: kalau gagal, outlet masih kosong
-    // sehingga pembatalan benar-benar menghapusnya.
+    const daftarPeringatan: string[] = []
+
+    // Sinkronkan outlet + generate akun pengelola Form Order + kirim kredensial ke @devsshermesbot
+    // sebelum akun investor mitra dibuat, sehingga bila gagal pembatalan dapat membersihkan secara utuh.
     try {
-      await sinkronDariDb(id)
+      const hasilSinkron = await sinkronDariDb(id, { mode: 'buat' })
+      if (hasilSinkron.peringatanTelegram) {
+        daftarPeringatan.push(`Notifikasi Telegram belum terkirim (${hasilSinkron.peringatanTelegram}).`)
+      }
     } catch (e) {
       await supabase.rpc('batalkan_pembukaan_outlet', { p_outlet_id: id, p_alasan: 'Gagal sinkron Order Online' })
       return { ok: false, pesan: `Gagal sinkron ke Order Online: ${pesanGalat(e)}` }
     }
 
-    let peringatan: string | undefined
     if (input.mitra?.akun.mode === 'baru') {
       try {
         const userId = await buatAkunMitra(id, input.mitra.akun, input.mitra.namaMitra)
         await tautkanMitra(id, userId, input.mitra.namaMitra)
       } catch (e) {
-        peringatan = `Outlet dibuat, tetapi akun mitra gagal dibuat: ${pesanGalat(e)}. Buat ulang dari papan persiapan.`
+        daftarPeringatan.push(
+          `Akun portal investor mitra gagal dibuat: ${pesanGalat(e)}. Buat ulang dari papan persiapan.`,
+        )
       }
     }
 
     revalidatePath('/dashboard/pembukaan-outlet')
-    return { ok: true, outletId: id, peringatan }
+    revalidatePath('/dashboard/outlets')
+    return {
+      ok: true,
+      outletId: id,
+      peringatan: daftarPeringatan.length > 0 ? daftarPeringatan.join(' ') : undefined,
+    }
   } catch (e) {
     return { ok: false, pesan: pesanGalat(e) }
   }
@@ -165,7 +185,7 @@ export async function goLiveOutlet(
 
     let peringatan: string | undefined
     try {
-      await sinkronDariDb(outletId)
+      await sinkronDariDb(outletId, { mode: 'status' })
     } catch (e) {
       peringatan = `Outlet sudah aktif, tetapi Order Online belum ikut aktif: ${pesanGalat(e)}`
     }
@@ -193,11 +213,16 @@ export async function batalkanPembukaan(
 
     let peringatan: string | undefined
     try {
-      if (hasil.aksi === 'dihapus') await hapusOutletDiOrderOnline(outletId)
+      if (hasil.aksi === 'dihapus') {
+        await hapusOutletDiOrderOnline(outletId)
+      } else {
+        await nonaktifkanOutletDiOrderOnline(outletId)
+      }
     } catch (e) {
-      peringatan = `Outlet terhapus, tetapi baris di Order Online gagal dihapus: ${pesanGalat(e)}`
+      peringatan = `Pembukaan dibatalkan, tetapi sinkronisasi Order Online gagal: ${pesanGalat(e)}`
     }
     revalidatePath('/dashboard/pembukaan-outlet')
+    revalidatePath('/dashboard/outlets')
     return { ok: true, aksi: hasil.aksi, sisa: hasil.sisa ?? [], peringatan }
   } catch (e) {
     return { ok: false, pesan: pesanGalat(e) }

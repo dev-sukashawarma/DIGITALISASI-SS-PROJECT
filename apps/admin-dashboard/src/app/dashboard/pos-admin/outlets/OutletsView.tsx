@@ -106,10 +106,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
 
       if (result.success && result.data) {
         setIsModalOpen(false)
-        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: result.data }) })
-          .then(res => { if (!res.ok) throw new Error('Sync failed') })
-          .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
-        toast.success('Cabang berhasil diperbarui')
+        toast.success('Cabang & akun Form Order berhasil diperbarui')
       } else {
         console.error('Update outlet error:', result.error)
         toast.error('Gagal memperbarui cabang: ' + result.error)
@@ -119,10 +116,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
 
       if (result.success && result.data) {
         setIsModalOpen(false)
-        fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: result.data }) })
-          .then(res => { if (!res.ok) throw new Error('Sync failed') })
-          .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
-        toast.success('Cabang berhasil ditambahkan')
+        toast.success('Cabang ditambahkan & kredensial Form Order dikirim ke Telegram')
       } else {
         console.error('Insert outlet error:', result.error)
         toast.error('Gagal menambahkan cabang: ' + result.error)
@@ -140,9 +134,6 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
     
     const result = await deleteOutlet(id)
     if (result.success) {
-      fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'delete', outlet: { id } }) })
-        .then(res => { if (!res.ok) throw new Error('Sync failed') })
-        .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
       toast.success('Cabang dihapus — data historisnya tetap tersimpan')
     } else {
       console.error('Delete outlet error:', result.error)

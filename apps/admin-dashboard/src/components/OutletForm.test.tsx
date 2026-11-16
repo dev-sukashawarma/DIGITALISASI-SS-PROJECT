@@ -299,13 +299,13 @@ describe('OutletForm', () => {
       })
     )
   })
-  it('tipe dipilih dari dropdown INTERNAL / MITRA tanpa ikut men-submit form', () => {
+  it('tipe tetap bisa diubah dari INTERNAL ke MITRA pada outlet yang sudah berstatus active', () => {
     const handleSubmit = vi.fn()
     render(
       <OutletForm
         initial={{
           name: 'Mitra Baru', slug: 'mitra-baru', address: '', lat: -6.6, lng: 106.8,
-          type: 'internal', is_active: true, marquee_warning_threshold: 7,
+          type: 'internal', status: 'active', is_active: true, marquee_warning_threshold: 7,
           open_hour: '14:00', close_hour: '22:00',
         }}
         submitting={false}
@@ -317,10 +317,11 @@ describe('OutletForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'INTERNAL' }))
     expect(screen.getAllByRole('button', { name: /^(INTERNAL|MITRA)$/ })).toHaveLength(3) // pemicu + 2 opsi
     fireEvent.click(screen.getByRole('button', { name: 'MITRA' }))
+    expect(screen.getByText(/otomatis memperbarui email & password akun Form Order/i)).toBeInTheDocument()
     expect(handleSubmit).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Simpan Perubahan' }))
-    expect(handleSubmit).toHaveBeenCalledWith(expect.objectContaining({ type: 'mitra' }))
+    expect(handleSubmit).toHaveBeenCalledWith(expect.objectContaining({ type: 'mitra', status: 'active' }))
   })
 
   it('lokasi non-outlet (gudang) tidak bisa diganti tipenya', () => {

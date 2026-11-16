@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { MapPin, Loader2, CheckCircle2, ExternalLink, AlertCircle, Clock, Power } from 'lucide-react'
+import { MapPin, Loader2, CheckCircle2, ExternalLink, AlertCircle, Clock, Power, RefreshCw } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { toast } from 'sonner'
 import { slugify } from '@/lib/slugify'
@@ -233,24 +233,29 @@ export function OutletForm({
 
       <div className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Tipe</span>
-        {isEdit && initial?.status && initial.status !== 'pending' && adalahTipeOutlet(initial?.type) ? (
-          // Jenis outlet terkunci setelah Go-Live (laporan & markup HPP mitra).
-          <p className="rounded-xl border border-suka-gray-200 bg-suka-gray-50 px-3 py-2 text-suka-gray-500">
-            {LABEL_TIPE_OUTLET[initial.type as (typeof TIPE_OUTLET)[number]] ?? initial.type} · terkunci setelah Go-Live
-          </p>
-        ) : isEdit && !adalahTipeOutlet(initial?.type) ? (
+        {isEdit && !adalahTipeOutlet(initial?.type) ? (
           // Gudang/marketplace/tes dll. bukan outlet: tipenya yang mengeluarkan
           // mereka dari laporan, jadi tak bisa diganti dari sini.
           <p className="rounded-xl border border-suka-gray-200 bg-suka-gray-50 px-3 py-2 text-suka-gray-500">
             Lokasi non-outlet ({labelNonOutlet(initial?.type)})
           </p>
         ) : (
-          <Select
-            options={TIPE_OUTLET.map((t) => ({ value: t, label: LABEL_TIPE_OUTLET[t] }))}
-            value={v.type}
-            onChange={(t) => set({ type: t })}
-            placeholder="Pilih tipe outlet"
-          />
+          <div className="space-y-1.5">
+            <Select
+              options={TIPE_OUTLET.map((t) => ({ value: t, label: LABEL_TIPE_OUTLET[t] }))}
+              value={v.type}
+              onChange={(t) => set({ type: t })}
+              placeholder="Pilih tipe outlet"
+            />
+            {isEdit && initial?.type && initial.type !== v.type && (
+              <div className="flex items-start gap-1.5 rounded-xl border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-[11px] text-cyan-800">
+                <RefreshCw className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cyan-600" />
+                <span>
+                  Perubahan tipe akan otomatis memperbarui email & password akun Form Order serta mengirimkannya ke @devsshermesbot.
+                </span>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -304,6 +309,24 @@ export function OutletForm({
         <label className="block text-sm font-bold text-suka-ink">
           Status Outlet <span className="text-suka-orange font-normal">(Wajib Dipilih)</span>
         </label>
+        {isEdit && initial?.status === 'pending' ? (
+          <div className="p-3.5 rounded-2xl border border-amber-300 bg-amber-50 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold text-suka-ink">Pending (Persiapan)</span>
+                <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                  Persiapan Pembukaan
+                </span>
+              </div>
+              <p className="text-xs text-suka-gray-600 mt-0.5 leading-snug">
+                Status Persiapan hanya diaktifkan lewat tombol Go-Live atau dihentikan lewat Batalkan Pembukaan di Papan Persiapan. Data lain & Tipe Outlet tetap bisa diubah di sini.
+              </p>
+            </div>
+          </div>
+        ) : (
         <div className={`grid gap-2.5 ${isEdit ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
           {/* Opsi 1: Aktif */}
           <button
@@ -397,6 +420,7 @@ export function OutletForm({
             </button>
           )}
         </div>
+        )}
       </div>
 
       <div className="sm:col-span-2 sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 mt-4 p-4 sm:p-6 bg-white/95 backdrop-blur-md border-t border-suka-gray-100 flex items-center justify-end gap-3 z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">

@@ -1,8 +1,9 @@
 /**
- * Perubahan status/jenis outlet yang TIDAK boleh lewat form edit biasa.
+ * Perubahan status outlet yang TIDAK boleh lewat form edit biasa.
  * Persiapan hanya keluar lewat Go-Live atau Batalkan pembukaan (keduanya
- * memeriksa checklist dan mencatat riwayat), dan jenis outlet terkunci
- * setelah Go-Live karena mengubahnya menggeser laporan & markup HPP mitra.
+ * memeriksa checklist dan mencatat riwayat).
+ * Tipe outlet (internal <-> mitra) kini boleh diubah kapan saja dan akan
+ * otomatis menyelaraskan akun pengelola di Form Order serta investasi mitra.
  * Mengembalikan pesan penolakan, atau null bila boleh.
  */
 export function cekPerubahanOutlet(
@@ -18,9 +19,6 @@ export function cekPerubahanOutlet(
   }
   if (statusLama !== 'pending' && baru.status === 'pending') {
     return 'Outlet yang sudah pernah aktif tidak bisa dikembalikan ke status Persiapan.'
-  }
-  if (statusLama !== 'pending' && (lama.type ?? '') !== baru.type) {
-    return 'Jenis outlet terkunci setelah Go-Live.'
   }
   // Outlet internal/mitra: aktif↔nonaktif hanya lewat wizard penutupan (dijaga
   // juga di DB oleh trg_zz_outlets_jaga_penutupan).

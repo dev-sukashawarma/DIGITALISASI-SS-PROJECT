@@ -221,7 +221,9 @@ export function WizardPembukaan({
                 <div className="text-sm text-suka-ink/60">{ket}</div>
               </button>
             ))}
-            <p className="text-xs text-suka-ink/60 sm:col-span-2">Jenis outlet terkunci setelah Go-Live.</p>
+            <p className="text-xs text-suka-ink/60 sm:col-span-2">
+              Akun pengelola di sistem Form Order akan otomatis dibuat sesuai jenis outlet dan dikirim ke @devsshermesbot.
+            </p>
           </div>
         )}
 

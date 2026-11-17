@@ -491,6 +491,30 @@ Kamera PoE menerima **listrik dan data lewat satu kabel LAN**, jadi tidak perlu 
 | **A' — Dahua PoE** | 2× Dahua IPC-HDW1230T1-A-S5 + switch PoE + kabel | **±Rp 1,45–1,55 jt** | Perangkat sama dengan BNR (tinggal dipindah), kabel lebih stabil. Tanpa switch (pakai adaptor 12V) bisa lebih murah |
 | B' — Hikvision PoE 4 MP | 2× DS-2CD1343G0E-I + switch PoE + kabel | ±Rp 2,6–2,8 jt | Gambar lebih tajam untuk kamera konter |
 
+### Tapo C110 vs Dahua IPC-HDW1230T1-A-S5: kelebihan dan kekurangan
+
+| Aspek | TP-Link Tapo C110 | Dahua IPC-HDW1230T1-A-S5 |
+|---|---|---|
+| Harga per kamera | ✅ ±Rp 263–292 rb | ±Rp 477 rb |
+| Total 2 kamera siap pakai | ✅ ±Rp 0,6 jt (tanpa perangkat tambahan) | ±Rp 1,45–1,55 jt (+ switch PoE & kabel), atau lebih murah dengan adaptor 12V |
+| Resolusi | ✅ 3 MP | 2 MP (cukup untuk atas laci) |
+| Koneksi | ❌ WiFi, bisa putus-putus dan sulit dibedakan dari masalah sistem | ✅ Kabel LAN (PoE), stabil |
+| Listrik | Adaptor, butuh stopkontak dekat kamera | ✅ Lewat kabel LAN (PoE), tanpa stopkontak di plafon |
+| RTSP / ONVIF | ✅ Ada, resmi (lewat "Camera Account" di aplikasi Tapo) | ✅ Ada, bawaan kamera profesional |
+| Batasan fitur | ❌ Cloud Tapo, rekam microSD, dan RTSP hanya bisa 2 dari 3 sekaligus | ✅ Tidak ada batasan semacam itu |
+| Ketergantungan aplikasi/cloud | ❌ Pengaturan awal wajib lewat aplikasi Tapo dan akun TP-Link | ✅ Diatur lewat jaringan lokal (browser/aplikasi Dahua), tanpa wajib cloud |
+| Bentuk & pemasangan | Kamera meja/dinding, perlu bracket untuk menghadap ke bawah | ✅ Turret plafon, arahnya bisa diatur, cocok untuk atas laci |
+| Kompresi | H.264 | ✅ H.265 (rekaman 30 hari ±separuh ukurannya) |
+| Mikrofon | Ada | ❌ Ada (akhiran "-A"), harus dimatikan karena alasan privasi |
+| Kelas perangkat | ❌ Rumahan | ✅ Profesional, dirancang menyala 24 jam |
+| Garansi | Garansi resmi TP-Link Indonesia | Ada penjual yang mencantumkan garansi resmi Dahua 2–3 tahun |
+| Bisa dipakai lagi di BNR | ❌ Tidak disarankan (WiFi, kelas rumahan) | ✅ Ya, tinggal dipindah. Tidak ada uang yang terbuang untuk kamera "khusus uji" |
+| Kemudahan uji kantor | ✅ Paling cepat: colok listrik, sambung WiFi | Perlu kabel LAN ke router atau switch |
+
+**Ringkasan:**
+- **Pilih Tapo** bila tujuannya membuktikan alur software secepat dan semurah mungkin. Kameranya kemudian dianggap habis pakai.
+- **Pilih Dahua** bila uji kantor sekaligus menjadi gladi bersih BNR. Selisih ±Rp 0,9 jt terbayar karena kamera dan switch-nya langsung dipakai di BNR, dan hasil uji lebih mirip kondisi outlet.
+
 **Perkiraan total BNR** (2 kamera Dahua 2 MP ±Rp 0,95 jt + switch PoE ±Rp 0,37 jt + kabel ±Rp 0,15 jt + mini PC N100 8 GB ±Rp 2,6–3 jt + SSD 2 TB ±Rp 1,8–2 jt + UPS ±Rp 0,8–1,2 jt): **±Rp 6,7–7,7 jt**. Angka ini naik dari perkiraan sebelumnya (±Rp 5,5–6,5 jt) karena penyimpanan rekaman penuh 30 hari (D16) kini ikut dihitung. Mini PC bisa tidak dibeli bila hasil uji kantor menunjukkan video BNR boleh diolah di PC kantor (D15).
 
 Sumber harga: listing Tokopedia (TP-Link Indonesia, Bandar CCTV Surabaya, Saber Technology, Delta Vision, Maxprovision, Millennium Central CCTV, Sanjayacomtronix, Beelink Official), Nale, dan Dinomarket, diakses 17 Nov 2026.
